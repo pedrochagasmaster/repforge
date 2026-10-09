@@ -8,19 +8,20 @@ import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { assertServingApp } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
+import { metricLogRow } from "./fixtures/history-metric-rows.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const program = seedProgram();
 const meta = seedProgramMeta({ id: "management-summary", started: "2026-09-14", blockId: "block-current" });
-const previous = [
-  { session: "sum-previous", date: "2026-09-16", created: "2026-09-16T09:00:00.000Z", blockId: "block-current", day: "Day 1", exerciseId: "seed-ex-3", performedMovementId: "slot:seed-ex-3", performedName: "Incline chest press", name: "Incline chest press", load: 55, reps: 8, rir: 2, set: 1, work: true, primary: "Chest", secondary: "Front delts,Triceps" },
-  { session: "sum-previous", date: "2026-09-16", created: "2026-09-16T09:00:00.000Z", blockId: "block-current", day: "Day 1", exerciseId: "seed-ex-4", performedMovementId: "slot:seed-ex-4", performedName: "Chest supported row", name: "Chest supported row", load: 50, reps: 8, rir: 2, set: 1, work: true, primary: "Mid/upper back", secondary: "Lats,Rear delts,Biceps" },
-];
-const current = [
-  { session: "sum-current", date: "2026-09-17", created: "2026-09-17T09:00:00.000Z", blockId: "block-current", day: "Day 1", exerciseId: "seed-ex-3", performedMovementId: "slot:seed-ex-3", performedName: "Incline chest press", name: "Incline chest press", load: 60, reps: 8, rir: 2, set: 1, work: true, primary: "Chest", secondary: "Front delts,Triceps" },
-  { session: "sum-current", date: "2026-09-17", created: "2026-09-17T09:00:00.000Z", blockId: "block-current", day: "Day 1", exerciseId: "seed-ex-4", performedMovementId: "slot:seed-ex-4", performedName: "Chest supported row", name: "Chest supported row", load: 50, reps: 8, rir: 2, set: 1, work: true, primary: "Mid/upper back", secondary: "Lats,Rear delts,Biceps" },
-];
+// Saved rows in the shape a finished DraftV2 workout commits: one Weight+Reps
+// set per lift, so the outcome reads the canonical metric evidence.
+const row = (session, date, id, load) => metricLogRow(meta, program.find((ex) => ex.id === id), {
+  session, date, day: "Day 1", set: 1, load, reps: 8, rir: 2, created: `${date}T09:00:00.000Z`,
+});
+const previous = [row("sum-previous", "2026-09-16", "seed-ex-3", 55), row("sum-previous", "2026-09-16", "seed-ex-4", 50)];
+const current = [row("sum-current", "2026-09-17", "seed-ex-3", 60), row("sum-current", "2026-09-17", "seed-ex-4", 50)];
+const liftKeys = ["seed-ex-3", "seed-ex-4"].map((id) => `library:${program.find((ex) => ex.id === id).libraryId}`);
 
 async function boot(page) {
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
@@ -56,7 +57,7 @@ try {
   const page = await context.newPage();
   await boot(page);
   await seed(page);
-  const result = await page.evaluate(({ previousRows, currentRows }) => {
+  const result = await page.evaluate(({ previousRows, currentRows, liftKeys }) => {
     const summary = window.__repforgeSessionSummary.build({
       rows: currentRows,
       prevLog: previousRows,
@@ -65,14 +66,14 @@ try {
       day: "Day 1",
       startedAt: 0,
     });
-    const keys = new Set(["movement:slot:seed-ex-3", "movement:slot:seed-ex-4"]);
+    const keys = new Set(liftKeys);
     const allRecords = window.__repforgeProgressEvidence.records("current-block");
     const canonical = allRecords
       .filter(record => keys.has(record.exerciseId) && record.evidenceState === "sufficient" && record.outcome)
       .map(record => ({ exerciseId: record.exerciseId, outcome: record.outcome }));
     window.__repforgeSessionSummary.open(summary);
     return { summary, canonical };
-  }, { previousRows: previous, currentRows: current });
+  }, { previousRows: previous, currentRows: current, liftKeys });
   await page.waitForSelector("#sessionSummary:not(.hidden)");
   const rendered = await page.evaluate(() => ({
     outcomes: [...document.querySelectorAll("#sessionSummary .sum-outcome")].map(row => ({
@@ -112,12 +113,11 @@ try {
     for (const exerciseId of draft.exerciseOrder) {
       const exercise = draft.exercises[exerciseId];
       for (const setId of exercise.setOrder) {
-        await window.__repforgeWorkoutDraft.dispatch("editSetField", {
-          exerciseInstanceId: exerciseId, setId, field: "load", value: "42.5",
-        });
-        await window.__repforgeWorkoutDraft.dispatch("editSetField", {
-          exerciseInstanceId: exerciseId, setId, field: "reps", value: "8",
-        });
+        for (const metric of exercise.sets[setId].programmed.metrics || []) {
+          await window.__repforgeWorkoutDraft.dispatch("editMetricValue", {
+            exerciseInstanceId: exerciseId, setId, metricId: metric.id, value: metric.semantic === "loadKg" ? "42.5" : "8",
+          });
+        }
         await window.__repforgeWorkoutDraft.dispatch("editSetField", {
           exerciseInstanceId: exerciseId, setId, field: "rir", value: "2",
         });

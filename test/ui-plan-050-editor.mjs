@@ -18,14 +18,19 @@ try {
       await settle(opened.page);
       const geometry = await opened.page.evaluate(() => {
         const editor = document.querySelector("#programEditor");
-        const range = editor?.querySelector("fieldset.program-editor__range");
-        const parts = [...range?.querySelectorAll("legend, label") || []];
+        // Canonical program rows no longer edit a flat min/max rep range;
+        // they edit per-cycle metric targets inside the active exercise's
+        // metric-cycle disclosure. That disclosure (its legend, set legends,
+        // metric/RIR/rest field labels, and inputs) is the current analog of
+        // the old `fieldset.program-editor__range` geometry under test.
+        const cycle = editor?.querySelector('[data-role="metric-targets"] details.program-editor__metric-cycle[open]');
+        const parts = [...cycle?.querySelectorAll("legend, label") || []];
         const boxes = parts.map((element) => ({ text: element.textContent.trim() || element.getAttribute("aria-label") || element.tagName, box: element.getBoundingClientRect() }));
         const targets = [...editor?.querySelectorAll("button, input") || []].filter((element) => {
           const style = getComputedStyle(element), box = element.getBoundingClientRect();
           return style.display !== "none" && box.width > 0 && box.height > 0;
         });
-        const firstInput = range?.querySelector("input");
+        const firstInput = cycle?.querySelector("input");
         firstInput?.focus();
         const overlaps = (elements) => elements.some((element, index) => elements.some((other, otherIndex) => {
           if (index === otherIndex) return false;
@@ -34,7 +39,7 @@ try {
         }));
         return {
           overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-          labels: [...range?.querySelectorAll("legend, label") || []].map((element) => element.textContent.trim()),
+          labels: [...cycle?.querySelectorAll("legend, label") || []].map((element) => element.textContent.trim()),
           overlap: boxes.some(({ box }, index) => boxes.some(({ box: other }, otherIndex) => index !== otherIndex &&
             box.left < other.right && box.right > other.left && box.top < other.bottom && box.bottom > other.top)),
           smallestTarget: Math.min(...targets.map((element) => Math.min(element.getBoundingClientRect().width, element.getBoundingClientRect().height))),
@@ -46,12 +51,12 @@ try {
         };
       });
       assert.equal(geometry.overflow <= 0, true, `${locale}/${theme}/${text}: editor has no document overflow: ${JSON.stringify(geometry)}`);
-      assert.equal(geometry.overlap, false, `${locale}/${theme}/${text}: range legend, labels, and inputs do not collide: ${JSON.stringify(geometry)}`);
+      assert.equal(geometry.overlap, false, `${locale}/${theme}/${text}: metric-cycle legends, labels, and inputs do not collide: ${JSON.stringify(geometry)}`);
       assert.equal(geometry.headOverlap, false, `${locale}/${theme}/${text}: exercise name and summary row do not collide: ${JSON.stringify(geometry)}`);
       assert.equal(geometry.actionOverlap, false, `${locale}/${theme}/${text}: exercise actions reflow without overlap: ${JSON.stringify(geometry)}`);
-      assert.ok(geometry.labels.length >= 3 && geometry.labels.every(Boolean), `${locale}/${theme}/${text}: range retains persistent localized labels: ${JSON.stringify(geometry)}`);
+      assert.ok(geometry.labels.length >= 3 && geometry.labels.every(Boolean), `${locale}/${theme}/${text}: metric-cycle retains persistent localized labels: ${JSON.stringify(geometry)}`);
       assert.ok(geometry.smallestTarget >= 44, `${locale}/${theme}/${text}: editor controls retain 44px targets: ${JSON.stringify(geometry)}`);
-      assert.notEqual(geometry.focusOutline, "none", `${locale}/${theme}/${text}: range input has visible focus treatment`);
+      assert.notEqual(geometry.focusOutline, "none", `${locale}/${theme}/${text}: metric target input has visible focus treatment`);
       console.log(`program editor geometry ${locale}/${theme}/${text}: ${JSON.stringify(geometry)}`);
     } finally {
       await opened.context.close();

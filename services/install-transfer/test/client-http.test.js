@@ -5,6 +5,7 @@ import { reset } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import contract from "../../../install-transfer-contract.js";
 import canonicalFixture from "../../../test/fixtures/install-transfer-clone-v1.json" with { type: "json" };
+import catalogSnapshot from "../../../assets/exercise-catalog.json" with { type: "json" };
 import worker from "../src/index.js";
 import { euStub } from "../src/namespaces.js";
 
@@ -12,6 +13,8 @@ const require = createRequire(import.meta.url);
 const Transfer = require("../../../install-transfer.js");
 const WorkoutDraft = require("../../../workout-draft.js");
 const ProgramEntry = require("../../../program-entry.js");
+const ProgramEntryAdapter = require("../../../program-entry-adapter.js");
+const ProgramCompiler = require("../../../program-compiler.js");
 const origin = "https://taurifer.example";
 const location = { href: "https://pedrochagasmaster.github.io/repforge/index.html" };
 const now = "2026-09-08T19:00:00.000Z";
@@ -189,10 +192,14 @@ function producerProgramEntryDraft() {
   };
   const initial = ProgramEntry.createState({ draftId: "entry-http-1", now: timestamp, versions });
   const routed = ProgramEntry.selectRoute(initial, "build");
-  const withResult = ProgramEntry.setResult(routed, {
-    fingerprint: "candidate-fingerprint",
-    preview: {},
-    selected: { id: "candidate-1" },
+  const built = ProgramEntryAdapter.buildEmptyProgram({ programName: "Transfer proof", daysPerWeek: 2 },
+    { Compiler: ProgramCompiler, catalog: catalogSnapshot });
+  if (!built.ok) throw new Error("real Build producer did not create a program");
+  const withResult = ProgramEntry.setResult(ProgramEntry.setAnswers(routed, { programName: "Transfer proof", daysPerWeek: 2 }), {
+    fingerprint: built.fingerprint,
+    name: built.name,
+    preview: built.preview,
+    selected: { id: "manual_build", source: "manual_build" },
   });
   const normalized = ProgramEntry.normalizeSetupDraft(withResult);
   if (!normalized.ok) throw new Error("real program-entry producer did not normalize");

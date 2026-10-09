@@ -3,6 +3,7 @@
 import { pathToFileURL } from "url";
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
+import { metricLogRow } from "./fixtures/history-metric-rows.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -471,52 +472,14 @@ export async function runHistoryOperabilityChecks(page, check = assert) {
   }
   const day1 = state.program.find((e) => e.day === "Day 1") || state.program[0];
   const day2 = state.program.find((e) => e.day === "Day 2") || state.program[1] || day1;
+  // A lift the current program no longer names: its rows keep the name it was performed under.
+  const former = state.program.find((e) => e.day === "Day 3") || state.program.at(-1);
+  // Saved rows in the shape a finished DraftV2 workout commits (metric composition and values).
   const log = [
-    {
-      session: "ui-a",
-      date: "2026-03-03",
-      day: day1.day,
-      name: day1.name,
-      exerciseId: day1.id,
-      set: 1,
-      load: 80,
-      reps: 8,
-      rir: 1,
-      notes: "",
-      created: "2026-03-03T12:00:00.000Z",
-      primary: day1.primary || "",
-      secondary: "",
-    },
-    {
-      session: "ui-b",
-      date: "2026-03-02",
-      day: day2.day,
-      name: day2.name,
-      exerciseId: day2.id,
-      set: 1,
-      load: 60,
-      reps: 10,
-      rir: 2,
-      notes: "",
-      created: "2026-03-02T12:00:00.000Z",
-      primary: day2.primary || "",
-      secondary: "",
-    },
-    {
-      session: "ui-c",
-      date: "2026-03-01",
-      day: "Push",
-      name: "Unique Lift Zeta",
-      exerciseId: "ex-zeta",
-      set: 1,
-      load: 40,
-      reps: 12,
-      rir: 1,
-      notes: "",
-      created: "2026-03-01T12:00:00.000Z",
-      primary: "Front delts",
-      secondary: "",
-    },
+    metricLogRow(state.programMeta, day1, { session: "ui-a", date: "2026-03-03", set: 1, load: 80, reps: 8, rir: 1 }),
+    metricLogRow(state.programMeta, day2, { session: "ui-b", date: "2026-03-02", set: 1, load: 60, reps: 10, rir: 2 }),
+    metricLogRow(state.programMeta, former, { session: "ui-c", date: "2026-03-01", day: "Push", set: 1, load: 40, reps: 12, rir: 1,
+      extra: { name: "Unique Lift Zeta", performedName: "Unique Lift Zeta", exerciseId: "ex-zeta" } }),
   ];
   await persistState(page, { ...state, log });
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -668,6 +631,9 @@ export async function runHistoryOperabilityChecks(page, check = assert) {
   await page.click('[data-reading="ui-b"] [data-del="ui-b"]');
   await page.click('[data-history-delete-confirm="ui-b"]');
   await page.waitForFunction(() => !JSON.parse(localStorage.getItem("repforge_v1") || "{}").log?.some((row) => row.session === "ui-b"));
+  // The durable delete lands first; the confirmation then gives way to the feed.
+  await page.waitForFunction(() => !document.querySelector("#sessions .session--delete") &&
+    document.querySelectorAll("#sessions [data-sess]").length > 0, undefined, { timeout: 5000 });
   const remaining = await page.evaluate(() =>
     [...document.querySelectorAll("#sessions [data-sess]")].map((el) => el.getAttribute("data-sess"))
   );

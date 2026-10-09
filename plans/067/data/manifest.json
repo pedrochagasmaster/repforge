@@ -1,0 +1,137 @@
+{
+  "artifacts": {
+    "app_file.json": {
+      "bytes": 4931208,
+      "sha256": "65f1d2450e6a3c01542210705b929cf4c9544af1cadfd6374474fd1633c1e00f"
+    },
+    "gym.json": {
+      "bytes": 13635,
+      "sha256": "327471ffcc0009ba7c2e7c6c7553efa7246bdb6e31d4fc21aba2a40f01f34e2a"
+    },
+    "ontology.json": {
+      "bytes": 869954,
+      "sha256": "eaa2a04093c5bb2d477278315f47a372ec06789f1343862c4aa72d7fc985ccde"
+    },
+    "programs.json": {
+      "bytes": 65269,
+      "sha256": "ade3282445845a63f3738ce190779fd23e3c9abf9a057999c83c8d5d1202c5b3"
+    },
+    "progression-observation.json": {
+      "bytes": 823,
+      "sha256": "7c2a85a2cbc4bd4036bff661e1b317eadabf8fa482cc6299d6fff1eea6cdd538"
+    },
+    "recommendation-tiers.json": {
+      "bytes": 358126,
+      "sha256": "31061da276203f12a227d57249baee929d84457ab98c6f57f94d5707f261d34d"
+    },
+    "static-evidence.tsv": {
+      "bytes": 45975,
+      "sha256": "65037742e9798c8d14c577b9cc28569c9455630c3d1999c77977c324678d141a"
+    },
+    "supplied-reconstruction.json": {
+      "bytes": 52928,
+      "sha256": "7c1555a3c96c6b37a4b6a7a1f64b37a2bafb679e05b20988c2cab9be6bccf209"
+    },
+    "supplied-unknowns.json": {
+      "bytes": 2744,
+      "sha256": "164082c5eaba401314761612f59bdd8fa14b6b7ede13009cf0a979fe7882f3f8"
+    }
+  },
+  "counts": {
+    "alternativeName": 2069,
+    "appEquipmentCategory": 13,
+    "equipment": 297,
+    "exclusionGroupings": 340,
+    "exercise": 1345,
+    "exerciseDescriptor": 20,
+    "exerciseGroup": 321,
+    "exerciseMetric": 11,
+    "exerciseNote": 280,
+    "exerciseType": 3,
+    "featureMuscleGroup": 23,
+    "jointAction": 150,
+    "laterality": 3,
+    "movementPattern": 43,
+    "muscle": 233,
+    "plateCalculatorLaterality": 2,
+    "preconditions": 46,
+    "regionTrained": 4,
+    "resistanceEquipmentGroup": 35,
+    "rom": 5,
+    "stability": 5,
+    "supportEquipmentGroup": 53
+  },
+  "evidenceClasses": {
+    "app_file.json": "exact bundled database bytes",
+    "gym.json": "allowlisted export settings and equipment",
+    "ontology.json": "exact bundled index normalized as JSON",
+    "programs.json": "export observations plus explicitly labeled owner context",
+    "progression-observation.json": "screenshot observation; second set unperformed",
+    "recommendation-tiers.json": "exact raw assignments",
+    "static-evidence.tsv": "supplied static metadata; strings do not prove execution",
+    "supplied-reconstruction.json": "supplied analysis; claims require independent verification",
+    "supplied-unknowns.json": "supplied analysis; not independently recovered control flow"
+  },
+  "package": "com.sbs.train",
+  "recommendationRows": 3057,
+  "source": {
+    "app_file.json": {
+      "bytes": 4931208,
+      "member": "assets/flutter_assets/packages/macrofactor/assets/import/app_file.json",
+      "sha256": "65f1d2450e6a3c01542210705b929cf4c9544af1cadfd6374474fd1633c1e00f"
+    },
+    "baseline_workbook": {
+      "bytes": 19090,
+      "sha256": "e541acb6e61a11d9cacfaa5548caa0bf3b6faff1fa751a32079557fcff8d467e"
+    },
+    "com.sbs.train.apk": {
+      "bytes": 156325534,
+      "sha256": "13d7323b459c7abf71bc1bea4e6c88e73a93039c99798b443e0cdf26c703287b"
+    },
+    "config.arm64_v8a.apk": {
+      "bytes": 47674659,
+      "sha256": "7dbae874dbb85670e41984c93bc1e97ec2d8b33248113f2959dbb1346855cbcc"
+    },
+    "config.en.apk": {
+      "bytes": 16594,
+      "sha256": "ad3acaff4f868e2fcab4858d45340ea7cdb42c57b4e858c19a3a9cf1ddd93b22"
+    },
+    "config.ja.apk": {
+      "bytes": 37074,
+      "sha256": "cfe58984ac06425c3f42fc5d5776d352c626074e03065ea1683d1e3b523d5eec"
+    },
+    "config.xhdpi.apk": {
+      "bytes": 66972,
+      "sha256": "161f7800dcf06d4aef8a5527f0450bd118466aac9026387d506d3267e58ac537"
+    },
+    "extended_workbook": {
+      "bytes": 28300,
+      "sha256": "3557dbf88b88e838ee9c0878e4437a8374852a458d9821e5b617de44417a88e4"
+    },
+    "libapp.so": {
+      "bytes": 20054920,
+      "sha256": "a79f5db63bb7dffdd683fae131fe033deabaef20d14d6ce4e5d4a6debb3f1312"
+    },
+    "original_xapk": {
+      "bytes": 204144050,
+      "sha256": "e9b518b0dbf85615f414b7859b758532d8acd5a9d8bbd3c7fe37ab1e9783a12d"
+    },
+    "screenshot": {
+      "bytes": 37676,
+      "sha256": "0a89edb33688d1be22f6e21a8f5832484de9d7116bd7d9f8ebc434d7451e283e"
+    },
+    "spec_pack": {
+      "bytes": 419499,
+      "sha256": "5e02e467c7b991a89cea2554ae5ff035c9b424e2e707bc0fa5d5bc518875c10d"
+    },
+    "volume1": {
+      "bytes": 204148579,
+      "sha256": "b05f3ca8c1a7b5f9aa904ca3e5ff1286e33534d5ca1b054df19cc86013723c49"
+    },
+    "volume2": {
+      "bytes": 204265891,
+      "sha256": "64b995a3dc4acf525d956a82de1515d583c28f9b1ebebd55dbb1c3515b430745"
+    }
+  },
+  "version": "1.4.0"
+}

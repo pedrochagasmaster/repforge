@@ -34,8 +34,8 @@ const gate = gateManifest(manifest);
 console.log("\nThe rules-only state list");
 {
   const treatment = readRulesOnlyTreatment();
-  check(treatment.length === 64, "the treatment table classes 64 screens `rules only`", `found ${treatment.length}`);
-  check(RULES_ONLY_STATES.length === 64 && new Set(RULES_ONLY_STATES).size === 64, "the audit lists 64 distinct states");
+  check(treatment.length === 62, "the treatment table classes 62 screens `rules only`", `found ${treatment.length}`);
+  check(RULES_ONLY_STATES.length === 62 && new Set(RULES_ONLY_STATES).size === 62, "the audit lists 62 distinct states");
   const problems = validateRulesOnlyList(RULES_ONLY_STATES, manifest, treatment);
   check(problems.length === 0, "the audit's list is the treatment table's `rules only` set and every state is in the live manifest", show(problems));
   check(!RULES_ONLY_STATES.some((key) => /^onboarding-/.test(key)), "no onboarding screen is listed (their treatment is the landing or the onboarding direction)");

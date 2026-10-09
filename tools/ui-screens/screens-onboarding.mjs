@@ -11,7 +11,7 @@
  * straight at `step:"preview"` (see the setup-link commit path), so that step
  * has no production surface to photograph.
  */
-import { MINIMAL_PAYLOAD, BUILT_IN_IDS } from "../../test/fixtures/shared-setup.mjs";
+import { encodeSetupLink } from "../../test/fixtures/setup-link-v4.mjs";
 import { activeEntryState, emptyEntryState } from "./fixtures.mjs";
 import { BASE, SETUP_DRAFT, KEY, sleep, waitForApp } from "./session.mjs";
 
@@ -27,6 +27,11 @@ const NEEDS_ACTIVE_PROGRAM = new Set([
 export function onboardingState(key, lang) {
   return NEEDS_ACTIVE_PROGRAM.has(key) ? activeEntryState(lang) : emptyEntryState(lang);
 }
+
+// Canonical catalog ids (exercises.js), standing in for the retired short
+// library ids "pr_bb"/"cu_bb" that no longer exist.
+const BENCH_PRESS_ID = "19f5c6f170d8808bb424e98de4472a7e"; // Barbell bench press
+const BARBELL_CURL_ID = "1a15c6f170d880ee83eccf109356e208"; // Barbell biceps curl
 
 const pick = (page, key, value) =>
   page.click(`[data-entry-pick="${key}"][data-entry-val="${value}"]`);
@@ -98,15 +103,16 @@ async function recommendViaHelp(page) {
 }
 
 /** The generator questions shared by Recommend and Custom. Recommend's goal is
- * answered on the hub, so it starts at the background step; Custom asks it. */
-async function answerGenerator(page, { days = "3", desired = "muscle_growth", rest = "120", goalAsked = false } = {}) {
+ * answered on the hub, so it starts at the background step; Custom asks it.
+ * The background step asks only experience (no recent-consistency question);
+ * the schedule step asks days and the session-ceiling buckets (no rest question). */
+async function answerGenerator(page, { days = "3", desired = "muscle_growth", goalAsked = false } = {}) {
   if (goalAsked) { await pick(page, "desiredResult", desired); await next(page); }
-  await pick(page, "structuredExperience", "6_to_24m");
-  await pick(page, "recentConsistency", "most"); await next(page);
+  await pick(page, "structuredExperience", "6_to_24m"); await next(page);
   await pick(page, "daysPerWeek", days);
-  await pick(page, "sessionMinutes", "60");
-  await pick(page, "preferredRestSeconds", rest); await next(page);
+  await pick(page, "sessionMinutes", "60"); await next(page);
   await pick(page, "environment", "commercial_gym"); await next(page);
+  await next(page); // movement abilities are optional; the default (unsure) needs no answer
 }
 
 async function recommendTo(page, { result = false, existing = false, desired = "muscle_growth" } = {}) {
@@ -135,7 +141,8 @@ async function customTo(page, step) {
   await route(page, "custom");
   if (step === "shape") {
     // A split with two compatible structures is rare in the released rules, so the
-    // catalog offers the second one through the same override the entry tests use.
+    // catalog offers a second, real split id (its name comes from the catalog's own
+    // split.<id> key — splitDisplayName in app.js — not a field on the choice object).
     await page.evaluate(() => {
       const base = window.__repforgeOnboarding.services();
       window.__repforgeProgramEntryServicesOverride = {
@@ -144,10 +151,8 @@ async function customTo(page, step) {
           const result = base.splitChoices(answers);
           if (result.choices.length !== 1) return result;
           const first = result.choices[0];
-          return { ...result, choices: [first, {
-            ...first, id: `${first.id}-alternate`, blueprintId: `${first.blueprintId}-alternate`, default: false,
-            name: `${first.name} alternate`, namePt: `${first.namePt} alternativa`,
-          }] };
+          const alternateId = first.id === "full_body" ? "upper_lower" : "full_body";
+          return { ...result, choices: [first, { ...first, id: alternateId, default: false }] };
         },
       };
     });
@@ -155,14 +160,14 @@ async function customTo(page, step) {
   if (step === "desired-result") return;
   await pick(page, "desiredResult", "balanced"); await next(page);
   if (step === "background") return;
-  await pick(page, "structuredExperience", "6_to_24m");
-  await pick(page, "recentConsistency", "most"); await next(page);
+  await pick(page, "structuredExperience", "6_to_24m"); await next(page);
   if (step === "schedule") return;
   await pick(page, "daysPerWeek", "4");
-  await pick(page, "sessionMinutes", "60");
-  await pick(page, "preferredRestSeconds", "auto"); await next(page);
+  await pick(page, "sessionMinutes", "60"); await next(page);
   if (step === "environment") return;
   await pick(page, "environment", "commercial_gym"); await next(page);
+  if (step === "abilities") return;
+  await next(page); // movement abilities are optional; the default (unsure) needs no answer
   if (step === "priorities") return;
   await next(page);
   await page.waitForSelector("#entryExerciseSearch", { timeout: 25000 });
@@ -192,33 +197,13 @@ async function reviewWithEditor(page, chip) {
 async function setCustomExercisePreferences(page) {
   const search = page.locator("#entryExerciseSearch");
   const portuguese = await page.evaluate(() => document.documentElement.lang === "pt-BR");
-  await search.fill(portuguese ? "supino com barra" : "barbell bench press");
+  await search.fill(portuguese ? "supino reto com barra" : "barbell bench press");
   await page.waitForTimeout(120);
-  await page.locator('[data-entry-exercise-add="pr_bb"][data-entry-exercise-status="include"]').click();
-  await search.fill(portuguese ? "rosca com barra" : "barbell curl");
+  await page.locator(`[data-entry-exercise-add="${BENCH_PRESS_ID}"][data-entry-exercise-status="include"]`).click();
+  await search.fill(portuguese ? "rosca com barra" : "barbell biceps curl");
   await page.waitForTimeout(120);
-  await page.locator('[data-entry-exercise-add="cu_bb"][data-entry-exercise-status="avoid"]').click();
-  await page.click('[data-entry-pick="avoidReason"][data-entry-val="cu_bb|dislike"]');
-}
-
-async function browseTo(page, step) {
-  await route(page, "browse");
-  await page.waitForSelector('[data-entry-pick="daysPerWeek"]', { timeout: 20000 });
-  if (step === "schedule") return;
-  await pick(page, "daysPerWeek", "4");
-  await pick(page, "sessionMinutes", "60");
-  await next(page);
-  await page.waitForSelector('[data-entry-pick="environment"]', { timeout: 20000 });
-  if (step === "environment") return;
-  await pick(page, "environment", "commercial_gym"); await next(page);
-  await page.waitForSelector("[data-entry-catalogue]", { timeout: 25000 });
-  if (step === "catalogue") return;
-  // Browse rows are the catalogue buttons themselves; there is no separate
-  // select-candidate control on this step the way the generator routes have.
-  const choice = page.locator("[data-entry-catalogue]").first();
-  await choice.scrollIntoViewIfNeeded();
-  await choice.click();
-  await page.waitForSelector("#entryActivate", { timeout: 25000 });
+  await page.locator(`[data-entry-exercise-add="${BARBELL_CURL_ID}"][data-entry-exercise-status="avoid"]`).click();
+  await page.click(`[data-entry-pick="avoidReason"][data-entry-val="${BARBELL_CURL_ID}|dislike"]`);
 }
 
 async function buildTo(page, step) {
@@ -258,6 +243,19 @@ async function buildTo(page, step) {
   );
 }
 
+/**
+ * Settle an import row that the matcher could not confidently link: open the
+ * library picker ("choose") and take its first result, the same path a
+ * lifter takes when none of the ranked candidates is right. There is no more
+ * "keep as typed" escape — every slot now names a real catalog movement.
+ */
+async function settleUnmatchedImportRow(page) {
+  await page.locator('[data-imp-act="choose"]').first().click();
+  await page.waitForSelector("#exPickSheet.is-open #exPickList .pickrow", { timeout: 20000 });
+  await page.locator("#exPickList .pickrow").first().click();
+  await page.waitForFunction(() => !document.querySelector("#exPickSheet")?.classList.contains("is-open"), undefined, { timeout: 20000 });
+}
+
 async function importTo(page, step) {
   await route(page, "import");
   // The file input itself is visually hidden and lives in the Settings shell;
@@ -295,10 +293,10 @@ async function importTo(page, step) {
       buffer: Buffer.from(JSON.stringify(program)),
     });
     await page.waitForSelector("#importReview.active", { timeout: 25000 });
-    const candidate = page.locator("#importRows .improw.is-open [data-imp-act='pick']").first();
-    if (await candidate.count()) await candidate.click();
-    else await page.locator("#importRows .improw.is-open [data-imp-act='raw']").first().click();
+    // The review in progress: the exact bench rows settle themselves and fold,
+    // while the unknown row stays open with its choices (choose or create).
     await page.waitForSelector("#importRows .improw.is-folded .improw__btn--change", { timeout: 20000 });
+    await page.waitForSelector("#importRows .improw.is-open .improw__btn:not(.improw__btn--change)", { timeout: 20000 });
     const more = page.locator("#importRows .improw.is-open details.improw__more summary").first();
     if (await more.count()) await more.click();
     return;
@@ -319,16 +317,18 @@ async function importTo(page, step) {
   });
   await page.waitForSelector("#importReview.active", { timeout: 25000 });
   // A row that needs a decision leads with its ranked candidates and keeps the
-  // escape hatches behind a disclosure, so take a candidate when one is offered
-  // and open the disclosure when none is.
+  // escape hatches (choose from the library, or create a custom movement)
+  // behind a disclosure, so take a candidate when one is offered and open the
+  // disclosure when none is. Every slot names a movement now; there is no
+  // unlinked "keep as typed" escape.
   while (await page.locator("#importCommit").isDisabled()) {
     const pick = page.locator('[data-imp-act="pick"]').first();
     if (await pick.count()) { await pick.click(); continue; }
+    const link = page.locator('[data-imp-act="link"]').first();
+    if (await link.count()) { await link.click(); continue; }
     const more = page.locator(".improw.is-open .improw__more summary").first();
     if (await more.count()) await more.click();
-    const raw = page.locator('[data-imp-act="raw"]').first();
-    if (await raw.count()) { await raw.click(); continue; }
-    await page.locator('[data-imp-act="link"]').first().click();
+    await settleUnmatchedImportRow(page);
   }
   await page.click("#importCommit");
   await page.waitForSelector("#onboarding.active #entryActivate", { timeout: 25000 });
@@ -433,27 +433,16 @@ async function freeformTo(page, step) {
  * PT-BR that could only ever render English, which reads as a localization
  * bug in the app and is not one. Match the payload to the frame instead.
  */
-function sharedPayloadFor(portuguese) {
-  if (!portuguese) return MINIMAL_PAYLOAD;
-  return {
-    ...MINIMAL_PAYLOAD,
-    program: {
-      ...MINIMAL_PAYLOAD.program,
-      meta: { ...MINIMAL_PAYLOAD.program.meta, name: "Treino do treinador" },
-    },
-    settings: { ...MINIMAL_PAYLOAD.settings, lang: "pt" },
-  };
+function sharedLinkOptionsFor(portuguese) {
+  return portuguese ? { name: "Treino do treinador", language: "pt" } : { name: "Coach block", language: "en" };
 }
 
 /** Land on the setup-link gate, which is the shared route's real entrance. */
 async function sharedTo(page, step) {
   const portuguese = await page.evaluate(() => document.documentElement.lang === "pt-BR");
-  const fragment = await page.evaluate(async ({ payload, ids }) => {
-    const encoded = await window.RepForgeSharedSetup.encode(payload, { builtInIds: ids });
-    if (!encoded?.ok) throw new Error(`encode failed: ${encoded?.code || "unknown"}`);
-    return encoded.value;
-  }, { payload: sharedPayloadFor(portuguese), ids: [...BUILT_IN_IDS] });
-  await page.goto(`${BASE.replace(/\/?$/, "/")}index.html#setup=${fragment}`, { waitUntil: "domcontentloaded" });
+  const encoded = await encodeSetupLink(page, sharedLinkOptionsFor(portuguese));
+  if (!encoded?.ok) throw new Error(`encode failed: ${encoded?.code || "unknown"}`);
+  await page.goto(`${BASE.replace(/\/?$/, "/")}index.html#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
   await waitForApp(page);
   await page.waitForSelector("#firstRunSharedStart", { timeout: 25000 });
   if (step === "gate") return;
@@ -490,16 +479,15 @@ async function rulesDrift(page) {
   await page.evaluate(({ key, draft }) => {
     const activeRevision = JSON.parse(localStorage.getItem(key))._storageRevision;
     const Entry = window.RepForgeProgramEntry;
-    const versions = window.RepForgeProgramCompiler.VERSIONS;
+    // A real current-versions snapshot with one pin rolled back to a stale value:
+    // any single mismatch is enough to trigger the rebuild-required notice on
+    // the recommend route (program-entry.js changedVersions/entryRebuildRules).
+    const versions = { ...window.__repforgeOnboarding.services().currentVersions(), rules: "old-rules" };
     let state = Entry.createState({
       draftId: "catalog-rules",
       activeProgramRevisionAtStart: activeRevision,
       now: new Date().toISOString(),
-      versions: {
-        compiler: String(versions.compiler), family: String(versions.schema),
-        blueprint: String(versions.blueprint), catalogue: String(versions.catalogue),
-        rules: "old-rules", context: String(versions.context), progression: "range-1",
-      },
+      versions,
     });
     state = Entry.selectRoute(state, "recommend");
     state = Entry.setAnswers(state, { desiredResult: "muscle_growth" });
@@ -645,21 +633,20 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-recommend/background": (page) => route(page, "recommend"),
   "onboarding-recommend/schedule": async (page) => {
     await route(page, "recommend");
-    await pick(page, "structuredExperience", "6_to_24m");
-    await pick(page, "recentConsistency", "most"); await next(page);
+    await pick(page, "structuredExperience", "6_to_24m"); await next(page);
   },
   "onboarding-recommend/environment": async (page) => {
     await route(page, "recommend");
-    await pick(page, "structuredExperience", "6_to_24m");
-    await pick(page, "recentConsistency", "most"); await next(page);
+    await pick(page, "structuredExperience", "6_to_24m"); await next(page);
     await pick(page, "daysPerWeek", "3");
-    await pick(page, "sessionMinutes", "60");
-    await pick(page, "preferredRestSeconds", "120"); await next(page);
+    await pick(page, "sessionMinutes", "60"); await next(page);
   },
-  "onboarding-recommend/environment-correction": async (page) => {
-    await ONBOARDING_SCENARIOS["onboarding-recommend/environment"](page);
-    await pick(page, "environment", "commercial_gym");
-    await page.locator(".entry__correct > summary").click();
+  "onboarding-recommend/abilities": async (page) => {
+    await route(page, "recommend");
+    await pick(page, "structuredExperience", "6_to_24m"); await next(page);
+    await pick(page, "daysPerWeek", "3");
+    await pick(page, "sessionMinutes", "60"); await next(page);
+    await pick(page, "environment", "commercial_gym"); await next(page);
   },
   "onboarding-recommend/priorities": (page) => recommendTo(page),
   "onboarding-recommend/avoidance-pain": async (page) => {
@@ -715,15 +702,11 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-custom/background": (page) => customTo(page, "background"),
   "onboarding-custom/schedule": (page) => customTo(page, "schedule"),
   "onboarding-custom/environment": (page) => customTo(page, "environment"),
+  "onboarding-custom/abilities": (page) => customTo(page, "abilities"),
   "onboarding-custom/priorities": (page) => customTo(page, "priorities"),
   "onboarding-custom/exercise-preferences": (page) => customTo(page, "exercise-preferences"),
   "onboarding-custom/shape": (page) => customTo(page, "shape"),
   "onboarding-custom/result": (page) => customTo(page, "result"),
-
-  "onboarding-browse/schedule": (page) => browseTo(page, "schedule"),
-  "onboarding-browse/environment": (page) => browseTo(page, "environment"),
-  "onboarding-browse/catalogue": (page) => browseTo(page, "catalogue"),
-  "onboarding-browse/preview": (page) => browseTo(page, "preview"),
 
   "onboarding-build/setup": (page) => buildTo(page, "setup"),
   "onboarding-build/editor-empty": (page) => buildTo(page, "editor-empty"),

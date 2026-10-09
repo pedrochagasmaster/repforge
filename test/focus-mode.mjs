@@ -15,13 +15,17 @@
  */
 import { launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
-import { finishEarly } from "./fixtures/focus-workout.mjs";
+import { exerciseAction, finishEarly } from "./fixtures/focus-workout.mjs";
 import { loadRoleInventory, requiredBoundaryExceptionRequests } from "../tools/ui-system-core.mjs";
 import { measureRenderedRoles } from "../tools/ui-system-rendered.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
+const WEIGHT = "2555c6f170d8805cafa6d16d3fdddbaa";
+const REPS = "2555c6f170d88072bbf6d9ad3f16ea86";
+/** The seed program's sets are metric-backed: weight and reps are metric fields on the shelf, RIR its own. */
+const SHELF_ID = { load: `metric_${WEIGHT}`, reps: `metric_${REPS}`, rir: "rir" };
 const REST_BAR_BOUNDARY = requiredBoundaryExceptionRequests(loadRoleInventory().exceptions, "workout/rest-running");
 
 const results = { passed: 0, failed: 0 };
@@ -114,24 +118,53 @@ async function enterFocus(page, index = 0) {
     window.__repforgeFocus.to(i);
   }, index);
   await page.waitForSelector("#workout.is-focus .exercise.is-current", { state: "attached", timeout: 5000 });
-  await page.waitForTimeout(120);
+  await page.waitForFunction((i) => document.querySelector("#workout .exercise.is-current")?.dataset.ex ===
+    window.__repforgeFocus.list()[i]?.id, index, { timeout: 5000 });
 }
 
+/** Give one exercise `sets` sets: its canonical slot gets that many prescriptions in every cycle, and its row follows. */
 async function setSetCount(page, i, sets) {
   await persist(page, `
     const ex = w.__repforgeFocus.list()[${i}];
-    s.program = s.program.map((e) => (e.id === ex.id ? { ...e, sets: ${sets} } : e));`);
+    s.program = s.program.map((e) => (e.id === ex.id ? { ...e, sets: ${sets} } : e));
+    const definition = s.programMeta.programDefinition;
+    for (const day of definition.days) for (const slot of day.slots) {
+      if (slot.id !== ex.id) continue;
+      for (const cycle of slot.prescriptionsByCycle) {
+        const last = cycle.sets[cycle.sets.length - 1];
+        cycle.sets = Array.from({ length: ${sets} }, (_, n) => n < cycle.sets.length ? cycle.sets[n]
+          : { ...structuredClone(last), id: last.id.replace(/-\\d+$/, "-" + (n + 1)), setIndex: n + 1 });
+      }
+    }
+    const checked = w.RepForgeProgramCompiler.validateProgramDefinition(definition);
+    if (!checked.ok) throw new Error("set count fixture made an invalid program: " + JSON.stringify(checked).slice(0, 400));`);
   await reload(page);
 }
 
+/**
+ * Last week's session of one exercise, as the canonical metric-backed rows the
+ * app itself saves for a Weight + Reps slot (the same shape a logged session
+ * writes: metric ids, definitions, values and the loading context).
+ */
 async function seedPrev(page, i, sets) {
   await persist(page, `
     const ex = w.__repforgeFocus.list()[${i}];
+    const slot = s.programMeta.programDefinition.days.flatMap((day) => day.slots).find((item) => item.id === ex.id);
     const date = ${JSON.stringify(isoDaysAgo(7))};
+    const coefficient = slot.loadingModel?.bodyweightCoefficient ?? null;
     s.log = (s.log || []).concat(${JSON.stringify(sets)}.map((row, n) => ({
       session: date + "_" + ex.day + "_seed", date, day: ex.day, name: ex.name,
-      exerciseId: ex.id, set: n + 1, load: row.load, reps: row.reps, rir: row.rir,
+      exerciseId: ex.id, set: n + 1, setIndex: n, load: row.load, reps: row.reps, rir: row.rir,
       notes: "", created: date + "T12:00:00.000Z", primary: ex.primary, secondary: ex.secondary,
+      performedName: ex.name, performedPrimary: ex.primary, performedSecondary: ex.secondary,
+      metricIds: [...slot.metricIds], metricDefinitions: structuredClone(slot.metricDefinitions),
+      metricOrigin: slot.metricOrigin, sourceLibraryId: slot.exerciseId,
+      metricValues: slot.metricDefinitions.map((metric) => ({ metricId: metric.id,
+        value: metric.semantic === "loadKg" ? row.load : row.reps, unit: metric.unit })),
+      equipmentId: null, loadingConvention: "external", loadingModel: structuredClone(slot.loadingModel),
+      loadingContext: { bodyweightContributionEnabled: false, externalLoadMultiplier: 1,
+        bodyweightCoefficient: coefficient, loadingConvention: "external", bodyweightKg: null },
+      metricType: "source_metrics@1", restSeconds: null, performedLibraryId: slot.exerciseId,
     })));`);
   // Previous-session facts are captured when DraftV2 is created. Each catalog
   // state represents a fresh workout, so retire the preceding state's draft
@@ -145,16 +178,27 @@ async function seedPrev(page, i, sets) {
 }
 
 /** Commit `n` sets on the focused exercise through the shelf, as a lifter would. */
+const completedSets = (page) => page.evaluate(() => {
+  const draft = window.__repforgeWorkoutDraft.current();
+  return draft ? draft.exerciseOrder.reduce((count, exerciseId) => count + draft.exercises[exerciseId].setOrder
+    .filter((setId) => draft.exercises[exerciseId].sets[setId].completion !== "pending").length, 0) : 0;
+});
 async function logSets(page, n, { load = 100, reps = 4 } = {}) {
   let done = 0;
   for (let i = 0; i < n; i++) {
-    const loadInput = page.locator("#workout .exercise.is-current .focus-shelf .shelf__input[data-k$='_load']");
+    const loadInput = page.locator(`#workout .exercise.is-current .focus-shelf .shelf__input[data-metric-id="${WEIGHT}"]`);
     if (!(await loadInput.count())) break;
     await loadInput.first().fill(String(load));
-    const repsInput = page.locator("#workout .exercise.is-current .focus-shelf .shelf__input[data-k$='_reps']");
+    const repsInput = page.locator(`#workout .exercise.is-current .focus-shelf .shelf__input[data-metric-id="${REPS}"]`);
     if (await repsInput.count()) await repsInput.first().fill(String(reps));
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    const before = await completedSets(page);
     await page.locator("#workout .exercise.is-current .focus-shelf .saveset").first().click();
-    await page.waitForTimeout(140);
+    await page.waitForFunction((count) => {
+      const draft = window.__repforgeWorkoutDraft.current();
+      return draft.exerciseOrder.reduce((total, exerciseId) => total + draft.exercises[exerciseId].setOrder
+        .filter((setId) => draft.exercises[exerciseId].sets[setId].completion !== "pending").length, 0) > count;
+    }, before, { timeout: 5000 });
     done++;
   }
   return done;
@@ -275,12 +319,15 @@ async function main() {
   let st = await cardState(page);
   assert(st.rows === 5 && st.logged === 0 && st.open === 1 && st.queued === 4 && st.prevLines === 0,
     "an exercise with no history lists every set, the first one open, with no previous-session line", JSON.stringify(st));
-  assert(st.cueKind === "is-start" && /pick a load/i.test(st.cueL1),
-    "the cue asks for a load to start with", JSON.stringify(st));
+  // The seed program is manual (a Build program): no engine, so the cue names the program as the
+  // load's source and the reps to aim for, and invents no load. The adaptive cue is proved below on a
+  // generated program ("Adaptive cue").
+  assert(st.cueKind === "is-manual" && st.cueL1 === "Manual" && st.cueL2 === "aim for 4–8 reps" && st.cueMark === null,
+    "a manual program's cue invents no load and aims at the program's rep range", JSON.stringify(st));
   assert(st.ctaText.toLowerCase() === "log set 1" && st.ctaArrow === false,
     "the commit action names the set and is arrowless", JSON.stringify(st));
   assert(/\d.*reps/.test(st.meta),
-    "the exercise line carries the sets, the reps and the strategy", JSON.stringify(st));
+    "the exercise line carries the sets and the reps", JSON.stringify(st));
   assert(st.spill <= 1 && !st.pageScrollsX,
     "the card fits its own box and the page does not scroll sideways", JSON.stringify(st));
 
@@ -297,9 +344,8 @@ async function main() {
   st = await cardState(page);
   assert(st.prevLines === 4 && st.logged === 0 && st.open === 1,
     "each of last session's four sets rides under its own row", JSON.stringify(st));
-  assert(st.cueKind === "is-now" && /\d/.test(st.cueL1) && /reps/.test(st.cueL2),
-    "the cue names the load to work at and the reps to aim for", JSON.stringify(st));
-  assertCueMark(st, "State 02");
+  assert(st.cueKind === "is-manual" && !/\d/.test(st.cueL1) && st.cueMark === null,
+    "history does not make a manual program's cue invent a load", JSON.stringify(st));
   const pastLayout = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
     const prev = [...card.querySelectorAll(".ledgerline__prev")].map((el) => el.textContent.replace(/\s+/g, " ").trim());
@@ -338,9 +384,9 @@ async function main() {
   await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"), undefined, { timeout: 3000 });
   const shelfBefore = (await cardState(page)).shelfHeight;
   await logSets(page, 2);
-  // The second set armed a rest; its next-set line says the same hold the cue does once the rest is over.
+  // The second set armed a rest; on a manual program its next-set line is the manual cue, as it reads.
   const restLine = await page.evaluate(() => document.querySelector("#workout .exercise.is-current .restinline__next")?.textContent?.replace(/\s+/g, " ").trim());
-  assert(/^Set 3: hold 100 kg, aim for \d+ reps$/.test(restLine || ""), "the rest's next-set line repeats the load just logged as a hold", restLine);
+  assert(restLine === "Manual · aim for 4–8 reps", "the rest's next-set line on a manual program is its cue and invents no load", restLine);
   // R7 J-03: Log set rebuilds the shelf, so focus must land on the next set's field, never on <body>.
   const afterLog = await focusAt(page);
   assert(afterLog.inCard && afterLog.live && afterLog.field !== null,
@@ -358,8 +404,8 @@ async function main() {
   });
   assert(retiredDelta.element === 0 && !retiredDelta.text,
     "the Focus card carries no change-since-last-session line once sets are logged", JSON.stringify(retiredDelta));
-  // Two sets at the same load: the next set holds that load, so the cue draws the ink "=".
-  assert(assertCueMark(st, "State 03") === "hold", "a set that repeats the load just logged reads as a hold", JSON.stringify({ cueL1: st.cueL1, mark: st.cueMark }));
+  assert(st.cueKind === "is-manual" && st.cueMark === null,
+    "logged sets do not make a manual program's cue invent a load", JSON.stringify({ cueL1: st.cueL1, mark: st.cueMark }));
   assert(/3/.test(st.ctaText) && st.ctaText.toLowerCase() === "log set 3",
     "the action advances to set 3", st.ctaText);
   assert(st.shelfHeight === shelfBefore,
@@ -412,11 +458,12 @@ async function main() {
 
   // ---- 03c — the shelf --------------------------------------------------------
   phase("State 03c: the shelf's fields, pads and typed values");
-  const shelfProbe = () => page.evaluate(() => {
+  const shelfProbe = () => page.evaluate(({ weight, reps }) => {
     const shelf = document.querySelector("#workout .exercise.is-current .focus-shelf");
     const fields = [...shelf.querySelectorAll(".shelf__field")];
+    const names = { [weight]: "load", [reps]: "reps" };
     return {
-      fields: fields.map((f) => f.dataset.field),
+      fields: fields.map((f) => names[f.dataset.metric] || f.dataset.field),
       pressed: fields.map((f) => f.querySelector("[data-shelf-field]").getAttribute("aria-pressed")),
       editing: fields.filter((f) => f.classList.contains("is-editing")).map((f) => f.dataset.field),
       values: fields.map((f) => f.querySelector(".shelf__val")?.textContent?.trim()),
@@ -428,34 +475,39 @@ async function main() {
       }),
       open: document.querySelector("#workout .exercise.is-current .ledgerline--open [data-lv='reps']")?.textContent?.trim(),
     };
-  });
+  }, { weight: WEIGHT, reps: REPS });
   let sh = await shelfProbe();
-  assert(sh.fields.join() === "load,reps,rir" && sh.pressed.join() === "false,true,false",
-    "reps is the selected field by default", JSON.stringify(sh));
-  assert(sh.pads.join("|") === "− 1 rep|+ 1 rep", "the pads name the selected field's step", JSON.stringify(sh));
+  // A metric-backed set opens on its first metric: the load, which a manual program leaves to the lifter.
+  assert(sh.fields.join() === "load,reps,rir" && sh.pressed.join() === "true,false,false",
+    "the set's first metric, the load, is the selected field by default", JSON.stringify(sh));
+  assert(sh.pads.join("|") === "− 2.5 kg|+ 2.5 kg", "the pads name the selected field's step", JSON.stringify(sh));
   assert(sh.inputHidden.every((i) => i && i[0] === "0" && i[1] === "true" && i[2] === -1) && sh.editing.length === 0,
     "the real inputs stay out of sight and out of the tab order until a field is opened", JSON.stringify(sh));
   assert(sh.soft.every(Boolean), "values the lifter has not confirmed read in soft ink", JSON.stringify(sh));
-  await page.locator("#workout .exercise.is-current .focus-shelf [data-shelf-field='load']").click();
+  await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field='${SHELF_ID.reps}']`).click();
+  sh = await shelfProbe();
+  assert(sh.pressed.join() === "false,true,false" && sh.pads.join("|") === "− 1 rep|+ 1 rep" && sh.editing.length === 0,
+    "a first tap on another field selects it and the pads follow it", JSON.stringify(sh));
+  await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field='${SHELF_ID.load}']`).click();
   sh = await shelfProbe();
   assert(sh.pressed.join() === "true,false,false" && /kg|lb/.test(sh.pads[0]) && sh.editing.length === 0,
     "a first tap selects a field and the pads follow it", JSON.stringify(sh));
   await page.locator("#workout .exercise.is-current .shelf__pad").nth(1).click();
-  await page.waitForTimeout(250);
-  const stepped = await page.evaluate(() => {
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  const stepped = await page.evaluate((weight) => {
     const d = window.__repforgeWorkoutDraft.current();
     const exercise = d.exercises[d.session.selectedExerciseId];
     const set = exercise.sets[exercise.setOrder.find((id) => exercise.sets[id].completion === "pending")];
-    return { load: set.edited.load, touched: set.touched.load };
-  });
+    return { load: set.edited.metrics[weight], touched: set.touched.metrics[weight] };
+  }, WEIGHT);
   const loadShown = (await shelfProbe()).values[0];
   assert(stepped.touched === true && Number(stepped.load) === Number(loadShown.replace(",", ".")),
     "a pad steps the draft through the stepper handler and the field follows", JSON.stringify({ stepped, loadShown }));
-  await page.locator("#workout .exercise.is-current .focus-shelf [data-shelf-field='load']").click();
+  await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field='${SHELF_ID.load}']`).click();
   sh = await shelfProbe();
-  assert(sh.editing.join() === "load", "a second tap on the selected field opens it as the real input", JSON.stringify(sh));
+  assert(sh.editing.join() === "metric", "a second tap on the selected field opens it as the real input", JSON.stringify(sh));
   const focusedKey = await page.evaluate(() => document.activeElement?.dataset?.k || "");
-  assert(/_load$/.test(focusedKey), "the opened input takes focus under its draft key", focusedKey);
+  assert(focusedKey.endsWith(`_metric_${WEIGHT}`), "the opened input takes focus under its draft key", focusedKey);
   // #300: the software keyboard shrinks the visual viewport but not dvh. Model it on the live visualViewport the app
   // already listens to (an Android keyboard of 336px; Chrome reports no offset until it pans) and let the app's own
   // resize path settle the shelf: the focused field has to sit wholly inside the band left on screen, for every field
@@ -488,7 +540,7 @@ async function main() {
     "with the keyboard up, the opened load field sits wholly above it before anything is typed (#300)", JSON.stringify(kbUp));
   const kbFields = [];
   for (const k of ["reps", "rir", "load"]) {
-    const field = page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field='${k}']`);
+    const field = page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field='${SHELF_ID[k]}']`);
     if (!(await field.count())) continue;
     // Tapping a field button (not an input) closes the keyboard first, as it does on the phone.
     await page.evaluate(() => document.activeElement?.blur());
@@ -502,7 +554,7 @@ async function main() {
     && new Set(kbFields.map((f) => f.scroll.join())).size === 1,
     "moving between shelf fields keeps each one above the keyboard without the page drifting", JSON.stringify(kbFields));
   const kbLoad = await page.evaluate(() => document.activeElement?.dataset?.k || "");
-  assert(/_load$/.test(kbLoad), "the load field is open again for typing", kbLoad);
+  assert(kbLoad.endsWith(`_metric_${WEIGHT}`), "the load field is open again for typing", kbLoad);
   await page.evaluate(() => document.activeElement?.blur());
   const kbDown = await keyboard(null);
   assert(!kbDown.flag && kbDown.scroll.join() === "0,0" && Math.abs(kbDown.shelfBottom - kbDown.inner) <= 2,
@@ -511,16 +563,16 @@ async function main() {
   await page.locator("#workout .exercise.is-current .focus-shelf .shelf__field.is-editing .shelf__input").click();
   await page.evaluate(() => document.activeElement?.select?.());
   await page.keyboard.type("111");
-  await page.waitForTimeout(200);
-  const typed = await page.evaluate(() => {
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  const typed = await page.evaluate((weight) => {
     const d = window.__repforgeWorkoutDraft.current();
     const exercise = d.exercises[d.session.selectedExerciseId];
     const set = exercise.sets[exercise.setOrder.find((id) => exercise.sets[id].completion === "pending")];
-    return { draft: set.edited.load, shown: document.querySelector("#workout .exercise.is-current .ledgerline--open [data-lv='load']")?.textContent?.trim() };
-  });
-  assert(typed.draft.endsWith("111") && typed.shown?.endsWith("111"),
+    return { draft: set.edited.metrics[weight], shown: document.querySelector("#workout .exercise.is-current .ledgerline--open [data-lv='load']")?.textContent?.trim() };
+  }, WEIGHT);
+  assert(typed.draft?.endsWith("111") && typed.shown?.endsWith("111"),
     "typing runs the draft handler and the open ledger row reads the same value", JSON.stringify(typed));
-  await page.locator("#workout .exercise.is-current .focus-shelf [data-shelf-field='reps']").click();
+  await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field='${SHELF_ID.reps}']`).click();
   sh = await shelfProbe();
   assert(sh.pressed.join() === "false,true,false" && sh.editing.length === 0,
     "choosing another field closes the input and returns to its button", JSON.stringify(sh));
@@ -581,9 +633,11 @@ async function main() {
   assert(rest.chipRunning && /^\d+:\d\d$/.test(rest.chipTime), "the header chip counts down", JSON.stringify(rest));
   assert(rest.mode === "running" && rest.role === "timer" && rest.label === "Rest" && /^\d+:\d\d$/.test(rest.clock) && /^of \d+:\d\d$/.test(rest.of),
     "the clock takes the cue slot as a timer: Rest, the time left and \"of\" its length", JSON.stringify(rest));
-  assert(rest.cueGone && /^Set \d+: (hold|go up to|drop to) [\d.,]+ kg, aim for \d+ reps$/.test(rest.next) && rest.nextSize === 18 &&
-    rest.nextVals.length === 2 && rest.nextVals.every(Boolean) && rest.why === "Why?" && rest.whyOpens.length > 0,
-  "the next set's cue replaces the 24px line at 18px with Mono figures and a Why? link", JSON.stringify(rest));
+  // A manual program's next-set line is its cue as it reads; the Mono load and reps of an engine's
+  // next-set line are proved on a generated program under "Adaptive cue".
+  assert(rest.cueGone && rest.next === "Manual · aim for 4–8 reps" && rest.nextSize === 18 &&
+    rest.why === "Why?" && rest.whyOpens.length > 0,
+  "the next set's cue replaces the 24px line at 18px with a Why? link", JSON.stringify(rest));
   assert(rest.barHeight === 4 && rest.barRadius === "4px" && rest.barScale > 0.9 && rest.barScale <= 1,
     "the drain bar is a 4px track filled by a scaleX transform", JSON.stringify(rest));
   assert(rest.clockSize >= 32 && rest.clockSize <= 42,
@@ -734,11 +788,11 @@ async function main() {
     "-30s takes half a minute off the inline clock and +30s adds it back", JSON.stringify(nudged));
 
   // A tap on any field brings the field pads back, and logging never left.
-  await page.locator("#workout .exercise.is-current .focus-shelf [data-shelf-field='load']").click();
+  await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field='${SHELF_ID.load}']`).click();
   const fieldsBack = await inlineProbe();
   assert(fieldsBack.padsMode === "field" && fieldsBack.fieldPads === 2 && fieldsBack.mode === "running" && fieldsBack.ctaEnabled,
     "a tap on a field brings the field pads back while the clock stays in the cue slot", JSON.stringify(fieldsBack));
-  await page.locator("#workout .exercise.is-current .focus-shelf [data-shelf-field='reps']").click();
+  await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field='${SHELF_ID.reps}']`).click();
 
   // The presets sheet is the header timer's: lengths, Pause or Resume, nudges, restart and end. It has no dial and no clock of its own.
   await page.click("#woRest");
@@ -925,7 +979,10 @@ async function main() {
       .filter((setId) => draft.exercises[exerciseId].sets[setId].completion !== "pending").length, 0);
   });
   await page.locator(".ledgerline[data-editn]").nth(1).click();
-  await page.waitForTimeout(200);
+  // editing() flips on the tap itself; wait for the reopened set to render and
+  // take focus, which is what the assertions below read.
+  await page.waitForFunction(() => window.__repforgeFocus.editing()?.n === 2 &&
+    !!document.querySelector("#workout .exercise.is-current [data-fcancel]"), undefined, { timeout: 10000 });
   st = await cardState(page);
   assert(st.editing === 1 && st.open === 1, "the edited row stays in place and wears the open ring", JSON.stringify(st));
   assert(/set 2 of/i.test(st.cueL1),
@@ -936,9 +993,18 @@ async function main() {
   const afterEditOpen = await focusAt(page);
   assert(afterEditOpen.inCard && afterEditOpen.live && afterEditOpen.cta,
     "Edit on a ledger row moves focus to the shelf's Save control (R7 J-03)", JSON.stringify(afterEditOpen));
-  await page.locator("#workout .exercise.is-current .focus-shelf .shelf__input[data-k$='_reps']").first().fill("9");
+  const editedReps = () => page.evaluate((reps) => {
+    const draft = window.__repforgeWorkoutDraft.current();
+    const exercise = draft.exercises[draft.session.selectedExerciseId];
+    const set = exercise.sets[exercise.setOrder.find((id) => exercise.sets[id].ordinal === 2)];
+    return { reps: set.edited.metrics[reps], completion: set.completion === "pending" ? "pending" : "done" };
+  }, REPS);
+  await page.locator(`#workout .exercise.is-current .focus-shelf .shelf__input[data-metric-id="${REPS}"]`).first().fill("9");
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
-  await page.waitForTimeout(250);
+  await page.waitForFunction(() => window.__repforgeFocus.editing() === null, undefined, { timeout: 5000 });
+  assert(JSON.stringify(await editedReps()) === JSON.stringify({ reps: "9", completion: "done" }),
+    "saving an edit stores the corrected reps on the set it came from", JSON.stringify(await editedReps()));
   const afterEdit = await page.evaluate(() => {
     const draft = window.__repforgeWorkoutDraft.current();
     const rows = [...document.querySelectorAll(".ledgerline[data-editn]")].map((r) =>
@@ -958,10 +1024,16 @@ async function main() {
     "Save on an edited set returns focus to its ledger row (R7 J-03)", JSON.stringify(afterSave));
   // …and cancelling puts the set back exactly as it was.
   await page.locator(".ledgerline[data-editn]").nth(1).click();
-  await page.waitForTimeout(180);
-  await page.locator("#workout .exercise.is-current .focus-shelf .shelf__input[data-k$='_reps']").first().fill("2");
+  // editing() flips on the tap itself; wait for the reopened set to render and
+  // take focus, which is what the assertions below read.
+  await page.waitForFunction(() => window.__repforgeFocus.editing()?.n === 2 &&
+    !!document.querySelector("#workout .exercise.is-current [data-fcancel]"), undefined, { timeout: 10000 });
+  await page.locator(`#workout .exercise.is-current .focus-shelf .shelf__input[data-metric-id="${REPS}"]`).first().fill("2");
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await page.locator("[data-fcancel]").click();
-  await page.waitForTimeout(250);
+  await page.waitForFunction(() => window.__repforgeFocus.editing() === null, undefined, { timeout: 5000 });
+  assert(JSON.stringify(await editedReps()) === JSON.stringify({ reps: "9", completion: "done" }),
+    "cancelling an edit puts the set's logged reps back in the draft, not the abandoned value", JSON.stringify(await editedReps()));
   const afterCancel = await page.evaluate(() =>
     [...document.querySelectorAll(".ledgerline[data-editn]")].map((r) =>
       [...r.querySelectorAll(".ledgerline__vals > .fx-col")].map((s) => s.textContent.trim())
@@ -1312,21 +1384,21 @@ async function main() {
   // ---- 10 — workout complete ---------------------------------------------------
   phase("State 10: final exercise and workout completion");
   await boot(page);
-  await page.evaluate((d) => {
-    const exs = window.__repforgeFocus.list();
-    const draft = { __done: [], __touched: [] };
-    for (const ex of exs) {
-      for (let n = 1; n <= ex.sets; n++) {
-        const key = `${ex.id}_${n}`;
-        draft[`${key}_load`] = "70";
-        draft[`${key}_reps`] = String(11 - n);
-        draft[`${key}_rir`] = String(Math.max(0, 3 - n));
-        draft.__done.push(key);
-        draft.__touched.push(key);
+  // Every set of the day is logged through the draft's own commands, then the session resumes from storage.
+  await page.evaluate(async ({ weight, reps }) => {
+    await window.__repforgeEnterWorkout({});
+    const api = window.__repforgeWorkoutDraft, draft = api.current();
+    for (const exerciseInstanceId of draft.exerciseOrder) {
+      for (const setId of draft.exercises[exerciseInstanceId].setOrder) {
+        const n = draft.exercises[exerciseInstanceId].sets[setId].ordinal;
+        await api.dispatch("editMetricValue", { exerciseInstanceId, setId, metricId: weight, value: "70" });
+        await api.dispatch("editMetricValue", { exerciseInstanceId, setId, metricId: reps, value: String(11 - n) });
+        await api.dispatch("editSetField", { exerciseInstanceId, setId, field: "rir", value: String(Math.max(0, 3 - n)) });
+        await api.dispatch("completeSet", { exerciseInstanceId, setId, completedAt: new Date().toISOString() });
       }
     }
-    localStorage.setItem(d, JSON.stringify(draft));
-  }, DRAFT);
+    await api.flush();
+  }, { weight: WEIGHT, reps: REPS });
   await reload(page);
   const lastIndex = await page.evaluate(() => window.__repforgeFocus.list().length - 1);
   await enterFocus(page, lastIndex);
@@ -1340,9 +1412,10 @@ async function main() {
   );
   assert(noNext, "the last exercise offers no way further along");
   await page.click("[data-ffinish]");
-  await page.waitForTimeout(400);
+  await page.waitForSelector("#sessionSummary:not(.hidden)", { timeout: 8000 });
+  await page.evaluate(() => window.__repforgeStorage.flush());
   const saved = await page.evaluate((k) => (JSON.parse(localStorage.getItem(k) || "{}").log || []).length, KEY);
-  assert(saved > 0, "Finish workout saves the session", `rows=${saved}`);
+  assert(saved === 12, "Finish workout saves every logged set of the session", `rows=${saved}`);
 
   // ---- 11 — swipe navigation ---------------------------------------------------
   phase("State 11: horizontal swipe between exercise cards");
@@ -1660,24 +1733,28 @@ async function main() {
   const focusIds = await draftPage.evaluate(() => window.__repforgeFocus.list().map((e) => ({ id: e.id, name: e.name, day: e.day })));
   const skipEx = focusIds[1] || focusIds[0];
   const keepEx = focusIds[0];
-  const alt = await draftPage.evaluate((id) => {
-    const ex = (JSON.parse(localStorage.getItem("repforge_v1") || "{}").program || []).find((e) => e.id === id);
-    return (ex?.alternates && ex.alternates[0]) || "Leg press";
-  }, keepEx.id);
-  const resumedSets = await draftPage.evaluate(({ keep, skip, alt, d }) => {
-    const draft = { __done: [], __touched: [], __skipped: [skip.id], __substituted: { [keep.id]: alt } };
-    const sets = (JSON.parse(localStorage.getItem("repforge_v1") || "{}").program || []).find((e) => e.id === keep.id)?.sets || 2;
-    for (let n = 1; n <= sets; n++) {
-      const key = `${keep.id}_${n}`;
-      draft[`${key}_load`] = "70";
-      draft[`${key}_reps`] = "8";
-      draft[`${key}_rir`] = "1";
-      draft.__done.push(key);
-      draft.__touched.push(key);
+  // The session is built through the product: a substitution picked in the visible picker, a skip, and the
+  // kept exercise's sets logged through the draft's commands. A reload then resumes it from storage.
+  const alt = "Pendulum squat";
+  await enterFocus(draftPage, 0);
+  await exerciseAction(draftPage, keepEx.id, "#exActionSubstBtn");
+  await draftPage.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+  await draftPage.fill("#exPickSearch", alt);
+  const altRow = draftPage.locator("#exPickList .pickrow").filter({ has: draftPage.locator(".pickrow__name", { hasText: new RegExp(`^${alt}$`) }) });
+  await altRow.first().click();
+  await draftPage.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+  await exerciseAction(draftPage, skipEx.id, "#exActionSkipBtn");
+  const resumedSets = await draftPage.evaluate(async ({ id, weight, reps }) => {
+    const api = window.__repforgeWorkoutDraft, exercise = api.current().exercises[id];
+    for (const setId of exercise.setOrder) {
+      await api.dispatch("editMetricValue", { exerciseInstanceId: id, setId, metricId: weight, value: "70" });
+      await api.dispatch("editMetricValue", { exerciseInstanceId: id, setId, metricId: reps, value: "8" });
+      await api.dispatch("editSetField", { exerciseInstanceId: id, setId, field: "rir", value: "1" });
+      await api.dispatch("completeSet", { exerciseInstanceId: id, setId, completedAt: new Date().toISOString() });
     }
-    localStorage.setItem(d, JSON.stringify(draft));
-    return sets;
-  }, { keep: keepEx, skip: skipEx, alt, d: DRAFT });
+    await api.flush();
+    return exercise.setOrder.length;
+  }, { id: keepEx.id, weight: WEIGHT, reps: REPS });
   await reload(draftPage);
   await enterFocus(draftPage, 0);
   const deck = await draftPage.evaluate(() => {
@@ -1757,46 +1834,101 @@ async function main() {
   );
   await draftCtx.close();
 
-  phase("F1: mixed-load hold first-set Focus cue");
+  // ---- Adaptive cue: a generated program's Focus cue is the engine's recommendation ----
+  // The retired capacity engine's cases (mixed-load hold, re-entry reps) are gone with it. What
+  // stays is the contract the cue always had: the load and reps it names are the ones the engine put
+  // in the set, so the cue, the shelf and the draft never disagree, and the move it draws is the move
+  // from the load the set is judged against.
+  phase("Adaptive cue: a generated program's Focus cue is the engine's recommendation");
   {
-    const f1Ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
-    const f1Page = await f1Ctx.newPage();
-    await boot(f1Page);
-    await enterFocus(f1Page, 0);
-    const seed = await f1Page.evaluate(() => {
-      const ex = window.__repforgeFocus.list()[0];
-      return { id: ex.id, day: ex.day, name: ex.name, primary: ex.primary, secondary: ex.secondary };
+    const adCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    const ad = await adCtx.newPage();
+    ad.on("pageerror", (e) => errors.push(e.message));
+    await ad.clock.setFixedTime(new Date("2026-03-02T09:00:00.000Z"));
+    await ad.goto(BASE, { waitUntil: "domcontentloaded" });
+    await settle(ad);
+    const target = await ad.evaluate(async ({ weight, reps }) => {
+      const catalog = window.RepForgeExerciseCatalog.snapshot();
+      const request = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({ desiredResult: "muscle_growth",
+        structuredExperience: "6_to_24m", daysPerWeek: 4, sessionMinutes: 60, environment: { kind: "commercial_gym" } }, catalog).value;
+      const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog, "focus-mode-adaptive").value;
+      await window.__repforgeFinalizeProgramSetup({ programDefinition: definition, name: "Adaptive focus", answers: {},
+        destination: "log", origin: "first-run", draftConfirmed: true, telemetryRoute: "recommend",
+        entrySource: { route: "recommend", fingerprint: "focus-mode-adaptive" } });
+      await window.__repforgeStorage.flush();
+      const day = definition.days.find((item) => item.kind === "training" &&
+        JSON.stringify(item.slots[0].metricIds) === JSON.stringify([weight, reps]));
+      return day ? { day: day.name, slotId: day.slots[0].id, sets: day.slots[0].prescriptionsByCycle[0].sets.length,
+        reps: day.slots[0].prescriptionsByCycle[0].sets[0].targets.reps } : null;
+    }, { weight: WEIGHT, reps: REPS });
+    assert(target && target.sets >= 2, "the generated program has a Weight + Reps first slot with at least two sets", JSON.stringify(target));
+    const enter = async () => {
+      await ad.evaluate((day) => window.__repforgeEnterWorkout({ day }), target.day);
+      await ad.waitForSelector(`#workout.is-focus .exercise.is-current[data-ex="${target.slotId}"]`, { timeout: 5000 });
+    };
+    const draftSet = (ordinal) => ad.evaluate(({ id, ordinal, weight, reps }) => {
+      const exercise = window.__repforgeWorkoutDraft.current().exercises[id];
+      const set = exercise.sets[exercise.setOrder.find((setId) => exercise.sets[setId].ordinal === ordinal)];
+      return { load: set.edited.metrics[weight], reps: set.edited.metrics[reps] };
+    }, { id: target.slotId, ordinal, weight: WEIGHT, reps: REPS });
+    const shelfLoad = () => ad.locator(`#workout .exercise.is-current .focus-shelf .shelf__field[data-metric="${WEIGHT}"] .shelf__val`).textContent();
+
+    await enter();
+    let cue = await cardState(ad);
+    const range = `${target.reps.min}–${target.reps.max}`;
+    assert(cue.cueKind === "is-start" && cue.cueL1 === `Pick a load for ${range} reps` && cue.cueMark === null &&
+      (await draftSet(1)).load == null,
+    "a lift with no history asks for a starting load and the draft holds none", JSON.stringify({ cue, set: await draftSet(1) }));
+    for (let n = 1; n <= 2; n++) {
+      await ad.locator(`#workout .exercise.is-current .focus-shelf .shelf__input[data-metric-id="${WEIGHT}"]`).fill("100");
+      await ad.locator(`#workout .exercise.is-current .focus-shelf .shelf__input[data-metric-id="${REPS}"]`).fill("8");
+      await ad.locator(`#workout .exercise.is-current .focus-shelf .shelf__input[data-k="${target.slotId}_${n}_rir"]`).fill("2");
+      await ad.evaluate(() => window.__repforgeWorkoutDraft.flush());
+      await ad.locator(`#workout .exercise.is-current [data-save="${target.slotId}_${n}"]`).click();
+      await ad.waitForFunction(({ id, n }) => {
+        const exercise = window.__repforgeWorkoutDraft.current().exercises[id];
+        return exercise.sets[exercise.setOrder[n - 1]].completion !== "pending";
+      }, { id: target.slotId, n });
+    }
+    await finishEarly(ad);
+    await ad.evaluate(() => window.closeSessionSummary?.());
+
+    await ad.clock.setFixedTime(new Date("2026-03-04T09:00:00.000Z"));
+    await reload(ad);
+    await enter();
+    const first = await draftSet(1);
+    cue = await cardState(ad);
+    const cueLoad = await ad.locator("#workout .exercise.is-current .fx-cue__load").textContent().catch(() => null);
+    assert(cue.cueKind === "is-now" && Number(first.load) > 0 && Number(cueLoad) === Number(first.load) &&
+      cue.cueL2 === `aim for ${first.reps} reps`,
+    "with history the cue names the load and reps the engine put in the first set", JSON.stringify({ cue, cueLoad, first }));
+    assert(Number((await shelfLoad())?.replace(",", ".")) === Number(first.load),
+      "the shelf shows the same recommended load the cue names", JSON.stringify({ shelf: await shelfLoad(), first }));
+    const move = assertCueMark(cue, "Adaptive cue");
+    const expectedMove = Number(first.load) === 100 ? "hold" : Number(first.load) > 100 ? "up" : "down";
+    assert(move === expectedMove, "the cue's move is the recommendation against last session's 100 kg", JSON.stringify({ move, first }));
+
+    // Log the first set as recommended; the next set's line and cue are the engine's second set.
+    await ad.locator(`#workout .exercise.is-current [data-save="${target.slotId}_1"]`).click();
+    await ad.waitForFunction((id) => {
+      const exercise = window.__repforgeWorkoutDraft.current().exercises[id];
+      return exercise.sets[exercise.setOrder[0]].completion !== "pending";
+    }, target.slotId);
+    const second = await draftSet(2);
+    const next = await ad.evaluate(() => {
+      const line = document.querySelector("#workout .exercise.is-current .restinline__next");
+      return { text: line?.textContent?.replace(/\s+/g, " ").trim() || "",
+        mono: [...(line?.querySelectorAll(".restinline__val") || [])].map((el) => getComputedStyle(el).fontFamily.includes("Mono")) };
     });
-    const rows = [52.5, 55].map((load, i) => ({
-      session: `2025-05-15_${seed.day}_f1_hold`, date: "2025-05-15", day: seed.day,
-      name: seed.name, exerciseId: seed.id, set: i + 1, load, reps: 7, rir: 1, notes: "",
-      created: "2025-05-15T12:00:00.000Z", primary: seed.primary, secondary: seed.secondary,
-    }));
-    await persist(f1Page, `
-      const exId = ${JSON.stringify(seed.id)};
-      s.settings = { ...(s.settings || {}), minJump: 2.5, unit: "kg", lang: "en", rirMode: "numeric" };
-      s.program = (s.program || []).map((e) => e.id === exId ? { ...e, sets: 2, min: 6, max: 8 } : e);
-      s.log = ${JSON.stringify(rows)};
-    `);
-    await f1Page.evaluate((d) => {
-      for (const key of Object.keys(localStorage)) if (key === d || key.startsWith(`${d}:`)) localStorage.removeItem(key);
-    }, DRAFT);
-    await reload(f1Page);
-    await enterFocus(f1Page, 0);
-    const rec = await f1Page.evaluate((id) => {
-      const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
-      const ex = (raw.program || []).find((e) => e.id === id);
-      const r = window.__repforgeRecommendation?.(ex);
-      return r && { status: r.status, load: r.load, reenterReps: !!r.reenterReps };
-    }, seed.id);
-    const cue = `${await f1Page.locator(".exercise.is-current .fx-cue__l1").textContent()} ${await f1Page.locator(".exercise.is-current .fx-cue__l2").textContent()}`;
-    const loadVal = await f1Page.locator(".exercise.is-current .shelf__input[data-k$='_load']").inputValue();
-    const repsVal = await f1Page.locator(".exercise.is-current .shelf__input[data-k$='_reps']").inputValue();
-    assert(rec?.status === "hold" && rec.load === 55 && rec.reenterReps && loadVal === "55" && !/53\.75/.test(cue || ""),
-      "F1 mixed hold: Focus first-set load is on-grid 55 kg", `cue="${cue}" rec=${JSON.stringify(rec)}`);
-    assert(repsVal === "6" && /aim for 6 reps/.test(cue || ""),
-      "F1 mixed hold: Focus first-set reps re-enter at 6", `cue="${cue}" reps=${repsVal}`);
-    await f1Ctx.close();
+    const nextMatch = /^Set 2: (?:hold|go up to|drop to) ([\d.,]+) kg, aim for (\d+) reps$/.exec(next.text);
+    assert(nextMatch && Number(nextMatch[1].replace(",", ".")) === Number(second.load) && nextMatch[2] === String(second.reps) &&
+      next.mono.length === 2 && next.mono.every(Boolean),
+    "the rest's next-set line names the second set the engine recommended, in Mono figures", JSON.stringify({ next, second }));
+    await endRest(ad);
+    const secondCue = await ad.locator("#workout .exercise.is-current .fx-cue__load").textContent().catch(() => null);
+    assert(Number(secondCue) === Number(second.load) && Number((await shelfLoad())?.replace(",", ".")) === Number(second.load),
+      "after the rest the cue and the shelf name the engine's second set", JSON.stringify({ secondCue, shelf: await shelfLoad(), second }));
+    await adCtx.close();
   }
 
   phase("Console");

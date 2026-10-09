@@ -22,6 +22,9 @@ const Transfer = require(join(ROOT, "install-transfer.js"));
 const Contract = require(join(ROOT, "install-transfer-contract.js"));
 const WorkoutDraft = require(join(ROOT, "workout-draft.js"));
 const ProgramEntry = require(join(ROOT, "program-entry.js"));
+const ProgramEntryAdapter = require(join(ROOT, "program-entry-adapter.js"));
+const ProgramCompiler = require(join(ROOT, "program-compiler.js"));
+const CatalogSnapshot = JSON.parse(readFileSync(join(ROOT, "assets/exercise-catalog.json"), "utf8"));
 const canonicalFixture = JSON.parse(readFileSync(join(ROOT, "test/fixtures/install-transfer-clone-v1.json"), "utf8"));
 const textEncoder = new TextEncoder();
 const LOCATION = { href: "https://pedrochagasmaster.github.io/repforge/index.html" };
@@ -59,20 +62,30 @@ function independentEnvelopeHash(value) {
   return createHash("sha256").update(independentCanonicalJson(preimage), "utf8").digest("hex");
 }
 
-function envelopeAtBoundaryBytes(paddingLength) {
+// Pads the canonical fixture to an exact canonical byte size: whole history
+// entries first, then a settings string for the remainder.
+function envelopeOfBytes(targetBytes) {
+  const measure = (value) => new TextEncoder().encode(independentCanonicalJson(value)).byteLength;
   const value = clone(canonicalFixture);
-  value.durableState.programHistory = Array.from({ length: 2_000 }, (_, index) => ({
-    id: `boundary-${index}`,
-    padding: "p".repeat(959),
-  }));
-  value.durableState.settings.boundaryPadding = "x".repeat(paddingLength);
+  value.durableState.settings.boundaryPadding = "";
   value.integrity.canonicalPayloadHash = "0".repeat(64);
+  const entry = (index) => ({ id: `boundary-${String(index).padStart(4, "0")}`, padding: "p".repeat(959) });
+  value.durableState.programHistory = [entry(0)];
+  const perEntry = measure(value);
+  value.durableState.programHistory = [];
+  const base = measure(value);
+  const entryBytes = perEntry - base - 1;
+  const count = Math.max(0, Math.floor((targetBytes - base - 64) / (entryBytes + 1)));
+  value.durableState.programHistory = Array.from({ length: count }, (_, index) => entry(index));
+  while (value.durableState.programHistory.length && measure(value) > targetBytes) value.durableState.programHistory.pop();
+  value.durableState.settings.boundaryPadding = "x".repeat(targetBytes - measure(value));
+  if (measure(value) !== targetBytes) throw new Error("boundary envelope did not reach its exact size");
   value.integrity.canonicalPayloadHash = independentEnvelopeHash(value);
   return value;
 }
 
 function exactMaximumEnvelope() {
-  const value = envelopeAtBoundaryBytes(1_787);
+  const value = envelopeOfBytes(Contract.LIMITS.envelopeBytes);
   assert.equal(
     new TextEncoder().encode(independentCanonicalJson(value)).byteLength,
     Contract.LIMITS.envelopeBytes,
@@ -249,10 +262,14 @@ function producerProgramEntryDraft() {
   };
   const initial = ProgramEntry.createState({ draftId: "entry-1", now: timestamp, versions });
   const routed = ProgramEntry.selectRoute(initial, "build");
-  const withResult = ProgramEntry.setResult(routed, {
-    fingerprint: "candidate-fingerprint",
-    preview: {},
-    selected: { id: "candidate-1" },
+  const built = ProgramEntryAdapter.buildEmptyProgram({ programName: "Transfer proof", daysPerWeek: 2 },
+    { Compiler: ProgramCompiler, catalog: CatalogSnapshot });
+  check(built.ok, "real Build producer creates an empty canonical program");
+  const withResult = ProgramEntry.setResult(ProgramEntry.setAnswers(routed, { programName: "Transfer proof", daysPerWeek: 2 }), {
+    fingerprint: built.fingerprint,
+    name: built.name,
+    preview: built.preview,
+    selected: { id: "manual_build", source: "manual_build" },
   });
   const normalized = ProgramEntry.normalizeSetupDraft(withResult);
   check(normalized.ok, "real ProgramEntry producer did not normalize");
@@ -325,11 +342,19 @@ function assertFailureShape(result, code, label) {
 }
 
 async function browserContractForParity() {
-  const browserContext = vm.createContext({ TextEncoder, TextDecoder, crypto: webcrypto });
-  vm.runInContext(readFileSync(join(ROOT, "install-transfer-contract.js"), "utf8"), browserContext, {
-    filename: "install-transfer-contract.js",
-  });
-  return browserContext.RepForgeInstallTransferContract;
+  // The page loads the catalog, metric domain, compiler and draft modules
+  // before the contract, and the catalog's detail asset before boot.
+  const catalogText = readFileSync(join(ROOT, "assets/exercise-catalog.json"), "utf8");
+  const browserContext = vm.createContext({ TextEncoder, TextDecoder, crypto: webcrypto,
+    fetch: async () => ({ ok: true, status: 200, text: async () => catalogText }) });
+  browserContext.window = vm.runInContext("globalThis", browserContext);
+  for (const file of ["exercises.js", "exercise-catalog.js", "exercise-metrics.js", "program-compiler.js",
+    "workout-draft.js", "install-transfer-contract.js"]) {
+    vm.runInContext(readFileSync(join(ROOT, file), "utf8"), browserContext, { filename: file });
+  }
+  await browserContext.RepForgeExerciseCatalog.load();
+  const contract = browserContext.RepForgeInstallTransferContract;
+  return Object.assign(Object.create(contract), { __parse: vm.runInContext("(text) => JSON.parse(text)", browserContext) });
 }
 
 async function main() {
@@ -339,11 +364,12 @@ async function main() {
     const nodeResult = await Contract.validateEnvelopeIntegrity(canonicalFixture, webcrypto);
     assert.equal(nodeResult.ok, true, "canonical fixture integrity is valid");
     const browserContract = await browserContractForParity();
-    const browserValue = JSON.parse(JSON.stringify(canonicalFixture));
+    // A page parses the claimed bytes in its own realm.
+    const browserValue = browserContract.__parse(JSON.stringify(canonicalFixture));
     const browserResult = await browserContract.validateEnvelopeIntegrity(browserValue, webcrypto);
     assert.equal(JSON.stringify(browserResult), JSON.stringify(nodeResult), "Node and browser contract results agree");
     const tampered = clone(canonicalFixture);
-    tampered.durableState.log[0].reps += 1;
+    tampered.durableState.settings.restSec += 1;
     const invalid = await Contract.validateEnvelopeIntegrity(tampered, webcrypto);
     assertFailureShape(invalid, Contract.ERROR_CODES.INTEGRITY_MISMATCH, "tampered canonical fixture");
   });
@@ -538,7 +564,7 @@ async function main() {
   });
 
   await test("near-maximum logical envelope fits the claim wrapper and claim-response +1 is rejected", async () => {
-    const envelope = envelopeAtBoundaryBytes(1_736);
+    const envelope = envelopeOfBytes(Contract.LIMITS.envelopeBytes - 51);
     const envelopeBytes = new TextEncoder().encode(independentCanonicalJson(envelope)).byteLength;
     assert.equal(envelopeBytes, Contract.LIMITS.envelopeBytes - 51, "regression envelope leaves only the request wrapper headroom");
     const create = Contract.validateRequest({ envelope, idempotencyKey: "a" }, Contract.ENDPOINTS.create);

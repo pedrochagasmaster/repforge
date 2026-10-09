@@ -44,18 +44,27 @@ console.log("\nD-owned state list");
   const added = doc.split("\n").filter((line) => /^\| Add \|/.test(line) && /\| R3 \|/.test(line))
     .flatMap((line) => [...line.matchAll(/`([a-z-]+\/[a-z-]+)`/g)].map((match) => match[1]));
   check(added.length >= 8, "the add list names the new R3 catalog states", `found ${added.join(", ")}`);
+  // Plan 067 retired the per-exercise progression strategies (rep_goal, anchor_backoff) the
+  // mixed-strategies day existed to demonstrate: the adaptive engine now recommends sets
+  // uniformly, so these four treatment-table/add-list states no longer exist as screens.
+  const RETIRED_D_STATES = new Set([
+    "today/mixed-strategies", "workout/why-rep-goal", "workout/why-anchor", "session/summary-mixed",
+  ]);
+  const ownedCurrent = owned.filter((key) => !RETIRED_D_STATES.has(key));
+  const addedCurrent = added.filter((key) => !RETIRED_D_STATES.has(key));
   const listed = DIRECTION_D_STATES.map((item) => item.key);
-  check(owned.every((key) => listed.includes(key)) && listed.every((key) => owned.includes(key) || added.includes(key)) &&
+  check(ownedCurrent.every((key) => listed.includes(key)) && listed.every((key) => ownedCurrent.includes(key) || addedCurrent.includes(key)) &&
     new Set(listed).size === listed.length,
-  "the gate's list is the 35 treatment-table states plus only states the add list names", `${listed.length} listed`);
+  "the gate's list is the 35 treatment-table states, minus Plan 067's retired strategy-engine states, plus only states the add list names",
+  `${listed.length} listed`);
   const built = ["workout/focus", "workout/focus-glossary", "workout/correction", "workout/rest-running", "workout/rest-done",
     "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions",
     "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", "history/list", "history/session",
     "history/edit-dirty", "history/edit-invalid",
-    "program/overview", "today/ready", "today/rest-bar", "today/day-picker", "today/mixed-strategies", "today/draft-resume",
+    "program/overview", "today/ready", "today/rest-bar", "today/day-picker", "today/draft-resume",
     "today/done", "workout/exercise-actions",
-    "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual",
-    "session/summary", "session/summary-maintained", "session/summary-declined", "session/summary-mixed", "session/summary-first",
+    "workout/why-this-weight", "workout/why-in-session", "workout/why-manual",
+    "session/summary", "session/summary-maintained", "session/summary-declined", "session/summary-first",
     "progress/overview", "progress/overview-baseline", "progress/overview-action", "progress/strength", "progress/strength-current-block",
     "progress/strength-all-history", "progress/strength-comparison", "progress/strength-sparse", "progress/exercise-chart"];
   check(DIRECTION_D_STATES.every((item) => (item.status === "implemented") === built.includes(item.key)) &&
@@ -64,13 +73,13 @@ console.log("\nD-owned state list");
   JSON.stringify(DIRECTION_D_STATES.filter((item) => item.status === "implemented").map((item) => item.key)));
   const status = (key) => DIRECTION_D_STATES.find((item) => item.key === key)?.status;
   check(DIRECTION_D_STATES.every((item) => ["pending", "implemented"].includes(item.status)), "every D state is pending or implemented");
-  check(["today/ready", "today/rest-bar", "today/day-picker", "today/mixed-strategies", "today/draft-resume"].every((key) => status(key) === "implemented"),
+  check(["today/ready", "today/rest-bar", "today/day-picker", "today/draft-resume"].every((key) => status(key) === "implemented"),
     "R3b's Today states and R3b2's unfinished-session state are enforced");
   check(["history/edit-dirty", "history/edit-invalid"].every((key) => status(key) === "implemented"),
     "R3j2's History edit states, the unsaved editor and an invalid value, are enforced");
-  check(["workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual"].every((key) => status(key) === "implemented"),
+  check(["workout/why-this-weight", "workout/why-in-session", "workout/why-manual"].every((key) => status(key) === "implemented"),
     "R3g's Why states are enforced");
-  check(["session/summary", "session/summary-maintained", "session/summary-declined", "session/summary-mixed", "session/summary-first"].every((key) => status(key) === "implemented"),
+  check(["session/summary", "session/summary-maintained", "session/summary-declined", "session/summary-first"].every((key) => status(key) === "implemented"),
     "R3h's session summary states are enforced");
   check(["workout/rest-running", "workout/rest-done"].every((key) => status(key) === "implemented") &&
     !DIRECTION_D_STATES.some((item) => /^workout\/rest-timer/.test(item.key)),
@@ -351,7 +360,7 @@ try {
   check(["workout/rest-running", "workout/rest-done"].every((key) => ["pt", "en"].every((locale) =>
     built.rendered.some((item) => item.key === key && item.locale === locale && item.enforced))),
   "the inline rest states were rendered and enforced in both languages", JSON.stringify(built.rendered.filter((item) => /rest-/.test(item.key))));
-  check(["today/ready", "today/mixed-strategies", "today/day-picker", "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual", "session/summary", "session/summary-mixed", "session/summary-first"].every((key) => ["pt", "en"].every((locale) =>
+  check(["today/ready", "today/day-picker", "workout/why-this-weight", "workout/why-in-session", "workout/why-manual", "session/summary", "session/summary-first"].every((key) => ["pt", "en"].every((locale) =>
     built.rendered.some((item) => item.key === key && item.locale === locale && item.enforced))),
   "the landed Today, Why and summary states were rendered and enforced in both languages", JSON.stringify(built.rendered.map((item) => `${item.key}:${item.locale}`)));
 
@@ -416,39 +425,35 @@ try {
       await opened.context.close();
     }
   };
-  const today = await markEvidence("today/mixed-strategies");
-  check(today.todayRowHold > 0 && today.todayRowRecover > 0, "Today's prescription rows draw a hold mark and a recover mark",
-    JSON.stringify(today.rowMarks));
-  check(today.tallyHold > 0 && today.tallyRecover > 0, "the Today tally draws them too");
-  check(today.hold.length > 0 && today.recover.length > 0 && [...today.hold, ...today.recover].every((mark) => mark.drawn && mark.background === today.inkColor),
-    "hold and recover are drawn in ink", JSON.stringify([...today.hold, ...today.recover].map((mark) => mark.background)));
-  check(today.up.length > 0 && today.up.every((mark) => mark.background !== today.inkColor),
-    "the up mark is still the only accent mark", JSON.stringify(today.up.map((mark) => mark.background)));
-  check(today.hold[0].mask !== "none" && today.recover[0].mask !== "none" && today.hold[0].mask !== today.recover[0].mask,
-    "hold is drawn \"=\" and recover a return arrow: two distinct drawn glyphs");
-  check(today.rowMarks.filter((row) => !row.mark).length >= 1 && today.rowMarks.every((row) => !/stalled|new|manual/.test(row.mark)),
-    "stalled, new and manual rows stay word-only (no mark)", JSON.stringify(today.rowMarks));
-  const why = await markEvidence("workout/why-rep-goal");
-  check(why.whyHold === 1 && why.hold.every((mark) => mark.drawn && mark.background === why.inkColor),
-    "the Why headline draws the hold mark in ink", JSON.stringify(why.hold));
-  const summary = await markEvidence("session/summary-mixed");
-  check(summary.summaryHold > 0 && summary.hold.every((mark) => mark.drawn && mark.background === summary.inkColor),
-    "the summary's next target draws the hold mark in ink", JSON.stringify(summary.hold));
+  // PLAN 067 GAP: today/mixed-strategies, workout/why-rep-goal and session/summary-mixed
+  // were the catalog's only demonstration of a hold mark and a recover mark together (the
+  // mixed day deliberately carried a stalled rep_goal lift and a recovering anchor_backoff
+  // lift). Plan 067 retired those per-exercise progression strategies and their fixture; the
+  // hold/recover mark drawing rule itself is still live product behavior (the adaptive engine
+  // can still recommend holding or backing off a lift), but proving it needs a canonical
+  // generated-program fixture with real history that produces those verdicts, which does not
+  // exist yet. Recording this as a known gap rather than asserting against a removed state.
+  console.log("  ! today/mixed-strategies, workout/why-rep-goal, session/summary-mixed are retired;"
+    + " the hold/recover mark proof needs a canonical adaptive-engine fixture (not yet built) to replace them");
 
   // ------------------------------------------------ maintained outcome mark (owner decision, #295)
   console.log("\nMaintained outcome mark");
   const maintained = await markEvidence("session/summary-maintained");
   const declined = await markEvidence("session/summary-declined");
+  // today/ready's own prescription tally is the hold-glyph reference now that the
+  // mixed-strategies day (the previous source of a guaranteed hold mark) is retired.
+  const ready = await markEvidence("today/ready");
   const outcomeOf = (evidence, name) => evidence.outcomes.filter((mark) => mark.outcome === name);
   const keep = outcomeOf(maintained, "maintained");
-  const rise = [...outcomeOf(maintained, "improved"), ...outcomeOf(summary, "improved")];
+  const rise = outcomeOf(maintained, "improved");
   const fall = outcomeOf(declined, "declined");
   check(keep.length > 0 && keep.every((mark) => mark.drawn && mark.background === maintained.inkColor && mark.mask !== "none"),
     "the maintained outcome draws a glyph, in ink and never the accent", JSON.stringify(keep));
   check(keep.length > 0 && rise.length > 0 && fall.length > 0, "the summary states carry maintained, improved and declined words",
     JSON.stringify({ keep: keep.length, rise: rise.length, fall: fall.length }));
-  check(keep.every((mark) => mark.mask === maintained.hold[0]?.mask || mark.mask === summary.hold[0]?.mask),
-    "maintained draws the same \"=\" as the hold recommendation: one meaning per glyph", JSON.stringify({ keep: keep[0]?.mask, hold: summary.hold[0]?.mask }));
+  const holdMask = maintained.hold[0]?.mask || ready.hold[0]?.mask;
+  check(!!holdMask && keep.every((mark) => mark.mask === holdMask),
+    "maintained draws the same \"=\" as the hold recommendation: one meaning per glyph", JSON.stringify({ keep: keep[0]?.mask, hold: holdMask }));
   check(rise.length > 0 && fall.length > 0 && keep.every((mark) => [...rise, ...fall].every((other) => other.mask !== mark.mask)),
     "maintained is distinct from the up and down arrows", JSON.stringify({ keep: keep[0]?.mask, rise: rise[0]?.mask, fall: fall[0]?.mask }));
   check(rise.every((mark) => mark.drawn && mark.background !== maintained.inkColor) && fall.every((mark) => mark.drawn && mark.background === declined.inkColor),

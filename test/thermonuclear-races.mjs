@@ -8,6 +8,7 @@ import {
   clearPersistenceArtifacts,
   inventoryPersistenceArtifacts,
 } from "./persistence-artifacts.mjs";
+import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -17,6 +18,10 @@ const DB = "repforge";
 const STORE = "kv";
 const STORAGE_LOCK = "repforge:state-write";
 const failures = [];
+const AUDIT_PRESS = Object.freeze({
+  id: "audit-press", name: "Audit press", day: "Day 1", order: 1, sets: 2, min: 8, max: 12,
+  alternates: ["Audit incline press"],
+});
 
 function check(condition, message, detail) {
   if (condition) {
@@ -28,7 +33,57 @@ function check(condition, message, detail) {
   if (detail !== undefined) console.error(`    ${JSON.stringify(detail)}`);
 }
 
-function fixture(revision) {
+/**
+ * Every durable program carries a canonical ProgramDefinition (Plan 067); the
+ * flat rows are its display projection. Fixture rows keep their stable ids and
+ * names as display aliases of a real Weight + Reps catalog movement borrowed
+ * from the seed program, so the persistence races below run against the
+ * product's only program shape.
+ */
+export function definitionBackedProgram(rows) {
+  const seedRows = new Map(seedProgram().map((row) => [row.id, row]));
+  const seedDefinition = seedProgramMeta().programDefinition;
+  const seedSlots = new Map(seedDefinition.days.flatMap((day) => day.slots.map((slot) => [slot.id, slot])));
+  const dayNames = [...new Set(rows.map((row) => row.day))];
+  const program = [];
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const name = dayNames[index] ?? `Rest ${index + 1}`;
+    const dayId = `manual-day-${index + 1}`;
+    const entries = rows.filter((row) => row.day === name).sort((a, b) => a.order - b.order);
+    const slots = entries.map((row, slotIndex) => {
+      const source = row.seedId || "seed-ex-3";
+      const slot = structuredClone(seedSlots.get(source));
+      const template = slot.prescriptionsByCycle[0].sets[0];
+      slot.id = row.id;
+      slot.order = slotIndex + 1;
+      slot.displayName = row.name;
+      slot.setupNotes = row.notes || "";
+      slot.prescriptionsByCycle = slot.prescriptionsByCycle.map(({ cycleIndex }) => ({
+        cycleIndex,
+        sets: Array.from({ length: row.sets }, (_, setOffset) => ({
+          ...structuredClone(template),
+          id: `manual-${row.id}-${cycleIndex}-${setOffset + 1}`,
+          cycleIndex,
+          setIndex: setOffset + 1,
+          targets: { reps: { min: row.min, max: row.max } },
+        })),
+      }));
+      const seed = seedRows.get(source);
+      program.push({
+        id: row.id, day: name, order: slotIndex + 1, name: row.name, sets: row.sets,
+        primary: seed.primary, secondary: seed.secondary, notes: row.notes || "",
+        alternates: row.alternates || [], min: row.min, max: row.max,
+        slotId: row.id, dayId, libraryId: slot.exerciseId, displayName: row.name,
+      });
+      return slot;
+    });
+    return { id: dayId, name, kind: slots.length ? "training" : "rest", order: index + 1, slots };
+  });
+  return { program, programDefinition: { ...seedDefinition, days } };
+}
+
+function fixture(revision, rows = [AUDIT_PRESS]) {
+  const { program, programDefinition } = definitionBackedProgram(rows);
   return {
     settings: {
       jumpPct: 2.5,
@@ -51,7 +106,7 @@ function fixture(revision) {
       updated: "2026-08-01T00:00:00.000Z",
       onboarded: true,
       mesocycleStatus: "active",
-      mesocycleLengthWeeks: 6,
+      mesocycleLengthWeeks: programDefinition.cycles,
       goal: null,
       experience: null,
       daysPerWeek: 1,
@@ -60,24 +115,9 @@ function fixture(revision) {
       priorityMuscles: [],
       sessionLength: "45",
       completedAt: null,
+      programDefinition,
     },
-    program: [
-      {
-        id: "audit-press",
-        name: "Audit press",
-        day: "Day 1",
-        order: 1,
-        sets: 2,
-        min: 8,
-        max: 12,
-        minSets: 1,
-        maxSets: 6,
-        primary: "Chest",
-        secondary: "",
-        notes: "",
-        alternates: ["Audit incline press"],
-      },
-    ],
+    program,
     log: [],
     programHistory: [],
     _storageRevision: revision,
@@ -100,18 +140,13 @@ async function waitForApp(page) {
     if (onboarding?.classList.contains("active")) window.closeOnboarding?.();
     const tour = document.querySelector("#tour");
     if (tour && !tour.classList.contains("hidden")) window.closeTour?.();
-    window.__testFinalizeCurrentProgram = (io) => {
+    // A whole-program replacement activates a new canonical definition; the
+    // caller supplies it (the 18-slot seed program) so both tabs race the
+    // same proposal from the same captured base.
+    window.__testFinalizeCurrentProgram = (programDefinition, io) => {
       const current = JSON.parse(localStorage.getItem("repforge_v1") || "null");
-      const source = current.program[0];
-      const exercises = Array.from({ length: 18 }, (_, index) => ({
-        ...source,
-        id: `beginner-exercise-${index + 1}`,
-        day: `Day ${Math.floor(index / 6) + 1}`,
-        order: (index % 6) + 1,
-        name: `Beginner exercise ${index + 1}`,
-      }));
       return window.__repforgeFinalizeProgramSetup({
-        exercises,
+        programDefinition,
         name: "Beginner program",
         answers: { goal: current.programMeta?.goal || "hypertrophy" },
         destination: "log",
@@ -291,19 +326,55 @@ async function enterWorkout(page) {
   await page.evaluate(() => window.__repforgeEnterWorkout({}));
 }
 
+const WEIGHT_METRIC = "2555c6f170d8805cafa6d16d3fdddbaa";
+const REPS_METRIC = "2555c6f170d88072bbf6d9ad3f16ea86";
+
+/** Set fields are metric-backed: Weight and Reps metrics plus RIR. */
+function setFieldKeys(set) {
+  return {
+    load: `audit-press_${set}_metric_${WEIGHT_METRIC}`,
+    reps: `audit-press_${set}_metric_${REPS_METRIC}`,
+    rir: `audit-press_${set}_rir`,
+  };
+}
+
+async function shelfInput(page, dataKey, shelfField) {
+  const input = page.locator(`#workout .exercise.is-current .focus-shelf input[data-k="${dataKey}"]`);
+  await input.waitFor({ state: "attached", timeout: 5000 });
+  if (await input.getAttribute("aria-hidden") === "true") {
+    await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="${shelfField}"]`).click();
+  }
+  return input;
+}
+
 async function fillSet(page, set, { load, reps, rir }) {
-  await page.locator(`[data-k="audit-press_${set}_load"]`).fill(String(load));
-  await page.locator(`[data-k="audit-press_${set}_reps"]`).fill(String(reps));
-  await page.locator(`[data-k="audit-press_${set}_rir"]`).fill(String(rir));
+  const keys = setFieldKeys(set);
+  await (await shelfInput(page, keys.load, `metric_${WEIGHT_METRIC}`)).fill(String(load));
+  await (await shelfInput(page, keys.reps, `metric_${REPS_METRIC}`)).fill(String(reps));
+  await (await shelfInput(page, keys.rir, "rir")).fill(String(rir));
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+}
+
+/** The DraftV2 values a durable draft holds for one audit-press set. */
+function draftSetValues(draft, set) {
+  const exercise = draft?.exercises?.["audit-press"];
+  const setId = exercise?.setOrder?.find((id) => exercise.sets?.[id]?.ordinal === set);
+  const edited = setId ? exercise.sets[setId].edited : null;
+  return {
+    load: edited?.metrics?.[WEIGHT_METRIC] ?? null,
+    reps: edited?.metrics?.[REPS_METRIC] ?? null,
+    rir: edited?.rir ?? null,
+  };
+}
+
+async function setDomValues(page, set) {
+  return page.evaluate((keys) => Object.fromEntries(Object.entries(keys).map(([field, key]) =>
+    [field, document.querySelector(`[data-k="${key}"]`)?.value ?? null])), setFieldKeys(set));
 }
 
 async function completeWorkout(page) {
   for (const set of [1, 2]) {
-    const values = {
-      load: await page.locator(`[data-k="audit-press_${set}_load"]`).inputValue(),
-      reps: await page.locator(`[data-k="audit-press_${set}_reps"]`).inputValue(),
-      rir: await page.locator(`[data-k="audit-press_${set}_rir"]`).inputValue(),
-    };
+    const values = await setDomValues(page, set);
     if (!values.load || !values.reps || !values.rir) {
       await fillSet(page, set, {
         load: values.load || 60,
@@ -311,15 +382,13 @@ async function completeWorkout(page) {
         rir: values.rir || 2,
       });
     }
-    await page.locator(`.saveset[data-save="audit-press_${set}"]`).click();
+    await page.locator(`#workout .exercise.is-current [data-save="audit-press_${set}"]`).click();
+    await page.waitForFunction((ordinal) => {
+      const exercise = window.__repforgeWorkoutDraft.current()?.exercises?.["audit-press"];
+      const setId = exercise?.setOrder?.find((id) => exercise.sets[id].ordinal === ordinal);
+      return typeof exercise?.sets?.[setId]?.completion === "object";
+    }, set, { timeout: 15000 });
   }
-  await page.waitForFunction(() => {
-    const draft = window.__repforgeWorkoutDraft?.current?.();
-    return draft?.exerciseOrder?.every((exerciseId) => {
-      const exercise = draft.exercises?.[exerciseId];
-      return exercise?.setOrder?.every((setId) => exercise.sets?.[setId]?.completion !== "pending");
-    });
-  });
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
 }
 
@@ -640,49 +709,43 @@ async function scenarioFinishClearsNewerSet(browser) {
     });
     await waitForPendingStorageLocks(locker, 1);
 
-    const formState = await page.evaluate(() => {
+    const formState = await page.evaluate((loadKey) => {
       const form = document.querySelector("#logForm");
-      const input = document.querySelector('[data-k="audit-press_2_load"]');
+      const input = document.querySelector(`[data-k="${loadKey}"]`);
       return {
         inert: !!form?.inert,
         ariaBusy: form?.getAttribute("aria-busy") ?? null,
         inputEditable: !!input && !input.disabled && !input.readOnly,
       };
-    });
+    }, setFieldKeys(2).load);
     const formBlocked = formState.inert && formState.ariaBusy === "true";
     const editable = !formBlocked && formState.inputEditable;
     if (editable) await fillSet(page, 2, { load: 123.5, reps: 7, rir: 2 });
     const mid = await readBoth(page);
-    const midDom = await page.evaluate(() => ({
-      load: document.querySelector('[data-k="audit-press_2_load"]')?.value ?? null,
-      reps: document.querySelector('[data-k="audit-press_2_reps"]')?.value ?? null,
-      rir: document.querySelector('[data-k="audit-press_2_rir"]')?.value ?? null,
-    }));
+    const midDom = await setDomValues(page, 2);
+    const midDraft = draftSetValues(mid.draft, 2);
     const acceptedMid =
       editable &&
       midDom.load === "123.5" &&
       midDom.reps === "7" &&
       midDom.rir === "2" &&
-      mid.draft?.["audit-press_2_load"] === "123.5" &&
-      mid.draft?.["audit-press_2_reps"] === "7" &&
-      mid.draft?.["audit-press_2_rir"] === "2";
+      midDraft.load === "123.5" &&
+      midDraft.reps === "7" &&
+      midDraft.rir === "2";
 
     await releaseStorageLock(locker);
     const finishResult = await page.evaluate(() => window.__auditFinishSet1);
     await page.evaluate(() => window.__repforgeStorage.flush());
     const final = await readBoth(page);
-    const finalDom = await page.evaluate(() => ({
-      load: document.querySelector('[data-k="audit-press_2_load"]')?.value ?? null,
-      reps: document.querySelector('[data-k="audit-press_2_reps"]')?.value ?? null,
-      rir: document.querySelector('[data-k="audit-press_2_rir"]')?.value ?? null,
-    }));
+    const finalDom = await setDomValues(page, 2);
+    const finalDraft = draftSetValues(final.draft, 2);
     const set2Persisted = final.idb?.log?.some(
       (row) => row.exerciseId === "audit-press" && row.set === 2 && row.load === 123.5 && row.reps === 7
     );
     const set2Drafted =
-      final.draft?.["audit-press_2_load"] === "123.5" &&
-      final.draft?.["audit-press_2_reps"] === "7" &&
-      final.draft?.["audit-press_2_rir"] === "2";
+      finalDraft.load === "123.5" &&
+      finalDraft.reps === "7" &&
+      finalDraft.rir === "2";
     const formRestored = await page.evaluate(() => {
       const form = document.querySelector("#logForm");
       return !!form && !form.inert && form.getAttribute("aria-busy") === null;
@@ -1210,15 +1273,17 @@ async function scenarioInPageFinishPreservesNewerDraft(browser) {
       "the finishing tab releases the completed draft identity");
     await writer.locator("#sumDone").click();
     await enterWorkout(writer);
-    const next = await writer.evaluate(() => ({
-      load: document.querySelector('#workout .exercise.is-current [data-k="audit-press_1_load"]')?.value,
+    const next = await writer.evaluate((loadKey) => ({
+      load: document.querySelector(`#workout .exercise.is-current [data-k="${loadKey}"]`)?.value,
       completed: document.querySelectorAll('#workout .exercise.is-current [data-editn]').length,
       draft: window.__repforgeWorkoutDraft.current(),
-    }));
+    }), setFieldKeys(1).load);
     check(next.load === "82.5" && next.completed === 0 &&
       next.draft.exerciseOrder.every(id => next.draft.exercises[id].setOrder.every(setId => {
         const set=next.draft.exercises[id].sets[setId];
-        return set.completion === "pending" && !Object.values(set.touched).some(Boolean);
+        const touched = [...Object.entries(set.touched).filter(([key]) => key !== "metrics").map(([, value]) => value),
+          ...Object.values(set.touched.metrics || {})];
+        return set.completion === "pending" && !touched.some(Boolean);
       })), "a new visible Focus session has fresh suggestions without stale completion or cross-tab input", next);
 
   } finally {
@@ -1437,15 +1502,15 @@ async function scenarioDeferredOnboardingCannotSupersedeRepeat(browser) {
     );
 
     const staleResult = await onboarding.evaluate(
-      ({ exercises }) => window.__repforgeFinalizeProgramSetup({
-        exercises,
+      ({ programDefinition }) => window.__repforgeFinalizeProgramSetup({
+        programDefinition,
         name: "Stale onboarding successor",
         answers: { goal: "hypertrophy" },
         destination: "log",
         origin: "block",
         draftConfirmed: true,
       }),
-      { exercises: rev130.program }
+      { programDefinition: rev130.programMeta.programDefinition }
     );
     await onboarding.evaluate(() => window.__repforgeStorage.flush());
     const final = await readBoth(locker);
@@ -1529,13 +1594,14 @@ async function scenarioConcurrentWholeProgramReplacements(browser) {
     const locker = await openApp(context);
 
     await holdStorageLock(locker);
-    await first.evaluate(() => {
-      window.__auditFirstReplacement = window.__testFinalizeCurrentProgram();
-    });
+    const replacement = seedProgramMeta().programDefinition;
+    await first.evaluate((definition) => {
+      window.__auditFirstReplacement = window.__testFinalizeCurrentProgram(definition);
+    }, replacement);
     await waitForPendingStorageLocks(locker, 1);
-    await second.evaluate(() => {
-      window.__auditSecondReplacement = window.__testFinalizeCurrentProgram();
-    });
+    await second.evaluate((definition) => {
+      window.__auditSecondReplacement = window.__testFinalizeCurrentProgram(definition);
+    }, replacement);
     await waitForPendingStorageLocks(locker, 2);
     await releaseStorageLock(locker);
 
@@ -1592,7 +1658,7 @@ async function scenarioConcurrentExerciseFieldEdits(browser) {
     await holdStorageLock(locker);
 
     await renamer
-      .locator('#programEditor input[data-id="audit-press"][data-field="name"]')
+      .locator('#programEditor [data-role="exercise-field"][data-id="audit-press"][data-field="name"]')
       .fill("Audit press renamed");
     await counter
       .locator('#programEditor [data-role="adjust"][data-id="audit-press"][data-field="sets"][data-delta="1"]')
@@ -1644,14 +1710,10 @@ async function scenarioUnrelatedProgramEditPreservesSessionDay(browser) {
   const context = await browser.newContext({ serviceWorkers: "block", viewport: { width: 390, height: 844 } });
   try {
     const page = await openApp(context);
-    const baseline = fixture(160);
-    baseline.program.push({
-      ...baseline.program[0],
-      id: "audit-row",
-      name: "Audit row",
-      order: 2,
-      primary: "Mid/upper back",
-    });
+    const baseline = fixture(160, [
+      AUDIT_PRESS,
+      { ...AUDIT_PRESS, id: "audit-row", name: "Audit row", order: 2, seedId: "seed-ex-4", alternates: [] },
+    ]);
     baseline.log = [
       {
         session: "audit-indivisible-session",
@@ -1690,8 +1752,12 @@ async function scenarioUnrelatedProgramEditPreservesSessionDay(browser) {
     await page.locator("#programEditorWrap details.advanced").evaluate((details) => {
       details.open = true;
     });
-    const moved = JSON.parse(JSON.stringify(baseline.program));
-    moved.find((exercise) => exercise.id === "audit-row").day = "Day 2";
+    // The raw editor holds the canonical ProgramDefinition: move the unrelated
+    // slot to its own training day.
+    const { programDefinition: moved } = definitionBackedProgram([
+      AUDIT_PRESS,
+      { ...AUDIT_PRESS, id: "audit-row", name: "Audit row", day: "Day 2", order: 1, seedId: "seed-ex-4", alternates: [] },
+    ]);
     await page.locator("#programJson").fill(JSON.stringify(moved));
     await page.click("#saveProgram");
     // Playwright's click resolves after dispatch, not after the async onclick
@@ -1709,6 +1775,14 @@ async function scenarioUnrelatedProgramEditPreservesSessionDay(browser) {
     ) || [];
     const weekly = await page.evaluate(() =>
       window.__repforgeWeeklySnapshot("2026-08-14")
+    );
+    check(
+      final.local?.program?.find((exercise) => exercise.id === "audit-row")?.day === "Day 2" &&
+        final.idb?.program?.find((exercise) => exercise.id === "audit-row")?.day === "Day 2" &&
+        final.local?.programMeta?.programDefinition?.days?.some((day) =>
+          day.name === "Day 2" && day.slots.some((slot) => slot.id === "audit-row")),
+      "precondition: the program edit moves the unrelated exercise to another day in the canonical definition",
+      final.local?.program?.map((exercise) => ({ id: exercise.id, day: exercise.day }))
     );
     check(
       new Set(rows.map((row) => row.day)).size === 1 &&

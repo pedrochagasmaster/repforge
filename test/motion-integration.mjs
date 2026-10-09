@@ -26,6 +26,7 @@
  */
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram, seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
+import { metricLogRow } from "./fixtures/history-metric-rows.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 
@@ -307,8 +308,27 @@ async function persistFocusState(page, mutate) {
   }, { k: FOCUS_KEY, src: mutate });
 }
 
+const WEIGHT = "2555c6f170d8805cafa6d16d3fdddbaa";
+const REPS = "2555c6f170d88072bbf6d9ad3f16ea86";
+/** The shelf's field ids: the seed movements log the catalog Weight and Reps metrics, then RIR. */
+const SHELF = { load: `metric_${WEIGHT}`, reps: `metric_${REPS}`, rir: "rir" };
+
+/** The seed program with its first slot at `sets` working sets in every cycle: the canonical
+ *  prescriptions and the row projection agree. */
+function seedWithFirstSlotSets(sets) {
+  const program = seedProgram().map((e, i) => (i === 0 ? { ...e, sets } : e));
+  const meta = seedProgramMeta();
+  const slot = meta.programDefinition.days.find((d) => d.kind === "training").slots[0];
+  for (const cycle of slot.prescriptionsByCycle) {
+    const template = cycle.sets[0];
+    cycle.sets = Array.from({ length: sets }, (_, i) => ({ ...structuredClone(template),
+      id: `manual-${slot.id}-${cycle.cycleIndex}-${i + 1}`, setIndex: i + 1 }));
+  }
+  return { program, meta };
+}
+
 /** A fresh Focus workout on the seed program, with the first exercise at `sets` sets. */
-async function focusPage(browser, { reducedMotion = "no-preference", sets = 4 } = {}) {
+async function focusPage(browser, { reducedMotion = "no-preference", sets = 4, prefill = true } = {}) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion });
   const page = await context.newPage();
   const errors = [];
@@ -320,15 +340,27 @@ async function focusPage(browser, { reducedMotion = "no-preference", sets = 4 } 
   }, FOCUS_DRAFT);
   await persistFocusState(page, `
     s.settings = { ...(s.settings || {}), lang: "en", rirMode: "numeric" };
-    s.program = ${JSON.stringify(seedProgram().map((e, i) => (i === 0 ? { ...e, sets } : e)))};
-    s.programMeta = ${JSON.stringify(seedProgramMeta())};
+    s.program = ${JSON.stringify(seedWithFirstSlotSets(sets).program)};
+    s.programMeta = ${JSON.stringify(seedWithFirstSlotSets(sets).meta)};
     s.log = [];`);
   await page.reload({ waitUntil: "domcontentloaded" });
   await settle(page);
-  await page.evaluate(async () => {
+  // The seed program's prescriptions are manual, so nothing prefills a set. Type every set's weight and
+  // reps through the draft first, the way a lifter would, so each measured beat logs a complete set.
+  await page.evaluate(async ({ weight, reps, prefill }) => {
     await window.__repforgeEnterWorkout({});
+    const draft = window.__repforgeWorkoutDraft.current();
+    for (const id of prefill ? draft.exerciseOrder : []) {
+      const exercise = draft.exercises[id];
+      for (const setId of exercise.setOrder) {
+        for (const [metricId, value] of [[weight, "100"], [reps, "8"]]) {
+          await window.__repforgeWorkoutDraft.dispatch("editMetricValue", { exerciseInstanceId: id, setId, metricId, value });
+        }
+      }
+    }
+    await window.__repforgeWorkoutDraft.flush();
     window.__repforgeFocus.to(0);
-  });
+  }, { weight: WEIGHT, reps: REPS, prefill });
   await page.waitForSelector("#workout.is-focus .exercise.is-current .focus-shelf", { state: "attached", timeout: 5000 });
   await page.waitForTimeout(160);
   await page.evaluate(SAMPLER);
@@ -338,6 +370,13 @@ async function focusPage(browser, { reducedMotion = "no-preference", sets = 4 } 
 /** Per-frame samples of one selector, taken in the page so they share the animation's clock. */
 const SAMPLER = `
 window.__fm = {
+  shelf: ${JSON.stringify(SHELF)},
+  /** The shelf field's name in the test's vocabulary: load, reps or rir. */
+  fieldName(el) {
+    if (!el) return undefined;
+    const id = el.dataset.metric ? "metric_" + el.dataset.metric : el.dataset.field;
+    return Object.keys(window.__fm.shelf).find((k) => window.__fm.shelf[k] === id) || id;
+  },
   rect(el) { if (!el) return null; const r = el.getBoundingClientRect(); return { left: r.left, top: r.top, width: r.width, height: r.height }; },
   sample(sel, ms, after) {
     return new Promise((resolve) => {
@@ -356,6 +395,11 @@ window.__fm = {
 
 const CARD = "#workout .exercise.is-current";
 
+/** Type the open set's weight on the shelf. */
+async function fillSet(page, { load = "100" } = {}) {
+  await page.locator(`${CARD} .focus-shelf .shelf__input[data-metric-id="${WEIGHT}"]`).first().fill(String(load));
+}
+
 async function focusMotion(browser, { reducedMotion = "no-preference" } = {}) {
   const reduced = reducedMotion === "reduce";
   const tag = reduced ? " under reduced motion" : "";
@@ -364,16 +408,23 @@ async function focusMotion(browser, { reducedMotion = "no-preference" } = {}) {
   // ---- T1: the shelf's field outline travels ---------------------------------
   phase(`T1: one outline travels between Carga, Reps and RIR${tag}`);
   const fieldRects = await page.evaluate((card) => {
-    const r = (id) => window.__fm.rect(document.querySelector(`${card} .shelf__field[data-field="${id}"]`));
+    const r = (id) => window.__fm.rect(document.querySelector(`${card} [data-shelf-field="${window.__fm.shelf[id]}"]`)?.closest(".shelf__field"));
     return { load: r("load"), reps: r("reps"), rir: r("rir") };
   }, CARD);
+  // A manual prescription opens on its first field (Weight); start the measured travel from Reps.
+  await page.evaluate((card) => {
+    if (window.__fm.fieldName(document.querySelector(`${card} .shelf__field.is-sel`)) !== "reps")
+      document.querySelector(`${card} [data-shelf-field="${window.__fm.shelf.reps}"]`).click();
+  }, CARD);
+  await page.waitForFunction((card) => window.__fm.fieldName(document.querySelector(`${card} .shelf__field.is-sel`)) === "reps" &&
+    !document.querySelector(`${card} .shelf__ring, ${card} .is-ring-travel`), CARD, { timeout: 3000 });
   const t1 = await page.evaluate(async (card) => {
-    const select = (id) => document.querySelector(`${card} [data-shelf-field="${id}"]`).click();
-    const before = document.querySelector(`${card} .shelf__field.is-sel`)?.dataset.field;
+    const select = (id) => document.querySelector(`${card} [data-shelf-field="${window.__fm.shelf[id]}"]`).click();
+    const before = window.__fm.fieldName(document.querySelector(`${card} .shelf__field.is-sel`));
     const samples = await window.__fm.sample(`${card} .shelf__ring`, 420, () => select("load"));
     const first = samples.find((s) => s.rect);
     const dest = document.querySelector(`${card} .shelf__field.is-sel`);
-    return { before, samples, first, selected: dest?.dataset.field, pressed: dest?.querySelector("[data-shelf-field]")?.getAttribute("aria-pressed"),
+    return { before, samples, first, selected: window.__fm.fieldName(dest), pressed: dest?.querySelector("[data-shelf-field]")?.getAttribute("aria-pressed"),
       afterRing: document.querySelectorAll(`${card} .shelf__ring`).length, afterTravel: document.querySelectorAll(`${card} .is-ring-travel`).length,
       shadow: getComputedStyle(dest.querySelector("[data-shelf-field]")).boxShadow };
   }, CARD);
@@ -395,7 +446,7 @@ async function focusMotion(browser, { reducedMotion = "no-preference" } = {}) {
     assert(travelMs > 40 && travelMs < 400, "the travel is a short spring, not a slow glide", String(travelMs));
 
     const mid = await page.evaluate(async (card) => {
-      const select = (id) => document.querySelector(`${card} [data-shelf-field="${id}"]`).click();
+      const select = (id) => document.querySelector(`${card} [data-shelf-field="${window.__fm.shelf[id]}"]`).click();
       select("reps");
       await new Promise((r) => setTimeout(r, 450));
       select("rir");
@@ -418,8 +469,7 @@ async function focusMotion(browser, { reducedMotion = "no-preference" } = {}) {
   // ---- L2: the open-row outline travels on advance and on correction ------------
   phase(`L2: the ledger's open-row outline travels on advance and on correction${tag}`);
   const logOne = async ({ load = "100" } = {}) => {
-    const loadInput = page.locator(`${CARD} .focus-shelf .shelf__input[data-k$='_load']`).first();
-    if (await loadInput.count()) await loadInput.fill(load);
+    await fillSet(page, { load });
     return page.evaluate(async (card) => {
       const openBefore = document.querySelector(`${card} .ledgerline--open`)?.getBoundingClientRect().top ?? null;
       const committedBefore = document.querySelectorAll(`${card} [data-editn]`).length;
@@ -536,15 +586,20 @@ async function focusMotion(browser, { reducedMotion = "no-preference" } = {}) {
   const chain = await page.evaluate(async (card) => {
     // Thirty taps in a row: every one lands, none is lost behind a beat.
     const val = () => document.querySelector(`${card} .shelf__field.is-sel .shelf__val`);
-    const start = Number(val().textContent) || 0;
+    // The selected field's own step (2.5 kg on a weight, one rep on reps).
+    const before = Number(val().textContent) || 0;
+    document.querySelector(`${card} .shelf__pad[data-dir="1"]`).click();
+    await new Promise((r) => setTimeout(r, 300));
+    const start = Number(val().textContent) || 0, step = start - before;
     for (let i = 0; i < 30; i++) {
       document.querySelector(`${card} .shelf__pad[data-dir="1"]`).click();
       await new Promise((r) => setTimeout(r, 16));
     }
     await new Promise((r) => setTimeout(r, 300));
-    return { start, end: Number(val().textContent) };
+    return { start, step, end: Number(val().textContent) };
   }, CARD);
-  assert(chain.end === chain.start + 30, "thirty quick taps land thirty steps", JSON.stringify(chain));
+  assert(chain.step > 0 && Math.abs(chain.end - (chain.start + 30 * chain.step)) < 1e-9,
+    "thirty quick taps land thirty steps", JSON.stringify(chain));
 
   assert(errors.length === 0, `no page errors in the Focus run${tag}`, errors.join(" | "));
   await context.close();
@@ -552,10 +607,10 @@ async function focusMotion(browser, { reducedMotion = "no-preference" } = {}) {
   // ---- L4: exercise complete: the completion actions rise ---------------------------
   phase(`L4: the completion actions rise while fading in${tag}`);
   const done = await focusPage(browser, { reducedMotion, sets: 2 });
-  await done.page.locator(`${CARD} .focus-shelf .shelf__input[data-k$='_load']`).first().fill("100");
+  await fillSet(done.page);
   await done.page.locator(`${CARD} .focus-shelf .saveset`).first().click();
   await done.page.waitForTimeout(260);
-  await done.page.locator(`${CARD} .focus-shelf .shelf__input[data-k$='_load']`).first().fill("100");
+  await fillSet(done.page);
   const fin = await done.page.evaluate(async (card) => {
     document.querySelector(`${card} .saveset`).click();
     const t0 = performance.now();
@@ -605,7 +660,7 @@ async function restMotion(browser, { reducedMotion = "no-preference" } = {}) {
   const { context, page, errors } = await focusPage(browser, { reducedMotion, sets: 4 });
 
   phase(`L3: the cue slot trades the cue for the rest in a measured height push with a crossfade${tag}`);
-  await page.locator(`${CARD} .focus-shelf .shelf__input[data-k$='_load']`).first().fill("100");
+  await fillSet(page);
   // Sample the slot, the ledger under it and the shelf's action every frame across each action that changes the slot.
   const sampled = (action, ms = 700) => page.evaluate(async ({ card, action, ms }) => {
     const q = (s) => document.querySelector(`${card} ${s}`);
@@ -681,7 +736,7 @@ async function restMotion(browser, { reducedMotion = "no-preference" } = {}) {
     await page.evaluate(() => window.startRest());
     await page.waitForFunction((card) => document.querySelector(`${card} .fx-slot`)?.dataset.rest === "running" &&
       !document.querySelector(`${card} .motion-fade-out`) && document.querySelector(`${card} .fx-slot`).style.height === "", CARD, { timeout: 3000 });
-    await page.locator(`${CARD} .focus-shelf .shelf__input[data-k$='_load']`).first().fill("100");
+    await fillSet(page);
     const during = await page.evaluate(async (card) => {
       const q = (s) => document.querySelector(`${card} ${s}`);
       const slot = q(".fx-slot");
@@ -765,7 +820,7 @@ async function retryBannerMotion(browser, { reducedMotion = "no-preference" } = 
     const run = await focusPage(browser, { reducedMotion, sets: 4 });
     await run.page.evaluate(BANNER_STATE);
     await run.page.evaluate(() => { window.__repforgeDraftFault = "persist-failure"; });
-    await run.page.locator(`${CARD} .focus-shelf .shelf__input[data-k$='_load']`).first().fill("100");
+    await fillSet(run.page);
     await run.page.waitForSelector("#draftRecovery:not(.hidden)", { timeout: 5000 });
     return run;
   };
@@ -917,16 +972,22 @@ async function generatedProgramMotion(browser, { reducedMotion = "no-preference"
   await settle(page);
   const walk = async () => {
     await page.evaluate(() => window.startOnboarding("settings"));
+    const step = (name) => page.waitForFunction((n) => window.__repforgeEntryState?.()?.step === n, name, { timeout: 15000 });
     await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
+    await step("background");
     await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
-    await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
     await page.click("#onbNext");
+    await step("schedule");
     await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="4"]');
     await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
-    await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="120"]');
     await page.click("#onbNext");
+    await step("environment");
     await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
     await page.click("#onbNext");
+    await step("abilities");
+    await page.click("#onbNext");
+    // The last question before the result: the next Next generates the program.
+    await step("priorities");
   };
   phase(`O3: a freshly generated program is drawn in reading order${tag}`);
   await walk();
@@ -1045,8 +1106,12 @@ async function generatedProgramMotion(browser, { reducedMotion = "no-preference"
  * and must be written at once; the plot is what moves. Reduced motion draws every end state on the first frame.
  */
 const PROGRESS_KEY = "repforge_v1";
+/** The charted lift: the seed program's Incline chest press, with saved rows in the metric shape a finished workout commits. */
+const PROGRESS_LIFT = "seed-ex-3";
+const PROGRESS_META = seedProgramMeta({ id: "progress-motion", started: "2026-09-14" });
 const progressRows = (() => {
-  const mk = (session, date, load) => ({ session, date, day: "Day 1", exerciseId: "pev-1", name: "Incline chest press", load, reps: 8, rir: 2, set: 1, work: true });
+  const lift = seedProgram().find((row) => row.id === PROGRESS_LIFT);
+  const mk = (session, date, load) => metricLogRow(PROGRESS_META, lift, { session, date, day: "Day 1", set: 1, load, reps: 8, rir: 2 });
   return [mk("h0", "2026-09-05", 50), mk("h1", "2026-09-07", 52.5), mk("b1", "2026-09-14", 55), mk("b2", "2026-09-15", 57.5), mk("b3", "2026-09-16", 60)];
 })();
 
@@ -1066,11 +1131,10 @@ async function progressPage(browser, { reducedMotion = "no-preference" } = {}) {
   page.on("pageerror", (e) => errors.push(String(e.message)));
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await settle(page);
-  const program = [{ id: "pev-1", day: "Day 1", order: 1, name: "Incline chest press", sets: 2, min: 4, max: 8, primary: "Chest", secondary: "Triceps" }];
   await persistFocusState(page, `
     s.settings = { ...(s.settings || {}), lang: "en", unit: "kg" };
-    s.program = ${JSON.stringify(program)};
-    s.programMeta = ${JSON.stringify(seedProgramMeta({ id: "progress-motion", started: "2026-09-14" }))};
+    s.program = ${JSON.stringify(seedProgram())};
+    s.programMeta = ${JSON.stringify(PROGRESS_META)};
     s.programHistory = [];
     s.log = ${JSON.stringify(progressRows)};`);
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -1083,7 +1147,7 @@ async function progressPage(browser, { reducedMotion = "no-preference" } = {}) {
 
 /** Open the lift's chart the way Progress does, and let the opening wipe finish. */
 async function openProgressChart(page, { wait = true } = {}) {
-  await page.evaluate(() => openExerciseView(window.__repforgeProgressEvidence.keyForExerciseId("pev-1"), "stats"));
+  await page.evaluate((lift) => openExerciseView(window.__repforgeProgressEvidence.keyForExerciseId(lift), "stats"), PROGRESS_LIFT);
   await page.waitForSelector("#exercise.view.active .exchart__plot", { timeout: 5000 });
   if (wait) await page.waitForTimeout(550);
 }
@@ -1167,15 +1231,15 @@ async function progressMotion(browser, { reducedMotion = "no-preference" } = {})
 
   // ---- C1: the line wipes in on open, and only the new stretch on extension -------
   phase(`C1: the chart line wipes in on open${tag}`);
-  const c1 = await page.evaluate(async () => {
+  const c1 = await page.evaluate(async (lift) => {
     const lineClip = () => { const g = document.querySelector(".exchart__svg .ch-trace"); return g ? { cls: g.getAttribute("class"), clip: getComputedStyle(g).clipPath } : null; };
-    window.openExerciseView(window.__repforgeProgressEvidence.keyForExerciseId("pev-1"), "stats");
+    window.openExerciseView(window.__repforgeProgressEvidence.keyForExerciseId(lift), "stats");
     const first = lineClip();
     const frames = await window.__pm.frames(lineClip, 520);
     const svg = document.querySelector(".exchart__svg");
     return { first, frames, rows: document.querySelectorAll(".exrow").length, readout: !!document.querySelector(".exchart__readout").textContent,
       axesClipped: !!svg.querySelector(".ch-axes")?.getAttribute("class")?.includes("clip"), cursorClipped: getComputedStyle(svg.querySelector(".ex-cursor")).clipPath };
-  });
+  }, PROGRESS_LIFT);
   assert(c1.rows === 3 && c1.readout, "the table and the readout are written at once, whatever the line is doing", JSON.stringify({ rows: c1.rows }));
   if (reduced) {
     assert(c1.first && !/motion-clip-reveal/.test(c1.first.cls) && c1.first.clip === "none" && c1.frames.every((f) => f.v && f.v.clip === "none"),
@@ -1210,7 +1274,10 @@ async function progressMotion(browser, { reducedMotion = "no-preference" } = {})
     const before = document.querySelectorAll(".exchart__svg .ex-pt").length;
     const probe = () => [...document.querySelectorAll(".exchart__svg .ch-trace")].map((g) => ({ reveal: g.classList.contains("motion-clip-reveal"), pts: g.querySelectorAll(".ex-pt").length,
       clip: g.classList.contains("motion-clip-reveal") ? getComputedStyle(g).clipPath : "none" }));
-    state.log.push({ ...state.log.find((r) => r.session === "b3"), session: "b4", date: "2026-09-17", load: 62.5 });
+    const next = structuredClone(state.log.find((r) => r.session === "b3"));
+    Object.assign(next, { session: "b4", date: "2026-09-17", created: "2026-09-17T12:00:00.000Z", load: 62.5 });
+    for (const value of next.metricValues) if (next.metricDefinitions.find((d) => d.id === value.metricId)?.semantic === "loadKg") value.value = 62.5;
+    state.log.push(next);
     window.render();
     const first = probe();
     const frames = await window.__pm.frames(probe, 520);
@@ -1435,7 +1502,8 @@ window.__resume = () => {
 async function resumeBandMotion(browser, { reducedMotion = "no-preference" } = {}) {
   const reduced = reducedMotion === "reduce";
   const tag = reduced ? " under reduced motion" : "";
-  const { context, page, errors } = await focusPage(browser, { reducedMotion, sets: 4 });
+  // Nothing typed: the draft starts empty, so Today has no band until a set is filled.
+  const { context, page, errors } = await focusPage(browser, { reducedMotion, sets: 4, prefill: false });
   await page.evaluate(RESUME_READ);
   const leave = async () => {
     await page.click("#leaveWorkout");
@@ -1456,7 +1524,7 @@ async function resumeBandMotion(browser, { reducedMotion = "no-preference" } = {
 
   phase(`S2: the band measures in on the render that adds it, and the CTA relabels at once${tag}`);
   await enter();
-  await page.locator(`${CARD} .focus-shelf .shelf__input[data-k$='_load']`).first().fill("100");
+  await fillSet(page);
   const run = await page.evaluate(async () => {
     const out = [], t0 = performance.now();
     document.querySelector("#leaveWorkout").click();
@@ -1564,12 +1632,18 @@ async function entrySelectionInk(browser, { reducedMotion = "no-preference", col
   await page.addInitScript(ENTRY_READ);
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await settle(page);
+  const step = (name) => page.waitForFunction((n) => window.__repforgeEntryState?.()?.step === n, name, { timeout: 15000 });
   await page.evaluate(() => window.startOnboarding("settings"));
   await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
+  await step("background");
+  await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
+  await page.click("#onbNext");
+  await step("schedule");
 
   phase(`O2: a chosen option is ringed in ink and nothing about the card moves${tag}`);
-  await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
-  await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
+  // The schedule step holds two single-choice groups: days per week and the session ceiling.
+  await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="4"]');
+  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
   const list = await page.evaluate(() => window.__entrySel());
   const ring = (c) => /0px 0px 0px 2px inset/.test(c.shadow) && c.shadow.includes(list.ink);
   assert(list.cards.length === 2, "the two chosen rows are selected cards", String(list.cards.length));
@@ -1578,7 +1652,7 @@ async function entrySelectionInk(browser, { reducedMotion = "no-preference", col
     "and paints no accent on the card, its mark or its icon", JSON.stringify(list.cards.map((c) => [c.cardPaints, c.markPaints, c.iconPaints])));
   assert(list.cards.every((c) => c.transform === "none"), "a selected card does not lift", JSON.stringify(list.cards.map((c) => c.transform)));
   const sizes = await page.evaluate(() => window.__entryRects());
-  await page.click('[data-entry-pick="structuredExperience"][data-entry-val="under_6m"]');
+  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="90"]');
   const resized = await page.evaluate(() => window.__entryRects());
   assert(sizes.length > 0 && sizes.length === resized.length && sizes.every((r, i) => r[0] === resized[i][0] && r[1] === resized[i][1]),
     "choosing a different row leaves every card the same size", JSON.stringify({ sizes, resized }));
@@ -1588,15 +1662,19 @@ async function entrySelectionInk(browser, { reducedMotion = "no-preference", col
 
   phase(`O2: a chosen checkbox has an ink mark, not an orange one${tag}`);
   await page.click("#onbNext");
-  await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="4"]');
-  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
-  await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="120"]');
-  await page.click("#onbNext");
+  await step("environment");
   await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
-  await page.locator(".entry__correct > summary").click();
+  await page.click("#onbNext");
+  await step("abilities");
+  await page.click("#onbNext");
+  await step("priorities");
+  // The priorities step is the one with checkboxes: two muscles and a movement to prioritise.
+  await page.click('[data-entry-pick="primaryMuscles"][data-entry-val="chest"]');
+  await page.click('[data-entry-pick="primaryMuscles"][data-entry-val="back"]');
+  await page.click('[data-entry-pick="priorityMovements"][data-entry-val="squat"]');
   const boxes = await page.evaluate(() => window.__entrySel());
   const checks = boxes.cards.filter((c) => c.role === "checkbox");
-  assert(checks.length >= 3, "the commercial gym presets some equipment boxes", String(checks.length));
+  assert(checks.length >= 3, "the three chosen priorities are selected checkbox cards", String(checks.length));
   assert(checks.every((c) => !c.cardPaints.length && !c.markPaints.length && !c.iconPaints.length),
     "no selected checkbox card, mark or icon paints the accent", JSON.stringify(checks.map((c) => [c.cardPaints, c.markPaints, c.iconPaints])));
   assert(boxes.cards.every((c) => /0px 0px 0px 2px inset/.test(c.shadow) && c.shadow.includes(boxes.ink)),
@@ -1666,11 +1744,12 @@ window.__push = {
 /** A past session so History has a row to open (ids match the seed program's). */
 function seedLogRows() {
   const rows = [];
+  const program = seedProgram(), meta = seedProgramMeta();
   for (const [date, day] of [["2026-09-20", "Day 1"], ["2026-09-27", "Day 1"]]) {
-    for (const [id, name, primary] of [["seed-ex-1", "Hack squat", "Quads"], ["seed-ex-2", "Seated leg curl", "Hamstrings"]]) {
+    for (const id of ["seed-ex-1", "seed-ex-2"]) {
       for (const set of [1, 2]) {
-        rows.push({ session: `${date}_${day}_seed`, date, day, name, exerciseId: id, set, load: 80 + set * 5, reps: 6, rir: 2,
-          notes: "", created: `${date}T12:00:00.000Z`, primary, secondary: "" });
+        rows.push(metricLogRow(meta, program.find((row) => row.id === id), {
+          session: `${date}_${day}_seed`, date, day, set, load: 80 + set * 5, reps: 6, rir: 2 }));
       }
     }
   }
@@ -1776,12 +1855,12 @@ async function pageMotion(browser, { reducedMotion = "no-preference" } = {}) {
   assert(libState.views.join() === "library" && libState.focus === "libSearch", "the library is the active view with its search focused", JSON.stringify(libState));
   if (reduced) assert(lib.never, "no push layers under reduced motion");
   else assert(lib.frames >= 5 && lib.mounted && lib.leftover === 0 && lib.layered.every((s) => s.under.includes("program")),
-    "it pushes in over the Program tab, both mounted", JSON.stringify({ frames: lib.frames, mounted: lib.mounted }));
+    "it pushes in over the Program tab, both mounted", JSON.stringify({ frames: lib.frames, mounted: lib.mounted, leftover: lib.leftover, under: lib.layered.map((s) => s.under), ms: lib.ms }));
   await page.waitForSelector("#libList [data-lib-preview]", { timeout: 5000 });
   const preview = pushRun(await page.evaluate(() => window.__push.run("#exercisePreview", () => document.querySelector("#libList [data-lib-preview]").click())));
   if (reduced) assert(preview.never, "no push layers for the preview under reduced motion");
   else assert(preview.frames >= 5 && preview.layered.every((s) => s.under.includes("library")) && preview.leftover === 0,
-    "the preview pushes in over the library", JSON.stringify({ frames: preview.frames }));
+    "the preview pushes in over the library", JSON.stringify({ frames: preview.frames, leftover: preview.leftover, under: preview.layered.map((s) => s.under), ms: preview.ms }));
   const previewBack = pushRun(await page.evaluate(() => window.__push.run("#exercisePreview", () => document.querySelector("#previewBack").click())));
   const toLibrary = await page.evaluate(() => [...document.querySelectorAll(".view.active")].map((v) => v.id).join());
   assert(toLibrary === "library", "Back from the preview returns to the library", toLibrary);

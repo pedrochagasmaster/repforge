@@ -23,12 +23,24 @@
  */
 import { pathToFileURL } from "url";
 import { launchChromium } from "./browser.mjs";
-import { installSeedProgram } from "./fixtures/seed-program.mjs";
+import { installSeedProgram, seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
 const SETUP_DRAFT = "repforge_program_setup_draft_v1";
+
+// Catalog movements these cases resolve to. Names are search inputs; these ids
+// are what a matched row is expected to mean.
+const BACK_SQUAT = "1a25c6f170d8803d8231d083fdd65458"; // Barbell back squat
+const BENCH_PRESS = "19f5c6f170d8808bb424e98de4472a7e"; // Barbell bench press
+// "Puxada frontal na máquina pegada neutra" is the Portuguese name of
+// Neutral grip pin-loaded machine lat pulldown.
+const PULLDOWN_NEUTRAL = "2ae5c6f170d8805da4e1d8dc785bc9ea";
+// The first proposal for "Lat pulldown machine thing": Overhand grip cable lat pulldown.
+const PULLDOWN_OVERHAND = "1a15c6f170d8800d8fc9d2c235673bf6";
+const BENT_OVER_ROW = "1a15c6f170d880f89beacd8c81156f2d"; // Bent-over barbell row
+const LEG_PRESS_45 = "1a25c6f170d88079a926dde776766181"; // 45° leg press
 
 const results = { passed: 0, failed: 0 };
 function assert(cond, name, detail) {
@@ -102,6 +114,23 @@ async function importFile(page, name, body) {
   await settle(page, 500);
 }
 
+/** Settles every open row on its first proposal. One decision at a time: each
+ *  click re-renders the list, so a captured NodeList goes stale after the first. */
+async function acceptFirstProposals(page) {
+  for (let guard = 0; guard < 24; guard++) {
+    const acted = await page.evaluate(() => {
+      const row = document.querySelector("#importRows .improw.is-open");
+      const action = row && (row.querySelector('[data-imp-act="pick"][data-imp-idx="0"]') ||
+        row.querySelector('[data-imp-act="link"]'));
+      if (!action) return false;
+      action.click();
+      return true;
+    });
+    if (!acted) break;
+    await settle(page, 150);
+  }
+}
+
 async function stageReviewedImport(page) {
   await page.click("#importCommit");
   await page.waitForSelector("#entryActivate", { timeout: 10000 });
@@ -145,36 +174,33 @@ async function downloadJson(page, selector) {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
+// A custom movement carries its own metric composition; a definition without
+// one needs configuring before it can be trained, so a portable file brings it.
+const WEIGHT_REPS = {
+  metricIds: ["2555c6f170d8805cafa6d16d3fdddbaa", "2555c6f170d88072bbf6d9ad3f16ea86"],
+  metricDefinitions: [
+    { id: "2555c6f170d8805cafa6d16d3fdddbaa", sourceName: "Weight", semantic: "loadKg", unit: "kg" },
+    { id: "2555c6f170d88072bbf6d9ad3f16ea86", sourceName: "Reps", semantic: "reps", unit: "reps" },
+  ],
+};
+
 const v3 = JSON.stringify({
   version: 3,
-  meta: {
-    name: "Imported split",
-    progressionRelations: [{
-      schemaVersion: 1, id: "relation-import", type: "paired_exposure", version: 1,
-      movementId: "movement:import-pair",
-      members: [{ exerciseId: "slot-volume", role: "volume" }, { exerciseId: "slot-heavy", role: "heavy" }],
-    }],
-    progressionModifiers: [{ id: "modifier-import", version: 1, compatibleStrategies: ["range@1"], params: { pending: true } }],
-    programStructure: {
-      schemaVersion: 1,
-      days: [{ dayId: "import_d1", label: "Day 1", order: 1 }, { dayId: "import_d2", label: "Day 2", order: 2 }],
-      provenance: { familyId: "balanced", blueprintId: "balanced_2_v1", compilerVersion: 1, catalogueVersion: 1, rulesVersion: 1 },
-      weekPrescriptions: [], customizedFrom: null,
-    },
-  },
+  meta: { name: "Imported split" },
   exercises: [
-    { id: "slot-heavy", movementId: "movement:import-pair", day: "Day 1", order: 1, name: "Barbell back squat", sets: 3, min: 5, max: 8,
-      progression: { schemaVersion: 1, strategy: { id: "range", version: 1, params: { workingSets: 3, repMin: 5, repMax: 8 } }, modifiers: [] } },
-    { id: "slot-volume", movementId: "movement:import-pair", day: "Day 1", order: 2, name: "Puxada frontal", sets: 3, min: 8, max: 12,
-      progression: { schemaVersion: 1, strategy: { id: "manual", version: 1, params: { authored: true } }, modifiers: [] } },
+    { id: "slot-heavy", day: "Day 1", order: 1, name: "Barbell back squat", sets: 3, min: 5, max: 8 },
+    { id: "slot-volume", day: "Day 1", order: 2, name: "Puxada frontal na máquina pegada neutra", sets: 3, min: 8, max: 12 },
     { day: "Day 1", order: 3, name: "Lat pulldown machine thing", sets: 3, min: 8, max: 12 },
     { day: "Day 2", order: 1, name: "Zerbulator 9000", sets: 3, min: 8, max: 12 },
     { day: "Day 2", order: 2, name: "My gym row", sets: 3, min: 8, max: 12, libraryId: "custom:shared" },
   ],
   customExercises: [
-    { id: "custom:shared", name: "My gym row", equipment: ["machine"], primary: "Mid/upper back", secondary: "Biceps" },
+    { id: "custom:shared", name: "My gym row", equipment: ["machine"], primary: "Mid/upper back", secondary: "Biceps", ...WEIGHT_REPS },
   ],
 });
+
+/** The slots of the active canonical definition, in week order. */
+const definitionSlots = (definition) => (definition?.days || []).flatMap((day) => day.slots || []);
 
 async function main() {
   const browser = await launchChromium();
@@ -241,9 +267,9 @@ async function main() {
     assert(byName["Barbell back squat"].status === "exact", "an exact name links itself",
       JSON.stringify(byName["Barbell back squat"]));
     assert(
-      byName["Puxada frontal"].status === "alias" && byName["Puxada frontal"].match === "pd_mc",
+      byName["Puxada frontal na máquina pegada neutra"].status === "alias" && byName["Puxada frontal na máquina pegada neutra"].match === PULLDOWN_NEUTRAL,
       "the same movement in the other language is matched",
-      JSON.stringify(byName["Puxada frontal"])
+      JSON.stringify(byName["Puxada frontal na máquina pegada neutra"])
     );
     assert(
       byName["Lat pulldown machine thing"].status === "probable" && !byName["Lat pulldown machine thing"].reviewed,
@@ -251,8 +277,8 @@ async function main() {
       JSON.stringify(byName["Lat pulldown machine thing"])
     );
     assert(
-      byName["Zerbulator 9000"].status === "unmatched" && byName["Zerbulator 9000"].decision === "raw",
-      "a name the library does not know is kept as imported",
+      byName["Zerbulator 9000"].status === "unmatched" && !byName["Zerbulator 9000"].reviewed,
+      "a name the library does not know arrives undecided",
       JSON.stringify(byName["Zerbulator 9000"])
     );
     assert(
@@ -280,7 +306,7 @@ async function main() {
             !!row.querySelector(".impbadge.is-done"),
         };
       };
-      return { settled: shape("Puxada frontal"), pending: shape("Zerbulator 9000") };
+      return { settled: shape("Puxada frontal na máquina pegada neutra"), pending: shape("Zerbulator 9000") };
     });
     assert(
       foldShape.settled?.folded &&
@@ -299,10 +325,10 @@ async function main() {
 
     const expanded = await page.evaluate(() => {
       const row = [...document.querySelectorAll("#importRows .improw")]
-        .find((r) => r.querySelector(".improw__from")?.textContent?.trim() === "Puxada frontal");
+        .find((r) => r.querySelector(".improw__from")?.textContent?.trim() === "Puxada frontal na máquina pegada neutra");
       row.querySelector('[data-imp-act="expand"]').click();
       const now = [...document.querySelectorAll("#importRows .improw")]
-        .find((r) => r.querySelector(".improw__from")?.textContent?.trim() === "Puxada frontal");
+        .find((r) => r.querySelector(".improw__from")?.textContent?.trim() === "Puxada frontal na máquina pegada neutra");
       return {
         acts: [...now.querySelectorAll("[data-imp-act]")].map((b) => b.dataset.impAct),
         stillFolded: now.classList.contains("is-folded"),
@@ -317,34 +343,39 @@ async function main() {
       JSON.stringify(expanded)
     );
     assert(
-      expanded.focusedAct && expanded.focusedRow === "Puxada frontal",
+      expanded.focusedAct && expanded.focusedRow === "Puxada frontal na máquina pegada neutra",
       "Change moves focus onto the controls it reveals",
       JSON.stringify(expanded)
     );
     model = await draftModel(page);
     assert(
-      model.rows.find((r) => r.name === "Puxada frontal")?.reviewed === true && model.counts.review === 2,
+      model.rows.find((r) => r.name === "Puxada frontal na máquina pegada neutra")?.reviewed === true && model.counts.review === 2,
       "reopening a settled row does not push it back onto the review list",
       JSON.stringify(model.counts)
     );
 
     await page.evaluate(() => {
       const row = [...document.querySelectorAll("#importRows .improw")]
-        .find((r) => r.querySelector(".improw__from")?.textContent?.trim() === "Puxada frontal");
-      row.querySelector('[data-imp-act="raw"]').click();
+        .find((r) => r.querySelector(".improw__from")?.textContent?.trim() === "Puxada frontal na máquina pegada neutra");
+      row.querySelector('[data-imp-act="choose"]').click();
     });
+    await page.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
+    await page.fill("#exPickSearch", "Overhand grip cable lat pulldown");
+    await page.locator(`#exPickList [data-pick="${PULLDOWN_OVERHAND}"]`).click();
+    await page.waitForSelector("#exPickSheet.is-open", { state: "detached", timeout: 5000 });
     await settle(page, 200);
     const refolded = await page.evaluate(() => {
       const row = [...document.querySelectorAll("#importRows .improw")]
-        .find((r) => r.querySelector(".improw__from")?.textContent?.trim() === "Puxada frontal");
+        .find((r) => r.querySelector(".improw__from")?.textContent?.trim() === "Puxada frontal na máquina pegada neutra");
       return { folded: row.classList.contains("is-folded"), acts: [...row.querySelectorAll("[data-imp-act]")].map((b) => b.dataset.impAct) };
     });
     model = await draftModel(page);
     assert(
       refolded.folded && JSON.stringify(refolded.acts) === JSON.stringify(["expand"]) &&
-        model.rows.find((r) => r.name === "Puxada frontal")?.decision === "raw",
+        model.rows.find((r) => r.name === "Puxada frontal na máquina pegada neutra")?.decision === "link" &&
+        model.rows.find((r) => r.name === "Puxada frontal na máquina pegada neutra")?.match === PULLDOWN_OVERHAND,
       "choosing from a reopened row applies the change and folds it back",
-      JSON.stringify({ refolded, decision: model.rows.find((r) => r.name === "Puxada frontal")?.decision })
+      JSON.stringify({ refolded, decision: model.rows.find((r) => r.name === "Puxada frontal na máquina pegada neutra")?.decision })
     );
 
     // ---- cancelling writes nothing ----
@@ -361,7 +392,7 @@ async function main() {
     await openEditor(page);
     await importFile(page, "split.json", v3);
     await page.evaluate(() => {
-      // Accept the proposed match on one, keep the other as imported.
+      // Accept the proposed match on one row.
       const rows = [...document.querySelectorAll("#importRows .improw")];
       for (const row of rows) {
         const from = row.querySelector(".improw__from")?.textContent?.trim();
@@ -370,15 +401,22 @@ async function main() {
       }
     });
     await settle(page, 200);
+    // The name the catalog does not know is resolved by choosing the movement
+    // it means from the library.
     await page.evaluate(() => {
-      const rows = [...document.querySelectorAll("#importRows .improw")];
-      for (const row of rows) {
-        const from = row.querySelector(".improw__from")?.textContent?.trim();
-        if (from === "Zerbulator 9000") row.querySelector('[data-imp-act="raw"]')?.click();
-      }
+      const row = [...document.querySelectorAll("#importRows .improw")]
+        .find((r) => r.querySelector(".improw__from")?.textContent?.trim() === "Zerbulator 9000");
+      row.querySelector('[data-imp-act="choose"]').click();
     });
+    await page.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
+    await page.fill("#exPickSearch", "Bent-over barbell row");
+    await page.locator(`#exPickList [data-pick="${BENT_OVER_ROW}"]`).click();
+    await page.waitForSelector("#exPickSheet.is-open", { state: "detached", timeout: 5000 }).catch(() => {});
     await settle(page, 200);
     model = await draftModel(page);
+    assert(model.rows.find((r) => r.name === "Zerbulator 9000")?.match === BENT_OVER_ROW &&
+      model.rows.find((r) => r.name === "Zerbulator 9000")?.decision === "link",
+    "choosing from the library links the row to the movement picked", JSON.stringify(model.rows));
     assert(model.counts.review === 0, "reviewing every row unblocks Import", JSON.stringify(model.counts));
     assert(!(await page.locator("#importCommit").isDisabled()), "the Import button enables once nothing is pending");
 
@@ -395,36 +433,40 @@ async function main() {
     assert(stagedImport.draft?.state?.route === "import" && stagedImport.draft.state.step === "preview" &&
       stagedImport.draft.state.result?.preview?.program?.length === 5,
     "the reviewed import persists as an owned setup candidate", JSON.stringify(stagedImport.draft));
-    const manualProgressionCopy = await page.locator("#onbBody").innerText();
-    assert(/program sets each exercise's target, or you set it yourself/i.test(manualProgressionCopy) &&
-      !/supported Taurifer progression/i.test(manualProgressionCopy),
-    "common import preview explains that authored manual targets belong to the program or user",
-    manualProgressionCopy);
+    const stagedPreview = stagedImport.draft?.state?.result?.preview;
+    assert(definitionSlots(stagedPreview?.programDefinition).length === 5 &&
+      JSON.stringify(definitionSlots(stagedPreview.programDefinition).map((slot) => slot.exerciseId)) ===
+        JSON.stringify(stagedPreview.program.map((row) => row.libraryId)),
+    "the reviewed candidate is a canonical program whose rows are its projection",
+    JSON.stringify(stagedPreview?.programDefinition));
     assert(!(await page.locator("#entryActivate").isDisabled()),
-      "an authored manual progression remains activation-ready after review");
+      "a fully reviewed import is activation-ready");
     await activateStagedImport(page);
     after = await getState(page);
     assert(after.program.length === 5, "explicit activation writes the reviewed program", `${after.program.length} rows`);
+    const activeSlots = definitionSlots(after.programMeta.programDefinition);
     assert(
-      after.program.find((e) => e.id === "slot-heavy")?.progression?.strategy?.id === "range" &&
-        after.program.find((e) => e.id === "slot-volume")?.progression?.strategy?.id === "manual",
-      "program import persists recognized progression envelopes",
-      JSON.stringify(after.program.filter((e) => ["slot-heavy", "slot-volume"].includes(e.id)))
+      activeSlots.length === 5 &&
+        JSON.stringify(activeSlots.map((slot) => slot.exerciseId)) === JSON.stringify(after.program.map((e) => e.libraryId)),
+      "activation persists the canonical definition the rows project from",
+      JSON.stringify({ slots: activeSlots.map((slot) => [slot.id, slot.exerciseId]), rows: after.program.map((e) => [e.id, e.libraryId]) })
     );
     assert(
-      after.programMeta.progressionRelations?.[0]?.id === "relation-import" &&
-        after.programMeta.progressionRelations[0].members[0].role === "heavy" &&
-        after.programMeta.progressionModifiers?.[0]?.id === "modifier-import" &&
-        after.programMeta.programStructure?.provenance?.blueprintId === "balanced_2_v1",
-      "program import persists contextual relations, modifiers, and compiler provenance",
-      JSON.stringify({ relations: after.programMeta.progressionRelations, modifiers: after.programMeta.progressionModifiers })
+      activeSlots.find((slot) => slot.id === "slot-heavy")?.exerciseId === BACK_SQUAT &&
+        activeSlots.find((slot) => slot.id === "slot-volume")?.exerciseId === PULLDOWN_NEUTRAL,
+      "a row's own id from the file becomes its slot id",
+      JSON.stringify(activeSlots.map((slot) => [slot.id, slot.exerciseId]))
     );
-    const squat = after.program.find((e) => e.libraryId === "sq_bb");
-    const probable = after.program.find((e) => e.libraryId === "pd_mc" && e.day === "Day 1" && e.order === 3);
-    const raw = after.program.find((e) => e.name === "Zerbulator 9000");
-    assert(!!squat, "an exact row lands linked");
-    assert(!!probable, "an accepted likely match lands linked", JSON.stringify(after.program.map((e) => [e.name, e.libraryId])));
-    assert(raw && raw.libraryId === undefined, "a row kept as imported lands with its own name and no link", JSON.stringify(raw));
+    const squat = after.program.find((e) => e.libraryId === BACK_SQUAT);
+    const alias = after.program.find((e) => e.libraryId === PULLDOWN_NEUTRAL);
+    const probable = after.program.find((e) => e.libraryId === PULLDOWN_OVERHAND && e.day === "Day 1" && e.order === 3);
+    const picked = after.program.find((e) => e.libraryId === BENT_OVER_ROW && e.day === "Day 2");
+    const rowsSeen = JSON.stringify(after.program.map((e) => [e.day, e.order, e.name, e.libraryId]));
+    assert(!!squat && squat.min === 5 && squat.max === 8 && squat.sets === 3,
+      "an exact row lands linked with its sets and rep range", rowsSeen);
+    assert(!!alias, "a row named in the other language lands linked to that movement", rowsSeen);
+    assert(!!probable, "an accepted likely match lands linked", rowsSeen);
+    assert(!!picked, "a row resolved from the library lands linked to the movement picked", rowsSeen);
 
     // ---- v3 portability ----
     const custom = (after.customExercises || []).find((e) => e.id === "custom:shared");
@@ -432,7 +474,8 @@ async function main() {
     assert(!!custom, "a referenced custom definition is imported with the program",
       JSON.stringify(after.customExercises));
     assert(
-      !!linkedToCustom && custom.primary === "Mid/upper back",
+      !!linkedToCustom && custom.primary === "Mid/upper back" &&
+        activeSlots.some((slot) => slot.exerciseId === "custom:shared" && slot.metricOrigin === "user_defined"),
       "the imported template resolves against the imported definition",
       JSON.stringify([linkedToCustom?.name, custom?.primary])
     );
@@ -450,28 +493,28 @@ async function main() {
     await openEditor(page);
     const programJson = await downloadJson(page, "#exportProgram");
     assert(
-      programJson.version === 3 && programJson.exercises.find((e) => e.id === "slot-heavy")?.progression?.strategy?.id === "range" &&
-        programJson.meta?.progressionRelations?.[0]?.id === "relation-import",
-      "program JSON export carries the progression model",
-      JSON.stringify({ version: programJson.version, exercise: programJson.exercises.find((e) => e.id === "slot-heavy"), meta: programJson.meta })
+      programJson.kind === "taurifer-program" && programJson.version === 4 &&
+        programJson.name === "Imported split" &&
+        JSON.stringify(programJson.definition) === JSON.stringify(after.programMeta.programDefinition) &&
+        JSON.stringify((programJson.customExercises || []).map((e) => e.id)) === JSON.stringify(["custom:shared"]),
+      "program JSON export carries the canonical definition and the custom movements it references",
+      JSON.stringify({ kind: programJson.kind, version: programJson.version, customs: programJson.customExercises })
     );
     const parsedProgramJson = await page.evaluate((value) => window.__repforgeParseProgramSource(value, "program.json"), JSON.stringify(programJson));
     assert(
-      parsedProgramJson?.meta?.progressionModifiers?.[0]?.id === "modifier-import" &&
-        parsedProgramJson?.exercises?.[0]?.progression?.strategy?.id === "range" &&
-        parsedProgramJson?.meta?.programStructure?.provenance?.blueprintId === "balanced_2_v1",
-      "program JSON import reads the versioned progression model",
+      JSON.stringify(parsedProgramJson?.definition) === JSON.stringify(programJson.definition) &&
+        parsedProgramJson?.exercises?.length === 5 &&
+        JSON.stringify(parsedProgramJson.exercises.map((e) => e.libraryId)) === JSON.stringify(after.program.map((e) => e.libraryId)),
+      "program JSON import reads the exported definition back exactly",
       JSON.stringify(parsedProgramJson)
     );
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
     const reloaded = await getState(page);
     assert(
-      reloaded.program.find((e) => e.id === "slot-heavy")?.progression?.strategy?.id === "range" &&
-        reloaded.programMeta.progressionRelations?.[0]?.id === "relation-import" &&
-        reloaded.programMeta.progressionModifiers?.[0]?.id === "modifier-import" &&
-        reloaded.programMeta.programStructure?.provenance?.blueprintId === "balanced_2_v1",
-      "durable reload preserves the progression model",
+      JSON.stringify(reloaded.programMeta.programDefinition) === JSON.stringify(after.programMeta.programDefinition) &&
+        JSON.stringify(reloaded.program.map((e) => e.libraryId)) === JSON.stringify(after.program.map((e) => e.libraryId)),
+      "durable reload preserves the imported definition",
       JSON.stringify({ program: reloaded.program, meta: reloaded.programMeta })
     );
     const archived = await page.evaluate(async () => {
@@ -483,90 +526,33 @@ async function main() {
     });
     assert(
       archived.result?.committed && !archived.entry &&
-        archived.activeProgram?.find((e) => e.id === "slot-heavy")?.progression?.strategy?.id === "range" &&
-        archived.activeMeta?.progressionRelations?.[0]?.id === "relation-import" &&
-        archived.activeMeta?.programStructure?.provenance?.blueprintId === "balanced_2_v1",
-      "a repeated block preserves the progression model without an archive",
-      JSON.stringify(archived)
+        JSON.stringify(definitionSlots(archived.activeMeta?.programDefinition).map((slot) => slot.exerciseId)) ===
+          JSON.stringify(activeSlots.map((slot) => slot.exerciseId)),
+      "a repeated block keeps the imported definition without an archive",
+      JSON.stringify({ result: archived.result, entry: archived.entry, meta: archived.activeMeta })
     );
 
-    // An editor import may carry a future prescription, but it must never make
-    // that unvalidated value executable. The explicit incompatibility marker
-    // keeps the original data recoverable for a later reader.
+    // A released program file may still carry a retired progression envelope.
+    // It is not part of the canonical model, so the candidate must not carry it
+    // anywhere executable.
     await resetWithProgram(page);
     await openEditor(page);
-    await importFile(page, "future-progression.json", JSON.stringify({
-      version: 3, meta: { name: "Future progression" },
+    await importFile(page, "legacy-progression.json", JSON.stringify({
+      version: 3, meta: { name: "Legacy progression" },
       exercises: [{ day: "Day 1", order: 1, name: "Barbell bench press", sets: 3, min: 5, max: 8,
         progression: { schemaVersion: 1, strategy: { id: "future_strategy", version: 99, params: { authored: true } }, modifiers: [] } }],
     }));
     model = await draftModel(page);
     assert(model?.counts.total === 1 && model.counts.review === 0,
-      "a future progression file reaches the editor review", JSON.stringify(model?.counts));
-    const activeBeforeFuture = await page.evaluate((key) => localStorage.getItem(key), KEY);
+      "a file carrying a retired progression envelope reaches the review", JSON.stringify(model?.counts));
     await stageReviewedImport(page);
-    assert(await page.evaluate(() => document.activeElement?.id === "entryActivationStatus"),
-      "future-strategy import preview focuses its activation status on initial render");
-    const futureCandidate = await page.evaluate(() => window.__repforgeOnboarding.entry());
-    assert(futureCandidate.result?.preview?.program?.[0]?.progression === undefined &&
-      futureCandidate.result.preview.program[0]?.progressionIncompatibility?.kind === "prescription" &&
-      futureCandidate.result.preview.program[0]?.progressionIncompatibility?.value?.strategy?.id === "future_strategy",
-      "program JSON review preserves unvalidated progression as non-executable provenance",
-      JSON.stringify(futureCandidate.result?.preview?.program?.[0]));
-    assert(await page.locator("#entryActivate").isDisabled(),
-      "an import with unsupported progression disables activation until it is repaired");
-    const blockedFuture = await page.evaluate(() => window.__repforgeActivateEntryPreview?.({ skipReplaceConfirm: true }));
-    assert(blockedFuture?.code === "candidate_incomplete", "unsupported import exposes an actionable activation validation result",
-      JSON.stringify(blockedFuture));
-    assert(await page.evaluate(({ key, before }) => localStorage.getItem(key) === before,
-      { key: KEY, before: activeBeforeFuture }),
-    "an import with unsupported progression cannot replace active state");
+    const legacyCandidate = await page.evaluate(() => window.__repforgeOnboarding.entry().result?.preview);
+    assert(legacyCandidate?.program?.length === 1 && legacyCandidate.program[0].progression === undefined &&
+      !JSON.stringify(legacyCandidate.programDefinition || null).includes("future_strategy") &&
+      definitionSlots(legacyCandidate.programDefinition)[0]?.exerciseId === BENCH_PRESS,
+    "a retired progression envelope is not carried into the canonical candidate",
+    JSON.stringify(legacyCandidate));
 
-    const legacyProgression = await page.evaluate(() => {
-      const common = { id: "legacy-slot", movementId: "legacy-slot", name: "Legacy lift", sets: 3, min: 6, max: 10 };
-      const project = (extra) => window.__repforgeProgressionForExercise({ ...common, ...extra });
-      return {
-        empty: project({ progressionType: "   " }),
-        alias: project({ progressionType: "double_progression" }),
-        unknown: project({ progressionType: "old_custom_rule" }),
-        invalid: project({ progressionIncompatibility: { version: 1, kind: "prescription", reason: "future", value: { strategy: { id: "future", version: 9 } } } }),
-      };
-    });
-    assert(legacyProgression.empty.strategy.id === "range" && legacyProgression.alias.strategy.id === "range",
-      "empty and documented legacy progression markers project to range in memory",
-      JSON.stringify(legacyProgression));
-    assert(legacyProgression.unknown.strategy.id === "manual" &&
-      legacyProgression.unknown.strategy.params.unsupportedImport === "old_custom_rule",
-      "unknown legacy progression markers remain manual and preserve their reason",
-      JSON.stringify(legacyProgression.unknown));
-    assert(legacyProgression.invalid.strategy.id === "manual" &&
-      legacyProgression.invalid.strategy.params.unsupportedImport === "incompatible_prescription",
-      "invalid or future progression markers cannot reach the range adapter",
-      JSON.stringify(legacyProgression.invalid));
-    const legacyRecommendation = await page.evaluate(() => window.__repforgeRecommendation({
-      id: "legacy-slot", movementId: "legacy-slot", name: "Legacy lift", day: "Day 1", sets: 3, min: 6, max: 10,
-      progressionType: "old_custom_rule",
-    }));
-    assert(legacyRecommendation.status === "manual" && legacyRecommendation.load === null && legacyRecommendation.reason === "manual.unsupported_import",
-      "unknown legacy progression produces no range recommendation target",
-      JSON.stringify(legacyRecommendation));
-
-    const manualSuggestions = await page.evaluate(() => {
-      const ex = { id: "legacy-slot", movementId: "legacy-slot", name: "Legacy lift", day: "Day 1", sets: 3, min: 6, max: 10,
-        progressionType: "old_custom_rule" };
-      const rec = window.__repforgeProgression.recommendation(ex);
-      return {
-        suggestion: window.__repforgeProgression.setSuggestion(ex, 1, rec, {}, null),
-        base: window.__repforgeProgression.baseSuggestion(ex, rec, {}, null),
-        explanation: window.__repforgeProgression.explainRecommendation(ex),
-      };
-    });
-    assert(manualSuggestions.suggestion.load === null && manualSuggestions.suggestion.reps === null,
-      "manual progression does not invent ghost load or reps for a set",
-      JSON.stringify(manualSuggestions.suggestion));
-    assert(manualSuggestions.base.load === null && manualSuggestions.base.reps === null && manualSuggestions.explanation.length === 0,
-      "manual progression has no base target or arithmetic explanation",
-      JSON.stringify(manualSuggestions));
     const oversizedMeta = await page.evaluate(() => window.__repforgeValidateStateShape({
       program: [{ id: "ex1", name: "Press", day: "Day 1", order: 1, sets: 3, min: 6, max: 10 }], log: [],
       programMeta: { progressionIncompatibilities: [{ value: { text: "x".repeat(4001) } }] },
@@ -595,22 +581,11 @@ async function main() {
     // The file claims the id the local definition already holds, for a
     // different movement — two devices minting ids independently.
     colliding.customExercises[0].id = localId;
-    colliding.exercises[4].libraryId = localId;
+    colliding.exercises.find((e) => e.libraryId === "custom:shared").libraryId = localId;
+    // Every remaining row resolves to a movement on its own or by its first proposal.
+    colliding.exercises = colliding.exercises.filter((e) => e.name !== "Zerbulator 9000");
     await importFile(page, "split.json", JSON.stringify(colliding));
-    // One decision at a time: each click re-renders the list, so a captured
-    // NodeList goes stale after the first.
-    for (let guard = 0; guard < 12; guard++) {
-      const acted = await page.evaluate(() => {
-        const row = [...document.querySelectorAll("#importRows .improw")].find((r) => r.classList.contains("is-open"));
-        if (!row) return false;
-        (row.querySelector('[data-imp-act="pick"][data-imp-idx="0"]') ||
-          row.querySelector('[data-imp-act="link"]') ||
-          row.querySelector('[data-imp-act="raw"]'))?.click();
-        return true;
-      });
-      if (!acted) break;
-      await settle(page, 150);
-    }
+    await acceptFirstProposals(page);
     await stageReviewedImport(page);
     const collisionCandidate = await page.evaluate(() => window.__repforgeOnboarding.entry().result.preview);
     const stagedTheirs = (collisionCandidate.customExercises || []).find((e) => e.name === "My gym row");
@@ -634,6 +609,32 @@ async function main() {
       JSON.stringify(after.program.map((e) => [e.name, e.libraryId]))
     );
 
+    // ---- an unknown row must become a movement before Import ----
+    // Every program slot names a movement, so a row the catalog does not know
+    // is settled by choosing a movement or creating one. There is no unlinked
+    // "keep as typed" that would stage a preview that can never activate.
+    await resetWithProgram(page);
+    await openEditor(page);
+    await importFile(page, "unknown.json", JSON.stringify({
+      version: 3, meta: { name: "Unknown row" },
+      exercises: [
+        { day: "Day 1", order: 1, name: "Barbell bench press", sets: 3, min: 5, max: 8 },
+        { day: "Day 1", order: 2, name: "Zerbulator 9000", sets: 3, min: 8, max: 12 },
+      ],
+    }));
+    const activeBeforeUnknown = await page.evaluate((key) => localStorage.getItem(key), KEY);
+    const unknownActs = await page.evaluate(() => {
+      const row = [...document.querySelectorAll("#importRows .improw")]
+        .find((r) => r.querySelector(".improw__from")?.textContent?.trim() === "Zerbulator 9000");
+      return [...(row?.querySelectorAll("[data-imp-act]") || [])].map((b) => b.dataset.impAct);
+    });
+    assert(unknownActs.includes("choose") && unknownActs.includes("custom") && !unknownActs.includes("raw"),
+      "an unknown row offers Choose and Create custom, not keep-as-typed", JSON.stringify(unknownActs));
+    assert(await page.locator("#importCommit").isDisabled(),
+      "Import stays blocked until the unknown row names a movement");
+    assert(await page.evaluate(({ key, before }) => localStorage.getItem(key) === before, { key: KEY, before: activeBeforeUnknown }),
+      "an undecided unknown row changes nothing durable");
+
     // ---- older and simpler shapes still import ----
     await resetWithProgram(page);
     await openEditor(page);
@@ -646,7 +647,8 @@ async function main() {
     await reviewAndActivateImport(page);
     after = await getState(page);
     assert(
-      after.program.length === 1 && after.program[0].libraryId === "pr_bb",
+      after.program.length === 1 && after.program[0].libraryId === BENCH_PRESS &&
+        definitionSlots(after.programMeta.programDefinition)[0]?.exerciseId === BENCH_PRESS,
       "the v2 program lands linked",
       JSON.stringify(after.program)
     );
@@ -655,7 +657,7 @@ async function main() {
     await resetWithProgram(page);
     await openEditor(page);
     await importFile(page, "upper-lower.txt",
-      "UPPER / LOWER, 2 days per week\n\nDAY 1: Chest · Back\n1. Barbell bench press [range@1]: 4× 4 to 8\n2. Barbell row: 3× 6 to 10\n\nDAY 2: Legs\n1. Leg press: 3× 8 to 12\n");
+      "UPPER / LOWER, 2 days per week\n\nDAY 1: Chest · Back\n1. Barbell bench press: 4× 4 to 8\n2. Bent-over barbell row: 3× 6 to 10\n\nDAY 2: Legs\n1. 45° leg press: 3× 8 to 12\n");
     model = await draftModel(page);
     assert(
       model && model.format === "text" && model.counts.total === 3,
@@ -675,10 +677,11 @@ async function main() {
       JSON.stringify(after.program.map((e) => [e.day, e.name, e.sets, e.min, e.max]))
     );
     assert(
-      after.program[0]?.progression?.strategy?.id === "range" &&
-        after.program[0]?.progression?.strategy?.params?.repMax === 8,
-      "text import carries the versioned progression envelope",
-      JSON.stringify(after.program)
+      JSON.stringify(after.program.map((e) => [e.libraryId, e.sets, e.min, e.max])) === JSON.stringify([
+        [BENCH_PRESS, 4, 4, 8], [BENT_OVER_ROW, 3, 6, 10], [LEG_PRESS_45, 3, 8, 12],
+      ]) && definitionSlots(after.programMeta.programDefinition).length === 3,
+      "the text import lands as a canonical program over the movements it names",
+      JSON.stringify(after.program.map((e) => [e.name, e.libraryId, e.sets, e.min, e.max]))
     );
     assert(
       after.programMeta.name === "Upper / Lower",
@@ -710,7 +713,7 @@ async function main() {
       ],
       customExercises: [
         { id: "custom:onboarding", name: "My onboarding row", equipment: ["machine"],
-          primary: "Mid/upper back", secondary: "Biceps" },
+          primary: "Mid/upper back", secondary: "Biceps", ...WEIGHT_REPS },
       ],
     });
     await importFile(page, "onboarding.json", onboardingImport);
@@ -760,7 +763,7 @@ async function main() {
           libraryId: "custom:orphan" },
       ],
       customExercises: [{ id: "custom:orphan", name: "Orphan candidate row", equipment: ["machine"],
-        primary: "Chest", secondary: "Triceps" }],
+        primary: "Chest", secondary: "Triceps", ...WEIGHT_REPS }],
     }));
     await stageReviewedImport(page);
     const editableBefore = await page.evaluate((key) => ({
@@ -801,33 +804,21 @@ async function main() {
     // The sessions in the file are the whole point of a backup. Reading only
     // its exercises threw them away silently, which is indistinguishable from
     // a restore that worked until you open History and it is empty.
+    // A backup is the app's own state: the canonical program, its metadata
+    // and the log.
     const backup = JSON.stringify({
       settings: { unit: "kg", restSec: 180 },
-      programMeta: {
-        id: "backup-meta", name: "Restored split", started: "2026-06-15",
-        progressionRelations: [{
-          schemaVersion: 1, id: "relation-backup", type: "paired_exposure", version: 1,
-          movementId: "movement:backup-pair",
-          members: [{ exerciseId: "backup-volume", role: "volume" }, { exerciseId: "backup-heavy", role: "heavy" }],
-        }],
-        progressionModifiers: [
-          { id: "modifier-backup", version: 1, compatibleStrategies: ["manual@1"], params: { pending: true } },
-          { id: "modifier-future", version: 1, compatibleStrategies: ["manual@1"], params: { pending: true }, futureField: true },
-        ],
-      },
-      program: [
-        { id: "backup-heavy", movementId: "movement:backup-pair", day: "Day 1", order: 1, name: "Barbell back squat", sets: 3, min: 5, max: 8,
-          progression: { schemaVersion: 1, strategy: { id: "range", version: 1, params: { workingSets: 3, repMin: 5, repMax: 8 } }, modifiers: [] } },
-        { id: "backup-volume", movementId: "movement:backup-pair", day: "Day 1", order: 2, name: "Puxada frontal", sets: 3, min: 8, max: 12,
-          progression: { schemaVersion: 1, strategy: { id: "manual", version: 1, params: { authored: true } }, modifiers: [] } },
-      ],
+      programMeta: seedProgramMeta({ id: "backup-meta", name: "Restored split", started: "2026-06-15" }),
+      program: seedProgram(),
       log: [
-        { session: "2026-06-15_Day 1_a", date: "2026-06-15", day: "Day 1", name: "Barbell back squat", set: 1, load: 100, reps: 8, rir: 2 },
-        { session: "2026-06-15_Day 1_a", date: "2026-06-15", day: "Day 1", name: "Barbell back squat", set: 2, load: 100, reps: 7, rir: 1 },
-        { session: "2026-06-18_Day 1_b", date: "2026-06-18", day: "Day 1", name: "Barbell back squat", set: 1, load: 102.5, reps: 8, rir: 2 },
+        { session: "2026-06-15_Day 1_a", date: "2026-06-15", day: "Day 1", name: "Hack squat", set: 1, load: 100, reps: 8, rir: 2 },
+        { session: "2026-06-15_Day 1_a", date: "2026-06-15", day: "Day 1", name: "Hack squat", set: 2, load: 100, reps: 7, rir: 1 },
+        { session: "2026-06-18_Day 1_b", date: "2026-06-18", day: "Day 1", name: "Hack squat", set: 1, load: 102.5, reps: 8, rir: 2 },
       ],
       programHistory: [],
     });
+    const SEED_ROWS = seedProgram().length;
+    const seedDefinition = seedProgramMeta().programDefinition;
     const dialogState = () => page.evaluate(() => ({
       open: !!document.querySelector("#importChoice").open,
       body: document.querySelector("#importChoiceBody")?.textContent || "",
@@ -852,17 +843,11 @@ async function main() {
     assert(new Set((restored.log || []).map((r) => r.session)).size === 2 && restored.log.length === 3,
       "restoring brings the recorded sessions with it",
       JSON.stringify({ sessions: new Set((restored.log || []).map((r) => r.session)).size, sets: restored.log?.length }));
-    assert(restored.program?.length === 2, "restoring brings the program too", JSON.stringify(restored.program?.length));
+    assert(restored.program?.length === SEED_ROWS &&
+      JSON.stringify(restored.programMeta?.programDefinition) === JSON.stringify(seedDefinition),
+    "restoring brings the program and its canonical definition too",
+    JSON.stringify({ rows: restored.program?.length, meta: restored.programMeta }));
     assert(restored.settings?.restSec === 180, "restoring brings the settings too", JSON.stringify(restored.settings));
-    assert(
-      restored.program.find((e) => e.id === "backup-heavy")?.progression?.strategy?.id === "range" &&
-        restored.programMeta.progressionRelations?.[0]?.id === "relation-backup" &&
-        restored.programMeta.progressionModifiers?.length === 0 &&
-        restored.programMeta.progressionIncompatibilities?.some((item) => item.kind === "modifiers" &&
-          item.value?.some?.((modifier) => modifier.id === "modifier-future")),
-      "backup restore round-trips valid progression and preserves invalid collections with provenance",
-      JSON.stringify({ program: restored.program, meta: restored.programMeta })
-    );
 
     // Merge takes the sessions without touching anything else.
     await resetWithProgram(page);
@@ -877,27 +862,21 @@ async function main() {
     // Program only is still there for a lifter who wants the split alone.
     await resetWithProgram(page);
     await openEditor(page);
-    const cleanProgramOnly = JSON.parse(backup);
-    cleanProgramOnly.programMeta.progressionModifiers = [];
-    cleanProgramOnly.programMeta.progressionIncompatibilities = [];
-    await importFile(page, "backup.json", JSON.stringify(cleanProgramOnly));
+    await importFile(page, "backup.json", backup);
     await page.evaluate(() => document.querySelector("#importProgramOnly").click());
     await settle(page, 500);
     assert((await dialogState()).reviewing, "program only opens the review screen");
-    await page.evaluate(() => {
-      const draft = window.__repforgeImportDraft();
-      draft.rows.forEach((r) => { r.reviewed = true; });
-    });
+    await acceptFirstProposals(page);
     await reviewAndActivateImport(page);
     restored = await getState(page);
-    assert(restored.program?.length === 2 && (restored.log || []).length === 0,
+    assert(restored.program?.length === SEED_ROWS && (restored.log || []).length === 0,
       "program only imports the exercises and leaves history alone",
       JSON.stringify({ program: restored.program?.length, log: restored.log?.length }));
     assert(
-      restored.program[0]?.progression?.strategy?.id === "range" &&
-        restored.programMeta.progressionRelations?.[0]?.id === "relation-backup",
-      "program-only import keeps the versioned progression model",
-      JSON.stringify({ program: restored.program, meta: restored.programMeta })
+      JSON.stringify(definitionSlots(restored.programMeta?.programDefinition).map((slot) => slot.exerciseId)) ===
+        JSON.stringify(definitionSlots(seedDefinition).map((slot) => slot.exerciseId)),
+      "program-only import keeps every movement the backup's program names",
+      JSON.stringify(restored.program?.map((e) => [e.name, e.libraryId]))
     );
 
     // ---- a backup with no sessions is still a backup ----
@@ -907,14 +886,11 @@ async function main() {
     // program's own name, dates and block. An empty log is not consent.
     const freshBackup = JSON.stringify({
       settings: { unit: "lb", restSec: 180, rirMode: "effort", lang: "pt", jumpPct: 5 },
-      programMeta: {
+      programMeta: seedProgramMeta({
         id: "fresh-meta", name: "Projeto novo", started: "2026-07-01",
         equipment: ["machines"], mesocycleLengthWeeks: 8, onboarded: true,
-      },
-      program: [
-        { day: "Day 1", order: 1, name: "Barbell back squat", sets: 3, min: 5, max: 8 },
-        { day: "Day 1", order: 2, name: "Puxada frontal", sets: 3, min: 8, max: 12 },
-      ],
+      }),
+      program: seedProgram(),
       log: [],
       programHistory: [],
     });
@@ -945,7 +921,7 @@ async function main() {
     assert(restored.programMeta?.name === "Projeto novo" && restored.programMeta?.id === "fresh-meta" &&
       restored.programMeta?.started === "2026-07-01" && restored.programMeta?.mesocycleLengthWeeks === 8,
       "restoring a session-less backup brings its program details", JSON.stringify(restored.programMeta));
-    assert(restored.program?.length === 2, "restoring a session-less backup brings its program",
+    assert(restored.program?.length === SEED_ROWS, "restoring a session-less backup brings its program",
       JSON.stringify(restored.program?.length));
 
     // Program only is a partial import by choice — but the split's name is part
@@ -955,10 +931,7 @@ async function main() {
     await importFile(page, "empty-log.json", freshBackup);
     await page.evaluate(() => document.querySelector("#importProgramOnly").click());
     await settle(page, 500);
-    await page.evaluate(() => {
-      const draft = window.__repforgeImportDraft();
-      draft.rows.forEach((r) => { r.reviewed = true; });
-    });
+    await acceptFirstProposals(page);
     await reviewAndActivateImport(page);
     restored = await getState(page);
     assert(restored.programMeta?.name === "Projeto novo",
@@ -986,6 +959,55 @@ async function main() {
       JSON.stringify({ settings: restored.settings, meta: restored.programMeta }));
     assert(!gates.firstRun && !gates.onboarding,
       "a restore answers the setup gate it came through", JSON.stringify(gates));
+
+    // ---- a long-lived install's backup is still restorable ----
+    // Archived blocks each carry a full ProgramDefinition and the log grows
+    // without end, so a whole-state backup is bounded separately from a
+    // program file and well above the old 1 MiB program bound.
+    const bigLog = Array.from({ length: 9000 }, (_, i) => ({
+      session: `2025-01-01_Day 1_${Math.floor(i / 12)}`, date: "2025-01-01", day: "Day 1", name: "Hack squat",
+      set: (i % 12) + 1, load: 100, reps: 8, rir: 2, notes: "",
+    }));
+    const bigBackup = JSON.stringify({
+      settings: { unit: "kg", restSec: 180 }, programMeta: seedProgramMeta({ id: "big-meta", name: "Long history" }),
+      program: seedProgram(), log: bigLog, programHistory: [],
+    });
+    await resetWithProgram(page);
+    await page.setInputFiles("#importJson", { name: "big-backup.json", mimeType: "application/json", buffer: Buffer.from(bigBackup) });
+    await page.waitForFunction(() => !!document.querySelector("#importChoice")?.open, undefined, { timeout: 10000 });
+    choice = await dialogState();
+    assert(Buffer.byteLength(bigBackup) > 1024 * 1024 && choice.open && /9000 sets|9,000 sets/.test(choice.body),
+      "a backup larger than a program file's bound still opens the restore choice",
+      JSON.stringify({ bytes: Buffer.byteLength(bigBackup), body: choice.body }));
+    await page.evaluate(() => document.querySelector("#importChoice").close());
+
+    // ---- a backup from before the canonical program model ----
+    // Flat rows without a ProgramDefinition cannot be restored as a program the
+    // engine reads. The program door re-links its rows through review instead,
+    // and the Settings restore refuses it with a way forward, writing nothing.
+    const legacyMeta = seedProgramMeta({ id: "legacy-meta", name: "Old backup" });
+    delete legacyMeta.programDefinition;
+    const legacyBackup = JSON.stringify({
+      settings: { unit: "kg", restSec: 150 }, programMeta: legacyMeta, program: seedProgram(),
+      log: [{ session: "2026-05-01_Day 1_a", date: "2026-05-01", day: "Day 1", name: "Hack squat", set: 1, load: 90, reps: 8, rir: 2 }],
+      programHistory: [],
+    });
+    await resetWithProgram(page);
+    await openEditor(page);
+    const beforeLegacy = await page.evaluate((key) => localStorage.getItem(key), KEY);
+    await importFile(page, "legacy-backup.json", legacyBackup);
+    choice = await dialogState();
+    assert(!choice.open && choice.reviewing,
+      "a legacy backup through the program door goes to review, not to a restore", JSON.stringify(choice));
+    await page.click("#importReviewCancel");
+    await settle(page);
+    const expectedLegacyToast = await page.evaluate(() => window.RepForgeI18n.t("toast.backup_legacy"));
+    await page.setInputFiles("#importJson", { name: "legacy-backup.json", mimeType: "application/json", buffer: Buffer.from(legacyBackup) });
+    await page.waitForFunction((text) => document.querySelector("#toast")?.textContent?.includes(text), expectedLegacyToast, { timeout: 5000 });
+    choice = await dialogState();
+    assert(!choice.open, "the Settings restore refuses a legacy backup instead of offering it", JSON.stringify(choice));
+    assert(await page.evaluate(({ key, before }) => localStorage.getItem(key) === before, { key: KEY, before: beforeLegacy }),
+      "refusing a legacy backup changes nothing durable");
 
     // A program-only file is still a program file: it has no log to speak for.
     await resetWithProgram(page);

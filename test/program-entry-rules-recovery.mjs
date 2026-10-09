@@ -1,187 +1,245 @@
 #!/usr/bin/env node
-/** Route-owned recovery proof for stale setup drafts. */
+/**
+ * Route-owned recovery for setup drafts saved under older rules.
+ *
+ * Each draft is made through the production entry UI, then its recorded rules
+ * version is aged, as if an older release had saved it. Reopening setup must
+ * show the rules notice and recover by route:
+ *   - Generate (recommend) and Custom regenerate from the saved answers with the
+ *     current generator, replacing the preview only once a candidate exists; a
+ *     failed regeneration keeps the old preview and stays recoverable.
+ *   - Build keeps its editable candidate and hands over to the editor.
+ *   - Import and shared links keep their validated snapshot after an explicit
+ *     acceptance; there is no generator input to rebuild them from.
+ */
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { installSeedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
+import { encodeSetupLink } from "./fixtures/setup-link-v4.mjs";
+
+const require = createRequire(import.meta.url);
+const Adapter = require("../program-entry-adapter.js");
+const Compiler = require("../program-compiler.js");
+const Catalog = require("../assets/exercise-catalog.json");
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
-const KEY = "repforge_v1";
 const DRAFT = "repforge_program_setup_draft_v1";
-const ACTIVE = {
-  settings: { unit: "kg", lang: "en", jumpPct: 2.5, minJump: 2.5, rirHigh: 2, hardRir: 4, restSec: 120 },
-  programMeta: { id: "rules-active", name: "Current block", started: "2026-08-01", onboarded: true, daysPerWeek: 2, mesocycleLengthWeeks: 6, mesocycleStatus: "active" },
-  program: [{ id: "active-row", day: "Day 1", order: 1, name: "Active row", sets: 2, min: 8, max: 12, libraryId: "rw_bb" }],
-  log: [], programHistory: [], customExercises: [], _storageRevision: 2,
-};
-
-function resultFixture(route, selectedId = `${route}-old`) {
-  const first = { id: `${route}-row-1`, day: "Day 1", order: 1, name: "Saved row", sets: 3, min: 8, max: 12 };
-  const second = { id: `${route}-row-2`, day: "Day 2", order: 1, name: "Saved press", sets: 3, min: 6, max: 10 };
-  const days = route === "build"
-    ? [{ dayId: "manual_d1", label: "Day 1", exercises: [first] }, { dayId: "manual_d2", label: "Day 2", exercises: [second] }]
-    : [{ dayId: `${route}-d1`, label: "Day 1", exercises: [first] }];
-  const preview = {
-    source: route === "shared" ? "shared" : route === "import" ? "import" : "compiler",
-    familyId: route === "build" ? null : "balanced", frequency: route === "build" ? 2 : 3,
-    program: route === "build" ? [first, second] : [first],
-    programStructure: { schemaVersion: 1, days: days.map((day, index) => ({ dayId: day.dayId, label: day.label, order: index + 1 })) },
-    days: days.map((day) => ({ ...day, exercises: day.exercises.map((exercise) => ({ ...exercise })) })),
-  };
-  if (route === "shared") preview.sharedMeta = { name: "Shared old", daysPerWeek: 3 };
-  const selected = { id: selectedId, source: route };
-  const result = {
-    fingerprint: `${route}-old-fingerprint`, name: `${route} old`, namePt: `${route} old`,
-    selected, preview,
-  };
-  if (route === "recommend" || route === "custom") {
-    result.candidates = [{ ...selected }];
-    result.alternative = null;
-    result.explanation = { familyId: "balanced" };
-    result.telemetry = { family: `${route}_v1` };
-  } else if (route === "browse" || route === "shared") {
-    result.telemetry = { family: `${route}_v1` };
-  }
-  return result;
-}
+const STALE_NAME = "Stale preview from older rules";
 
 const browser = await launchChromium();
-const context = await browser.newContext();
-const page = await context.newPage();
-page.on("dialog", (dialog) => dialog.dismiss().catch(() => {}));
-try {
-  await page.goto(BASE);
+const errors = [];
+
+const entry = (page) => page.evaluate(() => structuredClone(window.__repforgeEntryState?.()));
+const atStep = (page, steps) => page.waitForFunction(
+  (list) => list.includes(window.__repforgeEntryState?.()?.step), steps, { timeout: 15000 });
+
+async function freshPage({ program = false } = {}) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  page.on("pageerror", (error) => errors.push(String(error?.message || error)));
+  page.on("dialog", (dialog) => dialog.dismiss().catch(() => {}));
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
+  if (program) await installSeedProgram(page, { waitFor: (p) => waitForAppBoot(p, { base: BASE }) });
+  return { context, page };
+}
 
-  async function stage(route, result = resultFixture(route)) {
-    await page.evaluate(({ key, state }) => {
-      localStorage.clear();
-      localStorage.setItem(key, JSON.stringify(state));
-    }, { key: KEY, state: ACTIVE });
-    await page.evaluate(({ key }) => localStorage.removeItem(key), DRAFT);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await waitForAppBoot(page, { base: BASE });
-    await page.evaluate(({ key, route, result }) => {
-      const Entry = window.RepForgeProgramEntry;
-      const versions = window.RepForgeProgramCompiler.VERSIONS;
-      let state = Entry.createState({
-        draftId: `${route}-rules-draft`,
-        activeProgramRevisionAtStart: Number(JSON.parse(localStorage.getItem("repforge_v1") || "{}")._storageRevision || 0),
-        now: "2026-08-30T12:00:00.000Z",
-        versions: {
-          compiler: String(versions.compiler), family: String(versions.schema),
-          blueprint: String(versions.blueprint), catalogue: String(versions.catalogue),
-          rules: "old-rules", context: String(versions.context),
-          progression: "range-1", recentConsistency: "1", simpleStart: "1",
-        },
-      });
-      state = Entry.selectRoute(state, route);
-      const answers = route === "build"
-        ? { programName: "Saved build", daysPerWeek: 2 }
-        : route === "import"
-          ? { importReady: true }
-          : route === "shared"
-            ? { sharedReady: true }
-            : route === "browse"
-              ? { structuredExperience: "6_to_24m", daysPerWeek: 3, sessionMinutes: 60, environment: { kind: "commercial_gym" }, catalogueSelection: "browse-card" }
-              : { desiredResult: "balanced", structuredExperience: "6_to_24m", recentConsistency: "most", daysPerWeek: 3, sessionMinutes: 60, preferredRestSeconds: 120, environment: { kind: "commercial_gym" }, primaryMuscles: [], ...(route === "custom" ? { splitPreference: "upper_lower" } : {}) };
-      state = Entry.setAnswers(state, answers);
-      state = Entry.setResult(state, result);
-      state = { ...state, step: route === "build" ? "editor" : "preview" };
-      localStorage.setItem(key, JSON.stringify({ schemaVersion: 1, draftId: state.draftId, revision: 1, ownerId: "rules-test", state }));
-    }, { key: DRAFT, route, result });
-    await page.evaluate((currentResult) => {
-      window.__rulesRecoveryCurrentResult = currentResult;
-      window.__rulesRecoveryCalls = [];
-      window.__rulesRecoveryBrowseCards = [];
-      window.__repforgeProgramEntryServicesOverride = {
-        currentVersions: () => window.RepForgeProgramEntryAdapter.currentVersions(window.RepForgeProgramCompiler),
-        compile: ({ mode }) => {
-          window.__rulesRecoveryCalls.push(`compile:${mode}`);
-          const replacement = structuredClone(window.__rulesRecoveryCurrentResult);
-          replacement.fingerprint = `current-${mode}`;
-          replacement.name = `Current ${mode}`;
-          return { ok: true, ...replacement };
-        },
-        browseCatalogue: () => window.__rulesRecoveryBrowseCards,
-      };
-    }, resultFixture(route));
-    await page.evaluate(() => window.startOnboarding("settings"));
-    await page.waitForSelector("#onbBody");
+/** Open setup over an active program (Settings origin), on the hub. */
+async function openHub(page) {
+  await page.evaluate(() => window.startOnboarding("settings", { userInitiated: true }));
+  await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 15000 });
+}
+
+async function walkGenerate(page, route) {
+  if (route === "recommend") {
+    await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
+  } else {
+    await page.click('[data-entry-route="custom"]');
+    await atStep(page, ["desired_result"]);
+    await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
+    await page.click("#onbNext");
   }
-
-  async function assertPrimaryRebuildRole(route) {
-    const colors = await page.evaluate(() => {
-      const token = (property, name) => {
-        const probe = document.createElement("span");
-        probe.style.setProperty(property, `var(${name})`);
-        document.body.append(probe);
-        const value = getComputedStyle(probe).getPropertyValue(property);
-        probe.remove();
-        return value;
-      };
-      const button = getComputedStyle(document.querySelector("#entryRebuildRules"));
-      return {
-        actual: [button.backgroundColor, button.color, button.borderColor],
-        expected: [
-          token("background-color", "--control-primary-bg"),
-          token("color", "--control-primary-ink"),
-          token("border-color", "--control-primary-boundary"),
-        ],
-      };
-    });
-    assert.deepEqual(colors.actual, colors.expected, `${route} Rebuild rules uses primary control tokens`);
+  await atStep(page, ["background"]);
+  await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
+  await page.click("#onbNext");
+  await atStep(page, ["schedule"]);
+  await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="4"]');
+  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
+  await page.click("#onbNext");
+  await atStep(page, ["environment"]);
+  await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
+  await page.click("#onbNext");
+  // The remaining optional steps (priorities, exercise preferences, the split,
+  // which collapses to the generator's authored one) accept their defaults.
+  for (let guard = 0; guard < 6 && (await entry(page)).step !== "result"; guard++) {
+    const before = (await entry(page)).step;
+    await page.click("#onbNext");
+    await page.waitForFunction((step) => window.__repforgeEntryState?.()?.step !== step, before, { timeout: 15000 });
   }
+  await atStep(page, ["result"]);
+  await page.waitForSelector("#entryActivate", { timeout: 15000 });
+}
 
-  for (const route of ["recommend", "custom"]) {
-    await stage(route);
-    await assertPrimaryRebuildRole(route);
-    const before = await page.evaluate(() => structuredClone(window.__repforgeEntryState().result));
-    await page.click("#entryRebuildRules");
-    await page.waitForFunction(() => window.__repforgeEntryState().result?.fingerprint?.startsWith("current-"), undefined, { timeout: 5000 });
-    const after = await page.evaluate(() => ({ result: structuredClone(window.__repforgeEntryState().result), calls: window.__rulesRecoveryCalls, body: document.querySelector("#onbBody")?.innerText || "" }));
-    assert.equal(after.calls.filter((call) => call === `compile:${route}`).length, 1, `${route} recovery calls its generator`);
-    assert.notEqual(after.result.fingerprint, before.fingerprint, `${route} replaces only after a candidate exists`);
-  }
+async function walkBuild(page) {
+  await page.click("#entryOwnToggle");
+  await page.click('[data-entry-route="build"]');
+  await page.locator("#entryProgramName").fill("Saved build");
+  await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="2"]');
+  await page.waitForFunction(() => !document.querySelector("#onbNext")?.disabled, undefined, { timeout: 5000 });
+  await page.click("#onbNext");
+  await page.waitForSelector('#onbProgramEditor [data-role="day"]', { timeout: 15000 });
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "editor" && !!window.__repforgeEntryState().result?.preview,
+    undefined, { timeout: 15000 });
+}
 
-  await stage("recommend");
-  await page.evaluate(() => {
-    window.__repforgeProgramEntryServicesOverride.compile = () => ({ ok: false, code: "rebuild_failed" });
+async function walkImport(page) {
+  const definition = seedProgramMeta().programDefinition;
+  const file = JSON.stringify({ kind: "taurifer-program", version: 4, name: "Imported block", definition, customExercises: [] });
+  await page.click("#firstRunImport");
+  await page.waitForSelector("#importProgram", { state: "attached" });
+  await page.setInputFiles("#importProgram", { name: "program.json", mimeType: "application/json", buffer: Buffer.from(file) });
+  await page.waitForSelector("#importReview.active", { timeout: 15000 });
+  await page.click("#importCommit");
+  await page.waitForSelector("#entryActivate", { timeout: 15000 });
+}
+
+async function walkShared(page) {
+  const encoded = await encodeSetupLink(page, { name: "Shared block" });
+  assert.ok(encoded?.ok, `the setup link encodes: ${JSON.stringify(encoded)}`);
+  await page.goto(`${BASE}#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  await page.waitForSelector("#firstRunSharedProgram:not(.hidden)", { timeout: 15000 });
+  await page.click("#firstRunSharedStart");
+  await page.waitForSelector("#entryActivate", { timeout: 15000 });
+}
+
+/**
+ * Age the saved draft's rules version (and, for generated routes, mark its
+ * preview so a replacement is observable), then reopen setup from a reload.
+ */
+async function ageDraftAndReopen(page, { origin, markPreview = false }) {
+  await page.waitForFunction((key) => !!localStorage.getItem(key), DRAFT, { timeout: 10000 });
+  const aged = await page.evaluate(({ key, markPreview, staleName }) => {
+    const envelope = JSON.parse(localStorage.getItem(key));
+    envelope.state.versions = { ...envelope.state.versions, rules: "old-rules" };
+    if (markPreview) { envelope.state.result.name = staleName; envelope.state.result.namePt = staleName; }
+    localStorage.setItem(key, JSON.stringify(envelope));
+    return envelope.state;
+  }, { key: DRAFT, markPreview, staleName: STALE_NAME });
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  await page.evaluate((origin) => { window.closeFirstRun?.(); window.startOnboarding(origin, { userInitiated: true }); }, origin);
+  await page.waitForSelector("#onboarding.active", { timeout: 15000 });
+  await page.waitForSelector("#entryRebuildRules, #entryKeepPinned", { timeout: 15000 });
+  return aged;
+}
+
+async function assertPrimaryRebuildRole(page, route) {
+  const colors = await page.evaluate(() => {
+    const token = (property, name) => {
+      const probe = document.createElement("span");
+      probe.style.setProperty(property, `var(${name})`);
+      document.body.append(probe);
+      const value = getComputedStyle(probe).getPropertyValue(property);
+      probe.remove();
+      return value;
+    };
+    const button = getComputedStyle(document.querySelector("#entryRebuildRules"));
+    return {
+      actual: [button.backgroundColor, button.color, button.borderColor],
+      expected: [
+        token("background-color", "--control-primary-bg"),
+        token("color", "--control-primary-ink"),
+        token("border-color", "--control-primary-boundary"),
+      ],
+    };
   });
-  const failedBefore = await page.evaluate(() => structuredClone(window.__repforgeEntryState().result));
-  await page.click("#entryRebuildRules");
-  await page.waitForTimeout(100);
-  assert.deepEqual(await page.evaluate(() => window.__repforgeEntryState().result), failedBefore, "failed generator recovery preserves the old preview");
-  assert.equal(await page.locator("#entryRebuildRules").count(), 1, "failed generator recovery remains recoverable");
+  assert.deepEqual(colors.actual, colors.expected, `${route} Rebuild rules uses primary control tokens`);
+}
 
-  await stage("browse");
-  await page.click("#entryRebuildRules");
-  await page.waitForTimeout(100);
-  const missing = await page.evaluate(() => ({ step: window.__repforgeEntryState().step, result: structuredClone(window.__repforgeEntryState().result), calls: window.__rulesRecoveryCalls }));
-  assert.equal(missing.step, "catalogue", "Browse returns to the current catalogue when its card is gone");
-  assert.ok(missing.result?.preview?.program?.length, "Browse preserves the old preview while returning to the catalogue");
-  assert.equal(missing.calls.some((call) => call.startsWith("compile:")), false, "Browse recovery never invokes the generator");
+try {
+  const current = Adapter.currentVersions(Compiler);
 
-  await stage("build");
-  await assertPrimaryRebuildRole("build");
-  const buildBefore = await page.evaluate(() => structuredClone(window.__repforgeEntryState().result));
-  await page.click("#entryRebuildRules");
-  await page.waitForTimeout(100);
-  const buildAfter = await page.evaluate(() => ({ result: structuredClone(window.__repforgeEntryState().result), editor: document.body.classList.contains("is-entry-editor") }));
-  assert.deepEqual(buildAfter.result, buildBefore, "Build preserves its editable candidate");
-  assert.equal(buildAfter.editor, true, "Build recovery opens the editor");
-
-  for (const route of ["import", "shared"]) {
-    await stage(route);
-    assert.equal(await page.locator("#entryKeepPinned").count(), 1, `${route} exposes explicit pinned acceptance`);
-    const before = await page.evaluate(() => structuredClone(window.__repforgeEntryState().result));
-    await page.click("#entryKeepPinned");
-    await page.waitForTimeout(100);
-    const after = await page.evaluate(() => ({ result: structuredClone(window.__repforgeEntryState().result), notice: !!document.querySelector("#entryKeepPinned, #entryRebuildRules") }));
-    assert.deepEqual(after.result, before, `${route} preserves the validated snapshot`);
-    assert.equal(after.notice, false, `${route} removes the rules notice only after acceptance`);
+  // Generate and Custom regenerate with the current generator --------------
+  for (const route of ["recommend", "custom"]) {
+    const { context, page } = await freshPage({ program: true });
+    await openHub(page);
+    await walkGenerate(page, route);
+    const aged = await ageDraftAndReopen(page, { origin: "settings", markPreview: true });
+    await assertPrimaryRebuildRole(page, route);
+    const shown = await entry(page);
+    assert.equal(shown.result.name, STALE_NAME, `${route}: the stale preview is held until the rebuild`);
+    await page.click("#entryRebuildRules");
+    await page.waitForFunction(() => !document.querySelector("#entryRebuildRules"), undefined, { timeout: 15000 });
+    const after = await entry(page);
+    const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).state, DRAFT);
+    const request = Adapter.programRequestFromAnswers(aged.answers, Catalog);
+    const expected = Compiler.generateProgram(request.value, Catalog, String(aged.draftId));
+    assert.ok(expected.ok, `${route}: the saved answers still generate a program`);
+    assert.notEqual(after.result.name, STALE_NAME, `${route}: the rebuild replaces the stale preview`);
+    assert.deepEqual(after.result.preview.programDefinition, expected.value,
+      `${route}: the replacement is the current generator's program for the saved answers and draft seed`);
+    assert.equal(saved.versions.rules, current.rules, `${route}: the saved draft records the current rules`);
+    assert.deepEqual(saved.result.preview.programDefinition, expected.value, `${route}: the replacement is what the draft saved`);
+    await context.close();
   }
 
+  // A failed regeneration keeps the old preview and stays recoverable --------
+  {
+    const { context, page } = await freshPage({ program: true });
+    await openHub(page);
+    await walkGenerate(page, "recommend");
+    await ageDraftAndReopen(page, { origin: "settings", markPreview: true });
+    await page.evaluate(() => {
+      const base = window.RepForgeProgramEntryAdapter.createProductionServices({
+        Compiler: window.RepForgeProgramCompiler, catalog: window.RepForgeExerciseCatalog.snapshot() });
+      window.__repforgeProgramEntryServicesOverride = { ...base, generateProgram: () => ({ ok: false, conflicts: [] }) };
+    });
+    const before = await entry(page);
+    const savedBefore = await page.evaluate((key) => localStorage.getItem(key), DRAFT);
+    await page.click("#entryRebuildRules");
+    await page.waitForSelector("#entryRebuildRules", { timeout: 15000 });
+    assert.deepEqual((await entry(page)).result, before.result, "failed generator recovery preserves the old preview");
+    assert.equal(await page.evaluate((key) => localStorage.getItem(key), DRAFT), savedBefore, "failed generator recovery writes nothing");
+    assert.equal(await page.locator("#entryRebuildRules").count(), 1, "failed generator recovery remains recoverable");
+    await page.evaluate(() => { delete window.__repforgeProgramEntryServicesOverride; });
+    await context.close();
+  }
+
+  // Build keeps its editable candidate and opens the editor -----------------
+  {
+    const { context, page } = await freshPage({ program: true });
+    await openHub(page);
+    await walkBuild(page);
+    await ageDraftAndReopen(page, { origin: "settings" });
+    await assertPrimaryRebuildRole(page, "build");
+    const before = await entry(page);
+    await page.click("#entryRebuildRules");
+    await page.waitForFunction(() => document.body.classList.contains("is-entry-editor"), undefined, { timeout: 15000 });
+    const after = await entry(page);
+    assert.deepEqual(after.result, before.result, "Build preserves its editable candidate");
+    assert.equal(after.versions.rules, current.rules, "Build records the current rules once it hands over to the editor");
+    await context.close();
+  }
+
+  // Import and shared keep the validated snapshot after explicit acceptance --
+  for (const [route, walk] of [["import", walkImport], ["shared", walkShared]]) {
+    const { context, page } = await freshPage();
+    await walk(page);
+    await ageDraftAndReopen(page, { origin: "first-run" });
+    assert.equal(await page.locator("#entryKeepPinned").count(), 1, `${route} exposes explicit pinned acceptance`);
+    assert.equal(await page.locator("#entryRebuildRules").count(), 0, `${route} offers no rebuild it cannot perform`);
+    const before = await entry(page);
+    await page.click("#entryKeepPinned");
+    await page.waitForFunction(() => !document.querySelector("#entryKeepPinned, #entryRebuildRules"), undefined, { timeout: 10000 });
+    assert.deepEqual((await entry(page)).result, before.result, `${route} preserves the validated snapshot`);
+    assert.ok(before.result.preview?.programDefinition, `${route} snapshot carries its ProgramDefinition`);
+    await context.close();
+  }
+
+  assert.deepEqual(errors, [], "no uncaught page errors");
   console.log("program-entry route rules recovery: all assertions passed");
 } finally {
-  await context.close();
   await browser.close();
 }

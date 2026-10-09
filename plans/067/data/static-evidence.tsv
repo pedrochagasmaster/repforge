@@ -1,0 +1,523 @@
+hex_offset	category	matched_term	string
+0x48304	source_path		package:macrofactor/src/models/workout/ui/exercise_ui_state.g.dart
+0x48493	curated	IsolationAccessoriesAssignment	IsolationAccessoriesAssignment
+0x49015	source_path		package:macrofactor/src/ui/workout/widgets/equipment_weight_description_widget.dart
+0x495d9	curated	Push/Pull/Legs Split	Push/Pull/Legs Split
+0x49ede	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_jeff_nippard_body_transformation_system_parser.dart
+0x4a975	source_path		package:macrofactor/src/ui/workout/dialogs/set_type_dialog.dart
+0x4aaeb	source_path		package:macrofactor/src/ui/workout/widgets/muscle_group_tiles_section.dart
+0x4b9bb	curated	Linear	LinearEffectController
+0x4eefa	source_path		package:macrofactor/src/services/workout/workout_stream.dart
+0x4f232	curated	CompoundMovementPattern	CompoundMovementPattern.
+0x4faba	source_path		package:macrofactor/src/models/workout/session/workout_session.freezed.dart
+0x501fc	source_path		package:macrofactor/src/services/workout/dtos/flutter_workout_state_dto.dart
+0x50921	curated	PeriodizedPeriodization	_$PeriodizedPeriodizationCopyWithImpl@313125906
+0x50ba5	source_path		package:macrofactor/src/enums/workout/exercise_assessment.dart
+0x51198	source_path		package:macrofactor/src/ui/workout/smart_progression_settings_view.dart
+0x5188e	curated	Local Gym	Local Gym
+0x52341	curated	SimplePeriodization	_$SimplePeriodizationCopyWithImpl@313125906
+0x5263e	source_path		package:macrofactor/src/models/workout/workout_source.freezed.dart
+0x529f8	source_path		package:macrofactor/src/services/workout/workout_import_service.g.dart
+0x553f7	source_path		package:macrofactor/src/ui/workout/widgets/setup_workout_body.dart
+0x559d4	curated	Full Body	Upper/Lower/Full Body Split
+0x56319	source_path		package:macrofactor/src/models/workout/equipment.freezed.dart
+0x56454	curated	Static	Static
+0x56c30	source_path		package:macrofactor/src/ui/workout/extensions/workout_build_context_extensions.dart
+0x587fd	source_path		package:macrofactor/src/models/workout/session/workout_time_event.freezed.dart
+0x5970e	source_path		package:macrofactor/src/ui/dashboard/experiences/workouts/widgets/dashboard_data_graph.dart
+0x59e66	source_path		package:macrofactor/src/models/workout/config/previous_reference.dart
+0x5abd3	source_path		package:macrofactor/src/models/workout/exercise_target_log.freezed.dart
+0x5b6a0	source_path		package:macrofactor/src/models/workout/plan/workout_plan_exercise.freezed.dart
+0x5b82b	source_path		package:macrofactor/src/ui/workout/dialogs/equipment_group_sheet.dart
+0x5cc87	source_path		package:macrofactor/src/ui/workout/session/exercise_video_view.dart
+0x5d031	source_path		package:macrofactor/src/models/workout/bar_plate_arrangement.dart
+0x5d1ad	source_path		package:macrofactor/src/models/workout/laterality_type.dart
+0x5d847	source_path		package:macrofactor/src/models/workout/session/auto_targets_event.g.dart
+0x5d90b	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_sho_parser.dart
+0x5e230	curated	hypertrophyAccessoryRecommendationLevel	, hypertrophyAccessoryRecommendationLevel:
+0x5e6bc	curated	strengthSecondaryCompoundRecommendationLevel	, strengthSecondaryCompoundRecommendationLevel:
+0x5ed45	source_path		package:macrofactor/src/services/workout/channel/flutter_workout_content_channel.dart
+0x5edec	source_path		package:macrofactor/src/ui/dashboard/experiences/workouts/exercise_data_view.dart
+0x5ef33	curated	PeriodizedPeriodization	$PeriodizedPeriodizationCopyWith
+0x5fc55	source_path		package:macrofactor/src/models/workout/exercise_search.dart
+0x6094f	source_path		package:macrofactor/src/models/workout/ui/exercise_ui_state.freezed.dart
+0x61408	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_jeff_nippard_parsers.dart
+0x61799	curated	Upper/Lower Split	Push/Pull/Hinge/Squat/Upper/Lower Split
+0x61a06	source_path		package:macrofactor/src/services/workout/channel/flutter_activitykit_channel.g.dart
+0x62763	source_path		package:macrofactor/src/models/workout/workout_record.dart
+0x629ad	source_path		package:macrofactor/src/models/workout/program/workout_program_day_exercise.dart
+0x62ece	curated	trainingProgram	/trainingProgram
+0x63100	source_path		package:macrofactor/src/services/workout/workout_stream.g.dart
+0x6331b	source_path		package:macrofactor/src/ui/workout/session/textfields/duration_text_field.dart
+0x64046	curated	hypertrophySecondaryCompoundRecommendationLevel	hypertrophySecondaryCompoundRecommendationLevel
+0x644cb	source_path		package:macrofactor/src/services/workout/workout_import_service.dart
+0x65487	source_path		package:macrofactor/src/ui/workout/widgets/cycle_target_preview.dart
+0x657eb	source_path		package:macrofactor/src/services/workout/equipment_database.g.dart
+0x65fca	source_path		package:macrofactor/src/models/workout/equipment_category.dart
+0x66a4f	source_path		package:macrofactor/src/models/workout/plan/workout_plan.g.dart
+0xa6408	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_jeff_nippard_pure_bodybuilding_parser.dart
+0xa68e1	source_path		package:macrofactor/src/services/subscription/workouts_promo_eligibility.dart
+0xa79d5	curated	How do you prefer to structure your training?	How do you prefer to structure your training?
+0xa7d9e	source_path		package:macrofactor/src/models/workout/session/workout_session_set.dart
+0xa87e4	source_path		package:macrofactor/src/models/workout/exercise_view_mode.dart
+0xa8866	curated	Can you do at least 10 strict, unassisted pull-ups or chin-ups?	Can you do at least 10 strict, unassisted pull-ups or chin-ups?
+0xa90c7	source_path		package:macrofactor/src/ui/workout/exercise_note_view.dart
+0xa9e4b	source_path		package:macrofactor/src/models/workout/config/user_exercise_config.dart
+0xaa1dc	source_path		package:macrofactor/src/models/workout/exercise_target_log.dart
+0xaa59d	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_jeff_nippard_min_max_phase2_peak_physique_parser.dart
+0xaacfb	source_path		package:macrofactor/src/models/workout/session/workout_session_exercise.freezed.dart
+0xaadc6	source_path		package:macrofactor/src/ui/workout/sheets/swap_exercise_sheet.dart
+0xab01d	curated	SimplePeriodization	$SimplePeriodizationCopyWith
+0xab1ad	source_path		package:macrofactor/src/models/workout/workout_deload.dart
+0xab539	source_path		package:macrofactor/src/models/workout/program/workout_program_day_block.dart
+0xab798	curated	isFocusPointSupported	isFocusPointSupported
+0xad4b9	source_path		package:macrofactor/src/models/workout/plan/workout_plan_block.freezed.dart
+0xadc9f	source_path		package:macrofactor/src/services/workout/workout_program_service.g.dart
+0xae2e3	curated	Linear	_LinearProgressIndicatorPainter@125243954
+0xae388	curated	20 to 40 minutes	20 to 40 minutes
+0xae788	source_path		package:macrofactor/src/models/workout/exercise_descriptor.dart
+0xaf621	source_path		package:macrofactor/src/models/workout/exercise_target_set.freezed.dart
+0xaf9af	source_path		package:macrofactor/src/ui/workout/workout_settings_view.dart
+0xafca2	source_path		package:macrofactor/src/ui/workout/widgets/bar_plate_end_preview.dart
+0xafdc9	source_path		package:macrofactor/src/ui/workout/widgets/rir_badge.dart
+0xb03a0	source_path		package:macrofactor/src/ui/workout/select_exercise_view.dart
+0xb0865	curated	Over 120 minutes	Over 120 minutes
+0xb0d36	source_path		package:macrofactor/src/models/workout/workout_cycle_completion.dart
+0xb126b	curated	strengthPrimaryCompoundRecommendationLevel	, strengthPrimaryCompoundRecommendationLevel:
+0xb1742	source_path		package:macrofactor/src/models/workout/config/user_exercise_config.freezed.dart
+0xb2927	source_path		package:macrofactor/src/models/workout/gym/gym_icon.dart
+0xb29a4	source_path		package:macrofactor/src/models/workout/gym/equipment_weight_config.g.dart
+0xb2cd0	source_path		package:macrofactor/src/models/workout/history/workout_log.dart
+0xb3480	source_path		package:macrofactor/src/models/workout/program_creation/split_exercise_type.dart
+0xb351d	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_exercise_slot_matcher.dart
+0xb40fb	curated	Warehouse Gym	Warehouse Gym
+0xb423a	source_path		package:macrofactor/src/ui/workout/widgets/equipment_thumbnail.dart
+0xb42e5	source_path		package:macrofactor/src/services/workout/channel/flutter_train_general_channel.g.dart
+0xb4db2	source_path		package:macrofactor/src/services/workout/workout_listeners.g.dart
+0xb6188	curated	Would you like to add a deload to your program block?	Would you like to add a deload to your program block?
+0xb631c	curated	strengthAccessoryRecommendationLevel	, strengthAccessoryRecommendationLevel:
+0xb6942	source_path		package:macrofactor/src/models/workout/program/cycle_target.freezed.dart
+0xb6dbd	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_sho_common.dart
+0xb84fe	source_path		package:macrofactor/src/models/workout/session/workout_session.g.dart
+0xb8c85	source_path		package:macrofactor/src/models/workout/import/equipment_group.freezed.dart
+0xb8dc4	source_path		package:macrofactor/src/models/workout/measured_weight.dart
+0xba08d	source_path		package:macrofactor/src/services/workout/current_workout_session.dart
+0xba0e3	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_jeff_nippard_last_set_technique.dartd
+0xbaffe	source_path		package:macrofactor/src/ui/workout/add_exercises_view.dart
+0xbb138	source_path		package:macrofactor/src/ui/workout/notification_settings_view.dart
+0xbbcec	curated	SimplePeriodization	SimplePeriodization
+0xbcd5f	curated	CycleTarget	_CycleTarget@309335478
+0xbd3be	source_path		package:macrofactor/src/ui/workout/session/workout_session_view.dart
+0xbd5d7	source_path		package:macrofactor/src/ui/workout/sheets/edit_warmup_scheme_sheet.dart
+0xbf02e	source_path		package:macrofactor/src/models/workout/session/auto_targets_event.dart
+0xbf259	source_path		package:macrofactor/src/ui/workout/widgets/exercise_thumbnail.dart
+0xc1125	source_path		package:macrofactor/src/ui/workout/dialogs/select_equipment_dialog.dart
+0xc153e	curated	Linear	LinearGradient(id: '
+0xc1604	source_path		package:macrofactor/src/services/workout/rest_timer_notification_service.dart
+0xc19f1	curated	SplitDay	SplitDay
+0xc1a2a	source_path		package:macrofactor/src/ui/dashboard/experiences/workouts/muscle_group_data_view.dart
+0xc25ab	curated	Static	init:_GetStaticMethodID@2152137605
+0xc29ed	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_jeff_nippard_min_max_program_parser.dart
+0xc2bab	source_path		package:macrofactor/src/models/workout/gym/gym.dart
+0xc3b97	source_path		package:macrofactor/src/ui/dashboard/experiences/habits/views/workout_habit_view.dart
+0xc3d03	curated	ProgramGoal	ProgramGoal.
+0xc5332	source_path		package:macrofactor/src/models/workout/units.dart
+0xc539a	source_path		package:macrofactor/src/models/workout/history/workout_exercise.g.dart
+0xc6a45	source_path		package:macrofactor/src/models/workout/history/workout_exercise.dart
+0xc8618	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_compile_phase.dart
+0xca35f	curated	strengthSecondaryCompoundRecommendationLevel	strengthSecondaryCompoundRecommendationLevel
+0xcad04	source_path		package:macrofactor/src/ui/workout/widgets/set_history_list_item.dart
+0xcbc91	source_path		package:macrofactor/src/services/workout/dtos/flutter_completed_workout_dto.freezed.dart
+0xcc942	source_path		package:macrofactor/src/services/workout/dtos/flutter_workout_state_dto.g.dart
+0xcca21	source_path		package:macrofactor/src/ui/workout/timer_duration_settings_view.dart
+0xccf1d	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_sho_minimal_parser.dart
+0xcd669	curated	Can you do at least 15 strict, bodyweight push-ups?	Can you do at least 15 strict, bodyweight push-ups?
+0xd05bf	curated	firebaseFunctions	firebaseFunctions
+0xd1936	curated	Which muscles should get more or less focus?	Which muscles should get more or less focus?
+0xd1c21	curated	Push/Pull/Legs Split	Push/Pull/Legs/Push/Pull/Legs Split
+0xd1dc2	curated	SplitExerciseType	SplitExerciseType.
+0xd1e2e	curated	createWorkoutPlan	createWorkoutPlan
+0xd2cb8	source_path		package:macrofactor/src/models/workout/note.dart
+0xd44d6	source_path		package:macrofactor/src/models/workout/workout_cycle_completion.g.dart
+0xd45d7	source_path		package:macrofactor/src/services/workout/equipment_database.dart
+0xd464d	source_path		package:macrofactor/src/ui/workout/exercises/exercises_view.dart
+0xd50ee	source_path		package:macrofactor/src/ui/workout/session/workout_session_builder.dart
+0xd5f6e	source_path		package:macrofactor/src/models/workout/laterality.freezed.dart
+0xd6322	curated	We'll choose a recommended split for you	We'll choose a recommended split for you
+0xd7ea4	curated	WorkoutProgramService	WorkoutProgramService
+0xd8366	source_path		package:macrofactor/src/ui/workout/widgets/workout_program_thumbnail_selector.dart
+0xd905a	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_models.dart
+0xda47c	source_path		package:macrofactor/src/ui/workout/modules/create_workout_program/create_workout_program_view.dart
+0xda78f	source_path		package:macrofactor/src/models/workout/session/workout_session_set.freezed.dart
+0xdc11d	curated	What is your experience level with lifting?	What is your experience level with lifting?
+0xdcd0f	curated	Linear	_LinearProgressIndicatorDefaultsM3Year2023@125243954
+0xdcfeb	source_path		package:macrofactor/src/models/workout/session/workout_session_exercise.dart
+0xe0f42	source_path		package:macrofactor/src/ui/workout/swap_exercise_view.dart
+0xe0f8c	source_path		package:macrofactor/src/models/workout/rir.dart
+0xe1827	curated	CycleTarget	$CycleTargetCopyWith
+0xe1999	curated	repRangeExtension	repRangeExtensionOverride
+0xe21f5	source_path		package:macrofactor/src/models/workout/session/workout_session_log.freezed.dart
+0xe24ce	source_path		package:macrofactor/src/models/workout/history/workout_block.dart
+0xe2ece	source_path		package:macrofactor/src/models/workout/config/user_exercise_config.g.dart
+0xe3089	source_path		package:macrofactor/src/models/workout/session/workout_session_exercise.g.dart
+0xe4041	source_path		package:macrofactor/src/ui/workout/modules/notice/train_notice_module_view.dartB
+0xe51af	source_path		package:macrofactor/src/models/workout/import/resistance_group.dart
+0xe5365	source_path		package:macrofactor/src/services/workout/workout_service.g.dart
+0xe593c	source_path		package:macrofactor/src/ui/workout/exercise_assessment_view.dart
+0xe61d5	source_path		package:macrofactor/src/services/workout/dtos/state_and_context_dto.freezed.dart
+0xe6e6d	source_path		package:macrofactor/src/models/workout/plate_count_utils.dart
+0xe7716	source_path		package:macrofactor/src/models/workout/program/workout_program_day_exercise.freezed.dart
+0xe77fc	source_path		package:macrofactor/src/ui/workout/widgets/bar_plate_preview.dart
+0xe8bd2	source_path		package:macrofactor/src/ui/workout/exercises/exercise_weights_settings_view.dart
+0xe90ec	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_cycle_splitter.dart
+0xe94fc	source_path		package:macrofactor/src/ui/workout/program/customize_program_local_view.dart
+0xea522	curated	Static	globalEnv_CallStaticObjectMethod
+0xebc52	source_path		package:macrofactor/src/models/workout/program/workout_program.freezed.dart
+0xebfd4	curated	trainingProgram	trainingProgram
+0xec86d	curated	How do you prefer your rep ranges to update each week?	How do you prefer your rep ranges to update each week?
+0xecde8	source_path		package:macrofactor/src/models/workout/workout_section_index.dart
+0xed58a	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_jeff_nippard_legacy_programs_parser.dart
+0xedf32	source_path		package:macrofactor/src/ui/more/data_export/services/workout_log_export_service.dart
+0xee1a4	source_path		package:macrofactor/src/models/workout/exercise.dart
+0xee461	curated	ProgramSplit	ProgramSplit.
+0xef044	source_path		package:macrofactor/src/ui/workout/session/textfields/distance_text_field.dart
+0xef6bb	source_path		package:macrofactor/src/services/workout/dtos/swift_dtos.dart
+0xf0928	source_path		package:macrofactor/src/models/workout/session/workout_session_set.g.dartb
+0xf0a5a	curated	Static	valueStatic
+0xf1ca1	source_path		package:macrofactor/src/models/workout/program/workout_program.dart
+0xf1dbc	source_path		package:macrofactor/src/ui/workout/dialogs/exercise_info_dialog.dart
+0xf2486	source_path		package:macrofactor/src/ui/workout/program/customize_program_menu_button.dart
+0xf37ee	curated	Can you incline press a barbell for at least 10 reps?	Can you incline press a barbell for at least 10 reps?
+0xf3aea	source_path		package:macrofactor/src/models/workout/custom_workout.freezed.dart
+0xf3b98	curated	firebaseFunctions	firebaseFunctionsProvider
+0xf40c6	source_path		package:macrofactor/src/ui/workout/widgets/equipment_group_tile.dart
+0xf47b5	source_path		package:macrofactor/src/models/workout/session/auto_target.freezed.dart
+0xf4c80	source_path		package:macrofactor/src/ui/workout/widgets/equipment_group_tiles_column.dart
+0xf6188	source_path		package:macrofactor/src/models/workout/workout_item.dart
+0xf6778	source_path		package:macrofactor/src/ui/workout/gym/customize_weights_sheet.dart
+0xf77de	source_path		package:macrofactor/src/models/workout/program/workout_program_day_block.g.dart
+0xf785e	source_path		package:macrofactor/src/ui/workout/workout_view.dart
+0xf81cd	curated	CycleTarget	_$CycleTarget@309335478
+0xf829b	source_path		package:macrofactor/src/ui/workout/sheets/edit_exercise_target_sheet.dart
+0xf8863	curated	Commercial Gym	""", we will default those workouts to the Standard Commercial Gym, but you can edit program and workout settings anytime."
+0xf9d97	source_path		package:macrofactor/src/services/workout/workout_service.dart
+0xfa537	curated	Linear	Reverse Linear
+0xfa627	source_path		package:macrofactor/src/ui/workout/widgets/note_tile.dart
+0xfb361	curated	hypertrophyPrimaryCompoundRecommendationLevel	hypertrophyPrimaryCompoundRecommendationLevel
+0xfc1e7	source_path		package:macrofactor/src/ui/workout/modules/create_workout_program/create_workout_program_module_section.dart
+0xfcf22	source_path		package:macrofactor/src/models/workout/exercise_target_set.dart
+0xfd022	source_path		package:macrofactor/src/models/workout/plate_calculator_laterality.dart
+0xfddba	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_default_parser.dart
+0xfe0f8	curated	CompoundMovementPattern	CompoundMovementPattern
+0xfe8f7	source_path		package:macrofactor/src/ui/workout/train_onboarding_view.dart
+0xff40f	curated	strengthAccessoryRecommendationLevel	strengthAccessoryRecommendationLevel
+0xff66c	curated	Can you overhead press (shoulder press) a barbell for at least 10 reps?	Can you overhead press (shoulder press) a barbell for at least 10 reps?
+0xffbbc	source_path		package:macrofactor/src/models/workout/gym/gym.g.dart
+0xfff60	source_path		package:macrofactor/src/models/workout/session/workout_time_event.dart
+0x100b24	source_path		package:macrofactor/src/ui/workout/widgets/workout_tile.dart
+0x10234c	curated	PeriodizedPeriodization	PeriodizedPeriodization
+0x103a52	source_path		package:macrofactor/src/models/workout/history/workout_block.freezed.dart
+0x103d91	source_path		package:macrofactor/src/ui/workout/workout_program_completed_view.dart
+0x103e2f	source_path		package:macrofactor/src/models/workout/session/calculated_warm_up_source.freezed.dart
+0x104e2a	curated	repRangeExtension	, repRangeExtension:
+0x105dc8	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_draft_models.dartR
+0x105f56	source_path		package:macrofactor/src/models/workout/program/workout_program_icon.dart
+0x106520	curated	Linear	LinearProgressIndicator
+0x106566	source_path		package:macrofactor/src/models/workout/workout_completion.freezed.dart
+0x106a0c	curated	hypertrophyAccessoryRecommendationLevel	hypertrophyAccessoryRecommendationLevel
+0x107e6e	source_path		package:macrofactor/src/ui/workout/program/customize_program_view.dart
+0x108b8f	curated	CycleTarget	CycleTarget
+0x10a79f	source_path		package:macrofactor/src/ui/workout/widgets/block_thumbnail.dart
+0x10ad56	source_path		package:macrofactor/src/ui/workout/session/metric_focus_node_registry.dart
+0x10b22d	source_path		package:macrofactor/src/models/workout/exercise_synonyms.dart
+0x10be33	source_path		package:macrofactor/src/ui/workout/widgets/workout_program_thumbnail.dart
+0x10c671	curated	What is your primary goal?	What is your primary goal?
+0x10ccf3	source_path		package:macrofactor/src/enums/exercise.dart
+0x10cd46	source_path		package:macrofactor/src/ui/workout/dialogs/complete_workout_dialog.dart
+0x10d00d	source_path		package:macrofactor/src/models/workout/program/workout_program_day.dart
+0x10d34e	source_path		package:macrofactor/src/models/workout/import/equipment_import.dart
+0x10d4ce	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_jeff_nippard_ultimate_push_pull_legs_system_parser.dart
+0x10db41	source_path		package:macrofactor/src/ui/workout/widgets/target_muscles_row.dart
+0x10df46	source_path		package:macrofactor/src/services/workout/channel/flutter_workout_channel.g.dart
+0x10dfed	source_path		package:macrofactor/src/services/workout/exercise_ui_state_service.g.dart
+0x10ea4d	source_path		package:macrofactor/src/models/workout/history/workout_set.g.dart
+0x10f551	source_path		package:macrofactor/src/models/workout/delta/plan_delta.dart
+0x10f837	source_path		package:macrofactor/src/ui/workout/dialogs/gym_selection_dialog.dart
+0x10fce7	source_path		package:macrofactor/src/ui/workout/session/textfields/reps_text_field.dart
+0x10ff9f	source_path		package:macrofactor/src/models/workout/session/workout_session_block.freezed.dart
+0x1100fb	source_path		package:macrofactor/src/ui/workout/levels_view.dart
+0x110c2a	curated	Home Gym	Home Gym
+0x113b5b	source_path		package:macrofactor/src/models/workout/exercise_set_type.dart
+0x11411f	curated	Upper/Lower Split	Upper/Lower/Upper/Lower Split
+0x1144b2	source_path		package:macrofactor/src/models/workout/focus_metric.dart
+0x1159ab	source_path		package:macrofactor/src/models/workout/config/warmup_scheme.g.dart
+0x115b1a	source_path		package:macrofactor/src/models/workout/session/context/workout_session_log_context.dart
+0x117699	source_path		package:macrofactor/src/models/workout/session/context/workout_session_exercise_context.dart
+0x117994	source_path		package:macrofactor/src/models/workout/log_target.dart
+0x11840e	source_path		package:macrofactor/src/models/workout/note.freezed.dart
+0x118612	source_path		package:macrofactor/src/models/workout/program_creation/isolation_accessories_assignment.dart
+0x118911	source_path		package:macrofactor/src/models/workout/exercise_target.g.dart
+0x11b393	source_path		package:macrofactor/src/services/workout/channel/flutter_workout_channel.dart
+0x11d098	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_logging.dart
+0x11e110	source_path		package:macrofactor/src/ui/workout/workout_date_history_view.dart
+0x11eb77	source_path		package:macrofactor/src/models/workout/session/workout_session_log.dart
+0x11fe4a	source_path		package:macrofactor/src/services/workout/workout_database.dart
+0x123253	source_path		package:macrofactor/src/services/workout/workout_program_import_service.dart
+0x12350e	source_path		package:macrofactor/src/ui/workout/dialogs/rir_bar_dialog.dart
+0x1235b6	source_path		package:macrofactor/src/models/workout/program/periodization.freezed.dart
+0x124186	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_utils.dart
+0x124308	source_path		package:macrofactor/src/models/workout/import/equipment_group.g.dart
+0x124f27	source_path		package:macrofactor/src/models/workout/program/workout_program.g.dart
+0x124f94	source_path		package:macrofactor/src/services/workout/live_activity_available.dart
+0x125114	source_path		package:macrofactor/src/models/workout/config/warmup_scheme.dart
+0x125466	source_path		package:macrofactor/src/ui/workout/workout_archive_view.dart
+0x125905	source_path		package:macrofactor/src/models/workout/import/equipment_import.g.dart
+0x126048	source_path		package:macrofactor/src/services/workout/dtos/flutter_workout_context_dto.dart
+0x1264e4	source_path		package:macrofactor/src/services/workout/channel/flutter_swift_channel.dart
+0x126ca6	curated	Linear	LinearQuantity
+0x128727	source_path		package:macrofactor/src/models/workout/history/workout_set.freezed.dart
+0x129ac5	source_path		package:macrofactor/src/models/workout/plan/workout_plan_block.g.dart
+0x12ad13	curated	Linear	Linear progression appliedd
+0x12bbb4	source_path		package:macrofactor/src/ui/workout/gym/customize_gym_view.dart
+0x12cb94	source_path		package:macrofactor/src/ui/workout/widgets/exercise_target_editor.dart
+0x12cf27	source_path		package:macrofactor/src/ui/workout/session/workout_exercise_builder.dart
+0x12d4c6	source_path		"package:macrofactor/src/ui/workout/widgets/exercise_overrides_section.dart"""
+0x12d512	source_path		package:macrofactor/src/ui/dashboard/experiences/workouts/workouts_data_view.dart
+0x12dab6	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_jeff_nippard_essentials_program_parser.dart
+0x12eecd	source_path		package:macrofactor/src/models/workout/session/context/workout_session_set_context.dart
+0x12fec5	curated	60 to 90 minutes	60 to 90 minutes
+0x130edb	source_path		package:macrofactor/src/models/workout/laterality.dart
+0x1314f7	curated	hypertrophyPrimaryCompoundRecommendationLevel	, hypertrophyPrimaryCompoundRecommendationLevel:
+0x13277a	curated	Linear	ReverseLinearEffectController
+0x133146	curated	How much time would you like to budget per session?	How much time would you like to budget per session?
+0x133325	curated	Up to 20 minutes	Up to 20 minutes
+0x133771	source_path		package:macrofactor/src/services/workout/plate_load_weight_cache.g.dart
+0x134399	curated	ProgramGoal	ProgramGoal
+0x134aa2	source_path		package:macrofactor/src/services/workout/dtos/flutter_completed_workout_dto.dart
+0x135030	source_path		package:macrofactor/src/models/workout/delta/plan_diff.dart
+0x13608d	source_path		package:macrofactor/src/models/workout/program/cycle_target.dart
+0x136354	source_path		package:macrofactor/src/ui/workout/muscle_levels_view.dart
+0x13670a	curated	Linear	_LinearTextScaler@938255635
+0x138746	source_path		package:macrofactor/src/models/workout/program/workout_program_day.freezed.dart
+0x1387ed	source_path		package:macrofactor/src/models/workout/plan/workout_plan_exercise.dartl
+0x138f90	source_path		package:macrofactor/src/ui/workout/widgets/program_tile_row.dart
+0x139bf0	curated	Programs support 2 through 6 workout days	Programs support 2 through 6 workout days
+0x13afc0	source_path		package:macrofactor/src/ui/workout/warmup_automation_overrides_view.dart
+0x13b4b9	source_path		package:macrofactor/src/models/workout/session/auto_targets_event.freezed.dart
+0x13ea79	curated	Linear	_LinearProgressIndicatorState@125243954
+0x13ef5d	source_path		package:macrofactor/src/models/workout/exercise_target.freezed.dart
+0x13f0cf	source_path		package:macrofactor/src/models/workout/import/equipment_import.freezed.dart
+0x13f34a	source_path		package:macrofactor/src/models/workout/categorized_volume.dart
+0x13f52a	curated	Linear	LinearGradient
+0x13f5e4	source_path		package:macrofactor/src/ui/workout/customize_sections_view.dart
+0x14017a	source_path		package:macrofactor/src/models/workout/import/resistance_group.freezed.dart
+0x140fbe	curated	40 to 60 minutes	40 to 60 minutes
+0x14145c	source_path		package:macrofactor/src/ui/workout/warmup_settings_view.dart
+0x1420a0	source_path		package:macrofactor/src/models/workout/region_trained.dart
+0x1424fd	curated	hypertrophySecondaryCompoundRecommendationLevel	, hypertrophySecondaryCompoundRecommendationLevel:
+0x1427fb	source_path		package:macrofactor/src/models/profiles/workout_profile.g.dart
+0x142c99	source_path		package:macrofactor/src/ui/workout/widgets/exercise_video.dart
+0x144245	curated	Linear	_LinearProgressIndicatorDefaultsM2@125243954
+0x1444b3	curated	strengthPrimaryCompoundRecommendationLevel	strengthPrimaryCompoundRecommendationLevel
+0x1452d0	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_parser.dart
+0x145684	source_path		package:macrofactor/src/models/workout/measured_weight.freezed.dart
+0x145bc2	source_path		package:macrofactor/src/services/workout/dtos/flutter_workout_state_dto.freezed.dart
+0x145d91	curated	trainingProgram	trainingPrograms
+0x145da3	source_path		package:macrofactor/src/models/workout/workout_completion.g.dart
+0x145f0d	curated	How would you like to create your program?	How would you like to create your program?
+0x1469b8	source_path		package:macrofactor/src/models/workout/exercise_metric.dart
+0x1472d3	source_path		package:macrofactor/src/ui/workout/session/no_active_workout_session_view.dart
+0x147910	source_path		package:macrofactor/src/ui/workout/widgets/workout_source_thumbnail.dart
+0x147ad7	source_path		package:macrofactor/src/models/workout/session/workout_session.dart
+0x147b56	source_path		package:macrofactor/src/models/workout/equipment.dart
+0x1484b9	source_path		package:macrofactor/src/ui/workout/exercises/exercise_settings_view.dart
+0x148545	curated	Can you perform at least 10 body weight dips?	Can you perform at least 10 body weight dips?
+0x1488ad	source_path		package:macrofactor/src/services/workout/exercise_context.dart
+0x14933d	source_path		package:macrofactor/src/models/workout/session/context/workout_session_context.dart
+0x149948	source_path		package:macrofactor/src/ui/workout/dialogs/gym_icon_dialog.dart
+0x14b4ed	source_path		package:macrofactor/src/ui/workout/session/workout_history_edit_view.dart
+0x14b8a6	curated	Linear	ColorFilter::initSrgbToLinearGamma
+0x14ba60	curated	Linear	ColorFilter::initLinearToSrgbGamma
+0x14edb8	curated	CycleTarget	__$CycleTargetCopyWithImpl@309335478
+0x14edfa	source_path		package:macrofactor/src/ui/workout/widgets/full_body_svg.dart
+0x1502f4	source_path		package:macrofactor/src/ui/workout/setup_workout_view.dart
+0x151054	source_path		package:macrofactor/src/models/workout/program/workout_program_color.dart
+0x1519d9	source_path		package:macrofactor/src/ui/workout/gym/gym_equipment_list.dart
+0x151b5d	curated	Linear	drawLinearIndicator
+0x151e10	source_path		package:macrofactor/src/services/workout/channel/flutter_train_general_channel.dart
+0x152486	source_path		package:macrofactor/src/services/workout/current_workout_session.g.dart
+0x1562ba	source_path		package:macrofactor/src/ui/workout/widgets/rir_bar.dart
+0x156c79	curated	sbs-diet-app-remote-us-central1	sbs-diet-app-remote-us-central1
+0x159e55	source_path		package:macrofactor/src/services/firebase/remote_config/live_workouts_config.g.dart
+0x15b638	source_path		package:macrofactor/src/ui/workout/session/exercise_row.dart
+0x15ba59	curated	CycleTarget	CycleTarget(target:
+0x15bfc9	source_path		package:macrofactor/src/services/workout/exercise_database.dart
+0x15c1fb	source_path		package:macrofactor/src/models/workout/program_creation/program_periodization.dart
+0x15c30f	curated	Push/Pull Split	Push/Pull Split
+0x15cf9e	source_path		package:macrofactor/src/ui/workout/sheets/select_warmup_automation_sheet.dart
+0x15dfdd	source_path		package:macrofactor/src/ui/workout/widgets/average_sets_picker_row.dart
+0x15f379	source_path		package:macrofactor/src/ui/workout/widgets/muscle_group_tag_row.dart
+0x15faa2	source_path		package:macrofactor/src/models/profiles/workout_profile.dart
+0x15fdd5	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_jeff_nippard_legacy_powerbuilding.dart
+0x15fe5c	curated	Linear	reverseLinear
+0x16127b	curated	ProgramSplit	ProgramSplit
+0x1614f0	curated	Static	_GetStaticMethodID@2152137605
+0x161568	curated	Generating your program based on the latest science	Generating your program based on the latest science
+0x161b7a	source_path		package:macrofactor/src/models/workout/exercise_category.dart
+0x161d9b	source_path		package:macrofactor/src/models/workout/config/live_activity_config.freezed.dart
+0x163422	source_path		package:macrofactor/src/ui/workout/dialogs/select_support_equipment_group_dialog.dart
+0x163527	curated	Full Body	Intermediate Full Body
+0x164e24	curated	Undulating	Undulating
+0x1650f8	source_path		"package:macrofactor/src/ui/workout/exercises/edit_exercise_view.dart"""
+0x1658fe	source_path		package:macrofactor/src/models/workout/history/workout_block.g.dart
+0x165c92	source_path		package:macrofactor/src/services/firebase/remote_config/live_workouts_config.dart
+0x166132	source_path		package:macrofactor/src/models/workout/workout_section.dart
+0x167b9c	source_path		package:macrofactor/src/ui/workout/widgets/workout_section_builder.dart
+0x16889c	source_path		package:macrofactor/src/models/workout/history/workout_set.dart
+0x168e7b	source_path		package:macrofactor/src/ui/workout/completed_workout_view.dart
+0x169d35	source_path		package:macrofactor/src/services/workout/strength_service.dart
+0x169f8c	source_path		package:macrofactor/src/models/profiles/workout_profile.freezed.dart
+0x16a66f	source_path		package:macrofactor/src/services/workout/exercise_ui_state_service.dart
+0x16c021	source_path		package:macrofactor/src/models/workout/session/rest_timer.dart
+0x16cd1c	curated	Garage Gym	Garage Gym
+0x16d31a	source_path		package:macrofactor/src/models/workout/config/warmup_automation.dart
+0x16da69	source_path		package:macrofactor/src/ui/dashboard/experiences/workouts/widgets/dashboard_data_graph_tile.dart
+0x16de7b	source_path		package:macrofactor/src/models/workout/plan/workout_plan_block.dart
+0x16eb34	source_path		package:macrofactor/src/ui/workout/session/metric_focus_node_registry.g.dart
+0x16faec	source_path		package:macrofactor/src/ui/workout/modules/create_workout/create_workout_view.dart
+0x16fcca	source_path		package:macrofactor/src/services/workout/strength_service.g.dart
+0x170b74	source_path		package:macrofactor/src/ui/workout/gym/gym_profiles_view.dart
+0x171074	source_path		package:macrofactor/src/models/workout/session/auto_target.dart
+0x1710d1	curated	CycleTarget	_$CycleTargetCopyWith@309335478
+0x171127	source_path		package:macrofactor/src/ui/workout/widgets/muscle_group_list.dart
+0x17170c	curated	firebaseFunctions	init:firebaseFunctionsProvider
+0x1718c1	curated	HttpsCallable	HttpsCallablePlatform
+0x17226b	source_path		package:macrofactor/src/models/workout/program_creation/program_split.dart
+0x173d81	source_path		package:macrofactor/src/models/workout/plan/workout_plan.freezed.dart
+0x178723	source_path		package:macrofactor/src/models/workout/workout_source.dart
+0x17a1b0	source_path		package:macrofactor/src/models/workout/history/workout_log.freezed.dart
+0x17d08b	source_path		package:macrofactor/src/models/workout/program/workout_program_day.g.dart
+0x17d6be	source_path		package:macrofactor/src/models/workout/custom_workout.dart
+0x17d806	curated	Linear	Gradient::initLinear
+0x17db51	source_path		package:macrofactor/src/ui/workout/customize_workout_local_view.dart
+0x17e19b	source_path		package:macrofactor/src/models/workout/exercise_view_mode_data.dart
+0x17e2f6	source_path		package:macrofactor/src/ui/workout/dialogs/create_section_dialog.dart
+0x17f82a	curated	SplitExerciseType	SplitExerciseType
+0x17fef2	curated	Can you bench press a barbell for at least 10 reps?	Can you bench press a barbell for at least 10 reps?
+0x18031f	source_path		package:macrofactor/src/models/workout/history/workout_exercise.freezed.dartL
+0x180fab	source_path		package:macrofactor/src/models/workout/import/exercise_import.g.dart
+0x18178f	source_path		package:macrofactor/src/models/workout/workout_content_localization.freezed.dart
+0x182161	source_path		package:macrofactor/src/models/workout/exercise_type.dart
+0x182d98	curated	expectedFatiguingReps	expectedFatiguingReps
+0x184602	curated	Optimizing for workout duration	Optimizing for workout duration
+0x1848db	source_path		package:macrofactor/src/services/workout/workout_database.g.dart
+0x184bcf	source_path		package:macrofactor/src/models/workout/program/workout_program_day_block.freezed.dart
+0x184e18	source_path		package:macrofactor/src/models/workout/session/calculated_warm_up_source.dart
+0x185074	source_path		package:macrofactor/src/ui/workout/dialogs/gym_delete_dialog.dart
+0x18592a	source_path		package:macrofactor/src/models/workout/history/workout.dart
+0x186b6d	source_path		package:macrofactor/src/models/workout/config/live_activity_config.dart
+0x186e48	curated	isDoNotRecommend	isDoNotRecommend
+0x187293	source_path		package:macrofactor/src/models/workout/session/workout_session_block.dartq
+0x188a54	source_path		package:macrofactor/src/models/workout/gym/equipment_weight_config.dart
+0x188fab	curated	getCumulativeFatigue	getCumulativeFatigue
+0x189874	curated	Full Body	Full Body
+0x189d08	curated	Linear	Linear
+0x18aec4	source_path		package:macrofactor/src/models/workout/workout_section.g.dart
+0x18b0a3	curated	oneRepMaxRatio	oneRepMaxRatio
+0x18bb28	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_build_phase.dart
+0x18bd3d	source_path		package:macrofactor/src/models/workout/session/rest_timer.freezed.dart
+0x18c15b	source_path		package:macrofactor/src/ui/workout/sheets/edit_rest_timer_sheet.dart
+0x18c42f	curated	90 to 120 minutes	90 to 120 minutes
+0x18c78a	curated	Can you do at least 5 strict, unassisted pull-ups or chin-ups?	Can you do at least 5 strict, unassisted pull-ups or chin-ups?
+0x18c7cc	source_path		package:macrofactor/src/models/workout/config/initial_log_fill.dart
+0x18cae9	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_sheet_parser.dart
+0x18d5a2	source_path		package:macrofactor/src/models/workout/muscle_group.dart
+0x18d6b1	source_path		package:macrofactor/src/services/workout/channel/flutter_activitykit_channel.dart
+0x18e0e7	source_path		package:macrofactor/src/models/workout/session/workout_session_block.g.dart
+0x18e909	curated	Where do you work out?	Where do you work out?8
+0x18eb43	source_path		package:macrofactor/src/models/workout/exercise_target_set.g.dart
+0x18efe2	source_path		package:macrofactor/src/ui/workout/widgets/exercise_tile.dart
+0x1909cc	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_jeff_nippard_pure_bodybuilding_phase2_parser.dart
+0x191cc7	curated	CycleTarget	_MixinApplication329&Object&_$CycleTarget@18353248
+0x191d50	source_path		package:macrofactor/src/ui/workout/widgets/exercise_thumbnail.g.dart
+0x193402	source_path		package:macrofactor/src/ui/workout/extensions/workout_ref_extensions.dart
+0x193594	curated	HttpsCallable	HttpsCallableResult
+0x193e24	curated	HttpsCallable	HttpsCallableOptions
+0x19408b	source_path		package:macrofactor/src/ui/workout/exercise_warmup_scheme_settings_view.dart
+0x19550e	source_path		package:macrofactor/src/models/workout/program_creation/split_day.dart
+0x195c65	source_path		package:macrofactor/src/models/workout/workout_cycle_completion.freezed.dart
+0x196665	source_path		package:macrofactor/src/services/workout/exercise_database.g.dart
+0x19688a	source_path		package:macrofactor/src/models/workout/config/warmup_scheme.freezed.dart
+0x19690c	source_path		package:macrofactor/src/models/workout/workout_content_localization.dart
+0x1969b7	curated	CycleTarget	CycleTargetPreview
+0x196b8d	source_path		package:macrofactor/src/services/workout/dtos/flutter_workout_context_dto.g.dart
+0x197028	source_path		package:macrofactor/src/ui/workout/widgets/workout_program_expandable_card.dart
+0x1985c0	source_path		package:macrofactor/src/ui/workout/widgets/colored_muscle_svg.dart
+0x199046	source_path		package:macrofactor/src/models/workout/history/workout.freezed.dart
+0x1997f5	source_path		package:macrofactor/src/models/workout/program_creation/compound_movement_pattern.dart
+0x19ab4d	curated	createProgram	createProgram
+0x19abf4	source_path		package:macrofactor/src/ui/workout/gym/weight_stack_ai_scan_view.dart
+0x19c5bb	source_path		package:macrofactor/src/ui/workout/widgets/exercise_tabbed_search.dart
+0x19c802	source_path		package:macrofactor/src/services/workout/workout_program_import_service.g.dart
+0x1a01f9	source_path		package:macrofactor/src/services/workout/live_activity_available.g.dart
+0x1a1390	curated	ProgramPeriodization	ProgramPeriodization
+0x1a170b	source_path		package:macrofactor/src/ui/more/data_export/services/workout_log_export_service.g.dart
+0x1a1c32	curated	HttpsCallable	HttpsCallable
+0x1a311e	source_path		package:macrofactor/src/models/workout/gym/gym_template.dart
+0x1a3a3d	source_path		package:macrofactor/src/ui/workout/widgets/rir_help_panel.dartB
+0x1a3d7e	curated	ProgramPeriodization	ProgramPeriodization.
+0x1a5833	source_path		package:macrofactor/src/models/workout/gym/equipment_weight_config.freezed.dart
+0x1a5b69	source_path		package:macrofactor/src/services/workout/workout_listeners.dart
+0x1a5d26	source_path		package:macrofactor/src/services/workout/workout_program_import/workout_program_import_jeff_nippard_legacy_percent_rir_overrides.dart
+0x1a5f57	source_path		package:macrofactor/src/ui/workout/warmup_scheme_settings_view.dart
+0x1a6396	source_path		package:macrofactor/src/models/workout/import/exercise_import.dart
+0x1a7bda	source_path		package:macrofactor/src/ui/workout/workout_history_view.dart,
+0x1a98ea	source_path		package:macrofactor/src/models/workout/import/exercise_import.freezed.dart
+0x1aadd7	curated	repRangeExtension	repRangeExtension
+0x1ab622	source_path		package:macrofactor/src/services/workout/dtos/swift_serialization.dart
+0x1ab931	source_path		package:macrofactor/src/ui/workout/widgets/exercise_records_row.dart
+0x1abfbb	curated	isDoNotRecommend	, isDoNotRecommend:
+0x1ac191	source_path		package:macrofactor/src/models/workout/movement_pattern.dart
+0x1ad553	source_path		package:macrofactor/src/models/workout/history/workout.g.dart
+0x1adcb0	source_path		package:macrofactor/src/services/workout/dtos/state_and_context_dto.dart
+0x1aeaf3	curated	Linear	LinearUnit
+0x1af1d6	source_path		package:macrofactor/src/models/workout/program/workout_program_day_exercise.g.dart
+0x1af67e	curated	Commercial Gym	Commercial Gym
+0x1af6a5	source_path		package:macrofactor/src/ui/workout/session/textfields/weight_text_field.dart
+0x1af6f2	source_path		package:macrofactor/src/ui/workout/workout_drag_data.dart
+0x1b103d	curated	repRangeExtension	, repRangeExtensionOverride:
+0x1b1621	curated	Everything Gym	Everything Gym
+0x1b2053	source_path		package:macrofactor/src/models/workout/plan/workout_plan.dart
+0x1b222f	curated	How many times per week would you like to train?	How many times per week would you like to train?
+0x1b231b	curated	Linear	_Linear@79484502
+0x1b2377	curated	HttpsCallable	MethodChannelHttpsCallable
+0x1b255e	source_path		package:macrofactor/src/models/workout/cycle_type.dart
+0x1b289c	source_path		package:macrofactor/src/services/workout/plate_load_weight_cache.dart
+0x1b335c	source_path		package:macrofactor/src/services/workout/workout_program_service.dart
+0x1b38de	source_path		package:macrofactor/src/models/workout/exercise_target.dart
+0x1b3bc0	curated	Upper/Lower Split	Upper/Lower Split
+0x1b4ef9	curated	Which of your gyms will you be using during this program?	Which of your gyms will you be using during this program?
+0x1b630a	source_path		package:macrofactor/src/ui/workout/widgets/workout_block_complete_card.dart
+0x1b651f	source_path		package:macrofactor/src/ui/workout/widgets/active_workout_preview.dart
+0x1b87cf	source_path		package:macrofactor/src/models/workout/program/periodization.dart
+0x1bbecf	source_path		package:macrofactor/src/models/workout/import/equipment_group.dart
+0x1bc279	source_path		package:macrofactor/src/ui/workout/program/customize_program_tabs.dart
+0x1bc325	source_path		package:macrofactor/src/services/workout/live_workout_channel_service.dart
+0x1bcf16	source_path		package:macrofactor/src/models/workout/gym/gym.freezed.dart
+0x1bd003	source_path		package:macrofactor/src/models/workout/gym/resistance_label.dart
+0x1bd556	source_path		package:macrofactor/src/models/workout/joint_action.dart
+0x1bdbbc	source_path		package:macrofactor/src/ui/workout/rest_timer_settings_view.dart
+0x1be005	curated	Upper/Lower Split	Push/Pull/Legs/Upper/Lower Split
+0x1be514	curated	getAutoTargetTotalRepsAndWeight	getAutoTargetTotalRepsAndWeight
+0x1be7d4	source_path		package:macrofactor/src/models/workout/ui/exercise_ui_state.dart
+0x1bed09	source_path		package:macrofactor/src/services/subscription/workouts_promo_eligibility.g.dart
+0x1bf84e	source_path		package:macrofactor/src/models/workout/workout_completion.dart
+0x1c1490	source_path		package:macrofactor/src/ui/workout/dialogs/select_resistance_group_dialog.dart
+0x1c2402	source_path		package:macrofactor/src/models/workout/program_creation/program_goal.dart
+0x1c2afc	source_path		package:macrofactor/src/services/workout/dtos/flutter_workout_context_dto.freezed.dart
+0x1c3355	source_path		package:macrofactor/src/ui/workout/session/rest_timer_controls_view.dart
+0x1c3e3d	source_path		package:macrofactor/src/ui/workout/dialogs/exercise_view_mode_selection_dialog.dartP
+0x1c3efb	curated	expectedFatiguePerSet	expectedFatiguePerSet
+0x1c40c1	source_path		package:macrofactor/src/models/workout/workout_section.freezed.dart
+0x1c411f	source_path		package:macrofactor/src/ui/workout/sheets/plan_diff_sheet.dart
+0x1c4603	source_path		package:macrofactor/src/ui/workout/widgets/exercise_search_top_bar.dart

@@ -6,6 +6,7 @@
  */
 import { chromium } from "playwright";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
+import { metricLogRow } from "./fixtures/history-metric-rows.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -24,14 +25,14 @@ function check(condition, name, detail = "") {
   }
 }
 
+/** One saved Weight+Reps set in the shape a finished DraftV2 workout commits.
+ *  An omitted `rir` is a set logged without effort (stored as null). */
 function row(session, date, exerciseId, load, reps, rir) {
-  const name = PROGRAM.find((item) => item.id === exerciseId)?.name || exerciseId;
-  return {
-    session, date, created: date + "T09:00:00.000Z", blockId: "block-current",
-    day: "Day 1", exerciseId, performedMovementId: "slot:" + exerciseId,
-    performedName: name, name, load, reps, ...(rir === undefined ? {} : { rir }), set: 1, work: true,
-    primary: "Chest", secondary: "Triceps",
-  };
+  const ex = PROGRAM.find((item) => item.id === exerciseId);
+  return metricLogRow(META, ex, {
+    session, date, day: "Day 1", set: 1, load, reps, rir: rir === undefined ? null : rir,
+    created: date + "T09:00:00.000Z",
+  });
 }
 
 async function boot(page) {
@@ -73,7 +74,7 @@ async function build(page, previous, current) {
       rows: currentRows, prevLog: previousRows, session: currentRows[0]?.session || "summary-current",
       date: currentRows[0]?.date || "2026-09-17", day: "Day 1", startedAt: 0,
     });
-    const ids = new Set(currentRows.map((item) => item.performedMovementId ? "movement:" + item.performedMovementId : ""));
+    const ids = new Set(currentRows.map((item) => "library:" + item.performedLibraryId));
     const records = window.__repforgeProgressEvidence.records("current-block")
       .filter((record) => ids.has(record.exerciseId));
     window.__repforgeSessionSummary.open(summary);

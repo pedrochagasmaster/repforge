@@ -457,9 +457,6 @@ test("affected selection is narrow when proven and fail-safe when it is not", ()
   const generativeProperty = selectAffected(["test/generative/properties/malformed-inputs.mjs"]);
   assert.equal(generativeProperty.mode, "selected");
   assert.deepEqual(suiteFiles(generativeProperty), ["test/generative/run.mjs", "test/generative/self-test.mjs"]);
-  const progressionFixture = selectAffected(["test/fixtures/progression-strategies-v1.json"]);
-  assert.equal(progressionFixture.mode, "selected");
-  assert.deepEqual(suiteFiles(progressionFixture), ["test/progression-engine.mjs", "test/progression-fixtures.mjs"]);
   const captureScenario = selectAffected(["tools/ui-screens/screens-app.mjs"]);
   assert.equal(captureScenario.mode, "selected");
   assert.deepEqual(suiteFiles(captureScenario),

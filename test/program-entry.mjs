@@ -4,7 +4,10 @@ import { createRequire } from "node:module";
 import test from "node:test";
 
 const require = createRequire(import.meta.url);
+const fs = require("node:fs");
 const Entry = require("../program-entry.js");
+const Compiler = require("../program-compiler.js");
+const Catalog = require("../assets/exercise-catalog.json");
 
 const NOW = "2026-08-27T12:00:00.000Z";
 const VERSIONS = {
@@ -20,10 +23,10 @@ const VERSIONS = {
 // These are copied from the entry contract as independent oracle constants.
 // The tests below deliberately do not read Entry.MAX_* so a product-bound
 // regression cannot silently rewrite its own expected boundary.
-const ENTRY_NODE_LIMIT = 2048;
-const ENTRY_DEPTH_LIMIT = 12;
-const ENTRY_DRAFT_BYTES = 65536;
-const ENTRY_DRAFT_ENVELOPE_BYTES = 66560;
+const ENTRY_NODE_LIMIT = 65536;
+const ENTRY_DEPTH_LIMIT = 20;
+const ENTRY_DRAFT_BYTES = 1048576;
+const ENTRY_DRAFT_ENVELOPE_BYTES = 1052672;
 
 function countJsonNodes(value) {
   if (value === null || typeof value !== "object") return 1;
@@ -34,7 +37,11 @@ function draftAtNodeCount(target) {
   const draft = fresh();
   draft.legacyHints = {};
   let index = 0;
-  while (countJsonNodes(draft) < target) draft.legacyHints[`padding_${index++}`] = null;
+  let nodes = countJsonNodes(draft);
+  while (nodes < target) {
+    draft.legacyHints[`n${index++}`] = null;
+    nodes++;
+  }
   assert.equal(countJsonNodes(draft), target);
   return draft;
 }
@@ -123,20 +130,150 @@ function driveToTerminal(route) {
   }
 }
 
+let cachedResultFixture = null;
 function resultFixture(route) {
+  if (!cachedResultFixture) cachedResultFixture = generatedCandidateFixture().result;
+  const result = structuredClone(cachedResultFixture);
+  result.fingerprint = `${route}-fixture`;
+  result.source = route;
+  result.selected = { id: `${route}-program`, source: route };
+  if (route === "browse") delete result.preview.customExercises;
+  return result;
+}
+
+function buildCandidateWithSlotCounts(counts) {
+  const result = resultFixture("build");
+  const preview = result.preview;
+  let trainingIndex = 0;
+  const selectedSlotIds = new Set();
+  for (const day of preview.programDefinition.days) {
+    if (day.kind !== "training") continue;
+    const count = counts[trainingIndex++] || 0;
+    day.slots = day.slots.slice(0, count);
+    for (const slot of day.slots) selectedSlotIds.add(slot.id);
+  }
+  preview.program = preview.program.filter((row) => selectedSlotIds.has(row.slotId));
+  preview.days = preview.days.map((day) => ({
+    ...day,
+    exercises: preview.program.filter((row) => row.dayId === day.dayId).map((row) => structuredClone(row)),
+  }));
+  return result;
+}
+
+function generatedCandidateFixture() {
+  const workerFixture = JSON.parse(fs.readFileSync(new URL(
+    "../services/install-transfer/test/fixtures/program-definition-plan067-worker.json",
+    import.meta.url,
+  ), "utf8"));
+  const request = structuredClone(workerFixture.request);
+  const seed = request.seed;
+  delete request.seed;
+  Object.assign(request, {
+    daysPerWeek: 4,
+    timeCeilingMinutes: 150,
+    cycles: 12,
+    deloadCycles: [6, 12],
+    split: "auto",
+  });
+  request.gymProfile.equipmentIds = Object.keys(Catalog.uuidIndex)
+    .filter((id) => Catalog.uuidIndex[id]?.type === "equipment");
+  const generated = Compiler.generateProgram(request, Catalog, seed);
+  assert.equal(generated.ok, true, generated.conflicts?.map((item) => item.message).join("; "));
+  assert.equal(generated.value.cycles, 12);
+  const rows = [];
+  for (const day of generated.value.days.filter((item) => item.kind === "training")) {
+    for (const slot of day.slots) {
+      const cycle = slot.prescriptionsByCycle.find((item) => item.cycleIndex === 1);
+      const reps = slot.metricDefinitions.find((item) => item.semantic === "reps" || item.semantic === "repsPerSide");
+      const target = reps ? cycle.sets[0].targets[reps.semantic] : null;
+      const min = typeof target === "number" ? target : target?.min;
+      const max = typeof target === "number" ? target : target?.max;
+      rows.push({
+        id: slot.id,
+        slotId: slot.id,
+        day: day.name,
+        dayId: day.id,
+        order: slot.order,
+        name: Catalog.uuidIndex[slot.exerciseId]?.name || slot.exerciseId,
+        libraryId: slot.exerciseId,
+        sets: cycle.sets.length,
+        hasRepTarget: !!reps,
+        ...(min !== undefined ? { min, max } : {}),
+      });
+    }
+  }
+  const trainingDays = generated.value.days.filter((item) => item.kind === "training");
   return {
-    fingerprint: `${route}-fixture`,
-    preview: {
-      program: [{ id: `${route}-row`, day: "Day 1", order: 1, name: "Row", sets: 3, min: 8, max: 12 }],
-      programStructure: { schemaVersion: 1, days: [{ dayId: `${route}-d1`, label: "Day 1", order: 1 }] },
+    request,
+    programDefinition: generated.value,
+    result: {
+      fingerprint: "pe-real-generated-12-cycle",
+      name: "Generated program",
+      preview: {
+        source: "compiler",
+        frequency: request.daysPerWeek,
+        program: rows,
+        programDefinition: generated.value,
+        programStructure: {
+          schemaVersion: 1,
+          days: trainingDays.map((day) => ({ dayId: day.id, label: day.name, order: day.order })),
+        },
+        days: trainingDays.map((day) => ({
+          dayId: day.id,
+          label: day.name,
+          order: day.order,
+          exercises: rows.filter((row) => row.dayId === day.id).map((row) => structuredClone(row)),
+        })),
+        customExercises: [],
+      },
     },
   };
 }
 
 test("module imports in Node without browser globals", () => {
   assert.equal(typeof Entry.createState, "function");
-  assert.deepEqual(Entry.ROUTES, ["recommend", "custom", "browse", "build", "import", "shared"]);
+  assert.deepEqual(Entry.ROUTES, ["recommend", "custom", "build", "import", "shared"]);
   assert.deepEqual(Entry.ENTRY_MOVEMENTS, ["squat", "hinge", "press", "shoulder_press", "row", "pulldown"]);
+});
+
+test("a generated 12-cycle candidate persists within the bounded entry contract", () => {
+  const { result, programDefinition } = generatedCandidateFixture();
+  assert.equal(Compiler.validateProgramDefinition(programDefinition, Catalog).ok, true);
+  const state = Entry.selectRoute(fresh(), "recommend");
+  const staged = Entry.setResult(state, result);
+  assert.ok(Buffer.byteLength(JSON.stringify(staged), "utf8") <= ENTRY_DRAFT_BYTES);
+  assert.ok(countJsonNodes(staged) <= ENTRY_NODE_LIMIT);
+  const normalized = Entry.normalizeSetupDraft(staged);
+  assert.equal(normalized.ok, true, normalized.issues?.join(","));
+  assert.deepEqual(normalized.value.result.preview.programDefinition, programDefinition);
+  assert.equal(normalized.value.result.preview.program.length,
+    programDefinition.days.filter((day) => day.kind === "training").reduce((sum, day) => sum + day.slots.length, 0));
+  assert.deepEqual(Entry.candidateActivationIssues({ ...staged, step: "preview" }), []);
+});
+
+test("canonical program-entry previews reject missing definitions and display mismatches", () => {
+  const { result } = generatedCandidateFixture();
+  const state = Entry.selectRoute(fresh(), "recommend");
+  const staged = Entry.setResult(state, result);
+
+  const missing = structuredClone(staged);
+  delete missing.result.preview.programDefinition;
+  const missingResult = Entry.normalizeSetupDraft(missing);
+  assert.equal(missingResult.ok, false);
+  assert.ok(missingResult.issues.some((issue) => issue.includes("programDefinition:required")));
+
+  const mismatch = structuredClone(staged);
+  mismatch.result.preview.program[0].libraryId = "unknown.exercise";
+  const mismatchResult = Entry.normalizeSetupDraft(mismatch);
+  assert.equal(mismatchResult.ok, false);
+  assert.ok(mismatchResult.issues.some((issue) => issue.includes("program[0]:definition_mismatch")));
+
+  const invalidDefinition = structuredClone(staged);
+  const firstTrainingDay = invalidDefinition.result.preview.programDefinition.days.find((day) => day.kind === "training");
+  firstTrainingDay.slots[0].metricIds[0] = "unknown.metric";
+  const invalidResult = Entry.normalizeSetupDraft(invalidDefinition);
+  assert.equal(invalidResult.ok, false);
+  assert.ok(invalidResult.issues.some((issue) => issue.includes("programDefinition:invalid")));
 });
 
 test("every route reaches its declared preview or editor", () => {
@@ -165,11 +302,8 @@ test("required omissions block only their owning step", () => {
   assert.deepEqual(Entry.advance(state).issues, ["desired_result_required"]);
   state = Entry.setAnswers(state, { desiredResult: "strength" });
   state = Entry.advance(state).state;
-  assert.deepEqual(Entry.advance(state).issues, ["structured_experience_required", "recent_consistency_required"]);
-  state = Entry.setAnswers(state, {
-    structuredExperience: "over_24m",
-    recentConsistency: "few",
-  });
+  assert.deepEqual(Entry.advance(state).issues, ["structured_experience_required"]);
+  state = Entry.setAnswers(state, { structuredExperience: "over_24m" });
   assert.equal(Entry.advance(state).ok, true);
 });
 
@@ -188,14 +322,9 @@ test("switching Recommend and Custom preserves shared facts but drops results", 
   assert.equal(custom.answers.daysPerWeek, answers.daysPerWeek);
 });
 
-test("Browse keeps compatibility context and manual routes inherit no prescription", () => {
+test("manual routes inherit no prescription and the retired Browse route is refused", () => {
   let state = Entry.setAnswers(Entry.selectRoute(fresh(), "custom"), validAnswers("custom"));
-  const browse = Entry.selectRoute(state, "browse");
-  assert.deepEqual(Object.keys(browse.answers).sort(), [
-    "daysPerWeek",
-    "environment",
-    "sessionMinutes",
-  ]);
+  assert.throws(() => Entry.selectRoute(state, "browse"));
   for (const route of ["build", "import", "shared"]) {
     assert.deepEqual(Entry.selectRoute(state, route).answers, {});
   }
@@ -222,17 +351,6 @@ test("reusable context prefill is scoped to each route's visible inputs", () => 
   const custom = Entry.selectRoute(fresh(), "custom", { reusableContext: context });
   assert.deepEqual(custom.answers.deEmphasizedMuscles, context.deEmphasizedMuscles);
   assert.deepEqual(custom.answers.ignoredMuscles, context.ignoredMuscles);
-
-  const browse = Entry.selectRoute(fresh(), "browse", { reusableContext: context });
-  assert.deepEqual(Object.keys(browse.answers).sort(), [
-    "daysPerWeek",
-    "environment",
-    "sessionMinutes",
-  ]);
-  for (const key of ["desiredResult", "structuredExperience", "recentConsistency", "preferredRestSeconds",
-    "primaryMuscles", "priorityMovements", "exerciseConstraints", "deEmphasizedMuscles", "ignoredMuscles"]) {
-    assert.equal(browse.answers[key], undefined, `Browse must not prefill ${key}`);
-  }
 
   for (const route of ["build", "import", "shared"]) {
     assert.deepEqual(Entry.selectRoute(fresh(), route, { reusableContext: context }).answers, {});
@@ -558,19 +676,10 @@ test("activation allows unchanged or explicitly executable pinned rules only", (
 test("Build activation names every incomplete day and requires executable exercises", () => {
   let draft = Entry.selectRoute(fresh(), "build");
   draft = Entry.setAnswers(draft, { programName: "Manual block", daysPerWeek: 2 });
-  draft = Entry.setResult(draft, {
-    fingerprint: "manual-empty",
-    preview: {
-      program: [],
-      programStructure: {
-        schemaVersion: 1,
-        days: [
-          { dayId: "manual_d1", label: "Day 1", order: 1 },
-          { dayId: "manual_d2", label: "Day 2", order: 2 },
-        ],
-      },
-    },
-  });
+  const emptyResult = buildCandidateWithSlotCounts([]);
+  const emptyDayIds = emptyResult.preview.programDefinition.days
+    .filter((day) => day.kind === "training").map((day) => `day_empty:${day.id}`);
+  draft = Entry.setResult(draft, emptyResult);
   draft = Entry.advance(draft).state;
   const empty = Entry.activationReadiness(draft, {
     liveActiveProgramRevision: 12,
@@ -578,30 +687,17 @@ test("Build activation names every incomplete day and requires executable exerci
   });
   assert.equal(empty.ok, false);
   assert.equal(empty.code, "candidate_incomplete");
-  assert.deepEqual(empty.issues, ["program_exercises_required", "day_empty:manual_d1", "day_empty:manual_d2"]);
+  assert.deepEqual(empty.issues, ["program_exercises_required", ...emptyDayIds]);
 
-  const partial = Entry.setResult(draft, {
-    ...draft.result,
-    preview: {
-      ...draft.result.preview,
-      program: [{ id: "row-1", day: "Day 1", order: 1, name: "Row", sets: 3, min: 8, max: 12 }],
-    },
-  });
+  const partial = Entry.setResult(draft, buildCandidateWithSlotCounts([1]));
+  const remainingEmptyDays = partial.result.preview.programDefinition.days
+    .filter((day) => day.kind === "training" && !day.slots.length).map((day) => `day_empty:${day.id}`);
   assert.deepEqual(Entry.activationReadiness(partial, {
     liveActiveProgramRevision: 12,
     currentVersions: VERSIONS,
-  }).issues, ["day_empty:manual_d2"]);
+  }).issues, remainingEmptyDays);
 
-  const complete = Entry.setResult(partial, {
-    ...partial.result,
-    preview: {
-      ...partial.result.preview,
-      program: [
-        ...partial.result.preview.program,
-        { id: "row-2", day: "Day 2", order: 1, name: "Press", sets: 3, min: 6, max: 10 },
-      ],
-    },
-  });
+  const complete = Entry.setResult(partial, resultFixture("build"));
   assert.equal(Entry.activationReadiness(complete, {
     liveActiveProgramRevision: 12,
     currentVersions: VERSIONS,
@@ -611,16 +707,19 @@ test("Build activation names every incomplete day and requires executable exerci
     ...complete.result,
     preview: {
       ...complete.result.preview,
-      program: complete.result.preview.program.map((exercise, index) => index ? exercise : {
-        ...exercise,
-        progressionIncompatibility: { code: "unsupported_strategy" },
-      }),
+      progressionIncompatibilities: [{
+        version: 1,
+        kind: "relations",
+        source: "program-import",
+        reason: "unknown live slot",
+        value: [],
+      }],
     },
   });
   assert.deepEqual(Entry.activationReadiness(incompatible, {
     liveActiveProgramRevision: 12,
     currentVersions: VERSIONS,
-  }).issues, ["progression_incompatible:row-1"]);
+  }).issues, ["progression_incompatible:program"]);
 });
 
 test("activation blocks a candidate with program-level progression incompatibility", () => {
@@ -735,24 +834,24 @@ test("draft schema rejects nested prototype pollution in result and legacyHints"
 });
 
 test("preview and custom-definition ingress share the closed muscle domain", () => {
-  function importDraft(primary, source = "import") {
+  function importDraft(primary) {
     let state = Entry.selectRoute(fresh(), "import");
     state = Entry.setAnswers(state, { importReady: true });
-    state = Entry.setResult(state, {
-      fingerprint: "muscle-domain",
-      selected: { id: "import", source: "import" },
-      preview: {
-        source,
-        program: [{ id: "row-1", day: "Day 1", order: 1, name: "Row", sets: 3, min: 8, max: 12, primary }],
-        customExercises: source === "compiler" ? [] : [{ id: "custom:muscle-domain", name: "Custom row", equipment: ["machine"], primary }],
-      },
-    });
+    const result = resultFixture("import");
+    result.preview.customExercises = [{
+      id: "custom:muscle-domain",
+      name: "Custom row",
+      equipment: ["machine"],
+      primary,
+      metricIds: [],
+      metricDefinitions: [],
+    }];
+    state = Entry.setResult(state, result);
     return Entry.advance(state).state;
   }
 
   const canonical = Entry.normalizeSetupDraft(importDraft(" Chest, Mid/upper back "));
   assert.equal(canonical.ok, true, canonical.issues?.join(","));
-  assert.equal(canonical.value.result.preview.program[0].primary, "Chest,Mid/upper back");
   assert.equal(canonical.value.result.preview.customExercises[0].primary, "Chest,Mid/upper back");
 
   for (const value of [
@@ -766,13 +865,14 @@ test("preview and custom-definition ingress share the closed muscle domain", () 
     assert.equal(rejected.code, "invalid-muscle-domain");
   }
 
-  const compiler = importDraft("quads", "compiler");
+  const compiler = importDraft("Chest");
   compiler.result.preview.programStructure = {
     schemaVersion: 1,
     days: [{ dayId: "compiler_d1", label: "Day 1", order: 1 }],
     weekPrescriptions: [{ week: 1, days: [{ dayId: "compiler_d1", slots: [{ slotId: "row-1", sets: 3, primary: "quads", secondary: "lats" }] }] }],
   };
-  assert.equal(Entry.normalizeSetupDraft(compiler).ok, true, "compiler-only internal muscle ids remain staged");
+  const compilerNormalized = Entry.normalizeSetupDraft(compiler);
+  assert.equal(compilerNormalized.ok, true, `compiler-only internal muscle ids remain staged: ${compilerNormalized.issues?.join(",")}`);
 });
 
 test("build-route setup draft normalizes and preserves diagnostics facts", () => {
@@ -780,18 +880,8 @@ test("build-route setup draft normalizes and preserves diagnostics facts", () =>
   state = Entry.selectRoute(state, "build");
   state = Entry.setAnswers(state, { programName: "Guided repair", daysPerWeek: 3 });
   state = Entry.setResult(state, {
-    fingerprint: "fp_build_repair",
-    selected: { id: "manual_build", source: "manual_build" },
+    ...resultFixture("build"),
     diagnostics: { mainConstraint: "fewer_days", daysPerWeek: 3 },
-    preview: {
-      source: "build",
-      program: [
-        { id: "row_1", day: "Day 1", dayId: "d1", order: 1, name: "Squat", sets: 3, min: 5, max: 8 },
-      ],
-      days: [
-        { dayId: "d1", label: "Day 1", order: 1, exercises: [{ id: "row_1", day: "Day 1", dayId: "d1", order: 1, name: "Squat", sets: 3, min: 5, max: 8 }] },
-      ],
-    },
   });
   state.step = "editor";
   const normalized = Entry.normalizeSetupDraft(state);
@@ -822,14 +912,10 @@ test("progression modifier targets follow the authoritative field shape without 
   };
   let state = Entry.selectRoute(fresh(), "import");
   state = Entry.setAnswers(state, { importReady: true });
-  state = Entry.setResult(state, {
-    fingerprint: "modifier-target",
-    selected: { id: "import", source: "import" },
-    preview: {
-      program: [{ id: "import-row", day: "Day 1", order: 1, name: "Row", sets: 3, min: 8, max: 12 }],
-      progressionModifiers: [modifier],
-    },
-  });
+  const result = resultFixture("import");
+  result.fingerprint = "modifier-target";
+  result.preview.progressionModifiers = [modifier];
+  state = Entry.setResult(state, result);
   state = Entry.advance(state).state;
   const camelCase = Entry.normalizeSetupDraft(state);
   assert.equal(camelCase.ok, true, camelCase.issues?.join(","));
@@ -853,47 +939,40 @@ test("progression modifier targets follow the authoritative field shape without 
   assert.ok(previewRejected.issues.some((issue) => issue.includes("futureEnvelopeField:unknown_key")));
 });
 
-test("compiler-backed recommendation alternative round-trips through the closed draft schema", () => {
-  let state = Entry.selectRoute(fresh(), "recommend");
-  state = Entry.setAnswers(state, validAnswers("recommend"));
-  const preview = {
-    ...resultFixture("recommend").preview,
-    source: "compiler",
-    familyId: "growth",
-    blueprintId: "growth_4_v1",
-    frequency: 4,
-  };
-  state = Entry.setResult(state, {
-    fingerprint: "primary-fixture",
-    selected: { id: "growth_4_v1", familyId: "growth", blueprintId: "growth_4_v1", daysPerWeek: 4 },
-    candidates: [{ id: "growth_4_v1", familyId: "growth", blueprintId: "growth_4_v1", daysPerWeek: 4 }],
-    alternative: {
-      id: "balanced_4_v1",
-      familyId: "balanced",
-      blueprintId: "balanced_4_v1",
-      daysPerWeek: 4,
-      fingerprint: "alternative-fixture",
-      provenance: { source: "compiler", familyId: "balanced", blueprintId: "balanced_4_v1" },
-      reason: { code: "compatible_split_variation", facts: { familyId: "balanced" } },
-      preview: { ...structuredClone(preview), familyId: "balanced", blueprintId: "balanced_4_v1" },
+test("typed compiler requests survive route selection and bounded draft round-trip", () => {
+  const competencyAnswers = Object.fromEntries([
+    "pullups10", "pullups5", "pushups15", "inclineBarbell10", "overheadPress10", "bodyweightDips10", "benchPress10",
+  ].map((key) => [key, null]));
+  const programRequest = {
+    goal: "hybrid",
+    experience: "intermediate",
+    daysPerWeek: 4,
+    timeCeilingMinutes: 60,
+    gymProfile: {
+      equipmentIds: Object.keys(Catalog.uuidIndex).filter((id) => Catalog.uuidIndex[id]?.type === "equipment"),
     },
-    preview,
-  });
-  state.step = "result";
+    competencyAnswers,
+    movementConfirmations: {},
+    emphasisMuscleIds: [],
+    deprioritizedMuscleIds: [],
+    excludedExerciseIds: [],
+    excludedMuscleIds: [],
+    preferredExerciseIds: [],
+    split: "upper_lower",
+    periodization: "undulating",
+    cycles: 12,
+    deloadCycles: [6, 12],
+    executionContexts: {},
+  };
+  let state = Entry.setAnswers(Entry.selectRoute(fresh(), "recommend"), { programRequest });
+  state = Entry.selectRoute(state, "custom");
+  assert.deepEqual(state.answers.programRequest, programRequest);
+  state = Entry.selectRoute(state, "recommend");
   const normalized = Entry.normalizeSetupDraft(state);
   assert.equal(normalized.ok, true, normalized.issues?.join(","));
-  assert.equal(normalized.value.result.alternative.fingerprint, "alternative-fixture");
-  assert.equal(normalized.value.result.alternative.reason.code, "compatible_split_variation");
+  assert.deepEqual(normalized.value.answers.programRequest, programRequest);
 
-  const legacyAlternative = structuredClone(state);
-  legacyAlternative.result.alternative = { id: "legacy_alt", familyId: "balanced", daysPerWeek: 4 };
-  const legacyNormalized = Entry.normalizeSetupDraft(legacyAlternative);
-  assert.equal(legacyNormalized.ok, true, legacyNormalized.issues?.join(","));
-  assert.equal(legacyNormalized.value.result.alternative.id, "legacy_alt");
-
-  const fabricated = structuredClone(state);
-  fabricated.result.alternative.reason.facts.program = [{ sets: 1 }];
-  const rejected = Entry.normalizeSetupDraft(fabricated);
-  assert.equal(rejected.ok, false);
-  assert.ok(rejected.issues.some((issue) => issue.includes("reason.facts.program:invalid")));
+  assert.throws(() => Entry.setAnswers(state, {
+    programRequest: { ...programRequest, privateFamilyId: "old-generator" },
+  }), /unknown_key/);
 });

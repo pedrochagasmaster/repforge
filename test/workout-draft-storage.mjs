@@ -7,6 +7,7 @@ import { exerciseAction, finishEarly, sessionField } from "./fixtures/focus-work
 import { launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const STATE = "repforge_v1";
@@ -14,11 +15,50 @@ const DRAFT = "repforge_draft_v1";
 const CHECKPOINT = `${DRAFT}:v2-checkpoint`;
 const RECOVERY = `${DRAFT}:recovery`;
 const OLD_APP_SHA = "3fbae92fcee58c0d72539b9f4e2c270a9d60dbd4";
-const OLD_APP = execFileSync("git", ["show", `${OLD_APP_SHA}:app.js`], { encoding: "utf8" });
-// An installed older version runs its own shell with its own app.js, so the legacy
-// writer gets that commit's index.html too (the current shell retired DOM it binds).
-const OLD_INDEX = execFileSync("git", ["show", `${OLD_APP_SHA}:index.html`], { encoding: "utf8" });
-const OLD_DOCUMENT = /\/(?:index\.html)?(?:\?[^/]*)?$/;
+// An installed older version runs its own shell with every module it loads from
+// its own release (its cache holds them), so the legacy writer is served that
+// commit's files: the current modules are not API-compatible with its app.js.
+const OLD_FILES = new Map();
+function oldFile(path) {
+  if (!OLD_FILES.has(path)) {
+    let bytes = null;
+    try { bytes = execFileSync("git", ["show", `${OLD_APP_SHA}:${path}`], { maxBuffer: 1 << 28, stdio: ["ignore", "pipe", "ignore"] }); }
+    catch {}
+    OLD_FILES.set(path, bytes);
+  }
+  return OLD_FILES.get(path);
+}
+// The released app logs against the legacy flat program it shipped with (its own
+// seed fixture, no canonical ProgramDefinition). The current app still binds
+// DraftV2 to such a program, so cross-version writer races share one program.
+const LEGACY = await import(`data:text/javascript;base64,${oldFile("test/fixtures/seed-program.mjs").toString("base64")}`);
+const OLD_TYPES = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".json": "application/json" };
+// The seed program's movements record catalog metrics: Weight (kg) and Reps.
+const WEIGHT = "2555c6f170d8805cafa6d16d3fdddbaa";
+const REPS = "2555c6f170d88072bbf6d9ad3f16ea86";
+const METRIC_OF = { load: WEIGHT, reps: REPS };
+const KEY_SUFFIX = { load: `_metric_${WEIGHT}`, reps: `_metric_${REPS}`, rir: "_rir" };
+const SHELF_FIELD = { load: `metric_${WEIGHT}`, reps: `metric_${REPS}`, rir: "rir" };
+// A generated program carries adaptive recommendations once it has history;
+// the untouched-suggestion refresh only has work to do for such a program.
+const PLAN_DATA = new URL("../plans/067/data/", import.meta.url);
+const gym = JSON.parse(readFileSync(new URL("gym.json", PLAN_DATA), "utf8"));
+const observations = JSON.parse(readFileSync(new URL("programs.json", PLAN_DATA), "utf8"));
+const rawCatalog = JSON.parse(readFileSync(new URL("app_file.json", PLAN_DATA), "utf8"));
+const observedIds = [...new Set(Object.values(observations).flatMap((program) =>
+  program.days.flatMap((day) => day.exercises.map((entry) => entry.exerciseId))))];
+const REQUEST = {
+  goal: "hypertrophy", experience: "intermediate", daysPerWeek: 4, timeCeilingMinutes: 90,
+  gymProfile: { equipmentIds: gym.equipment.map((entry) => entry.equipmentId) },
+  competencyAnswers: {
+    pullups10: null, pullups5: null, pushups15: null, inclineBarbell10: null,
+    overheadPress10: null, bodyweightDips10: null, benchPress10: null,
+  },
+  movementConfirmations: Object.fromEntries(observedIds.map((id) =>
+    [id, [...rawCatalog.exercises.find((entry) => entry.id === id).preconditions]])),
+  emphasisMuscleIds: [], deprioritizedMuscleIds: [], excludedExerciseIds: [], excludedMuscleIds: [],
+  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 4, deloadCycles: [],
+};
 const failures = [];
 let passed = 0;
 
@@ -31,6 +71,34 @@ function check(condition, message, detail) {
     console.error(`  ✗ ${message}`);
     if (detail !== undefined) console.error(`    ${JSON.stringify(detail)}`);
   }
+}
+
+/**
+ * The edited value of a set field. A catalog-metric set keeps load and reps in
+ * its metric map; a legacy flat set (the released app's program) keeps them as
+ * flat fields.
+ */
+function editedOf(set, field) {
+  return METRIC_OF[field] && Array.isArray(set?.programmed?.metrics)
+    ? set?.edited?.metrics?.[METRIC_OF[field]] : set?.edited?.[field];
+}
+
+/** Edit the selected exercise's first-set load through the production draft command. */
+function editLoad(page, value) {
+  return page.evaluate(({ value, weight }) => {
+    const hook = window.__repforgeWorkoutDraft, draft = hook.current();
+    const exerciseInstanceId = draft.session.selectedExerciseId;
+    const exercise = draft.exercises[exerciseInstanceId];
+    const setId = exercise.setOrder.find((id) => exercise.sets[id].ordinal === 1);
+    return Array.isArray(exercise.sets[setId].programmed.metrics)
+      ? hook.dispatch("editMetricValue", { exerciseInstanceId, setId, metricId: weight, value })
+      : hook.dispatch("editSetField", { exerciseInstanceId, setId, field: "load", value });
+  }, { value: String(value), weight: WEIGHT });
+}
+
+/** A History row's recorded metric value. */
+function metricValue(row, field) {
+  return row?.metricValues?.find((entry) => entry.metricId === METRIC_OF[field])?.value;
 }
 
 async function waitForBoot(page) {
@@ -52,14 +120,15 @@ async function openApp(context) {
 
 async function openOldApp(context) {
   const page = await context.newPage();
-  await page.route(/\/app\.js(?:\?|$)/, (route) => route.fulfill({
-    status: 200,
-    contentType: "text/javascript",
-    body: OLD_APP,
-  }));
-  await page.route(OLD_DOCUMENT, (route) => route.request().resourceType() === "document"
-    ? route.fulfill({ status: 200, contentType: "text/html", body: OLD_INDEX })
-    : route.continue());
+  const origin = new URL(BASE).origin;
+  await page.route((url) => url.origin === origin, (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    const path = pathname === "/" ? "index.html" : pathname.slice(1);
+    const bytes = oldFile(path);
+    if (!bytes) return route.fulfill({ status: 404, body: "Not found" });
+    const extension = path.match(/\.[a-z0-9]+$/i)?.[0] || "";
+    return route.fulfill({ status: 200, contentType: OLD_TYPES[extension] || "application/octet-stream", body: bytes });
+  });
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForBoot(page);
   return page;
@@ -98,13 +167,20 @@ async function reset(page, options = {}) {
   const current = JSON.parse(await page.evaluate((key) => localStorage.getItem(key) || "{}", STATE));
   const next = {
     ...current,
-    program: seedProgram(),
-    programMeta: seedProgramMeta(),
+    program: options.legacy ? LEGACY.seedProgram() : seedProgram(),
+    programMeta: options.legacy ? LEGACY.seedProgramMeta() : seedProgramMeta(),
     log: [],
     programHistory: [],
     settings: { ...current.settings, lang: options.lang || "en", unit: options.unit || "kg", rirMode: "numeric", restSec: 0 },
   };
   await writeState(page, next);
+  if (options.legacy) {
+    // The released app normalizes and persists its program when it boots. Let it
+    // do so once, as an installed copy would have, so a later legacy tab and the
+    // current tab bind their drafts to the same durable program.
+    const settle = await openOldApp(page.context());
+    await settle.close();
+  }
   await page.evaluate(({ draft, checkpoint, recovery }) => {
     for (const key of [...Array(localStorage.length)].map((_, index) => localStorage.key(index))) {
       if (key === draft || key === checkpoint || key === recovery || key?.startsWith(`${draft}:pending:`)) {
@@ -126,7 +202,7 @@ async function enter(page, day = "Day 1") {
 // set except the visible one under test is completed up front and the storage
 // hazard is still exercised on that last visible completion.
 async function completeAllButCurrent(page) {
-  await page.evaluate(async () => {
+  await page.evaluate(async ({ weight, reps }) => {
     const hook = window.__repforgeWorkoutDraft;
     const draft = hook.current();
     const heldExercise = draft.session.selectedExerciseId;
@@ -134,40 +210,51 @@ async function completeAllButCurrent(page) {
     for (const exerciseInstanceId of draft.exerciseOrder) {
       for (const setId of draft.exercises[exerciseInstanceId].setOrder) {
         if (exerciseInstanceId === heldExercise && setId === heldSet) continue;
-        for (const [field, value] of [["load", "60"], ["reps", "8"], ["rir", "2"]]) {
-          await hook.dispatch("editSetField", { exerciseInstanceId, setId, field, value });
+        for (const [metricId, value] of [[weight, "60"], [reps, "8"]]) {
+          await hook.dispatch("editMetricValue", { exerciseInstanceId, setId, metricId, value });
         }
+        await hook.dispatch("editSetField", { exerciseInstanceId, setId, field: "rir", value: "2" });
         await hook.dispatch("completeSet", { exerciseInstanceId, setId, completedAt: new Date().toISOString() });
       }
     }
     await hook.flush();
-  });
+  }, { weight: WEIGHT, reps: REPS });
   await page.evaluate(() => window.__repforgeFocus.to(0));
   await page.waitForSelector("#workout.is-focus .exercise.is-current .focus-shelf .saveset", { timeout: 5000 });
 }
 
+/** The live shelf input for a field of the current exercise's set. */
+async function shelfInput(page, field, root = "#workout .exercise.is-current .focus-shelf") {
+  const input = page.locator(`${root} input[data-k$="${KEY_SUFFIX[field]}"]`);
+  await input.waitFor({ state: "attached", timeout: 5000 });
+  if (await input.getAttribute("aria-hidden") === "true") {
+    await page.locator(`${root} [data-shelf-field="${SHELF_FIELD[field]}"]`).click();
+  }
+  return input;
+}
+
 async function fillCurrent(page, field, value) {
-  const input = page.locator(`#workout .exercise.is-current .focus-shelf [data-k$="_${field}"]`);
+  const input = await shelfInput(page, field);
   const key = await input.getAttribute("data-k");
   await input.fill(String(value));
-  await page.waitForFunction(({ key, field, value }) => {
+  await page.waitForFunction(({ key, metricId, field, value }) => {
     const draft = window.__repforgeWorkoutDraft.current();
     const target = window.__repforgeWorkoutDraft.target(key);
-    return draft.exercises[target.exerciseInstanceId].sets[target.setId].edited[field] === value;
-  }, { key, field, value: String(value) });
+    const set = draft.exercises[target.exerciseInstanceId].sets[target.setId];
+    return (metricId ? set.edited.metrics?.[metricId] : set.edited[field]) === value;
+  }, { key, metricId: METRIC_OF[field] || null, field, value: String(value) });
 }
 
 async function commandFixture(page, field, value, operationId) {
-  return page.evaluate(({ field, value, operationId }) => {
+  return page.evaluate(({ field, metricId, value, operationId }) => {
     const draft = window.RepForgeWorkoutDraft.parse(window.__repforgeWorkoutDraft.read().raw).draft;
     const exerciseInstanceId = draft.session.selectedExerciseId;
     const setId = draft.exercises[exerciseInstanceId].setOrder[0];
     const updatedAt = new Date(Date.parse(draft.session.updatedAt) + 1000).toISOString();
     const command = {
-      type: "editSetField",
+      ...(metricId ? { type: "editMetricValue", metricId } : { type: "editSetField", field }),
       exerciseInstanceId,
       setId,
-      field,
       value,
       operationId,
       expectedRevision: draft.revision,
@@ -181,7 +268,7 @@ async function commandFixture(page, field, value, operationId) {
       nextRaw: JSON.stringify(window.RepForgeWorkoutDraft.serialize(next)),
       operationId,
     };
-  }, { field, value: String(value), operationId });
+  }, { field, metricId: METRIC_OF[field] || null, value: String(value), operationId });
 }
 
 async function rawState(page) {
@@ -238,24 +325,24 @@ async function main() {
     await page.evaluate(() => document.querySelectorAll("#workout .focus-inputs").forEach((node) => node.remove()));
     await fillCurrent(page, "load", "62.5");
     await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
-    await page.waitForFunction(() => {
+    await page.waitForFunction(({ weight }) => {
       const draft = window.__repforgeWorkoutDraft.current();
       const exercise = draft.exercises[draft.session.selectedExerciseId];
       const set = exercise.sets[exercise.setOrder[0]];
-      return set.completion !== "pending" && set.edited.load === "62.5";
-    });
+      return set.completion !== "pending" && set.edited.metrics?.[weight] === "62.5";
+    }, { weight: WEIGHT });
     const beforeReload = await rawState(page);
     check(beforeReload.checkpoint?.kind === "committed" && beforeReload.checkpoint.raw === beforeReload.raw,
       "the corrected completion is acknowledged in canonical and checkpoint storage");
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForBoot(page);
     await enter(page);
-    const restored = await page.evaluate(() => {
+    const restored = await page.evaluate((weight) => {
       const draft = window.__repforgeWorkoutDraft.current();
       const exercise = draft.exercises[draft.session.selectedExerciseId];
       const set = exercise.sets[exercise.setOrder[0]];
-      return { load: set.edited.load, completion: set.completion, revision: draft.revision };
-    });
+      return { load: set.edited.metrics?.[weight], completion: set.completion, revision: draft.revision };
+    }, WEIGHT);
     const afterReloadRaw = (await rawState(page)).raw;
     check(restored.load === "62.5" && restored.completion !== "pending" && afterReloadRaw === beforeReload.raw,
       "reload restores the complete DraftV2 identity, values, and completion byte-for-byte", {
@@ -268,8 +355,8 @@ async function main() {
     const save = await finishEarly(page);
     await page.evaluate(() => window.__repforgeStorage.flush());
     const saved = await rawState(page);
-    const row = saved.state.log.find((candidate) => candidate.exerciseId === first.id && candidate.load === 62.5);
-    check((save?.localOk || save?.idbOk) && row?.reps === 8 && row?.rir === 2,
+    const row = saved.state.log.find((candidate) => candidate.exerciseId === first.id && metricValue(candidate, "load") === 62.5);
+    check((save?.localOk || save?.idbOk) && metricValue(row, "reps") === 8 && row?.rir === 2,
       "production save compiles the corrected DraftV2 set into the existing History row", row);
     check(saved.raw === null && saved.checkpoint?.kind === "tombstone",
       "save removes canonical draft bytes and commits a removal tombstone", saved.checkpoint);
@@ -280,23 +367,23 @@ async function main() {
 
     const precisionExercise = seedProgram()[0];
     const precisionLoad = 12.5 / 2.2046226218;
-    await page.locator(`[data-k="${precisionExercise.id}_1_load"]`).fill("12.5");
-    await page.locator(`[data-k="${precisionExercise.id}_1_reps"]`).fill("8");
-    await page.locator(`[data-k="${precisionExercise.id}_1_rir"]`).fill("2");
+    await (await shelfInput(page, "load")).fill("12.5");
+    await (await shelfInput(page, "reps")).fill("8");
+    await (await shelfInput(page, "rir")).fill("2");
     await sessionField(page, "#sessionBodyweight", "12.5");
-    await page.waitForFunction(({ draft, id, expected }) => {
+    await page.waitForFunction(({ draft, id, expected, weight }) => {
       const value = JSON.parse(localStorage.getItem(draft) || "null");
       const exercise = value?.exercises?.[id];
       const set = exercise?.sets?.[exercise?.setOrder?.[0]];
-      return Math.abs(Number(set?.edited?.load) - expected) < Number.EPSILON &&
+      return Math.abs(Number(set?.edited?.metrics?.[weight]) - expected) < Number.EPSILON &&
         Math.abs(Number(value?.session?.bodyweight) - expected) < Number.EPSILON;
-    }, { draft: DRAFT, id: precisionExercise.id, expected: precisionLoad });
-    const preciseDraft = await page.evaluate(({ id }) => {
+    }, { draft: DRAFT, id: precisionExercise.id, expected: precisionLoad, weight: WEIGHT });
+    const preciseDraft = await page.evaluate(({ id, weight }) => {
       const value = window.__repforgeWorkoutDraft.current();
       const exercise = value.exercises[id];
       const set = exercise.sets[exercise.setOrder[0]];
-      return { load: set.edited.load, bodyweight: value.session.bodyweight };
-    }, { id: precisionExercise.id });
+      return { load: set.edited.metrics?.[weight], bodyweight: value.session.bodyweight };
+    }, { id: precisionExercise.id, weight: WEIGHT });
     check(preciseDraft.load === String(precisionLoad) && preciseDraft.bodyweight === String(precisionLoad),
       "12.5 lb load and bodyweight retain exact canonical kg text", { preciseDraft, expected: String(precisionLoad) });
     const preciseBeforeReload = (await rawState(page)).raw;
@@ -309,23 +396,23 @@ async function main() {
     const preciseSaved = await rawState(page);
     const preciseRow = preciseSaved.state.log.find((row) => row.exerciseId === precisionExercise.id);
     check((preciseSave?.localOk || preciseSave?.idbOk) && preciseRow &&
-      preciseRow.load === precisionLoad && preciseRow.bodyweight === precisionLoad,
+      metricValue(preciseRow, "load") === precisionLoad && preciseRow.bodyweight === precisionLoad,
       "History preserves converted load and bodyweight numeric truth", preciseRow);
     await page.evaluate(() => window.__repforgeSessionSummary?.close());
     await enter(page, "Day 1");
 
     await exerciseAction(page, precisionExercise.id, "#exActionRepeatBtn");
-    await page.waitForFunction(({ draft, id, expected }) => {
+    await page.waitForFunction(({ draft, id, expected, weight }) => {
       const value = JSON.parse(localStorage.getItem(draft) || "null");
       const exercise = value?.exercises?.[id];
       const set = exercise?.sets?.[exercise?.setOrder?.[0]];
-      return set?.edited?.load === expected;
-    }, { draft: DRAFT, id: precisionExercise.id, expected: String(precisionLoad) });
-    const repeatedPrecision = await page.evaluate((id) => {
+      return set?.edited?.metrics?.[weight] === expected;
+    }, { draft: DRAFT, id: precisionExercise.id, expected: String(precisionLoad), weight: WEIGHT });
+    const repeatedPrecision = await page.evaluate(({ id, weight }) => {
       const value = window.__repforgeWorkoutDraft.current();
       const exercise = value.exercises[id];
-      return exercise.sets[exercise.setOrder[0]].edited.load;
-    }, precisionExercise.id);
+      return exercise.sets[exercise.setOrder[0]].edited.metrics?.[weight];
+    }, { id: precisionExercise.id, weight: WEIGHT });
     check(repeatedPrecision === String(precisionLoad),
       "repeat-last preserves the exact canonical kg value", { repeatedPrecision, expected: String(precisionLoad) });
 
@@ -460,7 +547,7 @@ async function main() {
     await page.evaluate(() => window.__repforgeStorage.flush());
     const immediateSaved = await rawState(page);
     check((immediateSave?.localOk || immediateSave?.idbOk) && immediateSaved.raw === null &&
-      immediateSaved.state.log.some((candidate) => candidate.load === 61 && candidate.reps === 8),
+      immediateSaved.state.log.some((candidate) => metricValue(candidate, "load") === 61 && metricValue(candidate, "reps") === 8),
       "Finish captures the completed set while its post-completion suggestion refresh is paused", {
         save: { localOk: immediateSave?.localOk, idbOk: immediateSave?.idbOk, reason: immediateSave?.reason,
           validation: immediateSave?.validation, issues: immediateSave?.issues, draftConflict: immediateSave?.draftConflict },
@@ -470,9 +557,88 @@ async function main() {
         after: { raw: immediateSaved.raw?.slice?.(0, 80), checkpoint: immediateSaved.checkpoint?.kind },
       });
 
-    await reset(page);
-    await enter(page);
-    await fillCurrent(page, "load", "61");
+    console.log("\n1b. Adaptive suggestion refresh: acknowledged writes, typed values, and failure recovery");
+    // A Build/seed program is manual and has no recommendation to refresh. A
+    // generated program with one recorded session does, so the refresh path
+    // writes real untouched-set updates through DraftV2.
+    const mainPage = page;
+    const adaptiveContext = await browser.newContext({
+      viewport: { width: 393, height: 852 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, serviceWorkers: "block",
+    });
+    page = await adaptiveContext.newPage();
+    await page.clock.setFixedTime(new Date("2026-03-02T09:00:00.000Z"));
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForBoot(page);
+    const adaptive = await page.evaluate(async ({ request, weight, reps }) => {
+      const generated = window.RepForgeProgramCompiler.generateProgram(request,
+        window.RepForgeExerciseCatalog.snapshot(), "draft-storage-adaptive");
+      if (!generated.ok) return { ok: false, code: "generation-failed" };
+      const definition = generated.value;
+      const target = definition.days.filter((day) => day.kind === "training").map((day) => ({ day, slot: day.slots[0] }))
+        .find(({ slot }) => JSON.stringify(slot.metricIds) === JSON.stringify([weight, reps]) &&
+          slot.prescriptionsByCycle[0].sets.length >= 2);
+      if (!target) return { ok: false, code: "no-weighted-first-slot" };
+      const finalized = await window.__repforgeFinalizeProgramSetup({
+        programDefinition: definition, name: "Draft storage adaptive", answers: {}, destination: "log", origin: "first-run",
+        draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: "draft-storage-adaptive" },
+      });
+      await window.__repforgeStorage.flush();
+      return { ok: !!(finalized?.localOk || finalized?.idbOk), day: target.day.name, slotId: target.slot.id };
+    }, { request: REQUEST, weight: WEIGHT, reps: REPS });
+    if (!adaptive.ok) throw new Error(`adaptive program setup failed: ${adaptive.code || "finalize"}`);
+    const quiet = JSON.parse(await page.evaluate((key) => localStorage.getItem(key), STATE));
+    quiet.settings = { ...quiet.settings, restSec: 0, rirMode: "numeric", unit: "kg", lang: "en" };
+    await writeState(page, quiet);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForBoot(page);
+    const adaptiveId = adaptive.slotId;
+    const setAt = (ordinal) => page.evaluate(({ id, ordinal }) => {
+      const exercise = window.__repforgeWorkoutDraft.current()?.exercises?.[id];
+      const setId = exercise?.setOrder?.find((candidate) => exercise.sets[candidate].ordinal === ordinal);
+      return setId ? exercise.sets[setId] : null;
+    }, { id: adaptiveId, ordinal });
+    const enterAdaptive = async () => {
+      if (!await page.evaluate((label) => window.__repforgeEnterWorkout({ day: label }), adaptive.day)) {
+        throw new Error("could not enter the adaptive day");
+      }
+      await page.waitForSelector(`#workout.is-focus .exercise.is-current[data-ex="${adaptiveId}"]`, { timeout: 10000 });
+    };
+    const completeVisible = async (ordinal) => {
+      await page.locator(`#workout .exercise.is-current [data-save="${adaptiveId}_${ordinal}"]`).click();
+      await page.waitForFunction(({ id, ordinal }) => {
+        const exercise = window.__repforgeWorkoutDraft.current()?.exercises?.[id];
+        const setId = exercise?.setOrder?.find((candidate) => exercise.sets[candidate].ordinal === ordinal);
+        return setId && exercise.sets[setId].completion !== "pending";
+      }, { id: adaptiveId, ordinal });
+    };
+
+    // Session 1 records the history that the next session adapts from.
+    await enterAdaptive();
+    await page.evaluate(async ({ id, weight, reps }) => {
+      const hook = window.__repforgeWorkoutDraft;
+      for (const setId of hook.current().exercises[id].setOrder) {
+        await hook.dispatch("editMetricValue", { exerciseInstanceId: id, setId, metricId: weight, value: "100" });
+        await hook.dispatch("editMetricValue", { exerciseInstanceId: id, setId, metricId: reps, value: "8" });
+        await hook.dispatch("editSetField", { exerciseInstanceId: id, setId, field: "rir", value: "2" });
+        await hook.dispatch("completeSet", { exerciseInstanceId: id, setId, completedAt: new Date().toISOString() });
+      }
+      await hook.flush();
+    }, { id: adaptiveId, weight: WEIGHT, reps: REPS });
+    const firstSession = await finishEarly(page);
+    await page.evaluate(() => window.__repforgeStorage.flush());
+    check(firstSession?.localOk || firstSession?.idbOk, "the generated program records a first session to adapt from");
+    await page.clock.setFixedTime(new Date("2026-03-04T09:00:00.000Z"));
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForBoot(page);
+    const historyRows = (await rawState(page)).state.log.length;
+
+    // A failed refresh blocks Finish instead of capturing the earlier revision.
+    await enterAdaptive();
+    const recommended = await setAt(2);
+    check(recommended?.completion === "pending" && recommended.edited.metrics?.[WEIGHT] != null &&
+      recommended.touched.metrics?.[WEIGHT] === false,
+    "the second session acknowledges an untouched recommendation in DraftV2", recommended?.edited?.metrics);
+    await fillCurrent(page, "load", "101");
     await fillCurrent(page, "reps", "8");
     await fillCurrent(page, "rir", "2");
     await page.evaluate(() => {
@@ -497,169 +663,18 @@ async function main() {
     await page.evaluate(() => window.__repforgeStorage.flush());
     const failedRefreshState = await rawState(page);
     const failedRefreshDraft = JSON.parse(failedRefreshState.raw || "null");
-    const failedRefreshExercise = failedRefreshDraft?.exercises?.[failedRefreshDraft?.session?.selectedExerciseId];
-    check(failedRefreshSave?.reason === "recovery-pending" && failedRefreshState.state.log.length === 0 &&
-      failedRefreshExercise?.sets?.[failedRefreshExercise?.setOrder?.[0]]?.completion !== "pending" &&
-      failedRefreshState.raw != null,
-      "a failed refresh blocks Finish while preserving the completed DraftV2 and History", {
-        reason: failedRefreshSave?.reason,
-        draftPreserved: failedRefreshState.raw != null,
-        historyRows: failedRefreshState.state.log.length,
-      });
-
-    console.log("\n1b. Untouched compiler suggestions are acknowledged in DraftV2");
-    const mainPage = page;
-    const suggestionContext = await browser.newContext({
-      viewport: { width: 393, height: 852 },
-      deviceScaleFactor: 2,
-      isMobile: true,
-      hasTouch: true,
-      serviceWorkers: "block",
+    const failedRefreshSet = failedRefreshDraft?.exercises?.[adaptiveId]?.sets?.[failedRefreshDraft.exercises[adaptiveId].setOrder[0]];
+    check(failedRefreshSave?.reason === "recovery-pending" && failedRefreshState.state.log.length === historyRows &&
+      failedRefreshSet?.completion !== "pending" && failedRefreshSet?.edited?.metrics?.[WEIGHT] === "101",
+    "a failed refresh blocks Finish while preserving the completed DraftV2 and History", {
+      reason: failedRefreshSave?.reason, draftPreserved: failedRefreshState.raw != null,
+      historyRows: failedRefreshState.state.log.length, expectedRows: historyRows,
     });
-    page = await openApp(suggestionContext);
-    await reset(page);
-    const dynamicState = JSON.parse(await page.evaluate((key) => localStorage.getItem(key), STATE));
-    const dynamicExercise = dynamicState.program.find((candidate) => candidate.day === "Day 1");
-    dynamicExercise.sets = 3;
-    dynamicExercise.min = 4;
-    dynamicExercise.max = 8;
-    const dynamicDate = (daysAgo) => {
-      const date = new Date();
-      date.setUTCDate(date.getUTCDate() - daysAgo);
-      return date.toISOString().slice(0, 10);
-    };
-    const dynamicRows = [];
-    for (const [date, load, tag] of [[dynamicDate(21), 100, "a"], [dynamicDate(14), 105, "b"], [dynamicDate(7), 110, "c"]]) {
-      for (let set = 1; set <= 3; set++) dynamicRows.push({
-        session: `${date}_Day 1_dynamic_${tag}`,
-        date,
-        day: "Day 1",
-        name: dynamicExercise.name,
-        exerciseId: dynamicExercise.id,
-        set,
-        load,
-        reps: 4,
-        rir: 1,
-        notes: "",
-        created: `${date}T12:00:00.000Z`,
-        primary: dynamicExercise.primary,
-        secondary: dynamicExercise.secondary,
-      });
-    }
-    dynamicState.programMeta = { ...dynamicState.programMeta, started: dynamicDate(28), onboarded: true };
-    dynamicState.log = dynamicRows;
-    await writeState(page, dynamicState);
-    await page.evaluate(({ draft, checkpoint, recovery }) => {
-      for (const key of [...Array(localStorage.length)].map((_, index) => localStorage.key(index))) {
-        if (key === draft || key === checkpoint || key === recovery || key?.startsWith(`${draft}:`)) localStorage.removeItem(key);
-      }
-    }, { draft: DRAFT, checkpoint: CHECKPOINT, recovery: RECOVERY });
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await waitForBoot(page);
-    await enter(page, "Day 1");
+    await page.locator("#draftRecoveryRetry").click();
+    await page.waitForSelector("#draftRecovery", { state: "hidden" });
 
-    await page.waitForSelector(`#workout.is-focus .exercise.is-current[data-ex="${dynamicExercise.id}"]`);
-    await page.locator(`[data-k="${dynamicExercise.id}_1_load"]`).fill("110");
-    await page.locator(`[data-k="${dynamicExercise.id}_1_reps"]`).fill("8");
-    await page.locator(`[data-k="${dynamicExercise.id}_1_rir"]`).fill("3");
-    await page.locator(`[data-save="${dynamicExercise.id}_1"]`).click();
-    await page.waitForFunction(({ draft, id }) => {
-      const value = JSON.parse(localStorage.getItem(draft) || "null");
-      const exercise = value?.exercises?.[id];
-      const set = exercise?.sets?.[exercise?.setOrder?.[0]];
-      return set?.completion !== "pending";
-    }, { draft: DRAFT, id: dynamicExercise.id });
-    await page.waitForTimeout(120);
-    const suggestionAfterComplete = await page.evaluate(({ draft, id }) => {
-      const value = JSON.parse(localStorage.getItem(draft) || "null");
-      const exercise = value?.exercises?.[id];
-      const set = exercise?.sets?.[exercise?.setOrder?.[1]];
-      return {
-        load: set?.edited?.load,
-        touched: set?.touched?.load,
-        input: document.querySelector(`[data-k="${id}_2_load"]`)?.value,
-
-      };
-    }, { draft: DRAFT, id: dynamicExercise.id });
-    await page.locator("#workout .exercise.is-current [data-why]").click();
-    suggestionAfterComplete.note=await page.locator("#whyBody").textContent();
-    await page.locator("#whyClose").click();
-    await page.locator("#whySheet").waitFor({state:"hidden"});
-    check(suggestionAfterComplete.load === "112.5" && suggestionAfterComplete.input === "112.5",
-      "a completed set acknowledges the next compiler suggestion in V2 and the visible row", suggestionAfterComplete);
-    check(suggestionAfterComplete.touched === false && /112\.5/.test(suggestionAfterComplete.note),
-      "the acknowledged value remains suggestion-owned and the explanation names the same value", suggestionAfterComplete);
-
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await waitForBoot(page);
-    await enter(page, "Day 1");
-
-    await page.waitForSelector(`#workout.is-focus .exercise.is-current[data-ex="${dynamicExercise.id}"]`);
-    check(await page.locator(`[data-k="${dynamicExercise.id}_2_load"]`).inputValue() === "112.5",
-      "reload renders the acknowledged suggestion instead of restoring the stale programmed value");
-    await page.locator(`[data-save="${dynamicExercise.id}_2"]`).click();
-    await page.waitForFunction(({ draft, id }) => {
-      const value = JSON.parse(localStorage.getItem(draft) || "null");
-      const exercise = value?.exercises?.[id];
-      return exercise?.sets?.[exercise?.setOrder?.[1]]?.completion !== "pending";
-    }, { draft: DRAFT, id: dynamicExercise.id });
-    const dynamicDraftId = await page.evaluate(() => window.__repforgeWorkoutDraft.current()?.draftId);
-    const dynamicSave = await finishEarly(page);
-    await page.evaluate(() => window.__repforgeStorage.flush());
-    await page.evaluate(() => window.__repforgeSessionSummary?.close());
-    await page.waitForSelector("#sessionSummary.hidden", { state: "attached", timeout: 5000 });
-    const dynamicSaved = await rawState(page);
-    const dynamicHistory = dynamicSaved.state.log.find((row) => row.session === dynamicDraftId &&
-      row.exerciseId === dynamicExercise.id && row.set === 2);
-    check((dynamicSave?.localOk || dynamicSave?.idbOk) && dynamicHistory?.load === 112.5,
-      "History receives the same acknowledged untouched suggestion after reload", dynamicHistory);
-
-    const partialContext = await browser.newContext({
-      viewport: { width: 393, height: 852 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, serviceWorkers: "block",
-    });
-    const partialPage = await openApp(partialContext);
-    await writeState(partialPage, dynamicState);
-    await partialPage.evaluate(({ draft, checkpoint, recovery }) => {
-      for (const key of [...Array(localStorage.length)].map((_, index) => localStorage.key(index))) {
-        if (key === draft || key === checkpoint || key === recovery || key?.startsWith(`${draft}:`)) localStorage.removeItem(key);
-      }
-    }, { draft: DRAFT, checkpoint: CHECKPOINT, recovery: RECOVERY });
-    await partialPage.reload({ waitUntil: "domcontentloaded" });
-    await waitForBoot(partialPage);
-    await enter(partialPage, "Day 1");
-
-    await partialPage.locator(`[data-k="${dynamicExercise.id}_1_load"]`).fill("110");
-    await partialPage.locator(`[data-k="${dynamicExercise.id}_1_reps"]`).fill("8");
-    await partialPage.locator(`[data-k="${dynamicExercise.id}_1_rir"]`).fill("3");
-    await partialPage.locator(`[data-save="${dynamicExercise.id}_1"]`).click();
-    await partialPage.waitForFunction(({ draft, id }) => {
-      const value = JSON.parse(localStorage.getItem(draft) || "null"),exercise=value?.exercises?.[id];
-      return exercise?.sets?.[exercise?.setOrder?.[0]]?.completion !== "pending";
-    }, { draft: DRAFT, id: dynamicExercise.id });
-    await partialPage.locator(`[data-k="${dynamicExercise.id}_2_reps"]`).fill("6");
-    await partialPage.waitForFunction(({ draft, id }) => {
-      const value = JSON.parse(localStorage.getItem(draft) || "null"),exercise=value?.exercises?.[id];
-      return exercise?.sets?.[exercise?.setOrder?.[1]]?.edited?.reps === "6";
-    }, { draft: DRAFT, id: dynamicExercise.id });
-    await partialPage.locator('#workout .exercise.is-current [data-editn="1"]').click();
-    await partialPage.locator(`[data-k="${dynamicExercise.id}_1_load"]`).fill("60");
-    await partialPage.locator(`#workout .exercise.is-current [data-save="${dynamicExercise.id}_1"]`).click();
-    await partialPage.locator(`[data-k="${dynamicExercise.id}_2_load"]`).waitFor();
-    await partialPage.evaluate(()=>window.__repforgeWorkoutDraft.flush());
-    await partialPage.waitForFunction(({ draft, id }) => {
-      const value = JSON.parse(localStorage.getItem(draft) || "null"),exercise=value?.exercises?.[id],set=exercise?.sets?.[exercise?.setOrder?.[1]];
-      return set?.edited?.reps === "6" && set?.edited?.load != null;
-    }, { draft: DRAFT, id: dynamicExercise.id });
-    const partialSuggestion = await partialPage.evaluate(({ draft, id }) => {
-      const value = JSON.parse(localStorage.getItem(draft) || "null"),exercise=value?.exercises?.[id],set=exercise?.sets?.[exercise?.setOrder?.[1]];
-      return { load:set?.edited?.load, reps:set?.edited?.reps,
-        inputLoad:document.querySelector(`[data-k="${id}_2_load"]`)?.value,
-        inputReps:document.querySelector(`[data-k="${id}_2_reps"]`)?.value };
-    }, { draft: DRAFT, id: dynamicExercise.id });
-    check(partialSuggestion.load === partialSuggestion.inputLoad && partialSuggestion.reps === "6" &&
-      partialSuggestion.inputReps === "6",
-      "a refresh projects an acknowledged load while preserving a separately edited reps field", partialSuggestion);
-    const noOp = await partialPage.evaluate(async () => {
+    // An unchanged refresh writes nothing.
+    const noOp = await page.evaluate(async () => {
       const before = window.__repforgeWorkoutDraft.current(), beforeRaw = window.__repforgeWorkoutDraft.raw();
       const result = await window.__repforgeWorkoutDraft.dispatch("refreshUntouchedSuggestions", {
         sourceRevision: before.revision, updates: [],
@@ -670,52 +685,32 @@ async function main() {
     });
     check(noOp.status === "applied" && noOp.noOp === true && noOp.sameRevision && noOp.sameRaw,
       "an unchanged suggestion refresh returns without a revision or checkpoint write", noOp);
-    await partialContext.close();
 
-    await reset(page);
-    const retainedState = JSON.parse(await page.evaluate((key) => localStorage.getItem(key), STATE));
-    const retainedExercise = retainedState.program.find((candidate) => candidate.day === "Day 1");
-    retainedExercise.sets = 3;
-    retainedExercise.min = 4;
-    retainedExercise.max = 8;
-    retainedState.programMeta = { ...retainedState.programMeta, started: dynamicDate(28), onboarded: true };
-    retainedState.log = dynamicRows.map((row) => ({ ...row, exerciseId: retainedExercise.id, name: retainedExercise.name }));
-    await writeState(page, retainedState);
-    await page.evaluate(({ draft, checkpoint, recovery }) => {
-      for (const key of [...Array(localStorage.length)].map((_, index) => localStorage.key(index))) {
-        if (key === draft || key === checkpoint || key === recovery || key?.startsWith(`${draft}:`)) localStorage.removeItem(key);
-      }
-    }, { draft: DRAFT, checkpoint: CHECKPOINT, recovery: RECOVERY });
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await waitForBoot(page);
-    await enter(page, "Day 1");
+    // A typed value on a pending set survives the refresh a later completion runs.
+    await page.evaluate(() => window.__repforgeFocus.to(0));
+    await page.waitForSelector(`#workout.is-focus .exercise.is-current [data-save="${adaptiveId}_2"]`);
+    await fillCurrent(page, "load", "1");
+    await page.locator('#workout .exercise.is-current [data-editn="1"]').click();
+    await page.waitForFunction((id) => {
+      const exercise = window.__repforgeWorkoutDraft.current().exercises[id];
+      return exercise.sets[exercise.setOrder[0]].completion === "pending";
+    }, adaptiveId);
+    await fillCurrent(page, "reps", "7");
+    await completeVisible(1);
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    const offGrid = await setAt(2);
+    check(offGrid?.edited?.metrics?.[WEIGHT] === "1" && offGrid?.touched?.metrics?.[WEIGHT] === true,
+      "an explicit off-grid edit survives a later suggestion refresh", offGrid?.edited?.metrics);
 
-    await page.locator(`[data-k="${retainedExercise.id}_1_load"]`).fill("110");
-    await page.locator(`[data-k="${retainedExercise.id}_1_reps"]`).fill("8");
-    await page.locator(`[data-k="${retainedExercise.id}_1_rir"]`).fill("3");
-    await page.locator(`[data-save="${retainedExercise.id}_1"]`).click();
-    await page.waitForFunction(({ draft, id }) => {
-      const value = JSON.parse(localStorage.getItem(draft) || "null");
-      const exercise = value?.exercises?.[id];
-      return exercise?.sets?.[exercise?.setOrder?.[0]]?.completion !== "pending";
-    }, { draft: DRAFT, id: retainedExercise.id });
-    await page.locator(`[data-k="${retainedExercise.id}_2_load"]`).fill("1");
+    // Repeated stale sources surface Retry and keep Finish closed until it succeeds.
     await page.locator('#workout .exercise.is-current [data-editn="1"]').click();
-    await page.locator(`[data-k="${retainedExercise.id}_1_reps"]`).fill("7");
-    await page.locator(`[data-save="${retainedExercise.id}_1"]`).click();
-    await page.waitForSelector(`[data-k="${retainedExercise.id}_2_reps"]`);
-    await page.waitForFunction(({ draft, id }) => {
-      const value = JSON.parse(localStorage.getItem(draft) || "null");
-      const exercise = value?.exercises?.[id];
-      const set = exercise?.sets?.[exercise?.setOrder?.[1]];
-      return set?.edited?.load === "1" && set?.touched?.load === true;
-    }, { draft: DRAFT, id: retainedExercise.id });
-    check(await page.evaluate(({draft,id})=>{const ex=JSON.parse(localStorage.getItem(draft)).exercises[id];return ex.sets[ex.setOrder[1]].edited.load}, {draft:DRAFT,id:retainedExercise.id}) === "1",
-      "an explicit off-grid edit survives a later suggestion refresh");
-    await page.locator('#workout .exercise.is-current [data-editn="1"]').click();
+    await page.waitForFunction((id) => {
+      const exercise = window.__repforgeWorkoutDraft.current().exercises[id];
+      return exercise.sets[exercise.setOrder[0]].completion === "pending";
+    }, adaptiveId);
     await page.evaluate(() => { window.__repforgeDraftFault = "stale-suggestion-loop"; });
-    await page.locator(`[data-k="${retainedExercise.id}_1_reps"]`).fill("6");
-    await page.locator(`[data-save="${retainedExercise.id}_1"]`).click();
+    await fillCurrent(page, "reps", "6");
+    await page.locator(`#workout .exercise.is-current [data-save="${adaptiveId}_1"]`).click();
     await page.waitForSelector("#draftRecovery:not(.hidden)");
     check(await page.locator("#draftRecoveryRetry").isVisible(),
       "repeated stale suggestion sources expose a visible Retry action");
@@ -727,10 +722,10 @@ async function main() {
     await page.waitForSelector("#draftRecovery", { state: "hidden" });
     check((await page.evaluate(() => window.__repforgeWorkoutDraft.recovery())) === null,
       "Retry recomputes from the latest acknowledged V2 source and clears recovery");
-    await suggestionContext.close();
+    await adaptiveContext.close();
     page = mainPage;
 
-    await reset(page);
+    await reset(page, { legacy: true });
     const legacyMigrationWriter = await openOldApp(context);
     await oldAppWriteSet(legacyMigrationWriter, first.id, { load: "57.5", reps: "8", rir: "2" });
     await legacyMigrationWriter.locator(`[data-save="${first.id}_1"]`).click();
@@ -756,7 +751,7 @@ async function main() {
       migratedSaved.raw === null,
     "the migrated production draft saves through the same History adapter and is removed");
 
-    await reset(page, { unit: "lb" });
+    await reset(page, { unit: "lb", legacy: true });
     const legacyPounds = await openOldApp(context);
     await oldAppWriteSet(legacyPounds, first.id, { load: "12.5", reps: "8", rir: "2" });
     await legacyPounds.close();
@@ -795,15 +790,15 @@ async function main() {
     await page.waitForFunction(() => window.__draftSavePaused === true);
     await contender.reload({ waitUntil: "domcontentloaded" });
     await waitForBoot(contender);
-    const contenderWrite = await contender.evaluate(async () => {
+    const contenderWrite = await contender.evaluate(async (metricId) => {
       const hook = window.__repforgeWorkoutDraft;
       const reopened = await hook.dispatch("cancelFinish");
       const draft = hook.current();
       const exerciseInstanceId = draft.session.selectedExerciseId;
       const setId = draft.exercises[exerciseInstanceId].setOrder[0];
-      const edited = await hook.dispatch("editSetField", { exerciseInstanceId, setId, field: "load", value: "66" });
+      const edited = await hook.dispatch("editMetricValue", { exerciseInstanceId, setId, metricId, value: "66" });
       return { reopened: reopened.status, edited: edited.status };
-    });
+    }, WEIGHT);
     const staleSave = await page.evaluate(async () => {
       window.__releaseDraftSave();
       const result = await window.__draftSavePromise;
@@ -818,11 +813,11 @@ async function main() {
     const successorExercise = successor.exercises[successor.session.selectedExerciseId];
     check(contenderWrite.reopened === "applied" && contenderWrite.edited === "applied" &&
       staleSave?.draftConflict === true && !(staleSave.localOk || staleSave.idbOk) &&
-      afterStaleSave.state.log.length === 0 && successorExercise.sets[successorExercise.setOrder[0]].edited.load === "66",
+      afterStaleSave.state.log.length === 0 && editedOf(successorExercise.sets[successorExercise.setOrder[0]], "load") === "66",
     "a save with a stale captured revision rejects its rows and preserves the successor draft", {
       contenderWrite,
       staleSave: { draftConflict: staleSave?.draftConflict, localOk: staleSave?.localOk, idbOk: staleSave?.idbOk },
-      load: successorExercise.sets[successorExercise.setOrder[0]].edited.load,
+      load: editedOf(successorExercise.sets[successorExercise.setOrder[0]], "load"),
     });
     await contender.close();
 
@@ -834,7 +829,7 @@ async function main() {
     await fillCurrent(page, "rir", "2");
     await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
     const savedDraftId = await page.evaluate(() => window.__repforgeWorkoutDraft.current().draftId);
-    const saveWithSuccessor = await page.evaluate(async () => {
+    const saveWithSuccessor = await page.evaluate(async (metricId) => {
       window.__repforgeDraftAfterSaveCommit = async () => {
         delete window.__repforgeDraftAfterSaveCommit;
         await window.__repforgeWorkoutDraft.initialize();
@@ -843,22 +838,22 @@ async function main() {
         const draft = hook.current();
         const exerciseInstanceId = draft.session.selectedExerciseId;
         const setId = draft.exercises[exerciseInstanceId].setOrder[0];
-        await hook.dispatch("editSetField", { exerciseInstanceId, setId, field: "load", value: "71" });
+        await hook.dispatch("editMetricValue", { exerciseInstanceId, setId, metricId, value: "71" });
       };
       return window.__repforgeSaveWorkout();
-    });
+    }, WEIGHT);
     await page.evaluate(() => window.__repforgeStorage.flush());
     const newDraftBeforeReload = await rawState(page);
     const newDraft = JSON.parse(newDraftBeforeReload.raw);
     const newExercise = newDraft.exercises[newDraft.session.selectedExerciseId];
     check((saveWithSuccessor?.localOk || saveWithSuccessor?.idbOk) && newDraft.draftId !== savedDraftId &&
-      newExercise.sets[newExercise.setOrder[0]].edited.load === "71" &&
+      editedOf(newExercise.sets[newExercise.setOrder[0]], "load") === "71" &&
       newDraftBeforeReload.checkpoint?.kind === "committed" &&
       newDraftBeforeReload.checkpoint.raw === newDraftBeforeReload.raw,
     "a new draft created after the old save commit replaces the tombstone without an out-of-lock clobber", {
       oldDraftId: savedDraftId,
       newDraftId: newDraft.draftId,
-      load: newExercise.sets[newExercise.setOrder[0]].edited.load,
+      load: editedOf(newExercise.sets[newExercise.setOrder[0]], "load"),
     });
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForBoot(page);
@@ -878,12 +873,12 @@ async function main() {
     const beforeRetry = await page.evaluate((command) => window.__repforgeWorkoutDraft.cas(command), beforeFault);
     check(beforeFirst.status === "fault-before-canonical" && beforeRetry.status === "applied" && beforeRetry.idempotent,
       "an exact token retry completes a write interrupted before canonical publication", { beforeFirst, beforeRetry });
-    const conflictingRetry = await page.evaluate((command) => {
+    const conflictingRetry = await page.evaluate(({ command, metricId }) => {
       const changed = JSON.parse(command.nextRaw);
       const exercise = changed.exercises[changed.session.selectedExerciseId];
-      exercise.sets[exercise.setOrder[0]].edited.load = "999";
+      exercise.sets[exercise.setOrder[0]].edited.metrics[metricId] = "999";
       return window.__repforgeWorkoutDraft.cas({ ...command, nextRaw: JSON.stringify(changed) });
-    }, beforeFault);
+    }, { command: beforeFault, metricId: WEIGHT });
     check(conflictingRetry.status === "operation-conflict",
       "reusing an operation token with different bytes fails closed");
     const afterFault = await commandFixture(page, "load", "52", "proof-after-write");
@@ -903,11 +898,11 @@ async function main() {
     await page.close();
     page = await openApp(context);
     watch(page);
-    const recovered = await page.evaluate(() => {
+    const recovered = await page.evaluate((metricId) => {
       const draft = window.__repforgeWorkoutDraft.current();
       const exercise = draft.exercises[draft.session.selectedExerciseId];
-      return { load: exercise.sets[exercise.setOrder[0]].edited.load, checkpoint: window.__repforgeWorkoutDraft.checkpoint() };
-    });
+      return { load: exercise.sets[exercise.setOrder[0]].edited.metrics?.[metricId], checkpoint: window.__repforgeWorkoutDraft.checkpoint() };
+    }, WEIGHT);
     check(abandonedResult.status === "fault-before-canonical" && recovered.load === "52" &&
       recovered.checkpoint.value?.kind === "committed",
     "boot rolls an unacknowledged pre-write revision back to the previous committed V2", {
@@ -917,32 +912,23 @@ async function main() {
     });
 
     console.log("\n4. Stale tabs, legacy writers, sidecars, and day recovery cannot replace V2 truth");
-    await reset(page);
+    await reset(page, { legacy: true });
     const oldLiveWriter = await openOldApp(context);
     await oldLiveWriter.evaluate(() => window.__repforgeEnterWorkout({day: "Day 1" }));
     await oldLiveWriter.waitForSelector("#workout:not(.is-focus)");
     await enter(page, "Day 2");
-    await page.evaluate(() => window.__repforgeWorkoutDraft.dispatch("editSetField", {
-      ...window.__repforgeWorkoutDraft.target(`${window.__repforgeWorkoutDraft.current().session.selectedExerciseId}_1_load`),
-      field: "load", value: "75",
-    }));
+    await editLoad(page, "75");
     const stale = await openApp(context);
     watch(stale);
-    const winner = await page.evaluate(() => window.__repforgeWorkoutDraft.dispatch("editSetField", {
-      ...window.__repforgeWorkoutDraft.target(`${window.__repforgeWorkoutDraft.current().session.selectedExerciseId}_1_load`),
-      field: "load", value: "80",
-    }));
-    const loser = await stale.evaluate(() => window.__repforgeWorkoutDraft.dispatch("editSetField", {
-      ...window.__repforgeWorkoutDraft.target(`${window.__repforgeWorkoutDraft.current().session.selectedExerciseId}_1_load`),
-      field: "load", value: "90",
-    }));
+    const winner = await editLoad(page, "80");
+    const loser = await editLoad(stale, "90");
     check(winner.status === "applied" && loser.status === "stale",
       "a stale second tab is rejected at the shared-lock CAS boundary", { winner: winner.status, loser: loser.status });
     const staleRemoval = await stale.evaluate(() => window.__repforgeWorkoutDraft.clear());
     const winnerRaw = (await rawState(page)).raw;
     const winnerAfterRemovalAttempt = JSON.parse(winnerRaw);
     const winnerExercise = winnerAfterRemovalAttempt.exercises[winnerAfterRemovalAttempt.session.selectedExerciseId];
-    check(staleRemoval === false && winnerExercise.sets[winnerExercise.setOrder[0]].edited.load === "80",
+    check(staleRemoval === false && editedOf(winnerExercise.sets[winnerExercise.setOrder[0]], "load") === "80",
       "a stale tab cannot remove the newer acknowledged draft", { staleRemoval });
     await stale.close();
     await page.close();
@@ -958,11 +944,11 @@ async function main() {
     const recoveredDraft = JSON.parse(oldWriterRecovery.raw);
     const recoveredExercise = recoveredDraft.exercises[recoveredDraft.session.selectedExerciseId];
     check(recoveredDraft.program.dayLabel === "Day 2" &&
-      recoveredExercise.sets[recoveredExercise.setOrder[0]].edited.load === "80" &&
+      editedOf(recoveredExercise.sets[recoveredExercise.setOrder[0]], "load") === "80" &&
       oldWriterRecovery.recovery?.reason === "superseded-v2-canonical",
     "boot restores the full acknowledged Day 2 draft and retains overwritten legacy bytes", {
       day: recoveredDraft.program.dayLabel,
-      load: recoveredExercise.sets[recoveredExercise.setOrder[0]].edited.load,
+      load: editedOf(recoveredExercise.sets[recoveredExercise.setOrder[0]], "load"),
       recovery: oldWriterRecovery.recovery?.reason,
     });
     const legacyRaw = JSON.stringify({ __day: "Day 1", __date: "2026-08-21", __done: [], __touched: [], __warm: [] });
@@ -974,24 +960,18 @@ async function main() {
       promotedRecovery.recovery?.reason === "superseded-v2-canonical",
     "boot restores acknowledged V2 after production sidecar promotion replays legacy bytes");
 
-    await reset(page);
+    await reset(page, { legacy: true });
     const staleRenameOldApp = await openOldApp(context);
     await staleRenameOldApp.evaluate(() => window.__repforgeEnterWorkout({day: "Day 1" }));
     await staleRenameOldApp.waitForSelector(`#workout:not(.is-focus) .exercise[data-ex="${first.id}"]`);
     await enter(page);
-    await page.evaluate(() => window.__repforgeWorkoutDraft.dispatch("editSetField", {
-      ...window.__repforgeWorkoutDraft.target(`${window.__repforgeWorkoutDraft.current().session.selectedExerciseId}_1_load`),
-      field: "load", value: "70",
-    }));
+    await editLoad(page, "70");
     const capturedRename = await page.evaluate(() => {
       const hook = window.__repforgeWorkoutDraft, proposal = hook.state();
       proposal.program = proposal.program.map((exercise) => exercise.day === "Day 1" ? { ...exercise, day: "Push Day" } : exercise);
       return { proposal, effect: hook.effect.rename("Day 1", "Push Day", proposal) };
     });
-    const newerRenameWinner = await page.evaluate(() => window.__repforgeWorkoutDraft.dispatch("editSetField", {
-      ...window.__repforgeWorkoutDraft.target(`${window.__repforgeWorkoutDraft.current().session.selectedExerciseId}_1_load`),
-      field: "load", value: "80",
-    }));
+    const newerRenameWinner = await editLoad(page, "80");
     const newerRenameRaw = (await rawState(page)).raw;
     const staleExactBoundary = await page.evaluate(({ effect, winnerRaw, draftKey }) => {
       const staleRaw = effect.effect.expectedRaw;
@@ -1019,8 +999,8 @@ async function main() {
       exactWinnerRecovered: afterStaleRename.raw === newerRenameRaw,
     });
 
-    await reset(page);
-    const secondDayExercise = seedProgram().find((exercise) => exercise.day === "Day 2");
+    await reset(page, { legacy: true });
+    const secondDayExercise = LEGACY.seedProgram().find((exercise) => exercise.day === "Day 2");
     const absentRename = await page.evaluate(() => {
       const hook = window.__repforgeWorkoutDraft, proposal = hook.state();
       proposal.program = proposal.program.map((exercise) => exercise.day === "Day 1" ? { ...exercise, day: "Push Day" } : exercise);
@@ -1028,10 +1008,7 @@ async function main() {
     });
     const absentRenameOldApp = await openOldApp(context);
     await enter(page);
-    await page.evaluate(() => window.__repforgeWorkoutDraft.dispatch("editSetField", {
-      ...window.__repforgeWorkoutDraft.target(`${window.__repforgeWorkoutDraft.current().session.selectedExerciseId}_1_load`),
-      field: "load", value: "84",
-    }));
+    await editLoad(page, "84");
     const createdAfterAbsentRaw = (await rawState(page)).raw;
     const absentExactBoundary = await page.evaluate(({ effect, draftKey }) => {
       localStorage.removeItem(draftKey);
@@ -1243,22 +1220,22 @@ async function main() {
     console.log("\n7. Recovery actions preserve pending input and reject stale destructive choices");
     await reset(page, { lang: "pt", unit: "lb" });
     await enter(page);
-    let loadInput = page.locator('#workout .exercise.is-current .focus-shelf [data-k$="_load"]');
+    let loadInput = await shelfInput(page, "load");
     let loadKey = await loadInput.getAttribute("data-k");
     await loadInput.fill("150");
-    await page.locator('#workout .exercise.is-current .focus-shelf [data-k$="_reps"]').fill("8");
-    await page.locator('#workout .exercise.is-current .focus-shelf [data-k$="_rir"]').fill("2");
+    await (await shelfInput(page, "reps")).fill("8");
+    await (await shelfInput(page, "rir")).fill("2");
     await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
     await page.waitForFunction(() => {
       const draft = window.__repforgeWorkoutDraft.current(), exercise = draft.exercises[draft.session.selectedExerciseId];
       return exercise.sets[exercise.setOrder[0]].completion !== "pending";
     });
-    loadInput = page.locator('#workout .exercise.is-current .focus-shelf [data-k$="_load"]');
+    loadInput = await shelfInput(page, "load");
     loadKey = await loadInput.getAttribute("data-k");
     const durableBeforeFailure = (await rawState(page)).raw;
     const durableLoad = await page.evaluate((key) => {
       const draft = window.__repforgeWorkoutDraft.current(), target = window.__repforgeWorkoutDraft.target(key);
-      return draft.exercises[target.exerciseInstanceId].sets[target.setId].edited.load;
+      return draft.exercises[target.exerciseInstanceId].sets[target.setId].edited.metrics[target.metricId];
     }, loadKey);
     await page.evaluate((checkpointKey) => {
       const original = Storage.prototype.setItem;
@@ -1281,7 +1258,7 @@ async function main() {
       const target = window.__repforgeWorkoutDraft.target(loadKey);
       return {
         raw: localStorage.getItem(draftKey),
-        savedLoad: draft.exercises[target.exerciseInstanceId].sets[target.setId].edited.load,
+        savedLoad: draft.exercises[target.exerciseInstanceId].sets[target.setId].edited.metrics[target.metricId],
         title: document.querySelector("#draftRecoveryTitle")?.textContent,
         pending: document.querySelector("#draftRecoveryPending")?.textContent,
       };
@@ -1299,15 +1276,15 @@ async function main() {
       result: finishWhilePending, draftUnchanged: afterBlockedFinish.raw === durableBeforeFailure,
       historyRows: afterBlockedFinish.state.log.length,
     });
-    const repsInput = page.locator('#workout .exercise.is-current .focus-shelf [data-k$="_reps"]');
+    const repsInput = await shelfInput(page, "reps");
     await repsInput.fill("11");
     await page.waitForFunction(() => document.querySelector("#draftRecoveryPending")?.textContent.includes("157,1"));
-    const blockedFollowup = await page.evaluate(({ draftKey, loadKey }) => {
+    const blockedFollowup = await page.evaluate(({ draftKey, loadKey, repsId }) => {
       const raw = localStorage.getItem(draftKey), draft = JSON.parse(raw);
       const target = window.__repforgeWorkoutDraft.target(loadKey), set = draft.exercises[target.exerciseInstanceId].sets[target.setId];
-      return { raw, load: set.edited.load, reps: set.edited.reps,
+      return { raw, load: set.edited.metrics[target.metricId], reps: set.edited.metrics[repsId],
         pending: document.querySelector("#draftRecoveryPending")?.textContent };
-    }, { draftKey: DRAFT, loadKey });
+    }, { draftKey: DRAFT, loadKey, repsId: REPS });
     check(blockedFollowup.raw === durableBeforeFailure && blockedFollowup.load === durableLoad &&
       blockedFollowup.pending.includes("157,1") && blockedFollowup.reps !== "11",
     "later edits cannot hide or supersede the unresolved operation", blockedFollowup);
@@ -1316,7 +1293,7 @@ async function main() {
     await page.locator("#draftRecoveryRetry").click();
     await page.waitForFunction(({ loadKey }) => {
       const draft = window.__repforgeWorkoutDraft.current(), target = window.__repforgeWorkoutDraft.target(loadKey);
-      return draft.exercises[target.exerciseInstanceId].sets[target.setId].edited.load !== null &&
+      return draft.exercises[target.exerciseInstanceId].sets[target.setId].edited.metrics[target.metricId] != null &&
         document.querySelector("#draftRecovery")?.classList.contains("hidden");
     }, { loadKey });
     await page.waitForFunction((key) => document.activeElement?.dataset?.k === key, loadKey);
@@ -1331,12 +1308,12 @@ async function main() {
 
     await reset(page);
     await enter(page);
-    loadInput = page.locator('#workout .exercise.is-current .focus-shelf [data-k$="_load"]');
+    loadInput = await shelfInput(page, "load");
     loadKey = await loadInput.getAttribute("data-k");
     const stalePage = await openApp(context);watch(stalePage);await enter(stalePage);
     await fillCurrent(page, "load", "80");
     const winnerAfterStale = (await rawState(page)).raw;
-    const staleInput = stalePage.locator(`[data-k="${loadKey}"]`);
+    const staleInput = await shelfInput(stalePage, "load");
     await staleInput.fill("90");
     await stalePage.waitForSelector("#draftRecovery:not(.hidden)");
     const staleUi = await stalePage.evaluate(() => ({

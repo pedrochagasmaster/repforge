@@ -1,20 +1,15 @@
-/**
- * Malformed-input robustness.
- *
- * decode is the first code a received setup link touches. Whatever string
- * arrives — truncated, corrupted, hostile, or merely weird — it must answer
- * with a typed result and never throw. (Proposal §11.)
- */
+/** Total, typed decoding for malformed and unsupported v4 setup envelopes. */
 import fc from "fast-check";
 import { loadDomain } from "../adapters/domain-adapter.mjs";
 import { payloadArbitrary } from "../arbitraries/setup-payload.mjs";
 import {
+  applyMutationOp,
+  decodeEnvelopeJson,
+  encodeVersionedEnvelope,
   envelopeShapeArbitrary,
+  flipEnvelopeBytes,
   junkString,
   truncateEnvelope,
-  flipEnvelopeBytes,
-  applyMutationOp,
-  encodeVersionedEnvelope,
 } from "../arbitraries/malformed.mjs";
 import { deepEqual } from "../model/canonicalize.mjs";
 
@@ -23,20 +18,18 @@ const { Setup } = domain;
 const OPTS = domain.opts();
 
 export const DECODE_FAILURE_CODES = new Set([
-  // decode() returns both envelope errors and validate() failures unchanged.
   "missing",
   "unsupported-version",
   "encoded-too-large",
   "invalid-base64",
+  "invalid-envelope",
   "invalid-gzip",
   "decompression-unavailable",
   "decompressed-too-large",
   "invalid-utf8",
   "invalid-json",
   "invalid-schema",
-  "invalid-muscle-domain",
-  // Plan 057's blocker-only identity result, distinct from malformed schema.
-  "unresolved-exercises",
+  "invalid-program-definition",
 ]);
 
 async function assertDecodeTotality(input) {
@@ -44,23 +37,13 @@ async function assertDecodeTotality(input) {
   try {
     result = await Setup.decode(input, OPTS);
   } catch (error) {
-    throw new Error(`decode threw on ${describeInput(input)}: ${error.stack}`);
+    throw new Error(`decode threw for ${describeInput(input)}: ${error.stack}`);
   }
-  if (!result || typeof result.ok !== "boolean") {
-    throw new Error(`decode returned a non-result for ${describeInput(input)}`);
-  }
-  if (!result.ok && !DECODE_FAILURE_CODES.has(result.code)) {
-    throw new Error(`untyped failure code "${result.code}" for ${describeInput(input)}`);
-  }
-  if (
-    !result.ok && result.code === "unresolved-exercises" &&
-    (!Array.isArray(result.blockers) || result.blockers.length === 0 ||
-      !Array.isArray(result.issues) || result.issues.length !== 0)
-  ) {
-    throw new Error("unresolved-exercises must remain a blocker-only validation result");
-  }
-  if (result.ok && !Setup.validate(result.value, OPTS).ok) {
-    throw new Error("decode accepted an envelope whose value fails validation");
+  if (!result || typeof result.ok !== "boolean") throw new Error(`decode returned no typed result for ${describeInput(input)}`);
+  if (!result.ok && !DECODE_FAILURE_CODES.has(result.code)) throw new Error(`untyped decode failure: ${result.code}`);
+  if (result.ok) {
+    const checked = Setup.validate(result.value, OPTS);
+    if (!checked.ok || !deepEqual(checked.value, result.value)) throw new Error("decode returned a noncanonical proposal");
   }
   return result;
 }
@@ -73,29 +56,10 @@ function describeInput(input) {
 export function buildSuites() {
   return [
     {
-      name: "decode totality: adversarial envelopes never throw and always answer typed results",
-      property: fc.asyncProperty(envelopeShapeArbitrary(), async (shape) => {
-        const reference = await Setup.encode(
-          {
-            kind: "taurifer-shared-setup",
-            version: 1,
-            program: {
-              meta: { name: "Reference", daysPerWeek: 1, mesocycleLengthWeeks: 4 },
-              exercises: [
-                { day: "Day 1", order: 1, libraryId: "pr_mc", sets: 3, min: 6, max: 10, notes: "", alternates: [] },
-              ],
-              customExercises: [],
-            },
-            settings: {
-              jumpPct: 2.5, minJump: 2.5, rirHigh: 2, hardRir: 4, restSec: 120,
-              unit: "kg", lang: "en", rirMode: "numeric",
-            },
-          },
-          OPTS,
-        );
-        if (!reference.ok) throw new Error("precondition: reference encode failed");
-        const env = reference.value;
-
+      name: "decode totality: adversarial current envelopes never throw or return untyped errors",
+      property: fc.asyncProperty(payloadArbitrary(), envelopeShapeArbitrary(), async (payload, shape) => {
+        const reference = await Setup.encode(payload, OPTS);
+        if (!reference.ok) throw new Error(`valid reference failed to encode: ${reference.code}`);
         switch (shape.kind) {
           case "junk":
             await assertDecodeTotality(junkString(shape.textSeed, shape.length));
@@ -104,55 +68,60 @@ export function buildSuites() {
             await assertDecodeTotality(`v${shape.versionDigit}.${junkString(shape.textSeed, shape.length)}`);
             break;
           case "truncated":
-            await assertDecodeTotality(truncateEnvelope(env, shape.truncationRatio));
+            await assertDecodeTotality(truncateEnvelope(reference.value, shape.truncationRatio));
             break;
           case "byte-flipped":
-            await assertDecodeTotality(flipEnvelopeBytes(env, shape.flips));
+            await assertDecodeTotality(flipEnvelopeBytes(reference.value, shape.flips));
             break;
           case "mutated-json": {
-            // Rebuild the canonical payload, mutate it structurally, ship as v1.
-            const decoded = await Setup.decode(env, OPTS);
-            if (!decoded.ok) throw new Error("precondition: reference decode failed");
-            const { value: mutated } = applyMutationOp(decoded.value, shape.mutation);
-            await assertDecodeTotality(await encodeVersionedEnvelope(1, JSON.stringify(mutated)));
+            const tuple = await decodeEnvelopeJson(reference.value);
+            const { value: mutated } = applyMutationOp(tuple, shape.mutation);
+            await assertDecodeTotality(await encodeVersionedEnvelope(4, JSON.stringify(mutated)));
             break;
           }
           default:
-            throw new Error(`unknown envelope kind ${shape.kind}`);
+            throw new Error(`unknown adversarial shape ${shape.kind}`);
         }
       }),
     },
     {
-      name: "decode totality: oversized envelopes are rejected up front with a typed code",
+      name: "decode totality: hard envelope overflow is refused before base64 or gzip parsing",
       property: fc.asyncProperty(
-        fc.integer({ min: -1, max: 64 }),
+        fc.integer({ min: 1, max: 64 }),
         fc.constantFrom("a", "=", "\u00e7", '"'),
-        async (deltaFromCeiling, filler) => {
-          // delta > 0 exceeds the character ceiling and must be rejected as
-          // encoded-too-large before any decoding work. At or below the
-          // ceiling the envelope may fail later, but only with a typed code.
-          const bodyLength = Setup.MAX_ENCODED_CHARS - 3 + Math.max(0, deltaFromCeiling);
-          const input = `v1.${filler.repeat(bodyLength)}`;
+        async (excess, filler) => {
+          const input = `v4.${filler.repeat(Setup.MAX_ENCODED_CHARS - 2 + excess)}`;
           const result = await assertDecodeTotality(input);
-          if (!result.ok && input.length > Setup.MAX_ENCODED_CHARS && result.code !== "encoded-too-large") {
-            throw new Error(`expected encoded-too-large for oversize input, got ${result.code}`);
-          }
-          if (result.ok) {
-            throw new Error(`an all-filler "${filler}" envelope unexpectedly decoded`);
+          if (input.length <= Setup.MAX_ENCODED_CHARS || result.ok || result.code !== "encoded-too-large") {
+            throw new Error(`overflow should be an early encoded-too-large result, got ${result.code}`);
           }
         },
       ),
     },
     {
-      name: "decode consistency: whatever decodes must equal what validates",
+      name: "decode source bytes: every retired v1-v3 envelope is refused with its exact source string",
+      property: fc.asyncProperty(
+        fc.constantFrom(1, 2, 3),
+        fc.integer({ min: 0, max: 0xffffffff }),
+        fc.integer({ min: 1, max: 96 }),
+        async (version, seed, length) => {
+          const source = `v${version}.${junkString(seed, length)}`;
+          const result = await assertDecodeTotality(source);
+          if (result.ok || result.code !== "unsupported-version") throw new Error(`v${version} did not refuse as unsupported-version`);
+          if (result.encoded !== source) throw new Error("unsupported-version result changed the exact source bytes");
+        },
+      ),
+    },
+    {
+      name: "decode consistency: successful v4 results equal validating the same source proposal",
       property: fc.asyncProperty(payloadArbitrary(), async (payload) => {
         const checked = Setup.validate(payload, OPTS);
-        if (!checked.ok) throw new Error(`precondition rejected: ${checked.issues}`);
+        if (!checked.ok) throw new Error(`valid generated proposal rejected: ${checked.issues}`);
         const encoded = await Setup.encode(payload, OPTS);
-        if (!encoded.ok) return; // size ceiling rejections covered elsewhere
+        if (!encoded.ok) throw new Error(`valid small proposal could not encode: ${encoded.code}`);
         const decoded = await Setup.decode(encoded.value, OPTS);
         if (!decoded.ok || !deepEqual(decoded.value, checked.value)) {
-          throw new Error(`pipeline inconsistency: ${decoded.code ?? "semantic drift"}`);
+          throw new Error(`encode/decode diverged from validation: ${decoded.code ?? "semantic mismatch"}`);
         }
       }),
     },

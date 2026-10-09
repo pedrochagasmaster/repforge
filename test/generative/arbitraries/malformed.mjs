@@ -25,6 +25,16 @@ export async function encodeVersionedEnvelope(version, text) {
   return `v${version}.${toBase64Url(bytes)}`;
 }
 
+export async function decodeEnvelopeJson(envelope) {
+  const prefix = envelope.indexOf(".");
+  if (prefix < 0) throw new TypeError("versioned envelope is missing its separator");
+  const normalized = envelope.slice(prefix + 1).replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+  const compressed = Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
+  const stream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream("gzip"));
+  return JSON.parse(await new Response(stream).text());
+}
+
 const MUTATION_OPS = ["delete-key", "replace-value", "duplicate-array-item", "truncate-string", "forbidden-key"];
 const REPLACE_VALUES = [null, true, false, 0, -1, "", "fr", 99, [], {}];
 

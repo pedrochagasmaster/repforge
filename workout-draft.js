@@ -16,6 +16,11 @@
   const MuscleDomain = root?.RepForgeProgramEntry ||
     (typeof require === "function" ? require("./program-entry.js") : null);
   const MAX_MUSCLE_ATTRIBUTION = MuscleDomain?.MUSCLE_ATTRIBUTION_MAX_LENGTH || 500;
+  const LOAD_SEMANTICS = new Set(["loadKg", "assistanceKg", "loadPerSideKg", "persistentLoadPerSideKg"]);
+  const LOADING_CONVENTIONS = new Set(["external", "assistance", "per_side", "bodyweight"]);
+  const MetricDomain = root?.RepForgeExerciseMetrics ||
+    (typeof require === "function" ? require("./exercise-metrics.js") : null);
+  if (!MetricDomain) throw new Error("RepForgeExerciseMetrics unavailable");
 
   function isCanonicalMuscleAttribution(value) {
     return MuscleDomain?.isCanonicalMuscleAttribution?.(value) === true;
@@ -176,6 +181,154 @@
     }
   }
 
+  function validateMetricRecords(metrics, path, issues, { allowEmpty = true } = {}) {
+    if (!Array.isArray(metrics) || metrics.length > 16) {
+      issues.push(`${path}:array`);
+      return [];
+    }
+    const ids = metrics.map(metric => metric?.id);
+    const checked = MetricDomain.validateDefinitions(ids, metrics, { allowEmpty });
+    for (const issue of checked.issues) issues.push(`${path}:${issue}`);
+    return ids;
+  }
+
+  function validateMetricMap(value, ids, path, issues, { booleanValues = false } = {}) {
+    if (!isPlainObject(value)) {
+      issues.push(`${path}:object`);
+      return;
+    }
+    const allowed = new Set(ids);
+    for (const [id, entry] of Object.entries(value)) {
+      if (!allowed.has(id)) issues.push(`${path}.${id}:unknown-metric`);
+      if (booleanValues ? typeof entry !== "boolean" : !isOptionalText(entry, 64)) {
+        issues.push(`${path}.${id}:value`);
+      }
+    }
+    if (Object.keys(value).length !== ids.length || ids.some(id => !hasOwn(value, id))) {
+      issues.push(`${path}:coverage`);
+    }
+  }
+
+  function validateLoadingContext(value, path, issues, fallbackConvention = null) {
+    if (!isPlainObject(value)) {
+      issues.push(`${path}:object`);
+      return;
+    }
+    const allowed = new Set(["bodyweightKg", "bodyweightContributionEnabled", "externalLoadMultiplier", "bodyweightCoefficient", "availableLoadsKg", "loadingConvention"]);
+    for (const key of Object.keys(value)) if (!allowed.has(key)) issues.push(`${path}.${key}:unknown`);
+    if (hasOwn(value, "loadingConvention") && !LOADING_CONVENTIONS.has(value.loadingConvention)) {
+      issues.push(`${path}.loadingConvention`);
+    }
+    const convention = value.loadingConvention ?? fallbackConvention;
+    if (hasOwn(value, "bodyweightKg") && value.bodyweightKg != null &&
+      (typeof value.bodyweightKg !== "number" || !Number.isFinite(value.bodyweightKg) || value.bodyweightKg <= 0)) {
+      issues.push(`${path}.bodyweightKg`);
+    }
+    if (hasOwn(value, "bodyweightContributionEnabled") && value.bodyweightContributionEnabled !== null && typeof value.bodyweightContributionEnabled !== "boolean") {
+      issues.push(`${path}.bodyweightContributionEnabled`);
+    }
+    if (convention != null && !hasOwn(value, "externalLoadMultiplier")) {
+      issues.push(`${path}.externalLoadMultiplier`);
+    }
+    if (hasOwn(value, "externalLoadMultiplier") && value.externalLoadMultiplier !== null &&
+      (typeof value.externalLoadMultiplier !== "number" || !Number.isFinite(value.externalLoadMultiplier) ||
+        value.externalLoadMultiplier < (convention === "bodyweight" ? 0 : Number.MIN_VALUE) || value.externalLoadMultiplier > 10)) {
+      issues.push(`${path}.externalLoadMultiplier`);
+    }
+    if (convention === "external" || convention === "assistance") {
+      if (value.externalLoadMultiplier !== 1) issues.push(`${path}.externalLoadMultiplier:convention`);
+    } else if (convention === "bodyweight") {
+      if (value.externalLoadMultiplier !== 0) issues.push(`${path}.externalLoadMultiplier:convention`);
+    }
+    if (hasOwn(value, "bodyweightCoefficient") &&
+      value.bodyweightCoefficient !== null &&
+      (typeof value.bodyweightCoefficient !== "number" || !Number.isFinite(value.bodyweightCoefficient) || value.bodyweightCoefficient < 0 || value.bodyweightCoefficient > 1)) {
+      issues.push(`${path}.bodyweightCoefficient`);
+    }
+    if (hasOwn(value, "availableLoadsKg") && (!Array.isArray(value.availableLoadsKg) || value.availableLoadsKg.length > 500 ||
+      value.availableLoadsKg.some(load => typeof load !== "number" || !Number.isFinite(load) || load < 0 || load > 1000) ||
+      new Set(value.availableLoadsKg).size !== value.availableLoadsKg.length)) {
+      issues.push(`${path}.availableLoadsKg`);
+    }
+  }
+
+  function rawCatalogExercise(libraryId) {
+    if (!isText(libraryId, { max: MAX_ID })) return null;
+    try {
+      const catalog = root?.RepForgeExerciseCatalog?.snapshot?.() || bundledCatalog();
+      return catalog?.exercises?.find(exercise => exercise?.id === libraryId) || null;
+    } catch {
+      return null;
+    }
+  }
+
+  // Module consumers without the page loader (the install-transfer Worker and
+  // its contract) validate against the same raw catalog the page loads.
+  function bundledCatalog() {
+    if (typeof require !== "function") return null;
+    try { return require("./assets/exercise-catalog.json"); } catch { return null; }
+  }
+
+  function expectedLoadingConvention(metricDefinitions) {
+    const semantics = new Set((metricDefinitions || []).map(metric => metric?.semantic));
+    return semantics.has("assistanceKg") ? "assistance"
+      : semantics.has("loadPerSideKg") || semantics.has("persistentLoadPerSideKg") ? "per_side"
+        : metricDefinitions?.length === 1 && (semantics.has("reps") || semantics.has("repsPerSide")) ? "bodyweight" : "external";
+  }
+
+  function loadingContextForProgram(source, spec, convention, loadingModel) {
+    const input = isPlainObject(spec?.loadingContext) ? spec.loadingContext
+      : isPlainObject(source?.loadingContext) ? source.loadingContext : null;
+    if (!input) return null;
+    const context = jsonClone(input);
+    if (context.loadingConvention != null && context.loadingConvention !== convention) return null;
+    context.loadingConvention = convention;
+    if (!hasOwn(context, "externalLoadMultiplier")) {
+      context.externalLoadMultiplier = convention === "per_side" ? null : convention === "bodyweight" ? 0 : 1;
+    }
+    if (!hasOwn(context, "bodyweightCoefficient") && hasOwn(loadingModel || {}, "bodyweightCoefficient")) {
+      context.bodyweightCoefficient = loadingModel.bodyweightCoefficient;
+    }
+    return context;
+  }
+
+  function metricProgramBinding({
+    metricOrigin,
+    metricIds,
+    metricDefinitions,
+    sourceLibraryId,
+    loadingModel,
+    loadingConvention,
+    loadingContext,
+  }, path, issues) {
+    if (!Array.isArray(metricIds) || !Array.isArray(metricDefinitions)) return;
+    if (!isText(sourceLibraryId, { max: MAX_ID })) issues.push(`${path}.sourceLibraryId`);
+    if (! ["source_catalog", "user_defined"].includes(metricOrigin)) issues.push(`${path}.metricOrigin`);
+    if (!isPlainObject(loadingModel)) issues.push(`${path}.loadingModel`);
+    if (!LOADING_CONVENTIONS.has(loadingConvention)) issues.push(`${path}.loadingConvention`);
+    if (!isPlainObject(loadingContext)) issues.push(`${path}.loadingContext`);
+    else {
+      validateLoadingContext(loadingContext, `${path}.loadingContext`, issues, loadingConvention);
+      if (loadingContext.loadingConvention !== loadingConvention) issues.push(`${path}.loadingContext.loadingConvention`);
+      if (!hasOwn(loadingContext, "bodyweightCoefficient")) issues.push(`${path}.loadingContext.bodyweightCoefficient`);
+    }
+    const coefficient = loadingModel?.bodyweightCoefficient ?? null;
+    if ((loadingContext?.bodyweightCoefficient ?? null) !== coefficient) issues.push(`${path}.loadingCoefficientMismatch`);
+    const definitions = MetricDomain.validateDefinitions(metricIds, metricDefinitions, { allowEmpty: true });
+    issues.push(...definitions.issues.map(issue => `${path}.${issue}`));
+    const expectedConvention = expectedLoadingConvention(metricDefinitions);
+    if (loadingConvention !== expectedConvention) issues.push(`${path}.loadingConvention:metric-composition`);
+    const binding = MetricDomain.validateExerciseSourceBinding({
+      metricOrigin,
+      metricIds,
+      metricDefinitions,
+      sourceId: sourceLibraryId,
+      sourceExercise: rawCatalogExercise(sourceLibraryId),
+      bodyweightCoefficient: coefficient,
+    });
+    issues.push(...binding.issues.map(issue => `${path}.${issue}`));
+  }
+
   function validateProgrammedSet(value, path, issues) {
     if (!isPlainObject(value)) {
       issues.push(`${path}:object`);
@@ -183,9 +336,51 @@
     }
     for (const field of ["suggestedLoad", "minReps", "maxReps", "targetRir"]) {
       if (hasOwn(value, field) && value[field] != null &&
-        (typeof value[field] !== "number" || !Number.isFinite(value[field]) || value[field] < 0)) {
+        (typeof value[field] !== "number" || !Number.isFinite(value[field]) || value[field] < 0 ||
+          (field === "targetRir" && value[field] > 4))) {
         issues.push(`${path}.${field}`);
       }
+    }
+    if (hasOwn(value, "metrics")) {
+      const ids = validateMetricRecords(value.metrics, `${path}.metrics`, issues);
+      if (value.metricType !== "source_metrics@1") issues.push(`${path}.metricType`);
+      if (!Array.isArray(value.metricIds) || value.metricIds.length !== ids.length ||
+        value.metricIds.some((id, index) => id !== ids[index])) issues.push(`${path}.metricIds`);
+      const targets = value.targets ?? {};
+      const checkedTargets = MetricDomain.validateTargets(ids, targets);
+      for (const issue of checkedTargets.issues) issues.push(`${path}.targets:${issue}`);
+    } else if (["targets", "metricIds", "metricType"].some(field => hasOwn(value, field))) {
+      issues.push(`${path}.metrics:without-definitions`);
+    }
+    if (hasOwn(value, "restSeconds") && value.restSeconds != null &&
+      (!isSafeInteger(value.restSeconds) || value.restSeconds > 86400)) {
+      issues.push(`${path}.restSeconds`);
+    }
+    if (hasOwn(value, "sourceLibraryId") && !isText(value.sourceLibraryId, { max: MAX_ID })) {
+      issues.push(`${path}.sourceLibraryId`);
+    }
+    if (hasOwn(value, "metricOrigin") && !["source_catalog", "user_defined"].includes(value.metricOrigin)) {
+      issues.push(`${path}.metricOrigin`);
+    }
+    if (hasOwn(value, "loadingModel") && (!isPlainObject(value.loadingModel) ||
+      Object.keys(value.loadingModel).some(key => !["bodyweightCoefficient", "assistanceDirection"].includes(key)) ||
+      (hasOwn(value.loadingModel, "bodyweightCoefficient") && value.loadingModel.bodyweightCoefficient !== null &&
+        (typeof value.loadingModel.bodyweightCoefficient !== "number" || !Number.isFinite(value.loadingModel.bodyweightCoefficient) ||
+          value.loadingModel.bodyweightCoefficient < 0 || value.loadingModel.bodyweightCoefficient > 1)) ||
+      (hasOwn(value.loadingModel, "assistanceDirection") && !["subtract", null].includes(value.loadingModel.assistanceDirection)))) {
+      issues.push(`${path}.loadingModel`);
+    }
+    if (hasOwn(value, "loadingConvention") && !LOADING_CONVENTIONS.has(value.loadingConvention)) {
+      issues.push(`${path}.loadingConvention`);
+    }
+    if (hasOwn(value, "loadingContext")) {
+      validateLoadingContext(value.loadingContext, `${path}.loadingContext`, issues, value.loadingConvention ?? null);
+      if (value.loadingContext?.loadingConvention !== value.loadingConvention) {
+        issues.push(`${path}.loadingContext.loadingConvention`);
+      }
+    }
+    if (hasOwn(value, "equipmentId") && value.equipmentId != null && !isText(value.equipmentId, { max: MAX_ID })) {
+      issues.push(`${path}.equipmentId`);
     }
   }
 
@@ -205,11 +400,19 @@
       }
     }
     validateTouched(value.touched, `${path}.touched`, issues);
+    if (Array.isArray(value.programmed?.metrics)) {
+      const ids = value.programmed.metrics.map(metric => metric?.id);
+      validateMetricMap(value.edited?.metrics, ids, `${path}.edited.metrics`, issues);
+      validateMetricMap(value.touched?.metrics, ids, `${path}.touched.metrics`, issues, { booleanValues: true });
+    } else if (hasOwn(value.edited || {}, "metrics") || hasOwn(value.touched || {}, "metrics")) {
+      issues.push(`${path}.metrics:without-definitions`);
+    }
     if (value.completion !== "pending") {
       if (!isPlainObject(value.completion) || !isText(value.completion.completedAt, { max: 100 })) {
         issues.push(`${path}.completion`);
       }
     }
+    if (hasOwn(value, "performed")) validateMovementSnapshot(value.performed, `${path}.performed`, issues);
   }
 
   function validateProgrammedExercise(value, path, issues) {
@@ -219,14 +422,18 @@
     }
     if (!isSafeInteger(value.order)) issues.push(`${path}.order`);
     if (!isSafeInteger(value.sets, 1)) issues.push(`${path}.sets`);
-    for (const field of ["minReps", "maxReps"]) {
-      if (!isSafeInteger(value[field], 1)) issues.push(`${path}.${field}`);
+    // Metric-backed movements without a repetition metric have no flat range.
+    const noRepRange = value.metricOrigin != null && value.minReps == null && value.maxReps == null;
+    if (!noRepRange) {
+      for (const field of ["minReps", "maxReps"]) {
+        if (!isSafeInteger(value[field], 1)) issues.push(`${path}.${field}`);
+      }
     }
     if (isSafeInteger(value.minReps, 1) && isSafeInteger(value.maxReps, 1) && value.minReps > value.maxReps) {
       issues.push(`${path}.repRange`);
     }
     if (hasOwn(value, "targetRir") && value.targetRir != null &&
-      (typeof value.targetRir !== "number" || !Number.isFinite(value.targetRir) || value.targetRir < 0)) {
+      (typeof value.targetRir !== "number" || !Number.isFinite(value.targetRir) || value.targetRir < 0 || value.targetRir > 4)) {
       issues.push(`${path}.targetRir`);
     }
     if (!isText(value.notes, { empty: true })) issues.push(`${path}.notes`);
@@ -236,6 +443,30 @@
     }
     if (!isOptionalText(value.progressionStrategy, 240)) issues.push(`${path}.progressionStrategy`);
     if (!isOptionalText(value.movementPattern, 240)) issues.push(`${path}.movementPattern`);
+    if (hasOwn(value, "loadingModel") && (!isPlainObject(value.loadingModel) ||
+      Object.keys(value.loadingModel).some(key => !["bodyweightCoefficient", "assistanceDirection"].includes(key)) ||
+      (hasOwn(value.loadingModel, "bodyweightCoefficient") &&
+        value.loadingModel.bodyweightCoefficient !== null &&
+        (typeof value.loadingModel.bodyweightCoefficient !== "number" || !Number.isFinite(value.loadingModel.bodyweightCoefficient) || value.loadingModel.bodyweightCoefficient < 0 || value.loadingModel.bodyweightCoefficient > 1)) ||
+      (hasOwn(value.loadingModel, "assistanceDirection") && !["subtract", null].includes(value.loadingModel.assistanceDirection)))) {
+      issues.push(`${path}.loadingModel`);
+    }
+    if (hasOwn(value, "metricOrigin") && !["source_catalog", "user_defined"].includes(value.metricOrigin)) {
+      issues.push(`${path}.metricOrigin`);
+    }
+    if (hasOwn(value, "equipmentId") && value.equipmentId != null && !isText(value.equipmentId, { max: MAX_ID })) issues.push(`${path}.equipmentId`);
+    if (hasOwn(value, "loadingConvention") && !LOADING_CONVENTIONS.has(value.loadingConvention)) issues.push(`${path}.loadingConvention`);
+    if (hasOwn(value, "loadingContext")) {
+      validateLoadingContext(value.loadingContext, `${path}.loadingContext`, issues, value.loadingConvention ?? null);
+      if (value.loadingContext?.loadingConvention != null && value.loadingContext.loadingConvention !== value.loadingConvention) {
+        issues.push(`${path}.loadingContext.loadingConvention`);
+      }
+    }
+    const modelCoefficient = value.loadingModel?.bodyweightCoefficient ?? null;
+    const contextCoefficient = value.loadingContext?.bodyweightCoefficient ?? null;
+    if (modelCoefficient !== contextCoefficient) issues.push(`${path}.loadingCoefficientMismatch`);
+    if (hasOwn(value, "restSeconds") && value.restSeconds != null &&
+      (!isSafeInteger(value.restSeconds) || value.restSeconds > 86400)) issues.push(`${path}.restSeconds`);
     if (!isText(value.sourceFingerprint, { max: 1000 })) issues.push(`${path}.sourceFingerprint`);
     for (const field of ["libraryId", "movementId"]) {
       if (hasOwn(value, field) && value[field] != null && !isText(value[field], { max: MAX_ID })) issues.push(`${path}.${field}`);
@@ -257,11 +488,17 @@
       else {
         validateMovementSnapshot(value.substitution.original, `${path}.substitution.original`, issues);
         validateMovementSnapshot(value.substitution.replacement, `${path}.substitution.replacement`, issues);
+        if (Object.keys(value.substitution).some(key => !["original", "replacement", "selectedAt", "originalPendingSets"].includes(key))) {
+          issues.push(`${path}.substitution:unknown-field`);
+        }
         if (isPlainObject(value.substitution.original) && isPlainObject(value.programmed) &&
           !movementSnapshotMatches(value.substitution.original, snapshotFromExercise(value))) {
           issues.push(`${path}.substitution.original:provenance`);
         }
         if (!isText(value.substitution.selectedAt, { max: 100 })) issues.push(`${path}.substitution.selectedAt`);
+        if (hasOwn(value.substitution, "originalPendingSets") && !isPlainObject(value.substitution.originalPendingSets)) {
+          issues.push(`${path}.substitution.originalPendingSets:object`);
+        }
       }
     }
     if (value.status !== "active" && value.status !== "skipped") issues.push(`${path}.status`);
@@ -274,9 +511,41 @@
     const keys = Object.keys(value.sets);
     if (keys.length !== value.setOrder.length || keys.some((id) => !unique.has(id))) issues.push(`${path}.sets:coverage`);
     value.setOrder.forEach((setId, index) => {
-      validateSet(value.sets[setId], setId, `${path}.sets.${setId}`, issues);
-      if (value.sets[setId]?.ordinal !== index + 1) issues.push(`${path}.sets.${setId}.ordinalOrder`);
+      const set = value.sets[setId];
+      validateSet(set, setId, `${path}.sets.${setId}`, issues);
+      if (set?.ordinal !== index + 1) issues.push(`${path}.sets.${setId}.ordinalOrder`);
+      if (Array.isArray(set?.programmed?.metrics)) {
+        const source = value.programmed || {};
+        const sourceLibraryId = set.programmed.sourceLibraryId ?? source.sourceLibraryId ?? value.libraryId;
+        const metricOrigin = set.programmed.metricOrigin ?? source.metricOrigin;
+        const loadingModel = set.programmed.loadingModel ?? source.loadingModel;
+        const loadingConvention = set.programmed.loadingConvention ?? source.loadingConvention;
+        const loadingContext = set.programmed.loadingContext ?? source.loadingContext;
+        metricProgramBinding({
+          metricOrigin,
+          metricIds: set.programmed.metricIds,
+          metricDefinitions: set.programmed.metrics,
+          sourceLibraryId,
+          loadingModel,
+          loadingConvention,
+          loadingContext,
+        }, `${path}.sets.${setId}.programmed`, issues);
+      }
     });
+    const originalPendingSets = value.substitution?.originalPendingSets;
+    if (isPlainObject(originalPendingSets)) {
+      if (Object.keys(originalPendingSets).some(setId => !unique.has(setId)) ||
+        Object.values(originalPendingSets).some(set => !isPlainObject(set))) {
+        issues.push(`${path}.substitution.originalPendingSets:coverage`);
+      }
+      for (const [setId, set] of Object.entries(originalPendingSets)) {
+        validateSet(set, setId, `${path}.substitution.originalPendingSets.${setId}`, issues);
+      }
+    }
+    if (value.setOrder.some(setId => Array.isArray(value.sets[setId]?.programmed?.metrics)) &&
+      !["source_catalog", "user_defined"].includes(value.programmed?.metricOrigin)) {
+      issues.push(`${path}.programmed.metricOrigin:required-for-metric-composition`);
+    }
     if (value.programmed?.sets !== value.setOrder.length) issues.push(`${path}.programmed.sets:coverage`);
   }
 
@@ -363,6 +632,14 @@
       const previous = prior.get(exerciseInstanceId);
       const previousSets = Array.isArray(previous?.sets) ? previous.sets : [];
       const specifications = Array.isArray(source.programmedSets) ? source.programmedSets : [];
+      const hasMetricDefinitions = Array.isArray(source.metricDefinitions) ||
+        specifications.some(spec => Array.isArray(spec?.metricDefinitions));
+      if (source.metricOrigin != null && !["source_catalog", "user_defined"].includes(source.metricOrigin)) {
+        return error("invalid-create-metric-origin", { exerciseInstanceId });
+      }
+      if (hasMetricDefinitions && !["source_catalog", "user_defined"].includes(source.metricOrigin)) {
+        return error("missing-create-metric-origin", { exerciseInstanceId });
+      }
       const setOrder = [];
       const sets = Object.create(null);
       for (let ordinal = 1; ordinal <= setCount; ordinal++) {
@@ -374,23 +651,64 @@
         const suggestedReps = spec.suggestedReps ?? source.suggestedReps ?? old.reps ?? source.minReps;
         const targetRir = spec.targetRir ?? source.targetRir ?? old.rir ?? null;
         const effort = spec.suggestedEffort ?? source.suggestedEffort ?? null;
+        const metricDefinitions = Array.isArray(spec.metricDefinitions)
+          ? spec.metricDefinitions
+          : Array.isArray(source.metricDefinitions) ? source.metricDefinitions : null;
+        const targets = isPlainObject(spec.targets) ? spec.targets : isPlainObject(source.targets) ? source.targets : {};
+        const metricIds = metricDefinitions ? metricDefinitions.map(metric => metric?.id) : null;
+        if (metricDefinitions) {
+          const checkedDefinitions = MetricDomain.validateDefinitions(metricIds, metricDefinitions, { allowEmpty: true });
+          if (!checkedDefinitions.ok) return error("invalid-create-metric", { exerciseInstanceId, ordinal, issues: checkedDefinitions.issues });
+          const checkedTargets = MetricDomain.validateTargets(metricIds, targets);
+          if (!checkedTargets.ok) return error("invalid-create-metric-targets", { exerciseInstanceId, ordinal, issues: checkedTargets.issues });
+        }
+        const editedMetrics = Object.create(null);
+        const programmedMetrics = [];
+        for (const metric of metricDefinitions || []) {
+          const checkedMetric = MetricDomain.validateMetricDefinition(metric);
+          if (!checkedMetric.ok) return error("invalid-create-metric", { exerciseInstanceId, ordinal, issues: checkedMetric.issues });
+          programmedMetrics.push(checkedMetric.value);
+          const oldMetric = (old.metricValues || []).find(item => item?.metricId === metric.id) ||
+            (old.metrics || []).find(item => item?.id === metric.id);
+          editedMetrics[metric.id] = editableText(oldMetric?.value) ?? null;
+        }
+        const programmedSet = {
+          suggestedLoad: suggestedLoad == null ? null : Number(suggestedLoad),
+          minReps: spec.minReps ?? source.minReps,
+          maxReps: spec.maxReps ?? source.maxReps,
+          targetRir: targetRir == null ? null : Number(targetRir),
+          ...(metricDefinitions ? { metricType: "source_metrics@1", metricIds: [...metricIds], metrics: programmedMetrics,
+            targets: jsonClone(targets) } : {}),
+          restSeconds: spec.restSeconds ?? source.restSeconds ?? null,
+        };
+        if (metricDefinitions) {
+          const metricOrigin = spec.metricOrigin ?? source.metricOrigin;
+          const sourceLibraryId = spec.sourceLibraryId ?? source.sourceLibraryId ?? source.libraryId;
+          const loadingModel = spec.loadingModel ?? source.loadingModel;
+          const loadingConvention = spec.loadingConvention ?? source.loadingConvention ?? expectedLoadingConvention(programmedMetrics);
+          const loadingContext = loadingContextForProgram(source, spec, loadingConvention, loadingModel);
+          if (metricOrigin != null) programmedSet.metricOrigin = metricOrigin;
+          if (sourceLibraryId != null) programmedSet.sourceLibraryId = sourceLibraryId;
+          if (loadingModel != null) programmedSet.loadingModel = jsonClone(loadingModel);
+          if (loadingConvention != null) programmedSet.loadingConvention = loadingConvention;
+          if (loadingContext != null) programmedSet.loadingContext = loadingContext;
+          const equipmentId = spec.equipmentId ?? source.equipmentId;
+          if (equipmentId != null) programmedSet.equipmentId = equipmentId;
+        }
         sets[setId] = {
           setId,
           ordinal,
           role: spec.role === "warmup" ? "warmup" : "working",
-          programmed: {
-            suggestedLoad: suggestedLoad == null ? null : Number(suggestedLoad),
-            minReps: spec.minReps ?? source.minReps,
-            maxReps: spec.maxReps ?? source.maxReps,
-            targetRir: targetRir == null ? null : Number(targetRir),
-          },
+          programmed: programmedSet,
           edited: {
             load: editableText(suggestedLoad),
             reps: editableText(suggestedReps),
-            rir: editableText(targetRir),
-            effort: editableText(effort),
+            rir: metricDefinitions ? null : editableText(targetRir),
+            effort: metricDefinitions ? null : editableText(effort),
+            ...(metricDefinitions ? { metrics: editedMetrics } : {}),
           },
-          touched: { load: false, reps: false, effort: false },
+          touched: { load: false, reps: false, effort: false,
+            ...(metricDefinitions ? { metrics: Object.fromEntries(programmedMetrics.map(metric => [metric.id, false])) } : {}) },
           completion: "pending",
         };
         setOrder.push(setId);
@@ -408,6 +726,11 @@
         primary: source.primary || "",
         secondary: source.secondary || "",
       };
+      if (source.loadingModel != null) programmed.loadingModel = jsonClone(source.loadingModel);
+      if (source.metricOrigin != null) programmed.metricOrigin = source.metricOrigin;
+      if (source.equipmentId != null) programmed.equipmentId = source.equipmentId;
+      if (source.loadingConvention != null) programmed.loadingConvention = source.loadingConvention;
+      if (isPlainObject(source.loadingContext)) programmed.loadingContext = jsonClone(source.loadingContext);
       if (source.libraryId) programmed.libraryId = source.libraryId;
       if (source.movementId) programmed.movementId = source.movementId;
       const exercise = {
@@ -567,6 +890,11 @@
     return value;
   }
 
+  function metricValue(raw, definition) {
+    const parsed = MetricDomain.parseMetricValue(definition, raw);
+    return parsed.ok ? parsed.value : null;
+  }
+
   function validDate(raw) {
     if (typeof raw !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return false;
     const year = Number(raw.slice(0, 4));
@@ -578,6 +906,26 @@
 
   function setSaveIssues(draft, exercise, set) {
     const issues = [];
+    if (Array.isArray(set.programmed.metrics)) {
+      if (!set.programmed.metrics.length) {
+        issues.push({ code: "exercise-metrics-required", exerciseInstanceId: exercise.exerciseInstanceId, setId: set.setId });
+        return issues;
+      }
+      for (const metric of set.programmed.metrics) {
+        if (metricValue(set.edited.metrics?.[metric.id], metric) == null) {
+          issues.push({ code: "invalid-metric", exerciseInstanceId: exercise.exerciseInstanceId, setId: set.setId,
+            field: metric.id, metric: metric.semantic });
+        }
+      }
+      if (set.edited.rir != null || set.edited.effort != null) {
+        if (draft.program.rirMode === "effort") {
+          if (set.edited.effort != null && !hasOwn(EFFORT_RIR, set.edited.effort)) issues.push({ code: "invalid-effort", exerciseInstanceId: exercise.exerciseInstanceId, setId: set.setId, field: "effort" });
+        } else if (set.edited.rir != null && validDecimal(set.edited.rir) == null) {
+          issues.push({ code: "invalid-rir", exerciseInstanceId: exercise.exerciseInstanceId, setId: set.setId, field: "rir" });
+        }
+      }
+      return issues;
+    }
     const load = validDecimal(effectiveText(set, "load"), { positive: true, max: 1000 });
     const reps = validInteger(effectiveText(set, "reps"), { positive: true });
     if (load == null) issues.push({ code: "invalid-load", exerciseInstanceId: exercise.exerciseInstanceId, setId: set.setId, field: "load" });
@@ -602,7 +950,13 @@
   }
 
   function isCandidate(set) {
-    return set.completion !== "pending" || set.role === "warmup" || Object.values(set.touched).some(Boolean);
+    const touched = Object.values(set.touched || {}).some(value =>
+      isPlainObject(value) ? Object.values(value).some(Boolean) : value === true);
+    return set.completion !== "pending" || set.role === "warmup" || touched;
+  }
+  function hasTouchedValue(touched) {
+    return Object.values(touched || {}).some(value =>
+      isPlainObject(value) ? Object.values(value).some(Boolean) : value === true);
   }
 
   // A pristine draft holds no lifter input: untouched suggestions, navigation
@@ -626,7 +980,7 @@
       for (const setId of exercise.setOrder) {
         const set = exercise.sets[setId];
         if (!isPlainObject(set)) return false;
-        if (set.completion !== "pending" || Object.values(set.touched || {}).some(Boolean)) return false;
+        if (set.completion !== "pending" || hasTouchedValue(set.touched)) return false;
       }
     }
     return true;
@@ -650,6 +1004,149 @@
     }
     if (!candidates) issues.push({ code: "no-work" });
     return issues;
+  }
+
+  function validateReplacementProgram(value, replacement, setCount) {
+    const issues = [];
+    if (!isPlainObject(value)) return { ok: false, issues: ["replacementProgram:object"] };
+    const allowed = new Set([
+      "sourceLibraryId", "metricOrigin", "metricIds", "metricDefinitions", "loadingModel",
+      "loadingConvention", "loadingContext", "equipmentId", "programmedSets",
+    ]);
+    if (Object.keys(value).some(key => !allowed.has(key))) issues.push("replacementProgram:unknown-field");
+    if (!isText(value.sourceLibraryId, { max: MAX_ID }) ||
+      (replacement.libraryId != null && value.sourceLibraryId !== replacement.libraryId)) {
+      issues.push("replacementProgram.sourceLibraryId");
+    }
+    if (!Array.isArray(value.metricIds) || !Array.isArray(value.metricDefinitions)) {
+      issues.push("replacementProgram.metricDefinitions");
+    } else {
+      const definitions = MetricDomain.validateDefinitions(value.metricIds, value.metricDefinitions, { allowEmpty: true });
+      issues.push(...definitions.issues.map(issue => `replacementProgram.${issue}`));
+    }
+    if (!isPlainObject(value.loadingModel) || Object.keys(value.loadingModel).some(key =>
+      !["bodyweightCoefficient", "assistanceDirection"].includes(key)) ||
+      (hasOwn(value.loadingModel || {}, "bodyweightCoefficient") && value.loadingModel.bodyweightCoefficient !== null &&
+        (typeof value.loadingModel.bodyweightCoefficient !== "number" || !Number.isFinite(value.loadingModel.bodyweightCoefficient) ||
+          value.loadingModel.bodyweightCoefficient < 0 || value.loadingModel.bodyweightCoefficient > 1)) ||
+      (hasOwn(value.loadingModel || {}, "assistanceDirection") && !["subtract", null].includes(value.loadingModel.assistanceDirection))) {
+      issues.push("replacementProgram.loadingModel");
+    }
+    if (value.equipmentId !== null && !isText(value.equipmentId, { max: MAX_ID })) {
+      issues.push("replacementProgram.equipmentId");
+    }
+    const bindingIssues = [];
+    metricProgramBinding({
+      metricOrigin: value.metricOrigin,
+      metricIds: value.metricIds,
+      metricDefinitions: value.metricDefinitions,
+      sourceLibraryId: value.sourceLibraryId,
+      loadingModel: value.loadingModel,
+      loadingConvention: value.loadingConvention,
+      loadingContext: value.loadingContext,
+    }, "replacementProgram", bindingIssues);
+    issues.push(...bindingIssues);
+    if (!Array.isArray(value.programmedSets) || value.programmedSets.length !== setCount) {
+      issues.push("replacementProgram.programmedSets:coverage");
+      return { ok: false, issues };
+    }
+    const programmedSets = [];
+    for (let index = 0; index < value.programmedSets.length; index += 1) {
+      const spec = value.programmedSets[index];
+      const path = `replacementProgram.programmedSets[${index}]`;
+      if (!isPlainObject(spec)) {
+        issues.push(`${path}:object`);
+        continue;
+      }
+      const specAllowed = new Set([
+        "metricDefinitions", "targets", "restSeconds", "minReps", "maxReps", "suggestedLoad",
+        "suggestedReps", "targetRir", "suggestedEffort", "previousMetrics",
+      ]);
+      if (Object.keys(spec).some(key => !specAllowed.has(key))) issues.push(`${path}:unknown-field`);
+      const definitions = spec.metricDefinitions ?? value.metricDefinitions;
+      if (!Array.isArray(definitions) || !Array.isArray(value.metricIds)) {
+        issues.push(`${path}.metricDefinitions`);
+      } else {
+        const checked = MetricDomain.validateDefinitions(value.metricIds, definitions, { allowEmpty: true });
+        issues.push(...checked.issues.map(issue => `${path}.${issue}`));
+      }
+      const targets = spec.targets ?? {};
+      const checkedTargets = MetricDomain.validateTargets(value.metricIds || [], targets);
+      issues.push(...checkedTargets.issues.map(issue => `${path}.targets:${issue}`));
+      for (const field of ["minReps", "maxReps"]) {
+        if (hasOwn(spec, field) && !isSafeInteger(spec[field], 1)) issues.push(`${path}.${field}`);
+      }
+      if (isSafeInteger(spec.minReps, 1) && isSafeInteger(spec.maxReps, 1) && spec.minReps > spec.maxReps) {
+        issues.push(`${path}.repRange`);
+      }
+      for (const field of ["suggestedLoad", "suggestedReps", "targetRir"]) {
+        if (hasOwn(spec, field) && spec[field] != null &&
+          (typeof spec[field] !== "number" || !Number.isFinite(spec[field]) || spec[field] < 0 ||
+            (field === "suggestedReps" && !Number.isSafeInteger(spec[field])) ||
+            (field === "targetRir" && spec[field] > 4))) issues.push(`${path}.${field}`);
+      }
+      if (hasOwn(spec, "restSeconds") && spec.restSeconds != null &&
+        (!isSafeInteger(spec.restSeconds) || spec.restSeconds > 86400)) issues.push(`${path}.restSeconds`);
+      const previousMetrics = spec.previousMetrics ?? [];
+      if (!Array.isArray(previousMetrics)) issues.push(`${path}.previousMetrics`);
+      else if (previousMetrics.length) {
+        const checked = MetricDomain.validateMetricValues(value.metricIds || [], previousMetrics);
+        issues.push(...checked.issues.map(issue => `${path}.previousMetrics:${issue}`));
+      }
+      programmedSets.push({
+        suggestedLoad: spec.suggestedLoad ?? null,
+        suggestedReps: spec.suggestedReps ?? null,
+        targetRir: spec.targetRir ?? null,
+        minReps: spec.minReps ?? null,
+        maxReps: spec.maxReps ?? null,
+        restSeconds: spec.restSeconds ?? null,
+        metricDefinitions: jsonClone(definitions || []),
+        targets: jsonClone(targets),
+        previousMetrics: jsonClone(previousMetrics),
+      });
+    }
+    return issues.length ? { ok: false, issues } : {
+      ok: true,
+      value: {
+        sourceLibraryId: value.sourceLibraryId,
+        metricOrigin: value.metricOrigin,
+        metricIds: [...value.metricIds],
+        metricDefinitions: jsonClone(value.metricDefinitions),
+        loadingModel: jsonClone(value.loadingModel),
+        loadingConvention: value.loadingConvention,
+        loadingContext: jsonClone(value.loadingContext),
+        equipmentId: value.equipmentId,
+        programmedSets,
+      },
+    };
+  }
+
+  function programmedSetFromReplacement(program, spec) {
+    return {
+      suggestedLoad: spec.suggestedLoad,
+      minReps: spec.minReps,
+      maxReps: spec.maxReps,
+      targetRir: spec.targetRir,
+      metricType: "source_metrics@1",
+      metricIds: [...program.metricIds],
+      metrics: jsonClone(spec.metricDefinitions),
+      targets: jsonClone(spec.targets),
+      restSeconds: spec.restSeconds,
+      sourceLibraryId: program.sourceLibraryId,
+      metricOrigin: program.metricOrigin,
+      loadingModel: jsonClone(program.loadingModel),
+      loadingConvention: program.loadingConvention,
+      loadingContext: jsonClone(program.loadingContext),
+      equipmentId: program.equipmentId,
+    };
+  }
+
+  function editedMetricsFromPrevious(program, spec) {
+    const previous = new Map(spec.previousMetrics.map(item => [item.metricId, item.value]));
+    return Object.fromEntries(spec.metricDefinitions.map(metric => {
+      const value = editableText(previous.get(metric.id));
+      return [metric.id, value !== undefined && metricValue(value, metric) != null ? value : null];
+    }));
   }
 
   function reduce(draft, command) {
@@ -676,6 +1173,17 @@
         item.set.touched[command.field === "rir" || command.field === "effort" ? "effort" : command.field] = true;
         break;
       }
+      case "editMetricValue": {
+        item = targetSet(next, command);
+        if (isDomainError(item)) return item;
+        const definition = item.set.programmed.metrics?.find(metric => metric.id === command.metricId);
+        if (!definition) return error("unknown-set-metric", { metricId: command.metricId });
+        const value = editableText(command.value);
+        if (value === undefined) return error("invalid-metric-value", { metricId: command.metricId });
+        item.set.edited.metrics[definition.id] = value;
+        item.set.touched.metrics[definition.id] = true;
+        break;
+      }
       case "refreshUntouchedSuggestions": {
         if (!isSafeInteger(command.sourceRevision) || command.sourceRevision !== draft.revision) {
           return error("stale-suggestion", {
@@ -696,20 +1204,30 @@
             setId: update.setId,
           });
           seen.add(identity);
-          if (!Object.keys(update.fields).some((field) => EDIT_FIELDS.has(field))) {
+          if (!Object.keys(update.fields).some((field) => EDIT_FIELDS.has(field) || field === "metrics")) {
             return error("empty-suggestion-update", {
               exerciseInstanceId: update.exerciseInstanceId,
               setId: update.setId,
             });
           }
           for (const [field, value] of Object.entries(update.fields)) {
+            if (field === "metrics") {
+              const metricValues = value;
+              const set = draft.exercises[update.exerciseInstanceId]?.sets?.[update.setId];
+              if (!isPlainObject(metricValues) || Object.entries(metricValues).some(([metricId, text]) => {
+                const definition = set?.programmed.metrics?.find(metric => metric.id === metricId);
+                const editable = editableText(text);
+              return !definition || editable == null || metricValue(editable, definition) == null;
+              })) return error("invalid-suggestion-value", { field: "metrics" });
+              continue;
+            }
             const text = editableText(value);
             const valid = field === "load"
               ? validDecimal(text, { positive: true, max: 1000 }) != null
               : field === "reps"
                 ? validInteger(text, { positive: true }) != null
                 : field === "rir"
-                  ? validDecimal(text) != null
+                  ? validDecimal(text, { max: 4 }) != null
                   : field === "effort" && hasOwn(EFFORT_RIR, text);
             if (!EDIT_FIELDS.has(field) || !valid) {
               return error("invalid-suggestion-value", { field });
@@ -725,6 +1243,16 @@
           const { exercise, set } = found;
           if (exercise.status === "skipped" || set.role === "warmup" || set.completion !== "pending") continue;
           for (const [field, rawValue] of Object.entries(update.fields)) {
+            if (field === "metrics") {
+              for (const [metricId, rawMetricValue] of Object.entries(rawValue)) {
+                if (set.touched.metrics?.[metricId]) continue;
+                const value = editableText(rawMetricValue);
+                if (set.edited.metrics[metricId] === value) continue;
+                set.edited.metrics[metricId] = value;
+                changed = true;
+              }
+              continue;
+            }
             const owner = field === "rir" || field === "effort" ? "effort" : field;
             if (set.touched[owner]) continue;
             const value = editableText(rawValue);
@@ -742,7 +1270,9 @@
         const issues = [...sessionSaveIssues(next), ...setSaveIssues(next, item.exercise, item.set)];
         if (issues.length) return error("set-not-saveable", { issues });
         item.set.completion = { completedAt: command.completedAt };
-        item.set.touched = { load: true, reps: true, effort: true };
+        item.set.performed = jsonClone(item.exercise.substitution?.replacement || snapshotFromExercise(item.exercise));
+        item.set.touched = { ...item.set.touched, load: true, reps: true, effort: true,
+          ...(item.set.touched.metrics ? { metrics: Object.fromEntries(Object.keys(item.set.touched.metrics).map(id => [id, true])) } : {}) };
         break;
       }
       case "uncommitSet": {
@@ -780,17 +1310,49 @@
             exerciseInstanceId: command.replacement.exerciseInstanceId,
           });
         }
-        item.exercise.substitution = {
-          original: item.exercise.substitution?.original || snapshotFromExercise(item.exercise),
+        const exercise = item.exercise;
+        const substitution = {
+          original: exercise.substitution?.original || snapshotFromExercise(exercise),
           replacement: jsonClone(command.replacement),
           selectedAt: command.selectedAt,
         };
-        item.exercise.status = "active";
+        if (command.replacementProgram != null) {
+          const program = validateReplacementProgram(command.replacementProgram, command.replacement, exercise.setOrder.length);
+          if (!program.ok) return error("invalid-substitution-program", { issues: program.issues });
+          // Completed sets keep the composition they were performed under; only
+          // untouched pending sets take the replacement's prescriptions.
+          const pendingIds = exercise.setOrder.filter(setId => exercise.sets[setId].completion === "pending");
+          const touched = pendingIds.filter(setId => {
+            const set = exercise.sets[setId];
+            return set.touched.load || set.touched.reps || set.touched.effort ||
+              Object.values(set.touched.metrics || {}).some(Boolean);
+          });
+          if (touched.length) return error("substitution-touched-pending-set", { setIds: touched });
+          const originalPendingSets = exercise.substitution?.originalPendingSets ||
+            Object.fromEntries(pendingIds.map(setId => [setId, jsonClone(exercise.sets[setId])]));
+          for (const setId of pendingIds) {
+            const set = exercise.sets[setId];
+            const spec = program.value.programmedSets[set.ordinal - 1];
+            const metrics = editedMetricsFromPrevious(program.value, spec);
+            set.programmed = programmedSetFromReplacement(program.value, spec);
+            set.edited = { load: editableText(spec.suggestedLoad), reps: editableText(spec.suggestedReps),
+              rir: null, effort: null, metrics };
+            set.touched = { load: false, reps: false, effort: false,
+              metrics: Object.fromEntries(Object.keys(metrics).map(id => [id, false])) };
+          }
+          substitution.originalPendingSets = originalPendingSets;
+        }
+        exercise.substitution = substitution;
+        exercise.status = "active";
         break;
       }
       case "restoreOriginalExercise": {
         item = targetExercise(next, command);
         if (isDomainError(item)) return item;
+        const originals = item.exercise.substitution?.originalPendingSets;
+        for (const [setId, original] of Object.entries(originals || {})) {
+          if (item.exercise.sets[setId]?.completion === "pending") item.exercise.sets[setId] = jsonClone(original);
+        }
         item.exercise.substitution = null;
         break;
       }
@@ -819,6 +1381,18 @@
             if (value === undefined) return error("invalid-repeat-values", { field });
             targetSet.edited[field] = value;
             targetSet.touched[field === "rir" || field === "effort" ? "effort" : field] = true;
+          }
+          if (hasOwn(previous, "metrics")) {
+            if (!isPlainObject(previous.metrics)) return error("invalid-repeat-values", { field: "metrics" });
+            for (const [metricId, rawValue] of Object.entries(previous.metrics)) {
+              const definition = targetSet.programmed.metrics?.find(metric => metric.id === metricId);
+              const value = editableText(rawValue);
+              if (!definition || value === undefined || metricValue(value, definition) == null) {
+                return error("invalid-repeat-values", { field: metricId });
+              }
+              targetSet.edited.metrics[metricId] = value;
+              targetSet.touched.metrics[metricId] = true;
+            }
           }
         }
         break;
@@ -893,11 +1467,24 @@
       const exercise = draft.exercises[exerciseId];
       if (exercise.status === "skipped") continue;
       const original = snapshotFromExercise(exercise);
-      const performed = exercise.substitution?.replacement || original;
+      const current = exercise.substitution?.replacement || original;
       for (const setId of exercise.setOrder) {
         const set = exercise.sets[setId];
         if (!isCandidate(set)) continue;
+        // A set completed before a substitution keeps the movement it was performed as.
+        const performed = isPlainObject(set.performed) ? set.performed : current;
+        const programmed = { ...exercise.programmed, ...set.programmed };
         const values = numericSetValues(draft, set);
+        const metricDefinitions = Array.isArray(set.programmed.metrics) ? set.programmed.metrics : null;
+        const metricValues = metricDefinitions ? metricDefinitions.map(metric => ({
+          metricId: metric.id,
+          value: metricValue(set.edited.metrics?.[metric.id], metric),
+          unit: metric.unit,
+        })) : null;
+        const metricBySemantic = new Map((metricValues || []).map(metric => [
+          metricDefinitions.find(definition => definition.id === metric.metricId)?.semantic,
+          metric.value,
+        ]));
         const row = {
           session: draft.draftId,
           date: draft.program.scheduleDate,
@@ -905,9 +1492,14 @@
           name: original.displayName,
           exerciseId: exercise.exerciseInstanceId,
           set: set.ordinal,
-          load: values.load,
-          reps: values.reps,
-          rir: values.rir,
+          setIndex: set.ordinal - 1,
+          load: metricBySemantic.has("loadKg") ? metricBySemantic.get("loadKg") : metricDefinitions ? null : values.load,
+          reps: metricBySemantic.has("reps") ? metricBySemantic.get("reps") : metricDefinitions ? null : values.reps,
+          rir: metricDefinitions
+            ? draft.program.rirMode === "effort"
+              ? hasOwn(EFFORT_RIR, set.edited.effort) ? EFFORT_RIR[set.edited.effort] : null
+              : set.edited.rir == null ? null : validDecimal(set.edited.rir)
+            : values.rir,
           notes: draft.session.notes.trim(),
           created: completedAt,
           ...(hasOwn(draft.program, "blockId") ? { blockId: draft.program.blockId } : {}),
@@ -917,6 +1509,44 @@
           performedPrimary: performed.primary,
           performedSecondary: performed.secondary,
         };
+        if (metricDefinitions) {
+          row.metricIds = metricDefinitions.map(metric => metric.id);
+          row.metricDefinitions = jsonClone(metricDefinitions);
+          row.metricOrigin = programmed.metricOrigin;
+          row.sourceLibraryId = programmed.sourceLibraryId ?? original.libraryId ?? null;
+          row.metricValues = metricValues;
+          row.equipmentId = programmed.equipmentId ?? null;
+          const metricSemantics = new Set(metricDefinitions.map(metric => metric.semantic));
+          const loadingConvention = programmed.loadingConvention ||
+            (metricSemantics.has("assistanceKg") ? "assistance"
+              : metricSemantics.has("loadPerSideKg") || metricSemantics.has("persistentLoadPerSideKg") ? "per_side"
+                : metricDefinitions.length === 1 && (metricSemantics.has("reps") || metricSemantics.has("repsPerSide")) ? "bodyweight" : "external");
+          row.loadingConvention = loadingConvention;
+          if (isPlainObject(programmed.loadingModel)) row.loadingModel = jsonClone(programmed.loadingModel);
+          const capturedLoadingContext = isPlainObject(programmed.loadingContext)
+            ? jsonClone(programmed.loadingContext) : {};
+          capturedLoadingContext.loadingConvention = loadingConvention;
+          capturedLoadingContext.bodyweightKg = draft.session.bodyweight == null || draft.session.bodyweight === ""
+            ? null : Number(draft.session.bodyweight);
+
+          if (!hasOwn(capturedLoadingContext, "externalLoadMultiplier")) {
+            capturedLoadingContext.externalLoadMultiplier = loadingConvention === "per_side" ? null
+              : loadingConvention === "bodyweight" ? 0 : 1;
+          }
+          if (!hasOwn(capturedLoadingContext, "bodyweightCoefficient") &&
+            hasOwn(programmed.loadingModel || {}, "bodyweightCoefficient")) {
+            capturedLoadingContext.bodyweightCoefficient = programmed.loadingModel.bodyweightCoefficient;
+          }
+          // Whether bodyweight counted toward this set's load is a fact of the set,
+          // so progression can compare it; it needs a coefficient and a bodyweight.
+          if (typeof capturedLoadingContext.bodyweightContributionEnabled !== "boolean") {
+            capturedLoadingContext.bodyweightContributionEnabled = (capturedLoadingContext.bodyweightCoefficient ?? 0) > 0 &&
+              capturedLoadingContext.bodyweightKg > 0;
+          }
+          row.loadingContext = capturedLoadingContext;
+          row.metricType = set.programmed.metricType;
+          row.restSeconds = Number.isSafeInteger(set.programmed.restSeconds) ? set.programmed.restSeconds : null;
+        }
         if (performed.libraryId) row.performedLibraryId = performed.libraryId;
         else if (performed.movementId) row.performedMovementId = performed.movementId;
         if (exercise.setupNotes.trim()) row.exNote = exercise.setupNotes.trim();
@@ -1210,6 +1840,11 @@
     migrateLegacy,
     reduce,
     toHistoryRows,
+    validateLoadingContext(value) {
+      const issues = [];
+      validateLoadingContext(value, "loadingContext", issues);
+      return issues.length ? { ok: false, issues } : { ok: true, value: jsonClone(value), issues: [] };
+    },
     validate,
     validateForSave,
     isPristine,

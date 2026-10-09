@@ -2,6 +2,8 @@
 /** Named Plan 048 entry accessibility regression: semantics, keyboard, focus, and compact geometry. */
 import { pathToFileURL } from "url";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
+import { metricLogRow } from "./fixtures/history-metric-rows.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const checks = { passed: 0, failed: 0 };
@@ -25,13 +27,13 @@ async function reachPriorities(page) {
   await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
   await page.click("#onbNext");
   await page.click('[data-entry-pick="structuredExperience"][data-entry-val="first"]');
-  await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
   await page.click("#onbNext");
   await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
   await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
-  await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="auto"]');
   await page.click("#onbNext");
   await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
+  await page.click("#onbNext");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
   await page.click("#onbNext");
 }
 
@@ -90,18 +92,15 @@ export async function runProgramEntryA11y(browser, check = assert) {
   check(await page.locator('[data-entry-pick="desiredResult"][data-entry-val="balanced"]').evaluate((el) => el.getAttribute("aria-checked") === "true" && el === document.activeElement), "radio arrows move selection and focus");
 
   await page.click("#onbNext");
-  check(await page.locator("#onbNext").isDisabled(), "Continue is disabled when both background answers are missing");
+  check(await page.locator("#onbNext").isDisabled(), "Continue is disabled while the experience question is unanswered");
   await page.click('[data-entry-pick="structuredExperience"][data-entry-val="first"]');
-  check(await page.locator("#onbNext").isDisabled(), "Continue stays disabled when one background answer is missing");
-  await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
-  check(!(await page.locator("#onbNext").isDisabled()), "answering both background questions enables Continue");
+  check(!(await page.locator("#onbNext").isDisabled()), "answering the experience question enables Continue");
 
   await page.click("#onbNext");
   check(await page.locator("#onbNext").isDisabled(), "Continue is disabled when schedule answers are missing");
   await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
+  check(await page.locator("#onbNext").isDisabled(), "Continue stays disabled when the session length is missing");
   await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
-  check(await page.locator("#onbNext").isDisabled(), "Continue stays disabled when the rest answer is missing");
-  await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="auto"]');
   check(!(await page.locator("#onbNext").isDisabled()), "answering every schedule question enables Continue");
 
   await page.click("#onbNext");
@@ -173,39 +172,45 @@ export async function runProgramEntryA11y(browser, check = assert) {
   const desktopWidth = await page.locator("#onboarding .onb").evaluate((el) => el.getBoundingClientRect().width);
   check(desktopWidth > 700, "desktop entry uses a wider composition", `width=${desktopWidth}`);
 
+  // A movement the catalog does not know becomes a custom movement that records
+  // nothing yet, so the reviewed program cannot start until it is configured.
   await clean(page);
   await page.click("#entryOwnToggle");
   await page.click('[data-entry-route="import"]');
   await page.setInputFiles("#importProgram", {
-    name: "future-strategy-a11y.json",
+    name: "unconfigured-a11y.json",
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify({
       version: 3,
-      meta: { name: "Future strategy" },
-      exercises: [{
-        day: "Day 1", order: 1, name: "Barbell bench press", sets: 3, min: 5, max: 8,
-        progression: { schemaVersion: 1, strategy: { id: "future_strategy", version: 99, params: { authored: true } }, modifiers: [] },
-      }],
+      meta: { name: "Unconfigured movement" },
+      exercises: [{ day: "Day 1", order: 1, name: "Zerbulator 9000", sets: 3, min: 5, max: 8 }],
     })),
   });
   await page.waitForSelector("#importReview.active", { timeout: 10000 });
+  await page.click('#importRows .improw.is-open [data-imp-act="custom"]');
+  await page.waitForSelector("#exCustomSheet.is-open", { timeout: 5000 });
+  await page.locator("#exCustomEquip .pchip").first().click();
+  await page.locator("#exCustomPrimary .pchip").first().click();
+  await page.click("#exCustomSave");
+  await page.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 5000 });
   await page.click("#importCommit");
   await page.waitForSelector("#entryActivate", { timeout: 10000 });
-  check(await page.locator("#entryActivationStatus").isVisible(), "future strategy preview exposes an activation alert");
+  check(await page.locator("#entryActivationStatus").isVisible(), "an unconfigured preview exposes an activation alert");
   const activationFocus = await page.locator("#entryActivationStatus").evaluate((el) => {
     const style = getComputedStyle(el);
     return {
       active: el === document.activeElement,
+      focused: document.activeElement?.id || document.activeElement?.tagName,
       outlineStyle: style.outlineStyle,
       outlineWidth: Number.parseFloat(style.outlineWidth) || 0,
     };
   });
-  check(activationFocus.active, "future strategy preview focuses the activation alert on initial render");
+  check(activationFocus.active, "an unconfigured preview focuses the activation alert on initial render", JSON.stringify(activationFocus));
   check(activationFocus.outlineStyle === "none" || activationFocus.outlineWidth === 0,
     "focused activation alert does not draw a ring", JSON.stringify(activationFocus));
   check(await page.locator("#entryActivate").isDisabled() &&
     (await page.locator("#entryActivate").getAttribute("aria-describedby")) === "entryActivationStatus",
-  "future strategy preview keeps activation disabled with describedby guidance");
+  "an unconfigured preview keeps activation disabled with describedby guidance");
 
   await clean(page);
   await page.click("#entryOwnToggle");
@@ -237,17 +242,19 @@ export async function runProgramEntryA11y(browser, check = assert) {
   check(await page.locator("html").getAttribute("data-theme") === "dark", "dark theme remains tokenized in entry flow");
   check(await page.locator(".entry-card").first().evaluate((el) => getComputedStyle(el).transitionDuration === "0s"), "reduced motion removes entry transitions");
 
-  await runEntryDialogFocus(page);
+  await runEntryDialogFocus(page, check);
   } finally {
     await page.close();
   }
 }
 
+/** An active program (the 18-slot seed definition) with one logged set. */
+const ACTIVE_META = seedProgramMeta({ id: "a11y-active", name: "Current block", started: "2026-08-01" });
 const ACTIVE_SEED = {
   settings: { unit: "kg", lang: "en", jumpPct: 2.5, minJump: 2.5, rirHigh: 2, hardRir: 4, restSec: 120 },
-  programMeta: { id: "a11y-active", name: "Current block", started: "2026-08-01", created: "2026-08-01T00:00:00.000Z", updated: "2026-08-01T00:00:00.000Z", onboarded: true, mesocycleStatus: "active", mesocycleLengthWeeks: 6, daysPerWeek: 1, goal: "hypertrophy", equipment: ["barbell"] },
-  program: [{ id: "active-row", day: "Day 1", order: 1, name: "Barbell row", sets: 2, min: 6, max: 10, primary: "Mid/upper back", secondary: "Biceps", notes: "", alternates: [], libraryId: "rw_bb" }],
-  log: [{ session: "a11y-session", date: "2026-08-29", day: "Day 1", exerciseId: "active-row", set: 1, load: 50, reps: 8, rir: 2 }],
+  programMeta: ACTIVE_META,
+  program: seedProgram(),
+  log: [metricLogRow(ACTIVE_META, seedProgram()[0], { session: "a11y-session", date: "2026-08-29", set: 1, load: 50, reps: 8, rir: 2 })],
   programHistory: [], customExercises: [], _storageRevision: 7,
 };
 
@@ -278,7 +285,7 @@ const focusedId = (page) => page.evaluate(() => document.activeElement?.id || ""
  * K-26: every entry dialog takes focus inside itself, keeps Tab inside, closes
  * on Escape and returns focus to the control that opened it.
  */
-async function runEntryDialogFocus(page) {
+async function runEntryDialogFocus(page, assert) {
   await page.setViewportSize({ width: 390, height: 844 });
   await clean(page);
 

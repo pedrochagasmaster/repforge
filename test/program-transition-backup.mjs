@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
  * Plan 052-P7: prove that an ordinary backup round-trip keeps transition
- * provenance and the user's program/log identities.
+ * provenance and the user's program/log identities. Since Plan 067 the
+ * predecessor is a generated ProgramDefinition and A→B is a fewer-days
+ * replacement proposal from the production transition adapter.
  *
  * This suite deliberately crosses the production boundaries that matter:
  * transition proposal/commit, the Settings backup download, the Settings
@@ -37,6 +39,25 @@ const VOLATILE_STATE_KEYS = [
 ];
 const IMPORT_MARKER_KEYS = VOLATILE_STATE_KEYS.filter((key) => key !== "_storageRevision");
 const NEGATIVE_MUTATIONS = new Set(["transitionIn", "transitionOut", "archiveId"]);
+const PLAN_DATA = new URL("../plans/067/data/", import.meta.url);
+const gym = JSON.parse(readFileSync(new URL("gym.json", PLAN_DATA), "utf8"));
+const observations = JSON.parse(readFileSync(new URL("programs.json", PLAN_DATA), "utf8"));
+const rawCatalog = JSON.parse(readFileSync(new URL("app_file.json", PLAN_DATA), "utf8"));
+const observedIds = [...new Set(Object.values(observations).flatMap((program) =>
+  program.days.flatMap((day) => day.exercises.map((entry) => entry.exerciseId))))];
+// A four-day generated program: the fewer-days change regenerates it on three.
+const REQUEST = {
+  goal: "hypertrophy", experience: "intermediate", daysPerWeek: 4, timeCeilingMinutes: 90,
+  gymProfile: { equipmentIds: gym.equipment.map((entry) => entry.equipmentId) },
+  competencyAnswers: {
+    pullups10: null, pullups5: null, pushups15: null, inclineBarbell10: null,
+    overheadPress10: null, bodyweightDips10: null, benchPress10: null,
+  },
+  movementConfirmations: Object.fromEntries(observedIds.map((id) =>
+    [id, [...rawCatalog.exercises.find((entry) => entry.id === id).preconditions]])),
+  emphasisMuscleIds: [], deprioritizedMuscleIds: [], excludedExerciseIds: [], excludedMuscleIds: [],
+  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 4, deloadCycles: [],
+};
 
 const failures = [];
 let passed = 0;
@@ -157,61 +178,36 @@ async function reloadAndBoot(page) {
 }
 
 async function activatePredecessor(page) {
-  return page.evaluate(async () => {
-    const adapter = window.RepForgeProgramEntryAdapter;
+  return page.evaluate(async (request) => {
     const compiler = window.RepForgeProgramCompiler;
-    if (!adapter || !compiler || typeof window.__repforgeFinalizeProgramSetup !== "function") {
+    const catalog = window.RepForgeExerciseCatalog;
+    if (!compiler || !catalog || typeof window.__repforgeFinalizeProgramSetup !== "function") {
       return { ok: false, error: "production program entry services unavailable" };
     }
-    const services = adapter.createProductionServices({
-      Compiler: compiler,
-      catalogue: window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY,
-    });
-    const compiled = services.compile({
-      mode: "recommend",
-      answers: {
-        desiredResult: "balanced",
-        structuredExperience: "6_to_24m",
-        recentConsistency: "most",
-        daysPerWeek: 4,
-        sessionMinutes: 90,
-        preferredRestSeconds: 90,
-        environment: { kind: "commercial_gym" },
-        primaryMuscles: [],
-        deEmphasizedMuscles: [],
-        ignoredMuscles: [],
-        priorityMovements: [],
-        mustHaveExercises: [],
-        exerciseConstraints: [],
-      },
-      versions: services.currentVersions(),
-    });
-    if (!compiled.ok) return { ok: false, error: "production compilation failed", issues: compiled.issues };
-
-    const baseProposal = window.__repforgeWorkoutDraft.state();
-    baseProposal.programMeta = baseProposal.programMeta || {};
-    baseProposal.programMeta.progressionRelations = JSON.parse(JSON.stringify(compiled.preview.progressionRelations || []));
-    baseProposal.programMeta.progressionModifiers = [];
-    baseProposal.programMeta.progressionIncompatibilities = [];
-    baseProposal.programMeta.programStructure = JSON.parse(JSON.stringify(compiled.preview.programStructure));
-    baseProposal.programMeta.compilerContext = JSON.parse(JSON.stringify(compiled.compilerContext));
+    const generated = compiler.generateProgram(request, catalog.snapshot(), "p052-backup-predecessor");
+    if (!generated.ok) return { ok: false, error: "production generation failed", generated };
+    const definition = generated.value;
+    // The production entry flow derives the program answers from the
+    // definition it activates; this seam receives the same values.
     const finalized = await window.__repforgeFinalizeProgramSetup({
-      exercises: compiled.preview.program,
-      name: compiled.name || "Backup proof predecessor",
-      answers: { goal: "strength_hypertrophy", daysPerWeek: 4 },
+      programDefinition: definition,
+      name: "Backup proof predecessor",
+      answers: {
+        daysPerWeek: definition.days.filter((day) => day.kind === "training").length,
+        goal: definition.request.goal,
+        experience: definition.request.experience,
+        splitType: definition.request.split,
+        mesocycleLengthWeeks: definition.cycles,
+      },
       destination: "log",
       origin: "first-run",
       draftConfirmed: true,
       telemetryRoute: "recommend",
-      entryTelemetry: compiled.telemetry,
-      entrySource: { route: "recommend", fingerprint: compiled.fingerprint },
-      programStructure: compiled.preview.programStructure,
-      compilerContext: compiled.compilerContext,
-      baseProposal,
+      entrySource: { route: "recommend", fingerprint: "p052-backup-predecessor" },
     });
     await window.__repforgeStorage.flush();
     return { ok: !!(finalized?.localOk || finalized?.idbOk), finalized };
-  });
+  }, REQUEST);
 }
 
 async function saveRealWorkout(page) {
@@ -220,12 +216,28 @@ async function saveRealWorkout(page) {
   if (!entered || entered.status && entered.status !== "ready") {
     throw new Error(`Could not enter production workout: ${JSON.stringify(entered)}`);
   }
-  await page.locator("#workout input[data-k$='_load']").first().waitFor({ state: "visible" });
-  await page.locator("#workout input[data-k$='_load']").first().fill("60");
-  await page.locator("#workout input[data-k$='_reps']").first().fill("8");
-  await page.locator("#workout input[data-k$='_rir']").first().fill("2");
-  await page.locator("#workout button[data-save]").first().click();
-  await page.waitForFunction(() => !!document.querySelector('#workout .exercise.is-current [data-editn="1"]'));
+  await page.waitForSelector("#workoutShell:not(.hidden) #workout .exercise.is-current", { timeout: 10000 });
+  const active = await page.evaluate(() => {
+    const draft = window.__repforgeWorkoutDraft.current();
+    const id = draft.session.selectedExerciseId;
+    const exercise = draft.exercises[id];
+    const setId = exercise.setOrder[0];
+    return { id, setId, metrics: exercise.sets[setId].programmed.metrics.map((metric) => metric.id) };
+  });
+  // Every programmed metric gets a real value through the Focus shelf.
+  for (const [index, metricId] of active.metrics.entries()) {
+    const input = page.locator(`#workout .exercise.is-current .focus-shelf input[data-metric-id="${metricId}"]`);
+    await input.waitFor({ state: "attached", timeout: 5000 });
+    if (await input.getAttribute("aria-hidden") === "true") {
+      await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${metricId}"]`).click();
+    }
+    await input.fill(String(index === 0 ? 60 : 8));
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  }
+  await page.locator(`#workout .exercise.is-current [data-save="${active.id}_1"]`).click();
+  await page.waitForFunction(({ id, setId }) =>
+    typeof window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.sets?.[setId]?.completion === "object",
+  active, { timeout: 15000 });
   await finishEarly(page);
   await page.waitForFunction(() => document.querySelector("#sessionSummary")?.hidden === false, undefined, { timeout: 10000 });
   await page.locator("#sumDone").click();
@@ -234,14 +246,8 @@ async function saveRealWorkout(page) {
 }
 
 async function commitReplacement(page) {
-  const proposalResult = await page.evaluate(async () => window.__repforgeProgramTransition.proposeSibling({
-    targetConstraint: { frequency: 3 },
-    diagnosis: {
-      kind: "fewer_days",
-      answers: { availableDays: 3 },
-      eligibleEvidenceIds: ["p052-backup-evidence"],
-      insufficientEvidenceReasons: [],
-    },
+  const proposalResult = await page.evaluate(async () => window.__repforgeProgramTransition.proposeChange({
+    change: { kind: "fewer_days", daysPerWeek: 3 },
     transitionId: "tr_p052_backup_a_to_b",
     successorProgramId: "prog_p052_backup_successor",
     createdAt: "2026-10-05T12:00:00.000Z",
@@ -282,7 +288,13 @@ async function importBackupThroughUi(page, text) {
     mimeType: "application/json",
     buffer: Buffer.from(text),
   });
-  await page.locator("#importChoice").waitFor({ state: "visible" });
+  // Production import either offers the restore choice or rejects the file
+  // with a toast; a rejection is reported as such rather than as a timeout.
+  await page.waitForFunction(() => document.querySelector("#importChoice")?.open === true ||
+    !document.querySelector("#toast")?.classList.contains("hidden"), undefined, { timeout: 10000 });
+  if (!await page.evaluate(() => document.querySelector("#importChoice")?.open === true)) {
+    throw new Error(`Production import rejected the exported backup: ${await page.locator("#toast").innerText()}`);
+  }
   await page.locator("#importReplace").click();
   await page.waitForFunction(() => document.querySelector("#importChoice")?.open === false, undefined, { timeout: 10000 });
   await page.evaluate(() => window.__repforgeStorage.flush());
@@ -334,9 +346,8 @@ function backupProvenance(snapshot) {
 function hasCompleteTransitionIn(transitionIn) {
   if (!transitionIn || typeof transitionIn !== "object" || Array.isArray(transitionIn)) return false;
   return [
-    "schemaVersion", "transitionId", "kind", "status", "createdAt", "confirmedAt",
-    "predecessor", "diagnosis", "derivation", "successor", "diff",
-    "progressionContract", "archiveId", "proposalHash",
+    "schemaVersion", "transitionId", "kind", "status", "confirmedAt",
+    "predecessor", "successor", "archiveId", "proposalHash",
   ].every((key) => Object.prototype.hasOwnProperty.call(transitionIn, key));
 }
 

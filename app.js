@@ -50,6 +50,49 @@ function mountFallbackGestures() {
 }
 const KEY="repforge_v1",DRAFT="repforge_draft_v1",NOTIFY_META="repforge_notify_v1";
 const WorkoutDraft=window.RepForgeWorkoutDraft;
+const ExerciseCatalog=window.RepForgeExerciseCatalog;
+const ExerciseMetrics=window.RepForgeExerciseMetrics;
+let rawExerciseCatalog=null,exerciseCatalogError=null;
+function rawCatalogObject(id){return ExerciseCatalog?.getObject?.(String(id??""))||null}
+function rawExercise(id){return ExerciseCatalog?.getExercise?.(String(id??""))||null}
+function rawMetricDefinitions(id){
+  const record=rawExercise(id);
+  if(!record||!Array.isArray(record.exerciseMetrics))return record?[]:null;
+  const compiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
+  return record.exerciseMetrics.map(metricId=>{
+    const source=rawCatalogObject(metricId),mapped=source&&compiler?.metricDefinitionForName?.(source.name);
+    return source?.type==="exerciseMetric"&&mapped?{id:String(metricId),sourceName:source.name,
+      semantic:mapped.semantic,unit:mapped.unit}:null}).filter(Boolean)}
+async function loadExerciseCatalog(){
+  if(!ExerciseCatalog?.load)return false;
+  try{rawExerciseCatalog=await ExerciseCatalog.load();exerciseCatalogError=null;return true}
+  catch(error){exerciseCatalogError=error;return false}}
+let exerciseCatalogRetryBusy=false;
+function showExerciseCatalogUnavailable(){
+  const dialog=$("#exerciseCatalogRecovery"),retry=$("#retryExerciseCatalog");
+  const title=$("#exerciseCatalogRecoveryTitle"),body=$("#exerciseCatalogRecoveryBody"),status=$("#exerciseCatalogRecoveryStatus");
+  if(!dialog||!retry||!title||!body||!status)return false;
+  if(!dialog.dataset.guarded){dialog.addEventListener("cancel",event=>event.preventDefault());dialog.dataset.guarded="1"}
+  window.__repforgeCatalogUnavailable=String(exerciseCatalogError?.message||"catalog-unavailable");
+  title.textContent=t("catalog.unavailable.title");
+  body.textContent=t("catalog.unavailable.body");
+  status.textContent="";
+  retry.textContent=t("catalog.unavailable.retry");
+  retry.disabled=false;
+  retry.onclick=async()=>{
+    if(exerciseCatalogRetryBusy)return;
+    exerciseCatalogRetryBusy=true;retry.disabled=true;status.textContent=t("catalog.unavailable.retrying");
+    const loaded=await loadExerciseCatalog();
+    if(!loaded){
+      window.__repforgeCatalogUnavailable=String(exerciseCatalogError?.message||"catalog-unavailable");
+      status.textContent=t("catalog.unavailable.retry_failed");retry.disabled=false;exerciseCatalogRetryBusy=false;return}
+    window.__repforgeCatalogUnavailable=null;
+    if(dialog.open)dialog.close();
+    try{await boot()}finally{exerciseCatalogRetryBusy=false}
+  };
+  if(!dialog.open)dialog.showModal();
+  retry.focus();
+  return true}
 const InstallPolicy=window.RepForgeInstallPolicy;
 const GuideRegistry=window.RepForgeGuideRegistry;
 const DRAFT_PENDING_PREFIX=`${DRAFT}:pending:`,DRAFT_CLOSE_PREFIX=`${DRAFT}:closing:`;
@@ -364,6 +407,7 @@ async function normalizeRecoveryCarrierSnapshot(snapshot,sourceReplica,{priorQua
 }
 function isSafeProgressionFields(value){
   if(!isPlainStateObject(value))return false;
+  if(Object.prototype.hasOwnProperty.call(value,"hasRepTarget")&&typeof value.hasRepTarget!=="boolean")return false;
   if(!isValidMuscleDomainTree(value))return false;
   for(const key of ["primary","secondary"])
     if(Object.prototype.hasOwnProperty.call(value,key)&&!isValidStoredMuscleField(value[key]))return false;
@@ -372,7 +416,7 @@ function isSafeProgressionFields(value){
   for(const key of ["progression","progressionIncompatibility"])
     if(Object.prototype.hasOwnProperty.call(value,key)&&!isBoundedProgressionValue(value[key]))return false;
   return true}
-function isSafeProgressionMeta(value){
+function isSafeProgressionMeta(value,customDefinitions=[]){
   if(value==null)return true;
   if(!isPlainStateObject(value))return false;
   if(!isValidMuscleDomainTree(value))return false;
@@ -385,18 +429,27 @@ function isSafeProgressionMeta(value){
       (!Array.isArray(value[key])||!isBoundedProgressionValue(value[key])))return false;
   if(Object.prototype.hasOwnProperty.call(value,"programStructure")&&value.programStructure!=null&&
     !isBoundedProgressionValue(value.programStructure))return false;
+  if(Object.prototype.hasOwnProperty.call(value,"programDefinition")&&value.programDefinition!=null&&
+    !canonicalProgramDefinition(value.programDefinition,customDefinitions))return false;
   if(Object.prototype.hasOwnProperty.call(value,"plannedVolumeHistory")&&value.plannedVolumeHistory!=null&&
     !isValidPlannedVolumeHistory(value.plannedVolumeHistory))return false;
   return true}
-function isSafeProgramHistoryEntry(entry){
+/* An archived block's custom slots resolve against the install's custom
+   definitions (archived, never deleted, while anything points at them) as well
+   as any the archive itself carries. */
+function isSafeProgramHistoryEntry(entry,customExercises=[]){
   if(!isPlainStateObject(entry))return false;
   if(Object.prototype.hasOwnProperty.call(entry,"transitionOut")&&entry.transitionOut!=null&&
     !DurableState.isCoherentV1TransitionOut(entry.transitionOut))return false;
-  if(Object.prototype.hasOwnProperty.call(entry,"meta")&&!isSafeProgressionMeta(entry.meta))return false;
+  const customs=[...(Array.isArray(entry.customExercises)?entry.customExercises:[]),
+    ...(Array.isArray(customExercises)?customExercises:[])];
+  if(Object.prototype.hasOwnProperty.call(entry,"meta")&&!isSafeProgressionMeta(entry.meta,customs))return false;
   if(!Object.prototype.hasOwnProperty.call(entry,"program"))return true;
   return Array.isArray(entry.program)&&entry.program.every(isSafeProgressionFields)}
 function isSafeLogRow(entry){
   if(!isPlainStateObject(entry))return false;
+  if(Object.prototype.hasOwnProperty.call(entry,"setIndex")&&
+    (!Number.isInteger(entry.setIndex)||entry.setIndex<0))return false;
   if(!isValidMuscleDomainTree(entry))return false;
   for(const key of ["primary","secondary"])
     if(Object.prototype.hasOwnProperty.call(entry,key)&&!isValidStoredMuscleField(entry[key],true))return false;
@@ -407,6 +460,55 @@ function isSafeLogRow(entry){
   for(const key of ["performedName","performedLibraryId","performedMovementId","performedPrimary","performedSecondary"])
     if(Object.prototype.hasOwnProperty.call(entry,key)&&entry[key]!=null&&typeof entry[key]!=="string")
       return false;
+  if(Object.prototype.hasOwnProperty.call(entry,"sourceLibraryId")&&entry.sourceLibraryId!==null&&typeof entry.sourceLibraryId!=="string")return false;
+  if(Object.prototype.hasOwnProperty.call(entry,"metricOrigin")&&!["source_catalog","user_defined"].includes(entry.metricOrigin))return false;
+  const metricFields=["metricType","metricIds","metricDefinitions","metricValues","equipmentId","loadingConvention","loadingContext","restSeconds"];
+  const hasMetricFields=metricFields.some(key=>Object.prototype.hasOwnProperty.call(entry,key));
+  if(hasMetricFields){
+    if(!Number.isInteger(entry.setIndex)||entry.setIndex<0||entry.metricType!=="source_metrics@1"||!Array.isArray(entry.metricIds)||!Array.isArray(entry.metricDefinitions)||
+      !Array.isArray(entry.metricValues)||entry.metricIds.length===0||
+      !["source_catalog","user_defined"].includes(entry.metricOrigin)||typeof entry.sourceLibraryId!=="string"||!entry.sourceLibraryId||
+      !["external","assistance","per_side","bodyweight"].includes(entry.loadingConvention)||
+      !(entry.equipmentId===null||typeof entry.equipmentId==="string")||
+      (entry.restSeconds!==null&&(!Number.isSafeInteger(entry.restSeconds)||entry.restSeconds<0)))return false;
+    const definitions=ExerciseMetrics?.validateDefinitions?.(entry.metricIds,entry.metricDefinitions);
+    const values=ExerciseMetrics?.validateMetricValues?.(entry.metricIds,entry.metricValues);
+    if(!definitions?.ok||!values?.ok||entry.metricValues.some(value=>typeof value?.value!=="number"||!Number.isFinite(value.value)))return false;
+    const sourceExercise=rawExercise(entry.sourceLibraryId);
+    const sourceBinding=ExerciseMetrics?.validateExerciseSourceBinding?.({metricOrigin:entry.metricOrigin,
+      metricIds:entry.metricIds,metricDefinitions:entry.metricDefinitions,sourceId:entry.sourceLibraryId,
+      sourceExercise,bodyweightCoefficient:entry.loadingModel?.bodyweightCoefficient??null});
+    if(!sourceBinding?.ok)return false;
+    const loading=WorkoutDraft?.validateLoadingContext?.(entry.loadingContext);
+    if(!loading?.ok||!Object.prototype.hasOwnProperty.call(entry.loadingContext,"bodyweightKg")||
+      !Object.prototype.hasOwnProperty.call(entry.loadingContext,"bodyweightContributionEnabled")||
+      !Object.prototype.hasOwnProperty.call(entry.loadingContext,"externalLoadMultiplier"))return false;
+    if(entry.loadingModel!=null&&(!isPlainStateObject(entry.loadingModel)||
+      Object.keys(entry.loadingModel).some(key=>!["bodyweightCoefficient","assistanceDirection"].includes(key))||
+      (entry.loadingModel.bodyweightCoefficient!=null&&(!Number.isFinite(entry.loadingModel.bodyweightCoefficient)||entry.loadingModel.bodyweightCoefficient<0||entry.loadingModel.bodyweightCoefficient>1))||
+      (entry.loadingModel.assistanceDirection!=null&&entry.loadingModel.assistanceDirection!=="subtract")))return false;
+    const modelCoefficient=entry.loadingModel?.bodyweightCoefficient??null;
+    const contextCoefficient=entry.loadingContext?.bodyweightCoefficient??null;
+    if(modelCoefficient!==contextCoefficient)return false;
+    const semantics=new Set(entry.metricDefinitions.map(definition=>definition.semantic));
+    const expectedConvention=semantics.has("assistanceKg")?"assistance":
+      semantics.has("loadPerSideKg")||semantics.has("persistentLoadPerSideKg")?"per_side":
+        entry.metricIds.length===1&&(semantics.has("reps")||semantics.has("repsPerSide"))?"bodyweight":"external";
+    if(entry.loadingConvention!==expectedConvention)return false;
+    if(entry.loadingContext.loadingConvention!==entry.loadingConvention)return false;
+    if(entry.loadingConvention==="bodyweight"&&entry.loadingContext.externalLoadMultiplier!==0)return false;
+    if(entry.loadingContext.externalLoadMultiplier!=null&&entry.loadingConvention!=="per_side"&&
+      entry.loadingConvention!=="bodyweight"&&entry.loadingContext.externalLoadMultiplier!==1)return false;
+    if(entry.loadingModel?.bodyweightCoefficient!=null&&entry.loadingContext.bodyweightCoefficient!==entry.loadingModel.bodyweightCoefficient)return false;
+    if(entry.loadingContext.bodyweightKg!==(entry.bodyweight??null))return false;
+    if(entry.rir!==null&&(!Number.isFinite(entry.rir)||entry.rir<0))return false;
+    const load=entry.metricDefinitions.find(definition=>definition.semantic==="loadKg");
+    const reps=entry.metricDefinitions.find(definition=>definition.semantic==="reps");
+    const loadValue=load?entry.metricValues.find(value=>value.metricId===load.id)?.value:null;
+    const repsValue=reps?entry.metricValues.find(value=>value.metricId===reps.id)?.value:null;
+    if(entry.load!==loadValue||entry.reps!==repsValue)return false;
+    if(entry.equipmentId!=null&&rawCatalogObject(entry.equipmentId)?.type!=="equipment")return false;
+  }
   return true}
 function isSafeCustomExercise(entry){
   if(!isPlainStateObject(entry))return false;
@@ -415,9 +517,11 @@ function isSafeCustomExercise(entry){
     if(Object.prototype.hasOwnProperty.call(entry,key)&&!isValidStoredMuscleField(entry[key]))return false;
   return typeof entry.id==="string"&&entry.id.startsWith(CUSTOM_ID_PREFIX)&&typeof entry.name==="string"}
 function isValidSetupActivationMarker(marker){
+  const maxRaw=Number.isSafeInteger(ProgramEntry?.MAX_DRAFT_ENVELOPE_BYTES)
+    ?ProgramEntry.MAX_DRAFT_ENVELOPE_BYTES:70000;
   return isPlainStateObject(marker)&&marker.version===1&&
     typeof marker.programId==="string"&&marker.programId.length>0&&marker.programId.length<=128&&
-    typeof marker.raw==="string"&&marker.raw.length>0&&marker.raw.length<=70000&&
+    typeof marker.raw==="string"&&marker.raw.length>0&&marker.raw.length<=maxRaw&&
     (!Object.prototype.hasOwnProperty.call(marker,"revision")||
       (Number.isInteger(marker.revision)&&marker.revision>=1))}
 function setupActivationMarker(raw,programId){
@@ -434,7 +538,7 @@ function isValidStateShape(s){
     // relabeling or dropping unknown historical muscle identity.
     if(!isPlainStateObject(s)||!Array.isArray(s.program)||!s.program.every(isSafeProgressionFields)||
       !Array.isArray(s.log)||!s.log.every(isSafeLogRow))return false;
-    if(Object.prototype.hasOwnProperty.call(s,"programMeta")&&!isSafeProgressionMeta(s.programMeta))return false;
+    if(Object.prototype.hasOwnProperty.call(s,"programMeta")&&!isSafeProgressionMeta(s.programMeta,s.customExercises||[]))return false;
     if(Object.prototype.hasOwnProperty.call(s,"recoveryTransitions")&&!isValidRecoveryTransitions(s.recoveryTransitions))return false;
     if(Object.prototype.hasOwnProperty.call(s,STORAGE_DRAFT_TXN)&&!pendingDraftTransaction(s))return false;
     if(Object.prototype.hasOwnProperty.call(s,STORAGE_SETUP_TXN)&&!isValidSetupActivationMarker(s[STORAGE_SETUP_TXN]))return false;
@@ -442,7 +546,7 @@ function isValidStateShape(s){
     if(Object.prototype.hasOwnProperty.call(s,"customExercises")&&
       !(Array.isArray(s.customExercises)&&s.customExercises.every(isSafeCustomExercise)))return false;
     if(!Object.prototype.hasOwnProperty.call(s,"programHistory"))return true;
-    return Array.isArray(s.programHistory)&&s.programHistory.every(isSafeProgramHistoryEntry)}
+    return Array.isArray(s.programHistory)&&s.programHistory.every(entry=>isSafeProgramHistoryEntry(entry,s.customExercises||[]))}
   catch{return false}}
 function readRevision(s){const n=s?.[STORAGE_REV];return Number.isInteger(n)&&n>=0?n:0}
 function stripStorageMeta(s){return DurableState.stripStorageMeta(s)}
@@ -1610,9 +1714,153 @@ const rowMuscles=row=>{
    setup notes are copied rather than looked up through libraryId, so the audit
    and every other reader keep reading the template exactly as before — and the
    lifter stays free to edit any of it afterwards without detaching the slot. */
+const SOURCE_FEATURE_TO_LEGACY_MUSCLE=Object.freeze({
+  "chest":"Chest","lats":"Lats","upper back":"Mid/upper back","upper traps":"Traps",
+  "front delts":"Front delts","side delts":"Side delts","rear delts":"Rear delts",
+  "biceps":"Biceps","triceps":"Triceps","forearms":"Forearms","quads":"Quads",
+  "hamstrings":"Hamstrings","glutes":"Glutes","adductors":"Adductors","abductors":"Abductors",
+  "calves":"Calves","tibs":"Tibs","hip flexors":"Hip flexors","lower back":"Spinal erectors",
+  "neck":"Neck","serratus":"Serratus","abs":"Abs","obliques":"Obliques",
+});
+function sourceFeatureAttribution(ids){
+  const tokens=[];
+  for(const id of Array.isArray(ids)?ids:[]){
+    const name=rawCatalogObject(id)?.name;
+    const token=SOURCE_FEATURE_TO_LEGACY_MUSCLE[String(name||"").trim().toLowerCase()];
+    if(token&&!tokens.includes(token))tokens.push(token)}
+  return tokens.join(",")}
+function libraryMuscleAttribution(entry,field){
+  const record=entry?.id?rawExercise(entry.id):null;
+  if(record){
+    const sourceField=field==="primary"?record.primaryFeatureMuscle:record.secondaryFeatureMuscle;
+    return sourceFeatureAttribution(sourceField)}
+  return String(entry?.[field]||"")}
 function exerciseFieldsFromLibrary(entry){
-  return{name:libraryName(entry),primary:entry.primary||"",secondary:entry.secondary||"",
+  return{name:libraryName(entry),primary:libraryMuscleAttribution(entry,"primary"),secondary:libraryMuscleAttribution(entry,"secondary"),
     notes:entry.notes||"",libraryId:entry.id,displayName:null}}
+
+/* The compiler owns the custom-definition schema. Device state carries more
+   (archive flag, patterns, timestamps), so project exactly its keys; a custom
+   movement without a configured composition has an empty one. */
+function compilerCustomDefinitions(list){
+  return(Array.isArray(list)?list:[]).filter(isPlainStateObject).map(entry=>{
+    const metrics=ExerciseMetrics?.validateDefinitions?.(entry.metricIds,entry.metricDefinitions,{allowEmpty:true});
+    const out={id:String(entry.id||""),name:String(entry.name||"")};
+    if(typeof entry.namePt==="string"&&entry.namePt.trim())out.namePt=entry.namePt;
+    out.equipment=Array.isArray(entry.equipment)?entry.equipment.filter(item=>typeof item==="string"&&item.trim()):[];
+    out.primary=typeof entry.primary==="string"?entry.primary:"";
+    out.secondary=typeof entry.secondary==="string"?entry.secondary:"";
+    out.notes=typeof entry.notes==="string"?entry.notes:"";
+    out.metricIds=metrics?.ok?cloneSnapshot(entry.metricIds):[];
+    out.metricDefinitions=metrics?.ok?cloneSnapshot(entry.metricDefinitions):[];
+    return out})}
+function canonicalProgramDefinition(value,customDefinitions=customExercises()){
+  const compiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
+  if(!compiler?.validateProgramDefinition||!rawExerciseCatalog)return null;
+  const checked=compiler.validateProgramDefinition(value,rawExerciseCatalog,compilerCustomDefinitions(customDefinitions));
+  if(!checked?.ok)return null;
+  // Accepts schema v1 (set-level metrics present, equal to the slot's) and v2
+  // (absent); this is the one boundary every file/link/backup/transfer passes
+  // through, so it always hands back the deduped v2 shape.
+  return compiler.canonicalizeProgramDefinition?compiler.canonicalizeProgramDefinition(value):cloneSnapshot(value)}
+/* A movement outside the catalog carries the lifter's own muscle labels. An
+   empty label is no attribution, not an invalid one. */
+function manualAttributionFor(row){
+  const primary=String(row?.primary||"").trim(),secondary=String(row?.secondary||"").trim();
+  if(!primary&&!secondary)return{};
+  return{manualAttribution:{...(primary?{primary}:{}),...(secondary?{secondary}:{})}}}
+function manualProgramDefinitionFromRows(rows,dayNames=[],customDefinitions=customExercises()){
+  const compiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
+  if(!compiler?.validateProgramDefinition||!rawExerciseCatalog)return null;
+  const byDay=new Map();
+  for(const row of Array.isArray(rows)?rows:[]){
+    const label=String(row?.day||"Day 1");
+    if(!byDay.has(label))byDay.set(label,[]);
+    byDay.get(label).push(row)}
+  const labels=[...new Set([...(Array.isArray(dayNames)?dayNames:[]).map(String),...byDay.keys()])].filter(Boolean);
+  if(labels.length>7)return null;
+  const orderedLabels=labels,days=[];
+  for(let index=0;index<7;index++){
+    const label=orderedLabels[index]||`${isPt()?"Descanso":"Rest"} ${index+1}`;
+    const entries=(byDay.get(label)||[]).slice().sort((a,b)=>(+a.order||0)-(+b.order||0));
+    const slots=entries.map((row,slotIndex)=>{
+      const exerciseId=String(row.libraryId||row.exerciseId||"");
+      const raw=rawExercise(exerciseId),custom=customDefinitions.find(item=>item.id===exerciseId)||null;
+      const definitions=raw?rawMetricDefinitions(exerciseId)||[]:
+        (Array.isArray(custom?.metricDefinitions)?custom.metricDefinitions.map(cloneSnapshot):[]);
+      const metricIds=definitions.map(metric=>metric.id);
+      const primary=Array.isArray(raw?.primaryFeatureMuscle)?raw.primaryFeatureMuscle:[];
+      const secondary=Array.isArray(raw?.secondaryFeatureMuscle)?raw.secondaryFeatureMuscle:[];
+      const patterns=Array.isArray(raw?.movementPattern)?raw.movementPattern:[];
+      const typeId=raw?.exerciseType||custom?.exerciseTypeId||null;
+      const count=Number(row.sets);
+      if(!Number.isInteger(count)||count<1||count>100)return null;
+      const repsSemantic=definitions.find(metric=>metric.semantic==="reps"||metric.semantic==="repsPerSide")?.semantic;
+      const authoredMin=Object.prototype.hasOwnProperty.call(row,"min")?Number(row.min):6;
+      const authoredMax=Object.prototype.hasOwnProperty.call(row,"max")?Number(row.max):10;
+      if(repsSemantic&&(!Number.isSafeInteger(authoredMin)||authoredMin<1||!Number.isSafeInteger(authoredMax)||authoredMax<authoredMin))return null;
+      const targets=repsSemantic?{[repsSemantic]:{min:authoredMin,max:authoredMax}}:{};
+      const configurationRequired=definitions.length===0;
+      const prescriptionsByCycle=Array.from({length:7},(_,cycleOffset)=>{
+        const cycleIndex=cycleOffset+1;
+        return{cycleIndex,sets:Array.from({length:count},(_,setIndex)=>({
+          id:`manual-${String(row.slotId||row.id||index+1)}-${cycleIndex}-${setIndex+1}`,
+          cycleIndex,setIndex:setIndex+1,metricType:"source_metrics@1",
+          targets:cloneSnapshot(targets),
+          rir:null,restSeconds:null,status:configurationRequired?"configuration_required":"manual",
+          provenance:{source:"manual",policyVersion:"manual@1"}}))}});
+      return{id:String(row.slotId||row.id||`manual-slot-${index+1}-${slotIndex+1}`),
+        purposeId:"manual",exerciseId,sourceExerciseIds:[exerciseId],role:"manual",
+        musclePurposeIds:[...new Set([...primary,...secondary])],movementPatternIds:[...new Set(patterns)],
+        ...(typeId?{exerciseTypeId:typeId}:{}),order:slotIndex+1,metricOrigin:raw?"source_catalog":"user_defined",
+        metricIds,metricDefinitions:definitions.map(cloneSnapshot),
+        ...(row.displayName?{displayName:String(row.displayName)}:{}),
+        setupNotes:String(row.notes||""),
+        ...(!raw?manualAttributionFor(row):{}),
+        loadingModel:{bodyweightCoefficient:Number.isFinite(raw?.bodyweight)?raw.bodyweight:null,
+          assistanceDirection:"subtract"},
+        prescriptionsByCycle};});
+    if(slots.some(slot=>!slot))return null;
+    days.push({id:`manual-day-${index+1}`,name:label,kind:entries.length?"training":"rest",order:index+1,slots})}
+  const definition={schemaVersion:2,generatorVersion:"manual@1",seed:"manual",request:{},days,
+    cycles:7,deloadCycles:[],provenance:{source:"manual",policyVersion:"manual@1"}};
+  return canonicalProgramDefinition(definition,customDefinitions)}
+/* Durable program rows are stored exactly as an accepted snapshot normalizes
+   them, so the lock-held program fingerprint of the stored head matches the
+   in-memory state for the rest of the session. */
+function durableProgramRows(definition,customDefinitions,meta){
+  return makeProgram(flatProgramFromDefinition(definition,customDefinitions,1),null,meta).toJSON()}
+function flatProgramFromDefinition(definition,customDefinitions=customExercises(),cycleNumber=1){
+  if(!definition||!Array.isArray(definition.days))return[];
+  const compiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
+  const sourceSets=new Map((compiler?.prescriptionsForCycle?.(definition,cycleNumber)||[])
+    .reduce((all,set)=>{if(!all.has(set.slotId))all.set(set.slotId,[]);all.get(set.slotId).push(set);return all},new Map()));
+  const customById=new Map(customDefinitions.map(entry=>[entry.id,entry]));
+  const rows=[];
+  for(const day of definition.days){
+    if(day.kind!=="training")continue;
+    for(const slot of day.slots){
+      const raw=rawExercise(slot.exerciseId),custom=customById.get(slot.exerciseId),index=LIBRARY_BY_ID.get(slot.exerciseId);
+      const cycle=slot.prescriptionsByCycle?.find(entry=>entry.cycleIndex===cycleNumber);
+      if(!cycle||!cycle.sets.length)continue;
+      const sets=sourceSets.get(slot.id)||cycle.sets;
+      const reps=sets.map(set=>set.targets?.reps??set.targets?.repsPerSide).find(value=>value!=null);
+      const minimum=typeof reps==="number"?reps:Number.isFinite(reps?.min)?reps.min:1;
+      const maximum=typeof reps==="number"?reps:Number.isFinite(reps?.max)?reps.max:minimum;
+      const row={id:slot.id,slotId:slot.id,day:day.name,dayId:day.id,order:slot.order||rows.length+1,
+        // The lifter's alias is the slot's name, as it is for a stored row.
+        name:slot.displayName||index?.name||custom?.name||raw?.name||slot.exerciseId,libraryId:slot.exerciseId,
+        sets:sets.length,hasRepTarget:reps!=null,
+        displayName:slot.displayName||null,
+        // A custom movement's muscles are its own definition's, as a stored row
+        // resolves them; a catalog movement's come from the catalog; only an
+        // unlinked slot falls back to its per-slot attribution.
+        primary:custom?String(custom.primary||""):raw?sourceFeatureAttribution(raw.primaryFeatureMuscle||[]):String(slot.manualAttribution?.primary||""),
+        secondary:custom?String(custom.secondary||""):raw?sourceFeatureAttribution(raw.secondaryFeatureMuscle||[]):String(slot.manualAttribution?.secondary||""),
+        notes:String(slot.setupNotes||"")};
+      if(reps!=null){row.min=minimum;row.max=maximum}
+      rows.push(row)}}
+  return rows}
 
 function normalizeProgressionEnvelope(value){
   const validator=typeof window!=="undefined"?window.RepForgeProgression:null;
@@ -1624,6 +1872,10 @@ function progressionIncompatibility(kind,value,checked,source){
 function normalizeProgressionRelations(value,program=[],options={}){
   if(value!=null&&!Array.isArray(value))throw new TypeError("progressionRelations: expected array");
   if(value!=null&&!isBoundedProgressionValue(value))throw new TypeError("progressionRelations: structure exceeds safety bounds");
+  // Empty released compatibility collections carry no executable intent.
+  // They remain an empty projection after retiring the old validator instead
+  // of being misclassified as an unsupported user-authored relation.
+  if(value==null||value.length===0)return[];
   const validator=typeof window!=="undefined"?window.RepForgeProgression:null;
   const checked=validator?.validateRelations?.(value,{slots:program});
   if(!checked?.ok&&options.preserveInvalid&&value!=null&&Array.isArray(options.incompatibilities))
@@ -1636,6 +1888,7 @@ function candidateProgressionData(value,program,existing=[],source="candidate"){
 function normalizeProgressionModifiers(value,options={}){
   if(value!=null&&!Array.isArray(value))throw new TypeError("progressionModifiers: expected array");
   if(value!=null&&!isBoundedProgressionValue(value))throw new TypeError("progressionModifiers: structure exceeds safety bounds");
+  if(value==null||value.length===0)return[];
   const validator=typeof window!=="undefined"?window.RepForgeProgression:null;
   const checked=validator?.validateModifiers?.(value);
   if(!checked?.ok&&options.preserveInvalid&&value!=null&&Array.isArray(options.incompatibilities))
@@ -1658,6 +1911,8 @@ class Exercise{
     this.order=Number.isFinite(+d.order)?+d.order:1;
     this.name=String(d.name??"").trim()||"Exercise";
     this.sets=Exercise.posInt(d.sets,2);
+    this.hasRepTarget=d.hasRepTarget===false?false:
+      d.hasRepTarget===true||Number.isFinite(Number(d.min))||Number.isFinite(Number(d.max));
     this.min=Exercise.posInt(d.min,4);
     this.max=Math.max(this.min,Exercise.posInt(d.max,8));
     this.primary=String(d.primary??"");
@@ -1709,11 +1964,15 @@ class Exercise{
       // surfaces can fail closed and offer an explicit repair. Share owns the
       // diagnosis; no reader may silently turn this into a different movement.
       return this}
-    this.name=this.displayName||libraryName(entry);
-    this.primary=entry.primary||"";
-    this.secondary=entry.secondary||"";
+    // The stored name is the canonical one; display localizes it (RF-10), so
+    // switching language never rewrites a program or its fingerprint.
+    this.name=this.displayName||entry.name;
+    this.primary=libraryMuscleAttribution(entry,"primary");
+    this.secondary=libraryMuscleAttribution(entry,"secondary");
     return this}
-  toJSON(){const o={id:this.id,day:this.day,order:this.order,name:this.name,sets:this.sets,min:this.min,max:this.max,primary:this.primary,secondary:this.secondary,notes:this.notes,alternates:this.alternates};
+  toJSON(){const o={id:this.id,day:this.day,order:this.order,name:this.name,sets:this.sets,primary:this.primary,secondary:this.secondary,notes:this.notes,alternates:this.alternates};
+    if(!this.hasRepTarget)o.hasRepTarget=false;
+    if(this.hasRepTarget){o.min=this.min;o.max=this.max}
     if(this.slotId!==undefined)o.slotId=this.slotId;
     if(this.dayId!==undefined)o.dayId=this.dayId;
     if(this.libraryId!==undefined)o.libraryId=this.libraryId;
@@ -1758,8 +2017,8 @@ class Program{
   toJSON(){return this.exercises.map(e=>e.toJSON())}
   update(id,field,value){const e=this.find(id);if(!e)return;
     if(field==="sets")e.sets=Exercise.posInt(value,e.sets);
-    else if(field==="min"){e.min=Exercise.posInt(value,e.min);if(e.max<e.min)e.max=e.min;}
-    else if(field==="max"){e.max=Exercise.posInt(value,e.max);if(e.min>e.max)e.min=e.max;}
+    else if(field==="min"){e.hasRepTarget=true;e.min=Exercise.posInt(value,e.min);if(e.max<e.min)e.max=e.min;}
+    else if(field==="max"){e.hasRepTarget=true;e.max=Exercise.posInt(value,e.max);if(e.min>e.max)e.min=e.max;}
     else if(field==="alternates")e.alternates=String(value??"").split(",").map(s=>s.trim()).filter(Boolean);
     else if(field==="name"){
       const next=String(value??"").trim();
@@ -1815,9 +2074,10 @@ class Program{
     for(const x of muscles(e.secondary))addVol(m,x,0,e.sets*.5)}return m}
 }
 
-const DAY_TYPES=window.RepForgeProgramEntryAdapter.DAY_MERGE_VOCABULARY;
-const SESSION_BOUNDS={short:[4,5],normal:[5,7],long:[7,9]};
-const FILLER_SLOTS=["curl","triceps","lateral_raise","chest_iso","calves","leg_curl"];
+/* Family-slot vocabulary belonged to the retired family generator. Canonical
+   ProgramDefinitions carry their own ordered slots; keep this empty value only
+   for old display-only paths that still ask for a day type during migration. */
+const DAY_TYPES=Object.freeze({});
 /* The exercise library. exercises.js is generated (see tools/README.md) and
    loads before this file; the fallback keeps app.js parseable and the app
    usable if that script is ever missing, rather than throwing at boot. */
@@ -1844,7 +2104,7 @@ function libraryEntry(id,snapshot=state){
   if(id==null)return null;
   const key=String(id);
   if(isCustomLibraryId(key))return customExercises(snapshot).find(e=>e.id===key)||null;
-  return LIBRARY_BY_ID.get(key)||LIBRARY_BY_ID.get(LEGACY_LIBRARY_IDS[key])||null}
+  return LIBRARY_BY_ID.get(key)||null}
 /* Everything a picker can offer: the lifter's own movements first, because a
    custom entry exists precisely because the library did not have it. */
 function pickableExercises(snapshot=state){
@@ -1917,49 +2177,8 @@ function dayTypeHasPrimary(dayType,equipment,experience){
   return fillable*2>=slots.length}
 function equipmentSupportsSplit(daysPerWeek,splitType,equipment,experience){
   return resolveSplit(daysPerWeek,splitType).every(dt=>dayTypeHasPrimary(dt,equipment,experience))}
-function repScheme(experience,goal,slot){
-  let sets=experience==="beginner"?2:3,min=experience==="beginner"?8:6,max=experience==="beginner"?12:10;
-  if(goal==="strength"){min=4;max=6;sets=experience==="beginner"?3:4}
-  const iso=["lateral_raise","rear_delt","chest_iso","curl","triceps","calves","leg_curl","leg_extension","adduction","delts","arms"];
-  if(goal!=="strength"&&iso.includes(slot)){min=Math.max(min,8);max=Math.max(max,12)}
-  return{sets,min,max}}
 function muscleHit(ex,muscle){const m=muscle.toLowerCase();
   return muscles(ex.primary).concat(muscles(ex.secondary)).some(x=>x.toLowerCase()===m||x.toLowerCase().includes(m))}
-function applyPriorityMuscles(program,priorityMuscles,equipment,experience){
-  if(!priorityMuscles?.length)return;
-  for(const ex of program){
-    if(priorityMuscles.some(m=>muscleHit(ex,m)))ex.sets=Math.min(ex.sets+1,5)}
-  for(const muscle of priorityMuscles){
-    if(program.some(ex=>muscleHit(ex,muscle)))continue;
-    const day=program[0]?.day||"Day 1";
-    const slot=muscle.includes("Quad")?"leg_extension":muscle.includes("Chest")?"chest_iso":muscle.includes("Bicep")?"curl":
-      muscle.includes("Tricep")?"triceps":muscle.includes("Ham")?"leg_curl":muscle.includes("Glute")?"hinge":
-      muscle.includes("Lat")||muscle.includes("Back")?"row":muscle.includes("delt")?"lateral_raise":"curl";
-    const entry=chooseExercise(slot,equipment,experience,new Set(program.map(e=>e.libraryId)));
-    if(!entry)continue;
-    const rs=repScheme("intermediate","hypertrophy",slot);
-    program.push({id:uid(),day,order:program.filter(e=>e.day===day).length+1,name:libraryName(entry),sets:rs.sets,min:rs.min,max:rs.max,
-      primary:entry.primary,secondary:entry.secondary||"",notes:entry.notes||"",libraryId:entry.id})}}
-function pickFillerForDay(dayExs,usedIds,equipment,experience,occurrence){
-  const have=new Set(dayExs.map(e=>e.libraryId));
-  for(const slot of FILLER_SLOTS){
-    const entry=chooseExercise(slot,equipment,experience,new Set([...usedIds,...have]),occurrence);
-    if(!entry||have.has(entry.id))continue;
-    const rs=repScheme(experience,"hypertrophy",slot);
-    return{id:uid(),day:dayExs[0].day,order:dayExs.length+1,name:libraryName(entry),sets:rs.sets,min:rs.min,max:rs.max,
-      primary:entry.primary,secondary:entry.secondary||"",notes:entry.notes||"",libraryId:entry.id}}
-  return null}
-function applySessionLength(program,sessionLength,equipment,experience,dayOcc){
-  const [lo,hi]=SESSION_BOUNDS[sessionLength]||SESSION_BOUNDS.normal,out=[];
-  const days=[...new Set(program.map(e=>e.day))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
-  for(const day of days){
-    let list=program.filter(e=>e.day===day).sort((a,b)=>a.order-b.order);
-    if(list.length>hi)list=list.slice(0,hi);
-    const used=new Set(list.map(e=>e.libraryId));
-    const occ=dayOcc?.[day]||0;
-    while(list.length<lo){const extra=pickFillerForDay(list,used,equipment,experience,occ);if(!extra)break;used.add(extra.libraryId);list.push(extra)}
-    list.forEach((e,i)=>{e.order=i+1;out.push(e)})}
-  program.length=0;program.push(...out)}
 let state,prog,day,installPrompt=null,saving=false;
 let activeRecoveryRecord=null,activeRecoveryRecordBlockId=null;
 let restEnd=0,restTick=null,restNotified=false,restAnnounced=false;
@@ -2075,11 +2294,63 @@ function reserveDraftRefresh(){
     cancel(){if(!settled){settled=true;release(()=>Promise.resolve({status:"unchanged"}))}}
   }}
 function workoutDayId(label){
+  // The canonical definition's day id survives renames; it is what a draft keys on.
+  const canonical=state.programMeta?.programDefinition?.days?.find?.(day=>day?.kind==="training"&&day.name===label);
+  if(canonical?.id)return String(canonical.id);
   const structured=state.programMeta?.programStructure?.days;
   const matched=Array.isArray(structured)?structured.find(item=>String(item?.label||item?.dayId||"")===label):null;
   return String(matched?.dayId||exercises(label)[0]?.dayId||label)}
+function metricLoading(metricDefinitions,sourceExercise,loadingModel=null){
+  loadingModel=loadingModel||{
+    bodyweightCoefficient:Number.isFinite(sourceExercise?.bodyweight)?sourceExercise.bodyweight:null,
+    assistanceDirection:"subtract"};
+  const semantics=new Set((metricDefinitions||[]).map(metric=>metric.semantic));
+  const loadingConvention=semantics.has("assistanceKg")?"assistance":
+    semantics.has("loadPerSideKg")||semantics.has("persistentLoadPerSideKg")?"per_side":
+      metricDefinitions?.length===1&&(semantics.has("reps")||semantics.has("repsPerSide"))?"bodyweight":"external";
+  const loadingContext={bodyweightContributionEnabled:null,
+    externalLoadMultiplier:loadingConvention==="per_side"?null:loadingConvention==="bodyweight"?0:1,
+    ...(Object.prototype.hasOwnProperty.call(loadingModel,"bodyweightCoefficient")
+      ?{bodyweightCoefficient:loadingModel.bodyweightCoefficient}:{})};
+  return{loadingModel,loadingConvention,loadingContext}}
+/* A mid-session swap reprograms the slot's pending sets with the
+   replacement's own metric composition. Targets carry over only for metrics
+   both movements share; the rest stay for the lifter to enter. A custom
+   movement has no catalog row, so its composition comes from the movement's
+   own metricIds/metricDefinitions (set by the "metric composition" editor
+   intent) rather than from the static catalog. One created mid-session has
+   no composition yet, so it records what the slot already records. Only when
+   the slot records nothing either is there nothing to program: that case
+   returns the "unconfigured" sentinel (null means "not a metric swap"). */
+function substitutionProgram(id,libraryRef){
+  const draftExercise=activeWorkoutDraft?.exercises?.[id];
+  if(!draftExercise?.programmed?.metricOrigin||!libraryRef)return null;
+  const custom=isCustomLibraryId(libraryRef)?libraryEntry(libraryRef):null;
+  const source=custom||rawExercise(libraryRef);
+  if(!source)return null;
+  const slotMetrics=draftExercise.sets?.[draftExercise.setOrder?.[0]]?.programmed?.metrics;
+  const metricDefinitions=!custom?rawMetricDefinitions(libraryRef)
+    :Array.isArray(custom.metricDefinitions)&&custom.metricDefinitions.length?custom.metricDefinitions
+    :Array.isArray(slotMetrics)?slotMetrics.map(cloneSnapshot):[];
+  if(!metricDefinitions)return null;
+  if(custom&&!metricDefinitions.length)return"unconfigured";
+  const{loadingModel,loadingConvention,loadingContext}=metricLoading(metricDefinitions,source);
+  const semantics=new Set(metricDefinitions.map(metric=>metric.semantic));
+  const programmedSets=draftExercise.setOrder.map(setId=>{
+    const programmed=draftExercise.sets[setId].programmed;
+    const targets=Object.fromEntries(Object.entries(programmed.targets||{}).filter(([semantic])=>semantics.has(semantic)));
+    const repTarget=targets.reps??targets.repsPerSide,reps=Number.isSafeInteger(repTarget?.min??repTarget);
+    return{metricDefinitions,targets,restSeconds:programmed.restSeconds??null,targetRir:programmed.targetRir??null,
+      minReps:reps?repTarget?.min??repTarget:null,maxReps:reps?repTarget?.max??repTarget:null,
+      suggestedReps:reps?repTarget?.min??repTarget:null,previousMetrics:[]}});
+  return{sourceLibraryId:libraryRef,metricOrigin:custom?"user_defined":"source_catalog",
+    metricIds:metricDefinitions.map(metric=>metric.id),
+    metricDefinitions,loadingModel,loadingConvention,loadingContext:{loadingConvention,bodyweightKg:null,...loadingContext},
+    equipmentId:null,programmedSets}}
 function workoutProgramContext(label=day){
   const slots=exercises(label),empty={};
+  const definition=state.programMeta?.programDefinition,cycleNumber=mesocycleLifecycle(state.programMeta).current||1;
+  const canonicalDays=new Map((definition?.days||[]).map(item=>[item.name,item]));
   const context={
     programId:String(state.programMeta?.id||"local-program"),
     programFingerprint:workoutProgramFingerprint(state),
@@ -2087,15 +2358,30 @@ function workoutProgramContext(label=day){
     dayId:workoutDayId(label),dayLabel:label,scheduleDate:today(),
     unit:state.settings.unit==="lb"?"lb":"kg",rirMode:isEffortMode()?"effort":"numeric",
     exercises:slots.map((ex,index)=>{const rec=recommendation(ex),prev=last(ex);
-      const programmedSets=Array.from({length:ex.sets},(_,i)=>{const n=i+1,old=prev.find(row=>row.set===n),sg=setSuggestion(ex,n,rec,empty,old);
-        return{suggestedLoad:sg.load??null,suggestedReps:sg.reps??ex.min,targetRir:old?.rir??1,
-          suggestedEffort:effortForRir(old?.rir??1),minReps:ex.min,maxReps:ex.max}});
+      const canonicalDay=canonicalDays.get(ex.day),canonicalSlot=canonicalDay?.slots?.find(slot=>slot.id===(ex.slotId||ex.id));
+      const cycle=canonicalSlot?.prescriptionsByCycle?.find(item=>item.cycleIndex===cycleNumber);
+      const metricDefinitions=canonicalSlot?.metricDefinitions||rawMetricDefinitions(ex.libraryId)||null;
+      const metricOrigin=canonicalSlot?.metricOrigin||(rawExercise(ex.libraryId)?"source_catalog":"user_defined");
+      const{loadingModel,loadingConvention,loadingContext}=metricLoading(metricDefinitions,rawExercise(ex.libraryId),canonicalSlot?.loadingModel);
+      const programmedSets=cycle?cycle.sets.map((prescription,i)=>{
+        const old=prev.find(row=>row.set===i+1),repTarget=prescription.targets?.reps??prescription.targets?.repsPerSide;
+        return{suggestedLoad:null,suggestedReps:repTarget?.min??repTarget??null,targetRir:prescription.rir,
+          suggestedEffort:prescription.rir==null?null:effortForRir(prescription.rir),
+          minReps:repTarget?.min??repTarget??ex.min,maxReps:repTarget?.max??repTarget??ex.max,
+          metricDefinitions,targets:cloneSnapshot(prescription.targets||{}),restSeconds:prescription.restSeconds,
+          role:prescription.status==="configuration_required"?"configuration_required":"working",
+          previousMetrics:old?.metricValues||old?.metrics||[]}}):
+        Array.from({length:ex.sets},(_,i)=>{const n=i+1,old=prev.find(row=>row.set===n),sg=setSuggestion(ex,n,rec,empty,old);
+          return{suggestedLoad:sg.load??null,suggestedReps:sg.reps??ex.min,targetRir:old?.rir??1,
+            suggestedEffort:effortForRir(old?.rir??1),minReps:ex.min,maxReps:ex.max,
+            metricDefinitions,targets:{}}});
       return{legacyExerciseId:ex.id,exerciseInstanceId:ex.id,
         sourceExerciseId:String(ex.slotId||ex.libraryId||ex.movementId||ex.id),
         libraryId:ex.libraryId, movementId:ex.movementId,displayName:ex.name,sets:ex.sets,
         setIds:Array.from({length:ex.sets},(_,i)=>`set-${i+1}`),minReps:ex.min,maxReps:ex.max,
         targetRir:1,notes:ex.notes||"",primary:ex.primary||"",secondary:ex.secondary||"",
         progressionStrategy:strategyIdFor(ex),movementPattern:ex.loadingMode||null,
+        metricDefinitions,metricOrigin,loadingModel,loadingConvention,loadingContext,
         sourceFingerprint:workoutProgramFingerprint({programMeta:{id:ex.id},program:[ex]}),programmedSets,index}})
   };
   if(Object.prototype.hasOwnProperty.call(state.programMeta||{},"blockId"))context.blockId=state.programMeta.blockId;
@@ -2110,6 +2396,18 @@ function displayDraftText(field,value){
   if(field!=="load"&&field!=="bodyweight")return value;
   if(!/^\d+(?:\.\d+)?$/.test(String(value))||!(+value>0))return value;
   return fmtPlain(toDisplay(+value))}
+/* A metric-backed set keeps its values under edited.metrics. The ledger,
+   summaries and legacy readers see its load (any kg metric) and reps through
+   the same projected fields a flat set uses. */
+/* A DraftV2 set's programmed metric composition ({id, semantic, ...}). */
+const draftSetMetrics=set=>Array.isArray(set?.programmed?.metrics)?set.programmed.metrics:[];
+const METRIC_FIELD_SEMANTICS={load:["loadKg","loadPerSideKg","persistentLoadPerSideKg","assistanceKg"],reps:["reps","repsPerSide"]};
+function metricFieldValue(set,field){
+  const semantics=METRIC_FIELD_SEMANTICS[field],definitions=draftSetMetrics(set);
+  if(!semantics||!Array.isArray(definitions))return null;
+  const metric=definitions.find(item=>semantics.includes(item?.semantic));
+  const value=metric?set.edited?.metrics?.[metric.id]:null;
+  return value==null||value===""?null:value}
 function workoutDraftProjection(draft=activeWorkoutDraft){
   if(!draft)return{};
   const out={__day:draft.program.dayLabel,__date:draft.program.scheduleDate,
@@ -2124,16 +2422,23 @@ function workoutDraftProjection(draft=activeWorkoutDraft){
       if(ex.substitution.replacement.libraryId)out.__substitutedRef[exId]=ex.substitution.replacement.libraryId}
     out.__exnotes[exId]=ex.setupNotes;
     for(const setId of ex.setOrder){const set=ex.sets[setId],key=`${exId}_${set.ordinal}`;
-      for(const field of ["load","reps","rir","effort"]){const value=set.edited[field];
+      // A metric-backed set's own metrics are its load and reps; a flat field
+      // it still carries is a stale projection.
+      for(const field of ["load","reps","rir","effort"]){const fromMetric=draftSetMetrics(set).length&&METRIC_FIELD_SEMANTICS[field];
+        const value=fromMetric?metricFieldValue(set,field):set.edited[field];
         if(value!=null)out[`${key}_${field}`]=displayDraftText(field,value)}
       if(set.completion!=="pending"){out.__done.push(key);out.__lastCommitAt=Math.max(out.__lastCommitAt||0,Date.parse(set.completion.completedAt)||0)}
-      if(set.touched.load||set.touched.reps||set.touched.effort)out.__touched.push(key);
+      if(draftSetTouched(set))out.__touched.push(key);
       if(set.role==="warmup")out.__warm.push(key)}}
   return out}
 function draftTargetFromKey(key){
-  for(const exId of activeWorkoutDraft?.exerciseOrder||[]){const match=String(key).match(new RegExp(`^${exId.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}_(\\d+)(?:_(load|reps|rir|effort))?$`));
-    if(!match)continue;const ex=activeWorkoutDraft.exercises[exId],ordinal=+match[1],setId=ex.setOrder.find(id=>ex.sets[id].ordinal===ordinal);
-    if(setId)return{exerciseInstanceId:exId,setId,field:match[2],ordinal}}
+  const text=String(key);
+  for(const exId of activeWorkoutDraft?.exerciseOrder||[]){
+    const prefix=exId+"_";if(!text.startsWith(prefix))continue;
+    const match=text.slice(prefix.length).match(/^(\d+)(?:_(load|reps|rir|effort)|_metric_([a-f0-9]{32}))?$/i);
+    if(!match)continue;
+    const ex=activeWorkoutDraft.exercises[exId],ordinal=+match[1],setId=ex.setOrder.find(id=>ex.sets[id].ordinal===ordinal);
+    if(setId)return{exerciseInstanceId:exId,setId,field:match[3]?"metric":match[2],metricId:match[3]||null,ordinal}}
   return null}
 function canonicalDraftField(field,value){
   const raw=String(value??"");
@@ -2152,7 +2457,7 @@ function migrationSubstitutionResolutions(legacy,context,migratedAt){
   for(const [exId,rawName]of Object.entries(subs)){const name=String(rawName||"").trim(),ref=refs[exId]??null;
     const entry=ref?libraryEntry(ref):byName.get(movementToken(name));
     const replacement=entry?{exerciseInstanceId:`replacement:${entry.id}`,sourceExerciseId:entry.id,libraryId:entry.id,
-      displayName:name||libraryName(entry),primary:entry.primary||"",secondary:entry.secondary||""}
+      displayName:name||libraryName(entry),primary:libraryMuscleAttribution(entry,"primary"),secondary:libraryMuscleAttribution(entry,"secondary")}
       :{exerciseInstanceId:`replacement:${exId}`,sourceExerciseId:`adhoc:${movementToken(name)}`,
         movementId:`adhoc:${movementToken(name)}`,displayName:name,primary:"",secondary:""};
     out[exId]={legacyName:rawName,legacyRef:ref,replacement,selectedAt:migratedAt}}
@@ -2366,8 +2671,21 @@ async function discardRecoveredWorkoutDraft(){
    WorkoutSession is measured the same way (Q616, Q618). */
 /** Q616: a working set matches when its load is within half of the lifter's
  *  minJump of the suggestion. Loads only; draft loads and minJump are canonical kg. */
-function setVsSuggestion(set){
-  const suggested=set?.programmed?.suggestedLoad,load=parseDec(set?.edited?.load);
+/* What the adaptive engine recommended for this set. A set's own result reads
+   only the sets before it, so it is the same after the set is completed. */
+function engineSuggestedLoad(set,exerciseInstanceId){
+  const ex=prog?.find?.(exerciseInstanceId);if(!ex)return null;
+  const rec=recommendation(ex),item=rec.targetSets?.find(entry=>entry.prescription?.setIndex===set.ordinal);
+  if(item?.status!=="recommended")return null;
+  const metric=(rec.metricDefinitions||[]).find(entry=>METRIC_FIELD_SEMANTICS.load.includes(entry.semantic));
+  const value=metric?item.targets?.[metric.semantic]:null;
+  return typeof value==="number"?value:null}
+function setVsSuggestion(set,exerciseInstanceId){
+  // A metric-backed set's typed load is its load metric, compared with the
+  // engine's recommendation rather than the flat history fallback.
+  const metricBacked=draftSetMetrics(set).length>0;
+  const suggested=metricBacked?engineSuggestedLoad(set,exerciseInstanceId):set?.programmed?.suggestedLoad;
+  const load=parseDec(metricBacked?metricFieldValue(set,"load"):set?.edited?.load);
   if(suggested==null||!Number.isFinite(+suggested)||!Number.isFinite(load))return"no_suggestion";
   const delta=load-+suggested,half=(+state.settings.minJump||2.5)/2;
   return Math.abs(delta)<half?"matched":delta>0?"raised":"lowered"}
@@ -2387,7 +2705,7 @@ function captureDraftCommandTelemetry(command,before,after,ui){
     if(command.type==="completeSet"){
       const set=after?.exercises?.[command.exerciseInstanceId]?.sets?.[command.setId];
       if(set&&set.role!=="warmup"&&!countedWorkingSets.keys.has(`${command.exerciseInstanceId}\u0000${command.setId}`))
-        captureEvent("set_saved",{vs_suggestion:setVsSuggestion(set)})}
+        captureEvent("set_saved",{vs_suggestion:setVsSuggestion(set,command.exerciseInstanceId)})}
     noteCommittedWorkingSets(after);
     // Q618: the lifter's own skips only; the bulk "skip flagged" offer opts out.
     if(command.type==="skipExercise"&&ui?.bulk!==true&&before?.exercises?.[command.exerciseInstanceId]?.status!=="skipped")captureEvent("exercise_skipped",{context:"planned_session"})}
@@ -2503,13 +2821,17 @@ function isDisposableDraft(draft){
       const seed=current?lastExerciseNote(current):"";
       return String(draft.exercises[id]?.setupNotes??"")===String(seed??"")});
   }catch{return false}}
+/* A lifter's typed value on a set, in either the flat or the metric shape. */
+function draftSetTouched(set){
+  return !!(set?.touched?.load||set?.touched?.reps||set?.touched?.effort||
+    Object.values(set?.touched?.metrics||{}).some(Boolean))}
 function draftHasSessionWork(d){
   d=d||loadDraft();
   if(d?.schemaVersion===2)return d.exerciseOrder.some(exerciseId=>{
     const exercise=d.exercises[exerciseId];
     return exercise.status==="skipped"||!!exercise.substitution||exercise.setupNotes!==exercise.programmed.notes||
       exercise.setOrder.some(setId=>{const set=exercise.sets[setId];return set.completion!=="pending"||set.role==="warmup"||
-        set.touched.load||set.touched.reps||set.touched.effort})})||
+        draftSetTouched(set)})})||
       d.session.notes!==""||d.session.bodyweight!=null||d.program.scheduleDate!==today()||
       Object.values(contextFlagsFromDraft(d)).some(Boolean);
   if((d.__done||[]).length||(d.__touched||[]).length||(d.__warm||[]).length) return true;
@@ -2529,7 +2851,7 @@ function draftHasProgressInRemovedSets(exerciseId,nextSets,currentSets,d){
     return exercise.setOrder.some(setId=>{
       const set=exercise.sets[setId];
       return set.ordinal>nextSets&&(set.completion!=="pending"||set.role==="warmup"||
-        set.touched.load||set.touched.reps||set.touched.effort)})}
+        set.touched.load||set.touched.reps||set.touched.effort||Object.values(set.touched.metrics||{}).some(Boolean))})}
   const marked=new Set(["__done","__touched","__warm"].flatMap(k=>Array.isArray(d[k])?d[k]:[]));
   for(let n=nextSets+1;n<=currentSets;n++){
     const key=`${exerciseId}_${n}`;
@@ -2615,7 +2937,7 @@ async function applyShowAll(){
 function replacementSnapshot(id,name,libraryRef){
   const entry=libraryRef?libraryEntry(libraryRef):null,token=movementToken(name),original=activeWorkoutDraft?.exercises?.[id],slot=prog.find(id);
   if(entry)return{exerciseInstanceId:`replacement:${entry.id}`,sourceExerciseId:entry.id,libraryId:entry.id,
-    displayName:name||libraryName(entry),primary:entry.primary||"",secondary:entry.secondary||""};
+    displayName:name||libraryName(entry),primary:libraryMuscleAttribution(entry,"primary"),secondary:libraryMuscleAttribution(entry,"secondary")};
   return{exerciseInstanceId:`replacement:${id}`,sourceExerciseId:`adhoc:${token}`,movementId:`adhoc:${token}`,
     displayName:name,primary:original?.programmed?.primary||slot?.primary||"",
     secondary:original?.programmed?.secondary||slot?.secondary||""}}
@@ -2631,8 +2953,15 @@ async function applyCustomSub(id,raw,libraryRef=null){
   const progName=prog.find(id)?.name;
   if(!activeWorkoutDraft)return false;
   const restore=!name||name===progName,type=restore?"restoreOriginalExercise":"substituteExercise";
-  const payload={exerciseInstanceId:id};if(!restore){payload.replacement=replacementSnapshot(id,name,libraryRef);payload.selectedAt=new Date().toISOString()}
-  const result=await WorkoutSession.dispatch(type,payload);if(result.status!=="applied")return false;
+  const payload={exerciseInstanceId:id};if(!restore){payload.replacement=replacementSnapshot(id,name,libraryRef);payload.selectedAt=new Date().toISOString();
+    const program=substitutionProgram(id,libraryRef);
+    // Neither the custom movement nor the slot records anything, so there is
+    // no composition to program; applying would skip the touched-set check.
+    if(program==="unconfigured"){toast(t("entry.preview.metrics_required"));return false}
+    if(program)payload.replacementProgram=program}
+  const result=await WorkoutSession.dispatch(type,payload);
+  if(result.status==="domain-error"&&result.error?.code==="substitution-touched-pending-set")toast(t("toast.substitute_started_sets"));
+  if(result.status!=="applied")return false;
   renderWorkout();return true}
 function sessionExercise(ex){
   if(!ex||!substituted.has(ex.id))return ex;
@@ -2700,11 +3029,12 @@ function migrateLogSnapshot(snapshot){let changed=false;const lookup=snapshotLoo
     row.performedMovementId=ex.movementId;changed=true}
   const performed=row.performedLibraryId?lookup(row.performedLibraryId):null;
   if(performed){
-    if(row.performedPrimary==null){row.performedPrimary=performed.primary||"";changed=true}
-    if(row.performedSecondary==null){row.performedSecondary=performed.secondary||"";changed=true}}
+    if(row.performedPrimary==null){row.performedPrimary=libraryMuscleAttribution(performed,"primary");changed=true}
+    if(row.performedSecondary==null){row.performedSecondary=libraryMuscleAttribution(performed,"secondary");changed=true}}
   else if(row.performedName===row.name){
     if(row.performedPrimary==null&&row.primary!=null){row.performedPrimary=String(row.primary||"");changed=true}
     if(row.performedSecondary==null&&row.secondary!=null){row.performedSecondary=String(row.secondary||"");changed=true}}
+  if(Array.isArray(row.metricValues))continue;
   const ld=posNum(row.load),rp=posNum(row.reps);
   const missingRir=row.rir==null||row.rir==="",parsedRir=parseDec(row.rir);
   const explicitStrategy=ex?.progression?.strategy?.id;
@@ -2748,7 +3078,7 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date
   const started=typeof m.started==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(m.started)?m.started:(m.started===null?null:base.started);
   const goal=typeof m.goal==="string"?m.goal.trim()||null:m.goal===null?null:base.goal;
   const experience=typeof m.experience==="string"?m.experience.trim()||null:m.experience===null?null:base.experience;
-  const daysPerWeek=Number.isFinite(+m.daysPerWeek)?+m.daysPerWeek:m.daysPerWeek===null?null:base.daysPerWeek;
+  const daysPerWeek=m.daysPerWeek===null?null:Number.isFinite(+m.daysPerWeek)?+m.daysPerWeek:base.daysPerWeek;
   const splitType=typeof m.splitType==="string"?m.splitType.trim()||null:m.splitType===null?null:base.splitType;
   const equipment=Array.isArray(m.equipment)?m.equipment.map(s=>String(s).trim()).filter(Boolean):base.equipment;
   const priorityMuscles=Array.isArray(m.priorityMuscles)?m.priorityMuscles.map(s=>String(s).trim()).filter(Boolean):base.priorityMuscles;
@@ -2771,6 +3101,9 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date
   if(m.plannedVolumeHistory!=null&&!isValidPlannedVolumeHistory(m.plannedVolumeHistory))
     throw new TypeError("plannedVolumeHistory: expected bounded aggregate");
   const plannedVolumeHistory=m.plannedVolumeHistory==null?null:cloneSnapshot(m.plannedVolumeHistory);
+  const programDefinition=m.programDefinition==null?null:canonicalProgramDefinition(
+    m.programDefinition,options.customExercises||customExercises());
+  if(m.programDefinition!=null&&!programDefinition)throw new TypeError("programDefinition: invalid Plan 067 definition");
   const entrySource=normalizeProgramEntrySource(m.entrySource);
   let compilerContext=null;
   if(m.compilerContext!=null){
@@ -2799,10 +3132,22 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date
     goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
     progressionRelations,progressionModifiers,progressionIncompatibilities:incompatibilities,blockPromptDismissedId,programStructure,entrySource};
   if(plannedVolumeHistory!=null)metaObj.plannedVolumeHistory=plannedVolumeHistory;
+  if(programDefinition)metaObj.programDefinition=programDefinition;
   if(Object.prototype.hasOwnProperty.call(m,"blockId"))metaObj.blockId=m.blockId;
   if(compilerContext!=null)metaObj.compilerContext=compilerContext;
   if(transitionIn!=null)metaObj.transitionIn=transitionIn;
+  const loadSteps=normalizeLoadingConfiguration(m.loadingConfiguration);
+  if(loadSteps)metaObj.loadingConfiguration=loadSteps;
   return metaObj;}
+/* Per-movement smallest load change in canonical kg; anything else is dropped. */
+function normalizeLoadingConfiguration(value){
+  const source=isPlainStateObject(value)&&isPlainStateObject(value.byExerciseId)?value.byExerciseId:null;
+  if(!source)return null;
+  const byExerciseId={};
+  for(const [exerciseId,entry] of Object.entries(source).slice(0,2048)){
+    const step=entry?.loadStepKg;
+    if(exerciseId&&exerciseId.length<=256&&Number.isFinite(step)&&step>0&&step<=100)byExerciseId[exerciseId]={loadStepKg:step}}
+  return Object.keys(byExerciseId).length?{byExerciseId}:null}
 
 function withExplicitProgramStructure(program,meta,{freezeHistory=false}={}){
   if(!ProgramCompiler?.migrateLegacyStructure)return{program,meta};
@@ -2815,6 +3160,17 @@ function withExplicitProgramStructure(program,meta,{freezeHistory=false}={}){
   return{program:migrated.program,meta:nextMeta}
 }
 function isImportableState(s){return isValidStateShape(s)}
+/* A backup from before the canonical program model carries flat rows with no
+   ProgramDefinition. Restoring it would install a program the engine cannot
+   read, so it is refused; its program can still come in through import review,
+   which re-links each name to a catalog movement. */
+function isLegacyBackup(s){
+  const rows=Array.isArray(s?.program)?s.program:[];
+  if(!rows.length)return false;
+  const definition=s?.programMeta?.programDefinition;
+  if(!definition)return true;
+  const customs=normalizeCustomExercises(s.customExercises||[]);
+  return !canonicalProgramDefinition(definition,compilerCustomDefinitions(customs))}
 /* A custom exercise is a library entry the lifter authored, so it is normalised
    into the same shape the built-ins have — the pickers and the copy-into-template
    path then cannot tell the two apart. */
@@ -2831,7 +3187,8 @@ function canonicalizeLinkedMuscleRows(list,customList){
   return list.map(row=>{
     if(!isPlainStateObject(row)||row.libraryId==null)return row;
     const entry=lookup(row.libraryId);
-    return entry?{...row,primary:entry.primary||"",secondary:entry.secondary||""}:row})}
+    return entry?{...row,primary:libraryMuscleAttribution(entry,"primary"),
+      secondary:libraryMuscleAttribution(entry,"secondary")}:row})}
 function canonicalizeProgramStructureMuscles(structure,program,customList=[]){
   if(!isPlainStateObject(structure))return structure;
   const bySlot=new Map();
@@ -2880,7 +3237,12 @@ function normalizeCustomExercises(list){
       primary,secondary,
       notes:String(entry.notes??"").trim(),
       patterns:[],beginnerFriendly:true,custom:true,
-      created:typeof entry.created==="string"?entry.created:new Date().toISOString()})}
+      created:typeof entry.created==="string"?entry.created:new Date().toISOString(),
+      // A custom movement's configured metric composition is its identity for
+      // logging; keep it whenever it is a valid ordered definition list.
+      ...(()=>{const checked=ExerciseMetrics?.validateDefinitions?.(entry.metricIds,entry.metricDefinitions,{allowEmpty:true});
+        return checked?.ok&&Array.isArray(entry.metricIds)
+          ?{metricIds:cloneSnapshot(entry.metricIds),metricDefinitions:cloneSnapshot(entry.metricDefinitions)}:{}})()})}
   return out}
 function normalizeProgramHistory(history,lookup){
   return(Array.isArray(history)?history:[]).map(entry=>{
@@ -2921,7 +3283,7 @@ function normalizeLoaded(s,options={}){
   // Resolved against this snapshot's own custom definitions: during an import
   // or a boot they are not in live state yet.
   out.program=new Program(s.program,lookup).toJSON();
-  out.programMeta=normalizeProgramMeta(s.programMeta,s.log,out.program,options);
+  out.programMeta=normalizeProgramMeta(s.programMeta,s.log,out.program,{...options,customExercises:customs});
   const structured=withExplicitProgramStructure(out.program,out.programMeta);
   out.program=structured.program;out.programMeta=structured.meta;
   out[STORAGE_REV]=readRevision(s);
@@ -3009,6 +3371,10 @@ function customExerciseRemoveOrArchive(snapshot,id,operation){
     ?list.map(value=>value.id===id?Object.assign(cloneSnapshot(value),{archived:true}):value)
     :list.filter(value=>value.id!==id);
   return next}
+function customMetricConfiguration(draft,existing){
+  const from=Array.isArray(draft?.metricIds)?draft:Array.isArray(existing?.metricIds)?existing:null;
+  return from?{metricIds:cloneSnapshot(from.metricIds),
+    ...(Array.isArray(from.metricDefinitions)?{metricDefinitions:cloneSnapshot(from.metricDefinitions)}:{})}:{}}
 async function saveCustomExercise(draft,io=storageIO,{expectedEntry=null}={}){
   const name=String(draft?.name??"").trim();
   if(!name)return{result:null,entry:null};
@@ -3022,7 +3388,11 @@ async function saveCustomExercise(draft,io=storageIO,{expectedEntry=null}={}){
     primary:primary.value,
     secondary:secondary.value,
     notes:String(draft.notes??"").trim(),
+    // A metric composition is part of what program slots and logged sets mean;
+    // editing the name or muscles keeps it unless the edit supplies a new one.
+    ...customMetricConfiguration(draft,existing),
     created:existing?.created||new Date().toISOString()}])[0];
+  if(!entry)return{result:{invalid:true,code:"invalid-custom-exercise"},entry:null};
   const source=existing?(expectedEntry||cloneSnapshot(existing)):null;
   const proposal=customExerciseUpsert(state,entry);
   const preflight=({head})=>{
@@ -3269,11 +3639,10 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
   if(!Model){legacyReviewPanel(el);return}
   const meta=state.programMeta||{};
-  const recoveryEvidence=reviewRecoveryEvidence();
   const checkpoint=Model.buildReviewCheckpoint(prog.toJSON(),
     {started:meta.started,mesocycleLengthWeeks:meta.mesocycleLengthWeeks||6,
      mesocycleStatus:meta.mesocycleStatus,evidenceRecords:reviewObservedOutcomes(),
-     recoveryEligible:recoveryEvidence.qualifyingPatterns.length>=2},
+     recoveryEligible:true},
     state.log,today());
   const life=mesocycleLifecycle(meta);
   const weekLine=life.isComplete?t("meso.complete"):life.isFinalWeek&&life.current!=null?t("meso.week_ready",{n:life.current,total:life.total}):t("review.week_of",{n:life.current??"—",total:life.total});
@@ -3291,61 +3660,18 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
   const evidenceNote=checkpoint.lifecycle==="block-complete"&&!checkpoint.hasSufficientEvidence
     ?`<p class="review__summary">${esc(t("review.insufficient.note"))}</p>`:"";
   if(reviewFlow){renderReviewFlow(el);return}
-  el.innerHTML=reviewRecoveryStatusHtml()+`<div class="blockprogress" data-progress-dimension="block" data-progress-scope="block-review-evidence"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
+  el.innerHTML=`<div class="blockprogress" data-progress-dimension="block" data-progress-scope="block-review-evidence"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
     `<p><b>${esc(weekLine)}</b></p>`+
     `<p><b>${esc(t("review.sessions"))}</b> ${esc(t("review.sessions_completed",{done:volume.completedSessions,planned:volume.period.plannedSessions||volume.plannedSessions}))}</p>`+
     `<p><b>${esc(t("review.volume"))}</b> ${esc(t("review.volume_planned",{pct}))}</p>`+
     `<p class="lede">${esc(t("stats.volume.period_text",{start:longDate(volume.period.start||meta.started||""),end:longDate(volume.period.end||today())}))}</p></div>`+
     `<p class="section-label">${esc(t("review.outcomes.label"))}</p><div class="review__outcomes">${outcomeLine}</div>`+
     evidenceNote+readOnlyNote+actions;
-  bindReviewActions();bindRecoveryStatus()}
+  bindReviewActions()}
 // Observed outcomes are engine facts (paired-exposure comparison), never
 // representation-derived. Insufficient lifts never enter this list.
 function reviewObservedOutcomes(){
   return strengthEvidenceRecords("current-block")}
-function reviewRecoveryEvidence(){
-  const instance=recoveryCompilerInstance(state,typeof ProgramCompiler!=="undefined"?ProgramCompiler:null,
-    typeof EXERCISE_LIBRARY!=="undefined"?EXERCISE_LIBRARY:null);
-  const outcomesByPattern={},facts=strengthFactsByLift();
-  if(!instance)return{outcomesByPattern,qualifyingPatterns:[]};
-  const patternMap={squat:"knee-dominant",press:"horizontal press",incline_press:"horizontal press",hinge:"hip/hinge"};
-  const candidates=new Map();
-  for(const day of instance.days||[])for(const slot of day.slots||[]){
-    const pattern=patternMap[slot.contract?.patterns?.[0]];
-    const row=(state.program||[]).find(item=>(item.slotId||item.id)===slot.slotId);
-    const outcome=row?facts[exerciseLiftKey(row)]:null;
-    if(!pattern||!outcome)continue;
-    if(!candidates.has(pattern))candidates.set(pattern,[]);
-    candidates.get(pattern).push(outcome)}
-  for(const pattern of ["knee-dominant","horizontal press","hip/hinge"]){
-    const observed=candidates.get(pattern)||[];
-    outcomesByPattern[pattern]=observed.find(outcome=>outcome==="maintained"||outcome==="declined")||observed[0]||"insufficient"}
-  const qualifyingPatterns=Object.entries(outcomesByPattern)
-    .filter(([,outcome])=>outcome==="maintained"||outcome==="declined").map(([pattern])=>pattern);
-  return{outcomesByPattern,qualifyingPatterns}}
-function activeReviewRecovery(){
-  const blockId=snapshotBlockId(state);
-  if(!activeRecoveryRecord||activeRecoveryRecordBlockId!==blockId)return null;
-  return activeRecoveryRecord.diff?.recoveryWeek?.blockId===blockId?activeRecoveryRecord:null}
-function reviewRecoveryStatusHtml(){
-  const record=activeReviewRecovery();if(!record)return"";
-  const overlay=record.diff.recoveryWeek,week=mesocycleLifecycle(state.programMeta).elapsedWeek;
-  if(week===1)return`<section class="review__recovery" role="status"><p class="section-label">${esc(t("review.recovery.week1_title"))}</p><p>${esc(t("review.recovery.week1_body"))}</p></section>`;
-  const outcome=overlay.reassessmentOutcome;
-  if(outcome!==null)return`<section class="review__recovery" role="status"><p class="section-label">${esc(t("review.recovery.result_title"))}</p><p>${esc(t("review.recovery.result",{outcome:t(`review.recovery.outcome.${outcome}`)}))}</p></section>`;
-  if(Number.isInteger(week)&&week>=2)return`<section class="review__recovery"><p class="section-label">${esc(t("review.recovery.reassess_title"))}</p>`+
-    `<p>${esc(t("review.recovery.reassess_question"))}</p><div class="review__actions" role="group" aria-label="${esc(t("review.recovery.reassess_title"))}">`+
-    ["Better","About the same","Worse"].map(outcome=>`<button type="button" class="btn btn--steel" data-recovery-outcome="${esc(outcome)}">${esc(t(`review.recovery.outcome.${outcome}`))}</button>`).join("")+`</div></section>`;
-  return""}
-function bindRecoveryStatus(){
-  $$('[data-recovery-outcome]').forEach(button=>button.onclick=async()=>{
-    const record=activeReviewRecovery();if(!record)return;
-    button.disabled=true;
-    const result=await repforgeProgramTransitionAdapter.reassessRecovery({
-      expectedRevision:readRevision(state),blockId:snapshotBlockId(state),transitionId:record.transitionId,
-      proposalHash:record.proposalHash,acknowledgedRecord:cloneSnapshot(record),outcome:button.dataset.recoveryOutcome});
-    if(result?.committed){toast(t("review.recovery.reassessed"));render()}
-    else{toast(t(result?.code==="recovery_reassessment_closed"?"review.recovery.closed":"review.error.failed"),{assertive:true});renderReview()}})}
 // Structural actions appear only at a completed boundary (Plan 056/P5). Each
 // kind renders only when its production flow is wired in this packet; the
 // eligibility contract itself lives in progress-model.js.
@@ -3403,14 +3729,13 @@ function renderReviewFlow(el){
     const confirm=$("[data-volume-confirm]",el);if(confirm)confirm.onclick=proposeVolumeReductionFlow;
     bindFlowCancel(el);return}
   if(flow.stage==="recovery-question"){
-    const evidence=reviewRecoveryEvidence(),eligible=evidence.qualifyingPatterns.length>=2;
     el.innerHTML=`<p class="section-label">${esc(t("review.recovery.title"))}</p>`+
       `<p>${esc(t("review.recovery.question"))}</p>`+
       `<div class="review__actions" role="group" aria-label="${esc(t("review.recovery.question"))}">`+
       ["Yes","No","Not sure"].map(answer=>`<button type="button" class="btn btn--steel" data-recovery-answer="${esc(answer)}">${esc(t(`review.recovery.answer.${answer}`))}</button>`).join("")+`</div>`+
       (flow.message?`<p class="review__readonly" role="status">${esc(t(flow.message))}</p>`:"")+
       `<div class="btnrow"><button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
-    $$('[data-recovery-answer]',el).forEach(button=>button.onclick=()=>answerRecoveryQuestion(button.dataset.recoveryAnswer,eligible,evidence));
+    $$('[data-recovery-answer]',el).forEach(button=>button.onclick=()=>answerRecoveryQuestion(button.dataset.recoveryAnswer));
     bindFlowCancel(el);return}
   if(flow.stage==="staged"){
     el.innerHTML=`<p class="review__staged" role="status">${esc(t("review.staged.done"))}</p>`+
@@ -3456,108 +3781,85 @@ async function continueScheduleDiagnosis(){
   const valid=flow.kind==="fewer_days"?Number.isInteger(n)&&n>=1&&n<=7:Number.isInteger(n)&&n>=15&&n<=240;
   if(!valid){flow.error=flow.kind==="fewer_days"?"review.diagnosis.days_invalid":"review.diagnosis.minutes_invalid";renderReview();return}
   const answers=flow.kind==="fewer_days"?{availableDays:n}:{sessionMinutes:n};
-  const diagnosis={kind:flow.kind,answers,eligibleEvidenceIds:["explicit_schedule_repair"],insufficientEvidenceReasons:[]};
-  if(flow.action==="guided-edit")return stageGuidedRepairFlow(diagnosis,null);
-  const res=await repforgeProgramTransitionAdapter.proposeSibling({diagnosis,transitionId:uid(),successorProgramId:uid()});
+  const diagnosis={kind:flow.kind,answers};
+  if(flow.action==="guided-edit")return stageGuidedRepairFlow(diagnosis);
+  const change=flow.kind==="fewer_days"?{kind:"fewer_days",daysPerWeek:n}:{kind:"shorter_sessions",sessionMinutes:n};
+  const res=await repforgeProgramTransitionAdapter.proposeChange({change});
+  // A change the generator cannot make (a Build program, or a request with
+  // no eligible fit) becomes guided editing of the live program.
   if(res?.ok){reviewFlow={stage:"preview",action:"schedule-repair",proposal:res.proposal};renderReview()}
-  else await stageGuidedRepairFlow(diagnosis,res)}
-async function stageGuidedRepairFlow(diagnosis,unavailable){
-  const staged=await window.__repforgeStageGuidedManualRepair(unavailable
-    ?{diagnosis,unavailable,openEditor:false}:{diagnosis,openEditor:false});
+  else await stageGuidedRepairFlow(diagnosis)}
+async function stageGuidedRepairFlow(diagnosis){
+  const staged=await window.__repforgeStageGuidedManualRepair({diagnosis,openEditor:false});
   if(staged?.ok){reviewFlow={stage:"staged"};renderReview()}
   else{reviewFlow={stage:"error",action:"guided-edit",code:staged?.code||"guided_staging_failed"};renderReview()}}
 async function proposeVolumeReductionFlow(){
-  const result=await repforgeProgramTransitionAdapter.proposeVolumeReduction({
-    diagnosis:{kind:"reduce_training_volume",answers:{confirmed:true},
-      eligibleEvidenceIds:["explicit_volume_reduction"],insufficientEvidenceReasons:[]},
-    transitionId:uid(),successorProgramId:uid()});
+  const result=await repforgeProgramTransitionAdapter.proposeChange({change:{kind:"reduce_volume"}});
   reviewFlow=result?.ok?{stage:"preview",action:"reduce-volume",proposal:result.proposal}
     :{stage:"error",action:"reduce-volume",code:result?.code||"volume_reduction_unavailable"};
   renderReview()}
-async function answerRecoveryQuestion(answer,eligible,evidence){
+/* A recovery week is the lifter's call: a Yes schedules it, nothing infers it. */
+async function answerRecoveryQuestion(answer){
   if(answer!=="Yes"){
     reviewFlow={stage:"recovery-question",action:"recovery-week",answer,
       message:answer==="No"?"review.recovery.answer_no":"review.recovery.answer_unsure"};renderReview();return}
-  if(!eligible){reviewFlow={stage:"recovery-question",action:"recovery-week",answer,
-    message:"review.recovery.insufficient"};renderReview();return}
-  const result=await repforgeProgramTransitionAdapter.proposeRecoveryWeek({
-    evidence:{outcomesByPattern:evidence.outcomesByPattern,checkpointAnswer:"Yes"},transitionId:uid()});
+  const result=await repforgeProgramTransitionAdapter.proposeChange({change:{kind:"recovery_week"}});
   reviewFlow=result?.ok?{stage:"preview",action:"recovery-week",proposal:result.proposal}
-    :{stage:"error",action:"recovery-week",code:result?.code||"recovery_ineligible"};
+    :{stage:"error",action:"recovery-week",code:result?.code||"recovery_unavailable"};
   renderReview()}
-function reviewDiffMovement(entry){
-  const slotId=entry?.successorSlot||entry?.predecessorSlot;
-  const live=(state.program||[]).find(row=>(row.slotId||row.id)===slotId);
-  return reviewMovementLabel(entry?.movement||live?.libraryId||live?.movementId)||live?.name||slotId||"—"}
-function reviewPrescriptionText(snapshot){
-  if(!snapshot)return"—";
-  const reps=(snapshot.reps||[]).join("–"),rir=(snapshot.rir||[]).join("–");
-  return t("review.preview.prescription",{sets:snapshot.sets,reps,rir,rest:snapshot.restSeconds,
-    strategy:snapshot.strategy,kind:snapshot.prescriptionClass})}
+function definitionMovementLabel(slot){
+  const entry=slot?.exerciseId?libraryEntry(slot.exerciseId):null;
+  return slot?.displayName||libraryName(entry)||slot?.exerciseId||"—"}
+/* What the lifter sees before confirming: the first cycle of each program,
+   compared slot by slot, then movement by movement. */
+function definitionPreviewLines(before,after){
+  const training=definition=>(definition?.days||[]).filter(day=>day.kind==="training");
+  const setsOf=slot=>slot.prescriptionsByCycle?.[0]?.sets.length??0;
+  const lines=[],beforeDays=training(before),afterDays=training(after);
+  for(let index=0;index<Math.max(beforeDays.length,afterDays.length);index++){
+    const was=beforeDays[index],now=afterDays[index];
+    if(was&&now&&was.name===now.name&&was.slots.length===now.slots.length)continue;
+    lines.push(t("review.preview.day_change",{before:was?`${was.name} · ${was.slots.length}`:"—",after:now?`${now.name} · ${now.slots.length}`:"—"}))}
+  const slots=definition=>training(definition).flatMap(day=>day.slots);
+  const remaining=slots(after).slice();
+  for(const slot of slots(before)){
+    const index=remaining.findIndex(candidate=>candidate.id===slot.id||candidate.exerciseId===slot.exerciseId);
+    if(index<0){lines.push(t("review.preview.exercise_removed",{movement:definitionMovementLabel(slot),sets:setsOf(slot)}));continue}
+    const [match]=remaining.splice(index,1);
+    if(setsOf(match)!==setsOf(slot))lines.push(t("review.preview.sets_change",{movement:definitionMovementLabel(slot),before:setsOf(slot),after:setsOf(match)}))}
+  for(const slot of remaining)lines.push(t("review.preview.exercise_added",{movement:definitionMovementLabel(slot),sets:setsOf(slot)}));
+  return lines}
 function renderSiblingPreview(el,flow){
-  const p=flow.proposal||{},diff=p.diff||{};
-  if(p.kind==="recovery_week")return renderRecoveryPreview(el,flow);
-  const beforeDays=[...new Set(state.program.map(r=>r.day))].length;
-  const afterDays=(diff.days||[]).filter(d=>d.after).length;
-  const beforeMinutes=Number(state.programMeta?.compilerContext?.sessionMinutes)||0;
-  const afterMinutes=p.kind==="shorter_session_sibling"?Number(p.diagnosis?.answers?.sessionMinutes)||0:beforeMinutes;
-  const added=(diff.exercises||[]).filter(e=>!e.before&&e.after);
-  const removed=(diff.exercises||[]).filter(e=>e.before&&!e.after);
-  const changed=(diff.prescriptions||[]).filter(x=>x.reason==="prescription changed");
-  const lines=[];
-  for(const x of diff.days||[]){
-    if(x.before&&x.after&&x.before.label===x.after.label&&x.before.index===x.after.index&&x.before.slots===x.after.slots)continue;
-    lines.push(`<li>${esc(t("review.preview.day_change",{before:x.before?`${x.before.label} · ${x.before.slots}`:"—",
-      after:x.after?`${x.after.label} · ${x.after.slots}`:"—"}))}</li>`)}
-  for(const x of changed)lines.push(`<li>${esc(t("review.preview.prescription_change",{movement:reviewDiffMovement(x),
-    before:reviewPrescriptionText(x.before),after:reviewPrescriptionText(x.after)}))}</li>`);
-  for(const x of added)lines.push(`<li>${esc(t("review.preview.exercise_added",{movement:reviewDiffMovement(x),sets:x.after.sets}))}</li>`);
-  for(const x of removed)lines.push(`<li>${esc(t("review.preview.exercise_removed",{movement:reviewDiffMovement(x),sets:x.before.sets}))}</li>`);
-  el.innerHTML=`<p class="section-label">${esc(t("review.preview.title"))}</p>`+
-    `<p><b>${esc(t("review.preview.frequency",{before:beforeDays,after:afterDays}))}</b></p>`+
-    (beforeMinutes&&afterMinutes?`<p><b>${esc(t("review.preview.duration",{before:beforeMinutes,after:afterMinutes}))}</b></p>`:"")+
-    `<p class="lede">${esc(t("review.preview.provenance"))}</p>`+
-    (lines.length?`<ul class="review__diff">${lines.join("")}</ul>`:`<p class="lede">${esc(t("review.preview.exercises_unchanged"))}</p>`)+
+  const p=flow.proposal||{},change=p.change||{};
+  const before=state.programMeta?.programDefinition,after=p.successor?.programDefinition;
+  const trainingDays=definition=>(definition?.days||[]).filter(day=>day.kind==="training").length;
+  const recovery=change.kind==="recovery_week";
+  const lines=recovery?[]:definitionPreviewLines(before,after);
+  const summary=recovery
+    ?`<p>${esc(t("review.recovery.preview_body"))}</p><p><b>${esc(t("review.recovery.preview_weeks",{before:before?.cycles,after:after?.cycles}))}</b></p>`
+    :(change.kind==="fewer_days"?`<p><b>${esc(t("review.preview.frequency",{before:trainingDays(before),after:trainingDays(after)}))}</b></p>`:"")+
+      (change.kind==="shorter_sessions"?`<p><b>${esc(t("review.preview.duration",{before:before?.request?.timeCeilingMinutes,after:after?.request?.timeCeilingMinutes}))}</b></p>`:"")+
+      (change.kind==="fewer_days"||change.kind==="shorter_sessions"?`<p class="lede">${esc(t("review.preview.provenance"))}</p>`:"")+
+      (lines.length?`<ul class="review__diff">${lines.map(line=>`<li>${esc(line)}</li>`).join("")}</ul>`:`<p class="lede">${esc(t("review.preview.exercises_unchanged"))}</p>`);
+  el.innerHTML=`<p class="section-label">${esc(t(recovery?"review.recovery.preview_title":"review.preview.title"))}</p>`+summary+
     `<p class="lede"><code class="review__hash">${esc(String(p.proposalHash||""))}</code></p>`+
     `<p class="lede">${esc(t("review.preview.hash_note"))}</p>`+
-    `<div class="btnrow review__preview-actions"><button type="button" class="btn btn--cta" data-preview-confirm>${esc(t("review.preview.confirm"))}</button>`+
+    `<div class="btnrow review__preview-actions"><button type="button" class="btn btn--cta" data-preview-confirm>${esc(t(recovery?"review.recovery.confirm":"review.preview.confirm"))}</button>`+
     `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.preview.cancel"))}</button></div>`;
   const confirm=$("[data-preview-confirm]",el);
   if(confirm)confirm.onclick=async()=>{
     confirm.disabled=true;
-    const confirmedAt=new Date().toISOString();
     const persisted=await repforgeProgramTransitionAdapter.confirmTransition({
       proposal:p,proposalHash:p.proposalHash,transitionId:p.transitionId,
-      successorProgramId:p.successor?.programId,confirmedAt,
+      successorProgramId:p.successor?.programId,confirmedAt:new Date().toISOString(),
       acknowledgedDraftRaw:readDraftRaw()});
     if(persisted?.committed){
-      reviewFlow={stage:"done",doneKey:p.kind==="reduce_training_volume"?"review.volume.committed":"review.done.committed"};
-      day=days()[0]||"Day 1";toast(t(reviewFlow.doneKey));render();
+      const doneKey=recovery?"review.recovery.committed":change.kind==="reduce_volume"?"review.volume.committed":"review.done.committed";
+      reviewFlow={stage:"done",doneKey};
+      day=days()[0]||"Day 1";toast(t(doneKey));render();
     }else{
-      reviewFlow={stage:"error",action:flow.action,code:persisted?.code,stale:persisted?.duplicate===true||!!persisted?.staleRevision};
+      reviewFlow={stage:"error",action:flow.action,code:persisted?.code,stale:persisted?.duplicate===true||!!persisted?.stale||!!persisted?.staleRevision};
       render()}}
-  bindFlowCancel(el)}
-function renderRecoveryPreview(el,flow){
-  const p=flow.proposal,overlay=p.diff.recoveryWeek;
-  const evidence=overlay.eligibilityEvidence;
-  const entries=overlay.entries.map(entry=>`<li>${esc(reviewDiffMovement({movement:entry.movement,predecessorSlot:entry.slot}))}: `+
-    `${esc(t("review.recovery.set_change",{before:entry.baseWorkingSets,after:entry.effectiveWorkingSets}))} · `+
-    `${esc(t(`review.recovery.reason.${entry.reason}`))}</li>`).join("");
-  const evidenceRows=evidence.qualifyingPatterns.map(pattern=>
-    `<li>${esc(t(`review.recovery.pattern.${pattern}`))}: ${esc(t(EVIDENCE_OUTCOME_KEYS[evidence.outcomesByPattern[pattern]]))}</li>`).join("");
-  el.innerHTML=`<p class="section-label">${esc(t("review.recovery.preview_title"))}</p>`+
-    `<p><b>${esc(t("review.recovery.policy",{version:overlay.policyVersion}))}</b></p>`+
-    `<p>${esc(t("review.recovery.week2"))}</p><ul class="review__diff">${evidenceRows}${entries}</ul>`+
-    `<p class="lede"><code class="review__hash">${esc(p.proposalHash)}</code></p><p class="lede">${esc(t("review.preview.hash_note"))}</p>`+
-    `<div class="btnrow review__preview-actions"><button type="button" class="btn btn--cta" data-preview-confirm>${esc(t("review.recovery.confirm"))}</button>`+
-    `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.preview.cancel"))}</button></div>`;
-  const confirm=$("[data-preview-confirm]",el);if(confirm)confirm.onclick=async()=>{
-    confirm.disabled=true;
-    const confirmedAt=new Date().toISOString(),due=new Date(Date.parse(confirmedAt)+7*86400000).toISOString();
-    const persisted=await repforgeProgramTransitionAdapter.confirmTransition({proposal:p,proposalHash:p.proposalHash,
-      transitionId:p.transitionId,confirmedAt,reassessmentDueAt:due,acknowledgedDraftRaw:readDraftRaw()});
-    if(persisted?.committed){reviewFlow={stage:"done",doneKey:"review.recovery.committed"};toast(t(reviewFlow.doneKey));render()}
-    else{reviewFlow={stage:"error",action:"recovery-week",code:persisted?.code,stale:!!persisted?.stale||!!persisted?.staleRevision};render()}};
   bindFlowCancel(el)}
 let pendingBlockTransition=null;
 let onboardingOrigin=null;
@@ -3684,7 +3986,7 @@ function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
       // carry compiler/progression provenance into the fresh block while the
       // activation fields above still describe the new block boundary.
       for(const key of ["progressionRelations","progressionModifiers","progressionIncompatibilities",
-        "programStructure","compilerContext","entrySource"]){
+        "programStructure","compilerContext","entrySource","programDefinition","loadingConfiguration"]){
         if(Object.prototype.hasOwnProperty.call(cap.oldMeta||{},key))
           nextMeta[key]=cloneSnapshot(cap.oldMeta[key]);
       }
@@ -3816,46 +4118,6 @@ function sharedSettingsPatch(raw){
     unit:raw?.unit==="lb"?"lb":"kg",
     lang:I18N?.normalizeLang(raw?.lang)||"en",
     rirMode:raw?.rirMode==="effort"?"effort":"numeric"}}
-function buildSharedProgramMeta(raw,program=[]){
-  const now=new Date().toISOString();
-  return{id:uid(),name:String(raw?.name||"").trim(),started:today(),created:now,updated:now,
-    goal:raw?.goal??null,experience:raw?.experience??null,daysPerWeek:raw?.daysPerWeek??null,
-    splitType:raw?.splitType??null,equipment:Array.isArray(raw?.equipment)?[...raw.equipment]:[],
-    priorityMuscles:Array.isArray(raw?.priorityMuscles)?[...raw.priorityMuscles]:[],
-    sessionLength:raw?.sessionLength??null,mesocycleLengthWeeks:raw?.mesocycleLengthWeeks||6,
-    mesocycleStatus:"active",completedAt:null,onboarded:true,
-    progressionRelations:normalizeProgressionRelations(raw?.progressionRelations,program),
-    progressionModifiers:normalizeProgressionModifiers(raw?.progressionModifiers),
-    blockPromptDismissedId:null,
-    programStructure:raw?.programStructure?cloneSnapshot(raw.programStructure):null}}
-function sharedPreviewMeta(raw){
-  const out={};
-  for(const key of ["name","goal","experience","daysPerWeek","splitType","equipment","priorityMuscles","sessionLength","mesocycleLengthWeeks"])
-    if(Object.prototype.hasOwnProperty.call(raw||{},key))out[key]=cloneSnapshot(raw[key]);
-  return out}
-function proposalFromSharedSetup(payload,baseState=state){
-  if(!SharedSetup)throw new TypeError("Shared setup unavailable");
-  const checked=SharedSetup.validate(payload,{builtInIds:SHARED_BUILT_IN_IDS});
-  if(!checked.ok)throw new TypeError("Invalid shared setup");
-  const clean=checked.value,proposal=cloneSnapshot(baseState);
-  const exercises=clean.program.exercises.map(ex=>sharedExercise(ex,true));
-  const merged=mergeImportedCustomExercises(clean.program.customExercises,exercises,proposal);
-  proposal.customExercises=merged.customExercises;
-  const lookup=snapshotLookup(proposal.customExercises);
-  if(exercises.some(ex=>!lookup(ex.libraryId)))throw new TypeError("Unresolved shared exercise");
-  proposal.program=new Program(exercises,lookup).toJSON();
-  proposal.programMeta=buildSharedProgramMeta(clean.program.meta,proposal.program);
-  proposal.settings={...normalizeSettings(proposal.settings),...sharedSettingsPatch(clean.settings)};
-  proposal.log=[];
-  proposal.programHistory=[];
-  delete proposal[STORAGE_FOLLOWUP];
-  delete proposal[STORAGE_DRAFT_TXN];
-  // The merge above resolved against the base as it stood when the gate opened.
-  // Record what the payload itself contributed so a rebase against a refreshed
-  // head can redo that resolution instead of trusting a stale mapping.
-  proposal[SHARED_IMPORT]={definitions:normalizeCustomExercises(clean.program.customExercises),
-    remap:Object.fromEntries(merged.remap)};
-  return proposal}
 // Only the definitions the replacement program actually references are payload-
 // owned. Everything else in the stale proposal's customExercises is recipient
 // state the refreshed head already owns (including deletions and edits), so it
@@ -4786,6 +5048,11 @@ function days(){
     if(seen.has(d))continue;seen.add(d);out.push(d)}
   return out}
 function structureDayLabels(meta){
+  // A canonical program orders its days as authored, not alphabetically.
+  const canonical=meta?.programDefinition?.days;
+  if(Array.isArray(canonical)){
+    const labels=canonical.filter(day=>day?.kind==="training").map(day=>String(day.name||"").trim()).filter(Boolean);
+    if(labels.length)return labels}
   const days=meta?.programStructure?.days;
   if(!Array.isArray(days)||!days.length)return null;
   const labels=days.map(d=>String(d.label||d.dayId||"").trim()).filter(Boolean);
@@ -4969,19 +5236,11 @@ function syncProgramStructureFromProgram(proposal,program,previousProgram=null,p
 }
 function scheduledProgramRows(){
   const week=mesocycleLifecycle(state.programMeta).current;
-  let rows=state.program;
-  if(week!=null&&typeof ProgramCompiler?.projectProgramForWeek==="function")
-    rows=ProgramCompiler.projectProgramForWeek(rows,state.programMeta?.programStructure,week);
-  if(activeRecoveryRecord&&activeRecoveryRecordBlockId===snapshotBlockId(state)&&week!=null){
-    const Transition=typeof RepForgeProgramTransition!=="undefined"?RepForgeProgramTransition:null;
-    const projected=Transition?.projectRecoveryProgram?.(state.program,activeRecoveryRecord,{
-      blockId:activeRecoveryRecordBlockId,
-      elapsedWeek:mesocycleLifecycle(state.programMeta).elapsedWeek,
-      baseProgramFingerprint:activeRecoveryRecord.diff.recoveryWeek.baseProgramFingerprint,
-    });
-    if(projected?.ok&&projected.active)rows=projected.rows;
-  }
-  return rows}
+  if(state.programMeta?.programDefinition&&week!=null){
+    const projected=flatProgramFromDefinition(state.programMeta.programDefinition,
+      Array.isArray(state.customExercises)?state.customExercises:[],week);
+    if(projected)return projected}
+  return state.program}
 function exercises(d=day){return scheduledProgramRows().filter(x=>x.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
 function exerciseNameTokens(ex){
   const names=new Set([ex?.name,ex?.displayName].map(movementToken).filter(Boolean));
@@ -5286,17 +5545,9 @@ window.__repforgeProgressEvidence={
   chartPresentation:n=>n>=3?"trend":n===2?"comparison":"snapshot",
   keyForExerciseId:exId=>{const ex=prog.find(exId);return ex?exerciseLiftKey(ex):null}};
 window.__repforgeProgressReview={
-  activeRecovery:()=>activeReviewRecovery(),
   scheduledProgram:()=>scheduledProgramRows(),
 };
 
-// Block (mesocycle) trend — a WEAK signal derived from e1RM across this lift's
-// sessions inside the current block. Only tempers aggressiveness / rep targets.
-// The regression itself now lives in progression-engine.js and reaches here as
-// facts.blockTrend; this file keeps only the sentence it turns into.
-function blockTrendNote(trend){
-  if(!trend||!trend.dir||trend.sessions<3)return"";
-  return t(`rec.block.${trend.dir}`,{sessions:trend.sessions})}
 // Recommendation -> RIR-aware double progression, mapped to a temperature/status.
 // Primary signal is the previous session; the block trend nudges it weakly.
 /* ---- Progression adapter (Plan 046) ----
@@ -5322,108 +5573,6 @@ function progressionHistory(ex){
   return[...m.values()]
     .sort(compareLogChronology)
     .map(s=>({sessionId:s.sessionId,date:s.date,sets:s.sets}))}
-/** The engine's closed input. Settings are the lifter's own grid and jump;
- *  context carries only the block, never a family or a program identity. */
-function progressionInput(ex,currentSession,freshnessFactor){
-  const context={weekNumber:1,blockLength:+state.programMeta?.mesocycleLengthWeeks||6,
-    blockStart:state.programMeta?.started||null};
-  if(freshnessFactor!=null&&freshnessFactor<1)context.freshnessFactor=freshnessFactor;
-  return{engineVersion:1,
-    prescription:progressionForExercise(ex),
-    relation:null,modifiers:[],
-    settings:{minLoadIncrement:(()=>{const raw=+state.settings.minJump;return Number.isFinite(raw)&&raw>0?raw:2.5})(),
-      jumpPercent:+state.settings.jumpPct||0,
-      hardRir:+state.settings.hardRir||DEFAULTS.hardRir},
-    history:progressionHistory(ex),
-    currentSession:currentSession||[],
-    context}}
-/* One engine reason code, one UI status. The heats and copy keys are the
-   product's, not the engine's — that is the whole point of the split. */
-const RANGE_REASON_UI={
-  "range.no_history":{status:"new",reason:"new",heat:.12},
-  "range.capacity_top_double":{status:"add2",reason:"cap_top2",heat:1},
-  "range.performed_top":{status:"add",reason:"top",heat:.82},
-  "range.capacity_top":{status:"add",reason:"cap_top",heat:.82},
-  "range.below_floor":{status:"reduce",reason:"below_range",heat:.18},
-  "range.stalled":{status:"reduce",reason:"stalled",heat:.3},
-  "range.recovery":{status:"hold",reason:"recover",heat:.42},
-  "range.capacity_room":{status:"hold",reason:"push_reps",heat:.6},
-  "range.room_in_range":{status:"hold",reason:"hold",heat:.48}};
-function rangeCopy(ex,reason){
-  if(reason==="cap_top2")return{label:t("rec.add2.label"),text:t("rec.add2.text")};
-  if(reason==="top"||reason==="cap_top")return{label:t("rec.add.label"),text:t("rec.add.text")};
-  if(reason==="below_range")return{label:t("rec.reduce.label"),text:t("rec.reduce.text",{min:ex.min})};
-  if(reason==="stalled")return{label:t("rec.stalled.label"),text:t("rec.stalled.text")};
-  if(reason==="recover")return{label:t("rec.recover.label"),text:t("rec.recover.text")};
-  if(reason==="push_reps")return{label:t("rec.push_reps.label"),text:t("rec.push_reps.text")};
-  return{label:t("rec.hold_add_reps.label"),
-    text:t(isEffortMode()?"rec.hold_add_reps.text_effort":"rec.hold_add_reps.text")}}
-/* The strategies approved in the Plan 046 numeric gate. Their copy is the
-   product's, exactly as range@1's is: the engine hands over a status, a set of
-   codes and its own facts, and this table turns them into plain sentences.
-   A strategy id is never shown to the lifter. */
-function strategySets(result){return result?.target?.sets||[]}
-function repGoalCopy(ex,result){
-  const f=result.facts,codes=result.reasonCodes,sets=strategySets(result);
-  if(codes.includes("rep_goal.no_history"))
-    return{status:"new",heat:.12,label:t("rec.repgoal.new.label"),
-      text:t("rec.repgoal.new.text",{floor:ex.min,ceiling:ex.max,goal:f.repGoal})};
-  if(codes.includes("rep_goal.current_progress")||codes.includes("rep_goal.goal_met")&&f.completedReps!=null){
-    if(!sets.length)return{status:"hold",heat:.48,label:t("rec.repgoal.session.done.label"),
-      text:t("rec.repgoal.session.done.text",{sets:ex.sets,done:f.completedReps,goal:f.repGoal})};
-    return{status:"hold",heat:.6,label:t("rec.repgoal.session.label"),
-      text:t("rec.repgoal.session.text",{done:f.completedReps,goal:f.repGoal,reps:sets[0].reps})}}
-  if(codes.includes("rep_goal.advance"))
-    return codes.includes("rep_goal.rebuild_after_advance")
-      ?{status:"add",heat:.82,label:t("rec.repgoal.rebuild.label"),
-        text:t("rec.repgoal.rebuild.text",{goal:f.repGoal,reps:sets[0]?.reps})}
-      :{status:"add",heat:.82,label:t("rec.repgoal.advance.label"),
-        text:t("rec.repgoal.advance.text",{goal:f.repGoal})};
-  if(codes.includes("rep_goal.effort_too_high"))
-    return{status:"hold",heat:.42,label:t("rec.repgoal.effort.label"),
-      text:t("rec.repgoal.effort.text",{goal:f.repGoal})};
-  if(codes.includes("rep_goal.capacity_below_floor"))
-    return{status:"reduce",heat:.18,label:t("rec.repgoal.reduce.label"),
-      text:t("rec.repgoal.reduce.text",{floor:ex.min})};
-  return{status:"hold",heat:.48,label:t("rec.repgoal.progress.label"),
-    text:t("rec.repgoal.progress.text",{done:f.performedTotal,goal:f.repGoal})}}
-function anchorCopy(ex,result,params){
-  const f=result.facts,codes=result.reasonCodes,sets=strategySets(result),u=unitLabel();
-  const min=params.anchorRepMin,max=params.anchorRepMax;
-  if(result.kind==="insufficient_evidence")
-    return{status:"hold",heat:.3,label:t("rec.anchor.insufficient.label"),text:t("rec.anchor.insufficient.text")};
-  if(codes.includes("anchor_backoff.no_history"))
-    return{status:"new",heat:.12,label:t("rec.anchor.new.label"),
-      text:t("rec.anchor.new.text",{min,max,backoffs:params.backoffSets})};
-  if(codes.includes("anchor_backoff.current_anchor")){
-    if(!sets.length)return{status:"hold",heat:.48,label:t("rec.anchor.session.done.label"),text:t("rec.anchor.session.done.text")};
-    if(result.status==="recalibrate")return{status:"reduce",heat:.3,label:t("rec.anchor.recalibrate.label"),
-      text:t("rec.anchor.recalibrate.text",{min})};
-    return{status:"hold",heat:.6,label:t("rec.anchor.session.label"),
-      text:t("rec.anchor.session.text",{load:fmtLoad(f.backoffLoad),unit:u,reps:f.backoffReps})}}
-  if(codes.includes("anchor_backoff.anchor_advance"))
-    return{status:"add",heat:.82,label:t("rec.anchor.advance.label"),text:t("rec.anchor.advance.text",{max})};
-  if(codes.includes("anchor_backoff.anchor_below_floor"))
-    return{status:"reduce",heat:.18,label:t("rec.anchor.reduce.label"),text:t("rec.anchor.reduce.text",{min})};
-  return{status:"hold",heat:.48,label:t("rec.anchor.hold.label"),text:t("rec.anchor.hold.text",{min,max})}}
-function effortTargetCopy(result){
-  const f=result.facts,codes=result.reasonCodes;
-  if(codes.includes("effort_target.no_history"))
-    return{status:"new",heat:.12,label:t("rec.effort.new.label"),
-      text:t("rec.effort.new.text",{reps:f.targetReps,min:fmt(f.targetRirMin),max:fmt(f.targetRirMax)})};
-  if(codes.includes("effort_target.no_rir_evidence"))
-    return{status:"hold",heat:.42,label:t("rec.effort.no_rir.label"),text:t("rec.effort.no_rir.text")};
-  if(codes.includes("effort_target.too_easy"))
-    return{status:"add",heat:.82,label:t("rec.effort.advance.label"),
-      text:t("rec.effort.advance.text",{reps:f.targetReps,max:fmt(f.targetRirMax)})};
-  if(codes.includes("effort_target.rep_miss"))
-    return{status:"reduce",heat:.18,label:t("rec.effort.reduce.label"),
-      text:t("rec.effort.rep_miss.text",{reps:f.targetReps})};
-  if(codes.includes("effort_target.too_hard"))
-    return{status:"reduce",heat:.18,label:t("rec.effort.reduce.label"),
-      text:t("rec.effort.too_hard.text",{min:fmt(f.targetRirMin)})};
-  return{status:"hold",heat:.48,label:t("rec.effort.hold.label"),
-    text:t("rec.effort.hold.text",{reps:f.targetReps,min:fmt(f.targetRirMin),max:fmt(f.targetRirMax)})}}
 
 /* Legacy progression markers are compatibility data, not a formula switch.
  * This is the complete alias table: the old double-progression marker is the
@@ -5440,50 +5589,126 @@ function progressionForExercise(ex){
   return rangeProgressionProjection(ex||{});
 }
 const strategyIdFor=ex=>progressionForExercise(ex)?.strategy?.id||"range";
-/* One engine call, one rendered recommendation, for every strategy. range@1
-   keeps its released mapping untouched; the strategies approved in the numeric
-   gate read their own facts off the same result object. */
-function strategyRecommendation(ex,result,id){
-  const params=progressionForExercise(ex)?.strategy?.params||{};
-  const copy=id==="rep_goal"?repGoalCopy(ex,result)
-    :id==="effort_target"?effortTargetCopy(result):anchorCopy(ex,result,params);
-  const sets=strategySets(result);
-  return{...copy,load:sets[0]?.load??result.facts.targetLoad??null,
-    stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:false,
-    reason:result.reasonCodes[0],strategy:id,engineSets:sets,
-    cap:result.facts.capacityE1rm,cr:result.facts.capacityReps,
-    lastLoad:result.facts.latestLoad??result.facts.representativeLoad}}
+function canonicalPrescriptionSlot(ex,definition=state.programMeta?.programDefinition){
+  if(!definition||!Array.isArray(definition.days))return null;
+  const id=String(ex?.slotId||ex?.id||"");
+  for(const day of definition.days)for(const slot of day.slots||[])if(slot.id===id)return{day,slot};
+  return null}
+function enginePerformedRow(row,exerciseId,metricIds){
+  const performedId=String(row?.performedLibraryId||row?.performedMovementId||"");
+  if(performedId!==exerciseId||row?.metricType!=="source_metrics@1"||
+    !Array.isArray(row.metricIds)||JSON.stringify(row.metricIds)!==JSON.stringify(metricIds)||
+    !Array.isArray(row.metricValues)||!Number.isInteger(row.setIndex)||row.setIndex<0)return null;
+  const values=ExerciseMetrics?.validateMetricValues?.(metricIds,row.metricValues);
+  if(!values?.ok)return null;
+  const rir=typeof row.rir==="number"&&Number.isFinite(row.rir)&&row.rir>=0?row.rir:null;
+  return{exerciseId,completed:true,setIndex:row.setIndex,rir,equipmentId:row.equipmentId??null,
+    loadingConvention:row.loadingConvention,metricIds:[...row.metricIds],metricValues:cloneSnapshot(row.metricValues),
+    loadingContext:isPlainStateObject(row.loadingContext)?cloneSnapshot(row.loadingContext):null}}
+function progressionHistoryFor(exerciseId,metricIds){
+  const grouped=new Map();
+  for(const row of state.log||[]){
+    const performed=enginePerformedRow(row,exerciseId,metricIds);if(!performed)continue;
+    const sessionId=String(row.session||"");if(!sessionId)continue;
+    if(!grouped.has(sessionId))grouped.set(sessionId,{sessionId,date:row.date,created:row.created,completed:true,sets:[]});
+    grouped.get(sessionId).sets.push(performed)}
+  return[...grouped.values()].sort(compareLogChronology).map(session=>({
+    sessionId:session.sessionId,completed:true,sets:session.sets.sort((a,b)=>a.setIndex-b.setIndex)}))}
+function progressionCurrentSession(prescription){
+  if(!activeWorkoutDraft?.exercises)return[];
+  const exercise=activeWorkoutDraft.exercises[prescription.slotId]||
+    Object.values(activeWorkoutDraft.exercises).find(item=>item.libraryId===prescription.exerciseId||item.sourceExerciseId===prescription.exerciseId);
+  if(!exercise||exercise.status==="skipped")return[];
+  const sets=[];
+  for(const setId of exercise.setOrder||[]){
+    const set=exercise.sets?.[setId];if(!set||set.completion==="pending"||set.role==="warmup")continue;
+    const values=[];let valid=true;
+    for(const metric of set.programmed?.metrics||[]){
+      const parsed=ExerciseMetrics?.parseMetricValue?.(metric,set.edited?.metrics?.[metric.id]);
+      if(!parsed?.ok){valid=false;break}
+      values.push({metricId:metric.id,value:parsed.value,unit:metric.unit})}
+    if(!valid||JSON.stringify(values.map(value=>value.metricId))!==JSON.stringify(prescription.metricIds))continue;
+    const rawRir=set.edited?.rir??set.programmed?.targetRir;
+    const rir=activeWorkoutDraft.program?.rirMode==="effort"?EFFORT_RIR[set.edited?.effort]
+      :rawRir==null?null:Number(rawRir);
+    const loadingContext=cloneSnapshot(exercise.programmed?.loadingContext||{});
+    loadingContext.loadingConvention=exercise.programmed?.loadingConvention||loadingContext.loadingConvention;
+    loadingContext.bodyweightKg=activeWorkoutDraft.session?.bodyweight==null||activeWorkoutDraft.session.bodyweight===""?null:Number(activeWorkoutDraft.session.bodyweight);
+    if(typeof loadingContext.bodyweightContributionEnabled!=="boolean")
+      loadingContext.bodyweightContributionEnabled=(loadingContext.bodyweightCoefficient??0)>0&&loadingContext.bodyweightKg>0;
+    sets.push({exerciseId:prescription.exerciseId,completed:true,setIndex:set.ordinal-1,
+      rir:Number.isFinite(rir)&&rir>=0?rir:null,equipmentId:exercise.programmed?.equipmentId??null,
+      loadingConvention:exercise.programmed?.loadingConvention,metricIds:[...prescription.metricIds],metricValues:values,
+      loadingContext})}
+  return sets}
+/* The lifter's smallest load change for a movement owns its candidate loads:
+   set per exercise in the program editor, else the global minimum jump. */
+function loadStepKg(exerciseId){
+  const own=+state.programMeta?.loadingConfiguration?.byExerciseId?.[exerciseId]?.loadStepKg;
+  if(Number.isFinite(own)&&own>0)return own;
+  const global=+state.settings.minJump;return Number.isFinite(global)&&global>0?global:2.5}
+function loadGridKg(step){
+  const loads=[];
+  for(let k=1;k<=2000&&k*step<=1000+1e-9;k++)loads.push(Math.round(k*step*1000)/1000);
+  return loads}
+function sessionBodyweightKg(){
+  const live=activeWorkoutDraft?.session?.bodyweight;
+  if(live!=null&&live!==""&&+live>0)return+live;
+  const rows=(state.log||[]).filter(row=>+row.bodyweight>0);
+  if(!rows.length)return null;
+  return+rows.reduce((latest,row)=>compareLogChronology(latest,row)<0?row:latest).bodyweight}
+/* Per-side loads stay manual: their multiplier is never assumed. Bodyweight
+   counts only when the movement has a coefficient and a bodyweight is known. */
+function slotLoadingContext(slot){
+  const{loadingConvention}=metricLoading(slot.metricDefinitions||[],rawExercise(slot.exerciseId),slot.loadingModel);
+  const coefficient=+slot.loadingModel?.bodyweightCoefficient||0,bodyweight=sessionBodyweightKg();
+  return{equipmentId:null,availableLoadsKg:loadGridKg(loadStepKg(slot.exerciseId)),loadingConvention,
+    bodyweightContributionEnabled:coefficient>0&&bodyweight>0,bodyweightKg:bodyweight||null,
+    externalLoadMultiplier:loadingConvention==="per_side"?null:loadingConvention==="bodyweight"?0:1}}
 function recommendation(ex){
-  const strategy=strategyIdFor(ex);
-  const result=RepForgeProgression.evaluateProgression(progressionInput(ex));
-  if(strategy==="rep_goal"||strategy==="effort_target"||strategy==="anchor_backoff"){
-    if(result.kind==="recommendation"||result.kind==="insufficient_evidence")
-      return strategyRecommendation(ex,result,strategy)}
-  const codes=result.reasonCodes,facts=result.facts,ui=RANGE_REASON_UI[codes[0]];
-  if(result.kind==="manual"||result.kind==="incompatible"||result.kind==="invalid")return{status:"manual",heat:0,label:"",text:"",load:null,stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:false,reason:codes[0]};
-  // No history, or evidence the locked strategy will not act on: the same
-  // "start here" card the app has always drawn, with no invented number.
-  if(!ui||ui.reason==="new")return{status:"new",heat:.12,label:t("rec.new.label"),
-    text:isEffortMode()
-      ?t("rec.new.text_effort",{min:ex.min,max:ex.max,effort:effortWord(targetEffort())})
-      :t("rec.new.text",{min:ex.min,max:ex.max,rirHigh:state.settings.rirHigh}),
-    load:null,stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:true,reason:"new"};
-  const copy=rangeCopy(ex,ui.reason);
-  const rec={status:ui.status,heat:ui.heat,label:copy.label,text:copy.text,load:facts.targetLoad,
-    stalled:ui.reason==="stalled"?true:ui.reason==="below_range"?facts.stalled:false,
-    pushReps:facts.pushReps,reason:ui.reason};
-  if(facts.jumpMultiplier>0)rec.jumpMult=facts.jumpMultiplier;
-  // Weak block tempering: a block that is losing strength should not double-jump.
-  if(codes.includes("range.block_tempered")){rec.status="add";rec.heat=.82;rec.label=t("rec.add.label");
-    rec.text=t("rec.add.tempered.text");rec.jumpMult=facts.jumpMultiplier;rec.temperedBlock=true}
-  const trend={dir:facts.blockTrend.direction,sessions:facts.blockTrend.sessionCount};
-  if(facts.blockTrend.ratio!=null)trend.ratio=facts.blockTrend.ratio;
-  rec.block=trend;rec.blockNote=blockTrendNote(trend);
-  rec.cap=facts.capacityE1rm;rec.typRir=facts.typicalRir;
-  // Read-only inputs the "why this weight" sheet narrates; nothing here steers a trigger.
-  rec.cr=facts.capacityReps;rec.lastLoad=facts.latestLoad;rec.lastMedReps=facts.latestMedianReps;
-  rec.reenterReps=rec.status==="add"||rec.status==="add2"||rec.status==="reduce"||!sameLoad(rec.load,facts.latestLoad);
-  return rec;
+  const compiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
+  const engine=typeof window!=="undefined"?window.RepForgeProgression:null;
+  const definition=state.programMeta?.programDefinition,matched=canonicalPrescriptionSlot(ex,definition);
+  if(!compiler?.prescriptionsForCycle||!engine?.recommendSets||!matched)
+    return{status:"manual",engineStatus:"manual",reason:"canonical_program_definition_required",load:null,targetSets:[]};
+  const cycleCount=Number.isInteger(definition.cycles)&&definition.cycles>0?definition.cycles:1;
+  const elapsed=mesocycleLifecycle(state.programMeta).current||1,cycleNumber=Math.min(cycleCount,Math.max(1,elapsed));
+  const prescriptions=compiler.prescriptionsForCycle(definition,cycleNumber).filter(item=>item.slotId===matched.slot.id);
+  if(!prescriptions.length)return{status:"manual",engineStatus:"manual",reason:"cycle_prescription_unavailable",load:null,targetSets:[]};
+  const first=prescriptions[0],history=progressionHistoryFor(first.exerciseId,first.metricIds);
+  const currentSession=progressionCurrentSession(first);
+  const loadingContext={bySlotId:{[matched.slot.id]:slotLoadingContext(matched.slot)}};
+  const results=engine.recommendSets(prescriptions,history,currentSession,loadingContext,{
+    weightMatch:state.settings.weightMatch===true,expandRepRange:state.settings.expandRepRange!==false});
+  const targetSets=prescriptions.map((prescription,index)=>{
+    const result=results[index]||null;
+    return{prescription,result,targets:result?.status==="recommended"?result.targets:prescription.targets,
+      rir:prescription.rir,status:result?.status||"manual"}});
+  const firstActual=targetSets.find(item=>item.prescription.setIndex===1)||targetSets[0];
+  const result=firstActual?.result,definitions=matched.slot.metricDefinitions||[];
+  const repMetric=definitions.find(metric=>metric.semantic==="reps"||metric.semantic==="repsPerSide");
+  const loadMetric=definitions.find(metric=>["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic));
+  const authored=firstActual?.prescription.targets||{};
+  const repTarget=repMetric?authored[repMetric.semantic]:null,repValue=firstActual?.targets?.[repMetric?.semantic];
+  const manual=result?.status!=="recommended";
+  const newLift=result?.reasonCodes?.includes("no_comparable_history")&&!result?.reasonCodes?.includes("configuration_required");
+  const load=!manual&&loadMetric?firstActual.targets?.[loadMetric.semantic]??null:null;
+  // The verdict is the engine's own move: the first set's load against the load
+  // of the set it is anchored on. Every surface (cue, Why, Today, attention)
+  // reads this one direction.
+  const anchorLoad=result?.historyAnchor?.displayLoadKg;
+  const direction=manual||load==null||!Number.isFinite(anchorLoad)?"hold"
+    :load>anchorLoad+1e-9?"add":load<anchorLoad-1e-9?"reduce":"hold";
+  const status=manual?(newLift?"new":"manual"):direction;
+  return{status,engineStatus:result?.status||"manual",
+    reason:result?.reasonCodes?.[0]||"manual_prescription",reasonCodes:result?.reasonCodes||[],
+    label:manual?"":t(status==="add"?"rec.add.label":status==="reduce"?"rec.reduce.label":"rec.hold.label"),text:"",load,
+    lastLoad:Number.isFinite(anchorLoad)?anchorLoad:null,
+    reps:typeof repValue==="number"?repValue:repValue?.min??(typeof repTarget==="number"?repTarget:repTarget?.min??null),
+    targetSets,engineResults:results,metricDefinitions:definitions,slotId:matched.slot.id,
+    stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:false,
+    prescription:cloneSnapshot(first),historyAnchor:result?.historyAnchor||null,fatigue:result?.fatigue||null,
+    loadingAssumptions:result?.loadingAssumptions||null};
 }
 // Re-entry after a load change: the reps this capacity predicts at the NEW load,
 // minus the lifter's own habitual RIR, clamped into the range. Replaces the blind
@@ -5568,6 +5793,7 @@ function sessionFreshness(ex,draft){
  *  target would otherwise fall out of the bottom of the range. */
 function baseSuggestion(ex,rec,draft,old){
   if(rec.status==="manual")return{load:null,reps:null,src:"manual"};
+  if(Array.isArray(rec.targetSets))return engineSetSuggestion(ex,1,rec,draft);
   const reps=rec.load!=null?baseSetReps(ex,rec,old):(old&&+old.reps>0?+old.reps:ex.min);
   if(rec.load==null||!(rec.cap>0))return{load:rec.load,reps,src:"base"};
   const factor=sessionFreshness(ex,draft);
@@ -5596,23 +5822,30 @@ function completedCurrentSets(ex,n,draft){
     else{rir=parseDec(draft[`${key}_rir`]);if(!Number.isFinite(rir))rir=preserveMissingRir?null:1}
     sets.push({load:ld,reps:rp,rir,cap:capE1rm(ld,rp,rir)})}
   return sets}
-/* The approved strategies have no second arithmetic here: their in-session
-   target is the engine's own current-session result for the sets logged so
-   far, and their base target is the nth set of the engine's distribution. */
-function strategySuggestion(ex,n,rec,draft){
-  const done=completedCurrentSets(ex,n,draft);
-  if(!done.length){const set=rec.engineSets[n-1]||rec.engineSets.at(-1);
-    return set?{load:set.load,reps:set.reps,src:"base"}:{load:null,reps:null,src:"manual"}}
-  const result=RepForgeProgression.evaluateProgression(
-    progressionInput(ex,done.map(s=>({load:s.load,reps:s.reps,rir:s.rir}))));
-  const set=strategySets(result)[0];
-  if(!set)return{load:null,reps:null,src:"manual"};
-  return{load:set.load,reps:set.reps,src:result.status==="advance"?"session-up"
-    :result.status==="reduce"||result.status==="recalibrate"?"session-down":"session-hold",
-    drop:result.reasonCodes.some(code=>code.endsWith(".current_drop"))}}
+/* A canonical program's per-set target is the adaptive engine's own result for
+   that set: recommendation() already folds this session's completed sets in as
+   live anchors, so nothing is re-derived here. The source names how the target
+   moved from the last completed set this session. */
+function engineSetSuggestion(ex,n,rec,draft){
+  const item=rec.targetSets.find(entry=>entry.prescription?.setIndex===n)||rec.targetSets[n-1];
+  if(!item||item.status!=="recommended")return{load:null,reps:null,src:"manual"};
+  const definitions=rec.metricDefinitions||[];
+  const loadMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.load.includes(metric.semantic));
+  const repsMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.reps.includes(metric.semantic));
+  const load=loadMetric?item.targets?.[loadMetric.semantic]??null:null;
+  const rawReps=repsMetric?item.targets?.[repsMetric.semantic]:null;
+  const reps=typeof rawReps==="number"?rawReps:rawReps?.min??null;
+  const done=new Set(draft?.__done||[]);
+  let previous=null;
+  for(let k=n-1;k>=1;k--)if(done.has(`${ex.id}_${k}`)){previous=+draft[`${ex.id}_${k}_load`];break}
+  if(!(previous>0)||load==null)return{load,reps,src:"base"};
+  // The projected draft field is display text; the engine's load is canonical kg.
+  const shown=Math.round(toDisplay(load)*100)/100,before=Math.round(previous*100)/100;
+  const src=shown>before?"session-up":shown<before?"session-down":"session-hold";
+  return{load,reps,src,drop:false}}
 function setSuggestion(ex,n,rec,draft,old){
   if(rec.status==="manual")return{load:null,reps:null,src:"manual"};
-  if(rec.strategy&&rec.strategy!=="range")return strategySuggestion(ex,n,rec,draft);
+  if(Array.isArray(rec.targetSets))return engineSetSuggestion(ex,n,rec,draft);
   const minJ=+state.settings.minJump||2.5;
   const sets=completedCurrentSets(ex,n,draft);
   if(!sets.length)return baseSuggestion(ex,rec,draft,old);
@@ -5654,45 +5887,6 @@ function inSessionNote(ex,draft){
     if((rec.status==="add"||rec.status==="add2")&&sg.load!=null&&sg.reps>ex.min)
       return t("log.insession.reentry",{load:fmtLoad(sg.load),unit:u,reps:sg.reps})}
   return""}
-/* The same sheet for the strategies approved in the numeric gate. Every number
-   is a fact the engine attached to its own result; nothing is re-derived. */
-function explainStrategy(ex,rec,u){
-  const rows=[],params=progressionForExercise(ex)?.strategy?.params||{};
-  const prev=last(ex).filter(x=>+x.load>0);
-  if(prev.length)rows.push(whyRow("last",{label:t("why.last"),
-    text:prev.map(x=>`${fmtLoad(x.load)}\u00d7${x.reps} ${effortOrRirLabel(x.rir)}`).join(" \u00b7 ")}));
-  const input=progressionInput(ex),result=RepForgeProgression.evaluateProgression(input),f=result.facts;
-  if(rec.strategy==="rep_goal"){
-    if(f.performedTotal!=null)rows.push(whyRow("rg-total",{text:t("why.repgoal.total",
-      {done:f.performedTotal,goal:f.repGoal,sets:params.workingSets})}));
-    if(f.medianTrustedRir!=null)rows.push(whyRow("rg-effort",{text:t("why.repgoal.effort",
-      {rir:fmt(f.medianTrustedRir),min:fmt(params.targetRirMin)})}));
-    if(result.reasonCodes.includes("rep_goal.rebuild_after_advance"))
-      rows.push(whyRow("rg-rebuild",{text:t("why.repgoal.rebuild",{goal:f.repGoal,reps:strategySets(result)[0]?.reps})}));
-    if(f.completedReps!=null)rows.push(whyRow("rg-distribution",{text:t("why.repgoal.distribution")}))}
-  else if(rec.strategy==="effort_target"){
-    if(f.representativeLoad!=null)rows.push(whyRow("ef-evidence",{text:t("why.effort.evidence",{
-      load:fmtLoad(f.representativeLoad),unit:u,reps:fmt(f.representativeReps),rir:f.representativeRir==null?t("why.effort.missing"):fmt(f.representativeRir)})}));
-    rows.push(whyRow("ef-target",{text:t("why.effort.target",{reps:f.targetReps,min:fmt(f.targetRirMin),max:fmt(f.targetRirMax)})}));
-    if(result.reasonCodes.includes("effort_target.grid_rounded"))
-      rows.push(whyRow("ef-grid",{text:t("why.effort.grid",{load:fmtLoad(f.targetLoad),unit:u})}))}
-  else{
-    // Name the top set the lifter logged, not the capacity the engine read from it:
-    // today's anchor when one is logged, otherwise the latest session's first set.
-    const cur=input.currentSession||[],explicit=cur.findIndex(x=>x.role==="anchor"),
-      idx=explicit>=0?explicit:cur.some(x=>x.role!=null)?-1:0,
-      top=cur.length&&idx>=0?cur[idx]:input.history.at(-1)?.sets?.[0];
-    if(f.anchorLoad!=null&&top&&sameLoad(+top.load,f.anchorLoad)){
-      rows.push(whyRow("an-top",{text:t("why.anchor.top",{load:fmtLoad(f.anchorLoad),unit:u,reps:+top.reps})}));
-      if(top.rir!=null&&top.rir!==""&&Number.isFinite(+top.rir))rows.push(whyRow("an-toprir",{text:t("why.anchor.top_rir",{rir:fmt(+top.rir)})}))}
-    if(f.backoffLoad!=null)rows.push(whyRow("an-backoff",{text:t("why.anchor.backoff",
-      {percent:fmt(Math.round(params.backoffPercent*100)),load:fmtLoad(f.backoffLoad),unit:u})}));
-    if(result.reasonCodes.includes("anchor_backoff.backoff_recalculated"))
-      rows.push(whyRow("an-untouched",{text:t("why.anchor.untouched")}))}
-  if(rec.text)rows.push(whyRow("text",{text:rec.text}));
-  const note=inSessionNote(ex,loadDraft());
-  if(note)rows.push(whyRow("session",{label:t("why.session"),text:note}));
-  return rows}
 // On-demand arithmetic behind one recommendation (plan 043). Built at tap time only,
 // never during renderWorkout: the Log tab's render path stays free of this work.
 // One brain — every number here is a field the engine attached to its own result;
@@ -5702,9 +5896,9 @@ function explainRecommendation(ex){
   if(!ex)return rows;
   const rec=recommendation(ex),u=unitLabel();
   if(rec.status==="manual")return rows;
+  if(Array.isArray(rec.targetSets))return rec.status==="new"?rows:engineWhyRows(ex,rec);
   // A new lift can still explain an adjustment from sets logged in this session.
   if(rec.status==="new"){const note=inSessionNote(ex,loadDraft());return note?[whyRow("session",{label:t("why.session"),text:note})]:rows}
-  if(rec.strategy&&rec.strategy!=="range")return explainStrategy(ex,rec,u);
   const prev=last(ex).filter(x=>+x.load>0);
   if(prev.length)rows.push(whyRow("last",{label:t("why.last"),
     text:prev.map(x=>`${fmtLoad(x.load)}\u00d7${x.reps} ${effortOrRirLabel(x.rir)}`).join(" \u00b7 ")}));
@@ -5742,9 +5936,25 @@ function applyAcknowledgedSuggestions(ex,draft){
     if(!set.touched.load&&Object.prototype.hasOwnProperty.call(draft,`${key}_load`)){const li=$(`[data-k="${key}_load"]`);if(li)li.value=draft[`${key}_load`]??""}
     if(!set.touched.reps&&Object.prototype.hasOwnProperty.call(draft,`${key}_reps`)){const ri=$(`[data-k="${key}_reps"]`);if(ri)ri.value=draft[`${key}_reps`]??""}}}
 const hasCommittedSets=ex=>{for(let n=1;n<=ex.sets;n++)if(committed.has(`${ex.id}_${n}`))return true;return false};
+/* Recommended metric values fill only pending sets the lifter has not touched. */
+function metricSuggestionUpdates(stored,rec){
+  const updates=[];
+  for(const setId of stored.setOrder){
+    const set=stored.sets[setId];
+    if(!set||set.role==="warmup"||set.completion!=="pending")continue;
+    const target=rec.targetSets?.find(item=>item.prescription.setIndex===set.ordinal);
+    if(target?.status!=="recommended")continue;
+    const metrics={};
+    for(const metric of set.programmed.metrics||[]){
+      const value=target.result.targets?.[metric.semantic];
+      if(typeof value==="number"&&!set.touched.metrics?.[metric.id])metrics[metric.id]=canonicalNumberText(value)}
+    if(Object.keys(metrics).length)updates.push({exerciseInstanceId:stored.exerciseInstanceId,setId,fields:{metrics}})}
+  return updates}
 function suggestionUpdatesFor(ex,draft){
   const stored=activeWorkoutDraft?.exercises?.[ex.id];
   if(!stored||stored.status==="skipped")return[];
+  if(stored.setOrder.some(setId=>Array.isArray(stored.sets[setId]?.programmed?.metrics)))
+    return metricSuggestionUpdates(stored,recommendation(ex));
   const rec=recommendation(ex),prev=last(ex),updates=[];
   for(let n=1;n<=ex.sets;n++){
     const key=`${ex.id}_${n}`,setId=stored.setOrder.find(id=>stored.sets[id]?.ordinal===n),set=setId?stored.sets[setId]:null;
@@ -6620,6 +6830,9 @@ async function enterWorkout(opts={}){if(opts.day&&!await requestWorkoutDay(opts.
   if(prepared.status!=="ready"){
     showDraftInitializationRecovery(prepared,{retryMode:"create",label:day});return false}
   clearDraftUiRecovery();
+  // Recommendations fill the day's untouched pending values before the first paint.
+  const firstExercise=exercises(day)[0];
+  if(firstExercise)await refreshSuggestions(firstExercise.id);
   workoutLeft=false;setWorkoutActive(true);
   hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});
   // Focus is the sole workout route.
@@ -6730,8 +6943,10 @@ function rxSetsLine(sets,withUnit){
   return same?`${fmtLoad(rows[0].load)}${withUnit?` ${unitLabel()}`:""} × ${rows.map(x=>x.reps).join(", ")}`
     :rows.map(x=>`${fmtLoad(x.load)} × ${x.reps}`).join(", ")}
 function rxTargetText(ex,rec){
-  const strategy=strategyIdFor(ex),params=progressionForExercise(ex)?.strategy?.params||{};
+  if(ex?.hasRepTarget===false)return programPrescriptionSummary(ex);
   if(rec.status==="manual")return `${ex.sets} × ${ex.min}–${ex.max}`;
+  if(Array.isArray(rec.targetSets)){const first=setSuggestion(ex,1,rec,{},null);return `${ex.sets} × ${first.reps??ex.min}`}
+  const strategy=strategyIdFor(ex),params=progressionForExercise(ex)?.strategy?.params||{};
   if(strategy==="rep_goal")return t("today.target.total",{n:params.repGoal});
   if(strategy==="anchor_backoff")return t("today.target.anchor",{n:params.backoffSets});
   if(strategy==="effort_target")return `${params.workingSets||ex.sets} × ${params.targetReps}`;
@@ -7222,9 +7437,15 @@ function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
   $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" aria-pressed="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(dayLabel(d))}</button>`).join("");
   $$("#dayTabs button").forEach(b=>b.onclick=async()=>{if(!await requestWorkoutDay(b.dataset.day))return;renderTabs();renderWorkout();renderToday()})}
 
+function metricPendingValue(exId,n,field){
+  const target=draftTargetFromKey(`${exId}_${n}`);
+  const set=target?activeWorkoutDraft?.exercises?.[target.exerciseInstanceId]?.sets?.[target.setId]:null;
+  const metric=draftSetMetrics(set).find(item=>METRIC_FIELD_SEMANTICS[field]?.includes(item.semantic));
+  return metric?pendingFields.get(`${exId}_${n}_metric_${metric.id}`)?.value:undefined}
 function setFieldVals(ex,n,r,draft,prev){
   // A field the lifter has just set and the draft has not yet acknowledged shows what they set.
-  const pending=field=>pendingFields.get(`${ex.id}_${n}_${field}`)?.value;
+  // A metric-backed set's pending value sits under its metric input's key.
+  const pending=field=>pendingFields.get(`${ex.id}_${n}_${field}`)?.value??metricPendingValue(ex.id,n,field);
   const old=prev.find(x=>x.set===n),draftKg=pending("load")??draft[`${ex.id}_${n}_load`],sg=setSuggestion(ex,n,r,draft,old);
   const kgVal=draftKg!=null?draftKg:(sg.load!=null?fmtLoadPlain(sg.load):(r.status==="manual"?"":(old&&old.load!=null?fmtLoadPlain(old.load):"")));
   const repsVal=pending("reps")??draft[`${ex.id}_${n}_reps`]??(sg.reps!=null?sg.reps:(r.status==="manual"?"":(old&&old.reps!=null?old.reps:ex.min)));
@@ -7278,8 +7499,13 @@ function focusCue(ex,n,r,draft,prev,editing){
     return{kind:"manual",move:"",headHtml:esc(head),sub:t("focus.cue.reps",{reps:`${ex.min}–${ex.max}`})}}
   if(sg.load==null){const head=t("focus.cue.pick_load",{min:ex.min,max:ex.max});
     return{kind:"start",move:"",headHtml:esc(head),sub:""}}
-  const ref=focusRefLoad(ex,n,draft,prev);
-  const move=ref==null||sameLoad(sg.load,ref)?"hold":sg.load>ref?"up":"down";
+  // A canonical target's move is the engine's: against this session's last set
+  // once one is logged, else the recommendation's own verdict.
+  const ref=Array.isArray(r.targetSets)?null:focusRefLoad(ex,n,draft,prev);
+  const move=Array.isArray(r.targetSets)
+    ?(sg.src==="session-up"?"up":sg.src==="session-down"?"down":sg.src==="session-hold"?"hold":
+      r.status==="add"?"up":r.status==="reduce"?"down":"hold")
+    :ref==null||sameLoad(sg.load,ref)?"hold":sg.load>ref?"up":"down";
   const reps=sg.reps!=null?sg.reps:ex.min;
   // The load rides in the sentence as a token so the figure can be set in Mono.
   const sentence=t(`focus.cue.${move}`,{load:"\u0000",unit});
@@ -7385,8 +7611,21 @@ function focusRowVals(ex,n,r,draft,prev,effortMode){
 /** The effort window a set that has not been logged is aimed at. These are the
  *  program's own parameters and the lifter's RIR ceiling, formatted — the same
  *  figures the exercise line above shows. */
+/* What a canonical slot's current cycle prescribes: whether the adaptive engine
+   owns its targets, and the RIR its sets aim at. Null for a flat legacy row. */
+function canonicalSlotFacts(ex){
+  const definition=state.programMeta?.programDefinition,matched=canonicalPrescriptionSlot(ex,definition);
+  if(!matched)return null;
+  const cycles=Number.isInteger(definition.cycles)&&definition.cycles>0?definition.cycles:1;
+  const index=Math.min(cycles,Math.max(1,mesocycleLifecycle(state.programMeta).current||1));
+  const cycle=matched.slot.prescriptionsByCycle?.find(item=>item.cycleIndex===index)||matched.slot.prescriptionsByCycle?.[0];
+  const sets=cycle?.sets||[],rirs=sets.map(set=>set.rir).filter(value=>Number.isFinite(value));
+  return{adaptive:sets.some(set=>set.status==="ready"),
+    rirMin:rirs.length?Math.min(...rirs):null,rirMax:rirs.length?Math.max(...rirs):null}}
 function focusTargetEffort(ex){
   if(isEffortMode())return effortLabel(targetEffort());
+  const facts=canonicalSlotFacts(ex);
+  if(facts)return facts.rirMin==null?"—":facts.rirMin===facts.rirMax?fmt(facts.rirMin):`${fmt(facts.rirMin)}–${fmt(facts.rirMax)}`;
   const p=progressionForExercise(ex)?.strategy?.params||{};
   const lo=p.targetRirMin!=null?p.targetRirMin:p.anchorTargetRirMin!=null?p.anchorTargetRirMin:0;
   const hi=p.targetRirMax!=null?p.targetRirMax:p.anchorTargetRirMax!=null?p.anchorTargetRirMax:state.settings.rirHigh;
@@ -7455,6 +7694,14 @@ function focusLedgerHtml(ex,r,draft,prev,{effortMode,peek=false}){
  *  name of the strategy that sets the target. Read off the program's own
  *  envelope; a slot with none is the range it always was. */
 function focusExMeta(ex){
+  if(ex?.hasRepTarget===false)return programPrescriptionSummary(ex);
+  // A canonical slot is adaptive or manual; its RIR comes from its own sets.
+  const facts=canonicalSlotFacts(ex);
+  if(facts){
+    const name=t(facts.adaptive?"program.progression.adaptive":"program.progression.strategy.manual");
+    const line=facts.rirMin==null?t("focus.exmeta.manual",{sets:+ex.sets||1,min:ex.min,max:ex.max})
+      :t("focus.exmeta.range",{sets:+ex.sets||1,min:ex.min,max:ex.max,rmin:fmt(facts.rirMin),rmax:fmt(facts.rirMax)});
+    return `${line} · ${name}`}
   const env=progressionForExercise(ex),id=env?.strategy?.id||"range",p=env?.strategy?.params||{};
   const sets=+p.workingSets||+ex.sets||1;
   const rmin=fmt(p.targetRirMin!=null?p.targetRirMin:0),rmax=fmt(p.targetRirMax!=null?p.targetRirMax:state.settings.rirHigh);
@@ -7477,7 +7724,12 @@ function focusExMeta(ex){
    ever, and the one action is the `.saveset` handler. Which field is selected,
    and whether it is a live input, is this transient state alone. */
 let shelfUi={key:"",field:"reps",editing:false};
-const shelfFor=key=>shelfUi.key===key?shelfUi:{key,field:"reps",editing:false};
+/* A metric-backed set opens on its first metric; a flat set on reps. */
+function defaultShelfField(key){
+  const at=String(key).lastIndexOf("_"),exId=String(key).slice(0,at),n=+String(key).slice(at+1);
+  const metrics=at>0&&typeof focusMetricDefinitions==="function"?focusMetricDefinitions(exId,n):[];
+  return metrics?.[0]?`metric_${metrics[0].id}`:"reps"}
+const shelfFor=(key,firstField=defaultShelfField(key))=>shelfUi.key===key?shelfUi:{key,field:firstField,editing:false};
 const shelfSelect=(key,field,editing=false)=>{shelfUi={key,field,editing}};
 /** A field's text as the lifter reads it: a number in their locale, anything else as typed. */
 const shelfText=raw=>{const v=parseDec(raw);return Number.isFinite(v)?fmt(v):String(raw??"")};
@@ -7485,6 +7737,93 @@ const shelfText=raw=>{const v=parseDec(raw);return Number.isFinite(v)?fmt(v):Str
 function shelfLoadStep(){
   const kg=parseDec(state.settings.minJump)||2.5;
   return fmt(Math.round(toDisplay(kg)*10)/10)}
+
+function focusMetricDefinitions(exId,n){
+  const exercise=activeWorkoutDraft?.exercises?.[exId];if(!exercise)return[];
+  const setId=exercise.setOrder.find(id=>exercise.sets[id].ordinal===n);
+  const metrics=setId?exercise.sets[setId].programmed.metrics:null;
+  return Array.isArray(metrics)?metrics:[]}
+function metricTextValue(raw,metric){
+  if(raw==null||raw==="")return"";
+  const number=parseDec(raw);
+  if(!Number.isFinite(number))return String(raw);
+  return ["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic)
+    ?fmtPlain(toDisplay(number)):fmtPlain(number)}
+function canonicalMetricInput(metric,raw){
+  const text=String(raw??"");if(text.trim()==="")return"";
+  const parsed=parseDec(text);if(!Number.isFinite(parsed))return text;
+  const value=["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic)
+    ?metricKgFromDisplay(parsed):parsed;
+  return canonicalNumberText(value)}
+/* A pound value converts to kilograms at full precision; only the float
+   overshoot of the exact pound equivalent of the 1000 kg limit is snapped back
+   onto the limit, so that entry is not refused for a rounding hair. */
+const metricKgFromDisplay=value=>{const kg=fromDisplay(value);return kg>1000&&kg-1000<1e-9?1000:kg};
+function metricTargetText(target){
+  if(target==null)return"";
+  const show=value=>fmt(value);
+  if(typeof target==="number")return show(target);
+  if(Number.isFinite(target.min)&&Number.isFinite(target.max))return target.min===target.max?show(target.min):`${show(target.min)}–${show(target.max)}`;
+  return""}
+function canonicalMetricTargetText(metric,target){
+  if(target==null)return"";
+  const loadMetric=metric?.unit==="kg";
+  const show=value=>fmt(loadMetric?toDisplay(value):value);
+  const unit=metricDisplayUnit(metric);
+  let value="";
+  if(typeof target==="number")value=show(target);
+  else if(Number.isFinite(target.min)&&Number.isFinite(target.max))
+    value=target.min===target.max?show(target.min):`${show(target.min)}–${show(target.max)}`;
+  return value?`${metricLabel(metric)} ${value}${unit?` ${unit}`:""}`:""}
+function programPrescriptionSummary(ex,cycleNumber=mesocycleLifecycle(state?.programMeta).current||1){
+  const match=canonicalPrescriptionSlot(ex),slot=match?.slot;
+  const cycle=slot?.prescriptionsByCycle?.find(item=>item.cycleIndex===cycleNumber)||slot?.prescriptionsByCycle?.[0];
+  const set=cycle?.sets?.[0],definitions=slot?.metricDefinitions||[];
+  const targets=definitions.map(metric=>canonicalMetricTargetText(metric,set?.targets?.[metric.semantic])).filter(Boolean);
+  const setLabel=ex?.sets===1?t("history.sets.one",{n:1}):t("entry.catalogue.sets_exact",{n:+ex?.sets||0});
+  return targets.length?`${setLabel} · ${targets.join(" · ")}`:setLabel}
+function metricLabel(metric){
+  const keys={loadKg:"focus.metric.load_kg",assistanceKg:"focus.metric.assistance_kg",reps:"focus.metric.reps",
+    durationSeconds:"focus.metric.duration_seconds",distanceShortMeters:"focus.metric.distance_short_meters",
+    distanceLongMeters:"focus.metric.distance_long_meters",loadPerSideKg:"focus.metric.load_per_side_kg",
+    repsPerSide:"focus.metric.reps_per_side",durationPerSideSeconds:"focus.metric.duration_per_side_seconds",
+    persistentLoadPerSideKg:"focus.metric.persistent_load_per_side_kg",distanceShortPerSideMeters:"focus.metric.distance_short_per_side_meters"};
+  return keys[metric.semantic]?t(keys[metric.semantic]):metric.sourceName}
+function metricDisplayUnit(metric){
+  if(metric?.unit==="kg")return unitLabel();
+  if(metric?.unit==="metres")return"m";
+  if(metric?.unit==="seconds")return"s";
+  return""}
+function parseHistoryMetricInput(metric,raw){
+  const semantics={reps:"validation.reps",repsPerSide:"validation.reps",
+    loadKg:"validation.load_metric",assistanceKg:"validation.load_metric",loadPerSideKg:"validation.load_metric",
+    persistentLoadPerSideKg:"validation.load_metric"};
+  const key=semantics[metric?.semantic]||"validation.metric";
+  const displayed=parseDec(raw);
+  if(!Number.isFinite(displayed))return{field:"metric",key};
+  const value=metric?.unit==="kg"?metricKgFromDisplay(displayed):displayed;
+  const checked=ExerciseMetrics?.parseMetricValue?.(metric,value);
+  return checked?.ok?{value:checked.value}:{field:"metric",key};}
+function shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek}){
+  const key=`${ex.id}_${n}`,fieldId=`metric_${metric.id}`,inputKey=`${key}_${fieldId}`,selected=ui.field===fieldId;
+  const live=selected&&ui.editing&&!peek;
+  const pending=pendingFields.get(inputKey)?.value;
+  const raw=pending??set.edited.metrics?.[metric.id]??"";
+  const shown=raw!==""?metricTextValue(raw,metric):metricTargetText(set.programmed.targets?.[metric.semantic]);
+  const target=metricTargetText(set.programmed.targets?.[metric.semantic]);
+  const unit=metric.unit==="kg"?unitLabel():metric.unit==="metres"?"m":metric.unit==="seconds"?"s":metric.unit;
+  const label=`${metricLabel(metric)}${unit?` (${unit})`:""}`;
+  const name=`${label}, ${t("focus.set_label",{n})}`;
+  const soft=!touched.metrics?.[metric.id]&&!pendingFields.has(inputKey);
+  const cls=`shelf__field${selected?" is-sel":""}${soft?" is-untouched":""}${live?" is-editing":""}`;
+  const face=`<span class="shelf__lab">${esc(label)}</span><span class="shelf__val">${esc(shown||"—")}</span>`;
+  if(peek)return `<div class="${cls}" data-field="metric" data-metric="${esc(metric.id)}"><span class="shelf__fieldbtn">${face}</span></div>`;
+  const button=`<button type="button" class="shelf__fieldbtn" data-shelf-field="${esc(fieldId)}" data-set="${esc(key)}" aria-pressed="${selected?"true":"false"}">${face}</button>`;
+  const input=`<input class="shelf__input" data-k="${esc(inputKey)}" data-metric-id="${esc(metric.id)}" type="text" inputmode="${metric.semantic==="reps"||metric.semantic==="repsPerSide"?"numeric":"decimal"}" `+
+    `enterkeyhint="next" aria-label="${esc(name)}" autocomplete="off" value="${esc(metricTextValue(raw,metric))}" placeholder="${esc(target)}"`+
+    `${live?"":' tabindex="-1" aria-hidden="true"'}>`;
+  const caption=live?`<span class="shelf__lab shelf__lab--edit" aria-hidden="true">${esc(label)}</span>`:"";
+  return `<div class="${cls}" data-field="metric" data-metric="${esc(metric.id)}" data-set="${esc(key)}"><span data-lv="${esc(fieldId)}"></span>${button}${input}${caption}</div>`}
 
 function shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek}){
   const key=`${ex.id}_${n}`,sel=ui.field===id;
@@ -7520,6 +7859,18 @@ function shelfPadsHtml(ex,n,ui,vals,{effortMode,peek}){
     const at=Math.max(0,EFFORT_STEPS.indexOf(vals.effortVal));
     return [-1,1].map(dir=>{const to=EFFORT_STEPS[at+dir],word=effortLabel(to||vals.effortVal);
       return pad(dir,t("focus.shelf.pad_effort",{sign:sign(dir),effort:word}),{attrs:` data-effstep="${esc(key)}"`,off:!to})}).join("")}
+  const metricId=id.startsWith("metric_")?id.slice(7):null;
+  const metric=metricId?focusMetricDefinitions(ex.id,n).find(item=>item.id===metricId):null;
+  if(metric){
+    const reps=metric.semantic==="reps"||metric.semantic==="repsPerSide";
+    const load=["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic);
+    const unit=metricDisplayUnit(metric),step=load?shelfLoadStep():"1";
+    const attrs=' data-step="'+key+"_metric_"+metric.id+'"';
+    return [-1,1].map(dir=>{
+      const text=reps?t("focus.shelf.pad_reps",{sign:dir>0?"+":"−"})
+        :load?t("focus.shelf.pad_load",{sign:dir>0?"+":"−",step,unit})
+          :(dir>0?"+":"−")+"1"+(unit?" "+unit:"");
+      return pad(dir,text,{attrs})}).join("")}
   const attrs=` data-step="${esc(key)}_${id}"`;
   return [-1,1].map(dir=>pad(dir,id==="load"?t("focus.shelf.pad_load",{sign:sign(dir),step:shelfLoadStep(),unit:unitLabel()})
     :id==="reps"?t("focus.shelf.pad_reps",{sign:sign(dir)}):t("focus.shelf.pad_rir",{sign:sign(dir)}),{attrs})).join("")}
@@ -7550,12 +7901,16 @@ function focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
     return `<div class="focus-shelf workshelf is-done" role="region" aria-label="${esc(title)}">`+
       `<div class="focus-done${rise}"><p class="focus-done__title">${esc(title)}</p><p class="focus-done__sub">${esc(sub)}</p></div>`+cta+`</div>`}
   const effortMode=isEffortMode();
-  const key=`${ex.id}_${n}`,ui=shelfFor(key);
+  const key=`${ex.id}_${n}`,metricDefinitions=focusMetricDefinitions(ex.id,n),ui=shelfFor(key,metricDefinitions[0]?"metric_"+metricDefinitions[0].id:"reps");
   const editing=!!(focusEdit&&focusEdit.exId===ex.id);
   const vals=setFieldVals(ex,n,r,draft,prev);
   const touched=shelfTouched(ex.id,n);
   const label=editing?t("log.save_set_aria",{n}):t("focus.shelf.log_set",{n});
-  const fields=["load","reps","rir"].map(id=>shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek})).join("");
+  const setId=activeWorkoutDraft?.exercises?.[ex.id]?.setOrder?.find(id=>activeWorkoutDraft.exercises[ex.id].sets[id].ordinal===n);
+  const set=activeWorkoutDraft?.exercises?.[ex.id]?.sets?.[setId];
+  const fields=metricDefinitions.length
+    ?metricDefinitions.map(metric=>shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek})).join("")+shelfFieldHtml(ex,n,"rir",vals,{ui,touched,effortMode,peek})
+    :["load","reps","rir"].map(id=>shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek})).join("");
   return `<div class="focus-shelf workshelf${editing?" is-editing":""}" role="region" aria-label="${esc(label)}">`+
     `<div class="shelf__fields">${fields}</div>`+
     focusPadsHtml(ex,n,ui,vals,{effortMode,peek,editing})+
@@ -7576,7 +7931,9 @@ function refreshShelf({focus=null}={}){
   // T1: where the selection outline is drawn now — or, if one is still in
   // flight, where it is on screen — so the next travel starts from there.
   const prevSel=old.querySelector(".shelf__field.is-sel"),liveRing=old.querySelector(".shelf__ring");
-  const prevField=prevSel?.dataset.field,prevSet=prevSel?.dataset.set;
+  // Metric fields share data-field="metric"; the metric id tells two of them apart.
+  const fieldIdentity=el=>el?`${el.dataset.field}:${el.dataset.metric||""}`:undefined;
+  const prevField=fieldIdentity(prevSel),prevSet=prevSel?.dataset.set;
   const fromRect=(liveRing||prevSel)?.getBoundingClientRect();
   const heldFocus=!focus&&old.contains(document.activeElement)?workoutFocusKey(document.activeElement):null;
   old.outerHTML=focusShelfHtml(ex,recommendation(ex),draft,last(ex),{allDone,hasNext:at<fl.length-1});
@@ -7588,7 +7945,7 @@ function refreshShelf({focus=null}={}){
   {const padsNow=card.querySelector(".focus-shelf .shelf__pads");
     if(padsFrom&&padsNow&&padsNow.dataset.pads!==padsFrom.mode)crossfadeIn(padsNow,padsFrom.html,padsFrom.cls)}
   const nowSel=card.querySelector(".focus-shelf .shelf__field.is-sel");
-  if(fromRect&&nowSel&&nowSel.dataset.set===prevSet&&(liveRing||nowSel.dataset.field!==prevField))
+  if(fromRect&&nowSel&&nowSel.dataset.set===prevSet&&(liveRing||fieldIdentity(nowSel)!==prevField))
     travelOutline(nowSel,fromRect,"shelf");
   syncFocusFloor();
   // The first-set cue points at the shelf's action; the rebuilt action is the same control.
@@ -7664,20 +8021,25 @@ function liveEffortField(setKey){return $w("[data-effspin]").find(el=>el.dataset
 /** Keep the shelf and the open ledger row reading what a field now holds. */
 function syncShelfField(input,padDir=0){
   const field=input.closest(".shelf__field");if(!field)return;
-  const id=field.dataset.field;
+  // A metric field writes the ledger column its metric fills (load or reps).
+  const metricId=field.dataset.metric,metric=metricId?focusMetricDefinitions(...setKeyParts(field.dataset.set)).find(item=>item.id===metricId):null;
+  const id=metric?(METRIC_FIELD_SEMANTICS.reps.includes(metric.semantic)?"reps":METRIC_FIELD_SEMANTICS.load.includes(metric.semantic)?"load":null):field.dataset.field;
   const text=id==="reps"?String(input.value||""):shelfText(input.value);
   const val=field.querySelector(".shelf__val");
   if(val){const moved=val.textContent!==(text||"—");val.textContent=text||"—";if(moved)shelfValueMove(val,padDir)}
   field.classList.remove("is-untouched");
-  const cell=input.closest(".exercise")?.querySelector(`.ledgerline--open [data-lv="${id}"]`);
+  const cell=id?input.closest(".exercise")?.querySelector(`.ledgerline--open [data-lv="${id}"]`):null;
   if(cell){cell.textContent=text||"—";cell.classList.remove("is-soft")}}
+function setKeyParts(key){const text=String(key||""),at=text.lastIndexOf("_");return[text.slice(0,at),+text.slice(at+1)]}
 
 /** A field the draft flags must be seen, not just focused: bring its input into the shelf. */
 function shelfReveal(input){
   if(!input?.matches?.(".shelf__input"))return input;
   const field=input.closest(".shelf__field");
   if(!field||field.classList.contains("is-editing"))return input;
-  shelfSelect(field.dataset.set,field.dataset.field,true);
+  // A metric field is selected by its metric-specific id, not its generic kind.
+  const id=field.dataset.metric?`metric_${field.dataset.metric}`:field.dataset.field;
+  shelfSelect(field.dataset.set,id,true);
   if(!refreshShelf())return input;
   return $(`#workout .shelf__input[data-k="${CSS.escape(input.dataset.k)}"]`)||input}
 
@@ -7894,6 +8256,14 @@ function applyDraftIssue(issues){
   let el=field==="date"?$("#sessionDate"):field==="bodyweight"?$("#sessionBodyweight"):null;
   if(el)openSessionSheet();
   let loadErrorKey="validation.load";
+  // A metric issue names the metric: its input carries the metric id, and the
+  // message follows what the metric measures.
+  if(issue.code==="invalid-metric"&&issue.exerciseInstanceId&&issue.setId){
+    const set=activeWorkoutDraft?.exercises?.[issue.exerciseInstanceId]?.sets?.[issue.setId];
+    const input=set?$(`#workout [data-k="${issue.exerciseInstanceId}_${set.ordinal}_metric_${issue.field}"]`):null;
+    const metricKey=METRIC_FIELD_SEMANTICS.reps.includes(issue.metric)?"validation.reps":
+      METRIC_FIELD_SEMANTICS.load.includes(issue.metric)?"validation.load_metric":"validation.metric";
+    return applyFieldError({ok:false,error:{key:metricKey},el:input})}
   if(!el&&issue.exerciseInstanceId&&issue.setId){const exercise=activeWorkoutDraft?.exercises?.[issue.exerciseInstanceId],
       set=exercise?.sets?.[issue.setId],key=set?`${issue.exerciseInstanceId}_${set.ordinal}_${field}`:null;
     if(key)el=$(`#workout [data-k="${key}"]`)||$(`#workout [data-effspin="${issue.exerciseInstanceId}_${set.ordinal}"]`)}
@@ -7917,8 +8287,13 @@ function bindWorkout(){
     // those rebuilds, and the acknowledgement is applied to the control that is on screen then, not to this node.
     const key=i.dataset.k,token=holdPendingField(key,i.value);
     let result;
-    try{result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
-      setId:target.setId,field:target.field,value:canonicalDraftField(target.field,i.value)},{pendingValue:i.value})}
+    try{
+      if(target.metricId){
+        const metric=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].programmed.metrics.find(item=>item.id===target.metricId);
+        result=await WorkoutSession.dispatch("editMetricValue",{exerciseInstanceId:target.exerciseInstanceId,
+          setId:target.setId,metricId:target.metricId,value:canonicalMetricInput(metric,i.value)},{pendingValue:i.value})
+      }else result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
+        setId:target.setId,field:target.field,value:canonicalDraftField(target.field,i.value)},{pendingValue:i.value})}
     finally{releasePendingField(key,token)}
     if(result.status!=="applied")return;
     const live=liveShelfInput(key);
@@ -7958,7 +8333,13 @@ function bindWorkout(){
   $w(".stepbtn").forEach(b=>b.onclick=async()=>{if(!b.dataset.step)return;
     const inp=$(`[data-k="${b.dataset.step}"]`);if(!inp)return;
     const key=b.dataset.step||"",dir=+b.dataset.dir||0;
-    if(/_reps$|_rir$/.test(key)){
+    const target=draftTargetFromKey(key);
+    if(target?.metricId){
+      const metric=activeWorkoutDraft?.exercises?.[target.exerciseInstanceId]?.sets?.[target.setId]?.programmed?.metrics?.find(item=>item.id===target.metricId);
+      const cur=parseDec(inp.value)||0,load=["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric?.semantic);
+      const step=load?(parseDec(shelfLoadStep())||1):1;
+      inp.value=fmtPlain(Math.max(0,Math.round((cur+step*dir)*10)/10));
+    }else if(/_reps$|_rir$/.test(key)){
       const cur=parseDec(inp.value)||0;inp.value=fmtPlain(Math.max(0,cur+dir));
     }else{
       const incKg=parseDec(state.settings.minJump)||2.5,curKg=fromDisplay(inp.value||0),
@@ -8024,8 +8405,10 @@ function bindWorkout(){
     $w("[data-editn]").forEach(b=>b.onclick=async()=>{
       const exId=b.dataset.editex,n=+b.dataset.editn,key=`${exId}_${n}`,d=loadDraft(),target=draftTargetFromKey(key);
       if(!activeWorkoutDraft||!target)return;
+      const editedSet=activeWorkoutDraft.exercises[exId].sets[target.setId];
       focusEdit={exId,n,snap:{load:d[`${key}_load`],reps:d[`${key}_reps`],rir:d[`${key}_rir`],effort:d[`${key}_effort`],
-        completedAt:activeWorkoutDraft.exercises[exId].sets[target.setId].completion?.completedAt}};
+        metrics:draftSetMetrics(editedSet).length?cloneSnapshot(editedSet.edited?.metrics||{}):null,
+        completedAt:editedSet.completion?.completedAt}};
       const result=await WorkoutSession.dispatch("uncommitSet",{exerciseInstanceId:exId,setId:target.setId});
       if(result.status!=="applied"){focusEdit=null;return}
       renderWorkout();
@@ -8034,7 +8417,16 @@ function bindWorkout(){
       if(!focusEdit)return;
       const{exId,n,snap}=focusEdit,key=`${exId}_${n}`,target=draftTargetFromKey(key);
       if(!activeWorkoutDraft||!target)return;
-      for(const field of["load","reps","rir","effort"]){
+      // A metric-backed set restores each metric it held; only effort lives
+      // outside the metric composition.
+      const metricBacked=!!snap.metrics;
+      if(metricBacked){
+        const current=activeWorkoutDraft.exercises[exId].sets[target.setId].edited?.metrics||{};
+        for(const [metricId,value] of Object.entries(snap.metrics)){
+          if(current[metricId]===value)continue;
+          const result=await WorkoutSession.dispatch("editMetricValue",{exerciseInstanceId:exId,setId:target.setId,metricId,value});
+          if(result.status!=="applied")return}}
+      for(const field of metricBacked?["rir","effort"]:["load","reps","rir","effort"]){
         if(snap[field]==null)continue;const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:exId,
           setId:target.setId,field,value:snap[field]});if(result.status!=="applied")return}
       const restored=await WorkoutSession.dispatch("completeSet",{exerciseInstanceId:exId,setId:target.setId,completedAt:snap.completedAt||new Date().toISOString()});
@@ -8200,7 +8592,8 @@ function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
   const entered=activeWorkoutDraft?activeWorkoutDraft.exerciseOrder.reduce((count,exId)=>{
     const exercise=activeWorkoutDraft.exercises[exId];return count+exercise.setOrder.filter(setId=>{
       const set=exercise.sets[setId],value=set.edited.load;
-      return set.touched.load&&typeof value==="string"&&value.trim()!==""}).length},0):
+      return set.touched.load&&typeof value==="string"&&value.trim()!==""||
+        Object.entries(set.touched.metrics||{}).some(([id,touched])=>touched&&String(set.edited.metrics?.[id]??"").trim()!=="")}).length},0):
     0;
   $("#saveMeta").textContent=done?t("log.save_meta.done",{day:dayLabel(day),done,planned}):(entered?t("log.save_meta.entered",{day:dayLabel(day),entered,planned}):t("log.save_meta.planned",{day:dayLabel(day),planned}));}
 
@@ -8800,6 +9193,7 @@ window.__repforgeCommitProposedState=proposal=>commitProposedState(proposal,stor
 window.__repforgeInstallTransferImport=(envelope,options)=>importInstallTransfer(envelope,options);
 window.__repforgePersistSetupDraft=next=>persistSetupDraft(next);
 window.__repforgeEntryState=()=>cloneSnapshot(entryState);
+window.__repforgeEntryPersistenceDiagnostic=()=>cloneSnapshot(entryPersistenceDiagnostic);
 window.__repforgeActivateEntryPreview=opts=>activateEntryPreview(opts);
 window.__repforgeCreateOnboardingProgramEditorAdapter=()=>createOnboardingProgramEditorAdapter();
 window.__repforgeStageGuidedManualRepair=(params,io)=>repforgeProgramTransitionAdapter.stageGuidedManualRepair(params,io);
@@ -8907,300 +9301,59 @@ function classifyCommittedTransition(snapshot, proposal, archiveId) {
 
   return "conflict";
 }
-function classifyCommittedRecovery(snapshot, proposal){
-  const target=proposal?.diff?.recoveryWeek?.blockId;
-  const transitionId=proposal?.transitionId,proposalHash=proposal?.proposalHash;
-  if(typeof target!=="string"||!target||typeof transitionId!=="string"||!transitionId||
-    typeof proposalHash!=="string"||!proposalHash)return "conflict";
-  const records=recoveryCarrierRecords(snapshot);
-  const matches=records.filter(record=>record.transitionId===transitionId&&
-    record.proposalHash===proposalHash&&record.diff?.recoveryWeek?.blockId===target);
-  if(snapshot?.programMeta?.blockId===target&&matches.length===1)return "match";
-  if(snapshot?.programMeta?.blockId===proposal?.predecessor?.blockId&&
-    !records.some(record=>record.transitionId===transitionId||record.diff?.recoveryWeek?.blockId===target))return "absent";
-  return records.some(record=>record.diff?.recoveryWeek?.blockId===target||record.transitionId===transitionId)
-    ? "conflict" : "absent";
-}
-async function confirmRecoveryTransition(params,Transition,Compiler,catalogue){
-  const invalid=(code,extra={})=>({ok:false,committed:false,invalid:true,code,...extra,
-    localOk:false,idbOk:false,revision:readRevision(state)});
-  const proposal=params?.proposal;
-  if(!isPlainStateObject(proposal)||proposal.kind!=="recovery_week")return invalid("unsupported_transition_kind");
-  if(proposal.status!=="preview")return invalid("proposal_not_preview");
-  if(typeof proposal.proposalHash!=="string"||!proposal.proposalHash)return invalid("proposal_hash_absent");
-  if(params.proposalHash!==proposal.proposalHash)return invalid("proposal_hash_mismatch");
-  if(params.transitionId!==proposal.transitionId)return invalid("transition_id_mismatch");
-  if(typeof params.confirmedAt!=="string"||!params.confirmedAt)return invalid("confirmed_at_missing");
-  if(typeof params.reassessmentDueAt!=="string"||!params.reassessmentDueAt)return invalid("reassessment_due_missing");
-  if(!Object.prototype.hasOwnProperty.call(params,"acknowledgedDraftRaw")||
-    !(params.acknowledgedDraftRaw===null||typeof params.acknowledgedDraftRaw==="string"))return invalid("acknowledged_draft_missing");
-  const predecessor=proposal.predecessor,target=proposal.diff?.recoveryWeek?.blockId;
-  if(!isPlainStateObject(predecessor)||!isValidBlockId(predecessor.blockId,predecessor.programId))return invalid("legacy_block_ineligible");
-  if(typeof target!=="string"||!target||target===predecessor.blockId)return invalid("recovery_target_equals_source");
-  const preIdem=classifyCommittedRecovery(state,proposal);
-  if(preIdem==="match")return{ok:true,committed:true,alreadyCommitted:true,revision:readRevision(state),localOk:true,idbOk:true,kind:"committed"};
-  if(preIdem==="conflict")return invalid("conflicting_recovery_record");
-  if(params.acknowledgedDraftRaw!==readDraftRaw())return invalid("draft_mismatch",{draftConflict:true,conflict:true});
-  const guard=blockStartDraftGuard();
-  if(guard)return invalid(guard.code,{draftConflict:true,conflict:true});
-  const expectedSourceBlock=predecessor.blockId;
-  const initialInstance=recoveryCompilerInstance(state,Compiler,catalogue);
-  const initialRoute=state?.programMeta?.entrySource?.route;
-  if(!initialInstance||!initialRoute||!TRANSITION_SOURCE_ROUTES.includes(initialRoute)||
-    proposal.predecessor.source!==transitionContractSource(initialRoute))return invalid("transition_source_changed",{stale:true});
-  const initialValidation=await Transition.validateRecoveryProposal(proposal,{
-    predecessor:{programId:state.programMeta.id,durableRevision:predecessor.durableRevision,source:predecessor.source,blockId:expectedSourceBlock},
-    predecessorInstance:initialInstance,
-    approvedPolicy:Transition.approvedRecoveryPolicy(),
-    supportedVersions:Compiler.VERSIONS,
-    existingRecoveryRecords:recoveryCarrierRecords(state),
-  });
-  if(!initialValidation.ok)return invalid(initialValidation.code||"invalid_recovery_proposal",{
-    stale:initialValidation.status==="stale",invalid:initialValidation.status!=="stale"});
-  let initialCommitted;
-  try{initialCommitted=Transition.commitRecord(initialValidation.proposal,{confirmedAt:params.confirmedAt,reassessmentDueAt:params.reassessmentDueAt,archiveId:null})}
-  catch(error){return invalid("invalid_recovery_lifecycle",{error:String(error?.message||error)})}
-  const initialCarrier=isValidRecoveryTransitions(state.recoveryTransitions)
-    ?cloneSnapshot(state.recoveryTransitions):{schemaVersion:1,records:[],quarantine:[]};
-  const initialProposal=cloneSnapshot(state);
-  const blockStarted=params.confirmedAt.slice(0,10);
-  initialProposal.programMeta={...cloneSnapshot(state.programMeta),blockId:target,started:blockStarted,
-    mesocycleStatus:"active",updated:params.confirmedAt};
-  // Recovery starts a new overlay block. Its block-to-date aggregate must be
-  // rebuilt from the recovery prescription, never inherited from the source
-  // block's historical totals.
-  delete initialProposal.programMeta.plannedVolumeHistory;
-  initialProposal.recoveryTransitions={schemaVersion:1,records:[...initialCarrier.records,cloneSnapshot(initialCommitted)],quarantine:cloneSnapshot(initialCarrier.quarantine)};
-  const preflight=async({head})=>{
-    const lockedIdem=classifyCommittedRecovery(head,proposal);
-    if(lockedIdem==="match")return{reject:true,result:{ok:true,committed:true,alreadyCommitted:true,revision:readRevision(head),localOk:true,idbOk:true,kind:"committed"}};
-    if(lockedIdem==="conflict")return{reject:true,result:invalid("conflicting_recovery_record")};
-    if(head?.programMeta?.id!==predecessor.programId||readRevision(head)!==predecessor.durableRevision||
-      snapshotBlockId(head)!==expectedSourceBlock)
-      return{reject:true,result:{ok:false,committed:false,stale:true,staleRevision:readRevision(head)!==predecessor.durableRevision,
-        code:readRevision(head)!==predecessor.durableRevision?"stale_proposal":"predecessor_changed",localOk:false,idbOk:false}};
-    const lockedGuard=blockStartDraftGuard(head);
-    if(lockedGuard)return{reject:true,result:{ok:false,committed:false,draftConflict:true,conflict:true,code:lockedGuard.code,localOk:false,idbOk:false}};
-    const instance=recoveryCompilerInstance(head,Compiler,catalogue);
-    if(!instance)return{reject:true,result:{ok:false,committed:false,invalid:true,code:"predecessor_reconstruction_failed",localOk:false,idbOk:false}};
-    const route=head.programMeta?.entrySource?.route;
-    if(!route||!TRANSITION_SOURCE_ROUTES.includes(route)||proposal.predecessor.source!==transitionContractSource(route))
-      return{reject:true,result:{ok:false,committed:false,stale:true,code:"transition_source_changed",localOk:false,idbOk:false}};
-    const validation=await Transition.validateRecoveryProposal(proposal,{
-      predecessor:{programId:head.programMeta.id,durableRevision:predecessor.durableRevision,source:predecessor.source,blockId:expectedSourceBlock},
-      predecessorInstance:instance,
-      approvedPolicy:Transition.approvedRecoveryPolicy(),
-      supportedVersions:Compiler.VERSIONS,
-      existingRecoveryRecords:recoveryCarrierRecords(head),
-    });
-    if(!validation.ok)return{reject:true,result:{ok:false,committed:false,stale:validation.status==="stale",invalid:validation.status!=="stale",code:validation.code||"invalid_recovery_proposal",localOk:false,idbOk:false}};
-    let committed;
-    try{committed=Transition.commitRecord(validation.proposal,{confirmedAt:params.confirmedAt,reassessmentDueAt:params.reassessmentDueAt,archiveId:null})}
-    catch(error){return{reject:true,result:{ok:false,committed:false,invalid:true,code:"invalid_recovery_lifecycle",error:String(error?.message||error),localOk:false,idbOk:false}}}
-    const existing=isValidRecoveryTransitions(head.recoveryTransitions)
-      ?cloneSnapshot(head.recoveryTransitions):{schemaVersion:1,records:[],quarantine:[]};
-    const next=cloneSnapshot(head);
-    next.programMeta={...cloneSnapshot(head.programMeta),blockId:target,started:blockStarted,
-      mesocycleStatus:"active",updated:params.confirmedAt};
-    delete next.programMeta.plannedVolumeHistory;
-    next.recoveryTransitions={schemaVersion:1,records:[...existing.records,cloneSnapshot(committed)],quarantine:cloneSnapshot(existing.quarantine)};
-    return{proposal:next};
-  };
-  const result=await commitProposedState(initialProposal,storageIO,{
-    expectedProgramId:predecessor.programId,
-    expectedProgramFingerprint:draftProgramFingerprint(state),
-    expectedBlockId:expectedSourceBlock,
-    expectedStorageRevision:predecessor.durableRevision,
-    recoveryTransaction:true,
-    preflight,
-  });
-  if(result.localOk||result.idbOk){await refreshRecoveryProjectionCache(state);return{ok:true,committed:true,...result};}
-  return{ok:false,committed:false,...result};
-}
+function transitionDomain(){
+  return typeof RepForgeProgramTransition!=="undefined"?RepForgeProgramTransition
+    :(typeof window!=="undefined"?window.RepForgeProgramTransition:null)}
+function transitionPredecessor(snapshot){
+  const meta=snapshot?.programMeta;
+  if(!meta?.id||!meta.programDefinition)return null;
+  return{programId:meta.id,durableRevision:readRevision(snapshot),
+    programDefinition:cloneSnapshot(meta.programDefinition),
+    customExerciseDefinitions:compilerCustomDefinitions(snapshot.customExercises)}}
+/* Sets a volume reduction removes from the current cycle, by slot. A draft
+   that already holds progress in one of those sets blocks the confirmation. */
+function reducedSetCounts(proposal,snapshot){
+  const cycle=mesocycleLifecycle(snapshot?.programMeta).current||1;
+  const counts=definition=>new Map((definition?.days||[]).flatMap(day=>day.slots).map(slot=>
+    [slot.id,slot.prescriptionsByCycle.find(item=>item.cycleIndex===cycle)?.sets.length??0]));
+  const before=counts(snapshot?.programMeta?.programDefinition),after=counts(proposal?.successor?.programDefinition);
+  return[...before].filter(([slotId,sets])=>(after.get(slotId)??0)<sets)
+    .map(([slotId,sets])=>({slotId,beforeSets:sets,afterSets:after.get(slotId)??0}))}
 const repforgeProgramTransitionAdapter = {
-  async proposeSibling(input = {}) {
-    const Transition = typeof RepForgeProgramTransition !== "undefined"
-      ? RepForgeProgramTransition
-      : (typeof window !== "undefined" ? window.RepForgeProgramTransition : null);
-    if (!Transition) {
-      return { ok: false, status: "unavailable", code: "transition_domain_unavailable", unavailable: true };
-    }
-    const Compiler = typeof ProgramCompiler !== "undefined"
-      ? ProgramCompiler
-      : (typeof window !== "undefined" ? window.ProgramCompiler : null);
-    const catalogue = typeof EXERCISE_LIBRARY !== "undefined"
-      ? EXERCISE_LIBRARY
-      : (typeof window !== "undefined" ? (window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY) : null);
-
-    const liveMeta = state?.programMeta;
-    if (!liveMeta?.compilerContext) {
-      return { ok: false, status: "unavailable", code: "compiler_context_unavailable", unavailable: true };
-    }
-    // Durable source is required, never invented. A normalized entrySource always
-    // carries both a route and a fingerprint; anything outside the reconstructable
-    // set is typed Unavailable rather than defaulted to Recommend.
-    const entrySource = liveMeta.entrySource;
-    if (!entrySource || !TRANSITION_SOURCE_ROUTES.includes(entrySource.route) ||
-        typeof entrySource.fingerprint !== "string" || !entrySource.fingerprint) {
-      return { ok: false, status: "unavailable", code: "transition_source_unavailable", unavailable: true };
-    }
-    const predContext = liveMeta.compilerContext;
-    const source = transitionContractSource(entrySource.route);
-
-    const diagnosis = input.diagnosis;
-    const kind = (diagnosis?.kind === "sessions_too_long")
-      ? "shorter_session_sibling"
-      : "lower_frequency_sibling";
-
-    const targetConstraint = input.targetConstraint !== undefined
-      ? input.targetConstraint
-      : (kind === "lower_frequency_sibling" ? { frequency: diagnosis?.answers?.availableDays } : null);
-
-    const fullInput = {
-      kind,
-      targetConstraint,
-      diagnosis,
-      transitionId: input.transitionId,
-      successorProgramId: input.successorProgramId,
-      createdAt: input.createdAt || new Date().toISOString(),
-      catalogue,
-      Compiler,
-      compilerContext: predContext,
-      predecessor: {
-        programId: liveMeta.id,
-        durableRevision: readRevision(state),
-        source,
-        compilerProvenance: liveMeta.programStructure?.provenance,
-      },
-    };
-
-    return await Transition.proposeSibling(fullInput);
-  },
-
-  async proposeRecoveryWeek(input = {}) {
-    const Transition = typeof RepForgeProgramTransition !== "undefined"
-      ? RepForgeProgramTransition
-      : (typeof window !== "undefined" ? window.RepForgeProgramTransition : null);
-    if (!Transition || typeof Transition.proposeRecoveryWeek !== "function" ||
-        typeof Transition.approvedRecoveryPolicy !== "function") {
-      return { ok: false, status: "unavailable", code: "recovery_proposal_seam_missing", unavailable: true };
-    }
-    const Compiler = typeof ProgramCompiler !== "undefined"
-      ? ProgramCompiler
-      : (typeof window !== "undefined" ? window.ProgramCompiler : null);
-    const catalogue = typeof EXERCISE_LIBRARY !== "undefined"
-      ? EXERCISE_LIBRARY
-      : (typeof window !== "undefined" ? (window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY) : null);
-    const liveMeta = state?.programMeta;
-    const sourceBlockId = snapshotBlockId(state);
-    if (!isValidBlockId(sourceBlockId, liveMeta?.id)) {
-      return { ok: false, status: "unavailable", code: "legacy_block_ineligible", unavailable: true };
-    }
-    const compilerProvenance = classifyCompilerTransitionProvenance(liveMeta);
-    if (compilerProvenance !== "present") {
-      return { ok: false, status: "unavailable", code: compilerProvenance === "invalid"
-        ? "compiler_provenance_unavailable" : "compiler_provenance_absent", unavailable: true };
-    }
-    const entrySource = liveMeta.entrySource;
-    if (!entrySource || !TRANSITION_SOURCE_ROUTES.includes(entrySource.route) ||
-        typeof entrySource.fingerprint !== "string" || !entrySource.fingerprint) {
-      return { ok: false, status: "unavailable", code: "transition_source_unavailable", unavailable: true };
-    }
-    const predecessorInstance = recoveryCompilerInstance(state, Compiler, catalogue);
-    if (!predecessorInstance) {
-      return { ok: false, status: "unavailable", code: "predecessor_reconstruction_failed", unavailable: true };
-    }
-    const evidence = isPlainStateObject(input.evidence) ? {
-      ...cloneSnapshot(input.evidence),
-      sourceBlockId,
-    } : { sourceBlockId };
-    return await Transition.proposeRecoveryWeek({
-      predecessorInstance,
-      predecessor: {
-        programId: liveMeta.id,
-        durableRevision: readRevision(state),
-        source: transitionContractSource(entrySource.route),
-        blockId: sourceBlockId,
-        compilerProvenance: liveMeta.programStructure?.provenance,
-      },
-      evidence,
-      approvedPolicy: input.approvedPolicy || Transition.approvedRecoveryPolicy(),
-      transitionId: input.transitionId || uid(),
-      blockId: allocateBlockId(),
-      createdAt: input.createdAt || new Date().toISOString(),
-      supportedVersions: Compiler.VERSIONS,
-      existingRecoveryRecords: recoveryCarrierRecords(state),
+  // Every Review change is a derived successor ProgramDefinition, previewed and
+  // confirmed by its proposal hash. The domain refuses a Build program's
+  // regeneration with "manual_program"; the flow then stages guided editing.
+  async proposeChange(input = {}) {
+    const Transition = transitionDomain();
+    if (!Transition?.deriveSuccessor) return { ok: false, status: "unavailable", code: "transition_domain_unavailable", unavailable: true };
+    const catalogSnapshot = rawExerciseCatalog;
+    if (!catalogSnapshot) return { ok: false, status: "unavailable", code: "catalog_unavailable", unavailable: true };
+    const predecessor = transitionPredecessor(state);
+    if (!predecessor) return { ok: false, status: "unavailable", code: "program_definition_unavailable", unavailable: true };
+    const derived = Transition.deriveSuccessor({
+      change: input.change, programDefinition: predecessor.programDefinition,
+      customExerciseDefinitions: predecessor.customExerciseDefinitions, catalogSnapshot,
     });
-  },
-
-  async proposeVolumeReduction(input = {}) {
-    const Transition = typeof RepForgeProgramTransition !== "undefined"
-      ? RepForgeProgramTransition
-      : (typeof window !== "undefined" ? window.RepForgeProgramTransition : null);
-    if (!Transition) {
-      return { ok: false, status: "unavailable", code: "transition_domain_unavailable", unavailable: true };
-    }
-    const Compiler = typeof ProgramCompiler !== "undefined"
-      ? ProgramCompiler
-      : (typeof window !== "undefined" ? window.ProgramCompiler : null);
-    const catalogue = typeof EXERCISE_LIBRARY !== "undefined"
-      ? EXERCISE_LIBRARY
-      : (typeof window !== "undefined" ? (window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY) : null);
-
-    const liveMeta = state?.programMeta;
-    const compilerProvenance = classifyCompilerTransitionProvenance(liveMeta);
-    if (compilerProvenance !== "present") {
-      return { ok: false, status: "unavailable", code: compilerProvenance === "invalid"
-        ? "compiler_provenance_unavailable" : "compiler_provenance_absent", unavailable: true };
-    }
-    if (!liveMeta?.compilerContext) {
-      return { ok: false, status: "unavailable", code: "compiler_context_unavailable", unavailable: true };
-    }
-    const entrySource = liveMeta.entrySource;
-    if (!entrySource || !TRANSITION_SOURCE_ROUTES.includes(entrySource.route) ||
-        typeof entrySource.fingerprint !== "string" || !entrySource.fingerprint) {
-      return { ok: false, status: "unavailable", code: "transition_source_unavailable", unavailable: true };
-    }
-    const predecessorInstance = Compiler.compile(liveMeta.compilerContext, catalogue);
-    if (!predecessorInstance || predecessorInstance.kind !== "compiled") {
-      return { ok: false, status: "unavailable", code: "predecessor_reconstruction_failed", unavailable: true };
-    }
-    if (!compilerProgramMatchesLive(state.program, predecessorInstance.program, state.customExercises)) {
-      return { ok: false, status: "unavailable", code: "live_program_mismatch", unavailable: true };
-    }
-    const diagnosis = input.diagnosis;
-    return await Transition.proposeVolumeReduction({
-      predecessorInstance,
-      predecessor: {
-        programId: liveMeta.id,
-        durableRevision: readRevision(state),
-        source: transitionContractSource(entrySource.route),
-      },
-      transitionId: input.transitionId,
-      successorProgramId: input.successorProgramId,
+    if (!derived.ok) return { ...derived, unavailable: derived.status === "unavailable" };
+    return Transition.createReplacementProposal({
+      transitionId: input.transitionId || uid(),
       createdAt: input.createdAt || new Date().toISOString(),
-      diagnosis,
-      policyVersion: input.policyVersion === undefined
-        ? Transition.VOLUME_REDUCTION_POLICY_VERSION
-        : input.policyVersion,
-      supportedVersions: Compiler.VERSIONS,
+      predecessor,
+      successor: {
+        programId: input.successorProgramId || uid(),
+        programDefinition: derived.value.programDefinition,
+        customExerciseDefinitions: derived.value.customExerciseDefinitions,
+      },
+      change: derived.value.change,
+      catalogSnapshot,
     });
   },
 
   async confirmTransition(params = {}) {
-    const Transition = typeof RepForgeProgramTransition !== "undefined"
-      ? RepForgeProgramTransition
-      : (typeof window !== "undefined" ? window.RepForgeProgramTransition : null);
+    const Transition = transitionDomain();
     if (!Transition) {
       return { ok: false, status: "unavailable", code: "transition_domain_unavailable", committed: false, localOk: false, idbOk: false };
     }
-    const Compiler = typeof ProgramCompiler !== "undefined"
-      ? ProgramCompiler
-      : (typeof window !== "undefined" ? window.ProgramCompiler : null);
-    const catalogue = typeof EXERCISE_LIBRARY !== "undefined"
-      ? EXERCISE_LIBRARY
-      : (typeof window !== "undefined" ? (window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY) : null);
-
     const { proposal, proposalHash, transitionId, successorProgramId, confirmedAt } = params;
     const hasAck = Object.prototype.hasOwnProperty.call(params, "acknowledgedDraftRaw");
     const acknowledgedDraftRaw = params.acknowledgedDraftRaw;
@@ -9208,17 +9361,11 @@ const repforgeProgramTransitionAdapter = {
       ok: false, committed: false, invalid: true, code,
       localOk: false, idbOk: false, revision: readRevision(state),
     });
-
-    if (proposal?.kind === "recovery_week") {
-      return confirmRecoveryTransition(params,Transition,Compiler,catalogue);
-    }
-
-    // ---------------------------------------------------------------------
     // The proposal is the authority. Every supplied identity must equal the
-    // proposal field byte-for-byte before idempotency or any transaction, and
-    // there is no public archiveId input — its identity is the predecessor.
-    // ---------------------------------------------------------------------
+    // proposal field before idempotency or any transaction; its archive
+    // identity is the predecessor program id.
     if (!isPlainStateObject(proposal)) return invalid("proposal_missing");
+    if (proposal.kind !== Transition.KIND) return invalid("unsupported_transition_kind");
     if (proposal.status !== "preview") return invalid("proposal_not_preview");
     if (typeof proposal.proposalHash !== "string" || !proposal.proposalHash) return invalid("proposal_hash_absent");
     if (typeof proposalHash !== "string" || proposalHash !== proposal.proposalHash) return invalid("proposal_hash_mismatch");
@@ -9229,56 +9376,39 @@ const repforgeProgramTransitionAdapter = {
     const predecessorProgramId = proposal?.predecessor?.programId;
     if (typeof predecessorProgramId !== "string" || !predecessorProgramId) return invalid("predecessor_id_absent");
     if (!Number.isInteger(proposal?.predecessor?.durableRevision)) return invalid("predecessor_revision_absent");
-
-    // Archive identity is deterministic: the predecessor program id.
     const archiveId = predecessorProgramId;
 
-    // ---- Exact, read-only idempotency — only after the full pin contract ----
     const preIdem = classifyCommittedTransition(state, proposal, archiveId);
     if (preIdem === "match") {
       return { ok: true, committed: true, alreadyCommitted: true, revision: readRevision(state), localOk: true, idbOk: true, kind: "committed" };
     }
     if (preIdem === "conflict") return invalid("conflicting_transition_record");
-
-    // Fast typed draft-acknowledgement result; the preservation effect re-guards
-    // this atomically under the lock.
-    const currentDraftRaw = readDraftRaw();
-    if (acknowledgedDraftRaw !== currentDraftRaw) {
+    if (acknowledgedDraftRaw !== readDraftRaw()) {
       return { ok: false, committed: false, draftConflict: true, conflict: true, code: "draft_mismatch", localOk: false, idbOk: false, revision: readRevision(state) };
     }
-
-    // Permanent volume reduction cannot strand completed or edited sets in
-    // slots the proposal removes or reduces. Keep the existing DraftV2 guard
-    // at the production confirmation boundary, before the replacement journal
-    // is armed, so an unsafe proposal has zero durable side effects.
-    if (proposal.kind === "reduce_training_volume") {
+    // Permanent volume reduction cannot strand completed or edited sets the
+    // successor removes. Check before the replacement journal is armed, so an
+    // unsafe proposal has zero durable side effects.
+    if (proposal.change?.kind === "reduce_volume") {
       let draft = {};
       try {
         const parsed = JSON.parse(acknowledgedDraftRaw || "{}");
         if (isPlainStateObject(parsed)) draft = parsed;
       } catch {}
-      const currentBySlot = new Map((state.program || []).map((row) => [row.slotId || row.id, row]));
-      const blocked = (proposal.diff?.exercises || []).some((change) => {
-        const current = currentBySlot.get(change.predecessorSlot);
-        if (!current) return false;
-        const beforeSets = Number(change.before?.sets ?? current.sets);
-        const afterSets = change.after === null ? 0 : Number(change.after?.sets ?? beforeSets);
-        return Number.isFinite(beforeSets) && Number.isFinite(afterSets) &&
-          draftHasProgressInRemovedSets(current.id || current.slotId, afterSets, beforeSets, draft);
-      });
-      if (blocked) {
+      const rows = new Map((state.program || []).map((row) => [row.slotId || row.id, row]));
+      if (reducedSetCounts(proposal, state).some(({ slotId, beforeSets, afterSets }) => {
+        const row = rows.get(slotId);
+        return row && draftHasProgressInRemovedSets(row.id || row.slotId, afterSets, beforeSets, draft);
+      })) {
         return { ok: false, committed: false, draftConflict: true, conflict: true,
           code: "draft_conflict", localOk: false, idbOk: false, revision: readRevision(state) };
       }
     }
 
-    // ---- Existing program-replacement capture/archive transaction owns it ----
     const capture = captureProgramReplacement(state);
     if (!capture || capture.oldProgramId !== predecessorProgramId) return invalid("predecessor_unavailable");
-    // The capture stands in for "the predecessor exactly as the proposal saw it".
-    // Pin its revision to the proposal's durableRevision so a real intervening
-    // durable commit fails the lock-held precondition and leaves the prepared
-    // archive non-durable.
+    // Pin the capture to the proposal's revision so an intervening durable
+    // commit fails the lock-held precondition and the archive stays non-durable.
     capture.storageRevision = proposal.predecessor.durableRevision;
     capture.archiveId = archiveId;
     capture.transitionOut = {
@@ -9287,12 +9417,10 @@ const repforgeProgramTransitionAdapter = {
       proposalHash: proposal.proposalHash,
       successorProgramId: proposal.successor.programId,
     };
-
     const effect = draftPreservationEffect(acknowledgedDraftRaw);
     const baseProposal = cloneSnapshot(state);
 
     const preflight = async ({ head, proposal: draftProposal }) => {
-      // Read-only idempotency re-check under the lock.
       const lockedIdem = classifyCommittedTransition(head, proposal, archiveId);
       if (lockedIdem === "match") {
         return { reject: true, result: { ok: true, committed: true, alreadyCommitted: true, revision: readRevision(head), localOk: true, idbOk: true, kind: "committed" } };
@@ -9300,372 +9428,88 @@ const repforgeProgramTransitionAdapter = {
       if (lockedIdem === "conflict") {
         return { reject: true, result: { invalid: true, code: "conflicting_transition_record", localOk: false, idbOk: false } };
       }
-      // Exact predecessor preconditions.
       if (head.programMeta?.id !== predecessorProgramId) {
         return { reject: true, result: { stale: true, code: "predecessor_changed", localOk: false, idbOk: false } };
       }
       if (readRevision(head) !== proposal.predecessor.durableRevision) {
         return { reject: true, result: { stale: true, staleRevision: true, code: "stale_proposal", localOk: false, idbOk: false } };
       }
-      const route = head.programMeta?.entrySource?.route;
-      if (!route || !TRANSITION_SOURCE_ROUTES.includes(route)) {
-        return { reject: true, result: { invalid: true, code: "transition_source_unavailable", localOk: false, idbOk: false } };
-      }
-      const compilerProvenance = classifyCompilerTransitionProvenance(head.programMeta);
-      if (compilerProvenance !== "present") {
-        return { reject: true, result: { invalid: true,
-          code: compilerProvenance === "invalid" ? "compiler_provenance_unavailable" : "compiler_provenance_absent",
-          localOk: false, idbOk: false } };
-      }
-      const predContext = head.programMeta?.compilerContext;
-      if (!predContext) {
-        return { reject: true, result: { invalid: true, code: "missing_compiler_context", localOk: false, idbOk: false } };
-      }
-      const predInstance = Compiler.compile(predContext, catalogue);
-      if (!predInstance || predInstance.kind !== "compiled") {
-        return { reject: true, result: { invalid: true, code: "predecessor_reconstruction_failed", localOk: false, idbOk: false } };
-      }
-      if (!compilerProgramMatchesLive(head.program, predInstance.program, head.customExercises)) {
-        return { reject: true, result: { invalid: true, code: "live_program_mismatch", localOk: false, idbOk: false } };
-      }
-
-      let succContext;
-      let succInstance;
-      if (proposal.kind === "lower_frequency_sibling") {
-        succContext = { ...cloneSnapshot(predContext), frequency: proposal.diagnosis?.answers?.availableDays };
-        delete succContext.splitId;
-      } else if (proposal.kind === "shorter_session_sibling") {
-        succContext = { ...cloneSnapshot(predContext), sessionMinutes: proposal.diagnosis?.answers?.sessionMinutes };
-      } else if (proposal.kind === "reduce_training_volume") {
-        const derived = await Transition.proposeVolumeReduction({
-          predecessorInstance: predInstance,
-          predecessor: {
-            programId: head.programMeta.id,
-            durableRevision: readRevision(head),
-            source: transitionContractSource(route),
-          },
-          transitionId: proposal.transitionId,
-          successorProgramId: proposal.successor?.programId,
-          createdAt: proposal.createdAt,
-          diagnosis: proposal.diagnosis,
-          policyVersion: proposal.derivation?.policyVersions?.volumeReduction,
-          supportedVersions: Compiler.VERSIONS,
-        });
-        if (!derived.ok) {
-          return { reject: true, result: { invalid: true, code: derived.code || "invalid_volume_proposal", localOk: false, idbOk: false } };
-        }
-        succInstance = derived.successorInstance;
-        succContext = cloneSnapshot(predContext);
-      } else {
-        return { reject: true, result: { invalid: true, code: "unsupported_transition_kind", localOk: false, idbOk: false } };
-      }
-
-      if (!succInstance) {
-        const checkedSuccContext = Compiler.validateContext(succContext);
-        if (!checkedSuccContext.ok) {
-          return { reject: true, result: { invalid: true, code: "invalid_successor_context", localOk: false, idbOk: false } };
-        }
-        succInstance = Compiler.compile(succContext, catalogue);
-      }
-      if (!succInstance || succInstance.kind !== "compiled") {
-        return { reject: true, result: { invalid: true, code: "successor_compilation_failed", localOk: false, idbOk: false } };
-      }
-
-      // Semantic validation runs here, lock-held. No archive is pushed in preflight.
-      const validation = await Transition.validateProposal(proposal, {
-        predecessor: {
-          programId: head.programMeta.id,
-          durableRevision: readRevision(head),
-          source: transitionContractSource(route),
-        },
-        predecessorInstance: predInstance,
-        successorInstance: succInstance,
-        predecessorCompilerContext: predContext,
-        successorCompilerContext: succContext,
-      });
+      const current = transitionPredecessor(head);
+      if (!current) return { reject: true, result: { invalid: true, code: "program_definition_unavailable", localOk: false, idbOk: false } };
+      // Semantic validation runs lock-held: hash, predecessor fingerprint, and
+      // that the successor is exactly the derivation of the hashed change.
+      const validation = await Transition.validateProposal(proposal, { predecessor: current, catalogSnapshot: rawExerciseCatalog });
       if (!validation.ok) {
         const typed = validation.status === "stale" ? { stale: true } : { invalid: true };
         return { reject: true, result: { ...typed, code: validation.code || "invalid_proposal", localOk: false, idbOk: false } };
       }
-
-      // Pure sealing with explicit, non-environment values.
-      const committedRecord = Transition.commitRecord(proposal, { confirmedAt, archiveId });
-
+      const committedRecord = Transition.commitRecord(validation.proposal, { confirmedAt, archiveId });
+      const definition = cloneSnapshot(validation.proposal.successor.programDefinition);
       const successorMeta = {
         ...cloneSnapshot(head.programMeta),
         id: proposal.successor.programId,
-        // A compiler-backed transition is a real replacement block. Allocate
-        // its target identity only after the lock-held proposal validation;
-        // the resulting proposal/journal carries this candidate through
-        // replay, while the durable write remains the single confirmation.
         blockId: allocateBlockId(),
-        started: confirmedAt.slice(0,10),
+        started: confirmedAt.slice(0, 10),
         mesocycleStatus: "active",
-        daysPerWeek: succInstance.frequency,
-        sessionLength: String(succContext.sessionMinutes),
-        programStructure: cloneSnapshot(succInstance.programStructure),
-        progressionRelations: (succInstance.relations || []).filter(r => r.state === "attached").map(r => ({
-          schemaVersion: 1,
-          id: r.id,
-          type: "paired_exposure",
-          version: 1,
-          movementId: `library:${r.movementId}`,
-          members: [
-            { exerciseId: r.heavySlotId, role: "heavy" },
-            { exerciseId: r.volumeSlotId, role: "volume" },
-          ],
-        })),
-        compilerContext: cloneSnapshot(succContext),
-        // The successor carries the predecessor's exact entrySource object. Its
-        // compiler fingerprint/provenance already live on the transition-in record.
-        entrySource: cloneSnapshot(head.programMeta.entrySource),
+        daysPerWeek: definition.days.filter((day) => day.kind === "training").length,
+        mesocycleLengthWeeks: definition.cycles,
+        programDefinition: definition,
         transitionIn: committedRecord,
         updated: confirmedAt,
       };
-      // This is a new block, so historical volume belongs to the archived
-      // predecessor. The successor's aggregate begins when its own weeks are
-      // observed; copying it would make block-to-date totals double-count.
+      // A new block's volume aggregate begins with its own observed weeks.
       delete successorMeta.plannedVolumeHistory;
-
-      draftProposal.program = new Program(succInstance.program, snapshotLookup(draftProposal.customExercises)).toJSON();
       draftProposal.programMeta = successorMeta;
-      // draftProposal.programHistory already carries the single archive entry that
-      // archiveCapturedProgram(capture) pushed before the lock — leave it untouched.
+      draftProposal.program = durableProgramRows(definition, draftProposal.customExercises || [], successorMeta);
       return { proposal: draftProposal };
     };
 
     const res = await commitProgramReplacement(baseProposal, storageIO, { capture, effect, preflight });
-
-    if (res.localOk || res.idbOk) {
-      return { ok: true, committed: true, ...res };
-    }
+    if (res.localOk || res.idbOk) return { ok: true, committed: true, ...res };
     return { ok: false, committed: false, ...res };
   },
 
-  async reassessRecovery(params = {}) {
-    const Transition = typeof RepForgeProgramTransition !== "undefined"
-      ? RepForgeProgramTransition
-      : (typeof window !== "undefined" ? window.RepForgeProgramTransition : null);
-    const Compiler = typeof ProgramCompiler !== "undefined"
-      ? ProgramCompiler
-      : (typeof window !== "undefined" ? window.ProgramCompiler : null);
-    const catalogue = typeof EXERCISE_LIBRARY !== "undefined"
-      ? EXERCISE_LIBRARY
-      : (typeof window !== "undefined" ? (window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY) : null);
-    const invalid=(code,extra={})=>({ok:false,committed:false,invalid:true,code,...extra,localOk:false,idbOk:false,revision:readRevision(state)});
-    if(!Transition||typeof Transition.validateRecoveryRecord!=="function"||
-      typeof Transition.reassessRecoveryRecord!=="function"||typeof Transition.approvedRecoveryPolicy!=="function")
-      return invalid("recovery_reassessment_seam_missing");
-    const {expectedRevision,blockId,transitionId,proposalHash,acknowledgedRecord,outcome}=params;
-    if(!Number.isInteger(expectedRevision)||expectedRevision<0)return invalid("stale");
-    if(typeof blockId!=="string"||!blockId.trim()||typeof transitionId!=="string"||!transitionId.trim()||
-      typeof proposalHash!=="string"||!proposalHash.trim())return invalid("recovery_reassessment_invalid");
-    if(!isPlainStateObject(acknowledgedRecord))return invalid("recovery_reassessment_invalid");
-    if(!["Better","About the same","Worse"].includes(outcome))return invalid("recovery_reassessment_invalid");
-    if(readRevision(state)!==expectedRevision||snapshotBlockId(state)!==blockId)return invalid("stale",{stale:true,staleRevision:readRevision(state)!==expectedRevision});
-    const initialRecords=recoveryCarrierRecords(state);
-    const initialMatches=initialRecords.map((record,index)=>({record,index})).filter(({record})=>
-      record.transitionId===transitionId&&record.proposalHash===proposalHash);
-    if(initialMatches.length!==1)return invalid("stale",{stale:true});
-    const initialMatch=initialMatches[0];
-    if(initialMatch.record.diff?.recoveryWeek?.blockId!==blockId)return invalid("stale",{stale:true});
-    if(initialMatch.record.diff?.recoveryWeek?.reassessmentOutcome!==null)return invalid("recovery_reassessment_closed");
-    if(!storageSnapshotsEqual(initialMatch.record,acknowledgedRecord))return invalid("stale",{stale:true});
-    const initialInstance=recoveryCompilerInstance(state,Compiler,catalogue);
-    if(!initialInstance)return invalid("predecessor_reconstruction_failed");
-    const initialValidation=await Transition.validateRecoveryRecord(initialMatch.record,{
-      predecessor:cloneSnapshot(initialMatch.record.predecessor),
-      predecessorInstance:initialInstance,
-      approvedPolicy:Transition.approvedRecoveryPolicy(),
-      supportedVersions:Compiler.VERSIONS,
-      existingRecoveryRecords:initialRecords,
-    });
-    if(!initialValidation.ok)return invalid(initialValidation.code||"recovery_reassessment_invalid",{stale:initialValidation.status==="stale"});
-    const initialReassessed=Transition.reassessRecoveryRecord(initialValidation.record,outcome,{
-      blockId,elapsedWeek:mesocycleLifecycle(state.programMeta).elapsedWeek,
-    });
-    if(!initialReassessed.ok)return invalid(initialReassessed.code||"recovery_reassessment_invalid");
-    const initialProposal=cloneSnapshot(state);
-    initialProposal.recoveryTransitions.records[initialMatch.index]=cloneSnapshot(initialReassessed.record);
-    const preflight=async({head})=>{
-      if(readRevision(head)!==expectedRevision)return{reject:true,result:{ok:false,committed:false,stale:true,staleRevision:true,code:"stale",localOk:false,idbOk:false}};
-      if(snapshotBlockId(head)!==blockId)return{reject:true,result:{ok:false,committed:false,stale:true,code:"stale",localOk:false,idbOk:false}};
-      const records=recoveryCarrierRecords(head);
-      const matches=records.map((record,index)=>({record,index})).filter(({record})=>
-        record.transitionId===transitionId&&record.proposalHash===proposalHash);
-      if(matches.length!==1)return{reject:true,result:{ok:false,committed:false,stale:true,code:"stale",localOk:false,idbOk:false}};
-      const {record,index}=matches[0];
-      if(record.diff?.recoveryWeek?.blockId!==blockId)return{reject:true,result:{ok:false,committed:false,stale:true,code:"stale",localOk:false,idbOk:false}};
-      if(record.diff?.recoveryWeek?.reassessmentOutcome!==null)
-        return{reject:true,result:{ok:false,committed:false,code:"recovery_reassessment_closed",localOk:false,idbOk:false}};
-      if(!storageSnapshotsEqual(record,acknowledgedRecord))
-        return{reject:true,result:{ok:false,committed:false,stale:true,code:"stale",localOk:false,idbOk:false}};
-      const instance=recoveryCompilerInstance(head,Compiler,catalogue);
-      if(!instance)return{reject:true,result:{ok:false,committed:false,invalid:true,code:"predecessor_reconstruction_failed",localOk:false,idbOk:false}};
-      const validation=await Transition.validateRecoveryRecord(record,{
-        predecessor:cloneSnapshot(record.predecessor),
-        predecessorInstance:instance,
-        approvedPolicy:Transition.approvedRecoveryPolicy(),
-        supportedVersions:Compiler.VERSIONS,
-        existingRecoveryRecords:records,
-      });
-      if(!validation.ok)return{reject:true,result:{ok:false,committed:false,stale:validation.status==="stale",invalid:validation.status!=="stale",code:validation.code||"recovery_reassessment_invalid",localOk:false,idbOk:false}};
-      const elapsedWeek=mesocycleLifecycle(head.programMeta).elapsedWeek;
-      const reassessed=Transition.reassessRecoveryRecord(validation.record,outcome,{blockId,elapsedWeek});
-      if(!reassessed.ok)return{reject:true,result:{ok:false,committed:false,code:reassessed.code||"recovery_reassessment_invalid",localOk:false,idbOk:false}};
-      const next=cloneSnapshot(head);
-      next.recoveryTransitions.records[index]=cloneSnapshot(reassessed.record);
-      return{proposal:next};
-    };
-    const result=await commitProposedState(initialProposal,storageIO,{
-      expectedProgramId:state?.programMeta?.id||null,
-      expectedProgramFingerprint:draftProgramFingerprint(state),
-      expectedBlockId:blockId,
-      expectedStorageRevision:expectedRevision,
-      recoveryTransaction:true,
-      preflight,
-    });
-    if(result.localOk||result.idbOk){await refreshRecoveryProjectionCache(state);return{ok:true,committed:true,...result};}
-    return{ok:false,committed:false,...result};
-  },
-
+  // Guided editing stages the live program as a Build draft so the lifter can
+  // make the change by hand. It never archives or replaces anything itself.
   async stageGuidedManualRepair(params = {}, io = storageIO) {
-    const Transition = typeof RepForgeProgramTransition !== "undefined"
-      ? RepForgeProgramTransition
-      : (typeof window !== "undefined" ? window.RepForgeProgramTransition : null);
-    if (!Transition) {
-      return { ok: false, status: "unavailable", code: "transition_domain_unavailable", unavailable: true };
-    }
-    if (!ProgramEntry) {
-      return { ok: false, status: "unavailable", code: "program_entry_unavailable", unavailable: true };
-    }
-
-    // The injected IO is honoured only so a deliberate setup-draft write
-    // failure can be proven; lock ownership stays on the production path.
-    const targetIO = io || storageIO;
-
-    // The production boundary derives the guided candidate strictly from the
-    // live active program and the live durable revision after a genuine typed
-    // sibling Unavailable. It accepts no caller-supplied guided result, active
-    // snapshot, or durable revision — only the typed Unavailable and its
-    // diagnosis. createGuidedManualRepair still fails typed on any stale or
-    // mismatched input and mutates nothing.
-    let unavailable = params.unavailable || (params.siblingResult?.ok === false ? params.siblingResult : null);
+    if (!ProgramEntry) return { ok: false, status: "unavailable", code: "program_entry_unavailable", unavailable: true };
     const diagnosis = params.diagnosis;
-    if (!unavailable && diagnosis && typeof this.proposeSibling === "function") {
-      const targetConstraint = diagnosis.targetConstraint || (
-        diagnosis.kind === "sessions_too_long"
-          ? { sessionMinutes: diagnosis.answers?.sessionMinutes ?? diagnosis.sessionMinutes }
-          : { frequency: diagnosis.answers?.availableDays ?? diagnosis.answers?.daysPerWeek ?? diagnosis.daysPerWeek }
-      );
-      const siblingRes = await this.proposeSibling({
-        diagnosis,
-        targetConstraint,
-        transitionId: uid(),
-        successorProgramId: uid(),
-      });
-      if (siblingRes?.ok === false) unavailable = siblingRes;
-    }
-
-    const liveRevision = readRevision(state);
-    const created = Transition.createGuidedManualRepair({
-      unavailable,
-      diagnosis,
-      activeProgram: state,
-      durableRevision: liveRevision,
-      versions: entryVersions(),
-      customExercises: customExercises(),
-    });
-    if (!created.ok) return created;
-    const guidedResult = created;
-
     const diagKind = diagnosis?.kind;
     if (diagKind !== "fewer_days" && diagKind !== "sessions_too_long") {
       return { ok: false, status: "unavailable", code: "diagnosis_invalid", unavailable: true, invalid: true };
     }
-
-    const targetDays = diagnosis?.answers?.availableDays ?? diagnosis?.answers?.daysPerWeek ?? diagnosis?.targetConstraint?.frequency ?? diagnosis?.daysPerWeek;
-    const targetMins = diagnosis?.answers?.sessionMinutes ?? diagnosis?.targetConstraint?.sessionMinutes ?? diagnosis?.sessionMinutes;
-
-    const diagnosticsFacts = {
-      mainConstraint: diagKind,
-    };
-    if (diagKind === "fewer_days") {
-      if (!Number.isInteger(targetDays)) {
-        return { ok: false, status: "unavailable", code: "invalid_diagnosis_target", unavailable: true, invalid: true };
-      }
-      diagnosticsFacts.daysPerWeek = targetDays;
-    } else if (diagKind === "sessions_too_long") {
-      if (!Number.isInteger(targetMins)) {
-        return { ok: false, status: "unavailable", code: "invalid_diagnosis_target", unavailable: true, invalid: true };
-      }
-      diagnosticsFacts.sessionMinutes = targetMins;
+    const targetDays = diagnosis?.answers?.availableDays;
+    const targetMins = diagnosis?.answers?.sessionMinutes;
+    if (diagKind === "fewer_days" ? !Number.isInteger(targetDays) : !Number.isInteger(targetMins)) {
+      return { ok: false, status: "unavailable", code: "invalid_diagnosis_target", unavailable: true, invalid: true };
     }
-
-    const candidate = guidedResult.candidate || guidedResult;
-    const model = makeProgram(candidate.program, snapshotLookup(candidate.customExercises), state?.programMeta);
-    const structure = candidate.programStructure ? cloneSnapshot(candidate.programStructure) : null;
-    const structureDays = structure?.days || [];
-    const previewDays = structureDays.length
-      ? structureDays.map((item) => ({
-          dayId: item.dayId,
-          label: item.label,
-          ...(item.displayNameKey ? { displayNameKey: item.displayNameKey } : {}),
-          ...(item.nameOverride ? { nameOverride: item.nameOverride } : {}),
-          ...(item.order !== undefined ? { order: item.order } : {}),
-          exercises: model.forDay(item.label || item.dayId).map((e) => cloneSnapshot(e)),
-        }))
-      : model.days().map((label, idx) => ({
-          dayId: label,
-          label,
-          order: idx + 1,
-          exercises: model.forDay(label).map((e) => cloneSnapshot(e)),
-        }));
-
-    const preview = {
-      source: "build",
-      program: cloneSnapshot(candidate.program),
-      programStructure: structure,
-      progressionRelations: cloneSnapshot(candidate.progressionRelations || []),
-      progressionModifiers: cloneSnapshot(candidate.progressionModifiers || []),
-      progressionIncompatibilities: cloneSnapshot(candidate.progressionIncompatibilities || []),
-      days: previewDays,
-      customExercises: cloneSnapshot(candidate.customExercises || []),
-    };
-
-    const name = state?.programMeta?.name || "RepForge Program";
-    const fingerprint = entryCandidateFingerprint("build", name, preview);
-
+    const definition = state?.programMeta?.programDefinition;
+    if (!definition) return { ok: false, status: "unavailable", code: "program_definition_unavailable", unavailable: true };
+    const custom = cloneSnapshot(customExercises());
+    const program = flatProgramFromDefinition(definition, custom, 1);
+    const days = definition.days.filter((day) => day.kind === "training").map((day, index) => ({
+      dayId: day.id, label: day.name, order: index + 1,
+      exercises: program.filter((row) => row.dayId === day.id).map(cloneSnapshot),
+    }));
+    const preview = { source: "build", program: cloneSnapshot(program), programDefinition: cloneSnapshot(definition),
+      days, customExercises: custom };
+    const name = state?.programMeta?.name || "Taurifer program";
     const result = {
       schemaVersion: ProgramEntry.SCHEMA_VERSION,
       route: "build",
-      fingerprint,
+      fingerprint: entryCandidateFingerprint("build", name, preview),
       name,
-      selected: {
-        id: "manual_build",
-        source: "manual_build",
-      },
-      diagnostics: diagnosticsFacts,
+      selected: { id: "manual_build", source: "manual_build" },
+      diagnostics: diagKind === "fewer_days"
+        ? { mainConstraint: diagKind, daysPerWeek: targetDays }
+        : { mainConstraint: diagKind, sessionMinutes: targetMins },
       preview,
     };
-
-    // Pin the staged draft to the same live durable revision the candidate was
-    // derived from. Activation re-checks it via activationReadiness/CAS.
-    const draftRevision = Number.isInteger(guidedResult.durableRevision)
-      ? guidedResult.durableRevision
-      : liveRevision;
-
-    const answers = {
-      programName: name,
-      daysPerWeek: previewDays.length,
-    };
-    if (diagKind === "fewer_days" && Number.isInteger(targetDays) && targetDays >= 2 && targetDays <= 6) {
-      answers.daysPerWeek = targetDays;
-    }
-
+    const answers = { programName: name, daysPerWeek: days.length };
+    if (diagKind === "fewer_days" && targetDays >= 2 && targetDays <= 6) answers.daysPerWeek = targetDays;
     let draftState = ProgramEntry.createState({
       draftId: uid(),
-      activeProgramRevisionAtStart: draftRevision,
+      activeProgramRevisionAtStart: readRevision(state),
       now: entryNow(),
       versions: entryVersions(),
     });
@@ -9673,37 +9517,21 @@ const repforgeProgramTransitionAdapter = {
     draftState = ProgramEntry.setAnswers(draftState, answers);
     draftState = ProgramEntry.setResult(draftState, result);
     draftState = { ...draftState, step: "editor" };
-
-    const saveResult = await persistSetupDraft(draftState, targetIO);
+    const saveResult = await persistSetupDraft(draftState, io || storageIO);
     if (!saveResult?.ok) {
       return {
-        ok: false,
-        staged: false,
-        conflict: !!saveResult?.conflict,
-        writeFailed: !!saveResult?.writeFailed,
-        invalid: !!saveResult?.invalid,
+        ok: false, staged: false,
+        conflict: !!saveResult?.conflict, writeFailed: !!saveResult?.writeFailed, invalid: !!saveResult?.invalid,
         code: saveResult?.conflict ? "save_conflict" : (saveResult?.writeFailed ? "save_failed" : "draft_invalid"),
       };
     }
-
-    if (params.openEditor !== false) {
-      openEntryDraftEditor();
-    }
-
-    return {
-      ok: true,
-      staged: true,
-      kind: "guided_manual_repair",
-      envelope: saveResult.envelope,
-      draftState: entryState,
-    };
+    if (params.openEditor !== false) openEntryDraftEditor();
+    return { ok: true, staged: true, kind: "guided_manual_repair", envelope: saveResult.envelope, draftState: entryState };
   },
 };
 if (typeof window !== "undefined") {
   window.__repforgeProgramTransition = repforgeProgramTransitionAdapter;
   window.__repforgeProgressReview={
-    recoveryEvidence:()=>cloneSnapshot(reviewRecoveryEvidence()),
-    activeRecovery:()=>cloneSnapshot(activeReviewRecovery()),
     scheduledProgram:()=>cloneSnapshot(scheduledProgramRows()),
     flow:()=>cloneSnapshot(reviewFlow),
   };
@@ -9733,8 +9561,20 @@ async function applyParsedCommand(parsed,context){
   if(parsed.unit&&parsed.unit!==state.settings.unit)loadDisp=toDisplay(fromDisplayUnit(parsed.load,parsed.unit));
   if(!activeWorkoutDraft)return;
   const target=draftTargetFromKey(key);if(!target)return;
-  const fields=[{field:"load",value:canonicalDraftField("load",canonicalNumberText(loadDisp))},
-    {field:"reps",value:String(parsed.reps)}];
+  const set=activeWorkoutDraft.exercises[target.exerciseInstanceId]?.sets?.[target.setId];
+  const definitions=draftSetMetrics(set);
+  const fields=[];
+  if(definitions.length){
+    // A metric-backed set takes the spoken load and reps as its own metrics; a
+    // composition without them cannot take "load x reps".
+    const loadMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.load.includes(metric.semantic));
+    const repsMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.reps.includes(metric.semantic));
+    if(!loadMetric||!repsMetric){toast(t("command.error.no_exercise_match"));return}
+    for(const [metric,value] of [[loadMetric,canonicalNumberText(fromDisplay(loadDisp))],[repsMetric,String(parsed.reps)]]){
+      const result=await WorkoutSession.dispatch("editMetricValue",{exerciseInstanceId:target.exerciseInstanceId,
+        setId:target.setId,metricId:metric.id,value});if(result.status!=="applied")return}
+  }else fields.push({field:"load",value:canonicalDraftField("load",canonicalNumberText(loadDisp))},
+    {field:"reps",value:String(parsed.reps)});
   if(isEffortMode())fields.push({field:"effort",value:parsed.effort||(parsed.rir!=null?effortForRir(parsed.rir):"hard")});
   else fields.push({field:"rir",value:parsed.rir!=null?canonicalNumberText(parsed.rir):""});
   for(const field of fields){const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
@@ -10042,6 +9882,15 @@ function recoveryReceiptForWeek(receipt,record){
       ?{...slot,sets:bySlot.get(String(slot.slotId))}:slot)}))}}
 function progressWeekPrescriptions(){
   const weeks=Math.max(1,Number(state.programMeta?.mesocycleLengthWeeks)||6);
+  // A canonical program plans each week from that cycle's own prescription (a
+  // recovery week is cycle 1's deload, not the whole block's shape).
+  const definition=state.programMeta?.programDefinition;
+  if(definition&&Array.isArray(definition.days)){
+    const cycles=Number.isInteger(definition.cycles)&&definition.cycles>0?definition.cycles:1;
+    const customs=Array.isArray(state.customExercises)?state.customExercises:[];
+    return Array.from({length:weeks},(_,index)=>{
+      const rows=flatProgramFromDefinition(definition,customs,Math.min(cycles,index+1));
+      return prescriptionForReceipt(plannedPrescriptionForProgram(rows,index+1,null),rows)})}
   const record=activeRecoveryRecord&&activeRecoveryRecordBlockId===snapshotBlockId(state)?activeRecoveryRecord:null;
   const structure=state.programMeta?.programStructure;
   const receipts=Array.isArray(structure?.weekPrescriptions)?structure.weekPrescriptions:[];
@@ -10179,6 +10028,7 @@ const HistoryUi=window.RepForgeHistoryUi.create({
   displayName, exerciseDisplayName, currentNameForRow, dayLabel, canTakeFocus, parseCalendarDate,
   parseLoadDisplay, parseRepsValue, parseRirValue, clearFieldInvalid,
   toast, formatLongDate, fmtLoad, sum, kfmt, fmt, toDisplay, unitLabel,
+  metricLabel, metricDisplayValue:metricTextValue, metricDisplayUnit, parseHistoryMetricInput,
   weekdayLetters, table, today, uid, readRevision,
   commitProposedState:(proposal,opts)=>commitProposedState(proposal,storageIO,opts),
   readDurableState:()=>DurableState.readDurableState(),
@@ -10221,8 +10071,9 @@ function closeExerciseView(){const back=exView?.from||"log",openKey=exView?.open
   window.scrollTo({top:0});render();
   // Back puts focus on the row that opened the page (found again by its key: the render replaced it).
   const sel=openKey?[`data-exopen`,`data-ovkey`,`data-action-lift`].map(a=>`#${back} [${a}="${CSS.escape(openKey)}"]`).join(","):null;
-  focusRoute((sel&&$(sel))||routeHeading(back));
-  settle?.()}
+  // Ending a push in that is still arriving clears the inert page beneath first.
+  settle?.();
+  focusRoute((sel&&$(sel))||routeHeading(back))}
 function openSettingsView(){showSettings()}
 
 function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
@@ -10282,7 +10133,7 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     :`<div class="empty">${esc(t("exercise.empty.no_sets"))}</div>`;
 
   el.innerHTML=`<p class="exdet__muscle">${esc(muscleListLabel(tmpl?.primary||""))}</p><h2 class="exdet__name">${esc(name)}</h2>`+
-    `<p class="exdet__meta">${tmpl?`${esc(dayLabel(tmpl.day))} · ${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${esc(t("log.reps"))} · RIR 0–${fmt(state.settings.rirHigh)}`:esc(t("exercise.not_in_program"))}</p>`+
+    `<p class="exdet__meta">${tmpl?`${esc(dayLabel(tmpl.day))} · ${esc(tmpl.hasRepTarget===false?programPrescriptionSummary(tmpl):`${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${t("log.reps")}`)}${tmpl.hasRepTarget===false?"":` · RIR 0–${fmt(state.settings.rirHigh)}`}`:esc(t("exercise.not_in_program"))}</p>`+
     artHtml+
     recHtml+
     `<div class="statrow statrow--4 exdet__stats">${tiles.map(tile=>`<div class="statrow__cell"><div class="statrow__val">${tile.val}</div><div class="statrow__cap">${tile.label}</div></div>`).join("")}</div>`+
@@ -10585,7 +10436,7 @@ function editorAdapterTranslate(key,vars,fallback){
   const value=t(key,vars);return value===key?(fallback||key):value}
 function editorChooseExercise(request){
   return new Promise(resolve=>{
-    const options={title:request?.mode==="replace"?t("picker.title_change"):request?.mode==="alternates"?t("picker.title_alternates"):t("picker.add_to",{day:dayLabel(request?.day)}),
+    const options={title:request?.mode==="replace"?t("picker.title_change"):t("picker.add_to",{day:dayLabel(request?.day)}),
       subtitle:request?.exercise?exerciseDisplayName(request.exercise):"",exclude:request?.exclude||[],onPick:async entry=>{
         // Share repair applies as soon as the picker has handed back a valid
         // replacement. Wait for the picker's own close transition first: the
@@ -10599,15 +10450,6 @@ function editorChooseExercise(request){
         }else resolve(entry)},
       ...(request?.repair?{onCancel:()=>resolve(null),stageOnly:true,repairSeed:request.exercise}:{}),
       ...(request?.mode==="add"?{quick:true,day:request.day}: {})};
-    if(request?.mode==="alternates"){
-      options.mode="multi";
-      const byName=new Map(pickableExercises().map(entry=>[foldSearch(libraryName(entry)),entry.id]));
-      const selected=[],extras=[];
-      for(const name of request.exercise?.alternates||[]){
-        const match=byName.get(foldSearch(name));
-        if(match){selected.push(match);continue}
-        const extra=nameOnlyEntry(name);extras.push(extra);selected.push(extra.id)}
-      options.selected=selected;options.extras=extras}
     openExercisePicker(options)})}
 function installedEditorDocument(){return editorDocumentFromSnapshot(state)}
 function installedEditorToken(snapshot=state){return{revision:readRevision(snapshot),programId:snapshot?.programMeta?.id||null,
@@ -10628,7 +10470,7 @@ function editorDraftExerciseIds(draft){
     const exercise=draft.exercises?.[id];
     return exercise&&(exercise.status==="skipped"||exercise.substitution||exercise.setOrder.some(setId=>{
       const set=exercise.sets[setId];
-      return set&&(set.completion!=="pending"||set.role==="warmup"||set.touched.load||set.touched.reps||set.touched.effort)}) )}));
+      return set&&(set.completion!=="pending"||set.role==="warmup"||draftSetTouched(set))}) )}));
   const ids=new Set(),addKey=key=>{
     const id=setKeyExerciseId(key);if(id&&id!==String(key))ids.add(id)};
   for(const key of ["__done","__touched","__warm"]){if(Array.isArray(draft?.[key]))draft[key].forEach(addKey)}
@@ -10636,7 +10478,6 @@ function editorDraftExerciseIds(draft){
   for(const id of [...(draft?.__skipped||[]),...Object.keys(draft?.__substituted||{})])if(id)ids.add(String(id));
   return ids}
 function editorIntentValue(exercise,field){
-  if(field==="alternates")return cloneSnapshot(exercise?.alternates||[]);
   return exercise?.[field]}
 function applyInstalledEditorIntent(document,edit,{check=true}={}){
   const kind=edit?.kind;
@@ -10650,7 +10491,8 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
     const current=!!model.days().includes(old);
     if(check&&!current)return{conflict:true};
     if(!model.renameDay(old,next))return{conflict:true};
-    document.program=model.toJSON();syncProgramStructureFromProgram(document,model);return{ok:true}}
+    document.program=model.toJSON();syncProgramStructureFromProgram(document,model);
+    return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true}}
   if(kind==="day_add"){
     const day=String(edit.after||edit.targetDay||"").trim();
     if(!day)return{conflict:true};
@@ -10658,9 +10500,13 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
     const structure=(document.programMeta?.programStructure?.days||[]).slice();
     structure.push({dayId:`manual_d${structure.length+1}`,label:day,order:structure.length+1});
     document.programMeta={...(document.programMeta||{}),programStructure:{...(document.programMeta?.programStructure||{}),days:structure}};
-    return{ok:true};
+    return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true};
   }
-  if(kind==="exercise_field"||kind==="prescription"||kind==="alternates"){
+  if(kind==="metric_target"||kind==="metric_composition"||kind==="prescription_field"||
+    kind==="prescription"&&edit.field==="sets"){
+    return syncEditorCanonicalIntent(document,document,edit,{cycleIndex:Number(edit.cycleIndex)||1})
+      ?{ok:true}:{conflict:true,code:"invalid_canonical_prescription"}}
+  if(kind==="exercise_field"||kind==="prescription"){
     const exercise=document.program?.find(item=>item.id===edit.targetId);
     if(!exercise)return{conflict:true};
     const current=editorIntentValue(exercise,edit.field);
@@ -10672,6 +10518,8 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
     }
     if(edit.field==="min"&&Number(exercise.max)<Number(exercise.min))exercise.max=exercise.min;
     if(edit.field==="max"&&Number(exercise.min)>Number(exercise.max))exercise.min=exercise.max;
+    if(document.programMeta?.programDefinition&&!syncEditorCanonicalIntent(document,document,edit))
+      return{conflict:true,code:"invalid_canonical_exercise_field"};
     return{ok:true}}
   if(kind==="exercise_move"){
     const exercise=document.program?.find(item=>item.id===edit.targetId);if(!exercise)return{conflict:true};
@@ -10697,7 +10545,7 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
       source.forEach((item,index)=>{item.order=index+1});
       target.forEach((item,index)=>{item.day=targetDay;item.order=index+1});
     }
-    return{ok:true}}
+    return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true,code:"invalid_canonical_move"}}
   if(kind==="exercise_add"){
     if(check&&document.program?.some(item=>item.id===edit.targetId))return{conflict:true};
     if(edit.targetDay&&!editorDocumentDays(document).includes(edit.targetDay))return{conflict:true};
@@ -10706,6 +10554,7 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
         return{conflict:true,code:"missing_custom_definition"};
       document.program=(document.program||[]).concat(cloneSnapshot(edit.exercise));
       syncProgramStructureFromProgram(document,makeProgram(document.program,snapshotLookup(document.customExercises),document.programMeta));
+      if(!syncEditorCanonicalIntent(document,document,edit))return{conflict:true,code:"invalid_canonical_exercise"};
     }
     return{ok:true};
   }
@@ -10724,13 +10573,24 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
     if(edit.exercise){
       if(!editorHasCustomDefinition(document,edit.exercise.libraryId))
         return{conflict:true,code:"missing_custom_definition"};
-      Object.assign(existing,cloneSnapshot(edit.exercise))}
+      Object.assign(existing,cloneSnapshot(edit.exercise));
+      if(!syncEditorCanonicalIntent(document,document,edit))return{conflict:true,code:"invalid_canonical_exercise"}}
     return{ok:true};
   }
   if(kind==="exercise_remove"){
     const existing=document.program?.find(item=>item.id===edit.targetId);
     if(check&&!existing)return{conflict:true};
-    document.program=(document.program||[]).filter(item=>item.id!==edit.targetId);return{ok:true};
+    document.program=(document.program||[]).filter(item=>item.id!==edit.targetId);
+    return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true,code:"invalid_canonical_exercise"};
+  }
+  if(kind==="load_step"){
+    const exerciseId=String(edit.exerciseId||""),after=edit.after;
+    if(!exerciseId||(after!==null&&!(Number.isFinite(after)&&after>0&&after<=100)))return{conflict:true};
+    document.programMeta=document.programMeta||{};
+    const byExerciseId={...(document.programMeta.loadingConfiguration?.byExerciseId||{})};
+    if(after===null)delete byExerciseId[exerciseId];else byExerciseId[exerciseId]={loadStepKg:after};
+    document.programMeta.loadingConfiguration={...(document.programMeta.loadingConfiguration||{}),byExerciseId};
+    return{ok:true};
   }
   if(kind==="day_remove"){
     const day=String(edit.targetDay||"");
@@ -10738,7 +10598,7 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
     document.program=(document.program||[]).filter(item=>item.day!==day);
     const structure=document.programMeta?.programStructure;
     if(structure?.days)document.programMeta.programStructure={...structure,days:structure.days.filter(item=>String(item?.label||item?.dayId||"")!==day)};
-    return{ok:true};
+    return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true,code:"invalid_canonical_exercise"};
   }
   return{ok:true};
 }
@@ -10752,6 +10612,281 @@ function editorRebaseDocument(session,head){
   for(const edit of edits){const result=applyInstalledEditorIntent(rebased,edit);
     if(result?.conflict)return{conflict:true,code:result.code||"editor_intent_conflict"};}
   return{document:rebased,conflict:false}}
+function editorMetricDefinitionList(id){
+  const source=rawMetricDefinitions(id);
+  if(source!==null)return source;
+  const custom=(customExercises()||[]).find(entry=>entry.id===String(id??""));
+  return Array.isArray(custom?.metricDefinitions)?custom.metricDefinitions.map(cloneSnapshot):[]}
+function editorMetricTargetText(definition,target){
+  const show=value=>metricTextValue(value,definition);
+  if(typeof target==="number")return show(target);
+  if(isPlainStateObject(target)&&Number.isFinite(target.min)&&Number.isFinite(target.max)){
+    const low=show(target.min),high=show(target.max);
+    return target.min===target.max?low:`${low}–${high}`}
+  return""}
+function editorMetricAdapter({cycleIndex}={}){
+  return{
+    metricLabel:definition=>metricLabel(definition),
+    formatMetricValue:(definition,value)=>editorMetricTargetText(definition,value),
+    metricDisplayUnit:definition=>metricDisplayUnit(definition),
+    parseMetricInput:(definition,raw)=>parseHistoryMetricInput(definition,raw),
+    metricDefinitionsForExercise:id=>editorMetricDefinitionList(id),
+    metricOptions:()=>cloneSnapshot(ExerciseMetrics?.DEFINITIONS||[]),
+    metricCompositions:()=>cloneSnapshot(ExerciseMetrics?.SOURCE_COMPOSITIONS||[]),
+    cycleIndex:typeof cycleIndex==="function"?cycleIndex:()=>1,
+  }}
+function editorDefinitionAndSlot(document,slotId){
+  const definition=document?.programMeta?.programDefinition;
+  for(const day of definition?.days||[]){
+    const slot=(day.slots||[]).find(candidate=>candidate?.id===slotId);
+    if(slot)return{definition,day,slot}}
+  return{definition,day:null,slot:null}}
+function editorSetByCoordinates(definition,slotId,cycleIndex,setIndex){
+  for(const day of definition?.days||[]){
+    const slot=(day.slots||[]).find(candidate=>candidate?.id===slotId);
+    const cycle=slot?.prescriptionsByCycle?.find(candidate=>candidate?.cycleIndex===cycleIndex);
+    const set=cycle?.sets?.find(candidate=>candidate?.setIndex===setIndex);
+    if(set)return{slot,cycle,set}}
+  return{slot:null,cycle:null,set:null}}
+function editorCycleSetCount(slot,cycleIndex){
+  return slot?.prescriptionsByCycle?.find(cycle=>cycle.cycleIndex===cycleIndex)?.sets?.length||0}
+// Schema v2: a set derives its metric composition from its slot rather than
+// storing it again, so this builds no metricIds/metricDefinitions of its own.
+function editorNewPrescription(slotId,cycleIndex,setIndex,metricIds,metricDefinitions,targets={},status){
+  return{id:`manual-${uid()}`,cycleIndex,setIndex,metricType:"source_metrics@1",
+    targets:cloneSnapshot(targets),rir:null,restSeconds:null,
+    status:status||(metricIds.length?"manual":"configuration_required"),
+    provenance:{source:"manual",policyVersion:"manual@1"}}}
+function editorSlotForRow(row,document,slotId,order,existing=null){
+  const exerciseId=String(row?.libraryId||row?.exerciseId||"");
+  if(!exerciseId)return null;
+  const raw=rawExercise(exerciseId),custom=(document?.customExercises||[]).find(entry=>entry.id===exerciseId)||null;
+  const definitions=raw?rawMetricDefinitions(exerciseId)||[]:
+    Array.isArray(custom?.metricDefinitions)?custom.metricDefinitions.map(cloneSnapshot):[];
+  const metricIds=definitions.map(definition=>definition.id);
+  const origin=raw?"source_catalog":"user_defined";
+  const sourceSetsByCycle=new Map((existing?.prescriptionsByCycle||[]).map(cycle=>[cycle.cycleIndex,cycle]));
+  const cycles=Number.isInteger(document?.programMeta?.programDefinition?.cycles)
+    ?document.programMeta.programDefinition.cycles:1;
+  const reps=definitions.find(definition=>definition.semantic==="reps"||definition.semantic==="repsPerSide");
+  const targets={};
+  // A movement that counts repetitions always gets a range: the row's, or
+  // Build's default when the slot it replaces had none (a rep-less movement).
+  if(reps)targets[reps.semantic]=Number.isSafeInteger(row.min)&&row.min>=1&&Number.isSafeInteger(row.max)&&row.max>=row.min
+    ?{min:row.min,max:row.max}:{min:6,max:10};
+  const setCount=Math.max(1,Math.min(100,Number.isInteger(row.sets)?row.sets:3));
+  const prescriptionsByCycle=[];
+  for(let cycleIndex=1;cycleIndex<=cycles;cycleIndex++){
+    const previous=sourceSetsByCycle.get(cycleIndex)?.sets||[];
+    const sets=[];
+    for(let setIndex=1;setIndex<=setCount;setIndex++){
+      const old=previous[setIndex-1];
+      const retainedTargets=existing&&old?cloneSnapshot(old.targets||{}):cloneSnapshot(targets);
+      const filteredTargets=Object.fromEntries(Object.entries(retainedTargets).filter(([semantic])=>
+        definitions.some(definition=>definition.semantic===semantic)));
+      if(reps&&filteredTargets[reps.semantic]==null&&targets[reps.semantic])
+        filteredTargets[reps.semantic]=cloneSnapshot(targets[reps.semantic]);
+      const built=editorNewPrescription(slotId,cycleIndex,setIndex,metricIds,definitions,filteredTargets,
+        definitions.length?(origin==="user_defined"?"manual":old?.status==="ready"?"ready":"manual"):"configuration_required");
+      if(existing&&old){built.id=old.id;built.rir=old.rir??null;built.restSeconds=old.restSeconds??null;
+        built.provenance=cloneSnapshot(old.provenance||built.provenance)}
+      sets.push(built)}
+    prescriptionsByCycle.push({cycleIndex,sets})}
+  const primaryIds=Array.isArray(raw?.primaryFeatureMuscle)?raw.primaryFeatureMuscle:[];
+  const secondaryIds=Array.isArray(raw?.secondaryFeatureMuscle)?raw.secondaryFeatureMuscle:[];
+  const patternIds=Array.isArray(raw?.movementPattern)?raw.movementPattern:[];
+  const sourceType=raw?.exerciseType||null;
+  const prior=existing||{};
+  return{...prior,id:slotId,purposeId:"manual",exerciseId,sourceExerciseIds:[exerciseId],role:"manual",
+    musclePurposeIds:[...new Set([...primaryIds,...secondaryIds])],movementPatternIds:[...new Set(patternIds)],
+    ...(sourceType?{exerciseTypeId:sourceType}:{}),order,metricOrigin:origin,metricIds,metricDefinitions:definitions,
+    ...(row.displayName?{displayName:String(row.displayName)}:{}),setupNotes:String(row.notes||""),
+    ...(!raw?manualAttributionFor(row):{}),
+    loadingModel:{bodyweightCoefficient:Number.isFinite(raw?.bodyweight)?raw.bodyweight:null,assistanceDirection:"subtract"},
+    prescriptionsByCycle}}
+function syncEditorRowFromCanonical(document,slot,cycleIndex=1){
+  const row=(document?.program||[]).find(candidate=>(candidate.slotId||candidate.id)===slot?.id);
+  if(!row||!slot)return;
+  const cycle=slot.prescriptionsByCycle?.find(candidate=>candidate.cycleIndex===cycleIndex)||slot.prescriptionsByCycle?.[0];
+  const rep=slot.metricDefinitions?.find(definition=>definition.semantic==="reps"||definition.semantic==="repsPerSide");
+  const repTarget=cycle?.sets?.map(set=>set.targets?.[rep?.semantic]).find(value=>value!=null);
+  row.sets=cycle?.sets?.length||row.sets;
+  row.hasRepTarget=!!rep;
+  if(rep){
+    row.min=typeof repTarget==="number"?repTarget:Number.isFinite(repTarget?.min)?repTarget.min:row.min;
+    row.max=typeof repTarget==="number"?repTarget:Number.isFinite(repTarget?.max)?repTarget.max:row.max;
+  }else{delete row.min;delete row.max}}
+function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={}){
+  const meta=document.programMeta||(document.programMeta={});
+  let definition=meta.programDefinition;
+  const baseDefinition=baseDocument?.programMeta?.programDefinition;
+  if(!definition){
+    if(!setupEditorOpen||entryState?.route!=="build"||edit?.kind!=="exercise_add")return false;
+    const dayNames=(meta.programStructure?.days||[]).map(item=>item?.label||item?.dayId).filter(Boolean);
+    definition=cloneSnapshot(baseDefinition||manualProgramDefinitionFromRows(
+      baseDocument?.program||[],dayNames,document.customExercises||[]));
+    if(!definition)return false;
+    meta.programDefinition=definition}
+  const find=slotId=>editorDefinitionAndSlot(document,slotId);
+  const slotId=String(edit?.slotId||edit?.targetId||"");
+  const beforeRef=editorDefinitionAndSlot({programMeta:{programDefinition:baseDefinition}},slotId);
+  if(edit?.kind==="metric_target"){
+    const {slot}=find(slotId),{set}=editorSetByCoordinates(definition,slotId,Number(edit.cycleIndex),Number(edit.setIndex));
+    const metric=slot?.metricDefinitions?.find(item=>item.id===edit.metricId);
+    if(!slot||!set||!metric||metric.semantic!==edit.semantic||
+      !changeValueEqualForEditor(slot.metricIds,edit.metricIds)||!changeValueEqualForEditor(slot.metricDefinitions,edit.metricDefinitions))return false;
+    const current=Object.prototype.hasOwnProperty.call(set.targets||{},edit.semantic)
+      ?{present:true,value:set.targets[edit.semantic]}:{present:false,value:null};
+    if(!changeValueEqualForEditor(current,edit.after)&&!changeValueEqualForEditor(current,edit.before))return false;
+    if(edit.after?.present)set.targets[edit.semantic]=cloneSnapshot(edit.after.value);
+    else delete set.targets[edit.semantic];
+    set.status="manual";set.provenance={source:"manual",policyVersion:"manual@1"};
+    syncEditorRowFromCanonical(document,slot,Number(edit.cycleIndex));
+  }else if(edit?.kind==="metric_composition"){
+    const {slot}=find(slotId);
+    if(!slot||(slot.metricOrigin!=="user_defined"&&slot.metricIds?.length))return false;
+    const alreadyApplied=changeValueEqualForEditor(slot.metricIds,edit.metricIds)&&
+      changeValueEqualForEditor(slot.metricDefinitions,edit.metricDefinitions);
+    const matchesBefore=changeValueEqualForEditor(slot.metricIds,edit.beforeMetricIds)&&
+      changeValueEqualForEditor(slot.metricDefinitions,edit.beforeMetricDefinitions);
+    if(!alreadyApplied&&!matchesBefore)return false;
+    const checkedMetrics=ExerciseMetrics?.validateDefinitions?.(edit.metricIds,edit.metricDefinitions,{allowEmpty:true});
+    const supported=ExerciseMetrics?.SOURCE_COMPOSITIONS?.some(composition=>
+      changeValueEqualForEditor(composition,edit.metricIds));
+    if(!checkedMetrics?.ok||!supported)return false;
+    // Schema v2: a set derives its metric composition from its slot rather
+    // than storing it again, so only the slot above carries the new
+    // composition; there is no per-set copy left to reconcile or verify.
+    if(!alreadyApplied){
+      slot.metricIds=cloneSnapshot(edit.metricIds);slot.metricDefinitions=cloneSnapshot(edit.metricDefinitions);
+      for(const cycle of slot.prescriptionsByCycle||[])for(const set of cycle.sets||[]){
+        set.targets=Object.fromEntries(Object.entries(set.targets||{}).filter(([semantic])=>
+          edit.metricDefinitions.some(metric=>metric.semantic===semantic)));
+        set.status=edit.metricIds.length?"manual":"configuration_required";
+        set.provenance={source:"manual",policyVersion:"manual@1"}}
+    }
+    // A composition that counts repetitions needs a rep range to log against;
+    // a newly configured one starts from the row's range or Build's default.
+    const repSemantic=edit.metricDefinitions.find(metric=>metric.semantic==="reps"||metric.semantic==="repsPerSide")?.semantic;
+    const row=(document.program||[]).find(item=>String(item.slotId||item.id)===String(slotId));
+    const rowMin=Number(row?.min),rowMax=Number(row?.max);
+    const defaultRange=Number.isSafeInteger(rowMin)&&rowMin>0&&Number.isSafeInteger(rowMax)&&rowMax>=rowMin
+      ?{min:rowMin,max:rowMax}:{min:6,max:10};
+    for(const cycle of slot.prescriptionsByCycle||[])for(const set of cycle.sets||[]){
+      set.status=edit.metricIds.length?"manual":"configuration_required";
+      set.provenance={source:"manual",policyVersion:"manual@1"};
+      if(repSemantic&&set.targets?.[repSemantic]==null)set.targets={...(set.targets||{}),[repSemantic]:cloneSnapshot(defaultRange)}}
+    slot.metricOrigin=String(slot.exerciseId||"").startsWith("custom:")||edit.metricIds.length?"user_defined":"source_catalog";
+    const custom=(document.customExercises||[]).find(item=>item.id===slot.exerciseId);
+    if(custom){custom.metricIds=cloneSnapshot(edit.metricIds);custom.metricDefinitions=cloneSnapshot(edit.metricDefinitions)}
+    syncEditorRowFromCanonical(document,slot,cycleIndex);
+  }else if(edit?.kind==="exercise_field"){
+    const row=(document.program||[]).find(item=>item.id===edit.targetId);
+    if(!row)return false;
+    const {slot}=find(String(row.slotId||row.id));
+    if(!slot)return !definition;
+    if(edit.field==="notes")slot.setupNotes=String(row.notes||"");
+    else if(edit.field==="name"){
+      const alias=String(row.displayName||"").trim();
+      if(alias)slot.displayName=alias;else delete slot.displayName;
+    }else if((edit.field==="primary"||edit.field==="secondary")&&slot.metricOrigin==="user_defined"){
+      const attribution=manualAttributionFor({...(slot.manualAttribution||{}),[edit.field]:row[edit.field]}).manualAttribution;
+      if(attribution)slot.manualAttribution=attribution;else delete slot.manualAttribution;
+    }
+  }else if(edit?.kind==="prescription_field"){
+    const {slot,cycle,set}=editorSetByCoordinates(definition,slotId,Number(edit.cycleIndex),Number(edit.setIndex));
+    if(!slot||!cycle||!set||!["rir","restSeconds"].includes(edit.field))return false;
+    const current=set[edit.field]??null;
+    if(current!==edit.before&&current!==edit.after)return false;
+    if(edit.field==="rir"&&edit.after!==null&&(!Number.isFinite(edit.after)||edit.after<0||edit.after>4))return false;
+    if(edit.field==="restSeconds"&&edit.after!==null&&(!Number.isSafeInteger(edit.after)||edit.after<0||edit.after>86400))return false;
+    set[edit.field]=edit.after;
+    set.status="manual";set.provenance={source:"manual",policyVersion:"manual@1"};
+    const {slot:rowSlot}=find(slotId);syncEditorRowFromCanonical(document,rowSlot,Number(edit.cycleIndex));
+  }else if(edit?.kind==="prescription"&&edit.field==="sets"){
+    const {slot}=find(slotId);
+    const cycleIndex=Number(edit.cycleIndex||cycleIndex),cycle=slot?.prescriptionsByCycle?.find(item=>item.cycleIndex===cycleIndex);
+    if(!slot||!cycle)return false;
+    const desired=Number(edit.after),before=Number(edit.before);
+    if(!Number.isInteger(desired)||desired<1||desired>100)return false;
+    const beforeIds=edit.beforeSetIds,currentIds=cycle.sets.map(item=>item.id);
+    if(!Array.isArray(beforeIds)||beforeIds.length!==before||beforeIds.some(id=>typeof id!=="string")||
+      new Set(beforeIds).size!==before)return false;
+    const added=edit.addedSets||[],addedIds=added.map(item=>item?.id);
+    if(desired>before&&(added.length!==desired-before||addedIds.some(id=>typeof id!=="string")||new Set(addedIds).size!==addedIds.length))return false;
+    if(desired<=before&&added.length)return false;
+    const expectedRemoved=beforeIds.slice(desired);
+    if(!changeValueEqualForEditor(expectedRemoved,edit.removedSetIds||[]))return false;
+    const expectedIds=desired>before?[...beforeIds,...addedIds]:beforeIds.slice(0,desired);
+    if(cycle.sets.length===before&&changeValueEqualForEditor(currentIds,beforeIds)){
+      while(cycle.sets.length<desired){
+        const added=edit.addedSets?.find(item=>item.setIndex===cycle.sets.length+1);
+        // Schema v2: an added set carries no metric composition of its own
+        // (the slot above owns it), so there is nothing per-set left to verify here.
+        if(!added||added.cycleIndex!==cycleIndex)return false;
+        cycle.sets.push(cloneSnapshot(added))}
+      if(cycle.sets.length>desired){
+        const removed=cycle.sets.slice(desired).map(item=>item.id);
+        if(!changeValueEqualForEditor(removed,expectedRemoved))return false;
+        cycle.sets=cycle.sets.slice(0,desired)}
+      cycle.sets.forEach((item,index)=>{item.setIndex=index+1})
+    }else if(!changeValueEqualForEditor(currentIds,expectedIds))return false;
+    if(!changeValueEqualForEditor(cycle.sets.map(item=>item.id),expectedIds))return false;
+    const row=(document.program||[]).find(item=>(item.slotId||item.id)===slotId);
+    if(row)row.sets=desired;
+    syncEditorRowFromCanonical(document,slot,cycleIndex);
+  }else if(edit?.kind==="exercise_add"||edit?.kind==="exercise_replace"){
+    const row=(document.program||[]).find(item=>item.id===edit.targetId);
+    if(!row)return false;
+    if(edit.kind==="exercise_add"&&find(slotId).slot)return false;
+    const targetDay=String(row.day||edit.targetDay||"");
+    let day=(definition.days||[]).find(item=>item.name===targetDay&&item.kind==="training");
+    if(!day){
+      day=(definition.days||[]).find(item=>item.name===targetDay&&item.kind==="rest"&&!item.slots?.length)||
+        (definition.days||[]).find(item=>item.kind==="rest"&&!item.slots?.length);
+      if(!day)return false;
+      day.name=targetDay;day.kind="training"}
+    const oldSlot=edit.kind==="exercise_replace"?beforeRef.slot:null;
+    const newSlot=editorSlotForRow(row,document,slotId,Number(row.order)||day.slots.length+1,oldSlot);
+    if(!newSlot)return false;
+    if(edit.kind==="exercise_replace"){
+      for(const container of definition.days||[])container.slots=container.slots.filter(slot=>slot.id!==slotId)}
+    const current=day.slots.findIndex(item=>item.id===slotId);
+    if(current>=0)day.slots[current]=newSlot;else day.slots.push(newSlot);
+    day.slots.sort((a,b)=>a.order-b.order);
+    day.slots.forEach((item,index)=>{item.order=index+1});
+    syncEditorRowFromCanonical(document,newSlot,cycleIndex);
+  }else if(edit?.kind==="exercise_remove"){
+    if(!beforeRef.slot)return false;
+    for(const day of definition.days||[])day.slots=day.slots.filter(slot=>slot.id!==slotId);
+  }else if(edit?.kind==="exercise_move"){
+    const {slot}=find(slotId);if(!slot)return false;
+    const row=(document.program||[]).find(item=>item.id===edit.targetId);
+    if(!row)return false;
+    for(const day of definition.days||[])day.slots=day.slots.filter(item=>item.id!==slotId);
+    const day=(definition.days||[]).find(item=>item.name===row.day);if(!day)return false;
+    day.slots.splice(Math.max(0,Math.min(day.slots.length,Number(row.order)-1)),0,slot);
+    day.slots.forEach((item,index)=>{item.order=index+1});
+  }else if(edit?.kind==="day_name"){
+    const target=(definition.days||[]).find(item=>item.name===edit.before);
+    if(!target)return false;
+    target.name=String(edit.after||"");
+  }else if(edit?.kind==="day_add"){
+    const nextName=String(edit.after||edit.targetDay||"").trim();
+    if(!nextName)return false;
+    if((definition.days||[]).some(day=>day.name===nextName&&day.kind==="training"))return false;
+    const target=(definition.days||[]).find(day=>day.kind==="rest"&&!day.slots?.length);
+    if(!target)return false;
+    target.name=nextName;target.kind="training";
+  }else if(edit?.kind==="day_remove"){
+    const target=(definition.days||[]).find(item=>item.name===edit.targetDay);
+    if(!target)return false;
+    target.kind="rest";target.slots=[];
+  }
+  const checked=canonicalProgramDefinition(definition,document.customExercises||[]);
+  if(!checked)return false;
+  meta.programDefinition=checked;
+  return true}
 function installedEditorImpact(document,base=state,edits=[]){
   const current=editorDocumentFromSnapshot(base),next=editorDocumentFromSnapshot(document);
   const active=draftHasProgress(),draftRaw=readDraftRaw();
@@ -10800,10 +10935,14 @@ function createInstalledProgramEditorAdapter(){
     },
     async commit({expectedToken,nextDocument,intent}){
       if(intent?.kind!=="apply"&&intent?.kind!=="apply_discard_workout"){
-        if(!installedEditorSession)installedEditorSession={document:cloneSnapshot(nextDocument),token:cloneSnapshot(expectedToken),edits:[]};
-        installedEditorSession.document=cloneSnapshot(nextDocument);
+        const baseline=installedEditorSession?.document||installedEditorDocument();
+        const staged=cloneSnapshot(nextDocument);
+        if(!syncEditorCanonicalIntent(staged,baseline,intent,{cycleIndex:Number(intent?.cycleIndex)||mesocycleLifecycle(state.programMeta).current||1}))
+          return{ok:false,invalid:true,code:"invalid_canonical_editor_intent"};
+        if(!installedEditorSession)installedEditorSession={document:cloneSnapshot(baseline),token:cloneSnapshot(expectedToken),edits:[]};
+        installedEditorSession.document=staged;
         installedEditorSession.edits.push(cloneSnapshot(intent));
-        return{ok:true,staged:true,token:cloneSnapshot(expectedToken)}
+        return{ok:true,staged:true,document:cloneSnapshot(staged),token:cloneSnapshot(expectedToken)}
       }
       const session=installedEditorSession||{document:cloneSnapshot(nextDocument),token:cloneSnapshot(expectedToken),edits:intent?.edits||[]};
       const refreshed=await refreshPersistenceHead();
@@ -10866,6 +11005,8 @@ function createInstalledProgramEditorAdapter(){
     exerciseLabel:(exercise)=>exercise?.name,
     exerciseDisplayLabel:(exercise)=>exerciseDisplayName(exercise),
     formatNumber:(value)=>fmt(value),
+    ...editorMetricAdapter({cycleIndex:()=>mesocycleLifecycle(state.programMeta).current||1}),
+    defaultLoadStepKg:()=>{const global=+state.settings.minJump;return Number.isFinite(global)&&global>0?global:2.5},
     context:()=>{const mc=mesocycleWeek();return mc.current!=null?mesocycleWeekCopy(mc):""},
     status:()=>"",
     confirm:({kind,day})=>kind==="day_remove"?confirm(t("confirm.delete_day",{day:dayLabel(day)})):true,
@@ -10878,14 +11019,19 @@ window.__debugProgramEditor=async()=>{const local=readLocalStatus(),idb=await re
 function createOnboardingProgramEditorAdapter(){
   return{
     read(){return{document:editorDocumentFromSnapshot(programEditorSnapshot()),token:{draftRevision:entryState?.revision||0}}},
-    async commit({nextDocument}){
+    async commit({nextDocument,intent}){
+      const baseline=editorDocumentFromSnapshot(programEditorSnapshot()),document=cloneSnapshot(nextDocument);
+      if(!syncEditorCanonicalIntent(document,baseline,intent,{cycleIndex:Number(intent?.cycleIndex)||1}))
+        return{ok:false,invalid:true,code:"invalid_canonical_editor_intent"};
       const proposal=programEditorSnapshot();proposal.program=cloneSnapshot(nextDocument.program||[]);
-      proposal.programMeta=cloneSnapshot(nextDocument.programMeta||proposal.programMeta);
-      proposal.customExercises=cloneSnapshot(nextDocument.customExercises||proposal.customExercises||[]);
+      proposal.program=cloneSnapshot(document.program||[]);
+      proposal.programMeta=cloneSnapshot(document.programMeta||proposal.programMeta);
+      proposal.customExercises=cloneSnapshot(document.customExercises||proposal.customExercises||[]);
       syncProgramStructureFromProgram(proposal,makeProgram(proposal.program,snapshotLookup(proposal.customExercises),proposal.programMeta));
       const result=await commitProgramEditorProposal(proposal);
       updateOnboardingEditorActions();
-      return{...result,ok:!!(result.localOk||result.idbOk),setupDraft:true,staged:true,token:{draftRevision:entryState?.revision||0}};
+      return{...result,ok:!!(result.localOk||result.idbOk),setupDraft:true,staged:true,
+        document:editorDocumentFromSnapshot(programEditorSnapshot()),token:{draftRevision:entryState?.revision||0}};
     },
     chooseExercise:editorChooseExercise,
     t:editorAdapterTranslate,
@@ -10895,19 +11041,22 @@ function createOnboardingProgramEditorAdapter(){
     exerciseLabel:(exercise)=>exercise?.name,
     exerciseDisplayLabel:(exercise)=>exerciseDisplayName(exercise),
     formatNumber:(value)=>fmt(value),
+    ...editorMetricAdapter({cycleIndex:()=>1}),
     context:()=>"",
-    status:()=>editorAdapterTranslate("entry.editor.draft_saved",undefined,"Draft saved"),
+    // A message already announced is rendered in place; a new one is left for
+    // updateOnboardingEditorActions to write, which is what announces it.
+    status:()=>{const message=onboardingEditorStatus().message;return message===onboardingEditorAnnounced?message:""},
+    afterRender:()=>updateOnboardingEditorActions(),
     confirm:()=>true,
     reducedMotion:()=>reducedMotion(),
     announce:announceEditorChange,
     afterModal:afterModalSettles,
   }
 }
-function updateOnboardingEditorActions(){
-  const button=$("#entryEditorActivate");if(!button||!entryState)return;
-  const issues=ProgramEntry.candidateActivationIssues(entryState);button.disabled=issues.length>0;
-  if(issues.length)button.setAttribute("aria-describedby","entryEditorStatus");else button.removeAttribute("aria-describedby");
-  const status=$("#onbProgramEditor [data-role=\"editor-status\"]");if(!status)return;
+/* What the Build editor's status line says: the first thing still blocking
+   activation, or that the draft is saved. */
+function onboardingEditorStatus(){
+  const issues=entryState?ProgramEntry.candidateActivationIssues(entryState):[];
   const progression=issues.some(issue=>issue.startsWith("progression_incompatible:"));
   /* Named the way the day rows name them (dayLabel), never as the stored "Day N". */
   const emptyDays=issues.filter(issue=>issue.startsWith("day_empty:")).map(issue=>dayLabel(
@@ -10919,15 +11068,25 @@ function updateOnboardingEditorActions(){
       emptyDays.length?editorAdapterTranslate("entry.editor.empty_days",{days:emptyDays.join(", ")},"Add an exercise to each training day."):
         issues.length?editorAdapterTranslate("entry.editor.incomplete",{n:issues.length},"Finish the program before continuing."):
           editorAdapterTranslate("entry.editor.draft_saved",undefined,"Draft saved");
+  return{issues,message}}
+function updateOnboardingEditorActions(){
+  const button=$("#entryEditorActivate");if(!button||!entryState)return;
+  const {issues,message}=onboardingEditorStatus();button.disabled=issues.length>0;
+  if(issues.length)button.setAttribute("aria-describedby","entryEditorStatus");else button.removeAttribute("aria-describedby");
+  const status=$("#onbProgramEditor [data-role=\"editor-status\"]");if(!status)return;
   status.id="entryEditorStatus";
-  status.textContent=message;
+  // Rewriting an unchanged live region announces it again.
+  if(status.textContent!==message)status.textContent=message;
+  onboardingEditorAnnounced=message;
   status.hidden=false;
   status.classList.toggle("is-error",issues.length>0);
   status.setAttribute("role",issues.length?"alert":"status");
   status.setAttribute("aria-live",issues.length?"assertive":"polite");
 }
+let onboardingEditorAnnounced=null;
 function mountOnboardingProgramEditor(){
   const host=$("#onbProgramEditor");if(!host||!window.mountProgramEditor)return null;
+  onboardingEditorAnnounced=null;
   onboardingProgramEditor?.dispose?.();
   onboardingProgramEditor=window.mountProgramEditor(host,createOnboardingProgramEditorAdapter());
   const status=host.querySelector('[data-role="editor-status"]');if(status)status.id="entryEditorStatus";
@@ -11037,6 +11196,7 @@ function programEditorSnapshot(){
   snapshot.program=candidateProgram;
   snapshot.programMeta={...defaultProgramMeta([]),name:entryResultName()||entryState?.answers?.programName||"",
     daysPerWeek:entryState?.answers?.daysPerWeek||preview.frequency||null,onboarded:false,
+    ...(preview.programDefinition?{programDefinition:cloneSnapshot(preview.programDefinition)}:{}),
     programStructure:cloneSnapshot(preview.programStructure||null),
     progressionRelations:cloneSnapshot(preview.progressionRelations||[]),
     progressionModifiers:cloneSnapshot(preview.progressionModifiers||[]),
@@ -11062,38 +11222,54 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
       state.program,state.programMeta);
     return commitProposedState(proposal,io,opts);
   }
-  if(!entryState?.result?.preview)return{localOk:false,idbOk:false,setupDraftInvalid:true};
+  if(!entryState?.result?.preview){
+    entryPersistenceDiagnostic={operation:"editor-commit",ok:false,code:"editor-preview-missing",issues:[]};
+    return{localOk:false,idbOk:false,setupDraftInvalid:true,code:"editor-preview-missing"}}
+  const definition=canonicalProgramDefinition(proposal.programMeta?.programDefinition,
+    proposal.customExercises||[]);
+  if(!definition){
+    entryPersistenceDiagnostic={operation:"editor-commit",ok:false,code:"program_definition_required",issues:[]};
+    return{localOk:false,idbOk:false,setupDraftInvalid:true,code:"program_definition_required"}}
+  proposal.programMeta={...(proposal.programMeta||{}),programDefinition:definition};
+  // ProgramDefinition owns slot identity and prescriptions. The legacy Program
+  // model remains useful here for validating linked muscle attribution, but it
+  // is not a publication format: serializing it would drop slot/day identity
+  // and leak legacy-only fields back into the setup candidate.
+  const program=flatProgramFromDefinition(definition,proposal.customExercises||[],1);
+  const model=makeProgram(program,snapshotLookup(proposal.customExercises),proposal.programMeta);
   // Compiler previews intentionally use the compiler's internal lowercase
   // muscle ids while they are staged outside durable state. Resolve linked
   // built-ins/customs here before validating the editor result, so the setup
   // draft may retain its preview representation but every edited candidate
   // crossing toward activation already has the durable canonical domain.
-  const lookup=snapshotLookup(proposal.customExercises);
-  const model=makeProgram(proposal.program,lookup,proposal.programMeta);
   const canonicalProgram=model.toJSON();
   if(!Array.isArray(proposal.customExercises)||
     !proposal.customExercises.every(isSafeCustomExercise)||
-    !isValidMuscleDomainTree({program:canonicalProgram,customExercises:proposal.customExercises}))
-    return invalidMuscleDomainCommit(proposal);
+    !isValidMuscleDomainTree({program:canonicalProgram,customExercises:proposal.customExercises})){
+    entryPersistenceDiagnostic={operation:"editor-commit",ok:false,code:"invalid-muscle-domain",issues:[]};
+    return invalidMuscleDomainCommit(proposal)}
   const structure=proposal.programMeta?.programStructure?cloneSnapshot(proposal.programMeta.programStructure):null;
   const structureDays=structure?.days||[];
+  const rowsForDay=label=>program.filter(exercise=>exercise.day===label).map(cloneSnapshot);
   const previewDays=entryState.route==="shared"
-    ?sharedPreviewDays(model.toJSON(),structure,entryState.result.preview.sharedSettings)
+    ?sharedPreviewDays(program,structure,entryState.result.preview.sharedSettings)
     :(structureDays.length?structureDays.map(item=>({dayId:item.dayId,label:item.label,
       ...(item.displayNameKey?{displayNameKey:item.displayNameKey}:{}),
       ...(item.nameOverride?{nameOverride:item.nameOverride}:{}),
-      exercises:model.forDay(item.label||item.dayId).map(cloneSnapshot)})):
-      model.days().map(label=>({dayId:label,label,exercises:model.forDay(label).map(cloneSnapshot)})));
-  const program=model.toJSON();
+      exercises:rowsForDay(item.label||item.dayId)})):
+      [...new Set(program.map(exercise=>exercise.day))].map(label=>({dayId:label,label,exercises:rowsForDay(label)})));
   const progressionData=candidateProgressionData(proposal.programMeta?.progressionRelations,program,
     proposal.programMeta?.progressionIncompatibilities,"candidate-editor");
   const referencedCustomIds=new Set(program.map(exercise=>exercise.libraryId).filter(isCustomLibraryId));
-  const preview={...cloneSnapshot(entryState.result.preview),program,programStructure:structure,
+  const preview={...cloneSnapshot(entryState.result.preview),program,
+    ...(proposal.programMeta?.programDefinition?{programDefinition:cloneSnapshot(proposal.programMeta.programDefinition)}:{}),
+    programStructure:structure,
     progressionRelations:progressionData.relations,
     progressionIncompatibilities:progressionData.incompatibilities,
     days:previewDays,
     customExercises:(entryState.result.preview?.customExercises||[])
       .filter(entry=>referencedCustomIds.has(entry.id)).map(cloneSnapshot)};
+  const previousEntryState=entryState;
   const result={...cloneSnapshot(entryState.result),preview};
   const nextName=proposal.programMeta?.name||entryState.result.name;
   if(nextName){result.name=nextName;delete result.namePt}else delete result.name;
@@ -11101,11 +11277,16 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
   entryPinnedVersionsExecutable=false;
   entryState=ProgramEntry.setResult(entryState,result);
   const saved=await persistSetupDraft(entryState);
+  entryPersistenceDiagnostic={operation:"editor-commit",ok:!!saved?.ok,
+    code:saved?.code||(saved?.conflict?"setup-draft-conflict":saved?.writeFailed?"setup-draft-write-failed":saved?.invalid?"setup-draft-invalid":null),
+    issues:(saved?.issues||[]).slice(0,12).map(issue=>String(issue).slice(0,240))};
+  if(!saved?.ok)entryState=previousEntryState;
   if(saved?.ok&&progressionData.incompatibilities.length){
     entryEditorStatusFocusPending=true;
     setTimeout(()=>focusEntryEditorStatus(),reducedMotion()?0:320)}
   return saved?.ok?{revision:saved.envelope?.revision||0,localOk:true,idbOk:true,setupDraft:true}:
-    {revision:0,localOk:false,idbOk:false,setupDraft:true,setupDraftConflict:!!saved?.conflict}}
+    {revision:0,localOk:false,idbOk:false,setupDraft:true,setupDraftConflict:!!saved?.conflict,
+      code:saved?.code||null,issues:Array.isArray(saved?.issues)?saved.issues.slice(0,12):[]}}
 function openEntryDraftEditor(){
   if(!entryState?.result?.preview)return;
   setupEditorOpen=true;programEditMode=false;
@@ -11194,7 +11375,7 @@ function programRowHtml(e){
   const word=move==="up"?t("rec.add.label"):move==="down"?t("rec.reduce.label"):"";
   return `<button type="button" class="rxrow" data-exopen="${esc(e.id)}" data-action-role="navigation">`+
     `<span class="rxrow__name">${esc(exerciseDisplayName(e))}<span class="rxrow__sub">${esc(programStrategyName(e))}</span></span>`+
-    `<span class="rxrow__target">${e.sets} × ${e.min}–${e.max}</span>`+
+    `<span class="rxrow__target">${esc(e.hasRepTarget===false?programPrescriptionSummary(e):`${e.sets} × ${e.min}–${e.max}`)}</span>`+
     `<span class="rxrow__load"${showLoad?` data-parity-target="${esc(e.id)}"`:""}>${showLoad?mark+(word?`<span class="visually-hidden">${esc(word)} </span>`:"")+esc(fmtLoad(rec.load)):""}</span></button>`}
 function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
   const meta=state.programMeta||defaultProgramMeta(state.log),mc=mesocycleWeek(),ad=programAdherence(),health=programProgressionHealth();
@@ -11315,7 +11496,9 @@ function renameCollapsedDay(oldName,newName){const cur=collapsedProgramDays();
 let programJsonSynced=null;
 function syncProgramJson({force=false}={}){
   const box=$("#programJson");if(!box)return;
-  const next=JSON.stringify(programEditorProgram().toJSON(),null,2);
+  // The raw editor edits the canonical definition, the program's one authority.
+  const definition=programEditorSnapshot().programMeta?.programDefinition;
+  const next=JSON.stringify(definition||programEditorProgram().toJSON(),null,2);
   if(!force){
     if(document.activeElement===box)return;
     if(next===programJsonSynced&&box.value!==programJsonSynced)return}
@@ -11348,61 +11531,8 @@ function dayCard(d){
   `</div>`;
 }
 
-const PROGRESSION_EDITOR_STRATEGIES=Object.freeze(["range","rep_goal","effort_target","anchor_backoff","manual"]);
 const progressionNumber=(name,label,value,{min=0,max=100,step="1"}={})=>
   `<label class="pstrategy__field"><span>${esc(label)}</span><input type="number" inputmode="decimal" name="${name}" value="${esc(value)}" min="${min}" max="${max}" step="${step}" required></label>`;
-function progressionEditorParams(e,strategy){
-  const current=progressionForExercise(e),same=current?.strategy?.id===strategy;
-  const p=same?current.strategy.params:{};
-  const increment=+p.minLoadIncrement||+state.settings.minJump||2.5;
-  const jump=Number.isFinite(+p.jumpPercent)?+p.jumpPercent:+state.settings.jumpPct||2.5;
-  if(strategy==="range")return `<div class="pstrategy__grid">`+
-    progressionNumber("sets",t("program.progression.sets"),+p.workingSets||e.sets,{min:1,max:20})+
-    progressionNumber("repMin",t("program.progression.rep_min"),+p.repMin||e.min,{min:1,max:100})+
-    progressionNumber("repMax",t("program.progression.rep_max"),+p.repMax||e.max,{min:1,max:100})+`</div>`;
-  if(strategy==="rep_goal")return `<div class="pstrategy__grid">`+
-    progressionNumber("sets",t("program.progression.sets"),+p.workingSets||e.sets,{min:1,max:20})+
-    progressionNumber("repGoal",t("program.progression.total_reps"),+p.repGoal||Math.max(e.sets*e.max,e.sets*e.min),{min:1,max:200})+
-    progressionNumber("repMin",t("program.progression.rep_floor"),+p.repFloor||e.min,{min:1,max:100})+
-    progressionNumber("repMax",t("program.progression.rep_ceiling"),+p.repCeiling||e.max,{min:1,max:100})+
-    progressionNumber("rirMin",t("program.progression.rir_min"),Number.isFinite(+p.targetRirMin)?+p.targetRirMin:1,{min:0,max:10,step:"0.5"})+
-    progressionNumber("rirMax",t("program.progression.rir_max"),Number.isFinite(+p.targetRirMax)?+p.targetRirMax:3,{min:0,max:10,step:"0.5"})+
-    progressionNumber("increment",t("program.progression.increment"),increment,{min:0.000001,max:1000,step:"any"})+
-    progressionNumber("jump",t("program.progression.jump"),jump,{min:0,max:100,step:"0.1"})+`</div>`;
-  if(strategy==="effort_target")return `<div class="pstrategy__grid">`+
-    progressionNumber("sets",t("program.progression.sets"),+p.workingSets||e.sets,{min:1,max:20})+
-    progressionNumber("targetReps",t("program.progression.target_reps"),+p.targetReps||e.min,{min:1,max:100})+
-    progressionNumber("rirMin",t("program.progression.rir_min"),Number.isFinite(+p.targetRirMin)?+p.targetRirMin:2,{min:0,max:10,step:"0.5"})+
-    progressionNumber("rirMax",t("program.progression.rir_max"),Number.isFinite(+p.targetRirMax)?+p.targetRirMax:3,{min:0,max:10,step:"0.5"})+
-    progressionNumber("increment",t("program.progression.increment"),increment,{min:0.000001,max:1000,step:"any"})+`</div>`;
-  if(strategy==="anchor_backoff")return `<div class="pstrategy__grid">`+
-    progressionNumber("anchorRepMin",t("program.progression.anchor_rep_min"),+p.anchorRepMin||Math.min(e.min,5),{min:1,max:100})+
-    progressionNumber("anchorRepMax",t("program.progression.anchor_rep_max"),+p.anchorRepMax||Math.min(Math.max(e.min,5),e.max),{min:1,max:100})+
-    progressionNumber("rirMin",t("program.progression.rir_min"),Number.isFinite(+p.anchorTargetRirMin)?+p.anchorTargetRirMin:1,{min:0,max:10,step:"0.5"})+
-    progressionNumber("rirMax",t("program.progression.rir_max"),Number.isFinite(+p.anchorTargetRirMax)?+p.anchorTargetRirMax:3,{min:0,max:10,step:"0.5"})+
-    progressionNumber("backoffSets",t("program.progression.backoff_sets"),+p.backoffSets||Math.max(1,e.sets-1),{min:1,max:20})+
-    progressionNumber("backoffRepMin",t("program.progression.backoff_rep_min"),+p.backoffRepMin||Math.max(e.min,6),{min:1,max:100})+
-    progressionNumber("backoffRepMax",t("program.progression.backoff_rep_max"),+p.backoffRepMax||Math.max(e.max,10),{min:1,max:100})+
-    progressionNumber("backoffPercent",t("program.progression.backoff_percent"),Number.isFinite(+p.backoffPercent)?Math.round(+p.backoffPercent*100):80,{min:70,max:95,step:"1"})+
-    progressionNumber("increment",t("program.progression.increment"),increment,{min:0.000001,max:1000,step:"any"})+
-    progressionNumber("jump",t("program.progression.jump"),jump,{min:0,max:100,step:"0.1"})+`</div>`;
-  return `<p class="pstrategy__manual">${esc(t("program.progression.manual_help"))}</p>`;
-}
-function progressionEditorCard(e){
-  const unsupported=!!e.progressionIncompatibility;
-  const current=unsupported?"unsupported":strategyIdFor(e);
-  const options=(unsupported?[`<option value="unsupported">${esc(t("program.progression.unsupported"))}</option>`]:[])
-    .concat(PROGRESSION_EDITOR_STRATEGIES.map(id=>`<option value="${id}"${id===current?" selected":""}>${esc(t(`program.progression.strategy.${id}`))}</option>`)).join("");
-  return `<details class="pstrategy" data-progression-editor="${esc(e.id)}">`+
-    `<summary>${esc(t("program.progression.summary"))}<span>${esc(t(`program.progression.strategy.${current}`))}</span></summary>`+
-    `<div class="pstrategy__body"><label class="pstrategy__select"><span>${esc(t("program.progression.method"))}</span>`+
-      `<select data-progression-strategy aria-describedby="progression_help_${esc(e.id)}">${options}</select></label>`+
-    `<p class="pstrategy__help" id="progression_help_${esc(e.id)}">${esc(t(unsupported?"program.progression.unsupported_help":"program.progression.help"))}</p>`+
-    `<form data-progression-form data-id="${esc(e.id)}"><div data-progression-fields>${unsupported?"":progressionEditorParams(e,current)}</div>`+
-      `<p class="pstrategy__error" data-progression-error role="alert" aria-live="assertive"></p>`+
-      `<button class="btn btn--steel pstrategy__save" type="submit"${unsupported?" disabled":""}>${esc(t("program.progression.save"))}</button>`+
-    `</form></div></details>`;
-}
 
 function exCard(e,i,n){
   const progressionOwnsShape=!!e.progression&&["range","rep_goal","effort_target","anchor_backoff"].includes(e.progression.strategy?.id);
@@ -11428,13 +11558,6 @@ function exCard(e,i,n){
     (linked?`<p class="pex__linked">${esc(t("program.exercise.linked",{name:libraryName(linked)}))} `+
       `<button type="button" class="pex__detach" data-act="detachEx" data-id="${esc(e.id)}">${esc(t("program.exercise.detach"))}</button></p>`:"")+
     `<label class="pex__mus">${esc(t("program.exercise.setup_notes"))}<input data-id="${esc(e.id)}" data-field="notes" value="${esc(e.notes)}" placeholder="${esc(t("program.exercise.setup_notes_placeholder"))}"></label>`+
-    `<div class="pex__alts">`+
-      `<span class="pex__altlab">${esc(t("program.exercise.alternates"))}</span>`+
-      `<button type="button" class="pex__altpick" data-act="pickAlternates" data-id="${esc(e.id)}">`+
-        `${esc((e.alternates||[]).join(", ")||t("program.exercise.alternates_empty"))}`+
-      `</button>`+
-    `</div>`+
-    progressionEditorCard(e)+
   `</div>`;
 }
 
@@ -11442,46 +11565,15 @@ function exCard(e,i,n){
    (trimmed, split on commas), so the stored string routinely differs from what
    is legitimately half-typed in the box — mirroring the model back mid-edit
    would eat trailing spaces and re-fill a field the lifter is still clearing.
-   These echo on blur instead; see bindEditor. Alternates are no longer typed —
-   they are picked — so they are committed whole and are not in this set,
-   though Program.update still parses the string form for imported programs. */
+   These echo on blur instead; see bindEditor. */
 const EDITOR_TEXT_FIELDS=new Set(["name","primary","secondary","notes"]);
-const editorFieldText=(e,field)=>field==="alternates"?(e.alternates||[]).join(", "):String(e[field]??"");
+const editorFieldText=(e,field)=>String(e[field]??"");
 function commitEditorField(id,field,value,effect){
   const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
   nextProgram.update(id,field,value);proposal.program=nextProgram.toJSON();
   return commitProgramEditorProposal(proposal,storageIO,{effect})}
 
 const progressionFormNumber=(data,name)=>Number(data.get(name));
-function authoredProgressionFromForm(strategy,data,e){
-  let params={};
-  if(strategy==="range")params={workingSets:progressionFormNumber(data,"sets"),repMin:progressionFormNumber(data,"repMin"),repMax:progressionFormNumber(data,"repMax")};
-  else if(strategy==="rep_goal")params={
-    workingSets:progressionFormNumber(data,"sets"),repGoal:progressionFormNumber(data,"repGoal"),
-    repFloor:progressionFormNumber(data,"repMin"),repCeiling:progressionFormNumber(data,"repMax"),
-    targetRirMin:progressionFormNumber(data,"rirMin"),targetRirMax:progressionFormNumber(data,"rirMax"),
-    minLoadIncrement:progressionFormNumber(data,"increment"),jumpPercent:progressionFormNumber(data,"jump"),
-    distributionPolicy:"balanced_frontload_v1"};
-  else if(strategy==="effort_target")params={
-    workingSets:progressionFormNumber(data,"sets"),targetReps:progressionFormNumber(data,"targetReps"),
-    targetRirMin:progressionFormNumber(data,"rirMin"),targetRirMax:progressionFormNumber(data,"rirMax"),
-    minLoadIncrement:progressionFormNumber(data,"increment")};
-  else if(strategy==="anchor_backoff")params={
-    anchorRepMin:progressionFormNumber(data,"anchorRepMin"),anchorRepMax:progressionFormNumber(data,"anchorRepMax"),
-    anchorTargetRirMin:progressionFormNumber(data,"rirMin"),anchorTargetRirMax:progressionFormNumber(data,"rirMax"),
-    backoffSets:progressionFormNumber(data,"backoffSets"),backoffRepMin:progressionFormNumber(data,"backoffRepMin"),
-    backoffRepMax:progressionFormNumber(data,"backoffRepMax"),backoffPercent:progressionFormNumber(data,"backoffPercent")/100,
-    minLoadIncrement:progressionFormNumber(data,"increment"),jumpPercent:progressionFormNumber(data,"jump")};
-  else if(strategy==="manual"){
-    const existing=progressionForExercise(e);
-    params=existing?.strategy?.id==="manual"&&!e.progressionIncompatibility?cloneSnapshot(existing.strategy.params):{}}
-  return{schemaVersion:1,strategy:{id:strategy,version:1,params},modifiers:[]}}
-function progressionAuthoredShape(strategy,params,e){
-  if(strategy==="rep_goal")return{sets:params.workingSets,min:params.repFloor,max:params.repCeiling};
-  if(strategy==="effort_target")return{sets:params.workingSets,min:params.targetReps,max:params.targetReps};
-  if(strategy==="anchor_backoff")return{sets:1+params.backoffSets,min:Math.min(params.anchorRepMin,params.backoffRepMin),max:Math.max(params.anchorRepMax,params.backoffRepMax)};
-  if(strategy==="range")return{sets:params.workingSets,min:params.repMin,max:params.repMax};
-  return{sets:e.sets,min:e.min,max:e.max}}
 function progressionPairCompatible(id,prescription,program){
   const relations=programEditorSnapshot().programMeta?.progressionRelations;
   if(!Array.isArray(relations))return true;
@@ -11492,35 +11584,6 @@ function progressionPairCompatible(id,prescription,program){
     const selected=member.exerciseId===id?prescription:progressionForExercise(slot);
     byRole[member.role]=`${selected?.strategy?.id}@${selected?.strategy?.version}`}
   return RepForgeProgression.pairedExposureCompatibility({heavy:byRole.heavy,volume:byRole.volume}).compatible}
-async function saveProgressionEditor(form){
-  const model=programEditorProgram(),id=form.dataset.id,e=model.find(id),error=form.querySelector("[data-progression-error]");if(!e)return;
-  error.textContent="";
-  if(!form.reportValidity())return;
-  const select=form.closest("[data-progression-editor]")?.querySelector("[data-progression-strategy]");
-  const strategy=select?.value;
-  if(!PROGRESSION_EDITOR_STRATEGIES.includes(strategy)){error.textContent=t("program.progression.error.unsupported");return}
-  const prescription=authoredProgressionFromForm(strategy,new FormData(form),e);
-  const checked=RepForgeProgression.validatePrescription(prescription);
-  if(!checked.ok){error.textContent=t("program.progression.error.invalid");return}
-  const executable=RepForgeProgression.evaluateProgression({
-    ...progressionInput(e),prescription:checked.value,history:[],currentSession:[]});
-  if(executable.kind==="invalid"||executable.kind==="incompatible"){
-    error.textContent=t("program.progression.error.invalid");return}
-  const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta),next=nextProgram.find(id);
-  if(!progressionPairCompatible(id,checked.value,nextProgram)){error.textContent=t("program.progression.error.paired");return}
-  const shape=progressionAuthoredShape(strategy,checked.value.strategy.params,next);
-  let effect=null;
-  if(!setupEditorOpen&&shape.sets<next.sets){const draftRaw=readDraftRaw();let draft={};
-    try{const parsed=JSON.parse(draftRaw||"{}");if(isPlainStateObject(parsed))draft=parsed}catch{}
-    if(draftHasProgressInRemovedSets(id,shape.sets,next.sets,draft)){error.textContent=t("program.progression.error.active_sets");return}
-    effect=draftPreservationEffect(draftRaw);
-    if(effect.status!==DRAFT_EFFECT_VALID){error.textContent=t("program.progression.error.active_sets");return}}
-  next.progression=cloneSnapshot(checked.value);delete next.progressionIncompatibility;
-  next.sets=shape.sets;next.min=shape.min;next.max=shape.max;
-  proposal.program=nextProgram.toJSON();
-  const result=await commitProgramEditorProposal(proposal,storageIO,{effect});
-  if(!(result.localOk||result.idbOk)){error.textContent=t("program.progression.error.save");return}
-  render();toast(t("program.progression.saved"))}
 
 function bindEditor(){
   $$("#programEditor [data-field]").forEach(inp=>{
@@ -11565,8 +11628,7 @@ function bindEditor(){
       // abandoned edit, not a rename to a fragment.
       let onFocusText=null;
       inp.onfocus=()=>{const e=programEditorProgram().find(inp.dataset.id);onFocusText=e?editorFieldText(e,field):null};
-      // Blur is where the box catches up with the model: stray whitespace goes and
-      // alternates regain their ", " spacing.
+      // Blur is where the box catches up with the model: stray whitespace goes.
       inp.onchange=async()=>{
         if(field==="name"&&!inp.value.trim()&&onFocusText){
           // Backspacing leaves a keystroke commit per character still in flight, and
@@ -11595,15 +11657,6 @@ function bindEditor(){
       renameCollapsedDay(old,next);
       if(!setupEditorOpen&&day===old)day=next;
       render();toast(t("toast.day_renamed"))};
-  });
-  $$("#programEditor [data-progression-editor]").forEach(editor=>{
-    const e=programEditorProgram().find(editor.dataset.progressionEditor),select=editor.querySelector("[data-progression-strategy]");
-    const form=editor.querySelector("[data-progression-form]"),fields=editor.querySelector("[data-progression-fields]");
-    select.onchange=()=>{const strategy=select.value;
-      fields.innerHTML=PROGRESSION_EDITOR_STRATEGIES.includes(strategy)?progressionEditorParams(e,strategy):"";
-      form.querySelector("[data-progression-error]").textContent="";
-      form.querySelector('button[type="submit"]').disabled=!PROGRESSION_EDITOR_STRATEGIES.includes(strategy)};
-    form.onsubmit=event=>{event.preventDefault();saveProgressionEditor(form)};
   });
   $$("#programEditor button[data-act]").forEach(b=>b.onclick=()=>editorAction(b.dataset.act,b.dataset));
 }
@@ -11644,22 +11697,6 @@ async function editorAction(act,ds){
     proposal.program=nextProgram.toJSON();
     const result=await commitProgramEditorProposal(proposal);
     if(result.localOk||result.idbOk){render();toast(t("toast.exercise_detached"))}}
-  else if(act==="pickAlternates"){
-    const ex=programEditorProgram().find(ds.id);if(!ex)return;
-    // Alternates were a comma-separated string of whatever got typed. They are
-    // still stored as names, so older programs keep working, but they are now
-    // chosen from the library — which is what makes a one-tap swap possible.
-    const byName=new Map(pickableExercises().map(e=>[foldSearch(libraryName(e)),e.id]));
-    const extras=[],preselected=[];
-    for(const n of ex.alternates||[]){
-      const hit=byName.get(foldSearch(n));
-      if(hit){preselected.push(hit);continue}
-      const extra=nameOnlyEntry(n);extras.push(extra);preselected.push(extra.id)}
-    openExercisePicker({title:t("picker.title_alternates"),subtitle:exerciseDisplayName(ex),mode:"multi",
-      selected:preselected,extras,exclude:[ex.libraryId].filter(Boolean),
-      onPick:async entries=>{
-        const result=await commitEditorField(ds.id,"alternates",entries.map(libraryName).join(", "));
-        if(result.localOk||result.idbOk){render();toast(t("toast.alternates_saved"))}}})}
   else if(act==="delEx"){const draftActive=!setupEditorOpen&&draftHasProgress(),discardDraftRaw=setupEditorOpen?null:readDraftRaw();
     const key=draftActive?"confirm.remove_exercise_discard_draft":"confirm.remove_exercise";
     if(confirm(t(key))){
@@ -11711,32 +11748,26 @@ function reconcileLinkedProgramRows(rows,byId){
     const alias=nextAlias!==prevAlias?nextAlias
       :prev?(nextName!==prevName?nextName:prevAlias)
       :(nextAlias||nextName);
-    if(alias&&alias!==canonical)row.displayName=alias;else delete row.displayName;
-    if(text(row.primary)!==text(entry.primary)||text(row.secondary)!==text(entry.secondary))
-      ignoredMuscles.add(alias&&alias!==canonical?alias:canonical)}
+    // Either language's catalog name is the movement itself, not an alias.
+    const isAlias=alias&&alias!==canonical&&alias!==entry.name;
+    if(isAlias)row.displayName=alias;else delete row.displayName;
+    if(text(row.primary)!==text(libraryMuscleAttribution(entry,"primary"))||text(row.secondary)!==text(libraryMuscleAttribution(entry,"secondary")))
+      ignoredMuscles.add(isAlias?alias:canonical)}
   return{ignoredMuscles:[...ignoredMuscles]}}
 
-async function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);if(!Array.isArray(parsed))throw Error();
-  const currentSnapshot=programEditorSnapshot(),currentProgram=programEditorProgram();
+async function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);
+  const currentSnapshot=programEditorSnapshot();
   const transition=setupEditorOpen?{}:programTransitionPrecondition(state);
-  const byId=new Map(currentProgram.exercises.map(e=>[e.id,e]));
-  for(const row of parsed){if(row.id&&byId.has(row.id))continue;
-    const match=currentProgram.exercises.find(e=>e.name===row.name&&e.day===row.day)||currentProgram.exercises.find(e=>e.name===row.name);
-    if(match&&!parsed.some(r=>r.id===match.id))row.id=match.id}
-  const{ignoredMuscles}=reconcileLinkedProgramRows(parsed,byId);
+  // Raw JSON is a ProgramDefinition. The compiler validates it whole; rows are
+  // re-projected from it so they can never diverge from the definition.
+  const definition=canonicalProgramDefinition(parsed,currentSnapshot.customExercises||[]);
+  if(!definition){toast(t("toast.program_invalid"),{assertive:true});return}
   const draftActive=!setupEditorOpen&&draftHasProgress(),discardDraftRaw=setupEditorOpen?null:readDraftRaw();
   if(draftActive&&!confirm(t("confirm.replace_program_discard_draft")))return;
   const proposal=currentSnapshot;
-  // Raw JSON lists exercises only. Drop structure days that previously had
-  // exercises but are gone from the payload; keep already-empty containers
-  // (manual build) so Save JSON does not wipe intentional blank days.
-  const prevExDays=new Set((proposal.program||[]).map(e=>e.day));
-  const nextProgram=makeProgram(parsed,null,proposal.programMeta);
-  if(nextProgram._structureDays&&!setupEditorOpen&&proposal.programMeta?.programStructure?.provenance?.source!=="manual_build"){
-    const nextExDays=new Set(nextProgram.exercises.map(e=>e.day));
-    nextProgram._structureDays=nextProgram._structureDays.filter(d=>nextExDays.has(d)||!prevExDays.has(d))}
-  proposal.program=nextProgram.toJSON();
-  syncProgramStructureFromProgram(proposal,nextProgram,currentSnapshot.program,currentSnapshot.programMeta);
+  proposal.programMeta={...(proposal.programMeta||{}),programDefinition:definition,
+    daysPerWeek:definition.days.filter(day=>day.kind==="training").length,mesocycleLengthWeeks:definition.cycles};
+  proposal.program=durableProgramRows(definition,proposal.customExercises||[],proposal.programMeta);
   migrateLogSnapshot(proposal);
   const effect=destructiveDraftClearEffect(discardDraftRaw);
   const result=await commitProgramEditorProposal(proposal,storageIO,{effect,...transition});
@@ -11751,10 +11782,7 @@ async function saveProgram(){try{const parsed=JSON.parse($("#programJson").value
   render();
   // The save consumed the box, so show the normalised result over the draft.
   syncProgramJson({force:true});
-  if(!ignoredMuscles.length)toast(t("toast.program_saved"));
-  else toast(ignoredMuscles.length===1
-    ?t("toast.program_saved_muscles_linked",{name:ignoredMuscles[0]})
-    :t("toast.program_saved_muscles_linked_many",{n:ignoredMuscles.length}),{assertive:true});
+  toast(t("toast.program_saved"));
   return result}
   catch{toast(t("toast.program_json_invalid"))}}
 
@@ -11943,7 +11971,7 @@ async function exportJson(){
   const proposal=cloneSnapshot(state);proposal.settings.lastExport=new Date().toISOString();
   const result=await commitProposedState(proposal);
   if(!(result.localOk||result.idbOk))return result;
-  const text=JSON.stringify(exportableState(state),null,2),name=`taurifer_backup_${today()}.json`;
+  const text=JSON.stringify(exportableState(state)),name=`taurifer_backup_${today()}.json`;
   shareOrDownload(text,name,"application/json");
   renderSettings();
   return result}
@@ -11956,90 +11984,42 @@ const fileSlug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace
 function referencedCustomExercises(list){
   const wanted=new Set((list||[]).map(e=>e.libraryId).filter(id=>isCustomLibraryId(id)));
   return customExercises().filter(e=>wanted.has(e.id)).map(cloneSnapshot)}
-const SHARED_EQUIPMENT=window.RepForgeProgramEntryAdapter.SHARED_EQUIPMENT;
-function sharedRelationForPayload(relation,program){
-  const members=Array.isArray(relation?.members)?relation.members:[];
-  const rows=members.map(member=>program.find(ex=>ex?.id===member?.exerciseId));
-  const current=String(relation?.movementId||"").trim();
-  if(rows.length!==2||rows.some(row=>!row)||!current)return relation;
-  const identities=rows.map(row=>ProgramEntryAdapter.sharedMovementId(row,LEGACY_LIBRARY_IDS));
-  const internalIds=rows.map(row=>String(row.movementId||"").trim());
-  if(!identities[0]||identities.some(id=>id!==identities[0])||internalIds.some(id=>id!==current))return relation;
-  return{...relation,movementId:identities[0]};
-}
-function sharedProgramMeta(meta,program){
-  const days=program.days();
-  const optional=(value,allowed)=>allowed.includes(value)?value:null;
-  const out={name:String(meta?.name||"").trim()||t("untitled_program")||"Untitled program",
-    goal:optional(meta?.goal,["hypertrophy","strength_hypertrophy","beginner_consistency"]),
-    experience:optional(meta?.experience,["beginner","intermediate","advanced"]),daysPerWeek:days.length,
-    splitType:optional(meta?.splitType,["full_body","machine_only","ppl","upper_lower","bro"]),
-    equipment:[...new Set((Array.isArray(meta?.equipment)?meta.equipment:[])
-      .map(value=>SHARED_EQUIPMENT[String(value).toLowerCase()]).filter(Boolean))],
-    priorityMuscles:[...new Set((Array.isArray(meta?.priorityMuscles)?meta.priorityMuscles:[])
-      .map(value=>String(value).trim()).filter(Boolean))],
-    sessionLength:optional(meta?.sessionLength,["short","normal","long"]),
-    mesocycleLengthWeeks:meta?.mesocycleLengthWeeks==null?6:meta.mesocycleLengthWeeks,
-    progressionRelations:normalizeProgressionRelations(meta?.progressionRelations,program.toJSON())
-      .map(relation=>sharedRelationForPayload(relation,program.toJSON())),
-    progressionModifiers:normalizeProgressionModifiers(meta?.progressionModifiers)};
-  if(meta?.programStructure)out.programStructure=cloneSnapshot(meta.programStructure);
-  return out}
-function sharedExercise(ex,preserveIdentity=false){
-  const libraryId=LEGACY_LIBRARY_IDS[ex?.libraryId]||ex?.libraryId;
-  const out={day:ex?.day,order:ex?.order,libraryId,sets:ex?.sets,min:ex?.min,max:ex?.max,
-    notes:ex?.notes||"",alternates:Array.isArray(ex?.alternates)?[...ex.alternates]:[]};
-  if(preserveIdentity&&ex?.id){out.id=ex.id;const movementId=ProgramEntryAdapter.sharedMovementId(ex,LEGACY_LIBRARY_IDS);if(movementId)out.movementId=movementId}
-  for(const key of ["displayName","progressionType","targetRirStart","targetRirEnd","minSets","maxSets","priority"])
-    if(ex?.[key]!==undefined)out[key]=ex[key];
-  for(const key of ["slotId","dayId","loadingMode","loadIncrement"])
-    if(ex?.[key]!==undefined)out[key]=ex[key];
-  if(ex?.progression!==undefined)out.progression=cloneSnapshot(ex.progression);
-  return out}
-function sharedCustomExercise(entry){
-  return{id:entry.id,name:entry.name,namePt:entry.namePt||entry.name,
-    equipment:Array.isArray(entry.equipment)?[...entry.equipment]:[],primary:entry.primary||"",
-    secondary:entry.secondary||"",notes:entry.notes||""}}
 function sharedSettings(settings){
   return{jumpPct:settings.jumpPct,minJump:settings.minJump,rirHigh:settings.rirHigh,
     hardRir:settings.hardRir,restSec:settings.restSec,unit:settings.unit,
     lang:settings.lang||I18N?.getLang?.()||I18N?.detectLang?.()||"en",rirMode:settings.rirMode}}
+/* The codec validates the canonical definition with the compiler and may carry
+   an unedited generated program as its generator request and seed. */
+function sharedSetupCodecOptions(){
+  return{builtInIds:SHARED_BUILT_IN_IDS,catalogSnapshot:rawExerciseCatalog,
+    validateProgramDefinition:ProgramCompiler?.validateProgramDefinition,
+    generateProgram:ProgramCompiler?.generateProgram,generatorVersion:ProgramCompiler?.GENERATOR_VERSION}}
+/* A setup link shares the active program's canonical definition, the custom
+   movements it references, the eight allowlisted settings and the language. */
 function buildSharedSetupValidation(){
   if(!SharedSetup)throw new TypeError("Shared setup unavailable");
-  const source=prog.toJSON();
-  const relations=normalizeProgressionRelations(state.programMeta?.progressionRelations,source);
-  const relationSlots=new Set(relations.flatMap(relation=>relation.members.map(member=>member.exerciseId)));
-  const diagnostics={};
-  const exercises=source.map(ex=>{
-    const row=sharedExercise(ex,true);
-    // These facts explain unresolved slots at the validation boundary. They
-    // stay beside the payload and are never smuggled through its schema.
-    diagnostics[ex.id]={
-      displayName:ex?.displayName||ex?.name||ex?.libraryId||"",
-      ...(Array.isArray(ex?.equipment)?{equipment:[...ex.equipment]}:{}),
-      ...(ex?.primary!==undefined?{primary:ex.primary}:{}),
-      ...(ex?.secondary!==undefined?{secondary:ex.secondary}:{}),
-    };
-    return row;
-  });
+  const definition=state.programMeta?.programDefinition;
+  if(!definition)throw new TypeError("Shared setup needs a program definition");
+  const referenced=new Set(definition.days.flatMap(day=>day.slots.map(slot=>slot.exerciseId)).filter(isCustomLibraryId));
+  const customs=compilerCustomDefinitions(customExercises().filter(entry=>referenced.has(entry.id)));
+  const settings=sharedSettings(state.settings);
   return{payload:{kind:SharedSetup.KIND,version:SharedSetup.VERSION,
-    program:{meta:sharedProgramMeta(state.programMeta,prog),exercises,
-      customExercises:referencedCustomExercises(exercises).map(sharedCustomExercise)},
-    settings:sharedSettings(state.settings)},diagnostics}
+    program:{name:state.programMeta?.name||t("untitled_program"),definition:cloneSnapshot(definition),
+      ...(customs.length?{customExercises:customs}:{})},
+    settings,language:settings.lang},diagnostics:{}}
 }
 function buildSharedSetupPayload(){return buildSharedSetupValidation().payload}
+/* A program file carries the canonical definition, the custom movements it
+   references and its name. Identity and lifecycle stay in full backups only. */
 function exportProgram(){
-  const exercises=prog.toJSON();
-  const meta=cloneSnapshot(state.programMeta||{});
-  // A program file is a portable template, not an active block/recovery
-  // carrier. Identity and lifecycle provenance stay in full backups only;
-  // activation will mint a fresh local block at the durable boundary.
-  for(const key of ["blockId","transitionIn","plannedVolumeHistory","recoveryTransitions","recoveryQuarantine","recoveryLifecycle"])
-    delete meta[key];
-  const payload={version:3,meta,exercises,
-    customExercises:referencedCustomExercises(exercises)};
+  const definition=state.programMeta?.programDefinition;
+  if(!definition){toast(t("toast.program_import_invalid"));return}
+  const referenced=new Set(definition.days.flatMap(day=>day.slots.map(slot=>slot.exerciseId)).filter(isCustomLibraryId));
+  const payload={kind:PROGRAM_FILE_KIND,version:PROGRAM_FILE_VERSION,name:state.programMeta?.name||"",
+    definition:cloneSnapshot(definition),
+    customExercises:customExercises().filter(entry=>referenced.has(entry.id)).map(cloneSnapshot)};
   const slug=fileSlug(state.programMeta?.name);
-  download(JSON.stringify(payload,null,2),`taurifer_program_${slug?`${slug}_`:""}${today()}.json`,"application/json")}
+  download(JSON.stringify(payload),`taurifer_program_${slug?`${slug}_`:""}${today()}.json`,"application/json")}
 
 /* ---- Plain-text program export ----
  * The program as something a lifter can read or paste into a chat: the name and
@@ -12142,10 +12122,10 @@ async function buildShareSetupLink(){
   if(!SharedSetup){setShareSetupState(t("program.share_setup_unsupported"));return}
   let built;
   try{built=buildSharedSetupValidation()}catch{setShareSetupState(t("program.share_setup_invalid"));return}
-  const checked=SharedSetup.validate(built.payload,{builtInIds:SHARED_BUILT_IN_IDS,diagnostics:built.diagnostics});
+  const checked=SharedSetup.validate(built.payload,{...sharedSetupCodecOptions(),diagnostics:built.diagnostics});
   if(!checked.ok){setShareSetupState(sharedSetupErrorMessage(checked),{blockers:checked.blockers||[]});return}
   let encoded;
-  try{encoded=await SharedSetup.encode(checked.value,{builtInIds:SHARED_BUILT_IN_IDS})}
+  try{encoded=await SharedSetup.encode(checked.value,sharedSetupCodecOptions())}
   catch{setShareSetupState(t("program.share_setup_unsupported"));return}
   if(!encoded.ok){setShareSetupState(sharedSetupErrorMessage(encoded));return}
   const local=/^(localhost|127(?:\.\d{1,3}){3}|\[::1\])$/i.test(location.hostname);
@@ -12190,10 +12170,6 @@ function reopenShareAfterRepair(){
   shareRepairFocusIntent=token;
   queueMicrotask(()=>{
     if(shareRepairFocusIntent===token)openShareSetupSheet({repairFocus:token})});
-}
-async function cancelShareRepair(){
-  if(!shareRepairReturn)return;
-  finishInstalledEditor({discard:true});
 }
 async function beginShareRepair(exerciseInstanceId){
   const id=String(exerciseInstanceId||"");
@@ -12248,8 +12224,8 @@ async function shareSetupLinkNow(){
   catch{return false}}
 /* ============================================================
    Exercise picker
-   One sheet, four callers: the program editor's add and change
-   paths, the alternates field, and the log-tab substitution.
+   One sheet, three callers: the program editor's add and change
+   paths, and the log-tab substitution.
    Callers hand it a mode and a callback and get library entries
    back — they never touch the library themselves, so a movement
    arrives in a program slot the same way from every surface.
@@ -12259,10 +12235,17 @@ async function shareSetupLinkNow(){
    Portuguese lifter still types "bench press" for a machine whose plate says
    so, and an English one still finds "supino". */
 const foldSearch=s=>String(s??"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
-const MUSCLE_TOKENS=window.RepForgeProgramEntryAdapter.MUSCLE_TOKENS;
-const PICKER_EQUIPMENT=window.RepForgeProgramEntryAdapter.KNOWN_EQUIPMENT;
+const MUSCLE_TOKENS=window.RepForgeProgramEntry.MUSCLE_TOKENS;
+const PICKER_EQUIPMENT=window.RepForgeProgramEntry.KNOWN_EQUIPMENT;
 /* Muscle filters lifters actually think in, each covering the tokens under it. */
-const PICKER_MUSCLE_GROUPS=window.RepForgeProgramEntryAdapter.PICKER_MUSCLE_GROUPS;
+const PICKER_MUSCLE_GROUPS=Object.freeze([
+  ["chest",["Chest"]],
+  ["back",["Lats","Mid/upper back","Traps"]],
+  ["shoulders",["Front delts","Side delts","Rear delts"]],
+  ["arms",["Biceps","Triceps","Forearms"]],
+  ["legs",["Quads","Hamstrings","Glutes","Adductors","Abductors","Calves"]],
+  ["core",["Abs","Obliques","Spinal erectors"]],
+]);
 
 let pickerState=null,pickerReturn=null,customState=null,customReturn=null;
 
@@ -12410,13 +12393,6 @@ async function choosePicked(id){
 
 /* mode "single" fires onPick with one entry and closes; "multi" collects and
    fires once on Done with the entries in selection order. */
-/* Pseudo-entries for names that exist only in somebody's program — a legacy or
-   imported alternate the library has no row for. They are listed and selectable
-   like anything else, so opening the picker can neither drop them silently nor
-   strand them as something the lifter can see but not remove. */
-const NAME_ONLY_PREFIX="name:";
-const nameOnlyEntry=name=>({id:`${NAME_ONLY_PREFIX}${foldSearch(name)}`,name,namePt:name,
-  equipment:[],primary:"",secondary:"",patterns:[],nameOnly:true});
 function openExercisePicker({title=null,subtitle="",mode="single",selected=[],exclude=[],extras=[],onPick=null,
   onCancel=null,stageOnly=false,repairSeed=null,quick=false,day:dayName=null,query="",muscle=null,equipment=null,tab=null}={}){
   const sheet=$("#exPickSheet"),scrim=$("#exPickScrim"),search=$("#exPickSearch");
@@ -12969,15 +12945,22 @@ function parseProgramTextExport(text){
 
 const IMPORT_MAX_BYTES=1024*1024;
 const IMPORT_MAX_DEPTH=32;
-const IMPORT_MAX_NODES=10000;
+// A canonical 12-cycle program file has tens of thousands of nodes; this
+// matches the setup-draft bound that program must already fit.
+const IMPORT_MAX_NODES=65536;
 function importUtf8Bytes(value){return new TextEncoder().encode(String(value||"")).byteLength}
-function boundedImportJson(text){
-  if(importUtf8Bytes(text)>IMPORT_MAX_BYTES)return null;
+// A backup carries every archived block's full ProgramDefinition (a generated
+// program is roughly 300 KB and 25,000 nodes), so whole-state files get their
+// own bound instead of the program-file one.
+const BACKUP_MAX_BYTES=16*1024*1024;
+const BACKUP_MAX_NODES=2000000;
+function boundedImportJson(text,{maxBytes=IMPORT_MAX_BYTES,maxNodes=IMPORT_MAX_NODES}={}){
+  if(importUtf8Bytes(text)>maxBytes)return null;
   let parsed;
   try{parsed=JSON.parse(String(text||""))}catch{return null}
   let nodes=0;
   const visit=(value,depth)=>{
-    if(++nodes>IMPORT_MAX_NODES||depth>IMPORT_MAX_DEPTH)return false;
+    if(++nodes>maxNodes||depth>IMPORT_MAX_DEPTH)return false;
     if(value===null||typeof value!=="object")return true;
     if(Array.isArray(value))return value.every(child=>visit(child,depth+1));
     return Object.keys(value).every(key=>visit(value[key],depth+1))};
@@ -13031,10 +13014,23 @@ function normalizeImportedRows(rows){
       if(!Object.prototype.hasOwnProperty.call(out,key))continue;
       out[key]=MuscleDomain.normalizeMuscleAttribution(out[key]).value}
     return out})}
+const PROGRAM_FILE_KIND="taurifer-program",PROGRAM_FILE_VERSION=4;
+/* A Taurifer program file is imported as its exact definition: every row is
+   already a catalog or carried custom identity, so nothing is matched by name. */
+function parseCanonicalProgramFile(parsed){
+  if(parsed.version!==PROGRAM_FILE_VERSION)return null;
+  const customs=Array.isArray(parsed.customExercises)?parsed.customExercises:[];
+  if(!customs.every(validImportedCustomExercise))return null;
+  const normalizedCustoms=normalizeCustomExercises(customs);
+  const definition=canonicalProgramDefinition(parsed.definition,normalizedCustoms);
+  if(!definition)return null;
+  return{format:"json",legacy:false,exercises:flatProgramFromDefinition(definition,normalizedCustoms,1),
+    customExercises:normalizedCustoms,meta:{name:String(parsed.name||"").slice(0,80)},definition}}
 function parseProgramSource(text,fileName=""){
   const trimmed=String(text||"").trim();
   if(trimmed.startsWith("{")||trimmed.startsWith("[")){
     const parsed=boundedImportJson(trimmed);if(parsed===null)return null;
+    if(parsed?.kind===PROGRAM_FILE_KIND)return parseCanonicalProgramFile(parsed);
     const imp=parseProgramImport(parsed);
     if(!imp?.exercises?.length||!imp.exercises.every(validRawImportedExerciseRow)||
       !imp.customExercises.every(validImportedCustomExercise))return null;
@@ -13169,7 +13165,8 @@ function buildImportDraft(source,fileName){
       reviewed:status===IMPORT_EXACT||status===IMPORT_ALIAS}});
   return{fileName:String(fileName||""),format:source.format||"json",
     legacy:source.legacy===true,
-    meta:source.meta||null,customExercises:source.customExercises||[],rows}}
+    meta:source.meta||null,customExercises:source.customExercises||[],rows,
+    ...(source.definition?{definition:cloneSnapshot(source.definition)}:{})}}
 
 const importCounts=draft=>{
   const linked=draft.rows.filter(r=>r.decision==="link").length;
@@ -13202,8 +13199,8 @@ function importDraftCustomDefinitions(draft){
    One controller behind three surfaces: the quick-add sheet on a
    training day, the full browse page it opens into, and the
    configuration step that follows a multi-selection. The picker
-   sheet keeps serving the single-pick jobs (change, substitute,
-   alternates) — this is the "add to my program" path, where
+   sheet keeps serving the single-pick jobs (change, substitute)
+   — this is the "add to my program" path, where
    choosing several at once and setting their sets afterwards is
    what a lifter actually does.
    ============================================================ */
@@ -13301,11 +13298,14 @@ function closeLibrary({toProgram=true}={}){
   if(toProgram){
     if(returnToOnboarding){showOnboardingView();renderOnboarding()}
     else returnToTab("program")}
+  // Starting the push out first ends any push in still running, which keeps
+  // the page beneath inert; a Back pressed mid-arrival would otherwise find
+  // nothing it could focus and leave focus on the hidden library.
+  settle?.();
   // Back lands on the control that opened the library, or else on the heading of the page it returns to.
-  if(!(back&&focusRoute(back)))focusRoute(routeHeading(returnToOnboarding?"onboarding":"program"));
-  settle?.()}
+  if(!(back&&focusRoute(back)))focusRoute(routeHeading(returnToOnboarding?"onboarding":"program"))}
 
-function renderLibrary(){
+function renderLibrary({through=null}={}){
   if(!libFlow)return;
   const configuring=libFlow.step==="configure";
   $("#libBrowse")?.classList.toggle("hidden",configuring);
@@ -13317,7 +13317,7 @@ function renderLibrary(){
     step.innerHTML=`<p class="libstep__lab">${esc(t("library.step",{n:configuring?2:1,total:2}))}</p>`+
       `<span class="libstep__bar${configuring?" is-done":""}" aria-hidden="true"></span>`+
       `<span class="libstep__bar${configuring?" is-done":""}" aria-hidden="true"></span>`}
-  if(configuring)renderLibraryConfigure();else renderLibraryBrowse();
+  if(configuring)renderLibraryConfigure();else renderLibraryBrowse({through});
   $("#libCustom")?.classList.toggle("hidden",!!libFlow.editorScope);
   renderLibraryBar()}
 
@@ -13352,22 +13352,40 @@ function renderLibraryFilters(){
     else libFlow.equipment=libFlow.equipment===b.dataset.val?null:b.dataset.val;
     renderLibrary()})}
 
-function renderLibraryBrowse(){
+function renderLibraryBrowse({through=null}={}){
   renderLibraryTabs();renderLibraryFilters();
   const list=$("#libList");if(!list)return;
   const source=libFlow.tab==="yours"?yourExercises():pickableExercises();
   const rows=source.filter(e=>exerciseMatches(e,libFlow.query,libFlow.muscle,libFlow.equipment))
     .sort((a,b)=>(a.rank??50)-(b.rank??50)||libraryName(a).localeCompare(libraryName(b)));
+  // The full catalog is over a thousand rows. The first screenfuls render now
+  // and the rest follow a chunk per frame; a newer render abandons the old one.
+  const render=++libraryRenderToken;
+  // A row that focus must return to renders in the first pass.
+  const needed=through?rows.findIndex(e=>e.id===through)+1:0;
+  const first=Math.max(LIBRARY_FIRST_ROWS,needed);
   list.innerHTML=rows.length
-    ?rows.map(e=>libraryRowHtml(e)).join("")
+    ?rows.slice(0,first).map(e=>libraryRowHtml(e)).join("")
     :`<p class="pick__empty">${esc(t("picker.empty",{q:libFlow.query}))}</p>`;
-  $$("#libList [data-lib-toggle]").forEach(b=>b.onclick=()=>toggleLibrarySelection(b.dataset.libToggle));
-  $$("#libList [data-lib-preview]").forEach(b=>b.onclick=()=>openExercisePreview(b.dataset.libPreview));
-  $$("#libList [data-lib-edit]").forEach(b=>b.onclick=()=>editCustomExercise(b.dataset.libEdit))}
+  let next=first;
+  const appendChunk=()=>{
+    if(!libFlow||render!==libraryRenderToken||!list.isConnected||next>=rows.length)return;
+    list.insertAdjacentHTML("beforeend",rows.slice(next,next+LIBRARY_CHUNK_ROWS).map(e=>libraryRowHtml(e)).join(""));
+    next+=LIBRARY_CHUNK_ROWS;requestAnimationFrame(appendChunk)};
+  // The rest waits until the view's push has settled, so it never competes
+  // with the transition for frames.
+  if(next<rows.length)setTimeout(()=>requestAnimationFrame(appendChunk),LIBRARY_DEFER_MS);
+  // One delegated handler serves every row, however many chunks arrive.
+  list.onclick=event=>{
+    const toggle=event.target.closest?.("[data-lib-toggle]");if(toggle)return toggleLibrarySelection(toggle.dataset.libToggle);
+    const preview=event.target.closest?.("[data-lib-preview]");if(preview)return openExercisePreview(preview.dataset.libPreview);
+    const edit=event.target.closest?.("[data-lib-edit]");if(edit)return editCustomExercise(edit.dataset.libEdit)}}
+const LIBRARY_FIRST_ROWS=40,LIBRARY_CHUNK_ROWS=80,LIBRARY_DEFER_MS=450;
+let libraryRenderToken=0;
 
 function libraryRowHtml(e){
   const on=libFlow.selected.has(e.id);
-  const mus=[e.primary,e.secondary].filter(Boolean).join(",").split(",").filter(Boolean).slice(0,2).map(muscleLabel);
+  const mus=[libraryMuscleAttribution(e,"primary"),libraryMuscleAttribution(e,"secondary")].filter(Boolean).join(",").split(",").filter(Boolean).slice(0,2).map(muscleLabel);
   const eq=(e.equipment||[])[0];
   const meta=[mus.join(" · "),eq?t("picker.equipment."+eq):""].filter(Boolean).join(" · ");
   return `<div class="librow${on?" is-selected":""}" data-lib-row="${esc(e.id)}">`+
@@ -13388,7 +13406,15 @@ function toggleLibrarySelection(id){
   if(!libFlow)return;
   if(libFlow.selected.has(id))libFlow.selected.delete(id);
   else libFlow.selected.set(id,null);
-  renderLibrary()}
+  // A toggle changes one row and the bar; rebuilding the whole catalog would
+  // also drop the focus the lifter's tap just put on the checkbox.
+  const row=$(`#libList [data-lib-row="${CSS.escape(id)}"]`);
+  if(!row||libFlow.step==="configure")return renderLibrary();
+  const entry=libraryEntry(id),on=libFlow.selected.has(id),check=row.querySelector("[data-lib-toggle]");
+  row.classList.toggle("is-selected",on);
+  if(check){check.classList.toggle("is-on",on);check.setAttribute("aria-checked",on?"true":"false");
+    check.setAttribute("aria-label",t(on?"library.remove_aria":"library.add_aria",{name:libraryName(entry)}))}
+  renderLibraryBar()}
 
 function renderLibraryBar(){
   const bar=$("#libBar"),count=$("#libBarCount"),primary=$("#libPrimary");
@@ -13457,10 +13483,17 @@ async function commitLibrarySelection(){
   const editorScope=!!libFlow.editorScope;
   const proposal=libFlow.editorScope?programEditorSnapshot():cloneSnapshot(state);
   const nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
+  const baseline=cloneSnapshot(proposal),addedIds=[];
   for(const r of rows){
     const added=nextProgram.addExercise(libFlow.day,r.entry);
-    added.sets=r.cfg.sets;added.min=r.cfg.min;added.max=Math.max(r.cfg.min,r.cfg.max)}
+    added.sets=r.cfg.sets;added.min=r.cfg.min;added.max=Math.max(r.cfg.min,r.cfg.max);addedIds.push(added.id)}
   proposal.program=nextProgram.toJSON();
+  // The canonical definition is the program; each added row becomes a slot
+  // through the same intent the editor's own Add uses.
+  for(const id of addedIds){
+    const cycleIndex=mesocycleLifecycle(proposal.programMeta).current||1;
+    if(!syncEditorCanonicalIntent(proposal,baseline,{kind:"exercise_add",targetId:id,targetDay:libFlow.day},{cycleIndex})){
+      toast(t("toast.program_save_failed"));return{ok:false,invalid:true,code:"invalid_canonical_editor_intent"}}}
   const result=libFlow.editorScope
     ?await commitProgramEditorProposal(proposal)
     :await commitProposedState(proposal);
@@ -13503,7 +13536,7 @@ function closeExercisePreview(){
   previewState=null;
   const settle=routePushBegin("out",{pushed:$("#exercisePreview"),under:routeViewEl(back==="library"&&libFlow?"library":"program")});
   document.body.classList.remove("is-preview");
-  if(back==="library"&&libFlow){$$(".view").forEach(v=>v.classList.toggle("active",v.id==="library"));renderLibrary();
+  if(back==="library"&&libFlow){$$(".view").forEach(v=>v.classList.toggle("active",v.id==="library"));renderLibrary({through:returnId});
     requestAnimationFrame(()=>{const target=$(`[data-lib-preview="${CSS.escape(returnId||"")}"]`);if(target)target.focus({preventScroll:true})})}
   else{document.body.classList.remove("is-library");returnToTab("program")}
   settle?.()}
@@ -13511,8 +13544,8 @@ function closeExercisePreview(){
 function renderExercisePreview(){
   const el=$("#previewBody");if(!el||!previewState)return;
   const e=libraryEntry(previewState.id);if(!e)return;
-  const prim=muscles(e.primary).map(muscleLabel).join(" · ");
-  const sec=muscles(e.secondary).map(muscleLabel).join(" · ");
+  const prim=muscles(libraryMuscleAttribution(e,"primary")).map(muscleLabel).join(" · ");
+  const sec=muscles(libraryMuscleAttribution(e,"secondary")).map(muscleLabel).join(" · ");
   const eq=(e.equipment||[]).map(x=>t("picker.equipment."+x)).join(" · ");
   const inLibrary=!!libFlow;
   const selected=inLibrary&&libFlow.selected.has(e.id);
@@ -13628,12 +13661,9 @@ function importRowHtml(row){
     :(!folded&&row.match&&row.decision!=="link"
       ?`<button type="button" class="improw__btn" data-imp-act="link" data-imp-key="${esc(row.key)}">${esc(t("import.action_link",{name:libraryName(row.match)}))}</button>`:"");
   const escapes=
+    // Every slot of a program names a movement, so an unmatched row is settled
+    // by choosing one or creating it; there is no unlinked "keep as typed".
     `<button type="button" class="improw__btn" data-imp-act="choose" data-imp-key="${esc(row.key)}">${esc(t("import.action_choose"))}</button>`+
-    // Shown while a row still needs a decision even when "keep" is already
-    // the standing choice: an unmatched row has to be acknowledged, not just
-    // defaulted, or there is no way to clear it off the review list.
-    (row.decision!=="raw"||!row.reviewed
-      ?`<button type="button" class="improw__btn" data-imp-act="raw" data-imp-key="${esc(row.key)}">${esc(t("import.action_keep"))}</button>`:"")+
     (row.decision!=="custom"
       ?`<button type="button" class="improw__btn" data-imp-act="custom" data-imp-key="${esc(row.key)}">${esc(t("import.action_custom"))}</button>`:"");
   const acts=folded
@@ -13665,7 +13695,6 @@ function importRowAction(act,key,idx){
     settleImportRow(row,Number(idx)===0?"top_candidate":"alternate");
     return}
   if(act==="link"&&row.match){row.decision="link";settleImportRow(row,"top_candidate");return}
-  if(act==="raw"){row.decision="raw";settleImportRow(row,"keep");return}
   if(act==="choose"){
     openExercisePicker({title:t("import.pick_title"),subtitle:row.raw.name||"",
       onPick:entry=>{row.match=entry;row.decision="link";settleImportRow(row,"picker")}});
@@ -13748,10 +13777,20 @@ function importCandidate(draft){
     progressionIncompatibilities,"program-import");
   const progressionModifiers=normalizeProgressionModifiers(draft.meta?.progressionModifiers,{
     preserveInvalid:true,incompatibilities:progressionData.incompatibilities,source:"program-json"});
+  // An imported program becomes a Build definition over the matched catalog
+  // movements and custom definitions; the preview rows are its projection.
+  const kept=draft.definition&&draft.rows.every(row=>row.decision==="link"&&row.match?.id===row.raw.libraryId);
+  const programDefinition=kept?canonicalProgramDefinition(draft.definition,candidateCustomExercises)
+    :manualProgramDefinitionFromRows(program,labels,candidateCustomExercises);
+  const projected=programDefinition?flatProgramFromDefinition(programDefinition,candidateCustomExercises,1):program;
+  const projectedDays=programDefinition?programDefinition.days.filter(day=>day.kind==="training").map((day,index)=>({
+    dayId:day.id,label:day.name,order:index+1,exercises:projected.filter(row=>row.dayId===day.id).map(cloneSnapshot)})):days;
   return{
-    program,
-    days,
-    programStructure:structure,
+    program:projected,
+    days:projectedDays,
+    ...(programDefinition?{programDefinition}:{}),
+    programStructure:programDefinition?{schemaVersion:1,days:projectedDays.map(({dayId,label,order})=>({dayId,label,order})),
+      provenance:{source:"import"}}:structure,
     progressionRelations:progressionData.relations,
     progressionModifiers,
     progressionIncompatibilities:progressionData.incompatibilities,
@@ -13803,7 +13842,7 @@ async function commitImportReview(){
    read them out of. Recognised here so the program door can offer the restore
    instead of quietly discarding it. */
 function parseBackupFile(text){
-  const parsed=boundedImportJson(text);
+  const parsed=boundedImportJson(text,{maxBytes:BACKUP_MAX_BYTES,maxNodes:BACKUP_MAX_NODES});
   return isImportableState(parsed)?parsed:null}
 
 /* Reading a file no longer changes anything: it opens the review screen. The
@@ -13811,10 +13850,12 @@ function parseBackupFile(text){
    a wrong file had already replaced the program by the time you saw it. */
 async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
   try{
-    if(Number.isFinite(f.size)&&f.size>IMPORT_MAX_BYTES)throw Error();
+    if(Number.isFinite(f.size)&&f.size>BACKUP_MAX_BYTES)throw Error();
     const text=await f.text();
-    const backup=parseBackupFile(text);
+    const parsedBackup=parseBackupFile(text),legacyBackup=isLegacyBackup(parsedBackup);
+    const backup=legacyBackup?null:parsedBackup;
     const source=parseProgramSource(text,f.name);
+    if(legacyBackup&&!source?.exercises?.length){toast(t("toast.backup_legacy"));e.target.value="";return}
     // A backup whose program is empty is still a backup worth restoring, so the
     // exercise requirement only has to hold for a file that is nothing else.
     if(!backup&&!source?.exercises?.length)throw Error();
@@ -14438,9 +14479,10 @@ function importChoiceContext(s,opener,io){
     newSessions:new Set(s.log.filter(r=>!have.has(r.session)).map(r=>r.session)).size}}
 async function importJson(e){const f=e.target.files?.[0];if(!f)return;
   try{
-    if(Number.isFinite(f.size)&&f.size>IMPORT_MAX_BYTES)throw Error();
-    const s=boundedImportJson(await f.text());
+    if(Number.isFinite(f.size)&&f.size>BACKUP_MAX_BYTES)throw Error();
+    const s=parseBackupFile(await f.text());
     if(!isImportableState(s))throw Error();
+    if(isLegacyBackup(s)){toast(t("toast.backup_legacy"));e.target.value="";return}
     openImportChoice(importChoiceContext(s,e.target))}
   catch{toast(t("toast.import_invalid"))}
   e.target.value=""}
@@ -14493,13 +14535,14 @@ function mergeLog(s){return mergeImportedLog(s)}
 const SETUP_DRAFT_KEY="repforge_program_setup_draft_v1";
 const ProgramEntry=typeof window!=="undefined"?window.RepForgeProgramEntry:null;
 const ProgramEntryAdapter=typeof window!=="undefined"?window.RepForgeProgramEntryAdapter:null;
-const ENTRY_MUSCLES=ProgramEntryAdapter.ENTRY_MUSCLES;
-const ENTRY_MOVEMENTS=ProgramEntryAdapter.ENTRY_MOVEMENTS;
-const ENTRY_ENVIRONMENTS=ProgramEntryAdapter.ENTRY_ENVIRONMENTS;
-const ENTRY_EQUIPMENT=ProgramEntryAdapter.KNOWN_EQUIPMENT;
-const ENTRY_CAPABILITIES=ProgramEntryAdapter.KNOWN_CAPABILITIES;
-const ENTRY_AVOID_REASONS=ProgramEntryAdapter.CONSTRAINT_REASONS;
+const ENTRY_MUSCLES=ProgramEntry.ENTRY_MUSCLES;
+const ENTRY_MOVEMENTS=ProgramEntry.ENTRY_MOVEMENTS;
+const ENTRY_ENVIRONMENTS=ProgramEntry.ENTRY_ENVIRONMENTS;
+const ENTRY_EQUIPMENT=ProgramEntry.KNOWN_EQUIPMENT;
+const ENTRY_CAPABILITIES=ProgramEntry.KNOWN_CAPABILITIES;
+const ENTRY_AVOID_REASONS=ProgramEntry.CONSTRAINT_REASONS;
 let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryExerciseQuery="",entryPendingAvoid=null,entryValidationNotice=false,entryEditorStatusFocusPending=false,entryEditorStatusFocusTimer=null,entryPinnedVersionsExecutable=false,entryDurableConflictNeedsReload=false,entryVisibleScreenKey=null;
+let entryPersistenceDiagnostic=null;
 /* Entry presentation state: the confirm dialog on screen ("restart", "replace";
    "cancel" is `entryUiNotice` because other flows already ask for it), and the
    route-help panel on the hub. None of it is part of the draft. */
@@ -14517,9 +14560,8 @@ let entryDraftHandle=null;
 let setupDraftWriteQueue=Promise.resolve();
 function entryServices(){
   if(typeof window!=="undefined"&&window.__repforgeProgramEntryServicesOverride)return window.__repforgeProgramEntryServicesOverride;
-  if(!ProgramEntryAdapter)return null;
-  const history=[...loggedExerciseRefs().ids].sort().map(libraryId=>({libraryId}));
-  return ProgramEntryAdapter.createProductionServices({Compiler:ProgramCompiler,catalogue:EXERCISE_LIBRARY,history})}
+  if(!ProgramEntryAdapter||!ProgramCompiler||!rawExerciseCatalog)return null;
+  return ProgramEntryAdapter.createProductionServices({Compiler:ProgramCompiler,catalog:rawExerciseCatalog})}
 function entryCandidateFingerprint(route,name,preview){
   const semanticPreview=cloneSnapshot(preview||{});
   if(Array.isArray(semanticPreview.customExercises)){
@@ -14624,8 +14666,13 @@ function persistSetupDraft(next,io=storageIO){
   const stamped=ProgramEntry.updateTimestamp(next,entryNow());
   const draftProjection=setupDraftPersistenceProjection(stamped);
   const normalized=ProgramEntry.normalizeSetupDraft(draftProjection);
-  if(!normalized.ok)return Promise.resolve({ok:false,invalid:true});
+  if(!normalized.ok){
+    entryPersistenceDiagnostic={operation:"normalize",ok:false,code:normalized.code||"setup-draft-invalid",
+      issues:(normalized.issues||[]).slice(0,12).map(issue=>String(issue).slice(0,240))};
+    return Promise.resolve({ok:false,invalid:true,code:normalized.code||"setup-draft-invalid",
+      issues:(normalized.issues||[]).slice(0,12)})}
   const queuedState=normalized.value;
+  entryPersistenceDiagnostic={operation:"normalize",ok:true,code:null,issues:[]};
   // The staged draft omits attribution that is derivable from its current
   // program to stay within the setup-draft contract. Keep the richer in-memory
   // candidate for the editor and let the durable commit boundary restore the
@@ -14904,8 +14951,8 @@ function entryPatchAnswers(patch){
    result of its two questions, not a third. */
 function entrySections(route){
   const sections={
-    recommend:[["desired_result","background"],["schedule"],["environment"],["priorities"]],
-    custom:[["desired_result","background"],["schedule"],["environment"],["priorities"],["exercise_preferences"],["custom_shape"]],
+    recommend:[["desired_result","background"],["schedule"],["environment"],["abilities"],["priorities"]],
+    custom:[["desired_result","background"],["schedule"],["environment"],["abilities"],["priorities"],["exercise_preferences"],["custom_shape"]],
     browse:[["schedule"],["environment"]]}[route]||[];
   return route==="custom"&&!entryCustomShapeRequired()?sections.filter(group=>group[0]!=="custom_shape"):sections}
 function entryProgressSections(route){
@@ -14970,10 +15017,10 @@ function renderEntryHelp(){
   const opt=(q,val,label)=>{
     const on=entryHelp[q]===val;
     return `<button type="button" class="entry-help__opt${on?" is-selected":""}" role="radio" aria-checked="${on}" data-entry-help="${q}" data-entry-help-val="${val}">${esc(label)}</button>`};
-  const q2=entryHelp.q1==="no"?{label:t("entry.help.q2_no"),opts:["recommend","custom","browse"]}
+  const q2=entryHelp.q1==="no"?{label:t("entry.help.q2_no"),opts:["recommend","custom"]}
     :entryHelp.q1==="yes"?{label:t("entry.help.q2_yes"),opts:["import","build"]}:null;
   const target=q2&&q2.opts.includes(entryHelp.q2)?entryHelp.q2:null;
-  const q2Labels={recommend:t("entry.help.q2.recommend"),custom:t("entry.help.q2.custom"),browse:t("entry.help.q2.browse"),import:t("entry.help.q2.import"),build:t("entry.help.q2.build")};
+  const q2Labels={recommend:t("entry.help.q2.recommend"),custom:t("entry.help.q2.custom"),import:t("entry.help.q2.import"),build:t("entry.help.q2.build")};
   return `<div class="entry-help" id="entryHelp" role="group" aria-labelledby="entryHelpToggle">`+
     `<p class="entry-help__q" id="entryHelpQ1">${esc(t("entry.help.q1"))}</p>`+
     `<div class="entry-help__opts" role="radiogroup" aria-labelledby="entryHelpQ1">${opt("q1","no",t("entry.help.q1_no"))}${opt("q1","yes",t("entry.help.q1_yes"))}</div>`+
@@ -15008,9 +15055,6 @@ function renderEntryHub(){
       group(t("entry.hub.group.written"),"entryGroupCustom",
         entryDoor("custom",{icon:"sliders",title:t("entry.hub.custom.title"),kind:"secondary entry-card--subordinate",
           ask:t("entry.hub.cost.custom",{n:6}),get:t("entry.hub.get.custom")}))+
-      group(t("entry.hub.group.browse"),"entryGroupBrowse",
-        entryDoor("browse",{icon:"search",title:t("entry.hub.browse.title"),
-          ask:t("entry.hub.cost.browse",{n:entrySections("browse").length}),get:t("entry.hub.get.browse")}))+
       `<div class="entry-hubgroup" role="group" aria-labelledby="entryGroupOwn"><p class="entry__group-lab" id="entryGroupOwn">${esc(t("entry.hub.group.own"))}</p>`+
       `<button type="button" class="entry-card entry-card--secondary" id="entryOwnToggle" aria-expanded="${entryOwnOpen?"true":"false"}" aria-controls="entryOwnChoices"><span class="entry-card__icon icon-mask icon-mask--sheet" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.own.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.own.cap"))}</span></span><span class="entry-card__go chevron${entryOwnOpen?" is-down":""}" aria-hidden="true"></span></button>`+
       (entryOwnOpen?`<div class="entry__own" id="entryOwnChoices">`+
@@ -15033,9 +15077,7 @@ function renderDesiredResultStep(){
   return entryHeading(t("entry.desired_result.title"))+`<p class="onb__explain">${esc(t("entry.desired_result.lede"))}</p>${entryLegacyBanner()}`+entryGoalGroup()}
 function entryBackgroundGroups(){
   return entryGroupLab(t("entry.background.experience.label"),"clock",` id="entryExpLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryExpLab">`+
-    ["first","under_6m","6_to_24m","over_24m"].map(v=>entryOpt("structuredExperience",v,t(`entry.background.experience.${v}`),"")).join("")+`</div>`+
-    entryGroupLab(t("entry.background.consistency.label"),"cal",` id="entryConLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryConLab">`+
-    ["most","about_half","few","none"].map(v=>entryOpt("recentConsistency",v,t(`entry.background.consistency.${v}`),"")).join("")+`</div>`}
+    ["first","under_6m","6_to_24m","over_24m"].map(v=>entryOpt("structuredExperience",v,t(`entry.background.experience.${v}`),"")).join("")+`</div>`}
 /* The "about" screen: the goal the hub already asked is carried as a band with
    a Change control; with no goal yet, or after Change, the question is open. */
 function entryAboutGoal(){
@@ -15051,14 +15093,10 @@ function renderBackgroundStep(){
 /* Schedule values are numbers, so they are set as numbers: a Mono value over its
    unit, in a grid of equal cards with no radio mark. Nothing is preselected. */
 function entryScheduleGroups({browse=false}={}){
-  const minuteUnit=n=>t(`entry.schedule.minutes.${n}`).replace(/^[\d+]+\s*/,"").trim()||t(`entry.schedule.minutes.${n}`);
   return entryGroupLab(t("entry.schedule.days.label"),"cal",` id="entryDaysLab"`)+`<div class="onb__opts onb__num" role="radiogroup" aria-labelledby="entryDaysLab">`+
     [2,3,4,5,6].map(n=>entryOpt("daysPerWeek",n,String(n),t("entry.schedule.days.sub"))).join("")+`</div>`+
     entryGroupLab(t("entry.schedule.minutes.label"),"clock",` id="entryMinLab"`)+`<div class="onb__opts onb__num" role="radiogroup" aria-labelledby="entryMinLab">`+
-    [30,45,60,75,90].map(n=>entryOpt("sessionMinutes",n,n===90?"90+":String(n),minuteUnit(n))).join("")+`</div>`+
-    (browse?"":entryGroupLab(t("entry.schedule.rest.label"),"timer",` id="entryRestLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryRestLab">`+
-      entryOpt("preferredRestSeconds","auto",t("entry.schedule.rest.auto"),"",{selected:entryState.answers.preferredRestSeconds===null})+
-      [60,90,120,180].map(n=>entryOpt("preferredRestSeconds",n,t(`entry.schedule.rest.${n}`),"")).join("")+`</div>`)}
+    [20,40,60,90,120,150].map(n=>entryOpt("sessionMinutes",n,n===150?"120+":String(n),t(n===150?"entry.schedule.minutes.over":"entry.schedule.minutes.at_most"))).join("")+`</div>`}
 function renderScheduleStep(){
   return entryHeading(t("entry.schedule.title"))+`<p class="onb__explain">${esc(t("entry.schedule.lede"))}</p>${entryLegacyBanner()}`+
     entryScheduleGroups({browse:entryState.route==="browse"})}
@@ -15068,20 +15106,38 @@ function entryEnvironmentValue(){
   if(Array.isArray(env.equipment)||Array.isArray(env.capabilities))return env;
   return ProgramEntryAdapter?.defaultEnvironment?.(env.kind)||{kind:env.kind,equipment:[],capabilities:[]}}
 function entryEnvironmentBody(){
-  const env=entryEnvironmentValue();
-  const equipment=new Set(env?.equipment||[]);
-  const capabilities=new Set(env?.capabilities||[]);
-  const correction=env?`<details class="entry__disclosure entry__correct">`+
-    `<summary><span>${esc(t("entry.env_correct.summary"))}</span><span class="chevron" aria-hidden="true"></span></summary><div class="entry__disclosure-body">`+
-    `<p class="entry__group-lab">${esc(t("entry.env_correct.equipment"))}</p><div class="onb__opts onb__grid" role="group" aria-label="${esc(t("entry.env_correct.equipment"))}">`+
-    ENTRY_EQUIPMENT.map(token=>entryOpt("environmentEquipment",token,t(`entry.equip.${token}`)||token,"",{multi:true,selected:equipment.has(token),role:"checkbox"})).join("")+`</div>`+
-    `<p class="entry__group-lab">${esc(t("entry.env_correct.capabilities"))}</p><div class="onb__opts onb__grid" role="group" aria-label="${esc(t("entry.env_correct.capabilities"))}">`+
-    ENTRY_CAPABILITIES.map(token=>entryOpt("environmentCapabilities",token,t(`entry.cap.${token}`)||token,"",{multi:true,selected:capabilities.has(token),role:"checkbox"})).join("")+`</div>`+
-    `<p class="entry__hint">${esc(t("entry.env_correct.note"))}</p></div></details>`:"";
   return `<div class="onb__opts onb__list" role="radiogroup" aria-label="${esc(t("entry.environment.title"))}">`+
-    ENTRY_ENVIRONMENTS.map(v=>entryOpt("environment",v,t(`entry.environment.${v}`),"",{selected:entryState.answers.environment?.kind===v,icon:ENTRY_ENV_ICONS[v]||"dumbbell"})).join("")+`</div>${correction}`}
+    ENTRY_ENVIRONMENTS.map(v=>entryOpt("environment",v,t(`entry.environment.${v}`),"",{selected:entryState.answers.environment?.kind===v,icon:ENTRY_ENV_ICONS[v]||"dumbbell"})).join("")+`</div>`}
 function renderEnvironmentStep(){
   return entryHeading(t("entry.environment.title"))+`<p class="onb__explain">${esc(t("entry.environment.lede"))}</p>${entryLegacyBanner()}`+entryEnvironmentBody()}
+/* Movement abilities: a yes/no/unsure row per competency the compiler checks
+   before it leans on a gated exercise (PRECONDITION_COMPETENCIES). Unsure is
+   the default (null), so skipping the whole step changes nothing (#323). */
+const ENTRY_ABILITY_CHOICES=["yes","no","unsure"];
+function entryAbilityKeys(){return ProgramEntry?.COMPETENCY_ANSWERS||[]}
+function entryAbilityAnswer(key){
+  const value=entryState?.answers?.competencyAnswers?.[key];
+  if(value===true)return"yes";
+  if(value===false)return"no";
+  return"unsure"}
+function entryAbilityOption(key,choice){
+  const current=entryAbilityAnswer(key);
+  const selected=current===choice;
+  const label=t(`entry.abilities.choice.${choice}`);
+  return `<button type="button" class="radio-card${selected?" is-selected":""}" data-entry-pick="competencyAnswer" data-entry-val="${esc(`${key}|${choice}`)}" role="radio" aria-checked="${selected?"true":"false"}">`+
+    `<span class="radio-card__body"><span class="radio-card__title">${esc(label)}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button>`}
+function entryAbilityRow(key){
+  const labelId=`entryAbility-${esc(key)}`;
+  return `<div class="entry__ability-row">`+
+    `<p class="entry__group-lab" id="${labelId}">${esc(t(`entry.abilities.question.${key}`))}</p>`+
+    `<div class="onb__opts onb__opts--reasons" role="radiogroup" aria-labelledby="${labelId}">`+
+    ENTRY_ABILITY_CHOICES.map(choice=>entryAbilityOption(key,choice)).join("")+`</div></div>`}
+function entryAbilitiesBody(){
+  return `<div class="entry__ability-list">`+entryAbilityKeys().map(entryAbilityRow).join("")+`</div>`}
+function renderAbilitiesStep(){
+  const skip=`<button type="button" class="btn btn--steel entry__skip" id="entryAbilitiesSkip">${esc(t("entry.skip_optional"))}</button>`;
+  return entryHeading(t("entry.abilities.title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
+    `<p class="onb__explain">${esc(t("entry.abilities.lede"))}</p>`+skip+entryAbilitiesBody()}
 function entryMuscleBlocked(key,muscle){
   const a=entryState?.answers||{};
   const primary=new Set(a.primaryMuscles||[]);
@@ -15256,12 +15312,15 @@ function renderPrioritiesStep(){
   const skip=!custom&&entryPrioritiesEmpty()?`<button type="button" class="btn btn--steel entry__skip" id="entrySkip">${esc(t("entry.priorities.skip"))}</button>`:"";
   return entryHeading(t(custom?"entry.priorities.custom_title":"entry.priorities.title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
     `<p class="onb__explain">${esc(t(custom?"entry.priorities.custom_lede":"entry.priorities.lede_optional"))}</p>`+skip+entryPrioritiesBody()}
+/* The generator's authored splits are named by their id. */
+function splitDisplayName(choice){
+  const key=`split.${choice?.id}`,text=t(key);
+  return text===key?String(choice?.id||"").replace(/_/g," "):text}
 function entryCustomShapeBody(splits){
   const sole=splits.choices.length===1;
   return `<p class="entry__group-lab">${esc(t(sole?"entry.custom_shape.split_sole":"entry.custom_shape.split"))}</p><div class="onb__opts" role="radiogroup">`+
     splits.choices.map(choice=>{
-      const name=isPt()?choice.namePt||choice.name:choice.name;
-      const label=t("entry.custom_shape.choice",{name,days:choice.frequency});
+      const label=t("entry.custom_shape.choice",{name:splitDisplayName(choice),days:choice.frequency});
       const estimates=(choice.days||[]).map(day=>day.estimateMinutes).filter(Number.isFinite);
       const summary=estimates.length?t("entry.custom_shape.summary",{
         days:choice.frequency,min:Math.min(...estimates),max:Math.max(...estimates)}):"";
@@ -15274,24 +15333,38 @@ function renderCustomShapeStep(){
   const sole=splits.choices.length===1;
   return entryHeading(t(sole?"entry.custom_shape.title_sole":"entry.custom_shape.title"))+
     `<p class="onb__explain">${esc(t(sole?"entry.custom_shape.lede_sole":"entry.custom_shape.lede"))}</p>`+entryCustomShapeBody(splits)}
+/* Generate maps the answers to a canonical request, runs the one generator, and
+   previews its ProgramDefinition through the same flat projection as Build. The
+   draft id seeds selection, so a draft regenerates the same program. */
 function compileGeneratorCandidate(from=entryState){
   const services=entryServices();
-  if(!services||!from)return null;
-  let compiled;
-  try{compiled=services.compile({mode:from.route,answers:from.answers,versions:entryVersions()})}
-  catch(error){entryCompileError={code:"rebuild_failed"};console.warn("program candidate rebuild failed",error);return null}
-  if(!compiled.ok){entryCompileError=compiled;return null}
-  const candidate=compiled.candidate||{};
+  if(!services||!from||!ProgramEntryAdapter?.programRequestFromAnswers)return null;
+  const answers=from.answers||{};
+  const mapped=answers.programRequest?{ok:true,value:cloneSnapshot(answers.programRequest)}
+    :ProgramEntryAdapter.programRequestFromAnswers(answers,rawExerciseCatalog);
+  if(!mapped.ok){entryCompileError={code:"rules_changed",conflicts:mapped.conflicts};return null}
+  let generated;
+  try{generated=services.generateProgram({request:mapped.value,seed:String(from.draftId||"taurifer")})}
+  catch(error){entryCompileError={code:"rebuild_failed"};console.warn("program generation failed",error);return null}
+  if(!generated?.ok){entryCompileError={code:"generation_conflict",conflicts:generated?.conflicts||[]};return null}
+  const definition=generated.value,program=flatProgramFromDefinition(definition,[],1);
+  const days=definition.days.filter(day=>day.kind==="training").map((day,index)=>({dayId:day.id,label:day.name,order:index+1,
+    exercises:program.filter(row=>row.dayId===day.id).map(cloneSnapshot)}));
+  const preview={source:from.route,frequency:days.length,program,programDefinition:definition,
+    programStructure:{schemaVersion:1,days:days.map(({dayId,label,order})=>({dayId,label,order})),provenance:{source:"generated"}},
+    days,customExercises:[],primaryMuscles:[]};
+  const name=t("entry.result.generated_name",{days:days.length});
   return{
-    fingerprint:compiled.fingerprint,
-    name:compiled.name,
-    namePt:compiled.namePt,
-    selected:compiled.selected,
-    candidates:compiled.candidates,
-    alternative:candidate.alternative||null,
-    preview:candidate.draft||compiled.preview,
-    telemetry:compiled.telemetry,
-    explanation:compiled.explanation};
+    fingerprint:services.fingerprint({route:from.route,request:mapped.value,seed:definition.seed}),
+    name,
+    selected:{id:"generated",source:"generator",daysPerWeek:days.length},
+    candidates:[],
+    alternative:null,
+    preview,
+    telemetry:{goal:answers.desiredResult,frequency:String(days.length),family:"generated"},
+    explanation:Object.fromEntries(Object.entries({desiredResult:answers.desiredResult,
+      structuredExperience:answers.structuredExperience,daysPerWeek:days.length,
+      sessionMinutes:answers.sessionMinutes,mainConstraint:answers.environment?.kind}).filter(([,value])=>value!==undefined))};
 }
 /** O3: the generation whose program has not been drawn yet. Only a compile
  *  arms it (a saved draft that is reopened, and every later render of a result
@@ -15471,9 +15544,17 @@ function sharedPreviewDays(program,structure,settings){
     return out;
   });
 }
+/* A canonical preview's day length is the generator's own estimate of that
+   day's prescription; a flat preview may carry its own estimate instead. */
+function previewDayMinutes(preview,day){
+  if(+day?.estimateMinutes>0)return +day.estimateMinutes;
+  const canonical=preview?.programDefinition?.days?.find?.(item=>item.id===day?.dayId||item.name===day?.label);
+  if(!canonical||typeof ProgramCompiler?.estimateDaySeconds!=="function")return null;
+  try{const seconds=ProgramCompiler.estimateDaySeconds(canonical);return seconds>0?Math.ceil(seconds/60):null}
+  catch{return null}}
 function entryPreviewFacts(preview){
   const program=Array.isArray(preview?.program)?preview.program:[];
-  const estimates=(preview?.days||[]).map(day=>+day.estimateMinutes||0).filter(Boolean);
+  const estimates=(preview?.days||[]).map(day=>previewDayMinutes(preview,day)||0).filter(Boolean);
   return{
     exercises:program.length,
     sets:sum(program.map(exercise=>+exercise.sets||0)),
@@ -15548,6 +15629,14 @@ function entryDurationLabel(preview){
 /* Collapse a min/max pair to the exact form when both ends agree. */
 function entryRangeLabel(min,max,rangeKey,exactKey){
   return min===max?t(exactKey,{n:min}):t(rangeKey,{min,max})}
+/* A canonical preview adapts where the generator wrote ready prescriptions;
+   otherwise the lifter sets the numbers. */
+function entryProgressionSentence(preview){
+  const definition=preview?.programDefinition;
+  if(definition&&Array.isArray(definition.days)){
+    const statuses=definition.days.flatMap(day=>day.slots||[]).flatMap(slot=>(slot.prescriptionsByCycle?.[0]?.sets||[]).map(set=>set.status));
+    return t(statuses.includes("ready")?"entry.result.why_progression_adaptive":"entry.result.why_progression_manual")}
+  return t("entry.result.why_progression",{progression:entryProgressionLabel(preview)})}
 function entryProgressionLabel(preview){
   const ids=[...new Set((preview?.program||[]).map(exercise=>exercise.progression?.strategy?.id).filter(Boolean))];
   const labels={range:t("program.progression.strategy.range"),rep_goal:t("program.progression.strategy.rep_goal"),
@@ -15608,7 +15697,14 @@ const ENTRY_CODE_COPY=Object.freeze({
     time_ceiling_conflict:"entry.issue.time_ceiling",ignored_muscle_required:"entry.issue.ignored_required",
     required_slot_unresolved:"entry.issue.required_slot",
     exercise_preference_conflict:"entry.issue.include_avoid",must_have_avoided:"entry.issue.include_avoid",
-    must_have_unavailable:"entry.result.must_unavailable_title"}),
+    must_have_unavailable:"entry.result.must_unavailable_title",
+    // Canonical generator conflicts and Generate's own answer mapping.
+    time_ceiling_exceeded:"entry.issue.time_ceiling_generated",no_eligible_exercise:"entry.issue.required_slot",
+    no_complete_program:"entry.issue.compile",generated_program_invalid:"entry.issue.compile",
+    policy_identity_unresolved:"entry.issue.compile",invalid_request:"entry.issue.compile",invalid_catalog:"entry.issue.compile",
+    generation_conflict:"entry.issue.compile",rules_changed:"entry.issue.generic",catalog_unavailable:"entry.issue.compile",
+    goal_required:"entry.issue.generic",experience_required:"entry.issue.generic",days_unsupported:"entry.issue.generic",
+    environment_required:"entry.issue.generic"}),
   readiness:Object.freeze({
     live_revision_required:"entry.issue.generic",active_program_changed:"entry.conflict.body",
     preview_not_ready:"entry.issue.review_first",candidate_incomplete:"entry.editor.incomplete",
@@ -15686,15 +15782,9 @@ function entryChipList(){
   const add=(chip,text)=>out.push({chip,text,what:t(`entry.chip.what.${chip}`)});
   if(a.desiredResult)add("goal",t(`entry.chip.goal.${a.desiredResult}`));
   if(a.structuredExperience)add("exp",t(`entry.background.experience.${a.structuredExperience}`));
-  if(a.recentConsistency)add("cons",t(`entry.chip.cons.${a.recentConsistency}`));
   if(a.daysPerWeek)add("days",t("entry.chip.days",{n:a.daysPerWeek}));
-  if(a.sessionMinutes)add("minutes",a.sessionMinutes>=90?t("entry.chip.minutes_90"):t("entry.chip.minutes",{n:a.sessionMinutes}));
-  if(Object.prototype.hasOwnProperty.call(a,"preferredRestSeconds"))add("rest",t(`entry.chip.rest.${a.preferredRestSeconds===null?"auto":a.preferredRestSeconds}`));
-  if(a.environment?.kind){
-    const base=ProgramEntryAdapter?.defaultEnvironment?.(a.environment.kind),env=entryEnvironmentValue();
-    const same=base&&env&&entrySameSet(base.equipment,env.equipment)&&entrySameSet(base.capabilities,env.capabilities);
-    const label=t(`entry.environment.${a.environment.kind}`);
-    add("env",same?label:t("entry.chip.env_adjusted",{env:label}))}
+  if(a.sessionMinutes)add("minutes",a.sessionMinutes>120?t("entry.chip.minutes_over",{n:120}):t("entry.chip.minutes",{n:a.sessionMinutes}));
+  if(a.environment?.kind)add("env",t(`entry.environment.${a.environment.kind}`));
   const avoided=(a.exerciseConstraints||[]).map(item=>item.exerciseId);
   const priorities=entryPriorityLabel(a),none=t("entry.preview.priorities_none");
   if(!custom){
@@ -15707,7 +15797,7 @@ function entryChipList(){
       .filter(Boolean).join(" · ")||t("entry.chip.prefs_none"));
     const splits=entryCustomSplitChoices(a);
     const choice=splits.choices.length>=2?splits.choices.find(item=>item.id===a.splitPreference):null;
-    if(choice)add("shape",t("entry.chip.shape",{name:t("entry.custom_shape.choice",{name:isPt()?choice.namePt||choice.name:choice.name,days:choice.frequency})}))}
+    if(choice)add("shape",t("entry.chip.shape",{name:t("entry.custom_shape.choice",{name:splitDisplayName(choice),days:choice.frequency})}))}
   return out}
 function entryEditorTitleText(kind){
   const custom=entryState.route==="custom";
@@ -15903,7 +15993,7 @@ function renderResultStep(){
     entryEquipmentLabel()?{icon:"dumbbell",text:t("entry.result.why_equipment",{equipment:entryEquipmentLabel()})}:null,
     (entryPriorityLabel()!==t("entry.preview.priorities_none"))?{icon:"target",text:t("entry.result.why_priorities",{priorities:entryPriorityLabel()})}:null,
     custom&&exercisePreferences!==t("entry.preview.exercise_preferences_none")?{icon:"dumbbell",text:t("entry.result.why_exercise_preferences",{preferences:exercisePreferences})}:null,
-    {icon:"trend",text:t("entry.result.why_progression",{progression:entryProgressionLabel(preview)})},
+    {icon:"trend",text:entryProgressionSentence(preview)},
     (preview.reductions||[]).length?{icon:"scale",text:t("entry.result.why_reductions",{n:preview.reductions.length})}:null,
     (preview.limitations||[]).length?{icon:"scale",text:t("entry.result.why_compromises",{n:preview.limitations.length})}:null,
     explanation.recentConsistency==="about_half"&&preview.programStructure?.weekPrescriptions?.length
@@ -15932,7 +16022,7 @@ function renderResultStep(){
     renderEntryConstraints()+
     alternativeBlock+
     renderEntryMore()+
-    (entryEditor?"":renderEntryPinned({progressionIssue}))+
+    (entryEditor?"":renderEntryPinned({progressionIssue,configurationIssue:entryNeedsMetricConfiguration()}))+
     `</section>`}
 function renderCatalogueStep(){
   const cards=entryServices()?.browseCatalogue(entryState.answers)||[];
@@ -16215,20 +16305,20 @@ function renderPreviewStep({merged=false}={}){
        a screen-reader user jumps between Priorities, Equipment, Progression and
        Compromises, so the redesign restyles `h4` rather than demoting it. */
     `<ul class="entry__rows">`+reviewRows.map(row=>`<li class="entry__row"><span class="entry__row-ico icon-mask icon-mask--${esc(row.icon)}" aria-hidden="true"></span><div class="entry__row-body"><h4 class="entry__row-lab">${esc(row.lab)}</h4><p>${esc(row.text)}</p></div></li>`).join("")+`</ul></div>`+
-    renderEntryMore()+renderEntryPinned({progressionIssue})}
+    renderEntryMore()+renderEntryPinned({progressionIssue,configurationIssue:entryNeedsMetricConfiguration()})}
 /* The week is a stack of hairline bands. The first day is open, so the first
    exercise is on the first screen (K-32); the others fold away, except a day
    that holds an exercise the last change added. */
 function renderEntryWeek(preview){
   const added=new Set(entryChangeNow()?.added||[]);
   return (preview.days||[]).map((day,index)=>{
-    const exercises=day.exercises||[],sets=sum(exercises.map(exercise=>+exercise.sets||0));
+    const exercises=day.exercises||[],sets=sum(exercises.map(exercise=>+exercise.sets||0)),minutes=previewDayMinutes(preview,day);
     const dayName=previewDayLabel(day,index,preview.programStructure);
     const open=index===0||exercises.some(exercise=>added.has(exercise.id));
     return `<details class="onb__day"${open?" open":""}><summary class="onb__dayname"><span class="onb__daynum" aria-hidden="true">${index+1}</span>${esc(dayName)}`+
-    `<span>${monoNums(`${entryExerciseCountLabel(exercises.length)} · ${t("entry.preview.sets",{n:sets})}${day.estimateMinutes?` · ${t("entry.preview.minutes",{n:day.estimateMinutes})}`:""}`)}</span></summary>`+
-    exercises.map(ex=>{const isNew=added.has(ex.id);
-      return `<div class="onb__ex${isNew?" is-new":""}"><b>${esc(exerciseDisplayName(ex))}</b>${isNew?` <span class="entry__new">${esc(t("entry.preview.new"))}</span>`:""}${ex.sets!=null?` · ${ex.sets}×${ex.min}–${ex.max}`:""}</div>`}).join("")+
+    `<span>${monoNums(`${entryExerciseCountLabel(exercises.length)} · ${t("entry.preview.sets",{n:sets})}${minutes?` · ${t("entry.preview.minutes",{n:minutes})}`:""}`)}</span></summary>`+
+    exercises.map(ex=>{const isNew=added.has(ex.id),summary=ex.hasRepTarget===false?programPrescriptionSummary(ex):`${ex.sets}×${ex.min}–${ex.max}`;
+      return `<div class="onb__ex${isNew?" is-new":""}"><b>${esc(exerciseDisplayName(ex))}</b>${isNew?` <span class="entry__new">${esc(t("entry.preview.new"))}</span>`:""}${ex.sets!=null?` · ${esc(summary)}`:""}</div>`}).join("")+
     (!exercises.length?`<div class="onb__ex">${esc(t("program.empty.exercises"))}</div>`:"")+
     `</details>`})}
 function renderEntryMore(){
@@ -16237,11 +16327,18 @@ function renderEntryMore(){
     `<button type="button" id="entryRestart" class="btn btn--steel btn--destructive" aria-haspopup="dialog"><span class="icon-mask icon-mask--reset icon-mask--sm" aria-hidden="true"></span>${esc(t("entry.preview.restart"))}</button></div></section>`}
 /* The confirm action is the point of the screen, so it is pinned: a long
    program cannot scroll it away, and a blocked one says why directly above. */
-function renderEntryPinned({progressionIssue=false}={}){
+/* A custom movement arrives without a metric composition until the lifter
+   chooses what it records; the program cannot start before that. */
+function entryNeedsMetricConfiguration(){
+  try{return !!entryState&&ProgramEntry.candidateActivationIssues(entryState).some(issue=>issue.startsWith("metric_configuration_required:"))}
+  catch{return false}}
+function renderEntryPinned({progressionIssue=false,configurationIssue=false}={}){
   const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
+  const blocked=progressionIssue||configurationIssue;
+  const reason=progressionIssue?t("entry.preview.activation_blocked"):t("entry.preview.metrics_required");
   return `<div class="entry__pinned">`+
-    (progressionIssue?`<p id="entryActivationStatus" class="entry__reason" role="alert" tabindex="-1">${esc(t("entry.preview.activation_blocked"))}</p>`:"")+
-    `<button type="button" id="entryActivate" class="btn btn--cta${progressionIssue?" btn--noarrow":""}"${progressionIssue?` disabled aria-describedby="entryActivationStatus"`:""}>${esc(activateLabel)}</button></div>`}
+    (blocked?`<p id="entryActivationStatus" class="entry__reason" role="alert" tabindex="-1">${esc(reason)}</p>`:"")+
+    `<button type="button" id="entryActivate" class="btn btn--cta${blocked?" btn--noarrow":""}"${blocked?` disabled aria-describedby="entryActivationStatus"`:""}>${esc(activateLabel)}</button></div>`}
 function renderEntryNotice(){
   if(!entryUiNotice)return"";
   // Cancel is a dialog and Resume is a card on the hub; neither is a notice.
@@ -16450,7 +16547,7 @@ function renderEntryRail(){
   if(a.desiredResult)add("desired_result",t("entry.rail.what.goal"),t(`entry.desired_result.${a.desiredResult}.label`));
   if(a.structuredExperience)add("background",t("entry.rail.what.background"),t(`entry.background.experience.${a.structuredExperience}`));
   if(a.daysPerWeek&&a.sessionMinutes)add("schedule",t("entry.rail.what.schedule"),
-    t("entry.rail.schedule",{days:a.daysPerWeek,minutes:a.sessionMinutes>=90?"90+":a.sessionMinutes}));
+    t("entry.rail.schedule",{days:a.daysPerWeek,minutes:a.sessionMinutes>120?"120+":a.sessionMinutes}));
   if(a.environment?.kind)add("environment",t("entry.rail.what.environment"),entryEnvironmentLabel());
   return chips.length?`<div class="entry-rail" role="group" aria-label="${esc(t("entry.rail.label"))}">${chips.join("")}</div>`:""}
 /* The rail sits under the screen's title and lede, never above it: the title keeps its place at every
@@ -16535,6 +16632,7 @@ function renderOnboarding(){
   else if(stepId==="background")html+=entryRailAfterTitle(renderBackgroundStep(),rail);
   else if(stepId==="schedule")html+=entryRailAfterTitle(renderScheduleStep(),rail);
   else if(stepId==="environment")html+=entryRailAfterTitle(renderEnvironmentStep(),rail);
+  else if(stepId==="abilities")html+=entryRailAfterTitle(renderAbilitiesStep(),rail);
   else if(stepId==="priorities")html+=entryRailAfterTitle(renderPrioritiesStep(),rail);
   else if(stepId==="exercise_preferences")html+=entryRailAfterTitle(renderExercisePreferencesStep(),rail);
   else if(stepId==="custom_shape")html+=entryRailAfterTitle(renderCustomShapeStep(),rail);
@@ -16571,7 +16669,7 @@ function renderOnboarding(){
       const header=headerFocus&&sameScreen?$("#"+CSS.escape(headerFocus)):null;
       if(header&&!header.classList.contains("hidden")&&canTakeFocus(header))try{header.focus({preventScroll:true})}catch{}
       else{
-        const initialPreviewIssue=(stepId==="preview"||stepId==="activation_conflict")&&entryPreviewHasProgressionIssue();
+        const initialPreviewIssue=(stepId==="preview"||stepId==="activation_conflict")&&(entryPreviewHasProgressionIssue()||entryNeedsMetricConfiguration());
         const target=resuming?$("#entryResumeTitle"):initialPreviewIssue?$("#entryActivationStatus"):$("#entryHeading");
         if(target)try{target.focus({preventScroll:true})}catch{}
         // The editor has no #entryHeading: on the render that opens it, focus takes its title (R7 J-05).
@@ -16747,6 +16845,13 @@ function wireEntryDom(){
       }else if(status==="deemphasize")deemphasized.push(muscle);
       else if(status==="ignore")ignored.push(muscle);
       entryPatchAnswers({primaryMuscles:primary,deEmphasizedMuscles:deemphasized,ignoredMuscles:ignored});
+      return}
+    if(key==="competencyAnswer"){
+      const [competency,choice]=String(raw).split("|");
+      if(!entryAbilityKeys().includes(competency)||!ENTRY_ABILITY_CHOICES.includes(choice))return;
+      const current={...(entryState.answers.competencyAnswers||{})};
+      current[competency]=choice==="yes"?true:choice==="no"?false:null;
+      entryPatchAnswers({competencyAnswers:current});
       return}
     if(key==="environmentEquipment"||key==="environmentCapabilities"){
       const env=entryEnvironmentValue()||{kind:"other",equipment:[],capabilities:[]};
@@ -16951,6 +17056,10 @@ function wireEntryAnswerControls(){
     if(!entryPrioritiesEmpty())return;
     entryState=ProgramEntry.setAnswers(entryState,{primaryMuscles:[],priorityMovements:[],exerciseConstraints:[]});
     entryAdvance()};
+  const abilitiesSkip=$("#entryAbilitiesSkip");
+  if(abilitiesSkip)abilitiesSkip.onclick=()=>{
+    entryState=ProgramEntry.setAnswers(entryState,{competencyAnswers:{}});
+    entryAdvance()};
   // Recommend's last question hands over to the program itself.
   const next=$("#onbNext");
   if(next&&entryState.route==="recommend"&&entryState.step==="priorities")next.textContent=t("entry.priorities.show")}
@@ -17127,6 +17236,23 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
   if(Array.isArray(preview?.customExercises)&&preview.customExercises.length){
     const merged=mergeImportedCustomExercises(preview.customExercises,exercises,baseProposal);
     baseProposal.customExercises=merged.customExercises}
+  let programDefinition=preview?.programDefinition||preview?.definition||
+    (route==="shared"?baseProposal.programMeta?.programDefinition:null);
+  if(!programDefinition&&route==="build"){
+    const names=Array.isArray(programStructure?.days)?programStructure.days.map(item=>item?.label||item?.name).filter(Boolean):
+      (preview?.days||[]).map(item=>item?.name||item?.label).filter(Boolean);
+    programDefinition=manualProgramDefinitionFromRows(exercises,names,baseProposal.customExercises||[])}
+  programDefinition=canonicalProgramDefinition(programDefinition,baseProposal.customExercises||[]);
+  if(!programDefinition){
+    toast(t("entry.issue.compile"),{assertive:true});
+    renderOnboarding();
+    return{invalid:true,code:"program-definition-required"}}
+  exercises=flatProgramFromDefinition(programDefinition,baseProposal.customExercises||[]);
+  answersForMeta.daysPerWeek=programDefinition.days.filter(item=>item.kind==="training").length;
+  answersForMeta.goal=programDefinition.request.goal||answersForMeta.goal;
+  answersForMeta.experience=programDefinition.request.experience||answersForMeta.experience;
+  answersForMeta.splitType=programDefinition.request.split||answersForMeta.splitType;
+  answersForMeta.mesocycleLengthWeeks=programDefinition.cycles;
   if(context?.ok)baseProposal.programmingContext=context.value;
   baseProposal.programMeta=baseProposal.programMeta||defaultProgramMeta(baseProposal.log);
   baseProposal.programMeta.progressionRelations=cloneSnapshot(preview?.progressionRelations||[]);
@@ -17149,6 +17275,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     entryTelemetry:entryState.result?.telemetry||null,
     entrySource:{route,fingerprint:entryState.result?.fingerprint},
     programStructure,
+    programDefinition,
     compilerContext,
     expectedSetupDraftRaw:activationDraftHandle?.raw??null,
     replace:route==="shared",
@@ -17172,7 +17299,7 @@ function telemetryGeneratedProgram(goal){
   if(goal==="strength_hypertrophy")return{goal:"balanced",family:"legacy"};
   if(goal==="hypertrophy")return{goal:"muscle_growth",family:"legacy"};
   return null}
-async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null,telemetryRoute="custom",entryTelemetry=null,entrySource=null,programStructure=null,expectedSetupDraftRaw=undefined,replace=false,expectedFirstRunEmpty=false,compilerContext=null}={}){
+async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null,telemetryRoute="custom",entryTelemetry=null,entrySource=null,programStructure=null,programDefinition=null,expectedSetupDraftRaw=undefined,replace=false,expectedFirstRunEmpty=false,compilerContext=null}={}){
   const adapter=requireAdapter(io||storageIO,"finalizeProgramSetup");
   const originEff=origin||onboardingOrigin||"first-run";
   const blockCap=originEff==="block"?pendingBlockTransition:null;
@@ -17190,6 +17317,8 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   if(draftActive&&!draftConfirmed&&!confirm(t("confirm.replace_program_discard_draft")))
     return{revision:readRevision(state),localOk:false,idbOk:false,cancelled:true};
   const proposal=cloneSnapshot(baseProposal||state);
+  const checkedDefinition=canonicalProgramDefinition(programDefinition,proposal.customExercises||[]);
+  if(!checkedDefinition)return{revision:readRevision(state),localOk:false,idbOk:false,invalid:true,code:"program-definition-required"};
   if(originEff==="block"){
     if(!blockCap)return blockTransitionResult("failed");
     if(proposal.programMeta?.id!==blockCap.oldProgramId)return blockTransitionResult("duplicate")}
@@ -17198,7 +17327,13 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   // values remain blockless; the candidate is captured once in this proposal
   // and replay thereafter reads the journaled value.
   meta.blockId=allocateBlockId();
-  proposal.program=new Program(exercises,snapshotLookup(proposal.customExercises)).toJSON();
+  meta.programDefinition=checkedDefinition;
+  meta.mesocycleLengthWeeks=checkedDefinition.cycles;
+  meta.daysPerWeek=checkedDefinition.days.filter(day=>day.kind==="training").length;
+  // Write settings in the shape boot reads them, so the first reload after
+  // activation has nothing left to normalize and rewrite.
+  proposal.settings=normalizeSettings(proposal.settings);
+  proposal.program=durableProgramRows(checkedDefinition,proposal.customExercises||[],meta);
   meta.progressionRelations=normalizeProgressionRelations(baseProposal?.programMeta?.progressionRelations,proposal.program);
   meta.progressionModifiers=normalizeProgressionModifiers(baseProposal?.programMeta?.progressionModifiers);
   meta.progressionIncompatibilities=Array.isArray(baseProposal?.programMeta?.progressionIncompatibilities)
@@ -17527,10 +17662,14 @@ let sharedSetupDraft={status:"none",source:null,encoded:null,payload:null,error:
 let firstRunActive=false;
 const firstRunOpen=()=>!!$("#firstRun")&&!$("#firstRun").classList.contains("hidden");
 const sharedSetupReady=()=>sharedSetupDraft.status==="ready"&&!!sharedSetupDraft.payload;
+const sharedTrainingDays=definition=>(definition?.days||[]).filter(day=>day.kind==="training").length;
 const sharedSetupInvalid=()=>sharedSetupDraft.status==="invalid"||sharedSetupDraft.status==="unsupported";
 const sharedSetupEligible=()=>firstRunPending()&&!(state.programHistory?.length);
-function sharedSetupErrorKey(code){
-  if(code==="unsupported-version")return"setup.shared.unsupported";
+function sharedSetupErrorKey(code,version=null){
+  // Only a link from a later envelope is "newer". Retired envelopes and links
+  // whose generator this release does not run are asked to be shared again.
+  if(code==="unsupported-version")return Number.isSafeInteger(version)&&version>SharedSetup.ENCODING_VERSION
+    ?"setup.shared.unsupported":"setup.shared.outdated";
   if(code==="decompression-unavailable")return"setup.shared.browser_unsupported";
   return"setup.shared.invalid"}
 function renderFirstRunProgramMode(){
@@ -17541,14 +17680,14 @@ function renderFirstRunProgramMode(){
   shared?.classList.toggle("hidden",!ready);
   $("#firstRun")?.classList.toggle("is-shared",ready);
   if(ready){
-    const name=sharedSetupDraft.payload.program.meta.name;
-    const n=sharedSetupDraft.payload.program.meta.daysPerWeek;
+    const name=sharedSetupDraft.payload.program.name;
+    const n=sharedTrainingDays(sharedSetupDraft.payload.program.definition);
     const title=$("#firstRunSharedTitle"),cap=$("#firstRunSharedCap");
     if(title)title.textContent=t("setup.shared.title");
     if(cap)cap.textContent=t(n===1?"setup.shared.cap_one":"setup.shared.cap_many",{name,n});
     if(error){error.textContent="";error.classList.add("hidden")}}
   else if(invalid){
-    if(error){error.textContent=t(sharedSetupErrorKey(sharedSetupDraft.error));error.classList.remove("hidden")}}
+    if(error){error.textContent=t(sharedSetupErrorKey(sharedSetupDraft.error,sharedSetupDraft.errorVersion));error.classList.remove("hidden")}}
   else if(error){error.textContent="";error.classList.add("hidden")}}
 function setSharedSetupBusy(busy){
   const button=$("#firstRunSharedStart"),busyEl=$("#firstRunSharedBusy");
@@ -17559,7 +17698,7 @@ async function commitSharedSetup(io=storageIO){
   if(!sharedSetupEligible()){
     toast(t("setup.shared.existing"),{assertive:true});
     return{revision:readRevision(state),localOk:false,idbOk:false,ineligible:true}}
-  const checked=SharedSetup?.validate(sharedSetupDraft.payload,{builtInIds:SHARED_BUILT_IN_IDS});
+  const checked=SharedSetup?.validate(sharedSetupDraft.payload,sharedSetupCodecOptions());
   if(!checked?.ok){
     toast(t("setup.shared.commit_failed"),{assertive:true});
     $("#firstRunSharedStart")?.focus();
@@ -17570,30 +17709,20 @@ async function commitSharedSetup(io=storageIO){
   // until the shared preview's explicit activation action.
   setSharedSetupBusy(true);
   try {
-    const proposal=proposalFromSharedSetup(checked.value,state);
-    const payload=checked.value.program;
-    const program=cloneSnapshot(proposal.program||[]);
-    const structure=cloneSnapshot(proposal.programMeta?.programStructure||null);
-    const preview={source:"shared",familyId:null,frequency:payload.meta.daysPerWeek,
-      program,programStructure:structure,
-      // Keep each preview branch detached. The persisted result schema walks
-      // object identity as well as values, so sharing the program row objects
-      // into day summaries would look like a cycle to its bounded validator.
-      days:sharedPreviewDays(program,structure,checked.value.settings),
-      customExercises:cloneSnapshot(proposal.customExercises||[]),
-      progressionRelations:cloneSnapshot(proposal.programMeta?.progressionRelations||[]),
-      progressionModifiers:cloneSnapshot(proposal.programMeta?.progressionModifiers||[]),
-      // Shared metadata keeps its released display labels in sharedMeta. The
-      // common draft schema's primaryMuscles field is the generator's closed
-      // token vocabulary, so do not copy human-labelled payload values into it.
-      primaryMuscles:[],
-      sharedMeta:sharedPreviewMeta(payload.meta),
-      sharedSettings:cloneSnapshot(checked.value.settings),
-      sharedImport:cloneSnapshot(proposal[SHARED_IMPORT]||null)};
+    const shared=checked.value.program,definition=cloneSnapshot(shared.definition);
+    const customs=cloneSnapshot(shared.customExercises||[]);
+    const program=flatProgramFromDefinition(definition,customs,1);
+    const days=definition.days.filter(day=>day.kind==="training").map((day,index)=>({dayId:day.id,label:day.name,order:index+1,
+      exercises:program.filter(row=>row.dayId===day.id).map(cloneSnapshot)}));
+    const preview={source:"shared",frequency:days.length,program,programDefinition:definition,
+      programStructure:{schemaVersion:1,days:days.map(({dayId,label,order})=>({dayId,label,order})),provenance:{source:"shared"}},
+      days,customExercises:customs,primaryMuscles:[],
+      sharedMeta:{name:shared.name,daysPerWeek:days.length,mesocycleLengthWeeks:definition.cycles},
+      sharedSettings:cloneSnapshot(checked.value.settings)};
     startOnboarding("first-run",{userInitiated:true,forceFresh:true});
     let next=ProgramEntry.selectRoute(entryState,"shared");
     next=ProgramEntry.setAnswers(next,{sharedReady:true});
-    next=ProgramEntry.setResult(next,{fingerprint:entryServices()?.fingerprint?.({route:"shared",name:payload.meta.name,preview})||"shared",selected:{id:"shared",source:"shared"},name:payload.meta.name,preview,telemetry:{family:"shared_v1"}});
+    next=ProgramEntry.setResult(next,{fingerprint:entryServices()?.fingerprint?.({route:"shared",name:shared.name,preview})||"shared",selected:{id:"shared",source:"shared"},name:shared.name,preview,telemetry:{family:"shared_v1"}});
     next={...next,step:"preview"};
     entryState=next;
     const saved=await persistSetupDraft(next,io);
@@ -17693,11 +17822,11 @@ function closeFirstRunInstall(){
    below are the only authored numbers: what the example lifter logged. */
 const LANDING_UNIT="kg";
 const LANDING_CASES={
-  add:{ex:"pr_bb",sets:3,repMin:8,repMax:10,logged:[[60,10,2],[60,10,2],[60,10,2]]},
-  hold:{ex:"sq_bb",sets:3,repMin:5,repMax:8,logged:[[100,8,1],[100,7,0],[100,6,0]]},
-  reduce:{ex:"pr_bb",sets:3,repMin:8,repMax:10,logged:[[70,7,0],[70,6,0],[70,6,0]]}};
+	add:{ex:"19f5c6f170d8808bb424e98de4472a7e",sets:3,repMin:8,repMax:10,logged:[[60,10,2],[60,10,2],[60,10,2]]},
+	hold:{ex:"1a25c6f170d8803d8231d083fdd65458",sets:3,repMin:5,repMax:8,logged:[[100,7,1],[100,6,0],[100,6,0]]},
+	reduce:{ex:"19f5c6f170d8808bb424e98de4472a7e",sets:3,repMin:8,repMax:10,logged:[[70,7,0],[70,6,0],[70,6,0]]}};
 /** The squat history behind the chart image: four sessions, one rung up each week. */
-const LANDING_CHART={exerciseId:"ex-squat",libraryId:"sq_bb",started:"2026-08-03",
+const LANDING_CHART={exerciseId:"ex-squat",libraryId:"1a25c6f170d8803d8231d083fdd65458",started:"2026-08-03",
   dates:["2026-08-03","2026-08-10","2026-08-17","2026-08-24"],
   ladder:[92.5,95,97.5,100],reps:[6,7,7,8],rir:[2,2,1,1],sets:3,min:5,
   /* the capture size per language (the Portuguese figure captions wrap, so it is taller), from tools/capture-landing-proof.mjs */
@@ -17714,7 +17843,7 @@ function landingChartRows(){
  *  are measured from the live app by tools/capture-landing-proof.mjs. */
 const LANDING_SCENES=["focus","rest","actions","note"];
 const LANDING_SPOTS={
-  focus:{cue:[50,32.46,91.79,6.59],log:[50,90.88,91.79,6.4],last:[50,48.85,91.79,11.98]},
+  focus:{cue:[50,31.61,91.79,6.59],log:[50,90.88,91.79,6.4],last:[50,48,91.79,11.98]},
   rest:{dial:[50,32.66,91.79,6.98]},
   actions:{swap:[50,52.38,91.79,6.16]},
   note:{text:[50,64.93,91.28,2.94]}};
@@ -17731,7 +17860,7 @@ const LANDING_READ={
  *  (they differ by language: the sample's names classify differently) and the
  *  library movement its first row suggests. Written by tools/capture-landing-proof.mjs
  *  into assets/brand/landing-proof-spots.json, which test/landing-variants.mjs compares. */
-const LANDING_PASTE_SHOT={dims:{en:[780,1242],pt:[780,1242]},counts:{en:{linked:1,review:3},pt:{linked:0,review:4}},exercise:"pr_bb"};
+const LANDING_PASTE_SHOT={dims:{en:[780,1138],pt:[780,1266]},counts:{en:{linked:2,review:2},pt:{linked:0,review:4}},exercise:"19f5c6f170d8808bb424e98de4472a7e"};
 const landingLang=()=>I18N?.getLang?.()==="pt"?"pt":"en";
 const landingNum=v=>{const s=fmtPlain(v);return landingLang()==="pt"?s.replace(".",","):s};
 const landingKg=v=>`${landingNum(v)} ${LANDING_UNIT}`;
@@ -17743,17 +17872,30 @@ function landingList(values){
   catch{return items.join(", ")}}
 function landingEvaluate(c){
   const engine=typeof RepForgeProgression!=="undefined"?RepForgeProgression:null;
-  if(!engine)return null;
-  const raw=+DEFAULTS.minJump;
-  const result=engine.evaluateProgression({engineVersion:1,
-    prescription:{schemaVersion:1,strategy:{id:"range",version:1,params:{workingSets:c.sets,repMin:c.repMin,repMax:c.repMax}},modifiers:[]},
-    relation:null,modifiers:[],
-    settings:{minLoadIncrement:Number.isFinite(raw)&&raw>0?raw:2.5,jumpPercent:+DEFAULTS.jumpPct||0,hardRir:+DEFAULTS.hardRir||4},
-    history:[{sessionId:"landing-case",date:"2026-09-01",sets:c.logged.map(([load,reps,rir])=>({load,reps,rir}))}],
-    currentSession:[],
-    context:{weekNumber:1,blockLength:defaultProgramMeta().mesocycleLengthWeeks,blockStart:null}});
-  if(result?.kind!=="recommendation")return null;
-  return{status:result.status,load:result.facts.targetLoad,reps:result.facts.targetReps}}
+  const exercise=rawExercise(c.ex),definitions=rawMetricDefinitions(c.ex);
+  if(!engine?.recommendSets||!exercise||!definitions?.length)return null;
+  const loadMetric=definitions.find(definition=>definition.semantic==="loadKg");
+  const repsMetric=definitions.find(definition=>definition.semantic==="reps");
+  if(!loadMetric||!repsMetric)return null;
+  const slotId=`landing:${c.ex}`,equipmentId="landing-demo-barbell";
+  const prescription={id:`${slotId}:cycle-1:set-1`,slotId,exerciseId:c.ex,setIndex:1,
+    metricType:"source_metrics@1",metricIds:[...exercise.exerciseMetrics],metricDefinitions:definitions,
+    targets:{reps:{min:c.repMin,max:c.repMax}},rir:1,status:"ready",loadingModel:{bodyweightCoefficient:0}};
+  const sets=c.logged.map(([load,reps,rir],setIndex)=>({exerciseId:c.ex,completed:true,setIndex,rir,equipmentId,
+    loadingConvention:"external",metricIds:[...exercise.exerciseMetrics],
+    metricValues:definitions.map(definition=>({metricId:definition.id,
+      value:definition.semantic==="loadKg"?load:definition.semantic==="reps"?reps:null,unit:definition.unit})),
+    loadingContext:{loadingConvention:"external",bodyweightContributionEnabled:false,bodyweightKg:null,
+      bodyweightCoefficient:0,externalLoadMultiplier:1}}));
+  const increment=Number.isFinite(+DEFAULTS.minJump)&&+DEFAULTS.minJump>0?+DEFAULTS.minJump:2.5;
+  const maxLoad=Math.max(...c.logged.map(([load])=>load))+increment*12;
+  const availableLoadsKg=Array.from({length:Math.ceil(maxLoad/increment)+1},(_,index)=>index*increment);
+  const result=engine.recommendSets([prescription],[{sessionId:`${slotId}:history`,completed:true,sets}],[],
+    {bySlotId:{[slotId]:{equipmentId,availableLoadsKg,loadingConvention:"external",
+      bodyweightContributionEnabled:false,bodyweightKg:null,externalLoadMultiplier:1}}},
+    {weightMatch:false,expandRepRange:true})[0];
+  if(result?.status!=="recommended")return null;
+  return{status:result.status,load:result.targets.loadKg,reps:result.targets.reps}}
 /** Strength-trend figures for the chart, from the Progress model. */
 function landingChartFigures(){
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
@@ -18252,6 +18394,48 @@ function whyHeadline(ex,rec,surface){
 function whyCueSet(ex){
   for(let n=1;n<=ex.sets;n++)if(!committed.has(`${ex.id}_${n}`))return n;
   return 0}
+/* The Why sheet for an adaptive recommendation says only what the engine
+   reported: the set it is anchored on and the strength that set shows, the
+   effort and reps the target aims at, and the assumptions it loaded with (the
+   load steps and any bodyweight it counted). Nothing is recomputed here. */
+function engineWhyRows(ex,rec,n=1){
+  const u=unitLabel(),rows=[];
+  const item=rec.targetSets.find(entry=>entry.prescription?.setIndex===n)||rec.targetSets[0];
+  const result=item?.result;if(!result||item.status!=="recommended")return rows;
+  const anchor=result.historyAnchor||{},assumptions=result.loadingAssumptions||{};
+  const cap=Number.isFinite(anchor.capacityKg)?fmtLoad(Math.round(anchor.capacityKg*2)/2):null;
+  if(anchor.source==="current_session")rows.push(whyRow("anchor",{text:t("why.engine.anchor_session",
+    {set:(anchor.setIndex??0)+1,load:fmtLoad(anchor.displayLoadKg),cap,unit:u})}));
+  else if(cap)rows.push(whyRow("anchor",{text:t("why.engine.anchor_history",
+    {n:(anchor.sessionIds||[]).length||1,load:fmtLoad(anchor.displayLoadKg),cap,unit:u})}));
+  const projected=result.fatigue?.projectedCapacityKg;
+  if(n>1&&Number.isFinite(projected)&&Number.isFinite(anchor.capacityKg)&&Math.abs(projected-anchor.capacityKg)>0.25)
+    rows.push(whyRow("fatigue",{text:t("why.engine.fatigue",{cap:fmtLoad(Math.round(projected*2)/2),unit:u})}));
+  const definitions=rec.metricDefinitions||[];
+  const loadMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.load.includes(metric.semantic));
+  const repsMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.reps.includes(metric.semantic));
+  const load=loadMetric?result.targets?.[loadMetric.semantic]:null,rawReps=repsMetric?result.targets?.[repsMetric.semantic]:null;
+  const reps=typeof rawReps==="number"?rawReps:rawReps?.min;
+  const rir=item.prescription?.rir;
+  if(load!=null&&reps!=null)rows.push(whyRow("target",{text:t(rir!=null?"why.engine.target":"why.engine.target_norir",
+    {rir:fmt(rir),reps,load:fmtLoad(load),unit:u})}));
+  const loads=(assumptions.availableLoadsKg||[]).slice().sort((a,b)=>a-b);
+  const steps=loads.slice(1).map((value,index)=>Math.round((value-loads[index])*1000)/1000).filter(step=>step>0);
+  if(steps.length)rows.push(whyRow("step",{text:t("why.engine.step",{step:fmtLoad(Math.min(...steps)),unit:u})}));
+  if(assumptions.bodyweightContributionEnabled&&assumptions.bodyweightContributionKg>0)
+    rows.push(whyRow("bodyweight",{text:t("why.engine.bodyweight",{bw:fmtLoad(assumptions.bodyweightContributionKg),unit:u})}));
+  return rows}
+function engineWhyModel(ex,rec,model,head){
+  const n=head.inSession&&head.set?head.set.n:1,rows=engineWhyRows(ex,rec,n),take=kind=>rows.find(row=>row.kind===kind);
+  const prev=last(ex).filter(x=>+x.load>0),u=unitLabel(),performed=whyPerformedText(prev,u);
+  const block=(leadKey,lead,text)=>{if(text)model.blocks.push({leadKey,lead,text})};
+  block("engine-anchor",t("why.lead.engine_anchor"),[performed,take("anchor")?.text,take("fatigue")?.text].filter(Boolean).join(" "));
+  block("engine-target",t(n>1?"why.lead.set2":"why.lead.engine_target",{n}),take("target")?.text);
+  block("engine-assumptions",t("why.lead.engine_assumptions"),[take("step")?.text,take("bodyweight")?.text].filter(Boolean).join(" "));
+  if(prev.length){model.calc.push({group:t("why.calc.last",{date:shortDate(prev[0].date)})});
+    prev.forEach((x,i)=>model.calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${x.reps}`,rir:effortOrRirLabel(x.rir)}));
+    model.evidence=t("why.evidence",{n:1,date:shortDate(prev[0].date)})}
+  return model}
 function whySheetModel(ex,surface="focus"){
   const rec=recommendation(ex),u=unitLabel(),rows=explainRecommendation(ex),pick=k=>rows.find(r=>r.kind===k);
   const head=whyHeadline(ex,rec,surface),glyph=head.glyph;
@@ -18261,6 +18445,7 @@ function whySheetModel(ex,surface="focus"){
   const placed=new Set(),take=k=>{const r=pick(k);if(r)placed.add(r);return r};
   const block=(leadKey,lead,text,label)=>model.blocks.push({leadKey,lead,text,...(label?{label}:{})});
   if(rec.status==="manual"){block("manual",t("why.lead.manual"),t("why.manual"));return model}
+  if(Array.isArray(rec.targetSets))return engineWhyModel(ex,rec,model,head);
   const draft=loadDraft(),prev=last(ex).filter(x=>+x.load>0),performed=whyPerformedText(prev,u);
   const calc=model.calc,setRows=sets=>sets.forEach((x,i)=>calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${x.reps}`,rir:effortOrRirLabel(x.rir)}));
   const lastGroup=()=>{if(prev.length){calc.push({group:t("why.calc.last",{date:shortDate(prev[0].date)})});setRows(prev)}};
@@ -18268,7 +18453,7 @@ function whySheetModel(ex,surface="focus"){
   // Once the session has moved the target, the working ends on the set the headline speaks for; the base target above it stays labelled Today.
   const setRow=()=>{if(head.inSession&&head.set)calc.push({sum:true,k:t("why.calc.set",{n:head.set.n}),v:`${fmtLoad(head.set.load)} ${u} × ${head.set.reps}`})};
   if(prev.length)model.evidence=t("why.evidence",{n:1,date:shortDate(prev[0].date)});
-  const isRange=!rec.strategy||rec.strategy==="range";
+  const isRange=true;
   // The first unlogged working set, as the in-session note names it.
   const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]);
   let nextSet=null;
@@ -18307,42 +18492,6 @@ function whySheetModel(ex,surface="focus"){
     if(!sameLoad(rec.load,rec.lastLoad)&&load?.facts)calc.push({k:t("why.calc.new_load"),v:whyLoadMove(load.facts.from,load.facts.to,load.facts.raw?{pct:load.facts.pctValue}:{step:load.facts.stepValue})});
     if(rec.reenterReps&&reps?.facts)calc.push({k:t("why.calc.rep_target"),v:whyRepTarget({capacity:reps.facts.capacity,pred:reps.facts.pred,rir:reps.facts.rirValue,reps:reps.facts.reps,min:reps.facts.min,max:reps.facts.max})});
     const blockRow=take("block");if(blockRow)calc.push({k:t("why.calc.block"),v:blockRow.text,text:true});
-    todayRow();setRow();
-  }
-  else if(rec.strategy==="rep_goal"){
-    const total=take("rg-total"),effort=take("rg-effort"),rebuild=take("rg-rebuild");
-    if(total)block("goal",t("why.lead.goal"),[performed,total.text].filter(Boolean).join(" "));
-    if(effort)block("effort",t("why.lead.effort"),effort.text);
-    const sets=rec.engineSets||[];
-    if(rebuild)block("spread",t("why.lead.spread"),rebuild.text);
-    else if(sets.length)block("spread",t("why.lead.spread"),t("why.split",{total:sum(sets.map(s=>s.reps)),reps:whyList(sets.map(s=>s.reps))}));
-    const f=RepForgeProgression.evaluateProgression(progressionInput(ex)).facts;
-    lastGroup();
-    calc.push({group:t("why.calc.working")});
-    if(f.performedTotal!=null)calc.push({k:t("why.calc.goal"),v:`${f.performedTotal} / ${f.repGoal}`});
-    if(sets.length)calc.push({k:t("why.calc.split"),v:`${sets.map(s=>s.reps).join(" + ")} = ${sum(sets.map(s=>s.reps))}`});
-    todayRow();setRow();
-  }
-  else if(rec.strategy==="anchor_backoff"){
-    const top=take("an-top"),topRir=take("an-toprir"),backoff=take("an-backoff"),text=take("text");
-    if(top)block("anchor",t("why.lead.anchor"),[top.text,topRir?.text].filter(Boolean).join(" "));
-    if(text)block("rule",t("why.lead.rule"),text.text);
-    if(backoff)block("backoff",t("rec.anchor.session.label"),backoff.text);
-    const f=RepForgeProgression.evaluateProgression(progressionInput(ex)).facts,params=progressionForExercise(ex)?.strategy?.params||{};
-    lastGroup();
-    calc.push({group:t("why.calc.working")});
-    if(f.capacityReps!=null&&f.anchorLoad!=null)calc.push({k:t("why.calc.capacity"),v:t("why.calc.capacity_v",{cap:Math.round(f.capacityReps),load:fmtLoad(f.anchorLoad),unit:u})});
-    if(f.targetLoad!=null&&f.anchorLoad!=null&&!sameLoad(f.targetLoad,f.anchorLoad))calc.push({k:t("why.calc.new_load"),v:whyLoadMove(f.anchorLoad,f.targetLoad,{pct:+params.jumpPercent})});
-    if(f.backoffLoad!=null&&params.backoffPercent!=null)calc.push({k:t("rec.anchor.session.label"),v:`${fmtLoad(f.targetLoad??f.anchorLoad)} × ${fmt(Math.round(params.backoffPercent*100))}% → ${fmtLoad(f.backoffLoad)}`});
-    todayRow();setRow();
-  }
-  else if(rec.strategy==="effort_target"){
-    const evidence=take("ef-evidence"),target=take("ef-target"),grid=take("ef-grid"),text=take("text");
-    const f=RepForgeProgression.evaluateProgression(progressionInput(ex)).facts;
-    if(evidence)block("effort",t("why.lead.effort"),[evidence.text,text?.text].filter(Boolean).join(" "));
-    if(target)block("reps",t("why.lead.reps",{n:f.targetReps}),target.text);
-    if(grid)block("load",t("why.lead.load"),grid.text);
-    lastGroup();
     todayRow();setRow();
   }
   // Rows that are not placed as a sentence stay readable in the working, so nothing the producer says is lost.
@@ -18946,12 +19095,12 @@ function init(){
     const progEx=id?prog.find(id):null;
     const prevSets=progEx?last(sessionExercise(progEx)):[];
     if(!prevSets.length||!activeWorkoutDraft)return;
-    const values=prevSets.map(s=>({
+    const values=prevSets.map(s=>Array.isArray(s.metricValues)?({
       ordinal:s.set,
-      load:canonicalNumberText(s.load),
-      reps:canonicalNumberText(s.reps),
-      ...(isEffortMode()?{effort:effortForRir(s.rir)}:{rir:canonicalNumberText(s.rir)})
-    }));
+      metrics:Object.fromEntries(s.metricValues.map(value=>[value.metricId,canonicalNumberText(value.value)])),
+      ...(s.rir==null?{}:isEffortMode()?{effort:effortForRir(s.rir)}:{rir:canonicalNumberText(s.rir)})
+    }):({ordinal:s.set,load:canonicalNumberText(s.load),reps:canonicalNumberText(s.reps),
+      ...(isEffortMode()?{effort:effortForRir(s.rir)}:{rir:canonicalNumberText(s.rir)})}));
     const res=await WorkoutSession.dispatch("repeatPreviousSetValues",{exerciseInstanceId:id,values});
     if(res.status==="applied"){
       renderWorkout();
@@ -19282,15 +19431,12 @@ window.__repforgeSharedSetup={
   get source(){return sharedSetupDraft.source},
   get error(){return sharedSetupDraft.error},
   get summary(){return sharedSetupDraft.payload?{
-    name:sharedSetupDraft.payload.program.meta.name,
-    daysPerWeek:sharedSetupDraft.payload.program.meta.daysPerWeek,
+    name:sharedSetupDraft.payload.program.name,
+    daysPerWeek:sharedTrainingDays(sharedSetupDraft.payload.program.definition),
     lang:sharedSetupDraft.payload.settings.lang}:null},
   build:buildSharedSetupPayload,
   buildPayload:buildSharedSetupPayload,
   buildValidation:buildSharedSetupValidation,
-  proposal:proposalFromSharedSetup,
-  proposalFromSharedSetup,
-  buildProposal:(payload,base)=>proposalFromSharedSetup(payload,base||state),
   commit:io=>commitSharedSetup(io||storageIO),
   eligible:sharedSetupEligible};
 function captureSharedSetupSource({allowCookie=true}={}){
@@ -19322,18 +19468,21 @@ async function prepareSharedSetup(candidate){
         staged=SharedSetup.readHandoffCookie()===encoded}
     catch{staged=false}}
   let decoded;
-  try{decoded=await SharedSetup.decode(encoded,{builtInIds:SHARED_BUILT_IN_IDS})}
+  try{decoded=await SharedSetup.decode(encoded,sharedSetupCodecOptions())}
   catch{decoded={ok:false,code:"invalid-schema"}}
   if(!decoded.ok){
     if(source==="cookie"||staged||matchingCookie)SharedSetup.clearHandoffCookie();
     const unsupported=decoded.code==="unsupported-version"||decoded.code==="decompression-unavailable";
     sharedSetupDraft={status:unsupported?"unsupported":"invalid",source,encoded:null,payload:null,
-      error:decoded.code,previousLang:null};
+      error:decoded.code,errorVersion:decoded.version??null,previousLang:null};
     return}
   if(source==="fragment"&&staged){
     const next=SharedSetup.removeSetupFragment();
     history.replaceState({},"",next)}
   if(!sharedSetupEligible()){
+    // The handoff cookie only exists to carry a link into first run. A device
+    // that cannot accept it must not keep it waiting for a later data wipe.
+    if(source==="cookie"||staged||matchingCookie)SharedSetup.clearHandoffCookie();
     sharedSetupDraft={status:source==="fragment"?"existing":"none",source,encoded:null,payload:null,
       error:source==="fragment"?"existing":null,previousLang:null};
     return}
@@ -19366,10 +19515,16 @@ async function installTransferBootNeedsLock(){
     return !!transfer.readTransferCookie({document});
   }catch{return false}}
 async function boot(){
+  // The full source catalog is an offline shell asset. Load it before state
+  // normalization or any program surface can consume metric/taxonomy details;
+  // the synchronous exercise index remains available for first-paint search.
+  // A missing producer dependency is not a damaged durable snapshot: stop here
+  // before replica resolution, normalization, journal replay or healing writes.
+  if(I18N)I18N.setLang(I18N.detectLang());
+  if(!await loadExerciseCatalog()){showExerciseCatalogUnavailable();return}
   // Program metadata and the first render are built from the loaded state, so
   // the language has to be settled before that — not after the state exists.
   const sharedCandidate=captureSharedSetupSource();
-  if(I18N)I18N.setLang(I18N.detectLang());
   installTransferGuardTelemetry();
   const transferWork=async()=>{
     const importMarker=await installTransferReadMarker();

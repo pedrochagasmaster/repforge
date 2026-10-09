@@ -26,6 +26,7 @@
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -39,31 +40,37 @@ function assert(cond, name, detail) {
 }
 const phase = n => console.log(`\n${n}`);
 
-const ROWS = [
-  ["sort-a", "Seated row machine", "Day 1", 1],
-  ["sort-b", "Romanian deadlift", "Day 1", 2],
-  ["sort-c", "Machine lateral raise", "Day 1", 3],
-  ["sort-d", "Leg press", "Day 2", 1],
-];
+/* Day 1 holds three movements and Day 2 one, cut from the seed program's
+   canonical ProgramDefinition so every reorder runs the real canonical commit. */
+const ALIAS = {
+  "seed-ex-1": "Seated row machine",
+  "seed-ex-2": "Romanian deadlift",
+  "seed-ex-3": "Machine lateral raise",
+  "seed-ex-7": "Leg press",
+};
 
 function fixture(lang = "en") {
+  const meta = seedProgramMeta();
+  const definition = meta.programDefinition;
+  for (const day of definition.days) {
+    day.slots = day.slots.filter((slot) => ALIAS[slot.id]);
+    day.slots.forEach((slot, index) => { slot.order = index + 1; slot.displayName = ALIAS[slot.id]; });
+    if (!day.slots.length) day.kind = "rest";
+  }
+  const order = new Map();
+  const program = seedProgram().filter((row) => ALIAS[row.id]).map((row) => {
+    const position = (order.get(row.day) || 0) + 1;
+    order.set(row.day, position);
+    return { ...row, order: position, name: ALIAS[row.id], displayName: ALIAS[row.id], alternates: [] };
+  });
   return {
     settings: {
       jumpPct: 2.5, minJump: 2.5, rirHigh: 2, hardRir: 4, restSec: 0, lastExport: "",
       unit: "kg", lang, rirMode: "numeric", voiceInputEnabled: false,
       notify: { enabled: false, timer: true, session: true, unfinished: true, missed: true },
     },
-    programMeta: {
-      id: "sorting-program", name: "Sorting fixture",
-      started: "2026-09-01", created: "2026-09-01T00:00:00.000Z", updated: "2026-09-01T00:00:00.000Z",
-      onboarded: true, mesocycleStatus: "active", mesocycleLengthWeeks: 6,
-      goal: null, experience: null, daysPerWeek: 2, splitType: "full_body",
-      equipment: ["machines"], priorityMuscles: [], sessionLength: "short", completedAt: null,
-    },
-    program: ROWS.map(([id, name, day, order]) => ({
-      id, name, day, order, sets: 3, min: 6, max: 10,
-      primary: "Mid/upper back", secondary: "", notes: "", alternates: [],
-    })),
+    programMeta: { ...meta, daysPerWeek: 2, programDefinition: definition },
+    program, customExercises: [],
     log: [], programHistory: [], _storageRevision: 1,
   };
 }
@@ -181,15 +188,15 @@ async function run() {
   phase("a pointer drag reorders within a day");
   await enterReorderMode(page);
   const before = await order(page);
-  assert(before[0].rows.join() === "sort-a,sort-b,sort-c", "the fixture starts in its authored order", before);
+  assert(before[0].rows.join() === "seed-ex-1,seed-ex-2,seed-ex-3", "the fixture starts in its authored order", before);
   {
-    const third = await page.locator('#programEditor [data-role="exercise"][data-id="sort-c"]').boundingBox();
-    await dragHandle(page, "sort-a", Math.round(third.y + third.height - 6));
+    const third = await page.locator('#programEditor [data-role="exercise"][data-id="seed-ex-3"]').boundingBox();
+    await dragHandle(page, "seed-ex-1", Math.round(third.y + third.height - 6));
   }
   const reordered = await order(page);
-  assert(reordered[0].rows[0] !== "sort-a" && reordered[0].rows.length === 3,
+  assert(reordered[0].rows[0] !== "seed-ex-1" && reordered[0].rows.length === 3,
     "the dragged exercise left the top of its day", reordered);
-  assert([...reordered[0].rows].sort().join() === "sort-a,sort-b,sort-c",
+  assert([...reordered[0].rows].sort().join() === "seed-ex-1,seed-ex-2,seed-ex-3",
     "and no exercise was lost or duplicated on the way", reordered);
 
   phase("the move is one transaction, with an undo");
@@ -209,7 +216,7 @@ async function run() {
     };
   });
   assert(undone.offered, "a drag offers the same undo the Move controls do");
-  assert(undone.order.join() === "sort-a,sort-b,sort-c",
+  assert(undone.order.join() === "seed-ex-1,seed-ex-2,seed-ex-3",
     "and undoing puts the exercise back where it started", undone);
 
   phase("a drag carries an exercise to another day");
@@ -221,8 +228,14 @@ async function run() {
     const collapsed = await page.evaluate(() =>
       !!document.querySelector('#programEditor [data-role="day"][data-day="Day 2"] [data-role="day-body"][hidden]'));
     assert(collapsed, "Day 2 starts collapsed, so the drop has to open it first");
+    // A day's first row opens by default, and a canonical row's open card lists
+    // every cycle's sets — taller than the viewport — so close Day 1's open
+    // row to drag it by its handle onto Day 2's header.
+    const openToggle = page.locator('#programEditor [data-role="day"][data-day="Day 1"] [data-role="exercise"].is-expanded [data-role="toggle-exercise"]');
+    while (await openToggle.count()) await openToggle.first().click();
+    await page.locator('#programEditor [data-role="day"][data-day="Day 1"]').scrollIntoViewIfNeeded();
     const other = await page.locator('#programEditor [data-role="day"][data-day="Day 2"]').boundingBox();
-    await dragHandle(page, "sort-a", Math.round(other.y + Math.min(other.height - 6, 30)),
+    await dragHandle(page, "seed-ex-1", Math.round(other.y + Math.min(other.height - 6, 30)),
       { steps: 14, linger: 900, release: false });
     assert(await page.evaluate(() =>
       !!document.querySelector('#programEditor [data-role="day"][data-day="Day 2"].is-drag-target-expanded')),
@@ -232,7 +245,7 @@ async function run() {
   }
   const crossed = await order(page);
   const dayOf = id => crossed.find(day => day.rows.includes(id))?.day;
-  assert(dayOf("sort-a") === "Day 2", "the exercise now belongs to the day it was dropped on", crossed);
+  assert(dayOf("seed-ex-1") === "Day 2", "the exercise now belongs to the day it was dropped on", crossed);
   assert(crossed.reduce((n, day) => n + day.rows.length, 0) === 4,
     "and the program still holds every exercise", crossed);
 
@@ -241,33 +254,33 @@ async function run() {
   await openEditor(page);
   await enterReorderMode(page);
   {
-    const handle = await page.locator('#programEditor [data-role="exercise"][data-id="sort-a"] [data-role="drag-handle"]').boundingBox();
+    const handle = await page.locator('#programEditor [data-role="exercise"][data-id="seed-ex-1"] [data-role="drag-handle"]').boundingBox();
     await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
     await page.mouse.down();
     await page.waitForTimeout(40);
     await page.mouse.up();
     await page.waitForTimeout(400);
   }
-  assert((await order(page))[0].rows.join() === "sort-a,sort-b,sort-c",
+  assert((await order(page))[0].rows.join() === "seed-ex-1,seed-ex-2,seed-ex-3",
     "a tap on the handle inside the pickup delay is still a tap", await order(page));
 
   phase("an abandoned drag leaves the program alone");
   {
-    const third = await page.locator('#programEditor [data-role="exercise"][data-id="sort-c"]').boundingBox();
-    await dragHandle(page, "sort-a", Math.round(third.y + third.height - 6), { release: false });
+    const third = await page.locator('#programEditor [data-role="exercise"][data-id="seed-ex-3"]').boundingBox();
+    await dragHandle(page, "seed-ex-1", Math.round(third.y + third.height - 6), { release: false });
     await page.keyboard.press("Escape");
     await page.waitForTimeout(400);
     await page.mouse.up();
     await page.waitForTimeout(500);
   }
-  assert((await order(page))[0].rows.join() === "sort-a,sort-b,sort-c",
+  assert((await order(page))[0].rows.join() === "seed-ex-1,seed-ex-2,seed-ex-3",
     "Escape mid-drag cancels the move rather than committing it", await order(page));
 
   phase("the keyboard reorders with no pointer at all");
   await writeFixture(page);
   await openEditor(page);
   await enterReorderMode(page);
-  await page.locator('#programEditor [data-role="exercise"][data-id="sort-a"] [data-role="drag-handle"]').focus();
+  await page.locator('#programEditor [data-role="exercise"][data-id="seed-ex-1"] [data-role="drag-handle"]').focus();
   await page.evaluate(() => { window.__said.length = 0; });
   await page.keyboard.press("Space");
   await page.waitForTimeout(300);
@@ -281,7 +294,7 @@ async function run() {
   await page.keyboard.press("Space");
   await page.waitForTimeout(700);
   const byKeyboard = await order(page);
-  assert(byKeyboard[0].rows[0] === "sort-b" && byKeyboard[0].rows[1] === "sort-a",
+  assert(byKeyboard[0].rows[0] === "seed-ex-2" && byKeyboard[0].rows[1] === "seed-ex-1",
     "and the exercise moves down one place", byKeyboard);
 
   phase("the explicit Move controls still work on their own");
@@ -290,18 +303,18 @@ async function run() {
   // The row menu shares reorder mode with the drag handle: both are the
   // editor's reordering affordances and both appear together.
   await enterReorderMode(page);
-  await page.locator('#programEditor [data-role="exercise"][data-id="sort-b"] [data-role="exercise-menu"]').first().click();
-  await page.locator('#programEditor [data-role="exercise"][data-id="sort-b"] [data-role="move-up"]').first().click();
+  await page.locator('#programEditor [data-role="exercise"][data-id="seed-ex-2"] [data-role="exercise-menu"]').first().click();
+  await page.locator('#programEditor [data-role="exercise"][data-id="seed-ex-2"] [data-role="move-up"]').first().click();
   await page.waitForTimeout(500);
-  assert((await order(page))[0].rows.join() === "sort-b,sort-a,sort-c",
+  assert((await order(page))[0].rows.join() === "seed-ex-2,seed-ex-1,seed-ex-3",
     "Move up moves an exercise up", await order(page));
-  await page.locator('#programEditor [data-role="exercise"][data-id="sort-b"] [data-role="exercise-menu"]').first().click();
-  await page.locator('#programEditor [data-role="exercise"][data-id="sort-b"] [data-role="move-other"]').first().click();
-  await page.locator('#programEditor [data-role="exercise"][data-id="sort-b"] [data-role="move-to-day"][data-day="Day 2"]').first().click();
+  await page.locator('#programEditor [data-role="exercise"][data-id="seed-ex-2"] [data-role="exercise-menu"]').first().click();
+  await page.locator('#programEditor [data-role="exercise"][data-id="seed-ex-2"] [data-role="move-other"]').first().click();
+  await page.locator('#programEditor [data-role="exercise"][data-id="seed-ex-2"] [data-role="move-to-day"][data-day="Day 2"]').first().click();
   await page.waitForTimeout(500);
   {
     const moved = await order(page);
-    assert(moved.find(day => day.rows.includes("sort-b"))?.day === "Day 2",
+    assert(moved.find(day => day.rows.includes("seed-ex-2"))?.day === "Day 2",
       "Move to another day moves it across", moved);
   }
   assert(errors.length === 0, "no page errors while reordering", errors.join(" | "));
@@ -317,7 +330,7 @@ async function run() {
     await writeFixture(pt, "pt");
     await openEditor(pt);
     await enterReorderMode(pt);
-    await pt.locator('#programEditor [data-role="exercise"][data-id="sort-a"] [data-role="drag-handle"]').focus();
+    await pt.locator('#programEditor [data-role="exercise"][data-id="seed-ex-1"] [data-role="drag-handle"]').focus();
     await pt.evaluate(() => { window.__said.length = 0; });
     await pt.keyboard.press("Space");
     await pt.waitForTimeout(300);
@@ -342,8 +355,8 @@ async function run() {
     await writeFixture(rm);
     await openEditor(rm);
     await enterReorderMode(rm);
-    const third = await rm.locator('#programEditor [data-role="exercise"][data-id="sort-c"]').boundingBox();
-    const handle = await rm.locator('#programEditor [data-role="exercise"][data-id="sort-a"] [data-role="drag-handle"]').boundingBox();
+    const third = await rm.locator('#programEditor [data-role="exercise"][data-id="seed-ex-3"]').boundingBox();
+    const handle = await rm.locator('#programEditor [data-role="exercise"][data-id="seed-ex-1"] [data-role="drag-handle"]').boundingBox();
     const x = Math.round(handle.x + handle.width / 2);
     const fromY = Math.round(handle.y + handle.height / 2);
     const toY = Math.round(third.y + third.height - 6);
@@ -355,7 +368,7 @@ async function run() {
     // No settle wait: with the animations off the document is already correct.
     await rm.waitForTimeout(120);
     const rmOrder = await order(rm);
-    assert(rmOrder[0].rows[0] !== "sort-a" && [...rmOrder[0].rows].sort().join() === "sort-a,sort-b,sort-c",
+    assert(rmOrder[0].rows[0] !== "seed-ex-1" && [...rmOrder[0].rows].sort().join() === "seed-ex-1,seed-ex-2,seed-ex-3",
       "the drop lands immediately and the reorder is complete", rmOrder);
     const stranded = await rm.evaluate(() =>
       [...document.querySelectorAll('#programEditor [data-role="exercise"]')]

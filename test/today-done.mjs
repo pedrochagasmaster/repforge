@@ -7,10 +7,14 @@
 import { pathToFileURL } from "url";
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
+import { installGeneratedProgram, isWeightRepsSlot, definitionSlot, metricLogRow, withValues } from "./fixtures/history-metric-rows.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
+/** Catalog metric ids of the seed program's Weight+Reps movements. */
+const WEIGHT = "2555c6f170d8805cafa6d16d3fdddbaa";
+const REPS = "2555c6f170d88072bbf6d9ad3f16ea86";
 
 const results = { passed: 0, failed: 0 };
 
@@ -102,18 +106,16 @@ async function readState(page) {
   return page.evaluate((k) => JSON.parse(localStorage.getItem(k) || "{}"), KEY);
 }
 
-/** Log rows for one saved session of `day`, two sets per exercise template. */
-function sessionRows(program, day, date, load = 60) {
+/** Log rows for one saved session of `day`, two sets per Weight+Reps exercise template,
+ *  in the metric shape a finished DraftV2 workout commits. */
+function sessionRows(state, day, date, load = 60) {
   const session = `${date}_${day}_seed`;
   const created = `${date}T12:00:00.000Z`;
   const rows = [];
-  for (const ex of program.filter((e) => e.day === day)) {
+  for (const ex of state.program.filter((e) => e.day === day)) {
+    if (!isWeightRepsSlot(definitionSlot(state.programMeta, ex))) continue;
     for (let set = 1; set <= 2; set++) {
-      rows.push({
-        session, date, day, name: ex.name, exerciseId: ex.id, set,
-        load, reps: ex.min || 8, rir: 1, notes: "", created,
-        primary: ex.primary, secondary: ex.secondary,
-      });
+      rows.push(metricLogRow(state.programMeta, ex, { session, date, day, set, load, reps: ex.min || 8, rir: 1, created }));
     }
   }
   return rows;
@@ -152,25 +154,30 @@ async function todayView(page) {
 async function logAndSaveToday(page, day) {
   await page.evaluate((d) => window.__repforgeEnterWorkout({ day: d}), day);
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
-  await page.evaluate(async (d) => {
+  await page.evaluate(async ({ d, weight, reps }) => {
     const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
     const draft = window.__repforgeWorkoutDraft.current();
     for (const ex of (state.program || []).filter((e) => e.day === d)) {
       const exercise = draft?.exercises?.[ex.id];
       if (!exercise) continue;
       for (const setId of exercise.setOrder) {
-        for (const [field, value] of [["load", "60"], ["reps", String(ex.min || 8)], ["rir", "1"]]) {
-          await window.__repforgeWorkoutDraft.dispatch("editSetField", {
-            exerciseInstanceId: ex.id, setId, field, value,
+        const metrics = { [weight]: "60", [reps]: String(ex.min || 8) };
+        for (const metric of exercise.sets[setId].programmed.metrics || []) {
+          if (metrics[metric.id] == null) continue;
+          await window.__repforgeWorkoutDraft.dispatch("editMetricValue", {
+            exerciseInstanceId: ex.id, setId, metricId: metric.id, value: metrics[metric.id],
           });
         }
+        await window.__repforgeWorkoutDraft.dispatch("editSetField", {
+          exerciseInstanceId: ex.id, setId, field: "rir", value: "1",
+        });
         await window.__repforgeWorkoutDraft.dispatch("completeSet", {
           exerciseInstanceId: ex.id, setId, completedAt: new Date().toISOString(),
         });
       }
     }
     await window.__repforgeWorkoutDraft.flush();
-  }, day);
+  }, { d: day, weight: WEIGHT, reps: REPS });
   await page.evaluate(async () => {
     await window.__repforgeSaveWorkout();
     await window.__repforgeStorage?.flush?.();
@@ -238,7 +245,7 @@ console.log("\nToday — completed session state");
   const state = await readState(page);
   await persistState(page, {
     ...state,
-    log: [...sessionRows(state.program, "Day 1", ymd(-7), 50), ...sessionRows(state.program, "Day 1", ymd(0), 60)],
+    log: [...sessionRows(state, "Day 1", ymd(-7), 50), ...sessionRows(state, "Day 1", ymd(0), 60)],
   });
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
@@ -253,15 +260,19 @@ console.log("\nToday — completed session state");
 // ---------------------------------------------------------------------------
 {
   const { context, page } = await freshPage(browser);
-  const state = await readState(page);
-  // Day 1 a week ago, Day 1 and then Day 2 today: the day holds two sessions.
-  const past = sessionRows(state.program, "Day 1", ymd(-7), 50);
-  const one = sessionRows(state.program, "Day 1", ymd(0), 60);
-  const two = sessionRows(state.program, "Day 2", ymd(0), 40).map((row) => ({ ...row, session: `${ymd(0)}_Day 2_seed2`, created: `${ymd(0)}T13:00:00.000Z` }));
-  // The first lift of Day 1 again, later in the day and heavier: its word must read this latest session.
+  // A generated program: its prescriptions carry RIR targets, so every lift with
+  // comparable history has an engine next target (the seed program is manual).
+  const state = await installGeneratedProgram(page);
+  const [dayA, dayB] = [...new Set(state.program.map((e) => e.day))];
+  // Day A a week ago, Day A and then Day B today: the day holds two sessions.
+  const past = sessionRows(state, dayA, ymd(-7), 50);
+  const one = sessionRows(state, dayA, ymd(0), 60);
+  const two = sessionRows(state, dayB, ymd(0), 40).map((row) => ({ ...row, session: `${ymd(0)}_${dayB}_seed2`, created: `${ymd(0)}T13:00:00.000Z` }));
+  // The first lift of Day A again, later in the day and heavier: its word must read this latest session.
   const firstId = one[0].exerciseId;
-  const three = one.filter((row) => row.exerciseId === firstId).map((row) => ({ ...row, load: 70, session: `${ymd(0)}_Day 1_seed3`, created: `${ymd(0)}T14:00:00.000Z` }));
-  await persistState(page, { ...state, log: [...past, ...one, ...two, ...three] });
+  const three = one.filter((row) => row.exerciseId === firstId).map((row) => ({ ...withValues(row, { load: 70 }), session: `${ymd(0)}_${dayA}_seed3`, created: `${ymd(0)}T14:00:00.000Z` }));
+  // The block began two weeks ago, so last week's session is part of it.
+  await persistState(page, { ...state, programMeta: { ...state.programMeta, started: ymd(-14) }, log: [...past, ...one, ...two, ...three] });
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
 
@@ -341,7 +352,7 @@ console.log("\nToday — completed session state");
 {
   const { context, page } = await freshPage(browser);
   const state = await readState(page);
-  await persistState(page, { ...state, log: sessionRows(state.program, "Day 1", ymd(0)) });
+  await persistState(page, { ...state, log: sessionRows(state, "Day 1", ymd(0)) });
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
 
@@ -372,7 +383,7 @@ console.log("\nToday — completed session state");
 {
   const { context, page } = await freshPage(browser);
   const state = await readState(page);
-  const rows = sessionRows(state.program, "Day 1", ymd(0));
+  const rows = sessionRows(state, "Day 1", ymd(0));
   await persistState(page, { ...state, log: rows });
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
@@ -397,7 +408,7 @@ console.log("\nToday — completed session state");
 {
   const { context, page } = await freshPage(browser);
   const state = await readState(page);
-  await persistState(page, { ...state, log: sessionRows(state.program, "Day 1", ymd(-1)) });
+  await persistState(page, { ...state, log: sessionRows(state, "Day 1", ymd(-1)) });
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
 
@@ -420,15 +431,15 @@ console.log("\nToday — completed session state");
 
   await page.evaluate(() => window.__repforgeEnterWorkout({ day: "Day 2"}));
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
-  await page.evaluate(() => {
+  await page.evaluate(({ weight, reps }) => {
     const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
     const ex = (state.program || []).find((e) => e.day === "Day 2");
-    for (const [suffix, val] of [["load", 40], ["reps", 8], ["rir", 1]]) {
+    for (const [suffix, val] of [[`metric_${weight}`, 40], [`metric_${reps}`, 8], ["rir", 1]]) {
       const el = document.querySelector(`[data-k="${ex.id}_1_${suffix}"]`);
       el.value = String(val);
       el.dispatchEvent(new Event("input", { bubbles: true }));
     }
-  });
+  }, { weight: WEIGHT, reps: REPS });
   await page.evaluate(async () => window.__repforgeStorage?.flush?.());
   await page.evaluate(() => window.__repforgeLeaveWorkout?.());
   await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });

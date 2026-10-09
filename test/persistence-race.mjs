@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { seedProgramMeta } from "./fixtures/seed-program.mjs";
 /** Deterministic repro for an accepted workout racing an ordinary Settings persist. */
 import { launchChromium } from "./browser.mjs";
 import {
@@ -655,10 +656,12 @@ try {
         { ordinaryUi, ordinaryArtifacts }
       );
 
-      const requiredResult = await writer.evaluate(async (key) => {
+      // A real canonical definition, so activation reaches the journal write
+      // this case is about rather than refusing the legacy flat fixture.
+      const requiredResult = await writer.evaluate(async ({ key, definition }) => {
         const current = JSON.parse(localStorage.getItem(key));
         return window.__repforgeFinalizeProgramSetup({
-          exercises: current.program,
+          programDefinition: definition,
           name: current.programMeta.name,
           answers: { goal: current.programMeta.goal },
           destination: "log",
@@ -666,7 +669,7 @@ try {
           draftConfirmed: true,
           telemetryRoute: "custom",
         });
-      }, KEY);
+      }, { key: KEY, definition: seedProgramMeta().programDefinition });
       await writer.waitForFunction(() => {
         const toast = document.querySelector("#toast")?.textContent || "";
         const storageFull = window.RepForgeI18n?.t("toast.storage_full") || "";

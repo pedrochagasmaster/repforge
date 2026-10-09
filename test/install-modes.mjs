@@ -40,10 +40,9 @@
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { launchChromium } from "./browser.mjs";
-import { MINIMAL_PAYLOAD, REPRESENTATIVE_PAYLOAD, cloneFixture } from "./fixtures/shared-setup.mjs";
+import { encodeSetupLink } from "./fixtures/setup-link-v4.mjs";
 import {
   APP_INDEX,
-  encodeSharedPayload,
   openAppPage,
   SHARED_COPY,
   sharedGateSnapshot,
@@ -142,7 +141,7 @@ async function firstRunPage(browser, { ua, locale = "en-US", standalone = false,
   return { context, page, errors };
 }
 
-async function sharedInstallPage(browser, { ua, locale = "en-US", standalone = false, width = 390, payload = MINIMAL_PAYLOAD } = {}) {
+async function sharedInstallPage(browser, { ua, locale = "en-US", standalone = false, width = 390, setup = {} } = {}) {
   const { context, page, errors } = await openAppPage(browser, { ua, locale, standalone, width });
   await page.evaluate(async () => {
     localStorage.clear();
@@ -153,7 +152,7 @@ async function sharedInstallPage(browser, { ua, locale = "en-US", standalone = f
   });
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 15000 });
-  const encoded = await encodeSharedPayload(page, payload);
+  const encoded = await encodeSetupLink(page, setup);
   if (encoded?.ok) {
     await page.goto(`${APP_INDEX}?shared-install=${width}#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
@@ -824,7 +823,7 @@ async function run() {
     // The shared/program caption under "Start this program": no opacity
     // reduction should stand between its ink and the AA floor.
     {
-      const { context, page, errors } = await sharedInstallPage(browser, { ua: IOS_UA, width: 390, payload: REPRESENTATIVE_PAYLOAD });
+      const { context, page, errors } = await sharedInstallPage(browser, { ua: IOS_UA, width: 390, setup: { name: "Força compartilhada", language: "pt" } });
       await page.waitForSelector("#firstRunSharedCap:not(:empty)");
       const info = await contrastOf(page, "#firstRunSharedCap");
       const r = ratio(info.fg, info.bg);
@@ -1079,7 +1078,7 @@ async function run() {
   {
     console.log("\nShared setup · iOS Safari");
     try {
-      const { context, page, encoded } = await sharedInstallPage(browser, { ua: IOS_UA, payload: cloneFixture(MINIMAL_PAYLOAD) });
+      const { context, page, encoded } = await sharedInstallPage(browser, { ua: IOS_UA, setup: { name: "Coach program" } });
       assert(encoded?.ok, "shared iOS Safari: payload encodes", JSON.stringify(encoded));
       const shown = await page.evaluate(card);
       const gate = await page.evaluate(sharedGateSnapshot);
@@ -1101,7 +1100,7 @@ async function run() {
   {
     console.log("\nShared setup · Chromium awaits value");
     try {
-      const { context, page, encoded } = await sharedInstallPage(browser, { ua: ANDROID_UA, payload: cloneFixture(MINIMAL_PAYLOAD) });
+      const { context, page, encoded } = await sharedInstallPage(browser, { ua: ANDROID_UA, setup: { name: "Coach program" } });
       assert(encoded?.ok, "shared Chromium: payload encodes", JSON.stringify(encoded));
       await page.evaluate(() => window.__fireInstall());
       const gated = await page.evaluate(sharedGateSnapshot);
@@ -1119,7 +1118,7 @@ async function run() {
       const { context, page, encoded } = await sharedInstallPage(browser, {
         ua: ANDROID_UA,
         standalone: true,
-        payload: cloneFixture(MINIMAL_PAYLOAD),
+        setup: { name: "Coach program" },
       });
       assert(encoded?.ok, "shared standalone: payload encodes", JSON.stringify(encoded));
       const st = await page.evaluate(sharedGateSnapshot);
@@ -1139,7 +1138,7 @@ async function run() {
       const { context, page, encoded } = await sharedInstallPage(browser, {
         ua: IOS_UA,
         locale: "en-US",
-        payload: cloneFixture(REPRESENTATIVE_PAYLOAD),
+        setup: { name: "Força compartilhada", language: "pt" },
       });
       assert(encoded?.ok, "shared PT: payload encodes", JSON.stringify(encoded));
       const pt = await page.evaluate(sharedGateSnapshot);
@@ -1156,12 +1155,10 @@ async function run() {
   {
     console.log("\nShared setup · 320px overflow");
     try {
-      const long = cloneFixture(MINIMAL_PAYLOAD);
-      long.program.meta.name = "Long name ".repeat(10).trim();
       const { context, page } = await sharedInstallPage(browser, {
         ua: IOS_UA,
         width: 320,
-        payload: long,
+        setup: { name: "Long name ".repeat(10).trim() },
       });
       const shape = await page.evaluate(landingShape);
       const gate = await page.evaluate(sharedGateSnapshot);

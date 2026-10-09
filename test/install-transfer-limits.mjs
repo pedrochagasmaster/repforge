@@ -21,15 +21,25 @@ const require = createRequire(import.meta.url);
 const contract = require(join(ROOT, "install-transfer-contract.js"));
 const WorkoutDraft = require(join(ROOT, "workout-draft.js"));
 const ProgramEntry = require(join(ROOT, "program-entry.js"));
+const ProgramEntryAdapter = require(join(ROOT, "program-entry-adapter.js"));
+const ProgramCompiler = require(join(ROOT, "program-compiler.js"));
+const CatalogSnapshot = JSON.parse(readFileSync(join(ROOT, "assets/exercise-catalog.json"), "utf8"));
 
+// The page loads the catalog, metric domain, compiler, entry and draft modules
+// before the contract, and the catalog's detail asset before boot.
+const catalogText = readFileSync(join(ROOT, "assets/exercise-catalog.json"), "utf8");
 const browserContext = vm.createContext({
   TextEncoder,
   TextDecoder,
   crypto: webcrypto,
+  fetch: async () => ({ ok: true, status: 200, text: async () => catalogText }),
 });
-vm.runInContext(readFileSync(join(ROOT, "install-transfer-contract.js"), "utf8"), browserContext, {
-  filename: "install-transfer-contract.js",
-});
+browserContext.window = vm.runInContext("globalThis", browserContext);
+for (const file of ["exercises.js", "exercise-catalog.js", "exercise-metrics.js", "program-compiler.js",
+  "program-entry.js", "workout-draft.js", "install-transfer-contract.js"]) {
+  vm.runInContext(readFileSync(join(ROOT, file), "utf8"), browserContext, { filename: file });
+}
+await browserContext.RepForgeExerciseCatalog.load();
 const browserContract = browserContext.RepForgeInstallTransferContract;
 
 function readJson(relativePath) {
@@ -179,21 +189,10 @@ function asciiJsonAtBytes(target) {
 }
 
 function serializedLogRowAtChars(target) {
-  const row = {
-    session: "session",
-    date: "2026-09-08",
-    day: "Day 1",
-    name: "Leg press",
-    exerciseId: "exercise-1",
-    set: 1,
-    load: 120,
-    reps: 10,
-    rir: 2,
-    notes: "",
-    created: "2026-09-08T18:00:00.000Z",
-    performedName: "Leg press",
-    performedLibraryId: "sq_lp",
-  };
+  // A real metric-schema History row from the clone fixture; flat work-set
+  // rows are not a transfer schema.
+  const row = structuredClone(readJson("test/fixtures/install-transfer-clone-v1.json").durableState.log[0]);
+  row.notes = "";
   const fixedChars = chars(JSON.stringify(row));
   assert.ok(target >= fixedChars, "log-row target can hold its fixed JSON fields");
   row.notes = "A".repeat(target - fixedChars);
@@ -271,10 +270,15 @@ function producerEntryDraft() {
   };
   const initial = ProgramEntry.createState({ draftId: "entry-1", now: timestamp, versions });
   const routed = ProgramEntry.selectRoute(initial, "build");
-  const withResult = ProgramEntry.setResult(routed, {
-    fingerprint: "candidate-fingerprint",
-    preview: {},
-    selected: { id: "candidate-1" },
+  // The real Build producer: an empty canonical program candidate.
+  const built = ProgramEntryAdapter.buildEmptyProgram({ programName: "Transfer proof", daysPerWeek: 2 },
+    { Compiler: ProgramCompiler, catalog: CatalogSnapshot });
+  assert.equal(built.ok, true, "the real Build producer creates an empty canonical program");
+  const withResult = ProgramEntry.setResult(ProgramEntry.setAnswers(routed, { programName: "Transfer proof", daysPerWeek: 2 }), {
+    fingerprint: built.fingerprint,
+    name: built.name,
+    preview: built.preview,
+    selected: { id: "manual_build", source: "manual_build" },
   });
   const normalized = ProgramEntry.normalizeSetupDraft(withResult);
   assert.equal(normalized.ok, true, "ProgramEntry normalizes the producer candidate");
@@ -798,12 +802,16 @@ assert.equal(contract.validateEnvelope(unsupportedContext).code, contract.ERROR_
 const unsupportedDraftNested = structuredClone(producerEnvelope);
 unsupportedDraftNested.workoutDraft.program.schemaVersion = 99;
 assert.equal(contract.validateEnvelope(unsupportedDraftNested).code, contract.ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION);
+// The canonical ProgramDefinition is the versioned program schema in both the
+// staged candidate and the durable program. #314 added schema v2 (a set
+// derives its metrics from its slot instead of storing them again) alongside
+// v1, so an actually unsupported version is the one a real envelope never carries.
 const unsupportedCandidateNested = structuredClone(producerEnvelope);
-unsupportedCandidateNested.programEntryDraft.result.preview.programStructure = { schemaVersion: 2 };
-assert.equal(contract.validateEnvelope(unsupportedCandidateNested).code, contract.ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION);
-const unsupportedDurableStructure = structuredClone(producerEnvelope);
-unsupportedDurableStructure.durableState.programMeta.programStructure.schemaVersion = 99;
-assert.equal(contract.validateEnvelope(unsupportedDurableStructure).code, contract.ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION);
+unsupportedCandidateNested.programEntryDraft.result.preview.programDefinition.schemaVersion = 99;
+assert.equal(contract.validateEnvelope(unsupportedCandidateNested).code, contract.ERROR_CODES.UNSUPPORTED_PROGRAM_DEFINITION_VERSION);
+const unsupportedDurableDefinition = structuredClone(producerEnvelope);
+unsupportedDurableDefinition.durableState.programMeta.programDefinition.schemaVersion = 99;
+assert.equal(contract.validateEnvelope(unsupportedDurableDefinition).code, contract.ERROR_CODES.UNSUPPORTED_PROGRAM_DEFINITION_VERSION);
 const longDraftIdentity = structuredClone(producerEnvelope);
 longDraftIdentity.workoutDraft.exerciseOrder[0] = "x".repeat(257);
 assert.equal(contract.validateEnvelope(longDraftIdentity).code, contract.ERROR_CODES.IDENTIFIER_TOO_LONG);
@@ -874,11 +882,16 @@ for (const [field, limit, code] of [
   ["programHistory", 2_000, contract.ERROR_CODES.PROGRAM_HISTORY_TOO_LARGE],
   ["customExercises", 1_000, contract.ERROR_CODES.CUSTOM_EXERCISES_TOO_LARGE],
 ]) {
+  // Custom movements are validated as compiler definitions, so the count
+  // probe uses minimal valid ones; the other collections take empty rows.
+  const entry = field === "customExercises"
+    ? index => ({ id: `custom:limit-${index}`, name: `Limit ${index}`, equipment: [] })
+    : () => ({});
   const atLimit = structuredClone(existingClone);
-  atLimit.durableState[field] = Array.from({ length: limit }, () => ({}));
+  atLimit.durableState[field] = Array.from({ length: limit }, (_, index) => entry(index));
   assertResultShape(contract.validateEnvelope(atLimit), true, `${field} at named limit`);
   const candidate = structuredClone(existingClone);
-  candidate.durableState[field] = Array.from({ length: limit + 1 }, () => ({}));
+  candidate.durableState[field] = Array.from({ length: limit + 1 }, (_, index) => entry(index));
   const result = contract.validateEnvelope(candidate);
   assertResultShape(result, false, `${field} over named limit`);
   assert.equal(result.code, code, `${field} uses its named limit code`);

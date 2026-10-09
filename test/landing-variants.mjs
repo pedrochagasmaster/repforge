@@ -24,8 +24,9 @@
  * the oracle bites (same idea as REPFORGE_ENTRY_LANDING_FAULT in entry-landing.mjs).
  *
  * Also always on, and Node-only: the engine-truth oracle. The three recommendation
- * cases the final page shows are evaluated here with progression-engine.js and
- * the app's own default settings, and the chart figures (92.5 -> 100 kg over 4
+ * cases the final page shows are evaluated here with the adaptive engine
+ * (progression-engine.js recommendSets) and the app's default load step, and
+ * each card's verdict (add/hold/reduce) must match the direction the engine moves the load; and the chart figures (92.5 -> 100 kg over 4
  * sessions, owner decision L-2) are derived with progress-model.js from the exact
  * history the chart image was captured from (tools/landing-prototype/fixture.mjs).
  *
@@ -55,10 +56,9 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { isDeepStrictEqual } from "node:util";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
-import { MINIMAL_PAYLOAD, REPRESENTATIVE_PAYLOAD, cloneFixture } from "./fixtures/shared-setup.mjs";
+import { encodeSetupLink } from "./fixtures/setup-link-v4.mjs";
 import {
   APP_INDEX,
-  encodeSharedPayload,
   openAppPage,
   sharedGateSnapshot,
   waitForFirstRun,
@@ -118,12 +118,21 @@ function templateRe(lang, key) {
 }
 
 // ---------------------------------------------------------------------------
-// Engine-truth oracle (Node only). Mirrors app.js progressionInput() with the
-// settings the app ships (DEFAULTS in app.js), range@1 prescriptions, one
-// logged session as history. The numbers are whatever the engine says.
+// Engine-truth oracle (Node only). The three cases go through the adaptive
+// engine (recommendSets) exactly as the landing states them: one logged
+// session of external-load barbell sets, the app's default load step as the
+// gym's plate grid, a 1-RIR target and the catalog movement's own metrics.
+// The numbers are whatever the engine says.
 // ---------------------------------------------------------------------------
 const Engine = require("../progression-engine.js");
+const Compiler = require("../program-compiler.js");
+const Catalog = require("../assets/exercise-catalog.json");
 const ProgressModel = require("../progress-model.js");
+const { EXERCISE_LIBRARY } = require("../exercises.js");
+const libraryName = (id, lang) => {
+  const entry = EXERCISE_LIBRARY.find((item) => item.id === id);
+  return entry ? (lang === "pt" && entry.namePt) || entry.name : "";
+};
 const APP_SOURCE = readFileSync(new URL("../app.js", import.meta.url), "latin1");
 const APP_DEFAULTS = (() => {
   const match = /const DEFAULTS=(\{[^\n]*?\});\n/.exec(APP_SOURCE);
@@ -131,35 +140,52 @@ const APP_DEFAULTS = (() => {
   return new Function(`"use strict";return (${match[1]});`)();
 })();
 
-/** The inputs of the three outcome cases the final page shows. */
+/**
+ * The inputs of the three outcome cases the final page shows, and the move each
+ * card's verdict claims: add raises the load, hold keeps it, reduce lowers it.
+ */
+const BENCH = "19f5c6f170d8808bb424e98de4472a7e", SQUAT = "1a25c6f170d8803d8231d083fdd65458";
 const LANDING_CASES = Object.freeze({
-  add: { exercise: "bench", repMin: 8, repMax: 10, logged: [[60, 10, 2], [60, 10, 2], [60, 10, 2]], status: "advance", reason: "range.performed_top" },
-  hold: { exercise: "squat", repMin: 5, repMax: 8, logged: [[100, 8, 1], [100, 7, 0], [100, 6, 0]], status: "hold", reason: "range.room_in_range" },
-  reduce: { exercise: "bench", repMin: 8, repMax: 10, logged: [[70, 7, 0], [70, 6, 0], [70, 6, 0]], status: "reduce", reason: "range.below_floor" },
+  add: { exercise: BENCH, repMin: 8, repMax: 10, logged: [[60, 10, 2], [60, 10, 2], [60, 10, 2]], move: "up" },
+  hold: { exercise: SQUAT, repMin: 5, repMax: 8, logged: [[100, 7, 1], [100, 6, 0], [100, 6, 0]], move: "same" },
+  reduce: { exercise: BENCH, repMin: 8, repMax: 10, logged: [[70, 7, 0], [70, 6, 0], [70, 6, 0]], move: "down" },
 });
 const SETS = 3;
+const TARGET_RIR = 1;
 
-function engineSettings() {
+function loadStep() {
   const raw = +APP_DEFAULTS.minJump;
-  return {
-    minLoadIncrement: Number.isFinite(raw) && raw > 0 ? raw : 2.5,
-    jumpPercent: +APP_DEFAULTS.jumpPct || 0,
-    hardRir: +APP_DEFAULTS.hardRir || 4,
-  };
+  return Number.isFinite(raw) && raw > 0 ? raw : 2.5;
+}
+function metricDefinitions(exercise) {
+  return exercise.exerciseMetrics.map((id) => {
+    const source = Catalog.uuidIndex[id];
+    const mapped = source?.type === "exerciseMetric" ? Compiler.metricDefinitionForName(source.name) : null;
+    return mapped ? { id, sourceName: source.name, semantic: mapped.semantic, unit: mapped.unit } : null;
+  }).filter(Boolean);
 }
 function runEngineCase(c) {
-  const result = Engine.evaluateProgression({
-    engineVersion: 1,
-    prescription: { schemaVersion: 1, strategy: { id: "range", version: 1, params: { workingSets: SETS, repMin: c.repMin, repMax: c.repMax } }, modifiers: [] },
-    relation: null,
-    modifiers: [],
-    settings: engineSettings(),
-    history: [{ sessionId: "landing-case", date: "2026-09-01", sets: c.logged.map(([load, reps, rir]) => ({ load, reps, rir })) }],
-    currentSession: [],
-    context: { weekNumber: 1, blockLength: 6, blockStart: null },
-  });
-  if (result.kind !== "recommendation") throw new Error(`engine did not recommend: ${JSON.stringify(result)}`);
-  return { status: result.status, reason: result.reasonCodes[0], load: result.facts.targetLoad, reps: result.facts.targetReps };
+  const exercise = Catalog.exercises.find((entry) => entry.id === c.exercise);
+  if (!exercise) throw new Error(`landing case movement ${c.exercise} is not in the catalog`);
+  const definitions = metricDefinitions(exercise);
+  const slotId = `landing:${c.exercise}`, equipmentId = "landing-demo-barbell";
+  const loading = { loadingConvention: "external", bodyweightContributionEnabled: false, bodyweightKg: null, externalLoadMultiplier: 1 };
+  const prescription = { id: `${slotId}:cycle-1:set-1`, slotId, exerciseId: c.exercise, setIndex: 1,
+    metricType: "source_metrics@1", metricIds: [...exercise.exerciseMetrics], metricDefinitions: definitions,
+    targets: { reps: { min: c.repMin, max: c.repMax } }, rir: TARGET_RIR, status: "ready", loadingModel: { bodyweightCoefficient: 0 } };
+  const sets = c.logged.map(([load, reps, rir], setIndex) => ({ exerciseId: c.exercise, completed: true, setIndex, rir, equipmentId,
+    loadingConvention: "external", metricIds: [...exercise.exerciseMetrics],
+    metricValues: definitions.map((d) => ({ metricId: d.id, value: d.semantic === "loadKg" ? load : d.semantic === "reps" ? reps : null, unit: d.unit })),
+    loadingContext: { ...loading, bodyweightCoefficient: 0 } }));
+  const step = loadStep();
+  const maxLoad = Math.max(...c.logged.map(([load]) => load)) + step * 12;
+  const availableLoadsKg = Array.from({ length: Math.ceil(maxLoad / step) + 1 }, (_, index) => index * step);
+  const [result] = Engine.recommendSets([prescription], [{ sessionId: `${slotId}:history`, completed: true, sets }], [],
+    { bySlotId: { [slotId]: { equipmentId, availableLoadsKg, ...loading } } }, { weightMatch: false, expandRepRange: true });
+  if (result?.status !== "recommended") throw new Error(`engine did not recommend: ${JSON.stringify(result)}`);
+  const logged = c.logged[0][0];
+  const move = result.targets.loadKg > logged ? "up" : result.targets.loadKg < logged ? "down" : "same";
+  return { status: result.status, move, load: result.targets.loadKg, reps: result.targets.reps, name: exercise.name };
 }
 const ENGINE = Object.fromEntries(Object.entries(LANDING_CASES).map(([id, c]) => [id, runEngineCase(c)]));
 
@@ -455,14 +481,14 @@ async function characterize(browser) {
 
   // -------------------------------------------------------------------------
   phase("V4 Shared link (valid): the confirmation gate");
-  for (const [lang, payload] of [["en", MINIMAL_PAYLOAD], ["pt", REPRESENTATIVE_PAYLOAD]]) {
+  for (const [lang, setup] of [["en", { name: "Coach program", language: "en" }], ["pt", { name: "Força compartilhada", language: "pt" }]]) {
     // The page language is payload data, so the locale is deliberately the other one.
     const { context, page, errors } = await openAppPage(browser, { ua: ANDROID_UA, locale: LOCALE[lang === "en" ? "pt" : "en"] });
     await clearSite(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
     await waitForFirstRun(page);
-    const encoded = await encodeSharedPayload(page, cloneFixture(payload));
+    const encoded = await encodeSetupLink(page, setup);
     assert(encoded?.ok && typeof encoded.value === "string", `[${lang}] the link payload encodes`, JSON.stringify(encoded));
 
     const baseline = await storageSnapshot(page);
@@ -493,7 +519,7 @@ async function characterize(browser) {
     assert(s.lede === tr(lang, "landing.shared.body"), `[${lang}] lede is landing.shared.body`, s.lede);
     assert(gate.startVisible && gate.startTitle === tr(lang, "setup.shared.title"), `[${lang}] the one action is setup.shared.title`, JSON.stringify(gate.startTitle));
     const capOk = templateRe(lang, "setup.shared.cap_one").test(squash(gate.startCap)) || templateRe(lang, "setup.shared.cap_many").test(squash(gate.startCap));
-    assert(capOk && squash(gate.startCap).startsWith(payload.program.meta.name), `[${lang}] the caption names the program and its days`, gate.startCap);
+    assert(capOk && squash(gate.startCap).startsWith(setup.name), `[${lang}] the caption names the program and its days`, gate.startCap);
     assert(!s.create.shown && !s.import.shown && !s.createClose && !s.importClose, `[${lang}] no Build or Track is visible anywhere`, JSON.stringify(s));
     assert(gate.standardHidden && !gate.createFocusable && !gate.importFocusable && gate.startFocusable, `[${lang}] the hidden Build/Track group exposes no tab stop`, JSON.stringify(gate));
     assert(await page.evaluate(() => location.hash === ""), `[${lang}] the proposal is stripped from the address`);
@@ -542,7 +568,7 @@ async function characterize(browser) {
     assert(s.route === "shared-invalid", `[${lang}] a bad link opens the shared-invalid landing`, s.route);
     assert(s.headline === tr(lang, "landing.shared.invalid_headline"), `[${lang}] headline is landing.shared.invalid_headline`, s.headline);
     assert(s.lede === tr(lang, "landing.shared.invalid_body"), `[${lang}] lede is landing.shared.invalid_body`, s.lede);
-    const reasons = ["setup.shared.invalid", "setup.shared.unsupported", "setup.shared.browser_unsupported"].map((key) => tr(lang, key));
+    const reasons = ["setup.shared.invalid", "setup.shared.unsupported", "setup.shared.outdated", "setup.shared.browser_unsupported"].map((key) => tr(lang, key));
     assert(s.error.shown && s.error.role === "status" && reasons.includes(s.error.text), `[${lang}] the specific reason is announced in the status line`, JSON.stringify(s.error));
     assert(s.create.shown && s.import.shown, `[${lang}] Build and Track stay available as the safe next step`, JSON.stringify(s));
     assert(post.setupDraft === null && !post.onboarded && post.programRows === 0, `[${lang}] nothing from the link was saved`, JSON.stringify(post));
@@ -555,19 +581,15 @@ async function characterize(browser) {
 // PART 1b - the engine-truth oracle, Node only, always on
 // ===========================================================================
 function engineTruth() {
-  phase("Engine truth: the landing's recommendation cases, with the app's default settings");
-  assert(
-    isDeepStrictEqual(engineSettings(), { minLoadIncrement: 2.5, jumpPercent: 2.5, hardRir: 4 }),
-    "the settings used are the app defaults (2.5 kg step, 2.5% jump, hard RIR 4)",
-    JSON.stringify({ defaults: APP_DEFAULTS, settings: engineSettings() })
-  );
+  phase("Engine truth: the landing's recommendation cases, with the app's default load step");
+  assert(loadStep() === 2.5, "the plate grid steps by the app's default minimum jump (2.5 kg)", JSON.stringify(APP_DEFAULTS.minJump));
   for (const [id, c] of Object.entries(LANDING_CASES)) {
     const got = ENGINE[id];
-    assert(got.status === c.status && got.reason === c.reason, `${id}: the engine answers ${c.status} / ${c.reason}`, JSON.stringify(got));
+    assert(got.status === "recommended" && Number.isFinite(got.load) && got.reps >= c.repMin && got.reps <= c.repMax,
+      `${id}: the engine recommends a load and reps inside ${c.repMin}-${c.repMax}`, JSON.stringify(got));
+    assert(got.move === c.move,
+      `${id}: the engine's next load moves ${c.move} from the logged ${c.logged[0][0]} kg, as the card's verdict claims`, JSON.stringify(got));
   }
-  assert(ENGINE.add.load === 62.5 && ENGINE.add.reps === 8, "add: next target is 62.5 x 8 (3 x 60 x 10 at RIR 2, range 8-10)", JSON.stringify(ENGINE.add));
-  assert(ENGINE.hold.load === 100 && ENGINE.hold.reps === 8, "hold: next target is 100 x 8 (100 x 8/7/6, range 5-8)", JSON.stringify(ENGINE.hold));
-  assert(ENGINE.reduce.load === 67.5 && ENGINE.reduce.reps === 8, "reduce: next target is 67.5 x 8 (70 x 7/6/6, range 8-10)", JSON.stringify(ENGINE.reduce));
 
   phase("Chart truth: 92.5 -> 100 kg over 4 sessions, from the Progress model over the chart's own history");
   for (const lang of ["en", "pt"]) {
@@ -595,7 +617,7 @@ const RETIRED_KEYS = [
   "focus.cue.now",
 ];
 /** What the captured import-review screen shows for the sample message: the counts differ by language. */
-const PASTE_COUNTS = { en: { linked: 1, review: 3 }, pt: { linked: 0, review: 4 } };
+const PASTE_COUNTS = { en: { linked: 2, review: 2 }, pt: { linked: 0, review: 4 } };
 const DEFAULT_WEEKS = (() => {
   const match = /mesocycleLengthWeeks:(\d+),mesocycleStatus:"active"/.exec(APP_SOURCE);
   return match ? Number(match[1]) : NaN;
@@ -760,8 +782,12 @@ async function finalPage(browser) {
       assert(hasNumber(out.text, c.logged[0][0], lang) && hasNumber(out.text, c.repMin, lang) && hasNumber(out.text, c.repMax, lang),
         `[${lang}] ${id}: the card shows the logged load ${c.logged[0][0]} and the target range ${c.repMin}-${c.repMax}`, out.text);
     }
+    for (const id of ["add", "hold", "reduce"]) {
+      const name = libraryName(LANDING_CASES[id].exercise, lang);
+      assert(!!name && (f.outcomes[id]?.text || "").includes(name), `[${lang}] ${id}: the card names its movement (${name})`, f.outcomes[id]?.text);
+    }
     // {list}: the language chooses the conjunction.
-    const listed = lang === "pt" ? "8, 7 e 6" : "8, 7 and 6";
+    const listed = lang === "pt" ? "7, 6 e 6" : "7, 6 and 6";
     assert(f.outcomes.hold?.explain.startsWith(tr(lang, "landing.outcomes.did_mixed", { list: listed, load: "100 kg", min: 5, max: 8 })),
       `[${lang}] hold: the mixed reps read "${listed}"`, f.outcomes.hold?.explain);
     assert(f.outcomes.add?.explain.startsWith(tr(lang, "landing.outcomes.did_same", { reps: 10, load: "60 kg", sets: 3, min: 8, max: 10 })),
@@ -781,6 +807,8 @@ async function finalPage(browser) {
     // out under the plot, so the alt names that metric and those two numbers and never calls the picture a "top load" view.
     assert(hasNumber(shownChart.alt, chart.to, lang) && hasNumber(shownChart.alt, chart.sessions, lang) && shownChart.alt.includes(tr(lang, "stats.metric.best_e1rm")),
       `[${lang}] chart alt names ${tr(lang, "stats.metric.best_e1rm")}, the newest top set ${chart.to} kg and ${chart.sessions} sessions`, shownChart.alt);
+    const squatName = libraryName(SQUAT, lang);
+    assert(!!squatName && shownChart.alt.includes(squatName), `[${lang}] chart alt names the charted movement (${squatName})`, shownChart.alt);
     assert(!new RegExp(escapeRe(tr(lang, "stats.metric.top_load")), "i").test(shownChart.alt), `[${lang}] chart alt does not describe a top-load chart`, shownChart.alt);
     assert(shownChart.src.includes(`exercise-chart-${lang}-`), `[${lang}] the chart image is the ${lang} capture`, shownChart.src);
     const chartFile = webpSize(readFileSync(new URL(`../assets/brand/exercise-chart-${lang}-light.webp`, import.meta.url)));
@@ -794,6 +822,7 @@ async function finalPage(browser) {
     const pasteAlt = await page.evaluate(() => document.querySelector('[data-shot="paste-review"]')?.getAttribute("alt") || "");
     const pasteTemplate = tr(lang, "landing.ways.paste.alt", { screen: tr(lang, "import.heading"), ...PASTE_COUNTS[lang], status: tr(lang, "import.status.probable") });
     const pasteRe = new RegExp(`^${escapeRe(pasteTemplate).replace(/\\\{\w+\\\}/g, ".+")}$`);
+    assert(!/ as ,| como ,/.test(pasteAlt) && !/\{exercise\}/.test(pasteAlt), `[${lang}] the import-review alt names the suggested movement`, pasteAlt);
     assert(pasteRe.test(pasteAlt), `[${lang}] the import-review alt states this language's own counts (${PASTE_COUNTS[lang].linked} linked, ${PASTE_COUNTS[lang].review} to review)`, pasteAlt);
     const pasteSize = await page.evaluate(() => { const img = document.querySelector('[data-shot="paste-review"]'); return `${img.getAttribute("width")}x${img.getAttribute("height")}`; });
     // The reserved box is the committed capture's own size, read from the file, so a regenerated capture cannot drift from it.
@@ -1002,7 +1031,7 @@ async function finalPage(browser) {
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
     await waitForFirstRun(page);
-    const encoded = await encodeSharedPayload(page, cloneFixture(MINIMAL_PAYLOAD));
+    const encoded = await encodeSetupLink(page, { name: "Coach program" });
     await page.goto(`${APP_INDEX}?landing-variants=final-shared#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
     await page.waitForSelector("#firstRunSharedProgram:not(.hidden)", { timeout: 10000 });

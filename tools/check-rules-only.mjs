@@ -20,7 +20,7 @@
  * says names wrap and are never ellipsized, on every surface.
  *
  * Usage:
- *   node tools/check-rules-only.mjs                        all 64 states, PT and EN
+ *   node tools/check-rules-only.mjs                        all 62 states, PT and EN
  *   node tools/check-rules-only.mjs --state settings/main  one state
  *   node tools/check-rules-only.mjs --onboarding            the accent budget over every onboarding-* state (R7 V-12)
  *   options: --locale pt|en  --theme light|dark  --evidence <file.json>  --verbose
@@ -36,7 +36,7 @@ import {
   ORANGE_ALLOWLIST, ORANGE_CATEGORIES, OVERFLOW_EXCEPTIONS, checkOrange, checkOverflow, checkTargets, gateManifest, gatherEvidence, validateGateConfig,
 } from "./check-direction-d.mjs";
 
-/** The 64 screens whose treatment is `rules only` in the "Surface treatment table" (397 frames). */
+/** The 62 screens whose treatment is `rules only` in the "Surface treatment table". */
 export const RULES_ONLY_STATES = Object.freeze([
   "today/no-program",
   "workout/stale-draft", "workout/persist-retry", "workout/invalid-draft",
@@ -49,7 +49,7 @@ export const RULES_ONLY_STATES = Object.freeze([
   "library/list", "library/list-selected", "library/exercise-preview", "library/exercise-detail", "library/exercise-detail-glossary",
   "program/no-program", "program/progression-editor", "program/exercise-picker", "program/custom-exercise",
   "program/custom-exercise-saving", "program/custom-exercise-deleting", "program/custom-exercise-archiving",
-  "program/custom-exercise-recovery", "program/share-setup", "program/share-one-blocker", "program/share-repair-return",
+  "program/custom-exercise-recovery", "program/share-setup",
   "program/share-ready", "program/text-export",
   "settings/main", "settings/appearance", "settings/guides", "settings/guides-replay", "settings/privacy", "settings/privacy-disclosure",
   "install/banner", "install/ios-sheet", "install/transfer-eligible", "install/transfer-creating", "install/transfer-ready",

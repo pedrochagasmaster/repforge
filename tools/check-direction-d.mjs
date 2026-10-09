@@ -51,7 +51,7 @@ const D_STATE_KEYS = [
   "workout/focus", "workout/focus-glossary", "workout/exercise-note", "workout/why-this-weight", "workout/session",
   "workout/early-finish", "workout/exercise-actions", "workout/warmup-actions", "workout/reorder",
   "workout/correction", "workout/skipped-actions", "workout/substituted-actions",
-  "session/summary", "session/summary-maintained", "session/summary-declined", "session/summary-mixed",
+  "session/summary", "session/summary-maintained", "session/summary-declined",
   "progress/overview", "progress/overview-baseline", "progress/overview-action", "progress/exercise-chart",
   "progress/strength", "progress/strength-current-block", "progress/strength-all-history",
   "progress/strength-comparison", "progress/strength-sparse",
@@ -73,17 +73,20 @@ const IMPLEMENTED_D_STATES = new Set([
   "history/edit-dirty", "history/edit-invalid",
   // R3k: the Program overview as a ledger (readiness retired).
   "program/overview",
-  // R3b: Today, the prescription table, the day picker and the mixed-strategies day.
-  "today/ready", "today/rest-bar", "today/day-picker", "today/mixed-strategies",
+  // R3b: Today, the prescription table and the day picker. The mixed-strategies day
+  // is retired with the per-exercise progression strategies it demonstrated.
+  "today/ready", "today/rest-bar", "today/day-picker",
   // R3b2: Today with an unfinished session, the status band drawn in OG-6 round 1.
   "today/draft-resume",
   // R3x: the last two owner-approved states. today/done is the finished day drawn in OG-6 round 1; workout/exercise-actions
   // is the round 2 redraw (reorder and finish early live on the session sheet only).
   "today/done", "workout/exercise-actions",
-  // R3g: Why this weight, the five states, enforced on the sheet (STATE_SCOPES).
-  "workout/why-this-weight", "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual",
-  // R3h: the session summary, the five states, enforced on #sessionSummary (STATE_SCOPES).
-  "session/summary", "session/summary-maintained", "session/summary-declined", "session/summary-mixed", "session/summary-first",
+  // R3g: Why this weight. why-rep-goal and why-anchor are retired with the
+  // rep_goal/anchor_backoff strategies; the adaptive engine recommends sets
+  // uniformly, so only these three states remain.
+  "workout/why-this-weight", "workout/why-in-session", "workout/why-manual",
+  // R3h: the session summary. summary-mixed is retired with the mixed-strategies day.
+  "session/summary", "session/summary-maintained", "session/summary-declined", "session/summary-first",
   // R3i: Progress's single tab row, the overview, its attention and strength rows, the Strength tab and the exercise chart.
   "progress/overview", "progress/overview-baseline", "progress/overview-action", "progress/exercise-chart",
   "progress/strength", "progress/strength-current-block", "progress/strength-all-history",
@@ -94,8 +97,7 @@ const IMPLEMENTED_D_STATES = new Set([
  * "Retire and add list"). They are Direction D states from the day they exist.
  */
 const D_ADDED_STATE_KEYS = [
-  "today/mixed-strategies",
-  "workout/why-in-session", "workout/why-rep-goal", "workout/why-anchor", "workout/why-manual",
+  "workout/why-in-session", "workout/why-manual",
   "session/summary-first",
   "workout/rest-running", "workout/rest-done",
 ];
@@ -104,10 +106,9 @@ const D_ADDED_STATE_KEYS = [
  * R3 sub-slice (Focus) and is enforced when that slice lands.
  */
 export const STATE_SCOPES = Object.freeze({
-  "workout/why-this-weight": "#whySheet", "workout/why-in-session": "#whySheet",
-  "workout/why-rep-goal": "#whySheet", "workout/why-anchor": "#whySheet", "workout/why-manual": "#whySheet",
+  "workout/why-this-weight": "#whySheet", "workout/why-in-session": "#whySheet", "workout/why-manual": "#whySheet",
   "session/summary": "#sessionSummary", "session/summary-maintained": "#sessionSummary", "session/summary-declined": "#sessionSummary",
-  "session/summary-mixed": "#sessionSummary", "session/summary-first": "#sessionSummary",
+  "session/summary-first": "#sessionSummary",
 });
 export const DIRECTION_D_STATES = [...D_STATE_KEYS, ...D_ADDED_STATE_KEYS].map((key) => ({ key, status: IMPLEMENTED_D_STATES.has(key) ? "implemented" : "pending" }));
 
@@ -428,9 +429,15 @@ export function collectGateEvidence(options = {}) {
     if (typeof value === "string") into.add(value.trim());
     else if (depth < 6 && value && typeof value === "object") for (const item of Object.values(value)) leaves(item, into, depth + 1);
   };
-  const data = new Set();
-  for (const part of ["program", "programMeta", "log", "programHistory", "customExercises"]) leaves(durable[part], data);
-  leaves(window.__repforgeExerciseLibrary, data);
+  const raw = new Set();
+  for (const part of ["program", "programMeta", "log", "programHistory", "customExercises"]) leaves(durable[part], raw);
+  // Only the movements this device's data names can appear as data on screen:
+  // the full catalog is thousands of names and would make the data pattern
+  // unusable. Identifiers are never displayed text.
+  const library = Array.isArray(window.__repforgeExerciseLibrary) ? window.__repforgeExerciseLibrary : [];
+  for (const entry of library) if (raw.has(entry.id)) for (const label of [entry.name, entry.namePt, ...(entry.aliases || [])]) leaves(label, raw);
+  const data = new Set([...raw].filter((value) => value && /\p{L}/u.test(value) && !/^[0-9a-f]{32}$/.test(value) &&
+    !/^custom:/.test(value) && value.length <= 200));
   const language = (i18n?.getLang?.() === "pt" ? "pt-BR" : "en");
   const names = [];
   for (const width of ["long", "short", "narrow"]) {
@@ -634,7 +641,10 @@ export async function runGate({
           if (enforce || diagnose) failures.push(`${label} could not be rendered: ${error.stack || error.message}`);
           else result.diagnostics.push(`${label} could not be rendered: ${error.message}`);
         } finally {
-          await context?.close();
+          // A context that already lost its browser connection (resource pressure
+          // rendering hundreds of frames back to back) throws on close; the
+          // evidence already gathered for this state is unaffected either way.
+          await context?.close().catch(() => {});
         }
         onProgress(label);
       }

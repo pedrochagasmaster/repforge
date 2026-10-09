@@ -9,6 +9,7 @@ import {
   inventoryPersistenceArtifacts,
 } from "./persistence-artifacts.mjs";
 import { openEarlyFinish } from "./fixtures/focus-workout.mjs";
+import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -20,6 +21,15 @@ const STORAGE_LOCK = "repforge:state-write";
 const EXERCISE_ID = "rename-draft-press";
 const OTHER_EXERCISE_ID = "rename-draft-row";
 const SET_KEY = `${EXERCISE_ID}_1`;
+const WEIGHT_METRIC = "2555c6f170d8805cafa6d16d3fdddbaa";
+const REPS_METRIC = "2555c6f170d88072bbf6d9ad3f16ea86";
+/** Metric-backed set fields: Weight and Reps are catalog metrics, RIR is the set's effort field. */
+const SET_FIELD_KEYS = Object.freeze({
+  load: `${SET_KEY}_metric_${WEIGHT_METRIC}`,
+  reps: `${SET_KEY}_metric_${REPS_METRIC}`,
+  rir: `${SET_KEY}_rir`,
+});
+const FIELD_METRIC = Object.freeze({ load: WEIGHT_METRIC, reps: REPS_METRIC });
 const failures = [];
 let passed = 0;
 
@@ -34,7 +44,59 @@ function check(condition, message, detail) {
   if (detail !== undefined) console.error(`    ${JSON.stringify(detail)}`);
 }
 
+/**
+ * Every durable program carries a canonical ProgramDefinition (Plan 067); the
+ * flat rows are its display projection. Fixture rows keep their stable ids and
+ * names as display aliases of real Weight + Reps catalog movements borrowed
+ * from the seed program.
+ */
+export function definitionBackedProgram(rows) {
+  const seedRows = new Map(seedProgram().map((row) => [row.id, row]));
+  const seedDefinition = seedProgramMeta().programDefinition;
+  const seedSlots = new Map(seedDefinition.days.flatMap((day) => day.slots.map((slot) => [slot.id, slot])));
+  const dayNames = [...new Set(rows.map((row) => row.day))];
+  const program = [];
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const name = dayNames[index] ?? `Rest ${index + 1}`;
+    const dayId = `manual-day-${index + 1}`;
+    const entries = rows.filter((row) => row.day === name).sort((a, b) => a.order - b.order);
+    const slots = entries.map((row, slotIndex) => {
+      const source = row.seedId || "seed-ex-3";
+      const slot = structuredClone(seedSlots.get(source));
+      const template = slot.prescriptionsByCycle[0].sets[0];
+      slot.id = row.id;
+      slot.order = slotIndex + 1;
+      slot.displayName = row.name;
+      slot.setupNotes = row.notes || "";
+      slot.prescriptionsByCycle = slot.prescriptionsByCycle.map(({ cycleIndex }) => ({
+        cycleIndex,
+        sets: Array.from({ length: row.sets }, (_, setOffset) => ({
+          ...structuredClone(template),
+          id: `manual-${row.id}-${cycleIndex}-${setOffset + 1}`,
+          cycleIndex,
+          setIndex: setOffset + 1,
+          targets: { reps: { min: row.min, max: row.max } },
+        })),
+      }));
+      const seed = seedRows.get(source);
+      program.push({
+        id: row.id, day: name, order: slotIndex + 1, name: row.name, sets: row.sets,
+        primary: seed.primary, secondary: seed.secondary, notes: row.notes || "",
+        alternates: row.alternates || [], min: row.min, max: row.max,
+        slotId: row.id, dayId, libraryId: slot.exerciseId, displayName: row.name,
+      });
+      return slot;
+    });
+    return { id: dayId, name, kind: slots.length ? "training" : "rest", order: index + 1, slots };
+  });
+  return { program, programDefinition: { ...seedDefinition, days } };
+}
+
 function fixture() {
+  const { program, programDefinition } = definitionBackedProgram([
+    { id: EXERCISE_ID, name: "Rename draft press", day: "Day 1", order: 1, sets: 2, min: 8, max: 12, seedId: "seed-ex-3" },
+    { id: OTHER_EXERCISE_ID, name: "Rename draft row", day: "Day 2", order: 1, sets: 2, min: 8, max: 12, seedId: "seed-ex-4" },
+  ]);
   return {
     settings: {
       jumpPct: 2.5,
@@ -57,7 +119,7 @@ function fixture() {
       updated: "2026-08-01T00:00:00.000Z",
       onboarded: true,
       mesocycleStatus: "active",
-      mesocycleLengthWeeks: 6,
+      mesocycleLengthWeeks: programDefinition.cycles,
       goal: null,
       experience: null,
       daysPerWeek: 2,
@@ -66,35 +128,9 @@ function fixture() {
       priorityMuscles: [],
       sessionLength: "short",
       completedAt: null,
+      programDefinition,
     },
-    program: [
-      {
-        id: EXERCISE_ID,
-        name: "Rename draft press",
-        day: "Day 1",
-        order: 1,
-        sets: 2,
-        min: 8,
-        max: 12,
-        primary: "Chest",
-        secondary: "Triceps",
-        notes: "",
-        alternates: [],
-      },
-      {
-        id: OTHER_EXERCISE_ID,
-        name: "Rename draft row",
-        day: "Day 2",
-        order: 1,
-        sets: 2,
-        min: 8,
-        max: 12,
-        primary: "Mid/upper back",
-        secondary: "Biceps",
-        notes: "",
-        alternates: [],
-      },
-    ],
+    program,
     log: [
       {
         session: "rename-history-session",
@@ -114,30 +150,6 @@ function fixture() {
     ],
     programHistory: [],
     _storageRevision: 1,
-  };
-}
-
-function progressDraft() {
-  return {
-    __day: "Day 1",
-    __date: "2026-08-14",
-    __bodyweight: "81.25",
-    __sessionNotes: "day-rename-marker",
-    __contextTouched: {
-      day: true,
-      date: true,
-      sessionNotes: true,
-      bodyweight: true,
-    },
-    __done: [],
-    __touched: [SET_KEY],
-    __warm: [],
-    __skipped: [],
-    __substituted: {},
-    __exnotes: { [EXERCISE_ID]: "marker-note" },
-    [`${SET_KEY}_load`]: "92.5",
-    [`${SET_KEY}_reps`]: "7",
-    [`${SET_KEY}_rir`]: "1.5",
   };
 }
 
@@ -213,14 +225,20 @@ function draftSetValue(draft, exerciseId, ordinal, field) {
   if (draft?.schemaVersion !== 2) return draft?.[`${exerciseId}_${ordinal}_${field}`];
   const exercise = draft.exercises?.[exerciseId];
   const setId = exercise?.setOrder?.find((id) => exercise.sets?.[id]?.ordinal === ordinal);
-  return setId ? exercise.sets[setId].edited?.[field] : undefined;
+  if (!setId) return undefined;
+  const set = exercise.sets[setId], metricId = FIELD_METRIC[field];
+  if (metricId && set.programmed?.metrics?.some((metric) => metric.id === metricId)) return set.edited?.metrics?.[metricId];
+  return set.edited?.[field];
 }
 function draftSetTouched(draft, exerciseId, ordinal, field) {
   if (draft?.schemaVersion !== 2) return draft?.__touched?.includes(`${exerciseId}_${ordinal}`) || false;
   const exercise = draft.exercises?.[exerciseId];
   const setId = exercise?.setOrder?.find((id) => exercise.sets?.[id]?.ordinal === ordinal);
+  if (!setId) return false;
+  const set = exercise.sets[setId], metricId = FIELD_METRIC[field];
+  if (metricId && set.programmed?.metrics?.some((metric) => metric.id === metricId)) return !!set.touched?.metrics?.[metricId];
   const touchedField = field === "rir" || field === "effort" ? "effort" : field;
-  return !!(setId && exercise.sets[setId].touched?.[touchedField]);
+  return !!set.touched?.[touchedField];
 }
 
 function renamedSnapshot(snapshot) {
@@ -306,6 +324,44 @@ async function seedScenario(page, draftRaw, state = fixture()) {
   await reloadApp(page);
 }
 
+/**
+ * A Day 1 workout in progress, written by the app's own DraftV2 commands: a
+ * dated session with bodyweight, session notes, an exercise note and one
+ * touched set (Weight 92.5, Reps 7, RIR 1.5). Returns the bytes boot reads.
+ */
+async function seedProgressScenario(page, state = fixture()) {
+  await seedScenario(page, null, state);
+  const entered = await page.evaluate(() => window.__repforgeEnterWorkout({ day: "Day 1" }));
+  if (!entered) throw new Error("production workout entry failed");
+  await page.evaluate(async ({ exerciseId, weightMetric, repsMetric }) => {
+    const session = window.__repforgeWorkoutDraft;
+    const setId = session.current().exercises[exerciseId].setOrder[0];
+    const commands = [
+      ["setSessionDate", { value: "2026-08-14" }],
+      ["setBodyweight", { value: "81.25" }],
+      ["setSessionNotes", { value: "day-rename-marker" }],
+      ["setExerciseNotes", { exerciseInstanceId: exerciseId, value: "marker-note" }],
+      ["editMetricValue", { exerciseInstanceId: exerciseId, setId, metricId: weightMetric, value: "92.5" }],
+      ["editMetricValue", { exerciseInstanceId: exerciseId, setId, metricId: repsMetric, value: "7" }],
+      ["editSetField", { exerciseInstanceId: exerciseId, setId, field: "rir", value: "1.5" }],
+    ];
+    for (const [type, payload] of commands) {
+      const result = await session.dispatch(type, payload);
+      if (result?.status !== "applied") throw new Error(`${type} was not applied: ${JSON.stringify(result)}`);
+    }
+    await session.flush();
+  }, { exerciseId: EXERCISE_ID, weightMetric: WEIGHT_METRIC, repsMetric: REPS_METRIC });
+  await page.evaluate(() => window.__repforgeStorage.flush());
+  await reloadApp(page);
+  const raw = await page.evaluate((draftKey) => localStorage.getItem(draftKey), DRAFT);
+  const draft = JSON.parse(raw || "null");
+  if (draft?.schemaVersion !== 2 || draftSetValue(draft, EXERCISE_ID, 1, "load") !== "92.5" ||
+      draft.session?.notes !== "day-rename-marker") {
+    throw new Error(`progress draft seed failed: ${raw}`);
+  }
+  return raw;
+}
+
 async function readRuntime(page) {
   const runtime = await page.evaluate(
     async ({ key, draftKey, dbName, storeName }) => {
@@ -342,7 +398,7 @@ async function readRuntime(page) {
 }
 
 async function installConcurrentV2Draft(page, { dayLabel = "Day 1", load, notes }) {
-  return page.evaluate(({ draftKey, checkpointKey, dayLabel, load, notes, firstId, otherId }) => {
+  return page.evaluate(({ draftKey, checkpointKey, dayLabel, load, notes, firstId, otherId, weightMetric }) => {
     const model = window.RepForgeWorkoutDraft, current = model.parse(localStorage.getItem(draftKey)).draft;
     let draft = current, exerciseId = firstId;
     if (dayLabel !== current.program.dayLabel) {
@@ -378,7 +434,9 @@ async function installConcurrentV2Draft(page, { dayLabel = "Day 1", load, notes 
     if (notes !== undefined) apply("setSessionNotes", { value: notes });
     if (load !== undefined) {
       const setId = draft.exercises[exerciseId].setOrder[0];
-      apply("editSetField", { exerciseInstanceId: exerciseId, setId, field: "load", value: String(load) });
+      const metricBacked = draft.exercises[exerciseId].sets[setId].programmed.metrics?.some((metric) => metric.id === weightMetric);
+      if (metricBacked) apply("editMetricValue", { exerciseInstanceId: exerciseId, setId, metricId: weightMetric, value: String(load) });
+      else apply("editSetField", { exerciseInstanceId: exerciseId, setId, field: "load", value: String(load) });
     }
     const raw = JSON.stringify(model.serialize(draft));
     const parsed = model.parse(raw);
@@ -390,7 +448,7 @@ async function installConcurrentV2Draft(page, { dayLabel = "Day 1", load, notes 
     }));
     return raw;
   }, { draftKey: DRAFT, checkpointKey: CHECKPOINT, dayLabel, load, notes,
-    firstId: EXERCISE_ID, otherId: OTHER_EXERCISE_ID });
+    firstId: EXERCISE_ID, otherId: OTHER_EXERCISE_ID, weightMetric: WEIGHT_METRIC });
 }
 
 async function openProgramEditor(page) {
@@ -543,11 +601,20 @@ async function waitForRaceDraft(page, load, timeout = 10000) {
   throw new Error(`timed out waiting for race draft load ${expectedLoad}`);
 }
 
+async function shelfInput(page, dataKey, shelfField) {
+  const input = page.locator(`#workout .exercise.is-current .focus-shelf input[data-k="${dataKey}"]`);
+  await input.waitFor({ state: "attached", timeout: 5000 });
+  if (await input.getAttribute("aria-hidden") === "true") {
+    await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="${shelfField}"]`).click();
+  }
+  return input;
+}
+
 async function fillRaceWorkout(page, load) {
   await page.evaluate(() => window.__repforgeEnterWorkout({}));
-  await page.locator(`[data-k="${EXERCISE_ID}_1_load"]`).fill(String(load));
-  await page.locator(`[data-k="${EXERCISE_ID}_1_reps"]`).fill("8");
-  await page.locator(`[data-k="${EXERCISE_ID}_1_rir"]`).fill("1");
+  await (await shelfInput(page, SET_FIELD_KEYS.load, `metric_${WEIGHT_METRIC}`)).fill(String(load));
+  await (await shelfInput(page, SET_FIELD_KEYS.reps, `metric_${REPS_METRIC}`)).fill("8");
+  await (await shelfInput(page, SET_FIELD_KEYS.rir, "rir")).fill("1");
   await waitForRaceDraft(page, load);
 }
 
@@ -564,8 +631,7 @@ async function runAcceptedRename(browser) {
       dialogs.push({ type: dialog.type(), message: dialog.message() });
       await dialog.dismiss();
     });
-    const draftRaw = JSON.stringify(progressDraft());
-    await seedScenario(page, draftRaw);
+    const draftRaw = await seedProgressScenario(page);
     const seeded = await readRuntime(page);
     const installedDraftRaw = seeded.draftRaw;
     const expectedRevision = (seeded.local?._storageRevision ?? 0) + 1;
@@ -626,16 +692,16 @@ async function runAcceptedRename(browser) {
 
     await reloadApp(page);
     const restoredUi = await page.evaluate(
-      ({ exerciseId, setKey }) => ({
+      ({ exerciseId, keys }) => ({
         activeDay: document.querySelector("#dayTabs button.active")?.textContent ?? null,
         draftDay: (() => { const draft = JSON.parse(localStorage.getItem("repforge_draft_v1") || "null");
           return draft?.schemaVersion === 2 ? draft.program?.dayLabel : draft?.__day; })(),
         marker: (() => { const draft = JSON.parse(localStorage.getItem("repforge_draft_v1") || "null");
           return draft?.schemaVersion === 2 ? draft.session?.notes : draft?.__sessionNotes; })(),
         exercisePresent: !!document.querySelector(`[data-ex="${exerciseId}"]`),
-        load: document.querySelector(`[data-k="${setKey}_load"]`)?.value ?? null,
+        load: document.querySelector(`[data-k="${keys.load}"]`)?.value ?? null,
       }),
-      { exerciseId: EXERCISE_ID, setKey: SET_KEY }
+      { exerciseId: EXERCISE_ID, keys: SET_FIELD_KEYS }
     );
 
     check(
@@ -645,15 +711,14 @@ async function runAcceptedRename(browser) {
     );
     await ensureWorkoutOpen(page);
     const workoutUi = await page.evaluate(
-      ({ exerciseId, setKey }) => ({
+      ({ exerciseId, keys }) => ({
         activeDay: document.querySelector("#dayTabs button.active")?.textContent ?? null,
         exercisePresent: !!document.querySelector(`[data-ex="${exerciseId}"]`),
-        load: document.querySelector(`[data-k="${setKey}_load"]`)?.value ?? null,
-        reps: document.querySelector(`[data-k="${setKey}_reps"]`)?.value ?? null,
-        rir: document.querySelector(`[data-k="${setKey}_rir"]`)?.value ?? null,
-
+        load: document.querySelector(`[data-k="${keys.load}"]`)?.value ?? null,
+        reps: document.querySelector(`[data-k="${keys.reps}"]`)?.value ?? null,
+        rir: document.querySelector(`[data-k="${keys.rir}"]`)?.value ?? null,
       }),
-      { exerciseId: EXERCISE_ID, setKey: SET_KEY }
+      { exerciseId: EXERCISE_ID, keys: SET_FIELD_KEYS }
     );
     await page.locator("#woOverflowBtn").click();
     await page.locator("#exActionNotesBtn").click();
@@ -706,22 +771,38 @@ async function runTotalFailure(browser) {
   });
   try {
     const page = await openApp(context);
-    const draftRaw = JSON.stringify(progressDraft());
-    await seedScenario(page, draftRaw);
+    const draftRaw = await seedProgressScenario(page);
     await openProgramEditor(page);
     const before = await readRuntime(page);
 
     await page.evaluate(
-      async ({ key, oldDay, nextDay }) => {
+      async ({ key, oldDay, nextDay, lockName }) => {
         const originalSetItem = Storage.prototype.setItem;
         const originalPut = IDBObjectStore.prototype.put;
+        let rejectedWrites = 0;
         Storage.prototype.setItem = function (candidate) {
-          if (candidate === key) throw new Error("audit: reject rename local replica");
+          if (candidate === key) {
+            rejectedWrites++;
+            throw new Error("audit: reject rename local replica");
+          }
           return originalSetItem.apply(this, arguments);
         };
         IDBObjectStore.prototype.put = function (_value, candidate) {
-          if (candidate === key) throw new Error("audit: reject rename IDB replica");
+          if (candidate === key) {
+            rejectedWrites++;
+            throw new Error("audit: reject rename IDB replica");
+          }
           return originalPut.apply(this, arguments);
+        };
+        // The rename commit settles only once a replica write has been
+        // rejected and the storage write lock it ran under is released.
+        const settled = async () => {
+          for (;;) {
+            const locks = await navigator.locks.query();
+            const busy = [...locks.held, ...locks.pending].some((lock) => lock.name === lockName);
+            if (rejectedWrites > 0 && !busy) return;
+            await new Promise((resolve) => requestAnimationFrame(resolve));
+          }
         };
         try {
           const input = [...document.querySelectorAll('#programEditor [data-role="day-name"]')].find(
@@ -730,14 +811,14 @@ async function runTotalFailure(browser) {
           input.value = nextDay;
           input.dispatchEvent(new Event("change", { bubbles: true }));
           document.querySelector("#programEditToggle")?.click();
-          await new Promise((resolve) => setTimeout(resolve, 300));
+          await settled();
           await window.__repforgeStorage.flush();
         } finally {
           Storage.prototype.setItem = originalSetItem;
           IDBObjectStore.prototype.put = originalPut;
         }
       },
-      { key: KEY, oldDay: "Day 1", nextDay: "Push Day" }
+      { key: KEY, oldDay: "Day 1", nextDay: "Push Day", lockName: STORAGE_LOCK }
     );
 
     const failed = await readRuntime(page);
@@ -820,8 +901,7 @@ async function runNewerDraftRace(browser) {
   });
   try {
     const writer = await openApp(context);
-    const draftRaw = JSON.stringify(progressDraft());
-    await seedScenario(writer, draftRaw);
+    const draftRaw = await seedProgressScenario(writer);
     const installedDraftRaw = (await readRuntime(writer)).draftRaw;
     const locker = await openApp(context);
     await holdStorageLock(locker);
@@ -897,8 +977,7 @@ async function runSameDayDraftConflict(browser) {
   });
   try {
     const writer = await openApp(context);
-    const draftRaw = JSON.stringify(progressDraft());
-    await seedScenario(writer, draftRaw);
+    const draftRaw = await seedProgressScenario(writer);
     const installedDraftRaw = (await readRuntime(writer)).draftRaw;
     const locker = await openApp(context);
     await holdStorageLock(locker);
@@ -950,8 +1029,7 @@ async function runBootSameDayDraftConflict(browser) {
   });
   try {
     const page = await openApp(context);
-    const draftRaw = JSON.stringify(progressDraft());
-    await seedScenario(page, draftRaw);
+    const draftRaw = await seedProgressScenario(page);
     const locker = await openApp(context);
     await openProgramEditor(page);
     const before = await readRuntime(page);
@@ -1370,6 +1448,65 @@ async function runRenameThenWorkoutRace(browser) {
   }
 }
 
+async function runMetricOnlyDraftRename(browser) {
+  console.log("\n10. A metric-only workout is progress a rename must carry");
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    serviceWorkers: "block",
+  });
+  const dialogs = [];
+  try {
+    const page = await openApp(context);
+    page.on("dialog", async (dialog) => {
+      dialogs.push({ type: dialog.type(), message: dialog.message() });
+      await dialog.dismiss();
+    });
+    await seedScenario(page, null);
+    const entered = await page.evaluate(() => window.__repforgeEnterWorkout({ day: "Day 1" }));
+    if (!entered) throw new Error("production workout entry failed");
+    // The only work is one Weight entry: no RIR, no completion, no session context.
+    const applied = await page.evaluate(async ({ exerciseId, weightMetric }) => {
+      const session = window.__repforgeWorkoutDraft;
+      const setId = session.current().exercises[exerciseId].setOrder[0];
+      const result = await session.dispatch("editMetricValue", {
+        exerciseInstanceId: exerciseId, setId, metricId: weightMetric, value: "92.5",
+      });
+      await session.flush();
+      return result?.status;
+    }, { exerciseId: EXERCISE_ID, weightMetric: WEIGHT_METRIC });
+    const seeded = await readRuntime(page);
+    check(
+      applied === "applied" &&
+        draftSetValue(seeded.draft, EXERCISE_ID, 1, "load") === "92.5" &&
+        draftSetTouched(seeded.draft, EXERCISE_ID, 1, "load") &&
+        !draftSetTouched(seeded.draft, EXERCISE_ID, 1, "rir") &&
+        seeded.draft?.exercises?.[EXERCISE_ID]?.sets?.["set-1"]?.completion === "pending",
+      "precondition: the draft holds only a touched Weight metric",
+      { applied, draft: seeded.draftRaw }
+    );
+
+    await openProgramEditor(page);
+    await dispatchRename(page, "Day 1", "Push Day");
+    await page.evaluate(() => window.__repforgeStorage.flush());
+    const renamed = await readRuntime(page);
+    check(
+      renamedSnapshot(renamed.local) && renamedSnapshot(renamed.idb) &&
+        sameDraftExceptDay(seeded.draftRaw, renamed.draftRaw, "Push Day") &&
+        renamed.persistenceArtifacts.length === 0 && dialogs.length === 0,
+      "a rename carries a metric-only draft to the renamed day instead of deleting it",
+      {
+        draftPresent: renamed.draftRaw != null,
+        draftDay: draftDayValue(renamed.draft),
+        load: draftSetValue(renamed.draft, EXERCISE_ID, 1, "load"),
+        artifacts: renamed.persistenceArtifacts,
+        dialogs,
+      }
+    );
+  } finally {
+    await context.close();
+  }
+}
+
 async function runScenario(name, scenario) {
   try {
     await scenario();
@@ -1395,6 +1532,7 @@ async function main() {
     await runScenario("boot absent-draft conflict", () => runBootAbsentDraftConflict(browser));
     await runScenario("workout then rename race", () => runWorkoutThenRenameRace(browser));
     await runScenario("rename then workout race", () => runRenameThenWorkoutRace(browser));
+    await runScenario("metric-only draft rename", () => runMetricOnlyDraftRename(browser));
   } finally {
     await browser.close();
   }

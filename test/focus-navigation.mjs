@@ -17,6 +17,8 @@ import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
 const BASE_URL = process.env.REPFORGE_URL || "http://localhost:8000/";
 const STATE_KEY = "repforge_v1";
+const WEIGHT = "2555c6f170d8805cafa6d16d3fdddbaa";
+const REPS = "2555c6f170d88072bbf6d9ad3f16ea86";
 
 function assert(condition, message, detail = "") {
   if (!condition) {
@@ -240,7 +242,7 @@ async function main() {
      * ====================================================================== */
     console.log("\nSafe Leave/Resume: flushes pending edits, verifies persistence, resumes exactly");
     // Type an uncommitted load into the active set field (its input is in the document before a second tap brings it forward)
-    const loadInput = page.locator('#workout.is-focus .exercise.is-current input[data-k$="_load"]').first();
+    const loadInput = page.locator(`#workout.is-focus .exercise.is-current input[data-metric-id="${WEIGHT}"]`).first();
     await loadInput.fill("137.5");
 
     // Click leave workout button in header
@@ -266,7 +268,7 @@ async function main() {
     const resumedCardName = await page.locator("#workout.is-focus .exercise.is-current .ex__namebtn").textContent();
     assert(resumedCardName.trim() === expectedName.trim(), "resumed at the exact same exercise", resumedCardName);
 
-    const resumedLoadVal = await page.locator('#workout.is-focus .exercise.is-current input[data-k$="_load"]').first().inputValue();
+    const resumedLoadVal = await page.locator(`#workout.is-focus .exercise.is-current input[data-metric-id="${WEIGHT}"]`).first().inputValue();
     assert(resumedLoadVal.includes("137.5"), "uncommitted typed value was preserved across safe leave and resume", resumedLoadVal);
 
     /* ======================================================================
@@ -278,7 +280,7 @@ async function main() {
       window.__repforgeDraftFault = "persist-failure";
     });
 
-    const repsInput = page.locator('#workout.is-focus .exercise.is-current input[data-k$="_reps"]').first();
+    const repsInput = page.locator(`#workout.is-focus .exercise.is-current input[data-metric-id="${REPS}"]`).first();
     await repsInput.fill("9");
 
     // Trigger leave: with in-flight failure, leave must not lose work silently

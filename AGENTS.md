@@ -1,6 +1,6 @@
 # Taurifer
 
-Taurifer (formerly RepForge) is a local-first mobile PWA for tracking progressive overload. It is a static site (`index.html`, `styles.css`, `app.js`, `shared-setup.js`, `schedule.js`, `notify.js`, `i18n.js`, `exercises.js`, `sw.js`, `manifest.webmanifest`, `icons/`, `assets/exercises/`) with no build step, no package manager, and no application dependencies. Workout logs, drafts, and history stay on this device and Taurifer never uploads them except through the explicit one-hour install-transfer exception (`docs/adr/0013-temporary-install-transfer.md`) or opted-in telemetry. Setup links intentionally share a program, its configuration, eight allowlisted settings, and language; their temporary iOS handoff cookie is sent to the static host. The install-transfer token cookie is a separate object from the setup-proposal cookie and never carries the clone.
+Taurifer (formerly RepForge) is a local-first mobile PWA for tracking progressive overload. It is a static site (`index.html`, `styles.css`, `app.js`, `shared-setup.js`, `schedule.js`, `notify.js`, `i18n.js`, `exercises.js`, `exercise-catalog.js`, `exercise-metrics.js`, `sw.js`, `manifest.webmanifest`, `icons/`, `assets/exercises/`) with no build step, no package manager, and no application dependencies. Workout logs, drafts, and history stay on this device and Taurifer never uploads them except through the explicit one-hour install-transfer exception (`docs/adr/0013-temporary-install-transfer.md`) or opted-in telemetry. Setup links intentionally share a program, its configuration, eight allowlisted settings, and language; their temporary iOS handoff cookie is sent to the static host. The install-transfer token cookie is a separate object from the setup-proposal cookie and never carries the clone.
 
 Only the user-facing brand is Taurifer. Internal identifiers deliberately keep the historical `repforge` codename so existing installs keep their data and scope: storage keys and the `repforge_setup_v1` handoff cookie, the IndexedDB name, the cache-name prefix, the cross-tab lock name, `window.__repforge*` test hooks, the `RepForgeI18n`/`RepForgeSchedule`/`RepForgeNotify`/`RepForgeSharedSetup` globals, the repository slug, and the GitHub Pages URL. Do not rename these. The full naming-surface inventory, plus voice, copy, and visual rules, lives in `docs/brand-guide.md` (rationale in `docs/adr/0004-taurifer-rebrand-neutral-copy.md`).
 
@@ -12,7 +12,7 @@ Durable state is mirrored in `localStorage` (`repforge_v1`) and IndexedDB (`repf
 
 A device that has not been through onboarding holds no program. First-run state is `program: []` with `programMeta.onboarded === false`; there is no bundled starter split, and nothing may mint one behind the lifter's back. The entry hub is the only thing that creates a program, and until it does, Today and the Program tab render their no-program state (`#todayNoProgram` / `#programNoProgram`) and offer setup instead of a session — cancelling out of onboarding is exactly this state, not a fallback program. Both surfaces gate on `hasProgramContent()` — is there a program at all — which is deliberately blind to `programMeta.onboarded`, because a restored backup or migrated legacy snapshot can carry a real program with the flag unset and must not be hidden behind "No program yet". The Program tab additionally requires the device to be un-onboarded before it shows the invitation, so a lifter who emptied their own program keeps the editor and its Add day. `hasActiveProgram()` stays the separate question of whether the entry hub is replacing something. Browser tests wait on `window.__repforgeBooted` (set at the end of `init()`), never on a day tab, which such a device never grows.
 
-A setup link is a coach-created URL fragment (`index.html#setup=v1.<base64url-gzip>`, `v2.<base64url-gzip>`, or `v3.<base64url-gzip>`), not a backend upload. The semantic document stays kind `taurifer-shared-setup` / version 1. `v1.` is canonical JSON+gzip; `v2.` is an immutable compact tuple JSON+gzip; `v3.` is the compact tuple extension that also carries the versioned progression envelope (program relations, modifiers, structure, and per-exercise progression/slot identity — `v2.` is skipped for such payloads). Decode v1, v2, and v3 forever. New encoding emits the shortest valid candidate (ties keep `v1.`). Its first-run gate is the confirmation surface: persist no payload field until **Start this program**, and never apply one when a program is onboarded or any workout log/program history exists. Received exercise IDs must be current built-ins or custom definitions carried in that payload; do not fuzzy-match or accept legacy aliases. The encoded value has a hard 3,072-character limit; a representative complete URL is a ≤700-character regression target, not a universal maximum, and notes-heavy payloads must never be truncated. A temporary `repforge_setup_v1` cookie (historical name, even for `v2.`/`v3.` values; the `index.html` path, seven days, `SameSite=Lax`, and `Secure` outside localhost) carries the encoded—not encrypted—proposal into iOS/iPadOS 17.2+ Home Screen installs and is sent with that matching HTML request. Outbound system share is title plus URL only; the Share sheet stays task-only and the privacy/cookie disclosure lives on the cached in-app Privacy page, never in the outbound message. Never log the payload, cookie, or full URL, and do not claim older Home Screen installs inherit it or that physical iOS validation was done. See `docs/adr/0007-shared-setup-links.md`.
+A setup link is a coach-created URL fragment (`index.html#setup=v4.<base64url-gzip>`), not a backend upload. The semantic document is kind `taurifer-shared-setup` / version 2: the program's name, its complete canonical `ProgramDefinition`, the custom definitions it references, the eight allowlisted settings, and the language. An unedited generated program travels as its generator request and seed and the receiver regenerates it with the same generator version, verifying the identical definition; anything else travels in full. `v1.`, `v2.`, and `v3.` links are unsupported (Plan 067 retired them with no existing-user migration): they decode to `unsupported-version`, are refused with an explanation, and their source bytes are left untouched. Its first-run gate is the confirmation surface: persist no payload field until **Start this program**, and never apply one when a program is onboarded or any workout log/program history exists. Received exercise IDs must be current catalog UUIDs or custom definitions carried in that payload; do not fuzzy-match or accept legacy ids. The encoded value has a hard 3,072-character limit; a representative complete URL is a ≤700-character regression target, not a universal maximum, and a program that does not fit is refused whole, never truncated. A temporary `repforge_setup_v1` cookie (historical name, even for `v4.` values; the `index.html` path, seven days, `SameSite=Lax`, and `Secure` outside localhost) carries the encoded—not encrypted—proposal into iOS/iPadOS 17.2+ Home Screen installs and is sent with that matching HTML request. Outbound system share is title plus URL only; the Share sheet stays task-only and the privacy/cookie disclosure lives on the cached in-app Privacy page, never in the outbound message. Never log the payload, cookie, or full URL, and do not claim older Home Screen installs inherit it or that physical iOS validation was done. See `docs/adr/0007-shared-setup-links.md`.
 
 The import route has two doors. One reads a Taurifer program file; the other
 takes a free-form program pasted as text — a coach's message, a note — and
@@ -96,26 +96,31 @@ first set. Do it deliberately, and record why in the audit.
 
 ### Generated files
 
-`i18n.js` and `exercises.js` are generated and committed; nothing regenerates
-them at serve or install time. `i18n.js` comes from `i18n-en.json` +
-`i18n-pt.json` via `node tools/build-i18n.mjs` (`--check` fails when the three
-files drift). `exercises.js` comes from `tools/build-exercises.mjs` plus the
-reviewed allowlist in `tools/exercise-curation.json` — edit those and re-run,
-never the generated file. See `tools/README.md`; note that library ids are
-stored in saved programs as `libraryId` and must never be repointed at a
-different movement.
+`i18n.js`, `exercises.js` and `assets/exercise-catalog.json` are generated and
+committed; nothing regenerates them at serve or install time. `i18n.js` comes
+from `i18n-en.json` + `i18n-pt.json` via `node tools/build-i18n.mjs` (`--check`
+fails when the three files drift). `exercises.js` (the synchronous search index)
+and `assets/exercise-catalog.json` (the full raw catalog, loaded by
+`exercise-catalog.js` and pinned by hash in `exercises.js`) come from
+`tools/build-exercises.mjs` over the Plan 067 corpus `plans/067/data/app_file.json`,
+the reviewed names in `tools/exercise-catalog-curation.json`, and the drafted
+Portuguese names in `tools/exercise-names-pt-draft.json` — edit those and re-run,
+never the generated files. See `tools/README.md` and `plans/067/README.md`.
+Catalog UUIDs are stored in programs and logs as identity (`exerciseId`,
+`libraryId`) and must never be repointed at a different movement; names are
+search inputs only.
 
-`assets/exercises/` holds the 96 licensed exercise illustrations, keyed by
-library id. That set is closed: the other 174 movements, built-in or custom,
-render a deliberately empty tile. Do not add exercise media without a licence
-covering it, and do not fill the empty state with icons, initials or silhouettes
-— `test/exercise-library.mjs` and `test/library-flow.mjs` both hold that line.
-The allowlist lives in `MEDIA_IDS` in `tools/build-exercises.mjs`; adding a file
-without listing it there (or the reverse) fails the build and the gates. Each
-mapped entry also carries `mediaBg`, the paper colour that drawing sits on, read
-from `tools/exercise-media-bg.json` and regenerated by
-`node tools/sample-media-bg.mjs` — the one tool that needs the pinned test
-browser, because the files are lossy VP8 and Node has no decoder.
+`assets/exercises/` holds the 96 licensed exercise illustrations. Twenty map to
+catalog movements whose exact name matches (`mediaId` in the curation file);
+every other movement, built-in or custom, renders a deliberately empty tile.
+Do not add exercise media without a licence covering it, do not map an
+illustration to a movement it does not show, and do not fill the empty state
+with icons, initials or silhouettes — `test/exercise-library.mjs` and
+`test/library-flow.mjs` both hold that line. Each mapped entry also carries
+`mediaBg`, the paper colour that drawing sits on, read from
+`tools/exercise-media-bg.json` and regenerated by `node tools/sample-media-bg.mjs`
+— the one tool that needs the pinned test browser, because the files are lossy
+VP8 and Node has no decoder.
 
 ## Implementation and review evidence
 

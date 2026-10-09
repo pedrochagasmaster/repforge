@@ -16,6 +16,7 @@
  */
 import { launchChromium } from "./browser.mjs";
 import { selectExercise, finishEarly, openEarlyFinish } from "./fixtures/focus-workout.mjs";
+import { installGeneratedProgram, isWeightRepsSlot, definitionSlot, metricLogRow } from "./fixtures/history-metric-rows.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -41,48 +42,82 @@ function isoDaysAgo(n) {
   return d.toISOString().slice(0, 10);
 }
 
+const WEIGHT = "2555c6f170d8805cafa6d16d3fdddbaa";
+const REPS = "2555c6f170d88072bbf6d9ad3f16ea86";
+const WEIGHT_REPS = [
+  { id: WEIGHT, sourceName: "Weight", semantic: "loadKg", unit: "kg" },
+  { id: REPS, sourceName: "Reps", semantic: "reps", unit: "reps" },
+];
+
 /** Two days: Day 1 carries the lifts under test, Day 2 exists so "Next up" has
- *  somewhere to point and the week has more than one planned session. */
+ *  somewhere to point and the week has more than one planned session. The Day 1
+ *  lifts are the lifter's own Weight+Reps movements, so their muscle attribution is
+ *  exactly what the breakdown below reads; Day 2 is a catalog movement.
+ *  [day, name, sets, min, max, primary, secondary, catalog movement] */
 const TEMPLATES = [
   ["Day 1", "Bench press", 2, 6, 10, "Chest", "Triceps"],
   ["Day 1", "Barbell row", 2, 6, 10, "Mid/upper back", "Biceps"],
   ["Day 1", "Dumbbell curl", 1, 8, 12, "Biceps", ""],
-  ["Day 2", "Back squat", 2, 4, 8, "Quads", "Glutes"],
+  ["Day 2", "Back squat", 2, 4, 8, "", "", "Barbell back squat"],
 ];
 
+/** The canonical program, built once through the app's own Build definition. */
+let BUILT = null;
+
+async function buildProgram(page) {
+  await page.waitForFunction(() => !!window.RepForgeExerciseCatalog?.snapshot?.(), undefined, { timeout: 15000 });
+  BUILT = await page.evaluate(({ templates, metrics, started }) => {
+    const byName = new Map(window.RepForgeExerciseCatalog.snapshot().exercises.map((entry) => [entry.name, entry]));
+    const customs = [];
+    const perDay = new Map();
+    const rows = templates.map(([day, name, sets, min, max, primary, secondary, movement], i) => {
+      const order = (perDay.get(day) || 0) + 1;
+      perDay.set(day, order);
+      let libraryId = movement ? byName.get(movement)?.id : `custom:summary-${i}`;
+      if (!libraryId) throw new Error(`catalog has no movement named ${movement}`);
+      if (!movement) customs.push({ id: libraryId, name, namePt: name, archived: false, equipment: ["barbell"],
+        primary, secondary, notes: "", created: "2026-07-01T00:00:00.000Z",
+        metricIds: metrics.map((metric) => metric.id), metricDefinitions: metrics });
+      return { id: `ex${i}`, day, order, name, ...(movement ? { displayName: name } : {}), libraryId, sets, min, max,
+        primary, secondary, notes: "" };
+    });
+    const definition = manualProgramDefinitionFromRows(rows, ["Day 1", "Day 2"], customs);
+    if (!definition) throw new Error("the app rejected the summary program");
+    const programMeta = {
+      id: "prog-summary", name: "Summary fixture", started,
+      created: "2026-07-01T00:00:00.000Z", updated: "2026-07-01T00:00:00.000Z",
+      onboarded: true, mesocycleStatus: "active", mesocycleLengthWeeks: definition.cycles,
+      goal: null, experience: null, daysPerWeek: 2, splitType: null,
+      equipment: [], priorityMuscles: [], sessionLength: null, completedAt: null,
+      progressionRelations: [], progressionModifiers: [], progressionIncompatibilities: [], entrySource: null,
+      programDefinition: definition,
+    };
+    return { program: durableProgramRows(definition, customs, programMeta), programMeta, customExercises: customs };
+  }, { templates: TEMPLATES, metrics: WEIGHT_REPS, started: isoDaysAgo(14) });
+}
+
 function fixture({ log = [] } = {}) {
-  const perDay = new Map();
-  const program = TEMPLATES.map(([day, name, sets, min, max, primary, secondary], i) => {
-    const order = (perDay.get(day) || 0) + 1;
-    perDay.set(day, order);
-    return { id: `ex${i}`, day, order, name, sets, min, max, primary, secondary, notes: "", alternates: [] };
-  });
   return {
     settings: {
       jumpPct: 2.5, minJump: 2.5, rirHigh: 2, hardRir: 4, restSec: 0, lastExport: "",
       unit: "kg", lang: "en", rirMode: "numeric", voiceInputEnabled: false,
       notify: { enabled: false, timer: true, session: true, unfinished: true, missed: true },
     },
-    programMeta: {
-      id: "prog-summary", name: "Summary fixture", started: isoDaysAgo(14),
-      created: "2026-07-01T00:00:00.000Z", updated: "2026-07-01T00:00:00.000Z",
-      onboarded: true, mesocycleStatus: "active", mesocycleLengthWeeks: 6,
-      goal: null, experience: null, daysPerWeek: 2, splitType: "full_body",
-      equipment: ["barbell"], priorityMuscles: [], sessionLength: "60", completedAt: null,
-    },
-    program,
+    programMeta: structuredClone(BUILT.programMeta),
+    program: structuredClone(BUILT.program),
     log,
     programHistory: [],
+    customExercises: structuredClone(BUILT.customExercises),
   };
 }
 
-/** One past session on Day 1 so records have a bar to clear. */
+/** One past session on Day 1 so records have a bar to clear, in the metric shape a finished workout commits. */
 function history(date, rows) {
   const session = `${date}_Day 1_seed`;
-  return rows.map(([exerciseId, name, set, load, reps, rir, primary, secondary]) => ({
-    session, date, day: "Day 1", name, exerciseId, set, load, reps, rir,
-    notes: "", created: `${date}T12:00:00.000Z`, primary, secondary,
-  }));
+  return rows.map(([exerciseId, , set, load, reps, rir]) =>
+    metricLogRow(BUILT.programMeta, BUILT.program.find((row) => row.id === exerciseId), {
+      session, date, day: "Day 1", set, load, reps, rir,
+    }));
 }
 
 async function waitForApp(page) {
@@ -136,22 +171,25 @@ async function seed(page, state) {
 /** Fill and commit one set through the Focus well, the way a lifter logs it. */
 async function logSet(page, exId, n, load, reps, rir) {
   await selectExercise(page, exId);
-  for (const [field, value] of [["load", load], ["reps", reps], ["rir", rir]]) {
-    await page.locator(`#workout .exercise.is-current [data-k="${exId}_${n}_${field}"]`).fill(String(value));
+  for (const [field, value] of [[`metric_${WEIGHT}`, load], [`metric_${REPS}`, reps], ["rir", rir]]) {
+    const input = page.locator(`#workout .exercise.is-current [data-k="${exId}_${n}_${field}"]`);
+    if (await input.getAttribute("aria-hidden") === "true")
+      await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="${field}"]`).click();
+    await input.fill(String(value));
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   }
   await page.locator(`#workout .exercise.is-current [data-save="${exId}_${n}"]`).click();
   await page.waitForFunction(
-    ({ exId, n, load, reps, rir }) => {
+    ({ exId, n, load, reps, rir, weight, repsId }) => {
       const draft = window.__repforgeWorkoutDraft?.current?.();
       const exercise = draft?.exercises?.[exId];
       const set = Object.values(exercise?.sets || {}).find(s => s.ordinal === n);
       return set?.completion !== "pending" &&
-        set?.edited?.load === String(load) &&
-        set?.edited?.reps === String(reps) &&
+        set?.edited?.metrics?.[weight] === String(load) &&
+        set?.edited?.metrics?.[repsId] === String(reps) &&
         set?.edited?.rir === String(rir);
     },
-    { exId, n, load, reps, rir },
+    { exId, n, load, reps, rir, weight: WEIGHT, repsId: REPS },
     { timeout: 15000 },
   );
 }
@@ -339,6 +377,7 @@ async function run() {
   page.on("dialog", (d) => d.accept());
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForApp(page);
+  await buildProgram(page);
 
   // ---- 1 — a session with history behind it -----------------------------------
   phase("A session that beat its last one");
@@ -404,7 +443,8 @@ async function run() {
   assert(s.next === "Day 2", "the next training day is named", s.next);
   assert(!s.pageScrollsX, "the summary never scrolls the page sideways");
 
-  // Direction D (spec 4.4): no mark celebrates the save, and each lift ends on the engine's next target.
+  // Direction D (spec 4.4): no mark celebrates the save. This Build program's prescriptions are manual, so
+  // the engine recommends nothing and no lift claims a next target it does not have.
   const ledger = await page.evaluate(() => {
     const body = document.querySelector("#sessionSummaryBody");
     const P = window.__repforgeProgression;
@@ -412,16 +452,14 @@ async function run() {
       crest: !!body.querySelector(".sum-crest"),
       groups: body.querySelectorAll(".sum-grp").length,
       words: [...body.querySelectorAll(".sum-outcome")].map((w) => ({ id: w.dataset.parityOutcome, session: w.dataset.paritySession })),
-      targets: [...body.querySelectorAll(".sum-grp__next[data-parity-target]")].map((n) => ({
-        text: n.textContent.trim(), id: n.dataset.parityTarget, load: P.recommendation(P.programSlot(n.dataset.parityTarget)).load,
-      })),
+      targets: body.querySelectorAll(".sum-grp__next").length,
+      statuses: ["ex0", "ex1", "ex2"].map((id) => P.recommendation(P.programSlot(id)).status),
       actions: [...body.querySelectorAll(".sum-actions button")].map((b) => b.id),
     };
   });
   assert(!ledger.crest, "no check mark celebrates the save", JSON.stringify(ledger));
-  assert(ledger.groups === 3 && ledger.targets.length === 3, "each of the three lifts is a group ending on a next target", JSON.stringify(ledger));
-  assert(ledger.targets.every((n) => n.load != null && n.text.includes(String(n.load))),
-    "every next target is the engine's recommendation() load for that lift", JSON.stringify(ledger.targets));
+  assert(ledger.groups === 3 && ledger.targets === 0 && ledger.statuses.every((status) => status === "manual"),
+    "each of the three lifts is a group; a manual prescription shows no engine next target", JSON.stringify(ledger));
   assert(ledger.words.length === 3 && ledger.words.every((w) => w.id && w.session),
     "outcome words carry the parity markers the Direction D gate reads", JSON.stringify(ledger.words));
   assert(ledger.actions.join(",") === "sumSee,sumDone", "both actions sit in one pinned bar", JSON.stringify(ledger.actions));
@@ -681,6 +719,44 @@ async function run() {
   assert(replayedClose.logLength === 1 && replayedClose.draft === null && replayedClose.artifacts.length === 0,
     "boot replays the retained workout finish and drains its transaction artifacts",
     JSON.stringify(replayedClose));
+
+  // ---- 10 — an adaptive program ends each lift on the engine's next target ------
+  phase("A generated program ends each lift on the engine's next target");
+  {
+    await seed(page, { settings: fixture().settings, program: [], log: [], programHistory: [] });
+    const generated = await installGeneratedProgram(page, { seed: "session-summary" });
+    const dayA = generated.program[0].day;
+    const lifts = generated.program.filter((row) => row.day === dayA && isWeightRepsSlot(definitionSlot(generated.programMeta, row)));
+    const past = isoDaysAgo(7);
+    const log = lifts.flatMap((row) => [1, 2].map((set) => metricLogRow(generated.programMeta, row, {
+      session: `${past}_${dayA}_seed`, date: past, day: dayA, set, load: 50, reps: row.min, rir: 1 })));
+    // The block began two weeks ago, so last week's session is comparable history.
+    await seed(page, { ...generated, programMeta: { ...generated.programMeta, started: isoDaysAgo(14) }, log });
+    await page.evaluate((day) => window.__repforgeEnterWorkout({ day }), dayA);
+    await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+    const [first, second] = lifts;
+    await logSet(page, first.id, 1, 52.5, first.min, 1);
+    await logSet(page, second.id, 1, 50, second.min + 1, 1);
+    await finishEarly(page);
+    await page.waitForSelector("#sessionSummary:not(.hidden)", { timeout: 8000 });
+    const adaptive = await page.evaluate(() => {
+      const body = document.querySelector("#sessionSummaryBody");
+      const P = window.__repforgeProgression;
+      return {
+        groups: body.querySelectorAll(".sum-grp").length,
+        targets: [...body.querySelectorAll(".sum-grp__next[data-parity-target]")].map((n) => ({
+          text: n.textContent.trim(), id: n.dataset.parityTarget, load: P.recommendation(P.programSlot(n.dataset.parityTarget)).load,
+        })),
+      };
+    });
+    assert(adaptive.groups === 2 && adaptive.targets.length === 2 &&
+      adaptive.targets.map((n) => n.id).sort().join() === [first.id, second.id].sort().join(),
+    "each lift of an adaptive session is a group ending on a next target", JSON.stringify(adaptive));
+    assert(adaptive.targets.every((n) => n.load != null && n.text.includes(String(n.load))),
+      "every next target is the engine's recommendation() load for that lift", JSON.stringify(adaptive.targets));
+    await page.keyboard.press("Escape");
+    await page.locator("#sessionSummary").waitFor({ state: "hidden" });
+  }
 
   // ---- 8 — Settings says what the browser says about durability ----------------
   phase("Settings reports whether the browser keeps the data");

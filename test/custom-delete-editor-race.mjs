@@ -7,6 +7,8 @@ const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DB = "repforge";
 const STORE = "kv";
+const WEIGHT = "2555c6f170d8805cafa6d16d3fdddbaa";
+const REPS = "2555c6f170d88072bbf6d9ad3f16ea86";
 
 let passed = 0;
 let failed = 0;
@@ -64,17 +66,24 @@ async function readReplicas(page) {
 }
 
 async function seedCustom(page, name) {
-  const result = await page.evaluate(async exerciseName => {
+  const result = await page.evaluate(async ({ exerciseName, WEIGHT, REPS }) => {
     const saved = await window.__repforgeSaveCustomExercise({
       name: exerciseName,
       equipment: ["machine"],
       primary: "Chest",
       secondary: "",
       notes: "F057-12 two-tab race fixture",
+      // Weight + Reps, so a set of it can be logged and attributed.
+      metricIds: [WEIGHT, REPS],
+      metricDefinitions: [
+        { id: WEIGHT, sourceName: "Weight", semantic: "loadKg", unit: "kg" },
+        { id: REPS, sourceName: "Reps", semantic: "reps", unit: "reps" },
+      ],
     });
-    return { id: saved.entry?.id, committed: saved.result?.committed, settled: saved.result?.settled };
-  }, name);
-  if (!result.id || result.committed !== true || result.settled !== true)
+    return { id: saved.entry?.id, committed: saved.result?.committed, settled: saved.result?.settled,
+      metrics: saved.entry?.metricIds?.length ?? 0 };
+  }, { exerciseName: name, WEIGHT, REPS });
+  if (!result.id || result.committed !== true || result.settled !== true || result.metrics !== 2)
     throw new Error(`Could not seed the custom exercise: ${JSON.stringify(result)}`);
   return result.id;
 }
@@ -132,9 +141,9 @@ async function replaceCustomSlotWithBuiltIn(page, customId) {
   await row.locator('[data-role="replace"]').click();
   await page.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
   const builtinId = await page.evaluate(() =>
-    window.__repforgeExerciseLibrary.find(entry => entry.name === "Lat pulldown")?.id || null);
-  if (!builtinId) throw new Error("Expected built-in Lat pulldown fixture is unavailable");
-  await page.locator("#exPickSearch").fill("Lat pulldown");
+    window.__repforgeExerciseLibrary.find(entry => entry.name === "Overhand grip cable lat pulldown")?.id || null);
+  if (!builtinId) throw new Error("Expected built-in lat pulldown fixture is unavailable");
+  await page.locator("#exPickSearch").fill("Overhand grip cable lat pulldown");
   await page.waitForSelector(`#exPickList .pickrow[data-pick="${builtinId}"]`, { timeout: 5000 });
   await page.locator(`#exPickList .pickrow[data-pick="${builtinId}"]`).click();
   await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
@@ -441,14 +450,15 @@ async function testPostPartialStaleWorkoutLog(browser) {
       return exercise ? { exerciseInstanceId, setId: exercise.setOrder[0] } : null;
     }, id);
     if (!target) throw new Error("The stale workout draft omitted its custom exercise X");
-    await tabB.evaluate(async ({ exerciseInstanceId, setId }) => {
-      for (const [field, value] of [["load", "45"], ["reps", "8"], ["rir", "2"]])
-        await window.__repforgeWorkoutDraft.dispatch("editSetField", { exerciseInstanceId, setId, field, value });
+    await tabB.evaluate(async ({ exerciseInstanceId, setId, weight, reps }) => {
+      for (const [metricId, value] of [[weight, "45"], [reps, "8"]])
+        await window.__repforgeWorkoutDraft.dispatch("editMetricValue", { exerciseInstanceId, setId, metricId, value });
+      await window.__repforgeWorkoutDraft.dispatch("editSetField", { exerciseInstanceId, setId, field: "rir", value: "2" });
       await window.__repforgeWorkoutDraft.dispatch("completeSet", {
         exerciseInstanceId, setId, completedAt: new Date().toISOString(),
       });
       await window.__repforgeWorkoutDraft.flush();
-    }, target);
+    }, { ...target, weight: WEIGHT, reps: REPS });
 
     const replaced = await replaceCustomSlotWithBuiltIn(tabA, id);
     const beforeDelete = await readReplicas(tabA);

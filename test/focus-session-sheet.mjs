@@ -18,6 +18,19 @@ import { SAFE_AREA, openCatalogState } from "./fixtures/catalog-state.mjs";
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
+const WEIGHT = "2555c6f170d8805cafa6d16d3fdddbaa";
+const REPS = "2555c6f170d88072bbf6d9ad3f16ea86";
+
+/** Tap a shelf field on the current card, then type into it, as a lifter does. */
+async function fillShelf(page, field, value) {
+  const shelf = "#workout .exercise.is-current:not(.is-peek) .focus-shelf";
+  const metricId = field === "load" ? WEIGHT : field === "reps" ? REPS : null;
+  const input = page.locator(metricId ? `${shelf} input[data-metric-id="${metricId}"]` : `${shelf} input[data-k$="_rir"]`);
+  if (await input.getAttribute("aria-hidden") === "true") {
+    await page.locator(`${shelf} [data-shelf-field="${metricId ? `metric_${metricId}` : "rir"}"]`).click();
+  }
+  await input.fill(String(value));
+}
 
 const results = { passed: 0, failed: 0 };
 function assert(cond, name, detail) {
@@ -227,12 +240,9 @@ async function main() {
     // Enter focus on first exercise and commit a set
     await page.evaluate(() => window.__repforgeFocus.to(0));
     await page.waitForTimeout(150);
-    const loadInput = page.locator("#workout .exercise.is-current:not(.is-peek) [data-k$='_load']").first();
-    const repsInput = page.locator("#workout .exercise.is-current:not(.is-peek) [data-k$='_reps']").first();
-    const rirInput = page.locator("#workout .exercise.is-current:not(.is-peek) [data-k$='_rir']").first();
-    await loadInput.fill("60");
-    await repsInput.fill("10");
-    await rirInput.fill("2");
+    await fillShelf(page, "load", 60);
+    await fillShelf(page, "reps", 10);
+    await fillShelf(page, "rir", 2);
     await flushDraft(page);
     await page.locator("#workout .exercise.is-current:not(.is-peek) .focus-shelf .saveset").first().click();
     await flushDraft(page);

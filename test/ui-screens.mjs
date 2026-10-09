@@ -240,7 +240,7 @@ if (existsSync(screensRoot) && existsSync(semanticPath)) {
     return leaks;
   }
   const preview = semanticArtifact.captures.find((item) =>
-    item.locale === "pt" && item.flow === "onboarding-browse" && item.screen === "preview");
+    item.locale === "pt" && item.flow === "onboarding-import" && item.screen === "preview");
   assert.ok(preview, "locale fault injection has a real Portuguese preview");
   const withCopy = (item, copy) => ({ ...item, semantic: [{ text: copy }] });
   assert.deepEqual(findLocaleLeaks([withCopy(preview, enCatalog["landing.outcomes.sub"])]), [],

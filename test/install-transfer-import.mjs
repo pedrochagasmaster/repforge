@@ -2,10 +2,11 @@
 /**
  * Plan 053-P4a: production-backed install-transfer import oracle.
  *
- * The source document is produced by the real app: compiler-backed activation,
- * a saved workout, a committed Plan 052 successor, a committed recovery
- * carrier, a custom exercise, an acknowledged DraftV2, a persisted entry
- * candidate, UI preferences, consent, and telemetry identity. The P3
+ * The source document is produced by the real app: a generated canonical
+ * ProgramDefinition activated through production finalization, a saved
+ * metric-schema workout, a committed Review successor (fewer days), a custom
+ * exercise, an acknowledged DraftV2, a persisted Build entry candidate, UI preferences, consent, and
+ * telemetry identity. The P3
  * RepForgeInstallTransfer/Contract modules build and validate the envelope;
  * this test does not copy their normalizers.
  *
@@ -19,9 +20,13 @@ import { webcrypto } from "node:crypto";
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { launchChromium, assertServingApp, waitForAppBoot } from "./browser.mjs";
-import { parseExecutablePolicy } from "../tools/recovery-policy-contract.mjs";
 
 const require = createRequire(import.meta.url);
+// The envelope is built here with the browser producer's modules. In the app
+// they run beside the raw exercise catalog global that DraftV2 validation
+// reads for its metric-bearing sets; provide the same catalog.
+const RAW_CATALOG = require("../assets/exercise-catalog.json");
+globalThis.RepForgeExerciseCatalog = { snapshot: () => RAW_CATALOG };
 const Transfer = require("../install-transfer.js");
 const Contract = require("../install-transfer-contract.js");
 
@@ -41,14 +46,24 @@ const DB_NAME = "repforge";
 const STORE_NAME = "kv";
 const CREATED_AT = "2026-10-10T09:00:00.000Z";
 const TRANSITION_CONFIRMED_AT = "2026-10-10T09:12:00.000Z";
-const RECOVERY_DUE_AT = "2026-10-17T09:12:00.000Z";
-const POLICY = parseExecutablePolicy(readFileSync(new URL("../docs/recovery-week-policy.md", import.meta.url), "utf8"));
-const EVIDENCE = {
-  outcomesByPattern: {
-    "knee-dominant": "maintained",
-    "horizontal press": "declined",
+const PLAN_DATA = new URL("../plans/067/data/", import.meta.url);
+const gym = JSON.parse(readFileSync(new URL("gym.json", PLAN_DATA), "utf8"));
+const observations = JSON.parse(readFileSync(new URL("programs.json", PLAN_DATA), "utf8"));
+const rawCatalog = JSON.parse(readFileSync(new URL("app_file.json", PLAN_DATA), "utf8"));
+const observedIds = [...new Set(Object.values(observations).flatMap((program) =>
+  program.days.flatMap((day) => day.exercises.map((entry) => entry.exerciseId))))];
+// A four-day generated program: the fewer-days change regenerates it on three.
+const REQUEST = {
+  goal: "hypertrophy", experience: "intermediate", daysPerWeek: 4, timeCeilingMinutes: 90,
+  gymProfile: { equipmentIds: gym.equipment.map((entry) => entry.equipmentId) },
+  competencyAnswers: {
+    pullups10: null, pullups5: null, pushups15: null, inclineBarbell10: null,
+    overheadPress10: null, bodyweightDips10: null, benchPress10: null,
   },
-  checkpointAnswer: "Yes",
+  movementConfirmations: Object.fromEntries(observedIds.map((id) =>
+    [id, [...rawCatalog.exercises.find((entry) => entry.id === id).preconditions]])),
+  emphasisMuscleIds: [], deprioritizedMuscleIds: [], excludedExerciseIds: [], excludedMuscleIds: [],
+  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 4, deloadCycles: [],
 };
 
 const POSTHOG_SDK_FIXTURE = `(() => {
@@ -254,69 +269,55 @@ async function flush(page) {
 }
 
 async function activateProgram(page) {
-  return page.evaluate(async () => {
-    const adapter = window.RepForgeProgramEntryAdapter;
+  return page.evaluate(async (request) => {
     const compiler = window.RepForgeProgramCompiler;
-    if (!adapter || !compiler || typeof window.__repforgeFinalizeProgramSetup !== "function") {
+    const catalog = window.RepForgeExerciseCatalog;
+    if (!compiler || !catalog || typeof window.__repforgeFinalizeProgramSetup !== "function") {
       return { ok: false, code: "production-entry-finalization-unavailable" };
     }
-    const services = adapter.createProductionServices({
-      Compiler: compiler,
-      catalogue: window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY,
-    });
-    const answers = {
-      desiredResult: "balanced",
-      structuredExperience: "6_to_24m",
-      recentConsistency: "most",
-      daysPerWeek: 4,
-      sessionMinutes: 90,
-      preferredRestSeconds: 90,
-      environment: { kind: "commercial_gym" },
-      primaryMuscles: [],
-      deEmphasizedMuscles: [],
-      ignoredMuscles: [],
-      priorityMovements: [],
-      mustHaveExercises: [],
-      exerciseConstraints: [],
-    };
-    const compiled = services.compile({ mode: "recommend", answers, versions: services.currentVersions() });
-    if (!compiled.ok) return { ok: false, code: "production-compilation-failed", issues: compiled.issues };
-    const baseProposal = window.__repforgeWorkoutDraft.state();
-    baseProposal.programMeta = baseProposal.programMeta || {};
-    baseProposal.programMeta.progressionRelations = JSON.parse(JSON.stringify(compiled.preview.progressionRelations || []));
-    baseProposal.programMeta.progressionModifiers = [];
-    baseProposal.programMeta.progressionIncompatibilities = [];
-    baseProposal.programMeta.programStructure = JSON.parse(JSON.stringify(compiled.preview.programStructure));
-    baseProposal.programMeta.compilerContext = JSON.parse(JSON.stringify(compiled.compilerContext));
+    const generated = compiler.generateProgram(request, catalog.snapshot(), "install-transfer-oracle");
+    if (!generated.ok) return { ok: false, code: "production-generation-failed", generated };
     const finalized = await window.__repforgeFinalizeProgramSetup({
-      exercises: compiled.preview.program,
-      name: compiled.name || "Install transfer oracle predecessor",
-      answers: { goal: "strength_hypertrophy", daysPerWeek: 4 },
+      programDefinition: generated.value,
+      name: "Install transfer oracle predecessor",
+      answers: {},
       destination: "log",
       origin: "first-run",
       draftConfirmed: true,
       telemetryRoute: "recommend",
-      entryTelemetry: compiled.telemetry,
-      entrySource: { route: "recommend", fingerprint: compiled.fingerprint },
-      programStructure: compiled.preview.programStructure,
-      compilerContext: compiled.compilerContext,
-      baseProposal,
+      entrySource: { route: "recommend", fingerprint: "install-transfer-oracle" },
     });
     await window.__repforgeStorage.flush();
     return { ok: !!(finalized?.localOk || finalized?.idbOk), finalized };
-  });
+  }, REQUEST);
 }
 
 async function saveWorkout(page) {
   const day = await page.evaluate(() => window.__repforgeWorkoutDraft.state()?.program?.[0]?.day || "Day 1");
   const entered = await page.evaluate((dayLabel) => window.__repforgeEnterWorkout({ day: dayLabel}), day);
   if (!entered) throw new Error(`production workout entry failed: ${JSON.stringify(entered)}`);
-  await page.locator("#workout input[data-k$='_load']").first().waitFor({ state: "visible" });
-  await page.locator("#workout input[data-k$='_load']").first().fill("60");
-  await page.locator("#workout input[data-k$='_reps']").first().fill("8");
-  await page.locator("#workout input[data-k$='_rir']").first().fill("2");
-  await page.locator("#workout button[data-save]").first().click();
-  await page.waitForFunction(() => !!document.querySelector('#workout .exercise.is-current [data-editn="1"]'));
+  await page.waitForSelector("#workoutShell:not(.hidden) #workout .exercise.is-current", { timeout: 10000 });
+  const active = await page.evaluate(() => {
+    const draft = window.__repforgeWorkoutDraft.current();
+    const id = draft.session.selectedExerciseId;
+    const exercise = draft.exercises[id];
+    const setId = exercise.setOrder[0];
+    return { id, setId, metrics: exercise.sets[setId].programmed.metrics.map((metric) => metric.id) };
+  });
+  // Every programmed metric gets a real value through the Focus shelf.
+  for (const [index, metricId] of active.metrics.entries()) {
+    const input = page.locator(`#workout .exercise.is-current .focus-shelf input[data-metric-id="${metricId}"]`);
+    await input.waitFor({ state: "attached", timeout: 5000 });
+    if (await input.getAttribute("aria-hidden") === "true") {
+      await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${metricId}"]`).click();
+    }
+    await input.fill(String(index === 0 ? 60 : 8));
+  }
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  await page.locator(`#workout .exercise.is-current [data-save="${active.id}_1"]`).click();
+  await page.waitForFunction(({ id, setId }) =>
+    typeof window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.sets?.[setId]?.completion === "object",
+  active, { timeout: 15000 });
   await finishEarly(page);
   await page.waitForFunction(() => document.querySelector("#sessionSummary")?.hidden === false, undefined, { timeout: 10000 });
   await page.locator("#sumDone").click();
@@ -335,19 +336,9 @@ async function addCustomExercise(page) {
   }));
 }
 
-async function commitSibling(page) {
-  const proposed = await page.evaluate(async ({ createdAt }) => window.__repforgeProgramTransition?.proposeSibling?.({
-    targetConstraint: { frequency: 3 },
-    diagnosis: {
-      kind: "fewer_days",
-      answers: { availableDays: 3 },
-      eligibleEvidenceIds: ["install-transfer-oracle-evidence"],
-      insufficientEvidenceReasons: [],
-    },
-    transitionId: "transition-install-transfer-oracle",
-    successorProgramId: "program-install-transfer-oracle-successor",
-    createdAt,
-  }), { createdAt: CREATED_AT });
+async function commitChange(page, { change, transitionId, successorProgramId }) {
+  const proposed = await page.evaluate(async (args) => window.__repforgeProgramTransition?.proposeChange?.(args),
+    { change, transitionId, successorProgramId, createdAt: CREATED_AT });
   if (!proposed?.ok) return proposed || { ok: false, code: "successor-proposal-seam-unavailable" };
   const confirmed = await page.evaluate(async ({ proposal, confirmedAt }) => window.__repforgeProgramTransition.confirmTransition({
     proposal,
@@ -357,34 +348,6 @@ async function commitSibling(page) {
     proposalHash: proposal.proposalHash,
     acknowledgedDraftRaw: null,
   }), { proposal: proposed.proposal, confirmedAt: TRANSITION_CONFIRMED_AT });
-  await flush(page);
-  return { ok: !!(confirmed?.ok && confirmed?.localOk && confirmed?.idbOk), proposed, confirmed };
-}
-
-async function commitRecovery(page) {
-  const proposed = await page.evaluate(async ({ policy, evidence, createdAt }) => {
-    const adapter = window.__repforgeProgramTransition;
-    if (typeof adapter?.proposeRecoveryWeek !== "function") return { ok: false, code: "recovery-proposal-seam-unavailable" };
-    return adapter.proposeRecoveryWeek({
-      evidence,
-      approvedPolicy: policy,
-      transitionId: "recovery-install-transfer-oracle",
-      createdAt,
-    });
-  }, { policy: POLICY, evidence: EVIDENCE, createdAt: CREATED_AT });
-  if (!proposed?.ok) return proposed;
-  const confirmed = await page.evaluate(async ({ proposal, dueAt, confirmedAt }) => {
-    const adapter = window.__repforgeProgramTransition;
-    if (typeof adapter?.confirmTransition !== "function") return { ok: false, code: "recovery-confirmation-seam-unavailable" };
-    return adapter.confirmTransition({
-      proposal,
-      transitionId: proposal.transitionId,
-      proposalHash: proposal.proposalHash,
-      confirmedAt,
-      reassessmentDueAt: dueAt,
-      acknowledgedDraftRaw: null,
-    });
-  }, { proposal: proposed.proposal, dueAt: RECOVERY_DUE_AT, confirmedAt: TRANSITION_CONFIRMED_AT });
   await flush(page);
   return { ok: !!(confirmed?.ok && confirmed?.localOk && confirmed?.idbOk), proposed, confirmed };
 }
@@ -399,7 +362,10 @@ async function createAcknowledgedDraft(page) {
     const exerciseId = current?.exerciseOrder?.[0];
     const setId = exerciseId && current.exercises?.[exerciseId]?.setOrder?.[0];
     if (!entered || !current || !exerciseId || !setId) return { ok: false, code: "draft-initialization-failed" };
-    await hook.dispatch("editSetField", { exerciseInstanceId: exerciseId, setId, field: "reps", value: "11" });
+    const metricId = current.exercises[exerciseId].sets[setId].programmed?.metrics?.[0]?.id;
+    if (!metricId) return { ok: false, code: "draft-metric-unavailable" };
+    const edited = await hook.dispatch("editMetricValue", { exerciseInstanceId: exerciseId, setId, metricId, value: "11" });
+    if (edited?.status !== "applied") return { ok: false, code: "draft-metric-edit-refused", edited };
     await hook.dispatch("setSessionNotes", { value: "install transfer acknowledged draft" });
     await hook.flush();
     const live = hook.current();
@@ -420,21 +386,7 @@ async function createCandidate(page) {
     if (!Entry || !services || typeof window.__repforgePersistSetupDraft !== "function") {
       return { ok: false, code: "entry-candidate-producer-seam-unavailable" };
     }
-    const answers = {
-      desiredResult: "balanced",
-      structuredExperience: "6_to_24m",
-      recentConsistency: "most",
-      daysPerWeek: 3,
-      sessionMinutes: 60,
-      preferredRestSeconds: 90,
-      environment: { kind: "commercial_gym" },
-      primaryMuscles: [],
-      deEmphasizedMuscles: [],
-      ignoredMuscles: [],
-      priorityMovements: [],
-      mustHaveExercises: [],
-      exerciseConstraints: [],
-    };
+    const answers = { programName: "Install transfer candidate", daysPerWeek: 3 };
     const versions = services.currentVersions();
     const snapshot = window.__repforgeWorkoutDraft.state();
     let state = Entry.createState({
@@ -443,21 +395,18 @@ async function createCandidate(page) {
       now: new Date(Date.now() - 1000).toISOString(),
       versions,
     });
-    state = Entry.selectRoute(state, "recommend");
+    state = Entry.selectRoute(state, "build");
     state = Entry.setAnswers(state, answers);
-    const compiled = services.compile({ mode: "recommend", answers, versions });
-    if (!compiled.ok) return { ok: false, code: "entry-candidate-compilation-failed", issues: compiled.issues };
+    // The app's own Build step: an empty canonical ProgramDefinition preview.
+    const built = services.buildEmptyProgram(answers);
+    if (!built?.ok) return { ok: false, code: "entry-candidate-build-failed", built };
     state = Entry.setResult(state, {
-      fingerprint: compiled.fingerprint,
-      name: compiled.name,
-      namePt: compiled.namePt,
-      selected: compiled.selected,
-      candidates: compiled.candidates,
-      alternative: null,
-      preview: compiled.preview,
-      telemetry: compiled.telemetry,
-      explanation: compiled.explanation,
+      fingerprint: built.fingerprint,
+      name: built.name,
+      selected: { id: "manual_build", source: "manual_build" },
+      preview: built.preview,
     });
+    state = Entry.advance(state).state;
     const persisted = await window.__repforgePersistSetupDraft(state);
     await window.__repforgeOnboarding.flushDraft();
     return {
@@ -544,9 +493,19 @@ function assertEnvelopeSourceFields(envelope) {
   "source envelope retains committed programMeta.transitionIn");
   check(Array.isArray(state?.programHistory) && state.programHistory.some((entry) => entry?.transitionOut?.successorProgramId),
     "source envelope retains programHistory transitionOut");
-  check(Array.isArray(state?.recoveryTransitions?.records) && Array.isArray(state?.recoveryTransitions?.quarantine) &&
-    state.recoveryTransitions.records.length > 0,
-  "source envelope retains recoveryTransitions records and quarantine arrays");
+  check(state?.programMeta?.transitionIn?.transitionId === "transition-install-transfer-oracle" &&
+    state.programMeta.id === "program-install-transfer-oracle-successor",
+  "source envelope retains the committed fewer-days successor identity",
+  { transitionIn: state?.programMeta?.transitionIn, id: state?.programMeta?.id });
+  check(Array.isArray(state?.programMeta?.programDefinition?.days) &&
+    state.programMeta.programDefinition.days.some((day) => day.kind === "training"),
+  "source envelope carries the canonical ProgramDefinition of the active program");
+  check(Array.isArray(state?.log) && state.log.length > 0 &&
+    state.log.every((row) => Array.isArray(row.metricIds) && Array.isArray(row.metricValues) && row.loadingContext),
+  "source envelope log rows are metric-schema rows");
+  check(envelope?.programEntryDraft?.result?.preview?.programDefinition &&
+    Array.isArray(envelope.programEntryDraft.result.preview.programDefinition.days),
+  "source envelope entry candidate carries its Build ProgramDefinition preview");
   check(Array.isArray(state?.log) && state.log.length > 0 &&
     Array.isArray(state?.customExercises) && state.customExercises.some((entry) => entry.id === "custom:install-transfer-oracle"),
   "source envelope retains the real workout log and custom exercise");
@@ -1974,7 +1933,6 @@ async function runP4cMarkerRecoveryBeforeHealing(browser, envelope) {
 
 async function main() {
   console.log("Plan 053-P4a/P4b: production-backed install-transfer import oracle");
-  console.log("Effective settings: model=native gpt-5.6-luna; reasoning_effort=max; fork_turns=none; service omitted");
   await assertServingApp(BASE);
 
   const browser = await launchChromium();
@@ -2000,15 +1958,13 @@ async function main() {
     const custom = await addCustomExercise(source);
     check(custom?.result?.localOk || custom?.result?.idbOk, "custom exercise is saved through the production custom-exercise API", custom);
     await saveWorkout(source);
-    const transition = await commitSibling(source);
-    check(transition.ok, "Plan 052 successor is committed through the production transition adapter", transition);
+    const transition = await commitChange(source, {
+      change: { kind: "fewer_days", daysPerWeek: 3 },
+      transitionId: "transition-install-transfer-oracle",
+      successorProgramId: "program-install-transfer-oracle-successor",
+    });
+    check(transition.ok, "fewer-days successor is committed through the production transition adapter", transition);
     if (!transition.ok) throw new Error(JSON.stringify(transition));
-    await source.reload({ waitUntil: "domcontentloaded" });
-    await waitForAppBoot(source, { base: BASE });
-
-    const recovery = await commitRecovery(source);
-    check(recovery.ok, "Plan 052 recovery carrier record is committed through the production adapter", recovery);
-    if (!recovery.ok) throw new Error(JSON.stringify(recovery));
     await source.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(source, { base: BASE });
 

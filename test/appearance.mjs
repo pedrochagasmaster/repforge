@@ -15,7 +15,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { launchChromium } from "./browser.mjs";
-import { MINIMAL_PAYLOAD, BUILT_IN_IDS, cloneFixture } from "./fixtures/shared-setup.mjs";
+import { buildSetupDocument } from "./shared-setup-flow.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -382,26 +382,31 @@ async function runStaysOutOfTrainingData(browser) {
       JSON.stringify(settings && Object.keys(settings))
     );
 
-    // A coach who hand-edits a theme into a payload should not repaint the
-    // recipient's app: the eight-setting allowlist has no room for it.
-    const proposed = cloneFixture(MINIMAL_PAYLOAD);
-    proposed.settings = { ...proposed.settings, theme: "dark" };
-    const validated = await page.evaluate(
-      ({ raw, ids }) => {
-        const checked = window.RepForgeSharedSetup.validate(raw, { builtInIds: new Set(ids) });
-        return {
-          ok: checked.ok,
-          keys: checked.ok ? Object.keys(checked.value.settings) : null,
-          issues: checked.issues || checked.code,
-        };
-      },
-      { raw: proposed, ids: [...BUILT_IN_IDS] }
-    );
-    assert(validated.ok, "The probe payload is otherwise valid", JSON.stringify(validated));
+    // A coach who hand-edits a theme into a setup document should not repaint
+    // the recipient's app: the eight-setting allowlist has no room for it.
+    const document = await buildSetupDocument(page);
+    const validated = await page.evaluate((document) => {
+      const compiler = window.RepForgeProgramCompiler;
+      const options = {
+        catalogSnapshot: window.RepForgeExerciseCatalog.snapshot(),
+        validateProgramDefinition: compiler.validateProgramDefinition,
+      };
+      const api = window.RepForgeSharedSetup;
+      const clean = api.validate(document, options);
+      const themed = api.validate({ ...document, settings: { ...document.settings, theme: "dark" } }, options);
+      return {
+        cleanOk: clean.ok,
+        cleanKeys: clean.ok ? Object.keys(clean.value.settings).sort() : clean.issues,
+        themedOk: themed.ok,
+        themedIssues: themed.issues || themed.code,
+      };
+    }, document);
+    assert(validated.cleanOk && !validated.cleanKeys.includes("theme"),
+      "The probe setup document is valid and carries no theme", JSON.stringify(validated));
     assert(
-      validated.ok && !validated.keys.includes("theme"),
+      validated.themedOk === false && validated.themedIssues.some((issue) => /settings\.theme/.test(issue)),
       "A setup link cannot carry a theme",
-      JSON.stringify(validated.keys)
+      JSON.stringify(validated.themedIssues)
     );
   } finally {
     await context.close();

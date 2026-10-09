@@ -1,0 +1,1799 @@
+{
+  "backend_boundary": {
+    "conclusion": "A Firebase Functions boundary is strongly indicated. Exact request schema, server ranking/volume coefficients, and final server algorithm are not proven by strings alone.",
+    "exact_strings": [
+      "WorkoutProgramService",
+      "createProgram",
+      "trainingProgram",
+      "firebaseFunctions",
+      "HttpsCallable",
+      "sbs-diet-app-remote-us-central1"
+    ]
+  },
+  "construction_model": {
+    "accessory_slot_strings": [
+      "chestAccessory",
+      "lateralDeltAccessory",
+      "bicepsAccessory",
+      "tricepsAccessory",
+      "upperTrapAccessory",
+      "rearDeltAccessory",
+      "latAccessory",
+      "neckAccessory",
+      "frontDeltAccessory",
+      "upperBackAccessory",
+      "lowerBackAccessory",
+      "abAccessory",
+      "obliqueAccessory",
+      "hipAbductorAccessory",
+      "hipAdductorAccessory",
+      "quadAccessory",
+      "hamstringAccessory",
+      "calfAccessory",
+      "tibialisAnteriorAccessory",
+      "serratusAccessory",
+      "anteriorForearmAccessory",
+      "posteriorForearmAccessory"
+    ],
+    "pipeline": [
+      "collect constraints",
+      "select/recommend split template",
+      "instantiate SplitDay structure",
+      "create typed SplitExerciseType / CompoundMovementPattern slots",
+      "filter exercise candidates by equipment/preconditions/exclusions",
+      "rank candidates using goal/role recommendation tiers",
+      "fill slots",
+      "assign sets/reps/RIR and periodization/deload targets",
+      "validate/normalize returned WorkoutProgram"
+    ],
+    "slot_identifiers": [
+      "primaryHorizontalPush",
+      "secondaryHorizontalPush",
+      "primaryHorizontalPull",
+      "secondaryHorizontalPull",
+      "primaryVerticalPush",
+      "secondaryVerticalPush",
+      "primaryVerticalPull",
+      "secondaryVerticalPull",
+      "primarySquat",
+      "secondarySquat",
+      "primaryHinge",
+      "secondaryHinge"
+    ],
+    "status": "high_confidence_inference anchored by exact model/type strings"
+  },
+  "evidence_levels": {
+    "exact_db": "Directly present in bundled app_file.json",
+    "exact_snapshot_string": "Directly present in Dart AOT string pool/source-path metadata",
+    "high_confidence_inference": "Multiple static facts converge but executable control flow not recovered",
+    "unknown": "Requires AOT semantic decompilation and/or authorized runtime observation"
+  },
+  "exercise_knowledge_base": {
+    "all_six_recommendation_scores_null_count": 123,
+    "all_six_recommendation_scores_null_examples": [
+      "Air biking",
+      "Ankle weight hip flexion straight leg raise",
+      "Arm-supported weighted wrist radial deviation",
+      "Asymmetrical weight forearm pronation",
+      "Asymmetrical weight forearm pronation and supination",
+      "Asymmetrical weight forearm supination",
+      "Asymmetrical weight wrist ulnar deviation",
+      "Axle continental clean and press",
+      "Axle strict press",
+      "B-stance shrug machine Romanian deadlift",
+      "Barbell thruster",
+      "Battle rope alternating wave",
+      "Battle rope double-arm wave",
+      "Bent-over dual cable bar row",
+      "Bird dog",
+      "Bird dog regression with alternating arm lifts",
+      "Bird dog regression with alternating leg lifts",
+      "Buffalo bar squat",
+      "Burpee",
+      "Cable shoulder adduction",
+      "Cable shoulder external rotation with arm at side",
+      "Cable shoulder external rotation with arm elevated",
+      "Cable shoulder internal rotation with arm at side",
+      "Cable shoulder internal rotation with arm elevated",
+      "Cambered bar good morning",
+      "Clean",
+      "Clean grip high pull",
+      "Combo twist",
+      "Cycling",
+      "Dual cable bar Romanian deadlift",
+      "Dual cable bar back squat",
+      "Dual cable bar bench press",
+      "Dual cable bar deadlift",
+      "Dual cable bar front squat",
+      "Dual cable bar hip thrust",
+      "Dual cable bar overhead press",
+      "Dual handle cable lat pulldown (elbows-out)",
+      "Dumbbell Turkish get-up",
+      "Dumbbell thruster",
+      "Dumbbell waiter walk",
+      "Elliptical training",
+      "Half-kneeling single arm landmine press",
+      "Hang clean high pull",
+      "Hang power clean",
+      "Hang power snatch",
+      "Hang snatch high pull",
+      "Incline cable fly",
+      "Incline chest-supported Smith machine row",
+      "Incline chest-supported barbell row",
+      "Jacobs Ladder training",
+      "Jump rope",
+      "Kettlebell Turkish get-up",
+      "Kettlebell halo",
+      "Kettlebell waiter walk",
+      "Landmine anti-rotation",
+      "Landmine hack squat",
+      "Landmine push press",
+      "Landmine reverse lunge",
+      "Landmine rotation",
+      "Lever-arm belt squat machine B-stance Romanian deadlift",
+      "Leverage squat machine good morning",
+      "Leverage squat machine lunge",
+      "Long sitting banded ankle eversion",
+      "Lying cable fly",
+      "Lying neutral grip pin-loaded machine chest press",
+      "Multi flight machine pullover",
+      "Multi-forearm finger curl",
+      "Multi-forearm machine pronation",
+      "Multi-forearm machine roller wrist extension",
+      "Multi-forearm machine supination",
+      "Multi-hip machine external rotation",
+      "Multi-hip machine hip flexion",
+      "Multi-hip machine internal rotation",
+      "Neutral grip pin-loaded machine incline row",
+      "Other sport training",
+      "Overhand grip pin-loaded machine incline row",
+      "Overhead medicine ball slam",
+      "Pin-loaded machine squat",
+      "Plate halo",
+      "Power clean",
+      "Power runner kickback",
+      "Power runner running",
+      "Power runner squat",
+      "Power snatch",
+      "Pulley belt squat machine B-stance Romanian deadlift",
+      "Reclined machine 3D hip abduction",
+      "Reclined neutral grip pin-loaded machine incline press",
+      "Rotator cuff machine external rotation",
+      "Rotator cuff machine internal rotation",
+      "Rowing",
+      "Running",
+      "Safety squat bar box squat",
+      "Scapular wall slide",
+      "Seated banded ankle eversion",
+      "Seated dumbbell shoulder external rotation",
+      "Seated neutral grip single arm plate-loaded machine chest press",
+      "Side-lying dumbbell shoulder external rotation",
+      "Single arm front lat pulldown",
+      "Single arm incline machine fly",
+      "Single arm lateral raise machine shoulder extension"
+    ],
+    "classification_counts": {
+      "exerciseClassificationHypertrophy": {
+        "Core": 112,
+        "Isolation/Accessory": 807,
+        "Primary Compound": 169,
+        "Secondary Compound": 650
+      },
+      "exerciseClassificationStrength": {
+        "Core": 112,
+        "Isolation/Accessory": 816,
+        "Primary Compound": 158,
+        "Secondary Compound": 630
+      }
+    },
+    "exercise_count": 1345,
+    "exercise_image_coverage": {
+      "exercises_with_images": 619,
+      "exercises_without_images": 726,
+      "image_count_per_exercise": {
+        "1": 5,
+        "2": 16,
+        "3": 598
+      },
+      "image_files": 1832
+    },
+    "goal_specific_tier_differences": {
+      "AccessoryRecommendationLevel": {
+        "counts": {
+          "different": 72,
+          "hypertrophy_only": 2,
+          "neither": 550,
+          "same": 721
+        },
+        "examples": [
+          {
+            "exercise": "Ab wheel plank rollout",
+            "hypertrophy": 3.0,
+            "movementPattern": [
+              "Ab Accessory"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Axle static hold",
+            "hypertrophy": 4.0,
+            "movementPattern": [
+              "Anterior Forearm Accessory"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Banded Pallof press",
+            "hypertrophy": 6.0,
+            "movementPattern": [
+              "Oblique Acessory"
+            ],
+            "strength": 4.0
+          },
+          {
+            "exercise": "Barbell plank rollout",
+            "hypertrophy": 5.0,
+            "movementPattern": [
+              "Ab Accessory"
+            ],
+            "strength": 3.0
+          },
+          {
+            "exercise": "Barbell static hold",
+            "hypertrophy": 4.0,
+            "movementPattern": [
+              "Anterior Forearm Accessory"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Behind-the-back barbell wrist curl",
+            "hypertrophy": 3.0,
+            "movementPattern": [
+              "Anterior Forearm Accessory"
+            ],
+            "strength": 4.0
+          },
+          {
+            "exercise": "Cable Pallof press",
+            "hypertrophy": 5.0,
+            "movementPattern": [
+              "Oblique Acessory"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Cable glute kickback",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Glute Max Accessory"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Dead bug",
+            "hypertrophy": 6.0,
+            "movementPattern": [
+              "Ab Accessory"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Dead hang",
+            "hypertrophy": 4.0,
+            "movementPattern": [
+              "Anterior Forearm Accessory"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Decline crunch with hands behind head",
+            "hypertrophy": 3.0,
+            "movementPattern": [
+              "Ab Accessory"
+            ],
+            "strength": 4.0
+          },
+          {
+            "exercise": "Decline crunch with hands on shoulders",
+            "hypertrophy": 3.0,
+            "movementPattern": [
+              "Ab Accessory"
+            ],
+            "strength": 4.0
+          },
+          {
+            "exercise": "Decline sit-up with hands behind head",
+            "hypertrophy": 3.0,
+            "movementPattern": [
+              "Ab Accessory"
+            ],
+            "strength": 4.0
+          },
+          {
+            "exercise": "Decline sit-up with hands on shoulders",
+            "hypertrophy": 3.0,
+            "movementPattern": [
+              "Ab Accessory"
+            ],
+            "strength": 4.0
+          },
+          {
+            "exercise": "Decline weighted crunch",
+            "hypertrophy": 2.0,
+            "movementPattern": [
+              "Ab Accessory"
+            ],
+            "strength": 3.0
+          },
+          {
+            "exercise": "Dual plate pinch",
+            "hypertrophy": 5.0,
+            "movementPattern": [
+              "Misc. Forearm",
+              "Anterior Forearm Accessory"
+            ],
+            "strength": 4.0
+          },
+          {
+            "exercise": "Dumbbell farmer’s carry",
+            "hypertrophy": 4.0,
+            "movementPattern": [
+              "Loaded Carry",
+              "Anterior Forearm Accessory"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Dumbbell suitcase carry",
+            "hypertrophy": 4.0,
+            "movementPattern": [
+              "Loaded Carry",
+              "Oblique Acessory"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Extended-hip ab wheel rollout",
+            "hypertrophy": 3.0,
+            "movementPattern": [
+              "Ab Accessory"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Farmer’s handles farmer’s carry",
+            "hypertrophy": 3.0,
+            "movementPattern": [
+              "Loaded Carry",
+              "Anterior Forearm Accessory"
+            ],
+            "strength": 1.0
+          },
+          {
+            "exercise": "Flutter kick with head down",
+            "hypertrophy": 6.0,
+            "movementPattern": [
+              "Ab Accessory"
+            ],
+            "strength": 4.0
+          },
+          {
+            "exercise": "Flutter kick with head up",
+            "hypertrophy": 6.0,
+            "movementPattern": [
+              "Ab Accessory"
+            ],
+            "strength": 5.0
+          },
+          {
+            "exercise": "Forearm plank",
+            "hypertrophy": 6.0,
+            "movementPattern": [
+              "Ab Accessory"
+            ],
+            "strength": 3.0
+          },
+          {
+            "exercise": "Forearm plank with leg lift",
+            "hypertrophy": 6.0,
+            "movementPattern": [
+              "Ab Accessory"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Goblet Roman chair hip hinge",
+            "hypertrophy": 2.0,
+            "movementPattern": [
+              "Hip Hinge",
+              "Hamstring Accessory"
+            ],
+            "strength": 3.0
+          },
+          {
+            "exercise": "Half-kneeling cable Pallof press",
+            "hypertrophy": 5.0,
+            "movementPattern": [
+              "Oblique Acessory"
+            ],
+            "strength": 3.0
+          },
+          {
+            "exercise": "Hollow body hold",
+            "hypertrophy": 6.0,
+            "movementPattern": [
+              "Ab Accessory"
+            ],
+            "strength": 4.0
+          },
+          {
+            "exercise": "Kettlebell farmer’s carry",
+            "hypertrophy": 4.0,
+            "movementPattern": [
+              "Loaded Carry",
+              "Anterior Forearm Accessory"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Kettlebell suitcase carry",
+            "hypertrophy": 4.0,
+            "movementPattern": [
+              "Loaded Carry",
+              "Oblique Acessory"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Kneeling pin-loaded machine glute kickback",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Glute Max Accessory"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Kneeling plate-loaded machine glute kickback",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Glute Max Accessory"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Long lever plank",
+            "hypertrophy": 6.0,
+            "movementPattern": [
+              "Ab Accessory"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Machine crunch (with overhead handles)",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Ab Accessory"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Machine crunch (with straight elbows)",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Ab Accessory"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Marching dead bug",
+            "hypertrophy": 7.0,
+            "movementPattern": [
+              "Ab Accessory"
+            ],
+            "strength": 6.0
+          },
+          {
+            "exercise": "Multi-hip machine bent-knee hip extension",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Glute Max Accessory"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Pin-loaded machine crunch (with chest pad)",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Ab Accessory"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Pinch grip dumbbell curl",
+            "hypertrophy": 4.0,
+            "movementPattern": [
+              "Biceps Accessory",
+              "Misc. Forearm",
+              "Anterior Forearm Accessory"
+            ],
+            "strength": 5.0
+          },
+          {
+            "exercise": "Plate-loaded machine crunch (with chest pad)",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Ab Accessory"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Plate-loaded machine crunch (with overhead handles)",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Ab Accessory"
+            ],
+            "strength": 2.0
+          }
+        ]
+      },
+      "PrimaryCompoundRecommendationLevel": {
+        "counts": {
+          "different": 43,
+          "hypertrophy_only": 17,
+          "neither": 1173,
+          "same": 106,
+          "strength_only": 6
+        },
+        "examples": [
+          {
+            "exercise": "45° leg press",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Squat"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Barbell push press",
+            "hypertrophy": 4.0,
+            "movementPattern": [
+              "Vertical Push"
+            ],
+            "strength": 1.0
+          },
+          {
+            "exercise": "Bent-over overhand grip T-bar row",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Horizontal Pull"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Bent-over underhand grip barbell row",
+            "hypertrophy": 2.0,
+            "movementPattern": [
+              "Horizontal Pull"
+            ],
+            "strength": 1.0
+          },
+          {
+            "exercise": "Chest-supported neutral grip T-bar row",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Horizontal Pull"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Chest-supported overhand grip T-bar row",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Horizontal Pull"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Diverging pin-loaded machine row (without chest support)",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Horizontal Pull"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Dual handle cable lat pulldown",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Vertical Pull",
+              "Lat Accessory"
+            ],
+            "strength": 2.5
+          },
+          {
+            "exercise": "High incline Smith machine press",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Vertical Push"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Leverage leg press",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Squat"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Machine D.Y. row",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Horizontal Pull"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Neutral grip pin-loaded machine row",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Horizontal Pull"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Neutral grip plate-loaded machine row",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Horizontal Pull"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "One-board press",
+            "hypertrophy": 4.0,
+            "movementPattern": [
+              "Horizontal Push"
+            ],
+            "strength": 3.0
+          },
+          {
+            "exercise": "Overhand grip cable lat pulldown",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Vertical Pull",
+              "Lat Accessory"
+            ],
+            "strength": 2.5
+          },
+          {
+            "exercise": "Overhand grip cable row",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Horizontal Pull"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Overhand grip pin-loaded machine lat pulldown",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Vertical Pull",
+              "Lat Accessory"
+            ],
+            "strength": 2.5
+          },
+          {
+            "exercise": "Overhand grip pin-loaded machine row",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Horizontal Pull"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Overhand grip plate-loaded machine lat pulldown",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Vertical Pull",
+              "Lat Accessory"
+            ],
+            "strength": 2.5
+          },
+          {
+            "exercise": "Overhand grip plate-loaded machine row",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Horizontal Pull"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Overhead low pin press",
+            "hypertrophy": 3.0,
+            "movementPattern": [
+              "Vertical Push"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Pause back squat",
+            "hypertrophy": 2.0,
+            "movementPattern": [
+              "Squat"
+            ],
+            "strength": 1.0
+          },
+          {
+            "exercise": "Pause barbell overhead press",
+            "hypertrophy": 2.0,
+            "movementPattern": [
+              "Vertical Push"
+            ],
+            "strength": 1.0
+          },
+          {
+            "exercise": "Pin-loaded leg press",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Squat"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Pin-loaded machine front lat pulldown",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Vertical Pull",
+              "Lat Accessory"
+            ],
+            "strength": 2.5
+          },
+          {
+            "exercise": "Plate-loaded horizontal leg press",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Squat"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Safety squat bar squat",
+            "hypertrophy": 2.0,
+            "movementPattern": [
+              "Squat"
+            ],
+            "strength": 1.0
+          },
+          {
+            "exercise": "Seated dual handle cable row (elbows-in)",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Horizontal Pull"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Seated dual handle cable row (elbows-out)",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Horizontal Pull"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Seated dumbbell overhead press",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Vertical Push"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Single arm dumbbell row (elbow-in)",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Horizontal Pull"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Single arm dumbbell row (elbow-out)",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Horizontal Pull"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Single arm machine D.Y. row",
+            "hypertrophy": 2.0,
+            "movementPattern": [
+              "Horizontal Pull"
+            ],
+            "strength": 3.0
+          },
+          {
+            "exercise": "Smith machine back squat",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Squat"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Smith machine pause squat",
+            "hypertrophy": 3.0,
+            "movementPattern": [
+              "Squat"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Smith machine row",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Horizontal Pull"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Standing dumbbell overhead press",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Vertical Push"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Standing single arm kettlebell overhead press",
+            "hypertrophy": 3.0,
+            "movementPattern": [
+              "Vertical Push"
+            ],
+            "strength": 4.0
+          },
+          {
+            "exercise": "Swiss bar bench press",
+            "hypertrophy": 2.0,
+            "movementPattern": [
+              "Horizontal Push"
+            ],
+            "strength": 1.0
+          },
+          {
+            "exercise": "Two-board press",
+            "hypertrophy": 4.0,
+            "movementPattern": [
+              "Horizontal Push"
+            ],
+            "strength": 3.0
+          }
+        ]
+      },
+      "SecondaryCompoundRecommendationLevel": {
+        "counts": {
+          "different": 75,
+          "hypertrophy_only": 18,
+          "neither": 761,
+          "same": 489,
+          "strength_only": 2
+        },
+        "examples": [
+          {
+            "exercise": "45° leg press",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Squat"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Barbell pin squat",
+            "hypertrophy": 3.0,
+            "movementPattern": [
+              "Squat"
+            ],
+            "strength": 1.0
+          },
+          {
+            "exercise": "Barbell push press",
+            "hypertrophy": 4.0,
+            "movementPattern": [
+              "Vertical Push"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Behind-the-back deadlift",
+            "hypertrophy": 4.0,
+            "movementPattern": [
+              "Hip Hinge"
+            ],
+            "strength": 3.0
+          },
+          {
+            "exercise": "Below-the-knee rack pull",
+            "hypertrophy": 4.0,
+            "movementPattern": [
+              "Hip Hinge"
+            ],
+            "strength": 3.0
+          },
+          {
+            "exercise": "Conventional below-the-knee block pull",
+            "hypertrophy": 4.0,
+            "movementPattern": [
+              "Hip Hinge"
+            ],
+            "strength": 3.0
+          },
+          {
+            "exercise": "Front squat",
+            "hypertrophy": 2.0,
+            "movementPattern": [
+              "Squat"
+            ],
+            "strength": 1.0
+          },
+          {
+            "exercise": "Hack squat",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Squat"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "High handle trap bar deadlift",
+            "hypertrophy": 4.0,
+            "movementPattern": [
+              "Hip Hinge"
+            ],
+            "strength": 3.0
+          },
+          {
+            "exercise": "Horizontal hack squat",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Squat"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Kettlebell swing",
+            "hypertrophy": 5.0,
+            "movementPattern": [
+              "Hip Hinge"
+            ],
+            "strength": 3.0
+          },
+          {
+            "exercise": "Lever-arm belt squat machine Romanian deadlift",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Hip Hinge",
+              "Hamstring Accessory"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Lever-arm machine belt squat",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Squat"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Leverage leg press",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Squat"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Low pin bench press",
+            "hypertrophy": 3.0,
+            "movementPattern": [
+              "Horizontal Push"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Lying pin-loaded machine chest press",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Horizontal Push"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Lying plate-loaded machine chest press",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Horizontal Push"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Machine V-squat",
+            "hypertrophy": 2.0,
+            "movementPattern": [
+              "Squat"
+            ],
+            "strength": 3.0
+          },
+          {
+            "exercise": "Machine super incline press",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Vertical Push"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Midpoint pin bench press",
+            "hypertrophy": 5.0,
+            "movementPattern": [
+              "Horizontal Push"
+            ],
+            "strength": 4.0
+          },
+          {
+            "exercise": "Neutral grip pin-loaded machine shoulder press",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Vertical Push"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Neutral grip plate-loaded machine shoulder press",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Vertical Push"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "One-board press",
+            "hypertrophy": 4.0,
+            "movementPattern": [
+              "Horizontal Push"
+            ],
+            "strength": 3.0
+          },
+          {
+            "exercise": "Overhand grip dead hang pull-up",
+            "hypertrophy": 3.0,
+            "movementPattern": [
+              "Vertical Pull"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Overhead low pin press",
+            "hypertrophy": 3.0,
+            "movementPattern": [
+              "Vertical Push"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Overhead midpoint pin press",
+            "hypertrophy": 4.0,
+            "movementPattern": [
+              "Vertical Push"
+            ],
+            "strength": 3.0
+          },
+          {
+            "exercise": "Pause back squat",
+            "hypertrophy": 2.0,
+            "movementPattern": [
+              "Squat"
+            ],
+            "strength": 1.0
+          },
+          {
+            "exercise": "Pause barbell Romanian deadlift",
+            "hypertrophy": 2.0,
+            "movementPattern": [
+              "Hip Hinge",
+              "Hamstring Accessory"
+            ],
+            "strength": 1.0
+          },
+          {
+            "exercise": "Pause close grip bench press",
+            "hypertrophy": 2.0,
+            "movementPattern": [
+              "Horizontal Push"
+            ],
+            "strength": 1.0
+          },
+          {
+            "exercise": "Pause conventional deadlift",
+            "hypertrophy": 3.0,
+            "movementPattern": [
+              "Hip Hinge"
+            ],
+            "strength": 1.0
+          },
+          {
+            "exercise": "Pause front squat",
+            "hypertrophy": 3.0,
+            "movementPattern": [
+              "Squat"
+            ],
+            "strength": 1.0
+          },
+          {
+            "exercise": "Pause hack squat",
+            "hypertrophy": 2.0,
+            "movementPattern": [
+              "Squat"
+            ],
+            "strength": 3.0
+          },
+          {
+            "exercise": "Pause snatch grip deadlift",
+            "hypertrophy": 4.0,
+            "movementPattern": [
+              "Hip Hinge"
+            ],
+            "strength": 3.0
+          },
+          {
+            "exercise": "Pause sumo deadlift",
+            "hypertrophy": 3.0,
+            "movementPattern": [
+              "Hip Hinge"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Pendulum squat",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Squat"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Pin good morning",
+            "hypertrophy": 3.0,
+            "movementPattern": [
+              "Hip Hinge"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Pin-loaded leg press",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Squat"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Pin-loaded machine chest press",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Horizontal Push"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Plate-loaded horizontal leg press",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Squat"
+            ],
+            "strength": 2.0
+          },
+          {
+            "exercise": "Plate-loaded machine incline bench press",
+            "hypertrophy": 1.0,
+            "movementPattern": [
+              "Horizontal Push"
+            ],
+            "strength": 2.0
+          }
+        ]
+      }
+    },
+    "interpretation": {
+      "equipment_groups": "Groups encode named sets of component equipment. OR/AND evaluation semantics are highly likely but not code-traced.",
+      "groupings": "exerciseGroup appears to define substitution/variant families; exclusionGroupings appears to suppress near-duplicate/conflicting selections. Exact runtime semantics not code-traced.",
+      "recommendation_tiers": "Lower is better is a high-confidence inference from canonical exercises (e.g. barbell bench = primary tier 1) and tier patterns; values themselves are exact DB data."
+    },
+    "markdown_exercise_coverage": 1213,
+    "movement_pattern_counts": {
+      "Ab Accessory": 82,
+      "Anterior Forearm Accessory": 35,
+      "Biceps Accessory": 81,
+      "Calf Accessory": 34,
+      "Cardio": 15,
+      "Chest Accessory": 29,
+      "Core Stabilization": 3,
+      "Front Delt Accessory": 14,
+      "Glute Max Accessory": 55,
+      "Hamstring Accessory": 49,
+      "Hip Abductor Accessory": 28,
+      "Hip Adductor Accessory": 12,
+      "Hip Flexor Isolation": 2,
+      "Hip Hinge": 118,
+      "Horizontal Pull": 97,
+      "Horizontal Push": 142,
+      "Lat Accessory": 47,
+      "Lateral Delt Accessory": 41,
+      "Loaded Carry": 11,
+      "Lower Back Accessory": 18,
+      "Lunge/Split Squat/Step Up/Single Leg Squat": 99,
+      "Misc. Forearm": 12,
+      "Neck Extensor Accessory": 7,
+      "Neck Flexor Accessory": 7,
+      "Oblique Acessory": 26,
+      "Olympic Lift Variation": 12,
+      "Other": 11,
+      "Other Ankle Accessory": 2,
+      "Posterior Forearm Accessory": 9,
+      "Quad Accessory": 22,
+      "Rear Delt Accessory": 28,
+      "Serratus Accessory": 4,
+      "Shoulder Rotation Accessory": 9,
+      "Squat": 82,
+      "Throw": 2,
+      "Tibialis Anterior Accessory": 6,
+      "Triceps Accessory": 59,
+      "Upper Back Accessory": 29,
+      "Upper Trap Accessory": 24,
+      "Vertical Pull": 58,
+      "Vertical Push": 53
+    },
+    "ontology_counts": {
+      "alternativeName": 2069,
+      "appEquipmentCategory": 13,
+      "equipment": 297,
+      "exclusionGroupings": 340,
+      "exercise": 1345,
+      "exerciseDescriptor": 20,
+      "exerciseGroup": 321,
+      "exerciseMetric": 11,
+      "exerciseNote": 280,
+      "exerciseType": 3,
+      "featureMuscleGroup": 23,
+      "jointAction": 150,
+      "laterality": 3,
+      "movementPattern": 43,
+      "muscle": 233,
+      "plateCalculatorLaterality": 2,
+      "preconditions": 46,
+      "regionTrained": 4,
+      "resistanceEquipmentGroup": 35,
+      "rom": 5,
+      "stability": 5,
+      "supportEquipmentGroup": 53
+    },
+    "ontology_object_count": 5301,
+    "recommendation_score_distributions": {
+      "hypertrophyAccessoryRecommendationLevel": {
+        "1.0": 162,
+        "2.0": 150,
+        "3.0": 158,
+        "4.0": 181,
+        "5.0": 68,
+        "6.0": 40,
+        "7.0": 32,
+        "8.0": 4
+      },
+      "hypertrophyPrimaryCompoundRecommendationLevel": {
+        "1.0": 55,
+        "1.5": 3,
+        "2.0": 19,
+        "3.0": 45,
+        "4.0": 21,
+        "5.0": 13,
+        "6.0": 4,
+        "7.0": 6
+      },
+      "hypertrophySecondaryCompoundRecommendationLevel": {
+        "1.0": 93,
+        "1.5": 3,
+        "2.0": 76,
+        "2.5": 4,
+        "3.0": 173,
+        "4.0": 152,
+        "5.0": 55,
+        "6.0": 6,
+        "7.0": 16,
+        "8.0": 2,
+        "9.0": 2
+      },
+      "strengthAccessoryRecommendationLevel": {
+        "1.0": 156,
+        "2.0": 172,
+        "3.0": 154,
+        "4.0": 185,
+        "5.0": 64,
+        "6.0": 27,
+        "7.0": 31,
+        "8.0": 4
+      },
+      "strengthPrimaryCompoundRecommendationLevel": {
+        "1.0": 22,
+        "1.5": 3,
+        "2.0": 40,
+        "2.5": 7,
+        "3.0": 41,
+        "4.0": 19,
+        "5.0": 13,
+        "6.0": 4,
+        "7.0": 6
+      },
+      "strengthSecondaryCompoundRecommendationLevel": {
+        "1.0": 75,
+        "1.5": 3,
+        "2.0": 94,
+        "2.5": 4,
+        "3.0": 172,
+        "4.0": 142,
+        "5.0": 50,
+        "6.0": 6,
+        "7.0": 16,
+        "8.0": 2,
+        "9.0": 2
+      }
+    },
+    "tier1_primary_compounds": {
+      "hypertrophy": {
+        "Hamstring Accessory": [
+          "Lever-arm belt squat machine Romanian deadlift",
+          "Pulley belt squat machine Romanian deadlift",
+          "Shrug machine Romanian deadlift"
+        ],
+        "Hip Hinge": [
+          "Barbell Romanian deadlift",
+          "Lever-arm belt squat machine Romanian deadlift",
+          "Pulley belt squat machine Romanian deadlift",
+          "Shrug machine Romanian deadlift",
+          "Trap bar Romanian deadlift"
+        ],
+        "Horizontal Pull": [
+          "Bent-over barbell row",
+          "Bent-over overhand grip T-bar row",
+          "Bent-over plate-loaded machine row",
+          "Chest-supported dumbbell row (elbows-in)",
+          "Chest-supported dumbbell row (elbows-out)",
+          "Chest-supported neutral grip T-bar row",
+          "Chest-supported overhand grip T-bar row",
+          "Diverging pin-loaded machine row (without chest support)",
+          "Machine D.Y. row",
+          "Neutral grip pin-loaded machine row",
+          "Neutral grip plate-loaded machine row",
+          "Overhand grip cable row",
+          "Overhand grip pin-loaded machine row",
+          "Overhand grip plate-loaded machine row",
+          "Seated dual handle cable row (elbows-in)",
+          "Seated dual handle cable row (elbows-out)",
+          "Single arm dumbbell row (elbow-in)",
+          "Single arm dumbbell row (elbow-out)",
+          "Smith machine row",
+          "Underhand grip cable row"
+        ],
+        "Horizontal Push": [
+          "Barbell bench press",
+          "Buffalo bar bench press",
+          "Cambered bar bench press",
+          "Close grip bench press",
+          "Pause barbell bench press"
+        ],
+        "Lat Accessory": [
+          "Dual handle cable lat pulldown",
+          "Overhand grip cable lat pulldown",
+          "Overhand grip pin-loaded machine lat pulldown",
+          "Overhand grip plate-loaded machine lat pulldown",
+          "Pin-loaded machine front lat pulldown",
+          "Underhand grip cable lat pulldown",
+          "Wide grip cable lat pulldown"
+        ],
+        "Squat": [
+          "45° leg press",
+          "Barbell back squat",
+          "Hack squat",
+          "Horizontal hack squat",
+          "Leverage leg press",
+          "Pendulum squat",
+          "Pin-loaded leg press",
+          "Plate-loaded horizontal leg press",
+          "Pro power squat",
+          "Smith machine back squat"
+        ],
+        "Vertical Pull": [
+          "Dual handle cable lat pulldown",
+          "Neutral grip weighted pull-up",
+          "Overhand grip cable lat pulldown",
+          "Overhand grip pin-loaded machine lat pulldown",
+          "Overhand grip plate-loaded machine lat pulldown",
+          "Overhand grip weighted pull-up",
+          "Pin-loaded machine front lat pulldown",
+          "Underhand grip cable lat pulldown",
+          "Weighted chin-up",
+          "Wide grip cable lat pulldown"
+        ],
+        "Vertical Push": [
+          "Barbell overhead press",
+          "High incline Smith machine press",
+          "Machine viking press",
+          "Seated dumbbell overhead press",
+          "Standing dumbbell overhead press"
+        ]
+      },
+      "strength": {
+        "Hip Hinge": [
+          "Conventional deadlift",
+          "Low handle trap bar deadlift",
+          "Sumo deadlift"
+        ],
+        "Horizontal Pull": [
+          "Bent-over barbell row",
+          "Bent-over plate-loaded machine row",
+          "Bent-over underhand grip barbell row",
+          "Pendlay row"
+        ],
+        "Horizontal Push": [
+          "Barbell bench press",
+          "Close grip bench press",
+          "Pause barbell bench press",
+          "Swiss bar bench press"
+        ],
+        "Squat": [
+          "Barbell back squat",
+          "Front squat",
+          "Pause back squat",
+          "Safety squat bar squat"
+        ],
+        "Vertical Pull": [
+          "Neutral grip weighted pull-up",
+          "Overhand grip weighted pull-up",
+          "Weighted chin-up"
+        ],
+        "Vertical Push": [
+          "Barbell overhead press",
+          "Barbell push press",
+          "Machine viking press",
+          "Pause barbell overhead press"
+        ]
+      }
+    }
+  },
+  "generator_inputs_from_strings": {
+    "competency_questions": [
+      "Can you do at least 10 strict, unassisted pull-ups or chin-ups?",
+      "Can you do at least 5 strict, unassisted pull-ups or chin-ups?",
+      "Can you do at least 15 strict, bodyweight push-ups?",
+      "Can you incline press a barbell for at least 10 reps?",
+      "Can you overhead press (shoulder press) a barbell for at least 10 reps?",
+      "Can you perform at least 10 body weight dips?",
+      "Can you bench press a barbell for at least 10 reps?"
+    ],
+    "creation_modes": [
+      "Use Smart Generation",
+      "Build From Scratch",
+      "Import program from file"
+    ],
+    "deload": [
+      "none",
+      "firstCycle",
+      "lastCycle"
+    ],
+    "experience": [
+      "Beginner",
+      "Intermediate",
+      "Advanced"
+    ],
+    "goals": [
+      "strength",
+      "hypertrophy",
+      "hybrid"
+    ],
+    "gym_template_flags": {
+      "commercialGym": {
+        "count": 89,
+        "equipment": [
+          "45° leg press",
+          "Ab Wheel",
+          "Adjustable bench",
+          "Aerobic step",
+          "Aerobic steps",
+          "Anchor point for resistance band",
+          "Anchor point for suspension trainer",
+          "Barbell",
+          "Bike",
+          "Bodyweight only",
+          "Captain’s chair",
+          "Chest-supported T-bar row",
+          "Chest-supported pin-loaded row",
+          "Cuff cable attachment",
+          "Cuff cable attachments",
+          "Decline bench",
+          "Decline bench press station",
+          "Dip bars",
+          "Dip/pull-up/belt squat belt",
+          "Dumbbell",
+          "Dumbbells",
+          "EZ bar",
+          "Elliptical",
+          "Fixed-weight EZ bar",
+          "Fixed-weight straight bar",
+          "Flat bench",
+          "Flat bench press station",
+          "Glute ham developer",
+          "Hack squat",
+          "Incline bench press station",
+          "Kettlebell",
+          "Kettlebells",
+          "Landmine attachment/wall corner",
+          "Long resistance band",
+          "Long resistance bands",
+          "Lying pin-loaded leg curl",
+          "Medicine Ball",
+          "Multi-grip pull-up bar",
+          "Pec deck",
+          "Pin-loaded assisted pull-up/dip",
+          "Pin-loaded biceps curl with arms at side",
+          "Pin-loaded cable crossover",
+          "Pin-loaded cable lat pulldown",
+          "Pin-loaded crunch (with overhead handles)",
+          "Pin-loaded fixed lat pulldown",
+          "Pin-loaded functional trainer",
+          "Pin-loaded hip abductor/adductor combo machine",
+          "Pin-loaded leg extension",
+          "Pin-loaded leg press",
+          "Pin-loaded overhead triceps extension",
+          "Pin-loaded preacher curl",
+          "Pin-loaded shoulder press",
+          "Pin-loaded single cable machine",
+          "Pin-loaded triceps extension (with angled arm pad)",
+          "Plate-loaded hip thrust (starting from the bottom)",
+          "Plate-loaded lat pulldown",
+          "Plate-loaded shoulder press",
+          "Plyometric box",
+          "Plyometric boxes",
+          "Power rack",
+          "Preacher curl bench",
+          "Roman chair",
+          "Rowing machine",
+          "Seated bench",
+          "Seated cable row",
+          "Seated pin-loaded back extension",
+          "Seated pin-loaded chest press",
+          "Seated pin-loaded dip",
+          "Seated pin-loaded lateral raise",
+          "Seated pin-loaded leg curl",
+          "Seated plate-loaded calf raise",
+          "Seated plate-loaded chest press",
+          "Short resistance band",
+          "Sissy squat machine",
+          "Smith machine",
+          "Stability ball",
+          "Stair climber",
+          "Staircase",
+          "Standing pin-loaded calf raise",
+          "Standing pin-loaded glute kickback",
+          "Straight pull-up bar",
+          "Suspension trainer",
+          "Trap bar",
+          "Treadmill",
+          "Upper torso rotation with arm or shoulder pads",
+          "V-bar row grip attachment",
+          "Weight plate",
+          "Weight plates",
+          "Wrist roller"
+        ]
+      },
+      "garageGym": {
+        "count": 26,
+        "equipment": [
+          "Ab Wheel",
+          "Adjustable bench",
+          "Anchor point for resistance band",
+          "Anchor point for suspension trainer",
+          "Barbell",
+          "Bodyweight only",
+          "Chair",
+          "Cuff cable attachment",
+          "Cuff cable attachments",
+          "Dip/pull-up/belt squat belt",
+          "Dumbbell",
+          "Dumbbells",
+          "Furniture sliders",
+          "Kettlebell",
+          "Kettlebells",
+          "Landmine attachment/wall corner",
+          "Long resistance band",
+          "Long resistance bands",
+          "Multi-grip pull-up bar",
+          "Power rack",
+          "Short resistance band",
+          "Stability ball",
+          "Straight pull-up bar",
+          "Weight plate",
+          "Weight plates",
+          "Wrist roller"
+        ]
+      },
+      "homeGym": {
+        "count": 22,
+        "equipment": [
+          "Ab Wheel",
+          "Ankle Weight",
+          "Ankle Weights",
+          "Bed",
+          "Bodyweight only",
+          "Chair",
+          "Couch",
+          "Dumbbell",
+          "Dumbbells",
+          "Furniture sliders",
+          "Hammer",
+          "Hand gripper",
+          "Kettlebell",
+          "Kettlebells",
+          "Long resistance band",
+          "Long resistance bands",
+          "Multi-grip pull-up bar",
+          "Push-up handles",
+          "Short resistance band",
+          "Stability ball",
+          "Staircase",
+          "Wrist roller"
+        ]
+      },
+      "localGym": {
+        "count": 48,
+        "equipment": [
+          "Ab Wheel",
+          "Adjustable bench",
+          "Aerobic step",
+          "Aerobic steps",
+          "Anchor point for resistance band",
+          "Anchor point for suspension trainer",
+          "Barbell",
+          "Bike",
+          "Bodyweight only",
+          "Chest-supported pin-loaded row",
+          "Dip/pull-up/belt squat belt",
+          "Dumbbell",
+          "Dumbbells",
+          "Elliptical",
+          "Flat bench press station",
+          "Incline bench press station",
+          "Kettlebell",
+          "Kettlebells",
+          "Landmine attachment/wall corner",
+          "Long resistance band",
+          "Long resistance bands",
+          "Medicine Ball",
+          "Multi-grip pull-up bar",
+          "Pin-loaded cable crossover",
+          "Pin-loaded crunch (with overhead handles)",
+          "Pin-loaded fixed lat pulldown",
+          "Pin-loaded functional trainer",
+          "Pin-loaded leg extension",
+          "Pin-loaded leg press",
+          "Pin-loaded overhead triceps extension",
+          "Pin-loaded preacher curl",
+          "Pin-loaded shoulder press",
+          "Pin-loaded single cable machine",
+          "Plyometric box",
+          "Plyometric boxes",
+          "Power rack",
+          "Rowing machine",
+          "Seated pin-loaded chest press",
+          "Seated pin-loaded leg curl",
+          "Short resistance band",
+          "Stability ball",
+          "Straight pull-up bar",
+          "Suspension trainer",
+          "Trap bar",
+          "Treadmill",
+          "V-bar row grip attachment",
+          "Weight plate",
+          "Weight plates"
+        ]
+      },
+      "warehouseGym": {
+        "count": 43,
+        "equipment": [
+          "Ab Wheel",
+          "Adjustable bench",
+          "Aerobic step",
+          "Aerobic steps",
+          "Air bike",
+          "Anchor point for resistance band",
+          "Anchor point for suspension trainer",
+          "Barbell",
+          "Battle ropes",
+          "Bodyweight only",
+          "Bumper plate",
+          "Bumper plates",
+          "Chain",
+          "Chains",
+          "Dip bars",
+          "Dip/pull-up/belt squat belt",
+          "Dumbbell",
+          "Dumbbells",
+          "Flat bench",
+          "Glute ham developer",
+          "Gymnastics Ring",
+          "Gymnastics Rings",
+          "Kettlebell",
+          "Kettlebells",
+          "Landmine attachment/wall corner",
+          "Long resistance band",
+          "Long resistance bands",
+          "Medicine Ball",
+          "Multi-grip pull-up bar",
+          "Plate-loaded lat pulldown/low row rack attachment",
+          "Plyometric box",
+          "Plyometric boxes",
+          "Power rack",
+          "Rowing machine",
+          "Short resistance band",
+          "SkiErg",
+          "Sled",
+          "Straight pull-up bar",
+          "Suspension trainer",
+          "Trap bar",
+          "Treadmill",
+          "Weight plate",
+          "Weight plates"
+        ]
+      }
+    },
+    "periodization": [
+      "static",
+      "linear",
+      "reverseLinear",
+      "undulating"
+    ],
+    "session_duration_buckets": [
+      "Up to 20 minutes",
+      "20 to 40 minutes",
+      "40 to 60 minutes",
+      "60 to 90 minutes",
+      "90 to 120 minutes",
+      "Over 120 minutes"
+    ],
+    "training_days": {
+      "max": 6,
+      "min": 2
+    }
+  },
+  "not_recovered": [
+    "Exact split auto-selection decision tree",
+    "Exact number of slots/exercises per split/day",
+    "Exact focus-point to volume/frequency transformation",
+    "Exact volume/set tables by experience/goal",
+    "Exact session-duration time estimator/truncation formula",
+    "Exact precondition-question mapping",
+    "Exact tie-breaking/randomization between same-tier candidates",
+    "Exact server-side request/response schema",
+    "Any server-only scoring coefficients"
+  ],
+  "target": {
+    "architecture": "Flutter release / Dart AOT / AArch64",
+    "dart_version_string": "3.13.3 stable",
+    "exercise_db_generated_at": "2026-09-28T22:29:08Z",
+    "libapp_sha256": "a79f5db63bb7dffdd683fae131fe033deabaef20d14d6ce4e5d4a6debb3f1312",
+    "package": "com.sbs.train",
+    "version": "1.4.0",
+    "xapk_sha256": "e9b518b0dbf85615f414b7859b758532d8acd5a9d8bbd3c7fe37ab1e9783a12d"
+  }
+}

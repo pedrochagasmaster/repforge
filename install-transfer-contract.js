@@ -48,6 +48,8 @@
     INVALID_REQUEST_SHAPE: "invalid-request-shape",
     INVALID_SCHEMA_VERSION: "invalid-schema-version",
     UNSUPPORTED_SCHEMA_VERSION: "unsupported-schema-version",
+    UNSUPPORTED_PROGRAM_DEFINITION_VERSION: "unsupported-program-definition-version",
+    UNSUPPORTED_LOG_SCHEMA_VERSION: "unsupported-log-schema-version",
     UNSUPPORTED_WORKOUT_DRAFT_VERSION: "unsupported-workout-draft-version",
     UNSUPPORTED_PROGRAM_ENTRY_DRAFT_VERSION: "unsupported-program-entry-draft-version",
     UNKNOWN_SECTION: "unknown-section",
@@ -69,6 +71,7 @@
     CLAIM_UNAVAILABLE: "claim-unavailable",
     INTEGRITY_MISMATCH: "integrity-mismatch",
     CRYPTO_UNAVAILABLE: "crypto-unavailable",
+    CATALOG_UNAVAILABLE: "catalog-unavailable",
     INVALID_DIAGNOSTIC: "invalid-diagnostic",
   });
 
@@ -721,62 +724,6 @@
     return node === 1 ? null : ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION;
   }
 
-  // These are the versioned producer sections whose version fields carry
-  // reconstruction meaning at this boundary. Additive logical objects may
-  // carry their own schemaVersion fields without being treated as wire
-  // protocol versions (for example durableState.settings).
-  function previewSchemaVersionError(value) {
-    let error = schemaVersionErrorAt(value, ["programStructure", "schemaVersion"]);
-    if (error) return error;
-    const rows = [];
-    if (Array.isArray(value?.program)) rows.push(...value.program);
-    if (Array.isArray(value?.days)) {
-      for (const day of value.days) if (Array.isArray(day?.exercises)) rows.push(...day.exercises);
-    }
-    for (const row of rows) {
-      error = schemaVersionErrorAt(row, ["progression", "schemaVersion"]);
-      if (error) return error;
-    }
-    return null;
-  }
-
-  function validateProgrammingContext(value) {
-    if (!isPlainObject(value)) return ERROR_CODES.INVALID_ENVELOPE;
-    const keys = exactKeys(value, [
-      "schemaVersion", "desiredResult", "structuredExperience", "recentConsistency", "availability",
-      "environment", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "priorityMovements",
-      "exerciseConstraints", "reviewedAt",
-    ]);
-    if (keys) return keys === ERROR_CODES.UNKNOWN_SECTION ? keys : ERROR_CODES.INVALID_ENVELOPE;
-    if (value.schemaVersion !== 1) return ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION;
-    if (!validString(value.desiredResult, true) || !validString(value.structuredExperience, true) ||
-      !validString(value.recentConsistency, true) || !isUtcIsoTimestamp(value.reviewedAt)) {
-      return ERROR_CODES.INVALID_ENVELOPE;
-    }
-    if (!isPlainObject(value.availability) || exactKeys(value.availability, ["daysPerWeek", "sessionMinutes", "preferredRestSeconds"]) ||
-      !Number.isInteger(value.availability.daysPerWeek) || value.availability.daysPerWeek < 2 ||
-      !Number.isInteger(value.availability.sessionMinutes) || value.availability.sessionMinutes < 1 ||
-      (value.availability.preferredRestSeconds !== null &&
-        (!Number.isInteger(value.availability.preferredRestSeconds) || value.availability.preferredRestSeconds < 0))) {
-      return ERROR_CODES.INVALID_ENVELOPE;
-    }
-    if (!isPlainObject(value.environment) || Object.keys(value.environment).some(key => !["kind", "capabilities", "equipment"].includes(key)) ||
-      !validString(value.environment.kind, true)) return ERROR_CODES.INVALID_ENVELOPE;
-    for (const field of ["capabilities", "equipment"]) {
-      if (hasOwn(value.environment, field) && (!Array.isArray(value.environment[field]) ||
-        value.environment[field].some(item => !validIdentifier(item, true)))) return ERROR_CODES.INVALID_ENVELOPE;
-    }
-    for (const field of ["primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "priorityMovements"]) {
-      if (!Array.isArray(value[field]) || value[field].some(item => !validIdentifier(item, true))) return ERROR_CODES.INVALID_ENVELOPE;
-    }
-    if (!Array.isArray(value.exerciseConstraints) || value.exerciseConstraints.some(item =>
-      !isPlainObject(item) || exactKeys(item, ["exerciseId", "reason"]) ||
-      !validIdentifier(item.exerciseId, true) || !validString(item.reason, true))) {
-      return ERROR_CODES.INVALID_ENVELOPE;
-    }
-    return null;
-  }
-
   function validateDraftSet(value, setId) {
     if (!isPlainObject(value) || value.setId !== setId || !validIdentifier(setId, true) ||
       !Number.isSafeInteger(value.ordinal) || value.ordinal < 1 || !["working", "warmup"].includes(value.role) ||
@@ -799,10 +746,13 @@
       !["active", "skipped"].includes(value.status) || !validString(value.setupNotes) ||
       !Array.isArray(value.setOrder) || !isPlainObject(value.sets)) return false;
     const programmed = value.programmed;
-    for (const field of ["order", "sets", "minReps", "maxReps"]) {
+    // A metric composition without repetitions carries no flat rep range, as
+    // the draft module allows; every other exercise needs a complete one.
+    const repless = programmed.metricOrigin != null && programmed.minReps == null && programmed.maxReps == null;
+    for (const field of repless ? ["order", "sets"] : ["order", "sets", "minReps", "maxReps"]) {
       if (!Number.isSafeInteger(programmed[field]) || programmed[field] < (field === "order" ? 0 : 1)) return false;
     }
-    if (programmed.minReps > programmed.maxReps || !validString(programmed.notes) ||
+    if (!repless && programmed.minReps > programmed.maxReps || !validString(programmed.notes) ||
       !validString(programmed.primary) || !validString(programmed.secondary) ||
       !validIdentifier(programmed.sourceFingerprint, true) || programmed.sets !== value.setOrder.length) return false;
     const ids = value.setOrder;
@@ -811,6 +761,59 @@
     const setKeys = Object.keys(value.sets);
     if (setKeys.length !== ids.length || setKeys.some(id => !unique.has(id))) return false;
     return ids.every(id => validateDraftSet(value.sets[id], id));
+  }
+
+  function validateCanonicalWorkoutDraft(value) {
+    const workoutDraft = runtimeWorkoutDraft();
+    const metrics = runtimeExerciseMetrics();
+    const catalog = runtimeCatalog();
+    if (!workoutDraft || typeof workoutDraft.validate !== "function" ||
+        !metrics || typeof metrics.validateRawIds !== "function" ||
+        !isPlainObject(catalog?.uuidIndex)) return ERROR_CODES.CATALOG_UNAVAILABLE;
+
+    // The install-transfer section is the logical projection of DraftV2. Restore
+    // only the volatile fields that logicalCloneSection deliberately removes so
+    // the producer remains the authority for its durable schema.
+    const candidate = cloneJson(value);
+    candidate.revision = 0;
+    candidate.writer = {
+      installationId: "install-transfer-validator",
+      tabId: "install-transfer-validator",
+      operationId: "install-transfer-validator",
+    };
+    candidate.program.durableRevision = 0;
+    const checked = workoutDraft.validate(candidate);
+    if (!checked.ok) return ERROR_CODES.INVALID_ENVELOPE;
+
+    for (const exerciseId of candidate.exerciseOrder) {
+      const exercise = candidate.exercises[exerciseId];
+      const origin = exercise.programmed.metricOrigin;
+      const libraryId = exercise.libraryId ?? exercise.programmed.libraryId ?? null;
+      const sourceExercise = catalog.exercises.find((entry) => entry.id === libraryId) || null;
+      const modelCoefficient = exercise.programmed.loadingModel?.bodyweightCoefficient ?? null;
+      const contextCoefficient = exercise.programmed.loadingContext?.bodyweightCoefficient ?? null;
+      if (modelCoefficient !== contextCoefficient) return ERROR_CODES.INVALID_ENVELOPE;
+      const setCompositions = [];
+      for (const setId of exercise.setOrder) {
+        const programmed = exercise.sets[setId].programmed;
+        const metricIds = programmed.metricType === "source_metrics@1" ? programmed.metricIds : [];
+        const metricDefinitions = Array.isArray(programmed.metrics) ? programmed.metrics : [];
+        const binding = metrics.validateExerciseSourceBinding({
+          metricOrigin: origin,
+          metricIds,
+          metricDefinitions,
+          sourceId: libraryId,
+          sourceExercise,
+          bodyweightCoefficient: exercise.programmed.loadingModel?.bodyweightCoefficient,
+        });
+        if (!binding.ok) return ERROR_CODES.INVALID_ENVELOPE;
+        setCompositions.push(JSON.stringify([metricIds, metricDefinitions]));
+      }
+      if (setCompositions.some((composition) => composition !== setCompositions[0])) {
+        return ERROR_CODES.INVALID_ENVELOPE;
+      }
+    }
+    return null;
   }
 
   function validateWorkoutDraft(value) {
@@ -851,7 +854,7 @@
     if (exerciseKeys.length !== ids.length || exerciseKeys.some(id => !unique.has(id))) return ERROR_CODES.INVALID_ENVELOPE;
     if (value.session.selectedExerciseId !== null && !unique.has(value.session.selectedExerciseId)) return ERROR_CODES.INVALID_ENVELOPE;
     if (!ids.every(id => validateDraftExercise(value.exercises[id], id))) return ERROR_CODES.INVALID_ENVELOPE;
-    return null;
+    return validateCanonicalWorkoutDraft(value);
   }
 
   function validateProgramEntryDraft(value) {
@@ -862,81 +865,256 @@
         ? ERROR_CODES.UNSUPPORTED_PROGRAM_ENTRY_DRAFT_VERSION
         : ERROR_CODES.INVALID_SCHEMA_VERSION;
     }
+    // The wire carries the logical draft, never the local storage wrapper.
     if (hasOwn(value, "ownerId") || hasOwn(value, "revision") || hasOwn(value, "state")) return ERROR_CODES.FORBIDDEN_FIELD;
-    const keys = exactKeys(value, [
-      "schemaVersion", "draftId", "route", "step", "answers", "legacyHints", "result", "versions",
-      "activeProgramRevisionAtStart", "createdAt", "updatedAt",
-    ]);
-    if (keys) return keys;
-    const routes = new Set(["recommend", "custom", "browse", "build", "import", "shared"]);
-    const routeSteps = {
-      recommend: new Set(["desired_result", "background", "schedule", "environment", "priorities", "result", "preview"]),
-      custom: new Set(["desired_result", "background", "schedule", "environment", "priorities", "exercise_preferences", "custom_shape", "result", "preview"]),
-      browse: new Set(["schedule", "environment", "catalogue", "preview"]),
-      build: new Set(["build_setup", "editor"]),
-      import: new Set(["import_source", "preview"]),
-      shared: new Set(["shared_review", "preview"]),
-    };
-    if (!validIdentifier(value.draftId, true) ||
-      (value.route !== null && !routes.has(value.route)) || !validString(value.step, true) ||
-      (value.route === null && value.step !== "entry") ||
-      (value.route !== null && value.step !== "entry" && value.step !== "activation_conflict" && !routeSteps[value.route]?.has(value.step)) ||
-      !isPlainObject(value.answers) || !isPlainObject(value.legacyHints) ||
-      (value.result !== null && !isPlainObject(value.result)) || !isPlainObject(value.versions) ||
-      !Number.isSafeInteger(value.activeProgramRevisionAtStart) || value.activeProgramRevisionAtStart < 0 ||
-      !isUtcIsoTimestamp(value.createdAt) || !isUtcIsoTimestamp(value.updatedAt)) return ERROR_CODES.INVALID_ENVELOPE;
-    const versionKeys = new Set([
-      "compiler", "family", "blueprint", "catalogue", "rules", "context", "progression", "recentConsistency", "simpleStart",
-    ]);
-    if (Object.keys(value.versions).some(key => !versionKeys.has(key) ||
-      !validString(value.versions[key], true) || !/^[a-z0-9][a-z0-9_.:-]*$/.test(value.versions[key]))) {
+    // A staged candidate from a later program schema is unsupported, not malformed.
+    // Schema v1 (set-level metrics present, equal to the slot's) and v2
+    // (absent, derived from the slot) both clone through a real transfer.
+    for (const preview of [value.result?.preview, value.result?.alternative?.preview]) {
+      const version = isPlainObject(preview?.programDefinition) ? preview.programDefinition.schemaVersion : 1;
+      if (version !== 1 && version !== 2) return ERROR_CODES.UNSUPPORTED_PROGRAM_DEFINITION_VERSION;
+    }
+    const programEntry = runtimeProgramEntry();
+    if (!programEntry || typeof programEntry.normalizeSetupDraftEnvelope !== "function") {
+      return ERROR_CODES.CATALOG_UNAVAILABLE;
+    }
+    let normalized;
+    try {
+      normalized = programEntry.normalizeSetupDraftEnvelope(value);
+    } catch {
       return ERROR_CODES.INVALID_ENVELOPE;
     }
-    for (const key of ["compiler", "family", "blueprint", "catalogue", "rules", "context", "progression"]) {
-      if (!hasOwn(value.versions, key)) return ERROR_CODES.INVALID_ENVELOPE;
+    const logicalState = normalized?.value?.envelope?.state;
+    if (!normalized?.ok || !isPlainObject(logicalState)) return ERROR_CODES.INVALID_ENVELOPE;
+    try {
+      if (canonicalJson(logicalState) !== canonicalJson(value)) return ERROR_CODES.INVALID_ENVELOPE;
+    } catch {
+      return ERROR_CODES.INVALID_ENVELOPE;
     }
-    if (value.result !== null) {
-      const result = value.result;
-      if (value.route === null) return ERROR_CODES.INVALID_ENVELOPE;
-      if (result.schemaVersion !== 1 || result.route !== value.route || !validIdentifier(result.fingerprint, true) ||
-        !validIdentifier(result.answersFingerprint, true) || !isPlainObject(result.preview)) {
-        return result.schemaVersion !== 1 ? ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION : ERROR_CODES.INVALID_ENVELOPE;
+
+    const result = logicalState.result;
+    const previews = [];
+    if (isPlainObject(result?.preview)) previews.push(result.preview);
+    if (isPlainObject(result?.alternative?.preview)) previews.push(result.alternative.preview);
+    const catalog = runtimeCatalog();
+    const compiler = runtimeProgramCompiler();
+    for (const preview of previews) {
+      const customExercises = preview.customExercises ?? [];
+      const customDefinitions = canonicalCustomExerciseDefinitions(customExercises);
+      if (!customDefinitions.ok) return ERROR_CODES.INVALID_ENVELOPE;
+      const carriesDefinition = hasOwn(preview, "programDefinition");
+      if (carriesDefinition && preview.programDefinition == null) return ERROR_CODES.INVALID_ENVELOPE;
+      if (carriesDefinition || customDefinitions.value.length > 0) {
+        if (!catalog || !compiler) return ERROR_CODES.CATALOG_UNAVAILABLE;
+        if (typeof compiler.validateCustomExerciseDefinitions !== "function" ||
+            !compiler.validateCustomExerciseDefinitions(customDefinitions.value, catalog).ok) {
+          return ERROR_CODES.INVALID_ENVELOPE;
+        }
       }
-      const previewVersionError = previewSchemaVersionError(result.preview);
-      if (previewVersionError) return previewVersionError;
-      const commonResultKeys = new Set(["schemaVersion", "route", "fingerprint", "answersFingerprint", "name", "namePt", "source", "id", "preview"]);
-      const routeResultKeys = {
-        recommend: new Set(["selected", "candidates", "alternative", "diagnostics", "explanation", "telemetry", "serviceVersion"]),
-        custom: new Set(["selected", "candidates", "alternative", "diagnostics", "explanation", "telemetry", "serviceVersion"]),
-        browse: new Set(["selected", "telemetry"]),
-        build: new Set(["selected"]),
-        import: new Set(["selected"]),
-        shared: new Set(["selected", "telemetry"]),
-      };
-      const allowedResultKeys = new Set([...commonResultKeys, ...(routeResultKeys[value.route] || [])]);
-      if (Object.keys(result).some(key => !allowedResultKeys.has(key))) return ERROR_CODES.UNKNOWN_SECTION;
-      for (const key of ["name", "namePt"]) if (hasOwn(result, key) && !validString(result[key])) return ERROR_CODES.INVALID_ENVELOPE;
-      for (const key of ["source", "id", "serviceVersion"]) {
-        if (hasOwn(result, key) && !validIdentifier(result[key], true)) return ERROR_CODES.INVALID_ENVELOPE;
+      if (carriesDefinition) {
+        const definitionError = validateCanonicalProgramDefinition(preview.programDefinition, customDefinitions.value, catalog);
+        if (definitionError) return definitionError;
       }
-      if (hasOwn(result, "selected") && (!isPlainObject(result.selected) || !validIdentifier(result.selected.id, true))) return ERROR_CODES.INVALID_ENVELOPE;
-      if (hasOwn(result, "alternative") && result.alternative !== null && (!isPlainObject(result.alternative) || !validIdentifier(result.alternative.id, true))) return ERROR_CODES.INVALID_ENVELOPE;
-      if (hasOwn(result, "candidates") && (!Array.isArray(result.candidates) || result.candidates.some(item => !isPlainObject(item) || !validIdentifier(item.id, true)))) return ERROR_CODES.INVALID_ENVELOPE;
-      const previewKeys = new Set([
-        "source", "format", "family", "familyId", "frequency", "blueprintId", "program", "programStructure",
-        "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "days", "limitations", "reductions",
-        "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "customExercises", "sharedMeta", "sharedSettings", "sharedImport",
-      ]);
-      if (Object.keys(result.preview).some(key => !previewKeys.has(key))) return ERROR_CODES.UNKNOWN_SECTION;
-      for (const key of ["diagnostics", "explanation"]) {
-        if (hasOwn(result, key) && !isPlainObject(result[key]) && !Array.isArray(result[key])) return ERROR_CODES.INVALID_ENVELOPE;
-      }
-      if (hasOwn(result, "telemetry") && !isPlainObject(result.telemetry)) return ERROR_CODES.INVALID_ENVELOPE;
-      for (const key of ["program", "days", "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "customExercises"]) {
-        if (hasOwn(result.preview, key) && !Array.isArray(result.preview[key])) return ERROR_CODES.INVALID_ENVELOPE;
-        if (hasOwn(result.preview, key) && result.preview[key].some(item => !isPlainObject(item))) return ERROR_CODES.INVALID_ENVELOPE;
-      }
-      if (hasOwn(result.preview, "programStructure") && !isPlainObject(result.preview.programStructure)) return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    return null;
+  }
+
+  function runtimeProgramCompiler() {
+    if (root?.RepForgeProgramCompiler) return root.RepForgeProgramCompiler;
+    if (typeof require === "function") return require("./program-compiler.js");
+    return null;
+  }
+
+  function runtimeProgramEntry() {
+    if (root?.RepForgeProgramEntry) return root.RepForgeProgramEntry;
+    if (typeof require === "function") return require("./program-entry.js");
+    return null;
+  }
+
+  function runtimeExerciseMetrics() {
+    if (root?.RepForgeExerciseMetrics) return root.RepForgeExerciseMetrics;
+    if (typeof require === "function") return require("./exercise-metrics.js");
+    return null;
+  }
+
+  function runtimeWorkoutDraft() {
+    if (root?.RepForgeWorkoutDraft) return root.RepForgeWorkoutDraft;
+    if (typeof require === "function") return require("./workout-draft.js");
+    return null;
+  }
+
+  function runtimeCatalog() {
+    try {
+      const snapshot = root?.RepForgeExerciseCatalog?.snapshot?.();
+      if (snapshot) return snapshot;
+    } catch {}
+    if (typeof require === "function") {
+      try { return require("./assets/exercise-catalog.json"); } catch {}
+    }
+    return null;
+  }
+
+  function canonicalCustomExerciseDefinitions(customExercises) {
+    if (!Array.isArray(customExercises)) return { ok: false };
+    const definitions = [];
+    for (const exercise of customExercises) {
+      if (!isPlainObject(exercise) || typeof exercise.id !== "string" || !exercise.id.startsWith("custom:") ||
+          !validString(exercise.name, true) ||
+          (hasOwn(exercise, "namePt") && !validString(exercise.namePt, true)) ||
+          !Array.isArray(exercise.equipment) || exercise.equipment.some((entry) => !validString(entry, true)) ||
+          (hasOwn(exercise, "primary") && !validString(exercise.primary)) ||
+          (hasOwn(exercise, "secondary") && !validString(exercise.secondary)) ||
+          (hasOwn(exercise, "notes") && !validString(exercise.notes))) return { ok: false };
+      const hasIds = hasOwn(exercise, "metricIds");
+      const hasDefinitions = hasOwn(exercise, "metricDefinitions");
+      if (hasIds !== hasDefinitions ||
+          (hasIds && (!Array.isArray(exercise.metricIds) || !Array.isArray(exercise.metricDefinitions)))) return { ok: false };
+      definitions.push({
+        id: exercise.id,
+        name: exercise.name,
+        namePt: exercise.namePt ?? exercise.name,
+        equipment: exercise.equipment,
+        primary: exercise.primary ?? "",
+        secondary: exercise.secondary ?? "",
+        notes: exercise.notes ?? "",
+        metricIds: hasIds ? exercise.metricIds : [],
+        metricDefinitions: hasDefinitions ? exercise.metricDefinitions : [],
+      });
+    }
+    return { ok: true, value: definitions };
+  }
+
+  function validateCanonicalProgramDefinition(definition, customDefinitions, catalog) {
+    const compiler = runtimeProgramCompiler();
+    if (!compiler || typeof compiler.validateProgramDefinition !== "function" || !catalog) {
+      return ERROR_CODES.CATALOG_UNAVAILABLE;
+    }
+    if (!isPlainObject(definition) || !Number.isInteger(definition.schemaVersion)) {
+      return ERROR_CODES.UNSUPPORTED_PROGRAM_DEFINITION_VERSION;
+    }
+    // Schema v1 (set-level metrics present, equal to the slot's) and v2
+    // (absent, derived from the slot) both clone through a real transfer;
+    // compiler.validateProgramDefinition below accepts either shape.
+    if (definition.schemaVersion !== 1 && definition.schemaVersion !== 2) return ERROR_CODES.UNSUPPORTED_PROGRAM_DEFINITION_VERSION;
+    try {
+      return compiler.validateProgramDefinition(definition, catalog, customDefinitions).ok
+        ? null : ERROR_CODES.INVALID_ENVELOPE;
+    } catch {
+      return ERROR_CODES.INVALID_ENVELOPE;
+    }
+  }
+
+  function validateCanonicalLogRow(row, catalog) {
+    const metricFields = ["metricType", "metricIds", "metricDefinitions", "metricValues", "equipmentId", "loadingConvention", "loadingContext", "restSeconds"];
+    const hasMetricFields = metricFields.some((field) => hasOwn(row, field));
+    const isWorkSet = hasOwn(row, "exerciseId") || hasOwn(row, "set") || hasOwn(row, "setIndex");
+    if (!hasMetricFields) return isWorkSet ? ERROR_CODES.UNSUPPORTED_LOG_SCHEMA_VERSION : null;
+    const metrics = runtimeExerciseMetrics();
+    const workoutDraft = runtimeWorkoutDraft();
+    if (!metrics || typeof metrics.validateDefinitions !== "function" || typeof metrics.validateMetricValues !== "function" ||
+        typeof metrics.validateRawIds !== "function" || typeof metrics.validateExerciseSourceBinding !== "function" ||
+        !workoutDraft || typeof workoutDraft.validateLoadingContext !== "function") {
+      return ERROR_CODES.CATALOG_UNAVAILABLE;
+    }
+    if (row.metricType !== "source_metrics@1" || !Array.isArray(row.metricIds) || row.metricIds.length === 0 ||
+        !Array.isArray(row.metricDefinitions) || !Array.isArray(row.metricValues) ||
+        !Number.isSafeInteger(row.setIndex) || row.setIndex < 0 ||
+        !["external", "assistance", "per_side", "bodyweight"].includes(row.loadingConvention) ||
+        !(row.equipmentId === null || typeof row.equipmentId === "string") ||
+        (row.restSeconds !== null && row.restSeconds !== undefined && (!Number.isSafeInteger(row.restSeconds) || row.restSeconds < 0))) {
+      return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    if (!metrics.validateDefinitions(row.metricIds, row.metricDefinitions).ok ||
+        !metrics.validateRawIds(row.metricIds, catalog?.uuidIndex).ok ||
+        !metrics.validateMetricValues(row.metricIds, row.metricValues).ok ||
+        row.metricValues.some((entry) => !isPlainObject(entry) || typeof entry.value !== "number" || !Number.isFinite(entry.value))) {
+      return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    const sourceId = row.sourceLibraryId;
+    const sourceExercise = catalog?.exercises?.find((entry) => entry.id === sourceId) || null;
+    const sourceBinding = metrics.validateExerciseSourceBinding({
+      metricOrigin: row.metricOrigin,
+      metricIds: row.metricIds,
+      metricDefinitions: row.metricDefinitions,
+      sourceId,
+      sourceExercise,
+      bodyweightCoefficient: row.loadingModel?.bodyweightCoefficient,
+    });
+    if (!sourceBinding.ok) {
+      return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    const loading = workoutDraft.validateLoadingContext(row.loadingContext);
+    if (!loading.ok || !hasOwn(row.loadingContext, "bodyweightKg") ||
+        !hasOwn(row.loadingContext, "bodyweightContributionEnabled") ||
+        !hasOwn(row.loadingContext, "externalLoadMultiplier") ||
+        !hasOwn(row.loadingContext, "bodyweightCoefficient")) return ERROR_CODES.INVALID_ENVELOPE;
+    if (row.loadingContext.loadingConvention !== row.loadingConvention) {
+      return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    const definitions = row.metricDefinitions;
+    const semantics = new Set(definitions.map((definition) => definition.semantic));
+    const expectedConvention = semantics.has("assistanceKg") ? "assistance"
+      : semantics.has("loadPerSideKg") || semantics.has("persistentLoadPerSideKg") ? "per_side"
+        : row.metricIds.length === 1 && (semantics.has("reps") || semantics.has("repsPerSide")) ? "bodyweight" : "external";
+    if (row.loadingConvention !== expectedConvention ||
+        (row.loadingConvention === "bodyweight" && row.loadingContext.externalLoadMultiplier !== 0) ||
+        (row.loadingConvention !== "bodyweight" && row.loadingConvention !== "per_side" &&
+          row.loadingContext.externalLoadMultiplier !== 1) ||
+        row.loadingContext.bodyweightKg !== (row.bodyweight ?? null)) return ERROR_CODES.INVALID_ENVELOPE;
+    if (row.loadingModel != null && (!isPlainObject(row.loadingModel) ||
+        Object.keys(row.loadingModel).some((key) => !["bodyweightCoefficient", "assistanceDirection"].includes(key)) ||
+        (row.loadingModel.bodyweightCoefficient !== null &&
+          (typeof row.loadingModel.bodyweightCoefficient !== "number" || !Number.isFinite(row.loadingModel.bodyweightCoefficient) ||
+            row.loadingModel.bodyweightCoefficient < 0 || row.loadingModel.bodyweightCoefficient > 1)) ||
+        (row.loadingModel.assistanceDirection != null && row.loadingModel.assistanceDirection !== "subtract"))) {
+      return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    if (row.loadingContext.bodyweightCoefficient !== (row.loadingModel?.bodyweightCoefficient ?? null)) return ERROR_CODES.INVALID_ENVELOPE;
+    if (row.rir !== null && row.rir !== undefined && (typeof row.rir !== "number" || !Number.isFinite(row.rir) || row.rir < 0)) {
+      return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    const load = definitions.find((definition) => definition.semantic === "loadKg");
+    const reps = definitions.find((definition) => definition.semantic === "reps");
+    const loadValue = load ? row.metricValues.find((entry) => entry.metricId === load.id)?.value : null;
+    const repsValue = reps ? row.metricValues.find((entry) => entry.metricId === reps.id)?.value : null;
+    if (row.load !== loadValue || row.reps !== repsValue) return ERROR_CODES.INVALID_ENVELOPE;
+    if (row.equipmentId != null && catalog?.uuidIndex?.[row.equipmentId]?.type !== "equipment") return ERROR_CODES.INVALID_ENVELOPE;
+    return null;
+  }
+
+  function validateProgrammingContext(value) {
+    if (!isPlainObject(value)) return ERROR_CODES.INVALID_ENVELOPE;
+    const keys = exactKeys(value, [
+      "schemaVersion", "desiredResult", "structuredExperience", "recentConsistency", "availability",
+      "environment", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "priorityMovements",
+      "exerciseConstraints", "reviewedAt",
+    ]);
+    if (keys) return keys === ERROR_CODES.UNKNOWN_SECTION ? keys : ERROR_CODES.INVALID_ENVELOPE;
+    if (value.schemaVersion !== 1) return ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION;
+    if (!validString(value.desiredResult, true) || !validString(value.structuredExperience, true) ||
+      !validString(value.recentConsistency, true) || !isUtcIsoTimestamp(value.reviewedAt)) {
+      return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    if (!isPlainObject(value.availability) || exactKeys(value.availability, ["daysPerWeek", "sessionMinutes", "preferredRestSeconds"]) ||
+      !Number.isInteger(value.availability.daysPerWeek) || value.availability.daysPerWeek < 2 ||
+      !Number.isInteger(value.availability.sessionMinutes) || value.availability.sessionMinutes < 1 ||
+      (value.availability.preferredRestSeconds !== null &&
+        (!Number.isInteger(value.availability.preferredRestSeconds) || value.availability.preferredRestSeconds < 0))) {
+      return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    if (!isPlainObject(value.environment) || Object.keys(value.environment).some(key => !["kind", "capabilities", "equipment"].includes(key)) ||
+      !validString(value.environment.kind, true)) return ERROR_CODES.INVALID_ENVELOPE;
+    for (const field of ["capabilities", "equipment"]) {
+      if (hasOwn(value.environment, field) && (!Array.isArray(value.environment[field]) ||
+        value.environment[field].some(item => !validIdentifier(item, true)))) return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    for (const field of ["primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "priorityMovements"]) {
+      if (!Array.isArray(value[field]) || value[field].some(item => !validIdentifier(item, true))) return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    if (!Array.isArray(value.exerciseConstraints) || value.exerciseConstraints.some(item =>
+      !isPlainObject(item) || exactKeys(item, ["exerciseId", "reason"]) ||
+      !validIdentifier(item.exerciseId, true) || !validString(item.reason, true))) {
+      return ERROR_CODES.INVALID_ENVELOPE;
     }
     return null;
   }
@@ -950,8 +1128,6 @@
       const contextError = validateProgrammingContext(value.programmingContext);
       if (contextError) return contextError;
     }
-    const programStructureVersionError = schemaVersionErrorAt(value, ["programMeta", "programStructure", "schemaVersion"]);
-    if (programStructureVersionError) return programStructureVersionError;
     const collectionChecks = [
       ["log", LIMITS.logRows, ERROR_CODES.LOG_ROW_TOO_LARGE],
       ["program", LIMITS.programRows, ERROR_CODES.PROGRAM_TOO_LARGE],
@@ -963,6 +1139,23 @@
       if (!Array.isArray(collection)) return ERROR_CODES.INVALID_ENVELOPE;
       if (collection.length > limit) return code;
       if (collection.some(row => !isPlainObject(row))) return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    const definition = value.programMeta.programDefinition;
+    if (value.program.length > 0 && definition == null) return ERROR_CODES.UNSUPPORTED_PROGRAM_DEFINITION_VERSION;
+    const customDefinitions = canonicalCustomExerciseDefinitions(value.customExercises);
+    if (!customDefinitions.ok) return ERROR_CODES.INVALID_ENVELOPE;
+    const catalog = runtimeCatalog();
+    const compiler = runtimeProgramCompiler();
+    if ((value.customExercises.length > 0 || definition != null) && (!catalog || !compiler)) {
+      return ERROR_CODES.CATALOG_UNAVAILABLE;
+    }
+    if (compiler && catalog && typeof compiler.validateCustomExerciseDefinitions === "function" &&
+        !compiler.validateCustomExerciseDefinitions(customDefinitions.value, catalog).ok) {
+      return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    if (definition != null) {
+      const definitionError = validateCanonicalProgramDefinition(definition, customDefinitions.value, catalog);
+      if (definitionError) return definitionError;
     }
     for (const row of value.log) {
       let rowJson;
@@ -976,6 +1169,8 @@
       } catch {
         return ERROR_CODES.INVALID_ENVELOPE;
       }
+      const rowError = validateCanonicalLogRow(row, catalog);
+      if (rowError) return rowError;
     }
     return null;
   }

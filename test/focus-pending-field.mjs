@@ -38,12 +38,6 @@ function assert(cond, name, detail) {
 }
 const phase = (n) => console.log(`\n${n}`);
 
-const isoDaysAgo = (n) => {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
-};
-
 async function persist(page, src) {
   await page.evaluate(
     async ({ k, src }) => {
@@ -80,23 +74,29 @@ async function settle(page) {
   });
 }
 
-/** A fresh device with the seed program and one earlier session of the first exercise at 50 kg. */
-async function boot(page, { rirMode = "numeric", restSec = 90, sets = 2, fontScale = 1 } = {}) {
+const WEIGHT = "2555c6f170d8805cafa6d16d3fdddbaa";
+const REPS = "2555c6f170d88072bbf6d9ad3f16ea86";
+/** Shelf field ids: the seed program's sets are metric-backed (Weight, Reps); RIR stays its own field. */
+const FIELD_IDS = { load: `metric_${WEIGHT}`, reps: `metric_${REPS}`, rir: "rir" };
+
+/**
+ * A fresh device with the seed program on its first exercise, set 1 typed as
+ * 50 kg × 6 the way a lifter enters it. The seed program is manual (no
+ * suggested load), so the starting value every pad tap below steps from is
+ * the lifter's own, acknowledged before the lock is taken.
+ */
+async function boot(page, { rirMode = "numeric", restSec = 90, fontScale = 1 } = {}) {
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await settle(page);
   await page.evaluate((d) => {
     if (window.stopRest) window.stopRest();
     for (const key of Object.keys(localStorage)) if (key === d || key.startsWith(`${d}:`)) localStorage.removeItem(key);
   }, DRAFT);
-  const date = isoDaysAgo(7);
   await persist(page, `
     s.settings = { ...(s.settings || {}), lang: "en", rirMode: ${JSON.stringify(rirMode)}, restSec: ${restSec} };
-    s.program = ${JSON.stringify(seedProgram().map((e) => ({ ...e, sets })))};
+    s.program = ${JSON.stringify(seedProgram())};
     s.programMeta = ${JSON.stringify(seedProgramMeta())};
-    s.log = ${JSON.stringify(Array.from({ length: sets }, (_, n) => ({
-      session: `${date}_Day 1_seed`, date, day: "Day 1", name: "Hack squat", exerciseId: "seed-ex-1", set: n + 1,
-      load: 50, reps: 6, rir: 2, notes: "", created: `${date}T12:00:00.000Z`, primary: "Quads", secondary: "Glutes,Adductors",
-    })))};`);
+    s.log = [];`);
   await page.reload({ waitUntil: "domcontentloaded" });
   await settle(page);
   if (fontScale !== 1) await page.evaluate((s) => { document.documentElement.style.fontSize = `${s * 100}%`; }, fontScale);
@@ -105,11 +105,22 @@ async function boot(page, { rirMode = "numeric", restSec = 90, sets = 2, fontSca
     window.__repforgeFocus.to(0);
   });
   await page.waitForSelector("#workout.is-focus .exercise.is-current .focus-shelf", { state: "attached", timeout: 5000 });
-  await page.waitForTimeout(150);
+  await typeField(page, "load", "50");
+  await typeField(page, "reps", "6");
+  await page.locator(field("rir")).click();
 }
 
 const SHELF = "#workout .exercise.is-current .focus-shelf";
-const field = (id) => `${SHELF} [data-shelf-field="${id}"]`;
+const field = (id) => `${SHELF} [data-shelf-field="${FIELD_IDS[id] || id}"]`;
+const inputFor = (id, n = 1) => `${SHELF} .shelf__input[data-k$="_${n}_${FIELD_IDS[id] || id}"]`;
+
+/** Tap a field until its input is open, type, and wait for the draft to acknowledge it. */
+async function typeField(page, id, value) {
+  const input = page.locator(inputFor(id));
+  for (let tap = 0; tap < 2 && await input.getAttribute("aria-hidden") === "true"; tap++) await page.locator(field(id)).click();
+  await input.fill(value);
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+}
 const pad = (dir) => `${SHELF} .shelf__pad[data-dir="${dir}"]`;
 
 /** Hold the real cross-tab write lock: every DraftV2 write now waits. */
@@ -126,12 +137,15 @@ async function releaseLock(page) {
 
 /** What the lifter sees for one field of the active set, and what the acknowledged draft holds. */
 const readField = (page, id, n = 1) =>
-  page.evaluate(({ id, n }) => {
+  page.evaluate(({ id, n, metricIds }) => {
     const card = document.querySelector("#workout .exercise.is-current");
     const shelf = card.querySelector(".focus-shelf");
     const text = (el) => el?.textContent?.replace(/\s+/g, " ").trim() ?? null;
-    const input = shelf.querySelector(`.shelf__input[data-k$="_${n}_${id === "effort" ? "rir" : id}"]`);
-    const fieldEl = shelf.querySelector(`.shelf__field[data-field="${id === "effort" ? "rir" : id}"]`);
+    const metricId = metricIds[id] || null;
+    const input = shelf.querySelector(metricId ? `.shelf__input[data-k$="_${n}_metric_${metricId}"]`
+      : `.shelf__input[data-k$="_${n}_${id === "effort" ? "rir" : id}"]`);
+    const fieldEl = shelf.querySelector(metricId ? `.shelf__field[data-metric="${metricId}"]`
+      : `.shelf__field[data-field="${id === "effort" ? "rir" : id}"]`);
     const open = card.querySelector(".ledgerline--open");
     const col = id === "effort" ? "rir" : id;
     const target = window.__repforgeWorkoutDraft.target(`${card.dataset.ex}_${n}`);
@@ -140,10 +154,10 @@ const readField = (page, id, n = 1) =>
       input: input ? input.value : null,
       label: text(fieldEl?.querySelector(".shelf__val")),
       ledger: text(open?.querySelector(`[data-lv="${col}"]`)),
-      draft: set.edited[id] ?? null,
+      draft: (metricId ? set.edited.metrics?.[metricId] : set.edited[id]) ?? null,
       effortAttr: fieldEl?.querySelector("[data-effspin]")?.dataset.e ?? null,
     };
-  }, { id, n });
+  }, { id, n, metricIds: { load: WEIGHT, reps: REPS } });
 
 const num = (s) => (s == null ? NaN : Number(String(s).replace(/[^\d.\-]/g, "")));
 function agree(name, snap, expected) {
@@ -160,10 +174,10 @@ async function main() {
 
   // ---- RT-03 a: the audit's reproduction, through to the saved log ---------
   phase("RT-03: a pad tap, then a field switch, while the write waits for the lock");
-  await boot(page, { sets: 2 });
+  await boot(page);
   await page.locator(field("load")).click();
-  const start = num((await readField(page, "load")).input);
-  assert(start === 50, "RT-03: the first set is suggested at 50", start);
+  const start = await readField(page, "load");
+  agree("RT-03 the typed starting load", start, 50);
   await holdLock(page);
   await page.locator(pad(1)).click();
   await page.locator(field("rir")).click(); // rebuilds the shelf while the load write is unacknowledged
@@ -176,13 +190,10 @@ async function main() {
   await page.waitForFunction(() => window.__repforgeWorkoutDraft.current().exercises["seed-ex-1"] && true);
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await page.evaluate(() => window.stopRest?.());
-  await page.waitForTimeout(250);
-  // Set 2 as suggested, then save the session through the real Finish action.
-  await page.locator(".focus-shelf .saveset").first().click();
-  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  // Save the session through the real Finish action.
   const finished = await finishEarly(page);
   assert(finished && finished.status !== "error", "RT-03: the session saves through the real Finish action", finished);
-  const logRows = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).log.filter((r) => r.exerciseId === "seed-ex-1" && !String(r.session).endsWith("_seed")), KEY);
+  const logRows = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).log.filter((r) => r.exerciseId === "seed-ex-1"), KEY);
   const first = logRows.find((r) => r.set === 1);
   assert(first && Number(first.load) === 52.5, "RT-03: the first immutable saved row holds the load the lifter was shown", logRows);
 
@@ -207,7 +218,7 @@ async function main() {
   await page.locator(field("load")).click();
   await page.locator(field("load")).click(); // second tap opens the input
   await holdLock(page);
-  await page.locator(`${SHELF} .shelf__input[data-k$="_1_load"]`).fill("57.5");
+  await page.locator(inputFor("load")).fill("57.5");
   await page.locator(field("reps")).click(); // rebuild
   const typed = await readField(page, "load");
   assert(num(typed.label) === 57.5 && num(typed.ledger) === 57.5 && num(typed.input) === 57.5,
@@ -273,7 +284,7 @@ async function main() {
   phase("RT-03: correcting a logged set across a rebuild");
   const corrected = {};
   for (const rebuild of [false, true]) {
-    await boot(page, { sets: 3, restSec: 0 });
+    await boot(page, { restSec: 0 });
     await page.locator(".focus-shelf .saveset").first().click();
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     await page.waitForSelector(`#workout .exercise.is-current .ledgerline[data-editn="1"]`);
@@ -295,7 +306,7 @@ async function main() {
     corrected[rebuild] = await page.evaluate(() => {
       const draft = window.__repforgeWorkoutDraft.current();
       const ex = draft.exercises["seed-ex-1"];
-      return ex.setOrder.map((id) => ({ ord: ex.sets[id].ordinal, rir: ex.sets[id].edited.rir ?? null, load: ex.sets[id].edited.load ?? null, suggested: ex.sets[id].programmed.suggestedLoad ?? null, reps: ex.sets[id].programmed.suggestedReps ?? null }));
+      return ex.setOrder.map((id) => ({ ord: ex.sets[id].ordinal, rir: ex.sets[id].edited.rir ?? null, metrics: ex.sets[id].edited.metrics, suggested: ex.sets[id].programmed.suggestedLoad ?? null, reps: ex.sets[id].programmed.suggestedReps ?? null }));
     });
   }
   assert(JSON.stringify(corrected[true]) === JSON.stringify(corrected[false]),
@@ -371,7 +382,7 @@ async function main() {
   }
 
   phase("RT-04: Pause/Resume stays reachable after a field tap replaced the rest pads");
-  await boot(page, { restSec: 90, sets: 3 });
+  await boot(page, { restSec: 90 });
   await startRestByLogging(page);
   await page.locator("#workout .exercise.is-current .restpad--toggle").click();
   const heldAt = secs(await clock(page));
@@ -394,7 +405,7 @@ async function main() {
   assert(secs(await clock(page)) === reheld, "RT-04: the sheet can pause again", { reheld });
   await page.locator("#restStop").click();
   await page.waitForFunction(() => !document.querySelector("#woRest.is-running"), undefined, { timeout: 5000 });
-  await boot(page, { restSec: 90, sets: 2 });
+  await boot(page, { restSec: 90 });
   await page.evaluate(() => window.openRestSheet());
   await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
   assert(await page.locator("#restHold").isDisabled(), "RT-04: with no rest running the control waits, like Reset and Stop");
@@ -402,7 +413,7 @@ async function main() {
   await page.waitForSelector("#restSheet", { state: "hidden", timeout: 5000 });
 
   phase("RT-04: at 200% text, start, pause, edit a field, resume the same remaining time");
-  await boot(page, { restSec: 90, sets: 3, fontScale: 2 });
+  await boot(page, { restSec: 90, fontScale: 2 });
   assert(await page.evaluate(() => Number.parseFloat(getComputedStyle(document.documentElement).fontSize) > 16.1), "RT-04: the root text is scaled");
   await startRestByLogging(page);
   assert(!(await page.locator("#workout .exercise.is-current .restpad--toggle").count()), "RT-04: at 200% the field pads stay and the inline rest pad is not shown");
@@ -428,7 +439,7 @@ async function main() {
   assert(largeResumed <= largeHeld && largeResumed >= largeHeld - 3, "RT-04: Resume continues from the held remaining time at 200%", { largeHeld, largeResumed });
 
   phase("RT-04: while correcting a logged set");
-  await boot(page, { restSec: 90, sets: 3 });
+  await boot(page, { restSec: 90 });
   await startRestByLogging(page);
   await page.locator("#workout .exercise.is-current .restpad--toggle").click();
   const correctHeld = secs(await clock(page));

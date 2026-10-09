@@ -18,6 +18,7 @@ const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const STATE_KEY = "repforge_v1";
 const DRAFT_KEY = "repforge_draft_v1";
 const SESSION_DATE = "2026-08-15";
+const PREVIOUS_DATE = "2026-08-08";
 const SESSION_NOTE = "Plan 051 parity session";
 const EXERCISE_NOTE = "Rack 7, shoulder blades down.";
 
@@ -72,23 +73,90 @@ async function reload(page) {
   await waitForBoot(page);
 }
 
-async function fillVisible(page, selector, value) {
-  const candidates = page.locator(selector);
-  for (let index = 0; index < await candidates.count(); index++) {
-    const candidate = candidates.nth(index);
-    if (await candidate.isVisible()) {
-      await candidate.fill(String(value));
-      return;
-    }
-  }
-  throw new Error(`no visible field for ${selector}`);
+const WEIGHT = "2555c6f170d8805cafa6d16d3fdddbaa";
+const REPS = "2555c6f170d88072bbf6d9ad3f16ea86";
+const SUBSTITUTE = "Pin-loaded machine chest press";
+const SUBSTITUTE_PRIMARY = "Chest";
+const SUBSTITUTE_SECONDARY = "Triceps,Front delts";
+
+// #322: a custom movement has no catalog row, so a mid-session swap to one
+// reprograms the slot from the movement's own metric composition rather than
+// the library's. One ships configured (reps-only, deliberately not the
+// seed's own load+reps, so a successful swap is unmistakable); the other
+// ships with no composition, like one created mid-workout, and records what
+// the slot already records.
+const CUSTOM_CONFIGURED_ID = "custom:parity-reps-only";
+const CUSTOM_CONFIGURED_NAME = "Custom reps-only fly";
+const CUSTOM_UNCONFIGURED_ID = "custom:parity-unconfigured";
+const CUSTOM_UNCONFIGURED_NAME = "Custom unconfigured curl";
+const customExercises = [
+  { id: CUSTOM_CONFIGURED_ID, name: CUSTOM_CONFIGURED_NAME, namePt: CUSTOM_CONFIGURED_NAME,
+    primary: "Chest", secondary: "", notes: "", equipment: ["machine"], patterns: [],
+    metricIds: [REPS], metricDefinitions: [{ id: REPS, sourceName: "Reps", semantic: "reps", unit: "reps" }] },
+  { id: CUSTOM_UNCONFIGURED_ID, name: CUSTOM_UNCONFIGURED_NAME, namePt: CUSTOM_UNCONFIGURED_NAME,
+    primary: "Biceps", secondary: "", notes: "", equipment: ["machine"], patterns: [],
+    metricIds: [], metricDefinitions: [] },
+];
+
+/** The set's own values as the draft holds them: weight, reps (metric-backed), then RIR. */
+async function setValues(page, exerciseId, ordinal) {
+  return page.evaluate(({ exerciseId, ordinal, weight, reps }) => {
+    const exercise = window.__repforgeWorkoutDraft.current()?.exercises?.[exerciseId];
+    const setId = exercise?.setOrder?.find((id) => exercise.sets[id].ordinal === ordinal);
+    const set = setId ? exercise.sets[setId] : null;
+    return [set?.edited?.metrics?.[weight], set?.edited?.metrics?.[reps], set?.edited?.rir].map((value) => String(value ?? ""));
+  }, { exerciseId, ordinal, weight: WEIGHT, reps: REPS });
 }
 
-async function chooseSubstitute(page, exerciseId, name) {
-  await exerciseAction(page, exerciseId, "#exActionSubstBtn");
-  await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+/** The shelf's active fields on the current card: weight, reps, RIR. */
+async function shelfValues(page) {
+  return page.evaluate(({ weight, reps }) => {
+    const shelf = document.querySelector("#workout .exercise.is-current .focus-shelf");
+    return [
+      shelf?.querySelector(`input[data-metric-id="${weight}"]`)?.value,
+      shelf?.querySelector(`input[data-metric-id="${reps}"]`)?.value,
+      shelf?.querySelector("input[data-k$='_rir']")?.value,
+    ];
+  }, { weight: WEIGHT, reps: REPS });
+}
+
+/** Type into the current card's shelf field the way a lifter does: tap the field, then type. */
+async function fillShelf(page, field, value) {
+  const metricId = field === "load" ? WEIGHT : field === "reps" ? REPS : null;
+  const input = page.locator(metricId
+    ? `#workout .exercise.is-current .focus-shelf input[data-metric-id="${metricId}"]`
+    : "#workout .exercise.is-current .focus-shelf input[data-k$='_rir']");
+  if (await input.getAttribute("aria-hidden") === "true") {
+    await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="${metricId ? `metric_${metricId}` : "rir"}"]`).click();
+  }
+  await input.fill(String(value));
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+}
+
+async function logPreviousSession(page, exerciseId, sets) {
+  await page.evaluate(() => window.__repforgeEnterWorkout({ day: "Day 1" }));
+  await page.waitForSelector("#workoutShell:not(.hidden) #workout.is-focus", { timeout: 5000 });
+  for (const [index, values] of sets.entries()) {
+    await fillShelf(page, "load", values.load);
+    await fillShelf(page, "reps", values.reps);
+    await fillShelf(page, "rir", values.rir);
+    await page.locator(`#workout .exercise.is-current [data-save="${exerciseId}_${index + 1}"]`).click();
+    await page.waitForFunction(({ exerciseId, ordinal }) => {
+      const exercise = window.__repforgeWorkoutDraft.current()?.exercises?.[exerciseId];
+      const setId = exercise?.setOrder?.find((id) => exercise.sets[id].ordinal === ordinal);
+      return exercise?.sets?.[setId]?.completion !== "pending";
+    }, { exerciseId, ordinal: index + 1 });
+  }
+  const result = await finishEarly(page);
+  await page.evaluate(() => window.__repforgeStorage.flush());
+  await page.evaluate(() => window.closeSessionSummary?.());
+  return result;
+}
+
+async function pickExactRow(page, name) {
   await page.fill("#exPickSearch", name);
-  await page.waitForTimeout(100);
+  await page.waitForFunction((expected) => [...document.querySelectorAll("#exPickList .pickrow__name")]
+    .some((candidate) => candidate.textContent?.trim() === expected), name, { timeout: 5000 });
   const picked = await page.evaluate((expected) => {
     const row = [...document.querySelectorAll("#exPickList .pickrow")].find(
       (candidate) => candidate.querySelector(".pickrow__name")?.textContent?.trim() === expected,
@@ -97,16 +165,26 @@ async function chooseSubstitute(page, exerciseId, name) {
     return Boolean(row);
   }, name);
   await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
-  assert(picked, "the visible substitution picker selects the exact library movement", name);
+  return picked;
 }
 
+async function chooseSubstitute(page, exerciseId, name) {
+  await exerciseAction(page, exerciseId, "#exActionSubstBtn");
+  await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+  assert(await pickExactRow(page, name), "the visible substitution picker selects the exact library movement", name);
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+}
 
-function normalizeRows(rows) {
+/** What a saved row means: the slot, the set, its values, and who performed it. Session ids, timestamps and loading provenance vary per run. */
+const MEANING_KEYS = ["date", "day", "name", "exerciseId", "set", "load", "reps", "rir", "notes", "primary", "secondary",
+  "performedName", "performedPrimary", "performedSecondary", "performedLibraryId", "performedMovementId", "exNote", "warmup", "bodyweight"];
+function rowMeaning(rows) {
   return rows.map((row) => {
-    const copy = { ...row };
-    delete copy.session;
-    delete copy.created;
-    return copy;
+    const out = {};
+    for (const key of MEANING_KEYS) if (row[key] !== undefined) out[key] = row[key];
+    out.metricValues = Array.isArray(row.metricValues?.[0]) ? row.metricValues
+      : (row.metricValues || []).map((value) => [value.metricId, value.value]);
+    return out;
   });
 }
 
@@ -127,68 +205,61 @@ async function main() {
   });
 
   try {
+    await page.clock.setFixedTime(new Date(`${PREVIOUS_DATE}T12:00:00.000Z`));
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
     await waitForBoot(page);
 
     const program = seedProgram();
-    const first = program[0];
-    const second = program[1];
-    const third = program[2];
-    const previousDate = "2026-08-08";
-    const previousSession = `${previousDate}_Day 1_previous`;
-    const previousRows = [
-      { set: 1, load: 50, reps: 10, rir: 2 },
-      { set: 2, load: 52.5, reps: 8, rir: 1 },
-    ].map((set) => ({
-      session: previousSession,
-      date: previousDate,
-      day: first.day,
-      name: first.name,
-      exerciseId: first.id,
-      ...set,
-      notes: "",
-      created: `${previousDate}T12:00:00.000Z`,
-      primary: first.primary,
-      secondary: first.secondary,
-      performedName: first.name,
-      performedPrimary: first.primary,
-      performedSecondary: first.secondary,
-    }));
+    const [first, second, third, fourth, fifth, sixth] = program;
     const baseState = JSON.parse(await page.evaluate((key) => localStorage.getItem(key) || "{}", STATE_KEY));
     await writeState(page, {
       ...baseState,
       program,
       programMeta: seedProgramMeta(),
-      log: previousRows,
+      customExercises,
+      log: [],
       settings: { ...baseState.settings, lang: "en", unit: "kg", rirMode: "numeric", restSec: 0 },
     });
     await page.evaluate((key) => localStorage.removeItem(key), DRAFT_KEY);
     await reload(page);
 
+    // The previous session is logged through the product, so its history rows
+    // carry the canonical metric values a later Repeat last reads back.
+    const previous = await logPreviousSession(page, first.id, [
+      { load: 50, reps: 10, rir: 2 },
+      { load: 52.5, reps: 8, rir: 1 },
+    ]);
+    assert(previous?.committed === true, "the previous session is saved through the production finish", JSON.stringify(previous));
+    await page.clock.setFixedTime(new Date(`${SESSION_DATE}T12:00:00.000Z`));
+    await reload(page);
+
     console.log("\nFocus session: previous values, metadata, skip/restore, substitution, warm-up");
-    await page.evaluate(() => window.__repforgeEnterWorkout({day: "Day 1" }));
+    await page.evaluate(() => window.__repforgeEnterWorkout({ day: "Day 1" }));
     await page.waitForSelector("#workoutShell:not(.hidden) #workout.is-focus", { timeout: 5000 });
     await exerciseAction(page, first.id, "#exActionRepeatBtn");
-    await page.waitForTimeout(100);
 
-    const repeated = await page.evaluate((id) => ({
-      first: ["load", "reps", "rir"].map(
-        (field) => String(window.__repforgeWorkoutDraft.projection()[`${id}_1_${field}`] ?? ""),
-      ),
-      second: ["load", "reps", "rir"].map(
-        (field) => String(window.__repforgeWorkoutDraft.projection()[`${id}_2_${field}`] ?? ""),
-      ),
-    }), first.id);
+    const repeated = { first: await setValues(page, first.id, 1), second: await setValues(page, first.id, 2) };
     assert(
       JSON.stringify(repeated) === JSON.stringify({ first: ["50", "10", "2"], second: ["52.5", "8", "1"] }),
       "repeat-last copies the previous session's ordered set values",
       JSON.stringify(repeated),
     );
 
+    // Pending sets the lifter has already filled keep the slot's prescription:
+    // a substitution that would replace them is refused, and says so.
+    await exerciseAction(page, first.id, "#exActionSubstBtn");
+    await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+    await pickExactRow(page, SUBSTITUTE);
+    await page.waitForFunction(() => /remaining sets/i.test(document.querySelector("#toast")?.textContent || ""));
+    const refused = await page.evaluate((id) => window.__repforgeWorkoutDraft.current().exercises[id].substitution, first.id);
+    assert(refused === null, "a substitution over filled pending sets is refused", JSON.stringify(refused));
+    assert(JSON.stringify(await setValues(page, first.id, 1)) === JSON.stringify(["50", "10", "2"]),
+      "a refused substitution leaves the copied values in place");
+
     await selectExercise(page, second.id);
-    await fillVisible(page, `#workout [data-k="${second.id}_1_load"]`, 35);
-    await fillVisible(page, `#workout [data-k="${second.id}_1_reps"]`, 12);
-    await fillVisible(page, `#workout [data-k="${second.id}_1_rir"]`, 2);
+    await fillShelf(page, "load", 35);
+    await fillShelf(page, "reps", 12);
+    await fillShelf(page, "rir", 2);
     await sessionField(page, "#sessionDate", SESSION_DATE);
     await sessionField(page, "#sessionBodyweight", 82.5);
     await sessionField(page, "#sessionNotes", SESSION_NOTE);
@@ -204,17 +275,27 @@ async function main() {
     await page.locator("#exActionsClose").click();
     await exerciseAction(page, second.id, "#exActionSkipBtn");
     await exerciseAction(page, second.id, "#exActionSkipBtn");
-    const restoredSecond = await page.evaluate((id) => ["load", "reps", "rir"].map(
-      (field) => String(window.__repforgeWorkoutDraft.projection()[`${id}_1_${field}`] ?? ""),
-    ), second.id);
+    const restoredSecond = await setValues(page, second.id, 1);
     assert(
       JSON.stringify(restoredSecond) === JSON.stringify(["35", "12", "2"]),
       "skip and restore retain the exercise subtree's edited values",
       JSON.stringify(restoredSecond),
     );
 
-    await chooseSubstitute(page, first.id, "Lat pulldown");
-    await exerciseAction(page, third.id, "#exActionSkipBtn");
+    await chooseSubstitute(page, third.id, SUBSTITUTE);
+    await selectExercise(page, third.id);
+    const substituted = await page.evaluate(() =>
+      document.querySelector("#workout .exercise.is-current .focus-ex__name")?.textContent?.trim());
+    assert(substituted?.includes(SUBSTITUTE), "Focus projects the substitution on its card", substituted);
+    await fillShelf(page, "load", 40);
+    await fillShelf(page, "reps", 9);
+    await fillShelf(page, "rir", 3);
+    await page.locator(`.exercise[data-ex="${third.id}"] [data-save="${third.id}_1"]`).click();
+    await page.waitForFunction(({ id }) => {
+      const exercise = window.__repforgeWorkoutDraft.current()?.exercises?.[id];
+      return exercise && exercise.sets[exercise.setOrder[0]].completion !== "pending";
+    }, { id: third.id });
+    await exerciseAction(page, fourth.id, "#exActionSkipBtn");
     await selectExercise(page, first.id);
     await page.locator(`.exercise[data-ex="${first.id}"] [data-save="${first.id}_1"]`).click();
     await page.waitForFunction(({ id }) => {
@@ -235,17 +316,18 @@ async function main() {
       return {
         name: card?.querySelector(".focus-ex__name")?.textContent?.trim(),
         completed: card?.querySelectorAll(".ledgerline[data-editn]").length,
-        active: ["load", "reps", "rir"].map(
-          (field) => card?.querySelector(`.focus-shelf [data-k$="_${field}"]`)?.value,
-        ),
       };
     });
+    const focusFirstActive = await shelfValues(page);
     assert(
-      focusFirst.name?.includes("Lat pulldown") && focusFirst.completed === 1 &&
-        JSON.stringify(focusFirst.active) === JSON.stringify(["52.5", "8", "1"]),
-      "Focus projects the substitution, committed row, and next ordered copied set",
-      JSON.stringify(focusFirst),
+      focusFirst.name?.includes(first.name) && focusFirst.completed === 1 &&
+        JSON.stringify(focusFirstActive) === JSON.stringify(["52.5", "8", "1"]),
+      "Focus projects the committed row and the next ordered copied set",
+      JSON.stringify({ ...focusFirst, active: focusFirstActive }),
     );
+    const committedRow = await page.locator("#workout .exercise.is-current .ledgerline[data-editn] .ledgerline__vals").innerText();
+    assert(committedRow.replace(/\s+/g, " ").trim() === "50 10 2",
+      "the committed ledger row reads back the set's logged weight, reps and RIR", committedRow);
 
     await page.locator("#workout .exercise.is-current .ledgerline[data-editn]").click();
     await page.waitForFunction(({ id }) => {
@@ -254,12 +336,12 @@ async function main() {
       return window.__repforgeFocus.editing()?.exId === id &&
         exercise?.sets?.[exercise.setOrder[0]]?.completion === "pending";
     }, { id: first.id });
-    await fillVisible(page, "#workout .exercise.is-current .focus-shelf [data-k$='_load']", 55);
-    await page.waitForFunction(({ id }) => {
+    await fillShelf(page, "load", 55);
+    await page.waitForFunction(({ id, weight }) => {
       const draft = window.__repforgeWorkoutDraft.current();
       const exercise = draft?.exercises?.[id];
-      return exercise?.sets?.[exercise.setOrder[0]]?.edited?.load === "55";
-    }, { id: first.id });
+      return exercise?.sets?.[exercise.setOrder[0]]?.edited?.metrics?.[weight] === "55";
+    }, { id: first.id, weight: WEIGHT });
     await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
     await page.waitForFunction(({ id }) => {
       const draft = window.__repforgeWorkoutDraft.current();
@@ -277,23 +359,13 @@ async function main() {
       const exercise = draft?.exercises?.[id];
       return exercise && exercise.sets[exercise.setOrder[0]].completion === "pending";
     }, { id: first.id });
-    assert(
-      await page.locator(`.exercise[data-ex="${first.id}"] [data-k="${first.id}_1_load"]`).inputValue() === "55",
-      "Focus uncommit retains corrected values while returning the set to pending",
-    );
-
-    const pendingAgain = await page.evaluate(() => {
-      const card = document.querySelector("#workout .exercise.is-current");
-      return {
-        completed: card?.querySelectorAll(".ledgerline[data-editn]").length,
-        active: ["load", "reps", "rir"].map(
-          (field) => card?.querySelector(`.focus-shelf [data-k$="_${field}"]`)?.value,
-        ),
-      };
-    });
+    const pendingAgain = {
+      completed: await page.locator("#workout .exercise.is-current .ledgerline[data-editn]").count(),
+      active: await shelfValues(page),
+    };
     assert(
       pendingAgain.completed === 0 && JSON.stringify(pendingAgain.active) === JSON.stringify(["55", "10", "2"]),
-      "Focus projects the corrected uncommitted set as the next ordered set",
+      "Focus uncommit retains the corrected values and projects the set as the next ordered set",
       JSON.stringify(pendingAgain),
     );
     await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
@@ -309,42 +381,35 @@ async function main() {
     await reload(page);
     await page.evaluate(() => window.__repforgeEnterWorkout({}));
     await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 5000 });
-    const afterReload = await page.evaluate(({ firstId, secondId, thirdId }) => {
-      const list = window.__repforgeFocus.list();
-      const firstIndex = list.findIndex((exercise) => exercise.id === firstId);
-      window.__repforgeFocus.to(firstIndex);
-      const firstCard = document.querySelector("#workout .exercise.is-current");
-      const firstState = {
-        name: firstCard?.querySelector(".focus-ex__name")?.textContent?.trim(),
-        completed: firstCard?.querySelectorAll(".ledgerline[data-editn]").length,
-        activeLoad: firstCard?.querySelector(".focus-shelf [data-k$='_load']")?.value,
-      };
-      const secondIndex = window.__repforgeFocus.list().findIndex((exercise) => exercise.id === secondId);
-      window.__repforgeFocus.to(secondIndex);
-      const secondCard = document.querySelector("#workout .exercise.is-current");
+    const cardState = async (id) => {
+      await page.evaluate((id) => window.__repforgeFocus.to(window.__repforgeFocus.list().findIndex((exercise) => exercise.id === id)), id);
+      await page.waitForSelector(`#workout .exercise.is-current[data-ex="${id}"]`, { timeout: 5000 });
       return {
-        firstState,
-        secondValues: ["load", "reps", "rir"].map(
-          (field) => secondCard?.querySelector(`.focus-shelf [data-k$="_${field}"]`)?.value,
-        ),
-        visibleIds: window.__repforgeFocus.list().map((exercise) => exercise.id),
-        thirdId,
-        date: document.querySelector("#sessionDate")?.value,
-        bodyweight: document.querySelector("#sessionBodyweight")?.value,
-        sessionNotes: document.querySelector("#sessionNotes")?.value,
+        name: await page.locator("#workout .exercise.is-current .focus-ex__name").textContent(),
+        completed: await page.locator("#workout .exercise.is-current .ledgerline[data-editn]").count(),
+        active: await shelfValues(page),
       };
-    }, { firstId: first.id, secondId: second.id, thirdId: third.id });
+    };
+    const firstState = await cardState(first.id);
+    const thirdState = await cardState(third.id);
+    const secondState = await cardState(second.id);
+    const afterReload = await page.evaluate(() => ({
+      visibleIds: window.__repforgeFocus.list().map((exercise) => exercise.id),
+      date: document.querySelector("#sessionDate")?.value,
+      bodyweight: document.querySelector("#sessionBodyweight")?.value,
+      sessionNotes: document.querySelector("#sessionNotes")?.value,
+    }));
     assert(
-      afterReload.firstState.name?.includes("Lat pulldown") && afterReload.firstState.completed === 1 &&
-        afterReload.firstState.activeLoad === "52.5",
+      firstState.completed === 1 && firstState.active[0] === "52.5" &&
+        thirdState.name?.includes(SUBSTITUTE) && thirdState.completed === 1,
       "reload restores completion, substitution, correction, and warm-up ordering",
-      JSON.stringify(afterReload.firstState),
+      JSON.stringify({ firstState, thirdState }),
     );
     assert(
-      JSON.stringify(afterReload.secondValues) === JSON.stringify(["35", "12", "2"]) &&
-        !afterReload.visibleIds.includes(third.id),
+      JSON.stringify(secondState.active) === JSON.stringify(["35", "12", "2"]) &&
+        !afterReload.visibleIds.includes(fourth.id),
       "reload restores touched values and keeps the skipped exercise out of Focus",
-      JSON.stringify(afterReload),
+      JSON.stringify({ secondState, afterReload }),
     );
     assert(
       afterReload.date === SESSION_DATE && afterReload.bodyweight === "82.5" && afterReload.sessionNotes === SESSION_NOTE,
@@ -360,75 +425,37 @@ async function main() {
     await page.evaluate(() => window.__repforgeStorage.flush());
     const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STATE_KEY);
     const sessionId = [...new Set(saved.log.map((row) => row.session))].find((id) => !sessionsBefore.has(id));
-    const actualRows = normalizeRows(saved.log.filter((row) => row.session === sessionId));
+    const actualRows = rowMeaning(saved.log.filter((row) => row.session === sessionId));
+    const substitute = await page.evaluate((name) => {
+      const entry = window.RepForgeExerciseCatalog.snapshot().exercises.find((exercise) => exercise.name === name);
+      return entry ? { id: entry.id } : null;
+    }, SUBSTITUTE);
+    const slot = (exercise) => ({ date: SESSION_DATE, day: exercise.day, name: exercise.name, exerciseId: exercise.id });
+    const performedAsProgrammed = (exercise) => ({
+      performedName: exercise.name, performedPrimary: exercise.primary, performedSecondary: exercise.secondary,
+      performedLibraryId: exercise.libraryId,
+    });
+    const values = (load, reps) => [[WEIGHT, load], [REPS, reps]];
     const expectedRows = [
-      {
-        date: SESSION_DATE,
-        day: first.day,
-        name: first.name,
-        exerciseId: first.id,
-        set: 1,
-        load: 55,
-        reps: 10,
-        rir: 2,
-        notes: SESSION_NOTE,
-        primary: first.primary,
-        secondary: first.secondary,
-        performedName: "Lat pulldown",
-        performedPrimary: "Lats",
-        performedSecondary: "Biceps,Forearms",
-        performedLibraryId: "pd_mc",
-        exNote: EXERCISE_NOTE,
-        bodyweight: 82.5,
-      },
-      {
-        date: SESSION_DATE,
-        day: first.day,
-        name: first.name,
-        exerciseId: first.id,
-        set: 2,
-        load: 52.5,
-        reps: 8,
-        rir: 1,
-        notes: SESSION_NOTE,
-        primary: first.primary,
-        secondary: first.secondary,
-        performedName: "Lat pulldown",
-        performedPrimary: "Lats",
-        performedSecondary: "Biceps,Forearms",
-        performedLibraryId: "pd_mc",
-        exNote: EXERCISE_NOTE,
-        warmup: true,
-        bodyweight: 82.5,
-      },
-      {
-        date: SESSION_DATE,
-        day: second.day,
-        name: second.name,
-        exerciseId: second.id,
-        set: 1,
-        load: 35,
-        reps: 12,
-        rir: 2,
-        notes: SESSION_NOTE,
-        primary: second.primary,
-        secondary: second.secondary,
-        performedName: second.name,
-        performedPrimary: second.primary,
-        performedSecondary: second.secondary,
-        performedMovementId: `slot:${second.id}`,
-        bodyweight: 82.5,
-      },
+      { ...slot(first), set: 1, load: 55, reps: 10, rir: 2, notes: SESSION_NOTE, primary: first.primary, secondary: first.secondary,
+        ...performedAsProgrammed(first), exNote: EXERCISE_NOTE, bodyweight: 82.5, metricValues: values(55, 10) },
+      { ...slot(first), set: 2, load: 52.5, reps: 8, rir: 1, notes: SESSION_NOTE, primary: first.primary, secondary: first.secondary,
+        ...performedAsProgrammed(first), exNote: EXERCISE_NOTE, warmup: true, bodyweight: 82.5, metricValues: values(52.5, 8) },
+      { ...slot(second), set: 1, load: 35, reps: 12, rir: 2, notes: SESSION_NOTE, primary: second.primary, secondary: second.secondary,
+        ...performedAsProgrammed(second), bodyweight: 82.5, metricValues: values(35, 12) },
+      { ...slot(third), set: 1, load: 40, reps: 9, rir: 3, notes: SESSION_NOTE, primary: third.primary, secondary: third.secondary,
+        performedName: SUBSTITUTE, performedPrimary: SUBSTITUTE_PRIMARY, performedSecondary: SUBSTITUTE_SECONDARY,
+        performedLibraryId: substitute?.id, bodyweight: 82.5, metricValues: values(40, 9) },
     ];
     assert(saveResult?.localOk || saveResult?.idbOk, "the production save transaction accepts the characterized draft", JSON.stringify(saveResult));
     assert(
-      JSON.stringify(actualRows) === JSON.stringify(expectedRows),
+      JSON.stringify(actualRows) === JSON.stringify(rowMeaning(expectedRows)),
       "history rows preserve exact current completion/touch/warm-up and substitution provenance semantics",
-      `actual=${JSON.stringify(actualRows)} expected=${JSON.stringify(expectedRows)}`,
+      `actual=${JSON.stringify(actualRows)} expected=${JSON.stringify(rowMeaning(expectedRows))}`,
     );
     assert(
       actualRows.some((row) => row.exerciseId === second.id) &&
-        !actualRows.some((row) => row.exerciseId === third.id) &&
+        !actualRows.some((row) => row.exerciseId === fourth.id) &&
         (await page.evaluate((key) => localStorage.getItem(key), DRAFT_KEY)) === null,
       "touched incomplete work is saved, skipped work is omitted, and the committed draft is removed",
       JSON.stringify(actualRows),
@@ -457,9 +484,10 @@ async function main() {
       });
     }, { exerciseId: first.id, primary: first.primary, secondary: first.secondary });
     assert(adHocResult?.status === "applied", "the production draft adapter accepts an ad hoc substitution", JSON.stringify(adHocResult));
-    await fillVisible(page, `#workout [data-k="${first.id}_1_load"]`, 61);
-    await fillVisible(page, `#workout [data-k="${first.id}_1_reps"]`, 6);
-    await fillVisible(page, `#workout [data-k="${first.id}_1_rir"]`, 1);
+    await selectExercise(page, first.id);
+    await fillShelf(page, "load", 61);
+    await fillShelf(page, "reps", 6);
+    await fillShelf(page, "rir", 1);
     await page.locator(`.exercise[data-ex="${first.id}"] [data-save="${first.id}_1"]`).click();
     const sessionsBeforeAdHoc = new Set((await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).log, STATE_KEY))
       .map((row) => row.session));
@@ -475,9 +503,91 @@ async function main() {
     assert(adHocRows.length === 1 && adHocRow.exerciseId === first.id && adHocRow.name === first.name &&
       adHocRow.primary === first.primary && adHocRow.secondary === first.secondary &&
       adHocRow.performedName === "Tempo pause press" && adHocRow.performedMovementId === "adhoc:tempo-pause-press" &&
-      adHocRow.performedPrimary === first.primary && adHocRow.performedSecondary === first.secondary,
+      adHocRow.performedPrimary === first.primary && adHocRow.performedSecondary === first.secondary &&
+      adHocRow.load === 61 && adHocRow.reps === 6,
     "ad hoc History preserves the programmed slot and original muscle meaning while recording performed identity",
     JSON.stringify(adHocRows));
+
+    console.log("\nCustom-movement substitution (#322): metric reprogramming and the no-composition refusal");
+    await page.evaluate(() => window.closeSessionSummary?.());
+    await page.evaluate(() => window.__repforgeEnterWorkout({ day: "Day 1" }));
+    await page.waitForSelector("#workoutShell:not(.hidden) #workout.is-focus", { timeout: 5000 });
+
+    // Typed pending values refuse a custom-movement swap exactly like a
+    // library one: the picker never gets to apply over them.
+    const sixthMetricIds = await page.evaluate((id) => {
+      const exercise = window.__repforgeWorkoutDraft.current().exercises[id];
+      return exercise.sets[exercise.setOrder[0]].programmed.metricIds;
+    }, sixth.id);
+    await selectExercise(page, fifth.id);
+    await fillShelf(page, "load", 20);
+    await fillShelf(page, "reps", 15);
+    await fillShelf(page, "rir", 2);
+    await exerciseAction(page, fifth.id, "#exActionSubstBtn");
+    await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+    await pickExactRow(page, CUSTOM_CONFIGURED_NAME);
+    await page.waitForFunction(() => /remaining sets/i.test(document.querySelector("#toast")?.textContent || ""));
+    const customTouchedRefused = await page.evaluate(
+      (id) => window.__repforgeWorkoutDraft.current().exercises[id].substitution, fifth.id);
+    assert(customTouchedRefused === null,
+      "a custom-movement swap over filled pending sets is refused, just like a library swap",
+      JSON.stringify(customTouchedRefused));
+    assert(JSON.stringify(await setValues(page, fifth.id, 1)) === JSON.stringify(["20", "15", "2"]),
+      "the refused custom swap leaves the typed values in place");
+
+    // A custom movement with no composition of its own is held to the same
+    // rule over typed values.
+    await page.evaluate(() => { document.querySelector("#toast").textContent = ""; });
+    await exerciseAction(page, fifth.id, "#exActionSubstBtn");
+    await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+    await pickExactRow(page, CUSTOM_UNCONFIGURED_NAME);
+    await page.waitForFunction(() => /remaining sets/i.test(document.querySelector("#toast")?.textContent || ""));
+    const unconfiguredRefused = await page.evaluate(
+      (id) => window.__repforgeWorkoutDraft.current().exercises[id].substitution, fifth.id);
+    assert(unconfiguredRefused === null,
+      "a swap to an unconfigured custom movement over filled pending sets is refused too",
+      JSON.stringify(unconfiguredRefused));
+
+    // Over untouched sets, an unconfigured custom movement (one created
+    // mid-workout has no composition yet) records what the slot records.
+    await exerciseAction(page, sixth.id, "#exActionSubstBtn");
+    await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+    await pickExactRow(page, CUSTOM_UNCONFIGURED_NAME);
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    const inherited = await page.evaluate((id) => {
+      const exercise = window.__repforgeWorkoutDraft.current().exercises[id];
+      const set = exercise.sets[exercise.setOrder[0]];
+      return { displayName: exercise.substitution?.replacement?.displayName,
+        metricIds: set.programmed.metricIds, metricOrigin: set.programmed.metricOrigin };
+    }, sixth.id);
+    assert(inherited.displayName === CUSTOM_UNCONFIGURED_NAME && inherited.metricOrigin === "user_defined" &&
+      JSON.stringify(inherited.metricIds) === JSON.stringify(sixthMetricIds),
+      "an unconfigured custom movement swapped over untouched sets records the slot's own metrics",
+      JSON.stringify({ inherited, sixthMetricIds }));
+
+    // An untouched pending set accepts a configured custom movement's own
+    // composition, not the slot's: #322's replacementProgram reaches custom ids.
+    await exerciseAction(page, sixth.id, "#exActionSubstBtn");
+    await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+    assert(await pickExactRow(page, CUSTOM_CONFIGURED_NAME),
+      "the substitution picker also lists a custom movement", CUSTOM_CONFIGURED_NAME);
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    const customApplied = await page.evaluate((id) => {
+      const exercise = window.__repforgeWorkoutDraft.current().exercises[id];
+      const setId = exercise.setOrder[0];
+      const set = exercise.sets[setId];
+      return {
+        displayName: exercise.substitution?.replacement?.displayName,
+        metricIds: set.programmed.metricIds,
+        metricOrigin: set.programmed.metricOrigin,
+      };
+    }, sixth.id);
+    assert(customApplied.displayName === CUSTOM_CONFIGURED_NAME,
+      "an untouched custom-movement swap applies", JSON.stringify(customApplied));
+    assert(JSON.stringify(customApplied.metricIds) === JSON.stringify([REPS]) && customApplied.metricOrigin === "user_defined",
+      "the swap reprograms the pending set with the custom movement's own metric composition, not the original slot's",
+      JSON.stringify(customApplied));
+
     assert(errors.length === 0, "the parity journey emits no page or console errors", errors.join(" | "));
   } finally {
     await context.close();

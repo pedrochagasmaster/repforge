@@ -1110,12 +1110,13 @@ try {
         `${sharedCapture.viewport}/${sharedCapture.text}: summary metric text remains inside each item: ${JSON.stringify(geometry)}`);
     } finally { await sharedPage.context.close(); }
   }
-  // R7 V-18: Plex Mono is for values only. On the onboarding review lines (a day's meta, the Before / Now change grid, a
-  // program's facts and the selected limits) the words are set in the language font, every digit run sits in a `.num`
-  // element, and only those carry Mono.
-  const MONO_LINES = [".onb__dayname > span:not(.onb__daynum)", ".entry-prog__facts > span", ".entry__facts > span", ".entry__change-grid dd"];
+  // R7 V-18: Plex Mono is for values only. On the onboarding review lines (a day's meta and the
+  // Before / Now change grid) the words are set in the language font, every digit run sits in a
+  // `.num` element, and only those carry Mono. The catalogue card's own facts strip
+  // (`.entry-prog__facts`/`.entry__facts`) retired with the Browse route.
+  const MONO_LINES = [".onb__dayname > span:not(.onb__daynum)", ".entry__change-grid dd"];
   for (const locale of ["en", "pt"]) {
-    for (const key of ["onboarding-browse/catalogue", "onboarding-recommend/result-corrected", "onboarding-import/preview", "onboarding-shared/preview"]) {
+    for (const key of ["onboarding-recommend/result-corrected", "onboarding-import/preview", "onboarding-shared/preview"]) {
       const monoCapture = { flow: key.split("/")[0], screen: key.split("/")[1], viewport: "phone-390", theme: "light", locale, text: "normal", motion: "normal" };
       const monoPage = await openPage(browser, manifest, monoCapture, onboardingState(key, locale));
       try {

@@ -3,8 +3,8 @@
  * Focused regression for the program editor's free-text fields.
  *
  * The editor commits on every keystroke and the model normalises what it stores
- * (names are trimmed, a blank one falls back to "Exercise", alternates are split
- * on commas). Echoing that normalised value straight back into the focused input
+ * (names are trimmed, a blank one falls back to "Exercise"). Echoing that
+ * normalised value straight back into the focused input
  * swallowed spaces and re-filled a name the lifter was still clearing. These
  * checks type character by character — `fill()` dispatches a single input event
  * and hides the bug.
@@ -12,13 +12,14 @@
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium } from "./browser.mjs";
+import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
 const DB = "repforge";
 const STORE = "kv";
-const EXERCISE_ID = "text-field-press";
+const EXERCISE_ID = "seed-ex-3";
 const failures = [];
 let passed = 0;
 
@@ -33,7 +34,20 @@ function check(condition, message, detail) {
   if (detail !== undefined) console.error(`    ${JSON.stringify(detail)}`);
 }
 
+/**
+ * One linked movement on Day 1, shown under a program alias ("Press") over its
+ * catalog name. The program is the seed program's canonical ProgramDefinition
+ * cut down to that slot, so every editor commit runs the real canonical path.
+ */
 function fixture() {
+  const meta = seedProgramMeta();
+  const definition = meta.programDefinition;
+  for (const day of definition.days) {
+    day.slots = day.slots.filter((slot) => slot.id === EXERCISE_ID);
+    day.slots.forEach((slot) => { slot.order = 1; slot.displayName = "Press"; });
+    if (!day.slots.length) day.kind = "rest";
+  }
+  const row = seedProgram().find((entry) => entry.id === EXERCISE_ID);
   return {
     settings: {
       jumpPct: 2.5,
@@ -48,41 +62,11 @@ function fixture() {
       voiceInputEnabled: false,
       notify: { enabled: false, timer: true, session: true, unfinished: true, missed: true },
     },
-    programMeta: {
-      id: "text-field-program",
-      name: "Text field fixture",
-      started: "2026-08-01",
-      created: "2026-08-01T00:00:00.000Z",
-      updated: "2026-08-01T00:00:00.000Z",
-      onboarded: true,
-      mesocycleStatus: "active",
-      mesocycleLengthWeeks: 6,
-      goal: null,
-      experience: null,
-      daysPerWeek: 1,
-      splitType: "full_body",
-      equipment: ["machines"],
-      priorityMuscles: [],
-      sessionLength: "short",
-      completedAt: null,
-    },
-    program: [
-      {
-        id: EXERCISE_ID,
-        name: "Press",
-        day: "Day 1",
-        order: 1,
-        sets: 2,
-        min: 8,
-        max: 12,
-        primary: "Chest",
-        secondary: "",
-        notes: "",
-        alternates: [],
-      },
-    ],
+    programMeta: { ...meta, daysPerWeek: 1, programDefinition: definition },
+    program: [{ ...row, order: 1, name: "Press", displayName: "Press", alternates: [] }],
     log: [],
     programHistory: [],
+    customExercises: [],
     _storageRevision: 1,
   };
 }
@@ -283,56 +267,43 @@ async function main() {
       { value: restored, stored: (await storedExercise(page))?.name }
     );
 
-    // 6. Trailing whitespace is trimmed on blur, not mid-word.
+    // 6. Trailing whitespace is trimmed on blur, not mid-word. A linked
+    //    movement's muscles come from its catalog definition and are read-only
+    //    here, so the free-text box under test is the notes field.
     await openExerciseDetails(page);
-    const primary = fieldInput(page, "primary");
-    await primary.click();
-    await page.keyboard.press("End");
-    await backspace(page, "Chest".length);
-    await primary.pressSequentially("Mid/upper back ", { delay: 20 });
     check(
-      (await primary.inputValue()) === "Mid/upper back ",
-      "a trailing space is left alone while the muscle box is focused",
-      { value: await primary.inputValue() }
+      await fieldInput(page, "primary").evaluate((element) => element.readOnly),
+      "a linked movement's muscle box is read-only",
     );
-    await primary.blur();
+    const notes = fieldInput(page, "notes");
+    await notes.click();
+    await page.keyboard.press("End");
+    await notes.pressSequentially("Seat on 4 ", { delay: 20 });
     check(
-      (await primary.inputValue()) === "Mid/upper back" &&
-        (await stagedExercise(page))?.primary === "Mid/upper back",
-      "blur trims the muscle box to the stored value",
-      { value: await primary.inputValue(), stored: (await stagedExercise(page))?.primary }
+      (await notes.inputValue()) === "Seat on 4 ",
+      "a trailing space is left alone while the notes box is focused",
+      { value: await notes.inputValue() }
+    );
+    await notes.blur();
+    check(
+      (await waitForValue(page, notes, "Seat on 4")) === "Seat on 4" &&
+        (await stagedExercise(page))?.notes === "Seat on 4",
+      "blur trims the notes box to the stored value",
+      { value: await notes.inputValue(), stored: (await stagedExercise(page))?.notes }
     );
     await openExerciseDetails(page);
 
-    // 7. Alternates are no longer typed: the row is a button onto the picker,
-    //    so it reads back the stored list rather than holding a half-typed one.
-    const altBtn = page.locator('#programEditor [data-role="alternates"][data-id="text-field-press"]');
-    check(await altBtn.count() === 1, "alternates are a picker control, not a text box", {
-      count: await altBtn.count(),
-      leftoverInput: await page.locator('#programEditor [data-role="exercise-field"][data-field="alternates"]').count(),
-    });
-    await altBtn.click();
-    await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
-    await page.fill("#exPickSearch", "Pec deck");
-    await page.waitForTimeout(150);
-    await page.evaluate(() => {
-      const rows = [...document.querySelectorAll("#exPickList .pickrow")];
-      rows.find((r) => (r.querySelector(".pickrow__name")?.textContent || "").trim() === "Pec deck")?.click();
-    });
-    await page.click("#exPickDone");
-    await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
-    await page.waitForTimeout(250);
-    const stored = await stagedExercise(page);
-    check(
-      JSON.stringify(stored?.alternates) === JSON.stringify(["Pec deck"]),
-      "picked alternates are stored as names",
-      { stored: stored?.alternates }
-    );
-    check(
-      ((await altBtn.textContent()) || "").trim() === "Pec deck",
-      "the alternates control reads back what is stored",
-      { label: (await altBtn.textContent() || "").trim() }
-    );
+    // 7. #317 option B: the Alternates row is gone. The Focus swap picker never
+    //    read it, so the control only stored a note the canonical program then
+    //    dropped on the floor — removed rather than wired up.
+    check(await page.locator(`#programEditor [data-role="alternates"][data-id="${EXERCISE_ID}"]`).count() === 0,
+      "the alternates picker control is gone", {
+        altButton: await page.locator(`#programEditor [data-role="alternates"][data-id="${EXERCISE_ID}"]`).count(),
+      });
+    check(await page.locator('#programEditor [data-role="exercise-field"][data-field="alternates"]').count() === 0,
+      "no leftover alternates text box took its place", {
+        leftoverInput: await page.locator('#programEditor [data-role="exercise-field"][data-field="alternates"]').count(),
+      });
 
     await page.click("#programEditToggle");
     await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"));
@@ -342,8 +313,7 @@ async function main() {
     await waitForApp(page);
     const reloaded = await storedExercise(page);
     check(
-      reloaded?.name === "Seated row" && reloaded?.primary === "Mid/upper back" &&
-        JSON.stringify(reloaded?.alternates) === JSON.stringify(["Pec deck"]),
+      reloaded?.name === "Seated row" && reloaded?.notes === "Seat on 4",
       "edited text fields survive a reload",
       { reloaded }
     );

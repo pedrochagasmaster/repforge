@@ -27,6 +27,24 @@ const MODERN_BLOCK_ID = "block-oracle-modern-01";
 const MERGE_SOURCE_BLOCK_ID = "block-oracle-merge-source-01";
 const MERGE_HISTORY_BLOCK_ID = "block-oracle-history-01";
 const LEGACY_PROGRAM_ID = "legacy-block-oracle-program";
+const PLAN_DATA = new URL("../plans/067/data/", import.meta.url);
+const gym = JSON.parse(readFileSync(new URL("gym.json", PLAN_DATA), "utf8"));
+const observations = JSON.parse(readFileSync(new URL("programs.json", PLAN_DATA), "utf8"));
+const rawCatalog = JSON.parse(readFileSync(new URL("app_file.json", PLAN_DATA), "utf8"));
+const observedIds = [...new Set(Object.values(observations).flatMap((program) =>
+  program.days.flatMap((day) => day.exercises.map((entry) => entry.exerciseId))))];
+const REQUEST = {
+  goal: "hypertrophy", experience: "intermediate", daysPerWeek: 4, timeCeilingMinutes: 90,
+  gymProfile: { equipmentIds: gym.equipment.map((entry) => entry.equipmentId) },
+  competencyAnswers: {
+    pullups10: null, pullups5: null, pushups15: null, inclineBarbell10: null,
+    overheadPress10: null, bodyweightDips10: null, benchPress10: null,
+  },
+  movementConfirmations: Object.fromEntries(observedIds.map((id) =>
+    [id, [...rawCatalog.exercises.find((entry) => entry.id === id).preconditions]])),
+  emphasisMuscleIds: [], deprioritizedMuscleIds: [], excludedExerciseIds: [], excludedMuscleIds: [],
+  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 4, deloadCycles: [],
+};
 
 const failures = [];
 let passed = 0;
@@ -137,61 +155,36 @@ async function flush(page) {
 }
 
 async function activateRealProgram(page, name = "Block identity oracle") {
-  const result = await page.evaluate(async (programName) => {
-    const adapter = window.RepForgeProgramEntryAdapter;
+  const result = await page.evaluate(async ({ programName, request }) => {
     const compiler = window.RepForgeProgramCompiler;
-    if (!adapter || !compiler || typeof window.__repforgeFinalizeProgramSetup !== "function") {
+    const catalog = window.RepForgeExerciseCatalog;
+    if (!compiler || !catalog || typeof window.__repforgeFinalizeProgramSetup !== "function") {
       return { ok: false, error: "production program-entry activation seam unavailable" };
     }
-    const services = adapter.createProductionServices({
-      Compiler: compiler,
-      catalogue: window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY,
-    });
-    const compiled = services.compile({
-      mode: "recommend",
-      answers: {
-        desiredResult: "balanced",
-        structuredExperience: "6_to_24m",
-        recentConsistency: "most",
-        daysPerWeek: 4,
-        sessionMinutes: 90,
-        preferredRestSeconds: 90,
-        environment: { kind: "commercial_gym" },
-        primaryMuscles: [],
-        deEmphasizedMuscles: [],
-        ignoredMuscles: [],
-        priorityMovements: [],
-        mustHaveExercises: [],
-        exerciseConstraints: [],
-      },
-      versions: services.currentVersions(),
-    });
-    if (!compiled.ok) return { ok: false, error: "production compilation failed", issues: compiled.issues };
-
-    const baseProposal = window.__repforgeWorkoutDraft.state();
-    baseProposal.programMeta = baseProposal.programMeta || {};
-    baseProposal.programMeta.progressionRelations = JSON.parse(JSON.stringify(compiled.preview.progressionRelations || []));
-    baseProposal.programMeta.progressionModifiers = [];
-    baseProposal.programMeta.progressionIncompatibilities = [];
-    baseProposal.programMeta.programStructure = JSON.parse(JSON.stringify(compiled.preview.programStructure));
-    baseProposal.programMeta.compilerContext = JSON.parse(JSON.stringify(compiled.compilerContext));
+    const generated = compiler.generateProgram(request, catalog.snapshot(), "block-identity-oracle");
+    if (!generated.ok) return { ok: false, error: "production generation failed", generated };
+    const definition = generated.value;
+    // The production entry flow derives the program answers from the
+    // definition it activates; this seam receives the same values.
     const finalized = await window.__repforgeFinalizeProgramSetup({
-      exercises: compiled.preview.program,
+      programDefinition: definition,
       name: programName,
-      answers: { goal: "strength_hypertrophy", daysPerWeek: 4 },
+      answers: {
+        daysPerWeek: definition.days.filter((day) => day.kind === "training").length,
+        goal: definition.request.goal,
+        experience: definition.request.experience,
+        splitType: definition.request.split,
+        mesocycleLengthWeeks: definition.cycles,
+      },
       destination: "log",
       origin: "first-run",
       draftConfirmed: true,
       telemetryRoute: "recommend",
-      entryTelemetry: compiled.telemetry,
-      entrySource: { route: "recommend", fingerprint: compiled.fingerprint },
-      programStructure: compiled.preview.programStructure,
-      compilerContext: compiled.compilerContext,
-      baseProposal,
+      entrySource: { route: "recommend", fingerprint: "block-identity-oracle" },
     });
     await window.__repforgeStorage.flush();
     return { ok: !!(finalized?.localOk || finalized?.idbOk), finalized };
-  }, name);
+  }, { programName: name, request: REQUEST });
   if (!result.ok) throw new Error(`first-run activation failed: ${JSON.stringify(result)}`);
   await page.waitForFunction(() => JSON.parse(localStorage.getItem("repforge_v1") || "null")?.programMeta?.onboarded === true,
     undefined, { timeout: 10000 });
@@ -205,7 +198,7 @@ async function startWorkout(page) {
   if (!entered || (entered.status && entered.status !== "ready")) {
     throw new Error(`production workout entry failed: ${JSON.stringify(entered)}`);
   }
-  await page.locator("#workout input[data-k$='_load']").first().waitFor({ state: "visible" });
+  await page.waitForSelector("#workoutShell:not(.hidden) #workout .exercise.is-current", { timeout: 10000 });
   await page.waitForFunction(() => window.__repforgeWorkoutDraft.current()?.schemaVersion === 2, undefined, { timeout: 10000 });
 }
 
@@ -248,12 +241,26 @@ function draftPrescription(draft) {
 }
 
 async function fillAndSaveOneSet(page) {
-  await page.locator("#workout input[data-k$='_load']").first().fill("60");
-  await page.locator("#workout input[data-k$='_reps']").first().fill("8");
-  await page.locator("#workout input[data-k$='_rir']").first().fill("2");
-  await page.locator("#workout button[data-save]").first().click();
-  await page.waitForFunction(() => !!document.querySelector('#workout .exercise.is-current [data-editn="1"]'),
-    undefined, { timeout: 10000 });
+  const active = await page.evaluate(() => {
+    const draft = window.__repforgeWorkoutDraft.current();
+    const id = draft.session.selectedExerciseId;
+    const exercise = draft.exercises[id];
+    const setId = exercise.setOrder[0];
+    return { id, setId, metrics: exercise.sets[setId].programmed.metrics.map((metric) => metric.id) };
+  });
+  for (const [index, metricId] of active.metrics.entries()) {
+    const input = page.locator(`#workout .exercise.is-current .focus-shelf input[data-metric-id="${metricId}"]`);
+    await input.waitFor({ state: "attached", timeout: 5000 });
+    if (await input.getAttribute("aria-hidden") === "true") {
+      await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${metricId}"]`).click();
+    }
+    await input.fill(String(index === 0 ? 60 : 8));
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  }
+  await page.locator(`#workout .exercise.is-current [data-save="${active.id}_1"]`).click();
+  await page.waitForFunction(({ id, setId }) =>
+    typeof window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.sets?.[setId]?.completion === "object",
+  active, { timeout: 10000 });
   await finishEarly(page);
   await page.waitForFunction(() => document.querySelector("#sessionSummary")?.hidden === false, undefined, { timeout: 10000 });
   await page.locator("#sumDone").click();
@@ -479,6 +486,7 @@ async function runDraftAndSave(browser) {
 
     await page.evaluate(() => document.querySelector('nav button[data-view="log"]')?.click());
     await page.waitForFunction(() => document.querySelector("#log")?.classList.contains("active"), undefined, { timeout: 10000 });
+    await flush(page);
     await startWorkout(page);
     const lifecycle = await page.evaluate(() => window.__repforgeMesocycleWeek?.());
     check(lifecycle?.elapsedWeek >= 2 && lifecycle?.current >= 2,
@@ -648,20 +656,18 @@ async function runLiveDraftGuard(browser) {
   try {
     await activateRealProgram(page, "Live draft guard oracle");
     await startWorkout(page);
-    await page.locator("#workout input[data-k$='_load']").first().fill("72.5");
-    await page.locator("#workout input[data-k$='_reps']").first().fill("9");
-    // The existing public DraftV2 adapter is the production write boundary;
-    // use it after the real input interaction so the guard observes an
-    // acknowledged, non-pristine draft rather than a pending DOM event.
+    // The public DraftV2 adapter is the production write boundary; the guard
+    // observes an acknowledged, non-pristine draft rather than a pending DOM event.
     const editResult = await page.evaluate(async () => {
       const draft = window.__repforgeWorkoutDraft.current();
       const exerciseId = draft?.exerciseOrder?.[0];
       const setId = draft?.exercises?.[exerciseId]?.setOrder?.[0];
-      if (!exerciseId || !setId) return { status: "missing-set" };
-      const result = await window.__repforgeWorkoutDraft.dispatch("editSetField", {
+      const metricId = draft?.exercises?.[exerciseId]?.sets?.[setId]?.programmed?.metrics?.[0]?.id;
+      if (!exerciseId || !setId || !metricId) return { status: "missing-set" };
+      const result = await window.__repforgeWorkoutDraft.dispatch("editMetricValue", {
         exerciseInstanceId: exerciseId,
         setId,
-        field: "load",
+        metricId,
         value: "72.5",
       });
       await window.__repforgeWorkoutDraft.flush();
@@ -671,7 +677,8 @@ async function runLiveDraftGuard(browser) {
     await page.waitForFunction(() => {
       const draft = window.__repforgeWorkoutDraft.current();
       return draft?.exerciseOrder?.some((exerciseId) =>
-        Object.values(draft.exercises?.[exerciseId]?.sets || {}).some((set) => set.edited?.load === "72.5"));
+        Object.values(draft.exercises?.[exerciseId]?.sets || {}).some((set) =>
+          Object.values(set.edited?.metrics || {}).includes("72.5")));
     }, undefined, { timeout: 10000 });
     await flush(page);
     const beforeState = await readReplicas(page);
@@ -711,19 +718,20 @@ async function runDeferredOnboardingGuard(browser, edited) {
     await startWorkout(page);
     if (edited) {
       const edit = await page.evaluate(async () => {
-        const draft = window.__repforgeWorkoutDraft.current();
-        const exerciseId = draft?.exerciseOrder?.[0];
-        const setId = draft?.exercises?.[exerciseId]?.setOrder?.[0];
-        if (!exerciseId || !setId) return { status: "missing-set" };
-        const result = await window.__repforgeWorkoutDraft.dispatch("editSetField", {
-          exerciseInstanceId: exerciseId,
-          setId,
-          field: "load",
-          value: "72.5",
-        });
-        await window.__repforgeWorkoutDraft.flush();
-        return result;
+      const draft = window.__repforgeWorkoutDraft.current();
+      const exerciseId = draft?.exerciseOrder?.[0];
+      const setId = draft?.exercises?.[exerciseId]?.setOrder?.[0];
+      const metricId = draft?.exercises?.[exerciseId]?.sets?.[setId]?.programmed?.metrics?.[0]?.id;
+      if (!exerciseId || !setId || !metricId) return { status: "missing-set" };
+      const result = await window.__repforgeWorkoutDraft.dispatch("editMetricValue", {
+        exerciseInstanceId: exerciseId,
+        setId,
+        metricId,
+        value: "72.5",
       });
+      await window.__repforgeWorkoutDraft.flush();
+      return result;
+    });
       check(edit?.status === "applied", "the deferred edited case has an acknowledged V2 edit", edit);
     }
     await flush(page);
@@ -733,16 +741,15 @@ async function runDeferredOnboardingGuard(browser, edited) {
     const result = await page.evaluate(async () => {
       const current = window.__repforgeWorkoutDraft.state();
       return window.__repforgeFinalizeProgramSetup({
-        exercises: current.program,
+        programDefinition: current.programMeta?.programDefinition,
         name: current.programMeta?.name || "Deferred guard",
-        answers: { goal: "strength_hypertrophy", daysPerWeek: 4 },
+        answers: {},
         destination: "log",
         origin: "block",
         draftConfirmed: true,
         telemetryRoute: "custom",
         entrySource: { route: "custom" },
         baseProposal: current,
-        programStructure: current.programMeta?.programStructure || null,
       });
     });
     await flush(page);

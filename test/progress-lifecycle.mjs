@@ -71,104 +71,81 @@ const now = "2026-08-31T12:00:00";
 
 console.log("PASS: progress lifecycle (active read-only and evidence-valid actions)");
 
-// --- Plan 056/P6: reconstructable schedule repair through the visible Review
-// surface. Real compiler proposals via RepForgeProgramTransition; the guided
-// fallback stages a setup draft and never archives.
+// --- Plan 067: schedule repair through the visible Review surface. Real
+// generated programs and real successor proposals; a change the generator
+// cannot make stages guided editing of the live definition and never archives.
 const BROWSER = process.env.REPFORGE_LIFECYCLE_BROWSER === "1";
 if (BROWSER) {
-  const { chromium } = await import("playwright");
-  const { assertServingApp } = await import("./browser.mjs");
+  const { launchChromium, waitForAppBoot } = await import("./browser.mjs");
   const base = process.env.REPFORGE_URL || "http://localhost:8000/";
-  await assertServingApp(base);
-  const browser = await chromium.launch();
+  const browser = await launchChromium();
   const errors = [];
+  const DAY = 86400000;
+  const START = Date.parse("2026-03-02T09:00:00.000Z");
 
   async function freshPage() {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const page = await context.newPage();
     page.on("pageerror", (e) => errors.push(String(e)));
+    await page.clock.setFixedTime(new Date(START));
     await page.goto(base, { waitUntil: "domcontentloaded" });
-    await page.waitForFunction(() => window.__repforgeBooted === true, null, { timeout: 20000 });
+    await waitForAppBoot(page, { base });
     return { context, page };
   }
 
-  async function seedCompiledProgram(page, { days = 4, minutes = 90 } = {}) {
-    await page.evaluate(async () => {
-      const regs = await navigator.serviceWorker?.getRegistrations?.() || [];
-      for (const reg of regs) await reg.unregister();
-      for (const key of await caches?.keys?.() || []) await caches.delete(key);
-      localStorage.clear();
-    });
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForFunction(() => window.__repforgeBooted === true, null, { timeout: 20000 });
+  async function seedGeneratedProgram(page, { days = 4, minutes = 90 } = {}) {
     const seeded = await page.evaluate(async ({ days, minutes }) => {
-      const services = window.__repforgeOnboarding.services();
-      const compiled = services.compile({
-        mode: "recommend",
-        answers: {
-          desiredResult: "balanced", structuredExperience: "6_to_24m", recentConsistency: "most",
-          daysPerWeek: days, sessionMinutes: minutes, preferredRestSeconds: 90,
-          environment: { kind: "commercial_gym" }, primaryMuscles: [], deEmphasizedMuscles: [],
-          ignoredMuscles: [], priorityMovements: [], mustHaveExercises: [], exerciseConstraints: [],
-        },
-        versions: services.currentVersions(),
-      });
-      if (!compiled.ok) return { ok: false, code: compiled.code };
+      const catalog = window.RepForgeExerciseCatalog.snapshot();
+      const request = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+        desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: days,
+        sessionMinutes: minutes, environment: { kind: "commercial_gym" },
+      }, catalog);
+      if (!request.ok) return { ok: false, request };
+      const generated = window.RepForgeProgramCompiler.generateProgram(request.value, catalog, `lifecycle-${days}-${minutes}`);
+      if (!generated.ok) return { ok: false, generated };
       const finalized = await window.__repforgeFinalizeProgramSetup({
-        exercises: compiled.preview.program,
-        name: "Schedule repair oracle",
-        answers: { goal: "balanced", daysPerWeek: days },
-        destination: "log",
-        origin: "first-run",
-        draftConfirmed: true,
-        telemetryRoute: "recommend",
-        entryTelemetry: compiled.telemetry,
-        entrySource: { route: "recommend", fingerprint: compiled.fingerprint },
-        programStructure: compiled.preview.programStructure,
-        compilerContext: compiled.compilerContext,
+        programDefinition: generated.value, name: "Schedule repair oracle", answers: {}, destination: "log",
+        origin: "first-run", draftConfirmed: true, telemetryRoute: "recommend",
+        entrySource: { route: "recommend", fingerprint: `lifecycle-${days}-${minutes}` },
       });
       await window.__repforgeStorage.flush();
       return { ok: !!(finalized?.localOk || finalized?.idbOk) };
     }, { days, minutes });
-    assert.equal(seeded.ok, true, `compiled program seeded: ${JSON.stringify(seeded)}`);
+    assert.equal(seeded.ok, true, `generated program seeded: ${JSON.stringify(seeded).slice(0, 1500)}`);
   }
 
-  async function markBlockComplete(page) {
-    const res = await page.evaluate(async () => {
-      const s = JSON.parse(localStorage.getItem("repforge_v1"));
-      s.programMeta = { ...s.programMeta, mesocycleStatus: "completed" };
-      return window.__repforgeCommitProposedState(s);
-    });
-    await page.evaluate(() => window.__repforgeStorage.flush());
-    assert.ok(res.localOk || res.idbOk, "mesocycleStatus flipped through the production commit");
+  /** The block ends by the calendar, the way a lifter reaches Review. */
+  async function finishBlock(page) {
+    const meta = await page.evaluate(() => window.__repforgeWorkoutDraft.state().programMeta);
+    await page.clock.setFixedTime(new Date(Date.parse(`${meta.started}T09:00:00.000Z`) + (meta.mesocycleLengthWeeks * 7 + 1) * DAY));
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base });
   }
 
   async function openReview(page) {
-    await page.evaluate(() => {
-      document.body.classList.remove("is-settings", "is-exercise", "is-onboarding");
-      document.querySelector('nav button[data-view="stats"]')?.click();
-    });
-    await page.waitForSelector("#stats.view.active", { timeout: 5000 });
-    await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("review"));
-    await page.waitForFunction(() => document.querySelector("#segReview")?.classList.contains("active"), null, { timeout: 5000 });
+    if (await page.locator("#settings.view.active").count()) await page.locator("#settingsBack").click();
+    await page.locator('nav button[data-view="stats"]').click();
+    await page.locator('#statsSeg [data-seg="review"]').click();
+    await page.locator("#reviewPanel").waitFor({ state: "visible" });
   }
 
   const stateOf = (page) => page.evaluate(() => {
     const s = JSON.parse(localStorage.getItem("repforge_v1"));
+    const definition = s.programMeta.programDefinition;
     return {
       metaId: s.programMeta.id,
-      blockId: s.programMeta.blockId || null,
       historyLen: (s.programHistory || []).length,
-      days: [...new Set((s.program || []).map((r) => r.day))].length,
-      hasContext: !!s.programMeta.compilerContext,
+      days: definition.days.filter((day) => day.kind === "training").length,
+      request: definition.request,
+      definition: JSON.stringify(definition),
       setupDraft: localStorage.getItem("repforge_program_setup_draft_v1"),
     };
   });
 
-  async function driveToPreview(page, { kind = "fewer_days", value } = {}) {
-    await page.click('[data-review-action="schedule-repair"]');
+  async function driveToPreview(page, { action = "schedule-repair", kind = "fewer_days", value } = {}) {
+    await page.click(`[data-review-action="${action}"]`);
     await page.waitForSelector("[data-diag-continue]", { timeout: 5000 });
-    if (kind !== "fewer_days") await page.click('[data-diag="sessions_too_long"]');
+    await page.click(`[data-diag="${kind}"]`);
     await page.fill("[data-diag-target]", String(value));
     await page.click("[data-diag-continue]");
     await page.waitForFunction(() =>
@@ -177,15 +154,16 @@ if (BROWSER) {
     return page.evaluate(() => ({
       preview: !!document.querySelector("[data-preview-confirm]"),
       staged: !!document.querySelector(".review__staged"),
-      text: document.querySelector("#reviewPanel")?.textContent || "",
+      text: document.querySelector("#reviewPanel")?.innerText || "",
     }));
   }
 
-  // Journey A: fewer-days sibling, exact diff, confirmed through the hash.
+  // Journey A: a fewer-days successor previews its exact diff and changes
+  // nothing until it is confirmed by its hash.
   {
     const { context, page } = await freshPage();
-    await seedCompiledProgram(page, { days: 4, minutes: 90 });
-    await markBlockComplete(page);
+    await seedGeneratedProgram(page, { days: 4, minutes: 90 });
+    await finishBlock(page);
     await openReview(page);
     const actions = await page.evaluate(() =>
       [...document.querySelectorAll("#reviewPanel [data-review-action]")].map((b) => b.dataset.reviewAction));
@@ -194,11 +172,12 @@ if (BROWSER) {
     const before = await stateOf(page);
 
     const step = await driveToPreview(page, { kind: "fewer_days", value: 3 });
-    assert.equal(step.preview, true, "4→3 fewer-days resolves a compiled sibling");
+    assert.equal(step.preview, true, "4→3 fewer-days resolves a generated successor");
     assert.match(step.text, /Training days: 4 → 3/, "preview states the frequency change");
-    assert.match(step.text, /RIR/, "preview renders the exact changed prescription fields");
     assert.match(step.text, /[0-9a-f]{12,}/i, "preview carries the proposal hash");
     const mid = await stateOf(page);
+    assert.equal(mid.metaId, before.metaId, "previewing leaves the program identity untouched");
+    assert.equal(mid.definition, before.definition, "previewing leaves the live definition untouched");
     assert.equal(mid.historyLen, 0, "previewing archives nothing");
     assert.equal(mid.setupDraft, null, "previewing stages no guided draft");
 
@@ -206,63 +185,61 @@ if (BROWSER) {
     await page.waitForFunction(() => !!document.querySelector(".review__staged"), null, { timeout: 15000 });
     await page.evaluate(() => window.__repforgeStorage.flush());
     const after = await stateOf(page);
-    assert.equal(after.metaId !== before.metaId, true, "confirmed sibling activates a new program identity");
-    assert.equal(after.historyLen, 1, "confirmed sibling archives the predecessor exactly once");
+    assert.notEqual(after.metaId, before.metaId, "confirmed successor activates a new program identity");
+    assert.equal(after.historyLen, 1, "confirmed successor archives the predecessor exactly once");
     assert.equal(after.days, 3, "successor runs the requested 3-day frequency");
-    assert.equal(after.hasContext, true, "successor keeps compiler provenance for future transitions");
+    assert.equal(after.request?.daysPerWeek, 3, "successor keeps its generator request for future transitions");
     assert.equal(after.setupDraft, null, "no guided draft remains");
     await context.close();
   }
 
   // Journey B: a durable write between preview and confirm makes the commit
-  // fail stale, visibly, with nothing modified.
+  // fail stale, visibly, with nothing modified. The preview survives a trip
+  // through Settings.
   {
     const { context, page } = await freshPage();
-    await seedCompiledProgram(page, { days: 4, minutes: 90 });
-    await markBlockComplete(page);
+    await seedGeneratedProgram(page, { days: 4, minutes: 90 });
+    await finishBlock(page);
     await openReview(page);
     await driveToPreview(page, { kind: "fewer_days", value: 3 });
     const before = await stateOf(page);
-    // Production durable write through the real Settings control.
     await page.evaluate(() => window.__repforgeShowSettings());
     await page.waitForSelector("#settings.view.active", { timeout: 5000 });
-    await page.evaluate(() => document.querySelector("#progressionDetails")?.classList.add("is-open"));
-    const rir = page.locator("#hardRir");
-    await rir.fill("3");
-    await rir.blur();
-    await page.waitForFunction(() => {
-      const s = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
-      return Number(s.settings?.hardRir) === 3;
-    }, null, { timeout: 10000 });
+    await page.locator("#unit").selectOption("lb");
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem("repforge_v1") || "{}").settings?.unit === "lb",
+      null, { timeout: 10000 });
     await openReview(page);
     const stillPreview = await page.evaluate(() => !!document.querySelector("[data-preview-confirm]"));
     assert.equal(stillPreview, true, "the preview survives navigation through Settings");
     await page.click("[data-preview-confirm]");
     await page.waitForFunction(() => !!document.querySelector(".review__error"), null, { timeout: 15000 });
     const errText = await page.evaluate(() => document.querySelector(".review__error")?.textContent || "");
-    assert.match(errText, /out of date/i, "stale commit is named as stale, visibly");
+    assert.match(errText, /changed|newer|again|out of date/i, "stale commit is named as stale, visibly");
     await page.evaluate(() => window.__repforgeStorage.flush());
     const after = await stateOf(page);
     assert.equal(after.metaId, before.metaId, "stale rejection leaves the program unchanged");
+    assert.equal(after.definition, before.definition, "stale rejection leaves the definition unchanged");
     assert.equal(after.historyLen, 0, "stale rejection archives nothing");
     await context.close();
   }
 
-  // Journey C: fewer-days target with no blueprint stages the exact-program
-  // guided draft with the diagnosed constraint and no archive.
+  // Journey C: a fewer-days target the generator cannot meet stages the
+  // exact-program guided draft with the diagnosed constraint and no archive.
   {
     const { context, page } = await freshPage();
-    await seedCompiledProgram(page, { days: 3, minutes: 90 });
-    await markBlockComplete(page);
+    await seedGeneratedProgram(page, { days: 3, minutes: 90 });
+    await finishBlock(page);
     await openReview(page);
     const before = await stateOf(page);
     const step = await driveToPreview(page, { kind: "fewer_days", value: 1 });
-    assert.equal(step.staged, true, "unavailable sibling falls back to the guided editor");
+    assert.equal(step.staged, true, "an impossible successor falls back to the guided editor");
     const after = await stateOf(page);
     assert.equal(after.metaId, before.metaId, "guided staging never archives");
     assert.equal(after.historyLen, 0, "guided staging creates no archive");
     assert.ok(after.setupDraft, "guided staging persists a setup draft");
     const draft = JSON.parse(after.setupDraft || "{}");
+    assert.equal(JSON.stringify(draft?.state?.result?.preview?.programDefinition), before.definition,
+      "the draft carries the live definition for editing");
     const diag = draft?.state?.result?.diagnostics || null;
     assert.equal(diag?.mainConstraint, "fewer_days", "the draft carries the diagnosed constraint");
     assert.equal(diag?.daysPerWeek, 1, "the draft carries the exact target");
@@ -277,58 +254,54 @@ if (BROWSER) {
   // previews the exact target duration and remains inert before confirmation.
   {
     const { context, page } = await freshPage();
-    await seedCompiledProgram(page, { days: 4, minutes: 90 });
-    await markBlockComplete(page);
+    await seedGeneratedProgram(page, { days: 4, minutes: 90 });
+    await finishBlock(page);
     await openReview(page);
     const before = await stateOf(page);
     const step = await driveToPreview(page, { kind: "sessions_too_long", value: 60 });
-    assert.equal(step.preview, true, "90→60 minutes resolves a same-frequency compiled sibling");
-    assert.match(step.text, /Training days: 4 → 4/, "shorter-session preview preserves frequency");
+    assert.equal(step.preview, true, "90→60 minutes resolves a same-frequency generated successor");
     assert.match(step.text, /Session target: 90 → 60 minutes/, "preview states the exact duration change");
-    assert.match(step.text, /Same exercises, same prescriptions/, "shorter-session preview states that no prescription changed");
+    assert.doesNotMatch(step.text, /Training days:/, "a shorter-session preview proposes no frequency change");
     const after = await stateOf(page);
     assert.equal(after.metaId, before.metaId, "shorter-session preview leaves the program identity untouched");
+    assert.equal(after.definition, before.definition, "shorter-session preview leaves the definition untouched");
     assert.equal(after.historyLen, 0, "shorter-session preview archives nothing");
     await page.click("[data-flow-cancel]");
     await context.close();
   }
 
-  // Journey E: sessions-too-long diagnosis at a frequency with no shorter
-  // sibling lands on the guided fallback, carrying the minutes target.
+  // Journey E: a session ceiling the generator cannot fit lands on the guided
+  // fallback, carrying the minutes target.
   {
     const { context, page } = await freshPage();
-    await seedCompiledProgram(page, { days: 3, minutes: 90 });
-    await markBlockComplete(page);
+    await seedGeneratedProgram(page, { days: 3, minutes: 90 });
+    await finishBlock(page);
     await openReview(page);
     const step = await driveToPreview(page, { kind: "sessions_too_long", value: 15 });
-    assert.equal(step.staged, true, "shorter-session sibling unavailable stages guided repair");
+    assert.equal(step.staged, true, "an unfit shorter-session successor stages guided repair");
     const after = await stateOf(page);
     const draft = JSON.parse(after.setupDraft || "{}");
     const diag = draft?.state?.result?.diagnostics || null;
     assert.equal(diag?.mainConstraint, "sessions_too_long");
     assert.equal(diag?.sessionMinutes, 15);
     assert.equal(after.historyLen, 0, "still no archive");
-    await page.evaluate(() => localStorage.removeItem("repforge_program_setup_draft_v1"));
     await context.close();
   }
 
-  // Journey F: the explicit guided-edit action stages the exact program after
-  // the same typed Unavailable boundary as the automatic fallback.
+  // Journey F: the explicit guided-edit action stages the exact program and
+  // opens it in the program editor.
   {
     const { context, page } = await freshPage();
-    await seedCompiledProgram(page, { days: 3, minutes: 90 });
-    await markBlockComplete(page);
+    await seedGeneratedProgram(page, { days: 3, minutes: 90 });
+    await finishBlock(page);
     await openReview(page);
-    await page.click('[data-review-action="guided-edit"]');
-    await page.waitForSelector("[data-diag-continue]", { timeout: 5000 });
-    await page.fill("[data-diag-target]", "1");
-    await page.click("[data-diag-continue]");
-    await page.waitForFunction(() => !!document.querySelector(".review__staged"), null, { timeout: 15000 });
+    const step = await driveToPreview(page, { action: "guided-edit", kind: "fewer_days", value: 2 });
+    assert.equal(step.staged, true, "guided edit stages without proposing a successor");
     const after = await stateOf(page);
     assert.ok(after.setupDraft, "guided edit stages the exact-program draft");
     assert.equal(after.historyLen, 0, "guided edit never archives");
     await page.click("[data-flow-editor]");
-    await page.waitForSelector("#onboarding.active", { timeout: 5000 });
+    await page.locator("#onbProgramEditor").waitFor({ state: "visible", timeout: 15000 });
     assert.equal(await page.evaluate(() => document.body.classList.contains("is-entry-editor")), true,
       "Open the editor resumes the staged guided candidate");
     await context.close();
@@ -336,5 +309,5 @@ if (BROWSER) {
 
   assert.deepEqual(errors, [], "no page errors during schedule repair journeys");
   await browser.close();
-  console.log("PASS: schedule repair journeys (sibling diff, stale, guided fallback, no archive)");
+  console.log("PASS: schedule repair journeys (successor diff, stale, guided fallback, no archive)");
 }

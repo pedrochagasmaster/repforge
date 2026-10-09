@@ -16,9 +16,12 @@
   const PROGRAM_EDITOR_INTENTS = Object.freeze([
     "program_name", "day_name", "day_add", "exercise_field", "prescription",
     "exercise_add", "exercise_remove", "day_remove", "exercise_replace",
-    "alternates", "exercise_move", "save_draft", "apply", "apply_discard_workout",
+    "exercise_move", "metric_target", "metric_composition",
+    "prescription_field", "load_step", "save_draft", "apply", "apply_discard_workout",
   ]);
   const INTENT_SET = new Set(PROGRAM_EDITOR_INTENTS);
+  const METRIC_DOMAIN = root?.RepForgeExerciseMetrics ||
+    (typeof require === "function" ? require("./exercise-metrics.js") : null);
   const FALLBACK = Object.freeze({
     programName: "Program name",
     namePlaceholder: "Untitled program",
@@ -42,8 +45,6 @@
     notes: "Setup notes",
     primary: "Primary",
     secondary: "Secondary",
-    alternates: "Alternates",
-    chooseAlternates: "Choose alternates",
     move: "Reorder exercise",
     moveUp: "Move up",
     moveDown: "Move down",
@@ -64,6 +65,19 @@
     more: "More",
     close: "Close",
     context: "",
+    metricTargets: "Training targets",
+    metricCycle: ({ n }) => `Cycle ${n}`,
+    metricSet: ({ n }) => `Set ${n}`,
+    metricComposition: "Metric composition",
+    metricUnconfigured: "Not configured",
+    metricTargetAria: ({ cycle, set, metric }) => `${cycle}, ${set}, ${metric}`,
+    metricTargetMinAria: ({ cycle, set, metric }) => `${cycle}, ${set}, ${metric} minimum`,
+    metricTargetMaxAria: ({ cycle, set, metric }) => `${cycle}, ${set}, ${metric} maximum`,
+    metricRir: "Target RIR",
+    loadStep: "Smallest load change",
+    loadStepHint: "Suggested loads move in steps of this size.",
+    metricRestSeconds: "Rest between sets (seconds)",
+    prescriptionFieldAria: ({ cycle, set, field }) => `${cycle}, ${set}, ${field}`,
   });
   const I18N_KEYS = Object.freeze({
     programName: "program.editor.program_name", namePlaceholder: "program.editor.name_placeholder",
@@ -74,7 +88,7 @@
     addExercise: "program.editor.add_exercise", replaceExercise: "program.editor.replace_exercise",
     removeExercise: "program.editor.remove_exercise", removeDay: "program.editor.remove_day",
     details: "program.editor.details", notes: "program.editor.notes", primary: "program.editor.primary",
-    secondary: "program.editor.secondary", alternates: "program.editor.alternates", chooseAlternates: "program.editor.choose_alternates",
+    secondary: "program.editor.secondary",
     move: "program.editor.move", moveUp: "program.editor.move_up", moveDown: "program.editor.move_down",
     moveOther: "program.editor.move_other", moved: "program.editor.moved", undo: "program.editor.undo",
     exerciseAdded: "toast.exercise_added", exerciseChanged: "toast.exercise_changed", exerciseRemoved: "toast.exercise_removed",
@@ -83,6 +97,12 @@
     dragCancelled: "program.editor.drag.cancelled",
     invalid: "program.editor.invalid", saved: "program.editor.draft_saved", emptyDays: "program.editor.empty_days",
     more: "program.editor.more", close: "dialog.close",
+    metricTargets: "program.editor.metric_targets", metricCycle: "program.editor.metric_cycle",
+    metricSet: "program.editor.metric_set", metricComposition: "program.editor.metric_composition",
+    metricUnconfigured: "program.editor.metric_unconfigured", metricTargetAria: "program.editor.metric_target_aria",
+    metricTargetMinAria: "program.editor.metric_target_min_aria", metricTargetMaxAria: "program.editor.metric_target_max_aria",
+    metricRir: "program.editor.metric_rir", loadStep: "program.editor.load_step", loadStepHint: "program.editor.load_step_hint", metricRestSeconds: "program.editor.metric_rest_seconds",
+    prescriptionFieldAria: "program.editor.prescription_field_aria",
   });
 
   const clone = value => {
@@ -195,6 +215,132 @@
   function exerciseEntry(adapter, id) {
     try { return adapter?.exerciseEntry?.(id) || null; } catch { return null; }
   }
+  function exerciseMetricDefinitions(adapter, exercise) {
+    if (Array.isArray(exercise?.metricDefinitions)) return clone(exercise.metricDefinitions);
+    try {
+      const supplied = adapter?.metricDefinitionsForExercise?.(exercise?.libraryId || exercise?.exerciseId);
+      if (Array.isArray(supplied)) return clone(supplied);
+    } catch { /* the stored canonical definitions remain available */ }
+    return [];
+  }
+  function metricOptions(adapter) {
+    try {
+      const supplied = adapter?.metricOptions?.();
+      if (Array.isArray(supplied)) return supplied;
+    } catch { /* use the shared metric domain */ }
+    return METRIC_DOMAIN?.DEFINITIONS || [];
+  }
+  function metricCompositions(adapter) {
+    try {
+      const supplied = adapter?.metricCompositions?.();
+      if (Array.isArray(supplied)) return supplied;
+    } catch { /* use the shared metric domain */ }
+    return METRIC_DOMAIN?.SOURCE_COMPOSITIONS || [];
+  }
+  function metricLabel(adapter, definition) {
+    try {
+      const supplied = adapter?.metricLabel?.(definition);
+      if (supplied) return supplied;
+    } catch { /* canonical source name is still useful */ }
+    return String(definition?.sourceName || definition?.semantic || "Metric");
+  }
+  function metricDisplayUnit(adapter, definition) {
+    try { return String(adapter?.metricDisplayUnit?.(definition) || ""); }
+    catch { return ""; }
+  }
+  function formatMetricValue(adapter, definition, value) {
+    try {
+      const supplied = adapter?.formatMetricValue?.(definition, value);
+      if (supplied !== undefined && supplied !== null) return String(supplied);
+    } catch { /* canonical value remains editable */ }
+    return format(adapter, value);
+  }
+  function parseMetricInput(adapter, definition, raw) {
+    try {
+      const supplied = adapter?.parseMetricInput?.(definition, raw);
+      if (supplied && typeof supplied === "object") return supplied;
+    } catch { /* fall through to the shared numeric validator */ }
+    const parsed = METRIC_DOMAIN?.parseMetricValue?.(definition, raw);
+    return parsed?.ok ? { value: parsed.value } : { field: "metric" };
+  }
+  function metricCycleIndex(adapter, document) {
+    try {
+      const value = Number(adapter?.cycleIndex?.(document));
+      if (Number.isInteger(value) && value > 0) return value;
+    } catch { /* cycle one is the safe editing default */ }
+    return 1;
+  }
+  function definitionFor(document) {
+    const value = document?.programMeta?.programDefinition;
+    return value && Array.isArray(value.days) ? value : null;
+  }
+  function definitionSlot(document, slotId) {
+    const definition = definitionFor(document);
+    for (const day of definition?.days || []) {
+      const slot = (day.slots || []).find(candidate => candidate?.id === slotId);
+      if (slot) return slot;
+    }
+    return null;
+  }
+  function definitionCycle(slot, cycleIndex) {
+    return (slot?.prescriptionsByCycle || []).find(cycle => cycle?.cycleIndex === cycleIndex) || null;
+  }
+  function definitionSet(document, slotId, cycleIndex, setIndex) {
+    const cycle = definitionCycle(definitionSlot(document, slotId), cycleIndex);
+    return (cycle?.sets || []).find(set => set?.setIndex === setIndex) || null;
+  }
+  function setCountFor(document, exercise, cycleIndex) {
+    const slot = definitionSlot(document, exercise?.slotId || exercise?.id);
+    const cycle = definitionCycle(slot, cycleIndex);
+    return Array.isArray(cycle?.sets) ? cycle.sets.length : positiveInt(exercise?.sets, 1);
+  }
+  function editableMetricComposition(slot) {
+    return !!slot && (slot.metricOrigin === "user_defined" || !slot.metricIds?.length);
+  }
+  function replaceMetricComposition(document, exercise, metricIds, definitions) {
+    const slotId = exercise?.slotId || exercise?.id;
+    const slot = definitionSlot(document, slotId);
+    if (!editableMetricComposition(slot)) return false;
+    const keepSemantics = new Set(definitions.map(definition => definition.semantic));
+    slot.metricIds = clone(metricIds);
+    slot.metricDefinitions = clone(definitions);
+    slot.metricOrigin = String(slot.exerciseId || exercise.libraryId || "").startsWith("custom:") || metricIds.length
+      ? "user_defined" : "source_catalog";
+    // Schema v2: a set derives its metric composition from its slot rather
+    // than storing it again, so only the slot above is rewritten here.
+    for (const cycle of slot.prescriptionsByCycle || []) for (const set of cycle.sets || []) {
+      set.targets = Object.fromEntries(Object.entries(set.targets || {}).filter(([semantic]) => keepSemantics.has(semantic)));
+      set.status = metricIds.length ? "manual" : "configuration_required";
+      set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: "manual@1" };
+    }
+    const custom = (document.customExercises || []).find(entry => entry?.id === slot.exerciseId);
+    if (custom) {
+      custom.metricIds = clone(metricIds);
+      custom.metricDefinitions = clone(definitions);
+    }
+    const row = (document.program || []).find(candidate => (candidate.slotId || candidate.id) === slotId);
+    if (row) {
+      row.metricIds = clone(metricIds);
+      row.metricDefinitions = clone(definitions);
+      row.metricOrigin = slot.metricOrigin;
+      row.prescriptionsByCycle = clone(slot.prescriptionsByCycle || []);
+    }
+    return true;
+  }
+  function replaceMetricTarget(document, slotId, cycleIndex, setIndex, semantic, after) {
+    const set = definitionSet(document, slotId, cycleIndex, setIndex);
+    if (!set) return false;
+    const targets = { ...(set.targets || {}) };
+    if (after.present) targets[semantic] = clone(after.value);
+    else delete targets[semantic];
+    set.targets = targets;
+    set.status = "manual";
+    set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: "manual@1" };
+    const row = (document.program || []).find(candidate => (candidate.slotId || candidate.id) === slotId);
+    const slot = definitionSlot(document, slotId);
+    if (row && slot) row.prescriptionsByCycle = clone(slot.prescriptionsByCycle || []);
+    return true;
+  }
 
   function ensureStructure(document) {
     if (!document.programMeta || typeof document.programMeta !== "object") document.programMeta = {};
@@ -243,10 +389,9 @@
     normalizeOrders(document);
   }
   function fieldValue(exercise, field, value) {
-    if (field === "sets") return positiveInt(value, positiveInt(exercise.sets, 1));
+    if (field === "sets") return Math.max(1, Math.min(100, positiveInt(value, positiveInt(exercise.sets, 1))));
     if (field === "min") return positiveInt(value, positiveInt(exercise.min, 1));
     if (field === "max") return positiveInt(value, positiveInt(exercise.max, 1));
-    if (field === "alternates") return Array.isArray(value) ? value.map(String).filter(Boolean) : String(value || "").split(",").map(item => item.trim()).filter(Boolean);
     return String(value ?? "").trim();
   }
   function entryFields(entry, day, order) {
@@ -254,7 +399,6 @@
       id: uid(), day, order, name: String(entry?.name || entry?.namePt || "Exercise"),
       sets: positiveInt(entry?.sets, 3), min: positiveInt(entry?.min, 6), max: positiveInt(entry?.max, 10),
       primary: String(entry?.primary || ""), secondary: String(entry?.secondary || ""), notes: String(entry?.notes || ""),
-      alternates: Array.isArray(entry?.alternates) ? clone(entry.alternates) : [],
       ...(entry?.id ? { libraryId: String(entry.id), movementId: `library:${String(entry.id)}` } : {}),
     };
   }
@@ -266,7 +410,7 @@
   function replaceExercise(document, id, entry) {
     const exercise = (document.program || []).find(item => item.id === id);
     if (!exercise || !entry) return false;
-    const old = { id: exercise.id, day: exercise.day, order: exercise.order, notes: exercise.notes, alternates: exercise.alternates };
+    const old = { id: exercise.id, day: exercise.day, order: exercise.order, notes: exercise.notes };
     const replacement = entryFields(entry, old.day, old.order);
     // A replacement repoints the slot's movement identity but keeps its
     // authored prescription and notes. Leaving the old movementId behind
@@ -275,7 +419,7 @@
     Object.assign(exercise, {
       name: replacement.name, primary: replacement.primary, secondary: replacement.secondary,
       ...(replacement.libraryId ? { libraryId: replacement.libraryId, movementId: replacement.movementId } : {}),
-      notes: old.notes, alternates: old.alternates,
+      notes: old.notes,
     });
     return true;
   }
@@ -303,7 +447,10 @@
         if (!exercise.id) issues.push("exercise_invalid:id");
         if (!String(exercise.name || "").trim()) issues.push(`exercise_invalid:${exercise.id}:name`);
         const sets = number(exercise.sets), min = number(exercise.min), max = number(exercise.max);
-        if (!(sets > 0) || !(min > 0) || !(max >= min)) issues.push(`exercise_invalid:${exercise.id}:prescription`);
+        // A metric composition without repetitions (duration, distance, or a
+        // custom movement not yet configured) carries no rep range to check.
+        const reps = exercise.hasRepTarget !== false;
+        if (!(sets > 0) || reps && (!(min > 0) || !(max >= min))) issues.push(`exercise_invalid:${exercise.id}:prescription`);
       }
     }
     return issues;
@@ -322,6 +469,8 @@
     let baseDocument = clone(document);
     let edits = [];
     let expandedExercises = new Set();
+    let expandedMetricCycles = new Set();
+    let initializedMetricCycleSlots = new Set();
     let collapsedDays = new Set();
     let collapsedDaysInitialized = false;
     let destroyed = false;
@@ -369,6 +518,9 @@
       Promise.resolve().then(() => { renderQueued = false; if (!destroyed) render(); });
     };
     const stage = (next, edit, { redraw = true } = {}) => {
+      // The host's returned document redraws the list a second time; the focus
+      // the caller asked for has to land on that final DOM, not the first one.
+      const focusRequest = pendingFocus;
       document = normalizeOrders(clone(next));
       edits.push(intent(edit.kind, edit));
       if (redraw) scheduleRender();
@@ -380,6 +532,15 @@
         return Promise.resolve({ ok: false, error });
       }
       return Promise.resolve(result).then(value => {
+        const returnedDocument = value?.document?.document || value?.document?.nextDocument || value?.document;
+        if (value?.ok !== false && returnedDocument?.program && returnedDocument?.programMeta) {
+          document = clone(returnedDocument);
+          ensureStructure(document);
+          if (redraw) {
+            if (!pendingFocus && focusRequest) pendingFocus = focusRequest;
+            scheduleRender();
+          }
+        }
         if (value?.token !== undefined && value?.staged !== false) token = clone(value.token);
         if (value?.ok === false || value?.localOk === false && value?.staged !== true && value?.setupDraft !== true) {
           setStatus(value?.message || label("invalid"), { error: true });
@@ -387,12 +548,35 @@
         return value;
       }, error => { setStatus(error?.message || label("invalid"), { error: true }); return { ok: false, error }; });
     };
-    const setExerciseField = (id, field, value, { redraw = true } = {}) => {
+    const setExerciseField = (id, field, value, { redraw = true, cycleIndex: requestedCycle } = {}) => {
       const next = clone(document), exercise = next.program?.find(item => item.id === id);
       if (!exercise) return Promise.resolve({ ok: false });
-      const previous = field === "alternates" ? clone(exercise.alternates || []) : exercise[field];
+      const requestedIndex = Number(requestedCycle);
+      const cycleIndex = Number.isInteger(requestedIndex) && requestedIndex > 0
+        ? requestedIndex : metricCycleIndex(adapter, document);
+      const slot = field === "sets" ? definitionSlot(next, exercise.slotId || exercise.id) : null;
+      const cycle = slot ? definitionCycle(slot, cycleIndex) : null;
+      const previous = field === "sets" && cycle ? cycle.sets.length : exercise[field];
       const normalized = fieldValue(exercise, field, value);
       if (equal(previous, normalized)) return Promise.resolve({ ok: true, unchanged: true });
+      if (field === "sets" && cycle) {
+        const beforeSetIds = cycle.sets.map(set => set.id), addedSets = [], removedSetIds = [];
+        while (cycle.sets.length < normalized) {
+          const source = cycle.sets.at(-1);
+          if (!source) return Promise.resolve({ ok: false });
+          const added = { ...clone(source), id: uid(), cycleIndex, setIndex: cycle.sets.length + 1,
+            rir: null, status: slot.metricIds?.length ? "manual" : "configuration_required",
+            provenance: { source: "manual", policyVersion: "manual@1" } };
+          cycle.sets.push(added);
+          addedSets.push(clone(added));
+        }
+        while (cycle.sets.length > normalized) removedSetIds.push(cycle.sets.pop().id);
+        cycle.sets.forEach((set, index) => { set.setIndex = index + 1; });
+        exercise.sets = normalized;
+        exercise.prescriptionsByCycle = clone(slot.prescriptionsByCycle || []);
+        return stage(next, { kind: "prescription", targetId: id, field: "sets", before: previous, after: normalized,
+          cycleIndex, beforeSetIds, addedSets, removedSetIds }, { redraw });
+      }
       if (field === "min" && normalized > number(exercise.max)) exercise.max = normalized;
       if (field === "max" && normalized < number(exercise.min)) exercise.min = normalized;
       exercise[field] = normalized;
@@ -404,7 +588,7 @@
         if (normalized) exercise.displayName = normalized;
         else delete exercise.displayName;
       }
-      return stage(next, { kind: field === "sets" || field === "min" || field === "max" ? "prescription" : field === "alternates" ? "alternates" : "exercise_field", targetId: id, field, before: previous, after: normalized }, { redraw });
+      return stage(next, { kind: field === "sets" || field === "min" || field === "max" ? "prescription" : "exercise_field", targetId: id, field, before: previous, after: normalized }, { redraw });
     };
     const toggleExercise = id => { expandedExercises.has(id) ? expandedExercises.delete(id) : expandedExercises.add(id); scheduleRender(); };
     const toggleDay = day => { collapsedDays.has(day) ? collapsedDays.delete(day) : collapsedDays.add(day); scheduleRender(); };
@@ -419,7 +603,7 @@
       const want = pendingFocus; pendingFocus = null;
       if (!want) return;
       const find = selector => host.querySelector(selector);
-      const target = want.id
+      const target = want.selector ? find(want.selector) : want.id
         ? (want.roles || ["toggle-exercise"]).map(role => find(`[data-role="${role}"][data-id="${cssEscape(want.id)}"]`)).find(Boolean)
         : find(`[data-role="add-exercise"][data-day="${cssEscape(want.day)}"]`);
       try { target?.focus(); } catch { /* a control that cannot take focus is left alone */ }
@@ -568,7 +752,7 @@
     const discard = () => {
       const latest = adapter.read() || {};
       document = clone(latest.document || latest.nextDocument || latest); token = clone(latest.token);
-      baseDocument = clone(document); edits = []; undoMove = null; expandedExercises.clear(); collapsedDays.clear(); collapsedDaysInitialized = false;
+      baseDocument = clone(document); edits = []; undoMove = null; expandedExercises.clear(); expandedMetricCycles.clear(); initializedMetricCycleSlots.clear(); collapsedDays.clear(); collapsedDaysInitialized = false;
       scheduleRender();
       return document;
     };
@@ -588,34 +772,283 @@
     };
 
     function summary(exercise) {
-      const sets = format(adapter, exercise.sets), min = format(adapter, exercise.min), max = format(adapter, exercise.max);
-      return `${sets} × ${min}${min === max ? "" : `–${max}`}`;
+      const cycleIndex = metricCycleIndex(adapter, document);
+      const sets = format(adapter, setCountFor(document, exercise, cycleIndex));
+      const slot = definitionSlot(document, exercise.slotId || exercise.id);
+      if (!slot) {
+        const min = format(adapter, exercise.min), max = format(adapter, exercise.max);
+        return `${sets} × ${min}${min === max ? "" : `–${max}`}`;
+      }
+      const definitions = exerciseMetricDefinitions(adapter, slot);
+      const repetition = definitions.find(metric => metric.semantic === "reps" || metric.semantic === "repsPerSide");
+      if (!repetition) return `${sets} ${label("sets").toLocaleLowerCase()}`;
+      const cycle = definitionCycle(slot, cycleIndex);
+      const targets = (cycle?.sets || []).map(set => set.targets?.[repetition.semantic]);
+      if (!targets.length || targets.some(target => target == null) || targets.some(target => !equal(target, targets[0])))
+        return `${sets} ${label("sets").toLocaleLowerCase()}`;
+      const target = formatMetricValue(adapter, repetition, targets[0]);
+      return `${sets} × ${target} ${metricLabel(adapter, repetition).toLocaleLowerCase()}`;
+    }
+    function updateExerciseSummary(id) {
+      const exercise = document.program?.find(item => item.id === id);
+      const node = host.querySelector(`[data-role="exercise"][data-id="${cssEscape(id)}"] [data-role="exercise-summary"]`);
+      if (exercise && node) node.textContent = summary(exercise);
     }
     function dayCount(count) {
       const value = adapter?.dayCount ? adapter.dayCount(count) : label("dayCount", { n: count, word: count === 1 ? "exercise" : "exercises" });
       return value;
+    }
+    function metricInputMarkup(exercise, slot, cycle, set, definition, target) {
+      const slotId = slot.id, cycleIndex = cycle.cycleIndex, setIndex = set.setIndex;
+      const labelValue = metricLabel(adapter, definition), unit = metricDisplayUnit(adapter, definition);
+      const reps = definition.semantic === "reps" || definition.semantic === "repsPerSide";
+      const range = reps || !!target && typeof target === "object" && Number.isFinite(target.min) && Number.isFinite(target.max);
+      const rangeMin = target && typeof target === "object" ? target.min : target;
+      const rangeMax = target && typeof target === "object" ? target.max : target;
+      const input = (bound, value, labelKey) => `<label class="program-editor__metric-field"><span>${esc(labelValue)}${unit ? ` <small>${esc(unit)}</small>` : ""}</span><input type="text" inputmode="${reps ? "numeric" : "decimal"}" autocomplete="off" data-role="metric-target" data-id="${esc(exercise.id)}" data-slot-id="${esc(slotId)}" data-cycle-index="${cycleIndex}" data-set-index="${setIndex}" data-metric-id="${esc(definition.id)}" data-semantic="${esc(definition.semantic)}" data-bound="${bound}" value="${value == null ? "" : esc(formatMetricValue(adapter, definition, value))}" aria-label="${esc(label(labelKey, { cycle: label("metricCycle", { n: cycleIndex }), set: label("metricSet", { n: setIndex }), metric: labelValue }))}"></label>`;
+      if (range) return `<fieldset class="program-editor__metric-range"><legend>${esc(labelValue)}${unit ? ` (${esc(unit)})` : ""}</legend>${input("min", rangeMin, "metricTargetMinAria")}${input("max", rangeMax, "metricTargetMaxAria")}</fieldset>`;
+      return input("value", target, "metricTargetAria");
+    }
+    function compositionText(metricIds, options) {
+      const byId = new Map(options.map(definition => [definition.id, definition]));
+      return metricIds.map(id => byId.get(id)).filter(Boolean).map(definition => metricLabel(adapter, definition)).join(" + ");
+    }
+    function prescriptionFieldMarkup(exercise, slot, cycle, set, field) {
+      const rir = field === "rir", fieldLabel = label(rir ? "metricRir" : "metricRestSeconds");
+      const unit = rir ? "" : "s", value = set[field];
+      const cycleTitle = label("metricCycle", { n: cycle.cycleIndex }), setTitle = label("metricSet", { n: set.setIndex });
+      return `<label class="program-editor__metric-field program-editor__prescription-field"><span>${esc(fieldLabel)}${unit ? ` <small>${esc(unit)}</small>` : ""}</span><input type="number" inputmode="decimal" min="0" max="${rir ? "4" : "86400"}" step="${rir ? "any" : "1"}" data-role="prescription-field" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" data-cycle-index="${cycle.cycleIndex}" data-set-index="${set.setIndex}" data-field="${field}" value="${value == null ? "" : esc(String(value))}" aria-label="${esc(label("prescriptionFieldAria", { cycle: cycleTitle, set: setTitle, field: fieldLabel }))}"></label>`;
+    }
+    function renderMetricComposition(exercise, slot) {
+      const currentIds = Array.isArray(slot.metricIds) ? slot.metricIds : [];
+      const options = metricOptions(adapter);
+      if (!editableMetricComposition(slot)) {
+        return `<p class="program-editor__metric-composition" data-role="metric-composition-summary"><span>${esc(label("metricComposition"))}</span> ${esc(compositionText(currentIds, options))}</p>`;
+      }
+      const choices = [], seen = new Set();
+      for (const candidate of metricCompositions(adapter)) {
+        if (!Array.isArray(candidate)) continue;
+        const ids = candidate.map(String);
+        const key = JSON.stringify(ids);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        choices.push(ids);
+      }
+      if (!seen.has("[]")) choices.unshift([]);
+      return `<label class="program-editor__metric-composition"><span>${esc(label("metricComposition"))}</span><select data-role="metric-composition" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" aria-label="${esc(label("metricComposition"))}">${choices.map(ids => {
+        const key = JSON.stringify(ids), name = ids.length ? compositionText(ids, options) : label("metricUnconfigured");
+        return `<option value="${esc(key)}"${equal(ids, currentIds) ? " selected" : ""}>${esc(name || label("metricUnconfigured"))}</option>`;
+      }).join("")}</select></label>`;
+    }
+    function renderMetricTargets(exercise) {
+      const slot = definitionSlot(document, exercise.slotId || exercise.id);
+      if (!slot) return "";
+      const definitions = exerciseMetricDefinitions(adapter, slot);
+      const activeCycle = metricCycleIndex(adapter, document);
+      if (!initializedMetricCycleSlots.has(slot.id)) {
+        expandedMetricCycles.add(`${slot.id}:${activeCycle}`);
+        initializedMetricCycleSlots.add(slot.id);
+      }
+      const cycles = (slot.prescriptionsByCycle || []).slice().sort((a, b) => a.cycleIndex - b.cycleIndex);
+      const contents = cycles.map(cycle => `<details class="program-editor__metric-cycle" data-role="metric-cycle" data-cycle-index="${cycle.cycleIndex}"${expandedMetricCycles.has(`${slot.id}:${cycle.cycleIndex}`) ? " open" : ""}>
+        <summary>${esc(label("metricCycle", { n: cycle.cycleIndex }))}</summary>
+        ${(cycle.sets || []).map(set => `<fieldset class="program-editor__metric-set"><legend>${esc(label("metricSet", { n: set.setIndex }))}</legend>
+          ${definitions.length ? "" : `<p class="program-editor__metric-unconfigured">${esc(label("metricUnconfigured"))}</p>`}
+          ${(slot.metricIds || []).map(metricId => {
+            const definition = definitions.find(candidate => candidate.id === metricId);
+            return definition ? metricInputMarkup(exercise, slot, cycle, set, definition, set.targets?.[definition.semantic]) : "";
+          }).join("")}
+          <div class="program-editor__metric-prescription-fields">${prescriptionFieldMarkup(exercise, slot, cycle, set, "rir")}${prescriptionFieldMarkup(exercise, slot, cycle, set, "restSeconds")}</div>
+        </fieldset>`).join("")}
+      </details>`).join("");
+      return `<section class="program-editor__metric-targets" data-role="metric-targets" data-slot-id="${esc(slot.id)}">
+        <h4>${esc(label("metricTargets"))}</h4>
+        ${renderMetricComposition(exercise, slot)}
+        ${contents}
+      </section>`;
+    }
+    function targetState(slotId, cycleIndex, setIndex, semantic) {
+      const set = definitionSet(document, slotId, cycleIndex, setIndex);
+      return set && hasOwn(set.targets, semantic)
+        ? { present: true, value: clone(set.targets[semantic]) }
+        : { present: false, value: null };
+    }
+    function editMetricTarget(input) {
+      const slotId = input.dataset.slotId, cycleIndex = Number(input.dataset.cycleIndex);
+      const setIndex = Number(input.dataset.setIndex), metricId = input.dataset.metricId;
+      const semantic = input.dataset.semantic, slot = definitionSlot(document, slotId);
+      const definition = slot?.metricDefinitions?.find(item => item.id === metricId);
+      const set = definitionSet(document, slotId, cycleIndex, setIndex);
+      if (!slot || !definition || !set || !(slot.metricIds || []).includes(metricId)) return;
+      const peers = [...host.querySelectorAll('[data-role="metric-target"]')].filter(candidate =>
+        candidate.dataset.slotId === slotId && candidate.dataset.cycleIndex === String(cycleIndex) &&
+        candidate.dataset.setIndex === String(setIndex) && candidate.dataset.metricId === metricId);
+      const ranged = peers.some(candidate => candidate.dataset.bound === "min" || candidate.dataset.bound === "max");
+      const raw = Object.fromEntries(peers.map(candidate => [candidate.dataset.bound, candidate.value.trim()]));
+      let after;
+      if (ranged) {
+        const minRaw = raw.min || "", maxRaw = raw.max || "";
+        if (!minRaw && !maxRaw) after = { present: false, value: null };
+        else if (!minRaw || !maxRaw) {
+          setStatus(label("invalid"), { error: true });
+          return;
+        } else {
+          const min = parseMetricInput(adapter, definition, minRaw), max = parseMetricInput(adapter, definition, maxRaw);
+          if (!hasOwn(min, "value") || !hasOwn(max, "value") || min.value == null || max.value == null || max.value < min.value) {
+            const issue = !hasOwn(min, "value") ? min : !hasOwn(max, "value") ? max : null;
+            setStatus(issue?.key ? label(issue.key) : label("invalid"), { error: true });
+            return;
+          }
+          after = { present: true, value: { min: min.value, max: max.value } };
+        }
+      } else if (!raw.value) after = { present: false, value: null };
+      else {
+        const parsed = parseMetricInput(adapter, definition, raw.value);
+        if (!hasOwn(parsed, "value") || parsed.value == null) {
+          setStatus(parsed?.key ? label(parsed.key) : label("invalid"), { error: true });
+          return;
+        }
+        after = { present: true, value: parsed.value };
+      }
+      const before = targetState(slotId, cycleIndex, setIndex, semantic);
+      if (equal(before, after)) return;
+      const next = clone(document);
+      if (!replaceMetricTarget(next, slotId, cycleIndex, setIndex, semantic, after)) return;
+      const result = stage(next, {
+        kind: "metric_target", slotId, cycleIndex, setIndex, metricId, semantic,
+        metricIds: clone(slot.metricIds || []), metricDefinitions: clone(slot.metricDefinitions || []),
+        before, after,
+      }, { redraw: false });
+      updateExerciseSummary(input.dataset.id);
+      return Promise.resolve(result).then(value => { updateExerciseSummary(input.dataset.id); return value; });
+    }
+    // The lifter's smallest load change per movement owns the adaptive engine's
+    // candidate loads. Only hosts that persist it offer the field.
+    const LOAD_SEMANTICS = new Set(["loadKg", "assistanceKg", "loadPerSideKg", "persistentLoadPerSideKg"]);
+    function slotLoadMetric(slot) {
+      return (slot?.metricDefinitions || []).find(definition => LOAD_SEMANTICS.has(definition.semantic)) || null;
+    }
+    function renderLoadStep(exercise, slot) {
+      const loadMetric = slotLoadMetric(slot);
+      if (!loadMetric || typeof adapter.defaultLoadStepKg !== "function") return "";
+      const own = document.programMeta?.loadingConfiguration?.byExerciseId?.[slot.exerciseId]?.loadStepKg;
+      const value = Number.isFinite(own) ? own : adapter.defaultLoadStepKg();
+      const unit = metricDisplayUnit(adapter, loadMetric);
+      return `<label class="program-editor__metric-field program-editor__load-step"><span>${esc(label("loadStep"))}${unit ? ` <small>${esc(unit)}</small>` : ""}</span>` +
+        `<input type="text" inputmode="decimal" autocomplete="off" data-role="load-step" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" value="${esc(formatMetricValue(adapter, loadMetric, value))}"></label>` +
+        `<p class="program-editor__hint">${esc(label("loadStepHint"))}</p>`;
+    }
+    function editLoadStep(input) {
+      const slot = definitionSlot(document, input.dataset.slotId), loadMetric = slotLoadMetric(slot);
+      if (!slot || !loadMetric) return;
+      const raw = input.value.trim();
+      let after = null;
+      if (raw) {
+        const parsed = parseMetricInput(adapter, loadMetric, raw);
+        after = hasOwn(parsed || {}, "value") ? parsed.value : NaN;
+        if (!Number.isFinite(after) || after <= 0 || after > 100) {
+          setStatus(label("invalid"), { error: true });
+          return;
+        }
+      }
+      const before = document.programMeta?.loadingConfiguration?.byExerciseId?.[slot.exerciseId]?.loadStepKg ?? null;
+      if (Object.is(before, after)) return;
+      const next = clone(document);
+      next.programMeta = next.programMeta || {};
+      const byExerciseId = { ...(next.programMeta.loadingConfiguration?.byExerciseId || {}) };
+      if (after == null) delete byExerciseId[slot.exerciseId];
+      else byExerciseId[slot.exerciseId] = { loadStepKg: after };
+      next.programMeta.loadingConfiguration = { ...(next.programMeta.loadingConfiguration || {}), byExerciseId };
+      return stage(next, { kind: "load_step", exerciseId: slot.exerciseId, before, after }, { redraw: false });
+    }
+    function editPrescriptionField(input) {
+      const slotId = input.dataset.slotId, cycleIndex = Number(input.dataset.cycleIndex);
+      const setIndex = Number(input.dataset.setIndex), field = input.dataset.field;
+      if (field !== "rir" && field !== "restSeconds") return;
+      const currentSet = definitionSet(document, slotId, cycleIndex, setIndex);
+      const slot = definitionSlot(document, slotId);
+      if (!currentSet || !slot) return;
+      const raw = input.value.trim();
+      let after = null;
+      if (raw) {
+        after = Number(raw);
+        const valid = field === "rir"
+          ? Number.isFinite(after) && after >= 0 && after <= 4
+          : Number.isSafeInteger(after) && after >= 0 && after <= 86400;
+        if (!valid) {
+          setStatus(label("invalid"), { error: true });
+          return;
+        }
+      }
+      const before = currentSet[field] == null ? null : currentSet[field];
+      if (Object.is(before, after)) return;
+      const next = clone(document), set = definitionSet(next, slotId, cycleIndex, setIndex);
+      if (!set) return;
+      set[field] = after;
+      set.status = "manual";
+      set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: "manual@1" };
+      const row = (next.program || []).find(candidate => (candidate.slotId || candidate.id) === slotId);
+      if (row) row.prescriptionsByCycle = clone(definitionSlot(next, slotId).prescriptionsByCycle || []);
+      const result = stage(next, { kind: "prescription_field", slotId, cycleIndex, setIndex, field, before, after }, { redraw: false });
+      updateExerciseSummary(input.dataset.id);
+      return Promise.resolve(result).then(value => { updateExerciseSummary(input.dataset.id); return value; });
+    }
+    function editMetricComposition(select) {
+      const slotId = select.dataset.slotId, exerciseId = select.dataset.id;
+      const exercise = document.program?.find(item => item.id === exerciseId);
+      const slot = definitionSlot(document, slotId);
+      if (!exercise || !editableMetricComposition(slot)) return;
+      let metricIds;
+      try { metricIds = JSON.parse(select.value); } catch { return; }
+      if (!Array.isArray(metricIds) || !metricCompositions(adapter).some(candidate => equal(candidate, metricIds))) {
+        setStatus(label("invalid"), { error: true });
+        return;
+      }
+      const byId = new Map(metricOptions(adapter).map(definition => [definition.id, definition]));
+      const definitions = metricIds.map(id => byId.get(id)).filter(Boolean).map(clone);
+      if (definitions.length !== metricIds.length) {
+        setStatus(label("invalid"), { error: true });
+        return;
+      }
+      const beforeMetricIds = clone(slot.metricIds || []), beforeMetricDefinitions = clone(slot.metricDefinitions || []);
+      if (equal(beforeMetricIds, metricIds) && equal(beforeMetricDefinitions, definitions)) return;
+      const next = clone(document), nextExercise = next.program?.find(item => item.id === exerciseId);
+      if (!replaceMetricComposition(next, nextExercise, metricIds, definitions)) return;
+      pendingFocus = { selector: `[data-role="metric-composition"][data-id="${cssEscape(exerciseId)}"][data-slot-id="${cssEscape(slotId)}"]` };
+      return stage(next, {
+        kind: "metric_composition", slotId,
+        beforeMetricIds, beforeMetricDefinitions,
+        metricIds: clone(metricIds), metricDefinitions: clone(definitions),
+      });
     }
     function renderExercise(exercise, index, count, day) {
       const open = expandedExercises.has(exercise.id);
       const linked = exerciseEntry(adapter, exercise.libraryId);
       const name = exerciseName(adapter, exercise);
       const shownName = exerciseDisplayLabel(adapter, exercise);
-      const min = number(exercise.min), max = number(exercise.max);
-      const details = open ? `<div class="program-editor__exercise-body pex__body">
-          <div class="program-editor__sets" data-role="sets-control" aria-label="${esc(label("sets"))}">
-            <span class="program-editor__field-label">${esc(label("sets"))}</span>
-            <div class="program-editor__stepper">
-              <button type="button" data-role="adjust" data-id="${esc(exercise.id)}" data-field="sets" data-delta="-1" aria-label="${esc(label("setsDecrease"))}">−</button>
-              <output data-role="sets-value">${esc(format(adapter, exercise.sets))}</output>
-              <button type="button" data-role="adjust" data-id="${esc(exercise.id)}" data-field="sets" data-delta="1" aria-label="${esc(label("setsIncrease"))}">+</button>
-            </div>
-          </div>
-          <div class="program-editor__rep-rule" aria-hidden="true"></div>
-          <fieldset class="program-editor__range">
-            <legend>${esc(label("repRange"))}</legend>
+      const slot = definitionSlot(document, exercise.slotId || exercise.id);
+      const legacyMetrics = exerciseMetricDefinitions(adapter, exercise);
+      const hasLegacyRepMetric = legacyMetrics.some(metric => metric.semantic === "reps" || metric.semantic === "repsPerSide");
+      const legacyRepControls = !slot && (!exercise.metricIds?.length || hasLegacyRepMetric)
+        ? `<div class="program-editor__rep-rule" aria-hidden="true"></div>
+          <fieldset class="program-editor__range"><legend>${esc(label("repRange"))}</legend>
             <label><span>${esc(label("min"))}</span><input type="number" inputmode="numeric" min="1" step="1" data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="min" value="${esc(exercise.min)}"></label>
             <label><span>${esc(label("max"))}</span><input type="number" inputmode="numeric" min="1" step="1" data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="max" value="${esc(exercise.max)}"></label>
-          </fieldset>
+          </fieldset>` : "";
+      const activeCycle = metricCycleIndex(adapter, document);
+      const currentSetCount = setCountFor(document, exercise, activeCycle);
+      const details = open ? `<div class="program-editor__exercise-body pex__body">
+          <div class="program-editor__sets" data-role="sets-control" aria-label="${esc(`${label("sets")} · ${label("metricCycle", { n: activeCycle })}`)}">
+            <span class="program-editor__field-label">${esc(label("sets"))} · ${esc(label("metricCycle", { n: activeCycle }))}</span>
+            <div class="program-editor__stepper">
+              <button type="button" data-role="adjust" data-id="${esc(exercise.id)}" data-cycle-index="${activeCycle}" data-field="sets" data-delta="-1" aria-label="${esc(label("setsDecrease"))}"${currentSetCount <= 1 ? " disabled" : ""}>−</button>
+              <output data-role="sets-value">${esc(format(adapter, currentSetCount))}</output>
+              <button type="button" data-role="adjust" data-id="${esc(exercise.id)}" data-cycle-index="${activeCycle}" data-field="sets" data-delta="1" aria-label="${esc(label("setsIncrease"))}"${currentSetCount >= 100 ? " disabled" : ""}>+</button>
+            </div>
+          </div>
+          ${legacyRepControls}
+          ${renderMetricTargets(exercise)}
+          ${renderLoadStep(exercise, slot)}
           <div class="program-editor__exercise-actions">
             <button type="button" class="program-editor__replace" data-role="replace" data-action-role="replacement" data-id="${esc(exercise.id)}">${esc(label("replaceExercise"))}</button>
             <button type="button" class="program-editor__remove" data-role="remove-exercise" data-action-role="removal" data-id="${esc(exercise.id)}">${esc(label("removeExercise"))}</button>
@@ -623,14 +1056,16 @@
           <details class="program-editor__more" data-role="more-details" data-id="${esc(exercise.id)}">
             <summary>${esc(label("details"))}</summary>
             <label><span>${esc(label("notes"))}</span><input data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="notes" value="${esc(exercise.notes || "")}"></label>
-            <label><span>${esc(label("primary"))}</span><input data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="primary" value="${esc(exercise.primary || "")}"${linked ? " readonly" : ""}></label>
-            <label><span>${esc(label("secondary"))}</span><input data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="secondary" value="${esc(exercise.secondary || "")}"${linked ? " readonly" : ""}></label>
-            <button type="button" data-role="alternates" data-id="${esc(exercise.id)}">${esc((exercise.alternates || []).join(", ") || label("chooseAlternates"))}</button>
+            ${["primary", "secondary"].map(field => linked
+              // A linked movement's muscles come from the catalog: shown read-only, and
+              // allowed to wrap, since a full attribution can outrun one input line.
+              ? `<label><span>${esc(label(field))}</span><textarea class="program-editor__muscles" rows="${Math.min(4, Math.max(1, Math.ceil(String(exercise[field] || "").length / 24)))}" readonly data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="${field}">${esc(exercise[field] || "")}</textarea></label>`
+              : `<label><span>${esc(label(field))}</span><input data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="${field}" value="${esc(exercise[field] || "")}"></label>`).join("")}
           </details>
         </div>` : "";
       return `<article class="program-editor__exercise pex${open ? " is-expanded" : " is-collapsed"}${settleMoveId === exercise.id ? " is-settling" : ""}" data-role="exercise" data-id="${esc(exercise.id)}" data-day="${esc(day)}">
         <header class="program-editor__exercise-head pex__head">
-          <input class="program-editor__exercise-name pex__name" data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="name" value="${esc(name)}" placeholder="${esc(label("namePlaceholder"))}" aria-label="${esc(name)}">
+          <textarea class="program-editor__exercise-name pex__name" rows="1" data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="name" placeholder="${esc(label("namePlaceholder"))}" aria-label="${esc(name)}">${esc(name)}</textarea>
           <span class="program-editor__summary" data-role="exercise-summary">${esc(summary(exercise))}</span>
           <button type="button" class="program-editor__drag-handle" data-role="drag-handle" data-id="${esc(exercise.id)}" aria-label="${esc(label("move", undefined, `${label("moveUp")} ${shownName}`))}" title="${esc(label("move"))}">≡</button>
           <button type="button" class="program-editor__exercise-toggle" data-role="toggle-exercise" data-action-role="expansion" data-id="${esc(exercise.id)}" aria-expanded="${open ? "true" : "false"}" aria-label="${esc(label(open ? "collapseExercise" : "expandExercise", { name: shownName }))}"><span class="icon-mask icon-mask--chev-${open ? "up" : "down"}" aria-hidden="true"></span></button>
@@ -700,6 +1135,9 @@
         <button type="button" class="program-editor__add-day" data-role="add-day">＋ <span>${esc(addDayText)}</span></button>
       </div>`;
       bind();
+      // A host that annotates the status line (an id other controls describe
+      // themselves by, an error state) re-applies it to each fresh render.
+      adapter.afterRender?.(host);
       schedulePendingFocus();
     }
     function bind() {
@@ -723,7 +1161,9 @@
       host.querySelectorAll('[data-role="exercise-field"]').forEach(input => {
         input.addEventListener("focus", () => { input.dataset.editorFocusValue = input.value; });
         const handler = () => {
-          const field = input.dataset.field, raw = String(input.value || "");
+          // The name wraps in a one-row textarea; it is still one line of text.
+          const field = input.dataset.field, text = String(input.value || "");
+          const raw = field === "name" ? text.replace(/\s*\n\s*/g, " ") : text;
           // A blank exercise name is useful while the lifter is editing, but
           // leaving the field blank is an abandoned rename. Restore the value
           // captured on focus instead of manufacturing the model's fallback.
@@ -733,11 +1173,27 @@
           return setExerciseField(input.dataset.id, field, input.value);
         };
         input.addEventListener("change", handler);
+        // Enter commits a name the way it did when the name was a text input.
+        if (input.dataset.field === "name") input.addEventListener("keydown", event => {
+          if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); input.blur(); }
+        });
         if (input.dataset.field === "name" || input.dataset.field === "notes") {
           input.addEventListener("input", () => setExerciseField(input.dataset.id, input.dataset.field, input.value, { redraw: false }));
           input.addEventListener("blur", handler);
         }
       });
+      host.querySelectorAll('[data-role="metric-target"]').forEach(input => input.addEventListener("change", () => editMetricTarget(input)));
+      host.querySelectorAll('[data-role="prescription-field"]').forEach(input => input.addEventListener("change", () => editPrescriptionField(input)));
+      host.querySelectorAll('[data-role="load-step"]').forEach(input => input.addEventListener("change", () => editLoadStep(input)));
+      host.querySelectorAll('[data-role="metric-composition"]').forEach(select => select.addEventListener("change", () => editMetricComposition(select)));
+      host.querySelectorAll('[data-role="metric-cycle"]').forEach(details => details.addEventListener("toggle", () => {
+        const slotId = details.closest('[data-role="metric-targets"]')?.dataset.slotId;
+        const cycleIndex = Number(details.dataset.cycleIndex);
+        if (!slotId || !Number.isInteger(cycleIndex)) return;
+        initializedMetricCycleSlots.add(slotId);
+        const key = `${slotId}:${cycleIndex}`;
+        if (details.open) expandedMetricCycles.add(key); else expandedMetricCycles.delete(key);
+      }));
       host.querySelectorAll('[data-role="toggle-day"]').forEach(button => button.addEventListener("click", () => toggleDay(button.dataset.day)));
       host.querySelectorAll('[data-role="day-menu"]').forEach(button => button.addEventListener("click", () => {
         const card = button.closest('[data-role="day"]'), menu = card?.querySelector('[data-role="day-menu-panel"]');
@@ -763,14 +1219,14 @@
       host.querySelectorAll('[data-role="add-day"]').forEach(button => button.addEventListener("click", () => { const next = clone(document); const day = appendDay(next); collapsedDays.delete(day); stage(next, { kind: "day_add", targetDay: day, after: day }); }));
       host.querySelectorAll('[data-role="adjust"]').forEach(button => button.addEventListener("click", () => {
         const exercise = document.program?.find(item => item.id === button.dataset.id); if (!exercise) return;
-        setExerciseField(exercise.id, button.dataset.field, number(exercise[button.dataset.field]) + number(button.dataset.delta));
+        const cycleIndex = Number(button.dataset.cycleIndex) || metricCycleIndex(adapter, document);
+        const current = button.dataset.field === "sets" ? setCountFor(document, exercise, cycleIndex) : number(exercise[button.dataset.field]);
+        const delta = number(button.dataset.delta);
+        if (button.dataset.field === "sets") pendingFocus = { selector: `[data-role="adjust"][data-id="${cssEscape(exercise.id)}"][data-cycle-index="${cycleIndex}"][data-delta="${delta}"]` };
+        setExerciseField(exercise.id, button.dataset.field, current + delta, { cycleIndex });
       }));
       host.querySelectorAll('[data-role="replace"]').forEach(button => button.addEventListener("click", () => replaceForExercise(button.dataset.id)));
       host.querySelectorAll('[data-role="remove-exercise"]').forEach(button => button.addEventListener("click", () => removeExercise(button.dataset.id)));
-      host.querySelectorAll('[data-role="alternates"]').forEach(button => button.addEventListener("click", () => chooseExercise({ mode: "alternates", exercise: clone(document.program?.find(item => item.id === button.dataset.id)) }).then(entries => {
-        if (!Array.isArray(entries)) return;
-        setExerciseField(button.dataset.id, "alternates", entries.map(entry => entry.name || entry.namePt || entry.id));
-      })));
       host.querySelectorAll('[data-role="exercise-menu"]').forEach(button => button.addEventListener("click", () => {
         const menu = host.querySelector(`[data-role="move-menu"][data-id="${cssEscape(button.dataset.id)}"]`); if (!menu) return;
         const open = menu.hidden; host.querySelectorAll('[data-role="move-menu"]').forEach(item => { item.hidden = true; });

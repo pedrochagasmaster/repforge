@@ -1,0 +1,1640 @@
+{
+  "schemaVersion": 2,
+  "generatorVersion": "067.1",
+  "seed": "install-transfer-worker-runtime",
+  "request": {
+    "goal": "hypertrophy",
+    "experience": "intermediate",
+    "daysPerWeek": 2,
+    "timeCeilingMinutes": 40,
+    "gymProfile": {
+      "equipmentIds": [
+        "19e5c6f170d880038662ee8145175f92",
+        "19e5c6f170d88066aafbfbb26a40b48d",
+        "1a05c6f170d880d8a7efe4721e964f2d",
+        "25a5c6f170d88015858ecc00db4c9e02",
+        "2605c6f170d8804bb8e0ca7c86ed38d9",
+        "2605c6f170d880cf825feab5ae68d7a4",
+        "19e5c6f170d8801cac93cf6853bd86b8",
+        "2ed5c6f170d88076bfe7ecbf57ff522d",
+        "19e5c6f170d880ec8238f837c5284019",
+        "19e5c6f170d88030a20edfabb6d824c4",
+        "25d5c6f170d8803ab92be54326c5f6be",
+        "25a5c6f170d88008aa1effea3e248448",
+        "2b25c6f170d880edbbdadcfb8841bfd1",
+        "1a05c6f170d88000a11ac56d284582a9",
+        "25b5c6f170d880288aebd865cb540804",
+        "19e5c6f170d88050bdbefcbb91c01f16",
+        "19e5c6f170d88087aac8c3228279ff3a",
+        "19e5c6f170d8808593d8ecf408c4f749",
+        "19e5c6f170d88074bf1af2264ccaf192",
+        "2ed5c6f170d880558198cc60df067a7d",
+        "25c5c6f170d88050a23fcf770c34074a",
+        "25c5c6f170d880899ce8c47d498c8d9b",
+        "19e5c6f170d8802b9d8ed6e425798f6b",
+        "25b5c6f170d8804dbf93f097481f14e3",
+        "19e5c6f170d8806ab6a6cf2efc3266c8",
+        "19e5c6f170d880d3914cc4c2631393cd",
+        "25b5c6f170d8805db24ce3ad378a4739",
+        "25a5c6f170d880478d81c880d6ee06a0",
+        "19e5c6f170d880d2a77feb7bbe48974f",
+        "25b5c6f170d880619592ca5ba65fc1b3",
+        "25a5c6f170d880358d45db535ec7dde7",
+        "19e5c6f170d8802a89e5c8d58b54c757",
+        "25e5c6f170d8808e8276fa6902887bff",
+        "19e5c6f170d8801b933cdb1b550c038c",
+        "19e5c6f170d880089831e9c1bb4a92d0",
+        "25c5c6f170d880b98fa0c006c2ac489d",
+        "25a5c6f170d8805cb60bd3ee71311ad1",
+        "19e5c6f170d88007ba63e3e18e4933f8",
+        "19e5c6f170d880588002d0b33085acfb",
+        "25a5c6f170d880df850bc81bb535117d",
+        "3b95c6f170d880de9298ce5f86a2dbc2",
+        "19e5c6f170d88099b164ca21463037d3",
+        "25c5c6f170d880f4b452cfe6feed2d3d",
+        "25c5c6f170d880b0a509d9d5c13748d0",
+        "25c5c6f170d880dbaa7cf68aed332e18",
+        "25c5c6f170d880c68c25c5b49f6d0c84",
+        "19e5c6f170d8804dbcdcc184be8003fb",
+        "19e5c6f170d880d28b46e9ccddcfba1a",
+        "2985c6f170d88091b56ec5457cde1321",
+        "2935c6f170d880988f4adef8637e6add",
+        "25a5c6f170d880e49dddca4c658fa51c",
+        "25a5c6f170d88094bd63d078c1a8bb00",
+        "25d5c6f170d8801bb8daf6e122331357",
+        "19e5c6f170d880119a7ec9fe338f8fea",
+        "25c5c6f170d880eaac9ffb6ffdf335f2",
+        "19e5c6f170d880bba9c9d309f541198d",
+        "2ed5c6f170d8801ebb3cea98cb763b8d",
+        "1a05c6f170d880f3888bf7d48719321f",
+        "25d5c6f170d88040a3cce7d9aaef353c",
+        "25c5c6f170d880f28855f3b2e31ed739",
+        "19e5c6f170d880919dfae5a78a8f54d4",
+        "19e5c6f170d880399eb6e5aeadc4ff8c",
+        "25a5c6f170d8806bab5fc4e4a9f0b0c4",
+        "25a5c6f170d880dc87b4ceacf1c4ebac",
+        "19e5c6f170d8808e888ceb1867c89c02",
+        "25a5c6f170d880a08163d89c0f571db4",
+        "25a5c6f170d880c2be66d2f10537c1c1",
+        "1a45c6f170d880b08d92f50c0ff2bb76",
+        "19e5c6f170d880d29affc687810a9a8a",
+        "19e5c6f170d880eaa88fd25d0a1adf58",
+        "2ed5c6f170d88075a734c1593b8e537c",
+        "25d5c6f170d8808aba23e002b00ce700",
+        "25d5c6f170d8803292b1cef9e5e3637c",
+        "19e5c6f170d880fba77bca5ee5eccb63",
+        "19e5c6f170d88018a872fe18a35ae8aa",
+        "19f5c6f170d880eea412c7ca7d833844",
+        "25a5c6f170d88036b550f25411d5e811",
+        "2ed5c6f170d88039b833d0a45eec64f5",
+        "19e5c6f170d880018ac7fbba68e74a58",
+        "25d5c6f170d880a286ead7979054a9c0",
+        "25a5c6f170d880c1a55ac08cf52671ab",
+        "19e5c6f170d880fd9d24d7f1a2bd9ad1"
+      ]
+    },
+    "competencyAnswers": {
+      "pullups10": null,
+      "pullups5": null,
+      "pushups15": null,
+      "inclineBarbell10": null,
+      "overheadPress10": null,
+      "bodyweightDips10": null,
+      "benchPress10": null
+    },
+    "movementConfirmations": {
+      "23b5c6f170d8809aa142f91210536839": [],
+      "2ab5c6f170d880839baed369debc0459": [],
+      "1a15c6f170d88049a93dd5aded824eee": [],
+      "1a15c6f170d880e8ad58cebec203e231": [],
+      "1a15c6f170d880db8633e3bec8b7e8fe": [],
+      "1a15c6f170d8808b9721ff65d549d8ba": [],
+      "1a25c6f170d88079a926dde776766181": [],
+      "2925c6f170d880e5ba36f6cc1fb32a88": [],
+      "1a15c6f170d88074b3d4e1548e32c508": [],
+      "1a25c6f170d880dcb28bc023b51f8285": [],
+      "1a35c6f170d8806dac95e1ab4fa67605": [],
+      "2405c6f170d8805e8629d8445d40121a": [],
+      "1a15c6f170d88014a0ccdeb82dfbc1f4": [],
+      "1a05c6f170d8806b911acf558c5af4f6": [],
+      "1a15c6f170d880409004f87e18f9b974": [],
+      "1a15c6f170d880b08845d6f0fe186dd1": [],
+      "1a15c6f170d8804d834cef49a7b23f12": [],
+      "1a35c6f170d880bebc64f4dce0d5f5f1": [],
+      "1a25c6f170d8803d8231d083fdd65458": [],
+      "1a35c6f170d880f6884cda44975bf858": [],
+      "1a35c6f170d8807c8999d24ee4aaf939": [],
+      "1a45c6f170d8805c8bc9f17b441a96d9": [],
+      "1a15c6f170d880f89beacd8c81156f2d": [],
+      "2ad5c6f170d8802abf00e4d2809132fa": [],
+      "2ae5c6f170d8807da2dcd7bf23371d82": [],
+      "2995c6f170d88013930fe5be0247f177": [],
+      "1a15c6f170d880518057cd4d484cbecb": [],
+      "1a25c6f170d880c59f17ce7802758fc3": [],
+      "1a35c6f170d880bd90eae6df2f7527e8": [],
+      "2ae5c6f170d88069bb1dc458458a3a78": [],
+      "1a05c6f170d8803da198c200611265c3": [],
+      "1a15c6f170d880e89f71c03312fd37ba": [],
+      "1a15c6f170d8803a891bf223d4468a8a": [],
+      "1a05c6f170d880df946bdd6f42f0901c": [],
+      "2ee5c6f170d8809a9e87d7a58d087ca3": [],
+      "1a25c6f170d88008a9adde9f71881c36": [],
+      "1a35c6f170d8800bab2dca0110e26c4a": [],
+      "30d5c6f170d88084bccbdddab0cf761f": [],
+      "28c5c6f170d8805cb02ae70c20b9350f": [],
+      "1a05c6f170d8807c9f16f226db24074d": [
+        "2bd5c6f170d8802faff4c3e59a106a1c"
+      ],
+      "2a15c6f170d8803c80eddc3aed1b7914": [],
+      "1a15c6f170d88067875bfd4347b883ef": [],
+      "1a15c6f170d880308073fc37f580cda4": [],
+      "1a35c6f170d8808fa1c6e81741d5a44b": [],
+      "1ac5c6f170d8803f915fec32a9820548": [],
+      "1a05c6f170d880c5ad11c99b302b1bf9": [
+        "2bd5c6f170d88072b5dccf288f756952"
+      ],
+      "1a15c6f170d8800d8fc9d2c235673bf6": [],
+      "1a05c6f170d880198e1aceac084f30eb": [
+        "2bd5c6f170d88076a6cad2ddee7bdd29"
+      ],
+      "2a55c6f170d880f6aa9ed2abe35b5215": [],
+      "1a15c6f170d880f1ba5ef781b583618a": [],
+      "1a25c6f170d8802ea9b9ce71cd9d3d67": [],
+      "1a35c6f170d88029bc9ff9ded538758c": [],
+      "1a45c6f170d88065be3acba9f007a364": [],
+      "1a15c6f170d8807188c0da98a91c30c3": [],
+      "2ab5c6f170d880d680edcd91f1766560": [],
+      "1a05c6f170d88060bbffeeb9acaa3c80": [],
+      "1a15c6f170d88040bffdd2f6127e6d4c": [],
+      "1a05c6f170d8801f98afff449f6a3b05": [],
+      "3065c6f170d880eea408cc28767961ae": []
+    },
+    "emphasisMuscleIds": [],
+    "deprioritizedMuscleIds": [],
+    "excludedExerciseIds": [],
+    "excludedMuscleIds": [],
+    "preferredExerciseIds": [],
+    "split": "full_body",
+    "periodization": "static",
+    "cycles": 1,
+    "deloadCycles": [],
+    "executionContexts": {},
+    "seed": "install-transfer-worker-runtime"
+  },
+  "days": [
+    {
+      "id": "day-1fwisa6",
+      "name": "Full Body A",
+      "kind": "training",
+      "order": 1,
+      "slots": [
+        {
+          "id": "slot-02ao5e0",
+          "purposeId": "upper_a_horizontal_push",
+          "exerciseId": "1a05c6f170d8807c9f16f226db24074d",
+          "sourceExerciseIds": [
+            "1a05c6f170d8807c9f16f226db24074d"
+          ],
+          "role": "hypertrophyPrimaryCompound",
+          "musclePurposeIds": [
+            "2545c6f170d8805f823bcfb076a74397"
+          ],
+          "movementPatternIds": [
+            "19e5c6f170d880d69589ce8bd1fde648"
+          ],
+          "exerciseTypeId": "2095c6f170d880cfaa50c22ebaf14a9d",
+          "metricIds": [
+            "2555c6f170d8805cafa6d16d3fdddbaa",
+            "2555c6f170d88072bbf6d9ad3f16ea86"
+          ],
+          "metricDefinitions": [
+            {
+              "id": "2555c6f170d8805cafa6d16d3fdddbaa",
+              "sourceName": "Weight",
+              "semantic": "loadKg",
+              "unit": "kg"
+            },
+            {
+              "id": "2555c6f170d88072bbf6d9ad3f16ea86",
+              "sourceName": "Reps",
+              "semantic": "reps",
+              "unit": "reps"
+            }
+          ],
+          "metricOrigin": "source_catalog",
+          "lateralityIds": [
+            "1a45c6f170d8808e8340d9a8d0f06f9d"
+          ],
+          "executionMode": "bilateral",
+          "loadingModel": {
+            "bodyweightCoefficient": 0.076,
+            "assistanceDirection": "subtract"
+          },
+          "prescriptionsByCycle": [
+            {
+              "cycleIndex": 1,
+              "sets": [
+                {
+                  "id": "set-1r698rm",
+                  "cycleIndex": 1,
+                  "setIndex": 1,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "reps": {
+                      "min": 7,
+                      "max": 9
+                    }
+                  },
+                  "rir": 3,
+                  "restSeconds": 120,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                },
+                {
+                  "id": "set-1qw9n2n",
+                  "cycleIndex": 1,
+                  "setIndex": 2,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "reps": {
+                      "min": 7,
+                      "max": 9
+                    }
+                  },
+                  "rir": 2,
+                  "restSeconds": 120,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                },
+                {
+                  "id": "set-1qma1do",
+                  "cycleIndex": 1,
+                  "setIndex": 3,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "reps": {
+                      "min": 7,
+                      "max": 9
+                    }
+                  },
+                  "rir": 1,
+                  "restSeconds": 120,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                }
+              ]
+            }
+          ],
+          "order": 1
+        },
+        {
+          "id": "slot-15vmk9e",
+          "purposeId": "upper_a_triceps",
+          "exerciseId": "1a15c6f170d880a8949ec06345dd11d1",
+          "sourceExerciseIds": [
+            "1a15c6f170d880a8949ec06345dd11d1"
+          ],
+          "role": "hypertrophyAccessory",
+          "musclePurposeIds": [
+            "2545c6f170d88017a44bcd5bc21b8d98"
+          ],
+          "movementPatternIds": [
+            "19f5c6f170d880ee8b1df7d40d87b961"
+          ],
+          "exerciseTypeId": "2095c6f170d880798c80daebcf85afd5",
+          "metricIds": [
+            "2555c6f170d8805cafa6d16d3fdddbaa",
+            "2555c6f170d88072bbf6d9ad3f16ea86"
+          ],
+          "metricDefinitions": [
+            {
+              "id": "2555c6f170d8805cafa6d16d3fdddbaa",
+              "sourceName": "Weight",
+              "semantic": "loadKg",
+              "unit": "kg"
+            },
+            {
+              "id": "2555c6f170d88072bbf6d9ad3f16ea86",
+              "sourceName": "Reps",
+              "semantic": "reps",
+              "unit": "reps"
+            }
+          ],
+          "metricOrigin": "source_catalog",
+          "lateralityIds": [
+            "1a45c6f170d8808e8340d9a8d0f06f9d"
+          ],
+          "executionMode": "bilateral",
+          "loadingModel": {
+            "bodyweightCoefficient": 0.046,
+            "assistanceDirection": "subtract"
+          },
+          "prescriptionsByCycle": [
+            {
+              "cycleIndex": 1,
+              "sets": [
+                {
+                  "id": "set-1guvs9k",
+                  "cycleIndex": 1,
+                  "setIndex": 1,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "reps": {
+                      "min": 14,
+                      "max": 16
+                    }
+                  },
+                  "rir": 0,
+                  "restSeconds": 90,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                }
+              ]
+            }
+          ],
+          "order": 2
+        },
+        {
+          "id": "slot-1uowvzt",
+          "purposeId": "lower_a_calves",
+          "exerciseId": "1a15c6f170d88074b3d4e1548e32c508",
+          "sourceExerciseIds": [
+            "1a15c6f170d88074b3d4e1548e32c508"
+          ],
+          "role": "hypertrophyAccessory",
+          "musclePurposeIds": [
+            "2545c6f170d880bbb34fc724d677176f"
+          ],
+          "movementPatternIds": [
+            "19f5c6f170d8800abc4bdf3144ab5aa0"
+          ],
+          "exerciseTypeId": "2095c6f170d880798c80daebcf85afd5",
+          "metricIds": [
+            "2555c6f170d8805cafa6d16d3fdddbaa",
+            "2555c6f170d88072bbf6d9ad3f16ea86"
+          ],
+          "metricDefinitions": [
+            {
+              "id": "2555c6f170d8805cafa6d16d3fdddbaa",
+              "sourceName": "Weight",
+              "semantic": "loadKg",
+              "unit": "kg"
+            },
+            {
+              "id": "2555c6f170d88072bbf6d9ad3f16ea86",
+              "sourceName": "Reps",
+              "semantic": "reps",
+              "unit": "reps"
+            }
+          ],
+          "metricOrigin": "source_catalog",
+          "lateralityIds": [
+            "1a45c6f170d8808e8340d9a8d0f06f9d"
+          ],
+          "executionMode": "bilateral",
+          "loadingModel": {
+            "bodyweightCoefficient": 0,
+            "assistanceDirection": "subtract"
+          },
+          "prescriptionsByCycle": [
+            {
+              "cycleIndex": 1,
+              "sets": [
+                {
+                  "id": "set-0jdbhea",
+                  "cycleIndex": 1,
+                  "setIndex": 1,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "reps": {
+                      "min": 14,
+                      "max": 16
+                    }
+                  },
+                  "rir": 0,
+                  "restSeconds": 90,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                }
+              ]
+            }
+          ],
+          "order": 3
+        },
+        {
+          "id": "slot-1ra9yuh",
+          "purposeId": "upper_b_incline_or_overhead_push",
+          "exerciseId": "1a05c6f170d88060bbffeeb9acaa3c80",
+          "sourceExerciseIds": [
+            "1a05c6f170d88060bbffeeb9acaa3c80"
+          ],
+          "role": "hypertrophyPrimaryCompound",
+          "musclePurposeIds": [
+            "2545c6f170d8809a8fa7e24a77c25416",
+            "2545c6f170d8805f823bcfb076a74397"
+          ],
+          "movementPatternIds": [
+            "19e5c6f170d8805a8a1cf72d5e7a401f",
+            "19e5c6f170d880d69589ce8bd1fde648"
+          ],
+          "exerciseTypeId": "2095c6f170d880cfaa50c22ebaf14a9d",
+          "metricIds": [
+            "25a5c6f170d880baaa2dc8c7b67d4b65",
+            "25a5c6f170d880e2990fc88146f7de56"
+          ],
+          "metricDefinitions": [
+            {
+              "id": "25a5c6f170d880baaa2dc8c7b67d4b65",
+              "sourceName": "Reps per side",
+              "semantic": "repsPerSide",
+              "unit": "reps"
+            },
+            {
+              "id": "25a5c6f170d880e2990fc88146f7de56",
+              "sourceName": "Weight per side",
+              "semantic": "loadPerSideKg",
+              "unit": "kg"
+            }
+          ],
+          "metricOrigin": "source_catalog",
+          "lateralityIds": [
+            "1a45c6f170d8808e8340d9a8d0f06f9d"
+          ],
+          "executionMode": "bilateral",
+          "loadingModel": {
+            "bodyweightCoefficient": 0.038,
+            "assistanceDirection": "subtract"
+          },
+          "prescriptionsByCycle": [
+            {
+              "cycleIndex": 1,
+              "sets": [
+                {
+                  "id": "set-0l4kokr",
+                  "cycleIndex": 1,
+                  "setIndex": 1,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "repsPerSide": {
+                      "min": 7,
+                      "max": 9
+                    }
+                  },
+                  "rir": 2,
+                  "restSeconds": 120,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                },
+                {
+                  "id": "set-0leka9q",
+                  "cycleIndex": 1,
+                  "setIndex": 2,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "repsPerSide": {
+                      "min": 7,
+                      "max": 9
+                    }
+                  },
+                  "rir": 1,
+                  "restSeconds": 120,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                }
+              ]
+            }
+          ],
+          "order": 4
+        },
+        {
+          "id": "slot-0mnypj0",
+          "purposeId": "upper_b_vertical_pull",
+          "exerciseId": "1a15c6f170d8809d8cdbf9394bfb079c",
+          "sourceExerciseIds": [
+            "1a15c6f170d8809d8cdbf9394bfb079c"
+          ],
+          "role": "hypertrophyPrimaryCompound",
+          "musclePurposeIds": [
+            "2545c6f170d88060a50ec9b41a066a5d"
+          ],
+          "movementPatternIds": [
+            "19e5c6f170d8808fbc7ffe35bc0bf0ca"
+          ],
+          "exerciseTypeId": "2095c6f170d880cfaa50c22ebaf14a9d",
+          "metricIds": [
+            "2555c6f170d8805cafa6d16d3fdddbaa",
+            "2555c6f170d88072bbf6d9ad3f16ea86"
+          ],
+          "metricDefinitions": [
+            {
+              "id": "2555c6f170d8805cafa6d16d3fdddbaa",
+              "sourceName": "Weight",
+              "semantic": "loadKg",
+              "unit": "kg"
+            },
+            {
+              "id": "2555c6f170d88072bbf6d9ad3f16ea86",
+              "sourceName": "Reps",
+              "semantic": "reps",
+              "unit": "reps"
+            }
+          ],
+          "metricOrigin": "source_catalog",
+          "lateralityIds": [
+            "1a45c6f170d8808e8340d9a8d0f06f9d"
+          ],
+          "executionMode": "bilateral",
+          "loadingModel": {
+            "bodyweightCoefficient": 0,
+            "assistanceDirection": "subtract"
+          },
+          "prescriptionsByCycle": [
+            {
+              "cycleIndex": 1,
+              "sets": [
+                {
+                  "id": "set-0xh06ym",
+                  "cycleIndex": 1,
+                  "setIndex": 1,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "reps": {
+                      "min": 9,
+                      "max": 11
+                    }
+                  },
+                  "rir": 1,
+                  "restSeconds": 120,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                },
+                {
+                  "id": "set-0x70l9n",
+                  "cycleIndex": 1,
+                  "setIndex": 2,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "reps": {
+                      "min": 9,
+                      "max": 11
+                    }
+                  },
+                  "rir": 0,
+                  "restSeconds": 120,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                }
+              ]
+            }
+          ],
+          "order": 5
+        },
+        {
+          "id": "slot-1bsclvt",
+          "purposeId": "upper_b_chest_isolation",
+          "exerciseId": "1a05c6f170d880df946bdd6f42f0901c",
+          "sourceExerciseIds": [
+            "1a05c6f170d880df946bdd6f42f0901c"
+          ],
+          "role": "hypertrophyAccessory",
+          "musclePurposeIds": [
+            "2545c6f170d8805f823bcfb076a74397"
+          ],
+          "movementPatternIds": [
+            "19e5c6f170d8805c9eace37a0d0113f1"
+          ],
+          "exerciseTypeId": "2095c6f170d880798c80daebcf85afd5",
+          "metricIds": [
+            "25a5c6f170d880baaa2dc8c7b67d4b65",
+            "25a5c6f170d880e2990fc88146f7de56"
+          ],
+          "metricDefinitions": [
+            {
+              "id": "25a5c6f170d880baaa2dc8c7b67d4b65",
+              "sourceName": "Reps per side",
+              "semantic": "repsPerSide",
+              "unit": "reps"
+            },
+            {
+              "id": "25a5c6f170d880e2990fc88146f7de56",
+              "sourceName": "Weight per side",
+              "semantic": "loadPerSideKg",
+              "unit": "kg"
+            }
+          ],
+          "metricOrigin": "source_catalog",
+          "lateralityIds": [
+            "1a45c6f170d8808e8340d9a8d0f06f9d"
+          ],
+          "executionMode": "bilateral",
+          "loadingModel": {
+            "bodyweightCoefficient": 0,
+            "assistanceDirection": "subtract"
+          },
+          "prescriptionsByCycle": [
+            {
+              "cycleIndex": 1,
+              "sets": [
+                {
+                  "id": "set-0wi4gxf",
+                  "cycleIndex": 1,
+                  "setIndex": 1,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "repsPerSide": {
+                      "min": 14,
+                      "max": 16
+                    }
+                  },
+                  "rir": 0,
+                  "restSeconds": 90,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                }
+              ]
+            }
+          ],
+          "order": 6
+        },
+        {
+          "id": "slot-0o4341r",
+          "purposeId": "lower_b_knee_flexion",
+          "exerciseId": "1a35c6f170d880f6884cda44975bf858",
+          "sourceExerciseIds": [
+            "1a35c6f170d880f6884cda44975bf858"
+          ],
+          "role": "hypertrophyAccessory",
+          "musclePurposeIds": [
+            "2545c6f170d88002b193de9106604e79"
+          ],
+          "movementPatternIds": [
+            "19f5c6f170d880fcad8cf755a5ab9136"
+          ],
+          "exerciseTypeId": "2095c6f170d880798c80daebcf85afd5",
+          "metricIds": [
+            "2555c6f170d8805cafa6d16d3fdddbaa",
+            "25a5c6f170d880baaa2dc8c7b67d4b65"
+          ],
+          "metricDefinitions": [
+            {
+              "id": "2555c6f170d8805cafa6d16d3fdddbaa",
+              "sourceName": "Weight",
+              "semantic": "loadKg",
+              "unit": "kg"
+            },
+            {
+              "id": "25a5c6f170d880baaa2dc8c7b67d4b65",
+              "sourceName": "Reps per side",
+              "semantic": "repsPerSide",
+              "unit": "reps"
+            }
+          ],
+          "metricOrigin": "source_catalog",
+          "lateralityIds": [
+            "1a45c6f170d88034beccf30a41da9588"
+          ],
+          "executionMode": "unilateral",
+          "loadingModel": {
+            "bodyweightCoefficient": 0,
+            "assistanceDirection": "subtract"
+          },
+          "prescriptionsByCycle": [
+            {
+              "cycleIndex": 1,
+              "sets": [
+                {
+                  "id": "set-0zt36t5",
+                  "cycleIndex": 1,
+                  "setIndex": 1,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "repsPerSide": {
+                      "min": 14,
+                      "max": 16
+                    }
+                  },
+                  "rir": 0,
+                  "restSeconds": 90,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                }
+              ]
+            }
+          ],
+          "order": 7
+        },
+        {
+          "id": "slot-1p3t83m",
+          "purposeId": "upper_b_rear_delts",
+          "exerciseId": "1a15c6f170d88061a160d397574438af",
+          "sourceExerciseIds": [
+            "1a15c6f170d88061a160d397574438af"
+          ],
+          "role": "hypertrophyAccessory",
+          "musclePurposeIds": [
+            "2545c6f170d880a9899eec0e496c8cba"
+          ],
+          "movementPatternIds": [
+            "2945c6f170d8806caf28f4702808811c"
+          ],
+          "exerciseTypeId": "2095c6f170d880798c80daebcf85afd5",
+          "metricIds": [
+            "2555c6f170d8805cafa6d16d3fdddbaa",
+            "2555c6f170d88072bbf6d9ad3f16ea86"
+          ],
+          "metricDefinitions": [
+            {
+              "id": "2555c6f170d8805cafa6d16d3fdddbaa",
+              "sourceName": "Weight",
+              "semantic": "loadKg",
+              "unit": "kg"
+            },
+            {
+              "id": "2555c6f170d88072bbf6d9ad3f16ea86",
+              "sourceName": "Reps",
+              "semantic": "reps",
+              "unit": "reps"
+            }
+          ],
+          "metricOrigin": "source_catalog",
+          "lateralityIds": [
+            "1a45c6f170d8808e8340d9a8d0f06f9d"
+          ],
+          "executionMode": "bilateral",
+          "loadingModel": {
+            "bodyweightCoefficient": 0,
+            "assistanceDirection": "subtract"
+          },
+          "prescriptionsByCycle": [
+            {
+              "cycleIndex": 1,
+              "sets": [
+                {
+                  "id": "set-176g54w",
+                  "cycleIndex": 1,
+                  "setIndex": 1,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "reps": {
+                      "min": 14,
+                      "max": 16
+                    }
+                  },
+                  "rir": 0,
+                  "restSeconds": 90,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                }
+              ]
+            }
+          ],
+          "order": 8
+        }
+      ]
+    },
+    {
+      "id": "day-1fmj6l7",
+      "name": "Rest",
+      "kind": "rest",
+      "order": 2,
+      "slots": []
+    },
+    {
+      "id": "day-1fcjkw8",
+      "name": "Rest",
+      "kind": "rest",
+      "order": 3,
+      "slots": []
+    },
+    {
+      "id": "day-1hagsr1",
+      "name": "Full Body B",
+      "kind": "training",
+      "order": 4,
+      "slots": [
+        {
+          "id": "slot-12knnjy",
+          "purposeId": "upper_a_horizontal_pull",
+          "exerciseId": "1a15c6f170d8807188c0da98a91c30c3",
+          "sourceExerciseIds": [
+            "1a15c6f170d8807188c0da98a91c30c3"
+          ],
+          "role": "hypertrophyPrimaryCompound",
+          "musclePurposeIds": [
+            "2545c6f170d88060a50ec9b41a066a5d",
+            "2545c6f170d880da9b28f1e024be796b"
+          ],
+          "movementPatternIds": [
+            "19e5c6f170d88009ba40c03d2f6271df"
+          ],
+          "exerciseTypeId": "2095c6f170d880cfaa50c22ebaf14a9d",
+          "metricIds": [
+            "2555c6f170d8805cafa6d16d3fdddbaa",
+            "2555c6f170d88072bbf6d9ad3f16ea86"
+          ],
+          "metricDefinitions": [
+            {
+              "id": "2555c6f170d8805cafa6d16d3fdddbaa",
+              "sourceName": "Weight",
+              "semantic": "loadKg",
+              "unit": "kg"
+            },
+            {
+              "id": "2555c6f170d88072bbf6d9ad3f16ea86",
+              "sourceName": "Reps",
+              "semantic": "reps",
+              "unit": "reps"
+            }
+          ],
+          "metricOrigin": "source_catalog",
+          "lateralityIds": [
+            "1a45c6f170d8808e8340d9a8d0f06f9d"
+          ],
+          "executionMode": "bilateral",
+          "loadingModel": {
+            "bodyweightCoefficient": 0,
+            "assistanceDirection": "subtract"
+          },
+          "prescriptionsByCycle": [
+            {
+              "cycleIndex": 1,
+              "sets": [
+                {
+                  "id": "set-18sr36r",
+                  "cycleIndex": 1,
+                  "setIndex": 1,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "reps": {
+                      "min": 9,
+                      "max": 11
+                    }
+                  },
+                  "rir": 1,
+                  "restSeconds": 120,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                },
+                {
+                  "id": "set-192qovq",
+                  "cycleIndex": 1,
+                  "setIndex": 2,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "reps": {
+                      "min": 9,
+                      "max": 11
+                    }
+                  },
+                  "rir": 0,
+                  "restSeconds": 120,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                }
+              ]
+            }
+          ],
+          "order": 1
+        },
+        {
+          "id": "slot-1aw9cjv",
+          "purposeId": "upper_a_lateral_delts",
+          "exerciseId": "1a05c6f170d880e28b6bfbd0e217fcbc",
+          "sourceExerciseIds": [
+            "1a05c6f170d880e28b6bfbd0e217fcbc"
+          ],
+          "role": "hypertrophyAccessory",
+          "musclePurposeIds": [
+            "2545c6f170d880088132c5739103e625"
+          ],
+          "movementPatternIds": [
+            "19f5c6f170d8807dbb2adca997a03116"
+          ],
+          "exerciseTypeId": "2095c6f170d880798c80daebcf85afd5",
+          "metricIds": [
+            "25a5c6f170d880baaa2dc8c7b67d4b65",
+            "25a5c6f170d880e2990fc88146f7de56"
+          ],
+          "metricDefinitions": [
+            {
+              "id": "25a5c6f170d880baaa2dc8c7b67d4b65",
+              "sourceName": "Reps per side",
+              "semantic": "repsPerSide",
+              "unit": "reps"
+            },
+            {
+              "id": "25a5c6f170d880e2990fc88146f7de56",
+              "sourceName": "Weight per side",
+              "semantic": "loadPerSideKg",
+              "unit": "kg"
+            }
+          ],
+          "metricOrigin": "source_catalog",
+          "lateralityIds": [
+            "1a45c6f170d8808e8340d9a8d0f06f9d"
+          ],
+          "executionMode": "bilateral",
+          "loadingModel": {
+            "bodyweightCoefficient": 0.053,
+            "assistanceDirection": "subtract"
+          },
+          "prescriptionsByCycle": [
+            {
+              "cycleIndex": 1,
+              "sets": [
+                {
+                  "id": "set-1s31g2h",
+                  "cycleIndex": 1,
+                  "setIndex": 1,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "repsPerSide": {
+                      "min": 14,
+                      "max": 16
+                    }
+                  },
+                  "rir": 0,
+                  "restSeconds": 90,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                },
+                {
+                  "id": "set-1r92mzk",
+                  "cycleIndex": 1,
+                  "setIndex": 2,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "repsPerSide": {
+                      "min": 14,
+                      "max": 16
+                    }
+                  },
+                  "rir": 0,
+                  "restSeconds": 90,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                }
+              ]
+            }
+          ],
+          "order": 2
+        },
+        {
+          "id": "slot-0v9crs6",
+          "purposeId": "lower_a_squat",
+          "exerciseId": "1a25c6f170d88079a926dde776766181",
+          "sourceExerciseIds": [
+            "1a25c6f170d88079a926dde776766181"
+          ],
+          "role": "hypertrophyPrimaryCompound",
+          "musclePurposeIds": [
+            "2545c6f170d88084b35affb3c3375aa6",
+            "2545c6f170d8804bb1fbdfc4471debe5"
+          ],
+          "movementPatternIds": [
+            "19e5c6f170d880f8ad63ffc686b1f1f9"
+          ],
+          "exerciseTypeId": "2095c6f170d880cfaa50c22ebaf14a9d",
+          "metricIds": [
+            "2555c6f170d8805cafa6d16d3fdddbaa",
+            "2555c6f170d88072bbf6d9ad3f16ea86"
+          ],
+          "metricDefinitions": [
+            {
+              "id": "2555c6f170d8805cafa6d16d3fdddbaa",
+              "sourceName": "Weight",
+              "semantic": "loadKg",
+              "unit": "kg"
+            },
+            {
+              "id": "2555c6f170d88072bbf6d9ad3f16ea86",
+              "sourceName": "Reps",
+              "semantic": "reps",
+              "unit": "reps"
+            }
+          ],
+          "metricOrigin": "source_catalog",
+          "lateralityIds": [
+            "1a45c6f170d8808e8340d9a8d0f06f9d"
+          ],
+          "executionMode": "bilateral",
+          "loadingModel": {
+            "bodyweightCoefficient": 0.169,
+            "assistanceDirection": "subtract"
+          },
+          "prescriptionsByCycle": [
+            {
+              "cycleIndex": 1,
+              "sets": [
+                {
+                  "id": "set-1p8xt23",
+                  "cycleIndex": 1,
+                  "setIndex": 1,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "reps": {
+                      "min": 7,
+                      "max": 9
+                    }
+                  },
+                  "rir": 3,
+                  "restSeconds": 120,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                },
+                {
+                  "id": "set-1pixer2",
+                  "cycleIndex": 1,
+                  "setIndex": 2,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "reps": {
+                      "min": 7,
+                      "max": 9
+                    }
+                  },
+                  "rir": 2,
+                  "restSeconds": 120,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                },
+                {
+                  "id": "set-1psx0g1",
+                  "cycleIndex": 1,
+                  "setIndex": 3,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "reps": {
+                      "min": 7,
+                      "max": 9
+                    }
+                  },
+                  "rir": 1,
+                  "restSeconds": 120,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                }
+              ]
+            }
+          ],
+          "order": 3
+        },
+        {
+          "id": "slot-1imjvo0",
+          "purposeId": "lower_a_quadriceps_isolation",
+          "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+          "sourceExerciseIds": [
+            "1a25c6f170d880c59f17ce7802758fc3"
+          ],
+          "role": "hypertrophyAccessory",
+          "musclePurposeIds": [
+            "2545c6f170d88084b35affb3c3375aa6"
+          ],
+          "movementPatternIds": [
+            "19f5c6f170d8801ba857e819c22df603"
+          ],
+          "exerciseTypeId": "2095c6f170d880798c80daebcf85afd5",
+          "metricIds": [
+            "2555c6f170d8805cafa6d16d3fdddbaa",
+            "2555c6f170d88072bbf6d9ad3f16ea86"
+          ],
+          "metricDefinitions": [
+            {
+              "id": "2555c6f170d8805cafa6d16d3fdddbaa",
+              "sourceName": "Weight",
+              "semantic": "loadKg",
+              "unit": "kg"
+            },
+            {
+              "id": "2555c6f170d88072bbf6d9ad3f16ea86",
+              "sourceName": "Reps",
+              "semantic": "reps",
+              "unit": "reps"
+            }
+          ],
+          "metricOrigin": "source_catalog",
+          "lateralityIds": [
+            "1a45c6f170d8808e8340d9a8d0f06f9d"
+          ],
+          "executionMode": "bilateral",
+          "loadingModel": {
+            "bodyweightCoefficient": 0.129,
+            "assistanceDirection": "subtract"
+          },
+          "prescriptionsByCycle": [
+            {
+              "cycleIndex": 1,
+              "sets": [
+                {
+                  "id": "set-1dpuvd0",
+                  "cycleIndex": 1,
+                  "setIndex": 1,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "reps": {
+                      "min": 14,
+                      "max": 16
+                    }
+                  },
+                  "rir": 0,
+                  "restSeconds": 90,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                },
+                {
+                  "id": "set-1ejtofx",
+                  "cycleIndex": 1,
+                  "setIndex": 2,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "reps": {
+                      "min": 14,
+                      "max": 16
+                    }
+                  },
+                  "rir": 0,
+                  "restSeconds": 90,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                }
+              ]
+            }
+          ],
+          "order": 4
+        },
+        {
+          "id": "slot-0vq9z8e",
+          "purposeId": "upper_b_biceps",
+          "exerciseId": "1a15c6f170d88015841af06a4533b9b3",
+          "sourceExerciseIds": [
+            "1a15c6f170d88015841af06a4533b9b3"
+          ],
+          "role": "hypertrophyAccessory",
+          "musclePurposeIds": [
+            "2545c6f170d880349546e5d8f6df2e2a"
+          ],
+          "movementPatternIds": [
+            "19f5c6f170d880c9b0f4d1c93d3718df"
+          ],
+          "exerciseTypeId": "2095c6f170d880798c80daebcf85afd5",
+          "metricIds": [
+            "25a5c6f170d880baaa2dc8c7b67d4b65",
+            "25a5c6f170d880e2990fc88146f7de56"
+          ],
+          "metricDefinitions": [
+            {
+              "id": "25a5c6f170d880baaa2dc8c7b67d4b65",
+              "sourceName": "Reps per side",
+              "semantic": "repsPerSide",
+              "unit": "reps"
+            },
+            {
+              "id": "25a5c6f170d880e2990fc88146f7de56",
+              "sourceName": "Weight per side",
+              "semantic": "loadPerSideKg",
+              "unit": "kg"
+            }
+          ],
+          "metricOrigin": "source_catalog",
+          "lateralityIds": [
+            "1a45c6f170d8808e8340d9a8d0f06f9d"
+          ],
+          "executionMode": "bilateral",
+          "loadingModel": {
+            "bodyweightCoefficient": 0.023,
+            "assistanceDirection": "subtract"
+          },
+          "prescriptionsByCycle": [
+            {
+              "cycleIndex": 1,
+              "sets": [
+                {
+                  "id": "set-1cvrnc3",
+                  "cycleIndex": 1,
+                  "setIndex": 1,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "repsPerSide": {
+                      "min": 14,
+                      "max": 16
+                    }
+                  },
+                  "rir": 0,
+                  "restSeconds": 90,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                },
+                {
+                  "id": "set-1d5r912",
+                  "cycleIndex": 1,
+                  "setIndex": 2,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "repsPerSide": {
+                      "min": 14,
+                      "max": 16
+                    }
+                  },
+                  "rir": 0,
+                  "restSeconds": 90,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                }
+              ]
+            }
+          ],
+          "order": 5
+        },
+        {
+          "id": "slot-0zmn0ae",
+          "purposeId": "lower_b_hip_hinge",
+          "exerciseId": "1a35c6f170d880bebc64f4dce0d5f5f1",
+          "sourceExerciseIds": [
+            "1a35c6f170d880bebc64f4dce0d5f5f1"
+          ],
+          "role": "hypertrophyPrimaryCompound",
+          "musclePurposeIds": [
+            "2545c6f170d88002b193de9106604e79",
+            "2545c6f170d8804bb1fbdfc4471debe5"
+          ],
+          "movementPatternIds": [
+            "19e5c6f170d88068951fd7fffc03ed0d"
+          ],
+          "exerciseTypeId": "2095c6f170d880cfaa50c22ebaf14a9d",
+          "metricIds": [
+            "2555c6f170d8805cafa6d16d3fdddbaa",
+            "2555c6f170d88072bbf6d9ad3f16ea86"
+          ],
+          "metricDefinitions": [
+            {
+              "id": "2555c6f170d8805cafa6d16d3fdddbaa",
+              "sourceName": "Weight",
+              "semantic": "loadKg",
+              "unit": "kg"
+            },
+            {
+              "id": "2555c6f170d88072bbf6d9ad3f16ea86",
+              "sourceName": "Reps",
+              "semantic": "reps",
+              "unit": "reps"
+            }
+          ],
+          "metricOrigin": "source_catalog",
+          "lateralityIds": [
+            "1a45c6f170d8808e8340d9a8d0f06f9d"
+          ],
+          "executionMode": "bilateral",
+          "loadingModel": {
+            "bodyweightCoefficient": 0.626,
+            "assistanceDirection": "subtract"
+          },
+          "prescriptionsByCycle": [
+            {
+              "cycleIndex": 1,
+              "sets": [
+                {
+                  "id": "set-19z9v0b",
+                  "cycleIndex": 1,
+                  "setIndex": 1,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "reps": {
+                      "min": 7,
+                      "max": 9
+                    }
+                  },
+                  "rir": 3,
+                  "restSeconds": 120,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                },
+                {
+                  "id": "set-1a99gpa",
+                  "cycleIndex": 1,
+                  "setIndex": 2,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "reps": {
+                      "min": 7,
+                      "max": 9
+                    }
+                  },
+                  "rir": 2,
+                  "restSeconds": 120,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                },
+                {
+                  "id": "set-1aj92e9",
+                  "cycleIndex": 1,
+                  "setIndex": 3,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "reps": {
+                      "min": 7,
+                      "max": 9
+                    }
+                  },
+                  "rir": 1,
+                  "restSeconds": 120,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                }
+              ]
+            }
+          ],
+          "order": 6
+        },
+        {
+          "id": "slot-14qvltf",
+          "purposeId": "lower_b_abs",
+          "exerciseId": "1a35c6f170d88050a8b7db0d4f1bc8f2",
+          "sourceExerciseIds": [
+            "1a35c6f170d88050a8b7db0d4f1bc8f2"
+          ],
+          "role": "hypertrophyAccessory",
+          "musclePurposeIds": [
+            "2545c6f170d8806aab76c6830449a3ff"
+          ],
+          "movementPatternIds": [
+            "2955c6f170d880869adfde97dc8e3a24"
+          ],
+          "exerciseTypeId": "2495c6f170d8804a9298e4daeded2415",
+          "metricIds": [
+            "2555c6f170d8805cafa6d16d3fdddbaa",
+            "2555c6f170d88072bbf6d9ad3f16ea86"
+          ],
+          "metricDefinitions": [
+            {
+              "id": "2555c6f170d8805cafa6d16d3fdddbaa",
+              "sourceName": "Weight",
+              "semantic": "loadKg",
+              "unit": "kg"
+            },
+            {
+              "id": "2555c6f170d88072bbf6d9ad3f16ea86",
+              "sourceName": "Reps",
+              "semantic": "reps",
+              "unit": "reps"
+            }
+          ],
+          "metricOrigin": "source_catalog",
+          "lateralityIds": [
+            "1a45c6f170d8808e8340d9a8d0f06f9d"
+          ],
+          "executionMode": "bilateral",
+          "loadingModel": {
+            "bodyweightCoefficient": 0,
+            "assistanceDirection": "subtract"
+          },
+          "prescriptionsByCycle": [
+            {
+              "cycleIndex": 1,
+              "sets": [
+                {
+                  "id": "set-0xtoyn2",
+                  "cycleIndex": 1,
+                  "setIndex": 1,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "reps": {
+                      "min": 14,
+                      "max": 16
+                    }
+                  },
+                  "rir": 0,
+                  "restSeconds": 90,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                },
+                {
+                  "id": "set-0xjpcy3",
+                  "cycleIndex": 1,
+                  "setIndex": 2,
+                  "metricType": "source_metrics@1",
+                  "targets": {
+                    "reps": {
+                      "min": 14,
+                      "max": 16
+                    }
+                  },
+                  "rir": 0,
+                  "restSeconds": 90,
+                  "status": "ready",
+                  "provenance": {
+                    "source": "observed_job_policy",
+                    "policyVersion": "067.1",
+                    "periodization": "static",
+                    "deload": false,
+                    "approximation": false
+                  }
+                }
+              ]
+            }
+          ],
+          "order": 7
+        }
+      ]
+    },
+    {
+      "id": "day-1h0h722",
+      "name": "Rest",
+      "kind": "rest",
+      "order": 5,
+      "slots": []
+    },
+    {
+      "id": "day-1gqhld3",
+      "name": "Rest",
+      "kind": "rest",
+      "order": 6,
+      "slots": []
+    },
+    {
+      "id": "day-1gghzo4",
+      "name": "Rest",
+      "kind": "rest",
+      "order": 7,
+      "slots": []
+    }
+  ],
+  "cycles": 1,
+  "deloadCycles": [],
+  "provenance": {
+    "source": "raw_catalog_and_reviewed_policy",
+    "policyVersion": "067.1",
+    "goal": "hypertrophy",
+    "split": "full_body",
+    "selection": "role-tier_then_explicit-preference_then-seeded-canonical-id",
+    "approximations": [
+      "redistributed-day-jobs"
+    ],
+    "estimatedSessionSeconds": {
+      "Full Body A": 1740,
+      "Full Body B": 2312
+    },
+    "focusNotApplied": []
+  }
+}

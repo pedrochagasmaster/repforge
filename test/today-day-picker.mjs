@@ -13,10 +13,14 @@
 import { pathToFileURL } from "url";
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
+import { metricLogRow } from "./fixtures/history-metric-rows.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
+/** Catalog metric ids of the seed program's Weight+Reps movements. */
+const WEIGHT = "2555c6f170d8805cafa6d16d3fdddbaa";
+const REPS = "2555c6f170d88072bbf6d9ad3f16ea86";
 const IOS_SAFARI_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1";
 
@@ -93,16 +97,13 @@ function ymd(offsetDays = 0) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** Log rows for one saved session of `day`, one set per exercise template. */
-function sessionRows(program, day, date) {
+/** Log rows for one saved session of `day`, one set per exercise template,
+ *  in the metric shape a finished DraftV2 workout commits. */
+function sessionRows(state, day, date) {
   const session = `${date}_${day}_seed`;
-  return program
+  return state.program
     .filter((e) => e.day === day)
-    .map((ex) => ({
-      session, date, day, name: ex.name, exerciseId: ex.id, set: 1,
-      load: 60, reps: ex.min || 8, rir: 1, notes: "", created: `${date}T12:00:00.000Z`,
-      primary: ex.primary, secondary: ex.secondary,
-    }));
+    .map((ex) => metricLogRow(state.programMeta, ex, { session, date, day, set: 1, load: 60, reps: ex.min || 8, rir: 1 }));
 }
 
 async function readState(page) {
@@ -394,15 +395,15 @@ phase("an in-progress session is protected by the discard question");
   ], KEY);
   await page.evaluate(() => window.__repforgeEnterWorkout({}));
   await page.waitForSelector("#workoutShell:not(.hidden) #workout .exercise.is-current .focus-shelf", { timeout: 5000 });
-  await page.evaluate(() => {
+  await page.evaluate(({ weight, reps }) => {
     const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
     const ex = (state.program || []).find((e) => e.day === state.program[0].day);
-    for (const [suffix, val] of [["load", 42], ["reps", 8], ["rir", 1]]) {
+    for (const [suffix, val] of [[`metric_${weight}`, 42], [`metric_${reps}`, 8], ["rir", 1]]) {
       const el = document.querySelector(`[data-k="${ex.id}_1_${suffix}"]`);
       el.value = String(val);
       el.dispatchEvent(new Event("input", { bubbles: true }));
     }
-  });
+  }, { weight: WEIGHT, reps: REPS });
   await page.evaluate(() => window.__repforgeLeaveWorkout?.());
   await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
   const draftBefore = await page.evaluate((d) => localStorage.getItem(d), DRAFT);
@@ -480,9 +481,9 @@ phase("an in-progress session is protected by the discard question");
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
   await page.waitForTimeout(320);
   const accepted = await view(page);
-  const logged = await page.evaluate(() =>
-    [...document.querySelectorAll("#workout input[data-k$='_load']")].map((el) => el.value).filter(Boolean)
-  );
+  const logged = await page.evaluate((weight) =>
+    [...document.querySelectorAll(`#workout input[data-metric-id="${weight}"]`)].map((el) => el.value).filter(Boolean)
+  , WEIGHT);
   assert(dialogs === 0, "no native dialog appeared at any answer", String(dialogs));
   assert(
     accepted.workoutOpen && accepted.day === days[1] && !accepted.sheetOpen,
@@ -502,7 +503,7 @@ phase("the picker is only offered when there is another day to start");
   page.on("pageerror", (e) => errors.push(String(e.message)));
   const state = await readState(page);
   const firstDay = [...new Set(state.program.map((e) => e.day))][0];
-  await persistState(page, { ...state, log: sessionRows(state.program, firstDay, ymd(0)) });
+  await persistState(page, { ...state, log: sessionRows(state, firstDay, ymd(0)) });
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
   const done = await view(page);
@@ -512,11 +513,16 @@ phase("the picker is only offered when there is another day to start");
     JSON.stringify(done)
   );
 
+  // A one-day program: the canonical week keeps one training day and rests on
+  // the other six, and the row projection keeps that day's exercises.
   const single = await readState(page);
+  const definition = structuredClone(single.programMeta.programDefinition);
+  definition.days = definition.days.map((d) => d.kind !== "training" || d.name === firstDay ? d
+    : { ...d, name: `Rest ${d.order}`, kind: "rest", slots: [] });
   await persistState(page, {
     ...single,
     log: [],
-    programMeta: { ...single.programMeta, programStructure: null },
+    programMeta: { ...single.programMeta, programDefinition: definition },
     program: single.program.filter((e) => e.day === firstDay),
   });
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -536,8 +542,11 @@ phase("named days keep their names");
   const state = await readState(page);
   const second = [...new Set(state.program.map((e) => e.day))][1];
   const NAME = "Back and biceps";
+  const definition = structuredClone(state.programMeta.programDefinition);
+  for (const d of definition.days) if (d.name === second) d.name = NAME;
   await persistState(page, {
     ...state,
+    programMeta: { ...state.programMeta, programDefinition: definition },
     program: state.program.map((e) => (e.day === second ? { ...e, day: NAME } : e)),
   });
   await page.reload({ waitUntil: "domcontentloaded" });

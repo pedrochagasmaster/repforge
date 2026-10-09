@@ -715,18 +715,26 @@ export async function runPrivacy(scope = "all") {
           document: fakeDocument,
           location: { href: "http://127.0.0.1:8054/index.html", hostname: "127.0.0.1" },
         };
-        const envelope = "v1.YQ";
+        // Retired v1 envelopes must never be written; only current v4 envelopes travel.
+        const legacyWrote = api?.writeHandoffCookie("v1.YQ", adapters) === true;
+        const legacyWrites = writes.length;
+        const envelope = "v4.YQ";
         const wrote = api?.writeHandoffCookie(envelope, adapters) === true;
         const read = api?.readHandoffCookie(adapters);
         const cleared = api?.clearHandoffCookie(adapters) === true;
-        return { wrote, read, cleared, writes };
+        return { legacyWrote, legacyWrites, wrote, read, cleared, writes };
       });
 
       assert(
+        !cookieTransportApproved.legacyWrote && cookieTransportApproved.legacyWrites === 0,
+        "retired v1 setup envelope is refused by the cookie transport without a write",
+        cookieTransportApproved
+      );
+      assert(
         cookieTransportApproved.wrote &&
-          cookieTransportApproved.read === "v1.YQ" &&
+          cookieTransportApproved.read === "v4.YQ" &&
           cookieTransportApproved.cleared &&
-          cookieTransportApproved.writes[0]?.includes("repforge_setup_v1=v1.YQ") &&
+          cookieTransportApproved.writes[0]?.includes("repforge_setup_v1=v4.YQ") &&
           cookieTransportApproved.writes[0]?.includes("Path=/index.html") &&
           cookieTransportApproved.writes[0]?.includes("Max-Age=604800") &&
           cookieTransportApproved.writes[0]?.includes("SameSite=Lax") &&

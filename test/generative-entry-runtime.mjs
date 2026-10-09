@@ -39,14 +39,11 @@ async function recommend(page, days) {
   await page.evaluate(() => window.startOnboarding("settings"));
   // The hub's goal tap answers Recommend's first question and opens the background step.
   await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
-  for (const [key, value] of [["structuredExperience", "6_to_24m"], ["recentConsistency", "most"]]) {
-    await page.click(`[data-entry-pick="${key}"][data-entry-val="${value}"]`);
-    if (key !== "structuredExperience") await page.click("#onbNext");
-  }
+  await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
+  await page.click("#onbNext");
   await page.click(`[data-entry-pick="daysPerWeek"][data-entry-val="${days}"]`);
-  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
-  await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="120"]'); await page.click("#onbNext");
-  await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]'); await page.click("#onbNext"); await page.click("#onbNext");
+  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]'); await page.click("#onbNext");
+  await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]'); await page.click("#onbNext"); await page.click("#onbNext"); await page.click("#onbNext");
   if (await page.locator("[data-entry-select-candidate]").count()) await page.locator("[data-entry-select-candidate]").first().click();
   await page.waitForSelector("#entryActivate", { timeout: 10000 });
 }
@@ -114,8 +111,7 @@ try {
   // draft is ever a result-less result step or a result bound to other answers.
   const EDITS = [
     { chip: "days", key: "daysPerWeek", values: [2, 3, 4, 5] },
-    { chip: "minutes", key: "sessionMinutes", values: [45, 60, 75] },
-    { chip: "rest", key: "preferredRestSeconds", values: ["auto", 60, 180] },
+    { chip: "minutes", key: "sessionMinutes", values: [40, 60, 90] },
     { chip: "goal", key: "desiredResult", values: ["muscle_growth", "balanced", "strength"] },
   ];
   await fc.assert(fc.asyncProperty(fc.record({

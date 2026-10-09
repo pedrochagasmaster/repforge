@@ -1,10 +1,12 @@
 /**
  * Seeded storage fixtures for the UI screen catalog.
  *
- * `catalogState` is the designer program: three days, real logged sessions and
- * a progression strategy, so Progress/History/PR surfaces have something true
- * to draw. The entry fixtures stay deliberately minimal — onboarding evidence
- * must not depend on a rich program that the flow itself has not created yet.
+ * `catalogState` is the designer program: the canonical seed program (three
+ * days, real catalog movements, test/fixtures/seed-program.mjs) with real
+ * logged sessions layered on, so Progress/History/PR surfaces have something
+ * true to draw. The entry fixtures stay deliberately minimal — onboarding
+ * evidence must not depend on a rich program that the flow itself has not
+ * created yet.
  *
  * Session dates are measured back from the pinned capture clock, never from
  * the real one. History, Progress and Today all render dates, so a fixture
@@ -13,6 +15,9 @@
  */
 import { CAPTURE_NOW } from "./session.mjs";
 import { DIRECTION_D_DATA } from "./direction-d-fixture.generated.mjs";
+import { DIRECTION_D_CANONICAL_DATA } from "./direction-d-canonical-fixture.generated.mjs";
+import { seedProgram, seedProgramMeta } from "../../test/fixtures/seed-program.mjs";
+import { metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
 
 function isoDaysAgo(n) {
   const d = new Date(Date.parse(CAPTURE_NOW));
@@ -21,45 +26,39 @@ function isoDaysAgo(n) {
 }
 
 export function catalogState() {
-  const program = [
-    { id: "ex-sq", day: "Day 1", order: 1, name: "Barbell back squat", sets: 3, min: 4, max: 8, primary: "Quads", secondary: "Glutes,Hamstrings", notes: "", alternates: [], libraryId: "sq_bb",
-      progression: { schemaVersion: 1, strategy: { id: "rep_goal", version: 1, params: {
-        workingSets: 3, repGoal: 18, repFloor: 4, repCeiling: 8,
-        targetRirMin: 1, targetRirMax: 3, minLoadIncrement: 2.5,
-        jumpPercent: 2.5, distributionPolicy: "balanced_frontload_v1",
-      } }, modifiers: [] } },
-    { id: "ex-curl", day: "Day 1", order: 2, name: "Seated leg curl", sets: 2, min: 6, max: 10, primary: "Hamstrings", secondary: "", notes: "", alternates: [] },
-    { id: "ex-bench", day: "Day 1", order: 3, name: "Barbell bench press", sets: 3, min: 4, max: 8, primary: "Chest", secondary: "Triceps,Front delts", notes: "Pause on the chest.", alternates: [], libraryId: "pr_bb" },
-    { id: "ex-row", day: "Day 1", order: 4, name: "Chest-supported row", sets: 2, min: 6, max: 10, primary: "Mid/upper back", secondary: "Lats,Rear delts,Biceps", notes: "", alternates: [] },
-    { id: "ex-lat", day: "Day 1", order: 5, name: "Machine lateral raise", sets: 2, min: 8, max: 12, primary: "Side delts", secondary: "", notes: "", alternates: [] },
-    { id: "ex-pd", day: "Day 2", order: 1, name: "Assisted pull-up", sets: 3, min: 4, max: 8, primary: "Lats", secondary: "Biceps,Forearms", notes: "", alternates: [], libraryId: "pd_bw" },
-    { id: "ex-rdl", day: "Day 2", order: 2, name: "Barbell deadlift", sets: 2, min: 3, max: 6, primary: "Hamstrings,Glutes", secondary: "Spinal erectors", notes: "", alternates: [], libraryId: "dl_bb" },
-    { id: "ex-ohp", day: "Day 2", order: 3, name: "Machine shoulder press", sets: 2, min: 6, max: 10, primary: "Front delts", secondary: "Side delts,Triceps", notes: "", alternates: [] },
-    { id: "ex-curl2", day: "Day 2", order: 4, name: "Barbell curl", sets: 2, min: 8, max: 12, primary: "Biceps", secondary: "Forearms", notes: "", alternates: [], libraryId: "cu_bb" },
-    { id: "ex-ext", day: "Day 3", order: 1, name: "Leg extension", sets: 2, min: 8, max: 12, primary: "Quads", secondary: "", notes: "", alternates: [] },
-    { id: "ex-fly", day: "Day 3", order: 2, name: "Pec deck", sets: 2, min: 8, max: 12, primary: "Chest", secondary: "", notes: "", alternates: [] },
-    { id: "ex-press", day: "Day 3", order: 3, name: "Cable pressdown", sets: 2, min: 8, max: 12, primary: "Triceps", secondary: "", notes: "", alternates: [] },
-  ];
+  // A manual program suffices here (no screen keyed off catalogState() shows
+  // an adaptive recommendation), so the designer catalog is the same canonical
+  // program the browser suites install: real catalog movements under the
+  // seed display names, built through the app's own Build definition
+  // (tools/build-seed-program-fixture.mjs), not an invented ProgramDefinition.
+  const program = seedProgram();
+  const programMeta = seedProgramMeta({
+    id: "catalog-program", name: "Designer catalog", started: isoDaysAgo(21),
+    created: "2026-07-01T00:00:00.000Z", updated: "2026-08-01T00:00:00.000Z",
+    goal: "hypertrophy", experience: "intermediate", daysPerWeek: 3,
+    splitType: "full_body", equipment: ["barbell", "machines", "cables"],
+    priorityMuscles: ["Quads", "Chest"], sessionLength: "60",
+  });
   const log = [];
-  const pushSession = (day, date, loads) => {
-    const session = `${date}_${day}_catalog`;
-    program.filter((e) => e.day === day).forEach((ex, i) => {
-      const load = loads[i] ?? 60;
-      for (let set = 1; set <= Math.min(ex.sets, 2); set++) {
-        log.push({
-          session, date, day, name: ex.name, exerciseId: ex.id, set,
-          load, reps: ex.min + 2, rir: 1, notes: "", created: `${date}T12:00:00.000Z`,
-          primary: ex.primary, secondary: ex.secondary,
-          performedLibraryId: ex.libraryId || undefined,
-        });
+  // One ascending load per row, varied enough that History/Progress/PR
+  // surfaces have real-looking numbers rather than a repeated constant.
+  const BASE_LOAD = { "Day 1": [100, 45, 70, 55, 12, 20], "Day 2": [40, 120, 40, 30, 35, 25], "Day 3": [50, 40, 35, 45, 20, 15] };
+  const pushSession = (day, date, bump = 0) => {
+    const session = `${date}-${day.replace(/\s+/g, "").toLowerCase()}-catalog`;
+    program.filter((row) => row.day === day).forEach((row, index) => {
+      const load = (BASE_LOAD[day]?.[index] ?? 60) + bump;
+      for (let set = 1; set <= Math.min(row.sets, 2); set++) {
+        log.push(metricLogRow(programMeta, row, {
+          session, date, day, set, load, reps: row.min + 2, rir: 1, created: `${date}T12:00:00.000Z`,
+        }));
       }
     });
   };
-  pushSession("Day 1", isoDaysAgo(10), [100, 45, 70, 55, 12]);
-  pushSession("Day 2", isoDaysAgo(8), [40, 120, 40, 30]);
-  pushSession("Day 3", isoDaysAgo(6), [50, 40, 35]);
-  pushSession("Day 1", isoDaysAgo(3), [105, 47.5, 72.5, 57.5, 12.5]);
-  pushSession("Day 2", isoDaysAgo(1), [42.5, 125, 42.5, 32.5]);
+  pushSession("Day 1", isoDaysAgo(10));
+  pushSession("Day 2", isoDaysAgo(8));
+  pushSession("Day 3", isoDaysAgo(6));
+  pushSession("Day 1", isoDaysAgo(3), 2.5);
+  pushSession("Day 2", isoDaysAgo(1), 2.5);
 
   return {
     settings: {
@@ -67,15 +66,7 @@ export function catalogState() {
       unit: "kg", lang: "en", rirMode: "numeric", voiceInputEnabled: false,
       notify: { enabled: false, timer: true, session: true, unfinished: true, missed: true },
     },
-    programMeta: {
-      id: "catalog-program", name: "Designer catalog", started: isoDaysAgo(21),
-      created: "2026-07-01T00:00:00.000Z", updated: "2026-08-01T00:00:00.000Z",
-      onboarded: true, mesocycleStatus: "active", mesocycleLengthWeeks: 6,
-      goal: "hypertrophy", experience: "intermediate", daysPerWeek: 3,
-      splitType: "full_body", equipment: ["barbell", "machines", "cables"],
-      priorityMuscles: ["Quads", "Chest"], sessionLength: "60", completedAt: null,
-    },
-    program, log, programHistory: [], customExercises: [], _storageRevision: 40,
+    programMeta, program, log, programHistory: [], customExercises: [], _storageRevision: 40,
   };
 }
 
@@ -91,22 +82,20 @@ export function catalogState() {
  * `catalogState()`, so rules-only frames do not change because of it.
  */
 export function directionDState() {
-  const { scenario, programName, settings, program, customExercises, log } = structuredClone(DIRECTION_D_DATA);
+  // The lifter's identity and history are canonical (built by
+  // tools/ui-screens/build-direction-d-canonical-fixture.mjs from the frozen
+  // DIRECTION_D_DATA mockup conversion: same names, order, rep ranges, notes
+  // and every logged set, now carrying a real ProgramDefinition instead of
+  // flat rows under retired short library ids). Only the jump/RIR settings
+  // still come from the raw mockup data; they are not part of the program.
+  const { programMeta, program, customExercises, log } = structuredClone(DIRECTION_D_CANONICAL_DATA);
+  const settings = DIRECTION_D_DATA.settings;
   return {
     settings: {
       ...catalogState().settings,
       jumpPct: settings.jumpPct, minJump: settings.minJump, rirHigh: settings.rirHigh, hardRir: settings.hardRir,
     },
-    programMeta: {
-      id: "direction-d-program", name: programName, started: scenario.blockStart,
-      created: `${scenario.blockStart}T00:00:00.000Z`, updated: `${scenario.blockStart}T00:00:00.000Z`,
-      onboarded: true, mesocycleStatus: "active", mesocycleLengthWeeks: scenario.blockWeeks,
-      // The review page fixes the goal ("Build muscle"), three days a week and a
-      // full-body split; it says nothing about experience, equipment or session length.
-      goal: "hypertrophy", experience: null, daysPerWeek: 3,
-      splitType: "full_body", equipment: [], priorityMuscles: [], sessionLength: null, completedAt: null,
-    },
-    program, log, programHistory: [], customExercises, _storageRevision: 40,
+    programMeta, program, log, programHistory: [], customExercises, _storageRevision: 40,
   };
 }
 

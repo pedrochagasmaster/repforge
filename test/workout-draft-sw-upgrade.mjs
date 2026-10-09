@@ -3,6 +3,12 @@
  * Install Plan 050's released shell, write a real flat workout draft through
  * that app, then activate the current worker and prove the cached DraftV2 app
  * migrates once and resumes a non-first Focus card while fully offline.
+ *
+ * The released app is served from its own commit in full (every module it
+ * loads), as its installed cache would hold it, and it owns the legacy flat
+ * program it was released with (that commit's seed fixture, no canonical
+ * ProgramDefinition). Plan 067 requires no migration of such a program; the
+ * current app must still never rewrite or erase it on boot.
  */
 import assert from "node:assert/strict";
 import { finishEarly } from "./fixtures/focus-workout.mjs";
@@ -12,16 +18,21 @@ import { createReadStream, readFileSync, statSync } from "node:fs";
 import { dirname, extname, join, normalize, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
-import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OLD_SHA = "3fbae92fcee58c0d72539b9f4e2c270a9d60dbd4";
-const OLD_PATHS = new Set(["index.html", "styles.css", "i18n.js", "app.js", "sw.js"]);
-const oldFiles = new Map([...OLD_PATHS].map((path) => [
-  `/${path}`,
-  execFileSync("git", ["show", `${OLD_SHA}:${path}`]),
-]));
-const oldWorker = oldFiles.get("/sw.js").toString("utf8");
+const oldFiles = new Map();
+function oldFile(pathname) {
+  if (!oldFiles.has(pathname)) {
+    let bytes = null;
+    try { bytes = execFileSync("git", ["show", `${OLD_SHA}:${pathname.slice(1)}`], { cwd: ROOT, maxBuffer: 1 << 28, stdio: ["ignore", "pipe", "ignore"] }); }
+    catch {}
+    oldFiles.set(pathname, bytes);
+  }
+  return oldFiles.get(pathname);
+}
+const legacyFixture = await import(`data:text/javascript;base64,${oldFile("/test/fixtures/seed-program.mjs").toString("base64")}`);
+const oldWorker = oldFile("/sw.js").toString("utf8");
 const currentWorker = readFileSync(join(ROOT, "sw.js"), "utf8");
 const cacheName = (worker) => worker.match(/const CACHE = ["']([^"']+)["']/)?.[1];
 const oldCache = cacheName(oldWorker);
@@ -42,9 +53,11 @@ const type = (extension) => ({
 const server = createServer((request, response) => {
   const pathname = decodeURIComponent((request.url || "/").split("?", 1)[0]);
   const normalizedPath = pathname === "/" ? "/index.html" : pathname;
-  if (mode === "old" && oldFiles.has(normalizedPath)) {
+  if (mode === "old") {
+    const bytes = oldFile(normalizedPath);
+    if (!bytes) { response.writeHead(404);response.end("Not found");return; }
     response.writeHead(200, { "content-type": type(extname(normalizedPath)), "cache-control": "no-store" });
-    response.end(oldFiles.get(normalizedPath));
+    response.end(bytes);
     return;
   }
   const file = normalize(join(ROOT, normalizedPath.slice(1)));
@@ -59,7 +72,7 @@ async function seedState(page) {
   const current = JSON.parse(await page.evaluate((key) => localStorage.getItem(key) || "{}", STATE));
   const state = {
     ...current,
-    program: seedProgram(), programMeta: seedProgramMeta(), log: [], programHistory: [],
+    program: legacyFixture.seedProgram(), programMeta: legacyFixture.seedProgramMeta(), log: [], programHistory: [],
     settings: { ...current.settings, lang: "en", unit: "kg", rirMode: "numeric", restSec: 0 },
   };
   await page.evaluate(async ({ key, value, draft, checkpoint }) => {
@@ -103,7 +116,7 @@ try {
   await page.reload({ waitUntil: "domcontentloaded" });await boot(page, base);
   assert.equal(await page.evaluate(() => !!navigator.serviceWorker.controller), true, "Plan 050 worker controls its app");
 
-  const secondId = seedProgram().filter((exercise) => exercise.day === "Day 1")[1].id;
+  const secondId = legacyFixture.seedProgram().filter((exercise) => exercise.day === "Day 1")[1].id;
   // The retained Plan 050 worker still needs its historical route flag before
   // the current worker migrates the draft. Current-code calls below omit it.
   await page.evaluate(() => window.__repforgeEnterWorkout({ day: "Day 1", focus: true }));
@@ -118,6 +131,9 @@ try {
     return value.schemaVersion == null && value.__day === "Day 1" && value[key] === "72.5";
   }, { draft: DRAFT, key: `${secondId}_1_load` });
   const legacyRaw = await page.evaluate((draft) => localStorage.getItem(draft), DRAFT);
+  const legacyState = await page.evaluate((key) => localStorage.getItem(key), STATE);
+  assert.equal(JSON.parse(legacyState).programMeta.programDefinition, undefined,
+    "the released app owns a legacy flat program without a canonical definition");
 
   mode = "current";
   await page.evaluate(async () => { const registration = await navigator.serviceWorker.ready;await registration.update(); });
@@ -137,6 +153,8 @@ try {
   assert.equal(migrated.checkpoint?.kind, "committed");
   assert.equal(migrated.checkpoint?.raw, migrated.raw);
   assert.notEqual(migrated.raw, legacyRaw);
+  assert.equal(await page.evaluate((key) => localStorage.getItem(key), STATE), legacyState,
+    "booting the current app neither rewrites nor erases the legacy durable program bytes");
 
   await page.reload({ waitUntil: "domcontentloaded" });await boot(page, base);
   assert.equal(await page.evaluate((draft) => localStorage.getItem(draft), DRAFT), migrated.raw,
