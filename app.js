@@ -1758,7 +1758,11 @@ function canonicalProgramDefinition(value,customDefinitions=customExercises()){
   const compiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
   if(!compiler?.validateProgramDefinition||!rawExerciseCatalog)return null;
   const checked=compiler.validateProgramDefinition(value,rawExerciseCatalog,compilerCustomDefinitions(customDefinitions));
-  return checked?.ok?cloneSnapshot(value):null}
+  if(!checked?.ok)return null;
+  // Accepts schema v1 (set-level metrics present, equal to the slot's) and v2
+  // (absent); this is the one boundary every file/link/backup/transfer passes
+  // through, so it always hands back the deduped v2 shape.
+  return compiler.canonicalizeProgramDefinition?compiler.canonicalizeProgramDefinition(value):cloneSnapshot(value)}
 /* A movement outside the catalog carries the lifter's own muscle labels. An
    empty label is no attribution, not an invalid one. */
 function manualAttributionFor(row){
@@ -10644,9 +10648,11 @@ function editorSetByCoordinates(definition,slotId,cycleIndex,setIndex){
   return{slot:null,cycle:null,set:null}}
 function editorCycleSetCount(slot,cycleIndex){
   return slot?.prescriptionsByCycle?.find(cycle=>cycle.cycleIndex===cycleIndex)?.sets?.length||0}
+// Schema v2: a set derives its metric composition from its slot rather than
+// storing it again, so this builds no metricIds/metricDefinitions of its own.
 function editorNewPrescription(slotId,cycleIndex,setIndex,metricIds,metricDefinitions,targets={},status){
-  return{id:`manual-${uid()}`,cycleIndex,setIndex,metricType:"source_metrics@1",metricIds:cloneSnapshot(metricIds),
-    metricDefinitions:cloneSnapshot(metricDefinitions),targets:cloneSnapshot(targets),rir:null,restSeconds:null,
+  return{id:`manual-${uid()}`,cycleIndex,setIndex,metricType:"source_metrics@1",
+    targets:cloneSnapshot(targets),rir:null,restSeconds:null,
     status:status||(metricIds.length?"manual":"configuration_required"),
     provenance:{source:"manual",policyVersion:"manual@1"}}}
 function editorSlotForRow(row,document,slotId,order,existing=null){
@@ -10746,18 +10752,17 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     const supported=ExerciseMetrics?.SOURCE_COMPOSITIONS?.some(composition=>
       changeValueEqualForEditor(composition,edit.metricIds));
     if(!checkedMetrics?.ok||!supported)return false;
+    // Schema v2: a set derives its metric composition from its slot rather
+    // than storing it again, so only the slot above carries the new
+    // composition; there is no per-set copy left to reconcile or verify.
     if(!alreadyApplied){
       slot.metricIds=cloneSnapshot(edit.metricIds);slot.metricDefinitions=cloneSnapshot(edit.metricDefinitions);
       for(const cycle of slot.prescriptionsByCycle||[])for(const set of cycle.sets||[]){
-        set.metricIds=cloneSnapshot(edit.metricIds);set.metricDefinitions=cloneSnapshot(edit.metricDefinitions);
         set.targets=Object.fromEntries(Object.entries(set.targets||{}).filter(([semantic])=>
           edit.metricDefinitions.some(metric=>metric.semantic===semantic)));
         set.status=edit.metricIds.length?"manual":"configuration_required";
         set.provenance={source:"manual",policyVersion:"manual@1"}}
     }
-    else for(const cycle of slot.prescriptionsByCycle||[])for(const set of cycle.sets||[]){
-      if(!changeValueEqualForEditor(set.metricIds,edit.metricIds)||
-        !changeValueEqualForEditor(set.metricDefinitions,edit.metricDefinitions))return false}
     // A composition that counts repetitions needs a rep range to log against;
     // a newly configured one starts from the row's range or Build's default.
     const repSemantic=edit.metricDefinitions.find(metric=>metric.semantic==="reps"||metric.semantic==="repsPerSide")?.semantic;
@@ -10814,8 +10819,9 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     if(cycle.sets.length===before&&changeValueEqualForEditor(currentIds,beforeIds)){
       while(cycle.sets.length<desired){
         const added=edit.addedSets?.find(item=>item.setIndex===cycle.sets.length+1);
-        if(!added||added.cycleIndex!==cycleIndex||!changeValueEqualForEditor(added.metricIds,slot.metricIds)||
-          !changeValueEqualForEditor(added.metricDefinitions,slot.metricDefinitions))return false;
+        // Schema v2: an added set carries no metric composition of its own
+        // (the slot above owns it), so there is nothing per-set left to verify here.
+        if(!added||added.cycleIndex!==cycleIndex)return false;
         cycle.sets.push(cloneSnapshot(added))}
       if(cycle.sets.length>desired){
         const removed=cycle.sets.slice(desired).map(item=>item.id);

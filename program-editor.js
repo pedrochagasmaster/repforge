@@ -306,9 +306,9 @@
     slot.metricDefinitions = clone(definitions);
     slot.metricOrigin = String(slot.exerciseId || exercise.libraryId || "").startsWith("custom:") || metricIds.length
       ? "user_defined" : "source_catalog";
+    // Schema v2: a set derives its metric composition from its slot rather
+    // than storing it again, so only the slot above is rewritten here.
     for (const cycle of slot.prescriptionsByCycle || []) for (const set of cycle.sets || []) {
-      set.metricIds = clone(metricIds);
-      set.metricDefinitions = clone(definitions);
       set.targets = Object.fromEntries(Object.entries(set.targets || {}).filter(([semantic]) => keepSemantics.has(semantic)));
       set.status = metricIds.length ? "manual" : "configuration_required";
       set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: "manual@1" };
