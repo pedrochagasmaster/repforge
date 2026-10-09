@@ -50,7 +50,7 @@ export const RULES_ONLY_STATES = Object.freeze([
   "program/no-program", "program/progression-editor", "program/exercise-picker", "program/custom-exercise",
   "program/custom-exercise-saving", "program/custom-exercise-deleting", "program/custom-exercise-archiving",
   "program/custom-exercise-recovery", "program/share-setup",
-  "program/share-ready", "program/share-too-large", "program/text-export",
+  "program/share-ready", "program/text-export",
   "settings/main", "settings/appearance", "settings/guides", "settings/guides-replay", "settings/privacy", "settings/privacy-disclosure",
   "install/banner", "install/ios-sheet", "install/transfer-eligible", "install/transfer-creating", "install/transfer-ready",
   "install/transfer-retryable", "install/transfer-claiming", "install/transfer-importing", "install/transfer-success",
