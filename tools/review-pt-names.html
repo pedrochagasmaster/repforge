@@ -343,7 +343,7 @@
       const editorActions = textElement("div", "editor-actions", "");
       const cancel = textElement("button", "cancel", "Cancelar");
       cancel.type = "button";
-      cancel.addEventListener("click", () => { editing = false; form.classList.remove("show"); $("edit").focus(); });
+      cancel.addEventListener("click", () => { editing = false; form.classList.remove("show"); for (const id of ["skip", "edit", "accept"]) $(id).disabled = busy; $("edit").focus(); });
       const save = textElement("button", "", "Salvar e aceitar →");
       save.type = "submit";
       editorActions.append(cancel, save);
@@ -361,6 +361,7 @@
     function startEdit() {
       if (!active || busy) return;
       editing = true;
+      for (const id of ["skip", "edit", "accept"]) $(id).disabled = true;
       const form = $("editForm");
       form.classList.add("show");
       $("editedName").focus();
@@ -445,6 +446,7 @@
           event.preventDefault();
           editing = false;
           $("editForm").classList.remove("show");
+          for (const id of ["skip", "edit", "accept"]) $(id).disabled = busy;
           $("edit").focus();
         }
         if (event.key === "Enter" && event.ctrlKey) {
