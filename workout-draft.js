@@ -7,6 +7,10 @@
   const RIR_MODES = new Set(["numeric", "effort"]);
   const UNITS = new Set(["kg", "lb"]);
   const EDIT_FIELDS = new Set(["load", "reps", "rir", "effort"]);
+  // migrateLegacy's only unambiguous flat-field -> metric-map mapping: see the
+  // allowedFields loop below (issue #332). rir/effort are intentionally
+  // absent; those stay on the flat edited fields for every slot.
+  const LEGACY_METRIC_SEMANTIC = Object.freeze({ load: "loadKg", reps: "reps" });
   const EFFORT_RIR = Object.freeze({ easy: 3, hard: 1, max: 0 });
   const DECIMAL = /^\d+(?:\.\d+)?$/;
   const INTEGER = /^\d+$/;
@@ -1849,7 +1853,26 @@
       if (!hasOwn(legacy, legacyKey)) continue;
       const value = editableText(valueResolutions[legacyKey]);
       if (value === undefined) return migrationError("invalid-value-resolution", { field: legacyKey });
-      next.exercises[target.exerciseInstanceId].sets[target.setId].edited[target.field] = value;
+      const set = next.exercises[target.exerciseInstanceId].sets[target.setId];
+      const metrics = Array.isArray(set.programmed.metrics) ? set.programmed.metrics : null;
+      const legacySemantic = LEGACY_METRIC_SEMANTIC[target.field];
+      // Since Plan 067 a metric-backed slot keeps its typed load/reps in
+      // `edited.metrics[metricId]`, not the flat `edited.load`/`edited.reps`
+      // Focus no longer reads for that slot (see shelfMetricFieldHtml and
+      // setSaveIssues). Map a legacy load/reps value only onto the single
+      // metric whose semantic is exactly that quantity: `loadKg` for load,
+      // `reps` for reps. A per-side load, an assistance load, a per-side rep
+      // count, a duplicated metric, or a missing one is not the same physical
+      // quantity as the flat field, so migration fails outright rather than
+      // guess and silently drop the lifter's value (issue #332). RIR (and
+      // effort) have no metric-map equivalent for any slot; they stay flat.
+      if (metrics && legacySemantic) {
+        const matches = metrics.filter((metric) => metric?.semantic === legacySemantic);
+        if (matches.length !== 1) return migrationError("unmapped-legacy-metric", { field: legacyKey });
+        set.edited.metrics[matches[0].id] = value;
+        continue;
+      }
+      set.edited[target.field] = value;
     }
     for (const [legacySetKey, target] of Object.entries(legacySetKeys)) {
       const set = next.exercises[target.exerciseInstanceId].sets[target.setId];
