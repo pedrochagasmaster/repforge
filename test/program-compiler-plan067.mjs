@@ -69,7 +69,7 @@ function generatedDoseMatrix(program) {
 const standard = Compiler.generateProgram(request(), raw, "p067-standard-fixture");
 assert.equal(standard.ok, true, `standard four-day plan should compile: ${JSON.stringify(standard.conflicts)}`);
 assert.deepEqual(standard.conflicts, []);
-assert.equal(standard.value.schemaVersion, 1);
+assert.equal(standard.value.schemaVersion, 2);
 assert.equal(standard.value.generatorVersion, "067.1");
 assert.equal(standard.value.seed, "p067-standard-fixture");
 assert.equal(standard.value.cycles, 7);
@@ -95,7 +95,11 @@ for (const slot of standard.value.days.flatMap((day) => day.slots)) {
   for (const cycle of slot.prescriptionsByCycle) {
     assert.equal(cycle.sets.length, slot.prescriptionsByCycle[0].sets.length, "static cycles preserve set dose");
     for (const set of cycle.sets) {
-      assert.deepEqual(set.metricIds, slot.metricIds, "each set prescription retains the exact ordered metric identity");
+      // Schema v2: a set derives its metric identity from its slot rather than
+      // storing it again; prescriptionsForCycle is the one place that
+      // materializes it back for engine/app consumers.
+      assert.equal(set.metricIds, undefined, "a generated set stores no metric composition of its own");
+      assert.equal(set.metricDefinitions, undefined, "a generated set stores no metric definitions of its own");
       const repDefinition = slot.metricDefinitions.find((entry) => entry.semantic === "reps" || entry.semantic === "repsPerSide");
       assert.ok(repDefinition, "the source composition declares its repetition identity");
       assert.deepEqual(Object.keys(set.targets), [repDefinition.semantic], "generation targets the declared reps metric without inventing load");
@@ -399,6 +403,30 @@ assert.ok(Compiler.estimateDaySeconds(standard.value.days.find((day) => day.kind
 for (const projected of Compiler.prescriptionsForCycle(standard.value, 1)) {
   const slot = standard.value.days.flatMap((day) => day.slots).find((candidate) => candidate.id === projected.slotId);
   assert.deepEqual(projected.loadingModel, slot.loadingModel, "cycle prescriptions carry their slot's loading model");
+  // Schema v2 drops a set's own metric composition; prescriptionsForCycle is
+  // the one boundary that materializes it back onto every returned prescription.
+  assert.deepEqual(projected.metricIds, slot.metricIds, "cycle prescriptions materialize their slot's metric IDs");
+  assert.deepEqual(projected.metricDefinitions, slot.metricDefinitions, "cycle prescriptions materialize their slot's metric definitions");
 }
+
+// #314: a schema v1 import (set-level metrics present, identical to the
+// slot's — the shape every pre-dedupe release wrote) stays valid and
+// normalizes to the exact current v2 output, with no user migration.
+const legacyV1 = structuredClone(standard.value);
+legacyV1.schemaVersion = 1;
+for (const slot of legacyV1.days.flatMap((day) => day.slots)) {
+  for (const cycle of slot.prescriptionsByCycle) for (const set of cycle.sets) {
+    set.metricIds = [...slot.metricIds];
+    set.metricDefinitions = slot.metricDefinitions.map((definition) => ({ ...definition }));
+  }
+}
+assert.deepEqual(Compiler.validateProgramDefinition(legacyV1, raw), { ok: true, issues: [] },
+  "a schema v1 definition with set-level metrics identical to its slot's stays valid");
+assert.deepEqual(Compiler.canonicalizeProgramDefinition(legacyV1), standard.value,
+  "canonicalizing a schema v1 import yields the exact deduped v2 shape the generator emits directly");
+const mismatchedV1 = structuredClone(legacyV1);
+mismatchedV1.days[0].slots[0].prescriptionsByCycle[0].sets[0].metricIds = [];
+assert.equal(Compiler.validateProgramDefinition(mismatchedV1, raw).ok, false,
+  "a schema v1 set whose metrics disagree with its slot's is rejected, not silently coerced");
 
 console.log("PASS Plan 067 program compiler algorithm contract");

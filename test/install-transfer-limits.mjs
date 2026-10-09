@@ -803,9 +803,11 @@ const unsupportedDraftNested = structuredClone(producerEnvelope);
 unsupportedDraftNested.workoutDraft.program.schemaVersion = 99;
 assert.equal(contract.validateEnvelope(unsupportedDraftNested).code, contract.ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION);
 // The canonical ProgramDefinition is the versioned program schema in both the
-// staged candidate and the durable program.
+// staged candidate and the durable program. #314 added schema v2 (a set
+// derives its metrics from its slot instead of storing them again) alongside
+// v1, so an actually unsupported version is the one a real envelope never carries.
 const unsupportedCandidateNested = structuredClone(producerEnvelope);
-unsupportedCandidateNested.programEntryDraft.result.preview.programDefinition.schemaVersion = 2;
+unsupportedCandidateNested.programEntryDraft.result.preview.programDefinition.schemaVersion = 99;
 assert.equal(contract.validateEnvelope(unsupportedCandidateNested).code, contract.ERROR_CODES.UNSUPPORTED_PROGRAM_DEFINITION_VERSION);
 const unsupportedDurableDefinition = structuredClone(producerEnvelope);
 unsupportedDurableDefinition.durableState.programMeta.programDefinition.schemaVersion = 99;

@@ -71,12 +71,20 @@ function assertSourceIdentity(program) {
       throw new Error(`unknown or captured source bodyweight coefficient changed for ${slot.exerciseId}`);
     }
     for (const cycle of slot.prescriptionsByCycle) for (const set of cycle.sets) {
-      if (JSON.stringify(set.metricIds) !== JSON.stringify(slot.metricIds)
-        || stableStringify(set.metricDefinitions) !== stableStringify(slot.metricDefinitions)) {
-        throw new Error(`set lost ordered slot metric identity ${slot.exerciseId}`);
+      // Schema v2: a generated set stores no metric composition of its own —
+      // its slot owns metricIds/metricDefinitions, and prescriptionsForCycle
+      // is the one place that materializes them back for engine/app consumers.
+      if (Object.hasOwn(set, "metricIds") || Object.hasOwn(set, "metricDefinitions")) {
+        throw new Error(`generated set stores its own metric composition ${slot.exerciseId}`);
       }
       if (Object.hasOwn(set, "actual") || Object.hasOwn(set, "metricValues") || Object.hasOwn(set, "performedValues")) {
         throw new Error("compiler put performed data in a prescription");
+      }
+    }
+    for (const projected of Compiler.prescriptionsForCycle(program, 1).filter((item) => item.slotId === slot.id)) {
+      if (JSON.stringify(projected.metricIds) !== JSON.stringify(slot.metricIds)
+        || stableStringify(projected.metricDefinitions) !== stableStringify(slot.metricDefinitions)) {
+        throw new Error(`prescriptionsForCycle lost ordered slot metric identity ${slot.exerciseId}`);
       }
     }
   }
