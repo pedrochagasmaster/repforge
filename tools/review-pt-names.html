@@ -454,7 +454,7 @@
         return;
       }
       const tag = event.target?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "BUTTON") return;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       if (event.key === "ArrowRight") { event.preventDefault(); accept(); }
       else if (event.key === "ArrowDown") { event.preventDefault(); skip(); }
       else if (event.key.toLowerCase() === "e") { event.preventDefault(); startEdit(); }
