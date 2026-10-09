@@ -13,6 +13,18 @@
   const MAX_TEXT = 10000;
   const MAX_ID = 240;
   const CONTEXT_TOUCHED_FIELDS = ["day", "date", "sessionNotes", "bodyweight"];
+  // The engine/compiler ceiling for a programmed target RIR, added with the
+  // Plan 067 engine replacement. Before that release, validation only
+  // rejected a negative, non-finite, or non-numeric target, so a draft
+  // written earlier (or a fresh draft whose target falls back to a lifter's
+  // own unbounded historical logged RIR; see `old.rir` in create() below)
+  // can legitimately carry a value above this. clampLegacyTargetRir widens
+  // tolerance to exactly the range the prior validator accepted, so a
+  // genuinely corrupt value (negative, NaN, non-finite, or a magnitude no
+  // lifter would ever log) still fails validation instead of being silently
+  // accepted.
+  const MAX_TARGET_RIR = 4;
+  const LEGACY_TARGET_RIR_CLAMP_CEILING = 20;
   const MuscleDomain = root?.RepForgeProgramEntry ||
     (typeof require === "function" ? require("./program-entry.js") : null);
   const MAX_MUSCLE_ATTRIBUTION = MuscleDomain?.MUSCLE_ATTRIBUTION_MAX_LENGTH || 500;
@@ -337,7 +349,7 @@
     for (const field of ["suggestedLoad", "minReps", "maxReps", "targetRir"]) {
       if (hasOwn(value, field) && value[field] != null &&
         (typeof value[field] !== "number" || !Number.isFinite(value[field]) || value[field] < 0 ||
-          (field === "targetRir" && value[field] > 4))) {
+          (field === "targetRir" && value[field] > MAX_TARGET_RIR))) {
         issues.push(`${path}.${field}`);
       }
     }
@@ -433,7 +445,8 @@
       issues.push(`${path}.repRange`);
     }
     if (hasOwn(value, "targetRir") && value.targetRir != null &&
-      (typeof value.targetRir !== "number" || !Number.isFinite(value.targetRir) || value.targetRir < 0 || value.targetRir > 4)) {
+      (typeof value.targetRir !== "number" || !Number.isFinite(value.targetRir) || value.targetRir < 0 ||
+        value.targetRir > MAX_TARGET_RIR)) {
       issues.push(`${path}.targetRir`);
     }
     if (!isText(value.notes, { empty: true })) issues.push(`${path}.notes`);
@@ -609,6 +622,14 @@
     return new Map();
   }
 
+  function clampLegacyTargetRir(value) {
+    if (typeof value !== "number" || !Number.isFinite(value) ||
+      value <= MAX_TARGET_RIR || value > LEGACY_TARGET_RIR_CLAMP_CEILING) {
+      return { value, clamped: false };
+    }
+    return { value: MAX_TARGET_RIR, clamped: true };
+  }
+
   function create(programContext, sessionSelection, previousSessionFacts) {
     if (!isPlainObject(programContext) || !isPlainObject(sessionSelection) || !Array.isArray(programContext.exercises)) {
       return error("invalid-create-input");
@@ -649,7 +670,14 @@
         const old = previousSets.find((item) => item?.ordinal === ordinal || item?.set === ordinal) || previousSets[ordinal - 1] || {};
         const suggestedLoad = spec.suggestedLoad ?? source.suggestedLoad ?? old.load ?? null;
         const suggestedReps = spec.suggestedReps ?? source.suggestedReps ?? old.reps ?? source.minReps;
+        // `old.rir` is the lifter's own previously logged RIR for this set,
+        // which has never had an upper bound (see setSaveIssues/validateSet);
+        // falling back to it when the program specifies no target can still
+        // produce a value above the engine's 0-4 ceiling, so clamp it the
+        // same way a pre-Plan-067 stored draft is clamped on parse.
         const targetRir = spec.targetRir ?? source.targetRir ?? old.rir ?? null;
+        const targetRirNumber = targetRir == null ? null : Number(targetRir);
+        const targetRirClamp = clampLegacyTargetRir(targetRirNumber);
         const effort = spec.suggestedEffort ?? source.suggestedEffort ?? null;
         const metricDefinitions = Array.isArray(spec.metricDefinitions)
           ? spec.metricDefinitions
@@ -676,7 +704,8 @@
           suggestedLoad: suggestedLoad == null ? null : Number(suggestedLoad),
           minReps: spec.minReps ?? source.minReps,
           maxReps: spec.maxReps ?? source.maxReps,
-          targetRir: targetRir == null ? null : Number(targetRir),
+          targetRir: targetRirClamp.value,
+          ...(targetRirClamp.clamped ? { targetRirClamped: true } : {}),
           ...(metricDefinitions ? { metricType: "source_metrics@1", metricIds: [...metricIds], metrics: programmedMetrics,
             targets: jsonClone(targets) } : {}),
           restSeconds: spec.restSeconds ?? source.restSeconds ?? null,
@@ -703,7 +732,7 @@
           edited: {
             load: editableText(suggestedLoad),
             reps: editableText(suggestedReps),
-            rir: metricDefinitions ? null : editableText(targetRir),
+            rir: metricDefinitions ? null : editableText(targetRirClamp.clamped ? targetRirClamp.value : targetRir),
             effort: metricDefinitions ? null : editableText(effort),
             ...(metricDefinitions ? { metrics: editedMetrics } : {}),
           },
@@ -713,12 +742,14 @@
         };
         setOrder.push(setId);
       }
+      const exerciseTargetRirClamp = clampLegacyTargetRir(source.targetRir ?? null);
       const programmed = {
         order: index,
         sets: setCount,
         minReps: source.minReps,
         maxReps: source.maxReps,
-        targetRir: source.targetRir ?? null,
+        targetRir: exerciseTargetRirClamp.value,
+        ...(exerciseTargetRirClamp.clamped ? { targetRirClamped: true } : {}),
         notes: source.notes || "",
         progressionStrategy: source.progressionStrategy ?? null,
         movementPattern: source.movementPattern ?? null,
@@ -801,6 +832,49 @@
     return null;
   }
 
+  // A stored V2 draft written before Plan 067 can carry a programmed target
+  // RIR above the current 0-4 ceiling (see clampLegacyTargetRir). Clamp it
+  // on read so the draft resumes instead of failing validation into
+  // recovery; this only ever touches `programmed.targetRir`, never the
+  // lifter's own edited/logged value for the set, which has no upper bound
+  // today and had none before Plan 067 either.
+  function normalizeLegacyTargetRir(value) {
+    if (!isPlainObject(value?.exercises)) return value;
+    let changed = false;
+    const exercises = {};
+    for (const [exerciseInstanceId, exercise] of Object.entries(value.exercises)) {
+      let nextExercise = exercise;
+      if (isPlainObject(exercise) && isPlainObject(exercise.programmed)) {
+        const clamp = clampLegacyTargetRir(exercise.programmed.targetRir);
+        if (clamp.clamped) {
+          nextExercise = { ...exercise, programmed: { ...exercise.programmed, targetRir: clamp.value, targetRirClamped: true } };
+          changed = true;
+        }
+      }
+      if (isPlainObject(nextExercise?.sets)) {
+        let setsChanged = false;
+        const sets = {};
+        for (const [setId, set] of Object.entries(nextExercise.sets)) {
+          let nextSet = set;
+          if (isPlainObject(set) && isPlainObject(set.programmed)) {
+            const clamp = clampLegacyTargetRir(set.programmed.targetRir);
+            if (clamp.clamped) {
+              nextSet = { ...set, programmed: { ...set.programmed, targetRir: clamp.value, targetRirClamped: true } };
+              setsChanged = true;
+            }
+          }
+          sets[setId] = nextSet;
+        }
+        if (setsChanged) {
+          nextExercise = { ...nextExercise, sets };
+          changed = true;
+        }
+      }
+      exercises[exerciseInstanceId] = nextExercise;
+    }
+    return changed ? { ...value, exercises } : value;
+  }
+
   function parse(raw, currentProgramContext) {
     if (raw == null || raw === "") return deepFreeze({ kind: "absent" });
     let value = raw;
@@ -821,6 +895,7 @@
       value = jsonClone(value);
       value.session.contextTouched = emptyContextTouched();
     }
+    value = normalizeLegacyTargetRir(value);
     const checked = validate(value);
     if (!checked.ok) return deepFreeze({ kind: "invalid", code: "invalid-schema", issues: checked.issues });
     const draft = deepFreeze(jsonClone(value));

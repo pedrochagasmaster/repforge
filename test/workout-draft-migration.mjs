@@ -426,5 +426,33 @@ assert(!isMigrationError(adhoc) &&
   adhoc.exercises.legacy_row_off_screen.substitution.replacement.movementId === "custom:garage-row-051",
   "an old name-only substitution migrates only through an explicit adhoc identity resolution");
 
+console.log("\nIssue #320: a target RIR carried forward from historical logged RIR above 4 clamps on migration");
+const historicalRirSnapshot = migrationSnapshot();
+historicalRirSnapshot.programContext.exercises[0].targetRir = null;
+historicalRirSnapshot.programContext.exercises[0].programmedSets =
+  historicalRirSnapshot.programContext.exercises[0].programmedSets.map(({ targetRir, ...rest }) => rest);
+// The program specifies no target RIR for this exercise, so create() falls
+// back to the lifter's own historical logged RIR for the set (never bounded,
+// before or after Plan 067), which here is above the current 0-4 ceiling.
+historicalRirSnapshot.previousSessionFacts.legacy_press_primary.sets[0].rir = 6;
+const historicalRirLegacy = {
+  "legacy_press_primary_1_load": "80",
+  "legacy_press_primary_1_reps": "8",
+  __touched: ["legacy_press_primary_1"],
+  __day: "Day 1",
+};
+historicalRirSnapshot.valueResolutions = resolvedValues(historicalRirLegacy);
+const historicalRirMigrated = Draft.migrateLegacy(historicalRirLegacy, historicalRirSnapshot);
+assert(!isMigrationError(historicalRirMigrated),
+  "migration does not fail closed when the only available target RIR is a historical 6 above the ceiling",
+  isMigrationError(historicalRirMigrated) ? JSON.stringify(historicalRirMigrated) : "");
+if (!isMigrationError(historicalRirMigrated)) {
+  const migratedSet = historicalRirMigrated.exercises.legacy_press_primary.sets["press-stable-set-a"];
+  assert(migratedSet.programmed.targetRir === 4, "the historical RIR 6 fallback clamps to 4 during migration");
+  assert(migratedSet.programmed.targetRirClamped === true,
+    "the clamp applied during migration is recorded as programmed.targetRirClamped");
+  assert(Draft.validate(historicalRirMigrated).ok, "the migrated draft with the clamped target still validates");
+}
+
 console.log(`\n${results.passed} passed, ${results.failed} failed`);
 if (results.failed) process.exit(1);
