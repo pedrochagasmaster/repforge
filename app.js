@@ -2309,14 +2309,24 @@ function metricLoading(metricDefinitions,sourceExercise,loadingModel=null){
     ...(Object.prototype.hasOwnProperty.call(loadingModel,"bodyweightCoefficient")
       ?{bodyweightCoefficient:loadingModel.bodyweightCoefficient}:{})};
   return{loadingModel,loadingConvention,loadingContext}}
-/* A mid-session swap to a catalog movement reprograms the slot's pending sets
-   with the replacement's own metric composition. Targets carry over only for
-   metrics both movements share; the rest stay for the lifter to enter. */
+/* A mid-session swap reprograms the slot's pending sets with the
+   replacement's own metric composition. Targets carry over only for metrics
+   both movements share; the rest stay for the lifter to enter. A custom
+   movement has no catalog row, so its composition comes from the movement's
+   own metricIds/metricDefinitions (set by the "metric composition" editor
+   intent) rather than from the static catalog. One with no composition
+   configured yet cannot be reprogrammed — the caller must refuse the swap
+   rather than apply it over a metric-less replacement; that case returns the
+   "unconfigured" sentinel instead of null (null means "not a metric swap"). */
 function substitutionProgram(id,libraryRef){
-  const draftExercise=activeWorkoutDraft?.exercises?.[id],source=libraryRef?rawExercise(libraryRef):null;
-  if(!draftExercise?.programmed?.metricOrigin||!source)return null;
-  const metricDefinitions=rawMetricDefinitions(libraryRef);
+  const draftExercise=activeWorkoutDraft?.exercises?.[id];
+  if(!draftExercise?.programmed?.metricOrigin||!libraryRef)return null;
+  const custom=isCustomLibraryId(libraryRef)?libraryEntry(libraryRef):null;
+  const source=custom||rawExercise(libraryRef);
+  if(!source)return null;
+  const metricDefinitions=custom?(Array.isArray(custom.metricDefinitions)?custom.metricDefinitions:[]):rawMetricDefinitions(libraryRef);
   if(!metricDefinitions)return null;
+  if(custom&&!metricDefinitions.length)return"unconfigured";
   const{loadingModel,loadingConvention,loadingContext}=metricLoading(metricDefinitions,source);
   const semantics=new Set(metricDefinitions.map(metric=>metric.semantic));
   const programmedSets=draftExercise.setOrder.map(setId=>{
@@ -2937,7 +2947,12 @@ async function applyCustomSub(id,raw,libraryRef=null){
   if(!activeWorkoutDraft)return false;
   const restore=!name||name===progName,type=restore?"restoreOriginalExercise":"substituteExercise";
   const payload={exerciseInstanceId:id};if(!restore){payload.replacement=replacementSnapshot(id,name,libraryRef);payload.selectedAt=new Date().toISOString();
-    const program=substitutionProgram(id,libraryRef);if(program)payload.replacementProgram=program}
+    const program=substitutionProgram(id,libraryRef);
+    // A custom movement with no configured composition cannot be swapped to
+    // mid-session: applying it anyway would skip the metric reprogramming
+    // silently (see substitutionProgram), so this refuses instead.
+    if(program==="unconfigured"){toast(t("entry.preview.metrics_required"));return false}
+    if(program)payload.replacementProgram=program}
   const result=await WorkoutSession.dispatch(type,payload);
   if(result.status==="domain-error"&&result.error?.code==="substitution-touched-pending-set")toast(t("toast.substitute_started_sets"));
   if(result.status!=="applied")return false;

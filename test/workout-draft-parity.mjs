@@ -79,6 +79,24 @@ const SUBSTITUTE = "Pin-loaded machine chest press";
 const SUBSTITUTE_PRIMARY = "Chest";
 const SUBSTITUTE_SECONDARY = "Triceps,Front delts";
 
+// #322: a custom movement has no catalog row, so a mid-session swap to one
+// reprograms the slot from the movement's own metric composition rather than
+// the library's. One ships configured (reps-only, deliberately not the
+// seed's own load+reps, so a successful swap is unmistakable); the other
+// ships with no composition at all, which must refuse the swap outright.
+const CUSTOM_CONFIGURED_ID = "custom:parity-reps-only";
+const CUSTOM_CONFIGURED_NAME = "Custom reps-only fly";
+const CUSTOM_UNCONFIGURED_ID = "custom:parity-unconfigured";
+const CUSTOM_UNCONFIGURED_NAME = "Custom unconfigured curl";
+const customExercises = [
+  { id: CUSTOM_CONFIGURED_ID, name: CUSTOM_CONFIGURED_NAME, namePt: CUSTOM_CONFIGURED_NAME,
+    primary: "Chest", secondary: "", notes: "", equipment: ["machine"], patterns: [],
+    metricIds: [REPS], metricDefinitions: [{ id: REPS, sourceName: "Reps", semantic: "reps", unit: "reps" }] },
+  { id: CUSTOM_UNCONFIGURED_ID, name: CUSTOM_UNCONFIGURED_NAME, namePt: CUSTOM_UNCONFIGURED_NAME,
+    primary: "Biceps", secondary: "", notes: "", equipment: ["machine"], patterns: [],
+    metricIds: [], metricDefinitions: [] },
+];
+
 /** The set's own values as the draft holds them: weight, reps (metric-backed), then RIR. */
 async function setValues(page, exerciseId, ordinal) {
   return page.evaluate(({ exerciseId, ordinal, weight, reps }) => {
@@ -191,12 +209,13 @@ async function main() {
     await waitForBoot(page);
 
     const program = seedProgram();
-    const [first, second, third, fourth] = program;
+    const [first, second, third, fourth, fifth, sixth] = program;
     const baseState = JSON.parse(await page.evaluate((key) => localStorage.getItem(key) || "{}", STATE_KEY));
     await writeState(page, {
       ...baseState,
       program,
       programMeta: seedProgramMeta(),
+      customExercises,
       log: [],
       settings: { ...baseState.settings, lang: "en", unit: "kg", rirMode: "numeric", restSec: 0 },
     });
@@ -487,6 +506,67 @@ async function main() {
       adHocRow.load === 61 && adHocRow.reps === 6,
     "ad hoc History preserves the programmed slot and original muscle meaning while recording performed identity",
     JSON.stringify(adHocRows));
+
+    console.log("\nCustom-movement substitution (#322): metric reprogramming and the no-composition refusal");
+    await page.evaluate(() => window.closeSessionSummary?.());
+    await page.evaluate(() => window.__repforgeEnterWorkout({ day: "Day 1" }));
+    await page.waitForSelector("#workoutShell:not(.hidden) #workout.is-focus", { timeout: 5000 });
+
+    // Typed pending values refuse a custom-movement swap exactly like a
+    // library one: the picker never gets to apply over them.
+    await selectExercise(page, fifth.id);
+    await fillShelf(page, "load", 20);
+    await fillShelf(page, "reps", 15);
+    await fillShelf(page, "rir", 2);
+    await exerciseAction(page, fifth.id, "#exActionSubstBtn");
+    await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+    await pickExactRow(page, CUSTOM_CONFIGURED_NAME);
+    await page.waitForFunction(() => /remaining sets/i.test(document.querySelector("#toast")?.textContent || ""));
+    const customTouchedRefused = await page.evaluate(
+      (id) => window.__repforgeWorkoutDraft.current().exercises[id].substitution, fifth.id);
+    assert(customTouchedRefused === null,
+      "a custom-movement swap over filled pending sets is refused, just like a library swap",
+      JSON.stringify(customTouchedRefused));
+    assert(JSON.stringify(await setValues(page, fifth.id, 1)) === JSON.stringify(["20", "15", "2"]),
+      "the refused custom swap leaves the typed values in place");
+
+    // A custom movement with no configured composition cannot be
+    // reprogrammed at all, so the swap is refused outright, regardless of
+    // the slot's touched state.
+    await exerciseAction(page, fifth.id, "#exActionSubstBtn");
+    await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+    await pickExactRow(page, CUSTOM_UNCONFIGURED_NAME);
+    await page.waitForFunction(() => /measurements/i.test(document.querySelector("#toast")?.textContent || ""));
+    const unconfiguredRefused = await page.evaluate(
+      (id) => window.__repforgeWorkoutDraft.current().exercises[id].substitution, fifth.id);
+    assert(unconfiguredRefused === null,
+      "a custom movement with no configured composition refuses the swap and says to configure it",
+      JSON.stringify(unconfiguredRefused));
+
+    // An untouched pending set accepts a custom movement's own composition,
+    // not the original slot's — proof that #322's replacementProgram now
+    // reaches custom ids too.
+    await exerciseAction(page, sixth.id, "#exActionSubstBtn");
+    await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+    assert(await pickExactRow(page, CUSTOM_CONFIGURED_NAME),
+      "the substitution picker also lists a custom movement", CUSTOM_CONFIGURED_NAME);
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    const customApplied = await page.evaluate((id) => {
+      const exercise = window.__repforgeWorkoutDraft.current().exercises[id];
+      const setId = exercise.setOrder[0];
+      const set = exercise.sets[setId];
+      return {
+        displayName: exercise.substitution?.replacement?.displayName,
+        metricIds: set.programmed.metricIds,
+        metricOrigin: set.programmed.metricOrigin,
+      };
+    }, sixth.id);
+    assert(customApplied.displayName === CUSTOM_CONFIGURED_NAME,
+      "an untouched custom-movement swap applies", JSON.stringify(customApplied));
+    assert(JSON.stringify(customApplied.metricIds) === JSON.stringify([REPS]) && customApplied.metricOrigin === "user_defined",
+      "the swap reprograms the pending set with the custom movement's own metric composition, not the original slot's",
+      JSON.stringify(customApplied));
+
     assert(errors.length === 0, "the parity journey emits no page or console errors", errors.join(" | "));
   } finally {
     await context.close();
