@@ -868,9 +868,11 @@
     // The wire carries the logical draft, never the local storage wrapper.
     if (hasOwn(value, "ownerId") || hasOwn(value, "revision") || hasOwn(value, "state")) return ERROR_CODES.FORBIDDEN_FIELD;
     // A staged candidate from a later program schema is unsupported, not malformed.
+    // Schema v1 (set-level metrics present, equal to the slot's) and v2
+    // (absent, derived from the slot) both clone through a real transfer.
     for (const preview of [value.result?.preview, value.result?.alternative?.preview]) {
       const version = isPlainObject(preview?.programDefinition) ? preview.programDefinition.schemaVersion : 1;
-      if (version !== 1) return ERROR_CODES.UNSUPPORTED_PROGRAM_DEFINITION_VERSION;
+      if (version !== 1 && version !== 2) return ERROR_CODES.UNSUPPORTED_PROGRAM_DEFINITION_VERSION;
     }
     const programEntry = runtimeProgramEntry();
     if (!programEntry || typeof programEntry.normalizeSetupDraftEnvelope !== "function") {
@@ -990,7 +992,10 @@
     if (!isPlainObject(definition) || !Number.isInteger(definition.schemaVersion)) {
       return ERROR_CODES.UNSUPPORTED_PROGRAM_DEFINITION_VERSION;
     }
-    if (definition.schemaVersion !== 1) return ERROR_CODES.UNSUPPORTED_PROGRAM_DEFINITION_VERSION;
+    // Schema v1 (set-level metrics present, equal to the slot's) and v2
+    // (absent, derived from the slot) both clone through a real transfer;
+    // compiler.validateProgramDefinition below accepts either shape.
+    if (definition.schemaVersion !== 1 && definition.schemaVersion !== 2) return ERROR_CODES.UNSUPPORTED_PROGRAM_DEFINITION_VERSION;
     try {
       return compiler.validateProgramDefinition(definition, catalog, customDefinitions).ok
         ? null : ERROR_CODES.INVALID_ENVELOPE;
