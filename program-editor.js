@@ -1106,9 +1106,73 @@
         </div>
       </section>${addOutside && open ? addButton : ""}`;
     }
+    /* A render can land while the lifter is mid-edit in a field that has not
+       yet committed (blurred) — most often a delayed confirmation from an
+       earlier structural change (adding a day/exercise, nudging the set
+       count) that resolves only after the lifter has already tabbed on to
+       type the next value. Rebuilding the list wholesale would otherwise
+       throw away whatever is sitting, uncommitted, in that focused input.
+       Capture it before the rebuild and restore it — value, caret, and focus
+       — onto its rebuilt counterpart afterward. */
+    function liveEditSnapshot() {
+      const active = host.ownerDocument?.activeElement;
+      if (!active || !host.contains(active)) return null;
+      if (active.tagName !== "INPUT" && active.tagName !== "TEXTAREA") return null;
+      if (!active.dataset.role) return null;
+      const parts = [];
+      for (const attribute of active.attributes) {
+        if (attribute.name.startsWith("data-")) parts.push(`[${attribute.name}="${cssEscape(attribute.value)}"]`);
+      }
+      if (!parts.length) return null;
+      let selectionStart = null, selectionEnd = null;
+      // type="number" inputs (the rir/restSeconds prescription fields) throw
+      // on selection access in some engines; losing the caret position there
+      // is a minor cosmetic cost next to losing the value itself.
+      try { selectionStart = active.selectionStart; selectionEnd = active.selectionEnd; } catch { /* unsupported */ }
+      const snapshot = { selector: parts.join(""), value: active.value, selectionStart, selectionEnd, committedDuringTeardown: false };
+      // A genuinely dirty field (real typing) fires its own "change"
+      // synchronously when the rebuild below tears its node out — the
+      // engine commits it the ordinary way before this render call ever
+      // reaches restoreLiveEdit. Listening for that here, on the node that
+      // is about to be removed, is how restoreLiveEdit later knows not to
+      // schedule a second commit for a value that already landed.
+      active.addEventListener("change", () => { snapshot.committedDuringTeardown = true; }, { once: true });
+      return snapshot;
+    }
+    function restoreLiveEdit(snapshot) {
+      if (!snapshot) return false;
+      const next = host.querySelector(snapshot.selector);
+      if (!next || (next.tagName !== "INPUT" && next.tagName !== "TEXTAREA")) return false;
+      const renderedValue = next.value;
+      next.value = snapshot.value;
+      try { if (snapshot.selectionStart != null) next.setSelectionRange(snapshot.selectionStart, snapshot.selectionEnd); }
+      catch { /* unsupported on this input type */ }
+      next.focus();
+      // Setting .value before focus() leaves the element's own dirty-value
+      // tracking believing nothing changed from here, so a plain blur never
+      // fires "change" for this restored value: the lifter would see it on
+      // screen, but it would never reach the document. Every commit path
+      // here is wired to "change" (editMetricTarget, editPrescriptionField,
+      // renameDay, …), so finish the commit through that same path, on this
+      // field's next exit — unless the snapshot above already saw the old
+      // node commit this exact value during teardown, in which case doing
+      // it again would be a duplicate write with the same value.
+      if (snapshot.value !== renderedValue && !snapshot.committedDuringTeardown) {
+        next.dataset.editorPendingCommit = "1";
+        const clearPending = () => { delete next.dataset.editorPendingCommit; };
+        next.addEventListener("change", clearPending, { once: true });
+        next.addEventListener("focusout", () => {
+          if (next.dataset.editorPendingCommit !== "1") return;
+          clearPending();
+          next.dispatchEvent(new Event("change", { bubbles: true }));
+        }, { once: true });
+      }
+      return true;
+    }
     function render() {
       if (destroyed) return;
       ensureStructure(document);
+      const liveEdit = liveEditSnapshot();
       const days = labels(document);
       if (!expandedExercises.size) {
         for (const day of days) {
@@ -1135,6 +1199,10 @@
         <button type="button" class="program-editor__add-day" data-role="add-day">＋ <span>${esc(addDayText)}</span></button>
       </div>`;
       bind();
+      // Restoring an in-progress edit wins over a queued structural focus
+      // request (e.g. refocusing the sets-adjust button): the lifter is
+      // demonstrably already typing somewhere else by the time this landed.
+      if (restoreLiveEdit(liveEdit)) pendingFocus = null;
       // A host that annotates the status line (an id other controls describe
       // themselves by, an error state) re-applies it to each fresh render.
       adapter.afterRender?.(host);

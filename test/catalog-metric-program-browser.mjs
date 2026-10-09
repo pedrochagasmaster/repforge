@@ -171,6 +171,48 @@ async function captureJourneyFailure(page, stage, messages, error, name) {
   return report;
 }
 
+/** Issue #326: deterministic fault injection for the Build editor's durable-
+ * write race. Every durable write serializes through navigator.locks.request
+ * (durable-state.js's withStorageLock). Holding exactly one such acquisition
+ * open lets this journey land its confirmation — and the re-render it
+ * schedules — at a chosen instant instead of guessing a timeout, so the race
+ * this proof guards reproduces on demand rather than by luck. CPU throttling
+ * alone (the original hypothesis) was not enough to reproduce it reliably on
+ * a fast, idle machine: the async storage round trip it widens is latency-
+ * bound, not CPU-bound, so throttling the main thread inflates the
+ * surrounding synchronous work far more than the actual race window. */
+async function installStorageLockGate(page) {
+  await page.addInitScript(() => {
+    if (!navigator.locks || !navigator.locks.request) return;
+    const original = navigator.locks.request.bind(navigator.locks);
+    window.__repforgeGateLockCount = 0;
+    window.__repforgeReleaseGatedLock = null;
+    // Every durable commit — real or duplicate — makes exactly one of these
+    // calls, so counting them is a cheap, test-owned way to assert "no
+    // second commit happened" without depending on any editor-private name.
+    window.__repforgeLockRequestCount = 0;
+    navigator.locks.request = (name, optionsOrCallback, maybeCallback) => {
+      window.__repforgeLockRequestCount += 1;
+      const isCallbackArg = typeof optionsOrCallback === "function";
+      const callback = isCallbackArg ? optionsOrCallback : maybeCallback;
+      let gated = false;
+      if (window.__repforgeGateLockCount > 0) { window.__repforgeGateLockCount -= 1; gated = true; }
+      const wrapped = (...args) => {
+        if (!gated) return callback(...args);
+        return new Promise((resolve) => { window.__repforgeReleaseGatedLock = resolve; }).then(() => callback(...args));
+      };
+      return isCallbackArg ? original(name, wrapped) : original(name, optionsOrCallback, wrapped);
+    };
+  });
+}
+async function armStorageLockGate(page, count) {
+  await page.evaluate((n) => { window.__repforgeGateLockCount = n; }, count);
+}
+async function releaseStorageLockGate(page) {
+  await page.waitForFunction(() => typeof window.__repforgeReleaseGatedLock === "function", undefined, { timeout: 10000 });
+  await page.evaluate(() => { window.__repforgeReleaseGatedLock(); window.__repforgeReleaseGatedLock = null; });
+}
+
 async function buildProgram(page) {
   await page.click("#firstRunCreate");
   await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
@@ -213,20 +255,89 @@ async function buildProgram(page) {
       }, exercise.id);
     }
     const minus = row.locator('[data-role="adjust"][data-field="sets"][data-delta="-1"]');
+    const cdp = index === 0 ? await page.context().newCDPSession(page) : null;
     for (let count = 2; count >= 1; count--) {
+      // Issue #326: gate each decrement's durable write in turn so its
+      // re-render can be released at the exact moment this journey wants
+      // it, instead of guessing a timeout.
+      if (index === 0) await armStorageLockGate(page, 1);
       await minus.click();
       await page.waitForFunction(({ index, count }) => {
         const rows = [...document.querySelectorAll('#onbProgramEditor [data-role="exercise"]')];
         return rows[index]?.querySelector('[data-role="sets-value"]')?.textContent.trim() === String(count);
       }, { index: before, count }, { timeout: 10000 });
+      if (index === 0 && count === 2) {
+        // A render can also land on a field that an *earlier* render has
+        // already restored — e.g. a chain of delayed confirmations (several
+        // structural edits queued up) landing back to back while the lifter
+        // stays put without typing further in between. The restored value
+        // sitting in that field was set directly (not through a keystroke),
+        // so the browser's own dirty-tracking never saw it change — the
+        // same reason a plain `.value=` assignment is the right way to
+        // construct this deterministically, rather than fill(), which would
+        // always re-dirty the field and trigger the teardown-commit path
+        // instead of the one this check targets.
+        const rirSelector = '[data-role="prescription-field"][data-cycle-index="1"][data-set-index="1"][data-field="rir"]';
+        const rir = row.locator(rirSelector);
+        await rir.focus();
+        await page.evaluate((selector) => { document.querySelector(selector).value = "2"; }, rirSelector);
+        const rirHandle = await rir.elementHandle();
+        await releaseStorageLockGate(page);
+        await page.waitForFunction((el) => !el.isConnected, rirHandle, { timeout: 10000 });
+        await rir.press("Tab");
+        const rirAfterTab = await page.evaluate((exerciseId) => {
+          const slot = window.__repforgeEntryState().result.preview.programDefinition.days
+            .flatMap(day => day.slots).find(candidate => candidate.exerciseId === exerciseId);
+          return slot?.prescriptionsByCycle?.find(c => c.cycleIndex === 1)?.sets?.[0]?.rir ?? null;
+        }, exercise.id);
+        check(rirAfterTab === 2,
+          "a value restored onto a field by an earlier render still commits when a later render lands on it, before any other field is touched", rirAfterTab);
+      }
     }
     if (index === 0) {
-      const min = row.locator('[data-role="metric-target"][data-cycle-index="1"][data-semantic="reps"][data-set-index="1"][data-bound="min"]');
+      // Fast, unthrottled typing already reproduced the race locally once the
+      // storage write is gated above; CPU throttling is layered on top for
+      // fidelity with the slower/contended runners where this first surfaced.
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 6 });
+      const minSelector = '[data-role="metric-target"][data-cycle-index="1"][data-semantic="reps"][data-set-index="1"][data-bound="min"]';
+      const min = row.locator(minSelector);
+      // This is the reported race itself: fill() genuinely dirties the
+      // original element, so when the render tears it down mid-edit, the
+      // engine's own implicit "change" fires and commits 8 — but render()
+      // had already built this cycle's HTML from the document as it stood
+      // *before* that commit, so the freshly rebuilt min shows the stale 6.
+      // Left alone, max's own commit then reads min's live (stale) DOM value
+      // as its ranged peer and writes {min:6, max:12} right back. Capture
+      // the element handle, release the held confirmation, and wait for
+      // *that exact node* to be detached — proving the rebuild actually
+      // happened while "8" was still uncommitted-on-screen — before moving
+      // on, instead of racing the release against the Tab.
+      const locksBeforeMin = await page.evaluate(() => window.__repforgeLockRequestCount);
       await min.fill("8");
+      const minHandle = await min.elementHandle();
+      await releaseStorageLockGate(page);
+      await page.waitForFunction((el) => !el.isConnected, minHandle, { timeout: 10000 });
       await min.press("Tab");
+      // The old, genuinely dirty element already committed "8" through its
+      // own implicit "change" during teardown; the rebuilt field must not
+      // also carry a pending commit of the same value, or this Tab would
+      // make a second, duplicate durable write.
+      const locksAfterMin = await page.evaluate(() => window.__repforgeLockRequestCount);
+      check(locksAfterMin - locksBeforeMin === 1,
+        "the teardown's own commit and this Tab together make exactly one durable write, not two", { locksBeforeMin, locksAfterMin });
       const max = row.locator('[data-role="metric-target"][data-cycle-index="1"][data-semantic="reps"][data-set-index="1"][data-bound="max"]');
       await max.fill("12");
       await max.press("Tab");
+      // Assert both together, immediately: this is exactly the moment a
+      // stale-DOM min would get written back by max's own peer-read.
+      const afterMinMax = await page.evaluate((exerciseId) => {
+        const slot = window.__repforgeEntryState().result.preview.programDefinition.days
+          .flatMap(day => day.slots).find(candidate => candidate.exerciseId === exerciseId);
+        const targets = slot?.prescriptionsByCycle?.find(c => c.cycleIndex === 1)?.sets?.[0]?.targets?.reps;
+        return { min: targets?.min ?? null, max: targets?.max ?? null };
+      }, exercise.id);
+      check(afterMinMax.min === 8 && afterMinMax.max === 12,
+        "the rebuilt field shows the value the lifter typed, so a later sibling edit reading it as a peer does not write the stale default back", afterMinMax);
       const loadTarget = row.locator('[data-role="metric-target"][data-cycle-index="1"][data-semantic="loadKg"][data-set-index="1"][data-bound="value"]');
       await loadTarget.fill("65");
       await loadTarget.press("Tab");
@@ -244,6 +355,7 @@ async function buildProgram(page) {
       const secondRest = secondCycle.locator('[data-role="prescription-field"][data-set-index="1"][data-field="restSeconds"]');
       await secondRest.fill("180");
       await secondRest.press("Tab");
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
       await page.waitForFunction(({ exerciseId, cycle2Ids }) => {
         const slot = window.__repforgeEntryState?.()?.result?.preview?.programDefinition?.days
           ?.flatMap(day => day.slots || []).find(candidate => candidate.exerciseId === exerciseId);
@@ -446,6 +558,7 @@ async function main() {
     sourceContext = await browser.newContext({ locale: "en", serviceWorkers: "block" });
     source = await sourceContext.newPage();
     await source.setViewportSize({ width: 390, height: 844 });
+    await installStorageLockGate(source);
     sourceErrors = captureBrowserErrors(source);
     source.on("dialog", (dialog) => dialog.dismiss().catch(() => {}));
     stage = "source first boot";
