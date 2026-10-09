@@ -93,6 +93,11 @@
       "content": "flat",
       "scenario": "Environment shortcuts with the capability correction disclosure closed."
     },
+    "onboarding-recommend/abilities": {
+      "owner": "plan-067",
+      "content": "flat",
+      "scenario": "Seven movement-ability questions answered yes, no or not sure in the recommend route; Not sure is preselected and Skip keeps every answer unset."
+    },
     "onboarding-recommend/priorities": {
       "owner": "plan-054",
       "content": "flat",
@@ -142,6 +147,11 @@
       "owner": "plan-054",
       "content": "flat",
       "scenario": "Environment shortcuts in the custom route."
+    },
+    "onboarding-custom/abilities": {
+      "owner": "plan-067",
+      "content": "flat",
+      "scenario": "Seven movement-ability questions answered yes, no or not sure in the custom route; Not sure is preselected and Skip keeps every answer unset."
     },
     "onboarding-custom/priorities": {
       "owner": "plan-054",
@@ -3597,6 +3607,7 @@
         "onboarding-custom/background",
         "onboarding-custom/desired-result",
         "onboarding-custom/environment",
+        "onboarding-custom/abilities",
         "onboarding-custom/exercise-preferences",
         "onboarding-custom/priorities",
         "onboarding-custom/result",
@@ -3615,6 +3626,7 @@
         "onboarding-recommend/background",
         "onboarding-recommend/desired-result",
         "onboarding-recommend/environment",
+        "onboarding-recommend/abilities",
         "onboarding-recommend/priorities",
         "onboarding-recommend/replacement-confirm",
         "onboarding-recommend/result",
@@ -3654,6 +3666,7 @@
         "onboarding-recommend/background",
         "onboarding-recommend/schedule",
         "onboarding-recommend/environment",
+        "onboarding-recommend/abilities",
         "onboarding-recommend/priorities",
         "onboarding-recommend/avoidance-pain",
         "onboarding-recommend/result",
@@ -3664,6 +3677,7 @@
         "onboarding-custom/background",
         "onboarding-custom/schedule",
         "onboarding-custom/environment",
+        "onboarding-custom/abilities",
         "onboarding-custom/priorities",
         "onboarding-custom/exercise-preferences",
         "onboarding-custom/result",
@@ -3714,6 +3728,7 @@
         "onboarding-custom/background",
         "onboarding-custom/desired-result",
         "onboarding-custom/environment",
+        "onboarding-custom/abilities",
         "onboarding-custom/exercise-preferences",
         "onboarding-custom/priorities",
         "onboarding-custom/schedule",
@@ -3721,6 +3736,7 @@
         "onboarding-recommend/background",
         "onboarding-recommend/desired-result",
         "onboarding-recommend/environment",
+        "onboarding-recommend/abilities",
         "onboarding-recommend/priorities",
         "onboarding-recommend/schedule",
         "onboarding-recovery/rules-drift",
@@ -3751,6 +3767,7 @@
         "onboarding-custom/background",
         "onboarding-custom/desired-result",
         "onboarding-custom/environment",
+        "onboarding-custom/abilities",
         "onboarding-custom/exercise-preferences",
         "onboarding-custom/priorities",
         "onboarding-custom/result",
@@ -3770,6 +3787,7 @@
         "onboarding-recommend/background",
         "onboarding-recommend/desired-result",
         "onboarding-recommend/environment",
+        "onboarding-recommend/abilities",
         "onboarding-recommend/priorities",
         "onboarding-recommend/replacement-confirm",
         "onboarding-recommend/result",
@@ -6594,6 +6612,7 @@
         "onboarding-custom/background",
         "onboarding-custom/desired-result",
         "onboarding-custom/environment",
+        "onboarding-custom/abilities",
         "onboarding-custom/exercise-preferences",
         "onboarding-custom/priorities",
         "onboarding-custom/schedule",
@@ -6601,6 +6620,7 @@
         "onboarding-recommend/background",
         "onboarding-recommend/desired-result",
         "onboarding-recommend/environment",
+        "onboarding-recommend/abilities",
         "onboarding-recommend/priorities",
         "onboarding-recommend/schedule",
         "onboarding-recovery/rules-drift",
@@ -8038,11 +8058,13 @@
         "onboarding-recommend/background",
         "onboarding-recommend/schedule",
         "onboarding-recommend/environment",
+        "onboarding-recommend/abilities",
         "onboarding-recommend/priorities",
         "onboarding-recommend/avoidance-pain",
         "onboarding-custom/background",
         "onboarding-custom/schedule",
         "onboarding-custom/environment",
+        "onboarding-custom/abilities",
         "onboarding-custom/priorities",
         "onboarding-custom/exercise-preferences",
         "onboarding-custom/shape"
@@ -8118,6 +8140,29 @@
       "owner": "plan-064/r4b",
       "catalogStates": [
         "onboarding-recommend/priorities"
+      ]
+    },
+    {
+      "id": "entryabilitiesskip",
+      "selector": "#entryAbilitiesSkip",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Leaves every movement-ability answer unset and moves on; the step is optional.",
+      "owner": "plan-067",
+      "catalogStates": [
+        "onboarding-recommend/abilities",
+        "onboarding-custom/abilities"
       ]
     },
     {
