@@ -1806,7 +1806,7 @@ function manualProgramDefinitionFromRows(rows,dayNames=[],customDefinitions=cust
         return{cycleIndex,sets:Array.from({length:count},(_,setIndex)=>({
           id:`manual-${String(row.slotId||row.id||index+1)}-${cycleIndex}-${setIndex+1}`,
           cycleIndex,setIndex:setIndex+1,metricType:"source_metrics@1",
-          metricIds:[...metricIds],metricDefinitions:definitions.map(cloneSnapshot),targets:cloneSnapshot(targets),
+          targets:cloneSnapshot(targets),
           rir:null,restSeconds:null,status:configurationRequired?"configuration_required":"manual",
           provenance:{source:"manual",policyVersion:"manual@1"}}))}});
       return{id:String(row.slotId||row.id||`manual-slot-${index+1}-${slotIndex+1}`),
@@ -1822,7 +1822,7 @@ function manualProgramDefinitionFromRows(rows,dayNames=[],customDefinitions=cust
         prescriptionsByCycle};});
     if(slots.some(slot=>!slot))return null;
     days.push({id:`manual-day-${index+1}`,name:label,kind:entries.length?"training":"rest",order:index+1,slots})}
-  const definition={schemaVersion:1,generatorVersion:"manual@1",seed:"manual",request:{},days,
+  const definition={schemaVersion:2,generatorVersion:"manual@1",seed:"manual",request:{},days,
     cycles:7,deloadCycles:[],provenance:{source:"manual",policyVersion:"manual@1"}};
   return canonicalProgramDefinition(definition,customDefinitions)}
 /* Durable program rows are stored exactly as an accepted snapshot normalizes
