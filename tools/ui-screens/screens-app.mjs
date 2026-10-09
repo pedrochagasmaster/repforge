@@ -640,6 +640,19 @@ async function resetSheetScroll(page, selector) {
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 }
 
+/**
+ * Pin a sheet's scroll to its end rather than its start: a frame that must
+ * show an element near the bottom (the busy delete/archive button) needs a
+ * fixed *maximum* scrollTop, not zero. Wait for web fonts first — the form's
+ * scrollHeight shifts as chip rows and labels finish laying out, and reading
+ * scrollHeight before that settles reproduces the same race this is fixing.
+ */
+async function pinSheetScrollToEnd(page, selector) {
+  await page.evaluate(() => document.fonts.ready);
+  await page.locator(selector).evaluate((element) => { element.scrollTop = element.scrollHeight - element.clientHeight; });
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+}
+
 async function createInUseCustomExercise(page) {
   const result = await page.evaluate(async () => {
     const created = await window.__repforgeSaveCustomExercise({
@@ -1401,6 +1414,12 @@ export const APP_SCENARIOS = {
     await page.locator("#exCustomDelete").click();
     await page.waitForFunction(() => document.querySelector("#exCustomSheet")?.getAttribute("aria-busy") === "true" &&
       document.querySelector("#exCustomDelete")?.dataset.i18n === "custom.deleting");
+    // The reopened sheet's form inherited whatever scrollTop the create pass
+    // left behind, and that value tracked a focus-driven scrollIntoView raced
+    // against web-font layout settling: the frame needs the "Deleting…"
+    // button visible near the bottom, so pin the scroll to its true maximum
+    // (after fonts settle) rather than resetting it to the top.
+    await pinSheetScrollToEnd(page, "#exCustomSheet .custom__form");
     await sleep(page, 350);
   },
   "program/custom-exercise-archiving": async (page) => {
