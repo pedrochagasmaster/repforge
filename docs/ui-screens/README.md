@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 158 screens,
-970 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 160 screens,
+977 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -70,7 +70,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Recommend 2 — training background](screens/onboarding-recommend/background__phone-390-light-en.png) | 3 | The carried goal with Change, then structured-program experience. |
 | [Recommend 3 — real week](screens/onboarding-recommend/schedule__phone-390-light-en.png) | 3 | Days per week and the session-minute ceiling. |
 | [Recommend 4 — environment](screens/onboarding-recommend/environment__phone-390-light-en.png) | 3 | Environment shortcuts with the capability correction disclosure closed. |
-| [Recommend 5 — priorities](screens/onboarding-recommend/priorities__phone-390-light-en.png) | 3 | Primary priorities plus optional movement and exercise-avoidance controls. |
+| [Recommend 5 — movement abilities](screens/onboarding-recommend/abilities__phone-390-light-en.png) | 3 | The seven competency questions as yes/no/unsure rows, unanswered, with Skip offered. |
+| [Recommend 6 — priorities](screens/onboarding-recommend/priorities__phone-390-light-en.png) | 3 | Primary priorities plus optional movement and exercise-avoidance controls. |
 | [Recommend 5 — avoidance and pain safety](screens/onboarding-recommend/avoidance-pain__phone-390-light-en.png) | 7 | One avoided exercise with the pain reason selected and its safety copy. |
 | [Recommend — recommendation and review](screens/onboarding-recommend/result__phone-390-light-en.png) | 8 | The program first: name, four facts, the week with its first day open, the answers it was built from as chips, why it fits, and the pinned activation. |
 | [Recommend — recommendation with a program active](screens/onboarding-recommend/result-existing__phone-390-light-en.png) | 3 | The merged candidate surface while the current program remains untouched. |
@@ -88,9 +89,10 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Custom 2 — training background](screens/onboarding-custom/background__phone-390-light-en.png) | 4 | Structured-program experience in the custom route. |
 | [Custom 3 — real week](screens/onboarding-custom/schedule__phone-390-light-en.png) | 8 | Days per week and the session ceiling in the custom route. |
 | [Custom 4 — environment](screens/onboarding-custom/environment__phone-390-light-en.png) | 4 | Environment shortcuts in the custom route. |
-| [Custom 5 — muscle priorities](screens/onboarding-custom/priorities__phone-390-light-en.png) | 8 | Each muscle has one accessible emphasis setting before exercise preferences. |
-| [Custom 6 — exercise preferences](screens/onboarding-custom/exercise-preferences__phone-390-light-en.png) | 4 | One library search offers Include or Avoid, with separate selected lists. |
-| [Custom 6b — weekly structure](screens/onboarding-custom/shape__phone-390-light-en.png) | 4 | Two compatible weekly structures to choose from; shown only when more than one fits the answers. |
+| [Custom 5 — movement abilities](screens/onboarding-custom/abilities__phone-390-light-en.png) | 4 | The seven competency questions as yes/no/unsure rows, unanswered, with Skip offered, in the custom route. |
+| [Custom 6 — muscle priorities](screens/onboarding-custom/priorities__phone-390-light-en.png) | 8 | Each muscle has one accessible emphasis setting before exercise preferences. |
+| [Custom 7 — exercise preferences](screens/onboarding-custom/exercise-preferences__phone-390-light-en.png) | 4 | One library search offers Include or Avoid, with separate selected lists. |
+| [Custom 7b — weekly structure](screens/onboarding-custom/shape__phone-390-light-en.png) | 4 | Two compatible weekly structures to choose from; shown only when more than one fits the answers. |
 | [Custom — generated program and review](screens/onboarding-custom/result__phone-390-light-en.png) | 4 | The custom program first, with muscle emphasis and exercise preferences among the answer chips, and the pinned activation. |
 
 ### Onboarding — Build my own

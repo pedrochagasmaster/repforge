@@ -51924,6 +51924,1550 @@
       ]
     },
     {
+      "key": "onboarding-custom/abilities__phone-390-dark-en",
+      "flow": "onboarding-custom",
+      "screen": "abilities",
+      "label": "Custom 5 — movement abilities",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Custom program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 4 of 6",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Movement abilities",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Optional"
+        },
+        {
+          "tag": "p",
+          "text": "A few exercises need a baseline before the program leans on them. Answer what you know and leave the rest unsure."
+        },
+        {
+          "tag": "button",
+          "text": "Skip",
+          "name": "Skip",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 10 strict pull-ups?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 10 strict pull-ups?",
+          "labelledBy": "Can you do 10 strict pull-ups?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 5 strict pull-ups?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 5 strict pull-ups?",
+          "labelledBy": "Can you do 5 strict pull-ups?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 15 push-ups in a row?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 15 push-ups in a row?",
+          "labelledBy": "Can you do 15 push-ups in a row?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 10 reps of an incline barbell press?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 10 reps of an incline barbell press?",
+          "labelledBy": "Can you do 10 reps of an incline barbell press?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 10 reps of a standing barbell overhead press?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 10 reps of a standing barbell overhead press?",
+          "labelledBy": "Can you do 10 reps of a standing barbell overhead press?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 10 bodyweight dips?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 10 bodyweight dips?",
+          "labelledBy": "Can you do 10 bodyweight dips?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 10 reps of a barbell bench press?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 10 reps of a barbell bench press?",
+          "labelledBy": "Can you do 10 reps of a barbell bench press?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-custom/abilities__phone-390-light-en",
+      "flow": "onboarding-custom",
+      "screen": "abilities",
+      "label": "Custom 5 — movement abilities",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Custom program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 4 of 6",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Movement abilities",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Optional"
+        },
+        {
+          "tag": "p",
+          "text": "A few exercises need a baseline before the program leans on them. Answer what you know and leave the rest unsure."
+        },
+        {
+          "tag": "button",
+          "text": "Skip",
+          "name": "Skip",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 10 strict pull-ups?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 10 strict pull-ups?",
+          "labelledBy": "Can you do 10 strict pull-ups?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 5 strict pull-ups?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 5 strict pull-ups?",
+          "labelledBy": "Can you do 5 strict pull-ups?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 15 push-ups in a row?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 15 push-ups in a row?",
+          "labelledBy": "Can you do 15 push-ups in a row?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 10 reps of an incline barbell press?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 10 reps of an incline barbell press?",
+          "labelledBy": "Can you do 10 reps of an incline barbell press?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 10 reps of a standing barbell overhead press?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 10 reps of a standing barbell overhead press?",
+          "labelledBy": "Can you do 10 reps of a standing barbell overhead press?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 10 bodyweight dips?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 10 bodyweight dips?",
+          "labelledBy": "Can you do 10 bodyweight dips?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 10 reps of a barbell bench press?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 10 reps of a barbell bench press?",
+          "labelledBy": "Can you do 10 reps of a barbell bench press?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-custom/abilities__phone-390-light-en-text200",
+      "flow": "onboarding-custom",
+      "screen": "abilities",
+      "label": "Custom 5 — movement abilities",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Custom program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 4 of 6",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Movement abilities",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Optional"
+        },
+        {
+          "tag": "p",
+          "text": "A few exercises need a baseline before the program leans on them. Answer what you know and leave the rest unsure."
+        },
+        {
+          "tag": "button",
+          "text": "Skip",
+          "name": "Skip",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 10 strict pull-ups?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 10 strict pull-ups?",
+          "labelledBy": "Can you do 10 strict pull-ups?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 5 strict pull-ups?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 5 strict pull-ups?",
+          "labelledBy": "Can you do 5 strict pull-ups?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 15 push-ups in a row?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 15 push-ups in a row?",
+          "labelledBy": "Can you do 15 push-ups in a row?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 10 reps of an incline barbell press?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 10 reps of an incline barbell press?",
+          "labelledBy": "Can you do 10 reps of an incline barbell press?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 10 reps of a standing barbell overhead press?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 10 reps of a standing barbell overhead press?",
+          "labelledBy": "Can you do 10 reps of a standing barbell overhead press?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 10 bodyweight dips?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 10 bodyweight dips?",
+          "labelledBy": "Can you do 10 bodyweight dips?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 10 reps of a barbell bench press?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 10 reps of a barbell bench press?",
+          "labelledBy": "Can you do 10 reps of a barbell bench press?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-custom/abilities__phone-390-light-pt",
+      "flow": "onboarding-custom",
+      "screen": "abilities",
+      "label": "Custom 5 — movement abilities",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um treino"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Treino personalizado"
+        },
+        {
+          "tag": "p",
+          "text": "Seção 4 de 6",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Capacidade nos movimentos",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Opcional"
+        },
+        {
+          "tag": "p",
+          "text": "Alguns exercícios exigem uma base mínima antes de entrarem no programa. Responda o que você souber e deixe o resto como não sei."
+        },
+        {
+          "tag": "button",
+          "text": "Pular",
+          "name": "Pular",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Você consegue fazer 10 barras fixas estritas?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Você consegue fazer 10 barras fixas estritas?",
+          "labelledBy": "Você consegue fazer 10 barras fixas estritas?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Sim",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Sim"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não sei",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não sei"
+        },
+        {
+          "tag": "p",
+          "text": "Você consegue fazer 5 barras fixas estritas?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Você consegue fazer 5 barras fixas estritas?",
+          "labelledBy": "Você consegue fazer 5 barras fixas estritas?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Sim",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Sim"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não sei",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não sei"
+        },
+        {
+          "tag": "p",
+          "text": "Você consegue fazer 15 flexões seguidas?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Você consegue fazer 15 flexões seguidas?",
+          "labelledBy": "Você consegue fazer 15 flexões seguidas?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Sim",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Sim"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não sei",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não sei"
+        },
+        {
+          "tag": "p",
+          "text": "Você consegue fazer 10 repetições de supino inclinado com barra?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Você consegue fazer 10 repetições de supino inclinado com barra?",
+          "labelledBy": "Você consegue fazer 10 repetições de supino inclinado com barra?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Sim",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Sim"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não sei",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não sei"
+        },
+        {
+          "tag": "p",
+          "text": "Você consegue fazer 10 repetições de desenvolvimento militar com barra em pé?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Você consegue fazer 10 repetições de desenvolvimento militar com barra em pé?",
+          "labelledBy": "Você consegue fazer 10 repetições de desenvolvimento militar com barra em pé?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Sim",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Sim"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não sei",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não sei"
+        },
+        {
+          "tag": "p",
+          "text": "Você consegue fazer 10 paralelas com o peso do corpo?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Você consegue fazer 10 paralelas com o peso do corpo?",
+          "labelledBy": "Você consegue fazer 10 paralelas com o peso do corpo?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Sim",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Sim"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não sei",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não sei"
+        },
+        {
+          "tag": "p",
+          "text": "Você consegue fazer 10 repetições de supino reto com barra?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Você consegue fazer 10 repetições de supino reto com barra?",
+          "labelledBy": "Você consegue fazer 10 repetições de supino reto com barra?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Sim",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Sim"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não sei",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não sei"
+        },
+        {
+          "tag": "button",
+          "text": "Continuar",
+          "name": "Continuar",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-custom/background__phone-390-dark-en",
       "flow": "onboarding-custom",
       "screen": "background",
@@ -53563,7 +55107,7 @@
       "key": "onboarding-custom/exercise-preferences__phone-390-dark-en",
       "flow": "onboarding-custom",
       "screen": "exercise-preferences",
-      "label": "Custom 6 — exercise preferences",
+      "label": "Custom 7 — exercise preferences",
       "viewport": "phone-390",
       "theme": "dark",
       "locale": "en",
@@ -53959,7 +55503,7 @@
       "key": "onboarding-custom/exercise-preferences__phone-390-light-en",
       "flow": "onboarding-custom",
       "screen": "exercise-preferences",
-      "label": "Custom 6 — exercise preferences",
+      "label": "Custom 7 — exercise preferences",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "en",
@@ -54355,7 +55899,7 @@
       "key": "onboarding-custom/exercise-preferences__phone-390-light-en-text200",
       "flow": "onboarding-custom",
       "screen": "exercise-preferences",
-      "label": "Custom 6 — exercise preferences",
+      "label": "Custom 7 — exercise preferences",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "en",
@@ -54751,7 +56295,7 @@
       "key": "onboarding-custom/exercise-preferences__phone-390-light-pt",
       "flow": "onboarding-custom",
       "screen": "exercise-preferences",
-      "label": "Custom 6 — exercise preferences",
+      "label": "Custom 7 — exercise preferences",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "pt",
@@ -55147,7 +56691,7 @@
       "key": "onboarding-custom/priorities__phone-320-light-en",
       "flow": "onboarding-custom",
       "screen": "priorities",
-      "label": "Custom 5 — muscle priorities",
+      "label": "Custom 6 — muscle priorities",
       "viewport": "phone-320",
       "theme": "light",
       "locale": "en",
@@ -56000,7 +57544,7 @@
       "key": "onboarding-custom/priorities__phone-390-dark-en",
       "flow": "onboarding-custom",
       "screen": "priorities",
-      "label": "Custom 5 — muscle priorities",
+      "label": "Custom 6 — muscle priorities",
       "viewport": "phone-390",
       "theme": "dark",
       "locale": "en",
@@ -56853,7 +58397,7 @@
       "key": "onboarding-custom/priorities__phone-390-light-en",
       "flow": "onboarding-custom",
       "screen": "priorities",
-      "label": "Custom 5 — muscle priorities",
+      "label": "Custom 6 — muscle priorities",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "en",
@@ -57706,7 +59250,7 @@
       "key": "onboarding-custom/priorities__phone-390-light-en-reduced",
       "flow": "onboarding-custom",
       "screen": "priorities",
-      "label": "Custom 5 — muscle priorities",
+      "label": "Custom 6 — muscle priorities",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "en",
@@ -58559,7 +60103,7 @@
       "key": "onboarding-custom/priorities__phone-390-light-en-text200",
       "flow": "onboarding-custom",
       "screen": "priorities",
-      "label": "Custom 5 — muscle priorities",
+      "label": "Custom 6 — muscle priorities",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "en",
@@ -59412,7 +60956,7 @@
       "key": "onboarding-custom/priorities__phone-390-light-pt",
       "flow": "onboarding-custom",
       "screen": "priorities",
-      "label": "Custom 5 — muscle priorities",
+      "label": "Custom 6 — muscle priorities",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "pt",
@@ -60265,7 +61809,7 @@
       "key": "onboarding-custom/priorities__phone-390-light-pt-text200",
       "flow": "onboarding-custom",
       "screen": "priorities",
-      "label": "Custom 5 — muscle priorities",
+      "label": "Custom 6 — muscle priorities",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "pt",
@@ -61118,7 +62662,7 @@
       "key": "onboarding-custom/priorities__phone-430-light-en",
       "flow": "onboarding-custom",
       "screen": "priorities",
-      "label": "Custom 5 — muscle priorities",
+      "label": "Custom 6 — muscle priorities",
       "viewport": "phone-430",
       "theme": "light",
       "locale": "en",
@@ -66243,7 +67787,7 @@
       "key": "onboarding-custom/shape__phone-390-dark-en",
       "flow": "onboarding-custom",
       "screen": "shape",
-      "label": "Custom 6b — weekly structure",
+      "label": "Custom 7b — weekly structure",
       "viewport": "phone-390",
       "theme": "dark",
       "locale": "en",
@@ -66384,7 +67928,7 @@
       "key": "onboarding-custom/shape__phone-390-light-en",
       "flow": "onboarding-custom",
       "screen": "shape",
-      "label": "Custom 6b — weekly structure",
+      "label": "Custom 7b — weekly structure",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "en",
@@ -66525,7 +68069,7 @@
       "key": "onboarding-custom/shape__phone-390-light-en-text200",
       "flow": "onboarding-custom",
       "screen": "shape",
-      "label": "Custom 6b — weekly structure",
+      "label": "Custom 7b — weekly structure",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "en",
@@ -66666,7 +68210,7 @@
       "key": "onboarding-custom/shape__phone-390-light-pt",
       "flow": "onboarding-custom",
       "screen": "shape",
-      "label": "Custom 6b — weekly structure",
+      "label": "Custom 7b — weekly structure",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "pt",
@@ -72491,6 +74035,1164 @@
           "tag": "button",
           "text": "Prefiro escrever do zero",
           "name": "Prefiro escrever do zero",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/abilities__phone-390-dark-en",
+      "flow": "onboarding-recommend",
+      "screen": "abilities",
+      "label": "Recommend 5 — movement abilities",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recommend"
+        },
+        {
+          "tag": "p",
+          "text": "Section 4 of 5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Movement abilities",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Optional"
+        },
+        {
+          "tag": "p",
+          "text": "A few exercises need a baseline before the program leans on them. Answer what you know and leave the rest unsure."
+        },
+        {
+          "tag": "button",
+          "text": "Skip",
+          "name": "Skip",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 10 strict pull-ups?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 10 strict pull-ups?",
+          "labelledBy": "Can you do 10 strict pull-ups?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 5 strict pull-ups?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 5 strict pull-ups?",
+          "labelledBy": "Can you do 5 strict pull-ups?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 15 push-ups in a row?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 15 push-ups in a row?",
+          "labelledBy": "Can you do 15 push-ups in a row?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 10 reps of an incline barbell press?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 10 reps of an incline barbell press?",
+          "labelledBy": "Can you do 10 reps of an incline barbell press?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 10 reps of a standing barbell overhead press?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 10 reps of a standing barbell overhead press?",
+          "labelledBy": "Can you do 10 reps of a standing barbell overhead press?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 10 bodyweight dips?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 10 bodyweight dips?",
+          "labelledBy": "Can you do 10 bodyweight dips?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 10 reps of a barbell bench press?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 10 reps of a barbell bench press?",
+          "labelledBy": "Can you do 10 reps of a barbell bench press?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/abilities__phone-390-light-en",
+      "flow": "onboarding-recommend",
+      "screen": "abilities",
+      "label": "Recommend 5 — movement abilities",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recommend"
+        },
+        {
+          "tag": "p",
+          "text": "Section 4 of 5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Movement abilities",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Optional"
+        },
+        {
+          "tag": "p",
+          "text": "A few exercises need a baseline before the program leans on them. Answer what you know and leave the rest unsure."
+        },
+        {
+          "tag": "button",
+          "text": "Skip",
+          "name": "Skip",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 10 strict pull-ups?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 10 strict pull-ups?",
+          "labelledBy": "Can you do 10 strict pull-ups?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 5 strict pull-ups?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 5 strict pull-ups?",
+          "labelledBy": "Can you do 5 strict pull-ups?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 15 push-ups in a row?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 15 push-ups in a row?",
+          "labelledBy": "Can you do 15 push-ups in a row?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 10 reps of an incline barbell press?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 10 reps of an incline barbell press?",
+          "labelledBy": "Can you do 10 reps of an incline barbell press?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 10 reps of a standing barbell overhead press?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 10 reps of a standing barbell overhead press?",
+          "labelledBy": "Can you do 10 reps of a standing barbell overhead press?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 10 bodyweight dips?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 10 bodyweight dips?",
+          "labelledBy": "Can you do 10 bodyweight dips?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "p",
+          "text": "Can you do 10 reps of a barbell bench press?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Can you do 10 reps of a barbell bench press?",
+          "labelledBy": "Can you do 10 reps of a barbell bench press?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Yes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Yes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "No",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Not sure",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Not sure"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/abilities__phone-390-light-pt",
+      "flow": "onboarding-recommend",
+      "screen": "abilities",
+      "label": "Recommend 5 — movement abilities",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um treino"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recomendação"
+        },
+        {
+          "tag": "p",
+          "text": "Seção 4 de 5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Capacidade nos movimentos",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Opcional"
+        },
+        {
+          "tag": "p",
+          "text": "Alguns exercícios exigem uma base mínima antes de entrarem no programa. Responda o que você souber e deixe o resto como não sei."
+        },
+        {
+          "tag": "button",
+          "text": "Pular",
+          "name": "Pular",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Você consegue fazer 10 barras fixas estritas?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Você consegue fazer 10 barras fixas estritas?",
+          "labelledBy": "Você consegue fazer 10 barras fixas estritas?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Sim",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Sim"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não sei",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não sei"
+        },
+        {
+          "tag": "p",
+          "text": "Você consegue fazer 5 barras fixas estritas?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Você consegue fazer 5 barras fixas estritas?",
+          "labelledBy": "Você consegue fazer 5 barras fixas estritas?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Sim",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Sim"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não sei",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não sei"
+        },
+        {
+          "tag": "p",
+          "text": "Você consegue fazer 15 flexões seguidas?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Você consegue fazer 15 flexões seguidas?",
+          "labelledBy": "Você consegue fazer 15 flexões seguidas?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Sim",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Sim"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não sei",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não sei"
+        },
+        {
+          "tag": "p",
+          "text": "Você consegue fazer 10 repetições de supino inclinado com barra?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Você consegue fazer 10 repetições de supino inclinado com barra?",
+          "labelledBy": "Você consegue fazer 10 repetições de supino inclinado com barra?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Sim",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Sim"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não sei",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não sei"
+        },
+        {
+          "tag": "p",
+          "text": "Você consegue fazer 10 repetições de desenvolvimento militar com barra em pé?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Você consegue fazer 10 repetições de desenvolvimento militar com barra em pé?",
+          "labelledBy": "Você consegue fazer 10 repetições de desenvolvimento militar com barra em pé?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Sim",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Sim"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não sei",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não sei"
+        },
+        {
+          "tag": "p",
+          "text": "Você consegue fazer 10 paralelas com o peso do corpo?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Você consegue fazer 10 paralelas com o peso do corpo?",
+          "labelledBy": "Você consegue fazer 10 paralelas com o peso do corpo?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Sim",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Sim"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não sei",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não sei"
+        },
+        {
+          "tag": "p",
+          "text": "Você consegue fazer 10 repetições de supino reto com barra?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Você consegue fazer 10 repetições de supino reto com barra?",
+          "labelledBy": "Você consegue fazer 10 repetições de supino reto com barra?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Sim",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Sim"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não sei",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não sei"
+        },
+        {
+          "tag": "button",
+          "text": "Continuar",
+          "name": "Continuar",
           "type": "button"
         }
       ]
@@ -79621,7 +82323,7 @@
       "key": "onboarding-recommend/priorities__phone-390-dark-en",
       "flow": "onboarding-recommend",
       "screen": "priorities",
-      "label": "Recommend 5 — priorities",
+      "label": "Recommend 6 — priorities",
       "viewport": "phone-390",
       "theme": "dark",
       "locale": "en",
@@ -79956,7 +82658,7 @@
       "key": "onboarding-recommend/priorities__phone-390-light-en",
       "flow": "onboarding-recommend",
       "screen": "priorities",
-      "label": "Recommend 5 — priorities",
+      "label": "Recommend 6 — priorities",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "en",
@@ -80291,7 +82993,7 @@
       "key": "onboarding-recommend/priorities__phone-390-light-pt",
       "flow": "onboarding-recommend",
       "screen": "priorities",
-      "label": "Recommend 5 — priorities",
+      "label": "Recommend 6 — priorities",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "pt",

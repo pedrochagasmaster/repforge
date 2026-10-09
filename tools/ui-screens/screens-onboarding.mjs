@@ -112,6 +112,7 @@ async function answerGenerator(page, { days = "3", desired = "muscle_growth", go
   await pick(page, "daysPerWeek", days);
   await pick(page, "sessionMinutes", "60"); await next(page);
   await pick(page, "environment", "commercial_gym"); await next(page);
+  await next(page); // movement abilities are optional; the default (unsure) needs no answer
 }
 
 async function recommendTo(page, { result = false, existing = false, desired = "muscle_growth" } = {}) {
@@ -165,6 +166,8 @@ async function customTo(page, step) {
   await pick(page, "sessionMinutes", "60"); await next(page);
   if (step === "environment") return;
   await pick(page, "environment", "commercial_gym"); await next(page);
+  if (step === "abilities") return;
+  await next(page); // movement abilities are optional; the default (unsure) needs no answer
   if (step === "priorities") return;
   await next(page);
   await page.waitForSelector("#entryExerciseSearch", { timeout: 25000 });
@@ -638,6 +641,13 @@ export const ONBOARDING_SCENARIOS = {
     await pick(page, "daysPerWeek", "3");
     await pick(page, "sessionMinutes", "60"); await next(page);
   },
+  "onboarding-recommend/abilities": async (page) => {
+    await route(page, "recommend");
+    await pick(page, "structuredExperience", "6_to_24m"); await next(page);
+    await pick(page, "daysPerWeek", "3");
+    await pick(page, "sessionMinutes", "60"); await next(page);
+    await pick(page, "environment", "commercial_gym"); await next(page);
+  },
   "onboarding-recommend/priorities": (page) => recommendTo(page),
   "onboarding-recommend/avoidance-pain": async (page) => {
     await recommendTo(page);
@@ -692,6 +702,7 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-custom/background": (page) => customTo(page, "background"),
   "onboarding-custom/schedule": (page) => customTo(page, "schedule"),
   "onboarding-custom/environment": (page) => customTo(page, "environment"),
+  "onboarding-custom/abilities": (page) => customTo(page, "abilities"),
   "onboarding-custom/priorities": (page) => customTo(page, "priorities"),
   "onboarding-custom/exercise-preferences": (page) => customTo(page, "exercise-preferences"),
   "onboarding-custom/shape": (page) => customTo(page, "shape"),

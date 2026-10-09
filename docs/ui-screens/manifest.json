@@ -551,9 +551,16 @@
       "variants": "localized"
     },
     {
+      "id": "abilities",
+      "flow": "onboarding-recommend",
+      "label": "Recommend 5 — movement abilities",
+      "scenario": "The seven competency questions as yes/no/unsure rows, unanswered, with Skip offered.",
+      "variants": "localized"
+    },
+    {
       "id": "priorities",
       "flow": "onboarding-recommend",
-      "label": "Recommend 5 — priorities",
+      "label": "Recommend 6 — priorities",
       "scenario": "Primary priorities plus optional movement and exercise-avoidance controls.",
       "variants": "localized"
     },
@@ -642,23 +649,30 @@
       "variants": "customAccessibility"
     },
     {
+      "id": "abilities",
+      "flow": "onboarding-custom",
+      "label": "Custom 5 — movement abilities",
+      "scenario": "The seven competency questions as yes/no/unsure rows, unanswered, with Skip offered, in the custom route.",
+      "variants": "customAccessibility"
+    },
+    {
       "id": "priorities",
       "flow": "onboarding-custom",
-      "label": "Custom 5 — muscle priorities",
+      "label": "Custom 6 — muscle priorities",
       "scenario": "Each muscle has one accessible emphasis setting before exercise preferences.",
       "variants": "demandingText"
     },
     {
       "id": "exercise-preferences",
       "flow": "onboarding-custom",
-      "label": "Custom 6 — exercise preferences",
+      "label": "Custom 7 — exercise preferences",
       "scenario": "One library search offers Include or Avoid, with separate selected lists.",
       "variants": "customAccessibility"
     },
     {
       "id": "shape",
       "flow": "onboarding-custom",
-      "label": "Custom 6b — weekly structure",
+      "label": "Custom 7b — weekly structure",
       "scenario": "Two compatible weekly structures to choose from; shown only when more than one fits the answers.",
       "variants": "customAccessibility"
     },
