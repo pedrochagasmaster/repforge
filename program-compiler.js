@@ -2,7 +2,8 @@
   "use strict";
 
   const GENERATOR_VERSION = "067.1";
-  const PROGRAM_SCHEMA_VERSION = 1;
+  const PROGRAM_SCHEMA_VERSION = 2;
+  const SUPPORTED_PROGRAM_SCHEMA_VERSIONS = Object.freeze([1, 2]);
   const ROLES = Object.freeze([
     "hypertrophyPrimaryCompound", "hypertrophySecondaryCompound", "hypertrophyAccessory",
     "strengthPrimaryCompound", "strengthSecondaryCompound", "strengthAccessory", "manual",
@@ -765,8 +766,6 @@
       cycleIndex: cycleNumber,
       setIndex: setIndex + 1,
       metricType: "source_metrics@1",
-      metricIds: [...slot.metricIds],
-      metricDefinitions: slot.metricDefinitions.map((entry) => ({ ...entry })),
       targets,
       rir,
       restSeconds: slot.role.endsWith("Accessory") ? 90 : 120,
@@ -1095,7 +1094,8 @@
         const cycle = (slot.prescriptionsByCycle || []).find((entry) => entry.cycleIndex === cycleNumber);
         if (!cycle) continue;
         for (const set of cycle.sets || []) results.push({
-          ...clone(set), slotId: slot.id, purposeId: slot.purposeId, exerciseId: slot.exerciseId,
+          ...clone(set), metricIds: [...slot.metricIds], metricDefinitions: slot.metricDefinitions.map((entry) => ({ ...entry })),
+          slotId: slot.id, purposeId: slot.purposeId, exerciseId: slot.exerciseId,
           role: slot.role, loadingModel: clone(slot.loadingModel), dayId: day.id, dayName: day.name,
         });
       }
@@ -1241,7 +1241,7 @@
   function validateProgramDefinition(program, catalogSnapshot, customExerciseDefinitions = []) {
     const issues = [];
     if (!checkKeys(program, PROGRAM_KEYS, "program", issues)) return { ok: false, issues };
-    if (program.schemaVersion !== PROGRAM_SCHEMA_VERSION) issues.push("program.schemaVersion: unsupported");
+    if (!SUPPORTED_PROGRAM_SCHEMA_VERSIONS.includes(program.schemaVersion)) issues.push("program.schemaVersion: unsupported");
     if (typeof program.generatorVersion !== "string" || !program.generatorVersion) issues.push("program.generatorVersion: expected a version");
     if (typeof program.seed !== "string") issues.push("program.seed: expected a string");
     validateRequestSnapshot(program.request, validCatalog(catalogSnapshot) ? catalogSnapshot : null, issues);
@@ -1362,8 +1362,13 @@
             prescriptionIds.add(set.id);
             if (set.cycleIndex !== cycle.cycleIndex || set.setIndex !== setIndex + 1) issues.push(`${setPath}: cycle/set order mismatch`);
             if (set.metricType !== "source_metrics@1") issues.push(`${setPath}.metricType: unsupported`);
-            if (!Array.isArray(set.metricIds) || JSON.stringify(set.metricIds) !== JSON.stringify(slot.metricIds)) issues.push(`${setPath}.metricIds: differs from slot composition`);
-            if (!Array.isArray(set.metricDefinitions) || JSON.stringify(set.metricDefinitions) !== JSON.stringify(slot.metricDefinitions)) issues.push(`${setPath}.metricDefinitions: differs from slot definitions`);
+            // Schema v2 (PROGRAM_SCHEMA_VERSION) derives a set's metric composition from
+            // its slot and stores neither field. Schema v1 carried both, always identical
+            // to the slot's; accept that shape too but reject anything that differs.
+            if (set.metricIds !== undefined || set.metricDefinitions !== undefined) {
+              if (!Array.isArray(set.metricIds) || JSON.stringify(set.metricIds) !== JSON.stringify(slot.metricIds)) issues.push(`${setPath}.metricIds: differs from slot composition`);
+              if (!Array.isArray(set.metricDefinitions) || JSON.stringify(set.metricDefinitions) !== JSON.stringify(slot.metricDefinitions)) issues.push(`${setPath}.metricDefinitions: differs from slot definitions`);
+            }
             const targets = METRIC_DOMAIN.validateTargets(slot.metricIds || [], set.targets);
             if (!targets.ok) issues.push(...targets.issues.map((issue) => `${setPath}.${issue}`));
             if (set.rir !== null && (!finite(set.rir) || set.rir < 0 || set.rir > 4)) issues.push(`${setPath}.rir: outside 0–4`);
@@ -1382,6 +1387,28 @@
     });
     rejectPerformedFields(program, "program", issues);
     return { ok: issues.length === 0, issues };
+  }
+
+  // The single normalizer for a ProgramDefinition already proven valid (schema
+  // v1 or v2) by validateProgramDefinition: always returns the deduped v2 shape,
+  // dropping a set's metricIds/metricDefinitions (schema v1 carried them,
+  // identical to the slot's; validation already refused a set that disagreed).
+  // Callers that need the current schema from any accepted input call this
+  // after a successful validateProgramDefinition rather than re-deriving it.
+  function canonicalizeProgramDefinition(program) {
+    const next = clone(program);
+    next.schemaVersion = PROGRAM_SCHEMA_VERSION;
+    for (const day of next.days || []) {
+      for (const slot of day.slots || []) {
+        for (const cycle of slot.prescriptionsByCycle || []) {
+          for (const set of cycle.sets || []) {
+            delete set.metricIds;
+            delete set.metricDefinitions;
+          }
+        }
+      }
+    }
+    return next;
   }
 
   function validTarget(target) {
@@ -1417,6 +1444,7 @@
     generateProgram,
     findSubstitutions,
     validateProgramDefinition,
+    canonicalizeProgramDefinition,
     validateCustomExerciseDefinitions,
     prescriptionsForCycle,
     estimateDaySeconds,
