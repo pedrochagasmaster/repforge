@@ -455,6 +455,30 @@
         if(!commitV2CheckpointEffect(prepared,null))return{status:"checkpoint-commit-failed"};
         return{status:"applied",raw:null,draft:live.draft}
       })},
+    /* A legacy flat draft (pre-DraftV2) has no draftId/revision to CAS on, and
+       the V2 checkpoint protocol never ran for it, so clearing it is an exact
+       raw-byte compare-and-swap to null rather than removeV2's identity CAS.
+       A live V2-valid raw, or any checkpoint beyond "absent", is refused: those
+       belong to removeV2 and reconcileV2Checkpoint respectively, and this path
+       must never clobber state it does not own. */
+    async removeLegacy({expectedRaw,operationId}){
+      if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
+      if(!navigator.locks?.request)return{status:"lock-unavailable"};
+      return navigator.locks.request(STORAGE_LOCK,async()=>{
+        if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
+        if(this.writeTarget())return{status:"transaction-active"};
+        const read=this.readCanonicalStatus();if(read.status!=="ok")return read;
+        if(read.raw!==expectedRaw)return{status:"stale",raw:read.raw};
+        const live=workoutDraft()?.parse(read.raw);
+        if(live?.kind==="valid")return{status:"invalid-live",raw:read.raw};
+        const checkpoint=this.readV2Checkpoint();
+        if(checkpoint.status!=="absent")return{status:checkpoint.status==="valid"?"checkpoint-conflict":"checkpoint-unreadable",raw:read.raw};
+        if(workoutDraftFault("before-canonical-remove"))return{status:"fault-before-canonical"};
+        if(!this.publishCanonical(null))return{status:"write-failed"};
+        const verify=this.readCanonicalStatus();if(verify.status!=="ok")return verify;
+        if(verify.raw!==null)return{status:"readback-mismatch",raw:verify.raw};
+        return{status:"applied",raw:null}
+      })},
     publishCanonical(raw){
       if(installTransferMutationFrozen())return false;
       if(raw!==null&&typeof raw!=="string")return false;
