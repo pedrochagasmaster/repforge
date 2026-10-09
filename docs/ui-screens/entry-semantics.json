@@ -71307,7 +71307,7 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "3linked0to review0custom",
+          "name": "2linked1to review0custom",
           "aria-live": "polite"
         },
         {
@@ -71316,7 +71316,7 @@
         },
         {
           "tag": "b",
-          "text": "3"
+          "text": "2"
         },
         {
           "tag": "span",
@@ -71324,7 +71324,7 @@
         },
         {
           "tag": "b",
-          "text": "0"
+          "text": "1"
         },
         {
           "tag": "span",
@@ -71336,47 +71336,53 @@
         },
         {
           "tag": "p",
-          "text": "Flat barbell bench press"
-        },
-        {
-          "tag": "p",
-          "text": "Barbell bench press"
-        },
-        {
-          "tag": "span",
-          "text": "Confirmed"
-        },
-        {
-          "tag": "button",
-          "text": "Change",
-          "name": "Change",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Flat barbell bench press"
-        },
-        {
-          "tag": "p",
-          "text": "Barbell bench press"
-        },
-        {
-          "tag": "span",
-          "text": "Confirmed"
-        },
-        {
-          "tag": "button",
-          "text": "Change",
-          "name": "Change",
-          "type": "button"
-        },
-        {
-          "tag": "p",
           "text": "Zerbulator 9000"
         },
         {
           "tag": "p",
-          "text": "45° cable rear delt fly"
+          "text": "Needs a movement"
+        },
+        {
+          "tag": "span",
+          "text": "No match"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Flat barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Confirmed"
+        },
+        {
+          "tag": "button",
+          "text": "Change",
+          "name": "Change",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Flat barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
         },
         {
           "tag": "span",
@@ -71393,9 +71399,15 @@
           "text": "Your history will not be changed."
         },
         {
+          "tag": "p",
+          "text": "1 still to review"
+        },
+        {
           "tag": "button",
           "text": "Review draft",
           "name": "Review draft",
+          "describedBy": "1 still to review",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -71447,7 +71459,7 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "3linked0to review0custom",
+          "name": "2linked1to review0custom",
           "aria-live": "polite"
         },
         {
@@ -71456,7 +71468,7 @@
         },
         {
           "tag": "b",
-          "text": "3"
+          "text": "2"
         },
         {
           "tag": "span",
@@ -71464,7 +71476,7 @@
         },
         {
           "tag": "b",
-          "text": "0"
+          "text": "1"
         },
         {
           "tag": "span",
@@ -71476,47 +71488,53 @@
         },
         {
           "tag": "p",
-          "text": "Flat barbell bench press"
-        },
-        {
-          "tag": "p",
-          "text": "Barbell bench press"
-        },
-        {
-          "tag": "span",
-          "text": "Confirmed"
-        },
-        {
-          "tag": "button",
-          "text": "Change",
-          "name": "Change",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Flat barbell bench press"
-        },
-        {
-          "tag": "p",
-          "text": "Barbell bench press"
-        },
-        {
-          "tag": "span",
-          "text": "Confirmed"
-        },
-        {
-          "tag": "button",
-          "text": "Change",
-          "name": "Change",
-          "type": "button"
-        },
-        {
-          "tag": "p",
           "text": "Zerbulator 9000"
         },
         {
           "tag": "p",
-          "text": "45° cable rear delt fly"
+          "text": "Needs a movement"
+        },
+        {
+          "tag": "span",
+          "text": "No match"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Flat barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Confirmed"
+        },
+        {
+          "tag": "button",
+          "text": "Change",
+          "name": "Change",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Flat barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
         },
         {
           "tag": "span",
@@ -71533,9 +71551,15 @@
           "text": "Your history will not be changed."
         },
         {
+          "tag": "p",
+          "text": "1 still to review"
+        },
+        {
           "tag": "button",
           "text": "Review draft",
           "name": "Review draft",
+          "describedBy": "1 still to review",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -71587,7 +71611,7 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "3linked0to review0custom",
+          "name": "2linked1to review0custom",
           "aria-live": "polite"
         },
         {
@@ -71596,7 +71620,7 @@
         },
         {
           "tag": "b",
-          "text": "3"
+          "text": "2"
         },
         {
           "tag": "span",
@@ -71604,7 +71628,7 @@
         },
         {
           "tag": "b",
-          "text": "0"
+          "text": "1"
         },
         {
           "tag": "span",
@@ -71616,47 +71640,53 @@
         },
         {
           "tag": "p",
-          "text": "Flat barbell bench press"
-        },
-        {
-          "tag": "p",
-          "text": "Barbell bench press"
-        },
-        {
-          "tag": "span",
-          "text": "Confirmed"
-        },
-        {
-          "tag": "button",
-          "text": "Change",
-          "name": "Change",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Flat barbell bench press"
-        },
-        {
-          "tag": "p",
-          "text": "Barbell bench press"
-        },
-        {
-          "tag": "span",
-          "text": "Confirmed"
-        },
-        {
-          "tag": "button",
-          "text": "Change",
-          "name": "Change",
-          "type": "button"
-        },
-        {
-          "tag": "p",
           "text": "Zerbulator 9000"
         },
         {
           "tag": "p",
-          "text": "45° cable rear delt fly"
+          "text": "Needs a movement"
+        },
+        {
+          "tag": "span",
+          "text": "No match"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Flat barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Confirmed"
+        },
+        {
+          "tag": "button",
+          "text": "Change",
+          "name": "Change",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Flat barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
         },
         {
           "tag": "span",
@@ -71673,9 +71703,15 @@
           "text": "Your history will not be changed."
         },
         {
+          "tag": "p",
+          "text": "1 still to review"
+        },
+        {
           "tag": "button",
           "text": "Review draft",
           "name": "Review draft",
+          "describedBy": "1 still to review",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -71727,7 +71763,7 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "3linked0to review0custom",
+          "name": "2linked1to review0custom",
           "aria-live": "polite"
         },
         {
@@ -71736,7 +71772,7 @@
         },
         {
           "tag": "b",
-          "text": "3"
+          "text": "2"
         },
         {
           "tag": "span",
@@ -71744,7 +71780,7 @@
         },
         {
           "tag": "b",
-          "text": "0"
+          "text": "1"
         },
         {
           "tag": "span",
@@ -71756,47 +71792,53 @@
         },
         {
           "tag": "p",
-          "text": "Flat barbell bench press"
-        },
-        {
-          "tag": "p",
-          "text": "Barbell bench press"
-        },
-        {
-          "tag": "span",
-          "text": "Confirmed"
-        },
-        {
-          "tag": "button",
-          "text": "Change",
-          "name": "Change",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Flat barbell bench press"
-        },
-        {
-          "tag": "p",
-          "text": "Barbell bench press"
-        },
-        {
-          "tag": "span",
-          "text": "Confirmed"
-        },
-        {
-          "tag": "button",
-          "text": "Change",
-          "name": "Change",
-          "type": "button"
-        },
-        {
-          "tag": "p",
           "text": "Zerbulator 9000"
         },
         {
           "tag": "p",
-          "text": "45° cable rear delt fly"
+          "text": "Needs a movement"
+        },
+        {
+          "tag": "span",
+          "text": "No match"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Flat barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Confirmed"
+        },
+        {
+          "tag": "button",
+          "text": "Change",
+          "name": "Change",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Flat barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
         },
         {
           "tag": "span",
@@ -71813,9 +71855,15 @@
           "text": "Your history will not be changed."
         },
         {
+          "tag": "p",
+          "text": "1 still to review"
+        },
+        {
           "tag": "button",
           "text": "Review draft",
           "name": "Review draft",
+          "describedBy": "1 still to review",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -71867,7 +71915,7 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "3linked0to review0custom",
+          "name": "2linked1to review0custom",
           "aria-live": "polite"
         },
         {
@@ -71876,7 +71924,7 @@
         },
         {
           "tag": "b",
-          "text": "3"
+          "text": "2"
         },
         {
           "tag": "span",
@@ -71884,7 +71932,7 @@
         },
         {
           "tag": "b",
-          "text": "0"
+          "text": "1"
         },
         {
           "tag": "span",
@@ -71896,47 +71944,53 @@
         },
         {
           "tag": "p",
-          "text": "Flat barbell bench press"
-        },
-        {
-          "tag": "p",
-          "text": "Barbell bench press"
-        },
-        {
-          "tag": "span",
-          "text": "Confirmed"
-        },
-        {
-          "tag": "button",
-          "text": "Change",
-          "name": "Change",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Flat barbell bench press"
-        },
-        {
-          "tag": "p",
-          "text": "Barbell bench press"
-        },
-        {
-          "tag": "span",
-          "text": "Confirmed"
-        },
-        {
-          "tag": "button",
-          "text": "Change",
-          "name": "Change",
-          "type": "button"
-        },
-        {
-          "tag": "p",
           "text": "Zerbulator 9000"
         },
         {
           "tag": "p",
-          "text": "45° cable rear delt fly"
+          "text": "Needs a movement"
+        },
+        {
+          "tag": "span",
+          "text": "No match"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Flat barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Confirmed"
+        },
+        {
+          "tag": "button",
+          "text": "Change",
+          "name": "Change",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Flat barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
         },
         {
           "tag": "span",
@@ -71953,9 +72007,15 @@
           "text": "Your history will not be changed."
         },
         {
+          "tag": "p",
+          "text": "1 still to review"
+        },
+        {
           "tag": "button",
           "text": "Review draft",
           "name": "Review draft",
+          "describedBy": "1 still to review",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -72007,7 +72067,7 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "3vinculados0para revisar0personalizados",
+          "name": "2vinculados1para revisar0personalizados",
           "aria-live": "polite"
         },
         {
@@ -72016,7 +72076,7 @@
         },
         {
           "tag": "b",
-          "text": "3"
+          "text": "2"
         },
         {
           "tag": "span",
@@ -72024,7 +72084,7 @@
         },
         {
           "tag": "b",
-          "text": "0"
+          "text": "1"
         },
         {
           "tag": "span",
@@ -72036,47 +72096,53 @@
         },
         {
           "tag": "p",
-          "text": "Supino reto com barra"
-        },
-        {
-          "tag": "p",
-          "text": "Supino reto com barra"
-        },
-        {
-          "tag": "span",
-          "text": "Confirmado"
-        },
-        {
-          "tag": "button",
-          "text": "Alterar",
-          "name": "Alterar",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Supino reto com barra"
-        },
-        {
-          "tag": "p",
-          "text": "Supino reto com barra"
-        },
-        {
-          "tag": "span",
-          "text": "Confirmado"
-        },
-        {
-          "tag": "button",
-          "text": "Alterar",
-          "name": "Alterar",
-          "type": "button"
-        },
-        {
-          "tag": "p",
           "text": "Zerbulator 9000"
         },
         {
           "tag": "p",
-          "text": "Abdominal ajoelhado na polia"
+          "text": "Precisa de um movimento"
+        },
+        {
+          "tag": "span",
+          "text": "Sem correspondência"
+        },
+        {
+          "tag": "button",
+          "text": "Escolher…",
+          "name": "Escolher…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Criar personalizado",
+          "name": "Criar personalizado",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Supino reto com barra"
+        },
+        {
+          "tag": "p",
+          "text": "Supino reto com barra"
+        },
+        {
+          "tag": "span",
+          "text": "Confirmado"
+        },
+        {
+          "tag": "button",
+          "text": "Alterar",
+          "name": "Alterar",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Supino reto com barra"
+        },
+        {
+          "tag": "p",
+          "text": "Supino reto com barra"
         },
         {
           "tag": "span",
@@ -72093,9 +72159,15 @@
           "text": "Seu histórico não será alterado."
         },
         {
+          "tag": "p",
+          "text": "1 ainda por revisar"
+        },
+        {
           "tag": "button",
           "text": "Revisar rascunho",
           "name": "Revisar rascunho",
+          "describedBy": "1 ainda por revisar",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -72147,7 +72219,7 @@
         {
           "tag": "div",
           "role": "status",
-          "name": "3linked0to review0custom",
+          "name": "2linked1to review0custom",
           "aria-live": "polite"
         },
         {
@@ -72156,7 +72228,7 @@
         },
         {
           "tag": "b",
-          "text": "3"
+          "text": "2"
         },
         {
           "tag": "span",
@@ -72164,7 +72236,7 @@
         },
         {
           "tag": "b",
-          "text": "0"
+          "text": "1"
         },
         {
           "tag": "span",
@@ -72176,47 +72248,53 @@
         },
         {
           "tag": "p",
-          "text": "Flat barbell bench press"
-        },
-        {
-          "tag": "p",
-          "text": "Barbell bench press"
-        },
-        {
-          "tag": "span",
-          "text": "Confirmed"
-        },
-        {
-          "tag": "button",
-          "text": "Change",
-          "name": "Change",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Flat barbell bench press"
-        },
-        {
-          "tag": "p",
-          "text": "Barbell bench press"
-        },
-        {
-          "tag": "span",
-          "text": "Confirmed"
-        },
-        {
-          "tag": "button",
-          "text": "Change",
-          "name": "Change",
-          "type": "button"
-        },
-        {
-          "tag": "p",
           "text": "Zerbulator 9000"
         },
         {
           "tag": "p",
-          "text": "45° cable rear delt fly"
+          "text": "Needs a movement"
+        },
+        {
+          "tag": "span",
+          "text": "No match"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Flat barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Confirmed"
+        },
+        {
+          "tag": "button",
+          "text": "Change",
+          "name": "Change",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Flat barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
         },
         {
           "tag": "span",
@@ -72233,9 +72311,15 @@
           "text": "Your history will not be changed."
         },
         {
+          "tag": "p",
+          "text": "1 still to review"
+        },
+        {
           "tag": "button",
           "text": "Review draft",
           "name": "Review draft",
+          "describedBy": "1 still to review",
+          "disabled": true,
           "type": "button"
         }
       ]

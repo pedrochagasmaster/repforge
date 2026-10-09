@@ -1293,22 +1293,27 @@ export const APP_SCENARIOS = {
   },
   "library/exercise-preview": async (page) => {
     await openLibrary(page);
-    const preview = page.locator('#libList [data-lib-preview="sq_bb"]');
-    if (await preview.count()) await preview.click();
-    else await page.locator("#libList [data-lib-preview]").first().click();
+    // A movement with a licensed illustration (Barbell back squat), so the
+    // preview shows the artwork it reserves room for.
+    await page.fill("#libSearch", "Barbell back squat");
+    const preview = page.locator('#libList [data-lib-preview="1a25c6f170d8803d8231d083fdd65458"]');
+    await preview.waitFor({ timeout: 20000 });
+    await preview.click();
     await sleep(page, 600);
   },
   "library/exercise-detail": async (page) => {
     // Workout rows carry per-session generated ids, not the program's fixture
     // ids, so address the first row rather than naming one.
-    await enterWorkout(page);
+    // Day 3 opens on Leg extension, a movement with a licensed illustration.
+    await enterWorkout(page, { day: "Day 3" });
     const row = page.locator("#workout [data-exopen]").first();
     await row.scrollIntoViewIfNeeded({ timeout: 20000 });
     await row.click({ timeout: 20000 });
     await sleep(page, 800);
   },
   "library/exercise-detail-glossary": async (page) => {
-    await enterWorkout(page);
+    // Day 3 opens on Leg extension, a movement with a licensed illustration.
+    await enterWorkout(page, { day: "Day 3" });
     const row = page.locator("#workout [data-exopen]").first();
     await row.scrollIntoViewIfNeeded({ timeout: 20000 });
     await row.click({ timeout: 20000 });

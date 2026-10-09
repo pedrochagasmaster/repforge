@@ -290,10 +290,10 @@ async function importTo(page, step) {
       buffer: Buffer.from(JSON.stringify(program)),
     });
     await page.waitForSelector("#importReview.active", { timeout: 25000 });
-    const candidate = page.locator("#importRows .improw.is-open [data-imp-act='pick']").first();
-    if (await candidate.count()) await candidate.click();
-    else await settleUnmatchedImportRow(page);
+    // The review in progress: the exact bench rows settle themselves and fold,
+    // while the unknown row stays open with its choices (choose or create).
     await page.waitForSelector("#importRows .improw.is-folded .improw__btn--change", { timeout: 20000 });
+    await page.waitForSelector("#importRows .improw.is-open .improw__btn:not(.improw__btn--change)", { timeout: 20000 });
     const more = page.locator("#importRows .improw.is-open details.improw__more summary").first();
     if (await more.count()) await more.click();
     return;
