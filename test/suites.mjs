@@ -53,6 +53,7 @@ export const SUITES = {
     s("test/history-frequency.mjs"),
     s("test/exercise-library.mjs"),
     s("test/exercise-catalog.mjs"),
+    s("test/review-pt-names.mjs", [], { nodeArgs: ["--test"], domains: ["library"], cost: "tiny" }),
     s("test/progress-model.mjs"),
     s("test/progress-model-dst.mjs"),
     s("test/vendor-runtimes.mjs"),

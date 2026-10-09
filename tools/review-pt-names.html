@@ -1,0 +1,802 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Revisão PT · Taurifer</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg:#f3f1ed; --panel:#fbfaf7; --card:#ffffff; --ink:#1a1916; --ink-2:#4a4740;
+      --muted:#8a857b; --line:#e4dfd6; --line-2:#d3ccc0; --hover:#efebe4;
+      --accent:#e04e14; --accent-soft:#fdeee6; --ok:#1f7a4a; --ok-soft:#e5f3ea;
+      --warn:#a85d00; --err:#b42318;
+      --shadow:0 1px 2px rgba(26,25,22,.05), 0 8px 28px rgba(26,25,22,.06);
+      --serif:"Iowan Old Style","Charter",Georgia,serif;
+      --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+      --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    }
+    * { box-sizing:border-box; }
+    html, body { height:100%; }
+    body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.45 var(--sans);
+      -webkit-font-smoothing:antialiased; overflow:hidden; }
+    button, input, select, textarea { font:inherit; color:inherit; }
+    button { cursor:pointer; touch-action:manipulation; }
+    :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+    kbd { font:600 11px/1 var(--mono); padding:3px 5px; border-radius:4px; border:1px solid var(--line-2);
+      border-bottom-width:2px; background:var(--card); color:var(--ink-2); white-space:nowrap; }
+    [hidden] { display:none !important; }
+
+    /* ---------- Frame ---------- */
+    .app { height:100dvh; display:grid; grid-template-rows:auto 1fr; }
+    .topbar { display:flex; align-items:center; gap:20px; padding:12px 20px; border-bottom:1px solid var(--line);
+      background:var(--panel); }
+    .brand { font-weight:700; letter-spacing:-.01em; white-space:nowrap; }
+    .brand span { color:var(--muted); font-weight:500; }
+    .meter { flex:1; display:flex; align-items:center; gap:14px; min-width:0; max-width:640px; margin:0 auto; }
+    .bar { flex:1; height:6px; border-radius:99px; background:var(--line); overflow:hidden; display:flex; }
+    .bar i { display:block; height:100%; transition:width .3s ease; }
+    .bar .base { background:var(--ink); }
+    .bar .session { background:var(--accent); }
+    .meter-text { font-variant-numeric:tabular-nums; color:var(--ink-2); white-space:nowrap; font-size:13px; }
+    .meter-text b { color:var(--ink); }
+    .meter-text .s { color:var(--accent); font-weight:600; }
+    .icon-btn { border:1px solid var(--line-2); background:var(--card); border-radius:8px; height:32px; min-width:32px;
+      padding:0 10px; display:inline-flex; align-items:center; justify-content:center; gap:6px; color:var(--ink-2); font-size:13px; }
+    .icon-btn:hover { background:var(--hover); }
+    .save-state { font-size:12px; color:var(--muted); white-space:nowrap; min-width:96px; text-align:right; }
+    .save-state.busy { color:var(--warn); }
+
+    .main { display:grid; grid-template-columns:320px minmax(0,1fr) 340px; min-height:0; }
+
+    /* ---------- Queue ---------- */
+    .queue { border-right:1px solid var(--line); background:var(--panel); display:flex; flex-direction:column; min-height:0; }
+    .q-controls { padding:14px 14px 10px; display:grid; gap:8px; border-bottom:1px solid var(--line); }
+    .search { position:relative; }
+    .search input { width:100%; height:36px; border:1px solid var(--line-2); border-radius:8px; background:var(--card);
+      padding:0 32px; }
+    .search svg { position:absolute; left:10px; top:11px; color:var(--muted); }
+    .search kbd { position:absolute; right:8px; top:9px; }
+    .selects { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .selects select { width:100%; height:32px; border:1px solid var(--line-2); border-radius:8px; background:var(--card);
+      padding:0 8px; font-size:12px; color:var(--ink-2); min-width:0; }
+    .q-meta { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--muted); }
+    .toggle { display:inline-flex; align-items:center; gap:6px; cursor:pointer; user-select:none; }
+    .linkish { background:none; border:0; padding:0; color:var(--accent); font-size:12px; font-weight:600; }
+    .q-list { overflow:auto; flex:1; padding:0 0 24px; overscroll-behavior:contain; }
+    .q-group { position:sticky; top:0; z-index:1; background:var(--panel); padding:10px 16px 6px;
+      font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+      display:flex; justify-content:space-between; border-bottom:1px solid var(--line); }
+    .q-item { display:grid; grid-template-columns:16px 1fr; gap:10px; width:100%; text-align:left; border:0;
+      background:none; padding:8px 14px 8px 12px; border-left:3px solid transparent; }
+    @media (hover:hover) { .q-item:hover { background:var(--hover); } }
+    .q-item.current { background:var(--card); border-left-color:var(--accent); box-shadow:inset 0 -1px var(--line), inset 0 1px var(--line); }
+    .q-item .pt { font-weight:600; font-size:13px; line-height:1.3; overflow:hidden;
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+    .q-item .en { font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .dot { width:16px; height:16px; margin-top:1px; border-radius:50%; border:1.5px solid var(--line-2);
+      display:grid; place-items:center; font-size:10px; font-weight:800; color:#fff; }
+    .q-item.approved .dot { background:var(--ok); border-color:var(--ok); }
+    .q-item.approved .pt { color:var(--ink-2); }
+    .q-item.skipped { opacity:.5; }
+    .q-item.skipped .dot { border-style:dashed; }
+    .q-item.edited .dot { border-color:var(--accent); background:var(--accent-soft); }
+    .q-item.saving .dot, .q-item.undoing .dot { border-color:var(--warn); border-top-color:transparent; animation:spin .7s linear infinite; }
+    .q-item.error .dot { background:var(--err); border-color:var(--err); }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .q-empty { padding:30px 18px; color:var(--muted); text-align:center; font-size:13px; }
+
+    /* ---------- Stage ---------- */
+    .stage { overflow:auto; padding:28px clamp(16px,4vw,56px) 40px; }
+    .stage-inner { width:100%; max-width:760px; margin:0 auto; }
+    .crumbs { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--muted);
+      margin-bottom:12px; gap:10px; }
+    .crumbs .nav { display:flex; gap:6px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow);
+      padding:28px 32px 26px; position:relative; touch-action:pan-y; }
+    .card.enter { animation:enter .22s cubic-bezier(.2,.8,.2,1) both; }
+    @keyframes enter { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+    .card.approved-card { border-color:#bfe0cb; background:linear-gradient(#fbfefc,#fff 40%); }
+    .swipe-hint { position:absolute; inset:0; border-radius:16px; pointer-events:none; opacity:0; display:flex;
+      align-items:center; padding:0 28px; font-weight:800; font-size:18px; }
+    .swipe-hint.ok { background:linear-gradient(90deg,transparent 40%,rgba(31,122,74,.14)); color:var(--ok); justify-content:flex-end; }
+    .swipe-hint.skip { background:linear-gradient(270deg,transparent 40%,rgba(138,133,123,.18)); color:var(--ink-2); }
+
+    .label { font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--muted);
+      margin:0 0 6px; display:flex; align-items:center; gap:8px; min-height:18px; }
+    .en-name { font-size:21px; font-weight:600; letter-spacing:-.01em; margin:0; line-height:1.3; }
+    .en-alt { margin:6px 0 0; color:var(--muted); font-size:13px; }
+    .divider { height:1px; background:var(--line); margin:22px -32px 20px; }
+    .pt-input { display:block; resize:none; overflow:hidden; border:1px solid transparent; border-radius:10px;
+      background:transparent; font:500 clamp(26px,3.4vw,36px)/1.2 var(--serif); letter-spacing:-.015em;
+      padding:4px 10px; margin:0 -11px; width:calc(100% + 22px); color:var(--ink); cursor:text; }
+    @media (hover:hover) { .pt-input:not([readonly]):hover { background:#faf8f4; border-color:var(--line); } }
+    .pt-input:not([readonly]):focus { outline:none; background:#fff; border-color:var(--accent); box-shadow:0 0 0 4px var(--accent-soft); }
+    .pt-input[readonly] { cursor:default; }
+    .pt-input[readonly]:focus { outline:none; }
+    .badge { font-size:10px; font-weight:800; letter-spacing:.05em; padding:2px 7px; border-radius:99px; }
+    .badge.edit { background:var(--accent-soft); color:var(--accent); }
+    .badge.ok { background:var(--ok-soft); color:var(--ok); }
+    .orig { margin:8px 0 0; font-size:13px; color:var(--muted); }
+    .orig .linkish { margin-left:8px; }
+    .orig:empty { display:none; }
+    .orig del { color:var(--ink-2); text-decoration-color:rgba(180,35,24,.55); }
+
+    .chips { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+    .chip { display:inline-flex; align-items:center; gap:2px; background:var(--bg); border:1px solid var(--line);
+      border-radius:99px; padding:3px 4px 3px 11px; font-size:13px; }
+    .chip.static { padding-right:11px; }
+    .chip button { border:0; background:none; width:22px; height:22px; border-radius:50%; color:var(--muted); line-height:1; font-size:15px; }
+    .chip button:hover { background:var(--line); color:var(--ink); }
+    .chip-input { border:1px dashed var(--line-2); border-radius:99px; padding:4px 12px; font-size:13px; width:150px;
+      background:transparent; }
+    .chip-input:focus { outline:none; border-style:solid; border-color:var(--accent); background:#fff; width:220px; }
+
+    .facts { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:16px 22px; margin-top:22px;
+      padding-top:18px; border-top:1px dashed var(--line); }
+    .fact .v { font-size:13px; color:var(--ink-2); }
+    .tag { display:inline-block; font-size:12px; background:var(--bg); border-radius:6px; padding:2px 8px; margin:0 4px 4px 0; color:var(--ink-2); }
+
+    .actions { display:grid; grid-template-columns:1fr 2fr; gap:10px; margin-top:6px; padding-top:10px;
+      position:sticky; bottom:0; z-index:2; background:linear-gradient(transparent, var(--bg) 10px); padding-bottom:12px; }
+    .btn { height:52px; border-radius:12px; border:1px solid var(--line-2); background:var(--card); font-weight:650; font-size:15px;
+      display:flex; align-items:center; justify-content:center; gap:10px; transition:background .12s, transform .08s; padding:0 18px; }
+    .btn:active { transform:scale(.985); }
+    @media (hover:hover) { .btn:hover { background:var(--hover); } }
+    .btn.primary { background:var(--ink); border-color:var(--ink); color:#fff; }
+    @media (hover:hover) { .btn.primary:not(.edited):hover { background:#000; } }
+    .btn.primary kbd { color:#cfcac0; border-color:#55524b; background:transparent; }
+    .btn.primary.edited { background:var(--accent); border-color:var(--accent); }
+    .btn.primary.edited kbd { color:#ffe2d4; border-color:#f39b72; }
+    .btn.undo { color:var(--err); }
+    .tip { margin:14px 2px 0; font-size:12px; color:var(--muted); display:flex; flex-wrap:wrap; gap:6px 16px; }
+
+    .done { text-align:center; padding:60px 24px; }
+    .done h2 { font:500 34px/1.1 var(--serif); margin:0 0 10px; }
+    .done p { color:var(--muted); margin:0 auto 22px; max-width:420px; }
+    .done .btn { display:inline-flex; }
+
+    /* ---------- Context ---------- */
+    .context { border-left:1px solid var(--line); background:var(--panel); overflow:auto; padding:20px 14px 40px; }
+    .ctx-section + .ctx-section { margin-top:26px; }
+    .ctx-title { font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); margin:0 8px 2px; }
+    .ctx-sub { font-size:12px; color:var(--muted); margin:0 8px 8px; }
+    .ref { display:grid; grid-template-columns:44px 1fr; gap:10px; align-items:center; padding:7px 8px; border-radius:10px;
+      width:100%; text-align:left; border:0; background:none; }
+    .ref.no-img { grid-template-columns:1fr; }
+    button.ref:hover { background:var(--hover); }
+    .ref img { width:44px; height:44px; border-radius:8px; background:var(--bg); object-fit:contain; border:1px solid var(--line); }
+    .ref .pt { font-weight:600; font-size:13px; line-height:1.3; }
+    .ref .en { font-size:12px; color:var(--muted); line-height:1.3; }
+    mark { background:none; color:var(--accent); }
+    .ref .st { font-size:10px; font-weight:800; letter-spacing:.04em; color:var(--ok); margin-left:6px; white-space:nowrap; }
+    .ctx-empty { font-size:12px; color:var(--muted); padding:4px 8px; margin:0; }
+    .context-inline { display:none; margin-top:28px; }
+
+    /* ---------- Toasts & help ---------- */
+    .toasts { position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom)); transform:translateX(-50%);
+      display:grid; grid-template-columns:minmax(0,1fr); gap:8px; z-index:20; width:min(540px, calc(100vw - 24px)); pointer-events:none; }
+    .toast { pointer-events:auto; background:var(--ink); color:#fff; border-radius:12px; padding:9px 10px 9px 16px; display:flex; align-items:center;
+      gap:8px; box-shadow:0 10px 30px rgba(0,0,0,.18); animation:toast .2s ease-out both; font-size:13px; }
+    .toast.err { background:var(--err); }
+    .toast .msg { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .toast button { background:rgba(255,255,255,.12); border:0; color:#fff; border-radius:8px; padding:6px 10px; font-weight:650; font-size:12px; }
+    .toast button:hover { background:rgba(255,255,255,.24); }
+    @media (min-width:1181px) { .toasts { left:calc(320px + (100% - 660px) / 2); width:min(560px, calc(100% - 700px)); } }
+    @keyframes toast { from { opacity:0; transform:translateY(8px); } }
+    .overlay { position:fixed; inset:0; background:rgba(26,25,22,.35); display:grid; place-items:center; z-index:30; padding:20px; }
+    .sheet { background:var(--card); border-radius:16px; padding:24px 26px; width:min(480px,100%); box-shadow:var(--shadow); }
+    .sheet h3 { margin:0 0 16px; font-size:16px; }
+    .sheet dl { display:grid; grid-template-columns:auto 1fr; gap:10px 16px; margin:0; font-size:13px; align-items:center; }
+    .sheet dt { text-align:right; white-space:nowrap; }
+    .sheet dd { margin:0; color:var(--ink-2); }
+    .sheet p { color:var(--muted); font-size:12px; margin:18px 0 0; line-height:1.55; }
+
+    .mobile-only { display:none; }
+    .q-head { display:none; align-items:center; justify-content:space-between; padding:calc(4px + env(safe-area-inset-top)) 0 4px; }
+    .q-head strong { font-size:17px; }
+    @media (max-width:1180px) {
+      .main { grid-template-columns:280px minmax(0,1fr); }
+      .context { display:none; }
+      .context-inline { display:block; }
+    }
+    @media (max-width:760px) {
+      html { -webkit-text-size-adjust:100%; }
+      body { overflow:auto; -webkit-tap-highlight-color:transparent; }
+      body.drawer-open { overflow:hidden; }
+      input, select, .chip-input { font-size:16px !important; }
+      .search input, .selects select { height:44px; }
+      .q-head { display:flex !important; }
+      .q-item { padding:12px 16px 12px 13px; }
+      .card .label { font-size:10px; }
+      .en-name { font-size:18px; }
+      .en-alt { font-size:12px; }
+      .pt-input { font-size:27px; }
+      .chip { padding:4px 4px 4px 12px; font-size:14px; }
+      .chip button { width:30px; height:30px; font-size:18px; }
+      .chip-input { width:100%; flex:1 1 100%; height:38px; }
+      .chip-input:focus { width:100%; }
+      .facts { grid-template-columns:1fr 1fr; gap:12px 14px; }
+      .crumbs .icon-btn { height:40px; min-width:44px; font-size:16px; }
+      .card.approved-card + .actions .btn.undo { font-size:14px; }
+      .ref { padding:10px 8px; }
+      .app { height:auto; min-height:100dvh; }
+      .topbar { flex-wrap:wrap; gap:8px 10px; padding:calc(8px + env(safe-area-inset-top)) 14px 10px; position:sticky; top:0; z-index:5; }
+      .topbar .icon-btn { height:38px; }
+      .meter { order:3; flex-basis:100%; flex-wrap:wrap; gap:6px; }
+      .bar { flex-basis:100%; }
+      .meter-text { font-size:12px; }
+      .brand span, .desktop-only { display:none !important; }
+      .mobile-only { display:inline-flex; }
+      .save-state { margin-left:auto; }
+      .main { display:block; }
+      .queue { display:none; border:0; position:fixed; inset:0; z-index:25; }
+      .queue.open { display:flex; }
+      .stage { padding:12px 10px calc(100px + env(safe-area-inset-bottom)); overflow:visible; }
+      .card { padding:18px 16px 16px; border-radius:14px; }
+      .divider { margin:16px -16px 14px; }
+      .btn { height:54px; font-size:16px; }
+      .actions { position:fixed; left:0; right:0; bottom:0; margin:0; padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+        background:rgba(251,250,247,.94); backdrop-filter:blur(10px); border-top:1px solid var(--line); z-index:10; }
+      .btn kbd { display:none; }
+      .toasts { bottom:calc(84px + env(safe-area-inset-bottom)); }
+    }
+    @media (prefers-reduced-motion:reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <button class="icon-btn mobile-only" id="openQueue" type="button">☰ Fila</button>
+    <div class="brand">Taurifer <span>· Revisão de nomes PT</span></div>
+    <div class="meter">
+      <div class="bar" role="progressbar" aria-label="Progresso" id="bar"><i class="base" id="barBase"></i><i class="session" id="barSession"></i></div>
+      <div class="meter-text" id="meterText">Carregando…</div>
+    </div>
+    <span class="save-state" id="saveState" aria-live="polite"></span>
+    <button class="icon-btn mobile-only" id="undoBtn" type="button" aria-label="Desfazer última aprovação" hidden style="font-size:18px">↶</button>
+    <button class="icon-btn desktop-only" id="helpBtn" type="button">Atalhos <kbd>?</kbd></button>
+  </header>
+
+  <div class="main">
+    <aside class="queue" id="queue" aria-label="Fila de revisão">
+      <div class="q-controls">
+        <div class="q-head"><strong>Fila</strong><button class="icon-btn" id="closeQueue" type="button" style="height:38px">Fechar</button></div>
+        <div class="search">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="7" cy="7" r="5"/><path d="m11 11 3.5 3.5"/></svg>
+          <input id="search" type="search" placeholder="Buscar nome (EN ou PT)" autocomplete="off" spellcheck="false">
+          <kbd class="desktop-only">/</kbd>
+        </div>
+        <div class="selects">
+          <select id="fEquipment" aria-label="Equipamento"></select>
+          <select id="fMuscle" aria-label="Músculo"></select>
+        </div>
+        <div class="q-meta">
+          <label class="toggle"><input type="checkbox" id="hideDone"> Ocultar aprovados</label>
+          <span id="qCount"></span>
+        </div>
+      </div>
+      <div class="q-list" id="qList"></div>
+    </aside>
+
+    <main class="stage" id="stage"><div class="stage-inner" id="stageInner"></div></main>
+
+    <aside class="context" id="context" aria-label="Referências"></aside>
+  </div>
+</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<div class="overlay" id="help" hidden>
+  <div class="sheet" role="dialog" aria-label="Atalhos de teclado">
+    <h3>Atalhos de teclado</h3>
+    <dl>
+      <dt><kbd>Enter</kbd></dt><dd>Aprovar, com as edições se houver. Funciona também dentro do campo do nome.</dd>
+      <dt><kbd>E</kbd></dt><dd>Editar o nome em português</dd>
+      <dt><kbd>Esc</kbd></dt><dd>No campo: descartar a edição; de novo: sair do campo</dd>
+      <dt><kbd>S</kbd> <kbd>→</kbd></dt><dd>Pular (fica no rascunho)</dd>
+      <dt><kbd>←</kbd></dt><dd>Voltar ao anterior</dd>
+      <dt><kbd>J</kbd> <kbd>K</kbd></dt><dd>Descer / subir na fila sem pular</dd>
+      <dt><kbd>Z</kbd></dt><dd>Desfazer a última aprovação</dd>
+      <dt><kbd>A</kbd></dt><dd>Adicionar sinônimo (Enter adiciona, Backspace remove o último)</dd>
+      <dt><kbd>/</kbd></dt><dd>Buscar</dd>
+    </dl>
+    <p>No celular, deslize o cartão para a direita para aprovar ou para a esquerda para pular.
+      Cada aprovação grava os dois JSON e regenera <code>exercises.js</code>. Pular não grava nada.</p>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const h = (tag, props = {}, ...kids) => {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (v == null || v === false) continue;
+    if (k === "class") el.className = v;
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (k in el) el[k] = v;
+    else el.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) if (kid != null && kid !== false) el.append(kid);
+  return el;
+};
+const fold = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const STOP = new Set(["with", "on", "the", "a", "to", "and", "of", "in", "at", "for"]);
+const tokens = s => new Set(fold(s).replace(/[^a-z0-9°]+/g, " ").split(" ").filter(w => w && !STOP.has(w)));
+const pt = n => n.toLocaleString("pt-BR");
+const touch = matchMedia("(pointer: coarse)").matches;
+
+let catalog = null, items = [];
+const byId = new Map();
+const status = new Map();     // id -> approved | saving | undoing | skipped | error
+const edits = new Map();      // id -> { namePt, aliases } unsaved edits
+const approvedAs = new Map(); // id -> { namePt, aliases } approved this session
+let currentId = null, trail = [], inflight = 0, chain = Promise.resolve();
+
+const isDone = id => ["approved", "saving", "undoing"].includes(status.get(id));
+const isOpen = id => !isDone(id) && status.get(id) !== "skipped";
+const rowState = id => status.get(id) || (edits.has(id) ? "edited" : "pending");
+const current = () => byId.get(currentId) || null;
+const valueOf = it => edits.get(it.id) || approvedAs.get(it.id) || { namePt: it.draftName, aliases: it.aliases };
+const sameAsDraft = (it, v) => v.namePt.trim() === it.draftName && v.aliases.join("\n") === it.aliases.join("\n");
+const isDirty = it => edits.has(it.id) && !sameAsDraft(it, edits.get(it.id));
+
+/* ---------------- Data ---------------- */
+async function load() {
+  const res = await fetch("/api/state", { cache: "no-store" });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Falha ao carregar.");
+  catalog = data;
+  catalog.baseReviewed = data.reviewed;
+  items = data.pending;
+  for (const it of items) { it.tok = tokens(it.englishName); byId.set(it.id, it); }
+  for (const r of data.reviewedExamples) r.tok = tokens(r.englishName);
+  fillSelect($("fEquipment"), "Todo equipamento", "equipment");
+  fillSelect($("fMuscle"), "Todo músculo", "muscles");
+  currentId = nextOpen(null);
+  renderAll();
+}
+
+function fillSelect(sel, all, key) {
+  const counts = new Map();
+  for (const it of items) for (const v of it[key]) counts.set(v, (counts.get(v) || 0) + 1);
+  sel.replaceChildren(h("option", { value: "" }, all),
+    ...[...counts].sort((a, b) => a[0].localeCompare(b[0])).map(([v, n]) => h("option", { value: v }, `${v} (${n})`)));
+}
+
+function visible() {
+  const q = fold($("search").value.trim()), eq = $("fEquipment").value, mu = $("fMuscle").value, hide = $("hideDone").checked;
+  return items.filter(it =>
+    (!eq || it.equipment.includes(eq)) && (!mu || it.muscles.includes(mu)) &&
+    (!hide || !isDone(it.id) || it.id === currentId) &&
+    (!q || [it.englishName, it.draftName, valueOf(it).namePt, ...it.aliases].some(v => fold(v).includes(q))));
+}
+
+function nextOpen(fromId) {
+  const list = visible();
+  const i = list.findIndex(it => it.id === fromId);
+  for (let n = 1; n <= list.length; n++) {
+    const it = list[(Math.max(i, -1) + n) % list.length];
+    if (isOpen(it.id)) return it.id;
+  }
+  return null;
+}
+
+function setEdit(it, patch) {
+  edits.set(it.id, { ...valueOf(it), ...patch });
+  if (!isDirty(it)) edits.delete(it.id);
+  refreshCardState(); refreshQueueRow(it.id);
+}
+
+/* ---------------- Actions ---------------- */
+function go(id) {
+  if (!id) return;
+  currentId = id;
+  renderCard(true); renderContext(); markCurrentRow();
+}
+function goNext() { currentId = nextOpen(currentId); renderCard(true); renderContext(); markCurrentRow(); }
+
+function skip() {
+  const it = current(); if (!it) return;
+  if (isOpen(it.id)) { status.set(it.id, "skipped"); refreshQueueRow(it.id); }
+  trail.push(it.id);
+  goNext();
+}
+function back() {
+  const prev = trail.pop();
+  if (!prev) return step(-1);
+  if (status.get(prev) === "skipped") { status.delete(prev); refreshQueueRow(prev); }
+  go(prev);
+}
+function step(dir) {
+  const list = visible(); if (!list.length) return;
+  const i = list.findIndex(it => it.id === currentId);
+  go(list[Math.max(0, Math.min(list.length - 1, i < 0 ? 0 : i + dir))].id);
+}
+
+function approve() {
+  const it = current(); if (!it || isDone(it.id)) return;
+  const v = valueOf(it);
+  const namePt = v.namePt.trim().replace(/\s+/g, " ");
+  if (!namePt) { toast("O nome em português não pode ficar vazio.", { error: true }); focusName(); return; }
+  const aliases = [...new Map(v.aliases.map(a => a.trim()).filter(Boolean)
+    .map(a => [a.normalize("NFKC").toLocaleLowerCase("en"), a])).values()];
+  const edited = !sameAsDraft(it, { namePt, aliases });
+  status.set(it.id, "saving"); approvedAs.set(it.id, { namePt, aliases }); edits.delete(it.id);
+  trail.push(it.id);
+  refreshQueueRow(it.id); renderMeter();
+  goNext();
+  toast((edited ? "Editado e aprovado: " : "Aprovado: ") + namePt, { action: "Desfazer", onAction: () => undo(it.id) });
+  enqueue(async () => {
+    const r = await post("/api/review", { id: it.id, namePt, aliases });
+    status.set(it.id, "approved"); catalog.reviewed = r.reviewed;
+    catalog.reviewedExamples.push({ ...it, namePt, media: null });
+  }, err => {
+    status.set(it.id, "error"); approvedAs.delete(it.id); edits.set(it.id, { namePt, aliases });
+    toast(`Não salvou “${namePt}”: ${err.message}`, { error: true, sticky: true, action: "Abrir", onAction: () => go(it.id) });
+  }, it.id);
+}
+
+function undo(id) {
+  id = id || [...trail].reverse().find(x => status.get(x) === "approved" || status.get(x) === "saving");
+  if (!id) return toast("Nada para desfazer nesta sessão.");
+  const it = byId.get(id), prev = approvedAs.get(id);
+  status.set(id, "undoing"); refreshQueueRow(id);
+  if (currentId === id) refreshCardState();
+  enqueue(async () => {
+    const r = await post("/api/undo", { id });
+    status.delete(id); approvedAs.delete(id); catalog.reviewed = r.reviewed;
+    catalog.reviewedExamples = catalog.reviewedExamples.filter(x => x.id !== id);
+    if (prev && !sameAsDraft(it, prev)) edits.set(id, prev);
+    trail = trail.filter(x => x !== id);
+    go(id);
+    toast("Aprovação desfeita: " + (prev?.namePt || it.draftName));
+  }, err => {
+    status.set(id, "approved");
+    toast("Não foi possível desfazer: " + err.message, { error: true, sticky: true });
+  }, id);
+}
+
+function enqueue(fn, onErr, id) {
+  inflight++; renderSaveState();
+  chain = chain.then(fn).catch(onErr).finally(() => {
+    inflight--; refreshQueueRow(id); renderMeter(); renderSaveState(); renderContext();
+    if (currentId === id) renderCard(false);
+  });
+}
+async function post(url, body) {
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+/* ---------------- Rendering ---------------- */
+function renderAll() { renderMeter(); renderQueue(); renderCard(true); renderContext(); renderSaveState(); }
+
+function renderSaveState() {
+  const el = $("saveState");
+  el.className = "save-state" + (inflight ? " busy" : "");
+  el.textContent = inflight ? `Salvando ${inflight}…` : "Tudo salvo ✓";
+  $("undoBtn").hidden = !trail.some(x => status.get(x) === "approved" || status.get(x) === "saving");
+}
+
+function renderMeter() {
+  if (!catalog) return;
+  const total = catalog.total, base = catalog.baseReviewed;
+  const session = [...status.values()].filter(s => s === "approved" || s === "saving").length;
+  $("barBase").style.width = (100 * base / total) + "%";
+  $("barSession").style.width = (100 * session / total) + "%";
+  $("meterText").replaceChildren(h("b", {}, pt(base + session)), ` / ${pt(total)} `,
+    session ? h("span", { class: "s" }, `+${session} nesta sessão`) : "", ` · ${pt(total - base - session)} restantes`);
+}
+
+function renderQueue() {
+  const list = visible(), box = $("qList");
+  box.replaceChildren();
+  $("qCount").textContent = `${pt(list.filter(it => isOpen(it.id)).length)} na fila`;
+  if (!list.length) {
+    box.append(h("div", { class: "q-empty" }, "Nada corresponde aos filtros.", h("br"),
+      h("button", { class: "linkish", type: "button", onclick: clearFilters }, "Limpar filtros")));
+    return;
+  }
+  const frag = document.createDocumentFragment();
+  let group = null, counter = null, n = 0;
+  for (const it of list) {
+    const g = it.equipment[0] || "Sem equipamento";
+    if (g !== group) {
+      if (counter) counter.textContent = n;
+      group = g; n = 0; counter = h("span");
+      frag.append(h("div", { class: "q-group" }, h("span", {}, g), counter));
+    }
+    n++;
+    frag.append(queueRow(it));
+  }
+  if (counter) counter.textContent = n;
+  box.append(frag);
+  markCurrentRow();
+}
+
+function queueRow(it) {
+  const s = rowState(it.id);
+  return h("button", { type: "button", class: `q-item ${s}`, "data-id": it.id,
+    onclick: () => { go(it.id); drawer(false); } },
+    h("span", { class: "dot" }, s === "approved" ? "✓" : s === "error" ? "!" : ""),
+    h("span", {}, h("div", { class: "pt" }, valueOf(it).namePt), h("div", { class: "en" }, it.englishName)));
+}
+function refreshQueueRow(id) {
+  const old = $("qList").querySelector(`[data-id="${id}"]`);
+  if (!old) return;
+  const row = queueRow(byId.get(id));
+  if (id === currentId) row.classList.add("current");
+  old.replaceWith(row);
+}
+function markCurrentRow() {
+  $("qList").querySelectorAll(".q-item.current").forEach(el => el.classList.remove("current"));
+  const row = $("qList").querySelector(`[data-id="${currentId}"]`);
+  if (row) { row.classList.add("current"); row.scrollIntoView({ block: "nearest" }); }
+}
+
+function highlight(text, tok) {
+  return text.split(/(\s+)/).map(p => tok.has(fold(p).replace(/[^a-z0-9°]/g, "")) ? h("mark", {}, p) : p);
+}
+
+function renderEmpty(root) {
+  const skipped = items.filter(x => status.get(x.id) === "skipped").length;
+  const open = items.filter(x => isOpen(x.id)).length;
+  const filtered = open > 0;
+  root.append(h("div", { class: "card done" },
+    h("h2", {}, filtered || skipped ? "Fim desta seleção" : "Tudo revisado"),
+    h("p", {}, filtered ? `Ainda há ${pt(open)} pendentes fora dos filtros atuais.`
+      : skipped ? `Você pulou ${skipped} ${skipped === 1 ? "item" : "itens"}. Eles continuam no rascunho até serem aprovados.`
+      : "Todos os nomes pendentes foram aprovados. Revise o diff antes de commitar."),
+    filtered ? h("button", { class: "btn primary", type: "button", onclick: clearFilters }, "Limpar filtros")
+      : skipped ? h("button", { class: "btn primary", type: "button", onclick: () => {
+          for (const [id, s] of [...status]) if (s === "skipped") status.delete(id);
+          trail = []; currentId = nextOpen(null); renderAll();
+        } }, "Revisar os pulados") : null));
+}
+
+function renderCard(animate) {
+  const root = $("stageInner");
+  root.replaceChildren();
+  const it = current();
+  if (!it) { renderEmpty(root); return; }
+  const list = visible(), pos = list.findIndex(x => x.id === it.id) + 1;
+  const done = isDone(it.id), v = valueOf(it);
+  if (animate) { window.scrollTo(0, 0); $("stage").scrollTop = 0; }
+
+  const nameInput = h("textarea", { class: "pt-input", id: "ptName", rows: 1, spellcheck: true, lang: "pt-BR",
+    "aria-label": "Nome em português", readOnly: done, value: v.namePt, enterKeyHint: "done",
+    oninput: e => { setEdit(it, { namePt: e.target.value.replace(/\n/g, " ") }); autosize(e.target); } });
+  const rerenderKeepingFocus = id => { renderCard(false); $(id)?.focus(); };
+  const aliasInput = h("input", { class: "chip-input", id: "aliasInput", placeholder: "+ sinônimo", "aria-label": "Adicionar sinônimo", enterKeyHint: "enter",
+    onkeydown: e => {
+      if (e.key === "Enter" && e.target.value.trim()) {
+        e.preventDefault(); e.stopPropagation();
+        setEdit(it, { aliases: [...valueOf(it).aliases, e.target.value.trim()] }); rerenderKeepingFocus("aliasInput");
+      } else if (e.key === "Backspace" && !e.target.value && valueOf(it).aliases.length) {
+        setEdit(it, { aliases: valueOf(it).aliases.slice(0, -1) }); rerenderKeepingFocus("aliasInput");
+      }
+    } });
+
+  const card = h("article", { class: "card" + (animate ? " enter" : "") + (done ? " approved-card" : ""), id: "card" },
+    h("div", { class: "swipe-hint ok", id: "hintOk" }, "Aprovar ✓"),
+    h("div", { class: "swipe-hint skip", id: "hintSkip" }, "← Pular"),
+    h("p", { class: "label" }, "Inglês"),
+    h("h1", { class: "en-name" }, it.englishName),
+    it.alternatives.length ? h("p", { class: "en-alt" }, "Também chamado: " + it.alternatives.join(" · ")) : null,
+    h("div", { class: "divider" }),
+    h("p", { class: "label" }, "Português", h("span", { id: "nameBadge" })),
+    nameInput,
+    h("p", { class: "orig", id: "orig" }),
+    h("div", { style: "margin-top:18px" },
+      h("p", { class: "label" }, "Sinônimos de busca"),
+      h("div", { class: "chips" },
+        v.aliases.map((a, i) => h("span", { class: "chip" + (done ? " static" : "") }, a, done ? null :
+          h("button", { type: "button", "aria-label": "Remover " + a,
+            onclick: () => { setEdit(it, { aliases: valueOf(it).aliases.filter((_, j) => j !== i) }); renderCard(false); } }, "×"))),
+        done ? (v.aliases.length ? null : h("span", { class: "tag" }, "nenhum")) : aliasInput)),
+    h("div", { class: "facts" },
+      fact("Equipamento", it.equipment), fact("Músculos", it.muscles),
+      fact("Padrão de movimento", it.pattern), fact("Lateralidade", it.laterality)));
+
+  root.append(
+    h("div", { class: "crumbs" },
+      h("span", {}, `${pt(pos)} de ${pt(list.length)} nesta seleção`),
+      h("span", { class: "nav" },
+        h("button", { class: "icon-btn", type: "button", title: "Anterior (←)", "aria-label": "Anterior", onclick: back }, "←"),
+        h("button", { class: "icon-btn", type: "button", title: "Pular (S)", "aria-label": "Pular", onclick: skip }, "→"))),
+    card,
+    done
+      ? h("div", { class: "actions" },
+          h("button", { class: "btn undo", type: "button", disabled: status.get(it.id) === "undoing", onclick: () => undo(it.id) }, "Desfazer"),
+          h("button", { class: "btn primary", type: "button", onclick: goNext }, "Próximo pendente", h("kbd", {}, "Enter")))
+      : h("div", { class: "actions" },
+          h("button", { class: "btn", type: "button", onclick: skip }, "Pular", h("kbd", {}, "S")),
+          h("button", { class: "btn primary", id: "approveBtn", type: "button", onclick: approve },
+            h("span", { id: "approveLabel" }, "Aprovar"), h("kbd", {}, "Enter"))),
+    h("div", { class: "tip desktop-only" },
+      h("span", {}, h("kbd", {}, "E"), " editar"), h("span", {}, h("kbd", {}, "A"), " sinônimo"),
+      h("span", {}, h("kbd", {}, "←"), " voltar"), h("span", {}, h("kbd", {}, "Z"), " desfazer"),
+      h("span", {}, h("kbd", {}, "?"), " todos os atalhos")),
+    h("div", { class: "context-inline", id: "contextInline" }));
+  autosize(nameInput);
+  refreshCardState();
+  bindSwipe(card);
+}
+
+function fact(label, values, limit = 4) {
+  const v = h("div", { class: "v" });
+  const show = n => {
+    v.replaceChildren(...values.slice(0, n).map(x => h("span", { class: "tag" }, x)));
+    if (values.length > n) v.append(h("button", { class: "linkish", type: "button", onclick: () => show(values.length) }, `+${values.length - n}`));
+  };
+  values.length ? show(limit) : v.append("—");
+  return h("div", { class: "fact" }, h("p", { class: "label" }, label), v);
+}
+
+function refreshCardState() {
+  const it = current(); if (!it || !$("nameBadge")) return;
+  const s = status.get(it.id), dirty = isDirty(it), approved = approvedAs.get(it.id);
+  $("nameBadge").replaceChildren(
+    s === "saving" ? h("span", { class: "badge ok" }, "Salvando…")
+    : s === "undoing" ? h("span", { class: "badge edit" }, "Desfazendo…")
+    : s === "approved" ? h("span", { class: "badge ok" }, "✓ Aprovado")
+    : dirty ? h("span", { class: "badge edit" }, "Editado") : "");
+  const orig = $("orig");
+  orig.replaceChildren();
+  if (!isDone(it.id) && dirty && edits.get(it.id).namePt.trim() !== it.draftName) {
+    orig.append("Rascunho: ", h("del", {}, it.draftName),
+      h("button", { class: "linkish", type: "button", onclick: () => { edits.delete(it.id); refreshQueueRow(it.id); renderCard(false); } }, "Restaurar"));
+  } else if (isDone(it.id) && approved && approved.namePt !== it.draftName) {
+    orig.append("Rascunho era: ", h("del", {}, it.draftName));
+  }
+  const btn = $("approveBtn");
+  if (btn) { btn.classList.toggle("edited", dirty); $("approveLabel").textContent = dirty ? "Salvar e aprovar" : "Aprovar"; }
+}
+
+function autosize(el) { el.style.height = "auto"; el.style.height = el.scrollHeight + 2 + "px"; }
+function focusName() {
+  const el = $("ptName"); if (!el || el.readOnly) return;
+  el.focus(); el.setSelectionRange(el.value.length, el.value.length);
+}
+
+function similar(it, pool, n) {
+  return pool.filter(x => x.id !== it.id).map(x => {
+    let shared = 0; for (const t of it.tok) if (x.tok.has(t)) shared++;
+    const eq = x.equipment.some(e => it.equipment.includes(e)) ? .3 : 0;
+    const pat = (x.pattern || []).some(p => it.pattern.includes(p)) ? .2 : 0;
+    return { x, shared, score: shared / Math.sqrt(it.tok.size * x.tok.size || 1) + eq + pat };
+  }).filter(r => r.shared > 0).sort((a, b) => b.score - a.score).slice(0, n).map(r => r.x);
+}
+
+function renderContext() {
+  const it = current();
+  const targets = [$("context"), $("contextInline")].filter(Boolean);
+  if (!it) { targets.forEach(t => t.replaceChildren()); return; }
+  const reviewed = similar(it, catalog.reviewedExamples, 6);
+  const siblings = similar(it, items, 8);
+  const build = () => [
+    h("section", { class: "ctx-section" },
+      h("p", { class: "ctx-title" }, "Já aprovados, parecidos"),
+      h("p", { class: "ctx-sub" }, "Use a mesma terminologia."),
+      reviewed.length ? reviewed.map(r => h("div", { class: "ref" + (r.media ? "" : " no-img") },
+        r.media ? h("img", { src: r.media, alt: "", loading: "lazy" }) : null,
+        h("div", {}, h("div", { class: "pt" }, r.namePt), h("div", { class: "en" }, highlight(r.englishName, it.tok)))))
+        : h("p", { class: "ctx-empty" }, "Nenhum nome aprovado com termos em comum.")),
+    h("section", { class: "ctx-section" },
+      h("p", { class: "ctx-title" }, "Variações ainda no rascunho"),
+      h("p", { class: "ctx-sub" }, "Revise em sequência para manter a família coerente."),
+      siblings.length ? siblings.map(s => h("button", { type: "button", class: "ref no-img", onclick: () => go(s.id) },
+        h("div", {}, h("div", { class: "pt" }, valueOf(s).namePt, isDone(s.id) ? h("span", { class: "st" }, "✓ aprovado") : null),
+          h("div", { class: "en" }, highlight(s.englishName, it.tok)))))
+        : h("p", { class: "ctx-empty" }, "Nenhuma."))
+  ];
+  targets.forEach(t => t.replaceChildren(...build()));
+}
+
+function clearFilters() { $("search").value = ""; $("fEquipment").value = ""; $("fMuscle").value = ""; onFilter(); }
+function onFilter() {
+  if (!visible().some(x => x.id === currentId)) currentId = nextOpen(null);
+  renderQueue(); renderCard(true); renderContext();
+}
+
+/* ---------------- Toasts ---------------- */
+function toast(msg, { error = false, action, onAction, sticky = false } = {}) {
+  const box = $("toasts");
+  const el = h("div", { class: "toast" + (error ? " err" : "") }, h("span", { class: "msg", title: msg }, msg),
+    action ? h("button", { type: "button", onclick: () => { el.remove(); onAction(); } }, action) : null,
+    h("button", { type: "button", "aria-label": "Fechar", onclick: () => el.remove() }, "×"));
+  // One informational toast at a time; errors stay until dismissed.
+  box.querySelectorAll(".toast:not(.err)").forEach(t => t.remove());
+  box.append(el);
+  if (!sticky) setTimeout(() => el.remove(), 5000);
+}
+
+/* ---------------- Swipe ---------------- */
+function bindSwipe(card) {
+  let start = null, dx = 0;
+  const reset = () => {
+    card.style.transition = "transform .2s"; card.style.transform = "";
+    $("hintOk").style.opacity = 0; $("hintSkip").style.opacity = 0;
+    setTimeout(() => { card.style.transition = ""; }, 200);
+  };
+  card.addEventListener("pointerdown", e => {
+    if (e.pointerType === "mouse" || e.target.closest("textarea,input,button")) return;
+    start = { x: e.clientX, y: e.clientY }; dx = 0;
+  });
+  card.addEventListener("pointermove", e => {
+    if (!start) return;
+    dx = e.clientX - start.x;
+    if (Math.abs(e.clientY - start.y) > 24 && Math.abs(dx) < 24) { start = null; reset(); return; }
+    card.style.transform = `translateX(${dx}px) rotate(${dx / 45}deg)`;
+    $("hintOk").style.opacity = Math.max(0, Math.min(1, dx / 110));
+    $("hintSkip").style.opacity = Math.max(0, Math.min(1, -dx / 110));
+  });
+  const end = () => {
+    if (!start) return; start = null;
+    if (dx > 110 && !isDone(currentId)) return approve();
+    if (dx < -110) return isDone(currentId) ? goNext() : skip();
+    reset();
+  };
+  card.addEventListener("pointerup", end);
+  card.addEventListener("pointercancel", () => { start = null; reset(); });
+}
+
+/* ---------------- Keyboard ---------------- */
+document.addEventListener("keydown", e => {
+  if (!$("help").hidden) { if (e.key === "Escape" || e.key === "?") { $("help").hidden = true; e.preventDefault(); } return; }
+  if (e.metaKey || e.altKey || e.isComposing) return;
+  const t = e.target, inName = t.id === "ptName", inAlias = t.id === "aliasInput";
+  const it = current(), done = it && isDone(it.id);
+
+  if (touch && e.key === "Enter" && (inName || (inAlias && !t.value.trim()))) { e.preventDefault(); t.blur(); return; }
+  if (e.key === "Enter" && (e.ctrlKey || inName || (inAlias && !t.value.trim()))) {
+    e.preventDefault(); t.blur?.(); done ? goNext() : approve(); return;
+  }
+  if (inName || inAlias) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      if (inName && it && edits.get(it.id)?.namePt !== undefined && edits.get(it.id).namePt !== it.draftName) {
+        setEdit(it, { namePt: it.draftName }); renderCard(false); focusName();
+      } else t.blur();
+    }
+    return;
+  }
+  if (t.id === "search" && (e.key === "Escape" || e.key === "Enter")) { e.preventDefault(); t.blur(); return; }
+  if (["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName) || e.ctrlKey) return;
+  if (t.tagName === "BUTTON" && (e.key === "Enter" || e.key === " ")) return;
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  const map = {
+    Enter: () => done ? goNext() : approve(),
+    s: skip, ArrowRight: skip, ArrowLeft: back,
+    j: () => step(1), k: () => step(-1), ArrowDown: () => step(1), ArrowUp: () => step(-1),
+    e: focusName, a: () => $("aliasInput")?.focus(), z: () => undo(),
+    "/": () => { $("search").focus(); $("search").select(); },
+    "?": () => { $("help").hidden = false; }
+  };
+  if (map[k]) { e.preventDefault(); if (t.tagName === "BUTTON") t.blur(); map[k](); }
+});
+
+// Mouse/touch clicks must not leave focus on a button, or the next Enter would re-trigger it.
+document.addEventListener("click", e => { if (e.detail > 0) e.target.closest("button")?.blur(); });
+$("search").addEventListener("input", onFilter);
+$("fEquipment").addEventListener("change", onFilter);
+$("fMuscle").addEventListener("change", onFilter);
+$("hideDone").addEventListener("change", onFilter);
+$("undoBtn").addEventListener("click", () => undo());
+$("helpBtn").addEventListener("click", () => { $("help").hidden = false; });
+$("help").addEventListener("click", e => { if (e.target === $("help")) $("help").hidden = true; });
+const drawer = open => { $("queue").classList.toggle("open", open); document.body.classList.toggle("drawer-open", open); if (open) markCurrentRow(); };
+$("openQueue").addEventListener("click", () => drawer(true));
+$("closeQueue").addEventListener("click", () => drawer(false));
+window.addEventListener("beforeunload", e => { if (inflight) { e.preventDefault(); e.returnValue = ""; } });
+
+load().catch(err => {
+  $("stageInner").replaceChildren(h("div", { class: "card done" }, h("h2", {}, "Não foi possível carregar"),
+    h("p", {}, err.message), h("p", {}, "O servidor local precisa acessar os arquivos do Plan 067.")));
+});
+</script>
+</body>
+</html>
