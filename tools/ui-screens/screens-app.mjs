@@ -1455,6 +1455,35 @@ export const APP_SCENARIOS = {
     await stabilizeShareLink(page);
     await sleep(page, 400);
   },
+  "program/share-too-large": async (page) => {
+    // An edited generated program cannot regenerate from its recipe and its
+    // full definition exceeds the link cap, so the sheet offers the file.
+    await page.waitForFunction(() => !!window.RepForgeExerciseCatalog?.snapshot?.() &&
+      typeof window.__repforgeFinalizeProgramSetup === "function", undefined, { timeout: 15000 });
+    await page.evaluate(async () => {
+      const catalog = window.RepForgeExerciseCatalog.snapshot();
+      const request = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+        desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: 4, sessionMinutes: 60,
+        environment: { kind: "commercial_gym" },
+      }, catalog).value;
+      const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog, "catalog-share-too-large").value;
+      definition.days.find((day) => day.kind === "training").slots[0].setupNotes = "Rack at 7";
+      const finalized = await window.__repforgeFinalizeProgramSetup({
+        programDefinition: definition, name: "Edited generated block", answers: {}, destination: "log",
+        origin: "first-run", draftConfirmed: true, telemetryRoute: "recommend",
+        entrySource: { route: "recommend", fingerprint: "catalog-share-too-large" },
+      });
+      if (!(finalized?.localOk || finalized?.idbOk)) throw new Error("share-too-large finalize failed");
+      await window.__repforgeStorage.flush();
+    });
+    await openShare(page);
+    await page.waitForSelector("#shareSetupFile:not(.hidden):not(:disabled)", { timeout: 20000 });
+    await page.waitForFunction(() => {
+      const toast = document.querySelector("#toast");
+      return !toast || toast.classList.contains("hidden");
+    }, undefined, { timeout: 10000 });
+    await sleep(page, 400);
+  },
   "program/text-export": async (page) => {
     await openProgram(page);
     await page.click("#exportProgramText");

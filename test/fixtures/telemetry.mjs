@@ -58,7 +58,7 @@ export const VALID_ALPHA_EVENTS = Object.freeze([
   ["block_review_viewed", { completion: "complete" }],
   ["program_transition_selected", { transition: "resume" }],
   ["history_session_outcome", { action: "edit_save", status: "success" }],
-  ["share_setup_outcome", { blocker_count_bucket: "2-5", action: "repair_opened" }],
+  ["share_setup_outcome", { action: "link_refused", program_kind: "generated_edited", form: "full", size_vs_limit: "over_2x" }],
   ["guide_replay", { guideId: "progress" }],
 ]);
 

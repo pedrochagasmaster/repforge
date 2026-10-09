@@ -677,22 +677,32 @@
     if (!checked.ok) return checked;
     const identityContext = await sourceIdentityContext(options?.catalogSnapshot);
     if (!identityContext) return { ok: false, code: "catalog-unavailable", issues: [], blockers: [] };
-    let json;
-    try { json = JSON.stringify(v4Tuple(checked.value, identityContext, options)); }
+    let json, form;
+    try {
+      const tuple = v4Tuple(checked.value, identityContext, options);
+      // "recipe": the generator request and seed; "full": the whole definition.
+      form = Array.isArray(tuple[2]) && tuple[2][0] === "g" ? "recipe" : "full";
+      json = JSON.stringify(tuple);
+    }
     catch { return { ok: false, code: "invalid-json", issues: [], blockers: [] }; }
     const bytes = new TextEncoder().encode(json);
+    // A refusal still says which form was tried and how large the link would
+    // have been, so callers can say how far over the limit a program is.
     if (bytes.byteLength > MAX_DECOMPRESSED_BYTES) {
-      return { ok: false, code: "encoded-too-large", issues: [], blockers: [] };
+      return { ok: false, code: "encoded-too-large", issues: [], blockers: [], form, decompressedBytes: bytes.byteLength };
     }
     const compressed = await gzipBytes(bytes);
     if (!compressed.ok) return { ...compressed, issues: [], blockers: [] };
     const encoded = "v4." + toBase64Url(compressed.value);
     if (encoded.length > MAX_ENCODED_CHARS) {
-      return { ok: false, code: "encoded-too-large", issues: [], blockers: [] };
+      return { ok: false, code: "encoded-too-large", issues: [], blockers: [], form,
+        encodedChars: encoded.length, compressedBytes: compressed.value.byteLength, decompressedBytes: bytes.byteLength };
     }
     return {
       ok: true,
       value: encoded,
+      form,
+      encodedChars: encoded.length,
       compressedBytes: compressed.value.byteLength,
       decompressedBytes: bytes.byteLength,
     };

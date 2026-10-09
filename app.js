@@ -1355,9 +1355,9 @@ const dayLabel=d=>{
   return localizedDayName(dayStructureFor(s,meta),d);
 };
 const download=(text,name,type="text/plain")=>{const u=URL.createObjectURL(new Blob([text],{type})),a=document.createElement("a");a.href=u;a.download=name;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(u)};
-async function shareOrDownload(text,name,type){
+async function shareOrDownload(text,name,type,title="Taurifer backup"){
   try{if(navigator.canShare){const file=new File([text],name,{type});
-    if(navigator.canShare({files:[file]})){await navigator.share({files:[file],title:"Taurifer backup"});return}}}catch{}
+    if(navigator.canShare({files:[file]})){await navigator.share({files:[file],title});return}}}catch{}
   download(text,name,type)}
 const EFFORT_RIR={easy:3,hard:1,max:0};
 const EFFORT_STEPS=["easy","hard","max"];
@@ -12011,15 +12011,29 @@ function buildSharedSetupValidation(){
 function buildSharedSetupPayload(){return buildSharedSetupValidation().payload}
 /* A program file carries the canonical definition, the custom movements it
    references and its name. Identity and lifecycle stay in full backups only. */
-function exportProgram(){
+/* The program file: the canonical definition and the custom movements it names. */
+function programFile(){
   const definition=state.programMeta?.programDefinition;
-  if(!definition){toast(t("toast.program_import_invalid"));return}
+  if(!definition)return null;
   const referenced=new Set(definition.days.flatMap(day=>day.slots.map(slot=>slot.exerciseId)).filter(isCustomLibraryId));
   const payload={kind:PROGRAM_FILE_KIND,version:PROGRAM_FILE_VERSION,name:state.programMeta?.name||"",
     definition:cloneSnapshot(definition),
     customExercises:customExercises().filter(entry=>referenced.has(entry.id)).map(cloneSnapshot)};
   const slug=fileSlug(state.programMeta?.name);
-  download(JSON.stringify(payload),`taurifer_program_${slug?`${slug}_`:""}${today()}.json`,"application/json")}
+  return{text:JSON.stringify(payload),name:`taurifer_program_${slug?`${slug}_`:""}${today()}.json`}}
+function exportProgram(){
+  const file=programFile();
+  if(!file){toast(t("toast.program_import_invalid"));return}
+  download(file.text,file.name,"application/json")}
+/* A program too large for a setup link goes as a file through the share sheet
+   (or a download where the browser cannot share files); the recipient imports
+   it. */
+async function shareProgramFile(){
+  const file=programFile();
+  if(!file){toast(t("toast.program_import_invalid"));return false}
+  await shareOrDownload(file.text,file.name,"application/json",t("program.share_setup_title"));
+  if(shareSetupOutcome)captureEvent("share_setup_outcome",{action:"file_shared",...shareSetupOutcome});
+  return true}
 
 /* ---- Plain-text program export ----
  * The program as something a lifter can read or paste into a chat: the name and
@@ -12100,12 +12114,15 @@ function renderShareSetupBlockers(){
   }).join("");
   $$("#shareSetupBlockers [data-share-repair]").forEach(button=>button.onclick=()=>beginShareRepair(button.dataset.shareRepair));
 }
-function setShareSetupState(message,{ready=false,blockers=null}={}){
+function setShareSetupState(message,{ready=false,blockers=null,fileFallback=false}={}){
   if(blockers!==null)shareSetupBlockers=Array.isArray(blockers)?blockers:[];
   renderShareSetupBlockers();
   const blocked=shareSetupBlockers.length>0;
   ready=ready&&!blocked;
-  const status=$("#shareSetupStatus"),out=$("#shareSetupLink"),share=$("#shareSetupShare"),copy=$("#shareSetupCopy");
+  const status=$("#shareSetupStatus"),out=$("#shareSetupLink"),share=$("#shareSetupShare"),copy=$("#shareSetupCopy"),file=$("#shareSetupFile");
+  // A program too large for a link can still travel whole as a program file.
+  if(file){file.disabled=!fileFallback;file.classList.toggle("hidden",!fileFallback)}
+  const body=$("#shareSetupBody");if(body)body.classList.toggle("hidden",fileFallback);
   if(status){status.textContent=message||"";status.classList.toggle("hidden",!message)}
   if(out){if("value" in out)out.value=ready?shareSetupLink:"";else out.textContent=ready?shareSetupLink:""}
   if(share){share.disabled=!ready||typeof navigator.share!=="function";share.classList.toggle("hidden",!ready||typeof navigator.share!=="function")}
@@ -12114,10 +12131,21 @@ function setShareSetupState(message,{ready=false,blockers=null}={}){
 function sharedSetupErrorMessage(result){
   if(result?.code==="unresolved-exercises")return shareSetupBlockerMessage(result.blockers?.length||0);
   if(result?.code==="compression-unavailable")return t("program.share_setup_unsupported");
-  if(result?.code==="encoded-too-large")return t("setup.shared.too_large");
+  if(result?.code==="encoded-too-large")return t("program.share_setup_too_large");
   return t("program.share_setup_invalid")}
+/* Coarse facts about a setup-link attempt for telemetry: the kind of program,
+   the form the codec used, and its size against the link limit. */
+let shareSetupOutcome=null;
+function shareSetupTelemetry(definition,encoded){
+  const generated=definition?.provenance?.source!=="manual"&&typeof definition?.request?.goal==="string";
+  const form=encoded?.form==="recipe"?"recipe":"full";
+  const program_kind=definition?.provenance?.source==="manual"?"manual":generated?(form==="recipe"?"generated":"generated_edited"):"other";
+  const limit=SharedSetup?.MAX_ENCODED_CHARS||3072,chars=Number(encoded?.encodedChars);
+  const ratio=Number.isFinite(chars)?chars/limit:Infinity;
+  const size_vs_limit=ratio<=.5?"under_half":ratio<=1?"under_limit":ratio<=2?"over_limit":ratio<=4?"over_2x":"over_4x";
+  return{program_kind,form,size_vs_limit}}
 async function buildShareSetupLink(){
-  shareSetupLink="";
+  shareSetupLink="";shareSetupOutcome=null;
   setShareSetupState(t("program.share_setup_building"),{blockers:[]});
   if(!SharedSetup){setShareSetupState(t("program.share_setup_unsupported"));return}
   let built;
@@ -12127,7 +12155,12 @@ async function buildShareSetupLink(){
   let encoded;
   try{encoded=await SharedSetup.encode(checked.value,sharedSetupCodecOptions())}
   catch{setShareSetupState(t("program.share_setup_unsupported"));return}
-  if(!encoded.ok){setShareSetupState(sharedSetupErrorMessage(encoded));return}
+  shareSetupOutcome=shareSetupTelemetry(checked.value.program.definition,encoded);
+  if(!encoded.ok){
+    const tooLarge=encoded.code==="encoded-too-large";
+    if(tooLarge)captureEvent("share_setup_outcome",{action:"link_refused",...shareSetupOutcome});
+    setShareSetupState(sharedSetupErrorMessage(encoded),{fileFallback:tooLarge});return}
+  captureEvent("share_setup_outcome",{action:"link_ready",...shareSetupOutcome});
   const local=/^(localhost|127(?:\.\d{1,3}){3}|\[::1\])$/i.test(location.hostname);
   const url=new URL("index.html",local?location.href:"https://pedrochagasmaster.github.io/repforge/index.html");
   url.search="";
@@ -12175,7 +12208,6 @@ async function beginShareRepair(exerciseInstanceId){
   const id=String(exerciseInstanceId||"");
   const blocker=shareSetupBlockers.find(item=>String(item?.exerciseInstanceId??"")===id);
   if(!blocker)return;
-  captureEvent("share_setup_outcome",{blocker_count_bucket:coarseCountBucket(shareSetupBlockers.length),action:"repair_opened"});
   shareRepairReturn={...shareRepairToken(),exerciseInstanceId:id};
   const closed=closeShareSetupSheet();
   if(closed&&typeof closed.then==="function")await closed;
@@ -12212,15 +12244,15 @@ function closeShareSetupSheet(){
 async function copySetupLink(){
   if(!shareSetupLink||shareSetupBlockers.length)return false;
   try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(shareSetupLink);
-    toast(t("toast.setup_link_copied"));captureEvent("share_setup_outcome",{blocker_count_bucket:"0",action:"copied"});return true}}catch{}
+    toast(t("toast.setup_link_copied"));if(shareSetupOutcome)captureEvent("share_setup_outcome",{action:"copied",...shareSetupOutcome});return true}}catch{}
   try{const ta=document.createElement("textarea");ta.value=shareSetupLink;ta.setAttribute("readonly","");
     ta.style.cssText="position:fixed;top:0;left:0;opacity:0";document.body.append(ta);ta.select();
     const ok=document.execCommand("copy");ta.remove();
-    if(ok){toast(t("toast.setup_link_copied"));captureEvent("share_setup_outcome",{blocker_count_bucket:"0",action:"copied"});return true}}catch{}
+    if(ok){toast(t("toast.setup_link_copied"));if(shareSetupOutcome)captureEvent("share_setup_outcome",{action:"copied",...shareSetupOutcome});return true}}catch{}
   return false}
 async function shareSetupLinkNow(){
   if(!shareSetupLink||shareSetupBlockers.length||typeof navigator.share!=="function")return false;
-  try{await navigator.share({title:t("program.share_setup_title"),url:shareSetupLink});captureEvent("share_setup_outcome",{blocker_count_bucket:"0",action:"shared"});return true}
+  try{await navigator.share({title:t("program.share_setup_title"),url:shareSetupLink});if(shareSetupOutcome)captureEvent("share_setup_outcome",{action:"shared",...shareSetupOutcome});return true}
   catch{return false}}
 /* ============================================================
    Exercise picker
@@ -18979,6 +19011,7 @@ function init(){
   const ssScrim=$("#shareSetupScrim");if(ssScrim)ssScrim.onclick=closeShareSetupSheet;
   const ssCopy=$("#shareSetupCopy");if(ssCopy)ssCopy.onclick=copySetupLink;
   const ssShare=$("#shareSetupShare");if(ssShare)ssShare.onclick=shareSetupLinkNow;
+  const ssFile=$("#shareSetupFile");if(ssFile)ssFile.onclick=shareProgramFile;
   const libBack=$("#libBack");
   if(libBack)libBack.onclick=()=>{
     if(libFlow?.step==="configure"){libFlow.step="browse";renderLibrary();return}

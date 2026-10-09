@@ -1427,6 +1427,8 @@
   "program.share_setup_building": "Preparing link…",
   "program.share_setup_share": "Share link",
   "program.share_setup_copy": "Copy link",
+  "program.share_setup_file": "Share as file",
+  "program.share_setup_too_large": "This program is too large for a setup link. Share it as a program file instead; the other person opens Import and chooses the file.",
   "program.share_setup_unsupported": "This browser cannot create setup links.",
   "program.share_setup_invalid": "This program has settings that cannot be included in a setup link.",
   "program.share_setup_blocked.one": "Resolve 1 exercise before sharing.",

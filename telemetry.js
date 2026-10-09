@@ -87,7 +87,16 @@
     block_review_viewed: event({ completion: values("early", "partial", "complete", "extended") }, "Block review opened", "repeatable"),
     program_transition_selected: event({ transition: values("resume", "repair", "rebase", "switch") }, "Program transition selected", "once_per_setup_flow"),
     history_session_outcome: event({ action: values("read", "edit_save", "cancel", "delete"), status: values("success", "conflict", "failure") }, "History session operation outcome", "repeatable"),
-    share_setup_outcome: event({ blocker_count_bucket: values("0", "1", "2-5", "6+"), action: values("repair_opened", "shared", "copied") }, "Shared setup management outcome", "repeatable"),
+    // Validates whether setup links need a larger carrier (server-backed links):
+    // how often a link is refused, for which kind of program, by how much, and
+    // whether the lifter then shares the program as a file. Size is a coarse
+    // ratio to the link limit; no program content or length is sent.
+    share_setup_outcome: event({
+      action: values("link_ready", "link_refused", "shared", "copied", "file_shared"),
+      program_kind: values("generated", "generated_edited", "manual", "other"),
+      form: values("recipe", "full"),
+      size_vs_limit: values("under_half", "under_limit", "over_limit", "over_2x", "over_4x"),
+    }, "Setup link outcome: ready or refused for size, then shared, copied or sent as a file", "repeatable"),
     guide_replay: event({ guideId: values("entry", "first-set", "focus-utilities", "progress", "block-transition", "backup", "install", "privacy") }, "Contextual guide replayed", "repeatable"),
     late_install_transfer: Object.freeze({
       phase: "install_transfer",

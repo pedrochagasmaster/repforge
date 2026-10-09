@@ -623,6 +623,11 @@
       "content": "flat",
       "scenario": "A valid setup link is ready for copy or system sharing."
     },
+    "program/share-too-large": {
+      "owner": "plan-067",
+      "content": "flat",
+      "scenario": "An edited generated program is too large for a setup link; the sheet offers sharing it as a program file."
+    },
     "program/text-export": {
       "owner": "plan-057",
       "content": "flat",
@@ -4959,7 +4964,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/share-ready",
-        "program/share-setup"
+        "program/share-setup",
+        "program/share-too-large"
       ]
     },
     {
@@ -5007,6 +5013,27 @@
       ]
     },
     {
+      "id": "sharesetupfile",
+      "selector": "#shareSetupFile",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "When a program is too large for a setup link, advances the sharing task by sending the program file through the system Share sheet or a download.",
+      "owner": "plan-067",
+      "catalogStates": [
+        "program/share-too-large"
+      ]
+    },
+    {
       "id": "sharesetupscrim",
       "selector": "#shareSetupScrim",
       "roles": {
@@ -5021,7 +5048,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/share-ready",
-        "program/share-setup"
+        "program/share-setup",
+        "program/share-too-large"
       ]
     },
     {
@@ -5039,7 +5067,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/share-ready",
-        "program/share-setup"
+        "program/share-setup",
+        "program/share-too-large"
       ]
     },
     {
@@ -7343,6 +7372,7 @@
         "program/exercise-picker",
         "program/share-ready",
         "program/share-setup",
+        "program/share-too-large",
         "program/text-export",
         "settings/privacy-disclosure",
         "today/day-picker",
