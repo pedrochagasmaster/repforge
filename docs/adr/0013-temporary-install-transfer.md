@@ -171,7 +171,7 @@ exercise, UI preferences, and the telemetry identity. It is generated through
 the real generator, loader, and storage boundary by
 `node tools/build-clone-fixture.mjs`; it is too large to reproduce here.
 
-Fixture digest: `50a5af9270bd9fe4518f6aba6a466885cb14e8bba9d8f978d5cf30569736ae30`
+Fixture digest: `12854e7a0f49369f12dfa1d79096c857fa9785da639126f6c386220416348def`
 
 `node tools/canonical-clone-hash.mjs --check` recomputes that digest under the
 documented rule, verifies it against the fixture's `integrity` value, and

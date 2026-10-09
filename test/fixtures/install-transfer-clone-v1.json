@@ -51,7 +51,7 @@
       "programStructure": null,
       "entrySource": null,
       "programDefinition": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "generatorVersion": "067.1",
         "seed": "clone-fixture-v1",
         "request": {
@@ -165,24 +165,6 @@
                         "cycleIndex": 1,
                         "setIndex": 1,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "2555c6f170d8805cafa6d16d3fdddbaa",
-                          "25a5c6f170d880baaa2dc8c7b67d4b65"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "2555c6f170d8805cafa6d16d3fdddbaa",
-                            "sourceName": "Weight",
-                            "semantic": "loadKg",
-                            "unit": "kg"
-                          },
-                          {
-                            "id": "25a5c6f170d880baaa2dc8c7b67d4b65",
-                            "sourceName": "Reps per side",
-                            "semantic": "repsPerSide",
-                            "unit": "reps"
-                          }
-                        ],
                         "targets": {
                           "repsPerSide": {
                             "min": 7,
@@ -205,24 +187,6 @@
                         "cycleIndex": 1,
                         "setIndex": 2,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "2555c6f170d8805cafa6d16d3fdddbaa",
-                          "25a5c6f170d880baaa2dc8c7b67d4b65"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "2555c6f170d8805cafa6d16d3fdddbaa",
-                            "sourceName": "Weight",
-                            "semantic": "loadKg",
-                            "unit": "kg"
-                          },
-                          {
-                            "id": "25a5c6f170d880baaa2dc8c7b67d4b65",
-                            "sourceName": "Reps per side",
-                            "semantic": "repsPerSide",
-                            "unit": "reps"
-                          }
-                        ],
                         "targets": {
                           "repsPerSide": {
                             "min": 7,
@@ -245,24 +209,6 @@
                         "cycleIndex": 1,
                         "setIndex": 3,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "2555c6f170d8805cafa6d16d3fdddbaa",
-                          "25a5c6f170d880baaa2dc8c7b67d4b65"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "2555c6f170d8805cafa6d16d3fdddbaa",
-                            "sourceName": "Weight",
-                            "semantic": "loadKg",
-                            "unit": "kg"
-                          },
-                          {
-                            "id": "25a5c6f170d880baaa2dc8c7b67d4b65",
-                            "sourceName": "Reps per side",
-                            "semantic": "repsPerSide",
-                            "unit": "reps"
-                          }
-                        ],
                         "targets": {
                           "repsPerSide": {
                             "min": 7,
@@ -336,24 +282,6 @@
                         "cycleIndex": 1,
                         "setIndex": 1,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "2555c6f170d8805cafa6d16d3fdddbaa",
-                          "25a5c6f170d880baaa2dc8c7b67d4b65"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "2555c6f170d8805cafa6d16d3fdddbaa",
-                            "sourceName": "Weight",
-                            "semantic": "loadKg",
-                            "unit": "kg"
-                          },
-                          {
-                            "id": "25a5c6f170d880baaa2dc8c7b67d4b65",
-                            "sourceName": "Reps per side",
-                            "semantic": "repsPerSide",
-                            "unit": "reps"
-                          }
-                        ],
                         "targets": {
                           "repsPerSide": {
                             "min": 14,
@@ -427,24 +355,6 @@
                         "cycleIndex": 1,
                         "setIndex": 1,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "2555c6f170d8805cafa6d16d3fdddbaa",
-                          "25a5c6f170d880baaa2dc8c7b67d4b65"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "2555c6f170d8805cafa6d16d3fdddbaa",
-                            "sourceName": "Weight",
-                            "semantic": "loadKg",
-                            "unit": "kg"
-                          },
-                          {
-                            "id": "25a5c6f170d880baaa2dc8c7b67d4b65",
-                            "sourceName": "Reps per side",
-                            "semantic": "repsPerSide",
-                            "unit": "reps"
-                          }
-                        ],
                         "targets": {
                           "repsPerSide": {
                             "min": 14,
@@ -520,24 +430,6 @@
                         "cycleIndex": 1,
                         "setIndex": 1,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "25a5c6f170d880baaa2dc8c7b67d4b65",
-                          "25a5c6f170d880e2990fc88146f7de56"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "25a5c6f170d880baaa2dc8c7b67d4b65",
-                            "sourceName": "Reps per side",
-                            "semantic": "repsPerSide",
-                            "unit": "reps"
-                          },
-                          {
-                            "id": "25a5c6f170d880e2990fc88146f7de56",
-                            "sourceName": "Weight per side",
-                            "semantic": "loadPerSideKg",
-                            "unit": "kg"
-                          }
-                        ],
                         "targets": {
                           "repsPerSide": {
                             "min": 7,
@@ -560,24 +452,6 @@
                         "cycleIndex": 1,
                         "setIndex": 2,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "25a5c6f170d880baaa2dc8c7b67d4b65",
-                          "25a5c6f170d880e2990fc88146f7de56"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "25a5c6f170d880baaa2dc8c7b67d4b65",
-                            "sourceName": "Reps per side",
-                            "semantic": "repsPerSide",
-                            "unit": "reps"
-                          },
-                          {
-                            "id": "25a5c6f170d880e2990fc88146f7de56",
-                            "sourceName": "Weight per side",
-                            "semantic": "loadPerSideKg",
-                            "unit": "kg"
-                          }
-                        ],
                         "targets": {
                           "repsPerSide": {
                             "min": 7,
@@ -651,24 +525,6 @@
                         "cycleIndex": 1,
                         "setIndex": 1,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "2555c6f170d88072bbf6d9ad3f16ea86",
-                          "2555c6f170d880e6b760f2286b2b2d76"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "2555c6f170d88072bbf6d9ad3f16ea86",
-                            "sourceName": "Reps",
-                            "semantic": "reps",
-                            "unit": "reps"
-                          },
-                          {
-                            "id": "2555c6f170d880e6b760f2286b2b2d76",
-                            "sourceName": "Assistance weight",
-                            "semantic": "assistanceKg",
-                            "unit": "kg"
-                          }
-                        ],
                         "targets": {
                           "reps": {
                             "min": 9,
@@ -691,24 +547,6 @@
                         "cycleIndex": 1,
                         "setIndex": 2,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "2555c6f170d88072bbf6d9ad3f16ea86",
-                          "2555c6f170d880e6b760f2286b2b2d76"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "2555c6f170d88072bbf6d9ad3f16ea86",
-                            "sourceName": "Reps",
-                            "semantic": "reps",
-                            "unit": "reps"
-                          },
-                          {
-                            "id": "2555c6f170d880e6b760f2286b2b2d76",
-                            "sourceName": "Assistance weight",
-                            "semantic": "assistanceKg",
-                            "unit": "kg"
-                          }
-                        ],
                         "targets": {
                           "reps": {
                             "min": 9,
@@ -782,24 +620,6 @@
                         "cycleIndex": 1,
                         "setIndex": 1,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "25a5c6f170d880baaa2dc8c7b67d4b65",
-                          "25a5c6f170d880e2990fc88146f7de56"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "25a5c6f170d880baaa2dc8c7b67d4b65",
-                            "sourceName": "Reps per side",
-                            "semantic": "repsPerSide",
-                            "unit": "reps"
-                          },
-                          {
-                            "id": "25a5c6f170d880e2990fc88146f7de56",
-                            "sourceName": "Weight per side",
-                            "semantic": "loadPerSideKg",
-                            "unit": "kg"
-                          }
-                        ],
                         "targets": {
                           "repsPerSide": {
                             "min": 14,
@@ -866,17 +686,6 @@
                         "cycleIndex": 1,
                         "setIndex": 1,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "2555c6f170d88072bbf6d9ad3f16ea86"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "2555c6f170d88072bbf6d9ad3f16ea86",
-                            "sourceName": "Reps",
-                            "semantic": "reps",
-                            "unit": "reps"
-                          }
-                        ],
                         "targets": {
                           "reps": {
                             "min": 14,
@@ -950,24 +759,6 @@
                         "cycleIndex": 1,
                         "setIndex": 1,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "25a5c6f170d880baaa2dc8c7b67d4b65",
-                          "25a5c6f170d880e2990fc88146f7de56"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "25a5c6f170d880baaa2dc8c7b67d4b65",
-                            "sourceName": "Reps per side",
-                            "semantic": "repsPerSide",
-                            "unit": "reps"
-                          },
-                          {
-                            "id": "25a5c6f170d880e2990fc88146f7de56",
-                            "sourceName": "Weight per side",
-                            "semantic": "loadPerSideKg",
-                            "unit": "kg"
-                          }
-                        ],
                         "targets": {
                           "repsPerSide": {
                             "min": 14,
@@ -1064,24 +855,6 @@
                         "cycleIndex": 1,
                         "setIndex": 1,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "2555c6f170d8805cafa6d16d3fdddbaa",
-                          "25a5c6f170d880baaa2dc8c7b67d4b65"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "2555c6f170d8805cafa6d16d3fdddbaa",
-                            "sourceName": "Weight",
-                            "semantic": "loadKg",
-                            "unit": "kg"
-                          },
-                          {
-                            "id": "25a5c6f170d880baaa2dc8c7b67d4b65",
-                            "sourceName": "Reps per side",
-                            "semantic": "repsPerSide",
-                            "unit": "reps"
-                          }
-                        ],
                         "targets": {
                           "repsPerSide": {
                             "min": 9,
@@ -1104,24 +877,6 @@
                         "cycleIndex": 1,
                         "setIndex": 2,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "2555c6f170d8805cafa6d16d3fdddbaa",
-                          "25a5c6f170d880baaa2dc8c7b67d4b65"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "2555c6f170d8805cafa6d16d3fdddbaa",
-                            "sourceName": "Weight",
-                            "semantic": "loadKg",
-                            "unit": "kg"
-                          },
-                          {
-                            "id": "25a5c6f170d880baaa2dc8c7b67d4b65",
-                            "sourceName": "Reps per side",
-                            "semantic": "repsPerSide",
-                            "unit": "reps"
-                          }
-                        ],
                         "targets": {
                           "repsPerSide": {
                             "min": 9,
@@ -1195,24 +950,6 @@
                         "cycleIndex": 1,
                         "setIndex": 1,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "25a5c6f170d880baaa2dc8c7b67d4b65",
-                          "25a5c6f170d880e2990fc88146f7de56"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "25a5c6f170d880baaa2dc8c7b67d4b65",
-                            "sourceName": "Reps per side",
-                            "semantic": "repsPerSide",
-                            "unit": "reps"
-                          },
-                          {
-                            "id": "25a5c6f170d880e2990fc88146f7de56",
-                            "sourceName": "Weight per side",
-                            "semantic": "loadPerSideKg",
-                            "unit": "kg"
-                          }
-                        ],
                         "targets": {
                           "repsPerSide": {
                             "min": 14,
@@ -1235,24 +972,6 @@
                         "cycleIndex": 1,
                         "setIndex": 2,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "25a5c6f170d880baaa2dc8c7b67d4b65",
-                          "25a5c6f170d880e2990fc88146f7de56"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "25a5c6f170d880baaa2dc8c7b67d4b65",
-                            "sourceName": "Reps per side",
-                            "semantic": "repsPerSide",
-                            "unit": "reps"
-                          },
-                          {
-                            "id": "25a5c6f170d880e2990fc88146f7de56",
-                            "sourceName": "Weight per side",
-                            "semantic": "loadPerSideKg",
-                            "unit": "kg"
-                          }
-                        ],
                         "targets": {
                           "repsPerSide": {
                             "min": 14,
@@ -1327,24 +1046,6 @@
                         "cycleIndex": 1,
                         "setIndex": 1,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "2555c6f170d8805cafa6d16d3fdddbaa",
-                          "2555c6f170d88072bbf6d9ad3f16ea86"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "2555c6f170d8805cafa6d16d3fdddbaa",
-                            "sourceName": "Weight",
-                            "semantic": "loadKg",
-                            "unit": "kg"
-                          },
-                          {
-                            "id": "2555c6f170d88072bbf6d9ad3f16ea86",
-                            "sourceName": "Reps",
-                            "semantic": "reps",
-                            "unit": "reps"
-                          }
-                        ],
                         "targets": {
                           "reps": {
                             "min": 7,
@@ -1367,24 +1068,6 @@
                         "cycleIndex": 1,
                         "setIndex": 2,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "2555c6f170d8805cafa6d16d3fdddbaa",
-                          "2555c6f170d88072bbf6d9ad3f16ea86"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "2555c6f170d8805cafa6d16d3fdddbaa",
-                            "sourceName": "Weight",
-                            "semantic": "loadKg",
-                            "unit": "kg"
-                          },
-                          {
-                            "id": "2555c6f170d88072bbf6d9ad3f16ea86",
-                            "sourceName": "Reps",
-                            "semantic": "reps",
-                            "unit": "reps"
-                          }
-                        ],
                         "targets": {
                           "reps": {
                             "min": 7,
@@ -1407,24 +1090,6 @@
                         "cycleIndex": 1,
                         "setIndex": 3,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "2555c6f170d8805cafa6d16d3fdddbaa",
-                          "2555c6f170d88072bbf6d9ad3f16ea86"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "2555c6f170d8805cafa6d16d3fdddbaa",
-                            "sourceName": "Weight",
-                            "semantic": "loadKg",
-                            "unit": "kg"
-                          },
-                          {
-                            "id": "2555c6f170d88072bbf6d9ad3f16ea86",
-                            "sourceName": "Reps",
-                            "semantic": "reps",
-                            "unit": "reps"
-                          }
-                        ],
                         "targets": {
                           "reps": {
                             "min": 7,
@@ -1498,24 +1163,6 @@
                         "cycleIndex": 1,
                         "setIndex": 1,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "2555c6f170d88072bbf6d9ad3f16ea86",
-                          "2555c6f170d880e6b760f2286b2b2d76"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "2555c6f170d88072bbf6d9ad3f16ea86",
-                            "sourceName": "Reps",
-                            "semantic": "reps",
-                            "unit": "reps"
-                          },
-                          {
-                            "id": "2555c6f170d880e6b760f2286b2b2d76",
-                            "sourceName": "Assistance weight",
-                            "semantic": "assistanceKg",
-                            "unit": "kg"
-                          }
-                        ],
                         "targets": {
                           "reps": {
                             "min": 14,
@@ -1538,24 +1185,6 @@
                         "cycleIndex": 1,
                         "setIndex": 2,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "2555c6f170d88072bbf6d9ad3f16ea86",
-                          "2555c6f170d880e6b760f2286b2b2d76"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "2555c6f170d88072bbf6d9ad3f16ea86",
-                            "sourceName": "Reps",
-                            "semantic": "reps",
-                            "unit": "reps"
-                          },
-                          {
-                            "id": "2555c6f170d880e6b760f2286b2b2d76",
-                            "sourceName": "Assistance weight",
-                            "semantic": "assistanceKg",
-                            "unit": "kg"
-                          }
-                        ],
                         "targets": {
                           "reps": {
                             "min": 14,
@@ -1629,24 +1258,6 @@
                         "cycleIndex": 1,
                         "setIndex": 1,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "25a5c6f170d880baaa2dc8c7b67d4b65",
-                          "25a5c6f170d880e2990fc88146f7de56"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "25a5c6f170d880baaa2dc8c7b67d4b65",
-                            "sourceName": "Reps per side",
-                            "semantic": "repsPerSide",
-                            "unit": "reps"
-                          },
-                          {
-                            "id": "25a5c6f170d880e2990fc88146f7de56",
-                            "sourceName": "Weight per side",
-                            "semantic": "loadPerSideKg",
-                            "unit": "kg"
-                          }
-                        ],
                         "targets": {
                           "repsPerSide": {
                             "min": 14,
@@ -1669,24 +1280,6 @@
                         "cycleIndex": 1,
                         "setIndex": 2,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "25a5c6f170d880baaa2dc8c7b67d4b65",
-                          "25a5c6f170d880e2990fc88146f7de56"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "25a5c6f170d880baaa2dc8c7b67d4b65",
-                            "sourceName": "Reps per side",
-                            "semantic": "repsPerSide",
-                            "unit": "reps"
-                          },
-                          {
-                            "id": "25a5c6f170d880e2990fc88146f7de56",
-                            "sourceName": "Weight per side",
-                            "semantic": "loadPerSideKg",
-                            "unit": "kg"
-                          }
-                        ],
                         "targets": {
                           "repsPerSide": {
                             "min": 14,
@@ -1761,24 +1354,6 @@
                         "cycleIndex": 1,
                         "setIndex": 1,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "2555c6f170d88072bbf6d9ad3f16ea86",
-                          "25a5c6f170d880e2990fc88146f7de56"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "2555c6f170d88072bbf6d9ad3f16ea86",
-                            "sourceName": "Reps",
-                            "semantic": "reps",
-                            "unit": "reps"
-                          },
-                          {
-                            "id": "25a5c6f170d880e2990fc88146f7de56",
-                            "sourceName": "Weight per side",
-                            "semantic": "loadPerSideKg",
-                            "unit": "kg"
-                          }
-                        ],
                         "targets": {
                           "reps": {
                             "min": 7,
@@ -1801,24 +1376,6 @@
                         "cycleIndex": 1,
                         "setIndex": 2,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "2555c6f170d88072bbf6d9ad3f16ea86",
-                          "25a5c6f170d880e2990fc88146f7de56"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "2555c6f170d88072bbf6d9ad3f16ea86",
-                            "sourceName": "Reps",
-                            "semantic": "reps",
-                            "unit": "reps"
-                          },
-                          {
-                            "id": "25a5c6f170d880e2990fc88146f7de56",
-                            "sourceName": "Weight per side",
-                            "semantic": "loadPerSideKg",
-                            "unit": "kg"
-                          }
-                        ],
                         "targets": {
                           "reps": {
                             "min": 7,
@@ -1841,24 +1398,6 @@
                         "cycleIndex": 1,
                         "setIndex": 3,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "2555c6f170d88072bbf6d9ad3f16ea86",
-                          "25a5c6f170d880e2990fc88146f7de56"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "2555c6f170d88072bbf6d9ad3f16ea86",
-                            "sourceName": "Reps",
-                            "semantic": "reps",
-                            "unit": "reps"
-                          },
-                          {
-                            "id": "25a5c6f170d880e2990fc88146f7de56",
-                            "sourceName": "Weight per side",
-                            "semantic": "loadPerSideKg",
-                            "unit": "kg"
-                          }
-                        ],
                         "targets": {
                           "reps": {
                             "min": 7,
@@ -1925,17 +1464,6 @@
                         "cycleIndex": 1,
                         "setIndex": 1,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "2555c6f170d88072bbf6d9ad3f16ea86"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "2555c6f170d88072bbf6d9ad3f16ea86",
-                            "sourceName": "Reps",
-                            "semantic": "reps",
-                            "unit": "reps"
-                          }
-                        ],
                         "targets": {
                           "reps": {
                             "min": 14,
@@ -1958,17 +1486,6 @@
                         "cycleIndex": 1,
                         "setIndex": 2,
                         "metricType": "source_metrics@1",
-                        "metricIds": [
-                          "2555c6f170d88072bbf6d9ad3f16ea86"
-                        ],
-                        "metricDefinitions": [
-                          {
-                            "id": "2555c6f170d88072bbf6d9ad3f16ea86",
-                            "sourceName": "Reps",
-                            "semantic": "reps",
-                            "unit": "reps"
-                          }
-                        ],
                         "targets": {
                           "reps": {
                             "min": 14,
@@ -2379,6 +1896,6 @@
     "createdAt": "2026-08-01T10:00:00.000Z"
   },
   "integrity": {
-    "canonicalPayloadHash": "50a5af9270bd9fe4518f6aba6a466885cb14e8bba9d8f978d5cf30569736ae30"
+    "canonicalPayloadHash": "12854e7a0f49369f12dfa1d79096c857fa9785da639126f6c386220416348def"
   }
 }
