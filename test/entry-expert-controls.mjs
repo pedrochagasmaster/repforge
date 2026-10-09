@@ -78,6 +78,8 @@ async function navigateToCustomPriorities(page) {
   await page.waitForSelector('[data-entry-pick="environment"]');
   await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
   await page.click("#onbNext");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
+  await page.click("#onbNext");
   await page.waitForSelector(".entry__muscle-row");
 }
 

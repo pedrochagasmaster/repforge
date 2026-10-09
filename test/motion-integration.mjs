@@ -984,6 +984,8 @@ async function generatedProgramMotion(browser, { reducedMotion = "no-preference"
     await step("environment");
     await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
     await page.click("#onbNext");
+    await step("abilities");
+    await page.click("#onbNext");
     // The last question before the result: the next Next generates the program.
     await step("priorities");
   };
@@ -1662,6 +1664,8 @@ async function entrySelectionInk(browser, { reducedMotion = "no-preference", col
   await page.click("#onbNext");
   await step("environment");
   await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
+  await page.click("#onbNext");
+  await step("abilities");
   await page.click("#onbNext");
   await step("priorities");
   // The priorities step is the one with checkboxes: two muscles and a movement to prioritise.

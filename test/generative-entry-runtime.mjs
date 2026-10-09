@@ -43,7 +43,7 @@ async function recommend(page, days) {
   await page.click("#onbNext");
   await page.click(`[data-entry-pick="daysPerWeek"][data-entry-val="${days}"]`);
   await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]'); await page.click("#onbNext");
-  await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]'); await page.click("#onbNext"); await page.click("#onbNext");
+  await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]'); await page.click("#onbNext"); await page.click("#onbNext"); await page.click("#onbNext");
   if (await page.locator("[data-entry-select-candidate]").count()) await page.locator("[data-entry-select-candidate]").first().click();
   await page.waitForSelector("#entryActivate", { timeout: 10000 });
 }

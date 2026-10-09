@@ -28,11 +28,21 @@ function check(condition, message, detail) {
 const state = (page) => page.evaluate(() => window.__repforgeWorkoutDraft.state());
 const entry = (page) => page.evaluate(() => window.__repforgeEntryState?.());
 
-async function fresh(browser) {
+async function fresh(browser, { uuid } = {}) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(String(error?.stack || error)));
+  // A pinned draftId pins the generator's seed, so a scenario that needs a
+  // specific candidate-selection outcome (the abilities-gated exercise proof
+  // below) is deterministic rather than depending on which random id this
+  // run happened to draw.
+  if (uuid) {
+    await page.addInitScript((fixed) => {
+      try { Object.defineProperty(globalThis.crypto, "randomUUID", { value: () => fixed, configurable: true }); }
+      catch { globalThis.crypto.randomUUID = () => fixed; }
+    }, uuid);
+  }
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
   return { context, page, errors };
@@ -42,7 +52,7 @@ async function pick(page, key, value) {
   await page.locator(`[data-entry-pick="${key}"][data-entry-val="${value}"]`).first().click();
 }
 
-async function answerGenerate(page, { days = 4, minutes = 60, environment = "commercial_gym" } = {}) {
+async function answerGenerate(page, { days = 4, minutes = 60, environment = "commercial_gym", abilities = null } = {}) {
   await page.click("#firstRunCreate");
   await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
   await page.locator('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]').click();
@@ -56,6 +66,13 @@ async function answerGenerate(page, { days = 4, minutes = 60, environment = "com
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "environment");
   await pick(page, "environment", environment);
   await page.click("#onbNext");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
+  if (abilities === "skip") {
+    await page.click("#entryAbilitiesSkip");
+  } else {
+    for (const [key, choice] of Object.entries(abilities || {})) await pick(page, "competencyAnswer", `${key}|${choice}`);
+    await page.click("#onbNext");
+  }
   await page.waitForFunction(() => ["priorities", "result"].includes(window.__repforgeEntryState?.()?.step));
   if ((await entry(page)).step === "priorities") await page.click("#onbNext");
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "result");
@@ -113,6 +130,38 @@ async function main() {
     check(JSON.stringify((await state(page)).programMeta.programDefinition) === JSON.stringify(definition),
       "the activated program survives a reload exactly");
     await context.close();
+
+    // Movement abilities: answering yes unlocks a gated exercise (#323) ----
+    const abilityYes = await fresh(browser, { uuid: "0" });
+    allErrors.push(abilityYes.errors);
+    await answerGenerate(abilityYes.page, { abilities: { benchPress10: "yes" } });
+    const abilityYesStaged = await entry(abilityYes.page);
+    check(abilityYesStaged.answers.competencyAnswers?.benchPress10 === true,
+      "answering yes to bench press x10 records a true competency answer", abilityYesStaged.answers.competencyAnswers);
+    const benchId = Catalog.exercises.find((item) => item.name === "Barbell bench press").id;
+    const abilityYesMapped = Adapter.programRequestFromAnswers(abilityYesStaged.answers, Catalog);
+    const seed = String(abilityYesStaged.draftId);
+    const withAnswer = abilityYesMapped.ok ? Compiler.generateProgram(abilityYesMapped.value, Catalog, seed) : { ok: false };
+    const withoutAnswerRequest = abilityYesMapped.ok
+      ? { ...abilityYesMapped.value, competencyAnswers: { ...abilityYesMapped.value.competencyAnswers, benchPress10: null } }
+      : null;
+    const withoutAnswer = withoutAnswerRequest ? Compiler.generateProgram(withoutAnswerRequest, Catalog, seed) : { ok: false };
+    const idsWith = withAnswer.ok ? withAnswer.value.days.flatMap((day) => (day.slots || []).map((slot) => slot.exerciseId)) : [];
+    const idsWithout = withoutAnswer.ok ? withoutAnswer.value.days.flatMap((day) => (day.slots || []).map((slot) => slot.exerciseId)) : [];
+    check(idsWith.includes(benchId) && !idsWithout.includes(benchId),
+      "answering yes to bench press x10 makes barbell bench press eligible for a commercial-gym program, where it was not without the answer",
+      { idsWith, idsWithout });
+    await abilityYes.context.close();
+
+    // Skipping movement abilities keeps every competency answer unsure -----
+    const abilitySkip = await fresh(browser);
+    allErrors.push(abilitySkip.errors);
+    await answerGenerate(abilitySkip.page, { abilities: "skip" });
+    const abilitySkipStaged = await entry(abilitySkip.page);
+    const abilitySkipMapped = Adapter.programRequestFromAnswers(abilitySkipStaged.answers, Catalog);
+    check(abilitySkipMapped.ok && Object.values(abilitySkipMapped.value.competencyAnswers).every((value) => value === null),
+      "skipping movement abilities keeps every competency answer unsure (null)", abilitySkipMapped.value?.competencyAnswers);
+    await abilitySkip.context.close();
 
     // Cancel leaves no program ---------------------------------------------
     const cancel = await fresh(browser);

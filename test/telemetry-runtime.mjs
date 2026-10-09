@@ -257,6 +257,8 @@ async function driveOnboarding(page, { experience = "6_to_24m", days = 4 } = {})
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "environment");
   await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
   await page.click("#onbNext");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
+  await page.click("#onbNext");
   await page.waitForFunction(() => ["priorities", "result"].includes(window.__repforgeEntryState?.()?.step));
   if (await entryStep(page) === "priorities") await page.click("#onbNext");
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "result");

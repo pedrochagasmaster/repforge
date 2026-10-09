@@ -90,6 +90,8 @@ async function completeOnboarding(page) {
   await atStep(["environment"]);
   await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
   await page.click("#onbNext");
+  await atStep(["abilities"]);
+  await page.click("#onbNext");
   await atStep(["priorities", "result"]);
   if (await page.evaluate(() => window.__repforgeEntryState?.()?.step === "priorities")) await page.click("#onbNext");
   await atStep(["result"]);

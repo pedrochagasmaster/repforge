@@ -33,6 +33,8 @@ async function reachPriorities(page) {
   await page.click("#onbNext");
   await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
   await page.click("#onbNext");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
+  await page.click("#onbNext");
 }
 
 export async function runProgramEntryA11y(browser, check = assert) {

@@ -569,6 +569,8 @@ async function walkRecommend(page) {
   await waitStep(page, ["environment"]);
   await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
   await page.click("#onbNext");
+  await waitStep(page, ["abilities"]);
+  await page.click("#onbNext");
   await waitStep(page, ["priorities", "result"]);
   if (await entryStep(page) === "priorities") await page.click("#onbNext");
   await waitStep(page, ["result"]);

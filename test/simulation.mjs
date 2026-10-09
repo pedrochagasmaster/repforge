@@ -132,6 +132,8 @@ async function driveRecommendOnboarding(page, {
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "environment");
   await pick("environment", environment);
   await page.click("#onbNext");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
+  await page.click("#onbNext");
   await page.waitForFunction(() => ["priorities", "result"].includes(window.__repforgeEntryState?.()?.step));
   if (await step() === "priorities") await page.click("#onbNext");
   await page.waitForSelector("#entryActivate", { timeout: 10000 });
