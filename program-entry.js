@@ -78,6 +78,7 @@
       "background",
       "schedule",
       "environment",
+      "abilities",
       "priorities",
       "result",
       "preview",
@@ -87,6 +88,7 @@
       "background",
       "schedule",
       "environment",
+      "abilities",
       "priorities",
       "exercise_preferences",
       "custom_shape",
@@ -106,6 +108,7 @@
     "sessionMinutes",
     "preferredRestSeconds",
     "environment",
+    "competencyAnswers",
     "primaryMuscles",
     "priorityMovements",
     "exerciseConstraints",
@@ -647,6 +650,19 @@
     }
     if (hasOwn(raw, "exerciseConstraints")) {
       output.exerciseConstraints = normalizeConstraints(raw.exerciseConstraints, "$.answers.exerciseConstraints", issues);
+    }
+    if (hasOwn(raw, "competencyAnswers")) {
+      const answers = raw.competencyAnswers;
+      if (!isPlainObject(answers)) issues.push("$.answers.competencyAnswers:not_object");
+      else {
+        rejectUnknownKeys(answers, new Set(COMPETENCY_ANSWERS), "$.answers.competencyAnswers", issues);
+        const normalizedCompetency = {};
+        for (const [key, value] of Object.entries(answers)) {
+          if (![true, false, null].includes(value)) issues.push(`$.answers.competencyAnswers.${key}:invalid`);
+          else normalizedCompetency[key] = value;
+        }
+        output.competencyAnswers = normalizedCompetency;
+      }
     }
     const mustHave = new Set(output.mustHaveExercises || []);
     for (const constraint of output.exerciseConstraints || []) {
@@ -1599,6 +1615,7 @@
         return issues;
       }
       case "environment": return answers.environment ? [] : ["environment_required"];
+      case "abilities": return [];
       case "priorities": return musclePartitionIssues(answers, "$.answers");
       case "exercise_preferences": return [];
       case "custom_shape": {
@@ -1819,6 +1836,7 @@
     ENTRY_MOVEMENTS,
     ENTRY_ENVIRONMENTS,
     CONSTRAINT_REASONS,
+    COMPETENCY_ANSWERS,
     ROUTES,
     ROUTE_STEPS,
     ROUTE_PREFILL_KEYS,
