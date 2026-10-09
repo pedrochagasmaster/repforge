@@ -14943,8 +14943,8 @@ function entryPatchAnswers(patch){
    result of its two questions, not a third. */
 function entrySections(route){
   const sections={
-    recommend:[["desired_result","background"],["schedule"],["environment"],["priorities"]],
-    custom:[["desired_result","background"],["schedule"],["environment"],["priorities"],["exercise_preferences"],["custom_shape"]],
+    recommend:[["desired_result","background"],["schedule"],["environment"],["abilities"],["priorities"]],
+    custom:[["desired_result","background"],["schedule"],["environment"],["abilities"],["priorities"],["exercise_preferences"],["custom_shape"]],
     browse:[["schedule"],["environment"]]}[route]||[];
   return route==="custom"&&!entryCustomShapeRequired()?sections.filter(group=>group[0]!=="custom_shape"):sections}
 function entryProgressSections(route){
@@ -15102,6 +15102,34 @@ function entryEnvironmentBody(){
     ENTRY_ENVIRONMENTS.map(v=>entryOpt("environment",v,t(`entry.environment.${v}`),"",{selected:entryState.answers.environment?.kind===v,icon:ENTRY_ENV_ICONS[v]||"dumbbell"})).join("")+`</div>`}
 function renderEnvironmentStep(){
   return entryHeading(t("entry.environment.title"))+`<p class="onb__explain">${esc(t("entry.environment.lede"))}</p>${entryLegacyBanner()}`+entryEnvironmentBody()}
+/* Movement abilities: a yes/no/unsure row per competency the compiler checks
+   before it leans on a gated exercise (PRECONDITION_COMPETENCIES). Unsure is
+   the default (null), so skipping the whole step changes nothing (#323). */
+const ENTRY_ABILITY_CHOICES=["yes","no","unsure"];
+function entryAbilityKeys(){return ProgramEntry?.COMPETENCY_ANSWERS||[]}
+function entryAbilityAnswer(key){
+  const value=entryState?.answers?.competencyAnswers?.[key];
+  if(value===true)return"yes";
+  if(value===false)return"no";
+  return"unsure"}
+function entryAbilityOption(key,choice){
+  const current=entryAbilityAnswer(key);
+  const selected=current===choice;
+  const label=t(`entry.abilities.choice.${choice}`);
+  return `<button type="button" class="radio-card${selected?" is-selected":""}" data-entry-pick="competencyAnswer" data-entry-val="${esc(`${key}|${choice}`)}" role="radio" aria-checked="${selected?"true":"false"}">`+
+    `<span class="radio-card__body"><span class="radio-card__title">${esc(label)}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button>`}
+function entryAbilityRow(key){
+  const labelId=`entryAbility-${esc(key)}`;
+  return `<div class="entry__ability-row">`+
+    `<p class="entry__group-lab" id="${labelId}">${esc(t(`entry.abilities.question.${key}`))}</p>`+
+    `<div class="onb__opts onb__opts--reasons" role="radiogroup" aria-labelledby="${labelId}">`+
+    ENTRY_ABILITY_CHOICES.map(choice=>entryAbilityOption(key,choice)).join("")+`</div></div>`}
+function entryAbilitiesBody(){
+  return `<div class="entry__ability-list">`+entryAbilityKeys().map(entryAbilityRow).join("")+`</div>`}
+function renderAbilitiesStep(){
+  const skip=`<button type="button" class="btn btn--steel entry__skip" id="entryAbilitiesSkip">${esc(t("entry.skip_optional"))}</button>`;
+  return entryHeading(t("entry.abilities.title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
+    `<p class="onb__explain">${esc(t("entry.abilities.lede"))}</p>`+skip+entryAbilitiesBody()}
 function entryMuscleBlocked(key,muscle){
   const a=entryState?.answers||{};
   const primary=new Set(a.primaryMuscles||[]);
@@ -16596,6 +16624,7 @@ function renderOnboarding(){
   else if(stepId==="background")html+=entryRailAfterTitle(renderBackgroundStep(),rail);
   else if(stepId==="schedule")html+=entryRailAfterTitle(renderScheduleStep(),rail);
   else if(stepId==="environment")html+=entryRailAfterTitle(renderEnvironmentStep(),rail);
+  else if(stepId==="abilities")html+=entryRailAfterTitle(renderAbilitiesStep(),rail);
   else if(stepId==="priorities")html+=entryRailAfterTitle(renderPrioritiesStep(),rail);
   else if(stepId==="exercise_preferences")html+=entryRailAfterTitle(renderExercisePreferencesStep(),rail);
   else if(stepId==="custom_shape")html+=entryRailAfterTitle(renderCustomShapeStep(),rail);
@@ -16809,6 +16838,13 @@ function wireEntryDom(){
       else if(status==="ignore")ignored.push(muscle);
       entryPatchAnswers({primaryMuscles:primary,deEmphasizedMuscles:deemphasized,ignoredMuscles:ignored});
       return}
+    if(key==="competencyAnswer"){
+      const [competency,choice]=String(raw).split("|");
+      if(!entryAbilityKeys().includes(competency)||!ENTRY_ABILITY_CHOICES.includes(choice))return;
+      const current={...(entryState.answers.competencyAnswers||{})};
+      current[competency]=choice==="yes"?true:choice==="no"?false:null;
+      entryPatchAnswers({competencyAnswers:current});
+      return}
     if(key==="environmentEquipment"||key==="environmentCapabilities"){
       const env=entryEnvironmentValue()||{kind:"other",equipment:[],capabilities:[]};
       const field=key==="environmentEquipment"?"equipment":"capabilities";
@@ -17011,6 +17047,10 @@ function wireEntryAnswerControls(){
   if(skip)skip.onclick=()=>{
     if(!entryPrioritiesEmpty())return;
     entryState=ProgramEntry.setAnswers(entryState,{primaryMuscles:[],priorityMovements:[],exerciseConstraints:[]});
+    entryAdvance()};
+  const abilitiesSkip=$("#entryAbilitiesSkip");
+  if(abilitiesSkip)abilitiesSkip.onclick=()=>{
+    entryState=ProgramEntry.setAnswers(entryState,{competencyAnswers:{}});
     entryAdvance()};
   // Recommend's last question hands over to the program itself.
   const next=$("#onbNext");
