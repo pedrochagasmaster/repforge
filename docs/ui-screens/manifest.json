@@ -1321,6 +1321,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "share-too-large",
+      "flow": "program",
+      "label": "Program — share as file",
+      "scenario": "An edited generated program is too large for a setup link; the sheet offers sharing it as a program file.",
+      "variants": "demandingText"
+    },
+    {
       "id": "text-export",
       "flow": "program",
       "label": "Program — text export",

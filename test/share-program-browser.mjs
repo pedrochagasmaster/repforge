@@ -37,8 +37,35 @@ function check(condition, message, detail) {
 }
 const state = (page) => page.evaluate(() => window.__repforgeWorkoutDraft.state());
 
+/** Records what app.js emits through the real telemetry boundary (consent on),
+ *  so the share outcomes can be checked without a network adapter. */
+const RECORDER = () => {
+  window.__captured = [];
+  let installed;
+  Object.defineProperty(window, "RepForgeTelemetry", {
+    configurable: true,
+    get: () => installed,
+    set(next) {
+      installed = next;
+      try {
+        next.boot({
+          adapter: { capture: (name, properties) => window.__captured.push([name, { ...properties }]), setEnabled() {} },
+          appVersion: "test", crypto: window.crypto, location: window.location, now: () => new Date(),
+          releaseChannel: "preview", storage: window.localStorage,
+        });
+      } catch (error) { window.__telemetryBootError = String(error); }
+    },
+  });
+};
+// The event's own properties, without the envelope telemetry adds to every event.
+const shareEvents = (page) => page.evaluate(() => window.__captured
+  .filter(([name]) => name === "share_setup_outcome")
+  .map(([, { action, program_kind, form, size_vs_limit }]) => ({ action, program_kind, form, size_vs_limit })));
+
 async function fresh(browser) {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, acceptDownloads: true });
+  await context.addInitScript(RECORDER);
+  await context.addInitScript(() => window.localStorage.setItem("repforge_telemetry_enabled_v1", "true"));
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(String(error?.stack || error)));
@@ -115,6 +142,8 @@ async function main() {
     const encoded = generated.link?.split("#setup=")[1] || "";
     check(generated.link && encoded.startsWith("v4.") && encoded.length <= 3072,
       "a generated seven-cycle program shares within the link limit", { length: encoded.length, status: generated.status });
+    check(same(await shareEvents(sender.page), [{ action: "link_ready", program_kind: "generated", form: "recipe", size_vs_limit: "under_half" }]),
+      "a ready recipe link reports its kind, form and size against the limit", await shareEvents(sender.page));
     const receiver = await receive(browser, generated.link);
     errors.push(receiver.errors);
     const cap = await startAndActivate(receiver.page);
@@ -183,6 +212,10 @@ async function main() {
     const manual = await shareLink(builder.page);
     check(manual.link && manual.link.split("#setup=")[1].length <= 3072, "a Build program shares in full within the limit",
       { length: manual.link?.split("#setup=")[1]?.length, status: manual.status });
+    const manualEvents = await shareEvents(builder.page);
+    check(manualEvents.length === 1 && manualEvents[0].action === "link_ready" && manualEvents[0].program_kind === "manual" &&
+      manualEvents[0].form === "full" && ["under_half", "under_limit"].includes(manualEvents[0].size_vs_limit),
+      "a ready full link reports a manual program and its size", manualEvents);
     const manualReceiver = await receive(browser, manual.link);
     errors.push(manualReceiver.errors);
     await startAndActivate(manualReceiver.page);
@@ -198,6 +231,35 @@ async function main() {
     const tooLarge = await shareLink(edited.page);
     check(!tooLarge.link && /too large|too long|grande|longo/i.test(tooLarge.status),
       "an edited generated program too large for a link is refused, not truncated", tooLarge);
+    const offered = await edited.page.evaluate(() => ({
+      file: !!document.querySelector("#shareSetupFile:not(.hidden):not([disabled])"),
+      copy: !document.querySelector("#shareSetupCopy")?.classList.contains("hidden"),
+      share: !document.querySelector("#shareSetupShare")?.classList.contains("hidden"),
+      linkIntro: !document.querySelector("#shareSetupBody")?.classList.contains("hidden"),
+      status: document.querySelector("#shareSetupStatus")?.textContent?.trim() || "",
+    }));
+    check(offered.file && !offered.copy && !offered.share && !offered.linkIntro && /file|arquivo/i.test(offered.status),
+      "a refused link offers the program as a file instead, and no link actions or link instructions", offered);
+    const refusedEvents = await shareEvents(edited.page);
+    check(refusedEvents.length === 1 && refusedEvents[0].action === "link_refused" && refusedEvents[0].program_kind === "generated_edited" &&
+      refusedEvents[0].form === "full" && ["over_2x", "over_4x"].includes(refusedEvents[0].size_vs_limit),
+      "a refused link reports an edited generated program and how far over the limit it is", refusedEvents);
+    const editedDefinition = (await state(edited.page)).programMeta.programDefinition;
+    if (offered.file) {
+      const [fileDownload] = await Promise.all([edited.page.waitForEvent("download"), edited.page.locator("#shareSetupFile").click()]);
+      const sharedFile = JSON.parse(await (await import("node:fs/promises")).readFile(await fileDownload.path(), "utf8"));
+      check(sharedFile.kind === "taurifer-program" && sharedFile.version === 4 && same(sharedFile.definition, editedDefinition),
+        "the shared file carries the edited program's canonical definition", firstDifference(editedDefinition, sharedFile.definition));
+      const fileEvents = await shareEvents(edited.page);
+      check(fileEvents.at(-1)?.action === "file_shared" && fileEvents.at(-1)?.program_kind === "generated_edited",
+        "sharing the file is reported as the fallback taken", fileEvents);
+      const recipient = await fresh(browser);
+      errors.push(recipient.errors);
+      const imported = await recipient.page.evaluate((text) => window.__repforgeParseProgramSource(text, "program.json"), JSON.stringify(sharedFile));
+      check(same(imported?.definition, editedDefinition),
+        "another device's Import reads the shared file back as the same program", firstDifference(editedDefinition, imported?.definition));
+      await recipient.context.close();
+    }
     await edited.context.close();
 
     // A legacy link is refused and writes nothing ------------------------------

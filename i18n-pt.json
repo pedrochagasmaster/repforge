@@ -1427,6 +1427,8 @@
   "program.share_setup_building": "Preparando link…",
   "program.share_setup_share": "Compartilhar link",
   "program.share_setup_copy": "Copiar link",
+  "program.share_setup_file": "Compartilhar como arquivo",
+  "program.share_setup_too_large": "Este treino é grande demais para um link de configuração. Compartilhe como arquivo de treino; a outra pessoa abre Importar e escolhe o arquivo.",
   "program.share_setup_unsupported": "Este navegador não pode criar links de configuração.",
   "program.share_setup_invalid": "Este treino tem ajustes que um link de configuração não aceita.",
   "program.share_setup_blocked.one": "Corrija 1 exercício antes de compartilhar.",

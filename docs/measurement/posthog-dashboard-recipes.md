@@ -130,6 +130,36 @@ window in both numerator and denominator. Show pending installations and return
 route/version require earlier-event attribution; do not copy those properties
 onto `session_completed`. Duplicate expectations must pass before interpretation.
 
+## Dashboard: Program sharing
+
+`share_setup_outcome` is the evidence for the Evidence-only "Encrypted
+server-backed setup links" backlog item. Each Share-sheet open reports one
+`link_ready` or `link_refused` (too large for a setup link), then `copied`,
+`shared` or `file_shared` when the lifter acts. Every outcome carries
+`program_kind` (`generated`, `generated_edited`, `manual`, `other`), `form`
+(`recipe` or `full`) and `size_vs_limit` (`under_half`, `under_limit`,
+`over_limit`, `over_2x`, `over_4x` against the link limit). No program
+content, names or sizes in bytes are sent.
+
+1. **Link refusal rate**: Trends, unique installations performing
+   `share_setup_outcome` with `action=link_refused` / unique installations
+   with `action` in (`link_ready`, `link_refused`); weekly. Interpret only after
+   50 attempting installations on one app version.
+2. **Refusals by program kind and size**: Trends, `action=link_refused`,
+   breakdown `program_kind`, then `size_vs_limit`. Shows whether refusals come
+   from edited generated programs (a recipe-plus-edits link would fit) or
+   from Build and imported programs (only a hosted store would).
+3. **File fallback follow-through**: Funnel, unique installations,
+   `share_setup_outcome` `action=link_refused` → `share_setup_outcome`
+   `action=file_shared`; one-hour conversion window. A low conversion means
+   the file is not an acceptable substitute for a link.
+4. **Link completion**: Funnel, `action=link_ready` → `action` in
+   (`copied`, `shared`); one-hour window, breakdown `form`. The baseline the
+   refused path is compared with.
+
+The reopen thresholds are in the backlog item; do not lower them after
+looking at the data.
+
 ## Dashboard: Privacy and automatic-product availability
 
 1. **Opt-out rate**: operational denominator from installs observed in the
