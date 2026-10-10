@@ -270,12 +270,27 @@ async function proveCoherentForeignConflict(browser) {
   await page.fill(maxSelector, "12"); await page.locator(maxSelector).press("Tab");
   const loadSelector = '[data-role="metric-target"][data-cycle-index="1"][data-semantic="loadKg"][data-set-index="1"][data-bound="value"]';
   await page.fill(loadSelector, "65"); await page.locator(loadSelector).press("Tab");
-  await page.waitForFunction((exerciseId) => {
-    const slot = window.__repforgeEntryState().result.preview.programDefinition.days
-      .flatMap((day) => day.slots).find((candidate) => candidate.exerciseId === exerciseId);
+  // entryState advances synchronously the instant persistSetupDraft is
+  // called, well before its durable write lands — every other wait in this
+  // file deliberately uses that to drive the UI at optimistic-update speed,
+  // but it is not a signal that this edit's write (or any queued ahead of
+  // it) has settled. baselineRaw below, and lastPersistedEntryState in the
+  // product, are only updated once the write's own critical section runs;
+  // under contention that can lag entryState enough to race this proof's own
+  // gate setup, which is exactly the failure this wait exists to rule out.
+  // Wait on the one signal that is actually durable: the stored raw bytes
+  // themselves, decoded the same way persistSetupDraft's own queuedState is
+  // shaped. Every write before this one in the FIFO queue (the decrements,
+  // min, max) is necessarily already settled too, since this one could not
+  // have reached storage otherwise.
+  await page.waitForFunction((params) => {
+    let envelope;
+    try { envelope = JSON.parse(localStorage.getItem(params.key) || ""); } catch { return false; }
+    const slot = envelope?.state?.result?.preview?.programDefinition?.days
+      ?.flatMap((day) => day.slots || []).find((candidate) => candidate.exerciseId === params.exerciseId);
     const c1 = slot?.prescriptionsByCycle?.find((c) => c.cycleIndex === 1);
     return c1?.sets?.length === 1 && c1.sets[0]?.targets?.loadKg === 65;
-  }, EXERCISE_ID, { timeout: 10000 });
+  }, { key: SETUP_DRAFT_KEY, exerciseId: EXERCISE_ID }, { timeout: 10000 });
   const baselineRaw = await page.evaluate((key) => localStorage.getItem(key), SETUP_DRAFT_KEY);
   check(typeof baselineRaw === "string" && baselineRaw.length > 0, "a known-good baseline is durably saved before the race", { length: baselineRaw?.length });
 
