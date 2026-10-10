@@ -80,6 +80,7 @@ not grant merge authority for the next plan.
 
 | Plan | State | Meaning |
 |---|---|---|
+| [070](./070-onboarding-b-program-editor.md) | **IN PROGRESS** | Generate's result screen becomes onboarding B's program editor (ADR 0020, PR #350): per-exercise sheet, day actions, undo and restore, live session estimates. It replaces the preview step and the Build-editor jump. |
 | [067](./067-engine-replacement.md) | **SPECIFICATION READY — APPLICATION IMPLEMENTATION PENDING** | Owner-directed full catalog/ontology, generation and progression replacement; reproducible sanitized evidence. Supersedes the future engine direction of Plans 046–048 and 065. |
 | [066](./066-mobile-native-platform-polish.md) | **IMPLEMENTED — PR #308; DEVICE REVIEW PENDING** | Accessible zoom (ADR 0018), capability-gated hover, tap feedback, overscroll containment, visible-viewport overlays, and control-only selection/callout protection. Physical acceptance remains with the existing device matrix and Plan 059. |
 | [065](./065-program-generation-engine-overhaul.md) | **IMPLEMENTED — PR #306; REPLACEMENT SPECIFIED IN 067** | Fixes every finding of the 3 October 2026 program-generation audits (F01 one-set compounds, false Home posterior work, job collapse onto one exercise, Foundation effort drift, no-op priorities, capability gaps) and overhauls the compiler into a function-aware, week-aware, self-assessing resolver with a 200-program quality gate. |
