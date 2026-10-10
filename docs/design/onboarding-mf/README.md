@@ -1,73 +1,69 @@
 # Onboarding candidates referenced on MacroFactor Workouts
 
-Status: **awaiting the owner's choice.** Design candidates only, with no production code. Scope is onboarding: fresh install to an activated program. The main screens stay on Direction D ([ADR 0016](../../adr/0016-direction-d-design-reference.md)).
+Status: **awaiting the owner's choice.** Working prototypes only, with no production code. Scope is onboarding: fresh install to an activated program. The main screens stay on Direction D ([ADR 0016](../../adr/0016-direction-d-design-reference.md)).
 
 | Candidate | Idea | Screens, hub to Activate |
 | --- | --- | --- |
-| [A, Faithful](a-faithful/index.html) | MacroFactor's structure and visual language almost one to one: charcoal surface, bordered option cards with a leading icon and a trailing radio, section title and progress rule in the header, full-width white button, wheel and ruler pickers. Taurifer mark and copy. | **17** (14 questions, intro, building, result) |
-| [B, MacroFactor structure, Taurifer identity](b-identity/index.html) | The same flow and patterns in Taurifer's paper, ink, Plex Sans and Plex Mono, one-accent budget, sectioned progress rule and calm copy. | **17** (14 questions, intro, building, result) |
-| [C, Compressed](c-compressed/index.html) | All of MacroFactor's questions in fewer screens: Basics on two, Gym and equipment on one, Program on three. Same identity as B. | **8** (6 questions, building, result) |
+| [A, Faithful](prototype/app.html?c=a&lang=pt&theme=dark&reset=1) | MacroFactor's structure and visual language almost one to one: charcoal surface, bordered option cards with a leading icon and a trailing radio, section title and progress rule in the header, full-width white button, wheel and ruler pickers. Taurifer mark and copy. | **17** (14 questions, intro, building, result) |
+| [B, MacroFactor structure, Taurifer identity](prototype/app.html?c=b&lang=pt&theme=light&reset=1) | The same flow and patterns in Taurifer's paper, ink, Plex Sans and Plex Mono, one-accent budget, sectioned progress rule and calm copy. | **17** (14 questions, intro, building, result) |
+| [C, Compressed](prototype/app.html?c=c&lang=pt&theme=light&reset=1) | All of MacroFactor's questions in fewer screens: Basics on two, Gym and equipment on one, Program on three. Same identity as B. | **8** (6 questions, building, result) |
 
 Today's Generate route has 8 steps (`ROUTE_STEPS.recommend` in `program-entry.js`: six questions, result and preview). C matches that count while asking MacroFactor's full question set. A and B more than double it.
 
 ## How these were made
 
-**Appllama can't generate mockups.** The Appllama connector is a read-only research library. Its tools search apps, walk an app's screens in journey order, search screens by keyword or meaning, and list flows and UI elements. None of them generates, renders or exports a design. The owner chose the alternative on 2026-10-10: hand-built static HTML and CSS mockups, with Appllama used only for research. **Every frame here is hand-built**, not exported from Appllama. Appllama also doesn't have MacroFactor *Workouts*; it has MacroFactor's nutrition app, used below as the closest relative. The owner's 11 Workouts screenshots stayed local and are not committed. The research used 12 Appllama credits.
+**Working prototypes, not exports.** Open [`prototype/index.html`](prototype/index.html) from a static server at the repository root (`python3 -m http.server` works; the engine worker needs HTTP, not `file://`). Each candidate runs end to end in PT or EN, light or dark:
 
-What is real and what is drawn:
+- **The engine is the real one.** `prototype/engine-worker.js` loads `program-compiler.js`, `exercise-metrics.js` and `program-entry-adapter.js` in a Web Worker and builds the request with `programRequestFromAnswers`. Every answer changes the program you see: day tabs with rest days, exercises, set lines, rep ranges, per-set RIR, muscle chips and session time. The inputs the adapter doesn't take yet are applied in the worker exactly as Plan 068 and the table below describe: the Everything and Warehouse presets, the thirteen equipment groups (add and remove), weeks and rep pattern, deload, and movement confirmations. They are prototype-only.
+- **Offers are verified.** For Plan 068 slice C the worker confirms every gated movement once, keeps the slots that changed, then regenerates each candidate alone with the same seed and offers it only if it lands in that slot. "Sim, trocar" regenerates in place, announces the change and moves focus to Desfazer.
+- **Conflicts are real.** Untick the pull-up bar and bands under Casa and the result is the compiler's own `no_eligible_exercise` for vertical pull, with a way back to the equipment step.
+- **The motion is the app's own.** Pages push and pop with `RepForgeMotion.animatePush` (the `navPush` spring), A adds MacroFactor's under-page parallax, the B/C day-tab underline travels with `animateIndicator`, C's equipment disclosure opens with `animateSlot`, the result builds in reading order with the O3 stagger from `motion-polish.css`, and choice cards follow O2 (quiet ring, no check growth). Sheets open on `navPush`, dismiss on `revealOut` and settle a released drag on `gestureSettle`. Under reduced motion (system setting or `&rm=1`) every frame is drawn at rest.
+- **Controls behave like the real thing:** scroll-snapping wheels for birth date and height (cm or ft-in), a momentum ruler for weight (kg or lb), segmented controls, switches, checklists, a block-length stepper in a bottom sheet you can drag down, a Cancel confirmation as a native dialog, and the browser or Android back gesture as the app's back. Answers persist for the session, so a reload resumes where you were.
+- **Deep links** for review: `app.html?c=b&lang=pt&theme=light&step=equipment` opens a step directly, and `&demo=1` fills a sample answer set.
+- **Where it ends.** Activate lands on the live catalog capture of Today, not on your program: the prototype doesn't write app state. Build and Import open their first screen and then stop on a card that says so.
 
-- **Engine output is real.** The result screen's program comes from `program-compiler.js` through `programRequestFromAnswers` (seed 1, muscle growth, 6–24 months, 4 days, commercial gym, 60 min). That covers day names and rest days, exercises, set lines, rep ranges, per-set RIR, muscle chips and estimated session time. `src/engine-sample.cjs` regenerates `src/program-data.js` and checks the two facts below.
-- **The equipment conflict is real.** Home equipment minus the pull-up bar and resistance bands returns `no_eligible_exercise` for `upper_b_vertical_pull` (Plan 068 OD-4).
-- **The inline offer is real.** With the bench answer left as "not sure", confirming Barbell bench press changes exactly one slot: Upper A's Smith machine bench press becomes Barbell bench press (Plan 068 slice C).
-- **Copy is proposed, not cataloged.** It follows the brand guide: sentence case, no exclamation marks, *você*, no em dashes in prose, and "dispositivo" rather than "aparelho". Accepted strings move into `i18n-*.json` during implementation.
-- **The glyphs are drawn for these mockups** on the brand guide's 24 grid. Exercises without art in `assets/exercises/` show a monogram tile.
+**Appllama can't generate mockups.** The Appllama connector is a read-only research library: it searches apps, walks an app's screens in journey order, searches screens and lists flows and UI elements. It generates, renders and exports nothing, so every screen here is hand-built HTML and CSS, as the owner chose on 2026-10-10, and Appllama was used only for research. It also doesn't have MacroFactor *Workouts*; MacroFactor's nutrition app stood in as the closest relative. The owner's 11 Workouts screenshots stayed local. The research used 12 Appllama credits.
 
-Each candidate folder has `index.html`, a board with the annotation for every frame, and `png/`. The PNGs are 390 px wide at 2x. Light and dark exist for every frame. Portuguese comes first, with English for the result, building, equipment and competency screens (A, B) and for the result, program and competency screens (C). Frames longer than one phone screen are captured whole. To recapture, run `flock /tmp/taurifer-browser.lock node docs/design/onboarding-mf/src/capture.mjs`; it needs `cd test && npm ci` first.
+**Copy is proposed, not cataloged** (`prototype/strings.js`). It follows the brand guide: sentence case, no exclamation marks, *você*, no em dashes in prose, "dispositivo" rather than "aparelho". The glyphs are drawn for the prototypes on the brand guide's 24 grid; exercises without art in `assets/exercises/` show a monogram tile.
+
+### Engine finding: a conflict takes about 20 seconds
+
+While building the conflict state I found that the compiler takes **about 22 s** (Node, devbox) to return `no_eligible_exercise` for Home without the pull-up bar, against about 150 ms for a request that succeeds. `selectAllJobs` (`program-compiler.js`) backtracks over every earlier job's candidates before it gives up on the job that has none, up to its 50,000-node cap, recomputing `candidatesForJob` at each node. In the app the generator runs on the main thread, so the screen would freeze for that long on exactly the conflict Plan 068 OD-4 introduces. The prototype runs the engine in a worker and shows a "Montando…" hairline while it waits. A fix belongs with Plan 068 slice A, for example failing fast when a job has no eligible candidate before collisions are considered. This branch changes no production code.
 
 ## Comparison board
 
-PT. A in its native charcoal, B and C in light. Every frame has the other appearance in its `png/` folder. "↑" means the question is on the screen above.
+Frames captured from the prototypes with `prototype/capture.mjs`, using `&demo=1` answers and reduced motion. PT, A in its native charcoal and B and C in light. "↑" means the question is on the screen above.
 
 | Step | A, Faithful | B, Identity | C, Compressed |
 | --- | --- | --- | --- |
-| Entry hub | <img src="a-faithful/png/hub.pt.dark.png" width="170"> | <img src="b-identity/png/hub.pt.light.png" width="170"> | <img src="c-compressed/png/hub.pt.light.png" width="170"> |
-| Section map | <img src="a-faithful/png/intro.pt.dark.png" width="170"> | <img src="b-identity/png/intro.pt.light.png" width="170"> | Dropped |
-| Sex | <img src="a-faithful/png/sex.pt.dark.png" width="170"> | <img src="b-identity/png/sex.pt.light.png" width="170"> | <img src="c-compressed/png/about.pt.light.png" width="170"><br>Sex, birth date, height and weight on one screen |
-| Birth date | <img src="a-faithful/png/birth.pt.dark.png" width="170"> | <img src="b-identity/png/birth.pt.light.png" width="170"> | ↑ |
-| Height | <img src="a-faithful/png/height.pt.dark.png" width="170"> | <img src="b-identity/png/height.pt.light.png" width="170"> | ↑ |
-| Weight | <img src="a-faithful/png/weight.pt.dark.png" width="170"> | <img src="b-identity/png/weight.pt.light.png" width="170"> | ↑ |
-| Lifting experience | <img src="a-faithful/png/lifting.pt.dark.png" width="170"> | <img src="b-identity/png/lifting.pt.light.png" width="170"> | <img src="c-compressed/png/experience.pt.light.png" width="170"><br>Lifting and cardio |
-| Cardio experience | <img src="a-faithful/png/cardio.pt.dark.png" width="170"> | <img src="b-identity/png/cardio.pt.light.png" width="170"> | ↑ |
-| Gym location | <img src="a-faithful/png/gym.pt.dark.png" width="170"> | <img src="b-identity/png/gym.pt.light.png" width="170"> | <img src="c-compressed/png/gym.pt.light.png" width="170"><br>Location and equipment |
-| Equipment | <img src="a-faithful/png/equipment.pt.dark.png" width="170"> | <img src="b-identity/png/equipment.pt.light.png" width="170"> | ↑ |
-| Goal | <img src="a-faithful/png/goal.pt.dark.png" width="170"> | <img src="b-identity/png/goal.pt.light.png" width="170"> | <img src="c-compressed/png/program.pt.light.png" width="170"><br>Goal, days and session length |
-| Days per week | <img src="a-faithful/png/days.pt.dark.png" width="170"> | <img src="b-identity/png/days.pt.light.png" width="170"> | ↑ |
-| Session length | <img src="a-faithful/png/minutes.pt.dark.png" width="170"> | <img src="b-identity/png/minutes.pt.light.png" width="170"> | ↑ |
-| Muscle priorities | <img src="a-faithful/png/priorities.pt.dark.png" width="170"> | <img src="b-identity/png/priorities.pt.light.png" width="170"> | <img src="c-compressed/png/focus.pt.light.png" width="170"><br>Priorities and deload |
-| Deload | <img src="a-faithful/png/deload.pt.dark.png" width="170"> | <img src="b-identity/png/deload.pt.light.png" width="170"> | ↑ |
-| Movement abilities | <img src="a-faithful/png/competency.pt.dark.png" width="170"> | <img src="b-identity/png/competency.pt.light.png" width="170"> | <img src="c-compressed/png/competency.pt.light.png" width="170"> |
-| Building | <img src="a-faithful/png/building.pt.dark.png" width="170"> | <img src="b-identity/png/building.pt.light.png" width="170"> | <img src="c-compressed/png/building.pt.light.png" width="170"> |
-| Program cycle (result) | <img src="a-faithful/png/result.pt.dark.png" width="170"> | <img src="b-identity/png/result.pt.light.png" width="170"> | <img src="c-compressed/png/result.pt.light.png" width="170"> |
-| Equipment conflict | <img src="a-faithful/png/conflict.pt.dark.png" width="170"> | <img src="b-identity/png/conflict.pt.light.png" width="170"> | <img src="c-compressed/png/conflict.pt.light.png" width="170"> |
+| Entry hub | <img src="prototype/shots/a-hub.pt.dark.png" width="170"> | <img src="prototype/shots/b-hub.pt.light.png" width="170"> | <img src="prototype/shots/c-hub.pt.light.png" width="170"> |
+| Section map | <img src="prototype/shots/a-intro.pt.dark.png" width="170"> | <img src="prototype/shots/b-intro.pt.light.png" width="170"> | Dropped |
+| Sex | <img src="prototype/shots/a-sex.pt.dark.png" width="170"> | <img src="prototype/shots/b-sex.pt.light.png" width="170"> | <img src="prototype/shots/c-about.pt.light.png" width="170"> |
+| Birth date | <img src="prototype/shots/a-birth.pt.dark.png" width="170"> | <img src="prototype/shots/b-birth.pt.light.png" width="170"> | ↑ |
+| Height | <img src="prototype/shots/a-height.pt.dark.png" width="170"> | <img src="prototype/shots/b-height.pt.light.png" width="170"> | ↑ |
+| Weight | <img src="prototype/shots/a-weight.pt.dark.png" width="170"> | <img src="prototype/shots/b-weight.pt.light.png" width="170"> | ↑ |
+| Lifting experience | <img src="prototype/shots/a-lifting.pt.dark.png" width="170"> | <img src="prototype/shots/b-lifting.pt.light.png" width="170"> | <img src="prototype/shots/c-experience.pt.light.png" width="170"> |
+| Cardio experience | <img src="prototype/shots/a-cardio.pt.dark.png" width="170"> | <img src="prototype/shots/b-cardio.pt.light.png" width="170"> | ↑ |
+| Gym location | <img src="prototype/shots/a-gym.pt.dark.png" width="170"> | <img src="prototype/shots/b-gym.pt.light.png" width="170"> | <img src="prototype/shots/c-gym.pt.light.png" width="170"> |
+| Equipment | <img src="prototype/shots/a-equipment.pt.dark.png" width="170"> | <img src="prototype/shots/b-equipment.pt.light.png" width="170"> | ↑ |
+| Goal | <img src="prototype/shots/a-goal.pt.dark.png" width="170"> | <img src="prototype/shots/b-goal.pt.light.png" width="170"> | <img src="prototype/shots/c-program.pt.light.png" width="170"> |
+| Days per week | <img src="prototype/shots/a-days.pt.dark.png" width="170"> | <img src="prototype/shots/b-days.pt.light.png" width="170"> | ↑ |
+| Session length | <img src="prototype/shots/a-minutes.pt.dark.png" width="170"> | <img src="prototype/shots/b-minutes.pt.light.png" width="170"> | ↑ |
+| Muscle priorities | <img src="prototype/shots/a-priorities.pt.dark.png" width="170"> | <img src="prototype/shots/b-priorities.pt.light.png" width="170"> | <img src="prototype/shots/c-focus.pt.light.png" width="170"> |
+| Deload | <img src="prototype/shots/a-deload.pt.dark.png" width="170"> | <img src="prototype/shots/b-deload.pt.light.png" width="170"> | ↑ |
+| Movement abilities | <img src="prototype/shots/a-competency.pt.dark.png" width="170"> | <img src="prototype/shots/b-competency.pt.light.png" width="170"> | <img src="prototype/shots/c-competency.pt.light.png" width="170"> |
+| Program cycle (result) | <img src="prototype/shots/a-result.pt.dark.png" width="170"> | <img src="prototype/shots/b-result.pt.light.png" width="170"> | <img src="prototype/shots/c-result.pt.light.png" width="170"> |
 | Handoff: Today after Activate | <img src="../../ui-screens/screens/today/ready__phone-390-light-pt.png" width="170"> | Same | Same |
 
-English frames:
+English result, and the other appearance:
 
 | | A | B | C |
 | --- | --- | --- | --- |
-| Result | <img src="a-faithful/png/result.en.dark.png" width="170"> | <img src="b-identity/png/result.en.light.png" width="170"> | <img src="c-compressed/png/result.en.light.png" width="170"> |
-| Densest question | <img src="a-faithful/png/equipment.en.dark.png" width="170"> | <img src="b-identity/png/equipment.en.light.png" width="170"> | <img src="c-compressed/png/program.en.light.png" width="170"> |
-| Second densest | <img src="a-faithful/png/competency.en.dark.png" width="170"> | <img src="b-identity/png/competency.en.light.png" width="170"> | <img src="c-compressed/png/competency.en.light.png" width="170"> |
+| Result, EN | <img src="prototype/shots/a-result.en.dark.png" width="170"> | <img src="prototype/shots/b-result.en.light.png" width="170"> | <img src="prototype/shots/c-result.en.light.png" width="170"> |
+| Abilities, other appearance | <img src="prototype/shots/a-competency.pt.light.png" width="170"> | <img src="prototype/shots/b-competency.pt.dark.png" width="170"> | <img src="prototype/shots/c-competency.pt.dark.png" width="170"> |
+| Result, other appearance | <img src="prototype/shots/a-result.pt.light.png" width="170"> | <img src="prototype/shots/b-result.pt.dark.png" width="170"> | <img src="prototype/shots/c-result.pt.dark.png" width="170"> |
 
-Light and dark, side by side:
-
-| | A light | A dark | B light | B dark | C light | C dark |
-| --- | --- | --- | --- | --- | --- | --- |
-| Gym | <img src="a-faithful/png/gym.pt.light.png" width="120"> | <img src="a-faithful/png/gym.pt.dark.png" width="120"> | <img src="b-identity/png/gym.pt.light.png" width="120"> | <img src="b-identity/png/gym.pt.dark.png" width="120"> | <img src="c-compressed/png/gym.pt.light.png" width="120"> | <img src="c-compressed/png/gym.pt.dark.png" width="120"> |
-| Abilities | <img src="a-faithful/png/competency.pt.light.png" width="120"> | <img src="a-faithful/png/competency.pt.dark.png" width="120"> | <img src="b-identity/png/competency.pt.light.png" width="120"> | <img src="b-identity/png/competency.pt.dark.png" width="120"> | <img src="c-compressed/png/competency.pt.light.png" width="120"> | <img src="c-compressed/png/competency.pt.dark.png" width="120"> |
-| Result | <img src="a-faithful/png/result.pt.light.png" width="120"> | <img src="a-faithful/png/result.pt.dark.png" width="120"> | <img src="b-identity/png/result.pt.light.png" width="120"> | <img src="b-identity/png/result.pt.dark.png" width="120"> | <img src="c-compressed/png/result.pt.light.png" width="120"> | <img src="c-compressed/png/result.pt.dark.png" width="120"> |
-
-Other entry routes are restyled only. A and B each have three first screens: Build (`route-build`), Import (`route-import`) and a received setup link (`route-shared`). C reuses B's, because the identity is the same.
+The other entry routes are restyled only: Build and Import show their first screen, and a received setup link (`#shared` on the launcher) opens its own screen, then generates and shows the program like the Generate route.
 
 ### The handoff seam
 
@@ -130,7 +126,7 @@ C keeps every MacroFactor question and the clarity of MacroFactor's patterns, bu
 1. **Time to first set.** The product thesis puts workout speed first, and Plan 068 already argued that a screen must earn its place. In A and B, four of the six Basics screens collect data the engine doesn't read. C puts all four on one skippable screen, so a lifter who skips spends one tap on them.
 2. **It doesn't raise the step count.** C has the same number of steps as today's route (8) while asking more: equipment adjustments, deload and the MacroFactor Basics.
 3. **No identity seam.** C uses B's tokens, so Activate lands on Today with no change of material. A would bring a second visual language into the first-run experience, which ADR 0009 and the brand guide rule out.
-4. **The risks are known.** C's Program and Sobre você screens are the densest. They need a check on a real phone, and the Sobre você value rows depend on a picker sheet that A and B don't need.
+4. **The risks are known.** C's Program and Sobre você screens are the densest. They need a check on a real phone (the prototype makes that possible), and the Sobre você value rows depend on a picker sheet that A and B don't need.
 
 If the owner wants MacroFactor's one-question-per-screen rhythm, B is the fallback: the same identity, with every question on its own screen. I don't recommend A as a direction. It's useful as the reference for B and C.
 
