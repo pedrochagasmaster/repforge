@@ -421,4 +421,45 @@ assert.equal(unidentified.ok, true);
 assert.deepEqual(unidentified.value.carry, { identified: false, entries: [] }, "unidentifiable edits are reported, not guessed");
 assert.deepEqual(unidentified.value.programDefinition, threeDays);
 
+// #317: a slot's alternates are the lifter's, like its edits. A regeneration
+// carries them to the successor slot holding the same movement, whether or not
+// the edits could be identified, and they are not reported as edits.
+{
+  const withoutAlternates = (definition) => {
+    const copy = structuredClone(definition);
+    for (const slot of slotsOf(copy)) delete slot.alternates;
+    return copy;
+  };
+  const successorSlotFor = (definition, slot) => slotsOf(definition).find((entry) =>
+    entry.exerciseId === slot.exerciseId && JSON.stringify(entry.metricIds) === JSON.stringify(slot.metricIds));
+  for (const [change, successor] of [[{ kind: "fewer_days", daysPerWeek: 3 }, threeDays],
+    [{ kind: "shorter_sessions", sessionMinutes: 45 }, fortyMinutes]]) {
+    const surviving = slotsOf(base).find((slot) => successorSlotFor(successor, slot));
+    const removedSlot = slotsOf(base).find((slot) => !exerciseIds(successor).has(slot.exerciseId));
+    assert.ok(surviving, `${change.kind}: the fixture keeps a movement`);
+    // Fewer days keeps every movement; a shorter session drops some.
+    assert.equal(!!removedSlot, change.kind === "shorter_sessions", `${change.kind}: removed movements as expected`);
+    const others = slotsOf(base).map((slot) => slot.exerciseId).filter((id) => id !== surviving.exerciseId && id !== removedSlot?.exerciseId);
+    const alternates = [removedSlot?.exerciseId || others[2], others[0]];
+    const withAlternates = structuredClone(base);
+    slotsOf(withAlternates).find((slot) => slot.id === surviving.id).alternates = alternates;
+    if (removedSlot) slotsOf(withAlternates).find((slot) => slot.id === removedSlot.id).alternates = [others[1]];
+    const derived = derive(change, withAlternates);
+    assert.equal(derived.ok, true, `${change.kind} regenerates a program with alternates: ${derived.code || ""}`);
+    const target = successorSlotFor(derived.value.programDefinition, surviving);
+    assert.deepEqual(target.alternates, alternates, `${change.kind}: the surviving slot keeps its alternates in order`);
+    assert.equal(slotsOf(derived.value.programDefinition).filter((slot) => slot.alternates).length, 1,
+      `${change.kind}: a removed slot's alternates go with it`);
+    assert.deepEqual(withoutAlternates(derived.value.programDefinition), successor,
+      `${change.kind}: alternates change nothing else about the successor`);
+    assert.deepEqual(derived.value.carry, { identified: true, entries: [] }, `${change.kind}: alternates are not reported as edits`);
+    const foreignAlternates = structuredClone(withAlternates);
+    foreignAlternates.generatorVersion = "066.9";
+    const unidentifiedAlternates = derive(change, foreignAlternates);
+    assert.equal(unidentifiedAlternates.value.carry.identified, false);
+    assert.deepEqual(successorSlotFor(unidentifiedAlternates.value.programDefinition, surviving).alternates, alternates,
+      `${change.kind}: alternates carry even when edits cannot be identified`);
+  }
+}
+
 console.log("PASS Plan 067 canonical program transition contract");

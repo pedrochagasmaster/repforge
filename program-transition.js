@@ -241,7 +241,8 @@
     delete request.seed;
     const generated = compiler.generateProgram(request, catalog, definition.seed);
     if (!generated.ok) return unavailable("generation_conflict", { conflicts: generated.conflicts || [] });
-    return { ok: true, ...carryEdits(definition, generated.value, catalog, compiler) };
+    const carried = carryEdits(definition, generated.value, catalog, compiler);
+    return { ok: true, value: carryAlternates(definition, carried.value), carry: carried.carry };
   }
 
   // ---- Carrying block edits across a regeneration -------------------------
@@ -333,20 +334,39 @@
     }
   }
 
+  // Each predecessor slot's successor is the slot holding the same movement
+  // (exercise and metric composition), or null when regeneration removed it.
+  // Generated slots claim their movement before a copy the lifter added by
+  // hand, which regeneration never reproduces.
+  function matchSlots(predecessor, next) {
+    const movement = (slot) => `${slot.exerciseId}|${canonicalJson(slot.metricIds)}`;
+    const unclaimed = new Map();
+    for (const slot of trainingSlots(next)) unclaimed.set(movement(slot), [...(unclaimed.get(movement(slot)) || []), slot]);
+    const sources = trainingSlots(predecessor);
+    return new Map([...sources.filter((slot) => slot.role !== "manual"), ...sources.filter((slot) => slot.role === "manual")]
+      .map((slot) => [slot, unclaimed.get(movement(slot))?.shift() || null]));
+  }
+
+  // #317: a slot's alternates are the lifter's own choice, not a prescription,
+  // so they travel with the movement whether or not the edits were identified.
+  function carryAlternates(predecessor, successor) {
+    if (!trainingSlots(predecessor).some((slot) => Array.isArray(slot.alternates) && slot.alternates.length)) return successor;
+    const next = copyJson(successor, "programDefinition");
+    for (const [source, target] of matchSlots(predecessor, next)) {
+      const alternates = (Array.isArray(source.alternates) ? source.alternates : []).filter((id) => id !== target?.exerciseId);
+      if (target && alternates.length) target.alternates = [...alternates];
+    }
+    return next;
+  }
+
   function carryEdits(predecessor, successor, catalog, compiler) {
     const baseline = generatorBaseline(predecessor, catalog, compiler);
     if (!baseline) return { value: successor, carry: { identified: false, entries: [] } };
     const next = copyJson(successor, "programDefinition");
     const baselineSlots = new Map(trainingSlots(baseline).map((slot) => [slot.id, slot]));
     const freshSlots = new Map(trainingSlots(successor).map((slot) => [slot.id, slot]));
-    const movement = (slot) => `${slot.exerciseId}|${canonicalJson(slot.metricIds)}`;
-    const unclaimed = new Map();
-    for (const slot of trainingSlots(next)) unclaimed.set(movement(slot), [...(unclaimed.get(movement(slot)) || []), slot]);
-    // Generated slots claim their movement before a copy the lifter added by
-    // hand, which regeneration never reproduces.
     const sources = trainingSlots(predecessor);
-    const targets = new Map([...sources.filter((slot) => slot.role !== "manual"), ...sources.filter((slot) => slot.role === "manual")]
-      .map((slot) => [slot, unclaimed.get(movement(slot))?.shift() || null]));
+    const targets = matchSlots(predecessor, next);
     const entries = [];
     const carried = new Map();
     for (const source of sources) {

@@ -48,9 +48,14 @@ values blocks the swap rather than discarding them.
 The editor intent `slot_alternates` carries the whole list before and after, so
 a second tab's change rebases or conflicts like any other editor intent.
 Replacing a slot's movement keeps its alternates, less the new movement itself.
+A block-review regeneration (fewer days, shorter sessions) carries a surviving
+slot's alternates to the successor slot holding the same movement, whether or
+not its prescription edits could be identified; they are not reported as edits.
+Repeat, reduce-volume and recovery-week copy the definition and keep them.
 
 Proofs: `test/program-compiler-plan067.mjs` (validation and normalization),
 `test/slot-alternates.mjs` (editor → reload → swap picker → protected values →
 History, and archive-not-delete), `test/share-program-browser.mjs` (link and
 file round trips with a custom alternate), `test/shared-setup-unit.mjs` (full
-form), and `test/install-transfer-plan067-contract.mjs` (clone round trip).
+form), `test/install-transfer-plan067-contract.mjs` (clone round trip), and
+`test/program-transition-plan067.mjs` (alternates across regeneration).
