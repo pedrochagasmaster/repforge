@@ -12,7 +12,7 @@ const SOURCE = "plans/067/data/app_file.json";
 const read = path => JSON.parse(readFileSync(path, "utf8"));
 const write = (path, value) => writeFileSync(path, JSON.stringify(value, null, 2) + "\n");
 
-async function fixture({ rebuildFailure = false } = {}) {
+async function fixture({ rebuildFailure = false, scores } = {}) {
   const root = mkdtempSync(join(tmpdir(), "taurifer-pt-review-"));
   for (const dir of ["tools", "plans/067/data", "assets/exercises"]) mkdirSync(join(root, dir), { recursive: true });
   const curationPath = join(root, "tools/exercise-catalog-curation.json");
@@ -39,9 +39,11 @@ async function fixture({ rebuildFailure = false } = {}) {
     entries: { [A]: { sourceName: "Barbell back squat", namePt: "Agachamento com barra", aliases: ["Agachamento livre"] } } });
   writeFileSync(join(root, "exercises.js"), "BEFORE\n");
   writeFileSync(join(root, "assets/exercise-catalog.json"), "BEFORE ASSET\n");
+  let scoresPath = null;
+  if (scores) { scoresPath = join(root, "scores.json"); write(scoresPath, scores); }
   let calls = 0;
   const server = createReviewServer({
-    root,
+    root, scoresPath,
     rebuild: () => {
       calls++;
       writeFileSync(join(root, "exercises.js"), "BUILT\n");
@@ -75,6 +77,30 @@ test("feed lists only drafts and resolves equipment/muscles from UUID references
   assert.equal(state.pending[0].draftName, "Agachamento com barra");
   assert.deepEqual(state.pending[0].aliases, ["Agachamento livre"]);
   assert.equal(state.pending[0].media, null);
+  assert.equal(state.pending[0].confidence, null);
+  assert.equal(state.confidenceModel, null);
+});
+
+test("confidence scores attach only while they describe the current draft name", async t => {
+  const scored = { namePt: "Agachamento com barra", score: 42, analysis: "Falta 'livre'.", suggestion: "Agachamento livre com barra" };
+  const f = await fixture({ scores: { schemaVersion: 1, model: "test-model", entries: { [A]: scored } } });
+  t.after(f.close);
+  const [, state] = await f.get();
+  assert.equal(state.confidenceModel, "test-model");
+  assert.deepEqual(state.pending[0].confidence,
+    { score: 42, analysis: "Falta 'livre'.", suggestion: "Agachamento livre com barra" });
+
+  const stale = await fixture({ scores: { schemaVersion: 1, model: "test-model",
+    entries: { [A]: { ...scored, namePt: "Agachamento antigo" } } } });
+  t.after(stale.close);
+  const [, staleState] = await stale.get();
+  assert.equal(staleState.pending[0].confidence, null, "a score for an older draft name is not shown");
+
+  const malformed = await fixture({ scores: { schemaVersion: 2, entries: { [A]: scored } } });
+  t.after(malformed.close);
+  const [status, malformedState] = await malformed.get();
+  assert.equal(status, 200, "an unreadable scores file never blocks the review");
+  assert.equal(malformedState.pending[0].confidence, null);
 });
 
 test("edited approval moves exactly one UUID, regenerates, and rejects a second approval", async t => {

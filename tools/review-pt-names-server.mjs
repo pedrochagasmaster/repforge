@@ -58,7 +58,29 @@ function exerciseContext(exercise, index, mediaId) {
   };
 }
 
-function readState(root) {
+// Optional per-draft confidence scores written by an external reviewer (see tools/README.md).
+// A score is shown only while it still describes the current draft name.
+function readScores(path) {
+  if (!path || !existsSync(path)) return null;
+  try {
+    const data = readJson(path);
+    return data?.schemaVersion === 1 && data.entries && typeof data.entries === "object" ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+function confidenceFor(scores, id, namePt) {
+  const scored = scores?.entries[id];
+  if (!scored || scored.namePt !== namePt || !Number.isInteger(scored.score)) return null;
+  return {
+    score: Math.max(0, Math.min(100, scored.score)),
+    analysis: typeof scored.analysis === "string" ? scored.analysis : "",
+    suggestion: typeof scored.suggestion === "string" && scored.suggestion.trim() ? scored.suggestion.trim() : null
+  };
+}
+
+function readState(root, scoresPath) {
   const source = readJson(join(root, SOURCE));
   const curation = readJson(join(root, CURATION));
   const draft = readJson(join(root, DRAFT));
@@ -76,12 +98,14 @@ function readState(root) {
       throw new Error("Draft identity no longer matches the source for UUID " + id);
   }
 
+  const scores = readScores(scoresPath);
   const pending = Object.entries(draft.entries).map(([id, entry]) => {
     const exercise = byId.get(id);
     return {
       id, englishName: exercise.name, draftName: entry.namePt,
       aliases: entry.aliases,
-      ...exerciseContext(exercise, source.uuidIndex, null)
+      ...exerciseContext(exercise, source.uuidIndex, null),
+      confidence: confidenceFor(scores, id, entry.namePt)
     };
   });
   const compare = (a, b) => a.localeCompare(b, "en", { sensitivity: "base" });
@@ -98,7 +122,8 @@ function readState(root) {
   });
   return {
     total: source.exercises.length, reviewed: Object.keys(curation.entries).length,
-    remaining: pending.length, pending, reviewedExamples
+    remaining: pending.length, pending, reviewedExamples,
+    confidenceModel: scores && typeof scores.model === "string" ? scores.model : null
   };
 }
 
@@ -250,7 +275,7 @@ async function requestJson(req) {
   catch { throw Object.assign(new Error("Invalid JSON body."), { status: 400 }); }
 }
 
-export function createReviewServer({ root = DEFAULT_ROOT, rebuild = defaultRebuild } = {}) {
+export function createReviewServer({ root = DEFAULT_ROOT, rebuild = defaultRebuild, scoresPath = null } = {}) {
   root = resolve(root);
   let writeQueue = Promise.resolve();
   const history = new Map();
@@ -267,7 +292,7 @@ export function createReviewServer({ root = DEFAULT_ROOT, rebuild = defaultRebui
         send(res, 200, readFileSync(join(root, "tools/review-pt-names.html"), "utf8"),
           "text/html; charset=utf-8");
       } else if (req.method === "GET" && pathname === "/api/state") {
-        send(res, 200, readState(root));
+        send(res, 200, readState(root, scoresPath));
       } else if (req.method === "GET" && pathname.startsWith("/assets/exercises/")) {
         const filename = pathname.slice("/assets/exercises/".length);
         if (!MEDIA.test(filename)) { send(res, 404, { error: "Not found" }); return; }
@@ -301,7 +326,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     console.error("Usage: node tools/review-pt-names-server.mjs [port]");
     process.exit(1);
   }
-  const server = createReviewServer();
+  const server = createReviewServer({ scoresPath: process.env.REVIEW_PT_SCORES || null });
   server.listen(port, "127.0.0.1", () => {
     console.log("Taurifer Portuguese-name review: http://127.0.0.1:" + port + "/");
     console.log("Local-only. Accept/Edit writes both JSON files and rebuilds exercises.js.");

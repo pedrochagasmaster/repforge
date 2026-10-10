@@ -61,14 +61,14 @@
     .selects { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
     .selects select { width:100%; height:32px; border:1px solid var(--line-2); border-radius:8px; background:var(--card);
       padding:0 8px; font-size:12px; color:var(--ink-2); min-width:0; }
-    .q-meta { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--muted); }
+    .q-meta { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:6px 12px; font-size:12px; color:var(--muted); }
     .toggle { display:inline-flex; align-items:center; gap:6px; cursor:pointer; user-select:none; }
     .linkish { background:none; border:0; padding:0; color:var(--accent); font-size:12px; font-weight:600; }
     .q-list { overflow:auto; flex:1; padding:0 0 24px; overscroll-behavior:contain; }
     .q-group { position:sticky; top:0; z-index:1; background:var(--panel); padding:10px 16px 6px;
       font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
       display:flex; justify-content:space-between; border-bottom:1px solid var(--line); }
-    .q-item { display:grid; grid-template-columns:16px 1fr; gap:10px; width:100%; text-align:left; border:0;
+    .q-item { display:grid; grid-template-columns:16px 1fr auto; gap:10px; width:100%; text-align:left; border:0;
       background:none; padding:8px 14px 8px 12px; border-left:3px solid transparent; }
     @media (hover:hover) { .q-item:hover { background:var(--hover); } }
     .q-item.current { background:var(--card); border-left-color:var(--accent); box-shadow:inset 0 -1px var(--line), inset 0 1px var(--line); }
@@ -122,6 +122,16 @@
     .orig .linkish { margin-left:8px; }
     .orig:empty { display:none; }
     .orig del { color:var(--ink-2); text-decoration-color:rgba(180,35,24,.55); }
+    .score { font:700 12px/1 var(--mono); min-width:28px; padding:4px 0; border-radius:6px; text-align:center;
+      align-self:start; background:var(--bg); color:var(--ink-2); }
+    .score.low { background:#fdecea; color:var(--err); }
+    .score.mid { background:#fdf3e1; color:var(--warn); }
+    .score.high { background:var(--ok-soft); color:var(--ok); }
+    .conf { display:grid; grid-template-columns:auto 1fr; gap:10px; margin:14px 0 0; padding:10px 12px;
+      border:1px solid var(--line); border-radius:10px; background:var(--panel); font-size:13px; color:var(--ink-2); }
+    .conf p { margin:0; }
+    .conf .sug { margin-top:6px; color:var(--ink); }
+    .conf .sug .linkish { margin-left:6px; font-size:13px; }
 
     .chips { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
     .chip { display:inline-flex; align-items:center; gap:2px; background:var(--bg); border:1px solid var(--line);
@@ -274,6 +284,7 @@
         </div>
         <div class="q-meta">
           <label class="toggle"><input type="checkbox" id="hideDone"> Ocultar aprovados</label>
+          <label class="toggle" id="sortConfLabel" hidden><input type="checkbox" id="sortConf"> Menor nota primeiro</label>
           <span id="qCount"></span>
         </div>
       </div>
@@ -351,6 +362,8 @@ async function load() {
   items = data.pending;
   for (const it of items) { it.tok = tokens(it.englishName); byId.set(it.id, it); }
   for (const r of data.reviewedExamples) r.tok = tokens(r.englishName);
+  $("sortConfLabel").hidden = !items.some(it => it.confidence);
+  $("sortConf").checked = !$("sortConfLabel").hidden && localStorage.getItem("ptReviewSortConf") === "1";
   fillSelect($("fEquipment"), "Todo equipamento", "equipment");
   fillSelect($("fMuscle"), "Todo músculo", "muscles");
   currentId = nextOpen(null);
@@ -364,12 +377,17 @@ function fillSelect(sel, all, key) {
     ...[...counts].sort((a, b) => a[0].localeCompare(b[0])).map(([v, n]) => h("option", { value: v }, `${v} (${n})`)));
 }
 
+const scoreOf = it => it.confidence ? it.confidence.score : 101;
+const scoreBand = s => s < 75 ? "low" : s < 90 ? "mid" : "high";
+const BANDS = [[50, "Nota abaixo de 50"], [75, "Nota 50–74"], [90, "Nota 75–89"], [101, "Nota 90 ou mais"], [Infinity, "Sem nota"]];
+
 function visible() {
   const q = fold($("search").value.trim()), eq = $("fEquipment").value, mu = $("fMuscle").value, hide = $("hideDone").checked;
-  return items.filter(it =>
+  const list = items.filter(it =>
     (!eq || it.equipment.includes(eq)) && (!mu || it.muscles.includes(mu)) &&
     (!hide || !isDone(it.id) || it.id === currentId) &&
     (!q || [it.englishName, it.draftName, valueOf(it).namePt, ...it.aliases].some(v => fold(v).includes(q))));
+  return $("sortConf").checked ? list.sort((a, b) => scoreOf(a) - scoreOf(b)) : list;
 }
 
 function nextOpen(fromId) {
@@ -502,8 +520,9 @@ function renderQueue() {
   }
   const frag = document.createDocumentFragment();
   let group = null, counter = null, n = 0;
+  const byScore = $("sortConf").checked;
   for (const it of list) {
-    const g = it.equipment[0] || "Sem equipamento";
+    const g = byScore ? BANDS.find(([max]) => scoreOf(it) < max)[1] : it.equipment[0] || "Sem equipamento";
     if (g !== group) {
       if (counter) counter.textContent = n;
       group = g; n = 0; counter = h("span");
@@ -522,7 +541,8 @@ function queueRow(it) {
   return h("button", { type: "button", class: `q-item ${s}`, "data-id": it.id,
     onclick: () => { go(it.id); drawer(false); } },
     h("span", { class: "dot" }, s === "approved" ? "✓" : s === "error" ? "!" : ""),
-    h("span", {}, h("div", { class: "pt" }, valueOf(it).namePt), h("div", { class: "en" }, it.englishName)));
+    h("span", {}, h("div", { class: "pt" }, valueOf(it).namePt), h("div", { class: "en" }, it.englishName)),
+    it.confidence ? h("span", { class: "score " + scoreBand(it.confidence.score), title: "Nota do modelo" }, it.confidence.score) : h("span"));
 }
 function refreshQueueRow(id) {
   const old = $("qList").querySelector(`[data-id="${id}"]`);
@@ -590,6 +610,7 @@ function renderCard(animate) {
     h("p", { class: "label" }, "Português", h("span", { id: "nameBadge" })),
     nameInput,
     h("p", { class: "orig", id: "orig" }),
+    done ? null : confidenceBox(it),
     h("div", { style: "margin-top:18px" },
       h("p", { class: "label" }, "Sinônimos de busca"),
       h("div", { class: "chips" },
@@ -624,6 +645,19 @@ function renderCard(animate) {
   autosize(nameInput);
   refreshCardState();
   bindSwipe(card);
+}
+
+// Model confidence for the draft name. "Usar" only fills the field; approving is still the reviewer's call.
+function confidenceBox(it) {
+  const c = it.confidence;
+  if (!c) return null;
+  const suggestion = c.suggestion && c.suggestion !== valueOf(it).namePt ? c.suggestion : null;
+  return h("div", { class: "conf", title: catalog.confidenceModel ? "Nota de " + catalog.confidenceModel : null },
+    h("span", { class: "score " + scoreBand(c.score), "aria-label": `Nota do modelo: ${c.score} de 100` }, c.score),
+    h("div", {}, h("p", {}, c.analysis),
+      suggestion ? h("p", { class: "sug" }, "Sugestão: ", h("strong", {}, suggestion),
+        h("button", { class: "linkish", type: "button",
+          onclick: () => { setEdit(it, { namePt: suggestion }); renderCard(false); } }, "Usar")) : null));
 }
 
 function fact(label, values, limit = 4) {
@@ -785,6 +819,10 @@ $("search").addEventListener("input", onFilter);
 $("fEquipment").addEventListener("change", onFilter);
 $("fMuscle").addEventListener("change", onFilter);
 $("hideDone").addEventListener("change", onFilter);
+$("sortConf").addEventListener("change", () => {
+  localStorage.setItem("ptReviewSortConf", $("sortConf").checked ? "1" : "0");
+  currentId = nextOpen(null); onFilter();
+});
 $("undoBtn").addEventListener("click", () => undo());
 $("helpBtn").addEventListener("click", () => { $("help").hidden = false; });
 $("help").addEventListener("click", e => { if (e.target === $("help")) $("help").hidden = true; });
