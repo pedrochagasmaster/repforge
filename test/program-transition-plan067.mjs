@@ -243,4 +243,161 @@ const mismatched = await Transition.createReplacementProposal({
 assert.equal(mismatched.ok, false, "a change-labelled proposal must carry exactly the derived successor");
 assert.equal(mismatched.code, "successor_derivation_mismatch");
 
+// A Review regeneration carries the lifter's block edits onto the movements
+// that survive it, never past the session ceiling. Which edits exist, which
+// survive and which cannot fit are combinatorial boundaries the browser
+// journey samples only once, so each outcome is proved here.
+const preferredNow = [...new Set(slotsOf(base).map((slot) => slot.exerciseId))].sort();
+const regenerated = (overrides) => {
+  const generatorRequest = { ...base.request, ...overrides, preferredExerciseIds: preferredNow };
+  delete generatorRequest.seed;
+  const generated = Compiler.generateProgram(generatorRequest, catalogSnapshot, base.seed);
+  assert.equal(generated.ok, true, "the bare regeneration is a real compiler output");
+  return generated.value;
+};
+const threeDays = regenerated({ daysPerWeek: 3, split: "auto" });
+const fortyMinutes = regenerated({ timeCeilingMinutes: 40 });
+const exerciseIds = (definition) => new Set(slotsOf(definition).map((slot) => slot.exerciseId));
+const slotFor = (definition, exerciseId) => slotsOf(definition).find((slot) => slot.exerciseId === exerciseId);
+const cycleOf = (slot, cycleIndex) => slot.prescriptionsByCycle.find((cycle) => cycle.cycleIndex === cycleIndex);
+// The installed editor's set-count edit: duplicate the last set as a manual set.
+const addSets = (slot, cycleIndex, count) => {
+  const cycle = cycleOf(slot, cycleIndex);
+  for (let added = 0; added < count; added++) {
+    cycle.sets.push({ ...structuredClone(cycle.sets.at(-1)), id: `edit-${slot.id}-${cycleIndex}-${cycle.sets.length + 1}`,
+      setIndex: cycle.sets.length + 1, rir: null, status: "manual", provenance: { source: "manual", policyVersion: "manual@1" } });
+  }
+};
+const edited = (pick, edit) => {
+  const definition = structuredClone(base);
+  const slot = slotsOf(definition).find(pick);
+  assert.ok(slot, "the fixture has a slot to edit");
+  edit(slot);
+  return { definition, slot };
+};
+const trainingOf = (definition) => definition.days.filter((day) => day.kind === "training");
+const cycleIndexes = (definition) => Array.from({ length: definition.cycles }, (_, index) => index + 1);
+const fitsEveryWeek = (definition, generated) => trainingOf(definition).every((day) => {
+  const fresh = generated.days.find((candidate) => candidate.id === day.id);
+  return cycleIndexes(definition).every((cycleIndex) => Compiler.estimateDaySeconds(day, cycleIndex) <=
+    Math.max(definition.request.timeCeilingMinutes * 60, Compiler.estimateDaySeconds(fresh, cycleIndex)));
+});
+
+assert.deepEqual(fewer.value.programDefinition, threeDays, "an unedited program regenerates to exactly the generator's output");
+assert.deepEqual(fewer.value.carry, { identified: true, entries: [] }, "an unedited program has no edits to carry");
+assert.deepEqual(shorter.value.carry, { identified: true, entries: [] });
+
+// Kept: a compound's extra set in week two and a longer rest in week one.
+const keptEdit = edited((slot) => /PrimaryCompound$/.test(slot.role) && exerciseIds(threeDays).has(slot.exerciseId), (slot) => {
+  addSets(slot, 2, 1);
+  cycleOf(slot, 1).sets[0].restSeconds = 150;
+  cycleOf(slot, 1).sets[0].status = "manual";
+});
+const kept = derive({ kind: "fewer_days", daysPerWeek: 3 }, keptEdit.definition);
+assert.equal(kept.ok, true, `an edited program regenerates: ${kept.code || ""}`);
+const keptSlot = slotFor(kept.value.programDefinition, keptEdit.slot.exerciseId);
+const freshSlot = slotFor(threeDays, keptEdit.slot.exerciseId);
+assert.equal(cycleOf(keptSlot, 2).sets.length, cycleOf(keptEdit.slot, 2).sets.length, "the week-two set count is carried");
+assert.equal(cycleOf(keptSlot, 1).sets[0].restSeconds, 150, "the week-one rest edit is carried");
+assert.deepEqual(cycleOf(keptSlot, 1).sets[0].targets, cycleOf(freshSlot, 1).sets[0].targets,
+  "fields the lifter did not edit keep the generator's new value");
+assert.deepEqual(cycleOf(keptSlot, 3), cycleOf(freshSlot, 3), "a week without edits is the generator's");
+assert.deepEqual(kept.value.carry, { identified: true, entries: [{
+  exerciseId: keptEdit.slot.exerciseId, predecessorSlotId: keptEdit.slot.id, successorSlotId: keptSlot.id,
+  outcome: "kept", reason: null, cycles: [
+    { cycleIndex: 1, fields: ["restSeconds"], requestedSets: cycleOf(keptEdit.slot, 1).sets.length, sets: cycleOf(keptSlot, 1).sets.length },
+    { cycleIndex: 2, fields: ["sets"], requestedSets: cycleOf(keptEdit.slot, 2).sets.length, sets: cycleOf(keptEdit.slot, 2).sets.length },
+  ],
+}] }, "the carry report names the kept edits by week");
+assert.equal(Compiler.validateProgramDefinition(kept.value.programDefinition, catalogSnapshot, []).ok, true);
+assert.ok(fitsEveryWeek(kept.value.programDefinition, threeDays), "a carried edit keeps every week inside the ceiling");
+const keptPredecessor = { ...predecessor, programDefinition: keptEdit.definition };
+const keptProposal = await Transition.createReplacementProposal({
+  transitionId: "transition-plan067-carry",
+  createdAt: "2026-10-06T10:00:00.000Z",
+  predecessor: keptPredecessor,
+  successor: { programId: "program-carry-067", programDefinition: kept.value.programDefinition, customExerciseDefinitions: [] },
+  change: { kind: "fewer_days", daysPerWeek: 3 },
+  catalogSnapshot,
+});
+assert.equal(keptProposal.ok, true, `the carried successor is the derivation the proposal pins: ${keptProposal.code || ""}`);
+assert.equal((await Transition.validateProposal(JSON.parse(JSON.stringify(keptProposal.proposal)),
+  { predecessor: keptPredecessor, catalogSnapshot })).ok, true, "re-deriving at confirmation reproduces the carried successor");
+const bareProposal = await Transition.createReplacementProposal({
+  transitionId: "transition-plan067-bare",
+  createdAt: "2026-10-06T10:00:00.000Z",
+  predecessor: keptPredecessor,
+  successor: { programId: "program-bare-067", programDefinition: threeDays, customExerciseDefinitions: [] },
+  change: { kind: "fewer_days", daysPerWeek: 3 },
+  catalogSnapshot,
+});
+assert.equal(bareProposal.code, "successor_derivation_mismatch", "a successor that drops the edits is not the derivation");
+
+// Clamped: more extra accessory sets than the shorter session has room for.
+const slack = (definition, slot) => {
+  const day = trainingOf(definition).find((candidate) => candidate.slots.includes(slot));
+  return definition.request.timeCeilingMinutes * 60 - Compiler.estimateDaySeconds(day, 1);
+};
+const roomy = slotsOf(fortyMinutes).filter((slot) => /Accessory$/.test(slot.role) && exerciseIds(base).has(slot.exerciseId))
+  .sort((left, right) => slack(fortyMinutes, right) - slack(fortyMinutes, left))[0];
+assert.ok(roomy && slack(fortyMinutes, roomy) >= 240, "the fixture leaves one forty-minute day room for an extra set");
+const clampedEdit = edited((slot) => slot.exerciseId === roomy.exerciseId, (slot) => addSets(slot, 1, 12));
+const clamped = derive({ kind: "shorter_sessions", sessionMinutes: 45 }, clampedEdit.definition);
+assert.equal(clamped.ok, true, `an over-long edit still regenerates: ${clamped.code || ""}`);
+const clampedSlot = slotFor(clamped.value.programDefinition, roomy.exerciseId);
+const [clampedEntry] = clamped.value.carry.entries;
+assert.equal(clampedEntry.outcome, "clamped", "an edit that only partly fits is clamped");
+assert.ok(cycleOf(clampedSlot, 1).sets.length > cycleOf(roomy, 1).sets.length &&
+  cycleOf(clampedSlot, 1).sets.length < cycleOf(clampedEdit.slot, 1).sets.length,
+"the clamped week keeps as many of the extra sets as fit, and no more");
+assert.deepEqual(clampedEntry.cycles, [{ cycleIndex: 1, fields: ["sets"],
+  requestedSets: cycleOf(clampedEdit.slot, 1).sets.length, sets: cycleOf(clampedSlot, 1).sets.length }]);
+assert.ok(fitsEveryWeek(clamped.value.programDefinition, fortyMinutes), "the clamped program stays inside the new ceiling");
+const oneMore = structuredClone(clamped.value.programDefinition);
+addSets(slotFor(oneMore, roomy.exerciseId), 1, 1);
+assert.equal(fitsEveryWeek(oneMore, fortyMinutes), false, "one more carried set would break the ceiling");
+
+// Not carried: a rest edit too long for the shorter session keeps the generator's value.
+const restEdit = edited((slot) => /PrimaryCompound$/.test(slot.role) && exerciseIds(fortyMinutes).has(slot.exerciseId), (slot) => {
+  for (const set of cycleOf(slot, 1).sets) { set.restSeconds = 3600; set.status = "manual"; }
+});
+const overLimit = derive({ kind: "shorter_sessions", sessionMinutes: 45 }, restEdit.definition);
+assert.equal(overLimit.ok, true, `an edit that cannot fit does not block the change: ${overLimit.code || ""}`);
+assert.deepEqual(overLimit.value.programDefinition, fortyMinutes, "the slot keeps the generator's prescription");
+assert.deepEqual(overLimit.value.carry.entries.map(({ outcome, reason, successorSlotId }) => ({ outcome, reason, successorSlotId })),
+  [{ outcome: "dropped", reason: "over_session_limit", successorSlotId: slotFor(fortyMinutes, restEdit.slot.exerciseId).id }],
+  "the edit is reported as not carried, over the session limit");
+
+// An edit that cannot fit leaves its room to the next one on the same day.
+const roomyDay = trainingOf(fortyMinutes).find((day) => day.slots.includes(roomy));
+const neighbour = roomyDay.slots.find((slot) => !/Accessory$/.test(slot.role) && exerciseIds(base).has(slot.exerciseId));
+assert.ok(neighbour, "the roomy day also holds a carried compound");
+const sharedEdit = edited((slot) => slot.exerciseId === roomy.exerciseId, (slot) => addSets(slot, 1, 12));
+for (const set of cycleOf(slotFor(sharedEdit.definition, neighbour.exerciseId), 1).sets) { set.restSeconds = 3600; set.status = "manual"; }
+const shared = derive({ kind: "shorter_sessions", sessionMinutes: 45 }, sharedEdit.definition);
+assert.deepEqual(shared.value.carry.entries.map(({ exerciseId, outcome }) => ({ exerciseId, outcome })).sort((a, b) =>
+  a.exerciseId.localeCompare(b.exerciseId)), [{ exerciseId: neighbour.exerciseId, outcome: "dropped" },
+  { exerciseId: roomy.exerciseId, outcome: "clamped" }].sort((a, b) => a.exerciseId.localeCompare(b.exerciseId)));
+assert.equal(cycleOf(slotFor(shared.value.programDefinition, roomy.exerciseId), 1).sets.length,
+  cycleOf(clampedSlot, 1).sets.length, "the dropped rest edit does not cost the accessory any of the sets that fit");
+
+// Dropped: an edit on a movement the regeneration removes.
+const removedEdit = edited((slot) => !exerciseIds(fortyMinutes).has(slot.exerciseId), (slot) => addSets(slot, 1, 1));
+const removed = derive({ kind: "shorter_sessions", sessionMinutes: 45 }, removedEdit.definition);
+assert.equal(removed.ok, true);
+assert.deepEqual(removed.value.programDefinition, fortyMinutes, "nothing of a removed slot's edit reaches the successor");
+assert.deepEqual(removed.value.carry.entries, [{
+  exerciseId: removedEdit.slot.exerciseId, predecessorSlotId: removedEdit.slot.id, successorSlotId: null,
+  outcome: "dropped", reason: "slot_removed", cycles: [{ cycleIndex: 1, fields: ["sets"],
+    requestedSets: cycleOf(removedEdit.slot, 1).sets.length, sets: null }],
+}], "the edit on a removed slot is reported");
+
+// Unidentified: a program from another generator version cannot be told apart from its edits.
+const foreign = structuredClone(keptEdit.definition);
+foreign.generatorVersion = "066.9";
+const unidentified = derive({ kind: "fewer_days", daysPerWeek: 3 }, foreign);
+assert.equal(unidentified.ok, true);
+assert.deepEqual(unidentified.value.carry, { identified: false, entries: [] }, "unidentifiable edits are reported, not guessed");
+assert.deepEqual(unidentified.value.programDefinition, threeDays);
+
 console.log("PASS Plan 067 canonical program transition contract");

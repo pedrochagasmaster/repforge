@@ -1107,14 +1107,14 @@
       "id": "sibling-lower-frequency",
       "flow": "progress",
       "label": "Progress — lower-frequency preview",
-      "scenario": "A provenance-backed lower-frequency sibling diff before confirmation.",
+      "scenario": "A provenance-backed lower-frequency sibling diff before confirmation, naming the block edit it keeps.",
       "variants": "demandingText"
     },
     {
       "id": "sibling-shorter-session",
       "flow": "progress",
       "label": "Progress — shorter-session preview",
-      "scenario": "A provenance-backed shorter-session sibling diff before confirmation.",
+      "scenario": "A provenance-backed shorter-session sibling diff before confirmation, naming the block edits it clamps or cannot carry.",
       "variants": "demandingText"
     },
     {

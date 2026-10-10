@@ -486,10 +486,10 @@ async function progressSegment(page, segment) {
   await sleep(page, 500);
 }
 
-async function completeCompiledProgram(page, { days = 4, minutes = 90 } = {}) {
+async function completeCompiledProgram(page, { days = 4, minutes = 90, edits = [] } = {}) {
   await page.waitForFunction(() => !!window.RepForgeExerciseCatalog?.snapshot?.() &&
     typeof window.__repforgeFinalizeProgramSetup === "function", undefined, { timeout: 15000 });
-  await page.evaluate(async ({ days, minutes }) => {
+  await page.evaluate(async ({ days, minutes, edits }) => {
     // Plan 067: the legacy services.compile()/programStructure/compilerContext path is
     // retired. A canonical ProgramDefinition now comes from the same generator the
     // Recommend route itself drives, finalized the same way `__repforgeFinalizeProgramSetup` expects.
@@ -500,6 +500,18 @@ async function completeCompiledProgram(page, { days = 4, minutes = 90 } = {}) {
     }, catalog).value;
     const generated = window.RepForgeProgramCompiler.generateProgram(request, catalog, "catalog-transition");
     if (!generated.ok) throw new Error(`catalog compiler failed: ${JSON.stringify(generated.conflicts || generated)}`);
+    // Block edits shaped as the installed editor writes them, so a Review
+    // regeneration has something to carry, clamp or drop.
+    const slots = generated.value.days.flatMap((day) => day.slots);
+    for (const edit of edits) {
+      const slot = slots.find((candidate) => new RegExp(edit.role).test(candidate.role));
+      const cycle = slot.prescriptionsByCycle.find((item) => item.cycleIndex === edit.week);
+      for (let added = 0; added < (edit.addSets || 0); added++) {
+        cycle.sets.push({ ...structuredClone(cycle.sets.at(-1)), id: `catalog-edit-${slot.id}-${cycle.sets.length + 1}`,
+          setIndex: cycle.sets.length + 1, rir: null, status: "manual", provenance: { source: "manual", policyVersion: "manual@1" } });
+      }
+      if (edit.restSeconds) for (const set of cycle.sets) { set.restSeconds = edit.restSeconds; set.status = "manual"; }
+    }
     const finalized = await window.__repforgeFinalizeProgramSetup({
       programDefinition: generated.value, name: "Catalog transition program",
       answers: {}, destination: "log", origin: "first-run",
@@ -526,7 +538,7 @@ async function completeCompiledProgram(page, { days = 4, minutes = 90 } = {}) {
     const committed = await window.__repforgeCommitProposedState(state);
     if (!(committed?.localOk || committed?.idbOk)) throw new Error("catalog completion failed");
     await window.__repforgeStorage.flush();
-  }, { days, minutes });
+  }, { days, minutes, edits });
   // The direct commit seam updates durable state and the in-memory owner,
   // but the capture is proving the post-boot surface. Reload so the
   // transition frames cannot depend on which view happened to be active
@@ -547,7 +559,9 @@ async function openScheduleDiagnosis(page) {
 }
 
 async function openSiblingPreview(page, kind) {
-  await completeCompiledProgram(page);
+  await completeCompiledProgram(page, { edits: kind === "sessions_too_long"
+    ? [{ role: "Accessory$", week: 1, addSets: 20 }, { role: "PrimaryCompound$", week: 1, restSeconds: 3600 }]
+    : [{ role: "PrimaryCompound$", week: 2, addSets: 1 }] });
   await openScheduleDiagnosis(page);
   if (kind === "sessions_too_long") await page.click('[data-diag="sessions_too_long"]');
   await page.fill("[data-diag-target]", kind === "sessions_too_long" ? "60" : "3");
