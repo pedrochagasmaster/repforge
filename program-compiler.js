@@ -1023,12 +1023,13 @@
     }
   }
 
-  function estimateSlotSeconds(slot) {
-    const firstCycle = slot.prescriptionsByCycle?.[0];
-    const sets = Number.isInteger(slot._setCount) ? slot._setCount : (Array.isArray(firstCycle?.sets) ? firstCycle.sets.length : 0);
+  function estimateSlotSeconds(slot, cycleIndex) {
+    const cycle = cycleIndex === undefined ? slot.prescriptionsByCycle?.[0]
+      : slot.prescriptionsByCycle?.find((cycle) => cycle.cycleIndex === cycleIndex);
+    const sets = Number.isInteger(slot._setCount) ? slot._setCount : (Array.isArray(cycle?.sets) ? cycle.sets.length : 0);
     if (!sets) return 0;
     const repetitionMetric = slot.metricDefinitions?.find((entry) => entry.semantic === "reps" || entry.semantic === "repsPerSide");
-    const target = firstCycle?.sets?.[0]?.targets?.[repetitionMetric?.semantic];
+    const target = cycle?.sets?.[0]?.targets?.[repetitionMetric?.semantic];
     const [fallbackMin, fallbackMax] = stableRepRange({
       repClass: slot._repClass || (slot.role?.endsWith("Accessory") ? "assistance" : "first_push_lower"),
     }, slot.role?.startsWith("strength") ? "strength" : "hypertrophy") || [8, 12];
@@ -1038,15 +1039,17 @@
     const mode = slot._executionMode ?? slot.executionMode;
     const sides = repetitionMetric?.semantic === "repsPerSide" && mode === "unilateral" ? 2 : 1;
     const workSeconds = sets * reps * 4 * sides;
-    const rest = firstCycle?.sets?.[0]?.restSeconds;
+    const rest = cycle?.sets?.[0]?.restSeconds;
     const restSeconds = Math.max(0, sets - 1) * (finite(rest) ? rest : (slot.role?.endsWith("Accessory") ? 90 : 120));
     return 60 + workSeconds + restSeconds;
   }
 
-  function estimateDaySeconds(day) {
+  // Without a cycle the estimate is the first cycle's, which is what the
+  // generator fits; a cycle index estimates that week's prescriptions.
+  function estimateDaySeconds(day, cycleIndex) {
     if (day.kind !== "training") return 0;
     if (!day.slots.length) return 180;
-    return 180 + day.slots.reduce((sum, slot) => sum + estimateSlotSeconds(slot), 0);
+    return 180 + day.slots.reduce((sum, slot) => sum + estimateSlotSeconds(slot, cycleIndex), 0);
   }
 
   function buildExplanations(program, fit, focus) {

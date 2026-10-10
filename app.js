@@ -3813,7 +3813,7 @@ async function continueScheduleDiagnosis(){
   const res=await repforgeProgramTransitionAdapter.proposeChange({change});
   // A change the generator cannot make (a Build program, or a request with
   // no eligible fit) becomes guided editing of the live program.
-  if(res?.ok){reviewFlow={stage:"preview",action:"schedule-repair",proposal:res.proposal};renderReview()}
+  if(res?.ok){reviewFlow={stage:"preview",action:"schedule-repair",proposal:res.proposal,carry:res.carry||null};renderReview()}
   else await stageGuidedRepairFlow(diagnosis)}
 async function stageGuidedRepairFlow(diagnosis){
   const staged=await window.__repforgeStageGuidedManualRepair({diagnosis,openEditor:false});
@@ -3855,17 +3855,49 @@ function definitionPreviewLines(before,after){
     if(setsOf(match)!==setsOf(slot))lines.push(t("review.preview.sets_change",{movement:definitionMovementLabel(slot),before:setsOf(slot),after:setsOf(match)}))}
   for(const slot of remaining)lines.push(t("review.preview.exercise_added",{movement:definitionMovementLabel(slot),sets:setsOf(slot)}));
   return lines}
+/* What a regeneration did with the lifter's block edits, movement by movement
+   and week by week, read from the successor the proposal commits. */
+function carryPreviewLines(carry,before,after){
+  if(!carry)return[];
+  if(!carry.identified)return[t("review.preview.carry.unidentified")];
+  const slots=definition=>new Map((definition?.days||[]).flatMap(day=>day.slots).map(slot=>[slot.id,slot]));
+  const was=slots(before),now=slots(after);
+  return carry.entries.map(entry=>{
+    const movement=definitionMovementLabel(was.get(entry.predecessorSlotId)||{exerciseId:entry.exerciseId});
+    const carried=entry.outcome!=="dropped";
+    const weeks=[];
+    for(const cycle of entry.cycles){
+      const changes=cycle.fields.map(field=>{
+        if(field==="targets")return t("review.preview.carry.targets");
+        if(field==="rir")return t("review.preview.carry.rir");
+        if(field==="restSeconds")return t("review.preview.carry.rest");
+        const sets=carried?cycleSets(now.get(entry.successorSlotId),cycle.cycleIndex):cycle.requestedSets;
+        return sets<cycle.requestedSets?t("review.preview.carry.sets_clamped",{sets,requested:cycle.requestedSets})
+          :t("review.preview.carry.sets",{sets})}).join(", ");
+      const last=weeks.at(-1);
+      if(last&&last.changes===changes&&last.last+1===cycle.cycleIndex)last.last=cycle.cycleIndex;
+      else weeks.push({first:cycle.cycleIndex,last:cycle.cycleIndex,changes})}
+    const details=weeks.map(({first,last,changes})=>first===last?t("review.preview.carry.week",{week:first,changes})
+      :t("review.preview.carry.weeks",{first,last,changes})).join("; ");
+    if(entry.outcome==="kept")return t("review.preview.carry.kept",{movement,details});
+    if(entry.outcome==="clamped")return t("review.preview.carry.clamped",{movement,details});
+    return entry.reason==="slot_removed"?t("review.preview.carry.removed",{movement,details})
+      :t("review.preview.carry.over_limit",{movement,details})})}
+function cycleSets(slot,cycleIndex){
+  return slot?.prescriptionsByCycle?.find(cycle=>cycle.cycleIndex===cycleIndex)?.sets.length??0}
 function renderSiblingPreview(el,flow){
   const p=flow.proposal||{},change=p.change||{};
   const before=state.programMeta?.programDefinition,after=p.successor?.programDefinition;
   const trainingDays=definition=>(definition?.days||[]).filter(day=>day.kind==="training").length;
   const recovery=change.kind==="recovery_week";
   const lines=recovery?[]:definitionPreviewLines(before,after);
+  const carryLines=carryPreviewLines(flow.carry,before,after);
   const summary=recovery
     ?`<p>${esc(t("review.recovery.preview_body"))}</p><p><b>${esc(t("review.recovery.preview_weeks",{before:before?.cycles,after:after?.cycles}))}</b></p>`
     :(change.kind==="fewer_days"?`<p><b>${esc(t("review.preview.frequency",{before:trainingDays(before),after:trainingDays(after)}))}</b></p>`:"")+
       (change.kind==="shorter_sessions"?`<p><b>${esc(t("review.preview.duration",{before:before?.request?.timeCeilingMinutes,after:after?.request?.timeCeilingMinutes}))}</b></p>`:"")+
       (change.kind==="fewer_days"||change.kind==="shorter_sessions"?`<p class="lede">${esc(t("review.preview.provenance"))}</p>`:"")+
+      (carryLines.length?`<ul class="review__diff">${carryLines.map(line=>`<li>${esc(line)}</li>`).join("")}</ul>`:"")+
       (lines.length?`<ul class="review__diff">${lines.map(line=>`<li>${esc(line)}</li>`).join("")}</ul>`:`<p class="lede">${esc(t("review.preview.exercises_unchanged"))}</p>`);
   el.innerHTML=`<p class="section-label">${esc(t(recovery?"review.recovery.preview_title":"review.preview.title"))}</p>`+summary+
     `<p class="lede"><code class="review__hash">${esc(String(p.proposalHash||""))}</code></p>`+
@@ -9368,7 +9400,9 @@ const repforgeProgramTransitionAdapter = {
       customExerciseDefinitions: predecessor.customExerciseDefinitions, catalogSnapshot,
     });
     if (!derived.ok) return { ...derived, unavailable: derived.status === "unavailable" };
-    return Transition.createReplacementProposal({
+    // The carry report is a pure function of the hash-pinned predecessor and
+    // change, so the preview reads it beside the proposal, not inside it.
+    const created = await Transition.createReplacementProposal({
       transitionId: input.transitionId || uid(),
       createdAt: input.createdAt || new Date().toISOString(),
       predecessor,
@@ -9380,6 +9414,7 @@ const repforgeProgramTransitionAdapter = {
       change: derived.value.change,
       catalogSnapshot,
     });
+    return created?.ok && derived.value.carry ? { ...created, carry: derived.value.carry } : created;
   },
 
   async confirmTransition(params = {}) {

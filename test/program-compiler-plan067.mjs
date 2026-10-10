@@ -397,6 +397,20 @@ assert.equal(unilateralEstimate - bilateralEstimate, 120,
   "a bilateral 45-degree cable rear-delt fly counts reps once; explicitly sequential unilateral execution counts both sides");
 assert.ok(Compiler.estimateDaySeconds(standard.value.days.find((day) => day.kind === "training")) > 180,
   "day estimates use final cycle prescriptions instead of treating every generated day as empty");
+// A Review regeneration that carries a week-specific edit must keep every
+// week inside the ceiling, so a day is estimated for the cycle asked about.
+const cycleSlot = { ...estimateSlot, prescriptionsByCycle: [
+  { cycleIndex: 1, sets: estimateSlot.prescriptionsByCycle[0].sets },
+  { cycleIndex: 2, sets: [...estimateSlot.prescriptionsByCycle[0].sets, ...estimateSlot.prescriptionsByCycle[0].sets] },
+  { cycleIndex: 3, sets: [] },
+] };
+const cycleDay = { kind: "training", slots: [cycleSlot] };
+assert.equal(Compiler.estimateDaySeconds(cycleDay, 1), Compiler.estimateDaySeconds(cycleDay),
+  "without a cycle the estimate is the first cycle's");
+assert.equal(Compiler.estimateDaySeconds(cycleDay, 2) - Compiler.estimateDaySeconds(cycleDay, 1), 2 * (15 * 4 + 90),
+  "a cycle with two more sets costs their work and rest");
+assert.equal(Compiler.estimateDaySeconds(cycleDay, 3), 180, "a cycle with no sets costs only the day overhead");
+assert.equal(Compiler.estimateDaySeconds(cycleDay, 4), 180, "a cycle the slot does not have costs nothing for it");
 
 // The progression engine reads each prescription's bodyweight coefficient;
 // a projection without it makes every set configuration-required.

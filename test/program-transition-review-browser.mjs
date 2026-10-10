@@ -5,7 +5,9 @@
  * A generated program reaches the end of its block; each Review change
  * (reduce volume, fewer days, recovery week) is previewed, confirmed by its
  * proposal hash, and committed as a new block whose ProgramDefinition is the
- * derived successor. A proposal made stale by another tab is refused with the
+ * derived successor. A set-count edit made during the block survives a
+ * fewer-days regeneration, named in the preview and present in the committed
+ * successor. A proposal made stale by another tab is refused with the
  * program unchanged, and a Build program's schedule repair stages guided
  * editing instead of regenerating.
  */
@@ -202,6 +204,27 @@ async function main() {
     check(afterVolume.program.every((row) => row.sets === firstCycleSets(afterVolume.programMeta.programDefinition).get(row.slotId || row.id)?.sets),
       "the program rows are the successor's first-cycle projection");
 
+    // A set-count edit the lifter made during the block -------------------
+    // Shaped exactly as the installed editor writes one (the last set
+    // duplicated as a manual set). It is committed through the production
+    // state seam because an installed-editor apply currently strands every
+    // later Review confirmation as out of date (#344).
+    const compound = slots(afterVolume.programMeta.programDefinition).find((slot) => /PrimaryCompound$/.test(slot.role));
+    const movement = afterVolume.program.find((row) => (row.slotId || row.id) === compound.id).name;
+    const editedWeek = 2;
+    const setsBeforeEdit = compound.prescriptionsByCycle[editedWeek - 1].sets.length;
+    const edited = await page.evaluate(async ({ slotId, week }) => {
+      const head = window.__repforgeWorkoutDraft.state();
+      const slot = head.programMeta.programDefinition.days.flatMap((day) => day.slots).find((item) => item.id === slotId);
+      const cycle = slot.prescriptionsByCycle.find((item) => item.cycleIndex === week);
+      cycle.sets.push({ ...structuredClone(cycle.sets.at(-1)), id: "review-browser-added-set", setIndex: cycle.sets.length + 1,
+        rir: null, status: "manual", provenance: { source: "manual", policyVersion: "manual@1" } });
+      const committed = await window.__repforgeCommitProposedState(head);
+      await window.__repforgeStorage.flush();
+      return !!(committed?.localOk && committed?.idbOk);
+    }, { slotId: compound.id, week: editedWeek });
+    check(edited, `the block holds an extra ${movement} set in week ${editedWeek}`);
+
     // Fewer days ----------------------------------------------------------
     await finishBlock(page);
     await openReview(page);
@@ -210,14 +233,22 @@ async function main() {
     await page.locator("[data-diag-target]").fill("3");
     await page.locator("[data-diag-continue]").click();
     await page.locator("[data-preview-confirm]").waitFor({ state: "visible", timeout: 15000 });
-    check((await page.locator("#reviewPanel").innerText()).includes("Training days: 4 → 3"),
-      "the preview states the training-day change");
+    const daysPreview = await page.locator("#reviewPanel").innerText();
+    check(daysPreview.includes("Training days: 4 → 3"), "the preview states the training-day change");
+    const keptLine = `Kept your edits to ${movement}: week ${editedWeek}: ${setsBeforeEdit + 1} sets`;
+    check(daysPreview.split("\n").some((line) => line.trim() === keptLine),
+      "the preview names the set-count edit that survives the regeneration", { keptLine, daysPreview });
+    check(!/could not be identified/.test(daysPreview), "the block's edits are identified");
     const beforeDays = await confirmPreview(page, { title: "Proposed plan" });
     const afterDays = await state(page);
     checkCommitted(beforeDays, afterDays, await replicas(page), "fewer days");
     check(training(afterDays.programMeta.programDefinition).length === 3 &&
       afterDays.programMeta.programDefinition.request.daysPerWeek === 3 && afterDays.programMeta.daysPerWeek === 3,
     "the regenerated successor trains three days a week");
+    const carriedSlot = slots(afterDays.programMeta.programDefinition).find((slot) => slot.exerciseId === compound.exerciseId);
+    check(carriedSlot?.prescriptionsByCycle[editedWeek - 1].sets.length === setsBeforeEdit + 1,
+      "the committed successor holds the set count the preview showed",
+      carriedSlot?.prescriptionsByCycle.map((cycle) => cycle.sets.length));
 
     // Recovery week -------------------------------------------------------
     await finishBlock(page);

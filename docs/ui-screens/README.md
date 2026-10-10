@@ -203,8 +203,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Progress — completed-block Review](screens/progress/review-complete__phone-390-light-en.png) | 8 | A completed block exposes the evidence-valid structural routes. |
 | [Progress — insufficient-evidence Review](screens/progress/review-insufficient__phone-390-light-en.png) | 8 | A completed block with sparse evidence excludes performance-derived actions. |
 | [Progress — schedule diagnosis](screens/progress/schedule-diagnosis__phone-390-light-en.png) | 8 | The one-question choice between fewer days and shorter sessions. |
-| [Progress — lower-frequency preview](screens/progress/sibling-lower-frequency__phone-390-light-en.png) | 8 | A provenance-backed lower-frequency sibling diff before confirmation. |
-| [Progress — shorter-session preview](screens/progress/sibling-shorter-session__phone-390-light-en.png) | 8 | A provenance-backed shorter-session sibling diff before confirmation. |
+| [Progress — lower-frequency preview](screens/progress/sibling-lower-frequency__phone-390-light-en.png) | 8 | A provenance-backed lower-frequency sibling diff before confirmation, naming the block edit it keeps. |
+| [Progress — shorter-session preview](screens/progress/sibling-shorter-session__phone-390-light-en.png) | 8 | A provenance-backed shorter-session sibling diff before confirmation, naming the block edits it clamps or cannot carry. |
 | [Progress — guided repair staged](screens/progress/guided-repair__phone-390-light-en.png) | 8 | The exact current program is staged for explicit guided editing. |
 | [Progress — volume-reduction preview](screens/progress/volume-reduction-preview__phone-390-light-en.png) | 8 | The protected permanent-volume reduction diff before confirmation. |
 | [Progress — recovery eligibility](screens/progress/recovery-ineligible__phone-390-light-en.png) | 8 | Recovery stays unavailable without sufficient qualifying pattern evidence. |
