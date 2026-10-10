@@ -21,7 +21,7 @@
   const fmt = (n, d = 1) => n.toFixed(d).replace(".", T.decimal);
 
   // ---------- engine ----------
-  const worker = new Worker("engine-worker.js");
+  const worker = new Worker("engine-worker.js?v=3");
   let seq = 0;
   const pending = new Map();
   worker.onmessage = (e) => { const p = pending.get(e.data.id); if (p) { pending.delete(e.data.id); p(e.data); } };
