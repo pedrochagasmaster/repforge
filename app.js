@@ -3868,7 +3868,9 @@ function carryPreviewLines(carry,before,after){
     const weeks=[];
     for(const cycle of entry.cycles){
       const changes=cycle.fields.map(field=>{
-        if(field!=="sets")return t(`review.preview.carry.${field==="restSeconds"?"rest":field}`);
+        if(field==="targets")return t("review.preview.carry.targets");
+        if(field==="rir")return t("review.preview.carry.rir");
+        if(field==="restSeconds")return t("review.preview.carry.rest");
         const sets=carried?cycleSets(now.get(entry.successorSlotId),cycle.cycleIndex):cycle.requestedSets;
         return sets<cycle.requestedSets?t("review.preview.carry.sets_clamped",{sets,requested:cycle.requestedSets})
           :t("review.preview.carry.sets",{sets})}).join(", ");
@@ -3877,8 +3879,10 @@ function carryPreviewLines(carry,before,after){
       else weeks.push({first:cycle.cycleIndex,last:cycle.cycleIndex,changes})}
     const details=weeks.map(({first,last,changes})=>first===last?t("review.preview.carry.week",{week:first,changes})
       :t("review.preview.carry.weeks",{first,last,changes})).join("; ");
-    const key=entry.outcome==="dropped"?(entry.reason==="slot_removed"?"removed":"over_limit"):entry.outcome;
-    return t(`review.preview.carry.${key}`,{movement,details})})}
+    if(entry.outcome==="kept")return t("review.preview.carry.kept",{movement,details});
+    if(entry.outcome==="clamped")return t("review.preview.carry.clamped",{movement,details});
+    return entry.reason==="slot_removed"?t("review.preview.carry.removed",{movement,details})
+      :t("review.preview.carry.over_limit",{movement,details})})}
 function cycleSets(slot,cycleIndex){
   return slot?.prescriptionsByCycle?.find(cycle=>cycle.cycleIndex===cycleIndex)?.sets.length??0}
 function renderSiblingPreview(el,flow){
