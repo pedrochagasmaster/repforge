@@ -82,7 +82,7 @@ Removing the **pull-up bar** or **bands** from either home environment makes eve
 
 ### Step count: zero new screens (OD-1)
 
-Today the Generate route shows seven screens: goal, background, schedule, environment, abilities, priorities, result. The owner noted that MacroFactor's onboarding has many more. This plan adds **no** screen.
+Today the Generate route has six question screens (goal, background, schedule, environment, abilities, priorities), then the result screen with answer chips, then the preview/confirm screen with Activate (`ROUTE_STEPS.recommend`: eight steps). The owner noted that MacroFactor's onboarding has many more screens. This plan adds **no** step.
 
 Taurifer's thesis puts workout speed and time to first set first. A screen earns its place only when most lifters must answer it to get a correct program. None of these inputs passes that test:
 
@@ -98,7 +98,7 @@ Rejected alternative: #323's dedicated Equipment step for home/basic environment
 
 **Question and placement.** Below the four environment cards, a native `<details>` disclosure appears once a card is selected. It stays closed by default and reuses the existing summary key. It is also reachable from the result screen's existing **env** chip editor, which renders the Environment step.
 
-**Vocabulary.** There are thirteen curated groups (OD-3). Each group maps to catalog equipment **UUIDs** (identity, never names); plural/singular duplicates are included because the compiler expands them transitively. A group starts ticked when the environment's preset includes **any** of its members. Ticking adds all members; unticking removes all members.
+**Vocabulary.** There are thirteen curated groups (OD-3). Each group maps to catalog equipment **UUIDs** (identity, never names); both members of each plural/singular pair are listed explicitly, because the compiler's `equipmentClosure` follows `pluralOf` only from plural to singular. A group starts ticked when the environment's preset includes **any** of its members. Ticking adds all members; unticking removes all members.
 
 | Token | EN | PT | Catalog members (by name; mapped by UUID) | commercial / basic / full home / limited home |
 |---|---|---|---|---|
@@ -109,7 +109,7 @@ Rejected alternative: #323's dedicated Equipment step for home/basic environment
 | `kettlebells` | Kettlebells | Kettlebells | Kettlebell(s) | ✓ / ✓ / ✓ / ✓ |
 | `pullup_bar` | Pull-up bar | Barra fixa | Straight / Multi-grip pull-up bar | ✓ / ✓ / ✓ / ✓ |
 | `dip_bars` | Dip bars | Barras paralelas | Dip bars | ✓ / – / – / – |
-| `cable` | Cable machine | Polia | Pin-loaded single cable machine, cable crossover, cuff and V-bar attachments | ✓ / ✓ / ✓ / – |
+| `cable` | Cable machine | Polia | Pin-loaded single cable machine, Pin-loaded cable crossover, Cuff cable attachment(s), V-bar row grip attachment | ✓ / ✓ / ✓ / – |
 | `smith` | Smith machine | Smith | Smith machine | ✓ / – / – / – |
 | `ez_bar` | EZ bar | Barra W | EZ bar | ✓ / – / – / – |
 | `leg_press` | Leg press or hack squat | Leg press ou hack | 45° leg press, Pin-loaded leg press, Hack squat | ✓ / ✓ / – / – |
@@ -131,7 +131,7 @@ The ✓ column shows the initial tick state (any member present). Equipment outs
 
 **Answers and request mapping.**
 
-- Store `answers.environment.adjust = {add: [token…], remove: [token…]}`: group tokens, sorted and disjoint, with unknown tokens dropped.
+- Store `answers.environment.adjust = {add: [token…], remove: [token…]}`: group tokens, sorted and disjoint, with unknown tokens dropped. `normalizeEnvironment` (`program-entry.js`, which rejects any key other than `kind`, `capabilities` and `equipment` today) gains `adjust` and its validator. Because slice A retires `capabilities`/`equipment`, it tolerates and drops them for legacy drafts instead of rejecting them.
 - Changing `environment.kind` clears `adjust`.
 - The adapter computes `equipmentIds = (preset ∪ members(add)) − members(remove)`, sorted.
 - An absent or empty `adjust` returns exactly today's set. This is proved byte-for-byte.
@@ -166,7 +166,7 @@ The ✓ column shows the initial tick state (any member present). Equipment outs
 
 The chip's `{pattern}` uses the short label; for example, the default chip reads "7 weeks · same every week".
 
-**Mapping.** `answers.block = {cycles, periodization}`. The adapter reads `cycles` (integer 4–12, otherwise 7) and `periodization` (one of `PERIODIZATIONS`, otherwise `static`) in place of the literals. `deloadCycles` stays `[]`.
+**Mapping.** `answers.block = {cycles, periodization}`, added to `normalizeAnswers`' allowlist with its own validator (see slice C's note on that allowlist). The adapter reads `cycles` (integer 4–12, otherwise 7) and `periodization` (one of `PERIODIZATIONS`, otherwise `static`) in place of the literals. `deloadCycles` stays `[]`.
 
 ### Slice C — per-movement confirmation in the preview
 
@@ -178,11 +178,11 @@ No offer is made in these cases:
 - the candidate also fails equipment, exclusion or collision checks;
 - the candidate ranks below the selection.
 
-The offer is diagnostic, the same kind of output as `explanations`. `value` (the `ProgramDefinition`) is unchanged, so **`GENERATOR_VERSION` stays `067.1`** (see Determinism).
+The offer is diagnostic, the same kind of output as `explanations`. It is new bookkeeping: selection today only tallies rejections by reason, so the implementation must record, per slot, the best-ranked candidate rejected solely for prerequisites, without changing the ranking or the `usedIds`/`usedGroups` state that drives the definition. `value` (the `ProgramDefinition`) is unchanged, so **`GENERATOR_VERSION` stays `067.1`** (see Determinism).
 
 **Offers are verified, not predicted.** Collision avoidance and time fit can stop a confirmed candidate from landing where it was offered. In a 16-program sample, 34 of 38 single confirmations swapped into the offered slot, 4 did not, and 16 also moved another slot. So the production adapter keeps an offer only if regenerating with that one confirmation (same request, same seed) puts the offered exercise in that slot. That costs one generation per candidate offer: about 67 ms each in Node on the devbox, and at most 4 per preview at the measured rates. It runs once per fresh result and is cached on the staged result with its fingerprint, never on a re-render. The verified offer records the slots its confirmation would also change, so the preview can say so before the tap.
 
-**Preview UX.** Under the affected exercise row in `renderEntryWeek`, a quiet line and a secondary button appear:
+**Preview UX.** `renderEntryWeek` draws the week on both the `result` step and the `preview`/confirm step, so the offer appears on both. Under the affected exercise row in `renderEntryWeek`, a quiet line and a secondary button appear:
 
 - EN: "Could be **{exercise}** if you already do it with good form." / button "I can — swap it in"
 - PT: "Pode ser **{exercise}** se você já faz com boa técnica." / button "Consigo — trocar"
@@ -195,7 +195,7 @@ There is no new motion: the swap is a re-render at rest and buttons use the exis
 
 The `confirmationOffers` key is added to the closed `PREVIEW_KEYS` and result normalizer in `program-entry.js` so persisted setup drafts validate.
 
-**Mapping.** `answers.movementConfirmations` is route-local to recommend/custom; it is not a `SHARED_GENERATOR_KEYS` member. Normalization keeps only current catalog exercises whose listed prerequisite IDs are a subset of the exercise's own, and drops an entry whose prerequisite the lifter has answered "no". The adapter passes it through in place of `{}`.
+**Mapping.** `normalizeAnswers` takes no route and uses one allowlist for every route, so `movementConfirmations` (like slice B's `block`) is added to that allowlist as a valid answers key on every route. Only the recommend and custom flows produce it and only `programRequestFromAnswers` consumes it; the Browse/Build/Import/Shared paths never read it. It is not added to `SHARED_GENERATOR_KEYS`, so it is not carried into reusable context across routes. Do not change `normalizeAnswers`' signature for this. Normalization keeps only current catalog exercises whose listed prerequisite IDs are a subset of the exercise's own, and drops an entry whose prerequisite the lifter has answered "no". The adapter passes it through in place of `{}`.
 
 ### Determinism, versions and setup links
 
@@ -307,7 +307,7 @@ Each PR follows the revision procedure in `AGENTS.md`: `?v=` bumps for the chang
 - Issue #323 and its comments; phase 1 in PR #312 (`078f4678`, `a9db4920`).
 - `program-compiler.js`: `GENERATOR_VERSION`, `PERIODIZATIONS`, `PRECONDITION_COMPETENCIES`, `prerequisitesSatisfied`, `candidateFailure`, `cycleRepOffset`, `REQUEST_KEYS`.
 - `program-entry-adapter.js`: `GYM_FLAGS`, `programRequestFromAnswers`.
-- `program-entry.js`: `ROUTE_STEPS`, `normalizeAnswers`, `validationIssues`, `PREVIEW_KEYS`, `answerFingerprint`.
+- `program-entry.js`: `ROUTE_STEPS`, `normalizeAnswers`, `normalizeEnvironment`, `validationIssues`, `PREVIEW_KEYS`, `answerFingerprint`.
 - `app.js`: `renderEnvironmentStep`, `renderAbilitiesStep`, `renderResultStep`, `renderEntryWeek`, `entryChipList`, `ENTRY_CHIP_KIND`, `ensureGeneratorResult`.
 - `shared-setup.js`: `regenerableForm`, `regenerate`, `compactTree`.
 - `telemetry.js` `EVENTS`; `test/fixtures/telemetry.mjs`.
