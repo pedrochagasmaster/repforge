@@ -594,6 +594,24 @@
     return { days: schedule, idForName };
   }
 
+  // Generated day names stay English in the definition, so fingerprints,
+  // setup-link recipes and backups do not change with the app language. The
+  // display layer asks for a translation key, which exists only while the day
+  // still carries the exact name the generator gave that week position; a
+  // renamed, swapped or added day is the lifter's own text.
+  function generatedDayNameKey(definition, dayId) {
+    const request = definition?.request;
+    if (!request || !owns(SPLITS, request.split) || !Array.isArray(definition.days)) return null;
+    const trainingIndexes = scheduledTrainingIndexes(request.daysPerWeek);
+    if (!trainingIndexes || !SPLITS[request.split].compatibleDays.includes(request.daysPerWeek)) return null;
+    const position = definition.days.findIndex((day) => day?.id === dayId);
+    const authoredIndex = trainingIndexes.indexOf(position);
+    if (authoredIndex < 0 || definition.days[position].kind !== "training") return null;
+    const authored = dayKinds(request.daysPerWeek, request.split)[authoredIndex];
+    if (!authored || definition.days[position].name !== authored.name) return null;
+    return `program.split_day.${authored.name.toLowerCase().replace(/\s+/g, "_")}`;
+  }
+
   function stableId(seed, value) {
     return seedRank(seed, "id", value).toString(36).padStart(7, "0");
   }
@@ -1442,6 +1460,7 @@
     METRIC_SEMANTICS,
     METRIC_SOURCE_IDS,
     generateProgram,
+    generatedDayNameKey,
     findSubstitutions,
     validateProgramDefinition,
     canonicalizeProgramDefinition,
