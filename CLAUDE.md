@@ -31,6 +31,7 @@ Use the module that owns the behavior. These are the principal production owners
 | `program-entry.js`, `program-entry-adapter.js` | Entry state and shared entry vocabulary; production compiler/catalog integration and entry choices. |
 | `program-compiler.js` | Versioned program-family definitions, compilation, authored catalogue functions, week-aware selection, dose fitting, and structural validation. |
 | `program-editor.js` | Reusable program editor. Its host supplies data and handles returned intents. |
+| `program-review.js` | Onboarding B's review editor on Generate's result screen: pure edit rules on a `ProgramDefinition` (validated, replayable), the diff against the recommendation, and `mountProgramReview`. `app.js` supplies the document, persistence, sheet and picker. |
 | `history-ui.js` | History rendering and interactions through dependencies supplied by the app. |
 | `shared-setup.js` | Setup-link codec and validation; this module and `AGENTS.md` own the current format, compatibility, and privacy contract. |
 | `install-transfer.js`, `install-transfer-contract.js` | Browser transfer client and its shared request/envelope contract. `services/install-transfer/` owns the service. |

@@ -111,7 +111,42 @@
     "onboarding-recommend/result": {
       "owner": "plan-054",
       "content": "flat",
-      "scenario": "The program first: name, four facts, the week with its first day open, the answers it was built from as chips, why it fits, and the pinned activation."
+      "scenario": "Onboarding B's review editor at rest: the source, the program name, four facts, the block row, the tap hint, the day tabs with rest days and the first day's exercises with their sets, RIR and muscles; how it was built follows, with the pinned activation."
+    },
+    "onboarding-recommend/result-changed": {
+      "owner": "plan-070",
+      "content": "flat",
+      "scenario": "Three rows carry their marks (a set added, an engine swap, a movement added from the catalog) and the changes bar counts them with Undo and Restore."
+    },
+    "onboarding-recommend/review-sheet": {
+      "owner": "plan-070",
+      "content": "flat",
+      "scenario": "One exercise's sheet at its top: the movement, its role and job, the sets ledger with RIR per set, the set count, rep range and rest controls, and the day's time."
+    },
+    "onboarding-recommend/review-sheet-swap": {
+      "owner": "plan-070",
+      "content": "flat",
+      "scenario": "The exercise sheet scrolled to the engine's swap candidates, the catalog search and one in-session alternate with its suggestions."
+    },
+    "onboarding-recommend/review-day-menu": {
+      "owner": "plan-070",
+      "content": "flat",
+      "scenario": "The day menu sheet: rename the day, reorder its exercises, add an exercise."
+    },
+    "onboarding-recommend/review-reorder": {
+      "owner": "plan-070",
+      "content": "flat",
+      "scenario": "A day in reorder mode: each exercise with its handle and up and down arrows, and Done."
+    },
+    "onboarding-recommend/review-empty-day": {
+      "owner": "plan-070",
+      "content": "flat",
+      "scenario": "Every exercise of a training day removed: the tab's pip, the day's warning with Add exercise, and Activate disabled with its reason."
+    },
+    "onboarding-recommend/review-rebuild-confirm": {
+      "owner": "plan-070",
+      "content": "flat",
+      "scenario": "An answer chip would rebuild an adjusted program: the confirmation to rebuild or keep the adjustments."
     },
     "onboarding-recommend/result-existing": {
       "owner": "plan-054",
