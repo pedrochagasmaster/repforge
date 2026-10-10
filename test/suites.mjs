@@ -44,6 +44,7 @@ export const SUITES = {
     s("test/program-entry.mjs"),
     s("test/program-entry-production-adapter.mjs"),
     s("test/program-compiler-plan067.mjs"),
+    s("test/program-compiler-search.mjs", [], { seconds: 10 }),
     s("test/progression-engine-plan067.mjs"),
     s("test/program-entry-contracts.mjs"),
     s("test/ui-screens.mjs"),

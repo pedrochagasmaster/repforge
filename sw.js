@@ -1,4 +1,4 @@
-const CACHE = "repforge-v411";
+const CACHE = "repforge-v412";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./motion-polish.css", "./manifest.webmanifest",
   { url: "./vendor/motion/motion.js", owner: "RepForgeMotion", required: false, immutable: true },
@@ -6,7 +6,7 @@ const ASSETS = [
   { url: "./vendor/dnd-kit/dnd-kit.runtime.js", owner: "RepForgeDndRuntime", required: false, immutable: true },
   "./motion-layer.js", "./motion-layer.js?v=314",
   "./telemetry.js", "./unsupported-workout-grammar.js", { url: "./posthog-config.js", owner: "RepForgeTelemetry", required: false }, "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js", "./exercises.js?v=067", "./exercise-catalog.js?v=067", "./assets/exercise-catalog.json?v=067", "./exercise-metrics.js?v=067", "./install-transfer-contract.js", "./install-transfer.js",
-  "./progression-engine.js", "./progress-model.js", "./progress-model.js?v=308", "./program-compiler.js", "./program-compiler.js?v=364", "./program-entry.js", "./program-entry.js?v=308", "./program-entry-adapter.js", "./program-entry-adapter.js?v=309", "./program-editor.js", "./program-editor.js?v=314",
+  "./progression-engine.js", "./progress-model.js", "./progress-model.js?v=308", "./program-compiler.js", "./program-compiler.js?v=365", "./program-entry.js", "./program-entry.js?v=308", "./program-entry-adapter.js", "./program-entry-adapter.js?v=309", "./program-editor.js", "./program-editor.js?v=314",
   "./shared-setup.js", "./shared-setup.js?v=309", "./workout-draft.js", "./workout-draft.js?v=359", "./program-transition.js", "./program-transition.js?v=364", "./install-policy.js", "./install-policy.js?v=307", "./guide-registry.js", "./guide-registry.js?v=307", "./durable-state.js", "./durable-state.js?v=310", "./history-ui.js", "./history-ui.js?v=314", "./app.js", "./app.js?v=364",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
