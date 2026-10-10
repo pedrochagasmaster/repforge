@@ -583,7 +583,7 @@
               `<button type="button" class="review__ro-btn" data-review-reorder-move="${esc(slot.id)}:1" aria-label="${esc(t("entry.review.move_down", { name: label }))}"${index === slots.length - 1 ? " disabled" : ""}>${icon("chev-down")}</button></li>`;
           }).join("") + `</ol><button type="button" class="btn btn--cta btn--noarrow review__reorder-done" data-review-reorder-done>${esc(t("entry.review.reorder_done"))}</button>`;
       }
-      const empty = slots.length ? "" : `<p class="review__empty" data-review-empty role="alert">${icon("warn")}<span>${esc(t("entry.review.empty_day"))}</span></p>`;
+      const empty = slots.length ? "" : `<p class="review__empty" data-review-empty role="alert">${icon("alert")}<span>${esc(t("entry.review.empty_day"))}</span></p>`;
       return head + empty + slots.map((slot) => rowHtml(definition, slot, marks)).join("") +
         `<button type="button" class="review__add" data-review-add>${icon("plus")}<span>${esc(t("entry.review.add"))}</span></button>`;
     }
@@ -780,7 +780,7 @@
           (deload ? `<p class="review-sheet__note">${esc(t("entry.review.sheet.deload_note"))}</p>` : "") + `</section>` +
           `<section class="review-sheet__sec"><h3 class="sheetgroup__head">${esc(t("entry.review.sheet.swap"))}</h3>` +
           (subs.length ? `<p class="review-sheet__lede">${esc(t("entry.review.sheet.swap_lede"))}</p><ul class="review-sheet__list">${shown.map((id) =>
-            `<li>${adapter.tile(id, "sm")}<span>${esc(adapter.exerciseName(id))}</span><button type="button" class="btn btn--steel btn--sm" data-review-swap="${esc(id)}">${esc(t("entry.review.sheet.swap_btn"))}</button></li>`).join("")}</ul>` : "") +
+            `<li>${adapter.tile(id, "sm")}<span>${esc(adapter.exerciseName(id))}</span><button type="button" class="btn btn--steel review-sheet__swap-btn" data-review-swap="${esc(id)}">${esc(t("entry.review.sheet.swap_btn"))}</button></li>`).join("")}</ul>` : "") +
           `<div class="review-sheet__links">${!sheet.showAll && subs.length > SUGGESTED_SUBSTITUTIONS ? `<button type="button" class="text-link" data-review-more-subs>${esc(t("entry.review.sheet.show_more", { n: subs.length - SUGGESTED_SUBSTITUTIONS }))}</button>` : ""}` +
           `<button type="button" class="text-link" data-review-search>${icon("search")}${esc(t("entry.review.sheet.search"))}</button></div></section>` +
           `<section class="review-sheet__sec"><h3 class="sheetgroup__head">${esc(t("entry.review.sheet.alts"))}</h3><p class="review-sheet__lede">${esc(t("entry.review.sheet.alts_lede"))}</p>` +
