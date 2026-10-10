@@ -342,11 +342,16 @@
     const movement = (slot) => `${slot.exerciseId}|${canonicalJson(slot.metricIds)}`;
     const unclaimed = new Map();
     for (const slot of trainingSlots(next)) unclaimed.set(movement(slot), [...(unclaimed.get(movement(slot)) || []), slot]);
+    // Generated slots claim their movement before a copy the lifter added by
+    // hand, which regeneration never reproduces.
+    const sources = trainingSlots(predecessor);
+    const targets = new Map([...sources.filter((slot) => slot.role !== "manual"), ...sources.filter((slot) => slot.role === "manual")]
+      .map((slot) => [slot, unclaimed.get(movement(slot))?.shift() || null]));
     const entries = [];
     const carried = new Map();
-    for (const source of trainingSlots(predecessor)) {
+    for (const source of sources) {
       const edits = slotEdits(source, baselineSlots.get(source.id));
-      const target = unclaimed.get(movement(source))?.shift() || null;
+      const target = targets.get(source);
       if (!edits.length) continue;
       const entry = { source, target, edits, fresh: target && freshSlots.get(target.id),
         outcome: target ? "kept" : "dropped", reason: target ? null : "slot_removed" };

@@ -333,6 +333,27 @@ const bareProposal = await Transition.createReplacementProposal({
 });
 assert.equal(bareProposal.code, "successor_derivation_mismatch", "a successor that drops the edits is not the derivation");
 
+// A movement the lifter added a second time by hand does not take the
+// generated slot's place: the generated slot keeps its edit, and the manual
+// copy, which regeneration does not reproduce, is reported as removed.
+const duplicated = structuredClone(keptEdit.definition);
+const duplicateDay = trainingOf(duplicated).find((day) => day.slots.some((slot) => slot.id === keptEdit.slot.id));
+const original = duplicateDay.slots.find((slot) => slot.id === keptEdit.slot.id);
+duplicateDay.slots.unshift({ ...structuredClone(original), id: "manual-duplicate-slot", role: "manual",
+  prescriptionsByCycle: original.prescriptionsByCycle.map((cycle) => ({ cycleIndex: cycle.cycleIndex,
+    sets: [{ ...structuredClone(cycle.sets[0]), id: `manual-duplicate-${cycle.cycleIndex}`, setIndex: 1, restSeconds: 999,
+      status: "manual", provenance: { source: "manual", policyVersion: "manual@1" } }] })) });
+duplicateDay.slots.forEach((slot, index) => { slot.order = index + 1; });
+assert.equal(Compiler.validateProgramDefinition(duplicated, catalogSnapshot, []).ok, true, "a manual copy of a generated movement is a valid program");
+const withDuplicate = derive({ kind: "fewer_days", daysPerWeek: 3 }, duplicated);
+assert.equal(withDuplicate.ok, true, `a program with a manual copy regenerates: ${withDuplicate.code || ""}`);
+assert.deepEqual(slotFor(withDuplicate.value.programDefinition, keptEdit.slot.exerciseId), keptSlot,
+  "the generated slot's edit is carried, untouched by the manual copy");
+assert.deepEqual(withDuplicate.value.carry.entries.map(({ predecessorSlotId, outcome, reason }) => ({ predecessorSlotId, outcome, reason })), [
+  { predecessorSlotId: "manual-duplicate-slot", outcome: "dropped", reason: "slot_removed" },
+  { predecessorSlotId: keptEdit.slot.id, outcome: "kept", reason: null },
+], "the manual copy is reported as no longer in the program");
+
 // Clamped: more extra accessory sets than the shorter session has room for.
 const slack = (definition, slot) => {
   const day = trainingOf(definition).find((candidate) => candidate.slots.includes(slot));
