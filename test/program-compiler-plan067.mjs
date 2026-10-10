@@ -429,4 +429,48 @@ mismatchedV1.days[0].slots[0].prescriptionsByCycle[0].sets[0].metricIds = [];
 assert.equal(Compiler.validateProgramDefinition(mismatchedV1, raw).ok, false,
   "a schema v1 set whose metrics disagree with its slot's is rejected, not silently coerced");
 
+// #316: generated day names are stored in English so fingerprints, setup-link
+// recipes and backups stay language-independent; the compiler names the
+// translation key for a day only while it still carries the generator's exact
+// name at its generated position. A rename, a day the lifter added and a
+// hand-built program with the same words stay the lifter's own text.
+const en316 = JSON.parse(fs.readFileSync(path.join(root, "i18n-en.json"), "utf8"));
+const pt316 = JSON.parse(fs.readFileSync(path.join(root, "i18n-pt.json"), "utf8"));
+const splitCases316 = Object.entries(Compiler.SPLITS).flatMap(([split, entry]) =>
+  entry.compatibleDays.map((daysPerWeek) => ({ split, daysPerWeek })));
+for (const { split, daysPerWeek } of splitCases316) {
+  const generated = Compiler.generateProgram(request({ split, daysPerWeek }), raw, `p316-${split}-${daysPerWeek}`);
+  assert.equal(generated.ok, true, `${split}/${daysPerWeek} generates`);
+  const training = generated.value.days.filter((day) => day.kind === "training");
+  for (const day of training) {
+    const key = Compiler.generatedDayNameKey(generated.value, day.id);
+    assert.equal(typeof key, "string", `${split} ${day.name} has a translation key`);
+    assert.equal(en316[key], day.name, `${split} ${day.name} reads as its stored English name in EN`);
+    assert.ok(pt316[key] && pt316[key] !== day.name, `${split} ${day.name} has its own PT name (${key})`);
+  }
+  for (const day of generated.value.days.filter((entry) => entry.kind === "rest")) {
+    assert.equal(Compiler.generatedDayNameKey(generated.value, day.id), null, `${split} rest day has no generated name`);
+  }
+  const renamed = structuredClone(generated.value);
+  const [first, second] = renamed.days.filter((day) => day.kind === "training");
+  first.name = "Monday heavy";
+  assert.equal(Compiler.generatedDayNameKey(renamed, first.id), null, `${split} renamed day keeps the lifter's text`);
+  const swapped = structuredClone(generated.value);
+  const [a, b] = swapped.days.filter((day) => day.kind === "training");
+  [a.name, b.name] = [b.name, a.name];
+  assert.equal(Compiler.generatedDayNameKey(swapped, a.id), null, `${split} a day renamed to another generated name keeps the lifter's text`);
+  const added = structuredClone(generated.value);
+  const rest = added.days.find((day) => day.kind === "rest");
+  rest.kind = "training";
+  rest.name = second.name === "Lower" ? "Upper" : "Push";
+  assert.equal(Compiler.generatedDayNameKey(added, rest.id), null, `${split} a day the lifter added keeps the lifter's text`);
+}
+const manual316 = structuredClone(standard.value);
+manual316.request = {};
+manual316.provenance = { source: "manual", policyVersion: "manual@1" };
+const manualDay316 = manual316.days.find((day) => day.kind === "training");
+assert.equal(Compiler.generatedDayNameKey(manual316, manualDay316.id), null,
+  "a hand-built program that uses a generated day name keeps the lifter's text");
+assert.equal(Compiler.generatedDayNameKey(null, "day-x"), null, "a missing definition has no generated day names");
+
 console.log("PASS Plan 067 program compiler algorithm contract");

@@ -1325,8 +1325,10 @@ const longDate=d=>{const p=String(d||"").split("-");if(p.length!==3)return Strin
   try{return new Date(`${d}T12:00:00`).toLocaleDateString(locTag(),{day:"numeric",month:"long",year:"numeric"})}catch{return d}};
 /* Rows and logs keep their stable grouping labels. Generated structure records
    carry a localized display-name key beside that internal label, while a name
-   override is the exact text the lifter typed. Legacy Day N strings still get
-   their ordinal translation, and arbitrary hand-authored labels remain exact. */
+   override is the exact text the lifter typed. A split-generated day keeps its
+   English label in storage and reads in the app language while it still holds
+   the generator's exact name (#316). Legacy Day N strings still get their
+   ordinal translation, and arbitrary hand-authored labels remain exact. */
 const DEFAULT_DAY_NAME=/^Day\s+(\d+)$/;
 function dayStructureFor(value,meta){
   const s=String(value??"").trim();
@@ -1335,24 +1337,26 @@ function dayStructureFor(value,meta){
   return days.find(entry=>{
     const label=String(entry?.label??"").trim(),dayId=String(entry?.dayId??"").trim();
     return s&&(label===s||dayId===s)})||null}
-function localizedDayName(entry,fallback,index){
+function localizedDayName(entry,fallback,definition){
   const override=typeof entry?.nameOverride==="string"&&entry.nameOverride.trim()
     ?entry.nameOverride:"";
   if(override)return override;
-  const key=typeof entry?.displayNameKey==="string"?entry.displayNameKey:"";
-  if(key){const translated=t(key);if(translated!==key)return translated}
   const value=String(entry?.label??fallback??"");
+  const dayId=definition?.days?.find?.(day=>day?.kind==="training"&&day.name===value.trim())?.id;
+  const key=typeof entry?.displayNameKey==="string"?entry.displayNameKey
+    :ProgramCompiler?.generatedDayNameKey?.(definition,dayId)||"";
+  if(key){const translated=t(key);if(translated!==key)return translated}
   const match=DEFAULT_DAY_NAME.exec(value.trim());
   return match?t("program.default.day",{n:+match[1]}):value}
-function previewDayLabel(day,index,structure){
-  const entry=dayStructureFor(day?.dayId||day?.label,structure)||day;
-  return localizedDayName(entry,day?.label||`Day ${index+1}`,index)}
+function previewDayLabel(day,index,preview){
+  const entry=dayStructureFor(day?.dayId||day?.label,preview)||day;
+  return localizedDayName(entry,day?.label||`Day ${index+1}`,preview?.programDefinition)}
 const dayLabel=d=>{
   const s=String(d??"").trim();
   const meta=setupEditorOpen
     ?entryState?.result?.preview
     :state?.programMeta;
-  return localizedDayName(dayStructureFor(s,meta),d);
+  return localizedDayName(dayStructureFor(s,meta),d,meta?.programDefinition);
 };
 const download=(text,name,type="text/plain")=>{const u=URL.createObjectURL(new Blob([text],{type})),a=document.createElement("a");a.href=u;a.download=name;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(u)};
 async function shareOrDownload(text,name,type,title="Taurifer backup"){
@@ -16458,7 +16462,7 @@ function renderEntryWeek(preview){
   const added=new Set(entryChangeNow()?.added||[]);
   return (preview.days||[]).map((day,index)=>{
     const exercises=day.exercises||[],sets=sum(exercises.map(exercise=>+exercise.sets||0)),minutes=previewDayMinutes(preview,day);
-    const dayName=previewDayLabel(day,index,preview.programStructure);
+    const dayName=previewDayLabel(day,index,preview);
     const open=index===0||exercises.some(exercise=>added.has(exercise.id));
     return `<details class="onb__day"${open?" open":""}><summary class="onb__dayname"><span class="onb__daynum" aria-hidden="true">${index+1}</span>${esc(dayName)}`+
     `<span>${monoNums(`${entryExerciseCountLabel(exercises.length)} · ${t("entry.preview.sets",{n:sets})}${minutes?` · ${t("entry.preview.minutes",{n:minutes})}`:""}`)}</span></summary>`+

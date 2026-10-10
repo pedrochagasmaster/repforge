@@ -660,8 +660,10 @@
       });
     };
     const renameDay = (oldDay, value) => {
-      const next = clone(document);
-      if (!setDayLabel(next, oldDay, value)) return Promise.resolve({ ok: false, duplicate: true });
+      const next = clone(document), wanted = String(value || "").trim();
+      // Another day can store a different name yet show this one (a translated generated name).
+      const shown = labels(document).some((day, index) => day !== oldDay && dayDisplay(adapter, document, day, index) === wanted);
+      if (shown || !setDayLabel(next, oldDay, value)) return Promise.resolve({ ok: false, duplicate: true });
       if (collapsedDays.delete(oldDay)) collapsedDays.add(String(value).trim());
       return stage(next, { kind: "day_name", targetDay: oldDay, before: oldDay, after: String(value).trim() });
     };
