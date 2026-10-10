@@ -101,6 +101,32 @@ function metricValue(row, field) {
   return row?.metricValues?.find((entry) => entry.metricId === METRIC_OF[field])?.value;
 }
 
+/** Pins Date.now()/new Date() to a fixed instant for program-generation and
+ * recommendation-engine logic that reads "today". Unlike page.clock.*
+ * (any of setFixedTime/install/pauseAt/...), which unconditionally replaces
+ * performance, setTimeout/setInterval, requestAnimationFrame/
+ * cancelAnimationFrame, requestIdleCallback/cancelIdleCallback and Intl for
+ * the whole page (see playwright-core's generated clockSource: every clock
+ * method funnels through the same unrestricted install()), this only
+ * overrides Date, leaving native rAF/timers (and Playwright's own
+ * rAF-driven actionability polling) untouched. This suite does not use any
+ * other page.clock feature (no fastForward/pauseAt/install/runFor), so a
+ * fixed Date is all section 1b actually needs. */
+async function pinFixedDate(page, iso) {
+  await page.addInitScript((isoTime) => {
+    const fixedMs = new Date(isoTime).getTime();
+    const Native = window.__repforgeNativeDate || (window.__repforgeNativeDate = window.Date);
+    class FixedDate extends Native {
+      constructor(...args) {
+        if (args.length === 0) { super(fixedMs); return; }
+        super(...args);
+      }
+    }
+    FixedDate.now = () => fixedMs;
+    window.Date = FixedDate;
+  }, iso);
+}
+
 async function waitForBoot(page) {
   await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
   await page.evaluate(() => {
@@ -566,7 +592,7 @@ async function main() {
       viewport: { width: 393, height: 852 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, serviceWorkers: "block",
     });
     page = await adaptiveContext.newPage();
-    await page.clock.setFixedTime(new Date("2026-03-02T09:00:00.000Z"));
+    await pinFixedDate(page, "2026-03-02T09:00:00.000Z");
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
     await waitForBoot(page);
     const adaptive = await page.evaluate(async ({ request, weight, reps }) => {
@@ -627,7 +653,7 @@ async function main() {
     const firstSession = await finishEarly(page);
     await page.evaluate(() => window.__repforgeStorage.flush());
     check(firstSession?.localOk || firstSession?.idbOk, "the generated program records a first session to adapt from");
-    await page.clock.setFixedTime(new Date("2026-03-04T09:00:00.000Z"));
+    await pinFixedDate(page, "2026-03-04T09:00:00.000Z");
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForBoot(page);
     const historyRows = (await rawState(page)).state.log.length;
