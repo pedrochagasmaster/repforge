@@ -291,6 +291,18 @@ async function reviewGuards(browser) {
   await step(page, run, { kind: "sets", slotId: dayA.slots[0].id, count: dayA.slots[0].prescriptionsByCycle[0].sets.length + 1 },
     () => page.locator('#reviewSheet [data-review-sets="1"]').click(), "one adjustment before Restore");
   await closeSheet(page);
+  // An answer that rebuilds the program asks first; keeping the adjustments
+  // leaves them and the answer as they were.
+  await page.click('[data-entry-chip="days"]');
+  await page.waitForSelector("#entryEditor", { timeout: 10000 });
+  await page.locator('#entryEditor [data-entry-pick="daysPerWeek"][data-entry-val="3"]').click();
+  await page.click("#entryChipApply");
+  const asked = await page.waitForSelector("#reviewConfirmKeep", { timeout: 5000 }).then(() => true, () => false);
+  check(asked, "review: a rebuild asks before discarding adjustments");
+  if (asked) await page.click("#reviewConfirmKeep");
+  check(JSON.stringify(await reviewed(page)) === JSON.stringify(run.expected) &&
+    (await entry(page)).answers.daysPerWeek === 4, "review: keeping the adjustments leaves the program and the answer");
+  if (await page.locator("#entryChipKeep").count()) await page.click("#entryChipKeep");
   await page.locator("#entryReview [data-review-restore]").click();
   await page.waitForSelector("#reviewConfirmGo", { timeout: 5000 });
   run.log = [];

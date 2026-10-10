@@ -188,6 +188,8 @@ async function customTo(page, step) {
    (it is aria-busy while an edit is being saved). */
 async function reviewSettled(page) {
   await page.waitForFunction(() => !document.querySelector("#entryReview[aria-busy]"), undefined, { timeout: 20000 });
+  // The change is also announced through the app's toast; a frame waits for it to go.
+  await page.waitForFunction(() => document.querySelector("#toast")?.classList.contains("hidden") !== false, undefined, { timeout: 10000 });
 }
 async function reviewTo(page) {
   await recommendTo(page, { result: true, desired: "balanced" });

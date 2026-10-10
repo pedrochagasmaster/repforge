@@ -543,7 +543,7 @@
         const label = day.kind === "training" ? dayName(definition, day) : t("entry.review.rest_tab");
         return `<button type="button" role="tab" id="reviewTab${index}" class="review__tab${on ? " is-on" : ""}" data-review-tab="${index}" aria-selected="${on}" aria-controls="reviewPanel" tabindex="${on ? 0 : -1}">` +
           `${esc(label)}${empty ? `<span class="review__pip" aria-label="${esc(t("entry.review.empty_pip"))}"></span>` : ""}</button>`;
-      }).join("")}<span class="review__tabind" aria-hidden="true"></span></div>`;
+      }).join("")}</div>`;
     }
     function rowHtml(definition, slot, marks) {
       const name = adapter.exerciseName(slot.exerciseId);
@@ -611,13 +611,11 @@
     function measure() {
       return new Map([...host.querySelectorAll("[data-id]")].map((row) => [row.dataset.id, row.getBoundingClientRect()]));
     }
+    /* The shown day's tab is scrolled into the middle of the row. Its selected
+       boundary is its own, like every tab row (no travelling indicator). */
     function placeIndicator(animate) {
-      const bar = host.querySelector(".review__tabs"), on = host.querySelector(".review__tab.is-on"), ind = host.querySelector(".review__tabind");
-      if (!bar || !on || !ind) return;
-      const from = ind.getBoundingClientRect();
-      ind.style.left = `${on.offsetLeft}px`;
-      ind.style.width = `${on.offsetWidth}px`;
-      if (animate && from.width) adapter.motion?.animateIndicator?.(ind, from);
+      const bar = host.querySelector(".review__tabs"), on = host.querySelector(".review__tab.is-on");
+      if (!bar || !on) return;
       const left = on.offsetLeft - (bar.clientWidth - on.offsetWidth) / 2;
       bar.scrollTo?.({ left, behavior: animate && !adapter.reducedMotion() ? "smooth" : "auto" });
     }

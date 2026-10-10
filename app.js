@@ -17436,7 +17436,7 @@ function wireEntryAnswerControls(){
         const handler=el[prop];
         if(typeof handler==="function")el[prop]=function(...args){return entryEditorRun(handler,this,args)}}});
     editor.onkeydown=event=>{if(event.key==="Escape"){event.preventDefault();event.stopPropagation();closeEntryEditor()}};
-    if(apply)apply.onclick=()=>applyEntryEditor();
+    if(apply)apply.onclick=()=>guardEntryRebuild(()=>applyEntryEditor());
     if(keep)keep.onclick=()=>closeEntryEditor()}
   const goalChange=$("#entryGoalChange");
   if(goalChange)goalChange.onclick=()=>{

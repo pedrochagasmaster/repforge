@@ -1183,7 +1183,10 @@
         "onboarding-recommend/result-existing",
         "onboarding-shared/preview",
         "onboarding-recommend/result-avoided",
-        "onboarding-recommend/result-corrected"
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/review-empty-day",
+        "onboarding-recommend/review-reorder"
       ]
     },
     {
@@ -1822,7 +1825,10 @@
         "onboarding-shared/preview",
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/result-avoided",
-        "onboarding-recommend/result-corrected"
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/review-empty-day",
+        "onboarding-recommend/review-reorder"
       ]
     },
     {
@@ -3695,7 +3701,10 @@
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/result-avoided",
         "onboarding-recommend/result-corrected",
-        "onboarding-custom/shape"
+        "onboarding-custom/shape",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/review-empty-day",
+        "onboarding-recommend/review-reorder"
       ]
     },
     {
@@ -3758,7 +3767,10 @@
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/result-avoided",
         "onboarding-recommend/result-corrected",
-        "onboarding-custom/shape"
+        "onboarding-custom/shape",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/review-empty-day",
+        "onboarding-recommend/review-reorder"
       ]
     },
     {
@@ -5806,7 +5818,10 @@
         "workout/stale-draft",
         "workout/rest-running",
         "workout/rest-done",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "onboarding-recommend/review-reorder",
+        "onboarding-recommend/review-sheet",
+        "onboarding-recommend/review-sheet-swap"
       ]
     },
     {
@@ -5875,7 +5890,9 @@
         "workout/warmup-actions",
         "onboarding-recommend/result-avoided",
         "history/session",
-        "program/editor-alternates"
+        "program/editor-alternates",
+        "onboarding-recommend/review-sheet",
+        "onboarding-recommend/review-sheet-swap"
       ]
     },
     {
@@ -7477,7 +7494,10 @@
         "workout/warmup-actions",
         "workout/why-in-session",
         "workout/why-manual",
-        "workout/why-this-weight"
+        "workout/why-this-weight",
+        "onboarding-recommend/review-day-menu",
+        "onboarding-recommend/review-sheet",
+        "onboarding-recommend/review-sheet-swap"
       ]
     },
     {
@@ -7503,7 +7523,10 @@
         "today/day-picker",
         "workout/why-this-weight",
         "workout/why-in-session",
-        "workout/why-manual"
+        "workout/why-manual",
+        "onboarding-recommend/review-day-menu",
+        "onboarding-recommend/review-sheet",
+        "onboarding-recommend/review-sheet-swap"
       ]
     },
     {
@@ -7969,7 +7992,8 @@
       "catalogStates": [
         "onboarding-recommend/replacement-confirm",
         "onboarding-recovery/cancel-confirm",
-        "onboarding-recovery/restart-confirm"
+        "onboarding-recovery/restart-confirm",
+        "onboarding-recommend/review-rebuild-confirm"
       ]
     },
     {
@@ -8223,7 +8247,11 @@
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/result-corrected",
         "onboarding-recommend/result-avoided",
-        "onboarding-custom/result"
+        "onboarding-custom/result",
+        "onboarding-recommend/activation-conflict",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/review-empty-day",
+        "onboarding-recommend/review-reorder"
       ]
     },
     {
@@ -8916,6 +8944,417 @@
       "catalogStates": [
         "program/editor-alternates"
       ]
+    },
+    {
+      "id": "review-titlebtn",
+      "selector": ".review__titlebtn",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Opens the rename sheet for the program's name; the name itself is the control.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-custom/result",
+        "onboarding-recommend/activation-conflict",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-existing",
+        "onboarding-recommend/review-empty-day",
+        "onboarding-recommend/review-reorder"
+      ],
+      "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
+    },
+    {
+      "id": "review-tab",
+      "selector": ".review__tab",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected"
+      ],
+      "rationale": "Selects which day of the week the review shows; aria-selected carries the choice and the accent underline travels to it.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-custom/result",
+        "onboarding-recommend/activation-conflict",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-existing",
+        "onboarding-recommend/review-empty-day",
+        "onboarding-recommend/review-reorder"
+      ],
+      "neverDisabledReason": "Every day of the week, rest days included, can always be shown."
+    },
+    {
+      "id": "review-row",
+      "selector": ".review__row",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "The whole exercise row opens that exercise's sheet; a changed row carries its mark.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-custom/result",
+        "onboarding-recommend/activation-conflict",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-existing"
+      ],
+      "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
+    },
+    {
+      "id": "review-dayname",
+      "selector": ".review__dayname",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Opens the rename sheet for the shown day.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-custom/result",
+        "onboarding-recommend/activation-conflict",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-existing",
+        "onboarding-recommend/review-empty-day",
+        "onboarding-recommend/review-reorder"
+      ],
+      "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
+    },
+    {
+      "id": "review-more",
+      "selector": ".review__more",
+      "roles": {
+        "control": "disclosure"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Opens the day's actions: rename, reorder, add.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-custom/result",
+        "onboarding-recommend/activation-conflict",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-existing",
+        "onboarding-recommend/review-empty-day"
+      ],
+      "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
+    },
+    {
+      "id": "review-add",
+      "selector": ".review__add",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Adds a catalog movement to the shown day through the exercise picker.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-custom/result",
+        "onboarding-recommend/activation-conflict",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-existing",
+        "onboarding-recommend/review-empty-day"
+      ],
+      "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
+    },
+    {
+      "id": "review-ro-btn",
+      "selector": ".review__ro-btn",
+      "roles": {
+        "control": "adjustment"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves an exercise or an in-session alternate one place up or down, or removes an alternate; the end of the list disables its arrow.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/review-reorder",
+        "onboarding-recommend/review-sheet-swap"
+      ]
+    },
+    {
+      "id": "review-step-button",
+      "selector": ".review-step button",
+      "roles": {
+        "control": "adjustment"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Steps one prescription value (set count, rep range ends, RIR per set); a bound disables its side.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/review-sheet",
+        "onboarding-recommend/review-sheet-swap"
+      ]
+    },
+    {
+      "id": "review-seg-opt",
+      "selector": ".review-seg__opt",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected"
+      ],
+      "rationale": "Chooses the rest between sets from the presets; aria-checked carries the choice.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/review-sheet",
+        "onboarding-recommend/review-sheet-swap"
+      ],
+      "neverDisabledReason": "Every rest preset is always a valid choice."
+    },
+    {
+      "id": "review-chipbtn",
+      "selector": ".review-chipbtn",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Adds a suggested in-session alternate, or moves the exercise to another training day.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/review-sheet",
+        "onboarding-recommend/review-sheet-swap"
+      ],
+      "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
+    },
+    {
+      "id": "review-menu-act",
+      "selector": ".review-sheet__menu .exactions__act",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "One of the day's actions in the day menu; Reorder is disabled on a day with fewer than two exercises.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/review-day-menu"
+      ]
+    },
+    {
+      "id": "review-text-link",
+      "selector": ".review__changes .text-link",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Undo the last adjustment, or Restore the recommendation after a confirmation.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/review-empty-day"
+      ],
+      "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
+    },
+    {
+      "id": "review-sheet-link",
+      "selector": ".review-sheet__links .text-link",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Shows the rest of the engine's swap candidates, or opens the catalog search for a swap.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/review-sheet",
+        "onboarding-recommend/review-sheet-swap"
+      ],
+      "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
+    },
+    {
+      "id": "reviewsheet",
+      "selector": "#reviewSheet",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "bottom-sheet",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Blocks the review behind it with dialog semantics while one exercise, the day's actions or a rename is open.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/review-day-menu",
+        "onboarding-recommend/review-sheet",
+        "onboarding-recommend/review-sheet-swap"
+      ]
+    },
+    {
+      "id": "reviewsheetscrim",
+      "selector": "#reviewSheetScrim",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "scrim",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Scrim suppresses the review behind its sheet.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/review-day-menu",
+        "onboarding-recommend/review-sheet",
+        "onboarding-recommend/review-sheet-swap"
+      ]
+    },
+    {
+      "id": "reviewconfirmgo",
+      "selector": "#reviewConfirmGo",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Confirms a rebuild or restore that discards the lifter's adjustments.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/review-rebuild-confirm"
+      ],
+      "neverDisabledReason": "The confirmation is only shown when it can be answered."
+    },
+    {
+      "id": "reviewconfirmkeep",
+      "selector": "#reviewConfirmKeep",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Keeps the lifter's adjustments and dismisses the confirmation.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/review-rebuild-confirm"
+      ],
+      "neverDisabledReason": "The confirmation is only shown when it can be answered."
     }
   ],
   "contextualVariants": [
