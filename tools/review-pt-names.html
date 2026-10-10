@@ -363,7 +363,8 @@ async function load() {
   for (const it of items) { it.tok = tokens(it.englishName); byId.set(it.id, it); }
   for (const r of data.reviewedExamples) r.tok = tokens(r.englishName);
   $("sortConfLabel").hidden = !items.some(it => it.confidence);
-  $("sortConf").checked = !$("sortConfLabel").hidden && localStorage.getItem("ptReviewSortConf") === "1";
+  // With scores, the queue starts lowest score first; unticking the toggle is remembered.
+  $("sortConf").checked = !$("sortConfLabel").hidden && localStorage.getItem("ptReviewSortConf") !== "0";
   fillSelect($("fEquipment"), "Todo equipamento", "equipment");
   fillSelect($("fMuscle"), "Todo músculo", "muscles");
   currentId = nextOpen(null);

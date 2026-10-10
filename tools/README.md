@@ -349,7 +349,8 @@ committing them.
 
 Optional confidence scores: start the server with `REVIEW_PT_SCORES=<path>` to show
 an external reviewer's score (0–100), short analysis, and suggested name on each
-card and in the queue, with a "Menor nota primeiro" sort. The file is
+card and in the queue. The queue then starts lowest score first; untick
+"Menor nota primeiro" to return to the equipment grouping. The file is
 `{"schemaVersion":1,"model":"…","entries":{"<uuid>":{"namePt":"<scored draft>","score":0,"analysis":"…","suggestion":"…"|null}}}`.
 A score is shown only while its `namePt` matches the current draft. "Usar" only
 fills the name field; nothing is approved without the reviewer. The scorer
