@@ -369,6 +369,24 @@ const validBefore = JSON.stringify(valid);
 const accepted = await Contract.validateEnvelopeIntegrity(valid, webcrypto);
 assert.equal(accepted.ok, true, `canonical clone passes validation: ${accepted.code || ""}`);
 
+// #317: a slot's alternates travel with the clone, including a custom movement
+// that is only an alternate; one the clone does not define is refused.
+{
+  const withAlternates = currentEnvelope();
+  const slots = withAlternates.durableState.programMeta.programDefinition.days.flatMap((day) => day.slots);
+  slots[0].alternates = [customState.id, slots[1].exerciseId];
+  withAlternates.integrity.canonicalPayloadHash = canonicalHash(withAlternates);
+  const carried = await Contract.validateEnvelopeIntegrity(withAlternates, webcrypto);
+  assert.equal(carried.ok, true, `a clone with slot alternates transfers: ${carried.code || ""}`);
+  assert.deepEqual(carried.value.durableState.programMeta.programDefinition.days.flatMap((day) => day.slots)[0].alternates,
+    [customState.id, slots[1].exerciseId], "the clone keeps the alternates in their order");
+  const dangling = structuredClone(withAlternates);
+  dangling.durableState.programMeta.programDefinition.days.flatMap((day) => day.slots)[0].alternates = ["custom:not-in-clone"];
+  dangling.integrity.canonicalPayloadHash = canonicalHash(dangling);
+  assert.equal((await Contract.validateEnvelopeIntegrity(dangling, webcrypto)).ok, false,
+    "an alternate naming a custom movement the clone does not carry is refused");
+}
+
 // An open workout on a movement whose composition has no repetitions (here
 // weight plus per-side distance) carries no flat rep range, and still transfers.
 {

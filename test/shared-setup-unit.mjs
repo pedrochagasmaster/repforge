@@ -604,4 +604,39 @@ console.log("fragment and cookie handoff helpers retain source bytes");
   assert.equal(editedResult.code, "encoded-too-large", "it is refused whole, never truncated");
 }
 
+// #317: a slot's alternates are part of the canonical definition. A generated
+// program with alternates is no longer what its generator produces, so it
+// cannot travel as request and seed; it travels in full, alternates and the
+// custom movements they name included, and decodes to the same definition.
+{
+  const generatorOptions = { ...compilerOptions, generateProgram: Compiler.generateProgram,
+    generatorVersion: Compiler.GENERATOR_VERSION };
+  const request = structuredClone(workerFixture.request);
+  const seed = request.seed;
+  delete request.seed;
+  // Two short days keep the full form inside the link limit.
+  Object.assign(request, { daysPerWeek: 2, timeCeilingMinutes: 40, cycles: 1, deloadCycles: [], split: "auto" });
+  const generated = Compiler.generateProgram(request, source, seed);
+  assert.equal(generated.ok, true, JSON.stringify(generated.conflicts));
+  const definition = structuredClone(generated.value);
+  const slots = definition.days.flatMap((day) => day.slots);
+  const catalogAlternate = slots[1].exerciseId;
+  const customAlternate = { id: "custom:alt", name: "Coach press",
+    equipment: [], primary: "", secondary: "", notes: "", metricIds: [], metricDefinitions: [] };
+  slots[0].alternates = [customAlternate.id, catalogAlternate];
+  const input = document({ program: { name: "Generated with alternates", definition, customExercises: [customAlternate] } });
+  const encoded = await Setup.encode(input, generatorOptions);
+  assert.equal(encoded.ok, true, `a generated program with alternates still shares: ${encoded.code || ""}`);
+  const wire = JSON.parse(await gunzipText(bytesFromBase64url(encoded.value.slice(3))));
+  const form = wire.find((entry) => Array.isArray(entry) && (entry[0] === "g" || entry[0] === "c"))?.[0];
+  assert.equal(form, "c", "alternates make the recipe form non-regenerable, so the definition travels in full");
+  const decoded = await Setup.decode(encoded.value, generatorOptions);
+  assert.equal(decoded.ok, true, JSON.stringify(decoded));
+  assert.deepEqual(decoded.value, input, "the alternates and the custom movement they name arrive unchanged");
+  const dropped = structuredClone(input);
+  dropped.program.customExercises = [];
+  assert.equal(Setup.validate(dropped, compilerOptions).ok, false,
+    "a custom alternate without its definition is refused, never left dangling");
+}
+
 console.log("PASS shared setup v4 protocol contract");

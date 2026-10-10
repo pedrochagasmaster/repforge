@@ -1265,6 +1265,13 @@
       "variants": "localized"
     },
     {
+      "id": "editor-alternates",
+      "flow": "program",
+      "label": "Program — editor alternates",
+      "scenario": "The installed program editor with an exercise open on its alternates: two chosen movements in order, each with reorder and remove controls, and Add alternate.",
+      "variants": "localized"
+    },
+    {
       "id": "exercise-picker",
       "flow": "program",
       "label": "Program — exercise picker",
@@ -1543,6 +1550,13 @@
       "label": "Substituted exercise actions",
       "scenario": "workout/substituted-actions",
       "variants": "demandingText"
+    },
+    {
+      "id": "swap-alternates",
+      "flow": "workout",
+      "label": "Swap picker with alternates",
+      "scenario": "workout/swap-alternates",
+      "variants": "localized"
     },
     {
       "id": "unavailable",

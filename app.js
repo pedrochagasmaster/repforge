@@ -1767,6 +1767,12 @@ function canonicalProgramDefinition(value,customDefinitions=customExercises()){
   // (absent); this is the one boundary every file/link/backup/transfer passes
   // through, so it always hands back the deduped v2 shape.
   return compiler.canonicalizeProgramDefinition?compiler.canonicalizeProgramDefinition(value):cloneSnapshot(value)}
+/* Every movement a canonical definition names: each slot's own and its
+   alternates. A custom movement that is only an alternate is still part of the
+   program, so it travels, stays in use and is never deleted out from under it. */
+function definitionMovementIds(definition){
+  return(definition?.days||[]).flatMap(day=>(day?.slots||[]).flatMap(slot=>
+    [slot?.exerciseId,...(Array.isArray(slot?.alternates)?slot.alternates:[])])).filter(id=>typeof id==="string"&&id)}
 /* A movement outside the catalog carries the lifter's own muscle labels. An
    empty label is no attribution, not an invalid one. */
 function manualAttributionFor(row){
@@ -3001,7 +3007,12 @@ function openSubstitutePicker(id){
   const ex=prog.find(id);if(!ex)return;
   const byName=new Map(pickableExercises().map(e=>[foldSearch(libraryName(e)),e]));
   const self=(ex.libraryId&&libraryEntry(ex.libraryId))||byName.get(foldSearch(ex.name))||null;
+  // The slot's alternates lead the list. Picking one is an ordinary swap, so the
+  // substitution rules (shared metrics, typed sets protected) apply unchanged.
+  const slotId=String(ex.slotId||ex.id);
+  const slot=(state.programMeta?.programDefinition?.days||[]).flatMap(day=>day.slots||[]).find(item=>item?.id===slotId);
   openExercisePicker({title:t("picker.title_substitute"),subtitle:exerciseDisplayName(ex),
+    leading:{title:"picker.section_alternates",ids:Array.isArray(slot?.alternates)?slot.alternates:[]},
     onPick:entry=>{
       if(self&&entry.id===self.id)applyPredefinedSub(id,"");
       else applyCustomSub(id,libraryName(entry),entry.id)}})}
@@ -3435,6 +3446,7 @@ async function saveCustomExercise(draft,io=storageIO,{expectedEntry=null}={}){
    rather than deleted: hidden from the pickers, intact behind the history. */
 function customExerciseInUse(id,snapshot=state){
   if((snapshot?.program||[]).some(e=>e.libraryId===id))return true;
+  if(definitionMovementIds(snapshot?.programMeta?.programDefinition).includes(id))return true;
   if((snapshot?.log||[]).some(r=>r.performedLibraryId===id||
     r.performedMovementId===`library:${id}`))return true;
   return(snapshot?.programHistory||[]).some(h=>(h?.program||[]).some(e=>e.libraryId===id))}
@@ -4181,8 +4193,8 @@ function sharedSettingsPatch(raw){
 // state the refreshed head already owns (including deletions and edits), so it
 // must never be re-imported.
 function referencedCustomDefinitions(snapshot){
-  const referenced=new Set((Array.isArray(snapshot?.program)?snapshot.program:[])
-    .map(ex=>ex?.libraryId).filter(id=>isCustomLibraryId(id)));
+  const referenced=new Set([...(Array.isArray(snapshot?.program)?snapshot.program:[]).map(ex=>ex?.libraryId),
+    ...definitionMovementIds(snapshot?.programMeta?.programDefinition)].filter(id=>isCustomLibraryId(id)));
   return customExercises(snapshot).filter(def=>referenced.has(def.id)).map(cloneSnapshot)}
 // The head owns every device setting except the eight shared fields, including
 // unknown top-level and nested notify keys the recipient may have gained after
@@ -4193,13 +4205,14 @@ function rebaseSharedSettings(head,proposalSettings){
    offered to the refreshed head. Without this, a recipient definition the
    proposal had reused (same movement under a different id) would be re-imported
    as payload data — resurrecting it even when the head has since deleted it. */
-function sharedPayloadDefinitions(record,exercises){
+function sharedPayloadDefinitions(record,exercises,definition=null){
   const inverse=new Map(Object.entries(record.remap||{})
     .map(([payloadId,proposalId])=>[proposalId,payloadId]));
   if(inverse.size)
     for(const ex of exercises)
       if(ex&&inverse.has(ex.libraryId))ex.libraryId=inverse.get(ex.libraryId);
-  const referenced=new Set(exercises.map(ex=>ex?.libraryId).filter(id=>isCustomLibraryId(id)));
+  const referenced=new Set([...exercises.map(ex=>ex?.libraryId),...definitionMovementIds(definition)]
+    .map(id=>inverse.get(id)||id).filter(id=>isCustomLibraryId(id)));
   return normalizeCustomExercises(record.definitions).filter(def=>referenced.has(def.id))}
 function rebaseSharedSetupSnapshot(snapshot,head,seed){
   if(!snapshot||!head)return snapshot;
@@ -4207,7 +4220,7 @@ function rebaseSharedSetupSnapshot(snapshot,head,seed){
   delete snapshot[SHARED_IMPORT];
   const exercises=Array.isArray(snapshot.program)?snapshot.program:[];
   snapshot.settings=rebaseSharedSettings(head,snapshot.settings);
-  const incoming=record?sharedPayloadDefinitions(record,exercises)
+  const incoming=record?sharedPayloadDefinitions(record,exercises,snapshot.programMeta?.programDefinition)
     :referencedCustomDefinitions(snapshot);
   snapshot.customExercises=mergeImportedCustomExercises(
     incoming,exercises,head,deterministicCustomIdAllocator(seed)).customExercises;
@@ -10504,7 +10517,8 @@ function editorAdapterTranslate(key,vars,fallback){
   const value=t(key,vars);return value===key?(fallback||key):value}
 function editorChooseExercise(request){
   return new Promise(resolve=>{
-    const options={title:request?.mode==="replace"?t("picker.title_change"):t("picker.add_to",{day:dayLabel(request?.day)}),
+    const options={title:request?.mode==="replace"?t("picker.title_change"):request?.mode==="alternate"?t("picker.title_alternate")
+      :t("picker.add_to",{day:dayLabel(request?.day)}),
       subtitle:request?.exercise?exerciseDisplayName(request.exercise):"",exclude:request?.exclude||[],onPick:async entry=>{
         // Share repair applies as soon as the picker has handed back a valid
         // replacement. Wait for the picker's own close transition first: the
@@ -10570,6 +10584,8 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
     document.programMeta={...(document.programMeta||{}),programStructure:{...(document.programMeta?.programStructure||{}),days:structure}};
     return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true};
   }
+  if(kind==="slot_alternates")
+    return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true,code:"invalid_canonical_alternates"};
   if(kind==="metric_target"||kind==="metric_composition"||kind==="prescription_field"||
     kind==="prescription"&&edit.field==="sets"){
     return syncEditorCanonicalIntent(document,document,edit,{cycleIndex:Number(edit.cycleIndex)||1})
@@ -10917,6 +10933,10 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     const oldSlot=edit.kind==="exercise_replace"?beforeRef.slot:null;
     const newSlot=editorSlotForRow(row,document,slotId,Number(row.order)||day.slots.length+1,oldSlot);
     if(!newSlot)return false;
+    // The slot keeps its alternates through a replacement, less the movement it now is.
+    if(Array.isArray(newSlot.alternates)){
+      newSlot.alternates=newSlot.alternates.filter(id=>id!==newSlot.exerciseId);
+      if(!newSlot.alternates.length)delete newSlot.alternates}
     if(edit.kind==="exercise_replace"){
       for(const container of definition.days||[])container.slots=container.slots.filter(slot=>slot.id!==slotId)}
     const current=day.slots.findIndex(item=>item.id===slotId);
@@ -10924,6 +10944,12 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     day.slots.sort((a,b)=>a.order-b.order);
     day.slots.forEach((item,index)=>{item.order=index+1});
     syncEditorRowFromCanonical(document,newSlot,cycleIndex);
+  }else if(edit?.kind==="slot_alternates"){
+    const {slot}=find(slotId);
+    if(!slot||!Array.isArray(edit.after)||!Array.isArray(edit.before))return false;
+    const current=Array.isArray(slot.alternates)?slot.alternates:[];
+    if(!changeValueEqualForEditor(current,edit.before)&&!changeValueEqualForEditor(current,edit.after))return false;
+    if(edit.after.length)slot.alternates=edit.after.map(String);else delete slot.alternates;
   }else if(edit?.kind==="exercise_remove"){
     if(!beforeRef.slot)return false;
     for(const day of definition.days||[])day.slots=day.slots.filter(slot=>slot.id!==slotId);
@@ -11070,6 +11096,7 @@ function createInstalledProgramEditorAdapter(){
     dayCount:(n)=>editorAdapterTranslate("program.editor.day_count",{n,word:t(n===1?"program.editor.exercise_word":"program.editor.exercises_word")}),
     dayAddPlacement:()=>"outside",
     exerciseEntry:(id)=>libraryEntry(id),
+    movementLabel:(id)=>libraryName(libraryEntry(id)),
     exerciseLabel:(exercise)=>exercise?.name,
     exerciseDisplayLabel:(exercise)=>exerciseDisplayName(exercise),
     formatNumber:(value)=>fmt(value),
@@ -11106,6 +11133,7 @@ function createOnboardingProgramEditorAdapter(){
     dayLabel:(day)=>dayLabel(day),
     dayCount:(n)=>editorAdapterTranslate("program.editor.day_count",{n,word:t(n===1?"program.editor.exercise_word":"program.editor.exercises_word")}),
     exerciseEntry:(id)=>libraryEntry(id),
+    movementLabel:(id)=>libraryName(libraryEntry(id)),
     exerciseLabel:(exercise)=>exercise?.name,
     exerciseDisplayLabel:(exercise)=>exerciseDisplayName(exercise),
     formatNumber:(value)=>fmt(value),
@@ -11328,7 +11356,8 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
       [...new Set(program.map(exercise=>exercise.day))].map(label=>({dayId:label,label,exercises:rowsForDay(label)})));
   const progressionData=candidateProgressionData(proposal.programMeta?.progressionRelations,program,
     proposal.programMeta?.progressionIncompatibilities,"candidate-editor");
-  const referencedCustomIds=new Set(program.map(exercise=>exercise.libraryId).filter(isCustomLibraryId));
+  const referencedCustomIds=new Set([...program.map(exercise=>exercise.libraryId),
+    ...definitionMovementIds(proposal.programMeta?.programDefinition)].filter(isCustomLibraryId));
   const preview={...cloneSnapshot(entryState.result.preview),program,
     ...(proposal.programMeta?.programDefinition?{programDefinition:cloneSnapshot(proposal.programMeta.programDefinition)}:{}),
     programStructure:structure,
@@ -12106,7 +12135,7 @@ function buildSharedSetupValidation(){
   if(!SharedSetup)throw new TypeError("Shared setup unavailable");
   const definition=state.programMeta?.programDefinition;
   if(!definition)throw new TypeError("Shared setup needs a program definition");
-  const referenced=new Set(definition.days.flatMap(day=>day.slots.map(slot=>slot.exerciseId)).filter(isCustomLibraryId));
+  const referenced=new Set(definitionMovementIds(definition).filter(isCustomLibraryId));
   const customs=compilerCustomDefinitions(customExercises().filter(entry=>referenced.has(entry.id)));
   const settings=sharedSettings(state.settings);
   return{payload:{kind:SharedSetup.KIND,version:SharedSetup.VERSION,
@@ -12121,7 +12150,7 @@ function buildSharedSetupPayload(){return buildSharedSetupValidation().payload}
 function programFile(){
   const definition=state.programMeta?.programDefinition;
   if(!definition)return null;
-  const referenced=new Set(definition.days.flatMap(day=>day.slots.map(slot=>slot.exerciseId)).filter(isCustomLibraryId));
+  const referenced=new Set(definitionMovementIds(definition).filter(isCustomLibraryId));
   const payload={kind:PROGRAM_FILE_KIND,version:PROGRAM_FILE_VERSION,name:state.programMeta?.name||"",
     definition:cloneSnapshot(definition),
     customExercises:customExercises().filter(entry=>referenced.has(entry.id)).map(cloneSnapshot)};
@@ -12487,7 +12516,12 @@ function renderPickerList(){
   // A quick-add tab narrows the source; typing in it searches everything,
   // because a lifter who types a name wants that name, not the tab.
   const source=pickerState.quick&&!query?libTabList(pickerState.tab):pickerCandidates();
-  const all=source.filter(e=>!exclude.has(e.id)&&exerciseMatches(e,query,muscle,equipment));
+  const matches=e=>!!e&&!exclude.has(e.id)&&exerciseMatches(e,query,muscle,equipment);
+  // A caller's leading group (the swapped slot's alternates) keeps its own
+  // order and is not repeated in the groups below it.
+  const leading=pickerState.quick?[]:pickerState.leading.ids.map(pickerEntry).filter(matches);
+  const leadingIds=new Set(leading.map(e=>e.id));
+  const all=source.filter(e=>!leadingIds.has(e.id)&&matches(e));
   const inProgram=programLibraryIds(),logged=loggedExerciseRefs();
   const custom=[],known=[],rest=[];
   const familiar=e=>inProgram.has(e.id)||logged.ids.has(e.id)||
@@ -12506,7 +12540,8 @@ function renderPickerList(){
   const html=pickerState.quick&&!query
     ?(all.length?`<p class="pick__section">${esc(t("picker.tab_head."+pickerState.tab))}</p>`+
       all.map(e=>pickerRow(e,{selected:selected.has(e.id),checkbox:multi})).join(""):"")
-    :section("picker.section_custom",custom)+
+    :section(pickerState.leading.title,leading)+
+      section("picker.section_custom",custom)+
       section("picker.section_known",known)+
       section("picker.section_all",rest);
   el.innerHTML=html||`<p class="pick__empty">${esc(t("picker.empty",{q:query}))}</p>`;
@@ -12532,17 +12567,19 @@ async function choosePicked(id){
 /* mode "single" fires onPick with one entry and closes; "multi" collects and
    fires once on Done with the entries in selection order. */
 function openExercisePicker({title=null,subtitle="",mode="single",selected=[],exclude=[],extras=[],onPick=null,
-  onCancel=null,stageOnly=false,repairSeed=null,quick=false,day:dayName=null,query="",muscle=null,equipment=null,tab=null}={}){
+  onCancel=null,stageOnly=false,repairSeed=null,quick=false,day:dayName=null,query="",muscle=null,equipment=null,tab=null,
+  leading=null}={}){
   const sheet=$("#exPickSheet"),scrim=$("#exPickScrim"),search=$("#exPickSearch");
   if(!sheet)return;
   pickerState={query:String(query||""),muscle,equipment,mode,onPick,onCancel,stageOnly,repairSeed,completed:false,
     selected:new Set(selected.filter(Boolean).map(String)),
     exclude:new Set(exclude.filter(Boolean).map(String)),
     extras:extras.filter(Boolean),
+    leading:{title:leading?.title||"",ids:(leading?.ids||[]).filter(Boolean).map(String)},
     quick,day:dayName,tab:quick&&(LIB_TABS.includes(tab)?tab:"suggested"),
     // Kept so the custom-exercise detour can put this exact picker back, with
     // whatever was typed and filtered still in place.
-    reopen:{title,subtitle,mode,exclude:[...exclude],extras:[...extras],onPick,onCancel,stageOnly,repairSeed,quick,day:dayName}};
+    reopen:{title,subtitle,mode,exclude:[...exclude],extras:[...extras],onPick,onCancel,stageOnly,repairSeed,quick,day:dayName,leading}};
   pickerReturn=document.activeElement;
   $("#exPickTitle").textContent=title||t("picker.title");
   const sub=$("#exPickFor");if(sub)sub.textContent=subtitle||"";
@@ -13898,7 +13935,8 @@ function importCandidate(draft){
   const proposal=cloneSnapshot(state);
   const merged=mergeImportedCustomExercises(importDraftCustomDefinitions(draft),exercises,proposal);
   const program=new Program(exercises,snapshotLookup(merged.customExercises)).toJSON();
-  const wantedCustomIds=new Set(program.map(exercise=>exercise.libraryId).filter(isCustomLibraryId));
+  const wantedCustomIds=new Set([...program.map(exercise=>exercise.libraryId),...definitionMovementIds(draft.definition)]
+    .filter(isCustomLibraryId));
   const candidateCustomExercises=merged.customExercises
     .filter(entry=>wantedCustomIds.has(entry.id)).map(cloneSnapshot);
   const structure=draft.meta?.programStructure?cloneSnapshot(draft.meta.programStructure):null;

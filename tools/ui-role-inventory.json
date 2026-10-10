@@ -583,6 +583,11 @@
       "content": "flat",
       "scenario": "The installed program editor, with the first day open."
     },
+    "program/editor-alternates": {
+      "owner": "issue-317",
+      "content": "flat",
+      "scenario": "The installed editor with an exercise open on its alternates: two chosen movements in order, each with reorder and remove controls, and Add alternate."
+    },
     "program/exercise-picker": {
       "owner": "plan-057",
       "content": "flat",
@@ -782,6 +787,11 @@
       "owner": "plan-055",
       "content": "flat",
       "scenario": "workout/substituted-actions"
+    },
+    "workout/swap-alternates": {
+      "owner": "issue-317",
+      "content": "flat",
+      "scenario": "The mid-workout swap picker, opened from Exercise actions, leading with the slot's alternates in their authored order before the usual groups."
     },
     "onboarding-recommend/chip-editor-open": {
       "owner": "plan-064/r4b",
@@ -2336,7 +2346,8 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "program/exercise-picker"
+        "program/exercise-picker",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -2358,7 +2369,8 @@
       "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
       "owner": "plan-058",
       "catalogStates": [
-        "program/exercise-picker"
+        "program/exercise-picker",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -2380,7 +2392,8 @@
       "rationale": "Advances the current task with the strongest action weight.",
       "owner": "plan-058",
       "catalogStates": [
-        "program/exercise-picker"
+        "program/exercise-picker",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -2397,7 +2410,8 @@
       "rationale": "Scrim suppresses the page behind its blocking sheet.",
       "owner": "plan-058",
       "catalogStates": [
-        "program/exercise-picker"
+        "program/exercise-picker",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -2420,7 +2434,8 @@
       "rationale": "Accepts or edits an explicit value.",
       "owner": "plan-058",
       "catalogStates": [
-        "program/exercise-picker"
+        "program/exercise-picker",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -2437,7 +2452,8 @@
       "rationale": "Blocks the underlying route with dialog semantics; full-screen variants need no fake shadow.",
       "owner": "plan-058",
       "catalogStates": [
-        "program/exercise-picker"
+        "program/exercise-picker",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -2481,6 +2497,7 @@
       "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
       "owner": "plan-058",
       "catalogStates": [
+        "program/editor-alternates",
         "program/progression-editor"
       ]
     },
@@ -3355,7 +3372,8 @@
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -3984,6 +4002,7 @@
       "rationale": "Expands or collapses information; expanded state is separate from navigation.",
       "owner": "plan-058",
       "catalogStates": [
+        "program/editor-alternates",
         "program/overview",
         "program/progression-editor"
       ]
@@ -4008,6 +4027,7 @@
       "rationale": "Accepts or edits an explicit value.",
       "owner": "plan-058",
       "catalogStates": [
+        "program/editor-alternates",
         "program/progression-editor"
       ]
     },
@@ -4030,6 +4050,7 @@
       "rationale": "Accepts or edits an explicit value.",
       "owner": "plan-058",
       "catalogStates": [
+        "program/editor-alternates",
         "program/overview",
         "program/progression-editor"
       ]
@@ -4056,13 +4077,15 @@
         "program/custom-exercise-deleting",
         "program/custom-exercise-recovery",
         "program/custom-exercise-saving",
+        "program/editor-alternates",
         "program/exercise-picker",
         "program/no-program",
         "program/overview",
         "program/progression-editor",
         "program/share-ready",
         "program/share-setup",
-        "program/text-export"
+        "program/text-export",
+        "workout/swap-alternates"
       ],
       "progressScopes": {
         "active-program-week": "block"
@@ -4109,6 +4132,7 @@
       "rationale": "Accepts or edits an explicit value.",
       "owner": "plan-058",
       "catalogStates": [
+        "program/editor-alternates",
         "program/overview",
         "program/progression-editor"
       ]
@@ -4576,6 +4600,7 @@
       "rationale": "Advances the current task with the strongest action weight.",
       "owner": "plan-058",
       "catalogStates": [
+        "program/editor-alternates",
         "program/progression-editor"
       ]
     },
@@ -4783,7 +4808,8 @@
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -5554,7 +5580,8 @@
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -5592,7 +5619,8 @@
         "workout/why-in-session",
         "workout/why-manual",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates"
       ],
       "progressScopes": {
         "workout-exercise-order": "exercise-set"
@@ -5625,7 +5653,8 @@
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -5741,7 +5770,8 @@
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -5809,7 +5839,8 @@
         "workout/substituted-actions",
         "workout/warmup-actions",
         "onboarding-recommend/result-avoided",
-        "history/session"
+        "history/session",
+        "program/editor-alternates"
       ]
     },
     {
@@ -6080,7 +6111,8 @@
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -6103,7 +6135,8 @@
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -6167,7 +6200,8 @@
         "settings/privacy",
         "workout/correction",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -6312,7 +6346,8 @@
         "library/list",
         "library/list-selected",
         "program/custom-exercise",
-        "program/exercise-picker"
+        "program/exercise-picker",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -6339,7 +6374,8 @@
       "rationale": "Changes a chosen value, active option, or reversible status.",
       "owner": "plan-058",
       "catalogStates": [
-        "program/exercise-picker"
+        "program/exercise-picker",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -6389,6 +6425,7 @@
       "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
       "owner": "plan-058",
       "catalogStates": [
+        "program/editor-alternates",
         "program/progression-editor"
       ]
     },
@@ -6414,6 +6451,7 @@
         "onboarding-build/editor-empty",
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
+        "program/editor-alternates",
         "program/progression-editor"
       ]
     },
@@ -6439,6 +6477,7 @@
         "onboarding-build/editor-empty",
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
+        "program/editor-alternates",
         "program/progression-editor"
       ]
     },
@@ -6464,6 +6503,7 @@
         "onboarding-build/editor-empty",
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
+        "program/editor-alternates",
         "program/progression-editor"
       ]
     },
@@ -6490,6 +6530,7 @@
       "catalogStates": [
         "onboarding-build/editor-empty",
         "onboarding-build/editor-partial",
+        "program/editor-alternates",
         "program/progression-editor"
       ]
     },
@@ -6514,6 +6555,7 @@
       "catalogStates": [
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
+        "program/editor-alternates",
         "program/progression-editor"
       ]
     },
@@ -6540,6 +6582,7 @@
       "catalogStates": [
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
+        "program/editor-alternates",
         "program/progression-editor"
       ]
     },
@@ -6563,6 +6606,7 @@
       "catalogStates": [
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
+        "program/editor-alternates",
         "program/progression-editor"
       ]
     },
@@ -6587,6 +6631,7 @@
       "catalogStates": [
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
+        "program/editor-alternates",
         "program/progression-editor"
       ]
     },
@@ -6821,7 +6866,8 @@
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -6869,7 +6915,8 @@
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -6896,7 +6943,8 @@
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -6986,6 +7034,7 @@
       "catalogStates": [
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
+        "program/editor-alternates",
         "program/progression-editor"
       ]
     },
@@ -7031,6 +7080,7 @@
         "onboarding-build/editor-empty",
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
+        "program/editor-alternates",
         "program/progression-editor",
         "progress/schedule-diagnosis"
       ]
@@ -7058,6 +7108,7 @@
         "history/list",
         "history/session",
         "install/banner",
+        "program/editor-alternates",
         "program/no-program",
         "program/overview",
         "program/progression-editor",
@@ -7120,6 +7171,7 @@
         "history/list",
         "history/session",
         "install/banner",
+        "program/editor-alternates",
         "program/no-program",
         "program/overview",
         "program/progression-editor",
@@ -7191,6 +7243,7 @@
         "history/list",
         "history/session",
         "install/banner",
+        "program/editor-alternates",
         "program/no-program",
         "program/overview",
         "program/progression-editor",
@@ -7275,7 +7328,8 @@
         "onboarding-recommend/result-avoided",
         "onboarding-recommend/result-corrected",
         "onboarding-start/first-run-returning",
-        "onboarding-start/first-run-returning-resume"
+        "onboarding-start/first-run-returning-resume",
+        "program/editor-alternates"
       ]
     },
     {
@@ -7332,7 +7386,8 @@
         "workout/substituted-actions",
         "workout/rest-running",
         "workout/rest-done",
-        "today/done"
+        "today/done",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -7383,6 +7438,7 @@
         "workout/session",
         "workout/skipped-actions",
         "workout/substituted-actions",
+        "workout/swap-alternates",
         "workout/warmup-actions",
         "workout/why-in-session",
         "workout/why-manual",
@@ -7439,7 +7495,8 @@
         "workout/rest-running",
         "workout/rest-done",
         "history/edit-dirty",
-        "history/edit-invalid"
+        "history/edit-invalid",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -7490,7 +7547,8 @@
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -7633,7 +7691,8 @@
         "workout/rest-running",
         "workout/rest-done",
         "history/edit-dirty",
-        "history/edit-invalid"
+        "history/edit-invalid",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -7666,7 +7725,8 @@
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -7694,7 +7754,8 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -7721,7 +7782,8 @@
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -7748,7 +7810,8 @@
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -7777,7 +7840,8 @@
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -8745,6 +8809,77 @@
       "sourceOnlyReason": "pending: the day-change question opens from Confirm day in the day picker (and from Up next, a day tab or a deep link) when a draft holds logged sets, and the catalog state today/draft-resume is Today with the question closed. The today-day-picker, workout-day-context-discard, simulation and adversarial-draft-transactions suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
       "catalogStates": [
         "today/draft-resume"
+      ]
+    },
+    {
+      "id": "program-editor-add-alternate-not-id",
+      "selector": ".program-editor__add-alternate:not([id])",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Adds a movement to the slot's alternates; reversible, and disabled with the list at its cap.",
+      "owner": "issue-317",
+      "catalogStates": [
+        "onboarding-build/editor-partial",
+        "onboarding-build/editor-ready",
+        "program/editor-alternates",
+        "program/progression-editor"
+      ]
+    },
+    {
+      "id": "program-editor-alternate-move-not-id",
+      "selector": ".program-editor__alternate-move:not([id])",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only",
+        "disabled"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves one alternate up or down its list, like the session map's reorder buttons; disabled at the list's ends.",
+      "owner": "issue-317",
+      "catalogStates": [
+        "program/editor-alternates"
+      ]
+    },
+    {
+      "id": "program-editor-alternate-remove-not-id",
+      "selector": ".program-editor__alternate-remove:not([id])",
+      "roles": {
+        "control": "destructive"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Removes a movement from the slot's alternates.",
+      "owner": "issue-317",
+      "catalogStates": [
+        "program/editor-alternates"
       ]
     }
   ],

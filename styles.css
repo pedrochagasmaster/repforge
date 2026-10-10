@@ -2479,6 +2479,26 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 .program-editor__metric-range .program-editor__metric-field input{margin-top:4px}
 .program-editor__metric-prescription-fields{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}
 .program-editor__metric-unconfigured{grid-column:1/-1;margin:0;color:var(--color-ink-secondary);font-size:var(--font-size-body-small);line-height:var(--line-reading)}
+/* A slot's alternates: an ordered list the swap picker offers first. Each row
+   names the movement and carries its own reorder and remove controls. */
+.program-editor__alternates{display:grid;gap:8px;margin:16px 0 0;padding:14px 0 0;border-top:1px solid var(--boundary-decorative)}
+.program-editor__alternate-list{display:grid;margin:0;padding:0;list-style:none}
+/* Directly under the cycle list, whose last row already draws the rule. */
+.program-editor__metric-targets+.program-editor__alternates{border-top:0}
+.program-editor__alternate{display:flex;align-items:center;gap:8px;min-height:calc(var(--control-target) + 12px);border-top:1px solid var(--boundary-decorative)}
+.program-editor__alternate:last-child{border-bottom:1px solid var(--boundary-decorative)}
+.program-editor__alternate-name{flex:1 1 auto;min-width:0;color:var(--color-ink);font-size:var(--font-size-body);overflow-wrap:anywhere}
+.program-editor__alternate-move,.program-editor__alternate-remove{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:var(--control-target);height:var(--control-target);padding:0;border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);background:var(--control-secondary-bg);color:var(--control-secondary-ink);cursor:pointer;font-size:var(--control-icon-size);line-height:1}
+.program-editor__alternate-remove{color:var(--color-destructive)}
+.program-editor__alternate-move:disabled{color:var(--color-disabled-reason);border-color:var(--boundary-decorative);cursor:not-allowed}
+.program-editor__add-alternate{display:flex;align-items:center;gap:8px;min-height:var(--control-target);padding:0;border:0;background:transparent;color:var(--accent-deep);cursor:pointer;text-align:left;font-size:var(--font-size-control)}
+.program-editor__add-alternate:disabled{color:var(--color-disabled-reason);cursor:not-allowed}
+.program-editor__alternates .program-editor__hint{margin:0;color:var(--color-ink-secondary);font-size:var(--font-size-body-small);line-height:var(--line-reading)}
+:is(.program-editor__alternate-move,.program-editor__alternate-remove,.program-editor__add-alternate):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+@media (hover: hover) and (pointer: fine){
+.program-editor__alternate-move:not(:disabled):hover,.program-editor__alternate-remove:hover{background:var(--well)}
+}
+:is(.program-editor__alternate-move:not(:disabled),.program-editor__alternate-remove):active{background:var(--well);transform:var(--control-pressed-transform)}
 .program-editor__exercise-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:18px -16px 0;padding:0 16px;border-top:1px solid var(--rule)}
 .program-editor__exercise-actions button{min-height:62px;padding:8px 0;border:0;background:transparent;cursor:pointer;font-size:var(--font-size-control);font-weight:500}
 .program-editor__replace{color:var(--accent-deep)}

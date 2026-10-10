@@ -13,6 +13,11 @@ _Avoid_: Template (when meaning the whole program), split (in user-facing copy u
 One movement slot in the program: day, order, sets, rep range, muscles, notes, and alternates.
 _Avoid_: Exercise (when meaning the template rather than a logged performance), lift (ambiguous with a logged set)
 
+**Alternate**:
+A movement the lifter has chosen in advance as a swap for one exercise template. A slot keeps up to five, in order, as library ids; the mid-workout swap picker lists them first. Picking one is an ordinary swap. See `docs/adr/0019-slot-alternates.md`.
+_PT (user-facing)_: alternativa.
+_Avoid_: Substitute (the act of swapping, not the stored choice), backup exercise
+
 **Exercise library**:
 The catalogue of movements the lifter chooses from — name in both languages, equipment, muscles, and the movement patterns the generator selects by. Ships with the app (`exercises.js`, generated); the lifter's own additions live beside it as custom exercises. Choosing from it copies name, muscles and notes onto the exercise template and records the library id as provenance, so a slot stays fully editable and never depends on the library to be read.
 _Avoid_: Exercise database, catalog (the internal name for its predecessor), movement bank

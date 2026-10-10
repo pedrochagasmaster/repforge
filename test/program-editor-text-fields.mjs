@@ -293,15 +293,10 @@ async function main() {
     );
     await openExerciseDetails(page);
 
-    // 7. #317 option B: the Alternates row is gone. The Focus swap picker never
-    //    read it, so the control only stored a note the canonical program then
-    //    dropped on the floor — removed rather than wired up.
-    check(await page.locator(`#programEditor [data-role="alternates"][data-id="${EXERCISE_ID}"]`).count() === 0,
-      "the alternates picker control is gone", {
-        altButton: await page.locator(`#programEditor [data-role="alternates"][data-id="${EXERCISE_ID}"]`).count(),
-      });
+    // 7. #317: alternates are chosen movements, an ordered list on the slot,
+    //    never a free-text box of names the canonical program cannot hold.
     check(await page.locator('#programEditor [data-role="exercise-field"][data-field="alternates"]').count() === 0,
-      "no leftover alternates text box took its place", {
+      "alternates are not a free-text field", {
         leftoverInput: await page.locator('#programEditor [data-role="exercise-field"][data-field="alternates"]').count(),
       });
 

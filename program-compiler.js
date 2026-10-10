@@ -1128,7 +1128,12 @@
   const DAY_KEYS = new Set(["id", "name", "kind", "order", "slots"]);
   const SLOT_KEYS = new Set(["id", "purposeId", "exerciseId", "sourceExerciseIds", "role", "musclePurposeIds", "movementPatternIds",
     "exerciseTypeId", "metricIds", "metricDefinitions", "metricOrigin", "loadingModel", "prescriptionsByCycle", "order",
-    "displayName", "setupNotes", "manualAttribution", "lateralityIds", "executionMode"]);
+    "displayName", "setupNotes", "manualAttribution", "lateralityIds", "executionMode", "alternates"]);
+  // A slot's alternates are the movements the lifter has chosen to swap to,
+  // offered first by the mid-workout swap picker, in their authored order.
+  // The field is additive: a definition without it is unchanged, so it does
+  // not bump PROGRAM_SCHEMA_VERSION (see docs/adr/0019-slot-alternates.md).
+  const MAX_SLOT_ALTERNATES = 5;
   const CYCLE_KEYS = new Set(["cycleIndex", "sets"]);
   const SET_KEYS = new Set(["id", "cycleIndex", "setIndex", "metricType", "metricIds", "metricDefinitions", "targets", "rir", "restSeconds", "status", "provenance"]);
   const REQUEST_KEYS = new Set(["goal", "experience", "daysPerWeek", "timeCeilingMinutes", "gymProfile", "competencyAnswers",
@@ -1343,6 +1348,21 @@
           }
           if (slot.loadingModel.assistanceDirection !== undefined && !["subtract", null].includes(slot.loadingModel.assistanceDirection)) issues.push(`${slotPath}.loadingModel.assistanceDirection: unsupported`);
         }
+        if (slot.alternates !== undefined) {
+          if (!Array.isArray(slot.alternates)) issues.push(`${slotPath}.alternates: expected an array`);
+          else {
+            if (slot.alternates.length > MAX_SLOT_ALTERNATES) issues.push(`${slotPath}.alternates: at most ${MAX_SLOT_ALTERNATES} alternates`);
+            const seenAlternates = new Set();
+            slot.alternates.forEach((id, alternateIndex) => {
+              const alternatePath = `${slotPath}.alternates[${alternateIndex}]`;
+              if (typeof id !== "string" || !id) { issues.push(`${alternatePath}: expected an exercise ID`); return; }
+              if (seenAlternates.has(id)) issues.push(`${alternatePath}: repeated alternate`);
+              seenAlternates.add(id);
+              if (id === slot.exerciseId) issues.push(`${alternatePath}: the slot's own exercise is not an alternate`);
+              if (catalog && !customById.has(id) && !catalog.exercises.some((entry) => entry.id === id)) issues.push(`${alternatePath}: unknown catalog or custom exercise`);
+            });
+          }
+        }
         let exercise = null;
         const custom = customById.get(slot.exerciseId);
         if (custom) {
@@ -1421,6 +1441,7 @@
     next.schemaVersion = PROGRAM_SCHEMA_VERSION;
     for (const day of next.days || []) {
       for (const slot of day.slots || []) {
+        if (Array.isArray(slot.alternates) && !slot.alternates.length) delete slot.alternates;
         for (const cycle of slot.prescriptionsByCycle || []) {
           for (const set of cycle.sets || []) {
             delete set.metricIds;
@@ -1454,6 +1475,7 @@
   const api = Object.freeze({
     GENERATOR_VERSION,
     PROGRAM_SCHEMA_VERSION,
+    MAX_SLOT_ALTERNATES,
     ROLES,
     SPLITS,
     GOALS,

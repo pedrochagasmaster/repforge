@@ -487,4 +487,50 @@ assert.equal(Compiler.generatedDayNameKey(manual316, manualDay316.id), null,
   "a hand-built program that uses a generated day name keeps the lifter's text");
 assert.equal(Compiler.generatedDayNameKey(null, "day-x"), null, "a missing definition has no generated day names");
 
+// #317: a slot may name ordered alternate movements the swap picker offers
+// first. The field is additive and optional, so every definition written
+// before it (and every generated one) is unchanged. Its identity rules are a
+// combinatorial boundary the browser journey exercises only one path of.
+const alternateIds = standard.value.days.flatMap((day) => day.slots.map((slot) => slot.exerciseId))
+  .filter((id) => id !== standard.value.days[0].slots[0].exerciseId);
+assert.ok(alternateIds.length >= 6, "the fixture offers enough distinct catalog movements to exceed the cap");
+assert.equal(standard.value.days.flatMap((day) => day.slots).some((slot) => "alternates" in slot), false,
+  "a generated definition carries no alternates field");
+const withAlternates = (alternates, custom = []) => {
+  const definition = structuredClone(standard.value);
+  definition.days[0].slots[0].alternates = alternates;
+  return Compiler.validateProgramDefinition(definition, raw, custom);
+};
+assert.deepEqual(withAlternates(alternateIds.slice(0, 2)), { ok: true, issues: [] },
+  "catalog alternates are valid on a slot");
+assert.deepEqual(withAlternates([]), { ok: true, issues: [] }, "an empty alternates list is valid input");
+const customAlternate = { id: "custom:alt-row", name: "Coach row", metricIds: [], metricDefinitions: [] };
+assert.deepEqual(withAlternates([customAlternate.id, alternateIds[0]], [customAlternate]), { ok: true, issues: [] },
+  "a custom movement the program carries may be an alternate");
+for (const [label, alternates, custom] of [
+  ["a custom alternate without its definition", [customAlternate.id], []],
+  ["an unknown catalog identity", ["00000000000000000000000000000000"], []],
+  ["a repeated alternate", [alternateIds[0], alternateIds[0]], []],
+  ["the slot's own movement", [standard.value.days[0].slots[0].exerciseId], []],
+  ["more alternates than the cap", alternateIds.slice(0, Compiler.MAX_SLOT_ALTERNATES + 1), []],
+  ["a non-string identity", [7], []],
+  ["an empty identity", [""], []],
+  ["a non-array value", alternateIds[0], []],
+]) {
+  const checked = withAlternates(alternates, custom);
+  assert.equal(checked.ok, false, `${label} is refused`);
+  assert.ok(checked.issues.some((issue) => issue.startsWith("program.days[0].slots[0].alternates")),
+    `${label} is reported against the slot's alternates: ${JSON.stringify(checked.issues)}`);
+}
+assert.equal(Compiler.MAX_SLOT_ALTERNATES, 5, "the alternates cap is a published compiler constant");
+const keptAlternates = structuredClone(standard.value);
+keptAlternates.days[0].slots[0].alternates = alternateIds.slice(0, 3);
+assert.deepEqual(Compiler.canonicalizeProgramDefinition(keptAlternates).days[0].slots[0].alternates, alternateIds.slice(0, 3),
+  "canonicalization keeps alternates in their authored order");
+const emptyAlternates = structuredClone(standard.value);
+emptyAlternates.days[0].slots[0].alternates = [];
+assert.deepEqual(Compiler.canonicalizeProgramDefinition(emptyAlternates), standard.value,
+  "an empty alternates list canonicalizes to the absent field, so the two spellings are one definition");
+assert.equal(Compiler.PROGRAM_SCHEMA_VERSION, 2, "alternates are additive; they do not bump the program schema");
+
 console.log("PASS Plan 067 program compiler algorithm contract");

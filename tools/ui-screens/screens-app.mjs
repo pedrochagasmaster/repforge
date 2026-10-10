@@ -255,12 +255,15 @@ async function assertLibraryTabsFitExternalTextScale(page) {
   });
 }
 
+/** #317: a squat slot's chosen alternates, 45° leg press then hack squat. */
+const SQUAT_ALTERNATES = Object.freeze(["1a25c6f170d88079a926dde776766181", "1a25c6f170d88008a9adde9f71881c36"]);
 /** Catalog states built on the Direction D fixture; each R3 sub-slice adds its own. */
 const D_FIXTURE_STATES = new Set([
   "workout/focus", "workout/focus-glossary", "workout/correction", // R3c
   "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions", // R3d
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", // R3d
   "workout/exercise-actions", // R3x: the redrawn sheet, on the lifter the drawing shows
+  "workout/swap-alternates", // #317: the swap picker leads with the squat slot's alternates
   "history/list", "history/session", "history/edit-dirty", "history/edit-invalid", // R3j, R3j2
   "program/overview", // R3k
   "today/done", // R3x: the finished day, on the lifter whose Monday session is in the log
@@ -338,6 +341,10 @@ export function appState(key, lang) {
   // the review page draws. Every other state keeps catalogState().
   if (D_FIXTURE_STATES.has(key)) {
     const drawn = localeState(directionDState(), lang);
+    if (key === "workout/swap-alternates") {
+      const slot = drawn.programMeta.programDefinition.days.flatMap((day) => day.slots).find((entry) => entry.id === "ex-sq");
+      slot.alternates = [...SQUAT_ALTERNATES];
+    }
     if (APP_ASOF[key]) drawn.log = drawn.log.filter((row) => row.date <= APP_ASOF[key]);
     return drawn;
   }
@@ -364,12 +371,17 @@ export function appState(key, lang) {
   // richer fixture so their progress and volume evidence remains meaningful.
   // The editor reads the canonical ProgramDefinition, not the flat `program`
   // projection, so both have to be narrowed together to the same two slots.
-  if (key === "program/progression-editor") {
+  if (key === "program/progression-editor" || key === "program/editor-alternates") {
     const kept = new Set(["seed-ex-1", "seed-ex-2"]);
     state.program = state.program.filter((exercise) => exercise.day !== "Day 1" || kept.has(exercise.id));
     for (const day of state.programMeta.programDefinition.days) {
       if (day.name === "Day 1") day.slots = day.slots.filter((slot) => kept.has(slot.id));
     }
+  }
+  if (key === "program/editor-alternates") {
+    const slot = state.programMeta.programDefinition.days.flatMap((day) => day.slots).find((entry) => entry.id === "seed-ex-1");
+    // The seed slot is itself a hack squat, so its list is leg press then a split squat.
+    slot.alternates = [SQUAT_ALTERNATES[0], "1a25c6f170d8809eb8a5e76ff245649d"];
   }
   return localeState(state, lang);
 }
@@ -991,6 +1003,13 @@ export const APP_SCENARIOS = {
     await page.locator("#woOverflowBtn").click();
     await resetSheetScroll(page, ".exactions-sheet__body");
   },
+  "workout/swap-alternates": async page => {
+    await focusMode(page);
+    await page.locator("#woOverflowBtn").click();
+    await page.locator("#exActionSubstBtn").click();
+    await page.locator("#exPickSheet.is-open .pick__section").first().waitFor();
+    await sleep(page, 400);
+  },
   "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, ".exactions-sheet__body"); },
   "workout/reorder": async page => {
     await focusMode(page);
@@ -1364,6 +1383,17 @@ export const APP_SCENARIOS = {
     // stable while the scenario follows the shared editor.
     const editor = page.locator('#programEditor [data-role="exercise"]').first();
     await editor.scrollIntoViewIfNeeded();
+    await sleep(page, 400);
+  },
+  "program/editor-alternates": async (page) => {
+    await openProgram(page);
+    await page.click("#programEditToggle");
+    await page.waitForSelector('#programEditor [data-role="editor"]', { timeout: 20000 });
+    const toggle = page.locator('#programEditor [data-role="toggle-exercise"][data-id="seed-ex-1"]');
+    if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
+    const alternates = page.locator('#programEditor [data-role="alternates"][data-id="seed-ex-1"]');
+    await alternates.waitFor({ timeout: 20000 });
+    await alternates.evaluate((node) => node.scrollIntoView({ block: "center" }));
     await sleep(page, 400);
   },
   "program/exercise-picker": async (page) => {
