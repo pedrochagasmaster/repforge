@@ -224,6 +224,80 @@ async function main() {
     await manualReceiver.context.close();
     await builder.context.close();
 
+    // #317: a slot's alternates travel by link and by file --------------------
+    // One catalog alternate and one custom movement that is only an alternate,
+    // so the custom definition has to travel on the strength of the alternate.
+    const alternating = await fresh(browser);
+    errors.push(alternating.errors);
+    await installSeedProgram(alternating.page, { waitFor: (page) => waitForAppBoot(page, { base: BASE }) });
+    const CUSTOM_ALTERNATE = { id: "custom:alt-landmine", name: "Coach landmine press", equipment: [],
+      primary: "", secondary: "", notes: "", metricIds: [], metricDefinitions: [] };
+    await alternating.page.evaluate(async (custom) => {
+      await window.__repforgeStorage.flush();
+      const state = JSON.parse(localStorage.getItem("repforge_v1"));
+      const slots = state.programMeta.programDefinition.days.flatMap((day) => day.slots);
+      slots[0].alternates = [slots[1].exerciseId, custom.id];
+      state.customExercises = [...(state.customExercises || []), custom];
+      localStorage.setItem("repforge_v1", JSON.stringify(state));
+      const db = await new Promise((resolve, reject) => {
+        const request = indexedDB.open("repforge", 1);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction("kv", "readwrite");
+        tx.objectStore("kv").put(state, "repforge_v1");
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+      db.close();
+    }, CUSTOM_ALTERNATE);
+    await alternating.page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(alternating.page, { base: BASE });
+    const withAlternates = (await state(alternating.page)).programMeta.programDefinition;
+    const firstAlternates = (definition) => definition?.days.flatMap((day) => day.slots)[0]?.alternates;
+    check(firstAlternates(withAlternates)?.[1] === CUSTOM_ALTERNATE.id, "the sender's slot carries a catalog and a custom alternate",
+      firstAlternates(withAlternates));
+    const alternateLink = await shareLink(alternating.page);
+    check(alternateLink.link && alternateLink.link.split("#setup=")[1].length <= 3072,
+      "a program with alternates shares in full within the limit", { length: alternateLink.link?.split("#setup=")[1]?.length, status: alternateLink.status });
+    const alternateReceiver = await receive(browser, alternateLink.link);
+    errors.push(alternateReceiver.errors);
+    await startAndActivate(alternateReceiver.page);
+    const receivedAlternates = await state(alternateReceiver.page);
+    check(same(receivedAlternates.programMeta.programDefinition, withAlternates),
+      "the link delivers the alternates unchanged", firstDifference(withAlternates, receivedAlternates.programMeta.programDefinition));
+    check((receivedAlternates.customExercises || []).some((entry) => entry.id === CUSTOM_ALTERNATE.id && entry.name === CUSTOM_ALTERNATE.name),
+      "the custom movement that is only an alternate arrives with it", receivedAlternates.customExercises);
+    await alternateReceiver.context.close();
+    await alternating.page.keyboard.press("Escape");
+    await alternating.page.waitForSelector("#shareSetupSheet", { state: "hidden" });
+    await alternating.page.click("#programEditToggle");
+    await alternating.page.waitForSelector("#programEditorWrap:not(.is-hidden)");
+    await alternating.page.locator("#programEditorWrap details.advanced > summary").click();
+    const [alternateDownload] = await Promise.all([alternating.page.waitForEvent("download"), alternating.page.locator("#exportProgram").click()]);
+    const alternateFile = await (await import("node:fs/promises")).readFile(await alternateDownload.path(), "utf8");
+    const alternateJson = JSON.parse(alternateFile);
+    check(same(alternateJson.definition, withAlternates) && alternateJson.customExercises.some((entry) => entry.id === CUSTOM_ALTERNATE.id),
+      "the program file carries the alternates and the custom movement they name", { custom: alternateJson.customExercises?.map((entry) => entry.id) });
+    await alternating.context.close();
+    const alternateImporter = await fresh(browser);
+    errors.push(alternateImporter.errors);
+    await alternateImporter.page.click("#firstRunImport");
+    await alternateImporter.page.waitForSelector("#importProgram", { state: "attached" });
+    await alternateImporter.page.setInputFiles("#importProgram", { name: "program.json", mimeType: "application/json", buffer: Buffer.from(alternateFile) });
+    await alternateImporter.page.waitForSelector("#importReview.active", { timeout: 15000 });
+    await alternateImporter.page.click("#importCommit");
+    await alternateImporter.page.waitForSelector("#entryActivate", { timeout: 15000 });
+    await alternateImporter.page.click("#entryActivate");
+    await alternateImporter.page.waitForFunction(() => window.__repforgeWorkoutDraft.state()?.programMeta?.onboarded === true, undefined, { timeout: 20000 });
+    const importedAlternates = await state(alternateImporter.page);
+    check(same(importedAlternates.programMeta.programDefinition, withAlternates),
+      "importing the file activates the alternates unchanged", firstDifference(withAlternates, importedAlternates.programMeta.programDefinition));
+    check((importedAlternates.customExercises || []).some((entry) => entry.id === CUSTOM_ALTERNATE.id),
+      "the imported program keeps the custom alternate's definition", importedAlternates.customExercises?.map((entry) => entry.id));
+    await alternateImporter.context.close();
+
     // An edited generated program that cannot fit is refused whole -------------
     const edited = await fresh(browser);
     errors.push(edited.errors);

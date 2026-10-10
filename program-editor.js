@@ -16,10 +16,11 @@
   const PROGRAM_EDITOR_INTENTS = Object.freeze([
     "program_name", "day_name", "day_add", "exercise_field", "prescription",
     "exercise_add", "exercise_remove", "day_remove", "exercise_replace",
-    "exercise_move", "metric_target", "metric_composition",
+    "exercise_move", "slot_alternates", "metric_target", "metric_composition",
     "prescription_field", "load_step", "save_draft", "apply", "apply_discard_workout",
   ]);
   const INTENT_SET = new Set(PROGRAM_EDITOR_INTENTS);
+  const maxAlternates = () => root?.RepForgeProgramCompiler?.MAX_SLOT_ALTERNATES || 5;
   const METRIC_DOMAIN = root?.RepForgeExerciseMetrics ||
     (typeof require === "function" ? require("./exercise-metrics.js") : null);
   const FALLBACK = Object.freeze({
@@ -45,6 +46,12 @@
     notes: "Setup notes",
     primary: "Primary",
     secondary: "Secondary",
+    alternates: "Alternates",
+    alternatesHint: "Offered first when you swap this exercise during a workout.",
+    addAlternate: "Add alternate",
+    alternateUp: ({ name }) => `Move ${name} up`,
+    alternateDown: ({ name }) => `Move ${name} down`,
+    alternateRemove: ({ name }) => `Remove ${name} from alternates`,
     move: "Reorder exercise",
     moveUp: "Move up",
     moveDown: "Move down",
@@ -89,6 +96,9 @@
     removeExercise: "program.editor.remove_exercise", removeDay: "program.editor.remove_day",
     details: "program.editor.details", notes: "program.editor.notes", primary: "program.editor.primary",
     secondary: "program.editor.secondary",
+    alternates: "program.editor.alternates", alternatesHint: "program.editor.alternates_hint",
+    addAlternate: "program.editor.add_alternate", alternateUp: "program.editor.alternate_up",
+    alternateDown: "program.editor.alternate_down", alternateRemove: "program.editor.alternate_remove",
     move: "program.editor.move", moveUp: "program.editor.move_up", moveDown: "program.editor.move_down",
     moveOther: "program.editor.move_other", moved: "program.editor.moved", undo: "program.editor.undo",
     exerciseAdded: "toast.exercise_added", exerciseChanged: "toast.exercise_changed", exerciseRemoved: "toast.exercise_removed",
@@ -214,6 +224,13 @@
   }
   function exerciseEntry(adapter, id) {
     try { return adapter?.exerciseEntry?.(id) || null; } catch { return null; }
+  }
+  function movementLabel(adapter, id) {
+    try {
+      const value = adapter?.movementLabel?.(id);
+      if (value) return String(value);
+    } catch { /* fall back to the library entry's own name */ }
+    return String(exerciseEntry(adapter, id)?.name || id);
   }
   function exerciseMetricDefinitions(adapter, exercise) {
     if (Array.isArray(exercise?.metricDefinitions)) return clone(exercise.metricDefinitions);
@@ -659,6 +676,50 @@
         return value;
       });
     };
+    /* A slot's alternates live on its canonical slot, so only a definition-backed
+       exercise offers them. The list is replaced whole: before/after let the host
+       rebase it onto a head another tab has moved on. */
+    const setAlternates = (id, alternates, focus) => {
+      const exercise = document.program?.find(item => item.id === id);
+      const slotId = exercise?.slotId || exercise?.id, next = clone(document), slot = definitionSlot(next, slotId);
+      if (!slot) return Promise.resolve({ ok: false });
+      const before = clone(slot.alternates || []), after = alternates.map(String);
+      if (equal(before, after)) return Promise.resolve({ ok: true, unchanged: true });
+      if (after.length) slot.alternates = after; else delete slot.alternates;
+      pendingFocus = focus;
+      return stage(next, { kind: "slot_alternates", targetId: id, slotId, before, after });
+    };
+    const addAlternate = id => {
+      const exercise = document.program?.find(item => item.id === id), slot = definitionSlot(document, exercise?.slotId || exercise?.id);
+      if (!slot || (slot.alternates || []).length >= maxAlternates()) return Promise.resolve(null);
+      return chooseExercise({ mode: "alternate", day: exercise.day, exercise: clone(exercise),
+        exclude: [slot.exerciseId, ...(slot.alternates || [])] }).then(choice => {
+        const entry = choice?.entry || choice;
+        if (!entry?.id) return null;
+        const current = definitionSlot(document, slot.id)?.alternates || [];
+        if (entry.id === slot.exerciseId || current.includes(entry.id) || current.length >= maxAlternates()) return null;
+        return setAlternates(id, [...current, entry.id], { selector: `[data-role="alternate-remove"][data-id="${cssEscape(id)}"][data-exercise-id="${cssEscape(entry.id)}"]` });
+      });
+    };
+    const editAlternate = (id, exerciseId, role) => {
+      const exercise = document.program?.find(item => item.id === id), slot = definitionSlot(document, exercise?.slotId || exercise?.id);
+      const list = clone(slot?.alternates || []), index = list.indexOf(exerciseId);
+      if (index < 0) return Promise.resolve(null);
+      if (role === "alternate-remove") {
+        list.splice(index, 1);
+        const neighbour = list[Math.min(index, list.length - 1)];
+        return setAlternates(id, list, { selector: neighbour
+          ? `[data-role="alternate-remove"][data-id="${cssEscape(id)}"][data-exercise-id="${cssEscape(neighbour)}"]`
+          : `[data-role="add-alternate"][data-id="${cssEscape(id)}"]` });
+      }
+      const to = index + (role === "alternate-up" ? -1 : 1);
+      if (to < 0 || to >= list.length) return Promise.resolve(null);
+      list.splice(to, 0, list.splice(index, 1)[0]);
+      // Focus stays on the control that moved, or on its opposite once the row hits an end.
+      const edge = to === 0 || to === list.length - 1;
+      const keep = edge ? (role === "alternate-up" ? "alternate-down" : "alternate-up") : role;
+      return setAlternates(id, list, { selector: `[data-role="${keep}"][data-id="${cssEscape(id)}"][data-exercise-id="${cssEscape(exerciseId)}"]` });
+    };
     const renameDay = (oldDay, value) => {
       const next = clone(document), wanted = String(value || "").trim();
       // Another day can store a different name yet show this one (a translated generated name).
@@ -1023,6 +1084,26 @@
         metricIds: clone(metricIds), metricDefinitions: clone(definitions),
       });
     }
+    function renderAlternates(exercise, slot) {
+      if (!slot) return "";
+      const list = Array.isArray(slot.alternates) ? slot.alternates : [];
+      const items = list.map((id, index) => {
+        const name = movementLabel(adapter, id), attrs = `data-id="${esc(exercise.id)}" data-exercise-id="${esc(id)}"`;
+        return `<li class="program-editor__alternate" data-role="alternate" data-exercise-id="${esc(id)}">
+          <span class="program-editor__alternate-name" data-role="alternate-name">${esc(name)}</span>
+          <button type="button" class="program-editor__alternate-move" data-role="alternate-up" ${attrs} aria-label="${esc(label("alternateUp", { name }))}"${index === 0 ? " disabled" : ""}><span class="icon-mask icon-mask--chev-up" aria-hidden="true"></span></button>
+          <button type="button" class="program-editor__alternate-move" data-role="alternate-down" ${attrs} aria-label="${esc(label("alternateDown", { name }))}"${index === list.length - 1 ? " disabled" : ""}><span class="icon-mask icon-mask--chev-down" aria-hidden="true"></span></button>
+          <button type="button" class="program-editor__alternate-remove" data-role="alternate-remove" data-action-role="removal" ${attrs} aria-label="${esc(label("alternateRemove", { name }))}"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+        </li>`;
+      }).join("");
+      const full = list.length >= maxAlternates();
+      return `<section class="program-editor__alternates" data-role="alternates" data-id="${esc(exercise.id)}" aria-labelledby="alternates-${esc(exercise.id)}">
+          <span class="program-editor__field-label" id="alternates-${esc(exercise.id)}">${esc(label("alternates"))}</span>
+          ${items ? `<ol class="program-editor__alternate-list">${items}</ol>` : ""}
+          <button type="button" class="program-editor__add-alternate" data-role="add-alternate" data-id="${esc(exercise.id)}"${full ? " disabled" : ""}><span aria-hidden="true">＋</span> ${esc(label("addAlternate"))}</button>
+          <p class="program-editor__hint">${esc(label("alternatesHint"))}</p>
+        </section>`;
+    }
     function renderExercise(exercise, index, count, day) {
       const open = expandedExercises.has(exercise.id);
       const linked = exerciseEntry(adapter, exercise.libraryId);
@@ -1051,6 +1132,7 @@
           ${legacyRepControls}
           ${renderMetricTargets(exercise)}
           ${renderLoadStep(exercise, slot)}
+          ${renderAlternates(exercise, slot)}
           <div class="program-editor__exercise-actions">
             <button type="button" class="program-editor__replace" data-role="replace" data-action-role="replacement" data-id="${esc(exercise.id)}">${esc(label("replaceExercise"))}</button>
             <button type="button" class="program-editor__remove" data-role="remove-exercise" data-action-role="removal" data-id="${esc(exercise.id)}">${esc(label("removeExercise"))}</button>
@@ -1297,6 +1379,9 @@
       }));
       host.querySelectorAll('[data-role="replace"]').forEach(button => button.addEventListener("click", () => replaceForExercise(button.dataset.id)));
       host.querySelectorAll('[data-role="remove-exercise"]').forEach(button => button.addEventListener("click", () => removeExercise(button.dataset.id)));
+      host.querySelectorAll('[data-role="add-alternate"]').forEach(button => button.addEventListener("click", () => addAlternate(button.dataset.id)));
+      host.querySelectorAll('[data-role="alternate-up"],[data-role="alternate-down"],[data-role="alternate-remove"]').forEach(button =>
+        button.addEventListener("click", () => editAlternate(button.dataset.id, button.dataset.exerciseId, button.dataset.role)));
       host.querySelectorAll('[data-role="exercise-menu"]').forEach(button => button.addEventListener("click", () => {
         const menu = host.querySelector(`[data-role="move-menu"][data-id="${cssEscape(button.dataset.id)}"]`); if (!menu) return;
         const open = menu.hidden; host.querySelectorAll('[data-role="move-menu"]').forEach(item => { item.hidden = true; });

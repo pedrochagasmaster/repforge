@@ -175,6 +175,7 @@ export const SUITES = {
     s("test/focus-session-sheet.mjs"),
     s("test/workout-finish-boundary.mjs"),
     s("test/focus-exercise-actions.mjs"),
+    s("test/slot-alternates.mjs", [], { domains: ["program", "workout", "history"], seconds: 20 }),
     s("test/focus-navigation.mjs"),
     s("test/focus-geometry.mjs", [], { seconds: 39 }),
     s("test/management-summary.mjs"),

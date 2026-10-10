@@ -2595,6 +2595,24 @@
           "type": "number"
         },
         {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
+        },
+        {
           "tag": "button",
           "text": "Replace exercise",
           "name": "Replace exercise",
@@ -4246,6 +4264,24 @@
           "name": "Cycle 7, Set 3, Rest (seconds)",
           "label": "Cycle 7, Set 3, Rest (seconds)",
           "type": "number"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
         },
         {
           "tag": "button",
@@ -5901,6 +5937,24 @@
           "type": "number"
         },
         {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
+        },
+        {
           "tag": "button",
           "text": "Replace exercise",
           "name": "Replace exercise",
@@ -7552,6 +7606,24 @@
           "name": "Cycle 7, Set 3, Rest (seconds)",
           "label": "Cycle 7, Set 3, Rest (seconds)",
           "type": "number"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
         },
         {
           "tag": "button",
@@ -9207,6 +9279,24 @@
           "type": "number"
         },
         {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
+        },
+        {
           "tag": "button",
           "text": "Replace exercise",
           "name": "Replace exercise",
@@ -10858,6 +10948,24 @@
           "name": "Ciclo 7, Série 3, Descanso (segundos)",
           "label": "Ciclo 7, Série 3, Descanso (segundos)",
           "type": "number"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Alternativas"
+        },
+        {
+          "tag": "span",
+          "text": "Alternativas"
+        },
+        {
+          "tag": "button",
+          "text": "Adicionar alternativa",
+          "name": "＋ Adicionar alternativa",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Aparecem primeiro quando você substitui este exercício durante o treino."
         },
         {
           "tag": "button",
@@ -12513,6 +12621,24 @@
           "type": "number"
         },
         {
+          "tag": "section",
+          "labelledBy": "Alternativas"
+        },
+        {
+          "tag": "span",
+          "text": "Alternativas"
+        },
+        {
+          "tag": "button",
+          "text": "Adicionar alternativa",
+          "name": "＋ Adicionar alternativa",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Aparecem primeiro quando você substitui este exercício durante o treino."
+        },
+        {
           "tag": "button",
           "text": "Substituir exercício",
           "name": "Substituir exercício",
@@ -14164,6 +14290,24 @@
           "name": "Cycle 7, Set 3, Rest (seconds)",
           "label": "Cycle 7, Set 3, Rest (seconds)",
           "type": "number"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
         },
         {
           "tag": "button",
@@ -15819,6 +15963,24 @@
           "type": "number"
         },
         {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
+        },
+        {
           "tag": "button",
           "text": "Replace exercise",
           "name": "Replace exercise",
@@ -17374,6 +17536,24 @@
           "type": "number"
         },
         {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
+        },
+        {
           "tag": "button",
           "text": "Replace exercise",
           "name": "Replace exercise",
@@ -18927,6 +19107,24 @@
           "name": "Cycle 7, Set 3, Rest (seconds)",
           "label": "Cycle 7, Set 3, Rest (seconds)",
           "type": "number"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
         },
         {
           "tag": "button",
@@ -20546,6 +20744,24 @@
           "type": "number"
         },
         {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
+        },
+        {
           "tag": "button",
           "text": "Replace exercise",
           "name": "Replace exercise",
@@ -22101,6 +22317,24 @@
           "type": "number"
         },
         {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
+        },
+        {
           "tag": "button",
           "text": "Replace exercise",
           "name": "Replace exercise",
@@ -23654,6 +23888,24 @@
           "name": "Cycle 7, Set 3, Rest (seconds)",
           "label": "Cycle 7, Set 3, Rest (seconds)",
           "type": "number"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
         },
         {
           "tag": "button",
@@ -25273,6 +25525,24 @@
           "type": "number"
         },
         {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
+        },
+        {
           "tag": "button",
           "text": "Replace exercise",
           "name": "Replace exercise",
@@ -26828,6 +27098,24 @@
           "type": "number"
         },
         {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
+        },
+        {
           "tag": "button",
           "text": "Replace exercise",
           "name": "Replace exercise",
@@ -28381,6 +28669,24 @@
           "name": "Cycle 7, Set 3, Rest (seconds)",
           "label": "Cycle 7, Set 3, Rest (seconds)",
           "type": "number"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
         },
         {
           "tag": "button",
@@ -30000,6 +30306,24 @@
           "type": "number"
         },
         {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
+        },
+        {
           "tag": "button",
           "text": "Replace exercise",
           "name": "Replace exercise",
@@ -31555,6 +31879,24 @@
           "type": "number"
         },
         {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
+        },
+        {
           "tag": "button",
           "text": "Replace exercise",
           "name": "Replace exercise",
@@ -33108,6 +33450,24 @@
           "name": "Cycle 7, Set 3, Rest (seconds)",
           "label": "Cycle 7, Set 3, Rest (seconds)",
           "type": "number"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
         },
         {
           "tag": "button",
@@ -34727,6 +35087,24 @@
           "type": "number"
         },
         {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
+        },
+        {
           "tag": "button",
           "text": "Replace exercise",
           "name": "Replace exercise",
@@ -36282,6 +36660,24 @@
           "type": "number"
         },
         {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
+        },
+        {
           "tag": "button",
           "text": "Replace exercise",
           "name": "Replace exercise",
@@ -37835,6 +38231,24 @@
           "name": "Cycle 7, Set 3, Rest (seconds)",
           "label": "Cycle 7, Set 3, Rest (seconds)",
           "type": "number"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
         },
         {
           "tag": "button",
@@ -39454,6 +39868,24 @@
           "type": "number"
         },
         {
+          "tag": "section",
+          "labelledBy": "Alternativas"
+        },
+        {
+          "tag": "span",
+          "text": "Alternativas"
+        },
+        {
+          "tag": "button",
+          "text": "Adicionar alternativa",
+          "name": "＋ Adicionar alternativa",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Aparecem primeiro quando você substitui este exercício durante o treino."
+        },
+        {
           "tag": "button",
           "text": "Substituir exercício",
           "name": "Substituir exercício",
@@ -40715,6 +41147,24 @@
           "type": "number"
         },
         {
+          "tag": "section",
+          "labelledBy": "Alternativas"
+        },
+        {
+          "tag": "span",
+          "text": "Alternativas"
+        },
+        {
+          "tag": "button",
+          "text": "Adicionar alternativa",
+          "name": "＋ Adicionar alternativa",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Aparecem primeiro quando você substitui este exercício durante o treino."
+        },
+        {
           "tag": "button",
           "text": "Substituir exercício",
           "name": "Substituir exercício",
@@ -41974,6 +42424,24 @@
           "name": "Ciclo 7, Série 3, Descanso (segundos)",
           "label": "Ciclo 7, Série 3, Descanso (segundos)",
           "type": "number"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Alternativas"
+        },
+        {
+          "tag": "span",
+          "text": "Alternativas"
+        },
+        {
+          "tag": "button",
+          "text": "Adicionar alternativa",
+          "name": "＋ Adicionar alternativa",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Aparecem primeiro quando você substitui este exercício durante o treino."
         },
         {
           "tag": "button",
@@ -43593,6 +44061,24 @@
           "type": "number"
         },
         {
+          "tag": "section",
+          "labelledBy": "Alternativas"
+        },
+        {
+          "tag": "span",
+          "text": "Alternativas"
+        },
+        {
+          "tag": "button",
+          "text": "Adicionar alternativa",
+          "name": "＋ Adicionar alternativa",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Aparecem primeiro quando você substitui este exercício durante o treino."
+        },
+        {
           "tag": "button",
           "text": "Substituir exercício",
           "name": "Substituir exercício",
@@ -44854,6 +45340,24 @@
           "type": "number"
         },
         {
+          "tag": "section",
+          "labelledBy": "Alternativas"
+        },
+        {
+          "tag": "span",
+          "text": "Alternativas"
+        },
+        {
+          "tag": "button",
+          "text": "Adicionar alternativa",
+          "name": "＋ Adicionar alternativa",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Aparecem primeiro quando você substitui este exercício durante o treino."
+        },
+        {
           "tag": "button",
           "text": "Substituir exercício",
           "name": "Substituir exercício",
@@ -46113,6 +46617,24 @@
           "name": "Ciclo 7, Série 3, Descanso (segundos)",
           "label": "Ciclo 7, Série 3, Descanso (segundos)",
           "type": "number"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Alternativas"
+        },
+        {
+          "tag": "span",
+          "text": "Alternativas"
+        },
+        {
+          "tag": "button",
+          "text": "Adicionar alternativa",
+          "name": "＋ Adicionar alternativa",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Aparecem primeiro quando você substitui este exercício durante o treino."
         },
         {
           "tag": "button",
@@ -47732,6 +48254,24 @@
           "type": "number"
         },
         {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
+        },
+        {
           "tag": "button",
           "text": "Replace exercise",
           "name": "Replace exercise",
@@ -49287,6 +49827,24 @@
           "type": "number"
         },
         {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
+        },
+        {
           "tag": "button",
           "text": "Replace exercise",
           "name": "Replace exercise",
@@ -50840,6 +51398,24 @@
           "name": "Cycle 7, Set 3, Rest (seconds)",
           "label": "Cycle 7, Set 3, Rest (seconds)",
           "type": "number"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
         },
         {
           "tag": "button",
