@@ -454,5 +454,120 @@ if (!isMigrationError(historicalRirMigrated)) {
   assert(Draft.validate(historicalRirMigrated).ok, "the migrated draft with the clamped target still validates");
 }
 
+console.log("\nIssue #332: migrateLegacy maps a legacy load/reps value onto a metric-backed slot only when the mapping is unambiguous");
+// Since Plan 067 a metric-backed slot keeps its typed load/reps in
+// `edited.metrics[metricId]` (see exercise-metrics.js and
+// shelfMetricFieldHtml/setSaveIssues in app.js), not the flat edited.load /
+// edited.reps the production boot path previously wrote unconditionally.
+// There is no reachable production/catalog fixture with an ambiguous
+// composition (every seeded catalog movement is a plain load+reps pair), so
+// the ambiguous-mapping boundary is exercised here in isolation; the
+// unambiguous, production-shaped success case has its own browser proof in
+// test/workout-draft-storage.mjs ("Issue #332" section).
+const Metrics = require("../exercise-metrics.js");
+function metricDef(semantic) {
+  const canonical = Metrics.DEFINITIONS.find((entry) => entry.semantic === semantic);
+  return { id: canonical.id, sourceName: canonical.sourceName, semantic: canonical.semantic, unit: canonical.unit };
+}
+// Mirrors workout-draft.js's own (unexported) expectedLoadingConvention just
+// closely enough to build a self-consistent fixture; never imported from the
+// module under test.
+function expectedConventionFor(metrics) {
+  const semantics = new Set(metrics.map((metric) => metric.semantic));
+  if (semantics.has("assistanceKg")) return "assistance";
+  if (semantics.has("loadPerSideKg") || semantics.has("persistentLoadPerSideKg")) return "per_side";
+  if (metrics.length === 1 && (semantics.has("reps") || semantics.has("repsPerSide"))) return "bodyweight";
+  return "external";
+}
+function loadingContextFor(convention) {
+  const externalLoadMultiplier = convention === "external" || convention === "assistance" ? 1
+    : convention === "bodyweight" ? 0 : null;
+  return { bodyweightCoefficient: null, externalLoadMultiplier, loadingConvention: convention };
+}
+function metricContext(metrics) {
+  const context = programContext();
+  context.exercises = [...context.exercises, {
+    legacyExerciseId: "legacy_metric_primary",
+    exerciseInstanceId: "legacy_metric_primary",
+    sourceExerciseId: "source-metric-332",
+    displayName: "Ambiguous metric movement",
+    sets: 1,
+    setIds: ["metric-stable-set-a"],
+    minReps: null,
+    maxReps: null,
+    targetRir: 2,
+    notes: "",
+    primary: "Chest",
+    secondary: "",
+    movementPattern: "horizontal_push",
+    progressionStrategy: null,
+    sourceFingerprint: "metric-fingerprint-332",
+    // metricOrigin stays on the exercise (create()'s hasMetricDefinitions
+    // gate reads it there); loadingModel/loadingContext/sourceLibraryId stay
+    // on the set spec only, so they never leak onto the exercise-level
+    // `programmed` object create() copies straight off `source` -- that copy
+    // has no loadingConvention of its own here, and would fail
+    // validateProgrammedExercise's loadingContext/loadingConvention
+    // consistency check for a reason unrelated to what this fixture tests.
+    metricOrigin: "user_defined",
+    programmedSets: [{
+      metricDefinitions: metrics,
+      targets: {},
+      sourceLibraryId: "custom:metric-332",
+      loadingModel: { bodyweightCoefficient: null, assistanceDirection: null },
+      loadingContext: loadingContextFor(expectedConventionFor(metrics)),
+    }],
+  }];
+  return context;
+}
+function migrateMetricLegacy(metrics, metricLegacy) {
+  const metricSnapshot = migrationSnapshot();
+  metricSnapshot.programContext = metricContext(metrics);
+  metricSnapshot.valueResolutions = resolvedValues(metricLegacy);
+  return Draft.migrateLegacy(metricLegacy, metricSnapshot);
+}
+
+const perSideResult = migrateMetricLegacy([metricDef("repsPerSide"), metricDef("loadPerSideKg")], {
+  legacy_metric_primary_1_load: "60", __day: "Day 1",
+});
+assert(isMigrationError(perSideResult, "unmapped-legacy-metric"),
+  "a per-side load composition is not the same quantity as the legacy flat load and fails migration instead of guessing",
+  JSON.stringify(perSideResult));
+
+const assistanceResult = migrateMetricLegacy([metricDef("reps"), metricDef("assistanceKg")], {
+  legacy_metric_primary_1_load: "25", __day: "Day 1",
+});
+assert(isMigrationError(assistanceResult, "unmapped-legacy-metric"),
+  "an assistance load is not conflated with the legacy flat load and fails migration instead of guessing",
+  JSON.stringify(assistanceResult));
+
+const missingRepsResult = migrateMetricLegacy([metricDef("durationSeconds")], {
+  legacy_metric_primary_1_reps: "8", __day: "Day 1",
+});
+assert(isMigrationError(missingRepsResult, "unmapped-legacy-metric"),
+  "a composition with no reps-type metric fails migration instead of dropping the legacy reps value",
+  JSON.stringify(missingRepsResult));
+
+const simpleMetrics = [metricDef("loadKg"), metricDef("reps")];
+const simpleMetricResult = migrateMetricLegacy(simpleMetrics, {
+  legacy_metric_primary_1_load: "60",
+  legacy_metric_primary_1_reps: "8",
+  legacy_metric_primary_1_rir: "2",
+  __day: "Day 1",
+});
+assert(!isMigrationError(simpleMetricResult) && Draft.validate(simpleMetricResult).ok,
+  "an unambiguous single load-metric plus single reps-metric composition migrates cleanly",
+  JSON.stringify(simpleMetricResult));
+if (!isMigrationError(simpleMetricResult)) {
+  const metricSet = simpleMetricResult.exercises.legacy_metric_primary.sets["metric-stable-set-a"];
+  const loadMetric = metricDef("loadKg"), repsMetric = metricDef("reps");
+  assert(metricSet.edited.metrics[loadMetric.id] === "60" && metricSet.edited.metrics[repsMetric.id] === "8" &&
+    metricSet.edited.rir === "2",
+  "the typed load and reps land in the set's metric map (not the unread flat fields), and RIR stays flat",
+  JSON.stringify(metricSet.edited));
+  assert(metricSet.edited.load == null && metricSet.edited.reps == null,
+    "the unread flat load/reps fields are never populated for a metric-backed set");
+}
+
 console.log(`\n${results.passed} passed, ${results.failed} failed`);
 if (results.failed) process.exit(1);

@@ -770,6 +770,71 @@ async function main() {
       checkpoint: migratedPounds.checkpoint?.kind,
     });
 
+    // Issue #332: migrateLegacy's allowedFields loop used to write every legacy
+    // value onto `set.edited[load|reps|rir]`, even when the set is metric-backed
+    // (Plan 067). Such a set keeps its typed load/reps in
+    // `edited.metrics[metricId]` (see exercise-metrics.js and
+    // shelfMetricFieldHtml/setSaveIssues in app.js); a flat legacy draft with no
+    // __touched marker (unlike #330/#321's touched case) still migrates cleanly
+    // -- validate() has no reason to reject it -- but the value used to land in
+    // the unread flat field, so Focus showed an empty input and the set could
+    // not be saved/logged without retyping. Reproduce directly against the
+    // current metric-backed seed program (no older release needed: the value
+    // is simply written to localStorage the way any pre-067 writer would).
+    console.log("\n1e. Issue #332: an untouched legacy draft against a metric-backed slot keeps its typed load/reps where Focus reads them");
+    await reset(page);
+    const metricMigrationExercise = seedProgram()[0];
+    const untouchedLegacyDraft = {
+      [`${metricMigrationExercise.id}_1_load`]: "60",
+      [`${metricMigrationExercise.id}_1_reps`]: "8",
+      [`${metricMigrationExercise.id}_1_rir`]: "2",
+      __day: "Day 1",
+    };
+    await page.evaluate(({ draftKey, checkpointKey, draft }) => {
+      localStorage.setItem(draftKey, JSON.stringify(draft));
+      localStorage.removeItem(checkpointKey);
+    }, { draftKey: DRAFT, checkpointKey: CHECKPOINT, draft: untouchedLegacyDraft });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForBoot(page);
+    const noNoticeVisible = await page.locator("#draftRecovery:not(.hidden)").count();
+    check(noNoticeVisible === 0,
+      "an untouched legacy draft against a metric-backed slot migrates without the earlier-program notice", { noNoticeVisible });
+    const migratedUntouched = await rawState(page);
+    const migratedUntouchedDraft = JSON.parse(migratedUntouched.raw || "null");
+    const migratedUntouchedExercise = migratedUntouchedDraft?.exercises?.[metricMigrationExercise.id];
+    const migratedUntouchedSet = migratedUntouchedExercise?.sets?.[migratedUntouchedExercise.setOrder[0]];
+    check(migratedUntouchedDraft?.schemaVersion === 2 &&
+      migratedUntouchedSet?.edited?.metrics?.[WEIGHT] === "60" &&
+      migratedUntouchedSet?.edited?.metrics?.[REPS] === "8" &&
+      migratedUntouchedSet?.edited?.rir === "2",
+    "migration writes the typed load/reps into the set's metric map, not the unread flat fields", {
+      metrics: migratedUntouchedSet?.edited?.metrics,
+      flatLoad: migratedUntouchedSet?.edited?.load,
+      flatReps: migratedUntouchedSet?.edited?.reps,
+    });
+    await enter(page, "Day 1");
+    const migratedLoadInput = await shelfInput(page, "load");
+    const migratedRepsInput = await shelfInput(page, "reps");
+    const migratedLoadShown = await migratedLoadInput.inputValue();
+    const migratedRepsShown = await migratedRepsInput.inputValue();
+    check(migratedLoadShown === "60" && migratedRepsShown === "8",
+      "Focus's metric inputs show the migrated typed values, not an empty field", {
+        load: migratedLoadShown, reps: migratedRepsShown,
+      });
+    await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
+    await page.waitForFunction(() => {
+      const draft = window.__repforgeWorkoutDraft.current();
+      const exercise = draft.exercises[draft.session.selectedExerciseId];
+      return exercise.sets[exercise.setOrder[0]].completion !== "pending";
+    }, undefined, { timeout: 5000 });
+    const migratedLogSave = await finishEarly(page);
+    await page.evaluate(() => window.__repforgeStorage.flush());
+    const migratedLogState = await rawState(page);
+    const migratedLogRow = migratedLogState.state.log.find((candidate) => candidate.exerciseId === metricMigrationExercise.id);
+    check((migratedLogSave?.localOk || migratedLogSave?.idbOk) &&
+      metricValue(migratedLogRow, "load") === 60 && metricValue(migratedLogRow, "reps") === 8 && migratedLogRow?.rir === 2,
+    "the migrated metric-backed set logs the lifter's typed values without retyping", migratedLogRow);
+
     console.log("\n2. Save owns its captured revision and cannot clear a successor draft");
     await reset(page);
     await enter(page);

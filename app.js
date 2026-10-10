@@ -2570,7 +2570,12 @@ function draftRecoveryMessageKind(status,initialization=false){
   // migrator refuses to guess at) reads the same "earlier program" notice as
   // a stale V2 draft: the lifter's program moved on, and the typed values
   // stay in recovery until they choose export or clear.
-  if(status==="invalid-migrated-draft")return"program";
+  // unmapped-legacy-metric is migrateLegacy's explicit refusal to guess a
+  // legacy load/reps value onto an ambiguous metric-backed composition (a
+  // per-side or assistance load, a per-side rep count, or a missing metric;
+  // see workout-draft.js, issue #332). It is the same "cannot migrate against
+  // the current program" situation invalid-migrated-draft already covers.
+  if(status==="invalid-migrated-draft"||status==="unmapped-legacy-metric")return"program";
   if(status==="stale")return initialization?"program":"stale";
   if(status==="lock-unavailable"||status==="read-failed"||status==="checkpoint-unreadable"||
     status==="checkpoint-missing"||status==="checkpoint-conflict")return"unavailable";
