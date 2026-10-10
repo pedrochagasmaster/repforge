@@ -478,20 +478,22 @@
     return hash >>> 0;
   }
 
-  function candidatesForJob(jobValue, role, context, catalog, options = {}) {
+  // A job's pool before the search: every exercise's state-independent
+  // verdict in catalog order, and the eligible candidates in selection order.
+  // Only the repeat and exclusion-group checks depend on what the search has
+  // already chosen, and they run last, so filtering this pool by the search
+  // state gives the same candidates, order and rejection counts as a fresh scan.
+  function jobCandidatePool(jobValue, role, context, catalog, options = {}) {
     const resolvedJob = resolveJobPolicy(jobValue, catalog);
-    if (resolvedJob.issues.length) return { candidates: [], policyIssues: resolvedJob.issues };
+    if (resolvedJob.issues.length) return { verdicts: [], candidates: [], policyIssues: resolvedJob.issues };
     const excludedIds = options.excludedIds || new Set();
-    const usedIds = options.usedIds || new Set();
-    const usedGroups = options.usedGroups || new Set();
-    const rejected = {};
+    const nothingUsed = new Set();
+    const verdicts = [];
     const candidates = [];
     for (const exercise of catalog.exercises) {
-      const failure = candidateFailure(exercise, resolvedJob, role, context, catalog, excludedIds, usedIds, usedGroups);
-      if (failure) {
-        rejected[failure] = (rejected[failure] || 0) + 1;
-        continue;
-      }
+      const failure = candidateFailure(exercise, resolvedJob, role, context, catalog, excludedIds, nothingUsed, nothingUsed);
+      verdicts.push({ exercise, failure });
+      if (failure) continue;
       candidates.push({
         exerciseId: exercise.id,
         roleTier: roleTier(exercise, role),
@@ -507,7 +509,31 @@
       || Number(right._preferred) - Number(left._preferred)
       || left._seedRank - right._seedRank
       || left.exerciseId.localeCompare(right.exerciseId));
+    return { verdicts, candidates, policyIssues: [] };
+  }
+
+  function usedFailure(exercise, usedIds, usedGroups) {
+    if (usedIds.has(exercise.id)) return "exercise_repeated";
+    const groupings = Array.isArray(exercise.exclusionGroupings) ? exercise.exclusionGroupings : [];
+    return groupings.some((id) => usedGroups.has(id)) ? "exclusion_group_collision" : null;
+  }
+
+  function availableCandidates(pool, usedIds, usedGroups) {
+    if (pool.policyIssues.length) return { candidates: [], policyIssues: pool.policyIssues };
+    const candidates = pool.candidates.filter((candidate) => !usedFailure(candidate._exercise, usedIds, usedGroups));
+    const rejected = {};
+    if (!candidates.length) {
+      for (const { exercise, failure } of pool.verdicts) {
+        const reason = failure || usedFailure(exercise, usedIds, usedGroups);
+        if (reason) rejected[reason] = (rejected[reason] || 0) + 1;
+      }
+    }
     return { candidates, rejected, policyIssues: [] };
+  }
+
+  function candidatesForJob(jobValue, role, context, catalog, options = {}) {
+    const pool = jobCandidatePool(jobValue, role, context, catalog, options);
+    return availableCandidates(pool, options.usedIds || new Set(), options.usedGroups || new Set());
   }
 
   function prepareJobs(request, catalog) {
@@ -631,24 +657,35 @@
     const conflicts = [];
     let visited = 0;
     const MAX_SEARCH_NODES = 50000;
+    const roles = jobs.map((entry) => roleForJob(entry, request.goal));
+    const pools = jobs.map((entry, position) => jobCandidatePool(entry, roles[position], request, catalog, { seed }));
+    function unfillable(position, pool) {
+      const entry = jobs[position];
+      if (pool.policyIssues.length) {
+        conflicts.push({ code: "policy_identity_unresolved", purposeId: entry.purposeId, issues: pool.policyIssues });
+        return true;
+      }
+      if (pool.candidates.length) return false;
+      conflicts.push({
+        code: "no_eligible_exercise", purposeId: entry.purposeId, role: roles[position],
+        reasons: pool.rejected,
+        message: `No eligible catalog exercise can fill ${entry.purposeId} under the current constraints.`,
+      });
+      return true;
+    }
+    // A job that no exercise can fill under any earlier choice makes the whole
+    // request unsatisfiable, so report it before backtracking through the
+    // other jobs' combinations.
+    if (pools.some((pool, position) => unfillable(position, availableCandidates(pool, usedIds, usedGroups)))) {
+      return { ok: false, conflicts };
+    }
     function visit(position) {
       if (position >= jobs.length) return true;
       if (++visited > MAX_SEARCH_NODES) return false;
       const entry = jobs[position];
-      const role = roleForJob(entry, request.goal);
-      const pool = candidatesForJob(entry, role, request, catalog, { seed, usedIds, usedGroups });
-      if (pool.policyIssues.length) {
-        conflicts.push({ code: "policy_identity_unresolved", purposeId: entry.purposeId, issues: pool.policyIssues });
-        return false;
-      }
-      if (!pool.candidates.length) {
-        conflicts.push({
-          code: "no_eligible_exercise", purposeId: entry.purposeId, role,
-          reasons: pool.rejected,
-          message: `No eligible catalog exercise can fill ${entry.purposeId} under the current constraints.`,
-        });
-        return false;
-      }
+      const role = roles[position];
+      const pool = availableCandidates(pools[position], usedIds, usedGroups);
+      if (unfillable(position, pool)) return false;
       for (const candidate of pool.candidates) {
         if (!candidateIsBetterThanCollision(candidate, usedIds, usedGroups)) continue;
         const exercise = candidate._exercise;
