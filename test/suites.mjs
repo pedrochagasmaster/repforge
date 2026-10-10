@@ -118,6 +118,7 @@ export const SUITES = {
     s("test/program-editor-text-fields.mjs"),
     s("test/program-editor-drag-selection.mjs"),
     s("test/program-editor-sorting.mjs", [], { seconds: 13 }),
+    s("test/program-editor-setup-conflict.mjs", [], { seconds: 20 }),
     s("test/program-text-export.mjs"),
     s("test/exercise-picker.mjs", [], { seconds: 11 }),
     s("test/library-flow.mjs", [], { seconds: 21 }),

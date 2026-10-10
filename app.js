@@ -4829,7 +4829,7 @@ function installTransferWriteCandidate(logical){
   return queueSetupDraftWrite(()=>withStorageLock(storageIO,()=>{
     if(readSetupDraftRaw()!==observedRaw)return{ok:false,conflict:true};
     try{localStorage.setItem(SETUP_DRAFT_KEY,raw)}catch{return{ok:false,writeFailed:true}}
-    entryState=cloneSnapshot(normalized.value);entryDraftHandle={raw,envelope};
+    entryState=cloneSnapshot(normalized.value);entryDraftHandle={raw,envelope};syncSetupDraftBaseline();
     return{ok:true,envelope}}))}
 function installTransferWriteDeviceSections(envelope){
   try{
@@ -4880,12 +4880,12 @@ function installTransferRestoreCandidate(previousRaw,allowedLogicals=[]){
     if(previousRaw===null){
       const removed=removeObservedSetupDraft({raw:current,envelope:null});
       if(!removed.ok)return{ok:false,...removed};
-      entryState=null;entryDraftHandle=null;
+      entryState=null;entryDraftHandle=null;syncSetupDraftBaseline();
       return{ok:true}}
     if(!previousLogical)return{ok:false,code:"candidate-rollback-invalid"};
     try{localStorage.setItem(SETUP_DRAFT_KEY,previousRaw)}catch{return{ok:false,code:"candidate-rollback-write-failed"}}
     const envelope=JSON.parse(previousRaw);
-    entryState=cloneSnapshot(previousLogical);entryDraftHandle={raw:previousRaw,envelope};
+    entryState=cloneSnapshot(previousLogical);entryDraftHandle={raw:previousRaw,envelope};syncSetupDraftBaseline();
     return{ok:true}}))}
 async function installTransferRestoreDurable(previous,current){
   const currentRevision=readRevision(current?.snapshot);
@@ -9210,6 +9210,13 @@ window.__repforgeCommitProposedState=proposal=>commitProposedState(proposal,stor
 window.__repforgeInstallTransferImport=(envelope,options)=>importInstallTransfer(envelope,options);
 window.__repforgePersistSetupDraft=next=>persistSetupDraft(next);
 window.__repforgeEntryState=()=>cloneSnapshot(entryState);
+// The mounted Build editor's own client-side document (program-editor.js's
+// local copy, which is what #onbProgramEditor actually renders from). It is
+// kept separately from entryState and only adopts a commit's own canonical
+// result once that commit's write settles, so a browser proof driving the
+// editor faster than a commit resolves needs this to know when the editor,
+// not just entryState, is caught up.
+window.__repforgeOnboardingEditorDocument=()=>onboardingProgramEditor?.getDocument?.()||null;
 window.__repforgeEntryPersistenceDiagnostic=()=>cloneSnapshot(entryPersistenceDiagnostic);
 window.__repforgeActivateEntryPreview=opts=>activateEntryPreview(opts);
 window.__repforgeCreateOnboardingProgramEditorAdapter=()=>createOnboardingProgramEditorAdapter();
@@ -11293,11 +11300,49 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
   result.fingerprint=entryCandidateFingerprint(entryState.route,result.name,preview);
   entryPinnedVersionsExecutable=false;
   entryState=ProgramEntry.setResult(entryState,result);
-  const saved=await persistSetupDraft(entryState);
+  // persistSetupDraft advances the module-level entryState synchronously
+  // (ahead of its own durable round trip), so a second commit started while
+  // this write is still pending already sees — and builds on — this call's
+  // result. Capture that synchronous outcome so a later failure can tell
+  // whether anything has superseded it.
+  const persisted=persistSetupDraft(entryState);
+  const attemptedEntryState=entryState;
+  const saved=await persisted;
   entryPersistenceDiagnostic={operation:"editor-commit",ok:!!saved?.ok,
     code:saved?.code||(saved?.conflict?"setup-draft-conflict":saved?.writeFailed?"setup-draft-write-failed":saved?.invalid?"setup-draft-invalid":null),
     issues:(saved?.issues||[]).slice(0,12).map(issue=>String(issue).slice(0,240))};
-  if(!saved?.ok)entryState=previousEntryState;
+  if(!saved?.ok){
+    if(saved?.conflict&&lastPersistedEntryState){
+      // A real conflict means persistSetupDraft's handle/raw check found
+      // another writer's bytes under the setup-draft key: this candidate has
+      // permanently diverged from what is durably saved (every future write
+      // from this tab will see the same foreign raw and fail the same way),
+      // exactly what entry.save_conflict.body already tells the lifter
+      // ("reload to continue from the newer saved draft"). previousEntryState
+      // is only one step back and, once several edits have queued behind a
+      // failing write, can itself still carry other unpersisted changes —
+      // rebasing those onto each other one failure at a time is how memory
+      // ends up torn from storage. Rebase onto lastPersistedEntryState
+      // instead: the one candidate known to match what is actually on disk.
+      entryState=cloneSnapshot(lastPersistedEntryState);
+      // The editor's own document (program-editor.js's local copy, which is
+      // what the DOM actually renders from) is not touched by a failing
+      // commit's return value — stage() only adopts a returned document on
+      // success. Force it back in sync with the rebased candidate now,
+      // the same way the "Discard changes" control already does, rather
+      // than leave it showing edits that just became durably impossible.
+      onboardingProgramEditor?.discard?.();
+    // Otherwise, only unwind this call's own change. If entryState still is
+    // exactly what this call set it to, nothing landed afterward and a full
+    // revert back to the pre-commit snapshot is safe (the historical
+    // behavior). If a later commit has already advanced entryState past that
+    // point, that state carries real work this call never owned; stomping it
+    // back to previousEntryState would discard it. Leaving entryState alone
+    // here is safe for the editor document too: a later commit always
+    // resolves with a document rebuilt from whatever entryState currently
+    // holds, so no commit ever renders this one's stale snapshot.
+    }else if(entryState===attemptedEntryState)entryState=previousEntryState;
+  }
   if(saved?.ok&&progressionData.incompatibilities.length){
     entryEditorStatusFocusPending=true;
     setTimeout(()=>focusEntryEditorStatus(),reducedMotion()?0:320)}
@@ -14607,6 +14652,25 @@ let installedEditorHistoryArmed=false,installedEditorHistoryRelease=false;
 const setupDraftOwnerId=uid();
 let entryDraftHandle=null;
 let setupDraftWriteQueue=Promise.resolve();
+// Issue #331: a genuine save_conflict means persistSetupDraft's handle/raw
+// check found another writer's raw bytes under SETUP_DRAFT_KEY — this tab's
+// candidate has permanently diverged from what's durably saved, exactly what
+// entry.save_conflict.body already tells the lifter ("reload to continue
+// from the newer saved draft"). Once that is true, it stays true until a
+// fresh session re-syncs the handle (startOnboarding), because nothing this
+// tab writes will ever match the foreign raw again. setupDraftConflicted
+// lets persistSetupDraft refuse further writes outright instead of letting
+// new edits keep piling onto a candidate that can never durably land, and
+// lastPersistedEntryState is the entryState value known to match what is
+// actually on disk right now (this tab's own last successful write, or the
+// state read at session start if none has landed yet) — the only state a
+// conflicted commit can safely rebase onto without tearing memory away from
+// storage.
+let setupDraftConflicted=false;
+let lastPersistedEntryState=null;
+// A successful write or adoption that re-syncs entryDraftHandle with storage
+// clears any earlier conflict and makes the adopted state the durable baseline.
+function syncSetupDraftBaseline(){setupDraftConflicted=false;lastPersistedEntryState=entryState?cloneSnapshot(entryState):null}
 function entryServices(){
   if(typeof window!=="undefined"&&window.__repforgeProgramEntryServicesOverride)return window.__repforgeProgramEntryServicesOverride;
   if(!ProgramEntryAdapter||!ProgramCompiler||!rawExerciseCatalog)return null;
@@ -14661,7 +14725,7 @@ function removeObservedSetupDraft(handle){
   try{localStorage.removeItem(SETUP_DRAFT_KEY)}catch(error){
     reportSetupDraftWriteFailure("save_failed",error);
     return{ok:false,writeFailed:true}}
-  if(entryDraftHandle?.raw===handle.raw)entryDraftHandle=null;
+  if(entryDraftHandle?.raw===handle.raw){entryDraftHandle=null;setupDraftConflicted=false;lastPersistedEntryState=null}
   return{ok:true}}
 function removeSetupDraftIfCurrent(handle=entryDraftHandle){
   if(!handle)return Promise.resolve({ok:true,absent:true});
@@ -14712,6 +14776,14 @@ function setupDraftPersistenceProjection(value){
 function persistSetupDraft(next,io=storageIO){
   if(io===storageIO&&installTransferMutationFrozen())return Promise.resolve({ok:false,conflict:true,code:"install-transfer-frozen"});
   if(!ProgramEntry||!next)return Promise.resolve({ok:false});
+  // Once a real foreign write has been detected, this tab's handle can never
+  // match the draft on disk again until a fresh session re-syncs it
+  // (startOnboarding) — the lifter has already been told to reload. Refuse
+  // outright rather than let a new edit optimistically advance entryState
+  // toward a candidate that will only have to be unwound again.
+  if(setupDraftConflicted){
+    reportSetupDraftWriteFailure("save_conflict");
+    return Promise.resolve({ok:false,conflict:true})}
   const stamped=ProgramEntry.updateTimestamp(next,entryNow());
   const draftProjection=setupDraftPersistenceProjection(stamped);
   const normalized=ProgramEntry.normalizeSetupDraft(draftProjection);
@@ -14733,6 +14805,7 @@ function persistSetupDraft(next,io=storageIO){
       raw:null,
       envelope:freshSetupDraftEnvelope(queuedState)};
     if(currentRaw!==handle.raw){
+      setupDraftConflicted=true;
       reportSetupDraftWriteFailure("save_conflict");
       return{ok:false,conflict:true}}
     let envelope;
@@ -14751,6 +14824,12 @@ function persistSetupDraft(next,io=storageIO){
       reportSetupDraftWriteFailure("save_failed",error);
       return{ok:false,writeFailed:true}}
     entryDraftHandle={raw,envelope};
+    // Capture the value this call itself staged (via its closed-over
+    // queuedState/stamped.result), not whatever the mutable entryState has
+    // moved on to by now — a later commit may already be queued behind this
+    // one and have advanced it further. This is the exact candidate that is
+    // now durably on disk, so it is what a later conflict safely rebases onto.
+    lastPersistedEntryState={...queuedState,result:cloneSnapshot(stamped.result)};
     if(entryUiNotice==="save_failed"||entryUiNotice==="save_conflict")entryUiNotice=null;
     return{ok:true,envelope}}))}
 function createEntryState(extra={}){
@@ -14851,6 +14930,10 @@ function startOnboarding(origin,opts={}){
   entryEngaged=false;entryOwnOpen=false;entryDialog=null;entryHelpOpen=false;entryHelp={q1:null,q2:null};entryChange=null;entryGoalFromHub=false;entryReplaceResolve=null;entryCompileError=null;entryUiNotice=null;entryValidationNotice=false;entryAvoidQuery="";entryMustQuery="";entryExerciseQuery="";entryPendingAvoid=null;entryPinnedVersionsExecutable=false;entryDurableConflictNeedsReload=false;
   const record=readSetupDraftRecord();
   entryDraftHandle=record.raw!==null?{raw:record.raw,envelope:record.envelope}:null;
+  // A fresh session re-syncs with whatever is durably on disk right now, so
+  // any earlier conflict is moot and the state read here is, by
+  // construction, the new "last known durable" baseline.
+  setupDraftConflicted=false;
   if(opts.forceFresh||opts.resume===false){
     clearSetupDraft();
     entryState=createEntryState();
@@ -14878,6 +14961,7 @@ function startOnboarding(origin,opts={}){
     entryUiNotice="corrupt";
     entryState=createEntryState();
   }else entryState=createEntryState();
+  lastPersistedEntryState=cloneSnapshot(entryState);
   showOnboardingView();armEntryHistory();renderOnboarding();
   if(opts.userInitiated===false)return;
   // Opening the hub is not choosing a route; telemetry waits for a route pick.
@@ -15450,12 +15534,19 @@ function entryPinnedPreviewCanActivate(){
   if(!entryState?.result?.preview)return false;
   try{return ProgramEntry.candidateActivationIssues(entryState).length===0}catch{return false}}
 async function persistEntryRulesState(next,previous=entryState){
-  const saved=await persistSetupDraft(next);
-  // persistSetupDraft advances the in-memory state before taking the lock. If
-  // the write loses a draft CAS race, retain the old candidate in memory too;
-  // otherwise a failed recovery could make the UI appear to have replaced a
-  // preview that is still the durable one.
-  if(!saved?.ok)entryState=previous;
+  // persistSetupDraft advances the in-memory state synchronously, ahead of
+  // its own durable round trip, so a second call started while this write is
+  // still pending already builds on this one's result — capture that outcome
+  // so a later failure can tell whether anything has superseded it. See the
+  // matching rebase in commitProgramEditorProposal for why a real conflict
+  // and a merely-superseded attempt need different recoveries.
+  const persisted=persistSetupDraft(next);
+  const attemptedEntryState=entryState;
+  const saved=await persisted;
+  if(!saved?.ok){
+    if(saved?.conflict&&lastPersistedEntryState)entryState=cloneSnapshot(lastPersistedEntryState);
+    else if(entryState===attemptedEntryState)entryState=previous;
+  }
   return saved}
 function browseResultFromCard(card){
   return{
