@@ -1,12 +1,12 @@
 # Onboarding candidates referenced on MacroFactor Workouts
 
-Status: **awaiting the owner's choice.** Working prototypes only, with no production code. Scope is onboarding: fresh install to an activated program. The main screens stay on Direction D ([ADR 0016](../../adr/0016-direction-d-design-reference.md)).
+Status: **decided. Candidate B is the canonical onboarding reference** (owner, 2026-10-10; [ADR 0020](../../adr/0020-onboarding-candidate-b.md)). A and C are kept as the superseded candidates. Working prototypes only, with no production code. Scope is onboarding: fresh install to an activated program. The main screens stay on Direction D ([ADR 0016](../../adr/0016-direction-d-design-reference.md)).
 
 | Candidate | Idea | Screens, hub to Activate |
 | --- | --- | --- |
-| [A, Faithful](prototype/app.html?c=a&lang=pt&theme=dark&reset=1) | MacroFactor's structure and visual language almost one to one: charcoal surface, bordered option cards with a leading icon and a trailing radio, section title and progress rule in the header, full-width white button, wheel and ruler pickers. Taurifer mark and copy. | **17** (14 questions, intro, building, result) |
-| [B, MacroFactor structure, Taurifer identity](prototype/app.html?c=b&lang=pt&theme=light&reset=1) | The same flow and patterns in Taurifer's paper, ink, Plex Sans and Plex Mono, one-accent budget, sectioned progress rule and calm copy. | **17** (14 questions, intro, building, result) |
-| [C, Compressed](prototype/app.html?c=c&lang=pt&theme=light&reset=1) | All of MacroFactor's questions in fewer screens: Basics on two, Gym and equipment on one, Program on three. Same identity as B. | **8** (6 questions, building, result) |
+| [A, Faithful (superseded)](prototype/app.html?c=a&lang=pt&theme=dark&reset=1) | MacroFactor's structure and visual language almost one to one: charcoal surface, bordered option cards with a leading icon and a trailing radio, section title and progress rule in the header, full-width white button, wheel and ruler pickers. Taurifer mark and copy. | **17** (14 questions, intro, building, result) |
+| **[B, the reference](prototype/app.html?c=b&lang=pt&theme=light&reset=1)**: MacroFactor structure, Taurifer identity | The same flow and patterns in Taurifer's paper, ink, Plex Sans and Plex Mono, one-accent budget, sectioned progress rule and calm copy. | **17** (14 questions, intro, building, result) |
+| [C, Compressed (superseded)](prototype/app.html?c=c&lang=pt&theme=light&reset=1) | All of MacroFactor's questions in fewer screens: Basics on two, Gym and equipment on one, Program on three. Same identity as B. | **8** (6 questions, building, result) |
 
 Today's Generate route has 8 steps (`ROUTE_STEPS.recommend` in `program-entry.js`: six questions, result and preview). C matches that count while asking MacroFactor's full question set. A and B more than double it.
 
@@ -72,6 +72,51 @@ Activate lands on Today, drawn in Direction D. Frame shown above: the live catal
 - **A: a large seam.** It goes from a charcoal MacroFactor surface with a white button, colored RIR dots and bordered cards to warm paper with ink ledger rows, mono columns and an ink button. Shipping A would mean a second visual identity for the first five minutes, against ADR 0009's single material grammar and the brand guide's one-accent rule.
 - **B and C: a small seam.** Tokens, type, button and dark appearance are the same as Today. Two differences remain. The result screen's option cards and muscle chips are card-shaped where D uses ledger rows. The result shows thumbnails, which Today doesn't. Both are deliberate MacroFactor borrowings and can be ledger-ized if the owner prefers.
 
+## B's review-and-adjust screen: the program editor
+
+After a recommendation, the lifter reviews and adjusts the program on the result screen itself, then activates it from there. Until now this took a preview step and then a jump into the generic Build editor, which showed the definition as raw per-cycle fields. Open it directly: [`prototype/app.html?c=b&lang=pt&theme=light&demo=1&step=result&reset=1`](prototype/app.html?c=b&lang=pt&theme=light&demo=1&step=result&reset=1).
+
+| Review, after changes | Exercise sheet | Sets and reps edited | Swap and session alternates |
+| --- | --- | --- | --- |
+| <img src="prototype/shots/b-edit-result-changed.pt.light.png" width="190"> | <img src="prototype/shots/b-edit-sheet-top.pt.light.png" width="190"> | <img src="prototype/shots/b-edit-sheet-edited.pt.light.png" width="190"> | <img src="prototype/shots/b-edit-sheet-alts.pt.light.png" width="190"> |
+| **Day actions** | **Reorder** | **Add from the catalog** | **Empty day blocks Activate** |
+| <img src="prototype/shots/b-edit-day-menu.pt.light.png" width="190"> | <img src="prototype/shots/b-edit-reorder.pt.light.png" width="190"> | <img src="prototype/shots/b-edit-search.pt.light.png" width="190"> | <img src="prototype/shots/b-edit-empty-day.pt.light.png" width="190"> |
+| **Rebuild asks first** | **EN, dark: review** | **EN, dark: sheet** | **EN, dark: search** |
+| <img src="prototype/shots/b-edit-block-confirm.pt.light.png" width="190"> | <img src="prototype/shots/b-edit-result-changed.en.dark.png" width="190"> | <img src="prototype/shots/b-edit-sheet-top.en.dark.png" width="190"> | <img src="prototype/shots/b-edit-search.en.dark.png" width="190"> |
+
+**What it shows.** The recommendation keeps B's result layout:
+
+- the source line, the program name, four facts and the block row (length, rep pattern, deload);
+- day tabs with rest days;
+- for each exercise, a row with its thumbnail, set lines with rep ranges and per-set RIR, and muscle chips.
+
+Tapping the title or a day name renames it. Each day shows its exercise count and its time from the engine's `estimateDaySeconds`, which updates with every change. A day that runs past the chosen session length says so in one line.
+
+**One sheet per exercise.** Tapping a row opens a bottom sheet with every adjustment for that slot, changed in place. The page behind updates as you go.
+
+- **Head:** the movement, its role and the job it fills (for example "Composto principal · Remada") and its muscles, all from the slot.
+- **Séries:** a small ledger of set, reps and RIR. RIR is set per set with a stepper (0–4). Below it are a set-count stepper (1–8), a rep-range control with separate minimum and maximum, rest presets (60–240 s) and the effect on the day ("Dia: cerca de 42 → 46 min"). When deload is on, one line says what the deload week does with these numbers: one set fewer, RIR 2 higher.
+- **Trocar exercício:** the engine's own candidates for the same job and equipment (`findSubstitutions`), three at first with "Mostrar mais", plus a catalog search over every movement that records reps.
+- **Alternativas na sessão:** up to five ordered alternates the mid-workout swap lists first ([ADR 0019](../../adr/0019-slot-alternates.md)), added from one-tap suggestions and reordered or removed in place.
+- **Mover para outro dia** and **Remover exercício.**
+
+**Changes are visible and reversible.**
+
+- Each changed row carries a quiet mark: Ajustado, Adicionado por você or Confirmado por você.
+- A bar under the block row counts your changes and offers Desfazer and Restaurar.
+- Every removal, swap, move and add shows a toast with Desfazer.
+- Changing the length or rep pattern rebuilds the program, so it asks before discarding your changes.
+- Activate stays disabled, with the reason shown, while a training day is empty or the definition is invalid.
+- A reload replays your changes onto the same recommendation.
+
+**Every change is real.**
+
+- Each adjustment is an edit on the canonical `ProgramDefinition` in the engine worker, checked with `validateProgramDefinition` after every step. That check caught two prototype bugs during the build: a deload RIR above 4, and a swap that kept the old movement's bodyweight coefficient.
+- A seeded fuzz of 60 random swaps and adds from the catalog stays valid.
+- The edit rules are written in ADR 0020's consequences for the implementation plan.
+
+**Motion and feel.** Rows that move glide on the `layoutShift` spring. Sheets rise on `navPush`, close on `revealOut` and settle a released drag on `gestureSettle`, toasts rise on `revealIn`, and controls use the app's press feedback. Under reduced motion all of it is drawn at rest.
+
 ## What each answer feeds
 
 The request field is the one `programRequestFromAnswers` (`program-entry-adapter.js`) builds. "Not used yet" marks screens kept from MacroFactor whose answers the engine doesn't read. The implementation plan must give each of those a purpose, keep it local only and never send it as telemetry, and keep its skip.
@@ -119,20 +164,16 @@ Screens were studied in Appllama and are described, not reproduced. Names and po
 - *Building checklist.* 12min (books, 1177343870), Plan Generation 4 and Plan Ready: a stepwise checklist, and one step asks a question mid-build. Blueprint for Creators (productivity, 6756682846), Personalization Complete: a percentage ring over a checklist. We keep the checklist and drop the mid-build question and the percentage.
 - *Skippable sensitive questions.* Runna (fitness, 1594204443), Gender Selection: "Prefer not to say" as an option, plus a "Maybe later" link under Continue. Reframe (health, 1485756576), Profile Details Form: one line saying why the app asks, above the question. WODProof (fitness, 1130947789), Profile Details: "This data is private" with sex and birth date on one screen. Our Basics combine all three: a "Prefiro não informar" option, a Pular link and a one-line local-only note.
 
-## Recommendation: C
+## Decision: B
 
-C keeps every MacroFactor question and the clarity of MacroFactor's patterns, but needs 8 screens instead of 17.
+The owner chose **B** on 2026-10-10 and asked that its result screen become the review-and-adjust editor above. The decision is recorded in [ADR 0020](../../adr/0020-onboarding-candidate-b.md).
 
-1. **Time to first set.** The product thesis puts workout speed first, and Plan 068 already argued that a screen must earn its place. In A and B, four of the six Basics screens collect data the engine doesn't read. C puts all four on one skippable screen, so a lifter who skips spends one tap on them.
-2. **It doesn't raise the step count.** C has the same number of steps as today's route (8) while asking more: equipment adjustments, deload and the MacroFactor Basics.
-3. **No identity seam.** C uses B's tokens, so Activate lands on Today with no change of material. A would bring a second visual language into the first-run experience, which ADR 0009 and the brand guide rule out.
-4. **The risks are known.** C's Program and Sobre você screens are the densest. They need a check on a real phone (the prototype makes that possible), and the Sobre você value rows depend on a picker sheet that A and B don't need.
+Before the choice I recommended C, for fewer screens (8 against 17) at today's step count. The owner preferred MacroFactor's one-question-per-screen rhythm. ADR 0020 records that trade-off and asks the implementation plan to measure time to first set, so a later change has evidence rather than another reference app. B shares C's identity, so the handoff seam to Direction D's Today stays small.
 
-If the owner wants MacroFactor's one-question-per-screen rhythm, B is the fallback: the same identity, with every question on its own screen. I don't recommend A as a direction. It's useful as the reference for B and C.
+## Next steps
 
-## After the owner chooses
+1. **Done:** [ADR 0020](../../adr/0020-onboarding-candidate-b.md) makes B the reference, makes its result screen the program editor, and records "no further onboarding overhaul without evidence".
+2. **An implementation plan** that builds B. It folds in Plan 068's inputs as B places them: the equipment step, the block row, inline offers. It also covers the deload input, the two new gym presets, the experience-band decision, a purpose, privacy note and skip for each Basics answer the engine doesn't use yet, and the editor's edit rules behind the program editor's intents.
+3. **The engine's fail-fast fix** for no-candidate requests, before the equipment conflict ships.
 
-1. An ADR that supersedes ADR 0016's onboarding scope with the chosen candidate. It also records "no further onboarding overhaul without evidence": a later redesign needs measured drop-off or lifter feedback, not another reference app.
-2. An implementation plan that folds in Plan 068's inputs (equipment groups, block row, per-movement offers), the new deload input, the two new gym presets, the experience-band decision, and a purpose, privacy note and skip for each Basics answer the engine doesn't use yet.
-
-Plan 068's measurements stand (PR #345). Its screen placement waits on this choice.
+Plan 068's measurements stand (PR #345). B now settles its screen placement: OD-1 becomes an equipment step, and its other inputs sit on the result screen.

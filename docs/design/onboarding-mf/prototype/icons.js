@@ -35,6 +35,12 @@
     link: p("M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"),
     lock: p("M6 11h12v9H6zM9 11V8a3 3 0 0 1 6 0v3"),
     warn: p("M12 4 2.5 20h19L12 4ZM12 10v4M12 17v.5"),
+    more: c(5.5, 12, 1.2) + c(12, 12, 1.2) + c(18.5, 12, 1.2),
+    grip: p("M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01"),
+    chevU: p("M6 15l6-6 6 6"),
+    plus: p("M12 5v14M5 12h14"),
+    search: c(11, 11, 6) + p("M20 20l-4.5-4.5"),
+    x: p("M6 6l12 12M18 6 6 18"),
   };
   window.icon = (name, size = 24, cls = "") =>
     `<svg class="ic ${cls}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[name] || ""}</svg>`;

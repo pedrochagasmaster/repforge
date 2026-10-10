@@ -16,12 +16,14 @@ small{color:#6A665F}
 </style>
 </head>
 <body>
-<h1>Taurifer onboarding: working prototypes</h1>
+<h1>Taurifer onboarding: candidate B is the reference</h1>
+<p><b>Owner decision, 2026-10-10 (ADR 0020).</b> B is the canonical onboarding. Its result screen is where the recommendation is reviewed and adjusted before Activate: tap any exercise to change sets, reps, RIR and rest, swap it, keep in-session alternates, move or remove it. A and C stay below as the superseded candidates.</p>
 <p>Each link opens a fresh run. The answers drive the real engine (program-compiler.js), and the motion comes from the app's own motion layer. Browser back works as the app's back. Reloading resumes where you were.</p>
 <div id="list"></div>
+<p><a href="app.html?c=b&lang=pt&theme=light&demo=1&step=result&reset=1">Jump straight to B's review-and-adjust screen</a> (sample answers) · <a href="app.html?c=b&lang=en&theme=dark&demo=1&step=result&reset=1">EN, dark</a></p>
 <p><small>Reduced motion: add &amp;rm=1, or turn on reduce motion on the device. The received setup link starts from its own screen. Today after Activate is the live catalog capture, not your program.</small></p>
 <script>
-const C = [["a","A, Faithful","MacroFactor's structure and look, one question per screen. 17 screens."],["b","B, MacroFactor structure, Taurifer identity","The same flow in Taurifer's paper, ink and type. 17 screens."],["c","C, Compressed (recommended)","Every MacroFactor question on 8 screens, Taurifer identity."]];
+const C = [["b","B, the reference","MacroFactor's structure in Taurifer's identity, one question per screen, ending on the review-and-adjust screen. 17 screens."],["a","A, Faithful (superseded)","MacroFactor's look, one question per screen."],["c","C, Compressed (superseded)","Every MacroFactor question on 8 screens."]];
 document.getElementById("list").innerHTML = C.map(([k,t,d]) => `<div class="c"><h2>${t}</h2><p>${d}</p><div class="go">
 <a href="app.html?c=${k}&lang=pt&theme=${k==="a"?"dark":"light"}&reset=1">PT ${k==="a"?"dark":"light"}</a>
 <a class="alt" href="app.html?c=${k}&lang=pt&theme=${k==="a"?"light":"dark"}&reset=1">PT ${k==="a"?"light":"dark"}</a>
