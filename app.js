@@ -12568,7 +12568,7 @@ async function choosePicked(id){
    fires once on Done with the entries in selection order. */
 function openExercisePicker({title=null,subtitle="",mode="single",selected=[],exclude=[],extras=[],onPick=null,
   onCancel=null,stageOnly=false,repairSeed=null,quick=false,day:dayName=null,query="",muscle=null,equipment=null,tab=null,
-  leading=null}={}){
+  leading=null,catalogOnly=false}={}){
   const sheet=$("#exPickSheet"),scrim=$("#exPickScrim"),search=$("#exPickSearch");
   if(!sheet)return;
   pickerState={query:String(query||""),muscle,equipment,mode,onPick,onCancel,stageOnly,repairSeed,completed:false,
@@ -12579,7 +12579,7 @@ function openExercisePicker({title=null,subtitle="",mode="single",selected=[],ex
     quick,day:dayName,tab:quick&&(LIB_TABS.includes(tab)?tab:"suggested"),
     // Kept so the custom-exercise detour can put this exact picker back, with
     // whatever was typed and filtered still in place.
-    reopen:{title,subtitle,mode,exclude:[...exclude],extras:[...extras],onPick,onCancel,stageOnly,repairSeed,quick,day:dayName,leading}};
+    reopen:{title,subtitle,mode,exclude:[...exclude],extras:[...extras],onPick,onCancel,stageOnly,repairSeed,quick,day:dayName,leading,catalogOnly}};
   pickerReturn=document.activeElement;
   $("#exPickTitle").textContent=title||t("picker.title");
   const sub=$("#exPickFor");if(sub)sub.textContent=subtitle||"";
@@ -12588,7 +12588,7 @@ function openExercisePicker({title=null,subtitle="",mode="single",selected=[],ex
   if(done)done.classList.toggle("hidden",mode!=="multi");
   const tabs=$("#exPickTabs");if(tabs)tabs.classList.toggle("hidden",!quick);
   const full=$("#exPickFull");if(full)full.classList.toggle("hidden",!quick);
-  const custom=$("#exPickCustom");if(custom)custom.classList.toggle("hidden",setupEditorOpen);
+  const custom=$("#exPickCustom");if(custom)custom.classList.toggle("hidden",setupEditorOpen||catalogOnly);
   if(quick)renderQuickTabs();
   renderPickerFilters();renderPickerList();
   document.body.classList.add("is-sheet-open");
@@ -14813,6 +14813,7 @@ function removeSetupDraftIfCurrent(handle=entryDraftHandle){
   if(!handle)return Promise.resolve({ok:true,absent:true});
   return queueSetupDraftWrite(()=>withStorageLock(storageIO,()=>removeObservedSetupDraft(handle)))}
 function clearSetupDraft(){
+  clearEntryAdjust();
   return queueSetupDraftWrite(()=>withStorageLock(storageIO,()=>removeObservedSetupDraft(entryDraftHandle)))}
 function setupActivationAlreadyCommittedToLive(raw){
   const marker=state?.[STORAGE_SETUP_TXN];
@@ -15551,6 +15552,15 @@ function renderCustomShapeStep(){
 /* Generate maps the answers to a canonical request, runs the one generator, and
    previews its ProgramDefinition through the same flat projection as Build. The
    draft id seeds selection, so a draft regenerates the same program. */
+/* A generated candidate's preview is a pure projection of its definition, so
+   the review editor rebuilds it the same way after every adjustment. */
+function generatedPreview(definition,route){
+  const program=flatProgramFromDefinition(definition,[],1);
+  const days=definition.days.filter(day=>day.kind==="training").map((day,index)=>({dayId:day.id,label:day.name,order:index+1,
+    exercises:program.filter(row=>row.dayId===day.id).map(cloneSnapshot)}));
+  return{source:route,frequency:days.length,program,programDefinition:definition,
+    programStructure:{schemaVersion:1,days:days.map(({dayId,label,order})=>({dayId,label,order})),provenance:{source:"generated"}},
+    days,customExercises:[],primaryMuscles:[]}}
 function compileGeneratorCandidate(from=entryState){
   const services=entryServices();
   if(!services||!from||!ProgramEntryAdapter?.programRequestFromAnswers)return null;
@@ -15562,12 +15572,8 @@ function compileGeneratorCandidate(from=entryState){
   try{generated=services.generateProgram({request:mapped.value,seed:String(from.draftId||"taurifer")})}
   catch(error){entryCompileError={code:"rebuild_failed"};console.warn("program generation failed",error);return null}
   if(!generated?.ok){entryCompileError={code:"generation_conflict",conflicts:generated?.conflicts||[]};return null}
-  const definition=generated.value,program=flatProgramFromDefinition(definition,[],1);
-  const days=definition.days.filter(day=>day.kind==="training").map((day,index)=>({dayId:day.id,label:day.name,order:index+1,
-    exercises:program.filter(row=>row.dayId===day.id).map(cloneSnapshot)}));
-  const preview={source:from.route,frequency:days.length,program,programDefinition:definition,
-    programStructure:{schemaVersion:1,days:days.map(({dayId,label,order})=>({dayId,label,order})),provenance:{source:"generated"}},
-    days,customExercises:[],primaryMuscles:[]};
+  const definition=generated.value,preview=generatedPreview(definition,from.route);
+  const days=preview.days;
   const name=t("entry.result.generated_name",{days:days.length});
   return{
     fingerprint:services.fingerprint({route:from.route,request:mapped.value,seed:definition.seed}),
@@ -16227,14 +16233,14 @@ function renderResultStep(){
     `${esc(isPt()?alternative.namePt||alternative.name:alternative.name)} · ${esc(t("entry.catalogue.days_badge",{days:alternative.daysPerWeek}))}</button>`+
     `<p class="entry__hint">${esc(t("entry.result.alternative_reason.compatible_split_variation"))}</p></section>`;
   const progressionIssue=entryPreviewHasProgressionIssue(preview);
+  /* Plan 070: the program is onboarding B's review editor, mounted into
+     #entryReview after this render (mountEntryAdjust). What the program was
+     built from stays below it until B's question screens replace these. */
   return `<section id="entryCandidateReview" class="entry__review" aria-labelledby="entryHeading">`+
-    `<p class="entry__eyebrow">${esc(resultTitle)}</p>`+
-    `<h2 class="onb__q entry__progname" id="entryHeading" tabindex="-1">${esc(entryResultName(result)||t("untitled_program"))}</h2>`+
-    `<p class="entry__source"><span>${esc(t("entry.preview.source"))}</span> ${esc(entrySourceLabel())}</p>`+
-    renderEntryFactsStrip(preview)+
+    `<div id="entryReview" class="entry__adjust ph-no-capture"></div>`+
     renderEntryChangeStatement(entryChange)+
     (hasActiveProgram()&&!entryUiNotice?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
-    `<h2 class="entry__section-head" id="entryWeekLab">${esc(t("entry.preview.days"))}</h2><div class="onb__review">${renderEntryWeek(preview).join("")}</div>`+
+    `<h2 class="entry__section-head entry__built-head" id="entryBuiltLab">${esc(t("entry.review.built_title"))}</h2>`+
     renderEntryChips()+
     `<section class="entry__why" aria-labelledby="entryWhyLab"><h2 class="entry__section-head" id="entryWhyLab">${esc(t("entry.result.why"))}</h2>`+
     `<ul class="entry__rows entry__rows--reasons">${whyRows.map(row=>`<li class="entry__row"><span class="entry__row-ico icon-mask icon-mask--${esc(row.icon)}" aria-hidden="true"></span><span class="entry__row-body">${esc(row.text)}</span></li>`).join("")}</ul>`+
@@ -16243,9 +16249,161 @@ function renderResultStep(){
     renderEntryAdjusted(preview)+
     renderEntryConstraints()+
     alternativeBlock+
-    renderEntryMore()+
-    (entryEditor?"":renderEntryPinned({progressionIssue,configurationIssue:entryNeedsMetricConfiguration()}))+
+    renderEntryMore({edit:false})+
+    (entryEditor?"":renderEntryPinned({progressionIssue,configurationIssue:entryNeedsMetricConfiguration(),reviewIssue:entryAdjustIssue()}))+
     `</section>`}
+/* Plan 070: onboarding B's review editor (program-review.js) on Generate's
+   result screen. The recommendation is regenerated in memory from the draft's
+   answers and seed, which is deterministic; every adjustment is committed to
+   the setup draft as the edited definition. The edit log that makes undo
+   survive a reload is tab-scoped and never leaves the device: it holds the
+   draft id, the recommendation's fingerprint and the edits, and is kept after
+   a reload only if replaying it rebuilds the saved definition. */
+const ENTRY_ADJUST_KEY="repforge_entry_review_v1";
+let entryAdjust=null,entryAdjustMount=null,entryAdjustSheetClose=null,entryAdjustDialog=null;
+const entryAdjustRoute=()=>entryState?.route==="recommend"||entryState?.route==="custom";
+function entryAdjustCtx(){
+  return{compiler:ProgramCompiler,catalog:rawExerciseCatalog,metrics:ExerciseMetrics,customDefinitions:[]}}
+function readEntryAdjustLog(){try{return JSON.parse(sessionStorage.getItem(ENTRY_ADJUST_KEY)||"null")}catch{return null}}
+function writeEntryAdjustLog(value){
+  try{if(value?.edits?.length)sessionStorage.setItem(ENTRY_ADJUST_KEY,JSON.stringify(value));else sessionStorage.removeItem(ENTRY_ADJUST_KEY)}catch{}}
+function clearEntryAdjust(){
+  entryAdjustMount?.dispose();entryAdjustMount=null;entryAdjust=null;
+  try{sessionStorage.removeItem(ENTRY_ADJUST_KEY)}catch{}}
+const sameDefinition=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+function ensureEntryAdjust(){
+  const Review=window.RepForgeProgramReview,result=entryState?.result;
+  if(!Review||!entryAdjustRoute()||!result?.preview?.programDefinition||!rawExerciseCatalog)return null;
+  if(entryAdjust&&entryAdjust.draftId===entryState.draftId&&entryAdjust.answers===result.answersFingerprint)return entryAdjust;
+  const priorError=entryCompileError;
+  const baseline=compileGeneratorCandidate();
+  entryCompileError=priorError;
+  if(!baseline)return null;
+  const stored=result.preview.programDefinition,saved=readEntryAdjustLog();
+  let edits=[];
+  if(saved?.draftId===entryState.draftId&&saved?.fingerprint===baseline.fingerprint&&Array.isArray(saved.edits)){
+    const replayed=Review.replay(baseline.preview.programDefinition,saved.edits,entryAdjustCtx());
+    if(replayed.ok&&sameDefinition(replayed.definition,stored))edits=saved.edits}
+  entryAdjust={draftId:entryState.draftId,answers:result.answersFingerprint,baseline,edits,view:{tab:null,reorder:null}};
+  writeEntryAdjustLog({draftId:entryState.draftId,fingerprint:baseline.fingerprint,edits});
+  return entryAdjust}
+/* What still keeps Activate disabled on the review: an emptied training day. */
+function entryAdjustIssue(){
+  if(!entryAdjustRoute())return null;
+  const blockers=window.RepForgeProgramReview?.blockers(entryState?.result?.preview?.programDefinition)||[];
+  return blockers.length?"entry.review.blocked_empty":null}
+/* Does the result carry the lifter's adjustments (a rebuild would discard them)? */
+function entryAdjusted(){
+  const review=ensureEntryAdjust();
+  if(!review)return false;
+  return !sameDefinition(review.baseline.preview.programDefinition,entryState.result.preview.programDefinition)||
+    entryResultName()!==entryResultName(review.baseline)}
+async function commitEntryAdjust({definition,edits,name}){
+  const review=entryAdjust;
+  if(!review||!entryState?.result)return{ok:false};
+  const base=review.baseline;
+  const result={...cloneSnapshot(entryState.result),preview:{...cloneSnapshot(entryState.result.preview),...generatedPreview(definition,entryState.route)}};
+  result.name=name==null?base.name:name;delete result.namePt;
+  result.fingerprint=sameDefinition(definition,base.preview.programDefinition)&&result.name===base.name
+    ?base.fingerprint:entryCandidateFingerprint(entryState.route,result.name,result.preview);
+  entryPinnedVersionsExecutable=false;
+  const saved=await persistEntryRulesState(ProgramEntry.setResult(entryState,result));
+  if(!saved?.ok)return{ok:false};
+  review.answers=entryState.result.answersFingerprint;
+  review.edits=edits.slice();
+  writeEntryAdjustLog({draftId:review.draftId,fingerprint:base.fingerprint,edits:review.edits});
+  syncEntryAdjustFooter();
+  return{ok:true}}
+/* The pinned footer follows the review without re-rendering the screen. */
+function syncEntryAdjustFooter(){
+  const pinned=$("#entryCandidateReview .entry__pinned");
+  if(!pinned)return;
+  pinned.outerHTML=renderEntryPinned({progressionIssue:entryPreviewHasProgressionIssue(entryState.result.preview),
+    configurationIssue:entryNeedsMetricConfiguration(),reviewIssue:entryAdjustIssue()});
+  const activate=$("#entryActivate");if(activate)activate.onclick=()=>activateEntryPreview()}
+function entryAdjustSheet(){
+  const el=$("#reviewSheet");
+  return{el,title:$("#reviewSheetTitle"),body:$("#reviewSheetBody"),foot:$("#reviewSheetFoot")}}
+function openEntryAdjustSheet({onClose}={}){
+  const sheet=$("#reviewSheet"),scrim=$("#reviewSheetScrim");
+  if(!sheet)return;
+  entryAdjustSheetClose=onClose||null;
+  if(activeModal?.el===sheet){sheet.querySelector("#reviewRenameInput")?.focus();return}
+  const close=sheet.querySelector("[data-review-sheet-close]");if(close)close.onclick=()=>closeEntryAdjustSheet();
+  if(scrim)scrim.onclick=()=>closeEntryAdjustSheet();
+  document.body.classList.add("is-sheet-open");
+  openModal(sheet,{initialFocus:sheet.querySelector("#reviewRenameInput")||sheet,onEscape:closeEntryAdjustSheet,scrim,
+    delayHide:reducedMotion()?0:280});
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
+function closeEntryAdjustSheet(){
+  const sheet=$("#reviewSheet");
+  const onClose=entryAdjustSheetClose;entryAdjustSheetClose=null;
+  onClose?.();
+  if(!sheet||(sheet.hidden&&!(activeModal&&activeModal.el===sheet)))return Promise.resolve(false);
+  return closeModal(sheet)}
+function pickEntryAdjustExercise({mode,day,exercise,accept}){
+  return new Promise(resolve=>{
+    let settled=false;const finish=id=>{if(settled)return;settled=true;resolve(id)};
+    const exclude=pickableExercises().filter(entry=>!accept(entry.id)).map(entry=>entry.id);
+    openExercisePicker({
+      title:mode==="replace"?t("picker.title_change"):t("picker.add_to",{day:entryAdjustDayName(day,entryState.result.preview.programDefinition)}),
+      subtitle:exercise?libraryName(libraryEntry(exercise.exerciseId)):"",exclude,catalogOnly:true,
+      onPick:entry=>finish(entry?.id||null),onCancel:()=>finish(null)})})}
+function entryAdjustDayName(day,definition){
+  return localizedDayName({label:day?.name},day?.name,definition)}
+function confirmEntryAdjust({title,body,go,keep}){
+  return new Promise(resolve=>{
+    entryAdjustDialog?.resolve(false);
+    entryDialogOpener=entryOpenerToken();
+    // Only the dialog opens: re-rendering the screen behind it would remount
+    // the review that is waiting on the answer.
+    entryAdjustDialog={title,body,go,keep,resolve};entryDialog="review";syncEntryDialog()})}
+function resolveEntryAdjustDialog(confirmed){
+  const pending=entryAdjustDialog;entryAdjustDialog=null;entryDialog=null;
+  closeEntryDialog();
+  pending?.resolve(confirmed)}
+/* A change that rebuilds the program (an answer, the alternative split) asks
+   first when it would discard the lifter's adjustments; confirming drops them. */
+async function guardEntryRebuild(rebuild){
+  if(entryAdjusted()){
+    const count=window.RepForgeProgramReview.changes(entryAdjust.baseline.preview.programDefinition,
+      entryState.result.preview.programDefinition).count||1;
+    const confirmed=await confirmEntryAdjust({title:t("entry.review.rebuild_title"),
+      body:t(count===1?"entry.review.rebuild_body_one":"entry.review.rebuild_body",{n:count}),
+      go:t("entry.review.rebuild_go"),keep:t("entry.review.keep")});
+    if(!confirmed)return false;
+    // The rebuild replaces the candidate; start it from the recommendation.
+    const restored=await commitEntryAdjust({definition:entryAdjust.baseline.preview.programDefinition,edits:[],name:null});
+    if(!restored.ok)return false}
+  clearEntryAdjust();
+  return rebuild()}
+function mountEntryAdjust(){
+  entryAdjustMount?.dispose();entryAdjustMount=null;
+  const host=$("#entryReview"),Review=window.RepForgeProgramReview;
+  const review=ensureEntryAdjust();
+  if(!host||!Review||!review)return;
+  entryAdjustMount=Review.mountProgramReview(host,{
+    view:review.view,
+    read:()=>({baseline:entryAdjust.baseline.preview.programDefinition,definition:entryState.result.preview.programDefinition,
+      edits:entryAdjust.edits,name:entryResultName()||t("untitled_program"),
+      sessionMinutes:Number(entryState.answers?.sessionMinutes)||null,ctx:entryAdjustCtx()}),
+    commit:commitEntryAdjust,
+    t:(key,vars)=>t(key,vars),esc,
+    exerciseName:id=>libraryName(libraryEntry(id))||id,
+    tile:(id,size)=>exerciseThumb(libraryEntry(id),{size}),
+    muscleName:id=>{const token=SOURCE_FEATURE_TO_LEGACY_MUSCLE[String(rawCatalogObject(id)?.name||"").trim().toLowerCase()];return token?muscleLabel(token):""},
+    dayName:entryAdjustDayName,
+    nums:monoNums,
+    exerciseWord:n=>tp(n,"exercise"),
+    exerciseCount:n=>entryExerciseCountLabel(n),
+    sheet:entryAdjustSheet,openSheet:openEntryAdjustSheet,closeSheet:closeEntryAdjustSheet,
+    pickExercise:pickEntryAdjustExercise,confirm:confirmEntryAdjust,
+    announce:message=>toast(message),
+    swallowClick:()=>swallowNextClick(),
+    reducedMotion:()=>reducedMotion(),
+    motion:window.RepForgeMotion||null,
+    changed:()=>syncEntryAdjustFooter(),
+  })}
 function renderCatalogueStep(){
   const cards=entryServices()?.browseCatalogue(entryState.answers)||[];
   const purposeLabels={
@@ -16543,9 +16701,9 @@ function renderEntryWeek(preview){
       return `<div class="onb__ex${isNew?" is-new":""}"><b>${esc(exerciseDisplayName(ex))}</b>${isNew?` <span class="entry__new">${esc(t("entry.preview.new"))}</span>`:""}${ex.sets!=null?` · ${esc(summary)}`:""}</div>`}).join("")+
     (!exercises.length?`<div class="onb__ex">${esc(t("program.empty.exercises"))}</div>`:"")+
     `</details>`})}
-function renderEntryMore(){
+function renderEntryMore({edit=true}={}){
   return `<section class="entry__more" aria-labelledby="entryMoreLab"><p class="entry__group-lab entry__section-head" id="entryMoreLab">${esc(t("entry.preview.more"))}</p>`+
-    `<div class="entry__confirm-alt"><button type="button" id="entryEdit" class="btn btn--steel"><span class="icon-mask icon-mask--pencil icon-mask--sm" aria-hidden="true"></span>${esc(t("entry.preview.edit"))}</button>`+
+    `<div class="entry__confirm-alt">${edit?`<button type="button" id="entryEdit" class="btn btn--steel"><span class="icon-mask icon-mask--pencil icon-mask--sm" aria-hidden="true"></span>${esc(t("entry.preview.edit"))}</button>`:""}`+
     `<button type="button" id="entryRestart" class="btn btn--steel btn--destructive" aria-haspopup="dialog"><span class="icon-mask icon-mask--reset icon-mask--sm" aria-hidden="true"></span>${esc(t("entry.preview.restart"))}</button></div></section>`}
 /* The confirm action is the point of the screen, so it is pinned: a long
    program cannot scroll it away, and a blocked one says why directly above. */
@@ -16554,10 +16712,10 @@ function renderEntryMore(){
 function entryNeedsMetricConfiguration(){
   try{return !!entryState&&ProgramEntry.candidateActivationIssues(entryState).some(issue=>issue.startsWith("metric_configuration_required:"))}
   catch{return false}}
-function renderEntryPinned({progressionIssue=false,configurationIssue=false}={}){
+function renderEntryPinned({progressionIssue=false,configurationIssue=false,reviewIssue=null}={}){
   const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
-  const blocked=progressionIssue||configurationIssue;
-  const reason=progressionIssue?t("entry.preview.activation_blocked"):t("entry.preview.metrics_required");
+  const blocked=progressionIssue||configurationIssue||!!reviewIssue;
+  const reason=progressionIssue?t("entry.preview.activation_blocked"):reviewIssue?t(reviewIssue):t("entry.preview.metrics_required");
   return `<div class="entry__pinned">`+
     (blocked?`<p id="entryActivationStatus" class="entry__reason" role="alert" tabindex="-1">${esc(reason)}</p>`:"")+
     `<button type="button" id="entryActivate" class="btn btn--cta${blocked?" btn--noarrow":""}"${blocked?` disabled aria-describedby="entryActivationStatus"`:""}>${esc(activateLabel)}</button></div>`}
@@ -16602,6 +16760,11 @@ function entryDialogElement(){
   el.addEventListener("cancel",event=>{event.preventDefault();dismissEntryDialog()});
   return el}
 function entryDialogSpec(kind){
+  if(kind==="review"){
+    const dialog=entryAdjustDialog||{};
+    return{titleId:"reviewConfirmTitle",title:dialog.title||"",body:dialog.body||"",actions:[
+      {id:"reviewConfirmGo",cls:"btn btn--cta btn--noarrow",label:dialog.go||"",run:()=>resolveEntryAdjustDialog(true)},
+      {id:"reviewConfirmKeep",cls:"btn btn--steel",label:dialog.keep||"",run:()=>resolveEntryAdjustDialog(false)}]}}
   if(kind==="cancel")return{titleId:"entryCancelTitle",title:t("entry.cancel_confirm.title"),body:t("entry.cancel_confirm.body"),actions:[
     {id:"entryCancelKeep",cls:"btn btn--cta btn--noarrow",label:t("entry.cancel_confirm.keep"),run:()=>keepEntryDraftAndCancel()},
     {id:"entryCancelDiscard",cls:"btn btn--steel",label:t("entry.cancel_confirm.discard"),run:()=>discardEntryDraftAndCancel()},
@@ -16665,6 +16828,7 @@ function closeEntryDialog(){
   if(el.open)try{el.close()}catch{}
   entryDialogOpener=null}
 function dismissEntryDialog(){
+  if(entryDialog==="review"){resolveEntryAdjustDialog(false);return}
   const resolve=entryReplaceResolve;
   entryReplaceResolve=null;
   if(entryUiNotice==="cancel")entryUiNotice=null;
@@ -16858,7 +17022,7 @@ function renderOnboarding(){
   else if(stepId==="priorities")html+=entryRailAfterTitle(renderPrioritiesStep(),rail);
   else if(stepId==="exercise_preferences")html+=entryRailAfterTitle(renderExercisePreferencesStep(),rail);
   else if(stepId==="custom_shape")html+=entryRailAfterTitle(renderCustomShapeStep(),rail);
-  else if(stepId==="result"&&!isEditor)html+=renderResultStep();
+  else if((stepId==="result"||stepId==="activation_conflict"&&entryAdjustRoute())&&!isEditor)html+=renderResultStep();
   else if(stepId==="catalogue")html+=renderCatalogueStep();
   else if(stepId==="build_setup")html+=renderBuildSetupStep();
   else if(stepId==="import_source")html+=renderImportSourceStep();
@@ -16870,7 +17034,9 @@ function renderOnboarding(){
   else if(stepId==="preview"||stepId==="activation_conflict")html+=renderPreviewStep();
   else html+=renderEntryHub();
   body.className=`onb__body entry-body entry-body--${stepId}${route?` entry-route--${route}`:" entry-route--hub"}`;
+  entryAdjustMount?.dispose();entryAdjustMount=null;
   body.innerHTML=html;
+  if((stepId==="result"||stepId==="activation_conflict")&&!isEditor)mountEntryAdjust();
   if(stepId==="result"&&!isEditor)playEntryBuild(body);
   const environmentCorrection=body.querySelector(".entry__correct");
   if(environmentCorrectionOpen&&environmentCorrection)environmentCorrection.open=true;
@@ -16912,12 +17078,15 @@ function playEntryBuild(body){
   const armed=entryBuildArmed;entryBuildArmed=null;
   const result=entryState?.result;
   if(!armed||!result?.fingerprint||armed.draftId!==entryState.draftId||armed.fingerprint!==result.fingerprint||!beatsOn())return;
-  const review=body.querySelector("#entryCandidateReview"),week=review?.querySelector(":scope > .onb__review");
-  if(!review||!week)return;
-  const lead=[...review.children].filter(el=>el.matches(".entry__progname,.entry__source,.entry__strip,#entryChange,#entryWeekLab"));
-  const items=[...lead,...week.children];
+  const review=body.querySelector("#entryReview .review"),panel=review?.querySelector(":scope > .review__panel");
+  if(!review||!panel)return;
+  // Nothing a lifter can press is part of the build (the title is a rename
+  // control, the day head holds the day's actions): only the blocks they read.
+  const still=el=>!el.matches(".visually-hidden,button,[role=tablist]")&&!el.querySelector("button");
+  const lead=[...review.children].filter(el=>el!==panel&&still(el));
+  const items=[...lead,...[...panel.children].filter(still)];
   items.forEach((el,i)=>{el.classList.add("motion-build-item");el.style.setProperty("--build-i",String(i))});
-  const hosts=[review,week].filter(el=>el.querySelector(":scope > .motion-build-item"));
+  const hosts=[review,panel].filter(el=>el.querySelector(":scope > .motion-build-item"));
   hosts.forEach(el=>el.classList.add("motion-build"));
   let left=items.length;
   const settle=()=>{if(--left>0)return;
@@ -17160,7 +17329,7 @@ function wireEntryDom(){
   const changeSchedule=$("[data-entry-action='change-schedule']");if(changeSchedule)changeSchedule.onclick=()=>{
     const answers={...entryState.answers};delete answers.splitPreference;
     entryCompileError=null;entrySetState({...entryState,step:"schedule",result:null,answers})};
-  const chooseAlternative=$("[data-entry-select-alternative]");if(chooseAlternative)chooseAlternative.onclick=()=>{
+  const chooseAlternative=$("[data-entry-select-alternative]");if(chooseAlternative)chooseAlternative.onclick=()=>guardEntryRebuild(()=>{
     const alternative=entryState?.result?.alternative;
     if(!alternative)return;
     const selected={};
@@ -17175,7 +17344,7 @@ function wireEntryDom(){
       selected,
       candidates:[selected],
       alternative:null,
-      preview:alternative.preview}))};
+      preview:alternative.preview}))});
   $$("[data-entry-catalogue]").forEach(btn=>btn.onclick=()=>{
     const id=btn.dataset.entryCatalogue;
     const card=(entryServices()?.browseCatalogue(entryState.answers)||[]).find(item=>item.id===id);
@@ -17234,13 +17403,13 @@ function wireEntryDom(){
   entryUiNotice=null;
     entryPinnedVersionsExecutable=false;
     entryDurableConflictNeedsReload=false;
-    entrySetState({...entryState,step:"preview",activeProgramRevisionAtStart:liveProgramRevision()})};
+    entrySetState({...entryState,step:ProgramEntry.reviewStep(entryState.route),activeProgramRevisionAtStart:liveProgramRevision()})};
   const durableConflict=$("#entryDurableConflictReview");if(durableConflict)durableConflict.onclick=async()=>{
     durableConflict.disabled=true;
     if(entryDurableConflictNeedsReload){window.location.reload();return}
     if(entryState?.step==="activation_conflict"){
       entryUiNotice=null;
-      entrySetState({...entryState,step:"preview",activeProgramRevisionAtStart:liveProgramRevision()});
+      entrySetState({...entryState,step:ProgramEntry.reviewStep(entryState.route),activeProgramRevisionAtStart:liveProgramRevision()});
       return;
     }
     const recovered=await recoverEntryDurableConflict();
@@ -17256,8 +17425,8 @@ function wireEntryAnswerControls(){
   if(entryState.step!=="background")entryGoalOpen=false;
   if(entryEditor&&(entryState.step!=="result"||entryEditor.draftId!==entryState.draftId))entryEditor=null;
   $$("[data-entry-chip]").forEach(btn=>btn.onclick=()=>openEntryEditor(btn.dataset.entryChip));
-  $$("[data-entry-restore]").forEach(btn=>btn.onclick=()=>restoreEntryConstraint(btn.dataset.entryRestore));
-  const apply=$("#entryChipApply");if(apply)apply.onclick=()=>applyEntryEditor();
+  $$("[data-entry-restore]").forEach(btn=>btn.onclick=()=>guardEntryRebuild(()=>restoreEntryConstraint(btn.dataset.entryRestore)));
+  const apply=$("#entryChipApply");if(apply)apply.onclick=()=>guardEntryRebuild(()=>applyEntryEditor());
   const keep=$("#entryChipKeep");if(keep)keep.onclick=()=>closeEntryEditor();
   const editor=$("#entryEditor");
   if(editor&&entryEditor){
@@ -17599,6 +17768,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   }
   clearFreeformSession();
   clearStagedImportSource();
+  clearEntryAdjust();
   if(telemetryRoute==="shared")SharedSetup?.clearHandoffCookie?.();
   if(telemetryRoute==="shared")syncLang();
   resetDraftSessionState();

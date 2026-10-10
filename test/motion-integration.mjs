@@ -1011,18 +1011,17 @@ async function generatedProgramMotion(browser, { reducedMotion = "no-preference"
           activateInside: !!document.querySelector("#entryActivate")?.closest(".motion-build-item"),
           controlsInside: items.some((el) => el.matches("button,input,select,a") || el.querySelector(":scope button:not(summary),:scope input")),
         };
-        // A day in the build opens at once when pressed: nothing waits on the build.
-        const summary = document.querySelectorAll("#entryCandidateReview details.onb__day")[1]?.querySelector("summary");
-        const before = summary?.parentElement.open;
-        summary?.click();
-        out.toggled = summary ? summary.parentElement.open !== before : null;
-        summary?.click();
+        // Another day opens at once when its tab is pressed: nothing waits on the build.
+        const tabs = document.querySelectorAll("#entryReview [data-review-tab]");
+        tabs[2]?.click();
+        out.toggled = tabs[2] ? document.querySelector('#entryReview [data-review-tab="2"]')?.getAttribute("aria-selected") === "true" : null;
+        document.querySelector('#entryReview [data-review-tab="0"]')?.click();
         out.activateDisabled = document.querySelector("#entryActivate")?.disabled;
         out.activatePointer = getComputedStyle(document.querySelector("#entryActivate")).pointerEvents;
       }
       out.frames.push({ t: Math.round(performance.now() - t0), hosts: document.querySelectorAll("#onbBody .motion-build").length, items: items.length });
     }
-    out.opacity = [...document.querySelectorAll("#entryCandidateReview details.onb__day, #entryCandidateReview .entry__progname")].map((el) => Number(getComputedStyle(el).opacity));
+    out.opacity = [...document.querySelectorAll("#entryReview .review__row, #entryReview .review__facts, #entryReview .review__kicker")].map((el) => Number(getComputedStyle(el).opacity));
     return out;
   });
   if (reduced) {
@@ -1033,10 +1032,10 @@ async function generatedProgramMotion(browser, { reducedMotion = "no-preference"
       "each block rises into place over 200ms", JSON.stringify(first));
     assert(first?.index.every((v, i) => v === String(i)) && first?.delay.every((d, i) => Math.round(d) === i * 55),
       "each block is 55ms after the one before it, counted in reading order", JSON.stringify(first));
-    assert(first?.order && first.names.length >= 5, "in document order, from the name through every day", JSON.stringify(first?.names));
+    assert(first?.order && first.names.length >= 5, "in document order, from the source line through the day's exercises", JSON.stringify(first?.names));
     assert(first && !first.activateInside && !first.controlsInside, "no button or field is part of the build", JSON.stringify(first));
     assert(built.toggled === true && built.activateDisabled === false && built.activatePointer !== "none",
-      "a day opens on the first press and the activate action is enabled while the build runs", JSON.stringify(built));
+      "a day's tab opens it on the first press and the activate action is enabled while the build runs", JSON.stringify(built));
     assert(built.frames.at(-1).items === 0 && built.frames.at(-1).hosts === 0, "the build takes its classes off when the last block lands", JSON.stringify(built.frames.at(-1)));
     assert(built.opacity.every((o) => o === 1), "and every block is at rest", JSON.stringify(built.opacity));
   }
@@ -1072,7 +1071,7 @@ async function generatedProgramMotion(browser, { reducedMotion = "no-preference"
     await watch(150);
     document.querySelector("#entryChipApply").click();
     await watch(900);
-    const days = document.querySelectorAll("#entryCandidateReview details.onb__day").length;
+    const days = (window.__repforgeEntryState?.()?.result?.preview?.days || []).length;
     return { max, opened, days, editorClosed: !document.querySelector("#entryEditor") };
   });
   assert(edited.opened && edited.editorClosed && edited.days === 3 && edited.max === 0,

@@ -1876,10 +1876,28 @@ body.is-sheet-open{overflow:hidden}
    starting it — switching days can discard a session in progress — so the rows
    read as a set of choices and the CTA below them is what commits one. */
 .sheet--daypick{height:auto}
+/* Plan 070: the review editor's one sheet (exercise, day actions, rename). */
+.sheet--review{height:min(88dvh,760px)}
+.review-sheet__body{flex-direction:column;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:0 16px 16px}
+.review-sheet__foot{border-top:1px solid var(--rule)}
+.review-sheet__foot:empty{display:none}
+.review-sheet__foot .btn{width:100%}
+/* An undoable change's notice sits above the pinned Activate. */
+.review-toast{
+  position:fixed;left:50%;transform:translateX(-50%);z-index:52;
+  bottom:calc(var(--entry-pinned-clearance,104px) + env(safe-area-inset-bottom));
+  width:min(92%,420px);display:flex;align-items:center;gap:var(--space-12,12px);
+  background:var(--cta);color:var(--cta-ink);border-radius:var(--radius-surface);
+  padding:12px 16px;font-size:var(--font-size-body-small);box-shadow:var(--elevation-floating-shadow);
+  animation:toastin .3s cubic-bezier(.2,.7,.2,1)
+}
+.review-toast__text{flex:1;min-width:0;overflow-wrap:anywhere}
+.review-toast__undo{flex:none;min-height:44px;padding:0 4px;border:0;background:none;color:inherit;font:inherit;font-weight:var(--weight-semibold);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+@media (prefers-reduced-motion:reduce){.review-toast{animation:none}}
 /* Focus sheets keep their modal hierarchy while using the shared type and depth roles.
    The Session, exercise-actions and note sheets wear the shared .sheetband (Plan 064 R3d),
    and so does the Why sheet (R3g); the rest sheet keeps its own head until its slice lands. */
-#sessionSheet,#exActionsSheet,#exNoteSheet,#restSheet,#whySheet,#historyDiscardSheet,#draftDiscardSheet{
+#sessionSheet,#exActionsSheet,#exNoteSheet,#restSheet,#whySheet,#historyDiscardSheet,#draftDiscardSheet,#reviewSheet{
   background:var(--color-surface);border-radius:var(--radius-prominent) var(--radius-prominent) 0 0;
   box-shadow:var(--elevation-modal-shadow);
 }

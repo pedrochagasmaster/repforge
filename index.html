@@ -1070,6 +1070,16 @@ Triceps pushdown 3x12-15</pre>
     </div>
   </div>
 
+  <div id="reviewSheetScrim" class="sheet-scrim hidden"></div>
+  <div id="reviewSheet" class="sheet sheet--review hidden ph-no-capture" role="dialog" aria-modal="true" aria-labelledby="reviewSheetTitle" tabindex="-1" hidden>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="reviewSheetTitle"></h2>
+      <button type="button" class="sheetband__close" data-review-sheet-close data-i18n-aria="dialog.close" aria-label="Close"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+    </div>
+    <div class="sheet__body review-sheet__body" id="reviewSheetBody"></div>
+    <div class="sheet__foot review-sheet__foot" id="reviewSheetFoot"></div>
+  </div>
   <div id="dayPickScrim" class="sheet-scrim hidden"></div>
   <div id="dayPickSheet" class="sheet sheet--daypick hidden" role="dialog" aria-modal="true" aria-labelledby="dayPickTitle" hidden>
     <div class="sheetband">
@@ -1284,6 +1294,7 @@ Triceps pushdown 3x12-15</pre>
   <script src="program-entry.js?v=308"></script>
   <script src="program-entry-adapter.js?v=309"></script>
   <script src="program-editor.js?v=314"></script>
+  <script src="program-review.js?v=1"></script>
   <script src="shared-setup.js?v=310"></script>
   <script src="workout-draft.js?v=359"></script>
   <script src="program-transition.js?v=364"></script>

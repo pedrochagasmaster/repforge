@@ -1114,7 +1114,7 @@ try {
   // Before / Now change grid) the words are set in the language font, every digit run sits in a
   // `.num` element, and only those carry Mono. The catalogue card's own facts strip
   // (`.entry-prog__facts`/`.entry__facts`) retired with the Browse route.
-  const MONO_LINES = [".onb__dayname > span:not(.onb__daynum)", ".entry__change-grid dd"];
+  const MONO_LINES = [".onb__dayname > span:not(.onb__daynum)", ".entry__change-grid dd", ".review__daymeta"];
   for (const locale of ["en", "pt"]) {
     for (const key of ["onboarding-recommend/result-corrected", "onboarding-import/preview", "onboarding-shared/preview"]) {
       const monoCapture = { flow: key.split("/")[0], screen: key.split("/")[1], viewport: "phone-390", theme: "light", locale, text: "normal", motion: "normal" };

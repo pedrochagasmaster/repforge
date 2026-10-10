@@ -72,6 +72,8 @@
   // Browse offered the retired family catalogue; it is no longer a route.
   const ROUTES = Object.freeze(["recommend", "custom", "build", "import", "shared"]);
   const ROUTE_SET = new Set(ROUTES);
+  // Routes whose result screen is where the candidate is reviewed and activated.
+  const RESULT_ROUTES = new Set(["recommend", "custom"]);
   const ROUTE_STEPS = Object.freeze({
     recommend: Object.freeze([
       "desired_result",
@@ -81,7 +83,6 @@
       "abilities",
       "priorities",
       "result",
-      "preview",
     ]),
     custom: Object.freeze([
       "desired_result",
@@ -93,7 +94,6 @@
       "exercise_preferences",
       "custom_shape",
       "result",
-      "preview",
     ]),
     browse: Object.freeze(["schedule", "environment", "catalogue", "preview"]),
     build: Object.freeze(["build_setup", "editor"]),
@@ -1290,8 +1290,11 @@
     if (typeof raw.draftId !== "string" || raw.draftId.length < 1 || raw.draftId.length > 64) issues.push("$.draftId:invalid");
     if (raw.route !== null && !ROUTE_SET.has(raw.route)) issues.push("$.route:invalid");
     if (raw.route === null && raw.step !== "entry") issues.push("$.step:invalid_for_route");
-    if (ROUTE_SET.has(raw.route) && raw.step !== "entry" && raw.step !== "activation_conflict" &&
-      !ROUTE_STEPS[raw.route].includes(raw.step)) {
+    // Plan 070 retired the generated routes' preview step: their result screen
+    // is the review. A draft saved at preview resumes there, result unchanged.
+    const step = RESULT_ROUTES.has(raw.route) && raw.step === "preview" ? "result" : raw.step;
+    if (ROUTE_SET.has(raw.route) && step !== "entry" && step !== "activation_conflict" &&
+      !ROUTE_STEPS[raw.route].includes(step)) {
       issues.push("$.step:invalid_for_route");
     }
     const answers = normalizeAnswers(raw.answers, issues);
@@ -1308,7 +1311,7 @@
       schemaVersion: SCHEMA_VERSION,
       draftId: raw.draftId,
       route: raw.route,
-      step: raw.step,
+      step,
       answers,
       legacyHints: isPlainObject(raw.legacyHints) ? clone(raw.legacyHints) : {},
       result,
@@ -1654,6 +1657,12 @@
     }
   }
 
+  /* Where a candidate is reviewed before Activate: the result screen on the
+     generated routes, the preview on the others. */
+  function reviewStep(route) {
+    return RESULT_ROUTES.has(route) ? "result" : "preview";
+  }
+
   function advance(state) {
     assertState(state);
     const issues = validationIssues(state);
@@ -1668,7 +1677,7 @@
   function back(state) {
     assertState(state);
     if (state.step === "entry") return clone(state);
-    if (state.step === "activation_conflict") return { ...clone(state), step: "preview" };
+    if (state.step === "activation_conflict") return { ...clone(state), step: reviewStep(state.route) };
     const steps = ROUTE_STEPS[state.route];
     const index = steps.indexOf(state.step);
     if (index === 0) return { ...clone(state), step: "entry" };
@@ -1782,9 +1791,9 @@
         issues.push(`metric_configuration_required:${slot.id}`);
       }
     }
-    if (state.route !== "build") return issues;
     const trainingDays = definition.days.filter((day) => day.kind === "training");
-    if (!trainingDays.length) issues.push("program_days_required");
+    if (state.route === "build" && !trainingDays.length) issues.push("program_days_required");
+    if (state.route !== "build" && !RESULT_ROUTES.has(state.route)) return issues;
     for (const day of trainingDays) {
       if (!Array.isArray(day.slots) || !day.slots.length) issues.push(`day_empty:${day.id || day.name}`);
     }
@@ -1838,6 +1847,7 @@
     CONSTRAINT_REASONS,
     COMPETENCY_ANSWERS,
     ROUTES,
+    reviewStep,
     ROUTE_STEPS,
     ROUTE_PREFILL_KEYS,
     createState,
