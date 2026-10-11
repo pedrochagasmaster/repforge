@@ -11,7 +11,8 @@ const internal = '00000000-0000-4000-8000-000000000001';
 const pilot = '00000000-0000-4000-8000-000000000002';
 const config = () => ({ projectId: 1, timezone: 'UTC', from: '2020-01-01T00:00:00Z', asOf: '2020-04-01T00:00:00Z',
   appVersions: ['release-a'], internalInstallationIds: [internal], pilotInstallationIds: [pilot] });
-const names = ['app_boot', 'program_activated', 'first_set_logged', 'set_saved', 'session_completed', 'workout_discarded'];
+const names = ['app_boot', 'program_path_selected', 'program_activated', 'first_set_logged', 'set_saved', 'session_completed', 'workout_discarded',
+  'onboarding_step_viewed', 'onboarding_step_completed', 'onboarding_step_back'];
 const contract = { getSchemaVersion: () => 1, getEventNames: () => names,
   getEventPolicy: name => name === 'first_set_logged' ? 'milestone' : 'repeatable' };
 const sql = (plan, key) => plan.insights.find(insight => insight.key === key).payload.query.source.query;
@@ -43,7 +44,7 @@ test('event inventory and policies come from the provided contract, not a hardco
   const plan = buildPlan(config(), { ...contract, getEventNames: () => [...names, 'future_valid_event'] });
   assert.match(sql(plan, 'cohort-coverage'), /future_valid_event/);
   assert.equal(plan.eventPolicies.first_set_logged, 'milestone');
-  assert.equal(plan.insights.length, 10);
+  assert.equal(plan.insights.length, 15);
   assert.equal(new Set(plan.insights.map(i => i.key)).size, plan.insights.length);
 });
 test('no legacy host, bot, user agent, person property, or automatic test filter', () => {
@@ -95,6 +96,23 @@ test('first-value and repeat denominators require maturity, witnessed new instal
   assert.match(sql(plan, 'repeat-7'), /toDate\(x\.1\) > toDate\(first_completion\)/);
   assert.match(sql(plan, 'repeat-7'), /x\.2 != first_session/);
 });
+test('onboarding views key on route and step ids, and every rate separates mature from pending', () => {
+  const plan = buildPlan(config(), contract);
+  const steps = sql(plan, 'onboarding-steps');
+  assert.match(steps, /GROUP BY route, step/);
+  assert.doesNotMatch(steps, /index|position|order_in/);
+  assert.match(sql(plan, 'onboarding-drop-off'), /INTERVAL 7 DAY <=/);
+  assert.match(sql(plan, 'onboarding-drop-off'), /pending/);
+  assert.match(sql(plan, 'activation-by-route'), /nullIf\(countIf\(mature\), 0\)/);
+  assert.match(sql(plan, 'editor-reliance'), /'not_reported'/);
+  const retention = sql(plan, 'retention-by-route');
+  assert.match(retention, /properties\.first_run = true/);
+  assert.match(retention, /INTERVAL 21 DAY AND t <= activated \+ INTERVAL 28 DAY/);
+  assert.match(retention, /nullIf\(countIf\(mature_4\), 0\)/);
+  for (const key of ['onboarding-steps', 'onboarding-drop-off', 'activation-by-route', 'editor-reliance', 'retention-by-route']) {
+    assert.ok(sql(plan, key).includes(pilot), `${key} is limited to the confirmed pilot roster`);
+  }
+});
 test('every event scan has an explicit bounded time window; no raw identity output', () => {
   for (const insight of buildPlan(config(), contract).insights) {
     const query = insight.payload.query.source.query;
@@ -119,7 +137,7 @@ test('CLI is offline, external-path-only, redacts parse errors, and writes priva
     const run = (...args) => spawnSync(process.execPath, [tool, ...args], { encoding: 'utf8' });
     let result = run(input, output); assert.equal(result.status, 0, result.stderr);
     assert.equal(statSync(output).mode & 0o777, 0o600);
-    assert.equal(JSON.parse(readFileSync(output)).insights.length, 10);
+    assert.equal(JSON.parse(readFileSync(output)).insights.length, 15);
     assert.doesNotMatch(result.stdout + result.stderr, new RegExp(`${internal}|${pilot}`));
     result = run(input, output); assert.equal(result.status, 1); assert.doesNotMatch(result.stderr, new RegExp(temp));
     result = run(input, join(root, 'private.json')); assert.equal(result.status, 1);

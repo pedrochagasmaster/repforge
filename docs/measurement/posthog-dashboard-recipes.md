@@ -10,8 +10,11 @@ Generate the baseline definitions with
 [`build-posthog-measurement.mjs`](../../tools/build-posthog-measurement.mjs).
 See [the private roster and migration procedure](posthog-measurement-setup.md).
 The compiler is offline: generating definitions does not change PostHog.
-Its ten definitions cover collection health, release inventory, attribution,
-boots, milestone reach, saved-set outcomes, first value, and repeat training.
+Its fifteen definitions cover collection health, release inventory,
+attribution, boots, milestone reach, saved-set outcomes, first value, repeat
+training, and (Plan 071) onboarding step reach, onboarding last step reached,
+activation by route, recommendation edits at activation, and week-1/week-4
+training by route.
 The richer diagnostic funnels below remain manual recipes; milestone reach
 is not a conversion funnel. Compiled definitions use fixed observation windows.
 
@@ -59,6 +62,63 @@ autocapture, replay, and remote-settings checks in the operations runbook.
 For every conversion rate, show mature eligible and pending installations
 separately. An unfinished conversion window is not a failed conversion.
 
+## Dashboard: Onboarding funnel (Plan 071)
+
+Steps are ProgramEntry ids, not screen positions. Order each route's rows by
+`ProgramEntry.ROUTE_STEPS`; the hub is `route=none, step=entry`. A step added
+by a later onboarding change appears as a new row without a recipe change.
+
+1. **Step reach** (compiled `onboarding-steps`): unique installations viewing
+   and completing each `{route, step}`, back events, and completions in the
+   `3_10m` / `over_10m` buckets. A step whose completed count falls well below
+   its viewed count is where lifters stop. A high back count marks the step
+   before it as the confusing one.
+2. **Last step reached** (compiled `onboarding-drop-off`): for each
+   installation, the last step viewed and whether it activated. Read
+   `dropped_mature` only; `pending` installations may still finish.
+3. **Activation by route** (compiled `activation-by-route`): installations
+   attributed to their first selected route, 7-day mature rate.
+4. **Time on step**: Trends, `onboarding_step_completed` event count,
+   filter one route, breakdown `step`, then `time_on_step`. Buckets only;
+   never reconstruct seconds.
+5. **Generation health**: Trends, `generation_settled` event count, breakdown
+   `outcome`, then `duration`. A success that lands in `3_10s` or `over_10s`
+   is a stall the lifter watched. Compare app versions across the Worker
+   change (#353), since the event means the same either way.
+6. **Leaving and resuming**: Trends, `onboarding_exit` by `action` and
+   `step`; `onboarding_resume_offered` by `status`; funnel
+   `onboarding_exit{action=keep_draft}` → `onboarding_started{resumed=true}`
+   within 7 days.
+7. **Activation failures**: Trends, `program_activation_failed` by `reason`
+   and `route`. Threshold: any `definition_invalid` is a defect.
+
+## Dashboard: Recommendation editor (Plan 071)
+
+1. **Edits at activation** (compiled `editor-reliance`): generated-route
+   activations by `review_changes`. `0` means the recommendation was accepted
+   as built; `not_reported` comes from releases before the property and is
+   not zero.
+2. **What lifters change**: Trends, `program_review_action` with
+   `action=edit`, breakdown `kind`; unique installations and event count.
+3. **Second thoughts**: Trends, `program_review_action` for `undo` and
+   `restore`, against `edit`. Many undos of one kind point at a control that
+   misleads.
+4. **Editor failures**: `program_review_action` for `refused` and
+   `save_failed`, breakdown `kind`. Threshold: any `save_failed` is
+   investigated.
+
+## Dashboard: Landing and install (Plan 071)
+
+1. **Landing outcome**: Trends, `landing_viewed` by `landing` and `visit`;
+   `landing_action` by `action`. Create and import over first-visit views is
+   the landing's conversion.
+2. **Install offers**: Trends, `install_prompt_outcome` by `surface`, `mode`
+   and `outcome`. For native prompts, acceptance is `accepted` over `prompted`.
+   iOS and manual offers can only report that instructions were shown.
+3. **Installed share**: Trends, unique installations performing `app_boot`
+   by `display_mode`. `app_installed` is Chromium's report and undercounts
+   iOS.
+
 ## Dashboard: First useful workout
 
 1. **Activation to first completed session — 14 days**: Ordered
@@ -87,13 +147,14 @@ view, not a replacement for the first-ever milestone metric.
 ## Dashboard: Session completion and abandonment
 
 1. **Session outcome**: Group by `(distinct_id, $session_id)`, with sessions
-   containing `set_saved` as denominator. Count completion (`session_completed`
-   or `one_off_completed`) or explicit `session_abandoned` only after the first
-   saved set in that SDK session. Separate unresolved, duplicate, and conflicting
-   terminal cases. Exclude missing SDK session IDs and report them in health.
-2. **Explicit abandonment reasons**: Trends, `session_abandoned` event count,
-   broken down by `stage` and then `reason`. Pre-set abandonment is outside the
-   saved-set denominator but remains visible here.
+   containing `set_saved` as denominator. Count completion (`session_completed`)
+   or discard (`workout_discarded`) only after the first saved set in that SDK
+   session. Separate unresolved, duplicate, and conflicting terminal cases.
+   Exclude missing SDK session IDs and report them in health. There is no
+   abandon action; unresolved is not abandoned.
+2. **Discarded workouts**: Trends, `workout_discarded` event count, broken
+   down by `stage`. Discards before any set are outside the saved-set
+   denominator but remain visible here.
 3. **Completion duration**: Trends, `session_completed` event count, breakdown
    `duration`; inspect one-off completions separately where relevant.
 
@@ -112,8 +173,8 @@ event are unresolved, not inferred abandonment or evidence of data loss.
    event reach separately. It measures investigation, not comprehension.
 2. **Suggestion response**: Trends, `set_saved` event count and unique
    installations, breakdown `vs_suggestion`.
-3. **Deliberate overrides**: Trends, `recommendation_overridden` event count,
-   breakdown `reason`, keeping missing optional reason as its own group.
+3. **Overrides**: Trends, `set_saved` with `vs_suggestion` in (`raised`,
+   `lowered`), as a share of sets with a suggestion. No reason is collected.
 
 ## Dashboard: Repeat training
 
@@ -129,6 +190,23 @@ window in both numerator and denominator. Show pending installations and return
 `null`, not zero percent, for an empty eligible cohort. Breakdowns by activation
 route/version require earlier-event attribution; do not copy those properties
 onto `session_completed`. Duplicate expectations must pass before interpretation.
+
+## Dashboard: Week-1 and week-4 training by route (Plan 071)
+
+Compiled `retention-by-route`. Anchor: the first `program_activated` of a
+first-run-observed installation, attributed to its route. Week 1: a
+`session_completed` on a later UTC date within 7 days. Week 4: one in elapsed
+days 22–28. Each week counts only mature anchors and shows pending ones. Read
+a route only after 10 eligible installations in it.
+
+## Dashboard: Block and program management (Plan 071)
+
+1. **Block continuation**: funnel, `block_review_viewed` →
+   `block_transition_chosen` within 14 days; breakdown `action`.
+2. **In-workout swaps**: Trends, `substitution_used` by `source`. An
+   alternate share near zero means the slot alternates go unseen.
+3. **Program edits**: Trends, `active_program_edited` by `outcome`.
+4. **Settings**: Trends, `settings_changed` by `setting`.
 
 ## Dashboard: Program sharing
 

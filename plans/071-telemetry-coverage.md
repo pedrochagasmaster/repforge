@@ -1,12 +1,15 @@
 # Plan 071: telemetry coverage for every meaningful journey, onboarding first
 
-- **Status:** IN PROGRESS. The owner approved designing and implementing this
-  on 2026-10-11.
+- **Status:** IMPLEMENTED in PR #359, pending owner review. The owner approved
+  designing and implementing this on 2026-10-11. The owner questions in §7
+  are open; nothing they cover ships.
 - **Contract:** the closed event schema in `telemetry.js`, ADR 0010
   ("Data and telemetry"), ADR 0013 (install transfer), ADR 0014 (free-form
   import) and the privacy rules in `AGENTS.md`. Nothing here widens them.
   This plan extends Plan 044's Phase A catalogue with the owner's 2026-10-11
-  approval. It keeps Plan 045 §4's explicit removals (§5.5).
+  approval. It is the product decision that the backlog's deferred "General
+  lifecycle/friction observability" row asked for. Reason catalogues stay
+  excluded. It keeps Plan 045 §4's explicit removals (§5.5).
 - **Base:** `32ecc21c` (main on 11 October 2026, after #350 and #351).
 - **Coordination:** Plan 072 (the rest of onboarding B) reuses the step-id
   scheme in §4. #353 (Generate in a Worker) reuses the generation timing seam
