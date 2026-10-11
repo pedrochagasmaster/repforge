@@ -466,39 +466,53 @@ try {
   assert(buildErrors.length === 0, "no page errors in the Build Why journey", buildErrors);
   await buildContext.close();
 
-  const buildPtContext = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "pt-BR" });
+  const setupPtContext = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "pt-BR" });
   try {
-    const buildPtPage = await buildPtContext.newPage();
-    await buildPtPage.clock.setFixedTime(new Date("2026-03-02T09:00:00.000Z"));
-    await buildPtPage.goto(BASE, { waitUntil: "domcontentloaded" });
-    await waitForAppBoot(buildPtPage, { base: BASE });
-    const ptProgram = await seed(buildPtPage);
-    if (!ptProgram) throw new Error("no generated Build and per-side rows in the Portuguese target-wrap proof");
-    const ptRows = await buildPtPage.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1") || "{}").program || []);
-    const ptBuildRow = ptRows.find((row) => row.slotId === ptProgram.slotId);
+    const setupPtPage = await setupPtContext.newPage();
+    await setupPtPage.clock.setFixedTime(new Date("2026-03-02T09:00:00.000Z"));
+    await setupPtPage.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForAppBoot(setupPtPage, { base: BASE });
+    const ptProgram = await seed(setupPtPage);
+    if (!ptProgram) throw new Error("no generated per-side row in the Portuguese target-wrap proof");
+    const ptRows = await setupPtPage.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1") || "{}").program || []);
     const ptPerSideRow = ptRows.find((row) => row.slotId === ptProgram.perSide.slotId);
-    if (!ptBuildRow || !ptPerSideRow) throw new Error("Portuguese target-wrap proof rows are missing from the program");
-    const ptTargets = await buildPtPage.evaluate(({ buildId, perSideId }) => {
-      const text = (id) => document.querySelector(`#todayDash .rxrow[data-exopen="${CSS.escape(id)}"] .rxrow__target`)
-        ?.textContent?.replace(/\s+/g, " ").trim() || "";
-      return { build: text(buildId), perSide: text(perSideId) };
-    }, { buildId: ptBuildRow.id, perSideId: ptPerSideRow.id });
-    const ptBuildLargeText = await measureLargeTextTodayTarget(buildPtPage, ptBuildRow.id);
-    const ptPerSideLargeText = await measureLargeTextTodayTarget(buildPtPage, ptPerSideRow.id);
-    assert(ptBuildLargeText?.language === "pt" && ptTargets.build === `${ptBuildRow.sets} × ${ptBuildRow.min}–${ptBuildRow.max} · Suas metas` &&
-      ptBuildLargeText.text === ptTargets.build && ptBuildLargeText.document <= ptBuildLargeText.viewport &&
-      ptBuildLargeText.left >= 0 && ptBuildLargeText.right <= ptBuildLargeText.viewport + 1 &&
-      ptBuildLargeText.scrollWidth <= ptBuildLargeText.width + 1 && ptBuildLargeText.height > ptBuildLargeText.lineHeight * 1.5,
-    "P069-S1-CUE: the Portuguese manual Today target wraps at 200% text without horizontal overflow", ptBuildLargeText);
-    console.log(`  PT manual 200% target geometry: ${JSON.stringify(ptBuildLargeText)}`);
-    assert(ptPerSideLargeText?.language === "pt" && ptTargets.perSide === `${ptPerSideRow.sets} × ${ptPerSideRow.min}–${ptPerSideRow.max} · Precisa de configuração` &&
-      ptPerSideLargeText.text === ptTargets.perSide && ptPerSideLargeText.document <= ptPerSideLargeText.viewport &&
+    if (!ptPerSideRow) throw new Error("Portuguese setup-required target row is missing from the program");
+    const ptPerSideToday = await setupPtPage.evaluate((id) =>
+      document.querySelector(`#todayDash .rxrow[data-exopen="${CSS.escape(id)}"] .rxrow__target`)
+        ?.textContent?.replace(/\s+/g, " ").trim() || "", ptPerSideRow.id);
+    const ptPerSideLargeText = await measureLargeTextTodayTarget(setupPtPage, ptPerSideRow.id);
+    assert(ptPerSideLargeText?.language === "pt" && ptPerSideToday === `${ptPerSideRow.sets} × ${ptPerSideRow.min}–${ptPerSideRow.max} · Precisa de configuração` &&
+      ptPerSideLargeText.text === ptPerSideToday && ptPerSideLargeText.document <= ptPerSideLargeText.viewport &&
       ptPerSideLargeText.left >= 0 && ptPerSideLargeText.right <= ptPerSideLargeText.viewport + 1 &&
       ptPerSideLargeText.scrollWidth <= ptPerSideLargeText.width + 1 && ptPerSideLargeText.height > ptPerSideLargeText.lineHeight * 1.5,
     "P069-S1-CUE: the Portuguese setup-required Today target wraps at 200% text without horizontal overflow", ptPerSideLargeText);
     console.log(`  PT setup-required 200% target geometry: ${JSON.stringify(ptPerSideLargeText)}`);
   } finally {
-    await buildPtContext.close();
+    await setupPtContext.close();
+  }
+
+  const manualPtContext = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "pt-BR" });
+  try {
+    const manualPtPage = await manualPtContext.newPage();
+    await manualPtPage.clock.setFixedTime(new Date("2026-03-02T09:00:00.000Z"));
+    await manualPtPage.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForAppBoot(manualPtPage, { base: BASE });
+    const manualPtState = await installSeedProgram(manualPtPage, {
+      waitFor: (current) => waitForAppBoot(current, { base: BASE }),
+    });
+    const manualPtRow = manualPtState.program[0];
+    const manualPtToday = await manualPtPage.evaluate((id) =>
+      document.querySelector(`#todayDash .rxrow[data-exopen="${CSS.escape(id)}"] .rxrow__target`)
+        ?.textContent?.replace(/\s+/g, " ").trim() || "", manualPtRow.id);
+    const manualPtLargeText = await measureLargeTextTodayTarget(manualPtPage, manualPtRow.id);
+    assert(manualPtLargeText?.language === "pt" && manualPtToday === `${manualPtRow.sets} × ${manualPtRow.min}–${manualPtRow.max} · Suas metas` &&
+      manualPtLargeText.text === manualPtToday && manualPtLargeText.document <= manualPtLargeText.viewport &&
+      manualPtLargeText.left >= 0 && manualPtLargeText.right <= manualPtLargeText.viewport + 1 &&
+      manualPtLargeText.scrollWidth <= manualPtLargeText.width + 1 && manualPtLargeText.height > manualPtLargeText.lineHeight * 1.5,
+    "P069-S1-CUE: the Portuguese manual Today target wraps at 200% text without horizontal overflow", manualPtLargeText);
+    console.log(`  PT manual 200% target geometry: ${JSON.stringify(manualPtLargeText)}`);
+  } finally {
+    await manualPtContext.close();
   }
 
   assert(errors.length === 0, "no page errors during the why-sheet sessions", errors);
