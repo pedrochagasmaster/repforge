@@ -1774,8 +1774,8 @@ body.is-sheet-open{overflow:hidden}
   display:flex;gap:9px;overflow-x:auto;scrollbar-width:none;
   margin:0 -16px;padding:0 16px 2px;overscroll-behavior:contain;}
 .pick__filters::-webkit-scrollbar{display:none}
-/* The swap sheet's optional reason: one row of chips above the search, none chosen by default. */
-.pick__reasons{display:flex;flex-direction:column;gap:var(--space-8);margin-bottom:var(--space-8)}
+/* The swap sheet's optional reason: chips at the head of the scrolling list, none chosen by default. */
+.pick__reasons{display:flex;flex-direction:column;gap:var(--space-8);padding:var(--space-4) 0 var(--space-12)}
 .pick__reasons-label{margin:0;font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .pick__reasons-chips{display:flex;flex-wrap:wrap;gap:9px}
 .pchip{

@@ -334,7 +334,7 @@ Both add UI, follow the existing sheet patterns, and carry EN and PT copy.
 ### Substitution reason
 
 - The swap sheet (the exercise picker opened from Exercise actions → Swap)
-  shows a row of optional reason chips above the search: Equipment,
+  shows optional reason chips at the head of its scrolling list: Equipment,
   Preference, Pain, Crowded, Other. The copy is under `picker.reason.*`.
 - None is selected when the sheet opens. One tap selects a chip; a second tap
   clears it. Picking an exercise swaps immediately, exactly as before. The

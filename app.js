@@ -12604,14 +12604,14 @@ function pickerRow(e,{selected=false,checkbox=false}={}){
   `</button>`}
 
 /* The swap sheet's optional reason (Plan 071 §10): one tap, none by default,
-   and picking an exercise never waits on it. */
+   and picking an exercise never waits on it. The chips lead the scrolling list
+   rather than the fixed tools, so enlarged text can never crowd the list out. */
 const SUBSTITUTION_REASONS=Object.freeze(["equipment","preference","pain","crowded","other"]);
 const SUBSTITUTION_REASON_LABELS=Object.freeze({equipment:"picker.reason.equipment",preference:"picker.reason.preference",
   pain:"picker.reason.pain",crowded:"picker.reason.crowded",other:"picker.reason.other"});
 function renderPickerReasons(){
   const el=$("#exPickReasons");if(!el)return;
   const reasons=pickerState?.reasons;
-  el.classList.toggle("hidden",!reasons);
   if(!reasons){el.innerHTML="";return}
   el.innerHTML=`<p class="pick__reasons-label" id="exPickReasonsLabel">${esc(t("picker.reason_label"))}</p><div class="pick__reasons-chips">`+
     reasons.map(reason=>{const on=pickerState.reason===reason;
@@ -12676,7 +12676,9 @@ function renderPickerList(){
       section("picker.section_custom",custom)+
       section("picker.section_known",known)+
       section("picker.section_all",rest);
-  el.innerHTML=html||`<p class="pick__empty">${esc(t("picker.empty",{q:query}))}</p>`;
+  el.innerHTML=(pickerState?.reasons?`<div id="exPickReasons" class="pick__reasons" role="group" aria-labelledby="exPickReasonsLabel"></div>`:"")+
+    (html||`<p class="pick__empty">${esc(t("picker.empty",{q:query}))}</p>`);
+  renderPickerReasons();
   $$("#exPickList .pickrow").forEach(b=>b.onclick=()=>choosePicked(b.dataset.pick));
   const done=$("#exPickDone");
   if(done)done.textContent=multi&&selected.size?t("picker.done_count",{n:selected.size}):t("dialog.done")}
@@ -12723,7 +12725,7 @@ function openExercisePicker({title=null,subtitle="",mode="single",selected=[],ex
   const full=$("#exPickFull");if(full)full.classList.toggle("hidden",!quick);
   const custom=$("#exPickCustom");if(custom)custom.classList.toggle("hidden",setupEditorOpen||catalogOnly);
   if(quick)renderQuickTabs();
-  renderPickerReasons();renderPickerFilters();renderPickerList();
+  renderPickerFilters();renderPickerList();
   document.body.classList.add("is-sheet-open");
   // The sheet takes focus, not the search box: focusing an input raises the
   // software keyboard, which covers half the phone before the lifter has asked

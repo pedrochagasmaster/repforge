@@ -1026,6 +1026,7 @@ export const APP_SCENARIOS = {
     await page.locator("#exActionSubstBtn").click();
     await page.locator("#exPickSheet.is-open .pick__section").first().waitFor();
     await page.locator('#exPickReasons [data-pick-reason="crowded"]').click();
+    await resetSheetScroll(page, "#exPickList");
     await sleep(page, 400);
   },
   "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, ".exactions-sheet__body"); },
