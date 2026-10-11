@@ -28,6 +28,7 @@
  */
 import { readFileSync } from "node:fs";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const DATA = new URL("../plans/067/data/", import.meta.url);
@@ -75,11 +76,20 @@ async function seed(page) {
     const target = definition.days.filter((day) => day.kind === "training").map((day) => ({ day, slot: day.slots[0] }))
       .find(({ slot }) => JSON.stringify(slot.metricIds) === JSON.stringify([weight, reps]) &&
         slot.prescriptionsByCycle[0].sets.length >= 2);
+    const perSide = definition.days.filter((day) => day.kind === "training").flatMap((day) =>
+      day.slots.map((slot) => ({ day, slot }))).find(({ slot }) =>
+      slot.metricDefinitions.some((metric) => metric.semantic === "loadPerSideKg") &&
+      slot.metricDefinitions.some((metric) => metric.semantic === "repsPerSide"));
     return window.__repforgeFinalizeProgramSetup({
       programDefinition: definition, name: "Why sheet proof", answers: {}, destination: "log", origin: "first-run",
       draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: "why-sheet-067" },
-    }).then(() => window.__repforgeStorage.flush()).then(() => target && {
-      day: target.day.name, slotId: target.slot.id, exerciseId: target.slot.exerciseId,
+    }).then(() => window.__repforgeStorage.flush()).then(() => {
+      const program = JSON.parse(localStorage.getItem("repforge_v1") || "{}").program || [];
+      const perSideRow = program.find((row) => row.slotId === perSide?.slot.id);
+      return target && perSide && perSideRow && {
+        day: target.day.name, slotId: target.slot.id, exerciseId: target.slot.exerciseId,
+        perSide: { day: perSide.day.name, rowId: perSideRow.id, slotId: perSide.slot.id, exerciseId: perSide.slot.exerciseId },
+      };
     });
   }, { request: REQUEST, weight: WEIGHT, reps: REPS });
 }
@@ -176,8 +186,12 @@ async function engineTruth(page, slotId) {
     const P = window.__repforgeProgression;
     const ex = P.programSlot(id);
     const rec = P.recommendation(ex);
+    const definition = JSON.parse(localStorage.getItem("repforge_v1") || "{}").programMeta?.programDefinition;
+    const slot = (definition?.days || []).flatMap((day) => day.slots || []).find((candidate) => candidate.id === ex?.slotId);
     return {
       status: rec.status, load: rec.load,
+      engineStatus: rec.engineStatus, reason: rec.reason, reasonCodes: rec.reasonCodes,
+      min: ex.min, max: ex.max, sets: ex.sets, executionMode: slot?.executionMode ?? null,
       historyAnchor: rec.historyAnchor, fatigue: rec.fatigue,
       loadingAssumptions: rec.loadingAssumptions,
       metricDefinitions: rec.metricDefinitions,
@@ -221,7 +235,51 @@ try {
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
   const target = await seed(page);
-  if (!target) throw new Error("no weighted first slot with 2+ sets in the generated program");
+  if (!target) throw new Error("no weighted first slot with 2+ sets and generated per-side slot in the program");
+
+  // S1: exercise the generated per-side slot in its own fresh device so
+  // today's-row navigation cannot change which slot the adaptive proof starts.
+  const perSideContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const perSidePage = await perSideContext.newPage();
+  await perSidePage.clock.setFixedTime(new Date("2026-03-02T09:00:00.000Z"));
+  await perSidePage.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForAppBoot(perSidePage, { base: BASE });
+  const perSideProgram = await seed(perSidePage);
+  if (!perSideProgram) throw new Error("no generated per-side slot in the program");
+
+  // Generated per-side work remains configuration-required while the
+  // program's execution mode is known but the loading multiplier is absent.
+  const perSideTruth = await engineTruth(perSidePage, perSideProgram.perSide.slotId);
+  assert(perSideTruth.status === "configuration_required" && perSideTruth.engineStatus === "configuration_required" &&
+    perSideTruth.reasonCodes?.includes("per_side_convention_required") && perSideTruth.load == null,
+    "P069-S1-WHY: the generated per-side slot preserves its configuration reason and has no load suggestion", perSideTruth);
+  assert(perSideTruth.executionMode === "bilateral" || perSideTruth.executionMode === "unilateral",
+    "P069-S1-WHY: the generated slot reports its known execution mode", perSideTruth);
+  await perSidePage.evaluate((id) => window.__repforgeGoToLogExercise(id), perSideProgram.perSide.rowId);
+  await perSidePage.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 10000 });
+  await perSidePage.waitForFunction((id) => document.querySelector("#workout .exercise.is-current")?.dataset.ex === id,
+    perSideProgram.perSide.rowId, { timeout: 10000 });
+  const perSideCue = await focusCue(perSidePage);
+  assert(perSideCue.line1 === "Needs setup" && perSideCue.line2 === `${perSideTruth.min}–${perSideTruth.max} reps`,
+    "P069-S1-CUE: Focus labels the generated per-side range Needs setup", JSON.stringify({ cue: perSideCue, truth: perSideTruth }));
+  const perSideWhy = await openWhy(perSidePage);
+  const perSideWhyText = perSideWhy.blocks.map((block) => block.text).join(" ");
+  assert(!/the program sets this load/i.test(perSideWhyText) && /per[- ]side/i.test(perSideWhyText),
+    "P069-S1-WHY: generated per-side Why names the missing per-side convention without claiming the program sets a load", perSideWhy);
+  await closeWhy(perSidePage);
+  await perSidePage.evaluate(() => window.__repforgeLeaveWorkout());
+  await perSidePage.waitForFunction(() => !document.querySelector("#todayDash")?.classList.contains("hidden"), undefined, { timeout: 10000 });
+  const perSideToday = await perSidePage.evaluate((id) => {
+    const row = document.querySelector(`#todayDash .rxrow[data-exopen="${CSS.escape(id)}"]`);
+    return row ? {
+      target: row.querySelector(".rxrow__target")?.textContent?.replace(/\s+/g, " ").trim() || "",
+      load: row.querySelector(".rxrow__load")?.textContent?.trim() || "",
+    } : null;
+  }, perSideProgram.perSide.rowId);
+  assert(perSideToday?.target.includes(`${perSideTruth.sets} × ${perSideTruth.min}–${perSideTruth.max}`) &&
+    perSideToday.target.includes("Needs setup") && perSideToday.load === "–",
+    "P069-S1-CUE: Today shows the generated per-side sets × range and Needs setup without a load suggestion", JSON.stringify(perSideToday));
+  await perSideContext.close();
 
   // ------------------------------------------------------------ session 1
   // A previous session with two different loads on its two sets, so the next
@@ -328,6 +386,44 @@ try {
     "RT-05: the in-session set moved the cue (the case is not vacuous)",
     `before=${JSON.stringify(whyBefore.target)} after=${JSON.stringify(whyAfter.target)}`);
   await closeWhy(page);
+
+  // S1: a real Build fixture has a rep target but no authored load. Today,
+  // Focus and Why all keep that distinction visible.
+  const buildContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const buildPage = await buildContext.newPage();
+  const buildErrors = [];
+  buildPage.on("pageerror", (error) => buildErrors.push(String(error?.stack || error)));
+  await buildPage.clock.setFixedTime(new Date("2026-03-02T09:00:00.000Z"));
+  await buildPage.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForAppBoot(buildPage, { base: BASE });
+  const buildState = await installSeedProgram(buildPage, {
+    waitFor: (current) => waitForAppBoot(current, { base: BASE }),
+  });
+  const buildRow = buildState.program[0];
+  const buildTruth = await engineTruth(buildPage, buildRow.slotId);
+  assert(buildTruth.status === "manual" && buildTruth.engineStatus === "manual" && buildTruth.load == null,
+    "P069-S1-WHY: a Build slot remains manual and has no engine load", buildTruth);
+  const buildToday = await buildPage.evaluate((id) => {
+    const row = document.querySelector(`#todayDash .rxrow[data-exopen="${CSS.escape(id)}"]`);
+    return row ? {
+      target: row.querySelector(".rxrow__target")?.textContent?.replace(/\s+/g, " ").trim() || "",
+      load: row.querySelector(".rxrow__load")?.textContent?.trim() || "",
+    } : null;
+  }, buildRow.id);
+  assert(buildToday?.target.includes(`${buildRow.sets} × ${buildRow.min}–${buildRow.max}`) &&
+    buildToday.target.includes("Your targets") && buildToday.load === "–",
+    "P069-S1-CUE: Today shows a Build slot's sets × range and Your targets without a load suggestion", JSON.stringify(buildToday));
+  await buildPage.evaluate((day) => window.__repforgeEnterWorkout({ day }), buildRow.day);
+  await buildPage.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 10000 });
+  const buildCue = await focusCue(buildPage);
+  assert(buildCue.line1 === "Your targets" && buildCue.line2 === `${buildRow.min}–${buildRow.max} reps`,
+    "P069-S1-CUE: Focus labels a Build slot's stored range as Your targets", JSON.stringify(buildCue));
+  const buildWhy = await openWhy(buildPage);
+  const buildWhyText = buildWhy.blocks.map((block) => block.text).join(" ");
+  assert(buildWhy.target === "" && buildWhyText.length > 0 && !/the program sets this load/i.test(buildWhyText),
+    "P069-S1-WHY: a Build slot has no invented target and Why does not claim the program sets its load", buildWhy);
+  assert(buildErrors.length === 0, "no page errors in the Build Why journey", buildErrors);
+  await buildContext.close();
 
   assert(errors.length === 0, "no page errors during the why-sheet sessions", errors);
 } finally {
