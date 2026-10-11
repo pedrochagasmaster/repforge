@@ -7776,3 +7776,21 @@ body.is-entry-editor #entryProgramName,
 .settings-profile__row dt{color:var(--ink-soft)}
 .settings-profile__row dd{margin:0;text-align:right;color:var(--ink)}
 #profileRow[hidden]{display:none}
+
+/* Onboarding B's building moment (Plan 072): the checklist ticks line by
+   line and a thin bar fills; reduced motion draws it done. */
+.entry-building{display:flex;flex-direction:column;align-items:center;text-align:center;padding:24px 0 8px}
+.entry-building__mark{width:56px;height:56px;margin-bottom:16px}
+.entry-building__steps{list-style:none;margin:20px 0 0;padding:0;display:flex;flex-direction:column;gap:12px;text-align:left;align-self:stretch}
+.entry-building__steps li{display:flex;align-items:center;gap:10px;color:var(--ink-faint);font-size:var(--font-size-body)}
+.entry-building__tick{flex:none;opacity:0;color:var(--ink)}
+.entry-building__steps li.is-now{color:var(--ink-soft)}
+.entry-building__steps li.is-done{color:var(--ink)}
+.entry-building__steps li.is-done .entry-building__tick{opacity:1}
+.entry-building__bar{align-self:stretch;height:2px;margin:24px 0 0;background:var(--rule);overflow:hidden}
+.entry-building__bar i{display:block;height:100%;background:var(--ink);transform:scaleX(0);transform-origin:left}
+.entry-building.is-running .entry-building__bar i{transform:scaleX(1);transition:transform 1040ms linear}
+.entry-building.is-done .entry-building__bar i{transform:scaleX(1)}
+.entry-building__wait{margin:16px 0 0;color:var(--ink-soft)}
+.entry-building__skip{margin-top:20px}
+@media (prefers-reduced-motion: reduce){.entry-building.is-running .entry-building__bar i{transition:none}}

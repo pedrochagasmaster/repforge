@@ -61,7 +61,7 @@
     "catalogue", "preview", "build_setup", "editor", "import_source", "shared_review",
     // Onboarding B (Plan 072). schedule and priorities above are retired.
     "intro", "sex", "birth_date", "height", "weight", "cardio_experience", "equipment",
-    "days_per_week", "session_length", "muscle_priorities", "deload",
+    "days_per_week", "session_length", "muscle_priorities", "deload", "building",
   ]);
   // program-review.js EDIT_KINDS; the unit suite holds the two together.
   const REVIEW_EDIT_KINDS = Object.freeze([

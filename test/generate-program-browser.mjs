@@ -680,6 +680,122 @@ async function onboardingResume(browser) {
   return [...run.errors, ...everyScreen.errors];
 }
 
+// Plan 072 S3: the building moment and the conflict ------------------------
+/** Hold every Generate request until the page releases it. */
+async function holdGeneration(page) {
+  await page.evaluate(() => {
+    const base = window.__repforgeOnboarding.services();
+    window.__heldGenerations = [];
+    window.__repforgeProgramEntryServicesOverride = {
+      ...base,
+      generateProgram: (input) => new Promise((resolve) => {
+        window.__heldGenerations.push(() => { resolve(base.generateProgram(input)); window.__generationsReleased = (window.__generationsReleased || 0) + 1; });
+      }),
+    };
+  });
+}
+const releaseGeneration = (page) => page.evaluate(() => { const run = window.__heldGenerations.shift(); run?.(); return !!run; });
+
+async function onboardingBuilding(browser) {
+  const run = await fresh(browser);
+  const { page } = run;
+  await page.click("#firstRunCreate");
+  await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
+  await answerRecommend(page, { skipBasics: true, until: "abilities" });
+  await holdGeneration(page);
+  await page.click("#onbNext");
+  await page.waitForSelector("#entryBuilding", { timeout: 10000 });
+  check((await entry(page)).step === "building" && await page.locator("#entryBuilding .entry-building__steps li").count() === 4,
+    "Continue on the last question opens the building moment with its four lines");
+  await page.waitForSelector("#entryBuilding.is-done", { timeout: 10000 });
+  check((await entry(page)).step === "building" && await page.locator("#entryBuildingWait").isVisible(),
+    "with the checklist done and the program still generating, the step stays and the hairline says so");
+  await page.waitForFunction(() => window.__heldGenerations?.length > 0);
+  await releaseGeneration(page);
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "result", undefined, { timeout: 15000 });
+  await page.locator("#entryActivate").waitFor({ state: "visible", timeout: 15000 });
+  check(true, "the result opens once the held program lands");
+
+  // Skip ends the checklist at once but still waits for the program.
+  await page.click("#onbBack");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
+  await page.click("#onbNext");
+  await page.waitForSelector("#entryBuildingSkip", { timeout: 10000 });
+  await page.click("#entryBuildingSkip");
+  check((await entry(page)).step === "building" && await page.locator("#entryBuildingWait").isVisible(),
+    "skipping the checklist does not skip a program that has not landed");
+  await page.waitForFunction(() => window.__heldGenerations?.length > 0);
+  await releaseGeneration(page);
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "result", undefined, { timeout: 15000 });
+  check(true, "after skipping, the result opens when the program lands");
+
+  // Back from building supersedes the job: its program, when it lands, is dropped.
+  await page.click("#onbBack");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
+  await page.click("#onbNext");
+  await page.waitForSelector("#entryBuilding", { timeout: 10000 });
+  await page.waitForFunction(() => window.__heldGenerations?.length > 0);
+  await page.click("#onbBack");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
+  const released = await page.evaluate(() => window.__generationsReleased || 0);
+  await releaseGeneration(page);
+  await page.waitForFunction((before) => (window.__generationsReleased || 0) > before, released);
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  check((await entry(page)).step === "abilities", "a program that lands after Back is dropped and the lifter stays where they went");
+  await run.context.close();
+  return run.errors;
+}
+
+async function onboardingBuildingReduced(browser) {
+  const run = await fresh(browser);
+  const { page } = run;
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.click("#firstRunCreate");
+  await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
+  await answerRecommend(page, { skipBasics: true, until: "abilities" });
+  await holdGeneration(page);
+  await page.click("#onbNext");
+  await page.waitForSelector("#entryBuilding", { timeout: 10000 });
+  const drawn = await page.evaluate(() => [...document.querySelectorAll("#entryBuilding .entry-building__steps li")].every((li) => li.classList.contains("is-done")));
+  check(drawn && await page.locator("#entryBuildingWait").isVisible(), "under reduced motion every line is drawn done and the hairline waits for the program");
+  await page.waitForFunction(() => window.__heldGenerations?.length > 0);
+  await releaseGeneration(page);
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "result", undefined, { timeout: 15000 });
+  await run.context.close();
+  return run.errors;
+}
+
+async function onboardingConflict(browser) {
+  const run = await fresh(browser);
+  const { page } = run;
+  await page.click("#firstRunCreate");
+  await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
+  await answerRecommend(page, { skipBasics: true, environment: "limited_home", equipment: ["pullup_bar", "bands"], until: "abilities" });
+  const started = Date.now();
+  await page.click("#onbNext");
+  const notice = page.locator("#onbBody .entry__notice[role=alert]");
+  await notice.waitFor({ state: "visible", timeout: 15000 });
+  const took = Date.now() - started;
+  const text = await notice.innerText();
+  check(/Without this equipment, nothing in the catalog can train: .*vertical pull/i.test(text) && /Nothing was saved/.test(text),
+    "Home without the pull-up bar and bands names the vertical pull it cannot train", text);
+  check(took < 3000, "the conflict shows in seconds, not after a search runs out", String(took));
+  check(!(await state(page)).programMeta.onboarded && !(await page.locator("#entryActivate").count()), "a conflict activates nothing");
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  if (await page.locator("#firstRunCreate").isVisible().catch(() => false)) await page.click("#firstRunCreate");
+  if (await page.locator("#entryResumeContinue").count()) await page.click("#entryResumeContinue");
+  await notice.waitFor({ state: "visible", timeout: 15000 });
+  check(/nothing in the catalog can train/i.test(await notice.innerText()), "a reload on the conflict shows it again");
+  await page.click("[data-entry-action='conflict-back']");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "equipment");
+  const env = (await entry(page)).answers.environment;
+  check(env.kind === "limited_home" && JSON.stringify(env.adjust?.remove || []) === JSON.stringify(["pullup_bar", "bands"]),
+    "Back to equipment keeps the adjustment the lifter made", JSON.stringify(env));
+  await run.context.close();
+  return run.errors;
+}
+
 async function main() {
   console.log("P067 slice 2: Generate → review → activate through the production entry UI");
   const browser = await launchChromium();
@@ -814,6 +930,9 @@ async function main() {
     allErrors.push(await onboardingBNavigation(browser));
     allErrors.push(await onboardingPounds(browser));
     allErrors.push(await onboardingResume(browser));
+    allErrors.push(await onboardingBuilding(browser));
+    allErrors.push(await onboardingBuildingReduced(browser));
+    allErrors.push(await onboardingConflict(browser));
     check(allErrors.flat().length === 0, "no page errors during Generate", allErrors.flat());
   } catch (error) {
     failures.push(String(error?.stack || error));

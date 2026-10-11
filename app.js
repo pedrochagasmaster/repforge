@@ -15343,7 +15343,10 @@ function entrySetState(next,{persist=true}={}){
   const direction=entrySwipeCommitting?null:entryMotionDirection(entryState,next);
   clearEntryMotion();
   const outgoing=direction&&entryMotionAvailable()?cloneEntryMotionPage(entryMotionLivePage()):null;
-  if(next?.step!==entryState?.step||next?.route!==entryState?.route){entryPickerDraft={};entryPriorityLimitShown=false}
+  if(next?.step!==entryState?.step||next?.route!==entryState?.route){
+    entryPickerDraft={};entryPriorityLimitShown=false;
+    if(entryBuilding){entryBuilding.timers.forEach(clearTimeout);entryBuilding.release()}
+    entryBuilding=null}
   entryState=next;
   if(next?.step!=="background")entryGoalFromHub=false;
   entryValidationNotice=false;
@@ -15832,6 +15835,7 @@ function entrySkip(){
   const advanced=ProgramEntry.advance(entryState);
   if(!advanced.ok){renderOnboarding();return}
   if(advanced.state.step==="result"&&!advanced.state.result?.preview){startEntryResult(advanced.state);return}
+  if(advanced.state.step==="building"){entrySetState(advanced.state);return}
   entrySetState(advanced.state)}
 /* Continue is held until a choice exists on the Basics choice screens; Skip is
    the way past them without an answer. */
@@ -16215,7 +16219,56 @@ function syncEntryBusy(){
   if(next){if(entryResultJob)next.setAttribute("aria-busy","true");else next.removeAttribute("aria-busy")}
   const review=$("#entryCandidateReview");
   if(review){if(entryAnswerJob)review.setAttribute("aria-busy","true");else review.removeAttribute("aria-busy")}}
-async function startEntryResult(target){
+/* B's building moment (Plan 072): a four-line checklist and a thin bar while
+   the program generates. The step moves to the result when the checklist has
+   finished, or the lifter skipped it, and the program has landed; if the
+   program is still generating then, a hairline says so. Reduced motion draws
+   every line done. Nothing here is persisted: a reload on this step starts
+   it again, and Back returns to the abilities with the job aborted. */
+const ENTRY_BUILDING_LINE_MS=260;
+let entryBuilding=null;
+function renderBuildingStep(){
+  const minutes=entryState.answers.sessionMinutes||60;
+  const deload=entryState.answers.deload!==false;
+  const lines=[t("entry.building.equipment"),t("entry.building.minutes",{m:minutes}),t("entry.building.reps"),
+    t(deload?"entry.building.deload":"entry.building.block")];
+  return `<div class="entry-building" id="entryBuilding">`+
+    `<img class="entry-building__mark" src="assets/brand/mark.png" alt="" width="56" height="56">`+
+    entryHeading(t("entry.building.title"))+
+    `<ul class="entry-building__steps" aria-hidden="true">${lines.map(text=>`<li><span class="entry-building__tick icon-mask icon-mask--check icon-mask--sm" aria-hidden="true"></span><span>${esc(text)}</span></li>`).join("")}</ul>`+
+    `<div class="entry-building__bar" aria-hidden="true"><i></i></div>`+
+    `<p class="entry-building__wait motion-hairline" id="entryBuildingWait" role="status" hidden><span>${esc(t("entry.building.pending"))}</span></p>`+
+    `<button type="button" class="btn btn--ghost entry-building__skip" id="entryBuildingSkip">${esc(t("entry.building.skip"))}</button>`+
+  `</div>`}
+function mountEntryBuilding(){
+  if(entryState?.step!=="building"||entryUiNotice)return;
+  const root=$("#entryBuilding");if(!root)return;
+  // One checklist per arrival on the step; a re-render keeps its progress.
+  if(!entryBuilding){
+    let release;const gate=new Promise(resolve=>{release=resolve});
+    entryBuilding={gate,release,done:false,timers:[]};
+    const target=ProgramEntry.advance(entryState);
+    if(target.ok)startEntryResult(target.state,{gate})}
+  const run=entryBuilding,items=[...root.querySelectorAll(".entry-building__steps li")];
+  const finish=()=>{
+    if(run.done)return;run.done=true;run.timers.forEach(clearTimeout);
+    items.forEach(li=>{li.classList.remove("is-now");li.classList.add("is-done")});
+    root.classList.add("is-done");run.release();
+    entryBuildingPending(!!entryResultJob?.settled)};
+  $("#entryBuildingSkip")?.addEventListener("click",finish);
+  if(run.done||!beatsOn()){finish();return}
+  if(run.timers.length)return;
+  items.forEach((li,index)=>{
+    run.timers.push(setTimeout(()=>li.classList.add("is-now"),index*ENTRY_BUILDING_LINE_MS));
+    run.timers.push(setTimeout(()=>{li.classList.remove("is-now");li.classList.add("is-done")},(index+1)*ENTRY_BUILDING_LINE_MS))});
+  root.classList.add("is-running");
+  run.timers.push(setTimeout(finish,items.length*ENTRY_BUILDING_LINE_MS))}
+/* The program has landed but the checklist is still showing, or the reverse:
+   the hairline appears only while the checklist is done and the job is not. */
+function entryBuildingPending(settled){
+  const wait=$("#entryBuildingWait");if(!wait)return;
+  wait.hidden=!!settled||!entryBuilding?.done}
+async function startEntryResult(target,{gate=null}={}){
   entryResultJob?.controller.abort();
   const job={from:entryState,target,controller:new AbortController()};
   entryResultJob=job;entryCompileError=null;
@@ -16229,6 +16282,12 @@ async function startEntryResult(target){
       without=bare.ok?bare.result:null}}
   catch{return}
   if(entryResultJob!==job)return;
+  // B's building moment shows its checklist through, unless the lifter skips
+  // it; a conflict is shown at once.
+  if(gate&&outcome.ok){
+    job.settled=true;entryBuildingPending(true);
+    await gate;
+    if(entryResultJob!==job)return}
   entryResultJob=null;
   if(entryState!==job.from){syncEntryBusy();return}
   if(!outcome.ok){
@@ -16833,6 +16892,23 @@ function renderEntryAdjusted(preview){
 /* A generated route's result is the review: the program first (name, four
    facts, what just changed, the week), then the answers it was built from, why
    it fits, what was adjusted and the constraints the lifter set. */
+/* B's conflict (Plan 072 §4.3): a job nothing in the catalog can fill names
+   the jobs and returns to the equipment, with the adjustment kept; any other
+   conflict says so plainly and returns to the screen that set it. */
+function entryJobName(purposeId){
+  const key=(window.RepForgeProgramReview?.JOB_KEYS||[]).find(item=>String(purposeId||"").endsWith(item));
+  return key?t(`entry.review.job.${key}`):""}
+function renderBConflict(failure){
+  const conflicts=Array.isArray(failure?.conflicts)?failure.conflicts:[];
+  const equipment=conflicts.filter(item=>item?.code==="no_eligible_exercise");
+  const time=conflicts.some(item=>item?.code==="time_ceiling_exceeded");
+  const jobs=[...new Set(equipment.map(item=>entryJobName(item.purposeId)).filter(Boolean))];
+  const body=equipment.length?t("entry.conflict_b.equipment",{jobs:whyList(jobs)||t("entry.conflict_b.jobs_fallback")})
+    :conflicts.length?entryFailureText(failure):t("entry.conflict_b.generic");
+  const target=equipment.length||!time?"equipment":"session_length";
+  return entryHeading(t("entry.conflict_b.title"))+
+    `<div class="entry__notice entry__notice--error" role="alert"><p>${esc(body)}</p><p>${esc(t("entry.conflict_b.nothing"))}</p>`+
+    `<button type="button" class="btn btn--cta" data-entry-action="conflict-back" data-entry-step="${target}">${esc(t(target==="equipment"?"entry.conflict_b.back_equipment":"entry.conflict_b.back_time"))}</button></div>`}
 function renderResultStep(){
   const custom=entryState?.route==="custom";
   const resultTitle=custom?t("entry.result.custom_title"):t("entry.result.title");
@@ -16848,6 +16924,7 @@ function renderResultStep(){
     if(unavailable.length)return entryHeading(resultTitle)+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.result.must_unavailable_title"))}</strong>`+
       `<p>${esc(t("entry.result.must_unavailable_body",{exercises:unavailable.map(libraryName).join(", ")}))}</p>`+
       `<button type="button" class="btn btn--cta" data-entry-action="change-exercise-preferences">${esc(t("entry.result.change_preferences"))}</button></div>`;
+    if(entryIsB())return renderBConflict(failure);
     return entryHeading(t("entry.result.error_title"))+`<div class="entry__notice entry__notice--error" role="alert"><p>${esc(entryFailureText(failure||entryCompileError)||t("entry.issue.compile"))}</p></div>`}
   reportGeneratorCompleted(result);
   const preview=result.preview||{},explanation=result.explanation||{};
@@ -17603,7 +17680,7 @@ const ENTRY_B_RENDERERS=Object.freeze({intro:()=>renderIntroStep(),sex:()=>rende
   height:()=>renderHeightStep(),weight:()=>renderWeightStep(),background:()=>renderLiftingStep(),cardio_experience:()=>renderCardioStep(),
   environment:()=>renderGymStep(),equipment:()=>renderEquipmentStep(),desired_result:()=>renderGoalStep(),days_per_week:()=>renderDaysStep(),
   session_length:()=>renderSessionLengthStep(),muscle_priorities:()=>renderMusclePrioritiesStep(),deload:()=>renderDeloadStep(),
-  abilities:()=>renderAbilitiesStep({b:true})});
+  abilities:()=>renderAbilitiesStep({b:true}),building:()=>renderBuildingStep()});
 function entryMotionRank(state){
   if(!state)return null;
   if(state.route==="recommend"){
@@ -17811,7 +17888,7 @@ function renderOnboarding({pageTransition=null}={}){
   if(skipButton){skipButton.textContent=t("entry.skip");skipButton.hidden=!entrySkippable(stepId)||hub||isEditor||dialogOpen}
   /* The pinned region holds the one primary action. It is out of the way while
      the hub is up, an editor owns the screen, or a dialog is asking something. */
-  const hideNext=(hub&&resuming)||stepId==="preview"||stepId==="result"||stepId==="catalogue"||stepId==="import_source"||stepId==="activation_conflict";
+  const hideNext=(hub&&resuming)||stepId==="building"||stepId==="preview"||stepId==="result"||stepId==="catalogue"||stepId==="import_source"||stepId==="activation_conflict";
   const nav=$("#onboarding .onb__nav");if(nav)nav.classList.toggle("hidden",hideNext||isEditor||dialogOpen);
   if(back){back.classList.toggle("hidden",hub||isEditor);back.textContent=t("entry.back");back.setAttribute("aria-label",t("entry.back"))}
   const reason=$("#onbNextReason");
@@ -17942,6 +18019,7 @@ function wireEntryDom(){
   const skipButton=$("#onbSkip");
   if(skipButton)skipButton.onclick=()=>entrySkip();
   mountEntryPickers();
+  mountEntryBuilding();
   $$("[data-entry-rail]").forEach(btn=>btn.onclick=()=>entrySetState({...entryState,step:btn.dataset.entryRail}));
   /* B's hub enters Import on the file door; the paste door is one switch
      away, and choosing it starts a free-form import as the hub card did. */
@@ -18136,6 +18214,8 @@ function wireEntryDom(){
     entryCompileError=null;entrySetState({...entryState,step:"priorities",result:null})};
   const changeExercisePreferences=$("[data-entry-action='change-exercise-preferences']");if(changeExercisePreferences)changeExercisePreferences.onclick=()=>{
     entryCompileError=null;entrySetState({...entryState,step:"exercise_preferences",result:null})};
+  const conflictBack=$("[data-entry-action='conflict-back']");if(conflictBack)conflictBack.onclick=()=>{
+    entryCompileError=null;entrySetState({...entryState,step:conflictBack.dataset.entryStep,result:null})};
   const changeSchedule=$("[data-entry-action='change-schedule']");if(changeSchedule)changeSchedule.onclick=()=>{
     const answers={...entryState.answers};delete answers.splitPreference;
     entryCompileError=null;entrySetState({...entryState,step:"schedule",result:null,answers})};

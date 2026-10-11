@@ -2687,5 +2687,20 @@
   "settings.profile.clear": "Apagar estas respostas",
   "settings.profile.clear_confirm": "Apagar suas respostas sobre você deste dispositivo? Seu treino e seu histórico continuam.",
   "settings.profile.cleared": "Suas respostas sobre você foram apagadas.",
-  "privacy.profile": "As respostas que você dá sobre si na configuração (sexo, nascimento, altura, peso e experiência com cárdio) ficam neste dispositivo. Elas vão para um backup ou uma transferência que você fizer, nunca para links de treino ou estatísticas de uso. Apague-as em Ajustes, em Sobre você."
+  "privacy.profile": "As respostas que você dá sobre si na configuração (sexo, nascimento, altura, peso e experiência com cárdio) ficam neste dispositivo. Elas vão para um backup ou uma transferência que você fizer, nunca para links de treino ou estatísticas de uso. Apague-as em Ajustes, em Sobre você.",
+  "entry.building.title": "Montando seu treino",
+  "entry.building.equipment": "Escolhendo exercícios para o seu equipamento",
+  "entry.building.minutes": "Encaixando as séries em {m} minutos",
+  "entry.building.reps": "Definindo repetições e RIR de cada série",
+  "entry.building.deload": "Marcando a semana de deload",
+  "entry.building.block": "Conferindo o bloco",
+  "entry.building.skip": "Ver o treino agora",
+  "entry.building.pending": "Montando…",
+  "entry.conflict_b.title": "Não foi possível montar o treino",
+  "entry.conflict_b.equipment": "Sem esse equipamento, nenhum exercício do catálogo treina: {jobs}. Marque algo que treine, ou escolha outro local.",
+  "entry.conflict_b.jobs_fallback": "uma das funções do treino",
+  "entry.conflict_b.generic": "Estas respostas não formam um treino. Ajuste o equipamento ou a agenda.",
+  "entry.conflict_b.nothing": "Nada foi salvo.",
+  "entry.conflict_b.back_equipment": "Voltar ao equipamento",
+  "entry.conflict_b.back_time": "Voltar ao tempo de sessão"
 }
