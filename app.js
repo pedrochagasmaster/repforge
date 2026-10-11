@@ -7059,7 +7059,7 @@ function rxSetsLine(sets,withUnit){
     :rows.map(x=>`${fmtLoad(x.load)} × ${x.reps}`).join(", ")}
 function rxTargetText(ex,rec){
   if(ex?.hasRepTarget===false)return programPrescriptionSummary(ex);
-  if(rec.status==="manual")return `${ex.sets} × ${ex.min}–${ex.max}`;
+  if(rec.status==="manual"||rec.status==="configuration_required")return `${ex.sets} × ${ex.min}–${ex.max}`;
   if(Array.isArray(rec.targetSets)){const first=setSuggestion(ex,1,rec,{},null);return `${ex.sets} × ${first.reps??ex.min}`}
   const strategy=strategyIdFor(ex),params=progressionForExercise(ex)?.strategy?.params||{};
   if(strategy==="rep_goal")return t("today.target.total",{n:params.repGoal});

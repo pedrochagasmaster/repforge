@@ -276,9 +276,10 @@ try {
       load: row.querySelector(".rxrow__load")?.textContent?.trim() || "",
     } : null;
   }, perSideProgram.perSide.rowId);
-  assert(perSideToday?.target.includes(`${perSideTruth.sets} × ${perSideTruth.min}–${perSideTruth.max}`) &&
-    perSideToday.target.includes("Needs setup") && perSideToday.load === "–",
-    "P069-S1-CUE: Today shows the generated per-side sets × range and Needs setup without a load suggestion", JSON.stringify(perSideToday));
+  assert(perSideToday?.target.includes(`${perSideTruth.sets} × ${perSideTruth.min}–${perSideTruth.max}`) && perSideToday.load === "–",
+    "P069-S1-CUE: Today shows the generated per-side sets × range without a load suggestion", JSON.stringify(perSideToday));
+  assert(perSideToday?.target.includes("Needs setup"),
+    "P069-S1-CUE: Today labels the generated per-side range Needs setup", JSON.stringify(perSideToday));
   await perSideContext.close();
 
   // ------------------------------------------------------------ session 1
@@ -410,9 +411,10 @@ try {
       load: row.querySelector(".rxrow__load")?.textContent?.trim() || "",
     } : null;
   }, buildRow.id);
-  assert(buildToday?.target.includes(`${buildRow.sets} × ${buildRow.min}–${buildRow.max}`) &&
-    buildToday.target.includes("Your targets") && buildToday.load === "–",
-    "P069-S1-CUE: Today shows a Build slot's sets × range and Your targets without a load suggestion", JSON.stringify(buildToday));
+  assert(buildToday?.target.includes(`${buildRow.sets} × ${buildRow.min}–${buildRow.max}`) && buildToday.load === "–",
+    "P069-S1-CUE: Today shows a Build slot's sets × range without a load suggestion", JSON.stringify(buildToday));
+  assert(buildToday?.target.includes("Your targets"),
+    "P069-S1-CUE: Today labels a Build slot's range Your targets", JSON.stringify(buildToday));
   await buildPage.evaluate((day) => window.__repforgeEnterWorkout({ day }), buildRow.day);
   await buildPage.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 10000 });
   const buildCue = await focusCue(buildPage);
