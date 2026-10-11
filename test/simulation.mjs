@@ -7063,38 +7063,40 @@ async function main() {
   await startFromFirstRun(page);
   await driveRecommendOnboarding(page, { days: 3, experience: "first", activate: false });
   const activeBeforeCandidateEdit = await page.evaluate(() => localStorage.getItem("repforge_v1"));
-  await page.click("#entryEdit");
-  await page.waitForSelector('#onbProgramEditor [data-role="exercise"]', { timeout: 8000 });
-  await page.locator('#onbProgramEditor [data-role="day-menu"]').first().click();
-  await page.locator('#onbProgramEditor [data-role="toggle-reorder"]').first().click();
-  await page.locator('#onbProgramEditor [data-role="exercise-menu"]').first().click();
-  await page.locator('#onbProgramEditor [data-role="more-details"][role="menuitem"]').first().click();
-  const candidateNote = page.locator('#onbProgramEditor [data-role="exercise-field"][data-field="notes"]').first();
-  await candidateNote.fill("Simulation candidate edit");
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.result?.preview?.program?.[0]?.notes === "Simulation candidate edit");
+  // Plan 070: the result screen is the review editor; one adjustment there is a
+  // candidate edit, and it must land only in the durable setup draft.
+  const firstSlot = await page.evaluate(() => window.__repforgeEntryState().result.preview.programDefinition.days
+    .find((day) => day.kind === "training").slots[0]);
+  const editedSets = firstSlot.prescriptionsByCycle[0].sets.length + 1;
+  await page.locator(`#entryReview [data-review-slot="${firstSlot.id}"]`).click();
+  await page.waitForSelector("#reviewSheet.is-open [data-review-sets]", { timeout: 8000 });
+  await page.locator('#reviewSheet [data-review-sets="1"]').click();
+  const setsOf = (definition, slotId) => definition?.days?.flatMap((day) => day.slots || []).find((slot) => slot.id === slotId)
+    ?.prescriptionsByCycle?.[0]?.sets?.length;
   // The durable setup draft persists asynchronously behind the storage lock;
-  // the in-memory wait above does not prove the write landed. Wait for the
-  // durable read the assert below performs, or slow runners observe a stale
-  // draft and fail without any product defect.
-  await page.waitForFunction((k) => {
+  // wait for the durable read the assert below performs, or slow runners
+  // observe a stale draft and fail without any product defect.
+  await page.waitForFunction(({ k, slotId, want }) => {
     try {
-      return JSON.parse(localStorage.getItem(k) || "{}").state?.result?.preview?.program?.[0]?.notes === "Simulation candidate edit";
+      const slots = JSON.parse(localStorage.getItem(k) || "{}").state?.result?.preview?.programDefinition?.days?.flatMap((day) => day.slots || []);
+      return slots?.find((slot) => slot.id === slotId)?.prescriptionsByCycle?.[0]?.sets?.length === want;
     } catch {
       return false;
     }
-  }, SETUP_DRAFT, { timeout: 10000 });
+  }, { k: SETUP_DRAFT, slotId: firstSlot.id, want: editedSets }, { timeout: 10000 });
+  await page.locator("#reviewSheet [data-review-done]").click();
   const editState = await page.evaluate(() => ({
     activeRaw: localStorage.getItem("repforge_v1"),
     draft: JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1") || "{}"),
-    editorVisible: !!document.querySelector('#onbProgramEditor [data-role="editor"]'),
+    reviewVisible: !!document.querySelector("#entryReview [data-review-slot]"),
   }));
   assert(
     editState.activeRaw === activeBeforeCandidateEdit &&
-      editState.draft.state?.result?.preview?.program?.[0]?.notes === "Simulation candidate edit" &&
-      editState.editorVisible,
-    "Onboarding Edit changes only the durable candidate draft",
-    JSON.stringify({ sameActive: editState.activeRaw === activeBeforeCandidateEdit, editorVisible: editState.editorVisible }),
-    "First-run onboarding → Edit before saving"
+      setsOf(editState.draft.state?.result?.preview?.programDefinition, firstSlot.id) === editedSets &&
+      editState.reviewVisible,
+    "Onboarding review changes only the durable candidate draft",
+    JSON.stringify({ sameActive: editState.activeRaw === activeBeforeCandidateEdit, reviewVisible: editState.reviewVisible }),
+    "First-run onboarding → review and adjust"
   );
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => typeof window.__repforgeStorage?.flush === "function", { timeout: 10000 });
@@ -7122,27 +7124,27 @@ async function main() {
     const draft = JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1") || "{}");
     return {
       activeRaw: localStorage.getItem("repforge_v1"),
-      note: draft.state?.result?.preview?.program?.[0]?.notes,
+      definition: draft.state?.result?.preview?.programDefinition,
       reviewVisible: document.querySelector("#onboarding")?.classList.contains("active"),
     };
   });
   assert(
     resumedEdit.activeRaw === activeBeforeCandidateEdit &&
-      resumedEdit.note === "Simulation candidate edit" &&
+      setsOf(resumedEdit.definition, firstSlot.id) === editedSets &&
       resumedEdit.reviewVisible,
     "Reload resumes the edited candidate for review without activating it",
-    JSON.stringify(resumedEdit),
-    "First-run onboarding → Edit before saving → reload"
+    JSON.stringify({ sameActive: resumedEdit.activeRaw === activeBeforeCandidateEdit, reviewVisible: resumedEdit.reviewVisible }),
+    "First-run onboarding → review and adjust → reload"
   );
   await page.click("#entryActivate");
   await page.waitForFunction(() => JSON.parse(localStorage.getItem("repforge_v1") || "{}").programMeta?.onboarded === true);
   const afterDone = await getState(page);
   assert(
-    afterDone.program?.[0]?.notes === "Simulation candidate edit" &&
+    setsOf(afterDone.programMeta?.programDefinition, firstSlot.id) === editedSets &&
       !Object.prototype.hasOwnProperty.call(afterDone, "_storageFollowUp"),
     "Only explicit activation installs the edited candidate",
-    JSON.stringify({ note: afterDone.program?.[0]?.notes, follow: afterDone._storageFollowUp }),
-    "Edit onboarding → resume review → activate"
+    JSON.stringify({ sets: setsOf(afterDone.programMeta?.programDefinition, firstSlot.id), follow: afterDone._storageFollowUp }),
+    "Review onboarding → resume review → activate"
   );
   beginPhase("Honest affordances, contextual guides, and deletion copy");
   await nav(page, "log");

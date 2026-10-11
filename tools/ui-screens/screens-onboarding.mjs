@@ -184,6 +184,47 @@ async function customTo(page, step) {
   if (step === "result") return;
 }
 
+/* Plan 070: the review editor. Each adjustment waits for the review to settle
+   (it is aria-busy while an edit is being saved). */
+async function reviewSettled(page) {
+  await page.waitForFunction(() => !document.querySelector("#entryReview[aria-busy]"), undefined, { timeout: 20000 });
+  // The change is also announced through the app's toast; a frame waits for it to go.
+  await page.waitForFunction(() => document.querySelector("#toast")?.classList.contains("hidden") !== false, undefined, { timeout: 10000 });
+}
+async function reviewTo(page) {
+  await recommendTo(page, { result: true, desired: "balanced" });
+  await page.waitForSelector("#entryReview [data-review-slot]", { timeout: 25000 });
+}
+const reviewSlots = (page) => page.$$eval("#entryReview [data-review-slot]", (rows) => rows.map((row) => row.dataset.reviewSlot));
+async function openReviewSlot(page, slotId) {
+  await page.click(`#entryReview [data-review-slot="${slotId}"]`);
+  await page.waitForSelector("#reviewSheet.is-open [data-review-sets]", { timeout: 10000 });
+}
+async function closeReviewSheet(page) {
+  await page.click("#reviewSheet [data-review-done]");
+  await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 10000 });
+}
+/** Three marked rows: a set added, an engine swap and a movement added from the catalog. */
+async function reviewChanged(page) {
+  await reviewTo(page);
+  const [first, second] = await reviewSlots(page);
+  await openReviewSlot(page, first);
+  await page.click('#reviewSheet [data-review-sets="1"]');
+  await reviewSettled(page);
+  await closeReviewSheet(page);
+  await openReviewSlot(page, second);
+  await page.locator("#reviewSheet [data-review-swap]").first().click();
+  await reviewSettled(page);
+  await closeReviewSheet(page);
+  await page.click("#entryReview [data-review-add]");
+  await page.waitForSelector("#exPickSheet.is-open", { timeout: 10000 });
+  await page.fill("#exPickSearch", "curl");
+  await page.locator("#exPickList .pickrow").first().click();
+  await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 10000 });
+  await reviewSettled(page);
+  await page.waitForSelector(".review-toast", { state: "detached", timeout: 10000 });
+}
+
 /** A generated review with the answer chip for `chip` open on its editor. */
 async function reviewWithEditor(page, chip) {
   await recommendTo(page, { result: true, desired: "balanced" });
@@ -557,6 +598,9 @@ const FOCUS_SELECTOR = {
   "onboarding-custom/exercise-preferences": ".entry__exercise-selected-group",
   "onboarding-recommend/activation-conflict": ".entry__notice",
   "onboarding-build/editor-ready": "#entryEditorActivate",
+  "onboarding-recommend/result-changed": ".review__row.is-changed",
+  "onboarding-recommend/review-reorder": "[data-review-reorder]",
+  "onboarding-recommend/review-empty-day": ".review__empty",
 };
 
 /**
@@ -697,6 +741,56 @@ export const ONBOARDING_SCENARIOS = {
     await page.waitForSelector("#entryReplaceConfirm", { timeout: 20000 });
   },
   "onboarding-recommend/activation-conflict": activationConflict,
+  "onboarding-recommend/result-changed": reviewChanged,
+  "onboarding-recommend/review-sheet": async (page) => {
+    await reviewTo(page);
+    await openReviewSlot(page, (await reviewSlots(page))[0]);
+  },
+  "onboarding-recommend/review-sheet-swap": async (page) => {
+    await reviewTo(page);
+    await openReviewSlot(page, (await reviewSlots(page))[0]);
+    await page.locator("#reviewSheet [data-review-alt-add]").first().click();
+    await reviewSettled(page);
+    await page.evaluate(() => {
+      const body = document.querySelector("#reviewSheetBody");
+      const swap = body?.querySelectorAll(".review-sheet__sec")[1];
+      if (body && swap) body.scrollTop = swap.offsetTop - body.offsetTop;
+    });
+  },
+  "onboarding-recommend/review-day-menu": async (page) => {
+    await reviewTo(page);
+    await page.click("#entryReview [data-review-day-menu]");
+    await page.waitForSelector('#reviewSheet.is-open [data-review-day-action="reorder"]', { timeout: 10000 });
+  },
+  "onboarding-recommend/review-reorder": async (page) => {
+    await reviewTo(page);
+    await page.click("#entryReview [data-review-day-menu]");
+    await page.click('#reviewSheet [data-review-day-action="reorder"]');
+    await page.waitForSelector("#entryReview [data-review-reorder]", { timeout: 10000 });
+    await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 10000 });
+  },
+  "onboarding-recommend/review-empty-day": async (page) => {
+    await reviewTo(page);
+    for (const slotId of await reviewSlots(page)) {
+      await openReviewSlot(page, slotId);
+      await page.click("#reviewSheet [data-review-remove]");
+      await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 10000 });
+      await reviewSettled(page);
+    }
+    await page.waitForSelector(".review-toast", { state: "detached", timeout: 10000 });
+  },
+  "onboarding-recommend/review-rebuild-confirm": async (page) => {
+    await reviewTo(page);
+    await openReviewSlot(page, (await reviewSlots(page))[0]);
+    await page.click('#reviewSheet [data-review-sets="1"]');
+    await reviewSettled(page);
+    await closeReviewSheet(page);
+    await page.click('[data-entry-chip="days"]');
+    await page.waitForSelector("#entryEditor", { timeout: 20000 });
+    await pick(page, "daysPerWeek", "4");
+    await page.click("#entryChipApply");
+    await page.waitForSelector("#reviewConfirmGo", { timeout: 20000 });
+  },
 
   "onboarding-custom/desired-result": (page) => customTo(page, "desired-result"),
   "onboarding-custom/background": (page) => customTo(page, "background"),

@@ -514,6 +514,8 @@ h2{font-size:var(--font-size-title);font-weight:var(--weight-semibold);letter-sp
 }
 .btn--noarrow{padding:0 20px}
 .btn--noarrow::after{content:none;display:none}
+/* A compact secondary action inside a dense row (the review sheet's swap list). */
+.review-sheet__swap-btn{min-height:var(--control-target);padding:var(--space-8) var(--space-14);font-size:var(--font-size-body-small)}
 .btn--danger{background:transparent;color:var(--danger);border-color:transparent}
 .btn--save{margin-top:6px;flex-direction:column;gap:2px;height:auto;min-height:54px;padding:12px 48px}
 .btn--save.is-stamped{animation:stamp .5s ease}
@@ -1876,10 +1878,95 @@ body.is-sheet-open{overflow:hidden}
    starting it — switching days can discard a session in progress — so the rows
    read as a set of choices and the CTA below them is what commits one. */
 .sheet--daypick{height:auto}
+/* Plan 070: the review editor's one sheet (exercise, day actions, rename). */
+/* height:auto, like .sheet--pick/.sheet--session: the day-actions menu and the
+   rename field are a few rows, not the exercise sheet's full height. */
+.sheet--review{height:auto;max-height:min(88dvh,760px)}
+/* The onboarding view is itself a fixed, z-index:50 layer (it sits above the
+   app chrome), above the shared sheet/scrim z-index of 41/40. Without this the
+   review sheet opens underneath the screen it belongs to. .review-toast
+   already clears 50 (52) for the same reason; match that here. */
+#reviewSheetScrim{z-index:53}
+#reviewSheet{z-index:54}
+.review-sheet__body{flex-direction:column;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:0 16px 16px}
+.review-sheet__foot{border-top:1px solid var(--rule)}
+.review-sheet__foot:empty{display:none}
+.review-sheet__foot .btn{width:100%}
+/* The sheet's own content: the exercise head, the set ledger, the sets/range/
+   rest controls, the swap list, alternates and move-to-day. .sheetgroup__head
+   is the shared section heading the exercise-actions sheet already uses. */
+.review-sheet__head{display:flex;gap:var(--space-14);align-items:flex-start;padding-bottom:var(--space-4)}
+.review-sheet__head>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--space-8)}
+.review-sheet__head .exthumb--lg{width:88px;flex:none}
+.review-sheet__role{margin:0;font-family:var(--font-training-data);font-size:var(--font-size-label);font-weight:var(--weight-medium);letter-spacing:.06em;text-transform:uppercase;color:var(--color-ink-secondary)}
+.review-sheet__sec{padding:var(--space-14) 0;border-top:1px solid var(--boundary-decorative)}
+.review-sheet__sec .btn--destructive{width:100%}
+.review-sheet__ledger{margin:var(--space-8) 0 var(--space-12)}
+.review-sheet__lh,.review-sheet__lr{display:grid;grid-template-columns:minmax(44px,max-content) 1fr auto;align-items:center;gap:var(--space-8);padding:var(--space-8) 0;border-bottom:1px solid var(--boundary-decorative);min-width:0}
+.review-sheet__lh{font-family:var(--font-training-data);font-size:var(--font-size-label);font-weight:var(--weight-medium);letter-spacing:.06em;text-transform:uppercase;color:var(--color-ink-secondary)}
+.review-sheet__lh span:last-child{text-align:right}
+.review-sheet__lr>span:nth-child(2){overflow-wrap:anywhere;font-family:var(--font-training-data);font-size:var(--font-size-body-small);color:var(--color-ink)}
+.review-sheet__ctl{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--space-12);padding:var(--space-12) 0}
+.review-sheet__ctl--col{flex-direction:column;align-items:stretch}
+.review-sheet__ctl>.review-step,.review-sheet__ctl>.review-sheet__range{flex:none}
+.review-sheet__lab{flex:1 1 auto;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);color:var(--color-ink)}
+.review-sheet__range{display:inline-flex;align-items:center;gap:var(--space-8)}
+.review-sheet__range>span[aria-hidden]{color:var(--color-ink-secondary)}
+/* A bordered −/value/+ pill. The --sm variant narrows the buttons for the
+   ledger's dense RIR column without shrinking below a 44px tap target. */
+.review-step{display:inline-flex;align-items:center;border:1px solid var(--control-adjustment-boundary);border-radius:var(--radius-control);background:var(--control-adjustment-bg);overflow:hidden}
+.review-step button{flex:none;width:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;border:0;background:none;color:var(--control-adjustment-ink);font-family:var(--font-language);font-size:var(--font-size-control);line-height:1;cursor:pointer}
+@media (hover:hover) and (pointer:fine){.review-step button:hover:not(:disabled){background:var(--well)}}
+.review-step button:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+.review-step button:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
+.review-step button:disabled{color:var(--color-disabled-reason);cursor:not-allowed}
+.review-step b{min-width:40px;padding:0 var(--space-4);text-align:center;font-family:var(--font-training-data);font-weight:var(--weight-medium);font-size:var(--font-size-control);color:var(--color-ink)}
+.review-step button+b,.review-step b+button{border-left:1px solid var(--boundary-decorative)}
+.review-step--sm button{width:36px;min-width:36px}
+.review-step--sm b{min-width:22px;font-size:var(--font-size-body-small)}
+/* The rest-preset segmented control: a quiet well with a selected option drawn
+   in the same quiet-selection ring as the day tabs' indicator. */
+.review-seg{display:flex;flex-wrap:wrap;gap:var(--space-4);padding:var(--space-4);background:var(--well);border-radius:var(--radius-control)}
+.review-seg__opt{flex:1 0 auto;white-space:nowrap;min-height:var(--control-target);padding:var(--space-8) var(--space-4);border:1px solid transparent;border-radius:var(--radius-compact);background:none;font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);color:var(--color-ink-secondary);cursor:pointer;text-align:center}
+.review-seg__opt.is-on{background:var(--surface);border-color:var(--boundary-selected-quiet);color:var(--color-ink);box-shadow:var(--elevation-selected-quiet-shadow)}
+.review-seg__opt:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.review-sheet__time{margin:var(--space-12) 0 0;font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);color:var(--color-ink)}
+.review-sheet__note{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.review-sheet__lede{margin:0 0 var(--space-8);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.review-sheet__list{list-style:none;margin:0;padding:0;border-top:1px solid var(--boundary-decorative)}
+.review-sheet__list li{display:flex;align-items:center;gap:var(--space-12);padding:var(--space-8) 0;border-bottom:1px solid var(--boundary-decorative)}
+.review-sheet__list li span{flex:1;min-width:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:anywhere}
+.review-sheet__links{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-18);margin-top:var(--space-4)}
+.review-sheet__links .text-link{display:inline-flex;align-items:center;gap:var(--space-8);min-height:var(--control-target);padding:0}
+.review-sheet__alts{list-style:none;margin:var(--space-8) 0 0;padding:0;border-top:1px solid var(--boundary-decorative)}
+.review-sheet__alts li{display:flex;align-items:center;gap:var(--space-8);padding:var(--space-8) 0;border-bottom:1px solid var(--boundary-decorative)}
+.review-sheet__alt-name{flex:1;min-width:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:anywhere}
+.review-sheet__chips{display:flex;flex-wrap:wrap;gap:var(--space-8);margin-top:var(--space-8)}
+.review-chipbtn{display:inline-flex;align-items:center;gap:var(--space-8);min-height:var(--control-target);padding:var(--space-8) var(--space-14);border:1px solid var(--control-adjustment-boundary);border-radius:var(--radius-pill);background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);font-family:var(--font-language);font-size:var(--font-size-body-small);cursor:pointer}
+.review-chipbtn .icon-mask{flex:none;color:var(--color-ink-secondary)}
+@media (hover:hover) and (pointer:fine){.review-chipbtn:hover{background:var(--well);border-color:var(--control-selection-boundary)}}
+.review-chipbtn:active{background:var(--well);transform:var(--control-pressed-transform)}
+.review-chipbtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.review-sheet__sub{margin:var(--space-12) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);color:var(--color-ink-secondary)}
+.review-sheet__empty{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.review-sheet__menu{display:flex;flex-direction:column;border-top:1px solid var(--rule-on-surface)}
+.review-sheet__field{margin-top:0}
+/* An undoable change's notice sits above the pinned Activate. */
+.review-toast{
+  position:fixed;left:50%;transform:translateX(-50%);z-index:52;
+  bottom:calc(var(--entry-pinned-clearance,104px) + env(safe-area-inset-bottom));
+  width:min(92%,420px);display:flex;align-items:center;gap:var(--space-12,12px);
+  background:var(--cta);color:var(--cta-ink);border-radius:var(--radius-surface);
+  padding:12px 16px;font-size:var(--font-size-body-small);box-shadow:var(--elevation-floating-shadow);
+  animation:toastin .3s cubic-bezier(.2,.7,.2,1)
+}
+.review-toast__text{flex:1;min-width:0;overflow-wrap:anywhere}
+.review-toast__undo{flex:none;min-height:44px;padding:0 4px;border:0;background:none;color:inherit;font:inherit;font-weight:var(--weight-semibold);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+@media (prefers-reduced-motion:reduce){.review-toast{animation:none}}
 /* Focus sheets keep their modal hierarchy while using the shared type and depth roles.
    The Session, exercise-actions and note sheets wear the shared .sheetband (Plan 064 R3d),
    and so does the Why sheet (R3g); the rest sheet keeps its own head until its slice lands. */
-#sessionSheet,#exActionsSheet,#exNoteSheet,#restSheet,#whySheet,#historyDiscardSheet,#draftDiscardSheet{
+#sessionSheet,#exActionsSheet,#exNoteSheet,#restSheet,#whySheet,#historyDiscardSheet,#draftDiscardSheet,#reviewSheet{
   background:var(--color-surface);border-radius:var(--radius-prominent) var(--radius-prominent) 0 0;
   box-shadow:var(--elevation-modal-shadow);
 }
@@ -3366,6 +3453,7 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .icon-mask--stop{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Crect x='6.5' y='6.5' width='11' height='11' rx='2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Crect x='6.5' y='6.5' width='11' height='11' rx='2'/%3E%3C/svg%3E")}
 .icon-mask--history{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 12a8.5 8.5 0 1 0 2.5-6'/%3E%3Cpolyline points='3 3.5 3 8.5 8 8.5'/%3E%3Cpolyline points='12 7.5 12 12 15.5 14'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 12a8.5 8.5 0 1 0 2.5-6'/%3E%3Cpolyline points='3 3.5 3 8.5 8 8.5'/%3E%3Cpolyline points='12 7.5 12 12 15.5 14'/%3E%3C/svg%3E")}
 .icon-mask--overflow{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Ccircle cx='5' cy='12' r='1.6'/%3E%3Ccircle cx='12' cy='12' r='1.6'/%3E%3Ccircle cx='19' cy='12' r='1.6'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Ccircle cx='5' cy='12' r='1.6'/%3E%3Ccircle cx='12' cy='12' r='1.6'/%3E%3Ccircle cx='19' cy='12' r='1.6'/%3E%3C/svg%3E")}
+.icon-mask--grip{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27black%27%3E%3Ccircle%20cx%3D%279%27%20cy%3D%276%27%20r%3D%271.6%27%2F%3E%3Ccircle%20cx%3D%2715%27%20cy%3D%276%27%20r%3D%271.6%27%2F%3E%3Ccircle%20cx%3D%279%27%20cy%3D%2712%27%20r%3D%271.6%27%2F%3E%3Ccircle%20cx%3D%2715%27%20cy%3D%2712%27%20r%3D%271.6%27%2F%3E%3Ccircle%20cx%3D%279%27%20cy%3D%2718%27%20r%3D%271.6%27%2F%3E%3Ccircle%20cx%3D%2715%27%20cy%3D%2718%27%20r%3D%271.6%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27black%27%3E%3Ccircle%20cx%3D%279%27%20cy%3D%276%27%20r%3D%271.6%27%2F%3E%3Ccircle%20cx%3D%2715%27%20cy%3D%276%27%20r%3D%271.6%27%2F%3E%3Ccircle%20cx%3D%279%27%20cy%3D%2712%27%20r%3D%271.6%27%2F%3E%3Ccircle%20cx%3D%2715%27%20cy%3D%2712%27%20r%3D%271.6%27%2F%3E%3Ccircle%20cx%3D%279%27%20cy%3D%2718%27%20r%3D%271.6%27%2F%3E%3Ccircle%20cx%3D%2715%27%20cy%3D%2718%27%20r%3D%271.6%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--note{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5.5 3.5h8.5l4.5 4.5v12.5h-13z'/%3E%3Cpath d='M14 3.5V8h4.5'/%3E%3Cpath d='M8.5 12.5h7M8.5 16h4.5'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5.5 3.5h8.5l4.5 4.5v12.5h-13z'/%3E%3Cpath d='M14 3.5V8h4.5'/%3E%3Cpath d='M8.5 12.5h7M8.5 16h4.5'/%3E%3C/svg%3E")}
 .icon-mask--timer{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='13.5' r='7.5'/%3E%3Cpath d='M9.5 2.5h5'/%3E%3Cpath d='M12 2.5V6'/%3E%3Cpath d='M18.6 7.4l1.6-1.6'/%3E%3Cpath d='M12 13.5V9.8'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='13.5' r='7.5'/%3E%3Cpath d='M9.5 2.5h5'/%3E%3Cpath d='M12 2.5V6'/%3E%3Cpath d='M18.6 7.4l1.6-1.6'/%3E%3Cpath d='M12 13.5V9.8'/%3E%3C/svg%3E")}
 .icon-mask--skip{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 5 14 12 6 19'/%3E%3Cpath d='M18 5v14'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 5 14 12 6 19'/%3E%3Cpath d='M18 5v14'/%3E%3C/svg%3E")}
@@ -3500,6 +3588,7 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .icon-mask--clock{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%207.4v4.9l3.1%201.9%27%2F%3E%3Ccircle%20cx%3D%2712%27%20cy%3D%2712%27%20r%3D%278.3%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%207.4v4.9l3.1%201.9%27%2F%3E%3Ccircle%20cx%3D%2712%27%20cy%3D%2712%27%20r%3D%278.3%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--shield{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%203.4l7.1%202.7v5.3c0%204.7-3%208.3-7.1%209.6-4.1-1.3-7.1-4.9-7.1-9.6V6.1zM8.9%2012.2l2.2%202.2%204-4.4%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%203.4l7.1%202.7v5.3c0%204.7-3%208.3-7.1%209.6-4.1-1.3-7.1-4.9-7.1-9.6V6.1zM8.9%2012.2l2.2%202.2%204-4.4%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--pin{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%2020.9c-4-4.6-6.6-7.7-6.6-10.8a6.6%206.6%200%200%201%2013.2%200c0%203.1-2.6%206.2-6.6%2010.8z%27%2F%3E%3Ccircle%20cx%3D%2712%27%20cy%3D%2710.1%27%20r%3D%272.4%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%2020.9c-4-4.6-6.6-7.7-6.6-10.8a6.6%206.6%200%200%201%2013.2%200c0%203.1-2.6%206.2-6.6%2010.8z%27%2F%3E%3Ccircle%20cx%3D%2712%27%20cy%3D%2710.1%27%20r%3D%272.4%27%2F%3E%3C%2Fsvg%3E")}
+.icon-mask--alert{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%207.6v5.1M12%2016.3h.01%27%2F%3E%3Ccircle%20cx%3D%2712%27%20cy%3D%2712%27%20r%3D%278.3%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%207.6v5.1M12%2016.3h.01%27%2F%3E%3Ccircle%20cx%3D%2712%27%20cy%3D%2712%27%20r%3D%278.3%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--gear{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M10.5%205.1L10.4%203.1L13.6%203.1L13.5%205.1L15.8%206.0L17.2%204.6L19.4%206.8L18.0%208.2L18.9%2010.5L20.9%2010.4L20.9%2013.6L18.9%2013.5L18.0%2015.8L19.4%2017.2L17.2%2019.4L15.8%2018.0L13.5%2018.9L13.6%2020.9L10.4%2020.9L10.5%2018.9L8.2%2018.0L6.8%2019.4L4.6%2017.2L6.0%2015.8L5.1%2013.5L3.1%2013.6L3.1%2010.4L5.1%2010.5L6.0%208.2L4.6%206.8L6.8%204.6L8.2%206.0Z%27%2F%3E%3Ccircle%20cx%3D%2712%27%20cy%3D%2712%27%20r%3D%273%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M10.5%205.1L10.4%203.1L13.6%203.1L13.5%205.1L15.8%206.0L17.2%204.6L19.4%206.8L18.0%208.2L18.9%2010.5L20.9%2010.4L20.9%2013.6L18.9%2013.5L18.0%2015.8L19.4%2017.2L17.2%2019.4L15.8%2018.0L13.5%2018.9L13.6%2020.9L10.4%2020.9L10.5%2018.9L8.2%2018.0L6.8%2019.4L4.6%2017.2L6.0%2015.8L5.1%2013.5L3.1%2013.6L3.1%2010.4L5.1%2010.5L6.0%208.2L4.6%206.8L6.8%204.6L8.2%206.0Z%27%2F%3E%3Ccircle%20cx%3D%2712%27%20cy%3D%2712%27%20r%3D%273%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--check{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M4.8%2012.6l4.6%204.6L19.4%207%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M4.8%2012.6l4.6%204.6L19.4%207%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--plus{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%205.5v13M5.5%2012h13%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%205.5v13M5.5%2012h13%27%2F%3E%3C%2Fsvg%3E")}
@@ -3508,6 +3597,7 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .icon-mask--reset{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M19.6%2012a7.6%207.6%200%201%201-2.3-5.4M20.1%203.6v4.9h-4.9%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M19.6%2012a7.6%207.6%200%201%201-2.3-5.4M20.1%203.6v4.9h-4.9%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--chev-down{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M6.4%209.4l5.6%205.6%205.6-5.6%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M6.4%209.4l5.6%205.6%205.6-5.6%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--chev-up{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M6.4%2014.6l5.6-5.6%205.6%205.6%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M6.4%2014.6l5.6-5.6%205.6%205.6%27%2F%3E%3C%2Fsvg%3E")}
+.icon-mask--chev-right{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M9.4%206.4l5.6%205.6-5.6%205.6%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M9.4%206.4l5.6%205.6-5.6%205.6%27%2F%3E%3C%2Fsvg%3E")}
 .chevron{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M9.4%206.4l5.6%205.6-5.6%205.6%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M9.4%206.4l5.6%205.6-5.6%205.6%27%2F%3E%3C%2Fsvg%3E")}
 .chevron.is-down{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M6.4%209.4l5.6%205.6%205.6-5.6%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M6.4%209.4l5.6%205.6%205.6-5.6%27%2F%3E%3C%2Fsvg%3E")}
 .chevron.is-up{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M6.4%2014.6l5.6-5.6%205.6%205.6%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M6.4%2014.6l5.6-5.6%205.6%205.6%27%2F%3E%3C%2Fsvg%3E")}
@@ -3643,7 +3733,7 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 }
 /* Mono is for values: the words of a fact line are the language font and each figure is a `.num` (R7 V-18). */
 .entry__facts .entry__fact--data{font-family:var(--font-language)}
-.entry__facts .num,.entry-prog__facts .num,.onb__dayname .num,.entry__change-grid .num{font-family:var(--font-training-data)}
+.entry__facts .num,.entry-prog__facts .num,.onb__dayname .num,.entry__change-grid .num,.review__daymeta .num,.review-sheet__time .num{font-family:var(--font-training-data)}
 /* A figure stays inline inside its line; `.onb__dayname span` would otherwise stack it as a block. */
 .onb__dayname span.num{display:inline;margin:0;font-size:inherit;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit}
 .entry__facts>span:not(:last-child)::after{
@@ -7026,6 +7116,86 @@ body.is-entry-editor #entryProgramName,
 }
 .entry__more .entry__confirm-alt{flex-direction:column}
 .entry__more .entry__confirm-alt .btn{flex:0 0 auto}
+
+/* Plan 070: onboarding B's review-and-adjust editor (program-review.js). The
+   kicker and title reuse .entry__eyebrow and .onb__q, already sized for this
+   route; the facts strip reuses .entry__strip. What follows is this screen's
+   own grammar: the block summary, the changes bar or tap hint, the day tabs
+   and the day panel (rows, the add row, the empty-day warning, reorder mode). */
+.review__titlebtn{display:inline-flex;align-items:center;gap:var(--space-8);padding:0;border:0;background:none;font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:var(--radius-control)}
+.review__titlebtn .icon-mask{color:var(--ink-faint)}
+.review__titlebtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.review__titlebtn:active{transform:var(--control-pressed-transform)}
+.review__block{margin:0;padding-top:var(--space-14);border-top:1px solid var(--boundary-decorative);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.review__hint{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.review>.review__hint{margin-top:0;padding-top:var(--space-14);border-top:1px solid var(--boundary-decorative)}
+.review__panel>.review__hint{margin:0 0 var(--space-8)}
+.review__changes{display:flex;align-items:center;flex-wrap:wrap;gap:var(--space-14);margin:0;padding-top:var(--space-14);border-top:1px solid var(--boundary-decorative)}
+.review__count{flex:1;min-width:0;display:inline-flex;align-items:center;gap:var(--space-8);font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-semibold);color:var(--color-ink)}
+.review__dot{display:inline-block;flex:none;width:7px;height:7px;border-radius:var(--radius-round);background:currentColor}
+.review__changes .text-link{min-height:var(--control-target);display:inline-flex;align-items:center;padding:0;font-size:var(--font-size-body-small)}
+/* The day tabs scroll horizontally with no visible scrollbar; the selected
+   tab carries its own quiet selected boundary, as every .tabrow does. */
+.review__tabs{position:relative;display:flex;gap:var(--space-18);margin:var(--space-18) calc(-1 * var(--gut)) 0;padding:0 var(--gut);overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;border-bottom:1px solid var(--boundary-decorative)}
+.review__tabs::-webkit-scrollbar{display:none}
+.review__tab{flex:none;min-height:var(--control-target);display:inline-flex;align-items:center;padding:0;border:0;border-bottom:2px solid transparent;border-radius:var(--radius-none);background:var(--control-quiet-bg);font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink-secondary);white-space:nowrap;cursor:pointer}
+.review__tab.is-on{border-bottom-color:var(--boundary-selected-quiet);color:var(--control-selection-ink);font-weight:var(--weight-semibold)}
+.review__tab:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px;border-radius:var(--radius-compact)}
+.review__pip{display:inline-block;flex:none;width:6px;height:6px;margin-left:var(--space-8);border-radius:var(--radius-round);background:var(--color-warning);vertical-align:middle}
+.review__dayhead{display:flex;align-items:flex-start;gap:var(--space-12);padding:var(--space-18) 0 var(--space-8)}
+.review__dayid{flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--space-4)}
+.review__dayname{align-self:flex-start;display:inline-flex;align-items:center;gap:var(--space-8);padding:0;border:0;background:none;font-family:var(--font-language);font-size:var(--font-size-section-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink);overflow-wrap:anywhere;text-align:left;cursor:pointer}
+.review__dayname .icon-mask{flex:none;color:var(--ink-faint)}
+.review__dayname:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
+.review__dayname:active{transform:var(--control-pressed-transform)}
+.review__daymeta{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.review__over{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-warning)}
+.review__more{flex:none;width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);display:inline-flex;align-items:center;justify-content:center;margin:0 calc(-1 * var(--space-8)) 0 0;border:0;border-radius:var(--radius-control);background:var(--control-quiet-bg);color:var(--control-quiet-ink);cursor:pointer}
+@media (hover:hover) and (pointer:fine){.review__more:hover{background:var(--well)}}
+.review__more:active{background:var(--well);transform:var(--control-pressed-transform)}
+.review__more:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+/* Each row is the whole tap target: thumbnail, name, optional change mark,
+   the set list and the muscle chips, with a trailing chevron. */
+.review__row{display:flex;align-items:flex-start;gap:var(--space-14);width:100%;padding:var(--space-16) 0;border:0;border-bottom:1px solid var(--boundary-decorative);background:none;text-align:left;cursor:pointer}
+.review__row:last-of-type{border-bottom:0}
+@media (hover:hover) and (pointer:fine){.review__row:hover{background:var(--well)}}
+.review__row:active{background:var(--well)}
+.review__row:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px;border-radius:var(--radius-control)}
+.review__row>.icon-mask--chev-right{align-self:center;flex:none;color:var(--ink-faint)}
+.review__rowbody{flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--space-4)}
+.review__name{margin:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:anywhere}
+.review__mark{display:inline-flex;align-items:center;gap:var(--space-8);font-family:var(--font-training-data);font-size:var(--font-size-label);font-weight:var(--weight-medium);letter-spacing:.06em;text-transform:uppercase;color:var(--color-ink-secondary)}
+.review__sets{display:flex;flex-direction:column;gap:var(--space-4);margin:0;padding:0;list-style:none}
+.review__sets li{display:flex;align-items:center;gap:var(--space-8)}
+.review__setn{flex:none;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;border-radius:var(--radius-round);background:var(--well);font-family:var(--font-training-data);font-size:var(--font-size-caption);font-weight:var(--weight-medium);color:var(--color-ink-secondary)}
+.review__reps{font-family:var(--font-training-data);font-size:var(--font-size-body-small);color:var(--color-ink)}
+.review__rir{margin-left:auto;flex:none;padding:var(--space-4) var(--space-8);border:1px solid var(--boundary-decorative);border-radius:var(--radius-control);font-family:var(--font-training-data);font-size:var(--font-size-caption);color:var(--color-ink-secondary)}
+.review__chips{display:flex;flex-wrap:wrap;gap:var(--space-8);margin-top:var(--space-4)}
+.review__chip{padding:var(--space-4) var(--space-8);border:1px solid var(--boundary-decorative);border-radius:var(--radius-pill);font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.review__add{display:flex;align-items:center;gap:var(--space-12);width:100%;padding:var(--space-16) 0;border:0;background:none;cursor:pointer;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);color:var(--color-ink);text-align:left}
+.review__add .icon-mask{color:var(--color-ink-secondary)}
+@media (hover:hover) and (pointer:fine){.review__add:hover{background:var(--well)}}
+.review__add:active{background:var(--well);transform:var(--control-pressed-transform)}
+.review__add:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px;border-radius:var(--radius-control)}
+.review__empty{display:flex;align-items:flex-start;gap:var(--space-8);margin:var(--space-12) 0;padding:var(--space-14);border:1px dashed var(--color-warning);border-radius:var(--radius-surface);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink)}
+.review__empty .icon-mask{flex:none;margin-top:2px;color:var(--color-warning)}
+.review__rest{display:flex;flex-direction:column;align-items:center;gap:var(--space-8);padding:var(--space-32) 0;text-align:center;color:var(--color-ink-secondary)}
+.review__rest .icon-mask{width:28px;height:28px;color:var(--ink-faint)}
+.review__rest-title{margin:0;font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);color:var(--color-ink)}
+.review__rest p:last-child{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading)}
+/* Reorder mode: a drag handle plus two 44px arrow buttons as the accessible
+   path to the same move. .is-lifted is the raised row while dragging. */
+.review__reorder{list-style:none;margin:var(--space-8) 0 0;padding:0;border-top:1px solid var(--boundary-decorative)}
+.review__ro{display:flex;align-items:center;gap:var(--space-8);padding:var(--space-8) 0;border-bottom:1px solid var(--boundary-decorative);background:var(--bg);position:relative}
+.review__ro.is-lifted{z-index:2;border-radius:var(--radius-control);background:var(--surface);box-shadow:var(--elevation-drag-shadow)}
+.review__handle{flex:none;width:var(--control-target);height:var(--control-target);display:inline-flex;align-items:center;justify-content:center;color:var(--color-ink-secondary);touch-action:none;cursor:grab}
+.review__ro-name{flex:1;min-width:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);color:var(--color-ink);overflow-wrap:anywhere}
+.review__ro-btn{flex:none;width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--control-adjustment-boundary);border-radius:var(--radius-control);background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);cursor:pointer}
+@media (hover:hover) and (pointer:fine){.review__ro-btn:hover:not(:disabled){background:var(--well)}}
+.review__ro-btn:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+.review__ro-btn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.review__ro-btn:disabled{color:var(--color-disabled-reason);opacity:1;cursor:not-allowed}
+.review__reorder-done{margin-top:var(--space-18)}
 
 /* What a change did, and the row it added. The review fills both when an
    answer changes; they have no other source. */

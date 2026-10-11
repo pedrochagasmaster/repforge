@@ -121,7 +121,7 @@ function driveToTerminal(route) {
     if (["catalogue", "import_source", "shared_review"].includes(state.step)) {
       state = Entry.setResult(state, resultFixture(route));
     }
-    if (["preview", "editor"].includes(state.step)) return { state, visited };
+    if (state.step === "editor" || (state.step === Entry.reviewStep(route) && state.result)) return { state, visited };
     const transition = Entry.advance(state);
     assert.equal(transition.ok, true, `${route}:${state.step} should advance`);
     assert.notEqual(transition.state.step, state.step, `${route}:${state.step} should move`);
@@ -248,7 +248,7 @@ test("a generated 12-cycle candidate persists within the bounded entry contract"
   assert.deepEqual(normalized.value.result.preview.programDefinition, programDefinition);
   assert.equal(normalized.value.result.preview.program.length,
     programDefinition.days.filter((day) => day.kind === "training").reduce((sum, day) => sum + day.slots.length, 0));
-  assert.deepEqual(Entry.candidateActivationIssues({ ...staged, step: "preview" }), []);
+  assert.deepEqual(Entry.candidateActivationIssues({ ...staged, step: "result" }), []);
 });
 
 test("canonical program-entry previews reject missing definitions and display mismatches", () => {
@@ -276,10 +276,10 @@ test("canonical program-entry previews reject missing definitions and display mi
   assert.ok(invalidResult.issues.some((issue) => issue.includes("programDefinition:invalid")));
 });
 
-test("every route reaches its declared preview or editor", () => {
+test("every route reaches the step where its candidate is reviewed", () => {
   for (const route of Entry.ROUTES) {
     const { state, visited } = driveToTerminal(route);
-    assert.equal(state.step, route === "build" ? "editor" : "preview");
+    assert.equal(state.step, route === "build" ? "editor" : Entry.reviewStep(route));
     assert.deepEqual(visited, Entry.ROUTE_STEPS[route]);
   }
 });
@@ -641,7 +641,7 @@ test("activation refuses stale revisions and returns a reviewable conflict state
   assert.equal(readiness.ok, false);
   assert.equal(readiness.code, "active_program_changed");
   assert.equal(readiness.state.step, "activation_conflict");
-  assert.equal(Entry.back(readiness.state).step, "preview");
+  assert.equal(Entry.back(readiness.state).step, "result");
   assert.deepEqual(preview, driveToTerminal("recommend").state);
 
   const resumed = Entry.resumeSetupDraft(preview, {

@@ -34,6 +34,7 @@ const expected = [
   "program-editor.js",
   "program-entry-adapter.js",
   "program-entry.js",
+  "program-review.js",
   "program-transition.js",
   "progress-model.js",
   "progression-engine.js",

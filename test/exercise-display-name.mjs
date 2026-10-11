@@ -531,6 +531,16 @@ async function visitProgram(page, { pt, label }) {
  * The staged candidate's preview: each exercise reads the library's Portuguese name when it carries a
  * library id and its stored name is the English one; the staged data itself is not touched.
  */
+async function reviewNames(page) {
+  const names = [];
+  const count = await page.locator("#entryReview [data-review-tab]").count();
+  for (let index = 0; index < count; index++) {
+    await page.locator(`#entryReview [data-review-tab="${index}"]`).click();
+    names.push(...await texts(page, "#entryReview .review__name"));
+  }
+  return names;
+}
+
 async function checkPreviewReadsPortuguese(page, label, { expectLinked = 1 } = {}) {
   await page.waitForSelector("#entryActivate", { timeout: 20000 });
   const before = await page.evaluate(() => JSON.stringify(window.__repforgeEntryState().result?.preview ?? null));
@@ -541,7 +551,8 @@ async function checkPreviewReadsPortuguese(page, label, { expectLinked = 1 } = {
       const english = !!entry && !entry.custom && ex.name === entry.name;
       return { stored: ex.name, expected: english && entry.namePt ? entry.namePt : ex.name, english };
     })));
-  const shown = await texts(page, "#onbBody .onb__ex b");
+  // Generate and Custom review one day at a time (Plan 070): read every day's tab.
+  const shown = await page.locator("#entryReview").count() ? await reviewNames(page) : await texts(page, "#onbBody .onb__ex b");
   const linked = staged.filter((ex) => ex.english);
   if (expectLinked > 0) assert(linked.length >= expectLinked, `${label}: the staged preview holds English library names`, `${linked.length} of ${staged.length}`);
   assert(shown.length === staged.length && staged.every((ex, i) => shown[i] === ex.expected),

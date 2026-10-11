@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 163 screens,
-991 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 170 screens,
+1016 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -73,7 +73,14 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Recommend 5 — movement abilities](screens/onboarding-recommend/abilities__phone-390-light-en.png) | 3 | The seven competency questions as yes/no/unsure rows, unanswered, with Skip offered. |
 | [Recommend 6 — priorities](screens/onboarding-recommend/priorities__phone-390-light-en.png) | 3 | Primary priorities plus optional movement and exercise-avoidance controls. |
 | [Recommend 5 — avoidance and pain safety](screens/onboarding-recommend/avoidance-pain__phone-390-light-en.png) | 7 | One avoided exercise with the pain reason selected and its safety copy. |
-| [Recommend — recommendation and review](screens/onboarding-recommend/result__phone-390-light-en.png) | 8 | The program first: name, four facts, the week with its first day open, the answers it was built from as chips, why it fits, and the pinned activation. |
+| [Recommend — recommendation and review](screens/onboarding-recommend/result__phone-390-light-en.png) | 8 | Onboarding B's review editor at rest: the source, the program name, four facts, the block row, the tap hint, the day tabs with rest days and the first day's exercises with their sets, RIR and muscles; how it was built follows, with the pinned activation. |
+| [Recommend — review with adjustments](screens/onboarding-recommend/result-changed__phone-390-light-en.png) | 3 | Three rows carry their marks (a set added, an engine swap, a movement added from the catalog) and the changes bar counts them with Undo and Restore. |
+| [Recommend — exercise sheet](screens/onboarding-recommend/review-sheet__phone-390-light-en.png) | 7 | One exercise's sheet at its top: the movement, its role and job, the sets ledger with RIR per set, the set count, rep range and rest controls, and the day's time. |
+| [Recommend — swap and alternates](screens/onboarding-recommend/review-sheet-swap__phone-390-light-en.png) | 3 | The exercise sheet scrolled to the engine's swap candidates, the catalog search and one in-session alternate with its suggestions. |
+| [Recommend — day actions](screens/onboarding-recommend/review-day-menu__phone-390-light-en.png) | 3 | The day menu sheet: rename the day, reorder its exercises, add an exercise. |
+| [Recommend — reorder a day](screens/onboarding-recommend/review-reorder__phone-390-light-en.png) | 3 | A day in reorder mode: each exercise with its handle and up and down arrows, and Done. |
+| [Recommend — an emptied day](screens/onboarding-recommend/review-empty-day__phone-390-light-en.png) | 3 | Every exercise of a training day removed: the tab's pip, the day's warning with Add exercise, and Activate disabled with its reason. |
+| [Recommend — rebuild asks first](screens/onboarding-recommend/review-rebuild-confirm__phone-390-light-en.png) | 3 | An answer chip would rebuild an adjusted program: the confirmation to rebuild or keep the adjustments. |
 | [Recommend — recommendation with a program active](screens/onboarding-recommend/result-existing__phone-390-light-en.png) | 3 | The merged candidate surface while the current program remains untouched. |
 | [Recommend — answer editor open](screens/onboarding-recommend/chip-editor-open__phone-390-light-en.png) | 3 | The review with the days-per-week chip open on its inline editor: the same numeric cards as the question, an Update program action, and the pinned activation set aside. |
 | [Recommend — after a changed answer](screens/onboarding-recommend/result-corrected__phone-390-light-en.png) | 3 | A changed answer rebuilt the program in place: the change statement with Before and Now, an added exercise tagged new, and its day open. |

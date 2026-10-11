@@ -75,14 +75,13 @@ export const CHEVRON_DOWN = { d: "M6.4 9.4l5.6 5.6 5.6-5.6" };
 export const CHEVRON_UP = { d: "M6.4 14.6l5.6-5.6 5.6 5.6" };
 
 /* The G names production already drew, plus `check`: markup uses
-   `icon-mask--check` (renderEntryConstraints) and it had no rule. `alert` is
-   drawn by G but no markup uses `icon-mask--alert`, so no class is emitted;
-   add it here when something does. `arrow` and `chevron` are emitted as the
+   `icon-mask--check` (renderEntryConstraints) and it had no rule, and `alert`,
+   which the review editor's empty-day warning draws (Plan 070). `arrow` and `chevron` are emitted as the
    --arrow token and the .chevron family, not as classes. */
 export const CLASS_NAMES = [
   "wand", "sliders", "search", "pencil", "clipboard", "download", "sheet", "flex", "scale",
   "dumbbell", "building", "house", "kettlebell", "rack", "target", "trend", "cal", "clock",
-  "shield", "pin", "gear", "check", "plus", "minus", "close", "reset",
+  "shield", "pin", "alert", "gear", "check", "plus", "minus", "close", "reset",
 ];
 
 const svg = (i) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='${i.w || 1.75}' stroke-linecap='round' stroke-linejoin='round'>${i.d ? `<path d='${i.d}'/>` : ""}${i.extra || ""}</svg>`;
@@ -95,6 +94,8 @@ export function classRules() {
   for (const k of CLASS_NAMES) rules[`icon-mask--${k}`] = `.icon-mask--${k}{${mask(GLYPHS[k])}}`;
   rules["icon-mask--chev-down"] = `.icon-mask--chev-down{${mask(CHEVRON_DOWN)}}`;
   rules["icon-mask--chev-up"] = `.icon-mask--chev-up{${mask(CHEVRON_UP)}}`;
+  // G's own right chevron, as a class for the review editor's rows (Plan 070).
+  rules["icon-mask--chev-right"] = `.icon-mask--chev-right{${mask(GLYPHS.chevron)}}`;
   return rules;
 }
 

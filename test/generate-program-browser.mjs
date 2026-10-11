@@ -7,6 +7,14 @@
  * canonical generator output for the mapped request and the draft's seed, and
  * survives reload. Cancelling leaves no program, and a request the generator
  * cannot fit shows its conflict instead of a partial program.
+ *
+ * Plan 070: the result screen is onboarding B's program editor. The lifter
+ * adjusts sets, RIR, rest, the rep range, alternates, swaps (an engine
+ * candidate and a catalog search), moves, removes and adds exercises, renames
+ * and reorders a day, undoes and restores, and activates. After every step the
+ * setup draft holds exactly the edit log replayed by program-review.js on the
+ * recommendation; the activated program is that definition, it survives a
+ * reload, and the first workout starts with the edited prescriptions.
  */
 import { createRequire } from "node:module";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
@@ -15,6 +23,9 @@ const require = createRequire(import.meta.url);
 const Adapter = require("../program-entry-adapter.js");
 const Compiler = require("../program-compiler.js");
 const Catalog = require("../assets/exercise-catalog.json");
+const Metrics = require("../exercise-metrics.js");
+const Review = require("../program-review.js");
+const REVIEW_CTX = { compiler: Compiler, catalog: Catalog, metrics: Metrics };
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const failures = [];
@@ -76,6 +87,251 @@ async function answerGenerate(page, { days = 4, minutes = 60, environment = "com
   await page.waitForFunction(() => ["priorities", "result"].includes(window.__repforgeEntryState?.()?.step));
   if ((await entry(page)).step === "priorities") await page.click("#onbNext");
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "result");
+}
+
+// Plan 070: review and adjust -------------------------------------------------
+const reviewed = (page) => page.evaluate(() => window.__repforgeEntryState?.()?.result?.preview?.programDefinition);
+const reviewLog = (page) => page.evaluate(() => JSON.parse(sessionStorage.getItem("repforge_entry_review_v1") || "null"));
+const slotsOf = (definition) => definition.days.flatMap((day) => day.slots || []);
+const trainingDays = (definition) => definition.days.filter((day) => day.kind === "training");
+
+/** One adjustment through the screen, mirrored as one edit in the expected log.
+ *  The setup draft must then hold exactly that log replayed on the
+ *  recommendation, so the screen can neither skip nor invent a change. */
+async function step(page, run, edit, act, label) {
+  await act();
+  if (edit) run.log.push(edit);
+  const expected = Review.replay(run.baseline, run.log, REVIEW_CTX);
+  if (!expected.ok) throw new Error(`${label}: the expected log does not replay (${expected.code} at ${expected.failedAt})`);
+  const want = JSON.stringify(expected.definition);
+  const settled = await page.waitForFunction((value) =>
+    JSON.stringify(window.__repforgeEntryState?.()?.result?.preview?.programDefinition) === value, want, { timeout: 10000 })
+    .then(() => true, () => false);
+  const painted = settled && await page.waitForFunction(() => !document.querySelector("#entryReview[aria-busy]"), undefined, { timeout: 10000 })
+    .then(() => true, () => false);
+  check(settled && painted, `review: ${label}`, settled ? undefined : { log: run.log });
+  run.expected = expected.definition;
+}
+
+async function openSlot(page, slotId) {
+  await page.locator(`#entryReview [data-review-slot="${slotId}"]`).click();
+  await page.waitForSelector("#reviewSheet.is-open [data-review-sets]", { timeout: 5000 });
+}
+async function closeSheet(page) {
+  await page.locator("#reviewSheet [data-review-done]").click();
+  await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 5000 });
+}
+async function pickFromCatalog(page, query) {
+  await page.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
+  await page.fill("#exPickSearch", query);
+  const row = page.locator("#exPickList .pickrow").first();
+  await row.waitFor({ timeout: 5000 });
+  const id = await row.getAttribute("data-pick");
+  await row.click();
+  await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+  return id;
+}
+
+/** After a reload the entry flow comes back through its resume card, or
+ *  straight onto the screen it was on. */
+async function resumeReview(page) {
+  await page.waitForSelector("#entryReview [data-review-slot], #entryResumeContinue, #firstRunCreate", { timeout: 15000 });
+  if (!await page.locator("#entryReview [data-review-slot]").count()) {
+    if (!await page.locator("#entryResumeContinue").count()) await page.click("#firstRunCreate");
+    await page.click("#entryResumeContinue");
+  }
+  await page.waitForSelector("#entryReview [data-review-slot]", { timeout: 15000 });
+}
+
+async function reviewAndAdjust(browser) {
+  const run = await fresh(browser);
+  const { page } = run;
+  await answerGenerate(page);
+  await page.waitForSelector("#entryReview [data-review-slot]", { timeout: 15000 });
+  run.baseline = await reviewed(page);
+  run.log = [];
+  check(!await page.locator("#entryEdit").count(), "review: the Build-editor jump is gone from the result screen");
+  check(await page.locator("#entryReview [data-review-tab]").count() === 7, "review: one tab per day of the week, rest days included");
+  const [dayA, dayB] = trainingDays(run.baseline);
+  const [slotA, slotB, slotC] = dayA.slots;
+
+  // One sheet per exercise: sets, RIR, rest, rep range, alternates, swap.
+  await openSlot(page, slotA.id);
+  const sets = slotA.prescriptionsByCycle[0].sets;
+  await step(page, run, { kind: "sets", slotId: slotA.id, count: sets.length + 1 },
+    () => page.locator('#reviewSheet [data-review-sets="1"]').click(), "a set added in the sheet");
+  const rirDir = sets[0].rir >= 4 ? -1 : 1;
+  await step(page, run, { kind: "rir", slotId: slotA.id, setIndex: 1, rir: sets[0].rir + rirDir },
+    () => page.locator(`#reviewSheet [data-review-rir="1:${rirDir}"]`).click(), "RIR changed on set 1");
+  const rest = sets[0].restSeconds === 90 ? 150 : 90;
+  await step(page, run, { kind: "rest", slotId: slotA.id, seconds: rest },
+    () => page.locator(`#reviewSheet [data-review-rest="${rest}"]`).click(), "rest changed");
+  const range = sets[0].targets.reps || sets[0].targets.repsPerSide;
+  await step(page, run, { kind: "rep_range", slotId: slotA.id, min: range.min, max: range.max + 1 },
+    () => page.locator('#reviewSheet [data-review-max="1"]').click(), "the rep range widened");
+  const minutes = await page.locator("#reviewSheet [data-review-day-time]").innerText();
+  check(/→/.test(minutes), "review: the sheet shows the day's time moving with the edits", minutes);
+  const alternate = await page.locator("#reviewSheet [data-review-alt-add]").first().getAttribute("data-review-alt-add");
+  await step(page, run, { kind: "alternates", slotId: slotA.id, alternates: [alternate] },
+    () => page.locator(`#reviewSheet [data-review-alt-add="${alternate}"]`).click(), "an in-session alternate added");
+  const candidate = await page.locator("#reviewSheet [data-review-swap]").first().getAttribute("data-review-swap");
+  check(Compiler.findSubstitutions(run.expected, slotA.id, {}, Catalog).some((item) => item.exerciseId === candidate),
+    "review: the swap list is the engine's substitutions");
+  await step(page, run, { kind: "swap", slotId: slotA.id, exerciseId: candidate },
+    () => page.locator(`#reviewSheet [data-review-swap="${candidate}"]`).click(), "swapped for an engine candidate");
+  await closeSheet(page);
+  check(await page.locator(`#entryReview [data-review-slot="${slotA.id}"] [data-review-mark]`).count() === 1,
+    "review: the adjusted row carries its mark");
+
+  // Swap through the catalog search, from the sheet.
+  await openSlot(page, slotB.id);
+  await page.locator("#reviewSheet [data-review-search]").click();
+  const searched = await pickFromCatalog(page, "curl");
+  await step(page, run, { kind: "swap", slotId: slotB.id, exerciseId: searched }, async () => {}, "swapped for a catalog search pick");
+
+  // Move to another day; remove and undo from the toast.
+  await openSlot(page, slotB.id);
+  await step(page, run, { kind: "move", slotId: slotB.id, toDayId: dayB.id },
+    () => page.locator(`#reviewSheet [data-review-move-to="${dayB.id}"]`).click(), "moved to another day");
+  await openSlot(page, slotC.id);
+  await step(page, run, { kind: "remove", slotId: slotC.id },
+    () => page.locator("#reviewSheet [data-review-remove]").click(), "removed");
+  await page.waitForSelector("[data-review-toast-undo]", { timeout: 5000 });
+  run.log.pop();
+  await step(page, run, null, () => page.locator("[data-review-toast-undo]").click(), "the toast's Desfazer brings it back");
+
+  // Per day: add from the catalog, rename, reorder.
+  await page.locator(`#entryReview [data-review-tab="${run.baseline.days.indexOf(dayA)}"]`).click();
+  await page.locator("#entryReview [data-review-add]").click();
+  const added = await pickFromCatalog(page, "press");
+  await step(page, run, { kind: "add", dayId: dayA.id, exerciseId: added }, async () => {}, "an exercise added from the catalog");
+  await page.locator("#entryReview [data-review-day-name]").click();
+  await page.fill("#reviewRenameInput", "Peito e costas");
+  await step(page, run, { kind: "day_name", dayId: dayA.id, name: "Peito e costas" },
+    () => page.locator("#reviewSheet [data-review-rename-save]").click(), "the day renamed");
+  check((await page.locator(`#entryReview [data-review-tab="${run.baseline.days.indexOf(dayA)}"]`).innerText()).includes("Peito e costas"),
+    "review: the tab shows the new day name");
+  await page.locator("#entryReview [data-review-day-menu]").click();
+  await page.locator('#reviewSheet [data-review-day-action="reorder"]').click();
+  const order = run.expected.days.find((day) => day.id === dayA.id).slots.map((slot) => slot.id);
+  const reordered = [order[1], order[0], ...order.slice(2)];
+  await step(page, run, { kind: "reorder", dayId: dayA.id, slotIds: reordered },
+    () => page.locator(`#entryReview [data-review-reorder-move="${order[0]}:1"]`).click(), "reordered with the arrows");
+  await page.locator("#entryReview [data-review-reorder-done]").click();
+
+  // The changes bar: undo the last change, then make it again.
+  const count = await page.locator("#entryReview [data-review-count]").innerText();
+  check(/\d/.test(count), "review: the changes bar counts the adjustments", count);
+  run.log.pop();
+  await step(page, run, null, () => page.locator("#entryReview [data-review-undo]").click(), "Desfazer in the changes bar undoes the reorder");
+  await page.locator("#entryReview [data-review-day-menu]").click();
+  await page.locator('#reviewSheet [data-review-day-action="reorder"]').click();
+  await step(page, run, { kind: "reorder", dayId: dayA.id, slotIds: reordered },
+    () => page.locator(`#entryReview [data-review-reorder-move="${order[0]}:1"]`).click(), "reordered again");
+  await page.locator("#entryReview [data-review-reorder-done]").click();
+
+  // A reload keeps the edits and the undo history.
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  await resumeReview(page);
+  check(JSON.stringify(await reviewed(page)) === JSON.stringify(run.expected), "review: a reload keeps every adjustment");
+  check(JSON.stringify((await reviewLog(page))?.edits) === JSON.stringify(run.log), "review: a reload keeps the edit log");
+  run.log.pop();
+  await step(page, run, null, () => page.locator("#entryReview [data-review-undo]").click(), "Desfazer still works after a reload");
+  await page.locator("#entryReview [data-review-day-menu]").click();
+  await page.locator('#reviewSheet [data-review-day-action="reorder"]').click();
+  await step(page, run, { kind: "reorder", dayId: dayA.id, slotIds: reordered },
+    () => page.locator(`#entryReview [data-review-reorder-move="${order[0]}:1"]`).click(), "reordered once more");
+  await page.locator("#entryReview [data-review-reorder-done]").click();
+
+  // Activate commits the edited definition.
+  const edited = run.expected;
+  await page.click("#entryActivate");
+  await page.waitForFunction(() => window.__repforgeWorkoutDraft.state()?.programMeta?.onboarded === true, undefined, { timeout: 20000 });
+  await page.evaluate(() => window.__repforgeStorage?.flush?.());
+  check(JSON.stringify((await state(page)).programMeta.programDefinition) === JSON.stringify(edited),
+    "review: activation stores the edited definition");
+  check(await page.evaluate(() => sessionStorage.getItem("repforge_entry_review_v1")) === null, "review: activation clears the edit log");
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  check(JSON.stringify((await state(page)).programMeta.programDefinition) === JSON.stringify(edited),
+    "review: the edited program survives a reload");
+
+  // The first workout of the renamed day starts with the edited prescriptions.
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({ day: "Peito e costas" }));
+  await page.waitForSelector("#workout .exercise", { timeout: 10000 });
+  const editedSlot = slotsOf(edited).find((slot) => slot.id === slotA.id);
+  const planned = await page.evaluate((slotId) => {
+    const draft = window.__repforgeWorkoutDraft.current();
+    const exercise = Object.values(draft?.exercises || {}).find((item) => item.sourceExerciseId === slotId || item.exerciseInstanceId === slotId);
+    if (!exercise) return { missing: Object.values(draft?.exercises || {}).map((item) => item.sourceExerciseId) };
+    const working = exercise.setOrder.map((id) => exercise.sets[id]).filter((set) => set.role === "working");
+    return { sets: working.length, prescriptions: working.map((set) => ({ targets: set.programmed.targets, rir: set.programmed.targetRir, restSeconds: set.programmed.restSeconds })) };
+  }, slotA.id);
+  const cycle = editedSlot.prescriptionsByCycle[0];
+  check(planned?.sets === cycle.sets.length, "review: the workout has the edited set count", planned);
+  check(JSON.stringify(planned?.prescriptions) === JSON.stringify(cycle.sets.map((set) => ({ targets: set.targets, rir: set.rir, restSeconds: set.restSeconds }))),
+    "review: the workout's sets carry the edited reps, RIR and rest", { planned, cycle: cycle.sets });
+  await run.context.close();
+  return run.errors;
+}
+
+/** Restore asks first and returns to the recommendation; an emptied day
+ *  blocks Activate with its reason; a draft saved at the retired preview step
+ *  resumes on the result screen. */
+async function reviewGuards(browser) {
+  const run = await fresh(browser);
+  const { page } = run;
+  await answerGenerate(page);
+  await page.waitForSelector("#entryReview [data-review-slot]", { timeout: 15000 });
+  run.baseline = await reviewed(page);
+  run.log = [];
+  const [dayA] = trainingDays(run.baseline);
+  await openSlot(page, dayA.slots[0].id);
+  await step(page, run, { kind: "sets", slotId: dayA.slots[0].id, count: dayA.slots[0].prescriptionsByCycle[0].sets.length + 1 },
+    () => page.locator('#reviewSheet [data-review-sets="1"]').click(), "one adjustment before Restore");
+  await closeSheet(page);
+  // An answer that rebuilds the program asks first; keeping the adjustments
+  // leaves them and the answer as they were.
+  await page.click('[data-entry-chip="days"]');
+  await page.waitForSelector("#entryEditor", { timeout: 10000 });
+  await page.locator('#entryEditor [data-entry-pick="daysPerWeek"][data-entry-val="3"]').click();
+  await page.click("#entryChipApply");
+  const asked = await page.waitForSelector("#reviewConfirmKeep", { timeout: 5000 }).then(() => true, () => false);
+  check(asked, "review: a rebuild asks before discarding adjustments");
+  if (asked) await page.click("#reviewConfirmKeep");
+  check(JSON.stringify(await reviewed(page)) === JSON.stringify(run.expected) &&
+    (await entry(page)).answers.daysPerWeek === 4, "review: keeping the adjustments leaves the program and the answer");
+  if (await page.locator("#entryChipKeep").count()) await page.click("#entryChipKeep");
+  await page.locator("#entryReview [data-review-restore]").click();
+  await page.waitForSelector("#reviewConfirmGo", { timeout: 5000 });
+  run.log = [];
+  await step(page, run, null, () => page.locator("#reviewConfirmGo").click(), "Restaurar returns to the recommendation");
+  check(!await page.locator("#entryReview [data-review-changes]").count(), "review: no changes bar once restored");
+
+  for (const slot of dayA.slots) {
+    await openSlot(page, slot.id);
+    await step(page, run, { kind: "remove", slotId: slot.id }, () => page.locator("#reviewSheet [data-review-remove]").click(), "a slot removed");
+  }
+  check(await page.locator("#entryReview [data-review-empty]").isVisible(), "review: the emptied day says so");
+  check(await page.locator("#entryActivate").isDisabled(), "review: an empty training day disables Activate");
+  check((await page.locator("#entryActivationStatus").innerText()).trim().length > 0, "review: the blocked Activate says why");
+
+  // A draft saved at the retired preview step resumes on the result screen.
+  await page.evaluate(() => {
+    const key = "repforge_program_setup_draft_v1";
+    const raw = JSON.parse(localStorage.getItem(key));
+    raw.state.step = "preview";
+    localStorage.setItem(key, JSON.stringify(raw));
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  await resumeReview(page).catch(() => {});
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "result", undefined, { timeout: 10000 })
+    .then(() => check(true, "review: a draft saved at preview resumes on the result screen"),
+      () => check(false, "review: a draft saved at preview resumes on the result screen"));
+  await run.context.close();
+  return run.errors;
 }
 
 async function impossible(browser) {
@@ -190,6 +446,8 @@ async function main() {
     check(JSON.stringify(resumed) === JSON.stringify(first), "the setup draft keeps the reviewed program across a reload");
     await again.context.close();
 
+    allErrors.push(await reviewAndAdjust(browser));
+    allErrors.push(await reviewGuards(browser));
     allErrors.push(await impossible(browser));
     check(allErrors.flat().length === 0, "no page errors during Generate", allErrors.flat());
   } catch (error) {

@@ -42,6 +42,7 @@ export const SUITES = {
     s("test/draft-store-owner-check.mjs"),
     s("test/generative/run.mjs", ["--profile", "ci"]),
     s("test/program-entry.mjs"),
+    s("test/program-review.mjs", [], { domains: ["entry", "program"], seconds: 10 }),
     s("test/program-entry-production-adapter.mjs"),
     s("test/program-compiler-plan067.mjs"),
     s("test/program-compiler-search.mjs", [], { seconds: 10 }),
