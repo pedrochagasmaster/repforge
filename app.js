@@ -14775,8 +14775,6 @@ const ProgramEntryAdapter=typeof window!=="undefined"?window.RepForgeProgramEntr
 const ENTRY_MUSCLES=ProgramEntry.ENTRY_MUSCLES;
 const ENTRY_MOVEMENTS=ProgramEntry.ENTRY_MOVEMENTS;
 const ENTRY_ENVIRONMENTS=ProgramEntry.ENTRY_ENVIRONMENTS;
-const ENTRY_EQUIPMENT=ProgramEntry.KNOWN_EQUIPMENT;
-const ENTRY_CAPABILITIES=ProgramEntry.KNOWN_CAPABILITIES;
 const ENTRY_AVOID_REASONS=ProgramEntry.CONSTRAINT_REASONS;
 let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryExerciseQuery="",entryPendingAvoid=null,entryValidationNotice=false,entryEditorStatusFocusPending=false,entryEditorStatusFocusTimer=null,entryPinnedVersionsExecutable=false,entryDurableConflictNeedsReload=false,entryVisibleScreenKey=null;
 let entryPersistenceDiagnostic=null;
@@ -15408,11 +15406,6 @@ function entryScheduleGroups({browse=false}={}){
 function renderScheduleStep(){
   return entryHeading(t("entry.schedule.title"))+`<p class="onb__explain">${esc(t("entry.schedule.lede"))}</p>${entryLegacyBanner()}`+
     entryScheduleGroups({browse:entryState.route==="browse"})}
-function entryEnvironmentValue(){
-  const env=entryState?.answers?.environment;
-  if(!env?.kind)return null;
-  if(Array.isArray(env.equipment)||Array.isArray(env.capabilities))return env;
-  return ProgramEntryAdapter?.defaultEnvironment?.(env.kind)||{kind:env.kind,equipment:[],capabilities:[]}}
 function entryEnvironmentBody(){
   return `<div class="onb__opts onb__list" role="radiogroup" aria-label="${esc(t("entry.environment.title"))}">`+
     ENTRY_ENVIRONMENTS.map(v=>entryOpt("environment",v,t(`entry.environment.${v}`),"",{selected:entryState.answers.environment?.kind===v,icon:ENTRY_ENV_ICONS[v]||"dumbbell"})).join("")+`</div>`}
@@ -15965,15 +15958,6 @@ function entryPreviewFacts(preview){
 function entryEnvironmentLabel(answers=entryState?.answers||{}){
   const kind=answers.environment?.kind;
   return kind?t(`entry.environment.${kind}`):""}
-function entryEquipmentLabel(answers=entryState?.answers||{}){
-  const env=answers.environment;
-  if(!env?.kind&&!Array.isArray(env?.equipment))return"";
-  const resolved=Array.isArray(env.equipment)?env:ProgramEntryAdapter?.defaultEnvironment?.(env.kind)||env;
-  return [...new Set(resolved.equipment||[])].map(token=>{
-    const key=String(token).trim();
-    const label=t(`entry.equip.${key}`);
-    return label===`entry.equip.${key}`?key:label;
-  }).filter(Boolean).join(", ")}
 function entryPreviewAnswers(preview){
   const answers=entryState?.answers||{},meta=preview?.sharedMeta;
   if(entryState?.route!=="shared"||!meta||typeof meta!=="object")return answers;
@@ -16402,7 +16386,6 @@ function renderResultStep(){
     goal?{icon:"flex",text:t("entry.result.why_goal",{goal})}:null,
     days&&minutes?{icon:"cal",text:t("entry.result.why_schedule",{days,minutes})}:null,
     environmentKind?{icon:"building",text:t(`entry.result.why_environment.${environmentKind}`)}:null,
-    entryEquipmentLabel()?{icon:"dumbbell",text:t("entry.result.why_equipment",{equipment:entryEquipmentLabel()})}:null,
     (entryPriorityLabel()!==t("entry.preview.priorities_none"))?{icon:"target",text:t("entry.result.why_priorities",{priorities:entryPriorityLabel()})}:null,
     custom&&exercisePreferences!==t("entry.preview.exercise_preferences_none")?{icon:"dumbbell",text:t("entry.result.why_exercise_preferences",{preferences:exercisePreferences})}:null,
     {icon:"trend",text:entryProgressionSentence(preview)},
@@ -16882,7 +16865,7 @@ function renderPreviewStep({merged=false}={}){
   const days=renderEntryWeek(preview);
   const progressionIssue=entryPreviewHasProgressionIssue(preview);
   const compromises=(preview.limitations||[]).length+(preview.reductions||[]).length;
-  const environment=[entryEnvironmentLabel(previewAnswers),entryEquipmentLabel(previewAnswers)].filter(Boolean).join(" · ");
+  const environment=entryEnvironmentLabel(previewAnswers);
   const custom=entryState?.route==="custom";
   const reviewRows=[
     {icon:"target",lab:t("entry.preview.priorities"),text:entryPriorityLabel(previewAnswers)},
@@ -17441,8 +17424,7 @@ function wireEntryDom(){
   $$("[data-entry-pick]").forEach(btn=>btn.onclick=()=>{
     const key=btn.dataset.entryPick,raw=btn.dataset.entryVal,multi=btn.dataset.entryMulti==="1";
     if(key==="environment"){
-      const next=ProgramEntryAdapter?.defaultEnvironment?.(raw)||{kind:raw,equipment:[],capabilities:[]};
-      entryPatchAnswers({environment:next});
+      entryPatchAnswers({environment:{kind:raw}});
       return}
     if(key==="musclePriority"){
       const [muscle,status]=String(raw).split("|");
@@ -17463,14 +17445,6 @@ function wireEntryDom(){
       const current={...(entryState.answers.competencyAnswers||{})};
       current[competency]=choice==="yes"?true:choice==="no"?false:null;
       entryPatchAnswers({competencyAnswers:current});
-      return}
-    if(key==="environmentEquipment"||key==="environmentCapabilities"){
-      const env=entryEnvironmentValue()||{kind:"other",equipment:[],capabilities:[]};
-      const field=key==="environmentEquipment"?"equipment":"capabilities";
-      const current=[...(env[field]||[])];
-      const idx=current.indexOf(raw);
-      if(idx>=0)current.splice(idx,1);else current.push(raw);
-      entryPatchAnswers({environment:{...env,[field]:current}});
       return}
     if(key==="avoidReason"){
       const [exerciseId,reason]=String(raw).split("|");

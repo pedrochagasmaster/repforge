@@ -72,8 +72,10 @@ function runCases(page, list) {
     for (const { key, request, seed } of items) {
       const engineText = JSON.stringify(await engine.generate(request, seed));
       const pageText = JSON.stringify(window.RepForgeProgramCompiler.generateProgram(request, catalog, seed));
-      const ok = JSON.parse(engineText).ok;
-      out.push({ key, same: engineText === pageText, digest: `${ok ? "ok" : "conflict"}:${await hex(engineText)}` });
+      // The recorded digests predate confirmation offers (Plan 072), which are
+      // diagnostics beside the result; the same-text check above covers them.
+      const { confirmationOffers, ...recorded } = JSON.parse(engineText);
+      out.push({ key, same: engineText === pageText, digest: `${recorded.ok ? "ok" : "conflict"}:${await hex(JSON.stringify(recorded))}` });
     }
     return out;
   }, list);
