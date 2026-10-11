@@ -458,6 +458,13 @@ try {
       "every screen left forward completes once; the goal tap completes the hub", JSON.stringify(completed));
     assert(completed.every((p) => ["under_10s", "10_30s", "30_60s", "1_3m", "3_10m", "over_10m"].includes(p.time_on_step)),
       "time on step is a bucket", JSON.stringify(completed));
+    const at = (step) => completed.find((p) => p.step === step) || {};
+    assert(at("entry").goal === "muscle_growth" && at("background").experience === "6_to_24m" &&
+      at("schedule").days_per_week === "4" && at("schedule").session_length === "60" &&
+      at("environment").gym_preset === "commercial_gym",
+    "each completed step carries the closed answers it asked", JSON.stringify(completed));
+    assert(at("abilities").goal === undefined && Object.keys(at("abilities")).sort().join() === "route,step,time_on_step",
+      "a step that asked no closed answer carries none", JSON.stringify(at("abilities")));
     assert(!funnel.some(([n]) => n === "onboarding_step_back"), "walking forward reports no back step");
     const settled = funnel.filter(([n]) => n === "generation_settled").map(([, p]) => p);
     assert(settled.length === 1 && settled[0].route === "recommend" && settled[0].outcome === "success" &&
@@ -647,6 +654,7 @@ try {
       "the duration is a bucket",
       JSON.stringify(session),
     );
+    assert(session?.days_since_last === "first", "the lifter's first session reports no previous one", JSON.stringify(session));
     assert(countOf(events, "first_set_logged") === 1, "the first working set is a milestone, reported once");
     assert(
       JSON.stringify(await eventsNamed(page, "set_saved")) === JSON.stringify(Array(4).fill({ vs_suggestion: "no_suggestion" })),
@@ -658,6 +666,28 @@ try {
       "the summary is reported once per session",
       String(countOf(events, "session_summary_viewed")),
     );
+    await context.close();
+  }
+
+  phase("A return session reports the bucketed days since the previous one");
+  {
+    const first = Date.parse("2026-09-01T09:00:00.000Z");
+    const { context, page } = await openApp(browser, { seed: loggableProgram(), at: first });
+    await enterWorkout(page, "Day 1");
+    await saveSetByHand(page, SEED_A, 1, 60);
+    await finishEarly(page);
+    await page.waitForFunction(() => window.__captured.some(([n]) => n === "session_completed"), undefined, { timeout: 10000 });
+    await page.evaluate(() => window.__repforgeStorage?.flush?.());
+    await page.clock.setFixedTime(new Date(first + 3 * 86400000));
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    await enterWorkout(page, "Day 1");
+    await saveSetByHand(page, SEED_A, 1, 62.5);
+    await finishEarly(page);
+    await page.waitForFunction(() => window.__captured.some(([n]) => n === "session_completed"), undefined, { timeout: 10000 });
+    const sessions = await eventsNamed(page, "session_completed");
+    assert(sessions.length === 1 && sessions[0].days_since_last === "2_3",
+      "a session three days after the last reports 2_3, never the dates", JSON.stringify(sessions));
     await context.close();
   }
 

@@ -1668,6 +1668,19 @@ function draftUnitConversionEffect(expectedRaw,oldUnit,newUnit){
     precondition:DRAFT_PRECONDITION_ABORT_CHANGED})}
 const posNum=(v,f=0)=>{const n=parseDec(v);return Math.max(0,Number.isFinite(n)?n:f)};
 const isWork=r=>!r.warmup;
+/* Calendar days from the lifter's previous session to this one, from the
+   saved log (Plan 071 §7); null when there is none. A backdated session
+   compares only with sessions on or before its own date. */
+function daysSinceLastSession(prevLog,date){
+  const at=Date.parse(`${date}T00:00:00Z`);
+  if(!Number.isFinite(at))return undefined;
+  let previous=null;
+  for(const row of prevLog||[]){
+    if(!isWork(row)||typeof row.date!=="string"||row.date>date)continue;
+    if(previous===null||row.date>previous)previous=row.date}
+  if(previous===null)return null;
+  const days=Math.round((at-Date.parse(`${previous}T00:00:00Z`))/86400000);
+  return Number.isSafeInteger(days)&&days>=0?days:undefined}
 const movementToken=s=>String(s??"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();
 const loggedMovementName=row=>String(row?.performedName||row?.name||"");
 const movementIdKey=id=>String(id||"").startsWith("library:")?String(id):`movement:${id}`;
@@ -8791,7 +8804,8 @@ async function saveWorkoutV2(io,{expectedDraft=null,completion="normal"}={}){
   captureEvent("session_completed",{
     set_count:window.RepForgeTelemetry?.bucketCount(rows.filter(isWork).length,"sets"),
     exercise_count:window.RepForgeTelemetry?.bucketCount(new Set(rows.filter(isWork).map(row=>row.exerciseId)).size,"exercises"),
-    duration:window.RepForgeTelemetry?.bucketDuration(startedAt?Math.max(0,(Date.now()-startedAt)/60000):0)});
+    duration:window.RepForgeTelemetry?.bucketDuration(startedAt?Math.max(0,(Date.now()-startedAt)/60000):0),
+    days_since_last:window.RepForgeTelemetry?.bucketDaysSince?.(daysSinceLastSession(prevLog,date))||undefined});
   const btn=$(".btn--save");if(btn){btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped")}
   const savedFallback=()=>{
     render();
@@ -15040,7 +15054,7 @@ function closeOnboarding(){
    opened by itself stays quiet until the lifter picks a route. */
 let entryFunnelView=null,entryFunnelArmed=false;
 function observeEntryStep(route,step){
-  const view={route,step,at:Date.now()};
+  const view={route,step,at:Date.now(),answers:entryState?.answers||{}};
   let events=[];
   try{events=window.RepForgeTelemetry?.entryFunnelEvents?.(entryFunnelView,view,ProgramEntry?.ROUTE_STEPS)||[]}catch{}
   if(!events.length)return;

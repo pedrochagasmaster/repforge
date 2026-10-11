@@ -81,15 +81,21 @@ by a later onboarding change appears as a new row without a recipe change.
 4. **Time on step**: Trends, `onboarding_step_completed` event count,
    filter one route, breakdown `step`, then `time_on_step`. Buckets only;
    never reconstruct seconds.
-5. **Generation health**: Trends, `generation_settled` event count, breakdown
+5. **Who stops**: Funnel, unique installations,
+   `onboarding_step_completed{step=schedule}` →
+   `onboarding_step_completed{step=environment}` → `program_activated`.
+   Break down by `days_per_week`, then `session_length`, then `gym_preset`,
+   one at a time. Repeat for `goal` and `experience` at their steps. A
+   breakdown value with under 10 installations is not read.
+6. **Generation health**: Trends, `generation_settled` event count, breakdown
    `outcome`, then `duration`. A success that lands in `3_10s` or `over_10s`
    is a stall the lifter watched. Compare app versions across the Worker
    change (#353), since the event means the same either way.
-6. **Leaving and resuming**: Trends, `onboarding_exit` by `action` and
+7. **Leaving and resuming**: Trends, `onboarding_exit` by `action` and
    `step`; `onboarding_resume_offered` by `status`; funnel
    `onboarding_exit{action=keep_draft}` → `onboarding_started{resumed=true}`
    within 7 days.
-7. **Activation failures**: Trends, `program_activation_failed` by `reason`
+8. **Activation failures**: Trends, `program_activation_failed` by `reason`
    and `route`. Threshold: any `definition_invalid` is a defect.
 
 ## Dashboard: Recommendation editor (Plan 071)
@@ -135,6 +141,10 @@ by a later onboarding change appears as a new row without a recipe change.
 3. **First-session shape**: Trends for `session_completed`, event count,
    separately broken down by `set_count`, `exercise_count`, and `duration`.
    Values are coarse buckets, never reconstructed numbers.
+4. **Return gap**: Trends, `session_completed` event count, breakdown
+   `days_since_last`; weekly. A shift toward `8_14` and longer is lifters
+   slipping before they stop. `first` marks each installation's first saved
+   session.
 
 A witnessed `first_run=true` boot is an observation filter, not proof of a
 first-ever installation or person. Confirm recruitment/history in the private

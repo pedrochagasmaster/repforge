@@ -65,6 +65,47 @@
     "sets", "rep_range", "rir", "rest", "swap", "alternates",
     "move", "remove", "reorder", "add", "day_name",
   ]);
+  /* Closed engine answers a completed step may carry (Plan 071 §7, owner
+     decision 2026-10-11). Each step owns the answers it asks; a value outside
+     these lists is dropped, never sent. B's Basics are not here and never
+     will be: no property may name one (test/telemetry-unit.mjs). */
+  const STEP_ANSWER_VALUES = Object.freeze({
+    goal: Object.freeze(["muscle_growth", "balanced", "strength"]),
+    experience: Object.freeze(["first", "under_6m", "6_to_24m", "over_24m"]),
+    days_per_week: Object.freeze(["2", "3", "4", "5", "6"]),
+    session_length: Object.freeze(["up_to_40", "60", "90", "120_plus"]),
+    gym_preset: Object.freeze(["commercial_gym", "basic_gym", "limited_home", "full_home", "other"]),
+    split: Object.freeze(["full_body", "upper_lower", "push_pull_legs_upper_lower", "push_pull_legs"]),
+    deload: Object.freeze(["on", "off"]),
+  });
+  const sessionLength = (minutes) => !Number.isFinite(minutes) ? undefined :
+    minutes <= 40 ? "up_to_40" : minutes <= 60 ? "60" : minutes <= 90 ? "90" : "120_plus";
+  // The answers each step asks, by step id. A step Plan 072 adds that asks an
+  // engine answer joins this table; a Basics step never does.
+  const STEP_ANSWERS = Object.freeze({
+    entry: (answers) => ({ goal: answers.desiredResult }),
+    desired_result: (answers) => ({ goal: answers.desiredResult }),
+    background: (answers) => ({ experience: answers.structuredExperience }),
+    schedule: (answers) => ({
+      days_per_week: Number.isInteger(answers.daysPerWeek) ? String(answers.daysPerWeek) : undefined,
+      session_length: sessionLength(answers.sessionMinutes),
+    }),
+    environment: (answers) => ({ gym_preset: answers.environment && answers.environment.kind }),
+    custom_shape: (answers) => ({ split: answers.splitPreference }),
+  });
+
+  function stepAnswers(step, answers) {
+    const project = STEP_ANSWERS[step];
+    if (!project || !answers || typeof answers !== "object") return {};
+    let projected = {};
+    try { projected = project(answers) || {}; } catch { return {}; }
+    const clean = {};
+    for (const [key, value] of Object.entries(projected)) {
+      if (STEP_ANSWER_VALUES[key] && STEP_ANSWER_VALUES[key].includes(value)) clean[key] = value;
+    }
+    return clean;
+  }
+
   const entryRoute = values(...ENTRY_ROUTES);
   const entryRouteOrHub = values("none", ...ENTRY_ROUTES);
   const entryStep = values(...ENTRY_STEPS);
@@ -90,7 +131,10 @@
     onboarding_started: event({ origin: values("first_run", "settings", "block"), resumed: boolean }, "Program entry opened", "repeatable"),
     onboarding_resume_offered: event({ status: values("resumable", "rules_changed", "activation_conflict", "corrupt") }, "Saved setup draft found on opening program entry", "repeatable"),
     onboarding_step_viewed: event({ route: entryRouteOrHub, step: entryStep }, "Program-entry step shown", "repeatable"),
-    onboarding_step_completed: event({ route: entryRouteOrHub, step: entryStep, time_on_step: values("under_10s", "10_30s", "30_60s", "1_3m", "3_10m", "over_10m") }, "Program-entry step left forward", "repeatable"),
+    onboarding_step_completed: event({
+      route: entryRouteOrHub, step: entryStep, time_on_step: values("under_10s", "10_30s", "30_60s", "1_3m", "3_10m", "over_10m"),
+      ...Object.fromEntries(Object.entries(STEP_ANSWER_VALUES).map(([key, allowed]) => [key, optional(values(...allowed))])),
+    }, "Program-entry step left forward, with the closed engine answers it asked", "repeatable"),
     onboarding_step_back: event({ route: entryRouteOrHub, step: entryStep }, "Program-entry step left backward", "repeatable"),
     onboarding_exit: event({ action: values("keep_draft", "discard_draft", "start_over"), route: entryRouteOrHub, step: entryStep }, "Program entry left or restarted", "repeatable"),
     generation_settled: event({ route: values("recommend", "custom"), outcome: values("success", "rules_changed", "rebuild_failed", "generation_conflict"), duration: values("under_1s", "1_3s", "3_10s", "over_10s") }, "Program generation request settled", "repeatable"),
@@ -113,7 +157,7 @@
     exercise_skipped: event({ context: values("planned_session", "one_off") }, "Exercise explicitly skipped", "repeatable"),
     // No reason is asked in the workout, so none is sent (Plan 071 owner question 3).
     substitution_used: event({ source: values("alternate", "library"), reason: optional(values("equipment", "preference", "pain", "crowded", "other")) }, "Exercise substitution committed", "repeatable"),
-    session_completed: event({ set_count: values("0", "1_5", "6_10", "11_20", "21_plus"), exercise_count: values("0", "1_3", "4_6", "7_plus"), duration: values("0_15", "16_30", "31_60", "61_90", "90_plus") }, "Planned session completed", "once_per_session"),
+    session_completed: event({ set_count: values("0", "1_5", "6_10", "11_20", "21_plus"), exercise_count: values("0", "1_3", "4_6", "7_plus"), duration: values("0_15", "16_30", "31_60", "61_90", "90_plus"), days_since_last: optional(values("first", "same_day", "1", "2_3", "4_7", "8_14", "15_30", "31_plus")) }, "Planned session completed", "once_per_session"),
     workout_discarded: event({ stage: values("before_set", "working"), cause: values("program_edit") }, "Workout in progress discarded", "once_per_session"),
     session_summary_viewed: event({}, "Completed-session summary opened", "once_per_session"),
     block_review_viewed: event({ completion: values("early", "partial", "complete", "extended") }, "Block review opened", "repeatable"),
@@ -445,6 +489,14 @@
     return milliseconds < 1000 ? "under_1s" : milliseconds < 3000 ? "1_3s" : milliseconds < 10000 ? "3_10s" : "over_10s";
   }
 
+  // Calendar days since the lifter's previous session; null when unknown.
+  function bucketDaysSince(days) {
+    if (days === null) return "first";
+    if (!Number.isSafeInteger(days) || days < 0) return null;
+    return days === 0 ? "same_day" : days === 1 ? "1" : days <= 3 ? "2_3" : days <= 7 ? "4_7" :
+      days <= 14 ? "8_14" : days <= 30 ? "15_30" : "31_plus";
+  }
+
   function bucketChanges(count) {
     if (!Number.isSafeInteger(count) || count < 0) return null;
     return count === 0 ? "0" : count <= 2 ? "1_2" : count <= 5 ? "3_5" : count <= 10 ? "6_10" : "11_plus";
@@ -482,7 +534,9 @@
       }
       if (direction === "forward") {
         const time = bucketStepTime(next.at - previous.at);
-        if (time) events.push(["onboarding_step_completed", { ...from, time_on_step: time }]);
+        // The hub asks the goal only on its Generate shortcut.
+        const answered = previous.step === "entry" && next.route !== "recommend" ? {} : stepAnswers(previous.step, nextView.answers);
+        if (time) events.push(["onboarding_step_completed", { ...from, time_on_step: time, ...answered }]);
       } else if (direction === "back") events.push(["onboarding_step_back", from]);
     }
     events.push(["onboarding_step_viewed", { route: next.route, step: next.step }]);
@@ -558,6 +612,7 @@
     boot,
     bucketChanges,
     bucketCount,
+    bucketDaysSince,
     bucketDuration,
     bucketGeneration,
     bucketStepTime,
@@ -572,7 +627,7 @@
     },
     getEventPolicy: name => EVENTS[name]?.duplicates || null,
     getEventProperties: name => (EVENTS[name] ? Object.freeze(Object.keys(EVENTS[name].properties)) : null),
-    getEntryVocabulary: () => Object.freeze({ routes: ENTRY_ROUTES, steps: ENTRY_STEPS, reviewEditKinds: REVIEW_EDIT_KINDS }),
+    getEntryVocabulary: () => Object.freeze({ routes: ENTRY_ROUTES, steps: ENTRY_STEPS, reviewEditKinds: REVIEW_EDIT_KINDS, stepAnswers: STEP_ANSWER_VALUES }),
     getAutocaptureActions: () => AUTOCAPTURE_ACTIONS,
     getSchemaVersion: () => SCHEMA_VERSION,
     hasEmittedLateInstallTransfer,

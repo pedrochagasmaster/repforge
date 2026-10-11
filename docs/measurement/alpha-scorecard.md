@@ -81,6 +81,10 @@ position. Order a route's steps by `ProgramEntry.ROUTE_STEPS` when reading.
 Drop-off is derived: the last step an installation viewed with no activation
 within seven days. No event reports it. `onboarding_step_completed.time_on_step`
 is measured in memory from the step's view and restarts after a reload.
+A completed step also carries the closed engine answers it asked (`goal`,
+`experience`, `days_per_week`, `session_length`, `gym_preset`, `split`,
+`deload`; Plan 071 §7 decision 2). Break drop-off down by an earlier step's
+answer to see who stops, never by a Basics answer. None is collected.
 An entry the app opened by itself reports nothing until the lifter picks a
 route.
 
@@ -145,6 +149,9 @@ Plan 071 adds these producers. Each attaches to a domain boundary:
   - `new_program`, at the activation of the program the block handed over to.
 - **`settings_changed`.** One event per setting name whose saved value
   changed. Values are never sent.
+- **`session_completed.days_since_last`.** Calendar days from the latest
+  earlier saved session in the log, bucketed; `first` when there is none. It is
+  the return gap without a session-start event (Plan 045 §4).
 
 Every declared event has a producer; `tools/check-production-syntax.mjs` keeps
 a reserve list for any future declaration that ships before its producer.
