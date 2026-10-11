@@ -335,8 +335,12 @@
     const expanded = expandTree(tree, sourceIdentities);
     if (!expanded.ok || !isPlainObject(expanded.value)) return expanded;
     const definition = expanded.value;
-    for (const day of definition.days || []) {
-      for (const slot of day?.slots || []) {
+    // Received bytes are untrusted until validated: walk only arrays, so a
+    // malformed value reaches validation and is refused rather than thrown (#356).
+    const list = (value) => (Array.isArray(value) ? value : []);
+    for (const day of list(definition.days)) {
+      for (const slot of list(day?.slots)) {
+        if (!isPlainObject(slot)) continue;
         if (slot.sourceExerciseIds === null && typeof slot.exerciseId === "string") {
           slot.sourceExerciseIds = [slot.exerciseId];
         }
@@ -345,8 +349,9 @@
           if (!definitions) return { ok: false, code: "invalid-envelope" };
           slot.metricDefinitions = definitions;
         }
-        for (const cycle of slot.prescriptionsByCycle || []) {
-          for (const set of cycle?.sets || []) {
+        for (const cycle of list(slot.prescriptionsByCycle)) {
+          for (const set of list(cycle?.sets)) {
+            if (!isPlainObject(set)) continue;
             if (set.metricIds === null && set.metricDefinitions === null
               && Array.isArray(slot.metricIds) && Array.isArray(slot.metricDefinitions)) {
               set.metricIds = cloneCanonical(slot.metricIds);

@@ -320,6 +320,53 @@ console.log("v4 encoding preserves scalar leaves in a canonical definition");
   assert.equal(malformed.code, "invalid-envelope");
 }
 
+console.log("a crafted link with a non-array where a list belongs is refused, never thrown (#356)");
+{
+  // The generative property "decode totality" found this with a random seed:
+  // `sets: true` inside a slot made decode throw a TypeError instead of
+  // refusing the link. Each case is built from a real encoding, with one list
+  // replaced on the wire. Expansion keeps key order, so the wire's object
+  // entries are matched to the decoded document's keys by position.
+  const input = compactRepsDocument();
+  const encoded = await Setup.encode(input, compilerOptions);
+  assert.equal(encoded.ok, true, JSON.stringify(encoded));
+  const decoded = await Setup.decode(encoded.value, compilerOptions);
+  assert.equal(decoded.ok, true, JSON.stringify(decoded));
+  function replaceList(node, value, key, replacement) {
+    if (!Array.isArray(node)) return false;
+    if (node[0] === "o" && value && typeof value === "object" && !Array.isArray(value)) {
+      const keys = Object.keys(value);
+      for (let index = 1, position = 0; index < node.length; index += 2, position += 1) {
+        if (keys[position] === key) { node[index + 1] = replacement; return true; }
+        if (replaceList(node[index + 1], value[keys[position]], key, replacement)) return true;
+      }
+    }
+    if (node[0] === "a" && Array.isArray(value)) {
+      for (let index = 1; index < node.length; index += 1) {
+        if (replaceList(node[index], value[index - 1], key, replacement)) return true;
+      }
+    }
+    return false;
+  }
+  for (const [key, replacement] of [["sets", true], ["prescriptionsByCycle", 1], ["slots", "x"], ["days", true]]) {
+    const wire = JSON.parse(await gunzipText(bytesFromBase64url(encoded.value.slice(3))));
+    // A catalog-bound definition travels as ["c", catalog fingerprint, tree].
+    const tree = wire[2][0] === "c" ? wire[2][2] : wire[2];
+    assert.equal(replaceList(tree, decoded.value.program.definition, key, replacement), true,
+      `the compact definition carries ${key}`);
+    const crafted = `v4.${base64url(await gzipText(JSON.stringify(wire)))}`;
+    let refused;
+    try {
+      refused = await Setup.decode(crafted, compilerOptions);
+    } catch (error) {
+      assert.fail(`${key}: ${JSON.stringify(replacement)} made decode throw: ${error}`);
+    }
+    assert.equal(refused.ok, false, `${key}: ${JSON.stringify(replacement)} is refused`);
+    assert.ok(["invalid-envelope", "invalid-program-definition"].includes(refused.code),
+      `${key}: ${JSON.stringify(replacement)} is refused with a typed invalid code, got ${refused.code}`);
+  }
+}
+
 console.log("representative complete URL is short and lossless");
 {
   const representativeInput = compactRepsDocument();
