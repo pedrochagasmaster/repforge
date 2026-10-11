@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import {
+  BASICS_PROPERTY_PATTERN,
   DUPLICATE_POLICY_VOCABULARY,
   EVENT_DUPLICATE_POLICIES,
   HOSTILE_SENTINELS,
@@ -10,6 +11,8 @@ import {
 
 const require = createRequire(import.meta.url);
 const Telemetry = require("../telemetry.js");
+const ProgramEntry = require("../program-entry.js");
+const ProgramReview = require("../program-review.js");
 const FIXED_UUID = "123e4567-e89b-42d3-a456-426614174000";
 const FIXED_DATE = new Date("2026-08-27T00:00:00.000Z");
 
@@ -216,5 +219,87 @@ assert.equal(Telemetry.bucketCount(1.5, "sets"), null);
 assert.equal(Telemetry.bucketDuration(15), "0_15");
 assert.equal(Telemetry.bucketDuration(90.1), "90_plus");
 assert.equal(Telemetry.bucketDuration(-1), null);
+
+assert.equal(Telemetry.bucketStepTime(9999), "under_10s");
+assert.equal(Telemetry.bucketStepTime(10000), "10_30s");
+assert.equal(Telemetry.bucketStepTime(179999), "1_3m");
+assert.equal(Telemetry.bucketStepTime(600000), "over_10m");
+assert.equal(Telemetry.bucketStepTime(-1), null);
+assert.equal(Telemetry.bucketGeneration(999), "under_1s");
+assert.equal(Telemetry.bucketGeneration(3000), "3_10s");
+assert.equal(Telemetry.bucketGeneration(Number.NaN), null);
+assert.equal(Telemetry.bucketChanges(0), "0");
+assert.equal(Telemetry.bucketChanges(2), "1_2");
+assert.equal(Telemetry.bucketChanges(11), "11_plus");
+assert.equal(Telemetry.bucketChanges(1.5), null);
+
+// The funnel keys on ProgramEntry's own vocabulary (Plan 071 §4). A route or
+// step added to program entry without its telemetry value would be refused
+// at capture and vanish from the funnel, so the two lists move together.
+{
+  const vocabulary = Telemetry.getEntryVocabulary();
+  assert.deepEqual([...vocabulary.routes], [...ProgramEntry.ROUTES], "telemetry routes are ProgramEntry.ROUTES");
+  const steps = new Set(vocabulary.steps);
+  for (const [route, list] of Object.entries(ProgramEntry.ROUTE_STEPS)) {
+    for (const step of list) assert.ok(steps.has(step), `ROUTE_STEPS.${route} step ${step} has a telemetry step value`);
+  }
+  assert.ok(steps.has("entry") && steps.has("activation_conflict"));
+  assert.deepEqual([...vocabulary.reviewEditKinds], [...ProgramReview.EDIT_KINDS], "review edit kinds are program-review.js EDIT_KINDS");
+}
+
+// B's Basics never reach telemetry, whatever the event (Plan 071 §7).
+for (const name of Telemetry.getEventNames("all")) {
+  for (const property of Telemetry.getEventProperties(name)) {
+    assert.doesNotMatch(property, BASICS_PROPERTY_PATTERN, `${name}.${property} names a Basics answer`);
+  }
+}
+
+// The funnel projection reads only route, step and time from what it is given.
+{
+  const steps = ProgramEntry.ROUTE_STEPS;
+  const at = (seconds) => seconds * 1000;
+  const funnel = (from, to) => Telemetry.entryFunnelEvents(from, to, steps);
+  assert.deepEqual(funnel(null, { route: null, step: "entry", at: 0 }),
+    [["onboarding_step_viewed", { route: "none", step: "entry" }]], "the hub opens as a view only");
+  assert.deepEqual(funnel({ route: null, step: "entry", at: 0 }, { route: "recommend", step: "background", at: at(4) }), [
+    ["onboarding_step_completed", { route: "none", step: "entry", time_on_step: "under_10s" }],
+    ["onboarding_step_viewed", { route: "recommend", step: "background" }],
+  ], "leaving the hub for a route completes the hub, whichever step the route opens on");
+  assert.deepEqual(funnel({ route: "recommend", step: "schedule", at: at(10) }, { route: "recommend", step: "environment", at: at(55) }), [
+    ["onboarding_step_completed", { route: "recommend", step: "schedule", time_on_step: "30_60s" }],
+    ["onboarding_step_viewed", { route: "recommend", step: "environment" }],
+  ]);
+  assert.deepEqual(funnel({ route: "custom", step: "custom_shape", at: 0 }, { route: "custom", step: "priorities", at: 1 }), [
+    ["onboarding_step_back", { route: "custom", step: "custom_shape" }],
+    ["onboarding_step_viewed", { route: "custom", step: "priorities" }],
+  ]);
+  assert.deepEqual(funnel({ route: "build", step: "build_setup", at: 0 }, { route: null, step: "entry", at: 1 }), [
+    ["onboarding_step_back", { route: "build", step: "build_setup" }],
+    ["onboarding_step_viewed", { route: "none", step: "entry" }],
+  ]);
+  assert.deepEqual(funnel({ route: "recommend", step: "result", at: 0 }, { route: "recommend", step: "result", at: 9 }), [],
+    "a re-render of the same step is not a new view");
+  assert.deepEqual(funnel({ route: "recommend", step: "result", at: 0 }, { route: "recommend", step: "activation_conflict", at: 9 }),
+    [["onboarding_step_viewed", { route: "recommend", step: "activation_conflict" }]], "a conflict the app raised is not the lifter moving");
+  assert.deepEqual(funnel(null, { route: "recommend", step: "step_7", at: 0 }), [], "an unknown step is never invented into the funnel");
+
+  // B's Basics ride along on the state the app hands over; none of it leaves.
+  const basics = {
+    sex: "TAURIFER_SENTINEL_SEX_7ab0", birthDate: "1977-04-13", ageYears: 47, heightCm: 187.3,
+    bodyweightKg: 91.7, cardioExperience: "TAURIFER_SENTINEL_CARDIO_7ab0",
+    structuredExperience: "6_to_24m", programName: "TAURIFER_SENTINEL_FREE_TEXT_7ab0",
+  };
+  const events = funnel(
+    { route: "recommend", step: "desired_result", at: 0, answers: basics, ...basics },
+    { route: "recommend", step: "background", at: at(20), answers: basics, ...basics },
+  );
+  assert.equal(events.length, 2);
+  const { sent } = boot();
+  for (const [name, properties] of events) assert.equal(Telemetry.capture(name, properties), true, name);
+  const rendered = JSON.stringify(sent);
+  for (const value of ["SENTINEL", "1977", "47", "187.3", "91.7", "6_to_24m"]) {
+    assert.ok(!rendered.includes(value), `Basics value ${value} stays out of the funnel payload`);
+  }
+}
 
 console.log("telemetry unit: schema, identity, opt-out, failure isolation, and buckets pass");

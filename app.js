@@ -2731,6 +2731,13 @@ function noteCommittedWorkingSets(draft){
   for(const [exerciseId,exercise] of Object.entries(draft.exercises||{}))
     for(const [setId,set] of Object.entries(exercise?.sets||{}))
       if(set.role!=="warmup"&&set.completion!=="pending")countedWorkingSets.keys.add(`${exerciseId}\u0000${setId}`)}
+/* A workout in progress thrown away by the lifter's own choice (Plan 071
+   §5.5). The stage says whether a working set had been committed. */
+function reportWorkoutDiscarded(draft,cause){
+  if(!draft)return;
+  const working=Object.values(draft.exercises||{}).some(exercise=>Object.values(exercise?.sets||{})
+    .some(set=>set.role!=="warmup"&&set.completion!=="pending"));
+  captureEvent("workout_discarded",{stage:working?"working":"before_set",cause})}
 function captureDraftCommandTelemetry(command,before,after,ui){
   try{
     noteCommittedWorkingSets(before);
@@ -2740,7 +2747,10 @@ function captureDraftCommandTelemetry(command,before,after,ui){
         captureEvent("set_saved",{vs_suggestion:setVsSuggestion(set,command.exerciseInstanceId)})}
     noteCommittedWorkingSets(after);
     // Q618: the lifter's own skips only; the bulk "skip flagged" offer opts out.
-    if(command.type==="skipExercise"&&ui?.bulk!==true&&before?.exercises?.[command.exerciseInstanceId]?.status!=="skipped")captureEvent("exercise_skipped",{context:"planned_session"})}
+    if(command.type==="skipExercise"&&ui?.bulk!==true&&before?.exercises?.[command.exerciseInstanceId]?.status!=="skipped")captureEvent("exercise_skipped",{context:"planned_session"});
+    // Plan 071 §5.5: where the replacement came from; no reason is asked, so none is sent.
+    if(command.type==="substituteExercise"&&(ui?.substitutionSource==="alternate"||ui?.substitutionSource==="library"))
+      captureEvent("substitution_used",{source:ui.substitutionSource})}
   catch{}}
 function enqueueDraftCommand(type,payload={},ui={}){
   const operationId=`draft-${uid()}`;
@@ -2980,7 +2990,7 @@ async function applyPredefinedSub(id,name,libraryRef=null){
   const payload={exerciseInstanceId:id};if(n){payload.replacement=replacementSnapshot(id,n,libraryRef);payload.selectedAt=new Date().toISOString()}
   const result=await WorkoutSession.dispatch(type,payload);if(result.status!=="applied")return false;
   renderWorkout();return true}
-async function applyCustomSub(id,raw,libraryRef=null){
+async function applyCustomSub(id,raw,libraryRef=null,ui={}){
   const name=String(raw||"").trim().slice(0,80);
   const progName=prog.find(id)?.name;
   if(!activeWorkoutDraft)return false;
@@ -2991,7 +3001,7 @@ async function applyCustomSub(id,raw,libraryRef=null){
     // no composition to program; applying would skip the touched-set check.
     if(program==="unconfigured"){toast(t("entry.preview.metrics_required"));return false}
     if(program)payload.replacementProgram=program}
-  const result=await WorkoutSession.dispatch(type,payload);
+  const result=await WorkoutSession.dispatch(type,payload,ui);
   if(result.status==="domain-error"&&result.error?.code==="substitution-touched-pending-set")toast(t("toast.substitute_started_sets"));
   if(result.status!=="applied")return false;
   renderWorkout();return true}
@@ -3015,7 +3025,8 @@ function openSubstitutePicker(id){
     leading:{title:"picker.section_alternates",ids:Array.isArray(slot?.alternates)?slot.alternates:[]},
     onPick:entry=>{
       if(self&&entry.id===self.id)applyPredefinedSub(id,"");
-      else applyCustomSub(id,libraryName(entry),entry.id)}})}
+      else applyCustomSub(id,libraryName(entry),entry.id,
+        {substitutionSource:(slot?.alternates||[]).includes(entry.id)?"alternate":"library"})}})}
 function fatigueFlagged(){return exercises().filter(e=>{const r=recommendation(sessionExercise(e));return r.status==="reduce"||r.stalled})}
 async function applyFatigueTrim(){
   const flagged=new Set(fatigueFlagged().map(e=>e.id));
@@ -3924,6 +3935,8 @@ function renderSiblingPreview(el,flow){
       successorProgramId:p.successor?.programId,confirmedAt:new Date().toISOString(),
       acknowledgedDraftRaw:readDraftRaw()});
     if(persisted?.committed){
+      const action={"schedule-repair":"schedule_repair","reduce-volume":"reduce_volume","recovery-week":"recovery_week","guided-edit":"guided_edit"}[flow.action];
+      if(action)captureEvent("block_transition_chosen",{action});
       const doneKey=recovery?"review.recovery.committed":change.kind==="reduce_volume"?"review.volume.committed":"review.done.committed";
       reviewFlow={stage:"done",doneKey};
       day=days()[0]||"Day 1";toast(t(doneKey));render();
@@ -4071,6 +4084,7 @@ function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
       :{capture:cap,effect});
     const result=blockTransitionDurableResult(persisted);
     if(result.committed){
+      captureEvent("block_transition_chosen",{action:"repeat"});
       pendingBlockTransition=null;day=days()[0]||"Day 1";toast(t("toast.new_block_volume_reduced"));render()}
     return result})();
   blockCommitInFlight={oldProgramId:oldId,promise:task};
@@ -11059,6 +11073,7 @@ function createInstalledProgramEditorAdapter(){
         ?destructiveDraftClearEffect(readDraftRaw()):impact.effect||renameEffect;
       const dayRenames=edits.filter(edit=>edit?.kind==="day_name"&&edit.before!==undefined&&edit.after!==undefined)
         .map(edit=>({from:String(edit.before),to:String(edit.after)}));
+      const draftBefore=activeWorkoutDraft;
       const result=await commitProposedState(proposal,storageIO,{effect,dayRenames,
         expectedProgramId:headToken.programId,expectedBlockId:headToken.blockId,
         preflight:({head:lockedHead})=>{
@@ -11086,7 +11101,10 @@ function createInstalledProgramEditorAdapter(){
           return{proposal:lockedProposal};
         }});
       if(result.committed===true&&result.settled===true){
-        if(effect?.status==="valid"&&effect.effect?.kind==="clear-draft")resetDraftSessionState();
+        const discarded=effect?.status==="valid"&&effect.effect?.kind==="clear-draft";
+        if(discarded)reportWorkoutDiscarded(activeWorkoutDraft||draftBefore,"program_edit");
+        captureEvent("active_program_edited",{outcome:discarded?"discarded_workout":"saved"});
+        if(discarded)resetDraftSessionState();
         installedEditorSession=null;return{...result,ok:true,document,token:installedEditorToken(state)}}
       return{...result,ok:false,conflict:!!(result.conflict||result.staleRevision)};
     },
@@ -12052,7 +12070,13 @@ function renderSettings(){
   const sz=$("#storageSize");if(sz){try{const bytes=new Blob([localStorage.getItem(KEY)||""]).size;sz.textContent=bytes>1048576?`${fmt(+(bytes/1048576).toFixed(1))} MB`:`${Math.max(1,Math.round(bytes/1024))} KB`}catch{sz.textContent="—"}}
 }
 
-async function commitSettings(silent){const editRevision=settingsEditRevision;
+/* Which settings a save changed (Plan 071 §5.5): names only, never values. */
+const SETTINGS_TELEMETRY=Object.freeze([["lang","language"],["unit","unit"],["rirMode","rir_mode"],["restSec","rest_timer"],
+  ["voiceInputEnabled","voice"],["notify","notifications"],["jumpPct","progression"],["minJump","progression"],["rirHigh","progression"],["hardRir","progression"]]);
+function reportSettingsChanged(before,after){
+  const changed=new Set(SETTINGS_TELEMETRY.filter(([key])=>JSON.stringify(before?.[key])!==JSON.stringify(after?.[key])).map(([,name])=>name));
+  for(const setting of changed)captureEvent("settings_changed",{setting})}
+async function commitSettings(silent){const editRevision=settingsEditRevision;const settingsBefore=cloneSnapshot(state.settings);
   const num=(sel,def,min)=>{const n=parseDec($(sel).value);return Number.isFinite(n)&&n>=min?n:def};
   const oldUnit=state.settings.unit,newUnit=$("#unit").value==="lb"?"lb":"kg",oldLang=state.settings.lang,newLang=I18N?.normalizeLang($("#lang")?.value)||oldLang;
   const newRirMode=$('input[name="rirMode"]:checked')?.value==="effort"?"effort":"numeric";
@@ -12070,6 +12094,7 @@ async function commitSettings(silent){const editRevision=settingsEditRevision;
   proposal.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec,lastExport:state.settings.lastExport,unit:newUnit,lang:newLang,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,notify:normalizeNotify({enabled:!!state.settings.notify?.enabled,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
   const result=await commitProposedState(proposal,storageIO,{effect:unitEffect});
   if(!(result.localOk||result.idbOk)){if(editRevision===settingsEditRevision)renderSettings();return result}
+  reportSettingsChanged(settingsBefore,state.settings);
   // A length picked in the timer sheet holds for the session, but a new default
   // in Settings is the lifter saying it plainly — it wins.
   if(oldRestSec!==state.settings.restSec)restLength=0;
@@ -14986,7 +15011,31 @@ function closeOnboarding(){
     $$("nav button").forEach(x=>{const on=x.dataset.view==="log";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     log.classList.add("active")}
   render()}
+/* The program-entry funnel (Plan 071 §4). renderOnboarding reports the
+   screen it actually shows; telemetry.js turns two consecutive screens into
+   viewed/completed/back by the route's own step order. An entry the app
+   opened by itself stays quiet until the lifter picks a route. */
+let entryFunnelView=null,entryFunnelArmed=false;
+function observeEntryStep(route,step){
+  const view={route,step,at:Date.now()};
+  let events=[];
+  try{events=window.RepForgeTelemetry?.entryFunnelEvents?.(entryFunnelView,view,ProgramEntry?.ROUTE_STEPS)||[]}catch{}
+  if(!events.length)return;
+  entryFunnelView=view;
+  if(entryFunnelArmed)for(const [name,properties] of events)captureEvent(name,properties)}
+function reportEntryExit(action){
+  const view=entryFunnelView;entryFunnelView=null;
+  if(!view||!entryFunnelArmed)return;
+  captureEvent("onboarding_exit",{action,route:view.step==="entry"?"none":view.route,step:view.step})}
+function reportEntryStart(automatic){
+  entryFunnelView=null;entryFunnelArmed=!automatic;
+  if(automatic)return;
+  const origin={"first-run":"first_run",settings:"settings",block:"block"}[onboardingOrigin];
+  const offered={resume:"resumable",conflict:"activation_conflict",rules_changed:"rules_changed",corrupt:"corrupt"}[entryUiNotice];
+  if(origin)captureEvent("onboarding_started",{origin,resumed:offered!==undefined&&offered!=="corrupt"});
+  if(offered)captureEvent("onboarding_resume_offered",{status:offered})}
 function reportEntryRoute(route){
+  entryFunnelArmed=true;
   if(entryEngaged)return;
   entryEngaged=true;
   captureEvent("program_path_selected",{route});
@@ -15045,6 +15094,7 @@ function startOnboarding(origin,opts={}){
     entryState=createEntryState();
   }else entryState=createEntryState();
   lastPersistedEntryState=cloneSnapshot(entryState);
+  reportEntryStart(opts.userInitiated===false);
   showOnboardingView();armEntryHistory();renderOnboarding();
   if(opts.userInitiated===false)return;
   // Opening the hub is not choosing a route; telemetry waits for a route pick.
@@ -15103,11 +15153,13 @@ function requestEntryCancel(){
 async function keepEntryDraftAndCancel(){
   await setupDraftWriteQueue;
   if(entryUiNotice==="save_failed"||entryUiNotice==="save_conflict")return renderOnboarding();
+  reportEntryExit("keep_draft");
   cancelOnboarding()}
 async function discardEntryDraftAndCancel(){
   await setupDraftWriteQueue;
   const removed=await clearSetupDraft();
   if(!removed.ok)return renderOnboarding();
+  reportEntryExit("discard_draft");
   cancelOnboarding()}
 function entrySetState(next,{persist=true}={}){
   entryState=next;
@@ -15587,6 +15639,29 @@ function compileGeneratorCandidate(from=entryState){
       structuredExperience:answers.structuredExperience,daysPerWeek:days.length,
       sessionMinutes:answers.sessionMinutes,mainConstraint:answers.environment?.kind}).filter(([,value])=>value!==undefined))};
 }
+/* Generation timing (Plan 071 §5.3). A request is stamped when it leaves and
+   reported when its answer arrives, so the same pair serves a synchronous
+   compile and a Worker round trip (#353): begin before posting, settle in the
+   reply or error handler. A request overtaken by a newer one settles nothing.
+   Only generations the lifter asked for are timed; the comparisons and the
+   editor's baseline rebuild call compileGeneratorCandidate directly. */
+let generationRequest=0;
+const generationClock=()=>typeof performance!=="undefined"&&performance.now?performance.now():Date.now();
+function beginGeneration(route){return{id:++generationRequest,route,at:generationClock()}}
+function settleGeneration(token,outcome){
+  if(!token||token.id!==generationRequest||(token.route!=="recommend"&&token.route!=="custom"))return;
+  let duration=null;
+  try{duration=window.RepForgeTelemetry?.bucketGeneration?.(generationClock()-token.at)}catch{}
+  if(duration)captureEvent("generation_settled",{route:token.route,outcome,duration})}
+function requestGeneratorCandidate(from=entryState){
+  const token=beginGeneration(from?.route),prior=entryCompileError;
+  entryCompileError=null;
+  const result=compileGeneratorCandidate(from);
+  const failure=entryCompileError?.code;
+  if(!entryCompileError)entryCompileError=prior;
+  if(result)settleGeneration(token,"success");
+  else if(failure)settleGeneration(token,failure);
+  return result}
 /** O3: the generation whose program has not been drawn yet. Only a compile
  *  arms it (a saved draft that is reopened, and every later render of a result
  *  that already exists, never do), and the first render of that result takes it,
@@ -15596,7 +15671,7 @@ function ensureGeneratorResult({force=false}={}){
   const services=entryServices();
   if(!services||!entryState)return null;
   if(!force&&entryState.result?.fingerprint&&entryState.result?.preview){reportGeneratorCompleted(entryState.result);return entryState.result}
-  const result=compileGeneratorCandidate();
+  const result=requestGeneratorCandidate();
   if(!result)return null;
   entryCompileError=null;
   entryState=ProgramEntry.setResult(entryState,result);
@@ -15719,7 +15794,7 @@ async function rebuildEntryForCurrentRules(){
       entryUiNotice=null;
       renderOnboarding();
       return saved}
-    const replacement=compileGeneratorCandidate();
+    const replacement=requestGeneratorCandidate();
     if(!replacement){
       entryUiNotice="rules_changed";
       renderOnboarding();
@@ -16117,7 +16192,7 @@ function applyEntryAnswerEdit(patch,{lead,beforeLabel,afterLabel}={}){
     if(choices.length&&!choices.some(choice=>choice.id===next.answers.splitPreference))
       next=ProgramEntry.setAnswers(next,{splitPreference:(choices.find(choice=>choice.default)||choices[0]).id})}
   const priorError=entryCompileError;
-  const compiled=compileGeneratorCandidate(next);
+  const compiled=requestGeneratorCandidate(next);
   const failure=entryCompileError;
   entryCompileError=priorError;
   if(!compiled)return{ok:false,failure};
@@ -16292,6 +16367,17 @@ function entryAdjustIssue(){
   if(!entryAdjustRoute())return null;
   const blockers=window.RepForgeProgramReview?.blockers(entryState?.result?.preview?.programDefinition)||[];
   return blockers.length?"entry.review.blocked_empty":null}
+/* How far the activated program sits from the recommendation, in the review's
+   own change count (Plan 071 §5.3). Only the generated routes have one. */
+function entryReviewChanges(){
+  const Review=window.RepForgeProgramReview;
+  if(!Review?.changes||!entryAdjustRoute())return null;
+  const review=ensureEntryAdjust();
+  if(!review)return null;
+  try{return Review.changes(review.baseline.preview.programDefinition,entryState.result.preview.programDefinition).count}catch{return null}}
+function reportActivationFailed(reason){
+  const route=entryState?.route;
+  if(["recommend","custom","build","import","shared"].includes(route))captureEvent("program_activation_failed",{route,reason})}
 /* Does the result carry the lifter's adjustments (a rebuild would discard them)? */
 function entryAdjusted(){
   const review=ensureEntryAdjust();
@@ -16388,6 +16474,7 @@ function mountEntryAdjust(){
       edits:entryAdjust.edits,name:entryResultName()||t("untitled_program"),
       sessionMinutes:Number(entryState.answers?.sessionMinutes)||null,ctx:entryAdjustCtx()}),
     commit:commitEntryAdjust,
+    observe:report=>captureEvent("program_review_action",report),
     t:(key,vars)=>t(key,vars),esc,
     exerciseName:id=>libraryName(libraryEntry(id))||id,
     tile:(id,size)=>exerciseThumb(libraryEntry(id),{size}),
@@ -16961,6 +17048,7 @@ function renderOnboarding(){
   const hub=entryHubMode();
   const resuming=entryUiNotice==="resume";
   const route=hub?null:entryState.route,stepId=hub?"entry":entryState.step;
+  observeEntryStep(route,stepId);
   const dialogOpen=!!entryDialogKind();
   const isEditor=setupEditorOpen&&!hub&&!!entryState?.result?.preview;
   const wasEditor=!!onboarding?.classList.contains("program-editor-onboarding");
@@ -17459,6 +17547,7 @@ function entryStartOver(){
     draftId:uid(),activeProgramRevisionAtStart:liveProgramRevision(),now:entryNow(),versions:entryVersions()});
   if(restarted.effects?.deleteSetupDraft)clearSetupDraft();
   entryOwnOpen=false;entryUiNotice=null;entryCompileError=null;entryExerciseQuery="";entryPinnedVersionsExecutable=false;
+  reportEntryExit("start_over");
   entrySetState(restarted.state,{persist:true})}
 async function recoverEntryDurableConflict(){
   const refreshed=await refreshPersistenceHead();
@@ -17580,6 +17669,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     pinnedVersionsExecutable:entryPinnedVersionsExecutable});
   if(!readiness.ok){
     if(readiness.code==="active_program_changed"){
+      reportActivationFailed("durable_conflict");
       entryUiNotice="conflict";
       entrySetState(readiness.state||{...entryState,step:"activation_conflict"});
       return}
@@ -17635,6 +17725,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     programDefinition=manualProgramDefinitionFromRows(exercises,names,baseProposal.customExercises||[])}
   programDefinition=canonicalProgramDefinition(programDefinition,baseProposal.customExercises||[]);
   if(!programDefinition){
+    reportActivationFailed("definition_invalid");
     toast(t("entry.issue.compile"),{assertive:true});
     renderOnboarding();
     return{invalid:true,code:"program-definition-required"}}
@@ -17670,12 +17761,15 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     compilerContext,
     expectedSetupDraftRaw:activationDraftHandle?.raw??null,
     replace:route==="shared",
-    expectedFirstRunEmpty:route==="shared"});
+    expectedFirstRunEmpty:route==="shared",
+    reviewChanges:entryReviewChanges()});
   if(result?.setupDraftConflict){
+    reportActivationFailed("setup_conflict");
     entryUiNotice="save_conflict";
     renderOnboarding();
     return result}
   if(result?.staleRevision||result?.conflict||result?.duplicate||result?.ineligible){
+    reportActivationFailed("durable_conflict");
     await surfaceEntryDurableConflict();
     return result}
   if(result?.committed===true&&result?.settled===true){
@@ -17690,7 +17784,7 @@ function telemetryGeneratedProgram(goal){
   if(goal==="strength_hypertrophy")return{goal:"balanced",family:"legacy"};
   if(goal==="hypertrophy")return{goal:"muscle_growth",family:"legacy"};
   return null}
-async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null,telemetryRoute="custom",entryTelemetry=null,entrySource=null,programStructure=null,programDefinition=null,expectedSetupDraftRaw=undefined,replace=false,expectedFirstRunEmpty=false,compilerContext=null}={}){
+async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null,telemetryRoute="custom",entryTelemetry=null,entrySource=null,programStructure=null,programDefinition=null,expectedSetupDraftRaw=undefined,replace=false,expectedFirstRunEmpty=false,compilerContext=null,reviewChanges=null}={}){
   const adapter=requireAdapter(io||storageIO,"finalizeProgramSetup");
   const originEff=origin||onboardingOrigin||"first-run";
   const blockCap=originEff==="block"?pendingBlockTransition:null;
@@ -17764,7 +17858,11 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   if(!result.alreadyCommitted){
     const payload={route:telemetryRoute,version_category:versionCategory};
     if(telemetryRoute==="import")payload.source=stagedImportSource();
+    const changes=window.RepForgeTelemetry?.bucketChanges?.(reviewChanges);
+    if(changes)payload.review_changes=changes;
     captureEvent("program_activated",payload);
+    // A block that ends in a new program is committed here, at its successor's activation.
+    if(originEff==="block")captureEvent("block_transition_chosen",{action:"new_program"});
   }
   clearFreeformSession();
   clearStagedImportSource();
@@ -17843,7 +17941,8 @@ function applyTheme(){
 /* The chart is painted into a canvas, so it is the one surface a token swap
    cannot reach on its own — it has already sampled the old palette. */
 function repaintForTheme(){applyTheme();redrawChart()}
-function setTheme(v){setUiPref("theme",normalizeTheme(v));repaintForTheme()}
+function setTheme(v){const next=normalizeTheme(v),changed=next!==currentTheme();setUiPref("theme",next);repaintForTheme();
+  if(changed)captureEvent("settings_changed",{setting:"theme"})}
 function watchSystemTheme(){
   const q=darkQuery();
   if(!q?.addEventListener)return;
@@ -17912,7 +18011,19 @@ function renderInstallSurfaces(){
   $("#installApp")?.classList.toggle("hidden",!manual.eligible&&mode!=="safari");
   renderFirstRunInstall();
 }
+/* Which install offer was acted on (Plan 071 §5.1). Buttons bind
+   triggerInstall directly, so the click names the surface. */
+function installSurface(source){
+  if(source==="manual-settings")return"settings";
+  const id=source?.currentTarget?.id||source?.target?.closest?.("button")?.id||"";
+  if(id==="installBtn")return"header";
+  if(id==="installBannerAction")return"banner";
+  if(id.startsWith("firstRunInstall"))return"landing";
+  return firstRunActive?"landing":"banner"}
+function reportInstall(surface,mode,outcome){captureEvent("install_prompt_outcome",{surface,mode,outcome})}
+function reportLandingAction(action){captureEvent("landing_action",{action})}
 async function triggerInstall(source="automatic"){
+  const surface=installSurface(source);
   const requestSource=source==="manual-settings"?"manual-settings":"automatic";
   const decision=requestSource==="manual-settings"
     ?installPolicyDecision("manual-settings")
@@ -17924,7 +18035,8 @@ async function triggerInstall(source="automatic"){
     // is also step 3 of the flow: consume it whatever the lifter chooses.
     const evt=installPrompt;installPrompt=null;
     let outcome="";
-    try{evt.prompt();const choice=await evt.userChoice;outcome=choice?.outcome||""}catch{}
+    try{evt.prompt();reportInstall(surface,"native","prompted");const choice=await evt.userChoice;outcome=choice?.outcome||""}catch{}
+    if(outcome==="accepted"||outcome==="dismissed")reportInstall(surface,"native",outcome);
     // Nothing is claimed that Chrome has not confirmed: only "accepted" reports
     // an install, and a dismissal simply leaves the section gone until Chrome
     // offers the event again.
@@ -17942,8 +18054,9 @@ async function triggerInstall(source="automatic"){
       :null;
     if(!recoveryState&&!decision.eligible)return;
     const transfer=decision.reason==="ios-transfer";
-    openIosInstallSheet(recoveryState||(transfer?"eligible":"manual"));return}
-  if(mode==="safari"){showInstallBanner(true);return}
+    openIosInstallSheet(recoveryState||(transfer?"eligible":"manual"));
+    reportInstall(surface,"ios","instructions_shown");return}
+  if(mode==="safari"){showInstallBanner(true);reportInstall(surface,"manual","instructions_shown");return}
 }
 function installBannerEligible(){
   const decision=installPolicyDecision();
@@ -18153,7 +18266,7 @@ function renderFirstRunInstall(){
     `<div class="installcard__text"><p class="installcard__title">${esc(t("install.card.title"))}</p>`+
     `<p class="installcard__body">${esc(body)}</p></div>`+
     (action?`<button type="button" class="btn btn--cta installcard__action" id="firstRunInstallAction">${esc(action)}</button>`:"");
-  const act=$("#firstRunInstallAction");if(act)act.onclick=triggerInstall;
+  const act=$("#firstRunInstallAction");if(act)act.onclick=event=>{reportLandingAction("install");return triggerInstall(event)};
   installPresentedDecision=decision;
   sec.classList.remove("hidden");
 }
@@ -18637,6 +18750,7 @@ function openFirstRun(kind=currentEntryLanding()){
   if(draftRoute)el.dataset.entryDraft=draftRoute;else delete el.dataset.entryDraft;
   el.classList.remove("hidden");
   document.body.classList.add("is-firstrun");
+  captureEvent("landing_viewed",{landing:kind==="shared-invalid"?"shared_invalid":kind==="shared"?"shared":"generic",visit:returning?"returning":"first"});
   window.scrollTo({top:0});
   el.scrollTop=0;
   // The screen itself takes focus, not its first choice: a ring drawn around
@@ -19259,14 +19373,14 @@ function init(){
   // banner carries the offer from there.
   window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;
     renderSettings();renderInstallSurfaces();maybeShowInstallBanner()});
-  window.addEventListener("appinstalled",()=>{installPrompt=null;hideInstallBanner(false);
+  window.addEventListener("appinstalled",()=>{installPrompt=null;hideInstallBanner(false);captureEvent("app_installed",{});
     closeFirstRunInstall();renderSettings();renderInstallSurfaces()});
   $("#installBtn").onclick=triggerInstall;
   $("#installBannerClose").onclick=()=>hideInstallBanner(true);
   $("#installBannerAction").onclick=triggerInstall;
-  $("#firstRunInstallLink").onclick=triggerInstall;
-  $("#firstRunPrivacy").onclick=()=>openPrivacySheet();
-  const openFirstRunCreate=()=>{closeFirstRun();startOnboarding("first-run")};
+  $("#firstRunInstallLink").onclick=event=>{reportLandingAction("install");return triggerInstall(event)};
+  $("#firstRunPrivacy").onclick=()=>{reportLandingAction("privacy");openPrivacySheet()};
+  const openFirstRunCreate=()=>{reportLandingAction("create");closeFirstRun();startOnboarding("first-run")};
   $("#firstRunCreate").onclick=openFirstRunCreate;
   $("#firstRunCreateClose").onclick=openFirstRunCreate;
   $("#firstRunCreateDock").onclick=openFirstRunCreate;
@@ -19274,6 +19388,7 @@ function init(){
   // standing behind it so backing out returns here rather than to an empty app.
   // Copy and paste is the primary BYOP door, with the file door one tap away.
   const openFirstRunImport=()=>{
+    reportLandingAction("import");
     closeFirstRun();
     // A saved setup is resumed or discarded only on the chooser's resume card
     // (Q-A): Track must never start a fresh import over it.
@@ -19286,11 +19401,12 @@ function init(){
   // "Continue in browser" is an answer to the install offer, not to the program
   // question: it takes the offer off the table for a while, then hands over to
   // the same first run the app has always had.
-  $("#firstRunContinue").onclick=()=>{recordInstallPolicyDismissal(installPresentedDecision);
+  $("#firstRunContinue").onclick=()=>{reportLandingAction("continue_browser");recordInstallPolicyDismissal(installPresentedDecision);
     if(sharedSetupReady()){closeFirstRunInstall();renderFirstRunProgramMode();return}
     closeFirstRun();startOnboarding("first-run")};
   const sharedStart=$("#firstRunSharedStart");if(sharedStart)sharedStart.onclick=async()=>{
     if(sharedStart.disabled)return;
+    reportLandingAction("shared_start");
     await commitSharedSetup(storageIO)};
   $("#whyClose").onclick=closeWhySheet;
   $("#installTransferStart").onclick=installTransferCreateFromSafari;
@@ -19985,7 +20101,7 @@ async function boot(){
   if(transferResult.transferResult?.localOk===true){
     openIosInstallSheet(transferResult.transferResult.cleanup?.ok===true?"success":"cleanup")}
   if(draftBoot.status!=="ready"&&draftBoot.status!=="absent")showDraftInitializationRecovery(draftBoot);
-  captureEvent("app_boot",{first_run:firstRunPending(),language:I18N?.getLang?.()==="pt"?"pt":"en",platform_class:telemetryPlatformClass()});
+  captureEvent("app_boot",{first_run:firstRunPending(),language:I18N?.getLang?.()==="pt"?"pt":"en",platform_class:telemetryPlatformClass(),display_mode:isStandalone()?"standalone":"browser"});
   if(sharedSetupDraft.status==="existing")toast(t("setup.shared.existing"),{assertive:true});
   if(decision.draftConflict)toast(t("toast.draft_conflict_retry"),{assertive:true})}
 if(DurableState){
