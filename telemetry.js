@@ -155,9 +155,11 @@
     set_saved: event({ vs_suggestion: values("matched", "raised", "lowered", "no_suggestion") }, "Working set committed relative to its suggestion", "repeatable"),
     recommendation_explained: event({ surface: values("workout", "focus", "exercise") }, "Recommendation explanation opened", "repeatable"),
     exercise_skipped: event({ context: values("planned_session", "one_off") }, "Exercise explicitly skipped", "repeatable"),
-    // No reason is asked in the workout, so none is sent (Plan 071 owner question 3).
+    // The reason is the lifter's optional chip in the swap sheet; absent unless chosen.
     substitution_used: event({ source: values("alternate", "library"), reason: optional(values("equipment", "preference", "pain", "crowded", "other")) }, "Exercise substitution committed", "repeatable"),
     session_completed: event({ set_count: values("0", "1_5", "6_10", "11_20", "21_plus"), exercise_count: values("0", "1_3", "4_6", "7_plus"), duration: values("0_15", "16_30", "31_60", "61_90", "90_plus"), days_since_last: optional(values("first", "same_day", "1", "2_3", "4_7", "8_14", "15_30", "31_plus")) }, "Planned session completed", "once_per_session"),
+    // "End without saving" in the session sheet (Plan 071 §10). The reason is optional.
+    session_abandoned: event({ stage: values("before_set", "working"), reason: optional(values("time", "recovery", "pain", "equipment", "schedule", "other")) }, "Session explicitly ended without saving", "once_per_session"),
     workout_discarded: event({ stage: values("before_set", "working"), cause: values("program_edit") }, "Workout in progress discarded", "once_per_session"),
     session_summary_viewed: event({}, "Completed-session summary opened", "once_per_session"),
     block_review_viewed: event({ completion: values("early", "partial", "complete", "extended") }, "Block review opened", "repeatable"),

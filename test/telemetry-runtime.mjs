@@ -852,9 +852,69 @@ try {
     await pick.click();
     await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
     await page.waitForFunction((id) => !!window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.substitution, SEED_A, { timeout: 10000 });
-    const used = await eventsNamed(page, "substitution_used");
+    let used = await eventsNamed(page, "substitution_used");
     assert(JSON.stringify(used) === JSON.stringify([{ source: "library" }]),
-      "a swap from the library reports its source once, with no reason invented", JSON.stringify(used));
+      "a swap with no reason chosen reports its source once, with no reason invented", JSON.stringify(used));
+
+    // The optional reason: one tap on a chip, then the pick swaps as before.
+    await exerciseAction(page, SEED_B, "#exActionSubstBtn");
+    await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+    assert(await page.locator('#exPickReasons [data-pick-reason][aria-pressed="true"]').count() === 0,
+      "the swap sheet opens with no reason chosen");
+    await page.click('#exPickReasons [data-pick-reason="crowded"]');
+    assert(await page.locator('#exPickReasons [data-pick-reason="crowded"]').getAttribute("aria-pressed") === "true",
+      "tapping a reason chip selects it");
+    const ownB = await page.evaluate((id) => window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.programmed?.libraryId ?? null, SEED_B);
+    await page.locator(ownB ? `#exPickList .pickrow:not([data-pick="${ownB}"])` : "#exPickList .pickrow").first().click();
+    await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+    await page.waitForFunction((id) => !!window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.substitution, SEED_B, { timeout: 10000 });
+    used = await eventsNamed(page, "substitution_used");
+    assert(JSON.stringify(used[1]) === JSON.stringify({ source: "library", reason: "crowded" }),
+      "a chosen reason rides on the swap it was chosen for", JSON.stringify(used));
+    await context.close();
+  }
+
+  phase("Ending a workout without saving discards it and reports the stage and the optional reason");
+  {
+    const { context, page } = await openApp(browser, { seed: loggableProgram() });
+    await enterWorkout(page, "Day 1");
+    await saveSetByHand(page, SEED_A, 1, 60);
+    await page.click("#sessionSheetBtn");
+    await page.waitForSelector("#sessionSheet.is-open", { timeout: 5000 });
+    await page.click("#sessionAbandon");
+    await page.waitForSelector("#sessionAbandonPrompt:not(.hidden)", { timeout: 5000 });
+    assert(await page.locator('#sessionAbandonReasons [aria-pressed="true"]').count() === 0, "no reason is chosen by default");
+    assert((await eventsNamed(page, "session_abandoned")).length === 0, "asking to end reports nothing yet");
+    await page.click('#sessionAbandonReasons [data-abandon-reason="time"]');
+    await page.click("#sessionAbandonConfirm");
+    await page.waitForFunction(() => window.__captured.some(([n]) => n === "session_abandoned"), undefined, { timeout: 10000 });
+    await page.evaluate(() => window.__repforgeStorage?.flush?.());
+    assert(JSON.stringify(await eventsNamed(page, "session_abandoned")) === JSON.stringify([{ stage: "working", reason: "time" }]),
+      "a workout with a logged set reports working and the chosen reason", JSON.stringify(await eventsNamed(page, "session_abandoned")));
+    const after = await page.evaluate((key) => ({
+      draft: window.__repforgeWorkoutDraft.current() ?? null,
+      log: JSON.parse(localStorage.getItem(key) || "{}").log || [],
+      today: !document.body.classList.contains("is-focus-wo"),
+    }), KEY);
+    assert(after.draft === null && after.log.length === 0 && after.today,
+      "the draft and its logged set are discarded, History is untouched, and the lifter is back on Today", JSON.stringify(after));
+    assert(countOf(await captured(page), "session_completed") === 0, "an abandoned workout is never reported as completed");
+    await context.close();
+  }
+  {
+    const { context, page } = await openApp(browser, { seed: loggableProgram() });
+    await enterWorkout(page, "Day 1");
+    await page.click("#sessionSheetBtn");
+    await page.waitForSelector("#sessionSheet.is-open", { timeout: 5000 });
+    await page.click("#sessionAbandon");
+    await page.click("#sessionAbandonCancel");
+    assert(await page.locator("#sessionAbandonPrompt").evaluate((el) => el.classList.contains("hidden")) &&
+      (await eventsNamed(page, "session_abandoned")).length === 0, "Cancel keeps the workout and reports nothing");
+    await page.click("#sessionAbandon");
+    await page.click("#sessionAbandonConfirm");
+    await page.waitForFunction(() => window.__captured.some(([n]) => n === "session_abandoned"), undefined, { timeout: 10000 });
+    assert(JSON.stringify(await eventsNamed(page, "session_abandoned")) === JSON.stringify([{ stage: "before_set" }]),
+      "ending before any set reports before_set and no reason", JSON.stringify(await eventsNamed(page, "session_abandoned")));
     await context.close();
   }
 

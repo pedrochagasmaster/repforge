@@ -1559,6 +1559,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "abandon",
+      "flow": "workout",
+      "label": "End without saving",
+      "scenario": "End without saving, with a reason chip chosen, through production controls.",
+      "variants": "demandingText"
+    },
+    {
       "id": "exercise-actions",
       "flow": "workout",
       "label": "Exercise actions",
@@ -1612,6 +1619,13 @@
       "flow": "workout",
       "label": "Swap picker with alternates",
       "scenario": "workout/swap-alternates",
+      "variants": "localized"
+    },
+    {
+      "id": "swap-reason",
+      "flow": "workout",
+      "label": "Swap picker with a reason chosen",
+      "scenario": "workout/swap-reason",
       "variants": "localized"
     },
     {

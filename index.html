@@ -1021,6 +1021,16 @@ Triceps pushdown 3x12-15</pre>
           <button type="button" id="sessionEarlyCancel" data-i18n="dialog.cancel">Cancel</button>
         </div>
       </div>
+      <button type="button" class="session-abandon-btn" id="sessionAbandon" data-i18n="session.sheet.abandon">End without saving</button>
+      <div id="sessionAbandonPrompt" class="session-early-prompt session-abandon-prompt hidden" aria-live="polite">
+        <p class="session-early-msg" id="sessionAbandonMsg" data-i18n="session.sheet.abandon_prompt">Nothing from this session is saved. Logged sets are discarded and your program stays as it is.</p>
+        <p class="session-abandon__label" id="sessionAbandonReasonLabel" data-i18n="session.sheet.abandon_reason_label">Why? (optional)</p>
+        <div class="session-abandon__reasons" id="sessionAbandonReasons" role="group" aria-labelledby="sessionAbandonReasonLabel"></div>
+        <div class="session-early-actions">
+          <button type="button" class="session-abandon-confirm" id="sessionAbandonConfirm" data-i18n="session.sheet.abandon_confirm">End and discard</button>
+          <button type="button" id="sessionAbandonCancel" data-i18n="dialog.cancel">Cancel</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1155,6 +1165,7 @@ Triceps pushdown 3x12-15</pre>
       <p class="sheetband__sub" id="exPickFor"></p>
     </div>
     <div class="pick__tools">
+      <div id="exPickReasons" class="pick__reasons hidden" role="group" aria-labelledby="exPickReasonsLabel"></div>
       <input id="exPickSearch" type="search" class="pick__search" data-i18n-placeholder="picker.search_placeholder" data-i18n-aria="picker.search_aria" placeholder="Search exercises…" aria-label="Search exercises" autocomplete="off" enterkeyhint="search">
       <div id="exPickTabs" class="picktabs hidden" role="tablist" data-i18n-aria="picker.tabs_aria" aria-label="Exercise sources"></div>
       <div id="exPickFilters" class="pick__filters" role="group" data-i18n-aria="picker.filters_aria" aria-label="Filter exercises"></div>

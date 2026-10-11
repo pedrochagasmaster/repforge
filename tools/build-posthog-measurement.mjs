@@ -48,7 +48,7 @@ export function buildPlan(input, contract) {
   if (contract.getSchemaVersion() !== 1) fail('Review these recipes before using a new telemetry schema.');
   const names = contract.getEventNames();
   if (!names.length || names.some(name => !/^[a-z][a-z0-9_]*$/.test(name))) fail('Invalid product event taxonomy.');
-  for (const event of ['app_boot', 'program_path_selected', 'program_activated', 'first_set_logged', 'set_saved', 'session_completed', 'workout_discarded',
+  for (const event of ['app_boot', 'program_path_selected', 'program_activated', 'first_set_logged', 'set_saved', 'session_completed', 'session_abandoned', 'workout_discarded',
     'onboarding_step_viewed', 'onboarding_step_completed', 'onboarding_step_back']) {
     if (!names.includes(event)) fail('Required schema-1 event missing; review the recipes.');
   }
@@ -72,7 +72,7 @@ export function buildPlan(input, contract) {
     `SELECT event, count() AS events, countIf(coalesce(toString(properties.telemetry_schema_version), '') != '1') AS wrong_or_missing_schema,
 countIf(coalesce(toString(properties.app_version), '') = '') AS missing_version,
 countIf(coalesce(toString(properties.release_channel), '') = '') AS missing_channel,
-countIf(event IN ('set_saved', 'session_completed', 'workout_discarded') AND coalesce(toString(properties.$session_id), '') = '') AS missing_session
+countIf(event IN ('set_saved', 'session_completed', 'session_abandoned', 'workout_discarded') AND coalesce(toString(properties.$session_id), '') = '') AS missing_session
 FROM events WHERE ${window} AND (${events} OR event NOT LIKE '$%') GROUP BY event ORDER BY events DESC LIMIT 500`);
   add('release-inventory', 'Release and channel inventory', 'Events; unfiltered label inventory. Missing labels, preview traffic and new versions must remain visible. No host or bot predicate.',
     `SELECT properties.telemetry_schema_version AS schema, properties.app_version AS app_version, properties.release_channel AS channel, count() AS events
@@ -95,20 +95,23 @@ FROM events WHERE ${window} AND ${strict} AND ${events} GROUP BY attribution, ev
   add('pilot-milestones', 'Confirmed pilot milestones', 'Independent event reach, NOT a conversion funnel. Empty pilot roster deliberately returns no data; do not substitute all non-internal traffic.',
     `SELECT event, count() AS events, count(DISTINCT distinct_id) AS installations
 FROM events WHERE ${eligible} AND ${events} GROUP BY event ORDER BY event LIMIT 500`);
-  add('session-outcomes', 'Saved-set session outcomes', 'Unit: installation + SDK session. Saved-set sessions, not the one-time milestone. Reloads may split SDK sessions; unresolved does not mean abandoned, and no abandon action exists.',
+  add('session-outcomes', 'Saved-set session outcomes', 'Unit: installation + SDK session. Saved-set sessions, not the one-time milestone. Three terminals: completed, explicitly abandoned, discarded by a program edit. Reloads may split SDK sessions; unresolved does not mean abandoned.',
     `SELECT count() AS saved_set_sessions,
-countIf(completions = 1 AND discards = 0) AS completed,
-countIf(discards = 1 AND completions = 0) AS discarded,
-countIf(completions = 0 AND discards = 0) AS unresolved,
-countIf(completions > 1 OR discards > 1 OR (completions > 0 AND discards > 0)) AS duplicate_or_conflicting
+countIf(completions = 1 AND abandons = 0 AND discards = 0) AS completed,
+countIf(abandons = 1 AND completions = 0 AND discards = 0) AS explicitly_abandoned,
+countIf(discards = 1 AND completions = 0 AND abandons = 0) AS discarded,
+countIf(completions = 0 AND abandons = 0 AND discards = 0) AS unresolved,
+countIf(completions + abandons + discards > 1) AS duplicate_or_conflicting
 FROM (
 SELECT first_save, arrayCount(t -> t >= first_save, completion_times) AS completions,
+arrayCount(t -> t >= first_save, abandon_times) AS abandons,
 arrayCount(t -> t >= first_save, discard_times) AS discards
 FROM (
 SELECT distinct_id, properties.$session_id AS sdk_session, minIf(timestamp, event = 'set_saved') AS first_save,
 groupArrayIf(timestamp, event = 'session_completed') AS completion_times,
+groupArrayIf(timestamp, event = 'session_abandoned') AS abandon_times,
 groupArrayIf(timestamp, event = 'workout_discarded') AS discard_times
-FROM events WHERE ${eligible} AND event IN ('set_saved', 'session_completed', 'workout_discarded')
+FROM events WHERE ${eligible} AND event IN ('set_saved', 'session_completed', 'session_abandoned', 'workout_discarded')
 AND coalesce(toString(properties.$session_id), '') != ''
 GROUP BY distinct_id, sdk_session HAVING countIf(event = 'set_saved') > 0
 ))`);

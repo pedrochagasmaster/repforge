@@ -1774,6 +1774,10 @@ body.is-sheet-open{overflow:hidden}
   display:flex;gap:9px;overflow-x:auto;scrollbar-width:none;
   margin:0 -16px;padding:0 16px 2px;overscroll-behavior:contain;}
 .pick__filters::-webkit-scrollbar{display:none}
+/* The swap sheet's optional reason: one row of chips above the search, none chosen by default. */
+.pick__reasons{display:flex;flex-direction:column;gap:var(--space-8);margin-bottom:var(--space-8)}
+.pick__reasons-label{margin:0;font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.pick__reasons-chips{display:flex;flex-wrap:wrap;gap:9px}
 .pchip{
   flex:none;min-height:var(--control-target);padding:7px 13px;border:1px solid var(--control-selection-boundary);border-radius:var(--radius-pill);
   background:var(--control-selection-bg);color:var(--control-selection-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
@@ -2125,25 +2129,29 @@ textarea.sheetfield__input{
 #sessionEarlyOmissions li{padding:var(--space-4) 0;overflow-wrap:anywhere}
 .session-early-sets{font-family:var(--font-training-data);color:var(--color-ink)}
 .session-early-actions{display:flex;flex-direction:column;gap:var(--space-8)}
+/* Ending without saving sits under early finish and asks once, in the same foot. Its reason chips are
+   optional: none is selected until the lifter taps one, and the confirmation never waits for them. */
+.session-abandon__label{margin:var(--space-4) 0 0;font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.session-abandon__reasons{display:flex;flex-wrap:wrap;gap:var(--space-8)}
 /* When the screen cannot hold the whole sheet beside the confirmation (a short phone, or text enlarged until the screen
    is narrow in rem) the confirmation is the sheet's one job while it is open: the session map and fields give their
    room to it, the band keeps its title and close, and the sheet may use the screen under the safe area. The sentence
    and the omitted sets scroll in the prompt while Confirm and Cancel stay pinned to its foot, so enlarged text can
    never push them below the screen or leave the text a sliver. A roomy screen keeps the sheet as it was. */
 @media (max-height:600px){
-  #sessionSheet:has(#sessionEarlyPrompt:not(.hidden)){max-height:calc(var(--vvh,100dvh) - env(safe-area-inset-top,0px) - var(--space-8))}
-  #sessionSheet:has(#sessionEarlyPrompt:not(.hidden)) :is(.session-sheet__body,.sheetband__sub){display:none}
-  #sessionSheet:has(#sessionEarlyPrompt:not(.hidden)) .sheetband{padding-bottom:var(--space-8)}
-  #sessionSheet:has(#sessionEarlyPrompt:not(.hidden)) .session-sheet__early-section{flex:1 1 auto;overflow:hidden}
-  #sessionEarlyPrompt{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+  #sessionSheet:has(:is(#sessionEarlyPrompt,#sessionAbandonPrompt):not(.hidden)){max-height:calc(var(--vvh,100dvh) - env(safe-area-inset-top,0px) - var(--space-8))}
+  #sessionSheet:has(:is(#sessionEarlyPrompt,#sessionAbandonPrompt):not(.hidden)) :is(.session-sheet__body,.sheetband__sub){display:none}
+  #sessionSheet:has(:is(#sessionEarlyPrompt,#sessionAbandonPrompt):not(.hidden)) .sheetband{padding-bottom:var(--space-8)}
+  #sessionSheet:has(:is(#sessionEarlyPrompt,#sessionAbandonPrompt):not(.hidden)) .session-sheet__early-section{flex:1 1 auto;overflow:hidden}
+  :is(#sessionEarlyPrompt,#sessionAbandonPrompt){flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
   .session-early-actions{position:sticky;bottom:0;padding-top:var(--space-8);background:var(--color-surface)}
 }
 @container (max-width:19rem){
-  #sessionSheet:has(#sessionEarlyPrompt:not(.hidden)){max-height:calc(var(--vvh,100dvh) - env(safe-area-inset-top,0px) - var(--space-8))}
-  #sessionSheet:has(#sessionEarlyPrompt:not(.hidden)) :is(.session-sheet__body,.sheetband__sub){display:none}
-  #sessionSheet:has(#sessionEarlyPrompt:not(.hidden)) .sheetband{padding-bottom:var(--space-8)}
-  #sessionSheet:has(#sessionEarlyPrompt:not(.hidden)) .session-sheet__early-section{flex:1 1 auto;overflow:hidden}
-  #sessionEarlyPrompt{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+  #sessionSheet:has(:is(#sessionEarlyPrompt,#sessionAbandonPrompt):not(.hidden)){max-height:calc(var(--vvh,100dvh) - env(safe-area-inset-top,0px) - var(--space-8))}
+  #sessionSheet:has(:is(#sessionEarlyPrompt,#sessionAbandonPrompt):not(.hidden)) :is(.session-sheet__body,.sheetband__sub){display:none}
+  #sessionSheet:has(:is(#sessionEarlyPrompt,#sessionAbandonPrompt):not(.hidden)) .sheetband{padding-bottom:var(--space-8)}
+  #sessionSheet:has(:is(#sessionEarlyPrompt,#sessionAbandonPrompt):not(.hidden)) .session-sheet__early-section{flex:1 1 auto;overflow:hidden}
+  :is(#sessionEarlyPrompt,#sessionAbandonPrompt){flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
   .session-early-actions{position:sticky;bottom:0;padding-top:var(--space-8);background:var(--color-surface)}
 }
 
@@ -2168,30 +2176,30 @@ textarea.sheetfield__input{
 :is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep):active:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink);transform:var(--control-pressed-transform)}
 :is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 :is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep):disabled{background:var(--control-primary-disabled-bg);border-color:var(--boundary-decorative);color:var(--control-primary-disabled-ink);opacity:1;cursor:not-allowed;transform:none}
-:is(#sessionEarlyCancel,#exNoteCancel){
+:is(#sessionEarlyCancel,#sessionAbandonCancel,#exNoteCancel){
   min-height:var(--control-target);border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);
   background:var(--control-secondary-bg);color:var(--control-secondary-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
 }
 @media (hover: hover) and (pointer: fine){
-:is(#sessionEarlyCancel,#exNoteCancel):hover:not(:disabled){background:var(--well);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink)}
+:is(#sessionEarlyCancel,#sessionAbandonCancel,#exNoteCancel):hover:not(:disabled){background:var(--well);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink)}
 }
-:is(#sessionEarlyCancel,#exNoteCancel):active:not(:disabled){background:var(--well);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink);transform:var(--control-pressed-transform)}
-:is(#sessionEarlyCancel,#exNoteCancel):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-:is(#sessionEarlyCancel,#exNoteCancel):disabled{background:var(--control-secondary-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+:is(#sessionEarlyCancel,#sessionAbandonCancel,#exNoteCancel):active:not(:disabled){background:var(--well);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink);transform:var(--control-pressed-transform)}
+:is(#sessionEarlyCancel,#sessionAbandonCancel,#exNoteCancel):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+:is(#sessionEarlyCancel,#sessionAbandonCancel,#exNoteCancel):disabled{background:var(--control-secondary-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 /* The History discard question (Plan 064 R3j2): Keep editing is the primary choice above, Discard
    changes the destructive one below it. The day-change question (OG-6 `today/draft-resume`) wears the same recipe:
    Cancel keeps the unfinished session, Discard unfinished session is the destructive choice, and its sentence is the body. */
 .draftdiscard__body{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink)}
-:is(#historyDiscardDrop,#draftDiscardDrop){
+:is(#historyDiscardDrop,#draftDiscardDrop,#sessionAbandon,#sessionAbandonConfirm){
   min-height:var(--control-target);border:1px solid var(--control-destructive-boundary);border-radius:var(--radius-control);
   background:var(--control-destructive-bg);color:var(--control-destructive-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
 }
 @media (hover: hover) and (pointer: fine){
-:is(#historyDiscardDrop,#draftDiscardDrop):hover:not(:disabled){background:var(--well);border-color:var(--control-destructive-boundary);color:var(--control-destructive-ink)}
+:is(#historyDiscardDrop,#draftDiscardDrop,#sessionAbandon,#sessionAbandonConfirm):hover:not(:disabled){background:var(--well);border-color:var(--control-destructive-boundary);color:var(--control-destructive-ink)}
 }
-:is(#historyDiscardDrop,#draftDiscardDrop):active:not(:disabled){background:var(--well);border-color:var(--control-destructive-boundary);color:var(--control-destructive-ink);transform:var(--control-pressed-transform)}
-:is(#historyDiscardDrop,#draftDiscardDrop):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-:is(#historyDiscardDrop,#draftDiscardDrop):disabled{background:var(--control-destructive-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+:is(#historyDiscardDrop,#draftDiscardDrop,#sessionAbandon,#sessionAbandonConfirm):active:not(:disabled){background:var(--well);border-color:var(--control-destructive-boundary);color:var(--control-destructive-ink);transform:var(--control-pressed-transform)}
+:is(#historyDiscardDrop,#draftDiscardDrop,#sessionAbandon,#sessionAbandonConfirm):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+:is(#historyDiscardDrop,#draftDiscardDrop,#sessionAbandon,#sessionAbandonConfirm):disabled{background:var(--control-destructive-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 #restSheetClose,#whyClose{
   width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;
   border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-round);background:var(--control-quiet-bg);color:var(--control-quiet-ink);
