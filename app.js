@@ -13894,9 +13894,9 @@ function renderCatalogueStep(){
     range:t("program.progression.strategy.range"),rep_goal:t("program.progression.strategy.rep_goal"),
     effort_target:t("program.progression.strategy.effort_target"),anchor_backoff:t("program.progression.strategy.anchor_backoff")};
   const contextFacts=[
-    entryState.answers.daysPerWeek?t("entry.catalogue.context_days",{days:entryState.answers.daysPerWeek}):"",
-    entryState.answers.sessionMinutes?t("entry.catalogue.context_minutes",{minutes:entryState.answers.sessionMinutes}):"",
-    entryEnvironmentLabel()].filter(Boolean);
+    {kind:"data",text:entryState.answers.daysPerWeek?t("entry.catalogue.context_days",{days:entryState.answers.daysPerWeek}):""},
+    {kind:"data",text:entryState.answers.sessionMinutes?t("entry.catalogue.context_minutes",{minutes:entryState.answers.sessionMinutes}):""},
+    {kind:"language",text:entryEnvironmentLabel()}].filter(fact=>fact.text);
   function renderCard(card){
     const familyName=isPt()?card.familyNamePt||card.familyName:card.familyName;
     const name=isPt()?card.namePt||card.name:card.name;
@@ -13930,7 +13930,7 @@ function renderCatalogueStep(){
   if(!cards.length)return entryHeading(t("entry.catalogue.title"))+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.catalogue.empty_title"))}</strong>`+
     `<p>${esc(t("entry.catalogue.empty_body"))}</p><button type="button" class="btn btn--cta" data-entry-action="change-schedule">${esc(t("entry.custom_shape.change_schedule"))}</button></div>`;
   return entryHeading(t("entry.catalogue.title"))+`<p class="onb__explain">${esc(t("entry.catalogue.lede"))}</p>`+
-    `<div class="entry__facts" aria-label="${esc(t("entry.catalogue.context"))}">${contextFacts.map(fact=>`<span>${esc(fact)}</span>`).join("")}</div>`+
+    `<div class="entry__facts" aria-label="${esc(t("entry.catalogue.context"))}">${contextFacts.map(fact=>`<span class="entry__fact--${fact.kind}">${esc(fact.text)}</span>`).join("")}</div>`+
     /* Every family is released at every frequency, so a flat list is twenty
        near-identical rows. Split the ones that match the answered schedule from
        the rest, which is the comparison the reader is actually making. */

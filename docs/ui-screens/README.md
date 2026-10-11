@@ -1,7 +1,7 @@
 # UI screen catalog
 
 Phone-frame captures of every user-visible Taurifer surface — 143 screens,
-819 frames. This folder is the visual reference for UI and Brand Designers.
+835 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -85,10 +85,10 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Browse 1 — real week](screens/onboarding-browse/schedule__phone-390-light-en.png) | 3 | Days per week and session length, the only questions Browse asks. |
-| [Browse 2 — environment](screens/onboarding-browse/environment__phone-390-light-en.png) | 3 | Environment shortcuts before the catalogue is filtered. |
-| [Browse — catalogue](screens/onboarding-browse/catalogue__phone-390-light-en.png) | 3 | Released, complete, tested programs with purpose, frequency and mismatches. |
-| [Browse — review](screens/onboarding-browse/preview__phone-390-light-en.png) | 3 | The common review surface for a catalogue program. |
+| [Browse 1 — real week](screens/onboarding-browse/schedule__phone-390-light-en.png) | 7 | Days per week and session length, the only questions Browse asks. |
+| [Browse 2 — environment](screens/onboarding-browse/environment__phone-390-light-en.png) | 7 | Environment shortcuts before the catalogue is filtered. |
+| [Browse — catalogue](screens/onboarding-browse/catalogue__phone-390-light-en.png) | 7 | Released, complete, tested programs with purpose, frequency and mismatches. |
+| [Browse — review](screens/onboarding-browse/preview__phone-390-light-en.png) | 7 | The common review surface for a catalogue program. |
 
 ### Onboarding — Build my own
 
