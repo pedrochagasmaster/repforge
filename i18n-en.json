@@ -1793,6 +1793,7 @@
   "entry.priorities.skip": "Skip this section",
   "entry.priorities.show": "Show my program",
   "entry.priorities.limit": "You already chose two muscles. Clear one to switch.",
+  "entry.result.building": "Building your program…",
   "entry.result.error_title": "The program could not be built",
   "entry.chips.title": "Built from your answers",
   "entry.chips.hint": "Tap an answer to change it. The program is rebuilt right here.",

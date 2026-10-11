@@ -473,8 +473,10 @@
       ...(derived.carry ? { carry: derived.carry } : {}) } };
   }
 
-  async function derivationMatches(change, predecessor, successor, catalog) {
-    const derived = deriveSuccessor({
+  // A caller may supply the derivation (#353: the program engine runs it in a
+  // worker); it must return exactly what deriveSuccessor returns.
+  async function derivationMatches(change, predecessor, successor, catalog, derive = deriveSuccessor) {
+    const derived = await derive({
       change,
       programDefinition: predecessor.programDefinition,
       customExerciseDefinitions: predecessor.customExerciseDefinitions,
@@ -485,7 +487,7 @@
       await fingerprintProgramDefinition(successor.programDefinition, successor.customExerciseDefinitions);
   }
 
-  async function createReplacementProposal(input) {
+  async function createReplacementProposal(input, { deriveSuccessor: derive } = {}) {
     try {
       const copied = copyJson(input, "input");
       const catalog = catalogFrom(copied.catalogSnapshot);
@@ -494,7 +496,7 @@
       if (change !== undefined && !validChange(change)) return resultInvalid("unsupported_change");
       const normalized = canonicalInput(copied, catalog);
       if (!normalized.ok) return resultInvalid(normalized.code || "replacement_input_invalid");
-      if (change !== undefined && !await derivationMatches(change, normalized.value.predecessor, normalized.value.successor, catalog)) {
+      if (change !== undefined && !await derivationMatches(change, normalized.value.predecessor, normalized.value.successor, catalog, derive)) {
         return resultInvalid("successor_derivation_mismatch");
       }
       const proposal = {
@@ -547,7 +549,7 @@
       /^[0-9a-f]{64}$/.test(proposal.proposalHash) && (!Object.hasOwn(proposal, "change") || validChange(proposal.change));
   }
 
-  async function validateProposal(proposal, current) {
+  async function validateProposal(proposal, current, { deriveSuccessor: derive } = {}) {
     let safeProposal;
     let safeCurrent;
     try {
@@ -592,7 +594,7 @@
     if (successorFingerprint !== safeProposal.successor.definitionFingerprint) return resultInvalid("successor_definition_mismatch");
     if (Object.hasOwn(safeProposal, "change") && !await derivationMatches(safeProposal.change,
       { programDefinition: currentDefinition.value, customExerciseDefinitions: safeCurrent.predecessor.customExerciseDefinitions },
-      safeProposal.successor, catalog)) return resultInvalid("successor_derivation_mismatch");
+      safeProposal.successor, catalog, derive)) return resultInvalid("successor_derivation_mismatch");
     deepFreeze(safeProposal);
     replacementCapabilities.add(safeProposal);
     return { ok: true, status: "preview", proposal: safeProposal };

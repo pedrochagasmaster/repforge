@@ -15,6 +15,8 @@
  * setup draft holds exactly the edit log replayed by program-review.js on the
  * recommendation; the activated program is that definition, it survives a
  * reload, and the first workout starts with the edited prescriptions.
+ *
+ * #353: both journeys generate through the program engine's worker.
  */
 import { createRequire } from "node:module";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
@@ -244,6 +246,11 @@ async function reviewAndAdjust(browser) {
     () => page.locator(`#entryReview [data-review-reorder-move="${order[0]}:1"]`).click(), "reordered once more");
   await page.locator("#entryReview [data-review-reorder-done]").click();
 
+  // #353: after the reload the recommendation was regenerated off the main thread.
+  const engineRuns = await page.evaluate(() => window.__repforgeProgramEngine?.stats());
+  check(engineRuns?.mode === "worker" && engineRuns.worker >= 1 && engineRuns.main === 0,
+    "review: the resumed review's recommendation is regenerated in the worker", engineRuns);
+
   // Activate commits the edited definition.
   const edited = run.expected;
   await page.click("#entryActivate");
@@ -363,6 +370,9 @@ async function main() {
     const expected = Compiler.generateProgram(mapped.value, Catalog, String(staged.draftId));
     check(expected.ok && JSON.stringify(definition) === JSON.stringify(expected.value),
       "the reviewed program is exactly the canonical generator output for the answers and the draft seed");
+    const engineRuns = await page.evaluate(() => window.__repforgeProgramEngine?.stats());
+    check(engineRuns?.mode === "worker" && engineRuns.worker >= 1 && engineRuns.main === 0,
+      "the program is generated in the worker, not on the main thread", engineRuns);
     check(definition?.request?.goal === "hypertrophy" && definition.request.daysPerWeek === 4 &&
       definition.request.timeCeilingMinutes === 60, "the answers reach the generator as goal, days and time ceiling");
     const weekText = await page.locator("#entryCandidateReview").innerText();

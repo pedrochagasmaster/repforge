@@ -32,6 +32,7 @@ const expected = [
   "posthog-init.js",
   "program-compiler.js",
   "program-editor.js",
+  "program-engine.js",
   "program-entry-adapter.js",
   "program-entry.js",
   "program-review.js",
