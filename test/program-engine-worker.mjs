@@ -162,15 +162,19 @@ async function heldFlow(browser) {
   // The last answer wins and none is lost.
   await page.click('[data-entry-chip="days"]');
   await page.click('#entryEditor [data-entry-pick="daysPerWeek"][data-entry-val="3"]');
+  const beforeDays = await held(page);
   await page.click("#entryChipApply");
+  await page.waitForFunction((count) => window.__held.length > count, beforeDays);
   const daysJob = (await held(page)) - 1;
   check((await entry(page)).answers.daysPerWeek === 4, "async flow: a changed answer is not committed before its program");
   check(await page.locator("#entryCandidateReview").getAttribute("aria-busy") === "true", "async flow: the review reports that it is rebuilding");
   await page.click('[data-entry-chip="minutes"]');
   await page.click('#entryEditor [data-entry-pick="sessionMinutes"][data-entry-val="90"]');
   await page.click("#entryChipApply");
+  await page.waitForFunction((count) => window.__held.length > count, daysJob + 1);
   const minutesJob = (await held(page)) - 1;
-  check(minutesJob === daysJob + 1, "async flow: the second answer starts its own generation");
+  check(minutesJob === daysJob + 1, "async flow: the second answer starts its own generation, and only that",
+    { daysJob, minutesJob, held: await page.evaluate(() => window.__held.map((job) => job.args.request.daysPerWeek)) });
   await release(page, minutesJob);
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.answers?.sessionMinutes === 90);
   const latest = await entry(page);
@@ -185,15 +189,41 @@ async function heldFlow(browser) {
   "async flow: the superseded program is discarded when it lands");
   check(await page.locator("#entryCandidateReview").getAttribute("aria-busy") === null, "async flow: the review is no longer rebuilding");
 
+  // An adjusted review asks before a rebuild discards it, and the rebuild
+  // then starts from the recommendation.
+  const firstSlot = latest.result.preview.programDefinition.days.find((day) => day.kind === "training").slots[0];
+  await page.locator(`#entryReview [data-review-slot="${firstSlot.id}"]`).click();
+  await page.waitForSelector("#reviewSheet.is-open [data-review-sets]", { timeout: 5000 });
+  await page.locator('#reviewSheet [data-review-sets="1"]').click();
+  await page.locator("#reviewSheet [data-review-done]").click();
+  await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 5000 });
+  check(!sameDefinition(await entry(page), latest.answers), "async flow: the review holds an adjustment");
+  const beforeGuard = await held(page);
+  await page.click('[data-entry-chip="days"]');
+  await page.click('#entryEditor [data-entry-pick="daysPerWeek"][data-entry-val="4"]');
+  await page.click("#entryChipApply");
+  await page.locator("#reviewConfirmGo").waitFor({ timeout: 10000 });
+  check(await held(page) === beforeGuard, "async flow: nothing generates until the lifter confirms discarding the adjustment");
+  await page.click("#reviewConfirmGo");
+  await page.waitForFunction((count) => window.__held.length > count, beforeGuard);
+  await release(page, (await held(page)) - 1);
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.answers?.daysPerWeek === 4);
+  const rebuilt = await entry(page);
+  check(sameDefinition(rebuilt, rebuilt.answers), "async flow: the confirmed rebuild commits the program for the new answer");
+  await page.locator("#entryReview [data-review-slot]").first().waitFor({ timeout: 15000 });
+  check(!await page.locator("#entryReview [data-review-mark]").count(), "async flow: the rebuilt review carries no adjustment");
+
   // A conflict keeps the committed program and explains itself.
   await page.click('[data-entry-chip="days"]');
   await page.click('#entryEditor [data-entry-pick="daysPerWeek"][data-entry-val="5"]');
+  const beforeConflict = await held(page);
   await page.click("#entryChipApply");
+  await page.waitForFunction((count) => window.__held.length > count, beforeConflict);
   await release(page, (await held(page)) - 1, { ok: false, conflicts: [{ code: "time_ceiling_exceeded" }] });
   await page.locator("#entryEditorError").waitFor({ timeout: 10000 });
   const conflicted = await entry(page);
-  check(JSON.stringify(conflicted.answers) === JSON.stringify(latest.answers) &&
-    JSON.stringify(conflicted.result.preview.programDefinition) === JSON.stringify(latest.result.preview.programDefinition),
+  check(JSON.stringify(conflicted.answers) === JSON.stringify(rebuilt.answers) &&
+    JSON.stringify(conflicted.result.preview.programDefinition) === JSON.stringify(rebuilt.result.preview.programDefinition),
   "async flow: a conflicting change leaves the committed program in place");
   check(committed.answers.daysPerWeek === 4, "async flow: the walk started from four days");
   check(errors.length === 0, "async flow: no page errors", errors);

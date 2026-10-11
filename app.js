@@ -16577,7 +16577,8 @@ async function guardEntryRebuild(rebuild){
     // The rebuild replaces the candidate; start it from the recommendation.
     const restored=await commitEntryAdjust({definition:entryAdjust.baseline.preview.programDefinition,edits:[],name:null});
     if(!restored.ok)return false}
-  clearEntryAdjust();
+  // The review stays mounted on the recommendation while the rebuild runs;
+  // a rebuilt program brings its own (applyEntryAnswerEdit).
   return rebuild()}
 function mountEntryAdjust(){
   entryAdjustMount?.dispose();entryAdjustMount=null;
@@ -17537,6 +17538,7 @@ function wireEntryDom(){
   const chooseAlternative=$("[data-entry-select-alternative]");if(chooseAlternative)chooseAlternative.onclick=()=>guardEntryRebuild(()=>{
     const alternative=entryState?.result?.alternative;
     if(!alternative)return;
+    clearEntryAdjust();
     const selected={};
     for(const key of ["id","family","familyId","name","namePt","daysPerWeek","blueprintId","split","complexity","reentry","source"]){
       if(Object.prototype.hasOwnProperty.call(alternative,key))selected[key]=alternative[key]}
