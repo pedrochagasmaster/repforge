@@ -831,40 +831,237 @@ function whyOnMixedDay(exerciseId, leads) {
   };
 }
 
-async function goToLogExerciseAndWaitForScroll(page, exerciseId) {
-  await page.evaluate(() => {
-    const state = { pending: new Map() };
-    state.track = (event) => {
-      const target = event.target;
-      if (!target || state.pending.has(target)) return;
-      state.pending.set(target, new Promise((resolve) => {
-        target.addEventListener("scrollend", resolve, { once: true });
-      }));
+async function startWhyViewportTracking(page, exerciseId, index) {
+  await page.evaluate(({ id, index }) => {
+    const contexts = new Set();
+    const events = [];
+    const active = new Map();
+    const seen = new WeakSet();
+    const round = value => Number.isFinite(value) ? Math.round(value * 100) / 100 : null;
+    const rect = element => {
+      if (!element) return null;
+      const box = element.getBoundingClientRect();
+      return { x: round(box.x), y: round(box.y), top: round(box.top), right: round(box.right),
+        bottom: round(box.bottom), left: round(box.left), width: round(box.width), height: round(box.height) };
     };
-    document.addEventListener("scroll", state.track, true);
-    window.addEventListener("scroll", state.track, true);
-    window.__whyCatalogScrollState = state;
+    const ownerName = owner => {
+      if (owner === document || owner === window || owner === document.scrollingElement) return "document";
+      if (owner?.classList?.contains("fcard__context")) {
+        const article = owner.closest(".exercise");
+        return `focus-context:${article?.dataset.ex || article?.dataset.peek || "unknown"}`;
+      }
+      return owner?.id ? `#${owner.id}` : owner?.tagName?.toLowerCase() || "unknown";
+    };
+    const ownerOffset = owner => {
+      const element = owner === document || owner === window ? document.scrollingElement : owner;
+      return { owner: ownerName(owner), top: round(element ? element.scrollTop : window.scrollY),
+        left: round(element ? element.scrollLeft : window.scrollX), rect: rect(element) };
+    };
+    const scrollOwner = event => event.target === document || event.target === window
+      ? document.scrollingElement : event.target;
+    const record = (kind, event) => {
+      if (seen.has(event)) return;
+      seen.add(event);
+      const owner = scrollOwner(event);
+      if (kind === "scroll") active.set(owner, true);
+      else active.delete(owner);
+      events.push({ kind, at: round(performance.now()), ...ownerOffset(owner),
+        activeOwners: [...active.keys()].map(ownerName) });
+    };
+    const onScroll = event => record("scroll", event);
+    const onScrollEnd = event => record("scrollend", event);
+    const attachTargetContext = () => {
+      for (const context of document.querySelectorAll("#workout .exercise .fcard__context")) {
+        const article = context.closest(".exercise");
+        if (article?.dataset.ex !== id && article?.dataset.peek !== id) continue;
+        if (contexts.has(context)) continue;
+        contexts.add(context);
+        context.addEventListener("scroll", onScroll, { passive: true });
+        context.addEventListener("scrollend", onScrollEnd, { passive: true });
+      }
+    };
+    const observer = new MutationObserver(attachTargetContext);
+    observer.observe(document.documentElement, { subtree: true, childList: true });
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    document.addEventListener("scrollend", onScrollEnd, { capture: true, passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("scrollend", onScrollEnd, { passive: true });
+
+    const snapshot = () => {
+      const current = document.querySelector("#workout.is-focus .exercise.is-current");
+      const context = current?.querySelector(".fcard__context");
+      const button = current?.querySelector("[data-why]");
+      const shell = document.querySelector("#workoutShell");
+      const contextRect = rect(context), buttonRect = rect(button);
+      return {
+        selectedExerciseId: current?.dataset.ex || null,
+        focus: document.querySelector("#workout")?.classList.contains("is-focus") || false,
+        route: {
+          bodyClass: document.body.className,
+          activeView: document.querySelector(".view.active")?.id || null,
+          shell: rect(shell), shellClass: shell?.className || null,
+        },
+        scroll: {
+          windowY: round(window.scrollY), windowX: round(window.scrollX),
+          documentY: round(document.scrollingElement?.scrollTop || 0),
+          logY: round(document.querySelector("#log")?.scrollTop || 0),
+          shellY: round(document.querySelector("#workoutShell")?.scrollTop || 0),
+          workoutY: round(document.querySelector("#workout")?.scrollTop || 0),
+          contextY: round(context?.scrollTop || 0),
+        },
+        geometry: {
+          article: rect(current), context: contextRect, heading: rect(current?.querySelector(".fx-head")),
+          cue: rect(current?.querySelector(".fx-cue")), why: buttonRect,
+          whyInsideContext: !!(buttonRect && contextRect && buttonRect.top >= contextRect.top - 1
+            && buttonRect.bottom <= contextRect.bottom + 1 && buttonRect.left >= contextRect.left - 1
+            && buttonRect.right <= contextRect.right + 1 && buttonRect.top >= 0
+            && buttonRect.bottom <= document.documentElement.clientHeight),
+          deckClass: document.querySelector("#focusDeck")?.className || null,
+          trackClass: document.querySelector("#focusTrack")?.className || null,
+          trackTransform: getComputedStyle(document.querySelector("#focusTrack") || document.body).transform,
+          whySheetOpen: document.querySelector("#whySheet")?.classList.contains("is-open") || false,
+        },
+      };
+    };
+    const tracker = {
+      exerciseId: id, navigationIndex: index, events, active, contexts,
+      beforeClick: null, afterSheet: null, captured: null,
+      snapshot,
+      report: () => ({
+        exerciseId: id,
+        navigation: index === 0 ? "first-focus-exercise" : "focus-progress-segment",
+        navigationIndex: index,
+        beforeClick: tracker.beforeClick,
+        afterSheet: tracker.afterSheet,
+        captured: tracker.captured || snapshot(),
+        globalOwners: ["document", "window"],
+        pendingScrollOwners: [...active.keys()].map(ownerName),
+        scrollEventCount: events.length,
+        scrollEvents: events,
+        trackedOwners: [...contexts].map(ownerName),
+      }),
+      stop: () => {
+        observer.disconnect();
+        document.removeEventListener("scroll", onScroll, true);
+        document.removeEventListener("scrollend", onScrollEnd, true);
+        window.removeEventListener("scroll", onScroll);
+        window.removeEventListener("scrollend", onScrollEnd);
+        for (const context of contexts) {
+          context.removeEventListener("scroll", onScroll);
+          context.removeEventListener("scrollend", onScrollEnd);
+        }
+        delete window.__whyCatalogViewport;
+      },
+    };
+    window.__whyCatalogViewport = tracker;
+    attachTargetContext();
+  }, { id: exerciseId, index });
+}
+
+async function waitForWhyViewport(page, exerciseId, phase) {
+  const result = await page.evaluate(({ id, phase: targetPhase }) => new Promise((resolve) => {
+    const tracker = window.__whyCatalogViewport;
+    const started = performance.now();
+    const timeoutMs = 10000;
+    const workoutRect = () => {
+      const element = document.querySelector("#workout");
+      if (!element) return null;
+      const box = element.getBoundingClientRect();
+      return { x: box.x, y: box.y, width: box.width, height: box.height };
+    };
+    let prior = "";
+    let stableFrames = 0;
+    let last = null;
+    const tick = () => {
+      last = tracker?.snapshot();
+      const current = document.querySelector("#workout.is-focus .exercise.is-current");
+      const track = document.querySelector("#focusTrack");
+      const deck = document.querySelector("#focusDeck");
+      const shell = document.querySelector("#workoutShell");
+      const workoutBounds = workoutRect();
+      const selected = current?.dataset.ex === id;
+      const sheetOpen = document.querySelector("#whySheet")?.classList.contains("is-open") || false;
+      const viewportVisible = targetPhase !== "beforeClick" || last?.geometry?.whyInsideContext;
+      const targetGeometry = last?.geometry?.why?.width > 0 && last?.geometry?.why?.height > 0;
+      const routeSettled = !document.body.classList.contains("is-pushing")
+        && !shell?.classList.contains("is-push-over") && Math.abs(workoutBounds?.x ?? Infinity) < 1;
+      const ready = !!tracker && selected && targetGeometry && routeSettled
+        && tracker.active.size === 0 && viewportVisible
+        && !track?.classList.contains("is-settling") && !deck?.classList.contains("is-swiping")
+        && (targetPhase !== "afterSheet" || sheetOpen);
+      const signature = ready ? JSON.stringify(last) : "";
+      stableFrames = ready && signature === prior ? stableFrames + 1 : ready ? 1 : 0;
+      prior = signature;
+      if (ready && stableFrames >= 3) {
+        const completion = tracker.events.length ? "scrollend" : "no-scroll";
+        const settled = { ...last, scrollCompletion: completion, scrollEventCount: tracker.events.length, stableFrames };
+        if (targetPhase === "beforeClick") tracker.beforeClick = settled;
+        else if (targetPhase === "afterSheet") tracker.afterSheet = settled;
+        resolve({ ok: true, ...settled });
+        return;
+      }
+      if (performance.now() - started >= timeoutMs) {
+        resolve({ ok: false, phase: targetPhase, timeoutMs, snapshot: last,
+          activeOwners: [...(tracker?.active?.keys() || [])].map(owner => {
+            if (owner === document.scrollingElement) return "document";
+            const article = owner?.closest?.(".exercise");
+            return article ? `focus-context:${article.dataset.ex || article.dataset.peek || "unknown"}` : owner?.id || owner?.tagName || "unknown";
+          }), scrollEvents: tracker?.events || [] });
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }), { id: exerciseId, phase });
+  if (!result?.ok) throw new Error(`Why capture ${phase} did not settle: ${JSON.stringify(result)}`);
+  return result;
+}
+
+async function whyViewportOperation(page, label, operation) {
+  try {
+    return await operation();
+  } catch (error) {
+    const geometry = await page.evaluate(() => {
+      const tracker = window.__whyCatalogViewport;
+      if (tracker) return tracker.report();
+      const describe = element => {
+        if (!element) return null;
+        const box = element.getBoundingClientRect();
+        return { className: element.className, x: box.x, y: box.y, width: box.width, height: box.height };
+      };
+      return { bodyClass: document.body.className, activeView: document.querySelector(".view.active")?.id || null,
+        scroll: { windowY: window.scrollY, documentY: document.scrollingElement?.scrollTop || 0 },
+        workout: describe(document.querySelector("#workout")), shell: describe(document.querySelector("#workoutShell")),
+        current: describe(document.querySelector("#workout .exercise.is-current")) };
+    }).catch(() => ({ unavailable: true }));
+    throw new Error(`${label}: ${JSON.stringify(geometry)}`, { cause: error });
+  }
+}
+
+async function navigateToWhy(page, { exerciseId, day, index = 0 }) {
+  await startWhyViewportTracking(page, exerciseId, index);
+  await page.evaluate((targetDay) => window.__repforgeEnterWorkout({ day: targetDay }), day);
+  await whyViewportOperation(page, "Focus did not mount for Why capture", () =>
+    page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 10000 }));
+  if (index > 0) {
+    await whyViewportOperation(page, `Focus progress did not select ${exerciseId}`, () =>
+      page.locator(`#woProgress [data-focusgo="${index}"]`).click({ timeout: 10000 }));
+  }
+  await waitForWhyViewport(page, exerciseId, "selected");
+  const why = page.locator(`#workout .exercise.is-current[data-ex="${exerciseId}"] [data-why]`);
+  await whyViewportOperation(page, `Why control did not reach the viewport for ${exerciseId}`,
+    () => why.scrollIntoViewIfNeeded({ timeout: 10000 }));
+  await waitForWhyViewport(page, exerciseId, "beforeClick");
+  await whyViewportOperation(page, `Why sheet did not open for ${exerciseId}`, async () => {
+    await why.click({ timeout: 10000 });
+    await page.waitForSelector("#whySheet.is-open", { timeout: 10000 });
   });
-  await page.evaluate((id) => window.__repforgeGoToLogExercise(id), exerciseId);
-  await page.evaluate(async () => {
-    await new Promise((resolve) => requestAnimationFrame(resolve));
-    const state = window.__whyCatalogScrollState;
-    document.removeEventListener("scroll", state.track, true);
-    window.removeEventListener("scroll", state.track, true);
-    await Promise.all(state.pending.values());
-    delete window.__whyCatalogScrollState;
-  });
+  await waitForWhyViewport(page, exerciseId, "afterSheet");
 }
 
 async function whyOnBuildRange(page) {
   const row = catalogState().program[0];
-  await page.evaluate((day) => window.__repforgeEnterWorkout({ day }), row.day);
-  await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 20000 });
-  await goToLogExerciseAndWaitForScroll(page, row.id);
-  await page.waitForFunction((id) => document.querySelector("#workout .exercise.is-current")?.dataset.ex === id,
-    row.id, { timeout: 10000 });
-  await page.locator("#workout .exercise.is-current [data-why]").click();
-  await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
+  await navigateToWhy(page, { exerciseId: row.id, day: row.day });
   await expectWhyLeads(page, ["manual"]);
   const text = await page.locator("#whyBody .whysheet__text").textContent();
   const expected = await page.evaluate(() => window.RepForgeI18n.t("why.manual"));
@@ -889,7 +1086,9 @@ async function whyOnGeneratedPerSide(page) {
     await window.__repforgeStorage.flush();
     const program = JSON.parse(localStorage.getItem("repforge_v1") || "{}").program || [];
     const row = program.find((candidate) => candidate.slotId === perSide.slot.id);
-    return row && { id: row.id, day: perSide.day.name, mode: perSide.slot.executionMode };
+    const dayRows = program.filter((candidate) => candidate.day === perSide.day.name);
+    return row && { id: row.id, day: perSide.day.name, mode: perSide.slot.executionMode,
+      index: dayRows.findIndex((candidate) => candidate.id === row.id) };
   }, WHY_REQUEST);
   if (!target || !["bilateral", "unilateral"].includes(target.mode))
     throw new Error(`The generated per-side fixture lacks its known mode: ${JSON.stringify(target)}`);
@@ -897,11 +1096,7 @@ async function whyOnGeneratedPerSide(page) {
     const toast = document.querySelector("#toast");
     return !toast || toast.classList.contains("hidden");
   }, undefined, { timeout: 10000 });
-  await page.evaluate((day) => window.__repforgeEnterWorkout({ day }), target.day);
-  await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 20000 });
-  await goToLogExerciseAndWaitForScroll(page, target.id);
-  await page.waitForFunction((id) => document.querySelector("#workout .exercise.is-current")?.dataset.ex === id,
-    target.id, { timeout: 10000 });
+  await navigateToWhy(page, { exerciseId: target.id, day: target.day, index: target.index });
   const truth = await page.evaluate((id) => {
     const ex = window.__repforgeProgression.programSlot(id);
     const rec = window.__repforgeProgression.recommendation(ex);
@@ -909,8 +1104,6 @@ async function whyOnGeneratedPerSide(page) {
   }, target.id);
   if (truth.status !== "configuration_required" || !truth.reasonCodes?.includes("per_side_convention_required") || truth.load != null)
     throw new Error(`The generated slot lost its configuration reason or acquired a load: ${JSON.stringify(truth)}`);
-  await page.locator("#workout .exercise.is-current [data-why]").click();
-  await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
   await expectWhyLeads(page, ["setup"]);
   const text = await page.locator("#whyBody .whysheet__text").textContent();
   const expected = await page.evaluate((mode) => window.RepForgeI18n.t("why.setup.per_side", {

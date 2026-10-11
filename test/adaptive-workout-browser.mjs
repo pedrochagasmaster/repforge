@@ -103,6 +103,41 @@ async function finishEarly(page) {
   await flush(page);
 }
 
+async function waitForSettledFocusExercise(page, slotId) {
+  try {
+    await page.waitForFunction((expectedId) => {
+      const card = document.querySelector("#workout.is-focus .exercise.is-current");
+      const shell = document.querySelector("#workoutShell");
+      const rect = card?.getBoundingClientRect();
+      return card?.dataset.ex === expectedId && rect?.width > 0
+        && Math.abs(rect.left) < 1
+        && !document.body.classList.contains("is-pushing")
+        && !shell?.classList.contains("is-push-over");
+    }, slotId, { timeout: 10000 });
+  } catch (error) {
+    const observed = await page.evaluate((expectedId) => {
+      const describe = (element) => {
+        if (!element) return null;
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return { id: element.id, className: element.className, display: style.display,
+          visibility: style.visibility, rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } };
+      };
+      return {
+        expectedId, currentId: document.querySelector("#workout .exercise.is-current")?.dataset.ex || null,
+        bodyClass: document.body.className, activeView: document.querySelector(".view.active")?.id || null,
+        document: { readyState: document.readyState, visibilityState: document.visibilityState,
+          hidden: document.hidden, title: document.title, url: location.href, scrollY: window.scrollY },
+        booted: window.__repforgeBooted,
+        shell: describe(document.querySelector("#workoutShell")),
+        workout: describe(document.querySelector("#workout")),
+        card: describe(document.querySelector("#workout .exercise.is-current")),
+      };
+    }, slotId);
+    throw new Error(`Focus route did not settle on ${slotId}: ${JSON.stringify(observed)}`, { cause: error });
+  }
+}
+
 async function setLoadStep(page, slotId, value) {
   await page.click('nav button[data-view="program"]');
   await page.waitForSelector("#program.view.active", { timeout: 5000 });
@@ -157,7 +192,7 @@ async function main() {
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
     if (!await page.evaluate((day) => window.__repforgeEnterWorkout({ day }), target.day)) throw new Error("could not re-enter day");
-    await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 10000 });
+    await waitForSettledFocusExercise(page, target.slotId);
     const second = await draftSet(page, target.slotId, 2);
     check(second?.edited?.metrics?.[WEIGHT] === "105" && second?.edited?.metrics?.[REPS] === "8",
       "after 110 kg × 6 at 2 RIR, the 7–9 at 1 RIR set is prefilled with 105 kg × 8", second?.edited?.metrics);
