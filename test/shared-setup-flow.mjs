@@ -31,6 +31,7 @@
  */
 import { pathToFileURL } from "url";
 import { gzipSync } from "zlib";
+import { readFileSync } from "fs";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import { seedProgramMeta } from "./fixtures/seed-program.mjs";
 
@@ -859,6 +860,34 @@ export async function runSharedSetupFlow(browser) {
       "a standalone launch with only the cookie shows the shared gate", { gate, hook });
     assert(!gate.install && !gate.continueShown && gate.lede === SHARED_COPY.en.ledeInstalled, "the installed gate has no install section", gate);
     assert(hook.source === "cookie" && hook.status === "ready", "the proposal came from the handoff cookie", hook);
+    await context.close();
+  });
+
+  // #340 (Plan 072 OD-11): the plain GENERATOR_VERSION bump retires recipe
+  // links from the earlier generator. This one was recorded with 067.1 for a
+  // program the current generator builds differently; it must be refused with
+  // the actionable message, never regenerated into another program.
+  await runCase("A recipe link from the earlier generator asks to be shared again", async () => {
+    const legacy = JSON.parse(readFileSync(new URL("./fixtures/setup-link-recipe-067-1.json", import.meta.url), "utf8"));
+    const { context, page } = await openAppPage(browser);
+    await freshDevice(page);
+    await waitForFirstRun(page);
+    const before = await page.evaluate(readDurableState);
+    await page.goto(setupUrl(legacy.link, "recipe-067-1"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    const gate = await page.evaluate(sharedGateSnapshot);
+    const hook = await page.evaluate(readSharedHook);
+    const after = await page.evaluate(readDurableState);
+    const version = await page.evaluate(() => window.RepForgeProgramCompiler.GENERATOR_VERSION);
+    assert(version !== legacy.generatorVersion, "the app runs a later generator than the link's", version);
+    assert(hook.status === "unsupported" && hook.error === "unsupported-version", "the recipe link is unsupported", hook);
+    assert(!gate.startVisible && gate.createVisible && gate.importVisible, "no shared action; standard choices are restored", gate);
+    const outdated = await page.evaluate(() => window.RepForgeI18n.t("setup.shared.outdated"));
+    assert(gate.errorVisible && gate.errorRole === "status" && outdated !== "setup.shared.outdated" && gate.errorText === outdated,
+      "an inline status asks for the program to be shared again (setup.shared.outdated)", gate.errorText);
+    const hits = noSharedWrite(before, after, legacy.name);
+    assert(hits.length === 0, "nothing is written", hits);
+    assert(!after.cookie && !(await handoffCookie(context)), "no handoff cookie is staged", after.cookie);
     await context.close();
   });
 

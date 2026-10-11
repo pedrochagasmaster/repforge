@@ -1,0 +1,6 @@
+{
+  "note": "A v4 recipe (\"g\") setup link recorded with GENERATOR_VERSION 067.1 before #340 mapped pullups10 to the weighted vertical pulls. The program answers pullups10 = yes, so 067.2 would generate a different program from the same request and seed. Encoded with the release catalog and exercises.js built-in ids, as the app encodes.",
+  "generatorVersion": "067.1",
+  "name": "Pull-up program",
+  "link": "v4.H4sIAAAAAAAAA2XS32_TMBAH8H8F7gUEl3K241-PPEyrJk2CSWvpKgs5jmlhzhqyRZ36sL8dhdbuEG8ffe_Ojk9Zc4QvY0rV2L_ph91m8B3gGjaA4LkSoeUhkoxWt16QJWF_RMZqr02IhkxgSpImy60RsjFGNtEL8kyS0goQSOkZm87bAcKnjJdVtxhXfPs1dItDOFzsAR_GlP4W7H381ia_bHftxU0f5tfP159L2S_lr-YyjXe3V9vQXaXmcv-63Ii7FLptWi1v_j86zBePzXyxP4ZPwxj_CW9fNx78sZEdQ4fwDlAjIGCN8H56hweHwItYkSiqi8zx5Q7hIyC8_Q0IHyZ0gDDLW7HHdlzDCCi4dFkmS1BWrbIkK-JZqkzoMqFLVYuicoe2J9VGn2RtfRJTpcyUKakmdqYo5Oe0fDkzdRkzSpyZU85EvoJbkRvqmpNzDoHK_vS0tmdAkGW503829n0cvqfdPg6AUAEqcgiP8Wnsq_Tz4b7aVKR0xcCdptZ8JpGhQIaMExKSQ3J_AOsYiaoNAwAA"
+}

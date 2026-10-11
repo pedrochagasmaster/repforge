@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const GENERATOR_VERSION = "067.1";
+  const GENERATOR_VERSION = "067.2";
   const PROGRAM_SCHEMA_VERSION = 2;
   const SUPPORTED_PROGRAM_SCHEMA_VERSIONS = Object.freeze([1, 2]);
   const ROLES = Object.freeze([
@@ -43,6 +43,8 @@
     "45° incline barbell press preconditions": "inclineBarbell10",
     "Bodyweight dip preconditions": "bodyweightDips10",
     "Bodyweight vertical pulls preconditions": "pullups5",
+    // #340 (Plan 072 OD-11): "10 strict pull-ups" answers the weighted variants.
+    "Weighted vertical pulls preconditions": "pullups10",
     "Intermediate push-up preconditions": "pushups15",
   });
   const ONTOLOGY_NAMES = Object.freeze({
