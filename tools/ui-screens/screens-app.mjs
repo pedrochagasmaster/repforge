@@ -831,11 +831,36 @@ function whyOnMixedDay(exerciseId, leads) {
   };
 }
 
+async function goToLogExerciseAndWaitForScroll(page, exerciseId) {
+  await page.evaluate(() => {
+    const state = { pending: new Map() };
+    state.track = (event) => {
+      const target = event.target;
+      if (!target || state.pending.has(target)) return;
+      state.pending.set(target, new Promise((resolve) => {
+        target.addEventListener("scrollend", resolve, { once: true });
+      }));
+    };
+    document.addEventListener("scroll", state.track, true);
+    window.addEventListener("scroll", state.track, true);
+    window.__whyCatalogScrollState = state;
+  });
+  await page.evaluate((id) => window.__repforgeGoToLogExercise(id), exerciseId);
+  await page.evaluate(async () => {
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const state = window.__whyCatalogScrollState;
+    document.removeEventListener("scroll", state.track, true);
+    window.removeEventListener("scroll", state.track, true);
+    await Promise.all(state.pending.values());
+    delete window.__whyCatalogScrollState;
+  });
+}
+
 async function whyOnBuildRange(page) {
   const row = catalogState().program[0];
   await page.evaluate((day) => window.__repforgeEnterWorkout({ day }), row.day);
   await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 20000 });
-  await page.evaluate((id) => window.__repforgeGoToLogExercise(id), row.id);
+  await goToLogExerciseAndWaitForScroll(page, row.id);
   await page.waitForFunction((id) => document.querySelector("#workout .exercise.is-current")?.dataset.ex === id,
     row.id, { timeout: 10000 });
   await page.locator("#workout .exercise.is-current [data-why]").click();
@@ -874,7 +899,7 @@ async function whyOnGeneratedPerSide(page) {
   }, undefined, { timeout: 10000 });
   await page.evaluate((day) => window.__repforgeEnterWorkout({ day }), target.day);
   await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 20000 });
-  await page.evaluate((id) => window.__repforgeGoToLogExercise(id), target.id);
+  await goToLogExerciseAndWaitForScroll(page, target.id);
   await page.waitForFunction((id) => document.querySelector("#workout .exercise.is-current")?.dataset.ex === id,
     target.id, { timeout: 10000 });
   const truth = await page.evaluate((id) => {
