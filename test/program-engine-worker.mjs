@@ -264,16 +264,21 @@ async function main() {
           let running = true, last = performance.now();
           const tick = (now) => { gaps.push(now - last); last = now; if (running) requestAnimationFrame(tick); };
           requestAnimationFrame(tick);
+          // Keep the worker busy, request after request, for at least as long
+          // as the same work blocks this thread, so the window holds several
+          // frames however fast the worker's thread is.
           const started = performance.now();
-          const generated = await engine.generate(request, "no-jank");
+          let generated = null, runs = 0;
+          do { generated = await engine.generate(request, "no-jank"); runs++; }
+          while (performance.now() - started < blocked);
           const took = performance.now() - started;
           running = false;
-          return { ok: reference.ok && JSON.stringify(generated) === JSON.stringify(reference), blocked, took,
+          return { ok: reference.ok && JSON.stringify(generated) === JSON.stringify(reference), blocked, took, runs,
             frames: gaps.length, maxGap: Math.max(0, ...gaps) };
         }, heavy);
         await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
         console.log(`    heaviest request at 6x CPU: main thread blocked ${Math.round(timing.blocked)} ms; ` +
-          `worker took ${Math.round(timing.took)} ms with ${timing.frames} frames, longest gap ${Math.round(timing.maxGap)} ms`);
+          `${timing.runs} worker runs took ${Math.round(timing.took)} ms with ${timing.frames} frames, longest gap ${Math.round(timing.maxGap)} ms`);
         check(timing.ok, "the heaviest request gives the same program in the worker", timing);
         // The comparison below can only tell the two paths apart when the
         // main-thread block spans several frames; the throttle makes sure of it.
