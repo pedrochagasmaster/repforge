@@ -156,17 +156,22 @@ view, not a replacement for the first-ever milestone metric.
 
 ## Dashboard: Session completion and abandonment
 
-1. **Session outcome**: Group by `(distinct_id, $session_id)`, with sessions
-   containing `set_saved` as denominator. Count completion (`session_completed`)
-   or discard (`workout_discarded`) only after the first saved set in that SDK
-   session. Separate unresolved, duplicate, and conflicting terminal cases.
-   Exclude missing SDK session IDs and report them in health. There is no
-   abandon action; unresolved is not abandoned.
-2. **Discarded workouts**: Trends, `workout_discarded` event count, broken
-   down by `stage`. Discards before any set are outside the saved-set
-   denominator but remain visible here.
-3. **Completion duration**: Trends, `session_completed` event count, breakdown
-   `duration`; inspect one-off completions separately where relevant.
+1. **Session outcome** (compiled `session-outcomes`): Group by
+   `(distinct_id, $session_id)`, with sessions containing `set_saved` as
+   denominator. Count completion (`session_completed`), explicit abandonment
+   (`session_abandoned`) or discard by a program edit (`workout_discarded`)
+   only after the first saved set in that SDK session. Separate unresolved,
+   duplicate, and conflicting terminal cases. Exclude missing SDK session IDs
+   and report them in health. Unresolved is not abandoned.
+2. **Why sessions end early**: Trends, `session_abandoned` event count,
+   breakdown `stage`, then `reason`, keeping a missing reason as its own
+   group. Abandonment before any set is outside the saved-set denominator but
+   stays visible here. Compare with Finish early (`session_completed` with
+   few sets) before reading abandonment as failure.
+3. **Discarded workouts**: Trends, `workout_discarded` event count, broken
+   down by `stage`.
+4. **Completion duration**: Trends, `session_completed` event count, breakdown
+   `duration`.
 
 `first_set_logged` cannot start this denominator: it misses every later session.
 SDK sessions are not durable workout identities. A reload can split a workout;
@@ -213,8 +218,10 @@ a route only after 10 eligible installations in it.
 
 1. **Block continuation**: funnel, `block_review_viewed` →
    `block_transition_chosen` within 14 days; breakdown `action`.
-2. **In-workout swaps**: Trends, `substitution_used` by `source`. An
-   alternate share near zero means the slot alternates go unseen.
+2. **In-workout swaps**: Trends, `substitution_used` by `source`, then by
+   `reason` with a missing reason as its own group. An alternate share near
+   zero means the slot alternates go unseen. A rising `pain` share is a
+   programming signal to review, never an automated intervention.
 3. **Program edits**: Trends, `active_program_edited` by `outcome`.
 4. **Settings**: Trends, `settings_changed` by `setting`.
 

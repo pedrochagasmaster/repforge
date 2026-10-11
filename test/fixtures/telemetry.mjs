@@ -30,6 +30,7 @@ export const ALPHA_EVENT_NAMES = Object.freeze([
   "exercise_skipped",
   "substitution_used",
   "session_completed",
+  "session_abandoned",
   "workout_discarded",
   "session_summary_viewed",
   "block_review_viewed",
@@ -73,6 +74,7 @@ export const VALID_ALPHA_EVENTS = Object.freeze([
   ["exercise_skipped", { context: "planned_session" }],
   ["substitution_used", { source: "alternate" }],
   ["session_completed", { set_count: "6_10", exercise_count: "4_6", duration: "31_60", days_since_last: "2_3" }],
+  ["session_abandoned", { stage: "working", reason: "time" }],
   ["workout_discarded", { stage: "working", cause: "program_edit" }],
   ["session_summary_viewed", {}],
   ["block_review_viewed", { completion: "complete" }],
@@ -105,6 +107,9 @@ export const INVALID_EVENTS = Object.freeze([
   ["program_review_action", { action: "edit", kind: "swap", exercise_id: "sq_bb" }],
   ["program_activated", { route: "recommend", version_category: "taurifer_v1", review_changes: 3 }],
   ["substitution_used", { source: "library", exercise_name: "Squat" }],
+  ["substitution_used", { source: "library", reason: "too heavy" }],
+  ["session_abandoned", { stage: "review", reason: "time" }],
+  ["session_abandoned", { stage: "working", reason: "TAURIFER_SENTINEL_FREE_TEXT_7ab0" }],
 ]);
 
 export const HOSTILE_SENTINELS = Object.freeze([
@@ -161,6 +166,7 @@ export const EVENT_DUPLICATE_POLICIES = Object.freeze({
   exercise_skipped: "repeatable",
   substitution_used: "repeatable",
   session_completed: "once_per_session",
+  session_abandoned: "once_per_session",
   workout_discarded: "once_per_session",
   session_summary_viewed: "once_per_session",
   block_review_viewed: "repeatable",

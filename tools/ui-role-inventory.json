@@ -833,6 +833,16 @@
       "content": "flat",
       "scenario": "The mid-workout swap picker, opened from Exercise actions, leading with the slot's alternates in their authored order before the usual groups."
     },
+    "workout/abandon": {
+      "owner": "plan-071",
+      "content": "flat",
+      "scenario": "The session sheet's End without saving prompt, with the time reason chip chosen before confirming."
+    },
+    "workout/swap-reason": {
+      "owner": "plan-071",
+      "content": "flat",
+      "scenario": "The mid-workout swap picker with the crowded reason chip chosen above the search."
+    },
     "onboarding-recommend/chip-editor-open": {
       "owner": "plan-064/r4b",
       "content": "flat",
@@ -2393,7 +2403,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/exercise-picker",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -2416,7 +2427,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/exercise-picker",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -2439,7 +2451,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/exercise-picker",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -2457,7 +2470,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/exercise-picker",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -2481,7 +2495,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/exercise-picker",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -2499,7 +2514,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/exercise-picker",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -3420,7 +3436,8 @@
         "workout/stale-draft",
         "workout/rest-running",
         "workout/rest-done",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -4703,6 +4720,7 @@
       "rationale": "Accepts or edits an explicit value.",
       "owner": "plan-058",
       "catalogStates": [
+        "workout/abandon",
         "workout/early-finish",
         "workout/reorder",
         "workout/session"
@@ -4727,6 +4745,7 @@
       "rationale": "Accepts or edits an explicit value.",
       "owner": "plan-058",
       "catalogStates": [
+        "workout/abandon",
         "workout/early-finish",
         "workout/reorder",
         "workout/session"
@@ -4799,6 +4818,70 @@
       ]
     },
     {
+      "id": "sessionabandon",
+      "selector": "#sessionAbandon",
+      "roles": {
+        "control": "destructive"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Discards the whole session (every logged set and the draft) rather than finishing it; the explicit abandon prompt stays before the discard commits.",
+      "owner": "plan-071",
+      "catalogStates": [
+        "workout/reorder",
+        "workout/session"
+      ]
+    },
+    {
+      "id": "sessionabandonconfirm",
+      "selector": "#sessionAbandonConfirm",
+      "roles": {
+        "control": "destructive"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Commits the destructive discard the abandon prompt asked about; reversible nowhere past this point.",
+      "owner": "plan-071",
+      "catalogStates": [
+        "workout/abandon"
+      ]
+    },
+    {
+      "id": "sessionabandoncancel",
+      "selector": "#sessionAbandonCancel",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Performs a reversible supporting action without becoming the screen commitment: leaves the abandon prompt and discards nothing.",
+      "owner": "plan-071",
+      "catalogStates": [
+        "workout/abandon"
+      ]
+    },
+    {
       "id": "sessionnotes",
       "selector": "#sessionNotes",
       "roles": {
@@ -4817,6 +4900,7 @@
       "rationale": "Accepts or edits an explicit value.",
       "owner": "plan-058",
       "catalogStates": [
+        "workout/abandon",
         "workout/early-finish",
         "workout/reorder",
         "workout/session"
@@ -4836,6 +4920,7 @@
       "rationale": "Blocks the underlying route with dialog semantics; full-screen variants need no fake shadow.",
       "owner": "plan-058",
       "catalogStates": [
+        "workout/abandon",
         "workout/early-finish",
         "workout/reorder",
         "workout/session"
@@ -4868,7 +4953,8 @@
         "workout/stale-draft",
         "workout/rest-running",
         "workout/rest-done",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -4891,6 +4977,7 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state: the shared sheet band's close on the session sheet.",
       "owner": "plan-058",
       "catalogStates": [
+        "workout/abandon",
         "workout/early-finish",
         "workout/reorder",
         "workout/session"
@@ -4910,6 +4997,7 @@
       "rationale": "Scrim suppresses the page behind its blocking sheet.",
       "owner": "plan-058",
       "catalogStates": [
+        "workout/abandon",
         "workout/early-finish",
         "workout/reorder",
         "workout/session"
@@ -5640,7 +5728,8 @@
         "workout/stale-draft",
         "workout/rest-running",
         "workout/rest-done",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -5679,7 +5768,8 @@
         "workout/why-manual",
         "workout/rest-running",
         "workout/rest-done",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ],
       "progressScopes": {
         "workout-exercise-order": "exercise-set"
@@ -5713,7 +5803,8 @@
         "workout/stale-draft",
         "workout/rest-running",
         "workout/rest-done",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -6177,7 +6268,8 @@
         "workout/stale-draft",
         "workout/rest-running",
         "workout/rest-done",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -6201,7 +6293,8 @@
         "workout/stale-draft",
         "workout/rest-running",
         "workout/rest-done",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -6266,7 +6359,8 @@
         "workout/correction",
         "workout/rest-running",
         "workout/rest-done",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -6412,7 +6506,9 @@
         "library/list-selected",
         "program/custom-exercise",
         "program/exercise-picker",
-        "workout/swap-alternates"
+        "workout/abandon",
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -6440,7 +6536,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/exercise-picker",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -6820,6 +6917,7 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
+        "workout/abandon",
         "workout/early-finish",
         "workout/reorder",
         "workout/session"
@@ -6847,6 +6945,7 @@
       "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
       "owner": "plan-058",
       "catalogStates": [
+        "workout/abandon",
         "workout/early-finish",
         "workout/reorder",
         "workout/session"
@@ -6990,7 +7089,8 @@
         "workout/stale-draft",
         "workout/rest-running",
         "workout/rest-done",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -7018,7 +7118,8 @@
         "workout/stale-draft",
         "workout/rest-running",
         "workout/rest-done",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -7511,6 +7612,7 @@
         "program/text-export",
         "settings/privacy-disclosure",
         "today/day-picker",
+        "workout/abandon",
         "workout/early-finish",
         "workout/exercise-actions",
         "workout/exercise-note",
@@ -7519,6 +7621,7 @@
         "workout/skipped-actions",
         "workout/substituted-actions",
         "workout/swap-alternates",
+        "workout/swap-reason",
         "workout/warmup-actions",
         "workout/why-in-session",
         "workout/why-manual",
@@ -7634,7 +7737,8 @@
         "workout/stale-draft",
         "workout/rest-running",
         "workout/rest-done",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -7812,7 +7916,8 @@
         "workout/stale-draft",
         "workout/rest-running",
         "workout/rest-done",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -7869,7 +7974,8 @@
         "workout/stale-draft",
         "workout/rest-running",
         "workout/rest-done",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -7897,7 +8003,8 @@
         "workout/stale-draft",
         "workout/rest-running",
         "workout/rest-done",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -7927,7 +8034,8 @@
         "workout/stale-draft",
         "workout/rest-running",
         "workout/rest-done",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {

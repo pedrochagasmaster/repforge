@@ -264,6 +264,7 @@ const D_FIXTURE_STATES = new Set([
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", // R3d
   "workout/exercise-actions", // R3x: the redrawn sheet, on the lifter the drawing shows
   "workout/swap-alternates", // #317: the swap picker leads with the squat slot's alternates
+  "workout/abandon", "workout/swap-reason", // Plan 071 §10: end-without-saving and the swap reason chips
   "history/list", "history/session", "history/edit-dirty", "history/edit-invalid", // R3j, R3j2
   "program/overview", // R3k
   "today/done", // R3x: the finished day, on the lifter whose Monday session is in the log
@@ -982,6 +983,15 @@ export const APP_SCENARIOS = {
   },
   "workout/session": async page => { await focusMode(page); await page.click("#sessionSheetBtn"); await resetSheetScroll(page, ".session-sheet__body"); },
   "workout/early-finish": async page => { await focusMode(page); await logCurrentSet(page); await page.click("#sessionSheetBtn"); await page.click("#sessionEarlyFinish"); await resetSheetScroll(page, ".session-sheet__body"); await resetSheetScroll(page, "#sessionEarlySection"); },
+  "workout/abandon": async page => {
+    await focusMode(page);
+    await logCurrentSet(page);
+    await page.click("#sessionSheetBtn");
+    await page.click("#sessionAbandon");
+    await page.locator('#sessionAbandonReasons [data-abandon-reason="time"]').click();
+    await resetSheetScroll(page, ".session-sheet__body");
+    await resetSheetScroll(page, "#sessionEarlySection");
+  },
   "workout/exercise-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await resetSheetScroll(page, ".exactions-sheet__body"); },
   "workout/skipped-actions": async page => {
     await focusMode(page);
@@ -1008,6 +1018,15 @@ export const APP_SCENARIOS = {
     await page.locator("#woOverflowBtn").click();
     await page.locator("#exActionSubstBtn").click();
     await page.locator("#exPickSheet.is-open .pick__section").first().waitFor();
+    await sleep(page, 400);
+  },
+  "workout/swap-reason": async page => {
+    await focusMode(page);
+    await page.locator("#woOverflowBtn").click();
+    await page.locator("#exActionSubstBtn").click();
+    await page.locator("#exPickSheet.is-open .pick__section").first().waitFor();
+    await page.locator('#exPickReasons [data-pick-reason="crowded"]').click();
+    await resetSheetScroll(page, "#exPickList");
     await sleep(page, 400);
   },
   "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, ".exactions-sheet__body"); },

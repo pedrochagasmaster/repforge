@@ -193,7 +193,7 @@ re-declares its event together with its producer.
 | Event | Why retired |
 |---|---|
 | `recommendation_overridden` | No override action exists. Typing a different load is `set_saved.vs_suggestion = raised/lowered`. |
-| `session_abandoned` | No abandon action exists. Leaving pauses; finishing early completes. The one real discard is `workout_discarded`. |
+| `session_abandoned` | No abandon action existed. Leaving pauses; finishing early completes. Re-declared with its producer when the owner approved an explicit abandon (§10). |
 | `one_off_started`, `one_off_completed` | One-off sessions do not exist (draft PR #257 is domain-only). |
 | `equipment_context_selected` | No reachable UI; equipment contexts are deferred (backlog §5). |
 | `program_transition_selected` | Its vocabulary (resume, repair, rebase, switch) does not match the product's actions. Replaced by `block_transition_chosen`. |
@@ -326,3 +326,57 @@ relative to main when the PR opens, and again after the final rebase.
   Browser suites run under `flock /tmp/taurifer-browser.lock`:
   `test/telemetry-runtime.mjs`.
 - A green `ci` check on the final head is the completion evidence.
+
+## 10. Substitution reason and explicit abandon (owner decisions 3 and 4)
+
+Both add UI, follow the existing sheet patterns, and carry EN and PT copy.
+
+### Substitution reason
+
+- The swap sheet (the exercise picker opened from Exercise actions → Swap)
+  shows optional reason chips at the head of its scrolling list: Equipment,
+  Preference, Pain, Crowded, Other. The copy is under `picker.reason.*`.
+- None is selected when the sheet opens. One tap selects a chip; a second tap
+  clears it. Picking an exercise swaps immediately, exactly as before. The
+  reason never blocks or delays the swap.
+- `substitution_used` gains `reason` only when a chip was selected
+  (`equipment`, `preference`, `pain`, `crowded`, `other`). With no chip it is
+  absent, never defaulted. Restoring the original exercise sends nothing.
+- Only the workout swap shows the chips. Every other use of the picker
+  (Build, the program editor, imports) is unchanged.
+
+### End without saving
+
+- **Where:** the session sheet's foot, under Finish session early: **End
+  without saving** (destructive).
+- **The prompt:** tapping it opens a one-step confirmation in the same foot,
+  following the early-finish pattern. It shows:
+  - the consequence: "Nothing from this session is saved. Logged sets are
+    discarded and your program stays as it is."
+  - optional reason chips: Out of time, Not recovered, Pain, Equipment,
+    Schedule changed, Other. None is selected by default.
+  - **End and discard** and **Cancel**.
+- **What it does:** exactly the existing unfinished-session discard
+  (`clearDraft`, the same removal the "discard unfinished session" sheet
+  uses):
+  - The DraftV2 record and its checkpoint are removed under the draft
+    compare-and-swap.
+  - Every set logged in this session is discarded and never reaches History.
+  - The program, the block, earlier sessions and settings are untouched.
+  - The lifter returns to Today. No new storage is introduced.
+  - If the removal fails, the existing draft-recovery surface appears and
+    nothing is reported.
+- **Finish early vs end without saving:** finish early saves the logged sets
+  and completes the session. This action saves nothing.
+- **Telemetry:** `session_abandoned` (once per session) is sent after the
+  removal succeeds.
+  - `stage` is `working` if a working set had been committed, otherwise
+    `before_set`.
+  - `reason` is sent only when a chip was chosen: `time`, `recovery`, `pain`,
+    `equipment`, `schedule`, `other`.
+- **Measurement:** saved-set session outcomes now count three terminals:
+  completed, abandoned (`session_abandoned`) and discarded by a program edit
+  (`workout_discarded`). A session with none of these is unresolved.
+- **Catalog:** `workout/abandon` (the prompt with a reason chosen) and
+  `workout/swap-reason` (the swap sheet with a reason chosen), with manifest
+  and role-inventory entries.

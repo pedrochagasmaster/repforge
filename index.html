@@ -1021,6 +1021,16 @@ Triceps pushdown 3x12-15</pre>
           <button type="button" id="sessionEarlyCancel" data-i18n="dialog.cancel">Cancel</button>
         </div>
       </div>
+      <button type="button" class="session-abandon-btn" id="sessionAbandon" data-i18n="session.sheet.abandon">End without saving</button>
+      <div id="sessionAbandonPrompt" class="session-early-prompt session-abandon-prompt hidden" aria-live="polite">
+        <p class="session-early-msg" id="sessionAbandonMsg" data-i18n="session.sheet.abandon_prompt">Nothing from this session is saved. Logged sets are discarded and your program stays as it is.</p>
+        <p class="session-abandon__label" id="sessionAbandonReasonLabel" data-i18n="session.sheet.abandon_reason_label">Why? (optional)</p>
+        <div class="session-abandon__reasons" id="sessionAbandonReasons" role="group" aria-labelledby="sessionAbandonReasonLabel"></div>
+        <div class="session-early-actions">
+          <button type="button" class="session-abandon-confirm" id="sessionAbandonConfirm" data-i18n="session.sheet.abandon_confirm">End and discard</button>
+          <button type="button" id="sessionAbandonCancel" data-i18n="dialog.cancel">Cancel</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1306,6 +1316,6 @@ Triceps pushdown 3x12-15</pre>
   <script src="durable-state.js?v=310"></script>
   <script src="progress-model.js?v=308"></script>
   <script src="history-ui.js?v=314"></script>
-  <script src="app.js?v=419"></script>
+  <script src="app.js?v=421"></script>
 </body>
 </html>

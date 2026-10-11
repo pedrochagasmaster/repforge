@@ -44,7 +44,7 @@ Health queries are explicitly broader so bad or absent labels remain visible.
 | First gym-floor value | `program_activated` → `first_set_logged` → `session_completed` | Unique new installation | Activation through 14 days | activation route and version category; family only when supplied by the earlier generator event | New installations with activation; compiled view requires a witnessed first-run boot, with mature and pending cohorts separate |
 | Recommendation understanding | `set_saved` → `recommendation_explained` → later `set_saved` | Report both unique installation and event count | Active program observation window | explanation surface; `vs_suggestion` | Saved-set installations; all explanation opens shown separately, including those before a save |
 | Editor reliance | `onboarding_step_viewed{step:result}` → `program_review_action` → `program_activated.review_changes` | Unique installation; activations | Setup flow | route (recommend, custom); `review_changes`; editor `action` and `kind` | Generated-route activations; releases before `review_changes` are `not_reported`, never 0 |
-| Session reliability | `set_saved` → `session_completed` or `workout_discarded` | Installation + PostHog SDK session | One SDK session | completion duration; discard stage | SDK sessions containing `set_saved`; missing session IDs reported separately |
+| Session reliability | `set_saved` → `session_completed`, `session_abandoned` or `workout_discarded` | Installation + PostHog SDK session | One SDK session | completion duration; abandon stage and reason; discard stage | SDK sessions containing `set_saved`; missing session IDs reported separately |
 | Repeated use | first observed `session_completed` → later-date, different-SDK-session `session_completed` | Unique new installation | Repeat within 7, 30, or 60 elapsed days | activation route and version category | Mature anchors; compiled view requires a witnessed first-run boot |
 | Week-1 and week-4 training by route | first `program_activated` (route) → `session_completed` on a later date within 7 days; another in days 22–28 | Unique new installation | 7 and 28 days from activation | first activation route | Mature anchors only, with a witnessed first-run boot |
 
@@ -66,10 +66,12 @@ or incomplete-history installations separately; do not count them as failures
 or compare their rates silently with wider historical cohorts. Keep the full
 schema-compatible release history needed by the observation window.
 
-The product has no abandon action, so no event reports abandonment. Page
-closure is not abandonment and a session without a terminal event is
-unresolved. `workout_discarded` is the one explicit discard: the lifter applied
-a program edit that throws the open workout away. Count terminal events only
+`session_abandoned` is the explicit **End without saving** action in the
+session sheet (Plan 071 §10). It discards the draft and every set logged in it,
+and reports `stage` (`before_set`, `working`) and, only when the lifter tapped
+one, `reason`. Page closure is not abandonment and a session without a
+terminal event is unresolved. `workout_discarded` is the other explicit
+discard: the lifter applied a program edit that throws the open workout away. Count terminal events only
 after a saved set in the same SDK session; separate unresolved, duplicate, and
 conflicting terminals. SDK sessions can split on reload or span multiple
 workouts; they are not durable workout identities, and no stable workout ID is
@@ -141,7 +143,9 @@ Plan 071 adds these producers. Each attaches to a domain boundary:
   matches, or whose definition does not validate (`definition_invalid`).
 - **`substitution_used`.** Fires on an applied `substituteExercise` command.
   `source` is `alternate` when the pick was one of the slot's alternates,
-  otherwise `library`. No reason is asked, so `reason` is never sent.
+  otherwise `library`. `reason` is present only when the lifter tapped one of
+  the optional chips in the swap sheet. Its absence means no reason was given,
+  not "other".
 - **`block_transition_chosen`.** Fires at the commit, never at the button:
   - the literal repeat;
   - a confirmed sibling proposal (schedule repair, volume reduction, recovery
@@ -155,9 +159,11 @@ Plan 071 adds these producers. Each attaches to a domain boundary:
 
 Every declared event has a producer; `tools/check-production-syntax.mjs` keeps
 a reserve list for any future declaration that ships before its producer.
-Plan 071 retired `recommendation_overridden`, `session_abandoned`,
-`one_off_started`, `one_off_completed`, `equipment_context_selected` and
-`program_transition_selected`, none of which was ever emitted.
+Plan 071 retired `recommendation_overridden`, `one_off_started`,
+`one_off_completed`, `equipment_context_selected` and
+`program_transition_selected`, none of which was ever emitted. It retired
+`session_abandoned` too, then re-declared it with a producer once the owner
+approved the explicit abandon action.
 
 ## Scorecard hierarchy
 

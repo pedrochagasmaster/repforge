@@ -2777,7 +2777,8 @@ function captureDraftCommandTelemetry(command,before,after,ui){
     if(command.type==="skipExercise"&&ui?.bulk!==true&&before?.exercises?.[command.exerciseInstanceId]?.status!=="skipped")captureEvent("exercise_skipped",{context:"planned_session"});
     // Plan 071 §5.5: where the replacement came from; no reason is asked, so none is sent.
     if(command.type==="substituteExercise"&&(ui?.substitutionSource==="alternate"||ui?.substitutionSource==="library"))
-      captureEvent("substitution_used",{source:ui.substitutionSource})}
+      captureEvent("substitution_used",SUBSTITUTION_REASONS.includes(ui.substitutionReason)
+        ?{source:ui.substitutionSource,reason:ui.substitutionReason}:{source:ui.substitutionSource})}
   catch{}}
 function enqueueDraftCommand(type,payload={},ui={}){
   const operationId=`draft-${uid()}`;
@@ -3050,10 +3051,12 @@ function openSubstitutePicker(id){
   const slot=(state.programMeta?.programDefinition?.days||[]).flatMap(day=>day.slots||[]).find(item=>item?.id===slotId);
   openExercisePicker({title:t("picker.title_substitute"),subtitle:exerciseDisplayName(ex),
     leading:{title:"picker.section_alternates",ids:Array.isArray(slot?.alternates)?slot.alternates:[]},
+    reasons:SUBSTITUTION_REASONS,
     onPick:entry=>{
+      const reason=pickerState?.reason||null;
       if(self&&entry.id===self.id)applyPredefinedSub(id,"");
       else applyCustomSub(id,libraryName(entry),entry.id,
-        {substitutionSource:(slot?.alternates||[]).includes(entry.id)?"alternate":"library"})}})}
+        {substitutionSource:(slot?.alternates||[]).includes(entry.id)?"alternate":"library",substitutionReason:reason})}})}
 function fatigueFlagged(){return exercises().filter(e=>{const r=recommendation(sessionExercise(e));return r.status==="reduce"||r.stalled})}
 async function applyFatigueTrim(){
   const flagged=new Set(fatigueFlagged().map(e=>e.id));
@@ -7347,7 +7350,57 @@ function renderSessionSheet(){
     earlyMsg.classList.remove("is-error");
     earlyMsg.textContent = t("session.sheet.early_prompt");
   }
+  closeAbandonPrompt();
 }
+
+/* ---- End without saving (Plan 071 §10) ----
+   The explicit abandon: the same removal the unfinished-session discard uses
+   (clearDraft). The draft and every set logged in it are removed and never reach
+   History; the program, the block and earlier sessions are untouched. The
+   reason is optional and never delays the action. */
+const ABANDON_REASONS=Object.freeze(["time","recovery","pain","equipment","schedule","other"]);
+const ABANDON_REASON_LABELS=Object.freeze({time:"session.abandon.reason.time",recovery:"session.abandon.reason.recovery",
+  pain:"session.abandon.reason.pain",equipment:"session.abandon.reason.equipment",schedule:"session.abandon.reason.schedule",
+  other:"session.abandon.reason.other"});
+let sessionAbandonReason=null;
+function renderAbandonReasons(){
+  const host=$("#sessionAbandonReasons");if(!host)return;
+  host.innerHTML=ABANDON_REASONS.map(reason=>{const on=sessionAbandonReason===reason;
+    return `<button type="button" class="pchip${on?" is-active":""}" data-abandon-reason="${reason}" aria-pressed="${on}">${esc(t(ABANDON_REASON_LABELS[reason]))}</button>`}).join("");
+  host.querySelectorAll("[data-abandon-reason]").forEach(button=>button.onclick=()=>{
+    const reason=button.dataset.abandonReason;
+    sessionAbandonReason=sessionAbandonReason===reason?null:reason;
+    renderAbandonReasons();
+    host.querySelector(`[data-abandon-reason="${reason}"]`)?.focus()})}
+function closeAbandonPrompt(){
+  sessionAbandonReason=null;
+  $("#sessionAbandonPrompt")?.classList.add("hidden");
+  $("#sessionAbandon")?.classList.remove("hidden")}
+function openAbandonPrompt(){
+  if(!activeWorkoutDraft)return;
+  sessionAbandonReason=null;renderAbandonReasons();
+  $("#sessionEarlyFinish")?.classList.add("hidden");
+  $("#sessionEarlyPrompt")?.classList.add("hidden");
+  $("#sessionAbandon")?.classList.add("hidden");
+  $("#sessionAbandonPrompt")?.classList.remove("hidden");
+  focusRoute("#sessionAbandonConfirm")}
+function cancelAbandonPrompt(){
+  closeAbandonPrompt();
+  $("#sessionEarlyFinish")?.classList.remove("hidden");
+  focusRoute("#sessionAbandon")}
+async function abandonWorkout(){
+  await WorkoutSession.flush();
+  const draft=activeWorkoutDraft;if(!draft)return false;
+  const reason=sessionAbandonReason;
+  const working=Object.values(draft.exercises||{}).some(exercise=>Object.values(exercise?.sets||{})
+    .some(set=>set.role!=="warmup"&&set.completion!=="pending"));
+  const closing=closeSessionSheet();if(closing&&typeof closing.then==="function")await closing;
+  if(!await clearDraft())return false;
+  captureEvent("session_abandoned",reason?{stage:working?"working":"before_set",reason}:{stage:working?"working":"before_set"});
+  resetSessionContextFields();
+  workoutLeft=true;focusEdit=null;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");renderToday();window.scrollTo({top:0});
+  toast(t("toast.session_abandoned"));
+  return true}
 
 function renderEarlyFinishPreview(){
   const draft=activeWorkoutDraft;
@@ -12550,6 +12603,24 @@ function pickerRow(e,{selected=false,checkbox=false}={}){
     `<span class="pickrow__tick" aria-hidden="true"></span>`+
   `</button>`}
 
+/* The swap sheet's optional reason (Plan 071 §10): one tap, none by default,
+   and picking an exercise never waits on it. The chips lead the scrolling list
+   rather than the fixed tools, so enlarged text can never crowd the list out. */
+const SUBSTITUTION_REASONS=Object.freeze(["equipment","preference","pain","crowded","other"]);
+const SUBSTITUTION_REASON_LABELS=Object.freeze({equipment:"picker.reason.equipment",preference:"picker.reason.preference",
+  pain:"picker.reason.pain",crowded:"picker.reason.crowded",other:"picker.reason.other"});
+function renderPickerReasons(){
+  const el=$("#exPickReasons");if(!el)return;
+  const reasons=pickerState?.reasons;
+  if(!reasons){el.innerHTML="";return}
+  el.innerHTML=`<p class="pick__reasons-label" id="exPickReasonsLabel">${esc(t("picker.reason_label"))}</p><div class="pick__reasons-chips">`+
+    reasons.map(reason=>{const on=pickerState.reason===reason;
+      return `<button type="button" class="pchip${on?" is-active":""}" data-pick-reason="${reason}" aria-pressed="${on}">${esc(t(SUBSTITUTION_REASON_LABELS[reason]))}</button>`}).join("")+`</div>`;
+  el.querySelectorAll("[data-pick-reason]").forEach(button=>button.onclick=()=>{
+    const reason=button.dataset.pickReason;
+    pickerState.reason=pickerState.reason===reason?null:reason;
+    renderPickerReasons();
+    el.querySelector(`[data-pick-reason="${reason}"]`)?.focus()})}
 function renderPickerFilters(){
   const el=$("#exPickFilters");if(!el||!pickerState)return;
   const chip=(kind,val,label,active)=>
@@ -12605,7 +12676,9 @@ function renderPickerList(){
       section("picker.section_custom",custom)+
       section("picker.section_known",known)+
       section("picker.section_all",rest);
-  el.innerHTML=html||`<p class="pick__empty">${esc(t("picker.empty",{q:query}))}</p>`;
+  el.innerHTML=(pickerState?.reasons?`<div id="exPickReasons" class="pick__reasons" role="group" aria-labelledby="exPickReasonsLabel"></div>`:"")+
+    (html||`<p class="pick__empty">${esc(t("picker.empty",{q:query}))}</p>`);
+  renderPickerReasons();
   $$("#exPickList .pickrow").forEach(b=>b.onclick=()=>choosePicked(b.dataset.pick));
   const done=$("#exPickDone");
   if(done)done.textContent=multi&&selected.size?t("picker.done_count",{n:selected.size}):t("dialog.done")}
@@ -12629,7 +12702,7 @@ async function choosePicked(id){
    fires once on Done with the entries in selection order. */
 function openExercisePicker({title=null,subtitle="",mode="single",selected=[],exclude=[],extras=[],onPick=null,
   onCancel=null,stageOnly=false,repairSeed=null,quick=false,day:dayName=null,query="",muscle=null,equipment=null,tab=null,
-  leading=null,catalogOnly=false}={}){
+  leading=null,catalogOnly=false,reasons=null}={}){
   const sheet=$("#exPickSheet"),scrim=$("#exPickScrim"),search=$("#exPickSearch");
   if(!sheet)return;
   pickerState={query:String(query||""),muscle,equipment,mode,onPick,onCancel,stageOnly,repairSeed,completed:false,
@@ -12638,9 +12711,10 @@ function openExercisePicker({title=null,subtitle="",mode="single",selected=[],ex
     extras:extras.filter(Boolean),
     leading:{title:leading?.title||"",ids:(leading?.ids||[]).filter(Boolean).map(String)},
     quick,day:dayName,tab:quick&&(LIB_TABS.includes(tab)?tab:"suggested"),
+    reasons:Array.isArray(reasons)?reasons:null,reason:null,
     // Kept so the custom-exercise detour can put this exact picker back, with
     // whatever was typed and filtered still in place.
-    reopen:{title,subtitle,mode,exclude:[...exclude],extras:[...extras],onPick,onCancel,stageOnly,repairSeed,quick,day:dayName,leading,catalogOnly}};
+    reopen:{title,subtitle,mode,exclude:[...exclude],extras:[...extras],onPick,onCancel,stageOnly,repairSeed,quick,day:dayName,leading,catalogOnly,reasons}};
   pickerReturn=document.activeElement;
   $("#exPickTitle").textContent=title||t("picker.title");
   const sub=$("#exPickFor");if(sub)sub.textContent=subtitle||"";
@@ -19694,6 +19768,7 @@ function init(){
     if(earlyMsg){earlyMsg.classList.remove("is-error");earlyMsg.textContent=t("session.sheet.early_prompt")}
     const earlyPrompt=$("#sessionEarlyPrompt");if(earlyPrompt)earlyPrompt.classList.remove("hidden");
     earlyBtn.classList.add("hidden");
+    $("#sessionAbandon")?.classList.add("hidden");
     // The pressed control is now hidden: the lifter lands on the choice it asks for.
     focusRoute("#sessionEarlyConfirm");
   };
@@ -19702,8 +19777,15 @@ function init(){
     sessionEarlyRevision=null;
     const earlyPrompt=$("#sessionEarlyPrompt");if(earlyPrompt)earlyPrompt.classList.add("hidden");
     const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.classList.remove("hidden");
+    $("#sessionAbandon")?.classList.remove("hidden");
     focusRoute("#sessionEarlyFinish");
   };
+  const abandonBtn=$("#sessionAbandon");if(abandonBtn)abandonBtn.onclick=async()=>{await WorkoutSession.flush();openAbandonPrompt()};
+  const abandonCancel=$("#sessionAbandonCancel");if(abandonCancel)abandonCancel.onclick=cancelAbandonPrompt;
+  const abandonConfirm=$("#sessionAbandonConfirm");if(abandonConfirm)abandonConfirm.onclick=async()=>{
+    abandonConfirm.disabled=true;
+    try{window.__repforgeLastAbandon=abandonWorkout();await window.__repforgeLastAbandon}
+    finally{abandonConfirm.disabled=false}};
 
   const exActionRepeat=$("#exActionRepeatBtn");
   if(exActionRepeat)exActionRepeat.onclick=async()=>{
