@@ -112502,6 +112502,17 @@
           "type": "button"
         },
         {
+          "tag": "button",
+          "text": "kg",
+          "name": "Weight in kg",
+          "label": "Weight in kg",
+          "type": "button"
+        },
+        {
+          "tag": "b",
+          "text": "80.5"
+        },
+        {
           "tag": "div",
           "role": "slider",
           "name": "Weight in kg",
@@ -113275,6 +113286,17 @@
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "kg",
+          "name": "Weight in kg",
+          "label": "Weight in kg",
+          "type": "button"
+        },
+        {
+          "tag": "b",
+          "text": "80.5"
         },
         {
           "tag": "div",
@@ -114052,6 +114074,17 @@
           "type": "button"
         },
         {
+          "tag": "button",
+          "text": "kg",
+          "name": "Peso em kg",
+          "label": "Peso em kg",
+          "type": "button"
+        },
+        {
+          "tag": "b",
+          "text": "80,5"
+        },
+        {
           "tag": "div",
           "role": "slider",
           "name": "Peso em kg",
@@ -114825,6 +114858,17 @@
           "aria-checked": "true",
           "tabindex": "0",
           "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "lb",
+          "name": "Weight in lb",
+          "label": "Weight in lb",
+          "type": "button"
+        },
+        {
+          "tag": "b",
+          "text": "177.4"
         },
         {
           "tag": "div",
@@ -115670,6 +115714,17 @@
           "type": "button"
         },
         {
+          "tag": "button",
+          "text": "lb",
+          "name": "Weight in lb",
+          "label": "Weight in lb",
+          "type": "button"
+        },
+        {
+          "tag": "b",
+          "text": "177.4"
+        },
+        {
           "tag": "div",
           "role": "slider",
           "name": "Weight in lb",
@@ -116511,6 +116566,17 @@
           "aria-checked": "true",
           "tabindex": "0",
           "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "lb",
+          "name": "Peso em lb",
+          "label": "Peso em lb",
+          "type": "button"
+        },
+        {
+          "tag": "b",
+          "text": "177,4"
         },
         {
           "tag": "div",
