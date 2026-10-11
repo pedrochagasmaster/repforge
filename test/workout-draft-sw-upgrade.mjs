@@ -17,7 +17,7 @@ import { createServer } from "node:http";
 import { createReadStream, readFileSync, statSync } from "node:fs";
 import { dirname, extname, join, normalize, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, waitForAppBoot, waitForWorkerTakeover } from "./browser.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OLD_SHA = "3fbae92fcee58c0d72539b9f4e2c270a9d60dbd4";
@@ -170,20 +170,8 @@ const reload = (name) => stage(name, async () => {
 const updateWorker = (name) => stage(name, () => page.evaluate(async () => {
   const registration = await navigator.serviceWorker.ready;await registration.update();
 }), 20000);
-// A worker has taken over once it is the activated, controlling worker with no
-// successor pending and its activation has pruned the caches it replaces. This
-// is polled inside the page: page.waitForFunction treats an async predicate's
-// promise as truthy, so it cannot wait on Cache Storage (#348).
-const workerSettled = (name, { cache, replaced = null }) => stage(name, () => page.evaluate(async ({ cache, replaced }) => {
-  for (;;) {
-    const registration = await navigator.serviceWorker.getRegistration();
-    const names = await caches.keys();
-    if (registration?.active?.state === "activated" && !registration.installing && !registration.waiting &&
-      navigator.serviceWorker.controller === registration.active &&
-      names.includes(cache) && !names.includes(replaced)) return;
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
-}, { cache, replaced }), 30000);
+const workerSettled = (name, { cache, replaced = null }) =>
+  stage(name, () => waitForWorkerTakeover(page, { cache, replaced, timeout: 30000 }), 30000);
 let failure = null;
 try {
   await stage("open the released app", async () => {

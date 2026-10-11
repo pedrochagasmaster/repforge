@@ -3,7 +3,7 @@
  * Focused regression for renaming a training day while a workout draft is active.
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, waitForAsyncCondition } from "./browser.mjs";
 import {
   clearPersistenceArtifacts,
   inventoryPersistenceArtifacts,
@@ -539,7 +539,7 @@ async function releaseStorageLock(page) {
 }
 
 async function waitForPendingStorageLock(page) {
-  await page.waitForFunction(
+  await waitForAsyncCondition(page,
     async (lockName) => {
       const lockState = await navigator.locks.query();
       return lockState.pending.some((lock) => lock.name === lockName);
@@ -550,7 +550,7 @@ async function waitForPendingStorageLock(page) {
 }
 
 async function waitForPendingStorageLocks(page, count) {
-  await page.waitForFunction(
+  await waitForAsyncCondition(page,
     async ({ lockName, count }) => {
       const lockState = await navigator.locks.query();
       return lockState.pending.filter((lock) => lock.name === lockName).length >= count;
@@ -561,7 +561,7 @@ async function waitForPendingStorageLocks(page, count) {
 }
 
 async function waitForNoPendingStorageLock(page) {
-  await page.waitForFunction(
+  await waitForAsyncCondition(page,
     async (lockName) => {
       const lockState = await navigator.locks.query();
       return !lockState.pending.some((lock) => lock.name === lockName);

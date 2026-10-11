@@ -17,7 +17,7 @@
  *   - Fatigue trim, heat gauge, session notes, effort RIR mapping, attention board
  */
 
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, waitForAsyncCondition } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 import { writeFileSync, readFileSync, mkdtempSync, rmSync } from "fs";
 import { dirname, join } from "path";
@@ -7611,7 +7611,7 @@ async function main() {
     if (!pwaDraftProof.raw || pwaDraftProof.checkpoint?.status !== "valid") {
       throw new Error(`PWA production draft seed lacked acknowledged checkpoint: ${JSON.stringify(pwaDraftProof)}`);
     }
-    await pwaPage.waitForFunction(
+    await waitForAsyncCondition(pwaPage,
       async ({ cacheName, shell, optionalShell }) => {
         if (!("serviceWorker" in navigator)) return false;
         await navigator.serviceWorker.ready;

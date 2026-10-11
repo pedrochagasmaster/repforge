@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /** Focused Playwright checks for notification surfaces. Requires http://localhost:8000/ */
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, waitForAsyncCondition } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -212,7 +212,7 @@ console.log("\nNotification surfaces");
   await page.locator("#notifyConfigRow").click();
   await page.waitForSelector("#notifyTypes.is-open", { timeout: 3000 });
   await page.uncheck("#notifyMissed");
-  await page.waitForFunction(async () => {
+  await waitForAsyncCondition(page, async () => {
     const ls = JSON.parse(localStorage.getItem("repforge_v1") || "{}")?.settings?.notify;
     if (!(ls?.enabled === true && ls?.missed === false)) return false;
     try {

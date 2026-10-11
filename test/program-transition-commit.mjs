@@ -23,7 +23,7 @@
  * The oracle is the clone-returning window.__repforgeWorkoutDraft.state(); the
  * live mutable production state is never exposed to the test.
  */
-import { launchChromium, waitForAppBoot, assertServingApp } from "./browser.mjs";
+import { launchChromium, waitForAppBoot, assertServingApp, waitForAsyncCondition } from "./browser.mjs";
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { isDeepStrictEqual } from "node:util";
@@ -262,7 +262,7 @@ async function holdStorageLock(page) {
 }
 
 async function waitForPendingStorageLocks(page, count) {
-  await page.waitForFunction(
+  await waitForAsyncCondition(page,
     async ({ lockName, count }) => {
       const state = await navigator.locks.query();
       return state.pending.filter((lock) => lock.name === lockName).length >= count;
