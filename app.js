@@ -5814,7 +5814,7 @@ function recommendation(ex){
   const anchorLoad=result?.historyAnchor?.displayLoadKg;
   const direction=manual||load==null||!Number.isFinite(anchorLoad)?"hold"
     :load>anchorLoad+1e-9?"add":load<anchorLoad-1e-9?"reduce":"hold";
-  const status=manual?(newLift?"new":"manual"):direction;
+  const status=manual?(result?.status==="configuration_required"?"configuration_required":newLift?"new":"manual"):direction;
   return{status,engineStatus:result?.status||"manual",
     reason:result?.reasonCodes?.[0]||"manual_prescription",reasonCodes:result?.reasonCodes||[],
     label:manual?"":t(status==="add"?"rec.add.label":status==="reduce"?"rec.reduce.label":"rec.hold.label"),text:"",load,
