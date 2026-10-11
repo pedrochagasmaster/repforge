@@ -1793,6 +1793,7 @@
   "entry.priorities.skip": "Pular esta seção",
   "entry.priorities.show": "Mostrar meu treino",
   "entry.priorities.limit": "Você já escolheu dois músculos. Desmarque um para trocar.",
+  "entry.result.building": "Montando seu treino…",
   "entry.result.error_title": "Não foi possível montar o treino",
   "entry.chips.title": "Montado com suas respostas",
   "entry.chips.hint": "Toque em uma resposta para mudá-la. O treino é refeito aqui mesmo.",

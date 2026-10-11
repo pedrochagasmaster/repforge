@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { corpusCases } from "./fixtures/program-compiler-corpus-cases.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
@@ -21,8 +22,6 @@ const fixturePath = path.join(root, "test/fixtures/program-compiler-corpus.json"
 // digests were recorded from main before the search changed; regenerate them
 // with `--update` only together with a GENERATOR_VERSION change.
 
-const allEquipment = Object.keys(Catalog.uuidIndex).filter((id) => Catalog.uuidIndex[id]?.type === "equipment").sort();
-const exerciseId = (name) => Catalog.exercises.find((entry) => entry.name === name).id;
 
 function requestFor(answers) {
   const mapped = Adapter.programRequestFromAnswers({
@@ -37,43 +36,9 @@ function withEquipment(request, equipmentIds) {
   return { ...request, gymProfile: { equipmentIds } };
 }
 
-// Byte-identical regeneration across goals, experience, day counts, gym
-// templates, session lengths, muscle and exercise answers, and seeds.
-const variants = {
-  plain: {},
-  focus: { primaryMuscles: ["side_delts", "back"], deEmphasizedMuscles: ["calves"] },
-  avoid: { ignoredMuscles: ["glutes"], exerciseConstraints: [{ exerciseId: exerciseId("Pec deck fly"), reason: "dislike" }] },
-  prefer: { mustHaveExercises: [exerciseId("Leg extension")] },
-  competent: { competencyAnswers: Object.fromEntries(["pullups10", "pullups5", "pushups15", "inclineBarbell10",
-    "overheadPress10", "bodyweightDips10", "benchPress10"].map((key) => [key, true])) },
-};
-const cases = [];
-for (const goal of ["muscle_growth", "balanced", "strength"]) {
-  for (const days of [2, 3, 4, 5, 6]) {
-    for (const environment of ["limited_home", "full_home", "basic_gym", "commercial_gym", "everything"]) {
-      for (const minutes of [40, 90]) {
-        cases.push({ goal, experience: "6_to_24m", days, environment, minutes, variant: "plain", seed: days % 2 ? "1" : "corpus-b" });
-      }
-    }
-  }
-}
-for (const variant of Object.keys(variants)) {
-  for (const experience of ["first", "over_24m"]) {
-    for (const environment of ["limited_home", "basic_gym", "commercial_gym"]) {
-      cases.push({ goal: experience === "first" ? "muscle_growth" : "strength", experience, days: experience === "first" ? 3 : 5,
-        environment, minutes: 60, variant, seed: "variant" });
-    }
-  }
-}
-
 const digests = {};
-for (const item of cases) {
-  const key = [item.goal, item.experience, item.days, item.environment, item.minutes, item.variant, item.seed].join("|");
-  const request = requestFor({
-    desiredResult: item.goal, structuredExperience: item.experience, daysPerWeek: item.days, sessionMinutes: item.minutes,
-    environment: { kind: item.environment === "everything" ? "commercial_gym" : item.environment }, ...variants[item.variant],
-  });
-  const generated = Compiler.generateProgram(item.environment === "everything" ? withEquipment(request, allEquipment) : request, Catalog, item.seed);
+for (const { key, request, seed } of corpusCases({ Adapter, Catalog })) {
+  const generated = Compiler.generateProgram(request, Catalog, seed);
   digests[key] = `${generated.ok ? "ok" : "conflict"}:${crypto.createHash("sha256").update(JSON.stringify(generated)).digest("hex")}`;
 }
 

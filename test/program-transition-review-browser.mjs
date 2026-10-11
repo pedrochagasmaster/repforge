@@ -9,7 +9,8 @@
  * fewer-days regeneration, named in the preview and present in the committed
  * successor. A proposal made stale by another tab is refused with the
  * program unchanged, and a Build program's schedule repair stages guided
- * editing instead of regenerating.
+ * editing instead of regenerating. The fewer-days regeneration runs in the
+ * program engine's worker (#353).
  */
 import { readFileSync } from "node:fs";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
@@ -239,6 +240,10 @@ async function main() {
     check(daysPreview.split("\n").some((line) => line.trim() === keptLine),
       "the preview names the set-count edit that survives the regeneration", { keptLine, daysPreview });
     check(!/could not be identified/.test(daysPreview), "the block's edits are identified");
+    // #353: the regeneration behind the preview ran in the worker.
+    const engineRuns = await page.evaluate(() => window.__repforgeProgramEngine?.stats());
+    check(engineRuns?.mode === "worker" && engineRuns.worker >= 2 && engineRuns.main === 0,
+      "the fewer-days regeneration runs in the worker, not on the main thread", engineRuns);
     const beforeDays = await confirmPreview(page, { title: "Proposed plan" });
     const afterDays = await state(page);
     checkCommitted(beforeDays, afterDays, await replicas(page), "fewer days");

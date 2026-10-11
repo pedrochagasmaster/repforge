@@ -2098,6 +2098,20 @@ const LIBRARY_BY_ID=new Map(EXERCISE_LIBRARY.map(e=>[e.id,e]));
 const SHARED_BUILT_IN_IDS=new Set(EXERCISE_LIBRARY.map(e=>e.id));
 const SharedSetup=typeof window!=="undefined"?window.RepForgeSharedSetup:null;
 const ProgramCompiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
+/* #353: generation and Review regeneration run in the program engine's worker,
+   which loads exactly the compiler, transition and catalog scripts this page
+   did; without a worker the engine runs the same code on this thread. Created
+   on first use, so a lifter who never generates never starts a worker. */
+let programEngineInstance=null;
+function programEngine(){
+  const Engine=typeof window!=="undefined"?window.RepForgeProgramEngine:null;
+  if(programEngineInstance||!Engine||!ProgramCompiler)return programEngineInstance;
+  const scripts=["exercise-metrics.js","program-compiler.js","exercise-catalog.js","program-transition.js"].map(Engine.pageScript);
+  const pin=window.RepForgeExercises?.catalogSha256;
+  programEngineInstance=Engine.create({compiler:ProgramCompiler,transition:transitionDomain(),catalog:()=>rawExerciseCatalog,
+    worker:Engine.url&&scripts.every(Boolean)&&typeof pin==="string"?{url:Engine.url,scripts,catalogSha256:pin}:null});
+  return programEngineInstance}
+if(typeof window!=="undefined")Object.defineProperty(window,"__repforgeProgramEngine",{configurable:true,get:programEngine});
 
 /* Custom exercises a lifter created. They live in state so they survive across
    programs and show up in every picker beside the built-ins; the "custom:"
@@ -9396,6 +9410,12 @@ function classifyCommittedTransition(snapshot, proposal, archiveId) {
 function transitionDomain(){
   return typeof RepForgeProgramTransition!=="undefined"?RepForgeProgramTransition
     :(typeof window!=="undefined"?window.RepForgeProgramTransition:null)}
+/* A Review change regenerates the program up to four times (the successor,
+   its edit baseline, and both again when the proposal is checked); the engine
+   runs each derivation in its worker. */
+function programDeriveSuccessor(){
+  const engine=programEngine();
+  return engine?input=>engine.derive(input):input=>transitionDomain().deriveSuccessor(input)}
 function transitionPredecessor(snapshot){
   const meta=snapshot?.programMeta;
   if(!meta?.id||!meta.programDefinition)return null;
@@ -9422,7 +9442,8 @@ const repforgeProgramTransitionAdapter = {
     if (!catalogSnapshot) return { ok: false, status: "unavailable", code: "catalog_unavailable", unavailable: true };
     const predecessor = transitionPredecessor(state);
     if (!predecessor) return { ok: false, status: "unavailable", code: "program_definition_unavailable", unavailable: true };
-    const derived = Transition.deriveSuccessor({
+    const derive = programDeriveSuccessor();
+    const derived = await derive({
       change: input.change, programDefinition: predecessor.programDefinition,
       customExerciseDefinitions: predecessor.customExerciseDefinitions, catalogSnapshot,
     });
@@ -9440,7 +9461,7 @@ const repforgeProgramTransitionAdapter = {
       },
       change: derived.value.change,
       catalogSnapshot,
-    });
+    }, { deriveSuccessor: derive });
     return created?.ok && derived.value.carry ? { ...created, carry: derived.value.carry } : created;
   },
 
@@ -9533,7 +9554,8 @@ const repforgeProgramTransitionAdapter = {
       if (!current) return { reject: true, result: { invalid: true, code: "program_definition_unavailable", localOk: false, idbOk: false } };
       // Semantic validation runs lock-held: hash, predecessor fingerprint, and
       // that the successor is exactly the derivation of the hashed change.
-      const validation = await Transition.validateProposal(proposal, { predecessor: current, catalogSnapshot: rawExerciseCatalog });
+      const validation = await Transition.validateProposal(proposal, { predecessor: current, catalogSnapshot: rawExerciseCatalog },
+        { deriveSuccessor: programDeriveSuccessor() });
       if (!validation.ok) {
         const typed = validation.status === "stale" ? { stale: true } : { invalid: true };
         return { reject: true, result: { ...typed, code: validation.code || "invalid_proposal", localOk: false, idbOk: false } };
@@ -15002,6 +15024,7 @@ function disarmEntryHistory(){
 function closeOnboarding(){
   // The pasted program and the reply belong to the flow that asked for them.
   resetFreeformImport();
+  cancelEntryGeneration();
   entryDialog=null;entryReplaceResolve?.(false);entryReplaceResolve=null;closeEntryDialog();
   onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;setupEditorOpen=false;
   $("#onboarding")?.classList.remove("program-editor-onboarding");
@@ -15058,6 +15081,7 @@ function returnFromEntry(back){
 function startOnboarding(origin,opts={}){
   if(!ProgramEntry){console.warn("program entry unavailable");return}
   captureEntryReturn();
+  cancelEntryGeneration();
   onboardingOrigin=origin||(!state.programMeta?.onboarded&&!state.log.length?"first-run":"settings");
   entryEngaged=false;entryOwnOpen=false;entryDialog=null;entryHelpOpen=false;entryHelp={q1:null,q2:null};entryChange=null;entryGoalFromHub=false;entryReplaceResolve=null;entryCompileError=null;entryUiNotice=null;entryValidationNotice=false;entryAvoidQuery="";entryMustQuery="";entryExerciseQuery="";entryPendingAvoid=null;entryPinnedVersionsExecutable=false;entryDurableConflictNeedsReload=false;
   const record=readSetupDraftRecord();
@@ -15162,6 +15186,8 @@ async function discardEntryDraftAndCancel(){
   reportEntryExit("discard_draft");
   cancelOnboarding()}
 function entrySetState(next,{persist=true}={}){
+  // Anything that moves the flow on supersedes a program still generating for it.
+  if(entryResultJob){entryResultJob.controller.abort();entryResultJob=null}
   entryState=next;
   if(next?.step!=="background")entryGoalFromHub=false;
   entryValidationNotice=false;
@@ -15613,22 +15639,18 @@ function generatedPreview(definition,route){
   return{source:route,frequency:days.length,program,programDefinition:definition,
     programStructure:{schemaVersion:1,days:days.map(({dayId,label,order})=>({dayId,label,order})),provenance:{source:"generated"}},
     days,customExercises:[],primaryMuscles:[]}}
-function compileGeneratorCandidate(from=entryState){
-  const services=entryServices();
-  if(!services||!from||!ProgramEntryAdapter?.programRequestFromAnswers)return null;
+function entryGeneratorRequest(from){
   const answers=from.answers||{};
   const mapped=answers.programRequest?{ok:true,value:cloneSnapshot(answers.programRequest)}
     :ProgramEntryAdapter.programRequestFromAnswers(answers,rawExerciseCatalog);
-  if(!mapped.ok){entryCompileError={code:"rules_changed",conflicts:mapped.conflicts};return null}
-  let generated;
-  try{generated=services.generateProgram({request:mapped.value,seed:String(from.draftId||"taurifer")})}
-  catch(error){entryCompileError={code:"rebuild_failed"};console.warn("program generation failed",error);return null}
-  if(!generated?.ok){entryCompileError={code:"generation_conflict",conflicts:generated?.conflicts||[]};return null}
-  const definition=generated.value,preview=generatedPreview(definition,from.route);
+  return mapped.ok?{ok:true,request:mapped.value,seed:String(from.draftId||"taurifer")}
+    :{ok:false,failure:{code:"rules_changed",conflicts:mapped.conflicts}}}
+function entryCandidate(from,services,request,definition){
+  const answers=from.answers||{},preview=generatedPreview(definition,from.route);
   const days=preview.days;
   const name=t("entry.result.generated_name",{days:days.length});
   return{
-    fingerprint:services.fingerprint({route:from.route,request:mapped.value,seed:definition.seed}),
+    fingerprint:services.fingerprint({route:from.route,request,seed:definition.seed}),
     name,
     selected:{id:"generated",source:"generator",daysPerWeek:days.length},
     candidates:[],
@@ -15637,14 +15659,13 @@ function compileGeneratorCandidate(from=entryState){
     telemetry:{goal:answers.desiredResult,frequency:String(days.length),family:"generated"},
     explanation:Object.fromEntries(Object.entries({desiredResult:answers.desiredResult,
       structuredExperience:answers.structuredExperience,daysPerWeek:days.length,
-      sessionMinutes:answers.sessionMinutes,mainConstraint:answers.environment?.kind}).filter(([,value])=>value!==undefined))};
-}
+      sessionMinutes:answers.sessionMinutes,mainConstraint:answers.environment?.kind}).filter(([,value])=>value!==undefined))}}
 /* Generation timing (Plan 071 §5.3). A request is stamped when it leaves and
    reported when its answer arrives, so the same pair serves a synchronous
    compile and a Worker round trip (#353): begin before posting, settle in the
    reply or error handler. A request overtaken by a newer one settles nothing.
    Only generations the lifter asked for are timed; the comparisons and the
-   editor's baseline rebuild call compileGeneratorCandidate directly. */
+   editor's baseline rebuild are not. */
 let generationRequest=0;
 const generationClock=()=>typeof performance!=="undefined"&&performance.now?performance.now():Date.now();
 function beginGeneration(route){return{id:++generationRequest,route,at:generationClock()}}
@@ -15653,32 +15674,92 @@ function settleGeneration(token,outcome){
   let duration=null;
   try{duration=window.RepForgeTelemetry?.bucketGeneration?.(generationClock()-token.at)}catch{}
   if(duration)captureEvent("generation_settled",{route:token.route,outcome,duration})}
-function requestGeneratorCandidate(from=entryState){
-  const token=beginGeneration(from?.route),prior=entryCompileError;
-  entryCompileError=null;
-  const result=compileGeneratorCandidate(from);
-  const failure=entryCompileError?.code;
-  if(!entryCompileError)entryCompileError=prior;
-  if(result)settleGeneration(token,"success");
-  else if(failure)settleGeneration(token,failure);
-  return result}
+/* Generation is deterministic in its request and seed, so the last few
+   outputs are kept: the review's recommendation is then at hand on the render
+   that follows its own generation. A test's services override is never cached. */
+const entryGenerated=new Map();
+const entryGeneratedKey=(request,seed)=>entryCanon({request,seed});
+function entryGeneratedPeek(from){
+  if(!from||window.__repforgeProgramEntryServicesOverride||!ProgramEntryAdapter?.programRequestFromAnswers)return null;
+  const services=entryServices(),mapped=entryGeneratorRequest(from);
+  const generated=services&&mapped.ok?entryGenerated.get(entryGeneratedKey(mapped.request,mapped.seed)):null;
+  return generated?.ok?entryCandidate(from,services,mapped.request,cloneSnapshot(generated.value)):null}
+/* The one call site of Generate (#353). The answers' request and the draft's
+   seed go to the program engine, which runs the generator in its worker (or
+   on this thread when it cannot); the outcome is a candidate or the failure
+   the result screen explains. Rejects only when `signal` aborts it, and an
+   aborted request is never reported. `timed` marks a generation the lifter
+   asked for (Plan 071's generation_settled). */
+async function generateEntryCandidate(from=entryState,{signal,timed=false}={}){
+  const services=entryServices();
+  if(!services||!from||!ProgramEntryAdapter?.programRequestFromAnswers)return{ok:false,failure:null};
+  const token=timed?beginGeneration(from.route):null;
+  const outcome=await runEntryGeneration(from,services,signal);
+  if(token&&(outcome.ok||outcome.failure?.code))settleGeneration(token,outcome.ok?"success":outcome.failure.code);
+  return outcome}
+async function runEntryGeneration(from,services,signal){
+  const mapped=entryGeneratorRequest(from);
+  if(!mapped.ok)return mapped;
+  const override=window.__repforgeProgramEntryServicesOverride,engine=override?null:programEngine();
+  const key=entryGeneratedKey(mapped.request,mapped.seed);
+  let generated;
+  try{
+    generated=override?await services.generateProgram({request:mapped.request,seed:mapped.seed})
+      :engine?await engine.generate(mapped.request,mapped.seed,{signal})
+      :services.generateProgram({request:mapped.request,seed:mapped.seed})}
+  catch(error){
+    if(error?.name==="AbortError")throw error;
+    console.warn("program generation failed",error);return{ok:false,failure:{code:"rebuild_failed"}}}
+  if(signal?.aborted)throw new DOMException("The generation request was superseded","AbortError");
+  if(!generated?.ok)return{ok:false,failure:{code:"generation_conflict",conflicts:generated?.conflicts||[]}};
+  if(!override){entryGenerated.delete(key);entryGenerated.set(key,generated);
+    while(entryGenerated.size>4)entryGenerated.delete(entryGenerated.keys().next().value)}
+  return{ok:true,result:entryCandidate(from,services,mapped.request,cloneSnapshot(generated.value))}}
 /** O3: the generation whose program has not been drawn yet. Only a compile
  *  arms it (a saved draft that is reopened, and every later render of a result
  *  that already exists, never do), and the first render of that result takes it,
  *  so the build plays once per generation. In memory only. */
 let entryBuildArmed=null;
-function ensureGeneratorResult({force=false}={}){
-  const services=entryServices();
-  if(!services||!entryState)return null;
-  if(!force&&entryState.result?.fingerprint&&entryState.result?.preview){reportGeneratorCompleted(entryState.result);return entryState.result}
-  const result=requestGeneratorCandidate();
-  if(!result)return null;
-  entryCompileError=null;
-  entryState=ProgramEntry.setResult(entryState,result);
-  entryBuildArmed={draftId:entryState.draftId,fingerprint:result.fingerprint};
-  persistSetupDraft(entryState);
-  reportGeneratorCompleted(result);
-  return result}
+/* The generation that will produce the result screen's program: started by
+   Continue on the last question, or by a result screen that has none (a
+   resumed draft). Until it lands the lifter stays where they were, so the
+   committed state never holds a result step without its program; anything
+   that moves the flow on meanwhile supersedes it. */
+let entryResultJob=null,entryAnswerJob=null;
+function cancelEntryGeneration(){
+  entryResultJob?.controller.abort();entryAnswerJob?.controller.abort();
+  entryResultJob=null;entryAnswerJob=null;syncEntryBusy()}
+function syncEntryBusy(){
+  const next=$("#onbNext");
+  if(next){if(entryResultJob)next.setAttribute("aria-busy","true");else next.removeAttribute("aria-busy")}
+  const review=$("#entryCandidateReview");
+  if(review){if(entryAnswerJob)review.setAttribute("aria-busy","true");else review.removeAttribute("aria-busy")}}
+async function startEntryResult(target){
+  entryResultJob?.controller.abort();
+  const job={from:entryState,target,controller:new AbortController()};
+  entryResultJob=job;entryCompileError=null;
+  syncEntryBusy();
+  let outcome,without=null;
+  try{
+    outcome=await generateEntryCandidate(target,{signal:job.controller.signal,timed:true});
+    // Constraints that reshaped the program are stated against it without them.
+    if(outcome.ok&&(target.answers.exerciseConstraints||[]).length){
+      const bare=await generateEntryCandidate({...target,answers:{...target.answers,exerciseConstraints:[]}},{signal:job.controller.signal});
+      without=bare.ok?bare.result:null}}
+  catch{return}
+  if(entryResultJob!==job)return;
+  entryResultJob=null;
+  if(entryState!==job.from){syncEntryBusy();return}
+  if(!outcome.ok){
+    entryCompileError=outcome.failure;
+    entrySetState(target);
+    return}
+  entryState=ProgramEntry.setResult(target,outcome.result);
+  entryBuildArmed={draftId:entryState.draftId,fingerprint:outcome.result.fingerprint};
+  entryNoteFirstResult(outcome.result,without);
+  // The program that just landed is the review's recommendation.
+  if(entryAdjustRoute())adoptEntryAdjust(cloneSnapshot(outcome.result));
+  entrySetState(entryState)}
 function reportGeneratorCompleted(result){
   if(!entryState||!result||!(entryState.route==="recommend"||entryState.route==="custom"))return;
   const telemetry=result.telemetry;
@@ -15794,12 +15875,16 @@ async function rebuildEntryForCurrentRules(){
       entryUiNotice=null;
       renderOnboarding();
       return saved}
-    const replacement=requestGeneratorCandidate();
-    if(!replacement){
+    const previous=entryState;
+    let outcome;
+    try{outcome=await generateEntryCandidate(previous,{timed:true})}catch{return{ok:false,superseded:true}}
+    if(entryState!==previous)return{ok:false,superseded:true};
+    if(!outcome.ok){
+      if(outcome.failure)entryCompileError=outcome.failure;
       entryUiNotice="rules_changed";
       renderOnboarding();
       return{ok:false,compileFailed:true}}
-    const previous=entryState;
+    const replacement=outcome.result;
     const next=ProgramEntry.setResult({...entryState,versions:entryVersions()},replacement);
     const saved=await persistEntryRulesState(next,previous);
     if(!saved?.ok){
@@ -16180,53 +16265,63 @@ function entryCanon(value){
 /* ONE transition. The patched answers, the program they compile to and the
    result stamped for those answers become the next state together, and the
    draft is written once. The committed state is never left with answers that
-   have no result, so nothing between the two is ever persisted or resumed. */
-function applyEntryAnswerEdit(patch,{lead,beforeLabel,afterLabel}={}){
+   have no result, so nothing between the two is ever persisted or resumed.
+   An answer changed while an earlier change is still generating builds on
+   that change and supersedes it: the last answer wins and none is lost. */
+async function applyEntryAnswerEdit(patch,{lead,beforeLabel,afterLabel}={}){
   if(!ProgramEntry||!entryState?.result?.preview)return{ok:false};
   const route=entryState.route;
   if(route!=="recommend"&&route!=="custom")return{ok:false};
-  const before=entryState.result;
-  let next=ProgramEntry.setAnswers(entryState,patch);
+  const committed=entryState,before=committed.result;
+  let next=ProgramEntry.setAnswers(entryAnswerJob?.committed===committed?entryAnswerJob.next:committed,patch);
   if(route==="custom"){
     const choices=entryCustomSplitChoices(next.answers).choices;
     if(choices.length&&!choices.some(choice=>choice.id===next.answers.splitPreference))
       next=ProgramEntry.setAnswers(next,{splitPreference:(choices.find(choice=>choice.default)||choices[0]).id})}
-  const priorError=entryCompileError;
-  const compiled=requestGeneratorCandidate(next);
-  const failure=entryCompileError;
-  entryCompileError=priorError;
-  if(!compiled)return{ok:false,failure};
+  entryAnswerJob?.controller.abort();
+  const job={committed,next,controller:new AbortController()};
+  entryAnswerJob=job;syncEntryBusy();
+  let outcome;
+  try{outcome=await generateEntryCandidate(next,{signal:job.controller.signal,timed:true})}
+  catch{return{ok:false,superseded:true}}
+  if(entryAnswerJob!==job)return{ok:false,superseded:true};
+  entryAnswerJob=null;syncEntryBusy();
+  if(entryState!==committed)return{ok:false,superseded:true};
+  if(!outcome.ok)return{ok:false,failure:outcome.failure};
+  const compiled=outcome.result;
   // The completion event belongs to the walk, not to each rebuild.
   if(before.telemetry?.completed===true&&compiled.telemetry)compiled.telemetry={...compiled.telemetry,completed:true};
   const final=ProgramEntry.setResult(next,compiled);
   entryChange=entryBuildChange(before.preview,compiled.preview,final,{lead,beforeLabel,afterLabel});
   entryEditor=null;entryResetEditorFields();entryReviewError=null;
   entryPinnedVersionsExecutable=false;
-  entrySetState(final);
+  entryState=final;
+  if(entryAdjustRoute())adoptEntryAdjust(cloneSnapshot(compiled));
+  entrySetState(entryState);
   entryShowChange();
   return{ok:true}}
-function applyEntryEditor(){
+async function applyEntryEditor(){
   const editor=entryEditor;
   if(!editor||entryPendingAvoid)return;
   const base=entryState.answers,draft=editor.draft.answers,patch={};
   for(const key of Object.keys(draft))if(entryCanon(base[key])!==entryCanon(draft[key]))patch[key]=draft[key];
   if(!Object.keys(patch).length){closeEntryEditor();return}
-  const outcome=applyEntryAnswerEdit(patch,{lead:t("entry.change.lead.answer")});
-  if(outcome.ok)return;
+  const outcome=await applyEntryAnswerEdit(patch,{lead:t("entry.change.lead.answer")});
+  if(outcome.ok||outcome.superseded||entryEditor!==editor)return;
   editor.error=entryFailureText(outcome.failure)||t("entry.issue.compile");
   renderOnboarding();
   try{$("#entryEditorTitle")?.focus({preventScroll:true})}catch{}}
-function restoreEntryConstraint(exerciseId){
+async function restoreEntryConstraint(exerciseId){
   const kept=(entryState.answers.exerciseConstraints||[]).filter(item=>item.exerciseId!==exerciseId);
-  const outcome=applyEntryAnswerEdit({exerciseConstraints:kept},{lead:t("entry.change.lead.restore")});
-  if(outcome.ok)return;
+  const outcome=await applyEntryAnswerEdit({exerciseConstraints:kept},{lead:t("entry.change.lead.restore")});
+  if(outcome.ok||outcome.superseded)return;
   entryReviewError=entryFailureText(outcome.failure)||t("entry.issue.compile");
   renderOnboarding();
   try{$("#entryReviewError")?.focus({preventScroll:true})}catch{}}
 /* The first result of a walk says something only when it is true and meaningful:
    the answers changed the program the lifter just left, or constraints reshaped
    it (stated against the program without them). */
-function entryNoteFirstResult(result){
+function entryNoteFirstResult(result,without){
   const left=entryLastPreview&&entryLastPreview.draftId===entryState.draftId?entryLastPreview.preview:null;
   entryLastPreview=null;
   const key=entryChangeKey();
@@ -16235,9 +16330,6 @@ function entryNoteFirstResult(result){
     if(change.changed>0){entryChange=change;return}}
   const constraints=entryState.answers.exerciseConstraints||[];
   if(constraints.length){
-    const priorError=entryCompileError;
-    const without=compileGeneratorCandidate({...entryState,answers:{...entryState.answers,exerciseConstraints:[]}});
-    entryCompileError=priorError;
     if(without){
       entryChange=entryBuildChange(without.preview,result.preview,entryState,{lead:t("entry.change.lead.constraints"),
         beforeLabel:t("entry.change.without"),afterLabel:t("entry.change.with")});
@@ -16273,8 +16365,11 @@ function renderResultStep(){
   const custom=entryState?.route==="custom";
   const resultTitle=custom?t("entry.result.custom_title"):t("entry.result.title");
   if(entryEditor&&entryEditor.draftId!==entryState.draftId)entryEditor=null;
-  const had=!!entryState.result?.preview;
-  const result=ensureGeneratorResult();
+  const result=entryState.result?.preview?entryState.result:null;
+  if(!result&&!entryCompileError){
+    // A resumed draft can stand on the result step without its program.
+    if(!entryResultJob)startEntryResult(entryState);
+    return entryHeading(resultTitle)+`<p class="visually-hidden" role="status">${esc(t("entry.result.building"))}</p>`}
   if(!result){
     const failure=entryCompileError&&typeof entryCompileError==="object"?entryCompileError:null;
     const unavailable=(failure?.conflicts||[]).filter(item=>item.code==="must_have_unavailable").map(item=>libraryEntry(item.exerciseId)).filter(Boolean);
@@ -16282,7 +16377,7 @@ function renderResultStep(){
       `<p>${esc(t("entry.result.must_unavailable_body",{exercises:unavailable.map(libraryName).join(", ")}))}</p>`+
       `<button type="button" class="btn btn--cta" data-entry-action="change-exercise-preferences">${esc(t("entry.result.change_preferences"))}</button></div>`;
     return entryHeading(t("entry.result.error_title"))+`<div class="entry__notice entry__notice--error" role="alert"><p>${esc(entryFailureText(failure||entryCompileError)||t("entry.issue.compile"))}</p></div>`}
-  if(!had)entryNoteFirstResult(result);
+  reportGeneratorCompleted(result);
   const preview=result.preview||{},explanation=result.explanation||{};
   const goal=explanation.desiredResult?t(`entry.desired_result.${explanation.desiredResult}.label`):"";
   const days=explanation.daysPerWeek||preview.frequency||"";
@@ -16311,7 +16406,7 @@ function renderResultStep(){
   /* Plan 070: the program is onboarding B's review editor, mounted into
      #entryReview after this render (mountEntryAdjust). What the program was
      built from stays below it until B's question screens replace these. */
-  return `<section id="entryCandidateReview" class="entry__review" aria-labelledby="entryHeading">`+
+  return `<section id="entryCandidateReview" class="entry__review" aria-labelledby="entryHeading"${entryAnswerJob?` aria-busy="true"`:""}>`+
     `<div id="entryReview" class="entry__adjust ph-no-capture"></div>`+
     renderEntryChangeStatement(entryChange)+
     (hasActiveProgram()&&!entryUiNotice?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
@@ -16350,10 +16445,11 @@ function ensureEntryAdjust(){
   const Review=window.RepForgeProgramReview,result=entryState?.result;
   if(!Review||!entryAdjustRoute()||!result?.preview?.programDefinition||!rawExerciseCatalog)return null;
   if(entryAdjust&&entryAdjust.draftId===entryState.draftId&&entryAdjust.answers===result.answersFingerprint)return entryAdjust;
-  const priorError=entryCompileError;
-  const baseline=compileGeneratorCandidate();
-  entryCompileError=priorError;
-  if(!baseline)return null;
+  const baseline=entryGeneratedPeek(entryState);
+  if(!baseline){loadEntryAdjustBaseline();return null}
+  return adoptEntryAdjust(baseline)}
+function adoptEntryAdjust(baseline){
+  const Review=window.RepForgeProgramReview,result=entryState.result;
   const stored=result.preview.programDefinition,saved=readEntryAdjustLog();
   let edits=[];
   if(saved?.draftId===entryState.draftId&&saved?.fingerprint===baseline.fingerprint&&Array.isArray(saved.edits)){
@@ -16362,6 +16458,23 @@ function ensureEntryAdjust(){
   entryAdjust={draftId:entryState.draftId,answers:result.answersFingerprint,baseline,edits,view:{tab:null,reorder:null}};
   writeEntryAdjustLog({draftId:entryState.draftId,fingerprint:baseline.fingerprint,edits});
   return entryAdjust}
+/* After a reload the recommendation is not at hand: generate it, then mount
+   the review it belongs to if that result is still on screen. */
+let entryAdjustLoading=null;
+function loadEntryAdjustBaseline(){
+  const from=entryState,answers=from?.result?.answersFingerprint;
+  if(entryAdjustLoading?.draftId===from?.draftId&&entryAdjustLoading?.answers===answers)return entryAdjustLoading.promise;
+  const promise=generateEntryCandidate(from).catch(()=>({ok:false})).then(outcome=>{
+    if(entryAdjustLoading?.promise===promise)entryAdjustLoading=null;
+    if(!outcome.ok||!entryAdjustRoute()||entryState?.draftId!==from.draftId||entryState.result?.answersFingerprint!==answers||
+      !entryState.result?.preview?.programDefinition)return null;
+    if(entryAdjust&&entryAdjust.draftId===from.draftId&&entryAdjust.answers===answers)return entryAdjust;
+    const review=adoptEntryAdjust(outcome.result);
+    if($("#entryReview")&&!entryAdjustMount)mountEntryAdjust();
+    return review});
+  entryAdjustLoading={draftId:from?.draftId,answers,promise};
+  return promise}
+async function entryAdjustReady(){return ensureEntryAdjust()||(entryAdjustRoute()?await loadEntryAdjustBaseline():null)}
 /* What still keeps Activate disabled on the review: an emptied training day. */
 function entryAdjustIssue(){
   if(!entryAdjustRoute())return null;
@@ -16379,8 +16492,8 @@ function reportActivationFailed(reason){
   const route=entryState?.route;
   if(["recommend","custom","build","import","shared"].includes(route))captureEvent("program_activation_failed",{route,reason})}
 /* Does the result carry the lifter's adjustments (a rebuild would discard them)? */
-function entryAdjusted(){
-  const review=ensureEntryAdjust();
+async function entryAdjusted(){
+  const review=await entryAdjustReady();
   if(!review)return false;
   return !sameDefinition(review.baseline.preview.programDefinition,entryState.result.preview.programDefinition)||
     entryResultName()!==entryResultName(review.baseline)}
@@ -16451,7 +16564,10 @@ function resolveEntryAdjustDialog(confirmed){
 /* A change that rebuilds the program (an answer, the alternative split) asks
    first when it would discard the lifter's adjustments; confirming drops them. */
 async function guardEntryRebuild(rebuild){
-  if(entryAdjusted()){
+  // A rebuild of this same result is already generating: its guard has dealt
+  // with the adjustments, and the next answer builds on that rebuild.
+  const rebuilding=entryAnswerJob&&entryAnswerJob.committed===entryState;
+  if(!rebuilding&&await entryAdjusted()){
     const count=window.RepForgeProgramReview.changes(entryAdjust.baseline.preview.programDefinition,
       entryState.result.preview.programDefinition).count||1;
     const confirmed=await confirmEntryAdjust({title:t("entry.review.rebuild_title"),
@@ -16461,7 +16577,8 @@ async function guardEntryRebuild(rebuild){
     // The rebuild replaces the candidate; start it from the recommendation.
     const restored=await commitEntryAdjust({definition:entryAdjust.baseline.preview.programDefinition,edits:[],name:null});
     if(!restored.ok)return false}
-  clearEntryAdjust();
+  // The review stays mounted on the recommendation while the rebuild runs;
+  // a rebuilt program brings its own (applyEntryAnswerEdit).
   return rebuild()}
 function mountEntryAdjust(){
   entryAdjustMount?.dispose();entryAdjustMount=null;
@@ -17091,6 +17208,7 @@ function renderOnboarding(){
     const pendingReason=stepId==="exercise_preferences"&&entryPendingAvoid;
     const blocked=!hideNext&&!isEditor&&ProgramEntry.validationIssues(entryState).length>0;
     next.disabled=!!pendingReason||blocked;
+    if(entryResultJob)next.setAttribute("aria-busy","true");else next.removeAttribute("aria-busy");
     /* A blocked primary says why, in text above it, and drops its arrow. */
     const showReason=blocked&&!pendingReason;
     if(reason){reason.hidden=!showReason;reason.textContent=showReason?t(stepId==="build_setup"?"entry.pinned.reason_name":"entry.pinned.reason"):""}
@@ -17420,6 +17538,7 @@ function wireEntryDom(){
   const chooseAlternative=$("[data-entry-select-alternative]");if(chooseAlternative)chooseAlternative.onclick=()=>guardEntryRebuild(()=>{
     const alternative=entryState?.result?.alternative;
     if(!alternative)return;
+    clearEntryAdjust();
     const selected={};
     for(const key of ["id","family","familyId","name","namePt","daysPerWeek","blueprintId","split","complexity","reentry","source"]){
       if(Object.prototype.hasOwnProperty.call(alternative,key))selected[key]=alternative[key]}
@@ -17572,7 +17691,7 @@ async function surfaceEntryDurableConflict(){
   return recovered;
 }
 function entryAdvance(){
-  if(!ProgramEntry||!entryState)return;
+  if(!ProgramEntry||!entryState||entryResultJob)return;
   entryGoalOpen=false;
   if(entryState.step==="build_setup"){
     const nameInput=$("#entryProgramName");
@@ -17607,8 +17726,8 @@ function entryAdvance(){
     }else if(splits.choices.length>=2&&!compatible.has(nextState.answers.splitPreference)){
       const preferred=splits.choices.find(choice=>choice.default)||splits.choices[0];
       if(preferred)nextState=ProgramEntry.setAnswers(nextState,{splitPreference:preferred.id})}}
-  entrySetState(nextState);
-  if(nextState.step==="result")ensureGeneratorResult()}
+  if(nextState.step==="result"&&!nextState.result?.preview){startEntryResult(nextState);return}
+  entrySetState(nextState)}
 function entryBack(){
   if(!ProgramEntry||!entryState)return;
   if(entryDialog||entryUiNotice==="cancel"){dismissEntryDialog();return}
