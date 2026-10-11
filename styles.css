@@ -2490,6 +2490,9 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 .program-editor__status{margin:0;color:var(--ink-soft);font-size:var(--font-size-body-small);line-height:1.4}
 .program-editor__status.is-error{color:var(--danger)}
 .program-editor__status[hidden]{display:none}
+.program-editor__field-error{margin:var(--space-4) 14px;font-size:var(--font-size-body-small);line-height:1.4;color:var(--color-destructive)}
+.program-editor-onboarding .program-editor__field-error{margin-inline:16px}
+.program-editor-installed .program-editor__field-error{margin:0 0 10px}
 .program-editor__undo{margin-left:8px;padding:0;border:0;background:none;color:var(--accent-deep);cursor:pointer;font:inherit;font-weight:600;text-decoration:underline;text-underline-offset:3px}
 .program-editor__days{display:flex;flex-direction:column;gap:12px}
 .program-editor__day{overflow:hidden;padding:0;background:var(--surface);border:1px solid var(--rule-strong);border-radius:var(--radius-surface)}

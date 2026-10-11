@@ -67,6 +67,7 @@
     exerciseRemoved: "Exercise removed.",
     undo: "Undo",
     invalid: "Fix the highlighted values before continuing.",
+    dayNameExists: "That day name already exists.",
     saved: "Draft saved",
     emptyDays: "Add an exercise to each training day.",
     more: "More",
@@ -105,7 +106,7 @@
     dragInstructions: "program.editor.drag.instructions", dragPickedUp: "program.editor.drag.picked_up",
     dragOver: "program.editor.drag.over", dragDropped: "program.editor.drag.dropped",
     dragCancelled: "program.editor.drag.cancelled",
-    invalid: "program.editor.invalid", saved: "program.editor.draft_saved", emptyDays: "program.editor.empty_days",
+    invalid: "program.editor.invalid", dayNameExists: "toast.day_name_exists", saved: "program.editor.draft_saved", emptyDays: "program.editor.empty_days",
     more: "program.editor.more", close: "dialog.close",
     metricTargets: "program.editor.metric_targets", metricCycle: "program.editor.metric_cycle",
     metricSet: "program.editor.metric_set", metricComposition: "program.editor.metric_composition",
@@ -724,7 +725,8 @@
       const next = clone(document), wanted = String(value || "").trim();
       // Another day can store a different name yet show this one (a translated generated name).
       const shown = labels(document).some((day, index) => day !== oldDay && dayDisplay(adapter, document, day, index) === wanted);
-      if (shown || !setDayLabel(next, oldDay, value)) return Promise.resolve({ ok: false, duplicate: true });
+      if (!wanted || wanted === oldDay) return Promise.resolve({ ok: false, refused: true });
+      if (shown || !setDayLabel(next, oldDay, value)) return Promise.resolve({ ok: false, refused: true, duplicate: true });
       if (collapsedDays.delete(oldDay)) collapsedDays.add(String(value).trim());
       return stage(next, { kind: "day_name", targetDay: oldDay, before: oldDay, after: String(value).trim() });
     };
@@ -1292,6 +1294,23 @@
       adapter.afterRender?.(host);
       schedulePendingFocus();
     }
+    /** The field carries its own error: aria-invalid and an alert linked by aria-describedby, not a toast alone. */
+    function setDayNameError(input, message) {
+      const id = `program-editor-day-error-${uid()}`;
+      const current = input.getAttribute("aria-describedby");
+      if (current) input.ownerDocument.getElementById(current)?.remove();
+      input.removeAttribute("aria-describedby");
+      input.removeAttribute("aria-invalid");
+      if (!message) return;
+      const note = input.ownerDocument.createElement("p");
+      note.id = id;
+      note.className = "program-editor__field-error";
+      note.setAttribute("role", "alert");
+      note.textContent = message;
+      (input.closest('[data-role="day-header"]') || input).after(note);
+      input.setAttribute("aria-invalid", "true");
+      input.setAttribute("aria-describedby", id);
+    }
     function bind() {
       if (destroyed) return;
       host.querySelectorAll('[data-role="program-name"]').forEach(input => {
@@ -1303,7 +1322,17 @@
         });
       });
       host.querySelectorAll('[data-role="day-name"]').forEach(input => {
-        input.addEventListener("change", () => renameDay(input.dataset.day, input.value));
+        input.addEventListener("change", () => {
+          const day = input.dataset.day;
+          setDayNameError(input, null);
+          renameDay(day, input.value).then(result => {
+            // A refused rename leaves the day as it was, so the field says so (#343).
+            if (!result?.refused || !input.isConnected) return;
+            input.value = titleFor(day, labels(document).indexOf(day));
+            if (result.duplicate) setDayNameError(input, label("dayNameExists"));
+          });
+        });
+        input.addEventListener("input", () => setDayNameError(input, null));
         input.addEventListener("keydown", event => {
           if (event.key !== "Enter") return;
           event.preventDefault();
