@@ -1,7 +1,8 @@
 # Plan 072: The rest of onboarding direction B
 
 - **Plan number:** 072
-- **Status:** PLANNED, OWNER DECISIONS PENDING (see [§13](#13-owner-decisions)). No production code.
+- **Status:** APPROVED, 11 October 2026 (owner decisions recorded on PR #358 and in [§13](#13-owner-decisions)).
+  Implementation: S1 → S5, one PR each. #340 is a separate track after S1.
 - **Decision:** [ADR 0020](../docs/adr/0020-onboarding-candidate-b.md) makes candidate B the onboarding reference
   from the entry hub to Activate. Its result screen, the program editor, shipped in PR #351 under
   [Plan 070](./070-onboarding-b-program-editor.md). This plan covers the rest of B.
@@ -14,7 +15,8 @@
 - **Baseline:** `32ecc21c` (`main`, 11 October 2026). Re-check every anchor against `HEAD` before implementing.
 - **Out of scope:** the first-run pages before the hub (`onboarding-start/first-run*`), the Program tab's
   editor, Direction D's main screens, any compiler selection-policy change other than #340's mapping (§6.5),
-  and Generate in a Worker itself (#353, a parallel track this plan depends on).
+  #340 itself (another session, after S1), and Generate in a Worker itself (#353, merged in #366 as
+  `program-engine.js`).
 
 ## 1. What is true today
 
@@ -53,7 +55,9 @@
 - **Units.** `settings.unit` (`kg` | `lb`, `app.js:1535`) is the only unit setting. Nothing stores a height unit.
 - **Generation runs on the main thread.** After #352's fail-fast fix a conflict returns in 10–150 ms. A
   satisfiable request takes 44–267 ms median on the devbox, depending on the preset (§4.1), and Everything is
-  the heaviest: 447 ms worst case. #353 moves it into a Worker.
+  the heaviest: 447 ms worst case. #366 (#353) since moved Generate and every regenerate path into the
+  `program-engine.js` worker with a main-thread fallback; setup-link decoding still regenerates on the main
+  thread (#367).
 
 ## 2. Owners
 
@@ -259,7 +263,7 @@ Plan 068 slice C, in B's editor rows:
   `GENERATOR_VERSION` doesn't move.
 - The adapter verifies each offer by regenerating with that one confirmation and the same seed and keeps it
   only if the offered movement lands in that slot (34 of 38 did in Plan 068's sample). It records the other
-  slots the confirmation moves. Verification runs once per fresh result, in the Worker once #353 lands.
+  slots the confirmation moves. Verification runs once per fresh result, in the `program-engine.js` worker.
 - Under the row: *Pode ser **{exercício}** se você já faz com boa técnica.* **Sim, trocar** / *Could be
   **{exercise}** if you already do it with good form.* **Yes, swap it in**. Tapping writes
   `answers.movementConfirmations` and rebuilds with the same seed. The row is marked *Confirmado por você*
@@ -289,10 +293,9 @@ the weighted overhand pull-up was picked in 340 of 480 sampled programs once con
 output for an existing request, so it needs a new `GENERATOR_VERSION`. The setup-link decoder refuses a
 mismatched version and can't run the old engine, so every existing "g" link would become unsupported.
 
-**Proposal:** a versioned policy switch. The compiler supports `067.1` and `067.2`; the only difference is
-this one mapping, which `067.2` applies. New programs use `067.2`. `shared-setup.js` regenerates a "g" link
-with the version it carries and still verifies the identical definition, so old links keep working. The
-alternative is a plain bump that breaks old links, or removing the question, which departs from B (OD-11).
+**Decided (OD-11): a plain `GENERATOR_VERSION` bump, no versioned switch.** Existing recipe "g" links become
+unsupported. The receiver must refuse them with the existing actionable "ask for a new link" message and must
+never decode them into a different program. #340 is implemented by another session after S1 merges.
 
 ## 7. The other routes
 
@@ -300,13 +303,14 @@ alternative is a plain bump that breaks old links, or removing the question, whi
 | --- | --- | --- |
 | **Build** | First screen restyled: *Montar um treino.* Dê um nome e escolha quantos dias de treino vazios criar. Fields *Nome do treino*, *Dias de treino*; CTA *Abrir editor*. | `build_setup` → `editor`, `program-editor.js`, everything after |
 | **Import** | One door on the hub. Its first screen offers *Escolher arquivo* (Um arquivo do Taurifer de outro dispositivo) and *Colar um treino* (Texto de uma planilha, de um app ou de um assistente). | `import_source`, the file review, the free-form hand-off and its six exits (ADR 0014), `preview` |
-| **Received setup link** | Gate restyled: *Começar este treino.* {Treino da Ana · 3 dias por semana}. Este link traz um treino e seus ajustes. Nenhum histórico vem junto. Nada muda até você tocar em Usar este treino. CTA *Ver o treino*; secondary *Criar um treino do zero*. After the gate the program opens in B's editor with the source *Treino compartilhado* (OD-10). | The first-run gate rules (ADR 0007): nothing persists until *Usar este treino*, never applied over an onboarded program or any history; the 3,072-character limit; `shared_review` |
+| **Received setup link** | Gate restyled: *Começar este treino.* {Treino da Ana · 3 dias por semana}. Este link traz um treino e seus ajustes. Nenhum histórico vem junto. Nada muda até você tocar em Usar este treino. CTA *Ver o treino*; secondary *Criar um treino do zero*. After the gate the program opens in B's editor with the source *Treino compartilhado*; Restore returns to the received program (OD-10). Recipe decoding runs through the `program-engine.js` worker (#367), with a superseded or aborted open handled. | The first-run gate rules (ADR 0007): nothing persists until *Usar este treino*, never applied over an onboarded program or any history; the 3,072-character limit; `shared_review` |
 | **Custom** | No hub door (OD-9). | `custom` stays a valid route for one release so a saved Custom draft resumes and finishes; then its steps are removed |
 
 ## 8. The building moment
 
 B shows about one second of pacing: four checklist lines and a thin bar, skippable with *Ver o treino agora*.
-With #353, generation is asynchronous, so the step is defined by two clocks, not one:
+Since #366, generation is asynchronous (the `program-engine.js` worker), so the step is defined by two clocks,
+not one:
 
 - The step starts the request when it mounts and plays the checklist at 260 ms a line.
 - It moves to `result` when **both** the checklist has finished (or the lifter tapped skip) **and** the
@@ -318,8 +322,7 @@ With #353, generation is asynchronous, so the step is defined by two clocks, not
 - Under reduced motion every line is drawn done, and the step moves on when the request settles.
 - Offer verification (§6.3) runs after the main result settles and never delays the move to `result`; offers
   appear when verified.
-- Until #353 merges, the same step runs over the synchronous call, so the slice doesn't wait on it; the
-  hairline simply never shows.
+- The worker's main-thread fallback settles the same way; the hairline simply shows less often.
 - `building` is a step in `ROUTE_STEPS`, so the funnel sees drop-off during generation (§10).
 
 ## 9. What is removed
@@ -341,8 +344,8 @@ With #353, generation is asynchronous, so the step is defined by two clocks, not
 
 ## 10. Telemetry, aligned with Plan 071
 
-Plan 071 is being written in parallel and defines the funnel scheme. This plan follows it as approved by the
-owner on 11 October 2026:
+Plan 071 (merged in PR #359) defines the funnel scheme. This plan follows it as the owner approved it on
+11 October 2026:
 
 - **Route ids** are `ProgramEntry` `ROUTES`. No route is added; `custom` keeps its id.
 - **Step ids** are the `ROUTE_STEPS` names plus `entry` and `activation_conflict`. An id names what the step
@@ -368,7 +371,8 @@ owner on 11 October 2026:
 - **Time to first set** (ADR 0020 consequence): derived in analysis from `entry` viewed to the first
   `set_saved`. No new event.
 
-If Plan 071's final scheme differs, the later of the two PRs to merge reconciles the ids.
+Plan 071's "answers on step completion" lands in parallel from its own session; if a slice changes a step's
+payload, it is coordinated through the parent session.
 
 ## 11. Delivery
 
@@ -422,11 +426,10 @@ fail for the stated reason. Browser runs on the devbox use `flock /tmp/taurifer-
 | 2 | **S2 B's question screens** | Hub, intro, Basics, gym, equipment, program screens, deload, abilities restyle; new `ROUTE_STEPS`; profile record and Settings row (OD-4); Privacy line; removals in §9; step ids in the telemetry enum | **P072-S2-FLOW:** `test/generate-program-browser.mjs` walks hub → Activate in PT, answering every screen, and the activated request carries each answer; a second pass skips every optional screen and gets the default request. **P072-S2-BASICS:** weight 72.5 kg prefills the first session's bodyweight; lb in the toggle sets `settings.unit`; no Basics value appears in a telemetry payload (`test/telemetry-leakage.mjs`), a setup link or the `ProgramDefinition`. **P072-S2-RESUME:** reload on each screen resumes there. **P072-S2-FUNNEL:** each step emits viewed/completed with its id (Plan 071's suite). Catalog states. |
 | 3 | **S3 Building and conflict** | §8 and §4.3; async when #353 has merged, sync otherwise | **P072-S3-BUILD:** a forced slow request shows the hairline and moves on only after it settles; skip during the checklist waits for the request; a stale key is dropped after going back. **P072-S3-CONFLICT:** Home minus bar and bands shows the conflict in under 1 s, *Voltar ao equipamento* keeps the adjustment, nothing activates, reload restores the state. |
 | 4 | **S4 Result inputs** | Block-row sheet, deload rule unified, Today/Focus deload line, inline offers, execution-mode question | **P072-S4-BLOCK:** 10 weeks undulating, deload on: the activated program has `cycles: 10`, `deloadCycles: [10]`, undulating offsets, and Today reads week 1 of 10; with edits present the rebuild asks first. **P072-S4-DELOAD:** a slot edited to 6 sets has 3 in the deload cycle (`test/program-review.mjs`), and Today shows the deload line in that cycle. **P068-C3** carried over (offer, swap, Undo, reload). **P072-S4-EXEC:** a catalog pick of an ambiguous per-side movement asks the mode, and the activated slot carries it. |
-| 5 | **S5 Other routes and cleanup** | Build, Import, shared gate restyle; shared program in the editor (OD-10); Custom door gone, Custom steps removed after one release; `plans/README.md` and backlog rows | **P072-S5-SHARED:** a received link shows the gate, then the editor with *Treino compartilhado*; nothing persists before *Usar este treino*; the activated definition equals the received one when unedited (`test/shared-setup-flow.mjs`). Import and Build journeys stay green unchanged. |
-| 6 | **#340** (per OD-11) | Versioned `pullups10` mapping | **P072-340:** Yes to `pullups10` with every other answer null changes the program under `067.2`; a baseline-era "g" link fixture regenerates its identical definition under `067.1` (`test/shared-setup-unit.mjs`, `test/shared-setup-flow.mjs`). |
+| 5 | **S5 Other routes and cleanup** | Build, Import, shared gate restyle; shared program in the editor (OD-10) with recipe decoding through the worker (#367); Custom door gone, Custom steps removed after one release; `plans/README.md` and backlog rows | **P072-S5-SHARED:** a received link shows the gate, then the editor with *Treino compartilhado*; nothing persists before *Usar este treino*; the activated definition equals the received one when unedited (`test/shared-setup-flow.mjs`). **P072-S5-367:** a recipe link opens through the worker; regeneration is byte-identical over `test/fixtures/program-compiler-corpus.json`; a second open supersedes the first. Import and Build journeys stay green unchanged. |
+| — | **#340** (OD-11, another session) | Plain `GENERATOR_VERSION` bump with the `pullups10` mapping | Owned by that session's PR: Yes to `pullups10` changes the program; a baseline-era "g" link is refused with the actionable "ask for a new link" message (`test/shared-setup-unit.mjs`, `test/shared-setup-flow.mjs`). |
 
-S1 has no visible change and can merge first. S2 is the large one. S3 rebases onto #353 if it has merged.
-#340 can land at any point after S1.
+S1 has no visible change and merges first. S2 is the large one. #340 can land at any point after S1.
 
 ## 12. Risks
 
@@ -444,63 +447,36 @@ S1 has no visible change and can merge first. S2 is the large one. S3 rebases on
 6. **Deload with no in-app cue** would confuse week 7. S4 adds the line (OD-6).
 7. **Concurrent work.** Plan 071 (telemetry enums), #353 (async generation) and the reliability track touch
    `app.js` and the revisions. Rebase serially; never combine.
-8. **Old "g" links** break if #340 ships as a plain bump (OD-11).
+8. **Old "g" links** stop working with #340's plain bump (OD-11); the receiver refuses them with the actionable message.
 9. **Free/Pro.** Length, pattern, deload and confirmations are Plan 067 Generate inputs, so Free (Plan 068
    OD-6). None of them is the Gated "advanced first-program generation".
 
 ## 13. Owner decisions
 
-Each has a recommendation. Plan 068's decisions are folded in where B now settles them.
+Decided by the owner on 11 October 2026 (recorded from an interview, comment on PR #358). Bold rows differ
+from or sharpen this plan's recommendation.
 
-1. **OD-1 Plan 068 decisions B settles.** *Recommend:* adopt as written. 068 OD-1 is settled by ADR 0020
-   (equipment step, block row, inline offers). Adopt 068 OD-2 (all presets get add and remove), OD-3 (the
-   thirteen groups), OD-4 (allow the removal and show the conflict; now fast after #352), OD-5 (4–12 weeks,
-   default 7), OD-6 (Free), OD-7 (one verified offer per slot, never after a "no", no cap) and OD-12 (retire
-   the inert scaffolding in S1). 068 OD-8, OD-9, OD-10 and OD-11 are replaced by OD-12, §11.3, OD-14 and
-   OD-11 below.
-2. **OD-2 Experience bands.** B shows MacroFactor's bands (under 1 year, 1–4, 4+); the engine's tiers are
-   under 6 months, 6–24 months, over 24 months, and only beginner changes the program. *Recommend:* keep B's
-   four labels with the engine's thresholds: *Nenhuma (Ainda não treino)*, *Iniciante (Menos de 6 meses)*,
-   *Intermediário (De 6 meses a 2 anos)*, *Avançado (Mais de 2 anos)*. Stored values, drafts, telemetry and
-   the step id `background` stay. *Alternative:* MacroFactor's bands, which moves 6–12-month lifters into
-   the beginner dose and needs a new step id.
-3. **OD-3 Basics note copy.** *Recommend:* *Fica só neste dispositivo. Não muda o seu treino.* (and the weight
-   line for weight), dropping "e nunca é enviado" and "Ainda" (§5). *Alternative:* B's copy as written.
-4. **OD-4 Where the Basics live after activation.** *Recommend:* a local profile record in durable state,
-   shown in Settings → Dados e privacidade with *Apagar*, included in backups and install transfer, never in
-   links or telemetry. *Alternative:* keep them only in the setup draft and discard them at activation (only
-   weight survives, as the first session's bodyweight).
-5. **OD-5 Birth date precision.** *Recommend:* B's full-date wheel, stored as answered, since it is local and
-   clearable. *Alternative:* store only the year.
-6. **OD-6 Deload.** *Recommend:* default **on**, marked Recommended, in the last week; the editor follows the
-   compiler's halving rule with the changed sheet note; S4 adds the Today and Focus deload line.
-   *Alternative:* default off, or keep the editor's one-set-fewer rule (the two then disagree from 4 sets up).
-7. **OD-7 Preset names.** *Recommend:* B's names, with `warehouseGym` as *Academia de força* / *Strength
-   gym* and Everything as *Tudo* / *Everything*; a stored `other` becomes Local gym.
-8. **OD-8 Execution mode (Plan 069 D13).** *Recommend:* no Generate screen (one slot in 15 of 120 programs);
-   the exercise sheet asks when a per-side movement has no mode, with Plan 069 S4's values and copy.
-   *Alternative:* a Generate question screen, or an abilities-style row.
-9. **OD-9 Custom route and pre-generation exclusions.** *Recommend:* remove the Custom door; a saved Custom
-   draft still resumes for one release; avoided exercises, ignored muscles, must-have exercises and the
-   split choice go, because B's editor removes, swaps and adds after generation and each day count has one
-   split. *Alternative:* keep Custom as a fourth hub card outside B.
-10. **OD-10 Shared programs in the editor.** *Recommend:* after the gate, a received program opens in B's
-    editor with the source *Treino compartilhado*; Restore returns to the received program. *Alternative:*
-    keep today's shared preview.
-11. **OD-11 #340.** *Recommend:* map `pullups10` to *Weighted vertical pulls preconditions* behind a versioned
-    switch (`067.1` and `067.2`) so existing "g" links keep regenerating. *Alternative:* a plain bump that
-    makes existing "g" links unsupported, or remove the question.
-12. **OD-12 Telemetry.** *Recommend:* follow Plan 071's scheme as §10 describes; the closed-enum answers ride
-    on the completed event; drop Plan 068's `generator_inputs_applied`; the Basics are never sent.
-13. **OD-13 Close #309 and #313.** *Recommend:* close both with a link to ADR 0020 and this plan.
-14. **OD-14 Backlog placement.** *Recommend:* inside the Now row "Construct the post-058 pre-059 alpha
-    candidate", as the onboarding part of the unified redesign, before Plan 059 freezes the candidate.
-15. **OD-15 PR order.** *Recommend:* S1 → S2 → S3 → S4 → S5, six PRs with #340 independent after S1, each
-    stopping at owner review.
+| OD | Decision |
+| --- | --- |
+| OD-1 | Adopt Plan 068's settled parts: six presets with add and remove, the thirteen groups, the removal allowed and its conflict shown, 4–12 weeks default 7, Free, one verified offer per slot, inert scaffolding retired in S1. |
+| OD-2 | Engine thresholds with B's four labels: Nenhuma / Iniciante (menos de 6 meses) / Intermediário (de 6 meses a 2 anos) / Avançado (mais de 2 anos). MacroFactor's experience effect wasn't recovered (`plans/067/unknowns.md`); the beginner rule (−1 set, +1 RIR) is a Plan 067 approximation, and intermediate equals advanced by design until there is evidence. Step id `background` stays. |
+| OD-3 | "Fica só neste dispositivo. Não muda o seu treino." |
+| OD-4 | Local profile in durable state, shown in Settings → Dados e privacidade with Apagar, included in backups and the install transfer, never in links or telemetry. |
+| OD-5 | Full birth date, stored as answered. |
+| OD-6 | Deload on by default (Recomendado), in the last week; the editor uses the compiler's halving rule; S4 adds the Today/Focus deload line. |
+| OD-7 | B's preset names; `warehouseGym` = Academia de força / Strength gym; Everything = Tudo; a stored `other` becomes Local gym. |
+| OD-8 | No Generate screen; the exercise sheet asks the execution mode when needed. |
+| OD-9 | Remove the Custom route. A saved Custom draft still resumes for one release. |
+| **OD-10** | Shared programs open in B's editor ("Treino compartilhado"; Restore returns to the received program). **#367 (setup-link decode through the worker) is part of S5.** |
+| **OD-11** | **Plain `GENERATOR_VERSION` bump for #340, no versioned switch.** Existing recipe "g" links become unsupported and are refused with the existing actionable "ask for a new link" message, never decoded wrong. Another session implements #340 after S1. |
+| OD-12 | Telemetry per Plan 071 (merged in PR #359). The Basics are never sent. Plan 071's "answers on step completion" is added in parallel by its own session; step payload changes are coordinated through the parent session. |
+| OD-13 | #309 and #313 are closed. |
+| OD-14 | Inside the Now alpha-candidate row, before Plan 059. |
+| OD-15 | S1 → S5 in order, one PR each, each stopping at owner review; #340 runs independently after S1. |
 
 ## 14. Completion of this planning PR
 
 This PR adds this file and one row in `plans/README.md`. It verifies through the prose-only CI path. No
 application test is claimed. The measurements in §1, §4.1 and §6.4 come from the exported `generateProgram`
-over `assets/exercise-catalog.json` at `32ecc21c`; the scripts are in the PR description. The owner's answers
-to §13 are recorded in this PR before S1 starts.
+over `assets/exercise-catalog.json` at `32ecc21c`; the scripts are in the PR description. The owner's
+decisions are recorded in §13.
