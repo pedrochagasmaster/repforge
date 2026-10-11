@@ -1396,6 +1396,17 @@ export const APP_SCENARIOS = {
     await alternates.evaluate((node) => node.scrollIntoView({ block: "center" }));
     await sleep(page, 400);
   },
+  "program/editor-day-name-refused": async (page) => {
+    await openProgram(page);
+    await page.click("#programEditToggle");
+    await page.waitForSelector('#programEditor [data-role="editor"]', { timeout: 20000 });
+    const names = page.locator('#programEditor [data-role="day-name"]');
+    await names.nth(1).fill(await names.first().inputValue());
+    await names.nth(1).press("Enter");
+    await page.waitForSelector('#programEditor [data-role="day-name"][aria-invalid="true"]', { timeout: 20000 });
+    await names.nth(1).evaluate((node) => node.closest('[data-role="day"]').scrollIntoView({ block: "center" }));
+    await sleep(page, 400);
+  },
   "program/exercise-picker": async (page) => {
     await page.evaluate(() => window.__repforgeOpenPicker({ title: "Add exercise", mode: "multi" }));
     await page.waitForSelector("#exPickSheet.is-open", { timeout: 20000 });

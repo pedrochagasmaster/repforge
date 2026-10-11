@@ -97,6 +97,22 @@ try {
   await secondDay.fill(portugueseAuthored[0]);
   await secondDay.press("Enter");
   assert.deepEqual(await stagedDays(), authored, "a rename to the name another day shows is refused");
+  // The refusal is visible and read out (#343): the field shows the day's name again
+  // and carries the reason, so the lifter cannot believe the rename landed.
+  const fieldError = (locator) => locator.evaluate((input) => {
+    const note = document.getElementById(input.getAttribute("aria-describedby") || "");
+    return { value: input.value, invalid: input.getAttribute("aria-invalid"), note: note?.textContent.trim() || null,
+      role: note?.getAttribute("role") || null, visible: !!note && note.getClientRects().length > 0 };
+  });
+  await page.waitForFunction(() => document.querySelectorAll("#programEditor .pday__name")[1]?.getAttribute("aria-describedby"),
+    undefined, { timeout: 5000 }).catch(() => {});
+  assert.deepEqual(await fieldError(secondDay), {
+    value: portugueseAuthored[1], invalid: "true", note: PT["toast.day_name_exists"], role: "alert", visible: true,
+  }, "a refused rename restores the day's name and says why on the field");
+  await secondDay.fill("");
+  await secondDay.press("Enter");
+  assert.deepEqual(await fieldError(secondDay), { value: portugueseAuthored[1], invalid: null, note: null, role: null, visible: false },
+    "a blank rename restores the day's name without an error");
 
   const firstDay = page.locator("#programEditor .pday__name").first();
   await firstDay.fill("My upper day");

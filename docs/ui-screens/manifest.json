@@ -1321,6 +1321,13 @@
       "variants": "localized"
     },
     {
+      "id": "editor-day-name-refused",
+      "flow": "program",
+      "label": "Program — refused day rename",
+      "scenario": "The installed program editor after a day was renamed to a name another day already uses: the field shows the day's own name again and the reason sits under the day header.",
+      "variants": "localized"
+    },
+    {
       "id": "exercise-picker",
       "flow": "program",
       "label": "Program — exercise picker",

@@ -623,6 +623,11 @@
       "content": "flat",
       "scenario": "The installed editor with an exercise open on its alternates: two chosen movements in order, each with reorder and remove controls, and Add alternate."
     },
+    "program/editor-day-name-refused": {
+      "owner": "issue-343",
+      "content": "flat",
+      "scenario": "The installed editor after a refused day rename: the field shows the day's own name again and the reason sits under the day header."
+    },
     "program/exercise-picker": {
       "owner": "plan-057",
       "content": "flat",
@@ -2539,6 +2544,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/editor-alternates",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -4051,6 +4057,7 @@
       "catalogStates": [
         "program/editor-alternates",
         "program/overview",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -4075,6 +4082,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/editor-alternates",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -4099,6 +4107,7 @@
       "catalogStates": [
         "program/editor-alternates",
         "program/overview",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -4128,6 +4137,7 @@
         "program/exercise-picker",
         "program/no-program",
         "program/overview",
+        "program/editor-day-name-refused",
         "program/progression-editor",
         "program/share-ready",
         "program/share-setup",
@@ -4181,6 +4191,7 @@
       "catalogStates": [
         "program/editor-alternates",
         "program/overview",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -4648,6 +4659,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/editor-alternates",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -5870,6 +5882,7 @@
         "history/edit-invalid",
         "onboarding-custom/result",
         "onboarding-import/freeform-stage2",
+        "program/editor-day-name-refused",
         "program/progression-editor",
         "progress/guided-repair",
         "progress/recovery-ineligible",
@@ -6478,6 +6491,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/editor-alternates",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -6504,6 +6518,7 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-alternates",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -6530,6 +6545,7 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-alternates",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -6556,6 +6572,7 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-alternates",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -6583,6 +6600,7 @@
         "onboarding-build/editor-empty",
         "onboarding-build/editor-partial",
         "program/editor-alternates",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -6608,6 +6626,7 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-alternates",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -6635,6 +6654,7 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-alternates",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -6659,6 +6679,7 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-alternates",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -6684,6 +6705,7 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-alternates",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -7087,6 +7109,7 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-alternates",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -7133,6 +7156,7 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-alternates",
+        "program/editor-day-name-refused",
         "program/progression-editor",
         "progress/schedule-diagnosis"
       ]
@@ -7163,6 +7187,7 @@
         "program/editor-alternates",
         "program/no-program",
         "program/overview",
+        "program/editor-day-name-refused",
         "program/progression-editor",
         "progress/exercise-chart",
         "progress/guided-repair",
@@ -7226,6 +7251,7 @@
         "program/editor-alternates",
         "program/no-program",
         "program/overview",
+        "program/editor-day-name-refused",
         "program/progression-editor",
         "progress/exercise-chart",
         "progress/guided-repair",
@@ -7298,6 +7324,7 @@
         "program/editor-alternates",
         "program/no-program",
         "program/overview",
+        "program/editor-day-name-refused",
         "program/progression-editor",
         "progress/exercise-chart",
         "progress/guided-repair",
@@ -7375,6 +7402,7 @@
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-track",
         "onboarding-start/first-run-ways",
+        "program/editor-day-name-refused",
         "program/progression-editor",
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/result-avoided",
@@ -8895,6 +8923,7 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-alternates",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -9484,6 +9513,7 @@
       "catalogStates": [
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -9535,6 +9565,7 @@
         "history/conflict",
         "program/no-program",
         "program/overview",
+        "program/editor-day-name-refused",
         "program/progression-editor",
         "install/banner",
         "today/draft-resume"
@@ -9547,6 +9578,7 @@
       "rationale": "Program edit uses the approved shallow full-width action layer; its meaning stays navigation and the current destination stays selected.",
       "owner": "plan-057/058",
       "catalogStates": [
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -9845,6 +9877,7 @@
       "catalogStates": [
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ],
       "sourceOnly": true,
@@ -9901,6 +9934,7 @@
         "history/conflict",
         "program/no-program",
         "program/overview",
+        "program/editor-day-name-refused",
         "program/progression-editor",
         "install/banner",
         "today/draft-resume"
@@ -9957,6 +9991,7 @@
         "history/conflict",
         "program/no-program",
         "program/overview",
+        "program/editor-day-name-refused",
         "program/progression-editor",
         "install/banner",
         "today/draft-resume"
@@ -9993,6 +10028,7 @@
         "onboarding-start/hub-existing",
         "onboarding-start/hub-own-open",
         "program/overview",
+        "program/editor-day-name-refused",
         "program/progression-editor",
         "settings/appearance",
         "settings/guides",
@@ -10015,6 +10051,7 @@
         "onboarding-start/hub-existing",
         "onboarding-start/hub-own-open",
         "program/overview",
+        "program/editor-day-name-refused",
         "program/progression-editor",
         "settings/appearance",
         "settings/guides",
