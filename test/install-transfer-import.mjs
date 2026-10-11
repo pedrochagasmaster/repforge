@@ -1400,20 +1400,41 @@ async function seedProfileOnlyDestination(page, profile) {
 async function runProfileDestinationProtection(browser, envelope) {
   console.log("\nPlan 072 OD-4 profile-only destination protection after boot and reload");
   const profiles = [
-    ["valid explicit profile", { sex: "female", birthDate: "1990-03-10", heightCm: 180, heightUnit: "cm" }],
+    ["valid explicit profile", { sex: "female", birthDate: "1990-03-10", heightCm: 180, heightUnit: "cm", weightKg: 83 }],
     ["unknown profile record", { sex: "female", futureAnswer: "retain-me" }],
     ["malformed profile record", { sex: "female", weightKg: 0 }],
+    ["object birth date", { sex: "female", birthDate: { raw: "retain-me" }, weightKg: 83 }],
+    ["invalid birth date", { sex: "female", birthDate: "not-a-date", weightKg: 83 }],
+    ["string weight", { sex: "female", birthDate: "1990-03-10", weightKg: "83" }],
   ];
   for (const [label, profile] of profiles) {
     const { context, page } = await openFreshContext(browser);
+    const pageErrors = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
     try {
       const seeded = await seedProfileOnlyDestination(page, profile);
       await page.reload({ waitUntil: "domcontentloaded" });
-      await waitForAppBoot(page, { base: BASE });
-      await flush(page);
-      const observed = await page.evaluate(() => window.__repforgeWorkoutDraft?.state?.()?.profile ?? null);
-      check(seeded.ok && sameValue(observed, profile),
-        `${label}: profile record survives ordinary boot and reload unchanged`, { seeded, observed, profile });
+      let booted = false;
+      let bootError = null;
+      try {
+        await waitForAppBoot(page, { base: BASE, timeout: 10000 });
+        booted = true;
+        await flush(page);
+      } catch (error) {
+        bootError = error.message;
+      }
+      const observed = await page.evaluate(({ stateKey }) => {
+        try { return JSON.parse(localStorage.getItem(stateKey) || "null")?.profile ?? null; }
+        catch { return null; }
+      }, { stateKey: STATE_KEY });
+      check(seeded.ok && booted && sameValue(observed, profile),
+        `${label}: profile record survives ordinary boot and reload unchanged`, { seeded, booted, bootError, pageErrors, observed, profile });
+
+      if (label === "valid explicit profile" && booted) {
+        const initialBodyweight = await page.locator("#sessionBodyweight").inputValue();
+        check(initialBodyweight === "83",
+          "valid profile weight still prefills the production session field", { initialBodyweight });
+      }
 
       const before = await readStorageBytes(page);
       let result;
@@ -1427,6 +1448,66 @@ async function runProfileDestinationProtection(browser, envelope) {
     } finally {
       await context.close();
     }
+  }
+}
+
+async function runMalformedProfileSettings(browser) {
+  console.log("\nPlan 072 OD-4 malformed profile values stay out of Settings consumers");
+  const profiles = [
+    ["object birth date", { sex: "female", birthDate: { raw: "retain-me" }, weightKg: 83 }, 2, ["retain-me"]],
+    ["invalid birth date", { sex: "female", birthDate: "not-a-date", weightKg: 83 }, 2, ["Invalid Date", "not-a-date"]],
+    ["string weight", { sex: "female", birthDate: "1990-03-10", weightKg: "83" }, 2, ["83"]],
+  ];
+  const { context, page } = await openFreshContext(browser);
+  const pageErrors = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  try {
+    const activated = await activateProgram(page);
+    check(activated.ok, "Settings fixture has a production-activated program", activated);
+    for (const [label, profile, expectedRows, excludedText] of profiles) {
+      const errorCount = pageErrors.length;
+      const seeded = await seedProfileOnlyDestination(page, profile);
+      await page.reload({ waitUntil: "domcontentloaded" });
+      let booted = false;
+      let bootError = null;
+      try {
+        await waitForAppBoot(page, { base: BASE, timeout: 10000 });
+        booted = true;
+        await flush(page);
+      } catch (error) {
+        bootError = error.message;
+      }
+      const observed = await page.evaluate(({ stateKey }) => {
+        try { return JSON.parse(localStorage.getItem(stateKey) || "null")?.profile ?? null; }
+        catch { return null; }
+      }, { stateKey: STATE_KEY });
+      check(seeded.ok && booted && sameValue(observed, profile),
+        `${label}: malformed raw record survives ordinary boot and reload`, { seeded, booted, bootError, observed, profile, pageErrors });
+
+      if (label === "string weight" && booted) {
+        const initialBodyweight = await page.locator("#sessionBodyweight").inputValue();
+        check(initialBodyweight === "",
+          "invalid raw profile weight does not prefill the production session field at boot", { initialBodyweight });
+      }
+
+      if (booted) {
+        await page.click("#openSettings");
+        await page.waitForSelector("#restSecRow", { timeout: 10000 });
+      }
+      const settings = booted ? await page.evaluate(() => ({
+        visible: document.querySelector("#settings")?.classList.contains("active") ?? false,
+        profileRowHidden: document.querySelector("#profileRow")?.hidden ?? true,
+        values: [...(document.querySelector("#profileList")?.querySelectorAll("dd") || [])].map((node) => node.textContent),
+        profileText: document.querySelector("#profileList")?.textContent || "",
+      })) : null;
+      const currentErrors = pageErrors.slice(errorCount);
+      check(booted && settings?.visible && !settings.profileRowHidden && settings.values.length === expectedRows &&
+        excludedText.every((value) => !settings.profileText.includes(value)) && currentErrors.length === 0,
+      `${label}: Settings displays only independently valid profile values`, { settings, currentErrors, bootError });
+
+    }
+  } finally {
+    await context.close();
   }
 }
 
@@ -2147,6 +2228,7 @@ async function main() {
       await refusal.close();
       await runFaultMatrix(browser, envelope);
       await runProfileDestinationProtection(browser, envelope);
+      await runMalformedProfileSettings(browser);
       await runMeaningfulDestinationMatrix(browser, envelope);
       await runP4cStandaloneClaimCommit(browser, envelope);
       await runP4cConcurrentImport(browser, envelope);

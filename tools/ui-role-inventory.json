@@ -1702,6 +1702,74 @@
       ]
     },
     {
+      "id": "entrypickercancel",
+      "selector": "#entryPickerCancel",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Dismisses the typed-value field without committing an edit.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/birth-date-typed",
+        "onboarding-recommend/birth-date-typed-invalid"
+      ]
+    },
+    {
+      "id": "entrypickerdone",
+      "selector": "#entryPickerDone",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
+      "rationale": "Commits the typed value for the current onboarding question.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/birth-date-typed",
+        "onboarding-recommend/birth-date-typed-invalid"
+      ]
+    },
+    {
+      "id": "entrypickerinput",
+      "selector": "#entryPickerInput",
+      "roles": {
+        "control": "field"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "validation-error"
+      ],
+      "rationale": "Accepts a typed value for the currently selected onboarding picker.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/birth-date-typed",
+        "onboarding-recommend/birth-date-typed-invalid"
+      ]
+    },
+    {
       "id": "entryprogramname",
       "selector": "#entryProgramName",
       "roles": {
@@ -7878,7 +7946,9 @@
         "onboarding-recommend/replacement-confirm",
         "onboarding-recovery/cancel-confirm",
         "onboarding-recovery/restart-confirm",
-        "onboarding-recommend/review-rebuild-confirm"
+        "onboarding-recommend/review-rebuild-confirm",
+        "onboarding-recommend/birth-date-typed",
+        "onboarding-recommend/birth-date-typed-invalid"
       ]
     },
     {
@@ -9261,6 +9331,28 @@
         "disabled"
       ],
       "rationale": "Sets the lifter's weight by scrolling or the arrow keys; a slider with a spoken value.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/weight",
+        "onboarding-recommend/weight-lb"
+      ]
+    },
+    {
+      "id": "entryweighttype",
+      "selector": "#entryWeightType",
+      "roles": {
+        "control": "field"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Opens a labeled text field for the displayed weight value.",
       "owner": "plan-072",
       "catalogStates": [
         "onboarding-recommend/weight",

@@ -5463,7 +5463,8 @@ const sameLoad=(a,b)=>a!=null&&b!=null&&Math.abs(a-b)<=LOAD_EPS;
 function jump(load,mult){return Math.max(load*(+state.settings.jumpPct||0)*mult/100,+state.settings.minJump||2.5)}
 function lastBodyweight(){const rows=state.log.filter(r=>+r.bodyweight>0);
   // Until a session logs one, the weight given in setup stands in (Plan 072).
-  if(!rows.length)return state.profile?.weightKg>0?fmt(toDisplay(state.profile.weightKg)):"";const latest=rows.sort((a,b)=>compareLogChronology(b,a))[0];
+  const profileWeight=interpretedProfile(state.profile).weightKg;
+  if(!rows.length)return profileWeight>0?fmt(toDisplay(profileWeight)):"";const latest=rows.sort((a,b)=>compareLogChronology(b,a))[0];
   return fmt(toDisplay(latest.bodyweight))}
 function updateBodyweightField(){const el=$("#sessionBodyweight");if(!el)return;
   el.placeholder=unitLabel();
@@ -5779,7 +5780,8 @@ function sessionBodyweightKg(){
   if(live!=null&&live!==""&&+live>0)return+live;
   const rows=(state.log||[]).filter(row=>+row.bodyweight>0);
   // Until a session logs one, the weight given in setup counts (Plan 072).
-  if(!rows.length)return state.profile?.weightKg>0?state.profile.weightKg:null;
+  const profileWeight=interpretedProfile(state.profile).weightKg;
+  if(!rows.length)return profileWeight>0?profileWeight:null;
   return+rows.reduce((latest,row)=>compareLogChronology(latest,row)<0?row:latest).bodyweight}
 /* Per-side loads stay manual: their multiplier is never assumed. Bodyweight
    counts only when the movement has a coefficient and a bodyweight is known. */
@@ -12155,8 +12157,18 @@ function applyBasicsToProposal(proposal,basics){
     if(merged.ok)proposal.profile=merged.value}
   if((weightUnit==="kg"||weightUnit==="lb")&&weightUnit!==proposal.settings?.unit&&!readDraftRaw())
     proposal.settings={...normalizeSettings(proposal.settings),unit:weightUnit}}
+const PROFILE_VALUE_KEYS=["sex","birthDate","heightCm","heightUnit","weightKg","cardioExperience"];
+function interpretedProfile(profile){
+  if(!profile||typeof profile!=="object"||Array.isArray(profile))return{};
+  const interpreted={};
+  for(const key of PROFILE_VALUE_KEYS){
+    if(!Object.prototype.hasOwnProperty.call(profile,key))continue;
+    const result=ProgramEntry?.normalizeProfile?.({[key]:profile[key]});
+    if(result?.ok&&Object.prototype.hasOwnProperty.call(result.value,key))interpreted[key]=result.value[key]}
+  return interpreted}
 function profileRows(profile){
   const rows=[];
+  profile=interpretedProfile(profile);
   if(profile.sex)rows.push([t("entry.section_profile.sex"),t(`entry.sex.${profile.sex}`)]);
   if(profile.birthDate){
     const [y,m,d]=profile.birthDate.split("-").map(Number);
