@@ -1,8 +1,8 @@
 # Plan 071: telemetry coverage for every meaningful journey, onboarding first
 
-- **Status:** IMPLEMENTED in PR #359, pending owner review. The owner approved
-  designing and implementing this on 2026-10-11. The owner questions in §7
-  are open; nothing they cover ships.
+- **Status:** IMPLEMENTED in PR #359. The owner approved designing and
+  implementing this on 2026-10-11, then answered §7 the same day. The
+  approved additions ship in follow-up PRs (§7 decisions 2 and 6; §10).
 - **Contract:** the closed event schema in `telemetry.js`, ADR 0010
   ("Data and telemetry"), ADR 0013 (install transfer), ADR 0014 (free-form
   import) and the privacy rules in `AGENTS.md`. Nothing here widens them.
@@ -220,8 +220,11 @@ keep reading the same data.
   identifier is introduced. Consent gating is unchanged: `capture()`
   returns early when telemetry is off.
 - **Onboarding answers:** the funnel events carry `{route, step}` and a
-  bucketed `time_on_step`, and nothing about the answer.
-  `generator_completed` keeps its existing goal and frequency.
+  bucketed `time_on_step`. Since the owner's decision 2, a completed step also
+  carries the closed engine answers it asked, from the table under the
+  decisions below. No free-form answer is ever sent: names, exercises,
+  muscles or notes. `generator_completed` keeps its existing goal and
+  frequency.
 - **B's Basics (Plan 072) are never sent, not even bucketed or as closed
   enums:** sex, birth date or age, height, weight or bodyweight, and cardio
   experience. Their step events carry `{route, step, time_on_step}` only.
@@ -237,27 +240,53 @@ keep reading the same data.
   new event follows a human action or a step change. Editor taps are one
   event each and stay below the cap.
 
-### Owner questions (nothing below ships)
+### Owner decisions (2026-10-11)
 
-1. **Basics for measurement.** Is any Basics answer needed to read
-   retention, for example an age band? Recommendation: no. Nothing is
-   shipped.
-2. **Closed-enum answers on step completion.** Should `step_completed` carry
-   the enum answer for desired_result, background (experience band),
-   schedule (days, minutes) and environment kind? This would show who drops
-   at each step, but it widens the payload. Not shipped.
-3. **Substitution reason.** `substitution_used.reason` needs a reason
-   question in the workout. That is a product change. Not shipped.
-4. **Explicit abandon.** An explicit "abandon this session" action, with its
-   stage and reason, is a product change. Until it exists, abandonment is
-   read as unresolved, not reported.
-5. **Backup events.** Plan 045 removed `backup_exported`: backup health is
-   tested locally and operationally. Export and restore outcomes would show
-   whether lifters protect their data, and whether restore fails in the
-   field. Reversing Plan 045 is the owner's call. Not shipped.
-6. **Days since last session on `app_boot`.** A recency bucket would make
-   return-session views cheaper. Retention is derivable without it. Not
-   shipped.
+The owner answered the six questions on 2026-10-11, relayed by the parent
+session.
+
+1. **Basics stay out.** No Basics answer is sent, in any form. The unit
+   guards from §7 stand.
+2. **Closed engine answers on step completion: approved.**
+   `onboarding_step_completed` carries the closed answers the completed step
+   asked, and nothing else. Lifting experience is allowed as its existing
+   bucket.
+
+   | Step | Property | Values |
+   |---|---|---|
+   | `entry` (Generate shortcut only), `desired_result` | `goal` | muscle_growth, balanced, strength |
+   | `background` | `experience` | first, under_6m, 6_to_24m, over_24m |
+   | `schedule` | `days_per_week` | 2–6 |
+   | `schedule` | `session_length` | up_to_40, 60, 90, 120_plus |
+   | `environment` | `gym_preset` | the entry environments |
+   | `custom_shape` | `split` | the compiler's authored splits |
+   | (the step that asks it) | `deload` | on, off |
+
+   - The table lives in `telemetry.js` (`STEP_ANSWERS`). A step that asks a
+     closed engine answer joins it. `deload` is declared for the deload step
+     Plan 068/072 adds; that step maps its answer when it lands.
+   - A value outside its list is dropped and the step still reports.
+   - Guards in `test/telemetry-unit.mjs`:
+     - each step projects only its own answers;
+     - the split and environment lists follow the engine's vocabularies;
+     - a walk over every step of every route, with Basics sentinels and free
+       text in the answers, emits only allowlisted keys and no sentinel.
+3. **Substitution reason: approved, optional.** One tap on optional reason
+   chips in the swap sheet. It never blocks or delays the swap, and the
+   default is no reason. `reason` is sent only when the lifter chooses one.
+   Specified in §10 and shipped in its own PR.
+4. **Explicit abandon: approved.** A clear "end without finishing" action in
+   the workout, with an optional reason. It emits `session_abandoned`
+   (`stage`, `reason`) and reuses the existing discard semantics. Specified in
+   §10 and shipped in its own PR.
+5. **Backup events stay out.** Plan 045 §4 stands.
+6. **Days since last session: approved.** There is no session-start event
+   (Plan 045 §4), so the bucket rides on `session_completed` as
+   `days_since_last`:
+   - Values: first, same_day, 1, 2_3, 4_7, 8_14, 15_30, 31_plus.
+   - It counts calendar days from the latest earlier saved session in the
+     log. A backdated session compares only with sessions on or before its
+     own date.
 
 ## 8. Implementation slices
 
