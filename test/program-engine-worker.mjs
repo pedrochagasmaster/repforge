@@ -251,7 +251,7 @@ async function main() {
           daysPerWeek: 2, sessionMinutes: 120, environment: { kind: "commercial_gym" } }, Catalog).value;
         heavy.gymProfile = { equipmentIds: Object.keys(Catalog.uuidIndex).filter((id) => Catalog.uuidIndex[id]?.type === "equipment").sort() };
         const cdp = await context.newCDPSession(page);
-        await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+        await cdp.send("Emulation.setCPUThrottlingRate", { rate: 6 });
         const timing = await page.evaluate(async (request) => {
           const engine = window.__repforgeProgramEngine;
           const catalog = window.RepForgeExerciseCatalog.snapshot();
@@ -272,10 +272,12 @@ async function main() {
             frames: gaps.length, maxGap: Math.max(0, ...gaps) };
         }, heavy);
         await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
-        console.log(`    heaviest request at 4x CPU: main thread blocked ${Math.round(timing.blocked)} ms; ` +
+        console.log(`    heaviest request at 6x CPU: main thread blocked ${Math.round(timing.blocked)} ms; ` +
           `worker took ${Math.round(timing.took)} ms with ${timing.frames} frames, longest gap ${Math.round(timing.maxGap)} ms`);
         check(timing.ok, "the heaviest request gives the same program in the worker", timing);
-        check(timing.blocked > 200, "on the main thread the heaviest request blocks for a measurable time", timing);
+        // The comparison below can only tell the two paths apart when the
+        // main-thread block spans several frames; the throttle makes sure of it.
+        check(timing.blocked > 100, "on the main thread the heaviest request blocks for several frames", timing);
         check(timing.frames >= 3 && timing.maxGap < timing.blocked / 2,
           "the page keeps drawing frames while the worker runs it", timing);
       }
