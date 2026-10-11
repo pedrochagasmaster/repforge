@@ -319,11 +319,10 @@ async function main() {
   let st = await cardState(page);
   assert(st.rows === 5 && st.logged === 0 && st.open === 1 && st.queued === 4 && st.prevLines === 0,
     "an exercise with no history lists every set, the first one open, with no previous-session line", JSON.stringify(st));
-  // The seed program is manual (a Build program): no engine, so the cue names the program as the
-  // load's source and the reps to aim for, and invents no load. The adaptive cue is proved below on a
-  // generated program ("Adaptive cue").
-  assert(st.cueKind === "is-manual" && st.cueL1 === "Manual" && st.cueL2 === "aim for 4–8 reps" && st.cueMark === null,
-    "a manual program's cue invents no load and aims at the program's rep range", JSON.stringify(st));
+  // This seed has a manual range: Taurifer does not suggest a load, and Focus labels the stored
+  // range as the lifter's targets. The adaptive cue is proved below on a generated program.
+  assert(st.cueKind === "is-manual" && st.cueL1 === "Your targets" && st.cueL2 === "4–8 reps" && st.cueMark === null,
+    "a manual range cue names the targets and invents no load", JSON.stringify(st));
   assert(st.ctaText.toLowerCase() === "log set 1" && st.ctaArrow === false,
     "the commit action names the set and is arrowless", JSON.stringify(st));
   assert(/\d.*reps/.test(st.meta),
@@ -384,9 +383,9 @@ async function main() {
   await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"), undefined, { timeout: 3000 });
   const shelfBefore = (await cardState(page)).shelfHeight;
   await logSets(page, 2);
-  // The second set armed a rest; on a manual program its next-set line is the manual cue, as it reads.
+  // The second set armed a rest; its next-set line repeats the manual range cue.
   const restLine = await page.evaluate(() => document.querySelector("#workout .exercise.is-current .restinline__next")?.textContent?.replace(/\s+/g, " ").trim());
-  assert(restLine === "Manual · aim for 4–8 reps", "the rest's next-set line on a manual program is its cue and invents no load", restLine);
+  assert(restLine === "Your targets · 4–8 reps", "the rest's next-set line repeats the manual range cue without a load", restLine);
   // R7 J-03: Log set rebuilds the shelf, so focus must land on the next set's field, never on <body>.
   const afterLog = await focusAt(page);
   assert(afterLog.inCard && afterLog.live && afterLog.field !== null,
@@ -635,7 +634,7 @@ async function main() {
     "the clock takes the cue slot as a timer: Rest, the time left and \"of\" its length", JSON.stringify(rest));
   // A manual program's next-set line is its cue as it reads; the Mono load and reps of an engine's
   // next-set line are proved on a generated program under "Adaptive cue".
-  assert(rest.cueGone && rest.next === "Manual · aim for 4–8 reps" && rest.nextSize === 18 &&
+  assert(rest.cueGone && rest.next === "Your targets · 4–8 reps" && rest.nextSize === 18 &&
     rest.why === "Why?" && rest.whyOpens.length > 0,
   "the next set's cue replaces the 24px line at 18px with a Why? link", JSON.stringify(rest));
   assert(rest.barHeight === 4 && rest.barRadius === "4px" && rest.barScale > 0.9 && rest.barScale <= 1,

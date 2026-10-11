@@ -384,14 +384,13 @@ async function main() {
       "day context, target text, and the Why control are all visible on the card", JSON.stringify(contextFacts.head));
     await page.locator("#workout .exercise.is-current [data-why]").click();
     await page.waitForSelector("#whySheet.is-open", { timeout: 5000 });
-    // The seed program is manual: no engine target, and the sheet says the program owns the load.
+    // The seed program is a Build fixture: no engine target, and the sheet must not assign a load to the program.
     const why = await page.evaluate(() => ({
       targetHidden: document.querySelector("#whyTarget")?.classList.contains("hidden"),
       body: document.querySelector("#whyBody")?.textContent?.trim(),
-      manual: window.RepForgeI18n.t("why.manual"),
     }));
-    assert(why.targetHidden && why.body?.includes(why.manual),
-      "Why this weight? opens on a manual program with no invented target and the manual explanation", JSON.stringify(why));
+    assert(why.targetHidden && why.body && !/the program sets this load/i.test(why.body),
+      "P069-S1-WHY: a Build slot has no invented target and Why does not claim the program sets its load", JSON.stringify(why));
     await page.evaluate(() => window.closeWhySheet?.());
     await page.waitForSelector("#whySheet", { state: "hidden", timeout: 5000 });
 

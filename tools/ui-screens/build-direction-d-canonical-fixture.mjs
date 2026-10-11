@@ -85,7 +85,7 @@ if (!definition) throw new Error("the app rejected the Direction D canonical pro
 // slot's sets, so a lifter with real history still gets a real
 // recommendation — the mockup's own intent, now computed instead of invented.
 // The one exercise the mockup drew as genuinely unprescribed (the mixed day's
-// "manual" strategy, ex-cp — see workout/why-manual) is left untouched.
+// "manual" strategy, ex-cp) is left untouched.
 function targetRirFor(strategy) {
   const params = strategy?.params || {};
   const pairs = [[params.targetRirMin, params.targetRirMax], [params.anchorTargetRirMin, params.anchorTargetRirMax]];
