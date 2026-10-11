@@ -720,6 +720,13 @@
       if ([429, 503].includes(reply.status) && exactKeys(reply.body, ["state"]) && reply.body.state === "unavailable") {
         return unavailable("service-unavailable", "terminalUnavailable");
       }
+      // The service answers a request it cannot validate with its uniform 404
+      // before routing, so nothing was written: a refusal, not an unknown
+      // outcome. This is how an older service meets a newer client's setup
+      // draft (Plan 072); the lifter can try again once the service is updated.
+      if (reply.status === 404 && exactKeys(reply.body, ["state"]) && reply.body.state === "unavailable") {
+        return unavailable("create-refused", "terminalUnavailable");
+      }
       if (reply.status === 200) {
         if (!exactKeys(reply.body, ["duplicate", "expiresAt"]) || reply.body.duplicate !== true || !strictUtcMilliseconds(reply.body.expiresAt)) return unavailable("create-unknown-outcome", "unknown-outcome");
         try { await outbound.write({ ...marker, expiresAt: reply.body.expiresAt }); }

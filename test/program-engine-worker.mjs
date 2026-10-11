@@ -117,35 +117,58 @@ async function heldFlow(browser) {
       generateProgram: (args) => new Promise((resolve) => window.__held.push({ args, resolve })) };
     window.__release = (index, outcome) => { const job = window.__held[index]; job.resolve(outcome ?? base.generateProgram(job.args)); };
   });
+  // Recommend's B order (Plan 072 S2) puts "abilities" last, right before
+  // "result" (intro, sex, birth_date, height, weight, background,
+  // cardio_experience, environment, equipment, desired_result, days_per_week,
+  // session_length, muscle_priorities, deload, abilities, result) - that is
+  // where generation now starts, and "deload" is the step Back returns to.
   await page.click("#firstRunCreate");
-  await page.locator('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]').click();
+  await page.locator('[data-entry-hub="recommend"]').click();
+  await page.click("#onbNext");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "intro");
+  await page.click("#onbNext");
+  for (const step of ["sex", "birth_date", "height", "weight"]) {
+    await page.waitForFunction((s) => window.__repforgeEntryState?.()?.step === s, step);
+    await page.click("#onbSkip");
+  }
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "background");
   await pick(page, "structuredExperience", "6_to_24m");
   await page.click("#onbNext");
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "schedule");
-  await pick(page, "daysPerWeek", 4);
-  await pick(page, "sessionMinutes", 60);
-  await page.click("#onbNext");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "cardio_experience");
+  await page.click("#onbSkip");
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "environment");
   await pick(page, "environment", "commercial_gym");
   await page.click("#onbNext");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "equipment");
+  await page.click("#onbNext");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "desired_result");
+  await pick(page, "desiredResult", "muscle_growth");
+  await page.click("#onbNext");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "days_per_week");
+  await pick(page, "daysPerWeek", 4);
+  await page.click("#onbNext");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "session_length");
+  await pick(page, "sessionMinutes", 60);
+  await page.click("#onbNext");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "muscle_priorities");
+  await page.click("#onbSkip");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "deload");
+  await page.click("#onbNext");
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
-  await page.click("#entryAbilitiesSkip");
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "priorities");
 
   // Back while the program generates drops it.
   await page.click("#onbNext");
-  check(await held(page) === 1 && (await entry(page)).step === "priorities",
+  check(await held(page) === 1 && (await entry(page)).step === "abilities",
     "async flow: Continue keeps the question on screen while its program generates");
   check(await page.locator("#onbNext").getAttribute("aria-busy") === "true", "async flow: Continue reports that it is busy");
   await page.click("#onbBack");
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "deload");
   await release(page, 0);
   await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 0)));
   const left = await entry(page);
-  check(left.step === "abilities" && !left.result?.preview, "async flow: a program that lands after Back is dropped", { step: left.step });
+  check(left.step === "deload" && !left.result?.preview, "async flow: a program that lands after Back is dropped", { step: left.step });
   await page.click("#onbNext");
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "priorities");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
 
   // Continue waits for its program; a second tap starts nothing.
   await page.click("#onbNext");

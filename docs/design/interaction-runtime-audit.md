@@ -122,6 +122,20 @@ audit.
 | Dragging an exercise by its handle in reorder mode | Pointer capture on the handle; the row follows the pointer and the rows it passes step aside by one row height; the drop is one reorder edit | **Hand-rolled** | Inline transforms while dragging, then the `layoutShift` FLIP of the repaint | @dnd-kit stays reachable only from `program-editor.js`. This list is one day, never collapsed, with the arrows beside every row as the keyboard and screen-reader path, so collision detection, auto-scroll and the keyboard sensor buy nothing here |
 | The notice with Undo after a removal, swap, move or add | `.review-toast`, the app toast's `toastin` keyframe | **CSS retained** | — | The app's toast with one action; the same entrance, `animation: none` under reduced motion |
 
+## Onboarding B's question screens (Plan 072)
+
+B's one-question screens add no runtime and no vocabulary.
+
+| Interaction | Current implementation | Decision | Technique | Reason |
+| --- | --- | --- | --- | --- |
+| Continue and Back through B's hub, questions and result | The incoming page pushes in with `RepForgeMotion.animatePush` on `navPush`; Back carries the outgoing page off with the same spring. The outgoing copy stays visible beneath or above the live page as required, and is inert and `aria-hidden` until the run ends | `app.js` (`entrySetState`, the B page snapshot and edge registration); `motion-layer.js` (`animatePush`, `registerEdgeSwipeBack`); `motion-polish.css` (page layers and `#onboarding.entry-edge-swipe-active`) | Reduced motion and a missing Motion layer change the state at rest with no transform or gesture classes. In standalone B, the shell uses `touch-action: pan-y pinch-zoom` before pointerdown so the left-edge hit in its padding can be tracked; the nested weight ruler remains horizontally scrollable. The edge swipe reveals the prior B page and commits through the visible Back control | `test/generate-program-browser.mjs` (`onboardingBNavigation`): production Continue/Back pushes, live-ID and accessibility isolation, settling, CDP edge touch, weight-ruler touch scroll, reduced motion and no-Motion fallback |
+| The birth-date and height wheels | Native `scroll-snap-type: y mandatory`; the settled row is read 90ms after scrolling stops | **None** | — | A wheel is a list the lifter scrolls. Native snapping already has the platform's momentum, and keys set it at once |
+| The weight ruler | Native horizontal scroll; the value follows the scroll and settles 110ms after it stops | **None** | — | Same reason as the wheels; the needle is static |
+| The deload switch | The shared `.toggle` transition | **Unchanged** (reused) | — | The Settings switch |
+| Choice cards, segmented priorities and unit toggles | `.radio-card` and a flat segmented control | **None** | — | O2: a quiet ring, no growth |
+
+The pickers never animate, so reduced motion changes nothing here.
+
 ## Panels, lists and dialogs
 
 | Interaction | Current implementation | Decision | Technique | Reason |

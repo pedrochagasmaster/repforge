@@ -19,7 +19,7 @@
  * Run: node test/telemetry-runtime.mjs
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
-import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, waitForAppBoot, answerRecommend } from "./browser.mjs";
 import { EVENT_DUPLICATE_POLICIES, FORBIDDEN_PROPERTY_NAMES } from "./fixtures/telemetry.mjs";
 import { exerciseAction, finishEarly, selectExercise } from "./fixtures/focus-workout.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
@@ -245,23 +245,9 @@ const entryStep = (page) => page.evaluate(() => window.__repforgeEntryState?.()?
 
 /** Drive Generate from the entry hub through to its reviewable result. */
 async function driveOnboarding(page, { experience = "6_to_24m", days = 4 } = {}) {
-  // Generate's goal is asked on the hub: the tap answers it and opens the background step.
-  await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "background");
-  await page.click(`[data-entry-pick="structuredExperience"][data-entry-val="${experience}"]`);
-  await page.click("#onbNext");
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "schedule");
-  await page.click(`[data-entry-pick="daysPerWeek"][data-entry-val="${days}"]`);
-  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
-  await page.click("#onbNext");
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "environment");
-  await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
-  await page.click("#onbNext");
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
-  await page.click("#onbNext");
-  await page.waitForFunction(() => ["priorities", "result"].includes(window.__repforgeEntryState?.()?.step));
-  if (await entryStep(page) === "priorities") await page.click("#onbNext");
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "result");
+  await answerRecommend(page, {
+    lifting: experience, days, minutes: 60, environment: "commercial_gym", goal: "muscle_growth", skipBasics: true,
+  });
   await page.waitForSelector("#entryActivate", { timeout: 15000 });
   return true;
 }
@@ -311,7 +297,8 @@ try {
       "an automatic open reports nothing",
       namesOf(events).join(","),
     );
-    await page.click('[data-entry-route="recommend"][data-entry-goal="balanced"]');
+    await page.click('[data-entry-hub="recommend"]');
+    await page.click("#onbNext");
     events = await captured(page);
     assert(countOf(events, "program_path_selected") === 1, "choosing a route selects it once");
     assert(countOf(events, "generator_started") === 1, "recommend starts the generator once");
@@ -319,6 +306,13 @@ try {
     assert(countOf(events, "onboarding_started") === 0, "an automatic open is never reported as started");
     assert(countOf(events, "onboarding_step_completed") === 1 && countOf(events, "onboarding_step_viewed") === 1,
       "once the lifter picks a route the funnel follows them", namesOf(events).join(","));
+    // B's order lands on "intro" first; walk Basics (skipped) to "background" before answering it.
+    await page.click("#onbNext");
+    for (const step of ["sex", "birth_date", "height", "weight"]) {
+      await page.waitForFunction((s) => window.__repforgeEntryState?.()?.step === s, step);
+      await page.click("#onbSkip");
+    }
+    await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "background");
     await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
     events = await captured(page);
     assert(
@@ -372,7 +366,7 @@ try {
     const events = await captured(page);
     assert(countOf(events, "program_path_selected") === 0, "Create program alone selects no route");
     assert(countOf(events, "generator_started") === 0, "Create program alone starts no generator");
-    assert(await page.locator('[data-entry-route="recommend"]').count(), "the entry hub is visible");
+    assert(await page.locator('[data-entry-hub="recommend"]').count(), "the entry hub is visible");
     await context.close();
   }
 
@@ -425,7 +419,8 @@ try {
     assert(reached, "the flow reaches the step that offers Start over");
     await page.click("#entryRestart");
     await page.click("#entryRestartConfirm");
-    await page.click('[data-entry-route="recommend"]');
+    await page.click('[data-entry-hub="recommend"]');
+    await page.click("#onbNext");
     const events = await captured(page);
     assert(
       countOf(events, "program_path_selected") === 1 && countOf(events, "generator_started") === 1,
@@ -448,19 +443,19 @@ try {
       "Create program opens one fresh first-run entry", JSON.stringify(started));
     const viewed = funnel.filter(([n]) => n === "onboarding_step_viewed").map(([, p]) => `${p.route}/${p.step}`);
     const order = await page.evaluate(() => window.RepForgeProgramEntry.ROUTE_STEPS.recommend);
-    const expected = ["none/entry", ...order.filter((step) => step !== "desired_result").map((step) => `recommend/${step}`)];
-    // A run whose priorities step collapsed straight to the result skips it.
-    const shown = expected.filter((key) => viewed.includes(key) || key !== "recommend/priorities");
-    assert(JSON.stringify(viewed) === JSON.stringify(shown),
-      "each screen is viewed once, in the route's order, keyed by step id", JSON.stringify({ viewed, shown }));
+    // B's hub no longer answers desired_result itself (Plan 072 S2), so every
+    // one of B's steps - including desired_result - gets its own screen now.
+    const expected = ["none/entry", ...order.map((step) => `recommend/${step}`)];
+    assert(JSON.stringify(viewed) === JSON.stringify(expected),
+      "each screen is viewed once, in the route's order, keyed by step id", JSON.stringify({ viewed, expected }));
     const completed = funnel.filter(([n]) => n === "onboarding_step_completed").map(([, p]) => p);
     assert(JSON.stringify(completed.map((p) => `${p.route}/${p.step}`)) === JSON.stringify(viewed.slice(0, -1)),
-      "every screen left forward completes once; the goal tap completes the hub", JSON.stringify(completed));
+      "every screen left forward completes once; entering the route completes the hub", JSON.stringify(completed));
     assert(completed.every((p) => ["under_10s", "10_30s", "30_60s", "1_3m", "3_10m", "over_10m"].includes(p.time_on_step)),
       "time on step is a bucket", JSON.stringify(completed));
     const at = (step) => completed.find((p) => p.step === step) || {};
-    assert(at("entry").goal === "muscle_growth" && at("background").experience === "6_to_24m" &&
-      at("schedule").days_per_week === "4" && at("schedule").session_length === "60" &&
+    assert(at("desired_result").goal === "muscle_growth" && at("background").experience === "6_to_24m" &&
+      at("days_per_week").days_per_week === "4" && at("session_length").session_length === "60" &&
       at("environment").gym_preset === "commercial_gym",
     "each completed step carries the closed answers it asked", JSON.stringify(completed));
     assert(at("abilities").goal === undefined && Object.keys(at("abilities")).sort().join() === "route,step,time_on_step",
@@ -537,16 +532,12 @@ try {
   {
     const { context, page } = await openApp(browser);
     await page.click("#firstRunCreate");
-    await page.click('[data-entry-route="recommend"][data-entry-goal="strength"]');
-    await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "background");
-    await page.click('[data-entry-pick="structuredExperience"][data-entry-val="first"]');
-    await page.click("#onbNext");
-    await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "schedule");
+    await answerRecommend(page, { lifting: "first", goal: "strength", skipBasics: true, until: "days_per_week" });
     await page.click("#onbCancel");
     await page.click("#entryCancelKeep");
     await page.waitForFunction(() => window.__captured.some(([n]) => n === "onboarding_exit"));
     const exit = await eventsNamed(page, "onboarding_exit");
-    assert(exit.length === 1 && exit[0].action === "keep_draft" && exit[0].route === "recommend" && exit[0].step === "schedule",
+    assert(exit.length === 1 && exit[0].action === "keep_draft" && exit[0].route === "recommend" && exit[0].step === "days_per_week",
       "keeping the draft reports the screen it was left on", JSON.stringify(exit));
     await page.evaluate(() => window.startOnboarding("first-run"));
     const started = (await eventsNamed(page, "onboarding_started")).at(-1);
@@ -578,8 +569,8 @@ try {
   {
     const { context, page } = await openApp(browser);
     await page.click("#firstRunCreate");
-    await page.click("#entryOwnToggle");
-    await page.click('[data-entry-route="import"]');
+    await page.click('[data-entry-hub="import"]');
+    await page.click("#onbNext");
     await page.setInputFiles("#importProgram", {
       name: "reviewed-program.json",
       mimeType: "application/json",

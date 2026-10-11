@@ -318,6 +318,27 @@ nav button:active{transform:scale(.975)}
 .hidden.is-push-under,.hidden.is-push-over{display:block!important}
 .is-push-under{top:var(--push-top,0px);z-index:1;pointer-events:none}
 .is-push-over{top:0;bottom:0;z-index:2;background:var(--bg)}
+/* B's one-question entry pages share the onboarding scroll surface. Grid them
+   in one row so the old, inert page can sit beneath an incoming page or behind
+   a page being carried out without making duplicate IDs live. */
+#onbBody.entry-motion-active{
+  display:grid;grid-template-columns:minmax(0,1fr);position:relative;overflow:hidden;isolation:isolate
+}
+#onbBody.entry-motion-active>.entry-motion-page{
+  grid-area:1/1;box-sizing:border-box;width:100%;min-width:0;margin:0;overflow:hidden;animation:none
+}
+#onbBody.entry-motion-active>.entry-motion-page.is-push-under,
+#onbBody.entry-motion-active>.entry-motion-page.is-push-over,
+#onbBody.entry-motion-active>.entry-motion-page.is-edge-swiping{
+  position:relative;inset:auto;padding-top:0
+}
+#onbBody.entry-motion-active>.entry-motion-page.is-push-under{z-index:1;pointer-events:none}
+#onbBody.entry-motion-active>.entry-motion-page.is-push-over,
+#onbBody.entry-motion-active>.entry-motion-page.is-edge-swiping{z-index:2;background:var(--bg)}
+/* The left-edge pointer can land on this fixed scroller's padding, outside the
+   page. Restrict horizontal browser panning only while standalone B is active;
+   the weight ruler remains its own nested horizontal scroller. */
+#onboarding.entry-edge-swipe-active{touch-action:pan-y pinch-zoom}
 /* Focus sits in a main with no side padding and the same top inset, so it rides in the same box it will rest in. */
 #workoutShell.is-push-over{top:calc(12px + env(safe-area-inset-top));bottom:env(safe-area-inset-bottom);padding:0}
 /* The pages a push can leave by an edge swipe take the horizontal drag themselves

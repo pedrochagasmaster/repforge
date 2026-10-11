@@ -370,10 +370,6 @@
       "label": "Onboarding — Recommend one for me"
     },
     {
-      "id": "onboarding-custom",
-      "label": "Onboarding — Generate a custom program"
-    },
-    {
       "id": "onboarding-build",
       "label": "Onboarding — Build my own"
     },
@@ -498,14 +494,14 @@
       "id": "hub",
       "flow": "onboarding-start",
       "label": "Entry hub",
-      "scenario": "Create a program. Recommend is the sole primary path; Custom is its generated alternative; Browse stands alone; Bring or build is collapsed.",
+      "scenario": "B's hub: Recommend, Build and Import as choice cards, the setup-link note, Continue held until a choice.",
       "variants": "accessibility"
     },
     {
-      "id": "hub-own-open",
+      "id": "hub-chosen",
       "flow": "onboarding-start",
-      "label": "Entry hub — own disclosure open",
-      "scenario": "The Bring or build disclosure expanded with aria-expanded to reveal Build, paste, and Taurifer-file import paths.",
+      "label": "Entry hub — Recommend chosen",
+      "scenario": "The hub with Recommend chosen and Continue enabled.",
       "variants": "localized"
     },
     {
@@ -516,60 +512,151 @@
       "variants": "localized"
     },
     {
-      "id": "hub-help",
-      "flow": "onboarding-start",
-      "label": "Entry hub — route help open",
-      "scenario": "The Not sure which one? helper expanded on the hub: two short questions that end in Continue with the suggested route, reaching all five jobs.",
+      "id": "intro",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — section map",
+      "scenario": "B's section map: Basics, Gym and equipment, Program, with Start with the basics.",
       "variants": "localized"
     },
     {
-      "id": "desired-result",
+      "id": "sex",
       "flow": "onboarding-recommend",
-      "label": "Recommend 1 — desired result",
-      "scenario": "Route header, Cancel, progress 1 of 5, three desired-result choices.",
+      "label": "Recommend Basics 1 — sex",
+      "scenario": "Female, Male and Prefer not to say; the local-only note; Continue held until a choice; Skip.",
+      "variants": "localized"
+    },
+    {
+      "id": "birth-date",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Basics 2 — birth date",
+      "scenario": "Day, month and year wheels at their starting date; the local-only note; Skip.",
+      "variants": "localized"
+    },
+    {
+      "id": "birth-date-typed",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Basics 2 — type a birth-date value",
+      "scenario": "The year value opened for direct entry over the birth-date wheels.",
+      "variants": "localized"
+    },
+    {
+      "id": "birth-date-typed-invalid",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Basics 2 — invalid typed year",
+      "scenario": "The year field remains open with its validation message after an unsupported value.",
+      "variants": "localized"
+    },
+    {
+      "id": "height",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Basics 3 — height",
+      "scenario": "The centimeters/feet-and-inches toggle over the centimeter wheel; the local-only note; Skip.",
+      "variants": "localized"
+    },
+    {
+      "id": "height-ftin",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Basics 3 — height in feet and inches",
+      "scenario": "The same screen with feet and inches chosen: two wheels.",
+      "variants": "localized"
+    },
+    {
+      "id": "weight",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Basics 4 — weight",
+      "scenario": "The kilograms/pounds toggle over the ruler and its value; the note that weight sets bodyweight loads; Skip.",
+      "variants": "localized"
+    },
+    {
+      "id": "weight-lb",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Basics 4 — weight in pounds",
+      "scenario": "The same screen with pounds chosen.",
       "variants": "localized"
     },
     {
       "id": "background",
       "flow": "onboarding-recommend",
-      "label": "Recommend 2 — training background",
-      "scenario": "The carried goal with Change, then structured-program experience.",
+      "label": "Recommend Basics 5 — lifting experience",
+      "scenario": "None, Beginner, Intermediate and Advanced with the engine's bands; required, no Skip.",
       "variants": "localized"
     },
     {
-      "id": "schedule",
+      "id": "cardio-experience",
       "flow": "onboarding-recommend",
-      "label": "Recommend 3 — real week",
-      "scenario": "Days per week and the session-minute ceiling.",
+      "label": "Recommend Basics 6 — cardio experience",
+      "scenario": "Four cardio choices; the local-only note; Skip.",
       "variants": "localized"
     },
     {
       "id": "environment",
       "flow": "onboarding-recommend",
-      "label": "Recommend 4 — environment",
-      "scenario": "Environment shortcuts with the capability correction disclosure closed.",
+      "label": "Recommend Gym 1 — where you train",
+      "scenario": "The six gym presets with Home chosen.",
+      "variants": "localized"
+    },
+    {
+      "id": "equipment",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Gym 2 — equipment",
+      "scenario": "Home's thirteen equipment groups with the preset's ticked and the reset link disabled.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "equipment-adjusted",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Gym 2 — equipment adjusted",
+      "scenario": "Home with the bench ticked and the bands unticked, and the reset link enabled.",
+      "variants": "localized"
+    },
+    {
+      "id": "desired-result",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Program 1 — goal",
+      "scenario": "Muscle growth, Strength and Both.",
+      "variants": "localized"
+    },
+    {
+      "id": "days-per-week",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Program 2 — days per week",
+      "scenario": "Two to six days with four chosen and its split fact.",
+      "variants": "localized"
+    },
+    {
+      "id": "session-length",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Program 3 — session length",
+      "scenario": "Up to 20 to up to 150 minutes, with 60 shown as the default.",
+      "variants": "localized"
+    },
+    {
+      "id": "muscle-priorities",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Program 4 — muscle priorities",
+      "scenario": "Twelve muscles, each Reduce, Normal or Prioritize; glutes prioritized and calves reduced; Skip.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "muscle-priorities-limit",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Program 4 — priority limit",
+      "scenario": "Five muscles prioritized and a sixth refused with the limit line.",
+      "variants": "localized"
+    },
+    {
+      "id": "deload",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Program 5 — deload",
+      "scenario": "The deload card switched on, marked Recommended.",
       "variants": "localized"
     },
     {
       "id": "abilities",
       "flow": "onboarding-recommend",
-      "label": "Recommend 5 — movement abilities",
-      "scenario": "The seven competency questions as yes/no/unsure rows, unanswered, with Skip offered.",
+      "label": "Recommend Program 6 — movement abilities",
+      "scenario": "Seven yes, no or not sure questions in B's wording, with Skip pinned under Continue.",
       "variants": "localized"
-    },
-    {
-      "id": "priorities",
-      "flow": "onboarding-recommend",
-      "label": "Recommend 6 — priorities",
-      "scenario": "Primary priorities plus optional movement and exercise-avoidance controls.",
-      "variants": "localized"
-    },
-    {
-      "id": "avoidance-pain",
-      "flow": "onboarding-recommend",
-      "label": "Recommend 5 — avoidance and pain safety",
-      "scenario": "One avoided exercise with the pain reason selected and its safety copy.",
-      "variants": "accessibility"
     },
     {
       "id": "result",
@@ -668,69 +755,6 @@
       "label": "Recommend — activation conflict",
       "scenario": "Another tab changed the active program. The newer program stays active.",
       "variants": "localized"
-    },
-    {
-      "id": "desired-result",
-      "flow": "onboarding-custom",
-      "label": "Custom 1 — desired result",
-      "scenario": "The custom route's own header and step count, not Recommend's.",
-      "variants": "customAccessibility"
-    },
-    {
-      "id": "background",
-      "flow": "onboarding-custom",
-      "label": "Custom 2 — training background",
-      "scenario": "Structured-program experience in the custom route.",
-      "variants": "customAccessibility"
-    },
-    {
-      "id": "schedule",
-      "flow": "onboarding-custom",
-      "label": "Custom 3 — real week",
-      "scenario": "Days per week and the session ceiling in the custom route.",
-      "variants": "demandingText"
-    },
-    {
-      "id": "environment",
-      "flow": "onboarding-custom",
-      "label": "Custom 4 — environment",
-      "scenario": "Environment shortcuts in the custom route.",
-      "variants": "customAccessibility"
-    },
-    {
-      "id": "abilities",
-      "flow": "onboarding-custom",
-      "label": "Custom 5 — movement abilities",
-      "scenario": "The seven competency questions as yes/no/unsure rows, unanswered, with Skip offered, in the custom route.",
-      "variants": "customAccessibility"
-    },
-    {
-      "id": "priorities",
-      "flow": "onboarding-custom",
-      "label": "Custom 6 — muscle priorities",
-      "scenario": "Each muscle has one accessible emphasis setting before exercise preferences.",
-      "variants": "demandingText"
-    },
-    {
-      "id": "exercise-preferences",
-      "flow": "onboarding-custom",
-      "label": "Custom 7 — exercise preferences",
-      "scenario": "One library search offers Include or Avoid, with separate selected lists.",
-      "variants": "customAccessibility"
-    },
-    {
-      "id": "shape",
-      "flow": "onboarding-custom",
-      "label": "Custom 7b — weekly structure",
-      "scenario": "Two compatible weekly structures to choose from; shown only when more than one fits the answers.",
-      "variants": "customAccessibility"
-    },
-    {
-      "id": "result",
-      "flow": "onboarding-custom",
-      "label": "Custom — generated program and review",
-      "scenario": "The custom program first, with muscle emphasis and exercise preferences among the answer chips, and the pinned activation.",
-      "variants": "customAccessibility"
     },
     {
       "id": "setup",

@@ -28,8 +28,8 @@ try {
   await pageA.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(pageA, { base: BASE });
   await pageA.evaluate(() => window.startOnboarding("settings"));
-  await pageA.click("#entryOwnToggle");
-  await pageA.click('[data-entry-route="build"]');
+  await pageA.click('[data-entry-hub="build"]');
+  await pageA.click("#onbNext");
   await pageA.fill("#entryProgramName", "Replacement draft");
   await pageA.click('[data-entry-pick="daysPerWeek"][data-entry-val="2"]');
   await pageA.click("#onbNext");

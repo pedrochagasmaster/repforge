@@ -121,3 +121,79 @@ export function waitForWorkerTakeover(page, { cache, replaced = null, timeout = 
       names.includes(cache) && !names.includes(replaced);
   }, { cache, replaced }, { timeout });
 }
+
+/** Onboarding B's Recommend route (Plan 072), from the open entry hub to the
+ *  generated review. Every answer is optional except where the flow requires
+ *  one; `skipBasics` skips every Basics screen that offers Skip. Callers that
+ *  need a specific screen state stop with `until`. */
+export async function answerRecommend(page, {
+  sex = "female", birth = null, heightCm = null, weightSteps = 0, lifting = "6_to_24m", cardio = null,
+  environment = "commercial_gym", equipment = [], goal = "muscle_growth", days = 4, minutes = 60,
+  priorities = {}, deload = true, abilities = null, skipBasics = false, until = null,
+} = {}) {
+  const step = () => page.evaluate(() => window.__repforgeEntryState?.()?.step);
+  // A B page push keeps the outgoing screen in the DOM, inert and hidden from
+  // accessibility. Scope actions to the live page so a snapshot cannot make a
+  // route look selectable or receive a click during the push.
+  const livePage = () => page.locator("#onbBody > .entry-motion-page:not([aria-hidden='true'])");
+  const pick = (key, value) => livePage().locator(`[data-entry-pick="${key}"][data-entry-val="${value}"]`).first().click();
+  const next = async () => {
+    const before = await step();
+    await page.click("#onbNext");
+    await page.waitForFunction((prev) => window.__repforgeEntryState?.()?.step !== prev, before, { timeout: 15000 });
+  };
+  const skip = async () => {
+    const before = await step();
+    await page.click("#onbSkip");
+    await page.waitForFunction((prev) => window.__repforgeEntryState?.()?.step !== prev, before, { timeout: 15000 });
+  };
+  const recommendChoice = livePage().locator('[data-entry-hub="recommend"]');
+  if (await recommendChoice.count()) {
+    await recommendChoice.click();
+    await next();
+  }
+  for (let guard = 0; guard < 24; guard++) {
+    const current = await step();
+    if (current === until || current === "result") return current;
+    if (current === "intro") await next();
+    else if (current === "sex") { if (skipBasics || !sex) await skip(); else { await pick("basicsSex", sex); await next(); } }
+    else if (current === "birth_date") {
+      if (skipBasics || !birth) await skip();
+      else {
+        for (const [id, index] of [["#entryWheelYear", birth.yearIndex], ["#entryWheelMonth", birth.monthIndex], ["#entryWheelDay", birth.dayIndex]]) {
+          if (index == null) continue;
+          await page.focus(id);
+          await page.keyboard.press("Home");
+          for (let i = 0; i < index; i++) await page.keyboard.press("ArrowDown");
+        }
+        await next();
+      }
+    } else if (current === "height") {
+      if (skipBasics || heightCm == null) await skip();
+      else { await page.focus("#entryWheelCm"); await page.keyboard.press("Home"); for (let i = 120; i < heightCm; i++) await page.keyboard.press("ArrowDown"); await next(); }
+    } else if (current === "weight") {
+      if (skipBasics || !weightSteps) await skip();
+      else { await page.focus("#entryWeightRuler"); for (let i = 0; i < Math.abs(weightSteps); i++) await page.keyboard.press(weightSteps > 0 ? "ArrowRight" : "ArrowLeft"); await next(); }
+    } else if (current === "background") { await pick("structuredExperience", lifting); await next(); }
+    else if (current === "cardio_experience") { if (skipBasics || !cardio) await skip(); else { await pick("basicsCardio", cardio); await next(); } }
+    else if (current === "environment") { await pick("environment", environment); await next(); }
+    else if (current === "equipment") { for (const group of equipment) await pick("equipmentGroup", group); await next(); }
+    else if (current === "desired_result") { await pick("desiredResult", goal); await next(); }
+    else if (current === "days_per_week") { await pick("daysPerWeek", days); await next(); }
+    else if (current === "session_length") { if (minutes !== 60) await pick("sessionMinutes", minutes); await next(); }
+    else if (current === "muscle_priorities") {
+      for (const [muscle, status] of Object.entries(priorities)) await pick("musclePriorityB", `${muscle}|${status}`);
+      await next();
+    } else if (current === "deload") {
+      if (!deload) await page.click("#entryDeloadSwitch");
+      await next();
+    } else if (current === "abilities") {
+      if (abilities === "skip") await skip();
+      else {
+        for (const [key, choice] of Object.entries(abilities || {})) await pick("competencyAnswer", `${key}|${choice}`);
+        await next();
+      }
+    } else throw new Error(`answerRecommend: unexpected step ${current}`);
+  }
+  throw new Error("answerRecommend did not reach the result");
+}

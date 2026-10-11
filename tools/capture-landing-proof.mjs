@@ -495,8 +495,9 @@ async function capturePasteReview(browser, lang, theme, {images}) {
     await page.evaluate(() => window.closeFirstRun?.());
     await page.evaluate(() => window.startOnboarding('settings'));
     await page.waitForSelector('#onboarding.active .entry__hub', {timeout: 20000});
-    await page.click('#entryOwnToggle');
-    await page.click('#entryFreeformStart');
+    await page.click('[data-entry-hub="import"]');
+    await page.click('#onbNext');
+    await page.click('#entryFreeformSwitch');
     await page.fill('#entryFreeformIn', sample.message);
     await page.waitForFunction(() => document.querySelector('#entryFreeformNeeds')?.hidden === true, undefined, {timeout: 20000});
     await page.click('#entryFreeformContinue');

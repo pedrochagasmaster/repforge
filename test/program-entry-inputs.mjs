@@ -216,14 +216,22 @@ test("the answer schema takes B's Basics, presets, adjustment, block, deload and
     "unknown tokens are dropped and a group in both lists cancels out");
 });
 
-test("a stored draft holding the retired coarse equipment and capabilities still resumes", () => {
+test("a draft an earlier release stored normalizes to itself and maps to the same request", () => {
+  // The install transfer refuses a draft that differs from its own
+  // normalization, so a newer service must take an older client's draft as is.
   const state = Entry.setAnswers(answersState(), { ...BASE, environment: { kind: "commercial_gym" } });
-  const stored = structuredClone(state);
-  stored.answers.environment = { kind: "commercial_gym", equipment: ["barbell", "cable"], capabilities: ["safe_pull"] };
-  const resumed = Entry.normalizeSetupDraft(stored);
-  assert.equal(resumed.ok, true, JSON.stringify(resumed.issues));
-  assert.deepEqual(resumed.value.answers.environment, { kind: "commercial_gym" });
-  assert.deepEqual(requestFor({ environment: resumed.value.answers.environment }), requestFor({ environment: { kind: "commercial_gym" } }));
+  for (const environment of [
+    { kind: "commercial_gym", equipment: [], capabilities: [] },
+    { kind: "commercial_gym", equipment: ["barbell", "cable"], capabilities: ["safe_pull"] },
+    { kind: "other", equipment: [], capabilities: [] },
+  ]) {
+    const stored = structuredClone(state);
+    stored.answers.environment = environment;
+    const resumed = Entry.normalizeSetupDraft(stored);
+    assert.equal(resumed.ok, true, JSON.stringify(resumed.issues));
+    assert.equal(stable(resumed.value), stable(stored), JSON.stringify(environment));
+    assert.deepEqual(requestFor({ environment }), requestFor({ environment: { kind: environment.kind === "other" ? "basic_gym" : environment.kind } }));
+  }
 });
 
 // Offers: the generator reports, per slot, the best-ranked candidate that is
@@ -298,4 +306,15 @@ test("once every gated movement is confirmed there is nothing left to offer", ()
   const result = generate(request, "offers-all");
   assert.equal(result.ok, true);
   assert.deepEqual(result.confirmationOffers, []);
+});
+
+test("ten strict pull-ups implies five in the request (owner decision on #340)", () => {
+  const only10 = requestFor({ environment: { kind: "commercial_gym" }, competencyAnswers: { pullups10: true } });
+  assert.equal(only10.competencyAnswers.pullups10, true);
+  assert.equal(only10.competencyAnswers.pullups5, true, "a yes to ten pull-ups is a yes to five");
+  const contradictory = requestFor({ environment: { kind: "commercial_gym" }, competencyAnswers: { pullups10: true, pullups5: false } });
+  assert.deepEqual([contradictory.competencyAnswers.pullups5, contradictory.competencyAnswers.pullups10], [true, true],
+    "a stored yes to ten with a no to five resolves to the stronger answer");
+  const five = requestFor({ environment: { kind: "commercial_gym" }, competencyAnswers: { pullups5: true, pullups10: false } });
+  assert.deepEqual([five.competencyAnswers.pullups5, five.competencyAnswers.pullups10], [true, false], "five does not imply ten");
 });

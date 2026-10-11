@@ -86,7 +86,9 @@ async function reset(page) {
   await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 20000 });
 }
 
-/** First run → hub → "Use my own program" → the paste door. */
+/** First run → hub → Import (the file door) → the paste door (Plan 072 S2: the
+ *  hub no longer offers a freeform door directly; #entryFreeformSwitch on the
+ *  file screen is the only way to it now). */
 async function openFreeform(page) {
   await page.waitForSelector("#firstRunCreate", { timeout: 20000 });
   await page.click("#firstRunCreate");
@@ -94,13 +96,15 @@ async function openFreeform(page) {
   if (await restartBtn.isVisible({ timeout: 500 }).catch(() => false)) {
     await restartBtn.click();
   }
-  await page.waitForSelector("#entryOwnToggle", { timeout: 20000 });
-  await page.click("#entryOwnToggle");
+  await page.waitForSelector('[data-entry-hub="import"]', { timeout: 20000 });
+  await page.click('[data-entry-hub="import"]');
+  await page.click("#onbNext");
+  await page.waitForSelector("#entryImportPick", { timeout: 20000 });
   const doors = await page.evaluate(() => ({
-    freeform: document.querySelectorAll("#entryFreeformStart").length,
-    file: document.querySelectorAll('[data-entry-route="import"]').length,
+    freeform: document.querySelectorAll("#entryFreeformSwitch").length,
+    file: document.querySelectorAll("#entryImportPick").length,
   }));
-  await page.click("#entryFreeformStart");
+  await page.click("#entryFreeformSwitch");
   await page.waitForSelector("#entryFreeformIn", { timeout: 20000 });
   return doors;
 }
@@ -139,7 +143,7 @@ async function main() {
     console.log("\nThe paste door");
     const doors = await openFreeform(page);
     assert(doors.freeform === 1 && doors.file === 1,
-      "the two import doors are two cards on one route", JSON.stringify(doors));
+      "the file screen offers the file pick and the switch to the paste door", JSON.stringify(doors));
 
     const empty = await page.evaluate(() => ({
       needsHidden: document.querySelector("#entryFreeformNeeds")?.hidden,
@@ -387,9 +391,9 @@ async function main() {
     if (await restartBtn.isVisible({ timeout: 500 }).catch(() => false)) {
       await restartBtn.click();
     }
-    await page.waitForSelector("#entryOwnToggle", { timeout: 20000 });
-    await page.click("#entryOwnToggle");
-    await page.click('[data-entry-route="import"]');
+    await page.waitForSelector('[data-entry-hub="import"]', { timeout: 20000 });
+    await page.click('[data-entry-hub="import"]');
+    await page.click("#onbNext");
     await page.waitForSelector("#entryImportPick", { timeout: 20000 });
     assert(await page.locator("#entryImportPick").isVisible(),
       "the Import card opens the file door its caption describes");
@@ -1105,8 +1109,10 @@ async function main() {
       "the exit makes no request and reads no clipboard", JSON.stringify({ outbound, reads: (await clipReads(page)) - readsBefore }));
     await page.click("#onbBack");
     await settle(page, 200);
-    await page.click("#entryOwnToggle");
-    await page.click("#entryFreeformStart");
+    await page.click('[data-entry-hub="import"]');
+    await page.click("#onbNext");
+    await page.waitForSelector("#entryImportPick", { timeout: 20000 });
+    await page.click("#entryFreeformSwitch");
     await page.waitForSelector("#entryFreeformIn", { timeout: 20000 });
     assert((await page.inputValue("#entryFreeformIn")) === "",
       "coming back to the paste door finds it empty", await page.inputValue("#entryFreeformIn"));

@@ -38,7 +38,7 @@
  * Run: node test/exercise-display-name.mjs
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
-import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, waitForAppBoot, answerRecommend } from "./browser.mjs";
 import { finishEarly } from "./fixtures/focus-workout.mjs";
 import { metricLogRow } from "./fixtures/history-metric-rows.mjs";
 
@@ -563,52 +563,14 @@ async function checkPreviewReadsPortuguese(page, label, { expectLinked = 1 } = {
   assert(before === after, `${label}: reading the preview leaves the staged data byte-identical`);
 }
 
-const entryStep = (page) => page.evaluate(() => window.__repforgeEntryState?.()?.step);
-const waitStep = (page, steps) => page.waitForFunction((wanted) => wanted.includes(window.__repforgeEntryState?.()?.step), steps, { timeout: 15000 });
-
-/** Generate: goal on the hub, then experience, schedule and environment; the priorities step keeps its defaults. */
+/** Generate: the hub's Recommend choice, then Basics skipped, experience, environment, schedule; the optional steps keep their defaults. */
 async function walkRecommend(page) {
   await page.click("#firstRunCreate");
-  await page.click('[data-entry-route="recommend"][data-entry-goal="balanced"]');
-  await waitStep(page, ["background"]);
-  await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
-  await page.click("#onbNext");
-  await waitStep(page, ["schedule"]);
-  await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
-  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
-  await page.click("#onbNext");
-  await waitStep(page, ["environment"]);
-  await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
-  await page.click("#onbNext");
-  await waitStep(page, ["abilities"]);
-  await page.click("#onbNext");
-  await waitStep(page, ["priorities", "result"]);
-  if (await entryStep(page) === "priorities") await page.click("#onbNext");
-  await waitStep(page, ["result"]);
+  await answerRecommend(page, {
+    lifting: "6_to_24m", environment: "commercial_gym", goal: "balanced", days: 3, minutes: 60, skipBasics: true,
+  });
 }
 
-async function walkCustom(page) {
-  await page.click("#firstRunCreate");
-  await page.click('[data-entry-route="custom"]');
-  await waitStep(page, ["desired_result"]);
-  await page.click('[data-entry-pick="desiredResult"][data-entry-val="balanced"]');
-  await page.click("#onbNext");
-  await waitStep(page, ["background"]);
-  await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
-  await page.click("#onbNext");
-  await waitStep(page, ["schedule"]);
-  await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
-  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
-  await page.click("#onbNext");
-  await waitStep(page, ["environment"]);
-  await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
-  await page.click("#onbNext");
-  // The remaining custom questions are optional: take the default answer to each until the review opens.
-  for (let step = await entryStep(page); step !== "result"; step = await entryStep(page)) {
-    await page.click("#onbNext");
-    await page.waitForFunction((from) => window.__repforgeEntryState?.()?.step !== from, step, { timeout: 15000 });
-  }
-}
 
 async function walkImport(page) {
   await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 10000 });
@@ -785,7 +747,7 @@ async function run() {
     }
 
     phase("Portuguese: the entry previews read the library's Portuguese names, and the staged data stays English");
-    for (const [route, walk] of [["recommend", walkRecommend], ["custom", walkCustom]]) {
+    for (const [route, walk] of [["recommend", walkRecommend]]) {
       const { context, page } = await openApp(browser, "pt", { seeded: false });
       await walk(page);
       await checkPreviewReadsPortuguese(page, `PT ${route} preview`);

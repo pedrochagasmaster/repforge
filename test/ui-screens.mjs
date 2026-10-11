@@ -57,6 +57,7 @@ const routes = JSON.parse(
 );
 for (const route of routes) {
   if (route === "shared") continue; // shared enters straight at preview; both surfaces are covered below
+  if (route === "custom") continue; // no door since Plan 072; only a saved Custom draft resumes it, for one release
   const flow = `onboarding-${route}`;
   const covered = manifest.screens.filter((screen) => screen.flow === flow);
   assert.ok(covered.length >= 2, `route ${route} is covered by more than one screen (${covered.length})`);
@@ -97,8 +98,8 @@ for (const screen of manifest.screens.filter((s) => s.variants === "standard")) 
     `${screen.flow}/${screen.id} has PT-BR normal coverage`);
 }
 const demandingScreens = new Set([
-  "onboarding-custom/schedule",
-  "onboarding-custom/priorities",
+  "onboarding-recommend/equipment",
+  "onboarding-recommend/muscle-priorities",
   "onboarding-recommend/result",
   "onboarding-build/editor-empty",
   "onboarding-build/editor-partial",

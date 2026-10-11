@@ -118,8 +118,8 @@ async function waitForApp(page) {
 async function reachEditorWithOneExercise(page) {
   await page.click("#firstRunCreate");
   await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
-  await page.click("#entryOwnToggle");
-  await page.click('[data-entry-route="build"]');
+  await page.click('[data-entry-hub="build"]');
+  await page.click("#onbNext");
   await page.fill("#entryProgramName", "Setup conflict proof");
   await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="2"]');
   await page.click("#onbNext");

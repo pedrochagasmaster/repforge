@@ -292,8 +292,7 @@
         daysPerWeek: days,
         timeCeilingMinutes: ceiling,
         gymProfile: { equipmentIds: gymEquipment(ids("equipment", (entry) => flag === "*" || entry[flag] === 1), source.environment.adjust) },
-        competencyAnswers: Object.fromEntries(COMPETENCY_KEYS.map((key) =>
-          [key, typeof answersIn[key] === "boolean" ? answersIn[key] : null])),
+        competencyAnswers: competencies(answersIn),
         movementConfirmations: confirmations(source.movementConfirmations, catalog),
         emphasisMuscleIds: muscleIds(source.primaryMuscles).slice(0, 5),
         deprioritizedMuscleIds: muscleIds(source.deEmphasizedMuscles).slice(0, 5),
@@ -306,6 +305,25 @@
         deloadCycles: source.deload === true ? [block.cycles] : [],
       },
     };
+  }
+
+  // Ten strict pull-ups is also five (owner decision on #340). Resolved here,
+  // in the answers, so a recipe link carries both explicitly and the
+  // generator's own rules do not change.
+  function competencies(answersIn) {
+    const out = Object.fromEntries(COMPETENCY_KEYS.map((key) =>
+      [key, typeof answersIn[key] === "boolean" ? answersIn[key] : null]));
+    if (out.pullups10 === true) out.pullups5 = true;
+    return out;
+  }
+
+  // The groups B's equipment step starts ticked: any member in the preset.
+  function presetEquipmentGroups(kind, catalog) {
+    const flag = GYM_FLAGS[kind];
+    const index = catalog && isPlainObject(catalog.uuidIndex) ? catalog.uuidIndex : null;
+    if (!flag || !index) return [];
+    const inPreset = (id) => index[id]?.type === "equipment" && (flag === "*" || index[id][flag] === 1);
+    return Object.keys(EQUIPMENT_GROUPS).filter((token) => EQUIPMENT_GROUPS[token].some(inPreset));
   }
 
   // (preset ∪ added groups) − removed groups. No adjustment is the preset.
@@ -375,6 +393,7 @@
     createProductionServices,
     programRequestFromAnswers,
     EQUIPMENT_GROUPS,
+    presetEquipmentGroups,
     verifyConfirmationOffers,
     currentVersions: (Compiler) => currentVersions(compilerApi(Compiler)),
     fingerprint,

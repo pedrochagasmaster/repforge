@@ -12,6 +12,7 @@
  * has no production surface to photograph.
  */
 import { encodeSetupLink } from "../../test/fixtures/setup-link-v4.mjs";
+import { answerRecommend } from "../../test/browser.mjs";
 import { activeEntryState, emptyEntryState } from "./fixtures.mjs";
 import { BASE, SETUP_DRAFT, KEY, sleep, waitForApp } from "./session.mjs";
 
@@ -80,48 +81,25 @@ async function openHub(page, { existing = false } = {}) {
     page.waitForSelector("#onboarding.active .entry__hub", { timeout: 20000 }));
 }
 
-async function route(page, name, { existing = false, goal = "muscle_growth" } = {}) {
+/* Onboarding B's hub (Plan 072): a card is chosen, then Continue enters it. */
+async function route(page, name, { existing = false } = {}) {
   await openHub(page, { existing });
-  if (name === "build" || name === "import") await page.click("#entryOwnToggle");
-  // Recommend's first question is the hub's featured block: one tap chooses
-  // the route and answers the goal, so the next screen is the background step.
-  if (name === "recommend") {
-    await page.click(`[data-entry-route="recommend"][data-entry-goal="${goal}"]`);
-    return;
-  }
-  await page.click(`[data-entry-route="${name}"]`);
+  await page.click(`[data-entry-hub="${name}"]`);
+  await next(page);
+  if (name === "recommend") await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "intro", undefined, { timeout: 20000 });
 }
 
-/** The helper's last step: "No, I need one" then "Let Taurifer decide" reaches
- * Recommend without answering the goal, so the goal screen itself is shown. */
-async function recommendViaHelp(page) {
-  await openHub(page);
-  await page.click("#entryHelpToggle");
-  await page.click('[data-entry-help="q1"][data-entry-help-val="no"]');
-  await page.click('[data-entry-help="q2"][data-entry-help-val="recommend"]');
-  await page.click("#entryHelpGo");
-}
-
-/** The generator questions shared by Recommend and Custom. Recommend's goal is
- * answered on the hub, so it starts at the background step; Custom asks it.
- * The background step asks only experience (no recent-consistency question);
- * the schedule step asks days and the session-ceiling buckets (no rest question). */
-async function answerGenerator(page, { days = "3", desired = "muscle_growth", goalAsked = false } = {}) {
-  if (goalAsked) { await pick(page, "desiredResult", desired); await next(page); }
-  await pick(page, "structuredExperience", "6_to_24m"); await next(page);
-  await pick(page, "daysPerWeek", days);
-  await pick(page, "sessionMinutes", "60"); await next(page);
-  await pick(page, "environment", "commercial_gym"); await next(page);
-  await next(page); // movement abilities are optional; the default (unsure) needs no answer
+/** B's Recommend screens, answered as a lifter would, stopping on `until`. */
+async function recommendStep(page, until, answers = {}) {
+  await route(page, "recommend");
+  if (until === "intro") return;
+  await answerRecommend(page, { skipBasics: true, days: 3, environment: "commercial_gym", ...answers, until });
 }
 
 async function recommendTo(page, { result = false, existing = false, desired = "muscle_growth" } = {}) {
-  await route(page, "recommend", { existing, goal: desired });
-  await answerGenerator(page, { desired });
-  if (result) {
-    await next(page);
-    await page.waitForSelector("[data-entry-select-candidate], #entryActivate", { timeout: 25000 });
-  }
+  await route(page, "recommend", { existing });
+  await answerRecommend(page, { skipBasics: true, days: 3, goal: desired, until: result ? null : "abilities" });
+  if (result) await page.waitForSelector("[data-entry-select-candidate], #entryActivate", { timeout: 25000 });
 }
 
 async function selectCandidate(page) {
@@ -131,57 +109,6 @@ async function selectCandidate(page) {
   // Activation appears once the candidate is compiled and its preview built,
   // which is the slowest step in the generator routes.
   await page.waitForSelector("#entryActivate", { timeout: 40000 });
-}
-
-/**
- * Custom asks the same five generator questions as Recommend, then adds its
- * muscle and exercise preference sections under its own header and step count.
- */
-async function customTo(page, step) {
-  await route(page, "custom");
-  if (step === "shape") {
-    // A split with two compatible structures is rare in the released rules, so the
-    // catalog offers a second, real split id (its name comes from the catalog's own
-    // split.<id> key — splitDisplayName in app.js — not a field on the choice object).
-    await page.evaluate(() => {
-      const base = window.__repforgeOnboarding.services();
-      window.__repforgeProgramEntryServicesOverride = {
-        ...base,
-        splitChoices: (answers) => {
-          const result = base.splitChoices(answers);
-          if (result.choices.length !== 1) return result;
-          const first = result.choices[0];
-          const alternateId = first.id === "full_body" ? "upper_lower" : "full_body";
-          return { ...result, choices: [first, { ...first, id: alternateId, default: false }] };
-        },
-      };
-    });
-  }
-  if (step === "desired-result") return;
-  await pick(page, "desiredResult", "balanced"); await next(page);
-  if (step === "background") return;
-  await pick(page, "structuredExperience", "6_to_24m"); await next(page);
-  if (step === "schedule") return;
-  await pick(page, "daysPerWeek", "4");
-  await pick(page, "sessionMinutes", "60"); await next(page);
-  if (step === "environment") return;
-  await pick(page, "environment", "commercial_gym"); await next(page);
-  if (step === "abilities") return;
-  await next(page); // movement abilities are optional; the default (unsure) needs no answer
-  if (step === "priorities") return;
-  await next(page);
-  await page.waitForSelector("#entryExerciseSearch", { timeout: 25000 });
-  if (["exercise-preferences", "result"].includes(step)) {
-    await setCustomExercisePreferences(page);
-    if (step === "exercise-preferences") return;
-  }
-  await next(page);
-  if (step === "shape") {
-    await page.waitForSelector('[data-entry-pick="splitPreference"]', { timeout: 20000 });
-    return;
-  }
-  await page.waitForSelector("[data-entry-select-candidate], #entryActivate", { timeout: 20000 });
-  if (step === "result") return;
 }
 
 /* Plan 070: the review editor. Each adjustment waits for the review to settle
@@ -233,19 +160,6 @@ async function reviewWithEditor(page, chip) {
   await page.waitForSelector("#entryEditor", { timeout: 20000 });
 }
 
-/** Keep the preference screens representative: the empty state is useful for
- * validation, but the catalogue should also show the two persisted outcomes. */
-async function setCustomExercisePreferences(page) {
-  const search = page.locator("#entryExerciseSearch");
-  const portuguese = await page.evaluate(() => document.documentElement.lang === "pt-BR");
-  await search.fill(portuguese ? "supino reto com barra" : "barbell bench press");
-  await page.waitForTimeout(120);
-  await page.locator(`[data-entry-exercise-add="${BENCH_PRESS_ID}"][data-entry-exercise-status="include"]`).click();
-  await search.fill(portuguese ? "rosca com barra" : "barbell biceps curl");
-  await page.waitForTimeout(120);
-  await page.locator(`[data-entry-exercise-add="${BARBELL_CURL_ID}"][data-entry-exercise-status="avoid"]`).click();
-  await page.click(`[data-entry-pick="avoidReason"][data-entry-val="${BARBELL_CURL_ID}|dislike"]`);
-}
 
 async function buildTo(page, step) {
   await route(page, "build");
@@ -379,10 +293,10 @@ async function importTo(page, step) {
    stage 2 assistant choice, stage 3 reply paste, gap resolution (clean and invalid),
    and unreadable reply recovery. */
 async function freeformTo(page, step) {
-  await openHub(page);
-  await page.click("#entryOwnToggle");
-  await page.waitForSelector("#entryFreeformStart", { timeout: 20000 });
-  await page.click("#entryFreeformStart");
+  // B's hub opens Import on its file door; the paste door is one switch away.
+  await route(page, "import");
+  await page.waitForSelector("#entryFreeformSwitch", { timeout: 20000 });
+  await page.click("#entryFreeformSwitch");
   await page.waitForSelector("#entryFreeformIn", { timeout: 20000 });
   if (step === "paste") return;
   const portuguese = await page.evaluate(() => document.documentElement.lang === "pt-BR");
@@ -503,7 +417,7 @@ async function resume(page) {
   // record itself carries the terminal step, or a slow runner captures the
   // previous question as Resume.
   await page.waitForFunction((draftKey) => {
-    try { return JSON.parse(localStorage.getItem(draftKey) || "{}").state?.step === "priorities"; }
+    try { return JSON.parse(localStorage.getItem(draftKey) || "{}").state?.step === "abilities"; }
     catch { return false; }
   }, SETUP_DRAFT, { timeout: 25000 });
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -591,16 +505,14 @@ const FOCUS_SELECTOR = {
   "onboarding-start/first-run-data": ".firstrun-rows",
   "onboarding-start/first-run-faq-open": ".firstrun-qa[open]",
   "onboarding-start/first-run-close": ".firstrun-close__actions",
-  "onboarding-start/hub-own-open": "#entryOwnToggle",
-  "onboarding-recommend/avoidance-pain": ".entry__pain",
   "onboarding-recommend/chip-editor-open": ".entry-chips",
   "onboarding-recommend/result-avoided": ".entry__constraints",
-  "onboarding-custom/exercise-preferences": ".entry__exercise-selected-group",
   "onboarding-recommend/activation-conflict": ".entry__notice",
   "onboarding-build/editor-ready": "#entryEditorActivate",
   "onboarding-recommend/result-changed": ".review__row.is-changed",
   "onboarding-recommend/review-reorder": "[data-review-reorder]",
   "onboarding-recommend/review-empty-day": ".review__empty",
+  "onboarding-recommend/muscle-priorities-limit": "#entryPriorityLimit",
 };
 
 /**
@@ -631,7 +543,7 @@ async function returnToLanding(page, { draft = false } = {}) {
   if (draft) {
     await recommendTo(page);
     await step("setup draft was not saved", () => page.waitForFunction((draftKey) => {
-      try { return JSON.parse(localStorage.getItem(draftKey) || "{}").state?.step === "priorities"; }
+      try { return JSON.parse(localStorage.getItem(draftKey) || "{}").state?.step === "abilities"; }
       catch { return false; }
     }, SETUP_DRAFT, { timeout: 25000 }));
   }
@@ -659,52 +571,70 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-start/first-run-returning": (page) => returnToLanding(page),
   "onboarding-start/first-run-returning-resume": (page) => returnToLanding(page, { draft: true }),
   "onboarding-start/hub": (page) => openHub(page),
-  "onboarding-start/hub-own-open": async (page) => {
-    await openHub(page);
-    await page.click("#entryOwnToggle");
-    await page.waitForSelector('.entry__own [data-entry-route="build"]', { timeout: 20000 });
-  },
   "onboarding-start/hub-existing": (page) => openHub(page, { existing: true }),
-  "onboarding-start/hub-help": async (page) => {
+  "onboarding-start/hub-chosen": async (page) => {
     await openHub(page);
-    await page.click("#entryHelpToggle");
-    await page.click('[data-entry-help="q1"][data-entry-help-val="no"]');
-    await page.click('[data-entry-help="q2"][data-entry-help-val="recommend"]');
-    await page.waitForSelector("#entryHelpGo", { timeout: 20000 });
+    await page.click('[data-entry-hub="recommend"]');
   },
 
-  "onboarding-recommend/desired-result": recommendViaHelp,
-  "onboarding-recommend/background": (page) => route(page, "recommend"),
-  "onboarding-recommend/schedule": async (page) => {
-    await route(page, "recommend");
-    await pick(page, "structuredExperience", "6_to_24m"); await next(page);
+  // Onboarding B (Plan 072): one question per screen.
+  "onboarding-recommend/intro": (page) => recommendStep(page, "intro"),
+  "onboarding-recommend/sex": (page) => recommendStep(page, "sex"),
+  "onboarding-recommend/birth-date": (page) => recommendStep(page, "birth_date"),
+  "onboarding-recommend/birth-date-typed": async (page) => {
+    await recommendStep(page, "birth_date");
+    await page.locator("#entryWheelYear .entry-wheel__item.is-current").click();
+    await page.getByRole("dialog").waitFor({ state: "visible", timeout: 5000 });
   },
+  "onboarding-recommend/birth-date-typed-invalid": async (page) => {
+    await recommendStep(page, "birth_date");
+    await page.locator("#entryWheelYear .entry-wheel__item.is-current").click();
+    const dialog = page.getByRole("dialog");
+    await dialog.waitFor({ state: "visible", timeout: 5000 });
+    await dialog.getByRole("textbox", { name: /year|ano/i }).fill("1800");
+    await dialog.getByRole("button", { name: /done|concluir/i }).click();
+    await dialog.locator("#entryPickerInput[aria-invalid='true']").waitFor({ state: "visible", timeout: 5000 });
+  },
+  "onboarding-recommend/height": (page) => recommendStep(page, "height"),
+  "onboarding-recommend/height-ftin": async (page) => {
+    await recommendStep(page, "height");
+    await pick(page, "basicsHeightUnit", "ftin");
+  },
+  "onboarding-recommend/weight": (page) => recommendStep(page, "weight"),
+  "onboarding-recommend/weight-lb": async (page) => {
+    await recommendStep(page, "weight");
+    await pick(page, "basicsWeightUnit", "lb");
+  },
+  "onboarding-recommend/background": (page) => recommendStep(page, "background"),
+  "onboarding-recommend/cardio-experience": (page) => recommendStep(page, "cardio_experience"),
   "onboarding-recommend/environment": async (page) => {
-    await route(page, "recommend");
-    await pick(page, "structuredExperience", "6_to_24m"); await next(page);
-    await pick(page, "daysPerWeek", "3");
-    await pick(page, "sessionMinutes", "60"); await next(page);
+    await recommendStep(page, "environment");
+    await pick(page, "environment", "limited_home");
   },
-  "onboarding-recommend/abilities": async (page) => {
-    await route(page, "recommend");
-    await pick(page, "structuredExperience", "6_to_24m"); await next(page);
-    await pick(page, "daysPerWeek", "3");
-    await pick(page, "sessionMinutes", "60"); await next(page);
-    await pick(page, "environment", "commercial_gym"); await next(page);
+  "onboarding-recommend/equipment": (page) => recommendStep(page, "equipment", { environment: "limited_home" }),
+  "onboarding-recommend/equipment-adjusted": async (page) => {
+    await recommendStep(page, "equipment", { environment: "limited_home" });
+    await pick(page, "equipmentGroup", "bench");
+    await pick(page, "equipmentGroup", "bands");
   },
-  "onboarding-recommend/priorities": (page) => recommendTo(page),
-  "onboarding-recommend/avoidance-pain": async (page) => {
-    await recommendTo(page);
-    const search = page.locator("#entryAvoidSearch");
-    await search.fill("bench");
-    await page.waitForTimeout(120);
-    if (!(await page.locator("[data-entry-avoid-add]").count())) {
-      await search.fill("supino");
-      await page.waitForTimeout(120);
-    }
-    await page.locator("[data-entry-avoid-add]").first().click();
-    await page.click('[data-entry-pick="avoidReason"][data-entry-val$="|pain"]');
+  "onboarding-recommend/desired-result": (page) => recommendStep(page, "desired_result"),
+  "onboarding-recommend/days-per-week": async (page) => {
+    await recommendStep(page, "days_per_week");
+    await pick(page, "daysPerWeek", "4");
   },
+  "onboarding-recommend/session-length": (page) => recommendStep(page, "session_length"),
+  "onboarding-recommend/muscle-priorities": async (page) => {
+    await recommendStep(page, "muscle_priorities");
+    await pick(page, "musclePriorityB", "glutes|prioritize");
+    await pick(page, "musclePriorityB", "calves|reduce");
+  },
+  "onboarding-recommend/muscle-priorities-limit": async (page) => {
+    await recommendStep(page, "muscle_priorities");
+    for (const muscle of ["chest", "lats", "back", "side_delts", "glutes", "quads"]) await pick(page, "musclePriorityB", `${muscle}|prioritize`);
+    await page.waitForSelector("#entryPriorityLimit:not([hidden])", { timeout: 10000 });
+  },
+  "onboarding-recommend/deload": (page) => recommendStep(page, "deload"),
+  "onboarding-recommend/abilities": (page) => recommendStep(page, "abilities"),
   "onboarding-recommend/result": (page) => recommendTo(page, { result: true, desired: "balanced" }),
   "onboarding-recommend/result-existing": (page) => recommendTo(page, { result: true, existing: true }),
   "onboarding-recommend/chip-editor-open": (page) => reviewWithEditor(page, "days"),
@@ -792,15 +722,6 @@ export const ONBOARDING_SCENARIOS = {
     await page.waitForSelector("#reviewConfirmGo", { timeout: 20000 });
   },
 
-  "onboarding-custom/desired-result": (page) => customTo(page, "desired-result"),
-  "onboarding-custom/background": (page) => customTo(page, "background"),
-  "onboarding-custom/schedule": (page) => customTo(page, "schedule"),
-  "onboarding-custom/environment": (page) => customTo(page, "environment"),
-  "onboarding-custom/abilities": (page) => customTo(page, "abilities"),
-  "onboarding-custom/priorities": (page) => customTo(page, "priorities"),
-  "onboarding-custom/exercise-preferences": (page) => customTo(page, "exercise-preferences"),
-  "onboarding-custom/shape": (page) => customTo(page, "shape"),
-  "onboarding-custom/result": (page) => customTo(page, "result"),
 
   "onboarding-build/setup": (page) => buildTo(page, "setup"),
   "onboarding-build/editor-empty": (page) => buildTo(page, "editor-empty"),
@@ -825,9 +746,9 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-recovery/resume": resume,
   "onboarding-recovery/rules-drift": rulesDrift,
   "onboarding-recovery/cancel-confirm": async (page) => {
-    // Cancel is offered from every screen; the schedule step shows the dialog
+    // Cancel is offered from every screen; the days screen shows the dialog
     // over a screen with answers in progress.
-    await ONBOARDING_SCENARIOS["onboarding-recommend/schedule"](page);
+    await recommendStep(page, "days_per_week");
     await pick(page, "daysPerWeek", "3");
     await page.click("#onbCancel");
     await page.waitForSelector("#entryCancelKeep", { timeout: 20000 });

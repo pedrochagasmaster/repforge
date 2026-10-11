@@ -29,7 +29,10 @@
     "cable", "smith", "ez_bar", "leg_press", "bands", "suspension",
   ]);
   const EQUIPMENT_GROUP_SET = new Set(EQUIPMENT_GROUPS);
-  const ENTRY_MUSCLES = Object.freeze(["chest", "back", "quads", "hamstrings", "glutes", "side_delts", "biceps", "triceps", "calves", "lats"]);
+  const ENTRY_MUSCLES = Object.freeze(["chest", "back", "quads", "hamstrings", "glutes", "side_delts", "biceps", "triceps", "calves", "lats",
+    "front_delts", "rear_delts"]);
+  // Onboarding B prioritizes or reduces up to five muscles each.
+  const MAX_PRIORITY_MUSCLES = 5;
   // Muscle attribution is shared by the custom editor, setup links, imports,
   // durable state, and Progress. Keep the vocabulary here so a producer cannot
   // accept a label that the bounded historical aggregate cannot represent.
@@ -59,10 +62,10 @@
   // Generator time ceilings: up to 20, 20–40, 40–60, 60–90, 90–120, over 120 (150).
   const SESSION_MINUTES = new Set([20, 40, 60, 90, 120, 150]);
   const PREFERRED_REST_SECONDS = new Set([null, 60, 90, 120, 180]);
-  const ENTRY_ENVIRONMENTS = Object.freeze(["commercial_gym", "basic_gym", "limited_home", "full_home", "other"]);
-  // Everything and Strength gym (warehouse_gym) are B's presets; the current
-  // environment step still draws ENTRY_ENVIRONMENTS until B's screens land.
-  const ENVIRONMENTS = new Set([...ENTRY_ENVIRONMENTS, "everything", "warehouse_gym"]);
+  // B's six presets, in its order. A stored Other resumes as Local gym, whose
+  // catalog flag it always shared.
+  const ENTRY_ENVIRONMENTS = Object.freeze(["everything", "commercial_gym", "warehouse_gym", "basic_gym", "full_home", "limited_home"]);
+  const ENVIRONMENTS = new Set([...ENTRY_ENVIRONMENTS, "other"]);
   // B's Basics. Only weight has a use (the first sessions' bodyweight); the
   // rest stay on the device and never reach the request, a link or telemetry.
   const BASICS_SEX = new Set(["female", "male", "undisclosed"]);
@@ -91,13 +94,24 @@
   // Routes whose result screen is where the candidate is reviewed and activated.
   const RESULT_ROUTES = new Set(["recommend", "custom"]);
   const ROUTE_STEPS = Object.freeze({
+    // Onboarding B (ADR 0020, Plan 072): Basics, then gym and equipment, then
+    // the program. Each id names what the step asks.
     recommend: Object.freeze([
-      "desired_result",
+      "intro",
+      "sex",
+      "birth_date",
+      "height",
+      "weight",
       "background",
-      "schedule",
+      "cardio_experience",
       "environment",
+      "equipment",
+      "desired_result",
+      "days_per_week",
+      "session_length",
+      "muscle_priorities",
+      "deload",
       "abilities",
-      "priorities",
       "result",
     ]),
     custom: Object.freeze([
@@ -116,6 +130,9 @@
     import: Object.freeze(["import_source", "preview"]),
     shared: Object.freeze(["shared_review", "preview"]),
   });
+  // A Recommend draft saved on a screen B split or replaced resumes on the
+  // screen that now asks that question.
+  const RETIRED_RECOMMEND_STEPS = Object.freeze({ schedule: "days_per_week", priorities: "muscle_priorities" });
   const SHARED_GENERATOR_KEYS = Object.freeze([
     "desiredResult",
     "structuredExperience",
@@ -382,11 +399,17 @@
       issues.push(`${path}:required`);
       return {};
     }
-    // `equipment` and `capabilities` were a coarse vocabulary nothing read.
-    // A stored draft may still carry them, so they are accepted and dropped.
+    // `equipment` and `capabilities` were a coarse vocabulary nothing read,
+    // and Other is no longer offered. A draft an earlier release stored keeps
+    // them exactly as written: the install transfer requires a draft to equal
+    // its own normalization, so a newer service must accept an older client's
+    // draft unchanged. Nothing reads them; the adapter maps Other to Local.
     rejectUnknownKeys(value, new Set(["kind", "adjust", "capabilities", "equipment"]), path, issues);
     if (!ENVIRONMENTS.has(value.kind)) issues.push(`${path}.kind:invalid`);
     const output = { kind: value.kind };
+    for (const key of ["capabilities", "equipment"]) {
+      if (hasOwn(value, key)) output[key] = normalizeTokenList(value[key], `${path}.${key}`, issues, MAX_LIST_LENGTH);
+    }
     if (hasOwn(value, "adjust")) {
       const adjust = normalizeEquipmentAdjust(value.adjust, `${path}.adjust`, issues);
       if (adjust) output.adjust = adjust;
@@ -447,6 +470,15 @@
     return output;
   }
 
+  // The lifter's profile (Plan 072 OD-4): the Basics answers kept on the
+  // device after activation. The weight unit lives in settings.unit instead.
+  function normalizeProfile(value) {
+    const issues = [];
+    if (isPlainObject(value) && hasOwn(value, "weightUnit")) issues.push("$.profile.weightUnit:unexpected");
+    const profile = normalizeBasics(value, "$.profile", issues);
+    return issues.length ? { ok: false, issues } : { ok: true, value: profile };
+  }
+
   function normalizeBlock(value, path, issues) {
     if (!isPlainObject(value)) {
       issues.push(`${path}:not_object`);
@@ -483,7 +515,7 @@
     const deemphasized = answers.deEmphasizedMuscles || [];
     const ignored = answers.ignoredMuscles || [];
     const movements = answers.priorityMovements || [];
-    if (primary.length > 2) issues.push(`${pathPrefix}.primaryMuscles:too_many`);
+    if (primary.length > MAX_PRIORITY_MUSCLES) issues.push(`${pathPrefix}.primaryMuscles:too_many`);
     if (movements.length > 2) issues.push(`${pathPrefix}.priorityMovements:too_many`);
     if (deemphasized.length > MAX_MUSCLE_CONTROLS) issues.push(`${pathPrefix}.deEmphasizedMuscles:too_many`);
     if (ignored.length > MAX_MUSCLE_CONTROLS) issues.push(`${pathPrefix}.ignoredMuscles:too_many`);
@@ -581,7 +613,7 @@
         preferredRestSeconds: availability.preferredRestSeconds,
       },
       environment: normalizeEnvironment(raw.environment, "$.environment", issues),
-      primaryMuscles: normalizeMuscleList(raw.primaryMuscles, "$.primaryMuscles", issues, 2),
+      primaryMuscles: normalizeMuscleList(raw.primaryMuscles, "$.primaryMuscles", issues, MAX_PRIORITY_MUSCLES),
       deEmphasizedMuscles: normalizeMuscleList(raw.deEmphasizedMuscles, "$.deEmphasizedMuscles", issues, MAX_MUSCLE_CONTROLS),
       ignoredMuscles: normalizeMuscleList(raw.ignoredMuscles, "$.ignoredMuscles", issues, MAX_MUSCLE_CONTROLS),
       // Programming contexts also accept the compiler's historical movement
@@ -733,7 +765,7 @@
       output.movementConfirmations = normalizeConfirmations(raw.movementConfirmations, "$.answers.movementConfirmations", issues);
     }
     const listFields = {
-      primaryMuscles: 2,
+      primaryMuscles: MAX_PRIORITY_MUSCLES,
       priorityMovements: 2,
       deEmphasizedMuscles: MAX_MUSCLE_CONTROLS,
       ignoredMuscles: MAX_MUSCLE_CONTROLS,
@@ -1394,7 +1426,10 @@
     // Plan 070 retired the generated routes' preview step: their result screen
     // is the review. A draft saved at preview resumes there, result unchanged.
     const step = RESULT_ROUTES.has(raw.route) && raw.step === "preview" ? "result" : raw.step;
-    if (ROUTE_SET.has(raw.route) && step !== "entry" && step !== "activation_conflict" &&
+    // A Recommend draft saved on a screen B split or replaced stays valid as
+    // stored; resumeSetupDraft moves it to the screen that now asks.
+    const retired = raw.route === "recommend" && hasOwn(RETIRED_RECOMMEND_STEPS, step);
+    if (ROUTE_SET.has(raw.route) && step !== "entry" && step !== "activation_conflict" && !retired &&
       !ROUTE_STEPS[raw.route].includes(step)) {
       issues.push("$.step:invalid_for_route");
     }
@@ -1720,6 +1755,19 @@
       }
       case "environment": return answers.environment ? [] : ["environment_required"];
       case "abilities": return [];
+      // B's Basics, equipment and deload never block: each has a skip or a
+      // default that reproduces today's request.
+      case "intro":
+      case "sex":
+      case "birth_date":
+      case "height":
+      case "weight":
+      case "cardio_experience":
+      case "equipment":
+      case "session_length":
+      case "deload": return [];
+      case "days_per_week": return answers.daysPerWeek ? [] : ["days_per_week_required"];
+      case "muscle_priorities": return musclePartitionIssues(answers, "$.answers");
       case "priorities": return musclePartitionIssues(answers, "$.answers");
       case "exercise_preferences": return [];
       case "custom_shape": {
@@ -1799,7 +1847,8 @@
     const normalized = normalizeSetupDraft(input);
     if (!normalized.ok) return normalized;
     const config = isPlainObject(options) ? options : {};
-    const state = normalized.value;
+    const state = normalized.value.route === "recommend" && hasOwn(RETIRED_RECOMMEND_STEPS, normalized.value.step)
+      ? { ...normalized.value, step: RETIRED_RECOMMEND_STEPS[normalized.value.step] } : normalized.value;
     const versionChanges = changedVersions(state.versions, config.currentVersions || state.versions);
     const liveRevision = config.liveActiveProgramRevision;
     const activeRevisionChanged = Number.isInteger(liveRevision) &&
@@ -1938,6 +1987,7 @@
     KNOWN_EQUIPMENT,
     EQUIPMENT_GROUPS,
     ENTRY_MUSCLES,
+    MAX_PRIORITY_MUSCLES,
     MUSCLE_TOKENS,
     MUSCLE_ATTRIBUTION_MAX_LENGTH,
     normalizeMuscleAttribution,
@@ -1956,6 +2006,7 @@
     setAnswers,
     setResult,
     normalizeProgrammingContext,
+    normalizeProfile,
     reusableContextAnswers,
     normalizeSetupDraft,
     normalizeSetupDraftEnvelope,

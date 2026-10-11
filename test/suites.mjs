@@ -106,6 +106,7 @@ export const SUITES = {
   ],
   entry: [
     s("test/program-entry-rules-recovery.mjs"),
+    s("test/program-entry-picker-contract.mjs", [], { domains: ["entry", "persistence"], seconds: 45 }),
     s("test/ui-plan-050-build-hierarchy.mjs", [], { seconds: 13 }),
     s("test/ui-plan-050-editor.mjs", [], { seconds: 10 }),
     s("test/generative-entry-runtime.mjs", [], { seconds: 14 }),
@@ -141,7 +142,6 @@ export const SUITES = {
     s("test/journeys-in.mjs", [], { domains: ["entry", "today", "workout", "progress", "transition"], seconds: 40 }),
     s("test/landing-proof-capture.mjs", [], { seconds: 180 }),
     s("test/entry-chooser.mjs"),
-    s("test/entry-expert-controls.mjs"),
     s("test/entry-install-policy.mjs"),
     s("test/entry-guides.mjs"),
     s("test/guide-eligibility.mjs"),

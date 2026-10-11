@@ -59,6 +59,9 @@
     "desired_result", "background", "schedule", "environment", "abilities", "priorities",
     "exercise_preferences", "custom_shape", "result",
     "catalogue", "preview", "build_setup", "editor", "import_source", "shared_review",
+    // Onboarding B (Plan 072). schedule and priorities above are retired.
+    "intro", "sex", "birth_date", "height", "weight", "cardio_experience", "equipment",
+    "days_per_week", "session_length", "muscle_priorities", "deload",
   ]);
   // program-review.js EDIT_KINDS; the unit suite holds the two together.
   const REVIEW_EDIT_KINDS = Object.freeze([
@@ -74,10 +77,16 @@
     experience: Object.freeze(["first", "under_6m", "6_to_24m", "over_24m"]),
     days_per_week: Object.freeze(["2", "3", "4", "5", "6"]),
     session_length: Object.freeze(["up_to_40", "60", "90", "120_plus"]),
-    gym_preset: Object.freeze(["commercial_gym", "basic_gym", "limited_home", "full_home", "other"]),
+    gym_preset: Object.freeze(["everything", "commercial_gym", "warehouse_gym", "basic_gym", "full_home", "limited_home"]),
+    // How many equipment groups the lifter added to or removed from the preset.
+    equipment_changes: Object.freeze(["0", "1", "2_3", "4_plus"]),
     split: Object.freeze(["full_body", "upper_lower", "push_pull_legs_upper_lower", "push_pull_legs"]),
     deload: Object.freeze(["on", "off"]),
   });
+  const equipmentChanges = (adjust) => {
+    const count = (adjust && Array.isArray(adjust.add) ? adjust.add.length : 0) + (adjust && Array.isArray(adjust.remove) ? adjust.remove.length : 0);
+    return count === 0 ? "0" : count === 1 ? "1" : count <= 3 ? "2_3" : "4_plus";
+  };
   const sessionLength = (minutes) => !Number.isFinite(minutes) ? undefined :
     minutes <= 40 ? "up_to_40" : minutes <= 60 ? "60" : minutes <= 90 ? "90" : "120_plus";
   // The answers each step asks, by step id. A step Plan 072 adds that asks an
@@ -91,6 +100,10 @@
       session_length: sessionLength(answers.sessionMinutes),
     }),
     environment: (answers) => ({ gym_preset: answers.environment && answers.environment.kind }),
+    equipment: (answers) => ({ equipment_changes: equipmentChanges(answers.environment && answers.environment.adjust) }),
+    days_per_week: (answers) => ({ days_per_week: Number.isInteger(answers.daysPerWeek) ? String(answers.daysPerWeek) : undefined }),
+    session_length: (answers) => ({ session_length: sessionLength(answers.sessionMinutes) }),
+    deload: (answers) => ({ deload: answers.deload === true ? "on" : answers.deload === false ? "off" : undefined }),
     custom_shape: (answers) => ({ split: answers.splitPreference }),
   });
 

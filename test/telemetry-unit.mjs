@@ -265,9 +265,9 @@ for (const name of Telemetry.getEventNames("all")) {
     ["onboarding_step_completed", { route: "none", step: "entry", time_on_step: "under_10s" }],
     ["onboarding_step_viewed", { route: "recommend", step: "background" }],
   ], "leaving the hub for a route completes the hub, whichever step the route opens on");
-  assert.deepEqual(funnel({ route: "recommend", step: "schedule", at: at(10) }, { route: "recommend", step: "environment", at: at(55) }), [
-    ["onboarding_step_completed", { route: "recommend", step: "schedule", time_on_step: "30_60s" }],
-    ["onboarding_step_viewed", { route: "recommend", step: "environment" }],
+  assert.deepEqual(funnel({ route: "recommend", step: "session_length", at: at(10) }, { route: "recommend", step: "muscle_priorities", at: at(55) }), [
+    ["onboarding_step_completed", { route: "recommend", step: "session_length", time_on_step: "30_60s" }],
+    ["onboarding_step_viewed", { route: "recommend", step: "muscle_priorities" }],
   ]);
   assert.deepEqual(funnel({ route: "custom", step: "custom_shape", at: 0 }, { route: "custom", step: "priorities", at: 1 }), [
     ["onboarding_step_back", { route: "custom", step: "custom_shape" }],
@@ -315,22 +315,36 @@ for (const name of Telemetry.getEventNames("all")) {
     { route, step: from, at: 0 }, { route, step: to, at: 5000, answers }, steps)
     .find(([name]) => name === "onboarding_step_completed")?.[1];
   const answered = (props) => Object.fromEntries(Object.entries(props).filter(([key]) => !["route", "step", "time_on_step"].includes(key)));
-  assert.deepEqual(answered(completedFor("recommend", "desired_result", "background")), { goal: "strength" });
-  assert.deepEqual(answered(completedFor("recommend", "background", "schedule")), { experience: "under_6m" });
-  assert.deepEqual(answered(completedFor("recommend", "schedule", "environment")), { days_per_week: "4", session_length: "90" });
-  assert.deepEqual(answered(completedFor("recommend", "environment", "abilities")), { gym_preset: "basic_gym" });
+  assert.deepEqual(answered(completedFor("recommend", "desired_result", "days_per_week")), { goal: "strength" });
+  assert.deepEqual(answered(completedFor("recommend", "background", "cardio_experience")), { experience: "under_6m" });
+  assert.deepEqual(answered(completedFor("custom", "schedule", "environment")), { days_per_week: "4", session_length: "90" });
+  assert.deepEqual(answered(completedFor("recommend", "days_per_week", "session_length")), { days_per_week: "4" });
+  assert.deepEqual(answered(completedFor("recommend", "session_length", "muscle_priorities")), { session_length: "90" });
+  assert.deepEqual(answered(completedFor("recommend", "environment", "equipment")), { gym_preset: "basic_gym" });
+  assert.deepEqual(answered(completedFor("recommend", "equipment", "desired_result")), { equipment_changes: "0" });
   assert.deepEqual(answered(completedFor("custom", "custom_shape", "result")), { split: "upper_lower" });
-  assert.deepEqual(answered(completedFor("recommend", "abilities", "priorities")), {}, "a step with no closed answer sends none");
-  assert.deepEqual(answered(completedFor("recommend", "priorities", "result")), {}, "muscle priorities are not sent");
+  assert.deepEqual(answered(completedFor("recommend", "abilities", "result")), {}, "a step with no closed answer sends none");
+  assert.deepEqual(answered(completedFor("recommend", "muscle_priorities", "deload")), {}, "muscle priorities are not sent");
+  for (const step of ["intro", "sex", "birth_date", "height", "weight", "cardio_experience"]) {
+    const next = steps.recommend[steps.recommend.indexOf(step) + 1];
+    assert.deepEqual(answered(completedFor("recommend", step, next)), {}, `the ${step} step sends no answer`);
+  }
+  const deloadOn = Telemetry.entryFunnelEvents({ route: "recommend", step: "deload", at: 0 },
+    { route: "recommend", step: "abilities", at: 5000, answers: { ...answers, deload: true } }, steps)[0][1];
+  assert.equal(deloadOn.deload, "on");
+  const adjusted = Telemetry.entryFunnelEvents({ route: "recommend", step: "equipment", at: 0 },
+    { route: "recommend", step: "desired_result", at: 5000, answers: { ...answers,
+      environment: { kind: "limited_home", adjust: { add: ["bench", "barbell"], remove: ["bands"] } } } }, steps)[0][1];
+  assert.equal(adjusted.equipment_changes, "2_3", "equipment changes are a bucketed count, never the groups");
   const hub = Telemetry.entryFunnelEvents({ route: null, step: "entry", at: 0 }, { route: "recommend", step: "background", at: 1, answers }, steps)[0][1];
   assert.equal(hub.goal, "strength", "the hub's Generate shortcut reports the goal it asked");
   const hubImport = Telemetry.entryFunnelEvents({ route: null, step: "entry", at: 0 }, { route: "import", step: "import_source", at: 1, answers }, steps)[0][1];
   assert.equal(hubImport.goal, undefined, "leaving the hub for another route asks no goal");
-  const odd = Telemetry.entryFunnelEvents({ route: "recommend", step: "schedule", at: 0 },
-    { route: "recommend", step: "environment", at: 1, answers: { daysPerWeek: 7, sessionMinutes: "60" } }, steps)[0][1];
+  const odd = Telemetry.entryFunnelEvents({ route: "recommend", step: "days_per_week", at: 0 },
+    { route: "recommend", step: "session_length", at: 1, answers: { daysPerWeek: 7, sessionMinutes: "60" } }, steps)[0][1];
   assert.deepEqual(answered(odd), {}, "a value outside the closed list is dropped, and the step still reports");
   const { sent } = boot();
-  assert.equal(Telemetry.capture("onboarding_step_completed", completedFor("recommend", "schedule", "environment")), true);
+  assert.equal(Telemetry.capture("onboarding_step_completed", completedFor("recommend", "days_per_week", "session_length")), true);
   assert.equal(sent.length, 1);
 
   // The closed lists follow the engine's own vocabularies.
