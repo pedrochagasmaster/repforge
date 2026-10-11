@@ -184,6 +184,11 @@ async function run() {
   await openEditor(page);
 
   phase("the drag library is driving the editor");
+  // @dnd-kit describes a handle when it registers that sortable, which can land
+  // after the rows are in the DOM. Wait for the registration, then read it (#354).
+  await page.waitForFunction(() => [...document.querySelectorAll('#programEditor [data-role="drag-handle"]')]
+    .every(handle => handle.hasAttribute("aria-describedby") || handle.hasAttribute("aria-disabled")), undefined, { timeout: 5000 })
+    .catch(() => {});
   const wired = await page.evaluate(() => ({
     runtime: typeof window.DndKit?.DragDropManager === "function",
     described: [...document.querySelectorAll('#programEditor [data-role="drag-handle"]')]
