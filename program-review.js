@@ -647,16 +647,22 @@
       queue = queue.then(task, task).finally(settle);
       return queue;
     }
+    /* What the lifter did, for the host's measurement: an action and the edit
+       kind, never the edit's content. */
+    function observe(action, kind) {
+      try { adapter.observe?.(kind && EDIT_KIND_SET.has(kind) ? { action, kind } : { action }); } catch {}
+    }
     function apply(edit, { toast = null, flip = false, close = false } = {}) {
       return run(async () => {
         if (disposed) return false;
         const state = read();
         const result = applyEdit(state.definition, edit, { ...state.ctx, ordinal: state.edits.length + 1 });
-        if (!result.ok) { adapter.announce(t("entry.review.refused")); return false; }
+        if (!result.ok) { observe("refused", edit.kind); adapter.announce(t("entry.review.refused")); return false; }
         const before = flip ? measure() : null;
         if (close) await closeSheet();
         const saved = await adapter.commit({ definition: result.definition, edits: [...state.edits, edit], name: state.name });
-        if (!saved?.ok) { adapter.announce(t("entry.review.save_failed")); paint(); paintSheet(); return false; }
+        if (!saved?.ok) { observe("save_failed", edit.kind); adapter.announce(t("entry.review.save_failed")); paint(); paintSheet(); return false; }
+        observe("edit", edit.kind);
         paint({ before });
         paintSheet();
         const count = changes(read().baseline, read().definition).count;
@@ -674,7 +680,8 @@
         if (!replayed.ok) return false;
         const before = measure();
         const saved = await adapter.commit({ definition: replayed.definition, edits, name: state.name });
-        if (!saved?.ok) { adapter.announce(t("entry.review.save_failed")); return false; }
+        if (!saved?.ok) { observe("save_failed", state.edits[state.edits.length - 1]?.kind); adapter.announce(t("entry.review.save_failed")); return false; }
+        observe("undo", state.edits[state.edits.length - 1]?.kind);
         hideToast();
         paint({ before });
         paintSheet();
@@ -694,7 +701,8 @@
       return run(async () => {
         const current = read();
         const saved = await adapter.commit({ definition: current.baseline, edits: [], name: null });
-        if (!saved?.ok) { adapter.announce(t("entry.review.save_failed")); return false; }
+        if (!saved?.ok) { observe("save_failed"); adapter.announce(t("entry.review.save_failed")); return false; }
+        observe("restore");
         view.reorder = null;
         paint({ focus: "[data-review-title]" });
         adapter.announce(t("entry.review.toast.restored"));
@@ -902,7 +910,7 @@
         run(async () => {
           const current = read();
           const saved = await adapter.commit({ definition: current.definition, edits: current.edits, name: value });
-          if (saved?.ok) paint({ focus: "[data-review-title]" });
+          if (saved?.ok) { observe("rename_program"); paint({ focus: "[data-review-title]" }); }
           return !!saved?.ok;
         });
       }

@@ -5,6 +5,8 @@
 - **Contract:** the closed event schema in `telemetry.js`, ADR 0010
   ("Data and telemetry"), ADR 0013 (install transfer), ADR 0014 (free-form
   import) and the privacy rules in `AGENTS.md`. Nothing here widens them.
+  This plan extends Plan 044's Phase A catalogue with the owner's 2026-10-11
+  approval. It keeps Plan 045 §4's explicit removals (§5.5).
 - **Base:** `32ecc21c` (main on 11 October 2026, after #350 and #351).
 - **Coordination:** Plan 072 (the rest of onboarding B) reuses the step-id
   scheme in §4. #353 (Generate in a Worker) reuses the generation timing seam
@@ -58,15 +60,15 @@ cover it. **New** means added by this plan; everything else exists.
 | 11 | Review and edit (B) | `program_review_action` (new), `program_activated.review_changes` (new) |
 | 12 | Leaving / resuming setup | `onboarding_exit` (new), `onboarding_resume_offered`, step events after resume |
 | 13 | Activation | `program_activated`, `program_activation_failed` (new) |
-| 14 | First workout and first set | `workout_started` (new), `first_set_logged`, `set_saved` |
+| 14 | First workout and first set | `first_set_logged`, `set_saved` |
 | 15 | Session completion | `session_completed`, `session_summary_viewed`, `workout_discarded` (new) |
 | 16 | In-workout choices | `exercise_skipped`, `substitution_used` (now produced), `recommendation_explained` |
-| 17 | Return sessions | `app_boot{first_run:false}`, `workout_started`, `session_completed` |
+| 17 | Return sessions | `app_boot{first_run:false}`, `set_saved`, `session_completed` |
 | 18 | Block lifecycle | `block_review_viewed`, `block_transition_chosen` (new) |
 | 19 | History, Progress | nav autocapture, `history_session_outcome` |
 | 20 | Settings | `settings_open` autocapture, `settings_changed` (new) |
 | 21 | Program edits after activation | `active_program_edited` (new) |
-| 22 | Sharing, backup, transfer | `share_setup_outcome`, `backup_exported` (new), `backup_restored` (new), `late_install_transfer` |
+| 22 | Sharing, backup, transfer | `share_setup_outcome`, `late_install_transfer`. Backup stays untracked (Plan 045; owner question 6) |
 
 ## 3. Adoption questions
 
@@ -87,7 +89,7 @@ rules in `alpha-scorecard.md`.
 | Time to first set | installation | `program_activated` → `first_set_logged` time-to-convert; `onboarding_started` → `first_set_logged` for the whole journey |
 | Install adoption | installation | `install_prompt_outcome`, `app_installed`, share of `app_boot` with `display_mode=standalone` |
 | Week-1 and week-4 retention by route | installation | anchor `program_activated` (route); a `session_completed` on a later UTC date in elapsed days 1–7, and in days 22–28 |
-| Do started workouts finish? | installation + SDK session | `workout_started` → `session_completed` / `workout_discarded` |
+| Do started workouts finish? | installation + SDK session | `set_saved` → `session_completed` / `workout_discarded` |
 | Block continuation | installation | `block_review_viewed` → `block_transition_chosen` by `action` |
 | Is setup resumed after leaving? | installation | `onboarding_exit{action:keep_draft}` → `onboarding_resume_offered` → step events |
 
@@ -124,7 +126,7 @@ the code boundary, not a control.
 |---|---|---|---|
 | `landing_viewed` | `landing`: generic, shared, shared_invalid; `visit`: first, returning | repeatable | `openFirstRun` after the landing kind and visit are set |
 | `landing_action` | `action`: create, import, continue_browser, shared_start, install, privacy | repeatable | each landing CTA handler in `init()` |
-| `install_prompt_outcome` | `surface`: landing, banner, settings; `mode`: native, ios, manual; `outcome`: prompted, accepted, dismissed, instructions_shown | repeatable | `triggerInstall(source)`: the native prompt and its `userChoice`, the iOS sheet, the manual banner |
+| `install_prompt_outcome` | `surface`: landing, banner, header, settings; `mode`: native, ios, manual; `outcome`: prompted, accepted, dismissed, instructions_shown | repeatable | `triggerInstall(source)`: the native prompt and its `userChoice`, the iOS sheet, the manual banner |
 | `app_installed` | none | milestone | the `appinstalled` listener |
 | `app_boot` (changed) | adds optional `display_mode`: standalone, browser | once_per_boot | `boot()`, from `isStandalone()` |
 
@@ -157,7 +159,7 @@ observer sends no answer values; §7 explains why.
 
 | Event | Properties | Duplicates | Trigger |
 |---|---|---|---|
-| `program_review_action` | `action`: edit, undo, restore, refused, save_failed; `kind`: optional, one of `EDIT_KINDS` (sets, rep_range, rir, rest, swap, alternates, move, remove, reorder, add, day_name) | repeatable | `program-review.js` `apply`, `undo`, `restore`, through a new optional `adapter.observe(report)`. The module keeps no telemetry dependency. |
+| `program_review_action` | `action`: edit, undo, restore, rename_program, refused, save_failed; `kind`: optional, one of `EDIT_KINDS` (sets, rep_range, rir, rest, swap, alternates, move, remove, reorder, add, day_name) | repeatable | `program-review.js` `apply`, `undo`, `restore`, through a new optional `adapter.observe(report)`. The module keeps no telemetry dependency. |
 
 A unit test fails if `EDIT_KINDS` and the `kind` enum drift.
 
@@ -165,17 +167,20 @@ A unit test fails if `EDIT_KINDS` and the `kind` enum drift.
 
 | Event | Properties | Duplicates | Trigger |
 |---|---|---|---|
-| `workout_started` (new) | `entry`: fresh, resumed | once_per_session | `enterWorkout` once the session is live. `resumed` when a stored draft is reopened |
-| `substitution_used` (changed, now produced) | `reason` becomes optional and is never sent; adds `source`: suggested, library | repeatable | applied `substituteExercise` command in `captureDraftCommandTelemetry`. `restoreOriginalExercise` sends nothing. |
+| `substitution_used` (changed, now produced) | `reason` becomes optional and is never sent; adds `source`: alternate (one of the slot's alternates), library | repeatable | applied `substituteExercise` command in `captureDraftCommandTelemetry`. `restoreOriginalExercise` sends nothing. |
 | `workout_discarded` (new) | `stage`: before_set, working; `cause`: program_edit | once_per_session | the installed editor's `apply_discard_workout` path, after the discard commits |
-| `block_transition_chosen` (new) | `action`: repeat, schedule_repair, reduce_volume, recovery_week, guided_edit, new_program | repeatable | the commit points: `finishBlockAndStart("repeat")`, the sibling-proposal confirm (by staged action), the onboarding handoff in `commitNextBlock` |
+| `block_transition_chosen` (new) | `action`: repeat, schedule_repair, reduce_volume, recovery_week, guided_edit, new_program | repeatable | the commit points: the literal repeat in `commitNextBlock`, the sibling-proposal confirm (by staged action), and for `new_program` the successor's activation in `finalizeProgramSetup` when the entry was opened from the block |
 | `active_program_edited` (new) | `outcome`: saved, discarded_workout | repeatable | `applyInstalledEditorAndContinue` after `committed && settled` |
-| `settings_changed` (new) | `setting`: language, unit, rir_mode, rest_timer, voice, notifications, theme | repeatable | `commitSettings` success (one event per setting whose value changed), `setTheme` |
-| `backup_exported` (new) | `outcome`: success, failure | repeatable | `exportJson` after the write result |
-| `backup_restored` (new) | `mode`: replace, merge; `outcome`: success, failure | repeatable | `#importReplace` / `#importMerge` handlers after the write result |
+| `settings_changed` (new) | `setting`: language, unit, rir_mode, rest_timer, voice, notifications, progression, theme | repeatable | `commitSettings` success (one event per setting whose value changed), `setTheme` |
 
 The telemetry toggle stays without an event: opting out must not report
 itself.
+
+Two removals in Plan 045 §4 still hold. There is no workout-start event:
+"First meaningful gym-floor evidence is `first_set_logged`; do not invent a
+replacement". There is no backup event: "Backup health is tested locally and
+operationally". Session reliability is read from `set_saved` to a terminal
+event within one SDK session, as it is today.
 
 ## 6. Retired declarations
 
@@ -243,7 +248,11 @@ keep reading the same data.
 4. **Explicit abandon.** An explicit "abandon this session" action, with its
    stage and reason, is a product change. Until it exists, abandonment is
    read as unresolved, not reported.
-5. **Days since last session on `app_boot`.** A recency bucket would make
+5. **Backup events.** Plan 045 removed `backup_exported`: backup health is
+   tested locally and operationally. Export and restore outcomes would show
+   whether lifters protect their data, and whether restore fails in the
+   field. Reversing Plan 045 is the owner's call. Not shipped.
+6. **Days since last session on `app_boot`.** A recency bucket would make
    return-session views cheaper. Retention is derivable without it. Not
    shipped.
 
@@ -265,9 +274,9 @@ producer, then the proof passes.
    hub, an editor edit/undo/restore, and `review_changes` on activation.
 4. **Landing and install.** `landing_viewed`, `landing_action`,
    `install_prompt_outcome`, `app_installed`, `display_mode`.
-5. **Workout, block and management.** `workout_started`,
-   `substitution_used`, `workout_discarded`, `block_transition_chosen`,
-   `active_program_edited`, `settings_changed`, `backup_*`.
+5. **Workout, block and management.** `substitution_used`,
+   `workout_discarded`, `block_transition_chosen`, `active_program_edited`,
+   `settings_changed`.
 6. **Measurement docs.** `alpha-scorecard.md` (onboarding funnel, editor
    reliance, retention by route, retired rows), `posthog-dashboard-recipes.md`,
    and new compiled definitions in `tools/build-posthog-measurement.mjs`:

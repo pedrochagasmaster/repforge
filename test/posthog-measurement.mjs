@@ -11,7 +11,7 @@ const internal = '00000000-0000-4000-8000-000000000001';
 const pilot = '00000000-0000-4000-8000-000000000002';
 const config = () => ({ projectId: 1, timezone: 'UTC', from: '2020-01-01T00:00:00Z', asOf: '2020-04-01T00:00:00Z',
   appVersions: ['release-a'], internalInstallationIds: [internal], pilotInstallationIds: [pilot] });
-const names = ['app_boot', 'program_activated', 'first_set_logged', 'set_saved', 'session_completed', 'session_abandoned', 'one_off_completed'];
+const names = ['app_boot', 'program_activated', 'first_set_logged', 'set_saved', 'session_completed', 'workout_discarded'];
 const contract = { getSchemaVersion: () => 1, getEventNames: () => names,
   getEventPolicy: name => name === 'first_set_logged' ? 'milestone' : 'repeatable' };
 const sql = (plan, key) => plan.insights.find(insight => insight.key === key).payload.query.source.query;
@@ -80,7 +80,7 @@ test('empty rosters remain empty; unclassified never becomes a confirmed pilot',
 test('session reliability uses all saved-set sessions and distinguishes unresolved/conflicting terminals', () => {
   const query = sql(buildPlan(config(), contract), 'session-outcomes');
   assert.doesNotMatch(query, /first_set_logged/);
-  for (const expected of ["event IN ('session_completed', 'one_off_completed')", 'GROUP BY distinct_id, sdk_session', "HAVING countIf(event = 'set_saved') > 0", 't >= first_save', 'unresolved', 'duplicate_or_conflicting']) assert.ok(query.includes(expected));
+  for (const expected of ["event = 'session_completed'", "event = 'workout_discarded'", 'GROUP BY distinct_id, sdk_session', "HAVING countIf(event = 'set_saved') > 0", 't >= first_save', 'unresolved', 'duplicate_or_conflicting']) assert.ok(query.includes(expected));
 });
 test('first-value and repeat denominators require maturity, witnessed new installs, and null-safe rates', () => {
   const plan = buildPlan(config(), contract);

@@ -47,6 +47,28 @@
     "milestone",
     "repeatable",
   ]);
+  /* Program-entry vocabulary (Plan 071 §4). Routes are ProgramEntry.ROUTES;
+     the hub sends "none". Steps are every ProgramEntry.ROUTE_STEPS value plus
+     the hub ("entry") and "activation_conflict". An id names what the step
+     asks, never where it sits; a retired step keeps its value here so older
+     events still parse. test/telemetry-unit.mjs fails when ROUTE_STEPS grows
+     a step this list does not know. */
+  const ENTRY_ROUTES = Object.freeze(["recommend", "custom", "build", "import", "shared"]);
+  const ENTRY_STEPS = Object.freeze([
+    "entry", "activation_conflict",
+    "desired_result", "background", "schedule", "environment", "abilities", "priorities",
+    "exercise_preferences", "custom_shape", "result",
+    "catalogue", "preview", "build_setup", "editor", "import_source", "shared_review",
+  ]);
+  // program-review.js EDIT_KINDS; the unit suite holds the two together.
+  const REVIEW_EDIT_KINDS = Object.freeze([
+    "sets", "rep_range", "rir", "rest", "swap", "alternates",
+    "move", "remove", "reorder", "add", "day_name",
+  ]);
+  const entryRoute = values(...ENTRY_ROUTES);
+  const entryRouteOrHub = values("none", ...ENTRY_ROUTES);
+  const entryStep = values(...ENTRY_STEPS);
+
   const event = (properties, metric, duplicates) => {
     if (!DUPLICATE_POLICIES.includes(duplicates)) {
       throw new TypeError(`Telemetry event needs a duplicate-expectation policy, received ${String(duplicates)}`);
@@ -60,7 +82,20 @@
   };
 
   const EVENTS = Object.freeze({
-    app_boot: event({ first_run: boolean, language: values("en", "pt"), platform_class: values("ios", "android", "desktop", "other") }, "Successful app boot", "once_per_boot"),
+    app_boot: event({ first_run: boolean, language: values("en", "pt"), platform_class: values("ios", "android", "desktop", "other"), display_mode: optional(values("standalone", "browser")) }, "Successful app boot", "once_per_boot"),
+    landing_viewed: event({ landing: values("generic", "shared", "shared_invalid"), visit: values("first", "returning") }, "First-run landing shown", "repeatable"),
+    landing_action: event({ action: values("create", "import", "continue_browser", "shared_start", "install", "privacy") }, "First-run landing action taken", "repeatable"),
+    install_prompt_outcome: event({ surface: values("landing", "banner", "header", "settings"), mode: values("native", "ios", "manual"), outcome: values("prompted", "accepted", "dismissed", "instructions_shown") }, "Install offer acted on", "repeatable"),
+    app_installed: event({}, "Browser reported the app installed", "milestone"),
+    onboarding_started: event({ origin: values("first_run", "settings", "block"), resumed: boolean }, "Program entry opened", "repeatable"),
+    onboarding_resume_offered: event({ status: values("resumable", "rules_changed", "activation_conflict", "corrupt") }, "Saved setup draft found on opening program entry", "repeatable"),
+    onboarding_step_viewed: event({ route: entryRouteOrHub, step: entryStep }, "Program-entry step shown", "repeatable"),
+    onboarding_step_completed: event({ route: entryRouteOrHub, step: entryStep, time_on_step: values("under_10s", "10_30s", "30_60s", "1_3m", "3_10m", "over_10m") }, "Program-entry step left forward", "repeatable"),
+    onboarding_step_back: event({ route: entryRouteOrHub, step: entryStep }, "Program-entry step left backward", "repeatable"),
+    onboarding_exit: event({ action: values("keep_draft", "discard_draft", "start_over"), route: entryRouteOrHub, step: entryStep }, "Program entry left or restarted", "repeatable"),
+    generation_settled: event({ route: values("recommend", "custom"), outcome: values("success", "rules_changed", "rebuild_failed", "generation_conflict"), duration: values("under_1s", "1_3s", "3_10s", "over_10s") }, "Program generation request settled", "repeatable"),
+    program_activation_failed: event({ route: entryRoute, reason: values("definition_invalid", "setup_conflict", "durable_conflict") }, "Program activation refused or conflicted", "repeatable"),
+    program_review_action: event({ action: values("edit", "undo", "restore", "rename_program", "refused", "save_failed"), kind: optional(values(...REVIEW_EDIT_KINDS)) }, "Recommendation review editor action", "repeatable"),
     program_path_selected: event({ route: values("recommend", "custom", "browse", "build", "import", "shared") }, "Program entry route chosen", "once_per_setup_flow"),
     generator_started: event({ mode: values("baseline") }, "Working baseline generator started", "once_per_setup_flow"),
     generator_completed: event({ goal: values("muscle_growth", "balanced", "strength"), frequency: values("2", "3", "4", "5", "6"), family: values("legacy", "growth", "balanced", "strength", "home", "foundation", "generated") }, "Generator produced a reviewable program", "once_per_setup_flow"),
@@ -71,21 +106,21 @@
     program_import_unsupported_concept: event({ category: values("supersets", "rest_times", "rir_rpe", "tempo", "warmups", "cardio", "progression_rules", "deload") }, "Unsupported workout concept found in freeform import", "repeatable"),
     program_import_row_resolved: event({ method: values("top_candidate", "alternate", "custom", "picker"), source: values("freeform", "file") }, "Import review row resolved by the lifter", "repeatable"),
     program_import_review_reached: event({ source: values("freeform", "file") }, "Import review screen reached", "repeatable"),
-    program_activated: event({ route: values("recommend", "custom", "browse", "build", "import", "shared"), version_category: values("legacy_v1", "taurifer_v1", "manual_v1", "import_v1", "shared_v1"), source: optional(values("freeform", "file")) }, "Program activation committed", "once_per_setup_flow"),
+    program_activated: event({ route: values("recommend", "custom", "browse", "build", "import", "shared"), version_category: values("legacy_v1", "taurifer_v1", "manual_v1", "import_v1", "shared_v1"), source: optional(values("freeform", "file")), review_changes: optional(values("0", "1_2", "3_5", "6_10", "11_plus")) }, "Program activation committed", "once_per_setup_flow"),
     first_set_logged: event({}, "First working set committed", "milestone"),
     set_saved: event({ vs_suggestion: values("matched", "raised", "lowered", "no_suggestion") }, "Working set committed relative to its suggestion", "repeatable"),
     recommendation_explained: event({ surface: values("workout", "focus", "exercise") }, "Recommendation explanation opened", "repeatable"),
-    recommendation_overridden: event({ reason: optional(values("adjustment", "preference", "equipment", "pain", "other")) }, "Recommendation deliberately overridden", "repeatable"),
     exercise_skipped: event({ context: values("planned_session", "one_off") }, "Exercise explicitly skipped", "repeatable"),
-    substitution_used: event({ reason: values("equipment", "preference", "pain", "crowded", "other") }, "Exercise substitution committed", "repeatable"),
-    equipment_context_selected: event({ context_count: values("1", "2", "3_plus") }, "Equipment context chosen", "repeatable"),
-    one_off_started: event({ kind: values("manual", "classic", "recommended"), time: values("30", "45", "60", "75", "90_plus"), equipment: values("full", "limited", "bodyweight", "other") }, "One-off session started", "once_per_session"),
-    one_off_completed: event({ kind: values("manual", "classic", "recommended"), duration: values("0_15", "16_30", "31_60", "61_90", "90_plus") }, "One-off session completed", "once_per_session"),
+    // No reason is asked in the workout, so none is sent (Plan 071 owner question 3).
+    substitution_used: event({ source: values("alternate", "library"), reason: optional(values("equipment", "preference", "pain", "crowded", "other")) }, "Exercise substitution committed", "repeatable"),
     session_completed: event({ set_count: values("0", "1_5", "6_10", "11_20", "21_plus"), exercise_count: values("0", "1_3", "4_6", "7_plus"), duration: values("0_15", "16_30", "31_60", "61_90", "90_plus") }, "Planned session completed", "once_per_session"),
-    session_abandoned: event({ stage: values("before_set", "working", "review"), reason: values("time", "recovery", "pain", "equipment", "schedule", "other") }, "Session explicitly abandoned", "once_per_session"),
+    workout_discarded: event({ stage: values("before_set", "working"), cause: values("program_edit") }, "Workout in progress discarded", "once_per_session"),
     session_summary_viewed: event({}, "Completed-session summary opened", "once_per_session"),
     block_review_viewed: event({ completion: values("early", "partial", "complete", "extended") }, "Block review opened", "repeatable"),
-    program_transition_selected: event({ transition: values("resume", "repair", "rebase", "switch") }, "Program transition selected", "once_per_setup_flow"),
+    block_transition_chosen: event({ action: values("repeat", "schedule_repair", "reduce_volume", "recovery_week", "guided_edit", "new_program") }, "Block transition committed", "repeatable"),
+    active_program_edited: event({ outcome: values("saved", "discarded_workout") }, "Active program edit saved", "repeatable"),
+    settings_changed: event({ setting: values("language", "unit", "rir_mode", "rest_timer", "voice", "notifications", "progression", "theme") }, "Setting changed", "repeatable"),
+
     history_session_outcome: event({ action: values("read", "edit_save", "cancel", "delete"), status: values("success", "conflict", "failure") }, "History session operation outcome", "repeatable"),
     // Validates whether setup links need a larger carrier (server-backed links):
     // how often a link is refused, for which kind of program, by how much, and
@@ -398,6 +433,62 @@
     return minutes <= 15 ? "0_15" : minutes <= 30 ? "16_30" : minutes <= 60 ? "31_60" : minutes <= 90 ? "61_90" : "90_plus";
   }
 
+  function bucketStepTime(milliseconds) {
+    if (!Number.isFinite(milliseconds) || milliseconds < 0) return null;
+    const seconds = milliseconds / 1000;
+    return seconds < 10 ? "under_10s" : seconds < 30 ? "10_30s" : seconds < 60 ? "30_60s" :
+      seconds < 180 ? "1_3m" : seconds < 600 ? "3_10m" : "over_10m";
+  }
+
+  function bucketGeneration(milliseconds) {
+    if (!Number.isFinite(milliseconds) || milliseconds < 0) return null;
+    return milliseconds < 1000 ? "under_1s" : milliseconds < 3000 ? "1_3s" : milliseconds < 10000 ? "3_10s" : "over_10s";
+  }
+
+  function bucketChanges(count) {
+    if (!Number.isSafeInteger(count) || count < 0) return null;
+    return count === 0 ? "0" : count <= 2 ? "1_2" : count <= 5 ? "3_5" : count <= 10 ? "6_10" : "11_plus";
+  }
+
+  /* The program-entry funnel as a pure projection of two visible screens
+     (Plan 071 §4). Each view is { route, step, at } with `at` in
+     milliseconds; nothing else on it is read, so answers riding along on a
+     caller's state cannot reach a payload. `routeSteps` is
+     ProgramEntry.ROUTE_STEPS: direction comes from the route's own order,
+     never from a screen index. Moving onto or off the conflict screen is the
+     app's doing, not the lifter's, so it reports only the view. */
+  function entryView(view) {
+    if (!view || typeof view !== "object") return null;
+    const step = ENTRY_STEPS.includes(view.step) ? view.step : null;
+    if (!step) return null;
+    const route = step === "entry" ? "none" : ENTRY_ROUTES.includes(view.route) ? view.route : null;
+    return route ? { route, step, at: Number(view.at) } : null;
+  }
+
+  function entryFunnelEvents(previousView, nextView, routeSteps) {
+    const next = entryView(nextView);
+    if (!next) return [];
+    const previous = entryView(previousView);
+    if (previous && previous.route === next.route && previous.step === next.step) return [];
+    const events = [];
+    if (previous && previous.step !== "activation_conflict" && next.step !== "activation_conflict") {
+      const from = { route: previous.route, step: previous.step };
+      const order = routeSteps && Array.isArray(routeSteps[next.route]) ? routeSteps[next.route] : [];
+      let direction = null;
+      if (next.step === "entry") direction = "back";
+      else if (previous.step === "entry") direction = "forward";
+      else if (previous.route === next.route && order.includes(previous.step) && order.includes(next.step)) {
+        direction = order.indexOf(next.step) > order.indexOf(previous.step) ? "forward" : "back";
+      }
+      if (direction === "forward") {
+        const time = bucketStepTime(next.at - previous.at);
+        if (time) events.push(["onboarding_step_completed", { ...from, time_on_step: time }]);
+      } else if (direction === "back") events.push(["onboarding_step_back", from]);
+    }
+    events.push(["onboarding_step_viewed", { route: next.route, step: next.step }]);
+    return events;
+  }
+
   function canEmitLateInstallTransfer(params = {}) {
     if (!params || typeof params !== "object") return false;
     const consent = params.enabled !== undefined ? params.enabled === true : runtime.enabled;
@@ -465,17 +556,23 @@
   return Object.freeze({
     DUPLICATE_POLICIES,
     boot,
+    bucketChanges,
     bucketCount,
     bucketDuration,
+    bucketGeneration,
+    bucketStepTime,
     buildLateInstallTransferPayload,
     canEmitLateInstallTransfer,
     capture,
+    entryFunnelEvents,
     getEventNames: (filter) => {
       const names = Object.keys(EVENTS);
       if (filter === "all") return Object.freeze(names);
       return Object.freeze(names.filter(name => EVENTS[name]?.phase === "alpha"));
     },
     getEventPolicy: name => EVENTS[name]?.duplicates || null,
+    getEventProperties: name => (EVENTS[name] ? Object.freeze(Object.keys(EVENTS[name].properties)) : null),
+    getEntryVocabulary: () => Object.freeze({ routes: ENTRY_ROUTES, steps: ENTRY_STEPS, reviewEditKinds: REVIEW_EDIT_KINDS }),
     getAutocaptureActions: () => AUTOCAPTURE_ACTIONS,
     getSchemaVersion: () => SCHEMA_VERSION,
     hasEmittedLateInstallTransfer,
