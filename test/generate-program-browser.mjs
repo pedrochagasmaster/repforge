@@ -419,6 +419,28 @@ async function main() {
       { idsWith, idsWithout });
     await abilityYes.context.close();
 
+    // #340: answering yes to 10 strict pull-ups brings in a weighted vertical
+    // pull, in the program the screen actually built -------------------------
+    const pullYes = await fresh(browser, { uuid: "0" });
+    allErrors.push(pullYes.errors);
+    await answerGenerate(pullYes.page, { abilities: { pullups10: "yes" } });
+    await pullYes.page.locator("#entryActivate").waitFor({ state: "visible", timeout: 15000 });
+    const pullStaged = await entry(pullYes.page);
+    check(pullStaged.answers.competencyAnswers?.pullups10 === true,
+      "answering yes to 10 strict pull-ups records a true competency answer", pullStaged.answers.competencyAnswers);
+    const weightedPullPrerequisite = Object.entries(Catalog.uuidIndex)
+      .find(([, item]) => item.type === "preconditions" && item.name === "Weighted vertical pulls preconditions")[0];
+    const weightedPulls = new Set(Catalog.exercises.filter((item) => (item.preconditions || []).includes(weightedPullPrerequisite)).map((item) => item.id));
+    const pullBuilt = (pullStaged.result?.preview?.programDefinition?.days || []).flatMap((day) => (day.slots || []).map((slot) => slot.exerciseId));
+    const pullMapped = Adapter.programRequestFromAnswers(pullStaged.answers, Catalog);
+    const pullWithout = pullMapped.ok ? Compiler.generateProgram({ ...pullMapped.value,
+      competencyAnswers: { ...pullMapped.value.competencyAnswers, pullups10: null } }, Catalog, String(pullStaged.draftId)) : { ok: false };
+    const pullIdsWithout = pullWithout.ok ? pullWithout.value.days.flatMap((day) => (day.slots || []).map((slot) => slot.exerciseId)) : null;
+    check(pullBuilt.some((id) => weightedPulls.has(id)) && pullIdsWithout && !pullIdsWithout.some((id) => weightedPulls.has(id)),
+      "answering yes to 10 strict pull-ups puts a weighted vertical pull in the built program, where the same draft without the answer has none",
+      { pullBuilt, pullIdsWithout });
+    await pullYes.context.close();
+
     // Skipping movement abilities keeps every competency answer unsure -----
     const abilitySkip = await fresh(browser);
     allErrors.push(abilitySkip.errors);

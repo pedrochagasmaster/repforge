@@ -651,6 +651,29 @@ console.log("fragment and cookie handoff helpers retain source bytes");
   assert.equal(editedResult.code, "encoded-too-large", "it is refused whole, never truncated");
 }
 
+// #340 (Plan 072 OD-11): a plain GENERATOR_VERSION bump retires every recipe
+// link made by the earlier generator. The fixture is a real link recorded with
+// 067.1 for a program that answers pullups10 = yes, which the current
+// generator builds differently. With the app's own codec options it is refused
+// as unsupported, the reason the receiver asks for the program to be shared
+// again, and the generator is never even run: nothing can regenerate it into a
+// different program.
+{
+  const legacy = JSON.parse(fs.readFileSync(join(root, "test/fixtures/setup-link-recipe-067-1.json"), "utf8"));
+  assert.notEqual(Compiler.GENERATOR_VERSION, legacy.generatorVersion, "the generator has moved past the recorded link");
+  const releaseCatalog = JSON.parse(fs.readFileSync(join(root, "assets/exercise-catalog.json"), "utf8"));
+  const { EXERCISE_LIBRARY } = require(join(root, "exercises.js"));
+  let generated = 0;
+  const appOptions = { builtInIds: new Set(EXERCISE_LIBRARY.map((entry) => entry.id)), catalogSnapshot: releaseCatalog,
+    validateProgramDefinition: Compiler.validateProgramDefinition,
+    generateProgram: (...args) => { generated++; return Compiler.generateProgram(...args); },
+    generatorVersion: Compiler.GENERATOR_VERSION };
+  const refused = await Setup.decode(legacy.link, appOptions);
+  assert.equal(refused.ok, false, "a recipe link from the earlier generator is refused");
+  assert.equal(refused.code, "unsupported-version", "and refused as unsupported, not as invalid");
+  assert.equal(generated, 0, "the generator never runs for it");
+}
+
 // #317: a slot's alternates are part of the canonical definition. A generated
 // program with alternates is no longer what its generator produces, so it
 // cannot travel as request and seed; it travels in full, alternates and the

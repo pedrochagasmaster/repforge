@@ -70,7 +70,7 @@ const standard = Compiler.generateProgram(request(), raw, "p067-standard-fixture
 assert.equal(standard.ok, true, `standard four-day plan should compile: ${JSON.stringify(standard.conflicts)}`);
 assert.deepEqual(standard.conflicts, []);
 assert.equal(standard.value.schemaVersion, 2);
-assert.equal(standard.value.generatorVersion, "067.1");
+assert.equal(standard.value.generatorVersion, "067.2");
 assert.equal(standard.value.seed, "p067-standard-fixture");
 assert.equal(standard.value.cycles, 7);
 assert.deepEqual(standard.value.days.filter((day) => day.kind === "training").map((day) => day.name), [
@@ -532,5 +532,38 @@ emptyAlternates.days[0].slots[0].alternates = [];
 assert.deepEqual(Compiler.canonicalizeProgramDefinition(emptyAlternates), standard.value,
   "an empty alternates list canonicalizes to the absent field, so the two spellings are one definition");
 assert.equal(Compiler.PROGRAM_SCHEMA_VERSION, 2, "alternates are additive; they do not bump the program schema");
+
+// #340 (Plan 072 OD-11): "10 strict pull-ups" answers the weighted vertical
+// pull prerequisite. Yes makes those movements eligible without a movement
+// confirmation, No refuses them, and Not sure leaves them to a confirmation.
+const weightedPullPrerequisite = Object.entries(raw.uuidIndex)
+  .find(([, entry]) => entry.type === "preconditions" && entry.name === "Weighted vertical pulls preconditions")[0];
+const weightedPulls = raw.exercises.filter((exercise) => (exercise.preconditions || []).includes(weightedPullPrerequisite))
+  .map((exercise) => exercise.id).sort();
+assert.equal(weightedPulls.length, 3, "three catalog movements carry the weighted vertical pull prerequisite");
+const pullAnswer = (pullups10) => request({ movementConfirmations: {},
+  competencyAnswers: { ...request().competencyAnswers, pullups10 } });
+const pullProgram = (pullups10, seed) => Compiler.generateProgram(pullAnswer(pullups10), raw, seed);
+const pullSlot = (program) => program.value.days.flatMap((day) => day.slots).find((slot) => /vertical_pull/.test(slot.purposeId));
+const verticalBase = pullProgram(null, "pullups10-proof");
+assert.equal(verticalBase.ok, true, JSON.stringify(verticalBase.conflicts));
+const pullCandidates = (pullups10) => Compiler.findSubstitutions(verticalBase.value, pullSlot(verticalBase).id, {
+  gymProfile: { equipmentIds: gym.equipment.map((entry) => entry.equipmentId) },
+  movementConfirmations: {}, competencyAnswers: { pullups10 },
+}, raw).map((candidate) => candidate.exerciseId);
+assert.ok(weightedPulls.every((id) => pullCandidates(true).includes(id)),
+  "pullups10 = yes makes every weighted vertical pull an eligible substitute");
+assert.ok(weightedPulls.every((id) => !pullCandidates(null).includes(id) && !pullCandidates(false).includes(id)),
+  "pullups10 unanswered or no keeps the weighted vertical pulls behind their prerequisite");
+let pullChanged = 0, pullPicked = 0;
+for (const seed of ["a", "b", "c", "d", "e", "f", "g", "h"]) {
+  const unsure = pullProgram(null, `pullups10-${seed}`), yes = pullProgram(true, `pullups10-${seed}`);
+  assert.equal(unsure.ok && yes.ok, true);
+  const ids = (program) => program.value.days.flatMap((day) => day.slots.map((slot) => slot.exerciseId));
+  if (JSON.stringify(ids(unsure)) !== JSON.stringify(ids(yes))) pullChanged++;
+  if (ids(yes).some((id) => weightedPulls.includes(id))) pullPicked++;
+  assert.ok(!ids(unsure).some((id) => weightedPulls.includes(id)), "without the answer no weighted vertical pull is selected");
+}
+assert.ok(pullChanged > 0 && pullPicked > 0, `pullups10 = yes changes generated programs (${pullChanged}/8 changed, ${pullPicked}/8 pick a weighted pull)`);
 
 console.log("PASS Plan 067 program compiler algorithm contract");
