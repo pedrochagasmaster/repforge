@@ -12,7 +12,7 @@ import { createServer } from "node:http";
 import { createReadStream, readFileSync, statSync } from "node:fs";
 import { dirname, extname, join, normalize, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, waitForAppBoot, waitForWorkerTakeover } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -235,7 +235,7 @@ async function installReleasedWorker(page, base) {
     const registration = await navigator.serviceWorker.ready;
     await registration.update();
   });
-  await page.waitForFunction((cache) => caches.has(cache), oldCache, { timeout: 10000 });
+  await waitForWorkerTakeover(page, { cache: oldCache, timeout: 10000 });
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base });
   assert.equal(await page.evaluate(() => !!navigator.serviceWorker.controller), true,
@@ -248,10 +248,7 @@ async function upgradeToCurrent(page, base) {
     const registration = await navigator.serviceWorker.ready;
     await registration.update();
   });
-  await page.waitForFunction(async ({ oldCache: oldName, currentCache: currentName }) => {
-    const names = await caches.keys();
-    return names.includes(currentName) && !names.includes(oldName);
-  }, { oldCache, currentCache }, { timeout: 20000 });
+  await waitForWorkerTakeover(page, { cache: currentCache, replaced: oldCache, timeout: 20000 });
   await page.reload({ waitUntil: "domcontentloaded" });
   assert.equal(await page.evaluate(() => !!navigator.serviceWorker.controller), true,
     "a worker controls the page after the update");

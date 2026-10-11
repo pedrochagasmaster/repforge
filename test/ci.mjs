@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { EventEmitter } from "node:events";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import test from "node:test";
@@ -83,6 +83,70 @@ test("browser suites use the shared preview origin and never own fixed-port serv
     assert.doesNotMatch(source, /spawn\(\s*["']python3["'][\s\S]{0,240}http\.server/,
       `${suite.file} must not start its own static server; the shared runner owns browser preview lifecycle`);
   }
+});
+
+/** The first argument of every `.waitForFunction(` call, skipping comments, strings, templates and regex literals. */
+function waitForFunctionPredicates(source) {
+  const found = [];
+  const call = /\.waitForFunction\(/g;
+  for (let match; (match = call.exec(source));) {
+    let depth = 0, index = call.lastIndex, previous = "(";
+    const start = index;
+    for (; index < source.length; index++) {
+      const char = source[index];
+      if (char === "/" && source[index + 1] === "/") { index = source.indexOf("\n", index); if (index < 0) break; continue; }
+      if (char === "/" && source[index + 1] === "*") { index = source.indexOf("*/", index + 2) + 1; continue; }
+      if (char === '"' || char === "'" || char === "`") {
+        for (index++; index < source.length && source[index] !== char; index++) if (source[index] === "\\") index++;
+        previous = char;continue;
+      }
+      if (char === "/" && /[(,=:[!&|?{};+\-*%<>~^]/.test(previous)) {
+        for (let inClass = false, at = index + 1; at < source.length; at++) {
+          if (source[at] === "\\") { at++;continue; }
+          if (source[at] === "[") inClass = true;
+          else if (source[at] === "]") inClass = false;
+          else if (source[at] === "/" && !inClass) { index = at;break; }
+        }
+        previous = "/";continue;
+      }
+      if ("([{".includes(char)) depth++;
+      else if (")]}".includes(char)) { if (depth === 0) break; depth--; }
+      else if (char === "," && depth === 0) break;
+      if (!/\s/.test(char)) previous = char;
+    }
+    found.push({ line: source.slice(0, match.index).split("\n").length, predicate: source.slice(start, index).trim() });
+  }
+  return found;
+}
+
+const PROMISE_PREDICATE = /^async\b|\bawait\b|\bcaches\.|\bnavigator\.locks\b|\bindexedDB\b|\bserviceWorker\.(?:ready|getRegistrations?)\b|\.then\(|\bnew Promise\b|\bfetch\(/;
+
+test("waitForFunction predicates are synchronous, so every wait really waits", () => {
+  // Playwright takes the promise an async predicate returns as a truthy result:
+  // such a wait resolves on its first poll (#348, #361). Await-needing
+  // conditions go through waitForAsyncCondition in test/browser.mjs.
+  // The samples spell the call through a placeholder so this file's own scan skips them.
+  const scan = (text) => waitForFunctionPredicates(text.replaceAll("WFF(", "waitForFunction("));
+  assert.deepEqual(scan("page.WFF(() => /isn't|é/.test(x), undefined, { timeout: 1 })"),
+    [{ line: 1, predicate: "() => /isn't|é/.test(x)" }], "a regex literal with a quote stays inside the predicate");
+  assert.match(scan("p.WFF(\n  async () => (await caches.keys()).length,\n  undefined)")[0].predicate, PROMISE_PREDICATE);
+  assert.match(scan("p.WFF((c) => caches.has(c), name)")[0].predicate, PROMISE_PREDICATE);
+  assert.doesNotMatch(scan("p.WFF(() => window.ready === true /* not async */)")[0].predicate, PROMISE_PREDICATE);
+
+  const sources = [];
+  const walk = (dir) => {
+    for (const name of readdirSync(join(process.cwd(), dir))) {
+      if (name === "node_modules" || name.startsWith(".")) continue;
+      const path = join(dir, name);
+      if (statSync(join(process.cwd(), path)).isDirectory()) walk(path);
+      else if (/\.m?js$/.test(name)) sources.push(path);
+    }
+  };
+  walk("test");walk("tools");
+  const offenders = sources.flatMap((file) => waitForFunctionPredicates(readFileSync(join(process.cwd(), file), "utf8"))
+    .filter(({ predicate }) => PROMISE_PREDICATE.test(predicate))
+    .map(({ line, predicate }) => `${file}:${line}: ${predicate.split("\n")[0]}`));
+  assert.deepEqual(offenders, [], "an async waitForFunction predicate never waits; use waitForAsyncCondition");
 });
 
 // --------------------------------------------------------------------- shards

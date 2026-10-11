@@ -9,7 +9,7 @@
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, waitForAppBoot, waitForAsyncCondition } from "./browser.mjs";
 import { definitionSlot, installGeneratedProgram, isWeightRepsSlot, metricLogRow } from "./fixtures/history-metric-rows.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -117,7 +117,7 @@ try {
   const firstDay = page.locator("#programEditor .pday__name").first();
   await firstDay.fill("My upper day");
   await firstDay.press("Enter");
-  await page.waitForFunction(async () => {
+  await waitForAsyncCondition(page, async () => {
     const debug = await window.__debugProgramEditor?.();
     return (debug?.session?.document?.program || []).some((row) => row.day === "My upper day");
   }, undefined, { timeout: 5000 });

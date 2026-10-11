@@ -5,7 +5,7 @@ import { createServer } from "node:http";
 import { createReadStream, readFileSync, statSync } from "node:fs";
 import { dirname, extname, join, normalize, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, waitForAppBoot, waitForWorkerTakeover } from "./browser.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OLD_WORKER = readFileSync(join(ROOT, "test/fixtures/sw-v120.js"), "utf8");
@@ -71,7 +71,7 @@ try {
   await page.goto(base, { waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base });
   await page.evaluate(async () => { const registration = await navigator.serviceWorker.ready; await registration.update(); });
-  await page.waitForFunction((name) => caches.has(name), oldCache, { timeout: 10000 });
+  await waitForWorkerTakeover(page, { cache: oldCache, timeout: 10000 });
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base });
   assert.equal(await page.evaluate(() => !!navigator.serviceWorker.controller), true, "released worker controls the source shell");
@@ -92,10 +92,7 @@ try {
 
   workerGeneration = "current";
   await page.evaluate(async () => { const registration = await navigator.serviceWorker.ready; await registration.update(); });
-  await page.waitForFunction(async ({ oldName, currentName }) => {
-    const names = await caches.keys();
-    return names.includes(currentName) && !names.includes(oldName);
-  }, { oldName: oldCache, currentName: currentCache }, { timeout: 20000 });
+  await waitForWorkerTakeover(page, { cache: currentCache, replaced: oldCache, timeout: 20000 });
   remoteState = "claimed-expired";
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base });

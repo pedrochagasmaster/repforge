@@ -80,3 +80,44 @@ export async function waitForAppBoot(page, { timeout = 15000, base } = {}) {
     throw new Error(`app did not finish booting within ${timeout}ms; observed ${observed}`);
   }
 }
+
+/**
+ * Poll an in-page condition that needs `await` (Cache Storage, Web Locks,
+ * IndexedDB, a service-worker registration). page.waitForFunction cannot wait
+ * on these: it takes the promise an async predicate returns as a truthy result
+ * and resolves on the first poll (#361). Every evaluation is bounded by the
+ * same deadline, and a navigation between polls is waited out.
+ */
+export async function waitForAsyncCondition(target, predicate, arg, { timeout = 30000, interval = 50 } = {}) {
+  const deadline = Date.now() + timeout;
+  const fail = () => new Error(`async condition not met within ${timeout}ms: ${String(predicate).slice(0, 160)}`);
+  for (;;) {
+    let timer;
+    const bound = new Promise((_, reject) => { timer = setTimeout(() => reject(fail()), Math.max(0, deadline - Date.now())); });
+    try {
+      const result = await Promise.race([target.evaluate(predicate, arg), bound]);
+      if (result) return result;
+    } catch (error) {
+      if (!/Execution context was destroyed|navigat/i.test(error.message)) throw error;
+    } finally {
+      clearTimeout(timer);
+    }
+    if (Date.now() >= deadline) throw fail();
+    await new Promise((resolve) => setTimeout(resolve, interval));
+  }
+}
+
+/**
+ * A worker has taken over once it is the activated registration controlling the
+ * page, no successor is installing or waiting, and `cache` exists while the
+ * cache it replaced (when named) is gone.
+ */
+export function waitForWorkerTakeover(page, { cache, replaced = null, timeout = 30000 }) {
+  return waitForAsyncCondition(page, async ({ cache, replaced }) => {
+    const registration = await navigator.serviceWorker.getRegistration();
+    const names = await caches.keys();
+    return registration?.active?.state === "activated" && !registration.installing && !registration.waiting &&
+      navigator.serviceWorker.controller === registration.active &&
+      names.includes(cache) && !names.includes(replaced);
+  }, { cache, replaced }, { timeout });
+}

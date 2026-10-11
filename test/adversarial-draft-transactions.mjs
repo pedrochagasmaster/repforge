@@ -5,7 +5,7 @@
  *
  * These assertions lock down the safe invariants at the transaction boundary.
  */
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, waitForAsyncCondition } from "./browser.mjs";
 import {
   clearPersistenceArtifacts,
   inventoryPersistenceArtifacts,
@@ -544,7 +544,7 @@ async function releaseStorageLock(page) {
 }
 
 async function waitForPendingStorageLock(page) {
-  await page.waitForFunction(
+  await waitForAsyncCondition(page,
     async (lockName) => {
       const locks = await navigator.locks.query();
       return locks.pending.some((lock) => lock.name === lockName);

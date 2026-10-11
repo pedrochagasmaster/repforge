@@ -13,7 +13,7 @@ import { createServer } from "node:http";
 import { readFileSync, statSync, createReadStream } from "node:fs";
 import { dirname, extname, join, normalize, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, waitForAppBoot, waitForWorkerTakeover } from "./browser.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const currentCache = readFileSync(join(ROOT, "sw.js"), "utf8").match(/const CACHE = ["']([^"']+)["']/)?.[1];
@@ -43,7 +43,7 @@ let failures = 0;
 try {
   await page.goto(base, { waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base });
-  await page.waitForFunction((cache) => caches.has(cache), currentCache, { timeout: 20000 });
+  await waitForWorkerTakeover(page, { cache: currentCache, timeout: 20000 });
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => !!navigator.serviceWorker.controller, { timeout: 10000 });
   await waitForAppBoot(page, { base });
