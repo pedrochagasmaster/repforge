@@ -22,7 +22,13 @@
   // production adapter consumes them; keeping ownership here preserves the
   // dependency-free direction of this module.
   const KNOWN_EQUIPMENT = Object.freeze(["barbell", "dumbbell", "machine", "cable", "smith", "bodyweight", "band"]);
-  const KNOWN_CAPABILITIES = Object.freeze(["safe_pull", "training_support"]);
+  // Onboarding B's equipment step adjusts a gym preset by these groups. The
+  // adapter maps each to catalog equipment UUIDs (Plan 072, Plan 068 slice A).
+  const EQUIPMENT_GROUPS = Object.freeze([
+    "barbell", "rack", "bench", "dumbbells", "kettlebells", "pullup_bar", "dip_bars",
+    "cable", "smith", "ez_bar", "leg_press", "bands", "suspension",
+  ]);
+  const EQUIPMENT_GROUP_SET = new Set(EQUIPMENT_GROUPS);
   const ENTRY_MUSCLES = Object.freeze(["chest", "back", "quads", "hamstrings", "glutes", "side_delts", "biceps", "triceps", "calves", "lats"]);
   // Muscle attribution is shared by the custom editor, setup links, imports,
   // durable state, and Progress. Keep the vocabulary here so a producer cannot
@@ -33,8 +39,6 @@
   const MUSCLE_TOKEN_SET = new Set(MUSCLE_TOKENS);
   const MUSCLE_ATTRIBUTION_MAX_LENGTH = 500;
   const ENTRY_MOVEMENTS = Object.freeze(["squat", "hinge", "press", "shoulder_press", "row", "pulldown"]);
-  const KNOWN_EQUIPMENT_SET = new Set(KNOWN_EQUIPMENT);
-  const KNOWN_CAPABILITIES_SET = new Set(KNOWN_CAPABILITIES);
   const ENTRY_MUSCLES_SET = new Set(ENTRY_MUSCLES);
   const ENTRY_MOVEMENTS_SET = new Set(ENTRY_MOVEMENTS);
   const COMPETENCY_ANSWERS = Object.freeze([
@@ -56,7 +60,19 @@
   const SESSION_MINUTES = new Set([20, 40, 60, 90, 120, 150]);
   const PREFERRED_REST_SECONDS = new Set([null, 60, 90, 120, 180]);
   const ENTRY_ENVIRONMENTS = Object.freeze(["commercial_gym", "basic_gym", "limited_home", "full_home", "other"]);
-  const ENVIRONMENTS = new Set(ENTRY_ENVIRONMENTS);
+  // Everything and Strength gym (warehouse_gym) are B's presets; the current
+  // environment step still draws ENTRY_ENVIRONMENTS until B's screens land.
+  const ENVIRONMENTS = new Set([...ENTRY_ENVIRONMENTS, "everything", "warehouse_gym"]);
+  // B's Basics. Only weight has a use (the first sessions' bodyweight); the
+  // rest stay on the device and never reach the request, a link or telemetry.
+  const BASICS_SEX = new Set(["female", "male", "undisclosed"]);
+  const CARDIO_EXPERIENCE = new Set(["none", "under_1y", "1_to_4y", "over_4y"]);
+  const HEIGHT_UNITS = new Set(["cm", "ftin"]);
+  const WEIGHT_UNITS = new Set(["kg", "lb"]);
+  const BASICS_KEYS = new Set(["sex", "birthDate", "heightCm", "heightUnit", "weightKg", "weightUnit", "cardioExperience"]);
+  const BLOCK_PERIODIZATIONS = new Set(["static", "linear", "reverse_linear", "undulating"]);
+  const MAX_CONFIRMATIONS = 160;
+  const MAX_CONFIRMATION_PREREQUISITES = 8;
   const CONSTRAINT_REASONS = Object.freeze(["dislike", "pain", "equipment", "other"]);
   const VERSION_KEYS = Object.freeze([
     "compiler",
@@ -366,28 +382,97 @@
       issues.push(`${path}:required`);
       return {};
     }
-    rejectUnknownKeys(value, new Set(["kind", "capabilities", "equipment"]), path, issues);
+    // `equipment` and `capabilities` were a coarse vocabulary nothing read.
+    // A stored draft may still carry them, so they are accepted and dropped.
+    rejectUnknownKeys(value, new Set(["kind", "adjust", "capabilities", "equipment"]), path, issues);
     if (!ENVIRONMENTS.has(value.kind)) issues.push(`${path}.kind:invalid`);
     const output = { kind: value.kind };
-    if (hasOwn(value, "capabilities")) {
-      const caps = normalizeTokenList(value.capabilities, `${path}.capabilities`, issues, MAX_LIST_LENGTH);
-      output.capabilities = caps.filter((token) => {
-        if (!KNOWN_CAPABILITIES_SET.has(token)) {
-          issues.push(`${path}.capabilities:unknown_capability`);
-          return false;
-        }
-        return true;
-      });
+    if (hasOwn(value, "adjust")) {
+      const adjust = normalizeEquipmentAdjust(value.adjust, `${path}.adjust`, issues);
+      if (adjust) output.adjust = adjust;
     }
-    if (hasOwn(value, "equipment")) {
-      const equipment = normalizeTokenList(value.equipment, `${path}.equipment`, issues, MAX_LIST_LENGTH);
-      output.equipment = equipment.filter((token) => {
-        if (!KNOWN_EQUIPMENT_SET.has(token)) {
-          issues.push(`${path}.equipment:unknown_equipment`);
-          return false;
-        }
-        return true;
-      });
+    return output;
+  }
+
+  // Groups added to and removed from the preset, sorted. Unknown groups are
+  // dropped, and a group in both lists cancels out.
+  function normalizeEquipmentAdjust(value, path, issues) {
+    if (!isPlainObject(value)) {
+      issues.push(`${path}:not_object`);
+      return null;
+    }
+    rejectUnknownKeys(value, new Set(["add", "remove"]), path, issues);
+    const lists = {};
+    for (const key of ["add", "remove"]) {
+      const raw = hasOwn(value, key) ? value[key] : [];
+      if (!Array.isArray(raw) || raw.length > EQUIPMENT_GROUPS.length * 2 || raw.some((token) => typeof token !== "string")) {
+        issues.push(`${path}.${key}:invalid`);
+        return null;
+      }
+      lists[key] = new Set(raw.filter((token) => EQUIPMENT_GROUP_SET.has(token)));
+    }
+    const only = (from, other) => EQUIPMENT_GROUPS.filter((token) => from.has(token) && !other.has(token));
+    return { add: only(lists.add, lists.remove), remove: only(lists.remove, lists.add) };
+  }
+
+  function validBirthDate(value) {
+    const match = typeof value === "string" ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(value) : null;
+    if (!match) return false;
+    const [year, month, day] = match.slice(1).map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    return year >= 1900 && year <= 2100 && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+  }
+
+  function normalizeBasics(value, path, issues) {
+    if (!isPlainObject(value)) {
+      issues.push(`${path}:not_object`);
+      return {};
+    }
+    rejectUnknownKeys(value, BASICS_KEYS, path, issues);
+    const output = {};
+    const take = (key, valid) => {
+      if (!hasOwn(value, key) || value[key] === null) return;
+      if (!valid(value[key])) issues.push(`${path}.${key}:invalid`);
+      else output[key] = value[key];
+    };
+    const tenth = (min, max) => (number) => Number.isFinite(number) && number >= min && number <= max
+      && Math.abs(Math.round(number * 10) - number * 10) < 1e-9;
+    take("sex", (item) => BASICS_SEX.has(item));
+    take("birthDate", validBirthDate);
+    take("heightCm", tenth(100, 250));
+    take("heightUnit", (item) => HEIGHT_UNITS.has(item));
+    take("weightKg", tenth(25, 350));
+    take("weightUnit", (item) => WEIGHT_UNITS.has(item));
+    take("cardioExperience", (item) => CARDIO_EXPERIENCE.has(item));
+    return output;
+  }
+
+  function normalizeBlock(value, path, issues) {
+    if (!isPlainObject(value)) {
+      issues.push(`${path}:not_object`);
+      return null;
+    }
+    rejectUnknownKeys(value, new Set(["cycles", "periodization"]), path, issues);
+    if (!Number.isInteger(value.cycles) || value.cycles < 4 || value.cycles > 12) issues.push(`${path}.cycles:invalid`);
+    if (!BLOCK_PERIODIZATIONS.has(value.periodization)) issues.push(`${path}.periodization:invalid`);
+    return { cycles: value.cycles, periodization: value.periodization };
+  }
+
+  // Shape only: whether an exercise and its prerequisites are current catalog
+  // objects is the adapter's check, against the catalog it generates from.
+  function normalizeConfirmations(value, path, issues) {
+    if (!isPlainObject(value) || Object.keys(value).length > MAX_CONFIRMATIONS) {
+      issues.push(`${path}:invalid`);
+      return {};
+    }
+    const output = {};
+    for (const exerciseId of Object.keys(value).sort()) {
+      if (!validToken(exerciseId) || !Array.isArray(value[exerciseId])) {
+        issues.push(`${path}.${exerciseId}:invalid`);
+        continue;
+      }
+      output[exerciseId] = [...new Set(normalizeTokenList(value[exerciseId], `${path}.${exerciseId}`, issues,
+        MAX_CONFIRMATION_PREREQUISITES))].sort();
     }
     return output;
   }
@@ -602,6 +687,10 @@
       "importReady",
       "sharedReady",
       "programRequest",
+      "basics",
+      "block",
+      "deload",
+      "movementConfirmations",
     ]);
     rejectUnknownKeys(raw, allowed, "$.answers", issues);
     const output = {};
@@ -631,6 +720,18 @@
       else output.preferredRestSeconds = raw.preferredRestSeconds;
     }
     if (hasOwn(raw, "environment")) output.environment = normalizeEnvironment(raw.environment, "$.answers.environment", issues);
+    if (hasOwn(raw, "basics")) output.basics = normalizeBasics(raw.basics, "$.answers.basics", issues);
+    if (hasOwn(raw, "block")) {
+      const block = normalizeBlock(raw.block, "$.answers.block", issues);
+      if (block) output.block = block;
+    }
+    if (hasOwn(raw, "deload")) {
+      if (typeof raw.deload !== "boolean") issues.push("$.answers.deload:invalid");
+      else output.deload = raw.deload;
+    }
+    if (hasOwn(raw, "movementConfirmations")) {
+      output.movementConfirmations = normalizeConfirmations(raw.movementConfirmations, "$.answers.movementConfirmations", issues);
+    }
     const listFields = {
       primaryMuscles: 2,
       priorityMovements: 2,
@@ -1835,7 +1936,7 @@
     MAX_DRAFT_ENVELOPE_BYTES,
     MAX_MUSCLE_CONTROLS,
     KNOWN_EQUIPMENT,
-    KNOWN_CAPABILITIES,
+    EQUIPMENT_GROUPS,
     ENTRY_MUSCLES,
     MUSCLE_TOKENS,
     MUSCLE_ATTRIBUTION_MAX_LENGTH,

@@ -38,7 +38,9 @@ function withEquipment(request, equipmentIds) {
 
 const digests = {};
 for (const { key, request, seed } of corpusCases({ Adapter, Catalog })) {
-  const generated = Compiler.generateProgram(request, Catalog, seed);
+  // Confirmation offers (Plan 072) are diagnostics beside the result; the
+  // recorded digests cover everything else, including the definition.
+  const { confirmationOffers, ...generated } = Compiler.generateProgram(request, Catalog, seed);
   digests[key] = `${generated.ok ? "ok" : "conflict"}:${crypto.createHash("sha256").update(JSON.stringify(generated)).digest("hex")}`;
 }
 

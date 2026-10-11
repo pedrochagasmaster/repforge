@@ -505,11 +505,15 @@
         _job: resolvedJob,
       });
     }
-    candidates.sort((left, right) => left.roleTier - right.roleTier
+    candidates.sort(compareCandidates);
+    return { verdicts, candidates, policyIssues: [] };
+  }
+
+  function compareCandidates(left, right) {
+    return left.roleTier - right.roleTier
       || Number(right._preferred) - Number(left._preferred)
       || left._seedRank - right._seedRank
-      || left.exerciseId.localeCompare(right.exerciseId));
-    return { verdicts, candidates, policyIssues: [] };
+      || left.exerciseId.localeCompare(right.exerciseId);
   }
 
   function usedFailure(exercise, usedIds, usedGroups) {
@@ -706,7 +710,66 @@
       code: "no_complete_program", message: "The hard constraints leave no complete program without repeated or conflicting movements.",
     });
     if (!ok) return { ok: false, conflicts: uniqueConflicts(conflicts) };
-    return { ok: true, assignments };
+    return { ok: true, assignments, pools, roles };
+  }
+
+  // Diagnostic output beside the definition (Plan 072, Plan 068 slice C): for
+  // each selected slot, the best-ranked candidate blocked only by
+  // prerequisites nobody has answered, which a confirmation would rank above
+  // the selection. A "no" answer is never overridden. It reads the selection's
+  // own pools and changes no selection state, so `value` is unchanged; the
+  // adapter verifies that a confirmation actually lands where it is offered.
+  function confirmationOffers(days, selected, slotPositions, request, catalog) {
+    const offers = [];
+    for (const day of days) {
+      for (const slot of day.slots) {
+        const position = slotPositions.get(slot.id);
+        const assignment = position === undefined ? null : selected.assignments[position];
+        if (!assignment || assignment.candidate._exercise.id !== slot.exerciseId) continue;
+        const usedIds = new Set();
+        const usedGroups = new Set();
+        selected.assignments.forEach((other, index) => {
+          if (index === position || !other) return;
+          const exercise = other.candidate._exercise;
+          usedIds.add(exercise.id);
+          (Array.isArray(exercise.exclusionGroupings) ? exercise.exclusionGroupings : []).forEach((id) => usedGroups.add(id));
+        });
+        const role = selected.roles[position];
+        const resolvedJob = assignment.candidate._job;
+        let best = null;
+        for (const { exercise, failure } of selected.pools[position].verdicts) {
+          if (failure !== "prerequisite_confirmation_required") continue;
+          // Ranking first: it is cheap, and most blocked movements rank below.
+          const candidate = {
+            exerciseId: exercise.id,
+            roleTier: roleTier(exercise, role),
+            _preferred: (request.preferredExerciseIds || []).includes(exercise.id),
+            _seedRank: seedRank(request.seed, assignment.job.purposeId, exercise.id),
+          };
+          if (compareCandidates(candidate, assignment.candidate) >= 0) continue;
+          if (best && compareCandidates(candidate, best.candidate) >= 0) continue;
+          const prerequisites = prerequisitesSatisfied(exercise, request, catalog);
+          if (prerequisites.ok || prerequisites.failures.some((item) => item.reason !== "movement_confirmation_required")) continue;
+          const prerequisiteIds = prerequisites.failures.map((item) => item.prerequisiteId).sort();
+          const confirmed = {
+            ...request,
+            movementConfirmations: {
+              ...request.movementConfirmations,
+              [exercise.id]: unique([...(request.movementConfirmations?.[exercise.id] || []), ...prerequisiteIds]),
+            },
+          };
+          if (candidateFailure(exercise, resolvedJob, role, confirmed, catalog, new Set(), usedIds, usedGroups)) continue;
+          best = { candidate, prerequisiteIds };
+        }
+        if (best) {
+          offers.push({
+            dayId: day.id, slotId: slot.id, currentExerciseId: slot.exerciseId,
+            offeredExerciseId: best.candidate.exerciseId, prerequisiteIds: best.prerequisiteIds,
+          });
+        }
+      }
+    }
+    return offers;
   }
 
   function uniqueConflicts(conflicts) {
@@ -861,10 +924,12 @@
     if (!selected.ok) return failure(selected.conflicts);
     const { days, idForName } = rawDays(jobs, request, seedValue);
     const slotsByName = new Map();
+    const slotPositions = new Map();
     selected.assignments.forEach((assignment, index) => {
       const day = days.find((entry) => entry.id === idForName.get(assignment.job.day));
       if (!day) return;
       const slot = createInternalSlot(assignment, day, index + 1, request, seedValue, catalogSnapshot);
+      slotPositions.set(slot.id, index);
       day.slots.push(slot);
       if (!slotsByName.has(day.name)) slotsByName.set(day.name, []);
       slotsByName.get(day.name).push(slot);
@@ -926,7 +991,10 @@
     };
     const checked = validateProgramDefinition(output, catalogSnapshot);
     if (!checked.ok) return failure([{ code: "generated_program_invalid", field: "program", issues: checked.issues }]);
-    return { ok: true, value: output, conflicts: [], explanations: buildExplanations(output, fit, focus) };
+    return {
+      ok: true, value: output, conflicts: [], explanations: buildExplanations(output, fit, focus),
+      confirmationOffers: confirmationOffers(days, selected, slotPositions, request, catalogSnapshot),
+    };
   }
 
   function applyEmphasis(request, days, jobs, catalog, seed) {
@@ -1519,6 +1587,7 @@
     EXPERIENCES,
     TIME_CEILINGS,
     PERIODIZATIONS,
+    PRECONDITION_COMPETENCIES,
     METRIC_SEMANTICS,
     METRIC_SOURCE_IDS,
     generateProgram,

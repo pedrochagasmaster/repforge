@@ -83,7 +83,7 @@ function validContext() {
       sessionMinutes: 60,
       preferredRestSeconds: 120,
     },
-    environment: { kind: "commercial_gym", capabilities: ["safe_pull"], equipment: ["barbell", "cable"] },
+    environment: { kind: "commercial_gym" },
     primaryMuscles: ["back"],
     deEmphasizedMuscles: [],
     ignoredMuscles: [],
