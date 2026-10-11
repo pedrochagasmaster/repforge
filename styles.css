@@ -3537,7 +3537,7 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
   .today-rx__grid{grid-template-columns:1rem minmax(0,1fr) auto}
   .today-rx__grid > .rxrow .rxrow__name{grid-column:2 / -1}
   .today-rx__grid > .rxrow .rxrow__load{grid-column:2;text-align:left}
-  .today-rx__grid > .rxrow .rxrow__target{grid-column:3}
+  .today-rx__grid > .rxrow .rxrow__target{grid-column:3;white-space:normal}
 }
 #todayDash #upNextBtn .listrow__sub{white-space:normal;overflow:visible;text-overflow:clip}
 .segbar__seg{flex:1;height:4px;border-radius:var(--radius-pill);background:var(--boundary-required)}

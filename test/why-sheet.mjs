@@ -103,6 +103,34 @@ async function fillShelf(page, metricId, value) {
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
 }
 
+async function measureLargeTextTodayTarget(page, rowId) {
+  const style = await page.addStyleTag({ content: "html { font-size: 32px !important; }" });
+  try {
+    await page.evaluate(() => new Promise(requestAnimationFrame));
+    return await page.evaluate((id) => {
+      const root = document.documentElement;
+      const target = document.querySelector(`#todayDash .rxrow[data-exopen="${CSS.escape(id)}"] .rxrow__target`);
+      if (!target) return null;
+      const rect = target.getBoundingClientRect();
+      const lineHeight = Number.parseFloat(getComputedStyle(target).lineHeight);
+      return {
+        language: window.RepForgeI18n.getLang(),
+        viewport: root.clientWidth,
+        document: root.scrollWidth,
+        text: target.textContent.replace(/\s+/g, " ").trim(),
+        left: rect.left,
+        right: rect.right,
+        width: target.clientWidth,
+        scrollWidth: target.scrollWidth,
+        height: target.scrollHeight,
+        lineHeight,
+      };
+    }, rowId);
+  } finally {
+    await style.evaluate((node) => node.remove());
+  }
+}
+
 async function logSet(page, slotId, ordinal, { load, reps, rir }) {
   if (load != null) await fillShelf(page, WEIGHT, load);
   if (reps != null) await fillShelf(page, REPS, reps);
@@ -279,6 +307,13 @@ try {
   }, perSideProgram.perSide.rowId);
   assert(perSideToday?.target === `${perSideTruth.sets} × ${perSideTruth.min}–${perSideTruth.max} · Needs setup` && perSideToday.load === "–",
     "P069-S1-CUE: Today shows the generated per-side sets × range without a load suggestion", JSON.stringify(perSideToday));
+  const perSideLargeText = await measureLargeTextTodayTarget(perSidePage, perSideProgram.perSide.rowId);
+  assert(perSideLargeText?.language === "en" && perSideLargeText.text === perSideToday.target &&
+    perSideLargeText.document <= perSideLargeText.viewport && perSideLargeText.left >= 0 &&
+    perSideLargeText.right <= perSideLargeText.viewport + 1 && perSideLargeText.scrollWidth <= perSideLargeText.width + 1 &&
+    perSideLargeText.height > perSideLargeText.lineHeight * 1.5,
+  "P069-S1-CUE: the English setup-required Today target wraps at 200% text without horizontal overflow", perSideLargeText);
+  console.log(`  EN setup-required 200% target geometry: ${JSON.stringify(perSideLargeText)}`);
   await perSideContext.close();
 
   // ------------------------------------------------------------ session 1
@@ -412,6 +447,13 @@ try {
   }, buildRow.id);
   assert(buildToday?.target === `${buildRow.sets} × ${buildRow.min}–${buildRow.max} · Your targets` && buildToday.load === "–",
     "P069-S1-CUE: Today shows a Build slot's sets × range without a load suggestion", JSON.stringify(buildToday));
+  const buildLargeText = await measureLargeTextTodayTarget(buildPage, buildRow.id);
+  assert(buildLargeText?.language === "en" && buildLargeText.text === buildToday.target &&
+    buildLargeText.document <= buildLargeText.viewport && buildLargeText.left >= 0 &&
+    buildLargeText.right <= buildLargeText.viewport + 1 && buildLargeText.scrollWidth <= buildLargeText.width + 1 &&
+    buildLargeText.height > buildLargeText.lineHeight * 1.5,
+  "P069-S1-CUE: the English Today target wraps at 200% text without horizontal overflow", buildLargeText);
+  console.log(`  EN manual 200% target geometry: ${JSON.stringify(buildLargeText)}`);
   await buildPage.evaluate((day) => window.__repforgeEnterWorkout({ day }), buildRow.day);
   await buildPage.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 10000 });
   const buildCue = await focusCue(buildPage);
@@ -423,6 +465,41 @@ try {
     "P069-S1-WHY: a Build slot has no invented target and Why stays neutral about who chose the range", buildWhy);
   assert(buildErrors.length === 0, "no page errors in the Build Why journey", buildErrors);
   await buildContext.close();
+
+  const buildPtContext = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "pt-BR" });
+  try {
+    const buildPtPage = await buildPtContext.newPage();
+    await buildPtPage.clock.setFixedTime(new Date("2026-03-02T09:00:00.000Z"));
+    await buildPtPage.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForAppBoot(buildPtPage, { base: BASE });
+    const ptProgram = await seed(buildPtPage);
+    if (!ptProgram) throw new Error("no generated Build and per-side rows in the Portuguese target-wrap proof");
+    const ptRows = await buildPtPage.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1") || "{}").program || []);
+    const ptBuildRow = ptRows.find((row) => row.slotId === ptProgram.slotId);
+    const ptPerSideRow = ptRows.find((row) => row.slotId === ptProgram.perSide.slotId);
+    if (!ptBuildRow || !ptPerSideRow) throw new Error("Portuguese target-wrap proof rows are missing from the program");
+    const ptTargets = await buildPtPage.evaluate(({ buildId, perSideId }) => {
+      const text = (id) => document.querySelector(`#todayDash .rxrow[data-exopen="${CSS.escape(id)}"] .rxrow__target`)
+        ?.textContent?.replace(/\s+/g, " ").trim() || "";
+      return { build: text(buildId), perSide: text(perSideId) };
+    }, { buildId: ptBuildRow.id, perSideId: ptPerSideRow.id });
+    const ptBuildLargeText = await measureLargeTextTodayTarget(buildPtPage, ptBuildRow.id);
+    const ptPerSideLargeText = await measureLargeTextTodayTarget(buildPtPage, ptPerSideRow.id);
+    assert(ptBuildLargeText?.language === "pt" && ptTargets.build === `${ptBuildRow.sets} × ${ptBuildRow.min}–${ptBuildRow.max} · Suas metas` &&
+      ptBuildLargeText.text === ptTargets.build && ptBuildLargeText.document <= ptBuildLargeText.viewport &&
+      ptBuildLargeText.left >= 0 && ptBuildLargeText.right <= ptBuildLargeText.viewport + 1 &&
+      ptBuildLargeText.scrollWidth <= ptBuildLargeText.width + 1 && ptBuildLargeText.height > ptBuildLargeText.lineHeight * 1.5,
+    "P069-S1-CUE: the Portuguese manual Today target wraps at 200% text without horizontal overflow", ptBuildLargeText);
+    console.log(`  PT manual 200% target geometry: ${JSON.stringify(ptBuildLargeText)}`);
+    assert(ptPerSideLargeText?.language === "pt" && ptTargets.perSide === `${ptPerSideRow.sets} × ${ptPerSideRow.min}–${ptPerSideRow.max} · Precisa de configuração` &&
+      ptPerSideLargeText.text === ptTargets.perSide && ptPerSideLargeText.document <= ptPerSideLargeText.viewport &&
+      ptPerSideLargeText.left >= 0 && ptPerSideLargeText.right <= ptPerSideLargeText.viewport + 1 &&
+      ptPerSideLargeText.scrollWidth <= ptPerSideLargeText.width + 1 && ptPerSideLargeText.height > ptPerSideLargeText.lineHeight * 1.5,
+    "P069-S1-CUE: the Portuguese setup-required Today target wraps at 200% text without horizontal overflow", ptPerSideLargeText);
+    console.log(`  PT setup-required 200% target geometry: ${JSON.stringify(ptPerSideLargeText)}`);
+  } finally {
+    await buildPtContext.close();
+  }
 
   assert(errors.length === 0, "no page errors during the why-sheet sessions", errors);
 } finally {
