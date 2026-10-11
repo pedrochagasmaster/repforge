@@ -12184,11 +12184,12 @@ function renderProfileSettings(){
   if(!row||!panel||!list)return;
   const profile=state.profile||{};
   const rows=profileRows(profile);
-  row.hidden=!rows.length;
+  const hasProfileRecord=Object.prototype.hasOwnProperty.call(state,"profile");
+  row.hidden=!rows.length&&!hasProfileRecord;
   if(!rows.length)setDisclosure(row,panel,false);
   list.innerHTML=rows.map(([label,value])=>`<div class="settings-profile__row"><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`).join("")}
 async function clearProfile(){
-  if(!state.profile||!confirm(t("settings.profile.clear_confirm")))return;
+  if(!Object.prototype.hasOwnProperty.call(state,"profile")||!confirm(t("settings.profile.clear_confirm")))return;
   const proposal=cloneSnapshot(state);delete proposal.profile;
   const result=await commitProposedState(proposal);
   if(result.localOk||result.idbOk){renderProfileSettings();toast(t("settings.profile.cleared"))}}

@@ -1454,6 +1454,8 @@ async function runProfileDestinationProtection(browser, envelope) {
 async function runMalformedProfileSettings(browser) {
   console.log("\nPlan 072 OD-4 malformed profile values stay out of Settings consumers");
   const profiles = [
+    ["malformed birth date only", { birthDate: { raw: "retain-me" } }, 0, ["retain-me"]],
+    ["unknown-only profile", { futureAnswer: "retain-me" }, 0, ["retain-me"]],
     ["object birth date", { sex: "female", birthDate: { raw: "retain-me" }, weightKg: 83 }, 2, ["retain-me"]],
     ["invalid birth date", { sex: "female", birthDate: "not-a-date", weightKg: 83 }, 2, ["Invalid Date", "not-a-date"]],
     ["string weight", { sex: "female", birthDate: "1990-03-10", weightKg: "83" }, 2, ["83"]],
@@ -1500,10 +1502,46 @@ async function runMalformedProfileSettings(browser) {
         values: [...(document.querySelector("#profileList")?.querySelectorAll("dd") || [])].map((node) => node.textContent),
         profileText: document.querySelector("#profileList")?.textContent || "",
       })) : null;
+      let clearActionVisible = false;
+      let profileDeletedAndStillDeletedAfterReload = false;
+      if ((label === "malformed birth date only" || label === "unknown-only profile") &&
+        booted && settings?.visible && !settings.profileRowHidden) {
+        await page.click("#profileRow");
+        await page.waitForFunction(() => document.querySelector("#profileRow")?.getAttribute("aria-expanded") === "true");
+        clearActionVisible = await page.locator("#profileClear").isVisible();
+        if (clearActionVisible) {
+          page.removeAllListeners("dialog");
+          page.once("dialog", (dialog) => dialog.accept());
+          await page.click("#profileClear");
+          page.on("dialog", (dialog) => dialog.dismiss().catch(() => {}));
+          await page.waitForFunction(({ stateKey }) => {
+            try {
+              const state = JSON.parse(localStorage.getItem(stateKey) || "null");
+              return state && !Object.prototype.hasOwnProperty.call(state, "profile");
+            } catch { return false; }
+          }, { stateKey: STATE_KEY });
+          await page.reload({ waitUntil: "domcontentloaded" });
+          let deleteReloadBooted = false;
+          try {
+            await waitForAppBoot(page, { base: BASE, timeout: 10000 });
+            deleteReloadBooted = true;
+            await flush(page);
+          } catch {}
+          profileDeletedAndStillDeletedAfterReload = deleteReloadBooted && await page.evaluate(({ stateKey }) => {
+            try {
+              const state = JSON.parse(localStorage.getItem(stateKey) || "null");
+              return !!state && !Object.prototype.hasOwnProperty.call(state, "profile");
+            } catch { return false; }
+          }, { stateKey: STATE_KEY });
+        }
+      }
       const currentErrors = pageErrors.slice(errorCount);
       check(booted && settings?.visible && !settings.profileRowHidden && settings.values.length === expectedRows &&
-        excludedText.every((value) => !settings.profileText.includes(value)) && currentErrors.length === 0,
-      `${label}: Settings displays only independently valid profile values`, { settings, currentErrors, bootError });
+        excludedText.every((value) => !settings.profileText.includes(value)) && currentErrors.length === 0 &&
+        ((label !== "malformed birth date only" && label !== "unknown-only profile") ||
+          (clearActionVisible && profileDeletedAndStillDeletedAfterReload)),
+      `${label}: Settings displays only valid values and its explicit Delete action removes the raw record through reload`,
+      { settings, clearActionVisible, profileDeletedAndStillDeletedAfterReload, currentErrors, bootError });
 
     }
   } finally {
