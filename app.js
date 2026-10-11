@@ -7041,6 +7041,7 @@ const TODAY_TALLY_KEYS={
   manual:["today.tally.manual.one","today.tally.manual.other"]};
 /** One word for a recommendation, from the status and reason the engine attached. */
 function rxVerdict(rec){
+  if(rec.status==="configuration_required")return"configuration_required";
   if(rec.status==="manual")return"manual";
   if(rec.status==="new")return"new";
   if(rec.status==="add"||rec.status==="add2")return"up";
@@ -7059,7 +7060,8 @@ function rxSetsLine(sets,withUnit){
     :rows.map(x=>`${fmtLoad(x.load)} × ${x.reps}`).join(", ")}
 function rxTargetText(ex,rec){
   if(ex?.hasRepTarget===false)return programPrescriptionSummary(ex);
-  if(rec.status==="manual"||rec.status==="configuration_required")return `${ex.sets} × ${ex.min}–${ex.max}`;
+  if(rec.status==="manual")return t("today.target.manual",{sets:ex.sets,min:ex.min,max:ex.max});
+  if(rec.status==="configuration_required")return t("today.target.setup",{sets:ex.sets,min:ex.min,max:ex.max});
   if(Array.isArray(rec.targetSets)){const first=setSuggestion(ex,1,rec,{},null);return `${ex.sets} × ${first.reps??ex.min}`}
   const strategy=strategyIdFor(ex),params=progressionForExercise(ex)?.strategy?.params||{};
   if(strategy==="rep_goal")return t("today.target.total",{n:params.repGoal});
@@ -7612,7 +7614,7 @@ function setFieldVals(ex,n,r,draft,prev){
   // A metric-backed set's pending value sits under its metric input's key.
   const pending=field=>pendingFields.get(`${ex.id}_${n}_${field}`)?.value??metricPendingValue(ex.id,n,field);
   const old=prev.find(x=>x.set===n),draftKg=pending("load")??draft[`${ex.id}_${n}_load`],sg=setSuggestion(ex,n,r,draft,old);
-  const kgVal=draftKg!=null?draftKg:(sg.load!=null?fmtLoadPlain(sg.load):(r.status==="manual"?"":(old&&old.load!=null?fmtLoadPlain(old.load):"")));
+  const kgVal=draftKg!=null?draftKg:(sg.load!=null?fmtLoadPlain(sg.load):((r.status==="manual"||r.status==="configuration_required")?"":(old&&old.load!=null?fmtLoadPlain(old.load):"")));
   const repsVal=pending("reps")??draft[`${ex.id}_${n}_reps`]??(sg.reps!=null?sg.reps:(r.status==="manual"?"":(old&&old.reps!=null?old.reps:ex.min)));
   const key=`${ex.id}_${n}`,isW=warmups.has(key);
   const effortVal=pending("effort")||draft[`${key}_effort`]||(old&&old.rir!=null?effortForRir(old.rir):"hard");
@@ -7660,8 +7662,10 @@ function focusCue(ex,n,r,draft,prev,editing){
   if(editing){const text=t("focus.cue.editing_set",{n,total:ex.sets});
     return{kind:"edit",move:"",headHtml:esc(text),sub:""}}
   const sg=setSuggestion(ex,n,r,draft,prev.find(x=>x.set===n));
-  if(r.status==="manual"){const head=t("program.progression.strategy.manual");
-    return{kind:"manual",move:"",headHtml:esc(head),sub:t("focus.cue.reps",{reps:`${ex.min}–${ex.max}`})}}
+  if(r.status==="manual")return{kind:"manual",move:"",headHtml:esc(t("focus.cue.your_targets")),
+    sub:t("focus.cue.range_reps",{reps:`${ex.min}–${ex.max}`})};
+  if(r.status==="configuration_required")return{kind:"setup",move:"",headHtml:esc(t("focus.cue.needs_setup")),
+    sub:t("focus.cue.range_reps",{reps:`${ex.min}–${ex.max}`})};
   if(sg.load==null){const head=t("focus.cue.pick_load",{min:ex.min,max:ex.max});
     return{kind:"start",move:"",headHtml:esc(head),sub:""}}
   // A canonical target's move is the engine's: against this session's last set
@@ -19131,7 +19135,14 @@ function whySheetModel(ex,surface="focus"){
     decision:head.inSession&&rec.label?t("why.decision_before",{label:rec.label}):rec.label,glyph,blocks:[],calc:[],evidence:""};
   const placed=new Set(),take=k=>{const r=pick(k);if(r)placed.add(r);return r};
   const block=(leadKey,lead,text,label)=>model.blocks.push({leadKey,lead,text,...(label?{label}:{})});
-  if(rec.status==="manual"){block("manual",t("why.lead.manual"),t("why.manual"));return model}
+  if(rec.status==="manual"){block("manual","",t("why.manual"));return model}
+  if(rec.status==="configuration_required"&&rec.reasonCodes?.includes("per_side_convention_required")){
+    const slotId=String(ex?.slotId||ex?.id||"");
+    const slot=(state.programMeta?.programDefinition?.days||[]).flatMap(day=>day.slots||[]).find(item=>item?.id===slotId);
+    const mode=slot?.executionMode;
+    if(mode==="bilateral"||mode==="unilateral")
+      block("setup","",t("why.setup.per_side",{mode:t(`why.setup.mode.${mode}`)}));
+    return model}
   if(Array.isArray(rec.targetSets))return engineWhyModel(ex,rec,model,head);
   const draft=loadDraft(),prev=last(ex).filter(x=>+x.load>0),performed=whyPerformedText(prev,u);
   const calc=model.calc,setRows=sets=>sets.forEach((x,i)=>calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${x.reps}`,rir:effortOrRirLabel(x.rir)}));

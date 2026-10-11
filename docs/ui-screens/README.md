@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 173 screens,
-1030 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 174 screens,
+1038 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -168,7 +168,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Workout — exercise note](screens/workout/exercise-note__phone-390-light-en.png) | 8 | The per-exercise note sheet. |
 | [Workout — why this weight](screens/workout/why-this-weight__phone-390-light-en.png) | 8 | The recommendation inspector for a range lift: sentences first, each under a bold lead, the working behind See the working, the evidence footer. |
 | [Workout — why this weight, mid-session](screens/workout/why-in-session__phone-390-light-en.png) | 8 | Opened after set 1 is logged: what the set showed (the observed capacity) before the prediction for the next set. |
-| [Workout — why this weight, manual](screens/workout/why-manual__phone-390-light-en.png) | 8 | Manual: one sentence; the program sets the load and the engine does not change it. |
+| [Workout — why this weight, manual](screens/workout/why-manual__phone-390-light-en.png) | 8 | A Build-backed manual range: Why says Taurifer does not suggest a load without saying who chose the range. |
+| [Workout — why this weight, setup required](screens/workout/why-setup__phone-390-light-en.png) | 8 | A generated per-side slot with a known execution mode and no loading convention: Why explains the missing convention without inventing a load or destination. |
 | [Session details and map](screens/workout/session__phone-390-light-en.png) | 8 | Session details and map through production controls. |
 | [Early finish confirmation](screens/workout/early-finish__phone-390-light-en.png) | 8 | Early finish confirmation through production controls. |
 | [End without saving](screens/workout/abandon__phone-390-light-en.png) | 8 | End without saving, with a reason chip chosen, through production controls. |

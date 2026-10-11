@@ -6,10 +6,30 @@
  * page through all 35 screens in order, so a single broken step silently
  * poisoned every frame after it.
  */
+import { readFileSync } from "node:fs";
 import { catalogState, directionDState, emptyEntryState, localeState } from "./fixtures.mjs";
 import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, seed, sleep } from "./session.mjs";
 import { definitionSlot, installGeneratedProgram, isWeightRepsSlot, metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
 import { DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID } from "./direction-d-canonical-fixture.generated.mjs";
+
+const WHY_DATA = new URL("../../plans/067/data/", import.meta.url);
+const WHY_GYM = JSON.parse(readFileSync(new URL("gym.json", WHY_DATA), "utf8"));
+const WHY_OBSERVATIONS = JSON.parse(readFileSync(new URL("programs.json", WHY_DATA), "utf8"));
+const WHY_CATALOG = JSON.parse(readFileSync(new URL("app_file.json", WHY_DATA), "utf8"));
+const WHY_OBSERVED_IDS = [...new Set(Object.values(WHY_OBSERVATIONS).flatMap((program) =>
+  program.days.flatMap((day) => day.exercises.map((entry) => entry.exerciseId))))];
+const WHY_REQUEST = {
+  goal: "hypertrophy", experience: "intermediate", daysPerWeek: 4, timeCeilingMinutes: 90,
+  gymProfile: { equipmentIds: WHY_GYM.equipment.map((entry) => entry.equipmentId) },
+  competencyAnswers: {
+    pullups10: null, pullups5: null, pushups15: null, inclineBarbell10: null,
+    overheadPress10: null, bodyweightDips10: null, benchPress10: null,
+  },
+  movementConfirmations: Object.fromEntries(WHY_OBSERVED_IDS.map((id) =>
+    [id, [...WHY_CATALOG.exercises.find((entry) => entry.id === id).preconditions]])),
+  emphasisMuscleIds: [], deprioritizedMuscleIds: [], excludedExerciseIds: [], excludedMuscleIds: [],
+  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 4, deloadCycles: [],
+};
 
 export function stabilizeShareUrlForCapture(value) {
   const url = new URL(String(value));
@@ -280,7 +300,7 @@ const D_FIXTURE_STATES = new Set([
  */
 const DIRECTION_D_BEFORE_SESSION = new Set([
   "today/ready", "today/day-picker", "today/rest-bar", "today/draft-resume",
-  "workout/why-this-weight", "workout/why-in-session", "workout/why-manual",
+  "workout/why-this-weight", "workout/why-in-session",
   "workout/rest-running", "workout/rest-done",
 ]);
 function directionDBeforeSession() {
@@ -332,6 +352,7 @@ export function appState(key, lang) {
   if (key === "today/no-program" || key === "program/no-program") {
     return emptyEntryState(lang);
   }
+  if (key === "workout/why-setup") return emptyEntryState(lang);
   if (DIRECTION_D_BEFORE_SESSION.has(key)) return localeState(directionDBeforeSession(), lang);
   if (DIRECTION_D_SUMMARY_SESSION[key]) return localeState(directionDThroughSession(DIRECTION_D_SUMMARY_SESSION[key]), lang);
   if (key.startsWith("progress/sibling-") || key === "progress/volume-reduction-preview" ||
@@ -810,6 +831,69 @@ function whyOnMixedDay(exerciseId, leads) {
   };
 }
 
+async function whyOnBuildRange(page) {
+  const row = catalogState().program[0];
+  await page.evaluate((day) => window.__repforgeEnterWorkout({ day }), row.day);
+  await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 20000 });
+  await page.evaluate((id) => window.__repforgeGoToLogExercise(id), row.id);
+  await page.waitForFunction((id) => document.querySelector("#workout .exercise.is-current")?.dataset.ex === id,
+    row.id, { timeout: 10000 });
+  await page.locator("#workout .exercise.is-current [data-why]").click();
+  await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
+  await expectWhyLeads(page, ["manual"]);
+  const text = await page.locator("#whyBody .whysheet__text").textContent();
+  const expected = await page.evaluate(() => window.RepForgeI18n.t("why.manual"));
+  if (text?.trim() !== expected) throw new Error(`The Build-backed manual Why sentence was ${JSON.stringify(text)}`);
+}
+
+async function whyOnGeneratedPerSide(page) {
+  const target = await page.evaluate(async (request) => {
+    const generated = window.RepForgeProgramCompiler.generateProgram(request,
+      window.RepForgeExerciseCatalog.snapshot(), "why-sheet-067");
+    if (!generated.ok) throw new Error(`generation failed: ${JSON.stringify(generated.conflicts || generated)}`);
+    const definition = generated.value;
+    const perSide = definition.days.filter((day) => day.kind === "training").flatMap((day) =>
+      day.slots.map((slot) => ({ day, slot }))).find(({ slot }) =>
+      slot.metricDefinitions.some((metric) => metric.semantic === "loadPerSideKg") &&
+      slot.metricDefinitions.some((metric) => metric.semantic === "repsPerSide"));
+    if (!perSide) return null;
+    await window.__repforgeFinalizeProgramSetup({
+      programDefinition: definition, name: "Why setup proof", answers: {}, destination: "log", origin: "first-run",
+      draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: "why-sheet-067" },
+    });
+    await window.__repforgeStorage.flush();
+    const program = JSON.parse(localStorage.getItem("repforge_v1") || "{}").program || [];
+    const row = program.find((candidate) => candidate.slotId === perSide.slot.id);
+    return row && { id: row.id, day: perSide.day.name, mode: perSide.slot.executionMode };
+  }, WHY_REQUEST);
+  if (!target || !["bilateral", "unilateral"].includes(target.mode))
+    throw new Error(`The generated per-side fixture lacks its known mode: ${JSON.stringify(target)}`);
+  await page.waitForFunction(() => {
+    const toast = document.querySelector("#toast");
+    return !toast || toast.classList.contains("hidden");
+  }, undefined, { timeout: 10000 });
+  await page.evaluate((day) => window.__repforgeEnterWorkout({ day }), target.day);
+  await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 20000 });
+  await page.evaluate((id) => window.__repforgeGoToLogExercise(id), target.id);
+  await page.waitForFunction((id) => document.querySelector("#workout .exercise.is-current")?.dataset.ex === id,
+    target.id, { timeout: 10000 });
+  const truth = await page.evaluate((id) => {
+    const ex = window.__repforgeProgression.programSlot(id);
+    const rec = window.__repforgeProgression.recommendation(ex);
+    return { status: rec.status, reasonCodes: rec.reasonCodes, load: rec.load };
+  }, target.id);
+  if (truth.status !== "configuration_required" || !truth.reasonCodes?.includes("per_side_convention_required") || truth.load != null)
+    throw new Error(`The generated slot lost its configuration reason or acquired a load: ${JSON.stringify(truth)}`);
+  await page.locator("#workout .exercise.is-current [data-why]").click();
+  await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
+  await expectWhyLeads(page, ["setup"]);
+  const text = await page.locator("#whyBody .whysheet__text").textContent();
+  const expected = await page.evaluate((mode) => window.RepForgeI18n.t("why.setup.per_side", {
+    mode: window.RepForgeI18n.t(`why.setup.mode.${mode}`),
+  }), target.mode);
+  if (text?.trim() !== expected) throw new Error(`The generated per-side Why sentence was ${JSON.stringify(text)}`);
+}
+
 export const APP_SCENARIOS = {
   "catalog-recovery/unavailable": reloadWithUnavailableExerciseCatalog,
   "catalog-recovery/retry-failed": async page => {
@@ -1176,7 +1260,8 @@ export const APP_SCENARIOS = {
     await sleep(page, 400);
     await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions"]);
   },
-  "workout/why-manual": whyOnMixedDay("ex-cp", ["manual"]),
+  "workout/why-manual": whyOnBuildRange,
+  "workout/why-setup": whyOnGeneratedPerSide,
 
   "session/summary": async (page) => {
     await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary"]);

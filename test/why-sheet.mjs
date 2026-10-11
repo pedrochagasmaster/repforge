@@ -264,8 +264,9 @@ try {
     "P069-S1-CUE: Focus labels the generated per-side range Needs setup", JSON.stringify({ cue: perSideCue, truth: perSideTruth }));
   const perSideWhy = await openWhy(perSidePage);
   const perSideWhyText = perSideWhy.blocks.map((block) => block.text).join(" ");
-  assert(!/the program sets this load/i.test(perSideWhyText) && /per[- ]side/i.test(perSideWhyText),
-    "P069-S1-WHY: generated per-side Why names the missing per-side convention without claiming the program sets a load", perSideWhy);
+  const expectedPerSideWhy = `The movement is marked ${perSideTruth.executionMode}, but Taurifer lacks the per-side loading convention it needs to interpret the load and suggest a target.`;
+  assert(perSideWhyText === expectedPerSideWhy,
+    "P069-S1-WHY: generated per-side Why preserves the known mode and explains the missing loading convention", perSideWhy);
   await closeWhy(perSidePage);
   await perSidePage.evaluate(() => window.__repforgeLeaveWorkout());
   await perSidePage.waitForFunction(() => !document.querySelector("#todayDash")?.classList.contains("hidden"), undefined, { timeout: 10000 });
@@ -276,10 +277,8 @@ try {
       load: row.querySelector(".rxrow__load")?.textContent?.trim() || "",
     } : null;
   }, perSideProgram.perSide.rowId);
-  assert(perSideToday?.target.includes(`${perSideTruth.sets} × ${perSideTruth.min}–${perSideTruth.max}`) && perSideToday.load === "–",
+  assert(perSideToday?.target === `${perSideTruth.sets} × ${perSideTruth.min}–${perSideTruth.max} · Needs setup` && perSideToday.load === "–",
     "P069-S1-CUE: Today shows the generated per-side sets × range without a load suggestion", JSON.stringify(perSideToday));
-  assert(perSideToday?.target.includes("Needs setup"),
-    "P069-S1-CUE: Today labels the generated per-side range Needs setup", JSON.stringify(perSideToday));
   await perSideContext.close();
 
   // ------------------------------------------------------------ session 1
@@ -411,10 +410,8 @@ try {
       load: row.querySelector(".rxrow__load")?.textContent?.trim() || "",
     } : null;
   }, buildRow.id);
-  assert(buildToday?.target.includes(`${buildRow.sets} × ${buildRow.min}–${buildRow.max}`) && buildToday.load === "–",
+  assert(buildToday?.target === `${buildRow.sets} × ${buildRow.min}–${buildRow.max} · Your targets` && buildToday.load === "–",
     "P069-S1-CUE: Today shows a Build slot's sets × range without a load suggestion", JSON.stringify(buildToday));
-  assert(buildToday?.target.includes("Your targets"),
-    "P069-S1-CUE: Today labels a Build slot's range Your targets", JSON.stringify(buildToday));
   await buildPage.evaluate((day) => window.__repforgeEnterWorkout({ day }), buildRow.day);
   await buildPage.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 10000 });
   const buildCue = await focusCue(buildPage);
@@ -422,8 +419,8 @@ try {
     "P069-S1-CUE: Focus labels a Build slot's stored range as Your targets", JSON.stringify(buildCue));
   const buildWhy = await openWhy(buildPage);
   const buildWhyText = buildWhy.blocks.map((block) => block.text).join(" ");
-  assert(buildWhy.target === "" && buildWhyText.length > 0 && !/the program sets this load/i.test(buildWhyText),
-    "P069-S1-WHY: a Build slot has no invented target and Why does not claim the program sets its load", buildWhy);
+  assert(buildWhy.target === "" && buildWhyText === "This exercise has a rep range, but Taurifer does not suggest a load.",
+    "P069-S1-WHY: a Build slot has no invented target and Why stays neutral about who chose the range", buildWhy);
   assert(buildErrors.length === 0, "no page errors in the Build Why journey", buildErrors);
   await buildContext.close();
 

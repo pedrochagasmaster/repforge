@@ -384,9 +384,14 @@
       "scenario": "Opened after set 1 is logged: what the set showed (the observed capacity) before the prediction for the next set."
     },
     "workout/why-manual": {
-      "owner": "plan-064/r3g",
+      "owner": "plan-069",
       "content": "flat",
-      "scenario": "Manual: one sentence; the program sets the load and the engine does not change it."
+      "scenario": "A Build-backed manual range: Why says Taurifer does not suggest a load without saying who chose the range."
+    },
+    "workout/why-setup": {
+      "owner": "plan-069",
+      "content": "flat",
+      "scenario": "A generated per-side slot with a known execution mode and no loading convention: Why explains the missing convention without inventing a load or destination."
     },
     "session/summary": {
       "owner": "plan-064/r3h",
@@ -5660,7 +5665,8 @@
       "catalogStates": [
         "workout/why-this-weight",
         "workout/why-in-session",
-        "workout/why-manual"
+        "workout/why-manual",
+        "workout/why-setup"
       ]
     },
     {
@@ -5679,7 +5685,8 @@
       "catalogStates": [
         "workout/why-this-weight",
         "workout/why-in-session",
-        "workout/why-manual"
+        "workout/why-manual",
+        "workout/why-setup"
       ]
     },
     {
@@ -5698,7 +5705,8 @@
       "catalogStates": [
         "workout/why-this-weight",
         "workout/why-in-session",
-        "workout/why-manual"
+        "workout/why-manual",
+        "workout/why-setup"
       ]
     },
     {
@@ -5766,6 +5774,7 @@
         "workout/why-this-weight",
         "workout/why-in-session",
         "workout/why-manual",
+        "workout/why-setup",
         "workout/rest-running",
         "workout/rest-done",
         "workout/swap-alternates",
@@ -7625,6 +7634,7 @@
         "workout/warmup-actions",
         "workout/why-in-session",
         "workout/why-manual",
+        "workout/why-setup",
         "workout/why-this-weight",
         "onboarding-recommend/review-day-menu",
         "onboarding-recommend/review-sheet",
@@ -7655,6 +7665,7 @@
         "workout/why-this-weight",
         "workout/why-in-session",
         "workout/why-manual",
+        "workout/why-setup",
         "onboarding-recommend/review-day-menu",
         "onboarding-recommend/review-sheet",
         "onboarding-recommend/review-sheet-swap"
@@ -8631,7 +8642,8 @@
       "catalogStates": [
         "workout/why-this-weight",
         "workout/why-in-session",
-        "workout/why-manual"
+        "workout/why-manual",
+        "workout/why-setup"
       ]
     },
     {
@@ -9608,6 +9620,7 @@
         "workout/substituted-actions",
         "workout/why-in-session",
         "workout/why-manual",
+        "workout/why-setup",
         "workout/rest-running",
         "workout/rest-done"
       ]
@@ -9970,7 +9983,8 @@
         "workout/warmup-actions",
         "workout/why-this-weight",
         "workout/why-in-session",
-        "workout/why-manual"
+        "workout/why-manual",
+        "workout/why-setup"
       ]
     },
     {
