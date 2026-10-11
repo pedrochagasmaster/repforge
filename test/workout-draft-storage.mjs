@@ -127,6 +127,45 @@ async function pinFixedDate(page, iso) {
   }, iso);
 }
 
+/** What the page looked like when a step gave up (#338): the Focus workout, open
+ * layers, what sits on top of the session button, and the draft's session. */
+const crashes = [];
+/** A renderer crash looks like a step that never finishes; say so instead. */
+function noteCrash(page, label) {
+  page.on("crash", () => {
+    crashes.push(`${label} renderer crashed at ${new Date().toISOString()}`);
+    console.error(`renderer crash: ${label}`);
+  });
+}
+async function failureState(page) {
+  const state = await Promise.race([
+    page.evaluate(() => {
+      const visible = (node) => !!node && !node.classList.contains("hidden") && node.getClientRects().length > 0 &&
+        getComputedStyle(node).visibility !== "hidden";
+      const button = document.querySelector("#sessionSheetBtn"), rect = button?.getBoundingClientRect();
+      const top = rect ? document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2) : null;
+      const draft = window.__repforgeWorkoutDraft?.current?.();
+      return {
+        view: document.querySelector(".view.active")?.id || null,
+        workout: document.querySelector("#workout")?.className || null,
+        current: [...document.querySelectorAll("#workout .exercise.is-current")].map((node) => node.dataset.ex),
+        layers: [...document.querySelectorAll(".sheet, [role=dialog], .modal, .overlay, #draftRecovery, #sessionEarlyPrompt")]
+          .filter(visible).map((node) => `${node.tagName.toLowerCase()}#${node.id}.${[...node.classList].join(".")}`),
+        sessionButton: rect ? { rect: [rect.x, rect.y, rect.width, rect.height].map(Math.round), disabled: button.disabled,
+          onTop: top === button || button.contains(top) ? "self" : top ? `${top.tagName.toLowerCase()}#${top.id}.${[...top.classList].join(".")}` : null } : null,
+        active: document.activeElement ? `${document.activeElement.tagName.toLowerCase()}#${document.activeElement.id}` : null,
+        animations: document.getAnimations().filter((a) => a.playState === "running").length,
+        draft: draft ? { day: draft.session?.day, selected: draft.session?.selectedExerciseId, revision: draft.revision } : null,
+        finish: window.__repforgeLastWorkoutFinish === undefined ? "unset" : window.__repforgeLastWorkoutFinish === null ? "null" : "pending-or-settled",
+      };
+    }),
+    new Promise((resolve) => setTimeout(resolve, 5000, "page state unavailable within 5000ms")),
+  ]).catch((error) => `page state unavailable: ${error.message}`);
+  const dir = process.env.REPFORGE_ARTIFACT_DIR;
+  if (dir) await page.screenshot({ path: `${dir}/failure.png`, timeout: 5000 }).catch(() => {});
+  return state;
+}
+
 async function waitForBoot(page) {
   await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
   await page.evaluate(() => {
@@ -314,6 +353,7 @@ async function main() {
     serviceWorkers: "block",
   });
   let page = await openApp(context);
+  noteCrash(page, "main page");
   const errors = [];
   const watch = (candidate) => {
     candidate.on("pageerror", (error) => errors.push(error.message));
@@ -592,6 +632,7 @@ async function main() {
       viewport: { width: 393, height: 852 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, serviceWorkers: "block",
     });
     page = await adaptiveContext.newPage();
+    noteCrash(page, "adaptive page");
     await pinFixedDate(page, "2026-03-02T09:00:00.000Z");
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
     await waitForBoot(page);
@@ -1580,6 +1621,9 @@ async function main() {
     freshAfterDiscard);
 
     check(errors.length === 0, "the production storage/DOM journey emits no page or console errors", errors);
+  } catch (error) {
+    console.error(`failure-time state: ${JSON.stringify(await failureState(page))}; crashes: ${JSON.stringify(crashes)}`);
+    throw error;
   } finally {
     await context.close();
     await browser.close();
