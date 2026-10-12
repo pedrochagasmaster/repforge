@@ -179,6 +179,7 @@ const DYNAMIC_FAMILIES = [
   { test: (s) => s.includes("entry.abilities.choice.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.abilities.choice.")) },
   { test: (s) => s.includes("entry.abilities.question.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.abilities.question.")) },
   { test: (s) => s.includes("entry.result.why_environment.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.result.why_environment.")) },
+  { test: (s) => s.includes("entry.review.job.${"), keys: (en) => Object.keys(en).filter((k) => /^entry\.review\.job\.[^.]+$/.test(k)) },
   { test: (s) => s.includes("entry.equip.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.equip.")) },
   // Onboarding B (Plan 072).
   { test: (s) => s.includes("entry.sex.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.sex.") && !k.endsWith(".title")) },

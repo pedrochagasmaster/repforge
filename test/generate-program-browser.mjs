@@ -50,13 +50,14 @@ function check(condition, message, detail) {
 const state = (page) => page.evaluate(() => window.__repforgeWorkoutDraft.state());
 const entry = (page) => page.evaluate(() => window.__repforgeEntryState?.());
 
-async function fresh(browser, { uuid, hasTouch = false, reducedMotion, withoutMotion = false } = {}) {
+async function fresh(browser, { uuid, hasTouch = false, reducedMotion, withoutMotion = false, withoutWorker = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch,
     ...(reducedMotion ? { reducedMotion } : {}) });
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(String(error?.stack || error)));
   if (withoutMotion) await page.route("**/motion-layer.js*", (route) => route.abort());
+  if (withoutWorker) await page.addInitScript(() => { window.Worker = undefined; });
   // A pinned draftId pins the generator's seed, so a scenario that needs a
   // specific candidate-selection outcome (the abilities-gated exercise proof
   // below) is deterministic rather than depending on which random id this
@@ -400,7 +401,8 @@ async function impossible(browser) {
   const notice = run.page.locator("#onbBody .entry__notice[role=alert]");
   await notice.waitFor({ state: "visible", timeout: 15000 });
   const text = await notice.innerText();
-  check(/session length|more time per session/i.test(text) && !await run.page.locator("#entryActivate").count(),
+  check(text.includes("These answers don't make a program. Adjust the equipment or the schedule.")
+    && !await run.page.locator("#entryActivate").count(),
     "two full-body days in up to 20 minutes show the time conflict and offer no program", text);
   check(!(await state(run.page)).programMeta.programDefinition, "a conflicting request writes no program");
   await run.context.close();
@@ -680,6 +682,213 @@ async function onboardingResume(browser) {
   return [...run.errors, ...everyScreen.errors];
 }
 
+// Plan 072 S3: the building moment and the conflict ------------------------
+/** Hold real program-worker Generate messages until the page releases them. */
+async function holdGeneration(page) {
+  await page.evaluate(() => {
+    const NativeWorker = window.Worker;
+    window.__heldGenerations = [];
+    window.Worker = class extends NativeWorker {
+      postMessage(message, ...args) {
+        if (message?.type === "generate") {
+          window.__heldGenerations.push(() => super.postMessage(message, ...args));
+          return;
+        }
+        return super.postMessage(message, ...args);
+      }
+    };
+  });
+}
+const releaseGeneration = (page) => page.evaluate(() => { const run = window.__heldGenerations.shift(); run?.(); return !!run; });
+
+async function onboardingBuilding(browser) {
+  const run = await fresh(browser);
+  const { page } = run;
+  await page.click("#firstRunCreate");
+  await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
+  await answerRecommend(page, { skipBasics: true, until: "abilities" });
+  await holdGeneration(page);
+  await page.click("#onbNext");
+  await page.waitForSelector("#entryBuilding", { timeout: 10000 });
+  check((await entry(page)).step === "building" && await page.locator("#entryBuilding .entry-building__steps li").count() === 4,
+    "Continue on the last question opens the building moment with its four lines");
+  await page.waitForSelector("#entryBuilding.is-done", { timeout: 10000 });
+  const waiting = await page.evaluate(() => {
+    const wait = document.querySelector("#entryBuildingWait");
+    return { hidden: wait?.hidden, pending: wait?.classList.contains("is-pending") };
+  });
+  check((await entry(page)).step === "building" && waiting.hidden === false && waiting.pending,
+    "with the checklist done and the program still generating, the step stays and the hairline says so");
+  await page.waitForFunction(() => window.__heldGenerations?.length > 0);
+  const pending = await page.evaluate(() => {
+    const wait = document.querySelector("#entryBuildingWait");
+    return { mode: window.__repforgeProgramEngine?.stats().mode,
+      pendingClass: wait?.classList.contains("is-pending"),
+      labelClass: !!wait?.querySelector(".motion-hairline__label"),
+      animation: getComputedStyle(wait, "::after").animationName };
+  });
+  check(pending.mode === "worker", "the held generation is an actual program-worker request", pending);
+  check(pending.pendingClass && pending.labelClass && pending.animation !== "none",
+    "a pending generation owns the shared hairline motion and its reduced-motion label", pending);
+  await releaseGeneration(page);
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "result", undefined, { timeout: 15000 });
+  await page.locator("#entryActivate").waitFor({ state: "visible", timeout: 15000 });
+  check(true, "the result opens once the held program lands");
+
+  // Skip ends the checklist at once but still waits for the program.
+  await page.click("#onbBack");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
+  await page.click("#onbNext");
+  await page.waitForSelector("#entryBuildingSkip", { timeout: 10000 });
+  await page.click("#entryBuildingSkip");
+  const skippedWait = await page.evaluate(() => {
+    const wait = document.querySelector("#entryBuildingWait");
+    return { hidden: wait?.hidden, pending: wait?.classList.contains("is-pending") };
+  });
+  check((await entry(page)).step === "building" && skippedWait.hidden === false && skippedWait.pending,
+    "skipping the checklist does not skip a program that has not landed");
+  await page.waitForFunction(() => window.__heldGenerations?.length > 0);
+  await releaseGeneration(page);
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "result", undefined, { timeout: 15000 });
+  check(true, "after skipping, the result opens when the program lands");
+
+  // Back from building supersedes the job: its program, when it lands, is dropped.
+  await page.click("#onbBack");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
+  await page.click("#onbNext");
+  await page.waitForSelector("#entryBuilding", { timeout: 10000 });
+  await page.waitForFunction(() => window.__heldGenerations?.length > 0);
+  await page.click("#onbBack");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
+  const workerBefore = await page.evaluate(() => window.__repforgeProgramEngine?.stats().worker || 0);
+  await page.locator('[data-entry-pick="competencyAnswer"][data-entry-val="benchPress10|yes"]').click();
+  await page.click("#onbNext");
+  await page.waitForSelector("#entryBuilding", { timeout: 10000 });
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "building"
+    && window.__repforgeEntryState?.()?.answers?.competencyAnswers?.benchPress10 === true);
+  const replacementBusy = await page.locator("#onbNext").getAttribute("aria-busy");
+  const changed = await entry(page);
+  check(changed.step === "building" && changed.answers.competencyAnswers?.benchPress10 === true && replacementBusy === "true",
+    "after Back, changed answers start a replacement generation while the older worker reply is held", { answers: changed.answers.competencyAnswers, replacementBusy });
+  await releaseGeneration(page);
+  await page.waitForFunction(() => window.__heldGenerations?.length > 0, undefined, { timeout: 15000 });
+  await page.waitForFunction((before) => (window.__repforgeProgramEngine?.stats().worker || 0) > before, workerBefore, { timeout: 15000 });
+  const afterStale = await entry(page);
+  check(afterStale.step === "building" && afterStale.answers.competencyAnswers?.benchPress10 === true,
+    "the older worker reply lands after the replacement is underway and cannot leave Building", afterStale.answers.competencyAnswers);
+  await releaseGeneration(page);
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "result", undefined, { timeout: 15000 });
+  const request = await page.evaluate(() => window.__repforgeEntryState?.()?.result?.preview?.programDefinition?.request);
+  check(request?.competencyAnswers?.benchPress10 === true,
+    "the stale worker reply cannot replace the result built from changed answers", request?.competencyAnswers);
+  await run.context.close();
+  return run.errors;
+}
+
+async function onboardingBuildingReduced(browser) {
+  const run = await fresh(browser);
+  const { page } = run;
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.click("#firstRunCreate");
+  await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
+  await answerRecommend(page, { skipBasics: true, until: "abilities" });
+  await holdGeneration(page);
+  await page.click("#onbNext");
+  await page.waitForSelector("#entryBuilding", { timeout: 10000 });
+  const drawn = await page.evaluate(() => [...document.querySelectorAll("#entryBuilding .entry-building__steps li")].every((li) => li.classList.contains("is-done")));
+  await page.waitForFunction(() => window.__heldGenerations?.length > 0);
+  const pending = await page.evaluate(() => {
+    const wait = document.querySelector("#entryBuildingWait");
+    return { drawn: [...document.querySelectorAll("#entryBuilding .entry-building__steps li")].every((li) => li.classList.contains("is-done")),
+      visible: !wait?.hidden, pendingClass: wait?.classList.contains("is-pending"),
+      labelClass: !!wait?.querySelector(".motion-hairline__label"),
+      animation: getComputedStyle(wait, "::after").animationName,
+      labelDisplay: wait?.querySelector(".motion-hairline__label")
+        ? getComputedStyle(wait.querySelector(".motion-hairline__label")).display : null };
+  });
+  check(drawn && pending.visible && pending.pendingClass && pending.labelClass && pending.animation === "none" && pending.labelDisplay !== "none",
+    "reduced motion draws all lines at rest and exposes the pending label without a hairline sweep", pending);
+  await page.waitForFunction(() => window.__heldGenerations?.length > 0);
+  await releaseGeneration(page);
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "result", undefined, { timeout: 15000 });
+  await run.context.close();
+  return run.errors;
+}
+
+async function onboardingBuildingMainFallback(browser) {
+  const run = await fresh(browser, { withoutWorker: true });
+  const { page } = run;
+  await page.click("#firstRunCreate");
+  await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
+  await answerRecommend(page, { skipBasics: true, until: "abilities" });
+  const started = await page.evaluate(() => performance.now());
+  await page.click("#onbNext");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "result", undefined, { timeout: 15000 });
+  const outcome = await page.evaluate((before) => ({ elapsed: performance.now() - before,
+    stats: window.__repforgeProgramEngine?.stats() }), started);
+  check(outcome.stats?.mode === "main" && outcome.stats.main > 0,
+    "without Worker, generation settles through the production main-thread fallback", outcome.stats);
+  check(outcome.elapsed >= 980, "the main-thread fallback still waits for the building checklist", String(Math.round(outcome.elapsed)));
+  await run.context.close();
+  return run.errors;
+}
+
+async function onboardingConflict(browser) {
+  const run = await fresh(browser);
+  const { page } = run;
+  await page.click("#firstRunCreate");
+  await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
+  await answerRecommend(page, { skipBasics: true, environment: "limited_home", equipment: ["pullup_bar", "bands"], until: "abilities" });
+  const started = Date.now();
+  await page.click("#onbNext");
+  const notice = page.locator("#onbBody .entry__notice[role=alert]");
+  await notice.waitFor({ state: "visible", timeout: 15000 });
+  const took = Date.now() - started;
+  const text = await notice.innerText();
+  check(/Without this equipment, nothing in the catalog can train: .*vertical pull/i.test(text) && /Nothing was saved/.test(text),
+    "Home without the pull-up bar and bands names the vertical pull it cannot train", text);
+  check(took < 1000, "the equipment conflict returns without waiting for a generation search", String(took));
+  check(!(await state(page)).programMeta.onboarded && !(await page.locator("#entryActivate").count()), "a conflict activates nothing");
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  if (await page.locator("#firstRunCreate").isVisible().catch(() => false)) await page.click("#firstRunCreate");
+  if (await page.locator("#entryResumeContinue").count()) await page.click("#entryResumeContinue");
+  await notice.waitFor({ state: "visible", timeout: 15000 });
+  check(/nothing in the catalog can train/i.test(await notice.innerText()), "a reload on the conflict shows it again");
+  await page.click("[data-entry-action='conflict-back']");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "equipment");
+  const env = (await entry(page)).answers.environment;
+  check(env.kind === "limited_home" && JSON.stringify(env.adjust?.remove || []) === JSON.stringify(["pullup_bar", "bands"]),
+    "Back to equipment keeps the adjustment the lifter made", JSON.stringify(env));
+  await run.context.close();
+  return run.errors;
+}
+
+async function onboardingTimeConflict(browser) {
+  const run = await fresh(browser, { uuid: "cause-map" });
+  const { page } = run;
+  await page.click("#firstRunCreate");
+  await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
+  await answerRecommend(page, { skipBasics: true, environment: "everything", days: 2, minutes: 20, until: "abilities" });
+  await page.click("#onbNext");
+  const notice = page.locator("#onbBody .entry__notice[role=alert]");
+  await notice.waitFor({ state: "visible", timeout: 15000 });
+  const text = await notice.innerText();
+  check(text.includes("These answers don't make a program. Adjust the equipment or the schedule."),
+    "a time conflict uses B's approved generic copy", text);
+  const back = page.locator("[data-entry-action='conflict-back']");
+  check(await back.getAttribute("data-entry-step") === "session_length" && (await back.innerText()).trim() === "Back",
+    "a time conflict returns through the existing Back control to session length", {
+      step: await back.getAttribute("data-entry-step"), label: (await back.innerText()).trim(),
+    });
+  await back.click();
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "session_length");
+  check((await entry(page)).answers.sessionMinutes === 20,
+    "returning from the time conflict preserves the selected session length", (await entry(page)).answers.sessionMinutes);
+  await run.context.close();
+  return run.errors;
+}
+
 async function main() {
   console.log("P067 slice 2: Generate → review → activate through the production entry UI");
   const browser = await launchChromium();
@@ -814,6 +1023,11 @@ async function main() {
     allErrors.push(await onboardingBNavigation(browser));
     allErrors.push(await onboardingPounds(browser));
     allErrors.push(await onboardingResume(browser));
+    allErrors.push(await onboardingBuilding(browser));
+    allErrors.push(await onboardingBuildingReduced(browser));
+    allErrors.push(await onboardingBuildingMainFallback(browser));
+    allErrors.push(await onboardingConflict(browser));
+    allErrors.push(await onboardingTimeConflict(browser));
     check(allErrors.flat().length === 0, "no page errors during Generate", allErrors.flat());
   } catch (error) {
     failures.push(String(error?.stack || error));

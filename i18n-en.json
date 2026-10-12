@@ -2687,5 +2687,18 @@
   "settings.profile.clear": "Delete these answers",
   "settings.profile.clear_confirm": "Delete your answers about you from this device? Your program and history stay.",
   "settings.profile.cleared": "Your answers about you were deleted.",
-  "privacy.profile": "The answers you give about yourself in setup (sex, birth date, height, weight and cardio experience) stay on this device. They go into a backup or an install transfer you start, never into setup links or usage statistics. Delete them in Settings, under About you."
+  "privacy.profile": "The answers you give about yourself in setup (sex, birth date, height, weight and cardio experience) stay on this device. They go into a backup or an install transfer you start, never into setup links or usage statistics. Delete them in Settings, under About you.",
+  "entry.building.title": "Building your program",
+  "entry.building.equipment": "Choosing exercises for your equipment",
+  "entry.building.minutes": "Fitting the sets into {m} minutes",
+  "entry.building.reps": "Setting reps and RIR for each set",
+  "entry.building.deload": "Marking the deload week",
+  "entry.building.block": "Checking the block",
+  "entry.building.skip": "Show the program now",
+  "entry.building.pending": "Building…",
+  "entry.conflict_b.title": "The program could not be built",
+  "entry.conflict_b.equipment": "Without this equipment, nothing in the catalog can train: {jobs}. Tick something that can, or choose another place.",
+  "entry.conflict_b.generic": "These answers don't make a program. Adjust the equipment or the schedule.",
+  "entry.conflict_b.nothing": "Nothing was saved.",
+  "entry.conflict_b.back_equipment": "Back to equipment"
 }

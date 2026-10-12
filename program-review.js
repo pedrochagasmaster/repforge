@@ -1048,6 +1048,7 @@
 
   return Object.freeze({
     EDIT_KINDS,
+    JOB_KEYS,
     REST_PRESETS,
     MIN_SETS,
     MAX_SETS,

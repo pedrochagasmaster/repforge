@@ -96,6 +96,63 @@ async function recommendStep(page, until, answers = {}) {
   await answerRecommend(page, { skipBasics: true, days: 3, environment: "commercial_gym", ...answers, until });
 }
 
+async function holdProgramWorker(page) {
+  await page.evaluate(() => {
+    const NativeWorker = window.Worker;
+    window.__catalogHeldGenerations = [];
+    window.Worker = class extends NativeWorker {
+      postMessage(message, ...args) {
+        if (message?.type === "generate") {
+          window.__catalogHeldGenerations.push(() => super.postMessage(message, ...args));
+          return;
+        }
+        return super.postMessage(message, ...args);
+      }
+    };
+  });
+}
+
+async function buildingStep(page, { pending = false } = {}) {
+  await recommendStep(page, "abilities");
+  await holdProgramWorker(page);
+  if (pending) await page.emulateMedia({ reducedMotion: "reduce" });
+  if (!pending) {
+    await page.evaluate(() => {
+      const native = window.setTimeout;
+      let heldId = -1;
+      window.__catalogNativeTimeout = native;
+      // S3 advances one line every 260ms. Hold the third line's completion
+      // and the checklist finish so this mid-step stays stable during settle().
+      window.setTimeout = function (callback, delay, ...args) {
+        if (delay === 780 || delay === 1040) return heldId--;
+        return native.call(this, callback, delay, ...args);
+      };
+    });
+  }
+  await page.click("#onbNext");
+  await page.waitForSelector("#entryBuilding", { timeout: 20000 });
+  await page.waitForFunction(() => window.__catalogHeldGenerations?.length > 0, undefined, { timeout: 20000 });
+  if (pending) {
+    await page.waitForFunction(() => {
+      const root = document.querySelector("#entryBuilding");
+      const wait = document.querySelector("#entryBuildingWait");
+      return root?.classList.contains("is-done") && wait?.classList.contains("is-pending") && !wait.hidden;
+    }, undefined, { timeout: 20000 });
+  } else {
+    await page.waitForSelector("#entryBuilding .entry-building__steps li:nth-child(3).is-now", { timeout: 20000 });
+    await page.evaluate(() => {
+      window.setTimeout = window.__catalogNativeTimeout;
+      delete window.__catalogNativeTimeout;
+    });
+  }
+}
+
+async function equipmentConflict(page) {
+  await recommendStep(page, "abilities", { environment: "limited_home", equipment: ["pullup_bar", "bands"] });
+  await page.click("#onbNext");
+  await page.waitForSelector("#onbBody .entry__notice[role=alert] [data-entry-action='conflict-back']", { timeout: 20000 });
+}
+
 async function recommendTo(page, { result = false, existing = false, desired = "muscle_growth" } = {}) {
   await route(page, "recommend", { existing });
   await answerRecommend(page, { skipBasics: true, days: 3, goal: desired, until: result ? null : "abilities" });
@@ -635,6 +692,9 @@ export const ONBOARDING_SCENARIOS = {
   },
   "onboarding-recommend/deload": (page) => recommendStep(page, "deload"),
   "onboarding-recommend/abilities": (page) => recommendStep(page, "abilities"),
+  "onboarding-recommend/building": (page) => buildingStep(page),
+  "onboarding-recommend/building-pending": (page) => buildingStep(page, { pending: true }),
+  "onboarding-recommend/result-equipment-conflict": equipmentConflict,
   "onboarding-recommend/result": (page) => recommendTo(page, { result: true, desired: "balanced" }),
   "onboarding-recommend/result-existing": (page) => recommendTo(page, { result: true, existing: true }),
   "onboarding-recommend/chip-editor-open": (page) => reviewWithEditor(page, "days"),

@@ -292,7 +292,10 @@ test("every route step has a defined Back transition", () => {
     for (let index = 0; index < Entry.ROUTE_STEPS[route].length; index++) {
       const atStep = { ...state, step: Entry.ROUTE_STEPS[route][index] };
       const previous = Entry.back(atStep);
-      assert.equal(previous.step, index === 0 ? "entry" : Entry.ROUTE_STEPS[route][index - 1]);
+      const steps = Entry.ROUTE_STEPS[route];
+      // Back passes over Recommend's building moment, which only generates.
+      const expected = index === 0 ? "entry" : steps[index - 1] === "building" ? steps[index - 2] : steps[index - 1];
+      assert.equal(previous.step, expected);
     }
   }
 });

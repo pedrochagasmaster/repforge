@@ -193,6 +193,8 @@ export async function answerRecommend(page, {
         for (const [key, choice] of Object.entries(abilities || {})) await pick("competencyAnswer", `${key}|${choice}`);
         await next();
       }
+    } else if (current === "building") {
+      await page.waitForFunction(() => window.__repforgeEntryState?.()?.step !== "building", undefined, { timeout: 20000 });
     } else throw new Error(`answerRecommend: unexpected step ${current}`);
   }
   throw new Error("answerRecommend did not reach the result");

@@ -136,6 +136,27 @@ B's one-question screens add no runtime and no vocabulary.
 
 The pickers never animate, so reduced motion changes nothing here.
 
+## Onboarding B's building step (Plan 072 S3)
+
+The building step is a bounded checklist around the real generation request. It
+does not make the compiler appear to be working: the result opens only after
+both the checklist (or Skip) and the worker or main-thread request have
+settled.
+
+| Interaction | Current implementation | Decision | Technique | Reason |
+| --- | --- | --- | --- | --- |
+| Four checklist lines and the progress rule | `app.js` (`mountEntryBuilding`); each line settles 260ms after it starts, and the retained `.entry-building` styles draw the rule | **CSS retained** | Timed line states and the existing bar; Skip completes the same checklist | The prototype gives the lifter a short, legible account of what the generator is doing without delaying a faster result beyond the checklist |
+| The worker is still running after the checklist or Skip | `#entryBuildingWait.motion-hairline.is-pending` in `app.js`; the shared pseudo-element in `motion-polish.css` | **CSS retained** | The shared 1px hairline repeats only while the request remains unsettled; its status label is exposed under reduced motion | The two clocks meet at the result. Skip ends the checklist, never the request; Motion is optional and does not own this wait |
+| Reduced motion or no Worker | `beatsOn()` finishes all four lines at rest; the program engine runs the same request on the main thread when Worker is unavailable | **None** | No checklist sweep; the pending label replaces the hairline when generation outlasts the checklist | The information and settlement gate stay the same without motion or a worker |
+| An equipment request has no eligible movement, or another request conflicts | `renderBConflict()` shows the conflict at the result step; its one action returns to the answer that caused it | **None** | No loading state for a conflict already known by the compiler | The lifter sees the reason and “Nothing was saved”; Back to equipment retains the adjustment, and no program is activated |
+
+`test/generate-program-browser.mjs` holds a real worker message to measure the
+checklist/request join, Skip, Back plus changed answers, stale reply rejection,
+reduced motion and the main-thread fallback. The same production journey proves
+an equipment conflict returns in under a second and survives reload. The three
+catalog states (`building`, `building-pending`, and `result-equipment-conflict`)
+exercise the live role checker in English and Portuguese, light and dark.
+
 ## Panels, lists and dialogs
 
 | Interaction | Current implementation | Decision | Technique | Reason |

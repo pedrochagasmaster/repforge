@@ -1033,21 +1033,65 @@ async function generatedProgramMotion(browser, { reducedMotion = "no-preference"
     assert(built.frames.at(-1).items === 0 && built.frames.at(-1).hosts === 0, "the build takes its classes off when the last block lands", JSON.stringify(built.frames.at(-1)));
     assert(built.opacity.every((o) => o === 1), "and every block is at rest", JSON.stringify(built.opacity));
   }
+  const originalFingerprint = await page.evaluate(() => window.__repforgeEntryState?.()?.result?.fingerprint);
 
   phase(`O3: showing the same program again does not build it again${tag}`);
   await page.click("#onbBack");
   await page.waitForFunction(() => !document.querySelector("#entryCandidateReview") && !!document.querySelector("#onbNext"), undefined, { timeout: 5000 });
-  const again = await page.evaluate(async () => {
+  await page.evaluate(() => {
+    const probe = window.__motionRepeatBuildProbe = { max: 0, review: false, done: false, quietFrames: 0 };
+    const sample = () => {
+      const items = document.querySelectorAll("#onbBody .motion-build-item").length;
+      probe.max = Math.max(probe.max, items);
+      probe.review = !!document.querySelector("#entryCandidateReview");
+      probe.quietFrames = probe.review && items === 0 ? probe.quietFrames + 1 : 0;
+      if (probe.quietFrames >= 2) {
+        probe.done = true;
+        return;
+      }
+      requestAnimationFrame(sample);
+    };
     document.querySelector("#onbNext").click();
-    let max = 0;
-    const t0 = performance.now();
-    while (performance.now() - t0 < 700) {
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-      max = Math.max(max, document.querySelectorAll("#onbBody .motion-build-item").length);
-    }
-    return { max, review: !!document.querySelector("#entryCandidateReview") };
+    requestAnimationFrame(sample);
+  });
+  await page.waitForFunction(() => window.__motionRepeatBuildProbe?.done === true, undefined, { timeout: 5000 });
+  const again = await page.evaluate(() => {
+    const { max, review } = window.__motionRepeatBuildProbe;
+    delete window.__motionRepeatBuildProbe;
+    return { max, review };
   });
   assert(again.review && again.max === 0, "going back and forward draws the program at rest", JSON.stringify(again));
+  phase(`O3: a fresh result after a changed answer keeps its first reveal${tag}`);
+  await page.click("#onbBack");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities", undefined, { timeout: 5000 });
+  await page.locator('[data-entry-pick="competencyAnswer"][data-entry-val="pullups5|yes"]').click();
+  await page.evaluate(() => {
+    const probe = window.__motionFreshBuildProbe = { max: 0, review: false, done: false, quietFrames: 0, fingerprint: null };
+    const sample = () => {
+      const items = document.querySelectorAll("#onbBody .motion-build-item").length;
+      probe.max = Math.max(probe.max, items);
+      probe.review = !!document.querySelector("#entryCandidateReview");
+      probe.fingerprint = window.__repforgeEntryState?.()?.result?.fingerprint || null;
+      probe.quietFrames = probe.review && items === 0 ? probe.quietFrames + 1 : 0;
+      if (probe.quietFrames >= 2) {
+        probe.done = true;
+        return;
+      }
+      requestAnimationFrame(sample);
+    };
+    document.querySelector("#onbNext").click();
+    requestAnimationFrame(sample);
+  });
+  await page.waitForFunction(() => window.__motionFreshBuildProbe?.done === true, undefined, { timeout: 20000 });
+  const fresh = await page.evaluate(() => {
+    const { max, review, fingerprint } = window.__motionFreshBuildProbe;
+    delete window.__motionFreshBuildProbe;
+    return { max, review, fingerprint };
+  });
+  assert(fresh.review && fresh.fingerprint && fresh.fingerprint !== originalFingerprint &&
+    (reduced ? fresh.max === 0 : fresh.max > 0),
+    reduced ? "a changed answer creates a distinct result without motion under reduced motion" :
+      "a changed answer creates a distinct result and keeps the first reveal", JSON.stringify({ originalFingerprint, ...fresh }));
   // An answer chip re-renders the review, and applying a changed answer rebuilds the program in place: neither plays the build.
   const edited = await page.evaluate(async () => {
     let max = 0;
@@ -2430,6 +2474,16 @@ async function run() {
     await edgeBack(browser, { reducedMotion: "reduce" });
     await browser.close();
     console.log(`\nmotion integration (pages): ${results.passed} passed, ${results.failed} failed`);
+    process.exit(results.failed ? 1 : 0);
+  }
+
+  // REPFORGE_MOTION_ONLY=generated runs O3 alone: production generation,
+  // one-time reveal, unchanged-result re-entry, and reduced-motion paths.
+  if (process.env.REPFORGE_MOTION_ONLY === "generated") {
+    await generatedProgramMotion(browser);
+    await generatedProgramMotion(browser, { reducedMotion: "reduce" });
+    await browser.close();
+    console.log(`\nmotion integration (generated): ${results.passed} passed, ${results.failed} failed`);
     process.exit(results.failed ? 1 : 0);
   }
 

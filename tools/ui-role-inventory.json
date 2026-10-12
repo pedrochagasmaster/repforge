@@ -897,6 +897,21 @@
       "owner": "plan-072",
       "content": "flat",
       "scenario": "The deload card switched on, marked Recommended."
+    },
+    "onboarding-recommend/building": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "B's third checklist line is active after two lines complete, with generation still in the real worker and Show the program now available."
+    },
+    "onboarding-recommend/building-pending": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "With reduced motion, B's checklist is complete and the real worker request remains pending with its waiting label visible."
+    },
+    "onboarding-recommend/result-equipment-conflict": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The result explains that Home equipment cannot cover vertical pull, says nothing was saved, and offers Back to equipment with the adjustment preserved."
     }
   },
   "components": [
@@ -3729,7 +3744,10 @@
         "onboarding-recommend/weight",
         "onboarding-recommend/weight-lb",
         "onboarding-recovery/rules-drift",
-        "onboarding-shared/preview"
+        "onboarding-shared/preview",
+        "onboarding-recommend/building",
+        "onboarding-recommend/building-pending",
+        "onboarding-recommend/result-equipment-conflict"
       ]
     },
     {
@@ -3797,7 +3815,10 @@
         "onboarding-shared/preview",
         "onboarding-start/hub",
         "onboarding-start/hub-chosen",
-        "onboarding-start/hub-existing"
+        "onboarding-start/hub-existing",
+        "onboarding-recommend/building",
+        "onboarding-recommend/building-pending",
+        "onboarding-recommend/result-equipment-conflict"
       ]
     },
     {
@@ -3904,7 +3925,10 @@
         "onboarding-recovery/rules-drift",
         "onboarding-shared/gate",
         "onboarding-shared/invalid",
-        "onboarding-shared/preview"
+        "onboarding-shared/preview",
+        "onboarding-recommend/building",
+        "onboarding-recommend/building-pending",
+        "onboarding-recommend/result-equipment-conflict"
       ],
       "progressScopes": {
         "entry-route-step": "task"
@@ -5940,7 +5964,8 @@
         "workout/swap-alternates",
         "onboarding-recommend/review-reorder",
         "onboarding-recommend/review-sheet",
-        "onboarding-recommend/review-sheet-swap"
+        "onboarding-recommend/review-sheet-swap",
+        "onboarding-recommend/result-equipment-conflict"
       ]
     },
     {
@@ -9405,6 +9430,28 @@
       "owner": "plan-072",
       "catalogStates": [
         "onboarding-recommend/deload"
+      ]
+    },
+    {
+      "id": "entry-buildingskip",
+      "selector": "#entryBuildingSkip",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Lets the lifter finish the checklist early while the actual generation request still has to settle.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/building",
+        "onboarding-recommend/building-pending"
       ]
     }
   ],

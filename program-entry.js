@@ -112,6 +112,7 @@
       "muscle_priorities",
       "deload",
       "abilities",
+      "building",
       "result",
     ]),
     custom: Object.freeze([
@@ -1765,7 +1766,8 @@
       case "cardio_experience":
       case "equipment":
       case "session_length":
-      case "deload": return [];
+      case "deload":
+      case "building": return [];
       case "days_per_week": return answers.daysPerWeek ? [] : ["days_per_week_required"];
       case "muscle_priorities": return musclePartitionIssues(answers, "$.answers");
       case "priorities": return musclePartitionIssues(answers, "$.answers");
@@ -1830,7 +1832,9 @@
     const steps = ROUTE_STEPS[state.route];
     const index = steps.indexOf(state.step);
     if (index === 0) return { ...clone(state), step: "entry" };
-    return { ...clone(state), step: steps[index - 1] };
+    // The building moment only runs a generation; Back passes over it.
+    const previous = steps[index - 1] === "building" ? steps[index - 2] : steps[index - 1];
+    return { ...clone(state), step: previous };
   }
 
   function changedVersions(saved, current) {

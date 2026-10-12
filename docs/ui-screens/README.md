@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 178 screens,
-1039 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 181 screens,
+1048 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -86,7 +86,10 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Recommend Program 4 — priority limit](screens/onboarding-recommend/muscle-priorities-limit__phone-390-light-en.png) | 3 | Five muscles prioritized and a sixth refused with the limit line. |
 | [Recommend Program 5 — deload](screens/onboarding-recommend/deload__phone-390-light-en.png) | 3 | The deload card switched on, marked Recommended. |
 | [Recommend Program 6 — movement abilities](screens/onboarding-recommend/abilities__phone-390-light-en.png) | 3 | Seven yes, no or not sure questions in B's wording, with Skip pinned under Continue. |
+| [Recommend — building](screens/onboarding-recommend/building__phone-390-light-en.png) | 3 | B's third checklist line is active after two lines complete, with generation still in the real worker and Show the program now available. |
+| [Recommend — waiting for generation](screens/onboarding-recommend/building-pending__phone-390-light-en.png) | 3 | With reduced motion, B's checklist is complete and the real worker request remains pending with its waiting label visible. |
 | [Recommend — recommendation and review](screens/onboarding-recommend/result__phone-390-light-en.png) | 8 | Onboarding B's review editor at rest: the source, the program name, four facts, the block row, the tap hint, the day tabs with rest days and the first day's exercises with their sets, RIR and muscles; how it was built follows, with the pinned activation. |
+| [Recommend — equipment conflict](screens/onboarding-recommend/result-equipment-conflict__phone-390-light-en.png) | 3 | The result explains that Home equipment cannot cover vertical pull, says nothing was saved, and offers Back to equipment with the adjustment preserved. |
 | [Recommend — review with adjustments](screens/onboarding-recommend/result-changed__phone-390-light-en.png) | 3 | Three rows carry their marks (a set added, an engine swap, a movement added from the catalog) and the changes bar counts them with Undo and Restore. |
 | [Recommend — exercise sheet](screens/onboarding-recommend/review-sheet__phone-390-light-en.png) | 7 | One exercise's sheet at its top: the movement, its role and job, the sets ledger with RIR per set, the set count, rep range and rest controls, and the day's time. |
 | [Recommend — swap and alternates](screens/onboarding-recommend/review-sheet-swap__phone-390-light-en.png) | 3 | The exercise sheet scrolled to the engine's swap candidates, the catalog search and one in-session alternate with its suggestions. |
