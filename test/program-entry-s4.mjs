@@ -86,6 +86,24 @@ async function resumeEntryReview(page) {
   await page.locator("#entryReview [data-review-slot]").first().waitFor({ state: "visible", timeout: 15000 });
 }
 
+async function findAmbiguousPerSideMovement(page) {
+  return page.evaluate(() => {
+    const catalog = window.RepForgeExerciseCatalog.snapshot();
+    const metrics = window.RepForgeExerciseMetrics;
+    const current = window.__repforgeEntryState().result.preview.programDefinition;
+    const used = new Set(current.days.flatMap((day) => day.slots || []).map((slot) => slot.exerciseId));
+    return catalog.exercises.find((exercise) => {
+      if (used.has(exercise.id)) return false;
+      const definitions = metrics.definitionsForIds(exercise.exerciseMetrics || []);
+      if (!definitions.ok || !definitions.value.some((metric) => metric.semantic === "repsPerSide")) return false;
+      const sides = (exercise.laterality || []).map((id) => catalog.uuidIndex[id]?.name);
+      const unilateral = sides.includes("Unilateral"), bilateral = sides.includes("Bilateral");
+      const executionMode = unilateral && bilateral ? null : unilateral ? "unilateral" : bilateral ? "bilateral" : null;
+      return executionMode === null;
+    }) || null;
+  });
+}
+
 async function fallbackOfferFlow(browser) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "UTC" });
   const page = await context.newPage();
@@ -371,6 +389,56 @@ try {
   assert.deepEqual((await entry(page)).result.preview.programDefinition.days.map((day) => day.name), originalReviewNames,
     "a blank day name is quiet and leaves the recommendation unchanged");
 
+  const ambiguousMovement = await findAmbiguousPerSideMovement(page);
+  assert.ok(ambiguousMovement, "the loaded production catalog has an unused ambiguous movement that records reps per side");
+  await page.locator(`#entryReview [data-review-slot="${firstSlot.id}"]`).click();
+  await page.locator("#reviewSheet [data-review-search]").click();
+  await page.locator("#exPickSheet.is-open").waitFor({ state: "visible", timeout: 5000 });
+  await page.locator("#exPickSearch").fill(ambiguousMovement.name);
+  await page.locator(`[data-pick="${ambiguousMovement.id}"]`).waitFor({ state: "visible", timeout: 5000 });
+  await page.locator(`[data-pick="${ambiguousMovement.id}"]`).click();
+  await page.waitForFunction(({ slotId, exerciseId }) => {
+    const slot = window.__repforgeEntryState()?.result?.preview?.programDefinition?.days
+      .flatMap((day) => day.slots).find((item) => item.id === slotId);
+    return slot?.exerciseId === exerciseId && !document.querySelector("#exPickSheet.is-open");
+  }, { slotId: firstSlot.id, exerciseId: ambiguousMovement.id }, { timeout: 15000 });
+  await page.locator(`#entryReview [data-review-slot="${firstSlot.id}"]`).click();
+  const expectedExecutionLabels = await page.evaluate(() => {
+    const pt = document.documentElement.lang.toLowerCase().startsWith("pt");
+    return pt
+      ? ["Como você faz este exercício?", "Os dois lados juntos", "Um lado de cada vez"]
+      : ["How do you do this exercise?", "Both sides together", "One side at a time"];
+  });
+  const unresolvedExecution = await page.evaluate((slotId) => {
+    const slot = window.__repforgeEntryState().result.preview.programDefinition.days
+      .flatMap((day) => day.slots).find((item) => item.id === slotId);
+    return {
+      executionMode: slot.executionMode,
+      semantics: [...new Set(slot.metricDefinitions.map((metric) => metric.semantic))],
+      statuses: [...new Set(slot.prescriptionsByCycle.flatMap((cycle) => cycle.sets).map((set) => set.status))],
+      question: document.querySelector("#reviewSheet [data-review-execution-question]")?.textContent.trim() || null,
+      choices: [...document.querySelectorAll("#reviewSheet [data-review-execution-mode]")].map((button) => button.textContent.trim()),
+    };
+  }, firstSlot.id);
+  assert.deepEqual(unresolvedExecution, {
+    executionMode: null,
+    semantics: ["loadKg", "repsPerSide"],
+    statuses: ["configuration_required"],
+    question: expectedExecutionLabels[0],
+    choices: expectedExecutionLabels.slice(1),
+  }, "an ambiguous per-side catalog pick stays configuration-required and asks the approved question in its exercise sheet");
+  const executionMode = "unilateral";
+  await page.locator(`#reviewSheet [data-review-execution-mode="${executionMode}"]`).click();
+  await page.waitForFunction(({ slotId, mode }) => {
+    const slot = window.__repforgeEntryState()?.result?.preview?.programDefinition?.days
+      .flatMap((day) => day.slots).find((item) => item.id === slotId);
+    return slot?.executionMode === mode && slot.prescriptionsByCycle.every((cycle) =>
+      cycle.sets.every((set) => set.status !== "configuration_required"));
+  }, { slotId: firstSlot.id, mode: executionMode }, { timeout: 15000 });
+  assert.equal((await entry(page)).result.preview.programDefinition.days.flatMap((day) => day.slots)
+    .find((slot) => slot.id === firstSlot.id).executionMode, executionMode,
+  "the review-sheet intent stores the selected execution mode on its slot");
+
   await page.locator("#entryActivate").click();
   await page.waitForFunction(() => window.__repforgeWorkoutDraft.state()?.programMeta?.onboarded === true,
     undefined, { timeout: 20000 });
@@ -380,6 +448,7 @@ try {
   assert.equal(new Set(activeTrainingNames).size, activeTrainingNames.length,
     "no duplicate stored day names reach the activated program");
   const activeSlot = active.programMeta.programDefinition.days.flatMap((day) => day.slots).find((slot) => slot.id === firstSlot.id);
+  assert.equal(activeSlot.executionMode, executionMode, "activation carries the chosen execution mode");
   assert.equal(active.programMeta.programDefinition.cycles, 10, "activation retains the edited block length");
   assert.equal(active.programMeta.programDefinition.days.flatMap((day) => day.slots)[0]
     .prescriptionsByCycle[0].sets[0].provenance.periodization, "undulating", "activation retains the edited rep pattern");
