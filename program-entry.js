@@ -871,7 +871,7 @@
     recommend: new Set(["source", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "customExercises"]),
     custom: new Set(["source", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "customExercises"]),
     browse: new Set(["source", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "limitations", "reductions", "provenance", "primaryMuscles"]),
-    build: new Set(["source", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "days", "primaryMuscles", "customExercises"]),
+    build: new Set(["source", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "days", "primaryMuscles", "customExercises", "loadingConfiguration"]),
     import: new Set(["source", "format", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "days", "customExercises", "primaryMuscles"]),
     shared: new Set(["source", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "days", "customExercises", "primaryMuscles", "sharedMeta", "sharedSettings", "sharedImport"]),
   });
@@ -1257,6 +1257,7 @@
     }
     for (const key of ["limitations", "reductions"]) if (hasOwn(value, key) && !Array.isArray(value[key])) issues.push(`${path}.${key}:invalid`);
     if (hasOwn(value, "customExercises")) validateCustomExercises(value.customExercises, `${path}.customExercises`, issues);
+    if (hasOwn(value, "loadingConfiguration")) validateLoadingConfiguration(value.loadingConfiguration, `${path}.loadingConfiguration`, issues);
     if (hasOwn(value, "progressionRelations")) validateRelations(value.progressionRelations, `${path}.progressionRelations`, issues);
     if (hasOwn(value, "progressionModifiers")) {
       if (!Array.isArray(value.progressionModifiers) || value.progressionModifiers.length > MAX_LIST_LENGTH) issues.push(`${path}.progressionModifiers:invalid`);
@@ -1305,6 +1306,29 @@
             if (!validToken(from) || !validToken(to)) issues.push(`${remapPath}:invalid_token`);
           }
         }
+      }
+    }
+  }
+
+  function validateLoadingConfiguration(value, path, issues) {
+    if (value === null) return;
+    if (!isPlainObject(value)) { issues.push(`${path}:invalid`); return; }
+    rejectUnknownKeys(value, new Set(["byExerciseId"]), path, issues);
+    const entries = value.byExerciseId;
+    if (!isPlainObject(entries) || Object.keys(entries).length > MAX_CATALOG_SELECTIONS) {
+      issues.push(`${path}.byExerciseId:invalid`);
+      return;
+    }
+    for (const [exerciseId, entry] of Object.entries(entries)) {
+      const entryPath = `${path}.byExerciseId.${exerciseId}`;
+      if (typeof exerciseId !== "string" || !exerciseId || exerciseId.length > 256 || !isPlainObject(entry)) {
+        issues.push(`${entryPath}:invalid`);
+        continue;
+      }
+      rejectUnknownKeys(entry, new Set(["loadStepKg"]), entryPath, issues);
+      if (typeof entry.loadStepKg !== "number" || !Number.isFinite(entry.loadStepKg)
+        || entry.loadStepKg <= 0 || entry.loadStepKg > 100) {
+        issues.push(`${entryPath}.loadStepKg:invalid`);
       }
     }
   }

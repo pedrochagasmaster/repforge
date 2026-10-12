@@ -11475,6 +11475,7 @@ function createOnboardingProgramEditorAdapter(){
     exerciseDisplayLabel:(exercise)=>exerciseDisplayName(exercise),
     formatNumber:(value)=>fmt(value),
     ...editorMetricAdapter({cycleIndex:()=>1}),
+    ...(entryState?.route==="build"?{defaultLoadStepKg:()=>{const global=+state.settings.minJump;return Number.isFinite(global)&&global>0?global:2.5}}:{}),
     context:()=>"",
     // A message already announced is rendered in place; a new one is left for
     // updateOnboardingEditorActions to write, which is what announces it.
@@ -11627,9 +11628,12 @@ function programEditorSnapshot(){
   const merged=mergeImportedCustomExercises(preview.customExercises||[],candidateProgram,snapshot);
   snapshot.customExercises=merged.customExercises;
   snapshot.program=candidateProgram;
+  const loadingConfiguration=entryState?.route==="build"
+    ?normalizeLoadingConfiguration(preview.loadingConfiguration):null;
   snapshot.programMeta={...defaultProgramMeta([]),name:entryResultName()||entryState?.answers?.programName||"",
     daysPerWeek:entryState?.answers?.daysPerWeek||preview.frequency||null,onboarded:false,
     ...(preview.programDefinition?{programDefinition:cloneSnapshot(preview.programDefinition)}:{}),
+    ...(loadingConfiguration?{loadingConfiguration}:{}),
     programStructure:cloneSnapshot(preview.programStructure||null),
     progressionRelations:cloneSnapshot(preview.progressionRelations||[]),
     progressionModifiers:cloneSnapshot(preview.progressionModifiers||[]),
@@ -11693,6 +11697,8 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
       [...new Set(program.map(exercise=>exercise.day))].map(label=>({dayId:label,label,exercises:rowsForDay(label)})));
   const progressionData=candidateProgressionData(proposal.programMeta?.progressionRelations,program,
     proposal.programMeta?.progressionIncompatibilities,"candidate-editor");
+  const loadingConfiguration=entryState.route==="build"
+    ?normalizeLoadingConfiguration(proposal.programMeta?.loadingConfiguration):null;
   const referencedCustomIds=new Set([...program.map(exercise=>exercise.libraryId),
     ...definitionMovementIds(proposal.programMeta?.programDefinition)].filter(isCustomLibraryId));
   const preview={...cloneSnapshot(entryState.result.preview),program,
@@ -11700,6 +11706,7 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
     programStructure:structure,
     progressionRelations:progressionData.relations,
     progressionIncompatibilities:progressionData.incompatibilities,
+    ...(entryState.route==="build"?{loadingConfiguration}:{}),
     days:previewDays,
     customExercises:(entryState.result.preview?.customExercises||[])
       .filter(entry=>referencedCustomIds.has(entry.id)).map(cloneSnapshot)};
@@ -18875,6 +18882,11 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
   baseProposal.programMeta.progressionModifiers=cloneSnapshot(preview?.progressionModifiers||[]);
   baseProposal.programMeta.progressionIncompatibilities=cloneSnapshot(preview?.progressionIncompatibilities||[]);
   baseProposal.programMeta.programStructure=programStructure?cloneSnapshot(programStructure):null;
+  if(route==="build"){
+    const loadingConfiguration=normalizeLoadingConfiguration(preview?.loadingConfiguration);
+    if(loadingConfiguration)baseProposal.programMeta.loadingConfiguration=loadingConfiguration;
+    else delete baseProposal.programMeta.loadingConfiguration;
+  }
   const compilerContext=(route==="recommend"||route==="custom"||route==="browse")
     ?(entryState.result?.compilerContext||null):null;
   if(compilerContext)baseProposal.programMeta.compilerContext=cloneSnapshot(compilerContext);
@@ -18936,6 +18948,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   if(draftActive&&!draftConfirmed&&!confirm(t("confirm.replace_program_discard_draft")))
     return{revision:readRevision(state),localOk:false,idbOk:false,cancelled:true};
   const proposal=cloneSnapshot(baseProposal||state);
+  const routeEff=entrySource?.route||telemetryRoute;
   const checkedDefinition=canonicalProgramDefinition(programDefinition,proposal.customExercises||[]);
   if(!checkedDefinition)return{revision:readRevision(state),localOk:false,idbOk:false,invalid:true,code:"program-definition-required"};
   if(originEff==="block"){
@@ -18959,7 +18972,10 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     ?cloneSnapshot(baseProposal.programMeta.progressionIncompatibilities):[];
   meta.programStructure=programStructure?cloneSnapshot(programStructure):
     (baseProposal?.programMeta?.programStructure?cloneSnapshot(baseProposal.programMeta.programStructure):null);
-  const routeEff=entrySource?.route||telemetryRoute;
+  if(routeEff==="build"){
+    const loadingConfiguration=normalizeLoadingConfiguration(baseProposal?.programMeta?.loadingConfiguration);
+    if(loadingConfiguration)meta.loadingConfiguration=loadingConfiguration;
+  }
   if(routeEff==="recommend"||routeEff==="custom"||routeEff==="browse"){
     const rawContext=compilerContext||baseProposal?.programMeta?.compilerContext;
     if(rawContext){
