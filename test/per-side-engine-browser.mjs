@@ -230,6 +230,8 @@ async function main() {
     const why = await page.locator("#whyBody").innerText();
     check(why.includes("total load") && why.includes("per side") && why.includes("× 2") && why.includes("bodyweight"),
       "Why explains the bilateral multiplier and enabled bodyweight contribution", why);
+    check(why.includes("last at 25 kg per side"),
+      "Why labels its generated historical strength anchor as a per-side load", why);
     await page.locator("#whyClose").click();
     await page.waitForSelector("#whySheet", { state: "hidden", timeout: 5000 });
 

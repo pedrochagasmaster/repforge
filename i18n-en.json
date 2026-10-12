@@ -1685,6 +1685,7 @@
   "why.lead.engine_target": "Today's target",
   "why.lead.engine_assumptions": "How it loads",
   "why.engine.anchor_history": "Your first working set over the last {n} sessions, last at {load} {unit}, puts your estimated one-rep strength at about {cap} {unit}.",
+  "why.engine.anchor_history_per_side": "Your first working set over the last {n} sessions, last at {load} {unit} per side, puts your estimated one-rep strength at about {cap} {unit}.",
   "why.engine.anchor_session": "Set {set} today at {load} {unit} puts your estimated one-rep strength at about {cap} {unit}.",
   "why.engine.fatigue": "Fatigue from the sets before this one brings that to about {cap} {unit}.",
   "why.engine.target": "To finish with about {rir} reps in reserve, the closest load is {load} {unit} for {reps} reps.",

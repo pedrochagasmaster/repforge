@@ -1458,9 +1458,12 @@ async function whyPerSideAssumption(page) {
   const lang = await page.locator("html").getAttribute("lang");
   const localizedAssumption = lang.toLowerCase().startsWith("pt")
     ? "por lado × 2" : "per side × 2";
+  const localizedAnchor = lang.toLowerCase().startsWith("pt")
+    ? "mais recentemente com 27,5 kg por lado" : "last at 27.5 kg per side";
   if (!text.includes(localizedAssumption) || !/3[,.]04/.test(text)
+    || !text.includes(localizedAnchor)
     || !(lang.toLowerCase().startsWith("pt") ? text.includes("peso corporal") : text.includes("bodyweight"))) {
-    throw new Error(`The rendered Why sheet omits the approved multiplier/bodyweight assumption: ${JSON.stringify({ text, lang, result })}`);
+    throw new Error(`The rendered Why sheet omits the approved per-side anchor or multiplier/bodyweight assumption: ${JSON.stringify({ text, lang })}`);
   }
   await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions"]);
 }

@@ -19923,18 +19923,19 @@ function engineWhyRows(ex,rec,n=1){
   const u=unitLabel(),rows=[];
   const item=rec.targetSets.find(entry=>entry.prescription?.setIndex===n)||rec.targetSets[0];
   const result=item?.result;if(!result||item.status!=="recommended")return rows;
+  const definitions=rec.metricDefinitions||[];
+  const loadMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.load.includes(metric.semantic));
+  const repsMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.reps.includes(metric.semantic));
   const anchor=result.historyAnchor||{},assumptions=result.loadingAssumptions||{};
   const cap=Number.isFinite(anchor.capacityKg)?fmtLoad(Math.round(anchor.capacityKg*2)/2):null;
   if(anchor.source==="current_session")rows.push(whyRow("anchor",{text:t("why.engine.anchor_session",
     {set:(anchor.setIndex??0)+1,load:fmtLoad(anchor.displayLoadKg),cap,unit:u})}));
-  else if(cap)rows.push(whyRow("anchor",{text:t("why.engine.anchor_history",
+  else if(cap)rows.push(whyRow("anchor",{text:t(PER_SIDE_LOAD_SEMANTICS.has(loadMetric?.semantic)
+    ?"why.engine.anchor_history_per_side":"why.engine.anchor_history",
     {n:(anchor.sessionIds||[]).length||1,load:fmtLoad(anchor.displayLoadKg),cap,unit:u})}));
   const projected=result.fatigue?.projectedCapacityKg;
   if(n>1&&Number.isFinite(projected)&&Number.isFinite(anchor.capacityKg)&&Math.abs(projected-anchor.capacityKg)>0.25)
     rows.push(whyRow("fatigue",{text:t("why.engine.fatigue",{cap:fmtLoad(Math.round(projected*2)/2),unit:u})}));
-  const definitions=rec.metricDefinitions||[];
-  const loadMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.load.includes(metric.semantic));
-  const repsMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.reps.includes(metric.semantic));
   const load=loadMetric?result.targets?.[loadMetric.semantic]:null,rawReps=repsMetric?result.targets?.[repsMetric.semantic]:null;
   const reps=typeof rawReps==="number"?rawReps:rawReps?.min;
   const rir=item.prescription?.rir;

@@ -193,6 +193,11 @@ means. The engine, History, Progress and CSV all use it.
   reps per side" / "antes {reps} reps por lado". Existing approved RIR,
   no-RIR and effort endings are retained. Total Weight and ordinary reps are
   never relabeled as per-side, and a bodyweight-only cue never invents a load.
+- **Why history anchor.** For a historical anchor derived from a per-side load,
+  the approved EN wording says "last at {load} {unit} per side" and PT says
+  "mais recentemente com {load} {unit} por lado". This is limited to side-load
+  metrics; total-load and bodyweight-only anchors retain their existing copy.
+  Owner approved this extension on 12 October 2026.
 - Compositions with a total `Weight` and per-side reps use `m = 1`: the
   logged weight is already the total.
 
