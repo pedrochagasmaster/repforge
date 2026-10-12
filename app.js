@@ -16237,7 +16237,7 @@ function renderBuildingStep(){
     entryHeading(t("entry.building.title"))+
     `<ul class="entry-building__steps" aria-hidden="true">${lines.map(text=>`<li><span class="entry-building__tick icon-mask icon-mask--check icon-mask--sm" aria-hidden="true"></span><span>${esc(text)}</span></li>`).join("")}</ul>`+
     `<div class="entry-building__bar" aria-hidden="true"><i></i></div>`+
-    `<p class="entry-building__wait motion-hairline" id="entryBuildingWait" role="status" hidden><span>${esc(t("entry.building.pending"))}</span></p>`+
+    `<p class="entry-building__wait motion-hairline" id="entryBuildingWait" role="status" hidden><span class="motion-hairline__label">${esc(t("entry.building.pending"))}</span></p>`+
     `<button type="button" class="btn btn--ghost entry-building__skip" id="entryBuildingSkip">${esc(t("entry.building.skip"))}</button>`+
   `</div>`}
 function mountEntryBuilding(){
@@ -16267,7 +16267,9 @@ function mountEntryBuilding(){
    the hairline appears only while the checklist is done and the job is not. */
 function entryBuildingPending(settled){
   const wait=$("#entryBuildingWait");if(!wait)return;
-  wait.hidden=!!settled||!entryBuilding?.done}
+  const pending=!settled&&!!entryBuilding?.done;
+  wait.hidden=!pending;
+  wait.classList.toggle("is-pending",pending)}
 async function startEntryResult(target,{gate=null}={}){
   entryResultJob?.controller.abort();
   const job={from:entryState,target,controller:new AbortController()};

@@ -50,13 +50,14 @@ function check(condition, message, detail) {
 const state = (page) => page.evaluate(() => window.__repforgeWorkoutDraft.state());
 const entry = (page) => page.evaluate(() => window.__repforgeEntryState?.());
 
-async function fresh(browser, { uuid, hasTouch = false, reducedMotion, withoutMotion = false } = {}) {
+async function fresh(browser, { uuid, hasTouch = false, reducedMotion, withoutMotion = false, withoutWorker = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch,
     ...(reducedMotion ? { reducedMotion } : {}) });
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(String(error?.stack || error)));
   if (withoutMotion) await page.route("**/motion-layer.js*", (route) => route.abort());
+  if (withoutWorker) await page.addInitScript(() => { window.Worker = undefined; });
   // A pinned draftId pins the generator's seed, so a scenario that needs a
   // specific candidate-selection outcome (the abilities-gated exercise proof
   // below) is deterministic rather than depending on which random id this
@@ -681,16 +682,19 @@ async function onboardingResume(browser) {
 }
 
 // Plan 072 S3: the building moment and the conflict ------------------------
-/** Hold every Generate request until the page releases it. */
+/** Hold real program-worker Generate messages until the page releases them. */
 async function holdGeneration(page) {
   await page.evaluate(() => {
-    const base = window.__repforgeOnboarding.services();
+    const NativeWorker = window.Worker;
     window.__heldGenerations = [];
-    window.__repforgeProgramEntryServicesOverride = {
-      ...base,
-      generateProgram: (input) => new Promise((resolve) => {
-        window.__heldGenerations.push(() => { resolve(base.generateProgram(input)); window.__generationsReleased = (window.__generationsReleased || 0) + 1; });
-      }),
+    window.Worker = class extends NativeWorker {
+      postMessage(message, ...args) {
+        if (message?.type === "generate") {
+          window.__heldGenerations.push(() => super.postMessage(message, ...args));
+          return;
+        }
+        return super.postMessage(message, ...args);
+      }
     };
   });
 }
@@ -708,9 +712,23 @@ async function onboardingBuilding(browser) {
   check((await entry(page)).step === "building" && await page.locator("#entryBuilding .entry-building__steps li").count() === 4,
     "Continue on the last question opens the building moment with its four lines");
   await page.waitForSelector("#entryBuilding.is-done", { timeout: 10000 });
-  check((await entry(page)).step === "building" && await page.locator("#entryBuildingWait").isVisible(),
+  const waiting = await page.evaluate(() => {
+    const wait = document.querySelector("#entryBuildingWait");
+    return { hidden: wait?.hidden, pending: wait?.classList.contains("is-pending") };
+  });
+  check((await entry(page)).step === "building" && waiting.hidden === false && waiting.pending,
     "with the checklist done and the program still generating, the step stays and the hairline says so");
   await page.waitForFunction(() => window.__heldGenerations?.length > 0);
+  const pending = await page.evaluate(() => {
+    const wait = document.querySelector("#entryBuildingWait");
+    return { mode: window.__repforgeProgramEngine?.stats().mode,
+      pendingClass: wait?.classList.contains("is-pending"),
+      labelClass: !!wait?.querySelector(".motion-hairline__label"),
+      animation: getComputedStyle(wait, "::after").animationName };
+  });
+  check(pending.mode === "worker", "the held generation is an actual program-worker request", pending);
+  check(pending.pendingClass && pending.labelClass && pending.animation !== "none",
+    "a pending generation owns the shared hairline motion and its reduced-motion label", pending);
   await releaseGeneration(page);
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "result", undefined, { timeout: 15000 });
   await page.locator("#entryActivate").waitFor({ state: "visible", timeout: 15000 });
@@ -722,7 +740,11 @@ async function onboardingBuilding(browser) {
   await page.click("#onbNext");
   await page.waitForSelector("#entryBuildingSkip", { timeout: 10000 });
   await page.click("#entryBuildingSkip");
-  check((await entry(page)).step === "building" && await page.locator("#entryBuildingWait").isVisible(),
+  const skippedWait = await page.evaluate(() => {
+    const wait = document.querySelector("#entryBuildingWait");
+    return { hidden: wait?.hidden, pending: wait?.classList.contains("is-pending") };
+  });
+  check((await entry(page)).step === "building" && skippedWait.hidden === false && skippedWait.pending,
     "skipping the checklist does not skip a program that has not landed");
   await page.waitForFunction(() => window.__heldGenerations?.length > 0);
   await releaseGeneration(page);
@@ -737,11 +759,21 @@ async function onboardingBuilding(browser) {
   await page.waitForFunction(() => window.__heldGenerations?.length > 0);
   await page.click("#onbBack");
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
-  const released = await page.evaluate(() => window.__generationsReleased || 0);
+  const workerBefore = await page.evaluate(() => window.__repforgeProgramEngine?.stats().worker || 0);
   await releaseGeneration(page);
-  await page.waitForFunction((before) => (window.__generationsReleased || 0) > before, released);
-  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-  check((await entry(page)).step === "abilities", "a program that lands after Back is dropped and the lifter stays where they went");
+  await page.waitForFunction((before) => (window.__repforgeProgramEngine?.stats().worker || 0) > before, workerBefore);
+  await page.locator('[data-entry-pick="competencyAnswer"][data-entry-val="benchPress10|yes"]').click();
+  await page.click("#onbNext");
+  await page.waitForSelector("#entryBuilding", { timeout: 10000 });
+  await page.waitForFunction(() => window.__heldGenerations?.length > 0);
+  const changed = await entry(page);
+  check(changed.step === "building" && changed.answers.competencyAnswers?.benchPress10 === true,
+    "after Back, changed answers start a replacement worker request", changed.answers.competencyAnswers);
+  await releaseGeneration(page);
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "result", undefined, { timeout: 15000 });
+  const request = await page.evaluate(() => window.__repforgeEntryState?.()?.result?.preview?.programDefinition?.request);
+  check(request?.competencyAnswers?.benchPress10 === true,
+    "the stale worker reply cannot replace the result built from changed answers", request?.competencyAnswers);
   await run.context.close();
   return run.errors;
 }
@@ -757,10 +789,39 @@ async function onboardingBuildingReduced(browser) {
   await page.click("#onbNext");
   await page.waitForSelector("#entryBuilding", { timeout: 10000 });
   const drawn = await page.evaluate(() => [...document.querySelectorAll("#entryBuilding .entry-building__steps li")].every((li) => li.classList.contains("is-done")));
-  check(drawn && await page.locator("#entryBuildingWait").isVisible(), "under reduced motion every line is drawn done and the hairline waits for the program");
+  await page.waitForFunction(() => window.__heldGenerations?.length > 0);
+  const pending = await page.evaluate(() => {
+    const wait = document.querySelector("#entryBuildingWait");
+    return { drawn: [...document.querySelectorAll("#entryBuilding .entry-building__steps li")].every((li) => li.classList.contains("is-done")),
+      visible: !wait?.hidden, pendingClass: wait?.classList.contains("is-pending"),
+      labelClass: !!wait?.querySelector(".motion-hairline__label"),
+      animation: getComputedStyle(wait, "::after").animationName,
+      labelDisplay: wait?.querySelector(".motion-hairline__label")
+        ? getComputedStyle(wait.querySelector(".motion-hairline__label")).display : null };
+  });
+  check(drawn && pending.visible && pending.pendingClass && pending.labelClass && pending.animation === "none" && pending.labelDisplay !== "none",
+    "reduced motion draws all lines at rest and exposes the pending label without a hairline sweep", pending);
   await page.waitForFunction(() => window.__heldGenerations?.length > 0);
   await releaseGeneration(page);
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "result", undefined, { timeout: 15000 });
+  await run.context.close();
+  return run.errors;
+}
+
+async function onboardingBuildingMainFallback(browser) {
+  const run = await fresh(browser, { withoutWorker: true });
+  const { page } = run;
+  await page.click("#firstRunCreate");
+  await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
+  await answerRecommend(page, { skipBasics: true, until: "abilities" });
+  const started = await page.evaluate(() => performance.now());
+  await page.click("#onbNext");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "result", undefined, { timeout: 15000 });
+  const outcome = await page.evaluate((before) => ({ elapsed: performance.now() - before,
+    stats: window.__repforgeProgramEngine?.stats() }), started);
+  check(outcome.stats?.mode === "main" && outcome.stats.main > 0,
+    "without Worker, generation settles through the production main-thread fallback", outcome.stats);
+  check(outcome.elapsed >= 980, "the main-thread fallback still waits for the building checklist", String(Math.round(outcome.elapsed)));
   await run.context.close();
   return run.errors;
 }
@@ -779,7 +840,7 @@ async function onboardingConflict(browser) {
   const text = await notice.innerText();
   check(/Without this equipment, nothing in the catalog can train: .*vertical pull/i.test(text) && /Nothing was saved/.test(text),
     "Home without the pull-up bar and bands names the vertical pull it cannot train", text);
-  check(took < 3000, "the conflict shows in seconds, not after a search runs out", String(took));
+  check(took < 1000, "the equipment conflict returns without waiting for a generation search", String(took));
   check(!(await state(page)).programMeta.onboarded && !(await page.locator("#entryActivate").count()), "a conflict activates nothing");
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
@@ -932,6 +993,7 @@ async function main() {
     allErrors.push(await onboardingResume(browser));
     allErrors.push(await onboardingBuilding(browser));
     allErrors.push(await onboardingBuildingReduced(browser));
+    allErrors.push(await onboardingBuildingMainFallback(browser));
     allErrors.push(await onboardingConflict(browser));
     check(allErrors.flat().length === 0, "no page errors during Generate", allErrors.flat());
   } catch (error) {

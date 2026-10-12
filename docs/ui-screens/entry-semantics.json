@@ -62878,6 +62878,303 @@
       ]
     },
     {
+      "key": "onboarding-recommend/building__phone-390-dark-en",
+      "flow": "onboarding-recommend",
+      "screen": "building",
+      "label": "Recommend — building",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recommend"
+        },
+        {
+          "tag": "h2",
+          "text": "Building your program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "button",
+          "text": "Show the program now",
+          "name": "Show the program now",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/building__phone-390-light-en",
+      "flow": "onboarding-recommend",
+      "screen": "building",
+      "label": "Recommend — building",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recommend"
+        },
+        {
+          "tag": "h2",
+          "text": "Building your program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "button",
+          "text": "Show the program now",
+          "name": "Show the program now",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/building__phone-390-light-pt",
+      "flow": "onboarding-recommend",
+      "screen": "building",
+      "label": "Recommend — building",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um treino"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recomendação"
+        },
+        {
+          "tag": "h2",
+          "text": "Montando seu treino",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "button",
+          "text": "Ver o treino agora",
+          "name": "Ver o treino agora",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/building-pending__phone-390-dark-en",
+      "flow": "onboarding-recommend",
+      "screen": "building-pending",
+      "label": "Recommend — waiting for generation",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recommend"
+        },
+        {
+          "tag": "h2",
+          "text": "Building your program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "name": "Building…"
+        },
+        {
+          "tag": "span",
+          "text": "Building…"
+        },
+        {
+          "tag": "button",
+          "text": "Show the program now",
+          "name": "Show the program now",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/building-pending__phone-390-light-en",
+      "flow": "onboarding-recommend",
+      "screen": "building-pending",
+      "label": "Recommend — waiting for generation",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recommend"
+        },
+        {
+          "tag": "h2",
+          "text": "Building your program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "name": "Building…"
+        },
+        {
+          "tag": "span",
+          "text": "Building…"
+        },
+        {
+          "tag": "button",
+          "text": "Show the program now",
+          "name": "Show the program now",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/building-pending__phone-390-light-pt",
+      "flow": "onboarding-recommend",
+      "screen": "building-pending",
+      "label": "Recommend — waiting for generation",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um treino"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recomendação"
+        },
+        {
+          "tag": "h2",
+          "text": "Montando seu treino",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "name": "Montando…"
+        },
+        {
+          "tag": "span",
+          "text": "Montando…"
+        },
+        {
+          "tag": "button",
+          "text": "Ver o treino agora",
+          "name": "Ver o treino agora",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-recommend/cardio-experience__phone-390-dark-en",
       "flow": "onboarding-recommend",
       "screen": "cardio-experience",
@@ -93075,6 +93372,180 @@
           "tag": "button",
           "text": "Usar este treino",
           "name": "Usar este treino",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/result-equipment-conflict__phone-390-dark-en",
+      "flow": "onboarding-recommend",
+      "screen": "result-equipment-conflict",
+      "label": "Recommend — equipment conflict",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recommend"
+        },
+        {
+          "tag": "h2",
+          "text": "The program could not be built",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "div",
+          "role": "alert",
+          "name": "Without this equipment, nothing in the catalog can train: Vertical pull. Tick something that can, or choose another place.Nothing was saved.Back to equipment"
+        },
+        {
+          "tag": "p",
+          "text": "Without this equipment, nothing in the catalog can train: Vertical pull. Tick something that can, or choose another place."
+        },
+        {
+          "tag": "p",
+          "text": "Nothing was saved."
+        },
+        {
+          "tag": "button",
+          "text": "Back to equipment",
+          "name": "Back to equipment",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/result-equipment-conflict__phone-390-light-en",
+      "flow": "onboarding-recommend",
+      "screen": "result-equipment-conflict",
+      "label": "Recommend — equipment conflict",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recommend"
+        },
+        {
+          "tag": "h2",
+          "text": "The program could not be built",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "div",
+          "role": "alert",
+          "name": "Without this equipment, nothing in the catalog can train: Vertical pull. Tick something that can, or choose another place.Nothing was saved.Back to equipment"
+        },
+        {
+          "tag": "p",
+          "text": "Without this equipment, nothing in the catalog can train: Vertical pull. Tick something that can, or choose another place."
+        },
+        {
+          "tag": "p",
+          "text": "Nothing was saved."
+        },
+        {
+          "tag": "button",
+          "text": "Back to equipment",
+          "name": "Back to equipment",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/result-equipment-conflict__phone-390-light-pt",
+      "flow": "onboarding-recommend",
+      "screen": "result-equipment-conflict",
+      "label": "Recommend — equipment conflict",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um treino"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recomendação"
+        },
+        {
+          "tag": "h2",
+          "text": "Não foi possível montar o treino",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "div",
+          "role": "alert",
+          "name": "Sem esse equipamento, nenhum exercício do catálogo treina: Puxada vertical. Marque algo que treine, ou escolha outro local.Nada foi salvo.Voltar ao equipamento"
+        },
+        {
+          "tag": "p",
+          "text": "Sem esse equipamento, nenhum exercício do catálogo treina: Puxada vertical. Marque algo que treine, ou escolha outro local."
+        },
+        {
+          "tag": "p",
+          "text": "Nada foi salvo."
+        },
+        {
+          "tag": "button",
+          "text": "Voltar ao equipamento",
+          "name": "Voltar ao equipamento",
           "type": "button"
         }
       ]

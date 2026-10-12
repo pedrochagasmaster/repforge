@@ -659,11 +659,32 @@
       "variants": "localized"
     },
     {
+      "id": "building",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — building",
+      "scenario": "B's third checklist line is active after two lines complete, with generation still in the real worker and Show the program now available.",
+      "variants": "localized"
+    },
+    {
+      "id": "building-pending",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — waiting for generation",
+      "scenario": "With reduced motion, B's checklist is complete and the real worker request remains pending with its waiting label visible.",
+      "variants": "localized"
+    },
+    {
       "id": "result",
       "flow": "onboarding-recommend",
       "label": "Recommend — recommendation and review",
       "scenario": "Onboarding B's review editor at rest: the source, the program name, four facts, the block row, the tap hint, the day tabs with rest days and the first day's exercises with their sets, RIR and muscles; how it was built follows, with the pinned activation.",
       "variants": "demandingText"
+    },
+    {
+      "id": "result-equipment-conflict",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — equipment conflict",
+      "scenario": "The result explains that Home equipment cannot cover vertical pull, says nothing was saved, and offers Back to equipment with the adjustment preserved.",
+      "variants": "localized"
     },
     {
       "id": "result-changed",
