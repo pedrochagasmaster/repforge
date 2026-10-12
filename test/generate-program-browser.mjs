@@ -401,7 +401,8 @@ async function impossible(browser) {
   const notice = run.page.locator("#onbBody .entry__notice[role=alert]");
   await notice.waitFor({ state: "visible", timeout: 15000 });
   const text = await notice.innerText();
-  check(/session length|more time per session/i.test(text) && !await run.page.locator("#entryActivate").count(),
+  check(text.includes("These answers don't make a program. Adjust the equipment or the schedule.")
+    && !await run.page.locator("#entryActivate").count(),
     "two full-body days in up to 20 minutes show the time conflict and offer no program", text);
   check(!(await state(run.page)).programMeta.programDefinition, "a conflicting request writes no program");
   await run.context.close();
@@ -760,15 +761,21 @@ async function onboardingBuilding(browser) {
   await page.click("#onbBack");
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
   const workerBefore = await page.evaluate(() => window.__repforgeProgramEngine?.stats().worker || 0);
-  await releaseGeneration(page);
-  await page.waitForFunction((before) => (window.__repforgeProgramEngine?.stats().worker || 0) > before, workerBefore);
   await page.locator('[data-entry-pick="competencyAnswer"][data-entry-val="benchPress10|yes"]').click();
   await page.click("#onbNext");
   await page.waitForSelector("#entryBuilding", { timeout: 10000 });
-  await page.waitForFunction(() => window.__heldGenerations?.length > 0);
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "building"
+    && window.__repforgeEntryState?.()?.answers?.competencyAnswers?.benchPress10 === true);
+  const replacementBusy = await page.locator("#onbNext").getAttribute("aria-busy");
   const changed = await entry(page);
-  check(changed.step === "building" && changed.answers.competencyAnswers?.benchPress10 === true,
-    "after Back, changed answers start a replacement worker request", changed.answers.competencyAnswers);
+  check(changed.step === "building" && changed.answers.competencyAnswers?.benchPress10 === true && replacementBusy === "true",
+    "after Back, changed answers start a replacement generation while the older worker reply is held", { answers: changed.answers.competencyAnswers, replacementBusy });
+  await releaseGeneration(page);
+  await page.waitForFunction(() => window.__heldGenerations?.length > 0, undefined, { timeout: 15000 });
+  await page.waitForFunction((before) => (window.__repforgeProgramEngine?.stats().worker || 0) > before, workerBefore, { timeout: 15000 });
+  const afterStale = await entry(page);
+  check(afterStale.step === "building" && afterStale.answers.competencyAnswers?.benchPress10 === true,
+    "the older worker reply lands after the replacement is underway and cannot leave Building", afterStale.answers.competencyAnswers);
   await releaseGeneration(page);
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "result", undefined, { timeout: 15000 });
   const request = await page.evaluate(() => window.__repforgeEntryState?.()?.result?.preview?.programDefinition?.request);
@@ -853,6 +860,31 @@ async function onboardingConflict(browser) {
   const env = (await entry(page)).answers.environment;
   check(env.kind === "limited_home" && JSON.stringify(env.adjust?.remove || []) === JSON.stringify(["pullup_bar", "bands"]),
     "Back to equipment keeps the adjustment the lifter made", JSON.stringify(env));
+  await run.context.close();
+  return run.errors;
+}
+
+async function onboardingTimeConflict(browser) {
+  const run = await fresh(browser, { uuid: "cause-map" });
+  const { page } = run;
+  await page.click("#firstRunCreate");
+  await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
+  await answerRecommend(page, { skipBasics: true, environment: "everything", days: 2, minutes: 20, until: "abilities" });
+  await page.click("#onbNext");
+  const notice = page.locator("#onbBody .entry__notice[role=alert]");
+  await notice.waitFor({ state: "visible", timeout: 15000 });
+  const text = await notice.innerText();
+  check(text.includes("These answers don't make a program. Adjust the equipment or the schedule."),
+    "a time conflict uses B's approved generic copy", text);
+  const back = page.locator("[data-entry-action='conflict-back']");
+  check(await back.getAttribute("data-entry-step") === "session_length" && (await back.innerText()).trim() === "Back",
+    "a time conflict returns through the existing Back control to session length", {
+      step: await back.getAttribute("data-entry-step"), label: (await back.innerText()).trim(),
+    });
+  await back.click();
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "session_length");
+  check((await entry(page)).answers.sessionMinutes === 20,
+    "returning from the time conflict preserves the selected session length", (await entry(page)).answers.sessionMinutes);
   await run.context.close();
   return run.errors;
 }
@@ -995,6 +1027,7 @@ async function main() {
     allErrors.push(await onboardingBuildingReduced(browser));
     allErrors.push(await onboardingBuildingMainFallback(browser));
     allErrors.push(await onboardingConflict(browser));
+    allErrors.push(await onboardingTimeConflict(browser));
     check(allErrors.flat().length === 0, "no page errors during Generate", allErrors.flat());
   } catch (error) {
     failures.push(String(error?.stack || error));

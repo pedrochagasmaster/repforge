@@ -16905,12 +16905,13 @@ function renderBConflict(failure){
   const equipment=conflicts.filter(item=>item?.code==="no_eligible_exercise");
   const time=conflicts.some(item=>item?.code==="time_ceiling_exceeded");
   const jobs=[...new Set(equipment.map(item=>entryJobName(item.purposeId)).filter(Boolean))];
-  const body=equipment.length?t("entry.conflict_b.equipment",{jobs:whyList(jobs)||t("entry.conflict_b.jobs_fallback")})
-    :conflicts.length?entryFailureText(failure):t("entry.conflict_b.generic");
-  const target=equipment.length||!time?"equipment":"session_length";
+  if(!equipment.length&&!time)return null;
+  const body=equipment.length&&jobs.length?t("entry.conflict_b.equipment",{jobs:whyList(jobs)}):t("entry.conflict_b.generic");
+  const target=equipment.length?"equipment":"session_length";
+  const backLabel=target==="equipment"?t("entry.conflict_b.back_equipment"):t("entry.back");
   return entryHeading(t("entry.conflict_b.title"))+
     `<div class="entry__notice entry__notice--error" role="alert"><p>${esc(body)}</p><p>${esc(t("entry.conflict_b.nothing"))}</p>`+
-    `<button type="button" class="btn btn--cta" data-entry-action="conflict-back" data-entry-step="${target}">${esc(t(target==="equipment"?"entry.conflict_b.back_equipment":"entry.conflict_b.back_time"))}</button></div>`}
+    `<button type="button" class="btn btn--cta" data-entry-action="conflict-back" data-entry-step="${target}">${esc(backLabel)}</button></div>`}
 function renderResultStep(){
   const custom=entryState?.route==="custom";
   const resultTitle=custom?t("entry.result.custom_title"):t("entry.result.title");
@@ -16926,7 +16927,9 @@ function renderResultStep(){
     if(unavailable.length)return entryHeading(resultTitle)+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.result.must_unavailable_title"))}</strong>`+
       `<p>${esc(t("entry.result.must_unavailable_body",{exercises:unavailable.map(libraryName).join(", ")}))}</p>`+
       `<button type="button" class="btn btn--cta" data-entry-action="change-exercise-preferences">${esc(t("entry.result.change_preferences"))}</button></div>`;
-    if(entryIsB())return renderBConflict(failure);
+    if(entryIsB()){
+      const conflict=renderBConflict(failure);
+      if(conflict)return conflict}
     return entryHeading(t("entry.result.error_title"))+`<div class="entry__notice entry__notice--error" role="alert"><p>${esc(entryFailureText(failure||entryCompileError)||t("entry.issue.compile"))}</p></div>`}
   reportGeneratorCompleted(result);
   const preview=result.preview||{},explanation=result.explanation||{};

@@ -2698,9 +2698,7 @@
   "entry.building.pending": "Building…",
   "entry.conflict_b.title": "The program could not be built",
   "entry.conflict_b.equipment": "Without this equipment, nothing in the catalog can train: {jobs}. Tick something that can, or choose another place.",
-  "entry.conflict_b.jobs_fallback": "one of the program's jobs",
   "entry.conflict_b.generic": "These answers don't make a program. Adjust the equipment or the schedule.",
   "entry.conflict_b.nothing": "Nothing was saved.",
-  "entry.conflict_b.back_equipment": "Back to equipment",
-  "entry.conflict_b.back_time": "Back to session length"
+  "entry.conflict_b.back_equipment": "Back to equipment"
 }

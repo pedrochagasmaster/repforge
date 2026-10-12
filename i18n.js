@@ -2700,11 +2700,9 @@ const EN = {
   "entry.building.pending": "Building…",
   "entry.conflict_b.title": "The program could not be built",
   "entry.conflict_b.equipment": "Without this equipment, nothing in the catalog can train: {jobs}. Tick something that can, or choose another place.",
-  "entry.conflict_b.jobs_fallback": "one of the program's jobs",
   "entry.conflict_b.generic": "These answers don't make a program. Adjust the equipment or the schedule.",
   "entry.conflict_b.nothing": "Nothing was saved.",
   "entry.conflict_b.back_equipment": "Back to equipment",
-  "entry.conflict_b.back_time": "Back to session length",
 };
 const PT = {
   "catalog.unavailable.title": "Biblioteca de exercícios indisponível",
@@ -5406,11 +5404,9 @@ const PT = {
   "entry.building.pending": "Montando…",
   "entry.conflict_b.title": "Não foi possível montar o treino",
   "entry.conflict_b.equipment": "Sem esse equipamento, nenhum exercício do catálogo treina: {jobs}. Marque algo que treine, ou escolha outro local.",
-  "entry.conflict_b.jobs_fallback": "uma das funções do treino",
   "entry.conflict_b.generic": "Estas respostas não formam um treino. Ajuste o equipamento ou a agenda.",
   "entry.conflict_b.nothing": "Nada foi salvo.",
   "entry.conflict_b.back_equipment": "Voltar ao equipamento",
-  "entry.conflict_b.back_time": "Voltar ao tempo de sessão",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };
