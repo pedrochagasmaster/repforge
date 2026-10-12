@@ -514,6 +514,181 @@ const PER_SIDE_READING_EXERCISES = Object.freeze({
   bilateral: "1a05c6f170d8803ba48ec1443eab5978",
 });
 
+async function startExerciseChartViewportTracking(page) {
+  await page.evaluate(() => {
+    const events = [];
+    const active = new Map();
+    const seen = new WeakSet();
+    const round = value => Number.isFinite(value) ? Math.round(value * 100) / 100 : null;
+    const rect = element => {
+      if (!element) return null;
+      const box = element.getBoundingClientRect();
+      return { x: round(box.x), y: round(box.y), top: round(box.top), right: round(box.right),
+        bottom: round(box.bottom), left: round(box.left), width: round(box.width), height: round(box.height) };
+    };
+    const ownerFor = event => event.target === document || event.target === window
+      || event.target === document.scrollingElement ? "document" : event.target?.id || event.target?.tagName || "unknown";
+    const record = (kind, event) => {
+      if (seen.has(event)) return;
+      seen.add(event);
+      const owner = ownerFor(event);
+      if (kind === "scroll") active.set(owner, true);
+      else active.delete(owner);
+      events.push({ kind, owner, at: round(performance.now()), windowY: round(window.scrollY),
+        documentY: round(document.scrollingElement?.scrollTop || 0) });
+    };
+    const onScroll = event => record("scroll", event);
+    const onScrollEnd = event => record("scrollend", event);
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    document.addEventListener("scrollend", onScrollEnd, { capture: true, passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("scrollend", onScrollEnd, { passive: true });
+
+    const snapshot = () => {
+      const metric = document.querySelector('#exDetail [data-metric="e1rm"]');
+      const metricGroup = metric?.closest(".segpill");
+      const plot = document.querySelector("#exDetail .exchart__plot");
+      const readout = document.querySelector("#exDetail .exchart__readout");
+      const viewport = { width: round(document.documentElement.clientWidth), height: round(document.documentElement.clientHeight) };
+      const metricRect = rect(metricGroup), plotRect = rect(plot), readoutRect = rect(readout);
+      return {
+        route: { activeView: document.querySelector(".view.active")?.id || null,
+          exercise: document.querySelector("#exercise")?.classList.contains("exview--chart") || false,
+          pushing: document.body.classList.contains("is-pushing") },
+        scroll: { windowY: round(window.scrollY), documentY: round(document.scrollingElement?.scrollTop || 0) },
+        metricSelected: metric?.getAttribute("aria-pressed") === "true",
+        viewport,
+        geometry: { metricGroup: metricRect, plot: plotRect, readout: readoutRect,
+          plotWithinViewport: !!(plotRect && plotRect.top >= -1 && plotRect.bottom <= viewport.height + 1),
+          readoutWithinViewport: !!(readoutRect && readoutRect.top >= -1 && readoutRect.bottom <= viewport.height + 1) },
+      };
+    };
+    const tracker = {
+      events, active, snapshot, routeSettled: null, metricSettled: null, viewportDecision: null, settled: null, captured: null,
+      report: () => ({ routeSettled: tracker.routeSettled, metricSettled: tracker.metricSettled, viewportDecision: tracker.viewportDecision,
+        settled: tracker.settled, captured: tracker.captured || snapshot(),
+        pendingScrollOwners: [...active.keys()], scrollEventCount: events.length, scrollEvents: events }),
+      stop: () => {
+        document.removeEventListener("scroll", onScroll, true);
+        document.removeEventListener("scrollend", onScrollEnd, true);
+        window.removeEventListener("scroll", onScroll);
+        window.removeEventListener("scrollend", onScrollEnd);
+        delete window.__exerciseChartViewport;
+      },
+    };
+    window.__exerciseChartViewport = tracker;
+  });
+}
+
+async function waitForExerciseChartRoute(page) {
+  const result = await page.evaluate(() => new Promise(resolve => {
+    const tracker = window.__exerciseChartViewport;
+    const started = performance.now();
+    const timeoutMs = 10000;
+    let prior = "";
+    let stableFrames = 0;
+    let last = null;
+    const tick = () => {
+      last = tracker?.snapshot();
+      const routeReady = last?.route.activeView === "exercise" && last.route.exercise && !last.route.pushing;
+      const plotReady = !!last?.geometry.plot?.width && !!last.geometry.plot?.height;
+      const ready = !!tracker && routeReady && plotReady && tracker.active.size === 0;
+      const signature = ready ? JSON.stringify(last) : "";
+      stableFrames = ready && signature === prior ? stableFrames + 1 : ready ? 1 : 0;
+      prior = signature;
+      if (ready && stableFrames >= 3) {
+        tracker.routeSettled = { ...last, stableFrames, scrollEventCount: tracker.events.length,
+          scrollCompletion: tracker.events.length ? "scrollend" : "no-scroll" };
+        resolve({ ok: true, ...tracker.routeSettled });
+        return;
+      }
+      if (performance.now() - started >= timeoutMs) {
+        resolve({ ok: false, timeoutMs, snapshot: last,
+          activeOwners: [...(tracker?.active?.keys() || [])], scrollEvents: tracker?.events || [] });
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }));
+  if (!result?.ok) throw new Error(`Exercise route viewport did not settle: ${JSON.stringify(result)}`);
+  return result;
+}
+
+async function waitForExerciseChartMetric(page) {
+  const result = await page.evaluate(() => new Promise(resolve => {
+    const tracker = window.__exerciseChartViewport;
+    const started = performance.now();
+    const timeoutMs = 10000;
+    let prior = "";
+    let stableFrames = 0;
+    let last = null;
+    const tick = () => {
+      last = tracker?.snapshot();
+      const routeReady = last?.route.activeView === "exercise" && last.route.exercise && !last.route.pushing;
+      const metricReady = last?.metricSelected && !!last.geometry.plot?.width && !!last.geometry.readout?.width;
+      const ready = !!tracker && routeReady && metricReady && tracker.active.size === 0;
+      const signature = ready ? JSON.stringify(last) : "";
+      stableFrames = ready && signature === prior ? stableFrames + 1 : ready ? 1 : 0;
+      prior = signature;
+      if (ready && stableFrames >= 3) {
+        tracker.metricSettled = { ...last, stableFrames, scrollEventCount: tracker.events.length,
+          scrollCompletion: tracker.events.length ? "scrollend" : "no-scroll" };
+        resolve({ ok: true, ...tracker.metricSettled });
+        return;
+      }
+      if (performance.now() - started >= timeoutMs) {
+        resolve({ ok: false, timeoutMs, snapshot: last,
+          activeOwners: [...(tracker?.active?.keys() || [])], scrollEvents: tracker?.events || [] });
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }));
+  if (!result?.ok) throw new Error(`Exercise chart metric did not settle: ${JSON.stringify(result)}`);
+  return result;
+}
+
+async function waitForExerciseChartViewport(page, { chartFocused }) {
+  const result = await page.evaluate(({ chartFocused: expectFocusedChart }) => new Promise(resolve => {
+    const tracker = window.__exerciseChartViewport;
+    const started = performance.now();
+    const timeoutMs = 10000;
+    let prior = "";
+    let stableFrames = 0;
+    let last = null;
+    const tick = () => {
+      last = tracker?.snapshot();
+      const routeReady = last?.route.activeView === "exercise" && last.route.exercise && !last.route.pushing;
+      const groupReady = expectFocusedChart
+        ? Math.abs(last?.geometry.metricGroup?.top ?? Infinity) <= 1
+        : Math.abs(last?.scroll.windowY ?? Infinity) <= 1;
+      const chartReady = last?.metricSelected && !!last.geometry.plot?.width && !!last.geometry.plot?.height
+        && (!expectFocusedChart || (last.geometry.plotWithinViewport && last.geometry.readoutWithinViewport));
+      const ready = !!tracker && routeReady && groupReady && chartReady && tracker.active.size === 0;
+      const signature = ready ? JSON.stringify(last) : "";
+      stableFrames = ready && signature === prior ? stableFrames + 1 : ready ? 1 : 0;
+      prior = signature;
+      if (ready && stableFrames >= 3) {
+        tracker.settled = { ...last, stableFrames, scrollEventCount: tracker.events.length,
+          scrollCompletion: tracker.events.length ? "scrollend" : "no-scroll" };
+        resolve({ ok: true, ...tracker.settled });
+        return;
+      }
+      if (performance.now() - started >= timeoutMs) {
+        resolve({ ok: false, timeoutMs, snapshot: last,
+          activeOwners: [...(tracker?.active?.keys() || [])], scrollEvents: tracker?.events || [] });
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }), { chartFocused });
+  if (!result?.ok) throw new Error(`Exercise chart viewport did not settle: ${JSON.stringify(result)}`);
+  return result;
+}
+
 async function installPerSideHistory(page) {
   await page.waitForFunction(() => !!window.RepForgeExerciseCatalog?.snapshot?.() &&
     typeof window.__repforgeFinalizeProgramSetup === "function", undefined, { timeout: 15000 });
@@ -1599,11 +1774,44 @@ export const APP_SCENARIOS = {
   "progress/exercise-chart": async (page) => {
     await installPerSideHistory(page);
     await view(page, "stats");
+    await startExerciseChartViewportTracking(page);
     const evkey = `library:${PER_SIDE_READING_EXERCISES.bilateral}`;
     await page.evaluate((key) => window.openExerciseView(key, "stats"), evkey);
     await page.waitForSelector("#exercise.view.active .exchart__plot", { timeout: 20000 });
+    await waitForExerciseChartRoute(page);
     await page.locator('#exDetail [data-metric="e1rm"]').click();
     await page.waitForSelector("#exDetail .exchart__readout", { timeout: 20000 });
+    await waitForExerciseChartMetric(page);
+    const chartFocused = await page.evaluate(() => {
+      const tracker = window.__exerciseChartViewport;
+      if (!tracker) throw new Error("The chart viewport tracker was not installed");
+      const snapshot = tracker.snapshot();
+      const textScale = Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+      const groupTop = snapshot.geometry.metricGroup?.top ?? null;
+      const shifted = rect => rect && groupTop != null
+        ? { top: rect.top - groupTop, bottom: rect.bottom - groupTop } : null;
+      const plot = shifted(snapshot.geometry.plot), readout = shifted(snapshot.geometry.readout);
+      const alignedChartFits = !!plot && !!readout
+        && plot.top >= -1 && plot.bottom <= snapshot.viewport.height + 1
+        && readout.top >= -1 && readout.bottom <= snapshot.viewport.height + 1;
+      const chartFits = textScale >= 32 && alignedChartFits;
+      tracker.viewportDecision = { textScale, viewportHeight: snapshot.viewport.height, metricGroupTop: groupTop,
+        chartAfterAlignment: { plot, readout }, focusChart: chartFits,
+        reason: chartFits ? "aligned chart and readout fit"
+          : textScale < 32 ? "keep the established route-top framing at this text scale"
+            : "alignment would clip chart or readout" };
+      return chartFits;
+    });
+    if (chartFocused) {
+      await page.locator('#exDetail [data-metric="e1rm"]').evaluate(button => {
+        const group = button.closest(".segpill");
+        if (!group) throw new Error("The e1RM metric has no chart toggle group");
+        window.scrollTo({ top: window.scrollY + group.getBoundingClientRect().top, behavior: "instant" });
+      });
+    } else {
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+    }
+    await waitForExerciseChartViewport(page, { chartFocused });
   },
   "progress/strength": (page) => progressSegment(page, "strength"),
   "progress/strength-current-block": (page) => progressSegment(page, "strength"),
