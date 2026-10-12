@@ -113,6 +113,9 @@ export const SUITES = {
     s("test/generate-program-browser.mjs", [], { domains: ["entry", "persistence"], seconds: 30 }),
     s("test/program-engine-worker.mjs", [], { domains: ["entry", "program", "offline"], seconds: 40 }),
     s("test/adaptive-workout-browser.mjs", [], { domains: ["workout", "program", "persistence"], seconds: 40 }),
+    s("test/per-side-engine-browser.mjs", [], { domains: ["workout", "program", "persistence"], tier: "packet", seconds: 90, timeoutMs: 900000 }),
+    s("test/per-side-engine-bodyweight-browser.mjs", [], { domains: ["workout", "program", "persistence"], tier: "packet", seconds: 90, timeoutMs: 900000 }),
+    s("test/per-side-focus-cues-browser.mjs", [], { domains: ["workout", "program", "persistence"], tier: "packet", seconds: 90, timeoutMs: 900000 }),
     s("test/share-program-browser.mjs", [], { domains: ["entry", "privacy", "persistence"], seconds: 40 }),
     s("test/catalog-metric-program-browser.mjs", [], {
       domains: ["entry", "workout", "history", "persistence"], cost: "long", tier: "candidate", seconds: 180, timeoutMs: 900000,
