@@ -602,8 +602,8 @@ async function main() {
     const zeroLoad = rows.find((row) => row.performedLibraryId === PICKED[1].id);
     const perSide = rows.find((row) => row.performedLibraryId === PICKED[3].id);
     check(zeroLoad?.metricValues?.[0]?.value === 0, "zero external load remains a numeric zero", zeroLoad?.metricValues);
-    check(perSide?.loadingConvention === "per_side" && perSide.loadingContext?.externalLoadMultiplier == null,
-      "per-side work records an unknown multiplier without silently doubling it", perSide);
+    check(perSide?.loadingConvention === "per_side" && perSide.loadingContext?.externalLoadMultiplier === 2,
+      "known bilateral catalog laterality records the per-side load multiplier", perSide);
     const highRir = rows.find((row) => row.performedLibraryId === PICKED[0].id);
     check(highRir?.rir === 6, "a finite performed RIR above the target range is preserved uncapped", highRir?.rir);
 
