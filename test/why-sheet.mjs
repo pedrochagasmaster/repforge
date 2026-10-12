@@ -69,29 +69,62 @@ function assert(cond, name, detail) {
   else { results.failed++; console.log(`  ✗ ${name}`); if (detail != null) console.log(`    ${typeof detail === "string" ? detail : JSON.stringify(detail).slice(0, 2000)}`); }
 }
 
-async function seed(page) {
-  return page.evaluate(({ request, weight, reps }) => {
+async function seed(page, { ambiguousPerSideReview = false } = {}) {
+  return page.evaluate(({ request, weight, reps, ambiguousPerSideReview }) => {
     const generated = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot(), "why-sheet-067");
-    const definition = generated.value;
+    let definition = generated.value;
     const target = definition.days.filter((day) => day.kind === "training").map((day) => ({ day, slot: day.slots[0] }))
       .find(({ slot }) => JSON.stringify(slot.metricIds) === JSON.stringify([weight, reps]) &&
         slot.prescriptionsByCycle[0].sets.length >= 2);
-    const perSide = definition.days.filter((day) => day.kind === "training").flatMap((day) =>
+    const knownPerSide = definition.days.filter((day) => day.kind === "training").flatMap((day) =>
       day.slots.map((slot) => ({ day, slot }))).find(({ slot }) =>
       slot.metricDefinitions.some((metric) => metric.semantic === "loadPerSideKg") &&
       slot.metricDefinitions.some((metric) => metric.semantic === "repsPerSide"));
+    let perSide = knownPerSide;
+    if (ambiguousPerSideReview) {
+      const hipHinge = definition.days.filter((day) => day.kind === "training").flatMap((day) =>
+        day.slots.map((slot) => ({ day, slot }))).find(({ slot }) => slot.purposeId === "lower_b_hip_hinge");
+      if (!hipHinge) throw new Error("generated recommendation has no lower B hip-hinge slot to swap in Review");
+      const exerciseId = "3895c6f170d88002b51fdf96c7dc50e1";
+      const exerciseCatalog = window.RepForgeExerciseCatalog.snapshot();
+      const rawExercise = exerciseCatalog.exercises.find((entry) => entry.id === exerciseId);
+      const laterality = (rawExercise?.laterality || []).map((id) => exerciseCatalog.uuidIndex?.[id]?.name).filter(Boolean);
+      if (laterality.length !== 1 || laterality[0] !== "Asymmetrical") {
+        throw new Error(`the Review-picked B-stance fixture is no longer catalog-ambiguous: ${JSON.stringify(laterality)}`);
+      }
+      const edited = window.RepForgeProgramReview.applyEdit(definition, {
+        kind: "swap", slotId: hipHinge.slot.id, exerciseId,
+      }, {
+        compiler: window.RepForgeProgramCompiler, catalog: exerciseCatalog,
+        metrics: window.RepForgeExerciseMetrics, ordinal: 1,
+      });
+      if (!edited.ok) throw new Error(`Review catalog swap refused the ambiguous B-stance movement: ${JSON.stringify(edited)}`);
+      const checked = window.RepForgeProgramCompiler.validateProgramDefinition(edited.definition, exerciseCatalog, []);
+      if (!checked.ok) throw new Error(`Review catalog swap produced an invalid canonical definition: ${JSON.stringify(checked.issues)}`);
+      definition = edited.definition;
+      perSide = definition.days.filter((day) => day.kind === "training").flatMap((day) =>
+        day.slots.map((slot) => ({ day, slot }))).find(({ slot }) => slot.exerciseId === exerciseId);
+      if (!perSide || perSide.slot.executionMode != null || perSide.slot.id === knownPerSide?.slot.id ||
+        !perSide.slot.metricDefinitions.some((metric) => metric.semantic === "loadPerSideKg") ||
+        !perSide.slot.metricDefinitions.some((metric) => metric.semantic === "repsPerSide")) {
+        throw new Error("Review catalog-picked B-stance slot did not retain its unknown execution mode");
+      }
+    }
     return window.__repforgeFinalizeProgramSetup({
       programDefinition: definition, name: "Why sheet proof", answers: {}, destination: "log", origin: "first-run",
       draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: "why-sheet-067" },
     }).then(() => window.__repforgeStorage.flush()).then(() => {
       const program = JSON.parse(localStorage.getItem("repforge_v1") || "{}").program || [];
       const perSideRow = program.find((row) => row.slotId === perSide?.slot.id);
-      return target && perSide && perSideRow && {
+      const knownPerSideRow = program.find((row) => row.slotId === knownPerSide?.slot.id);
+      return target && perSide && perSideRow && knownPerSide && knownPerSideRow && {
         day: target.day.name, slotId: target.slot.id, exerciseId: target.slot.exerciseId,
         perSide: { day: perSide.day.name, rowId: perSideRow.id, slotId: perSide.slot.id, exerciseId: perSide.slot.exerciseId },
+        knownPerSide: { day: knownPerSide.day.name, rowId: knownPerSideRow.id, slotId: knownPerSide.slot.id,
+          exerciseId: knownPerSide.slot.exerciseId },
       };
     });
-  }, { request: REQUEST, weight: WEIGHT, reps: REPS });
+  }, { request: REQUEST, weight: WEIGHT, reps: REPS, ambiguousPerSideReview });
 }
 
 async function fillShelf(page, metricId, value) {
@@ -272,29 +305,51 @@ try {
   await perSidePage.clock.setFixedTime(new Date("2026-03-02T09:00:00.000Z"));
   await perSidePage.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForAppBoot(perSidePage, { base: BASE });
-  const perSideProgram = await seed(perSidePage);
-  if (!perSideProgram) throw new Error("no generated per-side slot in the program");
+  const perSideProgram = await seed(perSidePage, { ambiguousPerSideReview: true });
+  if (!perSideProgram) throw new Error("no generated or Review catalog-picked per-side slot in the program");
 
-  // Generated per-side work remains configuration-required while the
-  // program's execution mode is known but the loading multiplier is absent.
+  // The generated bilateral slot has a known multiplier and no history, so it
+  // stays a new pick-load state. The ambiguous B-stance target below is a real
+  // Review catalog swap and needs the lifter to choose its execution mode.
+  const knownPerSideTruth = await engineTruth(perSidePage, perSideProgram.knownPerSide.slotId);
+  assert(knownPerSideTruth.status === "new" && knownPerSideTruth.reasonCodes?.includes("no_comparable_history") &&
+    knownPerSideTruth.executionMode === "bilateral" && knownPerSideTruth.load == null,
+    "P069-S3-WHY: generated known-bilateral per-side work has no-history pick-load behavior", knownPerSideTruth);
+
+  await perSidePage.evaluate((id) => window.__repforgeGoToLogExercise(id), perSideProgram.knownPerSide.rowId);
+  await perSidePage.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 10000 });
+  await perSidePage.waitForFunction((id) => document.querySelector("#workout .exercise.is-current")?.dataset.ex === id,
+    perSideProgram.knownPerSide.rowId, { timeout: 10000 });
+  const knownPerSideContext = await perSidePage.evaluate(() => {
+    const draft = window.__repforgeWorkoutDraft.current();
+    const exercise = draft?.exercises?.[draft.session?.selectedExerciseId];
+    const set = exercise?.sets?.[exercise.setOrder?.[0]];
+    return set?.programmed?.loadingContext || null;
+  });
+  assert(knownPerSideContext?.loadingConvention === "per_side" && knownPerSideContext.externalLoadMultiplier === 2 &&
+    knownPerSideTruth.executionMode === "bilateral",
+    "P069-S3-WHY: entering the generated known-bilateral slot establishes m=2 in the actual workout context", knownPerSideContext);
+  const knownPerSideCue = await focusCue(perSidePage);
+  assert(knownPerSideCue.line1 === `Pick a load for ${knownPerSideTruth.min}–${knownPerSideTruth.max} reps` && !knownPerSideCue.line2,
+    "P069-S3-CUE: generated known-bilateral Focus asks for a load without claiming setup is missing",
+    JSON.stringify({ cue: knownPerSideCue, truth: knownPerSideTruth }));
+
   const perSideTruth = await engineTruth(perSidePage, perSideProgram.perSide.slotId);
   assert(perSideTruth.status === "configuration_required" && perSideTruth.engineStatus === "configuration_required" &&
-    perSideTruth.reasonCodes?.includes("per_side_convention_required") && perSideTruth.load == null,
-    "P069-S1-WHY: the generated per-side slot preserves its configuration reason and has no load suggestion", perSideTruth);
-  assert(perSideTruth.executionMode === "bilateral" || perSideTruth.executionMode === "unilateral",
-    "P069-S1-WHY: the generated slot reports its known execution mode", perSideTruth);
+    perSideTruth.reasonCodes?.includes("execution_context_required") && perSideTruth.load == null &&
+    perSideTruth.executionMode == null,
+    "P069-S3-WHY: Review catalog-picked ambiguous B-stance work has no inferred execution mode or load", perSideTruth);
   await perSidePage.evaluate((id) => window.__repforgeGoToLogExercise(id), perSideProgram.perSide.rowId);
   await perSidePage.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 10000 });
   await perSidePage.waitForFunction((id) => document.querySelector("#workout .exercise.is-current")?.dataset.ex === id,
     perSideProgram.perSide.rowId, { timeout: 10000 });
   const perSideCue = await focusCue(perSidePage);
   assert(perSideCue.line1 === "Needs setup" && perSideCue.line2 === `${perSideTruth.min}–${perSideTruth.max} reps`,
-    "P069-S1-CUE: Focus labels the generated per-side range Needs setup", JSON.stringify({ cue: perSideCue, truth: perSideTruth }));
+    "P069-S3-CUE: Focus labels the Review catalog-picked ambiguous range Needs setup", JSON.stringify({ cue: perSideCue, truth: perSideTruth }));
   const perSideWhy = await openWhy(perSidePage);
   const perSideWhyText = perSideWhy.blocks.map((block) => block.text).join(" ");
-  const expectedPerSideWhy = `The movement is marked ${perSideTruth.executionMode}, but Taurifer lacks the per-side loading convention it needs to interpret the load and suggest a target.`;
-  assert(perSideWhyText === expectedPerSideWhy,
-    "P069-S1-WHY: generated per-side Why preserves the known mode and explains the missing loading convention", perSideWhy);
+  assert(perSideWhyText === "Tell Taurifer how you do this: both sides together, or one side at a time.",
+    "P069-S3-WHY: ambiguous Review catalog pick explains the missing execution mode", perSideWhy);
   await closeWhy(perSidePage);
   await perSidePage.evaluate(() => window.__repforgeLeaveWorkout());
   await perSidePage.waitForFunction(() => !document.querySelector("#todayDash")?.classList.contains("hidden"), undefined, { timeout: 10000 });
@@ -306,13 +361,13 @@ try {
     } : null;
   }, perSideProgram.perSide.rowId);
   assert(perSideToday?.target === `${perSideTruth.sets} × ${perSideTruth.min}–${perSideTruth.max} · Needs setup` && perSideToday.load === "–",
-    "P069-S1-CUE: Today shows the generated per-side sets × range without a load suggestion", JSON.stringify(perSideToday));
+    "P069-S3-CUE: Today shows the Review catalog-picked per-side sets × range without a load suggestion", JSON.stringify(perSideToday));
   const perSideLargeText = await measureLargeTextTodayTarget(perSidePage, perSideProgram.perSide.rowId);
   assert(perSideLargeText?.language === "en" && perSideLargeText.text === perSideToday.target &&
     perSideLargeText.document <= perSideLargeText.viewport && perSideLargeText.left >= 0 &&
     perSideLargeText.right <= perSideLargeText.viewport + 1 && perSideLargeText.scrollWidth <= perSideLargeText.width + 1 &&
     perSideLargeText.height > perSideLargeText.lineHeight * 1.5,
-  "P069-S1-CUE: the English setup-required Today target wraps at 200% text without horizontal overflow", perSideLargeText);
+    "P069-S3-CUE: the English setup-required Today target wraps at 200% text without horizontal overflow", perSideLargeText);
   console.log(`  EN setup-required 200% target geometry: ${JSON.stringify(perSideLargeText)}`);
   await perSideContext.close();
 
@@ -472,11 +527,17 @@ try {
     await setupPtPage.clock.setFixedTime(new Date("2026-03-02T09:00:00.000Z"));
     await setupPtPage.goto(BASE, { waitUntil: "domcontentloaded" });
     await waitForAppBoot(setupPtPage, { base: BASE });
-    const ptProgram = await seed(setupPtPage);
-    if (!ptProgram) throw new Error("no generated per-side row in the Portuguese target-wrap proof");
+    const ptProgram = await seed(setupPtPage, { ambiguousPerSideReview: true });
+    if (!ptProgram) throw new Error("no Review catalog-picked ambiguous per-side row in the Portuguese target-wrap proof");
     const ptRows = await setupPtPage.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1") || "{}").program || []);
     const ptPerSideRow = ptRows.find((row) => row.slotId === ptProgram.perSide.slotId);
     if (!ptPerSideRow) throw new Error("Portuguese setup-required target row is missing from the program");
+    await setupPtPage.evaluate((id) => window.__repforgeGoToLogExercise(id), ptPerSideRow.id);
+    await setupPtPage.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 10000 });
+    await setupPtPage.waitForFunction((id) => document.querySelector("#workout .exercise.is-current")?.dataset.ex === id,
+      ptPerSideRow.id, { timeout: 10000 });
+    await setupPtPage.evaluate(() => window.__repforgeLeaveWorkout());
+    await setupPtPage.waitForFunction(() => !document.querySelector("#todayDash")?.classList.contains("hidden"), undefined, { timeout: 10000 });
     const ptPerSideToday = await setupPtPage.evaluate((id) =>
       document.querySelector(`#todayDash .rxrow[data-exopen="${CSS.escape(id)}"] .rxrow__target`)
         ?.textContent?.replace(/\s+/g, " ").trim() || "", ptPerSideRow.id);
