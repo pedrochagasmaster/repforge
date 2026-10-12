@@ -16296,8 +16296,12 @@ async function startEntryResult(target,{gate=null}={}){
     entryCompileError=outcome.failure;
     entrySetState(target);
     return}
+  // Back keeps its candidate on the draft; compiling the same request again
+  // must not re-arm the reveal for that already shown result.
+  const sameGeneratedResult=job.from.draftId===target.draftId&&job.from.route===target.route&&
+    job.from.result?.fingerprint===outcome.result.fingerprint;
   entryState=ProgramEntry.setResult(target,outcome.result);
-  entryBuildArmed={draftId:entryState.draftId,fingerprint:outcome.result.fingerprint};
+  entryBuildArmed=sameGeneratedResult?null:{draftId:entryState.draftId,fingerprint:outcome.result.fingerprint};
   entryNoteFirstResult(outcome.result,without);
   // The program that just landed is the review's recommendation.
   if(entryAdjustRoute())adoptEntryAdjust(cloneSnapshot(outcome.result));
