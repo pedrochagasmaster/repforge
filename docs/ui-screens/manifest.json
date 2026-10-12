@@ -960,6 +960,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "deload-week",
+      "flow": "today",
+      "label": "Today — deload week",
+      "scenario": "The active program's deload cycle shows its recovery note.",
+      "variants": "localized"
+    },
+    {
       "id": "focus",
       "flow": "workout",
       "label": "Workout — focus mode",
@@ -979,6 +986,13 @@
       "label": "Workout — why this weight, per-side loading",
       "scenario": "The generated bilateral press's Why sheet explains the multiplier and enabled bodyweight contribution.",
       "variants": "demandingText"
+    },
+    {
+      "id": "deload-week",
+      "flow": "workout",
+      "label": "Workout — deload week",
+      "scenario": "Focus shows the recovery note during the program's deload cycle.",
+      "variants": "localized"
     },
     {
       "id": "focus-glossary",

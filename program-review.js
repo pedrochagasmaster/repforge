@@ -131,7 +131,7 @@
     if (!at) return refuse("slot_missing");
     if (!Number.isInteger(edit.count) || edit.count < MIN_SETS || edit.count > MAX_SETS) return refuse("sets_out_of_range");
     for (const cycle of at.slot.prescriptionsByCycle) {
-      const want = isDeload(cycle) ? Math.max(MIN_SETS, edit.count - 1) : edit.count;
+      const want = isDeload(cycle) ? Math.max(MIN_SETS, Math.ceil(edit.count / 2)) : edit.count;
       if (!cycle.sets.length) return refuse("cycle_empty");
       while (cycle.sets.length > want) cycle.sets.pop();
       while (cycle.sets.length < want) {

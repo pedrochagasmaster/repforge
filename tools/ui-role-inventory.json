@@ -268,6 +268,11 @@
       "content": "flat",
       "scenario": "The Direction D lifter's finished Monday: totals, the record line, each lift's outcome and next target, View today's session as the primary control."
     },
+    "today/deload-week": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The active program's deload cycle shows the recovery note on Today."
+    },
     "workout/focus": {
       "owner": "plan-055",
       "content": "flat",
@@ -277,6 +282,11 @@
       "owner": "plan-069",
       "content": "flat",
       "scenario": "A generated bilateral press shows its per-side load label and adaptive target prefilled in ordinary Focus."
+    },
+    "workout/deload-week": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "Focus shows the recovery note during the active program's deload cycle."
     },
     "workout/focus-glossary": {
       "owner": "plan-058",
@@ -5499,6 +5509,40 @@
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-import/freeform-stage3"
+      ]
+    },
+    {
+      "id": "today-prog-deload",
+      "selector": "#todayProgram .today-prog__deload",
+      "roles": {
+        "typography": "body-small"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "deload-week"
+      ],
+      "rationale": "Explains the reduced work during the active program's deload cycle.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "today/deload-week"
+      ]
+    },
+    {
+      "id": "focus-deload-note",
+      "selector": "#woDaySub.is-deload",
+      "roles": {
+        "typography": "body-small"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "deload-week"
+      ],
+      "rationale": "Focus names the recovery week while the lifter trains.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "workout/deload-week"
       ]
     },
     {

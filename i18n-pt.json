@@ -1365,6 +1365,7 @@
   "today.up_next": "A seguir",
   "today.week_of": "Semana {n} de {total}",
   "today.week_short": "Semana {n}",
+  "today.deload_week": "Semana de deload: menos séries para recuperar.",
   "meso.week_ready": "Semana {n} de {total} · pronta para revisão.",
   "meso.complete": "Bloco concluído",
   "today.exercise_count": "{n} exercícios",

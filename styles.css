@@ -893,6 +893,7 @@ body:has(.exercise--focus.is-text-scaled) .wo-rest.is-running{padding:0 var(--sp
 body:has(.exercise--focus.is-text-scaled) .wo-rest.is-running .wo-rest__dot{display:none}
 body:has(.exercise--focus.is-text-scaled) .wo-head__center{order:3;flex:1 0 100%;padding-top:0}
 .wo-head__sub{display:none}
+.wo-head__sub.is-deload{display:block;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 .wo-head__end{display:flex;align-items:center;gap:6px;flex:none;position:relative;justify-self:end}
 /* Rest lives in the workout chrome, never over the card's controls: a square
    with the stopwatch while idle, a counting pill once it is running. */
@@ -3477,7 +3478,7 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .icon-btn--ghost{border:0;background:transparent;color:var(--ink)}
 .today-prog{padding:8px 0 16px;border-bottom:1px solid var(--boundary-decorative)}
 .today-prog__name{font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
-.today-prog__week{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin-top:4px}
+.today-prog__week,.today-prog__deload{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin-top:4px}
 .today-prog .segbar{margin-top:12px}
 #todayProgram .segbar__seg{background:var(--boundary-required);border-radius:var(--radius-compact)}
 #todayProgram .segbar__seg.is-done{background:var(--color-ink)}

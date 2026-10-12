@@ -57,6 +57,12 @@ try {
   await page.clock.setFixedTime(new Date(START.getTime() + 42 * 24 * 60 * 60 * 1000));
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
+  const reloaded = await state(page);
+  const reloadedSlot = reloaded.programMeta.programDefinition.days.flatMap((day) => day.slots).find((slot) => slot.id === firstSlot.id);
+  assert.equal(reloadedSlot.prescriptionsByCycle.at(-1).sets.length, 3,
+    "the activated six-set edit survives the ordinary reload");
+  assert.deepEqual(reloaded.programMeta.programDefinition.deloadCycles, [7],
+    "the active program keeps its final deload cycle after reload");
   const today = await page.evaluate(() => ({
     block: window.__repforgeMesocycleWeek(),
     deload: [...document.querySelectorAll("#todayDash *")].some((node) =>

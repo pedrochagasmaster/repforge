@@ -1365,6 +1365,7 @@
   "today.up_next": "Up next",
   "today.week_of": "Week {n} of {total}",
   "today.week_short": "Week {n}",
+  "today.deload_week": "Deload week: fewer sets so you recover.",
   "meso.week_ready": "Week {n} of {total} · ready for review.",
   "meso.complete": "Block complete",
   "today.exercise_count": "{n} exercises",

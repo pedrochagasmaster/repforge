@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 184 screens,
-1072 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 186 screens,
+1078 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -154,6 +154,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Today — running rest bar](screens/today/rest-bar__phone-390-light-en.png) | 8 | The rest countdown remains visible after leaving the active workout. |
 | [Today — choose another day](screens/today/day-picker__phone-390-light-en.png) | 8 | The day picker sheet open. |
 | [Today — session complete](screens/today/done__phone-390-light-en.png) | 8 | The state after the day's session is logged. |
+| [Today — deload week](screens/today/deload-week__phone-390-light-en.png) | 3 | The active program's deload cycle shows its recovery note. |
 | [Resume saved draft](screens/today/draft-resume__phone-390-light-en.png) | 8 | Resume saved draft through production controls. |
 
 ### Workout logging
@@ -163,6 +164,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Workout — focus mode](screens/workout/focus__phone-390-light-en.png) | 8 | One exercise at a time. |
 | [Workout — Focus, per-side target](screens/workout/focus-per-side__phone-390-light-en.png) | 8 | A generated bilateral press shows its per-side load label and adaptive target prefilled in ordinary Focus. |
 | [Workout — why this weight, per-side loading](screens/workout/why-per-side__phone-390-light-en.png) | 8 | The generated bilateral press's Why sheet explains the multiplier and enabled bodyweight contribution. |
+| [Workout — deload week](screens/workout/deload-week__phone-390-light-en.png) | 3 | Focus shows the recovery note during the program's deload cycle. |
 | [Workout — Focus glossary definition](screens/workout/focus-glossary__phone-390-light-en.png) | 8 | A definition is open after tapping a glossary term in Focus. |
 | [Workout — stale draft recovery](screens/workout/stale-draft__phone-390-light-en.png) | 8 | A conflicting tab won while this tab retains a pending field value and offers Reload latest or Copy value. |
 | [Workout — draft persistence retry](screens/workout/persist-retry__phone-390-light-en.png) | 8 | A field write was interrupted; the exact pending value remains visible beside Retry and Copy value actions. |

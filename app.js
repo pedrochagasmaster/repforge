@@ -3660,6 +3660,14 @@ function captureBlockReviewViewed(){
   captureEvent("block_review_viewed",{completion:blockCompletionBucket(mesocycleLifecycle(state.programMeta))})}
 function programWeek(){return mesocycleLifecycle(state.programMeta).elapsedWeek}
 function mesocycleWeek(){return mesocycleLifecycle(state.programMeta)}
+function isProgramDeloadWeek(mc=mesocycleWeek()){
+  const deloadCycles=state.programMeta?.programDefinition?.deloadCycles;
+  return Number.isInteger(mc.current)&&Array.isArray(deloadCycles)&&deloadCycles.includes(mc.current)}
+function renderFocusDeloadLine(el=$("#woDaySub")){
+  if(!el)return;
+  const show=isProgramDeloadWeek();
+  el.textContent=show?t("today.deload_week"):"";
+  el.classList.toggle("is-deload",show)}
 function mesocycleWeekCopy(mc,ofKey="today.week_of"){
   if(mc.isComplete)return t("meso.complete");
   if(mc.current==null)return"";
@@ -7294,6 +7302,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
     const segs=mc.total||6,cur=mc.current||0,weekCopy=mesocycleWeekCopy(mc);
     progEl.innerHTML=`<div class="today-prog__name">${esc(nm||t("untitled_program"))}</div>`+
       (weekCopy?`<div class="today-prog__week">${esc(weekCopy)}</div>`:"")+
+      (isProgramDeloadWeek(mc)?`<div class="today-prog__deload">${esc(t("today.deload_week"))}</div>`:"")+
       `<div class="segbar" data-progress-dimension="block" data-progress-scope="active-program-week">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}${i===Math.min(cur,segs)-1?" is-current":""}"></span>`).join("")}</div>`}
     else{progEl.classList.add("hidden");progEl.innerHTML=""}}
   // A saved session means today is spent: Today recaps it instead of offering the
@@ -7352,8 +7361,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
     progClick.style.cursor="pointer";progClick.onclick=()=>{navTo("stats");setStatsSeg("review")}}
   // The workout header names the day until a workout is open; then updateWorkoutHeader owns the title.
   if(!workoutActive){const woTitle=$("#woDayTitle");if(woTitle)woTitle.textContent=dayLabel(day)}
-  const woSub=$("#woDaySub");if(woSub){const mc3=mesocycleWeek();
-    woSub.textContent=mc3.isComplete?t("meso.complete"):mc3.current!=null?t("today.week_short",{n:mc3.current}):""}
+  renderFocusDeloadLine();
 }
 /* ---- Session sheet (Focus workout) ---- */
 let sessionEarlyRevision = null;
@@ -8457,6 +8465,7 @@ function renderWorkout(){
 function updateWorkoutHeader(fl,at){
   const title=$("#woDayTitle");
   if(title)title.textContent=fl.length?t("focus.head.day_ex",{day:dayLabel(day),n:at+1,m:fl.length}):dayLabel(day);
+  renderFocusDeloadLine();
   syncWorkoutMore()}
 /** ⋯ is the current exercise's actions. Where the device offers voice input and
  *  the lifter has turned it on, the same button opens a short menu that holds

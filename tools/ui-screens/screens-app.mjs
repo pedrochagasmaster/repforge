@@ -280,6 +280,7 @@ const SQUAT_ALTERNATES = Object.freeze(["1a25c6f170d88079a926dde776766181", "1a2
 /** Catalog states built on the Direction D fixture; each R3 sub-slice adds its own. */
 const D_FIXTURE_STATES = new Set([
   "workout/focus", "workout/focus-glossary", "workout/correction", // R3c
+  "workout/deload-week", // Plan 072 S4: the deload cue in Focus
   "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions", // R3d
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", // R3d
   "workout/exercise-actions", // R3x: the redrawn sheet, on the lifter the drawing shows
@@ -288,6 +289,7 @@ const D_FIXTURE_STATES = new Set([
   "history/list", "history/session", "history/edit-dirty", "history/edit-invalid", // R3j, R3j2
   "program/overview", // R3k
   "today/done", // R3x: the finished day, on the lifter whose Monday session is in the log
+  "today/deload-week", // Plan 072 S4: the deload cue in Today
   "today/draft-resume", // R3b2: the unfinished-session band, on the same lifter as Today
   "progress/overview", "progress/overview-baseline", "progress/overview-action", "progress/exercise-chart", // R3i
   "progress/strength", "progress/strength-current-block", "progress/strength-all-history", // R3i
@@ -338,6 +340,8 @@ function directionDThroughSession(sessionId) {
  * state; `APP_ASOF` is the last day of the log the lifter has by then.
  */
 export const APP_CLOCK = {
+  "today/deload-week": CAPTURE_NOW,
+  "workout/deload-week": CAPTURE_NOW,
   "progress/overview-baseline": "2026-08-17T12:00:00.000Z",
   "progress/strength-comparison": "2026-08-19T12:00:00.000Z",
   "progress/strength-sparse": "2026-08-16T12:00:00.000Z",
@@ -367,6 +371,14 @@ export function appState(key, lang) {
     if (key === "workout/swap-alternates") {
       const slot = drawn.programMeta.programDefinition.days.flatMap((day) => day.slots).find((entry) => entry.id === "ex-sq");
       slot.alternates = [...SQUAT_ALTERNATES];
+    }
+    if (key === "today/deload-week" || key === "workout/deload-week") {
+      const cycles = drawn.programMeta.programDefinition.cycles;
+      drawn.programMeta.programDefinition.deloadCycles = [cycles];
+      drawn.programMeta.mesocycleLengthWeeks = cycles;
+      drawn.programMeta.started = isoDaysAgo((cycles - 1) * 7);
+      drawn.programMeta.mesocycleStatus = "active";
+      drawn.log = drawn.log.filter(row => String(row.date) < CAPTURE_NOW.slice(0, 10));
     }
     if (APP_ASOF[key]) drawn.log = drawn.log.filter((row) => row.date <= APP_ASOF[key]);
     return drawn;
@@ -1486,6 +1498,12 @@ export const APP_SCENARIOS = {
     if (!state.open || !state.retryEnabled || state.booted) throw new Error(`Failed retry lost its recovery path: ${JSON.stringify(state)}`);
   },
   "today/no-program": async (page) => { await dismissChrome(page); await sleep(page, 300); },
+  "today/deload-week": async page => {
+    const note = page.locator("#todayProgram .today-prog__deload");
+    await note.waitFor({ state: "visible", timeout: 20000 });
+    const copy = await page.evaluate(() => window.RepForgeI18n.t("today.deload_week"));
+    if ((await note.innerText()).trim() !== copy) throw new Error("Today shows the wrong deload recovery note");
+  },
   "today/ready": async (page) => {
     await dismissChrome(page);
     const rows = page.locator("#todayExList .rxrow");
@@ -1632,6 +1650,16 @@ export const APP_SCENARIOS = {
   "workout/focus": focusMode,
   "workout/focus-per-side": focusPerSideTarget,
   "workout/why-per-side": whyPerSideAssumption,
+  "workout/deload-week": async page => {
+    await page.click("#startWorkout");
+    await page.locator("#workoutShell").waitFor({ state: "visible", timeout: 20000 });
+    const cue = await page.locator("#woDaySub").evaluate(node => ({
+      visible: getComputedStyle(node).display !== "none" && getComputedStyle(node).visibility !== "hidden",
+      text: node.textContent.trim(),
+    }));
+    const copy = await page.evaluate(() => window.RepForgeI18n.t("today.deload_week"));
+    if (!cue.visible || cue.text !== copy) throw new Error(`Focus deload note is missing: ${JSON.stringify(cue)}`);
+  },
   "workout/focus-glossary": async (page) => {
     await focusMode(page);
     const term = page.locator("#workout [data-term]").first();
