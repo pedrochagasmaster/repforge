@@ -460,12 +460,18 @@ async function main() {
     observations.ambiguousTotalLoad = { earlier: totalAmbiguousEarlierRead, latest: totalAmbiguousLatestRead,
       persistentLegacyFallback: persistentLegacyRead, unambiguousLaterality: unambiguousLateralityRead,
       currentSlotMode: currentAmbiguousSlot.executionMode };
+    const totalAmbiguousEarlierLift = totalAmbiguousEarlierRead.lifts.find(section => section.exerciseId === TOTAL_AMBIGUOUS_ID);
     const totalAmbiguousLatestLift = totalAmbiguousLatestRead.lifts.find(section => section.exerciseId === TOTAL_AMBIGUOUS_ID);
     const persistentLegacyLift = persistentLegacyRead.lifts.find(section => section.exerciseId === AMBIGUOUS_ID);
     check(Number.isNaN(total(totalAmbiguousEarlierRead)) && Number.isNaN(total(totalAmbiguousLatestRead)) &&
       !totalAmbiguousLatestLift?.record && totalAmbiguousLatestLift?.outcome === "Not comparable",
       "History leaves explicit total-load m=1 unavailable when B-stance historical mode is unknown despite today's bilateral slot",
       { earlier: totalAmbiguousEarlierRead, latest: totalAmbiguousLatestRead, currentSlotMode: currentAmbiguousSlot.executionMode });
+    check(totalAmbiguousEarlierLift?.headers.some(label => /^Load \(kg\)$/.test(label)) &&
+      totalAmbiguousEarlierLift?.headers.some(label => /Reps per side/i.test(label)) &&
+      totalAmbiguousEarlierLift?.metrics.some(metric => metric.metricId === LOAD_ID && metric.value === "25") &&
+      totalAmbiguousEarlierLift?.metrics.some(metric => metric.metricId === REPS_SIDE_ID && metric.value === "8"),
+      "History preserves total Weight and per-side repetitions for an unavailable historical mode", totalAmbiguousEarlierLift);
     check(persistentLegacyLift?.metrics.some(metric => metric.metricId === PERSISTENT_LOAD_SIDE_ID && metric.value === "22.5") &&
       Number(persistentLegacyRead.totals.find(item => /moved/i.test(item.label))?.value.replaceAll(",", "")) === 360,
       "History retains current-slot fallback for a valid legacy null-mode persistent per-side row", persistentLegacyRead);
