@@ -1691,6 +1691,74 @@ const exerciseLiftKey=ex=>ex?.libraryId?`library:${ex.libraryId}`:
 const exerciseLabel=row=>String(row?.name||row?.performedName||"");
 const displayName=row=>loggedMovementName(row);
 const currentExerciseForLiftKey=key=>(state.program||[]).find(ex=>exerciseLiftKey(ex)===key)||null;
+const PER_SIDE_LOAD_SEMANTICS=new Set(["loadPerSideKg","persistentLoadPerSideKg"]);
+function metricValue(row,semantic){
+  if(!Array.isArray(row?.metricDefinitions)||!Array.isArray(row?.metricIds)||!Array.isArray(row?.metricValues))return null;
+  const index=row.metricDefinitions.findIndex((metric,i)=>metric?.semantic===semantic&&metric.id===row.metricIds[i]&&
+    row.metricValues[i]?.metricId===metric.id&&typeof row.metricValues[i]?.value==="number"&&Number.isFinite(row.metricValues[i].value));
+  return index<0?null:row.metricValues[index].value}
+function executionModeForLogRow(row,sideLoadSemantic=null,explicitMultiplier=null,totalLoadWithSideReps=false){
+  // A non-persistent per-side load's captured multiplier is its execution
+  // convention: one means one side at a time; two means both sides together.
+  // Persistent loads still use m=2 in either mode, so their reps need the
+  // catalog/slot mode below. Total Weight is already total, so m=1 does not
+  // identify the execution mode for per-side reps.
+  if(sideLoadSemantic==="loadPerSideKg"&&(explicitMultiplier===1||explicitMultiplier===2))
+    return explicitMultiplier===1?"unilateral":"bilateral";
+  const sourceId=String(row?.performedLibraryId||row?.sourceLibraryId||"");
+  const laterality=(rawExercise(sourceId)?.laterality||[]).map(id=>rawCatalogObject(id)?.name).filter(Boolean);
+  if(laterality.length===1&&laterality[0]==="Unilateral")return"unilateral";
+  if(laterality.length===1&&laterality[0]==="Bilateral")return"bilateral";
+  // Total-load m=1 is its load-composition multiplier, not a captured
+  // execution convention. With ambiguous catalog laterality, don't substitute
+  // the current slot's mode for the historical movement.
+  if(totalLoadWithSideReps&&explicitMultiplier===1)return null;
+  // For a persistent per-side load, m=2 records how much weight is held per
+  // side, not whether both sides moved together. An ambiguous historical row
+  // with that explicit value cannot borrow the current slot's execution mode.
+  if(sideLoadSemantic==="persistentLoadPerSideKg"&&explicitMultiplier===2)return null;
+  const slotId=String(row?.slotId||row?.exerciseId||"");
+  const slot=(state.programMeta?.programDefinition?.days||[]).flatMap(day=>day?.slots||[]).find(item=>item?.id===slotId);
+  return slot?.executionMode==="bilateral"||slot?.executionMode==="unilateral"?slot.executionMode:null}
+/** Read-time workout projection shared by History, Progress, exercise charts and CSV.
+ *  It never mutates the saved row; null per-side context stays unknown instead
+ *  of becoming an assumed multiplier. */
+function readLogRow(row){
+  const source=row&&typeof row==="object"?row:{};
+  const sideLoadMetric=source.metricDefinitions?.find(metric=>PER_SIDE_LOAD_SEMANTICS.has(metric?.semantic));
+  const totalLoadMetric=source.metricDefinitions?.find(metric=>metric?.semantic==="loadKg");
+  const repsSideMetric=source.metricDefinitions?.find(metric=>metric?.semantic==="repsPerSide");
+  const repsMetric=source.metricDefinitions?.find(metric=>metric?.semantic==="reps");
+  const metricLoad=sideLoadMetric?metricValue(source,sideLoadMetric.semantic):totalLoadMetric?metricValue(source,"loadKg"):null;
+  const metricReps=repsSideMetric?metricValue(source,"repsPerSide"):repsMetric?metricValue(source,"reps"):null;
+  const numeric=value=>value!=null&&value!==""&&Number.isFinite(Number(value))?Number(value):null;
+  const totalLoad=totalLoadMetric?metricLoad:sideLoadMetric?null:numeric(source.load);
+  const totalReps=repsSideMetric?null:repsMetric?metricReps:numeric(source.reps);
+  const sideLoad=sideLoadMetric?metricLoad:null,sideReps=repsSideMetric?metricReps:null;
+  const load=sideLoadMetric?sideLoad:totalLoad,reps=repsSideMetric?sideReps:totalReps;
+  const perSideLoad=!!sideLoadMetric&&sideLoad!=null,perSideReps=!!repsSideMetric&&sideReps!=null;
+  const explicitMultiplier=source.loadingContext?.externalLoadMultiplier;
+  const mode=perSideReps||sideLoadMetric
+    ?executionModeForLogRow(source,sideLoadMetric?.semantic,explicitMultiplier,!!(totalLoadMetric&&perSideReps)):null;
+  let multiplier=null;
+  if(sideLoadMetric){
+    if(explicitMultiplier===1||explicitMultiplier===2)multiplier=explicitMultiplier;
+    else if(explicitMultiplier==null&&sideLoadMetric.semantic==="persistentLoadPerSideKg")multiplier=2;
+    else if(explicitMultiplier==null&&mode==="bilateral")multiplier=2;
+    else if(explicitMultiplier==null&&mode==="unilateral")multiplier=1;
+  }else if(totalLoadMetric&&perSideReps)multiplier=1;
+  else if(load!=null)multiplier=1;
+  const repetitionsPerformed=perSideReps
+    ?mode?reps*(mode==="unilateral"?2:1):null:reps;
+  const convention=sideLoadMetric?multiplier==null?"per-side:unknown":`per-side:m${multiplier}`
+    :perSideReps?`total-load:${mode||"unknown"}`:"load";
+  const strengthComparable=load>0&&reps>0&&(!sideLoadMetric||multiplier!=null)&&(!perSideReps||mode!=null);
+  const tonnage=load>0&&repetitionsPerformed>0&&(!sideLoadMetric||multiplier!=null)
+    ?load*(sideLoadMetric?multiplier:1)*repetitionsPerformed:null;
+  return{...source,load,reps,totalLoad,totalReps,loadPerSide:sideLoad, repsPerSide:sideReps,
+    perSideLoad,perSideReps,executionMode:mode,loadMultiplier:multiplier,repetitionsPerformed,tonnage,
+    strengthComparable,strengthConvention:convention,e1rm:strengthComparable?e1rm(load,reps):null}}
+function readLogRows(log=state.log){return(Array.isArray(log)?log:[]).map(readLogRow)}
 /* Search-only bridge from a logged row back to what the program calls that
    movement today. History itself never renames what was performed — the row
    keeps its immutable label — but a lifter who renamed a movement still looks
@@ -3728,11 +3796,11 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
     {started:meta.started,mesocycleLengthWeeks:meta.mesocycleLengthWeeks||6,
      mesocycleStatus:meta.mesocycleStatus,evidenceRecords:reviewObservedOutcomes(),
      recoveryEligible:true},
-    state.log,today());
+    readLogRows(),today());
   const life=mesocycleLifecycle(meta);
   const weekLine=life.isComplete?t("meso.complete"):life.isFinalWeek&&life.current!=null?t("meso.week_ready",{n:life.current,total:life.total}):t("review.week_of",{n:life.current??"—",total:life.total});
   const volume=Model.buildVolumeEvidence("block-to-date",prog.toJSON(),
-    progressEvidenceMeta(),state.log,today());
+    progressEvidenceMeta(),readLogRows(),today());
   const pct=volume.plannedWorkingSets?Math.min(100,Math.round(volume.completedWorkingSets/volume.plannedWorkingSets*100)):0;
   const nameForLiftKey=key=>currentExerciseForLiftKey(key)?.name||key;
   const outcomes=checkpoint.observedOutcomes;
@@ -5442,7 +5510,26 @@ function buildSessionDelta(prevRows,currentRows){const previous=exerciseSessionM
   const copy={improved:["delta.improved.label","delta.improved.text"],flat:["delta.flat.label","delta.flat.text"],
     regressed:["delta.regressed.label","delta.regressed.text"],changed_load:["delta.changed_load.label","delta.changed_load.text"]}[status];
   return{status,label:t(copy[0]),text:t(copy[1]),metrics:{current,previous,deltas}}}
-function compareExerciseSession(ex,currentRows){const cur=workingRows(currentRows);
+function noComparableSessionOutcome(){return{status:"not_comparable",label:t("delta.not_comparable.label"),text:t("delta.not_comparable.text"),metrics:null}}
+/** Shared read-time seam for History and Progress: callers select the saved
+ *  sessions and convention, then this function validates projected rows and
+ *  delegates the unchanged Session-outcome policy above. */
+function compareProjectedSessionOutcome(currentRows,previousRows,expectedConvention=null){
+  const current=(Array.isArray(currentRows)?currentRows:[]).filter(row=>isWork(row)&&+row.load>0&&+row.reps>0);
+  if(!current.length||current.some(row=>row.strengthComparable===false))return noComparableSessionOutcome();
+  const currentSessions=new Set(current.map(row=>String(row.session??row.date??""))),conventions=new Set(current.map(row=>row.strengthConvention||"load"));
+  if(currentSessions.size!==1||currentSessions.has("")||conventions.size!==1)return noComparableSessionOutcome();
+  const convention=conventions.values().next().value;
+  if(expectedConvention!=null&&convention!==expectedConvention)return noComparableSessionOutcome();
+  const previous=(Array.isArray(previousRows)?previousRows:[]).filter(row=>isWork(row)&&+row.load>0&&+row.reps>0&&
+    row.strengthComparable!==false&&(row.strengthConvention||"load")===convention);
+  if(!previous.length)return{status:"new",label:t("delta.new.label"),text:t("delta.new.text"),metrics:null};
+  const previousSessions=new Set(previous.map(row=>String(row.session??row.date??"")));
+  if(previousSessions.size!==1||previousSessions.has("")||previousSessions.has(currentSessions.values().next().value))return noComparableSessionOutcome();
+  return buildSessionDelta(previous,current)}
+function compareExerciseSession(ex,currentRows,readerContext=null){
+  if(readerContext?.reader==="progress-strength")return compareProgressStrengthSession(ex,currentRows,readerContext);
+  const cur=workingRows(currentRows);
   if(!cur.length)return{status:"not_comparable",label:t("delta.not_comparable.label"),text:t("delta.not_comparable.text"),metrics:null};
   const prev=previousSessionForExercise(ex,cur[0]?.session);
   if(!prev.length)return{status:"new",label:t("delta.new.label"),text:t("delta.new.text"),metrics:null};
@@ -5664,7 +5751,7 @@ window.__repforgeProgressEvidence={
   volume:scope=>{
     const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return null;
     return Model.buildVolumeEvidence(scope==="block-to-date"?"block-to-date":"this-week",prog.toJSON(),
-      progressEvidenceMeta(),state.log,today())},
+      progressEvidenceMeta(),readLogRows(),today())},
   records:scope=>strengthEvidenceRecords(scope||strengthScope),
   chartPresentation:n=>n>=3?"trend":n===2?"comparison":"snapshot",
   keyForExerciseId:exId=>{const ex=prog.find(exId);return ex?exerciseLiftKey(ex):null}};
@@ -9069,11 +9156,14 @@ window.__repforgeSessionSummary={
   build:buildSessionSummary,current:()=>sessionSummaryCurrent};
 
 function summaries(){const m=new Map();
-  for(const x of state.log){if(!isWork(x))continue;const k=`${x.session}|${liftKey(x)}`;if(!m.has(k))m.set(k,{session:x.session,date:x.date,created:x.created,day:x.day,liftKey:liftKey(x),name:displayName(x),loads:[],reps:[],rirs:[],sets:0});
+  for(const raw of state.log){if(!isWork(raw))continue;const x=readLogRow(raw);
+    if(!x.strengthComparable||!(+x.load>0&&+x.reps>0))continue;
+    const convention=x.strengthConvention||"load",k=`${x.session}|${liftKey(x)}|${convention}`;
+    if(!m.has(k))m.set(k,{session:x.session,date:x.date,created:x.created,day:x.day,liftKey:liftKey(x),name:displayName(x),loads:[],reps:[],rirs:[],sets:0,perSideLoad:x.perSideLoad,convention});
     const o=mergeLogChronology(m.get(k),x);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir);o.sets++}
   return [...m.values()].map(o=>{let top=0,topReps=0,vol=0,best=0;
     o.loads.forEach((ld,i)=>{const rp=o.reps[i];vol+=ld*rp;const e=e1rm(ld,rp);if(e>best)best=e;if(ld>top){top=ld;topReps=rp}});
-    return{session:o.session,date:o.date,created:o.created,day:o.day,liftKey:o.liftKey,name:o.name,top,topReps,reps:sum(o.reps),rir:avg(o.rirs),sets:o.sets,volume:vol,e1rm:best};})
+    return{session:o.session,date:o.date,created:o.created,day:o.day,liftKey:o.liftKey,name:o.name,top,topReps,reps:sum(o.reps),rir:avg(o.rirs),sets:o.sets,volume:vol,e1rm:best,perSideLoad:o.perSideLoad,convention:o.convention};})
     .sort(compareLogChronology)}
 
 function strengthDashboard(){
@@ -9119,17 +9209,26 @@ function strengthKindText(series){
 function strengthFigure(series){
   const pts=series.points;if(!pts.length)return"—";
   const last=fmtLoad(pts.at(-1).value);
-  return pts.length>1?`${fmtLoad(pts[0].value)}→${last} ${unitLabel()}`:`${last} ${unitLabel()}`}
-function strengthSessionRows(key,sessionId){
-  return state.log.filter(r=>isWork(r)&&liftKey(r)===key&&String(r.session??r.date)===String(sessionId))}
+  const cue=series.perSideLoad?` · ${t("focus.metric.load_per_side_kg")}`:"";
+  return`${pts.length>1?`${fmtLoad(pts[0].value)}→${last} `:`${last} `}${unitLabel()}${cue}`}
+function strengthSessionRows(key,sessionId,comparisonConvention="load"){
+  return strengthEvidenceRows().filter(row=>row.exerciseId===key&&String(row.session??row.date)===String(sessionId)&&
+    row.strengthComparable!==false&&(row.strengthConvention||"load")===comparisonConvention)}
+function strengthSessionDelta(key,series){
+  const points=series?.points||[];if(points.length<2)return null;
+  const convention=series.comparisonConvention||"load",rows=strengthEvidenceRows().filter(row=>row.exerciseId===key&&
+    row.strengthComparable!==false&&(row.strengthConvention||"load")===convention);
+  const previous=rows.filter(row=>row.sessionKey===points.at(-2).sessionKey),current=rows.filter(row=>row.sessionKey===points.at(-1).sessionKey);
+  return compareProjectedSessionOutcome(current,previous,convention)}
 /** The word under a lift's name. With a sufficient outcome it is the label of
  *  compareExerciseSession for the latest session, marked for the parity check;
  *  otherwise it is the short reason the model gave (no outcome is invented). */
 function strengthOutcomeWord(key,series,latest){
   if(!latest)return{html:esc(t("stats.evidence.baseline")),soft:true,status:""};
-  const rows=strengthSessionRows(key,latest.session),slot=currentExerciseForLiftKey(key);
-  const cmp=rows.length?compareExerciseSession(slot||exerciseIdentityFromRow(rows[0]),rows):null;
-  const parity=slot?` data-parity-outcome="${esc(slot.id)}" data-parity-session="${esc(latest.session)}"`:"";
+  const cmp=strengthSessionDelta(key,series),slot=currentExerciseForLiftKey(key);
+  const parity=slot?` data-parity-outcome="${esc(slot.id)}" data-parity-session="${esc(latest.session)}"`+
+    ` data-parity-reader="progress-strength" data-parity-scope="${esc(series.scope)}"`+
+    ` data-parity-convention="${esc(series.comparisonConvention||"load")}"`:"";
   const word=label=>`<span class="evword"${parity}>${esc(label)}</span>`;
   if(series.outcome&&cmp)return{html:word(cmp.label),soft:false,status:series.outcome};
   const reason=series.reason;
@@ -9167,7 +9266,7 @@ function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;
       return `<button type="button" class="evrow" data-evkey="${esc(k)}" aria-expanded="false">`+
         `<div class="listrow__main"><div class="listrow__title">${esc(liftDisplayName(nameOf(k),k))}</div>`+
         `<div class="listrow__sub">${esc(t("stats.evidence.empty"))}${esc(` · ${t("stats.evidence.baseline")}`)}</div></div>`+
-        `<span class="evrow__val">—</span><span class="chevron" aria-hidden="true"></span></button>${panel}`;
+        `<span class="evrow__val" aria-hidden="true"></span><span class="chevron" aria-hidden="true"></span></button>${panel}`;
     const latest=projection.sessions.filter(x=>x.liftKey===k).at(-1),word=strengthOutcomeWord(k,series,latest),change=strengthChangeText(series);
     return `<button type="button" class="evrow evrow--d" data-evkey="${esc(k)}" aria-expanded="false">`+
       `<b class="evrow__name">${esc(liftDisplayName(nameOf(k),k))}</b>`+
@@ -9187,8 +9286,11 @@ function strengthDetailTable(k,projection=strengthProjection(strengthScope)){
   const series=projection.series.get(k),u=unitLabel();
   const reason=series&&!series.outcome&&series.reason?`<p class="lede">${esc(t(`stats.evidence.reason.${series.reason}`))}</p>`:"";
   const range=sess.length>1?`<p class="lede">${esc(t("stats.evidence.range",{start:longDate(sess[0].date),end:longDate(sess.at(-1).date)}))}</p>`:"";
-  return reason+range+table(sess.map(s=>({[t("stats.table.date")]:shortDate(s.date),[t("stats.table.top")]:fmtLoad(s.top),[t("stats.table.reps")]:s.topReps,
-      [t("stats.table.e1rm_unit",{unit:u})]:fmt(Math.round(toDisplay(s.e1rm))),[t("stats.table.rir")]:fmt(s.rir)}))).replace("<table>",'<table class="evtable">')}
+  const topLabel=series?.perSideLoad?t("focus.metric.load_per_side_kg"):t("stats.table.top"),
+    repsLabel=series?.perSideReps?t("focus.metric.reps_per_side"):t("stats.table.reps"),
+    e1rmLabel=series?.perSideLoad?`${t("stats.table.e1rm_unit",{unit:u})} · ${t("focus.metric.load_per_side_kg")}`:t("stats.table.e1rm_unit",{unit:u});
+  return reason+range+table(sess.map(s=>({[t("stats.table.date")]:shortDate(s.date),[topLabel]:fmtLoad(s.top),[repsLabel]:s.topReps,
+      [e1rmLabel]:fmt(Math.round(toDisplay(s.e1rm))),[t("stats.table.rir")]:fmt(s.rir)}))).replace("<table>",'<table class="evtable">')}
 function legacyStrengthTable(el){
   const rows=strengthDashboard();
   if(!rows.length){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}
@@ -9200,7 +9302,7 @@ function legacyStrengthTable(el){
 // from the same evidence model the lists below render, so none of them disagree.
 function renderThisWeek(){const el=$("#thisWeek");if(!el)return;
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return;
-  const meta=progressEvidenceMeta(),w=Model.buildWeekStatus(prog.toJSON(),meta,state.log,today());
+  const meta=progressEvidenceMeta(),w=Model.buildWeekStatus(prog.toJSON(),meta,readLogRows(),today());
   const records=strengthEvidenceRecords("current-block"),baselineN=records.filter(r=>r.evidenceState==="insufficient").length;
   const weekLine=w.status==="in-progress"&&w.week?t("stats.overview.week",{n:w.week,total:meta.mesocycleLengthWeeks}):t("stats.this_week.in_progress");
   const cell=(metric,done,planned,caption)=>`<div class="ovtotal" data-week-metric="${metric}"><b class="ovtotal__val"><span class="ovtotal__n">${done}</span>`+
@@ -9239,7 +9341,7 @@ function volumeStatusKey(planned,completed){
 function overviewVolumeProjection(){
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
   if(!Model)return volumeDashboard(7).map(row=>({...row,statusKey:volumeStatusKey(row.planned,row.completed7)}));
-  const meta=progressEvidenceMeta(),evidence=Model.buildVolumeEvidence("this-week",prog.toJSON(),meta,state.log,today());
+  const meta=progressEvidenceMeta(),evidence=Model.buildVolumeEvidence("this-week",prog.toJSON(),meta,readLogRows(),today());
   const planned=volumePlannedMuscleMap(evidence,meta.weekPrescriptions),completed=volumeMapFromRows(evidence.completedRows,state.program);
   const names=new Set([...planned.keys(),...completed.keys()]);
   return[...names].map(muscle=>{
@@ -9283,18 +9385,22 @@ function renderStats(){
 }
 
 function detectPRs(log,opts={}){
-  const rows=(Array.isArray(log)?log:[]).filter(isWork).filter(r=>+r.load>0)
-    .sort(compareLogChronology);
+  const rows=(Array.isArray(log)?log:[]).map(row=>({row,reading:readLogRow(row)}))
+    .filter(({row,reading})=>isWork(row)&&reading.strengthComparable&&+reading.load>0&&+reading.reps>0)
+    .sort((a,b)=>compareLogChronology(a.row,b.row));
   const best=new Map(),events=[];
-  for(const row of rows){const k=liftKey(row),ld=+row.load,rp=+row.reps,em=e1rm(ld,rp);
-    const cur=best.get(k)||{load:0,repsAtMax:0,e1rm:0};
-    if(ld>cur.load){events.push({kind:"load",liftKey:k,date:row.date,session:row.session,blockId:row.blockId??null,load:ld,reps:rp,rir:row.rir,exerciseName:displayName(row),exerciseId:row.exerciseId,deltaLoad:cur.load>0?ld-cur.load:undefined});
+  for(const{row,reading}of rows){const k=liftKey(row),comparisonKey=`${k}\u0000${reading.strengthConvention||"load"}`;
+    const ld=+reading.load,rp=+reading.reps,em=e1rm(ld,rp),cur=best.get(comparisonKey)||{load:0,repsAtMax:0,e1rm:0};
+    const event={liftKey:k,date:row.date,session:row.session,blockId:row.blockId??null,load:ld,reps:rp,rir:row.rir,
+      exerciseName:displayName(row),exerciseId:row.exerciseId,strengthConvention:reading.strengthConvention,
+      loadMultiplier:reading.loadMultiplier,perSideLoad:reading.perSideLoad};
+    if(ld>cur.load){events.push({kind:"load",...event,deltaLoad:cur.load>0?ld-cur.load:undefined});
       cur.load=ld;cur.repsAtMax=rp}
-    else if(ld===cur.load&&rp>cur.repsAtMax){events.push({kind:"reps",liftKey:k,date:row.date,session:row.session,blockId:row.blockId??null,load:ld,reps:rp,rir:row.rir,exerciseName:displayName(row),exerciseId:row.exerciseId,deltaReps:rp-cur.repsAtMax});
+    else if(ld===cur.load&&rp>cur.repsAtMax){events.push({kind:"reps",...event,deltaReps:rp-cur.repsAtMax});
       cur.repsAtMax=rp}
-    if(em>cur.e1rm){events.push({kind:"e1rm",liftKey:k,date:row.date,session:row.session,blockId:row.blockId??null,load:ld,reps:rp,rir:row.rir,exerciseName:displayName(row),exerciseId:row.exerciseId,deltaE1rm:cur.e1rm>0?em-cur.e1rm:undefined});
+    if(em>cur.e1rm){events.push({kind:"e1rm",...event,deltaE1rm:cur.e1rm>0?em-cur.e1rm:undefined});
       cur.e1rm=em}
-    best.set(k,cur)}
+    best.set(comparisonKey,cur)}
   return events}
 function normalizeCommandText(text){return String(text??"").toLowerCase().replaceAll("×","x").replace(/@/g," rir ")
   .replace(/(\d),(\d)/g,"$1.$2").replace(/\breps\b/g,"").replace(/\s+/g," ").trim()}
@@ -9365,7 +9471,7 @@ window.__repforgeEditCustom=id=>editCustomExercise(id);
 window.__repforgeCompletedVolume=(windowDays=7)=>volMapToObj(completedHardSets(windowDays));
 window.__repforgeEquipmentSupportsSplit=equipmentSupportsSplit;
 window.__repforgeTestDeltas=(prevRows,currentRows)=>buildSessionDelta(prevRows,currentRows);
-window.__repforgeCompareExercise=(ex,currentRows)=>compareExerciseSession(ex,currentRows);
+window.__repforgeCompareExercise=(ex,currentRows,readerContext=null)=>compareExerciseSession(ex,currentRows,readerContext);
 window.__repforgeMesocycleWeek=mesocycleWeek;
 window.__repforgeBuildBlockReview=buildBlockReview;
 window.__repforgeCommitNextBlock=commitNextBlock;
@@ -9892,7 +9998,7 @@ function renderAttention(){const el=$("#attention");if(!el)return;
 
 // Completed hard sets per muscle over a rolling window (load>0, reps>0, RIR within hardRir).
 function completedHardSets(windowDays){const cutoff=daysAgo(windowDays-1),hr=+state.settings.hardRir,m=new Map();
-  for(const x of state.log){if(String(x.date)<cutoff)continue;if(!(+x.load>0&&+x.reps>0&&+x.rir<=hr)||!isWork(x))continue;
+  for(const x of readLogRows()){if(String(x.date)<cutoff)continue;if(!(+x.load>0&&+x.reps>0&&+x.rir<=hr)||!isWork(x))continue;
     const mus=rowMuscles(x);
     for(const p of muscles(mus.primary))addVol(m,p,1,0);
     for(const s of muscles(mus.secondary))addVol(m,s,0,.5)}
@@ -9912,10 +10018,30 @@ window.__repforgeOverviewVolume={pct:overviewBarPct,sorted:overviewVolumeSorted,
 const EVIDENCE_OUTCOME_KEYS={improved:"stats.outcome.improved",maintained:"stats.outcome.maintained",declined:"stats.outcome.declined"};
 const EVIDENCE_OUTCOME_GLYPHS={improved:"▲",maintained:"■",declined:"▼"};
 function strengthSessionKey(row){return`${String(row?.session??row?.date)}\u0000${String(row?.blockId??"")}`}
-function strengthEvidenceRows(){return state.log.filter(isWork).map(r=>({exerciseId:liftKey(r),session:r.session,
+function strengthEvidenceRows(log=state.log){return readLogRows(log).filter(isWork).map(r=>({exerciseId:liftKey(r),session:r.session,
   sessionKey:strengthSessionKey(r),date:r.date,created:r.created??null,blockId:r.blockId??null,
   name:displayName(r),day:r.day,primary:r.primary,secondary:r.secondary,
-  load:+r.load,reps:+r.reps,rir:r.rirMeasured===false||r.rir==null||r.rir===""?null:+r.rir,work:true}))}
+  load:+r.load,reps:+r.reps,rir:r.rirMeasured===false||r.rir==null||r.rir===""?null:+r.rir,work:true,
+  strengthComparable:r.strengthComparable,strengthConvention:r.strengthConvention,perSideLoad:r.perSideLoad,perSideReps:r.perSideReps,
+  loadPerSide:r.loadPerSide,repsPerSide:r.repsPerSide,tonnage:r.tonnage,repetitionsPerformed:r.repetitionsPerformed}))}
+function compareProgressStrengthSession(ex,currentRows,readerContext){
+  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
+  const notComparable=noComparableSessionOutcome(),key=exerciseLiftKey(ex)||`slot:${ex?.id||""}`;
+  const{scope,convention,session,log}=readerContext||{};
+  if(!Model||!Model.EVIDENCE_SCOPES?.includes(scope)||!convention||!session||!Array.isArray(log)||!Array.isArray(currentRows)||!currentRows.length)
+    return notComparable;
+  if(!currentRows.some(row=>liftKey(row)===key&&String(row.session??"")===String(session)))return notComparable;
+  const rows=strengthEvidenceRows(log),meta={started:state.programMeta?.started||null,
+    mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6,blockId:snapshotBlockId(state)};
+  const series=Model.buildStrengthEvidence(scope,key,rows,meta);
+  if(series.comparisonConvention!==convention)return notComparable;
+  const matches=series.points.map((point,index)=>({point,index})).filter(({point})=>String(point.session)===String(session));
+  if(matches.length!==1)return notComparable;
+  const{point,index}=matches[0];
+  if(index===0)return{status:"new",label:t("delta.new.label"),text:t("delta.new.text"),metrics:null};
+  const previousPoint=series.points[index-1],forPoint=selected=>rows.filter(row=>row.exerciseId===key&&row.sessionKey===selected.sessionKey&&
+    row.strengthComparable!==false&&(row.strengthConvention||"load")===convention);
+  return compareProjectedSessionOutcome(forPoint(point),forPoint(previousPoint),convention)}
 function strengthEvidenceRecords(scope="current-block"){
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return[];
   const meta={started:state.programMeta?.started||null,
@@ -9931,8 +10057,10 @@ function strengthEvidenceRecords(scope="current-block"){
     // The model owns scope and chronological point selection. The producer
     // then asks the authoritative paired-exposure comparison for the final
     // outcome; a count alone can never produce a sufficient record.
+    const convention=series.comparisonConvention??"load";
     const pointRows=new Map(series.points.map(point=>[point.sessionKey,
-      rows.filter(row=>row.exerciseId===key&&row.sessionKey===point.sessionKey)]));
+      rows.filter(row=>row.exerciseId===key&&row.sessionKey===point.sessionKey&&row.strengthComparable!==false&&
+        (row.strengthConvention??"load")===(convention??"load"))]));
     const latestPoint=series.points.at(-1),previousPoint=series.points.at(-2);
     const latestRows=latestPoint?pointRows.get(latestPoint.sessionKey)||[]:[];
     const previousRows=previousPoint?pointRows.get(previousPoint.sessionKey)||[]:[];
@@ -9941,7 +10069,7 @@ function strengthEvidenceRecords(scope="current-block"){
       const comparableEffort=[...previousRows,...latestRows].every(hasEffort);
       if(!comparableEffort)reason="missing-effort";
       else{
-        const delta=buildSessionDelta(previousRows,latestRows);
+        const delta=compareProjectedSessionOutcome(latestRows,previousRows,convention);
         outcome=outcomeByStatus[delta.status];
         if(outcome){evidenceState="sufficient";reason=null}
         else reason=delta.status==="changed_load"?"changed-load":"incompatible-exposure";
@@ -9968,14 +10096,19 @@ function strengthProjection(scope="current-block"){
     const current=Model.buildStrengthEvidence(scope,key,rows,{...meta,evidenceRecords:records});
     if(!prog.exercises.some(ex=>(exerciseLiftKey(ex)||`slot:${ex.id}`)===key)&&current.evidenceCount===0)continue;
     const pointKeys=new Set(current.points.map(point=>point.sessionKey));
-    const liftRows=rows.filter(row=>row.exerciseId===key&&pointKeys.has(row.sessionKey));
+    const convention=current.comparisonConvention??"load";
+    const liftRows=rows.filter(row=>row.exerciseId===key&&pointKeys.has(row.sessionKey)&&row.strengthComparable!==false&&
+      (row.strengthConvention??"load")===(convention??"load"));
+    current.perSideLoad=liftRows.length>0&&liftRows.every(row=>row.perSideLoad===true);
+    current.perSideReps=liftRows.length>0&&liftRows.every(row=>row.perSideReps===true);
     const liftSessions=current.points.map(point=>{
       const source=liftRows.filter(row=>row.sessionKey===point.sessionKey);
       const topRow=source.slice().sort((a,b)=>b.load-a.load||b.reps-a.reps)[0]||point;
-      const top=Number(topRow.load),topReps=Number(topRow.reps),volume=source.reduce((n,row)=>n+row.load*row.reps,0);
+      const top=Number(topRow.load),topReps=Number(topRow.reps),volume=source.reduce((n,row)=>n+(Number.isFinite(row.tonnage)?row.tonnage:0),0);
       return{session:point.session,date:point.date,day:source[0]?.day||"",liftKey:key,
         name:source[0]?.name||currentExerciseForLiftKey(key)?.name||key,top,topReps,reps:source.reduce((n,row)=>n+row.reps,0),
         rir:avg(source.map(row=>row.rir).filter(value=>Number.isFinite(value))),sets:source.length,volume,
+        perSideReps:source.length>0&&source.every(row=>row.perSideReps===true),
         e1rm:Math.max(...source.map(row=>e1rm(row.load,row.reps))),sessionKey:point.sessionKey};
     });
     const latest=liftSessions.at(-1);
@@ -9995,14 +10128,19 @@ function strengthProjection(scope="current-block"){
     series.set(key,current)}
   const sessions=[...series].flatMap(([key,current])=>{
     const pointKeys=new Set(current.points.map(point=>point.sessionKey));
-    const matching=rows.filter(row=>row.exerciseId===key&&pointKeys.has(row.sessionKey));
+    const convention=current.comparisonConvention??"load";
+    const matching=rows.filter(row=>row.exerciseId===key&&pointKeys.has(row.sessionKey)&&row.strengthComparable!==false&&
+      (row.strengthConvention??"load")===(convention??"load"));
     return current.points.map(point=>{
       const source=matching.filter(row=>row.sessionKey===point.sessionKey);
       const top=source.slice().sort((a,b)=>b.load-a.load||b.reps-a.reps)[0]||point;
       return{session:point.session,date:point.date,day:source[0]?.day||"",liftKey:key,
         name:source[0]?.name||currentExerciseForLiftKey(key)?.name||key,top:top.load,topReps:top.reps,
         reps:source.reduce((n,row)=>n+row.reps,0),rir:avg(source.map(row=>row.rir).filter(value=>Number.isFinite(value))),sets:source.length,
-        volume:source.reduce((n,row)=>n+row.load*row.reps,0),e1rm:Math.max(...source.map(row=>e1rm(row.load,row.reps))),sessionKey:point.sessionKey};
+        volume:source.reduce((n,row)=>n+(Number.isFinite(row.tonnage)?row.tonnage:0),0),
+        perSideLoad:source.length>0&&source.every(row=>row.perSideLoad===true),
+        perSideReps:source.length>0&&source.every(row=>row.perSideReps===true),
+        e1rm:Math.max(...source.map(row=>e1rm(row.load,row.reps))),sessionKey:point.sessionKey};
     });
   });
   return{keys:new Set(series.keys()),dashboard,sessions,records,series}}
@@ -10020,7 +10158,7 @@ function renderVolumeDash(){const el=$("#volumeDash");if(!el)return;
   if(!Model){legacyVolumeTable(el);if(periodEl)periodEl.textContent="";return}
   const evidenceMeta=progressEvidenceMeta();
   const ev=Model.buildVolumeEvidence(volumeScope==="this-week"?"this-week":"block-to-date",prog.toJSON(),
-    evidenceMeta,state.log,today());
+    evidenceMeta,readLogRows(),today());
   if(periodEl)periodEl.textContent=ev.period.start
     ?t("stats.volume.period_text",{start:longDate(ev.period.start),end:longDate(ev.period.end||today())})
     :t("stats.volume.no_period");
@@ -10215,15 +10353,26 @@ function historyBlockContext(){
       name:entry?.meta?.name||"",start:entry?.meta?.started||null,
       end:entry?.completedAt?String(entry.completedAt).slice(0,10):null,
       planned:new Set((entry?.program||[]).map(ex=>ex?.day).filter(Boolean)).size}))}}
-/** A lift's outcome in one saved session: the comparison the summary and Progress
- *  read (CONTEXT.md, Session outcome), against what the program calls the lift today. */
+/** History's per-session outcome uses the shared row projection and only compares
+ *  strength evidence with the same logged convention (CONTEXT.md, Session outcome). */
 function historySessionOutcome(rows){
-  const ex=currentExerciseForLiftKey(liftKey(rows[0]))||exerciseIdentityFromRow(rows[0]);
-  return compareExerciseSession(ex,rows)}
+  const source=Array.isArray(rows)?rows:[],first=source[0];
+  const ex=currentExerciseForLiftKey(liftKey(first))||exerciseIdentityFromRow(first);
+  const current=source.map(readLogRow).filter(row=>isWork(row)&&+row.load>0&&+row.reps>0);
+  if(!current.length||current.some(row=>row.strengthComparable===false))return noComparableSessionOutcome();
+  const conventions=new Set(current.map(row=>row.strengthConvention||"load"));
+  if(conventions.size!==1)return noComparableSessionOutcome();
+  const convention=conventions.values().next().value,session=String(current[0].session??"");
+  if(current.some(row=>String(row.session??"")!==session))return noComparableSessionOutcome();
+  const comparableLog=readLogRows(state.log).filter(row=>row.strengthComparable!==false&&
+    (row.strengthConvention||"load")===convention);
+  const previous=previousSessionRowsLog(ex,session,comparableLog);
+  return compareProjectedSessionOutcome(current,previous,convention)}
 const HistoryUi=window.RepForgeHistoryUi.create({
   locTag, blockContext:historyBlockContext, sessionOutcome:historySessionOutcome, openModal, closeModal, reducedMotion,
   $, $$, t, esc, cloneSnapshot, currentMovementNames, mergeLogChronology,
   compareLogChronology, isWork, liftKey, buildSessionDelta, detectPRs,
+  readLogRow,
   displayName, exerciseDisplayName, currentNameForRow, dayLabel, canTakeFocus, parseCalendarDate,
   parseLoadDisplay, parseRepsValue, parseRirValue, clearFieldInvalid,
   toast, formatLongDate, fmtLoad, sum, kfmt, fmt, toDisplay, unitLabel,
@@ -10363,7 +10512,7 @@ function chartModel(key){
   const projection=strengthProjection(scope);
   const current=scope==="all-history"?new Set((strengthProjection("current-block").series.get(key)?.points||[]).map(point=>point.sessionKey)):null;
   const pts=projection.sessions.filter(x=>x.liftKey===key).map(x=>({date:x.date,top:x.top,reps:x.topReps,e1rm:x.e1rm,
-    sessionKey:x.sessionKey,block:current?current.has(x.sessionKey):true}));
+    perSideLoad:x.perSideLoad===true,perSideReps:x.perSideReps===true,sessionKey:x.sessionKey,block:current?current.has(x.sessionKey):true}));
   const value=p=>metric==="top"?toDisplay(p.top):Math.round(toDisplay(p.e1rm)*10)/10;
   const vals=pts.map(value);
   const sel=chartView.pt==null||chartView.pt>=pts.length?pts.length-1:chartView.pt;
@@ -10432,16 +10581,20 @@ function chartSvg(model,{reveal=null}={}){
     `<g class="ch-axes">${chartAxesSvg(model,geo)}</g><g class="ch-series">${chartSeriesSvg(items,model.metric,{reveal})}</g></svg>`,
     xs,geo,items}}
 function chartReadout(model){
-  const p=model.pts[model.sel],label=model.metric==="top"?t("stats.metric.top_load"):t("stats.metric.best_e1rm");
+  const p=model.pts[model.sel],loadCue=model.pts.every(point=>point.perSideLoad)?` · ${t("focus.metric.load_per_side_kg")}`:"",
+    repsCue=model.pts.every(point=>point.perSideReps)?` · ${t("focus.metric.reps_per_side")}`:"",
+    label=(model.metric==="top"?t("stats.metric.top_load"):t("stats.metric.best_e1rm"))+loadCue;
   return t("exercise.chart.readout",{date:esc(shortDate(p.date)),metric:esc(label),unit:esc(unitLabel()),
     value:`<b class="exchart__mono">${esc(chartNum(model.value(p),model.metric))}</b>`,
-    set:`<b class="exchart__mono">${esc(fmtLoad(p.top))} × ${esc(p.reps)}</b>`})}
+    set:`<b class="exchart__mono">${esc(fmtLoad(p.top))} × ${esc(p.reps)}${esc(repsCue)}</b>`})}
 function chartRowHtml(model,i){
   const p=model.pts[i],prev=model.pts[i-1],v=model.value(p),pv=prev?model.value(prev):null;
   const delta=pv==null?"–":Math.abs(v-pv)<.05?"0":`${v>pv?"+":"−"}${chartNum(Math.abs(v-pv),model.metric)}`;
+  const loadCue=model.pts.every(point=>point.perSideLoad)?` · ${t("focus.metric.load_per_side_kg")}`:"",
+    repsCue=model.pts.every(point=>point.perSideReps)?` · ${t("focus.metric.reps_per_side")}`:"";
   return `<button type="button" class="exrow${i===model.sel?" is-sel":""}${p.block?"":" is-old"}" data-pt="${i}" aria-pressed="${i===model.sel}">`+
-    `<span>${esc(shortDate(p.date))}</span><span class="exchart__mono">${esc(fmtLoad(p.top))} × ${esc(p.reps)}</span>`+
-    `<span class="exchart__mono">${esc(fmt(Math.round(toDisplay(p.e1rm)*10)/10))}</span><span class="exchart__mono exchart__soft">${esc(delta)}</span></button>`}
+    `<span>${esc(shortDate(p.date))}</span><span class="exchart__mono">${esc(fmtLoad(p.top))} × ${esc(p.reps)}${esc(loadCue+repsCue)}</span>`+
+    `<span class="exchart__mono">${esc(fmt(Math.round(toDisplay(p.e1rm)*10)/10))}${esc(loadCue)}</span><span class="exchart__mono exchart__soft">${esc(delta)}</span></button>`}
 function renderExerciseChart(el,key,sessions,tmpl){
   const latest=sessions.at(-1)?.rows.at(-1),name=latest?exerciseDisplayName(latest):((tmpl&&exerciseDisplayName(tmpl))||key);
   const model=chartModel(key),{metric,scope}=chartView;
@@ -10458,15 +10611,17 @@ function renderExerciseChart(el,key,sessions,tmpl){
   const live=chartLive={key,view:exView,model,scope,metric,geo:plot.geo,items:plot.items,
     keys:model.pts.map(p=>p.sessionKey),drawn:new Map(plot.items.map(it=>[it.key,[it.x,it.y]]))};
   const vals=model.vals,change=vals.at(-1)-vals[0];
-  const figs=[[chartNum(Math.max(...vals),metric),t(metric==="top"?"exercise.chart.fig.top":"exercise.chart.fig.e1rm",{unit:unitLabel()})],
-    [`${change<0?"−":"+"}${chartNum(Math.abs(change),metric)}`,t("exercise.chart.fig.change",{unit:unitLabel()})],
+  const cue=model.pts.every(point=>point.perSideLoad)?` · ${t("focus.metric.load_per_side_kg")}`:"";
+  const repsCue=model.pts.every(point=>point.perSideReps)?` · ${t("focus.metric.reps_per_side")}`:"";
+  const figs=[[chartNum(Math.max(...vals),metric),`${t(metric==="top"?"exercise.chart.fig.top":"exercise.chart.fig.e1rm",{unit:unitLabel()})}${cue}`],
+    [`${change<0?"−":"+"}${chartNum(Math.abs(change),metric)}`,`${t("exercise.chart.fig.change",{unit:unitLabel()})}${cue}`],
     [String(vals.length),t(vals.length===1?"plural.session.one":"plural.session.other")]];
-  const metricLabel=metric==="top"?t("stats.metric.top_load"):t("stats.metric.best_e1rm");
+  const metricLabel=`${metric==="top"?t("stats.metric.top_load"):t("stats.metric.best_e1rm")}${cue}`;
   el.innerHTML=head+chartTogglesHtml(scope,metric)+
     `<div class="exchart__figs">${figs.map(([v,l])=>`<div><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join("")}</div>`+
     `<div class="exchart__plot" role="img" aria-label="${esc(t("exercise.chart.aria",{metric:metricLabel,name}))}" data-xs="${plot.xs.map(v=>v.toFixed(1)).join(",")}" data-w="${CHART_W}">${plot.svg}</div>`+
     `<p class="exchart__readout" aria-live="polite">${chartReadout(model)}</p>`+
-    `<div class="exchart__cols"><span>${esc(t("stats.table.date"))}</span><span>${esc(t("ledger.col.top_set"))}</span><span>${esc(t("stats.table.e1rm"))}</span><span>${esc(t("exercise.chart.col.delta"))}</span></div>`+
+    `<div class="exchart__cols"><span>${esc(t("stats.table.date"))}</span><span>${esc(t("ledger.col.top_set"))}${esc(cue+repsCue)}</span><span>${esc(t("stats.table.e1rm"))}${esc(cue)}</span><span>${esc(t("exercise.chart.col.delta"))}</span></div>`+
     model.pts.map((_,i)=>i).reverse().map(i=>chartRowHtml(model,i)).join("");
   bindChartToggles();
   const surface=$("#exDetail .exchart__plot");
@@ -12263,14 +12418,18 @@ function table(rows){if(!rows.length)return`<div class="empty">${esc(t("stats.ta
 
 function exportCsv(){
   const hr=+state.settings.hardRir;
+  const reading=row=>readLogRow(row);
+  const hasPerSideMetric=row=>(row?.metricDefinitions||[]).some(metric=>
+    PER_SIDE_LOAD_SEMANTICS.has(metric?.semantic)||metric?.semantic==="repsPerSide");
   const cols=[
     ["session",r=>r.session],["date",r=>r.date],["day",r=>r.day],
     ["name",r=>exerciseLabel(r)],["performed_name",r=>r.performedName||""],["exercise_id",r=>r.exerciseId||""],
-    ["set",r=>r.set],["load",r=>r.load],["reps",r=>r.reps],["rir",r=>r.rir],
-    ["e1rm",r=>+e1rm(+r.load,+r.reps).toFixed(2)],
-    ["tonnage",r=>+((+r.load||0)*(+r.reps||0)).toFixed(2)],
+    ["set",r=>r.set],["load",r=>reading(r).totalLoad??""],["reps",r=>reading(r).totalReps??""],
+    ["load_per_side",r=>reading(r).loadPerSide??""],["reps_per_side",r=>reading(r).repsPerSide??""],["rir",r=>r.rir],
+    ["e1rm",r=>{const value=reading(r);return value.strengthComparable?+value.e1rm.toFixed(2):hasPerSideMetric(r)?"":+e1rm(+r.load,+r.reps).toFixed(2)}],
+    ["tonnage",r=>{const value=reading(r);return Number.isFinite(value.tonnage)?+value.tonnage.toFixed(2):hasPerSideMetric(r)?"":+((+r.load||0)*(+r.reps||0)).toFixed(2)}],
     ["primary",r=>rowMuscles(r).primary],["secondary",r=>rowMuscles(r).secondary],
-    ["is_hard_set",r=>(+r.load>0&&+r.reps>0&&+r.rir<=hr&&!r.warmup)?1:0],
+    ["is_hard_set",r=>(+reading(r).load>0&&+reading(r).reps>0&&+r.rir<=hr&&!r.warmup)?1:0],
     ["is_warmup",r=>r.warmup?1:0],
     ["bodyweight",r=>r.bodyweight??""],
     ["notes",r=>r.notes],["exercise_note",r=>r.exNote||""],["created",r=>r.created],

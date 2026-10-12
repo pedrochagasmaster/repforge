@@ -366,7 +366,7 @@
     "progress/exercise-chart": {
       "owner": "plan-056",
       "content": "flat",
-      "scenario": "A single lift's strength chart."
+      "scenario": "A per-side lift's e1RM chart and table in the logged unit."
     },
     "progress/strength": {
       "owner": "plan-056",
@@ -386,7 +386,7 @@
     "progress/strength-comparison": {
       "owner": "plan-056",
       "content": "flat",
-      "scenario": "Two compatible points show values, dates, absolute change, and percentage change."
+      "scenario": "Two same-convention per-side points show labeled values, dates, comparison, and evidence."
     },
     "progress/strength-sparse": {
       "owner": "plan-056",
@@ -497,6 +497,11 @@
       "owner": "plan-057",
       "content": "flat",
       "scenario": "One session expanded in place."
+    },
+    "history/per-side-session": {
+      "owner": "plan-069-s2",
+      "content": "flat",
+      "scenario": "A saved unilateral and bilateral per-side session shows physical tonnage and a per-side personal record."
     },
     "history/edit-dirty": {
       "owner": "plan-057",
@@ -5892,7 +5897,8 @@
         "history/delete-confirm",
         "history/edit-dirty",
         "history/edit-invalid",
-        "history/session"
+        "history/session",
+        "history/per-side-session"
       ]
     },
     {
@@ -6036,7 +6042,8 @@
         "history/session",
         "program/editor-alternates",
         "onboarding-recommend/review-sheet",
-        "onboarding-recommend/review-sheet-swap"
+        "onboarding-recommend/review-sheet-swap",
+        "history/per-side-session"
       ]
     },
     {
@@ -6886,7 +6893,8 @@
       "catalogStates": [
         "history/edit-dirty",
         "history/edit-invalid",
-        "history/session"
+        "history/session",
+        "history/per-side-session"
       ]
     },
     {
@@ -7238,7 +7246,8 @@
         "today/no-program",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "history/per-side-session"
       ]
     },
     {
@@ -7302,7 +7311,8 @@
         "today/no-program",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "history/per-side-session"
       ]
     },
     {
@@ -7375,7 +7385,8 @@
         "today/no-program",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "history/per-side-session"
       ]
     },
     {
@@ -7482,7 +7493,8 @@
         "workout/rest-running",
         "workout/rest-done",
         "today/done",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "history/per-side-session"
       ]
     },
     {
@@ -7601,7 +7613,8 @@
         "workout/rest-done",
         "history/edit-dirty",
         "history/edit-invalid",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "history/per-side-session"
       ]
     },
     {

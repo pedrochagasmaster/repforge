@@ -4459,13 +4459,13 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
   border-color:var(--boundary-selected-quiet);background:var(--surface);color:var(--control-selection-ink);font-weight:var(--weight-semibold);
 }
 .evrow--d{
-  display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"n f" "o s" "k s";column-gap:var(--space-12);row-gap:0;
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,auto);grid-template-areas:"n f" "o s" "k s";column-gap:var(--space-12);row-gap:0;
   align-items:center;min-height:64px;padding:var(--space-12) 0;border-bottom-color:var(--boundary-decorative);
 }
 .evrow--d.is-open{border-bottom-color:transparent}
 .evrow--d .evrow__name{grid-area:n;align-self:start;min-width:0;font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-tight);color:var(--color-ink)}
-.evrow--d .evrow__fig{grid-area:f;display:inline-flex;align-items:center;gap:var(--space-4);white-space:nowrap}
-.evrow--d .evrow__val{font-weight:var(--weight-medium);line-height:var(--line-tight);color:var(--color-ink)}
+.evrow--d .evrow__fig{grid-area:f;display:inline-flex;align-items:center;gap:var(--space-4);min-width:0;flex-wrap:wrap;justify-content:flex-end;white-space:normal}
+.evrow--d .evrow__val{min-width:0;white-space:normal;overflow-wrap:anywhere;font-weight:var(--weight-medium);line-height:var(--line-tight);color:var(--color-ink)}
 .evrow--d .evrow__out{
   grid-area:o;margin-top:var(--space-4);min-width:0;font-size:var(--font-size-body-small);font-weight:var(--weight-medium);
   line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:anywhere;
@@ -6708,7 +6708,7 @@ body.is-entry-editor #entryProgramName,
 #stats .listrow__sub{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 #stats .listrow__meta{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 #stats .empty{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);border-color:var(--boundary-decorative)}
-#stats .listrow__sub{white-space:normal;overflow-wrap:anywhere}
+#stats .listrow__sub{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
 #stats #prFilterSeg > button,#stats .seg--window > button{color:var(--color-ink-secondary)}
 @media (hover: hover) and (pointer: fine){
 #stats #prFilterSeg > button:hover:not(:disabled),#stats .seg--window > button:hover:not(:disabled){color:var(--control-selection-ink)}
