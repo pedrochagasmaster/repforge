@@ -22,6 +22,9 @@ try {
   await answerRecommend(page, { skipBasics: true });
   await page.locator("#entryReview [data-review-slot]").first().waitFor({ state: "visible", timeout: 15000 });
 
+  assert.equal(await page.locator("#entryReview [data-review-block-edit]").count(), 1,
+    "the production review exposes the block row's Change action");
+
   const initial = await entry(page);
   const firstDay = initial.result.preview.programDefinition.days.find((day) => day.kind === "training");
   const firstSlot = firstDay.slots[0];
