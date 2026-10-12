@@ -45,6 +45,18 @@ try {
   const initial = await entry(page);
   const firstDay = initial.result.preview.programDefinition.days.find((day) => day.kind === "training");
   const firstSlot = firstDay.slots[0];
+  const offerProbe = await page.evaluate(async () => {
+    const current = window.__repforgeEntryState();
+    const mapped = window.RepForgeProgramEntryAdapter.programRequestFromAnswers(
+      current.answers, window.RepForgeExerciseCatalog.snapshot());
+    if (!mapped.ok) return { ok: false, conflicts: mapped.conflicts, offers: [] };
+    const generated = await window.__repforgeProgramEngine.generate(mapped.value, current.draftId);
+    return { ok: generated.ok, offers: generated.confirmationOffers || [] };
+  });
+  assert.equal(offerProbe.ok, true, "the production Worker can regenerate the displayed recommendation");
+  assert.ok(offerProbe.offers.length > 0, "this skipped-abilities recommendation has a deterministic confirmation offer");
+  assert.ok(await page.locator("#entryReview [data-review-confirm-offer]").count() > 0,
+    "the production result shows a verified inline offer beneath its exercise row");
   assert.equal(await page.locator("#entryReview [data-review-block-edit]").count(), 1,
     "the production review exposes the block row's Change action");
   await page.locator("#entryReview [data-review-block-edit]").click();
