@@ -967,6 +967,20 @@
       "variants": "demandingText"
     },
     {
+      "id": "focus-per-side",
+      "flow": "workout",
+      "label": "Workout — Focus, per-side target",
+      "scenario": "A generated bilateral press shows its per-side load label and adaptive target prefilled in ordinary Focus.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "why-per-side",
+      "flow": "workout",
+      "label": "Workout — why this weight, per-side loading",
+      "scenario": "The generated bilateral press's Why sheet explains the multiplier and enabled bodyweight contribution.",
+      "variants": "demandingText"
+    },
+    {
       "id": "focus-glossary",
       "flow": "workout",
       "label": "Workout — Focus glossary definition",
@@ -1040,7 +1054,7 @@
       "id": "why-setup",
       "flow": "workout",
       "label": "Workout — why this weight, setup required",
-      "scenario": "A generated per-side slot with a known execution mode and no loading convention: Why explains the missing convention without inventing a load or destination.",
+      "scenario": "A generated asymmetric per-side slot with no known execution mode: Why asks the lifter to specify how they do the movement.",
       "variants": "demandingText"
     },
     {

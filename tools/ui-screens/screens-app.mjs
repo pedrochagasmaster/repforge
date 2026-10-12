@@ -352,7 +352,7 @@ export function appState(key, lang) {
   if (key === "today/no-program" || key === "program/no-program") {
     return emptyEntryState(lang);
   }
-  if (key === "history/per-side-session") return emptyEntryState(lang);
+  if (key === "history/per-side-session" || key === "workout/focus-per-side") return emptyEntryState(lang);
   if (key === "workout/why-setup") return emptyEntryState(lang);
   if (DIRECTION_D_BEFORE_SESSION.has(key)) return localeState(directionDBeforeSession(), lang);
   if (DIRECTION_D_SUMMARY_SESSION[key]) return localeState(directionDThroughSession(DIRECTION_D_SUMMARY_SESSION[key]), lang);
@@ -513,6 +513,8 @@ const PER_SIDE_READING_EXERCISES = Object.freeze({
   unilateral: "1a55c6f170d88031b658c6e278a82a88",
   bilateral: "1a05c6f170d8803ba48ec1443eab5978",
 });
+const PER_SIDE_LOAD_METRIC = "25a5c6f170d880e2990fc88146f7de56";
+const PER_SIDE_MODE_MISSING_EXERCISE = "3895c6f170d88002b51fdf96c7dc50e1";
 
 async function startExerciseChartViewportTracking(page) {
   await page.evaluate(() => {
@@ -689,7 +691,7 @@ async function waitForExerciseChartViewport(page, { chartFocused }) {
   return result;
 }
 
-async function installPerSideHistory(page) {
+async function installPerSideHistory(page, { bodyweightAssumption = false } = {}) {
   await page.waitForFunction(() => !!window.RepForgeExerciseCatalog?.snapshot?.() &&
     typeof window.__repforgeFinalizeProgramSetup === "function", undefined, { timeout: 15000 });
   const state = await page.evaluate(async ({ rowId, pressId }) => {
@@ -717,10 +719,11 @@ async function installPerSideHistory(page) {
   const rowFor = (programRow, session, date, values) => {
     const slot = definitionSlot(state.programMeta, programRow);
     const definitions = structuredClone(slot.metricDefinitions);
+    const useBodyweight = bodyweightAssumption && programRow.libraryId === PER_SIDE_READING_EXERCISES.bilateral;
     const loadingConvention = slot.loadingModel?.loadingConvention ||
       (definitions.some(metric => metric.semantic === "loadPerSideKg" || metric.semantic === "persistentLoadPerSideKg")
         ? "per_side" : "external");
-    const externalLoadMultiplier = loadingConvention === "per_side" ? null
+    const externalLoadMultiplier = loadingConvention === "per_side" ? (useBodyweight ? 2 : null)
       : loadingConvention === "bodyweight" ? 0 : 1;
     return {
       session, date, day: programRow.day, name: programRow.name, exerciseId: programRow.id,
@@ -731,10 +734,10 @@ async function installPerSideHistory(page) {
       metricIds: [...slot.metricIds], metricDefinitions: definitions, metricOrigin: slot.metricOrigin || "source_catalog",
       metricValues: definitions.map(metric => ({ metricId: metric.id, value: values[metric.semantic], unit: metric.unit })),
       equipmentId: null, ...(slot.loadingModel ? { loadingModel: structuredClone(slot.loadingModel) } : {}),
-      loadingConvention, loadingContext: {
-        bodyweightContributionEnabled: false, externalLoadMultiplier,
+      loadingConvention, ...(useBodyweight ? { bodyweight: 80 } : {}), loadingContext: {
+        bodyweightContributionEnabled: useBodyweight, externalLoadMultiplier,
         bodyweightCoefficient: slot.loadingModel?.bodyweightCoefficient ?? null,
-        loadingConvention, bodyweightKg: null,
+        loadingConvention, bodyweightKg: useBodyweight ? 80 : null,
       }, metricType: "source_metrics@1", restSeconds: null,
       performedLibraryId: slot.exerciseId, sourceLibraryId: slot.exerciseId,
       ...(state.programMeta.blockId ? { blockId: state.programMeta.blockId } : {}),
@@ -1340,8 +1343,9 @@ async function whyOnBuildRange(page) {
 
 async function whyOnGeneratedPerSide(page) {
   const target = await page.evaluate(async (request) => {
+    const catalog = window.RepForgeExerciseCatalog.snapshot();
     const generated = window.RepForgeProgramCompiler.generateProgram(request,
-      window.RepForgeExerciseCatalog.snapshot(), "why-sheet-067");
+      catalog, "why-sheet-067");
     if (!generated.ok) throw new Error(`generation failed: ${JSON.stringify(generated.conflicts || generated)}`);
     const definition = generated.value;
     const perSide = definition.days.filter((day) => day.kind === "training").flatMap((day) =>
@@ -1349,6 +1353,28 @@ async function whyOnGeneratedPerSide(page) {
       slot.metricDefinitions.some((metric) => metric.semantic === "loadPerSideKg") &&
       slot.metricDefinitions.some((metric) => metric.semantic === "repsPerSide"));
     if (!perSide) return null;
+    const source = catalog.exercises.find((entry) => entry.id === "3895c6f170d88002b51fdf96c7dc50e1");
+    const metrics = window.RepForgeExerciseMetrics.definitionsForIds(source?.exerciseMetrics || []);
+    if (!source || !metrics?.ok) throw new Error("The ambiguous per-side catalog source or its canonical metric definitions are unavailable");
+    perSide.slot.exerciseId = source.id;
+    perSide.slot.sourceExerciseIds = [source.id];
+    perSide.slot.exerciseTypeId = source.exerciseType;
+    perSide.slot.displayName = source.name;
+    perSide.slot.musclePurposeIds = [...source.primaryFeatureMuscle];
+    perSide.slot.movementPatternIds = [...source.movementPattern];
+    perSide.slot.metricIds = [...source.exerciseMetrics];
+    perSide.slot.metricDefinitions = metrics.value;
+    perSide.slot.metricOrigin = "source_catalog";
+    perSide.slot.lateralityIds = [...source.laterality];
+    perSide.slot.executionMode = null;
+    perSide.slot.loadingModel = { ...perSide.slot.loadingModel, bodyweightCoefficient: source.bodyweight };
+    for (const cycle of perSide.slot.prescriptionsByCycle) {
+      for (const set of cycle.sets) {
+        set.targets = { repsPerSide: { min: 6, max: 10 }, loadPerSideKg: { min: 20, max: 35 } };
+      }
+    }
+    const valid = window.RepForgeProgramCompiler.validateProgramDefinition(definition, catalog, []);
+    if (!valid.ok) throw new Error(`The unknown-mode generated slot is invalid: ${JSON.stringify(valid.issues)}`);
     await window.__repforgeFinalizeProgramSetup({
       programDefinition: definition, name: "Why setup proof", answers: {}, destination: "log", origin: "first-run",
       draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: "why-sheet-067" },
@@ -1358,10 +1384,11 @@ async function whyOnGeneratedPerSide(page) {
     const row = program.find((candidate) => candidate.slotId === perSide.slot.id);
     const dayRows = program.filter((candidate) => candidate.day === perSide.day.name);
     return row && { id: row.id, day: perSide.day.name, mode: perSide.slot.executionMode,
+      sourceId: source.id,
       index: dayRows.findIndex((candidate) => candidate.id === row.id) };
   }, WHY_REQUEST);
-  if (!target || !["bilateral", "unilateral"].includes(target.mode))
-    throw new Error(`The generated per-side fixture lacks its known mode: ${JSON.stringify(target)}`);
+  if (!target || target.mode !== null || target.sourceId !== PER_SIDE_MODE_MISSING_EXERCISE)
+    throw new Error(`The generated per-side fixture does not have a genuinely missing mode: ${JSON.stringify(target)}`);
   await page.waitForFunction(() => {
     const toast = document.querySelector("#toast");
     return !toast || toast.classList.contains("hidden");
@@ -1372,14 +1399,73 @@ async function whyOnGeneratedPerSide(page) {
     const rec = window.__repforgeProgression.recommendation(ex);
     return { status: rec.status, reasonCodes: rec.reasonCodes, load: rec.load };
   }, target.id);
-  if (truth.status !== "configuration_required" || !truth.reasonCodes?.includes("per_side_convention_required") || truth.load != null)
-    throw new Error(`The generated slot lost its configuration reason or acquired a load: ${JSON.stringify(truth)}`);
+  if (truth.status !== "configuration_required" || !truth.reasonCodes?.includes("execution_context_required") || truth.load != null)
+    throw new Error(`The ambiguous generated slot lost its execution-mode requirement or acquired a load: ${JSON.stringify(truth)}`);
   await expectWhyLeads(page, ["setup"]);
   const text = await page.locator("#whyBody .whysheet__text").textContent();
-  const expected = await page.evaluate((mode) => window.RepForgeI18n.t("why.setup.per_side", {
-    mode: window.RepForgeI18n.t(`why.setup.mode.${mode}`),
-  }), target.mode);
+  const expected = await page.evaluate(() => window.RepForgeI18n.t("why.setup.execution_mode"));
   if (text?.trim() !== expected) throw new Error(`The generated per-side Why sentence was ${JSON.stringify(text)}`);
+}
+
+async function focusPerSideTarget(page) {
+  await installPerSideHistory(page, { bodyweightAssumption: true });
+  const row = await page.evaluate((libraryId) => {
+    const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+    return state.program?.find((entry) => entry.libraryId === libraryId) || null;
+  }, PER_SIDE_READING_EXERCISES.bilateral);
+  if (!row) throw new Error("The generated program has no bilateral per-side press row");
+  await page.evaluate((id) => window.__repforgeGoToLogExercise(id), row.id);
+  await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 15000 });
+  await page.waitForFunction((id) => document.querySelector("#workout .exercise.is-current")?.dataset.ex === id,
+    row.id, { timeout: 15000 });
+  const result = await page.evaluate(({ id, loadMetricId }) => {
+    const exercise = window.__repforgeProgression.programSlot(id);
+    const recommendation = window.__repforgeProgression.recommendation(exercise);
+    const target = recommendation.targetSets?.find(item => item.prescription?.setIndex === 1)?.result;
+    const input = document.querySelector(`#workout .exercise.is-current input[data-metric-id="${loadMetricId}"]`);
+    return {
+      engineStatus: recommendation.engineStatus,
+      targetLoad: target?.targets?.loadPerSideKg,
+      prefillsPerSide: Number(input?.value) === target?.targets?.loadPerSideKg,
+      assumptions: target?.loadingAssumptions,
+      slotMode: exercise.executionMode,
+    };
+  }, { id: row.id, loadMetricId: PER_SIDE_LOAD_METRIC });
+  if (result.engineStatus !== "recommended" || !(result.targetLoad > 0) || !result.prefillsPerSide
+    || result.assumptions?.externalLoadMultiplier !== 2 || !(result.assumptions?.bodyweightContributionKg > 0)) {
+    throw new Error(`The generated Focus fixture does not show its per-side target and bodyweight assumption: ${JSON.stringify(result)}`);
+  }
+  const presentation = await page.evaluate((metricId) => {
+    const field = document.querySelector(`#workout .exercise.is-current [data-metric="${metricId}"]`);
+    const label = field?.querySelector(".shelf__lab")?.textContent?.trim() || "";
+    return {
+      fieldText: field?.textContent?.trim() || "",
+      label,
+      whyOpen: document.querySelector("#whySheet")?.classList.contains("is-open") || false,
+    };
+  }, PER_SIDE_LOAD_METRIC);
+  const expectedLabel = await page.evaluate(() => window.RepForgeI18n.t("focus.metric.load_per_side_kg"));
+  if (!presentation.fieldText.includes(String(result.targetLoad)) || !presentation.label.startsWith(expectedLabel) || presentation.whyOpen) {
+    throw new Error(`The ordinary Focus state does not show its per-side prefill and label without opening Why: ${JSON.stringify({ result, presentation, expectedLabel })}`);
+  }
+}
+
+async function whyPerSideAssumption(page) {
+  await focusPerSideTarget(page);
+  await page.locator(`#workout .exercise.is-current [data-why]`).click();
+  await page.waitForSelector("#whySheet.is-open", { timeout: 10000 });
+  const text = await page.locator("#whyBody").innerText();
+  const lang = await page.locator("html").getAttribute("lang");
+  const localizedAssumption = lang.toLowerCase().startsWith("pt")
+    ? "por lado × 2" : "per side × 2";
+  const localizedAnchor = lang.toLowerCase().startsWith("pt")
+    ? "mais recentemente com 27,5 kg por lado" : "last at 27.5 kg per side";
+  if (!text.includes(localizedAssumption) || !/3[,.]04/.test(text)
+    || !text.includes(localizedAnchor)
+    || !(lang.toLowerCase().startsWith("pt") ? text.includes("peso corporal") : text.includes("bodyweight"))) {
+    throw new Error(`The rendered Why sheet omits the approved per-side anchor or multiplier/bodyweight assumption: ${JSON.stringify({ text, lang })}`);
+  }
+  await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions"]);
 }
 
 export const APP_SCENARIOS = {
@@ -1544,6 +1630,8 @@ export const APP_SCENARIOS = {
   },
 
   "workout/focus": focusMode,
+  "workout/focus-per-side": focusPerSideTarget,
+  "workout/why-per-side": whyPerSideAssumption,
   "workout/focus-glossary": async (page) => {
     await focusMode(page);
     const term = page.locator("#workout [data-term]").first();

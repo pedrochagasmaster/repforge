@@ -119,7 +119,7 @@ editor and the Why sheet name the first one that fails.
 | R2 | A supported composition (§1 table plus the three added in S3) | Catalog | "Taurifer doesn't suggest loads for timed or distance work." Manual. |
 | R3 | A rep target (a range, or a single number) | Slot, per cycle and set | The opt-in control is unavailable until a range is set. |
 | R4 | A target RIR (0–4) on every set | Slot, per cycle and set | The opt-in control requires it. No default is invented. |
-| R5 | A loading convention, and for per-side loads a known execution mode | Catalog laterality, else the lifter's answer | "Tell Taurifer how you do this: both sides together, or one side at a time." Configuration required. |
+| R5 | A loading convention, and for per-side loads a known execution mode | Catalog laterality, else the lifter's answer | EN: "Tell Taurifer how you do this: both sides together, or one side at a time." PT: "Diga ao Taurifer como você faz este movimento: os dois lados juntos ou um lado de cada vez." Configuration required. |
 | R6 | A bodyweight, when the movement counts bodyweight | Session or latest logged bodyweight | Existing `bodyweight_required` copy. Configuration required. |
 | R7 | A load step | Per-exercise load step, else the global minimum jump | Always present. The editor shows the value it will use. |
 | R8 | Comparable history | Logged sets | "New lift: pick a load for 6–10 reps." The existing `new` state; no starting load is invented (Plan 067). |
@@ -168,6 +168,36 @@ means. The engine, History, Progress and CSV all use it.
   dumbbell per hand pressed together.
 - `m = 1` for a per-side load done one side at a time, such as a single-arm
   row.
+- **Historical execution mode.** An explicit multiplier does not always record
+  how the sides moved: persistent per-side load `m = 2`, total `Weight` with
+  per-side repetitions `m = 1`, and bodyweight-only per-side repetitions
+  `m = 0` can all leave an ambiguous catalog movement's historical mode
+  unknown. When catalog laterality and captured data cannot establish that
+  mode, do not use today's ambiguous slot mode to calculate a historical
+  strength anchor or comparable result. Keep the logged metrics and
+  independently valid working-set counts visible. An unambiguous catalog
+  laterality remains known; the approved current-slot fallback for a valid
+  legacy null per-side context remains unchanged.
+- **Why assumption copy.** EN: "It estimates total load as {load} {unit} per
+  side × {multiplier}, plus {bw} {unit} from your bodyweight." PT: "O modelo
+  estima a carga total como {load} {unit} por lado × {multiplier}, mais {bw}
+  {unit} do seu peso corporal." Here `{bw}` is the enabled calculated
+  bodyweight contribution and `{unit}` is the workout's logged unit.
+- **Previous-set Focus cues.** Approved EN/PT lines preserve each saved metric's
+  meaning: per-side load with ordinary reps uses "last {load} {unit} per side
+  × {reps} reps" / "antes {load} {unit} por lado × {reps} reps"; total Weight
+  with per-side reps uses "last {load} {unit} × {reps} reps per side" / "antes
+  {load} {unit} × {reps} reps por lado"; per-side load and reps use "last
+  {load} {unit} per side × {reps} reps per side" / "antes {load} {unit} por
+  lado × {reps} reps por lado"; bodyweight-only side reps use "last {reps}
+  reps per side" / "antes {reps} reps por lado". Existing approved RIR,
+  no-RIR and effort endings are retained. Total Weight and ordinary reps are
+  never relabeled as per-side, and a bodyweight-only cue never invents a load.
+- **Why history anchor.** For a historical anchor derived from a per-side load,
+  the approved EN wording says "last at {load} {unit} per side" and PT says
+  "mais recentemente com {load} {unit} por lado". This is limited to side-load
+  metrics; total-load and bodyweight-only anchors retain their existing copy.
+  Owner approved this extension on 12 October 2026.
 - Compositions with a total `Weight` and per-side reps use `m = 1`: the
   logged weight is already the total.
 
@@ -328,8 +358,10 @@ bumps `?v=`/`CACHE` relative to the main it rebases onto, following
 - **History reinterpretation.** Before S3, rows resolve with the current
   rule. If the lifter changes an asymmetrical movement's execution mode, old
   rows with a `null` multiplier are read under the new mode. Accepted,
-  because the alternative is rewriting history. Rows with an explicit
-  multiplier are unaffected.
+  because the alternative is rewriting history. An explicit multiplier stays
+  authoritative for load conversion, but does not always record execution
+  mode: the ambiguous historical cases in §2.3 have no calculated anchor or
+  comparable result. The current slot's mode does not fill that gap.
 - **Silent default range.** Build's 6–10 could become an engine input. The
   opt-in shows and confirms it (R3), and S1's copy stops calling it the
   lifter's own target.

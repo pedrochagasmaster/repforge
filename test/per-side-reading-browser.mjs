@@ -243,8 +243,8 @@ async function main() {
     };
     check(rowSessions.length === 2 && savedRows.length === 4 && pressRows.length === 2,
       "P069-S2-HISTORY logs both catalog movements in two saved production sessions", observations.logged);
-    check(pressRows.every(row => row.loadingConvention === "per_side" && row.loadingContext?.externalLoadMultiplier == null),
-      "the legacy rows retain null per-side multipliers for read-time resolution", pressRows.map(row => row.loadingContext));
+    check(pressRows.every(row => row.loadingConvention === "per_side" && row.loadingContext?.externalLoadMultiplier === 2),
+      "newly saved bilateral per-side press rows retain their recorded multiplier", pressRows.map(row => row.loadingContext));
 
     await page.locator('nav button[data-view="history"]').click();
     await page.waitForSelector("#history.view.active", { timeout: 10000 });

@@ -273,6 +273,11 @@
       "content": "flat",
       "scenario": "One exercise at a time."
     },
+    "workout/focus-per-side": {
+      "owner": "plan-069",
+      "content": "flat",
+      "scenario": "A generated bilateral press shows its per-side load label and adaptive target prefilled in ordinary Focus."
+    },
     "workout/focus-glossary": {
       "owner": "plan-058",
       "content": "flat",
@@ -326,7 +331,7 @@
     "workout/why-setup": {
       "owner": "plan-069",
       "content": "flat",
-      "scenario": "A generated per-side slot with a known execution mode and no loading convention: Why explains the missing convention without inventing a load or destination."
+      "scenario": "A generated asymmetric per-side slot with no known execution mode: Why asks the lifter to specify how they do the movement."
     },
     "session/summary": {
       "owner": "plan-064/r3h",
@@ -917,6 +922,11 @@
       "owner": "plan-072",
       "content": "flat",
       "scenario": "The result explains that Home equipment cannot cover vertical pull, says nothing was saved, and offers Back to equipment with the adjustment preserved."
+    },
+    "workout/why-per-side": {
+      "owner": "plan-069",
+      "content": "flat",
+      "scenario": "The generated bilateral press's Why sheet explains the multiplier and enabled bodyweight contribution."
     }
   },
   "components": [
@@ -3450,6 +3460,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
@@ -4990,6 +5001,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
@@ -5701,6 +5713,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "workout/why-this-weight",
+        "workout/why-per-side",
         "workout/why-in-session",
         "workout/why-manual",
         "workout/why-setup"
@@ -5721,6 +5734,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "workout/why-this-weight",
+        "workout/why-per-side",
         "workout/why-in-session",
         "workout/why-manual",
         "workout/why-setup"
@@ -5741,6 +5755,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "workout/why-this-weight",
+        "workout/why-per-side",
         "workout/why-in-session",
         "workout/why-manual",
         "workout/why-setup"
@@ -5768,6 +5783,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
@@ -5809,9 +5825,11 @@
         "workout/substituted-actions",
         "workout/warmup-actions",
         "workout/why-this-weight",
+        "workout/why-per-side",
         "workout/why-in-session",
         "workout/why-manual",
         "workout/why-setup",
+        "workout/focus-per-side",
         "workout/rest-running",
         "workout/rest-done",
         "workout/swap-alternates",
@@ -5844,6 +5862,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
@@ -5962,6 +5981,7 @@
         "progress/volume-reduction-preview",
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
@@ -6189,6 +6209,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
@@ -6214,6 +6235,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
@@ -6244,6 +6266,7 @@
         "onboarding-start/hub",
         "onboarding-start/hub-existing",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/stale-draft",
         "workout/persist-retry",
@@ -6959,6 +6982,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
@@ -7007,6 +7031,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
@@ -7036,6 +7061,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
@@ -7471,6 +7497,7 @@
         "install/banner",
         "workout/invalid-draft",
         "workout/why-this-weight",
+        "workout/why-per-side",
         "workout/why-in-session",
         "session/summary",
         "session/summary-maintained",
@@ -7479,6 +7506,7 @@
         "progress/overview",
         "progress/overview-action",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/session",
         "workout/early-finish",
@@ -7553,6 +7581,7 @@
         "workout/why-manual",
         "workout/why-setup",
         "workout/why-this-weight",
+        "workout/why-per-side",
         "onboarding-recommend/review-day-menu",
         "onboarding-recommend/review-sheet",
         "onboarding-recommend/review-sheet-swap"
@@ -7580,6 +7609,7 @@
       "catalogStates": [
         "today/day-picker",
         "workout/why-this-weight",
+        "workout/why-per-side",
         "workout/why-in-session",
         "workout/why-manual",
         "workout/why-setup",
@@ -7605,6 +7635,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
@@ -7661,6 +7692,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
@@ -7804,6 +7836,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
@@ -7840,6 +7873,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
@@ -7872,6 +7906,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
@@ -7898,6 +7933,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
@@ -7927,6 +7963,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
@@ -7958,6 +7995,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
@@ -8434,6 +8472,7 @@
       "owner": "plan-064/r3g",
       "catalogStates": [
         "workout/why-this-weight",
+        "workout/why-per-side",
         "workout/why-in-session",
         "workout/why-manual",
         "workout/why-setup"
@@ -8459,6 +8498,7 @@
       "owner": "plan-064/r3g",
       "catalogStates": [
         "workout/why-this-weight",
+        "workout/why-per-side",
         "workout/why-in-session"
       ]
     },

@@ -1717,6 +1717,11 @@ function executionModeForLogRow(row,sideLoadSemantic=null,explicitMultiplier=nul
   // side, not whether both sides moved together. An ambiguous historical row
   // with that explicit value cannot borrow the current slot's execution mode.
   if(sideLoadSemantic==="persistentLoadPerSideKg"&&explicitMultiplier===2)return null;
+  // Bodyweight-only side reps record m=0 because there is no external load.
+  // That value likewise says nothing about whether the movement was performed
+  // one side at a time; an ambiguous historical row cannot borrow today's mode.
+  if(row?.loadingConvention==="bodyweight"&&explicitMultiplier===0&&
+    row?.metricIds?.length===1&&row?.metricDefinitions?.some(metric=>metric?.semantic==="repsPerSide"))return null;
   const slotId=String(row?.slotId||row?.exerciseId||"");
   const slot=(state.programMeta?.programDefinition?.days||[]).flatMap(day=>day?.slots||[]).find(item=>item?.id===slotId);
   return slot?.executionMode==="bilateral"||slot?.executionMode==="unilateral"?slot.executionMode:null}
@@ -2418,6 +2423,22 @@ function metricLoading(metricDefinitions,sourceExercise,loadingModel=null){
     ...(Object.prototype.hasOwnProperty.call(loadingModel,"bodyweightCoefficient")
       ?{bodyweightCoefficient:loadingModel.bodyweightCoefficient}:{})};
   return{loadingModel,loadingConvention,loadingContext}}
+function executionModeForSlot(slot){
+  const source=rawExercise(slot?.exerciseId),laterality=(source?.laterality||[])
+    .map(id=>rawCatalogObject(id)?.name).filter(name=>typeof name==="string");
+  const unilateral=laterality.includes("Unilateral"),bilateral=laterality.includes("Bilateral");
+  if(unilateral!==bilateral)return unilateral?"unilateral":"bilateral";
+  return slot?.executionMode==="bilateral"||slot?.executionMode==="unilateral"?slot.executionMode:null}
+function slotLoadingProjection(slot){
+  const{loadingConvention}=metricLoading(slot?.metricDefinitions||[],rawExercise(slot?.exerciseId),slot?.loadingModel);
+  const semantics=new Set((slot?.metricDefinitions||[]).map(metric=>metric.semantic));
+  const executionMode=executionModeForSlot(slot);
+  let externalLoadMultiplier=1;
+  if(semantics.has("persistentLoadPerSideKg"))externalLoadMultiplier=2;
+  else if(semantics.has("loadPerSideKg"))
+    externalLoadMultiplier=executionMode==="bilateral"?2:executionMode==="unilateral"?1:null;
+  else if(loadingConvention==="bodyweight")externalLoadMultiplier=0;
+  return{loadingConvention,executionMode,externalLoadMultiplier}}
 /* A mid-session swap reprograms the slot's pending sets with the
    replacement's own metric composition. Targets carry over only for metrics
    both movements share; the rest stay for the lifter to enter. A custom
@@ -2468,6 +2489,8 @@ function workoutProgramContext(label=day){
       const metricDefinitions=canonicalSlot?.metricDefinitions||rawMetricDefinitions(ex.libraryId)||null;
       const metricOrigin=canonicalSlot?.metricOrigin||(rawExercise(ex.libraryId)?"source_catalog":"user_defined");
       const{loadingModel,loadingConvention,loadingContext}=metricLoading(metricDefinitions,rawExercise(ex.libraryId),canonicalSlot?.loadingModel);
+      const slotProjection=canonicalSlot?slotLoadingProjection(canonicalSlot):null;
+      if(slotProjection)loadingContext.externalLoadMultiplier=slotProjection.externalLoadMultiplier;
       const programmedSets=cycle?cycle.sets.map((prescription,i)=>{
         const old=prev.find(row=>row.set===i+1),repTarget=prescription.targets?.reps??prescription.targets?.repsPerSide;
         return{suggestedLoad:null,suggestedReps:repTarget?.min??repTarget??null,targetRir:prescription.rir,
@@ -5816,10 +5839,15 @@ function enginePerformedRow(row,exerciseId,metricIds){
   return{exerciseId,completed:true,setIndex:row.setIndex,rir,equipmentId:row.equipmentId??null,
     loadingConvention:row.loadingConvention,metricIds:[...row.metricIds],metricValues:cloneSnapshot(row.metricValues),
     loadingContext:isPlainStateObject(row.loadingContext)?cloneSnapshot(row.loadingContext):null}}
-function progressionHistoryFor(exerciseId,metricIds){
+function progressionHistoryFor(exerciseId,metricIds,slotProjection,metricDefinitions){
   const grouped=new Map();
+  const requiresExecutionMode=(metricDefinitions||[]).some(metric=>
+    ["repsPerSide","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic));
   for(const row of state.log||[]){
     const performed=enginePerformedRow(row,exerciseId,metricIds);if(!performed)continue;
+    if(requiresExecutionMode){
+      const projection=readLogRow(row),mode=slotProjection?.executionMode;
+      if(!mode||!projection.executionMode||projection.executionMode!==mode)continue}
     const sessionId=String(row.session||"");if(!sessionId)continue;
     if(!grouped.has(sessionId))grouped.set(sessionId,{sessionId,date:row.date,created:row.created,completed:true,sets:[]});
     grouped.get(sessionId).sets.push(performed)}
@@ -5870,14 +5898,14 @@ function sessionBodyweightKg(){
   const profileWeight=interpretedProfile(state.profile).weightKg;
   if(!rows.length)return profileWeight>0?profileWeight:null;
   return+rows.reduce((latest,row)=>compareLogChronology(latest,row)<0?row:latest).bodyweight}
-/* Per-side loads stay manual: their multiplier is never assumed. Bodyweight
-   counts only when the movement has a coefficient and a bodyweight is known. */
+/* Keep the engine's current loading context on the program slot boundary.
+   The numeric multiplier is also copied into each new log row by workoutProgramContext. */
 function slotLoadingContext(slot){
-  const{loadingConvention}=metricLoading(slot.metricDefinitions||[],rawExercise(slot.exerciseId),slot.loadingModel);
+  const projection=slotLoadingProjection(slot),{loadingConvention,executionMode,externalLoadMultiplier}=projection;
   const coefficient=+slot.loadingModel?.bodyweightCoefficient||0,bodyweight=sessionBodyweightKg();
   return{equipmentId:null,availableLoadsKg:loadGridKg(loadStepKg(slot.exerciseId)),loadingConvention,
     bodyweightContributionEnabled:coefficient>0&&bodyweight>0,bodyweightKg:bodyweight||null,
-    externalLoadMultiplier:loadingConvention==="per_side"?null:loadingConvention==="bodyweight"?0:1}}
+    executionMode,externalLoadMultiplier}}
 function recommendation(ex){
   const compiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
   const engine=typeof window!=="undefined"?window.RepForgeProgression:null;
@@ -5888,7 +5916,8 @@ function recommendation(ex){
   const elapsed=mesocycleLifecycle(state.programMeta).current||1,cycleNumber=Math.min(cycleCount,Math.max(1,elapsed));
   const prescriptions=compiler.prescriptionsForCycle(definition,cycleNumber).filter(item=>item.slotId===matched.slot.id);
   if(!prescriptions.length)return{status:"manual",engineStatus:"manual",reason:"cycle_prescription_unavailable",load:null,targetSets:[]};
-  const first=prescriptions[0],history=progressionHistoryFor(first.exerciseId,first.metricIds);
+  const first=prescriptions[0],slotProjection=slotLoadingProjection(matched.slot);
+  const history=progressionHistoryFor(first.exerciseId,first.metricIds,slotProjection,matched.slot.metricDefinitions);
   const currentSession=progressionCurrentSession(first);
   const loadingContext={bySlotId:{[matched.slot.id]:slotLoadingContext(matched.slot)}};
   const results=engine.recommendSets(prescriptions,history,currentSession,loadingContext,{
@@ -7901,7 +7930,19 @@ function focusTargetEffort(ex){
 /** The previous session's matching set, as the second line of a ledger row. */
 function focusPrevLine(x,effortMode){
   if(!x)return"";
-  const load=fmtLoad(x.load),reps=x.reps;
+  const projection=readLogRow(x),definitions=Array.isArray(x.metricDefinitions)?x.metricDefinitions:[];
+  const hasSideLoad=definitions.some(metric=>PER_SIDE_LOAD_SEMANTICS.has(metric?.semantic));
+  const hasSideReps=definitions.some(metric=>metric?.semantic==="repsPerSide");
+  const hasTotalLoad=definitions.some(metric=>metric?.semantic==="loadKg");
+  const family=hasSideLoad&&hasSideReps?"both_per_side":hasSideLoad?"per_side_load"
+    :hasSideReps&&hasTotalLoad?"total_load_reps_per_side"
+      :hasSideReps?"bodyweight_reps_per_side":null;
+  if(family){
+    const ending=x.rir==null||x.rir===""?"norir":effortMode?"effort":"rir";
+    return t(`focus.prev_line.${family}.${ending}`,{
+      load:fmtLoad(projection.load),unit:unitLabel(),reps:projection.reps,
+      rir:fmt(x.rir),effort:effortLabel(effortForRir(x.rir))})}
+  const load=fmtLoad(projection.load??x.load),reps=projection.reps??x.reps;
   if(x.rir==null||x.rir==="")return t("focus.prev_line_norir",{load,reps});
   return effortMode?t("focus.prev_line_effort",{load,reps,effort:effortLabel(effortForRir(x.rir))})
     :t("focus.prev_line",{load,reps,rir:fmt(x.rir)})}
@@ -19882,18 +19923,19 @@ function engineWhyRows(ex,rec,n=1){
   const u=unitLabel(),rows=[];
   const item=rec.targetSets.find(entry=>entry.prescription?.setIndex===n)||rec.targetSets[0];
   const result=item?.result;if(!result||item.status!=="recommended")return rows;
+  const definitions=rec.metricDefinitions||[];
+  const loadMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.load.includes(metric.semantic));
+  const repsMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.reps.includes(metric.semantic));
   const anchor=result.historyAnchor||{},assumptions=result.loadingAssumptions||{};
   const cap=Number.isFinite(anchor.capacityKg)?fmtLoad(Math.round(anchor.capacityKg*2)/2):null;
   if(anchor.source==="current_session")rows.push(whyRow("anchor",{text:t("why.engine.anchor_session",
     {set:(anchor.setIndex??0)+1,load:fmtLoad(anchor.displayLoadKg),cap,unit:u})}));
-  else if(cap)rows.push(whyRow("anchor",{text:t("why.engine.anchor_history",
+  else if(cap)rows.push(whyRow("anchor",{text:t(PER_SIDE_LOAD_SEMANTICS.has(loadMetric?.semantic)
+    ?"why.engine.anchor_history_per_side":"why.engine.anchor_history",
     {n:(anchor.sessionIds||[]).length||1,load:fmtLoad(anchor.displayLoadKg),cap,unit:u})}));
   const projected=result.fatigue?.projectedCapacityKg;
   if(n>1&&Number.isFinite(projected)&&Number.isFinite(anchor.capacityKg)&&Math.abs(projected-anchor.capacityKg)>0.25)
     rows.push(whyRow("fatigue",{text:t("why.engine.fatigue",{cap:fmtLoad(Math.round(projected*2)/2),unit:u})}));
-  const definitions=rec.metricDefinitions||[];
-  const loadMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.load.includes(metric.semantic));
-  const repsMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.reps.includes(metric.semantic));
   const load=loadMetric?result.targets?.[loadMetric.semantic]:null,rawReps=repsMetric?result.targets?.[repsMetric.semantic]:null;
   const reps=typeof rawReps==="number"?rawReps:rawReps?.min;
   const rir=item.prescription?.rir;
@@ -19902,8 +19944,12 @@ function engineWhyRows(ex,rec,n=1){
   const loads=(assumptions.availableLoadsKg||[]).slice().sort((a,b)=>a-b);
   const steps=loads.slice(1).map((value,index)=>Math.round((value-loads[index])*1000)/1000).filter(step=>step>0);
   if(steps.length)rows.push(whyRow("step",{text:t("why.engine.step",{step:fmtLoad(Math.min(...steps)),unit:u})}));
-  if(assumptions.bodyweightContributionEnabled&&assumptions.bodyweightContributionKg>0)
-    rows.push(whyRow("bodyweight",{text:t("why.engine.bodyweight",{bw:fmtLoad(assumptions.bodyweightContributionKg),unit:u})}));
+  if(assumptions.bodyweightContributionEnabled&&assumptions.bodyweightContributionKg>0){
+    if(loadMetric&&["loadPerSideKg","persistentLoadPerSideKg"].includes(loadMetric.semantic))
+      rows.push(whyRow("per_side_bodyweight",{text:t("why.engine.per_side_bodyweight",{
+        load:fmtLoad(result.targets?.[loadMetric.semantic]),unit:u,
+        multiplier:assumptions.externalLoadMultiplier,bw:fmtLoad(assumptions.bodyweightContributionKg)})}));
+    else rows.push(whyRow("bodyweight",{text:t("why.engine.bodyweight",{bw:fmtLoad(assumptions.bodyweightContributionKg),unit:u})}))}
   return rows}
 function engineWhyModel(ex,rec,model,head){
   const n=head.inSession&&head.set?head.set.n:1,rows=engineWhyRows(ex,rec,n),take=kind=>rows.find(row=>row.kind===kind);
@@ -19911,7 +19957,8 @@ function engineWhyModel(ex,rec,model,head){
   const block=(leadKey,lead,text)=>{if(text)model.blocks.push({leadKey,lead,text})};
   block("engine-anchor",t("why.lead.engine_anchor"),[performed,take("anchor")?.text,take("fatigue")?.text].filter(Boolean).join(" "));
   block("engine-target",t(n>1?"why.lead.set2":"why.lead.engine_target",{n}),take("target")?.text);
-  block("engine-assumptions",t("why.lead.engine_assumptions"),[take("step")?.text,take("bodyweight")?.text].filter(Boolean).join(" "));
+  block("engine-assumptions",t("why.lead.engine_assumptions"),
+    [take("step")?.text,take("per_side_bodyweight")?.text,take("bodyweight")?.text].filter(Boolean).join(" "));
   if(prev.length){model.calc.push({group:t("why.calc.last",{date:shortDate(prev[0].date)})});
     prev.forEach((x,i)=>model.calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${x.reps}`,rir:effortOrRirLabel(x.rir)}));
     model.evidence=t("why.evidence",{n:1,date:shortDate(prev[0].date)})}
@@ -19925,6 +19972,9 @@ function whySheetModel(ex,surface="focus"){
   const placed=new Set(),take=k=>{const r=pick(k);if(r)placed.add(r);return r};
   const block=(leadKey,lead,text,label)=>model.blocks.push({leadKey,lead,text,...(label?{label}:{})});
   if(rec.status==="manual"){block("manual","",t("why.manual"));return model}
+  if(rec.status==="configuration_required"&&rec.reasonCodes?.includes("execution_context_required")){
+    block("setup","",t("why.setup.execution_mode"));
+    return model}
   if(rec.status==="configuration_required"&&rec.reasonCodes?.includes("per_side_convention_required")){
     const slotId=String(ex?.slotId||ex?.id||"");
     const slot=(state.programMeta?.programDefinition?.days||[]).flatMap(day=>day.slots||[]).find(item=>item?.id===slotId);

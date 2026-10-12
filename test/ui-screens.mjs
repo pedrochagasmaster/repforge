@@ -108,6 +108,8 @@ const demandingScreens = new Set([
   "progress/review",
   "history/session",
   "history/per-side-session",
+  "workout/focus-per-side",
+  "workout/why-per-side",
   // The current app has no later Plan-057 Share-repair blocker. Cover both
   // nearest reachable share boundaries until that isolated module exists.
   "onboarding-shared/gate",
