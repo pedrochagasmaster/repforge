@@ -3,8 +3,8 @@
   "baseSha": "78492da2",
   "manifestSchemaVersion": 2,
   "observed": {
-    "screens": 185,
-    "frames": 1065,
+    "screens": 189,
+    "frames": 1081,
     "probe": "production catalog scenarios, phone-390 light EN canonical frame, Chromium; no scenario failures"
   },
   "catalogStates": {
@@ -84,9 +84,19 @@
       "scenario": "Seven yes, no or not sure questions in B's wording, with Skip pinned under Continue."
     },
     "onboarding-recommend/result": {
-      "owner": "plan-054",
+      "owner": "plan-072",
       "content": "flat",
-      "scenario": "Onboarding B's review editor at rest: the source, the program name, four facts, the block row, the tap hint, the day tabs with rest days and the first day's exercises with their sets, RIR and muscles; how it was built follows, with the pinned activation."
+      "scenario": "Onboarding B's review editor at rest: the source, the program name, four facts, the block row and its Change action, the day tabs with rest days and the first day's exercises with their sets, RIR and muscles; how it was built follows, with the pinned activation."
+    },
+    "onboarding-recommend/result-confirm-offer": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "A real Worker-verified movement offer under its current exercise row, with the approved advice and confirmation action."
+    },
+    "onboarding-recommend/result-confirmed": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "After confirming the offered movement: its row is marked Confirmed by you, Undo is available, and the changed rows are announced."
     },
     "onboarding-recommend/result-changed": {
       "owner": "plan-070",
@@ -98,6 +108,11 @@
       "content": "flat",
       "scenario": "One exercise's sheet at its top: the movement, its role and job, the sets ledger with RIR per set, the set count, rep range and rest controls, and the day's time."
     },
+    "onboarding-recommend/review-sheet-execution-mode": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The production exercise sheet for an ambiguous per-side catalog movement, with the mode question, both answers, and unresolved Review cue."
+    },
     "onboarding-recommend/review-sheet-swap": {
       "owner": "plan-070",
       "content": "flat",
@@ -107,6 +122,11 @@
       "owner": "plan-070",
       "content": "flat",
       "scenario": "The day menu sheet: rename the day, reorder its exercises, add an exercise."
+    },
+    "onboarding-recommend/review-day-name-refused": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The day rename sheet keeps a duplicate name in the field and shows the existing linked alert."
     },
     "onboarding-recommend/review-reorder": {
       "owner": "plan-070",
@@ -1270,7 +1290,9 @@
         "onboarding-recommend/result-corrected",
         "onboarding-recommend/result-changed",
         "onboarding-recommend/review-empty-day",
-        "onboarding-recommend/review-reorder"
+        "onboarding-recommend/review-reorder",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed"
       ]
     },
     {
@@ -1322,7 +1344,9 @@
         "onboarding-shared/preview",
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/result-avoided",
-        "onboarding-recommend/result-corrected"
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed"
       ]
     },
     {
@@ -1887,7 +1911,9 @@
         "onboarding-recommend/result-corrected",
         "onboarding-recommend/result-changed",
         "onboarding-recommend/review-empty-day",
-        "onboarding-recommend/review-reorder"
+        "onboarding-recommend/review-reorder",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed"
       ]
     },
     {
@@ -3778,7 +3804,9 @@
         "onboarding-shared/preview",
         "onboarding-recommend/building",
         "onboarding-recommend/building-pending",
-        "onboarding-recommend/result-equipment-conflict"
+        "onboarding-recommend/result-equipment-conflict",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed"
       ]
     },
     {
@@ -3849,7 +3877,9 @@
         "onboarding-start/hub-existing",
         "onboarding-recommend/building",
         "onboarding-recommend/building-pending",
-        "onboarding-recommend/result-equipment-conflict"
+        "onboarding-recommend/result-equipment-conflict",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed"
       ]
     },
     {
@@ -3959,7 +3989,9 @@
         "onboarding-shared/preview",
         "onboarding-recommend/building",
         "onboarding-recommend/building-pending",
-        "onboarding-recommend/result-equipment-conflict"
+        "onboarding-recommend/result-equipment-conflict",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed"
       ],
       "progressScopes": {
         "entry-route-step": "task"
@@ -6041,7 +6073,11 @@
         "onboarding-recommend/review-sheet",
         "onboarding-recommend/review-sheet-swap",
         "onboarding-recommend/result-equipment-conflict",
-        "onboarding-recommend/result-block-sheet"
+        "onboarding-recommend/result-block-sheet",
+        "onboarding-recommend/review-sheet-execution-mode",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed",
+        "onboarding-recommend/review-day-name-refused"
       ]
     },
     {
@@ -6113,7 +6149,13 @@
         "program/editor-alternates",
         "onboarding-recommend/review-sheet",
         "onboarding-recommend/review-sheet-swap",
-        "history/per-side-session"
+        "history/per-side-session",
+        "onboarding-recommend/review-sheet-execution-mode",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-existing"
       ]
     },
     {
@@ -6867,7 +6909,8 @@
         "onboarding-start/hub-chosen",
         "onboarding-start/hub-existing",
         "progress/schedule-diagnosis",
-        "onboarding-recommend/result-block-sheet"
+        "onboarding-recommend/result-block-sheet",
+        "onboarding-recommend/review-sheet-execution-mode"
       ]
     },
     {
@@ -7512,7 +7555,9 @@
         "onboarding-recommend/result-corrected",
         "onboarding-start/first-run-returning",
         "onboarding-start/first-run-returning-resume",
-        "program/editor-alternates"
+        "program/editor-alternates",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed"
       ]
     },
     {
@@ -7635,7 +7680,10 @@
         "workout/why-per-side",
         "onboarding-recommend/review-day-menu",
         "onboarding-recommend/review-sheet",
-        "onboarding-recommend/review-sheet-swap"
+        "onboarding-recommend/review-sheet-swap",
+        "onboarding-recommend/review-sheet-execution-mode",
+        "onboarding-recommend/result-block-sheet",
+        "onboarding-recommend/review-day-name-refused"
       ]
     },
     {
@@ -7666,7 +7714,10 @@
         "workout/why-setup",
         "onboarding-recommend/review-day-menu",
         "onboarding-recommend/review-sheet",
-        "onboarding-recommend/review-sheet-swap"
+        "onboarding-recommend/review-sheet-swap",
+        "onboarding-recommend/review-sheet-execution-mode",
+        "onboarding-recommend/result-block-sheet",
+        "onboarding-recommend/review-day-name-refused"
       ]
     },
     {
@@ -8324,7 +8375,9 @@
         "onboarding-recommend/activation-conflict",
         "onboarding-recommend/result-changed",
         "onboarding-recommend/review-empty-day",
-        "onboarding-recommend/review-reorder"
+        "onboarding-recommend/review-reorder",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed"
       ]
     },
     {
@@ -9003,7 +9056,9 @@
         "onboarding-recommend/result-corrected",
         "onboarding-recommend/result-existing",
         "onboarding-recommend/review-empty-day",
-        "onboarding-recommend/review-reorder"
+        "onboarding-recommend/review-reorder",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -9033,7 +9088,9 @@
         "onboarding-recommend/result-corrected",
         "onboarding-recommend/result-existing",
         "onboarding-recommend/review-empty-day",
-        "onboarding-recommend/review-reorder"
+        "onboarding-recommend/review-reorder",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed"
       ],
       "neverDisabledReason": "Every day of the week, rest days included, can always be shown."
     },
@@ -9060,7 +9117,9 @@
         "onboarding-recommend/result-avoided",
         "onboarding-recommend/result-changed",
         "onboarding-recommend/result-corrected",
-        "onboarding-recommend/result-existing"
+        "onboarding-recommend/result-existing",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -9089,7 +9148,9 @@
         "onboarding-recommend/result-corrected",
         "onboarding-recommend/result-existing",
         "onboarding-recommend/review-empty-day",
-        "onboarding-recommend/review-reorder"
+        "onboarding-recommend/review-reorder",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -9117,7 +9178,9 @@
         "onboarding-recommend/result-changed",
         "onboarding-recommend/result-corrected",
         "onboarding-recommend/result-existing",
-        "onboarding-recommend/review-empty-day"
+        "onboarding-recommend/review-empty-day",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -9145,7 +9208,9 @@
         "onboarding-recommend/result-changed",
         "onboarding-recommend/result-corrected",
         "onboarding-recommend/result-existing",
-        "onboarding-recommend/review-empty-day"
+        "onboarding-recommend/review-empty-day",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -9191,7 +9256,8 @@
       "catalogStates": [
         "onboarding-recommend/review-sheet",
         "onboarding-recommend/review-sheet-swap",
-        "onboarding-recommend/result-block-sheet"
+        "onboarding-recommend/result-block-sheet",
+        "onboarding-recommend/review-sheet-execution-mode"
       ]
     },
     {
@@ -9213,7 +9279,8 @@
       "owner": "plan-070",
       "catalogStates": [
         "onboarding-recommend/review-sheet",
-        "onboarding-recommend/review-sheet-swap"
+        "onboarding-recommend/review-sheet-swap",
+        "onboarding-recommend/review-sheet-execution-mode"
       ],
       "neverDisabledReason": "Every rest preset is always a valid choice."
     },
@@ -9235,7 +9302,8 @@
       "owner": "plan-070",
       "catalogStates": [
         "onboarding-recommend/review-sheet",
-        "onboarding-recommend/review-sheet-swap"
+        "onboarding-recommend/review-sheet-swap",
+        "onboarding-recommend/review-sheet-execution-mode"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -9300,7 +9368,8 @@
       "owner": "plan-070",
       "catalogStates": [
         "onboarding-recommend/review-sheet",
-        "onboarding-recommend/review-sheet-swap"
+        "onboarding-recommend/review-sheet-swap",
+        "onboarding-recommend/review-sheet-execution-mode"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -9321,7 +9390,9 @@
         "onboarding-recommend/review-day-menu",
         "onboarding-recommend/review-sheet",
         "onboarding-recommend/review-sheet-swap",
-        "onboarding-recommend/result-block-sheet"
+        "onboarding-recommend/result-block-sheet",
+        "onboarding-recommend/review-sheet-execution-mode",
+        "onboarding-recommend/review-day-name-refused"
       ]
     },
     {
@@ -9341,7 +9412,9 @@
         "onboarding-recommend/review-day-menu",
         "onboarding-recommend/review-sheet",
         "onboarding-recommend/review-sheet-swap",
-        "onboarding-recommend/result-block-sheet"
+        "onboarding-recommend/result-block-sheet",
+        "onboarding-recommend/review-sheet-execution-mode",
+        "onboarding-recommend/review-day-name-refused"
       ]
     },
     {
@@ -9579,7 +9652,24 @@
       "rationale": "Opens the result block inputs without changing the answers until Apply.",
       "owner": "plan-072",
       "catalogStates": [
-        "onboarding-recommend/result-block-sheet"
+        "onboarding-recommend/result-block-sheet",
+        "onboarding-recommend/result",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed",
+        "onboarding-recommend/activation-conflict",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/replacement-confirm",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-existing",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/review-day-menu",
+        "onboarding-recommend/review-empty-day",
+        "onboarding-recommend/review-rebuild-confirm",
+        "onboarding-recommend/review-reorder",
+        "onboarding-recommend/review-sheet",
+        "onboarding-recommend/review-sheet-swap",
+        "onboarding-recovery/restart-confirm"
       ]
     },
     {
@@ -9602,6 +9692,49 @@
       "owner": "plan-072",
       "catalogStates": [
         "onboarding-recommend/result-block-sheet"
+      ]
+    },
+    {
+      "id": "review-confirmation-undo",
+      "selector": "[data-review-confirmation-undo]",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Undo the explicit movement confirmation while the recommendation is still a draft.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/result-confirmed"
+      ],
+      "neverDisabledReason": "The confirmation can be undone before activation."
+    },
+    {
+      "id": "review-rename-input",
+      "selector": "#reviewRenameInput",
+      "roles": {
+        "control": "field",
+        "boundary": "required"
+      },
+      "variant": "day-name-input",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "focus-visible",
+        "disabled",
+        "validation-error"
+      ],
+      "rationale": "Edits a review day name; a duplicate remains visible with its linked validation reason.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/review-day-name-refused"
       ]
     }
   ],

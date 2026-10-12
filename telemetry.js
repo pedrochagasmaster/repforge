@@ -65,7 +65,7 @@
   ]);
   // program-review.js EDIT_KINDS; the unit suite holds the two together.
   const REVIEW_EDIT_KINDS = Object.freeze([
-    "sets", "rep_range", "rir", "rest", "swap", "alternates",
+    "sets", "rep_range", "rir", "rest", "swap", "alternates", "execution_mode",
     "move", "remove", "reorder", "add", "day_name",
   ]);
   /* Closed engine answers a completed step may carry (Plan 071 §7, owner

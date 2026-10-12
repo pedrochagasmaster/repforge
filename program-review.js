@@ -27,9 +27,16 @@
   const MAX_DAY_NAME = 40;
   const ADDED_SETS = 3;
   const REP_SEMANTICS = Object.freeze(["reps", "repsPerSide"]);
+  // Keep this static classification aligned with ProgressionEngine's current
+  // source-metric compositions. Equipment and load-grid readiness remain
+  // runtime inputs and do not make a saved prescription manual.
+  const ADAPTIVE_SEMANTICS = Object.freeze([
+    ["loadKg", "reps"], ["reps", "assistanceKg"], ["reps"],
+    ["repsPerSide", "loadPerSideKg"], ["persistentLoadPerSideKg", "repsPerSide"],
+  ]);
   const EDIT_KINDS = Object.freeze([
     "sets", "rep_range", "rir", "rest", "swap", "alternates",
-    "move", "remove", "reorder", "add", "day_name",
+    "execution_mode", "move", "remove", "reorder", "add", "day_name",
   ]);
   const EDIT_KIND_SET = new Set(EDIT_KINDS);
   const PROVENANCE_SOURCE = "lifter_review";
@@ -91,6 +98,34 @@
     if (unilateral) return "unilateral";
     if (bilateral) return "bilateral";
     return null;
+  }
+
+  function needsExecutionMode(slot) {
+    return slot?.metricOrigin === "source_catalog" &&
+      slot.metricDefinitions?.some((metric) => metric.semantic === "repsPerSide") === true &&
+      !["bilateral", "unilateral"].includes(slot.executionMode);
+  }
+
+  function staticPrescriptionStatus(slot, set) {
+    if (set.status === "manual" || set.provenance?.source === "manual") return "manual";
+    if (needsExecutionMode(slot)) return "configuration_required";
+    if (slot.metricOrigin !== "source_catalog") return "manual";
+    const semantics = (slot.metricDefinitions || []).map((metric) => metric.semantic);
+    if (!ADAPTIVE_SEMANTICS.some((candidate) => JSON.stringify(candidate) === JSON.stringify(semantics))) return "manual";
+    const repSemantic = semantics.find((semantic) => REP_SEMANTICS.includes(semantic));
+    const target = set.targets?.[repSemantic];
+    if (!target || !Number.isSafeInteger(target.min) || !Number.isSafeInteger(target.max) ||
+      target.min < 1 || target.max < target.min || target.max > MAX_REPS ||
+      !Number.isFinite(set.rir) || set.rir < 0 || set.rir > MAX_RIR) return "manual";
+    const coefficient = slot.loadingModel?.bodyweightCoefficient;
+    if (!Number.isFinite(coefficient) || coefficient < 0 || coefficient > 1) return "configuration_required";
+    return "ready";
+  }
+
+  function classifyExecutionModeStatus(slot) {
+    for (const cycle of slot.prescriptionsByCycle || []) for (const set of cycle.sets || []) {
+      set.status = staticPrescriptionStatus(slot, set);
+    }
   }
 
   function catalogFields(ctx, exercise, metrics) {
@@ -218,6 +253,15 @@
       if (!slot.alternates.length) delete slot.alternates;
     }
     retarget(slot, metrics.semantic);
+    return null;
+  }
+
+  function editExecutionMode(definition, edit) {
+    const at = locate(definition, edit.slotId);
+    if (!at) return refuse("slot_missing");
+    if (!needsExecutionMode(at.slot)) return refuse("execution_mode_not_required");
+    if (!["bilateral", "unilateral"].includes(edit.executionMode)) return refuse("execution_mode_invalid");
+    at.slot.executionMode = edit.executionMode;
     return null;
   }
 
@@ -353,6 +397,7 @@
     if (!ctx?.compiler || !ctx?.catalog) return refuse("context_missing");
     const ordinal = Number.isInteger(ctx.ordinal) && ctx.ordinal > 0 ? ctx.ordinal : 1;
     const next = clone(definition);
+    const oldSlotIds = new Set(slotsOf(next).map((slot) => slot.id));
     const ids = idSource(ordinal);
     const handlers = {
       sets: () => editSets(next, edit, ids),
@@ -360,6 +405,7 @@
       rir: () => editRir(next, edit),
       rest: () => editRest(next, edit),
       swap: () => editSwap(next, edit, ctx),
+      execution_mode: () => editExecutionMode(next, edit),
       alternates: () => editAlternates(next, edit, ctx),
       move: () => editMove(next, edit),
       remove: () => editRemove(next, edit),
@@ -372,6 +418,14 @@
     refreshEstimates(next, ctx);
     const checked = ctx.compiler.validateProgramDefinition(next, ctx.catalog, ctx.customDefinitions || []);
     if (!checked?.ok) return refuse("definition_invalid", (checked?.issues || []).slice(0, 12));
+    if (["swap", "execution_mode", "add"].includes(edit.kind)) {
+      const affected = edit.kind === "add"
+        ? slotsOf(next).filter((slot) => !oldSlotIds.has(slot.id))
+        : [locate(next, edit.slotId)?.slot].filter(Boolean);
+      for (const slot of affected) classifyExecutionModeStatus(slot);
+      const classified = ctx.compiler.validateProgramDefinition(next, ctx.catalog, ctx.customDefinitions || []);
+      if (!classified?.ok) return refuse("definition_invalid", (classified?.issues || []).slice(0, 12));
+    }
     return { ok: true, definition: next };
   }
 
@@ -561,15 +615,18 @@
     function rowHtml(definition, slot, marks) {
       const state = read();
       const name = adapter.exerciseName(slot.exerciseId);
+      const modeNeeded = needsExecutionMode(slot);
       const confirmed = Array.isArray(state.answers?.movementConfirmations?.[slot.exerciseId]) &&
         state.answers.movementConfirmations[slot.exerciseId].length > 0;
       const mark = confirmed ? t("entry.review.confirmed")
         : marks[slot.id] === "added" ? t("entry.review.mark.added") : marks[slot.id] ? t("entry.review.mark.edited") : "";
       const sets = slot.prescriptionsByCycle[0]?.sets || [];
-      const row = `<article class="review__row${mark ? " is-changed" : ""}" data-review-slot="${esc(slot.id)}" data-id="${esc(slot.id)}" role="button" tabindex="0" aria-label="${esc(name)}">` +
+      const rowLabel = modeNeeded ? `${name} · ${t("entry.review.execution_mode.cue")}` : name;
+      const row = `<article class="review__row${mark ? " is-changed" : ""}" data-review-slot="${esc(slot.id)}" data-id="${esc(slot.id)}" role="button" tabindex="0" aria-label="${esc(rowLabel)}">` +
         adapter.tile(slot.exerciseId, "md") +
         `<div class="review__rowbody"><h3 class="review__name">${esc(name)}</h3>` +
         (mark ? `<span class="review__mark" data-review-mark><span class="review__dot" aria-hidden="true"></span>${esc(mark)}</span>` : "") +
+        (modeNeeded ? `<p class="review__hint" data-review-execution-cue>${esc(t("entry.review.execution_mode.cue"))}</p>` : "") +
         `<ol class="review__sets">${sets.map((set, index) => `<li><span class="review__setn num">${index + 1}</span><span class="review__reps">${nums(repsText(set))}</span>` +
           (Number.isFinite(set.rir) ? `<span class="review__rir">${nums(t("entry.review.rir", { n: set.rir }))}</span>` : "") + `</li>`).join("")}</ol>` +
         chips(slot) + `</div>${icon("chev-right")}</article>`;
@@ -813,10 +870,16 @@
         const suggestions = subs.filter((id) => !alternates.includes(id)).slice(0, ALTERNATE_SUGGESTIONS);
         const others = definition.days.filter((day) => day.kind === "training" && day.id !== at.day.id);
         const rest = sets[0]?.restSeconds;
+        const modeNeeded = needsExecutionMode(slot);
         const name = adapter.exerciseName(slot.exerciseId);
         parts.title.textContent = name;
         parts.body.innerHTML =
           `<div class="review-sheet__head">${adapter.tile(slot.exerciseId, "lg")}<div><p class="review-sheet__role">${esc([roleLabel(slot.role), jobLabel(slot.purposeId)].filter(Boolean).join(" · "))}</p>${chips(slot)}</div></div>` +
+          (modeNeeded ? `<section class="review-sheet__sec"><h3 class="sheetgroup__head" id="reviewExecutionModeQuestion" data-review-execution-question>${esc(t("entry.review.execution_mode.question"))}</h3>` +
+            `<div class="review-block__patterns" role="group" aria-labelledby="reviewExecutionModeQuestion">` +
+            [["bilateral", "entry.review.execution_mode.bilateral"], ["unilateral", "entry.review.execution_mode.unilateral"]].map(([mode, key]) =>
+              `<button type="button" class="radio-card" data-review-execution-mode="${mode}"><span class="radio-card__body"><span class="radio-card__title">${esc(t(key))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button>`).join("") +
+            `</div></section>` : "") +
           `<section class="review-sheet__sec"><h3 class="sheetgroup__head">${esc(t("entry.review.sheet.sets"))}</h3>` +
           `<div class="review-sheet__ledger" role="table" aria-label="${esc(t("entry.review.sheet.sets"))}"><div class="review-sheet__lh" role="row"><span role="columnheader">${esc(t("entry.review.sheet.set_col"))}</span><span role="columnheader">${esc(t("entry.review.sheet.reps_col"))}</span><span role="columnheader">${esc(t("entry.review.sheet.rir_col"))}</span></div>` +
           sets.map((set, index) => `<div class="review-sheet__lr" role="row"><span class="review__setn num" role="cell">${index + 1}</span><span role="cell">${nums(repsText(set))}</span>` +
@@ -952,7 +1015,9 @@
       if (!at) return;
       const slot = at.slot, sets = slot.prescriptionsByCycle[0].sets, first = range(sets[0]);
       let button;
-      if ((button = hit("[data-review-sets]"))) apply({ kind: "sets", slotId: slot.id, count: sets.length + Number(button.dataset.reviewSets) });
+      if ((button = hit("[data-review-execution-mode]"))) {
+        apply({ kind: "execution_mode", slotId: slot.id, executionMode: button.dataset.reviewExecutionMode });
+      } else if ((button = hit("[data-review-sets]"))) apply({ kind: "sets", slotId: slot.id, count: sets.length + Number(button.dataset.reviewSets) });
       else if ((button = hit("[data-review-rir]"))) {
         const [setIndex, dir] = button.dataset.reviewRir.split(":").map(Number);
         apply({ kind: "rir", slotId: slot.id, setIndex, rir: (sets[setIndex - 1].rir ?? 2) + dir });

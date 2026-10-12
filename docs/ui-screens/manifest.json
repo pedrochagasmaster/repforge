@@ -676,8 +676,22 @@
       "id": "result",
       "flow": "onboarding-recommend",
       "label": "Recommend — recommendation and review",
-      "scenario": "Onboarding B's review editor at rest: the source, the program name, four facts, the block row, the tap hint, the day tabs with rest days and the first day's exercises with their sets, RIR and muscles; how it was built follows, with the pinned activation.",
+      "scenario": "Onboarding B's review editor at rest: the source, the program name, four facts, the block row and its Change action, the day tabs with rest days and the first day's exercises with their sets, RIR and muscles; how it was built follows, with the pinned activation.",
       "variants": "demandingText"
+    },
+    {
+      "id": "result-confirm-offer",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — offered movement",
+      "scenario": "A real Worker-verified movement offer under its current exercise row, with the approved advice and confirmation action.",
+      "variants": "localized"
+    },
+    {
+      "id": "result-confirmed",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — confirmed movement",
+      "scenario": "After confirming the offered movement: its row is marked Confirmed by you, Undo is available, and the changed rows are announced.",
+      "variants": "localized"
     },
     {
       "id": "result-block-sheet",
@@ -708,6 +722,13 @@
       "variants": "accessibility"
     },
     {
+      "id": "review-sheet-execution-mode",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — execution mode",
+      "scenario": "The exercise sheet asks how an ambiguous per-side movement is performed, with both approved answers and the unresolved Review cue.",
+      "variants": "accessibility"
+    },
+    {
       "id": "review-sheet-swap",
       "flow": "onboarding-recommend",
       "label": "Recommend — swap and alternates",
@@ -719,6 +740,13 @@
       "flow": "onboarding-recommend",
       "label": "Recommend — day actions",
       "scenario": "The day menu sheet: rename the day, reorder its exercises, add an exercise.",
+      "variants": "localized"
+    },
+    {
+      "id": "review-day-name-refused",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — duplicate day name refused",
+      "scenario": "The day rename sheet keeps a duplicate name in the field and shows the existing linked alert.",
       "variants": "localized"
     },
     {

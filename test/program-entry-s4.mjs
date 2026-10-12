@@ -449,6 +449,7 @@ try {
   assert.equal((await entry(page)).result.preview.programDefinition.days.flatMap((day) => day.slots)
     .find((slot) => slot.id === firstSlot.id).executionMode, executionMode,
   "the review-sheet intent stores the selected execution mode on its slot");
+  await page.locator("#reviewSheet [data-review-done]").click();
 
   await page.locator("#entryActivate").click();
   await page.waitForFunction(() => window.__repforgeWorkoutDraft.state()?.programMeta?.onboarded === true,

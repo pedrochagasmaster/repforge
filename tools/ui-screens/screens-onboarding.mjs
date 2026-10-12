@@ -89,6 +89,34 @@ async function route(page, name, { existing = false } = {}) {
   if (name === "recommend") await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "intro", undefined, { timeout: 20000 });
 }
 
+async function routeWithFixedDraftId(page, draftId) {
+  await page.evaluate((fixedId) => {
+    let sequence = 0;
+    Object.defineProperty(window.crypto, "randomUUID", {
+      configurable: true,
+      value: () => {
+        sequence += 1;
+        // The first UUID belongs to the first-run surface; the next is the
+        // production createEntryState() draft identity.
+        if (sequence === 2) return fixedId;
+        return `10000000-0000-4000-8000-${String(sequence).padStart(12, "0")}`;
+      },
+    });
+  }, draftId);
+  await openHub(page);
+  await page.click('[data-entry-hub="recommend"]');
+  await next(page);
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "intro", undefined, { timeout: 20000 });
+  const actual = await page.evaluate(() => window.__repforgeEntryState?.()?.draftId || null);
+  if (actual !== draftId) throw new Error(`recommend route did not retain its fixed draft identity (${actual || "missing"})`);
+}
+
+async function recommendToReviewWithFixedDraftId(page, draftId, answers = {}) {
+  await routeWithFixedDraftId(page, draftId);
+  await answerRecommend(page, { skipBasics: true, ...answers });
+  await page.waitForSelector("#entryReview [data-review-slot]", { timeout: 25000 });
+}
+
 /** B's Recommend screens, answered as a lifter would, stopping on `until`. */
 async function recommendStep(page, until, answers = {}) {
   await route(page, "recommend");
@@ -183,6 +211,23 @@ const reviewSlots = (page) => page.$$eval("#entryReview [data-review-slot]", (ro
 async function openReviewSlot(page, slotId) {
   await page.click(`#entryReview [data-review-slot="${slotId}"]`);
   await page.waitForSelector("#reviewSheet.is-open [data-review-sets]", { timeout: 10000 });
+}
+async function findAmbiguousPerSideMovement(page) {
+  return page.evaluate(() => {
+    const catalog = window.RepForgeExerciseCatalog.snapshot();
+    const metrics = window.RepForgeExerciseMetrics;
+    const current = window.__repforgeEntryState().result.preview.programDefinition;
+    const used = new Set(current.days.flatMap((day) => day.slots || []).map((slot) => slot.exerciseId));
+    const supportedPerSide = [["repsPerSide", "loadPerSideKg"], ["persistentLoadPerSideKg", "repsPerSide"]];
+    return catalog.exercises.find((exercise) => {
+      if (used.has(exercise.id) || !Number.isFinite(exercise.bodyweight)) return false;
+      const definitions = metrics.definitionsForIds(exercise.exerciseMetrics || []);
+      if (!definitions.ok || !supportedPerSide.some((semantics) =>
+        JSON.stringify(definitions.value.map((metric) => metric.semantic)) === JSON.stringify(semantics))) return false;
+      const sides = (exercise.laterality || []).map((id) => catalog.uuidIndex[id]?.name);
+      return sides.includes("Unilateral") === sides.includes("Bilateral");
+    }) || null;
+  });
 }
 async function closeReviewSheet(page) {
   await page.click("#reviewSheet [data-review-done]");
@@ -569,6 +614,7 @@ const FOCUS_SELECTOR = {
   "onboarding-recommend/result-changed": ".review__row.is-changed",
   "onboarding-recommend/review-reorder": "[data-review-reorder]",
   "onboarding-recommend/review-empty-day": ".review__empty",
+  "onboarding-recommend/review-sheet-execution-mode": "#reviewSheet [data-review-execution-question]",
   "onboarding-recommend/muscle-priorities-limit": "#entryPriorityLimit",
 };
 
@@ -696,6 +742,46 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-recommend/building-pending": (page) => buildingStep(page, { pending: true }),
   "onboarding-recommend/result-equipment-conflict": equipmentConflict,
   "onboarding-recommend/result": (page) => recommendTo(page, { result: true, desired: "balanced" }),
+  "onboarding-recommend/result-confirm-offer": async (page) => {
+    await recommendToReviewWithFixedDraftId(page, "00000000-0000-4000-8000-000000000720");
+    const action = page.locator("#entryReview [data-review-confirm-offer-action]").first();
+    await action.waitFor({ state: "visible", timeout: 30000 });
+    const target = await action.evaluate((button) => {
+      const row = button.closest("[data-review-confirm-offer]");
+      return { slotId: button.dataset.reviewConfirmOfferAction, exerciseId: row?.dataset.reviewOfferExerciseId };
+    });
+    const belongsToResult = await page.evaluate(({ slotId, exerciseId }) => {
+      const entry = window.__repforgeEntryState();
+      const slot = entry?.result?.preview?.programDefinition?.days.flatMap((day) => day.slots || [])
+        .find((item) => item.id === slotId);
+      // This row is rendered only from app.js's post-result verifier report.
+      // Keep the proof on the actual consumer: no injected service and a live
+      // current slot are required for the Worker-backed production journey.
+      return entry?.step === "result" && entry.route === "recommend" && !window.__repforgeProgramEntryServicesOverride
+        && typeof Worker === "function" && Boolean(slot) && Boolean(exerciseId);
+    }, target);
+    if (!target.slotId || !target.exerciseId || !belongsToResult) throw new Error("result-confirm-offer: visible verified offer is not attached to the live production result");
+  },
+  "onboarding-recommend/result-confirmed": async (page) => {
+    await recommendToReviewWithFixedDraftId(page, "00000000-0000-4000-8000-000000000721");
+    const action = page.locator("#entryReview [data-review-confirm-offer-action]").first();
+    await action.waitFor({ state: "visible", timeout: 30000 });
+    const target = await action.evaluate((button) => {
+      const row = button.closest("[data-review-confirm-offer]");
+      return { slotId: button.dataset.reviewConfirmOfferAction, exerciseId: row?.dataset.reviewOfferExerciseId };
+    });
+    await action.click();
+    await page.waitForSelector(`#entryReview [data-review-confirmed="${target.exerciseId}"]`, { timeout: 30000 });
+    const current = await page.evaluate((exerciseId) => ({
+      confirmation: window.__repforgeEntryState()?.answers?.movementConfirmations?.[exerciseId] || null,
+      offer: document.querySelector(`[data-review-confirm-offer][data-review-offer-exercise-id="${CSS.escape(exerciseId)}"]`) !== null,
+      undo: document.querySelector(`[data-review-confirmation-undo="${CSS.escape(exerciseId)}"]`)?.textContent.trim() || null,
+    }), target.exerciseId);
+    const expectedUndo = await page.evaluate(() => window.RepForgeI18n.t("entry.review.undo"));
+    if (!Array.isArray(current.confirmation) || !current.confirmation.length || current.offer || current.undo !== expectedUndo) {
+      throw new Error(`result-confirmed: production confirmation state is incomplete: ${JSON.stringify(current)}`);
+    }
+  },
   "onboarding-recommend/result-block-sheet": async page => {
     await recommendTo(page, { result: true, desired: "balanced" });
     await page.click("#entryReview [data-review-block-edit]");
@@ -750,6 +836,65 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-recommend/review-sheet": async (page) => {
     await reviewTo(page);
     await openReviewSlot(page, (await reviewSlots(page))[0]);
+  },
+  "onboarding-recommend/review-sheet-execution-mode": async (page) => {
+    await recommendToReviewWithFixedDraftId(page, "00000000-0000-4000-8000-000000000722", { goal: "balanced", days: 3 });
+    const slotId = (await reviewSlots(page))[0];
+    const exercise = await findAmbiguousPerSideMovement(page);
+    if (!exercise) throw new Error("review-execution-mode: production catalog has no unused supported ambiguous per-side movement");
+    await openReviewSlot(page, slotId);
+    await page.locator("#reviewSheet [data-review-search]").click();
+    await page.waitForSelector("#exPickSheet.is-open", { timeout: 10000 });
+    await page.fill("#exPickSearch", exercise.name);
+    await page.waitForSelector(`[data-pick="${exercise.id}"]`, { timeout: 10000 });
+    await page.locator(`[data-pick="${exercise.id}"]`).click();
+    await page.waitForFunction(({ slotId, exerciseId }) => {
+      const slot = window.__repforgeEntryState()?.result?.preview?.programDefinition?.days
+        .flatMap((day) => day.slots).find((item) => item.id === slotId);
+      return slot?.exerciseId === exerciseId && !document.querySelector("#exPickSheet.is-open");
+    }, { slotId, exerciseId: exercise.id }, { timeout: 15000 });
+    await openReviewSlot(page, slotId);
+    await page.waitForSelector("#reviewSheet [data-review-execution-question]", { timeout: 10000 });
+    const visible = await page.evaluate((slotId) => ({
+      question: document.querySelector("#reviewSheet [data-review-execution-question]")?.textContent.trim(),
+      groupName: document.querySelector("#reviewSheet [role='group']")?.getAttribute("aria-labelledby"),
+      choices: [...document.querySelectorAll("#reviewSheet [data-review-execution-mode]")].map((button) => button.textContent.trim()),
+      cue: document.querySelector(`#entryReview [data-review-slot="${CSS.escape(slotId)}"] [data-review-execution-cue]`)?.textContent.trim(),
+    }), slotId);
+    const expectedQuestion = await page.evaluate(() => window.RepForgeI18n.t("entry.review.execution_mode.question"));
+    const expectedChoices = await page.evaluate(() => [
+      window.RepForgeI18n.t("entry.review.execution_mode.bilateral"),
+      window.RepForgeI18n.t("entry.review.execution_mode.unilateral"),
+    ]);
+    const expectedCue = await page.evaluate(() => window.RepForgeI18n.t("entry.review.execution_mode.cue"));
+    if (visible.question !== expectedQuestion || visible.groupName !== "reviewExecutionModeQuestion"
+      || JSON.stringify(visible.choices) !== JSON.stringify(expectedChoices) || visible.cue !== expectedCue) {
+      throw new Error(`review-execution-mode: production question/choices/cue were not exposed: ${JSON.stringify(visible)}`);
+    }
+  },
+  "onboarding-recommend/review-day-name-refused": async (page) => {
+    await recommendToReviewWithFixedDraftId(page, "00000000-0000-4000-8000-000000000360", { goal: "balanced", days: 3 });
+    const days = await page.evaluate(() => window.__repforgeEntryState().result.preview.programDefinition.days
+      .map((day, index) => ({ index, kind: day.kind, stored: day.name,
+        shown: document.querySelector(`#entryReview [data-review-tab="${index}"]`)?.textContent.trim() || null }))
+      .filter((day) => day.kind === "training"));
+    if (days.length < 2) throw new Error("review-day-name-refused: the production result has fewer than two training days");
+    const target = days[0], duplicate = days[1].stored || days[1].shown;
+    const expected = await page.evaluate(() => window.RepForgeI18n.t("toast.day_name_exists"));
+    await page.locator(`#entryReview [data-review-tab="${target.index}"]`).click();
+    await page.locator("#entryReview [data-review-day-menu]").click();
+    await page.locator('#reviewSheet [data-review-day-action="rename"]').click();
+    await page.locator("#reviewSheet #reviewRenameInput").fill(duplicate);
+    await page.locator("#reviewSheet [data-review-rename-save]").click();
+    await page.locator('#reviewSheet #reviewRenameInput[aria-invalid="true"]').waitFor({ state: "visible", timeout: 10000 });
+    const refusal = await page.evaluate(() => {
+      const input = document.querySelector("#reviewSheet #reviewRenameInput");
+      const error = input?.getAttribute("aria-describedby") && document.getElementById(input.getAttribute("aria-describedby"));
+      return { value: input?.value, describedBy: input?.getAttribute("aria-describedby"), role: error?.getAttribute("role"), message: error?.textContent.trim() };
+    });
+    if (refusal.value !== duplicate || refusal.describedBy !== "reviewRenameError" || refusal.role !== "alert" || refusal.message !== expected) {
+      throw new Error(`review-day-name-refused: production field refusal was incomplete: ${JSON.stringify(refusal)}`);
+    }
   },
   "onboarding-recommend/review-sheet-swap": async (page) => {
     await reviewTo(page);

@@ -729,6 +729,7 @@ input:not(:where([type=checkbox],[type=radio])):focus-visible,select:focus-visib
   flex:none;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--control-selection-boundary);
   background:transparent;
 }
+.review-block__patterns .radio-card:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 /* Nothing told you whether picking a second option replaced the first. A
    checkbox is a square; a radio is a circle. */
 .radio-card[role="checkbox"] .radio-card__mark{border-radius:var(--radius-compact)}
