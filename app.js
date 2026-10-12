@@ -1697,18 +1697,22 @@ function metricValue(row,semantic){
   const index=row.metricDefinitions.findIndex((metric,i)=>metric?.semantic===semantic&&metric.id===row.metricIds[i]&&
     row.metricValues[i]?.metricId===metric.id&&typeof row.metricValues[i]?.value==="number"&&Number.isFinite(row.metricValues[i].value));
   return index<0?null:row.metricValues[index].value}
-function executionModeForLogRow(row,sideLoadSemantic=null,explicitMultiplier=null){
+function executionModeForLogRow(row,sideLoadSemantic=null,explicitMultiplier=null,totalLoadWithSideReps=false){
   // A non-persistent per-side load's captured multiplier is its execution
   // convention: one means one side at a time; two means both sides together.
   // Persistent loads still use m=2 in either mode, so their reps need the
-  // catalog/slot mode below. Total Weight is already total and follows the
-  // same catalog/slot rule for per-side reps.
+  // catalog/slot mode below. Total Weight is already total, so m=1 does not
+  // identify the execution mode for per-side reps.
   if(sideLoadSemantic==="loadPerSideKg"&&(explicitMultiplier===1||explicitMultiplier===2))
     return explicitMultiplier===1?"unilateral":"bilateral";
   const sourceId=String(row?.performedLibraryId||row?.sourceLibraryId||"");
   const laterality=(rawExercise(sourceId)?.laterality||[]).map(id=>rawCatalogObject(id)?.name).filter(Boolean);
   if(laterality.length===1&&laterality[0]==="Unilateral")return"unilateral";
   if(laterality.length===1&&laterality[0]==="Bilateral")return"bilateral";
+  // Total-load m=1 is its load-composition multiplier, not a captured
+  // execution convention. With ambiguous catalog laterality, don't substitute
+  // the current slot's mode for the historical movement.
+  if(totalLoadWithSideReps&&explicitMultiplier===1)return null;
   // For a persistent per-side load, m=2 records how much weight is held per
   // side, not whether both sides moved together. An ambiguous historical row
   // with that explicit value cannot borrow the current slot's execution mode.
@@ -1735,7 +1739,7 @@ function readLogRow(row){
   const perSideLoad=!!sideLoadMetric&&sideLoad!=null,perSideReps=!!repsSideMetric&&sideReps!=null;
   const explicitMultiplier=source.loadingContext?.externalLoadMultiplier;
   const mode=perSideReps||sideLoadMetric
-    ?executionModeForLogRow(source,sideLoadMetric?.semantic,explicitMultiplier):null;
+    ?executionModeForLogRow(source,sideLoadMetric?.semantic,explicitMultiplier,!!(totalLoadMetric&&perSideReps)):null;
   let multiplier=null;
   if(sideLoadMetric){
     if(explicitMultiplier===1||explicitMultiplier===2)multiplier=explicitMultiplier;
