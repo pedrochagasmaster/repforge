@@ -92,10 +92,13 @@ async function findAmbiguousPerSideMovement(page) {
     const metrics = window.RepForgeExerciseMetrics;
     const current = window.__repforgeEntryState().result.preview.programDefinition;
     const used = new Set(current.days.flatMap((day) => day.slots || []).map((slot) => slot.exerciseId));
+    const supportedPerSide = [["repsPerSide", "loadPerSideKg"], ["persistentLoadPerSideKg", "repsPerSide"]];
     return catalog.exercises.find((exercise) => {
       if (used.has(exercise.id)) return false;
       const definitions = metrics.definitionsForIds(exercise.exerciseMetrics || []);
-      if (!definitions.ok || !definitions.value.some((metric) => metric.semantic === "repsPerSide")) return false;
+      if (!definitions.ok || !supportedPerSide.some((semantics) =>
+        JSON.stringify(definitions.value.map((metric) => metric.semantic)) === JSON.stringify(semantics)) ||
+        !Number.isFinite(exercise.bodyweight)) return false;
       const sides = (exercise.laterality || []).map((id) => catalog.uuidIndex[id]?.name);
       const unilateral = sides.includes("Unilateral"), bilateral = sides.includes("Bilateral");
       const executionMode = unilateral && bilateral ? null : unilateral ? "unilateral" : bilateral ? "bilateral" : null;
@@ -406,27 +409,33 @@ try {
   const expectedExecutionLabels = await page.evaluate(() => {
     const pt = document.documentElement.lang.toLowerCase().startsWith("pt");
     return pt
-      ? ["Como você faz este exercício?", "Os dois lados juntos", "Um lado de cada vez"]
-      : ["How do you do this exercise?", "Both sides together", "One side at a time"];
+      ? ["Como você faz este exercício?", "Os dois lados juntos", "Um lado de cada vez", "Precisa de ajuste"]
+      : ["How do you do this exercise?", "Both sides together", "One side at a time", "Needs adjustment"];
   });
   const unresolvedExecution = await page.evaluate((slotId) => {
     const slot = window.__repforgeEntryState().result.preview.programDefinition.days
       .flatMap((day) => day.slots).find((item) => item.id === slotId);
+    const row = document.querySelector(`#entryReview [data-review-slot="${CSS.escape(slotId)}"]`);
     return {
       executionMode: slot.executionMode,
       semantics: [...new Set(slot.metricDefinitions.map((metric) => metric.semantic))],
       statuses: [...new Set(slot.prescriptionsByCycle.flatMap((cycle) => cycle.sets).map((set) => set.status))],
       question: document.querySelector("#reviewSheet [data-review-execution-question]")?.textContent.trim() || null,
       choices: [...document.querySelectorAll("#reviewSheet [data-review-execution-mode]")].map((button) => button.textContent.trim()),
+      rowCue: row?.querySelector("[data-review-execution-cue]")?.textContent.trim() || null,
+      rowAccessibleName: row?.getAttribute("aria-label") || null,
+      rowName: row?.querySelector(".review__name")?.textContent.trim() || null,
     };
   }, firstSlot.id);
-  assert.deepEqual(unresolvedExecution, {
-    executionMode: null,
-    semantics: ["loadKg", "repsPerSide"],
-    statuses: ["configuration_required"],
-    question: expectedExecutionLabels[0],
-    choices: expectedExecutionLabels.slice(1),
-  }, "an ambiguous per-side catalog pick stays configuration-required and asks the approved question in its exercise sheet");
+  assert.equal(unresolvedExecution.executionMode, null, "an ambiguous per-side catalog pick has no guessed mode");
+  assert.ok(unresolvedExecution.semantics.includes("repsPerSide"), "the selected catalog movement records reps per side");
+  assert.deepEqual(unresolvedExecution.statuses, ["configuration_required"],
+    "an unanswered ambiguous per-side pick stays configuration-required");
+  assert.equal(unresolvedExecution.question, expectedExecutionLabels[0], "the exercise sheet asks the approved question");
+  assert.deepEqual(unresolvedExecution.choices, expectedExecutionLabels.slice(1, 3), "the exercise sheet offers both approved answers");
+  assert.equal(unresolvedExecution.rowCue, expectedExecutionLabels[3], "the review row shows the owner-approved unresolved cue");
+  assert.equal(unresolvedExecution.rowAccessibleName, `${unresolvedExecution.rowName} · ${expectedExecutionLabels[3]}`,
+    "the review row announces the unresolved cue to assistive technology");
   const executionMode = "unilateral";
   await page.locator(`#reviewSheet [data-review-execution-mode="${executionMode}"]`).click();
   await page.waitForFunction(({ slotId, mode }) => {
@@ -435,6 +444,8 @@ try {
     return slot?.executionMode === mode && slot.prescriptionsByCycle.every((cycle) =>
       cycle.sets.every((set) => set.status !== "configuration_required"));
   }, { slotId: firstSlot.id, mode: executionMode }, { timeout: 15000 });
+  assert.equal(await page.locator(`#entryReview [data-review-slot="${firstSlot.id}"] [data-review-execution-cue]`).count(), 0,
+    "the resolved review row clears its configuration cue");
   assert.equal((await entry(page)).result.preview.programDefinition.days.flatMap((day) => day.slots)
     .find((slot) => slot.id === firstSlot.id).executionMode, executionMode,
   "the review-sheet intent stores the selected execution mode on its slot");

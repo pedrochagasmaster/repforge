@@ -36,6 +36,10 @@ const clone = (value) => JSON.parse(JSON.stringify(value));
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const ctx = { compiler: Compiler, catalog: Catalog, metrics: Metrics };
 const valid = (definition) => Compiler.validateProgramDefinition(definition, Catalog).ok;
+const SUPPORTED_PER_SIDE_SEMANTICS = [
+  ["repsPerSide", "loadPerSideKg"],
+  ["persistentLoadPerSideKg", "repsPerSide"],
+];
 
 function generate({ days = 4, goal = "muscle_growth", environment = "commercial_gym", extra = {}, seed = 1 } = {}) {
   const request = Adapter.programRequestFromAnswers({
@@ -206,6 +210,57 @@ console.log("program-review: swap");
     !Metrics.definitionsForIds(exercise.exerciseMetrics).value.some((metric) => metric.semantic === "reps" || metric.semantic === "repsPerSide"));
   check(!apply(plain, { kind: "swap", slotId: repsSlot.id, exerciseId: durationOnly.id }).ok, "swap: a movement that records no reps is refused");
   check(!apply(plain, { kind: "swap", slotId: repsSlot.id, exerciseId: "not-a-movement" }).ok, "swap: an unknown movement is refused");
+}
+
+console.log("program-review: execution mode");
+{
+  const program = new Set(slotsOf(plain).map((item) => item.exerciseId));
+  const ambiguous = Catalog.exercises.find((exercise) => {
+    if (program.has(exercise.id) || !Number.isFinite(exercise.bodyweight)) return false;
+    const result = Metrics.definitionsForIds(exercise.exerciseMetrics || []);
+    if (!result.ok || !SUPPORTED_PER_SIDE_SEMANTICS.some((semantics) => same(result.value.map((metric) => metric.semantic), semantics))) return false;
+    const names = (exercise.laterality || []).map((id) => Catalog.uuidIndex[id]?.name);
+    const unilateral = names.includes("Unilateral"), bilateral = names.includes("Bilateral");
+    return unilateral === bilateral;
+  });
+  const source = slotsOf(plain).find((slot) => slot.metricDefinitions.some((metric) => metric.semantic === "reps"));
+  check(!!ambiguous && !!source, "execution mode: fixtures include a generated source and an ambiguous supported per-side movement");
+  if (ambiguous && source) {
+    const swapped = apply(plain, { kind: "swap", slotId: source.id, exerciseId: ambiguous.id });
+    check(swapped.ok, "execution mode: a catalog swap is accepted", swapped);
+    if (swapped.ok) {
+      const unresolved = slotById(swapped.definition, source.id);
+      check(unresolved.executionMode === null && unresolved.prescriptionsByCycle.every((cycle) =>
+        cycle.sets.every((set) => set.status === "configuration_required")),
+      "execution mode: an unanswered per-side movement stays configuration-required");
+      const resolved = apply(swapped.definition, { kind: "execution_mode", slotId: source.id, executionMode: "unilateral" });
+      check(resolved.ok, "execution mode: a valid answer intent applies", resolved);
+      if (resolved.ok) {
+        const slot = slotById(resolved.definition, source.id);
+        check(slot.executionMode === "unilateral", "execution mode: the answer is stored on the slot");
+        check(slot.prescriptionsByCycle.every((cycle) => cycle.sets.every((set) => set.status === "ready")),
+          "execution mode: a validated, otherwise eligible slot returns to ready");
+        check(valid(resolved.definition), "execution mode: the resolved definition validates");
+      }
+
+      const deliberateManual = clone(swapped.definition);
+      const manual = slotById(deliberateManual, source.id).prescriptionsByCycle[0].sets[0];
+      manual.status = "manual";
+      manual.provenance.source = "manual";
+      const manualResult = apply(deliberateManual, { kind: "execution_mode", slotId: source.id, executionMode: "bilateral" });
+      check(manualResult.ok && slotById(manualResult.definition, source.id).prescriptionsByCycle[0].sets[0].status === "manual" &&
+        slotById(manualResult.definition, source.id).prescriptionsByCycle[0].sets[0].provenance.source === "manual",
+      "execution mode: an explicitly manual prescription and its provenance remain manual", manualResult);
+
+      const missingRir = clone(swapped.definition);
+      const missing = slotById(missingRir, source.id).prescriptionsByCycle[0].sets[0];
+      missing.rir = null;
+      const missingResult = apply(missingRir, { kind: "execution_mode", slotId: source.id, executionMode: "unilateral" });
+      const missingSet = missingResult.ok && slotById(missingResult.definition, source.id).prescriptionsByCycle[0].sets[0];
+      check(missingSet && missingSet.rir === null && missingSet.status === "manual",
+        "execution mode: resolving mode does not promote a prescription missing RIR", missingResult);
+    }
+  }
 }
 
 console.log("program-review: alternates");
