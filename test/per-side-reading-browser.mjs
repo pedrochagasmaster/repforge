@@ -322,7 +322,14 @@ async function main() {
       !/Load per side/i.test(totalLoadChartColumns),
       "exercise-detail keeps total Weight total while labeling the actual per-side repetitions", observations.totalLoadChart);
 
-    await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("review"));
+    await page.locator("#exBack").click();
+    await page.waitForFunction(() => {
+      const exercise = document.querySelector("#exercise");
+      const stats = document.querySelector("#stats");
+      return exercise && !exercise.classList.contains("active") && stats?.classList.contains("active") &&
+        !document.body.classList.contains("is-pushing") && !stats.inert;
+    }, undefined, { timeout: 10000 });
+    await page.locator('#statsSeg button[data-seg="review"]').click();
     await page.waitForSelector("#reviewPanel .review__outcomes", { state: "visible", timeout: 10000 });
     const reviewOutcome = (await page.locator("#reviewPanel .review__outcomes").innerText()).replace(/\s+/g, " ").trim();
     observations.reviewOutcome = reviewOutcome;
