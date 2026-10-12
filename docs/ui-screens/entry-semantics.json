@@ -88354,6 +88354,2472 @@
       ]
     },
     {
+      "key": "onboarding-recommend/result-block-sheet__phone-390-dark-en",
+      "flow": "onboarding-recommend",
+      "screen": "result-block-sheet",
+      "label": "Recommend — block inputs",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recommend"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Your 3-day program"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer recommendation"
+        },
+        {
+          "tag": "h2",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "button",
+          "name": "Rename program: Your 3-day program",
+          "label": "Rename program: Your 3-day program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Your 3-day program"
+        },
+        {
+          "tag": "p",
+          "text": "7 weeks · same every week · deload in week 7"
+        },
+        {
+          "tag": "button",
+          "text": "Change",
+          "name": "Change",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Tap an exercise to adjust sets and reps or swap the movement."
+        },
+        {
+          "tag": "div",
+          "role": "tablist",
+          "name": "Days of the week",
+          "label": "Days of the week"
+        },
+        {
+          "tag": "button",
+          "role": "tab",
+          "text": "Full Body A",
+          "name": "Full Body A",
+          "aria-selected": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "role": "tab",
+          "text": "Rest",
+          "name": "Rest",
+          "aria-selected": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "role": "tab",
+          "text": "Full Body B",
+          "name": "Full Body B",
+          "aria-selected": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "role": "tab",
+          "text": "Rest",
+          "name": "Rest",
+          "aria-selected": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "role": "tab",
+          "text": "Full Body C",
+          "name": "Full Body C",
+          "aria-selected": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "role": "tab",
+          "text": "Rest",
+          "name": "Rest",
+          "aria-selected": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "role": "tab",
+          "text": "Rest",
+          "name": "Rest",
+          "aria-selected": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "tabpanel",
+          "name": "Full Body A",
+          "labelledBy": "Full Body A"
+        },
+        {
+          "tag": "button",
+          "text": "Full Body A",
+          "name": "Rename Full Body A",
+          "label": "Rename Full Body A",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "exercises · about min"
+        },
+        {
+          "tag": "span",
+          "text": "7"
+        },
+        {
+          "tag": "span",
+          "text": "47"
+        },
+        {
+          "tag": "button",
+          "name": "More actions for Full Body A",
+          "label": "More actions for Full Body A",
+          "type": "button"
+        },
+        {
+          "tag": "article",
+          "role": "button",
+          "name": "Low incline Smith machine press",
+          "label": "Low incline Smith machine press",
+          "tabindex": "0"
+        },
+        {
+          "tag": "h3",
+          "text": "Low incline Smith machine press"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "3–5"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "3–5"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "Chest"
+        },
+        {
+          "tag": "article",
+          "role": "button",
+          "name": "Pin-loaded machine overhead triceps extension",
+          "label": "Pin-loaded machine overhead triceps extension",
+          "tabindex": "0"
+        },
+        {
+          "tag": "h3",
+          "text": "Pin-loaded machine overhead triceps extension"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "Triceps"
+        },
+        {
+          "tag": "article",
+          "role": "button",
+          "name": "Barbell back squat",
+          "label": "Barbell back squat",
+          "tabindex": "0"
+        },
+        {
+          "tag": "h3",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "3–5"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "3–5"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "3–5"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "Quads"
+        },
+        {
+          "tag": "span",
+          "text": "Glutes"
+        },
+        {
+          "tag": "article",
+          "role": "button",
+          "name": "Leg extension",
+          "label": "Leg extension",
+          "tabindex": "0"
+        },
+        {
+          "tag": "h3",
+          "text": "Leg extension"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "Quads"
+        },
+        {
+          "tag": "article",
+          "role": "button",
+          "name": "Neutral grip machine-assisted pull-up",
+          "label": "Neutral grip machine-assisted pull-up",
+          "tabindex": "0"
+        },
+        {
+          "tag": "h3",
+          "text": "Neutral grip machine-assisted pull-up"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "5–7"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "5–7"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "5–7"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "Lats"
+        },
+        {
+          "tag": "article",
+          "role": "button",
+          "name": "Dumbbell fly",
+          "label": "Dumbbell fly",
+          "tabindex": "0"
+        },
+        {
+          "tag": "h3",
+          "text": "Dumbbell fly"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "Chest"
+        },
+        {
+          "tag": "article",
+          "role": "button",
+          "name": "Seated hamstring curl",
+          "label": "Seated hamstring curl",
+          "tabindex": "0"
+        },
+        {
+          "tag": "h3",
+          "text": "Seated hamstring curl"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "Hamstrings"
+        },
+        {
+          "tag": "button",
+          "name": "Add exercise",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Add exercise"
+        },
+        {
+          "tag": "h2",
+          "text": "How it was built"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Built from your answers"
+        },
+        {
+          "tag": "h2",
+          "text": "Built from your answers"
+        },
+        {
+          "tag": "p",
+          "text": "Tap an answer to change it. The program is rebuilt right here."
+        },
+        {
+          "tag": "button",
+          "name": "Change goal: Muscle and strength",
+          "label": "Change goal: Muscle and strength",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Muscle and strength"
+        },
+        {
+          "tag": "button",
+          "name": "Change time on programs: 6 to 24 months",
+          "label": "Change time on programs: 6 to 24 months",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "6 to 24 months"
+        },
+        {
+          "tag": "button",
+          "name": "Change days per week: 3 days a week",
+          "label": "Change days per week: 3 days a week",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "3 days a week"
+        },
+        {
+          "tag": "button",
+          "name": "Change session length: Up to 60 min a session",
+          "label": "Change session length: Up to 60 min a session",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 60 min a session"
+        },
+        {
+          "tag": "button",
+          "name": "Change where you train: Full commercial gym",
+          "label": "Change where you train: Full commercial gym",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Full commercial gym"
+        },
+        {
+          "tag": "button",
+          "name": "Change priorities: No priority",
+          "label": "Change priorities: No priority",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No priority"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Why it fits"
+        },
+        {
+          "tag": "h2",
+          "text": "Why it fits"
+        },
+        {
+          "tag": "span",
+          "text": "Goal: Balance muscle and strength."
+        },
+        {
+          "tag": "span",
+          "text": "Fits 3 training days, each capped at 60 minutes."
+        },
+        {
+          "tag": "span",
+          "text": "Written for a full commercial gym."
+        },
+        {
+          "tag": "span",
+          "text": "Loads and reps adapt to what you log."
+        },
+        {
+          "tag": "p",
+          "text": "The same answers and rules produce the same program every time."
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
+        },
+        {
+          "tag": "section",
+          "labelledBy": "More options"
+        },
+        {
+          "tag": "p",
+          "text": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/result-block-sheet__phone-390-light-en",
+      "flow": "onboarding-recommend",
+      "screen": "result-block-sheet",
+      "label": "Recommend — block inputs",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recommend"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Your 3-day program"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer recommendation"
+        },
+        {
+          "tag": "h2",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "button",
+          "name": "Rename program: Your 3-day program",
+          "label": "Rename program: Your 3-day program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Your 3-day program"
+        },
+        {
+          "tag": "p",
+          "text": "7 weeks · same every week · deload in week 7"
+        },
+        {
+          "tag": "button",
+          "text": "Change",
+          "name": "Change",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Tap an exercise to adjust sets and reps or swap the movement."
+        },
+        {
+          "tag": "div",
+          "role": "tablist",
+          "name": "Days of the week",
+          "label": "Days of the week"
+        },
+        {
+          "tag": "button",
+          "role": "tab",
+          "text": "Full Body A",
+          "name": "Full Body A",
+          "aria-selected": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "role": "tab",
+          "text": "Rest",
+          "name": "Rest",
+          "aria-selected": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "role": "tab",
+          "text": "Full Body B",
+          "name": "Full Body B",
+          "aria-selected": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "role": "tab",
+          "text": "Rest",
+          "name": "Rest",
+          "aria-selected": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "role": "tab",
+          "text": "Full Body C",
+          "name": "Full Body C",
+          "aria-selected": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "role": "tab",
+          "text": "Rest",
+          "name": "Rest",
+          "aria-selected": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "role": "tab",
+          "text": "Rest",
+          "name": "Rest",
+          "aria-selected": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "tabpanel",
+          "name": "Full Body A",
+          "labelledBy": "Full Body A"
+        },
+        {
+          "tag": "button",
+          "text": "Full Body A",
+          "name": "Rename Full Body A",
+          "label": "Rename Full Body A",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "exercises · about min"
+        },
+        {
+          "tag": "span",
+          "text": "7"
+        },
+        {
+          "tag": "span",
+          "text": "47"
+        },
+        {
+          "tag": "button",
+          "name": "More actions for Full Body A",
+          "label": "More actions for Full Body A",
+          "type": "button"
+        },
+        {
+          "tag": "article",
+          "role": "button",
+          "name": "Low incline Smith machine press",
+          "label": "Low incline Smith machine press",
+          "tabindex": "0"
+        },
+        {
+          "tag": "h3",
+          "text": "Low incline Smith machine press"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "3–5"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "3–5"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "Chest"
+        },
+        {
+          "tag": "article",
+          "role": "button",
+          "name": "Pin-loaded machine overhead triceps extension",
+          "label": "Pin-loaded machine overhead triceps extension",
+          "tabindex": "0"
+        },
+        {
+          "tag": "h3",
+          "text": "Pin-loaded machine overhead triceps extension"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "Triceps"
+        },
+        {
+          "tag": "article",
+          "role": "button",
+          "name": "Barbell back squat",
+          "label": "Barbell back squat",
+          "tabindex": "0"
+        },
+        {
+          "tag": "h3",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "3–5"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "3–5"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "3–5"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "Quads"
+        },
+        {
+          "tag": "span",
+          "text": "Glutes"
+        },
+        {
+          "tag": "article",
+          "role": "button",
+          "name": "Leg extension",
+          "label": "Leg extension",
+          "tabindex": "0"
+        },
+        {
+          "tag": "h3",
+          "text": "Leg extension"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "Quads"
+        },
+        {
+          "tag": "article",
+          "role": "button",
+          "name": "Neutral grip machine-assisted pull-up",
+          "label": "Neutral grip machine-assisted pull-up",
+          "tabindex": "0"
+        },
+        {
+          "tag": "h3",
+          "text": "Neutral grip machine-assisted pull-up"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "5–7"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "5–7"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "5–7"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "Lats"
+        },
+        {
+          "tag": "article",
+          "role": "button",
+          "name": "Dumbbell fly",
+          "label": "Dumbbell fly",
+          "tabindex": "0"
+        },
+        {
+          "tag": "h3",
+          "text": "Dumbbell fly"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "Chest"
+        },
+        {
+          "tag": "article",
+          "role": "button",
+          "name": "Seated hamstring curl",
+          "label": "Seated hamstring curl",
+          "tabindex": "0"
+        },
+        {
+          "tag": "h3",
+          "text": "Seated hamstring curl"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "Hamstrings"
+        },
+        {
+          "tag": "button",
+          "name": "Add exercise",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Add exercise"
+        },
+        {
+          "tag": "h2",
+          "text": "How it was built"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Built from your answers"
+        },
+        {
+          "tag": "h2",
+          "text": "Built from your answers"
+        },
+        {
+          "tag": "p",
+          "text": "Tap an answer to change it. The program is rebuilt right here."
+        },
+        {
+          "tag": "button",
+          "name": "Change goal: Muscle and strength",
+          "label": "Change goal: Muscle and strength",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Muscle and strength"
+        },
+        {
+          "tag": "button",
+          "name": "Change time on programs: 6 to 24 months",
+          "label": "Change time on programs: 6 to 24 months",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "6 to 24 months"
+        },
+        {
+          "tag": "button",
+          "name": "Change days per week: 3 days a week",
+          "label": "Change days per week: 3 days a week",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "3 days a week"
+        },
+        {
+          "tag": "button",
+          "name": "Change session length: Up to 60 min a session",
+          "label": "Change session length: Up to 60 min a session",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 60 min a session"
+        },
+        {
+          "tag": "button",
+          "name": "Change where you train: Full commercial gym",
+          "label": "Change where you train: Full commercial gym",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Full commercial gym"
+        },
+        {
+          "tag": "button",
+          "name": "Change priorities: No priority",
+          "label": "Change priorities: No priority",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "No priority"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Why it fits"
+        },
+        {
+          "tag": "h2",
+          "text": "Why it fits"
+        },
+        {
+          "tag": "span",
+          "text": "Goal: Balance muscle and strength."
+        },
+        {
+          "tag": "span",
+          "text": "Fits 3 training days, each capped at 60 minutes."
+        },
+        {
+          "tag": "span",
+          "text": "Written for a full commercial gym."
+        },
+        {
+          "tag": "span",
+          "text": "Loads and reps adapt to what you log."
+        },
+        {
+          "tag": "p",
+          "text": "The same answers and rules produce the same program every time."
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
+        },
+        {
+          "tag": "section",
+          "labelledBy": "More options"
+        },
+        {
+          "tag": "p",
+          "text": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/result-block-sheet__phone-390-light-pt",
+      "flow": "onboarding-recommend",
+      "screen": "result-block-sheet",
+      "label": "Recommend — block inputs",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um treino"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recomendação"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Seu programa de 3 dias"
+        },
+        {
+          "tag": "p",
+          "text": "Recomendação do Taurifer"
+        },
+        {
+          "tag": "h2",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "button",
+          "name": "Renomear treino: Seu programa de 3 dias",
+          "label": "Renomear treino: Seu programa de 3 dias",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Seu programa de 3 dias"
+        },
+        {
+          "tag": "p",
+          "text": "7 semanas · iguais toda semana · deload na semana 7"
+        },
+        {
+          "tag": "button",
+          "text": "Alterar",
+          "name": "Alterar",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Toque num exercício para ajustar séries e repetições ou trocar o movimento."
+        },
+        {
+          "tag": "div",
+          "role": "tablist",
+          "name": "Dias da semana",
+          "label": "Dias da semana"
+        },
+        {
+          "tag": "button",
+          "role": "tab",
+          "text": "Corpo todo A",
+          "name": "Corpo todo A",
+          "aria-selected": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "role": "tab",
+          "text": "Descanso",
+          "name": "Descanso",
+          "aria-selected": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "role": "tab",
+          "text": "Corpo todo B",
+          "name": "Corpo todo B",
+          "aria-selected": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "role": "tab",
+          "text": "Descanso",
+          "name": "Descanso",
+          "aria-selected": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "role": "tab",
+          "text": "Corpo todo C",
+          "name": "Corpo todo C",
+          "aria-selected": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "role": "tab",
+          "text": "Descanso",
+          "name": "Descanso",
+          "aria-selected": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "role": "tab",
+          "text": "Descanso",
+          "name": "Descanso",
+          "aria-selected": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "tabpanel",
+          "name": "Corpo todo A",
+          "labelledBy": "Corpo todo A"
+        },
+        {
+          "tag": "button",
+          "text": "Corpo todo A",
+          "name": "Renomear Corpo todo A",
+          "label": "Renomear Corpo todo A",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "exercícios · cerca de min"
+        },
+        {
+          "tag": "span",
+          "text": "7"
+        },
+        {
+          "tag": "span",
+          "text": "47"
+        },
+        {
+          "tag": "button",
+          "name": "Mais ações de Corpo todo A",
+          "label": "Mais ações de Corpo todo A",
+          "type": "button"
+        },
+        {
+          "tag": "article",
+          "role": "button",
+          "name": "Supino inclinado baixo no Smith",
+          "label": "Supino inclinado baixo no Smith",
+          "tabindex": "0"
+        },
+        {
+          "tag": "h3",
+          "text": "Supino inclinado baixo no Smith"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "3–5"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "3–5"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "Peito"
+        },
+        {
+          "tag": "article",
+          "role": "button",
+          "name": "Tríceps francês na máquina",
+          "label": "Tríceps francês na máquina",
+          "tabindex": "0"
+        },
+        {
+          "tag": "h3",
+          "text": "Tríceps francês na máquina"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "Tríceps"
+        },
+        {
+          "tag": "article",
+          "role": "button",
+          "name": "Agachamento livre com barra",
+          "label": "Agachamento livre com barra",
+          "tabindex": "0"
+        },
+        {
+          "tag": "h3",
+          "text": "Agachamento livre com barra"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "3–5"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "3–5"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "3–5"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "Quadríceps"
+        },
+        {
+          "tag": "span",
+          "text": "Glúteos"
+        },
+        {
+          "tag": "article",
+          "role": "button",
+          "name": "Cadeira extensora",
+          "label": "Cadeira extensora",
+          "tabindex": "0"
+        },
+        {
+          "tag": "h3",
+          "text": "Cadeira extensora"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "Quadríceps"
+        },
+        {
+          "tag": "article",
+          "role": "button",
+          "name": "Barra fixa assistida na máquina pegada neutra",
+          "label": "Barra fixa assistida na máquina pegada neutra",
+          "tabindex": "0"
+        },
+        {
+          "tag": "h3",
+          "text": "Barra fixa assistida na máquina pegada neutra"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "5–7"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "5–7"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "5–7"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "Dorsais"
+        },
+        {
+          "tag": "article",
+          "role": "button",
+          "name": "Crucifixo com halteres",
+          "label": "Crucifixo com halteres",
+          "tabindex": "0"
+        },
+        {
+          "tag": "h3",
+          "text": "Crucifixo com halteres"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "reps por lado"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "reps por lado"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "reps por lado"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "Peito"
+        },
+        {
+          "tag": "article",
+          "role": "button",
+          "name": "Cadeira flexora",
+          "label": "Cadeira flexora",
+          "tabindex": "0"
+        },
+        {
+          "tag": "h3",
+          "text": "Cadeira flexora"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "1"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "reps"
+        },
+        {
+          "tag": "span",
+          "text": "14–16"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "span",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "Posteriores"
+        },
+        {
+          "tag": "button",
+          "name": "Adicionar exercício",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Adicionar exercício"
+        },
+        {
+          "tag": "h2",
+          "text": "Como foi montado"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Montado com suas respostas"
+        },
+        {
+          "tag": "h2",
+          "text": "Montado com suas respostas"
+        },
+        {
+          "tag": "p",
+          "text": "Toque em uma resposta para mudá-la. O treino é refeito aqui mesmo."
+        },
+        {
+          "tag": "button",
+          "name": "Alterar objetivo: Massa e força",
+          "label": "Alterar objetivo: Massa e força",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Massa e força"
+        },
+        {
+          "tag": "button",
+          "name": "Alterar tempo com treinos: 6 a 24 meses",
+          "label": "Alterar tempo com treinos: 6 a 24 meses",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "6 a 24 meses"
+        },
+        {
+          "tag": "button",
+          "name": "Alterar dias por semana: 3 dias por semana",
+          "label": "Alterar dias por semana: 3 dias por semana",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "3 dias por semana"
+        },
+        {
+          "tag": "button",
+          "name": "Alterar duração da sessão: Até 60 min por sessão",
+          "label": "Alterar duração da sessão: Até 60 min por sessão",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Até 60 min por sessão"
+        },
+        {
+          "tag": "button",
+          "name": "Alterar onde você treina: Academia comercial completa",
+          "label": "Alterar onde você treina: Academia comercial completa",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Academia comercial completa"
+        },
+        {
+          "tag": "button",
+          "name": "Alterar prioridades: Sem prioridade",
+          "label": "Alterar prioridades: Sem prioridade",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Sem prioridade"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Por que combina com você"
+        },
+        {
+          "tag": "h2",
+          "text": "Por que combina com você"
+        },
+        {
+          "tag": "span",
+          "text": "Objetivo: Equilibrar massa e força."
+        },
+        {
+          "tag": "span",
+          "text": "Encaixa em 3 dias de treino, cada um limitado a 60 minutos."
+        },
+        {
+          "tag": "span",
+          "text": "Feito para uma academia comercial completa."
+        },
+        {
+          "tag": "span",
+          "text": "Cargas e repetições se ajustam ao que você registra."
+        },
+        {
+          "tag": "p",
+          "text": "As mesmas respostas e regras produzem o mesmo treino todas as vezes."
+        },
+        {
+          "tag": "p",
+          "text": "O Taurifer atualiza as metas com base nas sessões concluídas, usando a progressão compatível de cada exercício."
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Mais opções"
+        },
+        {
+          "tag": "p",
+          "text": "Mais opções"
+        },
+        {
+          "tag": "button",
+          "text": "Começar de novo",
+          "name": "Começar de novo",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Usar este treino",
+          "name": "Usar este treino",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-recommend/result-changed__phone-390-dark-en",
       "flow": "onboarding-recommend",
       "screen": "result-changed",

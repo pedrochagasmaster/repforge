@@ -680,6 +680,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "result-block-sheet",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — block inputs",
+      "scenario": "The result's block sheet with 10 weeks, the undulating rep pattern selected, and the recommended deload switch on.",
+      "variants": "localized"
+    },
+    {
       "id": "result-equipment-conflict",
       "flow": "onboarding-recommend",
       "label": "Recommend — equipment conflict",

@@ -17355,8 +17355,12 @@ function mountEntryAdjust(){
     view:review.view,
     read:()=>({baseline:entryAdjust.baseline.preview.programDefinition,definition:entryState.result.preview.programDefinition,
       edits:entryAdjust.edits,name:entryResultName()||t("untitled_program"),
-      sessionMinutes:Number(entryState.answers?.sessionMinutes)||null,ctx:entryAdjustCtx()}),
+      answers:entryState.answers,sessionMinutes:Number(entryState.answers?.sessionMinutes)||null,ctx:entryAdjustCtx()}),
     commit:commitEntryAdjust,
+    changeBlock:async patch=>{
+      const outcome=await guardEntryRebuild(()=>applyEntryAnswerEdit(patch,{lead:t("entry.change.lead.answer")}));
+      if(outcome===false)return{ok:false,cancelled:true};
+      return outcome?.ok?outcome:{...outcome,message:entryFailureText(outcome?.failure)||t("entry.issue.compile")}},
     observe:report=>captureEvent("program_review_action",report),
     t:(key,vars)=>t(key,vars),esc,
     exerciseName:id=>libraryName(libraryEntry(id))||id,

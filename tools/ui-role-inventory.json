@@ -3,8 +3,8 @@
   "baseSha": "78492da2",
   "manifestSchemaVersion": 2,
   "observed": {
-    "screens": 143,
-    "frames": 866,
+    "screens": 185,
+    "frames": 1065,
     "probe": "production catalog scenarios, phone-390 light EN canonical frame, Chromium; no scenario failures"
   },
   "catalogStates": {
@@ -937,6 +937,11 @@
       "owner": "plan-069",
       "content": "flat",
       "scenario": "The generated bilateral press's Why sheet explains the multiplier and enabled bodyweight contribution."
+    },
+    "onboarding-recommend/result-block-sheet": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The result block sheet with 10 weeks, undulating selected, and deload on."
     }
   },
   "components": [
@@ -6035,7 +6040,8 @@
         "onboarding-recommend/review-reorder",
         "onboarding-recommend/review-sheet",
         "onboarding-recommend/review-sheet-swap",
-        "onboarding-recommend/result-equipment-conflict"
+        "onboarding-recommend/result-equipment-conflict",
+        "onboarding-recommend/result-block-sheet"
       ]
     },
     {
@@ -6860,7 +6866,8 @@
         "onboarding-start/hub",
         "onboarding-start/hub-chosen",
         "onboarding-start/hub-existing",
-        "progress/schedule-diagnosis"
+        "progress/schedule-diagnosis",
+        "onboarding-recommend/result-block-sheet"
       ]
     },
     {
@@ -9183,7 +9190,8 @@
       "owner": "plan-070",
       "catalogStates": [
         "onboarding-recommend/review-sheet",
-        "onboarding-recommend/review-sheet-swap"
+        "onboarding-recommend/review-sheet-swap",
+        "onboarding-recommend/result-block-sheet"
       ]
     },
     {
@@ -9307,12 +9315,13 @@
       "states": [
         "default"
       ],
-      "rationale": "Blocks the review behind it with dialog semantics while one exercise, the day's actions or a rename is open.",
+      "rationale": "Blocks the review behind it with dialog semantics while an exercise, the block inputs, the day actions or a rename is open.",
       "owner": "plan-070",
       "catalogStates": [
         "onboarding-recommend/review-day-menu",
         "onboarding-recommend/review-sheet",
-        "onboarding-recommend/review-sheet-swap"
+        "onboarding-recommend/review-sheet-swap",
+        "onboarding-recommend/result-block-sheet"
       ]
     },
     {
@@ -9331,7 +9340,8 @@
       "catalogStates": [
         "onboarding-recommend/review-day-menu",
         "onboarding-recommend/review-sheet",
-        "onboarding-recommend/review-sheet-swap"
+        "onboarding-recommend/review-sheet-swap",
+        "onboarding-recommend/result-block-sheet"
       ]
     },
     {
@@ -9549,6 +9559,49 @@
       "catalogStates": [
         "onboarding-recommend/building",
         "onboarding-recommend/building-pending"
+      ]
+    },
+    {
+      "id": "review-block-edit-link",
+      "selector": "[data-review-block-edit]",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Opens the result block inputs without changing the answers until Apply.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/result-block-sheet"
+      ]
+    },
+    {
+      "id": "review-block-deload-switch",
+      "selector": "[data-review-block-deload]",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected",
+        "disabled"
+      ],
+      "rationale": "Turns the block's last-week deload on or off.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/result-block-sheet"
       ]
     }
   ],

@@ -527,7 +527,8 @@
       const parts = [t(definition.cycles === 1 ? "entry.review.block.week_one" : "entry.review.block.weeks", { n: definition.cycles }),
         t(`entry.review.block.pattern.${pattern}`)];
       if (deload) parts.push(t("entry.review.block.deload", { n: deload }));
-      return `<p class="review__block">${esc(parts.join(" · "))}</p>`;
+      return `<div class="review__blockrow"><p class="review__block">${esc(parts.join(" · "))}</p>` +
+        `<button type="button" class="text-link" data-review-block-edit>${esc(t("entry.review.block.change"))}</button></div>`;
     }
     function changesHtml(count) {
       if (!count) return `<p class="review__hint">${esc(t("entry.review.tap_hint"))}</p>`;
@@ -752,7 +753,26 @@
       if (!sheet || disposed) return;
       const parts = adapter.sheet();
       const state = read(), definition = state.definition;
-      if (sheet.kind === "exercise") {
+      if (sheet.kind === "block") {
+        const patterns = ["static", "linear", "reverse_linear", "undulating"];
+        parts.title.textContent = t("entry.review.block.sheet.title");
+        parts.body.innerHTML =
+          `<section class="review-sheet__sec review-block__sec"><h3 class="sheetgroup__head">${esc(t("entry.review.block.sheet.length"))}</h3>` +
+          `<div class="review-step review-block__stepper"><button type="button" data-review-block-step="-1" aria-label="−"${sheet.cycles <= 4 ? " disabled" : ""}>−</button>` +
+          `<b class="num" data-review-block-weeks>${esc(t(sheet.cycles === 1 ? "entry.review.block.week_one" : "entry.review.block.weeks", { n: sheet.cycles }))}</b>` +
+          `<button type="button" data-review-block-step="1" aria-label="+"${sheet.cycles >= 12 ? " disabled" : ""}>+</button></div>` +
+          `<p class="review-sheet__lede">${esc(t("entry.review.block.sheet.length_hint"))}</p></section>` +
+          `<section class="review-sheet__sec review-block__sec"><h3 class="sheetgroup__head" id="reviewBlockPatternLab">${esc(t("entry.review.block.sheet.pattern"))}</h3>` +
+          `<div class="review-block__patterns" role="radiogroup" aria-labelledby="reviewBlockPatternLab">${patterns.map((pattern) => {
+            const selected = pattern === sheet.periodization;
+            return `<button type="button" class="radio-card${selected ? " is-selected" : ""}" role="radio" aria-checked="${selected}" tabindex="${selected ? 0 : -1}" data-review-block-pattern="${pattern}">` +
+              `<span class="radio-card__body"><span class="radio-card__title">${esc(t(`entry.review.block.card.${pattern}.title`))}</span>` +
+              `<span class="radio-card__cap">${esc(t(`entry.review.block.card.${pattern}.hint`))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button>`;
+          }).join("")}</div></section>` +
+          `<div class="review-block__deload"><span class="review-block__copy"><strong>${esc(t("entry.deload.card"))}</strong><span>${esc(t("entry.deload.body"))}</span></span>` +
+          `<button type="button" class="toggle" role="switch" aria-label="${esc(t("entry.deload.card"))}" aria-checked="${sheet.deload}" data-review-block-deload></button></div>`;
+        parts.foot.innerHTML = `<button type="button" class="btn btn--cta btn--noarrow" data-review-block-apply>${esc(t("entry.review.block.apply"))}</button>`;
+      } else if (sheet.kind === "exercise") {
         const at = findSlot(definition, sheet.slotId);
         if (!at) { closeSheet(); return; }
         const slot = at.slot, sets = slot.prescriptionsByCycle[0].sets, first = range(sets[0]);
@@ -849,6 +869,45 @@
       const hit = (selector) => target?.closest(selector);
       const state = read();
       if (hit("[data-review-done]")) { closeSheet(); return; }
+      if (sheet.kind === "block") {
+        let button;
+        if ((button = hit("[data-review-block-step]"))) {
+          sheet.cycles = Math.max(4, Math.min(12, sheet.cycles + Number(button.dataset.reviewBlockStep)));
+          const body = adapter.sheet().body;
+          body.querySelector("[data-review-block-weeks]").textContent = t("entry.review.block.weeks", { n: sheet.cycles });
+          body.querySelector('[data-review-block-step="-1"]').disabled = sheet.cycles <= 4;
+          body.querySelector('[data-review-block-step="1"]').disabled = sheet.cycles >= 12;
+        } else if ((button = hit("[data-review-block-pattern]"))) {
+          sheet.periodization = button.dataset.reviewBlockPattern;
+          adapter.sheet().body.querySelectorAll("[data-review-block-pattern]").forEach((option) => {
+            const selected = option === button;
+            option.classList.toggle("is-selected", selected);
+            option.setAttribute("aria-checked", String(selected));
+            option.tabIndex = selected ? 0 : -1;
+          });
+        } else if (hit("[data-review-block-deload]")) {
+          sheet.deload = !sheet.deload;
+          adapter.sheet().body.querySelector("[data-review-block-deload]").setAttribute("aria-checked", String(sheet.deload));
+        } else if (hit("[data-review-block-apply]")) {
+          const next = { block: { cycles: sheet.cycles, periodization: sheet.periodization }, deload: sheet.deload };
+          const definition = state.definition, answers = state.answers || {};
+          const current = {
+            cycles: Number.isInteger(answers.block?.cycles) ? answers.block.cycles : definition.cycles,
+            periodization: answers.block?.periodization || slotsOf(definition)[0]?.prescriptionsByCycle?.[0]?.sets?.[0]?.provenance?.periodization || "static",
+            deload: typeof answers.deload === "boolean" ? answers.deload : (definition.deloadCycles || []).includes(definition.cycles),
+          };
+          if (next.block.cycles === current.cycles && next.block.periodization === current.periodization && next.deload === current.deload) {
+            closeSheet();
+            return;
+          }
+          closeSheet().then(async () => {
+            const outcome = await adapter.changeBlock?.(next);
+            if (outcome?.ok || outcome?.cancelled || outcome?.superseded) return;
+            adapter.announce(outcome?.message || t("entry.review.save_failed"));
+          });
+        }
+        return;
+      }
       if (sheet.kind === "rename") {
         if (hit("[data-review-rename-save]")) saveRename();
         return;
@@ -895,6 +954,16 @@
     }
     function onSheetKey(event) {
       if (sheet?.kind === "rename" && event.key === "Enter" && event.target?.id === "reviewRenameInput") { event.preventDefault(); saveRename(); }
+      if (sheet?.kind === "block" && ["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp"].includes(event.key) &&
+        event.target?.closest?.("[data-review-block-pattern]")) {
+        event.preventDefault();
+        const options = [...adapter.sheet().body.querySelectorAll("[data-review-block-pattern]")];
+        const index = options.indexOf(event.target.closest("[data-review-block-pattern]"));
+        const step = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : -1;
+        const next = options[(index + step + options.length) % options.length];
+        next.click();
+        next.focus();
+      }
     }
     async function saveRename() {
       const input = adapter.sheet().body.querySelector("#reviewRenameInput");
@@ -925,6 +994,17 @@
       if (hit("[data-review-undo]")) { undo(); return; }
       if (hit("[data-review-restore]")) { restore(); return; }
       if (hit("[data-review-title]")) { sheet = { kind: "rename", target: "program" }; openSheet(); return; }
+      if (hit("[data-review-block-edit]")) {
+        const state = read(), definition = state.definition, answers = state.answers || {};
+        sheet = {
+          kind: "block",
+          cycles: Number.isInteger(answers.block?.cycles) ? answers.block.cycles : definition.cycles,
+          periodization: answers.block?.periodization || slotsOf(definition)[0]?.prescriptionsByCycle?.[0]?.sets?.[0]?.provenance?.periodization || "static",
+          deload: typeof answers.deload === "boolean" ? answers.deload : (definition.deloadCycles || []).includes(definition.cycles),
+        };
+        openSheet();
+        return;
+      }
       if (hit("[data-review-day-name]")) { sheet = { kind: "rename", target: "day" }; openSheet(); return; }
       if (hit("[data-review-day-menu]")) { sheet = { kind: "day" }; openSheet(); return; }
       if (hit("[data-review-add]")) { pick("add"); return; }

@@ -119,6 +119,9 @@ try {
   await page.evaluate(() => window.__repforgeStorage?.flush?.());
   const active = await state(page);
   const activeSlot = active.programMeta.programDefinition.days.flatMap((day) => day.slots).find((slot) => slot.id === firstSlot.id);
+  assert.equal(active.programMeta.programDefinition.cycles, 10, "activation retains the edited block length");
+  assert.equal(active.programMeta.programDefinition.days.flatMap((day) => day.slots)[0]
+    .prescriptionsByCycle[0].sets[0].provenance.periodization, "undulating", "activation retains the edited rep pattern");
   assert.equal(activeSlot.prescriptionsByCycle.at(-1).sets.length, 3,
     "activation retains the review editor's deload prescription");
   assert.deepEqual(active.programMeta.programDefinition.deloadCycles, [10], "the generated program has its last-week deload");
@@ -129,6 +132,7 @@ try {
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
   const reloaded = await state(page);
+  assert.equal(reloaded.programMeta.programDefinition.cycles, 10, "the edited block length survives reload");
   const reloadedSlot = reloaded.programMeta.programDefinition.days.flatMap((day) => day.slots).find((slot) => slot.id === firstSlot.id);
   assert.equal(reloadedSlot.prescriptionsByCycle.at(-1).sets.length, 3,
     "the activated six-set edit survives the ordinary reload");

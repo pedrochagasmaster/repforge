@@ -7140,7 +7140,18 @@ body.is-entry-editor #entryProgramName,
 .review__titlebtn .icon-mask{color:var(--ink-faint)}
 .review__titlebtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .review__titlebtn:active{transform:var(--control-pressed-transform)}
-.review__block{margin:0;padding-top:var(--space-14);border-top:1px solid var(--boundary-decorative);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.review__blockrow{display:flex;align-items:center;gap:var(--space-12);padding-top:var(--space-14);border-top:1px solid var(--boundary-decorative)}
+.review__block{flex:1;min-width:0;margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.review__blockrow .text-link{flex:none;min-height:var(--control-target);white-space:nowrap}
+.review-block__stepper{width:max-content;margin:0 auto}
+.review-block__sec .sheetgroup__head{margin:0 0 var(--space-8)}
+.review-block__patterns{display:flex;flex-direction:column;gap:var(--space-8)}
+.review-block__patterns .radio-card{align-items:flex-start}
+.review-block__patterns .radio-card__mark{margin-top:2px}
+.review-block__deload{display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);padding:var(--space-14) 0;border-top:1px solid var(--boundary-decorative)}
+.review-block__copy{min-width:0;display:flex;flex-direction:column;gap:var(--space-4)}
+.review-block__copy strong{font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
+.review-block__copy span{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 .review__hint{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 .review>.review__hint{margin-top:0;padding-top:var(--space-14);border-top:1px solid var(--boundary-decorative)}
 .review__panel>.review__hint{margin:0 0 var(--space-8)}
