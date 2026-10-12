@@ -39,11 +39,15 @@ function withEquipment(request, equipmentIds) {
 }
 
 const digests = {}, confirmationOfferDigests = {};
+const reversedCatalog = { ...Catalog, exercises: [...Catalog.exercises].reverse() };
 for (const { key, request, seed } of corpusCases({ Adapter, Catalog })) {
   const generated = Compiler.generateProgram(request, Catalog, seed);
   const { confirmationOffers = [], ...recorded } = generated;
   digests[key] = `${recorded.ok ? "ok" : "conflict"}:${crypto.createHash("sha256").update(JSON.stringify(recorded)).digest("hex")}`;
   confirmationOfferDigests[key] = `${generated.ok ? "ok" : "conflict"}:${crypto.createHash("sha256").update(JSON.stringify(confirmationOffers)).digest("hex")}`;
+  const reordered = Compiler.generateProgram(request, reversedCatalog, seed);
+  assert.deepEqual(reordered.confirmationOffers || [], confirmationOffers,
+    `${key} reports confirmation offers independently of catalog array order`);
 }
 
 if (process.argv.includes("--update")) {
