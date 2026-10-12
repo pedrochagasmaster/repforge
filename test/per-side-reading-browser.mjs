@@ -14,6 +14,8 @@ const DB_KEY = STATE_KEY;
 const ROW_ID = "1a55c6f170d88031b658c6e278a82a88";
 const PRESS_ID = "1a05c6f170d8803ba48ec1443eab5978";
 const UNKNOWN_ID = "3895c6f170d88002b51fdf96c7dc50e1";
+const AMBIGUOUS_ID = "2ee5c6f170d880c899dcdd917b32d865";
+const PERSISTENT_LOAD_SIDE_ID = "25a5c6f170d8803aa6fdc6f2535f9c5c";
 const LOAD_ID = "2555c6f170d8805cafa6d16d3fdddbaa";
 const REPS_SIDE_ID = "25a5c6f170d880baaa2dc8c7b67d4b65";
 const LOAD_SIDE_ID = "25a5c6f170d880e2990fc88146f7de56";
@@ -95,9 +97,9 @@ async function installProgram(page) {
     });
     await window.__repforgeStorage.flush();
     const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
-    const rows = state.program.filter(row => row.libraryId === rowId || row.libraryId === pressId);
+    const rows = state.program.filter(row => [rowId, pressId].includes(row.libraryId));
     const slots = (state.programMeta?.programDefinition?.days || []).flatMap(day => day.slots || [])
-      .filter(slot => slot.exerciseId === rowId || slot.exerciseId === pressId);
+      .filter(slot => [rowId, pressId].includes(slot.exerciseId));
     return { finalized, rows, slots, program: state.program, programMeta: state.programMeta };
   }, { rowId: ROW_ID, pressId: PRESS_ID });
 }
@@ -171,6 +173,10 @@ async function readSession(page, sessionId) {
     lifts: [...root.querySelectorAll("section[data-history-exercise-id]")].map(section => ({
       exerciseId: section.dataset.historyExerciseId,
       headers: [...section.querySelectorAll(".histpage__cols .fx-col")].map(node => node.textContent.trim()),
+      metrics: [...section.querySelectorAll(".history-metric")].map(node => ({
+        metricId: node.dataset.historyMetricId, value: node.dataset.metricValue, unit: node.dataset.metricUnit,
+      })),
+      outcome: section.querySelector(".histlift__tags .verdictmark:not(.verdictmark--record)")?.textContent.replace(/\s+/g, " ").trim() || "",
       record: section.querySelector(".verdictmark--record")?.textContent.replace(/\s+/g, " ").trim() || "",
     })),
   }));
@@ -208,11 +214,15 @@ async function main() {
     await waitForAppBoot(page, { base: BASE });
     const setup = await installProgram(page);
     observations.setup = { rows: setup.rows.map(row => ({ id: row.id, libraryId: row.libraryId, day: row.day })), slots: setup.slots.map(slot => ({ id: slot.id, exerciseId: slot.exerciseId, executionMode: slot.executionMode })) };
-    if (setup.rows.length !== 2 || setup.slots.length !== 2) throw new Error("The selected request did not produce both target catalog slots");
+    const pressProgramRow = setup.rows.find(row => row.libraryId === PRESS_ID);
+    const pressProgramSlot = setup.slots.find(slot => slot.exerciseId === PRESS_ID);
+    if (setup.rows.length !== 2 || setup.slots.length !== 2 || pressProgramSlot?.executionMode !== "bilateral")
+      throw new Error("The selected request did not produce both per-side slots and the known-mode bilateral press slot");
 
     await logSession(page, setup.rows, { rowLoad: 20, pressLoad: 25 });
     const firstAfterLog = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1") || "{}"));
     const firstSession = firstAfterLog.log.filter(row => row.performedLibraryId === ROW_ID || row.performedLibraryId === PRESS_ID).at(-1)?.session;
+    await page.clock.setFixedTime(new Date("2026-10-05T12:01:00.000Z"));
     await logSession(page, setup.rows, { rowLoad: 20, pressLoad: 27.5 });
     await page.evaluate(() => window.__repforgeStorage.flush());
     await page.reload({ waitUntil: "domcontentloaded" });
@@ -247,6 +257,8 @@ async function main() {
     const pressSection = secondRead.lifts.find(section => section.exerciseId === PRESS_ID);
     check(!!pressSection?.record && /PR/.test(pressSection.record),
       "P069-S2-HISTORY labels the heavier per-side dumbbell press PR", pressSection);
+    check(pressSection?.outcome === "Improved",
+      "P069-S2-HISTORY classifies same-convention per-side sessions without pairing a PR with Not comparable", pressSection);
     check(pressSection?.headers.some(label => /Load per side/i.test(label)) && pressSection?.headers.some(label => /Reps per side/i.test(label)),
       "History preserves the approved per-side labels beside the logged metric values", pressSection?.headers);
 
@@ -275,8 +287,36 @@ async function main() {
       "Progress labels the per-side strength value in the logged unit", await strengthRow.locator(".evrow__val").textContent());
     await strengthRow.click();
     const detail = page.locator('[data-evdetail="' + pressKey + '"]');
-    check(/34\.8/.test(await detail.textContent()) && /Load per side/i.test(await detail.textContent()),
+    check(/35/.test(await detail.textContent()) && /Load per side/i.test(await detail.textContent()),
       "Progress detail displays the per-side e1RM with its established cue", await detail.textContent());
+    const totalLoadStrength = await page.evaluate(({ exerciseId }) => {
+      const key = window.__repforgeProgressEvidence.keyForExerciseId(exerciseId);
+      const series = window.__repforgeProgressEvidence.strength(key);
+      return { key, points: series?.points, evidenceCount: series?.evidenceCount,
+        dashboard: window.__repforgeStrengthDashboard().find(row => row.key === key) };
+    }, { exerciseId: savedRows.find(row => row.performedLibraryId === ROW_ID)?.exerciseId });
+    observations.totalLoadStrength = totalLoadStrength;
+    check(totalLoadStrength.evidenceCount === 2 && totalLoadStrength.points?.map(point => point.value).every(value => value === 20),
+      "Progress keeps Weight(total) as total load while resolving one-side-at-a-time repetitions", totalLoadStrength.points);
+    await page.evaluate(() => window.openExerciseView("library:" + "1a05c6f170d8803ba48ec1443eab5978", "stats"));
+    await page.waitForSelector("#exercise.view.active", { timeout: 10000 });
+    await page.locator('#exDetail [data-metric="e1rm"]').click();
+    const exerciseChartRead = await page.locator("#exDetail .exchart__readout").textContent().catch(() => "");
+    const exerciseChartColumns = await page.locator("#exDetail .exchart__cols").textContent().catch(() => "");
+    observations.exerciseChart = { readout: exerciseChartRead, columns: exerciseChartColumns };
+    check(/34\.8/.test(exerciseChartRead) && /per side/i.test(exerciseChartRead) && /Load per side/i.test(exerciseChartColumns),
+      "exercise-detail e1RM chart and table label the per-side load convention", observations.exerciseChart);
+    await page.locator("#exBack").click();
+    await page.waitForSelector("#stats.view.active", { timeout: 10000 });
+    await page.evaluate(() => window.openExerciseView("library:" + "1a55c6f170d88031b658c6e278a82a88", "stats"));
+    await page.waitForSelector("#exercise.view.active", { timeout: 10000 });
+    await page.locator('#exDetail [data-metric="e1rm"]').click();
+    const totalLoadChartRead = await page.locator("#exDetail .exchart__readout").textContent().catch(() => "");
+    const totalLoadChartColumns = await page.locator("#exDetail .exchart__cols").textContent().catch(() => "");
+    observations.totalLoadChart = { readout: totalLoadChartRead, columns: totalLoadChartColumns };
+    check(/20/.test(totalLoadChartRead) && /Reps per side/i.test(totalLoadChartRead) && /Reps per side/i.test(totalLoadChartColumns) &&
+      !/Load per side/i.test(totalLoadChartColumns),
+      "exercise-detail keeps total Weight total while labeling the actual per-side repetitions", observations.totalLoadChart);
 
     const beforeRead = await replicas(page);
     await page.reload({ waitUntil: "domcontentloaded" });
@@ -288,6 +328,31 @@ async function main() {
       { localBytesStable: beforeRead.localRaw === afterRead.localRaw, idbStable: JSON.stringify(beforeRead.idb) === JSON.stringify(afterRead.idb) });
 
     const sourcePress = saved.local.log.find(row => row.performedLibraryId === PRESS_ID);
+    const sourceRow = saved.local.log.find(row => row.performedLibraryId === ROW_ID);
+    const ambiguousRaw = CATALOG.exercises.find(entry => entry.id === AMBIGUOUS_ID);
+    const ambiguousDefinitions = await page.evaluate(ids => {
+      const result = window.RepForgeExerciseMetrics.definitionsForIds(ids);
+      if (!result.ok) throw new Error("The persistent B-stance metric composition is invalid: " + JSON.stringify(result.issues));
+      return result.value;
+    }, ambiguousRaw.exerciseMetrics);
+    const ambiguousRowFor = (session, date, created, load) => ({
+      ...structuredClone(sourcePress),
+      session, date, day: "B-stance RDL", created,
+      exerciseId: sourcePress.exerciseId,
+      slotId: sourcePress.slotId,
+      name: ambiguousRaw.name, performedName: ambiguousRaw.name, performedLibraryId: AMBIGUOUS_ID,
+      load: null, reps: null, set: 1, setIndex: 0,
+      metricIds: [...ambiguousRaw.exerciseMetrics], metricOrigin: "source_catalog",
+      metricDefinitions: structuredClone(ambiguousDefinitions),
+      metricValues: ambiguousDefinitions.map(definition => ({ metricId: definition.id,
+        value: definition.id === PERSISTENT_LOAD_SIDE_ID ? load : 8, unit: definition.unit })),
+      sourceLibraryId: AMBIGUOUS_ID, metricType: "source_metrics@1", loadingConvention: "per_side",
+      loadingModel: { bodyweightCoefficient: ambiguousRaw.bodyweight, assistanceDirection: "subtract" },
+      loadingContext: { loadingConvention: "per_side", bodyweightKg: null, bodyweightContributionEnabled: false,
+        externalLoadMultiplier: 2, bodyweightCoefficient: ambiguousRaw.bodyweight },
+    });
+    const ambiguousEarlier = ambiguousRowFor("p069-s2-persistent-earlier", "2026-10-04", "2026-10-04T13:00:00.000Z", 25);
+    const ambiguousLatest = ambiguousRowFor("p069-s2-persistent-latest", "2026-10-05", "2026-10-05T13:01:00.000Z", 27.5);
     const firstExplicit = structuredClone(sourcePress);
     const secondExplicit = structuredClone(pressRows.at(-1));
     firstExplicit.loadingContext = { ...firstExplicit.loadingContext, externalLoadMultiplier: 1 };
@@ -310,9 +375,12 @@ async function main() {
     const boundaryState = structuredClone(saved.local);
     boundaryState.log = boundaryState.log.map(row => String(row.session) === String(firstExplicit.session) && row.performedLibraryId === PRESS_ID
       ? firstExplicit : String(row.session) === String(secondExplicit.session) && row.performedLibraryId === PRESS_ID ? secondExplicit : row);
-    boundaryState.log.push(unknownRow);
+    boundaryState.log.push(unknownRow, ambiguousEarlier, ambiguousLatest);
+    const currentAmbiguousSlot = boundaryState.programMeta.programDefinition.days.flatMap(day => day.slots || [])
+      .find(slot => slot.id === sourcePress.slotId || slot.id === sourcePress.exerciseId);
+    if (currentAmbiguousSlot?.executionMode !== "bilateral") throw new Error("The B-stance proof lost its current bilateral slot mode");
     const boundaryValid = await page.evaluate(state => window.__repforgeValidateStateShape(state), boundaryState);
-    if (!boundaryValid) throw new Error("The explicit/unknown legacy boundary fixture is not a valid production state shape");
+    if (!boundaryValid) throw new Error("The explicit, unknown, or persistent B-stance fixture is not a valid production state shape");
     await persistState(page, boundaryState);
     await page.reload({ waitUntil: "domcontentloaded" });
     try {
@@ -328,27 +396,55 @@ async function main() {
     await page.waitForSelector("#history.view.active", { timeout: 10000 });
     const explicitRead = await readSession(page, String(firstExplicit.session));
     observations.explicit = explicitRead;
-    check(total(explicitRead) === 520,
-      "an explicit multiplier overrides the current bilateral slot rule for historical tonnage", explicitRead.totals);
+    check(total(explicitRead) === 720,
+      "an explicit unilateral per-side convention expands side repetitions despite the current bilateral slot", explicitRead.totals);
     await page.locator("#history [data-history-back]").click();
     const noCrossModePr = await readSession(page, String(secondExplicit.session));
     const noPressRecord = noCrossModePr.lifts.find(section => section.exerciseId === secondExplicit.exerciseId)?.record || "";
     check(!noPressRecord,
       "History does not compare explicit m=1 and m=2 rows as the same per-side PR convention", noCrossModePr.lifts);
+    await page.locator("#history [data-history-back]").click();
+    const ambiguousEarlierRead = await readSession(page, ambiguousEarlier.session);
+    await page.locator("#history [data-history-back]").click();
+    const ambiguousLatestRead = await readSession(page, ambiguousLatest.session);
+    observations.ambiguousPersistent = { earlier: ambiguousEarlierRead, latest: ambiguousLatestRead,
+      currentSlotMode: currentAmbiguousSlot.executionMode };
+    const ambiguousEarlierLift = ambiguousEarlierRead.lifts.find(section => section.exerciseId === AMBIGUOUS_ID);
+    const ambiguousLatestLift = ambiguousLatestRead.lifts.find(section => section.exerciseId === AMBIGUOUS_ID);
+    check(Number.isNaN(total(ambiguousEarlierRead)) && Number.isNaN(total(ambiguousLatestRead)),
+      "History leaves persistent B-stance tonnage unavailable when the historical execution mode was not captured",
+      { earlier: ambiguousEarlierRead.totals, latest: ambiguousLatestRead.totals });
+    check(ambiguousEarlierLift?.metrics.some(metric => metric.metricId === PERSISTENT_LOAD_SIDE_ID && metric.value === "25") &&
+      ambiguousEarlierLift?.metrics.some(metric => metric.metricId === "25a5c6f170d880baaa2dc8c7b67d4b65" && metric.value === "8") &&
+      !ambiguousLatestLift?.record && ambiguousLatestLift?.outcome === "Not comparable",
+      "History keeps raw B-stance per-side values and suppresses a guessed comparable PR", observations.ambiguousPersistent);
 
     await page.locator('nav button[data-view="stats"]').click();
     await page.waitForSelector("#stats.view.active", { timeout: 10000 });
     const unknownProgress = await page.evaluate(() => {
       const volume = window.__repforgeProgressEvidence.volume("this-week");
       const strength = window.__repforgeProgressEvidence.strength("library:" + "3895c6f170d88002b51fdf96c7dc50e1");
+      const ambiguous = window.__repforgeProgressEvidence.strength("library:" + "2ee5c6f170d880c899dcdd917b32d865");
+      const press = window.__repforgeProgressEvidence.strength("library:" + "1a05c6f170d8803ba48ec1443eab5978");
+      const unknownSet = volume.completedRows.find(row => row.session === "p069-s2-unknown-mode");
+      const persistentSet = volume.completedRows.find(row => row.session === "p069-s2-persistent-latest");
       return { sessions: volume.completedSessions, sets: volume.completedWorkingSets,
-        hasUnknownSeries: !!strength, unknownCount: strength?.evidenceCount ?? 0, unknownPoints: strength?.points?.length ?? 0 };
+        hasUnknownSeries: !!strength, unknownCount: strength?.evidenceCount ?? 0, unknownPoints: strength?.points?.length ?? 0,
+        ambiguousCount: ambiguous?.evidenceCount ?? 0, ambiguousPoints: ambiguous?.points?.length ?? 0,
+        pressCount: press?.evidenceCount ?? 0, pressPoints: press?.points?.map(point => point.value) ?? [],
+        unknownSet: unknownSet ? { load: unknownSet.load, reps: unknownSet.reps, rir: unknownSet.rir } : null,
+        persistentSet: persistentSet ? { load: persistentSet.load, reps: persistentSet.reps, rir: persistentSet.rir } : null };
     });
     observations.unknownProgress = unknownProgress;
-    check(unknownProgress.sets === 5,
-      "Progress counts a performed per-side working set even when execution mode is unknown", unknownProgress);
+    check(unknownProgress.sets === 6 && unknownProgress.unknownSet?.load === 20 && unknownProgress.unknownSet?.reps === 8 &&
+      unknownProgress.persistentSet?.load === 27.5 && unknownProgress.persistentSet?.reps === 8,
+      "Progress keeps performed working-set counts for unknown-mode and persistent B-stance rows", unknownProgress);
     check(!unknownProgress.hasUnknownSeries || (unknownProgress.unknownCount === 0 && unknownProgress.unknownPoints === 0),
       "Unknown execution mode does not create tonnage or comparable strength evidence", unknownProgress);
+    check(unknownProgress.ambiguousCount === 0 && unknownProgress.ambiguousPoints === 0,
+      "Progress counts ambiguous persistent B-stance sets without comparable strength evidence", unknownProgress);
+    check(unknownProgress.pressCount === 1 && unknownProgress.pressPoints?.join(",") === "27.5",
+      "Progress strength evidence compares only rows with the same explicit load multiplier", unknownProgress);
 
     await page.evaluate(() => window.__repforgeShowSettings());
     await page.waitForSelector("#settings.view.active", { timeout: 10000 });
@@ -360,17 +456,28 @@ async function main() {
     const headers = parsed[0] || [];
     const index = Object.fromEntries(headers.map((header, column) => [header, column]));
     const pressExport = parsed.slice(1).find(row => row[index.exercise_id] === sourcePress.exerciseId && row[index.session] === String(firstExplicit.session));
+    const totalLoadExport = parsed.slice(1).find(row => row[index.exercise_id] === sourceRow.exerciseId && row[index.session] === String(sourceRow.session));
     const unknownExport = parsed.slice(1).find(row => row[index.exercise_id] === "legacy-unknown-mode-slot");
-    observations.csv = { headers, press: pressExport, unknown: unknownExport };
+    const ambiguousExport = parsed.slice(1).find(row => row[index.exercise_id] === sourcePress.exerciseId
+      && row[index.session] === ambiguousLatest.session);
+    observations.csv = { headers, press: pressExport, totalLoad: totalLoadExport, unknown: unknownExport, ambiguous: ambiguousExport };
     check(index.load_per_side >= 0 && index.reps_per_side >= 0,
       "P069-S2-CSV adds load_per_side and reps_per_side columns", headers);
     check(pressExport?.[index.load] === "" && pressExport?.[index.reps] === "" && pressExport?.[index.load_per_side] === "25" &&
-      pressExport?.[index.reps_per_side] === "8" && Number(pressExport?.[index.tonnage]) === 200 &&
+      pressExport?.[index.reps_per_side] === "8" && Number(pressExport?.[index.tonnage]) === 400 &&
       Math.abs(Number(pressExport?.[index.e1rm]) - (25 * (1 + 8 / 30))) < 0.01,
       "P069-S2-CSV preserves flat load/reps columns and derives explicit per-side tonnage/e1RM", pressExport);
+    check(totalLoadExport?.[index.load] === "20" && totalLoadExport?.[index.reps] === "" &&
+      totalLoadExport?.[index.load_per_side] === "" && totalLoadExport?.[index.reps_per_side] === "8" &&
+      Number(totalLoadExport?.[index.tonnage]) === 320 &&
+      Math.abs(Number(totalLoadExport?.[index.e1rm]) - (20 * (1 + 8 / 30))) < 0.01,
+      "P069-S2-CSV preserves total Weight plus per-side repetitions without relabeling its load", totalLoadExport);
     check(unknownExport?.[index.load_per_side] === "20" && unknownExport?.[index.reps_per_side] === "8" &&
       unknownExport?.[index.tonnage] === "" && unknownExport?.[index.e1rm] === "",
       "P069-S2-CSV exports unknown-mode source values without guessed tonnage/e1RM", unknownExport);
+    check(ambiguousExport?.[index.load_per_side] === "27.5" && ambiguousExport?.[index.reps_per_side] === "8" &&
+      ambiguousExport?.[index.tonnage] === "" && ambiguousExport?.[index.e1rm] === "",
+      "P069-S2-CSV exports persistent B-stance values without guessed tonnage/e1RM", ambiguousExport);
     const beforeBoundaryRead = boundarySaved;
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });

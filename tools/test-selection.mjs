@@ -206,6 +206,31 @@ const EXPLICIT_INPUT_RULES = [
     suiteFiles: ["test/ui-screens.mjs", "tools/check-ui-screens.mjs"],
     why: "UI screen catalog baselines",
   },
+  {
+    match: /^history-ui\.js$/,
+    suiteFiles: [
+      "test/history.mjs",
+      "test/history-edit.mjs",
+      "test/history-delete-replay.mjs",
+      "test/history-persistence-race.mjs",
+      "test/per-side-reading-browser.mjs",
+      "test/progress-navigation.mjs",
+      "test/progress-evidence.mjs",
+      "test/progress-lifecycle.mjs",
+      "test/progress-recovery.mjs",
+      "test/progress-guides.mjs",
+      "test/exercise-display-name.mjs",
+      "test/journeys-in.mjs",
+      "test/install-transfer-client-browser.mjs",
+      "test/install-transfer-clone.mjs",
+      "test/install-transfer-import.mjs",
+      "test/install-transfer-recovery.mjs",
+      "test/install-transfer-ui.mjs",
+      "test/ui-screens.mjs",
+      "tools/check-ui-screens.mjs",
+    ],
+    why: "History UI consumers, restored-log compatibility, and shared Progress readers",
+  },
 ];
 
 const DOMAIN_RULES = [

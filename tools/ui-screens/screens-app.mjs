@@ -352,6 +352,7 @@ export function appState(key, lang) {
   if (key === "today/no-program" || key === "program/no-program") {
     return emptyEntryState(lang);
   }
+  if (key === "history/per-side-session") return emptyEntryState(lang);
   if (key === "workout/why-setup") return emptyEntryState(lang);
   if (DIRECTION_D_BEFORE_SESSION.has(key)) return localeState(directionDBeforeSession(), lang);
   if (DIRECTION_D_SUMMARY_SESSION[key]) return localeState(directionDThroughSession(DIRECTION_D_SUMMARY_SESSION[key]), lang);
@@ -506,6 +507,100 @@ async function openHistoryEditor(page) {
   await page.waitForSelector(".session--read", { timeout: 20000 });
   await page.locator("[data-history-edit]").click();
   await page.waitForSelector(".session--edit", { timeout: 20000 });
+}
+
+const PER_SIDE_READING_EXERCISES = Object.freeze({
+  unilateral: "1a55c6f170d88031b658c6e278a82a88",
+  bilateral: "1a05c6f170d8803ba48ec1443eab5978",
+});
+
+async function installPerSideHistory(page) {
+  await page.waitForFunction(() => !!window.RepForgeExerciseCatalog?.snapshot?.() &&
+    typeof window.__repforgeFinalizeProgramSetup === "function", undefined, { timeout: 15000 });
+  const state = await page.evaluate(async ({ rowId, pressId }) => {
+    const catalog = window.RepForgeExerciseCatalog.snapshot();
+    const mapped = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+      desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: 2,
+      sessionMinutes: 90, environment: { kind: "commercial_gym" }, mustHaveExercises: [rowId, pressId],
+    }, catalog);
+    if (!mapped.ok) throw new Error(`Per-side catalog program request failed: ${JSON.stringify(mapped.conflicts)}`);
+    const generated = window.RepForgeProgramCompiler.generateProgram(mapped.value, catalog, "p069-s2-per-side-reading");
+    if (!generated.ok) throw new Error(`Per-side catalog program generation failed: ${JSON.stringify(generated.conflicts)}`);
+    await window.__repforgeFinalizeProgramSetup({
+      programDefinition: generated.value, name: "Per-side history", answers: {}, destination: "log",
+      origin: "first-run", draftConfirmed: true, telemetryRoute: "recommend",
+      entrySource: { route: "recommend", fingerprint: "p069-s2-per-side-reading" },
+    });
+    await window.__repforgeStorage.flush();
+    return JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+  }, { rowId: PER_SIDE_READING_EXERCISES.unilateral, pressId: PER_SIDE_READING_EXERCISES.bilateral });
+
+  const rows = state.program.filter(row => Object.values(PER_SIDE_READING_EXERCISES).includes(row.libraryId));
+  if (rows.length !== 2 || rows[0].day !== rows[1].day) {
+    throw new Error("Per-side catalog program did not place both readings on one day");
+  }
+  const rowFor = (programRow, session, date, values) => {
+    const slot = definitionSlot(state.programMeta, programRow);
+    const definitions = structuredClone(slot.metricDefinitions);
+    const loadingConvention = slot.loadingModel?.loadingConvention ||
+      (definitions.some(metric => metric.semantic === "loadPerSideKg" || metric.semantic === "persistentLoadPerSideKg")
+        ? "per_side" : "external");
+    const externalLoadMultiplier = loadingConvention === "per_side" ? null
+      : loadingConvention === "bodyweight" ? 0 : 1;
+    return {
+      session, date, day: programRow.day, name: programRow.name, exerciseId: programRow.id,
+      slotId: programRow.slotId || programRow.id, set: 1, setIndex: 0,
+      load: values.loadKg ?? null, reps: values.reps ?? null, rir: 1,
+      notes: "", created: `${date}T12:00:00.000Z`, primary: programRow.primary, secondary: programRow.secondary,
+      performedName: programRow.name, performedPrimary: programRow.primary, performedSecondary: programRow.secondary,
+      metricIds: [...slot.metricIds], metricDefinitions: definitions, metricOrigin: slot.metricOrigin || "source_catalog",
+      metricValues: definitions.map(metric => ({ metricId: metric.id, value: values[metric.semantic], unit: metric.unit })),
+      equipmentId: null, ...(slot.loadingModel ? { loadingModel: structuredClone(slot.loadingModel) } : {}),
+      loadingConvention, loadingContext: {
+        bodyweightContributionEnabled: false, externalLoadMultiplier,
+        bodyweightCoefficient: slot.loadingModel?.bodyweightCoefficient ?? null,
+        loadingConvention, bodyweightKg: null,
+      }, metricType: "source_metrics@1", restSeconds: null,
+      performedLibraryId: slot.exerciseId, sourceLibraryId: slot.exerciseId,
+      ...(state.programMeta.blockId ? { blockId: state.programMeta.blockId } : {}),
+    };
+  };
+  const earlierDate = isoDaysAgo(7), latestDate = isoDaysAgo(1);
+  const unilateral = rows.find(row => row.libraryId === PER_SIDE_READING_EXERCISES.unilateral);
+  const bilateral = rows.find(row => row.libraryId === PER_SIDE_READING_EXERCISES.bilateral);
+  state.programMeta.started = isoDaysAgo(21);
+  state.log = [
+    rowFor(unilateral, "per-side-history-earlier", earlierDate, { loadKg: 20, repsPerSide: 8 }),
+    rowFor(bilateral, "per-side-history-earlier", earlierDate, { loadPerSideKg: 25, repsPerSide: 8 }),
+    rowFor(unilateral, "per-side-history-latest", latestDate, { loadKg: 20, repsPerSide: 8 }),
+    rowFor(bilateral, "per-side-history-latest", latestDate, { loadPerSideKg: 27.5, repsPerSide: 8 }),
+  ];
+  const valid = await page.evaluate(snapshot => window.__repforgeValidateStateShape(snapshot), state);
+  if (!valid) {
+    const diagnostics = await page.evaluate(snapshot => snapshot.log.map(row => {
+      const definitions = window.RepForgeExerciseMetrics.validateDefinitions(row.metricIds, row.metricDefinitions);
+      const values = window.RepForgeExerciseMetrics.validateMetricValues(row.metricIds, row.metricValues);
+      const sourceBinding = window.RepForgeExerciseMetrics.validateExerciseSourceBinding({
+        metricOrigin: row.metricOrigin, metricIds: row.metricIds, metricDefinitions: row.metricDefinitions,
+        sourceId: row.sourceLibraryId, sourceExercise: window.RepForgeExerciseCatalog.snapshot().exercises.find(entry => entry.id === row.sourceLibraryId),
+        bodyweightCoefficient: row.loadingModel?.bodyweightCoefficient ?? null,
+      });
+      const loading = window.RepForgeWorkoutDraft.validateLoadingContext(row.loadingContext);
+      const load = row.metricDefinitions.find(metric => metric.semantic === "loadKg");
+      const reps = row.metricDefinitions.find(metric => metric.semantic === "reps");
+      return {
+        session: row.session,
+        definitionIssues: definitions.issues,
+        valueIssues: values.issues,
+        sourceIssues: sourceBinding.issues,
+        loadingIssues: loading.issues,
+        loadField: { actual: row.load, expected: load ? row.metricValues.find(value => value.metricId === load.id)?.value : null },
+        repsField: { actual: row.reps, expected: reps ? row.metricValues.find(value => value.metricId === reps.id)?.value : null },
+      };
+    }), state);
+    throw new Error(`Per-side history fixture fails the production state validator before seed: ${JSON.stringify(diagnostics)}`);
+  }
+  await seed(page, state);
 }
 
 async function openShare(page) {
@@ -1502,16 +1597,25 @@ export const APP_SCENARIOS = {
   "progress/overview-baseline": (page) => view(page, "stats"),
   "progress/overview-action": (page) => view(page, "stats"),
   "progress/exercise-chart": async (page) => {
+    await installPerSideHistory(page);
     await view(page, "stats");
-    const evkey = `library:${DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID.sq_bb}`;
+    const evkey = `library:${PER_SIDE_READING_EXERCISES.bilateral}`;
     await page.evaluate((key) => window.openExerciseView(key, "stats"), evkey);
     await page.waitForSelector("#exercise.view.active .exchart__plot", { timeout: 20000 });
-    await sleep(page, 500);
+    await page.locator('#exDetail [data-metric="e1rm"]').click();
+    await page.waitForSelector("#exDetail .exchart__readout", { timeout: 20000 });
   },
   "progress/strength": (page) => progressSegment(page, "strength"),
   "progress/strength-current-block": (page) => progressSegment(page, "strength"),
   "progress/strength-all-history": async (page) => { await progressSegment(page, "strength"); await page.click('#strengthScopeSeg [data-scope="all-history"]'); },
-  "progress/strength-comparison": async (page) => { await progressSegment(page, "strength"); const row = page.locator(`#strengthDash [data-evkey="library:${DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID.sq_bb}"]`); await row.scrollIntoViewIfNeeded(); await row.click(); },
+  "progress/strength-comparison": async (page) => {
+    await installPerSideHistory(page);
+    await progressSegment(page, "strength");
+    const row = page.locator(`#strengthDash [data-evkey="library:${PER_SIDE_READING_EXERCISES.bilateral}"]`);
+    await row.scrollIntoViewIfNeeded();
+    await row.click();
+    await page.waitForSelector(`[data-evdetail="library:${PER_SIDE_READING_EXERCISES.bilateral}"]`, { timeout: 20000 });
+  },
   "progress/strength-sparse": async (page) => { await progressSegment(page, "strength"); const row = page.locator(`#strengthDash [data-evkey="library:${DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID.sqk_mc}"]`); await row.scrollIntoViewIfNeeded(); await row.click(); },
   "progress/volume": (page) => progressSegment(page, "volume"),
   "progress/volume-block": async (page) => { await progressSegment(page, "volume"); await page.click('#volumeScopeSeg [data-vscope="block-to-date"]'); },
@@ -1537,6 +1641,16 @@ export const APP_SCENARIOS = {
   "progress/recovery-reassessment": async (page) => { await confirmRecovery(page);await page.evaluate(async()=>{const state=window.__repforgeWorkoutDraft.state();const date=new Date(`${state.programMeta.started}T12:00:00`);date.setDate(date.getDate()-8);state.programMeta.started=date.toISOString().slice(0,10);await window.__repforgeCommitProposedState(state);await window.__repforgeStorage.flush();});await page.reload({waitUntil:"domcontentloaded"});await page.waitForFunction(()=>window.__repforgeBooted===true,undefined,{timeout:20000});await progressSegment(page,"review"); },
 
   "history/list": (page) => view(page, "history"),
+  "history/per-side-session": async (page) => {
+    await installPerSideHistory(page);
+    await view(page, "history");
+    const session = page.locator('#sessions .hist-row[data-sess="per-side-history-latest"] .session__open');
+    await session.waitFor({ state: "visible", timeout: 20000 });
+    await session.click();
+    await page.waitForSelector('.session--read[data-reading="per-side-history-latest"] .histpage__totals', { timeout: 20000 });
+    await page.waitForSelector('.session--read[data-reading="per-side-history-latest"] .verdictmark--record', { timeout: 20000 });
+    await page.waitForFunction(() => !document.body.classList.contains("is-pushing"), undefined, { timeout: 5000 });
+  },
   "history/session": async (page) => {
     await view(page, "history");
     // One auto-waiting click, not a scroll followed by a click: the session

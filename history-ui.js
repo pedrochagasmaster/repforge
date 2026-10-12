@@ -162,7 +162,8 @@ function buildHistoryIndex(log){
   const sessions=[...sessionMap.values()].sort((a,b)=>compareLogChronology(b,a));
   const liftChrono=new Map();
   for(const row of rows){
-    if(!isWork(row)||!(+row.load>0)||!(+row.reps>0))continue;
+    const reading=typeof deps.readLogRow==="function"?deps.readLogRow(row):row;
+    if(!isWork(row)||!(+reading.load>0)||!(+reading.reps>0)||reading.strengthComparable===false)continue;
     const k=liftKey(row);
     if(!liftChrono.has(k))liftChrono.set(k,new Map());
     const sm=liftChrono.get(k);
@@ -178,13 +179,19 @@ function buildHistoryIndex(log){
   for(const sess of sessions){
     const byLift=new Map();
     for(const r of sess.rows){
-      if(!isWork(r)||!(+r.load>0)||!(+r.reps>0))continue;
+      const reading=typeof deps.readLogRow==="function"?deps.readLogRow(r):r;
+      if(!isWork(r)||!(+reading.load>0)||!(+reading.reps>0)||reading.strengthComparable===false)continue;
       const k=liftKey(r);if(!byLift.has(k))byLift.set(k,[]);byLift.get(k).push(r)}
     const counts={improved:0,flat:0,regressed:0,new:0};
     for(const[k,liftRows]of byLift){
       const pred=liftPred.get(`${sess.session}|${k}`)||[];
       if(!pred.length){counts.new++;continue}
-      const d=buildSessionDelta(pred,liftRows);if(d.status in counts)counts[d.status]++}
+    const previous=pred.map(row=>typeof deps.readLogRow==="function"?deps.readLogRow(row):row);
+    const current=liftRows.map(row=>typeof deps.readLogRow==="function"?deps.readLogRow(row):row);
+    const convention=reading=>reading.strengthConvention??"load";
+    const comparable=[...previous,...current].every(row=>row.strengthComparable!==false&&convention(row)===convention(current[0]||previous[0]));
+    if(!comparable)continue;
+    const d=buildSessionDelta(previous,current);if(d.status in counts)counts[d.status]++}
     sess.delta=counts;
     const names=new Set(sess.rows.map(r=>String(displayName(r)||"")));
     // Aliases are additive: the performed label always stays searchable, and
@@ -599,8 +606,9 @@ function historyOutcomeMark(group,sid){
     (kind?`<span class="verdictmark__glyph" aria-hidden="true"></span>`:"")+`${esc(cmp.label)}</span>`}
 function historyReadingView(s,rows){
   const sid=String(s.session),index=historyIndexFor(state.log);
-  const volumeRows=rows.filter(row=>isWork(row)&&(!isSourceMetricRow(row)||historyHasLoadAndReps(row)));
-  const volume=sum(volumeRows.map(x=>(+x.load||0)*(+x.reps||0)));
+  const volumeRows=rows.map(row=>({row,reading:typeof deps.readLogRow==="function"?deps.readLogRow(row):row}))
+    .filter(entry=>isWork(entry.row)&&Number.isFinite(entry.reading.tonnage));
+  const volume=sum(volumeRows.map(entry=>entry.reading.tonnage));
   const hasStrengthProjection=volumeRows.length>0;
   const prLifts=historyPrLifts(index).get(sid)||new Set();
   const groups=[],byLift=new Map();

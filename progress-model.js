@@ -373,12 +373,17 @@
       const rowId = String(row.exerciseId ?? row.exercise ?? row.name ?? "");
       return rowId === String(exerciseId);
     };
+    const candidates = scopedRows(log, useBlock ? bounds.start : null, useBlock ? bounds.end : null, useBlock ? meta : null)
+      .filter((row) => row && matches(row) && row.strengthComparable !== false);
+    const conventionKey = (row) => row?.strengthConvention == null ? null : String(row.strengthConvention);
+    const latestCompatible = candidates.slice().sort(compareChronology).at(-1);
+    const comparisonConvention = latestCompatible ? conventionKey(latestCompatible) : null;
     const bySession = new Map();
     let excludedHardRows = 0;
     let missingEffortRows = 0;
     const sessionKeyFor = (row) => `${String(row.session ?? row.date)}\u0000${String(row.blockId ?? "")}`;
-    for (const row of scopedRows(log, useBlock ? bounds.start : null, useBlock ? bounds.end : null, useBlock ? meta : null)) {
-      if (!row || !matches(row)) continue;
+    for (const row of candidates) {
+      if (conventionKey(row) !== comparisonConvention) continue;
       if (!isWorkingRow(row)) {
         if (Number(row.load) > 0) excludedHardRows++;
         continue;
@@ -390,7 +395,8 @@
       if (row.rir == null || row.rir === "" || !Number.isFinite(Number(row.rir))) missingEffortRows++;
       const prev = bySession.get(key);
       if (!prev) bySession.set(key, { session: String(row.session ?? row.date), sessionKey: key,
-        date: isoDate(row.date), created: row.created ?? null, value, reps: Number(row.reps) });
+        date: isoDate(row.date), created: row.created ?? null, value, reps: Number(row.reps),
+        strengthConvention: comparisonConvention });
       else if (value > prev.value || (value === prev.value && Number(row.reps) > prev.reps)) {
         prev.date = isoDate(row.date);
         prev.created = row.created ?? prev.created;
@@ -407,6 +413,7 @@
     const series = {
       scope: evidenceScope,
       exerciseId: String(exerciseId),
+      comparisonConvention,
       points,
       evidenceCount: count,
       presentation: count === 0 ? "empty" : count === 1 ? "snapshot" : count === 2 ? "comparison" : "trend",

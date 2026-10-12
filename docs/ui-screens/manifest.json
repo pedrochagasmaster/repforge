@@ -1096,7 +1096,7 @@
       "id": "exercise-chart",
       "flow": "progress",
       "label": "Progress — exercise chart",
-      "scenario": "A single lift's strength chart.",
+      "scenario": "A per-side lift's e1RM chart and table in the logged unit.",
       "variants": "demandingText"
     },
     {
@@ -1124,7 +1124,7 @@
       "id": "strength-comparison",
       "flow": "progress",
       "label": "Progress — Strength comparison",
-      "scenario": "Two compatible points show values, dates, absolute change, and percentage change.",
+      "scenario": "Two same-convention per-side points show labeled values, dates, comparison, and evidence.",
       "variants": "demandingText"
     },
     {
@@ -1279,6 +1279,13 @@
       "flow": "history",
       "label": "History — expanded session",
       "scenario": "One session expanded in place.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "per-side-session",
+      "flow": "history",
+      "label": "History — per-side session",
+      "scenario": "A saved unilateral and bilateral per-side session shows physical tonnage and a per-side personal record.",
       "variants": "demandingText"
     },
     {

@@ -200,11 +200,11 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Progress — overview](screens/progress/overview__phone-390-light-en.png) | 8 | The Progress landing tab. |
 | [Progress — baseline-building overview](screens/progress/overview-baseline__phone-390-light-en.png) | 8 | Sparse evidence remains neutral and contributes no Needs action items. |
 | [Progress — actionable overview](screens/progress/overview-action__phone-390-light-en.png) | 8 | Sufficient evidence produces linked program-wide action items. |
-| [Progress — exercise chart](screens/progress/exercise-chart__phone-390-light-en.png) | 8 | A single lift's strength chart. |
+| [Progress — exercise chart](screens/progress/exercise-chart__phone-390-light-en.png) | 8 | A per-side lift's e1RM chart and table in the logged unit. |
 | [Progress — Strength](screens/progress/strength__phone-390-light-en.png) | 8 | The Strength sub-tab. |
 | [Progress — Strength current block](screens/progress/strength-current-block__phone-390-light-en.png) | 8 | Current-block values, outcomes, and drill-in share one scope. |
 | [Progress — Strength all history](screens/progress/strength-all-history__phone-390-light-en.png) | 8 | All-history scope explicitly includes archived observations. |
-| [Progress — Strength comparison](screens/progress/strength-comparison__phone-390-light-en.png) | 8 | Two compatible points show values, dates, absolute change, and percentage change. |
+| [Progress — Strength comparison](screens/progress/strength-comparison__phone-390-light-en.png) | 8 | Two same-convention per-side points show labeled values, dates, comparison, and evidence. |
 | [Progress — Strength sparse evidence](screens/progress/strength-sparse__phone-390-light-en.png) | 8 | Zero or one compatible point remains neutral baseline evidence. |
 | [Progress — Volume](screens/progress/volume__phone-390-light-en.png) | 3 | The Volume sub-tab and its muscle rows. |
 | [Progress — Volume block to date](screens/progress/volume-block__phone-390-light-en.png) | 3 | Block-to-date volume uses elapsed weekly prescriptions. |
@@ -232,6 +232,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | --- | --- | --- |
 | [History](screens/history/list__phone-390-light-en.png) | 8 | The logged session list. |
 | [History — expanded session](screens/history/session__phone-390-light-en.png) | 8 | One session expanded in place. |
+| [History — per-side session](screens/history/per-side-session__phone-390-light-en.png) | 8 | A saved unilateral and bilateral per-side session shows physical tonnage and a per-side personal record. |
 | [History — dirty edit](screens/history/edit-dirty__phone-390-light-en.png) | 8 | A session edit with an unsaved canonical change and its destructive actions still visible. |
 | [History — invalid edit](screens/history/edit-invalid__phone-390-light-en.png) | 8 | An invalid set value is held at the field boundary with the editor's validation state visible. |
 | [History — confirmed delete](screens/history/delete-confirm__phone-390-light-en.png) | 8 | The explicit delete confirmation surface for one selected session. |
