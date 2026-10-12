@@ -321,11 +321,64 @@ try {
 
   await page.locator("#reviewSheet [data-review-done]").click();
   await page.locator("#reviewSheet").waitFor({ state: "hidden", timeout: 5000 });
+  const dayNamesForRename = await page.evaluate(() => {
+    const definition = window.__repforgeEntryState().result.preview.programDefinition;
+    return definition.days.map((day, index) => ({ index, id: day.id, kind: day.kind, stored: day.name,
+      shown: document.querySelector(`#entryReview [data-review-tab="${index}"]`)?.textContent.trim() || null }))
+      .filter((day) => day.kind === "training");
+  });
+  assert.ok(dayNamesForRename.length > 1, "the production recommendation has two training days to exercise duplicate refusal");
+  const renameTarget = dayNamesForRename[0], renameSource = dayNamesForRename[1];
+  const duplicateValues = [...new Set([renameSource.stored, renameSource.shown].filter(Boolean))];
+  const originalReviewNames = (await entry(page)).result.preview.programDefinition.days.map((day) => day.name);
+  const expectedDuplicateMessage = await page.evaluate(() => window.RepForgeI18n.t("toast.day_name_exists"));
+  for (const duplicateValue of duplicateValues) {
+    await page.locator(`#entryReview [data-review-tab="${renameTarget.index}"]`).click();
+    await page.locator("#entryReview [data-review-day-menu]").click();
+    await page.locator('#reviewSheet [data-review-day-action="rename"]').click();
+    const renameInput = page.locator("#reviewSheet #reviewRenameInput");
+    await renameInput.fill(duplicateValue);
+    await page.locator("#reviewSheet [data-review-rename-save]").click();
+    await page.waitForFunction(() => {
+      const input = document.querySelector("#reviewSheet #reviewRenameInput");
+      return input?.getAttribute("aria-invalid") === "true" || !document.querySelector("#reviewSheet")?.classList.contains("is-open");
+    }, undefined, { timeout: 5000 });
+    const refusedRename = await page.evaluate(() => {
+      const sheet = document.querySelector("#reviewSheet");
+      const input = sheet?.querySelector("#reviewRenameInput");
+      const error = input?.getAttribute("aria-describedby") && document.getElementById(input.getAttribute("aria-describedby"));
+      return { open: sheet?.classList.contains("is-open"), value: input?.value,
+        invalid: input?.getAttribute("aria-invalid") || null, note: error?.textContent.trim() || null,
+        role: error?.getAttribute("role") || null };
+    });
+    assert.deepEqual(refusedRename, { open: true, value: duplicateValue, invalid: "true",
+      note: expectedDuplicateMessage, role: "alert" },
+    `renaming to another day's ${duplicateValue === renameSource.stored ? "stored" : "shown"} name is refused on the field`);
+    await renameInput.fill(renameTarget.shown);
+    assert.deepEqual(await renameInput.evaluate((input) => ({ invalid: input.getAttribute("aria-invalid"), describedBy: input.getAttribute("aria-describedby") })),
+      { invalid: null, describedBy: null }, "editing a refused day name clears its field error");
+    await page.locator("#reviewSheet [data-review-rename-save]").click();
+    await page.locator("#reviewSheet").waitFor({ state: "hidden", timeout: 5000 });
+    assert.deepEqual((await entry(page)).result.preview.programDefinition.days.map((day) => day.name), originalReviewNames,
+      "restoring the current name is quiet and commits no review edit");
+  }
+  await page.locator(`#entryReview [data-review-tab="${renameTarget.index}"]`).click();
+  await page.locator("#entryReview [data-review-day-menu]").click();
+  await page.locator('#reviewSheet [data-review-day-action="rename"]').click();
+  await page.locator("#reviewSheet #reviewRenameInput").fill("");
+  await page.locator("#reviewSheet [data-review-rename-save]").click();
+  await page.locator("#reviewSheet").waitFor({ state: "hidden", timeout: 5000 });
+  assert.deepEqual((await entry(page)).result.preview.programDefinition.days.map((day) => day.name), originalReviewNames,
+    "a blank day name is quiet and leaves the recommendation unchanged");
+
   await page.locator("#entryActivate").click();
   await page.waitForFunction(() => window.__repforgeWorkoutDraft.state()?.programMeta?.onboarded === true,
     undefined, { timeout: 20000 });
   await page.evaluate(() => window.__repforgeStorage?.flush?.());
   const active = await state(page);
+  const activeTrainingNames = active.programMeta.programDefinition.days.filter((day) => day.kind === "training").map((day) => day.name);
+  assert.equal(new Set(activeTrainingNames).size, activeTrainingNames.length,
+    "no duplicate stored day names reach the activated program");
   const activeSlot = active.programMeta.programDefinition.days.flatMap((day) => day.slots).find((slot) => slot.id === firstSlot.id);
   assert.equal(active.programMeta.programDefinition.cycles, 10, "activation retains the edited block length");
   assert.equal(active.programMeta.programDefinition.days.flatMap((day) => day.slots)[0]

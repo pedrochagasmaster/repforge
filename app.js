@@ -17277,7 +17277,7 @@ const ENTRY_ADJUST_KEY="repforge_entry_review_v1";
 let entryAdjust=null,entryAdjustMount=null,entryAdjustSheetClose=null,entryAdjustDialog=null;
 const entryAdjustRoute=()=>entryState?.route==="recommend"||entryState?.route==="custom";
 function entryAdjustCtx(){
-  return{compiler:ProgramCompiler,catalog:rawExerciseCatalog,metrics:ExerciseMetrics,customDefinitions:[]}}
+  return{compiler:ProgramCompiler,catalog:rawExerciseCatalog,metrics:ExerciseMetrics,customDefinitions:[],dayName:entryAdjustDayName}}
 function readEntryAdjustLog(){try{return JSON.parse(sessionStorage.getItem(ENTRY_ADJUST_KEY)||"null")}catch{return null}}
 function writeEntryAdjustLog(value){
   try{if(value?.edits?.length)sessionStorage.setItem(ENTRY_ADJUST_KEY,JSON.stringify(value));else sessionStorage.removeItem(ENTRY_ADJUST_KEY)}catch{}}

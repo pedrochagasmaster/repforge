@@ -312,11 +312,22 @@
     return null;
   }
 
-  function editDayName(definition, edit) {
+  function duplicateDayName(definition, day, name, ctx) {
+    const wanted = String(name || "").trim();
+    return definition.days.some((other) => {
+      if (other.id === day.id) return false;
+      const stored = typeof other.name === "string" ? other.name.trim() : "";
+      const shown = typeof ctx?.dayName === "function" ? ctx.dayName(other, definition) : null;
+      return stored === wanted || (typeof shown === "string" && shown.trim() === wanted);
+    });
+  }
+
+  function editDayName(definition, edit, ctx) {
     const day = dayById(definition, edit.dayId);
     if (!day) return refuse("day_missing");
     const name = typeof edit.name === "string" ? edit.name.trim() : "";
     if (!name || name.length > MAX_DAY_NAME) return refuse("day_name_invalid");
+    if (duplicateDayName(definition, day, name, ctx)) return refuse("day_name_exists");
     day.name = name;
     return null;
   }
@@ -354,7 +365,7 @@
       remove: () => editRemove(next, edit),
       reorder: () => editReorder(next, edit),
       add: () => editAdd(next, edit, ctx, ids),
-      day_name: () => editDayName(next, edit),
+      day_name: () => editDayName(next, edit, ctx),
     };
     const refused = handlers[edit.kind]();
     if (refused) return refused;
@@ -463,6 +474,7 @@
       return null;
     };
     const dayName = (definition, day) => adapter.dayName(day, definition);
+    const editorContext = (state) => ({ ...state.ctx, dayName: (day, definition) => dayName(definition, day) });
     const range = (set) => set?.targets?.[repKey(set?.targets)] || null;
     const repsText = (set) => {
       const value = range(set);
@@ -671,7 +683,7 @@
       return run(async () => {
         if (disposed) return false;
         const state = read();
-        const result = applyEdit(state.definition, edit, { ...state.ctx, ordinal: state.edits.length + 1 });
+        const result = applyEdit(state.definition, edit, { ...editorContext(state), ordinal: state.edits.length + 1 });
         if (!result.ok) { observe("refused", edit.kind); adapter.announce(t("entry.review.refused")); return false; }
         const before = flip ? measure() : null;
         if (close) await closeSheet();
@@ -691,7 +703,7 @@
         const state = read();
         if (!state.edits.length) return false;
         const edits = state.edits.slice(0, -1);
-        const replayed = replay(state.baseline, edits, state.ctx);
+        const replayed = replay(state.baseline, edits, editorContext(state));
         if (!replayed.ok) return false;
         const before = measure();
         const saved = await adapter.commit({ definition: replayed.definition, edits, name: state.name });
@@ -851,9 +863,12 @@
       } else if (sheet.kind === "rename") {
         const isDay = sheet.target === "day";
         const value = isDay ? dayName(definition, definition.days[view.tab]) : state.name;
+        const inputValue = sheet.inputValue ?? value;
+        const errorAttrs = sheet.error ? ' aria-invalid="true" aria-describedby="reviewRenameError"' : "";
         parts.title.textContent = t(isDay ? "entry.review.day_menu.rename" : "entry.review.rename_program");
         parts.body.innerHTML = `<label class="field review-sheet__field"><span class="field__lab">${esc(t(isDay ? "entry.review.day_name" : "entry.review.program_name"))}</span>` +
-          `<input class="input" id="reviewRenameInput" maxlength="${isDay ? MAX_DAY_NAME : 60}" value="${esc(value)}" enterkeyhint="done" autocomplete="off"></label>`;
+          `<input class="input" id="reviewRenameInput" maxlength="${isDay ? MAX_DAY_NAME : 60}" value="${esc(inputValue)}"${errorAttrs} enterkeyhint="done" autocomplete="off"></label>` +
+          (sheet.error ? `<p class="program-editor__field-error" id="reviewRenameError" role="alert">${esc(sheet.error)}</p>` : "");
         parts.foot.innerHTML = `<button type="button" class="btn btn--cta btn--noarrow" data-review-rename-save>${esc(t("entry.review.save"))}</button>`;
       }
     }
@@ -979,16 +994,40 @@
         next.focus();
       }
     }
+    function onSheetInput(event) {
+      const input = event.target;
+      if (sheet?.kind !== "rename" || input?.id !== "reviewRenameInput") return;
+      sheet.inputValue = input.value;
+      if (!sheet.error) return;
+      sheet.error = null;
+      input.removeAttribute("aria-invalid");
+      input.removeAttribute("aria-describedby");
+      adapter.sheet().body.querySelector("#reviewRenameError")?.remove();
+    }
     async function saveRename() {
       const input = adapter.sheet().body.querySelector("#reviewRenameInput");
       const value = String(input?.value || "").trim();
       const state = read(), target = sheet?.target;
-      await closeSheet();
       if (target === "day") {
         const day = state.definition.days[view.tab];
-        if (!value || value === dayName(state.definition, day)) return;
+        if (!value || value === dayName(state.definition, day) || value === String(day?.name || "").trim()) {
+          await closeSheet();
+          return;
+        }
+        if (duplicateDayName(state.definition, day, value, editorContext(state))) {
+          const caret = input?.selectionStart ?? value.length;
+          sheet.inputValue = value;
+          sheet.error = t("toast.day_name_exists");
+          paintSheet();
+          const next = adapter.sheet().body.querySelector("#reviewRenameInput");
+          next?.focus({ preventScroll: true });
+          next?.setSelectionRange?.(caret, caret);
+          return;
+        }
+        await closeSheet();
         apply({ kind: "day_name", dayId: day.id, name: value });
       } else {
+        await closeSheet();
         if (!value || value === state.name) return;
         run(async () => {
           const current = read();
@@ -1142,6 +1181,7 @@
     host.addEventListener("pointerup", onPanelUp);
     sheetParts.el.addEventListener("click", onSheetClick);
     sheetParts.el.addEventListener("keydown", onSheetKey);
+    sheetParts.el.addEventListener("input", onSheetInput);
     paint();
 
     return {
@@ -1159,6 +1199,7 @@
         host.removeEventListener("pointerup", onPanelUp);
         sheetParts.el.removeEventListener("click", onSheetClick);
         sheetParts.el.removeEventListener("keydown", onSheetKey);
+        sheetParts.el.removeEventListener("input", onSheetInput);
         if (sheet) { sheet = null; adapter.closeSheet(); }
       },
     };

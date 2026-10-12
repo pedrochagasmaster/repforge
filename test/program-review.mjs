@@ -271,6 +271,11 @@ console.log("program-review: add and rename");
 
   const renamed = apply(deload, { kind: "day_name", dayId: day.id, name: "  Peito e costas " });
   check(renamed.ok && renamed.definition.days.find((item) => item.id === day.id).name === "Peito e costas", "rename: trimmed and applied");
+  const otherDay = deload.days.find((item) => item.kind === "training" && item.id !== day.id);
+  if (otherDay) {
+    const duplicate = apply(deload, { kind: "day_name", dayId: day.id, name: otherDay.name });
+    check(!duplicate.ok && duplicate.code === "day_name_exists", "rename: a stored duplicate name is refused at the edit boundary", duplicate);
+  }
   check(!apply(deload, { kind: "day_name", dayId: day.id, name: "   " }).ok, "rename: an empty name is refused");
   check(!apply(deload, { kind: "day_name", dayId: day.id, name: "x".repeat(41) }).ok, "rename: more than 40 characters is refused");
   check(!apply(deload, { kind: "nonsense", slotId: day.slots[0].id }).ok, "edits: an unknown kind is refused");
