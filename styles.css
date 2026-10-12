@@ -7197,6 +7197,11 @@ body.is-entry-editor #entryProgramName,
 .review__rir{margin-left:auto;flex:none;padding:var(--space-4) var(--space-8);border:1px solid var(--boundary-decorative);border-radius:var(--radius-control);font-family:var(--font-training-data);font-size:var(--font-size-caption);color:var(--color-ink-secondary)}
 .review__chips{display:flex;flex-wrap:wrap;gap:var(--space-8);margin-top:var(--space-4)}
 .review__chip{padding:var(--space-4) var(--space-8);border:1px solid var(--boundary-decorative);border-radius:var(--radius-pill);font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.review__offer{display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);padding:var(--space-8) 0 var(--space-14);border-bottom:1px solid var(--boundary-decorative)}
+.review__offer p{flex:1;min-width:0;margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.review__offer strong{font-weight:var(--weight-semibold);color:var(--color-ink)}
+.review__offer>[data-review-confirm-offer-action]{flex:none;white-space:normal}
+.review__offer--confirmed{justify-content:flex-end;padding-top:0}
 .review__add{display:flex;align-items:center;gap:var(--space-12);width:100%;padding:var(--space-16) 0;border:0;background:none;cursor:pointer;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);color:var(--color-ink);text-align:left}
 .review__add .icon-mask{color:var(--color-ink-secondary)}
 @media (hover:hover) and (pointer:fine){.review__add:hover{background:var(--well)}}

@@ -2189,14 +2189,16 @@ const ProgramCompiler=typeof window!=="undefined"?window.RepForgeProgramCompiler
    did; without a worker the engine runs the same code on this thread. Created
    on first use, so a lifter who never generates never starts a worker. */
 let programEngineInstance=null;
-function programEngine(){
+function createProgramEngineInstance(){
   const Engine=typeof window!=="undefined"?window.RepForgeProgramEngine:null;
-  if(programEngineInstance||!Engine||!ProgramCompiler)return programEngineInstance;
+  if(!Engine||!ProgramCompiler)return null;
   const scripts=["exercise-metrics.js","program-compiler.js","exercise-catalog.js","program-transition.js"].map(Engine.pageScript);
   const pin=window.RepForgeExercises?.catalogSha256;
-  programEngineInstance=Engine.create({compiler:ProgramCompiler,transition:transitionDomain(),catalog:()=>rawExerciseCatalog,
-    worker:Engine.url&&scripts.every(Boolean)&&typeof pin==="string"?{url:Engine.url,scripts,catalogSha256:pin}:null});
-  return programEngineInstance}
+  return Engine.create({compiler:ProgramCompiler,transition:transitionDomain(),catalog:()=>rawExerciseCatalog,
+    worker:Engine.url&&scripts.every(Boolean)&&typeof pin==="string"?{url:Engine.url,scripts,catalogSha256:pin}:null})}
+function programEngine(){
+  if(programEngineInstance||!window.RepForgeProgramEngine||!ProgramCompiler)return programEngineInstance;
+  programEngineInstance=createProgramEngineInstance();return programEngineInstance}
 if(typeof window!=="undefined")Object.defineProperty(window,"__repforgeProgramEngine",{configurable:true,get:programEngine});
 
 /* Custom exercises a lifter created. They live in state so they survive across
@@ -15549,6 +15551,10 @@ async function discardEntryDraftAndCancel(){
 function entrySetState(next,{persist=true}={}){
   // Anything that moves the flow on supersedes a program still generating for it.
   if(entryResultJob){entryResultJob.controller.abort();entryResultJob=null}
+  const offerKey=entryOfferKey(next);
+  if(entryOfferJob&&(next?.step!=="result"||offerKey!==entryOfferJob.key)){
+    entryOfferJob.controller.abort();entryOfferJob=null}
+  if(next?.step!=="result"||entryOfferState.key!==offerKey)entryOfferState={key:offerKey,offers:[]};
   const direction=entrySwipeCommitting?null:entryMotionDirection(entryState,next);
   clearEntryMotion();
   const outgoing=direction&&entryMotionAvailable()?cloneEntryMotionPage(entryMotionLivePage()):null;
@@ -16377,7 +16383,47 @@ function entryGeneratedPeek(from){
   if(!from||window.__repforgeProgramEntryServicesOverride||!ProgramEntryAdapter?.programRequestFromAnswers)return null;
   const services=entryServices(),mapped=entryGeneratorRequest(from);
   const generated=services&&mapped.ok?entryGenerated.get(entryGeneratedKey(mapped.request,mapped.seed)):null;
-  return generated?.ok?entryCandidate(from,services,mapped.request,cloneSnapshot(generated.value)):null}
+  if(!generated?.ok)return null;
+  startEntryOfferVerification(from,{confirmationOffers:generated.confirmationOffers,request:mapped.request,seed:mapped.seed,
+    definition:generated.value});
+  return entryCandidate(from,services,mapped.request,cloneSnapshot(generated.value))}
+let entryOfferJob=null,entryOfferState={key:"",offers:[]};
+function entryOfferKey(state,result=state?.result){
+  return state&&result?[state.draftId,state.route,result.answersFingerprint||"",result.fingerprint||""].join("|"):""}
+function startEntryOfferVerification(state,{confirmationOffers=[],request,seed,definition}={}){
+  const key=entryOfferKey(state);
+  if(!key||state?.step!=="result"||state?.route!=="recommend")return;
+  // The generator override is a test harness for the foreground transaction,
+  // not an independent executor for post-result verification.
+  if(window.__repforgeProgramEntryServicesOverride)return;
+  if(entryOfferJob?.key===key)return;
+  entryOfferJob?.controller.abort();entryOfferJob=null;
+  entryOfferState={key,offers:[]};
+  if(!Array.isArray(confirmationOffers)||!confirmationOffers.length){
+    entryOfferState={key,offers:[]};
+    if(entryOfferKey(entryState)===key)entryAdjustMount?.refresh?.();
+    return}
+  const controller=new AbortController(),job={key,controller};
+  entryOfferJob=job;
+  const engine=window.__repforgeProgramEntryServicesOverride?null:createProgramEngineInstance();
+  job.engine=engine;
+  const generate=(nextRequest,nextSeed,{signal}={})=>engine
+    ?engine.generate(nextRequest,nextSeed,{signal})
+    :entryServices()?.generateProgram({request:nextRequest,seed:nextSeed});
+  ProgramEntryAdapter.verifyConfirmationOffers({
+    generate,request,seed,signal:controller.signal,
+    result:{ok:true,value:definition,confirmationOffers},
+  }).then(offers=>{
+    if(entryOfferJob!==job||controller.signal.aborted||entryState?.step!=="result"||entryOfferKey(entryState)!==key)return;
+    entryOfferJob=null;entryOfferState={key,offers};
+    entryAdjustMount?.refresh?.();
+  }).catch(error=>{
+    if(entryOfferJob!==job)return;
+    entryOfferJob=null;
+    if(controller.signal.aborted||error?.name==="AbortError")return;
+    if(entryState?.step!=="result"||entryOfferKey(entryState)!==key)return;
+    entryOfferState={key,offers:[]};entryAdjustMount?.refresh?.();
+  }).finally(()=>job.engine?.dispose?.())}
 /* The one call site of Generate (#353). The answers' request and the draft's
    seed go to the program engine, which runs the generator in its worker (or
    on this thread when it cannot); the outcome is a candidate or the failure
@@ -16408,7 +16454,10 @@ async function runEntryGeneration(from,services,signal){
   if(!generated?.ok)return{ok:false,failure:{code:"generation_conflict",conflicts:generated?.conflicts||[]}};
   if(!override){entryGenerated.delete(key);entryGenerated.set(key,generated);
     while(entryGenerated.size>4)entryGenerated.delete(entryGenerated.keys().next().value)}
-  return{ok:true,result:entryCandidate(from,services,mapped.request,cloneSnapshot(generated.value))}}
+  const definition=cloneSnapshot(generated.value);
+  return{ok:true,result:entryCandidate(from,services,mapped.request,definition),
+    confirmationOffers:Array.isArray(generated.confirmationOffers)?cloneSnapshot(generated.confirmationOffers):[],
+    request:cloneSnapshot(mapped.request),seed:mapped.seed,definition}}
 /** O3: the generation whose program has not been drawn yet. Only a compile
  *  arms it (a saved draft that is reopened, and every later render of a result
  *  that already exists, never do), and the first render of that result takes it,
@@ -16514,7 +16563,8 @@ async function startEntryResult(target,{gate=null}={}){
   entryNoteFirstResult(outcome.result,without);
   // The program that just landed is the review's recommendation.
   if(entryAdjustRoute())adoptEntryAdjust(cloneSnapshot(outcome.result));
-  entrySetState(entryState)}
+  entrySetState(entryState);
+  startEntryOfferVerification(entryState,outcome)}
 function reportGeneratorCompleted(result){
   if(!entryState||!result||!(entryState.route==="recommend"||entryState.route==="custom"))return;
   const telemetry=result.telemetry;
@@ -16650,6 +16700,7 @@ async function rebuildEntryForCurrentRules(){
     entryUiNotice=null;
     reportGeneratorCompleted(entryState.result);
     renderOnboarding();
+    startEntryOfferVerification(entryState,outcome);
     return saved}
   entryUiNotice=null;
   renderOnboarding();
@@ -16888,6 +16939,10 @@ function entryBuildChange(beforePreview,afterPreview,state,{lead,beforeLabel="",
   const diff=ProgramEntryAdapter?.identityDiff?.(beforePreview,afterPreview)||{n:0,total:(afterPreview?.program||[]).length};
   return{key:entryChangeKey(state),lead,beforeLabel,afterLabel,before:entryFactsText(beforePreview),after:entryFactsText(afterPreview),
     changed:diff.n,total:diff.total,added:entryAddedRowIds(beforePreview,afterPreview)}}
+function entryChangedExerciseNames(beforePreview,afterPreview){
+  const before=new Map((beforePreview?.program||[]).map(row=>[row.slotId||row.id,row.libraryId||row.name]));
+  return(afterPreview?.program||[]).filter(row=>before.get(row.slotId||row.id)!==(row.libraryId||row.name))
+    .map(row=>libraryName(libraryEntry(row.libraryId))||row.name).filter(Boolean)}
 function entryChangeNow(){return entryChange&&entryChange.key&&entryChange.key===entryChangeKey()?entryChange:null}
 /* After a change the statement is the first thing the lifter should see: the top
    of the review when name, facts and statement fit above the pinned region,
@@ -17039,13 +17094,36 @@ async function applyEntryAnswerEdit(patch,{lead,beforeLabel,afterLabel}={}){
   if(before.telemetry?.completed===true&&compiled.telemetry)compiled.telemetry={...compiled.telemetry,completed:true};
   const final=ProgramEntry.setResult(next,compiled);
   entryChange=entryBuildChange(before.preview,compiled.preview,final,{lead,beforeLabel,afterLabel});
+  if(Object.prototype.hasOwnProperty.call(patch,"movementConfirmations"))
+    entryChange.changedNames=entryChangedExerciseNames(before.preview,compiled.preview);
   entryEditor=null;entryResetEditorFields();entryReviewError=null;
   entryPinnedVersionsExecutable=false;
   entryState=final;
   if(entryAdjustRoute())adoptEntryAdjust(cloneSnapshot(compiled));
   entrySetState(entryState);
+  startEntryOfferVerification(entryState,outcome);
   entryShowChange();
   return{ok:true}}
+async function confirmEntryMovementOffer(offer){
+  const key=entryOfferKey(entryState);
+  if(entryState?.route!=="recommend"||entryState?.step!=="result"||entryOfferState.key!==key||
+    !entryOfferState.offers.some(item=>item.slotId===offer?.slotId&&item.offeredExerciseId===offer?.offeredExerciseId))
+    return{ok:false,stale:true};
+  const confirmations=cloneSnapshot(entryState.answers?.movementConfirmations||{});
+  confirmations[offer.offeredExerciseId]=[...offer.prerequisiteIds];
+  const outcome=await guardEntryRebuild(()=>applyEntryAnswerEdit({movementConfirmations:confirmations},{lead:t("entry.change.lead.answer")}));
+  if(outcome?.ok){
+    [...document.querySelectorAll("[data-review-confirmation-undo]")]
+      .find(button=>button.dataset.reviewConfirmationUndo===offer.offeredExerciseId)?.focus({preventScroll:true});
+    return outcome}
+  return outcome===false?{ok:false,cancelled:true}:{...outcome,message:entryFailureText(outcome?.failure)||t("entry.issue.compile")}}
+async function undoEntryMovementConfirmation(exerciseId){
+  if(!entryState?.answers?.movementConfirmations?.[exerciseId])return{ok:false,stale:true};
+  const confirmations=cloneSnapshot(entryState.answers.movementConfirmations);
+  delete confirmations[exerciseId];
+  const outcome=await guardEntryRebuild(()=>applyEntryAnswerEdit({movementConfirmations:confirmations},{lead:t("entry.change.lead.answer")}));
+  return outcome===false?{ok:false,cancelled:true}:outcome?.ok?outcome:
+    {...outcome,message:entryFailureText(outcome?.failure)||t("entry.issue.compile")}}
 async function applyEntryEditor(){
   const editor=entryEditor;
   if(!editor||entryPendingAvoid)return;
@@ -17235,6 +17313,7 @@ function loadEntryAdjustBaseline(){
     if(!outcome.ok||!entryAdjustRoute()||entryState?.draftId!==from.draftId||entryState.result?.answersFingerprint!==answers||
       !entryState.result?.preview?.programDefinition)return null;
     if(entryAdjust&&entryAdjust.draftId===from.draftId&&entryAdjust.answers===answers)return entryAdjust;
+    startEntryOfferVerification(entryState,outcome);
     const review=adoptEntryAdjust(outcome.result);
     if($("#entryReview")&&!entryAdjustMount)mountEntryAdjust();
     return review});
@@ -17355,8 +17434,11 @@ function mountEntryAdjust(){
     view:review.view,
     read:()=>({baseline:entryAdjust.baseline.preview.programDefinition,definition:entryState.result.preview.programDefinition,
       edits:entryAdjust.edits,name:entryResultName()||t("untitled_program"),
-      answers:entryState.answers,sessionMinutes:Number(entryState.answers?.sessionMinutes)||null,ctx:entryAdjustCtx()}),
+      answers:entryState.answers,offers:entryOfferState.key===entryOfferKey(entryState)?entryOfferState.offers:[],
+      sessionMinutes:Number(entryState.answers?.sessionMinutes)||null,ctx:entryAdjustCtx()}),
     commit:commitEntryAdjust,
+    confirmOffer:confirmEntryMovementOffer,
+    undoConfirmation:undoEntryMovementConfirmation,
     changeBlock:async patch=>{
       const outcome=await guardEntryRebuild(()=>applyEntryAnswerEdit(patch,{lead:t("entry.change.lead.answer")}));
       if(outcome===false)return{ok:false,cancelled:true};
@@ -17627,7 +17709,7 @@ function renderEntryChangeStatement(change){
   const sentence=!change.changed?t("entry.change.none"):change.changed===1
     ?t("entry.change.one",{total:change.total}):t("entry.change.many",{n:change.changed,total:change.total});
   return `<div class="entry__change" id="entryChange" tabindex="-1" role="status" aria-live="polite" data-change-statement data-changed="${change.changed}" data-total="${change.total}">`+
-    `<p class="entry__change-line">${esc([change.lead,sentence].filter(Boolean).join(" "))}</p>`+
+    `<p class="entry__change-line">${esc([change.lead,sentence].filter(Boolean).join(" "))}${change.changedNames?.length?` <span class="visually-hidden">${esc(change.changedNames.join(", "))}</span>`:""}</p>`+
     (change.before&&change.after&&(change.changed||change.before!==change.after)?
       `<dl class="entry__change-grid"><dt>${esc(change.beforeLabel||t("entry.change.before"))}</dt><dd>${monoNums(change.before)}</dd><dt>${esc(change.afterLabel||t("entry.change.after"))}</dt><dd>${monoNums(change.after)}</dd></dl>`:"")+
     `</div>`}

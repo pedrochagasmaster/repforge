@@ -28,10 +28,105 @@ async function editFirstSlotToSixSets(page, slotId) {
   }
 }
 
+async function installOfferWorkerHarness(page) {
+  await page.addInitScript(() => {
+    const NativeWorker = window.Worker;
+    const harness = { hold: false, nextWorkerId: 0, held: [], requests: [], released: [], terminated: [], releaseOne(workerId, id) {
+      const index = this.held.findIndex((item) => item.workerId === workerId && item.id === id);
+      if (index < 0) return false;
+      const [item] = this.held.splice(index, 1);
+      this.released.push({ workerId: item.workerId, id: item.id });
+      item.handler.call(item.worker, item.event);
+      return true;
+    }, releaseHeld() {
+      const pending = this.held.splice(0);
+      for (const item of pending) {
+        this.released.push({ workerId: item.workerId, id: item.id });
+        item.handler.call(item.worker, item.event);
+      }
+      return pending.length;
+    } };
+    class ObservedWorker extends NativeWorker {
+      constructor(...args) { super(...args); this.requestsById = new Map(); this.harnessWorkerId = ++harness.nextWorkerId; }
+      terminate() { harness.terminated.push(this.harnessWorkerId); return super.terminate(); }
+      postMessage(message, transfer) {
+        if (message?.type === "generate") {
+          this.requestsById.set(message.id, message);
+          const state = window.__repforgeEntryState?.();
+          harness.requests.push({ workerId: this.harnessWorkerId, id: message.id, request: message.request,
+            seed: message.seed, step: state?.step || null, resultFingerprint: state?.result?.fingerprint || null });
+        }
+        super.postMessage(message, transfer);
+      }
+      set onmessage(handler) {
+        super.onmessage = event => {
+          const request = this.requestsById.get(event.data?.id);
+          if (harness.hold && request?.type === "generate" &&
+            Object.keys(request.request?.movementConfirmations || {}).length) {
+            harness.held.push({ worker: this, workerId: this.harnessWorkerId, id: event.data.id,
+              handler, event, request, resultFingerprint: window.__repforgeEntryState?.()?.result?.fingerprint || null });
+            return;
+          }
+          handler.call(this, event);
+        };
+      }
+      get onmessage() { return null; }
+    }
+    Object.defineProperty(window, "__repforgeOfferWorkerHarness", { configurable: true, value: harness });
+    window.Worker = ObservedWorker;
+  });
+}
+
+async function resumeEntryReview(page) {
+  await page.waitForSelector("#entryReview [data-review-slot], #entryResumeContinue, #firstRunCreate", { timeout: 15000 });
+  if (!await page.locator("#entryReview [data-review-slot]").count()) {
+    if (!await page.locator("#entryResumeContinue").count()) await page.click("#firstRunCreate");
+    await page.click("#entryResumeContinue");
+  }
+  await page.locator("#entryReview [data-review-slot]").first().waitFor({ state: "visible", timeout: 15000 });
+}
+
+async function fallbackOfferFlow(browser) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "UTC" });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(String(error?.stack || error)));
+  await page.addInitScript(() => { delete window.Worker; });
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  await page.evaluate(() => {
+    window.__s4FallbackEvents = [];
+    const record = () => {
+      const current = window.__repforgeEntryState?.();
+      if (current?.step === "result" && document.querySelector("#entryReview [data-review-slot]") &&
+        !window.__s4FallbackEvents.includes("result")) window.__s4FallbackEvents.push("result");
+      if (document.querySelector("#entryReview [data-review-confirm-offer]") &&
+        !window.__s4FallbackEvents.includes("offer")) window.__s4FallbackEvents.push("offer");
+    };
+    window.__s4FallbackObserver = new MutationObserver(record);
+    window.__s4FallbackObserver.observe(document.querySelector("#onbBody"), { subtree: true, childList: true, attributes: true });
+  });
+  await page.click("#firstRunCreate");
+  await answerRecommend(page, { skipBasics: true });
+  await page.locator("#entryReview [data-review-confirm-offer-action]").first().waitFor({ state: "visible", timeout: 15000 });
+  const fallback = await page.evaluate(() => ({
+    mode: window.__repforgeProgramEngine.stats().mode,
+    events: window.__s4FallbackEvents,
+    result: window.__repforgeEntryState()?.step,
+  }));
+  assert.equal(fallback.mode, "main", "without Worker, the same program engine honestly reports main-thread fallback");
+  assert.equal(fallback.result, "result", "the fallback publishes the main recommendation before offer verification");
+  assert.ok(fallback.events.indexOf("result") >= 0 && fallback.events.indexOf("offer") > fallback.events.indexOf("result"),
+    `the no-Worker journey renders its usable result before attaching an offer (${JSON.stringify(fallback.events)})`);
+  assert.deepEqual(errors, [], "the no-Worker offer fallback has no page errors");
+  await context.close();
+}
+
 const browser = await launchChromium();
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "UTC" });
   const page = await context.newPage();
+  await installOfferWorkerHarness(page);
   await page.clock.setFixedTime(START);
   const errors = [];
   page.on("pageerror", (error) => errors.push(String(error?.stack || error)));
@@ -55,8 +150,109 @@ try {
   });
   assert.equal(offerProbe.ok, true, "the production Worker can regenerate the displayed recommendation");
   assert.ok(offerProbe.offers.length > 0, "this skipped-abilities recommendation has a deterministic confirmation offer");
+  await page.locator("#entryReview [data-review-confirm-offer-action]").first().waitFor({ state: "visible", timeout: 15000 });
   assert.ok(await page.locator("#entryReview [data-review-confirm-offer]").count() > 0,
     "the production result shows a verified inline offer beneath its exercise row");
+  const offerTarget = await page.locator("#entryReview [data-review-confirm-offer-action]").first().evaluate((button) => {
+    const row = button.closest("[data-review-confirm-offer]");
+    return { slotId: button.dataset.reviewConfirmOfferAction, exerciseId: row?.dataset.reviewOfferExerciseId };
+  });
+  const expectedOffer = offerProbe.offers.find((offer) => offer.slotId === offerTarget.slotId &&
+    offer.offeredExerciseId === offerTarget.exerciseId);
+  assert.ok(expectedOffer, "each shown offer came from this result's compiler report");
+  const beforeOffer = await entry(page);
+  const beforeOfferDefinition = beforeOffer.result.preview.programDefinition;
+  await page.locator(`[data-review-confirm-offer-action="${offerTarget.slotId}"]`).click();
+  await page.waitForFunction(({ slotId, exerciseId }) => {
+    const current = window.__repforgeEntryState();
+    const slot = current?.result?.preview?.programDefinition?.days.flatMap((day) => day.slots).find((item) => item.id === slotId);
+    return current?.answers?.movementConfirmations?.[exerciseId] && slot?.exerciseId === exerciseId;
+  }, offerTarget, { timeout: 20000 });
+  const afterOffer = await entry(page);
+  assert.equal(afterOffer.result.preview.programDefinition.seed, beforeOfferDefinition.seed,
+    "confirming an offer regenerates with the same seed");
+  assert.deepEqual(afterOffer.answers.movementConfirmations[offerTarget.exerciseId], expectedOffer.prerequisiteIds,
+    "confirming an offer stores only that movement's prerequisites in the answers");
+  const changedOfferRows = await page.evaluate(({ before, target }) => {
+    const prior = new Map(before.days.flatMap((day) => day.slots).map((slot) => [slot.id, slot.exerciseId]));
+    const current = window.__repforgeEntryState().result.preview.programDefinition;
+    const changed = current.days.flatMap((day) => day.slots).filter((slot) => prior.get(slot.id) !== slot.exerciseId);
+    const names = changed.map((slot) => document.querySelector(`#entryReview [data-review-slot="${CSS.escape(slot.id)}"] .review__name`)?.textContent.trim()).filter(Boolean);
+    return { changed: changed.map((slot) => slot.id), names, status: document.querySelector("#entryChange[role='status']")?.textContent || "" };
+  }, { before: beforeOfferDefinition, target: offerTarget });
+  assert.ok(changedOfferRows.changed.includes(offerTarget.slotId), "the offered movement lands in its promised slot");
+  assert.ok(changedOfferRows.names.length > 0 && changedOfferRows.names.every((name) => changedOfferRows.status.includes(name)),
+    "the polite change status names every row the confirmation moved");
+  await page.locator(`#entryReview [data-review-confirmed="${offerTarget.exerciseId}"]`).waitFor({ state: "visible", timeout: 5000 });
+  assert.match(await page.locator(`#entryReview [data-review-slot="${offerTarget.slotId}"] [data-review-mark]`).innerText(),
+    /confirmed by you|confirmado por você/i, "the changed row is marked as confirmed by the lifter");
+  assert.equal(await page.evaluate(() => document.activeElement?.dataset?.reviewConfirmationUndo), offerTarget.exerciseId,
+    "confirming an offer moves focus to its Undo control");
+  await page.locator(`#entryReview [data-review-confirmation-undo="${offerTarget.exerciseId}"]`).click();
+  await page.waitForFunction((exerciseId) => !window.__repforgeEntryState()?.answers?.movementConfirmations?.[exerciseId],
+    offerTarget.exerciseId, { timeout: 20000 });
+  assert.deepEqual((await entry(page)).result.preview.programDefinition, beforeOfferDefinition,
+    "Undo removes the answer confirmation and rebuilds the original recommendation");
+  await page.locator(`[data-review-confirm-offer-action="${offerTarget.slotId}"]`).waitFor({ state: "visible", timeout: 15000 });
+  await page.locator(`[data-review-confirm-offer-action="${offerTarget.slotId}"]`).click();
+  await page.waitForFunction(({ slotId, exerciseId }) => {
+    const current = window.__repforgeEntryState();
+    const slot = current?.result?.preview?.programDefinition?.days.flatMap((day) => day.slots).find((item) => item.id === slotId);
+    return current?.answers?.movementConfirmations?.[exerciseId] && slot?.exerciseId === exerciseId;
+  }, offerTarget, { timeout: 20000 });
+  const confirmedBeforeReload = await entry(page);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  await resumeEntryReview(page);
+  await page.locator(`#entryReview [data-review-confirmed="${offerTarget.exerciseId}"]`).waitFor({ state: "visible", timeout: 15000 });
+  const confirmedAfterReload = await entry(page);
+  assert.deepEqual(confirmedAfterReload.result.preview.programDefinition, confirmedBeforeReload.result.preview.programDefinition,
+    "the confirmed movement and regenerated program survive setup-draft reload");
+  await page.evaluate(() => { window.__repforgeOfferWorkerHarness.hold = true; });
+  await page.locator(`#entryReview [data-review-confirmation-undo="${offerTarget.exerciseId}"]`).click();
+  await page.waitForFunction((exerciseId) => !window.__repforgeEntryState()?.answers?.movementConfirmations?.[exerciseId],
+    offerTarget.exerciseId, { timeout: 20000 });
+  await page.waitForFunction(() => window.__repforgeOfferWorkerHarness?.held.length > 0, undefined, { timeout: 15000 });
+  const oldVerifier = await page.evaluate(() => {
+    const held = window.__repforgeOfferWorkerHarness.held[0];
+    return { workerId: held.workerId, id: held.id, resultFingerprint: held.resultFingerprint,
+      currentResultFingerprint: window.__repforgeEntryState()?.result?.fingerprint };
+  });
+  assert.equal(oldVerifier.resultFingerprint, oldVerifier.currentResultFingerprint,
+    "the held Worker reply belongs to the result that is being left");
+  assert.ok(oldVerifier.resultFingerprint, "the held offer verifier is tied to the current result");
+  await page.click("#onbBack");
+  await page.waitForFunction(() => window.__repforgeEntryState()?.step === "abilities", undefined, { timeout: 5000 });
+  await page.waitForFunction((workerId) => window.__repforgeOfferWorkerHarness?.terminated.includes(workerId),
+    oldVerifier.workerId, { timeout: 5000 });
+  await page.locator('[data-entry-pick="competencyAnswer"][data-entry-val="benchPress10|yes"]').click();
+  await page.click("#onbNext");
+  await page.waitForFunction(() => window.__repforgeEntryState()?.step === "result", undefined, { timeout: 20000 });
+  const pendingOfferResult = await entry(page);
+  assert.equal(pendingOfferResult.answers.competencyAnswers.benchPress10, true,
+    "a changed answer produces a distinct current result while its offer checks are pending");
+  assert.notEqual(pendingOfferResult.result.fingerprint, oldVerifier.resultFingerprint,
+    "the current result has a different identity from the stale verifier");
+  const foregroundRequest = await page.evaluate(({ oldVerifier }) => window.__repforgeOfferWorkerHarness.requests.find((item) =>
+    item.step === "building" && item.workerId !== oldVerifier.workerId &&
+    !Object.keys(item.request?.movementConfirmations || {}).length), { oldVerifier });
+  assert.ok(foregroundRequest, "foreground Generate used its own Worker while the old verifier reply remained held");
+  assert.equal(await page.locator("#entryReview [data-review-confirm-offer]").count(), 0,
+    "an unverified offer is absent while the new result is already reviewable");
+  const released = await page.evaluate(({ workerId, id }) =>
+    window.__repforgeOfferWorkerHarness.releaseOne(workerId, id), oldVerifier);
+  assert.equal(released, true, "the test released the held old-result Worker verification reply by request identity");
+  assert.equal((await entry(page)).result.fingerprint, pendingOfferResult.result.fingerprint,
+    "a late old verifier reply leaves the newer result current");
+  assert.equal(await page.locator("#entryReview [data-review-confirm-offer]").count(), 0,
+    "a stale verifier reply cannot attach its old offer to the current result");
+  await page.evaluate(() => { window.__repforgeOfferWorkerHarness.hold = false; window.__repforgeOfferWorkerHarness.releaseHeld(); });
+  await page.click("#onbBack");
+  await page.waitForFunction(() => window.__repforgeEntryState()?.step === "abilities", undefined, { timeout: 5000 });
+  await page.click("#onbNext");
+  await page.waitForFunction(() => window.__repforgeEntryState()?.step === "result", undefined, { timeout: 20000 });
+  await page.locator("#entryReview [data-review-slot]").first().waitFor({ state: "visible", timeout: 15000 });
+
   assert.equal(await page.locator("#entryReview [data-review-block-edit]").count(), 1,
     "the production review exposes the block row's Change action");
   await page.locator("#entryReview [data-review-block-edit]").click();
@@ -171,6 +367,7 @@ try {
     "Focus shows the approved deload-week line in its visible header");
   assert.deepEqual(errors, [], "the production journey has no page errors");
   await context.close();
+  await fallbackOfferFlow(browser);
 } finally {
   await browser.close();
 }

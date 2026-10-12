@@ -547,16 +547,30 @@
       }).join("")}</div>`;
     }
     function rowHtml(definition, slot, marks) {
+      const state = read();
       const name = adapter.exerciseName(slot.exerciseId);
-      const mark = marks[slot.id] === "added" ? t("entry.review.mark.added") : marks[slot.id] ? t("entry.review.mark.edited") : "";
+      const confirmed = Array.isArray(state.answers?.movementConfirmations?.[slot.exerciseId]) &&
+        state.answers.movementConfirmations[slot.exerciseId].length > 0;
+      const mark = confirmed ? t("entry.review.confirmed")
+        : marks[slot.id] === "added" ? t("entry.review.mark.added") : marks[slot.id] ? t("entry.review.mark.edited") : "";
       const sets = slot.prescriptionsByCycle[0]?.sets || [];
-      return `<article class="review__row${mark ? " is-changed" : ""}" data-review-slot="${esc(slot.id)}" data-id="${esc(slot.id)}" role="button" tabindex="0" aria-label="${esc(name)}">` +
+      const row = `<article class="review__row${mark ? " is-changed" : ""}" data-review-slot="${esc(slot.id)}" data-id="${esc(slot.id)}" role="button" tabindex="0" aria-label="${esc(name)}">` +
         adapter.tile(slot.exerciseId, "md") +
         `<div class="review__rowbody"><h3 class="review__name">${esc(name)}</h3>` +
         (mark ? `<span class="review__mark" data-review-mark><span class="review__dot" aria-hidden="true"></span>${esc(mark)}</span>` : "") +
         `<ol class="review__sets">${sets.map((set, index) => `<li><span class="review__setn num">${index + 1}</span><span class="review__reps">${nums(repsText(set))}</span>` +
           (Number.isFinite(set.rir) ? `<span class="review__rir">${nums(t("entry.review.rir", { n: set.rir }))}</span>` : "") + `</li>`).join("")}</ol>` +
         chips(slot) + `</div>${icon("chev-right")}</article>`;
+      if (confirmed) return row + `<div class="review__offer review__offer--confirmed" data-review-confirmed="${esc(slot.exerciseId)}">` +
+        `<button type="button" class="text-link" data-review-confirmation-undo="${esc(slot.exerciseId)}">${esc(t("entry.review.undo"))}</button></div>`;
+      const offer = (state.offers || []).find(item => item.slotId === slot.id);
+      if (!offer) return row;
+      const offeredName = adapter.exerciseName(offer.offeredExerciseId);
+      const sentence = t("entry.review.confirm_offer", { exercise: "__EXERCISE__" });
+      const [before, after] = sentence.split("__EXERCISE__");
+      return row + `<div class="review__offer" data-review-confirm-offer="${esc(slot.id)}" data-review-offer-exercise-id="${esc(offer.offeredExerciseId)}">` +
+        `<p>${esc(before)}<strong>${esc(offeredName)}</strong>${esc(after)}</p>` +
+        `<button type="button" class="btn btn--steel" data-review-confirm-offer-action="${esc(slot.id)}">${esc(t("entry.review.confirm_offer_action"))}</button></div>`;
     }
     function dayHtml(definition, marks) {
       const day = definition.days[view.tab];
@@ -991,6 +1005,30 @@
       const hit = (selector) => target?.closest(selector);
       let el;
       if ((el = hit("[data-review-tab]"))) { setTab(Number(el.dataset.reviewTab)); return; }
+      if ((el = hit("[data-review-confirm-offer-action]"))) {
+        const offer = read().offers?.find(item => item.slotId === el.dataset.reviewConfirmOfferAction);
+        if (!offer) return;
+        el.disabled = true;
+        run(async () => {
+          const outcome = await adapter.confirmOffer?.(offer);
+          if (outcome?.ok || outcome?.superseded) return true;
+          if (!outcome?.cancelled) adapter.announce(outcome?.message || t("entry.review.save_failed"));
+          if (el.isConnected) el.disabled = false;
+          return false;
+        });
+        return;
+      }
+      if ((el = hit("[data-review-confirmation-undo]"))) {
+        el.disabled = true;
+        run(async () => {
+          const outcome = await adapter.undoConfirmation?.(el.dataset.reviewConfirmationUndo);
+          if (outcome?.ok || outcome?.superseded) return true;
+          if (!outcome?.cancelled) adapter.announce(outcome?.message || t("entry.review.save_failed"));
+          if (el.isConnected) el.disabled = false;
+          return false;
+        });
+        return;
+      }
       if (hit("[data-review-undo]")) { undo(); return; }
       if (hit("[data-review-restore]")) { restore(); return; }
       if (hit("[data-review-title]")) { sheet = { kind: "rename", target: "program" }; openSheet(); return; }
