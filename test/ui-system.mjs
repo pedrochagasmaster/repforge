@@ -234,7 +234,6 @@ assert.ok(contrastRatio([128, 128, 128], [255, 255, 255]) < 4.5, "3.95:1 body te
 const roleOf = (selector) => inventory.components.find((item) => item.selector === selector)?.roles.control;
 assert.equal(roleOf(".program-editor__replace:not([id])"), "secondary", "Replace is a reversible identity edit");
 assert.equal(roleOf(".program-editor__remove:not([id])"), "destructive", "Remove discards an exercise");
-assert.equal(roleOf(".entry__exercise-action:not([id])"), "selection", "Avoid is a reversible preference, not Remove");
 assert.equal(roleOf(".stepbtn:not([id])"), "adjustment", "rapid workout stepper changes a numeric value");
 assert.equal(roleOf('button[data-role="adjust"]'), "adjustment", "deliberate program stepper keeps numeric meaning");
 assert.equal(roleOf(".rxrow:not([id])"), "quiet-navigation", "Program prescription row drills into the exercise");
@@ -336,29 +335,6 @@ whyCloseWithoutIconFacet.components.find((item) => item.selector === "#whyClose"
 assert.ok(whyCloseContractErrors(whyCloseWithoutIconFacet).some((error) => error.includes("#whyClose")),
   "a glyph-only close action cannot omit its icon-only facet");
 
-const importDoorSelectors = ["#entryFreeformStart", ".entry-card.entry-card--secondary:not([id])"];
-const importDoorStates = ["default", "hover", "pressed", "focus-visible", "disabled"];
-function importDoorContractErrors(candidate) {
-  const errors = [];
-  for (const selector of importDoorSelectors) {
-    const members = candidate.components.filter((item) => item.selector === selector);
-    const item = members[0];
-    if (members.length !== 1 || item.roles.control !== "quiet-navigation" || item.variant !== "entry-alternative" ||
-        item.facets.length !== 0 || JSON.stringify(item.states) !== JSON.stringify(importDoorStates) ||
-        !item.catalogStates.includes("onboarding-start/hub-own-open")) {
-      errors.push(`${selector} must enter import as an unselected entry-alternative navigation control`);
-    }
-  }
-  return errors;
-}
-assert.deepEqual(importDoorContractErrors(inventory), [], "both hub import doors share the exact unselected navigation recipe");
-const asymmetricImportDoors = structuredClone(inventory);
-asymmetricImportDoors.components.find((item) => item.selector === "#entryFreeformStart").roles.control = "selection";
-assert.ok(importDoorContractErrors(asymmetricImportDoors).some((error) => error.includes("#entryFreeformStart")),
-  "a future freeform/file role asymmetry fails the frozen contract");
-const selectedImportDoor = structuredClone(inventory);
-selectedImportDoor.components.find((item) => item.selector === "#entryFreeformStart").states.push("selected");
-assert.ok(importDoorContractErrors(selectedImportDoor).length, "the hub cannot claim a selected state it does not render");
 
 const importModeSwitchSelectors = ["#entryFreeformSwitch", "#entryFreeformFile"];
 const importModeSwitchStates = ["default", "hover", "pressed", "focus-visible", "disabled"];
@@ -435,33 +411,6 @@ const asymmetricImportReview = structuredClone(inventory);
 asymmetricImportReview.components.find((item) => item.selector === importReviewSelectionSelector).roles.control = "quiet-navigation";
 assert.ok(importReviewActionContractErrors(asymmetricImportReview).length,
   "mapping choices cannot drift to the Change action's navigation role");
-
-const preferenceSelector = ".entry__exercise-action:not([id])";
-const preferenceCatalog = ["onboarding-custom/exercise-preferences"];
-function preferenceContractErrors(candidate) {
-  const errors = [];
-  const members = candidate.components.filter((item) => item.selector === preferenceSelector);
-  const item = members[0];
-  if (members.length !== 1 || item.roles.control !== "selection" || item.variant !== null ||
-      JSON.stringify(item.catalogStates) !== JSON.stringify(preferenceCatalog) ||
-      item.states.includes("selected") || !["default", "hover", "pressed", "focus-visible", "disabled"].every((state) => item.states.includes(state))) {
-    errors.push("exercise-preference actions need one unselected selection owner");
-  }
-  if (candidate.contextualVariants.some((variant) => variant.selector.includes("entry__exercise-action"))) {
-    errors.push("exercise-preference actions cannot acquire an accent variant");
-  }
-  return errors;
-}
-assert.deepEqual(preferenceContractErrors(inventory), [], "Include and Avoid share one ordinary selection recipe in their exact catalog state");
-const tintedPreference = structuredClone(inventory);
-tintedPreference.components.find((item) => item.selector === preferenceSelector).variant = "accent-include";
-assert.ok(preferenceContractErrors(tintedPreference).length, "a visual accent cannot silently become a preference state");
-const selectedPreference = structuredClone(inventory);
-selectedPreference.components.find((item) => item.selector === preferenceSelector).states.push("selected");
-assert.ok(preferenceContractErrors(selectedPreference).length, "search-result actions cannot claim the list's selected state");
-const widenedPreferenceOwner = structuredClone(inventory);
-widenedPreferenceOwner.components.find((item) => item.selector === preferenceSelector).catalogStates.push("onboarding-custom/result");
-assert.ok(preferenceContractErrors(widenedPreferenceOwner).length, "preference buttons cannot claim another catalog state");
 
 const sameSet = (left, right) => JSON.stringify([...left].sort()) === JSON.stringify([...right].sort());
 // The final landing's catalog states (Plan 064 R2): the hero, and the scrolled bands below it.
@@ -939,141 +888,6 @@ try {
     allowProgressDebt: true,
   });
   assert.ok(ambiguousRendered.problems.some((item) => item.includes("#uiUnmapped ambiguous roles")), "overlapping selectors fail instead of guessing by order");
-  const preferenceCapture = { ...capture, flow: "onboarding-custom", screen: "exercise-preferences" };
-  const preferencePage = await openPage(browser, manifest, preferenceCapture, onboardingState("onboarding-custom/exercise-preferences", "en"));
-  try {
-    await ONBOARDING_SCENARIOS["onboarding-custom/exercise-preferences"](preferencePage.page);
-    const initial = await preferencePage.page.evaluate(() => {
-      const buttons = [...document.querySelectorAll(".entry__exercise-action:not([id])")];
-      return { statuses: [...new Set(buttons.map((button) => button.dataset.entryExerciseStatus))].sort(),
-        selectedButtons: buttons.filter((button) => button.matches("[aria-pressed='true'],[aria-selected='true'],[aria-checked='true'],.is-selected")).length,
-        accessibleNames: buttons.map((button) => button.getAttribute("aria-label")),
-        visibleNames: buttons.map((button) => button.textContent.trim()),
-        exerciseNames: buttons.map((button) => button.closest(".entry__exercise-result")?.querySelector(".entry__exercise-name")?.textContent || ""),
-        targetHeights: buttons.map((button) => button.getBoundingClientRect().height),
-        includeList: document.querySelector("#entryIncludeListLabel")?.textContent,
-        avoidList: document.querySelector("#entryAvoidListLabel")?.textContent };
-    });
-    assert.deepEqual(initial.statuses, ["avoid", "include"], "one production search result offers both reversible choices");
-    assert.equal(initial.selectedButtons, 0, "selected preferences live in lists, not on the search-result buttons");
-    assert.ok(initial.accessibleNames.every((name, index) => name === `${initial.visibleNames[index]} ${initial.exerciseNames[index]}`),
-      "Include and Avoid controls name their exercise in the accessible label");
-    assert.ok(initial.targetHeights.every((height) => height >= 44), "Include and Avoid keep the shared 44px target");
-    assert.equal(initial.includeList, "Include");
-    assert.equal(initial.avoidList, "Avoid");
-    const cdp = await preferencePage.context.newCDPSession(preferencePage.page);
-    await cdp.send("DOM.enable");
-    await cdp.send("CSS.enable");
-    const { root } = await cdp.send("DOM.getDocument");
-    for (const action of ["include", "avoid"]) {
-      const selector = `.entry__exercise-action[data-entry-exercise-status="${action}"]`;
-      const { nodeId } = await cdp.send("DOM.querySelector", { nodeId: root.nodeId, selector });
-      assert.ok(nodeId, `${action} result control is present for pressed-state proof`);
-      await cdp.send("CSS.forcePseudoState", { nodeId, forcedPseudoClasses: ["active"] });
-      const pressed = await preferencePage.page.locator(selector).first().evaluate((button) => {
-        const resolve = (token, property) => {
-          const probe = document.createElement("span");
-          probe.style.setProperty(property, `var(${token})`);
-          document.body.append(probe);
-          const value = getComputedStyle(probe).getPropertyValue(property);
-          probe.remove();
-          return value;
-        };
-        return {
-          background: getComputedStyle(button).backgroundColor,
-          ink: getComputedStyle(button).color,
-          boundary: getComputedStyle(button).borderTopColor,
-          expectedWell: resolve("--well", "background-color"),
-          expectedInk: resolve("--control-selection-ink", "color"),
-          expectedBoundary: resolve("--control-selection-boundary", "color"),
-        };
-      });
-      assert.equal(pressed.background, pressed.expectedWell, `${action} press retains the hover paper`);
-      assert.equal(pressed.ink, pressed.expectedInk, `${action} press retains selection ink`);
-      assert.equal(pressed.boundary, pressed.expectedBoundary, `${action} press retains the required selection boundary`);
-      await cdp.send("CSS.forcePseudoState", { nodeId, forcedPseudoClasses: [] });
-    }
-    await cdp.detach();
-    const preferenceCoverage = await preferencePage.page.evaluate(inspectRoleCoverage, {
-      key: "onboarding-custom/exercise-preferences", components: inventory.components,
-      exceptions: inventory.exceptions, progressCandidateSelectors: inventory.progressCandidateSelectors,
-      allowProgressDebt: true,
-    });
-    assert.ok(preferenceCoverage.matched.includes("entry-exercise-action-not-id"), "the rendered pair matches its exact inventory owner");
-    assert.equal(preferenceCoverage.problems.length, 0, `exercise-preference state has no ambiguous owner: ${preferenceCoverage.problems.join("; ")}`);
-    const includeRow = preferencePage.page.locator(".entry__exercise-result").first();
-    const includedName = await includeRow.locator(".entry__exercise-name").textContent();
-    await includeRow.locator('[data-entry-exercise-status="include"]').click();
-    await preferencePage.page.waitForFunction((name) =>
-      document.querySelector("#entryIncludeListLabel")?.parentElement?.textContent?.includes(name), includedName);
-    assert.equal(await preferencePage.page.locator(`.entry__exercise-result:has-text("${includedName}")`).count(), 0,
-      "Include moves the exercise into its named list instead of selecting its search button");
-    const avoidRow = preferencePage.page.locator(".entry__exercise-result").first();
-    const avoidedName = await avoidRow.locator(".entry__exercise-name").textContent();
-    await avoidRow.locator('[data-entry-exercise-status="avoid"]').click();
-    assert.equal(await preferencePage.page.locator(".entry__avoid-pending").count(), 1,
-      "Avoid opens the required reason before committing an exclusion");
-    await preferencePage.page.locator('.entry__avoid-pending [data-entry-pick="avoidReason"]').first().click();
-    await preferencePage.page.waitForFunction((name) =>
-      document.querySelector("#entryAvoidListLabel")?.parentElement?.querySelector(".entry__avoid-list")?.textContent?.includes(name), avoidedName);
-    assert.equal(await preferencePage.page.locator(".entry__avoid-pending").count(), 0,
-      "the chosen reason commits an Avoid preference into its named list");
-  } finally { await preferencePage.context.close(); }
-  const ptPreferencePage = await openPage(browser, manifest, preferenceCapture, onboardingState("onboarding-custom/exercise-preferences", "pt"));
-  try {
-    await ONBOARDING_SCENARIOS["onboarding-custom/exercise-preferences"](ptPreferencePage.page);
-    const localizedNames = await ptPreferencePage.page.locator(".entry__exercise-action:not([id])").evaluateAll((buttons) => buttons.map((button) => ({
-      name: button.getAttribute("aria-label"), label: button.textContent.trim(),
-      exercise: button.closest(".entry__exercise-result")?.querySelector(".entry__exercise-name")?.textContent || "",
-    })));
-    assert.ok(localizedNames.every(({ name, label, exercise }) => name === `${label} ${exercise}`),
-      "Portuguese Include and Avoid controls name their exercise in the accessible label");
-  } finally { await ptPreferencePage.context.close(); }
-  for (const { selector, mode, subview } of [
-    { selector: "#entryFreeformStart", mode: "freeform", subview: "#entryFreeformIn" },
-    { selector: '[data-entry-route="import"]', mode: "file", subview: "#entryImportPick" },
-  ]) {
-    const hubCapture = { ...capture, screen: "hub-own-open" };
-    const hubPage = await openPage(browser, manifest, hubCapture, onboardingState("onboarding-start/hub-own-open", "en"));
-    try {
-      await ONBOARDING_SCENARIOS["onboarding-start/hub-own-open"](hubPage.page);
-      const hub = await hubPage.page.evaluate(() => {
-        const doors = [document.querySelector("#entryFreeformStart"), document.querySelector('[data-entry-route="import"]')];
-        return {
-          present: doors.every(Boolean),
-          selected: doors.some((door) => door?.matches("[aria-selected='true'],[aria-checked='true'],[aria-pressed='true'],[aria-current],.is-selected,.is-active")),
-        };
-      });
-      assert.equal(hub.present, true, "both import doors render together on the own-program hub");
-      assert.equal(hub.selected, false, "neither hub door advertises a selected source");
-      const coverage = await hubPage.page.evaluate(inspectRoleCoverage, {
-        key: "onboarding-start/hub-own-open", components: inventory.components,
-        exceptions: inventory.exceptions, progressCandidateSelectors: inventory.progressCandidateSelectors,
-        allowProgressDebt: true,
-      });
-      assert.ok(coverage.matched.includes("entryfreeformstart") && coverage.matched.includes("entry-card-entry-card-secondary-not-id"),
-        "both rendered import doors reach their distinct inventory selectors");
-      assert.deepEqual(coverage.problems, [], "the hub has no ambiguous semantic owners");
-      await hubPage.page.click(selector);
-      await hubPage.page.waitForSelector(`#onbBody.entry-route--import ${subview}`, { timeout: 20000 });
-      const entered = await hubPage.page.evaluate(() => ({
-        mode: JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}").importSourceMode,
-        route: document.querySelector("#onbBody")?.classList.contains("entry-route--import"),
-        hubVisible: !!document.querySelector("#entryFreeformStart"),
-      }));
-      assert.deepEqual(entered, { mode, route: true, hubVisible: false },
-        `${selector} enters import with its named device-only source and leaves the hub`);
-      await hubPage.page.click("#onbBack");
-      await hubPage.page.waitForSelector("#entryOwnToggle", { timeout: 20000 });
-      await hubPage.page.click("#entryOwnToggle");
-      const returnedDoors = await hubPage.page.locator("#entryFreeformStart, [data-entry-route=import]").evaluateAll((doors) => ({
-        count: doors.length,
-        selected: doors.some((door) => door.matches("[aria-selected='true'],[aria-checked='true'],[aria-pressed='true'],[aria-current],.is-selected,.is-active")),
-      }));
-      assert.deepEqual(returnedDoors, { count: 2, selected: false },
-        `${selector} leaves both hub doors present and unselected after return`);
-    } finally { await hubPage.context.close(); }
-  }
   for (const sharedCapture of [
     { ...capture, flow: "onboarding-shared", screen: "preview", viewport: "phone-320" },
     { ...capture, flow: "onboarding-shared", screen: "preview", text: "text200" },

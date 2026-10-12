@@ -7,7 +7,7 @@
  */
 import assert from "node:assert/strict";
 import fc from "fast-check";
-import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, waitForAppBoot, answerRecommend } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -37,20 +37,16 @@ async function open(browser) {
 
 async function recommend(page, days) {
   await page.evaluate(() => window.startOnboarding("settings"));
-  // The hub's goal tap answers Recommend's first question and opens the background step.
-  await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
-  await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
-  await page.click("#onbNext");
-  await page.click(`[data-entry-pick="daysPerWeek"][data-entry-val="${days}"]`);
-  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]'); await page.click("#onbNext");
-  await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]'); await page.click("#onbNext"); await page.click("#onbNext"); await page.click("#onbNext");
+  await answerRecommend(page, {
+    days, lifting: "6_to_24m", environment: "commercial_gym", goal: "muscle_growth", minutes: 60, skipBasics: true,
+  });
   if (await page.locator("[data-entry-select-candidate]").count()) await page.locator("[data-entry-select-candidate]").first().click();
   await page.waitForSelector("#entryActivate", { timeout: 10000 });
 }
 
 async function importRoute(page, label) {
   await page.evaluate(() => window.startOnboarding("settings"));
-  await page.click("#entryOwnToggle"); await page.click('[data-entry-route="import"]');
+  await page.click('[data-entry-hub="import"]'); await page.click("#onbNext");
   await page.setInputFiles("#importProgram", { name: "runtime.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ meta: { name: label }, exercises: [{ id: "r", day: "Day 1", name: "Barbell bench press", sets: 2, repLow: 6, repHigh: 10, muscles: ["Chest"] }] })) });
   await page.waitForSelector("#importReview.active", { timeout: 10000 }); await page.click("#importCommit");
   await page.waitForSelector("#entryActivate", { timeout: 10000 });
@@ -67,7 +63,7 @@ async function addEditorExercise(page, index) {
 
 async function buildRoute(page, days) {
   await page.evaluate(() => window.startOnboarding("settings"));
-  await page.click("#entryOwnToggle"); await page.click('[data-entry-route="build"]');
+  await page.click('[data-entry-hub="build"]'); await page.click("#onbNext");
   await page.fill("#entryProgramName", "Built runtime"); await page.click(`[data-entry-pick="daysPerWeek"][data-entry-val="${days}"]`); await page.click("#onbNext");
   await page.waitForSelector('#onbProgramEditor [data-role="day"]', { timeout: 10000 });
   await addEditorExercise(page, 0);

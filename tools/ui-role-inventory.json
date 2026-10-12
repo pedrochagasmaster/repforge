@@ -54,59 +54,34 @@
       "scenario": "A later visit with a half-finished Recommend setup saved: the lead action names the saved route and opens the chooser's resume card."
     },
     "onboarding-start/hub": {
-      "owner": "plan-054",
+      "owner": "plan-072",
       "content": "flat",
-      "scenario": "Create a program. Recommend is the sole primary path; Custom is its generated alternative; Browse stands alone; Bring or build is collapsed."
-    },
-    "onboarding-start/hub-own-open": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "The Bring or build disclosure expanded with aria-expanded to reveal Build, paste, and Taurifer-file import paths."
+      "scenario": "B's hub: Recommend, Build and Import as choice cards, the setup-link note, Continue held until a choice."
     },
     "onboarding-start/hub-existing": {
       "owner": "plan-054",
       "content": "flat",
       "scenario": "Opened from Settings while a program is active, so replacement consequences are in view."
     },
-    "onboarding-start/hub-help": {
-      "owner": "plan-064/r4a",
-      "content": "flat",
-      "scenario": "The Not sure which one? helper expanded on the hub: two short questions that end in Continue with the suggested route, reaching all five jobs."
-    },
     "onboarding-recommend/desired-result": {
-      "owner": "plan-054",
+      "owner": "plan-072",
       "content": "flat",
-      "scenario": "Route header, Cancel, progress 1 of 5, three desired-result choices."
+      "scenario": "Muscle growth, Strength and Both."
     },
     "onboarding-recommend/background": {
-      "owner": "plan-054",
+      "owner": "plan-072",
       "content": "flat",
-      "scenario": "The carried goal with Change, then structured-program experience and recent six-week consistency."
-    },
-    "onboarding-recommend/schedule": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "Days per week, session-minute ceiling, preferred rest."
+      "scenario": "None, Beginner, Intermediate and Advanced with the engine's bands; required, no Skip."
     },
     "onboarding-recommend/environment": {
-      "owner": "plan-054",
+      "owner": "plan-072",
       "content": "flat",
-      "scenario": "Environment shortcuts with the capability correction disclosure closed."
+      "scenario": "The six gym presets with Home chosen."
     },
     "onboarding-recommend/abilities": {
-      "owner": "plan-067",
+      "owner": "plan-072",
       "content": "flat",
-      "scenario": "Seven movement-ability questions answered yes, no or not sure in the recommend route; Not sure is preselected and Skip keeps every answer unset."
-    },
-    "onboarding-recommend/priorities": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "Primary priorities plus optional movement and exercise-avoidance controls."
-    },
-    "onboarding-recommend/avoidance-pain": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "One avoided exercise with the pain reason selected and its safety copy."
+      "scenario": "Seven yes, no or not sure questions in B's wording, with Skip pinned under Continue."
     },
     "onboarding-recommend/result": {
       "owner": "plan-054",
@@ -162,46 +137,6 @@
       "owner": "plan-054",
       "content": "flat",
       "scenario": "Another tab changed the active program. The newer program stays active."
-    },
-    "onboarding-custom/desired-result": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "The custom route's own header and step count, not Recommend's."
-    },
-    "onboarding-custom/background": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "Structured-program experience and recent consistency in the custom route."
-    },
-    "onboarding-custom/schedule": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "Days per week, session ceiling and preferred rest in the custom route."
-    },
-    "onboarding-custom/environment": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "Environment shortcuts in the custom route."
-    },
-    "onboarding-custom/abilities": {
-      "owner": "plan-067",
-      "content": "flat",
-      "scenario": "Seven movement-ability questions answered yes, no or not sure in the custom route; Not sure is preselected and Skip keeps every answer unset."
-    },
-    "onboarding-custom/priorities": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "Each muscle has one accessible emphasis setting before exercise preferences."
-    },
-    "onboarding-custom/exercise-preferences": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "One library search offers Include or Avoid, with separate selected lists."
-    },
-    "onboarding-custom/result": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "The custom program first, with muscle emphasis and exercise preferences among the answer chips, and the pinned activation."
     },
     "onboarding-build/setup": {
       "owner": "plan-054",
@@ -863,11 +798,6 @@
       "content": "flat",
       "scenario": "An exercise the program contained is avoided from the priorities editor: the statement, and the constraint line with Restore."
     },
-    "onboarding-custom/shape": {
-      "owner": "plan-064/r4b",
-      "content": "flat",
-      "scenario": "Two compatible weekly structures to choose from; shown only when more than one fits the answers."
-    },
     "catalog-recovery/unavailable": {
       "owner": "plan-067",
       "content": "flat",
@@ -877,6 +807,96 @@
       "owner": "plan-067",
       "content": "flat",
       "scenario": "The lifter retries while the catalog remains unavailable; the dialog reports the failed retry and keeps the retry action available."
+    },
+    "onboarding-start/hub-chosen": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The hub with Recommend chosen and Continue enabled."
+    },
+    "onboarding-recommend/intro": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "B's section map: Basics, Gym and equipment, Program, with Start with the basics."
+    },
+    "onboarding-recommend/sex": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "Female, Male and Prefer not to say; the local-only note; Continue held until a choice; Skip."
+    },
+    "onboarding-recommend/birth-date": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "Day, month and year wheels at their starting date; the local-only note; Skip."
+    },
+    "onboarding-recommend/birth-date-typed": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The typed-value dialog over the birth-date screen with Year ready to edit."
+    },
+    "onboarding-recommend/birth-date-typed-invalid": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The year field remains open, marked invalid, with its calendar-date validation message."
+    },
+    "onboarding-recommend/height": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The centimeters/feet-and-inches toggle over the centimeter wheel; the local-only note; Skip."
+    },
+    "onboarding-recommend/height-ftin": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The same screen with feet and inches chosen: two wheels."
+    },
+    "onboarding-recommend/weight": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The kilograms/pounds toggle over the ruler and its value; the note that weight sets bodyweight loads; Skip."
+    },
+    "onboarding-recommend/weight-lb": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The same screen with pounds chosen."
+    },
+    "onboarding-recommend/cardio-experience": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "Four cardio choices; the local-only note; Skip."
+    },
+    "onboarding-recommend/equipment": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "Home's thirteen equipment groups with the preset's ticked and the reset link disabled."
+    },
+    "onboarding-recommend/equipment-adjusted": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "Home with the bench ticked and the bands unticked, and the reset link enabled."
+    },
+    "onboarding-recommend/days-per-week": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "Two to six days with four chosen and its split fact."
+    },
+    "onboarding-recommend/session-length": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "Up to 20 to up to 150 minutes, with 60 shown as the default."
+    },
+    "onboarding-recommend/muscle-priorities": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "Twelve muscles, each Reduce, Normal or Prioritize; glutes prioritized and calves reduced; Skip."
+    },
+    "onboarding-recommend/muscle-priorities-limit": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "Five muscles prioritized and a sixth refused with the limit line."
+    },
+    "onboarding-recommend/deload": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The deload card switched on, marked Recommended."
     }
   },
   "components": [
@@ -1195,7 +1215,6 @@
       "rationale": "Advances the current task with the strongest action weight.",
       "owner": "plan-058",
       "catalogStates": [
-        "onboarding-custom/result",
         "onboarding-import/preview",
         "onboarding-recommend/activation-conflict",
         "onboarding-recommend/replacement-confirm",
@@ -1207,29 +1226,6 @@
         "onboarding-recommend/result-changed",
         "onboarding-recommend/review-empty-day",
         "onboarding-recommend/review-reorder"
-      ]
-    },
-    {
-      "id": "entryavoidsearch",
-      "selector": "#entryAvoidSearch",
-      "roles": {
-        "control": "field"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "validation-error"
-      ],
-      "rationale": "Accepts or edits an explicit value.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "onboarding-recommend/avoidance-pain",
-        "onboarding-recommend/priorities"
       ]
     },
     {
@@ -1273,7 +1269,6 @@
       "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
       "owner": "plan-058",
       "catalogStates": [
-        "onboarding-custom/result",
         "onboarding-import/preview",
         "onboarding-recommend/activation-conflict",
         "onboarding-recommend/replacement-confirm",
@@ -1333,28 +1328,6 @@
         "onboarding-build/editor-empty",
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready"
-      ]
-    },
-    {
-      "id": "entryexercisesearch",
-      "selector": "#entryExerciseSearch",
-      "roles": {
-        "control": "field"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "validation-error"
-      ],
-      "rationale": "Accepts or edits an explicit value.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "onboarding-custom/exercise-preferences"
       ]
     },
     {
@@ -1618,27 +1591,6 @@
       ]
     },
     {
-      "id": "entryfreeformstart",
-      "selector": "#entryFreeformStart",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": "entry-alternative",
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Enters the import route through its freeform subview; the remembered source is device UI context, not a selected state on the hub.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "onboarding-start/hub-own-open"
-      ]
-    },
-    {
       "id": "entryfreeformstartover",
       "selector": "#entryFreeformStartOver",
       "roles": {
@@ -1750,10 +1702,32 @@
       ]
     },
     {
-      "id": "entryowntoggle",
-      "selector": "#entryOwnToggle",
+      "id": "entrypickercancel",
+      "selector": "#entryPickerCancel",
       "roles": {
-        "control": "disclosure"
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Dismisses the typed-value field without committing an edit.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/birth-date-typed",
+        "onboarding-recommend/birth-date-typed-invalid"
+      ]
+    },
+    {
+      "id": "entrypickerdone",
+      "selector": "#entryPickerDone",
+      "roles": {
+        "control": "primary"
       },
       "variant": null,
       "facets": [],
@@ -1763,15 +1737,36 @@
         "pressed",
         "focus-visible",
         "disabled",
-        "expanded"
+        "loading"
       ],
-      "rationale": "Expands or collapses information; expanded state is separate from navigation.",
-      "owner": "plan-058",
+      "rationale": "Commits the typed value for the current onboarding question.",
+      "owner": "plan-072",
       "catalogStates": [
-        "onboarding-start/hub",
-        "onboarding-start/hub-own-open",
-        "onboarding-start/hub-existing",
-        "onboarding-start/hub-help"
+        "onboarding-recommend/birth-date-typed",
+        "onboarding-recommend/birth-date-typed-invalid"
+      ]
+    },
+    {
+      "id": "entrypickerinput",
+      "selector": "#entryPickerInput",
+      "roles": {
+        "control": "field"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "validation-error"
+      ],
+      "rationale": "Accepts a typed value for the currently selected onboarding picker.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/birth-date-typed",
+        "onboarding-recommend/birth-date-typed-invalid"
       ]
     },
     {
@@ -1836,7 +1831,6 @@
       "rationale": "Discards the staged program proposal and returns to the entry start.",
       "owner": "plan-058",
       "catalogStates": [
-        "onboarding-custom/result",
         "onboarding-import/preview",
         "onboarding-recommend/activation-conflict",
         "onboarding-recommend/replacement-confirm",
@@ -3696,14 +3690,6 @@
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-build/setup",
-        "onboarding-custom/background",
-        "onboarding-custom/desired-result",
-        "onboarding-custom/environment",
-        "onboarding-custom/abilities",
-        "onboarding-custom/exercise-preferences",
-        "onboarding-custom/priorities",
-        "onboarding-custom/result",
-        "onboarding-custom/schedule",
         "onboarding-import/freeform-empty",
         "onboarding-import/freeform-filled",
         "onboarding-import/freeform-gaps",
@@ -3713,26 +3699,37 @@
         "onboarding-import/freeform-unreadable",
         "onboarding-import/preview",
         "onboarding-import/source",
+        "onboarding-recommend/abilities",
         "onboarding-recommend/activation-conflict",
-        "onboarding-recommend/avoidance-pain",
         "onboarding-recommend/background",
+        "onboarding-recommend/birth-date",
+        "onboarding-recommend/cardio-experience",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/days-per-week",
+        "onboarding-recommend/deload",
         "onboarding-recommend/desired-result",
         "onboarding-recommend/environment",
-        "onboarding-recommend/abilities",
-        "onboarding-recommend/priorities",
+        "onboarding-recommend/equipment",
+        "onboarding-recommend/equipment-adjusted",
+        "onboarding-recommend/height",
+        "onboarding-recommend/height-ftin",
+        "onboarding-recommend/intro",
+        "onboarding-recommend/muscle-priorities",
+        "onboarding-recommend/muscle-priorities-limit",
         "onboarding-recommend/replacement-confirm",
         "onboarding-recommend/result",
-        "onboarding-recommend/result-existing",
-        "onboarding-recommend/schedule",
-        "onboarding-recovery/rules-drift",
-        "onboarding-shared/preview",
-        "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/result-avoided",
-        "onboarding-recommend/result-corrected",
-        "onboarding-custom/shape",
         "onboarding-recommend/result-changed",
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-existing",
         "onboarding-recommend/review-empty-day",
-        "onboarding-recommend/review-reorder"
+        "onboarding-recommend/review-reorder",
+        "onboarding-recommend/session-length",
+        "onboarding-recommend/sex",
+        "onboarding-recommend/weight",
+        "onboarding-recommend/weight-lb",
+        "onboarding-recovery/rules-drift",
+        "onboarding-shared/preview"
       ]
     },
     {
@@ -3753,52 +3750,54 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "onboarding-start/hub",
-        "onboarding-start/hub-own-open",
-        "onboarding-start/hub-existing",
-        "onboarding-start/hub-help",
-        "onboarding-recommend/desired-result",
-        "onboarding-recommend/background",
-        "onboarding-recommend/schedule",
-        "onboarding-recommend/environment",
-        "onboarding-recommend/abilities",
-        "onboarding-recommend/priorities",
-        "onboarding-recommend/avoidance-pain",
-        "onboarding-recommend/result",
-        "onboarding-recommend/result-existing",
-        "onboarding-recommend/replacement-confirm",
-        "onboarding-recommend/activation-conflict",
-        "onboarding-custom/desired-result",
-        "onboarding-custom/background",
-        "onboarding-custom/schedule",
-        "onboarding-custom/environment",
-        "onboarding-custom/abilities",
-        "onboarding-custom/priorities",
-        "onboarding-custom/exercise-preferences",
-        "onboarding-custom/result",
-        "onboarding-build/setup",
         "onboarding-build/editor-empty",
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
-        "onboarding-import/source",
+        "onboarding-build/setup",
         "onboarding-import/freeform-empty",
         "onboarding-import/freeform-filled",
-        "onboarding-import/freeform-stage2",
-        "onboarding-import/freeform-stage3",
         "onboarding-import/freeform-gaps",
         "onboarding-import/freeform-gaps-invalid",
+        "onboarding-import/freeform-stage2",
+        "onboarding-import/freeform-stage3",
         "onboarding-import/freeform-unreadable",
         "onboarding-import/preview",
-        "onboarding-shared/preview",
+        "onboarding-import/source",
+        "onboarding-recommend/abilities",
+        "onboarding-recommend/activation-conflict",
+        "onboarding-recommend/background",
+        "onboarding-recommend/birth-date",
+        "onboarding-recommend/cardio-experience",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/days-per-week",
+        "onboarding-recommend/deload",
+        "onboarding-recommend/desired-result",
+        "onboarding-recommend/environment",
+        "onboarding-recommend/equipment",
+        "onboarding-recommend/equipment-adjusted",
+        "onboarding-recommend/height",
+        "onboarding-recommend/height-ftin",
+        "onboarding-recommend/intro",
+        "onboarding-recommend/muscle-priorities",
+        "onboarding-recommend/muscle-priorities-limit",
+        "onboarding-recommend/replacement-confirm",
+        "onboarding-recommend/result",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-existing",
+        "onboarding-recommend/review-empty-day",
+        "onboarding-recommend/review-reorder",
+        "onboarding-recommend/session-length",
+        "onboarding-recommend/sex",
+        "onboarding-recommend/weight",
+        "onboarding-recommend/weight-lb",
         "onboarding-recovery/resume",
         "onboarding-recovery/rules-drift",
-        "onboarding-recommend/chip-editor-open",
-        "onboarding-recommend/result-avoided",
-        "onboarding-recommend/result-corrected",
-        "onboarding-custom/shape",
-        "onboarding-recommend/result-changed",
-        "onboarding-recommend/review-empty-day",
-        "onboarding-recommend/review-reorder"
+        "onboarding-shared/preview",
+        "onboarding-start/hub",
+        "onboarding-start/hub-chosen",
+        "onboarding-start/hub-existing"
       ]
     },
     {
@@ -3823,22 +3822,29 @@
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-build/setup",
-        "onboarding-custom/background",
-        "onboarding-custom/desired-result",
-        "onboarding-custom/environment",
-        "onboarding-custom/abilities",
-        "onboarding-custom/exercise-preferences",
-        "onboarding-custom/priorities",
-        "onboarding-custom/schedule",
-        "onboarding-recommend/avoidance-pain",
+        "onboarding-recommend/abilities",
         "onboarding-recommend/background",
+        "onboarding-recommend/birth-date",
+        "onboarding-recommend/cardio-experience",
+        "onboarding-recommend/days-per-week",
+        "onboarding-recommend/deload",
         "onboarding-recommend/desired-result",
         "onboarding-recommend/environment",
-        "onboarding-recommend/abilities",
-        "onboarding-recommend/priorities",
-        "onboarding-recommend/schedule",
+        "onboarding-recommend/equipment",
+        "onboarding-recommend/equipment-adjusted",
+        "onboarding-recommend/height",
+        "onboarding-recommend/height-ftin",
+        "onboarding-recommend/intro",
+        "onboarding-recommend/muscle-priorities",
+        "onboarding-recommend/muscle-priorities-limit",
+        "onboarding-recommend/session-length",
+        "onboarding-recommend/sex",
+        "onboarding-recommend/weight",
+        "onboarding-recommend/weight-lb",
         "onboarding-recovery/rules-drift",
-        "onboarding-custom/shape"
+        "onboarding-start/hub",
+        "onboarding-start/hub-chosen",
+        "onboarding-start/hub-existing"
       ]
     },
     {
@@ -3862,14 +3868,6 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "onboarding-build/setup",
-        "onboarding-custom/background",
-        "onboarding-custom/desired-result",
-        "onboarding-custom/environment",
-        "onboarding-custom/abilities",
-        "onboarding-custom/exercise-preferences",
-        "onboarding-custom/priorities",
-        "onboarding-custom/result",
-        "onboarding-custom/schedule",
         "onboarding-import/freeform-empty",
         "onboarding-import/freeform-filled",
         "onboarding-import/freeform-gaps",
@@ -3880,23 +3878,33 @@
         "onboarding-import/preview",
         "onboarding-import/review",
         "onboarding-import/source",
+        "onboarding-recommend/abilities",
         "onboarding-recommend/activation-conflict",
-        "onboarding-recommend/avoidance-pain",
         "onboarding-recommend/background",
+        "onboarding-recommend/birth-date",
+        "onboarding-recommend/cardio-experience",
+        "onboarding-recommend/days-per-week",
+        "onboarding-recommend/deload",
         "onboarding-recommend/desired-result",
         "onboarding-recommend/environment",
-        "onboarding-recommend/abilities",
-        "onboarding-recommend/priorities",
+        "onboarding-recommend/equipment",
+        "onboarding-recommend/equipment-adjusted",
+        "onboarding-recommend/height",
+        "onboarding-recommend/height-ftin",
+        "onboarding-recommend/muscle-priorities",
+        "onboarding-recommend/muscle-priorities-limit",
         "onboarding-recommend/replacement-confirm",
         "onboarding-recommend/result",
         "onboarding-recommend/result-existing",
-        "onboarding-recommend/schedule",
+        "onboarding-recommend/session-length",
+        "onboarding-recommend/sex",
+        "onboarding-recommend/weight",
+        "onboarding-recommend/weight-lb",
         "onboarding-recovery/resume",
         "onboarding-recovery/rules-drift",
         "onboarding-shared/gate",
         "onboarding-shared/invalid",
-        "onboarding-shared/preview",
-        "onboarding-custom/shape"
+        "onboarding-shared/preview"
       ],
       "progressScopes": {
         "entry-route-step": "task"
@@ -5913,7 +5921,6 @@
         "history/edit-dirty",
         "history/edit-invalid",
         "history/session",
-        "onboarding-custom/result",
         "onboarding-recommend/replacement-confirm",
         "onboarding-recommend/result",
         "onboarding-recommend/result-existing",
@@ -5980,7 +5987,6 @@
         "history/delete-confirm",
         "history/edit-dirty",
         "history/edit-invalid",
-        "onboarding-custom/result",
         "onboarding-import/freeform-stage2",
         "program/editor-day-name-refused",
         "program/progression-editor",
@@ -6082,78 +6088,6 @@
       ]
     },
     {
-      "id": "entry-card-entry-card-primary-not-id",
-      "selector": ".entry-card.entry-card--primary:not([id])",
-      "roles": {
-        "control": "primary",
-        "elevation": "flat",
-        "boundary": "required"
-      },
-      "variant": "featured-entry-action",
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "loading"
-      ],
-      "rationale": "Advances the current task with the strongest action weight.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "onboarding-start/hub",
-        "onboarding-start/hub-own-open",
-        "onboarding-start/hub-existing",
-        "onboarding-start/hub-help"
-      ]
-    },
-    {
-      "id": "entry-card-entry-card-secondary-not-id",
-      "selector": ".entry-card.entry-card--secondary:not([id])",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": "entry-alternative",
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "onboarding-start/hub",
-        "onboarding-start/hub-own-open",
-        "onboarding-start/hub-existing",
-        "onboarding-start/hub-help"
-      ]
-    },
-    {
-      "id": "entry-exercise-action-not-id",
-      "selector": ".entry__exercise-action:not([id])",
-      "roles": {
-        "control": "selection"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Include adds a must-have exercise; Avoid opens a required reason before adding a reversible exclusion. Neither search-result button remains selected: the exercise moves to its named list, so both use the ordinary unselected selection recipe.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "onboarding-custom/exercise-preferences"
-      ]
-    },
-    {
       "id": "entry-field-input-not-id",
       "selector": ".entry__field-input:not([id])",
       "roles": {
@@ -6175,55 +6109,6 @@
       "catalogStates": [
         "onboarding-import/freeform-gaps",
         "onboarding-import/freeform-gaps-invalid"
-      ]
-    },
-    {
-      "id": "entry-muscle-state-not-id",
-      "selector": ".entry__muscle-state:not([id])",
-      "roles": {
-        "control": "selection",
-        "elevation": [
-          "flat",
-          "selected"
-        ],
-        "boundary": "required"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "selected",
-        "disabled"
-      ],
-      "rationale": "Changes a chosen value, active option, or reversible status.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "onboarding-custom/priorities"
-      ]
-    },
-    {
-      "id": "entry-remove-not-id",
-      "selector": ".entry__remove:not([id])",
-      "roles": {
-        "control": "destructive"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Deletes or discards user-controlled work and needs destructive treatment.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "onboarding-custom/exercise-preferences",
-        "onboarding-recommend/avoidance-pain"
       ]
     },
     {
@@ -6325,9 +6210,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-start/hub",
-        "onboarding-start/hub-own-open",
         "onboarding-start/hub-existing",
-        "onboarding-start/hub-help",
         "workout/focus",
         "workout/focus-glossary",
         "workout/stale-draft",
@@ -6863,24 +6746,22 @@
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-build/setup",
-        "onboarding-custom/background",
-        "onboarding-custom/desired-result",
-        "onboarding-custom/environment",
-        "onboarding-custom/abilities",
-        "onboarding-custom/exercise-preferences",
-        "onboarding-custom/priorities",
-        "onboarding-custom/schedule",
-        "onboarding-recommend/avoidance-pain",
+        "onboarding-recommend/abilities",
         "onboarding-recommend/background",
+        "onboarding-recommend/cardio-experience",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/days-per-week",
         "onboarding-recommend/desired-result",
         "onboarding-recommend/environment",
-        "onboarding-recommend/abilities",
-        "onboarding-recommend/priorities",
-        "onboarding-recommend/schedule",
+        "onboarding-recommend/equipment",
+        "onboarding-recommend/equipment-adjusted",
+        "onboarding-recommend/session-length",
+        "onboarding-recommend/sex",
         "onboarding-recovery/rules-drift",
-        "progress/schedule-diagnosis",
-        "onboarding-recommend/chip-editor-open",
-        "onboarding-custom/shape"
+        "onboarding-start/hub",
+        "onboarding-start/hub-chosen",
+        "onboarding-start/hub-existing",
+        "progress/schedule-diagnosis"
       ]
     },
     {
@@ -7494,7 +7375,6 @@
         "history/list",
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
-        "onboarding-custom/result",
         "onboarding-import/freeform-stage2",
         "onboarding-import/preview",
         "onboarding-import/review",
@@ -8050,80 +7930,6 @@
       ]
     },
     {
-      "id": "entryhelptoggle",
-      "selector": "#entryHelpToggle",
-      "roles": {
-        "control": "disclosure"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "expanded"
-      ],
-      "rationale": "Expands or collapses the route help; expanded state is separate from navigation.",
-      "owner": "plan-064/r4a",
-      "catalogStates": [
-        "onboarding-start/hub",
-        "onboarding-start/hub-own-open",
-        "onboarding-start/hub-existing",
-        "onboarding-start/hub-help"
-      ]
-    },
-    {
-      "id": "entry-help-opt-not-id",
-      "selector": ".entry-help__opt:not([id])",
-      "roles": {
-        "control": "selection",
-        "elevation": [
-          "flat",
-          "selected"
-        ],
-        "boundary": "required"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "selected",
-        "disabled"
-      ],
-      "rationale": "Changes a chosen answer in the route help without leaving the hub.",
-      "owner": "plan-064/r4a",
-      "catalogStates": [
-        "onboarding-start/hub-help"
-      ]
-    },
-    {
-      "id": "entryhelpgo",
-      "selector": "#entryHelpGo",
-      "roles": {
-        "control": "primary"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "loading"
-      ],
-      "rationale": "Advances the current task with the strongest action weight.",
-      "owner": "plan-064/r4a",
-      "catalogStates": [
-        "onboarding-start/hub-help"
-      ]
-    },
-    {
       "id": "entrydialog",
       "selector": "#entryDialog",
       "roles": {
@@ -8140,7 +7946,9 @@
         "onboarding-recommend/replacement-confirm",
         "onboarding-recovery/cancel-confirm",
         "onboarding-recovery/restart-confirm",
-        "onboarding-recommend/review-rebuild-confirm"
+        "onboarding-recommend/review-rebuild-confirm",
+        "onboarding-recommend/birth-date-typed",
+        "onboarding-recommend/birth-date-typed-invalid"
       ]
     },
     {
@@ -8356,19 +8164,11 @@
       "owner": "plan-064/r4a",
       "catalogStates": [
         "onboarding-recommend/background",
-        "onboarding-recommend/schedule",
         "onboarding-recommend/environment",
-        "onboarding-recommend/abilities",
-        "onboarding-recommend/priorities",
-        "onboarding-recommend/avoidance-pain",
-        "onboarding-custom/background",
-        "onboarding-custom/schedule",
-        "onboarding-custom/environment",
-        "onboarding-custom/abilities",
-        "onboarding-custom/priorities",
-        "onboarding-custom/exercise-preferences",
-        "onboarding-custom/shape"
-      ]
+        "onboarding-recommend/abilities"
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "Plan 072 OD-9 keeps Custom available only when resuming a saved draft for one release. Recommend B suppresses this legacy rail, and §11.1 removes every onboarding-custom catalog state."
     },
     {
       "id": "entry-chip-not-id",
@@ -8394,7 +8194,6 @@
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/result-corrected",
         "onboarding-recommend/result-avoided",
-        "onboarding-custom/result",
         "onboarding-recommend/activation-conflict",
         "onboarding-recommend/result-changed",
         "onboarding-recommend/review-empty-day",
@@ -8420,54 +8219,10 @@
       "rationale": "Reopens the goal question the hub already asked, without leaving the about screen.",
       "owner": "plan-064/r4b",
       "catalogStates": [
-        "onboarding-recommend/background",
-        "onboarding-custom/background"
-      ]
-    },
-    {
-      "id": "entryskip",
-      "selector": "#entrySkip",
-      "roles": {
-        "control": "secondary"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "loading"
+        "onboarding-recommend/background"
       ],
-      "rationale": "Skips the optional priorities section while nothing in it is chosen; it is offered only when it discards nothing.",
-      "owner": "plan-064/r4b",
-      "catalogStates": [
-        "onboarding-recommend/priorities"
-      ]
-    },
-    {
-      "id": "entryabilitiesskip",
-      "selector": "#entryAbilitiesSkip",
-      "roles": {
-        "control": "secondary"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "loading"
-      ],
-      "rationale": "Leaves every movement-ability answer unset and moves on; the step is optional.",
-      "owner": "plan-067",
-      "catalogStates": [
-        "onboarding-recommend/abilities",
-        "onboarding-custom/abilities"
-      ]
+      "sourceOnly": true,
+      "sourceOnlyReason": "Recommend B asks for the goal after background, so this legacy Change goal control is not in its canonical background screen. It remains only when resuming a saved Custom draft for one release; §11.1 removes those Custom catalog states."
     },
     {
       "id": "entrychipapply",
@@ -9111,7 +8866,6 @@
       "rationale": "Opens the rename sheet for the program's name; the name itself is the control.",
       "owner": "plan-070",
       "catalogStates": [
-        "onboarding-custom/result",
         "onboarding-recommend/activation-conflict",
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/result",
@@ -9142,7 +8896,6 @@
       "rationale": "Selects which day of the week the review shows; aria-selected carries the choice and the accent underline travels to it.",
       "owner": "plan-070",
       "catalogStates": [
-        "onboarding-custom/result",
         "onboarding-recommend/activation-conflict",
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/result",
@@ -9172,7 +8925,6 @@
       "rationale": "The whole exercise row opens that exercise's sheet; a changed row carries its mark.",
       "owner": "plan-070",
       "catalogStates": [
-        "onboarding-custom/result",
         "onboarding-recommend/activation-conflict",
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/result",
@@ -9200,7 +8952,6 @@
       "rationale": "Opens the rename sheet for the shown day.",
       "owner": "plan-070",
       "catalogStates": [
-        "onboarding-custom/result",
         "onboarding-recommend/activation-conflict",
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/result",
@@ -9230,7 +8981,6 @@
       "rationale": "Opens the day's actions: rename, reorder, add.",
       "owner": "plan-070",
       "catalogStates": [
-        "onboarding-custom/result",
         "onboarding-recommend/activation-conflict",
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/result",
@@ -9259,7 +9009,6 @@
       "rationale": "Adds a catalog movement to the shown day through the exercise picker.",
       "owner": "plan-070",
       "catalogStates": [
-        "onboarding-custom/result",
         "onboarding-recommend/activation-conflict",
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/result",
@@ -9504,6 +9253,159 @@
         "onboarding-recommend/review-rebuild-confirm"
       ],
       "neverDisabledReason": "The confirmation is only shown when it can be answered."
+    },
+    {
+      "id": "entry-seg-option",
+      "selector": ".entry-seg__option",
+      "roles": {
+        "control": "selection",
+        "elevation": [
+          "flat",
+          "selected"
+        ]
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected",
+        "disabled"
+      ],
+      "rationale": "One answer of a segmented choice: a muscle's Reduce, Normal or Prioritize, or a picker's unit.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/height",
+        "onboarding-recommend/height-ftin",
+        "onboarding-recommend/muscle-priorities",
+        "onboarding-recommend/muscle-priorities-limit",
+        "onboarding-recommend/weight",
+        "onboarding-recommend/weight-lb"
+      ]
+    },
+    {
+      "id": "onbskip",
+      "selector": "#onbSkip",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Leaves an optional onboarding answer unset and moves on.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/abilities",
+        "onboarding-recommend/birth-date",
+        "onboarding-recommend/cardio-experience",
+        "onboarding-recommend/height",
+        "onboarding-recommend/height-ftin",
+        "onboarding-recommend/muscle-priorities",
+        "onboarding-recommend/muscle-priorities-limit",
+        "onboarding-recommend/sex",
+        "onboarding-recommend/weight",
+        "onboarding-recommend/weight-lb"
+      ]
+    },
+    {
+      "id": "entryweightruler",
+      "selector": "#entryWeightRuler",
+      "roles": {
+        "control": "field"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Sets the lifter's weight by scrolling or the arrow keys; a slider with a spoken value.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/weight",
+        "onboarding-recommend/weight-lb"
+      ]
+    },
+    {
+      "id": "entryweighttype",
+      "selector": "#entryWeightType",
+      "roles": {
+        "control": "field"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Opens a labeled text field for the displayed weight value.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/weight",
+        "onboarding-recommend/weight-lb"
+      ]
+    },
+    {
+      "id": "entryequipmentreset",
+      "selector": "#entryEquipmentReset",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [
+        "disabled"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Returns the equipment groups to the chosen place's preset.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/equipment",
+        "onboarding-recommend/equipment-adjusted"
+      ]
+    },
+    {
+      "id": "entrydeloadswitch",
+      "selector": "#entryDeloadSwitch",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected",
+        "disabled"
+      ],
+      "rationale": "Turns the block's last-week deload on or off.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/deload"
+      ]
     }
   ],
   "contextualVariants": [
@@ -9711,7 +9613,6 @@
       "owner": "plan-054/058",
       "catalogStates": [
         "onboarding-start/hub",
-        "onboarding-start/hub-own-open",
         "onboarding-start/hub-existing"
       ]
     },
@@ -10148,7 +10049,6 @@
       "catalogStates": [
         "onboarding-start/hub",
         "onboarding-start/hub-existing",
-        "onboarding-start/hub-own-open",
         "program/overview",
         "program/editor-day-name-refused",
         "program/progression-editor",
@@ -10171,7 +10071,6 @@
       "catalogStates": [
         "onboarding-start/hub",
         "onboarding-start/hub-existing",
-        "onboarding-start/hub-own-open",
         "program/overview",
         "program/editor-day-name-refused",
         "program/progression-editor",
@@ -10194,8 +10093,7 @@
       "owner": "plan-054/058",
       "catalogStates": [
         "onboarding-start/hub",
-        "onboarding-start/hub-existing",
-        "onboarding-start/hub-own-open"
+        "onboarding-start/hub-existing"
       ]
     }
   ],

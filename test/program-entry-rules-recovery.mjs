@@ -14,7 +14,7 @@
  */
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, waitForAppBoot, answerRecommend } from "./browser.mjs";
 import { installSeedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { encodeSetupLink } from "./fixtures/setup-link-v4.mjs";
 
@@ -51,39 +51,20 @@ async function openHub(page) {
   await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 15000 });
 }
 
-async function walkGenerate(page, route) {
-  if (route === "recommend") {
-    await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
-  } else {
-    await page.click('[data-entry-route="custom"]');
-    await atStep(page, ["desired_result"]);
-    await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
-    await page.click("#onbNext");
-  }
-  await atStep(page, ["background"]);
-  await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
-  await page.click("#onbNext");
-  await atStep(page, ["schedule"]);
-  await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="4"]');
-  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
-  await page.click("#onbNext");
-  await atStep(page, ["environment"]);
-  await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
-  await page.click("#onbNext");
-  // The remaining optional steps (priorities, exercise preferences, the split,
-  // which collapses to the generator's authored one) accept their defaults.
-  for (let guard = 0; guard < 6 && (await entry(page)).step !== "result"; guard++) {
-    const before = (await entry(page)).step;
-    await page.click("#onbNext");
-    await page.waitForFunction((step) => window.__repforgeEntryState?.()?.step !== step, before, { timeout: 15000 });
-  }
+/** Custom's door (`[data-entry-route="custom"]`) was removed from the hub by
+ * Plan 072 S2's redesign, so this only walks Recommend now; see the removed
+ * "custom" branch of the rebuild-recovery loop below. */
+async function walkGenerate(page) {
+  await answerRecommend(page, {
+    goal: "muscle_growth", lifting: "6_to_24m", days: 4, minutes: 60, environment: "commercial_gym", skipBasics: true,
+  });
   await atStep(page, ["result"]);
   await page.waitForSelector("#entryActivate", { timeout: 15000 });
 }
 
 async function walkBuild(page) {
-  await page.click("#entryOwnToggle");
-  await page.click('[data-entry-route="build"]');
+  await page.click('[data-entry-hub="build"]');
+  await page.click("#onbNext");
   await page.locator("#entryProgramName").fill("Saved build");
   await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="2"]');
   await page.waitForFunction(() => !document.querySelector("#onbNext")?.disabled, undefined, { timeout: 5000 });
@@ -161,11 +142,12 @@ async function assertPrimaryRebuildRole(page, route) {
 try {
   const current = Adapter.currentVersions(Compiler);
 
-  // Generate and Custom regenerate with the current generator --------------
-  for (const route of ["recommend", "custom"]) {
+  // Generate regenerates with the current generator -------------------------
+  // (Custom made the same proof until Plan 072 removed its hub door.)
+  for (const route of ["recommend"]) {
     const { context, page } = await freshPage({ program: true });
     await openHub(page);
-    await walkGenerate(page, route);
+    await walkGenerate(page);
     const aged = await ageDraftAndReopen(page, { origin: "settings", markPreview: true });
     await assertPrimaryRebuildRole(page, route);
     const shown = await entry(page);
@@ -189,7 +171,7 @@ try {
   {
     const { context, page } = await freshPage({ program: true });
     await openHub(page);
-    await walkGenerate(page, "recommend");
+    await walkGenerate(page);
     await ageDraftAndReopen(page, { origin: "settings", markPreview: true });
     await page.evaluate(() => {
       const base = window.RepForgeProgramEntryAdapter.createProductionServices({

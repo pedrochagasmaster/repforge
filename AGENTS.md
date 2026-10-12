@@ -57,6 +57,17 @@ asynchronous. Continue and Update program commit the answers together with their
 program, and anything that moves the flow on supersedes a pending generation.
 Setup-link decoding still regenerates synchronously.
 
+Onboarding B's Basics (Plan 072: sex, birth date, height, weight, cardio
+experience) live in the setup draft while the lifter answers and, at
+activation, in the durable state's `profile` record (`normalizeProfile` in
+`program-entry.js`). The record is the lifter's own data: it is in a backup
+file and in the install transfer, it is listed in Settings with a delete
+action, and it never enters the generator request, a setup link, a state
+proposal's programming context or telemetry (no event property may name a
+Basics answer; `test/telemetry-unit.mjs` enforces it). Only weight is read:
+it stands in for bodyweight until a session logs one, and its unit becomes
+`settings.unit`.
+
 ## Product strategy
 
 `docs/business-product-thesis.md` is the strategic source of truth for market, business model, Free/Pro boundaries, validation sequencing, creator distribution, data principles, and the eventual native direction. `docs/backlog.md` is the only ordered product and engineering queue. `docs/adr/0010-product-business-thesis-and-validation-sequencing.md` records the governing decisions. The completed owner grilling session through Q602 is preserved in `docs/product-grilling-decision-register.md` and has been reconciled into the thesis, backlog, ADR 0010, and Plan 044. Managed Taurifer AI is governed by `docs/adr/0011-managed-taurifer-ai.md`; `docs/adr/0002-byok-ai-coach.md` and Plan 038 are superseded and must not be executed. Precedence: this file governs how the repository works today; the strategy documents govern why we are building and what strategic direction is authorized. The current repository architecture remains the Phase 1 static PWA until the evidence gates described there justify native commercialization. Do not implement Phase 2 platform hardening on the strength of the thesis alone: no native shells, no package managers at the root, and no production platform/backend architecture (an account platform, production cloud sync, hosted workout-history storage, a production subscription backend, hosted creator publishing, a generalized API layer). Minimal infrastructure whose direct purpose is validating an approved Phase 1 hypothesis is allowed — e.g. a telemetry collector, attribution endpoint, lightweight checkout integration, payment webhook, small entitlement service, or experiment assignment/config — only where the canonical backlog authorizes it. Treat the thesis's quantitative figures as hypotheses to test, not requirements.

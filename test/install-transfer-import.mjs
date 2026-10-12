@@ -292,6 +292,20 @@ async function activateProgram(page) {
   }, REQUEST);
 }
 
+async function seedValidProfile(page) {
+  return page.evaluate(async (profile) => {
+    const current = window.__repforgeWorkoutDraft?.state?.();
+    if (!current || typeof window.__repforgeCommitProposedState !== "function")
+      return { ok: false, code: "production-state-commit-seam-unavailable" };
+    const next = JSON.parse(JSON.stringify(current));
+    next.profile = profile;
+    const result = await window.__repforgeCommitProposedState(next);
+    await window.__repforgeStorage?.flush?.();
+    const stored = JSON.parse(localStorage.getItem("repforge_v1") || "null")?.profile;
+    return { ok: !!(result?.localOk || result?.idbOk), result, stored };
+  }, { sex: "female", birthDate: "1990-03-10", heightCm: 180, heightUnit: "cm", weightKg: 83, cardioExperience: "1_to_4y" });
+}
+
 async function saveWorkout(page) {
   const day = await page.evaluate(() => window.__repforgeWorkoutDraft.state()?.program?.[0]?.day || "Day 1");
   const entered = await page.evaluate((dayLabel) => window.__repforgeEnterWorkout({ day: dayLabel}), day);
@@ -486,6 +500,9 @@ async function buildEnvelope(observation) {
 
 function assertEnvelopeSourceFields(envelope) {
   const state = envelope?.durableState;
+  check(sameValue(state?.profile, {
+    sex: "female", birthDate: "1990-03-10", heightCm: 180, heightUnit: "cm", weightKg: 83, cardioExperience: "1_to_4y",
+  }), "source envelope carries the valid profile record exactly", state?.profile);
   check(typeof state?.programMeta?.blockId === "string" && state.programMeta.blockId.length > 0,
     "source envelope retains final Plan 052 programMeta.blockId");
   check(state?.programMeta?.transitionIn?.status === "committed" &&
@@ -515,6 +532,9 @@ function assertImportedLogical(actual, idbState, expected, label) {
   check(sameValue(logicalDurableState(actual.durableState), expected.durableState) &&
     sameValue(logicalDurableState(idbState), expected.durableState),
   `${label}: durable state is exact in localStorage and IndexedDB`);
+  check(sameValue(actual.durableState?.profile, expected.durableState?.profile) &&
+    sameValue(idbState?.profile, expected.durableState?.profile),
+  `${label}: valid profile clone is exact in both replicas`, { local: actual.durableState?.profile, idb: idbState?.profile });
   check(sameValue(actual.draft.logical, expected.workoutDraft) &&
     actual.draft.checkpoint?.status === "valid" &&
     actual.draft.checkpoint.value?.kind === "committed" &&
@@ -1350,6 +1370,185 @@ async function seedSettingsOnlyDestination(page) {
   });
 }
 
+async function seedProfileOnlyDestination(page, profile) {
+  return page.evaluate(async ({ profile, stateKey, dbName, storeName }) => {
+    let state;
+    try { state = JSON.parse(localStorage.getItem(stateKey) || "null"); }
+    catch { return { ok: false, code: "destination-state-unreadable" }; }
+    if (!state || typeof state !== "object") return { ok: false, code: "destination-state-missing" };
+    const seeded = { ...state, profile };
+    localStorage.setItem(stateKey, JSON.stringify(seeded));
+    await new Promise((resolve, reject) => {
+      const request = indexedDB.open(dbName);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(storeName)) {
+          db.close(); reject(new Error("destination-state-store-missing")); return;
+        }
+        const transaction = db.transaction(storeName, "readwrite");
+        transaction.objectStore(storeName).put(seeded, stateKey);
+        transaction.oncomplete = () => { db.close(); resolve(); };
+        transaction.onerror = () => { db.close(); reject(transaction.error); };
+        transaction.onabort = () => { db.close(); reject(transaction.error || new Error("destination-state-write-aborted")); };
+      };
+    });
+    return { ok: true, seededProfile: seeded.profile };
+  }, { profile, stateKey: STATE_KEY, dbName: DB_NAME, storeName: STORE_NAME });
+}
+
+async function runProfileDestinationProtection(browser, envelope) {
+  console.log("\nPlan 072 OD-4 profile-only destination protection after boot and reload");
+  const profiles = [
+    ["valid explicit profile", { sex: "female", birthDate: "1990-03-10", heightCm: 180, heightUnit: "cm", weightKg: 83 }],
+    ["unknown profile record", { sex: "female", futureAnswer: "retain-me" }],
+    ["malformed profile record", { sex: "female", weightKg: 0 }],
+    ["object birth date", { sex: "female", birthDate: { raw: "retain-me" }, weightKg: 83 }],
+    ["invalid birth date", { sex: "female", birthDate: "not-a-date", weightKg: 83 }],
+    ["string weight", { sex: "female", birthDate: "1990-03-10", weightKg: "83" }],
+  ];
+  for (const [label, profile] of profiles) {
+    const { context, page } = await openFreshContext(browser);
+    const pageErrors = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+    try {
+      const seeded = await seedProfileOnlyDestination(page, profile);
+      await page.reload({ waitUntil: "domcontentloaded" });
+      let booted = false;
+      let bootError = null;
+      try {
+        await waitForAppBoot(page, { base: BASE, timeout: 10000 });
+        booted = true;
+        await flush(page);
+      } catch (error) {
+        bootError = error.message;
+      }
+      const observed = await page.evaluate(({ stateKey }) => {
+        try { return JSON.parse(localStorage.getItem(stateKey) || "null")?.profile ?? null; }
+        catch { return null; }
+      }, { stateKey: STATE_KEY });
+      check(seeded.ok && booted && sameValue(observed, profile),
+        `${label}: profile record survives ordinary boot and reload unchanged`, { seeded, booted, bootError, pageErrors, observed, profile });
+
+      if (label === "valid explicit profile" && booted) {
+        const initialBodyweight = await page.locator("#sessionBodyweight").inputValue();
+        check(initialBodyweight === "83",
+          "valid profile weight still prefills the production session field", { initialBodyweight });
+      }
+
+      const before = await readStorageBytes(page);
+      let result;
+      try { result = await importInto(page, envelope); }
+      catch (error) { result = { thrown: error.message }; }
+      const after = await readStorageBytes(page);
+      check(result?.ok === false && result?.code === "destination-meaningful",
+        `${label}: the explicit profile makes production transfer import refuse before overwrite`, result);
+      check(sameValue(after.local, before.local) && sameValue(after.idb, before.idb),
+        `${label}: refused import preserves profile and all destination storage bytes`, { before, after });
+    } finally {
+      await context.close();
+    }
+  }
+}
+
+async function runMalformedProfileSettings(browser) {
+  console.log("\nPlan 072 OD-4 malformed profile values stay out of Settings consumers");
+  const profiles = [
+    ["malformed birth date only", { birthDate: { raw: "retain-me" } }, 0, ["retain-me"]],
+    ["unknown-only profile", { futureAnswer: "retain-me" }, 0, ["retain-me"]],
+    ["object birth date", { sex: "female", birthDate: { raw: "retain-me" }, weightKg: 83 }, 2, ["retain-me"]],
+    ["invalid birth date", { sex: "female", birthDate: "not-a-date", weightKg: 83 }, 2, ["Invalid Date", "not-a-date"]],
+    ["string weight", { sex: "female", birthDate: "1990-03-10", weightKg: "83" }, 2, ["83"]],
+  ];
+  const { context, page } = await openFreshContext(browser);
+  const pageErrors = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  try {
+    const activated = await activateProgram(page);
+    check(activated.ok, "Settings fixture has a production-activated program", activated);
+    for (const [label, profile, expectedRows, excludedText] of profiles) {
+      const errorCount = pageErrors.length;
+      const seeded = await seedProfileOnlyDestination(page, profile);
+      await page.reload({ waitUntil: "domcontentloaded" });
+      let booted = false;
+      let bootError = null;
+      try {
+        await waitForAppBoot(page, { base: BASE, timeout: 10000 });
+        booted = true;
+        await flush(page);
+      } catch (error) {
+        bootError = error.message;
+      }
+      const observed = await page.evaluate(({ stateKey }) => {
+        try { return JSON.parse(localStorage.getItem(stateKey) || "null")?.profile ?? null; }
+        catch { return null; }
+      }, { stateKey: STATE_KEY });
+      check(seeded.ok && booted && sameValue(observed, profile),
+        `${label}: malformed raw record survives ordinary boot and reload`, { seeded, booted, bootError, observed, profile, pageErrors });
+
+      if (label === "string weight" && booted) {
+        const initialBodyweight = await page.locator("#sessionBodyweight").inputValue();
+        check(initialBodyweight === "",
+          "invalid raw profile weight does not prefill the production session field at boot", { initialBodyweight });
+      }
+
+      if (booted) {
+        await page.click("#openSettings");
+        await page.waitForSelector("#restSecRow", { timeout: 10000 });
+      }
+      const settings = booted ? await page.evaluate(() => ({
+        visible: document.querySelector("#settings")?.classList.contains("active") ?? false,
+        profileRowHidden: document.querySelector("#profileRow")?.hidden ?? true,
+        values: [...(document.querySelector("#profileList")?.querySelectorAll("dd") || [])].map((node) => node.textContent),
+        profileText: document.querySelector("#profileList")?.textContent || "",
+      })) : null;
+      let clearActionVisible = false;
+      let profileDeletedAndStillDeletedAfterReload = false;
+      if ((label === "malformed birth date only" || label === "unknown-only profile") &&
+        booted && settings?.visible && !settings.profileRowHidden) {
+        await page.click("#profileRow");
+        await page.waitForFunction(() => document.querySelector("#profileRow")?.getAttribute("aria-expanded") === "true");
+        clearActionVisible = await page.locator("#profileClear").isVisible();
+        if (clearActionVisible) {
+          page.removeAllListeners("dialog");
+          page.once("dialog", (dialog) => dialog.accept());
+          await page.click("#profileClear");
+          page.on("dialog", (dialog) => dialog.dismiss().catch(() => {}));
+          await page.waitForFunction(({ stateKey }) => {
+            try {
+              const state = JSON.parse(localStorage.getItem(stateKey) || "null");
+              return state && !Object.prototype.hasOwnProperty.call(state, "profile");
+            } catch { return false; }
+          }, { stateKey: STATE_KEY });
+          await page.reload({ waitUntil: "domcontentloaded" });
+          let deleteReloadBooted = false;
+          try {
+            await waitForAppBoot(page, { base: BASE, timeout: 10000 });
+            deleteReloadBooted = true;
+            await flush(page);
+          } catch {}
+          profileDeletedAndStillDeletedAfterReload = deleteReloadBooted && await page.evaluate(({ stateKey }) => {
+            try {
+              const state = JSON.parse(localStorage.getItem(stateKey) || "null");
+              return !!state && !Object.prototype.hasOwnProperty.call(state, "profile");
+            } catch { return false; }
+          }, { stateKey: STATE_KEY });
+        }
+      }
+      const currentErrors = pageErrors.slice(errorCount);
+      check(booted && settings?.visible && !settings.profileRowHidden && settings.values.length === expectedRows &&
+        excludedText.every((value) => !settings.profileText.includes(value)) && currentErrors.length === 0 &&
+        ((label !== "malformed birth date only" && label !== "unknown-only profile") ||
+          (clearActionVisible && profileDeletedAndStillDeletedAfterReload)),
+      `${label}: Settings displays only valid values and its explicit Delete action removes the raw record through reload`,
+      { settings, clearActionVisible, profileDeletedAndStillDeletedAfterReload, currentErrors, bootError });
+
+    }
+  } finally {
+    await context.close();
+  }
+}
+
 async function runP4cSettingsOnlyDestination(browser, envelope) {
   console.log("\nPlan 053-P4c D non-default durable-settings destination refusal");
   const { context, page } = await openFreshContext(browser);
@@ -1954,6 +2153,12 @@ async function main() {
     if (!activation.ok) throw new Error(JSON.stringify(activation));
     await source.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(source, { base: BASE });
+    const profile = await seedValidProfile(source);
+    const expectedProfile = {
+      sex: "female", birthDate: "1990-03-10", heightCm: 180, heightUnit: "cm", weightKg: 83, cardioExperience: "1_to_4y",
+    };
+    check(profile.ok && sameValue(profile.stored, expectedProfile),
+      "source stores an explicit valid profile through the production state commit", profile);
 
     const custom = await addCustomExercise(source);
     check(custom?.result?.localOk || custom?.result?.idbOk, "custom exercise is saved through the production custom-exercise API", custom);
@@ -2060,6 +2265,8 @@ async function main() {
         "meaningful-destination refusal leaves storage bytes/logical state unchanged");
       await refusal.close();
       await runFaultMatrix(browser, envelope);
+      await runProfileDestinationProtection(browser, envelope);
+      await runMalformedProfileSettings(browser);
       await runMeaningfulDestinationMatrix(browser, envelope);
       await runP4cStandaloneClaimCommit(browser, envelope);
       await runP4cConcurrentImport(browser, envelope);

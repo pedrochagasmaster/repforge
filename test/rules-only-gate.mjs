@@ -176,23 +176,24 @@ try {
     "each sampled state was audited as an open sheet", JSON.stringify(run.rendered.map((item) => `${item.key}:${item.sheets}`)));
 
   // ------------------------------------------------ R7 V-12: the onboarding accent budget
-  // The pain note and the hub guide cue sit on --well with an --ink-soft shield; the same checkOrange the D gate runs
-  // reports nothing on them, in both themes and both languages. A seeded accent edge on the pain note is reported, so the
-  // audit bites. (Other onboarding accent uses are out of this finding's scope and come back in `outside`.)
+  // The hub guide cue sits on --well with an --ink-soft shield; the same checkOrange the D gate runs reports nothing
+  // on it, in both themes and both languages. A seeded accent edge on the cue is reported, so the audit bites. (The
+  // pain note left the catalog with Recommend's avoidance step in Plan 072; other onboarding accent uses are out of
+  // this finding's scope and come back in `outside`.)
   console.log("\nThe onboarding accent budget (owner decision #295 comment 5965828337)");
-  const v12 = ["onboarding-start/hub", "onboarding-start/hub-own-open", "onboarding-start/hub-existing", "onboarding-start/hub-help", "onboarding-recommend/avoidance-pain"];
+  const v12 = ["onboarding-start/hub", "onboarding-start/hub-chosen", "onboarding-start/hub-existing"];
   for (const theme of ["light", "dark"]) {
     const onboarding = await runOnboardingOrange({ states: v12, locales: ["pt", "en"], theme, browser, manifest });
-    check(onboarding.rendered.length === v12.length * 2, `every pain-note and hub state rendered in PT and EN (${theme})`, JSON.stringify(onboarding.rendered));
-    check(onboarding.ok && onboarding.findings.length === 0, `the pain note and the hub guide cue use no accent (${theme})`,
+    check(onboarding.rendered.length === v12.length * 2, `every hub state rendered in PT and EN (${theme})`, JSON.stringify(onboarding.rendered));
+    check(onboarding.ok && onboarding.findings.length === 0, `the hub guide cue uses no accent (${theme})`,
       show(onboarding.findings.map((item) => `${item.key} [${item.locale}] ${item.message}`)));
   }
-  const seededPain = await runOnboardingOrange({
-    states: ["onboarding-recommend/avoidance-pain"], locales: ["en"], browser, manifest,
-    prepare: (page) => page.addStyleTag({ content: ".entry__pain{border-left:3px solid var(--accent) !important}" }),
+  const seededCue = await runOnboardingOrange({
+    states: ["onboarding-start/hub"], locales: ["en"], browser, manifest,
+    prepare: (page) => page.addStyleTag({ content: ".guide-cue{border-left:3px solid var(--accent) !important}" }),
   });
-  check(!seededPain.ok && seededPain.findings.some((item) => /entry__pain/.test(item.message) && /border-left-color/.test(item.message)),
-    "an accent edge on the pain note is reported by the same check", show(seededPain.findings.map((item) => item.message)));
+  check(!seededCue.ok && seededCue.findings.some((item) => /guide-cue/.test(item.message) && /border-left-color/.test(item.message)),
+    "an accent edge on the hub guide cue is reported by the same check", show(seededCue.findings.map((item) => item.message)));
   check(ONBOARDING_ACCENT_SCOPE.test("p.entry__pain in #onbBody is painted with the accent") && ONBOARDING_ACCENT_SCOPE.test("aside.guide-cue in #onbBody is painted with the accent"),
     "the audit's scope is the pain note and the hub guide cue");
 

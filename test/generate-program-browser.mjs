@@ -17,9 +17,18 @@
  * reload, and the first workout starts with the edited prescriptions.
  *
  * #353: both journeys generate through the program engine's worker.
+ *
+ * Plan 072 S2: onboarding B's screens. The hub chooses Recommend, then the
+ * section map, the six Basics, gym and equipment, and the program screens lead
+ * to the review. Every answer reaches the request, every optional screen's
+ * Skip or default reproduces the request without it, the Basics never reach
+ * the request, a setup link or telemetry, and activation keeps them on the
+ * device as the profile: weight stands in for bodyweight and its unit becomes
+ * the app's. A draft saved on a retired screen resumes on the screen that now
+ * asks its question.
  */
 import { createRequire } from "node:module";
-import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { answerRecommend, launchChromium, waitForAppBoot } from "./browser.mjs";
 
 const require = createRequire(import.meta.url);
 const Adapter = require("../program-entry-adapter.js");
@@ -41,11 +50,13 @@ function check(condition, message, detail) {
 const state = (page) => page.evaluate(() => window.__repforgeWorkoutDraft.state());
 const entry = (page) => page.evaluate(() => window.__repforgeEntryState?.());
 
-async function fresh(browser, { uuid } = {}) {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+async function fresh(browser, { uuid, hasTouch = false, reducedMotion, withoutMotion = false } = {}) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch,
+    ...(reducedMotion ? { reducedMotion } : {}) });
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(String(error?.stack || error)));
+  if (withoutMotion) await page.route("**/motion-layer.js*", (route) => route.abort());
   // A pinned draftId pins the generator's seed, so a scenario that needs a
   // specific candidate-selection outcome (the abilities-gated exercise proof
   // below) is deterministic rather than depending on which random id this
@@ -61,33 +72,75 @@ async function fresh(browser, { uuid } = {}) {
   return { context, page, errors };
 }
 
+/** Observe a real entry action until its pushed page has settled. The outgoing
+ *  heading remains in the static, hidden copy while the new page is moving. */
+async function entryPageTransition(page, control) {
+  return page.evaluate((selector) => {
+    const body = document.querySelector("#onbBody");
+    const beforeHeading = body?.querySelector("#entryHeading");
+    const beforeText = beforeHeading?.textContent.trim() || "";
+    const beforeStep = window.__repforgeEntryState?.()?.step;
+    const samples = [];
+    return new Promise((resolve) => {
+      const sample = () => {
+        const live = body?.querySelector("#entryHeading");
+        const headings = [...(body?.querySelectorAll("h1,h2") || [])];
+        const outgoing = headings.find((heading) => heading !== live && heading.textContent.trim() === beforeText);
+        const pages = [...(body?.querySelectorAll(".entry-motion-page") || [])];
+        const state = window.__repforgeEntryState?.();
+        const moving = pages.some((node) => node.classList.contains("is-push-over") || node.classList.contains("is-edge-swiping"));
+        const exposed = (node) => !node.closest("[aria-hidden='true'],[inert]");
+        const exposedHeadings = headings.filter(exposed).length;
+        const ids = [body, ...(body?.querySelectorAll("[id]") || [])].filter(exposed).map((node) => node.id).filter(Boolean);
+        samples.push({
+          t: performance.now(), step: state?.step, currentText: live?.textContent.trim() || "",
+          currentX: live?.getBoundingClientRect().x ?? null, outgoingX: outgoing?.getBoundingClientRect().x ?? null,
+          outgoingHidden: !!outgoing?.closest("[aria-hidden='true']"), outgoingInert: !!outgoing?.closest("[inert]"),
+          outgoingVisible: !!outgoing && getComputedStyle(outgoing).display !== "none" && getComputedStyle(outgoing).visibility !== "hidden",
+          exposedHeadings, idsUnique: new Set(ids).size === ids.length, moving,
+        });
+        if (state?.step !== beforeStep && !moving && samples.length > 1) {
+          resolve({ beforeText, beforeStep, samples, finalTransform: pages.some((node) => !!node.style.transform),
+            leftover: pages.filter((node) => node.classList.contains("is-push-over") || node.classList.contains("is-edge-swiping")).length });
+          return;
+        }
+        requestAnimationFrame(sample);
+      };
+      document.querySelector(selector)?.click();
+      requestAnimationFrame(sample);
+    });
+  }, control);
+}
+
+function checkEntryPagePush(run, direction, label) {
+  const layered = run.samples.filter((sample) => sample.outgoingX != null && sample.currentX != null);
+  const start = direction === "in" ? layered[0]?.currentX : layered[0]?.outgoingX;
+  const end = direction === "in" ? layered.at(-1)?.currentX : layered.at(-1)?.outgoingX;
+  const xs = layered.map((sample) => direction === "in" ? sample.currentX : sample.outgoingX);
+  const monotone = xs.every((value, index) => index === 0 ||
+    (direction === "in" ? value <= xs[index - 1] + 0.6 : value >= xs[index - 1] - 0.6));
+  check(layered.length >= 5 && start != null && end != null &&
+    (direction === "in" ? start > end + 120 : end > start + 120) && monotone,
+    `${label}: B's page uses navPush ${direction === "in" ? "into" : "back to"} the next screen`,
+    { frames: layered.length, start, end, xs: xs.slice(0, 8), steps: [run.beforeStep, run.samples.at(-1)?.step] });
+  check(layered.some((sample) => sample.outgoingHidden && sample.outgoingInert && sample.outgoingVisible) &&
+    layered.every((sample) => sample.exposedHeadings === 1 && sample.idsUnique),
+    `${label}: the outgoing copy stays visible but inert, with one live heading and no duplicate live IDs`,
+    layered.map(({ outgoingHidden, outgoingInert, exposedHeadings, idsUnique }) =>
+      ({ outgoingHidden, outgoingInert, exposedHeadings, idsUnique })));
+  check(run.leftover === 0 && !run.finalTransform,
+    `${label}: the pushed screen settles without a transform or gesture layer`,
+    { leftover: run.leftover, finalTransform: run.finalTransform });
+}
+
 async function pick(page, key, value) {
   await page.locator(`[data-entry-pick="${key}"][data-entry-val="${value}"]`).first().click();
 }
 
-async function answerGenerate(page, { days = 4, minutes = 60, environment = "commercial_gym", abilities = null } = {}) {
+async function answerGenerate(page, { days = 4, minutes = 60, environment = "commercial_gym", abilities = null, ...rest } = {}) {
   await page.click("#firstRunCreate");
   await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
-  await page.locator('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]').click();
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "background");
-  await pick(page, "structuredExperience", "6_to_24m");
-  await page.click("#onbNext");
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "schedule");
-  await pick(page, "daysPerWeek", days);
-  await pick(page, "sessionMinutes", minutes);
-  await page.click("#onbNext");
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "environment");
-  await pick(page, "environment", environment);
-  await page.click("#onbNext");
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
-  if (abilities === "skip") {
-    await page.click("#entryAbilitiesSkip");
-  } else {
-    for (const [key, choice] of Object.entries(abilities || {})) await pick(page, "competencyAnswer", `${key}|${choice}`);
-    await page.click("#onbNext");
-  }
-  await page.waitForFunction(() => ["priorities", "result"].includes(window.__repforgeEntryState?.()?.step));
-  if ((await entry(page)).step === "priorities") await page.click("#onbNext");
+  await answerRecommend(page, { days, minutes, environment, abilities, skipBasics: true, ...rest });
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "result");
 }
 
@@ -354,6 +407,279 @@ async function impossible(browser) {
   return run.errors;
 }
 
+// Plan 072 S2: onboarding B -------------------------------------------------
+const BASICS_ANSWERS = {
+  sex: "female", birth: { yearIndex: 1990 - 1920, monthIndex: 2, dayIndex: 9 }, heightCm: 180, weightSteps: 25,
+  lifting: "over_24m", cardio: "1_to_4y", environment: "limited_home", equipment: ["bench", "kettlebells"], goal: "strength",
+  days: 3, minutes: 90, priorities: { glutes: "prioritize", calves: "reduce" }, deload: true, abilities: { benchPress10: "yes", pullups10: "yes" },
+};
+
+async function onboardingB(browser) {
+  const run = await fresh(browser);
+  const { page } = run;
+  await page.click("#firstRunCreate");
+  await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
+  check(await page.locator("[data-entry-hub]").count() === 3 && await page.locator("#onbNext").isDisabled(),
+    "B's hub offers Recommend, Build and Import, and Continue waits for a choice");
+  await answerRecommend(page, { until: "sex" });
+  const header = await page.evaluate(() => ({ eyebrow: document.querySelector("#onbEyebrow")?.textContent,
+    step: document.querySelector("#onbStepLabel")?.textContent, segments: document.querySelectorAll("#onbSegbar .segbar__seg").length,
+    skip: !document.querySelector("#onbSkip")?.hidden, blocked: document.querySelector("#onbNext")?.disabled }));
+  check(header.eyebrow === "Basics" && header.step === "Section 1 of 3" && header.segments === 3 && header.skip && header.blocked,
+    "a Basics screen names its section, counts three sections, offers Skip and holds Continue until a choice", header);
+  await answerRecommend(page, BASICS_ANSWERS);
+  await page.locator("#entryActivate").waitFor({ state: "visible", timeout: 20000 });
+  const staged = await entry(page);
+  check(JSON.stringify(staged.answers.basics) === JSON.stringify({
+    sex: "female", birthDate: "1990-03-10", heightCm: 180, heightUnit: "cm", weightKg: 83, weightUnit: "kg", cardioExperience: "1_to_4y",
+  }), "every Basics screen stores what the lifter set, and only that", staged.answers.basics);
+  const request = staged.result?.preview?.programDefinition?.request;
+  const mapped = Adapter.programRequestFromAnswers(staged.answers, Catalog);
+  check(mapped.ok && JSON.stringify(request?.gymProfile) === JSON.stringify(mapped.value.gymProfile),
+    "the equipment the lifter adjusted is the request's equipment");
+  const groups = Adapter.EQUIPMENT_GROUPS;
+  check(groups.bench.every((id) => request.gymProfile.equipmentIds.includes(id)) &&
+    groups.kettlebells.every((id) => !request.gymProfile.equipmentIds.includes(id)),
+    "ticking the bench adds it and unticking the kettlebells removes them from Home");
+  check(request.goal === "strength" && request.daysPerWeek === 3 && request.timeCeilingMinutes === 90 &&
+    request.experience === "advanced" && JSON.stringify(request.deloadCycles) === "[7]" && request.competencyAnswers.benchPress10 === true &&
+    request.emphasisMuscleIds.length === 1 && request.deprioritizedMuscleIds.length === 1,
+  "goal, days, session length, experience, deload, abilities and both muscle priorities reach the request", request);
+  check(staged.answers.competencyAnswers?.pullups10 === true && staged.answers.competencyAnswers?.pullups5 === true &&
+    request.competencyAnswers.pullups5 === true, "a yes to ten strict pull-ups also answers five", staged.answers.competencyAnswers);
+  const definitionText = JSON.stringify(staged.result.preview.programDefinition);
+  check(!/1990-03-10|"female"|1_to_4y|basics|birthDate|heightCm|weightKg/.test(definitionText),
+    "no Basics answer reaches the program definition a setup link carries");
+  await page.click("#entryActivate");
+  await page.waitForFunction(() => window.__repforgeWorkoutDraft.state()?.programMeta?.onboarded === true, undefined, { timeout: 20000 });
+  await page.evaluate(() => window.__repforgeStorage?.flush?.());
+  const active = await state(page);
+  check(JSON.stringify(active.profile) === JSON.stringify({
+    sex: "female", birthDate: "1990-03-10", heightCm: 180, heightUnit: "cm", weightKg: 83, cardioExperience: "1_to_4y",
+  }) && active.settings.unit === "kg", "activation keeps the Basics on this device as the profile", active.profile);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  check(JSON.stringify((await state(page)).profile?.birthDate) === '"1990-03-10"', "the profile survives a reload");
+  await page.evaluate(() => window.__repforgeShowSettings?.());
+  await page.waitForSelector("#profileRow:not([hidden])", { timeout: 10000 });
+  await page.click("#profileRow");
+  const listed = await page.locator("#profileList .settings-profile__row").count();
+  check(listed === 5, "Settings lists the five answers kept about the lifter", listed);
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.click("#profileClear");
+  await page.waitForFunction(() => !window.__repforgeWorkoutDraft.state()?.profile, undefined, { timeout: 10000 });
+  check(await page.locator("#profileRow").isHidden(), "deleting the answers removes them and the Settings row");
+  await run.context.close();
+  return run.errors;
+}
+
+async function onboardingBNavigation(browser) {
+  const run = await fresh(browser, { hasTouch: true });
+  const { page } = run;
+  await page.click("#firstRunCreate");
+  await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
+  await page.click('[data-entry-hub="recommend"]');
+  const forward = await entryPageTransition(page, "#onbNext");
+  check(forward.samples.at(-1)?.step === "intro", "the Recommend choice reaches the first B screen");
+  checkEntryPagePush(forward, "in", "the hub Continue action");
+
+  const back = await entryPageTransition(page, "#onbBack");
+  check(back.samples.at(-1)?.step === "entry", "Back from the first B screen returns to the hub");
+  checkEntryPagePush(back, "out", "the first screen's Back action");
+
+  await page.evaluate(() => {
+    const nativeMatchMedia = window.matchMedia.bind(window);
+    window.matchMedia = (query) => /display-mode:\s*standalone/.test(query)
+      ? { matches: true, media: query, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }
+      : nativeMatchMedia(query);
+  });
+  await page.click('[data-entry-hub="recommend"]');
+  const toIntro = await entryPageTransition(page, "#onbNext");
+  checkEntryPagePush(toIntro, "in", "the hub Continue action before edge-swipe Back");
+  const introText = toIntro.samples.at(-1)?.currentText || "";
+  const toSex = await entryPageTransition(page, "#onbNext");
+  check(toSex.samples.at(-1)?.step === "sex", "Continue from the B intro reaches the first Basics screen");
+  checkEntryPagePush(toSex, "in", "Continue from the B intro");
+  const livePage = page.locator("#onbBody > .entry-motion-page:not([aria-hidden='true'])");
+  const liveBox = await livePage.boundingBox();
+  const edgeTouchAction = await page.locator("#onboarding").evaluate((element) => getComputedStyle(element).touchAction);
+  const cdp = await run.context.newCDPSession(page);
+  const edgeY = Math.round(liveBox.y + 40);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: 4, y: edgeY }] });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: 244, y: edgeY }] });
+  await page.waitForFunction(() => !!document.querySelector("#onbBody .entry-motion-page.is-edge-swiping"), undefined,
+    { timeout: 5000 });
+  const swipe = await page.evaluate((expectedUnderText) => {
+    const body = document.querySelector("#onbBody");
+    const current = body?.querySelector(".entry-motion-page:not([aria-hidden='true'])");
+    const rect = current?.getBoundingClientRect();
+    if (!current || !rect) return { registeredPage: false };
+    const outgoing = [...(body?.querySelectorAll("h1,h2") || [])]
+      .find((heading) => heading !== body.querySelector("#entryHeading") && heading.textContent.trim() === expectedUnderText);
+    const exposed = (node) => !node.closest("[aria-hidden='true'],[inert]");
+    const exposedHeadings = [...(body?.querySelectorAll("h1,h2") || [])].filter(exposed).length;
+    const ids = [body, ...(body?.querySelectorAll("[id]") || [])].filter(exposed).map((node) => node.id).filter(Boolean);
+    const transform = new DOMMatrixReadOnly(getComputedStyle(current).transform).m41;
+    const live = current.classList.contains("is-edge-swiping");
+    const underEvidence = outgoing && {
+      text: outgoing.textContent.trim(), hidden: !!outgoing.closest("[aria-hidden='true']"),
+      inert: !!outgoing.closest("[inert]"), display: getComputedStyle(outgoing).display,
+      visible: getComputedStyle(outgoing).visibility, expectedUnderText,
+    };
+    const under = !!underEvidence && underEvidence.hidden && underEvidence.inert &&
+      underEvidence.display !== "none" && underEvidence.text === expectedUnderText;
+    return { registeredPage: true, live, transform, under, underEvidence, headingTexts: [...(body?.querySelectorAll("h1,h2") || [])].map((heading) => heading.textContent.trim()),
+      snapshots: [...(body?.querySelectorAll(".entry-motion-page") || [])].map((node) => ({ id: node.id, key: node.dataset.entryMotionKey, copy: node.dataset.entryMotionCopy, classes: node.className })),
+      previousStep: window.__repforgeEntryState?.()?.step, exposedHeadings, idsUnique: new Set(ids).size === ids.length };
+  }, introText);
+  swipe.shellTouchAction = edgeTouchAction;
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  const swipedBack = await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "intro", undefined,
+    { timeout: 5000 }).then(() => true, () => false);
+  check(swipe.registeredPage && swipe.live && swipe.transform >= 120 && swipe.under &&
+    swipe.exposedHeadings === 1 && swipe.idsUnique && swipe.shellTouchAction.includes("pan-y"),
+    "standalone edge swipe reveals the inert previous screen without exposing duplicate live controls", swipe);
+  check(swipedBack, "the committed edge swipe uses Back and returns to the prior question");
+  const settled = await page.evaluate(() => ({
+    state: window.__repforgeEntryState?.()?.step,
+    layers: document.querySelectorAll("#onbBody .is-push-over,#onbBody .is-edge-swiping").length,
+    transformed: [...document.querySelectorAll("#onbBody .entry-motion-page")].some((node) => !!node.style.transform),
+    exposedHeadings: [...document.querySelectorAll("#onbBody h1,#onbBody h2")]
+      .filter((heading) => !heading.closest("[aria-hidden='true'],[inert]")).length,
+  }));
+  check(settled.state === "intro" && settled.layers === 0 && !settled.transformed && settled.exposedHeadings === 1,
+    "the edge-swipe Back path settles the prior question cleanly", settled);
+  await answerRecommend(page, { skipBasics: true, until: "weight" });
+  await page.waitForFunction(() => !document.querySelector("#onbBody .is-push-over"), undefined, { timeout: 5000 });
+  const ruler = page.locator("#entryWeightRuler");
+  const rulerBox = await ruler.boundingBox();
+  const rulerBefore = await ruler.evaluate((element) => element.scrollLeft);
+  const rulerX = Math.round(rulerBox.x + 200), rulerY = Math.round(rulerBox.y + 35);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: rulerX, y: rulerY }] });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: rulerX - 70, y: rulerY }] });
+  await page.waitForFunction((before) => document.querySelector("#entryWeightRuler")?.scrollLeft !== before,
+    rulerBefore, { timeout: 5000 });
+  const rulerAfter = await ruler.evaluate((element) => element.scrollLeft);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  check(rulerAfter !== rulerBefore,
+    "the standalone edge-swipe pan policy preserves native horizontal weight-ruler scrolling",
+    { before: rulerBefore, after: rulerAfter });
+  await cdp.detach();
+  check(run.errors.length === 0, "no page errors in B's push and edge-swipe run", run.errors);
+  await run.context.close();
+
+  const reduced = await fresh(browser, { reducedMotion: "reduce" });
+  await reduced.page.click("#firstRunCreate");
+  await reduced.page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
+  await reduced.page.click('[data-entry-hub="recommend"]');
+  const reducedPush = await entryPageTransition(reduced.page, "#onbNext");
+  check(reducedPush.samples.at(-1)?.step === "intro" && reducedPush.leftover === 0 && !reducedPush.finalTransform &&
+    reducedPush.samples.every((sample) => !sample.moving),
+    "reduced motion advances to B's screen at rest without a push layer", reducedPush);
+  await reduced.page.click("#onbBack");
+  await reduced.page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "entry", undefined, { timeout: 5000 });
+  check(await reduced.page.locator("#entryHeading").isVisible(), "reduced-motion Back remains available at the hub");
+  check(reduced.errors.length === 0, "no page errors in B's reduced-motion navigation", reduced.errors);
+  await reduced.context.close();
+
+  const fallback = await fresh(browser, { withoutMotion: true });
+  await fallback.page.click("#firstRunCreate");
+  await fallback.page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
+  await fallback.page.click('[data-entry-hub="recommend"]');
+  const fallbackPush = await entryPageTransition(fallback.page, "#onbNext");
+  check(fallbackPush.samples.at(-1)?.step === "intro" && fallbackPush.leftover === 0 && !fallbackPush.finalTransform &&
+    fallbackPush.samples.every((sample) => !sample.moving),
+    "without the optional Motion layer, B still reaches its question screen cleanly", fallbackPush);
+  await fallback.page.click("#onbBack");
+  await fallback.page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "entry", undefined, { timeout: 5000 });
+  check(await fallback.page.locator("#entryHeading").isVisible(), "the no-Motion fallback keeps Back usable");
+  check(fallback.errors.length === 0, "no page errors in B's no-Motion navigation", fallback.errors);
+  await fallback.context.close();
+  return [...reduced.errors, ...fallback.errors];
+}
+
+async function onboardingPounds(browser) {
+  const run = await fresh(browser);
+  const { page } = run;
+  await page.click("#firstRunCreate");
+  await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
+  await answerRecommend(page, { skipBasics: true, until: "weight" });
+  await page.click('[data-entry-pick="basicsWeightUnit"][data-entry-val="lb"]');
+  await page.focus("#entryWeightRuler");
+  for (let i = 0; i < 5; i++) await page.keyboard.press("ArrowRight");
+  const shown = await page.locator("#entryWeightRuler").getAttribute("aria-valuenow");
+  await page.click("#onbNext");
+  await answerRecommend(page, { skipBasics: true });
+  await page.locator("#entryActivate").waitFor({ state: "visible", timeout: 20000 });
+  await page.click("#entryActivate");
+  await page.waitForFunction(() => window.__repforgeWorkoutDraft.state()?.programMeta?.onboarded === true, undefined, { timeout: 20000 });
+  const active = await state(page);
+  check(active.settings.unit === "lb" && Math.abs(active.profile.weightKg - Number(shown) * 0.45359237) < 0.06 && !active.profile.weightUnit,
+    "a weight set in pounds becomes the app's unit and is kept in kilograms", { unit: active.settings.unit, shown, profile: active.profile });
+  await run.context.close();
+  return run.errors;
+}
+
+async function onboardingResume(browser) {
+  const run = await fresh(browser);
+  const { page } = run;
+  await page.click("#firstRunCreate");
+  await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
+  await answerRecommend(page, { skipBasics: true, until: "session_length" });
+  // A draft saved by the release before B, on the screen that asked days and
+  // minutes together.
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1"));
+    raw.state.step = "schedule";
+    localStorage.setItem("repforge_program_setup_draft_v1", JSON.stringify(raw));
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  const onboarding = page.locator("#onboarding.active");
+  if (!await onboarding.count()) await page.click("#firstRunCreate").catch(() => {});
+  const resume = page.locator("#entryResumeContinue");
+  if (await resume.count()) await resume.click();
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "days_per_week", undefined, { timeout: 10000 });
+  check((await entry(page)).answers.environment?.kind === "commercial_gym",
+    "a draft saved on the retired schedule screen resumes on the days screen with its answers");
+  await run.context.close();
+
+  const everyScreen = await fresh(browser);
+  const resumePage = everyScreen.page;
+  await resumePage.click("#firstRunCreate");
+  await resumePage.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
+  const routeSteps = await resumePage.evaluate(() => window.RepForgeProgramEntry.ROUTE_STEPS.recommend);
+  await answerRecommend(resumePage, { skipBasics: true, until: routeSteps[0] });
+  for (let index = 0; index < routeSteps.length; index++) {
+    const expected = routeSteps[index];
+    check((await entry(resumePage)).step === expected, `resume journey reaches ${expected} before reload`);
+    await resumePage.waitForFunction((step) => {
+      const saved = JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1") || "null")?.state;
+      return saved?.step === step && (step !== "result" || !!saved.result?.preview?.programDefinition);
+    }, expected, { timeout: 10000 });
+    if (expected === "result") await resumePage.waitForSelector("#entryReview [data-review-slot]", { timeout: 15000 });
+    await resumePage.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(resumePage, { base: BASE });
+    if (!await resumePage.locator("#onboarding.active").count()) await resumePage.click("#firstRunCreate");
+    await resumePage.waitForSelector("#onboarding.active #entryResumeContinue", { timeout: 10000 });
+    await resumePage.click("#entryResumeContinue");
+    const restored = await resumePage.waitForFunction((step) => window.__repforgeEntryState?.()?.step === step &&
+      !document.querySelector("#entryResumeContinue") && (step === "result"
+        ? !!document.querySelector("#entryReview [data-review-slot]")
+        : !!document.querySelector("#onbBody #entryHeading")), expected, { timeout: 15000 }).then(() => true, () => false);
+    check(restored, `reloading on ${expected} resumes that B screen`);
+    if (index + 1 < routeSteps.length) {
+      await answerRecommend(resumePage, { skipBasics: true, until: routeSteps[index + 1] });
+      await resumePage.waitForFunction(() => !document.querySelector("#onbBody .is-push-over"), undefined,
+        { timeout: 5000 });
+    }
+  }
+  check(await resumePage.locator("#entryReview [data-review-slot]").count() > 0,
+    "reloading on result resumes the generated review");
+  await everyScreen.context.close();
+  return [...run.errors, ...everyScreen.errors];
+}
+
 async function main() {
   console.log("P067 slice 2: Generate → review → activate through the production entry UI");
   const browser = await launchChromium();
@@ -381,6 +707,8 @@ async function main() {
     check(weekText.includes(firstName), "the review lists the generated movements", firstName);
     check(await state(page).then((value) => !value.programMeta.onboarded && value.program.length === 0),
       "reviewing a generated program writes nothing to the training state");
+    check(definition.request.deloadCycles?.length === 1 && definition.request.deloadCycles[0] === definition.cycles,
+      "deload is on by default: the block ends with a deload week");
 
     await page.click("#entryActivate");
     await page.waitForFunction(() => window.__repforgeWorkoutDraft.state()?.programMeta?.onboarded === true, undefined, { timeout: 20000 });
@@ -395,6 +723,7 @@ async function main() {
     await waitForAppBoot(page, { base: BASE });
     check(JSON.stringify((await state(page)).programMeta.programDefinition) === JSON.stringify(definition),
       "the activated program survives a reload exactly");
+    check(!(await state(page)).profile, "skipping every Basics screen keeps no profile");
     await context.close();
 
     // Movement abilities: answering yes unlocks a gated exercise (#323) ----
@@ -481,6 +810,10 @@ async function main() {
     allErrors.push(await reviewAndAdjust(browser));
     allErrors.push(await reviewGuards(browser));
     allErrors.push(await impossible(browser));
+    allErrors.push(await onboardingB(browser));
+    allErrors.push(await onboardingBNavigation(browser));
+    allErrors.push(await onboardingPounds(browser));
+    allErrors.push(await onboardingResume(browser));
     check(allErrors.flat().length === 0, "no page errors during Generate", allErrors.flat());
   } catch (error) {
     failures.push(String(error?.stack || error));

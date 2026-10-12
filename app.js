@@ -3369,6 +3369,12 @@ function normalizeLoaded(s,options={}){
     out.recoveryTransitions=cloneSnapshot(s.recoveryTransitions);
   if(Object.prototype.hasOwnProperty.call(s,STORAGE_FOLLOWUP))out[STORAGE_FOLLOWUP]=s[STORAGE_FOLLOWUP];
   if(Object.prototype.hasOwnProperty.call(s,STORAGE_SETUP_TXN))out[STORAGE_SETUP_TXN]=cloneSnapshot(s[STORAGE_SETUP_TXN]);
+  if(Object.prototype.hasOwnProperty.call(s,"profile")){
+    // The Basics a lifter gave in setup (Plan 072). Keep raw records this
+    // release cannot interpret so a later version can recover them.
+    const normalized=window.RepForgeProgramEntry?.normalizeProfile?.(s.profile);
+    out.profile=normalized?.ok&&Object.keys(normalized.value).length
+      ?normalized.value:cloneSnapshot(s.profile)}
   if(Object.prototype.hasOwnProperty.call(s,"programmingContext")){
     const Entry=typeof window!=="undefined"?window.RepForgeProgramEntry:null;
     if(Entry){
@@ -4816,6 +4822,7 @@ async function installTransferClaimDigest(contract,{claimId=null,claimIdDigest=n
   return{ok:true,value:digest}}
 function installTransferStateMeaningful(snapshot){
   if(!snapshot||typeof snapshot!=="object")return true;
+  if(Object.prototype.hasOwnProperty.call(snapshot,"profile"))return true;
   const defaultSettings=normalizeSettings(DEFAULTS);
   const destinationSettings=normalizeSettings(snapshot.settings);
   if(!installTransferLogicalEqual(destinationSettings,defaultSettings))return true;
@@ -5455,7 +5462,9 @@ const LOAD_EPS=1e-6;
 const sameLoad=(a,b)=>a!=null&&b!=null&&Math.abs(a-b)<=LOAD_EPS;
 function jump(load,mult){return Math.max(load*(+state.settings.jumpPct||0)*mult/100,+state.settings.minJump||2.5)}
 function lastBodyweight(){const rows=state.log.filter(r=>+r.bodyweight>0);
-  if(!rows.length)return "";const latest=rows.sort((a,b)=>compareLogChronology(b,a))[0];
+  // Until a session logs one, the weight given in setup stands in (Plan 072).
+  const profileWeight=interpretedProfile(state.profile).weightKg;
+  if(!rows.length)return profileWeight>0?fmt(toDisplay(profileWeight)):"";const latest=rows.sort((a,b)=>compareLogChronology(b,a))[0];
   return fmt(toDisplay(latest.bodyweight))}
 function updateBodyweightField(){const el=$("#sessionBodyweight");if(!el)return;
   el.placeholder=unitLabel();
@@ -5770,7 +5779,9 @@ function sessionBodyweightKg(){
   const live=activeWorkoutDraft?.session?.bodyweight;
   if(live!=null&&live!==""&&+live>0)return+live;
   const rows=(state.log||[]).filter(row=>+row.bodyweight>0);
-  if(!rows.length)return null;
+  // Until a session logs one, the weight given in setup counts (Plan 072).
+  const profileWeight=interpretedProfile(state.profile).weightKg;
+  if(!rows.length)return profileWeight>0?profileWeight:null;
   return+rows.reduce((latest,row)=>compareLogChronology(latest,row)<0?row:latest).bodyweight}
 /* Per-side loads stay manual: their multiplier is never assumed. Bodyweight
    counts only when the movement has a coefficient and a bodyweight is known. */
@@ -12134,7 +12145,56 @@ function paintStorageNote(backupLine){
     if(gen!==storageNoteGen)return;
     sn.textContent=`${backupLine} ${t(kept?"settings.storage.persisted":"settings.storage.not_persisted")}`})()}
 
+/* Activation keeps the Basics on this device as the lifter's profile
+   (OD-4): answered fields replace their old values, skipped ones leave them.
+   The weight unit becomes the app's unit when no workout draft would need
+   converting. Never part of a link, a state proposal's context or telemetry. */
+function applyBasicsToProposal(proposal,basics){
+  if(!basics||typeof basics!=="object")return;
+  const {weightUnit,...answered}=basics;
+  if(Object.keys(answered).length){
+    const merged=ProgramEntry.normalizeProfile({...(proposal.profile||{}),...answered});
+    if(merged.ok)proposal.profile=merged.value}
+  if((weightUnit==="kg"||weightUnit==="lb")&&weightUnit!==proposal.settings?.unit&&!readDraftRaw())
+    proposal.settings={...normalizeSettings(proposal.settings),unit:weightUnit}}
+const PROFILE_VALUE_KEYS=["sex","birthDate","heightCm","heightUnit","weightKg","cardioExperience"];
+function interpretedProfile(profile){
+  if(!profile||typeof profile!=="object"||Array.isArray(profile))return{};
+  const interpreted={};
+  for(const key of PROFILE_VALUE_KEYS){
+    if(!Object.prototype.hasOwnProperty.call(profile,key))continue;
+    const result=ProgramEntry?.normalizeProfile?.({[key]:profile[key]});
+    if(result?.ok&&Object.prototype.hasOwnProperty.call(result.value,key))interpreted[key]=result.value[key]}
+  return interpreted}
+function profileRows(profile){
+  const rows=[];
+  profile=interpretedProfile(profile);
+  if(profile.sex)rows.push([t("entry.section_profile.sex"),t(`entry.sex.${profile.sex}`)]);
+  if(profile.birthDate){
+    const [y,m,d]=profile.birthDate.split("-").map(Number);
+    rows.push([t("entry.section_profile.birth_date"),new Date(Date.UTC(y,m-1,d)).toLocaleDateString(isPt()?"pt-BR":"en",{timeZone:"UTC",day:"numeric",month:"long",year:"numeric"})])}
+  if(profile.heightCm){
+    const total=Math.round(profile.heightCm/2.54);
+    rows.push([t("entry.section_profile.height"),profile.heightUnit==="ftin"?`${Math.floor(total/12)}′ ${total%12}″`:`${Math.round(profile.heightCm)} cm`])}
+  if(profile.weightKg)rows.push([t("entry.section_profile.weight"),`${fmt(toDisplay(profile.weightKg))} ${unitLabel()}`]);
+  if(profile.cardioExperience)rows.push([t("entry.section_profile.cardio"),`${t(`entry.cardio.${profile.cardioExperience}`)} · ${t(`entry.cardio.${profile.cardioExperience}.sub`)}`]);
+  return rows}
+function renderProfileSettings(){
+  const row=$("#profileRow"),panel=$("#profilePanel"),list=$("#profileList");
+  if(!row||!panel||!list)return;
+  const profile=state.profile||{};
+  const rows=profileRows(profile);
+  const hasProfileRecord=Object.prototype.hasOwnProperty.call(state,"profile");
+  row.hidden=!rows.length&&!hasProfileRecord;
+  if(!rows.length)setDisclosure(row,panel,false);
+  list.innerHTML=rows.map(([label,value])=>`<div class="settings-profile__row"><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`).join("")}
+async function clearProfile(){
+  if(!Object.prototype.hasOwnProperty.call(state,"profile")||!confirm(t("settings.profile.clear_confirm")))return;
+  const proposal=cloneSnapshot(state);delete proposal.profile;
+  const result=await commitProposedState(proposal);
+  if(result.localOk||result.idbOk){renderProfileSettings();toast(t("settings.profile.cleared"))}}
 function renderSettings(){
+  renderProfileSettings();
   renderGuideReplayList();
   const jp=$("#jumpPct"),mj=$("#minJump"),rh=$("#rirHigh"),hr=$("#hardRir"),rs=$("#restSec"),un=$("#unit");
   if(jp)jp.value=state.settings.jumpPct;if(mj)mj.value=state.settings.minJump;if(rh)rh.value=state.settings.rirHigh;if(hr)hr.value=state.settings.hardRir;
@@ -14854,12 +14914,13 @@ const ENTRY_MUSCLES=ProgramEntry.ENTRY_MUSCLES;
 const ENTRY_MOVEMENTS=ProgramEntry.ENTRY_MOVEMENTS;
 const ENTRY_ENVIRONMENTS=ProgramEntry.ENTRY_ENVIRONMENTS;
 const ENTRY_AVOID_REASONS=ProgramEntry.CONSTRAINT_REASONS;
-let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryExerciseQuery="",entryPendingAvoid=null,entryValidationNotice=false,entryEditorStatusFocusPending=false,entryEditorStatusFocusTimer=null,entryPinnedVersionsExecutable=false,entryDurableConflictNeedsReload=false,entryVisibleScreenKey=null;
+let entryState=null,entryEngaged=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryExerciseQuery="",entryPendingAvoid=null,entryValidationNotice=false,entryEditorStatusFocusPending=false,entryEditorStatusFocusTimer=null,entryPinnedVersionsExecutable=false,entryDurableConflictNeedsReload=false,entryVisibleScreenKey=null;
+let entryMotionRun=null,entryMotionCleanup=null,entryEdgeSwipe=null,entryEdgeUnder=null,entrySwipeCommitting=false;
 let entryPersistenceDiagnostic=null;
 /* Entry presentation state: the confirm dialog on screen ("restart", "replace";
    "cancel" is `entryUiNotice` because other flows already ask for it), and the
    route-help panel on the hub. None of it is part of the draft. */
-let entryDialog=null,entryHelpOpen=false,entryHelp={q1:null,q2:null},entryChange=null,entryGoalFromHub=false;
+let entryDialog=null,entryChange=null,entryGoalFromHub=false,entryPickerInput=null;
 /* Review-time UI that is never part of the draft: whether the "about" screen's
    goal question is open, the answer editor open under its chip (with a private
    copy of the answers it edits), and the program the lifter just left, for the
@@ -15115,7 +15176,7 @@ function closeOnboarding(){
   // The pasted program and the reply belong to the flow that asked for them.
   resetFreeformImport();
   cancelEntryGeneration();
-  entryDialog=null;entryReplaceResolve?.(false);entryReplaceResolve=null;closeEntryDialog();
+  entryPickerInput=null;entryDialog=null;entryReplaceResolve?.(false);entryReplaceResolve=null;closeEntryDialog();
   onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;setupEditorOpen=false;
   $("#onboarding")?.classList.remove("program-editor-onboarding");
   $("#onboarding").classList.remove("active");$("#onboarding").classList.add("hidden");document.body.classList.remove("is-onboarding","is-entry-editor","is-settings");
@@ -15172,8 +15233,9 @@ function startOnboarding(origin,opts={}){
   if(!ProgramEntry){console.warn("program entry unavailable");return}
   captureEntryReturn();
   cancelEntryGeneration();
+  entryPickerInput=null;
   onboardingOrigin=origin||(!state.programMeta?.onboarded&&!state.log.length?"first-run":"settings");
-  entryEngaged=false;entryOwnOpen=false;entryDialog=null;entryHelpOpen=false;entryHelp={q1:null,q2:null};entryChange=null;entryGoalFromHub=false;entryReplaceResolve=null;entryCompileError=null;entryUiNotice=null;entryValidationNotice=false;entryAvoidQuery="";entryMustQuery="";entryExerciseQuery="";entryPendingAvoid=null;entryPinnedVersionsExecutable=false;entryDurableConflictNeedsReload=false;
+  entryEngaged=false;entryHubChoice=null;entryDialog=null;entryChange=null;entryGoalFromHub=false;entryReplaceResolve=null;entryCompileError=null;entryUiNotice=null;entryValidationNotice=false;entryAvoidQuery="";entryMustQuery="";entryExerciseQuery="";entryPendingAvoid=null;entryPinnedVersionsExecutable=false;entryDurableConflictNeedsReload=false;
   const record=readSetupDraftRecord();
   entryDraftHandle=record.raw!==null?{raw:record.raw,envelope:record.envelope}:null;
   // A fresh session re-syncs with whatever is durably on disk right now, so
@@ -15278,12 +15340,16 @@ async function discardEntryDraftAndCancel(){
 function entrySetState(next,{persist=true}={}){
   // Anything that moves the flow on supersedes a program still generating for it.
   if(entryResultJob){entryResultJob.controller.abort();entryResultJob=null}
+  const direction=entrySwipeCommitting?null:entryMotionDirection(entryState,next);
+  clearEntryMotion();
+  const outgoing=direction&&entryMotionAvailable()?cloneEntryMotionPage(entryMotionLivePage()):null;
+  if(next?.step!==entryState?.step||next?.route!==entryState?.route){entryPickerDraft={};entryPriorityLimitShown=false}
   entryState=next;
   if(next?.step!=="background")entryGoalFromHub=false;
   entryValidationNotice=false;
   syncEntryHistory();
   if(persist)persistSetupDraft(entryState);
-  renderOnboarding()}
+  renderOnboarding({pageTransition:outgoing?{direction,outgoing}:null})}
 function entryCustomSplitChoices(answers=entryState?.answers||{}){
   try{return entryServices()?.splitChoices?.(answers)||{choices:[]}}catch(error){console.warn("custom split choices failed",error);return{choices:[]}}}
 function entryCustomShapeRequired(answers=entryState?.answers||{}){
@@ -15318,7 +15384,6 @@ function entrySelectRoute(route,{goal=null}={}){
     const answered=ProgramEntry.setAnswers(selected,{desiredResult:goal});
     const advanced=ProgramEntry.advance(answered);
     selected=advanced.ok?advanced.state:answered}
-  entryOwnOpen=false;entryHelpOpen=false;entryHelp={q1:null,q2:null};
   entrySetState(selected);
   // Back from the first screen after a goal tap returns to the hub the goal was
   // asked on, not to a second goal screen.
@@ -15335,7 +15400,7 @@ function entryPatchAnswers(patch){
    result of its two questions, not a third. */
 function entrySections(route){
   const sections={
-    recommend:[["desired_result","background"],["schedule"],["environment"],["abilities"],["priorities"]],
+    recommend:ENTRY_B_SECTIONS.map(([,steps])=>steps),
     custom:[["desired_result","background"],["schedule"],["environment"],["abilities"],["priorities"],["exercise_preferences"],["custom_shape"]],
     browse:[["schedule"],["environment"]]}[route]||[];
   return route==="custom"&&!entryCustomShapeRequired()?sections.filter(group=>group[0]!=="custom_shape"):sections}
@@ -15370,15 +15435,6 @@ function entryHeading(title){
 function entryLegacyBanner(){
   if(!entryState?.legacyHints||!Object.keys(entryState.legacyHints).length)return"";
   return `<p class="entry__legacy" role="note">${esc(t("entry.legacy.hint"))}</p>`}
-/* A door is a flat row: what it asks of the lifter, then what they get. The
-   copy states the cost of each way in so the choice is made on facts. */
-function entryDoor(route,{icon,title,ask,get,id="",kind="secondary",nested=false}){
-  return `<button type="button" class="entry-card entry-card--${kind}${nested?" entry-card--nested":""}"${id?` id="${id}"`:""}${route?` data-entry-route="${route}"`:""}>`+
-    `<span class="entry-card__icon icon-mask icon-mask--${icon}" aria-hidden="true"></span>`+
-    `<span class="entry-card__body"><span class="entry-card__title">${esc(title)}</span>`+
-    `<span class="entry-card__line"><span class="entry-card__k">${esc(t("entry.hub.you_do"))}</span> ${esc(ask)}</span>`+
-    `<span class="entry-card__line"><span class="entry-card__k">${esc(t("entry.hub.you_get"))}</span> ${esc(get)}</span></span>`+
-    `<span class="entry-card__go chevron" aria-hidden="true"></span></button>`}
 /* The resume card sits on the hub (Q633), above doors that stay inert until the
    lifter chooses Resume or Start over: any door tap would otherwise overwrite
    the saved draft on its next persist. */
@@ -15395,63 +15451,401 @@ function renderEntryResumeCard(){
     `<p class="entry__resume-note">${esc(t("entry.resume.doors_note"))}</p>`+
     `<div class="btnrow btnrow--primary-first"><button type="button" class="btn btn--cta" id="entryResumeContinue">${esc(t("entry.resume.continue"))}</button>`+
     `<button type="button" class="btn btn--steel btn--destructive" id="entryResumeRestart" aria-haspopup="dialog">${esc(t("entry.resume.restart"))}</button></div></section>`}
-/* "Not sure which one?" asks two short questions and ends in the same route
-   call the doors make, so it reaches all five jobs without a sixth route. */
-function renderEntryHelp(){
-  const opt=(q,val,label)=>{
-    const on=entryHelp[q]===val;
-    return `<button type="button" class="entry-help__opt${on?" is-selected":""}" role="radio" aria-checked="${on}" data-entry-help="${q}" data-entry-help-val="${val}">${esc(label)}</button>`};
-  const q2=entryHelp.q1==="no"?{label:t("entry.help.q2_no"),opts:["recommend","custom"]}
-    :entryHelp.q1==="yes"?{label:t("entry.help.q2_yes"),opts:["import","build"]}:null;
-  const target=q2&&q2.opts.includes(entryHelp.q2)?entryHelp.q2:null;
-  const q2Labels={recommend:t("entry.help.q2.recommend"),custom:t("entry.help.q2.custom"),import:t("entry.help.q2.import"),build:t("entry.help.q2.build")};
-  return `<div class="entry-help" id="entryHelp" role="group" aria-labelledby="entryHelpToggle">`+
-    `<p class="entry-help__q" id="entryHelpQ1">${esc(t("entry.help.q1"))}</p>`+
-    `<div class="entry-help__opts" role="radiogroup" aria-labelledby="entryHelpQ1">${opt("q1","no",t("entry.help.q1_no"))}${opt("q1","yes",t("entry.help.q1_yes"))}</div>`+
-    (q2?`<p class="entry-help__q" id="entryHelpQ2">${esc(q2.label)}</p>`+
-      `<div class="entry-help__opts" role="radiogroup" aria-labelledby="entryHelpQ2">${q2.opts.map(o=>opt("q2",o,q2Labels[o])).join("")}</div>`:"")+
-    (target?`<button type="button" class="btn btn--cta btn--noarrow entry-help__go" id="entryHelpGo" data-entry-help-go="${target}">${esc(t("entry.help.go",{route:entryRouteLabel(target)}))}</button>`:"")+
-    `</div>`}
+/* Onboarding B (ADR 0020, Plan 072): the hub chooses a way in, then Continue. */
+let entryHubChoice=null;
+const ENTRY_HUB_CHOICES=Object.freeze([["recommend","wand"],["build","pencil"],["import","download"]]);
 function renderEntryHub(){
   // Keep the semantic body heading for focus and assistive technology. The
   // shell title is visually suppressed on this hub so it is not repeated.
   const resuming=entryUiNotice==="resume";
   const active=hasActiveProgram();
-  const goals=["muscle_growth","balanced","strength"].map(goal=>
-    `<button type="button" class="entry-card entry-card--primary entry-goal" data-entry-route="recommend" data-entry-goal="${goal}">`+
-    `<span class="entry-card__icon icon-mask icon-mask--${ENTRY_DESIRED_ICONS[goal]}" aria-hidden="true"></span>`+
-    `<span class="entry-card__body"><span class="entry-card__title">${esc(t(`entry.desired_result.${goal}.label`))}</span>`+
-    `<span class="entry-card__cap">${esc(t(`entry.desired_result.${goal}.sub`))}</span></span>`+
-    `<span class="entry-card__go chevron" aria-hidden="true"></span></button>`).join("");
-  const group=(label,labelId,inner)=>`<div class="entry-hubgroup" role="group" aria-labelledby="${labelId}"><p class="entry__group-lab" id="${labelId}">${esc(label)}</p>${inner}</div>`;
+  const cards=ENTRY_HUB_CHOICES.map(([route,icon])=>{
+    const selected=entryHubChoice===route;
+    return `<button type="button" class="radio-card entry-hub__choice${selected?" is-selected":""}" role="radio" aria-checked="${selected?"true":"false"}" data-entry-hub="${route}">`+
+      `<span class="radio-card__icon icon-mask icon-mask--${icon}" aria-hidden="true"></span>`+
+      `<span class="radio-card__body"><span class="radio-card__title">${esc(t(`entry.hub.b.${route}.title`))}</span>`+
+      `<span class="radio-card__cap">${esc(t(`entry.hub.b.${route}.cap`))}</span></span>`+
+      `<span class="radio-card__mark" aria-hidden="true"></span></button>`}).join("");
   return entryHeading(t("entry.hub.title"))+
     `<p class="onb__explain entry-hub__lede">${esc(t(active?"entry.hub.lede_existing":"entry.hub.lede"))}</p>`+
     (active?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
     entryLegacyBanner()+
     (resuming?renderEntryResumeCard():"")+
-    `<div class="entry__hub entry__hub--routes"${resuming?" inert":""}>`+
-      `<div class="entry-helpblock"><button type="button" class="entry-help__toggle" id="entryHelpToggle" aria-expanded="${entryHelpOpen?"true":"false"}" aria-controls="entryHelp">${esc(t("entry.help.toggle"))}</button>${entryHelpOpen?renderEntryHelp():""}</div>`+
-      `<section class="entry-feature" aria-labelledby="entryGoalQ">`+
-        `<p class="entry-feature__eyebrow">${esc(t("entry.hub.recommend.title"))}</p>`+
-        `<h3 class="entry-feature__q" id="entryGoalQ">${esc(t("entry.desired_result.title"))}</h3>`+
-        `<p class="entry-feature__facts">${esc(t("entry.hub.recommend.facts",{n:entrySections("recommend").length}))}</p>`+
-        `<div class="entry-feature__goals" role="group" aria-labelledby="entryGoalQ">${goals}</div></section>`+
-      group(t("entry.hub.group.written"),"entryGroupCustom",
-        entryDoor("custom",{icon:"sliders",title:t("entry.hub.custom.title"),kind:"secondary entry-card--subordinate",
-          ask:t("entry.hub.cost.custom",{n:6}),get:t("entry.hub.get.custom")}))+
-      `<div class="entry-hubgroup" role="group" aria-labelledby="entryGroupOwn"><p class="entry__group-lab" id="entryGroupOwn">${esc(t("entry.hub.group.own"))}</p>`+
-      `<button type="button" class="entry-card entry-card--secondary" id="entryOwnToggle" aria-expanded="${entryOwnOpen?"true":"false"}" aria-controls="entryOwnChoices"><span class="entry-card__icon icon-mask icon-mask--sheet" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.own.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.own.cap"))}</span></span><span class="entry-card__go chevron${entryOwnOpen?" is-down":""}" aria-hidden="true"></span></button>`+
-      (entryOwnOpen?`<div class="entry__own" id="entryOwnChoices">`+
-        entryDoor("build",{icon:"pencil",title:t("entry.hub.build.title"),nested:true,ask:t("entry.hub.cost.build"),get:t("entry.hub.get.build")})+
-        /* The free-form door is the same import route by its other side, so it
-           carries an id rather than a second `data-entry-route="import"`: one
-           route, one selector, two ways in. */
-        entryDoor("",{icon:"clipboard",title:t("entry.hub.freeform.title"),id:"entryFreeformStart",nested:true,ask:t("entry.hub.cost.paste"),get:t("entry.hub.get.import")})+
-        entryDoor("import",{icon:"download",title:t("entry.hub.import.title"),nested:true,ask:t("entry.hub.cost.file"),get:t("entry.hub.get.import")})+
-      `</div>`:"")+`</div>`+
-    `</div>`}
+    `<div class="onb__opts entry__hub entry__hub--routes" role="radiogroup" aria-labelledby="entryHeading"${resuming?" inert":""}>${cards}</div>`+
+    `<p class="entry-hub__link"><span class="icon-mask icon-mask--clipboard icon-mask--sm" aria-hidden="true"></span><span>${esc(t("entry.hub.b.link_note"))}</span></p>`}
+function entryChooseHubRoute(){
+  const route=entryHubChoice;
+  if(!route||entryUiNotice==="resume")return;
+  entryHubChoice=null;
+  if(route==="import"){
+    setImportSourceMode("file",{render:false});
+    captureEvent("program_import_started",{source:"file"})}
+  entrySelectRoute(route)}
+/* B's three sections, as the header counts them. The section map and the
+   result sit outside them. */
+const ENTRY_B_SECTIONS=Object.freeze([
+  ["basics",["sex","birth_date","height","weight","background","cardio_experience"]],
+  ["gym",["environment","equipment"]],
+  ["program",["desired_result","days_per_week","session_length","muscle_priorities","deload","abilities"]]]);
+function entryBSection(stepId){
+  const index=ENTRY_B_SECTIONS.findIndex(([,steps])=>steps.includes(stepId));
+  return index<0?null:{n:index+1,total:ENTRY_B_SECTIONS.length,name:ENTRY_B_SECTIONS[index][0]}}
+const entryIsB=()=>entryState?.route==="recommend";
+function entryBasics(){return entryState?.answers?.basics||{}}
+function entryPatchBasics(patch){
+  const next={...entryBasics(),...patch};
+  for(const key of Object.keys(next))if(next[key]==null)delete next[key];
+  entryPatchAnswers({basics:next})}
+function entryBNote(weight=false){
+  return `<p class="entry-b__note"><span class="icon-mask icon-mask--shield icon-mask--sm" aria-hidden="true"></span><span>${esc(t(weight?"entry.basics.weight_note":"entry.basics.note"))}</span></p>`}
+function entryBChoice(key,value,label,sub,selected,{icon=""}={}){
+  return `<button type="button" class="radio-card${selected?" is-selected":""}" role="radio" aria-checked="${selected?"true":"false"}" data-entry-pick="${esc(key)}" data-entry-val="${esc(String(value))}">`+
+    (icon?`<span class="radio-card__icon icon-mask icon-mask--${esc(icon)}" aria-hidden="true"></span>`:"")+
+    `<span class="radio-card__body"><span class="radio-card__title">${esc(label)}</span>${sub?`<span class="radio-card__cap">${esc(sub)}</span>`:""}</span>`+
+    `<span class="radio-card__mark" aria-hidden="true"></span></button>`}
+function entryBGroup(inner,{compact=false}={}){
+  return `<div class="onb__opts${compact?" onb__num entry-b__compact":""}" role="radiogroup" aria-labelledby="entryHeading">${inner}</div>`}
+function renderIntroStep(){
+  const steps=ENTRY_B_SECTIONS.map(([name],index)=>
+    `<li class="entry-b__section${index===0?" is-current":""}"><span class="entry-b__section-n" aria-hidden="true">${index+1}</span>`+
+    `<span><strong>${esc(t(`entry.section.${name}`))}</strong><span>${esc(t(`entry.intro.${name}`))}</span></span></li>`).join("");
+  return entryHeading(t("entry.intro.title"))+`<p class="onb__explain">${esc(t("entry.intro.lede"))}</p><ol class="entry-b__sections">${steps}</ol>`}
+function renderSexStep(){
+  const current=entryBasics().sex;
+  return entryHeading(t("entry.sex.title"))+entryBGroup(["female","male","undisclosed"].map(value=>
+    entryBChoice("basicsSex",value,t(`entry.sex.${value}`),"",current===value)).join(""))+entryBNote()}
+function renderLiftingStep(){
+  const current=entryState.answers.structuredExperience;
+  return entryHeading(t("entry.lifting.title"))+entryBGroup(["first","under_6m","6_to_24m","over_24m"].map(value=>
+    entryBChoice("structuredExperience",value,t(`entry.lifting.${value}`),t(`entry.lifting.${value}.sub`),current===value)).join(""))}
+function renderCardioStep(){
+  const current=entryBasics().cardioExperience;
+  return entryHeading(t("entry.cardio_experience.title"))+entryBGroup(["none","under_1y","1_to_4y","over_4y"].map(value=>
+    entryBChoice("basicsCardio",value,t(`entry.cardio.${value}`),t(`entry.cardio.${value}.sub`),current===value)).join(""))+entryBNote()}
+function renderGymStep(){
+  const current=entryState.answers.environment?.kind;
+  return entryHeading(t("entry.gym.title"))+`<p class="onb__explain">${esc(t("entry.gym.lede"))}</p>`+
+    entryBGroup(ENTRY_ENVIRONMENTS.map(value=>entryBChoice("environment",value,t(`entry.gym.${value}`),t(`entry.gym.${value}.sub`),
+      current===value,{icon:ENTRY_ENV_ICONS[value]||"dumbbell"})).join(""))}
+function renderGoalStep(){
+  const current=entryState.answers.desiredResult;
+  return entryHeading(t("entry.goal.title"))+entryBGroup(["muscle_growth","strength","balanced"].map(value=>
+    entryBChoice("desiredResult",value,t(`entry.goal.${value}`),t(`entry.goal.${value}.sub`),current===value,{icon:ENTRY_DESIRED_ICONS[value]})).join(""))}
+function renderDaysStep(){
+  const current=entryState.answers.daysPerWeek;
+  return entryHeading(t("entry.days_per_week.title"))+entryBGroup([2,3,4,5,6].map(n=>
+    entryBChoice("daysPerWeek",n,t("entry.days_per_week.value",{n}),"",current===n)).join(""),{compact:true})+
+    `<p class="entry-b__fact" aria-live="polite">${current?esc(t(`entry.days_per_week.split.${current}`)):""}</p>`}
+function renderSessionLengthStep(){
+  const current=entryState.answers.sessionMinutes??60;
+  return entryHeading(t("entry.session_length.title"))+`<p class="onb__explain">${esc(t("entry.session_length.lede"))}</p>`+
+    entryBGroup([20,40,60,90,120,150].map(n=>entryBChoice("sessionMinutes",n,t("entry.session_length.value",{n}),"",current===n)).join(""),{compact:true})}
 const ENTRY_DESIRED_ICONS={muscle_growth:"flex",balanced:"scale",strength:"dumbbell"};
-const ENTRY_ENV_ICONS={commercial_gym:"building",basic_gym:"house",limited_home:"kettlebell",full_home:"rack",other:"dumbbell"};
+const ENTRY_ENV_ICONS={everything:"building",commercial_gym:"building",warehouse_gym:"rack",basic_gym:"house",limited_home:"kettlebell",full_home:"rack",other:"dumbbell"};
+function renderEquipmentStep(){
+  const kind=entryState.answers.environment?.kind;
+  const adjust=entryState.answers.environment?.adjust||{add:[],remove:[]};
+  const preset=new Set(entryPresetGroups(kind));
+  const rows=(ProgramEntry.EQUIPMENT_GROUPS||[]).map(group=>{
+    const on=adjust.add?.includes(group)||(preset.has(group)&&!adjust.remove?.includes(group));
+    return `<button type="button" class="radio-card entry-b__equip${on?" is-selected":""}" role="checkbox" aria-checked="${on?"true":"false"}" data-entry-pick="equipmentGroup" data-entry-val="${esc(group)}">`+
+      `<span class="radio-card__body"><span class="radio-card__title">${esc(t(`entry.equipment.group.${group}`))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button>`}).join("");
+  const changed=(adjust.add?.length||0)+(adjust.remove?.length||0)>0;
+  return entryHeading(t("entry.equipment.title"))+
+    `<p class="onb__explain">${esc(t("entry.equipment.lede",{place:kind?t(`entry.gym.${kind}`):""}))}</p>`+
+    `<div class="onb__opts entry-b__equipment" role="group" aria-labelledby="entryHeading">${rows}</div>`+
+    `<button type="button" class="btn btn--ghost entry-b__reset" id="entryEquipmentReset"${changed?"":" disabled"}>${esc(t("entry.equipment.reset"))}</button>`}
+/* Which groups start ticked: any member in the preset (Plan 068 slice A). */
+function entryPresetGroups(kind){
+  try{return ProgramEntryAdapter?.presetEquipmentGroups?.(kind,window.RepForgeExerciseCatalog?.snapshot?.())||[]}catch{return[]}}
+function entryToggleEquipmentGroup(group){
+  const env=entryState.answers.environment;
+  if(!env?.kind||!(ProgramEntry.EQUIPMENT_GROUPS||[]).includes(group))return;
+  const preset=entryPresetGroups(env.kind).includes(group);
+  const add=new Set(env.adjust?.add||[]),remove=new Set(env.adjust?.remove||[]);
+  const on=add.has(group)||(preset&&!remove.has(group));
+  add.delete(group);remove.delete(group);
+  if(!on&&!preset)add.add(group);
+  if(on&&preset)remove.add(group);
+  entryPatchAnswers({environment:{kind:env.kind,adjust:{add:[...add],remove:[...remove]}}})}
+let entryPriorityLimitShown=false;
+function renderMusclePrioritiesStep(){
+  const a=entryState.answers;
+  const primary=new Set(a.primaryMuscles||[]),reduced=new Set(a.deEmphasizedMuscles||[]);
+  const rows=ENTRY_B_MUSCLES.map(muscle=>{
+    const state=primary.has(muscle)?"prioritize":reduced.has(muscle)?"reduce":"normal";
+    const labelId=`entryPriority-${muscle}`;
+    const options=["reduce","normal","prioritize"].map(value=>
+      `<button type="button" class="entry-seg__option${state===value?" is-selected":""}" role="radio" aria-checked="${state===value?"true":"false"}" data-entry-pick="musclePriorityB" data-entry-val="${muscle}|${value}">${esc(t(`entry.muscle_priorities.${value}`))}</button>`).join("");
+    return `<div class="entry-b__priority"><span id="${labelId}">${esc(t(`entry.muscle.${muscle}`))}</span><div class="entry-seg entry-seg--mini" role="radiogroup" aria-labelledby="${labelId}">${options}</div></div>`}).join("");
+  return entryHeading(t("entry.muscle_priorities.title"))+`<p class="onb__explain">${esc(t("entry.muscle_priorities.lede"))}</p>`+
+    `<div class="entry-b__priorities">${rows}</div>`+
+    `<p class="entry__hint entry__limit" id="entryPriorityLimit" role="status"${entryPriorityLimitShown?"":" hidden"}>${esc(t("entry.muscle_priorities.limit"))}</p>`}
+const ENTRY_B_MUSCLES=Object.freeze(["chest","lats","back","side_delts","front_delts","rear_delts","biceps","triceps","quads","hamstrings","glutes","calves"]);
+function entrySetMusclePriority(muscle,status){
+  if(!ENTRY_B_MUSCLES.includes(muscle)||!["reduce","normal","prioritize"].includes(status))return;
+  const a=entryState.answers;
+  const primary=(a.primaryMuscles||[]).filter(item=>item!==muscle);
+  const reduced=(a.deEmphasizedMuscles||[]).filter(item=>item!==muscle);
+  const limit=ProgramEntry.MAX_PRIORITY_MUSCLES||5;
+  if(status==="prioritize")primary.push(muscle);
+  if(status==="reduce")reduced.push(muscle);
+  entryPriorityLimitShown=primary.length>limit||reduced.length>limit;
+  if(entryPriorityLimitShown){renderOnboarding();return}
+  entryPatchAnswers({primaryMuscles:primary,deEmphasizedMuscles:reduced})}
+function renderDeloadStep(){
+  const on=entryState.answers.deload!==false;
+  return entryHeading(t("entry.deload.title"))+
+    `<div class="entry-b__deload"><div class="entry-b__deload-head"><strong id="entryDeloadLabel">${esc(t("entry.deload.card"))}</strong>`+
+    `<button type="button" class="toggle" id="entryDeloadSwitch" role="switch" aria-checked="${on?"true":"false"}" aria-labelledby="entryDeloadLabel" aria-describedby="entryDeloadBody"></button></div>`+
+    `<p id="entryDeloadBody">${esc(t("entry.deload.body"))}</p><span class="entry-b__tag">${esc(t("entry.deload.recommended"))}</span></div>`}
+/* Basics pickers. Continue accepts the value currently shown, including the
+   neutral starting value. Skip is the separate path that leaves it unset. */
+let entryPickerDraft={};
+const ENTRY_WHEEL_ROW=44;
+const ENTRY_BIRTH_DEFAULT=Object.freeze({y:1993,m:5,d:14});
+const ENTRY_HEIGHT_DEFAULT=174,ENTRY_WEIGHT_DEFAULT=80.5;
+const KG_PER_LB=0.45359237;
+function entryDaysIn(month,year){return new Date(Date.UTC(year,month,0)).getUTCDate()}
+function entryMonthNames(){
+  const locale=isPt()?"pt-BR":"en";
+  return Array.from({length:12},(_,index)=>new Date(Date.UTC(2000,index,15)).toLocaleString(locale,{month:"long",timeZone:"UTC"}))}
+function entryWheel(id,label,items,index){
+  const safe=Math.max(0,Math.min(items.length-1,index));
+  return `<div class="entry-wheel" id="${id}" role="spinbutton" tabindex="0" aria-label="${esc(label)}" aria-haspopup="dialog" aria-valuemin="0" aria-valuemax="${items.length-1}" aria-valuenow="${safe}" aria-valuetext="${esc(items[safe])}" data-index="${safe}">`+
+    `<div class="entry-wheel__pad" aria-hidden="true"></div>${items.map((text,i)=>`<div class="entry-wheel__item" data-i="${i}" aria-hidden="true">${esc(text)}</div>`).join("")}<div class="entry-wheel__pad" aria-hidden="true"></div></div>`}
+function entryBirthValue(){
+  if(entryPickerDraft.birth)return entryPickerDraft.birth;
+  const saved=entryBasics().birthDate;
+  if(saved){const [y,m,d]=saved.split("-").map(Number);return{y,m,d}}
+  return{...ENTRY_BIRTH_DEFAULT}}
+const ENTRY_BIRTH_YEARS=(()=>{const last=new Date().getFullYear()-10;return Array.from({length:last-1920+1},(_,i)=>1920+i)})();
+function renderBirthDateStep(){
+  const b=entryBirthValue();
+  const days=Array.from({length:entryDaysIn(b.m,b.y)},(_,i)=>String(i+1));
+  return entryHeading(t("entry.birth_date.title"))+
+    `<div class="entry-wheels" data-picker="birth">${entryWheel("entryWheelDay",t("entry.birth_date.day"),days,b.d-1)}`+
+    `${entryWheel("entryWheelMonth",t("entry.birth_date.month"),entryMonthNames(),b.m-1)}`+
+    `${entryWheel("entryWheelYear",t("entry.birth_date.year"),ENTRY_BIRTH_YEARS.map(String),ENTRY_BIRTH_YEARS.indexOf(b.y))}<div class="entry-wheels__band" aria-hidden="true"></div></div>`+entryBNote()}
+function entryUnitSeg(key,options,current,label){
+  return `<div class="entry-seg entry-seg--unit" role="radiogroup" aria-label="${esc(label)}">`+options.map(([value,text])=>
+    `<button type="button" class="entry-seg__option${current===value?" is-selected":""}" role="radio" aria-checked="${current===value?"true":"false"}" data-entry-pick="${key}" data-entry-val="${value}">${esc(text)}</button>`).join("")+`</div>`}
+function entryHeightUnit(){return entryBasics().heightUnit||(state?.settings?.unit==="lb"?"ftin":"cm")}
+function entryWeightUnit(){return entryBasics().weightUnit||(state?.settings?.unit==="lb"?"lb":"kg")}
+function entryHeightValue(){return entryPickerDraft.heightCm??entryBasics().heightCm??ENTRY_HEIGHT_DEFAULT}
+function renderHeightStep(){
+  const unit=entryHeightUnit(),cm=Math.round(entryHeightValue());
+  let wheels;
+  if(unit==="cm"){
+    const values=Array.from({length:101},(_,i)=>120+i);
+    wheels=entryWheel("entryWheelCm",t("entry.height.title"),values.map(n=>t("entry.height.value_cm",{n})),cm-120)}
+  else{
+    const total=Math.round(cm/2.54),ft=Math.floor(total/12),inch=total%12;
+    wheels=entryWheel("entryWheelFt",t("entry.height.feet"),[3,4,5,6,7].map(n=>t("entry.height.value_ft",{n})),ft-3)+
+      entryWheel("entryWheelIn",t("entry.height.inches"),Array.from({length:12},(_,i)=>t("entry.height.value_in",{n:i})),inch)}
+  return entryHeading(t("entry.height.title"))+
+    entryUnitSeg("basicsHeightUnit",[["cm",t("entry.height.cm")],["ftin",t("entry.height.ftin")]],unit,t("entry.height.unit_label"))+
+    `<div class="entry-wheels" data-picker="height">${wheels}<div class="entry-wheels__band" aria-hidden="true"></div></div>`+entryBNote()}
+function entryWeightRange(unit){return unit==="lb"?{min:66,max:440,step:0.2}:{min:30,max:200,step:0.1}}
+function entryWeightValue(){return entryPickerDraft.weightKg??entryBasics().weightKg??ENTRY_WEIGHT_DEFAULT}
+function entryWeightDisplayedValue(unit=entryWeightUnit()){
+  const range=entryWeightRange(unit);
+  const raw=unit==="lb"?Math.round(entryWeightValue()/KG_PER_LB/range.step)*range.step:Math.round(entryWeightValue()*10)/10;
+  const shown=Math.max(range.min,Math.min(range.max,raw));
+  return unit==="lb"?Math.round(shown*KG_PER_LB*10)/10:shown}
+function entryHeightDisplayedCm(unit=entryHeightUnit()){
+  const cm=Math.round(entryHeightValue());
+  if(unit==="cm")return Math.max(120,Math.min(220,cm));
+  const total=Math.round(entryHeightValue()/2.54);
+  const ft=Math.max(3,Math.min(7,Math.floor(total/12)));
+  const inch=Math.max(0,Math.min(11,total%12));
+  return Math.round((ft*12+inch)*2.54)}
+function renderWeightStep(){
+  const unit=entryWeightUnit(),range=entryWeightRange(unit);
+  const shown=unit==="lb"?Math.round(entryWeightValue()/KG_PER_LB/range.step)*range.step:Math.round(entryWeightValue()*10)/10;
+  const value=Math.max(range.min,Math.min(range.max,shown));
+  const steps=Math.round((range.max-range.min)/range.step);
+  const labels=[];
+  for(let i=0;i<=steps;i+=10)labels.push(`<em style="left:${i*8}px">${Math.round(range.min+i*range.step)}</em>`);
+  const text=entryWeightText(value,unit);
+  return entryHeading(t("entry.weight.title"))+
+    entryUnitSeg("basicsWeightUnit",[["kg",t("entry.weight.kg")],["lb",t("entry.weight.lb")]],unit,t("entry.weight.unit_label"))+
+    `<div class="entry-ruler" data-picker="weight"><p class="entry-ruler__value"><button type="button" class="entry-ruler__type" id="entryWeightType" aria-label="${esc(t("entry.weight.ruler",{unit}))}" aria-haspopup="dialog"><b>${esc(entryDecimal(value,1))}</b> ${unit}</button></p>`+
+    `<div class="entry-ruler__scroll" id="entryWeightRuler" role="slider" tabindex="0" aria-orientation="horizontal" aria-label="${esc(t("entry.weight.ruler",{unit}))}" `+
+    `aria-valuemin="${range.min}" aria-valuemax="${range.max}" aria-valuenow="${Number(value).toFixed(1)}" aria-valuetext="${esc(text)}" data-min="${range.min}" data-step="${range.step}" data-steps="${steps}" data-unit="${unit}">`+
+    `<div class="entry-ruler__track" style="width:${steps*8}px">${labels.join("")}</div></div><span class="entry-ruler__needle" aria-hidden="true"></span></div>`+entryBNote(true)}
+function entryWeightText(value,unit){return `${entryDecimal(value,1)} ${unit}`}
+function entryDecimal(value,digits){
+  const text=Number(value).toFixed(digits);
+  return isPt()?text.replace(".",","):text}
+function entryStrictInteger(raw,min,max){
+  const text=String(raw??"").trim();
+  if(!/^\d+$/.test(text))return null;
+  const value=Number(text);
+  return Number.isSafeInteger(value)&&value>=min&&value<=max?value:null}
+function entryOpenPickerInput({label,value,inputMode="numeric",errorKey,parse,apply}){
+  entryDialogOpener=entryOpenerToken();
+  entryPickerInput={label,value:String(value),inputMode,errorKey,parse,apply};
+  entryDialog="picker";renderOnboarding()}
+function entryCommitPickerInput(){
+  const edit=entryPickerInput,input=$("#entryPickerInput");
+  if(!edit||!input)return;
+  const value=edit.parse(input.value);
+  if(value===null||value===undefined){
+    input.setAttribute("aria-invalid","true");input.classList.add("is-invalid");
+    const error=$("#entryPickerError");if(error){error.textContent=t(edit.errorKey);error.hidden=false}
+    input.focus();return}
+  edit.apply(value);
+  entryPickerInput=null;entryDialog=null;closeEntryDialog();renderOnboarding()}
+/* A wheel is a spinbutton: arrows, Page keys, Home and End set it, a flick
+   snaps it, and tapping its selected value opens the typed-value fallback. */
+function mountEntryWheel(el,onChange,onType){
+  if(!el)return;
+  const items=[...el.querySelectorAll(".entry-wheel__item")];
+  const count=items.length;
+  const set=(index,{scroll=true}={})=>{
+    const next=Math.max(0,Math.min(count-1,index));
+    if(scroll)el.scrollTop=next*ENTRY_WHEEL_ROW;
+    items.forEach((item,i)=>item.classList.toggle("is-current",i===next));
+    if(Number(el.dataset.index)===next)return;
+    el.dataset.index=String(next);
+    el.setAttribute("aria-valuenow",String(next));
+    el.setAttribute("aria-valuetext",items[next].textContent);
+    onChange(next)};
+  el.scrollTop=Number(el.dataset.index)*ENTRY_WHEEL_ROW;
+  items.forEach((item,i)=>item.classList.toggle("is-current",i===Number(el.dataset.index)));
+  let settle=0;
+  // A wheel replaced while its scroll was settling (the day wheel when the
+  // month changes its length) must not report its detached position.
+  el.addEventListener("scroll",()=>{clearTimeout(settle);settle=setTimeout(()=>{if(el.isConnected)set(Math.round(el.scrollTop/ENTRY_WHEEL_ROW),{scroll:false})},90)},{passive:true});
+  el.addEventListener("keydown",event=>{
+    const current=Number(el.dataset.index);
+    const target={ArrowUp:current-1,ArrowDown:current+1,PageUp:current-5,PageDown:current+5,Home:0,End:count-1}[event.key];
+    if(target===undefined)return;
+    event.preventDefault();set(target)});
+  el.addEventListener("click",event=>{
+    if(!event.target.closest?.(".entry-wheel__item")&&typeof onType==="function")onType({index:Number(el.dataset.index),set})});
+  items.forEach((item,i)=>item.addEventListener("click",()=>{
+    if(i===Number(el.dataset.index)&&typeof onType==="function")onType({index:i,set});
+    else set(i)}))}
+function mountEntryRuler(el,onChange,onType){
+  if(!el)return;
+  const min=Number(el.dataset.min),step=Number(el.dataset.step),steps=Number(el.dataset.steps),unit=el.dataset.unit;
+  const track=el.querySelector(".entry-ruler__track"),readout=el.parentElement.querySelector(".entry-ruler__value b");
+  const pad=el.clientWidth/2;
+  if(track)track.style.margin=`0 ${pad}px`;
+  const valueAt=index=>Math.round((min+index*step)*10)/10;
+  let index=Math.round((Number(el.getAttribute("aria-valuenow"))-min)/step);
+  el.scrollLeft=index*8;
+  const show=next=>{
+    const value=valueAt(next);
+    if(readout)readout.textContent=entryDecimal(value,1);
+    el.setAttribute("aria-valuenow",value.toFixed(1));
+    el.setAttribute("aria-valuetext",entryWeightText(value,unit))};
+  const set=(next,{scroll=true}={})=>{
+    next=Math.max(0,Math.min(steps,next));
+    if(scroll)el.scrollLeft=next*8;
+    show(next);
+    if(next===index)return;
+    index=next;onChange(valueAt(next))};
+  let settle=0;
+  el.addEventListener("scroll",()=>{show(Math.max(0,Math.min(steps,Math.round(el.scrollLeft/8))));
+    clearTimeout(settle);settle=setTimeout(()=>{if(el.isConnected)set(Math.round(el.scrollLeft/8),{scroll:false})},110)},{passive:true});
+  el.addEventListener("keydown",event=>{
+    const target={ArrowLeft:index-1,ArrowDown:index-1,ArrowRight:index+1,ArrowUp:index+1,PageDown:index-10,PageUp:index+10,Home:0,End:steps}[event.key];
+    if(target===undefined)return;
+    event.preventDefault();set(target)});
+  const typeButton=el.parentElement.querySelector("#entryWeightType");
+  typeButton?.addEventListener("click",()=>onType?.({index,value:valueAt(index),set}))}
+function mountEntryPickers(){
+  const stepId=entryState?.step;
+  if(stepId==="birth_date"){
+    const draft=entryBirthValue();
+    const sync=()=>{
+      const max=entryDaysIn(draft.m,draft.y);
+      if(draft.d>max){draft.d=max}
+      entryPickerDraft={...entryPickerDraft,birth:{...draft},birthTouched:true};
+      const day=$("#entryWheelDay");
+      if(day&&day.querySelectorAll(".entry-wheel__item").length!==max){
+        day.outerHTML=entryWheel("entryWheelDay",t("entry.birth_date.day"),Array.from({length:max},(_,i)=>String(i+1)),draft.d-1);
+        mountEntryWheel($("#entryWheelDay"),i=>{draft.d=i+1;sync()},type=>entryOpenPickerInput({
+          label:t("entry.birth_date.day"),value:String(type.index+1),errorKey:"validation.date",
+          parse:raw=>entryStrictInteger(raw,1,entryDaysIn(draft.m,draft.y)),apply:value=>type.set(value-1)}))}};
+    mountEntryWheel($("#entryWheelDay"),i=>{draft.d=i+1;sync()},type=>entryOpenPickerInput({
+      label:t("entry.birth_date.day"),value:String(type.index+1),errorKey:"validation.date",
+      parse:raw=>entryStrictInteger(raw,1,entryDaysIn(draft.m,draft.y)),apply:value=>type.set(value-1)}));
+    mountEntryWheel($("#entryWheelMonth"),i=>{draft.m=i+1;sync()},type=>entryOpenPickerInput({
+      label:t("entry.birth_date.month"),value:String(type.index+1),errorKey:"validation.date",
+      parse:raw=>entryStrictInteger(raw,1,12),apply:value=>type.set(value-1)}));
+    mountEntryWheel($("#entryWheelYear"),i=>{draft.y=ENTRY_BIRTH_YEARS[i];sync()},type=>entryOpenPickerInput({
+      label:t("entry.birth_date.year"),value:String(ENTRY_BIRTH_YEARS[type.index]),errorKey:"validation.date",
+      parse:raw=>entryStrictInteger(raw,ENTRY_BIRTH_YEARS[0],ENTRY_BIRTH_YEARS.at(-1)),
+      apply:value=>type.set(ENTRY_BIRTH_YEARS.indexOf(value))}))}
+  if(stepId==="height"){
+    if(entryHeightUnit()==="cm")mountEntryWheel($("#entryWheelCm"),i=>{entryPickerDraft={...entryPickerDraft,heightCm:120+i,heightTouched:true}},type=>entryOpenPickerInput({
+      label:t("entry.height.cm"),value:String(120+type.index),errorKey:"validation.metric",
+      parse:raw=>entryStrictInteger(raw,120,220),apply:value=>type.set(value-120)}));
+    else{
+      const total=Math.round(entryHeightValue()/2.54),parts={ft:Math.floor(total/12),inch:total%12};
+      const commit=()=>{entryPickerDraft={...entryPickerDraft,heightCm:Math.round((parts.ft*12+parts.inch)*2.54),heightTouched:true}};
+      mountEntryWheel($("#entryWheelFt"),i=>{parts.ft=3+i;commit()},type=>entryOpenPickerInput({
+        label:t("entry.height.feet"),value:String(3+type.index),errorKey:"validation.metric",
+        parse:raw=>entryStrictInteger(raw,3,7),apply:value=>type.set(value-3)}));
+      mountEntryWheel($("#entryWheelIn"),i=>{parts.inch=i;commit()},type=>entryOpenPickerInput({
+        label:t("entry.height.inches"),value:String(type.index),errorKey:"validation.metric",
+        parse:raw=>entryStrictInteger(raw,0,11),apply:value=>type.set(value)}))}}
+  if(stepId==="weight"){
+    const unit=entryWeightUnit();
+    mountEntryRuler($("#entryWeightRuler"),value=>{
+      const kg=unit==="lb"?value*KG_PER_LB:value;
+      entryPickerDraft={...entryPickerDraft,weightKg:Math.round(kg*10)/10,weightTouched:true}},type=>{
+      const range=entryWeightRange(unit),label=t("entry.weight.ruler",{unit});
+      entryOpenPickerInput({label,value:entryDecimal(type.value,1),inputMode:"decimal",errorKey:"toast.invalid_weight",
+        parse:raw=>{
+          const value=parseDec(raw);
+          if(!Number.isFinite(value)||value<range.min||value>range.max)return null;
+          const index=(value-range.min)/range.step;
+          return Math.abs(index-Math.round(index))<1e-7?Math.round(index):null},
+        apply:index=>type.set(index)})})}}
+/* What Continue stores from a picker step, and what Skip clears. */
+function entryCommitPicker(stepId){
+  if(stepId==="birth_date"){
+    const b=entryBirthValue();
+    entryState=ProgramEntry.setAnswers(entryState,{basics:{...entryBasics(),
+      birthDate:`${b.y}-${String(b.m).padStart(2,"0")}-${String(b.d).padStart(2,"0")}`}})}
+  if(stepId==="height")entryState=ProgramEntry.setAnswers(entryState,{basics:{...entryBasics(),heightCm:entryHeightDisplayedCm(),heightUnit:entryHeightUnit()}});
+  if(stepId==="weight")entryState=ProgramEntry.setAnswers(entryState,{basics:{...entryBasics(),weightKg:entryWeightDisplayedValue(),weightUnit:entryWeightUnit()}});
+  entryPickerDraft={}}
+const ENTRY_SKIP_CLEARS=Object.freeze({sex:["sex"],birth_date:["birthDate"],height:["heightCm"],weight:["weightKg"],cardio_experience:["cardioExperience"]});
+function entrySkippable(stepId){
+  return entryIsB()&&(Object.prototype.hasOwnProperty.call(ENTRY_SKIP_CLEARS,stepId)||stepId==="muscle_priorities"||stepId==="abilities")}
+function entrySkip(){
+  const stepId=entryState?.step;
+  if(!entrySkippable(stepId))return;
+  entryPickerDraft={};entryPriorityLimitShown=false;
+  if(ENTRY_SKIP_CLEARS[stepId]){
+    const basics={...entryBasics()};
+    for(const key of ENTRY_SKIP_CLEARS[stepId])delete basics[key];
+    entryState=ProgramEntry.setAnswers(entryState,{basics})}
+  if(stepId==="muscle_priorities")entryState=ProgramEntry.setAnswers(entryState,{primaryMuscles:[],deEmphasizedMuscles:[]});
+  if(stepId==="abilities")entryState=ProgramEntry.setAnswers(entryState,{competencyAnswers:{}});
+  const advanced=ProgramEntry.advance(entryState);
+  if(!advanced.ok){renderOnboarding();return}
+  if(advanced.state.step==="result"&&!advanced.state.result?.preview){startEntryResult(advanced.state);return}
+  entrySetState(advanced.state)}
+/* Continue is held until a choice exists on the Basics choice screens; Skip is
+   the way past them without an answer. */
+function entryNeedsChoice(stepId){
+  if(entryHubMode())return !entryHubChoice;
+  if(!entryIsB())return false;
+  if(stepId==="sex")return !entryBasics().sex;
+  if(stepId==="cardio_experience")return !entryBasics().cardioExperience;
+  return false}
+/* Steps whose screen shows a default the lifter may accept with Continue. */
+function entryApplyShownDefaults(stepId){
+  if(stepId==="session_length"&&entryState.answers.sessionMinutes==null)entryState=ProgramEntry.setAnswers(entryState,{sessionMinutes:60});
+  if(stepId==="deload"&&entryState.answers.deload==null)entryState=ProgramEntry.setAnswers(entryState,{deload:true})}
+
 /* Each question's controls are a body of their own, so the step screen and the
    review's answer editor draw the same thing from the same answers. */
 function entryGoalGroup(){
@@ -15513,7 +15907,9 @@ function entryAbilityRow(key){
     ENTRY_ABILITY_CHOICES.map(choice=>entryAbilityOption(key,choice)).join("")+`</div></div>`}
 function entryAbilitiesBody(){
   return `<div class="entry__ability-list">`+entryAbilityKeys().map(entryAbilityRow).join("")+`</div>`}
-function renderAbilitiesStep(){
+function renderAbilitiesStep({b=false}={}){
+  // B's skip is the pinned Skip under Continue; Custom keeps its inline one.
+  if(b)return entryHeading(t("entry.abilities.title"))+`<p class="onb__explain">${esc(t("entry.abilities.lede"))}</p>`+entryAbilitiesBody();
   const skip=`<button type="button" class="btn btn--steel entry__skip" id="entryAbilitiesSkip">${esc(t("entry.skip_optional"))}</button>`;
   return entryHeading(t("entry.abilities.title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
     `<p class="onb__explain">${esc(t("entry.abilities.lede"))}</p>`+skip+entryAbilitiesBody()}
@@ -17032,13 +17428,16 @@ function entryDialogElement(){
   if(el)return el;
   el=document.createElement("dialog");
   el.id="entryDialog";el.className="entry-dialog";el.setAttribute("aria-modal","true");
-  el.innerHTML=`<h2 class="entry-dialog__title" tabindex="-1"></h2><p class="entry-dialog__body"></p><div class="entry-dialog__actions"></div>`;
+  el.innerHTML=`<h2 class="entry-dialog__title" tabindex="-1"></h2><p class="entry-dialog__body"></p><div class="entry-dialog__field" hidden></div><div class="entry-dialog__actions"></div>`;
   document.body.append(el);
   // Some engines close a modal <dialog> on Escape before a capture listener
   // runs; the cancel event routes that to the same dismissal.
   el.addEventListener("cancel",event=>{event.preventDefault();dismissEntryDialog()});
   return el}
 function entryDialogSpec(kind){
+  if(kind==="picker")return{titleId:"entryPickerTitle",title:entryPickerInput?.label||"",body:"",actions:[
+    {id:"entryPickerDone",cls:"btn btn--cta btn--noarrow",label:t("dialog.done"),run:entryCommitPickerInput},
+    {id:"entryPickerCancel",cls:"btn btn--steel",label:t("dialog.cancel"),run:()=>dismissEntryDialog()}]};
   if(kind==="review"){
     const dialog=entryAdjustDialog||{};
     return{titleId:"reviewConfirmTitle",title:dialog.title||"",body:dialog.body||"",actions:[
@@ -17074,9 +17473,7 @@ function entryOpenerElement(){
   let el=null;
   if(token?.kind==="id")el=$("#"+CSS.escape(token.value));
   else if(token?.kind==="pick")el=$(`[data-entry-pick="${CSS.escape(token.key)}"][data-entry-val="${CSS.escape(token.val)}"]`);
-  else if(token?.kind==="goal")el=$(`[data-entry-goal="${CSS.escape(token.value)}"]`);
-  else if(token?.kind==="route")el=$(`[data-entry-route="${CSS.escape(token.value)}"]`);
-  else if(token?.kind==="help")el=$(`[data-entry-help="${CSS.escape(token.key)}"][data-entry-help-val="${CSS.escape(token.val)}"]`);
+  else if(token?.kind==="hub")el=$(`[data-entry-hub="${CSS.escape(token.value)}"]`);
   else if(token?.kind==="catalogue")el=$(`[data-entry-catalogue="${CSS.escape(token.value)}"]`);
   return el&&!el.disabled?el:($("#entryHeading")||$("#onbCancel"))}
 /* Show, keep or remove the dialog for the current state. Called at the end of
@@ -17092,13 +17489,22 @@ function syncEntryDialog(){
   const title=dialog.querySelector(".entry-dialog__title");
   title.id=spec.titleId;title.textContent=spec.title;
   dialog.setAttribute("aria-labelledby",spec.titleId);
-  dialog.querySelector(".entry-dialog__body").textContent=spec.body;
+  const body=dialog.querySelector(".entry-dialog__body");
+  body.textContent=spec.body;body.hidden=kind==="picker";
+  const field=dialog.querySelector(".entry-dialog__field");
+  field.hidden=kind!=="picker";
+  field.innerHTML=kind==="picker"&&entryPickerInput
+    ?`<label class="entry__field"><span>${esc(entryPickerInput.label)}</span><input id="entryPickerInput" class="entry__field-input" type="text" inputmode="${entryPickerInput.inputMode}" value="${esc(entryPickerInput.value)}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="entryPickerError"></label><p id="entryPickerError" class="entry-dialog__error" role="status" aria-live="polite" hidden></p>`
+    :"";
+  const typedInput=field.querySelector("#entryPickerInput");
+  typedInput?.addEventListener("keydown",event=>{
+    if(event.key==="Enter"){event.preventDefault();entryCommitPickerInput()}});
   const actions=dialog.querySelector(".entry-dialog__actions");
   actions.innerHTML=spec.actions.map(action=>`<button type="button" id="${action.id}" class="${action.cls}">${esc(action.label)}</button>`).join("");
   for(const action of spec.actions)actions.querySelector("#"+action.id).onclick=action.run;
   // The opener was noted before the render that replaced it; a dialog reached
   // some other way (browser Back) falls back to the heading.
-  const opened=openModal(dialog,{returnFocus:()=>entryOpenerElement(),initialFocus:title,onEscape:()=>dismissEntryDialog()});
+  const opened=openModal(dialog,{returnFocus:()=>entryOpenerElement(),initialFocus:typedInput||title,onEscape:()=>dismissEntryDialog()});
   if(!opened&&!dialog.open)try{dialog.showModal()}catch{}}
 function closeEntryDialog(){
   const el=$("#entryDialog");
@@ -17111,7 +17517,7 @@ function dismissEntryDialog(){
   const resolve=entryReplaceResolve;
   entryReplaceResolve=null;
   if(entryUiNotice==="cancel")entryUiNotice=null;
-  entryDialog=null;
+  entryPickerInput=null;entryDialog=null;
   closeEntryDialog();
   if(resolve)resolve(false);
   renderOnboarding()}
@@ -17144,10 +17550,8 @@ function entryFocusToken(){
   if(!el||!el.closest("#onbBody"))return null;
   if(el.id)return{kind:"id",value:el.id};
   if(el.dataset.entryPick)return{kind:"pick",key:el.dataset.entryPick,val:el.dataset.entryVal};
-  if(el.dataset.entryGoal)return{kind:"goal",value:el.dataset.entryGoal};
-  if(el.dataset.entryRoute)return{kind:"route",value:el.dataset.entryRoute};
+  if(el.dataset.entryHub)return{kind:"hub",value:el.dataset.entryHub};
   if(el.dataset.entryCatalogue)return{kind:"catalogue",value:el.dataset.entryCatalogue};
-  if(el.dataset.entryHelp)return{kind:"help",key:el.dataset.entryHelp,val:el.dataset.entryHelpVal};
   return null;
 }
 function entryScreenKey(){
@@ -17160,10 +17564,8 @@ function restoreEntryFocus(token){
   let el=null;
   if(token.kind==="id")el=$("#"+CSS.escape(token.value));
   else if(token.kind==="pick")el=$(`[data-entry-pick="${CSS.escape(token.key)}"][data-entry-val="${CSS.escape(token.val)}"]`);
-  else if(token.kind==="goal")el=$(`[data-entry-goal="${CSS.escape(token.value)}"]`);
-  else if(token.kind==="route")el=$(`[data-entry-route="${CSS.escape(token.value)}"]`);
+  else if(token.kind==="hub")el=$(`[data-entry-hub="${CSS.escape(token.value)}"]`);
   else if(token.kind==="catalogue")el=$(`[data-entry-catalogue="${CSS.escape(token.value)}"]`);
-  else if(token.kind==="help")el=$(`[data-entry-help="${CSS.escape(token.key)}"][data-entry-help-val="${CSS.escape(token.val)}"]`);
   if(!el||el.disabled)return false;
   try{el.focus({preventScroll:true});return true}catch{try{el.focus();return true}catch{return false}}
 }
@@ -17197,10 +17599,143 @@ function entryHubMode(){
    screens only: on a review a changed answer must recompile, which is not a
    jump, so the review has no rail. Browse's two questions need none. */
 /* The about screen carries its goal as a band with Change, so it has no rail of its own. */
+const ENTRY_B_RENDERERS=Object.freeze({intro:()=>renderIntroStep(),sex:()=>renderSexStep(),birth_date:()=>renderBirthDateStep(),
+  height:()=>renderHeightStep(),weight:()=>renderWeightStep(),background:()=>renderLiftingStep(),cardio_experience:()=>renderCardioStep(),
+  environment:()=>renderGymStep(),equipment:()=>renderEquipmentStep(),desired_result:()=>renderGoalStep(),days_per_week:()=>renderDaysStep(),
+  session_length:()=>renderSessionLengthStep(),muscle_priorities:()=>renderMusclePrioritiesStep(),deload:()=>renderDeloadStep(),
+  abilities:()=>renderAbilitiesStep({b:true})});
+function entryMotionRank(state){
+  if(!state)return null;
+  if(state.route==="recommend"){
+    if(state.step==="entry")return-1;
+    const index=ProgramEntry.ROUTE_STEPS.recommend.indexOf(state.step);
+    return index>=0?index:null}
+  return !state.route&&state.step==="entry"?-1:null}
+function entryMotionDirection(from,to){
+  if(setupEditorOpen||entryDialog||entryUiNotice==="resume")return null;
+  const a=entryMotionRank(from),b=entryMotionRank(to);
+  if(a==null||b==null||a===b)return null;
+  return b>a?"in":"out"}
+function entryMotionAvailable(){
+  const motion=window.RepForgeMotion;
+  return window.__repforgeBooted===true&&!!motion?.animatePush&&motion.available?.()===true&&motion.reducedMotion?.()!==true}
+function entryStandaloneDisplay(){
+  try{return window.matchMedia?.("(display-mode: standalone)")?.matches===true}catch{return false}}
+function entryMotionLivePage(){
+  const body=$("#onbBody");
+  return body?.querySelector(":scope > .entry-motion-page:not([aria-hidden='true'])")||null}
+function cloneEntryMotionPage(page){
+  if(!page)return null;
+  const copy=page.cloneNode(true);
+  copy.id="onbBody";copy.classList.add("onb__body");
+  copy.classList.remove("is-push-over","is-push-under","is-edge-swiping");
+  copy.style.removeProperty("transform");
+  copy.inert=true;copy.setAttribute("aria-hidden","true");copy.dataset.entryMotionCopy="true";
+  return copy}
+function removeEntryMotionUnder(){
+  entryEdgeUnder?.remove();entryEdgeUnder=null;
+  const body=$("#onbBody");
+  if(!entryMotionRun&&!body?.querySelector(":scope > .entry-motion-page.is-push-over, :scope > .entry-motion-page.is-push-under"))
+    body?.classList.remove("entry-motion-active")}
+function disposeEntryEdgeSwipe(){
+  const edge=entryEdgeSwipe;entryEdgeSwipe=null;
+  if(!edge)return;
+  edge.watch.disconnect();edge.registration.dispose();
+  removeEntryMotionUnder()}
+function clearEntryMotion(){
+  disposeEntryEdgeSwipe();
+  const run=entryMotionRun;entryMotionRun=null;
+  run?.cancel?.();
+  const cleanup=entryMotionCleanup;entryMotionCleanup=null;
+  cleanup?.();
+  const body=$("#onbBody");
+  body?.querySelectorAll(":scope > .entry-motion-page").forEach(page=>{
+    page.classList.remove("is-push-over","is-push-under","is-edge-swiping");
+    if(page.dataset.entryMotionCopy==="true")page.remove()});
+  body?.classList.remove("entry-motion-active")}
+function entryMotionPageClasses(state,{hub=!state?.route||state.step==="entry"}={}){
+  const step=hub?"entry":state.step;
+  return `entry-body entry-body--${step}${hub?" entry-route--hub":` entry-route--${state.route}`} entry-motion-page`}
+function entryMotionPage(state,html,options){
+  const page=document.createElement("div");
+  page.id="onbBody";
+  page.className=entryMotionPageClasses(state,options);
+  page.classList.add("onb__body");
+  page.innerHTML=html;
+  page.inert=true;page.setAttribute("aria-hidden","true");page.dataset.entryMotionCopy="true";
+  return page}
+function renderEntryMotionPage(state){
+  const previousState=entryState,previousNotice=entryUiNotice,previousChoice=entryHubChoice;
+  try{
+    entryState=state;entryUiNotice=null;
+    if(!state?.route||state.step==="entry"){
+      entryHubChoice=state?.route==="recommend"?"recommend":null;
+      return entryMotionPage(state,renderEntryHub())}
+    if(state.route==="recommend"&&ENTRY_B_RENDERERS[state.step])
+      return entryMotionPage(state,ENTRY_B_RENDERERS[state.step]());
+    if(state.route==="recommend"&&state.step==="result")
+      return entryMotionPage(state,renderResultStep());
+    return null
+  }finally{entryState=previousState;entryUiNotice=previousNotice;entryHubChoice=previousChoice}}
+function entryMotionPreviousState(){
+  if(!entryState||entryHubMode()||!entryIsB())return null;
+  const previous=ProgramEntry.back(entryState);
+  return entryMotionRank(previous)==null?null:previous}
+function mountEntryEdgeUnder(page){
+  if(entryEdgeUnder)return;
+  const body=$("#onbBody"),previous=entryMotionPreviousState();
+  const under=previous&&renderEntryMotionPage(previous);
+  if(!body||!under)return;
+  under.classList.add("is-push-under");
+  body.classList.add("entry-motion-active");body.append(under);
+  entryEdgeUnder=under}
+function syncEntryEdgeSwipe(){
+  const page=entryMotionLivePage(),motion=window.RepForgeMotion;
+  const eligible=page&&entryIsB()&&!entryHubMode()&&!entryMotionRun&&
+    entryMotionRank(entryState)>-1&&motion?.registerEdgeSwipeBack&&motion.available?.()===true;
+  const onboarding=$("#onboarding");
+  onboarding?.classList.toggle("entry-edge-swipe-active",!!eligible&&entryStandaloneDisplay());
+  if(entryEdgeSwipe?.page===page&&eligible)return;
+  disposeEntryEdgeSwipe();
+  if(!eligible)return;
+  const registration=motion.registerEdgeSwipeBack({page,onCommit:()=>{
+    entrySwipeCommitting=true;
+    try{releaseSwallowedClick();$("#onbBack")?.click()}finally{entrySwipeCommitting=false}}});
+  if(!registration)return;
+  const watch=new MutationObserver(()=>{
+    if(page.classList.contains("is-edge-swiping"))mountEntryEdgeUnder(page);
+    else removeEntryMotionUnder()});
+  watch.observe(page,{attributes:true,attributeFilter:["class"]});
+  entryEdgeSwipe={page,registration,watch}}
+function startEntryPageTransition({direction,outgoing}){
+  const body=$("#onbBody"),live=entryMotionLivePage(),motion=window.RepForgeMotion;
+  if(!body||!live||!outgoing||!entryMotionAvailable()){
+    outgoing?.remove();syncEntryEdgeSwipe();return}
+  disposeEntryEdgeSwipe();
+  const pushed=direction==="in"?live:outgoing;
+  const under=direction==="in"?outgoing:live;
+  body.classList.add("entry-motion-active");
+  under.classList.add("is-push-under");
+  pushed.classList.add("is-push-over");
+  if(direction==="in")body.append(outgoing);else body.append(outgoing);
+  let run;
+  const cleanup=()=>{
+    outgoing.remove();live.classList.remove("is-push-under","is-push-over");
+    body.classList.remove("entry-motion-active");
+    if(entryMotionCleanup===cleanup)entryMotionCleanup=null};
+  entryMotionCleanup=cleanup;
+  run=motion.animatePush(pushed,{direction});
+  entryMotionRun=run;
+  Promise.resolve(run).then(()=>{
+    if(entryMotionRun!==run)return;
+    entryMotionRun=null;cleanup();syncEntryEdgeSwipe()})}
+function startEntryEdgeSwipeSync(){
+  if(entryMotionRun)return;
+  syncEntryEdgeSwipe()}
 const ENTRY_RAIL_STEPS=["desired_result","schedule","environment","priorities","exercise_preferences","custom_shape"];
 function renderEntryRail(){
   const route=entryState?.route,stepId=entryState?.step;
-  if(!route||route==="browse"||!ENTRY_RAIL_STEPS.includes(stepId))return"";
+  if(!route||route==="browse"||route==="recommend"||!ENTRY_RAIL_STEPS.includes(stepId))return"";
   const steps=ProgramEntry.ROUTE_STEPS[route]||[];
   const index=steps.indexOf(stepId);
   const a=entryState.answers||{};
@@ -17221,8 +17756,9 @@ function entryRailAfterTitle(stepHtml,rail){
   if(!rail)return stepHtml;
   const head=stepHtml.match(/^<h[12][^>]*>[\s\S]*?<\/h[12]>(?:<p class="onb__explain">[\s\S]*?<\/p>)?/);
   return head?head[0]+rail+stepHtml.slice(head[0].length):rail+stepHtml}
-function renderOnboarding(){
+function renderOnboarding({pageTransition=null}={}){
   if(entryEditorSwap){entryEditorRerender=true;return}
+  if(!pageTransition)clearEntryMotion();
   const body=$("#onbBody"),title=$("#onbTitle"),step=$("#onbStepLabel"),back=$("#onbBack"),next=$("#onbNext");
   if(!body||!ProgramEntry||!entryState)return;
   collapseSingleCustomShape();
@@ -17249,7 +17785,8 @@ function renderOnboarding(){
   document.body.classList.toggle("is-entry-editor",isEditor);
   /* On a single-step route the chrome eyebrow and the page heading are the
      same string ("Import a program" twice, 60px apart). Show one of them. */
-  const eyebrowText=route?entryRouteLabel(route):t("entry.eyebrow");
+  const bSection=entryIsB()?entryBSection(stepId):null;
+  const eyebrowText=bSection?t(`entry.section.${bSection.name}`):route?entryRouteLabel(route):t("entry.eyebrow");
   const titleText=isEditor?t("entry.build_editor_title"):t(route?`entry.${stepId}.title`:"entry.hub.title")||t("entry.eyebrow");
   const eyebrow=$("#onbEyebrow");
   if(eyebrow){const duplicate=eyebrowText===titleText;
@@ -17270,23 +17807,27 @@ function renderOnboarding(){
     seg.innerHTML=Array.from({length:total},(_,i)=>`<span class="segbar__seg${i<=current?" is-current":""}${i<current?" is-done":""}"></span>`).join("");
     seg.classList.toggle("hidden",!showProgress)}
   const cancel=$("#onbCancel");if(cancel)cancel.textContent=t("entry.cancel");
+  const skipButton=$("#onbSkip");
+  if(skipButton){skipButton.textContent=t("entry.skip");skipButton.hidden=!entrySkippable(stepId)||hub||isEditor||dialogOpen}
   /* The pinned region holds the one primary action. It is out of the way while
      the hub is up, an editor owns the screen, or a dialog is asking something. */
-  const hideNext=hub||stepId==="preview"||stepId==="result"||stepId==="catalogue"||stepId==="import_source"||stepId==="activation_conflict";
+  const hideNext=(hub&&resuming)||stepId==="preview"||stepId==="result"||stepId==="catalogue"||stepId==="import_source"||stepId==="activation_conflict";
   const nav=$("#onboarding .onb__nav");if(nav)nav.classList.toggle("hidden",hideNext||isEditor||dialogOpen);
   if(back){back.classList.toggle("hidden",hub||isEditor);back.textContent=t("entry.back");back.setAttribute("aria-label",t("entry.back"))}
   const reason=$("#onbNextReason");
   if(next){
     next.classList.toggle("hidden",hideNext||isEditor);
     next.textContent=stepId==="build_setup"?t("entry.build_setup.open"):
+      entryIsB()&&stepId==="intro"?t("entry.intro.start"):
       stepId==="custom_shape"?t("entry.custom_shape.generate"):t("entry.next");
     const pendingReason=stepId==="exercise_preferences"&&entryPendingAvoid;
-    const blocked=!hideNext&&!isEditor&&ProgramEntry.validationIssues(entryState).length>0;
+    const needsChoice=!hideNext&&!isEditor&&entryNeedsChoice(stepId);
+    const blocked=!hideNext&&!isEditor&&(needsChoice||!hub&&ProgramEntry.validationIssues(entryState).length>0);
     next.disabled=!!pendingReason||blocked;
     if(entryResultJob)next.setAttribute("aria-busy","true");else next.removeAttribute("aria-busy");
     /* A blocked primary says why, in text above it, and drops its arrow. */
     const showReason=blocked&&!pendingReason;
-    if(reason){reason.hidden=!showReason;reason.textContent=showReason?t(stepId==="build_setup"?"entry.pinned.reason_name":"entry.pinned.reason"):""}
+    if(reason){reason.hidden=!showReason;reason.textContent=showReason?t(stepId==="build_setup"?"entry.pinned.reason_name":needsChoice?"entry.required":"entry.pinned.reason"):""}
     next.classList.toggle("btn--noarrow",next.disabled);
     if(pendingReason)next.setAttribute("aria-describedby","entryPendingAvoidNote");
     else if(showReason)next.setAttribute("aria-describedby","onbNextReason");
@@ -17294,7 +17835,9 @@ function renderOnboarding(){
   let html=`<span id="entryChoiceDisabledNote" class="visually-hidden">${esc(t("entry.choice.disabled"))}</span>`+
     (entryValidationNotice?`<div id="entryValidation" class="entry__notice entry__notice--error" role="alert" aria-live="assertive" tabindex="-1"><strong>${esc(t("entry.validation.title"))}</strong><p>${esc(t("entry.validation.body"))}</p></div>`:"")+renderEntryNotice();
   const rail=!hub&&!isEditor?renderEntryRail():"";
+  const bStep=entryIsB()&&ENTRY_B_RENDERERS[stepId];
   if(hub)html+=renderEntryHub();
+  else if(bStep)html+=bStep();
   else if(stepId==="desired_result")html+=entryRailAfterTitle(renderDesiredResultStep(),rail);
   else if(stepId==="background")html+=entryRailAfterTitle(renderBackgroundStep(),rail);
   else if(stepId==="schedule")html+=entryRailAfterTitle(renderScheduleStep(),rail);
@@ -17316,7 +17859,13 @@ function renderOnboarding(){
   else html+=renderEntryHub();
   body.className=`onb__body entry-body entry-body--${stepId}${route?` entry-route--${route}`:" entry-route--hub"}`;
   entryAdjustMount?.dispose();entryAdjustMount=null;
-  body.innerHTML=html;
+  const motionPageState=!isEditor&&!dialogOpen&&(hub||entryIsB()&&(bStep||stepId==="result"))?entryState:null;
+  if(motionPageState){
+    const live=document.createElement("div");
+    live.className=entryMotionPageClasses(motionPageState,{hub});
+    live.dataset.entryMotionKey=hub?"hub":`${motionPageState.route}|${motionPageState.step}`;
+    live.innerHTML=html;body.replaceChildren(live)}
+  else body.innerHTML=html;
   if((stepId==="result"||stepId==="activation_conflict")&&!isEditor)mountEntryAdjust();
   if(stepId==="result"&&!isEditor)playEntryBuild(body);
   const environmentCorrection=body.querySelector(".entry__correct");
@@ -17325,7 +17874,7 @@ function renderOnboarding(){
   if(validation){
     const lede=body.querySelector(".onb__explain"),heading=body.querySelector(".onb__q");
     const anchor=lede||heading;
-    if(anchor&&anchor.parentNode===body)body.insertBefore(validation,anchor.nextSibling);
+    if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(validation,anchor.nextSibling);
   }
   wireEntryDom();
   if(isEditor){
@@ -17347,7 +17896,8 @@ function renderOnboarding(){
   // The "entry" guide explains the five-job chooser, so it shows here rather
   // than on the landing that opens it. Not while a saved draft is asking first.
   if(hub&&!resuming)queueMicrotask(()=>maybeShowContextualGuides(["entry"]));
-  syncEntryDialog()}
+  syncEntryDialog();
+  if(pageTransition)startEntryPageTransition(pageTransition);else startEntryEdgeSwipeSync()}
 /** O3: draw the generated program in reading order, one block every 55ms
  *  (`.motion-build > .motion-build-item`, `--build-i` counting from zero): the
  *  name, where it came from, the four facts, what just changed, the week's
@@ -17382,44 +17932,23 @@ function wireEntryDom(){
      from reaching a handler that would overwrite the draft. */
   const doorsWait=()=>entryUiNotice==="resume";
   wireEntryImportControls($("#onbBody"));
-  $$("[data-entry-route]").forEach(btn=>btn.onclick=()=>{
+  $$("[data-entry-hub]").forEach(btn=>btn.onclick=()=>{
     if(doorsWait())return;
-    entrySelectRoute(btn.dataset.entryRoute,{goal:btn.dataset.entryGoal||null})});
-  const own=$("#entryOwnToggle");if(own)own.onclick=()=>{if(doorsWait())return;entryOwnOpen=!entryOwnOpen;renderOnboarding()};
-  const helpToggle=$("#entryHelpToggle");if(helpToggle)helpToggle.onclick=()=>{
-    if(doorsWait())return;
-    entryHelpOpen=!entryHelpOpen;if(!entryHelpOpen)entryHelp={q1:null,q2:null};
-    renderOnboarding()};
-  $$("[data-entry-help]").forEach(btn=>btn.onclick=()=>{
-    if(doorsWait())return;
-    const q=btn.dataset.entryHelp,val=btn.dataset.entryHelpVal;
-    entryHelp=q==="q1"?{q1:val,q2:null}:{...entryHelp,q2:val};
-    renderOnboarding()});
-  const helpGo=$("#entryHelpGo");if(helpGo)helpGo.onclick=()=>{
-    if(doorsWait())return;
-    const target=helpGo.dataset.entryHelpGo;
-    if(target==="import"){
-      setImportSourceMode("freeform",{render:false});
-      captureEvent("program_import_started",{source:"freeform"})}
-    entrySelectRoute(target)};
+    entryHubChoice=btn.dataset.entryHub;renderOnboarding()});
+  const equipmentReset=$("#entryEquipmentReset");
+  if(equipmentReset)equipmentReset.onclick=()=>{const env=entryState.answers.environment;if(env?.kind)entryPatchAnswers({environment:{kind:env.kind}})};
+  const deloadSwitch=$("#entryDeloadSwitch");
+  if(deloadSwitch)deloadSwitch.onclick=()=>entryPatchAnswers({deload:deloadSwitch.getAttribute("aria-checked")!=="true"});
+  const skipButton=$("#onbSkip");
+  if(skipButton)skipButton.onclick=()=>entrySkip();
+  mountEntryPickers();
   $$("[data-entry-rail]").forEach(btn=>btn.onclick=()=>entrySetState({...entryState,step:btn.dataset.entryRail}));
-  /* Both hub cards enter the same route and each names its own door, so the
-     card the lifter read is the screen they land on. The remembered mode is
-     for a resumed draft, which arrives at the step without a card. */
-  const freeformStart=$("#entryFreeformStart");
-  if(freeformStart)freeformStart.onclick=()=>{
-    if(doorsWait())return;
-    setImportSourceMode("freeform",{render:false});
-    captureEvent("program_import_started",{source:"freeform"});
-    entrySelectRoute("import")};
-  const importCard=$('[data-entry-route="import"]');
-  if(importCard)importCard.onclick=()=>{
-    if(doorsWait())return;
-    setImportSourceMode("file",{render:false});
-    captureEvent("program_import_started",{source:"file"});
-    entrySelectRoute("import")};
+  /* B's hub enters Import on the file door; the paste door is one switch
+     away, and choosing it starts a free-form import as the hub card did. */
   const freeformSwitch=$("#entryFreeformSwitch");
-  if(freeformSwitch)freeformSwitch.onclick=()=>setImportSourceMode("freeform");
+  if(freeformSwitch)freeformSwitch.onclick=()=>{
+    captureEvent("program_import_started",{source:"freeform"});
+    setImportSourceMode("freeform")};
   const freeformFile=$("#entryFreeformFile");
   if(freeformFile)freeformFile.onclick=()=>setImportSourceMode("file");
   const freeformIn=$("#entryFreeformIn");
@@ -17522,6 +18051,9 @@ function wireEntryDom(){
       if(!entryAbilityKeys().includes(competency)||!ENTRY_ABILITY_CHOICES.includes(choice))return;
       const current={...(entryState.answers.competencyAnswers||{})};
       current[competency]=choice==="yes"?true:choice==="no"?false:null;
+      // Ten strict pull-ups is also five, and without five there is no ten.
+      if(competency==="pullups10"&&current.pullups10===true)current.pullups5=true;
+      if(competency==="pullups5"&&current.pullups5!==true&&current.pullups10===true)current.pullups10=current.pullups5;
       entryPatchAnswers({competencyAnswers:current});
       return}
     if(key==="avoidReason"){
@@ -17534,6 +18066,12 @@ function wireEntryDom(){
       return}
     if(key==="preferredRestSeconds"){entryPatchAnswers({preferredRestSeconds:raw==="auto"?null:+raw});return}
     if(key==="daysPerWeek"||key==="sessionMinutes"){entryPatchAnswers({[key]:+raw});return}
+    if(key==="basicsSex"){entryPatchBasics({sex:raw});return}
+    if(key==="basicsCardio"){entryPatchBasics({cardioExperience:raw});return}
+    if(key==="basicsHeightUnit"){entryPatchBasics({heightUnit:raw});return}
+    if(key==="basicsWeightUnit"){entryPatchBasics({weightUnit:raw});return}
+    if(key==="equipmentGroup"){entryToggleEquipmentGroup(raw);return}
+    if(key==="musclePriorityB"){const [muscle,status]=String(raw).split("|");entrySetMusclePriority(muscle,status);return}
     if(multi){
       const current=[...(entryState.answers[key]||[])];
       const idx=current.indexOf(raw);
@@ -17731,7 +18269,7 @@ function entryStartOver(){
   const restarted=ProgramEntry.startOver({
     draftId:uid(),activeProgramRevisionAtStart:liveProgramRevision(),now:entryNow(),versions:entryVersions()});
   if(restarted.effects?.deleteSetupDraft)clearSetupDraft();
-  entryOwnOpen=false;entryUiNotice=null;entryCompileError=null;entryExerciseQuery="";entryPinnedVersionsExecutable=false;
+  entryUiNotice=null;entryCompileError=null;entryExerciseQuery="";entryPinnedVersionsExecutable=false;
   reportEntryExit("start_over");
   entrySetState(restarted.state,{persist:true})}
 async function recoverEntryDurableConflict(){
@@ -17758,7 +18296,9 @@ async function surfaceEntryDurableConflict(){
 }
 function entryAdvance(){
   if(!ProgramEntry||!entryState||entryResultJob)return;
+  if(entryHubMode()){entryChooseHubRoute();return}
   entryGoalOpen=false;
+  if(entryIsB()){entryCommitPicker(entryState.step);entryApplyShownDefaults(entryState.step);entryPriorityLimitShown=false}
   if(entryState.step==="build_setup"){
     const nameInput=$("#entryProgramName");
     if(nameInput)entryState=ProgramEntry.setAnswers(entryState,{programName:nameInput.value.trim()});
@@ -17921,6 +18461,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
   answersForMeta.splitType=programDefinition.request.split||answersForMeta.splitType;
   answersForMeta.mesocycleLengthWeeks=programDefinition.cycles;
   if(context?.ok)baseProposal.programmingContext=context.value;
+  if(route==="recommend")applyBasicsToProposal(baseProposal,entryState.answers.basics);
   baseProposal.programMeta=baseProposal.programMeta||defaultProgramMeta(baseProposal.log);
   baseProposal.programMeta.progressionRelations=cloneSnapshot(preview?.progressionRelations||[]);
   baseProposal.programMeta.progressionModifiers=cloneSnapshot(preview?.progressionModifiers||[]);
@@ -18671,7 +19212,7 @@ function renderLandingWays(){
   const fill=(key,html)=>{const node=root.querySelector(`[data-landing-fill="${key}"]`);if(node)node.innerHTML=html};
   fill("ways.written",esc(t("landing.ways.written.body",{weeks:landingNum(defaultProgramMeta().mesocycleLengthWeeks)})));
   fill("ways.where",landingRich("landing.ways.paste.where",{},{track:t("landing.track"),hub:t("entry.hub.title"),
-    own:t("entry.hub.own.title"),paste:t("entry.hub.freeform.title")}));
+    own:t("entry.hub.b.import.title"),paste:t("entry.import_source.to_freeform")}));
   fill("data.pointer",landingRich("landing.data.pointer",{},{settings:t("nav.settings"),privacy:t("privacy.open")}));
   fill("faq.coach.a1",landingRich("landing.faq.coach.a1",{},{control:t("program.share_setup")}));
   fill("faq.data.a2",landingRich("landing.faq.data.a2",{},{settings:t("nav.settings"),toggle:t("settings.analytics.title")}));
@@ -19414,7 +19955,7 @@ function showContextualGuide(id,{focus=false,returnFocus=null,persistDeferred=fa
   // owning surface as their insertion point so a cue never joins a fixed row.
   const shelf=anchor.closest(".focus-shelf");
   const placement=shelf||anchor.closest(".wo-head")||
-    anchor.closest(".firstrun__actions")||anchor.closest(".firstrun__header")||anchor.closest(".entry-feature")||
+    anchor.closest(".firstrun__actions")||anchor.closest(".firstrun__header")||anchor.closest(".entry__hub")||anchor.closest(".entry-feature")||
     anchor.closest("#statsSeg")||anchor;
   placement.insertAdjacentElement(shelf?"beforebegin":"afterend",cue);
   syncFocusFloor();
@@ -19902,8 +20443,10 @@ function init(){
     setDisclosure(dataBackup,$("#dataBackupPanel"),open);
     if(open)requestAnimationFrame(()=>maybeShowContextualGuides(["backup"]));
   };
+  const profileRow=$("#profileRow");if(profileRow)profileRow.onclick=()=>setDisclosure(profileRow,$("#profilePanel"),!$("#profilePanel")?.classList.contains("is-open"));
+  const profileClear=$("#profileClear");if(profileClear)profileClear.onclick=()=>clearProfile();
   const dataImport=$("#dataImportRow");if(dataImport)dataImport.onclick=()=>setDisclosure(dataImport,$("#dataImportPanel"),!$("#dataImportPanel")?.classList.contains("is-open"));
-  [["#restSecRow","#restSecPanel"],["#rirModeRow","#rirModePanel"],["#progressionRow","#progressionDetails"],["#notifyConfigRow","#notifyTypes"],["#dataBackupRow","#dataBackupPanel"],["#dataImportRow","#dataImportPanel"]].forEach(([b,p])=>setDisclosure($(b),$(p),false));
+  [["#restSecRow","#restSecPanel"],["#rirModeRow","#rirModePanel"],["#progressionRow","#progressionDetails"],["#notifyConfigRow","#notifyTypes"],["#dataBackupRow","#dataBackupPanel"],["#profileRow","#profilePanel"],["#dataImportRow","#dataImportPanel"]].forEach(([b,p])=>setDisclosure($(b),$(p),false));
   setDisclosure($("#guideReplayToggle"),$("#guideReplayPanel"),false);
   const commitChangedSettings=()=>{settingsEditRevision++;return commitSettings(true)};
   $("#settings").addEventListener("input",()=>{settingsEditRevision++});

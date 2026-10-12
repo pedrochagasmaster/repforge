@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 174 screens,
-1038 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 178 screens,
+1039 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -57,22 +57,35 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [One-time landing — close](screens/onboarding-start/first-run-close__phone-390-light-en.png) | 3 | Scrolled to the closing orange band with the Build pill and the Track link; the persistent Build control has stepped aside. |
 | [Returning landing](screens/onboarding-start/first-run-returning__phone-390-light-en.png) | 7 | A later visit to a device with no program and no log, with nothing saved. The welcome-back headline and its line, the Build pill, the Track link and Privacy lead; the chips, the proof and the outcomes are left out, and the ways, the data promise, the questions and the closing band follow. |
 | [Returning landing — setup saved](screens/onboarding-start/first-run-returning-resume__phone-390-light-en.png) | 7 | A later visit with a half-finished Recommend setup saved. The lead action names it (Continue choosing your program) in the hero and the closing band; tapping it opens the chooser's resume card. |
-| [Entry hub](screens/onboarding-start/hub__phone-390-light-en.png) | 7 | Create a program. Recommend is the sole primary path; Custom is its generated alternative; Browse stands alone; Bring or build is collapsed. |
-| [Entry hub — own disclosure open](screens/onboarding-start/hub-own-open__phone-390-light-en.png) | 3 | The Bring or build disclosure expanded with aria-expanded to reveal Build, paste, and Taurifer-file import paths. |
+| [Entry hub](screens/onboarding-start/hub__phone-390-light-en.png) | 7 | B's hub: Recommend, Build and Import as choice cards, the setup-link note, Continue held until a choice. |
+| [Entry hub — Recommend chosen](screens/onboarding-start/hub-chosen__phone-390-light-en.png) | 3 | The hub with Recommend chosen and Continue enabled. |
 | [Entry hub — existing program](screens/onboarding-start/hub-existing__phone-390-light-en.png) | 3 | Opened from Settings while a program is active, so replacement consequences are in view. |
-| [Entry hub — route help open](screens/onboarding-start/hub-help__phone-390-light-en.png) | 3 | The Not sure which one? helper expanded on the hub: two short questions that end in Continue with the suggested route, reaching all five jobs. |
 
 ### Onboarding — Recommend one for me
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Recommend 1 — desired result](screens/onboarding-recommend/desired-result__phone-390-light-en.png) | 3 | Route header, Cancel, progress 1 of 5, three desired-result choices. |
-| [Recommend 2 — training background](screens/onboarding-recommend/background__phone-390-light-en.png) | 3 | The carried goal with Change, then structured-program experience. |
-| [Recommend 3 — real week](screens/onboarding-recommend/schedule__phone-390-light-en.png) | 3 | Days per week and the session-minute ceiling. |
-| [Recommend 4 — environment](screens/onboarding-recommend/environment__phone-390-light-en.png) | 3 | Environment shortcuts with the capability correction disclosure closed. |
-| [Recommend 5 — movement abilities](screens/onboarding-recommend/abilities__phone-390-light-en.png) | 3 | The seven competency questions as yes/no/unsure rows, unanswered, with Skip offered. |
-| [Recommend 6 — priorities](screens/onboarding-recommend/priorities__phone-390-light-en.png) | 3 | Primary priorities plus optional movement and exercise-avoidance controls. |
-| [Recommend 5 — avoidance and pain safety](screens/onboarding-recommend/avoidance-pain__phone-390-light-en.png) | 7 | One avoided exercise with the pain reason selected and its safety copy. |
+| [Recommend — section map](screens/onboarding-recommend/intro__phone-390-light-en.png) | 3 | B's section map: Basics, Gym and equipment, Program, with Start with the basics. |
+| [Recommend Basics 1 — sex](screens/onboarding-recommend/sex__phone-390-light-en.png) | 3 | Female, Male and Prefer not to say; the local-only note; Continue held until a choice; Skip. |
+| [Recommend Basics 2 — birth date](screens/onboarding-recommend/birth-date__phone-390-light-en.png) | 3 | Day, month and year wheels at their starting date; the local-only note; Skip. |
+| [Recommend Basics 2 — type a birth-date value](screens/onboarding-recommend/birth-date-typed__phone-390-light-en.png) | 3 | The year value opened for direct entry over the birth-date wheels. |
+| [Recommend Basics 2 — invalid typed year](screens/onboarding-recommend/birth-date-typed-invalid__phone-390-light-en.png) | 3 | The year field remains open with its validation message after an unsupported value. |
+| [Recommend Basics 3 — height](screens/onboarding-recommend/height__phone-390-light-en.png) | 3 | The centimeters/feet-and-inches toggle over the centimeter wheel; the local-only note; Skip. |
+| [Recommend Basics 3 — height in feet and inches](screens/onboarding-recommend/height-ftin__phone-390-light-en.png) | 3 | The same screen with feet and inches chosen: two wheels. |
+| [Recommend Basics 4 — weight](screens/onboarding-recommend/weight__phone-390-light-en.png) | 3 | The kilograms/pounds toggle over the ruler and its value; the note that weight sets bodyweight loads; Skip. |
+| [Recommend Basics 4 — weight in pounds](screens/onboarding-recommend/weight-lb__phone-390-light-en.png) | 3 | The same screen with pounds chosen. |
+| [Recommend Basics 5 — lifting experience](screens/onboarding-recommend/background__phone-390-light-en.png) | 3 | None, Beginner, Intermediate and Advanced with the engine's bands; required, no Skip. |
+| [Recommend Basics 6 — cardio experience](screens/onboarding-recommend/cardio-experience__phone-390-light-en.png) | 3 | Four cardio choices; the local-only note; Skip. |
+| [Recommend Gym 1 — where you train](screens/onboarding-recommend/environment__phone-390-light-en.png) | 3 | The six gym presets with Home chosen. |
+| [Recommend Gym 2 — equipment](screens/onboarding-recommend/equipment__phone-390-light-en.png) | 8 | Home's thirteen equipment groups with the preset's ticked and the reset link disabled. |
+| [Recommend Gym 2 — equipment adjusted](screens/onboarding-recommend/equipment-adjusted__phone-390-light-en.png) | 3 | Home with the bench ticked and the bands unticked, and the reset link enabled. |
+| [Recommend Program 1 — goal](screens/onboarding-recommend/desired-result__phone-390-light-en.png) | 3 | Muscle growth, Strength and Both. |
+| [Recommend Program 2 — days per week](screens/onboarding-recommend/days-per-week__phone-390-light-en.png) | 3 | Two to six days with four chosen and its split fact. |
+| [Recommend Program 3 — session length](screens/onboarding-recommend/session-length__phone-390-light-en.png) | 3 | Up to 20 to up to 150 minutes, with 60 shown as the default. |
+| [Recommend Program 4 — muscle priorities](screens/onboarding-recommend/muscle-priorities__phone-390-light-en.png) | 8 | Twelve muscles, each Reduce, Normal or Prioritize; glutes prioritized and calves reduced; Skip. |
+| [Recommend Program 4 — priority limit](screens/onboarding-recommend/muscle-priorities-limit__phone-390-light-en.png) | 3 | Five muscles prioritized and a sixth refused with the limit line. |
+| [Recommend Program 5 — deload](screens/onboarding-recommend/deload__phone-390-light-en.png) | 3 | The deload card switched on, marked Recommended. |
+| [Recommend Program 6 — movement abilities](screens/onboarding-recommend/abilities__phone-390-light-en.png) | 3 | Seven yes, no or not sure questions in B's wording, with Skip pinned under Continue. |
 | [Recommend — recommendation and review](screens/onboarding-recommend/result__phone-390-light-en.png) | 8 | Onboarding B's review editor at rest: the source, the program name, four facts, the block row, the tap hint, the day tabs with rest days and the first day's exercises with their sets, RIR and muscles; how it was built follows, with the pinned activation. |
 | [Recommend — review with adjustments](screens/onboarding-recommend/result-changed__phone-390-light-en.png) | 3 | Three rows carry their marks (a set added, an engine swap, a movement added from the catalog) and the changes bar counts them with Undo and Restore. |
 | [Recommend — exercise sheet](screens/onboarding-recommend/review-sheet__phone-390-light-en.png) | 7 | One exercise's sheet at its top: the movement, its role and job, the sets ledger with RIR per set, the set count, rep range and rest controls, and the day's time. |
@@ -87,20 +100,6 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Recommend — after avoiding an exercise](screens/onboarding-recommend/result-avoided__phone-390-light-en.png) | 3 | An exercise the program contained is avoided from the priorities editor: the statement, and the constraint line with Restore. |
 | [Recommend — confirm replacement](screens/onboarding-recommend/replacement-confirm__phone-390-light-en.png) | 3 | The explicit archive-and-replace confirmation. History is not changed. |
 | [Recommend — activation conflict](screens/onboarding-recommend/activation-conflict__phone-390-light-en.png) | 3 | Another tab changed the active program. The newer program stays active. |
-
-### Onboarding — Generate a custom program
-
-| Screen | Frames | What it shows |
-| --- | --- | --- |
-| [Custom 1 — desired result](screens/onboarding-custom/desired-result__phone-390-light-en.png) | 4 | The custom route's own header and step count, not Recommend's. |
-| [Custom 2 — training background](screens/onboarding-custom/background__phone-390-light-en.png) | 4 | Structured-program experience in the custom route. |
-| [Custom 3 — real week](screens/onboarding-custom/schedule__phone-390-light-en.png) | 8 | Days per week and the session ceiling in the custom route. |
-| [Custom 4 — environment](screens/onboarding-custom/environment__phone-390-light-en.png) | 4 | Environment shortcuts in the custom route. |
-| [Custom 5 — movement abilities](screens/onboarding-custom/abilities__phone-390-light-en.png) | 4 | The seven competency questions as yes/no/unsure rows, unanswered, with Skip offered, in the custom route. |
-| [Custom 6 — muscle priorities](screens/onboarding-custom/priorities__phone-390-light-en.png) | 8 | Each muscle has one accessible emphasis setting before exercise preferences. |
-| [Custom 7 — exercise preferences](screens/onboarding-custom/exercise-preferences__phone-390-light-en.png) | 4 | One library search offers Include or Avoid, with separate selected lists. |
-| [Custom 7b — weekly structure](screens/onboarding-custom/shape__phone-390-light-en.png) | 4 | Two compatible weekly structures to choose from; shown only when more than one fits the answers. |
-| [Custom — generated program and review](screens/onboarding-custom/result__phone-390-light-en.png) | 4 | The custom program first, with muscle emphasis and exercise preferences among the answer chips, and the pinned activation. |
 
 ### Onboarding — Build my own
 

@@ -216,8 +216,8 @@ async function releaseStorageLockGate(page) {
 async function buildProgram(page) {
   await page.click("#firstRunCreate");
   await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
-  await page.click("#entryOwnToggle");
-  await page.click('[data-entry-route="build"]');
+  await page.click('[data-entry-hub="build"]');
+  await page.click("#onbNext");
   await page.fill("#entryProgramName", "Catalog metrics proof");
   await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="2"]');
   await page.click("#onbNext");

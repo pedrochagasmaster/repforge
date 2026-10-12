@@ -352,7 +352,7 @@ async function characterize(browser) {
     // Build: opens the hub without writing a program.
     await page.click("#firstRunCreate");
     await page.waitForSelector("#onboarding.active", { timeout: 10000 });
-    await page.waitForSelector('[data-entry-route="recommend"]', { timeout: 10000 });
+    await page.waitForSelector('[data-entry-hub="recommend"]', { timeout: 10000 });
     const afterBuild = await page.evaluate(() => ({
       gate: !document.querySelector("#firstRun")?.classList.contains("hidden"),
       route: window.__repforgeOnboarding?.entry?.()?.route ?? null,
@@ -961,7 +961,7 @@ async function finalPage(browser) {
     await scrollLanding(page, '#firstRun [data-landing-section="proof"]');
     await page.click("#firstRunCreateDock");
     await page.waitForSelector("#onboarding.active", { timeout: 10000 });
-    await page.waitForSelector('[data-entry-route="recommend"]', { timeout: 10000 });
+    await page.waitForSelector('[data-entry-hub="recommend"]', { timeout: 10000 });
     const snap = await storageSnapshot(page);
     assert(!snap.onboarded && snap.programRows === 0 && snap.logRows === 0, "the dock opens the hub like Build, without saving a program", JSON.stringify(snap));
     await context.close();
@@ -994,7 +994,7 @@ async function finalPage(browser) {
       "the paste disclosure toggles aria-expanded and the region", JSON.stringify({ closed, opened }));
     assert(opened.message === tr("en", "landing.ways.paste.message"), "the sample coach message is the catalog's", opened.message);
     assert(opened.alt.includes(tr("en", "import.heading")) && opened.alt.includes(tr("en", "import.status.probable")), "the paste screenshot has a descriptive alt", opened.alt);
-    assert(opened.where === tr("en", "landing.ways.paste.where", { track: tr("en", "landing.track"), hub: tr("en", "entry.hub.title"), own: tr("en", "entry.hub.own.title"), paste: tr("en", "entry.hub.freeform.title") }),
+    assert(opened.where === tr("en", "landing.ways.paste.where", { track: tr("en", "landing.track"), hub: tr("en", "entry.hub.title"), own: tr("en", "entry.hub.b.import.title"), paste: tr("en", "entry.import_source.to_freeform") }),
       "the where-to-paste line names the app's own controls", opened.where);
 
     // Questions are native <details>; Tab leaves a summary for the next stop, not for the top of the page.

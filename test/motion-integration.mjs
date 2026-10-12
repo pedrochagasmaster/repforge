@@ -24,7 +24,7 @@
  * Run: node test/motion-integration.mjs
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, answerRecommend } from "./browser.mjs";
 import { installSeedProgram, seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { metricLogRow } from "./fixtures/history-metric-rows.mjs";
 
@@ -972,22 +972,12 @@ async function generatedProgramMotion(browser, { reducedMotion = "no-preference"
   await settle(page);
   const walk = async () => {
     await page.evaluate(() => window.startOnboarding("settings"));
-    const step = (name) => page.waitForFunction((n) => window.__repforgeEntryState?.()?.step === n, name, { timeout: 15000 });
-    await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
-    await step("background");
-    await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
-    await page.click("#onbNext");
-    await step("schedule");
-    await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="4"]');
-    await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
-    await page.click("#onbNext");
-    await step("environment");
-    await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
-    await page.click("#onbNext");
-    await step("abilities");
-    await page.click("#onbNext");
-    // The last question before the result: the next Next generates the program.
-    await step("priorities");
+    // B's order (Plan 072 S2) puts "abilities" last, immediately before
+    // "result" - that is the question whose Continue generates the program.
+    await answerRecommend(page, {
+      lifting: "6_to_24m", days: 4, minutes: 60, environment: "commercial_gym", goal: "muscle_growth",
+      skipBasics: true, until: "abilities",
+    });
   };
   phase(`O3: a freshly generated program is drawn in reading order${tag}`);
   await walk();
@@ -996,13 +986,17 @@ async function generatedProgramMotion(browser, { reducedMotion = "no-preference"
     const t0 = performance.now();
     document.querySelector("#onbNext").click();
     let busy = true;
-    while (performance.now() - t0 < 1800) {
+    // The window is timed from the first built frame, so a slow generation on
+    // the runner does not eat into the build being measured.
+    let builtAt = null;
+    while (performance.now() - (builtAt ?? t0) < 1800 && performance.now() - t0 < 8000) {
       await new Promise((resolve) => requestAnimationFrame(resolve));
       const review = document.querySelector("#entryCandidateReview");
       if (!review) continue;
       const items = [...document.querySelectorAll("#onbBody .motion-build-item")];
       if (busy && items.length) {
         busy = false;
+        builtAt = performance.now();
         out.first = {
           names: items.map((el) => el.className.split(" ").filter((c) => !c.startsWith("motion-")).join(" ") + "|" + el.tagName),
           animation: items.map((el) => getComputedStyle(el).animationName), duration: items.map((el) => getComputedStyle(el).animationDuration),
@@ -1633,47 +1627,53 @@ async function entrySelectionInk(browser, { reducedMotion = "no-preference", col
   await settle(page);
   const step = (name) => page.waitForFunction((n) => window.__repforgeEntryState?.()?.step === n, name, { timeout: 15000 });
   await page.evaluate(() => window.startOnboarding("settings"));
-  await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
+  await page.click('[data-entry-hub="recommend"]');
+  await page.click("#onbNext");
+  await step("intro");
+  await page.click("#onbNext");
+  for (const skipStep of ["sex", "birth_date", "height", "weight"]) { await step(skipStep); await page.click("#onbSkip"); }
   await step("background");
   await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
   await page.click("#onbNext");
-  await step("schedule");
+  await step("cardio_experience");
+  await page.click("#onbSkip");
+  await step("environment");
 
   phase(`O2: a chosen option is ringed in ink and nothing about the card moves${tag}`);
-  // The schedule step holds two single-choice groups: days per week and the session ceiling.
-  await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="4"]');
-  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
+  // "schedule" (days + minutes on one screen) is gone; "environment" is now
+  // the nearest single-choice radiogroup step to carry this proof.
+  await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
   const list = await page.evaluate(() => window.__entrySel());
   const ring = (c) => /0px 0px 0px 2px inset/.test(c.shadow) && c.shadow.includes(list.ink);
-  assert(list.cards.length === 2, "the two chosen rows are selected cards", String(list.cards.length));
-  assert(list.cards.every(ring), "each selected row draws the 2px inset ink ring", JSON.stringify(list.cards.map((c) => c.shadow)));
+  assert(list.cards.length === 1, "the chosen row is a selected card", String(list.cards.length));
+  assert(list.cards.every(ring), "the selected row draws the 2px inset ink ring", JSON.stringify(list.cards.map((c) => c.shadow)));
   assert(list.cards.every((c) => !c.cardPaints.length && !c.markPaints.length && !c.iconPaints.length),
     "and paints no accent on the card, its mark or its icon", JSON.stringify(list.cards.map((c) => [c.cardPaints, c.markPaints, c.iconPaints])));
   assert(list.cards.every((c) => c.transform === "none"), "a selected card does not lift", JSON.stringify(list.cards.map((c) => c.transform)));
   const sizes = await page.evaluate(() => window.__entryRects());
-  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="90"]');
+  await page.click('[data-entry-pick="environment"][data-entry-val="warehouse_gym"]');
   const resized = await page.evaluate(() => window.__entryRects());
   assert(sizes.length > 0 && sizes.length === resized.length && sizes.every((r, i) => r[0] === resized[i][0] && r[1] === resized[i][1]),
     "choosing a different row leaves every card the same size", JSON.stringify({ sizes, resized }));
   if (reduced) assert(list.cards.every((c) => c.maxDuration === 0), "under reduced motion the card has no transition", JSON.stringify(list.cards.map((c) => c.maxDuration)));
   else assert(list.cards.every((c) => /box-shadow/.test(c.transition) && c.maxDuration > 0 && c.maxDuration <= 0.16),
     "the ring arrives on the card's own box-shadow transition, 160ms or less", JSON.stringify(list.cards.map((c) => [c.transition, c.maxDuration])));
+  // Home leaves most equipment groups unticked, so the checkbox run below
+  // has rows to choose.
+  await page.click('[data-entry-pick="environment"][data-entry-val="limited_home"]');
+  await page.click("#onbNext");
+  await step("equipment");
 
   phase(`O2: a chosen checkbox has an ink mark, not an orange one${tag}`);
-  await page.click("#onbNext");
-  await step("environment");
-  await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
-  await page.click("#onbNext");
-  await step("abilities");
-  await page.click("#onbNext");
-  await step("priorities");
-  // The priorities step is the one with checkboxes: two muscles and a movement to prioritise.
-  await page.click('[data-entry-pick="primaryMuscles"][data-entry-val="chest"]');
-  await page.click('[data-entry-pick="primaryMuscles"][data-entry-val="back"]');
-  await page.click('[data-entry-pick="priorityMovements"][data-entry-val="squat"]');
+  // The equipment groups are B's checkbox cards. Three that start unticked
+  // are chosen, so the click is what selects them.
+  const offGroups = await page.evaluate(() => [...document.querySelectorAll('[data-entry-pick="equipmentGroup"][aria-checked="false"]')]
+    .slice(0, 3).map((el) => el.dataset.entryVal));
+  assert(offGroups.length === 3, "at least three equipment groups start unselected to click", JSON.stringify(offGroups));
+  for (const group of offGroups) await page.click(`[data-entry-pick="equipmentGroup"][data-entry-val="${group}"]`);
   const boxes = await page.evaluate(() => window.__entrySel());
   const checks = boxes.cards.filter((c) => c.role === "checkbox");
-  assert(checks.length >= 3, "the three chosen priorities are selected checkbox cards", String(checks.length));
+  assert(checks.length >= 3, "the three chosen equipment groups are selected checkbox cards", String(checks.length));
   assert(checks.every((c) => !c.cardPaints.length && !c.markPaints.length && !c.iconPaints.length),
     "no selected checkbox card, mark or icon paints the accent", JSON.stringify(checks.map((c) => [c.cardPaints, c.markPaints, c.iconPaints])));
   assert(boxes.cards.every((c) => /0px 0px 0px 2px inset/.test(c.shadow) && c.shadow.includes(boxes.ink)),

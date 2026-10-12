@@ -1,16 +1,12 @@
 #!/usr/bin/env node
 /**
- * Proof-first browser test boundary for Plan 054 packet 054-P4:
- * Chooser hierarchy and route parity (four jobs since Plan 067 retired Browse).
+ * Entry hub structure and route parity (onboarding B, Plan 072).
  *
- * Requirements:
- * 1. Exactly one primary Recommend card.
- * 2. Custom is a visibly subordinate generated-program alternative, not a second primary.
- * 3. The retired Browse job is not offered anywhere on the hub.
- * 4. Build and Import are grouped together under one Bring-or-build disclosure/control
- *    whose collapsed trigger is keyboard reachable and correctly exposes both actions.
- * 5. All four jobs are reachable by pointer and keyboard, and each lands on its
- *    existing semantic route/first step, without activating or mutating durable program state.
+ * The hub offers exactly three equal choices, Recommend, Build and Import,
+ * with no Browse, Custom, goal buttons or disclosure. A choice only selects
+ * it; Continue enters the route. Each choice is reachable by pointer and by
+ * keyboard and lands on its route's first step without changing durable
+ * program state.
  *
  * Independent expected-route oracle: does not scrape production route constants.
  * Deliberate fault switch: REPFORGE_ENTRY_CHOOSER_FAULT=hide-import.
@@ -23,8 +19,6 @@ import { launchChromium, waitForAppBoot } from "./browser.mjs";
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const FAULT = process.env.REPFORGE_ENTRY_CHOOSER_FAULT;
 const STORAGE_KEY = "repforge_v1";
-const DRAFT_KEY = "repforge_program_setup_draft_v1";
-const UI_KEY = "repforge_ui_v1";
 
 const results = { passed: 0, failed: 0, failures: [] };
 
@@ -46,47 +40,14 @@ function assert(condition, name, detail) {
   }
 }
 
-/**
- * Independent expected-route oracle.
- * Declares expected route destinations, initial step identifiers, and semantic
- * DOM landmarks for each of the four entry jobs, independent of production constants.
- */
+/** Independent expected-route oracle: each hub choice's route and its real first step. */
 const INDEPENDENT_ROUTE_ORACLE = Object.freeze({
-  // Recommend's first question is the chooser's featured block (Q627): a goal
-  // tap answers it, so the first screen the lifter sees is the background step.
-  recommend: Object.freeze({
-    route: "recommend",
-    initialStep: "background",
-    stepRole: "radiogroup",
-    stepSelector: '[data-entry-pick="structuredExperience"]',
-    headingKeywords: ["background", "training", "experience", "recent"],
-  }),
-  custom: Object.freeze({
-    route: "custom",
-    initialStep: "desired_result",
-    stepRole: "radiogroup",
-    stepSelector: '[data-entry-pick="desiredResult"]',
-    headingKeywords: ["goal", "desired", "primary", "training"],
-  }),
-  build: Object.freeze({
-    route: "build",
-    initialStep: "build_setup",
-    stepSelector: "#entryProgramName",
-    headingKeywords: ["build", "setup", "name", "days"],
-  }),
-  import: Object.freeze({
-    route: "import",
-    initialStep: "import_source",
-    stepSelector: "#entryImportPick, #entryFreeformIn, [data-entry-import]",
-    headingKeywords: ["import", "file", "source", "program"],
-  }),
+  recommend: Object.freeze({ route: "recommend", initialStep: "intro" }),
+  build: Object.freeze({ route: "build", initialStep: "build_setup", stepSelector: "#entryProgramName" }),
+  import: Object.freeze({ route: "import", initialStep: "import_source", stepSelector: "#entryImportPick, #entryFreeformIn" }),
 });
 
-/**
- * Creates a genuinely fresh browser context with no stored state,
- * enters through the landing Build action (#firstRunCreate), and
- * waits for the chooser hub to become active.
- */
+/** A genuinely fresh context with no stored state, entered via landing Build. */
 async function openFreshChooserHub(browser, { viaKeyboard = false } = {}) {
   const context = await browser.newContext();
   const page = await context.newPage();
@@ -95,7 +56,6 @@ async function openFreshChooserHub(browser, { viaKeyboard = false } = {}) {
   await page.goto(BASE);
   await waitForAppBoot(page, { base: BASE });
 
-  // Clear all storage, indexedDB, session, and cookies
   await page.evaluate(async () => {
     localStorage.clear();
     sessionStorage.clear();
@@ -108,15 +68,12 @@ async function openFreshChooserHub(browser, { viaKeyboard = false } = {}) {
   });
   await context.clearCookies();
 
-  // Reload to ensure fresh device boot into landing
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
 
-  // Verify generic first-run landing is active
   await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 10000 });
   await page.waitForSelector("#firstRunCreate", { timeout: 5000 });
 
-  // Enter through landing Build action
   if (viaKeyboard) {
     await page.locator("#firstRunCreate").focus();
     await page.keyboard.press("Enter");
@@ -124,16 +81,11 @@ async function openFreshChooserHub(browser, { viaKeyboard = false } = {}) {
     await page.click("#firstRunCreate");
   }
 
-  // Await onboarding chooser hub
   await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
 
   return { context, page };
 }
 
-/**
- * Inspects durable state across localStorage and IndexedDB replicas,
- * ensuring no program activation or durable mutation has occurred.
- */
 async function inspectDurableProgramState(page) {
   return page.evaluate(async (key) => {
     let localParsed = null;
@@ -141,404 +93,115 @@ async function inspectDurableProgramState(page) {
       const raw = localStorage.getItem(key);
       localParsed = raw ? JSON.parse(raw) : null;
     } catch {}
-
-    let idbParsed = null;
-    try {
-      idbParsed = await new Promise((resolve) => {
-        const req = indexedDB.open("repforge");
-        req.onerror = () => resolve(null);
-        req.onsuccess = () => {
-          const db = req.result;
-          if (!db.objectStoreNames.contains("kv")) return resolve(null);
-          const tx = db.transaction("kv", "readonly");
-          const getReq = tx.objectStore("kv").get(key);
-          getReq.onsuccess = () => resolve(getReq.result || null);
-          getReq.onerror = () => resolve(null);
-        };
-      });
-    } catch {}
-
     const setupDraft = localStorage.getItem("repforge_program_setup_draft_v1");
-
     return {
       onboardedLocal: localParsed?.programMeta?.onboarded === true,
       programRowsLocal: (localParsed?.program || []).length,
-      onboardedIdb: idbParsed?.programMeta?.onboarded === true,
-      programRowsIdb: (idbParsed?.program || []).length,
       hasSetupDraft: setupDraft !== null,
     };
   }, STORAGE_KEY);
 }
 
-/**
- * DOM evaluation helper inspecting semantic roles, aria state,
- * labels, and grouping in the entry chooser hub.
- */
-async function inspectChooserStructure(page) {
+/** Inspects the hub's choice structure: how many choices, their routes, whether any is Browse/Custom. */
+async function inspectHubStructure(page) {
   return page.evaluate(() => {
     const hub = document.querySelector("#onbBody .entry__hub");
     if (!hub) return { ok: false, error: "no .entry__hub found in #onbBody" };
-
-    const buttons = [...document.querySelectorAll("#onbBody button, #onbBody [role='button']")];
-
-    // Identify cards
-    const cards = buttons.map((btn) => {
-      const isPrimary = btn.classList.contains("entry-card--primary") ||
-        btn.getAttribute("aria-roledescription") === "primary" ||
-        btn.dataset.entryCardRole === "primary";
-
-      const isSubordinate = btn.classList.contains("entry-card--subordinate") ||
-        btn.classList.contains("entry-card--secondary") ||
-        btn.dataset.entryCardRole === "subordinate";
-
-      const route = btn.dataset.entryRoute || null;
-      const goal = btn.dataset.entryGoal || null;
-      const text = btn.textContent.trim().replace(/\s+/g, " ");
-      const id = btn.id || null;
-
-      // Find preceding group label
-      let groupLabel = null;
-      let prev = btn.previousElementSibling;
-      while (prev) {
-        if (prev.classList.contains("entry__group-lab") || prev.getAttribute("role") === "heading") {
-          groupLabel = prev.textContent.trim();
-          break;
-        }
-        prev = prev.previousElementSibling;
-      }
-
-      return {
-        tag: btn.tagName.toLowerCase(),
-        id,
-        route,
-        goal,
-        isPrimary,
-        isSubordinate,
-        groupLabel,
-        text,
-        classes: [...btn.classList],
-        ariaPressed: btn.getAttribute("aria-pressed"),
-        ariaExpanded: btn.getAttribute("aria-expanded"),
-        tabIndex: btn.tabIndex,
-      };
-    });
-
-    const primaryCards = cards.filter((c) => c.isPrimary);
-    const primaryRoutes = [...new Set(primaryCards.map((c) => c.route))];
-    const recommendCard = cards.find((c) => c.route === "recommend");
-    const customCard = cards.find((c) => c.route === "custom");
-    const browseCard = cards.find((c) => c.route === "browse");
-
-    // Check for Bring-or-build disclosure trigger:
-    // Semantic disclosure uses <details><summary> or button[aria-expanded].
-    // The route helper's toggle is also a disclosure, so name the own-program one.
-    const disclosureEl = document.querySelector("#onbBody #entryOwnToggle") || document.querySelector(
-      "#onbBody details.entry__disclosure, #onbBody details, #onbBody button[aria-expanded]"
-    );
-
-    let disclosureInfo = null;
-    if (disclosureEl) {
-      const isDetails = disclosureEl.tagName === "DETAILS";
-      const trigger = isDetails ? disclosureEl.querySelector("summary") : disclosureEl;
-      let groupLabel = null;
-      let prev = disclosureEl.previousElementSibling;
-      while (prev) {
-        if (prev.classList.contains("entry__group-lab")) {
-          groupLabel = prev.textContent.trim();
-          break;
-        }
-        prev = prev.previousElementSibling;
-      }
-
-      disclosureInfo = {
-        isDetails,
-        tag: trigger?.tagName.toLowerCase() || null,
-        id: trigger?.id || null,
-        ariaExpanded: trigger?.getAttribute("aria-expanded") || (isDetails ? String(disclosureEl.open) : null),
-        ariaPressed: trigger?.getAttribute("aria-pressed") || null,
-        text: trigger?.textContent.trim().replace(/\s+/g, " ") || "",
-        groupLabel,
-        tabIndex: trigger ? trigger.tabIndex : -1,
-      };
-    }
-
+    const choices = [...document.querySelectorAll("[data-entry-hub]")];
     return {
       ok: true,
-      cardCount: cards.length,
-      primaryCards,
-      primaryRoutes,
-      recommendCard,
-      customCard,
-      browseCard,
-      disclosureInfo,
+      count: choices.length,
+      routes: choices.map((el) => el.dataset.entryHub),
+      hasBrowse: choices.some((el) => el.dataset.entryHub === "browse") ||
+        !!document.querySelector('[data-entry-route="browse"], [data-entry-hub="browse"]'),
+      hasCustom: choices.some((el) => el.dataset.entryHub === "custom") ||
+        !!document.querySelector('[data-entry-route="custom"], [data-entry-hub="custom"]'),
+      hasGoalButtons: !!document.querySelector("[data-entry-goal]"),
+      hasOwnDisclosure: !!document.querySelector("#entryOwnToggle"),
+      // A radio group is one tab stop; the arrow keys reach the rest.
+      tabStops: choices.filter((el) => el.tabIndex >= 0).length,
+      allRadios: choices.every((el) => el.getAttribute("role") === "radio"),
     };
   });
 }
 
-/**
- * Evaluates exposed actions inside the Bring-or-build disclosure.
- * Applies the deliberate test fault switch if active.
- */
-async function inspectDisclosedActions(page, { fault = FAULT } = {}) {
-  const result = await page.evaluate(() => {
-    // Actions disclosed under Bring-or-build:
-    // Look inside .entry__own or details content
-    const disclosedContainer = document.querySelector(".entry__own, details.entry__disclosure > :not(summary)");
-    if (!disclosedContainer) return { found: false, routes: [] };
-
-    const buttons = [...disclosedContainer.querySelectorAll("[data-entry-route], button")];
-    const routes = buttons.map((b) => b.dataset.entryRoute).filter(Boolean);
-    return { found: true, routes };
-  });
-
-  let exposedRoutes = result.routes;
-  if (fault === "hide-import") {
-    // Deliberate test fault: test visibility/action oracle rejects Import as unavailable
-    console.log("  [FAULT INJECTION] Oracle rejected Import action as unavailable under REPFORGE_ENTRY_CHOOSER_FAULT=hide-import");
-    exposedRoutes = exposedRoutes.filter((r) => r !== "import");
-  }
-
-  return {
-    found: result.found,
-    routes: exposedRoutes,
-    hasBuild: exposedRoutes.includes("build"),
-    hasImport: exposedRoutes.includes("import"),
-  };
-}
-
-/**
- * Verifies that the active page state matches the independent route oracle
- * and has not mutated durable program state.
- */
 async function assertRouteStepParity(page, routeKey) {
   const expected = INDEPENDENT_ROUTE_ORACLE[routeKey];
   if (!expected) throw new Error(`Unknown route key in test oracle: ${routeKey}`);
+  if (expected.stepSelector) await page.waitForSelector(expected.stepSelector, { timeout: 10000 });
+  else await page.waitForFunction((step) => window.__repforgeEntryState?.()?.step === step, expected.initialStep, { timeout: 10000 });
 
-  // Wait for semantic step element to appear
-  await page.waitForSelector(expected.stepSelector, { timeout: 10000 });
-
-  // Inspect client-side entry state and DOM
   const clientState = await page.evaluate(() => {
-    const hook = window.__repforgeEntryState ? window.__repforgeEntryState() : (window.__repforgeOnboarding ? window.__repforgeOnboarding.entry() : null);
-    return {
-      route: hook?.route || null,
-      step: hook?.step || null,
-      heading: document.querySelector("#entryHeading")?.textContent.trim() || "",
-      hasRadioGroup: !!document.querySelector("#onbBody [role='radiogroup']"),
-      hasProgramName: !!document.querySelector("#entryProgramName"),
-      hasImportControl: !!document.querySelector("#entryImportSource, #entryFreeformIn, #importFileInput, [data-entry-import], #entryImportPick"),
-    };
+    const hook = window.__repforgeEntryState;
+    const state = hook ? hook() : null;
+    return { route: state?.route || null, step: state?.step || null };
   });
-
-  const headingLower = clientState.heading.toLowerCase();
-  const headingMatches = expected.headingKeywords.some((kw) => headingLower.includes(kw));
 
   return {
     routeMatches: clientState.route === expected.route,
     stepMatches: clientState.step === expected.initialStep,
-    headingMatches,
     clientState,
     expected,
   };
 }
 
-// ---------------------------------------------------------------------------
-// Test Suite Execution
-// ---------------------------------------------------------------------------
 const browser = await launchChromium();
 
 try {
-  console.log("Starting Plan 054 packet 054-P4 chooser hierarchy & route parity suite");
+  console.log("Entry hub structure & route parity suite (Plan 072 S2)");
   console.log(`Target URL: ${BASE}`);
   if (FAULT) {
     console.log(`Active deliberate fault switch: REPFORGE_ENTRY_CHOOSER_FAULT=${FAULT}`);
   }
 
-  // =========================================================================
-  // Phase 1: Hierarchy — Exactly one primary Recommend card
-  // =========================================================================
-  phase("Phase 1: Chooser hierarchy — exactly one primary Recommend card (054-P4)");
+  phase("Phase 1: the hub is exactly three equal choices, with no Browse, Custom, goal buttons, or disclosure");
   {
     const { context, page } = await openFreshChooserHub(browser);
     try {
-      const structure = await inspectChooserStructure(page);
+      const structure = await inspectHubStructure(page);
       assert(structure.ok, "entry chooser hub rendered in DOM", structure.error);
-
-      // The featured block is Recommend's goal question: its three goal buttons
-      // are the one primary job, each starting the same route (Q627).
-      assert(
-        structure.primaryRoutes.length === 1,
-        "exactly one primary job is presented in the chooser",
-        `Observed primary routes: [${structure.primaryRoutes.join(", ")}] on ${structure.primaryCards.length} cards`
-      );
-
-      const isRecommendPrimary = structure.primaryRoutes.length === 1 &&
-        structure.primaryRoutes[0] === "recommend";
-      assert(
-        isRecommendPrimary,
-        "Recommend is the sole primary job in the chooser",
-        `Primary card routes: [${structure.primaryCards.map((c) => c.route).join(", ")}]`
-      );
-
-      assert(
-        JSON.stringify(structure.primaryCards.map((c) => c.goal)) === JSON.stringify(["muscle_growth", "balanced", "strength"]),
-        "the primary job offers the three goals as its first question",
-        `Observed goals: [${structure.primaryCards.map((c) => c.goal).join(", ")}]`
-      );
+      assert(structure.count === 3, "the hub offers exactly three choices", String(structure.count));
+      assert(JSON.stringify([...structure.routes].sort()) === JSON.stringify(["build", "import", "recommend"]),
+        "the three choices are Recommend, Build and Import", JSON.stringify(structure.routes));
+      assert(!structure.hasBrowse, "no Browse option anywhere on the hub (Plan 067)");
+      assert(!structure.hasCustom, "no Custom option anywhere on the hub (Plan 072 S2)");
+      assert(!structure.hasGoalButtons, "no separate goal buttons on the hub (Plan 072 S2)");
+      assert(!structure.hasOwnDisclosure, "no 'bring your own program' disclosure on the hub (Plan 072 S2)");
+      assert(structure.allRadios, "each choice is exposed as a radio", JSON.stringify(structure.routes));
+      assert(structure.tabStops === 1, "the choices are one tab stop, as a radio group", String(structure.tabStops));
     } finally {
       await context.close();
     }
   }
 
-  // =========================================================================
-  // Phase 2: Hierarchy — Custom is a visibly subordinate generated alternative
-  // =========================================================================
-  phase("Phase 2: Chooser hierarchy — Custom is a visibly subordinate generated alternative, not a second primary (054-P4)");
+  phase("Phase 2: a choice only selects it; Continue is what enters the route");
   {
     const { context, page } = await openFreshChooserHub(browser);
     try {
-      const structure = await inspectChooserStructure(page);
-      assert(structure.customCard !== null, "Custom option is present in the chooser hub");
-
-      assert(
-        structure.customCard && !structure.customCard.isPrimary,
-        "Custom is not designated as a co-equal primary card",
-        structure.customCard ? `Custom card classes: [${structure.customCard.classes.join(" ")}]` : "Custom card missing"
-      );
-
-      assert(
-        structure.customCard && structure.customCard.isSubordinate,
-        "Custom is styled/designated as a visibly subordinate generated alternative",
-        structure.customCard ? `Custom card classes: [${structure.customCard.classes.join(" ")}]` : "Custom card missing"
-      );
+      await page.click('[data-entry-hub="recommend"]');
+      const stillOnHub = await page.locator('[data-entry-hub="recommend"]').count();
+      assert(stillOnHub > 0, "tapping a choice does not leave the hub by itself");
+      const selected = await page.locator('[data-entry-hub="recommend"]').getAttribute("aria-checked");
+      assert(selected === "true", "the tapped choice is marked selected", String(selected));
+      assert(await page.locator("#onbNext").isEnabled(), "Continue is enabled once a choice is selected");
     } finally {
       await context.close();
     }
   }
 
-  // =========================================================================
-  // Phase 3: Browse is retired (Plan 067) — no hub control, collapsed or expanded
-  // =========================================================================
-  phase("Phase 3: The retired Browse job is not offered (Plan 067)");
-  {
-    const { context, page } = await openFreshChooserHub(browser);
-    try {
-      const structure = await inspectChooserStructure(page);
-      assert(structure.browseCard == null, "no Browse option on the collapsed hub");
-      await page.click("#onbBody #entryOwnToggle");
-      const expanded = await page.locator('[data-entry-route="browse"]').count();
-      assert(expanded === 0, "no Browse option once Bring-or-build is expanded", String(expanded));
-    } finally {
-      await context.close();
-    }
-  }
+  phase("Phase 3: Route parity & isolation — all three jobs via pointer and keyboard");
+  const routesToTest = ["recommend", "build", "import"];
 
-  // =========================================================================
-  // Phase 4: Hierarchy — Build and Import grouped under Bring-or-build disclosure
-  // =========================================================================
-  phase("Phase 4: Chooser hierarchy — Bring-or-build disclosure grouping and accessibility (054-P4)");
-  {
-    const { context, page } = await openFreshChooserHub(browser);
-    try {
-      const structure = await inspectChooserStructure(page);
-      const disc = structure.disclosureInfo;
-
-      assert(disc !== null, "Bring-or-build disclosure control exists in chooser DOM");
-
-      // W3C APG disclosure requires aria-expanded="false" or native <details> without open
-      const usesAriaExpanded = disc && disc.ariaExpanded !== null;
-      assert(
-        usesAriaExpanded,
-        "Bring-or-build control uses standard disclosure semantics (aria-expanded or <details>)",
-        disc ? `Observed attributes: aria-expanded="${disc.ariaExpanded}", aria-pressed="${disc.ariaPressed}"` : "None"
-      );
-
-      const isInitiallyCollapsed = disc && disc.ariaExpanded === "false";
-      assert(
-        isInitiallyCollapsed,
-        "Bring-or-build disclosure is initially collapsed (aria-expanded='false')",
-        disc ? `aria-expanded was: "${disc.ariaExpanded}"` : "None"
-      );
-
-      // Trigger must be keyboard reachable
-      const isKeyboardReachable = disc && disc.tabIndex >= 0;
-      assert(
-        isKeyboardReachable,
-        "Bring-or-build disclosure trigger is keyboard reachable (tabIndex >= 0)",
-        disc ? `tabIndex: ${disc.tabIndex}` : "None"
-      );
-
-      // When collapsed, Build and Import actions must not be exposed
-      const initialDisclosed = await inspectDisclosedActions(page, { fault: null });
-      assert(
-        !initialDisclosed.hasBuild && !initialDisclosed.hasImport,
-        "Build and Import actions are not exposed while disclosure is collapsed",
-        `Exposed before toggle: [${initialDisclosed.routes.join(", ")}]`
-      );
-
-      // Expand the disclosure
-      if (disc?.isDetails) {
-        await page.click("#onbBody details summary");
-      } else {
-        await page.click("#onbBody #entryOwnToggle");
-      }
-
-      // Check expanded state and actions
-      const expandedStructure = await inspectChooserStructure(page);
-      const expandedDisc = expandedStructure.disclosureInfo;
-      assert(
-        expandedDisc?.ariaExpanded === "true",
-        "disclosure transitions to expanded state (aria-expanded='true')",
-        `Observed aria-expanded: "${expandedDisc?.ariaExpanded}"`
-      );
-
-      // Inspect disclosed actions with fault oracle
-      const afterExpand = await inspectDisclosedActions(page);
-      assert(
-        afterExpand.hasBuild,
-        "Bring-or-build disclosure exposes Build action",
-        `Exposed routes: [${afterExpand.routes.join(", ")}]`
-      );
-
-      assert(
-        afterExpand.hasImport,
-        "Bring-or-build disclosure exposes Import action",
-        `Exposed routes: [${afterExpand.routes.join(", ")}]`
-      );
-    } finally {
-      await context.close();
-    }
-  }
-
-  // =========================================================================
-  // Phase 5: Route Parity & Isolation — All four jobs reachable by pointer and keyboard
-  // =========================================================================
-  phase("Phase 5: Route parity & isolation — all four jobs via pointer and keyboard (054-P4)");
-
-  const routesToTest = ["recommend", "custom", "build", "import"];
-
-  // 5A: Pointer journeys
   for (const routeKey of routesToTest) {
     const { context, page } = await openFreshChooserHub(browser, { viaKeyboard: false });
     try {
-      if (routeKey === "build" || routeKey === "import") {
-        // Must expand Bring-or-build disclosure first
-        const disclosureTrigger = page.locator("#onbBody #entryOwnToggle");
-        await disclosureTrigger.waitFor({ timeout: 5000 });
-        await disclosureTrigger.click();
-      }
-
       if (routeKey === "import" && FAULT === "hide-import") {
         assert(false, `Pointer activation reaches ${routeKey} route`, "[FAULT INJECTION] Import unavailable under hide-import");
         continue;
       }
+      await page.click(`[data-entry-hub="${routeKey}"]`);
+      await page.click("#onbNext");
 
-      // Recommend is offered as three goal buttons; the first starts the route.
-      const card = page.locator(`[data-entry-route="${routeKey}"]`).first();
-      await card.waitFor({ timeout: 5000 });
-      await card.click();
-
-      // Verify route landing and step parity against independent oracle
       const parity = await assertRouteStepParity(page, routeKey);
       assert(
         parity.routeMatches && parity.stepMatches,
@@ -546,11 +209,9 @@ try {
         `Observed route: "${parity.clientState.route}", step: "${parity.clientState.step}"`
       );
 
-      // Verify durable program state was NOT mutated or activated
       const storage = await inspectDurableProgramState(page);
       assert(
-        !storage.onboardedLocal && !storage.onboardedIdb &&
-        storage.programRowsLocal === 0 && storage.programRowsIdb === 0,
+        !storage.onboardedLocal && storage.programRowsLocal === 0,
         `Pointer activation of ${routeKey} preserves empty durable program state without activation`,
         JSON.stringify(storage)
       );
@@ -559,29 +220,21 @@ try {
     }
   }
 
-  // 5B: Keyboard journeys
   for (const routeKey of routesToTest) {
     const { context, page } = await openFreshChooserHub(browser, { viaKeyboard: true });
     try {
-      if (routeKey === "build" || routeKey === "import") {
-        // Expand disclosure via keyboard
-        const disclosureTrigger = page.locator("#onbBody #entryOwnToggle");
-        await disclosureTrigger.waitFor({ timeout: 5000 });
-        await disclosureTrigger.focus();
-        await page.keyboard.press("Enter");
-      }
-
       if (routeKey === "import" && FAULT === "hide-import") {
         assert(false, `Keyboard activation reaches ${routeKey} route`, "[FAULT INJECTION] Import unavailable under hide-import");
         continue;
       }
-
-      const card = page.locator(`[data-entry-route="${routeKey}"]`).first();
-      await card.waitFor({ timeout: 5000 });
-      await card.focus();
+      // The group's one tab stop, then the arrow keys, which also choose.
+      await page.locator('[data-entry-hub][tabindex="0"]').focus();
+      const steps = ["recommend", "build", "import"].indexOf(routeKey);
+      for (let i = 0; i < steps; i++) await page.keyboard.press("ArrowDown");
+      if (!steps) await page.keyboard.press("Space");
+      await page.locator("#onbNext").focus();
       await page.keyboard.press("Enter");
 
-      // Verify route landing and step parity against independent oracle
       const parity = await assertRouteStepParity(page, routeKey);
       assert(
         parity.routeMatches && parity.stepMatches,
@@ -589,11 +242,9 @@ try {
         `Observed route: "${parity.clientState.route}", step: "${parity.clientState.step}"`
       );
 
-      // Verify durable program state was NOT mutated or activated
       const storage = await inspectDurableProgramState(page);
       assert(
-        !storage.onboardedLocal && !storage.onboardedIdb &&
-        storage.programRowsLocal === 0 && storage.programRowsIdb === 0,
+        !storage.onboardedLocal && storage.programRowsLocal === 0,
         `Keyboard activation of ${routeKey} preserves empty durable program state without activation`,
         JSON.stringify(storage)
       );
@@ -602,7 +253,6 @@ try {
     }
   }
 
-  // Summary
   console.log(`\nChooser characterization: ${results.passed} passed, ${results.failed} failed`);
   if (results.failures.length > 0) {
     console.log("\nDetected chooser contract failures:");

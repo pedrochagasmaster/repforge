@@ -17,7 +17,7 @@
  *   - Fatigue trim, heat gauge, session notes, effort RIR mapping, attention board
  */
 
-import { launchChromium, waitForAsyncCondition } from "./browser.mjs";
+import { launchChromium, waitForAsyncCondition, answerRecommend } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 import { writeFileSync, readFileSync, mkdtempSync, rmSync } from "fs";
 import { dirname, join } from "path";
@@ -119,23 +119,9 @@ async function driveRecommendOnboarding(page, {
   environment = "commercial_gym",
   activate = true,
 } = {}) {
-  const step = () => page.evaluate(() => window.__repforgeEntryState?.()?.step);
-  const pick = (key, value) => page.locator(`[data-entry-pick="${key}"][data-entry-val="${value}"]`).first().click();
-  await page.click(`[data-entry-route="recommend"][data-entry-goal="${desiredResult}"]`);
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "background");
-  await pick("structuredExperience", experience);
-  await page.click("#onbNext");
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "schedule");
-  await pick("daysPerWeek", days);
-  await pick("sessionMinutes", minutes);
-  await page.click("#onbNext");
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "environment");
-  await pick("environment", environment);
-  await page.click("#onbNext");
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
-  await page.click("#onbNext");
-  await page.waitForFunction(() => ["priorities", "result"].includes(window.__repforgeEntryState?.()?.step));
-  if (await step() === "priorities") await page.click("#onbNext");
+  await answerRecommend(page, {
+    goal: desiredResult, lifting: experience, days, minutes, environment, skipBasics: true,
+  });
   await page.waitForSelector("#entryActivate", { timeout: 10000 });
   if (activate) {
     await page.click("#entryActivate");
@@ -8267,12 +8253,8 @@ async function main() {
 
   await page.evaluate(() => window.startOnboarding("settings", { userInitiated: true, forceFresh: true }));
   await page.waitForSelector("#onboarding.active", { timeout: 5000 });
-  // "Not sure which one?" reaches Recommend without answering the goal, so the
-  // goal question is the screen this validation case needs.
-  await page.click("#entryHelpToggle");
-  await page.click('[data-entry-help="q1"][data-entry-help-val="no"]');
-  await page.click('[data-entry-help="q2"][data-entry-help-val="recommend"]');
-  await page.click("#entryHelpGo");
+  // B asks the goal in the Program section.
+  await answerRecommend(page, { skipBasics: true, until: "desired_result" });
   await page.evaluate(() => {
     const draft = window.__repforgeOnboarding.entry();
     delete draft.answers.desiredResult;
@@ -8338,7 +8320,7 @@ async function main() {
   );
   await page.click("#onbNext");
   await page.waitForFunction(
-    () => window.__repforgeOnboarding.entry().step === "background",
+    () => window.__repforgeOnboarding.entry().step === "days_per_week",
     undefined,
     { timeout: 5000 },
   );

@@ -27,7 +27,7 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "url";
 import { isDeepStrictEqual } from "node:util";
-import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, waitForAppBoot, answerRecommend } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { decodeSetupLink, encodeSetupLink, encodeSetupPayload } from "./fixtures/setup-link-v4.mjs";
 import {
@@ -132,9 +132,8 @@ function landingSnapshot() {
 /** Walk the real chooser far enough to leave an owned setup draft behind. */
 async function leaveRecommendDraft(page) {
   await page.click("#firstRunCreate");
-  await page.waitForSelector('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]', { timeout: 10000 });
-  await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
-  await page.waitForSelector('[data-entry-pick="structuredExperience"]', { timeout: 10000 });
+  await page.waitForSelector('[data-entry-hub="recommend"]', { timeout: 10000 });
+  await answerRecommend(page, { skipBasics: true, until: "background" });
   await page.waitForFunction((key) => {
     try { return JSON.parse(localStorage.getItem(key) || "{}").state?.route === "recommend"; } catch { return false; }
   }, SETUP_DRAFT, { timeout: 10000 });
@@ -466,7 +465,7 @@ try {
   // ------------------------------------------------------------------------
   // Requirement 1 & 2: Five entry routes reachability and route staging safety
   // ------------------------------------------------------------------------
-  phase("Phase 1: Five entry routes reachable through production controls to semantic first step");
+  phase("Phase 1: Three entry routes reachable through production controls to semantic first step");
   {
     const { context, page } = await openAppPage(browser);
     await clearSite(page);
@@ -484,53 +483,35 @@ try {
         return hook ? hook.entry() : null;
       });
 
-    // 1. Recommend route. Its first question is the hub's featured block (Q627):
-    // a goal tap chooses the route, answers the goal and opens the background step.
-    await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
-    await page.waitForSelector('[data-entry-pick="structuredExperience"]', { timeout: 10000 });
+    // 1. Recommend route. Plan 072 S2's hub offers three equal radio choices
+    // ([data-entry-hub="recommend"|"build"|"import"]); a choice only selects
+    // it, and Continue enters the route on its own first step, "intro" -
+    // unlike the retired hub, the goal (desiredResult) is not asked here, so
+    // it is not yet answered.
+    await page.click('[data-entry-hub="recommend"]');
+    await page.click("#onbNext");
+    await page.waitForSelector("#entryHeading", { timeout: 10000 });
     let entry = await getEntryState();
     assert(entry?.route === "recommend", "Recommend route selected");
-    assert(entry?.step === "background" && entry?.answers?.desiredResult === "muscle_growth",
-      "Recommend reaches the background step with the goal answered on the hub");
+    assert(entry?.step === "intro" && entry?.answers?.desiredResult === undefined,
+      "Recommend reaches its semantic first step intro, with the goal still unanswered");
     let heading = await page.textContent("#entryHeading");
     assert(heading && heading.length > 0, "Recommend displays step title", heading);
 
     // Return to entry hub
     await page.click("#onbBack");
-    await page.waitForSelector('[data-entry-route="recommend"]', { timeout: 10000 });
+    await page.waitForSelector('[data-entry-hub="recommend"]', { timeout: 10000 });
 
-    // The helper reaches the same route without answering the goal, so the goal
-    // question is still a semantic first step of its own.
-    await page.click("#entryHelpToggle");
-    await page.click('[data-entry-help="q1"][data-entry-help-val="no"]');
-    await page.click('[data-entry-help="q2"][data-entry-help-val="recommend"]');
-    await page.click("#entryHelpGo");
-    await page.waitForSelector('[data-entry-pick="desiredResult"]', { timeout: 10000 });
-    entry = await getEntryState();
-    assert(entry?.route === "recommend" && entry?.step === "desired_result",
-      "the helper reaches Recommend's semantic first step desired_result");
-    await page.click("#onbBack");
-    await page.waitForSelector('[data-entry-route="recommend"]', { timeout: 10000 });
+    // 2. Browse is retired (Plan 067) and Custom's hub door is gone (Plan 072
+    // S2): the hub offers only the three routes above, no others.
+    assert(await page.locator('[data-entry-route="browse"], [data-entry-hub="browse"]').count() === 0,
+      "the hub offers no Browse route");
+    assert(await page.locator('[data-entry-route="custom"], [data-entry-hub="custom"]').count() === 0,
+      "the hub offers no Custom route");
 
-    // 2. Custom route
-    await page.click('[data-entry-route="custom"]');
-    await page.waitForSelector('[data-entry-pick="desiredResult"]', { timeout: 10000 });
-    entry = await getEntryState();
-    assert(entry?.route === "custom", "Custom route selected");
-    assert(entry?.step === "desired_result", "Custom reaches semantic first step desired_result");
-
-    // Return to entry hub
-    await page.click("#onbBack");
-    await page.waitForSelector('[data-entry-route="custom"]', { timeout: 10000 });
-
-    // 3. Browse is retired (Plan 067): the hub offers no route into the old catalogue.
-    assert(await page.locator('[data-entry-route="browse"]').count() === 0, "the hub offers no Browse route");
-    await page.waitForSelector("#entryOwnToggle", { timeout: 10000 });
-
-    // 4. Build route (behind #entryOwnToggle)
-    await page.click("#entryOwnToggle");
-    await page.waitForSelector('[data-entry-route="build"]', { timeout: 10000 });
-    await page.click('[data-entry-route="build"]');
+    // 3. Build route
+    await page.click('[data-entry-hub="build"]');
+    await page.click("#onbNext");
     await page.waitForSelector("#entryProgramName", { timeout: 10000 });
     entry = await getEntryState();
     assert(entry?.route === "build", "Build route selected");
@@ -538,12 +519,11 @@ try {
 
     // Return to entry hub
     await page.click("#onbBack");
-    await page.waitForSelector("#entryOwnToggle", { timeout: 10000 });
+    await page.waitForSelector('[data-entry-hub="build"]', { timeout: 10000 });
 
-    // 5. Import route (behind #entryOwnToggle)
-    await page.click("#entryOwnToggle");
-    await page.waitForSelector('[data-entry-route="import"]', { timeout: 10000 });
-    await page.click('[data-entry-route="import"]');
+    // 4. Import route
+    await page.click('[data-entry-hub="import"]');
+    await page.click("#onbNext");
     await page.waitForSelector("#entryImportPick, #entryFreeformIn", { timeout: 10000 });
     entry = await getEntryState();
     assert(entry?.route === "import", "Import route selected");
@@ -551,7 +531,7 @@ try {
 
     // Return to entry hub
     await page.click("#onbBack");
-    await page.waitForSelector('[data-entry-route="recommend"]', { timeout: 10000 });
+    await page.waitForSelector('[data-entry-hub="recommend"]', { timeout: 10000 });
 
     // 5b. Direct first-run Import control (#firstRunImport from first-run screen),
     // with nothing saved: the route exploration above left a setup draft, and
@@ -586,13 +566,10 @@ try {
     await waitForFirstRun(page);
 
     await page.click("#firstRunCreate");
-    await page.waitForSelector('[data-entry-route="recommend"]', { timeout: 10000 });
+    await page.waitForSelector('[data-entry-hub="recommend"]', { timeout: 10000 });
 
-    // Advance Recommend through steps
-    await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
-    await page.waitForSelector('[data-entry-pick="structuredExperience"]', { timeout: 10000 });
-    await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
-    await page.click("#onbNext");
+    // Advance Recommend through steps, far enough that the goal is answered.
+    await answerRecommend(page, { lifting: "6_to_24m", goal: "muscle_growth", skipBasics: true, until: "days_per_week" });
     await page.waitForSelector('[data-entry-pick="daysPerWeek"]', { timeout: 10000 });
 
     const scope = await inspectStorageScope(page);
@@ -1107,14 +1084,14 @@ try {
       await page.waitForSelector("[data-guide-cue='entry'][data-anchor-target]");
       const chooserGuide = await page.evaluate(() => {
         const cue = document.querySelector("[data-guide-cue='entry']");
-        const anchor = document.querySelector('[data-entry-route="recommend"]');
+        const anchor = document.querySelector('[data-entry-hub="recommend"]');
         return {
           cueAnchored: !!cue?.getAttribute("data-anchor-target"),
           anchorsRecommendCard: !!(anchor && cue?.dataset.anchorTarget && anchor.matches(cue.dataset.anchorTarget)),
         };
       });
       assert(chooserGuide.cueAnchored, "entry guidance is attached to its action");
-      assert(chooserGuide.anchorsRecommendCard, "entry guidance anchors the chooser's primary Recommend card, not the landing");
+      assert(chooserGuide.anchorsRecommendCard, "entry guidance anchors the hub's Recommend choice, not the landing");
 
       const uiPrefs = await page.evaluate(() => window.__repforgeUi?.loadUiPrefs?.());
       assert(typeof uiPrefs === "object" && uiPrefs != null, "window.__repforgeUi.loadUiPrefs returns prefs object");
@@ -1309,7 +1286,7 @@ try {
     assert(draftAfter !== null && JSON.parse(draftAfter).state?.route === "recommend" && draftBefore !== null,
       `[${lang}] resuming keeps the saved draft until the lifter chooses`, null);
     const stepAfter = await page.evaluate(() => window.__repforgeOnboarding?.entry?.()?.step ?? null);
-    assert(stepAfter !== "priorities" && stepAfter !== "result",
+    assert(stepAfter !== "muscle_priorities" && stepAfter !== "result",
       `[${lang}] resume does not deep-link past the card`, String(stepAfter));
 
     await context.close();
