@@ -164,6 +164,7 @@ export const SUITES = {
     s("test/accessibility.mjs", [], { seconds: 46 }),
     s("test/accessibility.mjs", ["--touch-targets-320"], { seconds: 2 }),
     s("test/history.mjs"),
+    s("test/per-side-reading-browser.mjs", [], { domains: ["history", "progress", "workout"], tier: "packet", seconds: 90, timeoutMs: 900000 }),
     s("test/history-edit.mjs"),
     s("test/history-delete-replay.mjs"),
     s("test/history-persistence-race.mjs", [], { seconds: 2 }),
