@@ -114,6 +114,7 @@ export const SUITES = {
     s("test/program-engine-worker.mjs", [], { domains: ["entry", "program", "offline"], seconds: 40 }),
     s("test/adaptive-workout-browser.mjs", [], { domains: ["workout", "program", "persistence"], seconds: 40 }),
     s("test/per-side-engine-browser.mjs", [], { domains: ["workout", "program", "persistence"], tier: "packet", seconds: 90, timeoutMs: 900000 }),
+    s("test/per-side-engine-transfer-browser.mjs", [], { domains: ["install", "workout", "persistence"], tier: "packet", seconds: 90, timeoutMs: 900000 }),
     s("test/per-side-engine-bodyweight-browser.mjs", [], { domains: ["workout", "program", "persistence"], tier: "packet", seconds: 90, timeoutMs: 900000 }),
     s("test/per-side-focus-cues-browser.mjs", [], { domains: ["workout", "program", "persistence"], tier: "packet", seconds: 90, timeoutMs: 900000 }),
     s("test/share-program-browser.mjs", [], { domains: ["entry", "privacy", "persistence"], seconds: 40 }),
