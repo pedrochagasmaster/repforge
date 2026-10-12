@@ -285,6 +285,14 @@ console.log("program-review: execution mode");
       const scalarSetResult = scalarResult.ok && slotById(scalarResult.definition, source.id).prescriptionsByCycle[0].sets[0];
       check(scalarSetResult && typeof scalarSetResult.targets.repsPerSide === "number" && scalarSetResult.status === "ready",
         "execution mode: a supported scalar R3 rep target returns to ready", scalarResult);
+
+      const fractionalRir = clone(swapped.definition);
+      slotById(fractionalRir, source.id).prescriptionsByCycle[0].sets[0].rir = 2.5;
+      check(valid(fractionalRir), "execution mode: the current program contract accepts fractional RIR");
+      const fractionalResult = apply(fractionalRir, { kind: "execution_mode", slotId: source.id, executionMode: "unilateral" });
+      const fractionalSet = fractionalResult.ok && slotById(fractionalResult.definition, source.id).prescriptionsByCycle[0].sets[0];
+      check(fractionalSet?.rir === 2.5 && fractionalSet.status === "ready",
+        "execution mode: fractional RIR accepted by the engine remains ready after mode resolution", fractionalResult);
     }
   }
 }

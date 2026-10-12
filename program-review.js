@@ -121,7 +121,7 @@
         ? { min: target.min, max: target.max }
         : null;
     if (!range || range.min < 1 || range.max < range.min || range.max > MAX_REPS) return "manual";
-    if (!Number.isSafeInteger(set.rir) || set.rir < 0 || set.rir > MAX_RIR) return "configuration_required";
+    if (!Number.isFinite(set.rir) || set.rir < 0 || set.rir > MAX_RIR) return "configuration_required";
     const coefficient = slot.loadingModel?.bodyweightCoefficient;
     if (!Number.isFinite(coefficient) || coefficient < 0 || coefficient > 1) return "configuration_required";
     return "ready";
