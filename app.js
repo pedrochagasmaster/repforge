@@ -5510,7 +5510,26 @@ function buildSessionDelta(prevRows,currentRows){const previous=exerciseSessionM
   const copy={improved:["delta.improved.label","delta.improved.text"],flat:["delta.flat.label","delta.flat.text"],
     regressed:["delta.regressed.label","delta.regressed.text"],changed_load:["delta.changed_load.label","delta.changed_load.text"]}[status];
   return{status,label:t(copy[0]),text:t(copy[1]),metrics:{current,previous,deltas}}}
-function compareExerciseSession(ex,currentRows){const cur=workingRows(currentRows);
+function noComparableSessionOutcome(){return{status:"not_comparable",label:t("delta.not_comparable.label"),text:t("delta.not_comparable.text"),metrics:null}}
+/** Shared read-time seam for History and Progress: callers select the saved
+ *  sessions and convention, then this function validates projected rows and
+ *  delegates the unchanged Session-outcome policy above. */
+function compareProjectedSessionOutcome(currentRows,previousRows,expectedConvention=null){
+  const current=(Array.isArray(currentRows)?currentRows:[]).filter(row=>isWork(row)&&+row.load>0&&+row.reps>0);
+  if(!current.length||current.some(row=>row.strengthComparable===false))return noComparableSessionOutcome();
+  const currentSessions=new Set(current.map(row=>String(row.session??row.date??""))),conventions=new Set(current.map(row=>row.strengthConvention||"load"));
+  if(currentSessions.size!==1||currentSessions.has("")||conventions.size!==1)return noComparableSessionOutcome();
+  const convention=conventions.values().next().value;
+  if(expectedConvention!=null&&convention!==expectedConvention)return noComparableSessionOutcome();
+  const previous=(Array.isArray(previousRows)?previousRows:[]).filter(row=>isWork(row)&&+row.load>0&&+row.reps>0&&
+    row.strengthComparable!==false&&(row.strengthConvention||"load")===convention);
+  if(!previous.length)return{status:"new",label:t("delta.new.label"),text:t("delta.new.text"),metrics:null};
+  const previousSessions=new Set(previous.map(row=>String(row.session??row.date??"")));
+  if(previousSessions.size!==1||previousSessions.has("")||previousSessions.has(currentSessions.values().next().value))return noComparableSessionOutcome();
+  return buildSessionDelta(previous,current)}
+function compareExerciseSession(ex,currentRows,readerContext=null){
+  if(readerContext?.reader==="progress-strength")return compareProgressStrengthSession(ex,currentRows,readerContext);
+  const cur=workingRows(currentRows);
   if(!cur.length)return{status:"not_comparable",label:t("delta.not_comparable.label"),text:t("delta.not_comparable.text"),metrics:null};
   const prev=previousSessionForExercise(ex,cur[0]?.session);
   if(!prev.length)return{status:"new",label:t("delta.new.label"),text:t("delta.new.text"),metrics:null};
@@ -9200,14 +9219,16 @@ function strengthSessionDelta(key,series){
   const convention=series.comparisonConvention||"load",rows=strengthEvidenceRows().filter(row=>row.exerciseId===key&&
     row.strengthComparable!==false&&(row.strengthConvention||"load")===convention);
   const previous=rows.filter(row=>row.sessionKey===points.at(-2).sessionKey),current=rows.filter(row=>row.sessionKey===points.at(-1).sessionKey);
-  return buildSessionDelta(previous,current)}
+  return compareProjectedSessionOutcome(current,previous,convention)}
 /** The word under a lift's name. With a sufficient outcome it is the label of
  *  compareExerciseSession for the latest session, marked for the parity check;
  *  otherwise it is the short reason the model gave (no outcome is invented). */
 function strengthOutcomeWord(key,series,latest){
   if(!latest)return{html:esc(t("stats.evidence.baseline")),soft:true,status:""};
   const cmp=strengthSessionDelta(key,series),slot=currentExerciseForLiftKey(key);
-  const parity=slot?` data-parity-outcome="${esc(slot.id)}" data-parity-session="${esc(latest.session)}"`:"";
+  const parity=slot?` data-parity-outcome="${esc(slot.id)}" data-parity-session="${esc(latest.session)}"`+
+    ` data-parity-reader="progress-strength" data-parity-scope="${esc(series.scope)}"`+
+    ` data-parity-convention="${esc(series.comparisonConvention||"load")}"`:"";
   const word=label=>`<span class="evword"${parity}>${esc(label)}</span>`;
   if(series.outcome&&cmp)return{html:word(cmp.label),soft:false,status:series.outcome};
   const reason=series.reason;
@@ -9245,7 +9266,7 @@ function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;
       return `<button type="button" class="evrow" data-evkey="${esc(k)}" aria-expanded="false">`+
         `<div class="listrow__main"><div class="listrow__title">${esc(liftDisplayName(nameOf(k),k))}</div>`+
         `<div class="listrow__sub">${esc(t("stats.evidence.empty"))}${esc(` · ${t("stats.evidence.baseline")}`)}</div></div>`+
-        `<span class="evrow__val">—</span><span class="chevron" aria-hidden="true"></span></button>${panel}`;
+        `<span class="evrow__val" aria-hidden="true"></span><span class="chevron" aria-hidden="true"></span></button>${panel}`;
     const latest=projection.sessions.filter(x=>x.liftKey===k).at(-1),word=strengthOutcomeWord(k,series,latest),change=strengthChangeText(series);
     return `<button type="button" class="evrow evrow--d" data-evkey="${esc(k)}" aria-expanded="false">`+
       `<b class="evrow__name">${esc(liftDisplayName(nameOf(k),k))}</b>`+
@@ -9450,7 +9471,7 @@ window.__repforgeEditCustom=id=>editCustomExercise(id);
 window.__repforgeCompletedVolume=(windowDays=7)=>volMapToObj(completedHardSets(windowDays));
 window.__repforgeEquipmentSupportsSplit=equipmentSupportsSplit;
 window.__repforgeTestDeltas=(prevRows,currentRows)=>buildSessionDelta(prevRows,currentRows);
-window.__repforgeCompareExercise=(ex,currentRows)=>compareExerciseSession(ex,currentRows);
+window.__repforgeCompareExercise=(ex,currentRows,readerContext=null)=>compareExerciseSession(ex,currentRows,readerContext);
 window.__repforgeMesocycleWeek=mesocycleWeek;
 window.__repforgeBuildBlockReview=buildBlockReview;
 window.__repforgeCommitNextBlock=commitNextBlock;
@@ -9997,12 +10018,30 @@ window.__repforgeOverviewVolume={pct:overviewBarPct,sorted:overviewVolumeSorted,
 const EVIDENCE_OUTCOME_KEYS={improved:"stats.outcome.improved",maintained:"stats.outcome.maintained",declined:"stats.outcome.declined"};
 const EVIDENCE_OUTCOME_GLYPHS={improved:"▲",maintained:"■",declined:"▼"};
 function strengthSessionKey(row){return`${String(row?.session??row?.date)}\u0000${String(row?.blockId??"")}`}
-function strengthEvidenceRows(){return readLogRows().filter(isWork).map(r=>({exerciseId:liftKey(r),session:r.session,
+function strengthEvidenceRows(log=state.log){return readLogRows(log).filter(isWork).map(r=>({exerciseId:liftKey(r),session:r.session,
   sessionKey:strengthSessionKey(r),date:r.date,created:r.created??null,blockId:r.blockId??null,
   name:displayName(r),day:r.day,primary:r.primary,secondary:r.secondary,
   load:+r.load,reps:+r.reps,rir:r.rirMeasured===false||r.rir==null||r.rir===""?null:+r.rir,work:true,
   strengthComparable:r.strengthComparable,strengthConvention:r.strengthConvention,perSideLoad:r.perSideLoad,perSideReps:r.perSideReps,
   loadPerSide:r.loadPerSide,repsPerSide:r.repsPerSide,tonnage:r.tonnage,repetitionsPerformed:r.repetitionsPerformed}))}
+function compareProgressStrengthSession(ex,currentRows,readerContext){
+  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
+  const notComparable=noComparableSessionOutcome(),key=exerciseLiftKey(ex)||`slot:${ex?.id||""}`;
+  const{scope,convention,session,log}=readerContext||{};
+  if(!Model||!Model.EVIDENCE_SCOPES?.includes(scope)||!convention||!session||!Array.isArray(log)||!Array.isArray(currentRows)||!currentRows.length)
+    return notComparable;
+  if(!currentRows.some(row=>liftKey(row)===key&&String(row.session??"")===String(session)))return notComparable;
+  const rows=strengthEvidenceRows(log),meta={started:state.programMeta?.started||null,
+    mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6,blockId:snapshotBlockId(state)};
+  const series=Model.buildStrengthEvidence(scope,key,rows,meta);
+  if(series.comparisonConvention!==convention)return notComparable;
+  const matches=series.points.map((point,index)=>({point,index})).filter(({point})=>String(point.session)===String(session));
+  if(matches.length!==1)return notComparable;
+  const{point,index}=matches[0];
+  if(index===0)return{status:"new",label:t("delta.new.label"),text:t("delta.new.text"),metrics:null};
+  const previousPoint=series.points[index-1],forPoint=selected=>rows.filter(row=>row.exerciseId===key&&row.sessionKey===selected.sessionKey&&
+    row.strengthComparable!==false&&(row.strengthConvention||"load")===convention);
+  return compareProjectedSessionOutcome(forPoint(point),forPoint(previousPoint),convention)}
 function strengthEvidenceRecords(scope="current-block"){
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return[];
   const meta={started:state.programMeta?.started||null,
@@ -10030,7 +10069,7 @@ function strengthEvidenceRecords(scope="current-block"){
       const comparableEffort=[...previousRows,...latestRows].every(hasEffort);
       if(!comparableEffort)reason="missing-effort";
       else{
-        const delta=buildSessionDelta(previousRows,latestRows);
+        const delta=compareProjectedSessionOutcome(latestRows,previousRows,convention);
         outcome=outcomeByStatus[delta.status];
         if(outcome){evidenceState="sufficient";reason=null}
         else reason=delta.status==="changed_load"?"changed-load":"incompatible-exposure";
@@ -10320,17 +10359,15 @@ function historySessionOutcome(rows){
   const source=Array.isArray(rows)?rows:[],first=source[0];
   const ex=currentExerciseForLiftKey(liftKey(first))||exerciseIdentityFromRow(first);
   const current=source.map(readLogRow).filter(row=>isWork(row)&&+row.load>0&&+row.reps>0);
-  const notComparable=()=>({status:"not_comparable",label:t("delta.not_comparable.label"),text:t("delta.not_comparable.text"),metrics:null});
-  if(!current.length||current.some(row=>row.strengthComparable===false))return notComparable();
+  if(!current.length||current.some(row=>row.strengthComparable===false))return noComparableSessionOutcome();
   const conventions=new Set(current.map(row=>row.strengthConvention||"load"));
-  if(conventions.size!==1)return notComparable();
+  if(conventions.size!==1)return noComparableSessionOutcome();
   const convention=conventions.values().next().value,session=String(current[0].session??"");
-  if(current.some(row=>String(row.session??"")!==session))return notComparable();
+  if(current.some(row=>String(row.session??"")!==session))return noComparableSessionOutcome();
   const comparableLog=readLogRows(state.log).filter(row=>row.strengthComparable!==false&&
     (row.strengthConvention||"load")===convention);
   const previous=previousSessionRowsLog(ex,session,comparableLog);
-  if(!previous.length)return{status:"new",label:t("delta.new.label"),text:t("delta.new.text"),metrics:null};
-  return buildSessionDelta(previous,current)}
+  return compareProjectedSessionOutcome(current,previous,convention)}
 const HistoryUi=window.RepForgeHistoryUi.create({
   locTag, blockContext:historyBlockContext, sessionOutcome:historySessionOutcome, openModal, closeModal, reducedMotion,
   $, $$, t, esc, cloneSnapshot, currentMovementNames, mergeLogChronology,

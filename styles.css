@@ -6708,7 +6708,7 @@ body.is-entry-editor #entryProgramName,
 #stats .listrow__sub{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 #stats .listrow__meta{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 #stats .empty{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);border-color:var(--boundary-decorative)}
-#stats .listrow__sub{white-space:normal;overflow-wrap:anywhere}
+#stats .listrow__sub{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
 #stats #prFilterSeg > button,#stats .seg--window > button{color:var(--color-ink-secondary)}
 @media (hover: hover) and (pointer: fine){
 #stats #prFilterSeg > button:hover:not(:disabled),#stats .seg--window > button:hover:not(:disabled){color:var(--control-selection-ink)}

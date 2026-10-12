@@ -270,14 +270,17 @@ async function main() {
       const strength = window.__repforgeProgressEvidence.strength(key);
       const volume = window.__repforgeProgressEvidence.volume("this-week");
       const dashboard = window.__repforgeStrengthDashboard().find(row => row.key === key);
+      const record = window.__repforgeProgressEvidence.records("current-block").find(row => row.exerciseId === key);
       return { key, points: strength?.points, evidenceCount: strength?.evidenceCount, outcome: strength?.outcome,
-        volume: { sessions: volume?.completedSessions, sets: volume?.completedWorkingSets }, dashboard };
+        record, volume: { sessions: volume?.completedSessions, sets: volume?.completedWorkingSets }, dashboard };
     }, { exerciseId: pressRows.at(-1)?.exerciseId });
     observations.progress = progress;
     check(progress.volume.sessions === 2 && progress.volume.sets === 4,
       "P069-S2-HISTORY counts all four performed working sets in Progress", progress.volume);
     check(progress.evidenceCount === 2 && progress.points?.map(point => point.value).join(",") === "25,27.5",
       "P069-S2-HISTORY includes per-side load in Strength evidence as comparable values", progress.points);
+    check(progress.record?.evidenceState === "sufficient" && progress.record?.outcome === "improved" && progress.outcome === "improved",
+      "P069-S2-HISTORY publishes the same sufficient per-side outcome to shared Progress consumers", progress.record);
     check(Math.abs(Number(progress.dashboard?.best) - (27.5 * (1 + 8 / 30))) < 0.001,
       "P069-S2-HISTORY calculates per-side e1RM from the same logged convention", progress.dashboard);
     const pressKey = progress.key;
@@ -318,6 +321,13 @@ async function main() {
     check(/20/.test(totalLoadChartRead) && /Reps per side/i.test(totalLoadChartRead) && /Reps per side/i.test(totalLoadChartColumns) &&
       !/Load per side/i.test(totalLoadChartColumns),
       "exercise-detail keeps total Weight total while labeling the actual per-side repetitions", observations.totalLoadChart);
+
+    await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("review"));
+    await page.waitForSelector("#reviewPanel .review__outcomes", { state: "visible", timeout: 10000 });
+    const reviewOutcome = (await page.locator("#reviewPanel .review__outcomes").innerText()).replace(/\s+/g, " ").trim();
+    observations.reviewOutcome = reviewOutcome;
+    check(reviewOutcome.includes(pressProgramRow.name) && /Improved/.test(reviewOutcome),
+      "Progress Review shows the same per-side outcome fact while its decision policy remains unchanged", reviewOutcome);
 
     const beforeRead = await replicas(page);
     await page.reload({ waitUntil: "domcontentloaded" });

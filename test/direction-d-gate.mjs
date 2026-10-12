@@ -13,7 +13,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT, loadManifest } from "../tools/ui-screens/manifest.mjs";
-import { APP_SCENARIOS, APP_USER_AGENT, appState } from "../tools/ui-screens/screens-app.mjs";
+import { APP_CLOCK, APP_SCENARIOS, APP_USER_AGENT, appState } from "../tools/ui-screens/screens-app.mjs";
 import { maybeStartLocalPreview } from "../tools/local-preview.mjs";
 import { dismissChrome, setCaptureBase, launchChromium, openPage, settle } from "../tools/ui-screens/session.mjs";
 import {
@@ -31,6 +31,83 @@ const show = (failures) => JSON.stringify(failures.slice(0, 4));
 
 const manifest = loadManifest();
 const gate = gateManifest(manifest);
+const PT_REPS_PER_SIDE_LABEL = loadCatalog("pt").dictionary["focus.metric.reps_per_side"];
+if (typeof PT_REPS_PER_SIDE_LABEL !== "string" || !PT_REPS_PER_SIDE_LABEL.trim() || !/\breps\b/iu.test(PT_REPS_PER_SIDE_LABEL)) {
+  throw new Error("the PT per-side label fixture must be a nonempty catalog phrase containing the overlapping raw metric name");
+}
+
+async function verifyProgressStrengthReader(browser) {
+  const key = "progress/strength-comparison";
+  const capture = { flow: "progress", screen: "strength-comparison", viewport: "phone-360", theme: "light", locale: "en", text: "normal", motion: "normal" };
+  const opened = await openPage(browser, gate, capture, appState(key, manifest.locales.en.lang), {
+    userAgent: APP_USER_AGENT[key], now: APP_CLOCK[key],
+  });
+  try {
+    await dismissChrome(opened.page);
+    await APP_SCENARIOS[key](opened.page);
+    await settle(opened.page);
+    const correctEvidence = await gatherEvidence(opened.page, { scope: "#stats" });
+    const readerOutcomes = correctEvidence.parity.outcomes.filter(item => item.reader === "progress-strength");
+    const improvedWord = await opened.page.evaluate(() => window.RepForgeI18n.t("stats.outcome.improved"));
+    const improved = readerOutcomes.find(item => item.expected === improvedWord);
+    check(readerOutcomes.length > 0 && readerOutcomes.every(item => item.scope === "current-block" && item.convention),
+      "the real Progress outcome identifies its saved-session scope and convention for the parity oracle", JSON.stringify(readerOutcomes));
+    check(!!improved && improved.text === improved.expected && checkParity(correctEvidence).length === 0,
+      "the heavier same-convention per-side session agrees with the authoritative reader comparison", JSON.stringify(improved));
+
+    const exerciseId = improved?.exerciseId;
+    const marker = opened.page.locator(`#strengthDash [data-parity-outcome="${exerciseId}"]`);
+    if (improved) {
+      await marker.evaluate(node => node.removeAttribute("data-parity-convention"));
+      const missingEvidence = await gatherEvidence(opened.page, { scope: "#stats" });
+      const missingFailures = checkParity(missingEvidence);
+      check(missingFailures.some(failure => failure.includes("incomplete Progress strength reader context")),
+        "the parity oracle rejects a Progress outcome with missing convention context", show(missingFailures));
+
+      await marker.evaluate((node, context) => {
+        node.setAttribute("data-parity-convention", context.convention);
+        node.setAttribute("data-parity-scope", "unreviewed-scope");
+      }, { convention: improved.convention });
+      const invalidEvidence = await gatherEvidence(opened.page, { scope: "#stats" });
+      const invalidFailures = checkParity(invalidEvidence);
+      check(invalidFailures.some(failure => failure.includes("unsupported Progress strength scope unreviewed-scope")),
+        "the parity oracle rejects an unsupported Progress scope context", show(invalidFailures));
+
+      const wrongWord = await opened.page.evaluate(() => window.RepForgeI18n.t("delta.not_comparable.label"));
+      await marker.evaluate((node, context) => {
+        node.setAttribute("data-parity-reader", "progress-strength");
+        node.setAttribute("data-parity-scope", context.scope);
+        node.setAttribute("data-parity-convention", context.convention);
+        node.textContent = window.RepForgeI18n.t("delta.not_comparable.label");
+      }, { scope: improved.scope, convention: improved.convention });
+      const wrongEvidence = await gatherEvidence(opened.page, { scope: "#stats" });
+      const wrongFailures = checkParity(wrongEvidence);
+      check(wrongFailures.some(failure => failure.includes("outcome word") && failure.includes(`reads "${wrongWord}"`)
+        && failure.includes(`says "${improved.expected}"`)),
+      "the Progress reader parity gate rejects a deliberately wrong rendered saved-session outcome", show(wrongFailures));
+    } else {
+      check(false, "the parity oracle rejects a Progress outcome with missing convention context", "no improved outcome was available");
+      check(false, "the parity oracle rejects an unsupported Progress scope context", "no improved outcome was available");
+      check(false, "the Progress reader parity gate rejects a deliberately wrong rendered saved-session outcome", "no improved outcome was available");
+    }
+  } finally {
+    await opened.context.close();
+  }
+}
+
+if (process.argv.includes("--progress-reader-only")) {
+  const preview = await maybeStartLocalPreview([{ lane: "state" }], { cwd: ROOT });
+  setCaptureBase(preview.env.REPFORGE_URL);
+  const browser = await launchChromium();
+  try {
+    await verifyProgressStrengthReader(browser);
+  } finally {
+    await browser.close();
+    preview.cleanup();
+  }
+  console.log(`\n${results.passed} passed, ${results.failed} failed`);
+  process.exit(results.failed > 0 ? 1 : 0);
+}
 
 // ---------------------------------------------------------------- the list
 console.log("\nD-owned state list");
@@ -332,6 +409,18 @@ try {
     const okMarkup = await pt.page.evaluate(() => `<p id="seedPtOk">${window.RepForgeI18n.t("toast.invalid_weight")}</p>`);
     const ok = checkStrings(await seeded(pt.page, okMarkup), ptCatalog);
     check(ok.length === 0, "a Portuguese catalog string is accepted at 360", show(ok));
+    const sideMetricLabel = PT_REPS_PER_SIDE_LABEL;
+    const sideMetricMarkup = `<p id="seedSideMetric">${sideMetricLabel}</p>`;
+    const sideMetricEvidence = await seeded(pt.page, sideMetricMarkup);
+    // The production per-side fixture persists the English metric source name alongside PT UI copy.
+    sideMetricEvidence.data.strings.push("Reps", "reps");
+    const sideMetricFailures = checkStrings(sideMetricEvidence, ptCatalog);
+    check(sideMetricFailures.length === 0, "a raw metric name does not erase a matching rendered PT catalog phrase", show(sideMetricFailures));
+    const sideMetricBadEvidence = await seeded(pt.page, `<p id="seedSideMetricBad">${sideMetricLabel} improvised</p>`);
+    sideMetricBadEvidence.data.strings.push("Reps", "reps");
+    const sideMetricBad = checkStrings(sideMetricBadEvidence, ptCatalog);
+    check(has(sideMetricBad, "not a catalog", "#seedSideMetricBad"),
+      "the same raw metric name cannot hide an unreviewed word after a PT catalog phrase", show(sideMetricBad));
     const bad = checkStrings(await seeded(pt.page, "<p id=\"seedPtBad\">Regrediu</p><p id=\"seedPtEn\">Quantum flux capacitor engaged</p>"), ptCatalog);
     check(has(bad, "banned", "Regrediu") && has(bad, "not a catalog", "#seedPtEn"),
       "the PT page rejects a banned word and an English-only string", show(bad));
@@ -363,6 +452,13 @@ try {
   check(["today/ready", "today/day-picker", "workout/why-this-weight", "workout/why-in-session", "workout/why-manual", "session/summary", "session/summary-first"].every((key) => ["pt", "en"].every((locale) =>
     built.rendered.some((item) => item.key === key && item.locale === locale && item.enforced))),
   "the landed Today, Why and summary states were rendered and enforced in both languages", JSON.stringify(built.rendered.map((item) => `${item.key}:${item.locale}`)));
+
+  // Progress's saved-session reader projects logged metric values before it
+  // compares sessions. Exercise the same real generated state here, then
+  // deliberately corrupt one rendered word to prove the oracle still rejects
+  // a mismatch for that explicit reader context.
+  console.log("\nProgress strength reader parity");
+  await verifyProgressStrengthReader(browser);
 
   // Controls that no R3 sub-slice rebuilds: Settings and Library are rules-only, so flipping them must fail. After the
   // R6a sweep Settings paints no accent, so it reports the strings check; Library's sideways filter rails still overflow.
