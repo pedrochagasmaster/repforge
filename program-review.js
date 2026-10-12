@@ -27,11 +27,12 @@
   const MAX_DAY_NAME = 40;
   const ADDED_SETS = 3;
   const REP_SEMANTICS = Object.freeze(["reps", "repsPerSide"]);
-  // Keep this static classification aligned with ProgressionEngine's current
-  // source-metric compositions. Equipment and load-grid readiness remain
-  // runtime inputs and do not make a saved prescription manual.
+  // Keep static Review classification aligned with the ordered metric
+  // compositions supported by Plan 069. Runtime loading, equipment and grid
+  // readiness remain outside this editor boundary.
   const ADAPTIVE_SEMANTICS = Object.freeze([
     ["loadKg", "reps"], ["reps", "assistanceKg"], ["reps"],
+    ["loadKg", "repsPerSide"], ["repsPerSide"], ["reps", "loadPerSideKg"],
     ["repsPerSide", "loadPerSideKg"], ["persistentLoadPerSideKg", "repsPerSide"],
   ]);
   const EDIT_KINDS = Object.freeze([
@@ -114,9 +115,13 @@
     if (!ADAPTIVE_SEMANTICS.some((candidate) => JSON.stringify(candidate) === JSON.stringify(semantics))) return "manual";
     const repSemantic = semantics.find((semantic) => REP_SEMANTICS.includes(semantic));
     const target = set.targets?.[repSemantic];
-    if (!target || !Number.isSafeInteger(target.min) || !Number.isSafeInteger(target.max) ||
-      target.min < 1 || target.max < target.min || target.max > MAX_REPS ||
-      !Number.isFinite(set.rir) || set.rir < 0 || set.rir > MAX_RIR) return "manual";
+    const range = Number.isSafeInteger(target)
+      ? { min: target, max: target }
+      : Number.isSafeInteger(target?.min) && Number.isSafeInteger(target?.max)
+        ? { min: target.min, max: target.max }
+        : null;
+    if (!range || range.min < 1 || range.max < range.min || range.max > MAX_REPS) return "manual";
+    if (!Number.isSafeInteger(set.rir) || set.rir < 0 || set.rir > MAX_RIR) return "configuration_required";
     const coefficient = slot.loadingModel?.bodyweightCoefficient;
     if (!Number.isFinite(coefficient) || coefficient < 0 || coefficient > 1) return "configuration_required";
     return "ready";
