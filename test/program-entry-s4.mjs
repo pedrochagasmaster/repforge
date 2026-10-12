@@ -181,9 +181,120 @@ try {
   const expectedOffer = offerProbe.offers.find((offer) => offer.slotId === offerTarget.slotId &&
     offer.offeredExerciseId === offerTarget.exerciseId);
   assert.ok(expectedOffer, "each shown offer came from this result's compiler report");
+  const offerRebuildProbe = await page.evaluate(async ({ offer }) => {
+    const current = window.__repforgeEntryState();
+    const mapped = window.RepForgeProgramEntryAdapter.programRequestFromAnswers(
+      current.answers, window.RepForgeExerciseCatalog.snapshot());
+    if (!mapped.ok) return { ok: false, conflicts: mapped.conflicts };
+    const request = { ...mapped.value, movementConfirmations: {
+      ...(mapped.value.movementConfirmations || {}), [offer.offeredExerciseId]: [...offer.prerequisiteIds],
+    } };
+    const generated = await window.__repforgeProgramEngine.generate(request, current.draftId);
+    if (!generated.ok) return { ok: false, conflicts: generated.conflicts };
+    const before = new Map(current.result.preview.programDefinition.days.flatMap((day) => day.slots)
+      .map((slot) => [slot.id, slot.exerciseId]));
+    const after = generated.value.days.flatMap((day) => day.slots);
+    return { ok: true, definition: generated.value,
+      changedSlotIds: after.filter((slot) => before.get(slot.id) !== slot.exerciseId).map((slot) => slot.id) };
+  }, { offer: expectedOffer });
+  assert.equal(offerRebuildProbe.ok, true, "the production Worker can compile the offer with the existing seed");
   const beforeOffer = await entry(page);
   const beforeOfferDefinition = beforeOffer.result.preview.programDefinition;
+  const changedByOffer = new Set(offerRebuildProbe.changedSlotIds);
+  const offerEditedSlot = beforeOfferDefinition.days.flatMap((day) => day.slots)
+    .find((slot) => slot.id !== offerTarget.slotId && !changedByOffer.has(slot.id));
+  assert.ok(offerEditedSlot, "the result has an unrelated row whose sets can be edited without changing the offered slot");
+  const offerEditedSlotSetsBefore = offerEditedSlot.prescriptionsByCycle[0].sets.length;
+  await page.locator(`#entryReview [data-review-slot="${offerEditedSlot.id}"]`).click();
+  await page.locator("#reviewSheet.is-open [data-review-sets]").first().waitFor({ state: "visible", timeout: 5000 });
+  await page.locator('#reviewSheet [data-review-sets="1"]').click();
+  await page.waitForFunction(({ slotId, want }) => window.__repforgeEntryState()?.result?.preview?.programDefinition.days
+    .flatMap((day) => day.slots).find((slot) => slot.id === slotId)?.prescriptionsByCycle[0]?.sets.length === want,
+  { slotId: offerEditedSlot.id, want: offerEditedSlotSetsBefore + 1 }, { timeout: 10000 });
+  await page.locator("#reviewSheet [data-review-done]").click();
+  await page.waitForFunction(() => !document.querySelector("#reviewSheet.is-open"), undefined, { timeout: 5000 });
+  const afterUnrelatedEdit = await entry(page);
+  const editProbe = await page.evaluate(({ target, slotId }) => {
+    const current = window.__repforgeEntryState();
+    const slots = current.result.preview.programDefinition.days.flatMap((day) => day.slots);
+    const visibleOffers = [...document.querySelectorAll("#entryReview [data-review-confirm-offer-action]")]
+      .map((button) => button.dataset.reviewConfirmOfferAction);
+    return { step: current.step, route: current.route, beforeFingerprint: target.fingerprint,
+      afterFingerprint: current.result.fingerprint, beforeAnswersFingerprint: target.answersFingerprint,
+      afterAnswersFingerprint: current.result.answersFingerprint, editedSlot: slotId,
+      offeredSlotExercise: slots.find((slot) => slot.id === target.offerSlot)?.exerciseId,
+      offeredExercise: target.offeredExercise, visibleOffers };
+  }, { target: { fingerprint: beforeOffer.result.fingerprint,
+    answersFingerprint: beforeOffer.result.answersFingerprint, offerSlot: offerTarget.slotId,
+    offeredExercise: offerTarget.exerciseId }, slotId: offerEditedSlot.id });
+  console.log("S4_OFFER_UNRELATED_EDIT_PROBE", JSON.stringify({
+    setsBefore: offerEditedSlotSetsBefore, setsAfter: afterUnrelatedEdit.result.preview.programDefinition.days
+      .flatMap((day) => day.slots).find((slot) => slot.id === offerEditedSlot.id)?.prescriptionsByCycle[0]?.sets.length,
+    ...editProbe,
+  }));
+  assert.ok(await page.locator(`[data-review-confirm-offer-action="${offerTarget.slotId}"]`).count() > 0,
+    "an unrelated sets edit preserves a still-eligible verified offer on its unchanged slot");
+
+  await page.locator(`#entryReview [data-review-slot="${offerTarget.slotId}"]`).click();
+  await page.locator("#reviewSheet.is-open [data-review-sets]").first().waitFor({ state: "visible", timeout: 5000 });
+  const swapButtons = page.locator("#reviewSheet [data-review-swap]");
+  let swappedExerciseId;
+  if (await swapButtons.count()) {
+    swappedExerciseId = await swapButtons.first().getAttribute("data-review-swap");
+    await swapButtons.first().click();
+    await page.waitForFunction(({ slotId, exerciseId }) => window.__repforgeEntryState()?.result?.preview?.programDefinition.days
+      .flatMap((day) => day.slots).find((slot) => slot.id === slotId)?.exerciseId === exerciseId,
+    { slotId: offerTarget.slotId, exerciseId: swappedExerciseId }, { timeout: 10000 });
+    await page.locator("#reviewSheet [data-review-done]").click();
+    await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 5000 });
+  } else {
+    await page.locator("#reviewSheet [data-review-search]").click();
+    await page.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
+    const replacement = page.locator("#exPickList .pickrow").first();
+    await replacement.waitFor({ state: "visible", timeout: 5000 });
+    swappedExerciseId = await replacement.getAttribute("data-pick");
+    await replacement.click();
+    await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 5000 });
+    await page.waitForFunction(({ slotId, exerciseId }) => window.__repforgeEntryState()?.result?.preview?.programDefinition.days
+      .flatMap((day) => day.slots).find((slot) => slot.id === slotId)?.exerciseId === exerciseId,
+    { slotId: offerTarget.slotId, exerciseId: swappedExerciseId }, { timeout: 10000 });
+  }
+  assert.notEqual(swappedExerciseId, expectedOffer.currentExerciseId,
+    "the ordinary swap changes the movement occupying the offered slot");
+  assert.equal(await page.locator(`[data-review-confirm-offer-action="${offerTarget.slotId}"]`).count(), 0,
+    "a swapped offered slot no longer renders an invalid confirmation action");
+  await page.locator("#entryReview [data-review-undo]").click();
+  await page.waitForFunction(({ slotId, exerciseId }) => window.__repforgeEntryState()?.result?.preview?.programDefinition.days
+    .flatMap((day) => day.slots).find((slot) => slot.id === slotId)?.exerciseId === exerciseId,
+  { slotId: offerTarget.slotId, exerciseId: expectedOffer.currentExerciseId }, { timeout: 10000 });
+  await page.locator(`[data-review-confirm-offer-action="${offerTarget.slotId}"]`).waitFor({ state: "visible", timeout: 10000 });
+  const beforeGuard = await entry(page);
+  const editedDefinition = beforeGuard.result.preview.programDefinition;
+  assert.equal(editedDefinition.days.flatMap((day) => day.slots).find((slot) => slot.id === offerEditedSlot.id)
+    .prescriptionsByCycle[0].sets.length, offerEditedSlotSetsBefore + 1,
+  "undoing the target swap preserves the unrelated sets edit");
+
   await page.locator(`[data-review-confirm-offer-action="${offerTarget.slotId}"]`).click();
+  await page.locator("#reviewConfirmGo").waitFor({ state: "visible", timeout: 5000 });
+  const waitingToCancel = await entry(page);
+  assert.deepEqual(waitingToCancel.result.preview.programDefinition, editedDefinition,
+    "the offer first asks before replacing the lifter's Review edits");
+  assert.equal(waitingToCancel.answers.movementConfirmations?.[offerTarget.exerciseId], undefined,
+    "opening the discard guard does not commit the offered answer");
+  await page.locator("#reviewConfirmKeep").click();
+  await page.locator("#entryDialog").waitFor({ state: "hidden", timeout: 5000 });
+  const afterGuardCancel = await entry(page);
+  assert.deepEqual(afterGuardCancel.result.preview.programDefinition, editedDefinition,
+    "canceling the rebuild guard preserves the exact edited Review definition");
+  assert.deepEqual(afterGuardCancel.answers, beforeGuard.answers,
+    "canceling the rebuild guard preserves all answers");
+  assert.equal(afterGuardCancel.answers.movementConfirmations?.[offerTarget.exerciseId], undefined,
+    "canceling the rebuild leaves the movement unconfirmed");
+  await page.locator(`[data-review-confirm-offer-action="${offerTarget.slotId}"]`).waitFor({ state: "visible", timeout: 5000 });
+
+  await page.locator(`[data-review-confirm-offer-action="${offerTarget.slotId}"]`).click();
+  await page.locator("#reviewConfirmGo").waitFor({ state: "visible", timeout: 5000 });
+  await page.locator("#reviewConfirmGo").click();
   await page.waitForFunction(({ slotId, exerciseId }) => {
     const current = window.__repforgeEntryState();
     const slot = current?.result?.preview?.programDefinition?.days.flatMap((day) => day.slots).find((item) => item.id === slotId);
@@ -191,9 +302,11 @@ try {
   }, offerTarget, { timeout: 20000 });
   const afterOffer = await entry(page);
   assert.equal(afterOffer.result.preview.programDefinition.seed, beforeOfferDefinition.seed,
-    "confirming an offer regenerates with the same seed");
+    "confirming an offer after the guard regenerates with the same seed");
   assert.deepEqual(afterOffer.answers.movementConfirmations[offerTarget.exerciseId], expectedOffer.prerequisiteIds,
     "confirming an offer stores only that movement's prerequisites in the answers");
+  assert.deepEqual(afterOffer.result.preview.programDefinition, offerRebuildProbe.definition,
+    "confirming an offer rebuilds from the compiler baseline, discarding the canceled Review edits");
   const changedOfferRows = await page.evaluate(({ before, target }) => {
     const prior = new Map(before.days.flatMap((day) => day.slots).map((slot) => [slot.id, slot.exerciseId]));
     const current = window.__repforgeEntryState().result.preview.programDefinition;

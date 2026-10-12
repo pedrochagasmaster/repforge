@@ -16384,14 +16384,29 @@ function entryGeneratedPeek(from){
   const services=entryServices(),mapped=entryGeneratorRequest(from);
   const generated=services&&mapped.ok?entryGenerated.get(entryGeneratedKey(mapped.request,mapped.seed)):null;
   if(!generated?.ok)return null;
+  const result=entryCandidate(from,services,mapped.request,cloneSnapshot(generated.value));
   startEntryOfferVerification(from,{confirmationOffers:generated.confirmationOffers,request:mapped.request,seed:mapped.seed,
-    definition:generated.value});
-  return entryCandidate(from,services,mapped.request,cloneSnapshot(generated.value))}
+    definition:generated.value,result});
+  return result}
 let entryOfferJob=null,entryOfferState={key:"",offers:[]};
-function entryOfferKey(state,result=state?.result){
+function entryOfferBaseline(state){
+  const result=state?.result;
+  return entryAdjust?.draftId===state?.draftId&&entryAdjust.answers===result?.answersFingerprint&&entryAdjust.baseline?.fingerprint
+    ?entryAdjust.baseline:result}
+function entryOfferKey(state,result=entryOfferBaseline(state)){
   return state&&result?[state.draftId,state.route,result.answersFingerprint||"",result.fingerprint||""].join("|"):""}
-function startEntryOfferVerification(state,{confirmationOffers=[],request,seed,definition}={}){
-  const key=entryOfferKey(state);
+function entryOfferSlotEligible(state,offer){
+  const baseline=entryOfferBaseline(state),baselineSlots=baseline?.preview?.programDefinition?.days?.flatMap(day=>day.slots||[])||[];
+  const currentSlots=state?.result?.preview?.programDefinition?.days?.flatMap(day=>day.slots||[])||[];
+  const source=baselineSlots.find(slot=>slot.id===offer?.slotId),current=currentSlots.find(slot=>slot.id===offer?.slotId);
+  return!!source&&!!current&&current.exerciseId===source.exerciseId&&
+    (!offer.currentExerciseId||offer.currentExerciseId===source.exerciseId)&&current.exerciseId!==offer.offeredExerciseId&&
+    !currentSlots.some(slot=>slot.id!==offer.slotId&&slot.exerciseId===offer.offeredExerciseId)}
+function entryCurrentVerifiedOffers(state=entryState){
+  const key=entryOfferKey(state,entryOfferBaseline(state));
+  return key&&entryOfferState.key===key?entryOfferState.offers.filter(offer=>entryOfferSlotEligible(state,offer)):[]}
+function startEntryOfferVerification(state,{confirmationOffers=[],request,seed,definition,result=entryOfferBaseline(state)}={}){
+  const key=entryOfferKey(state,result);
   if(!key||state?.step!=="result"||state?.route!=="recommend")return;
   // The generator override is a test harness for the foreground transaction,
   // not an independent executor for post-result verification.
@@ -16401,7 +16416,7 @@ function startEntryOfferVerification(state,{confirmationOffers=[],request,seed,d
   entryOfferState={key,offers:[]};
   if(!Array.isArray(confirmationOffers)||!confirmationOffers.length){
     entryOfferState={key,offers:[]};
-    if(entryOfferKey(entryState)===key)entryAdjustMount?.refresh?.();
+    if(entryOfferKey(entryState,entryOfferBaseline(entryState))===key)entryAdjustMount?.refresh?.();
     return}
   const controller=new AbortController(),job={key,controller};
   entryOfferJob=job;
@@ -16414,14 +16429,15 @@ function startEntryOfferVerification(state,{confirmationOffers=[],request,seed,d
     generate,request,seed,signal:controller.signal,
     result:{ok:true,value:definition,confirmationOffers},
   }).then(offers=>{
-    if(entryOfferJob!==job||controller.signal.aborted||entryState?.step!=="result"||entryOfferKey(entryState)!==key)return;
+    if(entryOfferJob!==job||controller.signal.aborted||entryState?.step!=="result"||
+      entryOfferKey(entryState,entryOfferBaseline(entryState))!==key)return;
     entryOfferJob=null;entryOfferState={key,offers};
     entryAdjustMount?.refresh?.();
   }).catch(error=>{
     if(entryOfferJob!==job)return;
     entryOfferJob=null;
     if(controller.signal.aborted||error?.name==="AbortError")return;
-    if(entryState?.step!=="result"||entryOfferKey(entryState)!==key)return;
+    if(entryState?.step!=="result"||entryOfferKey(entryState,entryOfferBaseline(entryState))!==key)return;
     entryOfferState={key,offers:[]};entryAdjustMount?.refresh?.();
   }).finally(()=>job.engine?.dispose?.())}
 /* The one call site of Generate (#353). The answers' request and the draft's
@@ -17105,9 +17121,9 @@ async function applyEntryAnswerEdit(patch,{lead,beforeLabel,afterLabel}={}){
   entryShowChange();
   return{ok:true}}
 async function confirmEntryMovementOffer(offer){
-  const key=entryOfferKey(entryState);
+  const key=entryOfferKey(entryState,entryOfferBaseline(entryState));
   if(entryState?.route!=="recommend"||entryState?.step!=="result"||entryOfferState.key!==key||
-    !entryOfferState.offers.some(item=>item.slotId===offer?.slotId&&item.offeredExerciseId===offer?.offeredExerciseId))
+    !entryCurrentVerifiedOffers(entryState).some(item=>item.slotId===offer?.slotId&&item.offeredExerciseId===offer?.offeredExerciseId))
     return{ok:false,stale:true};
   const confirmations=cloneSnapshot(entryState.answers?.movementConfirmations||{});
   confirmations[offer.offeredExerciseId]=[...offer.prerequisiteIds];
@@ -17434,7 +17450,7 @@ function mountEntryAdjust(){
     view:review.view,
     read:()=>({baseline:entryAdjust.baseline.preview.programDefinition,definition:entryState.result.preview.programDefinition,
       edits:entryAdjust.edits,name:entryResultName()||t("untitled_program"),
-      answers:entryState.answers,offers:entryOfferState.key===entryOfferKey(entryState)?entryOfferState.offers:[],
+      answers:entryState.answers,offers:entryCurrentVerifiedOffers(entryState),
       sessionMinutes:Number(entryState.answers?.sessionMinutes)||null,ctx:entryAdjustCtx()}),
     commit:commitEntryAdjust,
     confirmOffer:confirmEntryMovementOffer,
