@@ -18,8 +18,8 @@
  *   the main thread for.
  *
  * Generation is asynchronous, so the entry flow holds each request until the
- * test releases it: Continue stays on the question until its program lands
- * (and a second tap does not start another), Back during the wait drops it,
+ * test releases it: the building checklist remains visible while its program
+ * is pending, Skip cannot bypass settlement, Back during the wait drops it,
  * an answer changed while an earlier change is generating builds on it and
  * the earlier result is discarded, and a conflict leaves the committed
  * program in place with its explanation.
@@ -117,11 +117,11 @@ async function heldFlow(browser) {
       generateProgram: (args) => new Promise((resolve) => window.__held.push({ args, resolve })) };
     window.__release = (index, outcome) => { const job = window.__held[index]; job.resolve(outcome ?? base.generateProgram(job.args)); };
   });
-  // Recommend's B order (Plan 072 S2) puts "abilities" last, right before
-  // "result" (intro, sex, birth_date, height, weight, background,
+  // Recommend's B order (Plan 072 S2/S3) ends in "abilities", "building",
+  // then "result" (intro, sex, birth_date, height, weight, background,
   // cardio_experience, environment, equipment, desired_result, days_per_week,
-  // session_length, muscle_priorities, deload, abilities, result) - that is
-  // where generation now starts, and "deload" is the step Back returns to.
+  // session_length, muscle_priorities, deload, abilities, building, result).
+  // Generation starts when building mounts, and Back returns to abilities.
   await page.click("#firstRunCreate");
   await page.locator('[data-entry-hub="recommend"]').click();
   await page.click("#onbNext");
@@ -156,25 +156,29 @@ async function heldFlow(browser) {
   await page.click("#onbNext");
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
 
-  // Back while the program generates drops it.
+  // Back while the building request is pending drops it.
   await page.click("#onbNext");
-  check(await held(page) === 1 && (await entry(page)).step === "abilities",
-    "async flow: Continue keeps the question on screen while its program generates");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "building" && window.__held.length === 1);
+  check((await entry(page)).step === "building" && await page.locator("#entryBuilding").isVisible(),
+    "async flow: the building checklist stays visible while its program generates");
+  check(!(await entry(page)).result?.preview && await page.locator("#entryReview [data-review-slot]").count() === 0,
+    "async flow: a pending program cannot show a result");
   check(await page.locator("#onbNext").getAttribute("aria-busy") === "true", "async flow: Continue reports that it is busy");
   await page.click("#onbBack");
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "deload");
-  await release(page, 0);
-  await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 0)));
-  const left = await entry(page);
-  check(left.step === "deload" && !left.result?.preview, "async flow: a program that lands after Back is dropped", { step: left.step });
-  await page.click("#onbNext");
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
+  await release(page, 0);
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve())));
+  const left = await entry(page);
+  check(left.step === "abilities" && !left.result?.preview, "async flow: a program that lands after Back is dropped", { step: left.step });
+  await page.click("#onbNext");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "building" && window.__held.length === 2);
 
-  // Continue waits for its program; a second tap starts nothing.
-  await page.click("#onbNext");
-  check(await held(page) === 2, "async flow: Continue generates again after Back");
-  await page.click("#onbNext");
-  check(await held(page) === 2, "async flow: a second Continue does not start another generation");
+  // Skip finishes the checklist, but it cannot commit without the program.
+  await page.click("#entryBuildingSkip");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "building" &&
+    document.querySelector("#entryBuildingWait")?.hidden === false);
+  check(await held(page) === 2 && (await entry(page)).step === "building",
+    "async flow: Skip does not bypass the pending program");
   await release(page, 1);
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "result");
   await page.locator("#entryReview [data-review-slot]").first().waitFor({ timeout: 15000 });
