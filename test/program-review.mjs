@@ -70,8 +70,8 @@ console.log("program-review: set count");
   const result = apply(deload, { kind: "sets", slotId: slot.id, count: 4 });
   check(result.ok, "sets: a count of 4 is accepted", result);
   const edited = slotById(result.definition, slot.id);
-  check(edited.prescriptionsByCycle.every((cycle) => cycle.sets.length === (isDeload(cycle) ? 3 : 4)),
-    "sets: every cycle gets the count and the deload cycle keeps one set fewer",
+  check(edited.prescriptionsByCycle.every((cycle) => cycle.sets.length === (isDeload(cycle) ? 2 : 4)),
+    "sets: every cycle gets the count and the deload cycle keeps ceil(count / 2)",
     edited.prescriptionsByCycle.map((cycle) => cycle.sets.length));
   check(edited.prescriptionsByCycle.every((cycle) => cycle.sets.every((set, index) => set.setIndex === index + 1 && set.cycleIndex === cycle.cycleIndex)),
     "sets: set and cycle indexes stay ordered");
@@ -83,6 +83,11 @@ console.log("program-review: set count");
     "sets: an added set copies the cycle's last set");
   check(valid(result.definition), "sets: the result validates");
   check(same(deload, before), "sets: the input definition is not mutated");
+  const six = apply(deload, { kind: "sets", slotId: slot.id, count: 6 });
+  check(six.ok && slotById(six.definition, slot.id).prescriptionsByCycle.every((cycle) =>
+    cycle.sets.length === (isDeload(cycle) ? 3 : 6)),
+  "sets: six edited sets produce three in the deload cycle",
+  slotById(six.definition, slot.id).prescriptionsByCycle.map((cycle) => cycle.sets.length));
   const one = apply(deload, { kind: "sets", slotId: slot.id, count: 1 });
   check(one.ok && slotById(one.definition, slot.id).prescriptionsByCycle.every((cycle) => cycle.sets.length === 1),
     "sets: a count of 1 leaves the deload cycle at its minimum of 1");
