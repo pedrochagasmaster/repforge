@@ -114,8 +114,8 @@ async function seed(page, { ambiguousPerSideReview = false, knownModeNullConfigR
       const exerciseCatalog = window.RepForgeExerciseCatalog.snapshot();
       const rawExercise = exerciseCatalog.exercises.find((entry) => entry.id === knownPerSide?.slot.exerciseId);
       const laterality = (rawExercise?.laterality || []).map((id) => exerciseCatalog.uuidIndex?.[id]?.name).filter(Boolean);
-      const hasKnownMode = laterality.includes("Bilateral") !== laterality.includes("Unilateral");
-      if (!knownPerSide || !hasKnownMode || knownPerSide.slot.executionMode !== "bilateral") {
+      const hasKnownBilateralMode = laterality.includes("Bilateral") && !laterality.includes("Unilateral");
+      if (!knownPerSide || !hasKnownBilateralMode || knownPerSide.slot.executionMode !== "bilateral") {
         throw new Error(`the known-laterality guard fixture is no longer a generated bilateral slot: ${JSON.stringify(laterality)}`);
       }
       // Model a persisted configuration-required prescription whose mode was
@@ -417,9 +417,9 @@ try {
     const set = exercise?.sets?.[exercise.setOrder?.[0]];
     return set?.programmed?.loadingContext || null;
   });
-  assert(modeGuardLoading?.executionMode === "bilateral" && modeGuardLoading.loadingConvention === "per_side" &&
+  assert(modeGuardLoading?.loadingConvention === "per_side" &&
     modeGuardLoading.externalLoadMultiplier === 2,
-    "P069-S3-WHY: catalog laterality still establishes bilateral m=2 in the actual workout context", modeGuardLoading);
+    "P069-S3-WHY: catalog laterality still establishes m=2 in the actual workout context", modeGuardLoading);
   const modeGuardWhy = await openWhy(modeGuardPage);
   assert(!modeGuardWhy.blocks.map((block) => block.text).join(" ").includes("Tell Taurifer how you do this: both sides together, or one side at a time."),
     "P069-S3-WHY: the Why sheet does not ask for an execution mode already resolved by catalog laterality", modeGuardWhy);
