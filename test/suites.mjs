@@ -114,6 +114,7 @@ export const SUITES = {
     s("test/program-entry-s4.mjs", [], { domains: ["entry", "program", "today", "workout", "persistence"], seconds: 60 }),
     s("test/program-engine-worker.mjs", [], { domains: ["entry", "program", "offline"], seconds: 40 }),
     s("test/adaptive-workout-browser.mjs", [], { domains: ["workout", "program", "persistence"], seconds: 40 }),
+    s("test/s4-persistent-mode-diagnostic.mjs", [], { domains: ["entry", "workout", "persistence"], seconds: 60, timeoutMs: 180000 }),
     s("test/per-side-engine-browser.mjs", [], { domains: ["workout", "program", "persistence"], tier: "packet", seconds: 90, timeoutMs: 900000 }),
     s("test/per-side-engine-transfer-browser.mjs", [], { domains: ["install", "workout", "persistence"], tier: "packet", seconds: 90, timeoutMs: 900000 }),
     s("test/per-side-engine-bodyweight-browser.mjs", [], { domains: ["workout", "program", "persistence"], tier: "packet", seconds: 90, timeoutMs: 900000 }),
