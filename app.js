@@ -15380,6 +15380,12 @@ function setupDraftPersistenceProjection(value){
   return projected;
 }
 function persistSetupDraft(next,io=storageIO){
+  // A received definition is a transient proposal until the recipient presses
+  // Use this program. Keep the shared review editable in memory, but never put
+  // its payload in the resumable setup-draft store before activation.
+  if(next?.route==="shared"){
+    entryState=cloneSnapshot(next);
+    return Promise.resolve({ok:true,transient:true})}
   if(io===storageIO&&installTransferMutationFrozen())return Promise.resolve({ok:false,conflict:true,code:"install-transfer-frozen"});
   if(!ProgramEntry||!next)return Promise.resolve({ok:false});
   // Once a real foreign write has been detected, this tab's handle can never
@@ -17405,9 +17411,11 @@ function renderResultStep(){
    a reload only if replaying it rebuilds the saved definition. */
 const ENTRY_ADJUST_KEY="repforge_entry_review_v1";
 let entryAdjust=null,entryAdjustMount=null,entryAdjustSheetClose=null,entryAdjustDialog=null;
-const entryAdjustRoute=()=>entryState?.route==="recommend"||entryState?.route==="custom";
+const entryAdjustRoute=()=>entryState?.route==="recommend"||entryState?.route==="custom"||entryState?.route==="shared";
+const entryGeneratorReviewRoute=()=>entryState?.route==="recommend"||entryState?.route==="custom";
 function entryAdjustCtx(){
-  return{compiler:ProgramCompiler,catalog:rawExerciseCatalog,metrics:ExerciseMetrics,customDefinitions:[],dayName:entryAdjustDayName}}
+  return{compiler:ProgramCompiler,catalog:rawExerciseCatalog,metrics:ExerciseMetrics,
+    customDefinitions:entryState?.route==="shared"?(entryState.result?.preview?.customExercises||[]):[],dayName:entryAdjustDayName}}
 function readEntryAdjustLog(){try{return JSON.parse(sessionStorage.getItem(ENTRY_ADJUST_KEY)||"null")}catch{return null}}
 function writeEntryAdjustLog(value){
   try{if(value?.edits?.length)sessionStorage.setItem(ENTRY_ADJUST_KEY,JSON.stringify(value));else sessionStorage.removeItem(ENTRY_ADJUST_KEY)}catch{}}
@@ -17419,23 +17427,25 @@ function ensureEntryAdjust(){
   const Review=window.RepForgeProgramReview,result=entryState?.result;
   if(!Review||!entryAdjustRoute()||!result?.preview?.programDefinition||!rawExerciseCatalog)return null;
   if(entryAdjust&&entryAdjust.draftId===entryState.draftId&&entryAdjust.answers===result.answersFingerprint)return entryAdjust;
-  const baseline=entryGeneratedPeek(entryState);
+  const baseline=entryState.route==="shared"?cloneSnapshot(result):entryGeneratedPeek(entryState);
   if(!baseline){loadEntryAdjustBaseline();return null}
   return adoptEntryAdjust(baseline)}
 function adoptEntryAdjust(baseline){
   const Review=window.RepForgeProgramReview,result=entryState.result;
-  const stored=result.preview.programDefinition,saved=readEntryAdjustLog();
+  const shared=entryState.route==="shared";
+  const stored=result.preview.programDefinition,saved=shared?null:readEntryAdjustLog();
   let edits=[];
-  if(saved?.draftId===entryState.draftId&&saved?.fingerprint===baseline.fingerprint&&Array.isArray(saved.edits)){
+  if(!shared&&saved?.draftId===entryState.draftId&&saved?.fingerprint===baseline.fingerprint&&Array.isArray(saved.edits)){
     const replayed=Review.replay(baseline.preview.programDefinition,saved.edits,entryAdjustCtx());
     if(replayed.ok&&sameDefinition(replayed.definition,stored))edits=saved.edits}
   entryAdjust={draftId:entryState.draftId,answers:result.answersFingerprint,baseline,edits,view:{tab:null,reorder:null}};
-  writeEntryAdjustLog({draftId:entryState.draftId,fingerprint:baseline.fingerprint,edits});
+  if(!shared)writeEntryAdjustLog({draftId:entryState.draftId,fingerprint:baseline.fingerprint,edits});
   return entryAdjust}
 /* After a reload the recommendation is not at hand: generate it, then mount
    the review it belongs to if that result is still on screen. */
 let entryAdjustLoading=null;
 function loadEntryAdjustBaseline(){
+  if(!entryGeneratorReviewRoute())return Promise.resolve(null);
   const from=entryState,answers=from?.result?.answersFingerprint;
   if(entryAdjustLoading?.draftId===from?.draftId&&entryAdjustLoading?.answers===answers)return entryAdjustLoading.promise;
   const promise=generateEntryCandidate(from).catch(()=>({ok:false})).then(outcome=>{
@@ -17459,7 +17469,7 @@ function entryAdjustIssue(){
    own change count (Plan 071 §5.3). Only the generated routes have one. */
 function entryReviewChanges(){
   const Review=window.RepForgeProgramReview;
-  if(!Review?.changes||!entryAdjustRoute())return null;
+  if(!Review?.changes||!entryGeneratorReviewRoute())return null;
   const review=ensureEntryAdjust();
   if(!review)return null;
   try{return Review.changes(review.baseline.preview.programDefinition,entryState.result.preview.programDefinition).count}catch{return null}}
@@ -17476,16 +17486,31 @@ async function commitEntryAdjust({definition,edits,name}){
   const review=entryAdjust;
   if(!review||!entryState?.result)return{ok:false};
   const base=review.baseline;
-  const result={...cloneSnapshot(entryState.result),preview:{...cloneSnapshot(entryState.result.preview),...generatedPreview(definition,entryState.route)}};
+  const shared=entryState.route==="shared";
+  const preview=shared?(()=>{
+    const current=cloneSnapshot(entryState.result.preview),customs=current.customExercises||[];
+    const program=flatProgramFromDefinition(definition,customs,1);
+    const dayById=new Map((definition.days||[]).map(day=>[day.id,day]));
+    const structure=cloneSnapshot(current.programStructure||{schemaVersion:1,days:[],provenance:{source:"shared"}});
+    structure.days=(structure.days||[]).map(item=>{
+      const day=dayById.get(item.dayId);
+      return day?{...item,label:day.name}:item});
+    return{...current,program,programDefinition:cloneSnapshot(definition),programStructure:structure,
+      days:sharedPreviewDays(program,structure,current.sharedSettings)}
+  })():{...cloneSnapshot(entryState.result.preview),...generatedPreview(definition,entryState.route)};
+  const result={...cloneSnapshot(entryState.result),preview};
   result.name=name==null?base.name:name;delete result.namePt;
   result.fingerprint=sameDefinition(definition,base.preview.programDefinition)&&result.name===base.name
     ?base.fingerprint:entryCandidateFingerprint(entryState.route,result.name,result.preview);
   entryPinnedVersionsExecutable=false;
-  const saved=await persistEntryRulesState(ProgramEntry.setResult(entryState,result));
-  if(!saved?.ok)return{ok:false};
+  const next=ProgramEntry.setResult(entryState,result);
+  if(shared)entryState=next;
+  else{
+    const saved=await persistEntryRulesState(next);
+    if(!saved?.ok)return{ok:false}}
   review.answers=entryState.result.answersFingerprint;
   review.edits=edits.slice();
-  writeEntryAdjustLog({draftId:review.draftId,fingerprint:base.fingerprint,edits:review.edits});
+  if(!shared)writeEntryAdjustLog({draftId:review.draftId,fingerprint:base.fingerprint,edits:review.edits});
   syncEntryAdjustFooter();
   return{ok:true}}
 /* The pinned footer follows the review without re-rendering the screen. */
@@ -17573,8 +17598,8 @@ function mountEntryAdjust(){
       const outcome=await guardEntryRebuild(()=>applyEntryAnswerEdit(patch,{lead:t("entry.change.lead.answer")}));
       if(outcome===false)return{ok:false,cancelled:true};
       return outcome?.ok?outcome:{...outcome,message:entryFailureText(outcome?.failure)||t("entry.issue.compile")}},
-    observe:report=>captureEvent("program_review_action",report),
-    t:(key,vars)=>t(key,vars),esc,
+    observe:report=>{if(entryGeneratorReviewRoute())captureEvent("program_review_action",report)},
+    t:(key,vars)=>key==="entry.review.source"&&entryState?.route==="shared"?t("entry.route.shared"):t(key,vars),esc,
     exerciseName:id=>libraryName(libraryEntry(id))||id,
     tile:(id,size)=>exerciseThumb(libraryEntry(id),{size}),
     muscleName:id=>{const token=SOURCE_FEATURE_TO_LEGACY_MUSCLE[String(rawCatalogObject(id)?.name||"").trim().toLowerCase()];return token?muscleLabel(token):""},
@@ -17872,6 +17897,14 @@ function renderPreviewStep({merged=false}={}){
        Compromises, so the redesign restyles `h4` rather than demoting it. */
     `<ul class="entry__rows">`+reviewRows.map(row=>`<li class="entry__row"><span class="entry__row-ico icon-mask icon-mask--${esc(row.icon)}" aria-hidden="true"></span><div class="entry__row-body"><h4 class="entry__row-lab">${esc(row.lab)}</h4><p>${esc(row.text)}</p></div></li>`).join("")+`</ul></div>`+
     renderEntryMore()+renderEntryPinned({progressionIssue,configurationIssue:entryNeedsMetricConfiguration()})}
+function renderSharedReviewStep(){
+  const preview=entryState?.result?.preview;
+  if(!preview?.programDefinition)return `<p class="lede" role="alert">${esc(t("entry.error.summary"))}</p>`;
+  return `<section id="entryCandidateReview" class="entry__review" aria-labelledby="entryHeading">`+
+    `<div id="entryReview" class="entry__adjust ph-no-capture"></div>`+
+    renderEntryPinned({progressionIssue:entryPreviewHasProgressionIssue(preview),
+      configurationIssue:entryNeedsMetricConfiguration(),reviewIssue:entryAdjustIssue()})+
+    `</section>`}
 /* The week is a stack of hairline bands. The first day is open, so the first
    exercise is on the first screen (K-32); the others fold away, except a day
    that holds an exercise the last change added. */
@@ -18366,6 +18399,7 @@ function renderOnboarding({pageTransition=null}={}){
       `<button type="button" class="btn btn--steel program-editor__save" id="entryEditorSave">${esc(t("entry.editor.save"))}</button>`+
       `<button type="button" class="btn btn--cta program-editor__activate" id="entryEditorActivate">${esc(t("entry.editor.use",undefined,"Use this program"))}</button>`+
     `</div>`;
+  else if(stepId==="preview"&&route==="shared")html+=renderSharedReviewStep();
   else if(stepId==="preview"||stepId==="activation_conflict")html+=renderPreviewStep();
   else html+=renderEntryHub();
   body.className=`onb__body entry-body entry-body--${stepId}${route?` entry-route--${route}`:" entry-route--hub"}`;
@@ -18377,7 +18411,7 @@ function renderOnboarding({pageTransition=null}={}){
     live.dataset.entryMotionKey=hub?"hub":`${motionPageState.route}|${motionPageState.step}`;
     live.innerHTML=html;body.replaceChildren(live)}
   else body.innerHTML=html;
-  if((stepId==="result"||stepId==="activation_conflict")&&!isEditor)mountEntryAdjust();
+  if((stepId==="result"||stepId==="activation_conflict")&&!isEditor||stepId==="preview"&&route==="shared")mountEntryAdjust();
   if(stepId==="result"&&!isEditor)playEntryBuild(body);
   const environmentCorrection=body.querySelector(".entry__correct");
   if(environmentCorrectionOpen&&environmentCorrection)environmentCorrection.open=true;
@@ -19493,19 +19527,14 @@ async function commitSharedSetup(io=storageIO){
     next=ProgramEntry.setResult(next,{fingerprint:entryServices()?.fingerprint?.({route:"shared",name:shared.name,preview})||"shared",selected:{id:"shared",source:"shared"},name:shared.name,preview,telemetry:{family:"shared_v1"}});
     next={...next,step:"preview"};
     entryState=next;
-    const saved=await persistSetupDraft(next,io);
-    if(!saved?.ok){
-      toast(t("setup.shared.commit_failed"),{assertive:true});
-      return{revision:readRevision(state),localOk:false,idbOk:false,writeFailed:true};
-    }
-    // The first-run Start control accepts the handoff into the same editable
-    // preview used by every other entry route. It is not the activation action:
-    // no durable program write, cookie clear, or history transition happens
-    // until the preview's explicit Use this program button is pressed.
+    // The first-run Start control opens the in-memory review. The received
+    // definition stays out of the resumable setup-draft store until activation.
+    entryDraftHandle=null;
+    lastPersistedEntryState=cloneSnapshot(next);
     suspendFirstRun();
     showOnboardingView();
     renderOnboarding();
-    return{revision:readRevision(state),localOk:false,idbOk:false,staged:true,setupDraft:true};
+    return{revision:readRevision(state),localOk:false,idbOk:false,staged:true,inMemory:true};
   } catch {
     toast(t("setup.shared.commit_failed"),{assertive:true});
     $("#firstRunSharedStart")?.focus();

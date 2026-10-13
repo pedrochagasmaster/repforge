@@ -841,11 +841,13 @@ export async function runSharedSetupFlow(browser) {
     await waitForFirstRun(page);
     const before = await page.evaluate(readDurableState);
     await clickSharedStart(page, { activate: false });
+    await page.locator("#entryReview [data-review-slot]").first().waitFor({ state: "visible", timeout: 5000 });
     const staged = await page.evaluate(() => ({
       onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
       firstRun: !document.querySelector("#firstRun")?.classList.contains("hidden"),
       activate: !!document.querySelector("#entryActivate") && !document.querySelector("#entryActivate").disabled,
       review: !!document.querySelector("#entryReview [data-review-slot]"),
+      source: document.querySelector("#entryReview .review__kicker")?.textContent?.trim(),
       state: window.__repforgeEntryState?.(),
       engine: window.__repforgeProgramEngine?.stats?.(),
     }));
@@ -861,6 +863,7 @@ export async function runSharedSetupFlow(browser) {
         carriesProgramRows: Array.isArray(preview?.program) && preview.program.length > 0,
         carriesSharedSettings: !!preview?.sharedSettings,
         carriesSharedMetadata: !!preview?.sharedMeta,
+        carriesReviewLog: sessionStorage.getItem("repforge_entry_review_v1") !== null,
       };
     }, SETUP_DRAFT);
     assert(canonicalJson(stagedDurable.state) === canonicalJson(before.state), "Start leaves the durable state byte-identical",
@@ -870,12 +873,13 @@ export async function runSharedSetupFlow(browser) {
       canonicalJson(staged.state?.result?.preview?.programDefinition) === canonicalJson(document.program.definition),
     "View program opens B review with the exact received definition", {
       onboarding: staged.onboarding, firstRun: staged.firstRun, activate: staged.activate,
-      review: staged.review, route: staged.state?.route,
+      review: staged.review, source: staged.source, route: staged.state?.route,
       definitionMatches: canonicalJson(staged.state?.result?.preview?.programDefinition) === canonicalJson(document.program.definition),
     });
     assert(!durableDraftFacts.carriesDefinition && !durableDraftFacts.carriesSharedSettings &&
-      !durableDraftFacts.carriesSharedMetadata,
+      !durableDraftFacts.carriesSharedMetadata && !durableDraftFacts.carriesReviewLog,
     "no received definition or settings are durable before final activation", durableDraftFacts);
+    assert(staged.source === "Treino compartilhado", "the Review source uses the approved shared-program label", staged.source);
     assert(!!stagedDurable.cookie, "the handoff cookie survives until activation", { present: !!stagedDurable.cookie });
     if (!staged.review) {
       await context.close();
@@ -893,6 +897,14 @@ export async function runSharedSetupFlow(browser) {
     await page.waitForFunction(() => !document.querySelector("#reviewSheet.is-open"), undefined, { timeout: 5000 });
     assert(canonicalJson((await page.evaluate(() => window.__repforgeEntryState().result.preview.programDefinition))) !==
       canonicalJson(document.program.definition), "the Review change is visible in the received draft");
+    const afterEdit = await page.evaluate((key) => ({
+      setupDraft: localStorage.getItem(key),
+      reviewLog: sessionStorage.getItem("repforge_entry_review_v1"),
+    }), SETUP_DRAFT);
+    assert(afterEdit.setupDraft === null && afterEdit.reviewLog === null,
+      "an in-memory shared review edit does not persist the received payload or its edit log", {
+        setupDraftPresent: afterEdit.setupDraft !== null, reviewLogPresent: afterEdit.reviewLog !== null,
+      });
     await page.locator('#entryReview [data-review-restore]').click();
     await page.locator("#reviewConfirmGo").waitFor({ state: "visible", timeout: 5000 });
     await page.locator("#reviewConfirmGo").click();
@@ -904,6 +916,14 @@ export async function runSharedSetupFlow(browser) {
     }));
     assert(canonicalJson(restored.definition) === canonicalJson(document.program.definition),
       "Restore returns exactly to the definition received in the link");
+    const afterRestore = await page.evaluate((key) => ({
+      setupDraft: localStorage.getItem(key),
+      reviewLog: sessionStorage.getItem("repforge_entry_review_v1"),
+    }), SETUP_DRAFT);
+    assert(afterRestore.setupDraft === null && afterRestore.reviewLog === null,
+      "Restore stays in memory until the final activation", {
+        setupDraftPresent: afterRestore.setupDraft !== null, reviewLogPresent: afterRestore.reviewLog !== null,
+      });
     assert(restored.engine?.worker === 0 && restored.engine?.main === 0,
       "an ordinary received definition is not regenerated while opening or restoring", restored.engine);
     await page.click("#entryActivate");
