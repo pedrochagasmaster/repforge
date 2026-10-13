@@ -54,7 +54,8 @@ async function installOfferWorkerHarness(page) {
           this.requestsById.set(message.id, message);
           const state = window.__repforgeEntryState?.();
           harness.requests.push({ workerId: this.harnessWorkerId, id: message.id, request: message.request,
-            seed: message.seed, step: state?.step || null, resultFingerprint: state?.result?.fingerprint || null });
+            seed: message.seed, step: state?.step || null, resultFingerprint: state?.result?.fingerprint || null,
+            answersFingerprint: state?.result?.answersFingerprint || null });
         }
         super.postMessage(message, transfer);
       }
@@ -63,8 +64,13 @@ async function installOfferWorkerHarness(page) {
           const request = this.requestsById.get(event.data?.id);
           if (harness.hold && request?.type === "generate" &&
             Object.keys(request.request?.movementConfirmations || {}).length) {
+            const requestRecord = harness.requests.find((item) => item.workerId === this.harnessWorkerId && item.id === event.data.id);
+            const current = window.__repforgeEntryState?.();
             harness.held.push({ worker: this, workerId: this.harnessWorkerId, id: event.data.id,
-              handler, event, request, resultFingerprint: window.__repforgeEntryState?.()?.result?.fingerprint || null });
+              handler, event, request, requestResultFingerprint: requestRecord?.resultFingerprint || null,
+              requestAnswersFingerprint: requestRecord?.answersFingerprint || null,
+              requestSeed: requestRecord?.seed || null, requestStep: requestRecord?.step || null,
+              responseResultFingerprint: current?.result?.fingerprint || null });
             return;
           }
           handler.call(this, event);
@@ -320,6 +326,13 @@ try {
   await page.locator(`#entryReview [data-review-confirmed="${offerTarget.exerciseId}"]`).waitFor({ state: "visible", timeout: 5000 });
   assert.match(await page.locator(`#entryReview [data-review-slot="${offerTarget.slotId}"] [data-review-mark]`).innerText(),
     /confirmed by you|confirmado por você/i, "the changed row is marked as confirmed by the lifter");
+  await page.waitForFunction((exerciseId) =>
+    document.activeElement?.dataset?.reviewConfirmationUndo === exerciseId,
+  offerTarget.exerciseId, { timeout: 5000 });
+  console.log("S4_OFFER_FOCUS_PROBE", JSON.stringify(await page.evaluate(() => ({
+    activeUndoId: document.activeElement?.dataset?.reviewConfirmationUndo || null,
+    resultFingerprint: window.__repforgeEntryState()?.result?.fingerprint || null,
+  }))));
   assert.equal(await page.evaluate(() => document.activeElement?.dataset?.reviewConfirmationUndo), offerTarget.exerciseId,
     "confirming an offer moves focus to its Undo control");
   await page.locator(`#entryReview [data-review-confirmation-undo="${offerTarget.exerciseId}"]`).click();
@@ -344,17 +357,50 @@ try {
     "the confirmed movement and regenerated program survive setup-draft reload");
   await page.evaluate(() => { window.__repforgeOfferWorkerHarness.hold = true; });
   await page.locator(`#entryReview [data-review-confirmation-undo="${offerTarget.exerciseId}"]`).click();
-  await page.waitForFunction((exerciseId) => !window.__repforgeEntryState()?.answers?.movementConfirmations?.[exerciseId],
-    offerTarget.exerciseId, { timeout: 20000 });
-  await page.waitForFunction(() => window.__repforgeOfferWorkerHarness?.held.length > 0, undefined, { timeout: 15000 });
-  const oldVerifier = await page.evaluate(() => {
-    const held = window.__repforgeOfferWorkerHarness.held[0];
-    return { workerId: held.workerId, id: held.id, resultFingerprint: held.resultFingerprint,
-      currentResultFingerprint: window.__repforgeEntryState()?.result?.fingerprint };
-  });
-  assert.equal(oldVerifier.resultFingerprint, oldVerifier.currentResultFingerprint,
-    "the held Worker reply belongs to the result that is being left");
-  assert.ok(oldVerifier.resultFingerprint, "the held offer verifier is tied to the current result");
+  await page.waitForFunction(({ exerciseId, previousFingerprint }) => {
+    const current = window.__repforgeEntryState();
+    return current?.step === "result" && !current.answers?.movementConfirmations?.[exerciseId] &&
+      current.result?.fingerprint && current.result.fingerprint !== previousFingerprint;
+  }, { exerciseId: offerTarget.exerciseId, previousFingerprint: confirmedAfterReload.result.fingerprint }, { timeout: 20000 });
+  const undoResult = await entry(page);
+  assert.deepEqual(undoResult.result.preview.programDefinition, beforeOfferDefinition,
+    "Undo settles back to the same-seed compiler baseline before its verifier is held");
+  const undoIdentity = {
+    resultFingerprint: undoResult.result.fingerprint,
+    answersFingerprint: undoResult.result.answersFingerprint,
+    seed: undoResult.draftId,
+  };
+  await page.waitForFunction((identity) => {
+    const harness = window.__repforgeOfferWorkerHarness;
+    return harness?.held.some((held) => {
+      const request = harness.requests.find((item) => item.workerId === held.workerId && item.id === held.id);
+      return request?.step === "result" && request.resultFingerprint === identity.resultFingerprint &&
+        request.answersFingerprint === identity.answersFingerprint && request.seed === identity.seed;
+    }) || false;
+  }, undoIdentity, { timeout: 15000 });
+  const oldVerifier = await page.evaluate((identity) => {
+    const harness = window.__repforgeOfferWorkerHarness;
+    const held = harness.held.find((item) => {
+      const request = harness.requests.find((candidate) => candidate.workerId === item.workerId && candidate.id === item.id);
+      return request?.step === "result" && request.resultFingerprint === identity.resultFingerprint &&
+        request.answersFingerprint === identity.answersFingerprint && request.seed === identity.seed;
+    });
+    return held && { workerId: held.workerId, id: held.id, resultFingerprint: held.requestResultFingerprint,
+      answersFingerprint: held.requestAnswersFingerprint, responseResultFingerprint: held.responseResultFingerprint,
+      seedMatchesDraft: held.requestSeed === identity.seed, step: held.requestStep };
+  }, undoIdentity);
+  assert.ok(oldVerifier, "the held Worker request belongs to the settled Undo result being left");
+  assert.equal(oldVerifier.resultFingerprint, undoResult.result.fingerprint,
+    "the held verifier's original request fingerprint matches the Undo result");
+  assert.equal(oldVerifier.answersFingerprint, undoResult.result.answersFingerprint,
+    "the held verifier's original request carries the Undo result's answer fingerprint");
+  assert.equal(oldVerifier.seedMatchesDraft, true, "the held verifier reuses the current draft seed");
+  assert.equal(oldVerifier.step, "result", "the held verifier starts from the settled result screen");
+  console.log("S4_OFFER_STALE_WORKER_PROBE", JSON.stringify({
+    workerId: oldVerifier.workerId, requestId: oldVerifier.id,
+    resultFingerprint: oldVerifier.resultFingerprint, answersFingerprint: oldVerifier.answersFingerprint,
+    seedMatchesDraft: oldVerifier.seedMatchesDraft, responseResultFingerprint: oldVerifier.responseResultFingerprint,
+  }));
   await page.click("#onbBack");
   await page.waitForFunction(() => window.__repforgeEntryState()?.step === "abilities", undefined, { timeout: 5000 });
   await page.waitForFunction((workerId) => window.__repforgeOfferWorkerHarness?.terminated.includes(workerId),
