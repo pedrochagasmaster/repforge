@@ -871,7 +871,7 @@
     recommend: new Set(["source", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "customExercises"]),
     custom: new Set(["source", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "customExercises"]),
     browse: new Set(["source", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "limitations", "reductions", "provenance", "primaryMuscles"]),
-    build: new Set(["source", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "days", "primaryMuscles", "customExercises", "loadingConfiguration"]),
+    build: new Set(["source", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "days", "primaryMuscles", "customExercises", "loadingConfiguration", "suggestLoadsPending"]),
     import: new Set(["source", "format", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "days", "customExercises", "primaryMuscles"]),
     shared: new Set(["source", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "days", "customExercises", "primaryMuscles", "sharedMeta", "sharedSettings", "sharedImport"]),
   });
@@ -1258,6 +1258,7 @@
     for (const key of ["limitations", "reductions"]) if (hasOwn(value, key) && !Array.isArray(value[key])) issues.push(`${path}.${key}:invalid`);
     if (hasOwn(value, "customExercises")) validateCustomExercises(value.customExercises, `${path}.customExercises`, issues);
     if (hasOwn(value, "loadingConfiguration")) validateLoadingConfiguration(value.loadingConfiguration, `${path}.loadingConfiguration`, issues);
+    if (hasOwn(value, "suggestLoadsPending")) validateSuggestLoadsPending(value.suggestLoadsPending, `${path}.suggestLoadsPending`, issues);
     if (hasOwn(value, "progressionRelations")) validateRelations(value.progressionRelations, `${path}.progressionRelations`, issues);
     if (hasOwn(value, "progressionModifiers")) {
       if (!Array.isArray(value.progressionModifiers) || value.progressionModifiers.length > MAX_LIST_LENGTH) issues.push(`${path}.progressionModifiers:invalid`);
@@ -1331,6 +1332,14 @@
         issues.push(`${entryPath}.loadStepKg:invalid`);
       }
     }
+  }
+
+  // Plan 069 S4: Build slots whose "Suggest loads" switch is on but not yet
+  // confirmed by activation. Slot ids only; the draft keeps no other opt-in.
+  function validateSuggestLoadsPending(value, path, issues) {
+    if (!Array.isArray(value) || !value.length || value.length > MAX_CATALOG_SELECTIONS
+      || value.some((id) => typeof id !== "string" || !id || id.length > 256)
+      || new Set(value).size !== value.length) issues.push(`${path}:invalid`);
   }
 
   function answerFingerprint(answers) {
