@@ -63824,6 +63824,20 @@
           "text": "Chest"
         },
         {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
+        },
+        {
           "tag": "article",
           "role": "button",
           "name": "Pin-loaded machine overhead triceps extension",
@@ -64126,6 +64140,20 @@
         {
           "tag": "span",
           "text": "Lats"
+        },
+        {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Weighted chin-up"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
         },
         {
           "tag": "article",
@@ -65918,6 +65946,20 @@
           "text": "Peito"
         },
         {
+          "tag": "p",
+          "text": "Pode ser se você já faz com boa técnica."
+        },
+        {
+          "tag": "strong",
+          "text": "Supino reto com barra"
+        },
+        {
+          "tag": "button",
+          "text": "Sim, trocar",
+          "name": "Sim, trocar",
+          "type": "button"
+        },
+        {
           "tag": "article",
           "role": "button",
           "name": "Tríceps francês na máquina",
@@ -66220,6 +66262,20 @@
         {
           "tag": "span",
           "text": "Dorsais"
+        },
+        {
+          "tag": "p",
+          "text": "Pode ser se você já faz com boa técnica."
+        },
+        {
+          "tag": "strong",
+          "text": "Barra fixa supinada com carga"
+        },
+        {
+          "tag": "button",
+          "text": "Sim, trocar",
+          "name": "Sim, trocar",
+          "type": "button"
         },
         {
           "tag": "article",
@@ -81206,6 +81262,20 @@
           "text": "Chest"
         },
         {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
+        },
+        {
           "tag": "article",
           "role": "button",
           "name": "Pin-loaded machine overhead triceps extension",
@@ -81508,6 +81578,20 @@
         {
           "tag": "span",
           "text": "Lats"
+        },
+        {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Weighted chin-up"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
         },
         {
           "tag": "article",
@@ -83728,6 +83812,20 @@
           "text": "Peito"
         },
         {
+          "tag": "p",
+          "text": "Pode ser se você já faz com boa técnica."
+        },
+        {
+          "tag": "strong",
+          "text": "Supino reto com barra"
+        },
+        {
+          "tag": "button",
+          "text": "Sim, trocar",
+          "name": "Sim, trocar",
+          "type": "button"
+        },
+        {
           "tag": "article",
           "role": "button",
           "name": "Tríceps francês na máquina",
@@ -84030,6 +84128,20 @@
         {
           "tag": "span",
           "text": "Dorsais"
+        },
+        {
+          "tag": "p",
+          "text": "Pode ser se você já faz com boa técnica."
+        },
+        {
+          "tag": "strong",
+          "text": "Barra fixa supinada com carga"
+        },
+        {
+          "tag": "button",
+          "text": "Sim, trocar",
+          "name": "Sim, trocar",
+          "type": "button"
         },
         {
           "tag": "article",
@@ -84550,6 +84662,20 @@
           "text": "Peito"
         },
         {
+          "tag": "p",
+          "text": "Pode ser se você já faz com boa técnica."
+        },
+        {
+          "tag": "strong",
+          "text": "Supino reto com barra"
+        },
+        {
+          "tag": "button",
+          "text": "Sim, trocar",
+          "name": "Sim, trocar",
+          "type": "button"
+        },
+        {
           "tag": "article",
           "role": "button",
           "name": "Tríceps francês na máquina",
@@ -84852,6 +84978,20 @@
         {
           "tag": "span",
           "text": "Dorsais"
+        },
+        {
+          "tag": "p",
+          "text": "Pode ser se você já faz com boa técnica."
+        },
+        {
+          "tag": "strong",
+          "text": "Barra fixa supinada com carga"
+        },
+        {
+          "tag": "button",
+          "text": "Sim, trocar",
+          "name": "Sim, trocar",
+          "type": "button"
         },
         {
           "tag": "article",
@@ -85372,6 +85512,20 @@
           "text": "Chest"
         },
         {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
+        },
+        {
           "tag": "article",
           "role": "button",
           "name": "Pin-loaded machine overhead triceps extension",
@@ -85674,6 +85828,20 @@
         {
           "tag": "span",
           "text": "Lats"
+        },
+        {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Weighted chin-up"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
         },
         {
           "tag": "article",
@@ -86194,6 +86362,20 @@
           "text": "Chest"
         },
         {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
+        },
+        {
           "tag": "article",
           "role": "button",
           "name": "Pin-loaded machine overhead triceps extension",
@@ -86496,6 +86678,20 @@
         {
           "tag": "span",
           "text": "Lats"
+        },
+        {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Weighted chin-up"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
         },
         {
           "tag": "article",
@@ -87089,6 +87285,20 @@
           "text": "Chest"
         },
         {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
+        },
+        {
           "tag": "article",
           "role": "button",
           "name": "Pin-loaded machine overhead triceps extension",
@@ -87391,6 +87601,20 @@
         {
           "tag": "span",
           "text": "Lats"
+        },
+        {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Weighted chin-up"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
         },
         {
           "tag": "article",
@@ -91499,6 +91723,20 @@
           "text": "Chest"
         },
         {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
+        },
+        {
           "tag": "article",
           "role": "button",
           "name": "Cable straight bar overhead triceps extension",
@@ -91805,6 +92043,20 @@
         {
           "tag": "span",
           "text": "Lats"
+        },
+        {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Weighted chin-up"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
         },
         {
           "tag": "article",
@@ -92446,6 +92698,20 @@
           "text": "Chest"
         },
         {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
+        },
+        {
           "tag": "article",
           "role": "button",
           "name": "Cable straight bar overhead triceps extension",
@@ -92752,6 +93018,20 @@
         {
           "tag": "span",
           "text": "Lats"
+        },
+        {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Weighted chin-up"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
         },
         {
           "tag": "article",
@@ -93393,6 +93673,20 @@
           "text": "Peito"
         },
         {
+          "tag": "p",
+          "text": "Pode ser se você já faz com boa técnica."
+        },
+        {
+          "tag": "strong",
+          "text": "Supino reto com barra"
+        },
+        {
+          "tag": "button",
+          "text": "Sim, trocar",
+          "name": "Sim, trocar",
+          "type": "button"
+        },
+        {
           "tag": "article",
           "role": "button",
           "name": "Tríceps francês na polia com barra reta",
@@ -93699,6 +93993,20 @@
         {
           "tag": "span",
           "text": "Dorsais"
+        },
+        {
+          "tag": "p",
+          "text": "Pode ser se você já faz com boa técnica."
+        },
+        {
+          "tag": "strong",
+          "text": "Barra fixa supinada com carga"
+        },
+        {
+          "tag": "button",
+          "text": "Sim, trocar",
+          "name": "Sim, trocar",
+          "type": "button"
         },
         {
           "tag": "article",
@@ -109966,6 +110274,20 @@
           "text": "Chest"
         },
         {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
+        },
+        {
           "tag": "article",
           "role": "button",
           "name": "Pin-loaded machine overhead triceps extension",
@@ -110268,6 +110590,20 @@
         {
           "tag": "span",
           "text": "Lats"
+        },
+        {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Weighted chin-up"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
         },
         {
           "tag": "article",
@@ -111041,6 +111377,20 @@
           "text": "Chest"
         },
         {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
+        },
+        {
           "tag": "article",
           "role": "button",
           "name": "Pin-loaded machine overhead triceps extension",
@@ -111343,6 +111693,20 @@
         {
           "tag": "span",
           "text": "Lats"
+        },
+        {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Weighted chin-up"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
         },
         {
           "tag": "article",
@@ -112116,6 +112480,20 @@
           "text": "Peito"
         },
         {
+          "tag": "p",
+          "text": "Pode ser se você já faz com boa técnica."
+        },
+        {
+          "tag": "strong",
+          "text": "Supino reto com barra"
+        },
+        {
+          "tag": "button",
+          "text": "Sim, trocar",
+          "name": "Sim, trocar",
+          "type": "button"
+        },
+        {
           "tag": "article",
           "role": "button",
           "name": "Tríceps francês na máquina",
@@ -112418,6 +112796,20 @@
         {
           "tag": "span",
           "text": "Dorsais"
+        },
+        {
+          "tag": "p",
+          "text": "Pode ser se você já faz com boa técnica."
+        },
+        {
+          "tag": "strong",
+          "text": "Barra fixa supinada com carga"
+        },
+        {
+          "tag": "button",
+          "text": "Sim, trocar",
+          "name": "Sim, trocar",
+          "type": "button"
         },
         {
           "tag": "article",
@@ -120707,6 +121099,20 @@
           "text": "Lats"
         },
         {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Neutral grip weighted pull-up"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
+        },
+        {
           "tag": "article",
           "role": "button",
           "name": "Dumbbell fly",
@@ -121574,6 +121980,20 @@
         {
           "tag": "span",
           "text": "Lats"
+        },
+        {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Neutral grip weighted pull-up"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
         },
         {
           "tag": "article",
@@ -122445,6 +122865,20 @@
           "text": "Lats"
         },
         {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Neutral grip weighted pull-up"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
+        },
+        {
           "tag": "article",
           "role": "button",
           "name": "Dumbbell fly",
@@ -123312,6 +123746,20 @@
         {
           "tag": "span",
           "text": "Lats"
+        },
+        {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Neutral grip weighted pull-up"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
         },
         {
           "tag": "article",
@@ -124183,6 +124631,20 @@
           "text": "Lats"
         },
         {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Neutral grip weighted pull-up"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
+        },
+        {
           "tag": "article",
           "role": "button",
           "name": "Dumbbell fly",
@@ -125050,6 +125512,20 @@
         {
           "tag": "span",
           "text": "Dorsais"
+        },
+        {
+          "tag": "p",
+          "text": "Pode ser se você já faz com boa técnica."
+        },
+        {
+          "tag": "strong",
+          "text": "Barra fixa com carga pegada neutra"
+        },
+        {
+          "tag": "button",
+          "text": "Sim, trocar",
+          "name": "Sim, trocar",
+          "type": "button"
         },
         {
           "tag": "article",
@@ -125921,6 +126397,20 @@
           "text": "Lats"
         },
         {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Neutral grip weighted pull-up"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
+        },
+        {
           "tag": "article",
           "role": "button",
           "name": "Dumbbell fly",
@@ -126470,6 +126960,20 @@
           "text": "Chest"
         },
         {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
+        },
+        {
           "tag": "article",
           "role": "button",
           "name": "Pin-loaded machine overhead triceps extension",
@@ -126772,6 +127276,20 @@
         {
           "tag": "span",
           "text": "Lats"
+        },
+        {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Weighted chin-up"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
         },
         {
           "tag": "article",
@@ -127314,6 +127832,20 @@
           "text": "Chest"
         },
         {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
+        },
+        {
           "tag": "article",
           "role": "button",
           "name": "Pin-loaded machine overhead triceps extension",
@@ -127616,6 +128148,20 @@
         {
           "tag": "span",
           "text": "Lats"
+        },
+        {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Weighted chin-up"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
         },
         {
           "tag": "article",
@@ -128158,6 +128704,20 @@
           "text": "Peito"
         },
         {
+          "tag": "p",
+          "text": "Pode ser se você já faz com boa técnica."
+        },
+        {
+          "tag": "strong",
+          "text": "Supino reto com barra"
+        },
+        {
+          "tag": "button",
+          "text": "Sim, trocar",
+          "name": "Sim, trocar",
+          "type": "button"
+        },
+        {
           "tag": "article",
           "role": "button",
           "name": "Tríceps francês na máquina",
@@ -128460,6 +129020,20 @@
         {
           "tag": "span",
           "text": "Dorsais"
+        },
+        {
+          "tag": "p",
+          "text": "Pode ser se você já faz com boa técnica."
+        },
+        {
+          "tag": "strong",
+          "text": "Barra fixa supinada com carga"
+        },
+        {
+          "tag": "button",
+          "text": "Sim, trocar",
+          "name": "Sim, trocar",
+          "type": "button"
         },
         {
           "tag": "article",

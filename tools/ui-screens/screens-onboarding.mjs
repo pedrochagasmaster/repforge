@@ -112,9 +112,11 @@ async function routeWithFixedDraftId(page, draftId) {
 }
 
 async function recommendToReviewWithFixedDraftId(page, draftId, answers = {}) {
+  await installOfferVerificationObserver(page);
   await routeWithFixedDraftId(page, draftId);
   await answerRecommend(page, { skipBasics: true, ...answers });
   await page.waitForSelector("#entryReview [data-review-slot]", { timeout: 25000 });
+  await waitForOfferVerification(page);
 }
 
 /** B's Recommend screens, answered as a lifter would, stopping on `until`. */
@@ -122,6 +124,273 @@ async function recommendStep(page, until, answers = {}) {
   await route(page, "recommend");
   if (until === "intro") return;
   await answerRecommend(page, { skipBasics: true, days: 3, environment: "commercial_gym", ...answers, until });
+}
+
+function installOfferVerificationObserverInBrowser() {
+  if (window.__catalogEntryOfferObserver) return;
+  const digest = value => {
+    const text = JSON.stringify(value) ?? String(value);
+    let hash = 2166136261;
+    for (let index = 0; index < text.length; index++) {
+      hash ^= text.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0).toString(16).padStart(8, "0");
+  };
+  const observer = {
+    engines: 0,
+    jobs: [],
+    order: 0,
+    wrappedApis: new WeakMap(),
+    digest,
+    diagnostic() {
+      const current = window.__repforgeEntryState?.();
+      return {
+        context: {
+          locale: document.documentElement.lang,
+          theme: document.documentElement.dataset.theme || "light",
+          viewportWidth: window.innerWidth,
+        },
+        current: {
+          step: current?.step || null,
+          route: current?.route || null,
+          draftDigest: digest(current?.draftId || ""),
+          resultFingerprintDigest: current?.result?.fingerprint ? digest(current.result.fingerprint) : null,
+        },
+        engineCount: this.engines,
+        jobs: this.jobs.map(job => ({
+          engineId: job.engineId,
+          jobId: job.jobId,
+          foreground: job.foreground,
+          step: job.step,
+          draftDigest: job.draftDigest,
+          requestDigest: job.requestDigest,
+          confirmationCount: job.confirmationCount,
+          status: job.status,
+          outcome: job.outcome || null,
+          resultDigest: job.resultDigest || null,
+          mode: job.mode || null,
+          startedOrder: job.startedOrder,
+          settledOrder: job.settledOrder || null,
+        })),
+      };
+    },
+    snapshot() {
+      const current = window.__repforgeEntryState?.();
+      const draftDigest = digest(current?.draftId || "");
+      const primaryEngineId = this.jobs.reduce((first, job) => first === null ? job.engineId : Math.min(first, job.engineId), null);
+      const foregroundJobs = this.jobs.filter(job => job.engineId === primaryEngineId && job.draftDigest === draftDigest)
+        .sort((left, right) => left.startedOrder - right.startedOrder);
+      const baseline = foregroundJobs.at(-1) || null;
+      if (!baseline || current?.step !== "result" || current.route !== "recommend") {
+        return { ready: false, readiness: "waiting for the current foreground result", ...this.diagnostic() };
+      }
+      if (baseline.status === "pending") {
+        return { ready: false, readiness: "foreground result is still pending", ...this.diagnostic() };
+      }
+      if (baseline.status !== "settled" || baseline.result?.ok !== true) {
+        return { ready: false, readiness: "foreground result did not succeed", ...this.diagnostic() };
+      }
+      const candidates = Array.isArray(baseline.result.confirmationOffers) ? baseline.result.confirmationOffers : [];
+      const baseConfirmations = baseline.request?.movementConfirmations || {};
+      const used = new Set();
+      const verification = candidates.map(offer => {
+        const confirmations = { ...baseConfirmations, [offer.offeredExerciseId]: [...(offer.prerequisiteIds || [])] };
+        const requestDigest = digest({ request: { ...baseline.request, movementConfirmations: confirmations }, seed: baseline.seed });
+        const job = this.jobs.find(candidate => candidate.engineId !== primaryEngineId
+          && candidate.draftDigest === draftDigest && candidate.requestDigest === requestDigest
+          && candidate.startedOrder > baseline.startedOrder && !used.has(candidate.jobId));
+        if (job) used.add(job.jobId);
+        if (!job || job.status === "pending") return { ready: false, requestDigest, job: job || null };
+        const slot = job.result?.ok ? job.result.value?.days?.flatMap(day => day.slots || [])
+          .find(item => item.id === offer.slotId) : null;
+        return { ready: true, accepted: slot?.exerciseId === offer.offeredExerciseId, requestDigest, job };
+      });
+      const allSettled = verification.every(item => item.ready);
+      const rendered = [...document.querySelectorAll("#entryReview [data-review-confirm-offer]")]
+        .map(row => ({ slotId: row.dataset.reviewConfirmOffer, exerciseId: row.dataset.reviewOfferExerciseId }));
+      const visibleSlotIds = new Set([...document.querySelectorAll("#entryReview [data-review-slot]")]
+        .map(row => row.dataset.reviewSlot));
+      const reviewTabsMounted = !!document.querySelector("#entryReview .review__tabs");
+      const confirmedExerciseIds = new Set(Object.entries(current.answers?.movementConfirmations || {})
+        .filter(([, prerequisites]) => Array.isArray(prerequisites) && prerequisites.length > 0)
+        .map(([exerciseId]) => exerciseId));
+      const baselineSlots = baseline.result.value?.days?.flatMap(day => day.slots || []) || [];
+      const currentSlots = current.result?.preview?.programDefinition?.days?.flatMap(day => day.slots || []) || [];
+      const verifiedPairs = allSettled ? candidates.map((offer, index) => verification[index].accepted
+        ? { offer, slotId: offer.slotId, exerciseId: offer.offeredExerciseId } : null).filter(Boolean) : [];
+      const liveEligibility = verifiedPairs.map(({ offer, slotId, exerciseId }) => {
+        const source = baselineSlots.find(slot => slot.id === offer.slotId);
+        const live = currentSlots.find(slot => slot.id === offer.slotId);
+        const checks = {
+          sourceExists: !!source,
+          liveExists: !!live,
+          sameCurrentExercise: !!source && !!live && live.exerciseId === source.exerciseId,
+          declaredCurrentMatches: !offer.currentExerciseId || (!!source && offer.currentExerciseId === source.exerciseId),
+          offeredNotCurrent: !!live && live.exerciseId !== offer.offeredExerciseId,
+          offeredNotDuplicated: !currentSlots.some(slot => slot.id !== offer.slotId && slot.exerciseId === offer.offeredExerciseId),
+          slotVisibleInReview: visibleSlotIds.has(offer.slotId),
+          slotNotAlreadyConfirmed: !!live && !confirmedExerciseIds.has(live.exerciseId),
+        };
+        return { offer, slotId, exerciseId, checks,
+          eligible: Object.values(checks).every(Boolean) };
+      });
+      const eligiblePairs = liveEligibility.filter(item => item.eligible);
+      const sortedPairs = pairs => pairs.map(({ slotId, exerciseId }) => ({ slotId, exerciseId }))
+        .sort((left, right) => left.slotId.localeCompare(right.slotId) || left.exerciseId.localeCompare(right.exerciseId));
+      const verifiedBaselinePairs = sortedPairs(verifiedPairs);
+      const expectedPairs = sortedPairs(eligiblePairs);
+      rendered.sort((left, right) => left.slotId.localeCompare(right.slotId) || left.exerciseId.localeCompare(right.exerciseId));
+      const renderedDigest = digest(rendered);
+      const expectedDigest = digest(expectedPairs);
+      const reviewReady = reviewTabsMounted && visibleSlotIds.size > 0
+        && [...visibleSlotIds].every(slotId => currentSlots.some(slot => slot.id === slotId));
+      const matching = allSettled && reviewReady && renderedDigest === expectedDigest;
+      return {
+        ready: matching,
+        context: {
+          locale: document.documentElement.lang,
+          theme: document.documentElement.dataset.theme || "light",
+          viewportWidth: window.innerWidth,
+        },
+        draftDigest,
+        resultFingerprintDigest: current.result?.fingerprint ? digest(current.result.fingerprint) : null,
+        foreground: {
+          engineId: baseline.engineId,
+          jobId: baseline.jobId,
+          requestDigest: baseline.requestDigest,
+          resultDigest: baseline.resultDigest,
+          mode: baseline.mode,
+          startedOrder: baseline.startedOrder,
+          settledOrder: baseline.settledOrder,
+        },
+        candidateCount: candidates.length,
+        matchedVerifierCount: verification.filter(item => item.job).length,
+        settledVerifierCount: verification.filter(item => item.ready).length,
+        verifierJobs: verification.filter(item => item.job).map(item => ({
+          engineId: item.job.engineId,
+          jobId: item.job.jobId,
+          requestDigest: item.job.requestDigest,
+          resultDigest: item.job.resultDigest || null,
+          mode: item.job.mode || null,
+          outcome: item.job.outcome || null,
+          startedOrder: item.job.startedOrder,
+          settledOrder: item.job.settledOrder || null,
+        })),
+        verifiedBaselineCount: allSettled ? verifiedBaselinePairs.length : null,
+        eligibleCount: allSettled ? expectedPairs.length : null,
+        excludedAfterReviewEditCount: allSettled ? verifiedBaselinePairs.length - expectedPairs.length : null,
+        confirmedReviewRowCount: [...document.querySelectorAll("#entryReview [data-review-confirmed]")].length,
+        liveEligibility: liveEligibility.map(item => ({ ...item.checks, eligible: item.eligible })),
+        visibleCount: rendered.length,
+        renderedReviewSlotCount: visibleSlotIds.size,
+        reviewReady,
+        verifiedBaselineOffersDigest: allSettled ? digest(verifiedBaselinePairs) : null,
+        expectedOffersDigest: allSettled ? digest(expectedPairs) : null,
+        renderedOffersDigest: renderedDigest,
+        totalJobs: this.jobs.length,
+        readiness: matching ? "all candidate checks settled and rendered offers match"
+          : !allSettled ? "waiting for matching verifier replies"
+            : !reviewReady ? "Review has not mounted its current visible rows"
+              : "settled verifier output does not match rendered offers",
+      };
+    },
+  };
+  const wrapApi = api => {
+    if (!api || typeof api.create !== "function") return api;
+    const prior = observer.wrappedApis.get(api);
+    if (prior) return prior;
+    const wrapped = Object.create(api);
+    Object.defineProperty(wrapped, "create", {
+      configurable: false,
+      value(...args) {
+        const engine = api.create(...args);
+        const engineId = ++observer.engines;
+        const facade = Object.create(engine);
+        Object.defineProperty(facade, "generate", {
+          configurable: false,
+          value(request, seed, options) {
+            const state = window.__repforgeEntryState?.();
+            const job = {
+              engineId,
+              jobId: observer.jobs.filter(item => item.engineId === engineId).length + 1,
+              foreground: engineId === 1,
+              draftDigest: digest(seed || ""),
+              step: state?.step || null,
+              requestDigest: digest({ request, seed }),
+              confirmationCount: Object.keys(request?.movementConfirmations || {}).length,
+              request,
+              seed,
+              status: "pending",
+              startedOrder: ++observer.order,
+            };
+            observer.jobs.push(job);
+            let generated;
+            try {
+              generated = engine.generate(request, seed, options);
+            } catch (error) {
+              job.status = "rejected";
+              job.outcome = error?.name || "error";
+              job.resultDigest = digest({ name: error?.name || "Error", message: error?.message || "" });
+              job.mode = engine.stats?.().mode || "unknown";
+              job.settledOrder = ++observer.order;
+              return Promise.reject(error);
+            }
+            return generated.then(result => {
+              job.status = "settled";
+              job.outcome = result?.ok === true ? "success" : "failure";
+              job.resultDigest = digest(result);
+              job.result = result;
+              job.mode = engine.stats?.().mode || "unknown";
+              job.settledOrder = ++observer.order;
+              return result;
+            }, error => {
+              job.status = "rejected";
+              job.outcome = error?.name || "error";
+              job.resultDigest = digest({ name: error?.name || "Error", message: error?.message || "" });
+              job.mode = engine.stats?.().mode || "unknown";
+              job.settledOrder = ++observer.order;
+              throw error;
+            });
+          },
+        });
+        return facade;
+      },
+    });
+    observer.wrappedApis.set(api, wrapped);
+    return wrapped;
+  };
+  const descriptor = Object.getOwnPropertyDescriptor(window, "RepForgeProgramEngine");
+  if (descriptor && !descriptor.configurable) throw new Error("program-engine global cannot be observed");
+  let raw = descriptor && Object.hasOwn(descriptor, "value") ? descriptor.value : descriptor?.get?.();
+  let exposed = wrapApi(raw);
+  Object.defineProperty(window, "RepForgeProgramEngine", {
+    configurable: true,
+    enumerable: true,
+    get: () => exposed || raw,
+    set: value => { raw = value; exposed = wrapApi(value); },
+  });
+  window.__catalogEntryOfferObserver = observer;
+}
+
+async function installOfferVerificationObserver(page) {
+  await page.addInitScript(installOfferVerificationObserverInBrowser);
+  await page.evaluate(installOfferVerificationObserverInBrowser);
+}
+
+async function waitForOfferVerification(page) {
+  try {
+    await page.waitForFunction(() => window.__catalogEntryOfferObserver?.snapshot?.().ready === true, undefined, { timeout: 40000 });
+  } catch (error) {
+    const diagnostic = await page.evaluate(() => ({
+      snapshot: window.__catalogEntryOfferObserver?.snapshot?.() || null,
+      jobs: window.__catalogEntryOfferObserver?.diagnostic?.() || null,
+    }));
+    throw new Error(`offer verification did not settle: ${JSON.stringify(diagnostic)} (${error.message.split("\n")[0]})`);
+  }
+  const proof = await page.evaluate(() => window.__catalogEntryOfferObserver.snapshot());
+  console.log(`catalog offer settlement ${JSON.stringify(proof)}`);
+  return proof;
 }
 
 async function holdProgramWorker(page) {
@@ -182,9 +451,13 @@ async function equipmentConflict(page) {
 }
 
 async function recommendTo(page, { result = false, existing = false, desired = "muscle_growth" } = {}) {
+  if (result) await installOfferVerificationObserver(page);
   await route(page, "recommend", { existing });
   await answerRecommend(page, { skipBasics: true, days: 3, goal: desired, until: result ? null : "abilities" });
-  if (result) await page.waitForSelector("[data-entry-select-candidate], #entryActivate", { timeout: 25000 });
+  if (result) {
+    await page.waitForSelector("[data-entry-select-candidate], #entryActivate", { timeout: 25000 });
+    await waitForOfferVerification(page);
+  }
 }
 
 async function selectCandidate(page) {
@@ -252,6 +525,7 @@ async function reviewChanged(page) {
   await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 10000 });
   await reviewSettled(page);
   await page.waitForSelector(".review-toast", { state: "detached", timeout: 10000 });
+  await waitForOfferVerification(page);
 }
 
 /** A generated review with the answer chip for `chip` open on its editor. */
@@ -772,6 +1046,7 @@ export const ONBOARDING_SCENARIOS = {
     });
     await action.click();
     await page.waitForSelector(`#entryReview [data-review-confirmed="${target.exerciseId}"]`, { timeout: 30000 });
+    await waitForOfferVerification(page);
     const current = await page.evaluate((exerciseId) => ({
       confirmation: window.__repforgeEntryState()?.answers?.movementConfirmations?.[exerciseId] || null,
       offer: document.querySelector(`[data-review-confirm-offer][data-review-offer-exercise-id="${CSS.escape(exerciseId)}"]`) !== null,
@@ -804,6 +1079,7 @@ export const ONBOARDING_SCENARIOS = {
     await pick(page, "daysPerWeek", "4");
     await page.click("#entryChipApply");
     await page.waitForSelector("#entryChange", { timeout: 25000 });
+    await waitForOfferVerification(page);
   },
   "onboarding-recommend/result-avoided": async (page) => {
     await reviewWithEditor(page, "prio");
@@ -824,6 +1100,7 @@ export const ONBOARDING_SCENARIOS = {
     await page.click(`[data-entry-pick="avoidReason"][data-entry-val="${first}|dislike"]`);
     await page.click("#entryChipApply");
     await page.waitForSelector("#entryChange", { timeout: 25000 });
+    await waitForOfferVerification(page);
   },
   "onboarding-recommend/replacement-confirm": async (page) => {
     await recommendTo(page, { result: true, existing: true });
@@ -1012,4 +1289,20 @@ export async function focusOnboardingSubject(page, key) {
     await sleep(page, 400);
   }
   await sleep(page, 200);
+  if (key === "onboarding-recommend/result-block-sheet") {
+    await page.waitForFunction(() => {
+      const sheet = document.querySelector("#reviewSheet.is-open");
+      const body = document.querySelector("#reviewSheetBody");
+      return !!sheet && !!body && body.clientHeight > 0 && body.scrollHeight > 0;
+    }, undefined, { timeout: 10000 });
+    await page.evaluate(() => {
+      const body = document.querySelector("#reviewSheetBody");
+      body?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      if (body) body.scrollTop = 0;
+    });
+    await page.waitForFunction(() => {
+      const body = document.querySelector("#reviewSheetBody");
+      return !!body && body.scrollTop === 0;
+    }, undefined, { timeout: 10000 });
+  }
 }

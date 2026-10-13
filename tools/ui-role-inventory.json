@@ -6153,6 +6153,7 @@
         "onboarding-recommend/review-sheet-execution-mode",
         "onboarding-recommend/result-confirm-offer",
         "onboarding-recommend/result",
+        "onboarding-recommend/result-changed",
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/result-corrected",
         "onboarding-recommend/result-existing"
