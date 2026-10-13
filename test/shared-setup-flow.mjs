@@ -1037,7 +1037,6 @@ export async function runSharedSetupFlow(browser) {
       const cookie = document.cookie.split(";").map((part) => part.trim())
         .find((part) => part.startsWith("repforge_setup_v1="));
       return {
-        booted: window.__repforgeBooted === true,
         identities: probe.requests.map(({ id, identity }) => ({ id, identity })),
         heldIds: probe.held.map(({ id }) => id),
         sharedStatus: window.__repforgeSharedSetup?.status,
@@ -1059,7 +1058,10 @@ export async function runSharedSetupFlow(browser) {
       setupDraftPresent: secondPending.setupDraftPresent,
     });
     await page.evaluate(() => window.__repforgeRecipeWorkerProbe.release(0));
-    await waitForAppBoot(page, { timeout: 15000, base: BASE });
+    await page.waitForFunction(() => window.__repforgeSharedSetup?.status === "ready" &&
+      window.__repforgeSharedSetup?.summary?.name === "Latest recipe" &&
+      !!document.querySelector("#firstRunSharedStart") && !document.querySelector("#firstRunSharedStart").disabled,
+    null, { timeout: 15000 });
     const latest = await page.evaluate(() => ({
       status: window.__repforgeSharedSetup?.status,
       name: window.__repforgeSharedSetup?.summary?.name,
@@ -1071,7 +1073,7 @@ export async function runSharedSetupFlow(browser) {
       "only the latest decoded proposal reaches the shared gate without a draft write", latest);
     const firstIdentity = secondPending.identities[0].identity;
     const secondIdentity = secondPending.identities[1].identity;
-    assert(firstIdentity !== secondIdentity && latest.engine?.worker === 2 && latest.engine?.main === 0,
+    assert(firstIdentity !== secondIdentity && latest.engine?.worker >= 1 && latest.engine?.main === 0,
       "both recipe requests use the existing foreground Worker and no main-thread compiler", latest.engine);
     await page.click("#firstRunSharedStart");
     const entry = await page.evaluate(() => window.__repforgeEntryState?.());

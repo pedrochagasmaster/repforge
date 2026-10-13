@@ -12628,6 +12628,10 @@ function sharedSetupCodecOptions(){
   return{builtInIds:SHARED_BUILT_IN_IDS,catalogSnapshot:rawExerciseCatalog,
     validateProgramDefinition:ProgramCompiler?.validateProgramDefinition,
     generateProgram:ProgramCompiler?.generateProgram,generatorVersion:ProgramCompiler?.GENERATOR_VERSION}}
+function sharedSetupDecodeCodecOptions(signal){
+  return{...sharedSetupCodecOptions(),signal,generateProgramAsync:(request,catalogSnapshot,seed,options={})=>{
+    const engine=programEngine();
+    return engine?engine.generate(request,seed,{signal:options.signal}):ProgramCompiler?.generateProgram(request,catalogSnapshot,seed)}}}
 /* A setup link shares the active program's canonical definition, the custom
    movements it references, the eight allowlisted settings and the language. */
 function buildSharedSetupValidation(){
@@ -21249,8 +21253,19 @@ function captureSharedSetupSource({allowCookie=true}={}){
   catch{
     sharedSetupDraft={status:"invalid",source:null,encoded:null,payload:null,error:"invalid-schema",previousLang:null};
     return null}}
+let sharedSetupDecodeRequest=0,sharedSetupDecodeController=null;
+function cancelSharedSetupDecode(){
+  sharedSetupDecodeRequest++;
+  sharedSetupDecodeController?.abort();
+  sharedSetupDecodeController=null}
+function clearSharedSetupHandoffIfMatches(encoded){
+  try{if(SharedSetup.readHandoffCookie()===encoded)SharedSetup.clearHandoffCookie()}catch{}}
 async function prepareSharedSetup(candidate){
-  if(!candidate||!SharedSetup)return;
+  if(!candidate||!SharedSetup)return false;
+  sharedSetupDecodeController?.abort();
+  const request=++sharedSetupDecodeRequest,controller=new AbortController();
+  sharedSetupDecodeController=controller;
+  const isCurrent=()=>request===sharedSetupDecodeRequest&&!controller.signal.aborted;
   const {source,encoded}=candidate;
   let staged=false,matchingCookie=false;
   try{matchingCookie=SharedSetup.readHandoffCookie()===encoded}catch{}
@@ -21262,32 +21277,39 @@ async function prepareSharedSetup(candidate){
         staged=SharedSetup.readHandoffCookie()===encoded}
     catch{staged=false}}
   let decoded;
-  try{decoded=await SharedSetup.decode(encoded,sharedSetupCodecOptions())}
-  catch{decoded={ok:false,code:"invalid-schema"}}
+  try{decoded=await SharedSetup.decode(encoded,sharedSetupDecodeCodecOptions(controller.signal))}
+  catch(error){
+    if(error?.name==="AbortError"||!isCurrent())return false;
+    decoded={ok:false,code:"invalid-schema"}}
+  if(!isCurrent())return false;
   if(!decoded.ok){
-    if(source==="cookie"||staged||matchingCookie)SharedSetup.clearHandoffCookie();
+    if(source==="cookie"||staged||matchingCookie)clearSharedSetupHandoffIfMatches(encoded);
     const unsupported=decoded.code==="unsupported-version"||decoded.code==="decompression-unavailable";
     sharedSetupDraft={status:unsupported?"unsupported":"invalid",source,encoded:null,payload:null,
       error:decoded.code,errorVersion:decoded.version??null,previousLang:null};
-    return}
+    return true}
   if(source==="fragment"&&staged){
+    if(SharedSetup.readSetupFragment()!==encoded)return false;
     const next=SharedSetup.removeSetupFragment();
     history.replaceState({},"",next)}
   if(!sharedSetupEligible()){
     // The handoff cookie only exists to carry a link into first run. A device
     // that cannot accept it must not keep it waiting for a later data wipe.
-    if(source==="cookie"||staged||matchingCookie)SharedSetup.clearHandoffCookie();
+    if(source==="cookie"||staged||matchingCookie)clearSharedSetupHandoffIfMatches(encoded);
     sharedSetupDraft={status:source==="fragment"?"existing":"none",source,encoded:null,payload:null,
       error:source==="fragment"?"existing":null,previousLang:null};
-    return}
+    return true}
   const previousLang=I18N?.getLang?.()||state.settings.lang||I18N?.detectLang?.()||"en";
   sharedSetupDraft={status:"ready",source,encoded,payload:decoded.value,error:null,previousLang};
-  I18N?.setLang(decoded.value.settings.lang)}
+  I18N?.setLang(decoded.value.settings.lang);
+  return true}
 async function handleSharedSetupHash(){
   const candidate=captureSharedSetupSource({allowCookie:false});
-  if(!candidate||candidate.source!=="fragment")return;
+  if(!candidate||candidate.source!=="fragment"){
+    cancelSharedSetupDecode();
+    return}
   if(firstRunOpen())suspendFirstRun();
-  await prepareSharedSetup(candidate);
+  if(!await prepareSharedSetup(candidate))return;
   if(sharedSetupDraft.status==="existing"){
     closeFirstRun();toast(t("setup.shared.existing"),{assertive:true});return}
   applyI18n();
