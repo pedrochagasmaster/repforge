@@ -15198,14 +15198,24 @@ function parseFreeformProgramReply(text){
   const directGap=readFreeformGapEnvelope(raw);
   if(directGap)return directGap;
 
-  // Which failure it was decides which repair prompt the lifter can send back.
-  return{status:"unreadable",reason:candidates.length?"invalid_rows":"no_json"};}
+  // A syntax error is not an invalid exercise. Keep them separate so a pasted
+  // Markdown-escaped bracket (e.g. \\[) asks for a clean copy, not invented sets.
+  // Do not repair punctuation silently; only parseProgramSource can accept rows.
+  const trimmed=raw.trim();
+  const fenced=trimmed.match(/```(?:json)?\s*([\s\S]*?)(?:```|$)/i)?.[1]?.trim();
+  const candidate=/^[\[{]/.test(trimmed)?trimmed:
+    fenced&&/^[\[{]/.test(fenced)?fenced:
+    candidates.find(value=>/^\s*[\[{]/.test(value));
+  const looksLikeJson=/^[\[{]/.test(trimmed)||/^```(?:json)?/i.test(trimmed);
+  const invalidJson=candidate?boundedImportJson(candidate)===null:looksLikeJson;
+  return{status:"unreadable",reason:invalidJson?"invalid_json":candidates.length?"invalid_rows":"no_json"};}
 
 /* A repair prompt that names what actually broke. Missing numbers are no longer
    a failure — they go to the gap step — so what is left is structural, and the
    lifter should be able to paste back something more useful than "try again". */
 const FREEFORM_REPAIR_KEYS={
   no_json:"entry.freeform.repair_no_json",
+  invalid_json:"entry.freeform.repair_invalid_json",
   invalid_rows:"entry.freeform.repair_invalid_rows",
   assemble_failed:"entry.freeform.repair_assemble_failed",
 };
@@ -18045,7 +18055,8 @@ function renderFreeformSourceStep(){
     if(entryFreeformStatus==="unreadable"){
       unreadableNotice=
         `<div class="entry__notice entry__notice--warn" role="alert"><strong>${esc(t("entry.freeform.unreadable_title"))}</strong>`+
-        `<p>${esc(t("entry.freeform.unreadable_body"))}</p>`+
+        `<p>${esc(t(entryFreeformFailReason==="invalid_json"
+          ?"entry.freeform.unreadable_invalid_json_body":"entry.freeform.unreadable_body"))}</p>`+
         `<div class="btnrow"><button type="button" class="btn btn--steel" id="entryFreeformCopyRepair">${esc(t("entry.freeform.copy_repair_prompt"))}</button>`+
         `<button type="button" class="btn btn--ghost" id="entryFreeformTryAnother">${esc(t("entry.freeform.try_another"))}</button></div></div>`;
     }

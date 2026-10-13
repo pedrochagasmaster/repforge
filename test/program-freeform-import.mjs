@@ -552,6 +552,8 @@ async function main() {
       "prompt requires strict preservation of exercise names, order and days");
     assert(/missing/i.test(enPrompt) && /notImported/i.test(enPrompt),
       "prompt specifies missing and notImported sidecars");
+    assert(enPrompt.includes("```json") && !/no code fences/i.test(enPrompt),
+      "the assistant prompt requests a copyable JSON code block");
 
     console.log("\nThe reply envelope and gap reader (Pass 1 fast path and Pass 2 gap reader)");
     const step3Results = await page.evaluate(() => {
@@ -625,6 +627,9 @@ async function main() {
         ]
       });
       const parsedInvalid = freeform.parseReply(invalidEnvelope);
+      const malformedBracket = completeEnvelope.replace('"exercises":[', '"exercises": ' + String.fromCharCode(92) + '[');
+      const parsedMalformedBracket = freeform.parseReply(malformedBracket);
+      const parsedTruncated = freeform.parseReply(completeEnvelope.slice(0, -9));
 
       // 5. Mixed explicit/omitted order where the numbered row is itself a gap.
       const collisionEnvelope = JSON.stringify({
@@ -675,6 +680,15 @@ async function main() {
         },
         parsedInvalid: {
           status: parsedInvalid?.status,
+          reason: parsedInvalid?.reason,
+        },
+        parsedMalformedBracket: {
+          status: parsedMalformedBracket?.status,
+          reason: parsedMalformedBracket?.reason,
+        },
+        parsedTruncated: {
+          status: parsedTruncated?.status,
+          reason: parsedTruncated?.reason,
         }
       };
     });
@@ -721,8 +735,13 @@ async function main() {
     assert(step3Results.collision.sets[0] === 5 && step3Results.collision.sets[1] === 2,
       "each gap answer lands on its own exercise", JSON.stringify(step3Results.collision.sets));
 
-    assert(step3Results.parsedInvalid.status === "unreadable",
-      "invalid non-numeric envelope yields unreadable status rather than gap result");
+    assert(step3Results.parsedInvalid.status === "unreadable" &&
+           step3Results.parsedInvalid.reason === "invalid_rows",
+      "valid JSON with invalid rows reports a row validation failure, not syntax");
+    assert(step3Results.parsedMalformedBracket.status === "unreadable" &&
+           step3Results.parsedMalformedBracket.reason === "invalid_json" &&
+           step3Results.parsedTruncated.reason === "invalid_json",
+      "escaped bracket and truncated clipboard JSON are syntax errors, never missing exercises");
 
     console.log("\nGap resolution UI in the paste door");
     await reset(page);
@@ -804,6 +823,8 @@ async function main() {
       "the screen is translated rather than rendering raw keys");
     assert(/JSON/.test(portuguese.prompt) && /treino/i.test(portuguese.prompt),
       "the prompt is written in the reader's language", portuguese.prompt.slice(0, 90));
+    assert(portuguese.prompt.includes("```json"),
+      "Portuguese also requests a copyable JSON code block");
 
     /* ---------- Import from clipboard ----------
        Clipboard is transport only: it fills the same reply the textarea fills
@@ -918,6 +939,23 @@ async function main() {
     assert(stagedSource === "freeform",
       "the staged import source the stacked PR reads stays freeform", String(stagedSource));
 
+    // Long fenced replies use the same clipboard route as short replies.
+    await toStage3(page);
+    const seventeenRows = JSON.stringify({
+      version: 3, meta: { name: "Three-day clipboard program" },
+      exercises: Array.from({ length: 17 }, (_, i) => ({
+        day: i < 5 ? "Upper" : i < 10 ? "Lower" : "Full",
+        order: i < 5 ? i + 1 : i < 10 ? i - 4 : i - 9,
+        name: `Exercise ${i + 1}`, sets: 3, min: 6, max: 10,
+      })),
+      missing: [], notImported: [],
+    });
+    await setClip(page, "text", "```json\n" + seventeenRows + "\n```");
+    await page.click("#entryFreeformClipboard");
+    await page.waitForSelector("#importReview.active", { timeout: 20000 });
+    assert(await page.locator("[data-imp-row]").count() === 17,
+      "a full 17-exercise fenced reply reaches review without truncation");
+
     // A gapped reply reaches the existing gap step, disclosure and all.
     await toStage3(page);
     await page.evaluate(() => {
@@ -954,6 +992,24 @@ async function main() {
     }));
     assert(unreadable.recovery && unreadable.stillStage3,
       "unreadable clipboard text lands in the existing repair state");
+
+    // Reproduce the Android ChatGPT copy failure: an escaped opening bracket
+    // outside a JSON string. The UI must name syntax, not missing rep counts.
+    await toStage3(page);
+    const escapedBracket = COMPLETE.replace('"exercises":[', '"exercises": ' + String.fromCharCode(92) + '[');
+    await setClip(page, "text", escapedBracket);
+    await page.click("#entryFreeformClipboard");
+    await settle(page, 300);
+    const syntaxFailure = await page.evaluate(() => ({
+      notice: document.querySelector(".entry__notice--warn")?.innerText || "",
+      hasRepair: !!document.querySelector("#entryFreeformCopyRepair"),
+      stillStage3: !!document.querySelector("#entryFreeformOut"),
+      reviewing: !!document.querySelector("#importReview.active"),
+    }));
+    assert(syntaxFailure.hasRepair && syntaxFailure.stillStage3 && !syntaxFailure.reviewing &&
+           /JSON/i.test(syntaxFailure.notice) && !/séries de 1 a 100/i.test(syntaxFailure.notice),
+      "malformed clipboard JSON gets an actionable syntax-specific warning, without partial import",
+      JSON.stringify(syntaxFailure));
 
     // Empty clipboard must not submit and must not erase a typed reply.
     await toStage3(page);
