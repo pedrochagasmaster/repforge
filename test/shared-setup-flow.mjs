@@ -257,6 +257,9 @@ export async function openAppPage(browser, {
   noCompression = false,
   webShare = false,
   clipboard = false,
+  waitForBoot = true,
+  recipeWorkerProbe = false,
+  disableWorker = false,
 } = {}) {
   const context = await browser.newContext({
     viewport: { width, height },
@@ -269,6 +272,8 @@ export async function openAppPage(browser, {
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e.message)));
+  if (recipeWorkerProbe) await page.addInitScript(installRecipeWorkerProbe, { holdReplies: true });
+  if (disableWorker) await page.addInitScript(() => { delete window.Worker; });
   if (standalone) await page.addInitScript(standaloneInit());
   if (noCompression) {
     await page.addInitScript(() => {
@@ -292,10 +297,77 @@ export async function openAppPage(browser, {
   await page.addInitScript(INSTALL_EVENT);
   const url = `${APP_INDEX}${search}${hash}`;
   await page.goto(url, { waitUntil: "domcontentloaded" });
-  await waitForAppBoot(page, { timeout: 15000, base: BASE });
-  const booted = await page.evaluate(() => window.__repforgeBooted === true);
-  if (!booted) throw new Error("openAppPage returned before the app boot contract was satisfied");
+  if (waitForBoot) {
+    await waitForAppBoot(page, { timeout: 15000, base: BASE });
+    const booted = await page.evaluate(() => window.__repforgeBooted === true);
+    if (!booted) throw new Error("openAppPage returned before the app boot contract was satisfied");
+  }
   return { context, page, errors };
+}
+
+function installRecipeWorkerProbe({ holdReplies = true } = {}) {
+  const NativeWorker = window.Worker;
+  const probe = { requests: [], held: [], workers: [], holdReplies };
+  const canonical = (value) => {
+    if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+    if (value && typeof value === "object") {
+      return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`;
+    }
+    return JSON.stringify(value);
+  };
+  const digest = (value) => crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical(value)))
+    .then((bytes) => [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, "0")).join(""));
+  probe.release = (index) => {
+    const held = probe.held.splice(index, 1)[0];
+    if (!held) return false;
+    held.worker.onmessage?.call(held.worker, { data: held.data, target: held.worker });
+    return true;
+  };
+  window.__repforgeRecipeWorkerProbe = probe;
+  if (typeof NativeWorker !== "function") return;
+  window.Worker = class RecipeProbeWorker extends NativeWorker {
+    constructor(url, options) {
+      super(url, options);
+      const worker = this;
+      const record = { terminations: 0, handler: null };
+      probe.workers.push(record);
+      worker.__recipeWorkerRecord = record;
+      Object.defineProperty(this, "onmessage", {
+        configurable: true,
+        get() { return record.handler; },
+        set(handler) { record.handler = handler; },
+      });
+      Object.defineProperty(this, "onerror", {
+        configurable: true,
+        get() { return record.errorHandler; },
+        set(handler) { record.errorHandler = handler; },
+      });
+      this.addEventListener("message", (event) => {
+        const message = event.data || {};
+        if (message.id !== undefined) {
+          if (probe.holdReplies) {
+            probe.held.push({ id: message.id, worker, data: message });
+            return;
+          }
+        }
+        record.handler?.call(worker, event);
+      });
+      this.addEventListener("error", (event) => record.errorHandler?.call(worker, event));
+    }
+    postMessage(message, ...rest) {
+      if (message?.type === "generate") {
+        const item = { id: message.id, identity: null };
+        item.identityReady = digest({ request: message.request, seed: message.seed })
+          .then((value) => { item.identity = value; });
+        probe.requests.push(item);
+      }
+      return super.postMessage(message, ...rest);
+    }
+    terminate() {
+      this.__recipeWorkerRecord.terminations++;
+      return super.terminate();
+    }
+  };
 }
 
 /**
@@ -916,6 +988,100 @@ export async function runSharedSetupFlow(browser) {
     assert(!gate.install && !gate.continueShown && gate.lede === SHARED_COPY.en.ledeInstalled, "the installed gate has no install section", gate);
     assert(hook.source === "cookie" && hook.status === "ready", "the proposal came from the handoff cookie", hook);
     await context.close();
+  });
+
+  await runCase("Recipe link decoding waits for the foreground engine and keeps only the latest open", async () => {
+    const sender = await openAppPage(browser);
+    await freshDevice(sender.page);
+    const firstDocument = await buildSetupDocument(sender.page, { name: "First recipe", trainingDays: 4, seed: "s5-recipe-first" });
+    const firstEncoded = await encodeSetupDocument(sender.page, firstDocument);
+    const secondDocument = await buildSetupDocument(sender.page, { name: "Latest recipe", trainingDays: 5, seed: "s5-recipe-latest" });
+    const secondEncoded = await encodeSetupDocument(sender.page, secondDocument);
+    assert(firstEncoded.ok && firstEncoded.form === "recipe" && secondEncoded.ok && secondEncoded.form === "recipe",
+      "both links use the compact recipe form", { firstForm: firstEncoded.form, secondForm: secondEncoded.form });
+    await sender.context.close();
+    if (!firstEncoded.ok || firstEncoded.form !== "recipe" || !secondEncoded.ok || secondEncoded.form !== "recipe") return;
+
+    const recipient = await openAppPage(browser, { recipeWorkerProbe: true });
+    const { context, page } = recipient;
+    await freshDevice(page);
+    await page.evaluate((encoded) => { location.hash = `setup=${encoded}`; }, firstEncoded.value);
+    await page.waitForFunction(() => window.__repforgeRecipeWorkerProbe?.requests.length > 0, null, { timeout: 10000 });
+    await page.waitForFunction(() => window.__repforgeRecipeWorkerProbe?.held.length > 0, null, { timeout: 10000 });
+    const firstPending = await page.evaluate(() => ({
+      booted: window.__repforgeBooted === true,
+      workerRequests: window.__repforgeRecipeWorkerProbe.requests.map(({ id, identity }) => ({ id, identity })),
+      heldIds: window.__repforgeRecipeWorkerProbe.held.map(({ id }) => id),
+      sharedStatus: window.__repforgeSharedSetup?.status,
+      engine: window.__repforgeProgramEngine?.stats?.(),
+    }));
+    assert(!firstPending.booted && firstPending.workerRequests.length === 1 && firstPending.heldIds.length === 1,
+      "recipe decode remains pending on the actual foreground Worker reply", firstPending);
+
+    await page.evaluate((encoded) => { location.hash = `setup=${encoded}`; }, secondEncoded.value);
+    await page.waitForFunction(() => window.__repforgeSharedSetup?.status === "loading", null, { timeout: 5000 });
+    await page.evaluate(() => window.__repforgeRecipeWorkerProbe.release(0));
+    await page.waitForFunction(() => window.__repforgeRecipeWorkerProbe?.requests.length === 2, null, { timeout: 10000 });
+    await page.waitForFunction(() => window.__repforgeRecipeWorkerProbe?.held.length === 1, null, { timeout: 10000 });
+    const secondPending = await page.evaluate(async () => {
+      const probe = window.__repforgeRecipeWorkerProbe;
+      await Promise.all(probe.requests.map((request) => request.identityReady));
+      const state = window.__repforgeEntryState?.();
+      const cookie = document.cookie.split(";").map((part) => part.trim())
+        .find((part) => part.startsWith("repforge_setup_v1="));
+      return {
+        booted: window.__repforgeBooted === true,
+        identities: probe.requests.map(({ id, identity }) => ({ id, identity })),
+        heldIds: probe.held.map(({ id }) => id),
+        sharedStatus: window.__repforgeSharedSetup?.status,
+        sharedName: window.__repforgeSharedSetup?.summary?.name || null,
+        cookieMatchesCurrentFragment: !!cookie && decodeURIComponent(cookie.slice("repforge_setup_v1=".length)) ===
+          window.RepForgeSharedSetup.readSetupFragment(location.href),
+        inMemoryName: state?.result?.name || null,
+        setupDraftPresent: localStorage.getItem("repforge_program_setup_draft_v1") !== null,
+      };
+    });
+    assert(secondPending.identities.length === 2 && secondPending.identities[0].identity !== secondPending.identities[1].identity,
+      "the two held jobs retain distinct sanitized request identities", secondPending.identities);
+    assert(!secondPending.booted && secondPending.sharedStatus === "loading" && !secondPending.inMemoryName &&
+      secondPending.cookieMatchesCurrentFragment && !secondPending.setupDraftPresent,
+    "the stale first response cannot reach the gate or persist while the latest result is pending", {
+      booted: secondPending.booted, sharedStatus: secondPending.sharedStatus,
+      inMemoryName: secondPending.inMemoryName, cookieMatchesCurrentFragment: secondPending.cookieMatchesCurrentFragment,
+      setupDraftPresent: secondPending.setupDraftPresent,
+    });
+    await page.evaluate(() => window.__repforgeRecipeWorkerProbe.release(0));
+    await waitForAppBoot(page, { timeout: 15000, base: BASE });
+    const latest = await page.evaluate(() => ({
+      status: window.__repforgeSharedSetup?.status,
+      name: window.__repforgeSharedSetup?.summary?.name,
+      gate: !!document.querySelector("#firstRunSharedStart") && !document.querySelector("#firstRunSharedStart").disabled,
+      setupDraftPresent: localStorage.getItem("repforge_program_setup_draft_v1") !== null,
+      engine: window.__repforgeProgramEngine?.stats?.(),
+    }));
+    assert(latest.status === "ready" && latest.name === "Latest recipe" && latest.gate && !latest.setupDraftPresent,
+      "only the latest decoded proposal reaches the shared gate without a draft write", latest);
+    const firstIdentity = secondPending.identities[0].identity;
+    const secondIdentity = secondPending.identities[1].identity;
+    assert(firstIdentity !== secondIdentity && latest.engine?.worker === 2 && latest.engine?.main === 0,
+      "both recipe requests use the existing foreground Worker and no main-thread compiler", latest.engine);
+    await page.click("#firstRunSharedStart");
+    const entry = await page.evaluate(() => window.__repforgeEntryState?.());
+    assert(canonicalJson(entry?.result?.preview?.programDefinition) === canonicalJson(secondDocument.program.definition),
+      "the decoded latest recipe matches its sent ProgramDefinition byte for byte");
+    await context.close();
+
+    const fallback = await openAppPage(browser, { disableWorker: true, hash: `#setup=${firstEncoded.value}` });
+    const fallbackState = await fallback.page.evaluate(() => ({
+      status: window.__repforgeSharedSetup?.status,
+      name: window.__repforgeSharedSetup?.summary?.name,
+      gate: !!document.querySelector("#firstRunSharedStart") && !document.querySelector("#firstRunSharedStart").disabled,
+      engine: window.__repforgeProgramEngine?.stats?.(),
+    }));
+    assert(fallbackState.gate && fallbackState.status === "ready" && fallbackState.name === "First recipe" &&
+      fallbackState.engine?.mode === "main" && fallbackState.engine?.main === 1 && fallbackState.engine?.worker === 0,
+    "recipe decode uses the existing engine's honest main-thread fallback", fallbackState);
+    await fallback.context.close();
   });
 
   // #340 (Plan 072 OD-11): the plain GENERATOR_VERSION bump retires recipe
