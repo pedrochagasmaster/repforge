@@ -3667,8 +3667,9 @@ function isProgramDeloadWeek(mc=mesocycleWeek()){
   return Number.isInteger(mc.current)&&Array.isArray(deloadCycles)&&deloadCycles.includes(mc.current)}
 function renderFocusDeloadLine(el=$("#woDaySub")){
   if(!el)return;
-  const show=isProgramDeloadWeek();
-  el.textContent=show?t("today.deload_week"):"";
+  const mc=mesocycleWeek(),show=isProgramDeloadWeek(mc);
+  el.textContent=show?t("today.deload_week"):
+    mc.isComplete?t("meso.complete"):mc.current!=null?t("today.week_short",{n:mc.current}):"";
   el.classList.toggle("is-deload",show)}
 function mesocycleWeekCopy(mc,ofKey="today.week_of"){
   if(mc.isComplete)return t("meso.complete");
