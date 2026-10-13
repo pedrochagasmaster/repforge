@@ -899,6 +899,12 @@ export async function runSharedSetupFlow(browser) {
       !durableDraftFacts.carriesSharedMetadata && !durableDraftFacts.carriesReviewLog,
     "no received definition or settings are durable before final activation", durableDraftFacts);
     assert(staged.source === "Treino compartilhado", "the Review source uses the approved shared-program label", staged.source);
+    const blockRow = await page.evaluate(() => ({
+      row: !!document.querySelector("#entryReview .review__block"),
+      change: document.querySelectorAll("#entryReview [data-review-block-edit]").length,
+    }));
+    assert(blockRow.row && blockRow.change === 0,
+      "the received block row shows length, pattern and deload without a Change action", blockRow);
     assert(!!stagedDurable.cookie, "the handoff cookie survives until activation", { present: !!stagedDurable.cookie });
     if (!staged.review) {
       await context.close();
@@ -1036,6 +1042,47 @@ export async function runSharedSetupFlow(browser) {
       definitionMatches: canonicalJson(reopened.definition) === canonicalJson(document.program.definition),
       draftPresent: reopened.draft !== null,
     });
+    await context.close();
+  });
+
+  await runCase("Create a program from scratch discards the received proposal and its cookie", async () => {
+    const { context, page } = await openAppPage(browser, { ua: IOS_UA, locale: "en-US" });
+    await freshDevice(page);
+    await waitForFirstRun(page);
+    const before = await page.evaluate(readDurableState);
+    const document = await buildSetupDocument(page, { name: "Discarded program", settings: PT_SHARED_SETTINGS, trainingDays: 1 });
+    const encoded = await encodeSetupDocument(page, document);
+    await page.goto(setupUrl(encoded.value, "scratch"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    const staged = await handoffCookie(context);
+    assert(staged?.value === encoded.value, "the gate stages the proposal before the lifter decides", { present: !!staged });
+    await page.click("#firstRunSharedCreate");
+    await page.waitForSelector('[data-entry-hub="build"]', { state: "visible", timeout: 10000 });
+    const hub = await page.evaluate(() => ({
+      gate: !document.querySelector("#firstRun")?.classList.contains("hidden"),
+      onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
+      route: window.__repforgeEntryState?.()?.route ?? null,
+      i18n: window.RepForgeI18n?.getLang?.() || null,
+    }));
+    const hook = await page.evaluate(readSharedHook);
+    assert(!hub.gate && hub.onboarding && hub.route === null,
+      "Create a program from scratch opens the ordinary hub with no route chosen", hub);
+    assert(hook.status === "none" && hook.summary === null, "the received proposal is discarded from memory", hook);
+    assert(hub.i18n === "en", "the received link's language is not kept after the discard", hub.i18n);
+    assert(!(await handoffCookie(context)), "the setup cookie is cleared by the discard");
+    await page.evaluate(() => window.__repforgeStorage?.flush?.());
+    const after = await page.evaluate(readDurableState);
+    const hits = noSharedWrite(before, after, "Discarded program");
+    assert(hits.length === 0 && !/setup=/.test(after.hash), "nothing from the received proposal was written", { hits, hash: after.hash });
+    await page.goto(APP_INDEX, { waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { timeout: 15000, base: BASE });
+    const reloaded = await page.evaluate(sharedGateSnapshot);
+    const reloadedHook = await page.evaluate(readSharedHook);
+    const reloadedDurable = await page.evaluate(readDurableState);
+    assert(!reloaded.startVisible && !reloaded.sharedCardVisible && reloadedHook.status === "none",
+      "after an /index.html reload no shared gate appears", { gate: reloaded.gate, start: reloaded.startVisible, hook: reloadedHook });
+    assert(noSharedWrite(before, reloadedDurable, "Discarded program").length === 0 && !reloadedDurable.cookie,
+      "after the reload nothing from the proposal persisted", noSharedWrite(before, reloadedDurable, "Discarded program"));
     await context.close();
   });
 
