@@ -5938,12 +5938,16 @@ function recommendation(ex){
       rir:prescription.rir,status:result?.status||"manual"}});
   const firstActual=targetSets.find(item=>item.prescription.setIndex===1)||targetSets[0];
   const result=firstActual?.result,definitions=matched.slot.metricDefinitions||[];
+  const executionModeRequired=matched.slot.metricOrigin==="source_catalog"&&
+    definitions.some(metric=>metric.semantic==="repsPerSide")&&
+    !["bilateral","unilateral"].includes(matched.slot.executionMode);
+  const reasonCodes=executionModeRequired?["execution_context_required"]:result?.reasonCodes||[];
   const repMetric=definitions.find(metric=>metric.semantic==="reps"||metric.semantic==="repsPerSide");
   const loadMetric=definitions.find(metric=>["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic));
   const authored=firstActual?.prescription.targets||{};
   const repTarget=repMetric?authored[repMetric.semantic]:null,repValue=firstActual?.targets?.[repMetric?.semantic];
   const manual=result?.status!=="recommended";
-  const newLift=result?.reasonCodes?.includes("no_comparable_history")&&!result?.reasonCodes?.includes("configuration_required");
+  const newLift=reasonCodes.includes("no_comparable_history")&&!reasonCodes.includes("configuration_required");
   const load=!manual&&loadMetric?firstActual.targets?.[loadMetric.semantic]??null:null;
   // The verdict is the engine's own move: the first set's load against the load
   // of the set it is anchored on. Every surface (cue, Why, Today, attention)
@@ -5953,7 +5957,7 @@ function recommendation(ex){
     :load>anchorLoad+1e-9?"add":load<anchorLoad-1e-9?"reduce":"hold";
   const status=manual?(result?.status==="configuration_required"?"configuration_required":newLift?"new":"manual"):direction;
   return{status,engineStatus:result?.status||"manual",
-    reason:result?.reasonCodes?.[0]||"manual_prescription",reasonCodes:result?.reasonCodes||[],
+    reason:reasonCodes[0]||"manual_prescription",reasonCodes,
     label:manual?"":t(status==="add"?"rec.add.label":status==="reduce"?"rec.reduce.label":"rec.hold.label"),text:"",load,
     lastLoad:Number.isFinite(anchorLoad)?anchorLoad:null,
     reps:typeof repValue==="number"?repValue:repValue?.min??(typeof repTarget==="number"?repTarget:repTarget?.min??null),
