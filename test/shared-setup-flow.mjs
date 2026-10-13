@@ -758,10 +758,12 @@ export async function runSharedSetupFlow(browser) {
     await context.close();
   });
 
-  await runCase("Start stages an editable preview; activation commits the shared program and clears the cookie", async () => {
+  await runCase("Shared link opens B review; Restore returns to the received definition before activation", async () => {
     const { context, page } = await openAppPage(browser, { ua: ANDROID_UA, standalone: true });
     await freshDevice(page);
-    const document = await buildSetupDocument(page, { name: "Força compartilhada", settings: PT_SHARED_SETTINGS, trainingDays: 4 });
+    // The seed fixture is an explicitly manual definition, so this proves the
+    // received-definition path rather than the recipe compiler path.
+    const document = await buildSetupDocument(page, { name: "Força compartilhada", settings: PT_SHARED_SETTINGS, trainingDays: 1 });
     const encoded = await encodeSetupDocument(page, document);
     await page.goto(setupUrl(encoded.value, "accept"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
@@ -771,14 +773,67 @@ export async function runSharedSetupFlow(browser) {
       onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
       firstRun: !document.querySelector("#firstRun")?.classList.contains("hidden"),
       activate: !!document.querySelector("#entryActivate") && !document.querySelector("#entryActivate").disabled,
-      edit: !!document.querySelector("#entryEdit") && !document.querySelector("#entryEdit").disabled,
+      review: !!document.querySelector("#entryReview [data-review-slot]"),
+      state: window.__repforgeEntryState?.(),
+      engine: window.__repforgeProgramEngine?.stats?.(),
     }));
     const stagedDurable = await page.evaluate(readDurableState);
+    const durableDraftFacts = await page.evaluate((key) => {
+      let envelope = null;
+      try { envelope = JSON.parse(localStorage.getItem(key) || "null"); } catch {}
+      const preview = envelope?.state?.result?.preview;
+      return {
+        present: !!envelope,
+        route: envelope?.state?.route || null,
+        carriesDefinition: !!preview?.programDefinition,
+        carriesProgramRows: Array.isArray(preview?.program) && preview.program.length > 0,
+        carriesSharedSettings: !!preview?.sharedSettings,
+        carriesSharedMetadata: !!preview?.sharedMeta,
+      };
+    }, SETUP_DRAFT);
     assert(canonicalJson(stagedDurable.state) === canonicalJson(before.state), "Start leaves the durable state byte-identical",
-      { before: before.state?.programMeta, staged: stagedDurable.state?.programMeta });
-    assert(staged.onboarding && !staged.firstRun && staged.activate && staged.edit,
-      "Start opens the common preview with separate activation and edit actions", staged);
-    assert(!!stagedDurable.cookie, "the handoff cookie survives until activation", stagedDurable.cookie);
+      { beforeRevision: before.state?._storageRevision, stagedRevision: stagedDurable.state?._storageRevision });
+    assert(staged.onboarding && !staged.firstRun && staged.activate && staged.review &&
+      staged.state?.route === "shared" &&
+      canonicalJson(staged.state?.result?.preview?.programDefinition) === canonicalJson(document.program.definition),
+    "View program opens B review with the exact received definition", {
+      onboarding: staged.onboarding, firstRun: staged.firstRun, activate: staged.activate,
+      review: staged.review, route: staged.state?.route,
+      definitionMatches: canonicalJson(staged.state?.result?.preview?.programDefinition) === canonicalJson(document.program.definition),
+    });
+    assert(!durableDraftFacts.carriesDefinition && !durableDraftFacts.carriesSharedSettings &&
+      !durableDraftFacts.carriesSharedMetadata,
+    "no received definition or settings are durable before final activation", durableDraftFacts);
+    assert(!!stagedDurable.cookie, "the handoff cookie survives until activation", { present: !!stagedDurable.cookie });
+    if (!staged.review) {
+      await context.close();
+      return;
+    }
+    const firstSlot = document.program.definition.days.find((day) => day.kind === "training").slots[0];
+    const originalSets = firstSlot.prescriptionsByCycle[0].sets.length;
+    await page.locator(`#entryReview [data-review-slot="${firstSlot.id}"]`).click();
+    await page.locator("#reviewSheet.is-open [data-review-sets]").first().waitFor({ state: "visible", timeout: 5000 });
+    await page.locator('#reviewSheet [data-review-sets="1"]').click();
+    await page.waitForFunction(({ slotId, want }) => window.__repforgeEntryState()?.result?.preview?.programDefinition.days
+      .flatMap((day) => day.slots).find((slot) => slot.id === slotId)?.prescriptionsByCycle[0]?.sets.length === want,
+    { slotId: firstSlot.id, want: originalSets + 1 }, { timeout: 10000 });
+    await page.locator("#reviewSheet [data-review-done]").click();
+    await page.waitForFunction(() => !document.querySelector("#reviewSheet.is-open"), undefined, { timeout: 5000 });
+    assert(canonicalJson((await page.evaluate(() => window.__repforgeEntryState().result.preview.programDefinition))) !==
+      canonicalJson(document.program.definition), "the Review change is visible in the received draft");
+    await page.locator('#entryReview [data-review-restore]').click();
+    await page.locator("#reviewConfirmGo").waitFor({ state: "visible", timeout: 5000 });
+    await page.locator("#reviewConfirmGo").click();
+    await page.waitForFunction((definition) => JSON.stringify(window.__repforgeEntryState()?.result?.preview?.programDefinition) === JSON.stringify(definition),
+      document.program.definition, { timeout: 10000 });
+    const restored = await page.evaluate(() => ({
+      definition: window.__repforgeEntryState()?.result?.preview?.programDefinition,
+      engine: window.__repforgeProgramEngine?.stats?.(),
+    }));
+    assert(canonicalJson(restored.definition) === canonicalJson(document.program.definition),
+      "Restore returns exactly to the definition received in the link");
+    assert(restored.engine?.worker === 0 && restored.engine?.main === 0,
+      "an ordinary received definition is not regenerated while opening or restoring", restored.engine);
     await page.click("#entryActivate");
     await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), null, { timeout: 10000 });
     await page.evaluate(() => window.__repforgeStorage?.flush?.());
