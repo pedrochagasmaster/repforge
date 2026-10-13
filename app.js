@@ -18896,6 +18896,16 @@ function entryBack(){
     entrySetState(ProgramEntry.back(ProgramEntry.back(entryState)));
     return}
   let previous=ProgramEntry.back(entryState);
+  if(entryState.route==="shared"&&entryState.step==="preview"&&previous.step==="shared_review"){
+    // Plan 072 §7 keeps the received-link confirmation gate as this route's
+    // prior step. Reuse that gate and its in-memory proposal; never fall back
+    // to the unrelated entry hub or persist the received payload here.
+    entryState=previous;
+    syncEntryHistory();
+    observeEntryStep(previous.route,previous.step);
+    closeOnboarding();
+    openFirstRun("shared");
+    return}
   if(entryState.route==="custom"&&previous.step==="custom_shape"&&!entryCustomShapeRequired())
     previous={...previous,step:"exercise_preferences"};
   entrySetState(previous)}
