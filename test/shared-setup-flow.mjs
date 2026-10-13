@@ -908,14 +908,22 @@ export async function runSharedSetupFlow(browser) {
     await page.locator('#entryReview [data-review-restore]').click();
     await page.locator("#reviewConfirmGo").waitFor({ state: "visible", timeout: 5000 });
     await page.locator("#reviewConfirmGo").click();
-    await page.waitForFunction((definition) => JSON.stringify(window.__repforgeEntryState()?.result?.preview?.programDefinition) === JSON.stringify(definition),
-      document.program.definition, { timeout: 10000 });
+    await page.waitForFunction((expected) => {
+      const stable = (value) => Array.isArray(value) ? value.map(stable) : value && typeof value === "object"
+        ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])])) : value;
+      const actual = window.__repforgeEntryState()?.result?.preview?.programDefinition;
+      return !!actual && JSON.stringify(stable(actual)) === JSON.stringify(stable(expected));
+    }, document.program.definition, { timeout: 10000 });
     const restored = await page.evaluate(() => ({
       definition: window.__repforgeEntryState()?.result?.preview?.programDefinition,
       engine: window.__repforgeProgramEngine?.stats?.(),
     }));
-    assert(canonicalJson(restored.definition) === canonicalJson(document.program.definition),
-      "Restore returns exactly to the definition received in the link");
+    const restoreIdentity = {
+      canonicalEqual: canonicalJson(restored.definition) === canonicalJson(document.program.definition),
+      rawOrderEqual: JSON.stringify(restored.definition) === JSON.stringify(document.program.definition),
+    };
+    assert(restoreIdentity.canonicalEqual,
+      "Restore returns exactly to the definition received in the link", restoreIdentity);
     const afterRestore = await page.evaluate((key) => ({
       setupDraft: localStorage.getItem(key),
       reviewLog: sessionStorage.getItem("repforge_entry_review_v1"),
@@ -956,6 +964,58 @@ export async function runSharedSetupFlow(browser) {
     const replicasAfter = await readBothReplicas(page);
     assert(rawAfter === rawBefore && canonicalJson(replicasAfter.idb) === canonicalJson(replicasBefore.idb),
       "the first reload after activation does not rewrite storage", { before: JSON.parse(rawBefore)?._storageRevision, after: JSON.parse(rawAfter)?._storageRevision });
+    await context.close();
+  });
+
+  await runCase("Back from shared Review returns to the same ready gate and can reopen Review", async () => {
+    const { context, page } = await openAppPage(browser, { standalone: true });
+    await freshDevice(page);
+    const document = await buildSetupDocument(page, { name: "Back to shared gate", settings: PT_SHARED_SETTINGS, trainingDays: 1 });
+    const encoded = await encodeSetupDocument(page, document);
+    await page.goto(setupUrl(encoded.value, "back-to-shared"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    if (!(await clickSharedStart(page, { activate: false }))) {
+      await context.close();
+      return;
+    }
+    await page.locator("#entryReview [data-review-slot]").first().waitFor({ state: "visible", timeout: 5000 });
+    await page.click("#onbBack");
+    await page.waitForFunction(() => {
+      const start = document.querySelector("#firstRunSharedStart");
+      return window.__repforgeEntryState?.()?.step === "shared_review" && !!start && !start.disabled &&
+        !start.hidden && !start.closest(".hidden,[hidden]");
+    }, null, { timeout: 3000 });
+    const gate = await page.evaluate(() => ({
+      step: window.__repforgeEntryState?.()?.step,
+      visible: !!document.querySelector("#firstRunSharedStart:not([hidden])") &&
+        !document.querySelector("#firstRunSharedStart")?.closest(".hidden,[hidden]"),
+      title: document.querySelector("#firstRunSharedTitle")?.textContent?.trim(),
+      route: window.__repforgeEntryState?.()?.route,
+      onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
+      onboarded: JSON.parse(localStorage.getItem("repforge_v1") || "{}").programMeta?.onboarded === true,
+      setupDraft: localStorage.getItem("repforge_program_setup_draft_v1") !== null,
+    }));
+    const cookie = await handoffCookie(context);
+    assert(gate.step === "shared_review" && gate.route === "shared" && gate.visible && !gate.onboarding &&
+      !gate.onboarded && !gate.setupDraft && gate.title === SHARED_COPY.pt.title && cookie?.value === encoded.value,
+    "Back returns to the same received gate without activation or losing the proposal", {
+      ...gate, cookieMatches: cookie?.value === encoded.value,
+    });
+    await page.click("#firstRunSharedStart");
+    await page.locator("#entryReview [data-review-slot]").first().waitFor({ state: "visible", timeout: 10000 });
+    const reopened = await page.evaluate(() => ({
+      route: window.__repforgeEntryState?.()?.route,
+      step: window.__repforgeEntryState?.()?.step,
+      definition: window.__repforgeEntryState?.()?.result?.preview?.programDefinition,
+      draft: localStorage.getItem("repforge_program_setup_draft_v1"),
+    }));
+    assert(reopened.route === "shared" && reopened.step === "preview" &&
+      canonicalJson(reopened.definition) === canonicalJson(document.program.definition) && reopened.draft === null,
+    "View program reopens B Review with the identical in-memory received proposal", {
+      route: reopened.route, step: reopened.step,
+      definitionMatches: canonicalJson(reopened.definition) === canonicalJson(document.program.definition),
+      draftPresent: reopened.draft !== null,
+    });
     await context.close();
   });
 
@@ -1410,14 +1470,14 @@ export async function runSharedSetupFlow(browser) {
     await page.click("#entryCancelContinue");
     await page.waitForFunction(() => !document.querySelector("#entryDialog")?.open, null, { timeout: 5000 });
     const continued = await snapshot();
-    assert(!continued.open && continued.preview && !continued.gate && continued.setupDraft && continued.focus === "onbCancel",
-      "continuing closes the dialog on the same preview and returns focus to Cancel", continued);
+    assert(!continued.open && continued.preview && !continued.gate && !continued.setupDraft && continued.focus === "onbCancel",
+      "continuing closes the dialog on the same transient preview and returns focus to Cancel", continued);
     await page.click("#onbCancel");
     await page.waitForSelector("#entryDialog[open] #entryCancelDiscard", { timeout: 5000 });
     await page.click("#entryCancelDiscard");
     await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), null, { timeout: 10000 });
     const discarded = await snapshot();
-    assert(!discarded.setupDraft && !discarded.onboarded, "discarding drops the staged draft and activates nothing", discarded);
+    assert(!discarded.setupDraft && !discarded.onboarded, "discarding leaves no durable shared payload and activates nothing", discarded);
     await context.close();
   });
 
