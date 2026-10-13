@@ -30,6 +30,7 @@ import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import { corpusCases } from "./fixtures/program-compiler-corpus-cases.mjs";
 
 const require = createRequire(import.meta.url);
+const ProgramEngine = require(process.env.REPFORGE_PROGRAM_ENGINE_SOURCE || "../program-engine.js");
 const Adapter = require("../program-entry-adapter.js");
 const Compiler = require("../program-compiler.js");
 const Catalog = require("../assets/exercise-catalog.json");
@@ -86,6 +87,63 @@ function checkDigests(results, label) {
   check(results.length > 0 && !mismatched.length, `${label}: engine and page compiler give identical JSON for ${results.length} requests`, mismatched);
   const drifted = results.filter((item) => fixture.digests[item.key] !== item.digest).map((item) => item.key);
   check(!drifted.length, `${label}: every output matches the digest recorded from main`, drifted);
+}
+
+async function disposeActiveEngine() {
+  const originalWorker = globalThis.Worker;
+  class DeferredWorker {
+    static instances = [];
+    constructor() {
+      DeferredWorker.instances.push(this);
+      this.messages = [];
+      this.terminated = 0;
+      this.firstGenerate = new Promise((resolve) => { this.resolveFirstGenerate = resolve; });
+    }
+    postMessage(message) {
+      if (message.type === "init") {
+        queueMicrotask(() => this.onmessage?.({ data: { type: "ready" } }));
+        return;
+      }
+      this.messages.push(message);
+      if (this.messages.length === 1) this.resolveFirstGenerate(message);
+    }
+    terminate() { this.terminated++; }
+  }
+  globalThis.Worker = DeferredWorker;
+  try {
+    const engine = ProgramEngine.create({
+      compiler: { generateProgram: () => ({ ok: true }) },
+      transition: { deriveSuccessor: () => ({}) },
+      catalog: () => ({}),
+      worker: { url: "program-engine-test.js", scripts: [], catalogSha256: "test" },
+    });
+    const workerPromise = engine.generate({ request: 1 }, "first").then(
+      () => "resolved", (error) => error?.name || "rejected");
+    const queuedPromise = engine.generate({ request: 2 }, "second").then(
+      () => "resolved", (error) => error?.name || "rejected");
+    const worker = DeferredWorker.instances[0];
+    const active = await worker.firstGenerate;
+    check(worker.messages.length === 1, "executor lifecycle: one request is active while the second remains queued");
+    if (typeof engine.dispose !== "function") {
+      check(false, "executor lifecycle: dispose is available for a verifier with active and queued work");
+      return;
+    }
+    engine.dispose();
+    engine.dispose();
+    const outcomes = await Promise.all([workerPromise, queuedPromise]);
+    check(JSON.stringify(outcomes) === JSON.stringify(["AbortError", "AbortError"]),
+      "executor lifecycle: dispose rejects active and queued requests", outcomes);
+    worker.onmessage({ data: { id: active.id, ok: true, value: { ok: true } } });
+    check(worker.terminated === 1 && engine.stats().mode === "disposed",
+      "executor lifecycle: disposal terminates the Worker once and leaves the executor closed",
+      { terminated: worker.terminated, mode: engine.stats().mode });
+    const afterDispose = await engine.generate({}, "after").then(
+      () => "resolved", (error) => error?.name || "rejected");
+    check(afterDispose === "AbortError", "executor lifecycle: a late reply and later request cannot revive disposed work", afterDispose);
+  } finally {
+    if (originalWorker === undefined) delete globalThis.Worker;
+    else globalThis.Worker = originalWorker;
+  }
 }
 
 const engineMode = (page) => page.evaluate(async () => {
@@ -261,6 +319,12 @@ async function heldFlow(browser) {
 
 async function main() {
   console.log("#353 Generate in a worker: equivalence, fallback and responsiveness");
+  await disposeActiveEngine();
+  if (process.env.REPFORGE_ENGINE_LIFECYCLE_ONLY === "1") {
+    console.log(`\n${passed} lifecycle checks passed, ${failures.length} failed`);
+    if (failures.length) process.exit(1);
+    return;
+  }
   check(Object.keys(fixture.digests).length === cases.length, "the corpus cases are the fixture's recorded cases");
   const browser = await launchChromium();
   try {

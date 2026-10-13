@@ -111,6 +111,7 @@ export const SUITES = {
     s("test/ui-plan-050-editor.mjs", [], { seconds: 10 }),
     s("test/generative-entry-runtime.mjs", [], { seconds: 14 }),
     s("test/generate-program-browser.mjs", [], { domains: ["entry", "persistence"], seconds: 30 }),
+    s("test/program-entry-s4.mjs", [], { domains: ["entry", "program", "today", "workout", "persistence"], seconds: 60 }),
     s("test/program-engine-worker.mjs", [], { domains: ["entry", "program", "offline"], seconds: 40 }),
     s("test/adaptive-workout-browser.mjs", [], { domains: ["workout", "program", "persistence"], seconds: 40 }),
     s("test/per-side-engine-browser.mjs", [], { domains: ["workout", "program", "persistence"], tier: "packet", seconds: 90, timeoutMs: 900000 }),

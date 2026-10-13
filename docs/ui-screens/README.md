@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 184 screens,
-1072 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 191 screens,
+1097 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -88,12 +88,17 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Recommend Program 6 — movement abilities](screens/onboarding-recommend/abilities__phone-390-light-en.png) | 3 | Seven yes, no or not sure questions in B's wording, with Skip pinned under Continue. |
 | [Recommend — building](screens/onboarding-recommend/building__phone-390-light-en.png) | 3 | B's third checklist line is active after two lines complete, with generation still in the real worker and Show the program now available. |
 | [Recommend — waiting for generation](screens/onboarding-recommend/building-pending__phone-390-light-en.png) | 3 | With reduced motion, B's checklist is complete and the real worker request remains pending with its waiting label visible. |
-| [Recommend — recommendation and review](screens/onboarding-recommend/result__phone-390-light-en.png) | 8 | Onboarding B's review editor at rest: the source, the program name, four facts, the block row, the tap hint, the day tabs with rest days and the first day's exercises with their sets, RIR and muscles; how it was built follows, with the pinned activation. |
+| [Recommend — recommendation and review](screens/onboarding-recommend/result__phone-390-light-en.png) | 8 | Onboarding B's review editor at rest: the source, the program name, four facts, the block row and its Change action, the day tabs with rest days and the first day's exercises with their sets, RIR and muscles; how it was built follows, with the pinned activation. |
+| [Recommend — offered movement](screens/onboarding-recommend/result-confirm-offer__phone-390-light-en.png) | 3 | A real Worker-verified movement offer under its current exercise row, with the approved advice and confirmation action. |
+| [Recommend — confirmed movement](screens/onboarding-recommend/result-confirmed__phone-390-light-en.png) | 3 | After confirming the offered movement: its row is marked Confirmed by you, Undo is available, and the changed rows are announced. |
+| [Recommend — block inputs](screens/onboarding-recommend/result-block-sheet__phone-390-light-en.png) | 3 | The result's block sheet with 10 weeks, the undulating rep pattern selected, and the recommended deload switch on. |
 | [Recommend — equipment conflict](screens/onboarding-recommend/result-equipment-conflict__phone-390-light-en.png) | 3 | The result explains that Home equipment cannot cover vertical pull, says nothing was saved, and offers Back to equipment with the adjustment preserved. |
 | [Recommend — review with adjustments](screens/onboarding-recommend/result-changed__phone-390-light-en.png) | 3 | Three rows carry their marks (a set added, an engine swap, a movement added from the catalog) and the changes bar counts them with Undo and Restore. |
 | [Recommend — exercise sheet](screens/onboarding-recommend/review-sheet__phone-390-light-en.png) | 7 | One exercise's sheet at its top: the movement, its role and job, the sets ledger with RIR per set, the set count, rep range and rest controls, and the day's time. |
+| [Recommend — execution mode](screens/onboarding-recommend/review-sheet-execution-mode__phone-390-light-en.png) | 7 | The exercise sheet asks how an ambiguous per-side movement is performed, with both approved answers and the unresolved Review cue. |
 | [Recommend — swap and alternates](screens/onboarding-recommend/review-sheet-swap__phone-390-light-en.png) | 3 | The exercise sheet scrolled to the engine's swap candidates, the catalog search and one in-session alternate with its suggestions. |
 | [Recommend — day actions](screens/onboarding-recommend/review-day-menu__phone-390-light-en.png) | 3 | The day menu sheet: rename the day, reorder its exercises, add an exercise. |
+| [Recommend — duplicate day name refused](screens/onboarding-recommend/review-day-name-refused__phone-390-light-en.png) | 3 | The day rename sheet keeps a duplicate name in the field and shows the existing linked alert. |
 | [Recommend — reorder a day](screens/onboarding-recommend/review-reorder__phone-390-light-en.png) | 3 | A day in reorder mode: each exercise with its handle and up and down arrows, and Done. |
 | [Recommend — an emptied day](screens/onboarding-recommend/review-empty-day__phone-390-light-en.png) | 3 | Every exercise of a training day removed: the tab's pip, the day's warning with Add exercise, and Activate disabled with its reason. |
 | [Recommend — rebuild asks first](screens/onboarding-recommend/review-rebuild-confirm__phone-390-light-en.png) | 3 | An answer chip would rebuild an adjusted program: the confirmation to rebuild or keep the adjustments. |
@@ -154,6 +159,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Today — running rest bar](screens/today/rest-bar__phone-390-light-en.png) | 8 | The rest countdown remains visible after leaving the active workout. |
 | [Today — choose another day](screens/today/day-picker__phone-390-light-en.png) | 8 | The day picker sheet open. |
 | [Today — session complete](screens/today/done__phone-390-light-en.png) | 8 | The state after the day's session is logged. |
+| [Today — deload week](screens/today/deload-week__phone-390-light-en.png) | 3 | The active program's deload cycle shows its recovery note. |
 | [Resume saved draft](screens/today/draft-resume__phone-390-light-en.png) | 8 | Resume saved draft through production controls. |
 
 ### Workout logging
@@ -163,6 +169,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Workout — focus mode](screens/workout/focus__phone-390-light-en.png) | 8 | One exercise at a time. |
 | [Workout — Focus, per-side target](screens/workout/focus-per-side__phone-390-light-en.png) | 8 | A generated bilateral press shows its per-side load label and adaptive target prefilled in ordinary Focus. |
 | [Workout — why this weight, per-side loading](screens/workout/why-per-side__phone-390-light-en.png) | 8 | The generated bilateral press's Why sheet explains the multiplier and enabled bodyweight contribution. |
+| [Workout — deload week](screens/workout/deload-week__phone-390-light-en.png) | 3 | Focus shows the recovery note during the program's deload cycle. |
 | [Workout — Focus glossary definition](screens/workout/focus-glossary__phone-390-light-en.png) | 8 | A definition is open after tapping a glossary term in Focus. |
 | [Workout — stale draft recovery](screens/workout/stale-draft__phone-390-light-en.png) | 8 | A conflicting tab won while this tab retains a pending field value and offers Reload latest or Copy value. |
 | [Workout — draft persistence retry](screens/workout/persist-retry__phone-390-light-en.png) | 8 | A field write was interrupted; the exact pending value remains visible beside Retry and Copy value actions. |

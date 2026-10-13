@@ -36,6 +36,17 @@ const clone = (value) => JSON.parse(JSON.stringify(value));
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const ctx = { compiler: Compiler, catalog: Catalog, metrics: Metrics };
 const valid = (definition) => Compiler.validateProgramDefinition(definition, Catalog).ok;
+const SUPPORTED_PER_SIDE_SEMANTICS = [
+  ["loadKg", "repsPerSide"],
+  ["repsPerSide"],
+  ["repsPerSide", "loadPerSideKg"],
+  ["persistentLoadPerSideKg", "repsPerSide"],
+];
+const PLAN069_S3_ADDITIONS = [
+  ["loadKg", "repsPerSide"],
+  ["repsPerSide"],
+  ["reps", "loadPerSideKg"],
+];
 
 function generate({ days = 4, goal = "muscle_growth", environment = "commercial_gym", extra = {}, seed = 1 } = {}) {
   const request = Adapter.programRequestFromAnswers({
@@ -53,6 +64,17 @@ const slotById = (definition, id) => slotsOf(definition).find((slot) => slot.id 
 const dayOfSlot = (definition, id) => definition.days.find((day) => (day.slots || []).some((slot) => slot.id === id));
 const isDeload = (cycle) => cycle.sets.some((set) => set.provenance?.deload === true);
 const repsOf = (set) => set.targets.reps || set.targets.repsPerSide;
+const semanticsOf = (exercise) => {
+  const result = Metrics.definitionsForIds(exercise?.exerciseMetrics || []);
+  return result.ok ? result.value.map((metric) => metric.semantic) : [];
+};
+const exerciseWithSemantics = (semantics, excluded = new Set(), { ambiguous = false } = {}) =>
+  Catalog.exercises.find((exercise) => {
+    if (excluded.has(exercise.id) || !Number.isFinite(exercise.bodyweight) || !same(semanticsOf(exercise), semantics)) return false;
+    const names = (exercise.laterality || []).map((id) => Catalog.uuidIndex[id]?.name);
+    const hasUnilateral = names.includes("Unilateral"), hasBilateral = names.includes("Bilateral");
+    return ambiguous ? hasUnilateral === hasBilateral : hasUnilateral !== hasBilateral;
+  }) || null;
 function apply(definition, edit, ordinal = 1) {
   return Review.applyEdit(definition, edit, { ...ctx, ordinal });
 }
@@ -70,8 +92,8 @@ console.log("program-review: set count");
   const result = apply(deload, { kind: "sets", slotId: slot.id, count: 4 });
   check(result.ok, "sets: a count of 4 is accepted", result);
   const edited = slotById(result.definition, slot.id);
-  check(edited.prescriptionsByCycle.every((cycle) => cycle.sets.length === (isDeload(cycle) ? 3 : 4)),
-    "sets: every cycle gets the count and the deload cycle keeps one set fewer",
+  check(edited.prescriptionsByCycle.every((cycle) => cycle.sets.length === (isDeload(cycle) ? 2 : 4)),
+    "sets: every cycle gets the count and the deload cycle keeps ceil(count / 2)",
     edited.prescriptionsByCycle.map((cycle) => cycle.sets.length));
   check(edited.prescriptionsByCycle.every((cycle) => cycle.sets.every((set, index) => set.setIndex === index + 1 && set.cycleIndex === cycle.cycleIndex)),
     "sets: set and cycle indexes stay ordered");
@@ -83,6 +105,11 @@ console.log("program-review: set count");
     "sets: an added set copies the cycle's last set");
   check(valid(result.definition), "sets: the result validates");
   check(same(deload, before), "sets: the input definition is not mutated");
+  const six = apply(deload, { kind: "sets", slotId: slot.id, count: 6 });
+  check(six.ok && slotById(six.definition, slot.id).prescriptionsByCycle.every((cycle) =>
+    cycle.sets.length === (isDeload(cycle) ? 3 : 6)),
+  "sets: six edited sets produce three in the deload cycle",
+  slotById(six.definition, slot.id).prescriptionsByCycle.map((cycle) => cycle.sets.length));
   const one = apply(deload, { kind: "sets", slotId: slot.id, count: 1 });
   check(one.ok && slotById(one.definition, slot.id).prescriptionsByCycle.every((cycle) => cycle.sets.length === 1),
     "sets: a count of 1 leaves the deload cycle at its minimum of 1");
@@ -203,6 +230,113 @@ console.log("program-review: swap");
   check(!apply(plain, { kind: "swap", slotId: repsSlot.id, exerciseId: "not-a-movement" }).ok, "swap: an unknown movement is refused");
 }
 
+console.log("program-review: execution mode");
+{
+  const program = new Set(slotsOf(plain).map((item) => item.exerciseId));
+  const ambiguous = Catalog.exercises.find((exercise) => {
+    if (program.has(exercise.id) || !Number.isFinite(exercise.bodyweight)) return false;
+    const result = Metrics.definitionsForIds(exercise.exerciseMetrics || []);
+    if (!result.ok || !SUPPORTED_PER_SIDE_SEMANTICS.some((semantics) => same(result.value.map((metric) => metric.semantic), semantics))) return false;
+    const names = (exercise.laterality || []).map((id) => Catalog.uuidIndex[id]?.name);
+    const unilateral = names.includes("Unilateral"), bilateral = names.includes("Bilateral");
+    return unilateral === bilateral;
+  });
+  const source = slotsOf(plain).find((slot) => slot.metricDefinitions.some((metric) => metric.semantic === "reps"));
+  check(!!ambiguous && !!source, "execution mode: fixtures include a generated source and an ambiguous supported per-side movement");
+  if (ambiguous && source) {
+    const swapped = apply(plain, { kind: "swap", slotId: source.id, exerciseId: ambiguous.id });
+    check(swapped.ok, "execution mode: a catalog swap is accepted", swapped);
+    if (swapped.ok) {
+      const unresolved = slotById(swapped.definition, source.id);
+      check(unresolved.executionMode === null && unresolved.prescriptionsByCycle.every((cycle) =>
+        cycle.sets.every((set) => set.status === "configuration_required")),
+      "execution mode: an unanswered per-side movement stays configuration-required");
+      const resolved = apply(swapped.definition, { kind: "execution_mode", slotId: source.id, executionMode: "unilateral" });
+      check(resolved.ok, "execution mode: a valid answer intent applies", resolved);
+      if (resolved.ok) {
+        const slot = slotById(resolved.definition, source.id);
+        check(slot.executionMode === "unilateral", "execution mode: the answer is stored on the slot");
+        check(slot.prescriptionsByCycle.every((cycle) => cycle.sets.every((set) => set.status === "ready")),
+          "execution mode: a validated, otherwise eligible slot returns to ready");
+        check(valid(resolved.definition), "execution mode: the resolved definition validates");
+      }
+
+      const deliberateManual = clone(swapped.definition);
+      const manual = slotById(deliberateManual, source.id).prescriptionsByCycle[0].sets[0];
+      manual.status = "manual";
+      manual.provenance.source = "manual";
+      const manualResult = apply(deliberateManual, { kind: "execution_mode", slotId: source.id, executionMode: "bilateral" });
+      check(manualResult.ok && slotById(manualResult.definition, source.id).prescriptionsByCycle[0].sets[0].status === "manual" &&
+        slotById(manualResult.definition, source.id).prescriptionsByCycle[0].sets[0].provenance.source === "manual",
+      "execution mode: an explicitly manual prescription and its provenance remain manual", manualResult);
+
+      const missingRir = clone(swapped.definition);
+      const missing = slotById(missingRir, source.id).prescriptionsByCycle[0].sets[0];
+      missing.rir = null;
+      const missingResult = apply(missingRir, { kind: "execution_mode", slotId: source.id, executionMode: "unilateral" });
+      const missingSet = missingResult.ok && slotById(missingResult.definition, source.id).prescriptionsByCycle[0].sets[0];
+      check(missingSet && missingSet.rir === null && missingSet.status === "configuration_required",
+        "execution mode: a non-manual prescription missing RIR stays configuration-required", missingResult);
+
+      const scalarTarget = clone(swapped.definition);
+      const scalarSet = slotById(scalarTarget, source.id).prescriptionsByCycle[0].sets[0];
+      scalarSet.targets.repsPerSide = scalarSet.targets.repsPerSide.min;
+      const scalarResult = apply(scalarTarget, { kind: "execution_mode", slotId: source.id, executionMode: "unilateral" });
+      const scalarSetResult = scalarResult.ok && slotById(scalarResult.definition, source.id).prescriptionsByCycle[0].sets[0];
+      check(scalarSetResult && typeof scalarSetResult.targets.repsPerSide === "number" && scalarSetResult.status === "ready",
+        "execution mode: a supported scalar R3 rep target returns to ready", scalarResult);
+
+      const fractionalRir = clone(swapped.definition);
+      slotById(fractionalRir, source.id).prescriptionsByCycle[0].sets[0].rir = 2.5;
+      check(valid(fractionalRir), "execution mode: the current program contract accepts fractional RIR");
+      const fractionalResult = apply(fractionalRir, { kind: "execution_mode", slotId: source.id, executionMode: "unilateral" });
+      const fractionalSet = fractionalResult.ok && slotById(fractionalResult.definition, source.id).prescriptionsByCycle[0].sets[0];
+      check(fractionalSet?.rir === 2.5 && fractionalSet.status === "ready",
+        "execution mode: fractional RIR accepted by the engine remains ready after mode resolution", fractionalResult);
+    }
+  }
+}
+
+console.log("program-review: Plan 069 S3 adaptive compositions");
+{
+  const used = new Set(slotsOf(plain).map((slot) => slot.exerciseId));
+  const source = slotsOf(plain).find((slot) => slot.metricDefinitions.some((metric) => metric.semantic === "reps"));
+  const day = plain.days.find((item) => item.kind === "training");
+  for (const semantics of PLAN069_S3_ADDITIONS) {
+    const exercise = exerciseWithSemantics(semantics, used);
+    check(!!exercise, `fixtures: catalog contains an unambiguous ${semantics.join("+")} movement`);
+    if (!exercise || !source || !day) continue;
+    const swapped = apply(plain, { kind: "swap", slotId: source.id, exerciseId: exercise.id });
+    const swappedSlot = swapped.ok && slotById(swapped.definition, source.id);
+    check(swappedSlot && same(swappedSlot.metricDefinitions.map((metric) => metric.semantic), semantics) &&
+      swappedSlot.prescriptionsByCycle.every((cycle) => cycle.sets.every((set) => set.status === "ready")),
+    `swap: approved ${semantics.join("+")} source composition remains adaptive`, swapped);
+
+    const added = apply(plain, { kind: "add", dayId: day.id, exerciseId: exercise.id }, 11);
+    const addedSlot = added.ok && added.definition.days.find((item) => item.id === day.id)?.slots.at(-1);
+    check(addedSlot && same(addedSlot.metricDefinitions.map((metric) => metric.semantic), semantics) &&
+      addedSlot.prescriptionsByCycle.every((cycle) => cycle.sets.every((set) => set.status === "ready")),
+    `add: approved ${semantics.join("+")} source composition remains adaptive`, added);
+  }
+
+  for (const semantics of PLAN069_S3_ADDITIONS.slice(0, 2)) {
+    const exercise = exerciseWithSemantics(semantics, used, { ambiguous: true });
+    check(!!exercise, `fixtures: catalog contains an ambiguous ${semantics.join("+")} movement`);
+    if (!exercise || !source) continue;
+    const swapped = apply(plain, { kind: "swap", slotId: source.id, exerciseId: exercise.id });
+    const slot = swapped.ok && slotById(swapped.definition, source.id);
+    check(slot?.executionMode === null && slot.prescriptionsByCycle.every((cycle) =>
+      cycle.sets.every((set) => set.status === "configuration_required")),
+    `mode answer: ambiguous ${semantics.join("+")} stays configuration-required before answer`, swapped);
+    if (!swapped.ok) continue;
+    const resolved = apply(swapped.definition, { kind: "execution_mode", slotId: source.id, executionMode: "unilateral" });
+    const resolvedSlot = resolved.ok && slotById(resolved.definition, source.id);
+    check(resolvedSlot && resolvedSlot.prescriptionsByCycle.every((cycle) =>
+      cycle.sets.every((set) => set.status === "ready")),
+    `mode answer: supported ${semantics.join("+")} returns to ready`, resolved);
+  }
+}
+
 console.log("program-review: alternates");
 {
   const slot = slotsOf(plain)[0];
@@ -266,6 +400,11 @@ console.log("program-review: add and rename");
 
   const renamed = apply(deload, { kind: "day_name", dayId: day.id, name: "  Peito e costas " });
   check(renamed.ok && renamed.definition.days.find((item) => item.id === day.id).name === "Peito e costas", "rename: trimmed and applied");
+  const otherDay = deload.days.find((item) => item.kind === "training" && item.id !== day.id);
+  if (otherDay) {
+    const duplicate = apply(deload, { kind: "day_name", dayId: day.id, name: otherDay.name });
+    check(!duplicate.ok && duplicate.code === "day_name_exists", "rename: a stored duplicate name is refused at the edit boundary", duplicate);
+  }
   check(!apply(deload, { kind: "day_name", dayId: day.id, name: "   " }).ok, "rename: an empty name is refused");
   check(!apply(deload, { kind: "day_name", dayId: day.id, name: "x".repeat(41) }).ok, "rename: more than 40 characters is refused");
   check(!apply(deload, { kind: "nonsense", slotId: day.slots[0].id }).ok, "edits: an unknown kind is refused");

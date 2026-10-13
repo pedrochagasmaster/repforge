@@ -257,7 +257,7 @@ function offerCorpus() {
   return cases;
 }
 
-test("confirmation offers are verified swaps that name every other slot they move", () => {
+test("confirmation offers are verified swaps that name every other slot they move", async () => {
   let offered = 0;
   let verified = 0;
   for (const { key, label, request, seed } of offerCorpus()) {
@@ -284,7 +284,18 @@ test("confirmation offers are verified swaps that name every other slot they mov
         }
       }
     }
-    const kept = Adapter.verifyConfirmationOffers({ generate, request, seed, result });
+    const checks = [];
+    const kept = await Adapter.verifyConfirmationOffers({ generate: async (next, nextSeed) => {
+      checks.push({ request: next, seed: nextSeed });
+      return generate(next, nextSeed);
+    }, request, seed, result });
+    assert.equal(checks.length, result.confirmationOffers.length, `${key}: each reported offer is checked once`);
+    assert.ok(checks.every((check) => check.seed === seed), `${key}: each check preserves the result seed`);
+    for (const check of checks) {
+      const added = Object.keys(check.request.movementConfirmations).filter((id) =>
+        JSON.stringify(check.request.movementConfirmations[id]) !== JSON.stringify(request.movementConfirmations[id] || []));
+      assert.equal(added.length, 1, `${key}: a check confirms one offered movement only`);
+    }
     for (const offer of kept) {
       verified++;
       const confirmed = generate({ ...request, movementConfirmations: { ...request.movementConfirmations,

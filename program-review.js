@@ -27,9 +27,17 @@
   const MAX_DAY_NAME = 40;
   const ADDED_SETS = 3;
   const REP_SEMANTICS = Object.freeze(["reps", "repsPerSide"]);
+  // Keep static Review classification aligned with the ordered metric
+  // compositions supported by Plan 069. Runtime loading, equipment and grid
+  // readiness remain outside this editor boundary.
+  const ADAPTIVE_SEMANTICS = Object.freeze([
+    ["loadKg", "reps"], ["reps", "assistanceKg"], ["reps"],
+    ["loadKg", "repsPerSide"], ["repsPerSide"], ["reps", "loadPerSideKg"],
+    ["repsPerSide", "loadPerSideKg"], ["persistentLoadPerSideKg", "repsPerSide"],
+  ]);
   const EDIT_KINDS = Object.freeze([
     "sets", "rep_range", "rir", "rest", "swap", "alternates",
-    "move", "remove", "reorder", "add", "day_name",
+    "execution_mode", "move", "remove", "reorder", "add", "day_name",
   ]);
   const EDIT_KIND_SET = new Set(EDIT_KINDS);
   const PROVENANCE_SOURCE = "lifter_review";
@@ -93,6 +101,38 @@
     return null;
   }
 
+  function needsExecutionMode(slot) {
+    return slot?.metricOrigin === "source_catalog" &&
+      slot.metricDefinitions?.some((metric) => metric.semantic === "repsPerSide") === true &&
+      !["bilateral", "unilateral"].includes(slot.executionMode);
+  }
+
+  function staticPrescriptionStatus(slot, set) {
+    if (set.status === "manual" || set.provenance?.source === "manual") return "manual";
+    if (needsExecutionMode(slot)) return "configuration_required";
+    if (slot.metricOrigin !== "source_catalog") return "manual";
+    const semantics = (slot.metricDefinitions || []).map((metric) => metric.semantic);
+    if (!ADAPTIVE_SEMANTICS.some((candidate) => JSON.stringify(candidate) === JSON.stringify(semantics))) return "manual";
+    const repSemantic = semantics.find((semantic) => REP_SEMANTICS.includes(semantic));
+    const target = set.targets?.[repSemantic];
+    const range = Number.isSafeInteger(target)
+      ? { min: target, max: target }
+      : Number.isSafeInteger(target?.min) && Number.isSafeInteger(target?.max)
+        ? { min: target.min, max: target.max }
+        : null;
+    if (!range || range.min < 1 || range.max < range.min || range.max > MAX_REPS) return "manual";
+    if (!Number.isFinite(set.rir) || set.rir < 0 || set.rir > MAX_RIR) return "configuration_required";
+    const coefficient = slot.loadingModel?.bodyweightCoefficient;
+    if (!Number.isFinite(coefficient) || coefficient < 0 || coefficient > 1) return "configuration_required";
+    return "ready";
+  }
+
+  function classifyExecutionModeStatus(slot) {
+    for (const cycle of slot.prescriptionsByCycle || []) for (const set of cycle.sets || []) {
+      set.status = staticPrescriptionStatus(slot, set);
+    }
+  }
+
   function catalogFields(ctx, exercise, metrics) {
     return {
       exerciseId: exercise.id,
@@ -131,7 +171,7 @@
     if (!at) return refuse("slot_missing");
     if (!Number.isInteger(edit.count) || edit.count < MIN_SETS || edit.count > MAX_SETS) return refuse("sets_out_of_range");
     for (const cycle of at.slot.prescriptionsByCycle) {
-      const want = isDeload(cycle) ? Math.max(MIN_SETS, edit.count - 1) : edit.count;
+      const want = isDeload(cycle) ? Math.max(MIN_SETS, Math.ceil(edit.count / 2)) : edit.count;
       if (!cycle.sets.length) return refuse("cycle_empty");
       while (cycle.sets.length > want) cycle.sets.pop();
       while (cycle.sets.length < want) {
@@ -218,6 +258,15 @@
       if (!slot.alternates.length) delete slot.alternates;
     }
     retarget(slot, metrics.semantic);
+    return null;
+  }
+
+  function editExecutionMode(definition, edit) {
+    const at = locate(definition, edit.slotId);
+    if (!at) return refuse("slot_missing");
+    if (!needsExecutionMode(at.slot)) return refuse("execution_mode_not_required");
+    if (!["bilateral", "unilateral"].includes(edit.executionMode)) return refuse("execution_mode_invalid");
+    at.slot.executionMode = edit.executionMode;
     return null;
   }
 
@@ -312,11 +361,22 @@
     return null;
   }
 
-  function editDayName(definition, edit) {
+  function duplicateDayName(definition, day, name, ctx) {
+    const wanted = String(name || "").trim();
+    return definition.days.some((other) => {
+      if (other.id === day.id) return false;
+      const stored = typeof other.name === "string" ? other.name.trim() : "";
+      const shown = typeof ctx?.dayName === "function" ? ctx.dayName(other, definition) : null;
+      return stored === wanted || (typeof shown === "string" && shown.trim() === wanted);
+    });
+  }
+
+  function editDayName(definition, edit, ctx) {
     const day = dayById(definition, edit.dayId);
     if (!day) return refuse("day_missing");
     const name = typeof edit.name === "string" ? edit.name.trim() : "";
     if (!name || name.length > MAX_DAY_NAME) return refuse("day_name_invalid");
+    if (duplicateDayName(definition, day, name, ctx)) return refuse("day_name_exists");
     day.name = name;
     return null;
   }
@@ -342,6 +402,7 @@
     if (!ctx?.compiler || !ctx?.catalog) return refuse("context_missing");
     const ordinal = Number.isInteger(ctx.ordinal) && ctx.ordinal > 0 ? ctx.ordinal : 1;
     const next = clone(definition);
+    const oldSlotIds = new Set(slotsOf(next).map((slot) => slot.id));
     const ids = idSource(ordinal);
     const handlers = {
       sets: () => editSets(next, edit, ids),
@@ -349,18 +410,27 @@
       rir: () => editRir(next, edit),
       rest: () => editRest(next, edit),
       swap: () => editSwap(next, edit, ctx),
+      execution_mode: () => editExecutionMode(next, edit),
       alternates: () => editAlternates(next, edit, ctx),
       move: () => editMove(next, edit),
       remove: () => editRemove(next, edit),
       reorder: () => editReorder(next, edit),
       add: () => editAdd(next, edit, ctx, ids),
-      day_name: () => editDayName(next, edit),
+      day_name: () => editDayName(next, edit, ctx),
     };
     const refused = handlers[edit.kind]();
     if (refused) return refused;
     refreshEstimates(next, ctx);
     const checked = ctx.compiler.validateProgramDefinition(next, ctx.catalog, ctx.customDefinitions || []);
     if (!checked?.ok) return refuse("definition_invalid", (checked?.issues || []).slice(0, 12));
+    if (["swap", "execution_mode", "add"].includes(edit.kind)) {
+      const affected = edit.kind === "add"
+        ? slotsOf(next).filter((slot) => !oldSlotIds.has(slot.id))
+        : [locate(next, edit.slotId)?.slot].filter(Boolean);
+      for (const slot of affected) classifyExecutionModeStatus(slot);
+      const classified = ctx.compiler.validateProgramDefinition(next, ctx.catalog, ctx.customDefinitions || []);
+      if (!classified?.ok) return refuse("definition_invalid", (classified?.issues || []).slice(0, 12));
+    }
     return { ok: true, definition: next };
   }
 
@@ -463,6 +533,7 @@
       return null;
     };
     const dayName = (definition, day) => adapter.dayName(day, definition);
+    const editorContext = (state) => ({ ...state.ctx, dayName: (day, definition) => dayName(definition, day) });
     const range = (set) => set?.targets?.[repKey(set?.targets)] || null;
     const repsText = (set) => {
       const value = range(set);
@@ -527,7 +598,8 @@
       const parts = [t(definition.cycles === 1 ? "entry.review.block.week_one" : "entry.review.block.weeks", { n: definition.cycles }),
         t(`entry.review.block.pattern.${pattern}`)];
       if (deload) parts.push(t("entry.review.block.deload", { n: deload }));
-      return `<p class="review__block">${esc(parts.join(" · "))}</p>`;
+      return `<div class="review__blockrow"><p class="review__block">${esc(parts.join(" · "))}</p>` +
+        `<button type="button" class="text-link" data-review-block-edit>${esc(t("entry.review.block.change"))}</button></div>`;
     }
     function changesHtml(count) {
       if (!count) return `<p class="review__hint">${esc(t("entry.review.tap_hint"))}</p>`;
@@ -546,16 +618,33 @@
       }).join("")}</div>`;
     }
     function rowHtml(definition, slot, marks) {
+      const state = read();
       const name = adapter.exerciseName(slot.exerciseId);
-      const mark = marks[slot.id] === "added" ? t("entry.review.mark.added") : marks[slot.id] ? t("entry.review.mark.edited") : "";
+      const modeNeeded = needsExecutionMode(slot);
+      const confirmed = Array.isArray(state.answers?.movementConfirmations?.[slot.exerciseId]) &&
+        state.answers.movementConfirmations[slot.exerciseId].length > 0;
+      const mark = confirmed ? t("entry.review.confirmed")
+        : marks[slot.id] === "added" ? t("entry.review.mark.added") : marks[slot.id] ? t("entry.review.mark.edited") : "";
       const sets = slot.prescriptionsByCycle[0]?.sets || [];
-      return `<article class="review__row${mark ? " is-changed" : ""}" data-review-slot="${esc(slot.id)}" data-id="${esc(slot.id)}" role="button" tabindex="0" aria-label="${esc(name)}">` +
+      const rowLabel = modeNeeded ? `${name} · ${t("entry.review.execution_mode.cue")}` : name;
+      const row = `<article class="review__row${mark ? " is-changed" : ""}" data-review-slot="${esc(slot.id)}" data-id="${esc(slot.id)}" role="button" tabindex="0" aria-label="${esc(rowLabel)}">` +
         adapter.tile(slot.exerciseId, "md") +
         `<div class="review__rowbody"><h3 class="review__name">${esc(name)}</h3>` +
         (mark ? `<span class="review__mark" data-review-mark><span class="review__dot" aria-hidden="true"></span>${esc(mark)}</span>` : "") +
+        (modeNeeded ? `<p class="review__hint" data-review-execution-cue>${esc(t("entry.review.execution_mode.cue"))}</p>` : "") +
         `<ol class="review__sets">${sets.map((set, index) => `<li><span class="review__setn num">${index + 1}</span><span class="review__reps">${nums(repsText(set))}</span>` +
           (Number.isFinite(set.rir) ? `<span class="review__rir">${nums(t("entry.review.rir", { n: set.rir }))}</span>` : "") + `</li>`).join("")}</ol>` +
         chips(slot) + `</div>${icon("chev-right")}</article>`;
+      if (confirmed) return row + `<div class="review__offer review__offer--confirmed" data-review-confirmed="${esc(slot.exerciseId)}">` +
+        `<button type="button" class="text-link" data-review-confirmation-undo="${esc(slot.exerciseId)}">${esc(t("entry.review.undo"))}</button></div>`;
+      const offer = (state.offers || []).find(item => item.slotId === slot.id);
+      if (!offer) return row;
+      const offeredName = adapter.exerciseName(offer.offeredExerciseId);
+      const sentence = t("entry.review.confirm_offer", { exercise: "__EXERCISE__" });
+      const [before, after] = sentence.split("__EXERCISE__");
+      return row + `<div class="review__offer" data-review-confirm-offer="${esc(slot.id)}" data-review-offer-exercise-id="${esc(offer.offeredExerciseId)}">` +
+        `<p>${esc(before)}<strong>${esc(offeredName)}</strong>${esc(after)}</p>` +
+        `<button type="button" class="btn btn--steel" data-review-confirm-offer-action="${esc(slot.id)}">${esc(t("entry.review.confirm_offer_action"))}</button></div>`;
     }
     function dayHtml(definition, marks) {
       const day = definition.days[view.tab];
@@ -656,7 +745,7 @@
       return run(async () => {
         if (disposed) return false;
         const state = read();
-        const result = applyEdit(state.definition, edit, { ...state.ctx, ordinal: state.edits.length + 1 });
+        const result = applyEdit(state.definition, edit, { ...editorContext(state), ordinal: state.edits.length + 1 });
         if (!result.ok) { observe("refused", edit.kind); adapter.announce(t("entry.review.refused")); return false; }
         const before = flip ? measure() : null;
         if (close) await closeSheet();
@@ -676,7 +765,7 @@
         const state = read();
         if (!state.edits.length) return false;
         const edits = state.edits.slice(0, -1);
-        const replayed = replay(state.baseline, edits, state.ctx);
+        const replayed = replay(state.baseline, edits, editorContext(state));
         if (!replayed.ok) return false;
         const before = measure();
         const saved = await adapter.commit({ definition: replayed.definition, edits, name: state.name });
@@ -752,7 +841,26 @@
       if (!sheet || disposed) return;
       const parts = adapter.sheet();
       const state = read(), definition = state.definition;
-      if (sheet.kind === "exercise") {
+      if (sheet.kind === "block") {
+        const patterns = ["static", "linear", "reverse_linear", "undulating"];
+        parts.title.textContent = t("entry.review.block.sheet.title");
+        parts.body.innerHTML =
+          `<section class="review-sheet__sec review-block__sec"><h3 class="sheetgroup__head">${esc(t("entry.review.block.sheet.length"))}</h3>` +
+          `<div class="review-step review-block__stepper"><button type="button" data-review-block-step="-1" aria-label="−"${sheet.cycles <= 4 ? " disabled" : ""}>−</button>` +
+          `<b class="num" data-review-block-weeks>${esc(t(sheet.cycles === 1 ? "entry.review.block.week_one" : "entry.review.block.weeks", { n: sheet.cycles }))}</b>` +
+          `<button type="button" data-review-block-step="1" aria-label="+"${sheet.cycles >= 12 ? " disabled" : ""}>+</button></div>` +
+          `<p class="review-sheet__lede">${esc(t("entry.review.block.sheet.length_hint"))}</p></section>` +
+          `<section class="review-sheet__sec review-block__sec"><h3 class="sheetgroup__head" id="reviewBlockPatternLab">${esc(t("entry.review.block.sheet.pattern"))}</h3>` +
+          `<div class="review-block__patterns" role="radiogroup" aria-labelledby="reviewBlockPatternLab">${patterns.map((pattern) => {
+            const selected = pattern === sheet.periodization;
+            return `<button type="button" class="radio-card${selected ? " is-selected" : ""}" role="radio" aria-checked="${selected}" tabindex="${selected ? 0 : -1}" data-review-block-pattern="${pattern}">` +
+              `<span class="radio-card__body"><span class="radio-card__title">${esc(t(`entry.review.block.card.${pattern}.title`))}</span>` +
+              `<span class="radio-card__cap">${esc(t(`entry.review.block.card.${pattern}.hint`))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button>`;
+          }).join("")}</div></section>` +
+          `<div class="review-block__deload"><span class="review-block__copy"><strong>${esc(t("entry.deload.card"))}</strong><span>${esc(t("entry.deload.body"))}</span></span>` +
+          `<button type="button" class="toggle" role="switch" aria-label="${esc(t("entry.deload.card"))}" aria-checked="${sheet.deload}" data-review-block-deload></button></div>`;
+        parts.foot.innerHTML = `<button type="button" class="btn btn--cta btn--noarrow" data-review-block-apply>${esc(t("entry.review.block.apply"))}</button>`;
+      } else if (sheet.kind === "exercise") {
         const at = findSlot(definition, sheet.slotId);
         if (!at) { closeSheet(); return; }
         const slot = at.slot, sets = slot.prescriptionsByCycle[0].sets, first = range(sets[0]);
@@ -767,10 +875,16 @@
         const suggestions = subs.filter((id) => !alternates.includes(id)).slice(0, ALTERNATE_SUGGESTIONS);
         const others = definition.days.filter((day) => day.kind === "training" && day.id !== at.day.id);
         const rest = sets[0]?.restSeconds;
+        const modeNeeded = needsExecutionMode(slot);
         const name = adapter.exerciseName(slot.exerciseId);
         parts.title.textContent = name;
         parts.body.innerHTML =
           `<div class="review-sheet__head">${adapter.tile(slot.exerciseId, "lg")}<div><p class="review-sheet__role">${esc([roleLabel(slot.role), jobLabel(slot.purposeId)].filter(Boolean).join(" · "))}</p>${chips(slot)}</div></div>` +
+          (modeNeeded ? `<section class="review-sheet__sec"><h3 class="sheetgroup__head" id="reviewExecutionModeQuestion" data-review-execution-question>${esc(t("entry.review.execution_mode.question"))}</h3>` +
+            `<div class="review-block__patterns" role="group" aria-labelledby="reviewExecutionModeQuestion">` +
+            [["bilateral", "entry.review.execution_mode.bilateral"], ["unilateral", "entry.review.execution_mode.unilateral"]].map(([mode, key]) =>
+              `<button type="button" class="radio-card" data-review-execution-mode="${mode}"><span class="radio-card__body"><span class="radio-card__title">${esc(t(key))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button>`).join("") +
+            `</div></section>` : "") +
           `<section class="review-sheet__sec"><h3 class="sheetgroup__head">${esc(t("entry.review.sheet.sets"))}</h3>` +
           `<div class="review-sheet__ledger" role="table" aria-label="${esc(t("entry.review.sheet.sets"))}"><div class="review-sheet__lh" role="row"><span role="columnheader">${esc(t("entry.review.sheet.set_col"))}</span><span role="columnheader">${esc(t("entry.review.sheet.reps_col"))}</span><span role="columnheader">${esc(t("entry.review.sheet.rir_col"))}</span></div>` +
           sets.map((set, index) => `<div class="review-sheet__lr" role="row"><span class="review__setn num" role="cell">${index + 1}</span><span role="cell">${nums(repsText(set))}</span>` +
@@ -817,9 +931,12 @@
       } else if (sheet.kind === "rename") {
         const isDay = sheet.target === "day";
         const value = isDay ? dayName(definition, definition.days[view.tab]) : state.name;
+        const inputValue = sheet.inputValue ?? value;
+        const errorAttrs = sheet.error ? ' aria-invalid="true" aria-describedby="reviewRenameError"' : "";
         parts.title.textContent = t(isDay ? "entry.review.day_menu.rename" : "entry.review.rename_program");
         parts.body.innerHTML = `<label class="field review-sheet__field"><span class="field__lab">${esc(t(isDay ? "entry.review.day_name" : "entry.review.program_name"))}</span>` +
-          `<input class="input" id="reviewRenameInput" maxlength="${isDay ? MAX_DAY_NAME : 60}" value="${esc(value)}" enterkeyhint="done" autocomplete="off"></label>`;
+          `<input class="input" id="reviewRenameInput" maxlength="${isDay ? MAX_DAY_NAME : 60}" value="${esc(inputValue)}"${errorAttrs} enterkeyhint="done" autocomplete="off"></label>` +
+          (sheet.error ? `<p class="program-editor__field-error" id="reviewRenameError" role="alert">${esc(sheet.error)}</p>` : "");
         parts.foot.innerHTML = `<button type="button" class="btn btn--cta btn--noarrow" data-review-rename-save>${esc(t("entry.review.save"))}</button>`;
       }
     }
@@ -849,6 +966,45 @@
       const hit = (selector) => target?.closest(selector);
       const state = read();
       if (hit("[data-review-done]")) { closeSheet(); return; }
+      if (sheet.kind === "block") {
+        let button;
+        if ((button = hit("[data-review-block-step]"))) {
+          sheet.cycles = Math.max(4, Math.min(12, sheet.cycles + Number(button.dataset.reviewBlockStep)));
+          const body = adapter.sheet().body;
+          body.querySelector("[data-review-block-weeks]").textContent = t("entry.review.block.weeks", { n: sheet.cycles });
+          body.querySelector('[data-review-block-step="-1"]').disabled = sheet.cycles <= 4;
+          body.querySelector('[data-review-block-step="1"]').disabled = sheet.cycles >= 12;
+        } else if ((button = hit("[data-review-block-pattern]"))) {
+          sheet.periodization = button.dataset.reviewBlockPattern;
+          adapter.sheet().body.querySelectorAll("[data-review-block-pattern]").forEach((option) => {
+            const selected = option === button;
+            option.classList.toggle("is-selected", selected);
+            option.setAttribute("aria-checked", String(selected));
+            option.tabIndex = selected ? 0 : -1;
+          });
+        } else if (hit("[data-review-block-deload]")) {
+          sheet.deload = !sheet.deload;
+          adapter.sheet().body.querySelector("[data-review-block-deload]").setAttribute("aria-checked", String(sheet.deload));
+        } else if (hit("[data-review-block-apply]")) {
+          const next = { block: { cycles: sheet.cycles, periodization: sheet.periodization }, deload: sheet.deload };
+          const definition = state.definition, answers = state.answers || {};
+          const current = {
+            cycles: Number.isInteger(answers.block?.cycles) ? answers.block.cycles : definition.cycles,
+            periodization: answers.block?.periodization || slotsOf(definition)[0]?.prescriptionsByCycle?.[0]?.sets?.[0]?.provenance?.periodization || "static",
+            deload: typeof answers.deload === "boolean" ? answers.deload : (definition.deloadCycles || []).includes(definition.cycles),
+          };
+          if (next.block.cycles === current.cycles && next.block.periodization === current.periodization && next.deload === current.deload) {
+            closeSheet();
+            return;
+          }
+          closeSheet().then(async () => {
+            const outcome = await adapter.changeBlock?.(next);
+            if (outcome?.ok || outcome?.cancelled || outcome?.superseded) return;
+            adapter.announce(outcome?.message || t("entry.review.save_failed"));
+          });
+        }
+        return;
+      }
       if (sheet.kind === "rename") {
         if (hit("[data-review-rename-save]")) saveRename();
         return;
@@ -864,7 +1020,9 @@
       if (!at) return;
       const slot = at.slot, sets = slot.prescriptionsByCycle[0].sets, first = range(sets[0]);
       let button;
-      if ((button = hit("[data-review-sets]"))) apply({ kind: "sets", slotId: slot.id, count: sets.length + Number(button.dataset.reviewSets) });
+      if ((button = hit("[data-review-execution-mode]"))) {
+        apply({ kind: "execution_mode", slotId: slot.id, executionMode: button.dataset.reviewExecutionMode });
+      } else if ((button = hit("[data-review-sets]"))) apply({ kind: "sets", slotId: slot.id, count: sets.length + Number(button.dataset.reviewSets) });
       else if ((button = hit("[data-review-rir]"))) {
         const [setIndex, dir] = button.dataset.reviewRir.split(":").map(Number);
         apply({ kind: "rir", slotId: slot.id, setIndex, rir: (sets[setIndex - 1].rir ?? 2) + dir });
@@ -895,17 +1053,51 @@
     }
     function onSheetKey(event) {
       if (sheet?.kind === "rename" && event.key === "Enter" && event.target?.id === "reviewRenameInput") { event.preventDefault(); saveRename(); }
+      if (sheet?.kind === "block" && ["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp"].includes(event.key) &&
+        event.target?.closest?.("[data-review-block-pattern]")) {
+        event.preventDefault();
+        const options = [...adapter.sheet().body.querySelectorAll("[data-review-block-pattern]")];
+        const index = options.indexOf(event.target.closest("[data-review-block-pattern]"));
+        const step = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : -1;
+        const next = options[(index + step + options.length) % options.length];
+        next.click();
+        next.focus();
+      }
+    }
+    function onSheetInput(event) {
+      const input = event.target;
+      if (sheet?.kind !== "rename" || input?.id !== "reviewRenameInput") return;
+      sheet.inputValue = input.value;
+      if (!sheet.error) return;
+      sheet.error = null;
+      input.removeAttribute("aria-invalid");
+      input.removeAttribute("aria-describedby");
+      adapter.sheet().body.querySelector("#reviewRenameError")?.remove();
     }
     async function saveRename() {
       const input = adapter.sheet().body.querySelector("#reviewRenameInput");
       const value = String(input?.value || "").trim();
       const state = read(), target = sheet?.target;
-      await closeSheet();
       if (target === "day") {
         const day = state.definition.days[view.tab];
-        if (!value || value === dayName(state.definition, day)) return;
+        if (!value || value === dayName(state.definition, day) || value === String(day?.name || "").trim()) {
+          await closeSheet();
+          return;
+        }
+        if (duplicateDayName(state.definition, day, value, editorContext(state))) {
+          const caret = input?.selectionStart ?? value.length;
+          sheet.inputValue = value;
+          sheet.error = t("toast.day_name_exists");
+          paintSheet();
+          const next = adapter.sheet().body.querySelector("#reviewRenameInput");
+          next?.focus({ preventScroll: true });
+          next?.setSelectionRange?.(caret, caret);
+          return;
+        }
+        await closeSheet();
         apply({ kind: "day_name", dayId: day.id, name: value });
       } else {
+        await closeSheet();
         if (!value || value === state.name) return;
         run(async () => {
           const current = read();
@@ -922,9 +1114,44 @@
       const hit = (selector) => target?.closest(selector);
       let el;
       if ((el = hit("[data-review-tab]"))) { setTab(Number(el.dataset.reviewTab)); return; }
+      if ((el = hit("[data-review-confirm-offer-action]"))) {
+        const offer = read().offers?.find(item => item.slotId === el.dataset.reviewConfirmOfferAction);
+        if (!offer) return;
+        el.disabled = true;
+        run(async () => {
+          const outcome = await adapter.confirmOffer?.(offer);
+          if (outcome?.ok || outcome?.superseded) return true;
+          if (!outcome?.cancelled) adapter.announce(outcome?.message || t("entry.review.save_failed"));
+          if (el.isConnected) el.disabled = false;
+          return false;
+        });
+        return;
+      }
+      if ((el = hit("[data-review-confirmation-undo]"))) {
+        el.disabled = true;
+        run(async () => {
+          const outcome = await adapter.undoConfirmation?.(el.dataset.reviewConfirmationUndo);
+          if (outcome?.ok || outcome?.superseded) return true;
+          if (!outcome?.cancelled) adapter.announce(outcome?.message || t("entry.review.save_failed"));
+          if (el.isConnected) el.disabled = false;
+          return false;
+        });
+        return;
+      }
       if (hit("[data-review-undo]")) { undo(); return; }
       if (hit("[data-review-restore]")) { restore(); return; }
       if (hit("[data-review-title]")) { sheet = { kind: "rename", target: "program" }; openSheet(); return; }
+      if (hit("[data-review-block-edit]")) {
+        const state = read(), definition = state.definition, answers = state.answers || {};
+        sheet = {
+          kind: "block",
+          cycles: Number.isInteger(answers.block?.cycles) ? answers.block.cycles : definition.cycles,
+          periodization: answers.block?.periodization || slotsOf(definition)[0]?.prescriptionsByCycle?.[0]?.sets?.[0]?.provenance?.periodization || "static",
+          deload: typeof answers.deload === "boolean" ? answers.deload : (definition.deloadCycles || []).includes(definition.cycles),
+        };
+        openSheet();
+        return;
+      }
       if (hit("[data-review-day-name]")) { sheet = { kind: "rename", target: "day" }; openSheet(); return; }
       if (hit("[data-review-day-menu]")) { sheet = { kind: "day" }; openSheet(); return; }
       if (hit("[data-review-add]")) { pick("add"); return; }
@@ -1024,6 +1251,7 @@
     host.addEventListener("pointerup", onPanelUp);
     sheetParts.el.addEventListener("click", onSheetClick);
     sheetParts.el.addEventListener("keydown", onSheetKey);
+    sheetParts.el.addEventListener("input", onSheetInput);
     paint();
 
     return {
@@ -1041,6 +1269,7 @@
         host.removeEventListener("pointerup", onPanelUp);
         sheetParts.el.removeEventListener("click", onSheetClick);
         sheetParts.el.removeEventListener("keydown", onSheetKey);
+        sheetParts.el.removeEventListener("input", onSheetInput);
         if (sheet) { sheet = null; adapter.closeSheet(); }
       },
     };

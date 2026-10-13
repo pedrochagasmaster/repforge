@@ -353,24 +353,23 @@
   // avoidance and time fit can still stop it landing. An offer is kept only
   // when confirming it alone, with the same seed, puts that movement in that
   // slot, and it names the other slots that confirmation also moves.
-  function verifyConfirmationOffers({ generate, request, seed, result } = {}) {
+  async function verifyConfirmationOffers({ generate, request, seed, result, signal } = {}) {
     if (!result?.ok || !Array.isArray(result.confirmationOffers)) return [];
     const exerciseBySlot = (definition) => new Map(definition.days.flatMap((day) =>
       day.slots.map((slot) => [slot.id, slot.exerciseId])));
     const before = exerciseBySlot(result.value);
-    const kept = [];
-    for (const offer of result.confirmationOffers) {
-      const confirmed = generate({
+    const verified = await Promise.all(result.confirmationOffers.map(async (offer) => {
+      const confirmed = await generate({
         ...request,
         movementConfirmations: { ...(request.movementConfirmations || {}), [offer.offeredExerciseId]: [...offer.prerequisiteIds] },
-      }, seed);
-      if (!confirmed?.ok) continue;
+      }, seed, { signal });
+      if (!confirmed?.ok) return null;
       const after = exerciseBySlot(confirmed.value);
-      if (after.get(offer.slotId) !== offer.offeredExerciseId) continue;
+      if (after.get(offer.slotId) !== offer.offeredExerciseId) return null;
       const alsoChangedSlotIds = [...before.keys()].filter((id) => id !== offer.slotId && after.get(id) !== before.get(id));
-      kept.push({ ...offer, prerequisiteIds: [...offer.prerequisiteIds], alsoChangedSlotIds });
-    }
-    return kept;
+      return { ...offer, prerequisiteIds: [...offer.prerequisiteIds], alsoChangedSlotIds };
+    }));
+    return verified.filter(Boolean);
   }
 
   function createProductionServices(options) {

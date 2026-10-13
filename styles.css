@@ -729,6 +729,7 @@ input:not(:where([type=checkbox],[type=radio])):focus-visible,select:focus-visib
   flex:none;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--control-selection-boundary);
   background:transparent;
 }
+.review-block__patterns .radio-card:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 /* Nothing told you whether picking a second option replaced the first. A
    checkbox is a square; a radio is a circle. */
 .radio-card[role="checkbox"] .radio-card__mark{border-radius:var(--radius-compact)}
@@ -893,6 +894,7 @@ body:has(.exercise--focus.is-text-scaled) .wo-rest.is-running{padding:0 var(--sp
 body:has(.exercise--focus.is-text-scaled) .wo-rest.is-running .wo-rest__dot{display:none}
 body:has(.exercise--focus.is-text-scaled) .wo-head__center{order:3;flex:1 0 100%;padding-top:0}
 .wo-head__sub{display:none}
+.wo-head__sub.is-deload{display:block;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 .wo-head__end{display:flex;align-items:center;gap:6px;flex:none;position:relative;justify-self:end}
 /* Rest lives in the workout chrome, never over the card's controls: a square
    with the stopwatch while idle, a counting pill once it is running. */
@@ -3477,7 +3479,7 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .icon-btn--ghost{border:0;background:transparent;color:var(--ink)}
 .today-prog{padding:8px 0 16px;border-bottom:1px solid var(--boundary-decorative)}
 .today-prog__name{font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
-.today-prog__week{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin-top:4px}
+.today-prog__week,.today-prog__deload{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin-top:4px}
 .today-prog .segbar{margin-top:12px}
 #todayProgram .segbar__seg{background:var(--boundary-required);border-radius:var(--radius-compact)}
 #todayProgram .segbar__seg.is-done{background:var(--color-ink)}
@@ -7139,7 +7141,18 @@ body.is-entry-editor #entryProgramName,
 .review__titlebtn .icon-mask{color:var(--ink-faint)}
 .review__titlebtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .review__titlebtn:active{transform:var(--control-pressed-transform)}
-.review__block{margin:0;padding-top:var(--space-14);border-top:1px solid var(--boundary-decorative);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.review__blockrow{display:flex;align-items:center;gap:var(--space-12);padding-top:var(--space-14);border-top:1px solid var(--boundary-decorative)}
+.review__block{flex:1;min-width:0;margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.review__blockrow .text-link{flex:none;min-height:var(--control-target);white-space:nowrap}
+.review-block__stepper{width:max-content;margin:0 auto}
+.review-block__sec .sheetgroup__head{margin:0 0 var(--space-8)}
+.review-block__patterns{display:flex;flex-direction:column;gap:var(--space-8)}
+.review-block__patterns .radio-card{align-items:flex-start}
+.review-block__patterns .radio-card__mark{margin-top:2px}
+.review-block__deload{display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);padding:var(--space-14) 0;border-top:1px solid var(--boundary-decorative)}
+.review-block__copy{min-width:0;display:flex;flex-direction:column;gap:var(--space-4)}
+.review-block__copy strong{font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
+.review-block__copy span{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 .review__hint{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 .review>.review__hint{margin-top:0;padding-top:var(--space-14);border-top:1px solid var(--boundary-decorative)}
 .review__panel>.review__hint{margin:0 0 var(--space-8)}
@@ -7185,6 +7198,11 @@ body.is-entry-editor #entryProgramName,
 .review__rir{margin-left:auto;flex:none;padding:var(--space-4) var(--space-8);border:1px solid var(--boundary-decorative);border-radius:var(--radius-control);font-family:var(--font-training-data);font-size:var(--font-size-caption);color:var(--color-ink-secondary)}
 .review__chips{display:flex;flex-wrap:wrap;gap:var(--space-8);margin-top:var(--space-4)}
 .review__chip{padding:var(--space-4) var(--space-8);border:1px solid var(--boundary-decorative);border-radius:var(--radius-pill);font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.review__offer{display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);padding:var(--space-8) 0 var(--space-14);border-bottom:1px solid var(--boundary-decorative)}
+.review__offer p{flex:1;min-width:0;margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.review__offer strong{font-weight:var(--weight-semibold);color:var(--color-ink)}
+.review__offer>[data-review-confirm-offer-action]{flex:none;white-space:normal}
+.review__offer--confirmed{justify-content:flex-end;padding-top:0}
 .review__add{display:flex;align-items:center;gap:var(--space-12);width:100%;padding:var(--space-16) 0;border:0;background:none;cursor:pointer;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);color:var(--color-ink);text-align:left}
 .review__add .icon-mask{color:var(--color-ink-secondary)}
 @media (hover:hover) and (pointer:fine){.review__add:hover{background:var(--well)}}

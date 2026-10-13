@@ -70,7 +70,7 @@
     const counts = { worker: 0, main: 0 };
     const queue = [];
     let mode = opts.worker && typeof root.Worker === "function" ? "pending" : "main";
-    let worker = null, started = null, active = null;
+    let worker = null, started = null, active = null, disposed = false;
     let settleStart = () => {};
 
     function runOnMain(job) {
@@ -81,6 +81,7 @@
 
     // Once the worker is unusable every queued and future job runs here.
     function fallBack() {
+      if (disposed) return;
       if (worker) { try { worker.terminate(); } catch {} }
       worker = null;
       mode = "main";
@@ -98,6 +99,7 @@
 
     function start() {
       if (started) return started;
+      if (disposed) return Promise.resolve("disposed");
       started = new Promise((resolve) => { settleStart = resolve; });
       if (mode === "main") { settleStart("main"); return started; }
       try {
@@ -109,6 +111,7 @@
       worker.onerror = (event) => { event?.preventDefault?.(); fallBack(); };
       worker.onmessageerror = () => fallBack();
       worker.onmessage = (event) => {
+        if (disposed) return;
         const message = event.data || {};
         if (message.type === "ready") { mode = "worker"; settleStart("worker"); pump(); return; }
         if (message.type === "failed") { fallBack(); return; }
@@ -128,6 +131,7 @@
     // One job at a time is in the worker, so a superseded job still waiting
     // here is dropped before it costs anything.
     function pump() {
+      if (disposed) return;
       while (!active && queue.length) {
         const job = queue.shift();
         if (job.signal?.aborted) { job.reject(abortError()); continue; }
@@ -141,6 +145,7 @@
     let nextId = 0;
     function submit(job, signal) {
       return new Promise((resolve, reject) => {
+        if (disposed) { reject(abortError()); return; }
         if (signal?.aborted) { reject(abortError()); return; }
         const entry = { ...job, id: ++nextId, signal, resolve, reject };
         // An abort answers at once; a job already in the worker finishes there
@@ -158,6 +163,20 @@
       });
     }
 
+    function dispose() {
+      if (disposed) return;
+      disposed = true;
+      const pending = active ? [active, ...queue] : [...queue];
+      active = null;
+      queue.length = 0;
+      if (worker) { try { worker.terminate(); } catch {} }
+      worker = null;
+      mode = "disposed";
+      settleStart("disposed");
+      const error = abortError();
+      for (const job of pending) job.reject(error);
+    }
+
     return Object.freeze({
       /** generateProgram(request, catalog, seed), resolved off the main thread when possible. */
       generate: (request, seed, { signal } = {}) => submit({ type: "generate", request, seed }, signal),
@@ -169,6 +188,8 @@
       /** Starts the worker if needed; resolves "worker" or "main" once that is known. */
       ready: () => start(),
       stats: () => ({ mode, ...counts }),
+      /** Terminates this executor and rejects any active or queued jobs. */
+      dispose,
     });
   }
 

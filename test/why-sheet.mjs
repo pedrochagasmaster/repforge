@@ -69,8 +69,8 @@ function assert(cond, name, detail) {
   else { results.failed++; console.log(`  ✗ ${name}`); if (detail != null) console.log(`    ${typeof detail === "string" ? detail : JSON.stringify(detail).slice(0, 2000)}`); }
 }
 
-async function seed(page, { ambiguousPerSideReview = false } = {}) {
-  return page.evaluate(({ request, weight, reps, ambiguousPerSideReview }) => {
+async function seed(page, { ambiguousPerSideReview = false, knownModeNullConfigRequired = false } = {}) {
+  return page.evaluate(({ request, weight, reps, ambiguousPerSideReview, knownModeNullConfigRequired }) => {
     const generated = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot(), "why-sheet-067");
     let definition = generated.value;
     const target = definition.days.filter((day) => day.kind === "training").map((day) => ({ day, slot: day.slots[0] }))
@@ -110,6 +110,25 @@ async function seed(page, { ambiguousPerSideReview = false } = {}) {
         throw new Error("Review catalog-picked B-stance slot did not retain its unknown execution mode");
       }
     }
+    if (knownModeNullConfigRequired) {
+      const exerciseCatalog = window.RepForgeExerciseCatalog.snapshot();
+      const rawExercise = exerciseCatalog.exercises.find((entry) => entry.id === knownPerSide?.slot.exerciseId);
+      const laterality = (rawExercise?.laterality || []).map((id) => exerciseCatalog.uuidIndex?.[id]?.name).filter(Boolean);
+      const hasKnownBilateralMode = laterality.includes("Bilateral") && !laterality.includes("Unilateral");
+      if (!knownPerSide || !hasKnownBilateralMode || knownPerSide.slot.executionMode !== "bilateral") {
+        throw new Error(`the known-laterality guard fixture is no longer a generated bilateral slot: ${JSON.stringify(laterality)}`);
+      }
+      // Model a persisted configuration-required prescription whose mode was
+      // not stored, while the built-in catalog still establishes laterality.
+      // The production recommendation adapter must keep this generic status
+      // and must not add the missing-mode explanation.
+      knownPerSide.slot.executionMode = null;
+      for (const cycle of knownPerSide.slot.prescriptionsByCycle || []) {
+        for (const set of cycle.sets || []) set.status = "configuration_required";
+      }
+      const checked = window.RepForgeProgramCompiler.validateProgramDefinition(definition, exerciseCatalog, []);
+      if (!checked.ok) throw new Error(`known-laterality guard fixture is not a valid canonical definition: ${JSON.stringify(checked.issues)}`);
+    }
     return window.__repforgeFinalizeProgramSetup({
       programDefinition: definition, name: "Why sheet proof", answers: {}, destination: "log", origin: "first-run",
       draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: "why-sheet-067" },
@@ -124,7 +143,7 @@ async function seed(page, { ambiguousPerSideReview = false } = {}) {
           exerciseId: knownPerSide.slot.exerciseId },
       };
     });
-  }, { request: REQUEST, weight: WEIGHT, reps: REPS, ambiguousPerSideReview });
+  }, { request: REQUEST, weight: WEIGHT, reps: REPS, ambiguousPerSideReview, knownModeNullConfigRequired });
 }
 
 async function fillShelf(page, metricId, value) {
@@ -370,6 +389,42 @@ try {
     "P069-S3-CUE: the English setup-required Today target wraps at 200% text without horizontal overflow", perSideLargeText);
   console.log(`  EN setup-required 200% target geometry: ${JSON.stringify(perSideLargeText)}`);
   await perSideContext.close();
+
+  // A legacy or otherwise configuration-required prescription can have no
+  // stored slot mode even though its built-in catalog laterality is known.
+  // This enters the same production recommendation/Why boundary as the
+  // ambiguous Review pick above, while guarding the adapter's reason mapping.
+  const modeGuardContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const modeGuardPage = await modeGuardContext.newPage();
+  await modeGuardPage.clock.setFixedTime(new Date("2026-03-02T09:00:00.000Z"));
+  await modeGuardPage.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForAppBoot(modeGuardPage, { base: BASE });
+  const modeGuardProgram = await seed(modeGuardPage, { knownModeNullConfigRequired: true });
+  if (!modeGuardProgram) throw new Error("no known-laterality configuration-required slot in the program");
+  const modeGuardTruth = await engineTruth(modeGuardPage, modeGuardProgram.knownPerSide.slotId);
+  assert(modeGuardTruth.status === "configuration_required" && modeGuardTruth.engineStatus === "configuration_required" &&
+    modeGuardTruth.executionMode == null && modeGuardTruth.reasonCodes?.includes("configuration_required") &&
+    !modeGuardTruth.reasonCodes?.includes("execution_context_required") && modeGuardTruth.load == null,
+    "P069-S3-WHY: known catalog laterality does not turn a generic configuration-required reason into missing execution mode",
+    modeGuardTruth);
+  await modeGuardPage.evaluate((id) => window.__repforgeGoToLogExercise(id), modeGuardProgram.knownPerSide.rowId);
+  await modeGuardPage.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 10000 });
+  await modeGuardPage.waitForFunction((id) => document.querySelector("#workout .exercise.is-current")?.dataset.ex === id,
+    modeGuardProgram.knownPerSide.rowId, { timeout: 10000 });
+  const modeGuardLoading = await modeGuardPage.evaluate(() => {
+    const draft = window.__repforgeWorkoutDraft.current();
+    const exercise = draft?.exercises?.[draft.session?.selectedExerciseId];
+    const set = exercise?.sets?.[exercise.setOrder?.[0]];
+    return set?.programmed?.loadingContext || null;
+  });
+  assert(modeGuardLoading?.loadingConvention === "per_side" &&
+    modeGuardLoading.externalLoadMultiplier === 2,
+    "P069-S3-WHY: catalog laterality still establishes m=2 in the actual workout context", modeGuardLoading);
+  const modeGuardWhy = await openWhy(modeGuardPage);
+  assert(!modeGuardWhy.blocks.map((block) => block.text).join(" ").includes("Tell Taurifer how you do this: both sides together, or one side at a time."),
+    "P069-S3-WHY: the Why sheet does not ask for an execution mode already resolved by catalog laterality", modeGuardWhy);
+  await closeWhy(modeGuardPage);
+  await modeGuardContext.close();
 
   // ------------------------------------------------------------ session 1
   // A previous session with two different loads on its two sets, so the next

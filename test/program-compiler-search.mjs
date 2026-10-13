@@ -19,8 +19,10 @@ const fixturePath = path.join(root, "test/fixtures/program-compiler-corpus.json"
 // exhausting the backtracking budget on the main thread (#349), and every
 // satisfiable request must regenerate byte-identically, because generated
 // setup links rebuild the program from its request and seed. The fixture
-// digests were recorded from main before the search changed; regenerate them
-// with `--update` only together with a GENERATOR_VERSION change.
+// value digests were recorded from main before the search changed; regenerate
+// them with `--update` only together with a GENERATOR_VERSION change. The
+// separate offer digests protect Plan 072's diagnostic metadata without
+// rewriting those value/result digests or changing the generator version.
 
 
 function requestFor(answers) {
@@ -36,17 +38,21 @@ function withEquipment(request, equipmentIds) {
   return { ...request, gymProfile: { equipmentIds } };
 }
 
-const digests = {};
+const digests = {}, confirmationOfferDigests = {};
+const reversedCatalog = { ...Catalog, exercises: [...Catalog.exercises].reverse() };
 for (const { key, request, seed } of corpusCases({ Adapter, Catalog })) {
-  // Confirmation offers (Plan 072) are diagnostics beside the result; the
-  // recorded digests cover everything else, including the definition.
-  const { confirmationOffers, ...generated } = Compiler.generateProgram(request, Catalog, seed);
-  digests[key] = `${generated.ok ? "ok" : "conflict"}:${crypto.createHash("sha256").update(JSON.stringify(generated)).digest("hex")}`;
+  const generated = Compiler.generateProgram(request, Catalog, seed);
+  const { confirmationOffers = [], ...recorded } = generated;
+  digests[key] = `${recorded.ok ? "ok" : "conflict"}:${crypto.createHash("sha256").update(JSON.stringify(recorded)).digest("hex")}`;
+  confirmationOfferDigests[key] = `${generated.ok ? "ok" : "conflict"}:${crypto.createHash("sha256").update(JSON.stringify(confirmationOffers)).digest("hex")}`;
+  const reordered = Compiler.generateProgram(request, reversedCatalog, seed);
+  assert.deepEqual(reordered.confirmationOffers || [], confirmationOffers,
+    `${key} reports confirmation offers independently of catalog array order`);
 }
 
 if (process.argv.includes("--update")) {
-  fs.writeFileSync(fixturePath, `${JSON.stringify({ generatorVersion: Compiler.GENERATOR_VERSION, digests }, null, 2)}\n`);
-  console.log(`wrote ${Object.keys(digests).length} digests`);
+  fs.writeFileSync(fixturePath, `${JSON.stringify({ generatorVersion: Compiler.GENERATOR_VERSION, digests, confirmationOfferDigests }, null, 2)}\n`);
+  console.log(`wrote ${Object.keys(digests).length} value digests and ${Object.keys(confirmationOfferDigests).length} offer digests`);
   process.exit(0);
 }
 
@@ -54,8 +60,13 @@ const fixture = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
 assert.equal(Compiler.GENERATOR_VERSION, fixture.generatorVersion,
   "a generator version change re-records the corpus; the same version must regenerate identically");
 assert.deepEqual(Object.keys(digests), Object.keys(fixture.digests), "the corpus enumerates the recorded cases");
+assert.deepEqual(Object.keys(confirmationOfferDigests), Object.keys(fixture.confirmationOfferDigests || {}),
+  "the corpus records a separate digest for confirmationOffers without changing value digests");
 for (const [key, digest] of Object.entries(fixture.digests)) {
   assert.equal(digests[key], digest, `${key} regenerates byte-identically`);
+}
+for (const [key, digest] of Object.entries(fixture.confirmationOfferDigests)) {
+  assert.equal(confirmationOfferDigests[key], digest, `${key} regenerates confirmation offers byte-identically`);
 }
 assert.ok(Object.values(digests).filter((digest) => digest.startsWith("ok:")).length >= 150, "the corpus is mostly satisfiable programs");
 
