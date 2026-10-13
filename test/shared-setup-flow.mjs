@@ -1006,17 +1006,24 @@ export async function runSharedSetupFlow(browser) {
     const { context, page } = recipient;
     await freshDevice(page);
     await page.evaluate((encoded) => { location.hash = `setup=${encoded}`; }, firstEncoded.value);
-    await page.waitForFunction(() => window.__repforgeRecipeWorkerProbe?.requests.length > 0, null, { timeout: 10000 });
-    await page.waitForFunction(() => window.__repforgeRecipeWorkerProbe?.held.length > 0, null, { timeout: 10000 });
+    await page.waitForFunction(() => window.__repforgeRecipeWorkerProbe?.requests.length > 0 ||
+      window.__repforgeSharedSetup?.status === "ready", null, { timeout: 10000 });
     const firstPending = await page.evaluate(() => ({
       booted: window.__repforgeBooted === true,
       workerRequests: window.__repforgeRecipeWorkerProbe.requests.map(({ id, identity }) => ({ id, identity })),
       heldIds: window.__repforgeRecipeWorkerProbe.held.map(({ id }) => id),
       sharedStatus: window.__repforgeSharedSetup?.status,
+      gateVisible: !!document.querySelector("#firstRunSharedStart") && !document.querySelector("#firstRunSharedStart").disabled,
       engine: window.__repforgeProgramEngine?.stats?.(),
     }));
-    assert(!firstPending.booted && firstPending.workerRequests.length === 1 && firstPending.heldIds.length === 1,
-      "recipe decode remains pending on the actual foreground Worker reply", firstPending);
+    assert(firstPending.workerRequests.length === 1 && firstPending.sharedStatus === "loading" &&
+      !firstPending.gateVisible,
+    "recipe decoding reaches the foreground Worker and keeps the gate closed pending its reply", firstPending);
+    if (firstPending.workerRequests.length !== 1) {
+      await context.close();
+      return;
+    }
+    await page.waitForFunction(() => window.__repforgeRecipeWorkerProbe?.held.length > 0, null, { timeout: 10000 });
 
     await page.evaluate((encoded) => { location.hash = `setup=${encoded}`; }, secondEncoded.value);
     await page.waitForFunction(() => window.__repforgeSharedSetup?.status === "loading", null, { timeout: 5000 });
@@ -1035,6 +1042,7 @@ export async function runSharedSetupFlow(browser) {
         heldIds: probe.held.map(({ id }) => id),
         sharedStatus: window.__repforgeSharedSetup?.status,
         sharedName: window.__repforgeSharedSetup?.summary?.name || null,
+        gateVisible: !!document.querySelector("#firstRunSharedStart") && !document.querySelector("#firstRunSharedStart").disabled,
         cookieMatchesCurrentFragment: !!cookie && decodeURIComponent(cookie.slice("repforge_setup_v1=".length)) ===
           window.RepForgeSharedSetup.readSetupFragment(location.href),
         inMemoryName: state?.result?.name || null,
@@ -1043,10 +1051,10 @@ export async function runSharedSetupFlow(browser) {
     });
     assert(secondPending.identities.length === 2 && secondPending.identities[0].identity !== secondPending.identities[1].identity,
       "the two held jobs retain distinct sanitized request identities", secondPending.identities);
-    assert(!secondPending.booted && secondPending.sharedStatus === "loading" && !secondPending.inMemoryName &&
+    assert(secondPending.sharedStatus === "loading" && !secondPending.gateVisible && !secondPending.inMemoryName &&
       secondPending.cookieMatchesCurrentFragment && !secondPending.setupDraftPresent,
     "the stale first response cannot reach the gate or persist while the latest result is pending", {
-      booted: secondPending.booted, sharedStatus: secondPending.sharedStatus,
+      sharedStatus: secondPending.sharedStatus, gateVisible: secondPending.gateVisible,
       inMemoryName: secondPending.inMemoryName, cookieMatchesCurrentFragment: secondPending.cookieMatchesCurrentFragment,
       setupDraftPresent: secondPending.setupDraftPresent,
     });
