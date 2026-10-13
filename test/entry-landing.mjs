@@ -666,14 +666,14 @@ try {
     // ----------------------------------------------------------------------
     // Requirement 4: After Start but before preview activation
     // ----------------------------------------------------------------------
-    phase("Phase 4: Post-Start staging holds candidate while active durable state stays unchanged");
+    phase("Phase 4: Post-Start review stays transient while active durable state stays unchanged");
     await page.click("#firstRunSharedStart");
     await page.waitForSelector("#entryActivate", { timeout: 15000 });
 
     const scopePostStart = await inspectStorageScope(page);
     assert(
-      scopePostStart.candidateViolations.length > 0,
-      "owned setup draft now holds reviewed shared candidate",
+      scopePostStart.candidateViolations.length === 0,
+      "the durable setup-draft store remains free of the received shared payload until activation",
       JSON.stringify(scopePostStart.candidateViolations)
     );
     assert(
