@@ -1008,14 +1008,19 @@ export async function runSharedSetupFlow(browser) {
     await page.evaluate((encoded) => { location.hash = `setup=${encoded}`; }, firstEncoded.value);
     await page.waitForFunction(() => window.__repforgeRecipeWorkerProbe?.requests.length > 0 ||
       window.__repforgeSharedSetup?.status === "ready", null, { timeout: 10000 });
-    const firstPending = await page.evaluate(() => ({
-      booted: window.__repforgeBooted === true,
-      workerRequests: window.__repforgeRecipeWorkerProbe.requests.map(({ id, identity }) => ({ id, identity })),
-      heldIds: window.__repforgeRecipeWorkerProbe.held.map(({ id }) => id),
-      sharedStatus: window.__repforgeSharedSetup?.status,
-      gateVisible: !!document.querySelector("#firstRunSharedStart") && !document.querySelector("#firstRunSharedStart").disabled,
-      engine: window.__repforgeProgramEngine?.stats?.(),
-    }));
+    const firstPending = await page.evaluate(() => {
+      const visible = (node) => !!node && !node.hidden && !node.closest(".hidden,[hidden]") &&
+        getComputedStyle(node).display !== "none" && getComputedStyle(node).visibility !== "hidden";
+      const start = document.querySelector("#firstRunSharedStart");
+      return {
+        booted: window.__repforgeBooted === true,
+        workerRequests: window.__repforgeRecipeWorkerProbe.requests.map(({ id, identity }) => ({ id, identity })),
+        heldIds: window.__repforgeRecipeWorkerProbe.held.map(({ id }) => id),
+        sharedStatus: window.__repforgeSharedSetup?.status,
+        gateVisible: visible(start) && !start.disabled,
+        engine: window.__repforgeProgramEngine?.stats?.(),
+      };
+    });
     assert(firstPending.workerRequests.length === 1 && firstPending.sharedStatus === "loading" &&
       !firstPending.gateVisible,
     "recipe decoding reaches the foreground Worker and keeps the gate closed pending its reply", firstPending);
@@ -1036,12 +1041,15 @@ export async function runSharedSetupFlow(browser) {
       const state = window.__repforgeEntryState?.();
       const cookie = document.cookie.split(";").map((part) => part.trim())
         .find((part) => part.startsWith("repforge_setup_v1="));
+      const start = document.querySelector("#firstRunSharedStart");
+      const visible = (node) => !!node && !node.hidden && !node.closest(".hidden,[hidden]") &&
+        getComputedStyle(node).display !== "none" && getComputedStyle(node).visibility !== "hidden";
       return {
         identities: probe.requests.map(({ id, identity }) => ({ id, identity })),
         heldIds: probe.held.map(({ id }) => id),
         sharedStatus: window.__repforgeSharedSetup?.status,
         sharedName: window.__repforgeSharedSetup?.summary?.name || null,
-        gateVisible: !!document.querySelector("#firstRunSharedStart") && !document.querySelector("#firstRunSharedStart").disabled,
+        gateVisible: visible(start) && !start.disabled,
         cookieMatchesCurrentFragment: !!cookie && decodeURIComponent(cookie.slice("repforge_setup_v1=".length)) ===
           window.RepForgeSharedSetup.readSetupFragment(location.href),
         inMemoryName: state?.result?.name || null,
@@ -1060,15 +1068,21 @@ export async function runSharedSetupFlow(browser) {
     await page.evaluate(() => window.__repforgeRecipeWorkerProbe.release(0));
     await page.waitForFunction(() => window.__repforgeSharedSetup?.status === "ready" &&
       window.__repforgeSharedSetup?.summary?.name === "Latest recipe" &&
-      !!document.querySelector("#firstRunSharedStart") && !document.querySelector("#firstRunSharedStart").disabled,
+      !!document.querySelector("#firstRunSharedStart") && !document.querySelector("#firstRunSharedStart").disabled &&
+      !document.querySelector("#firstRunSharedStart").closest(".hidden,[hidden]"),
     null, { timeout: 15000 });
-    const latest = await page.evaluate(() => ({
-      status: window.__repforgeSharedSetup?.status,
-      name: window.__repforgeSharedSetup?.summary?.name,
-      gate: !!document.querySelector("#firstRunSharedStart") && !document.querySelector("#firstRunSharedStart").disabled,
-      setupDraftPresent: localStorage.getItem("repforge_program_setup_draft_v1") !== null,
-      engine: window.__repforgeProgramEngine?.stats?.(),
-    }));
+    const latest = await page.evaluate(() => {
+      const start = document.querySelector("#firstRunSharedStart");
+      const visible = !!start && !start.disabled && !start.hidden && !start.closest(".hidden,[hidden]") &&
+        getComputedStyle(start).display !== "none" && getComputedStyle(start).visibility !== "hidden";
+      return {
+        status: window.__repforgeSharedSetup?.status,
+        name: window.__repforgeSharedSetup?.summary?.name,
+        gate: visible,
+        setupDraftPresent: localStorage.getItem("repforge_program_setup_draft_v1") !== null,
+        engine: window.__repforgeProgramEngine?.stats?.(),
+      };
+    });
     assert(latest.status === "ready" && latest.name === "Latest recipe" && latest.gate && !latest.setupDraftPresent,
       "only the latest decoded proposal reaches the shared gate without a draft write", latest);
     const firstIdentity = secondPending.identities[0].identity;
@@ -1082,12 +1096,17 @@ export async function runSharedSetupFlow(browser) {
     await context.close();
 
     const fallback = await openAppPage(browser, { disableWorker: true, hash: `#setup=${firstEncoded.value}` });
-    const fallbackState = await fallback.page.evaluate(() => ({
-      status: window.__repforgeSharedSetup?.status,
-      name: window.__repforgeSharedSetup?.summary?.name,
-      gate: !!document.querySelector("#firstRunSharedStart") && !document.querySelector("#firstRunSharedStart").disabled,
-      engine: window.__repforgeProgramEngine?.stats?.(),
-    }));
+    const fallbackState = await fallback.page.evaluate(() => {
+      const start = document.querySelector("#firstRunSharedStart");
+      const visible = !!start && !start.disabled && !start.hidden && !start.closest(".hidden,[hidden]") &&
+        getComputedStyle(start).display !== "none" && getComputedStyle(start).visibility !== "hidden";
+      return {
+        status: window.__repforgeSharedSetup?.status,
+        name: window.__repforgeSharedSetup?.summary?.name,
+        gate: visible,
+        engine: window.__repforgeProgramEngine?.stats?.(),
+      };
+    });
     assert(fallbackState.gate && fallbackState.status === "ready" && fallbackState.name === "First recipe" &&
       fallbackState.engine?.mode === "main" && fallbackState.engine?.main === 1 && fallbackState.engine?.worker === 0,
     "recipe decode uses the existing engine's honest main-thread fallback", fallbackState);
