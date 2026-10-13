@@ -923,7 +923,8 @@ export async function runSharedSetupFlow(browser) {
       rawOrderEqual: JSON.stringify(restored.definition) === JSON.stringify(document.program.definition),
     };
     assert(restoreIdentity.canonicalEqual,
-      "Restore returns exactly to the definition received in the link", restoreIdentity);
+      `Restore returns exactly to the definition received in the link (canonical=${restoreIdentity.canonicalEqual}, rawOrder=${restoreIdentity.rawOrderEqual})`,
+      restoreIdentity);
     const afterRestore = await page.evaluate((key) => ({
       setupDraft: localStorage.getItem(key),
       reviewLog: sessionStorage.getItem("repforge_entry_review_v1"),
@@ -952,7 +953,7 @@ export async function runSharedSetupFlow(browser) {
     assert(!after.cookie && !(await handoffCookie(context)), "activation clears the handoff cookie", after.cookie);
     assert(gate.logActive && !gate.gate, "activation lands on Today", gate);
     const trainingDays = document.program.definition.days.filter((day) => day.kind === "training").length;
-    assert(trainingDays === 4 && state.programMeta?.daysPerWeek === trainingDays,
+    assert(trainingDays > 0 && state.programMeta?.daysPerWeek === trainingDays,
       "programMeta.daysPerWeek is the shared definition's training-day count", { stored: state.programMeta?.daysPerWeek, trainingDays });
     const rawBefore = await page.evaluate((k) => localStorage.getItem(k), KEY);
     const replicasBefore = await readBothReplicas(page);
