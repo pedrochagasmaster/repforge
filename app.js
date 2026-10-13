@@ -17594,10 +17594,12 @@ function mountEntryAdjust(){
     commit:commitEntryAdjust,
     confirmOffer:confirmEntryMovementOffer,
     undoConfirmation:undoEntryMovementConfirmation,
-    changeBlock:async patch=>{
+    // Owner decision (2026-10-13): a received shared program keeps its length,
+    // pattern and deload as received, so its review has no block Change.
+    changeBlock:entryGeneratorReviewRoute()?async patch=>{
       const outcome=await guardEntryRebuild(()=>applyEntryAnswerEdit(patch,{lead:t("entry.change.lead.answer")}));
       if(outcome===false)return{ok:false,cancelled:true};
-      return outcome?.ok?outcome:{...outcome,message:entryFailureText(outcome?.failure)||t("entry.issue.compile")}},
+      return outcome?.ok?outcome:{...outcome,message:entryFailureText(outcome?.failure)||t("entry.issue.compile")}}:undefined,
     observe:report=>{if(entryGeneratorReviewRoute())captureEvent("program_review_action",report)},
     t:(key,vars)=>key==="entry.review.source"&&entryState?.route==="shared"?t("entry.route.shared"):t(key,vars),esc,
     exerciseName:id=>libraryName(libraryEntry(id))||id,
@@ -20723,6 +20725,10 @@ function init(){
   $("#firstRunContinue").onclick=()=>{reportLandingAction("continue_browser");recordInstallPolicyDismissal(installPresentedDecision);
     if(sharedSetupReady()){closeFirstRunInstall();renderFirstRunProgramMode();return}
     closeFirstRun();startOnboarding("first-run")};
+  const sharedCreate=$("#firstRunSharedCreate");if(sharedCreate)sharedCreate.onclick=()=>{
+    reportLandingAction("create");
+    discardSharedSetup();
+    closeFirstRun();startOnboarding("first-run")};
   const sharedStart=$("#firstRunSharedStart");if(sharedStart)sharedStart.onclick=async()=>{
     if(sharedStart.disabled)return;
     reportLandingAction("shared_start");
@@ -21300,6 +21306,16 @@ function cancelSharedSetupDecode(){
   sharedSetupDecodeController=null}
 function clearSharedSetupHandoffIfMatches(encoded){
   try{if(SharedSetup.readHandoffCookie()===encoded)SharedSetup.clearHandoffCookie()}catch{}}
+/* Owner decision (2026-10-13): "Create a program from scratch" discards the
+   received proposal. The cookie and any fragment go, so a reload cannot bring
+   it back; nothing from it was ever written, and its language is not kept. */
+function discardSharedSetup(){
+  cancelSharedSetupDecode();
+  try{SharedSetup?.clearHandoffCookie?.()}catch{}
+  try{if(SharedSetup?.readSetupFragment?.()!=null)history.replaceState({},"",SharedSetup.removeSetupFragment())}catch{}
+  if(entryState?.route==="shared"){clearEntryAdjust();entryState=null}
+  sharedSetupDraft={status:"none",source:null,encoded:null,payload:null,error:null,previousLang:null};
+  syncLang()}
 async function prepareSharedSetup(candidate){
   if(!candidate||!SharedSetup)return false;
   sharedSetupDecodeController?.abort();

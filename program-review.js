@@ -598,8 +598,10 @@
       const parts = [t(definition.cycles === 1 ? "entry.review.block.week_one" : "entry.review.block.weeks", { n: definition.cycles }),
         t(`entry.review.block.pattern.${pattern}`)];
       if (deload) parts.push(t("entry.review.block.deload", { n: deload }));
-      return `<div class="review__blockrow"><p class="review__block">${esc(parts.join(" · "))}</p>` +
-        `<button type="button" class="text-link" data-review-block-edit>${esc(t("entry.review.block.change"))}</button></div>`;
+      // A host without changeBlock (a received shared program) keeps its block as received.
+      const change = typeof adapter.changeBlock === "function"
+        ? `<button type="button" class="text-link" data-review-block-edit>${esc(t("entry.review.block.change"))}</button>` : "";
+      return `<div class="review__blockrow"><p class="review__block">${esc(parts.join(" · "))}</p>${change}</div>`;
     }
     function changesHtml(count) {
       if (!count) return `<p class="review__hint">${esc(t("entry.review.tap_hint"))}</p>`;
@@ -1141,7 +1143,7 @@
       if (hit("[data-review-undo]")) { undo(); return; }
       if (hit("[data-review-restore]")) { restore(); return; }
       if (hit("[data-review-title]")) { sheet = { kind: "rename", target: "program" }; openSheet(); return; }
-      if (hit("[data-review-block-edit]")) {
+      if (hit("[data-review-block-edit]") && typeof adapter.changeBlock === "function") {
         const state = read(), definition = state.definition, answers = state.answers || {};
         sheet = {
           kind: "block",
