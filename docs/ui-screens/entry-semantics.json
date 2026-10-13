@@ -99173,6 +99173,20 @@
           "text": "Chest"
         },
         {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
+        },
+        {
           "tag": "article",
           "role": "button",
           "name": "Pendlay row",
@@ -99909,6 +99923,20 @@
         {
           "tag": "span",
           "text": "Chest"
+        },
+        {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
         },
         {
           "tag": "article",
@@ -107501,6 +107529,20 @@
           "text": "Chest"
         },
         {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Close grip bench press"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
+        },
+        {
           "tag": "article",
           "role": "button",
           "name": "EZ bar skull crusher",
@@ -107803,6 +107845,20 @@
         {
           "tag": "span",
           "text": "Lats"
+        },
+        {
+          "tag": "p",
+          "text": "Could be if you already do it with good form."
+        },
+        {
+          "tag": "strong",
+          "text": "Overhand grip weighted pull-up"
+        },
+        {
+          "tag": "button",
+          "text": "Yes, swap it in",
+          "name": "Yes, swap it in",
+          "type": "button"
         },
         {
           "tag": "article",
