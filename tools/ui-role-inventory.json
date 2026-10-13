@@ -159,7 +159,7 @@
       "scenario": "Another tab changed the active program. The newer program stays active."
     },
     "onboarding-build/setup": {
-      "owner": "plan-054",
+      "owner": "plan-072",
       "content": "flat",
       "scenario": "The build_setup step: program name and day count before the editor opens."
     },
@@ -179,7 +179,7 @@
       "scenario": "A complete manual draft with supported progression and activation enabled."
     },
     "onboarding-import/source": {
-      "owner": "plan-054",
+      "owner": "plan-072",
       "content": "flat",
       "scenario": "The bounded supported-file and setup-source surface before any mutation."
     },
@@ -229,7 +229,7 @@
       "scenario": "A mapped exercise with manual progression ownership and provenance."
     },
     "onboarding-shared/gate": {
-      "owner": "plan-054",
+      "owner": "plan-072",
       "content": "flat",
       "scenario": "An incoming setup link adapts the landing around its safe program summary. Nothing persists until Start."
     },
@@ -239,7 +239,7 @@
       "scenario": "An invalid setup link explains that nothing was saved and keeps safe Build and Track actions available."
     },
     "onboarding-shared/preview": {
-      "owner": "plan-054",
+      "owner": "plan-072",
       "content": "flat",
       "scenario": "The editable preview a shared payload lands in before explicit activation."
     },
@@ -2862,8 +2862,29 @@
         "disabled",
         "loading"
       ],
-      "rationale": "Advances the received-program first-run gate into review; it takes the same ink-pill recipe as the other creation actions on the night band.",
-      "owner": "plan-064/r2",
+      "rationale": "Opens the received program in B Review without committing it; the ink-pill action remains on the night band.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-shared/gate"
+      ]
+    },
+    {
+      "id": "firstrunsharedcreate",
+      "selector": "#firstRunSharedCreate",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": "landing-text-link",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Leaves the received-program gate for the existing create hub; it does not commit a program.",
+      "owner": "plan-072",
       "catalogStates": [
         "onboarding-shared/gate"
       ]
@@ -9877,8 +9898,8 @@
       "id": "landing-ink-primary",
       "selector": "#firstRunCreate, #firstRunCreateClose, #firstRunSharedStart",
       "role": "primary",
-      "rationale": "The creation controls and received-program Start are one recipe, the ink pill with its arrow: the parchment action on the night band, the near-black action on the orange band, the arrow in the action's own ink on parchment (the prototype's orange arrow measured 2.05:1 there) and the orange band's mark on near-black. Owner decision L-1 on PR #295.",
-      "owner": "plan-064/r2",
+      "rationale": "Creation actions and See the program share the ink-pill recipe with an arrow and retain the band's approved contrast.",
+      "owner": "plan-072",
       "catalogStates": [
         "onboarding-shared/gate",
         "onboarding-shared/invalid",
@@ -9895,10 +9916,10 @@
     },
     {
       "id": "landing-text-link",
-      "selector": "#firstRunImport, #firstRunImportClose",
+      "selector": "#firstRunImport, #firstRunImportClose, #firstRunSharedCreate",
       "role": "quiet-navigation",
-      "rationale": "The two import controls open the same route without a training-state write; they are underlined text links with no boundary, in the ink of the band they sit on. Owner decision L-1 on PR #295.",
-      "owner": "plan-064/r2",
+      "rationale": "Import and shared-gate text actions are underlined quiet navigation controls with no boundary, in the ink of the band they sit on.",
+      "owner": "plan-072",
       "catalogStates": [
         "onboarding-shared/invalid",
         "onboarding-start/first-run",

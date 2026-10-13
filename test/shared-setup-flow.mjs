@@ -73,9 +73,11 @@ export const SHARED_DOM = Object.freeze({
 
 export const SHARED_COPY = Object.freeze({
   en: {
-    lede: "Review the program that was sent to you, then start it on this device.",
-    ledeInstalled: "Review the program that was sent to you, then start it on this device.",
+    lede: "This link carries a program and its settings. No history comes with it. Nothing changes until you tap Use this program.",
+    ledeInstalled: "This link carries a program and its settings. No history comes with it. Nothing changes until you tap Use this program.",
     title: "Start this program",
+    view: "See the program",
+    createFromScratch: "Create a program from scratch",
     capOne: (name) => `${name} · 1 day per week`,
     capMany: (name, n) => `${name} · ${n} days per week`,
     invalid: "This shared program link is invalid or incomplete.",
@@ -90,9 +92,11 @@ export const SHARED_COPY = Object.freeze({
     shareBody: "Create a setup link for this program. Copy the link or open the system Share sheet.",
   },
   pt: {
-    lede: "Revise o treino que enviaram para você e depois comece neste dispositivo.",
-    ledeInstalled: "Revise o treino que enviaram para você e depois comece neste dispositivo.",
+    lede: "Este link traz um treino e seus ajustes. Nenhum histórico vem junto. Nada muda até você tocar em Usar este treino.",
+    ledeInstalled: "Este link traz um treino e seus ajustes. Nenhum histórico vem junto. Nada muda até você tocar em Usar este treino.",
     title: "Começar este treino",
+    view: "Ver o treino",
+    createFromScratch: "Criar um treino do zero",
     capOne: (name) => `${name} · 1 dia por semana`,
     capMany: (name, n) => `${name} · ${n} dias por semana`,
     invalid: "Este link de treino compartilhado é inválido ou está incompleto.",
@@ -160,7 +164,7 @@ export function sharedGateSnapshot() {
     hero: !!document.querySelector(".firstrun-hero"),
     install: shown(document.querySelector("#firstRunInstall")),
     continueShown: shown(document.querySelector("#firstRunContinue")),
-    lede: document.querySelector("#firstRunLede")?.textContent || null,
+    lede: document.querySelector("#firstRunSharedBody")?.textContent?.trim() || document.querySelector("#firstRunLede")?.textContent || null,
     standardPresent: !!standard,
     standardHidden: hidden(standard),
     sharedPresent: !!shared,
@@ -175,7 +179,16 @@ export function sharedGateSnapshot() {
     startBusy: start?.getAttribute("aria-busy") === "true",
     startName: (start?.innerText || "").replace(/\s+/g, " ").trim(),
     startTitle: start?.querySelector(".firstrun-row__title")?.textContent || null,
-    startCap: start?.querySelector(".firstrun-row__cap")?.textContent || null,
+    startCap: document.querySelector("#firstRunSharedName")?.textContent?.trim() || null,
+    headline: document.querySelector("#firstRunHeadline")?.textContent?.trim() || null,
+    sharedCardVisible: shown(document.querySelector("#firstRunSharedCard")),
+    sharedName: document.querySelector("#firstRunSharedName")?.textContent?.trim() || null,
+    sharedBody: document.querySelector("#firstRunSharedBody")?.textContent?.trim() || null,
+    viewText: start?.textContent?.replace(/\s+/g, " ").trim() || null,
+    createScratchVisible: shown(document.querySelector("#firstRunSharedCreate")),
+    createScratchFocusable: focusable(document.querySelector("#firstRunSharedCreate")),
+    createScratchText: document.querySelector("#firstRunSharedCreate")?.textContent?.trim() || null,
+    marketingSectionsVisible: [...document.querySelectorAll("#firstRun [data-landing-section]:not([data-landing-section=hero])")].some(shown),
     errorVisible: shown(error),
     errorText: (error?.textContent || "").trim(),
     errorRole: error?.getAttribute("role") || null,
@@ -807,12 +820,18 @@ export async function runSharedSetupFlow(browser) {
     const gate = await page.evaluate(sharedGateSnapshot);
     assert(gate.gate && gate.hero, "first-run hero remains on a shared link", gate);
     assert(gate.install, "iOS Safari still offers the install card", gate);
+    assert(gate.headline === SHARED_COPY.en.title, "shared gate headline uses the approved title", gate.headline);
+    assert(gate.sharedCardVisible && gate.sharedName === SHARED_COPY.en.capOne("Coach program"),
+      "shared gate card names the received program and its one day", { visible: gate.sharedCardVisible, name: gate.sharedName });
+    assert(gate.sharedBody === SHARED_COPY.en.lede, "shared gate carries the approved privacy and no-change disclosure", gate.sharedBody);
+    assert(gate.startVisible && !gate.sharedHidden && gate.startTitle === SHARED_COPY.en.view,
+      "See the program is the primary gate action", gate.startName);
+    assert(gate.createScratchVisible && gate.createScratchFocusable && gate.createScratchText === SHARED_COPY.en.createFromScratch,
+      "Create a program from scratch is the secondary gate action", gate.createScratchText);
+    assert(!gate.marketingSectionsVisible, "the received gate does not display the general landing tour", gate.marketingSectionsVisible);
     assert(!gate.createVisible && !gate.importVisible && !gate.createFocusable && !gate.importFocusable,
-      "Create and Import are not exposed in shared mode", gate);
-    assert(gate.startVisible && !gate.sharedHidden && gate.startTitle === SHARED_COPY.en.title,
-      "Start this program is the only program action", gate);
-    assert(gate.startCap === SHARED_COPY.en.capOne("Coach program"), "the caption names the program and its one day", gate.startCap);
-    assert(gate.lede === SHARED_COPY.en.lede, "shared install-available lede", gate.lede);
+      "the ordinary landing Create and Import controls are not exposed in shared mode", gate);
+    assert(gate.lede === SHARED_COPY.en.lede, "shared disclosure is the approved gate copy", gate.lede);
     assert(!gate.onboarding, "the generator is not opened", gate);
     const after = await page.evaluate(readDurableState);
     const hits = noSharedWrite(before, after, "Coach program");
@@ -990,7 +1009,7 @@ export async function runSharedSetupFlow(browser) {
       step: window.__repforgeEntryState?.()?.step,
       visible: !!document.querySelector("#firstRunSharedStart:not([hidden])") &&
         !document.querySelector("#firstRunSharedStart")?.closest(".hidden,[hidden]"),
-      title: document.querySelector("#firstRunSharedTitle")?.textContent?.trim(),
+      title: document.querySelector("#firstRunHeadline")?.textContent?.trim(),
       route: window.__repforgeEntryState?.()?.route,
       onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
       onboarded: JSON.parse(localStorage.getItem("repforge_v1") || "{}").programMeta?.onboarded === true,
@@ -1029,7 +1048,8 @@ export async function runSharedSetupFlow(browser) {
     await waitForFirstRun(page);
     const gate = await page.evaluate(sharedGateSnapshot);
     assert(gate.i18n === "pt" && /^pt/i.test(gate.langAttr || ""), "runtime language is Portuguese before accept", gate);
-    assert(gate.lede === SHARED_COPY.pt.lede && gate.startTitle === SHARED_COPY.pt.title, "Portuguese shared gate copy before accept", gate);
+    assert(gate.lede === SHARED_COPY.pt.lede && gate.headline === SHARED_COPY.pt.title &&
+      gate.startTitle === SHARED_COPY.pt.view, "Portuguese shared gate copy before accept", gate);
     assert(gate.startCap === SHARED_COPY.pt.capMany("Força compartilhada", 4), "Portuguese caption names four days", gate.startCap);
     const durable = await page.evaluate(readDurableState);
     assert(durable.state?.settings?.lang !== "pt", "the shared language is not durable before acceptance", durable.state?.settings?.lang);
@@ -1552,7 +1572,7 @@ export async function runSharedSetupFlow(browser) {
     await waitForFirstRun(page);
     const shape = await page.evaluate(() => ({
       overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
-      cap: document.querySelector("#firstRunSharedStart .firstrun-row__cap")?.textContent || "",
+      cap: document.querySelector("#firstRunSharedName")?.textContent || "",
     }));
     assert(!shape.overflow, "320px shared gate has no horizontal overflow", shape);
     assert(shape.cap.includes("A".repeat(100)), "the long name is shown whole", shape.cap.length);
@@ -1567,7 +1587,7 @@ export async function runSharedSetupFlow(browser) {
     await page.goto(setupUrl(encoded.value, "text-only-name"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
     const rendered = await page.evaluate(() => {
-      const cap = document.querySelector("#firstRunSharedStart .firstrun-row__cap");
+      const cap = document.querySelector("#firstRunSharedName");
       return { text: cap?.textContent || "", images: cap?.querySelectorAll("img").length || 0, executed: window.__sharedXss === true };
     });
     assert(rendered.text.includes(name), "untrusted program name is displayed literally", rendered.text);

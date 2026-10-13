@@ -914,7 +914,7 @@
       "id": "gate",
       "flow": "onboarding-shared",
       "label": "Shared setup — adaptive landing",
-      "scenario": "An incoming setup link adapts the landing around its safe program summary. Nothing persists until Start.",
+      "scenario": "The received-program gate names its program and training days, shows the no-history/no-change disclosure, and offers See the program plus Create a program from scratch.",
       "variants": "demandingText"
     },
     {

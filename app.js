@@ -19485,18 +19485,19 @@ function sharedSetupErrorKey(code,version=null){
   if(code==="decompression-unavailable")return"setup.shared.browser_unsupported";
   return"setup.shared.invalid"}
 function renderFirstRunProgramMode(){
-  const standard=$("#firstRunStandardProgram"),shared=$("#firstRunSharedProgram"),error=$("#firstRunSharedError");
+  const standard=$("#firstRunStandardProgram"),shared=$("#firstRunSharedProgram"),card=$("#firstRunSharedCard"),error=$("#firstRunSharedError");
   const ready=sharedSetupReady();
   const invalid=sharedSetupInvalid();
   standard?.classList.toggle("hidden",ready);
   shared?.classList.toggle("hidden",!ready);
+  card?.classList.toggle("hidden",!ready);
   $("#firstRun")?.classList.toggle("is-shared",ready);
   if(ready){
     const name=sharedSetupDraft.payload.program.name;
     const n=sharedTrainingDays(sharedSetupDraft.payload.program.definition);
-    const title=$("#firstRunSharedTitle"),cap=$("#firstRunSharedCap");
-    if(title)title.textContent=t("setup.shared.title");
-    if(cap)cap.textContent=t(n===1?"setup.shared.cap_one":"setup.shared.cap_many",{name,n});
+    const title=$("#firstRunSharedTitle"),nameLine=$("#firstRunSharedName");
+    if(title)title.textContent=t("setup.shared.view");
+    if(nameLine)nameLine.textContent=t(n===1?"setup.shared.cap_one":"setup.shared.cap_many",{name,n});
     if(error){error.textContent="";error.classList.add("hidden")}}
   else if(invalid){
     if(error){error.textContent=t(sharedSetupErrorKey(sharedSetupDraft.error,sharedSetupDraft.errorVersion));error.classList.remove("hidden")}}
@@ -19585,7 +19586,7 @@ function setFirstRunOffer(offer){
 function renderFirstRunHeroCopy(){
   const shared=sharedSetupReady(),invalid=sharedSetupInvalid(),back=landingReturning();
   const headline=$("#firstRunHeadline"),lede=$("#firstRunLede");
-  if(headline)headline.textContent=t(shared?"landing.shared.headline":invalid?"landing.shared.invalid_headline":back?"landing.returning.headline":"landing.headline");
+  if(headline)headline.textContent=t(shared?"setup.shared.title":invalid?"landing.shared.invalid_headline":back?"landing.returning.headline":"landing.headline");
   if(lede)lede.textContent=t(shared?"landing.shared.body":invalid?"landing.shared.invalid_body":back?"landing.returning.sub":"landing.hero.sub");
 }
 /* ---- The returning landing (owner decision on #295, comment 5941692606) ----
