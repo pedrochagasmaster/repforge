@@ -20,7 +20,14 @@ assert.ok(production, "wrangler.jsonc declares env.production");
 assert.equal(production.name, "taurifer-install-transfer");
 assert.notEqual(production.name, "taurifer-install-transfer-staging", "production is a separate Worker from staging");
 assert.notEqual(production.name, config.name, "production never deploys over the local top-level name");
-assert.deepEqual(production.routes, [{ pattern: "taurifer.com/v1/*", zone_name: "taurifer.com" }]);
+// The client API lives under /v1/; the bearer-authenticated scheduled operations
+// (health lease, purge, deletion ack) live under /_ops/. Without the second
+// route the production host answers /_ops/* from Pages and the health lease can
+// never be renewed, so creates stay at 503.
+assert.deepEqual(production.routes, [
+  { pattern: "taurifer.com/v1/*", zone_name: "taurifer.com" },
+  { pattern: "taurifer.com/_ops/*", zone_name: "taurifer.com" },
+]);
 assert.equal(production.route, undefined);
 assert.equal(production.workers_dev, false, "production has no workers.dev URL");
 assert.equal(production.preview_urls, false, "production has no preview URLs");
