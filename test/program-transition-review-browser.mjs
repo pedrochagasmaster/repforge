@@ -8,7 +8,11 @@
  * derived successor. A set-count edit made in the installed program editor
  * leaves every later change confirmable (#344), and survives a fewer-days
  * regeneration, named in the preview and present in the committed
- * successor. An install whose durable rows already carry the editor's
+ * successor. Each successor's program structure names its own training
+ * days, so the installed editor lists them and saves an edit after a
+ * fewer-days or shorter-sessions regeneration; an install whose successor
+ * already kept a stale day list heals on load (#388). An install whose
+ * durable rows already carry the editor's
  * leaked prescription copy still confirms a change without a reset. A
  * proposal made stale by another tab is refused with the
  * program unchanged, and a Build program's schedule repair stages guided
@@ -117,10 +121,42 @@ async function addSetInEditor(page) {
   await page.waitForFunction(({ target, next }) =>
     document.querySelector(target)?.previousElementSibling?.textContent === String(next), { target: selector, next: before + 1 });
   await page.locator("#programEditToggle").click();
-  await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"));
+  // Done either saves and closes the editor or keeps it open with an error.
+  await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden") ||
+    /Fix the highlighted values/.test(document.querySelector("#programEditorWrap")?.innerText || ""));
+  if (!await page.evaluate(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden")))
+    throw new Error("the installed editor refused Done: Fix the highlighted values before continuing.");
   await flush(page);
   const row = (await state(page)).program.find((entry) => entry.id === rowId);
   return { slotId: row.slotId || row.id, movement: row.name, cycleIndex, sets: before + 1 };
+}
+
+// Program → Edit lists exactly the active definition's training days, in
+// order, each with its exercises (#388).
+async function checkEditorDays(page, label) {
+  if (await page.locator("#settings.view.active").count()) await page.locator("#settingsBack").click();
+  await page.locator('nav button[data-view="program"]').click();
+  await page.locator("#program.view.active").waitFor({ state: "visible" });
+  await page.locator("#programEditToggle").click();
+  await page.locator("#programEditorWrap:not(.is-hidden)").waitFor({ state: "visible" });
+  const shown = await page.evaluate(() => [...document.querySelectorAll('#programEditor [data-role="day"]')].map((section) =>
+    ({ day: section.dataset.day, exercises: section.querySelectorAll('[data-role="exercise"]').length })));
+  const want = training((await state(page)).programMeta.programDefinition).map((day) => day.name);
+  check(JSON.stringify(shown.map((entry) => entry.day)) === JSON.stringify(want) && shown.every((entry) => entry.exercises > 0),
+    `${label}: the installed editor shows the new block's days, each with its exercises`, { want, shown });
+  await page.locator("#programEditToggle").click();
+  await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"));
+}
+
+// A programStructure, where present, names the definition's training days.
+function checkStructure(snapshots, label) {
+  const mismatched = snapshots.map((snapshot) => {
+    const days = snapshot?.programMeta?.programStructure?.days;
+    const want = training(snapshot.programMeta.programDefinition).map((day) => day.name);
+    const have = Array.isArray(days) ? days.map((entry) => entry.label || entry.dayId) : want;
+    return JSON.stringify(have) === JSON.stringify(want) ? null : { want, have };
+  }).filter(Boolean);
+  check(mismatched.length === 0, `${label}: the program structure names the definition's training days`, mismatched);
 }
 
 // The edit is in the activated definition and in both durable replicas.
@@ -146,7 +182,7 @@ async function freshPage(browser, errors) {
   return { context, page };
 }
 
-async function seed(page, { manual = false } = {}) {
+async function seed(page, { manual = false, request = REQUEST } = {}) {
   const result = await page.evaluate(async ({ request, manual }) => {
     const catalogSnapshot = window.RepForgeExerciseCatalog.snapshot();
     const generated = window.RepForgeProgramCompiler.generateProgram(request, catalogSnapshot, "review-browser-067");
@@ -167,7 +203,7 @@ async function seed(page, { manual = false } = {}) {
     });
     await window.__repforgeStorage.flush();
     return { ok: !!(finalized?.localOk || finalized?.idbOk), finalized };
-  }, { request: REQUEST, manual });
+  }, { request, manual });
   if (!result.ok) throw new Error(`seeding failed: ${JSON.stringify(result).slice(0, 1500)}`);
 }
 
@@ -201,6 +237,7 @@ function checkCommitted(before, after, durable, label) {
   check(JSON.stringify(durable.local?.programMeta?.programDefinition) === JSON.stringify(after.programMeta.programDefinition) &&
     JSON.stringify(durable.idb?.programMeta?.programDefinition) === JSON.stringify(after.programMeta.programDefinition),
   `${label}: both durable replicas hold the successor definition`);
+  checkStructure([after, durable.local, durable.idb], label);
 }
 
 async function main() {
@@ -303,6 +340,9 @@ async function main() {
     check(carriedSlot?.prescriptionsByCycle[editedWeek - 1].sets.length === setsBeforeEdit + 1,
       "the committed successor holds the set count the preview showed",
       carriedSlot?.prescriptionsByCycle.map((cycle) => cycle.sets.length));
+    // The regenerated successor stays editable (#388).
+    await checkEditorDays(page, "fewer days successor");
+    await checkEditorEdit(page, await addSetInEditor(page), "fewer days successor");
 
     // Recovery week -------------------------------------------------------
     await finishBlock(page);
@@ -364,6 +404,68 @@ async function main() {
     const beforeEditedRecovery = await confirmPreview(recoveryPage, { title: "Recovery week preview" });
     checkCommitted(beforeEditedRecovery, await state(recoveryPage), await replicas(recoveryPage), "recovery week after an edit");
     await recoveryContext.close();
+
+    // Shorter sessions after an installed-editor set edit (#388) ---------
+    const { context: shorterContext, page: shorter } = await freshPage(browser, errors);
+    await seed(shorter);
+    await checkEditorEdit(shorter, await addSetInEditor(shorter), "shorter sessions");
+    await finishBlock(shorter);
+    await openReview(shorter);
+    await shorter.locator('[data-review-action="schedule-repair"]').click();
+    await shorter.locator('[data-diag="sessions_too_long"]').click();
+    await shorter.locator("[data-diag-target]").fill("45");
+    await shorter.locator("[data-diag-continue]").click();
+    const beforeShorter = await confirmPreview(shorter, { title: "Proposed plan" });
+    const afterShorter = await state(shorter);
+    checkCommitted(beforeShorter, afterShorter, await replicas(shorter), "shorter sessions");
+    check(afterShorter.programMeta.programDefinition.request.timeCeilingMinutes <= 45,
+      "the regenerated successor fits 45-minute sessions", afterShorter.programMeta.programDefinition.request);
+    await checkEditorDays(shorter, "shorter sessions successor");
+    await checkEditorEdit(shorter, await addSetInEditor(shorter), "shorter sessions successor");
+    await shorterContext.close();
+
+    // An install whose successor already kept a stale structure (#388) ----
+    // Before the fix a fewer-days successor kept the predecessor's
+    // four-day programStructure beside its three-day definition. Loading
+    // heals it, and the next edit saves the healed structure.
+    const { context: staleContext, page: stale } = await freshPage(browser, errors);
+    await seed(stale, { request: { ...REQUEST, daysPerWeek: 3 } });
+    const planted = await stale.evaluate(async () => {
+      const plant = (snapshot) => {
+        snapshot.programMeta.programStructure = { ...(snapshot.programMeta.programStructure || {}), schemaVersion: 1,
+          days: ["Upper A", "Lower A", "Upper B", "Lower B"].map((label, index) =>
+            ({ dayId: `manual_d${index + 1}`, label, order: index + 1 })) };
+        return snapshot;
+      };
+      localStorage.setItem("repforge_v1", JSON.stringify(plant(JSON.parse(localStorage.getItem("repforge_v1")))));
+      return new Promise((resolve) => {
+        const open = indexedDB.open("repforge");
+        open.onerror = () => resolve(false);
+        open.onsuccess = () => {
+          const store = open.result.transaction("kv", "readwrite").objectStore("kv");
+          const read = store.get("repforge_v1");
+          read.onsuccess = () => {
+            const raw = read.result, parsed = plant(typeof raw === "string" ? JSON.parse(raw) : raw);
+            const write = store.put(typeof raw === "string" ? JSON.stringify(parsed) : parsed, "repforge_v1");
+            write.onsuccess = () => { open.result.close(); resolve(true); };
+            write.onerror = () => { open.result.close(); resolve(false); };
+          };
+          read.onerror = () => { open.result.close(); resolve(false); };
+        };
+      });
+    });
+    const staleDurable = await replicas(stale);
+    check(planted && [staleDurable.local, staleDurable.idb].every((snapshot) =>
+      snapshot.programMeta.programStructure.days.length === 4 && training(snapshot.programMeta.programDefinition).length === 3),
+    "stale install: both durable replicas hold a four-day structure beside a three-day definition");
+    await stale.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(stale, { base: BASE });
+    checkStructure([await state(stale)], "stale install after loading");
+    await checkEditorDays(stale, "stale install");
+    await checkEditorEdit(stale, await addSetInEditor(stale), "stale install");
+    const healed = await replicas(stale);
+    checkStructure([healed.local, healed.idb], "stale install after the next edit");
+    await staleContext.close();
 
     // Durable rows that already carry the editor's leaked copy (#344) -----
     // An older build persisted the editor's per-row prescriptionsByCycle;

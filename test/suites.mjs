@@ -91,7 +91,7 @@ export const SUITES = {
     s("test/program-transition-crash-replay.mjs", [], { seconds: 90, timeoutMs: 1200000 }),
     s("test/program-transition-backup.mjs"),
     s("test/program-block-identity.mjs", [], { seconds: 11 }),
-    s("test/program-transition-review-browser.mjs", [], { domains: ["transition", "progress", "persistence"], seconds: 40 }),
+    s("test/program-transition-review-browser.mjs", [], { domains: ["transition", "progress", "persistence"], seconds: 70 }),
     s("test/install-transfer-client-browser.mjs"),
     s("test/install-transfer-clone.mjs"),
     s("test/install-transfer-import.mjs", [], { seconds: 77 }),
