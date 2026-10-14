@@ -27,6 +27,9 @@ const DATA = new URL("../plans/067/data/", import.meta.url);
 const gym = JSON.parse(readFileSync(new URL("gym.json", DATA), "utf8"));
 const observations = JSON.parse(readFileSync(new URL("programs.json", DATA), "utf8"));
 const catalog = JSON.parse(readFileSync(new URL("app_file.json", DATA), "utf8"));
+const EN = JSON.parse(readFileSync(new URL("../i18n-en.json", import.meta.url), "utf8"));
+const PT = JSON.parse(readFileSync(new URL("../i18n-pt.json", import.meta.url), "utf8"));
+const ptDayName = (name) => PT[Object.keys(EN).find((key) => key.startsWith("program.split_day.") && EN[key] === name)];
 const observedIds = [...new Set(Object.values(observations).flatMap((program) =>
   program.days.flatMap((day) => day.exercises.map((entry) => entry.exerciseId))))];
 const REQUEST = {
@@ -171,8 +174,8 @@ async function checkEditorEdit(page, { slotId, cycleIndex, sets }, label) {
     `${label}: the durable program rows keep the canonical row shape`);
 }
 
-async function freshPage(browser, errors) {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+async function freshPage(browser, errors, { locale } = {}) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, ...(locale ? { locale } : {}) });
   const page = await context.newPage();
   page.on("pageerror", (error) => errors.push(String(error?.stack || error)));
   now = Date.parse("2026-03-02T09:00:00.000Z");
@@ -513,6 +516,70 @@ async function main() {
     check([legacyDurable.local, legacyDurable.idb].every((snapshot) => snapshot.program.every((row) => !("prescriptionsByCycle" in row))),
       "legacy install: the successor's durable rows keep the canonical row shape");
     await legacyContext.close();
+
+    // Generated day names in the app language (#401) -----------------------
+    // A Portuguese device reads the generated day names in Portuguese in the
+    // preview, a day the lifter renamed reads exactly as typed, and storage
+    // and the confirmed proposal keep the language-independent names.
+    const { context: ptContext, page: pt } = await freshPage(browser, errors, { locale: "pt-BR" });
+    await seed(pt);
+    await pt.locator('nav button[data-view="program"]').click();
+    await pt.locator("#program.view.active").waitFor({ state: "visible" });
+    await pt.locator("#programEditToggle").click();
+    await pt.locator("#programEditorWrap:not(.is-hidden)").waitFor({ state: "visible" });
+    const RENAMED = "Meu dia de puxar";
+    const renamedField = pt.locator("#programEditor .pday__name").nth(1);
+    await renamedField.fill(RENAMED);
+    await renamedField.press("Enter");
+    await pt.locator("#programEditToggle").click();
+    await pt.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"));
+    await flush(pt);
+    const ptBefore = training((await state(pt)).programMeta.programDefinition);
+    check(ptBefore[1]?.name === RENAMED && ptBefore.filter((_, index) => index !== 1).every((day) => ptDayName(day.name)),
+      "Portuguese install: the renamed day stores the typed name and the other days keep the generated names",
+      ptBefore.map((day) => day.name));
+    await finishBlock(pt);
+    await openReview(pt);
+    await pt.locator('[data-review-action="schedule-repair"]').click();
+    await pt.locator('[data-diag="fewer_days"]').click();
+    await pt.locator("[data-diag-target]").fill("3");
+    await pt.locator("[data-diag-continue]").click();
+    await pt.locator("[data-preview-confirm]").waitFor({ state: "visible", timeout: 15000 });
+    const ptProposal = (await pt.evaluate(() => window.__repforgeProgressReview.flow())).proposal;
+    const ptAfter = training(ptProposal.successor.programDefinition);
+    check(ptAfter.every((day) => ptDayName(day.name)), "the proposed successor stores the generated English day names",
+      ptAfter.map((day) => day.name));
+    const shownName = (day) => ptDayName(day.name) || day.name;
+    const wantDayLines = [];
+    for (let index = 0; index < Math.max(ptBefore.length, ptAfter.length); index++) {
+      const was = ptBefore[index], now = ptAfter[index];
+      if (was && now && was.name === now.name && was.slots.length === now.slots.length) continue;
+      wantDayLines.push(PT["review.preview.day_change"]
+        .replace("{before}", was ? `${shownName(was)} · ${was.slots.length}` : "—")
+        .replace("{after}", now ? `${shownName(now)} · ${now.slots.length}` : "—"));
+    }
+    const dayPrefix = PT["review.preview.day_change"].split("{before}")[0];
+    const shownDayLines = (await pt.locator("#reviewPanel .review__diff li").allInnerTexts())
+      .map((line) => line.trim()).filter((line) => line.startsWith(dayPrefix));
+    check(JSON.stringify(shownDayLines) === JSON.stringify(wantDayLines),
+      "the Portuguese preview names generated days in Portuguese and the renamed day exactly as typed",
+      { want: wantDayLines, shown: shownDayLines });
+    check(shownDayLines.some((line) => line.includes(`${RENAMED} · `)) &&
+      !shownDayLines.some((line) => ptBefore.concat(ptAfter).some((day) => day.name !== RENAMED && line.includes(day.name))),
+    "no preview day line shows a stored English generated name", shownDayLines);
+    const ptConfirmed = await confirmPreview(pt, { title: PT["review.preview.title"] });
+    const ptCommitted = await state(pt);
+    const ptRecord = ptCommitted.programMeta.transitionIn;
+    check(ptRecord?.proposalHash === ptProposal.proposalHash &&
+      ptRecord?.successor?.definitionFingerprint === ptProposal.successor.definitionFingerprint &&
+      ptRecord?.predecessor?.definitionFingerprint === ptProposal.predecessor.definitionFingerprint,
+    "the confirmed transition carries the previewed proposal hash and fingerprints unchanged",
+    { record: ptRecord, proposal: { hash: ptProposal.proposalHash, successor: ptProposal.successor.definitionFingerprint } });
+    check(JSON.stringify(ptCommitted.programMeta.programDefinition) === JSON.stringify(ptProposal.successor.programDefinition) &&
+      JSON.stringify(training(ptConfirmed.programMeta.programDefinition).map((day) => day.name)) ===
+        JSON.stringify(ptBefore.map((day) => day.name)),
+    "the stored day names are the language-independent names the proposal carried");
+    await ptContext.close();
 
     // A Build program's schedule repair stages guided editing -------------
     const { context: manualContext, page: manual } = await freshPage(browser, errors);
