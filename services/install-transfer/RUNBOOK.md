@@ -278,7 +278,7 @@ These receipts are the owner's attestation, not independent monitoring. The
 billing amount is attested, not observed. The loop's output is limited to
 purge counts, exit codes, and the producer's fixed error text.
 
-Run it from a dedicated checkout of the deployed SHA (not a `/tmp` worktree)
+Run it from a dedicated checkout of the deployed SHA at `~/taurifer-transfer-production` (a detached worktree, not a `/tmp` one; the unit's `WorkingDirectory` points there). The unit pins `NODE` to an absolute Node 22 binary because systemd user units don't load nvm; change it with `systemctl --user edit taurifer-transfer-health.service`. Run it
 as a systemd **user** service of type `oneshot` (90-second start timeout,
 `UMask=0077`), triggered by a user timer every two minutes, starting one
 minute after boot. User lingering keeps the timer running across logouts and
@@ -287,9 +287,9 @@ reboots. On the devbox `loginctl show-user ubuntu -p Linger` reported
 `sudo loginctl enable-linger ubuntu`.
 
 Check it with `systemctl --user list-timers` (next and last run),
-`systemctl --user status <service>` (last exit), and
-`journalctl --user -u <service> -n 20` (last summaries). Stop it with
-`systemctl --user disable --now <timer>`.
+`systemctl --user status taurifer-transfer-health.service` (last exit), and
+`journalctl --user -u taurifer-transfer-health.service -n 20` (last summaries). Stop it with
+`systemctl --user disable --now taurifer-transfer-health.timer`.
 
 **Failure behaviour:** when the timer stops, the devbox is down, or a pass
 fails, the lease lapses within five minutes and every new create returns
@@ -318,7 +318,7 @@ Any of these works, from the fastest:
    from the deployed checkout. It takes effect on deploy, and secrets are kept.
 2. The same with `--var TRANSFER_CREATES_ENABLED:false`, or a reviewed config
    change that sets either var in `env.production`.
-3. Stop the health timer (`systemctl --user disable --now <timer>`). Creates
+3. Stop the health timer (`systemctl --user disable --now taurifer-transfer-health.timer`). Creates
    fail within five minutes.
 
 A later deploy without `--var` restores the checked-in values, so record a
