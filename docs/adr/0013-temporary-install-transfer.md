@@ -563,6 +563,20 @@ never sees the data, or that all copies are deleted within one hour. It never
 places a token, payload, clone field, or full URL in logs, analytics, error
 tracking, referrers, screenshots, or support fixtures.
 
+## Production enablement (owner override, 2026-10-14)
+
+The owner enabled creates for real users on `https://taurifer.com` on
+2026-10-14, through a separate production Worker routed at `taurifer.com/v1/*`
+with its own EU-jurisdiction Durable Object namespaces and fresh secrets. This
+overrides this ADR's status line ("Staging and physical-device evidence remain
+future gates") and the runbook's gate table **as an explicit owner decision**:
+the staging, provider and physical-device evidence has not been recorded, and
+those gates remain open. The health lease that keeps creates available is the
+owner's self-attestation from a devbox loop, not independent monitoring. The
+contract, privacy and one-hour lifetime in this ADR are unchanged. See
+`services/install-transfer/RUNBOOK.md`, "Production enablement", for
+configuration, the health loop, and how to turn creates off.
+
 ## Operations
 
 The owner monitors the expiry deadline, deletion latency, purge job, alarms,
