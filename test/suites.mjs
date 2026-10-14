@@ -131,7 +131,7 @@ export const SUITES = {
     s("test/program-editor-setup-conflict.mjs", [], { seconds: 20 }),
     s("test/adaptive-build-opt-in.mjs", [], { domains: ["entry", "program", "workout", "persistence"], tier: "packet", seconds: 45, timeoutMs: 900000 }),
     s("test/adaptive-build-opt-out.mjs", [], { domains: ["entry", "program", "workout", "persistence"], tier: "packet", seconds: 30, timeoutMs: 900000 }),
-    s("test/adaptive-build-share.mjs", [], { domains: ["entry", "program", "shared", "persistence"], tier: "packet", seconds: 90, timeoutMs: 900000 }),
+    s("test/adaptive-build-share.mjs", [], { domains: ["entry", "program", "persistence"], tier: "packet", seconds: 90, timeoutMs: 900000 }),
     s("test/program-text-export.mjs"),
     s("test/exercise-picker.mjs", [], { seconds: 11 }),
     s("test/library-flow.mjs", [], { seconds: 21 }),
