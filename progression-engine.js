@@ -599,7 +599,7 @@
     ));
   }
 
-  const api = Object.freeze({ ENGINE_VERSION, FORMULA_VERSION, recommendSets });
+  const api = Object.freeze({ ENGINE_VERSION, FORMULA_VERSION, SUPPORTED_SEMANTICS, recommendSets });
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.RepForgeProgression = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

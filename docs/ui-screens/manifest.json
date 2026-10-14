@@ -1443,6 +1443,13 @@
       "variants": "localized"
     },
     {
+      "id": "editor-suggest-loads",
+      "flow": "program",
+      "label": "Program — Suggest loads",
+      "scenario": "The installed program editor with Suggest loads switched on for a dumbbell renegade row: the current rep target, the RIR, the smallest load change, and the question of how the lifter does the exercise.",
+      "variants": "localized"
+    },
+    {
       "id": "editor-day-name-refused",
       "flow": "program",
       "label": "Program — refused day rename",

@@ -2425,12 +2425,28 @@ function metricLoading(metricDefinitions,sourceExercise,loadingModel=null){
     ...(Object.prototype.hasOwnProperty.call(loadingModel,"bodyweightCoefficient")
       ?{bodyweightCoefficient:loadingModel.bodyweightCoefficient}:{})};
   return{loadingModel,loadingConvention,loadingContext}}
-function executionModeForSlot(slot){
-  const source=rawExercise(slot?.exerciseId),laterality=(source?.laterality||[])
+function catalogExecutionMode(exerciseId){
+  const source=rawExercise(exerciseId),laterality=(source?.laterality||[])
     .map(id=>rawCatalogObject(id)?.name).filter(name=>typeof name==="string");
   const unilateral=laterality.includes("Unilateral"),bilateral=laterality.includes("Bilateral");
-  if(unilateral!==bilateral)return unilateral?"unilateral":"bilateral";
+  return unilateral!==bilateral?(unilateral?"unilateral":"bilateral"):null}
+function executionModeForSlot(slot){
+  const catalogMode=catalogExecutionMode(slot?.exerciseId);
+  if(catalogMode)return catalogMode;
   return slot?.executionMode==="bilateral"||slot?.executionMode==="unilateral"?slot.executionMode:null}
+/* Plan 069 S4: which editor slots may offer "Suggest loads", and which need
+   the lifter's execution mode first. The engine's compositions decide support;
+   custom movements stay manual (R1), unsupported compositions too (R2). */
+const editorSuggestLoadsPolicy=Object.freeze({
+  eligibility(slot){
+    if(!slot||slot.metricOrigin!=="source_catalog"||isCustomLibraryId(slot.exerciseId)||!rawExercise(slot.exerciseId))return"custom";
+    const semantics=JSON.stringify((slot.metricDefinitions||[]).map(metric=>metric.semantic));
+    const supported=Object.values(window.RepForgeProgression?.SUPPORTED_SEMANTICS||{})
+      .some(candidate=>JSON.stringify(candidate)===semantics);
+    return supported?"eligible":"unsupported"},
+  executionModeQuestion(slot){
+    return(slot?.metricDefinitions||[]).some(metric=>["repsPerSide","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic))&&
+      !catalogExecutionMode(slot?.exerciseId)}});
 function slotLoadingProjection(slot){
   const{loadingConvention}=metricLoading(slot?.metricDefinitions||[],rawExercise(slot?.exerciseId),slot?.loadingModel);
   const semantics=new Set((slot?.metricDefinitions||[]).map(metric=>metric.semantic));
@@ -11000,6 +11016,8 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
     document.program=(document.program||[]).filter(item=>item.id!==edit.targetId);
     return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true,code:"invalid_canonical_exercise"};
   }
+  if(kind==="suggest_loads"||kind==="suggest_loads_rir"||kind==="execution_mode")
+    return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true,code:"invalid_canonical_prescription"};
   if(kind==="load_step"){
     const exerciseId=String(edit.exerciseId||""),after=edit.after;
     if(!exerciseId||(after!==null&&!(Number.isFinite(after)&&after>0&&after<=100)))return{conflict:true};
@@ -11104,9 +11122,11 @@ function editorSlotForRow(row,document,slotId,order,existing=null){
       if(reps&&filteredTargets[reps.semantic]==null&&targets[reps.semantic])
         filteredTargets[reps.semantic]=cloneSnapshot(targets[reps.semantic]);
       const built=editorNewPrescription(slotId,cycleIndex,setIndex,metricIds,definitions,filteredTargets,
-        definitions.length?(origin==="user_defined"?"manual":old?.status==="ready"?"ready":"manual"):"configuration_required");
+        definitions.length?"manual":"configuration_required");
+      // Plan 069 D3: a new movement is not what the lifter opted in for, so
+      // a replaced slot keeps its values but returns to manual.
       if(existing&&old){built.id=old.id;built.rir=old.rir??null;built.restSeconds=old.restSeconds??null;
-        built.provenance=cloneSnapshot(old.provenance||built.provenance)}
+        built.provenance={...cloneSnapshot(old.provenance||{}),source:"manual",policyVersion:"manual@1"}}
       sets.push(built)}
     prescriptionsByCycle.push({cycleIndex,sets})}
   const primaryIds=Array.isArray(raw?.primaryFeatureMuscle)?raw.primaryFeatureMuscle:[];
@@ -11133,6 +11153,15 @@ function syncEditorRowFromCanonical(document,slot,cycleIndex=1){
     row.min=typeof repTarget==="number"?repTarget:Number.isFinite(repTarget?.min)?repTarget.min:row.min;
     row.max=typeof repTarget==="number"?repTarget:Number.isFinite(repTarget?.max)?repTarget.max:row.max;
   }else{delete row.min;delete row.max}}
+function editorRepRangeValid(target){
+  const range=Number.isSafeInteger(target)?{min:target,max:target}:target&&typeof target==="object"?target:null;
+  return!!range&&Number.isSafeInteger(range.min)&&Number.isSafeInteger(range.max)&&range.min>=1&&range.max>=range.min&&range.max<=30}
+/* A pending "Suggest loads" opt-in belongs to the movement it was turned on for. */
+function dropPendingSuggestLoads(document,slotId){
+  const meta=document?.programMeta,list=Array.isArray(meta?.suggestLoadsPending)?meta.suggestLoadsPending:null;
+  if(!list)return;
+  const next=list.filter(id=>id!==slotId);
+  if(next.length)meta.suggestLoadsPending=next;else delete meta.suggestLoadsPending}
 function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={}){
   const meta=document.programMeta||(document.programMeta={});
   let definition=meta.programDefinition;
@@ -11155,9 +11184,13 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     const current=Object.prototype.hasOwnProperty.call(set.targets||{},edit.semantic)
       ?{present:true,value:set.targets[edit.semantic]}:{present:false,value:null};
     if(!changeValueEqualForEditor(current,edit.after)&&!changeValueEqualForEditor(current,edit.before))return false;
+    // Plan 069 D3: the rep range feeds the suggestion, so an adaptive set
+    // keeps adapting through a range edit and cannot lose its range.
+    const keepsAdaptive=set.status==="ready"&&(metric.semantic==="reps"||metric.semantic==="repsPerSide");
+    if(keepsAdaptive&&!(edit.after?.present&&editorRepRangeValid(edit.after.value)))return false;
     if(edit.after?.present)set.targets[edit.semantic]=cloneSnapshot(edit.after.value);
     else delete set.targets[edit.semantic];
-    set.status="manual";set.provenance={source:"manual",policyVersion:"manual@1"};
+    if(!keepsAdaptive){set.status="manual";set.provenance={source:"manual",policyVersion:"manual@1"}}
     syncEditorRowFromCanonical(document,slot,Number(edit.cycleIndex));
   }else if(edit?.kind==="metric_composition"){
     const {slot}=find(slotId);
@@ -11194,6 +11227,7 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
       set.provenance={source:"manual",policyVersion:"manual@1"};
       if(repSemantic&&set.targets?.[repSemantic]==null)set.targets={...(set.targets||{}),[repSemantic]:cloneSnapshot(defaultRange)}}
     slot.metricOrigin=String(slot.exerciseId||"").startsWith("custom:")||edit.metricIds.length?"user_defined":"source_catalog";
+    dropPendingSuggestLoads(document,slotId);
     const custom=(document.customExercises||[]).find(item=>item.id===slot.exerciseId);
     if(custom){custom.metricIds=cloneSnapshot(edit.metricIds);custom.metricDefinitions=cloneSnapshot(edit.metricDefinitions)}
     syncEditorRowFromCanonical(document,slot,cycleIndex);
@@ -11217,9 +11251,40 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     if(current!==edit.before&&current!==edit.after)return false;
     if(edit.field==="rir"&&edit.after!==null&&(!Number.isFinite(edit.after)||edit.after<0||edit.after>4))return false;
     if(edit.field==="restSeconds"&&edit.after!==null&&(!Number.isSafeInteger(edit.after)||edit.after<0||edit.after>86400))return false;
+    const keepsAdaptive=edit.field==="rir"&&set.status==="ready";
+    if(keepsAdaptive&&edit.after===null)return false;
     set[edit.field]=edit.after;
-    set.status="manual";set.provenance={source:"manual",policyVersion:"manual@1"};
+    if(!keepsAdaptive){set.status="manual";set.provenance={source:"manual",policyVersion:"manual@1"}}
     const {slot:rowSlot}=find(slotId);syncEditorRowFromCanonical(document,rowSlot,Number(edit.cycleIndex));
+  }else if(edit?.kind==="suggest_loads"){
+    const {slot}=find(slotId);
+    if(!slot||typeof edit.on!=="boolean")return false;
+    // A replay applies only to the movement and opt-in state it was made on.
+    const sets=(slot.prescriptionsByCycle||[]).flatMap(cycle=>cycle.sets||[]);
+    const adaptive=sets.length>0&&sets.every(set=>set.status==="ready");
+    const current=adaptive?"ready":(document.programMeta?.suggestLoadsPending||[]).includes(slotId)?"pending":"off";
+    const after=edit.on?(adaptive?"ready":"pending"):"off";
+    if(slot.exerciseId!==edit.before?.exerciseId||(current!==edit.before?.state&&current!==after))return false;
+    if(edit.on&&editorSuggestLoadsPolicy.eligibility(slot)!=="eligible")return false;
+    if(!window.ProgramEditorSuggestLoads?.set(document,slotId,edit.on))return false;
+  }else if(edit?.kind==="suggest_loads_rir"){
+    const {slot}=find(slotId);
+    if(!slot||!Array.isArray(edit.before))return false;
+    const after=edit.after;
+    if(after!==null&&!(typeof after==="number"&&Number.isFinite(after)&&after>=0&&after<=4))return false;
+    const sets=(slot.prescriptionsByCycle||[]).flatMap(cycle=>cycle.sets||[]);
+    if(after===null&&sets.some(set=>set.status==="ready"))return false;
+    const current=sets.map(set=>set.rir??null);
+    if(!changeValueEqualForEditor(current,edit.before)&&!current.every(value=>value===after))return false;
+    window.ProgramEditorSuggestLoads?.setRir(document,slotId,after);
+    syncEditorRowFromCanonical(document,slot,cycleIndex);
+  }else if(edit?.kind==="execution_mode"){
+    const {slot}=find(slotId);
+    if(!slot||!editorSuggestLoadsPolicy.executionModeQuestion(slot))return false;
+    if(edit.after!=="bilateral"&&edit.after!=="unilateral")return false;
+    const current=slot.executionMode==="bilateral"||slot.executionMode==="unilateral"?slot.executionMode:null;
+    if(current!==(edit.before??null)&&current!==edit.after)return false;
+    slot.executionMode=edit.after;
   }else if(edit?.kind==="prescription"&&edit.field==="sets"){
     const {slot}=find(slotId);
     const cycleIndex=Number(edit.cycleIndex||cycleIndex),cycle=slot?.prescriptionsByCycle?.find(item=>item.cycleIndex===cycleIndex);
@@ -11272,6 +11337,7 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
       if(!newSlot.alternates.length)delete newSlot.alternates}
     if(edit.kind==="exercise_replace"){
       for(const container of definition.days||[])container.slots=container.slots.filter(slot=>slot.id!==slotId)}
+    if(edit.kind==="exercise_replace")dropPendingSuggestLoads(document,slotId);
     const current=day.slots.findIndex(item=>item.id===slotId);
     if(current>=0)day.slots[current]=newSlot;else day.slots.push(newSlot);
     day.slots.sort((a,b)=>a.order-b.order);
@@ -11286,6 +11352,7 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
   }else if(edit?.kind==="exercise_remove"){
     if(!beforeRef.slot)return false;
     for(const day of definition.days||[])day.slots=day.slots.filter(slot=>slot.id!==slotId);
+    dropPendingSuggestLoads(document,slotId);
   }else if(edit?.kind==="exercise_move"){
     const {slot}=find(slotId);if(!slot)return false;
     const row=(document.program||[]).find(item=>item.id===edit.targetId);
@@ -11308,6 +11375,7 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
   }else if(edit?.kind==="day_remove"){
     const target=(definition.days||[]).find(item=>item.name===edit.targetDay);
     if(!target)return false;
+    for(const slot of target.slots||[])dropPendingSuggestLoads(document,slot.id);
     target.kind="rest";target.slots=[];
   }
   const checked=canonicalProgramDefinition(definition,document.customExercises||[]);
@@ -11382,6 +11450,12 @@ function createInstalledProgramEditorAdapter(){
         const rebased=editorRebaseDocument({edits},head);
         if(rebased.conflict)return{ok:false,conflict:true,editorConflict:true,code:rebased.code};
         document=rebased.document}
+      // Plan 069 S4: Done confirms every pending Suggest loads opt-in, or
+      // commits nothing. The editor checked it already; this is the boundary.
+      const confirmOptIn=candidate=>window.ProgramEditorSuggestLoads?.confirm(candidate,editorSuggestLoadsPolicy)||{ok:false,issues:[]};
+      const optIn=confirmOptIn(document);
+      if(!optIn.ok)return{ok:false,invalid:true,suggestLoads:optIn.issues[0]||null};
+      document=optIn.document;
       const impact=installedEditorImpact(document,head,edits);
       if(impact.active&&impact.incompatible&&intent.kind!=="apply_discard_workout")
         return{ok:false,workoutConflict:true,impact};
@@ -11403,7 +11477,10 @@ function createInstalledProgramEditorAdapter(){
             const rebased=editorRebaseDocument({edits},lockedHead);
             if(rebased.conflict)
               return{reject:true,result:{ok:false,conflict:true,editorConflict:true,code:rebased.code}};
-            document=rebased.document;
+            const lockedOptIn=confirmOptIn(rebased.document);
+            if(!lockedOptIn.ok)
+              return{reject:true,result:{ok:false,invalid:true,suggestLoads:lockedOptIn.issues[0]||null}};
+            document=lockedOptIn.document;
           }
           const lockedImpact=installedEditorImpact(document,lockedHead,edits);
           if(lockedImpact.active&&lockedImpact.incompatible&&intent.kind!=="apply_discard_workout")
@@ -11439,6 +11516,7 @@ function createInstalledProgramEditorAdapter(){
     formatNumber:(value)=>fmt(value),
     ...editorMetricAdapter({cycleIndex:()=>mesocycleLifecycle(state.programMeta).current||1}),
     defaultLoadStepKg:()=>{const global=+state.settings.minJump;return Number.isFinite(global)&&global>0?global:2.5},
+    suggestLoads:editorSuggestLoadsPolicy,
     context:()=>{const mc=mesocycleWeek();return mc.current!=null?mesocycleWeekCopy(mc):""},
     status:()=>"",
     confirm:({kind,day})=>kind==="day_remove"?confirm(t("confirm.delete_day",{day:dayLabel(day)})):true,
@@ -11475,6 +11553,8 @@ function createOnboardingProgramEditorAdapter(){
     exerciseDisplayLabel:(exercise)=>exerciseDisplayName(exercise),
     formatNumber:(value)=>fmt(value),
     ...editorMetricAdapter({cycleIndex:()=>1}),
+    ...(entryState?.route==="build"?{defaultLoadStepKg:()=>{const global=+state.settings.minJump;return Number.isFinite(global)&&global>0?global:2.5},
+      suggestLoads:editorSuggestLoadsPolicy}:{}),
     context:()=>"",
     // A message already announced is rendered in place; a new one is left for
     // updateOnboardingEditorActions to write, which is what announces it.
@@ -11598,6 +11678,16 @@ async function applyInstalledEditorAndContinue(){
     openInstalledLeaveDialog({workout:true});
     return result;
   }
+  if(result?.suggestLoads){
+    // The refused opt-in's field carries the error; the lifter fixes it there.
+    // When this tab's copy has nothing to fix, another tab changed the slot.
+    if(installedLeaveMode)closeInstalledLeaveDialog();
+    pendingEditorNavigation=null;
+    if(editor.checkSuggestLoads?.()?.ok!==false){
+      const status=$("#programEditor [data-role=\"editor-status\"]");
+      if(status){status.textContent=t("program.editor.conflict");status.hidden=false;status.classList.add("is-error")}}
+    return result;
+  }
   if(result?.conflict||result?.editorConflict||result?.staleRevision){
     if(shareRepairReturn){finishInstalledEditor({discard:true});return result}
     const status=$("#programEditor [data-role=\"editor-status\"]");
@@ -11627,9 +11717,15 @@ function programEditorSnapshot(){
   const merged=mergeImportedCustomExercises(preview.customExercises||[],candidateProgram,snapshot);
   snapshot.customExercises=merged.customExercises;
   snapshot.program=candidateProgram;
+  const loadingConfiguration=entryState?.route==="build"
+    ?normalizeLoadingConfiguration(preview.loadingConfiguration):null;
+  const suggestLoadsPending=entryState?.route==="build"&&Array.isArray(preview.suggestLoadsPending)&&preview.suggestLoadsPending.length
+    ?cloneSnapshot(preview.suggestLoadsPending):null;
   snapshot.programMeta={...defaultProgramMeta([]),name:entryResultName()||entryState?.answers?.programName||"",
     daysPerWeek:entryState?.answers?.daysPerWeek||preview.frequency||null,onboarded:false,
     ...(preview.programDefinition?{programDefinition:cloneSnapshot(preview.programDefinition)}:{}),
+    ...(loadingConfiguration?{loadingConfiguration}:{}),
+    ...(suggestLoadsPending?{suggestLoadsPending}:{}),
     programStructure:cloneSnapshot(preview.programStructure||null),
     progressionRelations:cloneSnapshot(preview.progressionRelations||[]),
     progressionModifiers:cloneSnapshot(preview.progressionModifiers||[]),
@@ -11693,6 +11789,8 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
       [...new Set(program.map(exercise=>exercise.day))].map(label=>({dayId:label,label,exercises:rowsForDay(label)})));
   const progressionData=candidateProgressionData(proposal.programMeta?.progressionRelations,program,
     proposal.programMeta?.progressionIncompatibilities,"candidate-editor");
+  const loadingConfiguration=entryState.route==="build"
+    ?normalizeLoadingConfiguration(proposal.programMeta?.loadingConfiguration):null;
   const referencedCustomIds=new Set([...program.map(exercise=>exercise.libraryId),
     ...definitionMovementIds(proposal.programMeta?.programDefinition)].filter(isCustomLibraryId));
   const preview={...cloneSnapshot(entryState.result.preview),program,
@@ -11700,9 +11798,13 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
     programStructure:structure,
     progressionRelations:progressionData.relations,
     progressionIncompatibilities:progressionData.incompatibilities,
+    ...(entryState.route==="build"?{loadingConfiguration}:{}),
+    ...(entryState.route==="build"?{suggestLoadsPending:Array.isArray(proposal.programMeta?.suggestLoadsPending)
+      ?cloneSnapshot(proposal.programMeta.suggestLoadsPending):[]}:{}),
     days:previewDays,
     customExercises:(entryState.result.preview?.customExercises||[])
       .filter(entry=>referencedCustomIds.has(entry.id)).map(cloneSnapshot)};
+  if(!preview.suggestLoadsPending?.length)delete preview.suggestLoadsPending;
   const previousEntryState=entryState;
   const result={...cloneSnapshot(entryState.result),preview};
   const nextName=proposal.programMeta?.name||entryState.result.name;
@@ -18812,6 +18914,11 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
       else {renderOnboarding();$("#entryActivationStatus")?.focus?.()}
       return readiness}
     renderOnboarding();return}
+  // Plan 069 S4: "Use this program" is a commit point for Suggest loads. An
+  // incomplete opt-in is refused at its own field before anything else asks.
+  if(entryState.route==="build"){
+    const optIn=onboardingProgramEditor?.checkSuggestLoads?.();
+    if(optIn&&!optIn.ok)return optIn}
   if(!skipReplaceConfirm&&!(await entryConfirmReplaceIfNeeded()))return{cancelled:true};
   const preview=entryState.result?.preview;
   let exercises=manualBuild||entryState.route==="build"
@@ -18862,6 +18969,15 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     toast(t("entry.issue.compile"),{assertive:true});
     renderOnboarding();
     return{invalid:true,code:"program-definition-required"}}
+  if(route==="build"){
+    const confirmed=window.ProgramEditorSuggestLoads?.confirm({program:[],
+      programMeta:{programDefinition,suggestLoadsPending:cloneSnapshot(preview?.suggestLoadsPending||[])}},editorSuggestLoadsPolicy);
+    const checked=confirmed?.ok?canonicalProgramDefinition(confirmed.document.programMeta.programDefinition,baseProposal.customExercises||[]):null;
+    if(!checked){
+      reportActivationFailed("definition_invalid");
+      renderOnboarding();
+      return{invalid:true,code:"suggest-loads-incomplete"}}
+    programDefinition=checked}
   exercises=flatProgramFromDefinition(programDefinition,baseProposal.customExercises||[]);
   answersForMeta.daysPerWeek=programDefinition.days.filter(item=>item.kind==="training").length;
   answersForMeta.goal=programDefinition.request.goal||answersForMeta.goal;
@@ -18875,6 +18991,11 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
   baseProposal.programMeta.progressionModifiers=cloneSnapshot(preview?.progressionModifiers||[]);
   baseProposal.programMeta.progressionIncompatibilities=cloneSnapshot(preview?.progressionIncompatibilities||[]);
   baseProposal.programMeta.programStructure=programStructure?cloneSnapshot(programStructure):null;
+  if(route==="build"){
+    const loadingConfiguration=normalizeLoadingConfiguration(preview?.loadingConfiguration);
+    if(loadingConfiguration)baseProposal.programMeta.loadingConfiguration=loadingConfiguration;
+    else delete baseProposal.programMeta.loadingConfiguration;
+  }
   const compilerContext=(route==="recommend"||route==="custom"||route==="browse")
     ?(entryState.result?.compilerContext||null):null;
   if(compilerContext)baseProposal.programMeta.compilerContext=cloneSnapshot(compilerContext);
@@ -18936,6 +19057,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   if(draftActive&&!draftConfirmed&&!confirm(t("confirm.replace_program_discard_draft")))
     return{revision:readRevision(state),localOk:false,idbOk:false,cancelled:true};
   const proposal=cloneSnapshot(baseProposal||state);
+  const routeEff=entrySource?.route||telemetryRoute;
   const checkedDefinition=canonicalProgramDefinition(programDefinition,proposal.customExercises||[]);
   if(!checkedDefinition)return{revision:readRevision(state),localOk:false,idbOk:false,invalid:true,code:"program-definition-required"};
   if(originEff==="block"){
@@ -18959,7 +19081,10 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     ?cloneSnapshot(baseProposal.programMeta.progressionIncompatibilities):[];
   meta.programStructure=programStructure?cloneSnapshot(programStructure):
     (baseProposal?.programMeta?.programStructure?cloneSnapshot(baseProposal.programMeta.programStructure):null);
-  const routeEff=entrySource?.route||telemetryRoute;
+  if(routeEff==="build"){
+    const loadingConfiguration=normalizeLoadingConfiguration(baseProposal?.programMeta?.loadingConfiguration);
+    if(loadingConfiguration)meta.loadingConfiguration=loadingConfiguration;
+  }
   if(routeEff==="recommend"||routeEff==="custom"||routeEff==="browse"){
     const rawContext=compilerContext||baseProposal?.programMeta?.compilerContext;
     if(rawContext){

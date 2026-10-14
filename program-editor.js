@@ -4,6 +4,9 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.mountProgramEditor = api.mountProgramEditor;
   if (root) root.ProgramEditorIntents = api.PROGRAM_EDITOR_INTENTS;
+  if (root) root.ProgramEditorSuggestLoads = Object.freeze({
+    confirm: api.confirmSuggestLoads, issues: api.suggestLoadsIssues, set: api.setSuggestLoads, setRir: api.setSlotRir,
+  });
 })(typeof window !== "undefined" ? window : globalThis, function (root) {
   "use strict";
 
@@ -17,7 +20,8 @@
     "program_name", "day_name", "day_add", "exercise_field", "prescription",
     "exercise_add", "exercise_remove", "day_remove", "exercise_replace",
     "exercise_move", "slot_alternates", "metric_target", "metric_composition",
-    "prescription_field", "load_step", "save_draft", "apply", "apply_discard_workout",
+    "prescription_field", "load_step", "suggest_loads", "suggest_loads_rir", "execution_mode",
+    "save_draft", "apply", "apply_discard_workout",
   ]);
   const INTENT_SET = new Set(PROGRAM_EDITOR_INTENTS);
   const maxAlternates = () => root?.RepForgeProgramCompiler?.MAX_SLOT_ALTERNATES || 5;
@@ -84,6 +88,13 @@
     metricRir: "Target RIR",
     loadStep: "Smallest load change",
     loadStepHint: "Suggested loads move in steps of this size.",
+    suggestLoads: "Suggest loads",
+    suggestLoadsRange: ({ min, max }) => `Current rep target · ${min}–${max}`,
+    suggestLoadsCustom: "Custom exercises use the targets you set.",
+    suggestLoadsUnsupported: "Taurifer doesn't suggest loads for timed or distance work.",
+    executionModeQuestion: "How do you do this exercise?",
+    executionModeBilateral: "Both sides together",
+    executionModeUnilateral: "One side at a time",
     metricRestSeconds: "Rest between sets (seconds)",
     prescriptionFieldAria: ({ cycle, set, field }) => `${cycle}, ${set}, ${field}`,
   });
@@ -113,6 +124,10 @@
     metricUnconfigured: "program.editor.metric_unconfigured", metricTargetAria: "program.editor.metric_target_aria",
     metricTargetMinAria: "program.editor.metric_target_min_aria", metricTargetMaxAria: "program.editor.metric_target_max_aria",
     metricRir: "program.editor.metric_rir", loadStep: "program.editor.load_step", loadStepHint: "program.editor.load_step_hint", metricRestSeconds: "program.editor.metric_rest_seconds",
+    suggestLoads: "program.editor.suggest_loads", suggestLoadsRange: "program.editor.suggest_loads_range",
+    suggestLoadsCustom: "program.editor.suggest_loads_custom", suggestLoadsUnsupported: "program.editor.suggest_loads_unsupported",
+    executionModeQuestion: "entry.review.execution_mode.question", executionModeBilateral: "entry.review.execution_mode.bilateral",
+    executionModeUnilateral: "entry.review.execution_mode.unilateral",
     prescriptionFieldAria: "program.editor.prescription_field_aria",
   });
 
@@ -352,11 +367,129 @@
     if (after.present) targets[semantic] = clone(after.value);
     else delete targets[semantic];
     set.targets = targets;
-    set.status = "manual";
-    set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: "manual@1" };
+    // Plan 069 D3: the rep range is an input of the suggestion, so editing it
+    // keeps an adaptive set adaptive. Any other target is the lifter's own.
+    if (!(set.status === "ready" && REP_TARGET_SEMANTICS.has(semantic))) {
+      set.status = "manual";
+      set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: "manual@1" };
+    }
     const row = (document.program || []).find(candidate => (candidate.slotId || candidate.id) === slotId);
     const slot = definitionSlot(document, slotId);
     if (row && slot) row.prescriptionsByCycle = clone(slot.prescriptionsByCycle || []);
+    return true;
+  }
+
+  /*
+   * Plan 069 S4: the per-slot "Suggest loads" opt-in. Turning the switch on
+   * only marks the slot as pending (programMeta.suggestLoadsPending), which a
+   * saved setup draft keeps. A pending slot stays manual and drives nothing.
+   * The host's commit points (Build's "Use this program", the installed
+   * editor's Done) confirm it: every set in every cycle becomes ready with
+   * the RIR the lifter gave and manual-adaptive provenance.
+   */
+  const REP_TARGET_SEMANTICS = new Set(["reps", "repsPerSide"]);
+  const ADAPTIVE_POLICY_VERSION = "manual-adaptive@1";
+  const EXECUTION_MODES = new Set(["bilateral", "unilateral"]);
+  function slotSets(slot) {
+    return (slot?.prescriptionsByCycle || []).flatMap(cycle => cycle?.sets || []);
+  }
+  function slotAdaptive(slot) {
+    const sets = slotSets(slot);
+    return sets.length > 0 && sets.every(set => set.status === "ready");
+  }
+  function pendingSuggestLoads(document) {
+    const list = document?.programMeta?.suggestLoadsPending;
+    return Array.isArray(list) ? list.filter(id => typeof id === "string" && id) : [];
+  }
+  function setPendingSuggestLoads(document, list) {
+    document.programMeta = document.programMeta || {};
+    const unique = [...new Set(list)];
+    if (unique.length) document.programMeta.suggestLoadsPending = unique;
+    else delete document.programMeta.suggestLoadsPending;
+  }
+  function slotRepSemantic(slot) {
+    return (slot?.metricDefinitions || []).find(definition => REP_TARGET_SEMANTICS.has(definition.semantic))?.semantic || null;
+  }
+  function repRange(target) {
+    const range = Number.isSafeInteger(target) ? { min: target, max: target }
+      : target && typeof target === "object" ? { min: target.min, max: target.max } : null;
+    return range && Number.isSafeInteger(range.min) && Number.isSafeInteger(range.max) &&
+      range.min >= 1 && range.max >= range.min && range.max <= 30 ? range : null;
+  }
+  function validRir(value) {
+    return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 4;
+  }
+  function uniformRir(slot) {
+    const values = slotSets(slot).map(set => set.rir);
+    return values.length && values.every(value => validRir(value) && value === values[0]) ? values[0] : null;
+  }
+  function executionModeRequired(slot, policy) {
+    return !!policy?.executionModeQuestion?.(slot) && !EXECUTION_MODES.has(slot?.executionMode);
+  }
+  /**
+   * The first input a pending slot still needs, or null when it can be
+   * confirmed. The opt-in asks for one RIR for the slot: sets that disagree
+   * leave its field empty, so they need the lifter's answer too.
+   */
+  function suggestLoadsIssue(slot, policy) {
+    if (!slot || policy?.eligibility?.(slot) !== "eligible") return "eligibility";
+    const semantic = slotRepSemantic(slot), sets = slotSets(slot);
+    if (!semantic || !sets.length || sets.some(set => !repRange(set.targets?.[semantic]))) return "range";
+    if (uniformRir(slot) == null) return "rir";
+    if (executionModeRequired(slot, policy)) return "execution_mode";
+    return null;
+  }
+  function suggestLoadsIssues(document, policy) {
+    return pendingSuggestLoads(document).flatMap(slotId => {
+      const slot = definitionSlot(document, slotId);
+      const field = slot ? suggestLoadsIssue(slot, policy) : null;
+      return field ? [{ slotId, field }] : [];
+    });
+  }
+  /** Confirms every pending opt-in, or refuses the whole document. */
+  function confirmSuggestLoads(input, policy) {
+    const document = clone(input);
+    const issues = suggestLoadsIssues(document, policy);
+    if (issues.length) return { ok: false, issues };
+    const confirmed = [];
+    for (const slotId of pendingSuggestLoads(document)) {
+      const slot = definitionSlot(document, slotId);
+      if (!slot) continue;
+      for (const set of slotSets(slot)) {
+        set.status = "ready";
+        set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: ADAPTIVE_POLICY_VERSION };
+      }
+      const row = (document.program || []).find(candidate => (candidate.slotId || candidate.id) === slotId);
+      if (row && row.prescriptionsByCycle) row.prescriptionsByCycle = clone(slot.prescriptionsByCycle || []);
+      confirmed.push(slotId);
+    }
+    if (document.programMeta) setPendingSuggestLoads(document, []);
+    return { ok: true, document, confirmed };
+  }
+  function setSuggestLoads(document, slotId, on) {
+    const slot = definitionSlot(document, slotId);
+    if (!slot) return false;
+    const pending = pendingSuggestLoads(document).filter(id => id !== slotId);
+    if (on) {
+      if (!slotAdaptive(slot)) pending.push(slotId);
+    } else {
+      // Off restores manual and keeps every value the lifter typed.
+      for (const set of slotSets(slot)) {
+        set.status = "manual";
+        set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: "manual@1" };
+      }
+      const row = (document.program || []).find(candidate => (candidate.slotId || candidate.id) === slotId);
+      if (row && row.prescriptionsByCycle) row.prescriptionsByCycle = clone(slot.prescriptionsByCycle || []);
+    }
+    setPendingSuggestLoads(document, pending);
+    return true;
+  }
+  function setSlotRir(document, slotId, rir) {
+    const slot = definitionSlot(document, slotId);
+    if (!slot) return false;
+    for (const set of slotSets(slot)) set.rir = rir;
+    const row = (document.program || []).find(candidate => (candidate.slotId || candidate.id) === slotId);
+    if (row && row.prescriptionsByCycle) row.prescriptionsByCycle = clone(slot.prescriptionsByCycle || []);
     return true;
   }
 
@@ -579,12 +712,17 @@
       if (equal(previous, normalized)) return Promise.resolve({ ok: true, unchanged: true });
       if (field === "sets" && cycle) {
         const beforeSetIds = cycle.sets.map(set => set.id), addedSets = [], removedSetIds = [];
+        // A set added to an adaptive slot joins it (Plan 069 D3): the opt-in
+        // covers every set, so the new one takes the slot's RIR and status.
+        const adaptive = slotAdaptive(slot);
         while (cycle.sets.length < normalized) {
           const source = cycle.sets.at(-1);
           if (!source) return Promise.resolve({ ok: false });
-          const added = { ...clone(source), id: uid(), cycleIndex, setIndex: cycle.sets.length + 1,
-            rir: null, status: slot.metricIds?.length ? "manual" : "configuration_required",
-            provenance: { source: "manual", policyVersion: "manual@1" } };
+          const added = adaptive
+            ? { ...clone(source), id: uid(), cycleIndex, setIndex: cycle.sets.length + 1 }
+            : { ...clone(source), id: uid(), cycleIndex, setIndex: cycle.sets.length + 1,
+              rir: null, status: slot.metricIds?.length ? "manual" : "configuration_required",
+              provenance: { source: "manual", policyVersion: "manual@1" } };
           cycle.sets.push(added);
           addedSets.push(clone(added));
         }
@@ -806,6 +944,8 @@
         setStatus(label("invalid"), { error: true });
         return Promise.resolve({ ok: false, invalid: true, issues });
       }
+      const optIn = checkSuggestLoads();
+      if (!optIn.ok) return Promise.resolve(optIn);
       const result = adapter.commit({ expectedToken: clone(token), nextDocument: clone(document), intent: intent(kind, { edits: clone(edits) }) });
       return Promise.resolve(result).then(value => {
         if (value?.ok === false || value?.conflict || value?.staleRevision) return value;
@@ -977,6 +1117,10 @@
       }
       const before = targetState(slotId, cycleIndex, setIndex, semantic);
       if (equal(before, after)) return;
+      if (set.status === "ready" && REP_TARGET_SEMANTICS.has(semantic) && !repRange(after.value)) {
+        setStatus(label("invalid"), { error: true });
+        return;
+      }
       const next = clone(document);
       if (!replaceMetricTarget(next, slotId, cycleIndex, setIndex, semantic, after)) return;
       const result = stage(next, {
@@ -1026,6 +1170,122 @@
       next.programMeta.loadingConfiguration = { ...(next.programMeta.loadingConfiguration || {}), byExerciseId };
       return stage(next, { kind: "load_step", exerciseId: slot.exerciseId, before, after }, { redraw: false });
     }
+    // Plan 069 S4. Only a host that supplies the eligibility policy offers the
+    // switch; the others keep the load step where it always was.
+    function renderSuggestLoads(exercise, slot) {
+      const policy = adapter.suggestLoads;
+      if (!policy || !slot) return renderLoadStep(exercise, slot);
+      const eligibility = policy.eligibility?.(slot);
+      if (eligibility === "custom" || eligibility === "unsupported") {
+        return `<p class="program-editor__hint program-editor__suggest-loads-note" data-role="suggest-loads-note">${esc(label(eligibility === "custom" ? "suggestLoadsCustom" : "suggestLoadsUnsupported"))}</p>` +
+          renderLoadStep(exercise, slot);
+      }
+      if (eligibility !== "eligible") return renderLoadStep(exercise, slot);
+      const on = slotAdaptive(slot) || pendingSuggestLoads(document).includes(slot.id);
+      const semantic = slotRepSemantic(slot);
+      const activeCycle = definitionCycle(slot, metricCycleIndex(adapter, document)) || slot.prescriptionsByCycle?.[0];
+      const range = repRange(activeCycle?.sets?.[0]?.targets?.[semantic]);
+      const rangeMissing = slotSets(slot).some(set => !repRange(set.targets?.[semantic]));
+      const labelId = `program-editor-suggest-${esc(slot.id)}`;
+      const toggle = `<div class="program-editor__suggest-loads-row"><span class="program-editor__field-label" id="${labelId}">${esc(label("suggestLoads"))}</span>` +
+        `<button type="button" class="toggle" role="switch" aria-checked="${on ? "true" : "false"}" aria-labelledby="${labelId}" data-role="suggest-loads" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}"${!on && rangeMissing ? " disabled" : ""}></button></div>`;
+      if (!on) return `<section class="program-editor__suggest-loads" data-role="suggest-loads-section" data-slot-id="${esc(slot.id)}">${toggle}</section>` +
+        renderLoadStep(exercise, slot);
+      const rir = uniformRir(slot);
+      const question = policy.executionModeQuestion?.(slot);
+      const modeLabelId = `program-editor-mode-${esc(slot.id)}`;
+      const mode = question ? `<div class="program-editor__execution-mode" role="radiogroup" aria-labelledby="${modeLabelId}" data-role="execution-mode-group" data-slot-id="${esc(slot.id)}">` +
+        `<span class="program-editor__field-label" id="${modeLabelId}">${esc(label("executionModeQuestion"))}</span>` +
+        [["bilateral", "executionModeBilateral"], ["unilateral", "executionModeUnilateral"]].map(([value, key]) =>
+          `<button type="button" role="radio" class="radio-card${slot.executionMode === value ? " is-selected" : ""}" aria-checked="${slot.executionMode === value ? "true" : "false"}" data-role="execution-mode" data-mode="${value}" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}"><span class="radio-card__body"><span class="radio-card__title">${esc(label(key))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button>`).join("") +
+        `</div>` : "";
+      return `<section class="program-editor__suggest-loads is-on" data-role="suggest-loads-section" data-slot-id="${esc(slot.id)}">${toggle}` +
+        (range ? `<p class="program-editor__suggest-loads-range" data-role="suggest-loads-range">${esc(label("suggestLoadsRange", { min: format(adapter, range.min), max: format(adapter, range.max) }))}</p>` : "") +
+        `<label class="program-editor__metric-field"><span>${esc(label("metricRir"))}</span><input type="number" inputmode="decimal" min="0" max="4" step="any" required data-role="suggest-loads-rir" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" value="${rir == null ? "" : esc(String(rir))}"></label>` +
+        renderLoadStep(exercise, slot) + mode + `</section>`;
+    }
+    function toggleSuggestLoads(button) {
+      const slotId = button.dataset.slotId, slot = definitionSlot(document, slotId);
+      if (!slot) return;
+      const on = button.getAttribute("aria-checked") !== "true";
+      const before = { exerciseId: slot.exerciseId,
+        state: slotAdaptive(slot) ? "ready" : pendingSuggestLoads(document).includes(slotId) ? "pending" : "off" };
+      const next = clone(document);
+      if (!setSuggestLoads(next, slotId, on)) return;
+      pendingFocus = { selector: `[data-role="suggest-loads"][data-slot-id="${cssEscape(slotId)}"]` };
+      return stage(next, { kind: "suggest_loads", slotId, on, before });
+    }
+    function editSuggestLoadsRir(input) {
+      const slotId = input.dataset.slotId, slot = definitionSlot(document, slotId);
+      if (!slot) return;
+      setFieldError(input, null);
+      const raw = input.value.trim(), after = raw ? Number(raw) : null;
+      if (after != null && !validRir(after)) {
+        setFieldError(input, label("invalid"));
+        return;
+      }
+      if (after == null && slotAdaptive(slot)) {
+        const kept = uniformRir(slot);
+        input.value = kept == null ? "" : String(kept);
+        setFieldError(input, label("invalid"));
+        return;
+      }
+      const before = slotSets(slot).map(set => set.rir ?? null);
+      if (before.every(value => Object.is(value, after))) return;
+      const next = clone(document);
+      if (!setSlotRir(next, slotId, after)) return;
+      return stage(next, { kind: "suggest_loads_rir", slotId, before, after }, { redraw: false });
+    }
+    function editExecutionMode(button) {
+      const slotId = button.dataset.slotId, slot = definitionSlot(document, slotId), after = button.dataset.mode;
+      if (!slot || !EXECUTION_MODES.has(after) || slot.executionMode === after) return;
+      const before = EXECUTION_MODES.has(slot.executionMode) ? slot.executionMode : null;
+      const next = clone(document);
+      definitionSlot(next, slotId).executionMode = after;
+      pendingFocus = { selector: `[data-role="execution-mode"][data-slot-id="${cssEscape(slotId)}"][data-mode="${after}"]` };
+      return stage(next, { kind: "execution_mode", slotId, before, after });
+    }
+    /** The field carries its own error: aria-invalid and an alert linked by aria-describedby. */
+    function setFieldError(input, message) {
+      const current = input.getAttribute("aria-describedby");
+      if (current) input.ownerDocument.getElementById(current)?.remove();
+      input.removeAttribute("aria-describedby");
+      input.removeAttribute("aria-invalid");
+      if (!message) return;
+      const note = input.ownerDocument.createElement("p");
+      note.id = `program-editor-field-error-${uid()}`;
+      note.className = "program-editor__field-error";
+      note.setAttribute("role", "alert");
+      note.textContent = message;
+      (input.closest("label, [role=radiogroup]") || input).after(note);
+      input.setAttribute("aria-invalid", "true");
+      input.setAttribute("aria-describedby", note.id);
+    }
+    /**
+     * A commit point's check. An incomplete opt-in opens its exercise, puts
+     * the error on the first field it still needs and refuses the commit.
+     */
+    function checkSuggestLoads() {
+      const issue = suggestLoadsIssues(document, adapter.suggestLoads)[0];
+      if (!issue) return { ok: true };
+      const exercise = (document.program || []).find(item => (item.slotId || item.id) === issue.slotId);
+      if (exercise) {
+        expandedExercises.add(exercise.id);
+        const day = exercise.day;
+        if (collapsedDays.has(day)) collapsedDays.delete(day);
+      }
+      render();
+      const selector = issue.field === "execution_mode"
+        ? `[data-role="execution-mode"][data-slot-id="${cssEscape(issue.slotId)}"]`
+        : issue.field === "rir" ? `[data-role="suggest-loads-rir"][data-slot-id="${cssEscape(issue.slotId)}"]`
+          : `[data-role="suggest-loads"][data-slot-id="${cssEscape(issue.slotId)}"]`;
+      const field = host.querySelector(selector);
+      if (field) {
+        setFieldError(field, label("invalid"));
+        try { field.focus(); } catch { /* detached */ }
+      }
+      return { ok: false, invalid: true, suggestLoads: issue };
+    }
     function editPrescriptionField(input) {
       const slotId = input.dataset.slotId, cycleIndex = Number(input.dataset.cycleIndex);
       const setIndex = Number(input.dataset.setIndex), field = input.dataset.field;
@@ -1047,11 +1307,21 @@
       }
       const before = currentSet[field] == null ? null : currentSet[field];
       if (Object.is(before, after)) return;
+      // Plan 069 D3: an adaptive set keeps adapting through an RIR edit, and
+      // cannot lose the RIR its suggestion needs.
+      const keepsAdaptive = field === "rir" && currentSet.status === "ready";
+      if (keepsAdaptive && after == null) {
+        input.value = String(before);
+        setStatus(label("invalid"), { error: true });
+        return;
+      }
       const next = clone(document), set = definitionSet(next, slotId, cycleIndex, setIndex);
       if (!set) return;
       set[field] = after;
-      set.status = "manual";
-      set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: "manual@1" };
+      if (!keepsAdaptive) {
+        set.status = "manual";
+        set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: "manual@1" };
+      }
       const row = (next.program || []).find(candidate => (candidate.slotId || candidate.id) === slotId);
       if (row) row.prescriptionsByCycle = clone(definitionSlot(next, slotId).prescriptionsByCycle || []);
       const result = stage(next, { kind: "prescription_field", slotId, cycleIndex, setIndex, field, before, after }, { redraw: false });
@@ -1133,7 +1403,7 @@
           </div>
           ${legacyRepControls}
           ${renderMetricTargets(exercise)}
-          ${renderLoadStep(exercise, slot)}
+          ${renderSuggestLoads(exercise, slot)}
           ${renderAlternates(exercise, slot)}
           <div class="program-editor__exercise-actions">
             <button type="button" class="program-editor__replace" data-role="replace" data-action-role="replacement" data-id="${esc(exercise.id)}">${esc(label("replaceExercise"))}</button>
@@ -1366,6 +1636,9 @@
       host.querySelectorAll('[data-role="metric-target"]').forEach(input => input.addEventListener("change", () => editMetricTarget(input)));
       host.querySelectorAll('[data-role="prescription-field"]').forEach(input => input.addEventListener("change", () => editPrescriptionField(input)));
       host.querySelectorAll('[data-role="load-step"]').forEach(input => input.addEventListener("change", () => editLoadStep(input)));
+      host.querySelectorAll('[data-role="suggest-loads"]').forEach(button => button.addEventListener("click", () => toggleSuggestLoads(button)));
+      host.querySelectorAll('[data-role="suggest-loads-rir"]').forEach(input => input.addEventListener("change", () => editSuggestLoadsRir(input)));
+      host.querySelectorAll('[data-role="execution-mode"]').forEach(button => button.addEventListener("click", () => editExecutionMode(button)));
       host.querySelectorAll('[data-role="metric-composition"]').forEach(select => select.addEventListener("change", () => editMetricComposition(select)));
       host.querySelectorAll('[data-role="metric-cycle"]').forEach(details => details.addEventListener("toggle", () => {
         const slotId = details.closest('[data-role="metric-targets"]')?.dataset.slotId;
@@ -1646,11 +1919,12 @@
       getToken: () => clone(token),
       isDirty: () => edits.length > 0 || changed(),
       validationIssues: () => validation(document),
+      checkSuggestLoads,
       commit: apply,
       discard,
       replaceExercise: exerciseInstanceId => replaceForExercise(exerciseInstanceId, { repair: true }),
     };
   }
 
-  return { mountProgramEditor, PROGRAM_EDITOR_INTENTS };
+  return { mountProgramEditor, PROGRAM_EDITOR_INTENTS, confirmSuggestLoads, suggestLoadsIssues, setSuggestLoads, setSlotRir };
 });

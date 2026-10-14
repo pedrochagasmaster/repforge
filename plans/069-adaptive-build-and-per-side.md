@@ -1,7 +1,11 @@
 # Plan 069: Adaptive suggestions for Build programs and per-side loads
 
-- **Status:** PLANNED — OWNER DECISIONS PENDING. Planning only; no application
-  change is authorized by this file.
+- **Status:** S1–S4 IMPLEMENTED. Owner decisions D1–D15 are approved. S1
+  shipped in #375, S2 in #378, S3 in #381, and S4 (Build's Suggest loads
+  opt-in) in its own PR. S4's switch commits at the existing commit points:
+  Build's "Use this program" and the installed editor's Done. Save draft keeps
+  an incomplete opt-in without making it adaptive. Physical-device and launch
+  gates stay with Plan 059.
 - **Issue:** [#318](https://github.com/pedrochagasmaster/repforge/issues/318).
 - **Base:** `439a2c23` (main on 10 October 2026). File/line anchors below
   describe that commit.

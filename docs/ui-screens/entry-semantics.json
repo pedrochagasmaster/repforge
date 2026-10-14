@@ -2595,6 +2595,36 @@
           "type": "number"
         },
         {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
+        },
+        {
           "tag": "section",
           "labelledBy": "Alternates"
         },
@@ -4264,6 +4294,36 @@
           "name": "Cycle 7, Set 3, Rest (seconds)",
           "label": "Cycle 7, Set 3, Rest (seconds)",
           "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -5937,6 +5997,36 @@
           "type": "number"
         },
         {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
+        },
+        {
           "tag": "section",
           "labelledBy": "Alternates"
         },
@@ -7606,6 +7696,36 @@
           "name": "Cycle 7, Set 3, Rest (seconds)",
           "label": "Cycle 7, Set 3, Rest (seconds)",
           "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -9279,6 +9399,36 @@
           "type": "number"
         },
         {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
+        },
+        {
           "tag": "section",
           "labelledBy": "Alternates"
         },
@@ -10948,6 +11098,36 @@
           "name": "Ciclo 7, Série 3, Descanso (segundos)",
           "label": "Ciclo 7, Série 3, Descanso (segundos)",
           "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Sugerir cargas"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Sugerir cargas",
+          "labelledBy": "Sugerir cargas",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Menor variação de carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Menor variação de carga kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "As cargas sugeridas mudam em passos deste tamanho."
         },
         {
           "tag": "section",
@@ -12621,6 +12801,36 @@
           "type": "number"
         },
         {
+          "tag": "span",
+          "text": "Sugerir cargas"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Sugerir cargas",
+          "labelledBy": "Sugerir cargas",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Menor variação de carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Menor variação de carga kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "As cargas sugeridas mudam em passos deste tamanho."
+        },
+        {
           "tag": "section",
           "labelledBy": "Alternativas"
         },
@@ -14290,6 +14500,36 @@
           "name": "Cycle 7, Set 3, Rest (seconds)",
           "label": "Cycle 7, Set 3, Rest (seconds)",
           "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -15963,6 +16203,36 @@
           "type": "number"
         },
         {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
+        },
+        {
           "tag": "section",
           "labelledBy": "Alternates"
         },
@@ -17536,6 +17806,36 @@
           "type": "number"
         },
         {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
+        },
+        {
           "tag": "section",
           "labelledBy": "Alternates"
         },
@@ -19107,6 +19407,36 @@
           "name": "Cycle 7, Set 3, Rest (seconds)",
           "label": "Cycle 7, Set 3, Rest (seconds)",
           "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -20744,6 +21074,36 @@
           "type": "number"
         },
         {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
+        },
+        {
           "tag": "section",
           "labelledBy": "Alternates"
         },
@@ -22317,6 +22677,36 @@
           "type": "number"
         },
         {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
+        },
+        {
           "tag": "section",
           "labelledBy": "Alternates"
         },
@@ -23888,6 +24278,36 @@
           "name": "Cycle 7, Set 3, Rest (seconds)",
           "label": "Cycle 7, Set 3, Rest (seconds)",
           "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -25525,6 +25945,36 @@
           "type": "number"
         },
         {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
+        },
+        {
           "tag": "section",
           "labelledBy": "Alternates"
         },
@@ -27098,6 +27548,36 @@
           "type": "number"
         },
         {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
+        },
+        {
           "tag": "section",
           "labelledBy": "Alternates"
         },
@@ -28669,6 +29149,36 @@
           "name": "Cycle 7, Set 3, Rest (seconds)",
           "label": "Cycle 7, Set 3, Rest (seconds)",
           "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -30306,6 +30816,36 @@
           "type": "number"
         },
         {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
+        },
+        {
           "tag": "section",
           "labelledBy": "Alternates"
         },
@@ -31879,6 +32419,36 @@
           "type": "number"
         },
         {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
+        },
+        {
           "tag": "section",
           "labelledBy": "Alternates"
         },
@@ -33450,6 +34020,36 @@
           "name": "Cycle 7, Set 3, Rest (seconds)",
           "label": "Cycle 7, Set 3, Rest (seconds)",
           "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -35087,6 +35687,36 @@
           "type": "number"
         },
         {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
+        },
+        {
           "tag": "section",
           "labelledBy": "Alternates"
         },
@@ -36660,6 +37290,36 @@
           "type": "number"
         },
         {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
+        },
+        {
           "tag": "section",
           "labelledBy": "Alternates"
         },
@@ -38231,6 +38891,36 @@
           "name": "Cycle 7, Set 3, Rest (seconds)",
           "label": "Cycle 7, Set 3, Rest (seconds)",
           "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -39868,6 +40558,36 @@
           "type": "number"
         },
         {
+          "tag": "span",
+          "text": "Sugerir cargas"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Sugerir cargas",
+          "labelledBy": "Sugerir cargas",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Menor variação de carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Menor variação de carga kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "As cargas sugeridas mudam em passos deste tamanho."
+        },
+        {
           "tag": "section",
           "labelledBy": "Alternativas"
         },
@@ -41147,6 +41867,18 @@
           "type": "number"
         },
         {
+          "tag": "span",
+          "text": "Sugerir cargas"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Sugerir cargas",
+          "labelledBy": "Sugerir cargas",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
           "tag": "section",
           "labelledBy": "Alternativas"
         },
@@ -42424,6 +43156,18 @@
           "name": "Ciclo 7, Série 3, Descanso (segundos)",
           "label": "Ciclo 7, Série 3, Descanso (segundos)",
           "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Sugerir cargas"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Sugerir cargas",
+          "labelledBy": "Sugerir cargas",
+          "aria-checked": "false",
+          "type": "button"
         },
         {
           "tag": "section",
@@ -44061,6 +44805,36 @@
           "type": "number"
         },
         {
+          "tag": "span",
+          "text": "Sugerir cargas"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Sugerir cargas",
+          "labelledBy": "Sugerir cargas",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Menor variação de carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Menor variação de carga kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "As cargas sugeridas mudam em passos deste tamanho."
+        },
+        {
           "tag": "section",
           "labelledBy": "Alternativas"
         },
@@ -45340,6 +46114,18 @@
           "type": "number"
         },
         {
+          "tag": "span",
+          "text": "Sugerir cargas"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Sugerir cargas",
+          "labelledBy": "Sugerir cargas",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
           "tag": "section",
           "labelledBy": "Alternativas"
         },
@@ -46617,6 +47403,18 @@
           "name": "Ciclo 7, Série 3, Descanso (segundos)",
           "label": "Ciclo 7, Série 3, Descanso (segundos)",
           "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Sugerir cargas"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Sugerir cargas",
+          "labelledBy": "Sugerir cargas",
+          "aria-checked": "false",
+          "type": "button"
         },
         {
           "tag": "section",
@@ -48254,6 +49052,36 @@
           "type": "number"
         },
         {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
+        },
+        {
           "tag": "section",
           "labelledBy": "Alternates"
         },
@@ -49827,6 +50655,36 @@
           "type": "number"
         },
         {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
+        },
+        {
           "tag": "section",
           "labelledBy": "Alternates"
         },
@@ -51398,6 +52256,36 @@
           "name": "Cycle 7, Set 3, Rest (seconds)",
           "label": "Cycle 7, Set 3, Rest (seconds)",
           "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
