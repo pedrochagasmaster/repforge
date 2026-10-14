@@ -1,7 +1,7 @@
 # UI screen catalog
 
 Phone-frame captures of every user-visible Taurifer surface — 192 screens,
-1100 frames. This folder is the visual reference for UI and Brand Designers.
+1110 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -80,8 +80,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Recommend Gym 2 — equipment](screens/onboarding-recommend/equipment__phone-390-light-en.png) | 8 | Home's thirteen equipment groups with the preset's ticked and the reset link disabled. |
 | [Recommend Gym 2 — equipment adjusted](screens/onboarding-recommend/equipment-adjusted__phone-390-light-en.png) | 3 | Home with the bench ticked and the bands unticked, and the reset link enabled. |
 | [Recommend Program 1 — goal](screens/onboarding-recommend/desired-result__phone-390-light-en.png) | 3 | Muscle growth, Strength and Both. |
-| [Recommend Program 2 — days per week](screens/onboarding-recommend/days-per-week__phone-390-light-en.png) | 3 | Two to six days with four chosen and its split fact. |
-| [Recommend Program 3 — session length](screens/onboarding-recommend/session-length__phone-390-light-en.png) | 3 | Up to 20 to up to 150 minutes, with 60 shown as the default. |
+| [Recommend Program 2 — days per week](screens/onboarding-recommend/days-per-week__phone-390-light-en.png) | 8 | Two to six days with four chosen and its split fact. |
+| [Recommend Program 3 — session length](screens/onboarding-recommend/session-length__phone-390-light-en.png) | 8 | Up to 20 to up to 150 minutes, with 60 shown as the default. |
 | [Recommend Program 4 — muscle priorities](screens/onboarding-recommend/muscle-priorities__phone-390-light-en.png) | 8 | Twelve muscles, each Reduce, Normal or Prioritize; glutes prioritized and calves reduced; Skip. |
 | [Recommend Program 4 — priority limit](screens/onboarding-recommend/muscle-priorities-limit__phone-390-light-en.png) | 3 | Five muscles prioritized and a sixth refused with the limit line. |
 | [Recommend Program 5 — deload](screens/onboarding-recommend/deload__phone-390-light-en.png) | 3 | The deload card switched on, marked Recommended. |

@@ -621,14 +621,14 @@
       "flow": "onboarding-recommend",
       "label": "Recommend Program 2 — days per week",
       "scenario": "Two to six days with four chosen and its split fact.",
-      "variants": "localized"
+      "variants": "demandingText"
     },
     {
       "id": "session-length",
       "flow": "onboarding-recommend",
       "label": "Recommend Program 3 — session length",
       "scenario": "Up to 20 to up to 150 minutes, with 60 shown as the default.",
-      "variants": "localized"
+      "variants": "demandingText"
     },
     {
       "id": "muscle-priorities",
