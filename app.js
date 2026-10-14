@@ -8151,7 +8151,7 @@ function shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek}){
   const live=selected&&ui.editing&&!peek;
   const pending=pendingFields.get(inputKey)?.value;
   const raw=pending??set.edited.metrics?.[metric.id]??"";
-  const shown=raw!==""?metricTextValue(raw,metric):metricTargetText(set.programmed.targets?.[metric.semantic]);
+  const shown=raw!==""?shelfText(metricTextValue(raw,metric)):metricTargetText(set.programmed.targets?.[metric.semantic]);
   const target=metricTargetText(set.programmed.targets?.[metric.semantic]);
   const unit=metric.unit==="kg"?unitLabel():metric.unit==="metres"?"m":metric.unit==="seconds"?"s":metric.unit;
   const label=`${metricLabel(metric)}${unit?` (${unit})`:""}`;
@@ -10527,7 +10527,7 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
 
   const rec=tmpl?recommendation(tmpl):null;
   const recHtml=rec?`<div class="recblock is-${rec.status}"><div class="recblock__row"><div><div class="recblock__lab">${esc(t("today.recommendation"))}</div>`+
-    `<div class="recblock__head">${esc(rec.load!=null?t("today.rec_keep",{load:fmtLoad(rec.load),unit:unitLabel()}):rec.label)}</div>`+
+    `<div class="recblock__head">${esc(rec.load!=null?recCueLoad(rec):rec.label)}</div>`+
     `<p class="recblock__body">${esc(rec.text)}</p></div>`+
     `<button type="button" class="link-accent" data-term="RIR">${esc(t("exercise.understand"))}</button>`+
     (rec.status!=="new"?`<button type="button" class="text-link recblock__why" data-why="${esc(tmpl.id)}" aria-label="${esc(t("why.open_aria",{name}))}">${esc(t("why.open"))}</button>`:"")+
@@ -20209,9 +20209,12 @@ function whyHeadline(ex,rec,surface){
         glyph:cue.move,inSession:true,set:{n,load:sg.load,reps:cue.reps}}}
   const cueReps=rec.engineSets?.length?rec.engineSets.map(x=>x.reps).join(", ")
     :rec.load!=null?setSuggestion(ex,1,rec,{},last(ex).find(x=>+x.set===1)).reps??ex.min:null;
-  const cueKey=verdict==="up"?"focus.cue.up":verdict==="down"?"focus.cue.down":"focus.cue.hold";
-  return{target:rec.load!=null?`${t(cueKey,{load:fmtLoad(rec.load),unit:u})}, ${t("focus.cue.reps",{reps:cueReps})}`:"",
+  return{target:rec.load!=null?`${recCueLoad(rec)}, ${t("focus.cue.reps",{reps:cueReps})}`:"",
     glyph:verdict,inSession:false}}
+/** The recommendation's load said with the Focus cue's verb for its move (#278). */
+function recCueLoad(rec){
+  const verdict=rxVerdict(rec),move=verdict==="up"||verdict==="down"?verdict:"hold";
+  return t(`focus.cue.${move}`,{load:fmtLoad(rec.load),unit:unitLabel()})}
 /** The set the Focus cue speaks for: the first one not logged. The draft reopens a set while it is corrected, so that set
  *  is the one the headline and the "Set n target" in the same sheet both name. */
 function whyCueSet(ex){
