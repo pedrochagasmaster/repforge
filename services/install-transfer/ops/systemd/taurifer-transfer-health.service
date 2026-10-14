@@ -1,0 +1,17 @@
+# Production install-transfer health pass (owner override, 2026-10-14).
+# The receipts this pass stamps are the owner's self-attestation, not
+# independent monitoring. See RUNBOOK.md, "Production enablement".
+# Install: copy to ~/.config/systemd/user/, set WorkingDirectory to a dedicated
+# checkout of the deployed SHA, then `systemctl --user daemon-reload`.
+[Unit]
+Description=Taurifer install-transfer production health pass (owner-attested)
+
+[Service]
+Type=oneshot
+UMask=0077
+TimeoutStartSec=90
+WorkingDirectory=%h/taurifer-transfer-production/services/install-transfer
+# systemd user units don't load nvm. Point NODE at an absolute Node 22 binary
+# (`command -v node` in a login shell), for example via `systemctl --user edit`.
+Environment=NODE=/home/ubuntu/.nvm/versions/node/v22.23.2/bin/node
+ExecStart=/bin/sh -c 'exec "$NODE" scripts/production-health-loop.mjs'
