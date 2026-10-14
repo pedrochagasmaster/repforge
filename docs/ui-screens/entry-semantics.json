@@ -67714,6 +67714,127 @@
       ]
     },
     {
+      "key": "onboarding-recommend/days-per-week__phone-320-light-en",
+      "flow": "onboarding-recommend",
+      "screen": "days-per-week",
+      "label": "Recommend Program 2 — days per week",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 3 of 3",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "How many days a week can you train?",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "How many days a week can you train?",
+          "labelledBy": "How many days a week can you train?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "2 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "3 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "3 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "4 days",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "4 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "5 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "5 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "6 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "6 days"
+        },
+        {
+          "tag": "p",
+          "text": "With 4 days, the program alternates upper and lower.",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-recommend/days-per-week__phone-390-dark-en",
       "flow": "onboarding-recommend",
       "screen": "days-per-week",
@@ -67956,6 +68077,248 @@
       ]
     },
     {
+      "key": "onboarding-recommend/days-per-week__phone-390-light-en-reduced",
+      "flow": "onboarding-recommend",
+      "screen": "days-per-week",
+      "label": "Recommend Program 2 — days per week",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 3 of 3",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "How many days a week can you train?",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "How many days a week can you train?",
+          "labelledBy": "How many days a week can you train?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "2 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "3 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "3 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "4 days",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "4 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "5 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "5 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "6 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "6 days"
+        },
+        {
+          "tag": "p",
+          "text": "With 4 days, the program alternates upper and lower.",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/days-per-week__phone-390-light-en-text200",
+      "flow": "onboarding-recommend",
+      "screen": "days-per-week",
+      "label": "Recommend Program 2 — days per week",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 3 of 3",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "How many days a week can you train?",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "How many days a week can you train?",
+          "labelledBy": "How many days a week can you train?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "2 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "3 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "3 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "4 days",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "4 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "5 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "5 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "6 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "6 days"
+        },
+        {
+          "tag": "p",
+          "text": "With 4 days, the program alternates upper and lower.",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-recommend/days-per-week__phone-390-light-pt",
       "flow": "onboarding-recommend",
       "screen": "days-per-week",
@@ -68072,6 +68435,248 @@
           "tag": "button",
           "text": "Continuar",
           "name": "Continuar",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/days-per-week__phone-390-light-pt-text200",
+      "flow": "onboarding-recommend",
+      "screen": "days-per-week",
+      "label": "Recommend Program 2 — days per week",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um treino"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Programa"
+        },
+        {
+          "tag": "p",
+          "text": "Seção 3 de 3",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Quantos dias por semana você pode treinar?",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Quantos dias por semana você pode treinar?",
+          "labelledBy": "Quantos dias por semana você pode treinar?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "2 dias",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2 dias"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "3 dias",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "3 dias"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "4 dias",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "4 dias"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "5 dias",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "5 dias"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "6 dias",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "6 dias"
+        },
+        {
+          "tag": "p",
+          "text": "Com 4 dias, o treino alterna superior e inferior.",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "button",
+          "text": "Continuar",
+          "name": "Continuar",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/days-per-week__phone-430-light-en",
+      "flow": "onboarding-recommend",
+      "screen": "days-per-week",
+      "label": "Recommend Program 2 — days per week",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 3 of 3",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "How many days a week can you train?",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "How many days a week can you train?",
+          "labelledBy": "How many days a week can you train?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "2 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "3 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "3 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "4 days",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "4 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "5 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "5 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "6 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "6 days"
+        },
+        {
+          "tag": "p",
+          "text": "With 4 days, the program alternates upper and lower.",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
           "type": "button"
         }
       ]
@@ -130317,6 +130922,138 @@
       ]
     },
     {
+      "key": "onboarding-recommend/session-length__phone-320-light-en",
+      "flow": "onboarding-recommend",
+      "screen": "session-length",
+      "label": "Recommend Program 3 — session length",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 3 of 3",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "How long is a typical session?",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer fits the essential work into that time."
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "How long is a typical session?",
+          "labelledBy": "How long is a typical session?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Up to 20 min",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 20 min"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Up to 40 min",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 40 min"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Up to 60 min",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 60 min"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Up to 90 min",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 90 min"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Up to 120 min",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 120 min"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Up to 150 min",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 150 min"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-recommend/session-length__phone-390-dark-en",
       "flow": "onboarding-recommend",
       "screen": "session-length",
@@ -130581,6 +131318,270 @@
       ]
     },
     {
+      "key": "onboarding-recommend/session-length__phone-390-light-en-reduced",
+      "flow": "onboarding-recommend",
+      "screen": "session-length",
+      "label": "Recommend Program 3 — session length",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 3 of 3",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "How long is a typical session?",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer fits the essential work into that time."
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "How long is a typical session?",
+          "labelledBy": "How long is a typical session?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Up to 20 min",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 20 min"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Up to 40 min",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 40 min"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Up to 60 min",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 60 min"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Up to 90 min",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 90 min"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Up to 120 min",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 120 min"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Up to 150 min",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 150 min"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/session-length__phone-390-light-en-text200",
+      "flow": "onboarding-recommend",
+      "screen": "session-length",
+      "label": "Recommend Program 3 — session length",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 3 of 3",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "How long is a typical session?",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer fits the essential work into that time."
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "How long is a typical session?",
+          "labelledBy": "How long is a typical session?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Up to 20 min",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 20 min"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Up to 40 min",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 40 min"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Up to 60 min",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 60 min"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Up to 90 min",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 90 min"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Up to 120 min",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 120 min"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Up to 150 min",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 150 min"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-recommend/session-length__phone-390-light-pt",
       "flow": "onboarding-recommend",
       "screen": "session-length",
@@ -130708,6 +131709,270 @@
           "tag": "button",
           "text": "Continuar",
           "name": "Continuar",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/session-length__phone-390-light-pt-text200",
+      "flow": "onboarding-recommend",
+      "screen": "session-length",
+      "label": "Recommend Program 3 — session length",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um treino"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Programa"
+        },
+        {
+          "tag": "p",
+          "text": "Seção 3 de 3",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Quanto tempo dura uma sessão típica?",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "O Taurifer encaixa o trabalho essencial nesse tempo."
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Quanto tempo dura uma sessão típica?",
+          "labelledBy": "Quanto tempo dura uma sessão típica?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Até 20 min",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Até 20 min"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Até 40 min",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Até 40 min"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Até 60 min",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Até 60 min"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Até 90 min",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Até 90 min"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Até 120 min",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Até 120 min"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Até 150 min",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Até 150 min"
+        },
+        {
+          "tag": "button",
+          "text": "Continuar",
+          "name": "Continuar",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/session-length__phone-430-light-en",
+      "flow": "onboarding-recommend",
+      "screen": "session-length",
+      "label": "Recommend Program 3 — session length",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 3 of 3",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "How long is a typical session?",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer fits the essential work into that time."
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "How long is a typical session?",
+          "labelledBy": "How long is a typical session?"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Up to 20 min",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 20 min"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Up to 40 min",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 40 min"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Up to 60 min",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 60 min"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Up to 90 min",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 90 min"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Up to 120 min",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 120 min"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Up to 150 min",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Up to 150 min"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
           "type": "button"
         }
       ]
