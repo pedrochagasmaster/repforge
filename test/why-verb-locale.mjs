@@ -138,6 +138,16 @@ async function loadFace(page) {
   return handle.jsonValue();
 }
 
+/** Tap a load pad and wait for the field to settle on `expected`; on a timeout
+ *  the face it shows instead is returned, so the assertion reports it. */
+async function stepLoad(page, dir, expected) {
+  await page.locator(`${current} .focus-shelf .shelf__pads [data-step][data-dir="${dir}"]`).click();
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  return page.waitForFunction(({ metricId, expected }) =>
+    document.querySelector(`#workout .exercise.is-current .focus-shelf .shelf__field[data-metric="${metricId}"] .shelf__val`)?.textContent?.trim() === expected,
+  { metricId: WEIGHT, expected }, { timeout: 5000 }).then(() => expected, () => loadFace(page));
+}
+
 /** One device: log `session` on the target slot, then read every surface of the next session. */
 async function variant(browser, { locale, session }) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale });
@@ -228,13 +238,10 @@ try {
         console.log("#277 PT: the Focus load field writes the locale decimal");
         assert(await loadFace(page) === "62,5", "#277 PT: the load field reads 62,5 at rest", await loadFace(page));
         await revealField(page, `metric_${WEIGHT}`);
-        const pads = page.locator(`${current} .focus-shelf .shelf__pads [data-step][data-dir="1"]`);
-        await pads.click();
-        await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
-        assert(await loadFace(page) === "65", "#277 PT: + steps the field to 65", await loadFace(page));
-        await page.locator(`${current} .focus-shelf .shelf__pads [data-step][data-dir="-1"]`).click();
-        await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
-        assert(await loadFace(page) === "62,5", "#277 PT: − steps the field back to 62,5", await loadFace(page));
+        const up = await stepLoad(page, 1, "65");
+        assert(up === "65", "#277 PT: + steps the field to 65", up);
+        const down = await stepLoad(page, -1, "62,5");
+        assert(down === "62,5", "#277 PT: − steps the field back to 62,5", down);
         await fillShelf(page, WEIGHT, "57,5");
         await page.locator(`${current} .focus-shelf [data-shelf-field="metric_${REPS}"]`).click();
         assert(await loadFace(page) === "57,5", "#277 PT: a typed comma decimal reads 57,5", await loadFace(page));
@@ -261,9 +268,10 @@ try {
     assert(en.block === "Go up to 62.5 kg", "#278 EN add: the block reads \"Go up to 62.5 kg\"", en.block);
     assert(await loadFace(en.page) === "62.5", "#277 EN: the load field reads 62.5 at rest", await loadFace(en.page));
     await revealField(en.page, `metric_${WEIGHT}`);
-    await en.page.locator(`${current} .focus-shelf .shelf__pads [data-step][data-dir="1"]`).click();
-    await en.page.locator(`${current} .focus-shelf .shelf__pads [data-step][data-dir="-1"]`).click();
-    assert(await loadFace(en.page) === "62.5", "#277 EN: + then − steps back to 62.5", await loadFace(en.page));
+    const up = await stepLoad(en.page, 1, "65");
+    assert(up === "65", "#277 EN: + steps the field to 65", up);
+    const down = await stepLoad(en.page, -1, "62.5");
+    assert(down === "62.5", "#277 EN: − steps the field back to 62.5", down);
     assert(en.errors.length === 0, "#277 EN: no page errors", en.errors);
   } finally {
     await en.context.close();
