@@ -5564,6 +5564,10 @@ function workingRows(rows){return(rows||[]).filter(r=>isWork(r)&&+r.load>0&&+r.r
  *  Progress projection: a per-side row's load and reps live in its metric
  *  values, not in the scalar fields a plain Weight × Reps row fills. */
 function performedWorkingRows(rows){return workingRows(readLogRows(rows||[]))}
+/** The load a set of saved rows moved, as History totals it: each working
+ *  row's projected tonnage, so a per-side row counts its physical load and a
+ *  row whose multiplier is unknown adds nothing. */
+function movedTonnage(rows){return sum(readLogRows(rows||[]).filter(row=>isWork(row)&&Number.isFinite(row.tonnage)).map(row=>row.tonnage))}
 function exerciseSessionMetrics(rows){const w=workingRows(rows);if(!w.length)return null;let topLoad=0,topLoadReps=0,totalReps=0,totalVolume=0,bestE1rm=0;const rirs=[];
   for(const r of w){const ld=+r.load,rp=+r.reps;totalReps+=rp;totalVolume+=ld*rp;rirs.push(+r.rir);const em=e1rm(ld,rp);if(em>bestE1rm)bestE1rm=em;if(ld>topLoad||(ld===topLoad&&rp>topLoadReps)){topLoad=ld;topLoadReps=rp}}
   return{topLoad,topLoadReps,totalReps,totalVolume,bestE1rm,avgRir:avg(rirs),workingSets:w.length}}
@@ -7185,7 +7189,7 @@ function todayRecap(week){const sessions=sessionsToday();if(!sessions.length)ret
     .map(ev=>ev.liftKey));
   return{sessions,days:doneDays,lastDay:sessions.at(-1).day||day,
     muscles:[...new Set(work.map(r=>String(rowMuscles(r).primary||"").split(",")[0].trim()).filter(Boolean))].slice(0,3),
-    sets:work.length,volume:sum(work.map(r=>(+r.load||0)*(+r.reps||0))),prs:prLifts.size,
+    sets:work.length,volume:movedTonnage(work),prs:prLifts.size,
     lifts:new Set(work.map(liftKey)).size,rows:sessions.flatMap(s=>s.rows),session:sessions.at(-1).session}}
 /** The program day that follows `from`, or null when the split has only one. */
 function nextDayAfter(from){const ds=days();if(!ds.length)return null;
@@ -8941,7 +8945,6 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
   if(window.__repforgeSummaryFault==="canonical"){
     delete window.__repforgeSummaryFault;
     throw new Error("summary canonical derivation fault")}
-  const work=workingRows(rows);
   const meso=mesocycleWeek(),week=weeklySnapshot(date);
   const ds=days(),idx=Math.max(0,ds.indexOf(sessDay)),next=ds.length>1?ds[(idx+1)%ds.length]:null;
   const prs=sessionPRs(rows,prevLog);
@@ -8953,7 +8956,7 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
   const mins=startedAt?Math.round((Date.now()-startedAt)/60000):0;
   return{session,date,day:sessDay,
     sets:rows.length,
-    volume:sum(work.map(r=>(+r.load||0)*(+r.reps||0))),
+    volume:movedTonnage(rows),
     lifts:new Set(performedWorkingRows(rows).map(liftKey)).size,
     minutes:mins>=1&&mins<=480?mins:null,
     prs,
