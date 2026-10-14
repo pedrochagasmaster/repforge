@@ -142,6 +142,42 @@ try {
   check(on.statuses.join() === "ready" && on.rirs.every((value) => value === 1) && on.policies.join() === "manual/manual-adaptive@1"
     && on.targets[0]?.max === 12,
   "Done confirms the completed opt-in with the chosen RIR on every set, keeping the edited range", on);
+
+  // Another tab replaces the movement while this tab holds a staged opt-in:
+  // Done must surface the conflict, not opt the new movement in.
+  row = await openInstalledEditor(page);
+  await row.locator('[data-role="suggest-loads"]').click();
+  await page.waitForFunction(() => document.querySelector('#programEditor [data-role="suggest-loads"][aria-checked="false"]'),
+    undefined, { timeout: 5000 });
+  await done(page);
+  row = await openInstalledEditor(page);
+  await row.locator('[data-role="suggest-loads"]').click();
+  check(await row.locator('[data-role="suggest-loads-rir"]').inputValue() === "1",
+    "the staged opt-in reuses the slot's shared RIR, so the switch is its only edit");
+  const other = await context.newPage();
+  await other.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForAppBoot(other, { base: BASE });
+  const otherRow = await openInstalledEditor(other);
+  await otherRow.locator('[data-role="replace"]').click();
+  await other.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
+  await other.fill("#exPickSearch", "Barbell back squat");
+  await other.locator('#exPickList [data-pick="1a25c6f170d8803d8231d083fdd65458"]').click();
+  await other.waitForFunction(() => [...document.querySelectorAll('#programEditor [data-role="exercise"]')]
+    .some((node) => node.textContent.includes("Barbell back squat")), undefined, { timeout: 10000 });
+  await done(other);
+  await other.close();
+  await page.click("#programEditToggle");
+  await page.waitForFunction(() => /another tab/i.test(document.querySelector('#programEditor [data-role="editor-status"]')?.textContent || "")
+    || document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 10000 }).catch(() => {});
+  const raced = await page.evaluate(() => ({
+    editorOpen: !document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),
+    status: document.querySelector('#programEditor [data-role="editor-status"]')?.textContent || "",
+    alerts: [...document.querySelectorAll('#programEditor [role="alert"], dialog[open]')].map((node) => node.id || node.textContent.trim().slice(0, 80)),
+    toast: document.querySelector("#toast")?.textContent || "",
+  }));
+  const squat = await durableSlot(page, "1a25c6f170d8803d8231d083fdd65458");
+  check(raced.editorOpen && /another tab/i.test(raced.status) && squat.statuses.join() === "manual",
+    "a staged opt-in replayed over another tab's movement change is a conflict; the new movement stays manual", { raced, squat: squat.statuses });
   check(pageErrors.length === 0, "the opt-out journey has no uncaught browser errors", pageErrors);
 } catch (error) {
   failures.push(String(error?.stack || error));

@@ -11259,6 +11259,12 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
   }else if(edit?.kind==="suggest_loads"){
     const {slot}=find(slotId);
     if(!slot||typeof edit.on!=="boolean")return false;
+    // A replay applies only to the movement and opt-in state it was made on.
+    const sets=(slot.prescriptionsByCycle||[]).flatMap(cycle=>cycle.sets||[]);
+    const adaptive=sets.length>0&&sets.every(set=>set.status==="ready");
+    const current=adaptive?"ready":(document.programMeta?.suggestLoadsPending||[]).includes(slotId)?"pending":"off";
+    const after=edit.on?(adaptive?"ready":"pending"):"off";
+    if(slot.exerciseId!==edit.before?.exerciseId||(current!==edit.before?.state&&current!==after))return false;
     if(edit.on&&editorSuggestLoadsPolicy.eligibility(slot)!=="eligible")return false;
     if(!window.ProgramEditorSuggestLoads?.set(document,slotId,edit.on))return false;
   }else if(edit?.kind==="suggest_loads_rir"){
@@ -11369,6 +11375,7 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
   }else if(edit?.kind==="day_remove"){
     const target=(definition.days||[]).find(item=>item.name===edit.targetDay);
     if(!target)return false;
+    for(const slot of target.slots||[])dropPendingSuggestLoads(document,slot.id);
     target.kind="rest";target.slots=[];
   }
   const checked=canonicalProgramDefinition(definition,document.customExercises||[]);
@@ -11673,9 +11680,12 @@ async function applyInstalledEditorAndContinue(){
   }
   if(result?.suggestLoads){
     // The refused opt-in's field carries the error; the lifter fixes it there.
+    // When this tab's copy has nothing to fix, another tab changed the slot.
     if(installedLeaveMode)closeInstalledLeaveDialog();
     pendingEditorNavigation=null;
-    editor.checkSuggestLoads?.();
+    if(editor.checkSuggestLoads?.()?.ok!==false){
+      const status=$("#programEditor [data-role=\"editor-status\"]");
+      if(status){status.textContent=t("program.editor.conflict");status.hidden=false;status.classList.add("is-error")}}
     return result;
   }
   if(result?.conflict||result?.editorConflict||result?.staleRevision){

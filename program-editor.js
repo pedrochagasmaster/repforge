@@ -1208,10 +1208,12 @@
       const slotId = button.dataset.slotId, slot = definitionSlot(document, slotId);
       if (!slot) return;
       const on = button.getAttribute("aria-checked") !== "true";
+      const before = { exerciseId: slot.exerciseId,
+        state: slotAdaptive(slot) ? "ready" : pendingSuggestLoads(document).includes(slotId) ? "pending" : "off" };
       const next = clone(document);
       if (!setSuggestLoads(next, slotId, on)) return;
       pendingFocus = { selector: `[data-role="suggest-loads"][data-slot-id="${cssEscape(slotId)}"]` };
-      return stage(next, { kind: "suggest_loads", slotId, on });
+      return stage(next, { kind: "suggest_loads", slotId, on, before });
     }
     function editSuggestLoadsRir(input) {
       const slotId = input.dataset.slotId, slot = definitionSlot(document, slotId);
