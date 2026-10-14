@@ -56,11 +56,16 @@ try {
     "the installed editor shows the opted-in slot's switch on");
   await commitField(row.locator('[data-role="metric-target"][data-cycle-index="1"][data-set-index="1"][data-bound="max"]'), 12);
   await commitField(row.locator('[data-role="prescription-field"][data-cycle-index="1"][data-set-index="1"][data-field="rir"]'), 3);
+  // A set added to an adaptive slot joins it with the slot's RIR.
+  await row.locator('[data-role="adjust"][data-field="sets"][data-delta="1"]').click();
+  await page.waitForFunction(() => document.querySelector('#programEditor [data-role="sets-value"]')?.textContent?.trim() === "4",
+    undefined, { timeout: 5000 });
   await done(page);
   const edited = await durableSlot(page);
+  const cycleOne = edited.slot?.prescriptionsByCycle?.find((cycle) => cycle.cycleIndex === 1)?.sets || [];
   check(edited.statuses.join() === "ready" && edited.targets[0]?.max === 12 && edited.rirs[0] === 3
-    && edited.rirs.slice(1).every((value) => value === 2),
-  "range and RIR edits are saved and keep every set adaptive", edited);
+    && edited.rirs.slice(1).every((value) => value === 2) && cycleOne.length === 4,
+  "range, RIR and set-count edits are saved and keep every set adaptive", edited);
 
   // Off: manual everywhere, typed values kept.
   row = await openInstalledEditor(page);
@@ -83,7 +88,7 @@ try {
       load: node.querySelector(".rxrow__load")?.textContent?.trim() || "",
     } : null;
   }, programRow.id, { timeout: 10000 }).then((handle) => handle.jsonValue()).catch(() => null);
-  check(today?.target === `${programRow.sets} × 6–12 · Your targets` && today.load === "–",
+  check(today?.target === "4 × 6–12 · Your targets" && today.load === "–",
     "Today shows the manual sets × range with no load", today);
   const truth = await page.evaluate((id) => {
     const rec = window.__repforgeProgression.recommendation(window.__repforgeProgression.programSlot(id));

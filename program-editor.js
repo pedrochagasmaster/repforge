@@ -712,12 +712,17 @@
       if (equal(previous, normalized)) return Promise.resolve({ ok: true, unchanged: true });
       if (field === "sets" && cycle) {
         const beforeSetIds = cycle.sets.map(set => set.id), addedSets = [], removedSetIds = [];
+        // A set added to an adaptive slot joins it (Plan 069 D3): the opt-in
+        // covers every set, so the new one takes the slot's RIR and status.
+        const adaptive = slotAdaptive(slot);
         while (cycle.sets.length < normalized) {
           const source = cycle.sets.at(-1);
           if (!source) return Promise.resolve({ ok: false });
-          const added = { ...clone(source), id: uid(), cycleIndex, setIndex: cycle.sets.length + 1,
-            rir: null, status: slot.metricIds?.length ? "manual" : "configuration_required",
-            provenance: { source: "manual", policyVersion: "manual@1" } };
+          const added = adaptive
+            ? { ...clone(source), id: uid(), cycleIndex, setIndex: cycle.sets.length + 1 }
+            : { ...clone(source), id: uid(), cycleIndex, setIndex: cycle.sets.length + 1,
+              rir: null, status: slot.metricIds?.length ? "manual" : "configuration_required",
+              provenance: { source: "manual", policyVersion: "manual@1" } };
           cycle.sets.push(added);
           addedSets.push(clone(added));
         }
