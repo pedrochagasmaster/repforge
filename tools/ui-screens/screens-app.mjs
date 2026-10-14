@@ -406,7 +406,7 @@ export function appState(key, lang) {
   // richer fixture so their progress and volume evidence remains meaningful.
   // The editor reads the canonical ProgramDefinition, not the flat `program`
   // projection, so both have to be narrowed together to the same two slots.
-  if (key === "program/progression-editor" || key === "program/editor-alternates") {
+  if (key === "program/progression-editor" || key === "program/editor-alternates" || key === "program/editor-suggest-loads") {
     const kept = new Set(["seed-ex-1", "seed-ex-2"]);
     state.program = state.program.filter((exercise) => exercise.day !== "Day 1" || kept.has(exercise.id));
     for (const day of state.programMeta.programDefinition.days) {
@@ -2154,6 +2154,31 @@ export const APP_SCENARIOS = {
     const alternates = page.locator('#programEditor [data-role="alternates"][data-id="seed-ex-1"]');
     await alternates.waitFor({ timeout: 20000 });
     await alternates.evaluate((node) => node.scrollIntoView({ block: "center" }));
+    await sleep(page, 400);
+  },
+  "program/editor-suggest-loads": async (page) => {
+    await openProgram(page);
+    await page.click("#programEditToggle");
+    await page.waitForSelector('#programEditor [data-role="editor"]', { timeout: 20000 });
+    const toggle = page.locator('#programEditor [data-role="toggle-exercise"][data-id="seed-ex-1"]');
+    if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
+    // The slot becomes a movement that asks how it is done, through Replace.
+    await page.locator('#programEditor [data-role="replace"][data-id="seed-ex-1"]').click();
+    await page.waitForSelector("#exPickSheet.is-open", { timeout: 20000 });
+    await page.fill("#exPickSearch", "Dumbbell renegade row");
+    await page.locator('#exPickList [data-pick="3065c6f170d880d2bc77cba9edbf8ce9"]').click({ timeout: 20000 });
+    await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 20000 });
+    const row = page.locator('#programEditor [data-role="exercise"][data-id="seed-ex-1"]');
+    if (!await row.locator('[data-role="sets-control"]').count()) await row.locator('[data-role="toggle-exercise"]').click();
+    await row.locator('[data-role="suggest-loads"]').click();
+    const rir = row.locator('[data-role="suggest-loads-rir"]');
+    await rir.waitFor({ timeout: 20000 });
+    await rir.fill("2");
+    await rir.blur();
+    await page.waitForFunction(() => document.querySelector("#toast")?.classList.contains("hidden") !== false, undefined, { timeout: 20000 });
+    const section = row.locator('[data-role="suggest-loads-section"]');
+    await section.locator('[data-role="execution-mode"]').first().waitFor({ timeout: 20000 });
+    await section.evaluate((node) => node.scrollIntoView({ block: "center" }));
     await sleep(page, 400);
   },
   "program/editor-day-name-refused": async (page) => {

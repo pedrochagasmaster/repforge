@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 191 screens,
-1097 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 192 screens,
+1100 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -265,6 +265,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Program](screens/program/overview__phone-390-light-en.png) | 8 | The current program and its days. |
 | [Program — editor](screens/program/progression-editor__phone-390-light-en.png) | 3 | The installed program editor, with the first day open. |
 | [Program — editor alternates](screens/program/editor-alternates__phone-390-light-en.png) | 3 | The installed program editor with an exercise open on its alternates: two chosen movements in order, each with reorder and remove controls, and Add alternate. |
+| [Program — Suggest loads](screens/program/editor-suggest-loads__phone-390-light-en.png) | 3 | The installed program editor with Suggest loads switched on for a dumbbell renegade row: the current rep target, the RIR, the smallest load change, and the question of how the lifter does the exercise. |
 | [Program — refused day rename](screens/program/editor-day-name-refused__phone-390-light-en.png) | 3 | The installed program editor after a day was renamed to a name another day already uses: the field shows the day's own name again and the reason sits under the day header. |
 | [Program — exercise picker](screens/program/exercise-picker__phone-390-light-en.png) | 3 | The picker sheet. |
 | [Program — custom exercise](screens/program/custom-exercise__phone-390-light-en.png) | 3 | The custom movement sheet. |

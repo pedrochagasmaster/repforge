@@ -1192,7 +1192,7 @@
       const mode = question ? `<div class="program-editor__execution-mode" role="radiogroup" aria-labelledby="${modeLabelId}" data-role="execution-mode-group" data-slot-id="${esc(slot.id)}">` +
         `<span class="program-editor__field-label" id="${modeLabelId}">${esc(label("executionModeQuestion"))}</span>` +
         [["bilateral", "executionModeBilateral"], ["unilateral", "executionModeUnilateral"]].map(([value, key]) =>
-          `<button type="button" role="radio" class="program-editor__mode-option" aria-checked="${slot.executionMode === value ? "true" : "false"}" data-role="execution-mode" data-mode="${value}" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}">${esc(label(key))}</button>`).join("") +
+          `<button type="button" role="radio" class="radio-card${slot.executionMode === value ? " is-selected" : ""}" aria-checked="${slot.executionMode === value ? "true" : "false"}" data-role="execution-mode" data-mode="${value}" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}"><span class="radio-card__body"><span class="radio-card__title">${esc(label(key))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button>`).join("") +
         `</div>` : "";
       return `<section class="program-editor__suggest-loads is-on" data-role="suggest-loads-section" data-slot-id="${esc(slot.id)}">${toggle}` +
         (range ? `<p class="program-editor__suggest-loads-range" data-role="suggest-loads-range">${esc(label("suggestLoadsRange", { min: format(adapter, range.min), max: format(adapter, range.max) }))}</p>` : "") +

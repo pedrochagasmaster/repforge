@@ -603,6 +603,11 @@
       "content": "flat",
       "scenario": "The installed editor with an exercise open on its alternates: two chosen movements in order, each with reorder and remove controls, and Add alternate."
     },
+    "program/editor-suggest-loads": {
+      "owner": "plan-069",
+      "content": "flat",
+      "scenario": "The installed editor with Suggest loads switched on for a dumbbell renegade row: the current rep target, the RIR, the smallest load change, and the execution-mode question."
+    },
     "program/editor-day-name-refused": {
       "owner": "issue-343",
       "content": "flat",
@@ -2631,6 +2636,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/editor-day-name-refused",
         "program/progression-editor"
       ]
@@ -4176,6 +4182,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/overview",
         "program/editor-day-name-refused",
         "program/progression-editor"
@@ -4202,6 +4209,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/editor-day-name-refused",
         "program/progression-editor"
       ]
@@ -4226,6 +4234,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/overview",
         "program/editor-day-name-refused",
         "program/progression-editor"
@@ -4254,6 +4263,7 @@
         "program/custom-exercise-recovery",
         "program/custom-exercise-saving",
         "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/exercise-picker",
         "program/no-program",
         "program/overview",
@@ -4310,6 +4320,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/overview",
         "program/editor-day-name-refused",
         "program/progression-editor"
@@ -4779,6 +4790,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/editor-day-name-refused",
         "program/progression-editor"
       ]
@@ -6159,6 +6171,7 @@
         "onboarding-recommend/result-avoided",
         "history/session",
         "program/editor-alternates",
+        "program/editor-suggest-loads",
         "onboarding-recommend/review-sheet",
         "onboarding-recommend/review-sheet-swap",
         "history/per-side-session",
@@ -6643,6 +6656,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/editor-day-name-refused",
         "program/progression-editor"
       ]
@@ -6670,6 +6684,7 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/editor-day-name-refused",
         "program/progression-editor"
       ]
@@ -6697,6 +6712,7 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/editor-day-name-refused",
         "program/progression-editor"
       ]
@@ -6724,6 +6740,7 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/editor-day-name-refused",
         "program/progression-editor"
       ]
@@ -6752,6 +6769,7 @@
         "onboarding-build/editor-empty",
         "onboarding-build/editor-partial",
         "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/editor-day-name-refused",
         "program/progression-editor"
       ]
@@ -6778,6 +6796,7 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/editor-day-name-refused",
         "program/progression-editor"
       ]
@@ -6806,6 +6825,7 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/editor-day-name-refused",
         "program/progression-editor"
       ]
@@ -6831,6 +6851,7 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/editor-day-name-refused",
         "program/progression-editor"
       ]
@@ -6857,6 +6878,7 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/editor-day-name-refused",
         "program/progression-editor"
       ]
@@ -6926,7 +6948,8 @@
         "onboarding-start/hub-existing",
         "progress/schedule-diagnosis",
         "onboarding-recommend/result-block-sheet",
-        "onboarding-recommend/review-sheet-execution-mode"
+        "onboarding-recommend/review-sheet-execution-mode",
+        "program/editor-suggest-loads"
       ]
     },
     {
@@ -7272,6 +7295,7 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/editor-day-name-refused",
         "program/progression-editor"
       ]
@@ -7319,6 +7343,7 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/editor-day-name-refused",
         "program/progression-editor",
         "progress/schedule-diagnosis"
@@ -7348,6 +7373,7 @@
         "history/session",
         "install/banner",
         "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/no-program",
         "program/overview",
         "program/editor-day-name-refused",
@@ -7414,6 +7440,7 @@
         "history/session",
         "install/banner",
         "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/no-program",
         "program/overview",
         "program/editor-day-name-refused",
@@ -7489,6 +7516,7 @@
         "history/session",
         "install/banner",
         "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/no-program",
         "program/overview",
         "program/editor-day-name-refused",
@@ -7578,6 +7606,7 @@
         "onboarding-start/first-run-returning",
         "onboarding-start/first-run-returning-resume",
         "program/editor-alternates",
+        "program/editor-suggest-loads",
         "onboarding-recommend/result-confirm-offer",
         "onboarding-recommend/result-confirmed"
       ]
@@ -9011,6 +9040,7 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/editor-day-name-refused",
         "program/progression-editor"
       ]
@@ -9036,7 +9066,8 @@
       "rationale": "Moves one alternate up or down its list, like the session map's reorder buttons; disabled at the list's ends.",
       "owner": "issue-317",
       "catalogStates": [
-        "program/editor-alternates"
+        "program/editor-alternates",
+        "program/editor-suggest-loads"
       ]
     },
     {
@@ -9059,7 +9090,8 @@
       "rationale": "Removes a movement from the slot's alternates.",
       "owner": "issue-317",
       "catalogStates": [
-        "program/editor-alternates"
+        "program/editor-alternates",
+        "program/editor-suggest-loads"
       ]
     },
     {
@@ -9723,6 +9755,33 @@
       "owner": "plan-072",
       "catalogStates": [
         "onboarding-recommend/result-block-sheet"
+      ]
+    },
+    {
+      "id": "program-editor-suggest-loads-switch",
+      "selector": ".program-editor__suggest-loads .toggle",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected",
+        "disabled"
+      ],
+      "rationale": "Turns a slot's Suggest loads opt-in on or off; a commit point confirms it.",
+      "owner": "plan-069",
+      "catalogStates": [
+        "onboarding-build/editor-partial",
+        "onboarding-build/editor-ready",
+        "program/progression-editor",
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused"
       ]
     },
     {
