@@ -91,32 +91,40 @@ async function openReview(page) {
   await page.locator("#reviewPanel").waitFor({ state: "visible" });
 }
 
-// Program → Edit → `+` on one exercise's sets → Done, through the production
-// editor. Returns the slot's set count for the cycle the editor showed.
-async function addSetInEditor(page, slotId) {
+// Program → Edit → `+` on the first exercise's sets → Done, through
+// the production editor. Returns the slot and its set count for the cycle the
+// editor showed.
+async function addSetInEditor(page) {
   if (await page.locator("#settings.view.active").count()) await page.locator("#settingsBack").click();
   await page.locator('nav button[data-view="program"]').click();
   await page.locator("#program.view.active").waitFor({ state: "visible" });
   await page.locator("#programEditToggle").click();
   await page.locator("#programEditorWrap:not(.is-hidden)").waitFor({ state: "visible" });
-  const { program } = await state(page);
-  const row = program.find((entry) => (entry.slotId || entry.id) === slotId);
-  const plus = `#programEditor [data-role="adjust"][data-id="${row.id}"][data-field="sets"][data-delta="1"]`;
-  const cycleIndex = Number(await page.locator(plus).getAttribute("data-cycle-index"));
-  const shown = () => page.evaluate((selector) =>
-    Number(document.querySelector(selector)?.previousElementSibling?.textContent), plus);
+  const rowId = await page.locator('#programEditor [data-role="adjust"][data-field="sets"][data-delta="1"]').first().getAttribute("data-id");
+  const selector = `#programEditor [data-role="adjust"][data-id="${rowId}"][data-field="sets"][data-delta="1"]`;
+  const plus = page.locator(selector);
+  // Open the day that holds it, as the lifter would; a regenerated week can
+  // list empty days first.
+  const toggle = page.locator('#programEditor [data-role="day"]')
+    .filter({ has: page.locator(`[data-role="adjust"][data-id="${rowId}"]`) }).locator('[data-role="toggle-day"]');
+  if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
+  await plus.waitFor({ state: "visible" });
+  const cycleIndex = Number(await plus.getAttribute("data-cycle-index"));
+  const shown = () => page.evaluate((target) =>
+    Number(document.querySelector(target)?.previousElementSibling?.textContent), selector);
   const before = await shown();
-  await page.locator(plus).click();
-  await page.waitForFunction(({ selector, next }) =>
-    document.querySelector(selector)?.previousElementSibling?.textContent === String(next), { selector: plus, next: before + 1 });
+  await plus.click();
+  await page.waitForFunction(({ target, next }) =>
+    document.querySelector(target)?.previousElementSibling?.textContent === String(next), { target: selector, next: before + 1 });
   await page.locator("#programEditToggle").click();
   await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"));
   await flush(page);
-  return { cycleIndex, sets: before + 1 };
+  const row = (await state(page)).program.find((entry) => entry.id === rowId);
+  return { slotId: row.slotId || row.id, movement: row.name, cycleIndex, sets: before + 1 };
 }
 
 // The edit is in the activated definition and in both durable replicas.
-async function checkEditorEdit(page, slotId, { cycleIndex, sets }, label) {
+async function checkEditorEdit(page, { slotId, cycleIndex, sets }, label) {
   const live = await state(page), durable = await replicas(page);
   const setsIn = (snapshot) => slots(snapshot.programMeta.programDefinition).find((slot) => slot.id === slotId)
     ?.prescriptionsByCycle.find((cycle) => cycle.cycleIndex === cycleIndex)?.sets.length;
@@ -125,6 +133,17 @@ async function checkEditorEdit(page, slotId, { cycleIndex, sets }, label) {
     { want: sets, live: setsIn(live), local: setsIn(durable.local), idb: setsIn(durable.idb) });
   check([durable.local, durable.idb].every((snapshot) => snapshot.program.every((row) => !("prescriptionsByCycle" in row))),
     `${label}: the durable program rows keep the canonical row shape`);
+}
+
+async function freshPage(browser, errors) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  page.on("pageerror", (error) => errors.push(String(error?.stack || error)));
+  now = Date.parse("2026-03-02T09:00:00.000Z");
+  await page.clock.setFixedTime(new Date(now));
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  return { context, page };
 }
 
 async function seed(page, { manual = false } = {}) {
@@ -200,9 +219,7 @@ async function main() {
     check(training(seeded.programMeta.programDefinition).length === 4, "a generated four-day program is active");
 
     // Reduce volume after an installed-editor set edit (#344) --------------
-    const volumeEdited = slots(seeded.programMeta.programDefinition).find((slot) => /PrimaryCompound$/.test(slot.role));
-    const volumeEdit = await addSetInEditor(page, volumeEdited.id);
-    await checkEditorEdit(page, volumeEdited.id, volumeEdit, "reduce volume");
+    await checkEditorEdit(page, await addSetInEditor(page), "reduce volume");
 
     // Reduce volume: an open workout's typed value in a removed set blocks it
     await finishBlock(page);
@@ -252,12 +269,11 @@ async function main() {
     // A set-count edit the lifter made during the block -------------------
     // Through the installed editor, which must leave the later Review
     // confirmation current (#344).
-    const compound = slots(afterVolume.programMeta.programDefinition).find((slot) => /PrimaryCompound$/.test(slot.role));
-    const movement = afterVolume.program.find((row) => (row.slotId || row.id) === compound.id).name;
-    const daysEdit = await addSetInEditor(page, compound.id);
-    const editedWeek = daysEdit.cycleIndex;
+    const daysEdit = await addSetInEditor(page);
+    await checkEditorEdit(page, daysEdit, "fewer days");
+    const { movement, cycleIndex: editedWeek } = daysEdit;
     const setsBeforeEdit = daysEdit.sets - 1;
-    await checkEditorEdit(page, compound.id, daysEdit, "fewer days");
+    const editedSlot = slots(afterVolume.programMeta.programDefinition).find((slot) => slot.id === daysEdit.slotId);
 
     // Fewer days ----------------------------------------------------------
     await finishBlock(page);
@@ -283,15 +299,12 @@ async function main() {
     check(training(afterDays.programMeta.programDefinition).length === 3 &&
       afterDays.programMeta.programDefinition.request.daysPerWeek === 3 && afterDays.programMeta.daysPerWeek === 3,
     "the regenerated successor trains three days a week");
-    const carriedSlot = slots(afterDays.programMeta.programDefinition).find((slot) => slot.exerciseId === compound.exerciseId);
+    const carriedSlot = slots(afterDays.programMeta.programDefinition).find((slot) => slot.exerciseId === editedSlot.exerciseId);
     check(carriedSlot?.prescriptionsByCycle[editedWeek - 1].sets.length === setsBeforeEdit + 1,
       "the committed successor holds the set count the preview showed",
       carriedSlot?.prescriptionsByCycle.map((cycle) => cycle.sets.length));
 
-    // Recovery week after an installed-editor set edit (#344) -------------
-    const recoveryEdited = slots(afterDays.programMeta.programDefinition).find((slot) => /PrimaryCompound$/.test(slot.role));
-    const recoveryEdit = await addSetInEditor(page, recoveryEdited.id);
-    await checkEditorEdit(page, recoveryEdited.id, recoveryEdit, "recovery week");
+    // Recovery week -------------------------------------------------------
     await finishBlock(page);
     await openReview(page);
     await page.locator('[data-review-action="recovery-week"]').click();
@@ -339,16 +352,23 @@ async function main() {
     check(/changed|newer|again/i.test(await page.locator("#reviewPanel .review__error").innerText()),
       "the lifter is told the plan changed and can retry");
 
+    // Recovery week after an installed-editor set edit (#344) -------------
+    // A fresh block: a regenerated successor's editor is out of this proof.
+    const { context: recoveryContext, page: recoveryPage } = await freshPage(browser, errors);
+    await seed(recoveryPage);
+    await checkEditorEdit(recoveryPage, await addSetInEditor(recoveryPage), "recovery week");
+    await finishBlock(recoveryPage);
+    await openReview(recoveryPage);
+    await recoveryPage.locator('[data-review-action="recovery-week"]').click();
+    await recoveryPage.locator('[data-recovery-answer="Yes"]').click();
+    const beforeEditedRecovery = await confirmPreview(recoveryPage, { title: "Recovery week preview" });
+    checkCommitted(beforeEditedRecovery, await state(recoveryPage), await replicas(recoveryPage), "recovery week after an edit");
+    await recoveryContext.close();
+
     // Durable rows that already carry the editor's leaked copy (#344) -----
     // An older build persisted the editor's per-row prescriptionsByCycle;
     // such an install must confirm a Review change without a reset.
-    const legacyContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
-    const legacy = await legacyContext.newPage();
-    legacy.on("pageerror", (error) => errors.push(String(error?.stack || error)));
-    now = Date.parse("2026-03-02T09:00:00.000Z");
-    await legacy.clock.setFixedTime(new Date(now));
-    await legacy.goto(BASE, { waitUntil: "domcontentloaded" });
-    await waitForAppBoot(legacy, { base: BASE });
+    const { context: legacyContext, page: legacy } = await freshPage(browser, errors);
     await seed(legacy);
     const leaked = await legacy.evaluate(async () => {
       const leak = (snapshot) => {
@@ -393,13 +413,7 @@ async function main() {
     await legacyContext.close();
 
     // A Build program's schedule repair stages guided editing -------------
-    const manualContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
-    const manual = await manualContext.newPage();
-    manual.on("pageerror", (error) => errors.push(String(error?.stack || error)));
-    now = Date.parse("2026-03-02T09:00:00.000Z");
-    await manual.clock.setFixedTime(new Date(now));
-    await manual.goto(BASE, { waitUntil: "domcontentloaded" });
-    await waitForAppBoot(manual, { base: BASE });
+    const { context: manualContext, page: manual } = await freshPage(browser, errors);
     await seed(manual, { manual: true });
     await finishBlock(manual);
     const beforeGuided = await replicas(manual);
