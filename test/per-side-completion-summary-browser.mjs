@@ -4,16 +4,22 @@
  * performed. Valid per-side rows keep their performed values in metricValues,
  * so the summary must read them through the same projection History and
  * Progress use, while a plain Weight × Reps lift reads exactly as before.
+ *
+ * #398: the summary's and Today's finished-day "moved" totals read that same
+ * projection's tonnage, so they equal History's for the same session, and a
+ * row whose multiplier is unknown adds no invented tonnage.
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { answerRecommend, launchChromium, waitForAppBoot } from "./browser.mjs";
+import { exerciseAction } from "./fixtures/focus-workout.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const CATALOG = JSON.parse(readFileSync(new URL("../assets/exercise-catalog.json", import.meta.url), "utf8"));
 const ROW_ID = "1a55c6f170d88031b658c6e278a82a88"; // Single arm dumbbell row: Weight (total), Reps per side
 const PRESS_ID = "1a05c6f170d8803ba48ec1443eab5978"; // Dumbbell bench press: Weight per side, Reps per side
 const RDL_ID = "2ee5c6f170d880c899dcdd917b32d865"; // B-stance dumbbell RDL: ambiguous laterality, persistent per-side load
+const RENEGADE_ID = "3065c6f170d880d2bc77cba9edbf8ce9"; // Dumbbell renegade row: asymmetrical, Weight per side
 const failures = [];
 const observations = {};
 
@@ -55,7 +61,7 @@ async function installProgram(page) {
     });
     await window.__repforgeStorage.flush();
     const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
-    return state.program.map(row => ({ id: row.id, name: row.name, day: row.day, libraryId: row.libraryId }));
+    return state.program.map(row => ({ id: row.id, slotId: row.slotId ?? null, name: row.name, day: row.day, libraryId: row.libraryId }));
   }, { rowId: ROW_ID, pressId: PRESS_ID });
 }
 
@@ -167,11 +173,43 @@ async function finishAndReadSummary(page) {
     liftCount: Number([...root.querySelectorAll(".sum-stats .statrow__cell")]
       .find(cell => /lift/i.test(cell.querySelector(".statrow__cap")?.textContent || ""))
       ?.querySelector(".statrow__val")?.dataset.ramp),
+    moved: Number([...root.querySelectorAll(".sum-stats .statrow__cell")]
+      .find(cell => /moved/i.test(cell.querySelector(".statrow__cap")?.textContent || ""))
+      ?.querySelector(".statrow__val")?.dataset.ramp),
   }));
   await page.locator("#sumDone").click();
   await page.waitForFunction(() => document.querySelector("#sessionSummary")?.hidden === true, undefined, { timeout: 10000 });
   await page.evaluate(() => window.__repforgeStorage.flush());
   return summary;
+}
+
+const movedNumber = text => text == null ? NaN : Number(String(text).replaceAll(",", ""));
+
+/** Today's finished-day recap "moved" figure, as rendered. */
+async function readTodayMoved(page) {
+  await page.locator('nav button[data-view="log"]').click();
+  await page.waitForSelector("#todaySession .today-done", { timeout: 10000 });
+  return movedNumber(await page.locator("#todaySession .today-done .sum-stats .statrow__cell").evaluateAll(cells => cells
+    .find(cell => /moved/i.test(cell.querySelector(".statrow__cap")?.textContent || ""))
+    ?.querySelector(".statrow__val")?.textContent.trim() ?? null));
+}
+
+/** History's "moved" total for each saved session, as rendered. */
+async function readHistoryMoved(page, sessions) {
+  await page.locator('nav button[data-view="history"]').click();
+  await page.waitForSelector("#history.view.active", { timeout: 10000 });
+  const moved = {};
+  for (const session of sessions) {
+    await page.locator(`#sessions .hist-row[data-sess="${session}"] .session__open`).click();
+    const reading = page.locator(`.session--read[data-reading="${session}"]`);
+    await reading.waitFor({ state: "visible", timeout: 10000 });
+    moved[session] = movedNumber(await reading.evaluate(root => [...root.querySelectorAll(".histpage__totals > div")]
+      .find(cell => /moved/i.test(cell.querySelector("span")?.textContent || ""))?.querySelector("b")?.textContent.trim() ?? null));
+    await page.locator("#history [data-history-back]").click();
+  }
+  await page.locator('nav button[data-view="log"]').click();
+  await page.waitForSelector("#log.view.active", { timeout: 10000 });
+  return moved;
 }
 
 const browser = await launchChromium();
@@ -207,7 +245,8 @@ try {
   observations.saved = await page.evaluate(ids => (JSON.parse(localStorage.getItem("repforge_v1") || "{}").log || [])
     .filter(item => ids.includes(item.performedLibraryId))
     .map(item => ({ session: item.session, performedLibraryId: item.performedLibraryId, load: item.load, reps: item.reps,
-      metricValues: item.metricValues })), [ROW_ID, PRESS_ID]);
+      metricValues: item.metricValues, mode: item.loadingContext?.executionMode ?? null,
+      multiplier: item.loadingContext?.externalLoadMultiplier ?? null })), [ROW_ID, PRESS_ID]);
 
   const named = (summary, item) => summary.lifts.find(lift => lift.name === item.name);
   for (const [label, summary] of [["first", first], ["second", second]]) {
@@ -222,6 +261,63 @@ try {
     "the second completion summary records both heavier per-side lifts as PRs", second.lifts);
   check(named(first, plain)?.pr === false && named(second, plain)?.pr === true && /62\.5/.test(named(second, plain)?.sets || ""),
     "the plain Weight × Reps lift keeps its summary group, set line and PR", { first: named(first, plain), second: named(second, plain) });
+
+  // #398, hand-computed tonnage. The row loads 20 kg in total for 8 reps on
+  // each side (one side at a time: 16 reps), the press 25 kg per side with
+  // both hands (×2) for 8 reps, and the plain lift 60 kg × 8:
+  // 20×16 + 25×2×8 + 60×8 = 320 + 400 + 480 = 1200 kg, then
+  // 22.5×16 + 27.5×2×8 + 62.5×8 = 360 + 440 + 500 = 1300 kg.
+  const savedPress = observations.saved.filter(item => item.performedLibraryId === PRESS_ID);
+  const sessions = [...new Set(observations.saved.map(item => String(item.session)))];
+  check(sessions.length === 2 && savedPress.length === 2 && savedPress.every(item => item.multiplier === 2) &&
+    observations.saved.filter(item => item.performedLibraryId === ROW_ID).every(item => item.multiplier === 1),
+  "the saved press rows record both hands (×2) and the row its total load (×1)", observations.saved);
+  const todayMoved = await readTodayMoved(page);
+  const historyMoved = await readHistoryMoved(page, sessions);
+  observations.moved = { summaries: [first.moved, second.moved], today: todayMoved, history: historyMoved };
+  check(first.moved === 1200 && second.moved === 1300,
+    "#398 each completion summary's moved total includes the per-side tonnage (1200 kg, then 1300 kg)", observations.moved);
+  check(historyMoved[sessions[0]] === first.moved && historyMoved[sessions[1]] === second.moved,
+    "#398 each completion summary's moved total equals History's for the same session", observations.moved);
+  check(todayMoved === 2500,
+    "#398 Today's finished-day recap moves both sessions' per-side tonnage (2,500 kg)", observations.moved);
+
+  // Once the single-arm row's slot records no execution mode, an
+  // asymmetrical Weight-per-side movement swapped into it saves a row whose
+  // multiplier nobody knows, so it adds nothing. The press and the plain lift
+  // move 30×2×8 + 65×8 = 480 + 520 = 1000 kg on their own.
+  await rewriteState(page, state => {
+    for (const slot of state.programMeta.programDefinition.days.flatMap(day => day.slots || []))
+      if (slot.exerciseId === "1a55c6f170d88031b658c6e278a82a88") delete slot.executionMode;
+  });
+  const rowSlotMode = await page.evaluate(id => window.__repforgeWorkoutDraft.state().programMeta.programDefinition.days
+    .flatMap(day => day.slots || []).find(slot => slot.id === id)?.executionMode ?? null, row.slotId || row.id);
+  await page.clock.setFixedTime(new Date("2026-10-06T12:00:00.000Z"));
+  await logSet(page, press.id, metricNames(PRESS_ID), { "Weight per side": 30, "Reps per side": 8 });
+  await logSet(page, plain.id, metricNames(plain.libraryId), { "Weight": 65, "Reps": 8 });
+  await page.evaluate((id) => window.__repforgeGoToLogExercise(id), row.id);
+  await page.waitForFunction((id) => document.querySelector("#workout.is-focus .exercise.is-current")?.dataset.ex === id,
+    row.id, { timeout: 15000 });
+  await exerciseAction(page, row.id, "#exActionSubstBtn");
+  await page.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
+  await page.fill("#exPickSearch", "Dumbbell renegade row");
+  await page.locator(`#exPickList [data-pick="${RENEGADE_ID}"]`).first().click();
+  await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+  await page.waitForFunction(({ id, renegadeId }) => window.__repforgeWorkoutDraft.current()?.exercises?.[id]
+    ?.substitution?.replacement?.sourceExerciseId === renegadeId, { id: row.id, renegadeId: RENEGADE_ID }, { timeout: 10000 });
+  await logSet(page, row.id, metricNames(RENEGADE_ID), { "Weight per side": 30, "Reps per side": 8 });
+  const third = await finishAndReadSummary(page);
+  const thirdRows = await page.evaluate(id => (JSON.parse(localStorage.getItem("repforge_v1") || "{}").log || [])
+    .filter(item => item.date === "2026-10-06" && item.performedLibraryId === id)
+    .map(item => ({ session: item.session, mode: item.loadingContext?.executionMode ?? null,
+      multiplier: item.loadingContext?.externalLoadMultiplier ?? null, metricValues: item.metricValues })), RENEGADE_ID);
+  const thirdToday = await readTodayMoved(page);
+  const thirdHistory = await readHistoryMoved(page, [String(thirdRows[0]?.session)]);
+  observations.unknownMultiplier = { rowSlotMode, summary: third, rows: thirdRows, today: thirdToday, history: thirdHistory };
+  check(rowSlotMode === null && thirdRows.length === 1 && thirdRows[0].mode === null && thirdRows[0].multiplier === null,
+    "the renegade row swapped into a slot with no mode saves no mode and no multiplier", observations.unknownMultiplier);
+  check(third.liftCount === 3 && third.moved === 1000 && thirdToday === 1000 && thirdHistory[String(thirdRows[0]?.session)] === 1000,
+    "#398 an unknown-multiplier per-side row adds no tonnage to the summary, Today or History (1000 kg)", observations.unknownMultiplier);
 
   // An ambiguous per-side row with no recorded execution mode (saved before
   // #382, or under a slot with no mode) is still a performed lift, but today's
@@ -283,6 +379,8 @@ try {
     "the completion summary lists the unknown-mode per-side lift with its performed set", unknown);
   check(unknownGroup?.pr === false && unknownGroup?.outcome === null && unknownRead.record?.evidenceState === "insufficient",
     "the unknown-mode lift stays insufficient and sets no PR", { group: unknownGroup, record: unknownRead.record });
+  check(unknown.moved === 0,
+    "#398 the unknown-mode per-side lift adds no invented tonnage to the summary", unknown);
   await ambiguousContext.close();
   check(pageErrors.length === 0, "the production journey has no page errors", pageErrors);
 } catch (error) {
