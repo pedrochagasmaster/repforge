@@ -5559,6 +5559,10 @@ function capacityBaseline(ex,sess){
   baselineMemo.set(memoKey,value);return value}
 const DELTA_THRESHOLDS={e1rmPct:.01,volumePct:.025,rir:.75};
 function workingRows(rows){return(rows||[]).filter(r=>isWork(r)&&+r.load>0&&+r.reps>0)}
+/** The working sets a saved session performed, read through the History and
+ *  Progress projection: a per-side row's load and reps live in its metric
+ *  values, not in the scalar fields a plain Weight × Reps row fills. */
+function performedWorkingRows(rows){return workingRows(readLogRows(rows||[]))}
 function exerciseSessionMetrics(rows){const w=workingRows(rows);if(!w.length)return null;let topLoad=0,topLoadReps=0,totalReps=0,totalVolume=0,bestE1rm=0;const rirs=[];
   for(const r of w){const ld=+r.load,rp=+r.reps;totalReps+=rp;totalVolume+=ld*rp;rirs.push(+r.rir);const em=e1rm(ld,rp);if(em>bestE1rm)bestE1rm=em;if(ld>topLoad||(ld===topLoad&&rp>topLoadReps)){topLoad=ld;topLoadReps=rp}}
   return{topLoad,topLoadReps,totalReps,totalVolume,bestE1rm,avgRir:avg(rirs),workingSets:w.length}}
@@ -8856,14 +8860,18 @@ function liftPR(mine,past){
 
 /** One record line per lift that set one, strongest claim first. */
 function sessionPRs(rows,prevLog){
+  // A record compares a lift's sets only with past sets logged in the same
+  // convention; a row whose per-side mode is unknown sets no record.
+  const comparable=log=>performedWorkingRows(log).filter(row=>row.strengthComparable);
+  const key=row=>`${liftKey(row)}\u0000${row.strengthConvention||"load"}`;
   const past=new Map();
-  for(const x of workingRows(prevLog)){const k=liftKey(x);if(!past.has(k))past.set(k,[]);past.get(k).push(x)}
+  for(const x of comparable(prevLog)){const k=key(x);if(!past.has(k))past.set(k,[]);past.get(k).push(x)}
   const mineBy=new Map();
-  for(const r of workingRows(rows)){const k=liftKey(r);if(!mineBy.has(k))mineBy.set(k,[]);mineBy.get(k).push(r)}
+  for(const r of comparable(rows)){const k=key(r);if(!mineBy.has(k))mineBy.set(k,[]);mineBy.get(k).push(r)}
   const out=[];
   for(const[k,mine]of mineBy){
     const pr=liftPR(mine,past.get(k)||[]);
-    if(pr)out.push({...pr,name:displayName(mine[0]),liftKey:k})}
+    if(pr)out.push({...pr,name:displayName(mine[0]),liftKey:liftKey(mine[0])})}
   // Heaviest claim first: a load record outranks reps at the old load, which
   // outranks an e1RM that no single set actually lifted.
   const rank={load:0,reps:1,e1rm:2};
@@ -8887,7 +8895,7 @@ function sessionMuscleWork(rows){
  *  projection, never derived here), the sets performed, the record it set when `prs` carries one, and the engine's
  *  next target. The session summary and Today's finished day both read their lift groups from here. */
 function sessionOutcomeGroups(rows,prs=[]){
-  const work=workingRows(rows);
+  const work=performedWorkingRows(rows);
   // The session is already durable when this runs. Read the single canonical
   // evidence projection and keep only the lifts this completion actually
   // touched; summary presentation never derives a second outcome heuristic.
@@ -8945,7 +8953,7 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
   return{session,date,day:sessDay,
     sets:rows.length,
     volume:sum(work.map(r=>(+r.load||0)*(+r.reps||0))),
-    lifts:new Set(work.map(liftKey)).size,
+    lifts:new Set(performedWorkingRows(rows).map(liftKey)).size,
     minutes:mins>=1&&mins<=480?mins:null,
     prs,
     liftGroups,
