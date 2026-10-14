@@ -5,9 +5,12 @@
  * A generated program reaches the end of its block; each Review change
  * (reduce volume, fewer days, recovery week) is previewed, confirmed by its
  * proposal hash, and committed as a new block whose ProgramDefinition is the
- * derived successor. A set-count edit made during the block survives a
- * fewer-days regeneration, named in the preview and present in the committed
- * successor. A proposal made stale by another tab is refused with the
+ * derived successor. A set-count edit made in the installed program editor
+ * leaves every later change confirmable (#344), and survives a fewer-days
+ * regeneration, named in the preview and present in the committed
+ * successor. An install whose durable rows already carry the editor's
+ * leaked prescription copy still confirms a change without a reset. A
+ * proposal made stale by another tab is refused with the
  * program unchanged, and a Build program's schedule repair stages guided
  * editing instead of regenerating. The fewer-days regeneration runs in the
  * program engine's worker (#353).
@@ -88,6 +91,61 @@ async function openReview(page) {
   await page.locator("#reviewPanel").waitFor({ state: "visible" });
 }
 
+// Program → Edit → `+` on the first exercise's sets → Done, through
+// the production editor. Returns the slot and its set count for the cycle the
+// editor showed.
+async function addSetInEditor(page) {
+  if (await page.locator("#settings.view.active").count()) await page.locator("#settingsBack").click();
+  await page.locator('nav button[data-view="program"]').click();
+  await page.locator("#program.view.active").waitFor({ state: "visible" });
+  await page.locator("#programEditToggle").click();
+  await page.locator("#programEditorWrap:not(.is-hidden)").waitFor({ state: "visible" });
+  const rowId = await page.locator('#programEditor [data-role="adjust"][data-field="sets"][data-delta="1"]').first().getAttribute("data-id");
+  const selector = `#programEditor [data-role="adjust"][data-id="${rowId}"][data-field="sets"][data-delta="1"]`;
+  const plus = page.locator(selector);
+  // Open the day that holds it, as the lifter would; a regenerated week can
+  // list empty days first.
+  const toggle = page.locator('#programEditor [data-role="day"]')
+    .filter({ has: page.locator(`[data-role="adjust"][data-id="${rowId}"]`) }).locator('[data-role="toggle-day"]');
+  if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
+  await plus.waitFor({ state: "visible" });
+  const cycleIndex = Number(await plus.getAttribute("data-cycle-index"));
+  const shown = () => page.evaluate((target) =>
+    Number(document.querySelector(target)?.previousElementSibling?.textContent), selector);
+  const before = await shown();
+  await plus.click();
+  await page.waitForFunction(({ target, next }) =>
+    document.querySelector(target)?.previousElementSibling?.textContent === String(next), { target: selector, next: before + 1 });
+  await page.locator("#programEditToggle").click();
+  await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"));
+  await flush(page);
+  const row = (await state(page)).program.find((entry) => entry.id === rowId);
+  return { slotId: row.slotId || row.id, movement: row.name, cycleIndex, sets: before + 1 };
+}
+
+// The edit is in the activated definition and in both durable replicas.
+async function checkEditorEdit(page, { slotId, cycleIndex, sets }, label) {
+  const live = await state(page), durable = await replicas(page);
+  const setsIn = (snapshot) => slots(snapshot.programMeta.programDefinition).find((slot) => slot.id === slotId)
+    ?.prescriptionsByCycle.find((cycle) => cycle.cycleIndex === cycleIndex)?.sets.length;
+  check(setsIn(live) === sets && setsIn(durable.local) === sets && setsIn(durable.idb) === sets,
+    `${label}: the editor's extra set is in the active definition and both durable replicas`,
+    { want: sets, live: setsIn(live), local: setsIn(durable.local), idb: setsIn(durable.idb) });
+  check([durable.local, durable.idb].every((snapshot) => snapshot.program.every((row) => !("prescriptionsByCycle" in row))),
+    `${label}: the durable program rows keep the canonical row shape`);
+}
+
+async function freshPage(browser, errors) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  page.on("pageerror", (error) => errors.push(String(error?.stack || error)));
+  now = Date.parse("2026-03-02T09:00:00.000Z");
+  await page.clock.setFixedTime(new Date(now));
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  return { context, page };
+}
+
 async function seed(page, { manual = false } = {}) {
   const result = await page.evaluate(async ({ request, manual }) => {
     const catalogSnapshot = window.RepForgeExerciseCatalog.snapshot();
@@ -160,6 +218,9 @@ async function main() {
     const seeded = await state(page);
     check(training(seeded.programMeta.programDefinition).length === 4, "a generated four-day program is active");
 
+    // Reduce volume after an installed-editor set edit (#344) --------------
+    await checkEditorEdit(page, await addSetInEditor(page), "reduce volume");
+
     // Reduce volume: an open workout's typed value in a removed set blocks it
     await finishBlock(page);
     const accessory = training((await state(page)).programMeta.programDefinition)
@@ -206,25 +267,13 @@ async function main() {
       "the program rows are the successor's first-cycle projection");
 
     // A set-count edit the lifter made during the block -------------------
-    // Shaped exactly as the installed editor writes one (the last set
-    // duplicated as a manual set). It is committed through the production
-    // state seam because an installed-editor apply currently strands every
-    // later Review confirmation as out of date (#344).
-    const compound = slots(afterVolume.programMeta.programDefinition).find((slot) => /PrimaryCompound$/.test(slot.role));
-    const movement = afterVolume.program.find((row) => (row.slotId || row.id) === compound.id).name;
-    const editedWeek = 2;
-    const setsBeforeEdit = compound.prescriptionsByCycle[editedWeek - 1].sets.length;
-    const edited = await page.evaluate(async ({ slotId, week }) => {
-      const head = window.__repforgeWorkoutDraft.state();
-      const slot = head.programMeta.programDefinition.days.flatMap((day) => day.slots).find((item) => item.id === slotId);
-      const cycle = slot.prescriptionsByCycle.find((item) => item.cycleIndex === week);
-      cycle.sets.push({ ...structuredClone(cycle.sets.at(-1)), id: "review-browser-added-set", setIndex: cycle.sets.length + 1,
-        rir: null, status: "manual", provenance: { source: "manual", policyVersion: "manual@1" } });
-      const committed = await window.__repforgeCommitProposedState(head);
-      await window.__repforgeStorage.flush();
-      return !!(committed?.localOk && committed?.idbOk);
-    }, { slotId: compound.id, week: editedWeek });
-    check(edited, `the block holds an extra ${movement} set in week ${editedWeek}`);
+    // Through the installed editor, which must leave the later Review
+    // confirmation current (#344).
+    const daysEdit = await addSetInEditor(page);
+    await checkEditorEdit(page, daysEdit, "fewer days");
+    const { movement, cycleIndex: editedWeek } = daysEdit;
+    const setsBeforeEdit = daysEdit.sets - 1;
+    const editedSlot = slots(afterVolume.programMeta.programDefinition).find((slot) => slot.id === daysEdit.slotId);
 
     // Fewer days ----------------------------------------------------------
     await finishBlock(page);
@@ -250,7 +299,7 @@ async function main() {
     check(training(afterDays.programMeta.programDefinition).length === 3 &&
       afterDays.programMeta.programDefinition.request.daysPerWeek === 3 && afterDays.programMeta.daysPerWeek === 3,
     "the regenerated successor trains three days a week");
-    const carriedSlot = slots(afterDays.programMeta.programDefinition).find((slot) => slot.exerciseId === compound.exerciseId);
+    const carriedSlot = slots(afterDays.programMeta.programDefinition).find((slot) => slot.exerciseId === editedSlot.exerciseId);
     check(carriedSlot?.prescriptionsByCycle[editedWeek - 1].sets.length === setsBeforeEdit + 1,
       "the committed successor holds the set count the preview showed",
       carriedSlot?.prescriptionsByCycle.map((cycle) => cycle.sets.length));
@@ -303,14 +352,68 @@ async function main() {
     check(/changed|newer|again/i.test(await page.locator("#reviewPanel .review__error").innerText()),
       "the lifter is told the plan changed and can retry");
 
+    // Recovery week after an installed-editor set edit (#344) -------------
+    // A fresh block: a regenerated successor's editor is out of this proof.
+    const { context: recoveryContext, page: recoveryPage } = await freshPage(browser, errors);
+    await seed(recoveryPage);
+    await checkEditorEdit(recoveryPage, await addSetInEditor(recoveryPage), "recovery week");
+    await finishBlock(recoveryPage);
+    await openReview(recoveryPage);
+    await recoveryPage.locator('[data-review-action="recovery-week"]').click();
+    await recoveryPage.locator('[data-recovery-answer="Yes"]').click();
+    const beforeEditedRecovery = await confirmPreview(recoveryPage, { title: "Recovery week preview" });
+    checkCommitted(beforeEditedRecovery, await state(recoveryPage), await replicas(recoveryPage), "recovery week after an edit");
+    await recoveryContext.close();
+
+    // Durable rows that already carry the editor's leaked copy (#344) -----
+    // An older build persisted the editor's per-row prescriptionsByCycle;
+    // such an install must confirm a Review change without a reset.
+    const { context: legacyContext, page: legacy } = await freshPage(browser, errors);
+    await seed(legacy);
+    const leaked = await legacy.evaluate(async () => {
+      const leak = (snapshot) => {
+        const byId = new Map(snapshot.programMeta.programDefinition.days.flatMap((day) => day.slots || [])
+          .map((slot) => [slot.id, slot]));
+        for (const row of snapshot.program)
+          row.prescriptionsByCycle = structuredClone(byId.get(row.slotId || row.id)?.prescriptionsByCycle || []);
+        return snapshot;
+      };
+      const local = leak(JSON.parse(localStorage.getItem("repforge_v1")));
+      localStorage.setItem("repforge_v1", JSON.stringify(local));
+      return new Promise((resolve) => {
+        const open = indexedDB.open("repforge");
+        open.onerror = () => resolve(false);
+        open.onsuccess = () => {
+          const store = open.result.transaction("kv", "readwrite").objectStore("kv");
+          const read = store.get("repforge_v1");
+          read.onsuccess = () => {
+            const raw = read.result, parsed = leak(typeof raw === "string" ? JSON.parse(raw) : raw);
+            const write = store.put(typeof raw === "string" ? JSON.stringify(parsed) : parsed, "repforge_v1");
+            write.onsuccess = () => { open.result.close(); resolve(true); };
+            write.onerror = () => { open.result.close(); resolve(false); };
+          };
+          read.onerror = () => { open.result.close(); resolve(false); };
+        };
+      });
+    });
+    await finishBlock(legacy);
+    const seededLegacy = await replicas(legacy);
+    check(leaked && [seededLegacy.local, seededLegacy.idb].every((snapshot) =>
+      snapshot.program.length > 0 && snapshot.program.every((row) => Array.isArray(row.prescriptionsByCycle))),
+    "legacy install: both durable replicas carry the leaked per-row prescriptions");
+    await openReview(legacy);
+    await legacy.locator('[data-review-action="reduce-volume"]').click();
+    await legacy.locator("[data-volume-confirm]").click();
+    const beforeLegacy = await confirmPreview(legacy, { title: "Proposed plan" });
+    const afterLegacy = await state(legacy);
+    const legacyDurable = await replicas(legacy);
+    checkCommitted(beforeLegacy, afterLegacy, legacyDurable, "legacy install");
+    check([legacyDurable.local, legacyDurable.idb].every((snapshot) => snapshot.program.every((row) => !("prescriptionsByCycle" in row))),
+      "legacy install: the successor's durable rows keep the canonical row shape");
+    await legacyContext.close();
+
     // A Build program's schedule repair stages guided editing -------------
-    const manualContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
-    const manual = await manualContext.newPage();
-    manual.on("pageerror", (error) => errors.push(String(error?.stack || error)));
-    now = Date.parse("2026-03-02T09:00:00.000Z");
-    await manual.clock.setFixedTime(new Date(now));
-    await manual.goto(BASE, { waitUntil: "domcontentloaded" });
-    await waitForAppBoot(manual, { base: BASE });
+    const { context: manualContext, page: manual } = await freshPage(browser, errors);
     await seed(manual, { manual: true });
     await finishBlock(manual);
     const beforeGuided = await replicas(manual);

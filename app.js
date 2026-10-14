@@ -10859,8 +10859,12 @@ function editorSnapshotFromDocument(document,base=state){
   proposal.program=cloneSnapshot(document?.program||[]);
   proposal.programMeta={...(cloneSnapshot(base?.programMeta||defaultProgramMeta(base?.log||[]))),...(cloneSnapshot(document?.programMeta||{}))};
   proposal.customExercises=cloneSnapshot(document?.customExercises||base?.customExercises||[]);
-  syncProgramStructureFromProgram(proposal,makeProgram(proposal.program,snapshotLookup(proposal.customExercises),proposal.programMeta),
-    base?.program,base?.programMeta);
+  const model=makeProgram(proposal.program,snapshotLookup(proposal.customExercises),proposal.programMeta);
+  // The ProgramDefinition owns prescriptions; the editor's per-row copy is
+  // working state. Persist the row shape boot reads back, or the durable
+  // program fingerprint never matches the live one again (#344).
+  proposal.program=model.toJSON();
+  syncProgramStructureFromProgram(proposal,model,base?.program,base?.programMeta);
   return proposal}
 function editorAdapterTranslate(key,vars,fallback){
   const value=t(key,vars);return value===key?(fallback||key):value}

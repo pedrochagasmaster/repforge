@@ -168,9 +168,16 @@
     const meta=snapshot?.programMeta;
     return Object.prototype.hasOwnProperty.call(meta||{},"blockId")?meta.blockId:null}
 
+    // A program row never owns prescriptions; the ProgramDefinition does, and
+    // loading drops a row's copy. Older installed-editor builds persisted that
+    // copy (#344), so it cannot count toward the durable program's identity.
+    function fingerprintRow(row){
+    if(!row||typeof row!=="object"||!Object.prototype.hasOwnProperty.call(row,"prescriptionsByCycle"))return row;
+    const{prescriptionsByCycle,...rest}=row;return rest}
+
     function draftProgramFingerprint(snapshot){
     const value={programMetaId:snapshot?.programMeta?.id||null,
-      program:Array.isArray(snapshot?.program)?snapshot.program:[]};
+      program:Array.isArray(snapshot?.program)?snapshot.program.map(fingerprintRow):[]};
     if(Object.prototype.hasOwnProperty.call(snapshot?.programMeta||{},"blockId"))
       value.programMetaBlockId=snapshot.programMeta.blockId;
     return JSON.stringify(canonicalize(value))}
