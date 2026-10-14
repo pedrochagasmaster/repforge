@@ -26,7 +26,67 @@
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["TransferDurableObject", "RateLimitDurableObject", "TransferHealthDurableObject", "TransferRouteRegistryDurableObject"]
+      "new_sqlite_classes": [
+        "TransferDurableObject",
+        "RateLimitDurableObject",
+        "TransferHealthDurableObject",
+        "TransferRouteRegistryDurableObject"
+      ]
     }
-  ]
+  ],
+  "env": {
+    "production": {
+      "name": "taurifer-install-transfer",
+      "workers_dev": false,
+      "preview_urls": false,
+      "routes": [
+        {
+          "pattern": "taurifer.com/v1/*",
+          "zone_name": "taurifer.com"
+        }
+      ],
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "TRANSFER_OBJECTS",
+            "class_name": "TransferDurableObject"
+          },
+          {
+            "name": "RATE_LIMIT_BUCKETS",
+            "class_name": "RateLimitDurableObject"
+          },
+          {
+            "name": "TRANSFER_HEALTH",
+            "class_name": "TransferHealthDurableObject"
+          },
+          {
+            "name": "TRANSFER_REGISTRY",
+            "class_name": "TransferRouteRegistryDurableObject"
+          }
+        ]
+      },
+      "migrations": [
+        {
+          "tag": "v1",
+          "new_sqlite_classes": [
+            "TransferDurableObject",
+            "RateLimitDurableObject",
+            "TransferHealthDurableObject",
+            "TransferRouteRegistryDurableObject"
+          ]
+        }
+      ],
+      "vars": {
+        "TRANSFER_ALLOWED_ORIGIN": "https://taurifer.com",
+        "TRANSFER_CREATES_ENABLED": "true",
+        "TRANSFER_KILL_SWITCH": "false",
+        "TRANSFER_TOKEN_MAC_KEY_ID": "k1",
+        "TRANSFER_ALARM_HEALTH": "healthy",
+        "TRANSFER_WATCHDOG_HEALTH": "healthy",
+        "TRANSFER_LOG_HEALTH": "healthy",
+        "TRANSFER_KEY_HEALTH": "healthy",
+        "TRANSFER_DELETION_HEALTH": "healthy"
+      }
+    }
+  }
 }

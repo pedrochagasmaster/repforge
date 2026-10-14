@@ -141,9 +141,14 @@ self.addEventListener("activate", event => {
   );
 });
 
+// The install-transfer Worker answers the origin-root `/v1/` endpoints on the app's own host; no cached copy,
+// shell, or offline fallback may stand in for it.
+const TRANSFER_ORIGIN = new URL(self.registration.scope).origin;
+
 self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
+  if (url.origin === TRANSFER_ORIGIN && url.pathname.startsWith("/v1/")) return;
   const path = shellPathname(url.pathname);
   const codeTypes = expectedCodeType(path);
 

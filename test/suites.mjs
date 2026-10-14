@@ -34,6 +34,8 @@ export const SUITES = {
     s("test/install-transfer-plan067-contract.mjs"),
     s("test/install-transfer-client.mjs"),
     s("test/install-transfer-limits.mjs"),
+    s("test/install-transfer-production-config.mjs", [], { domains: ["install", "service"], cost: "tiny" }),
+    s("test/sw-transfer-passthrough.mjs", [], { domains: ["install", "offline"], cost: "tiny" }),
     s("test/verification-recorder.mjs", [], {"nodeArgs": ["--test"]}),
     s("tools/check-production-syntax.mjs"),
     s("tools/check-test-syntax.mjs"),
