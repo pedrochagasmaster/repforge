@@ -2146,6 +2146,23 @@ window.__dock = {
       frame();
     });
   },
+  // The app marks the dock data-lens="on" when the travel's completion callback runs, which can land a frame or
+  // two after the spring has visibly arrived (#377).
+  settled() { const s = this.read(); return s.mode === "on" && s.transform === ""; },
+  // Frames for at least ms and on until the lens has settled. A lens that never settles stops sampling at the
+  // bound and fails the end-state checks rather than hanging the page.
+  travel(ms, after, bound = 3000) {
+    return new Promise((resolve) => {
+      const out = [], t0 = performance.now();
+      const frame = () => requestAnimationFrame(() => setTimeout(() => {
+        const t = performance.now() - t0;
+        out.push({ t, ...this.read() });
+        if ((t < ms || !this.settled()) && t < bound) frame(); else resolve(out);
+      }, 0));
+      if (after) after();
+      frame();
+    });
+  },
   click(view) { document.querySelector('nav button[data-view="' + view + '"]').click(); },
 };
 `;
@@ -2210,7 +2227,7 @@ async function dockMotion(browser, { reducedMotion = "no-preference" } = {}) {
 
   phase(`N1: choosing a tab travels the lens from the old tab to the new one${tag}`);
   const before = { log: await rectOf("log"), history: await rectOf("history") };
-  const go = await page.evaluate(() => window.__dock.frames(520, () => window.__dock.click("history")));
+  const go = await page.evaluate(() => window.__dock.travel(520, () => window.__dock.click("history")));
   assert(go[0].view === "history", "the tab is selected on the first frame; nothing waits on the travel", go[0].view);
   assert(go.every((f) => f.count === 1), "there is one lens on every frame", JSON.stringify([...new Set(go.map((f) => f.count))]));
   const last = go.at(-1);
@@ -2238,7 +2255,7 @@ async function dockMotion(browser, { reducedMotion = "no-preference" } = {}) {
       const restart = window.__dock.read();
       return { live, restart };
     });
-    await wait(page, 700);
+    await page.waitForFunction(() => window.__dock.settled());
     const end = await page.evaluate(() => window.__dock.read());
     const stats = await rectOf("stats"), program = await rectOf("program");
     const history = await rectOf("history");
@@ -2248,7 +2265,7 @@ async function dockMotion(browser, { reducedMotion = "no-preference" } = {}) {
     assert(onButton(end) && end.view === "program" && end.count === 1 && end.transform === "" && Math.abs(end.lens.left - program.left) < 0.5, "and it lands on the last tab chosen", JSON.stringify(end));
   }
   await page.evaluate(() => window.__dock.click("history"));
-  await wait(page, 600);
+  await page.waitForFunction(() => window.__dock.settled());
 
   phase(`N1: Settings and back: the lens is in place when the dock returns, with no travel${tag}`);
   await page.evaluate(() => document.querySelector("#openSettings").click());
@@ -2319,7 +2336,7 @@ async function dockMotion(browser, { reducedMotion = "no-preference" } = {}) {
     const act = nav.querySelector("button.active"), cs = getComputedStyle(act);
     return { mode: nav.dataset.lens, vis: getComputedStyle(nav.querySelector(".dock-lens")).visibility, bg: cs.backgroundColor, shadow: cs.boxShadow, border: cs.borderTopColor, n: document.querySelectorAll(".dock-lens").length };
   });
-  await wait(page, 600);
+  await page.waitForFunction(() => window.__dock.settled());
   const barRest = await page.evaluate(() => { const nav = document.querySelector("nav"), cs = getComputedStyle(nav.querySelector("button.active")); return { ...window.__dock.read(), vis: getComputedStyle(nav.querySelector(".dock-lens")).visibility, bg: cs.backgroundColor, border: cs.borderTopColor }; });
   if (reduced) {
     assert(barAir.mode === "on" && barAir.vis === "hidden" && barAir.bg !== "rgba(0, 0, 0, 0)", "under reduced motion the lens never shows: the button's own paint is the selected tab on every frame", JSON.stringify(barAir));
@@ -2348,7 +2365,7 @@ async function dockMotion(browser, { reducedMotion = "no-preference" } = {}) {
   assert(navAfter > navBefore, "200% text makes the two-row dock", JSON.stringify({ navBefore, navAfter }));
   assert(onButton(big.at(-1)) && big.every((f) => f.transform === "" && f.count === 1), "the lens is on the active tab of the taller dock and was never in flight", JSON.stringify({ end: big.at(-1).lens, active: big.at(-1).active }));
   const second = await page.evaluate(async () => {
-    const out = await window.__dock.frames(560, () => window.__dock.click("program"));
+    const out = await window.__dock.travel(560, () => window.__dock.click("program"));
     return out;
   });
   assert(onButton(second.at(-1)) && second.at(-1).view === "program" && second.every((f) => f.count === 1), "and a tab chosen in the two-row dock lands on its tile", JSON.stringify({ end: second.at(-1).lens, active: second.at(-1).active }));
