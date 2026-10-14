@@ -708,6 +708,23 @@ for (const convention of ["external", "assistance"]) {
   }
 }
 
+// #382: an ambiguous per-side row may carry the lifter's explicit execution mode.
+for (const [mode, accepted] of [["bilateral", true], ["unilateral", true], ["left", false], [null, false], [1, false]]) {
+  const checkedContext = WorkoutDraft.validateLoadingContext({
+    loadingConvention: "per_side", externalLoadMultiplier: 2, bodyweightCoefficient: null, executionMode: mode,
+  });
+  assert.equal(checkedContext.ok, accepted, `loading context execution mode ${JSON.stringify(mode)} follows the closed enum`);
+}
+for (const [mode, accepted] of [["unilateral", true], ["left", false]]) {
+  const modeHistory = currentEnvelope();
+  modeHistory.durableState.log[0].loadingContext.executionMode = mode;
+  modeHistory.integrity.canonicalPayloadHash = canonicalHash(modeHistory);
+  const checkedHistory = await Contract.validateEnvelopeIntegrity(modeHistory, webcrypto);
+  assert.equal(checkedHistory.ok, accepted, `install transfer ${accepted ? "accepts" : "refuses"} a History row with execution mode ${mode}`);
+  if (accepted) assert.deepEqual(checkedHistory.value.durableState.log, modeHistory.durableState.log,
+    "a captured execution mode round-trips unchanged through install transfer");
+}
+
 const mismatchedDraftCoefficient = structuredClone(actualDraft);
 mismatchedDraftCoefficient.exercises[activeSlot.id].programmed.loadingContext.bodyweightCoefficient =
   activeSlot.loadingModel.bodyweightCoefficient === 0 ? 0.5 : 0;

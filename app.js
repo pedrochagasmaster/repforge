@@ -1709,6 +1709,10 @@ function executionModeForLogRow(row,sideLoadSemantic=null,explicitMultiplier=nul
   const laterality=(rawExercise(sourceId)?.laterality||[]).map(id=>rawCatalogObject(id)?.name).filter(Boolean);
   if(laterality.length===1&&laterality[0]==="Unilateral")return"unilateral";
   if(laterality.length===1&&laterality[0]==="Bilateral")return"bilateral";
+  // An ambiguous movement's row may carry the mode the lifter chose when it
+  // was logged (#382). Rows without it stay as they were saved.
+  const captured=row?.loadingContext?.executionMode;
+  if(captured==="bilateral"||captured==="unilateral")return captured;
   // Total-load m=1 is its load-composition multiplier, not a captured
   // execution convention. With ambiguous catalog laterality, don't substitute
   // the current slot's mode for the historical movement.
@@ -2509,6 +2513,9 @@ function workoutProgramContext(label=day){
       const{loadingModel,loadingConvention,loadingContext}=metricLoading(metricDefinitions,rawExercise(ex.libraryId),canonicalSlot?.loadingModel);
       const slotProjection=canonicalSlot?slotLoadingProjection(canonicalSlot):null;
       if(slotProjection)loadingContext.externalLoadMultiplier=slotProjection.externalLoadMultiplier;
+      // Each new row of an ambiguous per-side movement keeps the lifter's explicit mode (#382).
+      if(slotProjection?.executionMode&&editorSuggestLoadsPolicy.executionModeQuestion(canonicalSlot))
+        loadingContext.executionMode=slotProjection.executionMode;
       const programmedSets=cycle?cycle.sets.map((prescription,i)=>{
         const old=prev.find(row=>row.set===i+1),repTarget=prescription.targets?.reps??prescription.targets?.repsPerSide;
         return{suggestedLoad:null,suggestedReps:repTarget?.min??repTarget??null,targetRir:prescription.rir,
