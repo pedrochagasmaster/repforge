@@ -4029,10 +4029,11 @@ function definitionPreviewLines(before,after){
   const training=definition=>(definition?.days||[]).filter(day=>day.kind==="training");
   const setsOf=slot=>slot.prescriptionsByCycle?.[0]?.sets.length??0;
   const lines=[],beforeDays=training(before),afterDays=training(after);
+  const shown=(day,definition)=>`${localizedDayName({label:day.name},day.name,definition)} · ${day.slots.length}`;
   for(let index=0;index<Math.max(beforeDays.length,afterDays.length);index++){
     const was=beforeDays[index],now=afterDays[index];
     if(was&&now&&was.name===now.name&&was.slots.length===now.slots.length)continue;
-    lines.push(t("review.preview.day_change",{before:was?`${was.name} · ${was.slots.length}`:"—",after:now?`${now.name} · ${now.slots.length}`:"—"}))}
+    lines.push(t("review.preview.day_change",{before:was?shown(was,before):"—",after:now?shown(now,after):"—"}))}
   const slots=definition=>training(definition).flatMap(day=>day.slots);
   const remaining=slots(after).slice();
   for(const slot of slots(before)){
