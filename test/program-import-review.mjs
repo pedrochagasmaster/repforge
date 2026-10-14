@@ -1009,6 +1009,72 @@ async function main() {
     assert(await page.evaluate(({ key, before }) => localStorage.getItem(key) === before, { key: KEY, before: beforeLegacy }),
       "refusing a legacy backup changes nothing durable");
 
+    // #344: installed-editor set edits must not leave redundant row data that
+    // makes a subsequent program replacement look like a foreign-tab change.
+    // Also retain compatibility with the already-persisted rows from older PWAs.
+    await resetWithProgram(page);
+    const beforeSetEdit = await getState(page);
+    const editable = beforeSetEdit.program[0];
+    const predecessorId = beforeSetEdit.programMeta.id;
+    await openEditor(page);
+    const card = page.locator('#programEditor [data-role="exercise"][data-id="' + editable.id + '"]');
+    if (!await card.locator('[data-role="adjust"][data-field="sets"]').count())
+      await card.locator('[data-role="toggle-exercise"]').click();
+    await card.locator('[data-role="adjust"][data-field="sets"][data-delta="1"]').click();
+    await page.locator("#programEditToggle").click(); // Done
+    await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"));
+    await page.evaluate(() => window.__repforgeStorage.flush());
+    const afterSetEdit = await getState(page);
+    assert(afterSetEdit.program.every((row) => !Object.hasOwn(row, "prescriptionsByCycle")) &&
+      afterSetEdit.program.find((row) => row.id === editable.id)?.sets === editable.sets + 1,
+      "installed editor stores canonical rows after a set-count change",
+      JSON.stringify({ before: editable.sets, after: afterSetEdit.program.find((row) => row.id === editable.id) }));
+
+    // The owner's device already contains the former writer's output.
+    // Reproduce those bytes through the real durable write API, then reload.
+    const legacyWrite = await page.evaluate(async (id) => {
+      const state = window.__repforgeWorkoutDraft.state();
+      const row = state.program.find((item) => item.id === id);
+      const slot = state.programMeta.programDefinition.days.flatMap((day) => day.slots)
+        .find((item) => item.id === (row.slotId || row.id));
+      if (!slot) return { committed: false, reason: "missing slot" };
+      row.prescriptionsByCycle = structuredClone(slot.prescriptionsByCycle);
+      const outcome = await window.__repforgeCommitProposedState(state);
+      await window.__repforgeStorage.flush();
+      return {
+        committed: outcome?.committed === true && outcome?.settled === true,
+        shadowPersisted: Object.hasOwn(JSON.parse(localStorage.getItem("repforge_v1")).program.find((item) => item.id === id), "prescriptionsByCycle"),
+      };
+    }, editable.id);
+    assert(legacyWrite.committed && legacyWrite.shadowPersisted,
+      "legacy device fixture contains the actual redundant editor row shape", JSON.stringify(legacyWrite));
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    const legacyBeforeReplace = await getState(page);
+    assert(legacyBeforeReplace.program.some((row) => Object.hasOwn(row, "prescriptionsByCycle")),
+      "reload preserves the older installed-editor row bytes until replacement");
+
+    await openEditor(page);
+    await importFile(page, "godmode.json", JSON.stringify({
+      version: 3, meta: { name: "GodMode" },
+      exercises: [{ day: "Upper", order: 1, name: "Barbell bench press", sets: 3, min: 4, max: 6 }],
+      missing: [], notImported: [],
+    }));
+    await acceptFirstProposals(page);
+    await reviewAndActivateImport(page);
+    const replacedAfterLegacy = await getState(page);
+    const predecessorArchive = replacedAfterLegacy.programHistory?.find((item) => item.id === predecessorId);
+    assert(replacedAfterLegacy.programMeta?.name === "GodMode" &&
+      replacedAfterLegacy.program?.length === 1 &&
+      predecessorArchive?.program?.find((row) => row.id === editable.id)?.sets === editable.sets + 1 &&
+      !replacedAfterLegacy.program.some((row) => Object.hasOwn(row, "prescriptionsByCycle")),
+      "GodMode activates after a historical editor set edit and archives the prior program",
+      JSON.stringify({ name: replacedAfterLegacy.programMeta?.name, archive: !!predecessorArchive }));
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    assert((await getState(page)).programMeta?.name === "GodMode",
+      "activated GodMode remains installed after reload");
+
     // A program-only file is still a program file: it has no log to speak for.
     await resetWithProgram(page);
     await openEditor(page);

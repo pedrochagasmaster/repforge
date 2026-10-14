@@ -205,26 +205,40 @@ async function main() {
     check(afterVolume.program.every((row) => row.sets === firstCycleSets(afterVolume.programMeta.programDefinition).get(row.slotId || row.id)?.sets),
       "the program rows are the successor's first-cycle projection");
 
-    // A set-count edit the lifter made during the block -------------------
-    // Shaped exactly as the installed editor writes one (the last set
-    // duplicated as a manual set). It is committed through the production
-    // state seam because an installed-editor apply currently strands every
-    // later Review confirmation as out of date (#344).
+    // The actual installed editor (not a synthetic definition mutation) writes
+    // the set edit, then the Review regeneration must be able to replace it.
+    // Issue #344: the old writer put prescriptionsByCycle on program rows,
+    // making the durable fingerprint differ from the loaded fingerprint.
     const compound = slots(afterVolume.programMeta.programDefinition).find((slot) => /PrimaryCompound$/.test(slot.role));
-    const movement = afterVolume.program.find((row) => (row.slotId || row.id) === compound.id).name;
-    const editedWeek = 2;
+    const editedRow = afterVolume.program.find((row) => (row.slotId || row.id) === compound.id);
+    const movement = editedRow.name;
+    const editedWeek = 1;
     const setsBeforeEdit = compound.prescriptionsByCycle[editedWeek - 1].sets.length;
-    const edited = await page.evaluate(async ({ slotId, week }) => {
-      const head = window.__repforgeWorkoutDraft.state();
-      const slot = head.programMeta.programDefinition.days.flatMap((day) => day.slots).find((item) => item.id === slotId);
-      const cycle = slot.prescriptionsByCycle.find((item) => item.cycleIndex === week);
-      cycle.sets.push({ ...structuredClone(cycle.sets.at(-1)), id: "review-browser-added-set", setIndex: cycle.sets.length + 1,
-        rir: null, status: "manual", provenance: { source: "manual", policyVersion: "manual@1" } });
-      const committed = await window.__repforgeCommitProposedState(head);
-      await window.__repforgeStorage.flush();
-      return !!(committed?.localOk && committed?.idbOk);
-    }, { slotId: compound.id, week: editedWeek });
-    check(edited, `the block holds an extra ${movement} set in week ${editedWeek}`);
+    await page.locator('nav button[data-view="program"]').click();
+    await page.locator("#programEditToggle").click();
+    await page.locator("#programEditorWrap:not(.is-hidden)").waitFor();
+    const editedDay = page.locator('#programEditor [data-role="day"][data-day="' + editedRow.day + '"]');
+    if (await editedDay.locator('[data-role="day-body"][hidden]').count())
+      await editedDay.locator('[data-role="toggle-day"]').click();
+    const exerciseCard = page.locator('#programEditor [data-role="exercise"][data-id="' + editedRow.id + '"]');
+    if (!await exerciseCard.locator('[data-role="adjust"][data-field="sets"]').count())
+      await exerciseCard.locator('[data-role="toggle-exercise"]').click();
+    await exerciseCard.locator('[data-role="adjust"][data-field="sets"][data-delta="1"][data-cycle-index="1"]').click();
+    await page.locator("#programEditToggle").click(); // Done: commit through the real editor
+    await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"));
+    await flush(page);
+    const editedDisk = await replicas(page);
+    const editedDefinition = editedDisk.local?.programMeta?.programDefinition;
+    const editedSlot = slots(editedDefinition).find((slot) => slot.id === compound.id);
+    check(editedSlot?.prescriptionsByCycle[0]?.sets.length === setsBeforeEdit + 1 &&
+      editedDisk.local?.program.every((row) => !Object.hasOwn(row, "prescriptionsByCycle")) &&
+      editedDisk.idb?.program.every((row) => !Object.hasOwn(row, "prescriptionsByCycle")),
+      "installed editor writes the full set edit only into the definition, not redundant program rows");
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    check(slots((await state(page)).programMeta.programDefinition)
+      .find((slot) => slot.id === compound.id)?.prescriptionsByCycle[0]?.sets.length === setsBeforeEdit + 1,
+      "the installed editor's set change survives reload before Review");
 
     // Fewer days ----------------------------------------------------------
     await finishBlock(page);
