@@ -69,6 +69,7 @@ export const SUITES = {
     s("test/posthog-measurement.mjs", [], {"nodeArgs": ["--test"]}),
     s("test/runtime-budget.mjs"),
     s("tools/check-ui-screens.mjs"),
+    s("tools/check-ui-semantic-roles.mjs", ["--check"]),
     s("tools/check-design-md.mjs", [], { domains: ["shell"], cost: "tiny" }),
     s("test/manual-matrix.mjs", ["--self-test"]),
   ],
