@@ -43,6 +43,10 @@
         {
           "pattern": "taurifer.com/v1/*",
           "zone_name": "taurifer.com"
+        },
+        {
+          "pattern": "taurifer.com/_ops/*",
+          "zone_name": "taurifer.com"
         }
       ],
       "durable_objects": {

@@ -198,7 +198,9 @@ closed by this section; each remains open owner evidence:
 ### What runs in production
 
 `wrangler.jsonc` `env.production` deploys a separate Worker,
-`taurifer-install-transfer`, routed at `taurifer.com/v1/*` with no
+`taurifer-install-transfer`, routed at `taurifer.com/v1/*` (client API) and
+`taurifer.com/_ops/*` (bearer-authenticated scheduled operations; without it
+the health loop's calls are answered by Pages and the lease never renews) with no
 `workers.dev` or preview URL. The client already calls the page's own origin,
 so the app needs no change. The Worker has its own SQLite Durable Object
 namespaces, created by the `v1` migration on first deploy and always reached
