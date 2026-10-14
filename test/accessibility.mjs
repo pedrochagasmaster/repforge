@@ -2470,10 +2470,16 @@ console.log("\nShared setup gate accessibility");
     const gate = await page.evaluate(sharedGateSnapshot);
     assert(gate.startVisible && gate.startFocusable, "shared first run: Start this program is keyboard-reachable", JSON.stringify(gate));
     assert(!gate.createFocusable && !gate.importFocusable, "shared first run: Create/Import are not keyboard-reachable", JSON.stringify(gate));
+    // Plan 072 §7: the action reads See the program; the card above it names the program,
+    // and the action is described by that caption so both are announced together.
+    const described = await page.evaluate(() => {
+      const ids = (document.querySelector("#firstRunSharedStart")?.getAttribute("aria-describedby") || "").split(/\s+/).filter(Boolean);
+      return ids.map((id) => document.getElementById(id)?.textContent?.trim() || "").join(" ");
+    });
     assert(
-      gate.startName.includes(SHARED_COPY.en.title) && gate.startName.includes("Coach program"),
-      "shared first run: Start has an accessible name from title and caption",
-      gate.startName
+      gate.startName.includes(SHARED_COPY.en.view) && described.includes("Coach program"),
+      "shared first run: Start is named See the program and described by the program caption",
+      JSON.stringify({ name: gate.startName, described })
     );
     const ring = await page.evaluate((sel) => {
       const el = document.querySelector(sel);
@@ -2537,17 +2543,23 @@ console.log("\nShared setup gate accessibility");
       const hook = window.__repforgeSharedSetup;
       const start = document.querySelector("#firstRunSharedStart");
       if (!hook?.commit || !start) return { missing: true, hasStart: !!start };
-      hook.commit({
-        writeSetupDraft() { return new Promise(() => {}); },
+      let writes = 0;
+      const outcome = await hook.commit({
+        writeSetupDraft() { writes++; return new Promise(() => {}); },
       });
-      await new Promise((res) => setTimeout(res, 50));
       return {
         missing: false,
+        writes,
+        staged: outcome?.staged === true && outcome?.inMemory === true,
         disabled: !!start.disabled,
         busy: start.getAttribute("aria-busy") === "true",
+        review: document.querySelector("#onboarding")?.classList.contains("active") || false,
       };
     });
-    assert(!busy.missing && busy.disabled && busy.busy, "shared commit: busy state is disabled and announced", JSON.stringify(busy));
+    // Plan 072 §7 / ADR 0007: Start opens the received program in memory. It waits on no
+    // setup-draft write, so there is no busy window; it must not leave Start stuck busy.
+    assert(!busy.missing && busy.writes === 0 && busy.staged && busy.review && !busy.busy,
+      "shared commit: Start opens the review without waiting on a write or leaving a stuck busy state", JSON.stringify(busy));
   }
   await context.close();
 }

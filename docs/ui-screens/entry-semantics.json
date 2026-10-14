@@ -140590,6 +140590,7 @@
         {
           "tag": "button",
           "name": "See the program",
+          "describedBy": "Coach block · 3 days per week",
           "type": "button"
         },
         {
@@ -140655,6 +140656,7 @@
         {
           "tag": "button",
           "name": "See the program",
+          "describedBy": "Coach block · 3 days per week",
           "type": "button"
         },
         {
@@ -140720,6 +140722,7 @@
         {
           "tag": "button",
           "name": "See the program",
+          "describedBy": "Coach block · 3 days per week",
           "type": "button"
         },
         {
@@ -140785,6 +140788,7 @@
         {
           "tag": "button",
           "name": "See the program",
+          "describedBy": "Coach block · 3 days per week",
           "type": "button"
         },
         {
@@ -140850,6 +140854,7 @@
         {
           "tag": "button",
           "name": "See the program",
+          "describedBy": "Coach block · 3 days per week",
           "type": "button"
         },
         {
@@ -140915,6 +140920,7 @@
         {
           "tag": "button",
           "name": "Ver o treino",
+          "describedBy": "Treino do treinador · 3 dias por semana",
           "type": "button"
         },
         {
@@ -140980,6 +140986,7 @@
         {
           "tag": "button",
           "name": "Ver o treino",
+          "describedBy": "Treino do treinador · 3 dias por semana",
           "type": "button"
         },
         {
@@ -141045,6 +141052,7 @@
         {
           "tag": "button",
           "name": "See the program",
+          "describedBy": "Coach block · 3 days per week",
           "type": "button"
         },
         {
