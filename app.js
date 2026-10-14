@@ -3480,6 +3480,9 @@ function normalizeLoaded(s,options={}){
   out.programMeta=normalizeProgramMeta(s.programMeta,s.log,out.program,{...options,customExercises:customs});
   const structured=withExplicitProgramStructure(out.program,out.programMeta);
   out.program=structured.program;out.programMeta=structured.meta;
+  // An older Review successor kept its predecessor's day list (#388).
+  if(out.programMeta?.programStructure)out.programMeta.programStructure=
+    programStructureForDefinition(out.programMeta.programStructure,out.programMeta.programDefinition);
   out[STORAGE_REV]=readRevision(s);
   if(Object.prototype.hasOwnProperty.call(s,"recoveryTransitions"))
     out.recoveryTransitions=cloneSnapshot(s.recoveryTransitions);
@@ -5450,6 +5453,23 @@ function compactProgramPrescriptionState(structure,program,meta,{pastProgram=nul
   else delete source.programVersions;
   return{structure:source,history:history.throughWeek>0||existingHistory?history:null};
 }
+/* A programStructure names its definition's training days, in order (#388).
+   Entries that still match a training day keep their identity; any other day
+   list is rebuilt from the definition, whose generated names localize. */
+function programStructureForDefinition(structure,definition){
+  if(!isPlainStateObject(structure)||!Array.isArray(structure.days)||!Array.isArray(definition?.days))return structure;
+  const names=definition.days.filter(day=>day?.kind==="training").map(day=>({id:day.id,name:String(day.name||"")}));
+  const labelOf=entry=>String(entry?.label||entry?.dayId||"");
+  if(structure.days.length===names.length&&structure.days.every((entry,i)=>labelOf(entry)===names[i].name))return structure;
+  const byLabel=new Map(structure.days.map(entry=>[labelOf(entry),entry]));
+  return{...structure,days:names.map(({id,name},i)=>byLabel.has(name)
+    ?{...cloneSnapshot(byLabel.get(name)),order:i+1}:{dayId:id,label:name,order:i+1})}}
+/* A Review successor is a new block of a regenerated definition: it keeps the
+   structure's provenance but none of the predecessor's days or receipts. */
+function successorProgramStructure(structure,definition){
+  if(!isPlainStateObject(structure))return structure??null;
+  const{weekPrescriptions,programVersions,...rest}=cloneSnapshot(structure);
+  return programStructureForDefinition({...rest,days:[]},definition)}
 function syncProgramStructureFromProgram(proposal,program,previousProgram=null,previousMeta=null){
   const struct=proposal.programMeta?.programStructure;
   if(!struct||!Array.isArray(struct.days))return;
@@ -9847,6 +9867,8 @@ const repforgeProgramTransitionAdapter = {
       };
       // A new block's volume aggregate begins with its own observed weeks.
       delete successorMeta.plannedVolumeHistory;
+      if (Object.prototype.hasOwnProperty.call(successorMeta, "programStructure"))
+        successorMeta.programStructure = successorProgramStructure(successorMeta.programStructure, definition);
       draftProposal.programMeta = successorMeta;
       draftProposal.program = durableProgramRows(definition, draftProposal.customExercises || [], successorMeta);
       return { proposal: draftProposal };
