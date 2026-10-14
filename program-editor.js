@@ -426,12 +426,16 @@
   function executionModeRequired(slot, policy) {
     return !!policy?.executionModeQuestion?.(slot) && !EXECUTION_MODES.has(slot?.executionMode);
   }
-  /** The first input a pending slot still needs, or null when it can be confirmed. */
+  /**
+   * The first input a pending slot still needs, or null when it can be
+   * confirmed. The opt-in asks for one RIR for the slot: sets that disagree
+   * leave its field empty, so they need the lifter's answer too.
+   */
   function suggestLoadsIssue(slot, policy) {
     if (!slot || policy?.eligibility?.(slot) !== "eligible") return "eligibility";
     const semantic = slotRepSemantic(slot), sets = slotSets(slot);
     if (!semantic || !sets.length || sets.some(set => !repRange(set.targets?.[semantic]))) return "range";
-    if (sets.some(set => !validRir(set.rir))) return "rir";
+    if (uniformRir(slot) == null) return "rir";
     if (executionModeRequired(slot, policy)) return "execution_mode";
     return null;
   }

@@ -2582,6 +2582,17 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 /* A slot's alternates: an ordered list the swap picker offers first. Each row
    names the movement and carries its own reorder and remove controls. */
 .program-editor__alternates{display:grid;gap:8px;margin:16px 0 0;padding:14px 0 0;border-top:1px solid var(--boundary-decorative)}
+/* Plan 069 S4: the per-slot Suggest loads switch and what it reveals. */
+.program-editor__suggest-loads{display:grid;gap:8px;margin:16px 0 0;padding:14px 0 0;border-top:1px solid var(--boundary-decorative)}
+.program-editor__metric-targets+.program-editor__suggest-loads{border-top:0}
+.program-editor__suggest-loads-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.program-editor__suggest-loads-range,.program-editor__suggest-loads-note{margin:0;color:var(--color-ink-secondary);font-size:var(--font-size-body-small);line-height:var(--line-reading)}
+.program-editor__suggest-loads-note{margin-top:16px}
+.program-editor__execution-mode{display:grid;gap:8px}
+.program-editor__mode-option{min-height:var(--control-target);padding:10px 12px;border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);background:var(--surface);color:var(--color-ink);cursor:pointer;text-align:left;font-size:var(--font-size-control)}
+.program-editor__mode-option[aria-checked="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.program-editor__mode-option:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.program-editor__suggest-loads .toggle:disabled{cursor:not-allowed;opacity:.55}
 .program-editor__alternate-list{display:grid;margin:0;padding:0;list-style:none}
 /* Directly under the cycle list, whose last row already draws the rule. */
 .program-editor__metric-targets+.program-editor__alternates{border-top:0}
