@@ -619,9 +619,14 @@
           `${esc(label)}${empty ? `<span class="review__pip" aria-label="${esc(t("entry.review.empty_pip"))}"></span>` : ""}</button>`;
       }).join("")}</div>`;
     }
+    // A slot the lifter renamed keeps that name (a received shared program, say);
+    // a swap drops displayName, so the new movement reads its own name.
+    function slotName(slot) {
+      return typeof slot.displayName === "string" && slot.displayName.trim() ? slot.displayName : adapter.exerciseName(slot.exerciseId);
+    }
     function rowHtml(definition, slot, marks) {
       const state = read();
-      const name = adapter.exerciseName(slot.exerciseId);
+      const name = slotName(slot);
       const modeNeeded = needsExecutionMode(slot);
       const confirmed = Array.isArray(state.answers?.movementConfirmations?.[slot.exerciseId]) &&
         state.answers.movementConfirmations[slot.exerciseId].length > 0;
@@ -667,7 +672,7 @@
       if (view.reorder === view.tab) {
         return head + `<p class="review__hint">${esc(t("entry.review.reorder_hint"))}</p><ol class="review__reorder" data-review-reorder>` +
           slots.map((slot, index) => {
-            const label = adapter.exerciseName(slot.exerciseId);
+            const label = slotName(slot);
             return `<li class="review__ro" data-id="${esc(slot.id)}"><span class="review__handle" data-review-handle="${esc(slot.id)}" aria-hidden="true">${icon("grip")}</span>` +
               `<span class="review__ro-name">${esc(label)}</span>` +
               `<button type="button" class="review__ro-btn" data-review-reorder-move="${esc(slot.id)}:-1" aria-label="${esc(t("entry.review.move_up", { name: label }))}"${index === 0 ? " disabled" : ""}>${icon("chev-up")}</button>` +
@@ -878,7 +883,7 @@
         const others = definition.days.filter((day) => day.kind === "training" && day.id !== at.day.id);
         const rest = sets[0]?.restSeconds;
         const modeNeeded = needsExecutionMode(slot);
-        const name = adapter.exerciseName(slot.exerciseId);
+        const name = slotName(slot);
         parts.title.textContent = name;
         parts.body.innerHTML =
           `<div class="review-sheet__head">${adapter.tile(slot.exerciseId, "lg")}<div><p class="review-sheet__role">${esc([roleLabel(slot.role), jobLabel(slot.purposeId)].filter(Boolean).join(" · "))}</p>${chips(slot)}</div></div>` +
