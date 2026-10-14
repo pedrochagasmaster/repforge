@@ -203,18 +203,46 @@ async function main() {
         const row = (state.log || []).filter((entry) => entry.performedLibraryId === id).at(-1);
         return row ? { mode: row.loadingContext?.externalLoadMultiplier, context: row.loadingContext } : null;
       }, AMBIGUOUS_EXERCISE_ID);
-      check(ambiguousLog?.mode === 0 && ambiguousLog.context?.externalLoadMultiplier === 0,
-        "the ambiguous bodyweight-only set records m=0 without an execution-mode field", ambiguousLog);
+      check(ambiguousLog?.mode === 0 && ambiguousLog.context?.executionMode === "unilateral",
+        "a new ambiguous bodyweight-only set records m=0 and the lifter's explicit execution mode (#382)", ambiguousLog);
+      const nextRecommendation = (id) => ambiguousPage.evaluate((rowId) => {
+        const rec = window.__repforgeProgression.recommendation(window.__repforgeProgression.programSlot(rowId));
+        return { status: rec?.status, reasonCodes: rec?.reasonCodes, anchor: rec?.historyAnchor };
+      }, id);
       await ambiguousPage.clock.setFixedTime(new Date("2026-10-07T12:00:00.000Z"));
       await ambiguousPage.reload({ waitUntil: "domcontentloaded" });
       await waitForAppBoot(ambiguousPage, { base: BASE });
       await enterExercise(ambiguousPage, ambiguousRowId);
-      const ambiguousRecommendation = await ambiguousPage.evaluate((id) => {
-        const rec = window.__repforgeProgression.recommendation(window.__repforgeProgression.programSlot(id));
-        return { status: rec?.status, reasonCodes: rec?.reasonCodes, anchor: rec?.historyAnchor };
-      }, ambiguousRowId);
-      check(ambiguousRecommendation.status !== "recommended" && !ambiguousRecommendation.anchor,
-        "the current slot mode does not manufacture a historical anchor for ambiguous m=0 bodyweight reps", ambiguousRecommendation);
+      const capturedRecommendation = await nextRecommendation(ambiguousRowId);
+      check(capturedRecommendation.anchor?.source === "history" &&
+        !(capturedRecommendation.reasonCodes || []).includes("no_comparable_history"),
+        "the captured mode gives the next session a comparable anchor", capturedRecommendation);
+
+      // A row saved before modes were captured has no executionMode. Today's
+      // explicit slot choice cannot fill in that missing historical fact.
+      await ambiguousPage.evaluate(async ({ key, id }) => {
+        const state = JSON.parse(localStorage.getItem(key) || "{}");
+        for (const row of state.log || []) if (row.performedLibraryId === id) delete row.loadingContext.executionMode;
+        localStorage.setItem(key, JSON.stringify(state));
+        const db = await new Promise((resolve, reject) => {
+          const request = indexedDB.open("repforge", 1);
+          request.onupgradeneeded = () => request.result.createObjectStore("kv");
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction("kv", "readwrite");
+          tx.objectStore("kv").put(state, key);
+          tx.oncomplete = () => { db.close(); resolve(); };
+          tx.onerror = () => { const error = tx.error; db.close(); reject(error); };
+        });
+      }, { key: "repforge_v1", id: AMBIGUOUS_EXERCISE_ID });
+      await ambiguousPage.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(ambiguousPage, { base: BASE });
+      await enterExercise(ambiguousPage, ambiguousRowId);
+      const legacyRecommendation = await nextRecommendation(ambiguousRowId);
+      check(legacyRecommendation.status !== "recommended" && !legacyRecommendation.anchor,
+        "the current slot mode does not manufacture a historical anchor for a legacy ambiguous m=0 row", legacyRecommendation);
     }
     await ambiguousContext.close();
     check(errors.length === 0, "the generated bodyweight history journey has no page errors", errors);

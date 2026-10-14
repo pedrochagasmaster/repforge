@@ -120,6 +120,7 @@ export const SUITES = {
     s("test/per-side-engine-transfer-browser.mjs", [], { domains: ["install", "workout", "persistence"], tier: "packet", seconds: 90, timeoutMs: 900000 }),
     s("test/per-side-engine-bodyweight-browser.mjs", [], { domains: ["workout", "program", "persistence"], tier: "packet", seconds: 90, timeoutMs: 900000 }),
     s("test/per-side-focus-cues-browser.mjs", [], { domains: ["workout", "program", "persistence"], tier: "packet", seconds: 90, timeoutMs: 900000 }),
+    s("test/per-side-execution-mode-capture-browser.mjs", [], { domains: ["entry", "workout", "history", "persistence"], tier: "packet", seconds: 60, timeoutMs: 900000 }),
     s("test/share-program-browser.mjs", [], { domains: ["entry", "privacy", "persistence"], seconds: 40 }),
     s("test/catalog-metric-program-browser.mjs", [], {
       domains: ["entry", "workout", "history", "persistence"], cost: "long", tier: "candidate", seconds: 180, timeoutMs: 900000,

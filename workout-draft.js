@@ -230,8 +230,12 @@
       issues.push(`${path}:object`);
       return;
     }
-    const allowed = new Set(["bodyweightKg", "bodyweightContributionEnabled", "externalLoadMultiplier", "bodyweightCoefficient", "availableLoadsKg", "loadingConvention"]);
+    const allowed = new Set(["bodyweightKg", "bodyweightContributionEnabled", "externalLoadMultiplier", "bodyweightCoefficient", "availableLoadsKg", "loadingConvention", "executionMode"]);
     for (const key of Object.keys(value)) if (!allowed.has(key)) issues.push(`${path}.${key}:unknown`);
+    // Optional: the lifter's explicit mode for an ambiguous per-side movement (#382).
+    if (hasOwn(value, "executionMode") && value.executionMode !== "bilateral" && value.executionMode !== "unilateral") {
+      issues.push(`${path}.executionMode`);
+    }
     if (hasOwn(value, "loadingConvention") && !LOADING_CONVENTIONS.has(value.loadingConvention)) {
       issues.push(`${path}.loadingConvention`);
     }
