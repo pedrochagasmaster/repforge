@@ -222,6 +222,7 @@ export const SUPPORT = {
   "test/entry-privacy.mjs": "Shared privacy characterization/oracles imported by the four scoped contracts.",
   "test/suites.mjs": "CI/local inventory, imported by tools/run-tests.mjs.",
   "test/browser.mjs": "Shared Playwright launcher and boot helpers.",
+  "test/adaptive-build-fixture.mjs": "Plan 069 S4 Build program fixtures through the real entry hub and editors.",
   "test/browser-artifacts.mjs": "Diagnostic-only tracing, imported by browser.mjs.",
   "test/program-entry-a11y.mjs": "runProgramEntryA11y is executed by accessibility.mjs.",
   "test/first-run-shots.mjs": "Manual historical screenshot utility; canonical evidence uses tools/capture-ui-screens.mjs.",
