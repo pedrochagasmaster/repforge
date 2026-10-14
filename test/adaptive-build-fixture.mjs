@@ -52,6 +52,8 @@ export async function buildProgram(page, { name = "Suggest loads proof", optInRi
   await page.click("#entryEditorActivate");
   await page.waitForFunction(() => JSON.parse(localStorage.getItem("repforge_v1") || "null")?.programMeta?.onboarded === true,
     undefined, { timeout: 15000 });
+  await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active")
+    && window.__repforgeWorkoutDraft?.state()?.programMeta?.onboarded === true, undefined, { timeout: 15000 });
   await page.evaluate(() => window.__repforgeStorage.flush());
   return page.evaluate((id) => {
     const state = JSON.parse(localStorage.getItem("repforge_v1") || "null");
@@ -141,5 +143,7 @@ export async function buildRepresentativeProgram(page, { name, days, rir = 2, mo
   await page.click("#entryEditorActivate");
   await page.waitForFunction(() => JSON.parse(localStorage.getItem("repforge_v1") || "null")?.programMeta?.onboarded === true,
     undefined, { timeout: 15000 });
+  await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active")
+    && window.__repforgeWorkoutDraft?.state()?.programMeta?.onboarded === true, undefined, { timeout: 15000 });
   await page.evaluate(() => window.__repforgeStorage.flush());
 }

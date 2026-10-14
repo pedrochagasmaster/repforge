@@ -268,6 +268,10 @@ try {
   check(durableMeta.step === 1.25 && durableMeta.pendingKeys.length === 0,
     "activation keeps the load step and stores no pending opt-in marker", durableMeta);
 
+  // The app has finished activating before the workout is opened.
+  await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active")
+    && window.__repforgeWorkoutDraft?.state()?.programMeta?.onboarded === true, undefined, { timeout: 15000 });
+
   // Session 1: a new lift, no invented load.
   const rowId = await page.evaluate((id) =>
     (JSON.parse(localStorage.getItem("repforge_v1") || "null")?.program || []).find((entry) => entry.libraryId === id)?.id, EXERCISE_ID);
