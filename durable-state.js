@@ -169,8 +169,19 @@
     return Object.prototype.hasOwnProperty.call(meta||{},"blockId")?meta.blockId:null}
 
     function draftProgramFingerprint(snapshot){
-    const value={programMetaId:snapshot?.programMeta?.id||null,
-      program:Array.isArray(snapshot?.program)?snapshot.program:[]};
+    const rows=Array.isArray(snapshot?.program)?snapshot.program:[];
+    // Older installed editors persisted definition-only prescriptionsByCycle
+    // on flat rows. Boot's canonical Program drops that redundant shadow, so
+    // ignoring it here keeps already-saved devices replacement-compatible.
+    // Only canonical-definition programs qualify: legacy flat programs may
+    // rely on their own row-level prescriptions. All other row fields and the
+    // block identity remain part of the concurrency precondition.
+    const program=snapshot?.programMeta?.programDefinition?rows.map(row=>{
+      if(!isPlainStateObject(row)||!Object.prototype.hasOwnProperty.call(row,"prescriptionsByCycle"))
+        return row;
+      const clean={...row};delete clean.prescriptionsByCycle;return clean;
+    }):rows;
+    const value={programMetaId:snapshot?.programMeta?.id||null,program};
     if(Object.prototype.hasOwnProperty.call(snapshot?.programMeta||{},"blockId"))
       value.programMetaBlockId=snapshot.programMeta.blockId;
     return JSON.stringify(canonicalize(value))}

@@ -10843,8 +10843,12 @@ function editorSnapshotFromDocument(document,base=state){
   proposal.program=cloneSnapshot(document?.program||[]);
   proposal.programMeta={...(cloneSnapshot(base?.programMeta||defaultProgramMeta(base?.log||[]))),...(cloneSnapshot(document?.programMeta||{}))};
   proposal.customExercises=cloneSnapshot(document?.customExercises||base?.customExercises||[]);
-  syncProgramStructureFromProgram(proposal,makeProgram(proposal.program,snapshotLookup(proposal.customExercises),proposal.programMeta),
-    base?.program,base?.programMeta);
+  // The editor may carry definition-level prescriptions on a row while editing.
+  // The durable program must use the same canonical rows that boot reads,
+  // otherwise the next replacement's CAS compares different fingerprints.
+  const canonical=makeProgram(proposal.program,snapshotLookup(proposal.customExercises),proposal.programMeta);
+  proposal.program=canonical.toJSON();
+  syncProgramStructureFromProgram(proposal,canonical,base?.program,base?.programMeta);
   return proposal}
 function editorAdapterTranslate(key,vars,fallback){
   const value=t(key,vars);return value===key?(fallback||key):value}
