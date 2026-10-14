@@ -45,6 +45,9 @@ async function skip(page, nextStep) {
 }
 
 async function reloadResume(page, step) {
+  // The step's setup-draft write queues behind the storage lock after the
+  // in-memory step has moved. Reloading first resumes the previous step (#393).
+  await page.evaluate(() => window.__repforgeStorage.flush());
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
   if (!await page.locator("#onboarding.active").count()) await page.click("#firstRunCreate");
