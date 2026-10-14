@@ -119,7 +119,7 @@ async function receive(browser, link) {
 
 async function startAndActivate(page) {
   await page.waitForSelector("#firstRunSharedProgram:not(.hidden)", { timeout: 15000 });
-  const cap = await page.locator("#firstRunSharedCap").innerText();
+  const cap = await page.locator("#firstRunSharedName").innerText();
   await page.locator("#firstRunSharedStart").click();
   await page.waitForSelector("#entryActivate", { timeout: 15000 });
   await page.locator("#entryActivate").click();

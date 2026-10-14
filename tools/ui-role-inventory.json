@@ -159,7 +159,7 @@
       "scenario": "Another tab changed the active program. The newer program stays active."
     },
     "onboarding-build/setup": {
-      "owner": "plan-054",
+      "owner": "plan-072",
       "content": "flat",
       "scenario": "The build_setup step: program name and day count before the editor opens."
     },
@@ -179,9 +179,9 @@
       "scenario": "A complete manual draft with supported progression and activation enabled."
     },
     "onboarding-import/source": {
-      "owner": "plan-054",
+      "owner": "plan-072",
       "content": "flat",
-      "scenario": "The bounded supported-file and setup-source surface before any mutation."
+      "scenario": "Import's first screen: Choose file and Paste a program, each with its explanation, and the way out to Build, before any mutation."
     },
     "onboarding-import/freeform-empty": {
       "owner": "plan-054",
@@ -229,9 +229,9 @@
       "scenario": "A mapped exercise with manual progression ownership and provenance."
     },
     "onboarding-shared/gate": {
-      "owner": "plan-054",
+      "owner": "plan-072",
       "content": "flat",
-      "scenario": "An incoming setup link adapts the landing around its safe program summary. Nothing persists until Start."
+      "scenario": "The received-program gate names its program and training days, shows the no-history/no-change disclosure, and offers See the program plus Create a program from scratch."
     },
     "onboarding-shared/invalid": {
       "owner": "plan-054",
@@ -239,9 +239,9 @@
       "scenario": "An invalid setup link explains that nothing was saved and keeps safe Build and Track actions available."
     },
     "onboarding-shared/preview": {
-      "owner": "plan-054",
+      "owner": "plan-072",
       "content": "flat",
-      "scenario": "The editable preview a shared payload lands in before explicit activation."
+      "scenario": "The received program in B's review with the Shared program source, Restore, and its block as received (no Change), before explicit activation."
     },
     "onboarding-recovery/resume": {
       "owner": "plan-054",
@@ -1725,8 +1725,8 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Navigates from the File import subview to the Freeform subview; the active subview carries the remembered UI route context.",
-      "owner": "plan-058",
+      "rationale": "The Paste a program choice on Import's first screen: navigates to the Freeform subview on tap; the active subview carries the remembered UI route context.",
+      "owner": "plan-072",
       "catalogStates": [
         "onboarding-import/source"
       ]
@@ -1758,7 +1758,7 @@
       "id": "entryimportpick",
       "selector": "#entryImportPick",
       "roles": {
-        "control": "primary"
+        "control": "quiet-navigation"
       },
       "variant": null,
       "facets": [],
@@ -1767,11 +1767,10 @@
         "hover",
         "pressed",
         "focus-visible",
-        "disabled",
-        "loading"
+        "disabled"
       ],
-      "rationale": "Advances the current task with the strongest action weight.",
-      "owner": "plan-058",
+      "rationale": "The Choose file choice on Import's first screen: opens the system file picker on tap without changing training data; the file review follows.",
+      "owner": "plan-072",
       "catalogStates": [
         "onboarding-import/source"
       ]
@@ -2862,8 +2861,29 @@
         "disabled",
         "loading"
       ],
-      "rationale": "Advances the received-program first-run gate into review; it takes the same ink-pill recipe as the other creation actions on the night band.",
-      "owner": "plan-064/r2",
+      "rationale": "Opens the received program in B Review without committing it; the ink-pill action remains on the night band.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-shared/gate"
+      ]
+    },
+    {
+      "id": "firstrunsharedcreate",
+      "selector": "#firstRunSharedCreate",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": "landing-text-link",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Leaves the received-program gate for the existing create hub; it does not commit a program.",
+      "owner": "plan-072",
       "catalogStates": [
         "onboarding-shared/gate"
       ]
@@ -9121,7 +9141,8 @@
         "onboarding-recommend/review-empty-day",
         "onboarding-recommend/review-reorder",
         "onboarding-recommend/result-confirm-offer",
-        "onboarding-recommend/result-confirmed"
+        "onboarding-recommend/result-confirmed",
+        "onboarding-shared/preview"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -9153,7 +9174,8 @@
         "onboarding-recommend/review-empty-day",
         "onboarding-recommend/review-reorder",
         "onboarding-recommend/result-confirm-offer",
-        "onboarding-recommend/result-confirmed"
+        "onboarding-recommend/result-confirmed",
+        "onboarding-shared/preview"
       ],
       "neverDisabledReason": "Every day of the week, rest days included, can always be shown."
     },
@@ -9182,7 +9204,8 @@
         "onboarding-recommend/result-corrected",
         "onboarding-recommend/result-existing",
         "onboarding-recommend/result-confirm-offer",
-        "onboarding-recommend/result-confirmed"
+        "onboarding-recommend/result-confirmed",
+        "onboarding-shared/preview"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -9213,7 +9236,8 @@
         "onboarding-recommend/review-empty-day",
         "onboarding-recommend/review-reorder",
         "onboarding-recommend/result-confirm-offer",
-        "onboarding-recommend/result-confirmed"
+        "onboarding-recommend/result-confirmed",
+        "onboarding-shared/preview"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -9243,7 +9267,8 @@
         "onboarding-recommend/result-existing",
         "onboarding-recommend/review-empty-day",
         "onboarding-recommend/result-confirm-offer",
-        "onboarding-recommend/result-confirmed"
+        "onboarding-recommend/result-confirmed",
+        "onboarding-shared/preview"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -9273,7 +9298,8 @@
         "onboarding-recommend/result-existing",
         "onboarding-recommend/review-empty-day",
         "onboarding-recommend/result-confirm-offer",
-        "onboarding-recommend/result-confirmed"
+        "onboarding-recommend/result-confirmed",
+        "onboarding-shared/preview"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -9877,8 +9903,8 @@
       "id": "landing-ink-primary",
       "selector": "#firstRunCreate, #firstRunCreateClose, #firstRunSharedStart",
       "role": "primary",
-      "rationale": "The creation controls and received-program Start are one recipe, the ink pill with its arrow: the parchment action on the night band, the near-black action on the orange band, the arrow in the action's own ink on parchment (the prototype's orange arrow measured 2.05:1 there) and the orange band's mark on near-black. Owner decision L-1 on PR #295.",
-      "owner": "plan-064/r2",
+      "rationale": "Creation actions and See the program share the ink-pill recipe with an arrow and retain the band's approved contrast.",
+      "owner": "plan-072",
       "catalogStates": [
         "onboarding-shared/gate",
         "onboarding-shared/invalid",
@@ -9895,11 +9921,12 @@
     },
     {
       "id": "landing-text-link",
-      "selector": "#firstRunImport, #firstRunImportClose",
+      "selector": "#firstRunImport, #firstRunImportClose, #firstRunSharedCreate",
       "role": "quiet-navigation",
-      "rationale": "The two import controls open the same route without a training-state write; they are underlined text links with no boundary, in the ink of the band they sit on. Owner decision L-1 on PR #295.",
-      "owner": "plan-064/r2",
+      "rationale": "Import and shared-gate text actions are underlined quiet navigation controls with no boundary, in the ink of the band they sit on.",
+      "owner": "plan-072",
       "catalogStates": [
+        "onboarding-shared/gate",
         "onboarding-shared/invalid",
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",

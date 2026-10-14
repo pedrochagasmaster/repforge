@@ -608,6 +608,11 @@
             <h1 class="firstrun-h1 firstrun-hero__title" id="firstRunHeadline" data-i18n="landing.headline">Walk into the gym knowing exactly what to do.</h1>
             <p class="firstrun__lede" id="firstRunLede" data-i18n="landing.hero.sub">You log each set in seconds. Taurifer looks at what you did and tells you the weight and reps for next time, with the reason spelled out. A spreadsheet only stores numbers; Taurifer tells you what to do with them.</p>
 
+            <div id="firstRunSharedCard" class="firstrun__shared-card hidden" aria-labelledby="firstRunSharedName">
+              <p class="firstrun__shared-card-name" id="firstRunSharedName"></p>
+              <p class="firstrun__shared-card-body" id="firstRunSharedBody" data-i18n="landing.shared.body">This link carries a program and its settings. No history comes with it. Nothing changes until you tap Use this program.</p>
+            </div>
+
             <p id="firstRunSharedError" class="firstrun__error hidden" role="status"></p>
             <div id="firstRunStandardProgram" class="firstrun__actions">
               <button type="button" class="firstrun__cta" id="firstRunCreate">
@@ -616,14 +621,14 @@
               <button type="button" class="firstrun__link" id="firstRunImport" data-i18n="landing.track">Track my current program</button>
             </div>
             <div id="firstRunSharedProgram" class="firstrun__actions hidden">
-              <button type="button" class="firstrun__cta" id="firstRunSharedStart">
+              <button type="button" class="firstrun__cta" id="firstRunSharedStart" aria-describedby="firstRunSharedName">
                 <span class="firstrun-row__text">
-                  <span class="firstrun-row__title" id="firstRunSharedTitle" data-i18n="setup.shared.title">Start this program</span>
-                  <span class="firstrun-row__cap" id="firstRunSharedCap"></span>
+                  <span class="firstrun-row__title" id="firstRunSharedTitle" data-i18n="setup.shared.view">See the program</span>
                 </span>
                 <span class="firstrun-row__busy hidden" id="firstRunSharedBusy" aria-hidden="true"></span>
                 <span class="firstrun-row__go" aria-hidden="true"></span>
               </button>
+              <button type="button" class="firstrun__link" id="firstRunSharedCreate" data-i18n="setup.shared.create">Create a program from scratch</button>
             </div>
             <ul class="firstrun-chips" data-i18n-aria="landing.hero.chips_aria" aria-label="At a glance">
               <li data-i18n="landing.hero.chip.account">No account</li>
@@ -1315,8 +1320,8 @@ Triceps pushdown 3x12-15</pre>
   <script src="program-entry.js?v=425"></script>
   <script src="program-entry-adapter.js?v=424"></script>
   <script src="program-editor.js?v=425"></script>
-  <script src="program-review.js?v=424"></script>
-  <script src="shared-setup.js?v=310"></script>
+  <script src="program-review.js?v=425"></script>
+  <script src="shared-setup.js?v=311"></script>
   <script src="workout-draft.js?v=359"></script>
   <script src="program-transition.js?v=417"></script>
   <script src="program-engine.js?v=418"></script>
@@ -1327,6 +1332,6 @@ Triceps pushdown 3x12-15</pre>
   <script src="durable-state.js?v=310"></script>
   <script src="progress-model.js?v=309"></script>
   <script src="history-ui.js?v=315"></script>
-  <script src="app.js?v=443"></script>
+  <script src="app.js?v=444"></script>
 </body>
 </html>

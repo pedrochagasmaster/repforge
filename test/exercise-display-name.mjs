@@ -776,7 +776,8 @@ async function run() {
       await page.waitForSelector("#firstRunSharedStart", { state: "visible", timeout: 15000 });
       await page.click("#firstRunSharedStart");
       await checkPreviewReadsPortuguese(page, "PT shared-link preview", { expectLinked: 0 });
-      const names = await texts(page, "#onbBody .onb__ex b");
+      // Plan 072 §7: the received program opens in B's review, one day per tab.
+      const names = await reviewNames(page);
       assert(names.includes(LIB.sq.pt) && names.includes(RENAMED.stored) && !names.includes(LIB.sq.en) && !names.includes(RENAMED.libraryPt),
         "PT shared-link preview: library movements read Portuguese, the renamed one keeps the lifter's name", names.join(" | "));
       await context.close();

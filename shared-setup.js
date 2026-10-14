@@ -270,7 +270,7 @@
     return ["g", identityContext.fingerprint, definition.generatorVersion, compactTree(request, identityContext), definition.seed];
   }
 
-  function regenerate(compact, identityContext, options) {
+  async function regenerate(compact, identityContext, options) {
     if (compact.length !== 5 || typeof compact[1] !== "string" || typeof compact[2] !== "string"
       || typeof compact[4] !== "string") return { ok: false, code: "invalid-envelope" };
     if (!identityContext) return { ok: false, code: "catalog-unavailable" };
@@ -281,8 +281,14 @@
     const request = expandTree(compact[3], identityContext.ids);
     if (!request.ok || !isPlainObject(request.value)) return { ok: false, code: "invalid-envelope" };
     let generated;
-    try { generated = options.generateProgram(request.value, options.catalogSnapshot, compact[4]); }
-    catch { return { ok: false, code: "invalid-envelope" }; }
+    try {
+      generated = typeof options.generateProgramAsync === "function"
+        ? await options.generateProgramAsync(request.value, options.catalogSnapshot, compact[4], { signal: options.signal })
+        : options.generateProgram(request.value, options.catalogSnapshot, compact[4]);
+    } catch (error) {
+      if (error?.name === "AbortError") throw error;
+      return { ok: false, code: "invalid-envelope" };
+    }
     if (!generated?.ok || generated.value.generatorVersion !== compact[2]) return { ok: false, code: "invalid-envelope" };
     return { ok: true, value: generated.value };
   }
@@ -629,7 +635,7 @@
     ];
   }
 
-  function expandV4(value, identityContext, options) {
+  async function expandV4(value, identityContext, options) {
     if (!Array.isArray(value) || value.length !== 6 || value[0] !== VERSION) {
       return { ok: false, code: "invalid-envelope" };
     }
@@ -642,7 +648,7 @@
       || !Number.isInteger(languageCode) || !LANGUAGES[languageCode]) {
       return { ok: false, code: "invalid-envelope" };
     }
-    const expandedDefinition = expandProgramDefinition(compactDefinition, identityContext, options);
+    const expandedDefinition = await expandProgramDefinition(compactDefinition, identityContext, options);
     // A link from another generator version is unsupported, not malformed.
     if (!expandedDefinition.ok && expandedDefinition.code === "unsupported-version") return expandedDefinition;
     const expandedCustomExercises = compactCustomExercises === null
@@ -746,7 +752,7 @@
     try { parsed = JSON.parse(text); }
     catch { return { ok: false, code: "invalid-json", issues: [], blockers: [] }; }
     const identityContext = await sourceIdentityContext(options?.catalogSnapshot);
-    const expanded = expandV4(parsed, identityContext, options);
+    const expanded = await expandV4(parsed, identityContext, options);
     if (!expanded.ok) return { ...expanded, issues: [], blockers: [] };
     const checked = buildProposal(expanded.value, options);
     if (!checked.ok) return checked;

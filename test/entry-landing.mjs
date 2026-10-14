@@ -607,7 +607,8 @@ try {
     assert(gate.sharedPresent && !gate.sharedHidden, "shared program row is visible");
     assert(gate.standardHidden, "standard program row is hidden");
     assert(gate.startVisible, "Start action is visible");
-    assert(gate.startName.includes(SENTINELS.name), "Start button displays sentinel program name", gate.startName);
+    // Plan 072 §7 (ADR 0020): the received program's name is on the gate's card, not on its action.
+    assert(gate.startCap?.includes(SENTINELS.name), "the gate card displays the sentinel program name", gate.startCap);
 
     // Hash should be cleared from URL
     const hash = await page.evaluate(() => location.hash);
@@ -666,14 +667,14 @@ try {
     // ----------------------------------------------------------------------
     // Requirement 4: After Start but before preview activation
     // ----------------------------------------------------------------------
-    phase("Phase 4: Post-Start staging holds candidate while active durable state stays unchanged");
+    phase("Phase 4: Post-Start review stays transient while active durable state stays unchanged");
     await page.click("#firstRunSharedStart");
     await page.waitForSelector("#entryActivate", { timeout: 15000 });
 
     const scopePostStart = await inspectStorageScope(page);
     assert(
-      scopePostStart.candidateViolations.length > 0,
-      "owned setup draft now holds reviewed shared candidate",
+      scopePostStart.candidateViolations.length === 0,
+      "the durable setup-draft store remains free of the received shared payload until activation",
       JSON.stringify(scopePostStart.candidateViolations)
     );
     assert(
@@ -1454,11 +1455,16 @@ try {
     const gate = await page.evaluate(sharedGateSnapshot);
     assert(shared.open && shared.kind === "shared" && shared.visit === "first" && shared.draft === null,
       "a valid handoff opens the shared landing, not the returning one", JSON.stringify(shared));
-    assert(shared.headline === CATALOG[shared.lang]["landing.shared.headline"] && shared.resumeRoute === null,
+    // Plan 072 §7 and ADR 0020 (owner-approved, 2026-10-11) supersede the #295 adaptive-landing presentation
+    // for the received-link gate: it is headed Começar este treino, names the program on its card, and stands
+    // alone, with no landing tour below it. The generic landing keeps its full page (Phase 9b above).
+    assert(shared.headline === CATALOG[shared.lang]["setup.shared.title"] && shared.resumeRoute === null,
       "the shared landing keeps its own headline and offers no resume action", JSON.stringify(shared));
-    assert(gate.startVisible && gate.startName.includes(SENTINELS.name) && !gate.createVisible && !gate.importVisible,
-      "the shared landing offers Start this program and neither Build nor Track", JSON.stringify(gate));
-    assert(shared.proofShown && shared.trackShown, "the shared landing keeps the full page below the confirmation", JSON.stringify(shared));
+    assert(gate.startVisible && gate.startCap?.includes(SENTINELS.name) && !gate.createVisible && !gate.importVisible,
+      "the shared landing offers See the program for the named program and neither Build nor Track", JSON.stringify(gate));
+    assert(!shared.chipsShown && !shared.proofShown && !shared.trackShown && !shared.waysShown && !shared.dataShown &&
+      !shared.faqShown && !shared.closeShown && !gate.marketingSectionsVisible,
+    "the received-link gate is the whole page: no landing tour below it", JSON.stringify(shared));
 
     await page.goto(`${APP_INDEX}#setup=v1.not+base64`, { waitUntil: "domcontentloaded" });
     await page.waitForSelector('#firstRun[data-entry-landing="shared-invalid"]:not(.hidden)', { timeout: 15000 });
@@ -1525,9 +1531,9 @@ try {
       JSON.stringify(gate)
     );
     assert(
-      gate.startVisible && gate.startName.includes(SENTINELS.name),
-      "Start this program is the primary action, naming the shared program",
-      gate.startName
+      gate.startVisible && gate.startTitle === CATALOG[gate.i18n || "en"]["setup.shared.view"] && gate.startCap?.includes(SENTINELS.name),
+      "See the program is the primary action, under a card naming the shared program",
+      JSON.stringify({ title: gate.startTitle, cap: gate.startCap })
     );
 
     const prefsAtGate = await readUiPrefsRaw(page);

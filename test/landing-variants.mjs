@@ -515,9 +515,11 @@ async function characterize(browser) {
     const gate = await page.evaluate(sharedGateSnapshot);
     assert(s.route === "shared", `[${lang}] a valid link opens the shared landing`, s.route);
     assert(s.lang === (lang === "pt" ? "pt-BR" : "en") || gate.i18n === lang, `[${lang}] the language is the payload's, not the browser's`, JSON.stringify({ html: s.lang, i18n: gate.i18n }));
-    assert(s.headline === tr(lang, "landing.shared.headline"), `[${lang}] headline is landing.shared.headline`, s.headline);
+    // Plan 072 §7 (ADR 0020): the received-link gate is headed Começar este treino / Start this program,
+    // and its one action is Ver o treino / See the program; the caption names the program on the card.
+    assert(s.headline === tr(lang, "setup.shared.title"), `[${lang}] headline is setup.shared.title`, s.headline);
     assert(s.lede === tr(lang, "landing.shared.body"), `[${lang}] lede is landing.shared.body`, s.lede);
-    assert(gate.startVisible && gate.startTitle === tr(lang, "setup.shared.title"), `[${lang}] the one action is setup.shared.title`, JSON.stringify(gate.startTitle));
+    assert(gate.startVisible && gate.startTitle === tr(lang, "setup.shared.view"), `[${lang}] the one action is setup.shared.view`, JSON.stringify(gate.startTitle));
     const capOk = templateRe(lang, "setup.shared.cap_one").test(squash(gate.startCap)) || templateRe(lang, "setup.shared.cap_many").test(squash(gate.startCap));
     assert(capOk && squash(gate.startCap).startsWith(setup.name), `[${lang}] the caption names the program and its days`, gate.startCap);
     assert(!s.create.shown && !s.import.shown && !s.createClose && !s.importClose, `[${lang}] no Build or Track is visible anywhere`, JSON.stringify(s));
@@ -549,7 +551,9 @@ async function characterize(browser) {
     const staged = await page.evaluate(sharedGateSnapshot);
     const post = await storageSnapshot(page);
     assert(!staged.gate, `[${lang}] Start hides the landing`, JSON.stringify(staged));
-    assert(post.setupDraft !== null, `[${lang}] Start stages the reviewed program in the setup draft`);
+    // Plan 072 §7 / ADR 0007: no payload field is durable before Use this program, so the
+    // received program is reviewed in memory and the resumable setup draft stays empty.
+    assert(post.setupDraft === null, `[${lang}] Start keeps the received program out of the setup draft until activation`);
     assert(!post.onboarded && post.programRows === 0 && post.logRows === 0, `[${lang}] staging is not activation: still no program on the device`, JSON.stringify(post));
     assert(errors.length === 0, `[${lang}] no uncaught page errors`, errors.slice(0, 2).join(" | "));
     await context.close();

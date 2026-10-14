@@ -4908,8 +4908,17 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 }
 .firstrun__eyebrow::after{content:"";flex:1;height:1px;background:var(--firstrun-accent-text)}
 .firstrun__shared-only{display:none}
-.firstrun.is-shared .firstrun__shared-only{display:flex;margin:var(--firstrun-gap-4) 0 0}
+.firstrun.is-shared .firstrun__shared-only{display:none}
 .firstrun.is-shared .firstrun-hero .firstrun-hero__title{margin-top:var(--firstrun-gap-2)}
+.firstrun.is-shared [data-landing-section]:not([data-landing-section="hero"]),
+.firstrun.is-shared .firstrun-chips,
+.firstrun.is-shared #firstRunLede{display:none}
+.firstrun__shared-card{
+  margin-top:var(--firstrun-gap-4);padding:18px;border:1px solid var(--band-night-cta-bg);border-radius:var(--radius-surface);
+  background:var(--band-night-cta-bg);color:var(--band-night-cta-ink);overflow-wrap:anywhere;
+}
+.firstrun__shared-card-name{margin:0;font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-standard)}
+.firstrun__shared-card-body{margin:var(--firstrun-gap-2) 0 0;font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--band-night-cta-ink)}
 .firstrun__error{
   width:100%;margin:12px 0 0;font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--firstrun-ink);
   overflow-wrap:anywhere;
@@ -6323,7 +6332,7 @@ body.is-entry-editor #entryProgramName,
 #onbBody.entry-route--import .entry__notice--warn>strong::before{color:var(--color-warning)}
 
 #onbBody.entry-route--import :is(
-  #entryImportPick, #entryFreeformContinue, #entryFreeformClipboard, #entryFreeformReview,
+  #entryFreeformContinue, #entryFreeformClipboard, #entryFreeformReview,
   #entryFreeformSubmitGaps, #entryActivate
 ){
   border-radius:var(--radius-control);background:var(--control-primary-bg);
@@ -6333,21 +6342,21 @@ body.is-entry-editor #entryProgramName,
 }
 @media (hover: hover) and (pointer: fine){
 #onbBody.entry-route--import :is(
-  #entryImportPick, #entryFreeformContinue, #entryFreeformClipboard, #entryFreeformReview,
+  #entryFreeformContinue, #entryFreeformClipboard, #entryFreeformReview,
   #entryFreeformSubmitGaps, #entryActivate
 ):hover:not(:disabled){
   background:var(--control-primary-bg);color:var(--control-primary-ink);border-color:var(--control-primary-boundary)
 }
 }
 #onbBody.entry-route--import :is(
-  #entryImportPick, #entryFreeformContinue, #entryFreeformClipboard, #entryFreeformReview,
+  #entryFreeformContinue, #entryFreeformClipboard, #entryFreeformReview,
   #entryFreeformSubmitGaps, #entryActivate
 ):active:not(:disabled){
   background:var(--control-primary-bg);color:var(--control-primary-ink);
   border-color:var(--control-primary-boundary);transform:var(--control-pressed-transform)
 }
 #onbBody.entry-route--import :is(
-  #entryImportPick, #entryFreeformContinue, #entryFreeformClipboard, #entryFreeformReview,
+  #entryFreeformContinue, #entryFreeformClipboard, #entryFreeformReview,
   #entryFreeformSubmitGaps, #entryActivate
 ):disabled{
   background:var(--control-primary-disabled-bg);color:var(--control-primary-disabled-ink);
@@ -6412,7 +6421,7 @@ body.is-entry-editor #entryProgramName,
   border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
 }
 
-#onbBody.entry-route--import :is(#entryFreeformSwitch, #entryFreeformFile, #entryFreeformBackToReply),
+#onbBody.entry-route--import :is(#entryFreeformFile, #entryFreeformBackToReply),
 #importBack,#importReviewCancel{
   min-height:var(--control-target);border-color:var(--control-quiet-boundary);
   border-radius:var(--radius-control);background:var(--control-quiet-bg);color:var(--control-quiet-ink);
@@ -6420,20 +6429,20 @@ body.is-entry-editor #entryProgramName,
   font-weight:var(--weight-medium);line-height:var(--line-standard)
 }
 @media (hover: hover) and (pointer: fine){
-#onbBody.entry-route--import :is(#entryFreeformSwitch, #entryFreeformFile, #entryFreeformBackToReply):hover:not(:disabled),
+#onbBody.entry-route--import :is(#entryFreeformFile, #entryFreeformBackToReply):hover:not(:disabled),
 #importBack:hover:not(:disabled),
 #importReviewCancel:hover:not(:disabled){
   background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
 }
 }
-#onbBody.entry-route--import :is(#entryFreeformSwitch, #entryFreeformFile, #entryFreeformBackToReply):active:not(:disabled),
+#onbBody.entry-route--import :is(#entryFreeformFile, #entryFreeformBackToReply):active:not(:disabled),
 #importBack:active:not(:disabled),
 #importReviewCancel:active:not(:disabled){
   background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
 }
-#onbBody.entry-route--import :is(#entryFreeformSwitch, #entryFreeformFile, #entryFreeformBackToReply):active:not(:disabled),
+#onbBody.entry-route--import :is(#entryFreeformFile, #entryFreeformBackToReply):active:not(:disabled),
 #importBack:active:not(:disabled),#importReviewCancel:active:not(:disabled){transform:var(--control-pressed-transform)}
-#onbBody.entry-route--import :is(#entryFreeformSwitch, #entryFreeformFile, #entryFreeformBackToReply):disabled,
+#onbBody.entry-route--import :is(#entryFreeformFile, #entryFreeformBackToReply):disabled,
 #importBack:disabled,#importReviewCancel:disabled{
   background:var(--control-quiet-bg);color:var(--color-disabled-reason);
   border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none

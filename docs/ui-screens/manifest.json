@@ -844,7 +844,7 @@
       "id": "source",
       "flow": "onboarding-import",
       "label": "Import — source",
-      "scenario": "The bounded supported-file and setup-source surface before any mutation.",
+      "scenario": "Import's first screen: Choose file and Paste a program, each with its explanation, and the way out to Build, before any mutation.",
       "variants": "localized"
     },
     {
@@ -914,7 +914,7 @@
       "id": "gate",
       "flow": "onboarding-shared",
       "label": "Shared setup — adaptive landing",
-      "scenario": "An incoming setup link adapts the landing around its safe program summary. Nothing persists until Start.",
+      "scenario": "The received-program gate names its program and training days, shows the no-history/no-change disclosure, and offers See the program plus Create a program from scratch.",
       "variants": "demandingText"
     },
     {
@@ -928,7 +928,7 @@
       "id": "preview",
       "flow": "onboarding-shared",
       "label": "Shared setup — review",
-      "scenario": "The editable preview a shared payload lands in before explicit activation.",
+      "scenario": "The received program in B's review with the Shared program source, Restore, and its block as received (no Change), before explicit activation.",
       "variants": "accessibility"
     },
     {

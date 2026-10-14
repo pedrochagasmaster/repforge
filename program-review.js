@@ -598,8 +598,10 @@
       const parts = [t(definition.cycles === 1 ? "entry.review.block.week_one" : "entry.review.block.weeks", { n: definition.cycles }),
         t(`entry.review.block.pattern.${pattern}`)];
       if (deload) parts.push(t("entry.review.block.deload", { n: deload }));
-      return `<div class="review__blockrow"><p class="review__block">${esc(parts.join(" · "))}</p>` +
-        `<button type="button" class="text-link" data-review-block-edit>${esc(t("entry.review.block.change"))}</button></div>`;
+      // A host without changeBlock (a received shared program) keeps its block as received.
+      const change = typeof adapter.changeBlock === "function"
+        ? `<button type="button" class="text-link" data-review-block-edit>${esc(t("entry.review.block.change"))}</button>` : "";
+      return `<div class="review__blockrow"><p class="review__block">${esc(parts.join(" · "))}</p>${change}</div>`;
     }
     function changesHtml(count) {
       if (!count) return `<p class="review__hint">${esc(t("entry.review.tap_hint"))}</p>`;
@@ -617,9 +619,14 @@
           `${esc(label)}${empty ? `<span class="review__pip" aria-label="${esc(t("entry.review.empty_pip"))}"></span>` : ""}</button>`;
       }).join("")}</div>`;
     }
+    // A slot the lifter renamed keeps that name (a received shared program, say);
+    // a swap drops displayName, so the new movement reads its own name.
+    function slotName(slot) {
+      return typeof slot.displayName === "string" && slot.displayName.trim() ? slot.displayName : adapter.exerciseName(slot.exerciseId);
+    }
     function rowHtml(definition, slot, marks) {
       const state = read();
-      const name = adapter.exerciseName(slot.exerciseId);
+      const name = slotName(slot);
       const modeNeeded = needsExecutionMode(slot);
       const confirmed = Array.isArray(state.answers?.movementConfirmations?.[slot.exerciseId]) &&
         state.answers.movementConfirmations[slot.exerciseId].length > 0;
@@ -665,7 +672,7 @@
       if (view.reorder === view.tab) {
         return head + `<p class="review__hint">${esc(t("entry.review.reorder_hint"))}</p><ol class="review__reorder" data-review-reorder>` +
           slots.map((slot, index) => {
-            const label = adapter.exerciseName(slot.exerciseId);
+            const label = slotName(slot);
             return `<li class="review__ro" data-id="${esc(slot.id)}"><span class="review__handle" data-review-handle="${esc(slot.id)}" aria-hidden="true">${icon("grip")}</span>` +
               `<span class="review__ro-name">${esc(label)}</span>` +
               `<button type="button" class="review__ro-btn" data-review-reorder-move="${esc(slot.id)}:-1" aria-label="${esc(t("entry.review.move_up", { name: label }))}"${index === 0 ? " disabled" : ""}>${icon("chev-up")}</button>` +
@@ -876,7 +883,7 @@
         const others = definition.days.filter((day) => day.kind === "training" && day.id !== at.day.id);
         const rest = sets[0]?.restSeconds;
         const modeNeeded = needsExecutionMode(slot);
-        const name = adapter.exerciseName(slot.exerciseId);
+        const name = slotName(slot);
         parts.title.textContent = name;
         parts.body.innerHTML =
           `<div class="review-sheet__head">${adapter.tile(slot.exerciseId, "lg")}<div><p class="review-sheet__role">${esc([roleLabel(slot.role), jobLabel(slot.purposeId)].filter(Boolean).join(" · "))}</p>${chips(slot)}</div></div>` +
@@ -1141,7 +1148,7 @@
       if (hit("[data-review-undo]")) { undo(); return; }
       if (hit("[data-review-restore]")) { restore(); return; }
       if (hit("[data-review-title]")) { sheet = { kind: "rename", target: "program" }; openSheet(); return; }
-      if (hit("[data-review-block-edit]")) {
+      if (hit("[data-review-block-edit]") && typeof adapter.changeBlock === "function") {
         const state = read(), definition = state.definition, answers = state.answers || {};
         sheet = {
           kind: "block",

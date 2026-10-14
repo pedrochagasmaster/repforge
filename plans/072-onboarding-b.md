@@ -3,6 +3,14 @@
 - **Plan number:** 072
 - **Status:** APPROVED, 11 October 2026 (owner decisions recorded on PR #358 and in [§13](#13-owner-decisions)).
   Implementation: S1 → S5, one PR each. #340 is a separate track after S1.
+  Progress: S1 #369, S2 #372, S3 #376 and S4 #380 merged; S5 (other routes, shared program in the editor, #367)
+  in review. Owner decisions for S5 (13 October 2026): the shared review omits the block-row Change, so length,
+  pattern and deload stay as received; Import keeps the Build escape on both its file and paste screens;
+  *Criar um treino do zero* discards the received proposal and clears its setup cookie.
+- **Legacy Custom window:** the hub has no Custom door (OD-9). `custom` stays a valid route, with its
+  `exercise_preferences` and `custom_shape` steps and its request semantics (including excluded exercises and
+  muscles), for one release after S5 ships so a saved Custom draft resumes and finishes. The catalog already has
+  no `onboarding-custom/*` state. Removing those steps and their strings is the one remaining Plan 072 change.
 - **Decision:** [ADR 0020](../docs/adr/0020-onboarding-candidate-b.md) makes candidate B the onboarding reference
   from the entry hub to Activate. Its result screen, the program editor, shipped in PR #351 under
   [Plan 070](./070-onboarding-b-program-editor.md). This plan covers the rest of B.

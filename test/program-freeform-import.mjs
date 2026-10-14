@@ -397,6 +397,39 @@ async function main() {
     await page.waitForSelector("#entryImportPick", { timeout: 20000 });
     assert(await page.locator("#entryImportPick").isVisible(),
       "the Import card opens the file door its caption describes");
+    // Plan 072 §7: the first Import screen offers the prototype's two choices,
+    // each with its explanation, and keeps the Build escape (owner, 2026-10-13).
+    const firstScreen = await page.evaluate(() => {
+      const read = (selector) => {
+        const node = document.querySelector(selector);
+        return node ? {
+          title: node.querySelector(".radio-card__title")?.textContent?.trim() || null,
+          cap: node.querySelector(".radio-card__cap")?.textContent?.trim() || null,
+          tag: node.tagName,
+          role: node.getAttribute("role"),
+        } : null;
+      };
+      return {
+        lede: document.querySelector("#onbBody .onb__explain")?.textContent?.trim() || null,
+        file: read("#entryImportPick"),
+        paste: read("#entryFreeformSwitch"),
+        writeOwn: !!document.querySelector("#entryWriteOwn"),
+      };
+    });
+    const lang = await page.evaluate(() => window.RepForgeI18n?.getLang?.() || "en");
+    const IMPORT_COPY = {
+      en: { lede: "Choose a Taurifer program file or paste a program from anywhere. You review every exercise before you activate it.",
+        file: ["Choose file", "A Taurifer file from another device"], paste: ["Paste a program", "Text from a spreadsheet, an app or an assistant"] },
+      pt: { lede: "Escolha um arquivo de treino do Taurifer ou cole um treino de qualquer lugar. Você revisa cada exercício antes de ativar.",
+        file: ["Escolher arquivo", "Um arquivo do Taurifer de outro dispositivo"], paste: ["Colar um treino", "Texto de uma planilha, de um app ou de um assistente"] },
+    }[lang];
+    assert(firstScreen.lede === IMPORT_COPY.lede &&
+      firstScreen.file?.title === IMPORT_COPY.file[0] && firstScreen.file?.cap === IMPORT_COPY.file[1] &&
+      firstScreen.paste?.title === IMPORT_COPY.paste[0] && firstScreen.paste?.cap === IMPORT_COPY.paste[1] &&
+      firstScreen.file?.tag === "BUTTON" && firstScreen.paste?.tag === "BUTTON" &&
+      firstScreen.file?.role === null && firstScreen.paste?.role === null && firstScreen.writeOwn,
+    "the first Import screen offers file and paste with their explanations and keeps the Build escape",
+    JSON.stringify(firstScreen));
     await page.evaluate(async () => {
       try { await window.__repforgeStorage?.flush?.(); } catch {}
     });
