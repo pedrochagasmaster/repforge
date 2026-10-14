@@ -181,7 +181,7 @@
     "onboarding-import/source": {
       "owner": "plan-072",
       "content": "flat",
-      "scenario": "The bounded supported-file and setup-source surface before any mutation."
+      "scenario": "Import's first screen: Choose file and Paste a program, each with its explanation, and the way out to Build, before any mutation."
     },
     "onboarding-import/freeform-empty": {
       "owner": "plan-054",
@@ -231,7 +231,7 @@
     "onboarding-shared/gate": {
       "owner": "plan-072",
       "content": "flat",
-      "scenario": "An incoming setup link adapts the landing around its safe program summary. Nothing persists until Start."
+      "scenario": "The received-program gate names its program and training days, shows the no-history/no-change disclosure, and offers See the program plus Create a program from scratch."
     },
     "onboarding-shared/invalid": {
       "owner": "plan-054",
@@ -241,7 +241,7 @@
     "onboarding-shared/preview": {
       "owner": "plan-072",
       "content": "flat",
-      "scenario": "The editable preview a shared payload lands in before explicit activation."
+      "scenario": "The received program in B's review with the Shared program source, Restore, and its block as received (no Change), before explicit activation."
     },
     "onboarding-recovery/resume": {
       "owner": "plan-054",
@@ -1725,8 +1725,8 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Navigates from the File import subview to the Freeform subview; the active subview carries the remembered UI route context.",
-      "owner": "plan-058",
+      "rationale": "The Paste a program choice on Import's first screen: navigates to the Freeform subview on tap; the active subview carries the remembered UI route context.",
+      "owner": "plan-072",
       "catalogStates": [
         "onboarding-import/source"
       ]
@@ -1758,7 +1758,7 @@
       "id": "entryimportpick",
       "selector": "#entryImportPick",
       "roles": {
-        "control": "primary"
+        "control": "quiet-navigation"
       },
       "variant": null,
       "facets": [],
@@ -1767,11 +1767,10 @@
         "hover",
         "pressed",
         "focus-visible",
-        "disabled",
-        "loading"
+        "disabled"
       ],
-      "rationale": "Advances the current task with the strongest action weight.",
-      "owner": "plan-058",
+      "rationale": "The Choose file choice on Import's first screen: opens the system file picker on tap without changing training data; the file review follows.",
+      "owner": "plan-072",
       "catalogStates": [
         "onboarding-import/source"
       ]
@@ -9142,7 +9141,8 @@
         "onboarding-recommend/review-empty-day",
         "onboarding-recommend/review-reorder",
         "onboarding-recommend/result-confirm-offer",
-        "onboarding-recommend/result-confirmed"
+        "onboarding-recommend/result-confirmed",
+        "onboarding-shared/preview"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -9174,7 +9174,8 @@
         "onboarding-recommend/review-empty-day",
         "onboarding-recommend/review-reorder",
         "onboarding-recommend/result-confirm-offer",
-        "onboarding-recommend/result-confirmed"
+        "onboarding-recommend/result-confirmed",
+        "onboarding-shared/preview"
       ],
       "neverDisabledReason": "Every day of the week, rest days included, can always be shown."
     },
@@ -9203,7 +9204,8 @@
         "onboarding-recommend/result-corrected",
         "onboarding-recommend/result-existing",
         "onboarding-recommend/result-confirm-offer",
-        "onboarding-recommend/result-confirmed"
+        "onboarding-recommend/result-confirmed",
+        "onboarding-shared/preview"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -9234,7 +9236,8 @@
         "onboarding-recommend/review-empty-day",
         "onboarding-recommend/review-reorder",
         "onboarding-recommend/result-confirm-offer",
-        "onboarding-recommend/result-confirmed"
+        "onboarding-recommend/result-confirmed",
+        "onboarding-shared/preview"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -9264,7 +9267,8 @@
         "onboarding-recommend/result-existing",
         "onboarding-recommend/review-empty-day",
         "onboarding-recommend/result-confirm-offer",
-        "onboarding-recommend/result-confirmed"
+        "onboarding-recommend/result-confirmed",
+        "onboarding-shared/preview"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -9294,7 +9298,8 @@
         "onboarding-recommend/result-existing",
         "onboarding-recommend/review-empty-day",
         "onboarding-recommend/result-confirm-offer",
-        "onboarding-recommend/result-confirmed"
+        "onboarding-recommend/result-confirmed",
+        "onboarding-shared/preview"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -9921,6 +9926,7 @@
       "rationale": "Import and shared-gate text actions are underlined quiet navigation controls with no boundary, in the ink of the band they sit on.",
       "owner": "plan-072",
       "catalogStates": [
+        "onboarding-shared/gate",
         "onboarding-shared/invalid",
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",

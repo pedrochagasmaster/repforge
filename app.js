@@ -17694,9 +17694,17 @@ function renderImportSourceStep(){
 function renderImportFileStep(){
   return entryHeading(t("entry.import_source.title"))+`<p class="onb__explain">${esc(t("entry.import_source.lede"))}</p>`+
     (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
-    `<button type="button" class="btn btn--cta" id="entryImportPick">${esc(t("entry.import_source.pick"))}</button>`+
-    `<div class="entry__switch entry__switch--doors"><button type="button" class="btn btn--ghost" id="entryFreeformSwitch">${esc(t("entry.import_source.to_freeform"))}</button>`+
-    entryWriteOwnLink()+`</div>`}
+    `<div class="onb__opts entry__import-doors">`+
+      entryImportDoor("entryImportPick","download","entry.import_source.pick")+
+      entryImportDoor("entryFreeformSwitch","clipboard","entry.import_source.to_freeform")+`</div>`+
+    `<div class="entry__switch entry__switch--doors">`+entryWriteOwnLink()+`</div>`}
+/* Plan 072 §7's two choices. Each one acts on tap, as the doors always have:
+   a navigation button, not a selection that waits for Continue. */
+function entryImportDoor(id,icon,key){
+  return `<button type="button" class="radio-card entry__import-door" id="${id}">`+
+    `<span class="radio-card__icon icon-mask icon-mask--${icon}" aria-hidden="true"></span>`+
+    `<span class="radio-card__body"><span class="radio-card__title">${esc(t(key))}</span>`+
+    `<span class="radio-card__cap">${esc(t(`${key}_cap`))}</span></span></button>`}
 /* The quiet way out of the import route. A lifter who has a program in their
    head rather than in a file or a message can write it themselves in Build.
    It is a route change, not a request: nothing is sent and nothing is read. */

@@ -122,7 +122,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Import — source](screens/onboarding-import/source__phone-390-light-en.png) | 3 | The bounded supported-file and setup-source surface before any mutation. |
+| [Import — source](screens/onboarding-import/source__phone-390-light-en.png) | 3 | Import's first screen: Choose file and Paste a program, each with its explanation, and the way out to Build, before any mutation. |
 | [Import — paste a program](screens/onboarding-import/freeform-empty__phone-390-light-en.png) | 3 | The free-form door as it opens: an empty field, and the hand-off to ChatGPT or Claude still unavailable. |
 | [Import — paste ready to convert](screens/onboarding-import/freeform-filled__phone-390-light-en.png) | 7 | A pasted program with both app links live, the character counter, and the field the reply comes back into. |
 | [Import — choose an assistant](screens/onboarding-import/freeform-stage2__phone-390-light-en.png) | 7 | Stage 2 with collapsed source summary, Edit button, ChatGPT and Claude buttons, and Preview prompt disclosure. |
@@ -137,9 +137,9 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Shared setup — adaptive landing](screens/onboarding-shared/gate__phone-390-light-en.png) | 8 | An incoming setup link adapts the landing around its safe program summary. Nothing persists until Start. |
+| [Shared setup — adaptive landing](screens/onboarding-shared/gate__phone-390-light-en.png) | 8 | The received-program gate names its program and training days, shows the no-history/no-change disclosure, and offers See the program plus Create a program from scratch. |
 | [Shared setup — invalid landing](screens/onboarding-shared/invalid__phone-390-light-en.png) | 3 | An invalid setup link explains that nothing was saved and keeps safe Build and Track actions available. |
-| [Shared setup — review](screens/onboarding-shared/preview__phone-390-light-en.png) | 7 | The editable preview a shared payload lands in before explicit activation. |
+| [Shared setup — review](screens/onboarding-shared/preview__phone-390-light-en.png) | 7 | The received program in B's review with the Shared program source, Restore, and its block as received (no Change), before explicit activation. |
 
 ### Onboarding — resume and rule drift
 

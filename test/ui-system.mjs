@@ -452,7 +452,8 @@ const landingRecipes = [
     selectors: ["#firstRunCreate", "#firstRunCreateClose", "#firstRunSharedStart"], states: [...landingEverywhere, ...landingReturning],
     stateFor: (selector) => selector === "#firstRunSharedStart" ? ["onboarding-shared/gate"] : [...landingStates, ...landingReturning] },
   { id: "landing-text-link", role: "quiet-navigation", boundary: undefined, elevation: undefined,
-    selectors: ["#firstRunImport", "#firstRunImportClose"], states: [...landingStates, ...landingReturning], stateFor: () => [...landingStates, ...landingReturning] },
+    selectors: ["#firstRunImport", "#firstRunImportClose", "#firstRunSharedCreate"], states: [...landingStates, ...landingReturning, "onboarding-shared/gate"],
+    stateFor: (selector) => selector === "#firstRunSharedCreate" ? ["onboarding-shared/gate"] : [...landingStates, ...landingReturning] },
   { id: "landing-sticky-build", role: "primary", boundary: "decorative", elevation: "floating",
     selectors: ["#firstRunCreateDock"], states: landingScrolled, stateFor: () => landingScrolled },
 ];
