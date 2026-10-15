@@ -25,6 +25,7 @@ export const SUITES = {
   fast: [
     s("test/ci.mjs", [], {"nodeArgs": ["--test"]}),
     s("test/privacy-contract.mjs", [], { domains: ["privacy"], cost: "tiny" }),
+    s("test/pages-deploy-boundary.mjs", [], { nodeArgs: ["--test"], domains: ["privacy", "offline"] }),
     s("test/generative/self-test.mjs", [], {"nodeArgs": ["--test"]}),
     s("test/shared-setup-unit.mjs"),
     s("test/program-day-names.mjs"),
