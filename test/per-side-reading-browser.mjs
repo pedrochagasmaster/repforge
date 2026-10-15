@@ -489,9 +489,13 @@ async function main() {
       totalAmbiguousEarlierLift?.metrics.some(metric => metric.metricId === LOAD_ID && metric.value === "25") &&
       totalAmbiguousEarlierLift?.metrics.some(metric => metric.metricId === REPS_SIDE_ID && metric.value === "8"),
       "History preserves total Weight and per-side repetitions for an unavailable historical mode", totalAmbiguousEarlierLift);
+    // #413, owner decision 2026-10-15 narrowing D7: this legacy null-mode row
+    // performed the B-stance RDL under the press slot, so it no longer borrows
+    // the press slot's mode. The D7 fallback for a row whose movement is still
+    // the slot's is proven in per-side-completion-summary-browser.mjs.
     check(persistentLegacyLift?.metrics.some(metric => metric.metricId === PERSISTENT_LOAD_SIDE_ID && metric.value === "22.5") &&
-      Number(persistentLegacyRead.totals.find(item => /moved/i.test(item.label))?.value.replaceAll(",", "")) === 360,
-      "History retains current-slot fallback for a valid legacy null-mode persistent per-side row", persistentLegacyRead);
+      Number.isNaN(total(persistentLegacyRead)),
+      "History leaves a legacy null-mode row unknown when its movement is not the slot's", persistentLegacyRead);
     check(Number(unambiguousLateralityRead.totals.find(item => /moved/i.test(item.label))?.value.replaceAll(",", "")) === 320,
       "History keeps catalog-unilateral total Weight plus per-side repetitions after its slot changes to bilateral",
       unambiguousLateralityRead);
@@ -526,9 +530,9 @@ async function main() {
       "Progress keeps performed working-set counts for unknown-mode and persistent B-stance rows", unknownProgress);
     check(!unknownProgress.hasUnknownSeries || (unknownProgress.unknownCount === 0 && unknownProgress.unknownPoints === 0),
       "Unknown execution mode does not create tonnage or comparable strength evidence", unknownProgress);
-    check(unknownProgress.ambiguousCount === 1 && unknownProgress.ambiguousPoints === 1 &&
-      unknownProgress.ambiguousValues?.join(",") === "22.5" && unknownProgress.persistentLegacySet?.load === 22.5,
-      "Progress retains the valid legacy null-multiplier point while explicit persistent m=2 remains unavailable", unknownProgress);
+    check(unknownProgress.ambiguousCount === 0 && unknownProgress.ambiguousPoints === 0 &&
+      unknownProgress.persistentLegacySet?.load === 22.5,
+      "Progress counts the legacy null-multiplier set but gives it no comparable point under another movement's slot (#413)", unknownProgress);
     check(unknownProgress.totalUnknownSet?.load === 27.5 && unknownProgress.totalUnknownSet?.reps === 8,
       "Progress counts the explicit total-load m=1 working set and keeps raw Weight/reps values", unknownProgress);
     check(unknownProgress.ambiguousTotalCount === 0 && unknownProgress.ambiguousTotalPoints?.length === 0,
@@ -578,8 +582,8 @@ async function main() {
       totalAmbiguousExport?.[index.e1rm] === "",
       "P069-S2-CSV keeps total Weight semantics and omits derived values for unknown explicit total-load m=1 mode", totalAmbiguousExport);
     check(persistentLegacyExport?.[index.load_per_side] === "22.5" && persistentLegacyExport?.[index.reps_per_side] === "8" &&
-      Number(persistentLegacyExport?.[index.tonnage]) === 360,
-      "P069-S2-CSV retains the approved valid legacy null-mode slot fallback for persistent per-side load", persistentLegacyExport);
+      persistentLegacyExport?.[index.tonnage] === "" && persistentLegacyExport?.[index.e1rm] === "",
+      "P069-S2-CSV exports a legacy null-mode row under another movement's slot without guessed tonnage/e1RM (#413)", persistentLegacyExport);
     const beforeBoundaryRead = boundarySaved;
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });

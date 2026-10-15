@@ -236,7 +236,8 @@ How each surface uses it (D5, D8):
 - **Existing logs.** Nothing is rewritten; workout history is immutable
   (the rule CONTEXT.md states under "AI proposal"). All of the above is derived when the data is
   read. A stored per-side row whose captured multiplier is `null` (every row
-  logged before S3) uses the slot's current rule. A row with an explicit
+  logged before S3) uses the slot's current rule, while the slot still holds
+  the movement the row performed (D7 amendment, #413). A row with an explicit
   multiplier keeps it. A later change of execution mode makes the older
   explicit rows non-comparable, which matches Plan 067's comparability rule.
   There is no migration and no schema bump (D7).
@@ -398,6 +399,12 @@ decisions that gate the slice (see §6).
 7. **D7 — Existing per-side logs.** *Recommend:* no migration. Derive figures
    when reading, resolve `null` multipliers by the current slot rule, and
    capture an explicit multiplier from S3 on.
+   *Amendment (2026-10-15, owner-approved, #413):* the current slot rule
+   applies only when the row's performed movement (`performedLibraryId`,
+   `performedMovementId`, or else `performedName`) is still the slot's
+   current movement. A row logged under a movement that was swapped in
+   mid-session (#410) or later replaced in the editor keeps only what it
+   recorded; if that leaves its mode unknown, nothing is invented.
 8. **D8 — History/Progress per-side figures.** *Recommend:* tonnage = per-side
    load × m × repetitions performed. PRs/e1RM per side, labelled, compared only
    within the same convention.

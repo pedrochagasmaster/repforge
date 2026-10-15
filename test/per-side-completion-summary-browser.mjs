@@ -11,11 +11,15 @@
  *
  * #410: a movement swapped in mid-session never borrows the slot's execution
  * mode, so an ambiguous per-side substitute stays unknown everywhere.
+ *
+ * #413: neither does a row logged under a movement the program editor later
+ * replaced. The slot's mode describes the movement it holds now.
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { answerRecommend, launchChromium, waitForAppBoot } from "./browser.mjs";
 import { exerciseAction } from "./fixtures/focus-workout.mjs";
+import { openInstalledEditor } from "./adaptive-build-fixture.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const CATALOG = JSON.parse(readFileSync(new URL("../assets/exercise-catalog.json", import.meta.url), "utf8"));
@@ -23,6 +27,7 @@ const ROW_ID = "1a55c6f170d88031b658c6e278a82a88"; // Single arm dumbbell row: W
 const PRESS_ID = "1a05c6f170d8803ba48ec1443eab5978"; // Dumbbell bench press: Weight per side, Reps per side
 const RDL_ID = "2ee5c6f170d880c899dcdd917b32d865"; // B-stance dumbbell RDL: ambiguous laterality, persistent per-side load
 const RENEGADE_ID = "3065c6f170d880d2bc77cba9edbf8ce9"; // Dumbbell renegade row: asymmetrical, Weight per side
+const BARBELL_RDL_ID = "2ee5c6f170d880d98e4fce18a6a6367e"; // B-stance barbell RDL: ambiguous laterality, Weight, Reps per side
 const failures = [];
 const observations = {};
 
@@ -434,6 +439,111 @@ try {
   check(unknown.moved === 0,
     "#398 the unknown-mode per-side lift adds no invented tonnage to the summary", unknown);
   await ambiguousContext.close();
+  // #413 (owner narrowing of Plan 069 D7, 2026-10-15): two RDL sessions saved
+  // in the legacy shape, with no recorded mode and no multiplier, read through
+  // the slot's one-side-at-a-time mode while the slot still holds the RDL:
+  // 25×2×16 = 800 kg, then 27.5×2×16 = 880 kg and a PR. Once the installed
+  // editor replaces the slot's movement, the slot keeps its explicit mode for
+  // the new movement, and the older rows no longer borrow it: no tonnage, PR,
+  // comparable point or engine anchor anywhere.
+  const replacedContext = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "en-US", timezoneId: "UTC" });
+  const replacedPage = await replacedContext.newPage();
+  replacedPage.on("pageerror", error => pageErrors.push(String(error?.stack || error)));
+  await replacedPage.clock.setFixedTime(new Date("2026-10-11T12:00:00.000Z"));
+  await replacedPage.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForAppBoot(replacedPage, { base: BASE });
+  const replacedRdl = await installAmbiguousProgram(replacedPage);
+  if (!replacedRdl) throw new Error("The B-stance RDL slot was not activated into the program");
+  const replacedSlotId = replacedRdl.slotId || replacedRdl.id;
+  for (const [time, load] of [["2026-10-11T12:00:00.000Z", 25], ["2026-10-12T12:00:00.000Z", 27.5]]) {
+    await replacedPage.clock.setFixedTime(new Date(time));
+    await logSet(replacedPage, replacedRdl.id, metricNames(RDL_ID), { "Weight per side persistent": load, "Reps per side": 8 });
+    await finishAndReadSummary(replacedPage);
+  }
+  await rewriteState(replacedPage, state => {
+    for (const row of state.log || []) if (row.performedLibraryId === "2ee5c6f170d880c899dcdd917b32d865") {
+      delete row.loadingContext.executionMode;
+      row.loadingContext.externalLoadMultiplier = null;
+    }
+  });
+  const readReplaced = async () => {
+    const facts = await replacedPage.evaluate(({ rdlId, slotId }) => {
+      const state = window.__repforgeWorkoutDraft.state();
+      const rows = (state.log || []).filter(row => row.performedLibraryId === rdlId);
+      const latest = rows.filter(row => row.date === "2026-10-12");
+      const prevLog = (state.log || []).filter(row => !latest.includes(row));
+      const summary = window.__repforgeSessionSummary.build({ rows: latest, prevLog, session: latest[0]?.session,
+        date: "2026-10-12", day: latest[0]?.day });
+      const key = "library:" + rdlId, strength = window.__repforgeProgressEvidence.strength(key);
+      const slot = state.programMeta.programDefinition.days.flatMap(day => day.slots || []).find(item => item.id === slotId);
+      const programRow = state.program.find(item => (item.slotId || item.id) === slotId);
+      const recommendation = programRow ? window.__repforgeRecommendation(programRow) : null;
+      return { slot: slot ? { exerciseId: slot.exerciseId, executionMode: slot.executionMode ?? null } : null,
+        rows: rows.map(row => ({ session: row.session, date: row.date, mode: row.loadingContext?.executionMode ?? null,
+          multiplier: row.loadingContext?.externalLoadMultiplier ?? null })),
+        sessions: [...new Set(rows.map(row => String(row.session)))],
+        summary: { volume: summary.volume, prs: summary.prs.length },
+        progress: { points: strength?.points?.length ?? 0, evidenceCount: strength?.evidenceCount ?? 0,
+          record: window.__repforgeProgressEvidence.records("current-block").find(item => item.exerciseId === key) || null },
+        recommendation: recommendation ? { load: recommendation.load ?? null, status: recommendation.status } : null };
+    }, { rdlId: RDL_ID, slotId: replacedSlotId });
+    facts.today = await readTodayMoved(replacedPage);
+    facts.history = await readHistoryMoved(replacedPage, facts.sessions);
+    await replacedPage.locator('nav button[data-view="history"]').click();
+    await replacedPage.waitForSelector("#history.view.active", { timeout: 10000 });
+    const latestSession = facts.rows.find(row => row.date === "2026-10-12")?.session;
+    await replacedPage.locator(`#sessions .hist-row[data-sess="${latestSession}"] .session__open`).click();
+    const reading = replacedPage.locator(`.session--read[data-reading="${latestSession}"]`);
+    await reading.waitFor({ state: "visible", timeout: 10000 });
+    facts.historyLift = await reading.evaluate((root, key) => {
+      const section = root.querySelector(`section[data-lift="${key}"]`);
+      return section ? {
+        outcome: section.querySelector(".histlift__tags .verdictmark:not(.verdictmark--record)")?.textContent.replace(/\s+/g, " ").trim() || "",
+        record: section.querySelector(".verdictmark--record")?.textContent.replace(/\s+/g, " ").trim() || "",
+      } : null;
+    }, `library:${RDL_ID}`);
+    await replacedPage.locator("#history [data-history-back]").click();
+    await replacedPage.locator('nav button[data-view="log"]').click();
+    await replacedPage.waitForSelector("#log.view.active", { timeout: 10000 });
+    return facts;
+  };
+  const beforeReplace = await readReplaced();
+  const [earlierSession, latestSession] = beforeReplace.rows.map(row => String(row.session));
+  observations.editorReplaced = { before: beforeReplace };
+  check(beforeReplace.slot?.exerciseId === RDL_ID && beforeReplace.slot?.executionMode === "unilateral" &&
+    beforeReplace.rows.length === 2 && beforeReplace.rows.every(row => row.mode === null && row.multiplier === null),
+  "#413 both RDL rows are in the legacy shape under the RDL slot's one-side-at-a-time mode", beforeReplace);
+  check(beforeReplace.history[earlierSession] === 800 && beforeReplace.history[latestSession] === 880 &&
+    beforeReplace.today === 880 && beforeReplace.summary.volume === 880 && beforeReplace.summary.prs === 1 &&
+    /PR/.test(beforeReplace.historyLift?.record || "") && beforeReplace.progress.evidenceCount === 2,
+  "#413 while the slot still holds the RDL, D7's fallback reads its mode (800 kg, then 880 kg and a PR)", beforeReplace);
+
+  const editorRow = await openInstalledEditor(replacedPage, replacedRdl.name);
+  await editorRow.locator('[data-role="replace"]').click();
+  await replacedPage.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
+  await replacedPage.fill("#exPickSearch", "B-stance barbell Romanian deadlift");
+  await replacedPage.locator(`#exPickList [data-pick="${BARBELL_RDL_ID}"]`).first().click();
+  await replacedPage.waitForFunction(() => [...document.querySelectorAll('#programEditor [data-role="exercise"]')]
+    .some(node => node.textContent.includes("B-stance barbell Romanian deadlift")), undefined, { timeout: 10000 });
+  await replacedPage.click("#programEditToggle");
+  await replacedPage.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),
+    undefined, { timeout: 10000 });
+  await replacedPage.evaluate(() => window.__repforgeStorage.flush());
+  const afterReplace = await readReplaced();
+  observations.editorReplaced.after = afterReplace;
+  check(afterReplace.slot?.exerciseId === BARBELL_RDL_ID && afterReplace.slot?.executionMode === "unilateral",
+    "#413 the replaced slot holds the barbell RDL and keeps an explicit execution mode", afterReplace.slot);
+  check(!(afterReplace.history[earlierSession] > 0) && !(afterReplace.history[latestSession] > 0) &&
+    !(afterReplace.today > 0) && afterReplace.summary.volume === 0,
+  "#413 the older RDL rows add no tonnage to History, Today or the summary after the replacement", afterReplace);
+  check(afterReplace.summary.prs === 0 && !!afterReplace.historyLift && afterReplace.historyLift.record === "" &&
+    /^not comparable$/i.test(afterReplace.historyLift.outcome),
+  "#413 the older RDL rows set no PR in the summary or History, which reads them as not comparable", afterReplace);
+  check(afterReplace.progress.points === 0 && afterReplace.progress.evidenceCount === 0 &&
+    (afterReplace.progress.record === null || afterReplace.progress.record.evidenceCount === 0) &&
+    afterReplace.recommendation?.load == null,
+  "#413 the older RDL rows give Progress no comparable point and the replaced slot no engine anchor", afterReplace);
+  await replacedContext.close();
   check(pageErrors.length === 0, "the production journey has no page errors", pageErrors);
 } catch (error) {
   failures.push(String(error?.stack || error));
