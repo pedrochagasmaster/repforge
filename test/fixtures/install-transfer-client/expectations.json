@@ -4,7 +4,7 @@
   "cookieName": "repforge_transfer_v1",
   "cookieMaxAgeSeconds": 3600,
   "cookiePathProduction": "/repforge/index.html",
-  "cookiePathLocal": "/index.html",
+  "cookiePathLocal": "/",
   "cookieSameSite": "Lax",
   "endpoints": {
     "create": "/v1/transfers",

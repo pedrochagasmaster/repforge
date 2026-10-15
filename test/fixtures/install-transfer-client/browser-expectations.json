@@ -19,7 +19,7 @@
   "cookies": {
     "transferName": "repforge_transfer_v1",
     "setupName": "repforge_setup_v1",
-    "path": "/index.html",
+    "path": "/",
     "sameSite": "Lax",
     "secureOnLocalhost": false,
     "coexist": true,

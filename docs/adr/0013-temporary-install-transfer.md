@@ -327,15 +327,36 @@ Phase 049 selects the handoff key: **`repforge_transfer_v1`**.
 Historical-codename-compatible, distinct from `repforge_setup_v1`, which it
 never overloads — a setup proposal and a full-state transfer may coexist and
 are disambiguated deterministically. The cookie carries only the opaque token
-and expiry, never the clone: matching `index.html` path, short lifetime,
+and expiry, never the clone: the app-scope path (amended 2026-10-15, below), short lifetime,
 `SameSite=Lax`, and `Secure` outside localhost. The installed context
 consumes and expires its transfer cookie before ordinary boot writes state.
 Token values never enter fragment/history, DOM text, telemetry, console,
 service-worker cache keys, or screenshots.
 
+### Amendment (2026-10-15): the cookie path is the app scope
+
+The cookie used to be scoped to the pathname of `index.html`. On
+`taurifer.com` the static host answers `/index.html` with `308 Location: /`,
+and the installed app's manifest launch (`./index.html`) lands on `/`. A
+cookie scoped to `/index.html` is neither sent to `/` nor visible in its
+`document.cookie`, so the installed app found no claim and opened empty
+(owner, physical iPhone, 2026-10-15). The path is now the app scope (`/` on
+`taurifer.com`), which covers wherever the host serves the document. Writes
+and clears also expire any cookie a previous release left at the `index.html`
+path. The manifest `start_url` stays `./index.html` to keep the installed
+Android app's WebAPK identity (#305).
+
+With an app-scope path the browser sends the cookie with every credentialed
+request inside the scope: the document and the app's static files. The
+transfer client's `/v1/` requests use `credentials: "omit"`, and the transfer
+Worker never reads the `Cookie` header; the token reaches the service only in
+the explicit request body. `test/install-handoff-redirect.mjs` proves both the
+handoff across the redirect and the cookie-free claim.
+
 ### The static host necessarily receives the cookie
 
-The matching static host gets the token in the `Cookie` request header, and
+The static host gets the token in the `Cookie` request header of requests
+inside the app scope, and
 ordinary access logs record request headers. This is accepted with layered
 controls, stated here so no later document can soften it:
 
@@ -546,7 +567,7 @@ states all of the following:
 - The transfer requires a network connection. Global Cloudflare edge ingress
   can handle the request before durable storage and Durable Object processing
   in the EU. The static-host handoff cookie carries only the opaque token and
-  is sent with the matching HTML request.
+  is sent with the app's requests inside its scope (amended 2026-10-15).
 - Create abuse counters use HMAC-derived IP buckets in a separate rate-limit
   Durable Object. The buckets last no more than two minutes, store no raw IP,
   and are not linked to a transfer or token.

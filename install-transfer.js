@@ -381,7 +381,16 @@
     catch { return "localhost"; }
   }
 
+  // The app scope (the directory the document lives in), not its document URL:
+  // the host may serve the document at `/` or at `/index.html`, and the
+  // installed app launches through `./index.html`, which a host can redirect.
   function cookiePath(locationLike) {
+    try { return new URL("./", locationLike?.href || locationLike || root.location?.href || "http://localhost/").pathname; }
+    catch { return "/"; }
+  }
+
+  // Releases before the scope path wrote the cookie at the document URL.
+  function legacyCookiePath(locationLike) {
     try { return new URL("index.html", locationLike?.href || locationLike || root.location?.href || "http://localhost/").pathname; }
     catch { return "/index.html"; }
   }
@@ -389,7 +398,7 @@
   function cookieVisibleAtLocation(locationLike, path) {
     try {
       const current = new URL(locationLike?.href || locationLike || root.location?.href || "http://localhost/").pathname;
-      return current === path || current.startsWith(`${path}/`);
+      return current === path || current.startsWith(path.endsWith("/") ? path : `${path}/`);
     } catch { return false; }
   }
 
@@ -437,6 +446,7 @@
     const secure = localHost(hostname(location)) ? "" : "; Secure";
     try {
       const path = cookiePath(location);
+      document.cookie = `${COOKIE_NAME}=; Path=${legacyCookiePath(location)}; Max-Age=0; SameSite=Lax${secure}`;
       document.cookie = `${COOKIE_NAME}=${encoded}; Path=${path}; Max-Age=${maxAge}; SameSite=Lax${secure}`;
       return !cookieVisibleAtLocation(location, path) && browserCookieDocument(document) || readCookie(document, COOKIE_NAME) === encoded;
     } catch { return false; }
@@ -451,6 +461,7 @@
     const secure = localHost(hostname(location)) ? "" : "; Secure";
     try {
       const path = cookiePath(location);
+      document.cookie = `${COOKIE_NAME}=; Path=${legacyCookiePath(location)}; Max-Age=0; SameSite=Lax${secure}`;
       document.cookie = `${COOKIE_NAME}=; Path=${path}; Max-Age=0; SameSite=Lax${secure}`;
       return !cookieVisibleAtLocation(location, path) && browserCookieDocument(document) || readCookie(document, COOKIE_NAME) === null;
     } catch { return false; }

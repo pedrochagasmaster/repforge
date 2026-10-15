@@ -840,9 +840,9 @@ export async function runSharedSetupFlow(browser) {
     const cookie = await handoffCookie(context);
     const sevenDays = Date.now() / 1000 + 604800;
     assert(cookie?.value === encoded.value, "the handoff cookie stages the exact link bytes", cookie?.value?.slice(0, 20));
-    assert(cookie?.path === new URL(APP_INDEX).pathname && cookie?.sameSite === "Lax" && cookie.httpOnly === false &&
+    assert(cookie?.path === new URL("./", APP_INDEX).pathname && cookie?.sameSite === "Lax" && cookie.httpOnly === false &&
       Math.abs(cookie.expires - sevenDays) < 120,
-    "the handoff cookie is scoped to index.html, SameSite=Lax, for seven days", cookie && { path: cookie.path, sameSite: cookie.sameSite, expires: cookie.expires });
+    "the handoff cookie is scoped to the app, SameSite=Lax, for seven days", cookie && { path: cookie.path, sameSite: cookie.sameSite, expires: cookie.expires });
     const hook = await page.evaluate(readSharedHook);
     assert(hook.status === "ready" && hook.source === "fragment" && hook.summary?.name === "Coach program" && hook.summary?.daysPerWeek === 1,
       "the hook reports a ready fragment proposal", hook);

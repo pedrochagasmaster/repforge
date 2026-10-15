@@ -750,21 +750,26 @@ async function main() {
     check(new Set(lock.calls).size === 1 && lock.calls[0] === FAULT_EXPECTATIONS.operationLock.contextName, "claim/commit used separate operation lock names");
   });
 
-  await test("cookie parser uses the exact index path and preserves setup-cookie coexistence", () => {
+  await test("cookie parser uses the app scope path, clears the legacy index path and preserves setup-cookie coexistence", () => {
     const document = cookieDocument("repforge_setup_v1=v1.setup-canary");
     const location = { href: "https://pedrochagasmaster.github.io/repforge/" };
     const tokenD = tokenFixture("D");
     const wrote = Transfer.writeTransferCookie({ token: tokenD, expiresAt: "2026-09-08T20:00:00.000Z" }, { document, location, now: "2026-09-08T19:00:00.000Z" });
     check(wrote === true, "transfer cookie write failed");
     const last = document.writes.at(-1);
-    check(last.includes("repforge_transfer_v1=") && last.includes("Path=/repforge/index.html") && last.includes("Max-Age=3600") && /SameSite=Lax/.test(last) && /Secure/.test(last), "production cookie attributes drifted");
+    check(last.includes("repforge_transfer_v1=") && /Path=\/repforge\/;/.test(last) && last.includes("Max-Age=3600") && /SameSite=Lax/.test(last) && /Secure/.test(last), "production cookie attributes drifted");
+    check(document.writes.some((entry) => entry.startsWith("repforge_transfer_v1=;") && entry.includes("Path=/repforge/index.html") && entry.includes("Max-Age=0")), "write left a legacy index-path cookie in place");
     check(Transfer.readTransferCookie({ document })?.token === tokenD, "transfer cookie did not parse");
     check(document.cookie.includes("repforge_setup_v1=v1.setup-canary"), "transfer cookie write overwrote setup cookie");
+    const writesBeforeClear = document.writes.length;
     Transfer.clearTransferCookie({ document, location });
     check(document.cookie.includes("repforge_setup_v1=v1.setup-canary") && !document.cookie.includes("repforge_transfer_v1="), "transfer cookie clear touched setup cookie");
+    const clears = document.writes.slice(writesBeforeClear);
+    check(["Path=/repforge/;", "Path=/repforge/index.html;"].every((path) => clears.some((entry) => entry.startsWith("repforge_transfer_v1=;") && entry.includes(path) && entry.includes("Max-Age=0"))),
+      "clear did not expire both the scope and the legacy index path", clears);
     const local = cookieDocument();
     Transfer.writeTransferCookie({ token: tokenFixture("E"), expiresAt: "2026-09-08T20:00:00.000Z" }, { document: local, location: { href: "http://localhost:8055/" }, now: "2026-09-08T19:00:00.000Z" });
-    check(local.writes[0].includes("Path=/index.html") && !/;\s*Secure(?:;|$)/i.test(local.writes[0]), "localhost cookie path/security drifted");
+    check(/Path=\/;/.test(local.writes.at(-1)) && local.writes.every((entry) => !/;\s*Secure(?:;|$)/i.test(entry)), "localhost cookie path/security drifted");
 
     const silentWrite = cookieDocument("repforge_setup_v1=v1.setup-canary", { silent: true });
     check(Transfer.writeTransferCookie({ token: tokenD, expiresAt: "2026-09-08T20:00:00.000Z" }, { document: silentWrite, location, now: "2026-09-08T19:00:00.000Z" }) === false, "silently rejected cookie write was reported as successful");
