@@ -1731,7 +1731,15 @@ function executionModeForLogRow(row,sideLoadSemantic=null,explicitMultiplier=nul
   if(row?.performedName!=null&&movementToken(row.performedName)!==movementToken(row.name))return null;
   const slotId=String(row?.slotId||row?.exerciseId||"");
   const slot=(state.programMeta?.programDefinition?.days||[]).flatMap(day=>day?.slots||[]).find(item=>item?.id===slotId);
-  return slot?.executionMode==="bilateral"||slot?.executionMode==="unilateral"?slot.executionMode:null}
+  // Nor does a movement the editor has since replaced in the slot (#413,
+  // owner narrowing of D7): the slot's mode describes what it holds now.
+  if(!slot||!rowPerformedSlotMovement(row,slot))return null;
+  return slot.executionMode==="bilateral"||slot.executionMode==="unilateral"?slot.executionMode:null}
+function rowPerformedSlotMovement(row,slot){
+  if(row?.performedLibraryId)return String(row.performedLibraryId)===String(slot.exerciseId||"");
+  const current=(state.program||[]).find(ex=>(ex?.slotId||ex?.id)===slot.id);
+  if(row?.performedMovementId)return!!current?.movementId&&movementIdKey(row.performedMovementId)===movementIdKey(current.movementId);
+  return movementToken(loggedMovementName(row))===movementToken(current?.name)}
 /** Read-time workout projection shared by History, Progress, exercise charts and CSV.
  *  It never mutates the saved row; null per-side context stays unknown instead
  *  of becoming an assumed multiplier. */
