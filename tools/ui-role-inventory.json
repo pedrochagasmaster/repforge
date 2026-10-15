@@ -931,7 +931,7 @@
     "onboarding-recommend/muscle-priorities": {
       "owner": "plan-072",
       "content": "flat",
-      "scenario": "Twelve muscles, each Reduce, Normal or Prioritize; glutes prioritized and calves reduced; Skip."
+      "scenario": "Twelve muscles, each Less, Normal or More; glutes set to More and calves to Less; Skip."
     },
     "onboarding-recommend/muscle-priorities-limit": {
       "owner": "plan-072",
@@ -9568,7 +9568,7 @@
         "selected",
         "disabled"
       ],
-      "rationale": "One answer of a segmented choice: a muscle's Reduce, Normal or Prioritize, or a picker's unit.",
+      "rationale": "One answer of a segmented choice: a muscle's Less, Normal or More, or a picker's unit.",
       "owner": "plan-072",
       "catalogStates": [
         "onboarding-recommend/height",

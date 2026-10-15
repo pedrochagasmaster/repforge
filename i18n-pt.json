@@ -1885,6 +1885,7 @@
   "entry.issue.include_avoid": "Um exercício não pode estar em Incluir e em Evitar ao mesmo tempo.",
   "entry.issue.review_first": "Revise o treino primeiro.",
   "entry.issue.program_name": "Dê um nome ao treino para continuar.",
+  "entry.desired_result.title": "Qual é o seu objetivo?",
   "entry.desired_result.lede": "Escolha o que este treino deve priorizar.",
   "entry.background.title": "Seu contexto recente de treino",
   "entry.background.lede": "Responda com base nas suas sessões recentes, não em uma autoavaliação.",

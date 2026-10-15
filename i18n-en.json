@@ -1885,6 +1885,7 @@
   "entry.issue.include_avoid": "An exercise cannot be both included and avoided.",
   "entry.issue.review_first": "Review the program first.",
   "entry.issue.program_name": "Name the program to continue.",
+  "entry.desired_result.title": "What is your goal?",
   "entry.desired_result.lede": "Choose what this program should prioritize.",
   "entry.background.title": "Your recent training background",
   "entry.background.lede": "Answer based on your recent training, not on a self-rating.",
