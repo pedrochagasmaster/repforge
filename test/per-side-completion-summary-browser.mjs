@@ -8,6 +8,9 @@
  * #398: the summary's and Today's finished-day "moved" totals read that same
  * projection's tonnage, so they equal History's for the same session, and a
  * row whose multiplier is unknown adds no invented tonnage.
+ *
+ * #410: a movement swapped in mid-session never borrows the slot's execution
+ * mode, so an ambiguous per-side substitute stays unknown everywhere.
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -282,42 +285,91 @@ try {
   check(todayMoved === 2500,
     "#398 Today's finished-day recap moves both sessions' per-side tonnage (2,500 kg)", observations.moved);
 
-  // Once the single-arm row's slot records no execution mode, an
-  // asymmetrical Weight-per-side movement swapped into it saves a row whose
-  // multiplier nobody knows, so it adds nothing. The press and the plain lift
-  // move 30×2×8 + 65×8 = 480 + 520 = 1000 kg on their own.
-  await rewriteState(page, state => {
-    for (const slot of state.programMeta.programDefinition.days.flatMap(day => day.slots || []))
-      if (slot.exerciseId === "1a55c6f170d88031b658c6e278a82a88") delete slot.executionMode;
-  });
+  // #410: the single-arm row's slot keeps its explicit execution mode, and an
+  // asymmetrical Weight-per-side movement is swapped into it mid-session. That
+  // mode describes the programmed row, not the renegade row, so the saved row's
+  // multiplier stays unknown: it adds no tonnage, sets no PR and gives Progress
+  // no comparable point. The press and the plain lift move 30×2×8 + 65×8 =
+  // 480 + 520 = 1000 kg on their own, then 65×8 = 520 kg.
   const rowSlotMode = await page.evaluate(id => window.__repforgeWorkoutDraft.state().programMeta.programDefinition.days
     .flatMap(day => day.slots || []).find(slot => slot.id === id)?.executionMode ?? null, row.slotId || row.id);
+  const swapToRenegade = async () => {
+    await page.evaluate((id) => window.__repforgeGoToLogExercise(id), row.id);
+    await page.waitForFunction((id) => document.querySelector("#workout.is-focus .exercise.is-current")?.dataset.ex === id,
+      row.id, { timeout: 15000 });
+    await exerciseAction(page, row.id, "#exActionSubstBtn");
+    await page.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
+    await page.fill("#exPickSearch", "Dumbbell renegade row");
+    await page.locator(`#exPickList [data-pick="${RENEGADE_ID}"]`).first().click();
+    await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+    await page.waitForFunction(({ id, renegadeId }) => window.__repforgeWorkoutDraft.current()?.exercises?.[id]
+      ?.substitution?.replacement?.sourceExerciseId === renegadeId, { id: row.id, renegadeId: RENEGADE_ID }, { timeout: 10000 });
+  };
+  const readRenegadeRows = date => page.evaluate(({ id, date }) => (JSON.parse(localStorage.getItem("repforge_v1") || "{}").log || [])
+    .filter(item => item.date === date && item.performedLibraryId === id)
+    .map(item => ({ session: item.session, mode: item.loadingContext?.executionMode ?? null,
+      multiplier: item.loadingContext?.externalLoadMultiplier ?? null, metricValues: item.metricValues })), { id: RENEGADE_ID, date });
   await page.clock.setFixedTime(new Date("2026-10-06T12:00:00.000Z"));
   await logSet(page, press.id, metricNames(PRESS_ID), { "Weight per side": 30, "Reps per side": 8 });
   await logSet(page, plain.id, metricNames(plain.libraryId), { "Weight": 65, "Reps": 8 });
-  await page.evaluate((id) => window.__repforgeGoToLogExercise(id), row.id);
-  await page.waitForFunction((id) => document.querySelector("#workout.is-focus .exercise.is-current")?.dataset.ex === id,
-    row.id, { timeout: 15000 });
-  await exerciseAction(page, row.id, "#exActionSubstBtn");
-  await page.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
-  await page.fill("#exPickSearch", "Dumbbell renegade row");
-  await page.locator(`#exPickList [data-pick="${RENEGADE_ID}"]`).first().click();
-  await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
-  await page.waitForFunction(({ id, renegadeId }) => window.__repforgeWorkoutDraft.current()?.exercises?.[id]
-    ?.substitution?.replacement?.sourceExerciseId === renegadeId, { id: row.id, renegadeId: RENEGADE_ID }, { timeout: 10000 });
+  await swapToRenegade();
   await logSet(page, row.id, metricNames(RENEGADE_ID), { "Weight per side": 30, "Reps per side": 8 });
   const third = await finishAndReadSummary(page);
-  const thirdRows = await page.evaluate(id => (JSON.parse(localStorage.getItem("repforge_v1") || "{}").log || [])
-    .filter(item => item.date === "2026-10-06" && item.performedLibraryId === id)
-    .map(item => ({ session: item.session, mode: item.loadingContext?.executionMode ?? null,
-      multiplier: item.loadingContext?.externalLoadMultiplier ?? null, metricValues: item.metricValues })), RENEGADE_ID);
+  const thirdRows = await readRenegadeRows("2026-10-06");
   const thirdToday = await readTodayMoved(page);
   const thirdHistory = await readHistoryMoved(page, [String(thirdRows[0]?.session)]);
   observations.unknownMultiplier = { rowSlotMode, summary: third, rows: thirdRows, today: thirdToday, history: thirdHistory };
-  check(rowSlotMode === null && thirdRows.length === 1 && thirdRows[0].mode === null && thirdRows[0].multiplier === null,
-    "the renegade row swapped into a slot with no mode saves no mode and no multiplier", observations.unknownMultiplier);
+  check((rowSlotMode === "unilateral" || rowSlotMode === "bilateral") && thirdRows.length === 1 &&
+    thirdRows[0].mode === null && thirdRows[0].multiplier === null,
+  "#410 the renegade row swapped into a slot with an explicit mode saves no mode and no multiplier", observations.unknownMultiplier);
   check(third.liftCount === 3 && third.moved === 1000 && thirdToday === 1000 && thirdHistory[String(thirdRows[0]?.session)] === 1000,
-    "#398 an unknown-multiplier per-side row adds no tonnage to the summary, Today or History (1000 kg)", observations.unknownMultiplier);
+    "#410 the substituted unknown-multiplier row adds no tonnage to the summary, Today or History (1000 kg)", observations.unknownMultiplier);
+
+  // A heavier renegade session, swapped in the same way, has nothing comparable
+  // to stand on: no PR or outcome in the summary or History, no Progress point.
+  await page.clock.setFixedTime(new Date("2026-10-07T12:00:00.000Z"));
+  await logSet(page, plain.id, metricNames(plain.libraryId), { "Weight": 65, "Reps": 8 });
+  await swapToRenegade();
+  await logSet(page, row.id, metricNames(RENEGADE_ID), { "Weight per side": 32.5, "Reps per side": 8 });
+  const fourth = await finishAndReadSummary(page);
+  const fourthRows = await readRenegadeRows("2026-10-07");
+  const fourthToday = await readTodayMoved(page);
+  const fourthSession = String(fourthRows[0]?.session);
+  const fourthHistory = await readHistoryMoved(page, [fourthSession]);
+  await page.locator('nav button[data-view="history"]').click();
+  await page.waitForSelector("#history.view.active", { timeout: 10000 });
+  await page.locator(`#sessions .hist-row[data-sess="${fourthSession}"] .session__open`).click();
+  const fourthReading = page.locator(`.session--read[data-reading="${fourthSession}"]`);
+  await fourthReading.waitFor({ state: "visible", timeout: 10000 });
+  const historyRenegade = await fourthReading.evaluate((root, key) => {
+    const section = root.querySelector(`section[data-lift="${key}"]`);
+    return section ? {
+      outcome: section.querySelector(".histlift__tags .verdictmark:not(.verdictmark--record)")?.textContent.replace(/\s+/g, " ").trim() || "",
+      record: section.querySelector(".verdictmark--record")?.textContent.replace(/\s+/g, " ").trim() || "",
+    } : null;
+  }, `library:${RENEGADE_ID}`);
+  await page.locator("#history [data-history-back]").click();
+  await page.locator('nav button[data-view="stats"]').click();
+  await page.waitForSelector("#stats.view.active", { timeout: 10000 });
+  const renegadeProgress = await page.evaluate(key => {
+    const strength = window.__repforgeProgressEvidence.strength(key);
+    return { points: strength?.points?.length ?? 0, evidenceCount: strength?.evidenceCount ?? 0,
+      dashboard: window.__repforgeStrengthDashboard().find(item => item.key === key) || null,
+      record: window.__repforgeProgressEvidence.records("current-block").find(item => item.exerciseId === key) || null };
+  }, `library:${RENEGADE_ID}`);
+  const fourthGroup = fourth.lifts.find(lift => /renegade/i.test(lift.name));
+  observations.substitutedComparison = { summary: fourth, rows: fourthRows, today: fourthToday, history: fourthHistory,
+    historyRenegade, progress: renegadeProgress };
+  check(fourthRows.length === 1 && fourthRows[0].multiplier === null && !!fourthGroup && /32\.5/.test(fourthGroup.sets),
+    "#410 the heavier substituted renegade set is listed with its performed values", observations.substitutedComparison);
+  check(fourth.moved === 520 && fourthToday === 520 && fourthHistory[fourthSession] === 520,
+    "#410 the heavier substituted row adds no tonnage to the summary, Today or History (520 kg)", observations.substitutedComparison);
+  check(fourthGroup?.pr === false && fourthGroup?.outcome === null && !!historyRenegade &&
+    historyRenegade.record === "" && /^not comparable$/i.test(historyRenegade.outcome),
+  "#410 the substituted row sets no PR in the summary or History, which reads it as not comparable", observations.substitutedComparison);
+  check(renegadeProgress.points === 0 && renegadeProgress.evidenceCount === 0 && renegadeProgress.dashboard === null &&
+    (renegadeProgress.record === null || renegadeProgress.record.evidenceCount === 0),
+  "#410 the substituted rows give Progress no comparable strength anchor", renegadeProgress);
 
   // An ambiguous per-side row with no recorded execution mode (saved before
   // #382, or under a slot with no mode) is still a performed lift, but today's
