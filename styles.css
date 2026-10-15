@@ -3032,10 +3032,15 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
   --sum-pad-r:max(16px,env(safe-area-inset-right));
   position:fixed;inset:0;z-index:75;overflow-y:auto;overscroll-behavior:contain;
   background:var(--bg);
-  padding:calc(30px + env(safe-area-inset-top)) var(--sum-pad-r) var(--sum-pad-b) var(--sum-pad-l);
+  padding:calc(30px + env(safe-area-inset-top)) 0 var(--sum-pad-b);
 }
 .sumsheet.hidden{display:none!important}
-.sumsheet__body{width:min(100%,var(--maxw));margin:0 auto}
+/* The side padding belongs to the body, not the sheet, so the pinned bar can reach
+   through it to the edges while staying inside the body's own box. */
+.sumsheet__body{
+  width:min(100%,calc(var(--maxw) + var(--sum-pad-l) + var(--sum-pad-r)));margin:0 auto;
+  padding:0 var(--sum-pad-r) 0 var(--sum-pad-l);
+}
 
 /* The report is a ledger (Direction D, spec 4.4): flat groups on hairlines, outcome
    words in ink, green only for a record, and no mark celebrating the save. */
@@ -3111,7 +3116,7 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 #sumSee:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 /* The way out is never below the fold. A session ends with a lifter holding a
    phone and breathing hard, so both actions stay put and the report moves under them.
-   Like the onboarding pinned region it reaches through the sheet's side padding, so the
+   Like the onboarding pinned region it reaches through the body's side padding, so the
    persistent-action surface runs edge to edge under its hairline instead of sitting in
    the text column as a box. */
 .sum-actions{
