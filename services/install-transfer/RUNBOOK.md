@@ -266,8 +266,9 @@ Worker has no cron trigger. Staging got its lease from a devbox loop that
 stamped "pass" receipts with the current time every two minutes. That loop
 last ran on 2026-09-11, so staging creates have returned 503 since then.
 
-Production does the same thing explicitly with
-`node scripts/production-health-loop.mjs`, one pass per run. Each pass:
+Production did the same thing explicitly with
+`node scripts/production-health-loop.mjs`, one pass per run, until the
+scheduled watcher Worker below replaced it. Each pass:
 
 1. writes five `owner-watchdog` receipts and one `owner-billing-receipt`, all
    with `checkVersion` `operator-attested-v1`, `evidenceRef`
@@ -301,15 +302,128 @@ already-created transfer can still be installed. While the loop is stopped,
 the scheduled provider purge backstop does not run either. Deletion then
 relies on the Durable Object alarms.
 
+### Scheduled watcher Worker (#397)
+
+The devbox timer above is replaced by a separate Worker,
+`taurifer-install-transfer-watcher` (`wrangler.watcher.jsonc`,
+`src/watcher.js`). Its cron trigger fires every two minutes (`*/2 * * * *`, UTC)
+and runs the same pass as one `production-health-loop.mjs` run:
+
+1. `POST /_ops/purge-due` with the purge bearer (the registry sweep);
+2. lists the production `TransferDurableObject` namespace through the
+   Cloudflare API with the scoped list token and posts due objects to
+   `POST /_ops/purge-objects` in batches of 32;
+3. on a purge or enumeration failure, posts a `deletion` `fail` heartbeat and
+   stops without any positive receipt;
+4. otherwise posts the five `owner-watchdog` heartbeats and the
+   `owner-billing-receipt`, stamped with `operator-attested-v1`,
+   `owner-override-20261014`, and the current time (`src/attestation.js`);
+5. reads `GET /_ops/health` and logs one line:
+   `health pass ok; purge examined=N purged=N; provider objects=N; createsEnabled=true|false`.
+
+**This does not change what the receipts mean.** They are still the owner's
+self-attestation stamped at run time, not independent monitoring, and the
+billing amount is still attested, not observed. Moving the stamp from the
+devbox to Cloudflare removes the devbox as a dependency. It closes none of the
+open gates above.
+
+**Reachability.** The watcher has no route, `workers.dev`, or preview URL. It
+reaches the transfer Worker only through the `TRANSFER` service binding to
+`taurifer-install-transfer`, because Cloudflare does not let one Worker
+`fetch()` another Worker's route on the same zone (error 1042). Requests through the binding enter the
+transfer Worker's normal `fetch` handler, so every `/_ops/*` call passes the
+same per-role bearer check as a public request. A missing or wrong bearer gets
+the generic `404`; `test/watcher.test.js` runs a pass against the real
+handlers and checks that.
+
+**Timing.** Every two minutes against a five-minute lease means one failed or
+skipped run is absorbed and two in a row lapse the lease. Per pass the
+watcher uses 6 of the watchdog role's 30 requests a minute and at most 10 of
+the purge role's 10 (one sweep plus up to nine batches for the 288-object
+bound). A one-minute cron would double that rate and could hit the purge
+limit under a full namespace.
+
+**Secrets.** The watcher holds seven secrets, provisioned from the devbox
+ops env file by `npm run provision:watcher`
+(`scripts/provision-watcher-secrets.mjs`). The script refuses a loose file,
+the token placeholder, or a service URL other than `https://taurifer.com`.
+It pipes one JSON object to `wrangler secret bulk --config wrangler.watcher.jsonc`
+on stdin and prints only the count.
+
+| Watcher secret | Source in `production-ops.env` |
+|---|---|
+| `TRANSFER_WATCHDOG_SECRET`, `TRANSFER_BILLING_SECRET`, `TRANSFER_PURGE_SECRET` | the same role bearers the Worker checks |
+| `TRANSFER_CF_API_TOKEN` | the scoped Durable Object list token (never the deploy token) |
+| `TRANSFER_CF_ACCOUNT_ID`, `TRANSFER_DO_NAMESPACE_ID` | non-secret ids, kept out of the repository |
+| `TRANSFER_ATTESTED_MONTHLY_COST_CENTS` | the attested amount |
+
+The ack bearer is not given to the watcher. Deletion-incident
+acknowledgement stays with the owner. The ops env file stays on the devbox:
+the ack procedure and `npm run ops:health-status` read it, and re-running the
+provisioning script after a rotation needs it.
+
+**Deploy and verify** (from a checkout of the merged SHA, in
+`services/install-transfer`, with the deploy credentials in the environment):
+
+1. `npm run provision:watcher`. Before the first deploy, Wrangler creates a
+   placeholder Worker named `taurifer-install-transfer-watcher` to hold the
+   secrets (it assumes yes without a terminal). Step 2 replaces its code.
+2. `npx wrangler deploy --config wrangler.watcher.jsonc`.
+3. Confirm a scheduled run succeeded. Run
+   `npx wrangler tail taurifer-install-transfer-watcher` across an even minute
+   and look for `health pass ok; ... createsEnabled=true`, or open the
+   Worker's **Settings → Trigger Events → View events** (cron events can take
+   up to 30 minutes to appear for a new Worker) or its Workers Logs. Then run
+   `npm run ops:health-status`, which prints only the lease fields:
+   `leaseFresh` and `createsEnabled` must be `true`.
+4. Retire the devbox timer:
+   `systemctl --user disable --now taurifer-transfer-health.timer`, then
+   remove the units with
+   `rm ~/.config/systemd/user/taurifer-transfer-health.{timer,service} && systemctl --user daemon-reload`,
+   and check that `systemctl --user list-timers` no longer lists it.
+5. Wait more than five minutes, longer than the lease, and run
+   `npm run ops:health-status` again. `leaseFresh` and `createsEnabled` must
+   still be `true`. With the devbox timer gone, only the watcher can have
+   renewed the lease.
+
+While both run (between steps 2 and 4), two passes can land in the same
+minute. That is harmless: both write the same attested receipts, and at worst one
+pass gets a `429` from the purge role limit and fails while the other renews
+the lease.
+
+**Rollback.** Reinstall the units from `ops/systemd/` and
+`systemctl --user enable --now taurifer-transfer-health.timer`, then remove
+the watcher's cron with `"crons": []` and redeploy it, or delete the watcher
+(`npx wrangler delete --config wrangler.watcher.jsonc`).
+
+**How a failing watcher gets noticed.** A failed pass throws, so the
+invocation is recorded as an error with its fixed message (never a value) in
+the Worker's cron events and Workers Logs (`observability.enabled` is on in
+`wrangler.watcher.jsonc`). Nothing pages anyone yet. Proposed, for the owner
+to decide (not configured here):
+
+- turn on Workers Issues for the watcher (`observability.issues.enabled`,
+  which needs Wrangler 4.134 or later; this package pins 4.130) and route
+  new or recurring issues to email through an Issues automation or a
+  Cloudflare notification;
+- or check `npm run ops:health-status` from any machine. Once the lease
+  lapses, `createsEnabled` reads `false`.
+
+The user-visible symptom is unchanged: about five minutes after the watcher
+stops renewing, new creates return `503 {"state":"unavailable"}`.
+
 ### Monitoring that exists
 
-- The health-loop journal on the devbox (exit status and purge counts).
+- The watcher's cron events and Workers Logs (exit status and purge counts).
+  Until the cutover above, the health-loop journal on the devbox.
 - `GET /_ops/health` with the watchdog bearer, which returns the lease and
   incident state. It is private and has no public health route.
 - Cloudflare's dashboard for the Worker (requests, errors, Durable Object
   usage) and the account's billing page.
 
 No alerting is configured, and no independent watchdog observes the service.
+The watcher is a scheduler for the owner's attestation, not an independent
+watchdog.
 The gates above stay open until the owner records that evidence.
 
 ### Turning creates off
@@ -320,8 +434,10 @@ Any of these works, from the fastest:
    from the deployed checkout. It takes effect on deploy, and secrets are kept.
 2. The same with `--var TRANSFER_CREATES_ENABLED:false`, or a reviewed config
    change that sets either var in `env.production`.
-3. Stop the health timer (`systemctl --user disable --now taurifer-transfer-health.timer`). Creates
-   fail within five minutes.
+3. Stop the health watcher: set `"crons": []` in `wrangler.watcher.jsonc` and
+   redeploy it (or, before the cutover, stop the devbox timer with
+   `systemctl --user disable --now taurifer-transfer-health.timer`). Creates
+   fail within five minutes, and the scheduled purge backstop stops too.
 
 A later deploy without `--var` restores the checked-in values, so record a
 kill in the config if it must persist. Claims, status, commit, and purge stay

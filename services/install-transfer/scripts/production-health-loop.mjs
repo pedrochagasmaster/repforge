@@ -19,10 +19,10 @@ import {
   defaultOpsEnvPath,
   parseOpsEnv,
 } from "./provision-production-secrets.mjs";
+import { ATTESTED_CHECK_VERSION, ATTESTED_EVIDENCE_REF, attestedReceipts } from "../src/attestation.js";
 
-export const ATTESTED_CHECK_VERSION = "operator-attested-v1";
-export const ATTESTED_EVIDENCE_REF = "owner-override-20261014";
-const HEALTH_KINDS = ["alarm", "watchdog", "log", "key", "deletion"];
+export { ATTESTED_CHECK_VERSION, ATTESTED_EVIDENCE_REF, attestedReceipts };
+
 const PRODUCER = join(dirname(fileURLToPath(import.meta.url)), "health-producer.mjs");
 const PRODUCER_ENV_KEYS = [
   "TRANSFER_SERVICE_URL",
@@ -33,21 +33,6 @@ const PRODUCER_ENV_KEYS = [
   "TRANSFER_DO_NAMESPACE_ID",
   "TRANSFER_CF_API_TOKEN",
 ];
-
-export function attestedReceipts(now, monthlyCostCents) {
-  const entry = { source: "owner-watchdog", observedAt: now, checkVersion: ATTESTED_CHECK_VERSION, result: "pass", evidenceRef: ATTESTED_EVIDENCE_REF };
-  return {
-    watchdog: { schemaVersion: 1, health: Object.fromEntries(HEALTH_KINDS.map((kind) => [kind, { ...entry }])) },
-    billing: {
-      source: "owner-billing-receipt",
-      observedAt: now,
-      checkVersion: ATTESTED_CHECK_VERSION,
-      result: "observed",
-      evidenceRef: ATTESTED_EVIDENCE_REF,
-      monthlyCostCents,
-    },
-  };
-}
 
 export function readyOpsValues(values) {
   for (const key of OPS_ENV_KEYS) {

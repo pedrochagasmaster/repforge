@@ -1,3 +1,5 @@
+# Superseded by the scheduled watcher Worker (#397, RUNBOOK "Scheduled watcher
+# Worker"). Kept as the rollback path; the cutover disables and removes it.
 # Runs the owner-attested production health pass every two minutes.
 # Stop with: systemctl --user disable --now taurifer-transfer-health.timer
 # When it stops, new creates fail closed (503) within five minutes.

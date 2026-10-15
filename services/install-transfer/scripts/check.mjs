@@ -39,4 +39,19 @@ for (const className of ["TransferDurableObject", "RateLimitDurableObject", "Tra
   if (!sqliteClasses.includes(className)) throw new Error(`${className} SQLite migration is missing`);
 }
 
+// The scheduled health watcher (#397) is a separate Worker with no route of its
+// own. It reaches the production Worker only through the TRANSFER service
+// binding, every two minutes, well inside the five-minute health lease.
+const watcher = JSON.parse(readFileSync(join(root, "wrangler.watcher.jsonc"), "utf8"));
+if (watcher.name !== "taurifer-install-transfer-watcher" || watcher.main !== "src/watcher.js") throw new Error("watcher name or main is wrong");
+if (watcher.workers_dev !== false || watcher.preview_urls !== false || watcher.routes !== undefined || watcher.route !== undefined) {
+  throw new Error("watcher must have no route, workers.dev, or preview URL");
+}
+if (JSON.stringify(watcher.triggers?.crons) !== JSON.stringify(["*/2 * * * *"])) throw new Error("watcher cron must be every two minutes");
+if (JSON.stringify(watcher.services) !== JSON.stringify([{ binding: "TRANSFER", service: config.env?.production?.name }])) {
+  throw new Error("watcher must bind TRANSFER to the production Worker");
+}
+if (JSON.stringify(watcher.vars) !== JSON.stringify({ TRANSFER_SERVICE_ORIGIN: "https://taurifer.com" })) throw new Error("watcher vars must hold only the target origin");
+if (watcher.durable_objects !== undefined || watcher.observability?.enabled !== true) throw new Error("watcher owns no Durable Objects and keeps Workers Logs on");
+
 console.log(`checked ${sourceFiles.length} service source files, ${scriptFiles.length} scripts, and Wrangler configuration`);
