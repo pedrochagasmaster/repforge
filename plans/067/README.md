@@ -1,5 +1,12 @@
 # Plan 067 evidence package
 
+> Follow-up: the owner-approved [generation spec](../../docs/generator-rule-parity-spec.md)
+> and [Plan 073](../073-generator-rule-parity.md) record later AOT recovery and the
+> Godmode2 observation. This package remains unchanged historical evidence;
+> its P1–P4 corpus is not a claim of full generator parity. The new raw sources
+> remain private; the [sanitized S0 supplement](../073/README.md) is maintained
+> separately from this historical package.
+
 The [implementation plan](../067-engine-replacement.md) governs the future
 replacement. This package supplies data and observed cases; it contains no
 application implementation or competitor media.

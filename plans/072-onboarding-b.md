@@ -1,5 +1,13 @@
 # Plan 072: The rest of onboarding direction B
 
+> Prospective generation amendment, 15 October 2026: [Plan 073](073-generator-rule-parity.md)
+> and its [spec](../docs/generator-rule-parity-spec.md) govern recovered splits,
+> duration budgets, independent muscle priorities without the authored five-group
+> cap, and deterministic reconstruction without a variable seed. Their approved
+> no-backward-compatibility policy does not require retaining old draft routes;
+> readable data stays protected and incompatible data needs explicit restart.
+> These are future implementation deltas, not changes already shipped by this plan.
+
 - **Plan number:** 072
 - **Status:** APPROVED, 11 October 2026 (owner decisions recorded on PR #358 and in [§13](#13-owner-decisions)).
   Implementation: S1 → S5, one PR each. #340 is a separate track after S1.

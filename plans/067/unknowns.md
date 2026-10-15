@@ -1,5 +1,15 @@
 # Unrecovered behavior and chosen defaults
 
+> Historical dispositions for Plan 067. For the generation follow-up, use the
+> [approved spec](../../docs/generator-rule-parity-spec.md) and
+> [Plan 073 gap matrix](../073-generator-rule-parity.md#1-base-e-matriz-de-gaps).
+> The entries below stating that no executable local flow has been recovered
+> are superseded by bounded AOT reconstruction of split selection, split-day
+> lists and duration conversion. Godmode2 adds three-day observations. It does
+> not recover all doses, ranking or distribution. The old permission to proceed
+> with chosen defaults does not waive Plan 073's per-rule evidence gates.
+> Progression/fatigue uncertainties below remain outside that follow-up.
+
 Read the raw database before relying on the supplied reconstruction. Evidence
 labels here take precedence over statements of exactness in the supplied reports.
 
