@@ -889,6 +889,66 @@ async function onboardingTimeConflict(browser) {
   return run.errors;
 }
 
+/** #275 decision 3: the result's answer editor asks Recommend's questions with
+ *  Recommend's options, and the chips read the same labels. A draft from before
+ *  the six places can still hold the retired "other" place; it keeps a label. */
+async function answerEditorMatchesRecommend(browser) {
+  const run = await fresh(browser);
+  const { page } = run;
+  await answerGenerate(page, { environment: "everything", minutes: 150 });
+  await page.waitForSelector("#entryReview [data-review-slot]", { timeout: 15000 });
+  const chipText = (chip) => page.locator(`[data-entry-chip="${chip}"] .entry-chip__text`).innerText().then((text) => text.trim());
+  check(await chipText("env") === "Gym with everything", "editor: the place chip reads Recommend's label", await chipText("env"));
+  check(await chipText("minutes") === "Up to 150 min a session", "editor: 150 minutes reads as Recommend's top value", await chipText("minutes"));
+  check(await chipText("exp") === "6 months to 2 years", "editor: the experience chip reads Recommend's option", await chipText("exp"));
+  const editor = async (chip) => {
+    await page.click(`[data-entry-chip="${chip}"]`);
+    await page.waitForSelector("#entryEditor", { timeout: 10000 });
+    const read = await page.evaluate(() => ({
+      question: document.querySelector("#entryEditor .entry__question")?.textContent.trim() ||
+        document.querySelector("#entryEditor [role=radiogroup]")?.getAttribute("aria-label") || "",
+      options: [...document.querySelectorAll("#entryEditor .radio-card__title")].map((node) => node.textContent.trim()),
+      selected: [...document.querySelectorAll("#entryEditor .radio-card[aria-checked=true] .radio-card__title")].map((node) => node.textContent.trim()) }));
+    await page.click("#entryChipKeep");
+    await page.waitForSelector("#entryEditor", { state: "detached", timeout: 10000 });
+    return read;
+  };
+  const places = await editor("env");
+  check(JSON.stringify(places.options) === JSON.stringify(["Gym with everything", "Commercial gym", "Strength gym", "Local gym", "Home gym", "Home, basic kit"]) &&
+    JSON.stringify(places.selected) === JSON.stringify(["Gym with everything"]), "editor: the six places are Recommend's, with the answer selected", places);
+  const experience = await editor("exp");
+  check(experience.question === "How long have you been lifting?" &&
+    JSON.stringify(experience.options) === JSON.stringify(["Not yet", "Less than 6 months", "6 months to 2 years", "More than 2 years"]),
+  "editor: the experience question and options are Recommend's", experience);
+  const goal = await editor("goal");
+  check(goal.question === "What is your goal?" && JSON.stringify(goal.options) === JSON.stringify(["Muscle growth", "Strength", "Muscle and strength"]),
+    "editor: the goal question and options are Recommend's", goal);
+  const minutes = await editor("minutes");
+  check(minutes.options.includes("150") && !minutes.options.includes("120+"), "editor: the top session length is 150, as in Recommend", minutes);
+
+  // A draft saved with the retired "other" place still reads and edits.
+  await page.evaluate(() => {
+    const key = "repforge_program_setup_draft_v1";
+    const raw = JSON.parse(localStorage.getItem(key));
+    raw.state.answers.environment = { ...raw.state.answers.environment, kind: "other" };
+    // The stored result stays bound to the answers it was built from, as an
+    // older release would have written it.
+    raw.state.result.answersFingerprint = window.RepForgeProgramEntry.setResult({ ...raw.state, result: null },
+      { fingerprint: "probe" }).result.answersFingerprint;
+    localStorage.setItem(key, JSON.stringify(raw));
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  await resumeReview(page);
+  check((await entry(page)).answers.environment?.kind === "other", "editor: the old draft keeps its stored place");
+  check(await chipText("env") === "Another setup", "editor: the old draft's place chip keeps its label", await chipText("env"));
+  const oldPlaces = await editor("env");
+  check(oldPlaces.options.length === 6 && oldPlaces.selected.length === 0 && oldPlaces.options.every((label) => !label.startsWith("entry.")),
+    "editor: the old draft opens the six places with none selected", oldPlaces);
+  await run.context.close();
+  return run.errors;
+}
+
 async function main() {
   console.log("P067 slice 2: Generate → review → activate through the production entry UI");
   const browser = await launchChromium();
@@ -1018,6 +1078,7 @@ async function main() {
 
     allErrors.push(await reviewAndAdjust(browser));
     allErrors.push(await reviewGuards(browser));
+    allErrors.push(await answerEditorMatchesRecommend(browser));
     allErrors.push(await impossible(browser));
     allErrors.push(await onboardingB(browser));
     allErrors.push(await onboardingBNavigation(browser));

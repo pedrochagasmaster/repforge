@@ -12550,7 +12550,7 @@ function profileRows(profile){
     const total=Math.round(profile.heightCm/2.54);
     rows.push([t("entry.section_profile.height"),profile.heightUnit==="ftin"?`${Math.floor(total/12)}′ ${total%12}″`:`${Math.round(profile.heightCm)} cm`])}
   if(profile.weightKg)rows.push([t("entry.section_profile.weight"),`${fmt(toDisplay(profile.weightKg))} ${unitLabel()}`]);
-  if(profile.cardioExperience)rows.push([t("entry.section_profile.cardio"),`${t(`entry.cardio.${profile.cardioExperience}`)} · ${t(`entry.cardio.${profile.cardioExperience}.sub`)}`]);
+  if(profile.cardioExperience)rows.push([t("entry.section_profile.cardio"),[t(`entry.cardio.${profile.cardioExperience}`),entryCardioSub(profile.cardioExperience)].filter(Boolean).join(" · ")]);
   return rows}
 function renderProfileSettings(){
   const row=$("#profileRow"),panel=$("#profilePanel"),list=$("#profileList");
@@ -15915,7 +15915,9 @@ function renderLiftingStep(){
 function renderCardioStep(){
   const current=entryBasics().cardioExperience;
   return entryHeading(t("entry.cardio_experience.title"))+entryBGroup(["none","under_1y","1_to_4y","over_4y"].map(value=>
-    entryBChoice("basicsCardio",value,t(`entry.cardio.${value}`),t(`entry.cardio.${value}.sub`),current===value)).join(""))+entryBNote()}
+    entryBChoice("basicsCardio",value,t(`entry.cardio.${value}`),entryCardioSub(value),current===value)).join(""))+entryBNote()}
+/* "None" answers what the lifter does now, so it has no level. */
+function entryCardioSub(value){return value==="none"?"":t(`entry.cardio.${value}.sub`)}
 function renderGymStep(){
   const current=entryState.answers.environment?.kind;
   return entryHeading(t("entry.gym.title"))+`<p class="onb__explain">${esc(t("entry.gym.lede"))}</p>`+
@@ -16244,22 +16246,22 @@ function entryApplyShownDefaults(stepId){
 /* Each question's controls are a body of their own, so the step screen and the
    review's answer editor draw the same thing from the same answers. */
 function entryGoalGroup(){
-  return `<div class="onb__opts" role="radiogroup" aria-label="${esc(t("entry.desired_result.title"))}">`+
-    ["muscle_growth","balanced","strength"].map(v=>entryOpt("desiredResult",v,t(`entry.desired_result.${v}.label`),t(`entry.desired_result.${v}.sub`),{icon:ENTRY_DESIRED_ICONS[v]})).join("")+`</div>`}
+  return `<div class="onb__opts" role="radiogroup" aria-label="${esc(t("entry.goal.title"))}">`+
+    ["muscle_growth","strength","balanced"].map(v=>entryOpt("desiredResult",v,t(`entry.goal.${v}`),t(`entry.goal.${v}.sub`),{icon:ENTRY_DESIRED_ICONS[v]})).join("")+`</div>`}
 function renderDesiredResultStep(){
-  return entryHeading(t("entry.desired_result.title"))+`<p class="onb__explain">${esc(t("entry.desired_result.lede"))}</p>${entryLegacyBanner()}`+entryGoalGroup()}
+  return entryHeading(t("entry.goal.title"))+`<p class="onb__explain">${esc(t("entry.desired_result.lede"))}</p>${entryLegacyBanner()}`+entryGoalGroup()}
 function entryBackgroundGroups(){
-  return entryGroupLab(t("entry.background.experience.label"),"clock",` id="entryExpLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryExpLab">`+
-    ["first","under_6m","6_to_24m","over_24m"].map(v=>entryOpt("structuredExperience",v,t(`entry.background.experience.${v}`),"")).join("")+`</div>`}
+  return entryGroupLab(t("entry.lifting.title"),"clock",` id="entryExpLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryExpLab">`+
+    ["first","under_6m","6_to_24m","over_24m"].map(v=>entryOpt("structuredExperience",v,t(`entry.lifting.${v}`),t(`entry.lifting.${v}.sub`))).join("")+`</div>`}
 /* The "about" screen: the goal the hub already asked is carried as a band with
    a Change control; with no goal yet, or after Change, the question is open. */
 function entryAboutGoal(){
   const goal=entryState.answers.desiredResult;
   if(goal&&!entryGoalOpen)
     return `<div class="entry__carried"><div class="entry__carried-text"><span class="entry__carried-k">${esc(t("entry.about.goal"))}</span>`+
-      `<span class="entry__carried-v">${esc(t(`entry.desired_result.${goal}.label`))}</span></div>`+
+      `<span class="entry__carried-v">${esc(t(`entry.goal.${goal}`))}</span></div>`+
       `<button type="button" class="btn btn--steel entry__carried-change" id="entryGoalChange" aria-label="${esc(t("entry.about.goal_change"))}">${esc(t("entry.about.change"))}</button></div>`;
-  return entryGroupLab(t("entry.desired_result.lede"),"",` id="entryGoalLab"`)+entryGoalGroup()}
+  return entryGroupLab(t("entry.goal.title"),"",` id="entryGoalLab"`)+entryGoalGroup()}
 function renderBackgroundStep(){
   return entryHeading(t("entry.background.title"))+`<p class="onb__explain">${esc(t("entry.background.lede"))}</p>${entryLegacyBanner()}`+
     entryAboutGoal()+entryBackgroundGroups()}
@@ -16269,13 +16271,13 @@ function entryScheduleGroups({browse=false}={}){
   return entryGroupLab(t("entry.schedule.days.label"),"cal",` id="entryDaysLab"`)+`<div class="onb__opts onb__num" role="radiogroup" aria-labelledby="entryDaysLab">`+
     [2,3,4,5,6].map(n=>entryOpt("daysPerWeek",n,String(n),t("entry.schedule.days.sub"))).join("")+`</div>`+
     entryGroupLab(t("entry.schedule.minutes.label"),"clock",` id="entryMinLab"`)+`<div class="onb__opts onb__num" role="radiogroup" aria-labelledby="entryMinLab">`+
-    [20,40,60,90,120,150].map(n=>entryOpt("sessionMinutes",n,n===150?"120+":String(n),t(n===150?"entry.schedule.minutes.over":"entry.schedule.minutes.at_most"))).join("")+`</div>`}
+    [20,40,60,90,120,150].map(n=>entryOpt("sessionMinutes",n,String(n),t("entry.schedule.minutes.at_most"))).join("")+`</div>`}
 function renderScheduleStep(){
   return entryHeading(t("entry.schedule.title"))+`<p class="onb__explain">${esc(t("entry.schedule.lede"))}</p>${entryLegacyBanner()}`+
     entryScheduleGroups({browse:entryState.route==="browse"})}
 function entryEnvironmentBody(){
   return `<div class="onb__opts onb__list" role="radiogroup" aria-label="${esc(t("entry.environment.title"))}">`+
-    ENTRY_ENVIRONMENTS.map(v=>entryOpt("environment",v,t(`entry.environment.${v}`),"",{selected:entryState.answers.environment?.kind===v,icon:ENTRY_ENV_ICONS[v]||"dumbbell"})).join("")+`</div>`}
+    ENTRY_ENVIRONMENTS.map(v=>entryOpt("environment",v,t(`entry.gym.${v}`),t(`entry.gym.${v}.sub`),{selected:entryState.answers.environment?.kind===v,icon:ENTRY_ENV_ICONS[v]||"dumbbell"})).join("")+`</div>`}
 function renderEnvironmentStep(){
   return entryHeading(t("entry.environment.title"))+`<p class="onb__explain">${esc(t("entry.environment.lede"))}</p>${entryLegacyBanner()}`+entryEnvironmentBody()}
 /* Movement abilities: a yes/no/unsure row per competency the compiler checks
@@ -16947,8 +16949,10 @@ function entryPreviewFacts(preview){
     minMinutes:estimates.length?Math.min(...estimates):null,
     maxMinutes:estimates.length?Math.max(...estimates):null}}
 function entryEnvironmentLabel(answers=entryState?.answers||{}){
-  const kind=answers.environment?.kind;
-  return kind?t(`entry.environment.${kind}`):""}
+  return entryEnvironmentKindLabel(answers.environment?.kind)}
+function entryEnvironmentKindLabel(kind){
+  if(!kind)return"";
+  return ENTRY_ENVIRONMENTS.includes(kind)?t(`entry.gym.${kind}`):t(`entry.environment.${kind}`)}
 function entryPreviewAnswers(preview){
   const answers=entryState?.answers||{},meta=preview?.sharedMeta;
   if(entryState?.route!=="shared"||!meta||typeof meta!=="object")return answers;
@@ -17162,10 +17166,10 @@ function entryChipList(){
   const a=entryState.answers||{},custom=entryState.route==="custom",out=[];
   const add=(chip,text)=>out.push({chip,text,what:t(`entry.chip.what.${chip}`)});
   if(a.desiredResult)add("goal",t(`entry.chip.goal.${a.desiredResult}`));
-  if(a.structuredExperience)add("exp",t(`entry.background.experience.${a.structuredExperience}`));
+  if(a.structuredExperience)add("exp",t(`entry.lifting.${a.structuredExperience}`));
   if(a.daysPerWeek)add("days",t("entry.chip.days",{n:a.daysPerWeek}));
-  if(a.sessionMinutes)add("minutes",a.sessionMinutes>120?t("entry.chip.minutes_over",{n:120}):t("entry.chip.minutes",{n:a.sessionMinutes}));
-  if(a.environment?.kind)add("env",t(`entry.environment.${a.environment.kind}`));
+  if(a.sessionMinutes)add("minutes",t("entry.chip.minutes",{n:a.sessionMinutes}));
+  if(a.environment?.kind)add("env",entryEnvironmentKindLabel(a.environment.kind));
   const avoided=(a.exerciseConstraints||[]).map(item=>item.exerciseId);
   const priorities=entryPriorityLabel(a),none=t("entry.preview.priorities_none");
   if(!custom){
@@ -17416,7 +17420,7 @@ function renderResultStep(){
     return entryHeading(t("entry.result.error_title"))+`<div class="entry__notice entry__notice--error" role="alert"><p>${esc(entryFailureText(failure||entryCompileError)||t("entry.issue.compile"))}</p></div>`}
   reportGeneratorCompleted(result);
   const preview=result.preview||{},explanation=result.explanation||{};
-  const goal=explanation.desiredResult?t(`entry.desired_result.${explanation.desiredResult}.label`):"";
+  const goal=explanation.desiredResult?t(`entry.goal.${explanation.desiredResult}`):"";
   const days=explanation.daysPerWeek||preview.frequency||"";
   const minutes=explanation.sessionMinutes||"";
   const environmentKind=explanation.mainConstraint;
@@ -18354,10 +18358,10 @@ function renderEntryRail(){
     if(!text||steps.indexOf(target)<0||steps.indexOf(target)>=index)return;
     chips.push(`<button type="button" class="entry-rail__chip" data-entry-rail="${target}" aria-label="${esc(t("entry.rail.edit",{what}))}: ${esc(text)}">`+
       `<span class="entry-rail__text">${esc(text)}</span><span class="entry-rail__edit icon-mask icon-mask--pencil icon-mask--sm" aria-hidden="true"></span></button>`)};
-  if(a.desiredResult)add("desired_result",t("entry.rail.what.goal"),t(`entry.desired_result.${a.desiredResult}.label`));
-  if(a.structuredExperience)add("background",t("entry.rail.what.background"),t(`entry.background.experience.${a.structuredExperience}`));
+  if(a.desiredResult)add("desired_result",t("entry.rail.what.goal"),t(`entry.goal.${a.desiredResult}`));
+  if(a.structuredExperience)add("background",t("entry.rail.what.background"),t(`entry.lifting.${a.structuredExperience}`));
   if(a.daysPerWeek&&a.sessionMinutes)add("schedule",t("entry.rail.what.schedule"),
-    t("entry.rail.schedule",{days:a.daysPerWeek,minutes:a.sessionMinutes>120?"120+":a.sessionMinutes}));
+    t("entry.rail.schedule",{days:a.daysPerWeek,minutes:a.sessionMinutes}));
   if(a.environment?.kind)add("environment",t("entry.rail.what.environment"),entryEnvironmentLabel());
   return chips.length?`<div class="entry-rail" role="group" aria-label="${esc(t("entry.rail.label"))}">${chips.join("")}</div>`:""}
 /* The rail sits under the screen's title and lede, never above it: the title keeps its place at every

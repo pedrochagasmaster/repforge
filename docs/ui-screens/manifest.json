@@ -634,7 +634,7 @@
       "id": "muscle-priorities",
       "flow": "onboarding-recommend",
       "label": "Recommend Program 4 — muscle priorities",
-      "scenario": "Twelve muscles, each Reduce, Normal or Prioritize; glutes prioritized and calves reduced; Skip.",
+      "scenario": "Twelve muscles, each Less, Normal or More; glutes set to More and calves to Less; Skip.",
       "variants": "demandingText"
     },
     {
