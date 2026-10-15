@@ -224,15 +224,22 @@ requirement.
 
 | Flow / screen | Required variant sets | Rationale |
 |---|---|---|
-| onboarding-custom/schedule | pt-text200 | Five fixed duration segments overlap at 200% text (UI-03) |
-| onboarding-recommend/schedule | pt-text200 | Same fixed-segment component as Custom |
-| onboarding-custom/priorities | pt-text200 | Prioritize/De-emphasize clip inside four fixed tracks (UI-03) |
-| onboarding-custom/exercise-preferences | pt-text200 | Dense expert control with selected lists |
-| onboarding-recommend/environment-correction | pt-text200 | Dense capability-correction disclosure |
-| onboarding-custom/result | pt-text200 | Recommendation-result title needs a fresh runtime overflow check (UI-03) |
-| onboarding-recommend/result | pt-text200 | Same title component as the Custom result |
+| onboarding-recommend/muscle-priorities | pt-text200 | Dense muscle-priority selection; replaces Custom's `priorities`, whose controls clipped inside fixed tracks (UI-03; Plan 072 S2, ADR 0020) |
+| onboarding-recommend/days-per-week | pt-text200 | Compact day-count cards share the fixed grid tracks that replaced the Custom/Recommend `schedule` segments (UI-03; Plan 072 S2) |
+| onboarding-recommend/session-length | pt-text200 | Six "Até {n} min" cards in fixed grid tracks; successor to the duration segments that overlapped at 200% text (UI-03; Plan 072 S2) |
+| onboarding-recommend/equipment | pt-text200 | Thirteen-row equipment checklist; replaces the `environment-correction` capability disclosure (Plan 072 S2, ADR 0020) |
+| onboarding-recommend/result | pt-text200 | Recommendation-result title needs a fresh runtime overflow check (UI-03) |
 | onboarding-import/preview | pt-text200 | Import metric bands crowd at enlarged text (UI-03) |
 | onboarding-build/editor-empty | pt-text200 | Installed editor label collision across themes and enlarged text (UI-06) |
+
+Plan 072 S2 ([ADR 0020](0020-onboarding-candidate-b.md)) retired the
+original onboarding rows. `schedule` (Custom and Recommend) split into
+`days-per-week` and `session-length`, compact cards in fixed grid tracks that
+replace the duration segments; both keep the UI-03 overlap check at Portuguese
+200% text.
+`onboarding-custom/exercise-preferences` and `onboarding-custom/result` left
+with the Custom route (Plan 072 OD-9); `onboarding-recommend/result` keeps the
+shared title check.
 
 ## Workout truth and state ownership
 

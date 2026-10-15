@@ -158,3 +158,16 @@ real EU-restricted namespace. They also do not prove a provider recovery-image
 restore, edge-log redaction, billing receipt, watchdog lag, or minute-60/
 minute-75 disposal on Cloudflare. Those owner/environment gates remain open;
 see [RUNBOOK.md](RUNBOOK.md).
+
+## Production enablement (owner override, 2026-10-14)
+
+On 2026-10-14 the owner enabled install-transfer creates for real users on
+`https://taurifer.com`, through a separate production Worker
+(`taurifer-install-transfer`, `env.production`, routed at `taurifer.com/v1/*`).
+This was done **without** recording the evidence for the open gates in
+[RUNBOOK.md](RUNBOOK.md). Those gates remain open; this section closes none of
+them. The production health lease comes from the owner's self-attested devbox
+loop (`scripts/production-health-loop.mjs`, run by the user timer in
+`ops/systemd/`), not from independent monitoring. If that loop stops, new
+creates fail closed with 503 within five minutes. The RUNBOOK section of the
+same name covers configuration, secrets, the health loop and how to turn creates off.

@@ -168,9 +168,16 @@
     const meta=snapshot?.programMeta;
     return Object.prototype.hasOwnProperty.call(meta||{},"blockId")?meta.blockId:null}
 
+    // A program row never owns prescriptions; the ProgramDefinition does, and
+    // loading drops a row's copy. Older installed-editor builds persisted that
+    // copy (#344), so it cannot count toward the durable program's identity.
+    function fingerprintRow(row){
+    if(!row||typeof row!=="object"||!Object.prototype.hasOwnProperty.call(row,"prescriptionsByCycle"))return row;
+    const{prescriptionsByCycle,...rest}=row;return rest}
+
     function draftProgramFingerprint(snapshot){
     const value={programMetaId:snapshot?.programMeta?.id||null,
-      program:Array.isArray(snapshot?.program)?snapshot.program:[]};
+      program:Array.isArray(snapshot?.program)?snapshot.program.map(fingerprintRow):[]};
     if(Object.prototype.hasOwnProperty.call(snapshot?.programMeta||{},"blockId"))
       value.programMetaBlockId=snapshot.programMeta.blockId;
     return JSON.stringify(canonicalize(value))}
@@ -454,6 +461,30 @@
         if(workoutDraftFault("after-canonical-remove"))return{status:"fault-after-canonical"};
         if(!commitV2CheckpointEffect(prepared,null))return{status:"checkpoint-commit-failed"};
         return{status:"applied",raw:null,draft:live.draft}
+      })},
+    /* A legacy flat draft (pre-DraftV2) has no draftId/revision to CAS on, and
+       the V2 checkpoint protocol never ran for it, so clearing it is an exact
+       raw-byte compare-and-swap to null rather than removeV2's identity CAS.
+       A live V2-valid raw, or any checkpoint beyond "absent", is refused: those
+       belong to removeV2 and reconcileV2Checkpoint respectively, and this path
+       must never clobber state it does not own. */
+    async removeLegacy({expectedRaw,operationId}){
+      if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
+      if(!navigator.locks?.request)return{status:"lock-unavailable"};
+      return navigator.locks.request(STORAGE_LOCK,async()=>{
+        if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
+        if(this.writeTarget())return{status:"transaction-active"};
+        const read=this.readCanonicalStatus();if(read.status!=="ok")return read;
+        if(read.raw!==expectedRaw)return{status:"stale",raw:read.raw};
+        const live=workoutDraft()?.parse(read.raw);
+        if(live?.kind==="valid")return{status:"invalid-live",raw:read.raw};
+        const checkpoint=this.readV2Checkpoint();
+        if(checkpoint.status!=="absent")return{status:checkpoint.status==="valid"?"checkpoint-conflict":"checkpoint-unreadable",raw:read.raw};
+        if(workoutDraftFault("before-canonical-remove"))return{status:"fault-before-canonical"};
+        if(!this.publishCanonical(null))return{status:"write-failed"};
+        const verify=this.readCanonicalStatus();if(verify.status!=="ok")return verify;
+        if(verify.raw!==null)return{status:"readback-mismatch",raw:verify.raw};
+        return{status:"applied",raw:null}
       })},
     publishCanonical(raw){
       if(installTransferMutationFrozen())return false;

@@ -3,7 +3,7 @@
  * Focused destructive-program draft conflict regressions.
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, waitForAsyncCondition } from "./browser.mjs";
 import {
   clearPersistenceArtifacts,
   inventoryPersistenceArtifacts,
@@ -365,7 +365,7 @@ async function releaseStorageLock(page) {
 }
 
 async function waitForPendingStorageLock(page) {
-  await page.waitForFunction(
+  await waitForAsyncCondition(page,
     async (lockName) => {
       const locks = await navigator.locks.query();
       return locks.pending.some((lock) => lock.name === lockName);
@@ -376,7 +376,7 @@ async function waitForPendingStorageLock(page) {
 }
 
 async function waitForPendingStorageLocks(page, count) {
-  await page.waitForFunction(
+  await waitForAsyncCondition(page,
     async ({ lockName, count }) => {
       const locks = await navigator.locks.query();
       return locks.pending.filter((lock) => lock.name === lockName).length >= count;
@@ -459,7 +459,7 @@ function storedDraftLoad(raw, exerciseId = "draft-conflict-press") {
 }
 
 async function waitForNoPendingStorageLock(page) {
-  await page.waitForFunction(
+  await waitForAsyncCondition(page,
     async (lockName) => {
       const locks = await navigator.locks.query();
       return !locks.pending.some((lock) => lock.name === lockName);

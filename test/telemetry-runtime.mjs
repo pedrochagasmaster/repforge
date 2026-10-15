@@ -19,7 +19,7 @@
  * Run: node test/telemetry-runtime.mjs
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
-import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, waitForAppBoot, answerRecommend } from "./browser.mjs";
 import { EVENT_DUPLICATE_POLICIES, FORBIDDEN_PROPERTY_NAMES } from "./fixtures/telemetry.mjs";
 import { exerciseAction, finishEarly, selectExercise } from "./fixtures/focus-workout.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
@@ -245,23 +245,9 @@ const entryStep = (page) => page.evaluate(() => window.__repforgeEntryState?.()?
 
 /** Drive Generate from the entry hub through to its reviewable result. */
 async function driveOnboarding(page, { experience = "6_to_24m", days = 4 } = {}) {
-  // Generate's goal is asked on the hub: the tap answers it and opens the background step.
-  await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "background");
-  await page.click(`[data-entry-pick="structuredExperience"][data-entry-val="${experience}"]`);
-  await page.click("#onbNext");
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "schedule");
-  await page.click(`[data-entry-pick="daysPerWeek"][data-entry-val="${days}"]`);
-  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
-  await page.click("#onbNext");
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "environment");
-  await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
-  await page.click("#onbNext");
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
-  await page.click("#onbNext");
-  await page.waitForFunction(() => ["priorities", "result"].includes(window.__repforgeEntryState?.()?.step));
-  if (await entryStep(page) === "priorities") await page.click("#onbNext");
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "result");
+  await answerRecommend(page, {
+    lifting: experience, days, minutes: 60, environment: "commercial_gym", goal: "muscle_growth", skipBasics: true,
+  });
   await page.waitForSelector("#entryActivate", { timeout: 15000 });
   return true;
 }
@@ -306,15 +292,27 @@ try {
     });
     let events = await captured(page);
     assert(
-      countOf(events, "program_path_selected") === 0 && countOf(events, "generator_started") === 0,
+      countOf(events, "program_path_selected") === 0 && countOf(events, "generator_started") === 0 &&
+        !namesOf(events).some((name) => name.startsWith("onboarding_")),
       "an automatic open reports nothing",
       namesOf(events).join(","),
     );
-    await page.click('[data-entry-route="recommend"][data-entry-goal="balanced"]');
+    await page.click('[data-entry-hub="recommend"]');
+    await page.click("#onbNext");
     events = await captured(page);
     assert(countOf(events, "program_path_selected") === 1, "choosing a route selects it once");
     assert(countOf(events, "generator_started") === 1, "recommend starts the generator once");
     assert(propsOf(events, "program_path_selected")?.route === "recommend", "the route is recommend");
+    assert(countOf(events, "onboarding_started") === 0, "an automatic open is never reported as started");
+    assert(countOf(events, "onboarding_step_completed") === 1 && countOf(events, "onboarding_step_viewed") === 1,
+      "once the lifter picks a route the funnel follows them", namesOf(events).join(","));
+    // B's order lands on "intro" first; walk Basics (skipped) to "background" before answering it.
+    await page.click("#onbNext");
+    for (const step of ["sex", "birth_date", "height", "weight"]) {
+      await page.waitForFunction((s) => window.__repforgeEntryState?.()?.step === s, step);
+      await page.click("#onbSkip");
+    }
+    await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "background");
     await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
     events = await captured(page);
     assert(
@@ -325,6 +323,42 @@ try {
     await context.close();
   }
 
+  phase("The landing reports how it was shown and what the lifter chose on it");
+  {
+    const { context, page } = await openApp(browser);
+    const events = await captured(page);
+    const landing = propsOf(events, "landing_viewed");
+    assert(countOf(events, "landing_viewed") === 1 && landing?.landing === "generic" && landing?.visit === "first",
+      "a first visit shows the generic landing once", JSON.stringify(landing));
+    assert(propsOf(events, "app_boot")?.display_mode === "browser", "a browser tab boots in browser mode",
+      JSON.stringify(propsOf(events, "app_boot")));
+    await page.click("#firstRunCreate");
+    assert(JSON.stringify(await eventsNamed(page, "landing_action")) === JSON.stringify([{ action: "create" }]),
+      "Create program reports the create action once", JSON.stringify(await eventsNamed(page, "landing_action")));
+    await context.close();
+  }
+
+  phase("An install offer reports the prompt and the browser's answer, and the install itself");
+  {
+    const { context, page } = await openApp(browser);
+    await page.evaluate(() => {
+      const offer = new Event("beforeinstallprompt", { cancelable: true });
+      offer.prompt = () => {};
+      offer.userChoice = Promise.resolve({ outcome: "accepted", platform: "web" });
+      window.dispatchEvent(offer);
+    });
+    await page.evaluate(() => document.getElementById("installBtn").click());
+    await page.waitForFunction(() => window.__captured.filter(([n]) => n === "install_prompt_outcome").length === 2);
+    const outcomes = await eventsNamed(page, "install_prompt_outcome");
+    assert(JSON.stringify(outcomes) === JSON.stringify([
+      { surface: "header", mode: "native", outcome: "prompted" },
+      { surface: "header", mode: "native", outcome: "accepted" },
+    ]), "the header offer reports the prompt, then the acceptance", JSON.stringify(outcomes));
+    await page.evaluate(() => window.dispatchEvent(new Event("appinstalled")));
+    assert(countOf(await captured(page), "app_installed") === 1, "the browser's install report is recorded once");
+    await context.close();
+  }
+
   phase("Opening Create program shows the hub without selecting a route");
   {
     const { context, page } = await openApp(browser);
@@ -332,7 +366,7 @@ try {
     const events = await captured(page);
     assert(countOf(events, "program_path_selected") === 0, "Create program alone selects no route");
     assert(countOf(events, "generator_started") === 0, "Create program alone starts no generator");
-    assert(await page.locator('[data-entry-route="recommend"]').count(), "the entry hub is visible");
+    assert(await page.locator('[data-entry-hub="recommend"]').count(), "the entry hub is visible");
     await context.close();
   }
 
@@ -385,7 +419,8 @@ try {
     assert(reached, "the flow reaches the step that offers Start over");
     await page.click("#entryRestart");
     await page.click("#entryRestartConfirm");
-    await page.click('[data-entry-route="recommend"]');
+    await page.click('[data-entry-hub="recommend"]');
+    await page.click("#onbNext");
     const events = await captured(page);
     assert(
       countOf(events, "program_path_selected") === 1 && countOf(events, "generator_started") === 1,
@@ -395,12 +430,147 @@ try {
     await context.close();
   }
 
+  phase("The entry funnel reports each screen once, by route and step id");
+  {
+    const { context, page } = await openApp(browser);
+    await page.click("#firstRunCreate");
+    await driveOnboarding(page);
+    await page.waitForFunction(() => window.__captured.some(([n, p]) => n === "onboarding_step_viewed" && p.step === "result"));
+    let funnel = (await captured(page)).filter(([n]) => n.startsWith("onboarding_") || n === "generation_settled")
+      .map(([n, p]) => [n, Object.fromEntries(Object.entries(p).filter(([key]) => !ENVELOPE.includes(key)))]);
+    const started = funnel.filter(([n]) => n === "onboarding_started");
+    assert(started.length === 1 && started[0][1].origin === "first_run" && started[0][1].resumed === false,
+      "Create program opens one fresh first-run entry", JSON.stringify(started));
+    const viewed = funnel.filter(([n]) => n === "onboarding_step_viewed").map(([, p]) => `${p.route}/${p.step}`);
+    const order = await page.evaluate(() => window.RepForgeProgramEntry.ROUTE_STEPS.recommend);
+    // B's hub no longer answers desired_result itself (Plan 072 S2), so every
+    // one of B's steps - including desired_result - gets its own screen now.
+    const expected = ["none/entry", ...order.map((step) => `recommend/${step}`)];
+    assert(JSON.stringify(viewed) === JSON.stringify(expected),
+      "each screen is viewed once, in the route's order, keyed by step id", JSON.stringify({ viewed, expected }));
+    const completed = funnel.filter(([n]) => n === "onboarding_step_completed").map(([, p]) => p);
+    assert(JSON.stringify(completed.map((p) => `${p.route}/${p.step}`)) === JSON.stringify(viewed.slice(0, -1)),
+      "every screen left forward completes once; entering the route completes the hub", JSON.stringify(completed));
+    assert(completed.every((p) => ["under_10s", "10_30s", "30_60s", "1_3m", "3_10m", "over_10m"].includes(p.time_on_step)),
+      "time on step is a bucket", JSON.stringify(completed));
+    const at = (step) => completed.find((p) => p.step === step) || {};
+    assert(at("desired_result").goal === "muscle_growth" && at("background").experience === "6_to_24m" &&
+      at("days_per_week").days_per_week === "4" && at("session_length").session_length === "60" &&
+      at("environment").gym_preset === "commercial_gym",
+    "each completed step carries the closed answers it asked", JSON.stringify(completed));
+    assert(at("abilities").goal === undefined && Object.keys(at("abilities")).sort().join() === "route,step,time_on_step",
+      "a step that asked no closed answer carries none", JSON.stringify(at("abilities")));
+    assert(!funnel.some(([n]) => n === "onboarding_step_back"), "walking forward reports no back step");
+    const settled = funnel.filter(([n]) => n === "generation_settled").map(([, p]) => p);
+    assert(settled.length === 1 && settled[0].route === "recommend" && settled[0].outcome === "success" &&
+      ["under_1s", "1_3s", "3_10s", "over_10s"].includes(settled[0].duration),
+      "the generation the lifter asked for settles once, with a bucketed duration", JSON.stringify(settled));
+
+    await page.click("#onbBack");
+    await page.waitForFunction(() => window.__repforgeEntryState?.()?.step !== "result");
+    const back = await eventsNamed(page, "onboarding_step_back");
+    const previous = await entryStep(page);
+    const lastView = (await eventsNamed(page, "onboarding_step_viewed")).at(-1);
+    assert(back.length === 1 && back[0].route === "recommend" && back[0].step === "result",
+      "Back reports the screen it left", JSON.stringify(back));
+    assert(lastView?.step === previous && lastView?.route === "recommend", "and views the screen it returned to",
+      JSON.stringify({ lastView, previous }));
+    await context.close();
+  }
+
+  phase("B's editor reports what the lifter did, and activation how far they moved from the recommendation");
+  {
+    const { context, page } = await openApp(browser);
+    await page.click("#firstRunCreate");
+    await driveOnboarding(page);
+    await page.waitForSelector("#entryReview [data-review-slot]", { timeout: 15000 });
+    const idle = () => page.waitForFunction(() => !document.querySelector("#entryReview[aria-busy]"));
+    const firstSlot = page.locator("#entryReview [data-review-slot]").first();
+    const addSet = async () => {
+      await firstSlot.click();
+      await page.waitForSelector("#reviewSheet.is-open [data-review-sets]", { timeout: 5000 });
+      await page.locator('#reviewSheet [data-review-sets="1"]').click();
+      await idle();
+      await page.locator("#reviewSheet [data-review-done]").click();
+      await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 5000 });
+    };
+    await addSet();
+    await page.locator("#entryReview [data-review-undo]").click();
+    await idle();
+    await addSet();
+    await page.locator("#entryReview [data-review-restore]").click();
+    await page.click("#reviewConfirmGo");
+    await idle();
+    await addSet();
+    const actions = await eventsNamed(page, "program_review_action");
+    assert(JSON.stringify(actions) === JSON.stringify([
+      { action: "edit", kind: "sets" }, { action: "undo", kind: "sets" }, { action: "edit", kind: "sets" },
+      { action: "restore" }, { action: "edit", kind: "sets" },
+    ]), "each edit, undo and restore reports once with its kind and nothing else", JSON.stringify(actions));
+    await page.click("#entryActivate");
+    await page.waitForFunction(() => window.__captured.some(([n]) => n === "program_activated"), undefined, { timeout: 10000 });
+    const activated = await eventsNamed(page, "program_activated");
+    assert(activated.length === 1 && activated[0].review_changes === "1_2",
+      "activation reports the bucketed change count against the recommendation", JSON.stringify(activated));
+    await context.close();
+  }
+
+  phase("An untouched recommendation activates with no changes");
+  {
+    const { context, page } = await openApp(browser);
+    await page.click("#firstRunCreate");
+    await driveOnboarding(page);
+    await page.click("#entryActivate");
+    await page.waitForFunction(() => window.__captured.some(([n]) => n === "program_activated"), undefined, { timeout: 10000 });
+    const activated = await eventsNamed(page, "program_activated");
+    assert(activated[0]?.review_changes === "0", "review_changes is 0 when nothing was edited", JSON.stringify(activated));
+    assert(countOf(await captured(page), "program_review_action") === 0, "no editor action is invented");
+    await context.close();
+  }
+
+  phase("Leaving setup and coming back reports the exit, the resume offer and the resumed screen");
+  {
+    const { context, page } = await openApp(browser);
+    await page.click("#firstRunCreate");
+    await answerRecommend(page, { lifting: "first", goal: "strength", skipBasics: true, until: "days_per_week" });
+    await page.click("#onbCancel");
+    await page.click("#entryCancelKeep");
+    await page.waitForFunction(() => window.__captured.some(([n]) => n === "onboarding_exit"));
+    const exit = await eventsNamed(page, "onboarding_exit");
+    assert(exit.length === 1 && exit[0].action === "keep_draft" && exit[0].route === "recommend" && exit[0].step === "days_per_week",
+      "keeping the draft reports the screen it was left on", JSON.stringify(exit));
+    await page.evaluate(() => window.startOnboarding("first-run"));
+    const started = (await eventsNamed(page, "onboarding_started")).at(-1);
+    const offered = await eventsNamed(page, "onboarding_resume_offered");
+    assert(started?.resumed === true, "reopening reports a resumed entry", JSON.stringify(started));
+    assert(offered.length === 1 && offered[0].status === "resumable", "and the resume offer", JSON.stringify(offered));
+    await context.close();
+  }
+
+  phase("An activation the stored draft no longer matches reports the conflict, not an activation");
+  {
+    const { context, page } = await openApp(browser);
+    await page.click("#firstRunCreate");
+    await driveOnboarding(page);
+    await page.evaluate((key) => {
+      const envelope = JSON.parse(localStorage.getItem(key));
+      localStorage.setItem(key, JSON.stringify({ ...envelope, revision: envelope.revision + 1, ownerId: `${envelope.ownerId}-foreign` }));
+    }, "repforge_program_setup_draft_v1");
+    await page.click("#entryActivate");
+    await page.waitForFunction(() => window.__captured.some(([n]) => n === "program_activation_failed"), undefined, { timeout: 10000 });
+    const failed = await eventsNamed(page, "program_activation_failed");
+    assert(failed.length === 1 && failed[0].route === "recommend" && ["setup_conflict", "durable_conflict"].includes(failed[0].reason),
+      "the refused activation reports its route and reason", JSON.stringify(failed));
+    assert(countOf(await captured(page), "program_activated") === 0, "and reports no activation");
+    await context.close();
+  }
+
   phase("Import selects its route once and activates only after common review");
   {
     const { context, page } = await openApp(browser);
     await page.click("#firstRunCreate");
-    await page.click("#entryOwnToggle");
-    await page.click('[data-entry-route="import"]');
+    await page.click('[data-entry-hub="import"]');
+    await page.click("#onbNext");
     await page.setInputFiles("#importProgram", {
       name: "reviewed-program.json",
       mimeType: "application/json",
@@ -475,6 +645,7 @@ try {
       "the duration is a bucket",
       JSON.stringify(session),
     );
+    assert(session?.days_since_last === "first", "the lifter's first session reports no previous one", JSON.stringify(session));
     assert(countOf(events, "first_set_logged") === 1, "the first working set is a milestone, reported once");
     assert(
       JSON.stringify(await eventsNamed(page, "set_saved")) === JSON.stringify(Array(4).fill({ vs_suggestion: "no_suggestion" })),
@@ -486,6 +657,28 @@ try {
       "the summary is reported once per session",
       String(countOf(events, "session_summary_viewed")),
     );
+    await context.close();
+  }
+
+  phase("A return session reports the bucketed days since the previous one");
+  {
+    const first = Date.parse("2026-09-01T09:00:00.000Z");
+    const { context, page } = await openApp(browser, { seed: loggableProgram(), at: first });
+    await enterWorkout(page, "Day 1");
+    await saveSetByHand(page, SEED_A, 1, 60);
+    await finishEarly(page);
+    await page.waitForFunction(() => window.__captured.some(([n]) => n === "session_completed"), undefined, { timeout: 10000 });
+    await page.evaluate(() => window.__repforgeStorage?.flush?.());
+    await page.clock.setFixedTime(new Date(first + 3 * 86400000));
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    await enterWorkout(page, "Day 1");
+    await saveSetByHand(page, SEED_A, 1, 62.5);
+    await finishEarly(page);
+    await page.waitForFunction(() => window.__captured.some(([n]) => n === "session_completed"), undefined, { timeout: 10000 });
+    const sessions = await eventsNamed(page, "session_completed");
+    assert(sessions.length === 1 && sessions[0].days_since_last === "2_3",
+      "a session three days after the last reports 2_3, never the dates", JSON.stringify(sessions));
     await context.close();
   }
 
@@ -637,6 +830,162 @@ try {
       }
       await context.close();
     }
+  }
+
+  phase("A library swap reports where the replacement came from, and nothing about it");
+  {
+    const { context, page } = await openApp(browser, { seed: loggableProgram() });
+    await enterWorkout(page, "Day 1");
+    await exerciseAction(page, SEED_A, "#exActionSubstBtn");
+    await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+    const own = await page.evaluate((id) => window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.programmed?.libraryId ?? null, SEED_A);
+    const pick = page.locator(own ? `#exPickList .pickrow:not([data-pick="${own}"])` : "#exPickList .pickrow").first();
+    await pick.click();
+    await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+    await page.waitForFunction((id) => !!window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.substitution, SEED_A, { timeout: 10000 });
+    let used = await eventsNamed(page, "substitution_used");
+    assert(JSON.stringify(used) === JSON.stringify([{ source: "library" }]),
+      "a swap with no reason chosen reports its source once, with no reason invented", JSON.stringify(used));
+
+    // The optional reason: one tap on a chip, then the pick swaps as before.
+    await exerciseAction(page, SEED_B, "#exActionSubstBtn");
+    await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+    assert(await page.locator('#exPickReasons [data-pick-reason][aria-pressed="true"]').count() === 0,
+      "the swap sheet opens with no reason chosen");
+    await page.click('#exPickReasons [data-pick-reason="crowded"]');
+    assert(await page.locator('#exPickReasons [data-pick-reason="crowded"]').getAttribute("aria-pressed") === "true",
+      "tapping a reason chip selects it");
+    const ownB = await page.evaluate((id) => window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.programmed?.libraryId ?? null, SEED_B);
+    await page.locator(ownB ? `#exPickList .pickrow:not([data-pick="${ownB}"])` : "#exPickList .pickrow").first().click();
+    await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+    await page.waitForFunction((id) => !!window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.substitution, SEED_B, { timeout: 10000 });
+    used = await eventsNamed(page, "substitution_used");
+    assert(JSON.stringify(used[1]) === JSON.stringify({ source: "library", reason: "crowded" }),
+      "a chosen reason rides on the swap it was chosen for", JSON.stringify(used));
+    await context.close();
+  }
+
+  phase("Ending a workout without saving discards it and reports the stage and the optional reason");
+  {
+    const { context, page } = await openApp(browser, { seed: loggableProgram() });
+    await enterWorkout(page, "Day 1");
+    await saveSetByHand(page, SEED_A, 1, 60);
+    await page.click("#sessionSheetBtn");
+    await page.waitForSelector("#sessionSheet.is-open", { timeout: 5000 });
+    await page.click("#sessionAbandon");
+    await page.waitForSelector("#sessionAbandonPrompt:not(.hidden)", { timeout: 5000 });
+    assert(await page.locator('#sessionAbandonReasons [aria-pressed="true"]').count() === 0, "no reason is chosen by default");
+    assert((await eventsNamed(page, "session_abandoned")).length === 0, "asking to end reports nothing yet");
+    await page.click('#sessionAbandonReasons [data-abandon-reason="time"]');
+    await page.click("#sessionAbandonConfirm");
+    await page.waitForFunction(() => window.__captured.some(([n]) => n === "session_abandoned"), undefined, { timeout: 10000 });
+    await page.evaluate(() => window.__repforgeStorage?.flush?.());
+    assert(JSON.stringify(await eventsNamed(page, "session_abandoned")) === JSON.stringify([{ stage: "working", reason: "time" }]),
+      "a workout with a logged set reports working and the chosen reason", JSON.stringify(await eventsNamed(page, "session_abandoned")));
+    const after = await page.evaluate((key) => ({
+      draft: window.__repforgeWorkoutDraft.current() ?? null,
+      log: JSON.parse(localStorage.getItem(key) || "{}").log || [],
+      today: !document.body.classList.contains("is-focus-wo"),
+    }), KEY);
+    assert(after.draft === null && after.log.length === 0 && after.today,
+      "the draft and its logged set are discarded, History is untouched, and the lifter is back on Today", JSON.stringify(after));
+    assert(countOf(await captured(page), "session_completed") === 0, "an abandoned workout is never reported as completed");
+    await context.close();
+  }
+  {
+    const { context, page } = await openApp(browser, { seed: loggableProgram() });
+    await enterWorkout(page, "Day 1");
+    await page.click("#sessionSheetBtn");
+    await page.waitForSelector("#sessionSheet.is-open", { timeout: 5000 });
+    await page.click("#sessionAbandon");
+    await page.click("#sessionAbandonCancel");
+    assert(await page.locator("#sessionAbandonPrompt").evaluate((el) => el.classList.contains("hidden")) &&
+      (await eventsNamed(page, "session_abandoned")).length === 0, "Cancel keeps the workout and reports nothing");
+    await page.click("#sessionAbandon");
+    await page.click("#sessionAbandonConfirm");
+    await page.waitForFunction(() => window.__captured.some(([n]) => n === "session_abandoned"), undefined, { timeout: 10000 });
+    assert(JSON.stringify(await eventsNamed(page, "session_abandoned")) === JSON.stringify([{ stage: "before_set" }]),
+      "ending before any set reports before_set and no reason", JSON.stringify(await eventsNamed(page, "session_abandoned")));
+    await context.close();
+  }
+
+  phase("Applying a program edit over a workout reports the edit and the discarded workout");
+  {
+    const { context, page } = await openApp(browser, { seed: loggableProgram() });
+    await enterWorkout(page, "Day 1");
+    await saveSetByHand(page, SEED_A, 1, 60);
+    await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+    await page.click('nav button[data-view="program"]');
+    await page.waitForSelector("#program.view.active", { timeout: 5000 });
+    if (await page.locator("#programEditorWrap").evaluate((element) => element.classList.contains("is-hidden")))
+      await page.click("#programEditToggle");
+    await page.waitForSelector("#programEditorWrap:not(.is-hidden)", { timeout: 5000 });
+    await page.locator(`#programEditor [data-role="replace"][data-id="${SEED_A}"]`).click();
+    await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+    await page.locator("#exPickList .pickrow").nth(2).click();
+    await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+    await page.click("#programEditToggle");
+    await page.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
+    await page.click("#programEditorApply");
+    await page.waitForFunction(() => window.__captured.some(([n]) => n === "active_program_edited"), undefined, { timeout: 10000 });
+    assert(JSON.stringify(await eventsNamed(page, "workout_discarded")) === JSON.stringify([{ stage: "working", cause: "program_edit" }]),
+      "the discarded workout reports its stage and cause once", JSON.stringify(await eventsNamed(page, "workout_discarded")));
+    assert(JSON.stringify(await eventsNamed(page, "active_program_edited")) === JSON.stringify([{ outcome: "discarded_workout" }]),
+      "the program edit reports that it discarded the workout", JSON.stringify(await eventsNamed(page, "active_program_edited")));
+    await context.close();
+  }
+
+  phase("Repeating a finished block reports the transition once it commits");
+  {
+    // The seed block runs seven weeks; 52 days in, it has ended.
+    const { context, page } = await openApp(browser, { seed: loggableProgram({ started: dayIso(52) }) });
+    await page.evaluate(() => window.closeFirstRun?.());
+    await page.click('nav button[data-view="stats"]');
+    await page.click('#statsSeg button[data-seg="review"]');
+    await page.waitForSelector('[data-review-action="repeat"]', { timeout: 5000 });
+    assert((await eventsNamed(page, "block_transition_chosen")).length === 0, "showing the choice reports no transition");
+    await page.click('[data-review-action="repeat"]');
+    await page.waitForFunction(() => window.__captured.some(([n]) => n === "block_transition_chosen"), undefined, { timeout: 10000 });
+    assert(JSON.stringify(await eventsNamed(page, "block_transition_chosen")) === JSON.stringify([{ action: "repeat" }]),
+      "the committed repeat reports once", JSON.stringify(await eventsNamed(page, "block_transition_chosen")));
+    await context.close();
+  }
+
+  phase("A confirmed block proposal reports the action the lifter chose");
+  {
+    const { context, page } = await openApp(browser);
+    await page.click("#firstRunCreate");
+    await driveOnboarding(page);
+    await page.click("#entryActivate");
+    await page.waitForFunction(() => window.__captured.some(([n]) => n === "program_activated"), undefined, { timeout: 10000 });
+    const meta = await page.evaluate(() => window.__repforgeWorkoutDraft.state().programMeta);
+    await page.clock.setFixedTime(new Date(Date.parse(`${meta.started}T09:00:00.000Z`) + (meta.mesocycleLengthWeeks * 7 + 1) * 86400000));
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    await page.click('nav button[data-view="stats"]');
+    await page.click('#statsSeg [data-seg="review"]');
+    await page.locator('[data-review-action="reduce-volume"]').click();
+    await page.locator("[data-volume-confirm]").click();
+    await page.locator("[data-preview-confirm]").waitFor({ state: "visible", timeout: 15000 });
+    assert((await eventsNamed(page, "block_transition_chosen")).length === 0, "a proposal on screen reports no transition");
+    await page.locator("[data-preview-confirm]").click();
+    await page.waitForFunction(() => window.__captured.some(([n]) => n === "block_transition_chosen"), undefined, { timeout: 30000 });
+    assert(JSON.stringify(await eventsNamed(page, "block_transition_chosen")) === JSON.stringify([{ action: "reduce_volume" }]),
+      "the confirmed volume reduction reports once", JSON.stringify(await eventsNamed(page, "block_transition_chosen")));
+    await context.close();
+  }
+
+  phase("A settings change reports which setting changed, never its value");
+  {
+    const { context, page } = await openApp(browser, { seed: loggableProgram() });
+    await page.evaluate(() => window.__repforgeShowSettings());
+    await page.selectOption("#unit", "lb");
+    await page.waitForFunction(() => window.__captured.some(([n]) => n === "settings_changed"), undefined, { timeout: 10000 });
+    await page.selectOption("#theme", "dark");
+    const changed = await eventsNamed(page, "settings_changed");
+    assert(JSON.stringify(changed) === JSON.stringify([{ setting: "unit" }, { setting: "theme" }]),
+      "the unit and the theme report by name, once each", JSON.stringify(changed));
+    await context.close();
   }
 
   phase("Persistent opt-out blocks telemetry without blocking a workout");

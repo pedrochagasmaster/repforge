@@ -101,6 +101,71 @@ function metricValue(row, field) {
   return row?.metricValues?.find((entry) => entry.metricId === METRIC_OF[field])?.value;
 }
 
+/** Pins Date.now()/new Date() to a fixed instant for program-generation and
+ * recommendation-engine logic that reads "today". Unlike page.clock.*
+ * (any of setFixedTime/install/pauseAt/...), which unconditionally replaces
+ * performance, setTimeout/setInterval, requestAnimationFrame/
+ * cancelAnimationFrame, requestIdleCallback/cancelIdleCallback and Intl for
+ * the whole page (see playwright-core's generated clockSource: every clock
+ * method funnels through the same unrestricted install()), this only
+ * overrides Date, leaving native rAF/timers (and Playwright's own
+ * rAF-driven actionability polling) untouched. This suite does not use any
+ * other page.clock feature (no fastForward/pauseAt/install/runFor), so a
+ * fixed Date is all section 1b actually needs. */
+async function pinFixedDate(page, iso) {
+  await page.addInitScript((isoTime) => {
+    const fixedMs = new Date(isoTime).getTime();
+    const Native = window.__repforgeNativeDate || (window.__repforgeNativeDate = window.Date);
+    class FixedDate extends Native {
+      constructor(...args) {
+        if (args.length === 0) { super(fixedMs); return; }
+        super(...args);
+      }
+    }
+    FixedDate.now = () => fixedMs;
+    window.Date = FixedDate;
+  }, iso);
+}
+
+/** What the page looked like when a step gave up (#338): the Focus workout, open
+ * layers, what sits on top of the session button, and the draft's session. */
+const crashes = [];
+/** A renderer crash looks like a step that never finishes; say so instead. */
+function noteCrash(page, label) {
+  page.on("crash", () => {
+    crashes.push(`${label} renderer crashed at ${new Date().toISOString()}`);
+    console.error(`renderer crash: ${label}`);
+  });
+}
+async function failureState(page) {
+  const state = await Promise.race([
+    page.evaluate(() => {
+      const visible = (node) => !!node && !node.classList.contains("hidden") && node.getClientRects().length > 0 &&
+        getComputedStyle(node).visibility !== "hidden";
+      const button = document.querySelector("#sessionSheetBtn"), rect = button?.getBoundingClientRect();
+      const top = rect ? document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2) : null;
+      const draft = window.__repforgeWorkoutDraft?.current?.();
+      return {
+        view: document.querySelector(".view.active")?.id || null,
+        workout: document.querySelector("#workout")?.className || null,
+        current: [...document.querySelectorAll("#workout .exercise.is-current")].map((node) => node.dataset.ex),
+        layers: [...document.querySelectorAll(".sheet, [role=dialog], .modal, .overlay, #draftRecovery, #sessionEarlyPrompt")]
+          .filter(visible).map((node) => `${node.tagName.toLowerCase()}#${node.id}.${[...node.classList].join(".")}`),
+        sessionButton: rect ? { rect: [rect.x, rect.y, rect.width, rect.height].map(Math.round), disabled: button.disabled,
+          onTop: top === button || button.contains(top) ? "self" : top ? `${top.tagName.toLowerCase()}#${top.id}.${[...top.classList].join(".")}` : null } : null,
+        active: document.activeElement ? `${document.activeElement.tagName.toLowerCase()}#${document.activeElement.id}` : null,
+        animations: document.getAnimations().filter((a) => a.playState === "running").length,
+        draft: draft ? { day: draft.session?.day, selected: draft.session?.selectedExerciseId, revision: draft.revision } : null,
+        finish: window.__repforgeLastWorkoutFinish === undefined ? "unset" : window.__repforgeLastWorkoutFinish === null ? "null" : "pending-or-settled",
+      };
+    }),
+    new Promise((resolve) => setTimeout(resolve, 5000, "page state unavailable within 5000ms")),
+  ]).catch((error) => `page state unavailable: ${error.message}`);
+  const dir = process.env.REPFORGE_ARTIFACT_DIR;
+  if (dir) await page.screenshot({ path: `${dir}/failure.png`, timeout: 5000 }).catch(() => {});
+  return state;
+}
+
 async function waitForBoot(page) {
   await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
   await page.evaluate(() => {
@@ -288,6 +353,7 @@ async function main() {
     serviceWorkers: "block",
   });
   let page = await openApp(context);
+  noteCrash(page, "main page");
   const errors = [];
   const watch = (candidate) => {
     candidate.on("pageerror", (error) => errors.push(error.message));
@@ -566,7 +632,8 @@ async function main() {
       viewport: { width: 393, height: 852 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, serviceWorkers: "block",
     });
     page = await adaptiveContext.newPage();
-    await page.clock.setFixedTime(new Date("2026-03-02T09:00:00.000Z"));
+    noteCrash(page, "adaptive page");
+    await pinFixedDate(page, "2026-03-02T09:00:00.000Z");
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
     await waitForBoot(page);
     const adaptive = await page.evaluate(async ({ request, weight, reps }) => {
@@ -627,7 +694,7 @@ async function main() {
     const firstSession = await finishEarly(page);
     await page.evaluate(() => window.__repforgeStorage.flush());
     check(firstSession?.localOk || firstSession?.idbOk, "the generated program records a first session to adapt from");
-    await page.clock.setFixedTime(new Date("2026-03-04T09:00:00.000Z"));
+    await pinFixedDate(page, "2026-03-04T09:00:00.000Z");
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForBoot(page);
     const historyRows = (await rawState(page)).state.log.length;
@@ -769,6 +836,71 @@ async function main() {
       expected: String(migratedPoundsValue),
       checkpoint: migratedPounds.checkpoint?.kind,
     });
+
+    // Issue #332: migrateLegacy's allowedFields loop used to write every legacy
+    // value onto `set.edited[load|reps|rir]`, even when the set is metric-backed
+    // (Plan 067). Such a set keeps its typed load/reps in
+    // `edited.metrics[metricId]` (see exercise-metrics.js and
+    // shelfMetricFieldHtml/setSaveIssues in app.js); a flat legacy draft with no
+    // __touched marker (unlike #330/#321's touched case) still migrates cleanly
+    // -- validate() has no reason to reject it -- but the value used to land in
+    // the unread flat field, so Focus showed an empty input and the set could
+    // not be saved/logged without retyping. Reproduce directly against the
+    // current metric-backed seed program (no older release needed: the value
+    // is simply written to localStorage the way any pre-067 writer would).
+    console.log("\n1e. Issue #332: an untouched legacy draft against a metric-backed slot keeps its typed load/reps where Focus reads them");
+    await reset(page);
+    const metricMigrationExercise = seedProgram()[0];
+    const untouchedLegacyDraft = {
+      [`${metricMigrationExercise.id}_1_load`]: "60",
+      [`${metricMigrationExercise.id}_1_reps`]: "8",
+      [`${metricMigrationExercise.id}_1_rir`]: "2",
+      __day: "Day 1",
+    };
+    await page.evaluate(({ draftKey, checkpointKey, draft }) => {
+      localStorage.setItem(draftKey, JSON.stringify(draft));
+      localStorage.removeItem(checkpointKey);
+    }, { draftKey: DRAFT, checkpointKey: CHECKPOINT, draft: untouchedLegacyDraft });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForBoot(page);
+    const noNoticeVisible = await page.locator("#draftRecovery:not(.hidden)").count();
+    check(noNoticeVisible === 0,
+      "an untouched legacy draft against a metric-backed slot migrates without the earlier-program notice", { noNoticeVisible });
+    const migratedUntouched = await rawState(page);
+    const migratedUntouchedDraft = JSON.parse(migratedUntouched.raw || "null");
+    const migratedUntouchedExercise = migratedUntouchedDraft?.exercises?.[metricMigrationExercise.id];
+    const migratedUntouchedSet = migratedUntouchedExercise?.sets?.[migratedUntouchedExercise.setOrder[0]];
+    check(migratedUntouchedDraft?.schemaVersion === 2 &&
+      migratedUntouchedSet?.edited?.metrics?.[WEIGHT] === "60" &&
+      migratedUntouchedSet?.edited?.metrics?.[REPS] === "8" &&
+      migratedUntouchedSet?.edited?.rir === "2",
+    "migration writes the typed load/reps into the set's metric map, not the unread flat fields", {
+      metrics: migratedUntouchedSet?.edited?.metrics,
+      flatLoad: migratedUntouchedSet?.edited?.load,
+      flatReps: migratedUntouchedSet?.edited?.reps,
+    });
+    await enter(page, "Day 1");
+    const migratedLoadInput = await shelfInput(page, "load");
+    const migratedRepsInput = await shelfInput(page, "reps");
+    const migratedLoadShown = await migratedLoadInput.inputValue();
+    const migratedRepsShown = await migratedRepsInput.inputValue();
+    check(migratedLoadShown === "60" && migratedRepsShown === "8",
+      "Focus's metric inputs show the migrated typed values, not an empty field", {
+        load: migratedLoadShown, reps: migratedRepsShown,
+      });
+    await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
+    await page.waitForFunction(() => {
+      const draft = window.__repforgeWorkoutDraft.current();
+      const exercise = draft.exercises[draft.session.selectedExerciseId];
+      return exercise.sets[exercise.setOrder[0]].completion !== "pending";
+    }, undefined, { timeout: 5000 });
+    const migratedLogSave = await finishEarly(page);
+    await page.evaluate(() => window.__repforgeStorage.flush());
+    const migratedLogState = await rawState(page);
+    const migratedLogRow = migratedLogState.state.log.find((candidate) => candidate.exerciseId === metricMigrationExercise.id);
+    check((migratedLogSave?.localOk || migratedLogSave?.idbOk) &&
+      metricValue(migratedLogRow, "load") === 60 && metricValue(migratedLogRow, "reps") === 8 && migratedLogRow?.rir === 2,
+    "the migrated metric-backed set logs the lifter's typed values without retyping", migratedLogRow);
 
     console.log("\n2. Save owns its captured revision and cannot clear a successor draft");
     await reset(page);
@@ -1436,7 +1568,62 @@ async function main() {
       invalidUi.copyVisible && !invalidUi.discardVisible,
     "invalid legacy bytes remain untouched with a non-destructive copy action", invalidUi);
 
+    // Issue 321: a well-formed legacy flat draft whose exercise still exists, but
+    // whose __touched marker cannot be expressed against the current canonical
+    // program's per-metric composition, must not open an empty workout screen
+    // with no notice. It reuses the stale-program recovery banner and offers
+    // both actions: export (copy) and clear and start fresh (discard).
+    await reset(page);
+    const metricExercise = seedProgram()[0];
+    const unmigratableLegacyDraft = {
+      [`${metricExercise.id}_1_load`]: "60",
+      [`${metricExercise.id}_1_reps`]: "8",
+      [`${metricExercise.id}_1_rir`]: "2",
+      __touched: [`${metricExercise.id}_1`],
+      __day: "Day 1",
+    };
+    await page.evaluate(({ draftKey, checkpointKey, draft }) => {
+      localStorage.setItem(draftKey, JSON.stringify(draft));
+      localStorage.removeItem(checkpointKey);
+    }, { draftKey: DRAFT, checkpointKey: CHECKPOINT, draft: unmigratableLegacyDraft });
+    await page.reload({ waitUntil: "domcontentloaded" });await waitForBoot(page);
+    await page.waitForSelector("#draftRecovery:not(.hidden)");
+    const invalidMigratedRaw = JSON.stringify(unmigratableLegacyDraft);
+    const invalidMigratedUi = await page.evaluate((draftKey) => ({ raw: localStorage.getItem(draftKey),
+      title: document.querySelector("#draftRecoveryTitle")?.textContent,
+      body: document.querySelector("#draftRecoveryBody")?.textContent,
+      copyVisible: !document.querySelector("#draftRecoveryCopy")?.classList.contains("hidden"),
+      discardVisible: !document.querySelector("#draftRecoveryDiscard")?.classList.contains("hidden"),
+    }), DRAFT);
+    check(invalidMigratedUi.raw === invalidMigratedRaw && /earlier program/i.test(invalidMigratedUi.title) &&
+      invalidMigratedUi.copyVisible && invalidMigratedUi.discardVisible,
+    "a legacy draft that cannot migrate against the current metric-backed program shows the earlier-program notice with export and clear",
+    invalidMigratedUi);
+    await page.evaluate(() => {
+      window.__draftRecoveryCopied = null;
+      Object.defineProperty(navigator, "clipboard", { configurable: true, value: {
+        writeText(value) { window.__draftRecoveryCopied = value; return Promise.resolve(); },
+      } });
+    });
+    await page.locator("#draftRecoveryCopy").click();
+    await page.waitForFunction((expected) => window.__draftRecoveryCopied === expected, invalidMigratedRaw);
+    check(true, "export (keep in recovery) copies the exact unmigrated raw bytes, never a repaired or guessed draft");
+    await page.evaluate(() => { window.confirm = () => true; });
+    await page.locator("#draftRecoveryDiscard").click();
+    await page.waitForFunction((draftKey) => localStorage.getItem(draftKey) === null &&
+      document.querySelector("#draftRecovery")?.classList.contains("hidden"), DRAFT);
+    const enteredAfterDiscard = await page.evaluate((label) => window.__repforgeEnterWorkout({ day: label }), "Day 1");
+    await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 5000 });
+    const freshAfterDiscard = JSON.parse((await rawState(page)).raw || "null");
+    check(enteredAfterDiscard !== false && freshAfterDiscard?.schemaVersion === 2 &&
+      freshAfterDiscard.draftId !== unmigratableLegacyDraft.draftId,
+    "clear and start fresh removes the unmigratable legacy draft and opens an ordinary new DraftV2 workout",
+    freshAfterDiscard);
+
     check(errors.length === 0, "the production storage/DOM journey emits no page or console errors", errors);
+  } catch (error) {
+    console.error(`failure-time state: ${JSON.stringify(await failureState(page))}; crashes: ${JSON.stringify(crashes)}`);
+    throw error;
   } finally {
     await context.close();
     await browser.close();

@@ -370,10 +370,6 @@
       "label": "Onboarding — Recommend one for me"
     },
     {
-      "id": "onboarding-custom",
-      "label": "Onboarding — Generate a custom program"
-    },
-    {
       "id": "onboarding-build",
       "label": "Onboarding — Build my own"
     },
@@ -498,14 +494,14 @@
       "id": "hub",
       "flow": "onboarding-start",
       "label": "Entry hub",
-      "scenario": "Create a program. Recommend is the sole primary path; Custom is its generated alternative; Browse stands alone; Bring or build is collapsed.",
+      "scenario": "B's hub: Recommend, Build and Import as choice cards, the setup-link note, Continue held until a choice.",
       "variants": "accessibility"
     },
     {
-      "id": "hub-own-open",
+      "id": "hub-chosen",
       "flow": "onboarding-start",
-      "label": "Entry hub — own disclosure open",
-      "scenario": "The Bring or build disclosure expanded with aria-expanded to reveal Build, paste, and Taurifer-file import paths.",
+      "label": "Entry hub — Recommend chosen",
+      "scenario": "The hub with Recommend chosen and Continue enabled.",
       "variants": "localized"
     },
     {
@@ -516,67 +512,263 @@
       "variants": "localized"
     },
     {
-      "id": "hub-help",
-      "flow": "onboarding-start",
-      "label": "Entry hub — route help open",
-      "scenario": "The Not sure which one? helper expanded on the hub: two short questions that end in Continue with the suggested route, reaching all five jobs.",
+      "id": "intro",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — section map",
+      "scenario": "B's section map: Basics, Gym and equipment, Program, with Start with the basics.",
       "variants": "localized"
     },
     {
-      "id": "desired-result",
+      "id": "sex",
       "flow": "onboarding-recommend",
-      "label": "Recommend 1 — desired result",
-      "scenario": "Route header, Cancel, progress 1 of 5, three desired-result choices.",
+      "label": "Recommend Basics 1 — sex",
+      "scenario": "Female, Male and Prefer not to say; the local-only note; Continue held until a choice; Skip.",
+      "variants": "localized"
+    },
+    {
+      "id": "birth-date",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Basics 2 — birth date",
+      "scenario": "Day, month and year wheels at their starting date; the local-only note; Skip.",
+      "variants": "localized"
+    },
+    {
+      "id": "birth-date-typed",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Basics 2 — type a birth-date value",
+      "scenario": "The year value opened for direct entry over the birth-date wheels.",
+      "variants": "localized"
+    },
+    {
+      "id": "birth-date-typed-invalid",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Basics 2 — invalid typed year",
+      "scenario": "The year field remains open with its validation message after an unsupported value.",
+      "variants": "localized"
+    },
+    {
+      "id": "height",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Basics 3 — height",
+      "scenario": "The centimeters/feet-and-inches toggle over the centimeter wheel; the local-only note; Skip.",
+      "variants": "localized"
+    },
+    {
+      "id": "height-ftin",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Basics 3 — height in feet and inches",
+      "scenario": "The same screen with feet and inches chosen: two wheels.",
+      "variants": "localized"
+    },
+    {
+      "id": "weight",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Basics 4 — weight",
+      "scenario": "The kilograms/pounds toggle over the ruler and its value; the note that weight sets bodyweight loads; Skip.",
+      "variants": "localized"
+    },
+    {
+      "id": "weight-lb",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Basics 4 — weight in pounds",
+      "scenario": "The same screen with pounds chosen.",
       "variants": "localized"
     },
     {
       "id": "background",
       "flow": "onboarding-recommend",
-      "label": "Recommend 2 — training background",
-      "scenario": "The carried goal with Change, then structured-program experience.",
+      "label": "Recommend Basics 5 — lifting experience",
+      "scenario": "None, Beginner, Intermediate and Advanced with the engine's bands; required, no Skip.",
       "variants": "localized"
     },
     {
-      "id": "schedule",
+      "id": "cardio-experience",
       "flow": "onboarding-recommend",
-      "label": "Recommend 3 — real week",
-      "scenario": "Days per week and the session-minute ceiling.",
+      "label": "Recommend Basics 6 — cardio experience",
+      "scenario": "Four cardio choices; the local-only note; Skip.",
       "variants": "localized"
     },
     {
       "id": "environment",
       "flow": "onboarding-recommend",
-      "label": "Recommend 4 — environment",
-      "scenario": "Environment shortcuts with the capability correction disclosure closed.",
+      "label": "Recommend Gym 1 — where you train",
+      "scenario": "The six gym presets with Home chosen.",
+      "variants": "localized"
+    },
+    {
+      "id": "equipment",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Gym 2 — equipment",
+      "scenario": "Home's thirteen equipment groups with the preset's ticked and the reset link disabled.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "equipment-adjusted",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Gym 2 — equipment adjusted",
+      "scenario": "Home with the bench ticked and the bands unticked, and the reset link enabled.",
+      "variants": "localized"
+    },
+    {
+      "id": "desired-result",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Program 1 — goal",
+      "scenario": "Muscle growth, Strength and Both.",
+      "variants": "localized"
+    },
+    {
+      "id": "days-per-week",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Program 2 — days per week",
+      "scenario": "Two to six days with four chosen and its split fact.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "session-length",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Program 3 — session length",
+      "scenario": "Up to 20 to up to 150 minutes, with 60 shown as the default.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "muscle-priorities",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Program 4 — muscle priorities",
+      "scenario": "Twelve muscles, each Reduce, Normal or Prioritize; glutes prioritized and calves reduced; Skip.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "muscle-priorities-limit",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Program 4 — priority limit",
+      "scenario": "Five muscles prioritized and a sixth refused with the limit line.",
+      "variants": "localized"
+    },
+    {
+      "id": "deload",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Program 5 — deload",
+      "scenario": "The deload card switched on, marked Recommended.",
       "variants": "localized"
     },
     {
       "id": "abilities",
       "flow": "onboarding-recommend",
-      "label": "Recommend 5 — movement abilities",
-      "scenario": "The seven competency questions as yes/no/unsure rows, unanswered, with Skip offered.",
+      "label": "Recommend Program 6 — movement abilities",
+      "scenario": "Seven yes, no or not sure questions in B's wording, with Skip pinned under Continue.",
       "variants": "localized"
     },
     {
-      "id": "priorities",
+      "id": "building",
       "flow": "onboarding-recommend",
-      "label": "Recommend 6 — priorities",
-      "scenario": "Primary priorities plus optional movement and exercise-avoidance controls.",
+      "label": "Recommend — building",
+      "scenario": "B's third checklist line is active after two lines complete, with generation still in the real worker and Show the program now available.",
       "variants": "localized"
     },
     {
-      "id": "avoidance-pain",
+      "id": "building-pending",
       "flow": "onboarding-recommend",
-      "label": "Recommend 5 — avoidance and pain safety",
-      "scenario": "One avoided exercise with the pain reason selected and its safety copy.",
-      "variants": "accessibility"
+      "label": "Recommend — waiting for generation",
+      "scenario": "With reduced motion, B's checklist is complete and the real worker request remains pending with its waiting label visible.",
+      "variants": "localized"
     },
     {
       "id": "result",
       "flow": "onboarding-recommend",
       "label": "Recommend — recommendation and review",
-      "scenario": "The program first: name, four facts, the week with its first day open, the answers it was built from as chips, why it fits, and the pinned activation.",
+      "scenario": "Onboarding B's review editor at rest: the source, the program name, four facts, the block row and its Change action, the day tabs with rest days and the first day's exercises with their sets, RIR and muscles; how it was built follows, with the pinned activation.",
       "variants": "demandingText"
+    },
+    {
+      "id": "result-confirm-offer",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — offered movement",
+      "scenario": "A real Worker-verified movement offer under its current exercise row, with the approved advice and confirmation action.",
+      "variants": "localized"
+    },
+    {
+      "id": "result-confirmed",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — confirmed movement",
+      "scenario": "After confirming the offered movement: its row is marked Confirmed by you, Undo is available, and the changed rows are announced.",
+      "variants": "localized"
+    },
+    {
+      "id": "result-block-sheet",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — block inputs",
+      "scenario": "The result's block sheet with 10 weeks, the undulating rep pattern selected, and the recommended deload switch on.",
+      "variants": "localized"
+    },
+    {
+      "id": "result-equipment-conflict",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — equipment conflict",
+      "scenario": "The result explains that Home equipment cannot cover vertical pull, says nothing was saved, and offers Back to equipment with the adjustment preserved.",
+      "variants": "localized"
+    },
+    {
+      "id": "result-changed",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — review with adjustments",
+      "scenario": "Three rows carry their marks (a set added, an engine swap, a movement added from the catalog) and the changes bar counts them with Undo and Restore.",
+      "variants": "localized"
+    },
+    {
+      "id": "review-sheet",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — exercise sheet",
+      "scenario": "One exercise's sheet at its top: the movement, its role and job, the sets ledger with RIR per set, the set count, rep range and rest controls, and the day's time.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "review-sheet-execution-mode",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — execution mode",
+      "scenario": "The exercise sheet asks how an ambiguous per-side movement is performed, with both approved answers and the unresolved Review cue.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "review-sheet-swap",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — swap and alternates",
+      "scenario": "The exercise sheet scrolled to the engine's swap candidates, the catalog search and one in-session alternate with its suggestions.",
+      "variants": "localized"
+    },
+    {
+      "id": "review-day-menu",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — day actions",
+      "scenario": "The day menu sheet: rename the day, reorder its exercises, add an exercise.",
+      "variants": "localized"
+    },
+    {
+      "id": "review-day-name-refused",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — duplicate day name refused",
+      "scenario": "The day rename sheet keeps a duplicate name in the field and shows the existing linked alert.",
+      "variants": "localized"
+    },
+    {
+      "id": "review-reorder",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — reorder a day",
+      "scenario": "A day in reorder mode: each exercise with its handle and up and down arrows, and Done.",
+      "variants": "localized"
+    },
+    {
+      "id": "review-empty-day",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — an emptied day",
+      "scenario": "Every exercise of a training day removed: the tab's pip, the day's warning with Add exercise, and Activate disabled with its reason.",
+      "variants": "localized"
+    },
+    {
+      "id": "review-rebuild-confirm",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — rebuild asks first",
+      "scenario": "An answer chip would rebuild an adjusted program: the confirmation to rebuild or keep the adjustments.",
+      "variants": "localized"
     },
     {
       "id": "result-existing",
@@ -621,69 +813,6 @@
       "variants": "localized"
     },
     {
-      "id": "desired-result",
-      "flow": "onboarding-custom",
-      "label": "Custom 1 — desired result",
-      "scenario": "The custom route's own header and step count, not Recommend's.",
-      "variants": "customAccessibility"
-    },
-    {
-      "id": "background",
-      "flow": "onboarding-custom",
-      "label": "Custom 2 — training background",
-      "scenario": "Structured-program experience in the custom route.",
-      "variants": "customAccessibility"
-    },
-    {
-      "id": "schedule",
-      "flow": "onboarding-custom",
-      "label": "Custom 3 — real week",
-      "scenario": "Days per week and the session ceiling in the custom route.",
-      "variants": "demandingText"
-    },
-    {
-      "id": "environment",
-      "flow": "onboarding-custom",
-      "label": "Custom 4 — environment",
-      "scenario": "Environment shortcuts in the custom route.",
-      "variants": "customAccessibility"
-    },
-    {
-      "id": "abilities",
-      "flow": "onboarding-custom",
-      "label": "Custom 5 — movement abilities",
-      "scenario": "The seven competency questions as yes/no/unsure rows, unanswered, with Skip offered, in the custom route.",
-      "variants": "customAccessibility"
-    },
-    {
-      "id": "priorities",
-      "flow": "onboarding-custom",
-      "label": "Custom 6 — muscle priorities",
-      "scenario": "Each muscle has one accessible emphasis setting before exercise preferences.",
-      "variants": "demandingText"
-    },
-    {
-      "id": "exercise-preferences",
-      "flow": "onboarding-custom",
-      "label": "Custom 7 — exercise preferences",
-      "scenario": "One library search offers Include or Avoid, with separate selected lists.",
-      "variants": "customAccessibility"
-    },
-    {
-      "id": "shape",
-      "flow": "onboarding-custom",
-      "label": "Custom 7b — weekly structure",
-      "scenario": "Two compatible weekly structures to choose from; shown only when more than one fits the answers.",
-      "variants": "customAccessibility"
-    },
-    {
-      "id": "result",
-      "flow": "onboarding-custom",
-      "label": "Custom — generated program and review",
-      "scenario": "The custom program first, with muscle emphasis and exercise preferences among the answer chips, and the pinned activation.",
-      "variants": "customAccessibility"
-    },
-    {
       "id": "setup",
       "flow": "onboarding-build",
       "label": "Build 1 — name and days",
@@ -715,7 +844,7 @@
       "id": "source",
       "flow": "onboarding-import",
       "label": "Import — source",
-      "scenario": "The bounded supported-file and setup-source surface before any mutation.",
+      "scenario": "Import's first screen: Choose file and Paste a program, each with its explanation, and the way out to Build, before any mutation.",
       "variants": "localized"
     },
     {
@@ -785,7 +914,7 @@
       "id": "gate",
       "flow": "onboarding-shared",
       "label": "Shared setup — adaptive landing",
-      "scenario": "An incoming setup link adapts the landing around its safe program summary. Nothing persists until Start.",
+      "scenario": "The received-program gate names its program and training days, shows the no-history/no-change disclosure, and offers See the program plus Create a program from scratch.",
       "variants": "demandingText"
     },
     {
@@ -799,7 +928,7 @@
       "id": "preview",
       "flow": "onboarding-shared",
       "label": "Shared setup — review",
-      "scenario": "The editable preview a shared payload lands in before explicit activation.",
+      "scenario": "The received program in B's review with the Shared program source, Restore, and its block as received (no Change), before explicit activation.",
       "variants": "accessibility"
     },
     {
@@ -866,11 +995,39 @@
       "variants": "demandingText"
     },
     {
+      "id": "deload-week",
+      "flow": "today",
+      "label": "Today — deload week",
+      "scenario": "The active program's deload cycle shows its recovery note.",
+      "variants": "localized"
+    },
+    {
       "id": "focus",
       "flow": "workout",
       "label": "Workout — focus mode",
       "scenario": "One exercise at a time.",
       "variants": "demandingText"
+    },
+    {
+      "id": "focus-per-side",
+      "flow": "workout",
+      "label": "Workout — Focus, per-side target",
+      "scenario": "A generated bilateral press shows its per-side load label and adaptive target prefilled in ordinary Focus.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "why-per-side",
+      "flow": "workout",
+      "label": "Workout — why this weight, per-side loading",
+      "scenario": "The generated bilateral press's Why sheet explains the multiplier and enabled bodyweight contribution.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "deload-week",
+      "flow": "workout",
+      "label": "Workout — deload week",
+      "scenario": "Focus shows the recovery note during the program's deload cycle.",
+      "variants": "localized"
     },
     {
       "id": "focus-glossary",
@@ -939,7 +1096,14 @@
       "id": "why-manual",
       "flow": "workout",
       "label": "Workout — why this weight, manual",
-      "scenario": "Manual: one sentence; the program sets the load and the engine does not change it.",
+      "scenario": "A Build-backed manual range: Why says Taurifer does not suggest a load without saying who chose the range.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "why-setup",
+      "flow": "workout",
+      "label": "Workout — why this weight, setup required",
+      "scenario": "A generated asymmetric per-side slot with no known execution mode: Why asks the lifter to specify how they do the movement.",
       "variants": "demandingText"
     },
     {
@@ -995,7 +1159,7 @@
       "id": "exercise-chart",
       "flow": "progress",
       "label": "Progress — exercise chart",
-      "scenario": "A single lift's strength chart.",
+      "scenario": "A per-side lift's e1RM chart and table in the logged unit.",
       "variants": "demandingText"
     },
     {
@@ -1023,7 +1187,7 @@
       "id": "strength-comparison",
       "flow": "progress",
       "label": "Progress — Strength comparison",
-      "scenario": "Two compatible points show values, dates, absolute change, and percentage change.",
+      "scenario": "Two same-convention per-side points show labeled values, dates, comparison, and evidence.",
       "variants": "demandingText"
     },
     {
@@ -1107,14 +1271,14 @@
       "id": "sibling-lower-frequency",
       "flow": "progress",
       "label": "Progress — lower-frequency preview",
-      "scenario": "A provenance-backed lower-frequency sibling diff before confirmation.",
+      "scenario": "A provenance-backed lower-frequency sibling diff before confirmation, naming the block edit it keeps.",
       "variants": "demandingText"
     },
     {
       "id": "sibling-shorter-session",
       "flow": "progress",
       "label": "Progress — shorter-session preview",
-      "scenario": "A provenance-backed shorter-session sibling diff before confirmation.",
+      "scenario": "A provenance-backed shorter-session sibling diff before confirmation, naming the block edits it clamps or cannot carry.",
       "variants": "demandingText"
     },
     {
@@ -1178,6 +1342,13 @@
       "flow": "history",
       "label": "History — expanded session",
       "scenario": "One session expanded in place.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "per-side-session",
+      "flow": "history",
+      "label": "History — per-side session",
+      "scenario": "A saved unilateral and bilateral per-side session shows physical tonnage and a per-side personal record.",
       "variants": "demandingText"
     },
     {
@@ -1265,6 +1436,27 @@
       "variants": "localized"
     },
     {
+      "id": "editor-alternates",
+      "flow": "program",
+      "label": "Program — editor alternates",
+      "scenario": "The installed program editor with an exercise open on its alternates: two chosen movements in order, each with reorder and remove controls, and Add alternate.",
+      "variants": "localized"
+    },
+    {
+      "id": "editor-suggest-loads",
+      "flow": "program",
+      "label": "Program — Suggest loads",
+      "scenario": "The installed program editor with Suggest loads switched on for a dumbbell renegade row: the current rep target, the RIR, the smallest load change, and the question of how the lifter does the exercise.",
+      "variants": "localized"
+    },
+    {
+      "id": "editor-day-name-refused",
+      "flow": "program",
+      "label": "Program — refused day rename",
+      "scenario": "The installed program editor after a day was renamed to a name another day already uses: the field shows the day's own name again and the reason sits under the day header.",
+      "variants": "localized"
+    },
+    {
       "id": "exercise-picker",
       "flow": "program",
       "label": "Program — exercise picker",
@@ -1318,6 +1510,13 @@
       "flow": "program",
       "label": "Program — share link ready",
       "scenario": "A valid setup link is ready for copy or system sharing.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "share-too-large",
+      "flow": "program",
+      "label": "Program — share as file",
+      "scenario": "An edited generated program is too large for a setup link; the sheet offers sharing it as a program file.",
       "variants": "demandingText"
     },
     {
@@ -1489,6 +1688,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "abandon",
+      "flow": "workout",
+      "label": "End without saving",
+      "scenario": "End without saving, with a reason chip chosen, through production controls.",
+      "variants": "demandingText"
+    },
+    {
       "id": "exercise-actions",
       "flow": "workout",
       "label": "Exercise actions",
@@ -1536,6 +1742,20 @@
       "label": "Substituted exercise actions",
       "scenario": "workout/substituted-actions",
       "variants": "demandingText"
+    },
+    {
+      "id": "swap-alternates",
+      "flow": "workout",
+      "label": "Swap picker with alternates",
+      "scenario": "workout/swap-alternates",
+      "variants": "localized"
+    },
+    {
+      "id": "swap-reason",
+      "flow": "workout",
+      "label": "Swap picker with a reason chosen",
+      "scenario": "workout/swap-reason",
+      "variants": "localized"
     },
     {
       "id": "unavailable",

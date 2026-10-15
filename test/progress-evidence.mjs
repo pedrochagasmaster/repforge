@@ -130,7 +130,13 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   const blockRows = await page.locator("#strengthDash .evrow").count();
   assert.ok(blockRows >= 4, "every program lift has a summary row");
   const lateralBlock = page.locator(`#strengthDash [data-evkey="${keys.lateral}"]`);
-  assert.match(await lateralBlock.textContent(), /—/, "current-block latest excludes historical-only observations");
+  const lateralBlockText = (await lateralBlock.textContent()).replace(/\s+/g, " ").trim();
+  assert.match(lateralBlockText, /No evidence yet · Baseline building/,
+    "current-block keeps the approved empty/baseline state when it excludes historical-only observations");
+  assert.equal((await lateralBlock.locator(".evrow__val").textContent()).trim(), "",
+    "current-block renders no historical strength value");
+  assert.doesNotMatch(lateralBlockText, /62\.5 kg|Improved|Maintained|Declined/,
+    "current-block does not leak the historical load or outcome");
   await page.click('#strengthScopeSeg button[data-scope="all-history"]');
   const seamAll = await page.evaluate(({ keys }) => window.__repforgeProgressEvidence.strength(keys.bench), { keys });
   assert.equal(seamAll.points.length, 4, "all-history scope includes pre-block rows");
@@ -145,7 +151,13 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   const seamBack = await page.evaluate(({ keys }) => window.__repforgeProgressEvidence.strength(keys.bench), { keys });
   assert.equal(seamBack.points.length, 3);
   const lateralBack = page.locator(`#strengthDash [data-evkey="${keys.lateral}"]`);
-  assert.match(await lateralBack.locator(".evrow__val").textContent(), /—/, "current-block latest excludes the historical observation");
+  const lateralBackText = (await lateralBack.textContent()).replace(/\s+/g, " ").trim();
+  assert.match(lateralBackText, /No evidence yet · Baseline building/,
+    "returning to current-block restores the approved empty/baseline state");
+  assert.equal((await lateralBack.locator(".evrow__val").textContent()).trim(), "",
+    "returning to current-block restores an empty strength value");
+  assert.doesNotMatch(lateralBackText, /62\.5 kg|Improved|Maintained|Declined/,
+    "returning to current-block does not leak the historical load or outcome");
   await lateralBack.click();
   assert.equal(await page.locator(`#strengthDash [data-evdetail="${keys.lateral}"] tbody tr`).count(), 0,
     "current-block drill-in excludes the historical session");

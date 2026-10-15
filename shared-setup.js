@@ -270,7 +270,7 @@
     return ["g", identityContext.fingerprint, definition.generatorVersion, compactTree(request, identityContext), definition.seed];
   }
 
-  function regenerate(compact, identityContext, options) {
+  async function regenerate(compact, identityContext, options) {
     if (compact.length !== 5 || typeof compact[1] !== "string" || typeof compact[2] !== "string"
       || typeof compact[4] !== "string") return { ok: false, code: "invalid-envelope" };
     if (!identityContext) return { ok: false, code: "catalog-unavailable" };
@@ -281,8 +281,14 @@
     const request = expandTree(compact[3], identityContext.ids);
     if (!request.ok || !isPlainObject(request.value)) return { ok: false, code: "invalid-envelope" };
     let generated;
-    try { generated = options.generateProgram(request.value, options.catalogSnapshot, compact[4]); }
-    catch { return { ok: false, code: "invalid-envelope" }; }
+    try {
+      generated = typeof options.generateProgramAsync === "function"
+        ? await options.generateProgramAsync(request.value, options.catalogSnapshot, compact[4], { signal: options.signal })
+        : options.generateProgram(request.value, options.catalogSnapshot, compact[4]);
+    } catch (error) {
+      if (error?.name === "AbortError") throw error;
+      return { ok: false, code: "invalid-envelope" };
+    }
     if (!generated?.ok || generated.value.generatorVersion !== compact[2]) return { ok: false, code: "invalid-envelope" };
     return { ok: true, value: generated.value };
   }
@@ -335,8 +341,12 @@
     const expanded = expandTree(tree, sourceIdentities);
     if (!expanded.ok || !isPlainObject(expanded.value)) return expanded;
     const definition = expanded.value;
-    for (const day of definition.days || []) {
-      for (const slot of day?.slots || []) {
+    // Received bytes are untrusted until validated: walk only arrays, so a
+    // malformed value reaches validation and is refused rather than thrown (#356).
+    const list = (value) => (Array.isArray(value) ? value : []);
+    for (const day of list(definition.days)) {
+      for (const slot of list(day?.slots)) {
+        if (!isPlainObject(slot)) continue;
         if (slot.sourceExerciseIds === null && typeof slot.exerciseId === "string") {
           slot.sourceExerciseIds = [slot.exerciseId];
         }
@@ -345,8 +355,9 @@
           if (!definitions) return { ok: false, code: "invalid-envelope" };
           slot.metricDefinitions = definitions;
         }
-        for (const cycle of slot.prescriptionsByCycle || []) {
-          for (const set of cycle?.sets || []) {
+        for (const cycle of list(slot.prescriptionsByCycle)) {
+          for (const set of list(cycle?.sets)) {
+            if (!isPlainObject(set)) continue;
             if (set.metricIds === null && set.metricDefinitions === null
               && Array.isArray(slot.metricIds) && Array.isArray(slot.metricDefinitions)) {
               set.metricIds = cloneCanonical(slot.metricIds);
@@ -624,7 +635,7 @@
     ];
   }
 
-  function expandV4(value, identityContext, options) {
+  async function expandV4(value, identityContext, options) {
     if (!Array.isArray(value) || value.length !== 6 || value[0] !== VERSION) {
       return { ok: false, code: "invalid-envelope" };
     }
@@ -637,7 +648,7 @@
       || !Number.isInteger(languageCode) || !LANGUAGES[languageCode]) {
       return { ok: false, code: "invalid-envelope" };
     }
-    const expandedDefinition = expandProgramDefinition(compactDefinition, identityContext, options);
+    const expandedDefinition = await expandProgramDefinition(compactDefinition, identityContext, options);
     // A link from another generator version is unsupported, not malformed.
     if (!expandedDefinition.ok && expandedDefinition.code === "unsupported-version") return expandedDefinition;
     const expandedCustomExercises = compactCustomExercises === null
@@ -677,22 +688,32 @@
     if (!checked.ok) return checked;
     const identityContext = await sourceIdentityContext(options?.catalogSnapshot);
     if (!identityContext) return { ok: false, code: "catalog-unavailable", issues: [], blockers: [] };
-    let json;
-    try { json = JSON.stringify(v4Tuple(checked.value, identityContext, options)); }
+    let json, form;
+    try {
+      const tuple = v4Tuple(checked.value, identityContext, options);
+      // "recipe": the generator request and seed; "full": the whole definition.
+      form = Array.isArray(tuple[2]) && tuple[2][0] === "g" ? "recipe" : "full";
+      json = JSON.stringify(tuple);
+    }
     catch { return { ok: false, code: "invalid-json", issues: [], blockers: [] }; }
     const bytes = new TextEncoder().encode(json);
+    // A refusal still says which form was tried and how large the link would
+    // have been, so callers can say how far over the limit a program is.
     if (bytes.byteLength > MAX_DECOMPRESSED_BYTES) {
-      return { ok: false, code: "encoded-too-large", issues: [], blockers: [] };
+      return { ok: false, code: "encoded-too-large", issues: [], blockers: [], form, decompressedBytes: bytes.byteLength };
     }
     const compressed = await gzipBytes(bytes);
     if (!compressed.ok) return { ...compressed, issues: [], blockers: [] };
     const encoded = "v4." + toBase64Url(compressed.value);
     if (encoded.length > MAX_ENCODED_CHARS) {
-      return { ok: false, code: "encoded-too-large", issues: [], blockers: [] };
+      return { ok: false, code: "encoded-too-large", issues: [], blockers: [], form,
+        encodedChars: encoded.length, compressedBytes: compressed.value.byteLength, decompressedBytes: bytes.byteLength };
     }
     return {
       ok: true,
       value: encoded,
+      form,
+      encodedChars: encoded.length,
       compressedBytes: compressed.value.byteLength,
       decompressedBytes: bytes.byteLength,
     };
@@ -731,7 +752,7 @@
     try { parsed = JSON.parse(text); }
     catch { return { ok: false, code: "invalid-json", issues: [], blockers: [] }; }
     const identityContext = await sourceIdentityContext(options?.catalogSnapshot);
-    const expanded = expandV4(parsed, identityContext, options);
+    const expanded = await expandV4(parsed, identityContext, options);
     if (!expanded.ok) return { ...expanded, issues: [], blockers: [] };
     const checked = buildProposal(expanded.value, options);
     if (!checked.ok) return checked;

@@ -3,7 +3,8 @@
 //   - all six role families present with at least the Plan 049 minimum counts
 //   - role names globally unique, each with a meaning and a consuming plan
 //   - every matrix surface names an existing flow/screen in
-//     docs/ui-screens/manifest.json and only known variant sets
+//     docs/ui-screens/manifest.json and only known variant sets, and the
+//     manifest captures each required configuration (pt-text200)
 // Usage:
 //   node tools/check-ui-semantic-roles.mjs [--check]
 import { readFileSync } from "node:fs";
@@ -34,6 +35,12 @@ const PLAN = /^(04[0-9]|05[0-9])$/;
 const adr = readFileSync(ADR, "utf8");
 const manifest = JSON.parse(readFileSync(MANIFEST, "utf8"));
 const screens = new Set(manifest.screens.map((s) => `${s.flow}/${s.id}`));
+const screenVariants = new Map(
+  manifest.screens.map((s) => [`${s.flow}/${s.id}`, manifest.variantSets[s.variants] || []]),
+);
+// A matrix requirement the catalog must capture: `pt-text200` is the
+// Portuguese 200% text configuration, not a manifest variant-set name.
+const CAPTURED = { "pt-text200": (v) => v.locale === "pt" && v.text === "text200" };
 
 const failures = [];
 const check = (cond, message) => {
@@ -122,6 +129,12 @@ for (const line of matrixBlock.split("\n")) {
   check(screens.has(cells[1]), `matrix surface "${cells[1]}" is not a manifest flow/screen`);
   for (const variant of cells[2].split(/\s+/).filter(Boolean)) {
     check(KNOWN_VARIANTS.has(variant), `matrix surface "${cells[1]}" names unknown variant set "${variant}"`);
+    if (CAPTURED[variant] && screens.has(cells[1])) {
+      check(
+        screenVariants.get(cells[1]).some(CAPTURED[variant]),
+        `matrix surface "${cells[1]}" requires ${variant}, but its manifest variant set does not capture it`,
+      );
+    }
   }
   check((cells[3] || "").length > 0, `matrix surface "${cells[1]}" has no rationale`);
 }

@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const GENERATOR_VERSION = "067.1";
+  const GENERATOR_VERSION = "067.2";
   const PROGRAM_SCHEMA_VERSION = 2;
   const SUPPORTED_PROGRAM_SCHEMA_VERSIONS = Object.freeze([1, 2]);
   const ROLES = Object.freeze([
@@ -43,6 +43,8 @@
     "45° incline barbell press preconditions": "inclineBarbell10",
     "Bodyweight dip preconditions": "bodyweightDips10",
     "Bodyweight vertical pulls preconditions": "pullups5",
+    // #340 (Plan 072 OD-11): "10 strict pull-ups" answers the weighted variants.
+    "Weighted vertical pulls preconditions": "pullups10",
     "Intermediate push-up preconditions": "pushups15",
   });
   const ONTOLOGY_NAMES = Object.freeze({
@@ -478,20 +480,22 @@
     return hash >>> 0;
   }
 
-  function candidatesForJob(jobValue, role, context, catalog, options = {}) {
+  // A job's pool before the search: every exercise's state-independent
+  // verdict in catalog order, and the eligible candidates in selection order.
+  // Only the repeat and exclusion-group checks depend on what the search has
+  // already chosen, and they run last, so filtering this pool by the search
+  // state gives the same candidates, order and rejection counts as a fresh scan.
+  function jobCandidatePool(jobValue, role, context, catalog, options = {}) {
     const resolvedJob = resolveJobPolicy(jobValue, catalog);
-    if (resolvedJob.issues.length) return { candidates: [], policyIssues: resolvedJob.issues };
+    if (resolvedJob.issues.length) return { verdicts: [], candidates: [], policyIssues: resolvedJob.issues };
     const excludedIds = options.excludedIds || new Set();
-    const usedIds = options.usedIds || new Set();
-    const usedGroups = options.usedGroups || new Set();
-    const rejected = {};
+    const nothingUsed = new Set();
+    const verdicts = [];
     const candidates = [];
     for (const exercise of catalog.exercises) {
-      const failure = candidateFailure(exercise, resolvedJob, role, context, catalog, excludedIds, usedIds, usedGroups);
-      if (failure) {
-        rejected[failure] = (rejected[failure] || 0) + 1;
-        continue;
-      }
+      const failure = candidateFailure(exercise, resolvedJob, role, context, catalog, excludedIds, nothingUsed, nothingUsed);
+      verdicts.push({ exercise, failure });
+      if (failure) continue;
       candidates.push({
         exerciseId: exercise.id,
         roleTier: roleTier(exercise, role),
@@ -503,11 +507,39 @@
         _job: resolvedJob,
       });
     }
-    candidates.sort((left, right) => left.roleTier - right.roleTier
+    candidates.sort(compareCandidates);
+    return { verdicts, candidates, policyIssues: [] };
+  }
+
+  function compareCandidates(left, right) {
+    return left.roleTier - right.roleTier
       || Number(right._preferred) - Number(left._preferred)
       || left._seedRank - right._seedRank
-      || left.exerciseId.localeCompare(right.exerciseId));
+      || left.exerciseId.localeCompare(right.exerciseId);
+  }
+
+  function usedFailure(exercise, usedIds, usedGroups) {
+    if (usedIds.has(exercise.id)) return "exercise_repeated";
+    const groupings = Array.isArray(exercise.exclusionGroupings) ? exercise.exclusionGroupings : [];
+    return groupings.some((id) => usedGroups.has(id)) ? "exclusion_group_collision" : null;
+  }
+
+  function availableCandidates(pool, usedIds, usedGroups) {
+    if (pool.policyIssues.length) return { candidates: [], policyIssues: pool.policyIssues };
+    const candidates = pool.candidates.filter((candidate) => !usedFailure(candidate._exercise, usedIds, usedGroups));
+    const rejected = {};
+    if (!candidates.length) {
+      for (const { exercise, failure } of pool.verdicts) {
+        const reason = failure || usedFailure(exercise, usedIds, usedGroups);
+        if (reason) rejected[reason] = (rejected[reason] || 0) + 1;
+      }
+    }
     return { candidates, rejected, policyIssues: [] };
+  }
+
+  function candidatesForJob(jobValue, role, context, catalog, options = {}) {
+    const pool = jobCandidatePool(jobValue, role, context, catalog, options);
+    return availableCandidates(pool, options.usedIds || new Set(), options.usedGroups || new Set());
   }
 
   function prepareJobs(request, catalog) {
@@ -594,6 +626,24 @@
     return { days: schedule, idForName };
   }
 
+  // Generated day names stay English in the definition, so fingerprints,
+  // setup-link recipes and backups do not change with the app language. The
+  // display layer asks for a translation key, which exists only while the day
+  // still carries the exact name the generator gave that week position; a
+  // renamed, swapped or added day is the lifter's own text.
+  function generatedDayNameKey(definition, dayId) {
+    const request = definition?.request;
+    if (!request || !owns(SPLITS, request.split) || !Array.isArray(definition.days)) return null;
+    const trainingIndexes = scheduledTrainingIndexes(request.daysPerWeek);
+    if (!trainingIndexes || !SPLITS[request.split].compatibleDays.includes(request.daysPerWeek)) return null;
+    const position = definition.days.findIndex((day) => day?.id === dayId);
+    const authoredIndex = trainingIndexes.indexOf(position);
+    if (authoredIndex < 0 || definition.days[position].kind !== "training") return null;
+    const authored = dayKinds(request.daysPerWeek, request.split)[authoredIndex];
+    if (!authored || definition.days[position].name !== authored.name) return null;
+    return `program.split_day.${authored.name.toLowerCase().replace(/\s+/g, "_")}`;
+  }
+
   function stableId(seed, value) {
     return seedRank(seed, "id", value).toString(36).padStart(7, "0");
   }
@@ -613,24 +663,35 @@
     const conflicts = [];
     let visited = 0;
     const MAX_SEARCH_NODES = 50000;
+    const roles = jobs.map((entry) => roleForJob(entry, request.goal));
+    const pools = jobs.map((entry, position) => jobCandidatePool(entry, roles[position], request, catalog, { seed }));
+    function unfillable(position, pool) {
+      const entry = jobs[position];
+      if (pool.policyIssues.length) {
+        conflicts.push({ code: "policy_identity_unresolved", purposeId: entry.purposeId, issues: pool.policyIssues });
+        return true;
+      }
+      if (pool.candidates.length) return false;
+      conflicts.push({
+        code: "no_eligible_exercise", purposeId: entry.purposeId, role: roles[position],
+        reasons: pool.rejected,
+        message: `No eligible catalog exercise can fill ${entry.purposeId} under the current constraints.`,
+      });
+      return true;
+    }
+    // A job that no exercise can fill under any earlier choice makes the whole
+    // request unsatisfiable, so report it before backtracking through the
+    // other jobs' combinations.
+    if (pools.some((pool, position) => unfillable(position, availableCandidates(pool, usedIds, usedGroups)))) {
+      return { ok: false, conflicts };
+    }
     function visit(position) {
       if (position >= jobs.length) return true;
       if (++visited > MAX_SEARCH_NODES) return false;
       const entry = jobs[position];
-      const role = roleForJob(entry, request.goal);
-      const pool = candidatesForJob(entry, role, request, catalog, { seed, usedIds, usedGroups });
-      if (pool.policyIssues.length) {
-        conflicts.push({ code: "policy_identity_unresolved", purposeId: entry.purposeId, issues: pool.policyIssues });
-        return false;
-      }
-      if (!pool.candidates.length) {
-        conflicts.push({
-          code: "no_eligible_exercise", purposeId: entry.purposeId, role,
-          reasons: pool.rejected,
-          message: `No eligible catalog exercise can fill ${entry.purposeId} under the current constraints.`,
-        });
-        return false;
-      }
+      const role = roles[position];
+      const pool = availableCandidates(pools[position], usedIds, usedGroups);
+      if (unfillable(position, pool)) return false;
       for (const candidate of pool.candidates) {
         if (!candidateIsBetterThanCollision(candidate, usedIds, usedGroups)) continue;
         const exercise = candidate._exercise;
@@ -651,7 +712,66 @@
       code: "no_complete_program", message: "The hard constraints leave no complete program without repeated or conflicting movements.",
     });
     if (!ok) return { ok: false, conflicts: uniqueConflicts(conflicts) };
-    return { ok: true, assignments };
+    return { ok: true, assignments, pools, roles };
+  }
+
+  // Diagnostic output beside the definition (Plan 072, Plan 068 slice C): for
+  // each selected slot, the best-ranked candidate blocked only by
+  // prerequisites nobody has answered, which a confirmation would rank above
+  // the selection. A "no" answer is never overridden. It reads the selection's
+  // own pools and changes no selection state, so `value` is unchanged; the
+  // adapter verifies that a confirmation actually lands where it is offered.
+  function confirmationOffers(days, selected, slotPositions, request, catalog) {
+    const offers = [];
+    for (const day of days) {
+      for (const slot of day.slots) {
+        const position = slotPositions.get(slot.id);
+        const assignment = position === undefined ? null : selected.assignments[position];
+        if (!assignment || assignment.candidate._exercise.id !== slot.exerciseId) continue;
+        const usedIds = new Set();
+        const usedGroups = new Set();
+        selected.assignments.forEach((other, index) => {
+          if (index === position || !other) return;
+          const exercise = other.candidate._exercise;
+          usedIds.add(exercise.id);
+          (Array.isArray(exercise.exclusionGroupings) ? exercise.exclusionGroupings : []).forEach((id) => usedGroups.add(id));
+        });
+        const role = selected.roles[position];
+        const resolvedJob = assignment.candidate._job;
+        let best = null;
+        for (const { exercise, failure } of selected.pools[position].verdicts) {
+          if (failure !== "prerequisite_confirmation_required") continue;
+          // Ranking first: it is cheap, and most blocked movements rank below.
+          const candidate = {
+            exerciseId: exercise.id,
+            roleTier: roleTier(exercise, role),
+            _preferred: (request.preferredExerciseIds || []).includes(exercise.id),
+            _seedRank: seedRank(request.seed, assignment.job.purposeId, exercise.id),
+          };
+          if (compareCandidates(candidate, assignment.candidate) >= 0) continue;
+          if (best && compareCandidates(candidate, best.candidate) >= 0) continue;
+          const prerequisites = prerequisitesSatisfied(exercise, request, catalog);
+          if (prerequisites.ok || prerequisites.failures.some((item) => item.reason !== "movement_confirmation_required")) continue;
+          const prerequisiteIds = prerequisites.failures.map((item) => item.prerequisiteId).sort();
+          const confirmed = {
+            ...request,
+            movementConfirmations: {
+              ...request.movementConfirmations,
+              [exercise.id]: unique([...(request.movementConfirmations?.[exercise.id] || []), ...prerequisiteIds]),
+            },
+          };
+          if (candidateFailure(exercise, resolvedJob, role, confirmed, catalog, new Set(), usedIds, usedGroups)) continue;
+          best = { candidate, prerequisiteIds };
+        }
+        if (best) {
+          offers.push({
+            dayId: day.id, slotId: slot.id, currentExerciseId: slot.exerciseId,
+            offeredExerciseId: best.candidate.exerciseId, prerequisiteIds: best.prerequisiteIds,
+          });
+        }
+      }
+    }
+    return offers;
   }
 
   function uniqueConflicts(conflicts) {
@@ -806,10 +926,12 @@
     if (!selected.ok) return failure(selected.conflicts);
     const { days, idForName } = rawDays(jobs, request, seedValue);
     const slotsByName = new Map();
+    const slotPositions = new Map();
     selected.assignments.forEach((assignment, index) => {
       const day = days.find((entry) => entry.id === idForName.get(assignment.job.day));
       if (!day) return;
       const slot = createInternalSlot(assignment, day, index + 1, request, seedValue, catalogSnapshot);
+      slotPositions.set(slot.id, index);
       day.slots.push(slot);
       if (!slotsByName.has(day.name)) slotsByName.set(day.name, []);
       slotsByName.get(day.name).push(slot);
@@ -871,7 +993,10 @@
     };
     const checked = validateProgramDefinition(output, catalogSnapshot);
     if (!checked.ok) return failure([{ code: "generated_program_invalid", field: "program", issues: checked.issues }]);
-    return { ok: true, value: output, conflicts: [], explanations: buildExplanations(output, fit, focus) };
+    return {
+      ok: true, value: output, conflicts: [], explanations: buildExplanations(output, fit, focus),
+      confirmationOffers: confirmationOffers(days, selected, slotPositions, request, catalogSnapshot),
+    };
   }
 
   function applyEmphasis(request, days, jobs, catalog, seed) {
@@ -1005,12 +1130,13 @@
     }
   }
 
-  function estimateSlotSeconds(slot) {
-    const firstCycle = slot.prescriptionsByCycle?.[0];
-    const sets = Number.isInteger(slot._setCount) ? slot._setCount : (Array.isArray(firstCycle?.sets) ? firstCycle.sets.length : 0);
+  function estimateSlotSeconds(slot, cycleIndex) {
+    const cycle = cycleIndex === undefined ? slot.prescriptionsByCycle?.[0]
+      : slot.prescriptionsByCycle?.find((cycle) => cycle.cycleIndex === cycleIndex);
+    const sets = Number.isInteger(slot._setCount) ? slot._setCount : (Array.isArray(cycle?.sets) ? cycle.sets.length : 0);
     if (!sets) return 0;
     const repetitionMetric = slot.metricDefinitions?.find((entry) => entry.semantic === "reps" || entry.semantic === "repsPerSide");
-    const target = firstCycle?.sets?.[0]?.targets?.[repetitionMetric?.semantic];
+    const target = cycle?.sets?.[0]?.targets?.[repetitionMetric?.semantic];
     const [fallbackMin, fallbackMax] = stableRepRange({
       repClass: slot._repClass || (slot.role?.endsWith("Accessory") ? "assistance" : "first_push_lower"),
     }, slot.role?.startsWith("strength") ? "strength" : "hypertrophy") || [8, 12];
@@ -1020,15 +1146,17 @@
     const mode = slot._executionMode ?? slot.executionMode;
     const sides = repetitionMetric?.semantic === "repsPerSide" && mode === "unilateral" ? 2 : 1;
     const workSeconds = sets * reps * 4 * sides;
-    const rest = firstCycle?.sets?.[0]?.restSeconds;
+    const rest = cycle?.sets?.[0]?.restSeconds;
     const restSeconds = Math.max(0, sets - 1) * (finite(rest) ? rest : (slot.role?.endsWith("Accessory") ? 90 : 120));
     return 60 + workSeconds + restSeconds;
   }
 
-  function estimateDaySeconds(day) {
+  // Without a cycle the estimate is the first cycle's, which is what the
+  // generator fits; a cycle index estimates that week's prescriptions.
+  function estimateDaySeconds(day, cycleIndex) {
     if (day.kind !== "training") return 0;
     if (!day.slots.length) return 180;
-    return 180 + day.slots.reduce((sum, slot) => sum + estimateSlotSeconds(slot), 0);
+    return 180 + day.slots.reduce((sum, slot) => sum + estimateSlotSeconds(slot, cycleIndex), 0);
   }
 
   function buildExplanations(program, fit, focus) {
@@ -1107,7 +1235,12 @@
   const DAY_KEYS = new Set(["id", "name", "kind", "order", "slots"]);
   const SLOT_KEYS = new Set(["id", "purposeId", "exerciseId", "sourceExerciseIds", "role", "musclePurposeIds", "movementPatternIds",
     "exerciseTypeId", "metricIds", "metricDefinitions", "metricOrigin", "loadingModel", "prescriptionsByCycle", "order",
-    "displayName", "setupNotes", "manualAttribution", "lateralityIds", "executionMode"]);
+    "displayName", "setupNotes", "manualAttribution", "lateralityIds", "executionMode", "alternates"]);
+  // A slot's alternates are the movements the lifter has chosen to swap to,
+  // offered first by the mid-workout swap picker, in their authored order.
+  // The field is additive: a definition without it is unchanged, so it does
+  // not bump PROGRAM_SCHEMA_VERSION (see docs/adr/0019-slot-alternates.md).
+  const MAX_SLOT_ALTERNATES = 5;
   const CYCLE_KEYS = new Set(["cycleIndex", "sets"]);
   const SET_KEYS = new Set(["id", "cycleIndex", "setIndex", "metricType", "metricIds", "metricDefinitions", "targets", "rir", "restSeconds", "status", "provenance"]);
   const REQUEST_KEYS = new Set(["goal", "experience", "daysPerWeek", "timeCeilingMinutes", "gymProfile", "competencyAnswers",
@@ -1322,6 +1455,21 @@
           }
           if (slot.loadingModel.assistanceDirection !== undefined && !["subtract", null].includes(slot.loadingModel.assistanceDirection)) issues.push(`${slotPath}.loadingModel.assistanceDirection: unsupported`);
         }
+        if (slot.alternates !== undefined) {
+          if (!Array.isArray(slot.alternates)) issues.push(`${slotPath}.alternates: expected an array`);
+          else {
+            if (slot.alternates.length > MAX_SLOT_ALTERNATES) issues.push(`${slotPath}.alternates: at most ${MAX_SLOT_ALTERNATES} alternates`);
+            const seenAlternates = new Set();
+            slot.alternates.forEach((id, alternateIndex) => {
+              const alternatePath = `${slotPath}.alternates[${alternateIndex}]`;
+              if (typeof id !== "string" || !id) { issues.push(`${alternatePath}: expected an exercise ID`); return; }
+              if (seenAlternates.has(id)) issues.push(`${alternatePath}: repeated alternate`);
+              seenAlternates.add(id);
+              if (id === slot.exerciseId) issues.push(`${alternatePath}: the slot's own exercise is not an alternate`);
+              if (catalog && !customById.has(id) && !catalog.exercises.some((entry) => entry.id === id)) issues.push(`${alternatePath}: unknown catalog or custom exercise`);
+            });
+          }
+        }
         let exercise = null;
         const custom = customById.get(slot.exerciseId);
         if (custom) {
@@ -1400,6 +1548,7 @@
     next.schemaVersion = PROGRAM_SCHEMA_VERSION;
     for (const day of next.days || []) {
       for (const slot of day.slots || []) {
+        if (Array.isArray(slot.alternates) && !slot.alternates.length) delete slot.alternates;
         for (const cycle of slot.prescriptionsByCycle || []) {
           for (const set of cycle.sets || []) {
             delete set.metricIds;
@@ -1433,15 +1582,18 @@
   const api = Object.freeze({
     GENERATOR_VERSION,
     PROGRAM_SCHEMA_VERSION,
+    MAX_SLOT_ALTERNATES,
     ROLES,
     SPLITS,
     GOALS,
     EXPERIENCES,
     TIME_CEILINGS,
     PERIODIZATIONS,
+    PRECONDITION_COMPETENCIES,
     METRIC_SEMANTICS,
     METRIC_SOURCE_IDS,
     generateProgram,
+    generatedDayNameKey,
     findSubstitutions,
     validateProgramDefinition,
     canonicalizeProgramDefinition,

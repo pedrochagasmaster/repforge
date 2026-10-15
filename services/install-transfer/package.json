@@ -3,14 +3,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "vitest run && node test/health-producer.integration.mjs",
+    "test": "vitest run && node test/health-producer.integration.mjs && node test/production-ops.integration.mjs",
     "test:watch": "vitest",
     "dev": "wrangler dev",
     "check": "node scripts/check.mjs",
     "deploy:dry": "wrangler deploy --dry-run",
     "ops:health": "node scripts/health-producer.mjs",
     "ops:purge": "node scripts/purge-due.mjs",
-    "ops:ack": "node scripts/deletion-ack.mjs"
+    "ops:ack": "node scripts/deletion-ack.mjs",
+    "deploy:dry:production": "wrangler deploy --dry-run --env production",
+    "provision:production": "node scripts/provision-production-secrets.mjs",
+    "ops:production-health": "node scripts/production-health-loop.mjs"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.0.0",

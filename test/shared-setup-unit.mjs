@@ -320,6 +320,53 @@ console.log("v4 encoding preserves scalar leaves in a canonical definition");
   assert.equal(malformed.code, "invalid-envelope");
 }
 
+console.log("a crafted link with a non-array where a list belongs is refused, never thrown (#356)");
+{
+  // The generative property "decode totality" found this with a random seed:
+  // `sets: true` inside a slot made decode throw a TypeError instead of
+  // refusing the link. Each case is built from a real encoding, with one list
+  // replaced on the wire. Expansion keeps key order, so the wire's object
+  // entries are matched to the decoded document's keys by position.
+  const input = compactRepsDocument();
+  const encoded = await Setup.encode(input, compilerOptions);
+  assert.equal(encoded.ok, true, JSON.stringify(encoded));
+  const decoded = await Setup.decode(encoded.value, compilerOptions);
+  assert.equal(decoded.ok, true, JSON.stringify(decoded));
+  function replaceList(node, value, key, replacement) {
+    if (!Array.isArray(node)) return false;
+    if (node[0] === "o" && value && typeof value === "object" && !Array.isArray(value)) {
+      const keys = Object.keys(value);
+      for (let index = 1, position = 0; index < node.length; index += 2, position += 1) {
+        if (keys[position] === key) { node[index + 1] = replacement; return true; }
+        if (replaceList(node[index + 1], value[keys[position]], key, replacement)) return true;
+      }
+    }
+    if (node[0] === "a" && Array.isArray(value)) {
+      for (let index = 1; index < node.length; index += 1) {
+        if (replaceList(node[index], value[index - 1], key, replacement)) return true;
+      }
+    }
+    return false;
+  }
+  for (const [key, replacement] of [["sets", true], ["prescriptionsByCycle", 1], ["slots", "x"], ["days", true]]) {
+    const wire = JSON.parse(await gunzipText(bytesFromBase64url(encoded.value.slice(3))));
+    // A catalog-bound definition travels as ["c", catalog fingerprint, tree].
+    const tree = wire[2][0] === "c" ? wire[2][2] : wire[2];
+    assert.equal(replaceList(tree, decoded.value.program.definition, key, replacement), true,
+      `the compact definition carries ${key}`);
+    const crafted = `v4.${base64url(await gzipText(JSON.stringify(wire)))}`;
+    let refused;
+    try {
+      refused = await Setup.decode(crafted, compilerOptions);
+    } catch (error) {
+      assert.fail(`${key}: ${JSON.stringify(replacement)} made decode throw: ${error}`);
+    }
+    assert.equal(refused.ok, false, `${key}: ${JSON.stringify(replacement)} is refused`);
+    assert.ok(["invalid-envelope", "invalid-program-definition"].includes(refused.code),
+      `${key}: ${JSON.stringify(replacement)} is refused with a typed invalid code, got ${refused.code}`);
+  }
+}
+
 console.log("representative complete URL is short and lossless");
 {
   const representativeInput = compactRepsDocument();
@@ -602,6 +649,64 @@ console.log("fragment and cookie handoff helpers retain source bytes");
   const editedResult = await Setup.encode(document({ program: { name: "Edited", definition: edited } }), generatorOptions);
   assert.equal(editedResult.ok, false, "an edited generated program is not silently replaced by its regeneration");
   assert.equal(editedResult.code, "encoded-too-large", "it is refused whole, never truncated");
+}
+
+// #340 (Plan 072 OD-11): a plain GENERATOR_VERSION bump retires every recipe
+// link made by the earlier generator. The fixture is a real link recorded with
+// 067.1 for a program that answers pullups10 = yes, which the current
+// generator builds differently. With the app's own codec options it is refused
+// as unsupported, the reason the receiver asks for the program to be shared
+// again, and the generator is never even run: nothing can regenerate it into a
+// different program.
+{
+  const legacy = JSON.parse(fs.readFileSync(join(root, "test/fixtures/setup-link-recipe-067-1.json"), "utf8"));
+  assert.notEqual(Compiler.GENERATOR_VERSION, legacy.generatorVersion, "the generator has moved past the recorded link");
+  const releaseCatalog = JSON.parse(fs.readFileSync(join(root, "assets/exercise-catalog.json"), "utf8"));
+  const { EXERCISE_LIBRARY } = require(join(root, "exercises.js"));
+  let generated = 0;
+  const appOptions = { builtInIds: new Set(EXERCISE_LIBRARY.map((entry) => entry.id)), catalogSnapshot: releaseCatalog,
+    validateProgramDefinition: Compiler.validateProgramDefinition,
+    generateProgram: (...args) => { generated++; return Compiler.generateProgram(...args); },
+    generatorVersion: Compiler.GENERATOR_VERSION };
+  const refused = await Setup.decode(legacy.link, appOptions);
+  assert.equal(refused.ok, false, "a recipe link from the earlier generator is refused");
+  assert.equal(refused.code, "unsupported-version", "and refused as unsupported, not as invalid");
+  assert.equal(generated, 0, "the generator never runs for it");
+}
+
+// #317: a slot's alternates are part of the canonical definition. A generated
+// program with alternates is no longer what its generator produces, so it
+// cannot travel as request and seed; it travels in full, alternates and the
+// custom movements they name included, and decodes to the same definition.
+{
+  const generatorOptions = { ...compilerOptions, generateProgram: Compiler.generateProgram,
+    generatorVersion: Compiler.GENERATOR_VERSION };
+  const request = structuredClone(workerFixture.request);
+  const seed = request.seed;
+  delete request.seed;
+  // Two short days keep the full form inside the link limit.
+  Object.assign(request, { daysPerWeek: 2, timeCeilingMinutes: 40, cycles: 1, deloadCycles: [], split: "auto" });
+  const generated = Compiler.generateProgram(request, source, seed);
+  assert.equal(generated.ok, true, JSON.stringify(generated.conflicts));
+  const definition = structuredClone(generated.value);
+  const slots = definition.days.flatMap((day) => day.slots);
+  const catalogAlternate = slots[1].exerciseId;
+  const customAlternate = { id: "custom:alt", name: "Coach press",
+    equipment: [], primary: "", secondary: "", notes: "", metricIds: [], metricDefinitions: [] };
+  slots[0].alternates = [customAlternate.id, catalogAlternate];
+  const input = document({ program: { name: "Generated with alternates", definition, customExercises: [customAlternate] } });
+  const encoded = await Setup.encode(input, generatorOptions);
+  assert.equal(encoded.ok, true, `a generated program with alternates still shares: ${encoded.code || ""}`);
+  const wire = JSON.parse(await gunzipText(bytesFromBase64url(encoded.value.slice(3))));
+  const form = wire.find((entry) => Array.isArray(entry) && (entry[0] === "g" || entry[0] === "c"))?.[0];
+  assert.equal(form, "c", "alternates make the recipe form non-regenerable, so the definition travels in full");
+  const decoded = await Setup.decode(encoded.value, generatorOptions);
+  assert.equal(decoded.ok, true, JSON.stringify(decoded));
+  assert.deepEqual(decoded.value, input, "the alternates and the custom movement they name arrive unchanged");
+  const dropped = structuredClone(input);
+  dropped.program.customExercises = [];
+  assert.equal(Setup.validate(dropped, compilerOptions).ok, false,
+    "a custom alternate without its definition is refused, never left dangling");
 }
 
 console.log("PASS shared setup v4 protocol contract");

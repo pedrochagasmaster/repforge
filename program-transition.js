@@ -241,7 +241,159 @@
     delete request.seed;
     const generated = compiler.generateProgram(request, catalog, definition.seed);
     if (!generated.ok) return unavailable("generation_conflict", { conflicts: generated.conflicts || [] });
-    return { ok: true, value: generated.value };
+    const carried = carryEdits(definition, generated.value, catalog, compiler);
+    return { ok: true, value: carryAlternates(definition, carried.value), carry: carried.carry };
+  }
+
+  // ---- Carrying block edits across a regeneration -------------------------
+  // An edit is wherever the stored definition differs from what its own
+  // request and seed generate. Each one is reapplied, week by week and field
+  // by field, to the successor slot holding the same movement, as long as no
+  // week then runs longer than the ceiling allows or than the generator's own
+  // successor already does. The report holds codes only.
+  const CARRIED_FIELDS = Object.freeze(["targets", "rir", "restSeconds"]);
+
+  function trainingSlots(definition) {
+    return definition.days.filter((day) => day.kind === "training").flatMap((day) => day.slots);
+  }
+
+  function cycleOf(slot, cycleIndex) {
+    return slot.prescriptionsByCycle.find((cycle) => cycle.cycleIndex === cycleIndex);
+  }
+
+  function generatorBaseline(definition, catalog, compiler) {
+    const request = copyJson(definition.request, "request");
+    delete request.seed;
+    let generated;
+    try { generated = compiler.generateProgram(request, catalog, definition.seed); } catch { return null; }
+    if (!generated?.ok || generated.value.generatorVersion !== definition.generatorVersion) return null;
+    return generated.value;
+  }
+
+  function slotEdits(slot, baselineSlot) {
+    const edits = [];
+    for (const cycle of slot.prescriptionsByCycle) {
+      const freshSets = (baselineSlot && cycleOf(baselineSlot, cycle.cycleIndex)?.sets) || [];
+      // A set beyond the generated count is authored whole and counts as "sets".
+      const changed = cycle.sets.map((set, index) => index >= freshSets.length ? []
+        : CARRIED_FIELDS.filter((field) => canonicalJson(set[field] ?? null) !== canonicalJson(freshSets[index][field] ?? null)));
+      const fields = new Set(changed.flat());
+      if (cycle.sets.length !== freshSets.length) fields.add("sets");
+      if (fields.size) edits.push({ cycleIndex: cycle.cycleIndex, fields: [...fields].sort(), changed, generated: freshSets.length });
+    }
+    return edits;
+  }
+
+  function applyCycleEdit(slot, source, edit) {
+    const cycle = cycleOf(slot, edit.cycleIndex);
+    const sourceSets = cycleOf(source, edit.cycleIndex).sets;
+    if (!cycle) return;
+    const count = edit.fields.includes("sets") ? sourceSets.length : cycle.sets.length;
+    const template = cycle.sets.at(-1) || sourceSets.at(-1);
+    cycle.sets = Array.from({ length: count }, (_, index) => {
+      // Ids stay deterministic: re-deriving at confirmation must reproduce them.
+      const set = copyJson(cycle.sets[index] || { ...template, id: `set-${slot.id}-${edit.cycleIndex}-${index + 1}-carried`,
+        cycleIndex: edit.cycleIndex, setIndex: index + 1 }, "set");
+      const from = sourceSets[index];
+      const fields = !from ? [] : index >= edit.generated ? CARRIED_FIELDS : edit.changed[index];
+      if (!fields.length) return set;
+      for (const field of fields) set[field] = copyJson(from[field] ?? null, field);
+      set.status = from.status;
+      set.provenance = copyJson(from.provenance, "provenance");
+      return set;
+    });
+  }
+
+  // Start each day from the generator's prescriptions, which fit, and add the
+  // edits back compounds first and in slot order: an edit stays whole if the
+  // day still fits, gives back extra sets if that is enough, or is dropped.
+  function fitCarried(successor, generated, carried, compiler) {
+    const ceiling = successor.request.timeCeilingMinutes * 60;
+    const cycleIndexes = Array.from({ length: successor.cycles }, (_, index) => index + 1);
+    for (const day of successor.days.filter((entry) => entry.kind === "training")) {
+      const fresh = generated.days.find((entry) => entry.id === day.id);
+      const over = () => cycleIndexes.filter((cycleIndex) => compiler.estimateDaySeconds(day, cycleIndex) >
+        Math.max(ceiling, compiler.estimateDaySeconds(fresh, cycleIndex)));
+      const order = day.slots.filter((slot) => carried.has(slot)).sort((left, right) =>
+        Number(/Accessory$/.test(left.role)) - Number(/Accessory$/.test(right.role)) || left.order - right.order);
+      const wanted = new Map(order.map((slot) => [slot, slot.prescriptionsByCycle]));
+      for (const slot of order) slot.prescriptionsByCycle = copyJson(carried.get(slot).fresh.prescriptionsByCycle, "prescriptionsByCycle");
+      for (const slot of order) {
+        const entry = carried.get(slot);
+        slot.prescriptionsByCycle = wanted.get(slot);
+        for (const cycleIndex of over()) {
+          const sets = cycleOf(slot, cycleIndex).sets;
+          const generatedCount = cycleOf(entry.fresh, cycleIndex).sets.length;
+          while (sets.length > generatedCount && over().includes(cycleIndex)) { sets.pop(); entry.outcome = "clamped"; }
+        }
+        if (!over().length) continue;
+        slot.prescriptionsByCycle = copyJson(entry.fresh.prescriptionsByCycle, "prescriptionsByCycle");
+        entry.outcome = "dropped";
+        entry.reason = "over_session_limit";
+      }
+    }
+  }
+
+  // Each predecessor slot's successor is the slot holding the same movement
+  // (exercise and metric composition), or null when regeneration removed it.
+  // Generated slots claim their movement before a copy the lifter added by
+  // hand, which regeneration never reproduces.
+  function matchSlots(predecessor, next) {
+    const movement = (slot) => `${slot.exerciseId}|${canonicalJson(slot.metricIds)}`;
+    const unclaimed = new Map();
+    for (const slot of trainingSlots(next)) unclaimed.set(movement(slot), [...(unclaimed.get(movement(slot)) || []), slot]);
+    const sources = trainingSlots(predecessor);
+    return new Map([...sources.filter((slot) => slot.role !== "manual"), ...sources.filter((slot) => slot.role === "manual")]
+      .map((slot) => [slot, unclaimed.get(movement(slot))?.shift() || null]));
+  }
+
+  // #317: a slot's alternates are the lifter's own choice, not a prescription,
+  // so they travel with the movement whether or not the edits were identified.
+  function carryAlternates(predecessor, successor) {
+    if (!trainingSlots(predecessor).some((slot) => Array.isArray(slot.alternates) && slot.alternates.length)) return successor;
+    const next = copyJson(successor, "programDefinition");
+    for (const [source, target] of matchSlots(predecessor, next)) {
+      const alternates = (Array.isArray(source.alternates) ? source.alternates : []).filter((id) => id !== target?.exerciseId);
+      if (target && alternates.length) target.alternates = [...alternates];
+    }
+    return next;
+  }
+
+  function carryEdits(predecessor, successor, catalog, compiler) {
+    const baseline = generatorBaseline(predecessor, catalog, compiler);
+    if (!baseline) return { value: successor, carry: { identified: false, entries: [] } };
+    const next = copyJson(successor, "programDefinition");
+    const baselineSlots = new Map(trainingSlots(baseline).map((slot) => [slot.id, slot]));
+    const freshSlots = new Map(trainingSlots(successor).map((slot) => [slot.id, slot]));
+    const sources = trainingSlots(predecessor);
+    const targets = matchSlots(predecessor, next);
+    const entries = [];
+    const carried = new Map();
+    for (const source of sources) {
+      const edits = slotEdits(source, baselineSlots.get(source.id));
+      const target = targets.get(source);
+      if (!edits.length) continue;
+      const entry = { source, target, edits, fresh: target && freshSlots.get(target.id),
+        outcome: target ? "kept" : "dropped", reason: target ? null : "slot_removed" };
+      entries.push(entry);
+      if (!target) continue;
+      for (const edit of edits) applyCycleEdit(target, source, edit);
+      carried.set(target, entry);
+    }
+    fitCarried(next, successor, carried, compiler);
+    return { value: next, carry: { identified: true, entries: entries.map((entry) => ({
+      exerciseId: entry.source.exerciseId,
+      predecessorSlotId: entry.source.id,
+      successorSlotId: entry.target?.id || null,
+      outcome: entry.outcome,
+      reason: entry.reason,
+      cycles: entry.edits.map((edit) => ({
+        cycleIndex: edit.cycleIndex,
+        fields: edit.fields,
+        requestedSets: cycleOf(entry.source, edit.cycleIndex).sets.length,
+        sets: entry.target ? cycleOf(entry.target, edit.cycleIndex)?.sets.length ?? null : null,
+      })),
+    })) } };
   }
 
   function reduceVolume(definition) {
@@ -317,11 +469,14 @@
     if (!derived.ok) return derived;
     const checked = validateProgramDefinition(derived.value, custom, catalog);
     if (!checked.ok) return resultInvalid("derived_definition_invalid");
-    return { ok: true, value: { programDefinition: checked.value, customExerciseDefinitions: custom, change } };
+    return { ok: true, value: { programDefinition: checked.value, customExerciseDefinitions: custom, change,
+      ...(derived.carry ? { carry: derived.carry } : {}) } };
   }
 
-  async function derivationMatches(change, predecessor, successor, catalog) {
-    const derived = deriveSuccessor({
+  // A caller may supply the derivation (#353: the program engine runs it in a
+  // worker); it must return exactly what deriveSuccessor returns.
+  async function derivationMatches(change, predecessor, successor, catalog, derive = deriveSuccessor) {
+    const derived = await derive({
       change,
       programDefinition: predecessor.programDefinition,
       customExerciseDefinitions: predecessor.customExerciseDefinitions,
@@ -332,7 +487,7 @@
       await fingerprintProgramDefinition(successor.programDefinition, successor.customExerciseDefinitions);
   }
 
-  async function createReplacementProposal(input) {
+  async function createReplacementProposal(input, { deriveSuccessor: derive } = {}) {
     try {
       const copied = copyJson(input, "input");
       const catalog = catalogFrom(copied.catalogSnapshot);
@@ -341,7 +496,7 @@
       if (change !== undefined && !validChange(change)) return resultInvalid("unsupported_change");
       const normalized = canonicalInput(copied, catalog);
       if (!normalized.ok) return resultInvalid(normalized.code || "replacement_input_invalid");
-      if (change !== undefined && !await derivationMatches(change, normalized.value.predecessor, normalized.value.successor, catalog)) {
+      if (change !== undefined && !await derivationMatches(change, normalized.value.predecessor, normalized.value.successor, catalog, derive)) {
         return resultInvalid("successor_derivation_mismatch");
       }
       const proposal = {
@@ -394,7 +549,7 @@
       /^[0-9a-f]{64}$/.test(proposal.proposalHash) && (!Object.hasOwn(proposal, "change") || validChange(proposal.change));
   }
 
-  async function validateProposal(proposal, current) {
+  async function validateProposal(proposal, current, { deriveSuccessor: derive } = {}) {
     let safeProposal;
     let safeCurrent;
     try {
@@ -439,7 +594,7 @@
     if (successorFingerprint !== safeProposal.successor.definitionFingerprint) return resultInvalid("successor_definition_mismatch");
     if (Object.hasOwn(safeProposal, "change") && !await derivationMatches(safeProposal.change,
       { programDefinition: currentDefinition.value, customExerciseDefinitions: safeCurrent.predecessor.customExerciseDefinitions },
-      safeProposal.successor, catalog)) return resultInvalid("successor_derivation_mismatch");
+      safeProposal.successor, catalog, derive)) return resultInvalid("successor_derivation_mismatch");
     deepFreeze(safeProposal);
     replacementCapabilities.add(safeProposal);
     return { ok: true, status: "preview", proposal: safeProposal };

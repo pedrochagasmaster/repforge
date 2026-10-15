@@ -3,7 +3,7 @@
  * Deterministic production-path repros for twelve cross-tab persistence races.
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, waitForAsyncCondition } from "./browser.mjs";
 import {
   clearPersistenceArtifacts,
   inventoryPersistenceArtifacts,
@@ -421,7 +421,7 @@ async function holdStorageLock(page) {
 }
 
 async function waitForPendingStorageLocks(page, count) {
-  await page.waitForFunction(
+  await waitForAsyncCondition(page,
     async ({ lockName, count }) => {
       const state = await navigator.locks.query();
       return state.pending.filter((lock) => lock.name === lockName).length >= count;

@@ -24,7 +24,7 @@
  * Run: node test/motion-integration.mjs
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, answerRecommend } from "./browser.mjs";
 import { installSeedProgram, seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { metricLogRow } from "./fixtures/history-metric-rows.mjs";
 
@@ -972,22 +972,12 @@ async function generatedProgramMotion(browser, { reducedMotion = "no-preference"
   await settle(page);
   const walk = async () => {
     await page.evaluate(() => window.startOnboarding("settings"));
-    const step = (name) => page.waitForFunction((n) => window.__repforgeEntryState?.()?.step === n, name, { timeout: 15000 });
-    await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
-    await step("background");
-    await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
-    await page.click("#onbNext");
-    await step("schedule");
-    await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="4"]');
-    await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
-    await page.click("#onbNext");
-    await step("environment");
-    await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
-    await page.click("#onbNext");
-    await step("abilities");
-    await page.click("#onbNext");
-    // The last question before the result: the next Next generates the program.
-    await step("priorities");
+    // B's order (Plan 072 S2) puts "abilities" last, immediately before
+    // "result" - that is the question whose Continue generates the program.
+    await answerRecommend(page, {
+      lifting: "6_to_24m", days: 4, minutes: 60, environment: "commercial_gym", goal: "muscle_growth",
+      skipBasics: true, until: "abilities",
+    });
   };
   phase(`O3: a freshly generated program is drawn in reading order${tag}`);
   await walk();
@@ -996,13 +986,17 @@ async function generatedProgramMotion(browser, { reducedMotion = "no-preference"
     const t0 = performance.now();
     document.querySelector("#onbNext").click();
     let busy = true;
-    while (performance.now() - t0 < 1800) {
+    // The window is timed from the first built frame, so a slow generation on
+    // the runner does not eat into the build being measured.
+    let builtAt = null;
+    while (performance.now() - (builtAt ?? t0) < 1800 && performance.now() - t0 < 8000) {
       await new Promise((resolve) => requestAnimationFrame(resolve));
       const review = document.querySelector("#entryCandidateReview");
       if (!review) continue;
       const items = [...document.querySelectorAll("#onbBody .motion-build-item")];
       if (busy && items.length) {
         busy = false;
+        builtAt = performance.now();
         out.first = {
           names: items.map((el) => el.className.split(" ").filter((c) => !c.startsWith("motion-")).join(" ") + "|" + el.tagName),
           animation: items.map((el) => getComputedStyle(el).animationName), duration: items.map((el) => getComputedStyle(el).animationDuration),
@@ -1011,18 +1005,17 @@ async function generatedProgramMotion(browser, { reducedMotion = "no-preference"
           activateInside: !!document.querySelector("#entryActivate")?.closest(".motion-build-item"),
           controlsInside: items.some((el) => el.matches("button,input,select,a") || el.querySelector(":scope button:not(summary),:scope input")),
         };
-        // A day in the build opens at once when pressed: nothing waits on the build.
-        const summary = document.querySelectorAll("#entryCandidateReview details.onb__day")[1]?.querySelector("summary");
-        const before = summary?.parentElement.open;
-        summary?.click();
-        out.toggled = summary ? summary.parentElement.open !== before : null;
-        summary?.click();
+        // Another day opens at once when its tab is pressed: nothing waits on the build.
+        const tabs = document.querySelectorAll("#entryReview [data-review-tab]");
+        tabs[2]?.click();
+        out.toggled = tabs[2] ? document.querySelector('#entryReview [data-review-tab="2"]')?.getAttribute("aria-selected") === "true" : null;
+        document.querySelector('#entryReview [data-review-tab="0"]')?.click();
         out.activateDisabled = document.querySelector("#entryActivate")?.disabled;
         out.activatePointer = getComputedStyle(document.querySelector("#entryActivate")).pointerEvents;
       }
       out.frames.push({ t: Math.round(performance.now() - t0), hosts: document.querySelectorAll("#onbBody .motion-build").length, items: items.length });
     }
-    out.opacity = [...document.querySelectorAll("#entryCandidateReview details.onb__day, #entryCandidateReview .entry__progname")].map((el) => Number(getComputedStyle(el).opacity));
+    out.opacity = [...document.querySelectorAll("#entryReview .review__row, #entryReview .review__facts, #entryReview .review__kicker")].map((el) => Number(getComputedStyle(el).opacity));
     return out;
   });
   if (reduced) {
@@ -1033,28 +1026,72 @@ async function generatedProgramMotion(browser, { reducedMotion = "no-preference"
       "each block rises into place over 200ms", JSON.stringify(first));
     assert(first?.index.every((v, i) => v === String(i)) && first?.delay.every((d, i) => Math.round(d) === i * 55),
       "each block is 55ms after the one before it, counted in reading order", JSON.stringify(first));
-    assert(first?.order && first.names.length >= 5, "in document order, from the name through every day", JSON.stringify(first?.names));
+    assert(first?.order && first.names.length >= 5, "in document order, from the source line through the day's exercises", JSON.stringify(first?.names));
     assert(first && !first.activateInside && !first.controlsInside, "no button or field is part of the build", JSON.stringify(first));
     assert(built.toggled === true && built.activateDisabled === false && built.activatePointer !== "none",
-      "a day opens on the first press and the activate action is enabled while the build runs", JSON.stringify(built));
+      "a day's tab opens it on the first press and the activate action is enabled while the build runs", JSON.stringify(built));
     assert(built.frames.at(-1).items === 0 && built.frames.at(-1).hosts === 0, "the build takes its classes off when the last block lands", JSON.stringify(built.frames.at(-1)));
     assert(built.opacity.every((o) => o === 1), "and every block is at rest", JSON.stringify(built.opacity));
   }
+  const originalFingerprint = await page.evaluate(() => window.__repforgeEntryState?.()?.result?.fingerprint);
 
   phase(`O3: showing the same program again does not build it again${tag}`);
   await page.click("#onbBack");
   await page.waitForFunction(() => !document.querySelector("#entryCandidateReview") && !!document.querySelector("#onbNext"), undefined, { timeout: 5000 });
-  const again = await page.evaluate(async () => {
+  await page.evaluate(() => {
+    const probe = window.__motionRepeatBuildProbe = { max: 0, review: false, done: false, quietFrames: 0 };
+    const sample = () => {
+      const items = document.querySelectorAll("#onbBody .motion-build-item").length;
+      probe.max = Math.max(probe.max, items);
+      probe.review = !!document.querySelector("#entryCandidateReview");
+      probe.quietFrames = probe.review && items === 0 ? probe.quietFrames + 1 : 0;
+      if (probe.quietFrames >= 2) {
+        probe.done = true;
+        return;
+      }
+      requestAnimationFrame(sample);
+    };
     document.querySelector("#onbNext").click();
-    let max = 0;
-    const t0 = performance.now();
-    while (performance.now() - t0 < 700) {
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-      max = Math.max(max, document.querySelectorAll("#onbBody .motion-build-item").length);
-    }
-    return { max, review: !!document.querySelector("#entryCandidateReview") };
+    requestAnimationFrame(sample);
+  });
+  await page.waitForFunction(() => window.__motionRepeatBuildProbe?.done === true, undefined, { timeout: 5000 });
+  const again = await page.evaluate(() => {
+    const { max, review } = window.__motionRepeatBuildProbe;
+    delete window.__motionRepeatBuildProbe;
+    return { max, review };
   });
   assert(again.review && again.max === 0, "going back and forward draws the program at rest", JSON.stringify(again));
+  phase(`O3: a fresh result after a changed answer keeps its first reveal${tag}`);
+  await page.click("#onbBack");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities", undefined, { timeout: 5000 });
+  await page.locator('[data-entry-pick="competencyAnswer"][data-entry-val="pullups5|yes"]').click();
+  await page.evaluate(() => {
+    const probe = window.__motionFreshBuildProbe = { max: 0, review: false, done: false, quietFrames: 0, fingerprint: null };
+    const sample = () => {
+      const items = document.querySelectorAll("#onbBody .motion-build-item").length;
+      probe.max = Math.max(probe.max, items);
+      probe.review = !!document.querySelector("#entryCandidateReview");
+      probe.fingerprint = window.__repforgeEntryState?.()?.result?.fingerprint || null;
+      probe.quietFrames = probe.review && items === 0 ? probe.quietFrames + 1 : 0;
+      if (probe.quietFrames >= 2) {
+        probe.done = true;
+        return;
+      }
+      requestAnimationFrame(sample);
+    };
+    document.querySelector("#onbNext").click();
+    requestAnimationFrame(sample);
+  });
+  await page.waitForFunction(() => window.__motionFreshBuildProbe?.done === true, undefined, { timeout: 20000 });
+  const fresh = await page.evaluate(() => {
+    const { max, review, fingerprint } = window.__motionFreshBuildProbe;
+    delete window.__motionFreshBuildProbe;
+    return { max, review, fingerprint };
+  });
+  assert(fresh.review && fresh.fingerprint && fresh.fingerprint !== originalFingerprint &&
+    (reduced ? fresh.max === 0 : fresh.max > 0),
+    reduced ? "a changed answer creates a distinct result without motion under reduced motion" :
+      "a changed answer creates a distinct result and keeps the first reveal", JSON.stringify({ originalFingerprint, ...fresh }));
   // An answer chip re-renders the review, and applying a changed answer rebuilds the program in place: neither plays the build.
   const edited = await page.evaluate(async () => {
     let max = 0;
@@ -1072,7 +1109,7 @@ async function generatedProgramMotion(browser, { reducedMotion = "no-preference"
     await watch(150);
     document.querySelector("#entryChipApply").click();
     await watch(900);
-    const days = document.querySelectorAll("#entryCandidateReview details.onb__day").length;
+    const days = (window.__repforgeEntryState?.()?.result?.preview?.days || []).length;
     return { max, opened, days, editorClosed: !document.querySelector("#entryEditor") };
   });
   assert(edited.opened && edited.editorClosed && edited.days === 3 && edited.max === 0,
@@ -1634,47 +1671,53 @@ async function entrySelectionInk(browser, { reducedMotion = "no-preference", col
   await settle(page);
   const step = (name) => page.waitForFunction((n) => window.__repforgeEntryState?.()?.step === n, name, { timeout: 15000 });
   await page.evaluate(() => window.startOnboarding("settings"));
-  await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
+  await page.click('[data-entry-hub="recommend"]');
+  await page.click("#onbNext");
+  await step("intro");
+  await page.click("#onbNext");
+  for (const skipStep of ["sex", "birth_date", "height", "weight"]) { await step(skipStep); await page.click("#onbSkip"); }
   await step("background");
   await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
   await page.click("#onbNext");
-  await step("schedule");
+  await step("cardio_experience");
+  await page.click("#onbSkip");
+  await step("environment");
 
   phase(`O2: a chosen option is ringed in ink and nothing about the card moves${tag}`);
-  // The schedule step holds two single-choice groups: days per week and the session ceiling.
-  await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="4"]');
-  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
+  // "schedule" (days + minutes on one screen) is gone; "environment" is now
+  // the nearest single-choice radiogroup step to carry this proof.
+  await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
   const list = await page.evaluate(() => window.__entrySel());
   const ring = (c) => /0px 0px 0px 2px inset/.test(c.shadow) && c.shadow.includes(list.ink);
-  assert(list.cards.length === 2, "the two chosen rows are selected cards", String(list.cards.length));
-  assert(list.cards.every(ring), "each selected row draws the 2px inset ink ring", JSON.stringify(list.cards.map((c) => c.shadow)));
+  assert(list.cards.length === 1, "the chosen row is a selected card", String(list.cards.length));
+  assert(list.cards.every(ring), "the selected row draws the 2px inset ink ring", JSON.stringify(list.cards.map((c) => c.shadow)));
   assert(list.cards.every((c) => !c.cardPaints.length && !c.markPaints.length && !c.iconPaints.length),
     "and paints no accent on the card, its mark or its icon", JSON.stringify(list.cards.map((c) => [c.cardPaints, c.markPaints, c.iconPaints])));
   assert(list.cards.every((c) => c.transform === "none"), "a selected card does not lift", JSON.stringify(list.cards.map((c) => c.transform)));
   const sizes = await page.evaluate(() => window.__entryRects());
-  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="90"]');
+  await page.click('[data-entry-pick="environment"][data-entry-val="warehouse_gym"]');
   const resized = await page.evaluate(() => window.__entryRects());
   assert(sizes.length > 0 && sizes.length === resized.length && sizes.every((r, i) => r[0] === resized[i][0] && r[1] === resized[i][1]),
     "choosing a different row leaves every card the same size", JSON.stringify({ sizes, resized }));
   if (reduced) assert(list.cards.every((c) => c.maxDuration === 0), "under reduced motion the card has no transition", JSON.stringify(list.cards.map((c) => c.maxDuration)));
   else assert(list.cards.every((c) => /box-shadow/.test(c.transition) && c.maxDuration > 0 && c.maxDuration <= 0.16),
     "the ring arrives on the card's own box-shadow transition, 160ms or less", JSON.stringify(list.cards.map((c) => [c.transition, c.maxDuration])));
+  // Home leaves most equipment groups unticked, so the checkbox run below
+  // has rows to choose.
+  await page.click('[data-entry-pick="environment"][data-entry-val="limited_home"]');
+  await page.click("#onbNext");
+  await step("equipment");
 
   phase(`O2: a chosen checkbox has an ink mark, not an orange one${tag}`);
-  await page.click("#onbNext");
-  await step("environment");
-  await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
-  await page.click("#onbNext");
-  await step("abilities");
-  await page.click("#onbNext");
-  await step("priorities");
-  // The priorities step is the one with checkboxes: two muscles and a movement to prioritise.
-  await page.click('[data-entry-pick="primaryMuscles"][data-entry-val="chest"]');
-  await page.click('[data-entry-pick="primaryMuscles"][data-entry-val="back"]');
-  await page.click('[data-entry-pick="priorityMovements"][data-entry-val="squat"]');
+  // The equipment groups are B's checkbox cards. Three that start unticked
+  // are chosen, so the click is what selects them.
+  const offGroups = await page.evaluate(() => [...document.querySelectorAll('[data-entry-pick="equipmentGroup"][aria-checked="false"]')]
+    .slice(0, 3).map((el) => el.dataset.entryVal));
+  assert(offGroups.length === 3, "at least three equipment groups start unselected to click", JSON.stringify(offGroups));
+  for (const group of offGroups) await page.click(`[data-entry-pick="equipmentGroup"][data-entry-val="${group}"]`);
   const boxes = await page.evaluate(() => window.__entrySel());
   const checks = boxes.cards.filter((c) => c.role === "checkbox");
-  assert(checks.length >= 3, "the three chosen priorities are selected checkbox cards", String(checks.length));
+  assert(checks.length >= 3, "the three chosen equipment groups are selected checkbox cards", String(checks.length));
   assert(checks.every((c) => !c.cardPaints.length && !c.markPaints.length && !c.iconPaints.length),
     "no selected checkbox card, mark or icon paints the accent", JSON.stringify(checks.map((c) => [c.cardPaints, c.markPaints, c.iconPaints])));
   assert(boxes.cards.every((c) => /0px 0px 0px 2px inset/.test(c.shadow) && c.shadow.includes(boxes.ink)),
@@ -2103,6 +2146,23 @@ window.__dock = {
       frame();
     });
   },
+  // The app marks the dock data-lens="on" when the travel's completion callback runs, which can land a frame or
+  // two after the spring has visibly arrived (#377).
+  settled() { const s = this.read(); return s.mode === "on" && s.transform === ""; },
+  // Frames for at least ms and on until the lens has settled. A lens that never settles stops sampling at the
+  // bound and fails the end-state checks rather than hanging the page.
+  travel(ms, after, bound = 3000) {
+    return new Promise((resolve) => {
+      const out = [], t0 = performance.now();
+      const frame = () => requestAnimationFrame(() => setTimeout(() => {
+        const t = performance.now() - t0;
+        out.push({ t, ...this.read() });
+        if ((t < ms || !this.settled()) && t < bound) frame(); else resolve(out);
+      }, 0));
+      if (after) after();
+      frame();
+    });
+  },
   click(view) { document.querySelector('nav button[data-view="' + view + '"]').click(); },
 };
 `;
@@ -2167,7 +2227,7 @@ async function dockMotion(browser, { reducedMotion = "no-preference" } = {}) {
 
   phase(`N1: choosing a tab travels the lens from the old tab to the new one${tag}`);
   const before = { log: await rectOf("log"), history: await rectOf("history") };
-  const go = await page.evaluate(() => window.__dock.frames(520, () => window.__dock.click("history")));
+  const go = await page.evaluate(() => window.__dock.travel(520, () => window.__dock.click("history")));
   assert(go[0].view === "history", "the tab is selected on the first frame; nothing waits on the travel", go[0].view);
   assert(go.every((f) => f.count === 1), "there is one lens on every frame", JSON.stringify([...new Set(go.map((f) => f.count))]));
   const last = go.at(-1);
@@ -2195,7 +2255,7 @@ async function dockMotion(browser, { reducedMotion = "no-preference" } = {}) {
       const restart = window.__dock.read();
       return { live, restart };
     });
-    await wait(page, 700);
+    await page.waitForFunction(() => window.__dock.settled());
     const end = await page.evaluate(() => window.__dock.read());
     const stats = await rectOf("stats"), program = await rectOf("program");
     const history = await rectOf("history");
@@ -2205,7 +2265,7 @@ async function dockMotion(browser, { reducedMotion = "no-preference" } = {}) {
     assert(onButton(end) && end.view === "program" && end.count === 1 && end.transform === "" && Math.abs(end.lens.left - program.left) < 0.5, "and it lands on the last tab chosen", JSON.stringify(end));
   }
   await page.evaluate(() => window.__dock.click("history"));
-  await wait(page, 600);
+  await page.waitForFunction(() => window.__dock.settled());
 
   phase(`N1: Settings and back: the lens is in place when the dock returns, with no travel${tag}`);
   await page.evaluate(() => document.querySelector("#openSettings").click());
@@ -2276,7 +2336,7 @@ async function dockMotion(browser, { reducedMotion = "no-preference" } = {}) {
     const act = nav.querySelector("button.active"), cs = getComputedStyle(act);
     return { mode: nav.dataset.lens, vis: getComputedStyle(nav.querySelector(".dock-lens")).visibility, bg: cs.backgroundColor, shadow: cs.boxShadow, border: cs.borderTopColor, n: document.querySelectorAll(".dock-lens").length };
   });
-  await wait(page, 600);
+  await page.waitForFunction(() => window.__dock.settled());
   const barRest = await page.evaluate(() => { const nav = document.querySelector("nav"), cs = getComputedStyle(nav.querySelector("button.active")); return { ...window.__dock.read(), vis: getComputedStyle(nav.querySelector(".dock-lens")).visibility, bg: cs.backgroundColor, border: cs.borderTopColor }; });
   if (reduced) {
     assert(barAir.mode === "on" && barAir.vis === "hidden" && barAir.bg !== "rgba(0, 0, 0, 0)", "under reduced motion the lens never shows: the button's own paint is the selected tab on every frame", JSON.stringify(barAir));
@@ -2305,7 +2365,7 @@ async function dockMotion(browser, { reducedMotion = "no-preference" } = {}) {
   assert(navAfter > navBefore, "200% text makes the two-row dock", JSON.stringify({ navBefore, navAfter }));
   assert(onButton(big.at(-1)) && big.every((f) => f.transform === "" && f.count === 1), "the lens is on the active tab of the taller dock and was never in flight", JSON.stringify({ end: big.at(-1).lens, active: big.at(-1).active }));
   const second = await page.evaluate(async () => {
-    const out = await window.__dock.frames(560, () => window.__dock.click("program"));
+    const out = await window.__dock.travel(560, () => window.__dock.click("program"));
     return out;
   });
   assert(onButton(second.at(-1)) && second.at(-1).view === "program" && second.every((f) => f.count === 1), "and a tab chosen in the two-row dock lands on its tile", JSON.stringify({ end: second.at(-1).lens, active: second.at(-1).active }));
@@ -2431,6 +2491,16 @@ async function run() {
     await edgeBack(browser, { reducedMotion: "reduce" });
     await browser.close();
     console.log(`\nmotion integration (pages): ${results.passed} passed, ${results.failed} failed`);
+    process.exit(results.failed ? 1 : 0);
+  }
+
+  // REPFORGE_MOTION_ONLY=generated runs O3 alone: production generation,
+  // one-time reveal, unchanged-result re-entry, and reduced-motion paths.
+  if (process.env.REPFORGE_MOTION_ONLY === "generated") {
+    await generatedProgramMotion(browser);
+    await generatedProgramMotion(browser, { reducedMotion: "reduce" });
+    await browser.close();
+    console.log(`\nmotion integration (generated): ${results.passed} passed, ${results.failed} failed`);
     process.exit(results.failed ? 1 : 0);
   }
 

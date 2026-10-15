@@ -6,7 +6,7 @@
  * overwritten by the stale head captured by the first document.
  */
 import { pathToFileURL } from "node:url";
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, waitForAsyncCondition } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -208,7 +208,7 @@ async function main() {
     }, { key: KEY, session: B_SESSION });
 
     const ordering = await Promise.race([
-      pageA.waitForFunction(async () => {
+      waitForAsyncCondition(pageA, async () => {
         const locks = await navigator.locks.query();
         return locks.pending.some((lock) => lock.name === "repforge:state-write");
       }, undefined, { timeout: 5000 }).then(() => "queued"),

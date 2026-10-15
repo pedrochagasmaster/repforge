@@ -38,12 +38,15 @@ Health queries are explicitly broader so bad or absent labels remain visible.
 
 | Funnel | Ordered steps | Unit | Window | Breakdown | Denominator |
 |---|---|---|---|---|---|
+| Onboarding funnel | `onboarding_started` → `onboarding_step_viewed` / `_completed` per `{route, step}` → `program_activated` | Unique installation | Start through 7 days | route, then step id | Installations with `onboarding_started`; a last view under 7 days old is pending, not a drop-off |
 | Program activation | `program_path_selected` → route completion (`generator_completed` or `template_selected` where applicable) → `program_activated` | Unique installation | Path selection through 7 days | route; generator goal/frequency/family where present | Installations with `program_path_selected`; mature and pending counts separately |
 | Free-form program import | `program_import_started` → `program_import_handoff` → `program_import_parsed` → `program_import_review_reached` → `program_activated` | Unique installation | 7 days | source on steps that declare it; handoff method/outcome; parse outcome | Free-form import starters; file import is a separate path |
 | First gym-floor value | `program_activated` → `first_set_logged` → `session_completed` | Unique new installation | Activation through 14 days | activation route and version category; family only when supplied by the earlier generator event | New installations with activation; compiled view requires a witnessed first-run boot, with mature and pending cohorts separate |
 | Recommendation understanding | `set_saved` → `recommendation_explained` → later `set_saved` | Report both unique installation and event count | Active program observation window | explanation surface; `vs_suggestion` | Saved-set installations; all explanation opens shown separately, including those before a save |
-| Session reliability | `set_saved` → `session_completed`, `one_off_completed`, or explicit `session_abandoned` | Installation + PostHog SDK session | One SDK session | completion duration; abandonment stage/reason | SDK sessions containing `set_saved`; missing session IDs reported separately |
+| Editor reliance | `onboarding_step_viewed{step:result}` → `program_review_action` → `program_activated.review_changes` | Unique installation; activations | Setup flow | route (recommend, custom); `review_changes`; editor `action` and `kind` | Generated-route activations; releases before `review_changes` are `not_reported`, never 0 |
+| Session reliability | `set_saved` → `session_completed`, `session_abandoned` or `workout_discarded` | Installation + PostHog SDK session | One SDK session | completion duration; abandon stage and reason; discard stage | SDK sessions containing `set_saved`; missing session IDs reported separately |
 | Repeated use | first observed `session_completed` → later-date, different-SDK-session `session_completed` | Unique new installation | Repeat within 7, 30, or 60 elapsed days | activation route and version category | Mature anchors; compiled view requires a witnessed first-run boot |
+| Week-1 and week-4 training by route | first `program_activated` (route) → `session_completed` on a later date within 7 days; another in days 22–28 | Unique new installation | 7 and 28 days from activation | first activation route | Mature anchors only, with a witnessed first-run boot |
 
 Unsupported workout concepts are measured separately by
 `program_import_unsupported_concept`. Each accepted free-form import
@@ -63,12 +66,29 @@ or incomplete-history installations separately; do not count them as failures
 or compare their rates silently with wider historical cohorts. Keep the full
 schema-compatible release history needed by the observation window.
 
-`session_abandoned` is counted only when the product exposes and records an
-explicit abandonment action. Page closure is not abandonment. Count terminal
-events only after a saved set in the same SDK session; separate unresolved,
-duplicate, and conflicting terminals. Pre-set abandonment remains a separate
-reach/reason view. SDK sessions can split on reload or span multiple workouts;
-they are not durable workout identities, and no stable workout ID is allowed.
+`session_abandoned` is the explicit **End without saving** action in the
+session sheet (Plan 071 §10). It discards the draft and every set logged in it,
+and reports `stage` (`before_set`, `working`) and, only when the lifter tapped
+one, `reason`. Page closure is not abandonment and a session without a
+terminal event is unresolved. `workout_discarded` is the other explicit
+discard: the lifter applied a program edit that throws the open workout away. Count terminal events only
+after a saved set in the same SDK session; separate unresolved, duplicate, and
+conflicting terminals. SDK sessions can split on reload or span multiple
+workouts; they are not durable workout identities, and no stable workout ID is
+allowed.
+
+The onboarding funnel keys on ProgramEntry route ids and step ids
+([Plan 071 §4](../../plans/071-telemetry-coverage.md)), never on screen
+position. Order a route's steps by `ProgramEntry.ROUTE_STEPS` when reading.
+Drop-off is derived: the last step an installation viewed with no activation
+within seven days. No event reports it. `onboarding_step_completed.time_on_step`
+is measured in memory from the step's view and restarts after a reload.
+A completed step also carries the closed engine answers it asked (`goal`,
+`experience`, `days_per_week`, `session_length`, `gym_preset`, `split`,
+`deload`; Plan 071 §7 decision 2). Break drop-off down by an earlier step's
+answer to see who stops, never by a Basics answer. None is collected.
+An entry the app opened by itself reports nothing until the lifter picks a
+route.
 
 A witnessed `first_run=true` boot is an observation filter, not proof of a
 first-ever installation or person. Confirm recruitment/history in the private
@@ -100,9 +120,50 @@ applied DraftV2 `completeSet` command, the Why-sheet open, an applied
   from a Focus card and `exercise` from the exercise page. `workout` is
   reserved for a non-Focus workout surface, which does not exist.
 
-Declared events with no producer are listed with their reason in
-`test/telemetry-call-sites.mjs`; a scorecard row must not read an absent
-producer as absent behaviour.
+Plan 071 adds these producers. Each attaches to a domain boundary:
+
+- **Funnel** (`onboarding_step_viewed`, `_completed`, `_back`). These are
+  derived from two consecutive screens drawn by `renderOnboarding`.
+  - Completed: the step moves forward in its route, or the hub is left for a
+    route.
+  - Back: the step moves backward, or the lifter returns to the hub.
+  - A move onto or off the activation-conflict screen is reported only as a
+    view.
+- **`generation_settled`.** Fires once for each generation the lifter asked
+  for: the result, a changed answer, or a rules rebuild. Internal comparisons
+  are excluded. `duration` runs from request to answer, so it means the same
+  for a synchronous compile and a Worker round trip.
+- **`program_review_action`.** Fires once for each committed editor edit,
+  undo, restore or program rename, plus refusals and failed saves. `kind` is
+  the edit kind and nothing else.
+- **`program_activated.review_changes`.** The review's own change count
+  against the recommendation at commit, bucketed. Generated routes only.
+- **`program_activation_failed`.** Fires on an activation that the stored
+  draft (`setup_conflict`) or the live program (`durable_conflict`) no longer
+  matches, or whose definition does not validate (`definition_invalid`).
+- **`substitution_used`.** Fires on an applied `substituteExercise` command.
+  `source` is `alternate` when the pick was one of the slot's alternates,
+  otherwise `library`. `reason` is present only when the lifter tapped one of
+  the optional chips in the swap sheet. Its absence means no reason was given,
+  not "other".
+- **`block_transition_chosen`.** Fires at the commit, never at the button:
+  - the literal repeat;
+  - a confirmed sibling proposal (schedule repair, volume reduction, recovery
+    week, guided edit);
+  - `new_program`, at the activation of the program the block handed over to.
+- **`settings_changed`.** One event per setting name whose saved value
+  changed. Values are never sent.
+- **`session_completed.days_since_last`.** Calendar days from the latest
+  earlier saved session in the log, bucketed; `first` when there is none. It is
+  the return gap without a session-start event (Plan 045 §4).
+
+Every declared event has a producer; `tools/check-production-syntax.mjs` keeps
+a reserve list for any future declaration that ships before its producer.
+Plan 071 retired `recommendation_overridden`, `one_off_started`,
+`one_off_completed`, `equipment_context_selected` and
+`program_transition_selected`, none of which was ever emitted. It retired
+`session_abandoned` too, then re-declared it with a producer once the owner
+approved the explicit abandon action.
 
 ## Scorecard hierarchy
 
@@ -119,8 +180,9 @@ save failure are intentionally independent.
 
 ### 2. Progression trust
 
-Report explanation opens, suggestion match/raise/lower/no-suggestion buckets,
-and deliberate overrides. Pair these with interview evidence. An explanation
+Report explanation opens and suggestion match/raise/lower/no-suggestion
+buckets. A raised or lowered set is the override signal; no separate override
+event exists. Pair these with interview evidence. An explanation
 open shows investigation, not understanding; a matched suggestion shows
 behavior, not trust.
 

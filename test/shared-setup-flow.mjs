@@ -31,6 +31,7 @@
  */
 import { pathToFileURL } from "url";
 import { gzipSync } from "zlib";
+import { readFileSync } from "fs";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import { seedProgramMeta } from "./fixtures/seed-program.mjs";
 
@@ -72,9 +73,11 @@ export const SHARED_DOM = Object.freeze({
 
 export const SHARED_COPY = Object.freeze({
   en: {
-    lede: "Review the program that was sent to you, then start it on this device.",
-    ledeInstalled: "Review the program that was sent to you, then start it on this device.",
+    lede: "This link carries a program and its settings. No history comes with it. Nothing changes until you tap Use this program.",
+    ledeInstalled: "This link carries a program and its settings. No history comes with it. Nothing changes until you tap Use this program.",
     title: "Start this program",
+    view: "See the program",
+    createFromScratch: "Create a program from scratch",
     capOne: (name) => `${name} · 1 day per week`,
     capMany: (name, n) => `${name} · ${n} days per week`,
     invalid: "This shared program link is invalid or incomplete.",
@@ -89,9 +92,11 @@ export const SHARED_COPY = Object.freeze({
     shareBody: "Create a setup link for this program. Copy the link or open the system Share sheet.",
   },
   pt: {
-    lede: "Revise o treino que enviaram para você e depois comece neste dispositivo.",
-    ledeInstalled: "Revise o treino que enviaram para você e depois comece neste dispositivo.",
+    lede: "Este link traz um treino e seus ajustes. Nenhum histórico vem junto. Nada muda até você tocar em Usar este treino.",
+    ledeInstalled: "Este link traz um treino e seus ajustes. Nenhum histórico vem junto. Nada muda até você tocar em Usar este treino.",
     title: "Começar este treino",
+    view: "Ver o treino",
+    createFromScratch: "Criar um treino do zero",
     capOne: (name) => `${name} · 1 dia por semana`,
     capMany: (name, n) => `${name} · ${n} dias por semana`,
     invalid: "Este link de treino compartilhado é inválido ou está incompleto.",
@@ -159,7 +164,7 @@ export function sharedGateSnapshot() {
     hero: !!document.querySelector(".firstrun-hero"),
     install: shown(document.querySelector("#firstRunInstall")),
     continueShown: shown(document.querySelector("#firstRunContinue")),
-    lede: document.querySelector("#firstRunLede")?.textContent || null,
+    lede: document.querySelector("#firstRunSharedBody")?.textContent?.trim() || document.querySelector("#firstRunLede")?.textContent || null,
     standardPresent: !!standard,
     standardHidden: hidden(standard),
     sharedPresent: !!shared,
@@ -174,7 +179,16 @@ export function sharedGateSnapshot() {
     startBusy: start?.getAttribute("aria-busy") === "true",
     startName: (start?.innerText || "").replace(/\s+/g, " ").trim(),
     startTitle: start?.querySelector(".firstrun-row__title")?.textContent || null,
-    startCap: start?.querySelector(".firstrun-row__cap")?.textContent || null,
+    startCap: document.querySelector("#firstRunSharedName")?.textContent?.trim() || null,
+    headline: document.querySelector("#firstRunHeadline")?.textContent?.trim() || null,
+    sharedCardVisible: shown(document.querySelector("#firstRunSharedCard")),
+    sharedName: document.querySelector("#firstRunSharedName")?.textContent?.trim() || null,
+    sharedBody: document.querySelector("#firstRunSharedBody")?.textContent?.trim() || null,
+    viewText: start?.textContent?.replace(/\s+/g, " ").trim() || null,
+    createScratchVisible: shown(document.querySelector("#firstRunSharedCreate")),
+    createScratchFocusable: focusable(document.querySelector("#firstRunSharedCreate")),
+    createScratchText: document.querySelector("#firstRunSharedCreate")?.textContent?.trim() || null,
+    marketingSectionsVisible: [...document.querySelectorAll("#firstRun [data-landing-section]:not([data-landing-section=hero])")].some(shown),
     errorVisible: shown(error),
     errorText: (error?.textContent || "").trim(),
     errorRole: error?.getAttribute("role") || null,
@@ -256,6 +270,9 @@ export async function openAppPage(browser, {
   noCompression = false,
   webShare = false,
   clipboard = false,
+  waitForBoot = true,
+  recipeWorkerProbe = false,
+  disableWorker = false,
 } = {}) {
   const context = await browser.newContext({
     viewport: { width, height },
@@ -268,6 +285,8 @@ export async function openAppPage(browser, {
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e.message)));
+  if (recipeWorkerProbe) await page.addInitScript(installRecipeWorkerProbe, { holdReplies: true });
+  if (disableWorker) await page.addInitScript(() => { delete window.Worker; });
   if (standalone) await page.addInitScript(standaloneInit());
   if (noCompression) {
     await page.addInitScript(() => {
@@ -291,10 +310,77 @@ export async function openAppPage(browser, {
   await page.addInitScript(INSTALL_EVENT);
   const url = `${APP_INDEX}${search}${hash}`;
   await page.goto(url, { waitUntil: "domcontentloaded" });
-  await waitForAppBoot(page, { timeout: 15000, base: BASE });
-  const booted = await page.evaluate(() => window.__repforgeBooted === true);
-  if (!booted) throw new Error("openAppPage returned before the app boot contract was satisfied");
+  if (waitForBoot) {
+    await waitForAppBoot(page, { timeout: 15000, base: BASE });
+    const booted = await page.evaluate(() => window.__repforgeBooted === true);
+    if (!booted) throw new Error("openAppPage returned before the app boot contract was satisfied");
+  }
   return { context, page, errors };
+}
+
+function installRecipeWorkerProbe({ holdReplies = true } = {}) {
+  const NativeWorker = window.Worker;
+  const probe = { requests: [], held: [], workers: [], holdReplies };
+  const canonical = (value) => {
+    if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+    if (value && typeof value === "object") {
+      return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`;
+    }
+    return JSON.stringify(value);
+  };
+  const digest = (value) => crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical(value)))
+    .then((bytes) => [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, "0")).join(""));
+  probe.release = (index) => {
+    const held = probe.held.splice(index, 1)[0];
+    if (!held) return false;
+    held.worker.onmessage?.call(held.worker, { data: held.data, target: held.worker });
+    return true;
+  };
+  window.__repforgeRecipeWorkerProbe = probe;
+  if (typeof NativeWorker !== "function") return;
+  window.Worker = class RecipeProbeWorker extends NativeWorker {
+    constructor(url, options) {
+      super(url, options);
+      const worker = this;
+      const record = { terminations: 0, handler: null };
+      probe.workers.push(record);
+      worker.__recipeWorkerRecord = record;
+      Object.defineProperty(this, "onmessage", {
+        configurable: true,
+        get() { return record.handler; },
+        set(handler) { record.handler = handler; },
+      });
+      Object.defineProperty(this, "onerror", {
+        configurable: true,
+        get() { return record.errorHandler; },
+        set(handler) { record.errorHandler = handler; },
+      });
+      this.addEventListener("message", (event) => {
+        const message = event.data || {};
+        if (message.id !== undefined) {
+          if (probe.holdReplies) {
+            probe.held.push({ id: message.id, worker, data: message });
+            return;
+          }
+        }
+        record.handler?.call(worker, event);
+      });
+      this.addEventListener("error", (event) => record.errorHandler?.call(worker, event));
+    }
+    postMessage(message, ...rest) {
+      if (message?.type === "generate") {
+        const item = { id: message.id, identity: null };
+        item.identityReady = digest({ request: message.request, seed: message.seed })
+          .then((value) => { item.identity = value; });
+        probe.requests.push(item);
+      }
+      return super.postMessage(message, ...rest);
+    }
+    terminate() {
+      this.__recipeWorkerRecord.terminations++;
+      return super.terminate();
+    }
+  };
 }
 
 /**
@@ -734,12 +820,18 @@ export async function runSharedSetupFlow(browser) {
     const gate = await page.evaluate(sharedGateSnapshot);
     assert(gate.gate && gate.hero, "first-run hero remains on a shared link", gate);
     assert(gate.install, "iOS Safari still offers the install card", gate);
+    assert(gate.headline === SHARED_COPY.en.title, "shared gate headline uses the approved title", gate.headline);
+    assert(gate.sharedCardVisible && gate.sharedName === SHARED_COPY.en.capOne("Coach program"),
+      "shared gate card names the received program and its one day", { visible: gate.sharedCardVisible, name: gate.sharedName });
+    assert(gate.sharedBody === SHARED_COPY.en.lede, "shared gate carries the approved privacy and no-change disclosure", gate.sharedBody);
+    assert(gate.startVisible && !gate.sharedHidden && gate.startTitle === SHARED_COPY.en.view,
+      "See the program is the primary gate action", gate.startName);
+    assert(gate.createScratchVisible && gate.createScratchFocusable && gate.createScratchText === SHARED_COPY.en.createFromScratch,
+      "Create a program from scratch is the secondary gate action", gate.createScratchText);
+    assert(!gate.marketingSectionsVisible, "the received gate does not display the general landing tour", gate.marketingSectionsVisible);
     assert(!gate.createVisible && !gate.importVisible && !gate.createFocusable && !gate.importFocusable,
-      "Create and Import are not exposed in shared mode", gate);
-    assert(gate.startVisible && !gate.sharedHidden && gate.startTitle === SHARED_COPY.en.title,
-      "Start this program is the only program action", gate);
-    assert(gate.startCap === SHARED_COPY.en.capOne("Coach program"), "the caption names the program and its one day", gate.startCap);
-    assert(gate.lede === SHARED_COPY.en.lede, "shared install-available lede", gate.lede);
+      "the ordinary landing Create and Import controls are not exposed in shared mode", gate);
+    assert(gate.lede === SHARED_COPY.en.lede, "shared disclosure is the approved gate copy", gate.lede);
     assert(!gate.onboarding, "the generator is not opened", gate);
     const after = await page.evaluate(readDurableState);
     const hits = noSharedWrite(before, after, "Coach program");
@@ -757,27 +849,117 @@ export async function runSharedSetupFlow(browser) {
     await context.close();
   });
 
-  await runCase("Start stages an editable preview; activation commits the shared program and clears the cookie", async () => {
+  await runCase("Shared link opens B review; Restore returns to the received definition before activation", async () => {
     const { context, page } = await openAppPage(browser, { ua: ANDROID_UA, standalone: true });
     await freshDevice(page);
-    const document = await buildSetupDocument(page, { name: "Força compartilhada", settings: PT_SHARED_SETTINGS, trainingDays: 4 });
+    // The seed fixture is an explicitly manual definition, so this proves the
+    // received-definition path rather than the recipe compiler path.
+    const document = await buildSetupDocument(page, { name: "Força compartilhada", settings: PT_SHARED_SETTINGS, trainingDays: 1 });
     const encoded = await encodeSetupDocument(page, document);
     await page.goto(setupUrl(encoded.value, "accept"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
     const before = await page.evaluate(readDurableState);
     await clickSharedStart(page, { activate: false });
+    await page.locator("#entryReview [data-review-slot]").first().waitFor({ state: "visible", timeout: 5000 });
     const staged = await page.evaluate(() => ({
       onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
       firstRun: !document.querySelector("#firstRun")?.classList.contains("hidden"),
       activate: !!document.querySelector("#entryActivate") && !document.querySelector("#entryActivate").disabled,
-      edit: !!document.querySelector("#entryEdit") && !document.querySelector("#entryEdit").disabled,
+      review: !!document.querySelector("#entryReview [data-review-slot]"),
+      source: document.querySelector("#entryReview .review__kicker")?.textContent?.trim(),
+      state: window.__repforgeEntryState?.(),
+      engine: window.__repforgeProgramEngine?.stats?.(),
     }));
     const stagedDurable = await page.evaluate(readDurableState);
+    const durableDraftFacts = await page.evaluate((key) => {
+      let envelope = null;
+      try { envelope = JSON.parse(localStorage.getItem(key) || "null"); } catch {}
+      const preview = envelope?.state?.result?.preview;
+      return {
+        present: !!envelope,
+        route: envelope?.state?.route || null,
+        carriesDefinition: !!preview?.programDefinition,
+        carriesProgramRows: Array.isArray(preview?.program) && preview.program.length > 0,
+        carriesSharedSettings: !!preview?.sharedSettings,
+        carriesSharedMetadata: !!preview?.sharedMeta,
+        carriesReviewLog: sessionStorage.getItem("repforge_entry_review_v1") !== null,
+      };
+    }, SETUP_DRAFT);
     assert(canonicalJson(stagedDurable.state) === canonicalJson(before.state), "Start leaves the durable state byte-identical",
-      { before: before.state?.programMeta, staged: stagedDurable.state?.programMeta });
-    assert(staged.onboarding && !staged.firstRun && staged.activate && staged.edit,
-      "Start opens the common preview with separate activation and edit actions", staged);
-    assert(!!stagedDurable.cookie, "the handoff cookie survives until activation", stagedDurable.cookie);
+      { beforeRevision: before.state?._storageRevision, stagedRevision: stagedDurable.state?._storageRevision });
+    assert(staged.onboarding && !staged.firstRun && staged.activate && staged.review &&
+      staged.state?.route === "shared" &&
+      canonicalJson(staged.state?.result?.preview?.programDefinition) === canonicalJson(document.program.definition),
+    "View program opens B review with the exact received definition", {
+      onboarding: staged.onboarding, firstRun: staged.firstRun, activate: staged.activate,
+      review: staged.review, source: staged.source, route: staged.state?.route,
+      definitionMatches: canonicalJson(staged.state?.result?.preview?.programDefinition) === canonicalJson(document.program.definition),
+    });
+    assert(!durableDraftFacts.carriesDefinition && !durableDraftFacts.carriesSharedSettings &&
+      !durableDraftFacts.carriesSharedMetadata && !durableDraftFacts.carriesReviewLog,
+    "no received definition or settings are durable before final activation", durableDraftFacts);
+    assert(staged.source === "Treino compartilhado", "the Review source uses the approved shared-program label", staged.source);
+    const blockRow = await page.evaluate(() => ({
+      row: !!document.querySelector("#entryReview .review__block"),
+      change: document.querySelectorAll("#entryReview [data-review-block-edit]").length,
+    }));
+    assert(blockRow.row && blockRow.change === 0,
+      "the received block row shows length, pattern and deload without a Change action", blockRow);
+    assert(!!stagedDurable.cookie, "the handoff cookie survives until activation", { present: !!stagedDurable.cookie });
+    if (!staged.review) {
+      await context.close();
+      return;
+    }
+    const firstSlot = document.program.definition.days.find((day) => day.kind === "training").slots[0];
+    const originalSets = firstSlot.prescriptionsByCycle[0].sets.length;
+    await page.locator(`#entryReview [data-review-slot="${firstSlot.id}"]`).click();
+    await page.locator("#reviewSheet.is-open [data-review-sets]").first().waitFor({ state: "visible", timeout: 5000 });
+    await page.locator('#reviewSheet [data-review-sets="1"]').click();
+    await page.waitForFunction(({ slotId, want }) => window.__repforgeEntryState()?.result?.preview?.programDefinition.days
+      .flatMap((day) => day.slots).find((slot) => slot.id === slotId)?.prescriptionsByCycle[0]?.sets.length === want,
+    { slotId: firstSlot.id, want: originalSets + 1 }, { timeout: 10000 });
+    await page.locator("#reviewSheet [data-review-done]").click();
+    await page.waitForFunction(() => !document.querySelector("#reviewSheet.is-open"), undefined, { timeout: 5000 });
+    assert(canonicalJson((await page.evaluate(() => window.__repforgeEntryState().result.preview.programDefinition))) !==
+      canonicalJson(document.program.definition), "the Review change is visible in the received draft");
+    const afterEdit = await page.evaluate((key) => ({
+      setupDraft: localStorage.getItem(key),
+      reviewLog: sessionStorage.getItem("repforge_entry_review_v1"),
+    }), SETUP_DRAFT);
+    assert(afterEdit.setupDraft === null && afterEdit.reviewLog === null,
+      "an in-memory shared review edit does not persist the received payload or its edit log", {
+        setupDraftPresent: afterEdit.setupDraft !== null, reviewLogPresent: afterEdit.reviewLog !== null,
+      });
+    await page.locator('#entryReview [data-review-restore]').click();
+    await page.locator("#reviewConfirmGo").waitFor({ state: "visible", timeout: 5000 });
+    await page.locator("#reviewConfirmGo").click();
+    await page.waitForFunction((expected) => {
+      const stable = (value) => Array.isArray(value) ? value.map(stable) : value && typeof value === "object"
+        ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])])) : value;
+      const actual = window.__repforgeEntryState()?.result?.preview?.programDefinition;
+      return !!actual && JSON.stringify(stable(actual)) === JSON.stringify(stable(expected));
+    }, document.program.definition, { timeout: 10000 });
+    const restored = await page.evaluate(() => ({
+      definition: window.__repforgeEntryState()?.result?.preview?.programDefinition,
+      engine: window.__repforgeProgramEngine?.stats?.(),
+    }));
+    const restoreIdentity = {
+      canonicalEqual: canonicalJson(restored.definition) === canonicalJson(document.program.definition),
+      rawOrderEqual: JSON.stringify(restored.definition) === JSON.stringify(document.program.definition),
+    };
+    assert(restoreIdentity.canonicalEqual,
+      `Restore returns exactly to the definition received in the link (canonical=${restoreIdentity.canonicalEqual}, rawOrder=${restoreIdentity.rawOrderEqual})`,
+      restoreIdentity);
+    const afterRestore = await page.evaluate((key) => ({
+      setupDraft: localStorage.getItem(key),
+      reviewLog: sessionStorage.getItem("repforge_entry_review_v1"),
+    }), SETUP_DRAFT);
+    assert(afterRestore.setupDraft === null && afterRestore.reviewLog === null,
+      "Restore stays in memory until the final activation", {
+        setupDraftPresent: afterRestore.setupDraft !== null, reviewLogPresent: afterRestore.reviewLog !== null,
+      });
+    assert(restored.engine?.worker === 0 && restored.engine?.main === 0,
+      "an ordinary received definition is not regenerated while opening or restoring", restored.engine);
     await page.click("#entryActivate");
     await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), null, { timeout: 10000 });
     await page.evaluate(() => window.__repforgeStorage?.flush?.());
@@ -796,7 +978,7 @@ export async function runSharedSetupFlow(browser) {
     assert(!after.cookie && !(await handoffCookie(context)), "activation clears the handoff cookie", after.cookie);
     assert(gate.logActive && !gate.gate, "activation lands on Today", gate);
     const trainingDays = document.program.definition.days.filter((day) => day.kind === "training").length;
-    assert(trainingDays === 4 && state.programMeta?.daysPerWeek === trainingDays,
+    assert(trainingDays > 0 && state.programMeta?.daysPerWeek === trainingDays,
       "programMeta.daysPerWeek is the shared definition's training-day count", { stored: state.programMeta?.daysPerWeek, trainingDays });
     const rawBefore = await page.evaluate((k) => localStorage.getItem(k), KEY);
     const replicasBefore = await readBothReplicas(page);
@@ -811,6 +993,99 @@ export async function runSharedSetupFlow(browser) {
     await context.close();
   });
 
+  await runCase("Back from shared Review returns to the same ready gate and can reopen Review", async () => {
+    const { context, page } = await openAppPage(browser, { standalone: true });
+    await freshDevice(page);
+    const document = await buildSetupDocument(page, { name: "Back to shared gate", settings: PT_SHARED_SETTINGS, trainingDays: 1 });
+    const encoded = await encodeSetupDocument(page, document);
+    await page.goto(setupUrl(encoded.value, "back-to-shared"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    if (!(await clickSharedStart(page, { activate: false }))) {
+      await context.close();
+      return;
+    }
+    await page.locator("#entryReview [data-review-slot]").first().waitFor({ state: "visible", timeout: 5000 });
+    await page.click("#onbBack");
+    await page.waitForFunction(() => {
+      const start = document.querySelector("#firstRunSharedStart");
+      return window.__repforgeEntryState?.()?.step === "shared_review" && !!start && !start.disabled &&
+        !start.hidden && !start.closest(".hidden,[hidden]");
+    }, null, { timeout: 3000 });
+    const gate = await page.evaluate(() => ({
+      step: window.__repforgeEntryState?.()?.step,
+      visible: !!document.querySelector("#firstRunSharedStart:not([hidden])") &&
+        !document.querySelector("#firstRunSharedStart")?.closest(".hidden,[hidden]"),
+      title: document.querySelector("#firstRunHeadline")?.textContent?.trim(),
+      route: window.__repforgeEntryState?.()?.route,
+      onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
+      onboarded: JSON.parse(localStorage.getItem("repforge_v1") || "{}").programMeta?.onboarded === true,
+      setupDraft: localStorage.getItem("repforge_program_setup_draft_v1") !== null,
+    }));
+    const cookie = await handoffCookie(context);
+    assert(gate.step === "shared_review" && gate.route === "shared" && gate.visible && !gate.onboarding &&
+      !gate.onboarded && !gate.setupDraft && gate.title === SHARED_COPY.pt.title && cookie?.value === encoded.value,
+    "Back returns to the same received gate without activation or losing the proposal", {
+      ...gate, cookieMatches: cookie?.value === encoded.value,
+    });
+    await page.click("#firstRunSharedStart");
+    await page.locator("#entryReview [data-review-slot]").first().waitFor({ state: "visible", timeout: 10000 });
+    const reopened = await page.evaluate(() => ({
+      route: window.__repforgeEntryState?.()?.route,
+      step: window.__repforgeEntryState?.()?.step,
+      definition: window.__repforgeEntryState?.()?.result?.preview?.programDefinition,
+      draft: localStorage.getItem("repforge_program_setup_draft_v1"),
+    }));
+    assert(reopened.route === "shared" && reopened.step === "preview" &&
+      canonicalJson(reopened.definition) === canonicalJson(document.program.definition) && reopened.draft === null,
+    "View program reopens B Review with the identical in-memory received proposal", {
+      route: reopened.route, step: reopened.step,
+      definitionMatches: canonicalJson(reopened.definition) === canonicalJson(document.program.definition),
+      draftPresent: reopened.draft !== null,
+    });
+    await context.close();
+  });
+
+  await runCase("Create a program from scratch discards the received proposal and its cookie", async () => {
+    const { context, page } = await openAppPage(browser, { ua: IOS_UA, locale: "en-US" });
+    await freshDevice(page);
+    await waitForFirstRun(page);
+    const before = await page.evaluate(readDurableState);
+    const document = await buildSetupDocument(page, { name: "Discarded program", settings: PT_SHARED_SETTINGS, trainingDays: 1 });
+    const encoded = await encodeSetupDocument(page, document);
+    await page.goto(setupUrl(encoded.value, "scratch"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    const staged = await handoffCookie(context);
+    assert(staged?.value === encoded.value, "the gate stages the proposal before the lifter decides", { present: !!staged });
+    await page.click("#firstRunSharedCreate");
+    await page.waitForSelector('[data-entry-hub="build"]', { state: "visible", timeout: 10000 });
+    const hub = await page.evaluate(() => ({
+      gate: !document.querySelector("#firstRun")?.classList.contains("hidden"),
+      onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
+      route: window.__repforgeEntryState?.()?.route ?? null,
+      i18n: window.RepForgeI18n?.getLang?.() || null,
+    }));
+    const hook = await page.evaluate(readSharedHook);
+    assert(!hub.gate && hub.onboarding && hub.route === null,
+      "Create a program from scratch opens the ordinary hub with no route chosen", hub);
+    assert(hook.status === "none" && hook.summary === null, "the received proposal is discarded from memory", hook);
+    assert(hub.i18n === "en", "the received link's language is not kept after the discard", hub.i18n);
+    assert(!(await handoffCookie(context)), "the setup cookie is cleared by the discard");
+    await page.evaluate(() => window.__repforgeStorage?.flush?.());
+    const after = await page.evaluate(readDurableState);
+    const hits = noSharedWrite(before, after, "Discarded program");
+    assert(hits.length === 0 && !/setup=/.test(after.hash), "nothing from the received proposal was written", { hits, hash: after.hash });
+    await page.goto(APP_INDEX, { waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { timeout: 15000, base: BASE });
+    const reloaded = await page.evaluate(sharedGateSnapshot);
+    const reloadedHook = await page.evaluate(readSharedHook);
+    const reloadedDurable = await page.evaluate(readDurableState);
+    assert(!reloaded.startVisible && !reloaded.sharedCardVisible && reloadedHook.status === "none",
+      "after an /index.html reload no shared gate appears", { gate: reloaded.gate, start: reloaded.startVisible, hook: reloadedHook });
+    assert(noSharedWrite(before, reloadedDurable, "Discarded program").length === 0 && !reloadedDurable.cookie,
+      "after the reload nothing from the proposal persisted", noSharedWrite(before, reloadedDurable, "Discarded program"));
+    await context.close();
+  });
+
   await runCase("Portuguese link switches gate language before acceptance", async () => {
     const { context, page } = await openAppPage(browser, { ua: IOS_UA, locale: "en-US" });
     await freshDevice(page);
@@ -820,7 +1095,8 @@ export async function runSharedSetupFlow(browser) {
     await waitForFirstRun(page);
     const gate = await page.evaluate(sharedGateSnapshot);
     assert(gate.i18n === "pt" && /^pt/i.test(gate.langAttr || ""), "runtime language is Portuguese before accept", gate);
-    assert(gate.lede === SHARED_COPY.pt.lede && gate.startTitle === SHARED_COPY.pt.title, "Portuguese shared gate copy before accept", gate);
+    assert(gate.lede === SHARED_COPY.pt.lede && gate.headline === SHARED_COPY.pt.title &&
+      gate.startTitle === SHARED_COPY.pt.view, "Portuguese shared gate copy before accept", gate);
     assert(gate.startCap === SHARED_COPY.pt.capMany("Força compartilhada", 4), "Portuguese caption names four days", gate.startCap);
     const durable = await page.evaluate(readDurableState);
     assert(durable.state?.settings?.lang !== "pt", "the shared language is not durable before acceptance", durable.state?.settings?.lang);
@@ -859,6 +1135,157 @@ export async function runSharedSetupFlow(browser) {
       "a standalone launch with only the cookie shows the shared gate", { gate, hook });
     assert(!gate.install && !gate.continueShown && gate.lede === SHARED_COPY.en.ledeInstalled, "the installed gate has no install section", gate);
     assert(hook.source === "cookie" && hook.status === "ready", "the proposal came from the handoff cookie", hook);
+    await context.close();
+  });
+
+  await runCase("Recipe link decoding waits for the foreground engine and keeps only the latest open", async () => {
+    const sender = await openAppPage(browser);
+    await freshDevice(sender.page);
+    const firstDocument = await buildSetupDocument(sender.page, { name: "First recipe", trainingDays: 4, seed: "s5-recipe-first" });
+    const firstEncoded = await encodeSetupDocument(sender.page, firstDocument);
+    const secondDocument = await buildSetupDocument(sender.page, { name: "Latest recipe", trainingDays: 5, seed: "s5-recipe-latest" });
+    const secondEncoded = await encodeSetupDocument(sender.page, secondDocument);
+    assert(firstEncoded.ok && firstEncoded.form === "recipe" && secondEncoded.ok && secondEncoded.form === "recipe",
+      "both links use the compact recipe form", { firstForm: firstEncoded.form, secondForm: secondEncoded.form });
+    await sender.context.close();
+    if (!firstEncoded.ok || firstEncoded.form !== "recipe" || !secondEncoded.ok || secondEncoded.form !== "recipe") return;
+
+    const recipient = await openAppPage(browser, { recipeWorkerProbe: true });
+    const { context, page } = recipient;
+    await freshDevice(page);
+    await page.evaluate((encoded) => { location.hash = `setup=${encoded}`; }, firstEncoded.value);
+    await page.waitForFunction(() => window.__repforgeRecipeWorkerProbe?.requests.length > 0 ||
+      window.__repforgeSharedSetup?.status === "ready", null, { timeout: 10000 });
+    const firstPending = await page.evaluate(() => {
+      const visible = (node) => !!node && !node.hidden && !node.closest(".hidden,[hidden]") &&
+        getComputedStyle(node).display !== "none" && getComputedStyle(node).visibility !== "hidden";
+      const start = document.querySelector("#firstRunSharedStart");
+      return {
+        booted: window.__repforgeBooted === true,
+        workerRequests: window.__repforgeRecipeWorkerProbe.requests.map(({ id, identity }) => ({ id, identity })),
+        heldIds: window.__repforgeRecipeWorkerProbe.held.map(({ id }) => id),
+        sharedStatus: window.__repforgeSharedSetup?.status,
+        gateVisible: visible(start) && !start.disabled,
+        engine: window.__repforgeProgramEngine?.stats?.(),
+      };
+    });
+    assert(firstPending.workerRequests.length === 1 && firstPending.sharedStatus === "loading" &&
+      !firstPending.gateVisible,
+    "recipe decoding reaches the foreground Worker and keeps the gate closed pending its reply", firstPending);
+    if (firstPending.workerRequests.length !== 1) {
+      await context.close();
+      return;
+    }
+    await page.waitForFunction(() => window.__repforgeRecipeWorkerProbe?.held.length > 0, null, { timeout: 10000 });
+
+    await page.evaluate((encoded) => { location.hash = `setup=${encoded}`; }, secondEncoded.value);
+    await page.waitForFunction(() => window.__repforgeSharedSetup?.status === "loading", null, { timeout: 5000 });
+    await page.evaluate(() => window.__repforgeRecipeWorkerProbe.release(0));
+    await page.waitForFunction(() => window.__repforgeRecipeWorkerProbe?.requests.length === 2, null, { timeout: 10000 });
+    await page.waitForFunction(() => window.__repforgeRecipeWorkerProbe?.held.length === 1, null, { timeout: 10000 });
+    const secondPending = await page.evaluate(async () => {
+      const probe = window.__repforgeRecipeWorkerProbe;
+      await Promise.all(probe.requests.map((request) => request.identityReady));
+      const state = window.__repforgeEntryState?.();
+      const cookie = document.cookie.split(";").map((part) => part.trim())
+        .find((part) => part.startsWith("repforge_setup_v1="));
+      const start = document.querySelector("#firstRunSharedStart");
+      const visible = (node) => !!node && !node.hidden && !node.closest(".hidden,[hidden]") &&
+        getComputedStyle(node).display !== "none" && getComputedStyle(node).visibility !== "hidden";
+      return {
+        identities: probe.requests.map(({ id, identity }) => ({ id, identity })),
+        heldIds: probe.held.map(({ id }) => id),
+        sharedStatus: window.__repforgeSharedSetup?.status,
+        sharedName: window.__repforgeSharedSetup?.summary?.name || null,
+        gateVisible: visible(start) && !start.disabled,
+        cookieMatchesCurrentFragment: !!cookie && decodeURIComponent(cookie.slice("repforge_setup_v1=".length)) ===
+          window.RepForgeSharedSetup.readSetupFragment(location.href),
+        inMemoryName: state?.result?.name || null,
+        setupDraftPresent: localStorage.getItem("repforge_program_setup_draft_v1") !== null,
+      };
+    });
+    assert(secondPending.identities.length === 2 && secondPending.identities[0].identity !== secondPending.identities[1].identity,
+      "the two held jobs retain distinct sanitized request identities", secondPending.identities);
+    assert(secondPending.sharedStatus === "loading" && !secondPending.gateVisible && !secondPending.inMemoryName &&
+      secondPending.cookieMatchesCurrentFragment && !secondPending.setupDraftPresent,
+    "the stale first response cannot reach the gate or persist while the latest result is pending", {
+      sharedStatus: secondPending.sharedStatus, gateVisible: secondPending.gateVisible,
+      inMemoryName: secondPending.inMemoryName, cookieMatchesCurrentFragment: secondPending.cookieMatchesCurrentFragment,
+      setupDraftPresent: secondPending.setupDraftPresent,
+    });
+    await page.evaluate(() => window.__repforgeRecipeWorkerProbe.release(0));
+    await page.waitForFunction(() => window.__repforgeSharedSetup?.status === "ready" &&
+      window.__repforgeSharedSetup?.summary?.name === "Latest recipe" &&
+      !!document.querySelector("#firstRunSharedStart") && !document.querySelector("#firstRunSharedStart").disabled &&
+      !document.querySelector("#firstRunSharedStart").closest(".hidden,[hidden]"),
+    null, { timeout: 15000 });
+    const latest = await page.evaluate(() => {
+      const start = document.querySelector("#firstRunSharedStart");
+      const visible = !!start && !start.disabled && !start.hidden && !start.closest(".hidden,[hidden]") &&
+        getComputedStyle(start).display !== "none" && getComputedStyle(start).visibility !== "hidden";
+      return {
+        status: window.__repforgeSharedSetup?.status,
+        name: window.__repforgeSharedSetup?.summary?.name,
+        gate: visible,
+        setupDraftPresent: localStorage.getItem("repforge_program_setup_draft_v1") !== null,
+        engine: window.__repforgeProgramEngine?.stats?.(),
+      };
+    });
+    assert(latest.status === "ready" && latest.name === "Latest recipe" && latest.gate && !latest.setupDraftPresent,
+      "only the latest decoded proposal reaches the shared gate without a draft write", latest);
+    const firstIdentity = secondPending.identities[0].identity;
+    const secondIdentity = secondPending.identities[1].identity;
+    assert(firstIdentity !== secondIdentity && latest.engine?.worker >= 1 && latest.engine?.main === 0,
+      "both recipe requests use the existing foreground Worker and no main-thread compiler", latest.engine);
+    await page.click("#firstRunSharedStart");
+    const entry = await page.evaluate(() => window.__repforgeEntryState?.());
+    assert(canonicalJson(entry?.result?.preview?.programDefinition) === canonicalJson(secondDocument.program.definition),
+      "the decoded latest recipe matches its sent ProgramDefinition byte for byte");
+    await context.close();
+
+    const fallback = await openAppPage(browser, { disableWorker: true, hash: `#setup=${firstEncoded.value}` });
+    const fallbackState = await fallback.page.evaluate(() => {
+      const start = document.querySelector("#firstRunSharedStart");
+      const visible = !!start && !start.disabled && !start.hidden && !start.closest(".hidden,[hidden]") &&
+        getComputedStyle(start).display !== "none" && getComputedStyle(start).visibility !== "hidden";
+      return {
+        status: window.__repforgeSharedSetup?.status,
+        name: window.__repforgeSharedSetup?.summary?.name,
+        gate: visible,
+        engine: window.__repforgeProgramEngine?.stats?.(),
+      };
+    });
+    assert(fallbackState.gate && fallbackState.status === "ready" && fallbackState.name === "First recipe" &&
+      fallbackState.engine?.mode === "main" && fallbackState.engine?.main === 1 && fallbackState.engine?.worker === 0,
+    "recipe decode uses the existing engine's honest main-thread fallback", fallbackState);
+    await fallback.context.close();
+  });
+
+  // #340 (Plan 072 OD-11): the plain GENERATOR_VERSION bump retires recipe
+  // links from the earlier generator. This one was recorded with 067.1 for a
+  // program the current generator builds differently; it must be refused with
+  // the actionable message, never regenerated into another program.
+  await runCase("A recipe link from the earlier generator asks to be shared again", async () => {
+    const legacy = JSON.parse(readFileSync(new URL("./fixtures/setup-link-recipe-067-1.json", import.meta.url), "utf8"));
+    const { context, page } = await openAppPage(browser);
+    await freshDevice(page);
+    await waitForFirstRun(page);
+    const before = await page.evaluate(readDurableState);
+    await page.goto(setupUrl(legacy.link, "recipe-067-1"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    const gate = await page.evaluate(sharedGateSnapshot);
+    const hook = await page.evaluate(readSharedHook);
+    const after = await page.evaluate(readDurableState);
+    const version = await page.evaluate(() => window.RepForgeProgramCompiler.GENERATOR_VERSION);
+    assert(version !== legacy.generatorVersion, "the app runs a later generator than the link's", version);
+    assert(hook.status === "unsupported" && hook.error === "unsupported-version", "the recipe link is unsupported", hook);
+    assert(!gate.startVisible && gate.createVisible && gate.importVisible, "no shared action; standard choices are restored", gate);
+    const outdated = await page.evaluate(() => window.RepForgeI18n.t("setup.shared.outdated"));
+    assert(gate.errorVisible && gate.errorRole === "status" && outdated !== "setup.shared.outdated" && gate.errorText === outdated,
+      "an inline status asks for the program to be shared again (setup.shared.outdated)", gate.errorText);
+    const hits = noSharedWrite(before, after, legacy.name);
+    assert(hits.length === 0, "nothing is written", hits);
+    assert(!after.cookie && !(await handoffCookie(context)), "no handoff cookie is staged", after.cookie);
     await context.close();
   });
 
@@ -1111,14 +1538,14 @@ export async function runSharedSetupFlow(browser) {
     await page.click("#entryCancelContinue");
     await page.waitForFunction(() => !document.querySelector("#entryDialog")?.open, null, { timeout: 5000 });
     const continued = await snapshot();
-    assert(!continued.open && continued.preview && !continued.gate && continued.setupDraft && continued.focus === "onbCancel",
-      "continuing closes the dialog on the same preview and returns focus to Cancel", continued);
+    assert(!continued.open && continued.preview && !continued.gate && !continued.setupDraft && continued.focus === "onbCancel",
+      "continuing closes the dialog on the same transient preview and returns focus to Cancel", continued);
     await page.click("#onbCancel");
     await page.waitForSelector("#entryDialog[open] #entryCancelDiscard", { timeout: 5000 });
     await page.click("#entryCancelDiscard");
     await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), null, { timeout: 10000 });
     const discarded = await snapshot();
-    assert(!discarded.setupDraft && !discarded.onboarded, "discarding drops the staged draft and activates nothing", discarded);
+    assert(!discarded.setupDraft && !discarded.onboarded, "discarding leaves no durable shared payload and activates nothing", discarded);
     await context.close();
   });
 
@@ -1192,7 +1619,7 @@ export async function runSharedSetupFlow(browser) {
     await waitForFirstRun(page);
     const shape = await page.evaluate(() => ({
       overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
-      cap: document.querySelector("#firstRunSharedStart .firstrun-row__cap")?.textContent || "",
+      cap: document.querySelector("#firstRunSharedName")?.textContent || "",
     }));
     assert(!shape.overflow, "320px shared gate has no horizontal overflow", shape);
     assert(shape.cap.includes("A".repeat(100)), "the long name is shown whole", shape.cap.length);
@@ -1207,7 +1634,7 @@ export async function runSharedSetupFlow(browser) {
     await page.goto(setupUrl(encoded.value, "text-only-name"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
     const rendered = await page.evaluate(() => {
-      const cap = document.querySelector("#firstRunSharedStart .firstrun-row__cap");
+      const cap = document.querySelector("#firstRunSharedName");
       return { text: cap?.textContent || "", images: cap?.querySelectorAll("img").length || 0, executed: window.__sharedXss === true };
     });
     assert(rendered.text.includes(name), "untrusted program name is displayed literally", rendered.text);

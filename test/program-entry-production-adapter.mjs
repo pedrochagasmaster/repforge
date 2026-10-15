@@ -41,7 +41,7 @@ test("production services pass the typed request, raw snapshot and explicit seed
   assert.deepEqual(request, originalRequest, "generation does not mutate the authored request");
   assert.equal(actual.value.cycles, 12);
   assert.deepEqual(Compiler.validateProgramDefinition(actual.value, Catalog), { ok: true, issues: [] });
-  assert.deepEqual(Object.keys(actual).sort(), ["conflicts", "explanations", "ok", "value"]);
+  assert.deepEqual(Object.keys(actual).sort(), ["confirmationOffers", "conflicts", "explanations", "ok", "value"]);
 });
 
 test("production services expose no family, browse, or legacy compile façade", () => {

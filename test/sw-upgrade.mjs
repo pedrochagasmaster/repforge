@@ -11,7 +11,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, statSync, createReadStream } from "node:fs";
 import { dirname, extname, join, normalize, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, waitForAppBoot, waitForWorkerTakeover } from "./browser.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 // Exact bytes from released starting-main e7b6d162 (the v120 worker). Keeping
@@ -90,7 +90,7 @@ try {
     const registration = await navigator.serviceWorker.ready;
     await registration.update();
   });
-  await page.waitForFunction((cache) => caches.has(cache), oldCache, { timeout: 10000 });
+  await waitForWorkerTakeover(page, { cache: oldCache, timeout: 10000 });
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => !!navigator.serviceWorker.controller, { timeout: 10000 });
   assert.equal(await page.evaluate(() => navigator.serviceWorker.controller?.scriptURL.endsWith("/sw.js")), true, "released worker controls the first launch");
@@ -101,11 +101,7 @@ try {
     const registration = await navigator.serviceWorker.ready;
     await registration.update();
   });
-  await page.waitForFunction((cache) => caches.has(cache), currentCache, { timeout: 20000 });
-  await page.waitForFunction(async ({ oldCache, currentCache }) => {
-    const names = await caches.keys();
-    return names.includes(currentCache) && !names.includes(oldCache);
-  }, { oldCache, currentCache }, { timeout: 20000 });
+  await waitForWorkerTakeover(page, { cache: currentCache, replaced: oldCache, timeout: 20000 });
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base });
   assert.equal(await page.locator("#dayTabs").count(), 1, "updated worker boots the entry shell");

@@ -12,7 +12,7 @@
  * Run: node test/onboarding-cancel.mjs   (requires the app served over HTTP)
  */
 import { pathToFileURL } from "url";
-import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, waitForAppBoot, answerRecommend } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -75,26 +75,9 @@ async function todayView(page) {
 
 /** Drive the Generate (recommend) route through review and activation. */
 async function completeOnboarding(page) {
-  const atStep = (steps) => page.waitForFunction(
-    (list) => list.includes(window.__repforgeEntryState?.()?.step), steps, { timeout: 15000 });
-  // The hub's featured block asks Generate's goal: one tap chooses the route,
-  // answers the goal and opens the background step.
-  await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
-  await atStep(["background"]);
-  await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
-  await page.click("#onbNext");
-  await atStep(["schedule"]);
-  await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
-  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
-  await page.click("#onbNext");
-  await atStep(["environment"]);
-  await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
-  await page.click("#onbNext");
-  await atStep(["abilities"]);
-  await page.click("#onbNext");
-  await atStep(["priorities", "result"]);
-  if (await page.evaluate(() => window.__repforgeEntryState?.()?.step === "priorities")) await page.click("#onbNext");
-  await atStep(["result"]);
+  await answerRecommend(page, {
+    lifting: "6_to_24m", days: 3, minutes: 60, environment: "commercial_gym", goal: "muscle_growth", skipBasics: true,
+  });
   await page.waitForSelector("#entryActivate", { timeout: 15000 });
   await page.click("#entryActivate");
   await page.waitForFunction(
@@ -199,7 +182,7 @@ phase("Phase: the empty state is a door, not a dead end");
 {
   await page.click("#todaySetupProgram");
   await page.waitForSelector("#onboarding.active", { timeout: 15000 });
-  const routes = await page.evaluate(() => document.querySelectorAll("[data-entry-route]").length);
+  const routes = await page.evaluate(() => document.querySelectorAll("[data-entry-hub]").length);
   assert(routes > 0, "the CTA reopens the entry hub with its routes", String(routes));
 }
 

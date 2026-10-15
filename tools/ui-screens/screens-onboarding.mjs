@@ -12,6 +12,7 @@
  * has no production surface to photograph.
  */
 import { encodeSetupLink } from "../../test/fixtures/setup-link-v4.mjs";
+import { answerRecommend } from "../../test/browser.mjs";
 import { activeEntryState, emptyEntryState } from "./fixtures.mjs";
 import { BASE, SETUP_DRAFT, KEY, sleep, waitForApp } from "./session.mjs";
 
@@ -80,47 +81,382 @@ async function openHub(page, { existing = false } = {}) {
     page.waitForSelector("#onboarding.active .entry__hub", { timeout: 20000 }));
 }
 
-async function route(page, name, { existing = false, goal = "muscle_growth" } = {}) {
+/* Onboarding B's hub (Plan 072): a card is chosen, then Continue enters it. */
+async function route(page, name, { existing = false } = {}) {
   await openHub(page, { existing });
-  if (name === "build" || name === "import") await page.click("#entryOwnToggle");
-  // Recommend's first question is the hub's featured block: one tap chooses
-  // the route and answers the goal, so the next screen is the background step.
-  if (name === "recommend") {
-    await page.click(`[data-entry-route="recommend"][data-entry-goal="${goal}"]`);
-    return;
-  }
-  await page.click(`[data-entry-route="${name}"]`);
+  await page.click(`[data-entry-hub="${name}"]`);
+  await next(page);
+  if (name === "recommend") await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "intro", undefined, { timeout: 20000 });
 }
 
-/** The helper's last step: "No, I need one" then "Let Taurifer decide" reaches
- * Recommend without answering the goal, so the goal screen itself is shown. */
-async function recommendViaHelp(page) {
+async function routeWithFixedDraftId(page, draftId) {
+  await page.evaluate((fixedId) => {
+    let sequence = 0;
+    Object.defineProperty(window.crypto, "randomUUID", {
+      configurable: true,
+      value: () => {
+        sequence += 1;
+        // The first UUID belongs to the first-run surface; the next is the
+        // production createEntryState() draft identity.
+        if (sequence === 2) return fixedId;
+        return `10000000-0000-4000-8000-${String(sequence).padStart(12, "0")}`;
+      },
+    });
+  }, draftId);
   await openHub(page);
-  await page.click("#entryHelpToggle");
-  await page.click('[data-entry-help="q1"][data-entry-help-val="no"]');
-  await page.click('[data-entry-help="q2"][data-entry-help-val="recommend"]');
-  await page.click("#entryHelpGo");
+  await page.click('[data-entry-hub="recommend"]');
+  await next(page);
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "intro", undefined, { timeout: 20000 });
+  const actual = await page.evaluate(() => window.__repforgeEntryState?.()?.draftId || null);
+  if (actual !== draftId) throw new Error(`recommend route did not retain its fixed draft identity (${actual || "missing"})`);
 }
 
-/** The generator questions shared by Recommend and Custom. Recommend's goal is
- * answered on the hub, so it starts at the background step; Custom asks it.
- * The background step asks only experience (no recent-consistency question);
- * the schedule step asks days and the session-ceiling buckets (no rest question). */
-async function answerGenerator(page, { days = "3", desired = "muscle_growth", goalAsked = false } = {}) {
-  if (goalAsked) { await pick(page, "desiredResult", desired); await next(page); }
-  await pick(page, "structuredExperience", "6_to_24m"); await next(page);
-  await pick(page, "daysPerWeek", days);
-  await pick(page, "sessionMinutes", "60"); await next(page);
-  await pick(page, "environment", "commercial_gym"); await next(page);
-  await next(page); // movement abilities are optional; the default (unsure) needs no answer
+async function recommendToReviewWithFixedDraftId(page, draftId, answers = {}) {
+  await installOfferVerificationObserver(page);
+  await routeWithFixedDraftId(page, draftId);
+  await answerRecommend(page, { skipBasics: true, ...answers });
+  await page.waitForSelector("#entryReview [data-review-slot]", { timeout: 25000 });
+  await waitForOfferVerification(page);
+}
+
+/** B's Recommend screens, answered as a lifter would, stopping on `until`. */
+async function recommendStep(page, until, answers = {}) {
+  await route(page, "recommend");
+  if (until === "intro") return;
+  await answerRecommend(page, { skipBasics: true, days: 3, environment: "commercial_gym", ...answers, until });
+}
+
+function installOfferVerificationObserverInBrowser() {
+  if (window.__catalogEntryOfferObserver) return;
+  const digest = value => {
+    const text = JSON.stringify(value) ?? String(value);
+    let hash = 2166136261;
+    for (let index = 0; index < text.length; index++) {
+      hash ^= text.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0).toString(16).padStart(8, "0");
+  };
+  const observer = {
+    engines: 0,
+    jobs: [],
+    order: 0,
+    wrappedApis: new WeakMap(),
+    digest,
+    diagnostic() {
+      const current = window.__repforgeEntryState?.();
+      return {
+        context: {
+          locale: document.documentElement.lang,
+          theme: document.documentElement.dataset.theme || "light",
+          viewportWidth: window.innerWidth,
+        },
+        current: {
+          step: current?.step || null,
+          route: current?.route || null,
+          draftDigest: digest(current?.draftId || ""),
+          resultFingerprintDigest: current?.result?.fingerprint ? digest(current.result.fingerprint) : null,
+        },
+        engineCount: this.engines,
+        jobs: this.jobs.map(job => ({
+          engineId: job.engineId,
+          jobId: job.jobId,
+          foreground: job.foreground,
+          step: job.step,
+          draftDigest: job.draftDigest,
+          requestDigest: job.requestDigest,
+          confirmationCount: job.confirmationCount,
+          status: job.status,
+          outcome: job.outcome || null,
+          resultDigest: job.resultDigest || null,
+          mode: job.mode || null,
+          startedOrder: job.startedOrder,
+          settledOrder: job.settledOrder || null,
+        })),
+      };
+    },
+    snapshot() {
+      const current = window.__repforgeEntryState?.();
+      const draftDigest = digest(current?.draftId || "");
+      const primaryEngineId = this.jobs.reduce((first, job) => first === null ? job.engineId : Math.min(first, job.engineId), null);
+      const foregroundJobs = this.jobs.filter(job => job.engineId === primaryEngineId && job.draftDigest === draftDigest)
+        .sort((left, right) => left.startedOrder - right.startedOrder);
+      const baseline = foregroundJobs.at(-1) || null;
+      if (!baseline || current?.step !== "result" || current.route !== "recommend") {
+        return { ready: false, readiness: "waiting for the current foreground result", ...this.diagnostic() };
+      }
+      if (baseline.status === "pending") {
+        return { ready: false, readiness: "foreground result is still pending", ...this.diagnostic() };
+      }
+      if (baseline.status !== "settled" || baseline.result?.ok !== true) {
+        return { ready: false, readiness: "foreground result did not succeed", ...this.diagnostic() };
+      }
+      const candidates = Array.isArray(baseline.result.confirmationOffers) ? baseline.result.confirmationOffers : [];
+      const baseConfirmations = baseline.request?.movementConfirmations || {};
+      const used = new Set();
+      const verification = candidates.map(offer => {
+        const confirmations = { ...baseConfirmations, [offer.offeredExerciseId]: [...(offer.prerequisiteIds || [])] };
+        const requestDigest = digest({ request: { ...baseline.request, movementConfirmations: confirmations }, seed: baseline.seed });
+        const job = this.jobs.find(candidate => candidate.engineId !== primaryEngineId
+          && candidate.draftDigest === draftDigest && candidate.requestDigest === requestDigest
+          && candidate.startedOrder > baseline.startedOrder && !used.has(candidate.jobId));
+        if (job) used.add(job.jobId);
+        if (!job || job.status === "pending") return { ready: false, requestDigest, job: job || null };
+        const slot = job.result?.ok ? job.result.value?.days?.flatMap(day => day.slots || [])
+          .find(item => item.id === offer.slotId) : null;
+        return { ready: true, accepted: slot?.exerciseId === offer.offeredExerciseId, requestDigest, job };
+      });
+      const allSettled = verification.every(item => item.ready);
+      const rendered = [...document.querySelectorAll("#entryReview [data-review-confirm-offer]")]
+        .map(row => ({ slotId: row.dataset.reviewConfirmOffer, exerciseId: row.dataset.reviewOfferExerciseId }));
+      const visibleSlotIds = new Set([...document.querySelectorAll("#entryReview [data-review-slot]")]
+        .map(row => row.dataset.reviewSlot));
+      const reviewTabsMounted = !!document.querySelector("#entryReview .review__tabs");
+      const confirmedExerciseIds = new Set(Object.entries(current.answers?.movementConfirmations || {})
+        .filter(([, prerequisites]) => Array.isArray(prerequisites) && prerequisites.length > 0)
+        .map(([exerciseId]) => exerciseId));
+      const baselineSlots = baseline.result.value?.days?.flatMap(day => day.slots || []) || [];
+      const currentSlots = current.result?.preview?.programDefinition?.days?.flatMap(day => day.slots || []) || [];
+      const verifiedPairs = allSettled ? candidates.map((offer, index) => verification[index].accepted
+        ? { offer, slotId: offer.slotId, exerciseId: offer.offeredExerciseId } : null).filter(Boolean) : [];
+      const liveEligibility = verifiedPairs.map(({ offer, slotId, exerciseId }) => {
+        const source = baselineSlots.find(slot => slot.id === offer.slotId);
+        const live = currentSlots.find(slot => slot.id === offer.slotId);
+        const checks = {
+          sourceExists: !!source,
+          liveExists: !!live,
+          sameCurrentExercise: !!source && !!live && live.exerciseId === source.exerciseId,
+          declaredCurrentMatches: !offer.currentExerciseId || (!!source && offer.currentExerciseId === source.exerciseId),
+          offeredNotCurrent: !!live && live.exerciseId !== offer.offeredExerciseId,
+          offeredNotDuplicated: !currentSlots.some(slot => slot.id !== offer.slotId && slot.exerciseId === offer.offeredExerciseId),
+          slotVisibleInReview: visibleSlotIds.has(offer.slotId),
+          slotNotAlreadyConfirmed: !!live && !confirmedExerciseIds.has(live.exerciseId),
+        };
+        return { offer, slotId, exerciseId, checks,
+          eligible: Object.values(checks).every(Boolean) };
+      });
+      const eligiblePairs = liveEligibility.filter(item => item.eligible);
+      const sortedPairs = pairs => pairs.map(({ slotId, exerciseId }) => ({ slotId, exerciseId }))
+        .sort((left, right) => left.slotId.localeCompare(right.slotId) || left.exerciseId.localeCompare(right.exerciseId));
+      const verifiedBaselinePairs = sortedPairs(verifiedPairs);
+      const expectedPairs = sortedPairs(eligiblePairs);
+      rendered.sort((left, right) => left.slotId.localeCompare(right.slotId) || left.exerciseId.localeCompare(right.exerciseId));
+      const renderedDigest = digest(rendered);
+      const expectedDigest = digest(expectedPairs);
+      const reviewReady = reviewTabsMounted && visibleSlotIds.size > 0
+        && [...visibleSlotIds].every(slotId => currentSlots.some(slot => slot.id === slotId));
+      const matching = allSettled && reviewReady && renderedDigest === expectedDigest;
+      return {
+        ready: matching,
+        context: {
+          locale: document.documentElement.lang,
+          theme: document.documentElement.dataset.theme || "light",
+          viewportWidth: window.innerWidth,
+        },
+        draftDigest,
+        resultFingerprintDigest: current.result?.fingerprint ? digest(current.result.fingerprint) : null,
+        foreground: {
+          engineId: baseline.engineId,
+          jobId: baseline.jobId,
+          requestDigest: baseline.requestDigest,
+          resultDigest: baseline.resultDigest,
+          mode: baseline.mode,
+          startedOrder: baseline.startedOrder,
+          settledOrder: baseline.settledOrder,
+        },
+        candidateCount: candidates.length,
+        matchedVerifierCount: verification.filter(item => item.job).length,
+        settledVerifierCount: verification.filter(item => item.ready).length,
+        verifierJobs: verification.filter(item => item.job).map(item => ({
+          engineId: item.job.engineId,
+          jobId: item.job.jobId,
+          requestDigest: item.job.requestDigest,
+          resultDigest: item.job.resultDigest || null,
+          mode: item.job.mode || null,
+          outcome: item.job.outcome || null,
+          startedOrder: item.job.startedOrder,
+          settledOrder: item.job.settledOrder || null,
+        })),
+        verifiedBaselineCount: allSettled ? verifiedBaselinePairs.length : null,
+        eligibleCount: allSettled ? expectedPairs.length : null,
+        excludedAfterReviewEditCount: allSettled ? verifiedBaselinePairs.length - expectedPairs.length : null,
+        confirmedReviewRowCount: [...document.querySelectorAll("#entryReview [data-review-confirmed]")].length,
+        liveEligibility: liveEligibility.map(item => ({ ...item.checks, eligible: item.eligible })),
+        visibleCount: rendered.length,
+        renderedReviewSlotCount: visibleSlotIds.size,
+        reviewReady,
+        verifiedBaselineOffersDigest: allSettled ? digest(verifiedBaselinePairs) : null,
+        expectedOffersDigest: allSettled ? digest(expectedPairs) : null,
+        renderedOffersDigest: renderedDigest,
+        totalJobs: this.jobs.length,
+        readiness: matching ? "all candidate checks settled and rendered offers match"
+          : !allSettled ? "waiting for matching verifier replies"
+            : !reviewReady ? "Review has not mounted its current visible rows"
+              : "settled verifier output does not match rendered offers",
+      };
+    },
+  };
+  const wrapApi = api => {
+    if (!api || typeof api.create !== "function") return api;
+    const prior = observer.wrappedApis.get(api);
+    if (prior) return prior;
+    const wrapped = Object.create(api);
+    Object.defineProperty(wrapped, "create", {
+      configurable: false,
+      value(...args) {
+        const engine = api.create(...args);
+        const engineId = ++observer.engines;
+        const facade = Object.create(engine);
+        Object.defineProperty(facade, "generate", {
+          configurable: false,
+          value(request, seed, options) {
+            const state = window.__repforgeEntryState?.();
+            const job = {
+              engineId,
+              jobId: observer.jobs.filter(item => item.engineId === engineId).length + 1,
+              foreground: engineId === 1,
+              draftDigest: digest(seed || ""),
+              step: state?.step || null,
+              requestDigest: digest({ request, seed }),
+              confirmationCount: Object.keys(request?.movementConfirmations || {}).length,
+              request,
+              seed,
+              status: "pending",
+              startedOrder: ++observer.order,
+            };
+            observer.jobs.push(job);
+            let generated;
+            try {
+              generated = engine.generate(request, seed, options);
+            } catch (error) {
+              job.status = "rejected";
+              job.outcome = error?.name || "error";
+              job.resultDigest = digest({ name: error?.name || "Error", message: error?.message || "" });
+              job.mode = engine.stats?.().mode || "unknown";
+              job.settledOrder = ++observer.order;
+              return Promise.reject(error);
+            }
+            return generated.then(result => {
+              job.status = "settled";
+              job.outcome = result?.ok === true ? "success" : "failure";
+              job.resultDigest = digest(result);
+              job.result = result;
+              job.mode = engine.stats?.().mode || "unknown";
+              job.settledOrder = ++observer.order;
+              return result;
+            }, error => {
+              job.status = "rejected";
+              job.outcome = error?.name || "error";
+              job.resultDigest = digest({ name: error?.name || "Error", message: error?.message || "" });
+              job.mode = engine.stats?.().mode || "unknown";
+              job.settledOrder = ++observer.order;
+              throw error;
+            });
+          },
+        });
+        return facade;
+      },
+    });
+    observer.wrappedApis.set(api, wrapped);
+    return wrapped;
+  };
+  const descriptor = Object.getOwnPropertyDescriptor(window, "RepForgeProgramEngine");
+  if (descriptor && !descriptor.configurable) throw new Error("program-engine global cannot be observed");
+  let raw = descriptor && Object.hasOwn(descriptor, "value") ? descriptor.value : descriptor?.get?.();
+  let exposed = wrapApi(raw);
+  Object.defineProperty(window, "RepForgeProgramEngine", {
+    configurable: true,
+    enumerable: true,
+    get: () => exposed || raw,
+    set: value => { raw = value; exposed = wrapApi(value); },
+  });
+  window.__catalogEntryOfferObserver = observer;
+}
+
+async function installOfferVerificationObserver(page) {
+  await page.addInitScript(installOfferVerificationObserverInBrowser);
+  await page.evaluate(installOfferVerificationObserverInBrowser);
+}
+
+async function waitForOfferVerification(page) {
+  try {
+    await page.waitForFunction(() => window.__catalogEntryOfferObserver?.snapshot?.().ready === true, undefined, { timeout: 40000 });
+  } catch (error) {
+    const diagnostic = await page.evaluate(() => ({
+      snapshot: window.__catalogEntryOfferObserver?.snapshot?.() || null,
+      jobs: window.__catalogEntryOfferObserver?.diagnostic?.() || null,
+    }));
+    throw new Error(`offer verification did not settle: ${JSON.stringify(diagnostic)} (${error.message.split("\n")[0]})`);
+  }
+  const proof = await page.evaluate(() => window.__catalogEntryOfferObserver.snapshot());
+  console.log(`catalog offer settlement ${JSON.stringify(proof)}`);
+  return proof;
+}
+
+async function holdProgramWorker(page) {
+  await page.evaluate(() => {
+    const NativeWorker = window.Worker;
+    window.__catalogHeldGenerations = [];
+    window.Worker = class extends NativeWorker {
+      postMessage(message, ...args) {
+        if (message?.type === "generate") {
+          window.__catalogHeldGenerations.push(() => super.postMessage(message, ...args));
+          return;
+        }
+        return super.postMessage(message, ...args);
+      }
+    };
+  });
+}
+
+async function buildingStep(page, { pending = false } = {}) {
+  await recommendStep(page, "abilities");
+  await holdProgramWorker(page);
+  if (pending) await page.emulateMedia({ reducedMotion: "reduce" });
+  if (!pending) {
+    await page.evaluate(() => {
+      const native = window.setTimeout;
+      let heldId = -1;
+      window.__catalogNativeTimeout = native;
+      // S3 advances one line every 260ms. Hold the third line's completion
+      // and the checklist finish so this mid-step stays stable during settle().
+      window.setTimeout = function (callback, delay, ...args) {
+        if (delay === 780 || delay === 1040) return heldId--;
+        return native.call(this, callback, delay, ...args);
+      };
+    });
+  }
+  await page.click("#onbNext");
+  await page.waitForSelector("#entryBuilding", { timeout: 20000 });
+  await page.waitForFunction(() => window.__catalogHeldGenerations?.length > 0, undefined, { timeout: 20000 });
+  if (pending) {
+    await page.waitForFunction(() => {
+      const root = document.querySelector("#entryBuilding");
+      const wait = document.querySelector("#entryBuildingWait");
+      return root?.classList.contains("is-done") && wait?.classList.contains("is-pending") && !wait.hidden;
+    }, undefined, { timeout: 20000 });
+  } else {
+    await page.waitForSelector("#entryBuilding .entry-building__steps li:nth-child(3).is-now", { timeout: 20000 });
+    await page.evaluate(() => {
+      window.setTimeout = window.__catalogNativeTimeout;
+      delete window.__catalogNativeTimeout;
+    });
+  }
+}
+
+async function equipmentConflict(page) {
+  await recommendStep(page, "abilities", { environment: "limited_home", equipment: ["pullup_bar", "bands"] });
+  await page.click("#onbNext");
+  await page.waitForSelector("#onbBody .entry__notice[role=alert] [data-entry-action='conflict-back']", { timeout: 20000 });
 }
 
 async function recommendTo(page, { result = false, existing = false, desired = "muscle_growth" } = {}) {
-  await route(page, "recommend", { existing, goal: desired });
-  await answerGenerator(page, { desired });
+  if (result) await installOfferVerificationObserver(page);
+  await route(page, "recommend", { existing });
+  await answerRecommend(page, { skipBasics: true, days: 3, goal: desired, until: result ? null : "abilities" });
   if (result) {
-    await next(page);
     await page.waitForSelector("[data-entry-select-candidate], #entryActivate", { timeout: 25000 });
+    await waitForOfferVerification(page);
   }
 }
 
@@ -133,55 +469,63 @@ async function selectCandidate(page) {
   await page.waitForSelector("#entryActivate", { timeout: 40000 });
 }
 
-/**
- * Custom asks the same five generator questions as Recommend, then adds its
- * muscle and exercise preference sections under its own header and step count.
- */
-async function customTo(page, step) {
-  await route(page, "custom");
-  if (step === "shape") {
-    // A split with two compatible structures is rare in the released rules, so the
-    // catalog offers a second, real split id (its name comes from the catalog's own
-    // split.<id> key — splitDisplayName in app.js — not a field on the choice object).
-    await page.evaluate(() => {
-      const base = window.__repforgeOnboarding.services();
-      window.__repforgeProgramEntryServicesOverride = {
-        ...base,
-        splitChoices: (answers) => {
-          const result = base.splitChoices(answers);
-          if (result.choices.length !== 1) return result;
-          const first = result.choices[0];
-          const alternateId = first.id === "full_body" ? "upper_lower" : "full_body";
-          return { ...result, choices: [first, { ...first, id: alternateId, default: false }] };
-        },
-      };
-    });
-  }
-  if (step === "desired-result") return;
-  await pick(page, "desiredResult", "balanced"); await next(page);
-  if (step === "background") return;
-  await pick(page, "structuredExperience", "6_to_24m"); await next(page);
-  if (step === "schedule") return;
-  await pick(page, "daysPerWeek", "4");
-  await pick(page, "sessionMinutes", "60"); await next(page);
-  if (step === "environment") return;
-  await pick(page, "environment", "commercial_gym"); await next(page);
-  if (step === "abilities") return;
-  await next(page); // movement abilities are optional; the default (unsure) needs no answer
-  if (step === "priorities") return;
-  await next(page);
-  await page.waitForSelector("#entryExerciseSearch", { timeout: 25000 });
-  if (["exercise-preferences", "result"].includes(step)) {
-    await setCustomExercisePreferences(page);
-    if (step === "exercise-preferences") return;
-  }
-  await next(page);
-  if (step === "shape") {
-    await page.waitForSelector('[data-entry-pick="splitPreference"]', { timeout: 20000 });
-    return;
-  }
-  await page.waitForSelector("[data-entry-select-candidate], #entryActivate", { timeout: 20000 });
-  if (step === "result") return;
+/* Plan 070: the review editor. Each adjustment waits for the review to settle
+   (it is aria-busy while an edit is being saved). */
+async function reviewSettled(page) {
+  await page.waitForFunction(() => !document.querySelector("#entryReview[aria-busy]"), undefined, { timeout: 20000 });
+  // The change is also announced through the app's toast; a frame waits for it to go.
+  await page.waitForFunction(() => document.querySelector("#toast")?.classList.contains("hidden") !== false, undefined, { timeout: 10000 });
+}
+async function reviewTo(page) {
+  await recommendTo(page, { result: true, desired: "balanced" });
+  await page.waitForSelector("#entryReview [data-review-slot]", { timeout: 25000 });
+}
+const reviewSlots = (page) => page.$$eval("#entryReview [data-review-slot]", (rows) => rows.map((row) => row.dataset.reviewSlot));
+async function openReviewSlot(page, slotId) {
+  await page.click(`#entryReview [data-review-slot="${slotId}"]`);
+  await page.waitForSelector("#reviewSheet.is-open [data-review-sets]", { timeout: 10000 });
+}
+async function findAmbiguousPerSideMovement(page) {
+  return page.evaluate(() => {
+    const catalog = window.RepForgeExerciseCatalog.snapshot();
+    const metrics = window.RepForgeExerciseMetrics;
+    const current = window.__repforgeEntryState().result.preview.programDefinition;
+    const used = new Set(current.days.flatMap((day) => day.slots || []).map((slot) => slot.exerciseId));
+    const supportedPerSide = [["repsPerSide", "loadPerSideKg"], ["persistentLoadPerSideKg", "repsPerSide"]];
+    return catalog.exercises.find((exercise) => {
+      if (used.has(exercise.id) || !Number.isFinite(exercise.bodyweight)) return false;
+      const definitions = metrics.definitionsForIds(exercise.exerciseMetrics || []);
+      if (!definitions.ok || !supportedPerSide.some((semantics) =>
+        JSON.stringify(definitions.value.map((metric) => metric.semantic)) === JSON.stringify(semantics))) return false;
+      const sides = (exercise.laterality || []).map((id) => catalog.uuidIndex[id]?.name);
+      return sides.includes("Unilateral") === sides.includes("Bilateral");
+    }) || null;
+  });
+}
+async function closeReviewSheet(page) {
+  await page.click("#reviewSheet [data-review-done]");
+  await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 10000 });
+}
+/** Three marked rows: a set added, an engine swap and a movement added from the catalog. */
+async function reviewChanged(page) {
+  await reviewTo(page);
+  const [first, second] = await reviewSlots(page);
+  await openReviewSlot(page, first);
+  await page.click('#reviewSheet [data-review-sets="1"]');
+  await reviewSettled(page);
+  await closeReviewSheet(page);
+  await openReviewSlot(page, second);
+  await page.locator("#reviewSheet [data-review-swap]").first().click();
+  await reviewSettled(page);
+  await closeReviewSheet(page);
+  await page.click("#entryReview [data-review-add]");
+  await page.waitForSelector("#exPickSheet.is-open", { timeout: 10000 });
+  await page.fill("#exPickSearch", "curl");
+  await page.locator("#exPickList .pickrow").first().click();
+  await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 10000 });
+  await reviewSettled(page);
+  await page.waitForSelector(".review-toast", { state: "detached", timeout: 10000 });
+  await waitForOfferVerification(page);
 }
 
 /** A generated review with the answer chip for `chip` open on its editor. */
@@ -192,19 +536,6 @@ async function reviewWithEditor(page, chip) {
   await page.waitForSelector("#entryEditor", { timeout: 20000 });
 }
 
-/** Keep the preference screens representative: the empty state is useful for
- * validation, but the catalogue should also show the two persisted outcomes. */
-async function setCustomExercisePreferences(page) {
-  const search = page.locator("#entryExerciseSearch");
-  const portuguese = await page.evaluate(() => document.documentElement.lang === "pt-BR");
-  await search.fill(portuguese ? "supino reto com barra" : "barbell bench press");
-  await page.waitForTimeout(120);
-  await page.locator(`[data-entry-exercise-add="${BENCH_PRESS_ID}"][data-entry-exercise-status="include"]`).click();
-  await search.fill(portuguese ? "rosca com barra" : "barbell biceps curl");
-  await page.waitForTimeout(120);
-  await page.locator(`[data-entry-exercise-add="${BARBELL_CURL_ID}"][data-entry-exercise-status="avoid"]`).click();
-  await page.click(`[data-entry-pick="avoidReason"][data-entry-val="${BARBELL_CURL_ID}|dislike"]`);
-}
 
 async function buildTo(page, step) {
   await route(page, "build");
@@ -338,10 +669,10 @@ async function importTo(page, step) {
    stage 2 assistant choice, stage 3 reply paste, gap resolution (clean and invalid),
    and unreadable reply recovery. */
 async function freeformTo(page, step) {
-  await openHub(page);
-  await page.click("#entryOwnToggle");
-  await page.waitForSelector("#entryFreeformStart", { timeout: 20000 });
-  await page.click("#entryFreeformStart");
+  // B's hub opens Import on its file door; the paste door is one switch away.
+  await route(page, "import");
+  await page.waitForSelector("#entryFreeformSwitch", { timeout: 20000 });
+  await page.click("#entryFreeformSwitch");
   await page.waitForSelector("#entryFreeformIn", { timeout: 20000 });
   if (step === "paste") return;
   const portuguese = await page.evaluate(() => document.documentElement.lang === "pt-BR");
@@ -462,7 +793,7 @@ async function resume(page) {
   // record itself carries the terminal step, or a slow runner captures the
   // previous question as Resume.
   await page.waitForFunction((draftKey) => {
-    try { return JSON.parse(localStorage.getItem(draftKey) || "{}").state?.step === "priorities"; }
+    try { return JSON.parse(localStorage.getItem(draftKey) || "{}").state?.step === "abilities"; }
     catch { return false; }
   }, SETUP_DRAFT, { timeout: 25000 });
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -550,13 +881,15 @@ const FOCUS_SELECTOR = {
   "onboarding-start/first-run-data": ".firstrun-rows",
   "onboarding-start/first-run-faq-open": ".firstrun-qa[open]",
   "onboarding-start/first-run-close": ".firstrun-close__actions",
-  "onboarding-start/hub-own-open": "#entryOwnToggle",
-  "onboarding-recommend/avoidance-pain": ".entry__pain",
   "onboarding-recommend/chip-editor-open": ".entry-chips",
   "onboarding-recommend/result-avoided": ".entry__constraints",
-  "onboarding-custom/exercise-preferences": ".entry__exercise-selected-group",
   "onboarding-recommend/activation-conflict": ".entry__notice",
   "onboarding-build/editor-ready": "#entryEditorActivate",
+  "onboarding-recommend/result-changed": ".review__row.is-changed",
+  "onboarding-recommend/review-reorder": "[data-review-reorder]",
+  "onboarding-recommend/review-empty-day": ".review__empty",
+  "onboarding-recommend/review-sheet-execution-mode": "#reviewSheet [data-review-execution-question]",
+  "onboarding-recommend/muscle-priorities-limit": "#entryPriorityLimit",
 };
 
 /**
@@ -587,7 +920,7 @@ async function returnToLanding(page, { draft = false } = {}) {
   if (draft) {
     await recommendTo(page);
     await step("setup draft was not saved", () => page.waitForFunction((draftKey) => {
-      try { return JSON.parse(localStorage.getItem(draftKey) || "{}").state?.step === "priorities"; }
+      try { return JSON.parse(localStorage.getItem(draftKey) || "{}").state?.step === "abilities"; }
       catch { return false; }
     }, SETUP_DRAFT, { timeout: 25000 }));
   }
@@ -615,53 +948,130 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-start/first-run-returning": (page) => returnToLanding(page),
   "onboarding-start/first-run-returning-resume": (page) => returnToLanding(page, { draft: true }),
   "onboarding-start/hub": (page) => openHub(page),
-  "onboarding-start/hub-own-open": async (page) => {
-    await openHub(page);
-    await page.click("#entryOwnToggle");
-    await page.waitForSelector('.entry__own [data-entry-route="build"]', { timeout: 20000 });
-  },
   "onboarding-start/hub-existing": (page) => openHub(page, { existing: true }),
-  "onboarding-start/hub-help": async (page) => {
+  "onboarding-start/hub-chosen": async (page) => {
     await openHub(page);
-    await page.click("#entryHelpToggle");
-    await page.click('[data-entry-help="q1"][data-entry-help-val="no"]');
-    await page.click('[data-entry-help="q2"][data-entry-help-val="recommend"]');
-    await page.waitForSelector("#entryHelpGo", { timeout: 20000 });
+    await page.click('[data-entry-hub="recommend"]');
   },
 
-  "onboarding-recommend/desired-result": recommendViaHelp,
-  "onboarding-recommend/background": (page) => route(page, "recommend"),
-  "onboarding-recommend/schedule": async (page) => {
-    await route(page, "recommend");
-    await pick(page, "structuredExperience", "6_to_24m"); await next(page);
+  // Onboarding B (Plan 072): one question per screen.
+  "onboarding-recommend/intro": (page) => recommendStep(page, "intro"),
+  "onboarding-recommend/sex": (page) => recommendStep(page, "sex"),
+  "onboarding-recommend/birth-date": (page) => recommendStep(page, "birth_date"),
+  "onboarding-recommend/birth-date-typed": async (page) => {
+    await recommendStep(page, "birth_date");
+    await page.locator("#entryWheelYear .entry-wheel__item.is-current").click();
+    await page.getByRole("dialog").waitFor({ state: "visible", timeout: 5000 });
   },
+  "onboarding-recommend/birth-date-typed-invalid": async (page) => {
+    await recommendStep(page, "birth_date");
+    await page.locator("#entryWheelYear .entry-wheel__item.is-current").click();
+    const dialog = page.getByRole("dialog");
+    await dialog.waitFor({ state: "visible", timeout: 5000 });
+    await dialog.getByRole("textbox", { name: /year|ano/i }).fill("1800");
+    await dialog.getByRole("button", { name: /done|concluir/i }).click();
+    await dialog.locator("#entryPickerInput[aria-invalid='true']").waitFor({ state: "visible", timeout: 5000 });
+  },
+  "onboarding-recommend/height": (page) => recommendStep(page, "height"),
+  "onboarding-recommend/height-ftin": async (page) => {
+    await recommendStep(page, "height");
+    await pick(page, "basicsHeightUnit", "ftin");
+  },
+  "onboarding-recommend/weight": (page) => recommendStep(page, "weight"),
+  "onboarding-recommend/weight-lb": async (page) => {
+    await recommendStep(page, "weight");
+    await pick(page, "basicsWeightUnit", "lb");
+  },
+  "onboarding-recommend/background": (page) => recommendStep(page, "background"),
+  "onboarding-recommend/cardio-experience": (page) => recommendStep(page, "cardio_experience"),
   "onboarding-recommend/environment": async (page) => {
-    await route(page, "recommend");
-    await pick(page, "structuredExperience", "6_to_24m"); await next(page);
-    await pick(page, "daysPerWeek", "3");
-    await pick(page, "sessionMinutes", "60"); await next(page);
+    await recommendStep(page, "environment");
+    await pick(page, "environment", "limited_home");
   },
-  "onboarding-recommend/abilities": async (page) => {
-    await route(page, "recommend");
-    await pick(page, "structuredExperience", "6_to_24m"); await next(page);
-    await pick(page, "daysPerWeek", "3");
-    await pick(page, "sessionMinutes", "60"); await next(page);
-    await pick(page, "environment", "commercial_gym"); await next(page);
+  "onboarding-recommend/equipment": (page) => recommendStep(page, "equipment", { environment: "limited_home" }),
+  "onboarding-recommend/equipment-adjusted": async (page) => {
+    await recommendStep(page, "equipment", { environment: "limited_home" });
+    await pick(page, "equipmentGroup", "bench");
+    await pick(page, "equipmentGroup", "bands");
   },
-  "onboarding-recommend/priorities": (page) => recommendTo(page),
-  "onboarding-recommend/avoidance-pain": async (page) => {
-    await recommendTo(page);
-    const search = page.locator("#entryAvoidSearch");
-    await search.fill("bench");
-    await page.waitForTimeout(120);
-    if (!(await page.locator("[data-entry-avoid-add]").count())) {
-      await search.fill("supino");
-      await page.waitForTimeout(120);
-    }
-    await page.locator("[data-entry-avoid-add]").first().click();
-    await page.click('[data-entry-pick="avoidReason"][data-entry-val$="|pain"]');
+  "onboarding-recommend/desired-result": (page) => recommendStep(page, "desired_result"),
+  "onboarding-recommend/days-per-week": async (page) => {
+    await recommendStep(page, "days_per_week");
+    await pick(page, "daysPerWeek", "4");
   },
+  "onboarding-recommend/session-length": (page) => recommendStep(page, "session_length"),
+  "onboarding-recommend/muscle-priorities": async (page) => {
+    await recommendStep(page, "muscle_priorities");
+    await pick(page, "musclePriorityB", "glutes|prioritize");
+    await pick(page, "musclePriorityB", "calves|reduce");
+  },
+  "onboarding-recommend/muscle-priorities-limit": async (page) => {
+    await recommendStep(page, "muscle_priorities");
+    for (const muscle of ["chest", "lats", "back", "side_delts", "glutes", "quads"]) await pick(page, "musclePriorityB", `${muscle}|prioritize`);
+    await page.waitForSelector("#entryPriorityLimit:not([hidden])", { timeout: 10000 });
+  },
+  "onboarding-recommend/deload": (page) => recommendStep(page, "deload"),
+  "onboarding-recommend/abilities": (page) => recommendStep(page, "abilities"),
+  "onboarding-recommend/building": (page) => buildingStep(page),
+  "onboarding-recommend/building-pending": (page) => buildingStep(page, { pending: true }),
+  "onboarding-recommend/result-equipment-conflict": equipmentConflict,
   "onboarding-recommend/result": (page) => recommendTo(page, { result: true, desired: "balanced" }),
+  "onboarding-recommend/result-confirm-offer": async (page) => {
+    await recommendToReviewWithFixedDraftId(page, "00000000-0000-4000-8000-000000000720");
+    const action = page.locator("#entryReview [data-review-confirm-offer-action]").first();
+    await action.waitFor({ state: "visible", timeout: 30000 });
+    const target = await action.evaluate((button) => {
+      const row = button.closest("[data-review-confirm-offer]");
+      return { slotId: button.dataset.reviewConfirmOfferAction, exerciseId: row?.dataset.reviewOfferExerciseId };
+    });
+    const belongsToResult = await page.evaluate(({ slotId, exerciseId }) => {
+      const entry = window.__repforgeEntryState();
+      const slot = entry?.result?.preview?.programDefinition?.days.flatMap((day) => day.slots || [])
+        .find((item) => item.id === slotId);
+      // This row is rendered only from app.js's post-result verifier report.
+      // Keep the proof on the actual consumer: no injected service and a live
+      // current slot are required for the Worker-backed production journey.
+      return entry?.step === "result" && entry.route === "recommend" && !window.__repforgeProgramEntryServicesOverride
+        && typeof Worker === "function" && Boolean(slot) && Boolean(exerciseId);
+    }, target);
+    if (!target.slotId || !target.exerciseId || !belongsToResult) throw new Error("result-confirm-offer: visible verified offer is not attached to the live production result");
+  },
+  "onboarding-recommend/result-confirmed": async (page) => {
+    await recommendToReviewWithFixedDraftId(page, "00000000-0000-4000-8000-000000000721");
+    const action = page.locator("#entryReview [data-review-confirm-offer-action]").first();
+    await action.waitFor({ state: "visible", timeout: 30000 });
+    const target = await action.evaluate((button) => {
+      const row = button.closest("[data-review-confirm-offer]");
+      return { slotId: button.dataset.reviewConfirmOfferAction, exerciseId: row?.dataset.reviewOfferExerciseId };
+    });
+    await action.click();
+    await page.waitForSelector(`#entryReview [data-review-confirmed="${target.exerciseId}"]`, { timeout: 30000 });
+    await waitForOfferVerification(page);
+    const current = await page.evaluate((exerciseId) => ({
+      confirmation: window.__repforgeEntryState()?.answers?.movementConfirmations?.[exerciseId] || null,
+      offer: document.querySelector(`[data-review-confirm-offer][data-review-offer-exercise-id="${CSS.escape(exerciseId)}"]`) !== null,
+      undo: document.querySelector(`[data-review-confirmation-undo="${CSS.escape(exerciseId)}"]`)?.textContent.trim() || null,
+    }), target.exerciseId);
+    const expectedUndo = await page.evaluate(() => window.RepForgeI18n.t("entry.review.undo"));
+    if (!Array.isArray(current.confirmation) || !current.confirmation.length || current.offer || current.undo !== expectedUndo) {
+      throw new Error(`result-confirmed: production confirmation state is incomplete: ${JSON.stringify(current)}`);
+    }
+  },
+  "onboarding-recommend/result-block-sheet": async page => {
+    await recommendTo(page, { result: true, desired: "balanced" });
+    await page.click("#entryReview [data-review-block-edit]");
+    await page.waitForSelector("#reviewSheet.is-open [data-review-block-weeks]", { timeout: 10000 });
+    for (let index = 0; index < 3; index++) await page.click('#reviewSheet [data-review-block-step="1"]');
+    await page.click('#reviewSheet [data-review-block-pattern="undulating"]');
+    const visible = await page.evaluate(() => ({
+      weeks: document.querySelector("[data-review-block-weeks]")?.textContent.trim(),
+      pattern: document.querySelector("[data-review-block-pattern][aria-checked='true']")?.dataset.reviewBlockPattern,
+      deload: document.querySelector("[data-review-block-deload]")?.getAttribute("aria-checked"),
+    }));
+    const expected = await page.evaluate(() => window.RepForgeI18n.t("entry.review.block.weeks", { n: 10 }));
+    if (visible.weeks !== expected || visible.pattern !== "undulating" || visible.deload !== "true")
+      throw new Error(`The result block sheet did not reach its approved 10-week state: ${JSON.stringify(visible)}`);
+  },
   "onboarding-recommend/result-existing": (page) => recommendTo(page, { result: true, existing: true }),
   "onboarding-recommend/chip-editor-open": (page) => reviewWithEditor(page, "days"),
   "onboarding-recommend/result-corrected": async (page) => {
@@ -669,6 +1079,7 @@ export const ONBOARDING_SCENARIOS = {
     await pick(page, "daysPerWeek", "4");
     await page.click("#entryChipApply");
     await page.waitForSelector("#entryChange", { timeout: 25000 });
+    await waitForOfferVerification(page);
   },
   "onboarding-recommend/result-avoided": async (page) => {
     await reviewWithEditor(page, "prio");
@@ -689,6 +1100,7 @@ export const ONBOARDING_SCENARIOS = {
     await page.click(`[data-entry-pick="avoidReason"][data-entry-val="${first}|dislike"]`);
     await page.click("#entryChipApply");
     await page.waitForSelector("#entryChange", { timeout: 25000 });
+    await waitForOfferVerification(page);
   },
   "onboarding-recommend/replacement-confirm": async (page) => {
     await recommendTo(page, { result: true, existing: true });
@@ -697,16 +1109,116 @@ export const ONBOARDING_SCENARIOS = {
     await page.waitForSelector("#entryReplaceConfirm", { timeout: 20000 });
   },
   "onboarding-recommend/activation-conflict": activationConflict,
+  "onboarding-recommend/result-changed": reviewChanged,
+  "onboarding-recommend/review-sheet": async (page) => {
+    await reviewTo(page);
+    await openReviewSlot(page, (await reviewSlots(page))[0]);
+  },
+  "onboarding-recommend/review-sheet-execution-mode": async (page) => {
+    await recommendToReviewWithFixedDraftId(page, "00000000-0000-4000-8000-000000000722", { goal: "balanced", days: 3 });
+    const slotId = (await reviewSlots(page))[0];
+    const exercise = await findAmbiguousPerSideMovement(page);
+    if (!exercise) throw new Error("review-execution-mode: production catalog has no unused supported ambiguous per-side movement");
+    await openReviewSlot(page, slotId);
+    await page.locator("#reviewSheet [data-review-search]").click();
+    await page.waitForSelector("#exPickSheet.is-open", { timeout: 10000 });
+    await page.fill("#exPickSearch", exercise.name);
+    await page.waitForSelector(`[data-pick="${exercise.id}"]`, { timeout: 10000 });
+    await page.locator(`[data-pick="${exercise.id}"]`).click();
+    await page.waitForFunction(({ slotId, exerciseId }) => {
+      const slot = window.__repforgeEntryState()?.result?.preview?.programDefinition?.days
+        .flatMap((day) => day.slots).find((item) => item.id === slotId);
+      return slot?.exerciseId === exerciseId && !document.querySelector("#exPickSheet.is-open");
+    }, { slotId, exerciseId: exercise.id }, { timeout: 15000 });
+    await openReviewSlot(page, slotId);
+    await page.waitForSelector("#reviewSheet [data-review-execution-question]", { timeout: 10000 });
+    const visible = await page.evaluate((slotId) => ({
+      question: document.querySelector("#reviewSheet [data-review-execution-question]")?.textContent.trim(),
+      groupName: document.querySelector("#reviewSheet [role='group']")?.getAttribute("aria-labelledby"),
+      choices: [...document.querySelectorAll("#reviewSheet [data-review-execution-mode]")].map((button) => button.textContent.trim()),
+      cue: document.querySelector(`#entryReview [data-review-slot="${CSS.escape(slotId)}"] [data-review-execution-cue]`)?.textContent.trim(),
+    }), slotId);
+    const expectedQuestion = await page.evaluate(() => window.RepForgeI18n.t("entry.review.execution_mode.question"));
+    const expectedChoices = await page.evaluate(() => [
+      window.RepForgeI18n.t("entry.review.execution_mode.bilateral"),
+      window.RepForgeI18n.t("entry.review.execution_mode.unilateral"),
+    ]);
+    const expectedCue = await page.evaluate(() => window.RepForgeI18n.t("entry.review.execution_mode.cue"));
+    if (visible.question !== expectedQuestion || visible.groupName !== "reviewExecutionModeQuestion"
+      || JSON.stringify(visible.choices) !== JSON.stringify(expectedChoices) || visible.cue !== expectedCue) {
+      throw new Error(`review-execution-mode: production question/choices/cue were not exposed: ${JSON.stringify(visible)}`);
+    }
+  },
+  "onboarding-recommend/review-day-name-refused": async (page) => {
+    await recommendToReviewWithFixedDraftId(page, "00000000-0000-4000-8000-000000000360", { goal: "balanced", days: 3 });
+    const days = await page.evaluate(() => window.__repforgeEntryState().result.preview.programDefinition.days
+      .map((day, index) => ({ index, kind: day.kind, stored: day.name,
+        shown: document.querySelector(`#entryReview [data-review-tab="${index}"]`)?.textContent.trim() || null }))
+      .filter((day) => day.kind === "training"));
+    if (days.length < 2) throw new Error("review-day-name-refused: the production result has fewer than two training days");
+    const target = days[0], duplicate = days[1].stored || days[1].shown;
+    const expected = await page.evaluate(() => window.RepForgeI18n.t("toast.day_name_exists"));
+    await page.locator(`#entryReview [data-review-tab="${target.index}"]`).click();
+    await page.locator("#entryReview [data-review-day-menu]").click();
+    await page.locator('#reviewSheet [data-review-day-action="rename"]').click();
+    await page.locator("#reviewSheet #reviewRenameInput").fill(duplicate);
+    await page.locator("#reviewSheet [data-review-rename-save]").click();
+    await page.locator('#reviewSheet #reviewRenameInput[aria-invalid="true"]').waitFor({ state: "visible", timeout: 10000 });
+    const refusal = await page.evaluate(() => {
+      const input = document.querySelector("#reviewSheet #reviewRenameInput");
+      const error = input?.getAttribute("aria-describedby") && document.getElementById(input.getAttribute("aria-describedby"));
+      return { value: input?.value, describedBy: input?.getAttribute("aria-describedby"), role: error?.getAttribute("role"), message: error?.textContent.trim() };
+    });
+    if (refusal.value !== duplicate || refusal.describedBy !== "reviewRenameError" || refusal.role !== "alert" || refusal.message !== expected) {
+      throw new Error(`review-day-name-refused: production field refusal was incomplete: ${JSON.stringify(refusal)}`);
+    }
+  },
+  "onboarding-recommend/review-sheet-swap": async (page) => {
+    await reviewTo(page);
+    await openReviewSlot(page, (await reviewSlots(page))[0]);
+    await page.locator("#reviewSheet [data-review-alt-add]").first().click();
+    await reviewSettled(page);
+    await page.evaluate(() => {
+      const body = document.querySelector("#reviewSheetBody");
+      const swap = body?.querySelectorAll(".review-sheet__sec")[1];
+      if (body && swap) body.scrollTop = swap.offsetTop - body.offsetTop;
+    });
+  },
+  "onboarding-recommend/review-day-menu": async (page) => {
+    await reviewTo(page);
+    await page.click("#entryReview [data-review-day-menu]");
+    await page.waitForSelector('#reviewSheet.is-open [data-review-day-action="reorder"]', { timeout: 10000 });
+  },
+  "onboarding-recommend/review-reorder": async (page) => {
+    await reviewTo(page);
+    await page.click("#entryReview [data-review-day-menu]");
+    await page.click('#reviewSheet [data-review-day-action="reorder"]');
+    await page.waitForSelector("#entryReview [data-review-reorder]", { timeout: 10000 });
+    await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 10000 });
+  },
+  "onboarding-recommend/review-empty-day": async (page) => {
+    await reviewTo(page);
+    for (const slotId of await reviewSlots(page)) {
+      await openReviewSlot(page, slotId);
+      await page.click("#reviewSheet [data-review-remove]");
+      await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 10000 });
+      await reviewSettled(page);
+    }
+    await page.waitForSelector(".review-toast", { state: "detached", timeout: 10000 });
+  },
+  "onboarding-recommend/review-rebuild-confirm": async (page) => {
+    await reviewTo(page);
+    await openReviewSlot(page, (await reviewSlots(page))[0]);
+    await page.click('#reviewSheet [data-review-sets="1"]');
+    await reviewSettled(page);
+    await closeReviewSheet(page);
+    await page.click('[data-entry-chip="days"]');
+    await page.waitForSelector("#entryEditor", { timeout: 20000 });
+    await pick(page, "daysPerWeek", "4");
+    await page.click("#entryChipApply");
+    await page.waitForSelector("#reviewConfirmGo", { timeout: 20000 });
+  },
 
-  "onboarding-custom/desired-result": (page) => customTo(page, "desired-result"),
-  "onboarding-custom/background": (page) => customTo(page, "background"),
-  "onboarding-custom/schedule": (page) => customTo(page, "schedule"),
-  "onboarding-custom/environment": (page) => customTo(page, "environment"),
-  "onboarding-custom/abilities": (page) => customTo(page, "abilities"),
-  "onboarding-custom/priorities": (page) => customTo(page, "priorities"),
-  "onboarding-custom/exercise-preferences": (page) => customTo(page, "exercise-preferences"),
-  "onboarding-custom/shape": (page) => customTo(page, "shape"),
-  "onboarding-custom/result": (page) => customTo(page, "result"),
 
   "onboarding-build/setup": (page) => buildTo(page, "setup"),
   "onboarding-build/editor-empty": (page) => buildTo(page, "editor-empty"),
@@ -731,9 +1243,9 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-recovery/resume": resume,
   "onboarding-recovery/rules-drift": rulesDrift,
   "onboarding-recovery/cancel-confirm": async (page) => {
-    // Cancel is offered from every screen; the schedule step shows the dialog
+    // Cancel is offered from every screen; the days screen shows the dialog
     // over a screen with answers in progress.
-    await ONBOARDING_SCENARIOS["onboarding-recommend/schedule"](page);
+    await recommendStep(page, "days_per_week");
     await pick(page, "daysPerWeek", "3");
     await page.click("#onbCancel");
     await page.waitForSelector("#entryCancelKeep", { timeout: 20000 });
@@ -777,4 +1289,20 @@ export async function focusOnboardingSubject(page, key) {
     await sleep(page, 400);
   }
   await sleep(page, 200);
+  if (key === "onboarding-recommend/result-block-sheet") {
+    await page.waitForFunction(() => {
+      const sheet = document.querySelector("#reviewSheet.is-open");
+      const body = document.querySelector("#reviewSheetBody");
+      return !!sheet && !!body && body.clientHeight > 0 && body.scrollHeight > 0;
+    }, undefined, { timeout: 10000 });
+    await page.evaluate(() => {
+      const body = document.querySelector("#reviewSheetBody");
+      body?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      if (body) body.scrollTop = 0;
+    });
+    await page.waitForFunction(() => {
+      const body = document.querySelector("#reviewSheetBody");
+      return !!body && body.scrollTop === 0;
+    }, undefined, { timeout: 10000 });
+  }
 }
