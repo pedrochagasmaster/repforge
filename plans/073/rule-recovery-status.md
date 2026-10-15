@@ -1,100 +1,134 @@
-# Estado da recuperação de G03, G04 e G08
+# Estado da recuperação das regras de geração
 
-Auditoria de leitura em 15/10/2026. S2 permanece bloqueada. Esta auditoria não
-executou extratores, Blutter, o aplicativo original ou novos testes. Não alterou
-a engine. Os anchors abaixo foram conferidos nos arquivos ASM já preservados.
+Checkpoint de 15/10/2026, após replay isolado e recuperação limitada de S1.
+S2 permanece bloqueada. Nenhuma engine foi alterada. O contrato continua na
+[spec](../../docs/generator-rule-parity-spec.md) e o gate no
+[Plano 073](../073-generator-rule-parity.md).
 
-## Fontes e classificação
+## Fontes, preservação e classificação
 
-O contrato é `docs/generator-rule-parity-spec.md`, decisões D01–D11, e o gate
-de S1 em `plans/073-generator-rule-parity.md`. O corpus privado é
-`rea-investigation-20261014/continuation-20261015-split-contract/`, sobretudo
-`DELTA_REPORT.md`, `calls-and-pool.json`, `distribute.asm.txt`,
-`round_robin.asm.txt`, `spillover.asm.txt`, `fits.asm.txt`, `score.asm.txt`,
-`dose_targets.asm.txt`, `allocation_helpers.asm.txt` e `local_assembly.asm.txt`.
-`godmode2-20261015/DELTA_REPORT.md` distingue entradas fotografadas, estado
-exportado e associação entre os dois.
-
-O relatório privado identifica `libapp.so` pelo SHA-256
+O corpus privado é `rea-investigation-20261014`. As fontes históricas são
+`continuation-20261015-split-contract/` e `godmode2-20261015/`; o novo trabalho
+fica em `continuation-20261015-s1/`. O SHA-256 de `libapp.so`, recalculado pelas
+novas extrações, é
 `a79f5db63bb7dffdd683fae131fe033deabaef20d14d6ce4e5d4a6debb3f1312`.
-Esta auditoria leu essa identidade, mas não recalculou o hash do binário.
 
-"Observado" abaixo significa instrução ou anotação tipada presente no corpus.
-"Decodificado" exige convenções Dart de tag, Smi, ponteiros comprimidos,
-argumentos e stubs. Resolver chamadas indiretas continua sendo uma dependência,
-mesmo quando a interpretação do operador é provável. Nenhuma linha representa
-execução do Dart original ou uma nova prova de paridade.
+O replay executou seis scripts históricos inalterados em um diretório novo.
+As 53 saídas comparadas ficaram idênticas byte a byte. Foram preservados os
+96 hashes de fontes e o estado de três checkouts. O recibo privado
+`replay/replay-receipt.json` registra scripts, hashes e limites. A transcrição
+visual foi reutilizada. Reexecutar um decodificador simbólico não constitui
+execução Dart nem segunda implementação independente do algoritmo.
 
-## Mapa de regras e dependências
+A remoção autorizada de uma cópia temporária de CI restabeleceu o piso de 4 GiB.
+As novas extrações têm limites de tamanho e tempo. Um pequeno leitor de metadados
+foi compilado com objetos e biblioteca Dart já existentes, sem full pass Blutter,
+sem `AnalyzeAll` e sem executar o gerador. Ele consulta classes e a tabela de
+dispatch carregadas pelo runtime. Os endereços são normalizados pela base da
+imagem. A revisão independente reproduziu a saída de 268.260 bytes e confirmou
+os 66 hashes de entradas preservadas do leitor. A origem ARM64 da tabela é 4096;
+o índice lógico é `classId + 4096 + selectorDelta`, com verificação de limites.
 
-| Gap e PC | Evidência | Interpretação e limite |
+"Decodificado" exige as convenções Dart de tags, Smi, ponteiros comprimidos,
+argumentos e stubs registradas nos pacotes. "Validado localmente" limita a regra
+ao bloco e domínio explicitados. Modelos de listas e interpretações limitadas de
+instruções não equivalem à execução integral da VM.
+
+## Componentes e dependências
+
+| Componente | Evidência e regra | Prova e limite |
 | --- | --- | --- |
-| G03, `0xecf7e8..0xecfaf4` | O relatório registra Upper, Lower e Full nessa ordem, com listas ordenadas nos campos `+0x0c`, `+0x10` e `+0x14`. | Estrutura decodificada com os pressupostos registrados pelo extrator anterior. Os campos adicionais permanecem sem semântica integral. Roles não são uma contagem fixa de exercícios. |
-| G03/G04, `0xed8f24..0xed8f4c` | `fits` lê `SplitDay+0x0c` e passa callback `0xed81ac` ao operador `0x807bc0`. | O corpus anterior decodifica o operador como `any`. O callback fixa o tipo `accessory`; o predicado de compatibilidade ainda depende de `0xed8210`. |
-| G04, `0xede88c..0xede8a4` | `distributeTemplates` passa o tipo do registro a `0xed8210`. | Não equivale ao uso de `accessory` fixo em `fits`. Política de seleção de dia e insuficiência ainda incompleta. |
-| G04, `0xedd5e8..0xedd658`, `0xedd6bc..0xedd810` | `roundRobin` mapeia `_listLength`. O auxiliar compara inteiros e preserva o acumulador quando o próximo é menor ou igual em `0xedd7c0..0xedd7cc`. Retorna null no caminho vazio em `0xedd7f4`; o chamador converte null em zero. | Redução pelo máximo dos comprimentos é uma decodificação forte, condicionada à resolução dos slots iterator, moveNext e current. Ainda não prova emissão, ordem ou tratamento de listas desiguais. |
-| G04, `0xed8f64..0xed90c4` | `score` prepara pares e duas agregações antes de criar um record de dois campos. | Os callbacks `0xed95d4`, `0xed94e8`, `0xed9420`, `0xed90d0` e operadores precisam de auditoria. Tipos e nomes do record não bastam para declarar equivalência, peso ou precedência dos contadores. |
-| G04, `0xeddc98..0xeddd20` | `spillover` multiplica um operando por 1,25, passa por chamada nativa e conversão numérica e compara com outro operando antes de gerar candidatos. | Origem e unidade dos operandos e função da chamada nativa permanecem abertas. Não está provada uma regra de tolerância temporal de 25% por dia. |
-| G08, `0xedc09c..0xedc11c` | Comparação explícita com `ProgramPeriodization.static` seleciona o ramo que prepara uma lista de `ExerciseTargetSet` com callback `0xedc6dc`. | O tamanho vem de um campo de registro. Falta fechar sua origem e o vínculo com `numSets`. |
-| G08, `0xedc6dc..0xedc938` | O callback cria `ExerciseTargetLog` e `ExerciseTargetSet` padrão. O descriptor de `0xedc904` nomeia `minFullReps`, `maxFullReps` e `rir`. Há caminhos `base−1`, `base+1` e `max(0, base + lista[índice])`. | São operações observadas com ligação decodificada aos argumentos. Falta identificar a origem de base e lista e o predicado sobre `Exercise+0x54`. Não chamar esse predicado de capacidade de prescrever repetições sem evidência. |
-| Dependência de G08/G05, `0xee2508..0xee2548` | Subtração, divisão inteira por 1000 e depois absoluto. | A expressão é `abs(trunc((A−B)/1000))`. Não trocar a ordem das operações. Os operandos dependem de `0xeda0d0`, `0xeda420`, `0xeda4b8` e `0xa53bf8`; custo e seleção de alocação continuam incompletos. |
+| Seleção automática, G02 | `0xeb87dc..0xeb886c`: split nulo e 2–6 dias selecionam as divisões registradas em S0. | Replay histórico idêntico. Overrides sintéticos não provam validade na UI. |
+| Estrutura Upper/Lower/Full, G03 | `0xecf7e8..0xecfaf4`: três dias ordenados e listas em `+0x0c`, `+0x10`, `+0x14`. | Constructor simbólico reproduzido. Consumidores e semântica integral dos campos adicionais pendentes. |
+| Intercalamento, componente G04 | `0xedd5a0`, `0xedd814`, `0xa4a3c0` e iteradores resolvidos por metadados: índice crescente, listas em ordem, pular listas esgotadas. Duplicatas mantêm suas posições. | Seis casos nomeados e 781 vetores de comprimentos contra oráculo por coordenadas; revisão independente de instruções e dispatch. Domínio: listas padrão finitas, sem mutação, com registros não nulos. Produtores e distribuição integral pendentes. |
+| Doses Static parametrizadas, componente G08 | `0xedb734..0xedc02c`: 18 ramos objetivo × tipo × resultado de membership. `0xedc09c..0xedc254`: Static usa o primeiro campo do record, não a tabela de sete ciclos. | Interpretação limitada das instruções, centros esperados independentes e mutação de centro detectada. O booleano de membership é entrada explícita, ainda dependente da coleção e operadores. |
+| Ajustes por série, componente G08 | `0xedb4f4..0xedb710`: numSets 1–6; vetores `[0]`, `[0,-1]`, `[1,0,-1]`, `[1,0,0,-1]`, `[1,0,0,-1,-1]`, `[1,1,0,0,-1,-1]`. Fora disso, erro. | Replay de numSets −1 a 8. Determina o tratamento da contagem recebida; não escolhe essa contagem. |
+| Reps/RIR locais, componente G08 | `0xedc6dc`: reps center−1/center+1 e RIR `max(0, base+ajuste)`. Sem métrica de reps, os três campos são null. `0xa5f278`/`0x7cd254` reconhecem reps e repsPerSide. | Provas dos blocos aritméticos, limites, caminhos null e descriptor/armazenamento do construtor. Mutações de vetor, direção, piso e campos detectadas. Callback completo e consumidores externos pendentes. |
+| Alocação local, componente G05 | `0x12a4044` e `0x12a3edc`: 31 opções ordenadas de compostos e 86 de isoladores. O seletor minimiza a distância temporal; em empate, compostos retêm o último e isoladores o primeiro. | Replay dos loops, blocos de seleção e custo sob contratos explícitos dos operadores. Revisão e reprodução independentes passaram. Consumidores, runtime completo e influência externa de experiência continuam pendentes. |
+| Partição de músculos, componente G09 | `0xed5ed0..0xed5f88`: um `Map<MuscleGroup,bool>` separa chaves true/false em duas coleções. `0xedf6c0` filtra a sequência local de grupos musculares para isoladores usando a segunda. | Metadados resolvem entries/where e igualdade por identidade. Falta fechar a ligação completa à UI, materialização e efeitos completos. Não demonstra exclusão global ou volume zero. |
 
-O Godmode2 observa 18 exercícios e 45 séries e exporta somente Cycle 1.
-A comparação com o GodMode antigo confirma doses iguais em 17 posições
-correspondentes. Isso não controla o questionário antigo, a aleatoriedade,
-o estado de geração ou possíveis edições. Nenhuma dessas contagens é uma
-invariante recuperada; sete ciclos declarados não demonstram sete ciclos.
+O intercalamento materializa pela cadeia `0x6b7dd4 → 0x560c58`. A investigação
+inicial examinou um caminho alternativo de conversão; ele não é o consumidor
+selecionado aqui. O pacote privado registra a correção e os corpos de iteradores
+que sustentam a cadeia efetiva.
 
-## Gate exato de S2
+Para doses, a base de RIR local é zero em accessory, um no outro tipo quando
+membership retorna true e dois quando retorna false. Os centros Static são:
 
-O Plano 073 exige todas as regras necessárias de G02–G09 e G11 para o domínio
-inicial, recuperadas e validadas. O domínio de pesquisa é três dias, both,
-Advanced, Static, faixa 40–60, sem deload, zero priorizados e oito despriorizados,
-com as limitações de associação e estado exportado descritas no Godmode2.
+| Objetivo | Primary false/true | Secondary false/true | Accessory |
+| --- | --- | --- | --- |
+| strength | 5 / 8 | 8 / 10 | 10 |
+| both | 5 / 8 | 10 / 12 | 15 |
+| hypertrophy | 8 / 10 | 10 / 12 | 15 |
 
-Os bloqueios auditados são os seguintes:
+False/true acima são o retorno de `0x6e4ed4`, aplicado à coleção
+`Exercise+0x3c` e à lista horizontalPull/verticalPull. Não substituir isso por
+igualdade sobre um único movementPattern. Ausência de leitura de experience
+nesse bloco não prova independência de experience no gerador.
 
-- G03: consumidores e política dos campos `SplitDay+0x10` e `+0x14`.
-- G04: compatibilidade integral, seleção e ordem dos dias, score, emissão de
-  roundRobin, insuficiência e aceitação de spillover.
-- G08: origem e domínio de sets, reps e RIR, predicado do exercício e regras
-  por ciclo, role e posição.
+O custo local em microssegundos é `N*(W+R) + 30000000*sum(sets) +
+E*sum(max(0,sets−1))`. W é zero para warmup none e 120 segundos nos demais
+casos. R é uma duração fixa por categoria, cujo nome de produto ainda não foi
+recuperado. E vem de `defaultRestTimerOverrides` ou do fallback por categoria.
+O construtor do perfil novo confirma smart e mapa de overrides null como defaults.
+A prova interpreta a aritmética original e modela multiplicação de Duration,
+map, sum e alocadores pelos contratos auditados. Não executa todo o runtime.
 
-Fechar esses três não encerra S1. Permanecem necessários G05, alocação e modelo
-temporal; G06, filtros; G07, ranking anterior ao desempate; G09, efeito e domínio
-da despriorização isolada; e G11, efeitos de experiência, objetivo, Static e
-ausência de deload no domínio inicial. A conversão temporal e a seleção automática
-de split já recuperadas não substituem essas dependências.
+Para entradas explícitas de 50 minutos, três dias, UpperLowerFull, both e perfil
+novo, a avaliação seleciona quatro compostos com três séries e quatro isoladores
+com três séries na partição upper; três compostos com três séries e seis isoladores
+com duas séries na partição lower. São 17 entradas de alocação e 45 séries antes
+dos produtores de templates e da distribuição. Não são uma previsão validada de
+programa final nem uma afirmação sobre as configurações efetivas do Godmode2.
 
-O desempate Taurifer pode substituir a escolha pseudoaleatória somente após
-elegibilidade e ranking recuperados. Determinismo exige entradas canônicas,
-versão e catálogo. Não há obrigação de compatibilidade retroativa nem autorização
-para alterar a engine antes de validar a evidência relevante.
+## Revisão dos verificadores locais
 
-## Próximas janelas limitadas
+A revisão independente encontrou D08-01: uma anotação PP permitia ignorar o
+opcode. D08-02: o avaliador de tabelas ignorava um operando de shift extra em ADD.
+Três mutações reproduziram aceitação indevida antes da correção. Os avaliadores
+agora verificam opcode e formato completo de operandos nessas formas. Os mesmos
+casos são rejeitados, e as provas válidas continuam passando.
 
-Nenhuma das extrações abaixo foi executada nesta auditoria. O piso documentado
-é 4 GiB livres; o contexto recebido informa aproximadamente 2,4 GiB. A próxima
-execução depende de resolver espaço sem apagar evidências ou trabalho ativo.
+O revisor executou `evaluate_tables.py`, `replay_local.py` e `strict_negative.py`
+em cópia descartável após a correção e encerrou esses dois achados. Isso cobre
+as falhas identificadas e o subconjunto interpretado; não certifica um emulador
+ARM64 genérico. O intercalamento também teve leitura independente de instruções,
+replay do leitor de metadados e reprodução dos modelos sem alterar o pacote.
 
-1. Fechar roundRobin com `0xedd814..0xedd980` e uma janela inicial
-   `0xa4a3c0..0xa4a600`. Resolver os slots de iteração usados no auxiliar e os
-   operadores chamados em `0xedd664` e `0xedd698`. A janela de helper é um limite
-   inicial, não uma fronteira de função comprovada. Casos simbólicos independentes
-   são `[]`, `[[]]`, comprimentos `[1,3,0]`, `[3,1]` e empates. A prova precisa
-   verificar emissão, ordem, perdas e duplicações.
-2. Fechar o callback de doses na janela existente `0xedc6dc..0xedc948`.
-   Extrair somente as dependências `0xa5f278` e `0x7a4e3c`, com teto inicial de
-   `0x200` bytes por função. Rastrear os produtores de contexto já preservados em
-   `0xedb328..0xedc09c`. Separar tabela por objetivo/tipo, experiência, base e
-   ajuste por índice. Ampliar uma janela apenas quando o fluxo exigir e registrar
-   a fronteira real de retorno.
-3. Seguir o callback de spillover `0x12a44f4` com teto inicial de `0x400` bytes,
-   ampliado somente após inspeção. Registrar cada consumidor dos campos adicionais
-   de SplitDay antes de propor nomes. Resolver a chamada nativa no caminho de
-   1,25 antes de afirmar arredondamento ou política de aceitação.
+A revisão de G05 reproduziu os cinco scripts de enumeração, seleção, defaults,
+custo e avaliação parametrizada em cópia descartável, com hashes do pacote
+original preservados. As provas incluem 32 combinações de comparação/empate,
+11 limites da divisão com sinal, 21 casos de custo e quatro ramos de defaults.
+Mutações de limite, empate, divisor e custo foram detectadas. A aceitação mantém
+os contratos dos operadores explícitos e não encerra G05 ou S1 globalmente.
 
-Cada recuperação precisa registrar fonte/hash, PC, bytes, domínio, pressupostos,
-dependências e casos de fronteira. A avaliação simbólica deve rejeitar instruções
-fora do subconjunto auditado. O export Godmode2 é uma conferência observacional,
-não um alvo para escolher fórmulas ou preferidos que reproduzam 18/45.
+## Gate exato de S2 e próximas dependências
+
+O plano exige todas as regras necessárias de G02–G09 e G11 para o domínio
+inicial recuperadas e validadas. O contexto observado é três dias, both,
+Advanced, Static, faixa 40–60, sem deload, zero priorizados e oito despriorizados.
+A associação entre screenshots, equipamentos exportados e geração não é uma
+transação controlada. O Godmode2 observa somente Cycle 1, apesar de declarar sete.
+As contagens de 18 exercícios e 45 séries são observações, não invariantes.
+
+Permanecem pendentes:
+
+- G03/G04: consumidores dos campos adicionais, compatibilidade, score, escolha
+  e ordem dos dias, produtores do intercalamento, insuficiência e spillover.
+  O fator 1,25 observado não prova tolerância temporal por dia.
+- G05: consumidores das alocações, domínio completo dos operadores de custo,
+  configurações efetivas do caso observado e ligação às contagens dos templates. A distância local
+  é `abs(trunc((target−cost)/1000))`, com truncamento antes do absoluto.
+- G06/G07: elegibilidade e ranking anteriores ao desempate. A seleção
+  determinística Taurifer só substitui candidatos equivalentes após esse ranking.
+- G08/G11: produtores de exercício/numSets, domínio de membership, influência
+  de experiência e consumidores de SimplePeriodization, ciclos e deload.
+- G09: origem UI do mapa, coleções padrão e efeito integral da despriorização
+  independente. O filtro local não justifica banir exercícios globalmente.
+
+Os pacotes privados `round-robin/`, `doses/`, `time-allocation/` e `muscles/`
+retêm fonte/hash, PC, bytes, comandos, resultados e limites. Novas conclusões
+exigem a mesma ligação à fonte e revisão dos casos de fronteira. O suplemento
+público permanece sanitizado e não distribui binários, assembly ou arquivos
+pessoais. Nenhuma compatibilidade retroativa é exigida; isso não libera a engine
+antes da validação das regras relevantes.

@@ -46,8 +46,14 @@ fontes desta etapa, não operações refeitas aqui.
 Cada fonte da tabela tem hash em `sources`; células de exercícios e séries ficam
 junto do valor publicado. O pacote não atribui fórmulas gerais às doses observadas,
 nem transforma despriorização em exclusão. Os 65 casos sintéticos de override não
-são publicados como compatibilidade UI. A cadeia até instruções/binário não foi
-reexecutada devido ao piso de disco; os contratos partem dos JSON já decodificados.
+são publicados como compatibilidade UI. O replay posterior dos seis scripts
+históricos, em saída privada isolada, reproduziu 53 arquivos byte a byte,
+incluindo instruções e normalização. Os 96 hashes das fontes e o estado de três
+checkouts permaneceram iguais. A transcrição visual foi reutilizada; os modelos
+simbólicos foram reproduzidos, sem executar o gerador original. O extrator público
+continua consumindo os JSON decodificados. O registro da recuperação atual fica
+em [rule-recovery-status.md](rule-recovery-status.md); `execution.json` preserva
+o relato da execução inicial do suplemento, anterior a esse replay.
 
 ## Provas
 

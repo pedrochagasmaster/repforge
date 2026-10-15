@@ -19,12 +19,18 @@ Três chats GPT-6.1 Sol, reasoning Low, executaram a primeira rodada sob
 coordenação em worktree isolado. O [suplemento S0](073/README.md) tem extrator,
 verificador, seis mutações de conteúdo e dois casos de chaves JSON duplicadas. O [contrato determinístico](073/deterministic-contract.md)
 registra entradas, identidade e consumidores; a [auditoria S1](073/rule-recovery-status.md)
-registra regras parciais, bloqueios e próximas janelas. Estes artefatos não
-encerram S0: replay independente das fontes binárias e da normalização continua
-pendente. O corpus original e os checkouts com alterações locais foram preservados.
+registra regras parciais, bloqueios e próximas janelas. O replay dos seis scripts
+históricos em um diretório novo reproduziu 53 saídas byte a byte e preservou
+96 hashes de fontes e o estado de três checkouts. Isso reproduz os decodificadores
+simbólicos existentes; não é execução do gerador original nem nova transcrição
+visual. O corpus original e os checkouts com alterações locais foram preservados.
 
-A recuperação pesada aguarda ao menos 4 GiB livres. Abaixo desse piso, esta
-rodada limitou-se a leitura das evidências existentes e artefatos pequenos.
+Após a remoção autorizada de uma cópia temporária de CI, o espaço voltou a superar
+o piso de 4 GiB. A recuperação prosseguiu com janelas limitadas e um leitor de
+metadados ligado aos objetos de compilação já existentes. Não houve full pass
+Blutter. A revisão independente aceitou o intercalamento de listas no domínio
+registrado e as correções dos verificadores de doses locais. Alocação completa,
+distribuição, elegibilidade, ranking e consumidores continuam pendentes em S1.
 
 ## 1. Base e matriz de gaps
 
