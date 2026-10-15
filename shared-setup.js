@@ -815,12 +815,22 @@
     return parsed.pathname + parsed.search + (remaining.length ? "#" + remaining.join("&") : "");
   }
 
-  function handoffCookiePath(locationLike) {
+  function cookieBase(locationLike) {
     const href = typeof locationLike === "string" ? locationLike : rawHref(locationLike);
-    let parsed;
-    try { parsed = new URL(href || "https://taurifer.invalid/index.html"); }
-    catch { parsed = new URL("https://taurifer.invalid/index.html"); }
-    return new URL("index.html", parsed).pathname;
+    try { return new URL(href || "https://taurifer.invalid/index.html"); }
+    catch { return new URL("https://taurifer.invalid/index.html"); }
+  }
+
+  // The app scope (the directory the document lives in), not its document URL:
+  // the host may serve the document at `/` or at `/index.html`, and the
+  // installed app launches through `./index.html`, which a host can redirect.
+  function handoffCookiePath(locationLike) {
+    return new URL("./", cookieBase(locationLike)).pathname;
+  }
+
+  // Releases before the scope path wrote the cookie at the document URL.
+  function legacyHandoffCookiePath(locationLike) {
+    return new URL("index.html", cookieBase(locationLike)).pathname;
   }
 
   function hostnameOf(locationLike) {
@@ -855,6 +865,8 @@
     const locationLike = adapterLocation(adapters);
     if (!documentLike || !locationLike || !isSafeHandoffEnvelope(value)) return false;
     const path = handoffCookiePath(locationLike);
+    documentLike.cookie = COOKIE_NAME + "=; Path=" + legacyHandoffCookiePath(locationLike) + "; Max-Age=0; SameSite=Lax"
+      + cookieSecureSuffix(locationLike);
     documentLike.cookie = COOKIE_NAME + "=" + value + "; Path=" + path + "; Max-Age=" + COOKIE_MAX_AGE
       + "; SameSite=Lax" + cookieSecureSuffix(locationLike);
     return true;
@@ -876,8 +888,9 @@
     const documentLike = adapterDocument(adapters);
     const locationLike = adapterLocation(adapters);
     if (!documentLike || !locationLike) return false;
-    const path = handoffCookiePath(locationLike);
-    documentLike.cookie = COOKIE_NAME + "=; Path=" + path + "; Max-Age=0; SameSite=Lax"
+    documentLike.cookie = COOKIE_NAME + "=; Path=" + legacyHandoffCookiePath(locationLike) + "; Max-Age=0; SameSite=Lax"
+      + cookieSecureSuffix(locationLike);
+    documentLike.cookie = COOKIE_NAME + "=; Path=" + handoffCookiePath(locationLike) + "; Max-Age=0; SameSite=Lax"
       + cookieSecureSuffix(locationLike);
     return true;
   }

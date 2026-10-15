@@ -121,16 +121,17 @@ carry the encoded proposal across that navigation:
 ```text
 Name:      repforge_setup_v1
 Value:     v4.<base64url-gzip>
-Path:      pathname of index.html (/repforge/index.html in production)
+Path:      the app scope, the directory index.html lives in (/ on taurifer.com)
 Max-Age:   604800 seconds
 SameSite:  Lax
 Secure:    yes outside localhost
 HttpOnly:  no — client JavaScript reads the proposal
 ```
 
-The cookie's historical name stays unchanged. A cookie is sent with the
-matching `index.html` request; path scoping keeps it off asset requests, but
-does not keep it off that document request. It contains readable compressed
+The cookie's historical name stays unchanged. The browser sends it with every
+request inside the app scope that carries credentials: the document and the
+app's static files. The transfer client's `/v1/` requests omit credentials, so
+the transfer service never receives it. It contains readable compressed
 data, not encrypted data. The setup module reads exact cookie and fragment
 bytes without consuming them. Unsupported versions remain available for
 diagnostics or explicit re-export and are not cleared automatically. The
@@ -141,12 +142,28 @@ cookies into a newly installed Home Screen app. The link still works in a
 browser on older systems. Do not claim older Home Screen installs inherit the
 cookie or claim physical iOS validation unless it has been performed.
 
+### Amendment (2026-10-15): the cookie path is the app scope
+
+The cookie used to be scoped to the pathname of `index.html`. On
+`taurifer.com` the static host answers `/index.html` with `308 Location: /`,
+so the app's document lives at `/`, and the installed app's manifest launch
+(`./index.html`) lands there too. A cookie scoped to `/index.html` is neither
+sent to `/` nor visible in its `document.cookie`, so a received link never
+reached the installed app. The path is now the app scope, which covers
+wherever the host serves the document. Writes and clears also expire any
+cookie a previous release left at the `index.html` path. The manifest
+`start_url` stays `./index.html` to keep the installed Android app's WebAPK
+identity (#305). The cost is that the cookie now reaches the static host with
+the app's file requests as well as the document request; it already reached
+that host, and its contents and lifetime are unchanged.
+`test/install-handoff-redirect.mjs` proves the handoff across the redirect.
+
 ## Privacy and sharing
 
 Fragments are not sent in the initial HTTP request, but URLs may remain in
 browser history, clipboard history, synced tabs, messaging previews, and
-screenshots. The cookie is sent with the matching static-host document
-request. The cached in-app Privacy page explains the bearer-link and cookie
+screenshots. The cookie is sent to the static host with requests inside the
+app scope. The cached in-app Privacy page explains the bearer-link and cookie
 behavior. The Share surface stays task-only; system sharing sends the title
 and URL, and Copy link copies the URL. Never log the payload, cookie, or full
 URL, and do not claim authenticity.

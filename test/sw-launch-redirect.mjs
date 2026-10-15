@@ -22,11 +22,11 @@
  * `index.html` directly.
  */
 import assert from "node:assert/strict";
-import { createServer } from "node:http";
-import { readFileSync, statSync, createReadStream } from "node:fs";
-import { dirname, extname, join, normalize, relative } from "node:path";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { launchChromium } from "./browser.mjs";
+import { startRedirectHost } from "./redirect-host.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const worker = readFileSync(join(ROOT, "sw.js"), "utf8");
@@ -34,31 +34,8 @@ const CACHE = worker.match(/const CACHE = ["']([^"']+)["']/)?.[1];
 assert(CACHE, "sw.js declares a cache name");
 const manifest = JSON.parse(readFileSync(join(ROOT, "manifest.webmanifest"), "utf8"));
 
-const statSafe = (file) => { try { return statSync(file); } catch { return null; } };
-const mimeType = (extension) => ({
-  ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".json": "application/json",
-  ".webmanifest": "application/manifest+json", ".svg": "image/svg+xml", ".png": "image/png", ".webp": "image/webp",
-  ".woff2": "font/woff2",
-}[extension] || "application/octet-stream");
-const server = createServer((request, response) => {
-  const [pathname, search = ""] = decodeURIComponent(request.url || "/").split("?");
-  const headers = (type) => ({ "content-type": type, "cache-control": "no-store" });
-  // The production host's rule: the document lives at the directory URL.
-  if (pathname === "/index.html") {
-    response.writeHead(308, { location: `/${search ? `?${search}` : ""}`, "cache-control": "no-store" });
-    response.end();
-    return;
-  }
-  const file = normalize(join(ROOT, pathname === "/" ? "index.html" : pathname.slice(1)));
-  if (relative(ROOT, file).startsWith("..") || !statSafe(file)?.isFile()) {
-    response.writeHead(404, headers("text/plain")); response.end("Not found"); return;
-  }
-  response.writeHead(200, headers(mimeType(extname(file))));
-  createReadStream(file).pipe(response);
-});
-
-await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-const base = `http://127.0.0.1:${server.address().port}/`;
+const host = await startRedirectHost();
+const base = host.base;
 const launch = new URL(manifest.start_url, new URL("manifest.webmanifest", base)).href;
 const browser = await launchChromium();
 const context = await browser.newContext();
@@ -116,5 +93,5 @@ try {
   console.log(`\n${passed} passed, 0 failed`);
 } finally {
   await browser.close();
-  server.close();
+  await host.close();
 }
