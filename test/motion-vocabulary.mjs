@@ -58,14 +58,19 @@ function load({ withRuntime = true } = {}) {
       return run.promise;
     },
   };
+  /* Animation frames the test steps by hand: `frame()` runs every callback queued so far. */
+  let frames = new Map(), frameId = 0;
   const sandbox = {
     document: { readyState: "loading", getElementById: () => null, createElement: () => ({}), head: { append() {} }, addEventListener() {} },
     matchMedia: () => query,
+    requestAnimationFrame(fn) { frames.set(++frameId, fn); return frameId; },
+    cancelAnimationFrame(id) { frames.delete(id); },
   };
+  const frame = () => { const due = frames; frames = new Map(); for (const fn of due.values()) fn(); };
   if (withRuntime) sandbox.Motion = runtime;
   vm.runInNewContext(layer, sandbox, { filename: "motion-layer.js", timeout: 1000 });
   const arrive = run => { run.target.set?.(run.to); if (run.target.pending === run) run.target.pending = null; run.resolve(); };
-  return { api: sandbox.RepForgeMotion, runs, query, arrive };
+  return { api: sandbox.RepForgeMotion, runs, query, arrive, frame };
 }
 const flush = () => new Promise(resolve => setTimeout(resolve, 0));
 
@@ -96,6 +101,10 @@ await section(async () => {
   const el = box({ left: 200, top: 10, width: 50, height: 2 });
   const from = { left: 100, top: 10, width: 80, height: 2 };
   const done = t.api.animateIndicator(el, from);
+  const held = rectOf(el);
+  assert(t.runs.length === 0 && near(held.left, 100) && near(held.width, 80),
+    "the spring's clock does not start before the next frame, and until then the element sits where it was", JSON.stringify({ runs: t.runs.length, held }));
+  t.frame();
   const run = t.runs[0];
   assert(t.runs.length === 1 && run.to === 0, "one run counts the distance down to zero");
   assert(JSON.stringify(run.options) === JSON.stringify(t.api.vocabulary.layoutShift), "it travels on the layoutShift entry, not a literal");
@@ -116,6 +125,7 @@ await section(async () => {
   const t = load();
   const el = box({ left: 200, top: 10, width: 50, height: 2 });
   const first = t.api.animateIndicator(el, { left: 100, top: 10, width: 80, height: 2 });
+  t.frame();
   const run1 = t.runs[0];
   run1.target.set(50);
   const live = rectOf(el);
@@ -124,6 +134,7 @@ await section(async () => {
   // layout rect must still start the new run from where the element is on screen.
   el.layout = { left: 300, top: 10, width: 70, height: 2 };
   const second = t.api.animateIndicator(el, { left: 200, top: 10, width: 50, height: 2 });
+  t.frame();
   const run2 = t.runs[1];
   const start = rectOf(el);
   assert(near(start.left, 150) && near(start.width, 65),
@@ -136,10 +147,27 @@ await section(async () => {
     "the replacement arrives and leaves nothing behind", JSON.stringify(el.style));
 });
 await section(async () => {
+  // Chosen again before the first frame: the first run never starts, and the second leaves from where the
+  // element is painted, which is still where the first began.
+  const t = load();
+  const el = box({ left: 200, top: 10, width: 50, height: 2 });
+  const first = t.api.animateIndicator(el, { left: 100, top: 10, width: 80, height: 2 });
+  el.layout = { left: 300, top: 10, width: 70, height: 2 };
+  const second = t.api.animateIndicator(el, { left: 200, top: 10, width: 50, height: 2 });
+  const start = rectOf(el);
+  assert(near(start.left, 100) && near(start.width, 80), "a choice before the first frame starts from where the element is painted", JSON.stringify(start));
+  t.frame();
+  assert(t.runs.length === 1 && near(t.runs[0].target.get(), 200), "only the second run's clock starts, counting down from the first one's start", JSON.stringify(t.runs.map(r => r.target.get())));
+  assert(await first === false, "the run that never started reports that it did not arrive");
+  t.arrive(t.runs[0]);
+  assert(await second === true && el.style.transform === "", "and the second arrives and leaves nothing behind", JSON.stringify(el.style));
+});
+await section(async () => {
   // Retargeting with no caller rect still works from the live transform alone.
   const t = load();
   const el = box({ left: 40, top: 0, width: 10, height: 10 });
   t.api.animateIndicator(el, { left: 0, top: 0, width: 10, height: 10 });
+  t.frame();
   t.runs[0].target.set(20);
   const live = rectOf(el);
   el.layout = { left: 90, top: 0, width: 10, height: 10 };
@@ -159,6 +187,7 @@ await section(async () => {
   const t = load();
   const el = box({ left: 200, top: 10, width: 50, height: 2 });
   t.api.animateIndicator(el, { left: 100, top: 10, width: 80, height: 2 });
+  t.frame();
   const run = t.runs[0];
   t.query.matches = true;
   const result = await t.api.animateIndicator(el, { left: 0, top: 10, width: 50, height: 2 });

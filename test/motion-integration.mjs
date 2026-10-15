@@ -2188,6 +2188,9 @@ async function dockMotion(browser, { reducedMotion = "no-preference" } = {}) {
   await installSeedProgram(page, { waitFor: settle });
   await page.waitForSelector("#todayExList [data-exopen], #startWorkout", { timeout: 10000 });
   await wait(page, 350);
+  // REPFORGE_MOTION_CPU_THROTTLE=<rate> runs the dock section on a slowed CPU, as a slow phone would (#404).
+  const throttle = Number(process.env.REPFORGE_MOTION_CPU_THROTTLE || 1);
+  if (throttle > 1) await (await context.newCDPSession(page)).send("Emulation.setCPUThrottlingRate", { rate: throttle });
   const views = ["log", "stats", "history", "program"];
   const rectOf = (view) => page.evaluate((v) => window.__dock.rect(document.querySelector('nav button[data-view="' + v + '"]')), view);
 
@@ -2263,6 +2266,20 @@ async function dockMotion(browser, { reducedMotion = "no-preference" } = {}) {
     assert(Math.abs(mid.restart.lens.left - mid.live.lens.left) < 3 && mid.restart.count === 1,
       "the second choice starts from the live position, not a jump to either end, still one lens", JSON.stringify({ live: mid.live.lens.left, restart: mid.restart.lens.left, n: mid.restart.count }));
     assert(onButton(end) && end.view === "program" && end.count === 1 && end.transform === "" && Math.abs(end.lens.left - program.left) < 0.5, "and it lands on the last tab chosen", JSON.stringify(end));
+
+    // A slow phone is still busy after the tap when the travel has been handed to the motion layer (#404). That
+    // time is held on the main thread here: the first frame a person sees must still show the lens on the tab
+    // it left, not most of the way across.
+    phase("N1: on a busy main thread the first painted frame still shows the lens on the tab it left");
+    const log = await rectOf("log");
+    const busy = await page.evaluate(() => window.__dock.travel(520, () => {
+      window.__dock.click("log");
+      queueMicrotask(() => { const until = performance.now() + 200; while (performance.now() < until); });
+    }));
+    const busyLefts = busy.map((f) => f.lens.left);
+    assert(busyLefts[0] > program.left - (program.left - log.left) * 0.4, "it starts on the tab it left", JSON.stringify({ first: busyLefts[0], from: program.left }));
+    assert(busyLefts.some((l) => l < program.left - 40 && l > log.left + 40), "it passes between the two tabs", JSON.stringify(busyLefts.filter((_, i) => i % 3 === 0).map(Math.round)));
+    assert(onButton(busy.at(-1)) && busy.at(-1).view === "log", "and it lands on the tab chosen", JSON.stringify(busy.at(-1)));
   }
   await page.evaluate(() => window.__dock.click("history"));
   await page.waitForFunction(() => window.__dock.settled());

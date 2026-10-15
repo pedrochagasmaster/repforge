@@ -261,6 +261,21 @@
      retargetable: a second call while one is in flight starts from where the
      element is on screen now, not from where the first call began. */
   const indicatorRuns = new WeakMap();
+  /* Runs asked for before the same frame start together on it, on one clock,
+     so a pair that travels as one (the chart's dot and cursor line) stays in
+     step. A run superseded before then never starts. */
+  let frameStarts = null;
+  function startOnNextFrame(start) {
+    if (!frameStarts) {
+      frameStarts = [];
+      requestAnimationFrame(() => {
+        const due = frameStarts;
+        frameStarts = null;
+        for (const fn of due) fn();
+      });
+    }
+    frameStarts.push(start);
+  }
   function indicatorRect(run) {
     const progress = run.distance ? Math.min(1, Math.max(0, run.y.get() / run.distance)) : 0;
     const mix = key => run.to[key] + (run.from[key] - run.to[key]) * progress;
@@ -307,7 +322,19 @@
     el.style.transformOrigin = "0 0";
     paint(distance);
     hint(el, "transform");
-    run.arrived = arrival(animate(y, 0, VOCABULARY.layoutShift), () => indicatorRuns.get(el) === run);
+    /* The spring's clock starts on the next animation frame, not now. Work the
+       caller still does before that frame (a tab change renders its view) would
+       otherwise be spent as travel, and on a slow phone the first frame painted
+       would show the element most of the way there (#404). */
+    const started = new Promise(resolve => {
+      startOnNextFrame(() => {
+        if (indicatorRuns.get(el) === run) resolve({ animation: animate(y, 0, VOCABULARY.layoutShift) });
+      });
+    });
+    run.arrived = arrival(
+      { then: (onArrive, onFail) => started.then(({ animation }) => animation.then(onArrive, onFail)) },
+      () => indicatorRuns.get(el) === run
+    );
     return run.arrived.finally(() => {
       stopPaint();
       if (indicatorRuns.get(el) !== run) return;
