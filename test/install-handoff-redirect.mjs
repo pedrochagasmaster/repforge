@@ -80,6 +80,16 @@ try {
     const wrote = await safari.page.evaluate(({ token, expiresAt }) => window.RepForgeInstallTransfer
       .writeTransferCookie({ token, expiresAt }, { document, location }), { token: TOKEN, expiresAt: EXPIRES_AT });
     check(wrote === true, "Safari writes the transfer cookie");
+    // The cookie is now visible to Safari's own page; only the installed app claims it.
+    await safari.page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(safari.page, { base });
+    const safariAfter = await safari.page.evaluate(() => ({
+      failure: window.__repforgeBootFailure?.code ?? null,
+      sheet: document.querySelector("#iosInstallSheet")?.getAttribute("data-transfer-state") ?? null,
+      cookie: !!window.RepForgeInstallTransfer.readTransferCookie(),
+    }));
+    check(host.serviceRequests.length === 0 && safariAfter.failure === null && safariAfter.cookie,
+      "a Safari reload keeps its transfer cookie and does not claim it", JSON.stringify({ safariAfter, requests: host.serviceRequests }));
     const cookies = await safari.context.cookies();
     await safari.context.close();
 

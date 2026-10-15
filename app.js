@@ -4898,7 +4898,9 @@ async function installTransferPrepareStandaloneBoot(){
   try{
     const {transfer}=await ensureInstallTransferModules();
     const inboundBefore=installTransferReadInboundMarker();
-    const cookie=transfer.readTransferCookie({document});
+    // The transfer cookie is scoped to the app, so Safari's own page sees the
+    // cookie it wrote; only the installed app claims it.
+    const cookie=transfer.contextFrom()==="standalone"?transfer.readTransferCookie({document}):null;
     if(!cookie&&!inboundBefore)return{ok:true,absent:true};
     openIosInstallSheet("claiming");
     if(inboundBefore?.phase==="local-committed"||inboundBefore?.phase==="cleanup-pending"){
@@ -21455,7 +21457,7 @@ async function installTransferBootNeedsLock(){
   if(window.__repforgeInstallTransferPreBootRequest!==undefined)return true;
   try{
     const {transfer}=await ensureInstallTransferModules();
-    return !!transfer.readTransferCookie({document});
+    return transfer.contextFrom()==="standalone"&&!!transfer.readTransferCookie({document});
   }catch{return false}}
 async function boot(){
   // The full source catalog is an offline shell asset. Load it before state
