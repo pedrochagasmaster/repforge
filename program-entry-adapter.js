@@ -149,9 +149,90 @@
   const GOALS = Object.freeze({ muscle_growth: "hypertrophy", balanced: "hybrid", strength: "strength" });
   const EXPERIENCE = Object.freeze({ first: "beginner", under_6m: "beginner", "6_to_24m": "intermediate", over_24m: "advanced" });
   // The source catalog flags each equipment item for its gym templates.
+  // Everything takes every equipment object; a stored Other keeps Local's flag.
   const GYM_FLAGS = Object.freeze({
-    commercial_gym: "commercialGym", basic_gym: "localGym", full_home: "garageGym", limited_home: "homeGym", other: "localGym",
+    everything: "*", commercial_gym: "commercialGym", warehouse_gym: "warehouseGym", basic_gym: "localGym",
+    full_home: "garageGym", limited_home: "homeGym", other: "localGym",
   });
+  // Onboarding B's equipment groups (Plan 072, Plan 068 slice A). Members are
+  // catalog identity, never names, and both halves of a plural/singular pair
+  // are listed because the compiler closes only from plural to singular.
+  const EQUIPMENT_GROUPS = Object.freeze({
+    // Barbell, Weight plate, Weight plates, Bumper plate, Bumper plates
+    barbell: Object.freeze([
+      "19e5c6f170d8801cac93cf6853bd86b8",
+      "1a45c6f170d880629cdcc99a2ff615cf",
+      "25a5c6f170d880c1a55ac08cf52671ab",
+      "25d5c6f170d880eba241c26f8f426024",
+      "25a5c6f170d8805b8c95e7e5b4e8a989",
+    ]),
+    // Power rack, Squat stand
+    rack: Object.freeze([
+      "19e5c6f170d880119a7ec9fe338f8fea",
+      "2625c6f170d880788ea1cb74ceda4648",
+    ]),
+    // Adjustable bench, Flat bench
+    bench: Object.freeze([
+      "1a05c6f170d880d8a7efe4721e964f2d",
+      "19e5c6f170d8802b9d8ed6e425798f6b",
+    ]),
+    // Dumbbell, Dumbbells
+    dumbbells: Object.freeze([
+      "25a5c6f170d880589ffdf4f627a75b44",
+      "19e5c6f170d8808593d8ecf408c4f749",
+    ]),
+    // Kettlebell, Kettlebells
+    kettlebells: Object.freeze([
+      "19e5c6f170d880e791c3da3a74828f0e",
+      "25a5c6f170d880478d81c880d6ee06a0",
+    ]),
+    // Straight pull-up bar, Multi-grip pull-up bar
+    pullup_bar: Object.freeze([
+      "19e5c6f170d88018a872fe18a35ae8aa",
+      "25e5c6f170d8808e8276fa6902887bff",
+    ]),
+    // Dip bars
+    dip_bars: Object.freeze([
+      "19e5c6f170d88050bdbefcbb91c01f16",
+    ]),
+    // Pin-loaded single cable machine, Pin-loaded cable crossover, Cuff cable attachment, Cuff cable attachments, V-bar row grip attachment
+    cable: Object.freeze([
+      "19e5c6f170d880d28b46e9ccddcfba1a",
+      "25a5c6f170d8805cb60bd3ee71311ad1",
+      "25c5c6f170d88024ac71dfa51cae3bc0",
+      "2b25c6f170d880edbbdadcfb8841bfd1",
+      "25d5c6f170d880a286ead7979054a9c0",
+    ]),
+    // Smith machine
+    smith: Object.freeze([
+      "19e5c6f170d880d29affc687810a9a8a",
+    ]),
+    // EZ bar
+    ez_bar: Object.freeze([
+      "19e5c6f170d88074bf1af2264ccaf192",
+    ]),
+    // 45° leg press, Pin-loaded leg press, Hack squat
+    leg_press: Object.freeze([
+      "19e5c6f170d880038662ee8145175f92",
+      "25c5c6f170d880b0a509d9d5c13748d0",
+      "19e5c6f170d880d3914cc4c2631393cd",
+    ]),
+    // Long resistance band, Long resistance bands, Short resistance band, Anchor point for resistance band
+    bands: Object.freeze([
+      "19e5c6f170d880d5bf4ae225c061f55d",
+      "25b5c6f170d880619592ca5ba65fc1b3",
+      "25a5c6f170d880c2be66d2f10537c1c1",
+      "2605c6f170d8804bb8e0ca7c86ed38d9",
+    ]),
+    // Suspension trainer, Anchor point for suspension trainer, Gymnastics Ring, Gymnastics Rings
+    suspension: Object.freeze([
+      "19f5c6f170d880eea412c7ca7d833844",
+      "2605c6f170d880cf825feab5ae68d7a4",
+      "27d5c6f170d880138553d4c610c9ddc8",
+      "19e5c6f170d880ee9089e447b5f8f9e6",
+    ]),
+  });
+  const PERIODIZATIONS = Object.freeze(["static", "linear", "reverse_linear", "undulating"]);
   const MUSCLE_NAMES = Object.freeze({
     chest: "Chest", back: "Upper Back", quads: "Quads", hamstrings: "Hamstrings", glutes: "Glutes",
     side_delts: "Side Delts", rear_delts: "Rear Delts", front_delts: "Front Delts", biceps: "Biceps",
@@ -199,6 +280,10 @@
     const exerciseIds = (values) => (Array.isArray(values) ? values : [])
       .filter((id) => typeof id === "string" && index[id]?.type === "exercise");
     const answersIn = isPlainObject(source.competencyAnswers) ? source.competencyAnswers : {};
+    const block = {
+      cycles: Number.isInteger(source.block?.cycles) && source.block.cycles >= 4 && source.block.cycles <= 12 ? source.block.cycles : 7,
+      periodization: PERIODIZATIONS.includes(source.block?.periodization) ? source.block.periodization : "static",
+    };
     return {
       ok: true,
       value: {
@@ -206,21 +291,85 @@
         experience,
         daysPerWeek: days,
         timeCeilingMinutes: ceiling,
-        gymProfile: { equipmentIds: ids("equipment", (entry) => entry[flag] === 1) },
-        competencyAnswers: Object.fromEntries(COMPETENCY_KEYS.map((key) =>
-          [key, typeof answersIn[key] === "boolean" ? answersIn[key] : null])),
-        movementConfirmations: {},
+        gymProfile: { equipmentIds: gymEquipment(ids("equipment", (entry) => flag === "*" || entry[flag] === 1), source.environment.adjust) },
+        competencyAnswers: competencies(answersIn),
+        movementConfirmations: confirmations(source.movementConfirmations, catalog),
         emphasisMuscleIds: muscleIds(source.primaryMuscles).slice(0, 5),
         deprioritizedMuscleIds: muscleIds(source.deEmphasizedMuscles).slice(0, 5),
         excludedExerciseIds: exerciseIds((source.exerciseConstraints || []).map((item) => item?.exerciseId)),
         excludedMuscleIds: muscleIds(source.ignoredMuscles),
         preferredExerciseIds: exerciseIds(source.mustHaveExercises),
         split: compatibleSplit(source.splitPreference, days),
-        periodization: "static",
-        cycles: 7,
-        deloadCycles: [],
+        periodization: block.periodization,
+        cycles: block.cycles,
+        deloadCycles: source.deload === true ? [block.cycles] : [],
       },
     };
+  }
+
+  // Ten strict pull-ups is also five (owner decision on #340). Resolved here,
+  // in the answers, so a recipe link carries both explicitly and the
+  // generator's own rules do not change.
+  function competencies(answersIn) {
+    const out = Object.fromEntries(COMPETENCY_KEYS.map((key) =>
+      [key, typeof answersIn[key] === "boolean" ? answersIn[key] : null]));
+    if (out.pullups10 === true) out.pullups5 = true;
+    return out;
+  }
+
+  // The groups B's equipment step starts ticked: any member in the preset.
+  function presetEquipmentGroups(kind, catalog) {
+    const flag = GYM_FLAGS[kind];
+    const index = catalog && isPlainObject(catalog.uuidIndex) ? catalog.uuidIndex : null;
+    if (!flag || !index) return [];
+    const inPreset = (id) => index[id]?.type === "equipment" && (flag === "*" || index[id][flag] === 1);
+    return Object.keys(EQUIPMENT_GROUPS).filter((token) => EQUIPMENT_GROUPS[token].some(inPreset));
+  }
+
+  // (preset ∪ added groups) − removed groups. No adjustment is the preset.
+  function gymEquipment(preset, adjust) {
+    const members = (tokens) => (Array.isArray(tokens) ? tokens : [])
+      .flatMap((token) => (Object.prototype.hasOwnProperty.call(EQUIPMENT_GROUPS, token) ? EQUIPMENT_GROUPS[token] : []));
+    const removed = new Set(members(adjust?.remove));
+    return [...new Set([...preset, ...members(adjust?.add)])].filter((id) => !removed.has(id)).sort();
+  }
+
+  // A confirmation names a current catalog exercise and only prerequisites it
+  // actually has; anything else is dropped rather than sent to the compiler.
+  function confirmations(value, catalog) {
+    if (!isPlainObject(value) || !Object.keys(value).length) return {};
+    const exercises = new Map((Array.isArray(catalog.exercises) ? catalog.exercises : []).map((exercise) => [exercise.id, exercise]));
+    const output = {};
+    for (const exerciseId of Object.keys(value).sort()) {
+      const exercise = exercises.get(exerciseId);
+      const own = new Set(Array.isArray(exercise?.preconditions) ? exercise.preconditions : []);
+      const listed = Array.isArray(value[exerciseId]) ? value[exerciseId] : [];
+      if (listed.length && listed.every((id) => own.has(id))) output[exerciseId] = [...new Set(listed)].sort();
+    }
+    return output;
+  }
+
+  // The compiler predicts which slots a confirmation would change; collision
+  // avoidance and time fit can still stop it landing. An offer is kept only
+  // when confirming it alone, with the same seed, puts that movement in that
+  // slot, and it names the other slots that confirmation also moves.
+  async function verifyConfirmationOffers({ generate, request, seed, result, signal } = {}) {
+    if (!result?.ok || !Array.isArray(result.confirmationOffers)) return [];
+    const exerciseBySlot = (definition) => new Map(definition.days.flatMap((day) =>
+      day.slots.map((slot) => [slot.id, slot.exerciseId])));
+    const before = exerciseBySlot(result.value);
+    const verified = await Promise.all(result.confirmationOffers.map(async (offer) => {
+      const confirmed = await generate({
+        ...request,
+        movementConfirmations: { ...(request.movementConfirmations || {}), [offer.offeredExerciseId]: [...offer.prerequisiteIds] },
+      }, seed, { signal });
+      if (!confirmed?.ok) return null;
+      const after = exerciseBySlot(confirmed.value);
+      if (after.get(offer.slotId) !== offer.offeredExerciseId) return null;
+      const alsoChangedSlotIds = [...before.keys()].filter((id) => id !== offer.slotId && after.get(id) !== before.get(id));
+      return { ...offer, prerequisiteIds: [...offer.prerequisiteIds], alsoChangedSlotIds };
+    }));
+    return verified.filter(Boolean);
   }
 
   function createProductionServices(options) {
@@ -242,6 +391,9 @@
   const api = Object.freeze({
     createProductionServices,
     programRequestFromAnswers,
+    EQUIPMENT_GROUPS,
+    presetEquipmentGroups,
+    verifyConfirmationOffers,
     currentVersions: (Compiler) => currentVersions(compilerApi(Compiler)),
     fingerprint,
     identityDiff,

@@ -824,10 +824,13 @@ async function run() {
     // reduction should stand between its ink and the AA floor.
     {
       const { context, page, errors } = await sharedInstallPage(browser, { ua: IOS_UA, width: 390, setup: { name: "Força compartilhada", language: "pt" } });
-      await page.waitForSelector("#firstRunSharedCap:not(:empty)");
-      const info = await contrastOf(page, "#firstRunSharedCap");
-      const r = ratio(info.fg, info.bg);
-      assert(r + 1e-6 >= 4.5, "the shared program caption meets 4.5:1 normal-text contrast", JSON.stringify({ ...info, ratio: +r.toFixed(2) }));
+      // Plan 072 §7: the caption is on the gate's card, above its disclosure.
+      await page.waitForSelector("#firstRunSharedName:not(:empty)");
+      for (const [selector, label] of [["#firstRunSharedName", "the shared program caption"], ["#firstRunSharedBody", "the shared gate disclosure"]]) {
+        const info = await contrastOf(page, selector);
+        const r = ratio(info.fg, info.bg);
+        assert(r + 1e-6 >= 4.5, `${label} meets 4.5:1 normal-text contrast`, JSON.stringify({ ...info, ratio: +r.toFixed(2) }));
+      }
       allErrors.push(...errors);
       await context.close();
     }
@@ -1082,10 +1085,12 @@ async function run() {
       assert(encoded?.ok, "shared iOS Safari: payload encodes", JSON.stringify(encoded));
       const shown = await page.evaluate(card);
       const gate = await page.evaluate(sharedGateSnapshot);
-      assert(shown.heroTitle === "Your program is ready to train.", "shared iOS Safari: landing adapts to the received program", shown.heroTitle);
+      // Plan 072 §7 (ADR 0020): the received-link gate is headed Start this program, with the approved
+      // no-history/no-change disclosure on its card and See the program as its action.
+      assert(shown.heroTitle === SHARED_COPY.en.title, "shared iOS Safari: landing adapts to the received program", shown.heroTitle);
       assert(shown.section, "shared iOS Safari: install card remains", JSON.stringify(shown));
       assert(gate.startVisible && !gate.createVisible && !gate.importVisible, "shared iOS Safari: one Start this program row", JSON.stringify(gate));
-      assert(gate.lede === "Review the program that was sent to you, then start it on this device.", "shared iOS Safari: review-before-start lede", gate.lede);
+      assert(gate.lede === SHARED_COPY.en.lede, "shared iOS Safari: no-history/no-change disclosure", gate.lede);
       assert(shown.create, "shared iOS Safari: Create still exists in the document", JSON.stringify(shown));
       await page.click("#firstRunContinue");
       await page.waitForTimeout(200);
@@ -1124,7 +1129,7 @@ async function run() {
       const st = await page.evaluate(sharedGateSnapshot);
       assert(st.startVisible && !st.createVisible, "shared standalone: Start this program is the program control", JSON.stringify(st));
       assert(!st.install && !st.continueShown, "shared standalone: no install section", JSON.stringify(st));
-      assert(st.lede === "Review the program that was sent to you, then start it on this device.", "shared standalone: review-before-start lede", st.lede);
+      assert(st.lede === SHARED_COPY.en.ledeInstalled, "shared standalone: no-history/no-change disclosure", st.lede);
       assert(!st.onboarding, "shared standalone: does not jump into the wizard", JSON.stringify(st));
       await context.close();
     } catch (err) {
@@ -1143,9 +1148,9 @@ async function run() {
       assert(encoded?.ok, "shared PT: payload encodes", JSON.stringify(encoded));
       const pt = await page.evaluate(sharedGateSnapshot);
       const shown = await page.evaluate(card);
-      assert(shown.heroTitle === "Seu treino está pronto para treinar.", "shared PT: landing follows the payload language", shown.heroTitle);
-      assert(pt.lede === "Revise o treino que enviaram para você e depois comece neste dispositivo.", "shared PT: review-before-start lede", pt.lede);
-      assert(pt.startTitle === SHARED_COPY.pt.title, "shared PT: Start this program in Portuguese", pt.startTitle);
+      assert(shown.heroTitle === SHARED_COPY.pt.title, "shared PT: landing follows the payload language", shown.heroTitle);
+      assert(pt.lede === SHARED_COPY.pt.lede, "shared PT: no-history/no-change disclosure", pt.lede);
+      assert(pt.startTitle === SHARED_COPY.pt.view, "shared PT: See the program in Portuguese", pt.startTitle);
       await context.close();
     } catch (err) {
       assert(false, "shared PT (uncaught)", String(err && err.stack || err));

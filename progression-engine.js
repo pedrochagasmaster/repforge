@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const ENGINE_VERSION = "067.1";
+  const ENGINE_VERSION = "069.1";
   const FORMULA_VERSION = "rir-adjusted-epley@067.1";
   const METRIC_DOMAIN = root?.RepForgeExerciseMetrics ||
     (typeof require === "function" ? require("./exercise-metrics.js") : null);
@@ -10,10 +10,18 @@
   const DEFINITIONS_BY_ID = new Map(METRIC_DOMAIN.DEFINITIONS.map((entry) => [entry.id, entry]));
   const SUPPORTED_SEMANTICS = Object.freeze({
     external: ["loadKg", "reps"],
+    external_reps_per_side: ["loadKg", "repsPerSide"],
     assistance: ["reps", "assistanceKg"],
     bodyweight: ["reps"],
+    bodyweight_reps_per_side: ["repsPerSide"],
     per_side: ["repsPerSide", "loadPerSideKg"],
+    per_side_reps: ["reps", "loadPerSideKg"],
     persistent_per_side: ["persistentLoadPerSideKg", "repsPerSide"],
+  });
+  const CANONICAL_KIND_BY_COMPOSITION = Object.freeze({
+    external_reps_per_side: "external",
+    bodyweight_reps_per_side: "bodyweight",
+    per_side_reps: "per_side",
   });
   const LOADING_CONVENTIONS = new Set(["external", "assistance", "bodyweight", "per_side"]);
   const DEFAULT_SETTINGS = Object.freeze({ expandRepRange: true, weightMatch: false });
@@ -21,6 +29,7 @@
     available_loads_required: "Set the available loads for this equipment before requesting an automatic load.",
     bodyweight_required: "Record the current bodyweight before using bodyweight contribution.",
     configuration_required: "Complete the loading configuration before requesting an automatic recommendation.",
+    execution_context_required: "Set whether both sides move together or one side moves at a time before requesting automatic progression.",
     historical_bodyweight_required: "This movement needs the bodyweight captured with the performed set; current bodyweight cannot replace it.",
     invalid_prescription: "The prescription or its source metric definitions are invalid.",
     loading_context_required: "Choose the equipment and loading convention for this exercise.",
@@ -61,8 +70,11 @@
     const definitions = METRIC_DOMAIN.validateDefinitions(value.metricIds, value.metricDefinitions, { allowEmpty: true });
     if (!definitions.ok) return { ok: false, reasons: ["invalid_prescription"] };
     const semantics = (value.metricDefinitions || []).map((entry) => entry.semantic);
-    const kind = Object.keys(SUPPORTED_SEMANTICS).find((key) => same(SUPPORTED_SEMANTICS[key], semantics)) || null;
-    if (!kind) return { ok: true, supported: false, kind: null, semantics, reasons: ["no_supported_capacity"] };
+    const composition = Object.keys(SUPPORTED_SEMANTICS).find((key) => same(SUPPORTED_SEMANTICS[key], semantics)) || null;
+    if (!composition) return { ok: true, supported: false, kind: null, semantics, reasons: ["no_supported_capacity"] };
+    const kind = CANONICAL_KIND_BY_COMPOSITION[composition] || composition;
+    const requiresExecutionMode = semantics.includes("repsPerSide")
+      || semantics.includes("loadPerSideKg") || semantics.includes("persistentLoadPerSideKg");
     const repSemantic = semantics.includes("reps") ? "reps" : semantics.includes("repsPerSide") ? "repsPerSide" : null;
     if (!repSemantic) return { ok: true, supported: false, kind, semantics, reasons: ["no_repetition_target"] };
     const targets = METRIC_DOMAIN.validateTargets(value.metricIds, value.targets);
@@ -90,7 +102,8 @@
       return { ok: true, supported: false, kind, semantics, repSemantic, range, reasons: ["no_supported_capacity"] };
     }
     if (value.status !== "ready") return { ok: false, reasons: ["invalid_prescription"] };
-    return { ok: true, supported: true, kind, semantics, repSemantic, range, coefficient, reasons: [] };
+    return { ok: true, supported: true, composition, kind, semantics, repSemantic, requiresExecutionMode,
+      range, coefficient, reasons: [] };
   }
 
   function normalizeSettings(value) {
@@ -113,6 +126,10 @@
     const convention = context.loadingConvention;
     if (!LOADING_CONVENTIONS.has(convention)) {
       return { ok: false, status: "configuration_required", reasons: ["loading_convention_required"] };
+    }
+    const executionMode = context.executionMode;
+    if (shape.requiresExecutionMode && executionMode !== "bilateral" && executionMode !== "unilateral") {
+      return { ok: false, status: "configuration_required", reasons: ["execution_context_required"] };
     }
     if (shape.kind === "persistent_per_side" && convention !== "per_side") {
       return { ok: false, status: "configuration_required", reasons: ["loading_convention_mismatch"] };
@@ -143,6 +160,14 @@
       multiplier = 1;
     } else {
       return { ok: false, status: "configuration_required", reasons: ["configuration_required"] };
+    }
+    if (shape.requiresExecutionMode) {
+      const expectedMultiplier = shape.kind === "persistent_per_side" ? 2
+        : shape.kind === "per_side" ? (executionMode === "bilateral" ? 2 : 1)
+          : shape.kind === "bodyweight" ? 0 : 1;
+      if (multiplier !== expectedMultiplier) {
+        return { ok: false, status: "configuration_required", reasons: ["loading_convention_mismatch"] };
+      }
     }
     const displayLoadSemantic = shape.kind === "external" ? "loadKg"
       : shape.kind === "assistance" ? "assistanceKg"
@@ -259,15 +284,20 @@
     const values = metricValuesBySemantic(value, shape);
     if (!values) return null;
     const capturedContext = isPlainObject(value.loadingContext) ? value.loadingContext : null;
-    if (capturedContext) {
-      const capturedMultiplier = capturedContext.externalLoadMultiplier;
+    let normalizedCapturedContext = capturedContext;
+    if ((shape.kind === "per_side" || shape.kind === "persistent_per_side")
+      && capturedContext?.externalLoadMultiplier === null) {
+      normalizedCapturedContext = { ...capturedContext, externalLoadMultiplier: config.multiplier };
+    }
+    if (normalizedCapturedContext) {
+      const capturedMultiplier = normalizedCapturedContext.externalLoadMultiplier;
       if (capturedMultiplier !== config.multiplier) return { ok: false, reason: "loading_convention_mismatch" };
       if (shape.coefficient > 0
-        && capturedContext.bodyweightContributionEnabled !== config.bodyweightContributionEnabled) {
+        && normalizedCapturedContext.bodyweightContributionEnabled !== config.bodyweightContributionEnabled) {
         return { ok: false, reason: "loading_convention_mismatch" };
       }
     }
-    const transformed = transformActualLoad(values, shape, config.convention, capturedContext);
+    const transformed = transformActualLoad(values, shape, config.convention, normalizedCapturedContext);
     if (!transformed.ok) return transformed;
     const capacityKg = transformed.effectiveLoadKg * (1 + (transformed.reps + value.rir) / 30);
     return {
@@ -569,7 +599,7 @@
     ));
   }
 
-  const api = Object.freeze({ ENGINE_VERSION, FORMULA_VERSION, recommendSets });
+  const api = Object.freeze({ ENGINE_VERSION, FORMULA_VERSION, SUPPORTED_SEMANTICS, recommendSets });
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.RepForgeProgression = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

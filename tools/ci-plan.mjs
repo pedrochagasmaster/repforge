@@ -14,8 +14,8 @@
  * inventory. Test selection by ownership stays a local feedback tool
  * (tools/test-selection.mjs); the merge gate never guesses.
  */
-import { appendFileSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { appendFileSync, existsSync, readdirSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { CI_SHARDS, UI_SYSTEM_SHARDS } from "../test/suites.mjs";
 import { captureKey, loadManifest } from "./ui-screens/manifest.mjs";
@@ -113,6 +113,24 @@ export function gateResults(needs, { log = console.log } = {}) {
   log(run ? "Every selected job passed." : `Nothing to run: ${plan.outputs?.reason || "prose-only change"}.`);
 }
 
+/**
+ * The gate downloads every attempt's artifacts, named shard-<job index>-<run attempt>.
+ * Re-running a failed job adds a newer attempt beside the old one; only the newest
+ * attempt of each job is that job's result. Other layouts (a local sweep) are read whole.
+ */
+function latestShardReports(root) {
+  const latest = new Map();
+  const entries = existsSync(root) ? readdirSync(root, { withFileTypes: true }) : [];
+  for (const entry of entries) {
+    const match = entry.isDirectory() && /^shard-(\d+)-(\d+)$/.exec(entry.name);
+    if (!match) continue;
+    const [, job, attempt] = match;
+    if (!latest.has(job) || Number(attempt) > latest.get(job).attempt) latest.set(job, { attempt: Number(attempt), dir: join(root, entry.name) });
+  }
+  if (!latest.size) return findShardReports(root);
+  return [...latest.values()].flatMap(({ dir }) => findShardReports(dir));
+}
+
 /** The catalog-wide UI-system rule over every shard's report; browser-free so the gate job needs no test dependencies. */
 export function mergeUiSystemReports(root, { inventory = loadRoleInventory(), manifest = loadManifest() } = {}) {
   const problems = validateRoleInventory(inventory, manifest);
@@ -122,7 +140,7 @@ export function mergeUiSystemReports(root, { inventory = loadRoleInventory(), ma
     }))));
   const expectedCaptureKeysByShard = Array.from({ length: UI_SYSTEM_SHARDS }, (_, index) =>
     shardCaptures(captureKeys, { index: index + 1, count: UI_SYSTEM_SHARDS }));
-  const merged = mergeShardReports(findShardReports(root), inventory, {
+  const merged = mergeShardReports(latestShardReports(root), inventory, {
     expectedShardCount: UI_SYSTEM_SHARDS,
     expectedScreenCount: captureKeys.length,
     expectedCaptureKeysByShard,

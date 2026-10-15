@@ -24,7 +24,7 @@
  *
  * Run: node test/journeys-in.mjs   (requires the app served over HTTP)
  */
-import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, waitForAppBoot, answerRecommend } from "./browser.mjs";
 import { encodeSetupLink } from "./fixtures/setup-link-v4.mjs";
 import { APP_INDEX, waitForFirstRun } from "./shared-setup-flow.mjs";
 import { finishEarly } from "./fixtures/focus-workout.mjs";
@@ -147,27 +147,14 @@ async function ui(page) {
   return page.evaluate(() => { try { return JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}"); } catch { return {}; } });
 }
 
-const goal = '[data-entry-route="recommend"][data-entry-goal="muscle_growth"]';
+/** The hub's Recommend radio choice (Plan 072 S2); select then Continue enters the route. */
+const recommendHubChoice = '[data-entry-hub="recommend"]';
 
-/** From the Generate (recommend) route's background question to the activation button. */
+/** From wherever the Recommend route currently sits (or the open hub) to the activation button. */
 async function walkRecommend(page) {
-  const atStep = (steps) => page.waitForFunction(
-    (list) => list.includes(window.__repforgeEntryState?.()?.step), steps, { timeout: 15000 });
-  await atStep(["background"]);
-  await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
-  await page.click("#onbNext");
-  await atStep(["schedule"]);
-  await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
-  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
-  await page.click("#onbNext");
-  await atStep(["environment"]);
-  await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
-  await page.click("#onbNext");
-  await atStep(["abilities"]);
-  await page.click("#onbNext");
-  await atStep(["priorities", "result"]);
-  if (await page.evaluate(() => window.__repforgeEntryState?.()?.step === "priorities")) await page.click("#onbNext");
-  await atStep(["result"]);
+  await answerRecommend(page, {
+    lifting: "6_to_24m", days: 3, minutes: 60, environment: "commercial_gym", goal: "muscle_growth", skipBasics: true,
+  });
   await page.waitForSelector("#entryActivate", { timeout: 15000 });
 }
 
@@ -210,11 +197,12 @@ const first = await newDevice(browser);
   const entered = await handoff(page, "landing -> entry hub", { view: "onboarding", focus: "#entryHeading", guide: "entry" });
   assert(entered.guideState.entry === "shown", "the entry guide is recorded as shown", JSON.stringify(entered.guideState));
 
-  await page.click(goal);
-  await page.waitForSelector('[data-entry-pick="structuredExperience"]', { timeout: 10000 });
+  // B's hub (Plan 072): choosing Recommend is the action the guide points at.
+  await page.click(recommendHubChoice);
   const acted = await page.evaluate(readSurface);
   assert(acted.cues.length === 0 && acted.guideState.entry === "completed",
     "choosing the route the guide points at completes it and takes it down (G-62)", JSON.stringify({ cues: acted.cues, state: acted.guideState }));
+  await page.click("#onbNext");
 
   await walkRecommend(page);
   await activate(page);
@@ -415,8 +403,8 @@ phase("Journey 4: returning landing -> chooser resume -> activation");
 {
   const { page, context } = await newDevice(browser);
   await page.click("#firstRunCreate");
-  await page.waitForSelector(goal, { timeout: 15000 });
-  await page.click(goal);
+  await page.waitForSelector(recommendHubChoice, { timeout: 15000 });
+  await answerRecommend(page, { skipBasics: true, until: "background" });
   await page.waitForFunction((key) => {
     try { return JSON.parse(localStorage.getItem(key) || "{}").state?.route === "recommend"; } catch { return false; }
   }, SETUP_DRAFT, { timeout: 10000 });
@@ -456,9 +444,9 @@ phase("Journey 6: Build route -> Open editor (R7 J-05)");
 {
   const { page, context } = await newDevice(browser);
   await page.click("#firstRunCreate");
-  await page.waitForSelector("#entryOwnToggle", { timeout: 15000 });
-  await page.click("#entryOwnToggle");
-  await page.click('[data-entry-route="build"]');
+  await page.waitForSelector('[data-entry-hub="build"]', { timeout: 15000 });
+  await page.click('[data-entry-hub="build"]');
+  await page.click("#onbNext");
   await page.locator("#entryProgramName").fill("Meu plano");
   await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
   await page.waitForFunction(() => !document.querySelector("#onbNext")?.disabled, undefined, { timeout: 5000 });

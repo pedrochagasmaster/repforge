@@ -83,7 +83,7 @@ function validContext() {
       sessionMinutes: 60,
       preferredRestSeconds: 120,
     },
-    environment: { kind: "commercial_gym", capabilities: ["safe_pull"], equipment: ["barbell", "cable"] },
+    environment: { kind: "commercial_gym" },
     primaryMuscles: ["back"],
     deEmphasizedMuscles: [],
     ignoredMuscles: [],
@@ -121,7 +121,7 @@ function driveToTerminal(route) {
     if (["catalogue", "import_source", "shared_review"].includes(state.step)) {
       state = Entry.setResult(state, resultFixture(route));
     }
-    if (["preview", "editor"].includes(state.step)) return { state, visited };
+    if (state.step === "editor" || (state.step === Entry.reviewStep(route) && state.result)) return { state, visited };
     const transition = Entry.advance(state);
     assert.equal(transition.ok, true, `${route}:${state.step} should advance`);
     assert.notEqual(transition.state.step, state.step, `${route}:${state.step} should move`);
@@ -248,7 +248,7 @@ test("a generated 12-cycle candidate persists within the bounded entry contract"
   assert.deepEqual(normalized.value.result.preview.programDefinition, programDefinition);
   assert.equal(normalized.value.result.preview.program.length,
     programDefinition.days.filter((day) => day.kind === "training").reduce((sum, day) => sum + day.slots.length, 0));
-  assert.deepEqual(Entry.candidateActivationIssues({ ...staged, step: "preview" }), []);
+  assert.deepEqual(Entry.candidateActivationIssues({ ...staged, step: "result" }), []);
 });
 
 test("canonical program-entry previews reject missing definitions and display mismatches", () => {
@@ -276,10 +276,10 @@ test("canonical program-entry previews reject missing definitions and display mi
   assert.ok(invalidResult.issues.some((issue) => issue.includes("programDefinition:invalid")));
 });
 
-test("every route reaches its declared preview or editor", () => {
+test("every route reaches the step where its candidate is reviewed", () => {
   for (const route of Entry.ROUTES) {
     const { state, visited } = driveToTerminal(route);
-    assert.equal(state.step, route === "build" ? "editor" : "preview");
+    assert.equal(state.step, route === "build" ? "editor" : Entry.reviewStep(route));
     assert.deepEqual(visited, Entry.ROUTE_STEPS[route]);
   }
 });
@@ -292,19 +292,38 @@ test("every route step has a defined Back transition", () => {
     for (let index = 0; index < Entry.ROUTE_STEPS[route].length; index++) {
       const atStep = { ...state, step: Entry.ROUTE_STEPS[route][index] };
       const previous = Entry.back(atStep);
-      assert.equal(previous.step, index === 0 ? "entry" : Entry.ROUTE_STEPS[route][index - 1]);
+      const steps = Entry.ROUTE_STEPS[route];
+      // Back passes over Recommend's building moment, which only generates.
+      const expected = index === 0 ? "entry" : steps[index - 1] === "building" ? steps[index - 2] : steps[index - 1];
+      assert.equal(previous.step, expected);
     }
   }
 });
 
 test("required omissions block only their owning step", () => {
+  // Onboarding B: the Basics other than lifting experience, equipment, session
+  // length, priorities, deload and abilities never block.
+  const required = {
+    background: ["structured_experience_required", { structuredExperience: "over_24m" }],
+    environment: ["environment_required", { environment: { kind: "limited_home" } }],
+    desired_result: ["desired_result_required", { desiredResult: "strength" }],
+    days_per_week: ["days_per_week_required", { daysPerWeek: 3 }],
+  };
   let state = Entry.selectRoute(fresh(), "recommend");
-  assert.deepEqual(Entry.advance(state).issues, ["desired_result_required"]);
-  state = Entry.setAnswers(state, { desiredResult: "strength" });
-  state = Entry.advance(state).state;
-  assert.deepEqual(Entry.advance(state).issues, ["structured_experience_required"]);
-  state = Entry.setAnswers(state, { structuredExperience: "over_24m" });
-  assert.equal(Entry.advance(state).ok, true);
+  assert.equal(state.step, "intro");
+  const visited = [];
+  while (state.step !== "result") {
+    visited.push(state.step);
+    const [issue, answer] = required[state.step] || [];
+    if (issue) {
+      assert.deepEqual(Entry.advance(state).issues, [issue], state.step);
+      state = Entry.setAnswers(state, answer);
+    }
+    const advanced = Entry.advance(state);
+    assert.equal(advanced.ok, true, state.step);
+    state = advanced.state;
+  }
+  assert.deepEqual(visited, Entry.ROUTE_STEPS.recommend.slice(0, -1));
 });
 
 test("switching Recommend and Custom preserves shared facts but drops results", () => {
@@ -379,7 +398,7 @@ test("programming context accepts only the versioned bounded shape", () => {
     { desiredResult: "build_consistency" },
     { structuredExperience: "advanced" },
     { volumeTolerance: "high" },
-    { primaryMuscles: ["back", "chest", "quads"] },
+    { primaryMuscles: ["back", "chest", "quads", "glutes", "lats", "calves"] },
   ]) {
     const rejected = Entry.normalizeProgrammingContext({ ...context, ...change });
     assert.equal(rejected.ok, false, JSON.stringify(change));
@@ -641,7 +660,7 @@ test("activation refuses stale revisions and returns a reviewable conflict state
   assert.equal(readiness.ok, false);
   assert.equal(readiness.code, "active_program_changed");
   assert.equal(readiness.state.step, "activation_conflict");
-  assert.equal(Entry.back(readiness.state).step, "preview");
+  assert.equal(Entry.back(readiness.state).step, "result");
   assert.deepEqual(preview, driveToTerminal("recommend").state);
 
   const resumed = Entry.resumeSetupDraft(preview, {
@@ -788,7 +807,7 @@ test("muscle overlaps and control caps fail closed before compile", () => {
   );
   assert.throws(
     () => Entry.setAnswers(state, {
-      primaryMuscles: ["chest", "back", "quads"],
+      primaryMuscles: ["chest", "back", "quads", "glutes", "lats", "calves"],
     }),
     /invalid_list|too_many/,
   );

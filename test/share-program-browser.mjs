@@ -37,8 +37,35 @@ function check(condition, message, detail) {
 }
 const state = (page) => page.evaluate(() => window.__repforgeWorkoutDraft.state());
 
+/** Records what app.js emits through the real telemetry boundary (consent on),
+ *  so the share outcomes can be checked without a network adapter. */
+const RECORDER = () => {
+  window.__captured = [];
+  let installed;
+  Object.defineProperty(window, "RepForgeTelemetry", {
+    configurable: true,
+    get: () => installed,
+    set(next) {
+      installed = next;
+      try {
+        next.boot({
+          adapter: { capture: (name, properties) => window.__captured.push([name, { ...properties }]), setEnabled() {} },
+          appVersion: "test", crypto: window.crypto, location: window.location, now: () => new Date(),
+          releaseChannel: "preview", storage: window.localStorage,
+        });
+      } catch (error) { window.__telemetryBootError = String(error); }
+    },
+  });
+};
+// The event's own properties, without the envelope telemetry adds to every event.
+const shareEvents = (page) => page.evaluate(() => window.__captured
+  .filter(([name]) => name === "share_setup_outcome")
+  .map(([, { action, program_kind, form, size_vs_limit }]) => ({ action, program_kind, form, size_vs_limit })));
+
 async function fresh(browser) {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, acceptDownloads: true });
+  await context.addInitScript(RECORDER);
+  await context.addInitScript(() => window.localStorage.setItem("repforge_telemetry_enabled_v1", "true"));
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(String(error?.stack || error)));
@@ -92,7 +119,7 @@ async function receive(browser, link) {
 
 async function startAndActivate(page) {
   await page.waitForSelector("#firstRunSharedProgram:not(.hidden)", { timeout: 15000 });
-  const cap = await page.locator("#firstRunSharedCap").innerText();
+  const cap = await page.locator("#firstRunSharedName").innerText();
   await page.locator("#firstRunSharedStart").click();
   await page.waitForSelector("#entryActivate", { timeout: 15000 });
   await page.locator("#entryActivate").click();
@@ -115,6 +142,8 @@ async function main() {
     const encoded = generated.link?.split("#setup=")[1] || "";
     check(generated.link && encoded.startsWith("v4.") && encoded.length <= 3072,
       "a generated seven-cycle program shares within the link limit", { length: encoded.length, status: generated.status });
+    check(same(await shareEvents(sender.page), [{ action: "link_ready", program_kind: "generated", form: "recipe", size_vs_limit: "under_half" }]),
+      "a ready recipe link reports its kind, form and size against the limit", await shareEvents(sender.page));
     const receiver = await receive(browser, generated.link);
     errors.push(receiver.errors);
     const cap = await startAndActivate(receiver.page);
@@ -183,6 +212,10 @@ async function main() {
     const manual = await shareLink(builder.page);
     check(manual.link && manual.link.split("#setup=")[1].length <= 3072, "a Build program shares in full within the limit",
       { length: manual.link?.split("#setup=")[1]?.length, status: manual.status });
+    const manualEvents = await shareEvents(builder.page);
+    check(manualEvents.length === 1 && manualEvents[0].action === "link_ready" && manualEvents[0].program_kind === "manual" &&
+      manualEvents[0].form === "full" && ["under_half", "under_limit"].includes(manualEvents[0].size_vs_limit),
+      "a ready full link reports a manual program and its size", manualEvents);
     const manualReceiver = await receive(browser, manual.link);
     errors.push(manualReceiver.errors);
     await startAndActivate(manualReceiver.page);
@@ -191,6 +224,80 @@ async function main() {
     await manualReceiver.context.close();
     await builder.context.close();
 
+    // #317: a slot's alternates travel by link and by file --------------------
+    // One catalog alternate and one custom movement that is only an alternate,
+    // so the custom definition has to travel on the strength of the alternate.
+    const alternating = await fresh(browser);
+    errors.push(alternating.errors);
+    await installSeedProgram(alternating.page, { waitFor: (page) => waitForAppBoot(page, { base: BASE }) });
+    const CUSTOM_ALTERNATE = { id: "custom:alt-landmine", name: "Coach landmine press", equipment: [],
+      primary: "", secondary: "", notes: "", metricIds: [], metricDefinitions: [] };
+    await alternating.page.evaluate(async (custom) => {
+      await window.__repforgeStorage.flush();
+      const state = JSON.parse(localStorage.getItem("repforge_v1"));
+      const slots = state.programMeta.programDefinition.days.flatMap((day) => day.slots);
+      slots[0].alternates = [slots[1].exerciseId, custom.id];
+      state.customExercises = [...(state.customExercises || []), custom];
+      localStorage.setItem("repforge_v1", JSON.stringify(state));
+      const db = await new Promise((resolve, reject) => {
+        const request = indexedDB.open("repforge", 1);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction("kv", "readwrite");
+        tx.objectStore("kv").put(state, "repforge_v1");
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+      db.close();
+    }, CUSTOM_ALTERNATE);
+    await alternating.page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(alternating.page, { base: BASE });
+    const withAlternates = (await state(alternating.page)).programMeta.programDefinition;
+    const firstAlternates = (definition) => definition?.days.flatMap((day) => day.slots)[0]?.alternates;
+    check(firstAlternates(withAlternates)?.[1] === CUSTOM_ALTERNATE.id, "the sender's slot carries a catalog and a custom alternate",
+      firstAlternates(withAlternates));
+    const alternateLink = await shareLink(alternating.page);
+    check(alternateLink.link && alternateLink.link.split("#setup=")[1].length <= 3072,
+      "a program with alternates shares in full within the limit", { length: alternateLink.link?.split("#setup=")[1]?.length, status: alternateLink.status });
+    const alternateReceiver = await receive(browser, alternateLink.link);
+    errors.push(alternateReceiver.errors);
+    await startAndActivate(alternateReceiver.page);
+    const receivedAlternates = await state(alternateReceiver.page);
+    check(same(receivedAlternates.programMeta.programDefinition, withAlternates),
+      "the link delivers the alternates unchanged", firstDifference(withAlternates, receivedAlternates.programMeta.programDefinition));
+    check((receivedAlternates.customExercises || []).some((entry) => entry.id === CUSTOM_ALTERNATE.id && entry.name === CUSTOM_ALTERNATE.name),
+      "the custom movement that is only an alternate arrives with it", receivedAlternates.customExercises);
+    await alternateReceiver.context.close();
+    await alternating.page.keyboard.press("Escape");
+    await alternating.page.waitForSelector("#shareSetupSheet", { state: "hidden" });
+    await alternating.page.click("#programEditToggle");
+    await alternating.page.waitForSelector("#programEditorWrap:not(.is-hidden)");
+    await alternating.page.locator("#programEditorWrap details.advanced > summary").click();
+    const [alternateDownload] = await Promise.all([alternating.page.waitForEvent("download"), alternating.page.locator("#exportProgram").click()]);
+    const alternateFile = await (await import("node:fs/promises")).readFile(await alternateDownload.path(), "utf8");
+    const alternateJson = JSON.parse(alternateFile);
+    check(same(alternateJson.definition, withAlternates) && alternateJson.customExercises.some((entry) => entry.id === CUSTOM_ALTERNATE.id),
+      "the program file carries the alternates and the custom movement they name", { custom: alternateJson.customExercises?.map((entry) => entry.id) });
+    await alternating.context.close();
+    const alternateImporter = await fresh(browser);
+    errors.push(alternateImporter.errors);
+    await alternateImporter.page.click("#firstRunImport");
+    await alternateImporter.page.waitForSelector("#importProgram", { state: "attached" });
+    await alternateImporter.page.setInputFiles("#importProgram", { name: "program.json", mimeType: "application/json", buffer: Buffer.from(alternateFile) });
+    await alternateImporter.page.waitForSelector("#importReview.active", { timeout: 15000 });
+    await alternateImporter.page.click("#importCommit");
+    await alternateImporter.page.waitForSelector("#entryActivate", { timeout: 15000 });
+    await alternateImporter.page.click("#entryActivate");
+    await alternateImporter.page.waitForFunction(() => window.__repforgeWorkoutDraft.state()?.programMeta?.onboarded === true, undefined, { timeout: 20000 });
+    const importedAlternates = await state(alternateImporter.page);
+    check(same(importedAlternates.programMeta.programDefinition, withAlternates),
+      "importing the file activates the alternates unchanged", firstDifference(withAlternates, importedAlternates.programMeta.programDefinition));
+    check((importedAlternates.customExercises || []).some((entry) => entry.id === CUSTOM_ALTERNATE.id),
+      "the imported program keeps the custom alternate's definition", importedAlternates.customExercises?.map((entry) => entry.id));
+    await alternateImporter.context.close();
+
     // An edited generated program that cannot fit is refused whole -------------
     const edited = await fresh(browser);
     errors.push(edited.errors);
@@ -198,6 +305,35 @@ async function main() {
     const tooLarge = await shareLink(edited.page);
     check(!tooLarge.link && /too large|too long|grande|longo/i.test(tooLarge.status),
       "an edited generated program too large for a link is refused, not truncated", tooLarge);
+    const offered = await edited.page.evaluate(() => ({
+      file: !!document.querySelector("#shareSetupFile:not(.hidden):not([disabled])"),
+      copy: !document.querySelector("#shareSetupCopy")?.classList.contains("hidden"),
+      share: !document.querySelector("#shareSetupShare")?.classList.contains("hidden"),
+      linkIntro: !document.querySelector("#shareSetupBody")?.classList.contains("hidden"),
+      status: document.querySelector("#shareSetupStatus")?.textContent?.trim() || "",
+    }));
+    check(offered.file && !offered.copy && !offered.share && !offered.linkIntro && /file|arquivo/i.test(offered.status),
+      "a refused link offers the program as a file instead, and no link actions or link instructions", offered);
+    const refusedEvents = await shareEvents(edited.page);
+    check(refusedEvents.length === 1 && refusedEvents[0].action === "link_refused" && refusedEvents[0].program_kind === "generated_edited" &&
+      refusedEvents[0].form === "full" && ["over_2x", "over_4x"].includes(refusedEvents[0].size_vs_limit),
+      "a refused link reports an edited generated program and how far over the limit it is", refusedEvents);
+    const editedDefinition = (await state(edited.page)).programMeta.programDefinition;
+    if (offered.file) {
+      const [fileDownload] = await Promise.all([edited.page.waitForEvent("download"), edited.page.locator("#shareSetupFile").click()]);
+      const sharedFile = JSON.parse(await (await import("node:fs/promises")).readFile(await fileDownload.path(), "utf8"));
+      check(sharedFile.kind === "taurifer-program" && sharedFile.version === 4 && same(sharedFile.definition, editedDefinition),
+        "the shared file carries the edited program's canonical definition", firstDifference(editedDefinition, sharedFile.definition));
+      const fileEvents = await shareEvents(edited.page);
+      check(fileEvents.at(-1)?.action === "file_shared" && fileEvents.at(-1)?.program_kind === "generated_edited",
+        "sharing the file is reported as the fallback taken", fileEvents);
+      const recipient = await fresh(browser);
+      errors.push(recipient.errors);
+      const imported = await recipient.page.evaluate((text) => window.__repforgeParseProgramSource(text, "program.json"), JSON.stringify(sharedFile));
+      check(same(imported?.definition, editedDefinition),
+        "another device's Import reads the shared file back as the same program", firstDifference(editedDefinition, imported?.definition));
+      await recipient.context.close();
+    }
     await edited.context.close();
 
     // A legacy link is refused and writes nothing ------------------------------

@@ -22,8 +22,17 @@
   // production adapter consumes them; keeping ownership here preserves the
   // dependency-free direction of this module.
   const KNOWN_EQUIPMENT = Object.freeze(["barbell", "dumbbell", "machine", "cable", "smith", "bodyweight", "band"]);
-  const KNOWN_CAPABILITIES = Object.freeze(["safe_pull", "training_support"]);
-  const ENTRY_MUSCLES = Object.freeze(["chest", "back", "quads", "hamstrings", "glutes", "side_delts", "biceps", "triceps", "calves", "lats"]);
+  // Onboarding B's equipment step adjusts a gym preset by these groups. The
+  // adapter maps each to catalog equipment UUIDs (Plan 072, Plan 068 slice A).
+  const EQUIPMENT_GROUPS = Object.freeze([
+    "barbell", "rack", "bench", "dumbbells", "kettlebells", "pullup_bar", "dip_bars",
+    "cable", "smith", "ez_bar", "leg_press", "bands", "suspension",
+  ]);
+  const EQUIPMENT_GROUP_SET = new Set(EQUIPMENT_GROUPS);
+  const ENTRY_MUSCLES = Object.freeze(["chest", "back", "quads", "hamstrings", "glutes", "side_delts", "biceps", "triceps", "calves", "lats",
+    "front_delts", "rear_delts"]);
+  // Onboarding B prioritizes or reduces up to five muscles each.
+  const MAX_PRIORITY_MUSCLES = 5;
   // Muscle attribution is shared by the custom editor, setup links, imports,
   // durable state, and Progress. Keep the vocabulary here so a producer cannot
   // accept a label that the bounded historical aggregate cannot represent.
@@ -33,8 +42,6 @@
   const MUSCLE_TOKEN_SET = new Set(MUSCLE_TOKENS);
   const MUSCLE_ATTRIBUTION_MAX_LENGTH = 500;
   const ENTRY_MOVEMENTS = Object.freeze(["squat", "hinge", "press", "shoulder_press", "row", "pulldown"]);
-  const KNOWN_EQUIPMENT_SET = new Set(KNOWN_EQUIPMENT);
-  const KNOWN_CAPABILITIES_SET = new Set(KNOWN_CAPABILITIES);
   const ENTRY_MUSCLES_SET = new Set(ENTRY_MUSCLES);
   const ENTRY_MOVEMENTS_SET = new Set(ENTRY_MOVEMENTS);
   const COMPETENCY_ANSWERS = Object.freeze([
@@ -55,8 +62,20 @@
   // Generator time ceilings: up to 20, 20–40, 40–60, 60–90, 90–120, over 120 (150).
   const SESSION_MINUTES = new Set([20, 40, 60, 90, 120, 150]);
   const PREFERRED_REST_SECONDS = new Set([null, 60, 90, 120, 180]);
-  const ENTRY_ENVIRONMENTS = Object.freeze(["commercial_gym", "basic_gym", "limited_home", "full_home", "other"]);
-  const ENVIRONMENTS = new Set(ENTRY_ENVIRONMENTS);
+  // B's six presets, in its order. A stored Other resumes as Local gym, whose
+  // catalog flag it always shared.
+  const ENTRY_ENVIRONMENTS = Object.freeze(["everything", "commercial_gym", "warehouse_gym", "basic_gym", "full_home", "limited_home"]);
+  const ENVIRONMENTS = new Set([...ENTRY_ENVIRONMENTS, "other"]);
+  // B's Basics. Only weight has a use (the first sessions' bodyweight); the
+  // rest stay on the device and never reach the request, a link or telemetry.
+  const BASICS_SEX = new Set(["female", "male", "undisclosed"]);
+  const CARDIO_EXPERIENCE = new Set(["none", "under_1y", "1_to_4y", "over_4y"]);
+  const HEIGHT_UNITS = new Set(["cm", "ftin"]);
+  const WEIGHT_UNITS = new Set(["kg", "lb"]);
+  const BASICS_KEYS = new Set(["sex", "birthDate", "heightCm", "heightUnit", "weightKg", "weightUnit", "cardioExperience"]);
+  const BLOCK_PERIODIZATIONS = new Set(["static", "linear", "reverse_linear", "undulating"]);
+  const MAX_CONFIRMATIONS = 160;
+  const MAX_CONFIRMATION_PREREQUISITES = 8;
   const CONSTRAINT_REASONS = Object.freeze(["dislike", "pain", "equipment", "other"]);
   const VERSION_KEYS = Object.freeze([
     "compiler",
@@ -72,16 +91,29 @@
   // Browse offered the retired family catalogue; it is no longer a route.
   const ROUTES = Object.freeze(["recommend", "custom", "build", "import", "shared"]);
   const ROUTE_SET = new Set(ROUTES);
+  // Routes whose result screen is where the candidate is reviewed and activated.
+  const RESULT_ROUTES = new Set(["recommend", "custom"]);
   const ROUTE_STEPS = Object.freeze({
+    // Onboarding B (ADR 0020, Plan 072): Basics, then gym and equipment, then
+    // the program. Each id names what the step asks.
     recommend: Object.freeze([
-      "desired_result",
+      "intro",
+      "sex",
+      "birth_date",
+      "height",
+      "weight",
       "background",
-      "schedule",
+      "cardio_experience",
       "environment",
+      "equipment",
+      "desired_result",
+      "days_per_week",
+      "session_length",
+      "muscle_priorities",
+      "deload",
       "abilities",
-      "priorities",
+      "building",
       "result",
-      "preview",
     ]),
     custom: Object.freeze([
       "desired_result",
@@ -93,13 +125,15 @@
       "exercise_preferences",
       "custom_shape",
       "result",
-      "preview",
     ]),
     browse: Object.freeze(["schedule", "environment", "catalogue", "preview"]),
     build: Object.freeze(["build_setup", "editor"]),
     import: Object.freeze(["import_source", "preview"]),
     shared: Object.freeze(["shared_review", "preview"]),
   });
+  // A Recommend draft saved on a screen B split or replaced resumes on the
+  // screen that now asks that question.
+  const RETIRED_RECOMMEND_STEPS = Object.freeze({ schedule: "days_per_week", priorities: "muscle_priorities" });
   const SHARED_GENERATOR_KEYS = Object.freeze([
     "desiredResult",
     "structuredExperience",
@@ -366,28 +400,112 @@
       issues.push(`${path}:required`);
       return {};
     }
-    rejectUnknownKeys(value, new Set(["kind", "capabilities", "equipment"]), path, issues);
+    // `equipment` and `capabilities` were a coarse vocabulary nothing read,
+    // and Other is no longer offered. A draft an earlier release stored keeps
+    // them exactly as written: the install transfer requires a draft to equal
+    // its own normalization, so a newer service must accept an older client's
+    // draft unchanged. Nothing reads them; the adapter maps Other to Local.
+    rejectUnknownKeys(value, new Set(["kind", "adjust", "capabilities", "equipment"]), path, issues);
     if (!ENVIRONMENTS.has(value.kind)) issues.push(`${path}.kind:invalid`);
     const output = { kind: value.kind };
-    if (hasOwn(value, "capabilities")) {
-      const caps = normalizeTokenList(value.capabilities, `${path}.capabilities`, issues, MAX_LIST_LENGTH);
-      output.capabilities = caps.filter((token) => {
-        if (!KNOWN_CAPABILITIES_SET.has(token)) {
-          issues.push(`${path}.capabilities:unknown_capability`);
-          return false;
-        }
-        return true;
-      });
+    for (const key of ["capabilities", "equipment"]) {
+      if (hasOwn(value, key)) output[key] = normalizeTokenList(value[key], `${path}.${key}`, issues, MAX_LIST_LENGTH);
     }
-    if (hasOwn(value, "equipment")) {
-      const equipment = normalizeTokenList(value.equipment, `${path}.equipment`, issues, MAX_LIST_LENGTH);
-      output.equipment = equipment.filter((token) => {
-        if (!KNOWN_EQUIPMENT_SET.has(token)) {
-          issues.push(`${path}.equipment:unknown_equipment`);
-          return false;
-        }
-        return true;
-      });
+    if (hasOwn(value, "adjust")) {
+      const adjust = normalizeEquipmentAdjust(value.adjust, `${path}.adjust`, issues);
+      if (adjust) output.adjust = adjust;
+    }
+    return output;
+  }
+
+  // Groups added to and removed from the preset, sorted. Unknown groups are
+  // dropped, and a group in both lists cancels out.
+  function normalizeEquipmentAdjust(value, path, issues) {
+    if (!isPlainObject(value)) {
+      issues.push(`${path}:not_object`);
+      return null;
+    }
+    rejectUnknownKeys(value, new Set(["add", "remove"]), path, issues);
+    const lists = {};
+    for (const key of ["add", "remove"]) {
+      const raw = hasOwn(value, key) ? value[key] : [];
+      if (!Array.isArray(raw) || raw.length > EQUIPMENT_GROUPS.length * 2 || raw.some((token) => typeof token !== "string")) {
+        issues.push(`${path}.${key}:invalid`);
+        return null;
+      }
+      lists[key] = new Set(raw.filter((token) => EQUIPMENT_GROUP_SET.has(token)));
+    }
+    const only = (from, other) => EQUIPMENT_GROUPS.filter((token) => from.has(token) && !other.has(token));
+    return { add: only(lists.add, lists.remove), remove: only(lists.remove, lists.add) };
+  }
+
+  function validBirthDate(value) {
+    const match = typeof value === "string" ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(value) : null;
+    if (!match) return false;
+    const [year, month, day] = match.slice(1).map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    return year >= 1900 && year <= 2100 && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+  }
+
+  function normalizeBasics(value, path, issues) {
+    if (!isPlainObject(value)) {
+      issues.push(`${path}:not_object`);
+      return {};
+    }
+    rejectUnknownKeys(value, BASICS_KEYS, path, issues);
+    const output = {};
+    const take = (key, valid) => {
+      if (!hasOwn(value, key) || value[key] === null) return;
+      if (!valid(value[key])) issues.push(`${path}.${key}:invalid`);
+      else output[key] = value[key];
+    };
+    const tenth = (min, max) => (number) => Number.isFinite(number) && number >= min && number <= max
+      && Math.abs(Math.round(number * 10) - number * 10) < 1e-9;
+    take("sex", (item) => BASICS_SEX.has(item));
+    take("birthDate", validBirthDate);
+    take("heightCm", tenth(100, 250));
+    take("heightUnit", (item) => HEIGHT_UNITS.has(item));
+    take("weightKg", tenth(25, 350));
+    take("weightUnit", (item) => WEIGHT_UNITS.has(item));
+    take("cardioExperience", (item) => CARDIO_EXPERIENCE.has(item));
+    return output;
+  }
+
+  // The lifter's profile (Plan 072 OD-4): the Basics answers kept on the
+  // device after activation. The weight unit lives in settings.unit instead.
+  function normalizeProfile(value) {
+    const issues = [];
+    if (isPlainObject(value) && hasOwn(value, "weightUnit")) issues.push("$.profile.weightUnit:unexpected");
+    const profile = normalizeBasics(value, "$.profile", issues);
+    return issues.length ? { ok: false, issues } : { ok: true, value: profile };
+  }
+
+  function normalizeBlock(value, path, issues) {
+    if (!isPlainObject(value)) {
+      issues.push(`${path}:not_object`);
+      return null;
+    }
+    rejectUnknownKeys(value, new Set(["cycles", "periodization"]), path, issues);
+    if (!Number.isInteger(value.cycles) || value.cycles < 4 || value.cycles > 12) issues.push(`${path}.cycles:invalid`);
+    if (!BLOCK_PERIODIZATIONS.has(value.periodization)) issues.push(`${path}.periodization:invalid`);
+    return { cycles: value.cycles, periodization: value.periodization };
+  }
+
+  // Shape only: whether an exercise and its prerequisites are current catalog
+  // objects is the adapter's check, against the catalog it generates from.
+  function normalizeConfirmations(value, path, issues) {
+    if (!isPlainObject(value) || Object.keys(value).length > MAX_CONFIRMATIONS) {
+      issues.push(`${path}:invalid`);
+      return {};
+    }
+    const output = {};
+    for (const exerciseId of Object.keys(value).sort()) {
+      if (!validToken(exerciseId) || !Array.isArray(value[exerciseId])) {
+        issues.push(`${path}.${exerciseId}:invalid`);
+        continue;
+      }
+      output[exerciseId] = [...new Set(normalizeTokenList(value[exerciseId], `${path}.${exerciseId}`, issues,
+        MAX_CONFIRMATION_PREREQUISITES))].sort();
     }
     return output;
   }
@@ -398,7 +516,7 @@
     const deemphasized = answers.deEmphasizedMuscles || [];
     const ignored = answers.ignoredMuscles || [];
     const movements = answers.priorityMovements || [];
-    if (primary.length > 2) issues.push(`${pathPrefix}.primaryMuscles:too_many`);
+    if (primary.length > MAX_PRIORITY_MUSCLES) issues.push(`${pathPrefix}.primaryMuscles:too_many`);
     if (movements.length > 2) issues.push(`${pathPrefix}.priorityMovements:too_many`);
     if (deemphasized.length > MAX_MUSCLE_CONTROLS) issues.push(`${pathPrefix}.deEmphasizedMuscles:too_many`);
     if (ignored.length > MAX_MUSCLE_CONTROLS) issues.push(`${pathPrefix}.ignoredMuscles:too_many`);
@@ -496,7 +614,7 @@
         preferredRestSeconds: availability.preferredRestSeconds,
       },
       environment: normalizeEnvironment(raw.environment, "$.environment", issues),
-      primaryMuscles: normalizeMuscleList(raw.primaryMuscles, "$.primaryMuscles", issues, 2),
+      primaryMuscles: normalizeMuscleList(raw.primaryMuscles, "$.primaryMuscles", issues, MAX_PRIORITY_MUSCLES),
       deEmphasizedMuscles: normalizeMuscleList(raw.deEmphasizedMuscles, "$.deEmphasizedMuscles", issues, MAX_MUSCLE_CONTROLS),
       ignoredMuscles: normalizeMuscleList(raw.ignoredMuscles, "$.ignoredMuscles", issues, MAX_MUSCLE_CONTROLS),
       // Programming contexts also accept the compiler's historical movement
@@ -602,6 +720,10 @@
       "importReady",
       "sharedReady",
       "programRequest",
+      "basics",
+      "block",
+      "deload",
+      "movementConfirmations",
     ]);
     rejectUnknownKeys(raw, allowed, "$.answers", issues);
     const output = {};
@@ -631,8 +753,20 @@
       else output.preferredRestSeconds = raw.preferredRestSeconds;
     }
     if (hasOwn(raw, "environment")) output.environment = normalizeEnvironment(raw.environment, "$.answers.environment", issues);
+    if (hasOwn(raw, "basics")) output.basics = normalizeBasics(raw.basics, "$.answers.basics", issues);
+    if (hasOwn(raw, "block")) {
+      const block = normalizeBlock(raw.block, "$.answers.block", issues);
+      if (block) output.block = block;
+    }
+    if (hasOwn(raw, "deload")) {
+      if (typeof raw.deload !== "boolean") issues.push("$.answers.deload:invalid");
+      else output.deload = raw.deload;
+    }
+    if (hasOwn(raw, "movementConfirmations")) {
+      output.movementConfirmations = normalizeConfirmations(raw.movementConfirmations, "$.answers.movementConfirmations", issues);
+    }
     const listFields = {
-      primaryMuscles: 2,
+      primaryMuscles: MAX_PRIORITY_MUSCLES,
       priorityMovements: 2,
       deEmphasizedMuscles: MAX_MUSCLE_CONTROLS,
       ignoredMuscles: MAX_MUSCLE_CONTROLS,
@@ -737,7 +871,7 @@
     recommend: new Set(["source", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "customExercises"]),
     custom: new Set(["source", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "customExercises"]),
     browse: new Set(["source", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "limitations", "reductions", "provenance", "primaryMuscles"]),
-    build: new Set(["source", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "days", "primaryMuscles", "customExercises"]),
+    build: new Set(["source", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "days", "primaryMuscles", "customExercises", "loadingConfiguration", "suggestLoadsPending"]),
     import: new Set(["source", "format", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "days", "customExercises", "primaryMuscles"]),
     shared: new Set(["source", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "days", "customExercises", "primaryMuscles", "sharedMeta", "sharedSettings", "sharedImport"]),
   });
@@ -1123,6 +1257,8 @@
     }
     for (const key of ["limitations", "reductions"]) if (hasOwn(value, key) && !Array.isArray(value[key])) issues.push(`${path}.${key}:invalid`);
     if (hasOwn(value, "customExercises")) validateCustomExercises(value.customExercises, `${path}.customExercises`, issues);
+    if (hasOwn(value, "loadingConfiguration")) validateLoadingConfiguration(value.loadingConfiguration, `${path}.loadingConfiguration`, issues);
+    if (hasOwn(value, "suggestLoadsPending")) validateSuggestLoadsPending(value.suggestLoadsPending, `${path}.suggestLoadsPending`, issues);
     if (hasOwn(value, "progressionRelations")) validateRelations(value.progressionRelations, `${path}.progressionRelations`, issues);
     if (hasOwn(value, "progressionModifiers")) {
       if (!Array.isArray(value.progressionModifiers) || value.progressionModifiers.length > MAX_LIST_LENGTH) issues.push(`${path}.progressionModifiers:invalid`);
@@ -1173,6 +1309,37 @@
         }
       }
     }
+  }
+
+  function validateLoadingConfiguration(value, path, issues) {
+    if (value === null) return;
+    if (!isPlainObject(value)) { issues.push(`${path}:invalid`); return; }
+    rejectUnknownKeys(value, new Set(["byExerciseId"]), path, issues);
+    const entries = value.byExerciseId;
+    if (!isPlainObject(entries) || Object.keys(entries).length > MAX_CATALOG_SELECTIONS) {
+      issues.push(`${path}.byExerciseId:invalid`);
+      return;
+    }
+    for (const [exerciseId, entry] of Object.entries(entries)) {
+      const entryPath = `${path}.byExerciseId.${exerciseId}`;
+      if (typeof exerciseId !== "string" || !exerciseId || exerciseId.length > 256 || !isPlainObject(entry)) {
+        issues.push(`${entryPath}:invalid`);
+        continue;
+      }
+      rejectUnknownKeys(entry, new Set(["loadStepKg"]), entryPath, issues);
+      if (typeof entry.loadStepKg !== "number" || !Number.isFinite(entry.loadStepKg)
+        || entry.loadStepKg <= 0 || entry.loadStepKg > 100) {
+        issues.push(`${entryPath}.loadStepKg:invalid`);
+      }
+    }
+  }
+
+  // Plan 069 S4: Build slots whose "Suggest loads" switch is on but not yet
+  // confirmed by activation. Slot ids only; the draft keeps no other opt-in.
+  function validateSuggestLoadsPending(value, path, issues) {
+    if (!Array.isArray(value) || !value.length || value.length > MAX_CATALOG_SELECTIONS
+      || value.some((id) => typeof id !== "string" || !id || id.length > 256)
+      || new Set(value).size !== value.length) issues.push(`${path}:invalid`);
   }
 
   function answerFingerprint(answers) {
@@ -1290,8 +1457,14 @@
     if (typeof raw.draftId !== "string" || raw.draftId.length < 1 || raw.draftId.length > 64) issues.push("$.draftId:invalid");
     if (raw.route !== null && !ROUTE_SET.has(raw.route)) issues.push("$.route:invalid");
     if (raw.route === null && raw.step !== "entry") issues.push("$.step:invalid_for_route");
-    if (ROUTE_SET.has(raw.route) && raw.step !== "entry" && raw.step !== "activation_conflict" &&
-      !ROUTE_STEPS[raw.route].includes(raw.step)) {
+    // Plan 070 retired the generated routes' preview step: their result screen
+    // is the review. A draft saved at preview resumes there, result unchanged.
+    const step = RESULT_ROUTES.has(raw.route) && raw.step === "preview" ? "result" : raw.step;
+    // A Recommend draft saved on a screen B split or replaced stays valid as
+    // stored; resumeSetupDraft moves it to the screen that now asks.
+    const retired = raw.route === "recommend" && hasOwn(RETIRED_RECOMMEND_STEPS, step);
+    if (ROUTE_SET.has(raw.route) && step !== "entry" && step !== "activation_conflict" && !retired &&
+      !ROUTE_STEPS[raw.route].includes(step)) {
       issues.push("$.step:invalid_for_route");
     }
     const answers = normalizeAnswers(raw.answers, issues);
@@ -1308,7 +1481,7 @@
       schemaVersion: SCHEMA_VERSION,
       draftId: raw.draftId,
       route: raw.route,
-      step: raw.step,
+      step,
       answers,
       legacyHints: isPlainObject(raw.legacyHints) ? clone(raw.legacyHints) : {},
       result,
@@ -1616,6 +1789,20 @@
       }
       case "environment": return answers.environment ? [] : ["environment_required"];
       case "abilities": return [];
+      // B's Basics, equipment and deload never block: each has a skip or a
+      // default that reproduces today's request.
+      case "intro":
+      case "sex":
+      case "birth_date":
+      case "height":
+      case "weight":
+      case "cardio_experience":
+      case "equipment":
+      case "session_length":
+      case "deload":
+      case "building": return [];
+      case "days_per_week": return answers.daysPerWeek ? [] : ["days_per_week_required"];
+      case "muscle_priorities": return musclePartitionIssues(answers, "$.answers");
       case "priorities": return musclePartitionIssues(answers, "$.answers");
       case "exercise_preferences": return [];
       case "custom_shape": {
@@ -1654,6 +1841,12 @@
     }
   }
 
+  /* Where a candidate is reviewed before Activate: the result screen on the
+     generated routes, the preview on the others. */
+  function reviewStep(route) {
+    return RESULT_ROUTES.has(route) ? "result" : "preview";
+  }
+
   function advance(state) {
     assertState(state);
     const issues = validationIssues(state);
@@ -1668,11 +1861,13 @@
   function back(state) {
     assertState(state);
     if (state.step === "entry") return clone(state);
-    if (state.step === "activation_conflict") return { ...clone(state), step: "preview" };
+    if (state.step === "activation_conflict") return { ...clone(state), step: reviewStep(state.route) };
     const steps = ROUTE_STEPS[state.route];
     const index = steps.indexOf(state.step);
     if (index === 0) return { ...clone(state), step: "entry" };
-    return { ...clone(state), step: steps[index - 1] };
+    // The building moment only runs a generation; Back passes over it.
+    const previous = steps[index - 1] === "building" ? steps[index - 2] : steps[index - 1];
+    return { ...clone(state), step: previous };
   }
 
   function changedVersions(saved, current) {
@@ -1689,7 +1884,8 @@
     const normalized = normalizeSetupDraft(input);
     if (!normalized.ok) return normalized;
     const config = isPlainObject(options) ? options : {};
-    const state = normalized.value;
+    const state = normalized.value.route === "recommend" && hasOwn(RETIRED_RECOMMEND_STEPS, normalized.value.step)
+      ? { ...normalized.value, step: RETIRED_RECOMMEND_STEPS[normalized.value.step] } : normalized.value;
     const versionChanges = changedVersions(state.versions, config.currentVersions || state.versions);
     const liveRevision = config.liveActiveProgramRevision;
     const activeRevisionChanged = Number.isInteger(liveRevision) &&
@@ -1782,9 +1978,9 @@
         issues.push(`metric_configuration_required:${slot.id}`);
       }
     }
-    if (state.route !== "build") return issues;
     const trainingDays = definition.days.filter((day) => day.kind === "training");
-    if (!trainingDays.length) issues.push("program_days_required");
+    if (state.route === "build" && !trainingDays.length) issues.push("program_days_required");
+    if (state.route !== "build" && !RESULT_ROUTES.has(state.route)) return issues;
     for (const day of trainingDays) {
       if (!Array.isArray(day.slots) || !day.slots.length) issues.push(`day_empty:${day.id || day.name}`);
     }
@@ -1826,8 +2022,9 @@
     MAX_DRAFT_ENVELOPE_BYTES,
     MAX_MUSCLE_CONTROLS,
     KNOWN_EQUIPMENT,
-    KNOWN_CAPABILITIES,
+    EQUIPMENT_GROUPS,
     ENTRY_MUSCLES,
+    MAX_PRIORITY_MUSCLES,
     MUSCLE_TOKENS,
     MUSCLE_ATTRIBUTION_MAX_LENGTH,
     normalizeMuscleAttribution,
@@ -1838,6 +2035,7 @@
     CONSTRAINT_REASONS,
     COMPETENCY_ANSWERS,
     ROUTES,
+    reviewStep,
     ROUTE_STEPS,
     ROUTE_PREFILL_KEYS,
     createState,
@@ -1845,6 +2043,7 @@
     setAnswers,
     setResult,
     normalizeProgrammingContext,
+    normalizeProfile,
     reusableContextAnswers,
     normalizeSetupDraft,
     normalizeSetupDraftEnvelope,

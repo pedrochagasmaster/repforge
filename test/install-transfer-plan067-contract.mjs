@@ -369,6 +369,24 @@ const validBefore = JSON.stringify(valid);
 const accepted = await Contract.validateEnvelopeIntegrity(valid, webcrypto);
 assert.equal(accepted.ok, true, `canonical clone passes validation: ${accepted.code || ""}`);
 
+// #317: a slot's alternates travel with the clone, including a custom movement
+// that is only an alternate; one the clone does not define is refused.
+{
+  const withAlternates = currentEnvelope();
+  const slots = withAlternates.durableState.programMeta.programDefinition.days.flatMap((day) => day.slots);
+  slots[0].alternates = [customState.id, slots[1].exerciseId];
+  withAlternates.integrity.canonicalPayloadHash = canonicalHash(withAlternates);
+  const carried = await Contract.validateEnvelopeIntegrity(withAlternates, webcrypto);
+  assert.equal(carried.ok, true, `a clone with slot alternates transfers: ${carried.code || ""}`);
+  assert.deepEqual(carried.value.durableState.programMeta.programDefinition.days.flatMap((day) => day.slots)[0].alternates,
+    [customState.id, slots[1].exerciseId], "the clone keeps the alternates in their order");
+  const dangling = structuredClone(withAlternates);
+  dangling.durableState.programMeta.programDefinition.days.flatMap((day) => day.slots)[0].alternates = ["custom:not-in-clone"];
+  dangling.integrity.canonicalPayloadHash = canonicalHash(dangling);
+  assert.equal((await Contract.validateEnvelopeIntegrity(dangling, webcrypto)).ok, false,
+    "an alternate naming a custom movement the clone does not carry is refused");
+}
+
 // An open workout on a movement whose composition has no repetitions (here
 // weight plus per-side distance) carries no flat rep range, and still transfers.
 {
@@ -688,6 +706,23 @@ for (const convention of ["external", "assistance"]) {
     assert.equal(WorkoutDraft.validateLoadingContext(context).ok, false,
       `${convention} DraftV2 context refuses a ${label} multiplier because its History row must be canonical`);
   }
+}
+
+// #382: an ambiguous per-side row may carry the lifter's explicit execution mode.
+for (const [mode, accepted] of [["bilateral", true], ["unilateral", true], ["left", false], [null, false], [1, false]]) {
+  const checkedContext = WorkoutDraft.validateLoadingContext({
+    loadingConvention: "per_side", externalLoadMultiplier: 2, bodyweightCoefficient: null, executionMode: mode,
+  });
+  assert.equal(checkedContext.ok, accepted, `loading context execution mode ${JSON.stringify(mode)} follows the closed enum`);
+}
+for (const [mode, accepted] of [["unilateral", true], ["left", false]]) {
+  const modeHistory = currentEnvelope();
+  modeHistory.durableState.log[0].loadingContext.executionMode = mode;
+  modeHistory.integrity.canonicalPayloadHash = canonicalHash(modeHistory);
+  const checkedHistory = await Contract.validateEnvelopeIntegrity(modeHistory, webcrypto);
+  assert.equal(checkedHistory.ok, accepted, `install transfer ${accepted ? "accepts" : "refuses"} a History row with execution mode ${mode}`);
+  if (accepted) assert.deepEqual(checkedHistory.value.durableState.log, modeHistory.durableState.log,
+    "a captured execution mode round-trips unchanged through install transfer");
 }
 
 const mismatchedDraftCoefficient = structuredClone(actualDraft);

@@ -178,3 +178,151 @@ Until those checks are recorded by the owner, there is no public health route
 and the create endpoint must stay at the generic 503 unavailable response.
 This local branch has no staging credentials and makes no deployment or live-
 SLA claim.
+
+## Production enablement (owner override, 2026-10-14)
+
+On 2026-10-14 the owner enabled new creates for real users on
+`https://taurifer.com` **without** recording the evidence for the open gates
+above. This is an explicit owner override of this runbook's gate table and of
+ADR 0013's staging and physical-device evidence gates. None of these gates is
+closed by this section; each remains open owner evidence:
+
+- authenticated EU placement of all four Durable Object namespaces;
+- provider disposal and restored-SQLite review;
+- independent billing, watchdog, log, and deletion health;
+- minute-60 ciphertext and minute-75 tombstone deletion measured on Cloudflare,
+  including the delayed-alarm and purge-backstop cases;
+- physical iOS Safari 17.2+ to Home Screen handoff;
+- the six provider-deadline items listed above.
+
+### What runs in production
+
+`wrangler.jsonc` `env.production` deploys a separate Worker,
+`taurifer-install-transfer`, routed at `taurifer.com/v1/*` (client API) and
+`taurifer.com/_ops/*` (bearer-authenticated scheduled operations; without it
+the health loop's calls are answered by Pages and the lease never renews) with no
+`workers.dev` or preview URL. The client already calls the page's own origin,
+so the app needs no change. The Worker has its own SQLite Durable Object
+namespaces, created by the `v1` migration on first deploy and always reached
+through `jurisdiction("eu")`. Production never sets `TRANSFER_LOCAL_TEST_EU`,
+so if the EU subnamespace is unavailable the Worker fails closed instead of
+falling back. Its vars are `TRANSFER_ALLOWED_ORIGIN=https://taurifer.com`,
+`TRANSFER_CREATES_ENABLED=true`, `TRANSFER_KILL_SWITCH=false`,
+`TRANSFER_TOKEN_MAC_KEY_ID=k1`, and the five static health labels set to
+`healthy`. `test/install-transfer-production-config.mjs` pins all of this, so
+config drift fails CI. The staging Worker
+(`taurifer-install-transfer-staging`) and its preview origin are unchanged.
+
+The service worker in `sw.js` leaves every same-origin `/v1/` request to the
+network; `test/sw-transfer-passthrough.mjs` proves it. The repository has no
+Pages `_routes.json`, `_redirects`, or `_headers` that could answer `/v1/*`.
+Cloudflare documents that a zone Worker route runs before the hostname's
+origin and takes precedence over a custom domain on the same hostname. The
+authoritative check is the live probe after deploy: before the route existed,
+`OPTIONS https://taurifer.com/v1/transfers` returned Pages' `405`.
+
+### Secrets
+
+`node scripts/provision-production-secrets.mjs worker` generates each value
+from `node:crypto` and pipes one JSON object to
+`wrangler secret bulk --env production` on stdin. Nothing is printed, logged,
+or passed in argv. Every value is 32 random bytes encoded as 43 unpadded
+base64url characters.
+
+| Secret | Format | Kept on the devbox |
+|---|---|---|
+| `TRANSFER_ROUTING_KEY_B64` | base64url, ≥32 decoded bytes (43 chars) | Never |
+| `TRANSFER_TOKEN_MAC_KEY_B64` | base64url, ≥32 decoded bytes (43 chars); id `k1` is a var | Never |
+| `TRANSFER_DIGEST_KEY_B64` | base64url, ≥32 decoded bytes (43 chars) | Never |
+| `TRANSFER_RATE_PEPPER_B64` | base64url, ≥32 decoded bytes (43 chars) | Never |
+| `TRANSFER_WATCHDOG_SECRET` | 32–256 chars bearer (43 generated) | `production-ops.env` |
+| `TRANSFER_BILLING_SECRET` | 32–256 chars bearer (43 generated) | `production-ops.env` |
+| `TRANSFER_PURGE_SECRET` | 32–256 chars bearer (43 generated) | `production-ops.env` |
+| `TRANSFER_ACK_SECRET` | 32–256 chars bearer (43 generated) | `production-ops.env` |
+
+`TRANSFER_TOKEN_MAC_PREVIOUS_KEY_ID` and `TRANSFER_TOKEN_MAC_PREVIOUS_KEY_B64`
+are optional and only used during a MAC-key rotation; production starts
+without them. The devbox file `~/.config/taurifer/production-ops.env` holds
+only the four ops secrets plus non-secret values: the service URL, account
+ID, the production `TransferDurableObject` namespace ID, the attested monthly
+cost (default `0`), and `TRANSFER_CF_API_TOKEN`. The directory must be 0700
+and the file 0600. The provisioning script and the health loop both refuse to
+run if either is looser. A second `worker` run refuses rather than rotating
+live keys.
+
+`TRANSFER_CF_API_TOKEN` must be a separately scoped token that can list
+objects in the Durable Object namespace. It must never be the deploy token.
+The owner mints it and pipes it in with
+`node scripts/provision-production-secrets.mjs api-token`, which reads stdin
+and rejects a value equal to `CLOUDFLARE_API_TOKEN`. Until then the file holds
+a placeholder and the health loop refuses to run, so creates stay at 503.
+
+### The health lease is owner self-attestation
+
+Creates need more than `TRANSFER_CREATES_ENABLED=true`. The health Durable
+Object must also hold five heartbeats less than five minutes old, a deletion
+pass, and a billing receipt less than 24 hours old, below 1,000 cents. The
+Worker has no cron trigger. Staging got its lease from a devbox loop that
+stamped "pass" receipts with the current time every two minutes. That loop
+last ran on 2026-09-11, so staging creates have returned 503 since then.
+
+Production does the same thing explicitly with
+`node scripts/production-health-loop.mjs`, one pass per run. Each pass:
+
+1. writes five `owner-watchdog` receipts and one `owner-billing-receipt`, all
+   with `checkVersion` `operator-attested-v1`, `evidenceRef`
+   `owner-override-20261014`, and the current time;
+2. runs `scripts/health-producer.mjs`, which still performs the real registry
+   purge, enumerates the namespace through the provider API, purges due
+   objects, and fails closed on any error.
+
+These receipts are the owner's attestation, not independent monitoring. The
+billing amount is attested, not observed. The loop's output is limited to
+purge counts, exit codes, and the producer's fixed error text.
+
+Run it from a dedicated checkout of the deployed SHA at `~/taurifer-transfer-production` (a detached worktree, not a `/tmp` one; the unit's `WorkingDirectory` points there). The unit pins `NODE` to an absolute Node 22 binary because systemd user units don't load nvm; change it with `systemctl --user edit taurifer-transfer-health.service`. Run it
+as a systemd **user** service of type `oneshot` (90-second start timeout,
+`UMask=0077`), triggered by a user timer every two minutes, starting one
+minute after boot. User lingering keeps the timer running across logouts and
+reboots. On the devbox `loginctl show-user ubuntu -p Linger` reported
+`Linger=yes` on 2026-10-14; if it reads `no`, run
+`sudo loginctl enable-linger ubuntu`.
+
+Check it with `systemctl --user list-timers` (next and last run),
+`systemctl --user status taurifer-transfer-health.service` (last exit), and
+`journalctl --user -u taurifer-transfer-health.service -n 20` (last summaries). Stop it with
+`systemctl --user disable --now taurifer-transfer-health.timer`.
+
+**Failure behaviour:** when the timer stops, the devbox is down, or a pass
+fails, the lease lapses within five minutes and every new create returns
+generic `503 {"state":"unavailable"}`. Claims, status, commit, and the
+private purge routes do not use the lease and keep working, so an
+already-created transfer can still be installed. While the loop is stopped,
+the scheduled provider purge backstop does not run either. Deletion then
+relies on the Durable Object alarms.
+
+### Monitoring that exists
+
+- The health-loop journal on the devbox (exit status and purge counts).
+- `GET /_ops/health` with the watchdog bearer, which returns the lease and
+  incident state. It is private and has no public health route.
+- Cloudflare's dashboard for the Worker (requests, errors, Durable Object
+  usage) and the account's billing page.
+
+No alerting is configured, and no independent watchdog observes the service.
+The gates above stay open until the owner records that evidence.
+
+### Turning creates off
+
+Any of these works, from the fastest:
+
+1. `npx wrangler deploy --env production --var TRANSFER_KILL_SWITCH:true --tag kill-switch --message "Kill switch"`
+   from the deployed checkout. It takes effect on deploy, and secrets are kept.
+2. The same with `--var TRANSFER_CREATES_ENABLED:false`, or a reviewed config
+   change that sets either var in `env.production`.
+3. Stop the health timer (`systemctl --user disable --now taurifer-transfer-health.timer`). Creates
+   fail within five minutes.
+
+A later deploy without `--var` restores the checked-in values, so record a
+kill in the config if it must persist. Claims, status, commit, and purge stay
+available in every case.

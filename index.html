@@ -472,6 +472,15 @@
           <span class="settings-row__label" data-i18n="privacy.open">Privacy details</span>
           <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
         </button>
+        <button type="button" class="settings-row" id="profileRow" aria-expanded="false" aria-controls="profilePanel" hidden>
+          <span class="settings-row__label" data-i18n="settings.profile.title">About you</span>
+          <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
+        </button>
+        <div id="profilePanel" class="settings-panel">
+          <p class="lede" data-i18n="settings.profile.note">The answers you gave in setup.</p>
+          <dl id="profileList" class="settings-profile"></dl>
+          <div class="btnrow"><button type="button" id="profileClear" class="btn btn--ghost btn--destructive" data-i18n="settings.profile.clear">Delete these answers</button></div>
+        </div>
         <button type="button" class="settings-row" id="dataBackupRow" aria-expanded="false" aria-controls="dataBackupPanel">
           <span class="settings-row__label" data-i18n="settings.backup_export">Backup &amp; export</span>
           <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
@@ -542,6 +551,7 @@
         <div class="onb__nav">
           <p class="onb__reason" id="onbNextReason" hidden></p>
           <button type="button" id="onbNext" class="btn btn--cta" data-i18n="onb.next">Continue</button>
+          <button type="button" id="onbSkip" class="btn btn--ghost onb__skip" data-i18n="entry.skip" hidden>Skip</button>
         </div>
       </div>
     </section>
@@ -598,6 +608,11 @@
             <h1 class="firstrun-h1 firstrun-hero__title" id="firstRunHeadline" data-i18n="landing.headline">Walk into the gym knowing exactly what to do.</h1>
             <p class="firstrun__lede" id="firstRunLede" data-i18n="landing.hero.sub">You log each set in seconds. Taurifer looks at what you did and tells you the weight and reps for next time, with the reason spelled out. A spreadsheet only stores numbers; Taurifer tells you what to do with them.</p>
 
+            <div id="firstRunSharedCard" class="firstrun__shared-card hidden" aria-labelledby="firstRunSharedName">
+              <p class="firstrun__shared-card-name" id="firstRunSharedName"></p>
+              <p class="firstrun__shared-card-body" id="firstRunSharedBody" data-i18n="landing.shared.body">This link carries a program and its settings. No history comes with it. Nothing changes until you tap Use this program.</p>
+            </div>
+
             <p id="firstRunSharedError" class="firstrun__error hidden" role="status"></p>
             <div id="firstRunStandardProgram" class="firstrun__actions">
               <button type="button" class="firstrun__cta" id="firstRunCreate">
@@ -606,14 +621,14 @@
               <button type="button" class="firstrun__link" id="firstRunImport" data-i18n="landing.track">Track my current program</button>
             </div>
             <div id="firstRunSharedProgram" class="firstrun__actions hidden">
-              <button type="button" class="firstrun__cta" id="firstRunSharedStart">
+              <button type="button" class="firstrun__cta" id="firstRunSharedStart" aria-describedby="firstRunSharedName">
                 <span class="firstrun-row__text">
-                  <span class="firstrun-row__title" id="firstRunSharedTitle" data-i18n="setup.shared.title">Start this program</span>
-                  <span class="firstrun-row__cap" id="firstRunSharedCap"></span>
+                  <span class="firstrun-row__title" id="firstRunSharedTitle" data-i18n="setup.shared.view">See the program</span>
                 </span>
                 <span class="firstrun-row__busy hidden" id="firstRunSharedBusy" aria-hidden="true"></span>
                 <span class="firstrun-row__go" aria-hidden="true"></span>
               </button>
+              <button type="button" class="firstrun__link" id="firstRunSharedCreate" data-i18n="setup.shared.create">Create a program from scratch</button>
             </div>
             <ul class="firstrun-chips" data-i18n-aria="landing.hero.chips_aria" aria-label="At a glance">
               <li data-i18n="landing.hero.chip.account">No account</li>
@@ -904,6 +919,7 @@ Triceps pushdown 3x12-15</pre>
         <section aria-labelledby="privacyControlsTitle">
           <h3 id="privacyControlsTitle" data-i18n="privacy.controls.title">Export and delete</h3>
           <p data-i18n="privacy.controls.body">Use Settings to export a JSON backup before moving or clearing this browser. Delete workout history permanently removes logs and the active draft from local storage while keeping your program and Settings. The separate delete-all action names everything it removes before you confirm.</p>
+          <p data-i18n="privacy.profile">The answers you give about yourself in setup stay on this device.</p>
         </section>
         <section aria-labelledby="privacyLimitationsTitle">
           <h3 id="privacyLimitationsTitle" data-i18n="privacy.limitations.title">Limitations</h3>
@@ -1021,6 +1037,16 @@ Triceps pushdown 3x12-15</pre>
           <button type="button" id="sessionEarlyCancel" data-i18n="dialog.cancel">Cancel</button>
         </div>
       </div>
+      <button type="button" class="session-abandon-btn" id="sessionAbandon" data-i18n="session.sheet.abandon">End without saving</button>
+      <div id="sessionAbandonPrompt" class="session-early-prompt session-abandon-prompt hidden" aria-live="polite">
+        <p class="session-early-msg" id="sessionAbandonMsg" data-i18n="session.sheet.abandon_prompt">Nothing from this session is saved. Logged sets are discarded and your program stays as it is.</p>
+        <p class="session-abandon__label" id="sessionAbandonReasonLabel" data-i18n="session.sheet.abandon_reason_label">Why? (optional)</p>
+        <div class="session-abandon__reasons" id="sessionAbandonReasons" role="group" aria-labelledby="sessionAbandonReasonLabel"></div>
+        <div class="session-early-actions">
+          <button type="button" class="session-abandon-confirm" id="sessionAbandonConfirm" data-i18n="session.sheet.abandon_confirm">End and discard</button>
+          <button type="button" id="sessionAbandonCancel" data-i18n="dialog.cancel">Cancel</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1070,6 +1096,16 @@ Triceps pushdown 3x12-15</pre>
     </div>
   </div>
 
+  <div id="reviewSheetScrim" class="sheet-scrim hidden"></div>
+  <div id="reviewSheet" class="sheet sheet--review hidden ph-no-capture" role="dialog" aria-modal="true" aria-labelledby="reviewSheetTitle" tabindex="-1" hidden>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="reviewSheetTitle"></h2>
+      <button type="button" class="sheetband__close" data-review-sheet-close data-i18n-aria="dialog.close" aria-label="Close"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+    </div>
+    <div class="sheet__body review-sheet__body" id="reviewSheetBody"></div>
+    <div class="sheet__foot review-sheet__foot" id="reviewSheetFoot"></div>
+  </div>
   <div id="dayPickScrim" class="sheet-scrim hidden"></div>
   <div id="dayPickSheet" class="sheet sheet--daypick hidden" role="dialog" aria-modal="true" aria-labelledby="dayPickTitle" hidden>
     <div class="sheetband">
@@ -1133,6 +1169,7 @@ Triceps pushdown 3x12-15</pre>
     <div class="sheet__foot sheet__foot--actions">
       <button type="button" class="btn btn--steel" id="shareSetupCopy" data-i18n="program.share_setup_copy">Copy link</button>
       <button type="button" class="btn btn--steel" id="shareSetupShare" data-i18n="program.share_setup_share">Share link</button>
+      <button type="button" class="btn btn--steel hidden" id="shareSetupFile" data-i18n="program.share_setup_file" disabled>Share as file</button>
     </div>
   </div>
   <div id="exPickScrim" class="sheet-scrim hidden"></div>
@@ -1279,20 +1316,22 @@ Triceps pushdown 3x12-15</pre>
   <script src="vendor/dnd-kit/dnd-kit.js" data-optional-runtime="RepForgeDndRuntime"></script>
   <div hidden inert aria-hidden="true" id="legacyWorkoutShell"><span id="modeFull"></span><span id="modeFocus"></span><input id="date" type="date"><input id="bodyweight"><textarea id="notes"></textarea></div>
   <script src="motion-layer.js?v=314"></script>
-  <script src="program-compiler.js?v=309"></script>
-  <script src="program-entry.js?v=308"></script>
-  <script src="program-entry-adapter.js?v=309"></script>
-  <script src="program-editor.js?v=311"></script>
-  <script src="shared-setup.js?v=308"></script>
-  <script src="workout-draft.js?v=309"></script>
-  <script src="program-transition.js?v=309"></script>
+  <script src="program-compiler.js?v=420"></script>
+  <script src="program-entry.js?v=425"></script>
+  <script src="program-entry-adapter.js?v=424"></script>
+  <script src="program-editor.js?v=425"></script>
+  <script src="program-review.js?v=425"></script>
+  <script src="shared-setup.js?v=311"></script>
+  <script src="workout-draft.js?v=449"></script>
+  <script src="program-transition.js?v=417"></script>
+  <script src="program-engine.js?v=418"></script>
   <script src="install-transfer-contract.js"></script>
   <script src="install-transfer.js"></script>
   <script src="install-policy.js?v=307"></script>
-  <script src="guide-registry.js?v=307"></script>
-  <script src="durable-state.js?v=309"></script>
-  <script src="progress-model.js?v=308"></script>
-  <script src="history-ui.js?v=314"></script>
-  <script src="app.js?v=356"></script>
+  <script src="guide-registry.js?v=423"></script>
+  <script src="durable-state.js?v=447"></script>
+  <script src="progress-model.js?v=309"></script>
+  <script src="history-ui.js?v=315"></script>
+  <script src="app.js?v=454"></script>
 </body>
 </html>

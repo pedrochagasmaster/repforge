@@ -33,6 +33,9 @@ const HASH_PROBE_DIGEST = "7929b1ea074b14054d61117434692a4b3f94fd4e19b454a5bc58a
 const EXPECTED_FAULTS = Object.freeze({
   lostCreate: Object.freeze({ code: "create-unknown-outcome", state: "unknown-outcome", markerPhase: "creating" }),
   duplicateCreate: Object.freeze({ code: "create-duplicate-no-token", state: "unknown-outcome", responseStatus: 200, tokenAllowed: false }),
+  // Plan 072: a service on an older release refuses a draft it cannot read
+  // with its uniform 404 before writing anything. That is a known refusal.
+  refusedCreate: Object.freeze({ code: "create-refused", state: "terminalUnavailable", responseStatus: 404 }),
   sameClaim: Object.freeze({ responseStatus: 200, state: "validating" }),
   competingClaim: Object.freeze({ responseStatus: 404, code: "service-unavailable", state: "terminalUnavailable" }),
   commit: Object.freeze({ responseStatus: 200, state: "complete", remoteState: "deleted" }),
@@ -463,6 +466,38 @@ describe("real client to local HTTP Worker transfer boundary", () => {
     expect(calls.filter(({ path }) => path === Transfer.ENDPOINTS.status).map(({ status }) => status)).toEqual([200, 200, 200]);
     expect(calls.find(({ path }) => path === Transfer.ENDPOINTS.create)?.status).toBe(201);
     assertNoBearerInUrls(calls);
+  });
+
+  it("reports a create the service refused before writing as refused, with no token, cookie or credentials", async () => {
+    const producer = makeProducers();
+    const statuses = [];
+    const transport = Transfer.createFetchTransport({
+      fetch: async () => {
+        statuses.push(EXPECTED_FAULTS.refusedCreate.responseStatus);
+        return new Response(JSON.stringify({ state: "unavailable" }), {
+          status: EXPECTED_FAULTS.refusedCreate.responseStatus, headers: { "content-type": "application/json" },
+        });
+      },
+      baseUrl: "https://transfer.example/index.html",
+    });
+    const outbound = markerStore();
+    const document = cookieDocument();
+    const keys = memoryKeyStore();
+    const client = makeClient({
+      context: "browser", transport, document, outbound, inbound: markerStore(),
+      credentials: Transfer.createCredentialVault({ crypto: webcrypto, keyStore: keys }), lock: operationLock(),
+    });
+    const refused = await client.create({
+      sections: producer.sections,
+      source: { context: "browser", logicalInstallationId: canonicalFixture.source.logicalInstallationId, sourceRevision: 43 },
+      consent: { enabled: true },
+      hasMeaningfulData: true,
+    });
+    expect(refused).toMatchObject({ ok: false, code: EXPECTED_FAULTS.refusedCreate.code, state: EXPECTED_FAULTS.refusedCreate.state });
+    expect(statuses).toEqual([404]);
+    expect(outbound.peek()?.sealedCredentials).toBeUndefined();
+    expect(keys.records.size).toBe(0);
+    expect(document.cookie.includes(Transfer.COOKIE_NAME)).toBe(false);
   });
 
   it("freezes a lost create and same-key duplicate without recovering a token", async () => {

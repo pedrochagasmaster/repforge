@@ -3,8 +3,8 @@
   "baseSha": "78492da2",
   "manifestSchemaVersion": 2,
   "observed": {
-    "screens": 143,
-    "frames": 866,
+    "screens": 189,
+    "frames": 1081,
     "probe": "production catalog scenarios, phone-390 light EN canonical frame, Chromium; no scenario failures"
   },
   "catalogStates": {
@@ -54,64 +54,94 @@
       "scenario": "A later visit with a half-finished Recommend setup saved: the lead action names the saved route and opens the chooser's resume card."
     },
     "onboarding-start/hub": {
-      "owner": "plan-054",
+      "owner": "plan-072",
       "content": "flat",
-      "scenario": "Create a program. Recommend is the sole primary path; Custom is its generated alternative; Browse stands alone; Bring or build is collapsed."
-    },
-    "onboarding-start/hub-own-open": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "The Bring or build disclosure expanded with aria-expanded to reveal Build, paste, and Taurifer-file import paths."
+      "scenario": "B's hub: Recommend, Build and Import as choice cards, the setup-link note, Continue held until a choice."
     },
     "onboarding-start/hub-existing": {
       "owner": "plan-054",
       "content": "flat",
       "scenario": "Opened from Settings while a program is active, so replacement consequences are in view."
     },
-    "onboarding-start/hub-help": {
-      "owner": "plan-064/r4a",
-      "content": "flat",
-      "scenario": "The Not sure which one? helper expanded on the hub: two short questions that end in Continue with the suggested route, reaching all five jobs."
-    },
     "onboarding-recommend/desired-result": {
-      "owner": "plan-054",
+      "owner": "plan-072",
       "content": "flat",
-      "scenario": "Route header, Cancel, progress 1 of 5, three desired-result choices."
+      "scenario": "Muscle growth, Strength and Both."
     },
     "onboarding-recommend/background": {
-      "owner": "plan-054",
+      "owner": "plan-072",
       "content": "flat",
-      "scenario": "The carried goal with Change, then structured-program experience and recent six-week consistency."
-    },
-    "onboarding-recommend/schedule": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "Days per week, session-minute ceiling, preferred rest."
+      "scenario": "None, Beginner, Intermediate and Advanced with the engine's bands; required, no Skip."
     },
     "onboarding-recommend/environment": {
-      "owner": "plan-054",
+      "owner": "plan-072",
       "content": "flat",
-      "scenario": "Environment shortcuts with the capability correction disclosure closed."
+      "scenario": "The six gym presets with Home chosen."
     },
     "onboarding-recommend/abilities": {
-      "owner": "plan-067",
+      "owner": "plan-072",
       "content": "flat",
-      "scenario": "Seven movement-ability questions answered yes, no or not sure in the recommend route; Not sure is preselected and Skip keeps every answer unset."
-    },
-    "onboarding-recommend/priorities": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "Primary priorities plus optional movement and exercise-avoidance controls."
-    },
-    "onboarding-recommend/avoidance-pain": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "One avoided exercise with the pain reason selected and its safety copy."
+      "scenario": "Seven yes, no or not sure questions in B's wording, with Skip pinned under Continue."
     },
     "onboarding-recommend/result": {
-      "owner": "plan-054",
+      "owner": "plan-072",
       "content": "flat",
-      "scenario": "The program first: name, four facts, the week with its first day open, the answers it was built from as chips, why it fits, and the pinned activation."
+      "scenario": "Onboarding B's review editor at rest: the source, the program name, four facts, the block row and its Change action, the day tabs with rest days and the first day's exercises with their sets, RIR and muscles; how it was built follows, with the pinned activation."
+    },
+    "onboarding-recommend/result-confirm-offer": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "A real Worker-verified movement offer under its current exercise row, with the approved advice and confirmation action."
+    },
+    "onboarding-recommend/result-confirmed": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "After confirming the offered movement: its row is marked Confirmed by you, Undo is available, and the changed rows are announced."
+    },
+    "onboarding-recommend/result-changed": {
+      "owner": "plan-070",
+      "content": "flat",
+      "scenario": "Three rows carry their marks (a set added, an engine swap, a movement added from the catalog) and the changes bar counts them with Undo and Restore."
+    },
+    "onboarding-recommend/review-sheet": {
+      "owner": "plan-070",
+      "content": "flat",
+      "scenario": "One exercise's sheet at its top: the movement, its role and job, the sets ledger with RIR per set, the set count, rep range and rest controls, and the day's time."
+    },
+    "onboarding-recommend/review-sheet-execution-mode": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The production exercise sheet for an ambiguous per-side catalog movement, with the mode question, both answers, and unresolved Review cue."
+    },
+    "onboarding-recommend/review-sheet-swap": {
+      "owner": "plan-070",
+      "content": "flat",
+      "scenario": "The exercise sheet scrolled to the engine's swap candidates, the catalog search and one in-session alternate with its suggestions."
+    },
+    "onboarding-recommend/review-day-menu": {
+      "owner": "plan-070",
+      "content": "flat",
+      "scenario": "The day menu sheet: rename the day, reorder its exercises, add an exercise."
+    },
+    "onboarding-recommend/review-day-name-refused": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The day rename sheet keeps a duplicate name in the field and shows the existing linked alert."
+    },
+    "onboarding-recommend/review-reorder": {
+      "owner": "plan-070",
+      "content": "flat",
+      "scenario": "A day in reorder mode: each exercise with its handle and up and down arrows, and Done."
+    },
+    "onboarding-recommend/review-empty-day": {
+      "owner": "plan-070",
+      "content": "flat",
+      "scenario": "Every exercise of a training day removed: the tab's pip, the day's warning with Add exercise, and Activate disabled with its reason."
+    },
+    "onboarding-recommend/review-rebuild-confirm": {
+      "owner": "plan-070",
+      "content": "flat",
+      "scenario": "An answer chip would rebuild an adjusted program: the confirmation to rebuild or keep the adjustments."
     },
     "onboarding-recommend/result-existing": {
       "owner": "plan-054",
@@ -128,48 +158,8 @@
       "content": "flat",
       "scenario": "Another tab changed the active program. The newer program stays active."
     },
-    "onboarding-custom/desired-result": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "The custom route's own header and step count, not Recommend's."
-    },
-    "onboarding-custom/background": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "Structured-program experience and recent consistency in the custom route."
-    },
-    "onboarding-custom/schedule": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "Days per week, session ceiling and preferred rest in the custom route."
-    },
-    "onboarding-custom/environment": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "Environment shortcuts in the custom route."
-    },
-    "onboarding-custom/abilities": {
-      "owner": "plan-067",
-      "content": "flat",
-      "scenario": "Seven movement-ability questions answered yes, no or not sure in the custom route; Not sure is preselected and Skip keeps every answer unset."
-    },
-    "onboarding-custom/priorities": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "Each muscle has one accessible emphasis setting before exercise preferences."
-    },
-    "onboarding-custom/exercise-preferences": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "One library search offers Include or Avoid, with separate selected lists."
-    },
-    "onboarding-custom/result": {
-      "owner": "plan-054",
-      "content": "flat",
-      "scenario": "The custom program first, with muscle emphasis and exercise preferences among the answer chips, and the pinned activation."
-    },
     "onboarding-build/setup": {
-      "owner": "plan-054",
+      "owner": "plan-072",
       "content": "flat",
       "scenario": "The build_setup step: program name and day count before the editor opens."
     },
@@ -189,9 +179,9 @@
       "scenario": "A complete manual draft with supported progression and activation enabled."
     },
     "onboarding-import/source": {
-      "owner": "plan-054",
+      "owner": "plan-072",
       "content": "flat",
-      "scenario": "The bounded supported-file and setup-source surface before any mutation."
+      "scenario": "Import's first screen: Choose file and Paste a program, each with its explanation, and the way out to Build, before any mutation."
     },
     "onboarding-import/freeform-empty": {
       "owner": "plan-054",
@@ -239,9 +229,9 @@
       "scenario": "A mapped exercise with manual progression ownership and provenance."
     },
     "onboarding-shared/gate": {
-      "owner": "plan-054",
+      "owner": "plan-072",
       "content": "flat",
-      "scenario": "An incoming setup link adapts the landing around its safe program summary. Nothing persists until Start."
+      "scenario": "The received-program gate names its program and training days, shows the no-history/no-change disclosure, and offers See the program plus Create a program from scratch."
     },
     "onboarding-shared/invalid": {
       "owner": "plan-054",
@@ -249,9 +239,9 @@
       "scenario": "An invalid setup link explains that nothing was saved and keeps safe Build and Track actions available."
     },
     "onboarding-shared/preview": {
-      "owner": "plan-054",
+      "owner": "plan-072",
       "content": "flat",
-      "scenario": "The editable preview a shared payload lands in before explicit activation."
+      "scenario": "The received program in B's review with the Shared program source, Restore, and its block as received (no Change), before explicit activation."
     },
     "onboarding-recovery/resume": {
       "owner": "plan-054",
@@ -298,10 +288,25 @@
       "content": "flat",
       "scenario": "The Direction D lifter's finished Monday: totals, the record line, each lift's outcome and next target, View today's session as the primary control."
     },
+    "today/deload-week": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The active program's deload cycle shows the recovery note on Today."
+    },
     "workout/focus": {
       "owner": "plan-055",
       "content": "flat",
       "scenario": "One exercise at a time."
+    },
+    "workout/focus-per-side": {
+      "owner": "plan-069",
+      "content": "flat",
+      "scenario": "A generated bilateral press shows its per-side load label and adaptive target prefilled in ordinary Focus."
+    },
+    "workout/deload-week": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "Focus shows the recovery note during the active program's deload cycle."
     },
     "workout/focus-glossary": {
       "owner": "plan-058",
@@ -349,9 +354,14 @@
       "scenario": "Opened after set 1 is logged: what the set showed (the observed capacity) before the prediction for the next set."
     },
     "workout/why-manual": {
-      "owner": "plan-064/r3g",
+      "owner": "plan-069",
       "content": "flat",
-      "scenario": "Manual: one sentence; the program sets the load and the engine does not change it."
+      "scenario": "A Build-backed manual range: Why says Taurifer does not suggest a load without saying who chose the range."
+    },
+    "workout/why-setup": {
+      "owner": "plan-069",
+      "content": "flat",
+      "scenario": "A generated asymmetric per-side slot with no known execution mode: Why asks the lifter to specify how they do the movement."
     },
     "session/summary": {
       "owner": "plan-064/r3h",
@@ -391,7 +401,7 @@
     "progress/exercise-chart": {
       "owner": "plan-056",
       "content": "flat",
-      "scenario": "A single lift's strength chart."
+      "scenario": "A per-side lift's e1RM chart and table in the logged unit."
     },
     "progress/strength": {
       "owner": "plan-056",
@@ -411,7 +421,7 @@
     "progress/strength-comparison": {
       "owner": "plan-056",
       "content": "flat",
-      "scenario": "Two compatible points show values, dates, absolute change, and percentage change."
+      "scenario": "Two same-convention per-side points show labeled values, dates, comparison, and evidence."
     },
     "progress/strength-sparse": {
       "owner": "plan-056",
@@ -523,6 +533,11 @@
       "content": "flat",
       "scenario": "One session expanded in place."
     },
+    "history/per-side-session": {
+      "owner": "plan-069-s2",
+      "content": "flat",
+      "scenario": "A saved unilateral and bilateral per-side session shows physical tonnage and a per-side personal record."
+    },
     "history/edit-dirty": {
       "owner": "plan-057",
       "content": "flat",
@@ -583,6 +598,21 @@
       "content": "flat",
       "scenario": "The installed program editor, with the first day open."
     },
+    "program/editor-alternates": {
+      "owner": "issue-317",
+      "content": "flat",
+      "scenario": "The installed editor with an exercise open on its alternates: two chosen movements in order, each with reorder and remove controls, and Add alternate."
+    },
+    "program/editor-suggest-loads": {
+      "owner": "plan-069",
+      "content": "flat",
+      "scenario": "The installed editor with Suggest loads switched on for a dumbbell renegade row: the current rep target, the RIR, the smallest load change, and the execution-mode question."
+    },
+    "program/editor-day-name-refused": {
+      "owner": "issue-343",
+      "content": "flat",
+      "scenario": "The installed editor after a refused day rename: the field shows the day's own name again and the reason sits under the day header."
+    },
     "program/exercise-picker": {
       "owner": "plan-057",
       "content": "flat",
@@ -622,6 +652,11 @@
       "owner": "plan-057",
       "content": "flat",
       "scenario": "A valid setup link is ready for copy or system sharing."
+    },
+    "program/share-too-large": {
+      "owner": "plan-067",
+      "content": "flat",
+      "scenario": "An edited generated program is too large for a setup link; the sheet offers sharing it as a program file."
     },
     "program/text-export": {
       "owner": "plan-057",
@@ -778,6 +813,21 @@
       "content": "flat",
       "scenario": "workout/substituted-actions"
     },
+    "workout/swap-alternates": {
+      "owner": "issue-317",
+      "content": "flat",
+      "scenario": "The mid-workout swap picker, opened from Exercise actions, leading with the slot's alternates in their authored order before the usual groups."
+    },
+    "workout/abandon": {
+      "owner": "plan-071",
+      "content": "flat",
+      "scenario": "The session sheet's End without saving prompt, with the time reason chip chosen before confirming."
+    },
+    "workout/swap-reason": {
+      "owner": "plan-071",
+      "content": "flat",
+      "scenario": "The mid-workout swap picker with the crowded reason chip chosen above the search."
+    },
     "onboarding-recommend/chip-editor-open": {
       "owner": "plan-064/r4b",
       "content": "flat",
@@ -793,11 +843,6 @@
       "content": "flat",
       "scenario": "An exercise the program contained is avoided from the priorities editor: the statement, and the constraint line with Restore."
     },
-    "onboarding-custom/shape": {
-      "owner": "plan-064/r4b",
-      "content": "flat",
-      "scenario": "Two compatible weekly structures to choose from; shown only when more than one fits the answers."
-    },
     "catalog-recovery/unavailable": {
       "owner": "plan-067",
       "content": "flat",
@@ -807,6 +852,121 @@
       "owner": "plan-067",
       "content": "flat",
       "scenario": "The lifter retries while the catalog remains unavailable; the dialog reports the failed retry and keeps the retry action available."
+    },
+    "onboarding-start/hub-chosen": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The hub with Recommend chosen and Continue enabled."
+    },
+    "onboarding-recommend/intro": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "B's section map: Basics, Gym and equipment, Program, with Start with the basics."
+    },
+    "onboarding-recommend/sex": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "Female, Male and Prefer not to say; the local-only note; Continue held until a choice; Skip."
+    },
+    "onboarding-recommend/birth-date": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "Day, month and year wheels at their starting date; the local-only note; Skip."
+    },
+    "onboarding-recommend/birth-date-typed": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The typed-value dialog over the birth-date screen with Year ready to edit."
+    },
+    "onboarding-recommend/birth-date-typed-invalid": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The year field remains open, marked invalid, with its calendar-date validation message."
+    },
+    "onboarding-recommend/height": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The centimeters/feet-and-inches toggle over the centimeter wheel; the local-only note; Skip."
+    },
+    "onboarding-recommend/height-ftin": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The same screen with feet and inches chosen: two wheels."
+    },
+    "onboarding-recommend/weight": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The kilograms/pounds toggle over the ruler and its value; the note that weight sets bodyweight loads; Skip."
+    },
+    "onboarding-recommend/weight-lb": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The same screen with pounds chosen."
+    },
+    "onboarding-recommend/cardio-experience": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "Four cardio choices; the local-only note; Skip."
+    },
+    "onboarding-recommend/equipment": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "Home's thirteen equipment groups with the preset's ticked and the reset link disabled."
+    },
+    "onboarding-recommend/equipment-adjusted": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "Home with the bench ticked and the bands unticked, and the reset link enabled."
+    },
+    "onboarding-recommend/days-per-week": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "Two to six days with four chosen and its split fact."
+    },
+    "onboarding-recommend/session-length": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "Up to 20 to up to 150 minutes, with 60 shown as the default."
+    },
+    "onboarding-recommend/muscle-priorities": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "Twelve muscles, each Reduce, Normal or Prioritize; glutes prioritized and calves reduced; Skip."
+    },
+    "onboarding-recommend/muscle-priorities-limit": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "Five muscles prioritized and a sixth refused with the limit line."
+    },
+    "onboarding-recommend/deload": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The deload card switched on, marked Recommended."
+    },
+    "onboarding-recommend/building": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "B's third checklist line is active after two lines complete, with generation still in the real worker and Show the program now available."
+    },
+    "onboarding-recommend/building-pending": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "With reduced motion, B's checklist is complete and the real worker request remains pending with its waiting label visible."
+    },
+    "onboarding-recommend/result-equipment-conflict": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The result explains that Home equipment cannot cover vertical pull, says nothing was saved, and offers Back to equipment with the adjustment preserved."
+    },
+    "workout/why-per-side": {
+      "owner": "plan-069",
+      "content": "flat",
+      "scenario": "The generated bilateral press's Why sheet explains the multiplier and enabled bodyweight contribution."
+    },
+    "onboarding-recommend/result-block-sheet": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The result block sheet with 10 weeks, undulating selected, and deload on."
     }
   },
   "components": [
@@ -880,7 +1040,8 @@
         "today/draft-resume",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "today/deload-week"
       ]
     },
     {
@@ -1125,7 +1286,6 @@
       "rationale": "Advances the current task with the strongest action weight.",
       "owner": "plan-058",
       "catalogStates": [
-        "onboarding-custom/result",
         "onboarding-import/preview",
         "onboarding-recommend/activation-conflict",
         "onboarding-recommend/replacement-confirm",
@@ -1133,30 +1293,12 @@
         "onboarding-recommend/result-existing",
         "onboarding-shared/preview",
         "onboarding-recommend/result-avoided",
-        "onboarding-recommend/result-corrected"
-      ]
-    },
-    {
-      "id": "entryavoidsearch",
-      "selector": "#entryAvoidSearch",
-      "roles": {
-        "control": "field"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "validation-error"
-      ],
-      "rationale": "Accepts or edits an explicit value.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "onboarding-recommend/avoidance-pain",
-        "onboarding-recommend/priorities"
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/review-empty-day",
+        "onboarding-recommend/review-reorder",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed"
       ]
     },
     {
@@ -1200,7 +1342,6 @@
       "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
       "owner": "plan-058",
       "catalogStates": [
-        "onboarding-custom/result",
         "onboarding-import/preview",
         "onboarding-recommend/activation-conflict",
         "onboarding-recommend/replacement-confirm",
@@ -1209,7 +1350,9 @@
         "onboarding-shared/preview",
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/result-avoided",
-        "onboarding-recommend/result-corrected"
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed"
       ]
     },
     {
@@ -1260,28 +1403,6 @@
         "onboarding-build/editor-empty",
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready"
-      ]
-    },
-    {
-      "id": "entryexercisesearch",
-      "selector": "#entryExerciseSearch",
-      "roles": {
-        "control": "field"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "validation-error"
-      ],
-      "rationale": "Accepts or edits an explicit value.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "onboarding-custom/exercise-preferences"
       ]
     },
     {
@@ -1545,27 +1666,6 @@
       ]
     },
     {
-      "id": "entryfreeformstart",
-      "selector": "#entryFreeformStart",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": "entry-alternative",
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Enters the import route through its freeform subview; the remembered source is device UI context, not a selected state on the hub.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "onboarding-start/hub-own-open"
-      ]
-    },
-    {
       "id": "entryfreeformstartover",
       "selector": "#entryFreeformStartOver",
       "roles": {
@@ -1625,8 +1725,8 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Navigates from the File import subview to the Freeform subview; the active subview carries the remembered UI route context.",
-      "owner": "plan-058",
+      "rationale": "The Paste a program choice on Import's first screen: navigates to the Freeform subview on tap; the active subview carries the remembered UI route context.",
+      "owner": "plan-072",
       "catalogStates": [
         "onboarding-import/source"
       ]
@@ -1658,6 +1758,49 @@
       "id": "entryimportpick",
       "selector": "#entryImportPick",
       "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "The Choose file choice on Import's first screen: opens the system file picker on tap without changing training data; the file review follows.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-import/source"
+      ]
+    },
+    {
+      "id": "entrypickercancel",
+      "selector": "#entryPickerCancel",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Dismisses the typed-value field without committing an edit.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/birth-date-typed",
+        "onboarding-recommend/birth-date-typed-invalid"
+      ]
+    },
+    {
+      "id": "entrypickerdone",
+      "selector": "#entryPickerDone",
+      "roles": {
         "control": "primary"
       },
       "variant": null,
@@ -1670,17 +1813,18 @@
         "disabled",
         "loading"
       ],
-      "rationale": "Advances the current task with the strongest action weight.",
-      "owner": "plan-058",
+      "rationale": "Commits the typed value for the current onboarding question.",
+      "owner": "plan-072",
       "catalogStates": [
-        "onboarding-import/source"
+        "onboarding-recommend/birth-date-typed",
+        "onboarding-recommend/birth-date-typed-invalid"
       ]
     },
     {
-      "id": "entryowntoggle",
-      "selector": "#entryOwnToggle",
+      "id": "entrypickerinput",
+      "selector": "#entryPickerInput",
       "roles": {
-        "control": "disclosure"
+        "control": "field"
       },
       "variant": null,
       "facets": [],
@@ -1690,15 +1834,13 @@
         "pressed",
         "focus-visible",
         "disabled",
-        "expanded"
+        "validation-error"
       ],
-      "rationale": "Expands or collapses information; expanded state is separate from navigation.",
-      "owner": "plan-058",
+      "rationale": "Accepts a typed value for the currently selected onboarding picker.",
+      "owner": "plan-072",
       "catalogStates": [
-        "onboarding-start/hub",
-        "onboarding-start/hub-own-open",
-        "onboarding-start/hub-existing",
-        "onboarding-start/hub-help"
+        "onboarding-recommend/birth-date-typed",
+        "onboarding-recommend/birth-date-typed-invalid"
       ]
     },
     {
@@ -1763,7 +1905,6 @@
       "rationale": "Discards the staged program proposal and returns to the entry start.",
       "owner": "plan-058",
       "catalogStates": [
-        "onboarding-custom/result",
         "onboarding-import/preview",
         "onboarding-recommend/activation-conflict",
         "onboarding-recommend/replacement-confirm",
@@ -1772,7 +1913,12 @@
         "onboarding-shared/preview",
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/result-avoided",
-        "onboarding-recommend/result-corrected"
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/review-empty-day",
+        "onboarding-recommend/review-reorder",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed"
       ]
     },
     {
@@ -2331,7 +2477,9 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "program/exercise-picker"
+        "program/exercise-picker",
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -2353,7 +2501,9 @@
       "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
       "owner": "plan-058",
       "catalogStates": [
-        "program/exercise-picker"
+        "program/exercise-picker",
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -2375,7 +2525,9 @@
       "rationale": "Advances the current task with the strongest action weight.",
       "owner": "plan-058",
       "catalogStates": [
-        "program/exercise-picker"
+        "program/exercise-picker",
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -2392,7 +2544,9 @@
       "rationale": "Scrim suppresses the page behind its blocking sheet.",
       "owner": "plan-058",
       "catalogStates": [
-        "program/exercise-picker"
+        "program/exercise-picker",
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -2415,7 +2569,9 @@
       "rationale": "Accepts or edits an explicit value.",
       "owner": "plan-058",
       "catalogStates": [
-        "program/exercise-picker"
+        "program/exercise-picker",
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -2432,7 +2588,9 @@
       "rationale": "Blocks the underlying route with dialog semantics; full-screen variants need no fake shadow.",
       "owner": "plan-058",
       "catalogStates": [
-        "program/exercise-picker"
+        "program/exercise-picker",
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -2476,6 +2634,9 @@
       "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
       "owner": "plan-058",
       "catalogStates": [
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -2700,8 +2861,29 @@
         "disabled",
         "loading"
       ],
-      "rationale": "Advances the received-program first-run gate into review; it takes the same ink-pill recipe as the other creation actions on the night band.",
-      "owner": "plan-064/r2",
+      "rationale": "Opens the received program in B Review without committing it; the ink-pill action remains on the night band.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-shared/gate"
+      ]
+    },
+    {
+      "id": "firstrunsharedcreate",
+      "selector": "#firstRunSharedCreate",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": "landing-text-link",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Leaves the received-program gate for the existing create hub; it does not commit a program.",
+      "owner": "plan-072",
       "catalogStates": [
         "onboarding-shared/gate"
       ]
@@ -3346,11 +3528,15 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates",
+        "workout/swap-reason",
+        "workout/deload-week"
       ]
     },
     {
@@ -3604,14 +3790,6 @@
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-build/setup",
-        "onboarding-custom/background",
-        "onboarding-custom/desired-result",
-        "onboarding-custom/environment",
-        "onboarding-custom/abilities",
-        "onboarding-custom/exercise-preferences",
-        "onboarding-custom/priorities",
-        "onboarding-custom/result",
-        "onboarding-custom/schedule",
         "onboarding-import/freeform-empty",
         "onboarding-import/freeform-filled",
         "onboarding-import/freeform-gaps",
@@ -3621,23 +3799,42 @@
         "onboarding-import/freeform-unreadable",
         "onboarding-import/preview",
         "onboarding-import/source",
+        "onboarding-recommend/abilities",
         "onboarding-recommend/activation-conflict",
-        "onboarding-recommend/avoidance-pain",
         "onboarding-recommend/background",
+        "onboarding-recommend/birth-date",
+        "onboarding-recommend/cardio-experience",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/days-per-week",
+        "onboarding-recommend/deload",
         "onboarding-recommend/desired-result",
         "onboarding-recommend/environment",
-        "onboarding-recommend/abilities",
-        "onboarding-recommend/priorities",
+        "onboarding-recommend/equipment",
+        "onboarding-recommend/equipment-adjusted",
+        "onboarding-recommend/height",
+        "onboarding-recommend/height-ftin",
+        "onboarding-recommend/intro",
+        "onboarding-recommend/muscle-priorities",
+        "onboarding-recommend/muscle-priorities-limit",
         "onboarding-recommend/replacement-confirm",
         "onboarding-recommend/result",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/result-corrected",
         "onboarding-recommend/result-existing",
-        "onboarding-recommend/schedule",
+        "onboarding-recommend/review-empty-day",
+        "onboarding-recommend/review-reorder",
+        "onboarding-recommend/session-length",
+        "onboarding-recommend/sex",
+        "onboarding-recommend/weight",
+        "onboarding-recommend/weight-lb",
         "onboarding-recovery/rules-drift",
         "onboarding-shared/preview",
-        "onboarding-recommend/chip-editor-open",
-        "onboarding-recommend/result-avoided",
-        "onboarding-recommend/result-corrected",
-        "onboarding-custom/shape"
+        "onboarding-recommend/building",
+        "onboarding-recommend/building-pending",
+        "onboarding-recommend/result-equipment-conflict",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed"
       ]
     },
     {
@@ -3658,49 +3855,59 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "onboarding-start/hub",
-        "onboarding-start/hub-own-open",
-        "onboarding-start/hub-existing",
-        "onboarding-start/hub-help",
-        "onboarding-recommend/desired-result",
-        "onboarding-recommend/background",
-        "onboarding-recommend/schedule",
-        "onboarding-recommend/environment",
-        "onboarding-recommend/abilities",
-        "onboarding-recommend/priorities",
-        "onboarding-recommend/avoidance-pain",
-        "onboarding-recommend/result",
-        "onboarding-recommend/result-existing",
-        "onboarding-recommend/replacement-confirm",
-        "onboarding-recommend/activation-conflict",
-        "onboarding-custom/desired-result",
-        "onboarding-custom/background",
-        "onboarding-custom/schedule",
-        "onboarding-custom/environment",
-        "onboarding-custom/abilities",
-        "onboarding-custom/priorities",
-        "onboarding-custom/exercise-preferences",
-        "onboarding-custom/result",
-        "onboarding-build/setup",
         "onboarding-build/editor-empty",
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
-        "onboarding-import/source",
+        "onboarding-build/setup",
         "onboarding-import/freeform-empty",
         "onboarding-import/freeform-filled",
-        "onboarding-import/freeform-stage2",
-        "onboarding-import/freeform-stage3",
         "onboarding-import/freeform-gaps",
         "onboarding-import/freeform-gaps-invalid",
+        "onboarding-import/freeform-stage2",
+        "onboarding-import/freeform-stage3",
         "onboarding-import/freeform-unreadable",
         "onboarding-import/preview",
-        "onboarding-shared/preview",
+        "onboarding-import/source",
+        "onboarding-recommend/abilities",
+        "onboarding-recommend/activation-conflict",
+        "onboarding-recommend/background",
+        "onboarding-recommend/birth-date",
+        "onboarding-recommend/cardio-experience",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/days-per-week",
+        "onboarding-recommend/deload",
+        "onboarding-recommend/desired-result",
+        "onboarding-recommend/environment",
+        "onboarding-recommend/equipment",
+        "onboarding-recommend/equipment-adjusted",
+        "onboarding-recommend/height",
+        "onboarding-recommend/height-ftin",
+        "onboarding-recommend/intro",
+        "onboarding-recommend/muscle-priorities",
+        "onboarding-recommend/muscle-priorities-limit",
+        "onboarding-recommend/replacement-confirm",
+        "onboarding-recommend/result",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-existing",
+        "onboarding-recommend/review-empty-day",
+        "onboarding-recommend/review-reorder",
+        "onboarding-recommend/session-length",
+        "onboarding-recommend/sex",
+        "onboarding-recommend/weight",
+        "onboarding-recommend/weight-lb",
         "onboarding-recovery/resume",
         "onboarding-recovery/rules-drift",
-        "onboarding-recommend/chip-editor-open",
-        "onboarding-recommend/result-avoided",
-        "onboarding-recommend/result-corrected",
-        "onboarding-custom/shape"
+        "onboarding-shared/preview",
+        "onboarding-start/hub",
+        "onboarding-start/hub-chosen",
+        "onboarding-start/hub-existing",
+        "onboarding-recommend/building",
+        "onboarding-recommend/building-pending",
+        "onboarding-recommend/result-equipment-conflict",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed"
       ]
     },
     {
@@ -3725,22 +3932,29 @@
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-build/setup",
-        "onboarding-custom/background",
-        "onboarding-custom/desired-result",
-        "onboarding-custom/environment",
-        "onboarding-custom/abilities",
-        "onboarding-custom/exercise-preferences",
-        "onboarding-custom/priorities",
-        "onboarding-custom/schedule",
-        "onboarding-recommend/avoidance-pain",
+        "onboarding-recommend/abilities",
         "onboarding-recommend/background",
+        "onboarding-recommend/birth-date",
+        "onboarding-recommend/cardio-experience",
+        "onboarding-recommend/days-per-week",
+        "onboarding-recommend/deload",
         "onboarding-recommend/desired-result",
         "onboarding-recommend/environment",
-        "onboarding-recommend/abilities",
-        "onboarding-recommend/priorities",
-        "onboarding-recommend/schedule",
+        "onboarding-recommend/equipment",
+        "onboarding-recommend/equipment-adjusted",
+        "onboarding-recommend/height",
+        "onboarding-recommend/height-ftin",
+        "onboarding-recommend/intro",
+        "onboarding-recommend/muscle-priorities",
+        "onboarding-recommend/muscle-priorities-limit",
+        "onboarding-recommend/session-length",
+        "onboarding-recommend/sex",
+        "onboarding-recommend/weight",
+        "onboarding-recommend/weight-lb",
         "onboarding-recovery/rules-drift",
-        "onboarding-custom/shape"
+        "onboarding-start/hub",
+        "onboarding-start/hub-chosen",
+        "onboarding-start/hub-existing"
       ]
     },
     {
@@ -3764,14 +3978,6 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "onboarding-build/setup",
-        "onboarding-custom/background",
-        "onboarding-custom/desired-result",
-        "onboarding-custom/environment",
-        "onboarding-custom/abilities",
-        "onboarding-custom/exercise-preferences",
-        "onboarding-custom/priorities",
-        "onboarding-custom/result",
-        "onboarding-custom/schedule",
         "onboarding-import/freeform-empty",
         "onboarding-import/freeform-filled",
         "onboarding-import/freeform-gaps",
@@ -3782,23 +3988,38 @@
         "onboarding-import/preview",
         "onboarding-import/review",
         "onboarding-import/source",
+        "onboarding-recommend/abilities",
         "onboarding-recommend/activation-conflict",
-        "onboarding-recommend/avoidance-pain",
         "onboarding-recommend/background",
+        "onboarding-recommend/birth-date",
+        "onboarding-recommend/cardio-experience",
+        "onboarding-recommend/days-per-week",
+        "onboarding-recommend/deload",
         "onboarding-recommend/desired-result",
         "onboarding-recommend/environment",
-        "onboarding-recommend/abilities",
-        "onboarding-recommend/priorities",
+        "onboarding-recommend/equipment",
+        "onboarding-recommend/equipment-adjusted",
+        "onboarding-recommend/height",
+        "onboarding-recommend/height-ftin",
+        "onboarding-recommend/muscle-priorities",
+        "onboarding-recommend/muscle-priorities-limit",
         "onboarding-recommend/replacement-confirm",
         "onboarding-recommend/result",
         "onboarding-recommend/result-existing",
-        "onboarding-recommend/schedule",
+        "onboarding-recommend/session-length",
+        "onboarding-recommend/sex",
+        "onboarding-recommend/weight",
+        "onboarding-recommend/weight-lb",
         "onboarding-recovery/resume",
         "onboarding-recovery/rules-drift",
         "onboarding-shared/gate",
         "onboarding-shared/invalid",
         "onboarding-shared/preview",
-        "onboarding-custom/shape"
+        "onboarding-recommend/building",
+        "onboarding-recommend/building-pending",
+        "onboarding-recommend/result-equipment-conflict",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed"
       ],
       "progressScopes": {
         "entry-route-step": "task"
@@ -3832,7 +4053,8 @@
         "today/no-program",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "today/deload-week"
       ]
     },
     {
@@ -3979,7 +4201,10 @@
       "rationale": "Expands or collapses information; expanded state is separate from navigation.",
       "owner": "plan-058",
       "catalogStates": [
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/overview",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -4003,6 +4228,9 @@
       "rationale": "Accepts or edits an explicit value.",
       "owner": "plan-058",
       "catalogStates": [
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -4025,7 +4253,10 @@
       "rationale": "Accepts or edits an explicit value.",
       "owner": "plan-058",
       "catalogStates": [
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/overview",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -4051,13 +4282,17 @@
         "program/custom-exercise-deleting",
         "program/custom-exercise-recovery",
         "program/custom-exercise-saving",
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/exercise-picker",
         "program/no-program",
         "program/overview",
+        "program/editor-day-name-refused",
         "program/progression-editor",
         "program/share-ready",
         "program/share-setup",
-        "program/text-export"
+        "program/text-export",
+        "workout/swap-alternates"
       ],
       "progressScopes": {
         "active-program-week": "block"
@@ -4104,7 +4339,10 @@
       "rationale": "Accepts or edits an explicit value.",
       "owner": "plan-058",
       "catalogStates": [
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/overview",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -4571,6 +4809,9 @@
       "rationale": "Advances the current task with the strongest action weight.",
       "owner": "plan-058",
       "catalogStates": [
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -4614,6 +4855,7 @@
       "rationale": "Accepts or edits an explicit value.",
       "owner": "plan-058",
       "catalogStates": [
+        "workout/abandon",
         "workout/early-finish",
         "workout/reorder",
         "workout/session"
@@ -4638,6 +4880,7 @@
       "rationale": "Accepts or edits an explicit value.",
       "owner": "plan-058",
       "catalogStates": [
+        "workout/abandon",
         "workout/early-finish",
         "workout/reorder",
         "workout/session"
@@ -4710,6 +4953,70 @@
       ]
     },
     {
+      "id": "sessionabandon",
+      "selector": "#sessionAbandon",
+      "roles": {
+        "control": "destructive"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Discards the whole session (every logged set and the draft) rather than finishing it; the explicit abandon prompt stays before the discard commits.",
+      "owner": "plan-071",
+      "catalogStates": [
+        "workout/reorder",
+        "workout/session"
+      ]
+    },
+    {
+      "id": "sessionabandonconfirm",
+      "selector": "#sessionAbandonConfirm",
+      "roles": {
+        "control": "destructive"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Commits the destructive discard the abandon prompt asked about; reversible nowhere past this point.",
+      "owner": "plan-071",
+      "catalogStates": [
+        "workout/abandon"
+      ]
+    },
+    {
+      "id": "sessionabandoncancel",
+      "selector": "#sessionAbandonCancel",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Performs a reversible supporting action without becoming the screen commitment: leaves the abandon prompt and discards nothing.",
+      "owner": "plan-071",
+      "catalogStates": [
+        "workout/abandon"
+      ]
+    },
+    {
       "id": "sessionnotes",
       "selector": "#sessionNotes",
       "roles": {
@@ -4728,6 +5035,7 @@
       "rationale": "Accepts or edits an explicit value.",
       "owner": "plan-058",
       "catalogStates": [
+        "workout/abandon",
         "workout/early-finish",
         "workout/reorder",
         "workout/session"
@@ -4747,6 +5055,7 @@
       "rationale": "Blocks the underlying route with dialog semantics; full-screen variants need no fake shadow.",
       "owner": "plan-058",
       "catalogStates": [
+        "workout/abandon",
         "workout/early-finish",
         "workout/reorder",
         "workout/session"
@@ -4774,11 +5083,15 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates",
+        "workout/swap-reason",
+        "workout/deload-week"
       ]
     },
     {
@@ -4801,6 +5114,7 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state: the shared sheet band's close on the session sheet.",
       "owner": "plan-058",
       "catalogStates": [
+        "workout/abandon",
         "workout/early-finish",
         "workout/reorder",
         "workout/session"
@@ -4820,6 +5134,7 @@
       "rationale": "Scrim suppresses the page behind its blocking sheet.",
       "owner": "plan-058",
       "catalogStates": [
+        "workout/abandon",
         "workout/early-finish",
         "workout/reorder",
         "workout/session"
@@ -4959,7 +5274,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/share-ready",
-        "program/share-setup"
+        "program/share-setup",
+        "program/share-too-large"
       ]
     },
     {
@@ -5007,6 +5323,27 @@
       ]
     },
     {
+      "id": "sharesetupfile",
+      "selector": "#shareSetupFile",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "When a program is too large for a setup link, advances the sharing task by sending the program file through the system Share sheet or a download.",
+      "owner": "plan-067",
+      "catalogStates": [
+        "program/share-too-large"
+      ]
+    },
+    {
       "id": "sharesetupscrim",
       "selector": "#shareSetupScrim",
       "roles": {
@@ -5021,7 +5358,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/share-ready",
-        "program/share-setup"
+        "program/share-setup",
+        "program/share-too-large"
       ]
     },
     {
@@ -5039,7 +5377,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/share-ready",
-        "program/share-setup"
+        "program/share-setup",
+        "program/share-too-large"
       ]
     },
     {
@@ -5068,7 +5407,8 @@
         "today/draft-resume",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "today/deload-week"
       ]
     },
     {
@@ -5246,6 +5586,40 @@
       ]
     },
     {
+      "id": "today-prog-deload",
+      "selector": "#todayProgram .today-prog__deload",
+      "roles": {
+        "typography": "body-small"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "deload-week"
+      ],
+      "rationale": "Explains the reduced work during the active program's deload cycle.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "today/deload-week"
+      ]
+    },
+    {
+      "id": "focus-deload-note",
+      "selector": "#woDaySub.is-deload",
+      "roles": {
+        "typography": "body-small"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "deload-week"
+      ],
+      "rationale": "Focus names the recovery week while the lifter trains.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "workout/deload-week"
+      ]
+    },
+    {
       "id": "todayprogram-segbar",
       "selector": "#todayProgram .segbar",
       "roles": {
@@ -5269,7 +5643,8 @@
         "today/no-program",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "today/deload-week"
       ],
       "progressScopes": {
         "active-program-week": "block"
@@ -5320,7 +5695,8 @@
         "today/no-program",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "today/deload-week"
       ],
       "progressScopes": {
         "current-week-trained-days": "week"
@@ -5375,7 +5751,8 @@
         "today/draft-resume",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "today/deload-week"
       ]
     },
     {
@@ -5457,8 +5834,10 @@
       "owner": "plan-058",
       "catalogStates": [
         "workout/why-this-weight",
+        "workout/why-per-side",
         "workout/why-in-session",
-        "workout/why-manual"
+        "workout/why-manual",
+        "workout/why-setup"
       ]
     },
     {
@@ -5476,8 +5855,10 @@
       "owner": "plan-058",
       "catalogStates": [
         "workout/why-this-weight",
+        "workout/why-per-side",
         "workout/why-in-session",
-        "workout/why-manual"
+        "workout/why-manual",
+        "workout/why-setup"
       ]
     },
     {
@@ -5495,8 +5876,10 @@
       "owner": "plan-058",
       "catalogStates": [
         "workout/why-this-weight",
+        "workout/why-per-side",
         "workout/why-in-session",
-        "workout/why-manual"
+        "workout/why-manual",
+        "workout/why-setup"
       ]
     },
     {
@@ -5521,11 +5904,15 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates",
+        "workout/swap-reason",
+        "workout/deload-week"
       ]
     },
     {
@@ -5560,10 +5947,16 @@
         "workout/substituted-actions",
         "workout/warmup-actions",
         "workout/why-this-weight",
+        "workout/why-per-side",
         "workout/why-in-session",
         "workout/why-manual",
+        "workout/why-setup",
+        "workout/focus-per-side",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates",
+        "workout/swap-reason",
+        "workout/deload-week"
       ],
       "progressScopes": {
         "workout-exercise-order": "exercise-set"
@@ -5592,11 +5985,15 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates",
+        "workout/swap-reason",
+        "workout/deload-week"
       ]
     },
     {
@@ -5643,7 +6040,8 @@
         "history/delete-confirm",
         "history/edit-dirty",
         "history/edit-invalid",
-        "history/session"
+        "history/session",
+        "history/per-side-session"
       ]
     },
     {
@@ -5696,7 +6094,6 @@
         "history/edit-dirty",
         "history/edit-invalid",
         "history/session",
-        "onboarding-custom/result",
         "onboarding-recommend/replacement-confirm",
         "onboarding-recommend/result",
         "onboarding-recommend/result-existing",
@@ -5708,11 +6105,23 @@
         "progress/volume-reduction-preview",
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates",
+        "onboarding-recommend/review-reorder",
+        "onboarding-recommend/review-sheet",
+        "onboarding-recommend/review-sheet-swap",
+        "onboarding-recommend/result-equipment-conflict",
+        "onboarding-recommend/result-block-sheet",
+        "onboarding-recommend/review-sheet-execution-mode",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed",
+        "onboarding-recommend/review-day-name-refused",
+        "workout/deload-week"
       ]
     },
     {
@@ -5759,8 +6168,8 @@
         "history/delete-confirm",
         "history/edit-dirty",
         "history/edit-invalid",
-        "onboarding-custom/result",
         "onboarding-import/freeform-stage2",
+        "program/editor-day-name-refused",
         "program/progression-editor",
         "progress/guided-repair",
         "progress/recovery-ineligible",
@@ -5780,7 +6189,19 @@
         "workout/substituted-actions",
         "workout/warmup-actions",
         "onboarding-recommend/result-avoided",
-        "history/session"
+        "history/session",
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "onboarding-recommend/review-sheet",
+        "onboarding-recommend/review-sheet-swap",
+        "history/per-side-session",
+        "onboarding-recommend/review-sheet-execution-mode",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-existing"
       ]
     },
     {
@@ -5857,78 +6278,6 @@
       ]
     },
     {
-      "id": "entry-card-entry-card-primary-not-id",
-      "selector": ".entry-card.entry-card--primary:not([id])",
-      "roles": {
-        "control": "primary",
-        "elevation": "flat",
-        "boundary": "required"
-      },
-      "variant": "featured-entry-action",
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "loading"
-      ],
-      "rationale": "Advances the current task with the strongest action weight.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "onboarding-start/hub",
-        "onboarding-start/hub-own-open",
-        "onboarding-start/hub-existing",
-        "onboarding-start/hub-help"
-      ]
-    },
-    {
-      "id": "entry-card-entry-card-secondary-not-id",
-      "selector": ".entry-card.entry-card--secondary:not([id])",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": "entry-alternative",
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "onboarding-start/hub",
-        "onboarding-start/hub-own-open",
-        "onboarding-start/hub-existing",
-        "onboarding-start/hub-help"
-      ]
-    },
-    {
-      "id": "entry-exercise-action-not-id",
-      "selector": ".entry__exercise-action:not([id])",
-      "roles": {
-        "control": "selection"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Include adds a must-have exercise; Avoid opens a required reason before adding a reversible exclusion. Neither search-result button remains selected: the exercise moves to its named list, so both use the ordinary unselected selection recipe.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "onboarding-custom/exercise-preferences"
-      ]
-    },
-    {
       "id": "entry-field-input-not-id",
       "selector": ".entry__field-input:not([id])",
       "roles": {
@@ -5950,55 +6299,6 @@
       "catalogStates": [
         "onboarding-import/freeform-gaps",
         "onboarding-import/freeform-gaps-invalid"
-      ]
-    },
-    {
-      "id": "entry-muscle-state-not-id",
-      "selector": ".entry__muscle-state:not([id])",
-      "roles": {
-        "control": "selection",
-        "elevation": [
-          "flat",
-          "selected"
-        ],
-        "boundary": "required"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "selected",
-        "disabled"
-      ],
-      "rationale": "Changes a chosen value, active option, or reversible status.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "onboarding-custom/priorities"
-      ]
-    },
-    {
-      "id": "entry-remove-not-id",
-      "selector": ".entry__remove:not([id])",
-      "roles": {
-        "control": "destructive"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Deletes or discards user-controlled work and needs destructive treatment.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "onboarding-custom/exercise-preferences",
-        "onboarding-recommend/avoidance-pain"
       ]
     },
     {
@@ -6047,11 +6347,15 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates",
+        "workout/swap-reason",
+        "workout/deload-week"
       ]
     },
     {
@@ -6070,11 +6374,15 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates",
+        "workout/swap-reason",
+        "workout/deload-week"
       ]
     },
     {
@@ -6096,10 +6404,9 @@
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-start/hub",
-        "onboarding-start/hub-own-open",
         "onboarding-start/hub-existing",
-        "onboarding-start/hub-help",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/stale-draft",
         "workout/persist-retry",
@@ -6138,7 +6445,10 @@
         "settings/privacy",
         "workout/correction",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates",
+        "workout/swap-reason",
+        "workout/deload-week"
       ]
     },
     {
@@ -6283,7 +6593,10 @@
         "library/list",
         "library/list-selected",
         "program/custom-exercise",
-        "program/exercise-picker"
+        "program/exercise-picker",
+        "workout/abandon",
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -6310,7 +6623,9 @@
       "rationale": "Changes a chosen value, active option, or reversible status.",
       "owner": "plan-058",
       "catalogStates": [
-        "program/exercise-picker"
+        "program/exercise-picker",
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -6360,6 +6675,9 @@
       "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
       "owner": "plan-058",
       "catalogStates": [
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -6385,6 +6703,9 @@
         "onboarding-build/editor-empty",
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -6410,6 +6731,9 @@
         "onboarding-build/editor-empty",
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -6435,6 +6759,9 @@
         "onboarding-build/editor-empty",
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -6461,6 +6788,9 @@
       "catalogStates": [
         "onboarding-build/editor-empty",
         "onboarding-build/editor-partial",
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -6485,6 +6815,9 @@
       "catalogStates": [
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -6511,6 +6844,9 @@
       "catalogStates": [
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -6534,6 +6870,9 @@
       "catalogStates": [
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -6558,6 +6897,9 @@
       "catalogStates": [
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -6609,24 +6951,25 @@
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-build/setup",
-        "onboarding-custom/background",
-        "onboarding-custom/desired-result",
-        "onboarding-custom/environment",
-        "onboarding-custom/abilities",
-        "onboarding-custom/exercise-preferences",
-        "onboarding-custom/priorities",
-        "onboarding-custom/schedule",
-        "onboarding-recommend/avoidance-pain",
+        "onboarding-recommend/abilities",
         "onboarding-recommend/background",
+        "onboarding-recommend/cardio-experience",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/days-per-week",
         "onboarding-recommend/desired-result",
         "onboarding-recommend/environment",
-        "onboarding-recommend/abilities",
-        "onboarding-recommend/priorities",
-        "onboarding-recommend/schedule",
+        "onboarding-recommend/equipment",
+        "onboarding-recommend/equipment-adjusted",
+        "onboarding-recommend/session-length",
+        "onboarding-recommend/sex",
         "onboarding-recovery/rules-drift",
+        "onboarding-start/hub",
+        "onboarding-start/hub-chosen",
+        "onboarding-start/hub-existing",
         "progress/schedule-diagnosis",
-        "onboarding-recommend/chip-editor-open",
-        "onboarding-custom/shape"
+        "onboarding-recommend/result-block-sheet",
+        "onboarding-recommend/review-sheet-execution-mode",
+        "program/editor-suggest-loads"
       ]
     },
     {
@@ -6672,6 +7015,7 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
+        "workout/abandon",
         "workout/early-finish",
         "workout/reorder",
         "workout/session"
@@ -6699,6 +7043,7 @@
       "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
       "owner": "plan-058",
       "catalogStates": [
+        "workout/abandon",
         "workout/early-finish",
         "workout/reorder",
         "workout/session"
@@ -6724,7 +7069,8 @@
       "catalogStates": [
         "history/edit-dirty",
         "history/edit-invalid",
-        "history/session"
+        "history/session",
+        "history/per-side-session"
       ]
     },
     {
@@ -6789,10 +7135,13 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates",
+        "workout/deload-week"
       ]
     },
     {
@@ -6836,11 +7185,15 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates",
+        "workout/swap-reason",
+        "workout/deload-week"
       ]
     },
     {
@@ -6863,11 +7216,15 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates",
+        "workout/swap-reason",
+        "workout/deload-week"
       ]
     },
     {
@@ -6957,6 +7314,9 @@
       "catalogStates": [
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -7002,6 +7362,9 @@
         "onboarding-build/editor-empty",
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused",
         "program/progression-editor",
         "progress/schedule-diagnosis"
       ]
@@ -7029,8 +7392,11 @@
         "history/list",
         "history/session",
         "install/banner",
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/no-program",
         "program/overview",
+        "program/editor-day-name-refused",
         "program/progression-editor",
         "progress/exercise-chart",
         "progress/guided-repair",
@@ -7065,7 +7431,9 @@
         "today/no-program",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "history/per-side-session",
+        "today/deload-week"
       ]
     },
     {
@@ -7091,8 +7459,11 @@
         "history/list",
         "history/session",
         "install/banner",
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/no-program",
         "program/overview",
+        "program/editor-day-name-refused",
         "program/progression-editor",
         "progress/exercise-chart",
         "progress/guided-repair",
@@ -7127,7 +7498,9 @@
         "today/no-program",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "history/per-side-session",
+        "today/deload-week"
       ]
     },
     {
@@ -7162,8 +7535,11 @@
         "history/list",
         "history/session",
         "install/banner",
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
         "program/no-program",
         "program/overview",
+        "program/editor-day-name-refused",
         "program/progression-editor",
         "progress/exercise-chart",
         "progress/guided-repair",
@@ -7198,7 +7574,9 @@
         "today/no-program",
         "today/ready",
         "today/rest-bar",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "history/per-side-session",
+        "today/deload-week"
       ]
     },
     {
@@ -7223,7 +7601,6 @@
         "history/list",
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
-        "onboarding-custom/result",
         "onboarding-import/freeform-stage2",
         "onboarding-import/preview",
         "onboarding-import/review",
@@ -7241,12 +7618,17 @@
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-track",
         "onboarding-start/first-run-ways",
+        "program/editor-day-name-refused",
         "program/progression-editor",
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/result-avoided",
         "onboarding-recommend/result-corrected",
         "onboarding-start/first-run-returning",
-        "onboarding-start/first-run-returning-resume"
+        "onboarding-start/first-run-returning-resume",
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed"
       ]
     },
     {
@@ -7282,6 +7664,7 @@
         "install/banner",
         "workout/invalid-draft",
         "workout/why-this-weight",
+        "workout/why-per-side",
         "workout/why-in-session",
         "session/summary",
         "session/summary-maintained",
@@ -7290,6 +7673,7 @@
         "progress/overview",
         "progress/overview-action",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/session",
         "workout/early-finish",
@@ -7303,7 +7687,11 @@
         "workout/substituted-actions",
         "workout/rest-running",
         "workout/rest-done",
-        "today/done"
+        "today/done",
+        "workout/swap-alternates",
+        "history/per-side-session",
+        "today/deload-week",
+        "workout/deload-week"
       ]
     },
     {
@@ -7343,9 +7731,11 @@
         "program/exercise-picker",
         "program/share-ready",
         "program/share-setup",
+        "program/share-too-large",
         "program/text-export",
         "settings/privacy-disclosure",
         "today/day-picker",
+        "workout/abandon",
         "workout/early-finish",
         "workout/exercise-actions",
         "workout/exercise-note",
@@ -7353,10 +7743,20 @@
         "workout/session",
         "workout/skipped-actions",
         "workout/substituted-actions",
+        "workout/swap-alternates",
+        "workout/swap-reason",
         "workout/warmup-actions",
         "workout/why-in-session",
         "workout/why-manual",
-        "workout/why-this-weight"
+        "workout/why-setup",
+        "workout/why-this-weight",
+        "workout/why-per-side",
+        "onboarding-recommend/review-day-menu",
+        "onboarding-recommend/review-sheet",
+        "onboarding-recommend/review-sheet-swap",
+        "onboarding-recommend/review-sheet-execution-mode",
+        "onboarding-recommend/result-block-sheet",
+        "onboarding-recommend/review-day-name-refused"
       ]
     },
     {
@@ -7381,8 +7781,16 @@
       "catalogStates": [
         "today/day-picker",
         "workout/why-this-weight",
+        "workout/why-per-side",
         "workout/why-in-session",
-        "workout/why-manual"
+        "workout/why-manual",
+        "workout/why-setup",
+        "onboarding-recommend/review-day-menu",
+        "onboarding-recommend/review-sheet",
+        "onboarding-recommend/review-sheet-swap",
+        "onboarding-recommend/review-sheet-execution-mode",
+        "onboarding-recommend/result-block-sheet",
+        "onboarding-recommend/review-day-name-refused"
       ]
     },
     {
@@ -7402,6 +7810,7 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
@@ -7409,7 +7818,10 @@
         "workout/rest-running",
         "workout/rest-done",
         "history/edit-dirty",
-        "history/edit-invalid"
+        "history/edit-invalid",
+        "workout/swap-alternates",
+        "history/per-side-session",
+        "workout/deload-week"
       ]
     },
     {
@@ -7436,7 +7848,8 @@
         "today/draft-resume",
         "workout/invalid-draft",
         "install/banner",
-        "program/overview"
+        "program/overview",
+        "today/deload-week"
       ]
     },
     {
@@ -7456,11 +7869,15 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates",
+        "workout/swap-reason",
+        "workout/deload-week"
       ]
     },
     {
@@ -7597,13 +8014,16 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
         "workout/rest-done",
         "history/edit-dirty",
-        "history/edit-invalid"
+        "history/edit-invalid",
+        "workout/swap-alternates",
+        "workout/deload-week"
       ]
     },
     {
@@ -7632,11 +8052,15 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates",
+        "workout/swap-reason",
+        "workout/deload-week"
       ]
     },
     {
@@ -7662,9 +8086,11 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/swap-alternates"
       ]
     },
     {
@@ -7687,11 +8113,15 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates",
+        "workout/swap-reason",
+        "workout/deload-week"
       ]
     },
     {
@@ -7714,11 +8144,15 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/swap-alternates",
+        "workout/swap-reason",
+        "workout/deload-week"
       ]
     },
     {
@@ -7743,85 +8177,14 @@
       "catalogStates": [
         "workout/correction",
         "workout/focus",
+        "workout/focus-per-side",
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/rest-running",
-        "workout/rest-done"
-      ]
-    },
-    {
-      "id": "entryhelptoggle",
-      "selector": "#entryHelpToggle",
-      "roles": {
-        "control": "disclosure"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "expanded"
-      ],
-      "rationale": "Expands or collapses the route help; expanded state is separate from navigation.",
-      "owner": "plan-064/r4a",
-      "catalogStates": [
-        "onboarding-start/hub",
-        "onboarding-start/hub-own-open",
-        "onboarding-start/hub-existing",
-        "onboarding-start/hub-help"
-      ]
-    },
-    {
-      "id": "entry-help-opt-not-id",
-      "selector": ".entry-help__opt:not([id])",
-      "roles": {
-        "control": "selection",
-        "elevation": [
-          "flat",
-          "selected"
-        ],
-        "boundary": "required"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "selected",
-        "disabled"
-      ],
-      "rationale": "Changes a chosen answer in the route help without leaving the hub.",
-      "owner": "plan-064/r4a",
-      "catalogStates": [
-        "onboarding-start/hub-help"
-      ]
-    },
-    {
-      "id": "entryhelpgo",
-      "selector": "#entryHelpGo",
-      "roles": {
-        "control": "primary"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "loading"
-      ],
-      "rationale": "Advances the current task with the strongest action weight.",
-      "owner": "plan-064/r4a",
-      "catalogStates": [
-        "onboarding-start/hub-help"
+        "workout/rest-done",
+        "workout/swap-alternates",
+        "workout/swap-reason"
       ]
     },
     {
@@ -7840,7 +8203,10 @@
       "catalogStates": [
         "onboarding-recommend/replacement-confirm",
         "onboarding-recovery/cancel-confirm",
-        "onboarding-recovery/restart-confirm"
+        "onboarding-recovery/restart-confirm",
+        "onboarding-recommend/review-rebuild-confirm",
+        "onboarding-recommend/birth-date-typed",
+        "onboarding-recommend/birth-date-typed-invalid"
       ]
     },
     {
@@ -8056,19 +8422,11 @@
       "owner": "plan-064/r4a",
       "catalogStates": [
         "onboarding-recommend/background",
-        "onboarding-recommend/schedule",
         "onboarding-recommend/environment",
-        "onboarding-recommend/abilities",
-        "onboarding-recommend/priorities",
-        "onboarding-recommend/avoidance-pain",
-        "onboarding-custom/background",
-        "onboarding-custom/schedule",
-        "onboarding-custom/environment",
-        "onboarding-custom/abilities",
-        "onboarding-custom/priorities",
-        "onboarding-custom/exercise-preferences",
-        "onboarding-custom/shape"
-      ]
+        "onboarding-recommend/abilities"
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "Plan 072 OD-9 keeps Custom available only when resuming a saved draft for one release. Recommend B suppresses this legacy rail, and §11.1 removes every onboarding-custom catalog state."
     },
     {
       "id": "entry-chip-not-id",
@@ -8094,7 +8452,12 @@
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/result-corrected",
         "onboarding-recommend/result-avoided",
-        "onboarding-custom/result"
+        "onboarding-recommend/activation-conflict",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/review-empty-day",
+        "onboarding-recommend/review-reorder",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed"
       ]
     },
     {
@@ -8116,54 +8479,10 @@
       "rationale": "Reopens the goal question the hub already asked, without leaving the about screen.",
       "owner": "plan-064/r4b",
       "catalogStates": [
-        "onboarding-recommend/background",
-        "onboarding-custom/background"
-      ]
-    },
-    {
-      "id": "entryskip",
-      "selector": "#entrySkip",
-      "roles": {
-        "control": "secondary"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "loading"
+        "onboarding-recommend/background"
       ],
-      "rationale": "Skips the optional priorities section while nothing in it is chosen; it is offered only when it discards nothing.",
-      "owner": "plan-064/r4b",
-      "catalogStates": [
-        "onboarding-recommend/priorities"
-      ]
-    },
-    {
-      "id": "entryabilitiesskip",
-      "selector": "#entryAbilitiesSkip",
-      "roles": {
-        "control": "secondary"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "loading"
-      ],
-      "rationale": "Leaves every movement-ability answer unset and moves on; the step is optional.",
-      "owner": "plan-067",
-      "catalogStates": [
-        "onboarding-recommend/abilities",
-        "onboarding-custom/abilities"
-      ]
+      "sourceOnly": true,
+      "sourceOnlyReason": "Recommend B asks for the goal after background, so this legacy Change goal control is not in its canonical background screen. It remains only when resuming a saved Custom draft for one release; §11.1 removes those Custom catalog states."
     },
     {
       "id": "entrychipapply",
@@ -8337,8 +8656,10 @@
       "owner": "plan-064/r3g",
       "catalogStates": [
         "workout/why-this-weight",
+        "workout/why-per-side",
         "workout/why-in-session",
-        "workout/why-manual"
+        "workout/why-manual",
+        "workout/why-setup"
       ]
     },
     {
@@ -8361,6 +8682,7 @@
       "owner": "plan-064/r3g",
       "catalogStates": [
         "workout/why-this-weight",
+        "workout/why-per-side",
         "workout/why-in-session"
       ]
     },
@@ -8716,6 +9038,864 @@
       "catalogStates": [
         "today/draft-resume"
       ]
+    },
+    {
+      "id": "program-editor-add-alternate-not-id",
+      "selector": ".program-editor__add-alternate:not([id])",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Adds a movement to the slot's alternates; reversible, and disabled with the list at its cap.",
+      "owner": "issue-317",
+      "catalogStates": [
+        "onboarding-build/editor-partial",
+        "onboarding-build/editor-ready",
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused",
+        "program/progression-editor"
+      ]
+    },
+    {
+      "id": "program-editor-alternate-move-not-id",
+      "selector": ".program-editor__alternate-move:not([id])",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only",
+        "disabled"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves one alternate up or down its list, like the session map's reorder buttons; disabled at the list's ends.",
+      "owner": "issue-317",
+      "catalogStates": [
+        "program/editor-alternates",
+        "program/editor-suggest-loads"
+      ]
+    },
+    {
+      "id": "program-editor-alternate-remove-not-id",
+      "selector": ".program-editor__alternate-remove:not([id])",
+      "roles": {
+        "control": "destructive"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Removes a movement from the slot's alternates.",
+      "owner": "issue-317",
+      "catalogStates": [
+        "program/editor-alternates",
+        "program/editor-suggest-loads"
+      ]
+    },
+    {
+      "id": "review-titlebtn",
+      "selector": ".review__titlebtn",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Opens the rename sheet for the program's name; the name itself is the control.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/activation-conflict",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-existing",
+        "onboarding-recommend/review-empty-day",
+        "onboarding-recommend/review-reorder",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed",
+        "onboarding-shared/preview"
+      ],
+      "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
+    },
+    {
+      "id": "review-tab",
+      "selector": ".review__tab",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected"
+      ],
+      "rationale": "Selects which day of the week the review shows; aria-selected carries the choice and the accent underline travels to it.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/activation-conflict",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-existing",
+        "onboarding-recommend/review-empty-day",
+        "onboarding-recommend/review-reorder",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed",
+        "onboarding-shared/preview"
+      ],
+      "neverDisabledReason": "Every day of the week, rest days included, can always be shown."
+    },
+    {
+      "id": "review-row",
+      "selector": ".review__row",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "The whole exercise row opens that exercise's sheet; a changed row carries its mark.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/activation-conflict",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-existing",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed",
+        "onboarding-shared/preview"
+      ],
+      "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
+    },
+    {
+      "id": "review-dayname",
+      "selector": ".review__dayname",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Opens the rename sheet for the shown day.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/activation-conflict",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-existing",
+        "onboarding-recommend/review-empty-day",
+        "onboarding-recommend/review-reorder",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed",
+        "onboarding-shared/preview"
+      ],
+      "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
+    },
+    {
+      "id": "review-more",
+      "selector": ".review__more",
+      "roles": {
+        "control": "disclosure"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Opens the day's actions: rename, reorder, add.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/activation-conflict",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-existing",
+        "onboarding-recommend/review-empty-day",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed",
+        "onboarding-shared/preview"
+      ],
+      "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
+    },
+    {
+      "id": "review-add",
+      "selector": ".review__add",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Adds a catalog movement to the shown day through the exercise picker.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/activation-conflict",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/result",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-existing",
+        "onboarding-recommend/review-empty-day",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed",
+        "onboarding-shared/preview"
+      ],
+      "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
+    },
+    {
+      "id": "review-ro-btn",
+      "selector": ".review__ro-btn",
+      "roles": {
+        "control": "adjustment"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Moves an exercise or an in-session alternate one place up or down, or removes an alternate; the end of the list disables its arrow.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/review-reorder",
+        "onboarding-recommend/review-sheet-swap"
+      ]
+    },
+    {
+      "id": "review-step-button",
+      "selector": ".review-step button",
+      "roles": {
+        "control": "adjustment"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Steps one prescription value (set count, rep range ends, RIR per set); a bound disables its side.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/review-sheet",
+        "onboarding-recommend/review-sheet-swap",
+        "onboarding-recommend/result-block-sheet",
+        "onboarding-recommend/review-sheet-execution-mode"
+      ]
+    },
+    {
+      "id": "review-seg-opt",
+      "selector": ".review-seg__opt",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected"
+      ],
+      "rationale": "Chooses the rest between sets from the presets; aria-checked carries the choice.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/review-sheet",
+        "onboarding-recommend/review-sheet-swap",
+        "onboarding-recommend/review-sheet-execution-mode"
+      ],
+      "neverDisabledReason": "Every rest preset is always a valid choice."
+    },
+    {
+      "id": "review-chipbtn",
+      "selector": ".review-chipbtn",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Adds a suggested in-session alternate, or moves the exercise to another training day.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/review-sheet",
+        "onboarding-recommend/review-sheet-swap",
+        "onboarding-recommend/review-sheet-execution-mode"
+      ],
+      "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
+    },
+    {
+      "id": "review-menu-act",
+      "selector": ".review-sheet__menu .exactions__act",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "One of the day's actions in the day menu; Reorder is disabled on a day with fewer than two exercises.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/review-day-menu"
+      ]
+    },
+    {
+      "id": "review-text-link",
+      "selector": ".review__changes .text-link",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Undo the last adjustment, or Restore the recommendation after a confirmation.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/review-empty-day"
+      ],
+      "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
+    },
+    {
+      "id": "review-sheet-link",
+      "selector": ".review-sheet__links .text-link",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Shows the rest of the engine's swap candidates, or opens the catalog search for a swap.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/review-sheet",
+        "onboarding-recommend/review-sheet-swap",
+        "onboarding-recommend/review-sheet-execution-mode"
+      ],
+      "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
+    },
+    {
+      "id": "reviewsheet",
+      "selector": "#reviewSheet",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "bottom-sheet",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Blocks the review behind it with dialog semantics while an exercise, the block inputs, the day actions or a rename is open.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/review-day-menu",
+        "onboarding-recommend/review-sheet",
+        "onboarding-recommend/review-sheet-swap",
+        "onboarding-recommend/result-block-sheet",
+        "onboarding-recommend/review-sheet-execution-mode",
+        "onboarding-recommend/review-day-name-refused"
+      ]
+    },
+    {
+      "id": "reviewsheetscrim",
+      "selector": "#reviewSheetScrim",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "scrim",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Scrim suppresses the review behind its sheet.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/review-day-menu",
+        "onboarding-recommend/review-sheet",
+        "onboarding-recommend/review-sheet-swap",
+        "onboarding-recommend/result-block-sheet",
+        "onboarding-recommend/review-sheet-execution-mode",
+        "onboarding-recommend/review-day-name-refused"
+      ]
+    },
+    {
+      "id": "reviewconfirmgo",
+      "selector": "#reviewConfirmGo",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Confirms a rebuild or restore that discards the lifter's adjustments.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/review-rebuild-confirm"
+      ],
+      "neverDisabledReason": "The confirmation is only shown when it can be answered."
+    },
+    {
+      "id": "reviewconfirmkeep",
+      "selector": "#reviewConfirmKeep",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Keeps the lifter's adjustments and dismisses the confirmation.",
+      "owner": "plan-070",
+      "catalogStates": [
+        "onboarding-recommend/review-rebuild-confirm"
+      ],
+      "neverDisabledReason": "The confirmation is only shown when it can be answered."
+    },
+    {
+      "id": "entry-seg-option",
+      "selector": ".entry-seg__option",
+      "roles": {
+        "control": "selection",
+        "elevation": [
+          "flat",
+          "selected"
+        ]
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected",
+        "disabled"
+      ],
+      "rationale": "One answer of a segmented choice: a muscle's Reduce, Normal or Prioritize, or a picker's unit.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/height",
+        "onboarding-recommend/height-ftin",
+        "onboarding-recommend/muscle-priorities",
+        "onboarding-recommend/muscle-priorities-limit",
+        "onboarding-recommend/weight",
+        "onboarding-recommend/weight-lb"
+      ]
+    },
+    {
+      "id": "onbskip",
+      "selector": "#onbSkip",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Leaves an optional onboarding answer unset and moves on.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/abilities",
+        "onboarding-recommend/birth-date",
+        "onboarding-recommend/cardio-experience",
+        "onboarding-recommend/height",
+        "onboarding-recommend/height-ftin",
+        "onboarding-recommend/muscle-priorities",
+        "onboarding-recommend/muscle-priorities-limit",
+        "onboarding-recommend/sex",
+        "onboarding-recommend/weight",
+        "onboarding-recommend/weight-lb"
+      ]
+    },
+    {
+      "id": "entryweightruler",
+      "selector": "#entryWeightRuler",
+      "roles": {
+        "control": "field"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Sets the lifter's weight by scrolling or the arrow keys; a slider with a spoken value.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/weight",
+        "onboarding-recommend/weight-lb"
+      ]
+    },
+    {
+      "id": "entryweighttype",
+      "selector": "#entryWeightType",
+      "roles": {
+        "control": "field"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Opens a labeled text field for the displayed weight value.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/weight",
+        "onboarding-recommend/weight-lb"
+      ]
+    },
+    {
+      "id": "entryequipmentreset",
+      "selector": "#entryEquipmentReset",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [
+        "disabled"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Returns the equipment groups to the chosen place's preset.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/equipment",
+        "onboarding-recommend/equipment-adjusted"
+      ]
+    },
+    {
+      "id": "entrydeloadswitch",
+      "selector": "#entryDeloadSwitch",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected",
+        "disabled"
+      ],
+      "rationale": "Turns the block's last-week deload on or off.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/deload"
+      ]
+    },
+    {
+      "id": "entry-buildingskip",
+      "selector": "#entryBuildingSkip",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Lets the lifter finish the checklist early while the actual generation request still has to settle.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/building",
+        "onboarding-recommend/building-pending"
+      ]
+    },
+    {
+      "id": "review-block-edit-link",
+      "selector": "[data-review-block-edit]",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Opens the result block inputs without changing the answers until Apply.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/result-block-sheet",
+        "onboarding-recommend/result",
+        "onboarding-recommend/result-confirm-offer",
+        "onboarding-recommend/result-confirmed",
+        "onboarding-recommend/activation-conflict",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/replacement-confirm",
+        "onboarding-recommend/result-changed",
+        "onboarding-recommend/result-corrected",
+        "onboarding-recommend/result-existing",
+        "onboarding-recommend/result-avoided",
+        "onboarding-recommend/review-day-menu",
+        "onboarding-recommend/review-empty-day",
+        "onboarding-recommend/review-rebuild-confirm",
+        "onboarding-recommend/review-reorder",
+        "onboarding-recommend/review-sheet",
+        "onboarding-recommend/review-sheet-swap",
+        "onboarding-recovery/restart-confirm"
+      ]
+    },
+    {
+      "id": "review-block-deload-switch",
+      "selector": "[data-review-block-deload]",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected",
+        "disabled"
+      ],
+      "rationale": "Turns the block's last-week deload on or off.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/result-block-sheet"
+      ]
+    },
+    {
+      "id": "program-editor-suggest-loads-switch",
+      "selector": ".program-editor__suggest-loads .toggle",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected",
+        "disabled"
+      ],
+      "rationale": "Turns a slot's Suggest loads opt-in on or off; a commit point confirms it.",
+      "owner": "plan-069",
+      "catalogStates": [
+        "onboarding-build/editor-partial",
+        "onboarding-build/editor-ready",
+        "program/progression-editor",
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused"
+      ]
+    },
+    {
+      "id": "review-confirmation-undo",
+      "selector": "[data-review-confirmation-undo]",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Undo the explicit movement confirmation while the recommendation is still a draft.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/result-confirmed"
+      ],
+      "neverDisabledReason": "The confirmation can be undone before activation."
+    },
+    {
+      "id": "review-rename-input",
+      "selector": "#reviewRenameInput",
+      "roles": {
+        "control": "field",
+        "boundary": "required"
+      },
+      "variant": "day-name-input",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "focus-visible",
+        "disabled",
+        "validation-error"
+      ],
+      "rationale": "Edits a review day name; a duplicate remains visible with its linked validation reason.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/review-day-name-refused"
+      ]
+    },
+    {
+      "id": "blockprompt-act",
+      "selector": ".blockprompt__act",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Routes the end-of-block prompt to the existing Progress → Review surface.",
+      "owner": "plan-056",
+      "catalogStates": [
+        "workout/deload-week"
+      ]
+    },
+    {
+      "id": "blockprompt-dismiss",
+      "selector": ".blockprompt__dismiss",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Dismisses the end-of-block review prompt without changing training history or the active prescription.",
+      "owner": "plan-056",
+      "catalogStates": [
+        "workout/deload-week"
+      ]
     }
   ],
   "contextualVariants": [
@@ -8723,8 +9903,8 @@
       "id": "landing-ink-primary",
       "selector": "#firstRunCreate, #firstRunCreateClose, #firstRunSharedStart",
       "role": "primary",
-      "rationale": "The creation controls and received-program Start are one recipe, the ink pill with its arrow: the parchment action on the night band, the near-black action on the orange band, the arrow in the action's own ink on parchment (the prototype's orange arrow measured 2.05:1 there) and the orange band's mark on near-black. Owner decision L-1 on PR #295.",
-      "owner": "plan-064/r2",
+      "rationale": "Creation actions and See the program share the ink-pill recipe with an arrow and retain the band's approved contrast.",
+      "owner": "plan-072",
       "catalogStates": [
         "onboarding-shared/gate",
         "onboarding-shared/invalid",
@@ -8741,11 +9921,12 @@
     },
     {
       "id": "landing-text-link",
-      "selector": "#firstRunImport, #firstRunImportClose",
+      "selector": "#firstRunImport, #firstRunImportClose, #firstRunSharedCreate",
       "role": "quiet-navigation",
-      "rationale": "The two import controls open the same route without a training-state write; they are underlined text links with no boundary, in the ink of the band they sit on. Owner decision L-1 on PR #295.",
-      "owner": "plan-064/r2",
+      "rationale": "Import and shared-gate text actions are underlined quiet navigation controls with no boundary, in the ink of the band they sit on.",
+      "owner": "plan-072",
       "catalogStates": [
+        "onboarding-shared/gate",
         "onboarding-shared/invalid",
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
@@ -8832,6 +10013,7 @@
         "workout/substituted-actions",
         "workout/why-in-session",
         "workout/why-manual",
+        "workout/why-setup",
         "workout/rest-running",
         "workout/rest-done"
       ]
@@ -8845,6 +10027,7 @@
       "catalogStates": [
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -8896,6 +10079,7 @@
         "history/conflict",
         "program/no-program",
         "program/overview",
+        "program/editor-day-name-refused",
         "program/progression-editor",
         "install/banner",
         "today/draft-resume"
@@ -8908,6 +10092,7 @@
       "rationale": "Program edit uses the approved shallow full-width action layer; its meaning stays navigation and the current destination stays selected.",
       "owner": "plan-057/058",
       "catalogStates": [
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ]
     },
@@ -8919,7 +10104,6 @@
       "owner": "plan-054/058",
       "catalogStates": [
         "onboarding-start/hub",
-        "onboarding-start/hub-own-open",
         "onboarding-start/hub-existing"
       ]
     },
@@ -9191,7 +10375,8 @@
         "workout/warmup-actions",
         "workout/why-this-weight",
         "workout/why-in-session",
-        "workout/why-manual"
+        "workout/why-manual",
+        "workout/why-setup"
       ]
     },
     {
@@ -9206,6 +10391,7 @@
       "catalogStates": [
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
+        "program/editor-day-name-refused",
         "program/progression-editor"
       ],
       "sourceOnly": true,
@@ -9262,6 +10448,7 @@
         "history/conflict",
         "program/no-program",
         "program/overview",
+        "program/editor-day-name-refused",
         "program/progression-editor",
         "install/banner",
         "today/draft-resume"
@@ -9318,6 +10505,7 @@
         "history/conflict",
         "program/no-program",
         "program/overview",
+        "program/editor-day-name-refused",
         "program/progression-editor",
         "install/banner",
         "today/draft-resume"
@@ -9352,8 +10540,8 @@
       "catalogStates": [
         "onboarding-start/hub",
         "onboarding-start/hub-existing",
-        "onboarding-start/hub-own-open",
         "program/overview",
+        "program/editor-day-name-refused",
         "program/progression-editor",
         "settings/appearance",
         "settings/guides",
@@ -9374,8 +10562,8 @@
       "catalogStates": [
         "onboarding-start/hub",
         "onboarding-start/hub-existing",
-        "onboarding-start/hub-own-open",
         "program/overview",
+        "program/editor-day-name-refused",
         "program/progression-editor",
         "settings/appearance",
         "settings/guides",
@@ -9396,8 +10584,7 @@
       "owner": "plan-054/058",
       "catalogStates": [
         "onboarding-start/hub",
-        "onboarding-start/hub-existing",
-        "onboarding-start/hub-own-open"
+        "onboarding-start/hub-existing"
       ]
     }
   ],

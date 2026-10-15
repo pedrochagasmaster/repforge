@@ -32,8 +32,10 @@ const expected = [
   "posthog-init.js",
   "program-compiler.js",
   "program-editor.js",
+  "program-engine.js",
   "program-entry-adapter.js",
   "program-entry.js",
+  "program-review.js",
   "program-transition.js",
   "progress-model.js",
   "progression-engine.js",
@@ -85,21 +87,18 @@ console.log(`telemetry boundary: ${captured.length} reviewed producer call(s) us
 // funnel, so the alpha scorecard would mistake a dead producer for behaviour.
 // Reserving an event says the feature behind it does not exist yet; when it
 // ships, its change drops the entry and adds the producer.
-const RESERVED = new Map([
-  ["recommendation_overridden", "needs a product definition of a deliberate override"],
-  ["session_abandoned", "needs an explicit abandon action with stage and reason UI"],
-  ["substitution_used", "needs a substitution reason question; a reason is never fabricated"],
-  ["equipment_context_selected", "equipment contexts are deferred (backlog section 5)"],
-  ["one_off_started", "one-off sessions are deferred (backlog section 5)"],
-  ["one_off_completed", "one-off sessions are deferred (backlog section 5)"],
-  ["program_transition_selected", "next-program transition choice is not emitted yet"],
-]);
+const RESERVED = new Map([]);
 const produced = new Set(captured);
 // Events outside the product phases (the late install transfer) are emitted by
 // telemetry.js itself, so its own capture() call counts as their producer.
 const productEvents = new Set(Telemetry.getEventNames());
 for (const name of allowedEvents) {
   if (!productEvents.has(name) && new RegExp(`\\bcapture\\("${name}"`).test(telemetry)) produced.add(name);
+}
+// The program-entry funnel events are built by telemetry.js's pure
+// entryFunnelEvents projection and forwarded by app.js's step observer.
+if (/RepForgeTelemetry\?\.entryFunnelEvents\?\.\(/.test(app)) {
+  for (const [, name] of telemetry.matchAll(/events\.push\(\["([a-z_]+)"/g)) produced.add(name);
 }
 const orphaned = [...allowedEvents].filter((name) => !produced.has(name) && !RESERVED.has(name));
 const unknownReserved = [...RESERVED.keys()].filter((name) => !allowedEvents.has(name));

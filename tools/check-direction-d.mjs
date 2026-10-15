@@ -146,12 +146,15 @@ export const OVERFLOW_EXCEPTIONS = [
 export const TIMER_SCOPES = ["#restSheet", ".restinline", ".shelf__pads--rest"];
 
 /** Data attributes a D surface emits so parity can tie a rendered word or figure to an exercise (see GAPS). */
-export const PARITY_ATTRIBUTES = Object.freeze({ outcome: "data-parity-outcome", session: "data-parity-session", target: "data-parity-target" });
+export const PARITY_ATTRIBUTES = Object.freeze({
+  outcome: "data-parity-outcome", session: "data-parity-session", target: "data-parity-target",
+  reader: "data-parity-reader", scope: "data-parity-scope", convention: "data-parity-convention",
+});
 
 export const GAPS = Object.freeze([
   "Orange allowlist: Plan 064 section 8.8 and the D spec section 7 name five permitted uses (verdict glyph, current exercise segment, running timer's drain bar, CTA arrow, active dock icon) but no governing document binds any of them to a selector or pseudo-element. ORANGE_ALLOWLIST therefore holds only what each R3 sub-slice adds for the states it enforces (R3b: the up verdict glyph, the CTA arrow, and the active dock item's ring, icon and label); every entry is the sub-slice's reading of the budget and is listed in its handoff for the owner to approve. Every budget use now has an element (R3f added the running timer's drain bar, the inline rest's fill).",
   "Overflow exception: the spec excepts 'the tab row' but D's single tab row has no selector until R3 builds it (spec section 4.6). OVERFLOW_EXCEPTIONS is empty, so a scrolling tab row fails until the Progress sub-slice adds its entry. 'D surfaces' for the ellipsis rule is read as the whole rendered page of a D-owned state.",
-  "Parity markup: no governing document says how a rendered outcome word or target is tied to an exercise. The gate defines the minimum: data-parity-outcome=<exerciseId> (optional data-parity-session=<sessionId>, default the latest logged session) on the element whose text is the outcome word, and data-parity-target=<exerciseId> on the element that shows the target; an unmarked element whose own text equals a delta.*.label is an orphan outcome word. The contract needs orchestrator approval before R3 sub-slices emit it. Targets compare the load only: recommendation() carries no reps, and the per-set reps come from setSuggestion, which the spec's section 10 does not name.",
+  "Parity markup: no governing document says how a rendered outcome word or target is tied to an exercise. The gate defines the minimum: data-parity-outcome=<exerciseId> (optional data-parity-session=<sessionId>, default the latest logged session) on an outcome word, plus data-parity-reader=progress-strength, data-parity-scope and data-parity-convention on Progress Strength words so the oracle reconstructs the reader comparison from durable rows. Session summaries keep the raw session comparator. data-parity-target=<exerciseId> marks the recommendation load; unmarked delta.* words are orphans. Targets compare the load only: recommendation() carries no reps, and the per-set reps come from setSuggestion, which the spec's section 10 does not name.",
   "Banned words: the governing documents name only 'Regrediu', 'Hold' as a timer label and em dashes (D spec section 6, strings appendix), plus the brand guide's curly-quote and Portuguese-English-word rules that test/i18n.mjs enforces. There is no single banned-word list. The gate duplicates the patterns from test/i18n.mjs (it runs its assertions on import and cannot be imported), so they can drift. 'Timer label' is scoped to TIMER_SCOPES.",
   "Strings: 'every rendered string is a catalog key' is implemented as: raw keys, unresolved tokens and requested-but-missing keys (reusing tools/ui-screens/catalog-contract.mjs) fail; any other string with letters must match a catalog value for the page language (a {token} matches any text), or be made only of user or exercise data from the durable state and the exercise library, numbers, the unit labels kg and lb, and weekday or month names for the page language. The data and unit exclusions are this gate's reading of 'data such as a number, exercise name or user text'; the brief gave no precise rule.",
 ]);
@@ -310,12 +313,24 @@ export function collectGateEvidence(options = {}) {
   };
   for (const element of shown.filter((item) => item.hasAttribute("data-parity-outcome"))) {
     const exerciseId = element.getAttribute("data-parity-outcome");
-    const entry = { locator: locator(element), exerciseId, text: element.textContent.replace(/\s+/g, " ").trim() };
+    const reader = element.getAttribute("data-parity-reader");
+    const entry = { locator: locator(element), exerciseId, reader: reader || null,
+      text: element.textContent.replace(/\s+/g, " ").trim() };
     const slot = program?.programSlot?.(exerciseId);
     if (!slot) entry.error = `names unknown exercise ${exerciseId}`;
     else {
       const rows = sessionRows(exerciseId, element.getAttribute("data-parity-session"));
       if (!rows.length) entry.error = `has no logged session for ${exerciseId}`;
+      else if (element.closest("#strengthDash") && reader !== "progress-strength")
+        entry.error = `has no explicit Progress strength reader context for ${exerciseId}`;
+      else if (reader && reader !== "progress-strength")
+        entry.error = `names unsupported reader context ${reader}`;
+      else if (reader === "progress-strength" &&
+        (!element.getAttribute("data-parity-scope") || !element.getAttribute("data-parity-convention")))
+        entry.error = `has incomplete Progress strength reader context for ${exerciseId}`;
+      else if (reader === "progress-strength" &&
+        !window.RepForgeProgressModel?.EVIDENCE_SCOPES?.includes(element.getAttribute("data-parity-scope")))
+        entry.error = `names unsupported Progress strength scope ${element.getAttribute("data-parity-scope")}`;
       else {
         // The status compareExerciseSession reaches, said in the session-outcome vocabulary the app shows
         // (CONTEXT.md "Session outcome": Melhorou, Manteve, Regressou, plus the two neutral labels).
@@ -323,8 +338,16 @@ export function collectGateEvidence(options = {}) {
           improved: "stats.outcome.improved", flat: "stats.outcome.maintained", regressed: "stats.outcome.declined",
           changed_load: "delta.changed_load.label", not_comparable: "delta.not_comparable.label", new: "stats.outcome_short.single_observation",
         };
-        const compared = window.__repforgeCompareExercise(slot, rows);
+        const compared = window.__repforgeCompareExercise(slot, rows, reader === "progress-strength" ? {
+          reader, scope: element.getAttribute("data-parity-scope"),
+          convention: element.getAttribute("data-parity-convention"),
+          session: element.getAttribute("data-parity-session"), log: durable.log || [],
+        } : undefined);
         entry.expected = wordKeys[compared.status] && i18n ? i18n.t(wordKeys[compared.status]) : compared.label;
+        if (reader === "progress-strength") {
+          entry.scope = element.getAttribute("data-parity-scope");
+          entry.convention = element.getAttribute("data-parity-convention");
+        }
         // The same status in compareExerciseSession's own label is the same word (History's session page shows it;
         // PT says Manteve and Regressou in both vocabularies). A word for any other status still fails.
         entry.accepted = [...new Set([entry.expected, compared.label])];
@@ -490,7 +513,7 @@ export function checkParity(evidence) {
   const failures = [];
   for (const item of evidence.parity.outcomes) {
     if (item.error) failures.push(prefix("parity", `${item.locator} ${item.error}`));
-    else if (!(item.accepted || [item.expected]).includes(item.text)) failures.push(prefix("parity", `outcome word at ${item.locator} reads "${item.text}" but compareExerciseSession(${item.exerciseId}) says "${item.expected}"`));
+    else if (!(item.accepted || [item.expected]).includes(item.text)) failures.push(prefix("parity", `outcome word at ${item.locator} reads "${item.text}" but ${item.reader === "progress-strength" ? `the Progress strength reader for ${item.exerciseId}` : `compareExerciseSession(${item.exerciseId})`} says "${item.expected}"`));
   }
   for (const item of evidence.parity.targets) {
     if (item.error) failures.push(prefix("parity", `${item.locator} ${item.error}`));
@@ -558,7 +581,22 @@ export function checkStrings(evidence, catalog) {
   const catalogOrData = (value) => {
     const whole = value.replace(/\s+/g, " ").trim();
     if (!/\p{L}/u.test(whole) || matchers.some((pattern) => pattern.test(whole))) return true;
-    const rest = dataPattern ? whole.replace(dataPattern, " ") : whole;
+    // Keep exact catalog fragments intact before removing arbitrary raw data strings. A
+    // recorded value such as "Reps" can also be part of approved copy such as "Reps por lado".
+    const protectedParts = whole.split(/(\s*[·•|,;:()[\]+×–]\s*|\s+-\s+)/u);
+    for (let index = 0; index < protectedParts.length; index += 2) {
+      const part = protectedParts[index];
+      const leading = /^\s*/u.exec(part)[0];
+      const trailing = /\s*$/u.exec(part)[0];
+      const fragment = part.slice(leading.length, part.length - trailing.length);
+      if (!fragment) continue;
+      if (!matchers.some((pattern) => pattern.test(fragment))) continue;
+      // A non-letter sentinel hides only this exact approved fragment from data removal;
+      // non-catalog and phrase-plus-tail fragments still run through the existing guard.
+      protectedParts[index] = `${leading}\uE000${trailing}`;
+    }
+    const protectedWhole = protectedParts.join("");
+    const rest = dataPattern ? protectedWhole.replace(dataPattern, " ") : protectedWhole;
     // A slash stays inside a fragment first ("Costas médias/superiores" is one catalog word);
     // only a fragment that is not whole-string a catalog value is split on it.
     // Sentences the app composes (a catalog sentence, a space, the next catalog sentence) are checked one by one.

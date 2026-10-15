@@ -17,7 +17,7 @@
  *   - Fatigue trim, heat gauge, session notes, effort RIR mapping, attention board
  */
 
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, waitForAsyncCondition, answerRecommend } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 import { writeFileSync, readFileSync, mkdtempSync, rmSync } from "fs";
 import { dirname, join } from "path";
@@ -119,23 +119,9 @@ async function driveRecommendOnboarding(page, {
   environment = "commercial_gym",
   activate = true,
 } = {}) {
-  const step = () => page.evaluate(() => window.__repforgeEntryState?.()?.step);
-  const pick = (key, value) => page.locator(`[data-entry-pick="${key}"][data-entry-val="${value}"]`).first().click();
-  await page.click(`[data-entry-route="recommend"][data-entry-goal="${desiredResult}"]`);
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "background");
-  await pick("structuredExperience", experience);
-  await page.click("#onbNext");
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "schedule");
-  await pick("daysPerWeek", days);
-  await pick("sessionMinutes", minutes);
-  await page.click("#onbNext");
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "environment");
-  await pick("environment", environment);
-  await page.click("#onbNext");
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
-  await page.click("#onbNext");
-  await page.waitForFunction(() => ["priorities", "result"].includes(window.__repforgeEntryState?.()?.step));
-  if (await step() === "priorities") await page.click("#onbNext");
+  await answerRecommend(page, {
+    goal: desiredResult, lifting: experience, days, minutes, environment, skipBasics: true,
+  });
   await page.waitForSelector("#entryActivate", { timeout: 10000 });
   if (activate) {
     await page.click("#entryActivate");
@@ -7063,38 +7049,40 @@ async function main() {
   await startFromFirstRun(page);
   await driveRecommendOnboarding(page, { days: 3, experience: "first", activate: false });
   const activeBeforeCandidateEdit = await page.evaluate(() => localStorage.getItem("repforge_v1"));
-  await page.click("#entryEdit");
-  await page.waitForSelector('#onbProgramEditor [data-role="exercise"]', { timeout: 8000 });
-  await page.locator('#onbProgramEditor [data-role="day-menu"]').first().click();
-  await page.locator('#onbProgramEditor [data-role="toggle-reorder"]').first().click();
-  await page.locator('#onbProgramEditor [data-role="exercise-menu"]').first().click();
-  await page.locator('#onbProgramEditor [data-role="more-details"][role="menuitem"]').first().click();
-  const candidateNote = page.locator('#onbProgramEditor [data-role="exercise-field"][data-field="notes"]').first();
-  await candidateNote.fill("Simulation candidate edit");
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.result?.preview?.program?.[0]?.notes === "Simulation candidate edit");
+  // Plan 070: the result screen is the review editor; one adjustment there is a
+  // candidate edit, and it must land only in the durable setup draft.
+  const firstSlot = await page.evaluate(() => window.__repforgeEntryState().result.preview.programDefinition.days
+    .find((day) => day.kind === "training").slots[0]);
+  const editedSets = firstSlot.prescriptionsByCycle[0].sets.length + 1;
+  await page.locator(`#entryReview [data-review-slot="${firstSlot.id}"]`).click();
+  await page.waitForSelector("#reviewSheet.is-open [data-review-sets]", { timeout: 8000 });
+  await page.locator('#reviewSheet [data-review-sets="1"]').click();
+  const setsOf = (definition, slotId) => definition?.days?.flatMap((day) => day.slots || []).find((slot) => slot.id === slotId)
+    ?.prescriptionsByCycle?.[0]?.sets?.length;
   // The durable setup draft persists asynchronously behind the storage lock;
-  // the in-memory wait above does not prove the write landed. Wait for the
-  // durable read the assert below performs, or slow runners observe a stale
-  // draft and fail without any product defect.
-  await page.waitForFunction((k) => {
+  // wait for the durable read the assert below performs, or slow runners
+  // observe a stale draft and fail without any product defect.
+  await page.waitForFunction(({ k, slotId, want }) => {
     try {
-      return JSON.parse(localStorage.getItem(k) || "{}").state?.result?.preview?.program?.[0]?.notes === "Simulation candidate edit";
+      const slots = JSON.parse(localStorage.getItem(k) || "{}").state?.result?.preview?.programDefinition?.days?.flatMap((day) => day.slots || []);
+      return slots?.find((slot) => slot.id === slotId)?.prescriptionsByCycle?.[0]?.sets?.length === want;
     } catch {
       return false;
     }
-  }, SETUP_DRAFT, { timeout: 10000 });
+  }, { k: SETUP_DRAFT, slotId: firstSlot.id, want: editedSets }, { timeout: 10000 });
+  await page.locator("#reviewSheet [data-review-done]").click();
   const editState = await page.evaluate(() => ({
     activeRaw: localStorage.getItem("repforge_v1"),
     draft: JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1") || "{}"),
-    editorVisible: !!document.querySelector('#onbProgramEditor [data-role="editor"]'),
+    reviewVisible: !!document.querySelector("#entryReview [data-review-slot]"),
   }));
   assert(
     editState.activeRaw === activeBeforeCandidateEdit &&
-      editState.draft.state?.result?.preview?.program?.[0]?.notes === "Simulation candidate edit" &&
-      editState.editorVisible,
-    "Onboarding Edit changes only the durable candidate draft",
-    JSON.stringify({ sameActive: editState.activeRaw === activeBeforeCandidateEdit, editorVisible: editState.editorVisible }),
-    "First-run onboarding → Edit before saving"
+      setsOf(editState.draft.state?.result?.preview?.programDefinition, firstSlot.id) === editedSets &&
+      editState.reviewVisible,
+    "Onboarding review changes only the durable candidate draft",
+    JSON.stringify({ sameActive: editState.activeRaw === activeBeforeCandidateEdit, reviewVisible: editState.reviewVisible }),
+    "First-run onboarding → review and adjust"
   );
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => typeof window.__repforgeStorage?.flush === "function", { timeout: 10000 });
@@ -7122,27 +7110,27 @@ async function main() {
     const draft = JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1") || "{}");
     return {
       activeRaw: localStorage.getItem("repforge_v1"),
-      note: draft.state?.result?.preview?.program?.[0]?.notes,
+      definition: draft.state?.result?.preview?.programDefinition,
       reviewVisible: document.querySelector("#onboarding")?.classList.contains("active"),
     };
   });
   assert(
     resumedEdit.activeRaw === activeBeforeCandidateEdit &&
-      resumedEdit.note === "Simulation candidate edit" &&
+      setsOf(resumedEdit.definition, firstSlot.id) === editedSets &&
       resumedEdit.reviewVisible,
     "Reload resumes the edited candidate for review without activating it",
-    JSON.stringify(resumedEdit),
-    "First-run onboarding → Edit before saving → reload"
+    JSON.stringify({ sameActive: resumedEdit.activeRaw === activeBeforeCandidateEdit, reviewVisible: resumedEdit.reviewVisible }),
+    "First-run onboarding → review and adjust → reload"
   );
   await page.click("#entryActivate");
   await page.waitForFunction(() => JSON.parse(localStorage.getItem("repforge_v1") || "{}").programMeta?.onboarded === true);
   const afterDone = await getState(page);
   assert(
-    afterDone.program?.[0]?.notes === "Simulation candidate edit" &&
+    setsOf(afterDone.programMeta?.programDefinition, firstSlot.id) === editedSets &&
       !Object.prototype.hasOwnProperty.call(afterDone, "_storageFollowUp"),
     "Only explicit activation installs the edited candidate",
-    JSON.stringify({ note: afterDone.program?.[0]?.notes, follow: afterDone._storageFollowUp }),
-    "Edit onboarding → resume review → activate"
+    JSON.stringify({ sets: setsOf(afterDone.programMeta?.programDefinition, firstSlot.id), follow: afterDone._storageFollowUp }),
+    "Review onboarding → resume review → activate"
   );
   beginPhase("Honest affordances, contextual guides, and deletion copy");
   await nav(page, "log");
@@ -7609,7 +7597,7 @@ async function main() {
     if (!pwaDraftProof.raw || pwaDraftProof.checkpoint?.status !== "valid") {
       throw new Error(`PWA production draft seed lacked acknowledged checkpoint: ${JSON.stringify(pwaDraftProof)}`);
     }
-    await pwaPage.waitForFunction(
+    await waitForAsyncCondition(pwaPage,
       async ({ cacheName, shell, optionalShell }) => {
         if (!("serviceWorker" in navigator)) return false;
         await navigator.serviceWorker.ready;
@@ -8265,12 +8253,8 @@ async function main() {
 
   await page.evaluate(() => window.startOnboarding("settings", { userInitiated: true, forceFresh: true }));
   await page.waitForSelector("#onboarding.active", { timeout: 5000 });
-  // "Not sure which one?" reaches Recommend without answering the goal, so the
-  // goal question is the screen this validation case needs.
-  await page.click("#entryHelpToggle");
-  await page.click('[data-entry-help="q1"][data-entry-help-val="no"]');
-  await page.click('[data-entry-help="q2"][data-entry-help-val="recommend"]');
-  await page.click("#entryHelpGo");
+  // B asks the goal in the Program section.
+  await answerRecommend(page, { skipBasics: true, until: "desired_result" });
   await page.evaluate(() => {
     const draft = window.__repforgeOnboarding.entry();
     delete draft.answers.desiredResult;
@@ -8336,7 +8320,7 @@ async function main() {
   );
   await page.click("#onbNext");
   await page.waitForFunction(
-    () => window.__repforgeOnboarding.entry().step === "background",
+    () => window.__repforgeOnboarding.entry().step === "days_per_week",
     undefined,
     { timeout: 5000 },
   );

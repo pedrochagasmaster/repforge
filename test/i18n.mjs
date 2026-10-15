@@ -167,6 +167,14 @@ function extractJsKeys(src) {
   return { literals, dyn, plurals };
 }
 
+const FOCUS_PREV_LINE_FAMILIES = Object.freeze([
+  "per_side_load",
+  "total_load_reps_per_side",
+  "both_per_side",
+  "bodyweight_reps_per_side",
+]);
+const FOCUS_PREV_LINE_ENDINGS = Object.freeze(["rir", "norir", "effort"]);
+
 const DYNAMIC_FAMILIES = [
   { test: (s) => s.includes("guide.${id}.title") || s.includes("guide.${id}.body") || s.includes("guide.${guide.id}.title") || s.includes("guide.${guide.id}.body"), keys: (en) => Object.keys(en).filter((k) => /^guide\.[^.]+\.(title|body)$/.test(k)) },
   { test: (s) => s.includes("onb.title.${onbStep}"), keys: (en) => Object.keys(en).filter((k) => /^onb\.title\.\d+$/.test(k)) },
@@ -179,7 +187,20 @@ const DYNAMIC_FAMILIES = [
   { test: (s) => s.includes("entry.abilities.choice.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.abilities.choice.")) },
   { test: (s) => s.includes("entry.abilities.question.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.abilities.question.")) },
   { test: (s) => s.includes("entry.result.why_environment.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.result.why_environment.")) },
+  { test: (s) => s.includes("entry.review.job.${"), keys: (en) => Object.keys(en).filter((k) => /^entry\.review\.job\.[^.]+$/.test(k)) },
   { test: (s) => s.includes("entry.equip.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.equip.")) },
+  // Onboarding B (Plan 072).
+  { test: (s) => s.includes("entry.sex.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.sex.") && !k.endsWith(".title")) },
+  { test: (s) => s.includes("entry.cardio.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.cardio.")) },
+  { test: (s) => s.includes("entry.hub.b.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.hub.b.")) },
+  { test: (s) => s.includes("entry.section.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.section.")) },
+  { test: (s) => s.includes("entry.intro.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.intro.") && !k.endsWith(".title") && !k.endsWith(".lede") && !k.endsWith(".start")) },
+  { test: (s) => s.includes("entry.lifting.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.lifting.") && !k.endsWith(".title")) },
+  { test: (s) => s.includes("entry.gym.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.gym.") && !k.endsWith(".title") && !k.endsWith(".lede")) },
+  { test: (s) => s.includes("entry.goal.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.goal.") && !k.endsWith(".title")) },
+  { test: (s) => s.includes("entry.days_per_week.split.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.days_per_week.split.")) },
+  { test: (s) => s.includes("entry.equipment.group.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.equipment.group.")) },
+  { test: (s) => s.includes("entry.muscle_priorities.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.muscle_priorities.") && !k.endsWith(".title") && !k.endsWith(".lede") && !k.endsWith(".limit")) },
   { test: (s) => s.includes("entry.cap.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.cap.")) },
   { test: (s) => s.includes("entry.priorities.reason.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.priorities.reason.")) },
   { test: (s) => s.includes("entry.muscle.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.muscle.")) },
@@ -203,7 +224,9 @@ const DYNAMIC_FAMILIES = [
   { test: (s) => s.includes("stats.recommendation.${"), keys: () => ["stats.recommendation.progress", "stats.recommendation.repeat", "stats.recommendation.review"] },
   { test: (s) => s.includes("rec.block.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("rec.block.")) },
   { test: (s) => s.includes('"why.rule."'), keys: () => ["why.rule.top", "why.rule.cap_top", "why.rule.cap_top2", "why.rule.below_range", "why.rule.stalled", "why.rule.recover", "why.rule.push_reps", "why.rule.hold"] },
+  { test: (s) => s.includes("why.setup.mode.${"), keys: () => ["why.setup.mode.bilateral", "why.setup.mode.unilateral"] },
   { test: (s) => s.includes("focus.cue.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("focus.cue.")) },
+  { test: (s) => s.includes("focus.prev_line.${family}.${ending}"), keys: () => FOCUS_PREV_LINE_FAMILIES.flatMap((family) => FOCUS_PREV_LINE_ENDINGS.map((ending) => `focus.prev_line.${family}.${ending}`)) },
   { test: (s) => s.includes("draft.recovery.${kind}.title"), keys: (en) => Object.keys(en).filter((k) => /^draft\.recovery\.[^.]+\.title$/.test(k)) },
   { test: (s) => s.includes("draft.recovery.${kind}.body"), keys: (en) => Object.keys(en).filter((k) => /^draft\.recovery\.[^.]+\.body$/.test(k)) },
   { test: (s) => s.includes("landing.returning.resume.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("landing.returning.resume.")) },

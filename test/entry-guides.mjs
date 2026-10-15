@@ -971,40 +971,39 @@ async function run() {
         JSON.stringify(cueA11y)
       );
 
-      // Recommend's goal buttons are the featured block, and every one of them
-      // carries the route the guide anchors on. The cue shows once, after the
-      // block rather than between two goals, and a goal tap completes it.
+      // B's hub (Plan 072): the guide anchors on the Recommend choice, shows
+      // once after the choice group rather than between two choices, and
+      // choosing Recommend completes it.
       const hubGuide = await page.evaluate(() => {
-        const goals = [...document.querySelectorAll('[data-entry-route="recommend"]')];
+        const choices = [...document.querySelectorAll("[data-entry-hub]")];
         const cues = [...document.querySelectorAll("[data-guide-cue='entry']")];
-        const feature = document.querySelector(".entry-feature");
+        const group = document.querySelector(".entry__hub");
         const target = cues[0]?.dataset.anchorTarget;
         return {
-          goals: goals.map((el) => el.dataset.entryGoal),
-          anchorIsAGoal: !!target && goals.includes(document.querySelector(target)),
+          choices: choices.map((el) => el.dataset.entryHub),
+          anchorIsRecommend: !!target && document.querySelector(target)?.dataset.entryHub === "recommend",
           cueCount: cues.length,
-          cueFollowsFeature: !!feature && feature.nextElementSibling === cues[0],
-          cueBetweenGoals: !!document.querySelector(".entry-feature__goals")?.contains(cues[0]),
+          cueFollowsGroup: !!group && group.nextElementSibling === cues[0],
+          cueInsideGroup: !!group?.contains(cues[0]),
         };
       });
       assert(
-        JSON.stringify(hubGuide.goals) === JSON.stringify(["muscle_growth", "balanced", "strength"]) &&
-          hubGuide.anchorIsAGoal && hubGuide.cueCount === 1,
-        "browser projection: the entry cue anchors on Recommend's goal buttons and shows once",
+        JSON.stringify(hubGuide.choices) === JSON.stringify(["recommend", "build", "import"]) &&
+          hubGuide.anchorIsRecommend && hubGuide.cueCount === 1,
+        "browser projection: the entry cue anchors on the hub's Recommend choice and shows once",
         JSON.stringify(hubGuide)
       );
       assert(
-        hubGuide.cueFollowsFeature && !hubGuide.cueBetweenGoals,
-        "browser projection: the entry cue sits after the featured goal block, not between two goals",
+        hubGuide.cueFollowsGroup && !hubGuide.cueInsideGroup,
+        "browser projection: the entry cue sits after the hub's choices, not between two of them",
         JSON.stringify(hubGuide)
       );
-      await page.click('[data-entry-route="recommend"][data-entry-goal="muscle_growth"]');
-      await page.waitForSelector('[data-entry-pick="structuredExperience"]', { timeout: 10000 });
-      const completedAfterGoal = await page.evaluate(() => window.__repforgeUi?.loadUiPrefs?.()?.guideState?.entry?.status);
+      await page.click('[data-entry-hub="recommend"]');
+      const completedAfterChoice = await page.evaluate(() => window.__repforgeUi?.loadUiPrefs?.()?.guideState?.entry?.status);
       assert(
-        completedAfterGoal === "completed",
-        "browser projection: tapping a goal completes the entry cue",
-        String(completedAfterGoal)
+        completedAfterChoice === "completed",
+        "browser projection: choosing Recommend completes the entry cue",
+        String(completedAfterChoice)
       );
 
       await context.close();

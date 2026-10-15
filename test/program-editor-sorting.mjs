@@ -127,6 +127,13 @@ async function openEditor(page) {
   await page.click("#programEditToggle");
   await page.waitForSelector("#programEditorWrap:not(.is-hidden)", { timeout: 10000 });
   await page.waitForSelector('#programEditor [data-role="exercise"]', { timeout: 10000 });
+  // The first exercise opens expanded, and its body is taller than the viewport
+  // these drags are measured in. The drags reorder collapsed rows, so fold it.
+  const first = page.locator('#programEditor [data-role="toggle-exercise"][data-id="seed-ex-1"]');
+  if (await first.getAttribute("aria-expanded") === "true") {
+    await first.click();
+    await page.waitForSelector('#programEditor [data-role="exercise"][data-id="seed-ex-1"].is-collapsed');
+  }
 }
 
 /** The handle is only offered once the day's menu has turned reordering on.
@@ -177,6 +184,11 @@ async function run() {
   await openEditor(page);
 
   phase("the drag library is driving the editor");
+  // @dnd-kit describes a handle when it registers that sortable, which can land
+  // after the rows are in the DOM. Wait for the registration, then read it (#354).
+  await page.waitForFunction(() => [...document.querySelectorAll('#programEditor [data-role="drag-handle"]')]
+    .every(handle => handle.hasAttribute("aria-describedby") || handle.hasAttribute("aria-disabled")), undefined, { timeout: 5000 })
+    .catch(() => {});
   const wired = await page.evaluate(() => ({
     runtime: typeof window.DndKit?.DragDropManager === "function",
     described: [...document.querySelectorAll('#programEditor [data-role="drag-handle"]')]

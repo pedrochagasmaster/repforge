@@ -1,4 +1,4 @@
-const CACHE = "repforge-v399";
+const CACHE = "repforge-v454";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./motion-polish.css", "./manifest.webmanifest",
   { url: "./vendor/motion/motion.js", owner: "RepForgeMotion", required: false, immutable: true },
@@ -6,8 +6,8 @@ const ASSETS = [
   { url: "./vendor/dnd-kit/dnd-kit.runtime.js", owner: "RepForgeDndRuntime", required: false, immutable: true },
   "./motion-layer.js", "./motion-layer.js?v=314",
   "./telemetry.js", "./unsupported-workout-grammar.js", { url: "./posthog-config.js", owner: "RepForgeTelemetry", required: false }, "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js", "./exercises.js?v=067", "./exercise-catalog.js?v=067", "./assets/exercise-catalog.json?v=067", "./exercise-metrics.js?v=067", "./install-transfer-contract.js", "./install-transfer.js",
-  "./progression-engine.js", "./progress-model.js", "./progress-model.js?v=308", "./program-compiler.js", "./program-compiler.js?v=309", "./program-entry.js", "./program-entry.js?v=308", "./program-entry-adapter.js", "./program-entry-adapter.js?v=309", "./program-editor.js", "./program-editor.js?v=311",
-  "./shared-setup.js", "./shared-setup.js?v=308", "./workout-draft.js", "./workout-draft.js?v=309", "./program-transition.js", "./program-transition.js?v=309", "./install-policy.js", "./install-policy.js?v=307", "./guide-registry.js", "./guide-registry.js?v=307", "./durable-state.js", "./durable-state.js?v=309", "./history-ui.js", "./history-ui.js?v=314", "./app.js", "./app.js?v=356",
+  "./progression-engine.js", "./progress-model.js", "./progress-model.js?v=309", "./program-compiler.js", "./program-compiler.js?v=420", "./program-entry.js", "./program-entry.js?v=425", "./program-entry-adapter.js", "./program-entry-adapter.js?v=424", "./program-editor.js", "./program-editor.js?v=425", "./program-review.js", "./program-review.js?v=425",
+  "./shared-setup.js", "./shared-setup.js?v=311", "./workout-draft.js", "./workout-draft.js?v=449", "./program-transition.js", "./program-transition.js?v=417", "./program-engine.js?v=418", "./install-policy.js", "./install-policy.js?v=307", "./guide-registry.js", "./guide-registry.js?v=423", "./durable-state.js", "./durable-state.js?v=447", "./history-ui.js", "./history-ui.js?v=315", "./app.js", "./app.js?v=454",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
@@ -141,9 +141,14 @@ self.addEventListener("activate", event => {
   );
 });
 
+// The install-transfer Worker answers the origin-root `/v1/` endpoints on the app's own host; no cached copy,
+// shell, or offline fallback may stand in for it.
+const TRANSFER_ORIGIN = new URL(self.registration.scope).origin;
+
 self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
+  if (url.origin === TRANSFER_ORIGIN && url.pathname.startsWith("/v1/")) return;
   const path = shellPathname(url.pathname);
   const codeTypes = expectedCodeType(path);
 

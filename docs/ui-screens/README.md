@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 160 screens,
-977 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 192 screens,
+1110 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -57,43 +57,57 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [One-time landing — close](screens/onboarding-start/first-run-close__phone-390-light-en.png) | 3 | Scrolled to the closing orange band with the Build pill and the Track link; the persistent Build control has stepped aside. |
 | [Returning landing](screens/onboarding-start/first-run-returning__phone-390-light-en.png) | 7 | A later visit to a device with no program and no log, with nothing saved. The welcome-back headline and its line, the Build pill, the Track link and Privacy lead; the chips, the proof and the outcomes are left out, and the ways, the data promise, the questions and the closing band follow. |
 | [Returning landing — setup saved](screens/onboarding-start/first-run-returning-resume__phone-390-light-en.png) | 7 | A later visit with a half-finished Recommend setup saved. The lead action names it (Continue choosing your program) in the hero and the closing band; tapping it opens the chooser's resume card. |
-| [Entry hub](screens/onboarding-start/hub__phone-390-light-en.png) | 7 | Create a program. Recommend is the sole primary path; Custom is its generated alternative; Browse stands alone; Bring or build is collapsed. |
-| [Entry hub — own disclosure open](screens/onboarding-start/hub-own-open__phone-390-light-en.png) | 3 | The Bring or build disclosure expanded with aria-expanded to reveal Build, paste, and Taurifer-file import paths. |
+| [Entry hub](screens/onboarding-start/hub__phone-390-light-en.png) | 7 | B's hub: Recommend, Build and Import as choice cards, the setup-link note, Continue held until a choice. |
+| [Entry hub — Recommend chosen](screens/onboarding-start/hub-chosen__phone-390-light-en.png) | 3 | The hub with Recommend chosen and Continue enabled. |
 | [Entry hub — existing program](screens/onboarding-start/hub-existing__phone-390-light-en.png) | 3 | Opened from Settings while a program is active, so replacement consequences are in view. |
-| [Entry hub — route help open](screens/onboarding-start/hub-help__phone-390-light-en.png) | 3 | The Not sure which one? helper expanded on the hub: two short questions that end in Continue with the suggested route, reaching all five jobs. |
 
 ### Onboarding — Recommend one for me
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Recommend 1 — desired result](screens/onboarding-recommend/desired-result__phone-390-light-en.png) | 3 | Route header, Cancel, progress 1 of 5, three desired-result choices. |
-| [Recommend 2 — training background](screens/onboarding-recommend/background__phone-390-light-en.png) | 3 | The carried goal with Change, then structured-program experience. |
-| [Recommend 3 — real week](screens/onboarding-recommend/schedule__phone-390-light-en.png) | 3 | Days per week and the session-minute ceiling. |
-| [Recommend 4 — environment](screens/onboarding-recommend/environment__phone-390-light-en.png) | 3 | Environment shortcuts with the capability correction disclosure closed. |
-| [Recommend 5 — movement abilities](screens/onboarding-recommend/abilities__phone-390-light-en.png) | 3 | The seven competency questions as yes/no/unsure rows, unanswered, with Skip offered. |
-| [Recommend 6 — priorities](screens/onboarding-recommend/priorities__phone-390-light-en.png) | 3 | Primary priorities plus optional movement and exercise-avoidance controls. |
-| [Recommend 5 — avoidance and pain safety](screens/onboarding-recommend/avoidance-pain__phone-390-light-en.png) | 7 | One avoided exercise with the pain reason selected and its safety copy. |
-| [Recommend — recommendation and review](screens/onboarding-recommend/result__phone-390-light-en.png) | 8 | The program first: name, four facts, the week with its first day open, the answers it was built from as chips, why it fits, and the pinned activation. |
+| [Recommend — section map](screens/onboarding-recommend/intro__phone-390-light-en.png) | 3 | B's section map: Basics, Gym and equipment, Program, with Start with the basics. |
+| [Recommend Basics 1 — sex](screens/onboarding-recommend/sex__phone-390-light-en.png) | 3 | Female, Male and Prefer not to say; the local-only note; Continue held until a choice; Skip. |
+| [Recommend Basics 2 — birth date](screens/onboarding-recommend/birth-date__phone-390-light-en.png) | 3 | Day, month and year wheels at their starting date; the local-only note; Skip. |
+| [Recommend Basics 2 — type a birth-date value](screens/onboarding-recommend/birth-date-typed__phone-390-light-en.png) | 3 | The year value opened for direct entry over the birth-date wheels. |
+| [Recommend Basics 2 — invalid typed year](screens/onboarding-recommend/birth-date-typed-invalid__phone-390-light-en.png) | 3 | The year field remains open with its validation message after an unsupported value. |
+| [Recommend Basics 3 — height](screens/onboarding-recommend/height__phone-390-light-en.png) | 3 | The centimeters/feet-and-inches toggle over the centimeter wheel; the local-only note; Skip. |
+| [Recommend Basics 3 — height in feet and inches](screens/onboarding-recommend/height-ftin__phone-390-light-en.png) | 3 | The same screen with feet and inches chosen: two wheels. |
+| [Recommend Basics 4 — weight](screens/onboarding-recommend/weight__phone-390-light-en.png) | 3 | The kilograms/pounds toggle over the ruler and its value; the note that weight sets bodyweight loads; Skip. |
+| [Recommend Basics 4 — weight in pounds](screens/onboarding-recommend/weight-lb__phone-390-light-en.png) | 3 | The same screen with pounds chosen. |
+| [Recommend Basics 5 — lifting experience](screens/onboarding-recommend/background__phone-390-light-en.png) | 3 | None, Beginner, Intermediate and Advanced with the engine's bands; required, no Skip. |
+| [Recommend Basics 6 — cardio experience](screens/onboarding-recommend/cardio-experience__phone-390-light-en.png) | 3 | Four cardio choices; the local-only note; Skip. |
+| [Recommend Gym 1 — where you train](screens/onboarding-recommend/environment__phone-390-light-en.png) | 3 | The six gym presets with Home chosen. |
+| [Recommend Gym 2 — equipment](screens/onboarding-recommend/equipment__phone-390-light-en.png) | 8 | Home's thirteen equipment groups with the preset's ticked and the reset link disabled. |
+| [Recommend Gym 2 — equipment adjusted](screens/onboarding-recommend/equipment-adjusted__phone-390-light-en.png) | 3 | Home with the bench ticked and the bands unticked, and the reset link enabled. |
+| [Recommend Program 1 — goal](screens/onboarding-recommend/desired-result__phone-390-light-en.png) | 3 | Muscle growth, Strength and Both. |
+| [Recommend Program 2 — days per week](screens/onboarding-recommend/days-per-week__phone-390-light-en.png) | 8 | Two to six days with four chosen and its split fact. |
+| [Recommend Program 3 — session length](screens/onboarding-recommend/session-length__phone-390-light-en.png) | 8 | Up to 20 to up to 150 minutes, with 60 shown as the default. |
+| [Recommend Program 4 — muscle priorities](screens/onboarding-recommend/muscle-priorities__phone-390-light-en.png) | 8 | Twelve muscles, each Reduce, Normal or Prioritize; glutes prioritized and calves reduced; Skip. |
+| [Recommend Program 4 — priority limit](screens/onboarding-recommend/muscle-priorities-limit__phone-390-light-en.png) | 3 | Five muscles prioritized and a sixth refused with the limit line. |
+| [Recommend Program 5 — deload](screens/onboarding-recommend/deload__phone-390-light-en.png) | 3 | The deload card switched on, marked Recommended. |
+| [Recommend Program 6 — movement abilities](screens/onboarding-recommend/abilities__phone-390-light-en.png) | 3 | Seven yes, no or not sure questions in B's wording, with Skip pinned under Continue. |
+| [Recommend — building](screens/onboarding-recommend/building__phone-390-light-en.png) | 3 | B's third checklist line is active after two lines complete, with generation still in the real worker and Show the program now available. |
+| [Recommend — waiting for generation](screens/onboarding-recommend/building-pending__phone-390-light-en.png) | 3 | With reduced motion, B's checklist is complete and the real worker request remains pending with its waiting label visible. |
+| [Recommend — recommendation and review](screens/onboarding-recommend/result__phone-390-light-en.png) | 8 | Onboarding B's review editor at rest: the source, the program name, four facts, the block row and its Change action, the day tabs with rest days and the first day's exercises with their sets, RIR and muscles; how it was built follows, with the pinned activation. |
+| [Recommend — offered movement](screens/onboarding-recommend/result-confirm-offer__phone-390-light-en.png) | 3 | A real Worker-verified movement offer under its current exercise row, with the approved advice and confirmation action. |
+| [Recommend — confirmed movement](screens/onboarding-recommend/result-confirmed__phone-390-light-en.png) | 3 | After confirming the offered movement: its row is marked Confirmed by you, Undo is available, and the changed rows are announced. |
+| [Recommend — block inputs](screens/onboarding-recommend/result-block-sheet__phone-390-light-en.png) | 3 | The result's block sheet with 10 weeks, the undulating rep pattern selected, and the recommended deload switch on. |
+| [Recommend — equipment conflict](screens/onboarding-recommend/result-equipment-conflict__phone-390-light-en.png) | 3 | The result explains that Home equipment cannot cover vertical pull, says nothing was saved, and offers Back to equipment with the adjustment preserved. |
+| [Recommend — review with adjustments](screens/onboarding-recommend/result-changed__phone-390-light-en.png) | 3 | Three rows carry their marks (a set added, an engine swap, a movement added from the catalog) and the changes bar counts them with Undo and Restore. |
+| [Recommend — exercise sheet](screens/onboarding-recommend/review-sheet__phone-390-light-en.png) | 7 | One exercise's sheet at its top: the movement, its role and job, the sets ledger with RIR per set, the set count, rep range and rest controls, and the day's time. |
+| [Recommend — execution mode](screens/onboarding-recommend/review-sheet-execution-mode__phone-390-light-en.png) | 7 | The exercise sheet asks how an ambiguous per-side movement is performed, with both approved answers and the unresolved Review cue. |
+| [Recommend — swap and alternates](screens/onboarding-recommend/review-sheet-swap__phone-390-light-en.png) | 3 | The exercise sheet scrolled to the engine's swap candidates, the catalog search and one in-session alternate with its suggestions. |
+| [Recommend — day actions](screens/onboarding-recommend/review-day-menu__phone-390-light-en.png) | 3 | The day menu sheet: rename the day, reorder its exercises, add an exercise. |
+| [Recommend — duplicate day name refused](screens/onboarding-recommend/review-day-name-refused__phone-390-light-en.png) | 3 | The day rename sheet keeps a duplicate name in the field and shows the existing linked alert. |
+| [Recommend — reorder a day](screens/onboarding-recommend/review-reorder__phone-390-light-en.png) | 3 | A day in reorder mode: each exercise with its handle and up and down arrows, and Done. |
+| [Recommend — an emptied day](screens/onboarding-recommend/review-empty-day__phone-390-light-en.png) | 3 | Every exercise of a training day removed: the tab's pip, the day's warning with Add exercise, and Activate disabled with its reason. |
+| [Recommend — rebuild asks first](screens/onboarding-recommend/review-rebuild-confirm__phone-390-light-en.png) | 3 | An answer chip would rebuild an adjusted program: the confirmation to rebuild or keep the adjustments. |
 | [Recommend — recommendation with a program active](screens/onboarding-recommend/result-existing__phone-390-light-en.png) | 3 | The merged candidate surface while the current program remains untouched. |
 | [Recommend — answer editor open](screens/onboarding-recommend/chip-editor-open__phone-390-light-en.png) | 3 | The review with the days-per-week chip open on its inline editor: the same numeric cards as the question, an Update program action, and the pinned activation set aside. |
 | [Recommend — after a changed answer](screens/onboarding-recommend/result-corrected__phone-390-light-en.png) | 3 | A changed answer rebuilt the program in place: the change statement with Before and Now, an added exercise tagged new, and its day open. |
 | [Recommend — after avoiding an exercise](screens/onboarding-recommend/result-avoided__phone-390-light-en.png) | 3 | An exercise the program contained is avoided from the priorities editor: the statement, and the constraint line with Restore. |
 | [Recommend — confirm replacement](screens/onboarding-recommend/replacement-confirm__phone-390-light-en.png) | 3 | The explicit archive-and-replace confirmation. History is not changed. |
 | [Recommend — activation conflict](screens/onboarding-recommend/activation-conflict__phone-390-light-en.png) | 3 | Another tab changed the active program. The newer program stays active. |
-
-### Onboarding — Generate a custom program
-
-| Screen | Frames | What it shows |
-| --- | --- | --- |
-| [Custom 1 — desired result](screens/onboarding-custom/desired-result__phone-390-light-en.png) | 4 | The custom route's own header and step count, not Recommend's. |
-| [Custom 2 — training background](screens/onboarding-custom/background__phone-390-light-en.png) | 4 | Structured-program experience in the custom route. |
-| [Custom 3 — real week](screens/onboarding-custom/schedule__phone-390-light-en.png) | 8 | Days per week and the session ceiling in the custom route. |
-| [Custom 4 — environment](screens/onboarding-custom/environment__phone-390-light-en.png) | 4 | Environment shortcuts in the custom route. |
-| [Custom 5 — movement abilities](screens/onboarding-custom/abilities__phone-390-light-en.png) | 4 | The seven competency questions as yes/no/unsure rows, unanswered, with Skip offered, in the custom route. |
-| [Custom 6 — muscle priorities](screens/onboarding-custom/priorities__phone-390-light-en.png) | 8 | Each muscle has one accessible emphasis setting before exercise preferences. |
-| [Custom 7 — exercise preferences](screens/onboarding-custom/exercise-preferences__phone-390-light-en.png) | 4 | One library search offers Include or Avoid, with separate selected lists. |
-| [Custom 7b — weekly structure](screens/onboarding-custom/shape__phone-390-light-en.png) | 4 | Two compatible weekly structures to choose from; shown only when more than one fits the answers. |
-| [Custom — generated program and review](screens/onboarding-custom/result__phone-390-light-en.png) | 4 | The custom program first, with muscle emphasis and exercise preferences among the answer chips, and the pinned activation. |
 
 ### Onboarding — Build my own
 
@@ -108,7 +122,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Import — source](screens/onboarding-import/source__phone-390-light-en.png) | 3 | The bounded supported-file and setup-source surface before any mutation. |
+| [Import — source](screens/onboarding-import/source__phone-390-light-en.png) | 3 | Import's first screen: Choose file and Paste a program, each with its explanation, and the way out to Build, before any mutation. |
 | [Import — paste a program](screens/onboarding-import/freeform-empty__phone-390-light-en.png) | 3 | The free-form door as it opens: an empty field, and the hand-off to ChatGPT or Claude still unavailable. |
 | [Import — paste ready to convert](screens/onboarding-import/freeform-filled__phone-390-light-en.png) | 7 | A pasted program with both app links live, the character counter, and the field the reply comes back into. |
 | [Import — choose an assistant](screens/onboarding-import/freeform-stage2__phone-390-light-en.png) | 7 | Stage 2 with collapsed source summary, Edit button, ChatGPT and Claude buttons, and Preview prompt disclosure. |
@@ -123,9 +137,9 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Shared setup — adaptive landing](screens/onboarding-shared/gate__phone-390-light-en.png) | 8 | An incoming setup link adapts the landing around its safe program summary. Nothing persists until Start. |
+| [Shared setup — adaptive landing](screens/onboarding-shared/gate__phone-390-light-en.png) | 8 | The received-program gate names its program and training days, shows the no-history/no-change disclosure, and offers See the program plus Create a program from scratch. |
 | [Shared setup — invalid landing](screens/onboarding-shared/invalid__phone-390-light-en.png) | 3 | An invalid setup link explains that nothing was saved and keeps safe Build and Track actions available. |
-| [Shared setup — review](screens/onboarding-shared/preview__phone-390-light-en.png) | 7 | The editable preview a shared payload lands in before explicit activation. |
+| [Shared setup — review](screens/onboarding-shared/preview__phone-390-light-en.png) | 7 | The received program in B's review with the Shared program source, Restore, and its block as received (no Change), before explicit activation. |
 
 ### Onboarding — resume and rule drift
 
@@ -145,6 +159,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Today — running rest bar](screens/today/rest-bar__phone-390-light-en.png) | 8 | The rest countdown remains visible after leaving the active workout. |
 | [Today — choose another day](screens/today/day-picker__phone-390-light-en.png) | 8 | The day picker sheet open. |
 | [Today — session complete](screens/today/done__phone-390-light-en.png) | 8 | The state after the day's session is logged. |
+| [Today — deload week](screens/today/deload-week__phone-390-light-en.png) | 3 | The active program's deload cycle shows its recovery note. |
 | [Resume saved draft](screens/today/draft-resume__phone-390-light-en.png) | 8 | Resume saved draft through production controls. |
 
 ### Workout logging
@@ -152,6 +167,9 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Workout — focus mode](screens/workout/focus__phone-390-light-en.png) | 8 | One exercise at a time. |
+| [Workout — Focus, per-side target](screens/workout/focus-per-side__phone-390-light-en.png) | 8 | A generated bilateral press shows its per-side load label and adaptive target prefilled in ordinary Focus. |
+| [Workout — why this weight, per-side loading](screens/workout/why-per-side__phone-390-light-en.png) | 8 | The generated bilateral press's Why sheet explains the multiplier and enabled bodyweight contribution. |
+| [Workout — deload week](screens/workout/deload-week__phone-390-light-en.png) | 3 | Focus shows the recovery note during the program's deload cycle. |
 | [Workout — Focus glossary definition](screens/workout/focus-glossary__phone-390-light-en.png) | 8 | A definition is open after tapping a glossary term in Focus. |
 | [Workout — stale draft recovery](screens/workout/stale-draft__phone-390-light-en.png) | 8 | A conflicting tab won while this tab retains a pending field value and offers Reload latest or Copy value. |
 | [Workout — draft persistence retry](screens/workout/persist-retry__phone-390-light-en.png) | 8 | A field write was interrupted; the exact pending value remains visible beside Retry and Copy value actions. |
@@ -161,15 +179,19 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Workout — exercise note](screens/workout/exercise-note__phone-390-light-en.png) | 8 | The per-exercise note sheet. |
 | [Workout — why this weight](screens/workout/why-this-weight__phone-390-light-en.png) | 8 | The recommendation inspector for a range lift: sentences first, each under a bold lead, the working behind See the working, the evidence footer. |
 | [Workout — why this weight, mid-session](screens/workout/why-in-session__phone-390-light-en.png) | 8 | Opened after set 1 is logged: what the set showed (the observed capacity) before the prediction for the next set. |
-| [Workout — why this weight, manual](screens/workout/why-manual__phone-390-light-en.png) | 8 | Manual: one sentence; the program sets the load and the engine does not change it. |
+| [Workout — why this weight, manual](screens/workout/why-manual__phone-390-light-en.png) | 8 | A Build-backed manual range: Why says Taurifer does not suggest a load without saying who chose the range. |
+| [Workout — why this weight, setup required](screens/workout/why-setup__phone-390-light-en.png) | 8 | A generated asymmetric per-side slot with no known execution mode: Why asks the lifter to specify how they do the movement. |
 | [Session details and map](screens/workout/session__phone-390-light-en.png) | 8 | Session details and map through production controls. |
 | [Early finish confirmation](screens/workout/early-finish__phone-390-light-en.png) | 8 | Early finish confirmation through production controls. |
+| [End without saving](screens/workout/abandon__phone-390-light-en.png) | 8 | End without saving, with a reason chip chosen, through production controls. |
 | [Exercise actions](screens/workout/exercise-actions__phone-390-light-en.png) | 8 | Exercise actions through production controls. |
 | [Warm-up role](screens/workout/warmup-actions__phone-390-light-en.png) | 8 | Warm-up role through production controls. |
 | [Session reorder](screens/workout/reorder__phone-390-light-en.png) | 8 | Session reorder through production controls. |
 | [Set correction](screens/workout/correction__phone-390-light-en.png) | 8 | Set correction through production controls. |
 | [Skipped exercise actions](screens/workout/skipped-actions__phone-390-light-en.png) | 8 | workout/skipped-actions |
 | [Substituted exercise actions](screens/workout/substituted-actions__phone-390-light-en.png) | 8 | workout/substituted-actions |
+| [Swap picker with alternates](screens/workout/swap-alternates__phone-390-light-en.png) | 3 | workout/swap-alternates |
+| [Swap picker with a reason chosen](screens/workout/swap-reason__phone-390-light-en.png) | 3 | workout/swap-reason |
 
 ### Session summary
 
@@ -187,11 +209,11 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Progress — overview](screens/progress/overview__phone-390-light-en.png) | 8 | The Progress landing tab. |
 | [Progress — baseline-building overview](screens/progress/overview-baseline__phone-390-light-en.png) | 8 | Sparse evidence remains neutral and contributes no Needs action items. |
 | [Progress — actionable overview](screens/progress/overview-action__phone-390-light-en.png) | 8 | Sufficient evidence produces linked program-wide action items. |
-| [Progress — exercise chart](screens/progress/exercise-chart__phone-390-light-en.png) | 8 | A single lift's strength chart. |
+| [Progress — exercise chart](screens/progress/exercise-chart__phone-390-light-en.png) | 8 | A per-side lift's e1RM chart and table in the logged unit. |
 | [Progress — Strength](screens/progress/strength__phone-390-light-en.png) | 8 | The Strength sub-tab. |
 | [Progress — Strength current block](screens/progress/strength-current-block__phone-390-light-en.png) | 8 | Current-block values, outcomes, and drill-in share one scope. |
 | [Progress — Strength all history](screens/progress/strength-all-history__phone-390-light-en.png) | 8 | All-history scope explicitly includes archived observations. |
-| [Progress — Strength comparison](screens/progress/strength-comparison__phone-390-light-en.png) | 8 | Two compatible points show values, dates, absolute change, and percentage change. |
+| [Progress — Strength comparison](screens/progress/strength-comparison__phone-390-light-en.png) | 8 | Two same-convention per-side points show labeled values, dates, comparison, and evidence. |
 | [Progress — Strength sparse evidence](screens/progress/strength-sparse__phone-390-light-en.png) | 8 | Zero or one compatible point remains neutral baseline evidence. |
 | [Progress — Volume](screens/progress/volume__phone-390-light-en.png) | 3 | The Volume sub-tab and its muscle rows. |
 | [Progress — Volume block to date](screens/progress/volume-block__phone-390-light-en.png) | 3 | Block-to-date volume uses elapsed weekly prescriptions. |
@@ -203,8 +225,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Progress — completed-block Review](screens/progress/review-complete__phone-390-light-en.png) | 8 | A completed block exposes the evidence-valid structural routes. |
 | [Progress — insufficient-evidence Review](screens/progress/review-insufficient__phone-390-light-en.png) | 8 | A completed block with sparse evidence excludes performance-derived actions. |
 | [Progress — schedule diagnosis](screens/progress/schedule-diagnosis__phone-390-light-en.png) | 8 | The one-question choice between fewer days and shorter sessions. |
-| [Progress — lower-frequency preview](screens/progress/sibling-lower-frequency__phone-390-light-en.png) | 8 | A provenance-backed lower-frequency sibling diff before confirmation. |
-| [Progress — shorter-session preview](screens/progress/sibling-shorter-session__phone-390-light-en.png) | 8 | A provenance-backed shorter-session sibling diff before confirmation. |
+| [Progress — lower-frequency preview](screens/progress/sibling-lower-frequency__phone-390-light-en.png) | 8 | A provenance-backed lower-frequency sibling diff before confirmation, naming the block edit it keeps. |
+| [Progress — shorter-session preview](screens/progress/sibling-shorter-session__phone-390-light-en.png) | 8 | A provenance-backed shorter-session sibling diff before confirmation, naming the block edits it clamps or cannot carry. |
 | [Progress — guided repair staged](screens/progress/guided-repair__phone-390-light-en.png) | 8 | The exact current program is staged for explicit guided editing. |
 | [Progress — volume-reduction preview](screens/progress/volume-reduction-preview__phone-390-light-en.png) | 8 | The protected permanent-volume reduction diff before confirmation. |
 | [Progress — recovery eligibility](screens/progress/recovery-ineligible__phone-390-light-en.png) | 8 | Recovery stays unavailable without sufficient qualifying pattern evidence. |
@@ -219,6 +241,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | --- | --- | --- |
 | [History](screens/history/list__phone-390-light-en.png) | 8 | The logged session list. |
 | [History — expanded session](screens/history/session__phone-390-light-en.png) | 8 | One session expanded in place. |
+| [History — per-side session](screens/history/per-side-session__phone-390-light-en.png) | 8 | A saved unilateral and bilateral per-side session shows physical tonnage and a per-side personal record. |
 | [History — dirty edit](screens/history/edit-dirty__phone-390-light-en.png) | 8 | A session edit with an unsaved canonical change and its destructive actions still visible. |
 | [History — invalid edit](screens/history/edit-invalid__phone-390-light-en.png) | 8 | An invalid set value is held at the field boundary with the editor's validation state visible. |
 | [History — confirmed delete](screens/history/delete-confirm__phone-390-light-en.png) | 8 | The explicit delete confirmation surface for one selected session. |
@@ -241,6 +264,9 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Program — no program](screens/program/no-program__phone-390-light-en.png) | 3 | A fresh device's Program tab, with setup as the only action. |
 | [Program](screens/program/overview__phone-390-light-en.png) | 8 | The current program and its days. |
 | [Program — editor](screens/program/progression-editor__phone-390-light-en.png) | 3 | The installed program editor, with the first day open. |
+| [Program — editor alternates](screens/program/editor-alternates__phone-390-light-en.png) | 3 | The installed program editor with an exercise open on its alternates: two chosen movements in order, each with reorder and remove controls, and Add alternate. |
+| [Program — Suggest loads](screens/program/editor-suggest-loads__phone-390-light-en.png) | 3 | The installed program editor with Suggest loads switched on for a dumbbell renegade row: the current rep target, the RIR, the smallest load change, and the question of how the lifter does the exercise. |
+| [Program — refused day rename](screens/program/editor-day-name-refused__phone-390-light-en.png) | 3 | The installed program editor after a day was renamed to a name another day already uses: the field shows the day's own name again and the reason sits under the day header. |
 | [Program — exercise picker](screens/program/exercise-picker__phone-390-light-en.png) | 3 | The picker sheet. |
 | [Program — custom exercise](screens/program/custom-exercise__phone-390-light-en.png) | 3 | The custom movement sheet. |
 | [Program — saving a custom exercise](screens/program/custom-exercise-saving__phone-390-light-en.png) | 3 | A new custom movement is saving; its actions stay unavailable until the durable write settles. |
@@ -249,6 +275,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Program — recovering a custom exercise change](screens/program/custom-exercise-recovery__phone-390-light-en.png) | 3 | A partial archive stays visibly unresolved with recovery status, Retry recovery, and Reload actions. |
 | [Program — share setup link](screens/program/share-setup__phone-390-light-en.png) | 8 | The setup-link share sheet. |
 | [Program — share link ready](screens/program/share-ready__phone-390-light-en.png) | 8 | A valid setup link is ready for copy or system sharing. |
+| [Program — share as file](screens/program/share-too-large__phone-390-light-en.png) | 8 | An edited generated program is too large for a setup link; the sheet offers sharing it as a program file. |
 | [Program — text export](screens/program/text-export__phone-390-light-en.png) | 3 | The plain-text program export sheet. |
 
 ### Settings

@@ -51,7 +51,7 @@
  * DraftV2 raw/checkpoint bytes are exact; durable state is compared
  * semantically. No sleeps, no List DOM, no raw whole-state equality.
  */
-import { launchChromium, waitForAppBoot, assertServingApp } from "./browser.mjs";
+import { launchChromium, waitForAppBoot, assertServingApp, waitForAsyncCondition } from "./browser.mjs";
 import { readFileSync } from "node:fs";
 import { isDeepStrictEqual } from "node:util";
 
@@ -348,7 +348,7 @@ async function holdStorageLock(page) {
 }
 
 async function waitForPendingStorageLocks(page, count) {
-  await page.waitForFunction(
+  await waitForAsyncCondition(page,
     async ({ lockName, count }) => {
       const locks = await navigator.locks.query();
       return locks.pending.filter((lock) => lock.name === lockName).length >= count;
@@ -359,7 +359,7 @@ async function waitForPendingStorageLocks(page, count) {
 }
 
 async function waitForNoPendingStorageLocks(page) {
-  await page.waitForFunction(
+  await waitForAsyncCondition(page,
     async (lockName) => {
       const locks = await navigator.locks.query();
       return locks.pending.filter((lock) => lock.name === lockName).length === 0;
@@ -415,7 +415,7 @@ async function crashWhileQueued({ locker, writer, survivor }, confirmArgs, setup
   if (parsed?.id == null) throw new Error("armed journal has no id");
   await writer.close();
   await releaseStorageLock(locker);
-  await locker.waitForFunction(async (lockName) => {
+  await waitForAsyncCondition(locker, async (lockName) => {
     const locks = await navigator.locks.query();
     return !locks.pending.some((l) => l.name === lockName);
   }, STORAGE_LOCK, { timeout: 10000 });
@@ -503,7 +503,7 @@ async function crashGenericWhileQueued({ locker, survivor, context }, spec) {
   if (parsed?.id == null) throw new Error("armed generic journal has no id");
   await writer.close();
   await releaseStorageLock(locker);
-  await locker.waitForFunction(async (lockName) => {
+  await waitForAsyncCondition(locker, async (lockName) => {
     const locks = await navigator.locks.query();
     return !locks.pending.some((l) => l.name === lockName);
   }, STORAGE_LOCK, { timeout: 10000 });
@@ -550,7 +550,7 @@ async function crashLegacyReplacementWhileQueued({ locker, writer, survivor }) {
   if (parsed?.id == null) throw new Error("armed legacy journal has no id");
   await writer.close();
   await releaseStorageLock(locker);
-  await locker.waitForFunction(async (lockName) => {
+  await waitForAsyncCondition(locker, async (lockName) => {
     const locks = await navigator.locks.query();
     return !locks.pending.some((l) => l.name === lockName);
   }, STORAGE_LOCK, { timeout: 10000 });
@@ -1261,7 +1261,7 @@ async function main() {
 
       await writer.close();
       await releaseStorageLock(locker);
-      await locker.waitForFunction(async (lockName) => {
+      await waitForAsyncCondition(locker, async (lockName) => {
         const locks = await navigator.locks.query();
         return !locks.pending.some((lock) => lock.name === lockName);
       }, STORAGE_LOCK, { timeout: 10000 });

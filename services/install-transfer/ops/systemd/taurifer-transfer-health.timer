@@ -1,0 +1,14 @@
+# Runs the owner-attested production health pass every two minutes.
+# Stop with: systemctl --user disable --now taurifer-transfer-health.timer
+# When it stops, new creates fail closed (503) within five minutes.
+[Unit]
+Description=Every two minutes: Taurifer install-transfer production health pass
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=2min
+AccuracySec=10s
+Unit=taurifer-transfer-health.service
+
+[Install]
+WantedBy=timers.target

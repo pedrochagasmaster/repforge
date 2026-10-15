@@ -4,6 +4,9 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.mountProgramEditor = api.mountProgramEditor;
   if (root) root.ProgramEditorIntents = api.PROGRAM_EDITOR_INTENTS;
+  if (root) root.ProgramEditorSuggestLoads = Object.freeze({
+    confirm: api.confirmSuggestLoads, issues: api.suggestLoadsIssues, set: api.setSuggestLoads, setRir: api.setSlotRir,
+  });
 })(typeof window !== "undefined" ? window : globalThis, function (root) {
   "use strict";
 
@@ -16,10 +19,12 @@
   const PROGRAM_EDITOR_INTENTS = Object.freeze([
     "program_name", "day_name", "day_add", "exercise_field", "prescription",
     "exercise_add", "exercise_remove", "day_remove", "exercise_replace",
-    "exercise_move", "metric_target", "metric_composition",
-    "prescription_field", "load_step", "save_draft", "apply", "apply_discard_workout",
+    "exercise_move", "slot_alternates", "metric_target", "metric_composition",
+    "prescription_field", "load_step", "suggest_loads", "suggest_loads_rir", "execution_mode",
+    "save_draft", "apply", "apply_discard_workout",
   ]);
   const INTENT_SET = new Set(PROGRAM_EDITOR_INTENTS);
+  const maxAlternates = () => root?.RepForgeProgramCompiler?.MAX_SLOT_ALTERNATES || 5;
   const METRIC_DOMAIN = root?.RepForgeExerciseMetrics ||
     (typeof require === "function" ? require("./exercise-metrics.js") : null);
   const FALLBACK = Object.freeze({
@@ -45,6 +50,12 @@
     notes: "Setup notes",
     primary: "Primary",
     secondary: "Secondary",
+    alternates: "Alternates",
+    alternatesHint: "Offered first when you swap this exercise during a workout.",
+    addAlternate: "Add alternate",
+    alternateUp: ({ name }) => `Move ${name} up`,
+    alternateDown: ({ name }) => `Move ${name} down`,
+    alternateRemove: ({ name }) => `Remove ${name} from alternates`,
     move: "Reorder exercise",
     moveUp: "Move up",
     moveDown: "Move down",
@@ -60,6 +71,7 @@
     exerciseRemoved: "Exercise removed.",
     undo: "Undo",
     invalid: "Fix the highlighted values before continuing.",
+    dayNameExists: "That day name already exists.",
     saved: "Draft saved",
     emptyDays: "Add an exercise to each training day.",
     more: "More",
@@ -76,6 +88,13 @@
     metricRir: "Target RIR",
     loadStep: "Smallest load change",
     loadStepHint: "Suggested loads move in steps of this size.",
+    suggestLoads: "Suggest loads",
+    suggestLoadsRange: ({ min, max }) => `Current rep target · ${min}–${max}`,
+    suggestLoadsCustom: "Custom exercises use the targets you set.",
+    suggestLoadsUnsupported: "Taurifer doesn't suggest loads for timed or distance work.",
+    executionModeQuestion: "How do you do this exercise?",
+    executionModeBilateral: "Both sides together",
+    executionModeUnilateral: "One side at a time",
     metricRestSeconds: "Rest between sets (seconds)",
     prescriptionFieldAria: ({ cycle, set, field }) => `${cycle}, ${set}, ${field}`,
   });
@@ -89,19 +108,26 @@
     removeExercise: "program.editor.remove_exercise", removeDay: "program.editor.remove_day",
     details: "program.editor.details", notes: "program.editor.notes", primary: "program.editor.primary",
     secondary: "program.editor.secondary",
+    alternates: "program.editor.alternates", alternatesHint: "program.editor.alternates_hint",
+    addAlternate: "program.editor.add_alternate", alternateUp: "program.editor.alternate_up",
+    alternateDown: "program.editor.alternate_down", alternateRemove: "program.editor.alternate_remove",
     move: "program.editor.move", moveUp: "program.editor.move_up", moveDown: "program.editor.move_down",
     moveOther: "program.editor.move_other", moved: "program.editor.moved", undo: "program.editor.undo",
     exerciseAdded: "toast.exercise_added", exerciseChanged: "toast.exercise_changed", exerciseRemoved: "toast.exercise_removed",
     dragInstructions: "program.editor.drag.instructions", dragPickedUp: "program.editor.drag.picked_up",
     dragOver: "program.editor.drag.over", dragDropped: "program.editor.drag.dropped",
     dragCancelled: "program.editor.drag.cancelled",
-    invalid: "program.editor.invalid", saved: "program.editor.draft_saved", emptyDays: "program.editor.empty_days",
+    invalid: "program.editor.invalid", dayNameExists: "toast.day_name_exists", saved: "program.editor.draft_saved", emptyDays: "program.editor.empty_days",
     more: "program.editor.more", close: "dialog.close",
     metricTargets: "program.editor.metric_targets", metricCycle: "program.editor.metric_cycle",
     metricSet: "program.editor.metric_set", metricComposition: "program.editor.metric_composition",
     metricUnconfigured: "program.editor.metric_unconfigured", metricTargetAria: "program.editor.metric_target_aria",
     metricTargetMinAria: "program.editor.metric_target_min_aria", metricTargetMaxAria: "program.editor.metric_target_max_aria",
     metricRir: "program.editor.metric_rir", loadStep: "program.editor.load_step", loadStepHint: "program.editor.load_step_hint", metricRestSeconds: "program.editor.metric_rest_seconds",
+    suggestLoads: "program.editor.suggest_loads", suggestLoadsRange: "program.editor.suggest_loads_range",
+    suggestLoadsCustom: "program.editor.suggest_loads_custom", suggestLoadsUnsupported: "program.editor.suggest_loads_unsupported",
+    executionModeQuestion: "entry.review.execution_mode.question", executionModeBilateral: "entry.review.execution_mode.bilateral",
+    executionModeUnilateral: "entry.review.execution_mode.unilateral",
     prescriptionFieldAria: "program.editor.prescription_field_aria",
   });
 
@@ -214,6 +240,13 @@
   }
   function exerciseEntry(adapter, id) {
     try { return adapter?.exerciseEntry?.(id) || null; } catch { return null; }
+  }
+  function movementLabel(adapter, id) {
+    try {
+      const value = adapter?.movementLabel?.(id);
+      if (value) return String(value);
+    } catch { /* fall back to the library entry's own name */ }
+    return String(exerciseEntry(adapter, id)?.name || id);
   }
   function exerciseMetricDefinitions(adapter, exercise) {
     if (Array.isArray(exercise?.metricDefinitions)) return clone(exercise.metricDefinitions);
@@ -334,11 +367,129 @@
     if (after.present) targets[semantic] = clone(after.value);
     else delete targets[semantic];
     set.targets = targets;
-    set.status = "manual";
-    set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: "manual@1" };
+    // Plan 069 D3: the rep range is an input of the suggestion, so editing it
+    // keeps an adaptive set adaptive. Any other target is the lifter's own.
+    if (!(set.status === "ready" && REP_TARGET_SEMANTICS.has(semantic))) {
+      set.status = "manual";
+      set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: "manual@1" };
+    }
     const row = (document.program || []).find(candidate => (candidate.slotId || candidate.id) === slotId);
     const slot = definitionSlot(document, slotId);
     if (row && slot) row.prescriptionsByCycle = clone(slot.prescriptionsByCycle || []);
+    return true;
+  }
+
+  /*
+   * Plan 069 S4: the per-slot "Suggest loads" opt-in. Turning the switch on
+   * only marks the slot as pending (programMeta.suggestLoadsPending), which a
+   * saved setup draft keeps. A pending slot stays manual and drives nothing.
+   * The host's commit points (Build's "Use this program", the installed
+   * editor's Done) confirm it: every set in every cycle becomes ready with
+   * the RIR the lifter gave and manual-adaptive provenance.
+   */
+  const REP_TARGET_SEMANTICS = new Set(["reps", "repsPerSide"]);
+  const ADAPTIVE_POLICY_VERSION = "manual-adaptive@1";
+  const EXECUTION_MODES = new Set(["bilateral", "unilateral"]);
+  function slotSets(slot) {
+    return (slot?.prescriptionsByCycle || []).flatMap(cycle => cycle?.sets || []);
+  }
+  function slotAdaptive(slot) {
+    const sets = slotSets(slot);
+    return sets.length > 0 && sets.every(set => set.status === "ready");
+  }
+  function pendingSuggestLoads(document) {
+    const list = document?.programMeta?.suggestLoadsPending;
+    return Array.isArray(list) ? list.filter(id => typeof id === "string" && id) : [];
+  }
+  function setPendingSuggestLoads(document, list) {
+    document.programMeta = document.programMeta || {};
+    const unique = [...new Set(list)];
+    if (unique.length) document.programMeta.suggestLoadsPending = unique;
+    else delete document.programMeta.suggestLoadsPending;
+  }
+  function slotRepSemantic(slot) {
+    return (slot?.metricDefinitions || []).find(definition => REP_TARGET_SEMANTICS.has(definition.semantic))?.semantic || null;
+  }
+  function repRange(target) {
+    const range = Number.isSafeInteger(target) ? { min: target, max: target }
+      : target && typeof target === "object" ? { min: target.min, max: target.max } : null;
+    return range && Number.isSafeInteger(range.min) && Number.isSafeInteger(range.max) &&
+      range.min >= 1 && range.max >= range.min && range.max <= 30 ? range : null;
+  }
+  function validRir(value) {
+    return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 4;
+  }
+  function uniformRir(slot) {
+    const values = slotSets(slot).map(set => set.rir);
+    return values.length && values.every(value => validRir(value) && value === values[0]) ? values[0] : null;
+  }
+  function executionModeRequired(slot, policy) {
+    return !!policy?.executionModeQuestion?.(slot) && !EXECUTION_MODES.has(slot?.executionMode);
+  }
+  /**
+   * The first input a pending slot still needs, or null when it can be
+   * confirmed. The opt-in asks for one RIR for the slot: sets that disagree
+   * leave its field empty, so they need the lifter's answer too.
+   */
+  function suggestLoadsIssue(slot, policy) {
+    if (!slot || policy?.eligibility?.(slot) !== "eligible") return "eligibility";
+    const semantic = slotRepSemantic(slot), sets = slotSets(slot);
+    if (!semantic || !sets.length || sets.some(set => !repRange(set.targets?.[semantic]))) return "range";
+    if (uniformRir(slot) == null) return "rir";
+    if (executionModeRequired(slot, policy)) return "execution_mode";
+    return null;
+  }
+  function suggestLoadsIssues(document, policy) {
+    return pendingSuggestLoads(document).flatMap(slotId => {
+      const slot = definitionSlot(document, slotId);
+      const field = slot ? suggestLoadsIssue(slot, policy) : null;
+      return field ? [{ slotId, field }] : [];
+    });
+  }
+  /** Confirms every pending opt-in, or refuses the whole document. */
+  function confirmSuggestLoads(input, policy) {
+    const document = clone(input);
+    const issues = suggestLoadsIssues(document, policy);
+    if (issues.length) return { ok: false, issues };
+    const confirmed = [];
+    for (const slotId of pendingSuggestLoads(document)) {
+      const slot = definitionSlot(document, slotId);
+      if (!slot) continue;
+      for (const set of slotSets(slot)) {
+        set.status = "ready";
+        set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: ADAPTIVE_POLICY_VERSION };
+      }
+      const row = (document.program || []).find(candidate => (candidate.slotId || candidate.id) === slotId);
+      if (row && row.prescriptionsByCycle) row.prescriptionsByCycle = clone(slot.prescriptionsByCycle || []);
+      confirmed.push(slotId);
+    }
+    if (document.programMeta) setPendingSuggestLoads(document, []);
+    return { ok: true, document, confirmed };
+  }
+  function setSuggestLoads(document, slotId, on) {
+    const slot = definitionSlot(document, slotId);
+    if (!slot) return false;
+    const pending = pendingSuggestLoads(document).filter(id => id !== slotId);
+    if (on) {
+      if (!slotAdaptive(slot)) pending.push(slotId);
+    } else {
+      // Off restores manual and keeps every value the lifter typed.
+      for (const set of slotSets(slot)) {
+        set.status = "manual";
+        set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: "manual@1" };
+      }
+      const row = (document.program || []).find(candidate => (candidate.slotId || candidate.id) === slotId);
+      if (row && row.prescriptionsByCycle) row.prescriptionsByCycle = clone(slot.prescriptionsByCycle || []);
+    }
+    setPendingSuggestLoads(document, pending);
+    return true;
+  }
+  function setSlotRir(document, slotId, rir) {
+    const slot = definitionSlot(document, slotId);
+    if (!slot) return false;
+    for (const set of slotSets(slot)) set.rir = rir;
+    const row = (document.program || []).find(candidate => (candidate.slotId || candidate.id) === slotId);
+    if (row && row.prescriptionsByCycle) row.prescriptionsByCycle = clone(slot.prescriptionsByCycle || []);
     return true;
   }
 
@@ -561,12 +712,17 @@
       if (equal(previous, normalized)) return Promise.resolve({ ok: true, unchanged: true });
       if (field === "sets" && cycle) {
         const beforeSetIds = cycle.sets.map(set => set.id), addedSets = [], removedSetIds = [];
+        // A set added to an adaptive slot joins it (Plan 069 D3): the opt-in
+        // covers every set, so the new one takes the slot's RIR and status.
+        const adaptive = slotAdaptive(slot);
         while (cycle.sets.length < normalized) {
           const source = cycle.sets.at(-1);
           if (!source) return Promise.resolve({ ok: false });
-          const added = { ...clone(source), id: uid(), cycleIndex, setIndex: cycle.sets.length + 1,
-            rir: null, status: slot.metricIds?.length ? "manual" : "configuration_required",
-            provenance: { source: "manual", policyVersion: "manual@1" } };
+          const added = adaptive
+            ? { ...clone(source), id: uid(), cycleIndex, setIndex: cycle.sets.length + 1 }
+            : { ...clone(source), id: uid(), cycleIndex, setIndex: cycle.sets.length + 1,
+              rir: null, status: slot.metricIds?.length ? "manual" : "configuration_required",
+              provenance: { source: "manual", policyVersion: "manual@1" } };
           cycle.sets.push(added);
           addedSets.push(clone(added));
         }
@@ -659,9 +815,56 @@
         return value;
       });
     };
+    /* A slot's alternates live on its canonical slot, so only a definition-backed
+       exercise offers them. The list is replaced whole: before/after let the host
+       rebase it onto a head another tab has moved on. */
+    const setAlternates = (id, alternates, focus) => {
+      const exercise = document.program?.find(item => item.id === id);
+      const slotId = exercise?.slotId || exercise?.id, next = clone(document), slot = definitionSlot(next, slotId);
+      if (!slot) return Promise.resolve({ ok: false });
+      const before = clone(slot.alternates || []), after = alternates.map(String);
+      if (equal(before, after)) return Promise.resolve({ ok: true, unchanged: true });
+      if (after.length) slot.alternates = after; else delete slot.alternates;
+      pendingFocus = focus;
+      return stage(next, { kind: "slot_alternates", targetId: id, slotId, before, after });
+    };
+    const addAlternate = id => {
+      const exercise = document.program?.find(item => item.id === id), slot = definitionSlot(document, exercise?.slotId || exercise?.id);
+      if (!slot || (slot.alternates || []).length >= maxAlternates()) return Promise.resolve(null);
+      return chooseExercise({ mode: "alternate", day: exercise.day, exercise: clone(exercise),
+        exclude: [slot.exerciseId, ...(slot.alternates || [])] }).then(choice => {
+        const entry = choice?.entry || choice;
+        if (!entry?.id) return null;
+        const current = definitionSlot(document, slot.id)?.alternates || [];
+        if (entry.id === slot.exerciseId || current.includes(entry.id) || current.length >= maxAlternates()) return null;
+        return setAlternates(id, [...current, entry.id], { selector: `[data-role="alternate-remove"][data-id="${cssEscape(id)}"][data-exercise-id="${cssEscape(entry.id)}"]` });
+      });
+    };
+    const editAlternate = (id, exerciseId, role) => {
+      const exercise = document.program?.find(item => item.id === id), slot = definitionSlot(document, exercise?.slotId || exercise?.id);
+      const list = clone(slot?.alternates || []), index = list.indexOf(exerciseId);
+      if (index < 0) return Promise.resolve(null);
+      if (role === "alternate-remove") {
+        list.splice(index, 1);
+        const neighbour = list[Math.min(index, list.length - 1)];
+        return setAlternates(id, list, { selector: neighbour
+          ? `[data-role="alternate-remove"][data-id="${cssEscape(id)}"][data-exercise-id="${cssEscape(neighbour)}"]`
+          : `[data-role="add-alternate"][data-id="${cssEscape(id)}"]` });
+      }
+      const to = index + (role === "alternate-up" ? -1 : 1);
+      if (to < 0 || to >= list.length) return Promise.resolve(null);
+      list.splice(to, 0, list.splice(index, 1)[0]);
+      // Focus stays on the control that moved, or on its opposite once the row hits an end.
+      const edge = to === 0 || to === list.length - 1;
+      const keep = edge ? (role === "alternate-up" ? "alternate-down" : "alternate-up") : role;
+      return setAlternates(id, list, { selector: `[data-role="${keep}"][data-id="${cssEscape(id)}"][data-exercise-id="${cssEscape(exerciseId)}"]` });
+    };
     const renameDay = (oldDay, value) => {
-      const next = clone(document);
-      if (!setDayLabel(next, oldDay, value)) return Promise.resolve({ ok: false, duplicate: true });
+      const next = clone(document), wanted = String(value || "").trim();
+      // Another day can store a different name yet show this one (a translated generated name).
+      const shown = labels(document).some((day, index) => day !== oldDay && dayDisplay(adapter, document, day, index) === wanted);
+      if (!wanted || wanted === oldDay) return Promise.resolve({ ok: false, refused: true });
+      if (shown || !setDayLabel(next, oldDay, value)) return Promise.resolve({ ok: false, refused: true, duplicate: true });
       if (collapsedDays.delete(oldDay)) collapsedDays.add(String(value).trim());
       return stage(next, { kind: "day_name", targetDay: oldDay, before: oldDay, after: String(value).trim() });
     };
@@ -741,6 +944,8 @@
         setStatus(label("invalid"), { error: true });
         return Promise.resolve({ ok: false, invalid: true, issues });
       }
+      const optIn = checkSuggestLoads();
+      if (!optIn.ok) return Promise.resolve(optIn);
       const result = adapter.commit({ expectedToken: clone(token), nextDocument: clone(document), intent: intent(kind, { edits: clone(edits) }) });
       return Promise.resolve(result).then(value => {
         if (value?.ok === false || value?.conflict || value?.staleRevision) return value;
@@ -912,6 +1117,10 @@
       }
       const before = targetState(slotId, cycleIndex, setIndex, semantic);
       if (equal(before, after)) return;
+      if (set.status === "ready" && REP_TARGET_SEMANTICS.has(semantic) && !repRange(after.value)) {
+        setStatus(label("invalid"), { error: true });
+        return;
+      }
       const next = clone(document);
       if (!replaceMetricTarget(next, slotId, cycleIndex, setIndex, semantic, after)) return;
       const result = stage(next, {
@@ -961,6 +1170,122 @@
       next.programMeta.loadingConfiguration = { ...(next.programMeta.loadingConfiguration || {}), byExerciseId };
       return stage(next, { kind: "load_step", exerciseId: slot.exerciseId, before, after }, { redraw: false });
     }
+    // Plan 069 S4. Only a host that supplies the eligibility policy offers the
+    // switch; the others keep the load step where it always was.
+    function renderSuggestLoads(exercise, slot) {
+      const policy = adapter.suggestLoads;
+      if (!policy || !slot) return renderLoadStep(exercise, slot);
+      const eligibility = policy.eligibility?.(slot);
+      if (eligibility === "custom" || eligibility === "unsupported") {
+        return `<p class="program-editor__hint program-editor__suggest-loads-note" data-role="suggest-loads-note">${esc(label(eligibility === "custom" ? "suggestLoadsCustom" : "suggestLoadsUnsupported"))}</p>` +
+          renderLoadStep(exercise, slot);
+      }
+      if (eligibility !== "eligible") return renderLoadStep(exercise, slot);
+      const on = slotAdaptive(slot) || pendingSuggestLoads(document).includes(slot.id);
+      const semantic = slotRepSemantic(slot);
+      const activeCycle = definitionCycle(slot, metricCycleIndex(adapter, document)) || slot.prescriptionsByCycle?.[0];
+      const range = repRange(activeCycle?.sets?.[0]?.targets?.[semantic]);
+      const rangeMissing = slotSets(slot).some(set => !repRange(set.targets?.[semantic]));
+      const labelId = `program-editor-suggest-${esc(slot.id)}`;
+      const toggle = `<div class="program-editor__suggest-loads-row"><span class="program-editor__field-label" id="${labelId}">${esc(label("suggestLoads"))}</span>` +
+        `<button type="button" class="toggle" role="switch" aria-checked="${on ? "true" : "false"}" aria-labelledby="${labelId}" data-role="suggest-loads" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}"${!on && rangeMissing ? " disabled" : ""}></button></div>`;
+      if (!on) return `<section class="program-editor__suggest-loads" data-role="suggest-loads-section" data-slot-id="${esc(slot.id)}">${toggle}</section>` +
+        renderLoadStep(exercise, slot);
+      const rir = uniformRir(slot);
+      const question = policy.executionModeQuestion?.(slot);
+      const modeLabelId = `program-editor-mode-${esc(slot.id)}`;
+      const mode = question ? `<div class="program-editor__execution-mode" role="radiogroup" aria-labelledby="${modeLabelId}" data-role="execution-mode-group" data-slot-id="${esc(slot.id)}">` +
+        `<span class="program-editor__field-label" id="${modeLabelId}">${esc(label("executionModeQuestion"))}</span>` +
+        [["bilateral", "executionModeBilateral"], ["unilateral", "executionModeUnilateral"]].map(([value, key]) =>
+          `<button type="button" role="radio" class="radio-card${slot.executionMode === value ? " is-selected" : ""}" aria-checked="${slot.executionMode === value ? "true" : "false"}" data-role="execution-mode" data-mode="${value}" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}"><span class="radio-card__body"><span class="radio-card__title">${esc(label(key))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button>`).join("") +
+        `</div>` : "";
+      return `<section class="program-editor__suggest-loads is-on" data-role="suggest-loads-section" data-slot-id="${esc(slot.id)}">${toggle}` +
+        (range ? `<p class="program-editor__suggest-loads-range" data-role="suggest-loads-range">${esc(label("suggestLoadsRange", { min: format(adapter, range.min), max: format(adapter, range.max) }))}</p>` : "") +
+        `<label class="program-editor__metric-field"><span>${esc(label("metricRir"))}</span><input type="number" inputmode="decimal" min="0" max="4" step="any" required data-role="suggest-loads-rir" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" value="${rir == null ? "" : esc(String(rir))}"></label>` +
+        renderLoadStep(exercise, slot) + mode + `</section>`;
+    }
+    function toggleSuggestLoads(button) {
+      const slotId = button.dataset.slotId, slot = definitionSlot(document, slotId);
+      if (!slot) return;
+      const on = button.getAttribute("aria-checked") !== "true";
+      const before = { exerciseId: slot.exerciseId,
+        state: slotAdaptive(slot) ? "ready" : pendingSuggestLoads(document).includes(slotId) ? "pending" : "off" };
+      const next = clone(document);
+      if (!setSuggestLoads(next, slotId, on)) return;
+      pendingFocus = { selector: `[data-role="suggest-loads"][data-slot-id="${cssEscape(slotId)}"]` };
+      return stage(next, { kind: "suggest_loads", slotId, on, before });
+    }
+    function editSuggestLoadsRir(input) {
+      const slotId = input.dataset.slotId, slot = definitionSlot(document, slotId);
+      if (!slot) return;
+      setFieldError(input, null);
+      const raw = input.value.trim(), after = raw ? Number(raw) : null;
+      if (after != null && !validRir(after)) {
+        setFieldError(input, label("invalid"));
+        return;
+      }
+      if (after == null && slotAdaptive(slot)) {
+        const kept = uniformRir(slot);
+        input.value = kept == null ? "" : String(kept);
+        setFieldError(input, label("invalid"));
+        return;
+      }
+      const before = slotSets(slot).map(set => set.rir ?? null);
+      if (before.every(value => Object.is(value, after))) return;
+      const next = clone(document);
+      if (!setSlotRir(next, slotId, after)) return;
+      return stage(next, { kind: "suggest_loads_rir", slotId, before, after }, { redraw: false });
+    }
+    function editExecutionMode(button) {
+      const slotId = button.dataset.slotId, slot = definitionSlot(document, slotId), after = button.dataset.mode;
+      if (!slot || !EXECUTION_MODES.has(after) || slot.executionMode === after) return;
+      const before = EXECUTION_MODES.has(slot.executionMode) ? slot.executionMode : null;
+      const next = clone(document);
+      definitionSlot(next, slotId).executionMode = after;
+      pendingFocus = { selector: `[data-role="execution-mode"][data-slot-id="${cssEscape(slotId)}"][data-mode="${after}"]` };
+      return stage(next, { kind: "execution_mode", slotId, before, after });
+    }
+    /** The field carries its own error: aria-invalid and an alert linked by aria-describedby. */
+    function setFieldError(input, message) {
+      const current = input.getAttribute("aria-describedby");
+      if (current) input.ownerDocument.getElementById(current)?.remove();
+      input.removeAttribute("aria-describedby");
+      input.removeAttribute("aria-invalid");
+      if (!message) return;
+      const note = input.ownerDocument.createElement("p");
+      note.id = `program-editor-field-error-${uid()}`;
+      note.className = "program-editor__field-error";
+      note.setAttribute("role", "alert");
+      note.textContent = message;
+      (input.closest("label, [role=radiogroup]") || input).after(note);
+      input.setAttribute("aria-invalid", "true");
+      input.setAttribute("aria-describedby", note.id);
+    }
+    /**
+     * A commit point's check. An incomplete opt-in opens its exercise, puts
+     * the error on the first field it still needs and refuses the commit.
+     */
+    function checkSuggestLoads() {
+      const issue = suggestLoadsIssues(document, adapter.suggestLoads)[0];
+      if (!issue) return { ok: true };
+      const exercise = (document.program || []).find(item => (item.slotId || item.id) === issue.slotId);
+      if (exercise) {
+        expandedExercises.add(exercise.id);
+        const day = exercise.day;
+        if (collapsedDays.has(day)) collapsedDays.delete(day);
+      }
+      render();
+      const selector = issue.field === "execution_mode"
+        ? `[data-role="execution-mode"][data-slot-id="${cssEscape(issue.slotId)}"]`
+        : issue.field === "rir" ? `[data-role="suggest-loads-rir"][data-slot-id="${cssEscape(issue.slotId)}"]`
+          : `[data-role="suggest-loads"][data-slot-id="${cssEscape(issue.slotId)}"]`;
+      const field = host.querySelector(selector);
+      if (field) {
+        setFieldError(field, label("invalid"));
+        try { field.focus(); } catch { /* detached */ }
+      }
+      return { ok: false, invalid: true, suggestLoads: issue };
+    }
     function editPrescriptionField(input) {
       const slotId = input.dataset.slotId, cycleIndex = Number(input.dataset.cycleIndex);
       const setIndex = Number(input.dataset.setIndex), field = input.dataset.field;
@@ -982,11 +1307,21 @@
       }
       const before = currentSet[field] == null ? null : currentSet[field];
       if (Object.is(before, after)) return;
+      // Plan 069 D3: an adaptive set keeps adapting through an RIR edit, and
+      // cannot lose the RIR its suggestion needs.
+      const keepsAdaptive = field === "rir" && currentSet.status === "ready";
+      if (keepsAdaptive && after == null) {
+        input.value = String(before);
+        setStatus(label("invalid"), { error: true });
+        return;
+      }
       const next = clone(document), set = definitionSet(next, slotId, cycleIndex, setIndex);
       if (!set) return;
       set[field] = after;
-      set.status = "manual";
-      set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: "manual@1" };
+      if (!keepsAdaptive) {
+        set.status = "manual";
+        set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: "manual@1" };
+      }
       const row = (next.program || []).find(candidate => (candidate.slotId || candidate.id) === slotId);
       if (row) row.prescriptionsByCycle = clone(definitionSlot(next, slotId).prescriptionsByCycle || []);
       const result = stage(next, { kind: "prescription_field", slotId, cycleIndex, setIndex, field, before, after }, { redraw: false });
@@ -1021,6 +1356,26 @@
         metricIds: clone(metricIds), metricDefinitions: clone(definitions),
       });
     }
+    function renderAlternates(exercise, slot) {
+      if (!slot) return "";
+      const list = Array.isArray(slot.alternates) ? slot.alternates : [];
+      const items = list.map((id, index) => {
+        const name = movementLabel(adapter, id), attrs = `data-id="${esc(exercise.id)}" data-exercise-id="${esc(id)}"`;
+        return `<li class="program-editor__alternate" data-role="alternate" data-exercise-id="${esc(id)}">
+          <span class="program-editor__alternate-name" data-role="alternate-name">${esc(name)}</span>
+          <button type="button" class="program-editor__alternate-move" data-role="alternate-up" ${attrs} aria-label="${esc(label("alternateUp", { name }))}"${index === 0 ? " disabled" : ""}><span class="icon-mask icon-mask--chev-up" aria-hidden="true"></span></button>
+          <button type="button" class="program-editor__alternate-move" data-role="alternate-down" ${attrs} aria-label="${esc(label("alternateDown", { name }))}"${index === list.length - 1 ? " disabled" : ""}><span class="icon-mask icon-mask--chev-down" aria-hidden="true"></span></button>
+          <button type="button" class="program-editor__alternate-remove" data-role="alternate-remove" data-action-role="removal" ${attrs} aria-label="${esc(label("alternateRemove", { name }))}"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+        </li>`;
+      }).join("");
+      const full = list.length >= maxAlternates();
+      return `<section class="program-editor__alternates" data-role="alternates" data-id="${esc(exercise.id)}" aria-labelledby="alternates-${esc(exercise.id)}">
+          <span class="program-editor__field-label" id="alternates-${esc(exercise.id)}">${esc(label("alternates"))}</span>
+          ${items ? `<ol class="program-editor__alternate-list">${items}</ol>` : ""}
+          <button type="button" class="program-editor__add-alternate" data-role="add-alternate" data-id="${esc(exercise.id)}"${full ? " disabled" : ""}><span aria-hidden="true">＋</span> ${esc(label("addAlternate"))}</button>
+          <p class="program-editor__hint">${esc(label("alternatesHint"))}</p>
+        </section>`;
+    }
     function renderExercise(exercise, index, count, day) {
       const open = expandedExercises.has(exercise.id);
       const linked = exerciseEntry(adapter, exercise.libraryId);
@@ -1048,7 +1403,8 @@
           </div>
           ${legacyRepControls}
           ${renderMetricTargets(exercise)}
-          ${renderLoadStep(exercise, slot)}
+          ${renderSuggestLoads(exercise, slot)}
+          ${renderAlternates(exercise, slot)}
           <div class="program-editor__exercise-actions">
             <button type="button" class="program-editor__replace" data-role="replace" data-action-role="replacement" data-id="${esc(exercise.id)}">${esc(label("replaceExercise"))}</button>
             <button type="button" class="program-editor__remove" data-role="remove-exercise" data-action-role="removal" data-id="${esc(exercise.id)}">${esc(label("removeExercise"))}</button>
@@ -1106,9 +1462,73 @@
         </div>
       </section>${addOutside && open ? addButton : ""}`;
     }
+    /* A render can land while the lifter is mid-edit in a field that has not
+       yet committed (blurred) — most often a delayed confirmation from an
+       earlier structural change (adding a day/exercise, nudging the set
+       count) that resolves only after the lifter has already tabbed on to
+       type the next value. Rebuilding the list wholesale would otherwise
+       throw away whatever is sitting, uncommitted, in that focused input.
+       Capture it before the rebuild and restore it — value, caret, and focus
+       — onto its rebuilt counterpart afterward. */
+    function liveEditSnapshot() {
+      const active = host.ownerDocument?.activeElement;
+      if (!active || !host.contains(active)) return null;
+      if (active.tagName !== "INPUT" && active.tagName !== "TEXTAREA") return null;
+      if (!active.dataset.role) return null;
+      const parts = [];
+      for (const attribute of active.attributes) {
+        if (attribute.name.startsWith("data-")) parts.push(`[${attribute.name}="${cssEscape(attribute.value)}"]`);
+      }
+      if (!parts.length) return null;
+      let selectionStart = null, selectionEnd = null;
+      // type="number" inputs (the rir/restSeconds prescription fields) throw
+      // on selection access in some engines; losing the caret position there
+      // is a minor cosmetic cost next to losing the value itself.
+      try { selectionStart = active.selectionStart; selectionEnd = active.selectionEnd; } catch { /* unsupported */ }
+      const snapshot = { selector: parts.join(""), value: active.value, selectionStart, selectionEnd, committedDuringTeardown: false };
+      // A genuinely dirty field (real typing) fires its own "change"
+      // synchronously when the rebuild below tears its node out — the
+      // engine commits it the ordinary way before this render call ever
+      // reaches restoreLiveEdit. Listening for that here, on the node that
+      // is about to be removed, is how restoreLiveEdit later knows not to
+      // schedule a second commit for a value that already landed.
+      active.addEventListener("change", () => { snapshot.committedDuringTeardown = true; }, { once: true });
+      return snapshot;
+    }
+    function restoreLiveEdit(snapshot) {
+      if (!snapshot) return false;
+      const next = host.querySelector(snapshot.selector);
+      if (!next || (next.tagName !== "INPUT" && next.tagName !== "TEXTAREA")) return false;
+      const renderedValue = next.value;
+      next.value = snapshot.value;
+      try { if (snapshot.selectionStart != null) next.setSelectionRange(snapshot.selectionStart, snapshot.selectionEnd); }
+      catch { /* unsupported on this input type */ }
+      next.focus();
+      // Setting .value before focus() leaves the element's own dirty-value
+      // tracking believing nothing changed from here, so a plain blur never
+      // fires "change" for this restored value: the lifter would see it on
+      // screen, but it would never reach the document. Every commit path
+      // here is wired to "change" (editMetricTarget, editPrescriptionField,
+      // renameDay, …), so finish the commit through that same path, on this
+      // field's next exit — unless the snapshot above already saw the old
+      // node commit this exact value during teardown, in which case doing
+      // it again would be a duplicate write with the same value.
+      if (snapshot.value !== renderedValue && !snapshot.committedDuringTeardown) {
+        next.dataset.editorPendingCommit = "1";
+        const clearPending = () => { delete next.dataset.editorPendingCommit; };
+        next.addEventListener("change", clearPending, { once: true });
+        next.addEventListener("focusout", () => {
+          if (next.dataset.editorPendingCommit !== "1") return;
+          clearPending();
+          next.dispatchEvent(new Event("change", { bubbles: true }));
+        }, { once: true });
+      }
+      return true;
+    }
     function render() {
       if (destroyed) return;
       ensureStructure(document);
+      const liveEdit = liveEditSnapshot();
       const days = labels(document);
       if (!expandedExercises.size) {
         for (const day of days) {
@@ -1135,10 +1555,31 @@
         <button type="button" class="program-editor__add-day" data-role="add-day">＋ <span>${esc(addDayText)}</span></button>
       </div>`;
       bind();
+      // Restoring an in-progress edit wins over a queued structural focus
+      // request (e.g. refocusing the sets-adjust button): the lifter is
+      // demonstrably already typing somewhere else by the time this landed.
+      if (restoreLiveEdit(liveEdit)) pendingFocus = null;
       // A host that annotates the status line (an id other controls describe
       // themselves by, an error state) re-applies it to each fresh render.
       adapter.afterRender?.(host);
       schedulePendingFocus();
+    }
+    /** The field carries its own error: aria-invalid and an alert linked by aria-describedby, not a toast alone. */
+    function setDayNameError(input, message) {
+      const id = `program-editor-day-error-${uid()}`;
+      const current = input.getAttribute("aria-describedby");
+      if (current) input.ownerDocument.getElementById(current)?.remove();
+      input.removeAttribute("aria-describedby");
+      input.removeAttribute("aria-invalid");
+      if (!message) return;
+      const note = input.ownerDocument.createElement("p");
+      note.id = id;
+      note.className = "program-editor__field-error";
+      note.setAttribute("role", "alert");
+      note.textContent = message;
+      (input.closest('[data-role="day-header"]') || input).after(note);
+      input.setAttribute("aria-invalid", "true");
+      input.setAttribute("aria-describedby", id);
     }
     function bind() {
       if (destroyed) return;
@@ -1151,7 +1592,17 @@
         });
       });
       host.querySelectorAll('[data-role="day-name"]').forEach(input => {
-        input.addEventListener("change", () => renameDay(input.dataset.day, input.value));
+        input.addEventListener("change", () => {
+          const day = input.dataset.day;
+          setDayNameError(input, null);
+          renameDay(day, input.value).then(result => {
+            // A refused rename leaves the day as it was, so the field says so (#343).
+            if (!result?.refused || !input.isConnected) return;
+            input.value = titleFor(day, labels(document).indexOf(day));
+            if (result.duplicate) setDayNameError(input, label("dayNameExists"));
+          });
+        });
+        input.addEventListener("input", () => setDayNameError(input, null));
         input.addEventListener("keydown", event => {
           if (event.key !== "Enter") return;
           event.preventDefault();
@@ -1185,6 +1636,9 @@
       host.querySelectorAll('[data-role="metric-target"]').forEach(input => input.addEventListener("change", () => editMetricTarget(input)));
       host.querySelectorAll('[data-role="prescription-field"]').forEach(input => input.addEventListener("change", () => editPrescriptionField(input)));
       host.querySelectorAll('[data-role="load-step"]').forEach(input => input.addEventListener("change", () => editLoadStep(input)));
+      host.querySelectorAll('[data-role="suggest-loads"]').forEach(button => button.addEventListener("click", () => toggleSuggestLoads(button)));
+      host.querySelectorAll('[data-role="suggest-loads-rir"]').forEach(input => input.addEventListener("change", () => editSuggestLoadsRir(input)));
+      host.querySelectorAll('[data-role="execution-mode"]').forEach(button => button.addEventListener("click", () => editExecutionMode(button)));
       host.querySelectorAll('[data-role="metric-composition"]').forEach(select => select.addEventListener("change", () => editMetricComposition(select)));
       host.querySelectorAll('[data-role="metric-cycle"]').forEach(details => details.addEventListener("toggle", () => {
         const slotId = details.closest('[data-role="metric-targets"]')?.dataset.slotId;
@@ -1227,6 +1681,9 @@
       }));
       host.querySelectorAll('[data-role="replace"]').forEach(button => button.addEventListener("click", () => replaceForExercise(button.dataset.id)));
       host.querySelectorAll('[data-role="remove-exercise"]').forEach(button => button.addEventListener("click", () => removeExercise(button.dataset.id)));
+      host.querySelectorAll('[data-role="add-alternate"]').forEach(button => button.addEventListener("click", () => addAlternate(button.dataset.id)));
+      host.querySelectorAll('[data-role="alternate-up"],[data-role="alternate-down"],[data-role="alternate-remove"]').forEach(button =>
+        button.addEventListener("click", () => editAlternate(button.dataset.id, button.dataset.exerciseId, button.dataset.role)));
       host.querySelectorAll('[data-role="exercise-menu"]').forEach(button => button.addEventListener("click", () => {
         const menu = host.querySelector(`[data-role="move-menu"][data-id="${cssEscape(button.dataset.id)}"]`); if (!menu) return;
         const open = menu.hidden; host.querySelectorAll('[data-role="move-menu"]').forEach(item => { item.hidden = true; });
@@ -1462,11 +1919,12 @@
       getToken: () => clone(token),
       isDirty: () => edits.length > 0 || changed(),
       validationIssues: () => validation(document),
+      checkSuggestLoads,
       commit: apply,
       discard,
       replaceExercise: exerciseInstanceId => replaceForExercise(exerciseInstanceId, { repair: true }),
     };
   }
 
-  return { mountProgramEditor, PROGRAM_EDITOR_INTENTS };
+  return { mountProgramEditor, PROGRAM_EDITOR_INTENTS, confirmSuggestLoads, suggestLoadsIssues, setSuggestLoads, setSlotRir };
 });

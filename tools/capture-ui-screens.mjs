@@ -299,6 +299,20 @@ async function main(options = parseArgs(process.argv.slice(2))) {
      */
     async function capture1(browser, capture, key, out) {
       let context;
+      let whyGeometry = null;
+      let chartGeometry = null;
+      const sameWhyViewport = (first, second) => JSON.stringify([
+        first?.scroll, first?.geometry?.article, first?.geometry?.context, first?.geometry?.heading,
+        first?.geometry?.cue, first?.geometry?.why,
+      ]) === JSON.stringify([
+        second?.scroll, second?.geometry?.article, second?.geometry?.context, second?.geometry?.heading,
+        second?.geometry?.cue, second?.geometry?.why,
+      ]);
+      const sameChartViewport = (first, second) => JSON.stringify([
+        first?.route, first?.scroll, first?.metricSelected, first?.viewport, first?.geometry,
+      ]) === JSON.stringify([
+        second?.route, second?.scroll, second?.metricSelected, second?.viewport, second?.geometry,
+      ]);
       try {
         const opened = await openPage(browser, MANIFEST, capture, stateFor(capture), {
           userAgent: APP_USER_AGENT[key],
@@ -310,6 +324,42 @@ async function main(options = parseArgs(process.argv.slice(2))) {
         if (!isOnboarding(capture)) await dismissChrome(opened.page);
         await SCENARIOS[key](opened.page);
         await settle(opened.page);
+        if (key === "progress/exercise-chart") {
+          chartGeometry = await opened.page.evaluate(() => {
+            const tracker = window.__exerciseChartViewport;
+            if (!tracker?.routeSettled || !tracker?.settled) return null;
+            tracker.captured = tracker.snapshot();
+            return tracker.report();
+          });
+          const chartFocused = chartGeometry?.viewportDecision?.focusChart === true;
+          const largeText = capture.text === "text200";
+          const frame = chartGeometry?.captured;
+          if (!chartGeometry || !chartGeometry.viewportDecision || !frame || chartGeometry.pendingScrollOwners.length
+            || frame.route.activeView !== "exercise" || frame.route.pushing || !frame.metricSelected
+            || !sameChartViewport(chartGeometry.settled, frame)
+            || chartGeometry.scrollEventCount !== chartGeometry.settled.scrollEventCount
+            || (chartFocused && (Math.abs(frame.geometry.metricGroup?.top ?? Infinity) > 1
+              || !frame.geometry.plotWithinViewport || !frame.geometry.readoutWithinViewport))
+            || (!chartFocused && Math.abs(frame.scroll.windowY) > 1)
+            || (!largeText && chartFocused)) {
+            throw new Error(`Exercise chart capture geometry did not remain at its intended viewport: ${JSON.stringify(chartGeometry)}`);
+          }
+        }
+        if (key === "workout/why-manual" || key === "workout/why-setup") {
+          whyGeometry = await opened.page.evaluate(() => {
+            const tracker = window.__whyCatalogViewport;
+            if (!tracker?.beforeClick || !tracker?.afterSheet) return null;
+            tracker.captured = tracker.snapshot();
+            return tracker.report();
+          });
+          if (!whyGeometry || whyGeometry.captured.selectedExerciseId !== whyGeometry.exerciseId
+            || whyGeometry.captured.geometry.whySheetOpen !== true || whyGeometry.pendingScrollOwners.length
+            || !sameWhyViewport(whyGeometry.beforeClick, whyGeometry.afterSheet)
+            || !sameWhyViewport(whyGeometry.afterSheet, whyGeometry.captured)
+            || whyGeometry.scrollEventCount !== whyGeometry.afterSheet.scrollEventCount) {
+            throw new Error(`Why capture geometry did not remain stable through sheet opening: ${JSON.stringify(whyGeometry)}`);
+          }
+        }
         const contract = configForCapture(MANIFEST, capture);
         const evidence = await opened.page.evaluate(collectCatalogEvidence, contract);
         const contractFailures = validateCatalogEvidence(evidence, contract, { knownKeyNamespaces: KNOWN_KEY_NAMESPACES, knownKeys: KNOWN_I18N_KEYS });
@@ -320,6 +370,52 @@ async function main(options = parseArgs(process.argv.slice(2))) {
           semanticByKey.set(captureKey(capture), normalizeSemanticRecords(semantic));
         }
         await opened.page.screenshot({ path: out, fullPage: false });
+        if (whyGeometry) {
+          const captured = await opened.page.evaluate(() => {
+            const tracker = window.__whyCatalogViewport;
+            if (!tracker) return null;
+            tracker.captured = tracker.snapshot();
+            const report = tracker.report();
+            tracker.stop();
+            return report;
+          });
+          if (!captured || captured.pendingScrollOwners.length
+            || !sameWhyViewport(whyGeometry.afterSheet, captured.captured)
+            || captured.scrollEventCount !== captured.afterSheet.scrollEventCount) {
+            throw new Error(`Why viewport changed during screenshot capture: ${JSON.stringify(captured)}`);
+          }
+          whyGeometry = captured;
+          const artifactDir = process.env.REPFORGE_ARTIFACT_DIR;
+          if (artifactDir) {
+            const evidence = join(artifactDir, "why-capture-geometry", `${key.replace("/", "__")}__${variantSlug(capture)}.json`);
+            mkdirSync(dirname(evidence), { recursive: true });
+            writeFileSync(evidence, `${JSON.stringify(whyGeometry, null, 2)}\n`);
+          }
+        }
+        if (chartGeometry) {
+          const captured = await opened.page.evaluate(() => {
+            const tracker = window.__exerciseChartViewport;
+            if (!tracker) return null;
+            tracker.captured = tracker.snapshot();
+            const report = tracker.report();
+            tracker.stop();
+            return report;
+          });
+          if (!captured || captured.pendingScrollOwners.length
+            || !sameChartViewport(chartGeometry.settled, captured.captured)
+            || !sameChartViewport(chartGeometry.captured, captured.captured)
+            || captured.scrollEventCount !== chartGeometry.scrollEventCount) {
+            throw new Error(`Exercise chart viewport changed during screenshot capture: ${JSON.stringify(captured)}`);
+          }
+          chartGeometry = captured;
+          const artifactDir = process.env.REPFORGE_ARTIFACT_DIR;
+          if (artifactDir) {
+            const evidence = join(artifactDir, "exercise-chart-viewport", `${key.replace("/", "__")}__${variantSlug(capture)}`);
+            mkdirSync(dirname(evidence), { recursive: true });
+            writeFileSync(`${evidence}.json`, `${JSON.stringify(chartGeometry, null, 2)}\n`);
+            cpSync(out, `${evidence}.png`);
+          }
+        }
         return null;
       } catch (error) {
         return error.message.split("\n")[0];

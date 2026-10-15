@@ -8,6 +8,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
 const Engine = require(path.join(root, "progression-engine.js"));
 const Metrics = require(path.join(root, "exercise-metrics.js"));
+assert.equal(Engine.ENGINE_VERSION, "069.1");
+assert.equal(Engine.FORMULA_VERSION, "rir-adjusted-epley@067.1");
 
 // These cases isolate arithmetic and convention boundaries that are unsafe to
 // approximate in a browser journey: RIR-adjusted capacity, fractional bodyweight
@@ -422,7 +424,7 @@ const perSide = recommend(perSidePrescription, [{
 }], [], context({ bySlotId: { "slot-a": {
   equipmentId: "rack-a", availableLoadsKg: [15, 17.5, 20, 22.5, 25],
   loadingConvention: "per_side", bodyweightContributionEnabled: false,
-  externalLoadMultiplier: 2,
+  externalLoadMultiplier: 2, executionMode: "bilateral",
   bodyweightKg: null,
 } } }));
 assert.equal(perSide.status, "recommended");
@@ -437,9 +439,12 @@ const mismatchedPerSideMultiplier = recommend(perSidePrescription, [{
     loadingContext: { bodyweightContributionEnabled: false, externalLoadMultiplier: 2, loadingConvention: "per_side" } })],
 }], [], context({ bySlotId: { "slot-a": {
   equipmentId: "rack-a", availableLoadsKg: [15, 17.5, 20, 22.5, 25],
-  loadingConvention: "per_side", bodyweightContributionEnabled: false, externalLoadMultiplier: 3,
+  loadingConvention: "per_side", bodyweightContributionEnabled: false, externalLoadMultiplier: 1,
+  executionMode: "unilateral",
 } } }));
-assert.notEqual(mismatchedPerSideMultiplier.status, "recommended", "a different per-side multiplier is a different loading convention");
+assert.equal(mismatchedPerSideMultiplier.status, "manual");
+assert.ok(mismatchedPerSideMultiplier.reasonCodes.includes("loading_convention_mismatch"),
+  "an explicit historical m=2 is refused against a known current unilateral m=1 convention");
 
 const mismatchedEquipment = recommend(perSidePrescription, [{
   sessionId: "per-side-anchor", completed: true,
@@ -449,6 +454,7 @@ const mismatchedEquipment = recommend(perSidePrescription, [{
 }], [], context({ bySlotId: { "slot-a": {
   equipmentId: "rack-b", availableLoadsKg: [15, 17.5, 20, 22.5, 25],
   loadingConvention: "per_side", bodyweightContributionEnabled: false, externalLoadMultiplier: 2,
+  executionMode: "bilateral",
 } } }));
 assert.notEqual(mismatchedEquipment.status, "recommended", "history from another equipment context is not a comparable anchor");
 
@@ -470,7 +476,7 @@ const persistentPerSide = recommend(persistentPerSidePrescription, [{
   })],
 }], [], context({ bySlotId: { "slot-a": {
   equipmentId: "rack-a", availableLoadsKg: [15, 17.5, 20, 22.5, 25],
-  loadingConvention: "per_side", bodyweightContributionEnabled: false,
+  loadingConvention: "per_side", bodyweightContributionEnabled: false, executionMode: "bilateral",
   externalLoadMultiplier: 2,
 } } }));
 assert.equal(persistentPerSide.status, "recommended", "persistent per-side metric remains a distinct supported convention");
@@ -488,11 +494,185 @@ const missingPerSideConvention = recommend(perSidePrescription, [{
   })],
 }], [], context({ bySlotId: { "slot-a": {
   equipmentId: "rack-a", availableLoadsKg: [15, 20, 25], loadingConvention: "per_side",
-  bodyweightContributionEnabled: false,
+  bodyweightContributionEnabled: false, executionMode: "bilateral",
   // Intentionally missing externalLoadMultiplier.
 } } }));
 assert.equal(missingPerSideConvention.status, "configuration_required");
 assert.ok(missingPerSideConvention.reasonCodes.includes("per_side_convention_required"));
+
+// S3's added source compositions are enumerated here because source metric
+// order determines the meaning of actual values and the engine's load model.
+const totalWeightSideRepIds = [METRIC.weight, METRIC.repsPerSide];
+const totalWeightSideRepDefinitions = totalWeightSideRepIds.map((id) => metricDefinitions[id]);
+const totalWeightSideRepPrescription = prescription({
+  metricIds: totalWeightSideRepIds,
+  metricDefinitions: totalWeightSideRepDefinitions,
+  targets: { repsPerSide: { min: 7, max: 9 } },
+  loadingModel: { bodyweightCoefficient: 0.25 },
+});
+assert.equal(Metrics.validateDefinitions(totalWeightSideRepIds, totalWeightSideRepDefinitions).ok, true,
+  "Weight + Reps per side preserves the catalog's ordered source composition");
+
+const totalWeightSideRepActual = (bodyweightContributionEnabled) => performedSet({
+  loadKg: 20, repsPerSide: 6, rir: 2, metricIds: totalWeightSideRepIds,
+  loadingConvention: "external", bodyweightCoefficient: 0.25,
+  loadingContext: { loadingConvention: "external", externalLoadMultiplier: 1,
+    bodyweightCoefficient: 0.25, bodyweightKg: 80, bodyweightContributionEnabled },
+});
+const totalWeightSideRepContext = (bodyweightContributionEnabled) => context({ bySlotId: { "slot-a": {
+  equipmentId: "rack-a", availableLoadsKg: [10, 20, 30, 40, 50], loadingConvention: "external",
+  bodyweightContributionEnabled, bodyweightKg: 80, externalLoadMultiplier: 1,
+  executionMode: "bilateral",
+} } });
+const totalWeightSideRepWithBodyweight = recommend(totalWeightSideRepPrescription, [{
+  sessionId: "total-load-side-reps-with-bodyweight", completed: true,
+  sets: [totalWeightSideRepActual(true)],
+}], [], totalWeightSideRepContext(true));
+assert.equal(totalWeightSideRepWithBodyweight.status, "recommended",
+  "total Weight + Reps per side adapts using a known execution mode and total-load multiplier one");
+assert.equal(totalWeightSideRepWithBodyweight.historyAnchor.effectiveLoadKg, 40,
+  "total load adds the enabled 20 kg bodyweight contribution once, without multiplying the total");
+assert.equal(totalWeightSideRepWithBodyweight.historyAnchor.capacityKg, 40 * (1 + (6 + 2) / 30),
+  "total-load per-side repetitions keep their recorded per-side count in the RIR capacity");
+assert.equal(totalWeightSideRepWithBodyweight.targets.loadKg, 20);
+assert.equal(totalWeightSideRepWithBodyweight.targets.repsPerSide, 7);
+assert.equal(totalWeightSideRepWithBodyweight.loadingAssumptions.externalLoadMultiplier, 1);
+assert.equal(totalWeightSideRepWithBodyweight.loadingAssumptions.bodyweightContributionKg, 20);
+
+const totalWeightSideRepWithoutBodyweight = recommend(totalWeightSideRepPrescription, [{
+  sessionId: "total-load-side-reps-without-bodyweight", completed: true,
+  sets: [totalWeightSideRepActual(false)],
+}], [], totalWeightSideRepContext(false));
+assert.equal(totalWeightSideRepWithoutBodyweight.historyAnchor.effectiveLoadKg, 20,
+  "disabled bodyweight contribution leaves already-total Weight unchanged");
+assert.equal(totalWeightSideRepWithoutBodyweight.historyAnchor.capacityKg, 20 * (1 + (6 + 2) / 30));
+assert.equal(totalWeightSideRepWithoutBodyweight.loadingAssumptions.bodyweightContributionKg, 0);
+
+const unknownModeTotalLoadSideReps = recommend(totalWeightSideRepPrescription, [{
+  sessionId: "total-load-side-reps-unknown-mode", completed: true,
+  sets: [totalWeightSideRepActual(true)],
+}], [], context({ bySlotId: { "slot-a": {
+  equipmentId: "rack-a", availableLoadsKg: [10, 20, 30, 40, 50], loadingConvention: "external",
+  bodyweightContributionEnabled: true, bodyweightKg: 80, externalLoadMultiplier: 1,
+} } }));
+assert.equal(unknownModeTotalLoadSideReps.status, "configuration_required",
+  "m=1 for total Weight does not substitute for an unknown per-side execution mode");
+
+const bodyweightSideRepPrescription = prescription({
+  metricIds: [METRIC.repsPerSide],
+  metricDefinitions: [metricDefinitions[METRIC.repsPerSide]],
+  targets: { repsPerSide: { min: 7, max: 9 } },
+  loadingModel: { bodyweightCoefficient: 1 },
+});
+assert.equal(Metrics.validateDefinitions([METRIC.repsPerSide], [metricDefinitions[METRIC.repsPerSide]]).ok, true,
+  "Reps per side preserves the catalog's bodyweight source composition");
+const bodyweightSideRep = recommend(bodyweightSideRepPrescription, [{
+  sessionId: "bodyweight-side-reps", completed: true,
+  sets: [performedSet({ repsPerSide: 6, rir: 2, metricIds: [METRIC.repsPerSide],
+    loadingConvention: "bodyweight", bodyweightCoefficient: 1,
+    loadingContext: { loadingConvention: "bodyweight", externalLoadMultiplier: 0,
+      bodyweightCoefficient: 1, bodyweightContributionEnabled: true, bodyweightKg: 80 } })],
+}], [], context({ bySlotId: { "slot-a": {
+  equipmentId: "rack-a", availableLoadsKg: [], loadingConvention: "bodyweight",
+  bodyweightContributionEnabled: true, bodyweightKg: 80, externalLoadMultiplier: 0,
+  executionMode: "unilateral",
+} } }));
+assert.equal(bodyweightSideRep.status, "recommended", "bodyweight Reps per side is a supported source composition");
+assert.equal(bodyweightSideRep.historyAnchor.effectiveLoadKg, 80);
+assert.equal(bodyweightSideRep.historyAnchor.capacityKg, 80 * (1 + (6 + 2) / 30));
+assert.equal(bodyweightSideRep.targets.repsPerSide, 7);
+
+const unknownModeBodyweightSideRep = recommend(bodyweightSideRepPrescription, [{
+  sessionId: "bodyweight-side-reps-unknown-current-mode", completed: true,
+  sets: [performedSet({ repsPerSide: 6, rir: 2, metricIds: [METRIC.repsPerSide],
+    loadingConvention: "bodyweight", bodyweightCoefficient: 1,
+    loadingContext: { loadingConvention: "bodyweight", externalLoadMultiplier: 0,
+      bodyweightCoefficient: 1, bodyweightContributionEnabled: true, bodyweightKg: 80 } })],
+}], [], context({ bySlotId: { "slot-a": {
+  equipmentId: "rack-a", availableLoadsKg: [], loadingConvention: "bodyweight",
+  bodyweightContributionEnabled: true, bodyweightKg: 80, externalLoadMultiplier: 0,
+} } }));
+assert.equal(unknownModeBodyweightSideRep.status, "configuration_required",
+  "m=0 for bodyweight-only Reps per side does not substitute for an unknown execution mode");
+
+const totalRepSideLoadIds = [METRIC.reps, METRIC.weightPerSide];
+const totalRepSideLoadDefinitions = totalRepSideLoadIds.map((id) => metricDefinitions[id]);
+const totalRepSideLoadPrescription = prescription({
+  metricIds: totalRepSideLoadIds,
+  metricDefinitions: totalRepSideLoadDefinitions,
+  targets: { reps: { min: 7, max: 9 } },
+  loadingModel: { bodyweightCoefficient: 0.25 },
+});
+assert.equal(Metrics.validateDefinitions(totalRepSideLoadIds, totalRepSideLoadDefinitions).ok, true,
+  "Reps + Weight per side preserves the catalog's ordered source composition");
+const totalRepSideLoadActual = ({ multiplier, bodyweightContributionEnabled }) => performedSet({
+  loadPerSideKg: 20, reps: 6, rir: 2, metricIds: totalRepSideLoadIds,
+  loadingConvention: "per_side", bodyweightCoefficient: 0.25,
+  loadingContext: { loadingConvention: "per_side", externalLoadMultiplier: multiplier,
+    bodyweightCoefficient: 0.25, bodyweightKg: 80, bodyweightContributionEnabled },
+});
+const totalRepSideLoadResult = ({ multiplier, executionMode, bodyweightContributionEnabled }) => recommend(
+  totalRepSideLoadPrescription,
+  [{ sessionId: `total-reps-m${multiplier}-${bodyweightContributionEnabled}`, completed: true,
+    sets: [totalRepSideLoadActual({ multiplier, bodyweightContributionEnabled })] }],
+  [],
+  context({ bySlotId: { "slot-a": {
+    equipmentId: "rack-a", availableLoadsKg: [10, 15, 20, 25], loadingConvention: "per_side",
+    bodyweightContributionEnabled, bodyweightKg: 80, externalLoadMultiplier: multiplier, executionMode,
+  } } }),
+);
+const bilateralPerSideTotalReps = totalRepSideLoadResult({
+  multiplier: 2, executionMode: "bilateral", bodyweightContributionEnabled: true,
+});
+assert.equal(bilateralPerSideTotalReps.status, "recommended", "Reps + Weight per side adapts as a per-side load");
+assert.equal(bilateralPerSideTotalReps.historyAnchor.effectiveLoadKg, 60,
+  "bilateral m=2 multiplies the per-side load before adding bodyweight");
+assert.equal(bilateralPerSideTotalReps.historyAnchor.capacityKg, 60 * (1 + (6 + 2) / 30));
+assert.equal(bilateralPerSideTotalReps.targets.loadPerSideKg, 20,
+  "the recommendation remains a per-side value instead of returning total load");
+assert.equal(bilateralPerSideTotalReps.targets.reps, 7);
+
+const unilateralPerSideTotalReps = totalRepSideLoadResult({
+  multiplier: 1, executionMode: "unilateral", bodyweightContributionEnabled: true,
+});
+assert.equal(unilateralPerSideTotalReps.historyAnchor.effectiveLoadKg, 40,
+  "unilateral m=1 uses one per-side load plus the same bodyweight contribution");
+assert.equal(unilateralPerSideTotalReps.historyAnchor.capacityKg, 40 * (1 + (6 + 2) / 30));
+
+const bilateralPerSideTotalRepsWithoutBodyweight = totalRepSideLoadResult({
+  multiplier: 2, executionMode: "bilateral", bodyweightContributionEnabled: false,
+});
+assert.equal(bilateralPerSideTotalRepsWithoutBodyweight.historyAnchor.effectiveLoadKg, 40,
+  "disabling bodyweight leaves only two per-side loads in the effective load");
+assert.equal(bilateralPerSideTotalRepsWithoutBodyweight.historyAnchor.capacityKg, 40 * (1 + (6 + 2) / 30));
+
+const legacyNullPerSide = recommend(perSidePrescription, [{
+  sessionId: "legacy-null-per-side", completed: true,
+  sets: [performedSet({ loadPerSideKg: 20, repsPerSide: 6, rir: 2, setIndex: 0,
+    metricIds: [METRIC.repsPerSide, METRIC.weightPerSide], loadingConvention: "per_side",
+    loadingContext: { loadingConvention: "per_side", bodyweightContributionEnabled: false,
+      externalLoadMultiplier: null, bodyweightCoefficient: 0 } })],
+}], [], context({ bySlotId: { "slot-a": {
+  equipmentId: "rack-a", availableLoadsKg: [15, 17.5, 20, 22.5, 25],
+  loadingConvention: "per_side", bodyweightContributionEnabled: false, externalLoadMultiplier: 2,
+  executionMode: "bilateral",
+} } }));
+assert.equal(legacyNullPerSide.status, "recommended",
+  "a valid legacy null per-side multiplier resolves using the current known slot rule");
+assert.equal(legacyNullPerSide.historyAnchor.effectiveLoadKg, 40);
+
+const unknownModePerSide = recommend(perSidePrescription, [{
+  sessionId: "per-side-unknown-current-mode", completed: true,
+  sets: [performedSet({ loadPerSideKg: 20, repsPerSide: 6, rir: 2, setIndex: 0,
+    metricIds: [METRIC.repsPerSide, METRIC.weightPerSide], loadingConvention: "per_side",
+    loadingContext: { loadingConvention: "per_side", bodyweightContributionEnabled: false,
+      externalLoadMultiplier: 2, bodyweightCoefficient: 0 } })],
+}], [], context({ bySlotId: { "slot-a": {
+  equipmentId: "rack-a", availableLoadsKg: [15, 17.5, 20, 22.5, 25],
+  loadingConvention: "per_side", bodyweightContributionEnabled: false, externalLoadMultiplier: 2,
+} } }));
+assert.equal(unknownModePerSide.status, "configuration_required",
+  "an explicit m=2 on a persistent/ambiguous per-side context is not a substitute for an unknown mode");
 
 const sessions = [
   { sessionId: "f1", completed: true, sets: [performedSet({ loadKg: 100, reps: 6, rir: 2, setIndex: 0 }), performedSet({ loadKg: 90, reps: 6, rir: 2, setIndex: 1 })] },

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /** Named Plan 048 entry accessibility regression: semantics, keyboard, focus, and compact geometry. */
 import { pathToFileURL } from "url";
-import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, waitForAppBoot, answerRecommend } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { metricLogRow } from "./fixtures/history-metric-rows.mjs";
 
@@ -22,20 +22,6 @@ async function clean(page) {
   await page.evaluate(() => { window.closeFirstRun?.(); window.closeOnboarding?.(); window.startOnboarding?.("settings", { resume: false }); });
 }
 
-async function reachPriorities(page) {
-  await page.click('[data-entry-route="custom"]');
-  await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
-  await page.click("#onbNext");
-  await page.click('[data-entry-pick="structuredExperience"][data-entry-val="first"]');
-  await page.click("#onbNext");
-  await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
-  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
-  await page.click("#onbNext");
-  await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
-  await page.click("#onbNext");
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
-  await page.click("#onbNext");
-}
 
 export async function runProgramEntryA11y(browser, check = assert) {
   const page = await browser.newPage({ viewport: { width: 320, height: 568 } });
@@ -47,9 +33,14 @@ export async function runProgramEntryA11y(browser, check = assert) {
   check(await page.locator("#onbBack").evaluate((el) => getComputedStyle(el).minHeight === "44px"), "Back has a 44px minimum target");
   check((await page.locator("#onbBack").getAttribute("aria-label")) === "Back", "Back has an explicit accessible name");
 
-  await page.locator('[data-entry-route="custom"]').focus();
+  await page.locator('[data-entry-hub="recommend"]').focus();
   await page.keyboard.press("Enter");
-  const transitionFocus = await page.locator("#entryHeading").evaluate((el) => {
+  await page.click("#onbNext");
+  // During navPush the outgoing screen remains mounted but is inert and
+  // aria-hidden. Check focus on the one heading exposed by the live page.
+  const transitionFocus = await page.locator(
+    '#onbBody > .entry-motion-page:not([aria-hidden="true"]) #entryHeading',
+  ).evaluate((el) => {
     const style = getComputedStyle(el);
     return {
       active: el === document.activeElement,
@@ -60,20 +51,27 @@ export async function runProgramEntryA11y(browser, check = assert) {
   check(transitionFocus.active, "screen transition moves semantic focus to the heading");
   check(transitionFocus.outlineStyle === "none" || transitionFocus.outlineWidth === 0,
     "screen-transition focus does not draw a ring", JSON.stringify(transitionFocus));
-  await page.locator('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]').focus();
-  const controlFocus = await page.locator('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]').evaluate((el) => {
-    const style = getComputedStyle(el);
-    return { outlineStyle: style.outlineStyle, outlineWidth: Number.parseFloat(style.outlineWidth) || 0 };
-  });
-  check(controlFocus.outlineStyle !== "none" && controlFocus.outlineWidth > 0,
-    "keyboard-focused controls retain a visible ring", JSON.stringify(controlFocus));
-  check(await page.locator("#onbNext").isDisabled(), "Continue is disabled until the desired result is answered");
 
   // R7 J-16: the screen's title is exposed once. The legacy hidden #onbTitle must not repeat #entryHeading.
   const headingNames = await page.locator("#onboarding").getByRole("heading").allTextContents();
   const normalizedHeadings = headingNames.map((text) => text.replace(/\s+/g, " ").trim()).filter(Boolean);
   check(normalizedHeadings.length > 0 && new Set(normalizedHeadings).size === normalizedHeadings.length,
     "the entry screen exposes each heading once to assistive technology", JSON.stringify(normalizedHeadings));
+
+  // Walk Recommend's Basics screens (skipping each) to "background", the
+  // first substantive radiogroup in B's order (intro, sex, birth_date,
+  // height, weight, background, ...).
+  await answerRecommend(page, { skipBasics: true, until: "background" });
+  // The walk clicked; a key press makes the next focus a keyboard focus.
+  await page.keyboard.press("Tab");
+  await page.locator('[data-entry-pick="structuredExperience"][data-entry-val="first"]').focus();
+  const controlFocus = await page.locator('[data-entry-pick="structuredExperience"][data-entry-val="first"]').evaluate((el) => {
+    const style = getComputedStyle(el);
+    return { outlineStyle: style.outlineStyle, outlineWidth: Number.parseFloat(style.outlineWidth) || 0 };
+  });
+  check(controlFocus.outlineStyle !== "none" && controlFocus.outlineWidth > 0,
+    "keyboard-focused controls retain a visible ring", JSON.stringify(controlFocus));
+  check(await page.locator("#onbNext").isDisabled(), "Continue is disabled until the experience question is answered");
   // R7 J-12: #onbStepLabel is aria-live. Answering a question must not rewrite it with the text it already has.
   await page.evaluate(() => {
     const label = document.querySelector("#onbStepLabel");
@@ -82,50 +80,49 @@ export async function runProgramEntryA11y(browser, check = assert) {
     window.__stepLabelObserver = new MutationObserver((records) => { window.__stepLabelWrites += records.length; });
     window.__stepLabelObserver.observe(label, { childList: true, characterData: true, subtree: true });
   });
-  await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
+  await page.click('[data-entry-pick="structuredExperience"][data-entry-val="first"]');
   check(await page.evaluate(() => { window.__stepLabelObserver.takeRecords(); return window.__stepLabelWrites; }) === 0,
     "answering a question does not rewrite the live step label");
-  check(!(await page.locator("#onbNext").isDisabled()), "answering the desired result enables Continue");
-  check(await page.locator('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]').evaluate((el) => el.getAttribute("aria-checked") === "true" && !el.hasAttribute("aria-pressed")), "radio exposes aria-checked, not aria-pressed");
-  check(await page.getByRole("radio").count() === 3, "accessibility tree exposes the three desired-result radios");
-  await page.keyboard.press("ArrowDown");
-  check(await page.locator('[data-entry-pick="desiredResult"][data-entry-val="balanced"]').evaluate((el) => el.getAttribute("aria-checked") === "true" && el === document.activeElement), "radio arrows move selection and focus");
-
-  await page.click("#onbNext");
-  check(await page.locator("#onbNext").isDisabled(), "Continue is disabled while the experience question is unanswered");
-  await page.click('[data-entry-pick="structuredExperience"][data-entry-val="first"]');
   check(!(await page.locator("#onbNext").isDisabled()), "answering the experience question enables Continue");
-
+  check(await page.locator('[data-entry-pick="structuredExperience"][data-entry-val="first"]').evaluate((el) => el.getAttribute("aria-checked") === "true" && !el.hasAttribute("aria-pressed")), "radio exposes aria-checked, not aria-pressed");
+  check(await page.getByRole("radio").count() === 4, "accessibility tree exposes the four background-experience radios");
+  await page.keyboard.press("ArrowDown");
+  check(await page.locator('[data-entry-pick="structuredExperience"][data-entry-val="under_6m"]').evaluate((el) => el.getAttribute("aria-checked") === "true" && el === document.activeElement), "radio arrows move selection and focus");
   await page.click("#onbNext");
-  check(await page.locator("#onbNext").isDisabled(), "Continue is disabled when schedule answers are missing");
-  await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
-  check(await page.locator("#onbNext").isDisabled(), "Continue stays disabled when the session length is missing");
-  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
-  check(!(await page.locator("#onbNext").isDisabled()), "answering every schedule question enables Continue");
 
-  await page.click("#onbNext");
+  // cardio_experience: pinned Skip, no new assertions here.
+  await page.click("#onbSkip");
+
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "environment");
   check(await page.locator("#onbNext").isDisabled(), "Continue is disabled until the environment is answered");
   await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
   check(!(await page.locator("#onbNext").isDisabled()), "answering the environment enables Continue");
+  await page.click("#onbNext");
 
-  await clean(page);
-  await reachPriorities(page);
-  const checkboxInfo = await page.locator('#onbBody [role="checkbox"]').evaluateAll((els) => els.map((el) => ({ tabIndex: el.tabIndex, checked: el.getAttribute("aria-checked"), pressed: el.getAttribute("aria-pressed") })));
-  check(checkboxInfo.length > 4 && checkboxInfo.every((item) => item.tabIndex >= 0 && item.pressed === null), "checkboxes remain independently tabbable with aria-checked");
-  check(await page.getByRole("checkbox").count() === checkboxInfo.length, "accessibility tree exposes each checkbox control");
+  // equipment: optional multi-select, just pass through.
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "equipment");
+  await page.click("#onbNext");
 
-  const muscleControls = page.locator('[data-entry-pick="musclePriority"]');
-  const muscleNames = await muscleControls.evaluateAll((els) => [...new Set(els.map((el) => el.dataset.entryVal.split("|")[0]))]);
-  check((await muscleControls.count()) === 40 && muscleNames.length === 10,
-    "Custom exposes one four-state radio group per muscle");
-  await page.locator('[data-entry-pick="musclePriority"][data-entry-val="chest|prioritize"]').focus();
-  const before = await page.evaluate(() => document.activeElement?.dataset.entryVal);
-  await page.click('[data-entry-pick="musclePriority"][data-entry-val="chest|prioritize"]');
-  const after = await page.evaluate(() => document.activeElement?.dataset.entryVal);
-  const partition = await page.evaluate(() => window.__repforgeEntryState().answers);
-  check(before === "chest|prioritize" && after === "chest|prioritize" && partition.primaryMuscles?.includes("chest") &&
-    !partition.deEmphasizedMuscles?.includes("chest") && !partition.ignoredMuscles?.includes("chest"),
-    "muscle-state selection rerender restores focus without contradictory categories");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "desired_result");
+  check(await page.locator("#onbNext").isDisabled(), "Continue is disabled until the desired result is answered");
+  await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
+  check(!(await page.locator("#onbNext").isDisabled()), "answering the desired result enables Continue");
+  check(await page.getByRole("radio").count() === 3, "accessibility tree exposes the three desired-result radios");
+  await page.click("#onbNext");
+
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "days_per_week");
+  check(await page.locator("#onbNext").isDisabled(), "Continue is disabled when the days-per-week answer is missing");
+  await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
+  check(!(await page.locator("#onbNext").isDisabled()), "answering days per week enables Continue");
+  await page.click("#onbNext");
+
+  // session_length: pre-populated with a 60-minute default, so Continue is
+  // not gated here; click the option defensively and move on.
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "session_length");
+  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
+  // session_length still has radio-card markup (.radio-card__title), so the
+  // geometry/zoom/desktop-width checks below run on this screen rather than
+  // advancing to muscle_priorities, which uses a different control shape.
 
   const geometry = await page.evaluate(() => {
     const root = document.querySelector("#onboarding");
@@ -175,8 +172,8 @@ export async function runProgramEntryA11y(browser, check = assert) {
   // A movement the catalog does not know becomes a custom movement that records
   // nothing yet, so the reviewed program cannot start until it is configured.
   await clean(page);
-  await page.click("#entryOwnToggle");
-  await page.click('[data-entry-route="import"]');
+  await page.click('[data-entry-hub="import"]');
+  await page.click("#onbNext");
   await page.setInputFiles("#importProgram", {
     name: "unconfigured-a11y.json",
     mimeType: "application/json",
@@ -213,8 +210,8 @@ export async function runProgramEntryA11y(browser, check = assert) {
   "an unconfigured preview keeps activation disabled with describedby guidance");
 
   await clean(page);
-  await page.click("#entryOwnToggle");
-  await page.click('[data-entry-route="import"]');
+  await page.click('[data-entry-hub="import"]');
+  await page.click("#onbNext");
   await page.setInputFiles("#importProgram", {
     name: "valid-preview-a11y.json",
     mimeType: "application/json",
@@ -240,9 +237,10 @@ export async function runProgramEntryA11y(browser, check = assert) {
   await page.evaluate(() => { window.closeFirstRun?.(); window.startOnboarding?.("settings", { resume: true }); });
   if (await page.locator("#entryResumeContinue").count()) await page.click("#entryResumeContinue");
   check(await page.locator("html").getAttribute("data-theme") === "dark", "dark theme remains tokenized in entry flow");
-  check(await page.locator(".entry-card").first().evaluate((el) => getComputedStyle(el).transitionDuration === "0s"), "reduced motion removes entry transitions");
+  check(await page.locator(".radio-card").first().evaluate((el) => getComputedStyle(el).transitionDuration === "0s"), "reduced motion removes entry transitions");
 
   await runEntryDialogFocus(page, check);
+  await runBControlsA11y(browser, check);
   } finally {
     await page.close();
   }
@@ -259,9 +257,67 @@ const ACTIVE_SEED = {
 };
 
 /** Import a one-exercise program and stop at the activation-ready review. */
+
+/* Onboarding B's own controls (Plan 072): each picker is reachable and
+   operable without a pointer and names itself. */
+async function runBControlsA11y(browser, check) {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  try {
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    await clean(page);
+    await answerRecommend(page, { skipBasics: true, until: "birth_date" });
+    const wheels = await page.$$eval("[role='spinbutton']", (els) => els.map((el) => ({
+      label: el.getAttribute("aria-label"), now: el.getAttribute("aria-valuenow"), text: el.getAttribute("aria-valuetext"), tab: el.tabIndex })));
+    check(wheels.length === 3 && wheels.every((w) => w.label && w.text && w.now != null && w.tab === 0),
+      "the birth date is three named, focusable spinbuttons with a spoken value", JSON.stringify(wheels));
+    await page.focus("#entryWheelMonth");
+    const before = await page.locator("#entryWheelMonth").getAttribute("aria-valuetext");
+    await page.keyboard.press("ArrowDown");
+    const after = await page.locator("#entryWheelMonth").getAttribute("aria-valuetext");
+    check(before !== after, "an arrow key moves a wheel and its spoken value", `${before} -> ${after}`);
+    await page.click("#onbSkip");
+    await answerRecommend(page, { skipBasics: true, until: "weight" });
+    const ruler = await page.locator("#entryWeightRuler").evaluate((el) => ({ role: el.getAttribute("role"),
+      label: el.getAttribute("aria-label"), text: el.getAttribute("aria-valuetext"), min: el.getAttribute("aria-valuemin"), max: el.getAttribute("aria-valuemax") }));
+    check(ruler.role === "slider" && ruler.label && ruler.text && ruler.min && ruler.max, "the weight ruler is a named slider with a spoken value", JSON.stringify(ruler));
+    await page.focus("#entryWeightRuler");
+    await page.keyboard.press("ArrowRight");
+    check(await page.locator("#entryWeightRuler").getAttribute("aria-valuetext") !== ruler.text, "an arrow key moves the ruler");
+    const unit = await page.$$eval("[data-entry-pick='basicsWeightUnit']", (els) => els.map((el) => el.getAttribute("role")));
+    check(unit.length === 2 && unit.every((role) => role === "radio"), "the weight unit toggle is a radio pair");
+    await page.click("#onbSkip");
+    await answerRecommend(page, { skipBasics: true, until: "equipment", environment: "limited_home" });
+    const equipment = await page.$$eval("[data-entry-pick='equipmentGroup']", (els) => els.map((el) => ({ role: el.getAttribute("role"), checked: el.getAttribute("aria-checked") })));
+    check(equipment.length === 13 && equipment.every((item) => item.role === "checkbox" && ["true", "false"].includes(item.checked)),
+      "the equipment groups are thirteen checkboxes with their state", JSON.stringify(equipment));
+    await answerRecommend(page, { skipBasics: true, until: "muscle_priorities", environment: "limited_home" });
+    const groups = await page.$$eval(".entry-b__priority [role='radiogroup']", (els) => els.map((group) => ({
+      name: document.getElementById(group.getAttribute("aria-labelledby"))?.textContent || "",
+      radios: group.querySelectorAll("[role='radio']").length,
+      checked: group.querySelectorAll("[role='radio'][aria-checked='true']").length })));
+    check(groups.length === 12 && groups.every((group) => group.name && group.radios === 3 && group.checked === 1),
+      "each of the twelve muscles is a labelled radio group of Reduce, Normal and Prioritize with one choice", JSON.stringify(groups.slice(0, 2)));
+    const first = page.locator(".entry-b__priority [role='radiogroup']").first().locator("[role='radio'][aria-checked='true']");
+    await first.focus();
+    await page.keyboard.press("ArrowRight");
+    const moved = await page.evaluate(() => window.__repforgeEntryState?.()?.answers?.primaryMuscles || []);
+    check(moved.length === 1, "an arrow key on a muscle's group changes its priority", JSON.stringify(moved));
+    await answerRecommend(page, { skipBasics: true, until: "deload", environment: "limited_home" });
+    const toggle = await page.locator("#entryDeloadSwitch").evaluate((el) => ({ role: el.getAttribute("role"), checked: el.getAttribute("aria-checked"),
+      name: document.getElementById(el.getAttribute("aria-labelledby"))?.textContent || "" }));
+    check(toggle.role === "switch" && toggle.checked === "true" && toggle.name, "deload is a named switch, on by default", JSON.stringify(toggle));
+    await page.focus("#entryDeloadSwitch");
+    await page.keyboard.press("Space");
+    check(await page.locator("#entryDeloadSwitch").getAttribute("aria-checked") === "false", "Space turns the deload switch off");
+  } finally {
+    await page.close();
+  }
+}
+
 async function reachImportReview(page) {
-  await page.click("#entryOwnToggle");
-  await page.click('[data-entry-route="import"]');
+  await page.click('[data-entry-hub="import"]');
+  await page.click("#onbNext");
   await page.setInputFiles("#importProgram", {
     name: "dialog-a11y.json",
     mimeType: "application/json",

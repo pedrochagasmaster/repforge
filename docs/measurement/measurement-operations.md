@@ -86,7 +86,9 @@ Run within 30 minutes of each production deploy:
    and event properties, permitted transport IDs, and no person profile or
    extra URL/DOM metadata. Do not require `$host` or a user-agent property.
 3. Choose a program route explicitly and activate it; verify the expected
-   closed events and duplicate expectations.
+   closed events and duplicate expectations. Each onboarding screen should
+   report one `onboarding_step_viewed`, and each screen left forward one
+   `onboarding_step_completed`, keyed by route and step id (Plan 071).
 4. Log and finish a synthetic session; verify only bucketed counts/duration.
    Then start another session and save a set: verify `set_saved` again without
    requiring the installation-once `first_set_logged` event to repeat.

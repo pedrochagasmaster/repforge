@@ -70,7 +70,7 @@ const standard = Compiler.generateProgram(request(), raw, "p067-standard-fixture
 assert.equal(standard.ok, true, `standard four-day plan should compile: ${JSON.stringify(standard.conflicts)}`);
 assert.deepEqual(standard.conflicts, []);
 assert.equal(standard.value.schemaVersion, 2);
-assert.equal(standard.value.generatorVersion, "067.1");
+assert.equal(standard.value.generatorVersion, "067.2");
 assert.equal(standard.value.seed, "p067-standard-fixture");
 assert.equal(standard.value.cycles, 7);
 assert.deepEqual(standard.value.days.filter((day) => day.kind === "training").map((day) => day.name), [
@@ -397,6 +397,20 @@ assert.equal(unilateralEstimate - bilateralEstimate, 120,
   "a bilateral 45-degree cable rear-delt fly counts reps once; explicitly sequential unilateral execution counts both sides");
 assert.ok(Compiler.estimateDaySeconds(standard.value.days.find((day) => day.kind === "training")) > 180,
   "day estimates use final cycle prescriptions instead of treating every generated day as empty");
+// A Review regeneration that carries a week-specific edit must keep every
+// week inside the ceiling, so a day is estimated for the cycle asked about.
+const cycleSlot = { ...estimateSlot, prescriptionsByCycle: [
+  { cycleIndex: 1, sets: estimateSlot.prescriptionsByCycle[0].sets },
+  { cycleIndex: 2, sets: [...estimateSlot.prescriptionsByCycle[0].sets, ...estimateSlot.prescriptionsByCycle[0].sets] },
+  { cycleIndex: 3, sets: [] },
+] };
+const cycleDay = { kind: "training", slots: [cycleSlot] };
+assert.equal(Compiler.estimateDaySeconds(cycleDay, 1), Compiler.estimateDaySeconds(cycleDay),
+  "without a cycle the estimate is the first cycle's");
+assert.equal(Compiler.estimateDaySeconds(cycleDay, 2) - Compiler.estimateDaySeconds(cycleDay, 1), 2 * (15 * 4 + 90),
+  "a cycle with two more sets costs their work and rest");
+assert.equal(Compiler.estimateDaySeconds(cycleDay, 3), 180, "a cycle with no sets costs only the day overhead");
+assert.equal(Compiler.estimateDaySeconds(cycleDay, 4), 180, "a cycle the slot does not have costs nothing for it");
 
 // The progression engine reads each prescription's bodyweight coefficient;
 // a projection without it makes every set configuration-required.
@@ -428,5 +442,128 @@ const mismatchedV1 = structuredClone(legacyV1);
 mismatchedV1.days[0].slots[0].prescriptionsByCycle[0].sets[0].metricIds = [];
 assert.equal(Compiler.validateProgramDefinition(mismatchedV1, raw).ok, false,
   "a schema v1 set whose metrics disagree with its slot's is rejected, not silently coerced");
+
+// #316: generated day names are stored in English so fingerprints, setup-link
+// recipes and backups stay language-independent; the compiler names the
+// translation key for a day only while it still carries the generator's exact
+// name at its generated position. A rename, a day the lifter added and a
+// hand-built program with the same words stay the lifter's own text.
+const en316 = JSON.parse(fs.readFileSync(path.join(root, "i18n-en.json"), "utf8"));
+const pt316 = JSON.parse(fs.readFileSync(path.join(root, "i18n-pt.json"), "utf8"));
+const splitCases316 = Object.entries(Compiler.SPLITS).flatMap(([split, entry]) =>
+  entry.compatibleDays.map((daysPerWeek) => ({ split, daysPerWeek })));
+for (const { split, daysPerWeek } of splitCases316) {
+  const generated = Compiler.generateProgram(request({ split, daysPerWeek }), raw, `p316-${split}-${daysPerWeek}`);
+  assert.equal(generated.ok, true, `${split}/${daysPerWeek} generates`);
+  const training = generated.value.days.filter((day) => day.kind === "training");
+  for (const day of training) {
+    const key = Compiler.generatedDayNameKey(generated.value, day.id);
+    assert.equal(typeof key, "string", `${split} ${day.name} has a translation key`);
+    assert.equal(en316[key], day.name, `${split} ${day.name} reads as its stored English name in EN`);
+    assert.ok(pt316[key] && pt316[key] !== day.name, `${split} ${day.name} has its own PT name (${key})`);
+  }
+  for (const day of generated.value.days.filter((entry) => entry.kind === "rest")) {
+    assert.equal(Compiler.generatedDayNameKey(generated.value, day.id), null, `${split} rest day has no generated name`);
+  }
+  const renamed = structuredClone(generated.value);
+  const [first, second] = renamed.days.filter((day) => day.kind === "training");
+  first.name = "Monday heavy";
+  assert.equal(Compiler.generatedDayNameKey(renamed, first.id), null, `${split} renamed day keeps the lifter's text`);
+  const swapped = structuredClone(generated.value);
+  const [a, b] = swapped.days.filter((day) => day.kind === "training");
+  [a.name, b.name] = [b.name, a.name];
+  assert.equal(Compiler.generatedDayNameKey(swapped, a.id), null, `${split} a day renamed to another generated name keeps the lifter's text`);
+  const added = structuredClone(generated.value);
+  const rest = added.days.find((day) => day.kind === "rest");
+  rest.kind = "training";
+  rest.name = second.name === "Lower" ? "Upper" : "Push";
+  assert.equal(Compiler.generatedDayNameKey(added, rest.id), null, `${split} a day the lifter added keeps the lifter's text`);
+}
+const manual316 = structuredClone(standard.value);
+manual316.request = {};
+manual316.provenance = { source: "manual", policyVersion: "manual@1" };
+const manualDay316 = manual316.days.find((day) => day.kind === "training");
+assert.equal(Compiler.generatedDayNameKey(manual316, manualDay316.id), null,
+  "a hand-built program that uses a generated day name keeps the lifter's text");
+assert.equal(Compiler.generatedDayNameKey(null, "day-x"), null, "a missing definition has no generated day names");
+
+// #317: a slot may name ordered alternate movements the swap picker offers
+// first. The field is additive and optional, so every definition written
+// before it (and every generated one) is unchanged. Its identity rules are a
+// combinatorial boundary the browser journey exercises only one path of.
+const alternateIds = standard.value.days.flatMap((day) => day.slots.map((slot) => slot.exerciseId))
+  .filter((id) => id !== standard.value.days[0].slots[0].exerciseId);
+assert.ok(alternateIds.length >= 6, "the fixture offers enough distinct catalog movements to exceed the cap");
+assert.equal(standard.value.days.flatMap((day) => day.slots).some((slot) => "alternates" in slot), false,
+  "a generated definition carries no alternates field");
+const withAlternates = (alternates, custom = []) => {
+  const definition = structuredClone(standard.value);
+  definition.days[0].slots[0].alternates = alternates;
+  return Compiler.validateProgramDefinition(definition, raw, custom);
+};
+assert.deepEqual(withAlternates(alternateIds.slice(0, 2)), { ok: true, issues: [] },
+  "catalog alternates are valid on a slot");
+assert.deepEqual(withAlternates([]), { ok: true, issues: [] }, "an empty alternates list is valid input");
+const customAlternate = { id: "custom:alt-row", name: "Coach row", metricIds: [], metricDefinitions: [] };
+assert.deepEqual(withAlternates([customAlternate.id, alternateIds[0]], [customAlternate]), { ok: true, issues: [] },
+  "a custom movement the program carries may be an alternate");
+for (const [label, alternates, custom] of [
+  ["a custom alternate without its definition", [customAlternate.id], []],
+  ["an unknown catalog identity", ["00000000000000000000000000000000"], []],
+  ["a repeated alternate", [alternateIds[0], alternateIds[0]], []],
+  ["the slot's own movement", [standard.value.days[0].slots[0].exerciseId], []],
+  ["more alternates than the cap", alternateIds.slice(0, Compiler.MAX_SLOT_ALTERNATES + 1), []],
+  ["a non-string identity", [7], []],
+  ["an empty identity", [""], []],
+  ["a non-array value", alternateIds[0], []],
+]) {
+  const checked = withAlternates(alternates, custom);
+  assert.equal(checked.ok, false, `${label} is refused`);
+  assert.ok(checked.issues.some((issue) => issue.startsWith("program.days[0].slots[0].alternates")),
+    `${label} is reported against the slot's alternates: ${JSON.stringify(checked.issues)}`);
+}
+assert.equal(Compiler.MAX_SLOT_ALTERNATES, 5, "the alternates cap is a published compiler constant");
+const keptAlternates = structuredClone(standard.value);
+keptAlternates.days[0].slots[0].alternates = alternateIds.slice(0, 3);
+assert.deepEqual(Compiler.canonicalizeProgramDefinition(keptAlternates).days[0].slots[0].alternates, alternateIds.slice(0, 3),
+  "canonicalization keeps alternates in their authored order");
+const emptyAlternates = structuredClone(standard.value);
+emptyAlternates.days[0].slots[0].alternates = [];
+assert.deepEqual(Compiler.canonicalizeProgramDefinition(emptyAlternates), standard.value,
+  "an empty alternates list canonicalizes to the absent field, so the two spellings are one definition");
+assert.equal(Compiler.PROGRAM_SCHEMA_VERSION, 2, "alternates are additive; they do not bump the program schema");
+
+// #340 (Plan 072 OD-11): "10 strict pull-ups" answers the weighted vertical
+// pull prerequisite. Yes makes those movements eligible without a movement
+// confirmation, No refuses them, and Not sure leaves them to a confirmation.
+const weightedPullPrerequisite = Object.entries(raw.uuidIndex)
+  .find(([, entry]) => entry.type === "preconditions" && entry.name === "Weighted vertical pulls preconditions")[0];
+const weightedPulls = raw.exercises.filter((exercise) => (exercise.preconditions || []).includes(weightedPullPrerequisite))
+  .map((exercise) => exercise.id).sort();
+assert.equal(weightedPulls.length, 3, "three catalog movements carry the weighted vertical pull prerequisite");
+const pullAnswer = (pullups10) => request({ movementConfirmations: {},
+  competencyAnswers: { ...request().competencyAnswers, pullups10 } });
+const pullProgram = (pullups10, seed) => Compiler.generateProgram(pullAnswer(pullups10), raw, seed);
+const pullSlot = (program) => program.value.days.flatMap((day) => day.slots).find((slot) => /vertical_pull/.test(slot.purposeId));
+const verticalBase = pullProgram(null, "pullups10-proof");
+assert.equal(verticalBase.ok, true, JSON.stringify(verticalBase.conflicts));
+const pullCandidates = (pullups10) => Compiler.findSubstitutions(verticalBase.value, pullSlot(verticalBase).id, {
+  gymProfile: { equipmentIds: gym.equipment.map((entry) => entry.equipmentId) },
+  movementConfirmations: {}, competencyAnswers: { pullups10 },
+}, raw).map((candidate) => candidate.exerciseId);
+assert.ok(weightedPulls.every((id) => pullCandidates(true).includes(id)),
+  "pullups10 = yes makes every weighted vertical pull an eligible substitute");
+assert.ok(weightedPulls.every((id) => !pullCandidates(null).includes(id) && !pullCandidates(false).includes(id)),
+  "pullups10 unanswered or no keeps the weighted vertical pulls behind their prerequisite");
+let pullChanged = 0, pullPicked = 0;
+for (const seed of ["a", "b", "c", "d", "e", "f", "g", "h"]) {
+  const unsure = pullProgram(null, `pullups10-${seed}`), yes = pullProgram(true, `pullups10-${seed}`);
+  assert.equal(unsure.ok && yes.ok, true);
+  const ids = (program) => program.value.days.flatMap((day) => day.slots.map((slot) => slot.exerciseId));
+  if (JSON.stringify(ids(unsure)) !== JSON.stringify(ids(yes))) pullChanged++;
+  if (ids(yes).some((id) => weightedPulls.includes(id))) pullPicked++;
+  assert.ok(!ids(unsure).some((id) => weightedPulls.includes(id)), "without the answer no weighted vertical pull is selected");
+}
+assert.ok(pullChanged > 0 && pullPicked > 0, `pullups10 = yes changes generated programs (${pullChanged}/8 changed, ${pullPicked}/8 pick a weighted pull)`);
 
 console.log("PASS Plan 067 program compiler algorithm contract");

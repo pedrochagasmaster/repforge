@@ -48,7 +48,8 @@ export function buildPlan(input, contract) {
   if (contract.getSchemaVersion() !== 1) fail('Review these recipes before using a new telemetry schema.');
   const names = contract.getEventNames();
   if (!names.length || names.some(name => !/^[a-z][a-z0-9_]*$/.test(name))) fail('Invalid product event taxonomy.');
-  for (const event of ['app_boot', 'program_activated', 'first_set_logged', 'set_saved', 'session_completed', 'session_abandoned', 'one_off_completed']) {
+  for (const event of ['app_boot', 'program_path_selected', 'program_activated', 'first_set_logged', 'set_saved', 'session_completed', 'session_abandoned', 'workout_discarded',
+    'onboarding_step_viewed', 'onboarding_step_completed', 'onboarding_step_back']) {
     if (!names.includes(event)) fail('Required schema-1 event missing; review the recipes.');
   }
   const from = timestamp(config.from), end = timestamp(config.asOf);
@@ -71,7 +72,7 @@ export function buildPlan(input, contract) {
     `SELECT event, count() AS events, countIf(coalesce(toString(properties.telemetry_schema_version), '') != '1') AS wrong_or_missing_schema,
 countIf(coalesce(toString(properties.app_version), '') = '') AS missing_version,
 countIf(coalesce(toString(properties.release_channel), '') = '') AS missing_channel,
-countIf(event IN ('set_saved', 'session_completed', 'session_abandoned', 'one_off_completed') AND coalesce(toString(properties.$session_id), '') = '') AS missing_session
+countIf(event IN ('set_saved', 'session_completed', 'session_abandoned', 'workout_discarded') AND coalesce(toString(properties.$session_id), '') = '') AS missing_session
 FROM events WHERE ${window} AND (${events} OR event NOT LIKE '$%') GROUP BY event ORDER BY events DESC LIMIT 500`);
   add('release-inventory', 'Release and channel inventory', 'Events; unfiltered label inventory. Missing labels, preview traffic and new versions must remain visible. No host or bot predicate.',
     `SELECT properties.telemetry_schema_version AS schema, properties.app_version AS app_version, properties.release_channel AS channel, count() AS events
@@ -94,20 +95,23 @@ FROM events WHERE ${window} AND ${strict} AND ${events} GROUP BY attribution, ev
   add('pilot-milestones', 'Confirmed pilot milestones', 'Independent event reach, NOT a conversion funnel. Empty pilot roster deliberately returns no data; do not substitute all non-internal traffic.',
     `SELECT event, count() AS events, count(DISTINCT distinct_id) AS installations
 FROM events WHERE ${eligible} AND ${events} GROUP BY event ORDER BY event LIMIT 500`);
-  add('session-outcomes', 'Saved-set session outcomes', 'Unit: installation + SDK session. Planned and one-off saved-set sessions, not the one-time milestone. Reloads may split SDK sessions; unresolved does not mean abandoned.',
+  add('session-outcomes', 'Saved-set session outcomes', 'Unit: installation + SDK session. Saved-set sessions, not the one-time milestone. Three terminals: completed, explicitly abandoned, discarded by a program edit. Reloads may split SDK sessions; unresolved does not mean abandoned.',
     `SELECT count() AS saved_set_sessions,
-countIf(completions = 1 AND abandonments = 0) AS completed,
-countIf(abandonments = 1 AND completions = 0) AS explicitly_abandoned,
-countIf(completions = 0 AND abandonments = 0) AS unresolved,
-countIf(completions > 1 OR abandonments > 1 OR (completions > 0 AND abandonments > 0)) AS duplicate_or_conflicting
+countIf(completions = 1 AND abandons = 0 AND discards = 0) AS completed,
+countIf(abandons = 1 AND completions = 0 AND discards = 0) AS explicitly_abandoned,
+countIf(discards = 1 AND completions = 0 AND abandons = 0) AS discarded,
+countIf(completions = 0 AND abandons = 0 AND discards = 0) AS unresolved,
+countIf(completions + abandons + discards > 1) AS duplicate_or_conflicting
 FROM (
 SELECT first_save, arrayCount(t -> t >= first_save, completion_times) AS completions,
-arrayCount(t -> t >= first_save, abandonment_times) AS abandonments
+arrayCount(t -> t >= first_save, abandon_times) AS abandons,
+arrayCount(t -> t >= first_save, discard_times) AS discards
 FROM (
 SELECT distinct_id, properties.$session_id AS sdk_session, minIf(timestamp, event = 'set_saved') AS first_save,
-groupArrayIf(timestamp, event IN ('session_completed', 'one_off_completed')) AS completion_times,
-groupArrayIf(timestamp, event = 'session_abandoned') AS abandonment_times
-FROM events WHERE ${eligible} AND event IN ('set_saved', 'session_completed', 'session_abandoned', 'one_off_completed')
+groupArrayIf(timestamp, event = 'session_completed') AS completion_times,
+groupArrayIf(timestamp, event = 'session_abandoned') AS abandon_times,
+groupArrayIf(timestamp, event = 'workout_discarded') AS discard_times
+FROM events WHERE ${eligible} AND event IN ('set_saved', 'session_completed', 'session_abandoned', 'workout_discarded')
 AND coalesce(toString(properties.$session_id), '') != ''
 GROUP BY distinct_id, sdk_session HAVING countIf(event = 'set_saved') > 0
 ))`);
@@ -139,6 +143,54 @@ groupArrayIf(tuple(timestamp, toString(properties.$session_id)), event = 'sessio
 FROM events WHERE ${eligible} AND (event = 'app_boot' OR (event = 'session_completed' AND coalesce(toString(properties.$session_id), '') != ''))
 GROUP BY distinct_id HAVING countIf(event = 'app_boot' AND properties.first_run = true) > 0 AND countIf(event = 'session_completed') > 0))`);
   }
+  // Plan 071: the onboarding funnel keyed by route and step id, never by screen
+  // position. Order steps by ProgramEntry.ROUTE_STEPS when reading these tables.
+  add('onboarding-steps', 'Onboarding step reach', 'Unit: installations per route and step id, plus back events. Steps are ids, not positions; order them by the route step list. Slow completions are the 3-10 min and over-10 min buckets.',
+    `SELECT toString(properties.route) AS route, toString(properties.step) AS step,
+uniqIf(distinct_id, event = 'onboarding_step_viewed') AS viewed_installations,
+uniqIf(distinct_id, event = 'onboarding_step_completed') AS completed_installations,
+countIf(event = 'onboarding_step_back') AS back_events,
+countIf(event = 'onboarding_step_completed' AND toString(properties.time_on_step) IN ('3_10m', 'over_10m')) AS slow_completions
+FROM events WHERE ${eligible} AND event IN ('onboarding_step_viewed', 'onboarding_step_completed', 'onboarding_step_back')
+GROUP BY route, step ORDER BY route, step LIMIT 500`);
+  add('onboarding-drop-off', 'Onboarding last step reached', 'Unit: installation. The last step each installation viewed and whether it activated. Only installations whose last view is 7+ days old are mature; a recent last view is pending, not a drop-off.',
+    `SELECT route, last_step, count() AS installations, countIf(activated) AS activated,
+countIf(mature AND NOT activated) AS dropped_mature, countIf(NOT mature AND NOT activated) AS pending
+FROM (SELECT argMaxIf(toString(properties.route), timestamp, event = 'onboarding_step_viewed') AS route,
+argMaxIf(toString(properties.step), timestamp, event = 'onboarding_step_viewed') AS last_step,
+countIf(event = 'program_activated') > 0 AS activated,
+maxIf(timestamp, event = 'onboarding_step_viewed') + INTERVAL 7 DAY <= ${end} AS mature
+FROM events WHERE ${eligible} AND event IN ('onboarding_step_viewed', 'program_activated')
+GROUP BY distinct_id HAVING countIf(event = 'onboarding_step_viewed') > 0)
+GROUP BY route, last_step ORDER BY installations DESC LIMIT 500`);
+  add('activation-by-route', 'Activation by route — 7 days', 'Unit: installation, attributed to its first selected route. Mature numerator and denominator only; selections under 7 days old are pending.',
+    `SELECT route, count() AS selected, countIf(mature) AS eligible_7d, countIf(mature AND activated) AS activated_7d,
+countIf(NOT mature) AS pending_7d, countIf(mature AND activated) / nullIf(countIf(mature), 0) AS activation_rate
+FROM (SELECT argMinIf(toString(properties.route), timestamp, event = 'program_path_selected') AS route,
+minIf(timestamp, event = 'program_path_selected') AS selected_at, selected_at + INTERVAL 7 DAY <= ${end} AS mature,
+arrayExists(t -> t >= selected_at AND t <= selected_at + INTERVAL 7 DAY, groupArrayIf(timestamp, event = 'program_activated')) AS activated
+FROM events WHERE ${eligible} AND event IN ('program_path_selected', 'program_activated')
+GROUP BY distinct_id HAVING countIf(event = 'program_path_selected') > 0)
+GROUP BY route ORDER BY route LIMIT 500`);
+  add('editor-reliance', 'Recommendation edits at activation', 'Unit: activation and installation. Generated routes only, by the bucketed change count against the recommendation. Activations from releases before the property are not_reported, not zero.',
+    `SELECT toString(properties.route) AS route, coalesce(toString(properties.review_changes), 'not_reported') AS review_changes,
+count() AS activations, count(DISTINCT distinct_id) AS installations
+FROM events WHERE ${eligible} AND event = 'program_activated' AND toString(properties.route) IN ('recommend', 'custom')
+GROUP BY route, review_changes ORDER BY route, review_changes LIMIT 500`);
+  add('retention-by-route', 'First-run-observed week-1 and week-4 training by route', 'Unit: installation with a witnessed first-run boot, by first activation route. Week 1: a completed session on a later date within 7 days. Week 4: one in days 22-28. Mature cohorts only.',
+    `SELECT route, countIf(mature_1) AS eligible_w1, countIf(mature_1 AND w1) AS trained_w1,
+countIf(mature_1 AND w1) / nullIf(countIf(mature_1), 0) AS w1_rate,
+countIf(mature_4) AS eligible_w4, countIf(mature_4 AND w4) AS trained_w4,
+countIf(mature_4 AND w4) / nullIf(countIf(mature_4), 0) AS w4_rate, countIf(NOT mature_4) AS pending_w4
+FROM (SELECT argMinIf(toString(properties.route), timestamp, event = 'program_activated') AS route,
+minIf(timestamp, event = 'program_activated') AS activated,
+activated + INTERVAL 7 DAY <= ${end} AS mature_1, activated + INTERVAL 28 DAY <= ${end} AS mature_4,
+groupArrayIf(timestamp, event = 'session_completed') AS completed,
+arrayExists(t -> toDate(t) > toDate(activated) AND t <= activated + INTERVAL 7 DAY, completed) AS w1,
+arrayExists(t -> t > activated + INTERVAL 21 DAY AND t <= activated + INTERVAL 28 DAY, completed) AS w4
+FROM events WHERE ${eligible} AND event IN ('app_boot', 'program_activated', 'session_completed')
+GROUP BY distinct_id HAVING countIf(event = 'app_boot' AND properties.first_run = true) > 0 AND countIf(event = 'program_activated') > 0)
+GROUP BY route ORDER BY route LIMIT 500`);
   return { recipeVersion: 1, projectId: config.projectId, timezone: config.timezone,
     from: config.from, asOf: config.asOf, appVersions: config.appVersions,
     rosterCounts: { internal: config.internalInstallationIds.length, confirmedPilot: config.pilotInstallationIds.length },

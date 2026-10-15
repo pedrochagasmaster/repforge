@@ -6,10 +6,30 @@
  * page through all 35 screens in order, so a single broken step silently
  * poisoned every frame after it.
  */
+import { readFileSync } from "node:fs";
 import { catalogState, directionDState, emptyEntryState, localeState } from "./fixtures.mjs";
 import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, seed, sleep } from "./session.mjs";
 import { definitionSlot, installGeneratedProgram, isWeightRepsSlot, metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
 import { DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID } from "./direction-d-canonical-fixture.generated.mjs";
+
+const WHY_DATA = new URL("../../plans/067/data/", import.meta.url);
+const WHY_GYM = JSON.parse(readFileSync(new URL("gym.json", WHY_DATA), "utf8"));
+const WHY_OBSERVATIONS = JSON.parse(readFileSync(new URL("programs.json", WHY_DATA), "utf8"));
+const WHY_CATALOG = JSON.parse(readFileSync(new URL("app_file.json", WHY_DATA), "utf8"));
+const WHY_OBSERVED_IDS = [...new Set(Object.values(WHY_OBSERVATIONS).flatMap((program) =>
+  program.days.flatMap((day) => day.exercises.map((entry) => entry.exerciseId))))];
+const WHY_REQUEST = {
+  goal: "hypertrophy", experience: "intermediate", daysPerWeek: 4, timeCeilingMinutes: 90,
+  gymProfile: { equipmentIds: WHY_GYM.equipment.map((entry) => entry.equipmentId) },
+  competencyAnswers: {
+    pullups10: null, pullups5: null, pushups15: null, inclineBarbell10: null,
+    overheadPress10: null, bodyweightDips10: null, benchPress10: null,
+  },
+  movementConfirmations: Object.fromEntries(WHY_OBSERVED_IDS.map((id) =>
+    [id, [...WHY_CATALOG.exercises.find((entry) => entry.id === id).preconditions]])),
+  emphasisMuscleIds: [], deprioritizedMuscleIds: [], excludedExerciseIds: [], excludedMuscleIds: [],
+  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 4, deloadCycles: [],
+};
 
 export function stabilizeShareUrlForCapture(value) {
   const url = new URL(String(value));
@@ -255,15 +275,21 @@ async function assertLibraryTabsFitExternalTextScale(page) {
   });
 }
 
+/** #317: a squat slot's chosen alternates, 45° leg press then hack squat. */
+const SQUAT_ALTERNATES = Object.freeze(["1a25c6f170d88079a926dde776766181", "1a25c6f170d88008a9adde9f71881c36"]);
 /** Catalog states built on the Direction D fixture; each R3 sub-slice adds its own. */
 const D_FIXTURE_STATES = new Set([
   "workout/focus", "workout/focus-glossary", "workout/correction", // R3c
+  "workout/deload-week", // Plan 072 S4: the deload cue in Focus
   "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions", // R3d
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", // R3d
   "workout/exercise-actions", // R3x: the redrawn sheet, on the lifter the drawing shows
+  "workout/swap-alternates", // #317: the swap picker leads with the squat slot's alternates
+  "workout/abandon", "workout/swap-reason", // Plan 071 §10: end-without-saving and the swap reason chips
   "history/list", "history/session", "history/edit-dirty", "history/edit-invalid", // R3j, R3j2
   "program/overview", // R3k
   "today/done", // R3x: the finished day, on the lifter whose Monday session is in the log
+  "today/deload-week", // Plan 072 S4: the deload cue in Today
   "today/draft-resume", // R3b2: the unfinished-session band, on the same lifter as Today
   "progress/overview", "progress/overview-baseline", "progress/overview-action", "progress/exercise-chart", // R3i
   "progress/strength", "progress/strength-current-block", "progress/strength-all-history", // R3i
@@ -276,7 +302,7 @@ const D_FIXTURE_STATES = new Set([
  */
 const DIRECTION_D_BEFORE_SESSION = new Set([
   "today/ready", "today/day-picker", "today/rest-bar", "today/draft-resume",
-  "workout/why-this-weight", "workout/why-in-session", "workout/why-manual",
+  "workout/why-this-weight", "workout/why-in-session",
   "workout/rest-running", "workout/rest-done",
 ]);
 function directionDBeforeSession() {
@@ -314,6 +340,8 @@ function directionDThroughSession(sessionId) {
  * state; `APP_ASOF` is the last day of the log the lifter has by then.
  */
 export const APP_CLOCK = {
+  "today/deload-week": CAPTURE_NOW,
+  "workout/deload-week": CAPTURE_NOW,
   "progress/overview-baseline": "2026-08-17T12:00:00.000Z",
   "progress/strength-comparison": "2026-08-19T12:00:00.000Z",
   "progress/strength-sparse": "2026-08-16T12:00:00.000Z",
@@ -328,6 +356,8 @@ export function appState(key, lang) {
   if (key === "today/no-program" || key === "program/no-program") {
     return emptyEntryState(lang);
   }
+  if (key === "history/per-side-session" || key === "workout/focus-per-side") return emptyEntryState(lang);
+  if (key === "workout/why-setup") return emptyEntryState(lang);
   if (DIRECTION_D_BEFORE_SESSION.has(key)) return localeState(directionDBeforeSession(), lang);
   if (DIRECTION_D_SUMMARY_SESSION[key]) return localeState(directionDThroughSession(DIRECTION_D_SUMMARY_SESSION[key]), lang);
   if (key.startsWith("progress/sibling-") || key === "progress/volume-reduction-preview" ||
@@ -338,6 +368,18 @@ export function appState(key, lang) {
   // the review page draws. Every other state keeps catalogState().
   if (D_FIXTURE_STATES.has(key)) {
     const drawn = localeState(directionDState(), lang);
+    if (key === "workout/swap-alternates") {
+      const slot = drawn.programMeta.programDefinition.days.flatMap((day) => day.slots).find((entry) => entry.id === "ex-sq");
+      slot.alternates = [...SQUAT_ALTERNATES];
+    }
+    if (key === "today/deload-week" || key === "workout/deload-week") {
+      const cycles = drawn.programMeta.programDefinition.cycles;
+      drawn.programMeta.programDefinition.deloadCycles = [cycles];
+      drawn.programMeta.mesocycleLengthWeeks = cycles;
+      drawn.programMeta.started = isoDaysAgo((cycles - 1) * 7);
+      drawn.programMeta.mesocycleStatus = "active";
+      drawn.log = drawn.log.filter(row => String(row.date) < CAPTURE_NOW.slice(0, 10));
+    }
     if (APP_ASOF[key]) drawn.log = drawn.log.filter((row) => row.date <= APP_ASOF[key]);
     return drawn;
   }
@@ -364,12 +406,17 @@ export function appState(key, lang) {
   // richer fixture so their progress and volume evidence remains meaningful.
   // The editor reads the canonical ProgramDefinition, not the flat `program`
   // projection, so both have to be narrowed together to the same two slots.
-  if (key === "program/progression-editor") {
+  if (key === "program/progression-editor" || key === "program/editor-alternates" || key === "program/editor-suggest-loads") {
     const kept = new Set(["seed-ex-1", "seed-ex-2"]);
     state.program = state.program.filter((exercise) => exercise.day !== "Day 1" || kept.has(exercise.id));
     for (const day of state.programMeta.programDefinition.days) {
       if (day.name === "Day 1") day.slots = day.slots.filter((slot) => kept.has(slot.id));
     }
+  }
+  if (key === "program/editor-alternates") {
+    const slot = state.programMeta.programDefinition.days.flatMap((day) => day.slots).find((entry) => entry.id === "seed-ex-1");
+    // The seed slot is itself a hack squat, so its list is leg press then a split squat.
+    slot.alternates = [SQUAT_ALTERNATES[0], "1a25c6f170d8809eb8a5e76ff245649d"];
   }
   return localeState(state, lang);
 }
@@ -474,6 +521,278 @@ async function openHistoryEditor(page) {
   await page.waitForSelector(".session--edit", { timeout: 20000 });
 }
 
+const PER_SIDE_READING_EXERCISES = Object.freeze({
+  unilateral: "1a55c6f170d88031b658c6e278a82a88",
+  bilateral: "1a05c6f170d8803ba48ec1443eab5978",
+});
+const PER_SIDE_LOAD_METRIC = "25a5c6f170d880e2990fc88146f7de56";
+const PER_SIDE_MODE_MISSING_EXERCISE = "3895c6f170d88002b51fdf96c7dc50e1";
+
+async function startExerciseChartViewportTracking(page) {
+  await page.evaluate(() => {
+    const events = [];
+    const active = new Map();
+    const seen = new WeakSet();
+    const round = value => Number.isFinite(value) ? Math.round(value * 100) / 100 : null;
+    const rect = element => {
+      if (!element) return null;
+      const box = element.getBoundingClientRect();
+      return { x: round(box.x), y: round(box.y), top: round(box.top), right: round(box.right),
+        bottom: round(box.bottom), left: round(box.left), width: round(box.width), height: round(box.height) };
+    };
+    const ownerFor = event => event.target === document || event.target === window
+      || event.target === document.scrollingElement ? "document" : event.target?.id || event.target?.tagName || "unknown";
+    const record = (kind, event) => {
+      if (seen.has(event)) return;
+      seen.add(event);
+      const owner = ownerFor(event);
+      if (kind === "scroll") active.set(owner, true);
+      else active.delete(owner);
+      events.push({ kind, owner, at: round(performance.now()), windowY: round(window.scrollY),
+        documentY: round(document.scrollingElement?.scrollTop || 0) });
+    };
+    const onScroll = event => record("scroll", event);
+    const onScrollEnd = event => record("scrollend", event);
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    document.addEventListener("scrollend", onScrollEnd, { capture: true, passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("scrollend", onScrollEnd, { passive: true });
+
+    const snapshot = () => {
+      const metric = document.querySelector('#exDetail [data-metric="e1rm"]');
+      const metricGroup = metric?.closest(".segpill");
+      const plot = document.querySelector("#exDetail .exchart__plot");
+      const readout = document.querySelector("#exDetail .exchart__readout");
+      const viewport = { width: round(document.documentElement.clientWidth), height: round(document.documentElement.clientHeight) };
+      const metricRect = rect(metricGroup), plotRect = rect(plot), readoutRect = rect(readout);
+      return {
+        route: { activeView: document.querySelector(".view.active")?.id || null,
+          exercise: document.querySelector("#exercise")?.classList.contains("exview--chart") || false,
+          pushing: document.body.classList.contains("is-pushing") },
+        scroll: { windowY: round(window.scrollY), documentY: round(document.scrollingElement?.scrollTop || 0) },
+        metricSelected: metric?.getAttribute("aria-pressed") === "true",
+        viewport,
+        geometry: { metricGroup: metricRect, plot: plotRect, readout: readoutRect,
+          plotWithinViewport: !!(plotRect && plotRect.top >= -1 && plotRect.bottom <= viewport.height + 1),
+          readoutWithinViewport: !!(readoutRect && readoutRect.top >= -1 && readoutRect.bottom <= viewport.height + 1) },
+      };
+    };
+    const tracker = {
+      events, active, snapshot, routeSettled: null, metricSettled: null, viewportDecision: null, settled: null, captured: null,
+      report: () => ({ routeSettled: tracker.routeSettled, metricSettled: tracker.metricSettled, viewportDecision: tracker.viewportDecision,
+        settled: tracker.settled, captured: tracker.captured || snapshot(),
+        pendingScrollOwners: [...active.keys()], scrollEventCount: events.length, scrollEvents: events }),
+      stop: () => {
+        document.removeEventListener("scroll", onScroll, true);
+        document.removeEventListener("scrollend", onScrollEnd, true);
+        window.removeEventListener("scroll", onScroll);
+        window.removeEventListener("scrollend", onScrollEnd);
+        delete window.__exerciseChartViewport;
+      },
+    };
+    window.__exerciseChartViewport = tracker;
+  });
+}
+
+async function waitForExerciseChartRoute(page) {
+  const result = await page.evaluate(() => new Promise(resolve => {
+    const tracker = window.__exerciseChartViewport;
+    const started = performance.now();
+    const timeoutMs = 10000;
+    let prior = "";
+    let stableFrames = 0;
+    let last = null;
+    const tick = () => {
+      last = tracker?.snapshot();
+      const routeReady = last?.route.activeView === "exercise" && last.route.exercise && !last.route.pushing;
+      const plotReady = !!last?.geometry.plot?.width && !!last.geometry.plot?.height;
+      const ready = !!tracker && routeReady && plotReady && tracker.active.size === 0;
+      const signature = ready ? JSON.stringify(last) : "";
+      stableFrames = ready && signature === prior ? stableFrames + 1 : ready ? 1 : 0;
+      prior = signature;
+      if (ready && stableFrames >= 3) {
+        tracker.routeSettled = { ...last, stableFrames, scrollEventCount: tracker.events.length,
+          scrollCompletion: tracker.events.length ? "scrollend" : "no-scroll" };
+        resolve({ ok: true, ...tracker.routeSettled });
+        return;
+      }
+      if (performance.now() - started >= timeoutMs) {
+        resolve({ ok: false, timeoutMs, snapshot: last,
+          activeOwners: [...(tracker?.active?.keys() || [])], scrollEvents: tracker?.events || [] });
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }));
+  if (!result?.ok) throw new Error(`Exercise route viewport did not settle: ${JSON.stringify(result)}`);
+  return result;
+}
+
+async function waitForExerciseChartMetric(page) {
+  const result = await page.evaluate(() => new Promise(resolve => {
+    const tracker = window.__exerciseChartViewport;
+    const started = performance.now();
+    const timeoutMs = 10000;
+    let prior = "";
+    let stableFrames = 0;
+    let last = null;
+    const tick = () => {
+      last = tracker?.snapshot();
+      const routeReady = last?.route.activeView === "exercise" && last.route.exercise && !last.route.pushing;
+      const metricReady = last?.metricSelected && !!last.geometry.plot?.width && !!last.geometry.readout?.width;
+      const ready = !!tracker && routeReady && metricReady && tracker.active.size === 0;
+      const signature = ready ? JSON.stringify(last) : "";
+      stableFrames = ready && signature === prior ? stableFrames + 1 : ready ? 1 : 0;
+      prior = signature;
+      if (ready && stableFrames >= 3) {
+        tracker.metricSettled = { ...last, stableFrames, scrollEventCount: tracker.events.length,
+          scrollCompletion: tracker.events.length ? "scrollend" : "no-scroll" };
+        resolve({ ok: true, ...tracker.metricSettled });
+        return;
+      }
+      if (performance.now() - started >= timeoutMs) {
+        resolve({ ok: false, timeoutMs, snapshot: last,
+          activeOwners: [...(tracker?.active?.keys() || [])], scrollEvents: tracker?.events || [] });
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }));
+  if (!result?.ok) throw new Error(`Exercise chart metric did not settle: ${JSON.stringify(result)}`);
+  return result;
+}
+
+async function waitForExerciseChartViewport(page, { chartFocused }) {
+  const result = await page.evaluate(({ chartFocused: expectFocusedChart }) => new Promise(resolve => {
+    const tracker = window.__exerciseChartViewport;
+    const started = performance.now();
+    const timeoutMs = 10000;
+    let prior = "";
+    let stableFrames = 0;
+    let last = null;
+    const tick = () => {
+      last = tracker?.snapshot();
+      const routeReady = last?.route.activeView === "exercise" && last.route.exercise && !last.route.pushing;
+      const groupReady = expectFocusedChart
+        ? Math.abs(last?.geometry.metricGroup?.top ?? Infinity) <= 1
+        : Math.abs(last?.scroll.windowY ?? Infinity) <= 1;
+      const chartReady = last?.metricSelected && !!last.geometry.plot?.width && !!last.geometry.plot?.height
+        && (!expectFocusedChart || (last.geometry.plotWithinViewport && last.geometry.readoutWithinViewport));
+      const ready = !!tracker && routeReady && groupReady && chartReady && tracker.active.size === 0;
+      const signature = ready ? JSON.stringify(last) : "";
+      stableFrames = ready && signature === prior ? stableFrames + 1 : ready ? 1 : 0;
+      prior = signature;
+      if (ready && stableFrames >= 3) {
+        tracker.settled = { ...last, stableFrames, scrollEventCount: tracker.events.length,
+          scrollCompletion: tracker.events.length ? "scrollend" : "no-scroll" };
+        resolve({ ok: true, ...tracker.settled });
+        return;
+      }
+      if (performance.now() - started >= timeoutMs) {
+        resolve({ ok: false, timeoutMs, snapshot: last,
+          activeOwners: [...(tracker?.active?.keys() || [])], scrollEvents: tracker?.events || [] });
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }), { chartFocused });
+  if (!result?.ok) throw new Error(`Exercise chart viewport did not settle: ${JSON.stringify(result)}`);
+  return result;
+}
+
+async function installPerSideHistory(page, { bodyweightAssumption = false } = {}) {
+  await page.waitForFunction(() => !!window.RepForgeExerciseCatalog?.snapshot?.() &&
+    typeof window.__repforgeFinalizeProgramSetup === "function", undefined, { timeout: 15000 });
+  const state = await page.evaluate(async ({ rowId, pressId }) => {
+    const catalog = window.RepForgeExerciseCatalog.snapshot();
+    const mapped = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+      desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: 2,
+      sessionMinutes: 90, environment: { kind: "commercial_gym" }, mustHaveExercises: [rowId, pressId],
+    }, catalog);
+    if (!mapped.ok) throw new Error(`Per-side catalog program request failed: ${JSON.stringify(mapped.conflicts)}`);
+    const generated = window.RepForgeProgramCompiler.generateProgram(mapped.value, catalog, "p069-s2-per-side-reading");
+    if (!generated.ok) throw new Error(`Per-side catalog program generation failed: ${JSON.stringify(generated.conflicts)}`);
+    await window.__repforgeFinalizeProgramSetup({
+      programDefinition: generated.value, name: "Per-side history", answers: {}, destination: "log",
+      origin: "first-run", draftConfirmed: true, telemetryRoute: "recommend",
+      entrySource: { route: "recommend", fingerprint: "p069-s2-per-side-reading" },
+    });
+    await window.__repforgeStorage.flush();
+    return JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+  }, { rowId: PER_SIDE_READING_EXERCISES.unilateral, pressId: PER_SIDE_READING_EXERCISES.bilateral });
+
+  const rows = state.program.filter(row => Object.values(PER_SIDE_READING_EXERCISES).includes(row.libraryId));
+  if (rows.length !== 2 || rows[0].day !== rows[1].day) {
+    throw new Error("Per-side catalog program did not place both readings on one day");
+  }
+  const rowFor = (programRow, session, date, values) => {
+    const slot = definitionSlot(state.programMeta, programRow);
+    const definitions = structuredClone(slot.metricDefinitions);
+    const useBodyweight = bodyweightAssumption && programRow.libraryId === PER_SIDE_READING_EXERCISES.bilateral;
+    const loadingConvention = slot.loadingModel?.loadingConvention ||
+      (definitions.some(metric => metric.semantic === "loadPerSideKg" || metric.semantic === "persistentLoadPerSideKg")
+        ? "per_side" : "external");
+    const externalLoadMultiplier = loadingConvention === "per_side" ? (useBodyweight ? 2 : null)
+      : loadingConvention === "bodyweight" ? 0 : 1;
+    return {
+      session, date, day: programRow.day, name: programRow.name, exerciseId: programRow.id,
+      slotId: programRow.slotId || programRow.id, set: 1, setIndex: 0,
+      load: values.loadKg ?? null, reps: values.reps ?? null, rir: 1,
+      notes: "", created: `${date}T12:00:00.000Z`, primary: programRow.primary, secondary: programRow.secondary,
+      performedName: programRow.name, performedPrimary: programRow.primary, performedSecondary: programRow.secondary,
+      metricIds: [...slot.metricIds], metricDefinitions: definitions, metricOrigin: slot.metricOrigin || "source_catalog",
+      metricValues: definitions.map(metric => ({ metricId: metric.id, value: values[metric.semantic], unit: metric.unit })),
+      equipmentId: null, ...(slot.loadingModel ? { loadingModel: structuredClone(slot.loadingModel) } : {}),
+      loadingConvention, ...(useBodyweight ? { bodyweight: 80 } : {}), loadingContext: {
+        bodyweightContributionEnabled: useBodyweight, externalLoadMultiplier,
+        bodyweightCoefficient: slot.loadingModel?.bodyweightCoefficient ?? null,
+        loadingConvention, bodyweightKg: useBodyweight ? 80 : null,
+      }, metricType: "source_metrics@1", restSeconds: null,
+      performedLibraryId: slot.exerciseId, sourceLibraryId: slot.exerciseId,
+      ...(state.programMeta.blockId ? { blockId: state.programMeta.blockId } : {}),
+    };
+  };
+  const earlierDate = isoDaysAgo(7), latestDate = isoDaysAgo(1);
+  const unilateral = rows.find(row => row.libraryId === PER_SIDE_READING_EXERCISES.unilateral);
+  const bilateral = rows.find(row => row.libraryId === PER_SIDE_READING_EXERCISES.bilateral);
+  state.programMeta.started = isoDaysAgo(21);
+  state.log = [
+    rowFor(unilateral, "per-side-history-earlier", earlierDate, { loadKg: 20, repsPerSide: 8 }),
+    rowFor(bilateral, "per-side-history-earlier", earlierDate, { loadPerSideKg: 25, repsPerSide: 8 }),
+    rowFor(unilateral, "per-side-history-latest", latestDate, { loadKg: 20, repsPerSide: 8 }),
+    rowFor(bilateral, "per-side-history-latest", latestDate, { loadPerSideKg: 27.5, repsPerSide: 8 }),
+  ];
+  const valid = await page.evaluate(snapshot => window.__repforgeValidateStateShape(snapshot), state);
+  if (!valid) {
+    const diagnostics = await page.evaluate(snapshot => snapshot.log.map(row => {
+      const definitions = window.RepForgeExerciseMetrics.validateDefinitions(row.metricIds, row.metricDefinitions);
+      const values = window.RepForgeExerciseMetrics.validateMetricValues(row.metricIds, row.metricValues);
+      const sourceBinding = window.RepForgeExerciseMetrics.validateExerciseSourceBinding({
+        metricOrigin: row.metricOrigin, metricIds: row.metricIds, metricDefinitions: row.metricDefinitions,
+        sourceId: row.sourceLibraryId, sourceExercise: window.RepForgeExerciseCatalog.snapshot().exercises.find(entry => entry.id === row.sourceLibraryId),
+        bodyweightCoefficient: row.loadingModel?.bodyweightCoefficient ?? null,
+      });
+      const loading = window.RepForgeWorkoutDraft.validateLoadingContext(row.loadingContext);
+      const load = row.metricDefinitions.find(metric => metric.semantic === "loadKg");
+      const reps = row.metricDefinitions.find(metric => metric.semantic === "reps");
+      return {
+        session: row.session,
+        definitionIssues: definitions.issues,
+        valueIssues: values.issues,
+        sourceIssues: sourceBinding.issues,
+        loadingIssues: loading.issues,
+        loadField: { actual: row.load, expected: load ? row.metricValues.find(value => value.metricId === load.id)?.value : null },
+        repsField: { actual: row.reps, expected: reps ? row.metricValues.find(value => value.metricId === reps.id)?.value : null },
+      };
+    }), state);
+    throw new Error(`Per-side history fixture fails the production state validator before seed: ${JSON.stringify(diagnostics)}`);
+  }
+  await seed(page, state);
+}
+
 async function openShare(page) {
   await openProgram(page);
   await page.click("#shareProgramSetup");
@@ -486,10 +805,10 @@ async function progressSegment(page, segment) {
   await sleep(page, 500);
 }
 
-async function completeCompiledProgram(page, { days = 4, minutes = 90 } = {}) {
+async function completeCompiledProgram(page, { days = 4, minutes = 90, edits = [] } = {}) {
   await page.waitForFunction(() => !!window.RepForgeExerciseCatalog?.snapshot?.() &&
     typeof window.__repforgeFinalizeProgramSetup === "function", undefined, { timeout: 15000 });
-  await page.evaluate(async ({ days, minutes }) => {
+  await page.evaluate(async ({ days, minutes, edits }) => {
     // Plan 067: the legacy services.compile()/programStructure/compilerContext path is
     // retired. A canonical ProgramDefinition now comes from the same generator the
     // Recommend route itself drives, finalized the same way `__repforgeFinalizeProgramSetup` expects.
@@ -500,6 +819,18 @@ async function completeCompiledProgram(page, { days = 4, minutes = 90 } = {}) {
     }, catalog).value;
     const generated = window.RepForgeProgramCompiler.generateProgram(request, catalog, "catalog-transition");
     if (!generated.ok) throw new Error(`catalog compiler failed: ${JSON.stringify(generated.conflicts || generated)}`);
+    // Block edits shaped as the installed editor writes them, so a Review
+    // regeneration has something to carry, clamp or drop.
+    const slots = generated.value.days.flatMap((day) => day.slots);
+    for (const edit of edits) {
+      const slot = slots.find((candidate) => new RegExp(edit.role).test(candidate.role));
+      const cycle = slot.prescriptionsByCycle.find((item) => item.cycleIndex === edit.week);
+      for (let added = 0; added < (edit.addSets || 0); added++) {
+        cycle.sets.push({ ...structuredClone(cycle.sets.at(-1)), id: `catalog-edit-${slot.id}-${cycle.sets.length + 1}`,
+          setIndex: cycle.sets.length + 1, rir: null, status: "manual", provenance: { source: "manual", policyVersion: "manual@1" } });
+      }
+      if (edit.restSeconds) for (const set of cycle.sets) { set.restSeconds = edit.restSeconds; set.status = "manual"; }
+    }
     const finalized = await window.__repforgeFinalizeProgramSetup({
       programDefinition: generated.value, name: "Catalog transition program",
       answers: {}, destination: "log", origin: "first-run",
@@ -526,7 +857,7 @@ async function completeCompiledProgram(page, { days = 4, minutes = 90 } = {}) {
     const committed = await window.__repforgeCommitProposedState(state);
     if (!(committed?.localOk || committed?.idbOk)) throw new Error("catalog completion failed");
     await window.__repforgeStorage.flush();
-  }, { days, minutes });
+  }, { days, minutes, edits });
   // The direct commit seam updates durable state and the in-memory owner,
   // but the capture is proving the post-boot surface. Reload so the
   // transition frames cannot depend on which view happened to be active
@@ -547,7 +878,9 @@ async function openScheduleDiagnosis(page) {
 }
 
 async function openSiblingPreview(page, kind) {
-  await completeCompiledProgram(page);
+  await completeCompiledProgram(page, { edits: kind === "sessions_too_long"
+    ? [{ role: "Accessory$", week: 1, addSets: 20 }, { role: "PrimaryCompound$", week: 1, restSeconds: 3600 }]
+    : [{ role: "PrimaryCompound$", week: 2, addSets: 1 }] });
   await openScheduleDiagnosis(page);
   if (kind === "sessions_too_long") await page.click('[data-diag="sessions_too_long"]');
   await page.fill("[data-diag-target]", kind === "sessions_too_long" ? "60" : "3");
@@ -637,6 +970,19 @@ async function openSettings(page, anchor) {
 
 async function resetSheetScroll(page, selector) {
   await page.locator(selector).evaluate((element) => { element.scrollTop = 0; });
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+}
+
+/**
+ * Pin a sheet's scroll to its end rather than its start: a frame that must
+ * show an element near the bottom (the busy delete/archive button) needs a
+ * fixed *maximum* scrollTop, not zero. Wait for web fonts first — the form's
+ * scrollHeight shifts as chip rows and labels finish laying out, and reading
+ * scrollHeight before that settles reproduces the same race this is fixing.
+ */
+async function pinSheetScrollToEnd(page, selector) {
+  await page.evaluate(() => document.fonts.ready);
+  await page.locator(selector).evaluate((element) => { element.scrollTop = element.scrollHeight - element.clientHeight; });
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 }
 
@@ -770,6 +1116,370 @@ function whyOnMixedDay(exerciseId, leads) {
   };
 }
 
+async function startWhyViewportTracking(page, exerciseId, index) {
+  await page.evaluate(({ id, index }) => {
+    const contexts = new Set();
+    const events = [];
+    const active = new Map();
+    const seen = new WeakSet();
+    const round = value => Number.isFinite(value) ? Math.round(value * 100) / 100 : null;
+    const rect = element => {
+      if (!element) return null;
+      const box = element.getBoundingClientRect();
+      return { x: round(box.x), y: round(box.y), top: round(box.top), right: round(box.right),
+        bottom: round(box.bottom), left: round(box.left), width: round(box.width), height: round(box.height) };
+    };
+    const ownerName = owner => {
+      if (owner === document || owner === window || owner === document.scrollingElement) return "document";
+      if (owner?.classList?.contains("fcard__context")) {
+        const article = owner.closest(".exercise");
+        return `focus-context:${article?.dataset.ex || article?.dataset.peek || "unknown"}`;
+      }
+      return owner?.id ? `#${owner.id}` : owner?.tagName?.toLowerCase() || "unknown";
+    };
+    const ownerOffset = owner => {
+      const element = owner === document || owner === window ? document.scrollingElement : owner;
+      return { owner: ownerName(owner), top: round(element ? element.scrollTop : window.scrollY),
+        left: round(element ? element.scrollLeft : window.scrollX), rect: rect(element) };
+    };
+    const scrollOwner = event => event.target === document || event.target === window
+      ? document.scrollingElement : event.target;
+    const record = (kind, event) => {
+      if (seen.has(event)) return;
+      seen.add(event);
+      const owner = scrollOwner(event);
+      if (kind === "scroll") active.set(owner, true);
+      else active.delete(owner);
+      events.push({ kind, at: round(performance.now()), ...ownerOffset(owner),
+        activeOwners: [...active.keys()].map(ownerName) });
+    };
+    const onScroll = event => record("scroll", event);
+    const onScrollEnd = event => record("scrollend", event);
+    const attachTargetContext = () => {
+      for (const context of document.querySelectorAll("#workout .exercise .fcard__context")) {
+        const article = context.closest(".exercise");
+        if (article?.dataset.ex !== id && article?.dataset.peek !== id) continue;
+        if (contexts.has(context)) continue;
+        contexts.add(context);
+        context.addEventListener("scroll", onScroll, { passive: true });
+        context.addEventListener("scrollend", onScrollEnd, { passive: true });
+      }
+    };
+    const observer = new MutationObserver(attachTargetContext);
+    observer.observe(document.documentElement, { subtree: true, childList: true });
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    document.addEventListener("scrollend", onScrollEnd, { capture: true, passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("scrollend", onScrollEnd, { passive: true });
+
+    const snapshot = () => {
+      const current = document.querySelector("#workout.is-focus .exercise.is-current");
+      const context = current?.querySelector(".fcard__context");
+      const button = current?.querySelector("[data-why]");
+      const shell = document.querySelector("#workoutShell");
+      const contextRect = rect(context), buttonRect = rect(button);
+      return {
+        selectedExerciseId: current?.dataset.ex || null,
+        focus: document.querySelector("#workout")?.classList.contains("is-focus") || false,
+        route: {
+          bodyClass: document.body.className,
+          activeView: document.querySelector(".view.active")?.id || null,
+          shell: rect(shell), shellClass: shell?.className || null,
+        },
+        scroll: {
+          windowY: round(window.scrollY), windowX: round(window.scrollX),
+          documentY: round(document.scrollingElement?.scrollTop || 0),
+          logY: round(document.querySelector("#log")?.scrollTop || 0),
+          shellY: round(document.querySelector("#workoutShell")?.scrollTop || 0),
+          workoutY: round(document.querySelector("#workout")?.scrollTop || 0),
+          contextY: round(context?.scrollTop || 0),
+        },
+        geometry: {
+          article: rect(current), context: contextRect, heading: rect(current?.querySelector(".fx-head")),
+          cue: rect(current?.querySelector(".fx-cue")), why: buttonRect,
+          whyInsideContext: !!(buttonRect && contextRect && buttonRect.top >= contextRect.top - 1
+            && buttonRect.bottom <= contextRect.bottom + 1 && buttonRect.left >= contextRect.left - 1
+            && buttonRect.right <= contextRect.right + 1 && buttonRect.top >= 0
+            && buttonRect.bottom <= document.documentElement.clientHeight),
+          deckClass: document.querySelector("#focusDeck")?.className || null,
+          trackClass: document.querySelector("#focusTrack")?.className || null,
+          trackTransform: getComputedStyle(document.querySelector("#focusTrack") || document.body).transform,
+          whySheetOpen: document.querySelector("#whySheet")?.classList.contains("is-open") || false,
+        },
+      };
+    };
+    const tracker = {
+      exerciseId: id, navigationIndex: index, events, active, contexts,
+      beforeClick: null, afterSheet: null, captured: null,
+      snapshot,
+      report: () => ({
+        exerciseId: id,
+        navigation: index === 0 ? "first-focus-exercise" : "focus-progress-segment",
+        navigationIndex: index,
+        beforeClick: tracker.beforeClick,
+        afterSheet: tracker.afterSheet,
+        captured: tracker.captured || snapshot(),
+        globalOwners: ["document", "window"],
+        pendingScrollOwners: [...active.keys()].map(ownerName),
+        scrollEventCount: events.length,
+        scrollEvents: events,
+        trackedOwners: [...contexts].map(ownerName),
+      }),
+      stop: () => {
+        observer.disconnect();
+        document.removeEventListener("scroll", onScroll, true);
+        document.removeEventListener("scrollend", onScrollEnd, true);
+        window.removeEventListener("scroll", onScroll);
+        window.removeEventListener("scrollend", onScrollEnd);
+        for (const context of contexts) {
+          context.removeEventListener("scroll", onScroll);
+          context.removeEventListener("scrollend", onScrollEnd);
+        }
+        delete window.__whyCatalogViewport;
+      },
+    };
+    window.__whyCatalogViewport = tracker;
+    attachTargetContext();
+  }, { id: exerciseId, index });
+}
+
+async function waitForWhyViewport(page, exerciseId, phase) {
+  const result = await page.evaluate(({ id, phase: targetPhase }) => new Promise((resolve) => {
+    const tracker = window.__whyCatalogViewport;
+    const started = performance.now();
+    const timeoutMs = 10000;
+    const workoutRect = () => {
+      const element = document.querySelector("#workout");
+      if (!element) return null;
+      const box = element.getBoundingClientRect();
+      return { x: box.x, y: box.y, width: box.width, height: box.height };
+    };
+    let prior = "";
+    let stableFrames = 0;
+    let last = null;
+    const tick = () => {
+      last = tracker?.snapshot();
+      const current = document.querySelector("#workout.is-focus .exercise.is-current");
+      const track = document.querySelector("#focusTrack");
+      const deck = document.querySelector("#focusDeck");
+      const shell = document.querySelector("#workoutShell");
+      const workoutBounds = workoutRect();
+      const selected = current?.dataset.ex === id;
+      const sheetOpen = document.querySelector("#whySheet")?.classList.contains("is-open") || false;
+      const viewportVisible = targetPhase !== "beforeClick" || last?.geometry?.whyInsideContext;
+      const targetGeometry = last?.geometry?.why?.width > 0 && last?.geometry?.why?.height > 0;
+      const routeSettled = !document.body.classList.contains("is-pushing")
+        && !shell?.classList.contains("is-push-over") && Math.abs(workoutBounds?.x ?? Infinity) < 1;
+      const ready = !!tracker && selected && targetGeometry && routeSettled
+        && tracker.active.size === 0 && viewportVisible
+        && !track?.classList.contains("is-settling") && !deck?.classList.contains("is-swiping")
+        && (targetPhase !== "afterSheet" || sheetOpen);
+      const signature = ready ? JSON.stringify(last) : "";
+      stableFrames = ready && signature === prior ? stableFrames + 1 : ready ? 1 : 0;
+      prior = signature;
+      if (ready && stableFrames >= 3) {
+        const completion = tracker.events.length ? "scrollend" : "no-scroll";
+        const settled = { ...last, scrollCompletion: completion, scrollEventCount: tracker.events.length, stableFrames };
+        if (targetPhase === "beforeClick") tracker.beforeClick = settled;
+        else if (targetPhase === "afterSheet") tracker.afterSheet = settled;
+        resolve({ ok: true, ...settled });
+        return;
+      }
+      if (performance.now() - started >= timeoutMs) {
+        resolve({ ok: false, phase: targetPhase, timeoutMs, snapshot: last,
+          activeOwners: [...(tracker?.active?.keys() || [])].map(owner => {
+            if (owner === document.scrollingElement) return "document";
+            const article = owner?.closest?.(".exercise");
+            return article ? `focus-context:${article.dataset.ex || article.dataset.peek || "unknown"}` : owner?.id || owner?.tagName || "unknown";
+          }), scrollEvents: tracker?.events || [] });
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }), { id: exerciseId, phase });
+  if (!result?.ok) throw new Error(`Why capture ${phase} did not settle: ${JSON.stringify(result)}`);
+  return result;
+}
+
+async function whyViewportOperation(page, label, operation) {
+  try {
+    return await operation();
+  } catch (error) {
+    const geometry = await page.evaluate(() => {
+      const tracker = window.__whyCatalogViewport;
+      if (tracker) return tracker.report();
+      const describe = element => {
+        if (!element) return null;
+        const box = element.getBoundingClientRect();
+        return { className: element.className, x: box.x, y: box.y, width: box.width, height: box.height };
+      };
+      return { bodyClass: document.body.className, activeView: document.querySelector(".view.active")?.id || null,
+        scroll: { windowY: window.scrollY, documentY: document.scrollingElement?.scrollTop || 0 },
+        workout: describe(document.querySelector("#workout")), shell: describe(document.querySelector("#workoutShell")),
+        current: describe(document.querySelector("#workout .exercise.is-current")) };
+    }).catch(() => ({ unavailable: true }));
+    throw new Error(`${label}: ${JSON.stringify(geometry)}`, { cause: error });
+  }
+}
+
+async function navigateToWhy(page, { exerciseId, day, index = 0 }) {
+  await startWhyViewportTracking(page, exerciseId, index);
+  await page.evaluate((targetDay) => window.__repforgeEnterWorkout({ day: targetDay }), day);
+  await whyViewportOperation(page, "Focus did not mount for Why capture", () =>
+    page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 10000 }));
+  if (index > 0) {
+    await whyViewportOperation(page, `Focus progress did not select ${exerciseId}`, () =>
+      page.locator(`#woProgress [data-focusgo="${index}"]`).click({ timeout: 10000 }));
+  }
+  await waitForWhyViewport(page, exerciseId, "selected");
+  const why = page.locator(`#workout .exercise.is-current[data-ex="${exerciseId}"] [data-why]`);
+  await whyViewportOperation(page, `Why control did not reach the viewport for ${exerciseId}`,
+    () => why.scrollIntoViewIfNeeded({ timeout: 10000 }));
+  await waitForWhyViewport(page, exerciseId, "beforeClick");
+  await whyViewportOperation(page, `Why sheet did not open for ${exerciseId}`, async () => {
+    await why.click({ timeout: 10000 });
+    await page.waitForSelector("#whySheet.is-open", { timeout: 10000 });
+  });
+  await waitForWhyViewport(page, exerciseId, "afterSheet");
+}
+
+async function whyOnBuildRange(page) {
+  const row = catalogState().program[0];
+  await navigateToWhy(page, { exerciseId: row.id, day: row.day });
+  await expectWhyLeads(page, ["manual"]);
+  const text = await page.locator("#whyBody .whysheet__text").textContent();
+  const expected = await page.evaluate(() => window.RepForgeI18n.t("why.manual"));
+  if (text?.trim() !== expected) throw new Error(`The Build-backed manual Why sentence was ${JSON.stringify(text)}`);
+}
+
+async function whyOnGeneratedPerSide(page) {
+  const target = await page.evaluate(async (request) => {
+    const catalog = window.RepForgeExerciseCatalog.snapshot();
+    const generated = window.RepForgeProgramCompiler.generateProgram(request,
+      catalog, "why-sheet-067");
+    if (!generated.ok) throw new Error(`generation failed: ${JSON.stringify(generated.conflicts || generated)}`);
+    const definition = generated.value;
+    const perSide = definition.days.filter((day) => day.kind === "training").flatMap((day) =>
+      day.slots.map((slot) => ({ day, slot }))).find(({ slot }) =>
+      slot.metricDefinitions.some((metric) => metric.semantic === "loadPerSideKg") &&
+      slot.metricDefinitions.some((metric) => metric.semantic === "repsPerSide"));
+    if (!perSide) return null;
+    const source = catalog.exercises.find((entry) => entry.id === "3895c6f170d88002b51fdf96c7dc50e1");
+    const metrics = window.RepForgeExerciseMetrics.definitionsForIds(source?.exerciseMetrics || []);
+    if (!source || !metrics?.ok) throw new Error("The ambiguous per-side catalog source or its canonical metric definitions are unavailable");
+    perSide.slot.exerciseId = source.id;
+    perSide.slot.sourceExerciseIds = [source.id];
+    perSide.slot.exerciseTypeId = source.exerciseType;
+    perSide.slot.displayName = source.name;
+    perSide.slot.musclePurposeIds = [...source.primaryFeatureMuscle];
+    perSide.slot.movementPatternIds = [...source.movementPattern];
+    perSide.slot.metricIds = [...source.exerciseMetrics];
+    perSide.slot.metricDefinitions = metrics.value;
+    perSide.slot.metricOrigin = "source_catalog";
+    perSide.slot.lateralityIds = [...source.laterality];
+    perSide.slot.executionMode = null;
+    perSide.slot.loadingModel = { ...perSide.slot.loadingModel, bodyweightCoefficient: source.bodyweight };
+    for (const cycle of perSide.slot.prescriptionsByCycle) {
+      for (const set of cycle.sets) {
+        set.targets = { repsPerSide: { min: 6, max: 10 }, loadPerSideKg: { min: 20, max: 35 } };
+      }
+    }
+    const valid = window.RepForgeProgramCompiler.validateProgramDefinition(definition, catalog, []);
+    if (!valid.ok) throw new Error(`The unknown-mode generated slot is invalid: ${JSON.stringify(valid.issues)}`);
+    await window.__repforgeFinalizeProgramSetup({
+      programDefinition: definition, name: "Why setup proof", answers: {}, destination: "log", origin: "first-run",
+      draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: "why-sheet-067" },
+    });
+    await window.__repforgeStorage.flush();
+    const program = JSON.parse(localStorage.getItem("repforge_v1") || "{}").program || [];
+    const row = program.find((candidate) => candidate.slotId === perSide.slot.id);
+    const dayRows = program.filter((candidate) => candidate.day === perSide.day.name);
+    return row && { id: row.id, day: perSide.day.name, mode: perSide.slot.executionMode,
+      sourceId: source.id,
+      index: dayRows.findIndex((candidate) => candidate.id === row.id) };
+  }, WHY_REQUEST);
+  if (!target || target.mode !== null || target.sourceId !== PER_SIDE_MODE_MISSING_EXERCISE)
+    throw new Error(`The generated per-side fixture does not have a genuinely missing mode: ${JSON.stringify(target)}`);
+  await page.waitForFunction(() => {
+    const toast = document.querySelector("#toast");
+    return !toast || toast.classList.contains("hidden");
+  }, undefined, { timeout: 10000 });
+  await navigateToWhy(page, { exerciseId: target.id, day: target.day, index: target.index });
+  const truth = await page.evaluate((id) => {
+    const ex = window.__repforgeProgression.programSlot(id);
+    const rec = window.__repforgeProgression.recommendation(ex);
+    return { status: rec.status, reasonCodes: rec.reasonCodes, load: rec.load };
+  }, target.id);
+  if (truth.status !== "configuration_required" || !truth.reasonCodes?.includes("execution_context_required") || truth.load != null)
+    throw new Error(`The ambiguous generated slot lost its execution-mode requirement or acquired a load: ${JSON.stringify(truth)}`);
+  await expectWhyLeads(page, ["setup"]);
+  const text = await page.locator("#whyBody .whysheet__text").textContent();
+  const expected = await page.evaluate(() => window.RepForgeI18n.t("why.setup.execution_mode"));
+  if (text?.trim() !== expected) throw new Error(`The generated per-side Why sentence was ${JSON.stringify(text)}`);
+}
+
+async function focusPerSideTarget(page) {
+  await installPerSideHistory(page, { bodyweightAssumption: true });
+  const row = await page.evaluate((libraryId) => {
+    const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+    return state.program?.find((entry) => entry.libraryId === libraryId) || null;
+  }, PER_SIDE_READING_EXERCISES.bilateral);
+  if (!row) throw new Error("The generated program has no bilateral per-side press row");
+  await page.evaluate((id) => window.__repforgeGoToLogExercise(id), row.id);
+  await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 15000 });
+  await page.waitForFunction((id) => document.querySelector("#workout .exercise.is-current")?.dataset.ex === id,
+    row.id, { timeout: 15000 });
+  const result = await page.evaluate(({ id, loadMetricId }) => {
+    const exercise = window.__repforgeProgression.programSlot(id);
+    const recommendation = window.__repforgeProgression.recommendation(exercise);
+    const target = recommendation.targetSets?.find(item => item.prescription?.setIndex === 1)?.result;
+    const input = document.querySelector(`#workout .exercise.is-current input[data-metric-id="${loadMetricId}"]`);
+    return {
+      engineStatus: recommendation.engineStatus,
+      targetLoad: target?.targets?.loadPerSideKg,
+      prefillsPerSide: Number(input?.value) === target?.targets?.loadPerSideKg,
+      assumptions: target?.loadingAssumptions,
+      slotMode: exercise.executionMode,
+    };
+  }, { id: row.id, loadMetricId: PER_SIDE_LOAD_METRIC });
+  if (result.engineStatus !== "recommended" || !(result.targetLoad > 0) || !result.prefillsPerSide
+    || result.assumptions?.externalLoadMultiplier !== 2 || !(result.assumptions?.bodyweightContributionKg > 0)) {
+    throw new Error(`The generated Focus fixture does not show its per-side target and bodyweight assumption: ${JSON.stringify(result)}`);
+  }
+  const presentation = await page.evaluate((metricId) => {
+    const field = document.querySelector(`#workout .exercise.is-current [data-metric="${metricId}"]`);
+    const label = field?.querySelector(".shelf__lab")?.textContent?.trim() || "";
+    return {
+      fieldText: field?.textContent?.trim() || "",
+      label,
+      whyOpen: document.querySelector("#whySheet")?.classList.contains("is-open") || false,
+    };
+  }, PER_SIDE_LOAD_METRIC);
+  const expectedLabel = await page.evaluate(() => window.RepForgeI18n.t("focus.metric.load_per_side_kg"));
+  if (!presentation.fieldText.includes(String(result.targetLoad)) || !presentation.label.startsWith(expectedLabel) || presentation.whyOpen) {
+    throw new Error(`The ordinary Focus state does not show its per-side prefill and label without opening Why: ${JSON.stringify({ result, presentation, expectedLabel })}`);
+  }
+}
+
+async function whyPerSideAssumption(page) {
+  await focusPerSideTarget(page);
+  await page.locator(`#workout .exercise.is-current [data-why]`).click();
+  await page.waitForSelector("#whySheet.is-open", { timeout: 10000 });
+  const text = await page.locator("#whyBody").innerText();
+  const lang = await page.locator("html").getAttribute("lang");
+  const localizedAssumption = lang.toLowerCase().startsWith("pt")
+    ? "por lado × 2" : "per side × 2";
+  const localizedAnchor = lang.toLowerCase().startsWith("pt")
+    ? "mais recentemente com 27,5 kg por lado" : "last at 27.5 kg per side";
+  if (!text.includes(localizedAssumption) || !/3[,.]04/.test(text)
+    || !text.includes(localizedAnchor)
+    || !(lang.toLowerCase().startsWith("pt") ? text.includes("peso corporal") : text.includes("bodyweight"))) {
+    throw new Error(`The rendered Why sheet omits the approved per-side anchor or multiplier/bodyweight assumption: ${JSON.stringify({ text, lang })}`);
+  }
+  await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions"]);
+}
+
 export const APP_SCENARIOS = {
   "catalog-recovery/unavailable": reloadWithUnavailableExerciseCatalog,
   "catalog-recovery/retry-failed": async page => {
@@ -788,6 +1498,12 @@ export const APP_SCENARIOS = {
     if (!state.open || !state.retryEnabled || state.booted) throw new Error(`Failed retry lost its recovery path: ${JSON.stringify(state)}`);
   },
   "today/no-program": async (page) => { await dismissChrome(page); await sleep(page, 300); },
+  "today/deload-week": async page => {
+    const note = page.locator("#todayProgram .today-prog__deload");
+    await note.waitFor({ state: "visible", timeout: 20000 });
+    const copy = await page.evaluate(() => window.RepForgeI18n.t("today.deload_week"));
+    if ((await note.innerText()).trim() !== copy) throw new Error("Today shows the wrong deload recovery note");
+  },
   "today/ready": async (page) => {
     await dismissChrome(page);
     const rows = page.locator("#todayExList .rxrow");
@@ -932,6 +1648,18 @@ export const APP_SCENARIOS = {
   },
 
   "workout/focus": focusMode,
+  "workout/focus-per-side": focusPerSideTarget,
+  "workout/why-per-side": whyPerSideAssumption,
+  "workout/deload-week": async page => {
+    await page.click("#startWorkout");
+    await page.locator("#workoutShell").waitFor({ state: "visible", timeout: 20000 });
+    const cue = await page.locator("#woDaySub").evaluate(node => ({
+      visible: getComputedStyle(node).display !== "none" && getComputedStyle(node).visibility !== "hidden",
+      text: node.textContent.trim(),
+    }));
+    const copy = await page.evaluate(() => window.RepForgeI18n.t("today.deload_week"));
+    if (!cue.visible || cue.text !== copy) throw new Error(`Focus deload note is missing: ${JSON.stringify(cue)}`);
+  },
   "workout/focus-glossary": async (page) => {
     await focusMode(page);
     const term = page.locator("#workout [data-term]").first();
@@ -943,6 +1671,15 @@ export const APP_SCENARIOS = {
   },
   "workout/session": async page => { await focusMode(page); await page.click("#sessionSheetBtn"); await resetSheetScroll(page, ".session-sheet__body"); },
   "workout/early-finish": async page => { await focusMode(page); await logCurrentSet(page); await page.click("#sessionSheetBtn"); await page.click("#sessionEarlyFinish"); await resetSheetScroll(page, ".session-sheet__body"); await resetSheetScroll(page, "#sessionEarlySection"); },
+  "workout/abandon": async page => {
+    await focusMode(page);
+    await logCurrentSet(page);
+    await page.click("#sessionSheetBtn");
+    await page.click("#sessionAbandon");
+    await page.locator('#sessionAbandonReasons [data-abandon-reason="time"]').click();
+    await resetSheetScroll(page, ".session-sheet__body");
+    await resetSheetScroll(page, "#sessionEarlySection");
+  },
   "workout/exercise-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await resetSheetScroll(page, ".exactions-sheet__body"); },
   "workout/skipped-actions": async page => {
     await focusMode(page);
@@ -963,6 +1700,22 @@ export const APP_SCENARIOS = {
     await page.locator("#exPickSheet").waitFor({state:"hidden"});
     await page.locator("#woOverflowBtn").click();
     await resetSheetScroll(page, ".exactions-sheet__body");
+  },
+  "workout/swap-alternates": async page => {
+    await focusMode(page);
+    await page.locator("#woOverflowBtn").click();
+    await page.locator("#exActionSubstBtn").click();
+    await page.locator("#exPickSheet.is-open .pick__section").first().waitFor();
+    await sleep(page, 400);
+  },
+  "workout/swap-reason": async page => {
+    await focusMode(page);
+    await page.locator("#woOverflowBtn").click();
+    await page.locator("#exActionSubstBtn").click();
+    await page.locator("#exPickSheet.is-open .pick__section").first().waitFor();
+    await page.locator('#exPickReasons [data-pick-reason="crowded"]').click();
+    await resetSheetScroll(page, "#exPickList");
+    await sleep(page, 400);
   },
   "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, ".exactions-sheet__body"); },
   "workout/reorder": async page => {
@@ -1111,7 +1864,8 @@ export const APP_SCENARIOS = {
     await sleep(page, 400);
     await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions"]);
   },
-  "workout/why-manual": whyOnMixedDay("ex-cp", ["manual"]),
+  "workout/why-manual": whyOnBuildRange,
+  "workout/why-setup": whyOnGeneratedPerSide,
 
   "session/summary": async (page) => {
     await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary"]);
@@ -1134,16 +1888,58 @@ export const APP_SCENARIOS = {
   "progress/overview-baseline": (page) => view(page, "stats"),
   "progress/overview-action": (page) => view(page, "stats"),
   "progress/exercise-chart": async (page) => {
+    await installPerSideHistory(page);
     await view(page, "stats");
-    const evkey = `library:${DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID.sq_bb}`;
+    await startExerciseChartViewportTracking(page);
+    const evkey = `library:${PER_SIDE_READING_EXERCISES.bilateral}`;
     await page.evaluate((key) => window.openExerciseView(key, "stats"), evkey);
     await page.waitForSelector("#exercise.view.active .exchart__plot", { timeout: 20000 });
-    await sleep(page, 500);
+    await waitForExerciseChartRoute(page);
+    await page.locator('#exDetail [data-metric="e1rm"]').click();
+    await page.waitForSelector("#exDetail .exchart__readout", { timeout: 20000 });
+    await waitForExerciseChartMetric(page);
+    const chartFocused = await page.evaluate(() => {
+      const tracker = window.__exerciseChartViewport;
+      if (!tracker) throw new Error("The chart viewport tracker was not installed");
+      const snapshot = tracker.snapshot();
+      const textScale = Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+      const groupTop = snapshot.geometry.metricGroup?.top ?? null;
+      const shifted = rect => rect && groupTop != null
+        ? { top: rect.top - groupTop, bottom: rect.bottom - groupTop } : null;
+      const plot = shifted(snapshot.geometry.plot), readout = shifted(snapshot.geometry.readout);
+      const alignedChartFits = !!plot && !!readout
+        && plot.top >= -1 && plot.bottom <= snapshot.viewport.height + 1
+        && readout.top >= -1 && readout.bottom <= snapshot.viewport.height + 1;
+      const chartFits = textScale >= 32 && alignedChartFits;
+      tracker.viewportDecision = { textScale, viewportHeight: snapshot.viewport.height, metricGroupTop: groupTop,
+        chartAfterAlignment: { plot, readout }, focusChart: chartFits,
+        reason: chartFits ? "aligned chart and readout fit"
+          : textScale < 32 ? "keep the established route-top framing at this text scale"
+            : "alignment would clip chart or readout" };
+      return chartFits;
+    });
+    if (chartFocused) {
+      await page.locator('#exDetail [data-metric="e1rm"]').evaluate(button => {
+        const group = button.closest(".segpill");
+        if (!group) throw new Error("The e1RM metric has no chart toggle group");
+        window.scrollTo({ top: window.scrollY + group.getBoundingClientRect().top, behavior: "instant" });
+      });
+    } else {
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+    }
+    await waitForExerciseChartViewport(page, { chartFocused });
   },
   "progress/strength": (page) => progressSegment(page, "strength"),
   "progress/strength-current-block": (page) => progressSegment(page, "strength"),
   "progress/strength-all-history": async (page) => { await progressSegment(page, "strength"); await page.click('#strengthScopeSeg [data-scope="all-history"]'); },
-  "progress/strength-comparison": async (page) => { await progressSegment(page, "strength"); const row = page.locator(`#strengthDash [data-evkey="library:${DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID.sq_bb}"]`); await row.scrollIntoViewIfNeeded(); await row.click(); },
+  "progress/strength-comparison": async (page) => {
+    await installPerSideHistory(page);
+    await progressSegment(page, "strength");
+    const row = page.locator(`#strengthDash [data-evkey="library:${PER_SIDE_READING_EXERCISES.bilateral}"]`);
+    await row.scrollIntoViewIfNeeded();
+    await row.click();
+    await page.waitForSelector(`[data-evdetail="library:${PER_SIDE_READING_EXERCISES.bilateral}"]`, { timeout: 20000 });
+  },
   "progress/strength-sparse": async (page) => { await progressSegment(page, "strength"); const row = page.locator(`#strengthDash [data-evkey="library:${DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID.sqk_mc}"]`); await row.scrollIntoViewIfNeeded(); await row.click(); },
   "progress/volume": (page) => progressSegment(page, "volume"),
   "progress/volume-block": async (page) => { await progressSegment(page, "volume"); await page.click('#volumeScopeSeg [data-vscope="block-to-date"]'); },
@@ -1169,6 +1965,16 @@ export const APP_SCENARIOS = {
   "progress/recovery-reassessment": async (page) => { await confirmRecovery(page);await page.evaluate(async()=>{const state=window.__repforgeWorkoutDraft.state();const date=new Date(`${state.programMeta.started}T12:00:00`);date.setDate(date.getDate()-8);state.programMeta.started=date.toISOString().slice(0,10);await window.__repforgeCommitProposedState(state);await window.__repforgeStorage.flush();});await page.reload({waitUntil:"domcontentloaded"});await page.waitForFunction(()=>window.__repforgeBooted===true,undefined,{timeout:20000});await progressSegment(page,"review"); },
 
   "history/list": (page) => view(page, "history"),
+  "history/per-side-session": async (page) => {
+    await installPerSideHistory(page);
+    await view(page, "history");
+    const session = page.locator('#sessions .hist-row[data-sess="per-side-history-latest"] .session__open');
+    await session.waitFor({ state: "visible", timeout: 20000 });
+    await session.click();
+    await page.waitForSelector('.session--read[data-reading="per-side-history-latest"] .histpage__totals', { timeout: 20000 });
+    await page.waitForSelector('.session--read[data-reading="per-side-history-latest"] .verdictmark--record', { timeout: 20000 });
+    await page.waitForFunction(() => !document.body.classList.contains("is-pushing"), undefined, { timeout: 5000 });
+  },
   "history/session": async (page) => {
     await view(page, "history");
     // One auto-waiting click, not a scroll followed by a click: the session
@@ -1339,6 +2145,53 @@ export const APP_SCENARIOS = {
     await editor.scrollIntoViewIfNeeded();
     await sleep(page, 400);
   },
+  "program/editor-alternates": async (page) => {
+    await openProgram(page);
+    await page.click("#programEditToggle");
+    await page.waitForSelector('#programEditor [data-role="editor"]', { timeout: 20000 });
+    const toggle = page.locator('#programEditor [data-role="toggle-exercise"][data-id="seed-ex-1"]');
+    if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
+    const alternates = page.locator('#programEditor [data-role="alternates"][data-id="seed-ex-1"]');
+    await alternates.waitFor({ timeout: 20000 });
+    await alternates.evaluate((node) => node.scrollIntoView({ block: "center" }));
+    await sleep(page, 400);
+  },
+  "program/editor-suggest-loads": async (page) => {
+    await openProgram(page);
+    await page.click("#programEditToggle");
+    await page.waitForSelector('#programEditor [data-role="editor"]', { timeout: 20000 });
+    const toggle = page.locator('#programEditor [data-role="toggle-exercise"][data-id="seed-ex-1"]');
+    if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
+    // The slot becomes a movement that asks how it is done, through Replace.
+    await page.locator('#programEditor [data-role="replace"][data-id="seed-ex-1"]').click();
+    await page.waitForSelector("#exPickSheet.is-open", { timeout: 20000 });
+    await page.fill("#exPickSearch", "Dumbbell renegade row");
+    await page.locator('#exPickList [data-pick="3065c6f170d880d2bc77cba9edbf8ce9"]').click({ timeout: 20000 });
+    await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 20000 });
+    const row = page.locator('#programEditor [data-role="exercise"][data-id="seed-ex-1"]');
+    if (!await row.locator('[data-role="sets-control"]').count()) await row.locator('[data-role="toggle-exercise"]').click();
+    await row.locator('[data-role="suggest-loads"]').click();
+    const rir = row.locator('[data-role="suggest-loads-rir"]');
+    await rir.waitFor({ timeout: 20000 });
+    await rir.fill("2");
+    await rir.blur();
+    await page.waitForFunction(() => document.querySelector("#toast")?.classList.contains("hidden") !== false, undefined, { timeout: 20000 });
+    const section = row.locator('[data-role="suggest-loads-section"]');
+    await section.locator('[data-role="execution-mode"]').first().waitFor({ timeout: 20000 });
+    await section.evaluate((node) => node.scrollIntoView({ block: "center" }));
+    await sleep(page, 400);
+  },
+  "program/editor-day-name-refused": async (page) => {
+    await openProgram(page);
+    await page.click("#programEditToggle");
+    await page.waitForSelector('#programEditor [data-role="editor"]', { timeout: 20000 });
+    const names = page.locator('#programEditor [data-role="day-name"]');
+    await names.nth(1).fill(await names.first().inputValue());
+    await names.nth(1).press("Enter");
+    await page.waitForSelector('#programEditor [data-role="day-name"][aria-invalid="true"]', { timeout: 20000 });
+    await names.nth(1).evaluate((node) => node.closest('[data-role="day"]').scrollIntoView({ block: "center" }));
+    await sleep(page, 400);
+  },
   "program/exercise-picker": async (page) => {
     await page.evaluate(() => window.__repforgeOpenPicker({ title: "Add exercise", mode: "multi" }));
     await page.waitForSelector("#exPickSheet.is-open", { timeout: 20000 });
@@ -1401,6 +2254,12 @@ export const APP_SCENARIOS = {
     await page.locator("#exCustomDelete").click();
     await page.waitForFunction(() => document.querySelector("#exCustomSheet")?.getAttribute("aria-busy") === "true" &&
       document.querySelector("#exCustomDelete")?.dataset.i18n === "custom.deleting");
+    // The reopened sheet's form inherited whatever scrollTop the create pass
+    // left behind, and that value tracked a focus-driven scrollIntoView raced
+    // against web-font layout settling: the frame needs the "Deleting…"
+    // button visible near the bottom, so pin the scroll to its true maximum
+    // (after fonts settle) rather than resetting it to the top.
+    await pinSheetScrollToEnd(page, "#exCustomSheet .custom__form");
     await sleep(page, 350);
   },
   "program/custom-exercise-archiving": async (page) => {
@@ -1453,6 +2312,35 @@ export const APP_SCENARIOS = {
     await openShare(page);
     await page.waitForSelector("#shareSetupShare:not(.hidden):not(:disabled)", { timeout: 20000 });
     await stabilizeShareLink(page);
+    await sleep(page, 400);
+  },
+  "program/share-too-large": async (page) => {
+    // An edited generated program cannot regenerate from its recipe and its
+    // full definition exceeds the link cap, so the sheet offers the file.
+    await page.waitForFunction(() => !!window.RepForgeExerciseCatalog?.snapshot?.() &&
+      typeof window.__repforgeFinalizeProgramSetup === "function", undefined, { timeout: 15000 });
+    await page.evaluate(async () => {
+      const catalog = window.RepForgeExerciseCatalog.snapshot();
+      const request = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+        desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: 4, sessionMinutes: 60,
+        environment: { kind: "commercial_gym" },
+      }, catalog).value;
+      const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog, "catalog-share-too-large").value;
+      definition.days.find((day) => day.kind === "training").slots[0].setupNotes = "Rack at 7";
+      const finalized = await window.__repforgeFinalizeProgramSetup({
+        programDefinition: definition, name: "Edited generated block", answers: {}, destination: "log",
+        origin: "first-run", draftConfirmed: true, telemetryRoute: "recommend",
+        entrySource: { route: "recommend", fingerprint: "catalog-share-too-large" },
+      });
+      if (!(finalized?.localOk || finalized?.idbOk)) throw new Error("share-too-large finalize failed");
+      await window.__repforgeStorage.flush();
+    });
+    await openShare(page);
+    await page.waitForSelector("#shareSetupFile:not(.hidden):not(:disabled)", { timeout: 20000 });
+    await page.waitForFunction(() => {
+      const toast = document.querySelector("#toast");
+      return !toast || toast.classList.contains("hidden");
+    }, undefined, { timeout: 10000 });
     await sleep(page, 400);
   },
   "program/text-export": async (page) => {
