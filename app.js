@@ -1726,6 +1726,9 @@ function executionModeForLogRow(row,sideLoadSemantic=null,explicitMultiplier=nul
   // one side at a time; an ambiguous historical row cannot borrow today's mode.
   if(row?.loadingConvention==="bodyweight"&&explicitMultiplier===0&&
     row?.metricIds?.length===1&&row?.metricDefinitions?.some(metric=>metric?.semantic==="repsPerSide"))return null;
+  // A movement swapped in mid-session (#410) is not the one the slot's mode
+  // describes. The row records both names, so it never borrows that mode.
+  if(row?.performedName!=null&&movementToken(row.performedName)!==movementToken(row.name))return null;
   const slotId=String(row?.slotId||row?.exerciseId||"");
   const slot=(state.programMeta?.programDefinition?.days||[]).flatMap(day=>day?.slots||[]).find(item=>item?.id===slotId);
   return slot?.executionMode==="bilateral"||slot?.executionMode==="unilateral"?slot.executionMode:null}
