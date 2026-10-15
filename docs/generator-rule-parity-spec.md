@@ -77,6 +77,11 @@ identidades; nomes traduzidos não participam da seleção. Distinguir ausência
 valor desconhecido, negação e escolha explícita onde o domínio os distingue.
 Não transformar uma confirmação ausente em resposta afirmativa.
 
+A identidade semântica do catálogo também conserva as sequências influentes.
+`movementPattern` conserva sua ordem: no helper recuperado de região efetiva,
+a primeira categoria não nula pode decidir a classificação de exercícios core.
+Tratar essa lista como conjunto ordenável altera a regra, mesmo com os mesmos IDs.
+
 O contrato de igualdade é a definição gerada completa: dias e ordem, exercícios,
 roles, séries, alvos por ciclo, relações, IDs derivados e proveniência de regras.
 Timestamps e identidades de uma ativação posterior pertencem ao envelope dessa

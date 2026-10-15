@@ -29,8 +29,12 @@ Após a remoção autorizada de uma cópia temporária de CI, o espaço voltou a
 o piso de 4 GiB. A recuperação prosseguiu com janelas limitadas e um leitor de
 metadados ligado aos objetos de compilação já existentes. Não houve full pass
 Blutter. A revisão independente aceitou o intercalamento de listas no domínio
-registrado e as correções dos verificadores de doses locais. Alocação completa,
-distribuição, elegibilidade, ranking e consumidores continuam pendentes em S1.
+registrado e as correções dos verificadores de doses locais. As provas posteriores cobrem componentes de compatibilidade ULF, região efetiva,
+ranking, músculos, spillover, trocas e conversão de séries em templates. A composição
+local explica condicionalmente 18 exercícios e 45 séries para entradas explícitas,
+sem provar o programa final. Ordenação, elegibilidade completa, consumidores de
+ciclos e revisão de correções continuam pendentes em S1. Os chats Low atingiram
+o limite de uso; a coordenação prossegue sem declarar encerramento do gate.
 
 ## 1. Base e matriz de gaps
 

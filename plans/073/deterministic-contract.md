@@ -61,7 +61,11 @@ quando o domínio os distingue. Defaults documentados são resolvidos uma vez.
 A serialização não ordena arrays genericamente. Dias, slots, ciclos prescritos,
 sets e sequências de templates mantêm ordem semântica. `alternates` mantém a ordem
 escrita pelo lifter, conforme `program-compiler.js:1238–1243`. A ordem de métricas
-mantém alinhamento com suas definições.
+mantém alinhamento com suas definições. `movementPattern` também conserva ordem:
+a recuperação de `0xa53e64` mostra que, em certos exercícios marcados como core,
+a primeira categoria não nula decide sua região efetiva. Ordenar essa lista
+pode alterar compatibilidade e distribuição. O catálogo canônico precisa tratar
+esse campo como sequência semântica, mesmo quando seus membros são enums únicos.
 
 `validateRequest` hoje deduplica listas sem ordenar. `applyEmphasis:1025` percorre
 prioridades na ordem recebida, escolhendo doadores e posições. Portanto, permutar
@@ -153,7 +157,7 @@ Todas estão planejadas. Esta auditoria não executou testes de comportamento.
 | Falha concreta | Prova pura anterior à mudança | Dono existente |
 | --- | --- | --- |
 | Ordem incidental de conjuntos, mapas ou catálogo altera saída | Permutações e duplicações mantêm definição inteira igual | `test/program-compiler-plan067.mjs`, `test/generative/properties/program-compiler.mjs` |
-| Canonicalização destrói ordem semântica | Dias, slots, sets, métricas alinhadas e alternates conservam ordem | Propriedades do compiler e contratos de review |
+| Canonicalização destrói ordem semântica | Dias, slots, sets, métricas alinhadas, movementPattern e alternates conservam ordem | Propriedades do compiler e contratos de review |
 | Confirmação ausente vira consentimento | Ausência, `null`, `false`, `true` e pré-requisitos parciais mantêm distinções | `test/program-entry-production-adapter.mjs`, compiler |
 | Hash colide e empate depende da ordem do catálogo | Exercitar colisões e empate total com IDs distintos | Compiler e propriedades |
 | Prioridades disputam doadores ou despriorização é ignorada | Conjuntos permutados, zero priorizados, oito despriorizados e exclusões | Compiler e adapter |
