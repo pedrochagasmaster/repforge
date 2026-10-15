@@ -54,6 +54,7 @@ _Avoid_: Score, rating, grade, level, streak
 All log rows saved together in one workout, sharing a session id, date, and training day.
 _PT (user-facing)_: sessão.
 _Avoid_: Workout (acceptable in casual copy; session is the domain term); in Portuguese user-facing copy, "treino" for one workout
+_PT rule_: countable "treino" (um treino, cada treino, durante o treino) means one session, so write "sessão". "Seu treino" means the program; when the sense is recent activity, write "suas sessões" ("suas sessões recentes"). Mass-noun uses ("dia de treino", "bloco de treino", "histórico de treino") stay. Stored program names are data and are never rewritten.
 
 **Session outcome**:
 How one lift's session compares with its previous session of the same lift: improved (Melhorou), maintained (Manteve), declined (Regressou), or not enough evidence. It describes the logged sets only, never what the engine prescribed. "Same load" means the top load is within 0.01 kg; strength is the RIR-blind Epley e1RM of the best set.
