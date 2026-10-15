@@ -339,6 +339,14 @@ async function main() {
   assert(!ptRtMiss.length, "PT JSON matches PT runtime dictionary", ptRtMiss.slice(0, 8).join(", "));
   assert(Object.keys(runtime.en).length === enKeys.length, "EN runtime has the same key count as EN JSON", `${Object.keys(runtime.en).length} vs ${enKeys.length}`);
   assert(Object.keys(runtime.pt).length === ptKeys.length, "PT runtime has the same key count as PT JSON", `${Object.keys(runtime.pt).length} vs ${ptKeys.length}`);
+  // #418: the result's "How it was built" line names the chosen place, so every
+  // place the entry flow offers needs that sentence in both languages.
+  const entrySource = readFileSync(join(ROOT, "program-entry.js"), "utf8");
+  const places = JSON.parse(entrySource.match(/ENTRY_ENVIRONMENTS = Object\.freeze\((\[[^\]]*\])\)/)[1]);
+  const missingWhy = places.flatMap((place) => [["en", runtime.en], ["pt", runtime.pt]]
+    .filter(([, dict]) => typeof dict[`entry.result.why_environment.${place}`] !== "string")
+    .map(([lang]) => `${lang}:${place}`));
+  assert(places.length >= 6 && !missingWhy.length, "every entry place has a 'How it was built' sentence in EN and PT (#418)", missingWhy.join(", "));
 
   const privacyCopy = {
     en: {
