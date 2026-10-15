@@ -1,8 +1,9 @@
 # Plano 073: implementação das regras de geração recuperadas
 
 **Estado:** contrato aprovado em 15/10/2026; S0 iniciada com suplemento offline,
-verificador e auditorias. S1 parcial; S2 bloqueada pelas regras pendentes.
-Nenhuma alteração de engine nesta etapa.
+verificador e auditorias. A pesquisa S1 liberou o domínio inicial; S2 iniciada
+conforme [contrato de implementação](073/initial-generation-contract.md).
+A aceitação funcional ainda depende do fluxo completo.
 **Issue:** [#421](https://github.com/pedrochagasmaster/repforge/issues/421).
 **Spec:** [fechamento dos gaps de geração](../docs/generator-rule-parity-spec.md).
 **Base examinada:** `d0242c4679ba6a00cea6fd48f42450f3b6e93322`.
@@ -32,9 +33,14 @@ Blutter. A revisão independente aceitou o intercalamento de listas no domínio
 registrado e as correções dos verificadores de doses locais. As provas posteriores cobrem componentes de compatibilidade ULF, região efetiva,
 ranking, músculos, spillover, trocas e conversão de séries em templates. A composição
 local explica condicionalmente 18 exercícios e 45 séries para entradas explícitas,
-sem provar o programa final. Ordenação, elegibilidade completa, consumidores de
-ciclos e revisão de correções continuam pendentes em S1. Os chats Low atingiram
-o limite de uso; a coordenação prossegue sem declarar encerramento do gate.
+sem provar o programa final. Depois do reset, os mesmos chats Low retomaram e
+revisaram ordem, distribuição, equipamento, histórico, ranking e ciclos. O gate
+de pesquisa está fechado para o primeiro domínio parametrizado do contrato
+inicial. S2 começou com provas puras escritas antes dos módulos e com o red real
+das oito despriorizações. A nova opção só será exposta após a cadeia completa.
+A [auditoria S1](073/rule-recovery-status.md) registra os fechamentos e distingue
+os limites históricos, os inputs desconhecidos de Godmode2 e as provas de produto
+que ainda faltam.
 
 ## 1. Base e matriz de gaps
 

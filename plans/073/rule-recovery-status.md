@@ -1,9 +1,69 @@
 # Estado da recuperação das regras de geração
 
-Checkpoint de 15/10/2026, após replay isolado e recuperação limitada de S1.
-S2 permanece bloqueada. Nenhuma engine foi alterada. O contrato continua na
+Retomada de 15/10/2026 após o reset dos limites. O gate de pesquisa de S2 está
+fechado somente para o domínio inicial descrito abaixo. A implementação começou;
+a paridade no produto ainda precisa das provas de S2. O contrato continua na
 [spec](../../docs/generator-rule-parity-spec.md) e o gate no
 [Plano 073](../073-generator-rule-parity.md).
+
+## Domínio liberado e revisão da retomada
+
+A [primeira implementação](initial-generation-contract.md) usa Upper/Lower/Full,
+três dias, both/Advanced, orçamento50 da faixa40–60, Static, sete ciclos normais,
+sem deload e inputs controlados de Gym/capacidades. Warmup smart, overrides null
+e ramo de sexo fonte null são explícitos. Não ler Basics.sex nem inferir o perfil
+Godmode2. História vazia e configuração de pesos vazia são inputs controlados.
+As sete capacidades continuam respostas explícitas; ausência não vira true.
+
+| Componente | Fechamento no domínio inicial | Reprodução privada |
+| --- | --- | --- |
+| G03/G04, ordem | Prefixo, chave dos compostos, grupos e seis intercalamentos; produtores conservam o domínio P/A/B/C | `resume-ordering-20261015`, revisão e replay isolado do coordenador |
+| G03/G04, distribuição | Composição distribuição → custo → spillover → swaps → ordem; enumeração i,j,k,l e igualdade estrutural | `resume-distribution-composition-20261015`, revisão independente `resume-distribution-review-20261015` |
+| G06, equipamentos | Parser Single/Loaded por categoria; OR entre alternativas, AND entre requisitos; pluralOf de um nível, primeiro bumper e fallback null | `resume-gym-composition-20261015`, revisão independente `resume-gym-review-20261015` |
+| G06, histórico | Origem exerciseGroup, logs elegíveis, média bilateral, rest-pause por série e62 handlers derivados da fonte | `resume-eligibility-next-20261015`, revisão independente `resume-history-review-20261015` |
+| G07, compostos | G07-B01 revisto: repetição é rejeição, equipamento é contagem de fallback | `resume-review-cycles-20261015` |
+| G07/G09, acessórios | Tier puro, prefilter de classificação/tier, lista relevante e alternância por músculo; append incremental | `resume-accessory-review-20261015`, `resume-contract-20261015`, revisão independente `resume-alternation-review-20261015` |
+| G11, Static | Sete índices normais0..6 usam o mesmo Simple target; experience apenas metadado nessa invocação | `resume-review-cycles-20261015`, `resume-experience-next-20261015` |
+
+Esses fechamentos aceitam os contratos comuns das classes SDK identificadas e
+seus limites tipados. Não certificam toda a VM ou o gerador original. A revisão
+de alternância acrescentou49.200 casos independentes e confirmou que antecipar
+materialização muda a escolha. O modelo do coordenador ampliou seus12 nomes para
+os22 enums, cobrindo o ramo genérico dos dez restantes. Os recibos preservam o
+checkpoint372, as96 fontes e os três checkouts. A engine pública permaneceu
+intacta durante a recuperação; a alteração agora pertence à implementação S2.
+
+Há diferenças importantes para a implementação. O score de acessórios é o tier
+puro, sem o ajuste P/D dos compostos. O parser de resistência escolhe a primeira
+base de categoria adequada, que pode não ser array[0]. Spillover não exige fits
+nos papéis primários do destino; isPrimary é somente precedência. O histórico
+soma binary64 sequencialmente: quinze grupos de um terço podem ficar abaixo de5.
+A descrição antiga de inteiros como Smi era ampla demais; os valores altos
+exigem o caminho Mint/pre-unboxed, cuja aritmética finita foi conferida.
+
+A política Taurifer conjuga os handlers/fallback estritos da fonte com suas
+exclusões e confirmações obrigatórias. Confirmação pontual não concede assessment
+global nem contorna os81 exercícios com preconditions fora dos62 handlers.
+AlwaysShow não contorna equipamento. São fronteiras distintas, registradas na
+nota privada `resume-eligibility-integration-20261015` e no contrato inicial.
+
+A primeira prova real R05 falhou no head limpo `2e86845c`: o formulário aceitou
+cinco de oito músculos despriorizados, recusando os três seguintes. O recibo
+`resume-contract-20261015/first-contract-browser.red.evidence.json` preserva
+comando, fonte, assert, estado e screenshot. A primeira tentativa tinha um erro
+de fixture antes de abrir o hub e está retida separadamente; não conta como red
+semântico. Nenhum resultado verde de produto é inferido dessa reprodução.
+
+O trabalho restante é implementar e provar S2 no fluxo completo. Outros objetivos,
+faixas, períodos, deload e divisões mantêm seus gates de ampliação. As entradas
+observadas de Godmode2 continuam sem vínculo transacional completo; isso não
+impede validar o domínio parametrizado nem autoriza afirmar paridade observada.
+
+## Checkpoint histórico372
+
+As seções seguintes registram o estado anterior à retomada. Seus pendentes
+locais foram atualizados pelos fechamentos acima, sem apagar correções e limites
+históricos. Não usar a antiga lista de bloqueios como estado atual de S2.
 
 ## Fontes, preservação e classificação
 
@@ -193,7 +253,7 @@ original preservados. As provas incluem 32 combinações de comparação/empate,
 Mutações de limite, empate, divisor e custo foram detectadas. A aceitação mantém
 os contratos dos operadores explícitos e não encerra G05 ou S1 globalmente.
 
-## Gate exato de S2 e próximas dependências
+## Gate no checkpoint histórico e dependências então abertas
 
 O plano exige todas as regras necessárias de G02–G09 e G11 para o domínio
 inicial recuperadas e validadas. O contexto observado é três dias, both,
@@ -232,7 +292,8 @@ Os 96 hashes originais e os três checkouts protegidos foram conferidos antes
 e depois. O recibo `checkpoint-receipt.json` tem SHA-256
 `fa9988f932ace85b6a6de811bfd82da4735f0eef55cf12074ee5ef164464d9fb`.
 Esse replay é do coordenador; não é uma nova revisão independente.
-Os três chats Sol 6.1 Low atingiram o limite de uso; isso não libera o gate.
+Naquele checkpoint, os três chats Sol 6.1 Low atingiram o limite de uso.
+A retomada e o fechamento posterior do domínio inicial estão registrados acima.
 
 Os pacotes privados `round-robin/`, `doses/`, `time-allocation/`, `muscles/`,
 `ranking/`, `distribution/`, `cycles/` e `compound-sets/` retêm fonte/hash, PC,
