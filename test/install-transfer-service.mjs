@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const SERVICE = resolve(dirname(fileURLToPath(import.meta.url)), "../services/install-transfer");
 
-for (const args of [["run", "check"], ["test"], ["run", "deploy:dry"], ["run", "deploy:dry:production"]]) {
+for (const args of [["run", "check"], ["test"], ["run", "deploy:dry"], ["run", "deploy:dry:production"], ["run", "deploy:dry:watcher"]]) {
   execFileSync("npm", args, { cwd: SERVICE, env: process.env, stdio: "inherit" });
 }
 
