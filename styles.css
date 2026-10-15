@@ -398,9 +398,13 @@
 *{box-sizing:border-box}
 /* Controls skip double-tap delay while ordinary content keeps browser zoom.
    Root containment belongs to this app; inner scrollers retain native physics. */
+/* The root is a size container, and containment stops the body's background from
+   reaching the canvas, so the root carries the paper itself: past a short page the
+   viewport is paper, not the canvas's default white. */
 html{
   -webkit-text-size-adjust:100%;text-size-adjust:100%;touch-action:auto;
   -webkit-tap-highlight-color:transparent;
+  background:var(--bg);
   --sheet-max-height:calc(var(--vvh,100dvh) - max(56px,calc(env(safe-area-inset-top,0px) + var(--space-8))));
   --dialog-max-height:calc(var(--vvh,100dvh) - 2 * max(var(--space-16),env(safe-area-inset-top,0px),env(safe-area-inset-bottom,0px)));
 }
@@ -3024,10 +3028,11 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
      it sticks to the true bottom edge and pays this padding out of its own box,
      so the report scrolls under a button rather than past a gap beside one. */
   --sum-pad-b:calc(30px + env(safe-area-inset-bottom));
+  --sum-pad-l:max(16px,env(safe-area-inset-left));
+  --sum-pad-r:max(16px,env(safe-area-inset-right));
   position:fixed;inset:0;z-index:75;overflow-y:auto;overscroll-behavior:contain;
   background:var(--bg);
-  padding:calc(30px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right))
-    var(--sum-pad-b) max(16px,env(safe-area-inset-left));
+  padding:calc(30px + env(safe-area-inset-top)) var(--sum-pad-r) var(--sum-pad-b) var(--sum-pad-l);
 }
 .sumsheet.hidden{display:none!important}
 .sumsheet__body{width:min(100%,var(--maxw));margin:0 auto}
@@ -3105,10 +3110,15 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 #sumSee:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #sumSee:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 /* The way out is never below the fold. A session ends with a lifter holding a
-   phone and breathing hard, so both actions stay put and the report moves under them. */
+   phone and breathing hard, so both actions stay put and the report moves under them.
+   Like the onboarding pinned region it reaches through the sheet's side padding, so the
+   persistent-action surface runs edge to edge under its hairline instead of sitting in
+   the text column as a box. */
 .sum-actions{
   position:sticky;bottom:calc(-1 * var(--sum-pad-b));z-index:1;display:flex;gap:var(--space-12);
-  margin-top:var(--space-14);padding:var(--space-12) 0 var(--sum-pad-b);background:var(--bg);
+  margin:var(--space-14) calc(-1 * var(--sum-pad-r)) 0 calc(-1 * var(--sum-pad-l));
+  padding:var(--space-12) var(--sum-pad-r) var(--sum-pad-b) var(--sum-pad-l);
+  background:var(--bg);border-top:1px solid var(--boundary-persistent);
   box-shadow:var(--elevation-persistent-shadow);
 }
 #sumDone{

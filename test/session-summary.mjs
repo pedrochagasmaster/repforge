@@ -464,6 +464,29 @@ async function run() {
     "outcome words carry the parity markers the Direction D gate reads", JSON.stringify(ledger.words));
   assert(ledger.actions.join(",") === "sumSee,sumDone", "both actions sit in one pinned bar", JSON.stringify(ledger.actions));
 
+  // The pinned bar is the persistent-action role, like the onboarding pinned region and the workout shelf: one
+  // surface on the paper from edge to edge under a persistent hairline. Held inside the text column it read as a
+  // lighter box with its shadow showing at both sides.
+  const bar = await page.evaluate(() => {
+    const el = document.querySelector("#sessionSummaryBody .sum-actions");
+    const r = el.getBoundingClientRect();
+    const css = getComputedStyle(el);
+    const probe = document.createElement("i");
+    document.body.append(probe);
+    const resolve = (token) => { probe.style.color = `var(${token})`; return getComputedStyle(probe).color; };
+    const out = {
+      left: r.left, right: r.right, top: r.top, bottom: r.bottom, viewport: innerWidth,
+      bg: css.backgroundColor, paper: resolve("--bg"),
+      edge: [css.borderTopWidth, css.borderTopStyle, css.borderTopColor], persistent: resolve("--boundary-persistent"),
+    };
+    probe.remove();
+    return out;
+  });
+  assert(bar.left === 0 && bar.right === bar.viewport, "the pinned bar spans the screen edge to edge", JSON.stringify(bar));
+  assert(bar.bg === bar.paper, "the pinned bar stands on the paper token", JSON.stringify(bar));
+  assert(bar.edge[0] === "1px" && bar.edge[1] === "solid" && bar.edge[2] === bar.persistent,
+    "the pinned bar is edged by the persistent boundary", JSON.stringify(bar.edge));
+
   // ---- 2 — the dialog holds the app -------------------------------------------
   phase("The screen behaves like the dialog it is");
   assert(s.focused === "sumTitle", "focus lands on the summary, not behind it", s.focused);
