@@ -31,3 +31,6 @@ measurement-private/
 .impeccable/live/manual-edit-apply-transaction.json
 .impeccable/live/manual-edit-events.jsonl
 .impeccable/live/manual-edit-evidence/
+
+# Cloudflare Pages output, built by scripts/build-pages-dist.mjs.
+dist/
