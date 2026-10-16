@@ -77,6 +77,7 @@ conclusão deve registrar o SHA limpo, a revisão independente e o resultado de
 | S2-LOW-03 | Observer visual usava seed e IDs de slots de outro namespace. Agora separa identidade do request e posse do draft, e correlaciona posições. Os 89 frames focados passaram sem retries; a validação visual completa foi delegada à CI pelo owner. |
 | S2-LOW-04 | Anúncio após confirmação incluía dois nomes que não mudaram. A prova real falhou antes da correção por posições; a mesma suíte passou após a correção, incluindo foco e descarte de respostas antigas. |
 | S2-LOW-05 | A fixture de conflito podia fotografar antes de montar o Review ou fora do aviso. A espera exige as linhas da definição atual; o enquadramento exige o aviso completo no viewport. Os três variants focados passaram. |
+| S2-LOW-06 | A CI encontrou dois loaders VM sem os módulos novos, inventário de sintaxe incompleto e vocabulário de telemetria sem ULF. Os loaders seguem a ordem real, o inventário inclui os três módulos e o enum fechado aceita ULF. As quatro provas exatas passaram; cache 462. |
 
 A primeira captura completa foi interrompida após 141 frames para corrigir os
 findings. Depois das correções, 89 frames focados passaram sem retries. A nova

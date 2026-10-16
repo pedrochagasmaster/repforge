@@ -80,7 +80,7 @@
     gym_preset: Object.freeze(["everything", "commercial_gym", "warehouse_gym", "basic_gym", "full_home", "limited_home"]),
     // How many equipment groups the lifter added to or removed from the preset.
     equipment_changes: Object.freeze(["0", "1", "2_3", "4_plus"]),
-    split: Object.freeze(["full_body", "upper_lower", "push_pull_legs_upper_lower", "push_pull_legs"]),
+    split: Object.freeze(["full_body", "upper_lower_full", "upper_lower", "push_pull_legs_upper_lower", "push_pull_legs"]),
     deload: Object.freeze(["on", "off"]),
   });
   const equipmentChanges = (adjust) => {
