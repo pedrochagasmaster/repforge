@@ -1,8 +1,10 @@
 # Plano 073: implementação das regras de geração recuperadas
 
-**Estado:** contrato aprovado em 15/10/2026. A recuperação sustenta o candidato
-`073.4`, com S2–S4 implementadas e caminho anterior removido. A conclusão de S5
-permanece condicionada à revisão final, CI no head final e reconciliação A01–A10.
+**Estado:** implementação `073.4` e revisão independente concluídas no escopo
+recuperado; caminho anterior removido. O aceite de S3–S5 e do plano exige o
+check `ci` verde no head final do [PR #422](https://github.com/pedrochagasmaster/repforge/pull/422/checks).
+A matriz A01–A10/G01–G14 está no [estado da implementação](073/implementation-status.md);
+os Checks do PR são a fonte canônica do resultado, sem antecipar sua aprovação.
 **Issue:** [#421](https://github.com/pedrochagasmaster/repforge/issues/421).
 **Spec:** [fechamento dos gaps de geração](../docs/generator-rule-parity-spec.md).
 **Base examinada:** `d0242c4679ba6a00cea6fd48f42450f3b6e93322`.
@@ -43,10 +45,10 @@ que ainda faltam.
 
 O candidato `073.4` integra as 13 divisões, 17 variantes de frequência,
 as dimensões de S3 e deload adicional. O caminho de geração anterior foi removido.
-O [estado da implementação](073/implementation-status.md) distingue os contratos
-implementados das provas pendentes. A CI completa passou em `f4a3fda5`; a
-ampliação posterior exige seu próprio gate no head final. S3–S5 ainda não são
-declaradas concluídas.
+O [estado da implementação](073/implementation-status.md) registra os contratos,
+a revisão e as provas executadas. A CI completa de `f4a3fda5` é evidência daquela
+base; a ampliação é aceita somente com `ci` verde no head final do PR #422.
+Este registro não antecipa o resultado do check.
 
 ## 1. Base e matriz de gaps
 
@@ -102,6 +104,10 @@ Reaproveitar os mecanismos reais de cancelamento, resultado obsoleto, revisão e
 ativação. O catálogo permanece o artefato local gerado por sua ferramenta atual.
 
 ## 3. Sequência e dependências
+
+A sequência abaixo conserva os contratos de execução aprovados. A implementação
+e a revisão de S3–S5 estão registradas no estado atual; o aceite dessas etapas
+e do plano depende do `ci` verde no head final do PR #422.
 
 ```mermaid
 flowchart TD

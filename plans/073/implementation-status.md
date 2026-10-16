@@ -1,11 +1,12 @@
 # Implementação das regras de geração
 
-O candidato `073.4` integra S3 e S4 e remove o caminho de geração anterior.
-A conclusão do Plano 073 ainda depende da CI no head final e da revisão dos
-artefatos visuais remotos. A revisão independente dos consumidores foi concluída;
-as correções posteriores também recebem revisão antes da publicação.
-O commit anterior `f4a3fda5` passou a CI completa, incluindo os 14
-shards de navegador. Esse resultado não certifica as alterações posteriores.
+A implementação `073.4` e sua revisão independente estão concluídas no
+escopo recuperado de geração. O caminho anterior foi removido. O aceite do
+Plano 073 exige o check `ci` verde no head final do
+[PR #422](https://github.com/pedrochagasmaster/repforge/pull/422/checks).
+Os Checks desse PR são a fonte canônica do resultado: passes de uma base
+anterior não certificam alterações posteriores. Este documento registra
+implementação e evidência; não antecipa a aprovação do head final.
 
 ## Domínio implementado
 
@@ -68,19 +69,40 @@ embarcada para replay. Histórico e definições legíveis são preservados.
 
 ## Evidência e gates
 
-| Contrato | Evidência | Estado do candidato |
-| --- | --- | --- |
-| S0, corpus permitido e coordenadas | `plans/073/verify.py`, `test_verify.py` | Suplemento original preservado |
-| Identidade, catálogo, colisões | `test/generation-identity.mjs` | Prova existente; CI do head final obrigatória |
-| Candidatos e restrições | `test/generation-candidates.mjs`, jornadas de confirmação | RED/GREEN pontual da confirmação; regressão na CI |
-| 13 divisões, 17 frequências e novos orçamentos | `test/generation-source-matrix.mjs`, fixture sanitizada | RED contra f4a; GREEN local de uma montagem; matriz completa na CI |
-| 18 ramos de dose, períodos e deload | `test/generation-source-dose-boundaries.mjs` | RED privado anterior à implementação; GREEN local de um limite; matriz na CI |
-| Formulário e escolhas explícitas | adapter, `test/generate-program-browser.mjs` | Jornadas preparadas; execução na CI |
-| Worker e fallback | `test/program-engine-worker.mjs` | Comparação real no gate remoto |
-| Review, ativação, Focus, salvar e reload | `test/program-entry-s4.mjs` | Jornada atualizada; execução na CI |
-| Dados e versões | leitor de definição, receita e retomada de draft | Revisão independente; prova real na CI |
-| Visuais | captura oficial remota e comparação | 95 pares revisados em fc079; 92 incorporados, três aguardam nova captura após correção de texto |
-| Conclusão | revisão independente e `ci` verde no head final | Pendente |
+As provas abaixo têm resultados observados em `fc079ad0` e `8740476e`.
+Os logs dos jobs 11/14 e 5/14 de `8740476e` confirmam, respectivamente,
+`generate-program-browser` completo (362,43 s) e `program-transition-commit`
+(40,19 s). Isso confirma as jornadas corrigidas, sem declarar o `ci` agregado
+ou o head final aprovados.
+A aceitação das correções e das baselines versionadas pertence ao `ci` do
+head final do PR, não a uma previsão desta tabela.
+
+| Gate | Contratos e evidência efetiva |
+| --- | --- |
+| A01 | `generation-identity`, `program-generation-parity` e propriedades passaram no fast de fc079. `program-engine-worker` passou nas 17 variantes, worker e fallback. |
+| A02 | Matriz/defaults/incompatibilidades passaram no fast; as 17 escolhas compatíveis foram renderizadas e selecionadas no navegador de fc079. A suíte de geração completa passou em 874, incluindo a opção mínima e os fluxos B posteriores. |
+| A03 | `program-entry-s4` passou no navegador de fc079: Review, ativação, Focus, sessão salva, RIR 6 e reload. |
+| A04 | Seis opções/orçamentos, alocação e custo fonte têm regras revisadas; `generation-duration20`, matriz e paridade passaram no fast de fc079. |
+| A05 | Prioridades independentes, oito despriorizações e exclusões têm prova de fonte e contratos de adapter/entrada/paridade passados no fast de fc079. |
+| A06 | Classificação, tiers, confirmações por exercício, negação explícita, requisito desconhecido e pool vazio passaram em candidatos/adapter/search no fast de fc079. A jornada de conflito de equipamento passou em 874, com explicação, não ativação, reload e retorno ao equipamento preservado. |
+| A07 | 18 ramos de dose, quatro períodos, sete ciclos normais e deload adicional passaram nos testes de fronteira/matriz/periodização de fc079. RIR 6 atravessou salvar e reload no navegador. |
+| A08 | `shared-setup-unit` passou: receita antiga recusada sem regeneração. Leitura estrutural legível passou no compiler; import-review, shared-setup-flow, draft-storage, backup e crash/review de transição passaram no navegador de fc079. A suíte completa de commit transacional passou em 874 após corrigir a ordem de preenchimento das métricas. |
+| A09 | Fonte revisada para 13 construtores/17 variantes; matriz sanitizada passou no fast e worker nas 17 variantes. Seleção UI e persistência/reload do preview máximo passaram explicitamente em fc079. |
+| A10 | Suplemento sanitizado, revisão independente da fonte e proveniência preservados. Auditoria documental distingue contratos históricos, política Taurifer e limites da recuperação. O gate final inclui a revisão das capturas oficiais e seus checks. |
+
+| Gap | Fechamento técnico e gate de aceite |
+| --- | --- |
+| G01 | Identidade canônica e desempate total sem seed variável: A01/A10. |
+| G02 | Defaults, compatibilidade e escolha explícita: A02. |
+| G03/G04 | Roles, distribuição, sobras, trocas e ordem recuperadas: A03/A06/A09. |
+| G05 | Opção, orçamento, alocação e custo separados; corte antigo removido: A04. |
+| G06/G07 | Elegibilidade, classificação e ranking fonte com restrições duras: A01/A06. |
+| G08/G11 | Séries, reps, RIR, metas, experiência, períodos e deload: A03/A07. |
+| G09 | Prioridades/desprioridades independentes e exclusões distintas: A05. |
+| G10 | Todas as 13 identidades e 17 frequências: A09. |
+| G12 | Adapter, worker/fallback, Review, ativação, Focus e persistência: A01–A03. |
+| G13 | Leitura explícita preservada, receitas incompatíveis recusadas e draft com Rebuild: A08. |
+| G14 | Evidência sanitizada e documentação reconciliada sem reescrever história: A10. |
 
 A matriz pública contém resultados do modelo de fonte independente do
 compilador público. Não foi gerada a partir da saída da implementação.
@@ -97,7 +119,7 @@ sexo fonte null e mapas vazios de histórico/carga são inputs controlados.
 As entradas reais de Godmode2 continuam desconhecidas; não há alegação de
 paridade transacional desse export.
 
-## Próximos passos exatos
+## Registro da integração e critério de aceite
 
 A implementação foi publicada em `d7ae4b3e`, com correção de descanso em
 `c3597bbc`. O candidato `9f14ebb0` passou os gates rápidos e de serviço; os
@@ -121,6 +143,25 @@ captura. A revisão encontrou descrições antigas de variação fixa de duas re
 teto de recuperação em RIR 4. Os textos em inglês e português agora descrevem
 as faixas variáveis e o teto 6, sem alterar as fórmulas.
 
-A nova CI deve confirmar as duas jornadas corrigidas e produzir as capturas
-desses textos. Revisar as diferenças remanescentes, obter `ci` verde no head
-final e reconciliar A01–A10 antes de encerrar o plano.
+Em `8740476e`, `generate-program-browser` e `program-transition-commit`
+passaram por inteiro nos jobs 11/14 e 5/14. A primeira executou também as
+jornadas B posteriores à opção mínima: navegação, unidades, retomada,
+construção com worker e fallback, reduced motion e conflito de equipamento.
+Esses passes individuais não são o resultado agregado da CI.
+
+A [CI de `8740476e`](https://github.com/pedrochagasmaster/repforge/actions/runs/38889209044)
+produziu quatro diferenças de PNG e nenhuma diferença semântica nos artefatos
+`12041749357`, `12041897893` e `12042491968`. As quatro imagens foram revisadas
+e incorporadas: o seletor de periodização em inglês claro/escuro e português,
+e a explicação de carga por lado em inglês escuro. A última é idêntica em bytes
+à variante clara já revisada em `fc079ad0`. Os arquivos vieram das capturas
+oficiais desse head limpo, com SHA-256 dos ZIPs conferido contra os digests
+oficiais e CRC dos membros extraídos validado. Não houve captura local nem
+edição manual de PNGs.
+
+As baselines de capturas oficiais e a documentação integram o
+mesmo gate do produto. O aceite ocorre quando `ci` estiver verde no head final
+do PR #422, com revisão independente e visual do conjunto entregue. Consultar
+os [Checks do PR](https://github.com/pedrochagasmaster/repforge/pull/422/checks)
+para o resultado efetivo; nenhum pass de uma base anterior o substitui.
+A conclusão não é declarada antes desse critério ser satisfeito.
