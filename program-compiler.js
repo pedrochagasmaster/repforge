@@ -608,6 +608,7 @@
         const cycle = cycleIndex === undefined ? slot.prescriptionsByCycle[0]
           : slot.prescriptionsByCycle.find((entry) => entry.cycleIndex === cycleIndex);
         return raw ? { exercise: CANDIDATES.describeExercise(raw), numSets: cycle.sets.length,
+          restSecondsBySet: cycle.sets.map((set) => set.restSeconds),
           type: slot.role.endsWith("Accessory") ? "accessory" : slot.role.endsWith("PrimaryCompound") ? "primary" : "secondary" } : null;
       });
       if (templates.every(Boolean)) return LAYOUT.estimateTemplatesSeconds(templates);

@@ -204,6 +204,18 @@
       return sum + 120 + fixed + 30 * t.numSets + between * Math.max(0, t.numSets - 1);
     }, 0);
   }
+  // Explicit rest edits are a Taurifer override on the recovered default cost.
+  // Generation itself passes no overrides and continues to use cost().
+  function estimateTemplatesSeconds(templates) {
+    return cost(templates) + templates.reduce((total, template) => {
+      const region = template.exercise.effectiveRegion;
+      if (!["upperBody", "lowerBody", "fullBody", "core"].includes(region)) return total;
+      const isolation = template.type === "accessory" && region !== "core";
+      const between = region === "core" ? 60 : isolation ? 90 : region === "upperBody" ? 120 : 180;
+      return total + (template.restSecondsBySet || []).slice(0, Math.max(0, template.numSets - 1))
+        .reduce((delta, seconds) => delta + (Number.isFinite(seconds) ? seconds - between : 0), 0);
+    }, 0);
+  }
   function allocations(budgetMinutes, goal, dayCount, upperFraction) {
     const compounds = [];
     for (let count = 1; count <= 4; count++) for (let sets = 2; sets <= (count === 1 ? 2 : 3); sets++) compounds.push([count, sets, 0, 0]);
@@ -414,7 +426,7 @@
     const insufficient = missing || ordered.flat().length < selected.length;
     return { status: insufficient ? "insufficient" : "ok", ...(insufficient ? { issues: [{ code: "insufficient_candidates" }] } : {}), days: ordered.map((templates, index) => ({ name: dayRules[index].name, templates })), weeklySlots: Array.from({ length: 7 }, (_, index) => { const day = calendar[request.daysPerWeek].indexOf(index); return day < 0 ? null : day; }), budgetMinutes, allocations: allocation, estimatedSessionSeconds: ordered.map(cost) };
   }
-  const api = Object.freeze({ generate, SPLITS, supportsRequest, estimateTemplatesSeconds: cost });
+  const api = Object.freeze({ generate, SPLITS, supportsRequest, estimateTemplatesSeconds });
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.RepForgeGenerationLayout = api;
 })(typeof window !== "undefined" ? window : globalThis);
