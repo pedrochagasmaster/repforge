@@ -734,11 +734,11 @@ export async function runPrivacy(scope = "all") {
         cookieTransportApproved.wrote &&
           cookieTransportApproved.read === "v4.YQ" &&
           cookieTransportApproved.cleared &&
-          cookieTransportApproved.writes[0]?.includes("repforge_setup_v1=v4.YQ") &&
-          cookieTransportApproved.writes[0]?.includes("Path=/index.html") &&
-          cookieTransportApproved.writes[0]?.includes("Max-Age=604800") &&
-          cookieTransportApproved.writes[0]?.includes("SameSite=Lax") &&
-          cookieTransportApproved.writes[1]?.includes("Max-Age=0"),
+          cookieTransportApproved.writes.filter((entry) => entry.startsWith("repforge_setup_v1=v4.YQ;")).length === 1 &&
+          cookieTransportApproved.writes.find((entry) => entry.startsWith("repforge_setup_v1=v4.YQ;"))?.includes("Path=/;") &&
+          cookieTransportApproved.writes.find((entry) => entry.startsWith("repforge_setup_v1=v4.YQ;"))?.includes("Max-Age=604800") &&
+          cookieTransportApproved.writes.find((entry) => entry.startsWith("repforge_setup_v1=v4.YQ;"))?.includes("SameSite=Lax") &&
+          cookieTransportApproved.writes.at(-1)?.includes("Max-Age=0"),
         "approved cookie transport (repforge_setup_v1) mechanism is preserved and not rejected",
         cookieTransportApproved
       );

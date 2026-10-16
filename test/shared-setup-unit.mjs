@@ -592,10 +592,12 @@ console.log("fragment and cookie handoff helpers retain source bytes");
 
   const store = new Map();
   let lastWrite = "";
+  const writes = [];
   const documentAdapter = {
     get cookie() { return [...store].map(([key, value]) => `${key}=${value}`).join("; "); },
     set cookie(raw) {
       lastWrite = raw;
+      writes.push(raw);
       const [pair, ...attributes] = raw.split(";").map((part) => part.trim());
       const separator = pair.indexOf("=");
       const name = pair.slice(0, separator);
@@ -612,12 +614,18 @@ console.log("fragment and cookie handoff helpers retain source bytes");
   const encoded = await Setup.encode(document(), options);
   assert.equal(Setup.writeHandoffCookie(encoded.value, adapters), true);
   assert.equal(Setup.readHandoffCookie(adapters), encoded.value, "cookie reads preserve the exact v4 envelope");
-  assert.match(lastWrite, /Path=\/repforge\/index\.html/);
+  assert.match(lastWrite, /Path=\/repforge\/;/, "the handoff cookie is scoped to the app, not its document URL");
   assert.match(lastWrite, /Max-Age=604800/);
   assert.match(lastWrite, /SameSite=Lax/);
   assert.match(lastWrite, /; Secure$/);
+  const expiresLegacy = (entry) => entry.startsWith("repforge_setup_v1=;") && entry.includes("Path=/repforge/index.html;") && entry.includes("Max-Age=0");
+  assert.ok(writes.some(expiresLegacy), "a write expires the cookie a release before the scope path left at the document URL");
+  const writesBeforeClear = writes.length;
   assert.equal(Setup.clearHandoffCookie(adapters), true);
   assert.equal(Setup.readHandoffCookie(adapters), null);
+  const clears = writes.slice(writesBeforeClear);
+  assert.ok(clears.some(expiresLegacy) && clears.some((entry) => entry.startsWith("repforge_setup_v1=;") && entry.includes("Path=/repforge/;") && entry.includes("Max-Age=0")),
+    "clear expires both the scope and the legacy document path");
 }
 
 // R13: a generated program is far larger than a link can carry. An unedited one
