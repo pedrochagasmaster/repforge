@@ -28,7 +28,7 @@
     };
     const run = (message) => {
       if (message.type === "generate") {
-        return root.RepForgeProgramCompiler.generateProgram(message.request, root.RepForgeExerciseCatalog.snapshot(), message.seed);
+        return root.RepForgeProgramCompiler.generateProgram(message.request, root.RepForgeExerciseCatalog.snapshot());
       }
       // Without a catalogSnapshot the transition domain reads this worker's catalog.
       return root.RepForgeProgramTransition.deriveSuccessor(message.input);
@@ -75,7 +75,7 @@
 
     function runOnMain(job) {
       counts.main++;
-      if (job.type === "generate") return opts.compiler.generateProgram(job.request, opts.catalog(), job.seed);
+      if (job.type === "generate") return opts.compiler.generateProgram(job.request, opts.catalog());
       return opts.transition.deriveSuccessor({ ...job.input, catalogSnapshot: opts.catalog() });
     }
 
@@ -178,8 +178,8 @@
     }
 
     return Object.freeze({
-      /** generateProgram(request, catalog, seed), resolved off the main thread when possible. */
-      generate: (request, seed, { signal } = {}) => submit({ type: "generate", request, seed }, signal),
+      /** generateProgram(request, catalog), resolved off the main thread when possible. */
+      generate: (request, { signal } = {}) => submit({ type: "generate", request }, signal),
       /** RepForgeProgramTransition.deriveSuccessor(input) against the release catalog; input carries no catalog. */
       derive: (input, { signal } = {}) => {
         const { catalogSnapshot, ...rest } = input || {};

@@ -9,6 +9,10 @@ const state = (page) => page.evaluate(() => window.__repforgeWorkoutDraft.state(
 const entry = (page) => page.evaluate(() => window.__repforgeEntryState?.());
 
 async function editFirstSlotToSixSets(page, slotId) {
+  const dayIndex = await page.evaluate((id) => window.__repforgeEntryState().result.preview.programDefinition.days
+    .findIndex((day) => day.slots.some((slot) => slot.id === id)), slotId);
+  assert.ok(dayIndex >= 0, "the edited slot belongs to the current recommendation");
+  await page.locator(`#entryReview [data-review-tab="${dayIndex}"]`).click();
   await page.locator(`#entryReview [data-review-slot="${slotId}"]`).click();
   await page.locator("#reviewSheet.is-open [data-review-sets]").first().waitFor({ state: "visible", timeout: 5000 });
   const locale = await page.locator("html").getAttribute("lang");
@@ -54,7 +58,7 @@ async function installOfferWorkerHarness(page) {
           this.requestsById.set(message.id, message);
           const state = window.__repforgeEntryState?.();
           harness.requests.push({ workerId: this.harnessWorkerId, id: message.id, request: message.request,
-            seed: message.seed, step: state?.step || null, resultFingerprint: state?.result?.fingerprint || null,
+            draftId: state?.draftId || null, step: state?.step || null, resultFingerprint: state?.result?.fingerprint || null,
             answersFingerprint: state?.result?.answersFingerprint || null });
         }
         super.postMessage(message, transfer);
@@ -69,7 +73,7 @@ async function installOfferWorkerHarness(page) {
             harness.held.push({ worker: this, workerId: this.harnessWorkerId, id: event.data.id,
               handler, event, request, requestResultFingerprint: requestRecord?.resultFingerprint || null,
               requestAnswersFingerprint: requestRecord?.answersFingerprint || null,
-              requestSeed: requestRecord?.seed || null, requestStep: requestRecord?.step || null,
+              requestDraftId: requestRecord?.draftId || null, requestStep: requestRecord?.step || null,
               responseResultFingerprint: current?.result?.fingerprint || null });
             return;
           }
@@ -166,13 +170,13 @@ try {
 
   const initial = await entry(page);
   const firstDay = initial.result.preview.programDefinition.days.find((day) => day.kind === "training");
-  const firstSlot = firstDay.slots[0];
+  let firstSlot = firstDay.slots[0];
   const offerProbe = await page.evaluate(async () => {
     const current = window.__repforgeEntryState();
     const mapped = window.RepForgeProgramEntryAdapter.programRequestFromAnswers(
       current.answers, window.RepForgeExerciseCatalog.snapshot());
     if (!mapped.ok) return { ok: false, conflicts: mapped.conflicts, offers: [] };
-    const generated = await window.__repforgeProgramEngine.generate(mapped.value, current.draftId);
+    const generated = await window.__repforgeProgramEngine.generate(mapped.value);
     return { ok: generated.ok, offers: generated.confirmationOffers || [] };
   });
   assert.equal(offerProbe.ok, true, "the production Worker can regenerate the displayed recommendation");
@@ -184,6 +188,8 @@ try {
     const row = button.closest("[data-review-confirm-offer]");
     return { slotId: button.dataset.reviewConfirmOfferAction, exerciseId: row?.dataset.reviewOfferExerciseId };
   });
+  const offerPosition = initial.result.preview.programDefinition.days.flatMap((day, dayIndex) =>
+    day.slots.map((slot, slotIndex) => ({ id: slot.id, dayIndex, slotIndex }))).find(({ id }) => id === offerTarget.slotId);
   const expectedOffer = offerProbe.offers.find((offer) => offer.slotId === offerTarget.slotId &&
     offer.offeredExerciseId === offerTarget.exerciseId);
   assert.ok(expectedOffer, "each shown offer came from this result's compiler report");
@@ -195,15 +201,15 @@ try {
     const request = { ...mapped.value, movementConfirmations: {
       ...(mapped.value.movementConfirmations || {}), [offer.offeredExerciseId]: [...offer.prerequisiteIds],
     } };
-    const generated = await window.__repforgeProgramEngine.generate(request, current.draftId);
+    const generated = await window.__repforgeProgramEngine.generate(request);
     if (!generated.ok) return { ok: false, conflicts: generated.conflicts };
-    const before = new Map(current.result.preview.programDefinition.days.flatMap((day) => day.slots)
-      .map((slot) => [slot.id, slot.exerciseId]));
-    const after = generated.value.days.flatMap((day) => day.slots);
+    const before = current.result.preview.programDefinition.days.flatMap((day, dayIndex) =>
+      day.slots.map((slot, slotIndex) => ({ slot, dayIndex, slotIndex })));
     return { ok: true, definition: generated.value,
-      changedSlotIds: after.filter((slot) => before.get(slot.id) !== slot.exerciseId).map((slot) => slot.id) };
+      changedSlotIds: before.filter(({ slot, dayIndex, slotIndex }) =>
+        generated.value.days[dayIndex]?.slots[slotIndex]?.exerciseId !== slot.exerciseId).map(({ slot }) => slot.id) };
   }, { offer: expectedOffer });
-  assert.equal(offerRebuildProbe.ok, true, "the production Worker can compile the offer with the existing seed");
+  assert.equal(offerRebuildProbe.ok, true, "the production Worker can compile the offer from the canonical confirmed request");
   const beforeOffer = await entry(page);
   const beforeOfferDefinition = beforeOffer.result.preview.programDefinition;
   const changedByOffer = new Set(offerRebuildProbe.changedSlotIds);
@@ -211,6 +217,8 @@ try {
     .find((slot) => slot.id !== offerTarget.slotId && !changedByOffer.has(slot.id));
   assert.ok(offerEditedSlot, "the result has an unrelated row whose sets can be edited without changing the offered slot");
   const offerEditedSlotSetsBefore = offerEditedSlot.prescriptionsByCycle[0].sets.length;
+  const unrelatedDayIndex = beforeOfferDefinition.days.findIndex((day) => day.slots.some((slot) => slot.id === offerEditedSlot.id));
+  await page.locator(`#entryReview [data-review-tab="${unrelatedDayIndex}"]`).click();
   await page.locator(`#entryReview [data-review-slot="${offerEditedSlot.id}"]`).click();
   await page.locator("#reviewSheet.is-open [data-review-sets]").first().waitFor({ state: "visible", timeout: 5000 });
   await page.locator('#reviewSheet [data-review-sets="1"]').click();
@@ -219,6 +227,7 @@ try {
   { slotId: offerEditedSlot.id, want: offerEditedSlotSetsBefore + 1 }, { timeout: 10000 });
   await page.locator("#reviewSheet [data-review-done]").click();
   await page.waitForFunction(() => !document.querySelector("#reviewSheet.is-open"), undefined, { timeout: 5000 });
+  await page.locator(`#entryReview [data-review-tab="${offerPosition.dayIndex}"]`).click();
   const afterUnrelatedEdit = await entry(page);
   const editProbe = await page.evaluate(({ target, slotId }) => {
     const current = window.__repforgeEntryState();
@@ -301,30 +310,46 @@ try {
   await page.locator(`[data-review-confirm-offer-action="${offerTarget.slotId}"]`).click();
   await page.locator("#reviewConfirmGo").waitFor({ state: "visible", timeout: 5000 });
   await page.locator("#reviewConfirmGo").click();
-  await page.waitForFunction(({ slotId, exerciseId }) => {
+  await page.waitForFunction(({ dayIndex, slotIndex, exerciseId }) => {
     const current = window.__repforgeEntryState();
-    const slot = current?.result?.preview?.programDefinition?.days.flatMap((day) => day.slots).find((item) => item.id === slotId);
+    const slot = current?.result?.preview?.programDefinition?.days[dayIndex]?.slots[slotIndex];
     return current?.answers?.movementConfirmations?.[exerciseId] && slot?.exerciseId === exerciseId;
-  }, offerTarget, { timeout: 20000 });
+  }, { ...offerPosition, exerciseId: offerTarget.exerciseId }, { timeout: 20000 });
   const afterOffer = await entry(page);
-  assert.equal(afterOffer.result.preview.programDefinition.seed, beforeOfferDefinition.seed,
-    "confirming an offer after the guard regenerates with the same seed");
+  assert.equal(Object.hasOwn(afterOffer.result.preview.programDefinition, "seed"), false,
+    "the confirmed recommendation carries no caller seed");
   assert.deepEqual(afterOffer.answers.movementConfirmations[offerTarget.exerciseId], expectedOffer.prerequisiteIds,
     "confirming an offer stores only that movement's prerequisites in the answers");
   assert.deepEqual(afterOffer.result.preview.programDefinition, offerRebuildProbe.definition,
     "confirming an offer rebuilds from the compiler baseline, discarding the canceled Review edits");
   const changedOfferRows = await page.evaluate(({ before, target }) => {
-    const prior = new Map(before.days.flatMap((day) => day.slots).map((slot) => [slot.id, slot.exerciseId]));
     const current = window.__repforgeEntryState().result.preview.programDefinition;
-    const changed = current.days.flatMap((day) => day.slots).filter((slot) => prior.get(slot.id) !== slot.exerciseId);
-    const names = changed.map((slot) => document.querySelector(`#entryReview [data-review-slot="${CSS.escape(slot.id)}"] .review__name`)?.textContent.trim()).filter(Boolean);
-    return { changed: changed.map((slot) => slot.id), names, status: document.querySelector("#entryChange[role='status']")?.textContent || "" };
+    const positions = before.days.flatMap((day, dayIndex) => day.slots.map((slot, slotIndex) => ({ slot, dayIndex, slotIndex })));
+    const changed = positions.filter(({ slot, dayIndex, slotIndex }) => current.days[dayIndex]?.slots[slotIndex]?.exerciseId !== slot.exerciseId)
+      .map(({ dayIndex, slotIndex }) => current.days[dayIndex]?.slots[slotIndex]).filter(Boolean);
+    const rowName = (slot) => {
+      const rendered = document.querySelector(`#entryReview [data-review-slot="${CSS.escape(slot.id)}"] .review__name`)?.textContent.trim();
+      const entry = window.RepForgeExercises.library.find((exercise) => exercise.id === slot.exerciseId);
+      return rendered || slot.displayName || (document.documentElement.lang.startsWith("pt") && entry?.namePt) || entry?.name ||
+        window.__repforgeEntryState().result.preview.program.find((row) => row.slotId === slot.id)?.name;
+    };
+    const names = changed.map(rowName).filter(Boolean);
+    const unchanged = positions.filter(({ slot, dayIndex, slotIndex }) => current.days[dayIndex]?.slots[slotIndex]?.exerciseId === slot.exerciseId)
+      .map(({ dayIndex, slotIndex }) => current.days[dayIndex]?.slots[slotIndex]).filter(Boolean);
+    const unchangedNames = unchanged.map(rowName).filter(Boolean);
+    return { changed: changed.map((slot) => slot.id), names, unchangedNames,
+      announcedNames: document.querySelector("#entryChange[role='status'] .entry__change-line .visually-hidden")?.textContent.trim() || "",
+      status: document.querySelector("#entryChange[role='status']")?.textContent || "" };
   }, { before: beforeOfferDefinition, target: offerTarget });
-  assert.ok(changedOfferRows.changed.includes(offerTarget.slotId), "the offered movement lands in its promised slot");
+  const confirmedSlotId = afterOffer.result.preview.programDefinition.days[offerPosition.dayIndex].slots[offerPosition.slotIndex].id;
+  assert.ok(changedOfferRows.changed.includes(confirmedSlotId), "the offered movement lands at its promised position");
   assert.ok(changedOfferRows.names.length > 0 && changedOfferRows.names.every((name) => changedOfferRows.status.includes(name)),
     "the polite change status names every row the confirmation moved");
+  assert.ok(changedOfferRows.unchangedNames.length > 0, "this confirmation leaves actual exercise positions unchanged");
+  assert.equal(changedOfferRows.announcedNames, changedOfferRows.names.join(", "),
+    "the polite change status names only movements that changed at corresponding day/slot positions");
   await page.locator(`#entryReview [data-review-confirmed="${offerTarget.exerciseId}"]`).waitFor({ state: "visible", timeout: 5000 });
-  assert.match(await page.locator(`#entryReview [data-review-slot="${offerTarget.slotId}"] [data-review-mark]`).innerText(),
+  assert.match(await page.locator(`#entryReview [data-review-slot="${confirmedSlotId}"] [data-review-mark]`).innerText(),
     /confirmed by you|confirmado por você/i, "the changed row is marked as confirmed by the lifter");
   await page.waitForFunction((exerciseId) =>
     document.activeElement?.dataset?.reviewConfirmationUndo === exerciseId,
@@ -342,11 +367,11 @@ try {
     "Undo removes the answer confirmation and rebuilds the original recommendation");
   await page.locator(`[data-review-confirm-offer-action="${offerTarget.slotId}"]`).waitFor({ state: "visible", timeout: 15000 });
   await page.locator(`[data-review-confirm-offer-action="${offerTarget.slotId}"]`).click();
-  await page.waitForFunction(({ slotId, exerciseId }) => {
+  await page.waitForFunction(({ dayIndex, slotIndex, exerciseId }) => {
     const current = window.__repforgeEntryState();
-    const slot = current?.result?.preview?.programDefinition?.days.flatMap((day) => day.slots).find((item) => item.id === slotId);
+    const slot = current?.result?.preview?.programDefinition?.days[dayIndex]?.slots[slotIndex];
     return current?.answers?.movementConfirmations?.[exerciseId] && slot?.exerciseId === exerciseId;
-  }, offerTarget, { timeout: 20000 });
+  }, { ...offerPosition, exerciseId: offerTarget.exerciseId }, { timeout: 20000 });
   const confirmedBeforeReload = await entry(page);
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
@@ -364,18 +389,18 @@ try {
   }, { exerciseId: offerTarget.exerciseId, previousFingerprint: confirmedAfterReload.result.fingerprint }, { timeout: 20000 });
   const undoResult = await entry(page);
   assert.deepEqual(undoResult.result.preview.programDefinition, beforeOfferDefinition,
-    "Undo settles back to the same-seed compiler baseline before its verifier is held");
+    "Undo settles back to the canonical compiler baseline before its verifier is held");
   const undoIdentity = {
     resultFingerprint: undoResult.result.fingerprint,
     answersFingerprint: undoResult.result.answersFingerprint,
-    seed: undoResult.draftId,
+    draftId: undoResult.draftId,
   };
   await page.waitForFunction((identity) => {
     const harness = window.__repforgeOfferWorkerHarness;
     return harness?.held.some((held) => {
       const request = harness.requests.find((item) => item.workerId === held.workerId && item.id === held.id);
       return request?.step === "result" && request.resultFingerprint === identity.resultFingerprint &&
-        request.answersFingerprint === identity.answersFingerprint && request.seed === identity.seed;
+        request.answersFingerprint === identity.answersFingerprint && request.draftId === identity.draftId;
     }) || false;
   }, undoIdentity, { timeout: 15000 });
   const oldVerifier = await page.evaluate((identity) => {
@@ -383,23 +408,23 @@ try {
     const held = harness.held.find((item) => {
       const request = harness.requests.find((candidate) => candidate.workerId === item.workerId && candidate.id === item.id);
       return request?.step === "result" && request.resultFingerprint === identity.resultFingerprint &&
-        request.answersFingerprint === identity.answersFingerprint && request.seed === identity.seed;
+        request.answersFingerprint === identity.answersFingerprint && request.draftId === identity.draftId;
     });
     return held && { workerId: held.workerId, id: held.id, resultFingerprint: held.requestResultFingerprint,
       answersFingerprint: held.requestAnswersFingerprint, responseResultFingerprint: held.responseResultFingerprint,
-      seedMatchesDraft: held.requestSeed === identity.seed, step: held.requestStep };
+      draftMatchesOperation: held.requestDraftId === identity.draftId, step: held.requestStep };
   }, undoIdentity);
   assert.ok(oldVerifier, "the held Worker request belongs to the settled Undo result being left");
   assert.equal(oldVerifier.resultFingerprint, undoResult.result.fingerprint,
     "the held verifier's original request fingerprint matches the Undo result");
   assert.equal(oldVerifier.answersFingerprint, undoResult.result.answersFingerprint,
     "the held verifier's original request carries the Undo result's answer fingerprint");
-  assert.equal(oldVerifier.seedMatchesDraft, true, "the held verifier reuses the current draft seed");
+  assert.equal(oldVerifier.draftMatchesOperation, true, "the held verifier belongs to the current draft operation");
   assert.equal(oldVerifier.step, "result", "the held verifier starts from the settled result screen");
   console.log("S4_OFFER_STALE_WORKER_PROBE", JSON.stringify({
     workerId: oldVerifier.workerId, requestId: oldVerifier.id,
     resultFingerprint: oldVerifier.resultFingerprint, answersFingerprint: oldVerifier.answersFingerprint,
-    seedMatchesDraft: oldVerifier.seedMatchesDraft, responseResultFingerprint: oldVerifier.responseResultFingerprint,
+    draftMatchesOperation: oldVerifier.draftMatchesOperation, responseResultFingerprint: oldVerifier.responseResultFingerprint,
   }));
   await page.click("#onbBack");
   await page.waitForFunction(() => window.__repforgeEntryState()?.step === "abilities", undefined, { timeout: 5000 });
@@ -433,6 +458,7 @@ try {
   await page.waitForFunction(() => window.__repforgeEntryState()?.step === "result", undefined, { timeout: 20000 });
   await page.locator("#entryReview [data-review-slot]").first().waitFor({ state: "visible", timeout: 15000 });
 
+  firstSlot = (await entry(page)).result.preview.programDefinition.days.find((day) => day.kind === "training").slots[0];
   assert.equal(await page.locator("#entryReview [data-review-block-edit]").count(), 1,
     "the production review exposes the block row's Change action");
   await page.locator("#entryReview [data-review-block-edit]").click();
@@ -458,7 +484,6 @@ try {
   await page.locator("#reviewSheet [data-review-sheet-close]").click();
   await page.locator("#reviewSheet").waitFor({ state: "hidden", timeout: 5000 });
 
-  const sameSeed = initial.result.preview.programDefinition.seed;
   await editFirstSlotToSixSets(page, firstSlot.id);
   const editedBeforeBlock = await entry(page);
   const editedBeforeSlot = editedBeforeBlock.result.preview.programDefinition.days.flatMap((day) => day.slots)
@@ -488,11 +513,19 @@ try {
     window.__repforgeEntryState()?.answers?.deload === true,
   undefined, { timeout: 20000 });
   const rebuilt = await entry(page);
-  assert.equal(rebuilt.result.preview.programDefinition.seed, sameSeed, "the block edit rebuilds with the same seed");
+  const canonicalRebuilt = await page.evaluate(() => {
+    const current = window.__repforgeEntryState();
+    const catalog = window.RepForgeExerciseCatalog.snapshot();
+    const mapped = window.RepForgeProgramEntryAdapter.programRequestFromAnswers(current.answers, catalog);
+    return mapped.ok ? window.RepForgeProgramCompiler.generateProgram(mapped.value, catalog).value : null;
+  });
+  assert.deepEqual(rebuilt.result.preview.programDefinition, canonicalRebuilt,
+    "the block edit commits the complete canonical program for its new answers");
   assert.deepEqual(rebuilt.result.preview.programDefinition.deloadCycles, [10], "deload moves to the new last week");
   assert.equal(rebuilt.result.preview.programDefinition.days.flatMap((day) => day.slots)[0]
     .prescriptionsByCycle[0].sets[0].provenance.periodization, "undulating", "the new rep pattern reaches the compiler output");
 
+  firstSlot = rebuilt.result.preview.programDefinition.days.find((day) => day.kind === "training").slots[0];
   await editFirstSlotToSixSets(page, firstSlot.id);
   const edited = await entry(page);
   const editedSlot = edited.result.preview.programDefinition.days.flatMap((day) => day.slots).find((slot) => slot.id === firstSlot.id);
@@ -665,4 +698,4 @@ try {
   await browser.close();
 }
 
-console.log("PASS P072-S4-BLOCK/DELOAD: guarded same-seed rebuild, activation, Today and Focus");
+console.log("PASS P072-S4-BLOCK/DELOAD: guarded canonical rebuild, activation, Today and Focus");

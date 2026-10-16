@@ -33,8 +33,8 @@ const request = {
   split: "auto", periodization: "static", cycles: 7, deloadCycles: [],
 };
 
-const predecessorDefinition = Compiler.generateProgram(request, catalogSnapshot, "transition-source-067");
-const successorDefinition = Compiler.generateProgram(request, catalogSnapshot, "transition-successor-067");
+const predecessorDefinition = Compiler.generateProgram(request, catalogSnapshot);
+const successorDefinition = Compiler.generateProgram({ ...request, cycles: 8 }, catalogSnapshot);
 assert.equal(predecessorDefinition.ok, true, "transition source is a real complete compiler output");
 assert.equal(successorDefinition.ok, true, "replacement is a second real complete compiler output");
 const predecessor = {
@@ -153,7 +153,7 @@ const fewer = derive({ kind: "fewer_days", daysPerWeek: 3 });
 assert.equal(fewer.ok, true, `fewer days regenerates a generated program: ${fewer.code || ""}`);
 assert.equal(trainingDays(fewer.value.programDefinition), 3, "the successor trains on the requested number of days");
 assert.equal(fewer.value.programDefinition.request.daysPerWeek, 3);
-assert.equal(fewer.value.programDefinition.seed, base.seed, "regeneration keeps the program seed");
+assert.equal(fewer.value.programDefinition.seed, undefined, "regeneration uses the canonical request without a caller seed");
 assert.equal(Compiler.validateProgramDefinition(fewer.value.programDefinition, catalogSnapshot, []).ok, true);
 const keptExercises = new Set(slotsOf(base).map((slot) => slot.exerciseId));
 assert.ok(slotsOf(fewer.value.programDefinition).filter((slot) => keptExercises.has(slot.exerciseId)).length >=
@@ -251,7 +251,7 @@ const preferredNow = [...new Set(slotsOf(base).map((slot) => slot.exerciseId))].
 const regenerated = (overrides) => {
   const generatorRequest = { ...base.request, ...overrides, preferredExerciseIds: preferredNow };
   delete generatorRequest.seed;
-  const generated = Compiler.generateProgram(generatorRequest, catalogSnapshot, base.seed);
+  const generated = Compiler.generateProgram(generatorRequest, catalogSnapshot);
   assert.equal(generated.ok, true, "the bare regeneration is a real compiler output");
   return generated.value;
 };

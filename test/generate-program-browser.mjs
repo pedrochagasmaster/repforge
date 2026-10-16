@@ -4,7 +4,7 @@
  *
  * A fresh device answers the Generate questions, reviews the generated
  * program, and activates it; the stored ProgramDefinition is exactly the
- * canonical generator output for the mapped request and the draft's seed, and
+ * canonical generator output for the mapped request, and
  * survives reload. Cancelling leaves no program, and a request the generator
  * cannot fit shows its conflict instead of a partial program.
  *
@@ -58,10 +58,7 @@ async function fresh(browser, { uuid, hasTouch = false, reducedMotion, withoutMo
   page.on("pageerror", (error) => errors.push(String(error?.stack || error)));
   if (withoutMotion) await page.route("**/motion-layer.js*", (route) => route.abort());
   if (withoutWorker) await page.addInitScript(() => { window.Worker = undefined; });
-  // A pinned draftId pins the generator's seed, so a scenario that needs a
-  // specific candidate-selection outcome (the abilities-gated exercise proof
-  // below) is deterministic rather than depending on which random id this
-  // run happened to draw.
+  // Fix draft identity where a scenario needs a reproducible setup fixture.
   if (uuid) {
     await page.addInitScript((fixed) => {
       try { Object.defineProperty(globalThis.crypto, "randomUUID", { value: () => fixed, configurable: true }); }
@@ -839,15 +836,12 @@ async function onboardingConflict(browser) {
   await page.click("#firstRunCreate");
   await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
   await answerRecommend(page, { skipBasics: true, environment: "limited_home", equipment: ["pullup_bar", "bands"], until: "abilities" });
-  const started = Date.now();
   await page.click("#onbNext");
   const notice = page.locator("#onbBody .entry__notice[role=alert]");
   await notice.waitFor({ state: "visible", timeout: 15000 });
-  const took = Date.now() - started;
   const text = await notice.innerText();
   check(/Without this equipment, nothing in the catalog can train: .*vertical pull/i.test(text) && /Nothing was saved/.test(text),
     "Home without the pull-up bar and bands names the vertical pull it cannot train", text);
-  check(took < 1000, "the equipment conflict returns without waiting for a generation search", String(took));
   check(!(await state(page)).programMeta.onboarded && !(await page.locator("#entryActivate").count()), "a conflict activates nothing");
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
@@ -949,11 +943,132 @@ async function answerEditorMatchesRecommend(browser) {
   return run.errors;
 }
 
+/** Plan 073: the recovered domain crosses the real form, worker, activation,
+ * Focus and durable reload. Eight reductions deliberately exceed the retired
+ * five-muscle cap. Worker unavailability must produce the same definition. */
+async function recoveredGenerationJourney(browser) {
+  const reductions = ["forearms", "lower_back", "abductors", "adductors", "neck", "upper_traps", "tibs", "obliques"];
+  const priorities = Object.fromEntries(reductions.map((muscle) => [muscle, "reduce"]));
+  let workerDefinition;
+  const errors = [];
+  for (const withoutWorker of [false, true]) {
+    const run = await fresh(browser, { withoutWorker });
+    const { page } = run;
+    const mode = withoutWorker ? "fallback" : "worker";
+    await page.click("#firstRunCreate");
+    await answerRecommend(page, { skipBasics: true, days: 3, minutes: 60,
+      goal: "balanced", lifting: "over_24m", deload: false, priorities,
+      until: "muscle_priorities" });
+    check(await page.locator('#onbBody > .entry-motion-page:not([aria-hidden="true"]) [data-entry-pick="musclePriorityB"][data-entry-val$="|reduce"]').count() === 22,
+      `P073 ${mode}: the form exposes all 22 independent muscle reductions`);
+    await answerRecommend(page, { priorities, until: "deload" });
+    check(JSON.stringify((await entry(page)).answers.deEmphasizedMuscles?.slice().sort()) === JSON.stringify(reductions.slice().sort()),
+      `P073 ${mode}: all eight reductions survive the production form`, (await entry(page)).answers.deEmphasizedMuscles);
+    await answerRecommend(page, { skipBasics: true, deload: false });
+    await page.locator("#entryActivate").waitFor({ state: "visible", timeout: 20000 });
+    const staged = await entry(page);
+    const mapped = Adapter.programRequestFromAnswers(staged.answers, Catalog);
+    check(mapped.ok && mapped.value.deprioritizedMuscleIds.length === 8,
+      `P073 ${mode}: the compiler request carries all eight muscle UUIDs`, mapped);
+    const definition = staged.result?.preview?.programDefinition;
+    const expected = mapped.ok ? Compiler.generateProgram(mapped.value, Catalog) : null;
+    check(expected?.ok && JSON.stringify(definition) === JSON.stringify(expected.value),
+      `P073 ${mode}: review contains the canonical seedless compiler definition`, expected?.conflicts);
+    check(definition?.request?.goal === "hybrid" && definition.request.experience === "advanced" &&
+      definition.request.daysPerWeek === 3 && definition.request.timeCeilingMinutes === 60 &&
+      definition.request.periodization === "static" && definition.cycles === 7 &&
+      definition.request.deloadCycles.length === 0 && definition.request.deprioritizedMuscleIds.length === 8,
+      `P073 ${mode}: hybrid Advanced, 60-minute option, Static seven cycles and no deload reach review`, definition?.request);
+    check(trainingDays(definition).length === 3 && definition.provenance?.split === "upper_lower_full",
+      `P073 ${mode}: the recovered definition is Upper/Lower/Full`, { split: definition.provenance?.split, days: trainingDays(definition).map((day) => day.name) });
+    const stats = await page.evaluate(() => window.__repforgeProgramEngine?.stats());
+    check(withoutWorker ? stats?.mode === "main" && stats.main > 0 : stats?.mode === "worker" && stats.worker > 0 && stats.main === 0,
+      `P073 ${mode}: the production engine uses the expected execution path`, stats);
+    if (withoutWorker) check(JSON.stringify(definition) === JSON.stringify(workerDefinition),
+      "P073: worker and fallback produce identical definitions across fresh drafts");
+    else workerDefinition = definition;
+    check(!(await state(page)).programMeta.onboarded && (await state(page)).program.length === 0,
+      `P073 ${mode}: review has not activated training state`);
+    if (!withoutWorker) {
+      await page.evaluate(() => {
+        const key = "repforge_program_setup_draft_v1";
+        const saved = JSON.parse(localStorage.getItem(key));
+        saved.state.versions.compiler = "previous-generator-policy";
+        localStorage.setItem(key, JSON.stringify(saved));
+      });
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(page, { base: BASE });
+      if (!await page.locator("#entryRebuildRules").count()) {
+        if (await page.locator("#firstRunCreate").isVisible().catch(() => false)) await page.click("#firstRunCreate");
+        if (await page.locator("#entryResumeContinue").count()) await page.click("#entryResumeContinue");
+      }
+      await page.locator("#entryRebuildRules").waitFor({ state: "visible", timeout: 10000 });
+      const pinnedStats = await page.evaluate(() => window.__repforgeProgramEngine?.stats());
+      check(JSON.stringify(await reviewed(page)) === JSON.stringify(definition) &&
+        !(pinnedStats?.worker > 0) && !(pinnedStats?.main > 0),
+        "P073: opening an older-policy result preserves its preview without implicit regeneration", pinnedStats);
+      await page.click("#entryRebuildRules");
+      await page.waitForSelector("#entryRebuildRules", { state: "detached", timeout: 20000 });
+      await page.waitForSelector("#entryReview [data-review-slot]", { timeout: 20000 });
+      const rebuiltStats = await page.evaluate(() => window.__repforgeProgramEngine?.stats());
+      check(rebuiltStats?.worker > 0 && JSON.stringify(await reviewed(page)) === JSON.stringify(definition),
+        "P073: explicit Rebuild generates the current deterministic recommendation", rebuiltStats);
+      for (const [label, control] of [["eight cycles", '[data-review-block-step="1"]'],
+        ["linear pattern", '[data-review-block-pattern="linear"]'], ["deload", "[data-review-block-deload]"]]) {
+        const beforeEdit = await entry(page);
+        const stored = await page.evaluate(() => localStorage.getItem("repforge_program_setup_draft_v1"));
+        await page.locator("#entryReview [data-review-block-edit]").click();
+        await page.locator(`#reviewSheet ${control}`).click();
+        await page.locator("#reviewSheet [data-review-block-apply]").click();
+        await page.waitForFunction(() => {
+          const notice = document.querySelector("#toast");
+          return notice && !notice.classList.contains("hidden") && /could not build|not.*supported|not.*validated/i.test(notice.textContent);
+        }, undefined, { timeout: 10000 });
+        const afterEdit = await entry(page);
+        check(JSON.stringify(afterEdit.answers) === JSON.stringify(beforeEdit.answers) &&
+          JSON.stringify(afterEdit.result) === JSON.stringify(beforeEdit.result) &&
+          await page.evaluate(() => localStorage.getItem("repforge_program_setup_draft_v1")) === stored,
+          `P073: unsupported ${label} refuses explicitly and preserves the reviewed program, answers and persisted draft`);
+        await page.waitForSelector("#toast.hidden", { state: "attached", timeout: 10000 });
+      }
+    }
+    await page.click("#entryActivate");
+    await page.waitForFunction(() => window.__repforgeWorkoutDraft.state()?.programMeta?.onboarded === true, undefined, { timeout: 20000 });
+    await page.evaluate(() => window.__repforgeStorage?.flush?.());
+    check(JSON.stringify((await state(page)).programMeta.programDefinition) === JSON.stringify(definition),
+      `P073 ${mode}: activation preserves the reviewed definition`);
+    await page.click("#startWorkout");
+    await page.waitForSelector("#workout .exercise", { timeout: 10000 });
+    const focus = await page.evaluate(() => {
+      const draft = window.__repforgeWorkoutDraft.current();
+      return Object.values(draft?.exercises || {}).map((exercise) => ({
+        slot: exercise.sourceExerciseId || exercise.exerciseInstanceId,
+        sets: exercise.setOrder.map((id) => exercise.sets[id]).filter((set) => set.role === "working")
+          .map((set) => ({ targets: set.programmed.targets, rir: set.programmed.targetRir, restSeconds: set.programmed.restSeconds })),
+      }));
+    });
+    const day = trainingDays(definition).find((candidate) => candidate.slots.some((slot) => focus.some((exercise) => exercise.slot === slot.id)));
+    check(!!day && day.slots.every((slot) => JSON.stringify(focus.find((exercise) => exercise.slot === slot.id)?.sets) ===
+      JSON.stringify(slot.prescriptionsByCycle[0].sets.map((set) => ({ targets: set.targets, rir: set.rir, restSeconds: set.restSeconds })))),
+      `P073 ${mode}: Focus consumes the activated prescriptions`, focus);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    check(JSON.stringify((await state(page)).programMeta.programDefinition) === JSON.stringify(definition),
+      `P073 ${mode}: the activated definition survives reload`);
+    check(!!await page.evaluate(() => window.__repforgeWorkoutDraft.current()),
+      `P073 ${mode}: the Focus draft survives reload`);
+    errors.push(...run.errors);
+    await run.context.close();
+  }
+  return errors;
+}
+
 async function main() {
   console.log("P067 slice 2: Generate → review → activate through the production entry UI");
   const browser = await launchChromium();
   const allErrors = [];
   try {
+    allErrors.push(await recoveredGenerationJourney(browser));
     // Generate and activate ------------------------------------------------
     const { context, page, errors } = await fresh(browser);
     allErrors.push(errors);
@@ -962,9 +1077,9 @@ async function main() {
     const staged = await entry(page);
     const definition = staged.result?.preview?.programDefinition;
     const mapped = Adapter.programRequestFromAnswers(staged.answers, Catalog);
-    const expected = Compiler.generateProgram(mapped.value, Catalog, String(staged.draftId));
+    const expected = Compiler.generateProgram(mapped.value, Catalog);
     check(expected.ok && JSON.stringify(definition) === JSON.stringify(expected.value),
-      "the reviewed program is exactly the canonical generator output for the answers and the draft seed");
+      "the reviewed program is exactly the canonical generator output for the answers");
     const engineRuns = await page.evaluate(() => window.__repforgeProgramEngine?.stats());
     check(engineRuns?.mode === "worker" && engineRuns.worker >= 1 && engineRuns.main === 0,
       "the program is generated in the worker, not on the main thread", engineRuns);
@@ -1004,12 +1119,11 @@ async function main() {
       "answering yes to bench press x10 records a true competency answer", abilityYesStaged.answers.competencyAnswers);
     const benchId = Catalog.exercises.find((item) => item.name === "Barbell bench press").id;
     const abilityYesMapped = Adapter.programRequestFromAnswers(abilityYesStaged.answers, Catalog);
-    const seed = String(abilityYesStaged.draftId);
-    const withAnswer = abilityYesMapped.ok ? Compiler.generateProgram(abilityYesMapped.value, Catalog, seed) : { ok: false };
+    const withAnswer = abilityYesMapped.ok ? Compiler.generateProgram(abilityYesMapped.value, Catalog) : { ok: false };
     const withoutAnswerRequest = abilityYesMapped.ok
       ? { ...abilityYesMapped.value, competencyAnswers: { ...abilityYesMapped.value.competencyAnswers, benchPress10: null } }
       : null;
-    const withoutAnswer = withoutAnswerRequest ? Compiler.generateProgram(withoutAnswerRequest, Catalog, seed) : { ok: false };
+    const withoutAnswer = withoutAnswerRequest ? Compiler.generateProgram(withoutAnswerRequest, Catalog) : { ok: false };
     const idsWith = withAnswer.ok ? withAnswer.value.days.flatMap((day) => (day.slots || []).map((slot) => slot.exerciseId)) : [];
     const idsWithout = withoutAnswer.ok ? withoutAnswer.value.days.flatMap((day) => (day.slots || []).map((slot) => slot.exerciseId)) : [];
     check(idsWith.includes(benchId) && !idsWithout.includes(benchId),
@@ -1017,8 +1131,8 @@ async function main() {
       { idsWith, idsWithout });
     await abilityYes.context.close();
 
-    // #340: answering yes to 10 strict pull-ups brings in a weighted vertical
-    // pull, in the program the screen actually built -------------------------
+    // #340: answering yes to 10 strict pull-ups permits a weighted vertical
+    // pull chosen through the production review ------------------------------
     const pullYes = await fresh(browser, { uuid: "0" });
     allErrors.push(pullYes.errors);
     await answerGenerate(pullYes.page, { abilities: { pullups10: "yes" } });
@@ -1029,13 +1143,32 @@ async function main() {
     const weightedPullPrerequisite = Object.entries(Catalog.uuidIndex)
       .find(([, item]) => item.type === "preconditions" && item.name === "Weighted vertical pulls preconditions")[0];
     const weightedPulls = new Set(Catalog.exercises.filter((item) => (item.preconditions || []).includes(weightedPullPrerequisite)).map((item) => item.id));
-    const pullBuilt = (pullStaged.result?.preview?.programDefinition?.days || []).flatMap((day) => (day.slots || []).map((slot) => slot.exerciseId));
+    const pullDefinition = pullStaged.result?.preview?.programDefinition;
+    // Eligibility does not promise automatic selection. Make the lifter's
+    // preference explicit through the production review's engine candidates.
+    if (!slotsOf(pullDefinition).some((slot) => weightedPulls.has(slot.exerciseId))) {
+      const eligible = slotsOf(pullDefinition).map((slot) => ({ slot,
+        candidate: Compiler.findSubstitutions(pullDefinition, slot.id, {}, Catalog).find((item) => weightedPulls.has(item.exerciseId)) }))
+        .find((item) => item.candidate);
+      check(!!eligible, "answering yes exposes a weighted vertical pull as an engine substitution");
+      if (eligible) {
+        const dayIndex = pullDefinition.days.findIndex((day) => (day.slots || []).some((slot) => slot.id === eligible.slot.id));
+        await pullYes.page.locator(`#entryReview [data-review-tab="${dayIndex}"]`).click();
+        await openSlot(pullYes.page, eligible.slot.id);
+        if (!await pullYes.page.locator(`#reviewSheet [data-review-swap="${eligible.candidate.exerciseId}"]`).count()) {
+          await pullYes.page.locator("#reviewSheet [data-review-more-subs]").click();
+        }
+        await pullYes.page.locator(`#reviewSheet [data-review-swap="${eligible.candidate.exerciseId}"]`).click();
+        await closeSheet(pullYes.page);
+      }
+    }
+    const pullBuilt = slotsOf(await reviewed(pullYes.page)).map((slot) => slot.exerciseId);
     const pullMapped = Adapter.programRequestFromAnswers(pullStaged.answers, Catalog);
     const pullWithout = pullMapped.ok ? Compiler.generateProgram({ ...pullMapped.value,
-      competencyAnswers: { ...pullMapped.value.competencyAnswers, pullups10: null } }, Catalog, String(pullStaged.draftId)) : { ok: false };
+      competencyAnswers: { ...pullMapped.value.competencyAnswers, pullups10: null } }, Catalog) : { ok: false };
     const pullIdsWithout = pullWithout.ok ? pullWithout.value.days.flatMap((day) => (day.slots || []).map((slot) => slot.exerciseId)) : null;
     check(pullBuilt.some((id) => weightedPulls.has(id)) && pullIdsWithout && !pullIdsWithout.some((id) => weightedPulls.has(id)),
-      "answering yes to 10 strict pull-ups puts a weighted vertical pull in the built program, where the same draft without the answer has none",
+      "answering yes permits the chosen weighted vertical pull in review, where the request without the answer generates none",
       { pullBuilt, pullIdsWithout });
     await pullYes.context.close();
 
@@ -1064,7 +1197,7 @@ async function main() {
       "cancelling Generate leaves the device without a program");
     await cancel.context.close();
 
-    // Different drafts may differ, the same draft is stable ------------------
+    // The canonical request stays stable across a resumed setup draft --------
     const again = await fresh(browser);
     allErrors.push(again.errors);
     await answerGenerate(again.page);

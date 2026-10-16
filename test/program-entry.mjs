@@ -166,7 +166,6 @@ function generatedCandidateFixture() {
     import.meta.url,
   ), "utf8"));
   const request = structuredClone(workerFixture.request);
-  const seed = request.seed;
   delete request.seed;
   Object.assign(request, {
     daysPerWeek: 4,
@@ -177,7 +176,7 @@ function generatedCandidateFixture() {
   });
   request.gymProfile.equipmentIds = Object.keys(Catalog.uuidIndex)
     .filter((id) => Catalog.uuidIndex[id]?.type === "equipment");
-  const generated = Compiler.generateProgram(request, Catalog, seed);
+  const generated = Compiler.generateProgram(request, Catalog);
   assert.equal(generated.ok, true, generated.conflicts?.map((item) => item.message).join("; "));
   assert.equal(generated.value.cycles, 12);
   const rows = [];
@@ -398,7 +397,7 @@ test("programming context accepts only the versioned bounded shape", () => {
     { desiredResult: "build_consistency" },
     { structuredExperience: "advanced" },
     { volumeTolerance: "high" },
-    { primaryMuscles: ["back", "chest", "quads", "glutes", "lats", "calves"] },
+    { primaryMuscles: ["unknown_muscle"] },
   ]) {
     const rejected = Entry.normalizeProgrammingContext({ ...context, ...change });
     assert.equal(rejected.ok, false, JSON.stringify(change));
@@ -796,7 +795,7 @@ test("corrupt saved drafts return typed resume failure", () => {
   });
 });
 
-test("muscle overlaps and control caps fail closed before compile", () => {
+test("muscle overlaps fail closed while all supported priorities remain available", () => {
   const state = Entry.selectRoute(fresh(), "custom");
   assert.throws(
     () => Entry.setAnswers(state, {
@@ -805,18 +804,15 @@ test("muscle overlaps and control caps fail closed before compile", () => {
     }),
     /primary_deemphasized_overlap/,
   );
+  for (const field of ["primaryMuscles", "deEmphasizedMuscles"]) {
+    const all = Entry.setAnswers(state, { [field]: [...Entry.ENTRY_MUSCLES] });
+    assert.deepEqual(all.answers[field], Entry.ENTRY_MUSCLES);
+  }
+  const unknownMuscles = ["not_source_muscle"];
   assert.throws(
-    () => Entry.setAnswers(state, {
-      primaryMuscles: ["chest", "back", "quads", "glutes", "lats", "calves"],
-    }),
-    /invalid_list|too_many/,
+    () => Entry.setAnswers(state, { deEmphasizedMuscles: unknownMuscles }),
+    /unknown_muscle/,
   );
-  const eleven = Array.from({ length: 11 }, (_, i) => `m${i}`);
-  assert.throws(
-    () => Entry.setAnswers(state, { deEmphasizedMuscles: eleven }),
-    /invalid_list/,
-  );
-  assert.equal(Entry.MAX_MUSCLE_CONTROLS, 10);
 
   assert.throws(
     () => Entry.setAnswers(state, {
@@ -994,4 +990,16 @@ test("typed compiler requests survive route selection and bounded draft round-tr
   assert.throws(() => Entry.setAnswers(state, {
     programRequest: { ...programRequest, privateFamilyId: "old-generator" },
   }), /unknown_key/);
+});
+
+test("preview day identity uses the 96-character token boundary independently of its label", () => {
+  const baseline = resultFixture("recommend");
+  const dayId = baseline.preview.programDefinition.days[0].id;
+  for (const length of [81, 96, 97]) {
+    const replacement = "d".repeat(length);
+    const result = JSON.parse(JSON.stringify(baseline).split(JSON.stringify(dayId)).join(JSON.stringify(replacement)));
+    const staged = Entry.setResult(Entry.selectRoute(fresh(), "recommend"), result);
+    const checked = Entry.normalizeSetupDraft(staged);
+    assert.equal(checked.ok, length <= 96, JSON.stringify(checked.issues));
+  }
 });

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { createRequire } from "node:module";
@@ -153,19 +154,32 @@ test("equipment alternatives use OR, groups use AND, support remains required, a
   const pluralId = "19e5c6f170d8808593d8ecf408c4f749";
   const singularId = "25a5c6f170d880589ffdf4f627a75b44";
   const nextSingularId = "25a5c6f170d880c1a55ac08cf52671ab";
-  const snapshot = catalog.snapshot();
-  const nextSingular = catalog.getObject(singularId);
-  const originalPluralOf = nextSingular.pluralOf;
+  const synthetic = structuredClone(catalog.snapshot());
+  synthetic.uuidIndex[singularId].pluralOf = nextSingularId;
+  synthetic.uuidIndex[nextSingularId].pluralOf = pluralId;
+  const text = JSON.stringify(synthetic);
+  const modulePath = require.resolve("../exercise-catalog.js");
+  const publishedModule = require.cache[modulePath];
+  const originalFetch = globalThis.fetch;
+  const originalExercises = globalThis.RepForgeExercises;
   try {
-    nextSingular.pluralOf = nextSingularId;
-    const closure = catalog.equipmentClosure([pluralId]);
+    delete require.cache[modulePath];
+    globalThis.RepForgeExercises = { catalogSha256: createHash("sha256").update(text).digest("hex") };
+    globalThis.fetch = async () => ({ ok: true, text: async () => text });
+    const syntheticCatalog = require(modulePath);
+    await syntheticCatalog.load();
+    const closure = syntheticCatalog.equipmentClosure([pluralId]);
     assert.ok(closure.has(pluralId));
     assert.ok(closure.has(singularId));
-    assert.ok(closure.has(nextSingularId), "pluralOf links are followed transitively");
-    assert.ok(catalog.equipmentClosure(new Set([pluralId])).has(singularId),
+    assert.ok(closure.has(nextSingularId), "pluralOf links are followed transitively despite a cycle");
+    assert.ok(syntheticCatalog.equipmentClosure(new Set([pluralId])).has(singularId),
       "equipment profiles can pass their IDs as a Set");
+    assert.ok(Object.isFrozen(syntheticCatalog.getObject(singularId)), "published synthetic rows are immutable too");
   } finally {
-    nextSingular.pluralOf = originalPluralOf;
+    require.cache[modulePath] = publishedModule;
+    globalThis.fetch = originalFetch;
+    if (originalExercises === undefined) delete globalThis.RepForgeExercises;
+    else globalThis.RepForgeExercises = originalExercises;
   }
 });
 

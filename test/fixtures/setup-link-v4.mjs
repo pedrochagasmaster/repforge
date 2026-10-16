@@ -37,7 +37,7 @@ export async function encodeSetupLink(page, { name = "Coach block", language = "
         environment: { kind: "commercial_gym" },
       }, catalog);
       if (!mapped?.ok) return { ok: false, code: "request-unmapped" };
-      const generated = Compiler.generateProgram(mapped.value, catalog, "entry-setup-link");
+      const generated = Compiler.generateProgram(mapped.value, catalog);
       if (!generated?.ok) return { ok: false, code: "generation-failed" };
       definition = generated.value;
     }

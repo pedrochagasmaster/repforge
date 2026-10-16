@@ -58,7 +58,7 @@ async function installProgram(page, item) {
   return page.evaluate(async ({ request, item }) => {
     const catalog = window.RepForgeExerciseCatalog.snapshot();
     const generated = window.RepForgeProgramCompiler.generateProgram(
-      { ...request, preferredExerciseIds: [item.exerciseId] }, catalog, `p069-focus-${item.loadMetric}`);
+      { ...request, preferredExerciseIds: [item.exerciseId] }, catalog);
     if (!generated.ok) throw new Error("Could not generate production program: " + JSON.stringify(generated.conflicts));
     const source = catalog.exercises.find(entry => entry.id === item.exerciseId);
     const definitions = window.RepForgeExerciseMetrics.definitionsForIds(source?.exerciseMetrics || []);

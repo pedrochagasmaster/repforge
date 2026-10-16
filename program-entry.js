@@ -16,7 +16,7 @@
   const MAX_PROGRAM_NAME_LENGTH = 80;
   const MAX_LIST_LENGTH = 32;
   const MAX_CATALOG_SELECTIONS = 2048;
-  const MAX_MUSCLE_CONTROLS = 10;
+  const MAX_MUSCLE_CONTROLS = 22;
   const FORBIDDEN_KEYS = new Set(["__proto__", "prototype", "constructor"]);
   // These closed entry-domain vocabularies belong to the pure contract. The
   // production adapter consumes them; keeping ownership here preserves the
@@ -30,9 +30,10 @@
   ]);
   const EQUIPMENT_GROUP_SET = new Set(EQUIPMENT_GROUPS);
   const ENTRY_MUSCLES = Object.freeze(["chest", "back", "quads", "hamstrings", "glutes", "side_delts", "biceps", "triceps", "calves", "lats",
-    "front_delts", "rear_delts"]);
-  // Onboarding B prioritizes or reduces up to five muscles each.
-  const MAX_PRIORITY_MUSCLES = 5;
+    "front_delts", "rear_delts", "forearms", "lower_back", "abductors", "adductors", "neck", "upper_traps",
+    "abs", "serratus", "tibs", "obliques"]);
+  // Each source muscle can independently receive a priority or a reduction.
+  const MAX_PRIORITY_MUSCLES = 22;
   // Muscle attribution is shared by the custom editor, setup links, imports,
   // durable state, and Progress. Keep the vocabulary here so a producer cannot
   // accept a label that the bounded historical aggregate cannot represent.
@@ -687,7 +688,7 @@
         issues.push(`${path}.${key}:invalid`);
       }
     }
-    if (hasOwn(raw, "split") && (typeof raw.split !== "string" || !["auto", "full_body", "upper_lower", "push_pull_legs_upper_lower", "push_pull_legs"].includes(raw.split))) {
+    if (hasOwn(raw, "split") && (typeof raw.split !== "string" || !["auto", "full_body", "upper_lower", "upper_lower_full", "push_pull_legs_upper_lower", "push_pull_legs"].includes(raw.split))) {
       issues.push(`${path}.split:invalid`);
     }
     if (hasOwn(raw, "periodization") && !["static", "linear", "reverse_linear", "undulating"].includes(raw.periodization)) issues.push(`${path}.periodization:invalid`);
@@ -1242,7 +1243,8 @@
         const dayPath = `${path}.days[${index}]`;
         if (!isPlainObject(day)) { issues.push(`${dayPath}:not_object`); return; }
         rejectUnknownKeys(day, DAY_KEYS, dayPath, issues);
-        for (const key of ["id", "dayId", "label"]) if (hasOwn(day, key)) optionalString(day[key], `${dayPath}.${key}`, issues);
+        for (const key of ["id", "dayId"]) if (hasOwn(day, key)) optionalString(day[key], `${dayPath}.${key}`, issues, MAX_TOKEN_LENGTH);
+        if (hasOwn(day, "label")) optionalString(day.label, `${dayPath}.label`, issues);
         validateDayMetadata(day, dayPath, issues);
         if (hasOwn(day, "order") && !Number.isInteger(day.order)) issues.push(`${dayPath}.order:invalid`);
         if (hasOwn(day, "estimateMinutes") && (!Number.isInteger(day.estimateMinutes) || day.estimateMinutes < 0)) issues.push(`${dayPath}.estimateMinutes:invalid`);
@@ -1624,7 +1626,7 @@
     if (hasOwn(raw, "priorityMuscles")) {
       hint("priorityMuscles", raw.priorityMuscles);
       if (Array.isArray(raw.priorityMuscles) && raw.priorityMuscles.length <= 2 && raw.priorityMuscles.every(validToken)) {
-        answers.primaryMuscles = normalizeMuscleList(raw.priorityMuscles, "$.priorityMuscles", [], 2);
+        answers.primaryMuscles = normalizeMuscleList(raw.priorityMuscles, "$.priorityMuscles", [], MAX_PRIORITY_MUSCLES);
       }
       reviewRequired.push("priorities");
     }

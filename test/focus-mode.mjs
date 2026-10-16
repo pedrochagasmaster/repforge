@@ -1850,7 +1850,7 @@ async function main() {
       const catalog = window.RepForgeExerciseCatalog.snapshot();
       const request = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({ desiredResult: "muscle_growth",
         structuredExperience: "6_to_24m", daysPerWeek: 4, sessionMinutes: 60, environment: { kind: "commercial_gym" } }, catalog).value;
-      const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog, "focus-mode-adaptive").value;
+      const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog).value;
       await window.__repforgeFinalizeProgramSetup({ programDefinition: definition, name: "Adaptive focus", answers: {},
         destination: "log", origin: "first-run", draftConfirmed: true, telemetryRoute: "recommend",
         entrySource: { route: "recommend", fingerprint: "focus-mode-adaptive" } });

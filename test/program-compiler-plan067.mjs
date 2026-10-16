@@ -10,11 +10,12 @@ const require = createRequire(import.meta.url);
 const Compiler = require(path.join(root, "program-compiler.js"));
 const Metrics = require(path.join(root, "exercise-metrics.js"));
 const raw = JSON.parse(fs.readFileSync(path.join(root, "plans/067/data/app_file.json"), "utf8"));
+require(path.join(root, "generation-identity.js")).prepareCatalog(raw);
 const gym = JSON.parse(fs.readFileSync(path.join(root, "plans/067/data/gym.json"), "utf8"));
 const observations = JSON.parse(fs.readFileSync(path.join(root, "plans/067/data/programs.json"), "utf8"));
 
 // These pure proofs cover combinatorial boundaries that a browser flow cannot
-// enumerate reliably: all-or-nothing slot feasibility, seeded tie resolution,
+// enumerate reliably: all-or-nothing slot feasibility, canonical tie resolution,
 // multi-set/cycle dose construction, raw equipment-group closure, and unknown
 // prerequisite refusal. The production browser journey separately proves the
 // Generate → review → activation path.
@@ -66,12 +67,12 @@ function generatedDoseMatrix(program) {
     })));
 }
 
-const standard = Compiler.generateProgram(request(), raw, "p067-standard-fixture");
+const standard = Compiler.generateProgram(request(), raw);
 assert.equal(standard.ok, true, `standard four-day plan should compile: ${JSON.stringify(standard.conflicts)}`);
 assert.deepEqual(standard.conflicts, []);
 assert.equal(standard.value.schemaVersion, 2);
-assert.equal(standard.value.generatorVersion, "067.2");
-assert.equal(standard.value.seed, "p067-standard-fixture");
+assert.equal(standard.value.generatorVersion, Compiler.GENERATOR_VERSION);
+assert.equal(standard.value.seed, undefined);
 assert.equal(standard.value.cycles, 7);
 assert.deepEqual(standard.value.days.filter((day) => day.kind === "training").map((day) => day.name), [
   "Upper A", "Lower A", "Upper B", "Lower B",
@@ -110,7 +111,7 @@ for (const slot of standard.value.days.flatMap((day) => day.slots)) {
   }
 }
 
-const compact = Compiler.generateProgram(request({ timeCeilingMinutes: 40 }), raw, "p067-compact-fixture");
+const compact = Compiler.generateProgram(request({ timeCeilingMinutes: 40 }), raw);
 assert.equal(compact.ok, true, `compact four-day plan should compile: ${JSON.stringify(compact.conflicts)}`);
 assert.deepEqual(compact.value.days.filter((day) => day.kind === "training").map((day) => day.slots.length), [4, 3, 5, 3]);
 assert.equal(compact.value.days.flatMap((day) => day.slots).length, 15);
@@ -119,37 +120,29 @@ assert.equal(compact.value.days.flatMap((day) => day.slots)
 assert.deepEqual(generatedDoseMatrix(compact.value), observedDoseMatrix(observations.P4),
   "compact four-day anchors must preserve every observed P4 set range and RIR");
 
-const replay = Compiler.generateProgram(request(), raw, "p067-standard-fixture");
-assert.deepEqual(replay, standard, "the seed must replay selection, slot IDs, prescription IDs, and provenance");
-const otherSeed = Compiler.generateProgram(request(), raw, "p067-another-seed");
-assert.equal(otherSeed.ok, true);
-assert.notDeepEqual(
-  otherSeed.value.days.flatMap((day) => day.slots.map((slot) => slot.exerciseId)),
-  standard.value.days.flatMap((day) => day.slots.map((slot) => slot.exerciseId)),
-  "a different seed must deterministically change at least one eligible tie selection",
-);
-
-const impossible = Compiler.generateProgram(request({ gymProfile: { equipmentIds: [] } }), raw, "no-gym");
+const replay = Compiler.generateProgram(request(), raw);
+assert.deepEqual(replay, standard, "the canonical request replays selection, IDs and provenance");
+const impossible = Compiler.generateProgram(request({ gymProfile: { equipmentIds: [] } }), raw);
 assert.equal(impossible.ok, false, "missing equipment for protected jobs must not produce a partial program");
 assert.equal(impossible.value, null);
 assert.ok(impossible.conflicts.some((conflict) => conflict.code === "no_eligible_exercise"));
 
-const incompatibleSplit = Compiler.generateProgram(request({ split: "push_pull_legs" }), raw, "bad-split");
+const incompatibleSplit = Compiler.generateProgram(request({ split: "push_pull_legs" }), raw);
 assert.equal(incompatibleSplit.ok, false, "a six-day split cannot be silently used at four days");
 assert.ok(incompatibleSplit.conflicts.some((conflict) => conflict.code === "split_frequency_mismatch"));
 
 const soleUnilateral = raw.exercises.find((exercise) => exercise.name === "Single arm machine rear delt fly");
 assert.ok(soleUnilateral, "the source fixture includes a sole-unilateral exercise");
 assert.deepEqual(soleUnilateral.laterality.map((id) => raw.uuidIndex[id].name), ["Unilateral"]);
-const reviewShare = Compiler.generateProgram(request(), raw, "review-share");
+const reviewShare = Compiler.generateProgram(request({ preferredExerciseIds: [soleUnilateral.id] }), raw);
 assert.equal(reviewShare.ok, true, `the raw four-day/90-minute source fixture compiles: ${JSON.stringify(reviewShare.conflicts)}`);
 const reviewShareSlot = reviewShare.value.days.flatMap((day) => day.slots)
   .find((slot) => slot.exerciseId === soleUnilateral.id);
-assert.ok(reviewShareSlot, "the review-share seed selects the source's sole-unilateral rear-delt movement");
+assert.ok(reviewShareSlot, "explicit preference selects the eligible sole-unilateral rear-delt movement");
 assert.equal(reviewShareSlot.executionMode, "unilateral", "the source laterality determines the generated execution mode");
 const contradictoryMode = Compiler.generateProgram(request({
   executionContexts: { [soleUnilateral.id]: "bilateral" },
-}), raw, "review-share");
+}), raw);
 assert.equal(contradictoryMode.ok, false, "an explicit bilateral override cannot contradict a sole-unilateral source record");
 assert.ok(contradictoryMode.conflicts.some((conflict) => conflict.code === "conflicting_execution_context"));
 const reviewShareDay = reviewShare.value.days.find((day) => day.slots.some((slot) => slot.id === reviewShareSlot.id));
@@ -207,7 +200,7 @@ assert.ok(substitutions.every((candidate) => candidate.roleTier !== null && cand
 assert.deepEqual(editedAnchor.prescriptionsByCycle[0].sets[0].targets[editedReps], { min: 3, max: 9 }, "substitution discovery must not mutate or replace the slot dose");
 
 const latsId = Object.entries(raw.uuidIndex).find(([, entry]) => entry.type === "featureMuscleGroup" && entry.name === "Lats")[0];
-const emphasized = Compiler.generateProgram(request({ timeCeilingMinutes: 40, emphasisMuscleIds: [latsId] }), raw, "emphasis-lats");
+const emphasized = Compiler.generateProgram(request({ timeCeilingMinutes: 40, emphasisMuscleIds: [latsId] }), raw);
 assert.equal(emphasized.ok, true, `a reviewed compact emphasis may be applied: ${JSON.stringify(emphasized.conflicts)}`);
 const emphasisSlot = emphasized.value.days.flatMap((day) => day.slots).find((slot) => slot.purposeId === `emphasis_${latsId}`);
 assert.ok(emphasisSlot, "compact emphasis can add a reviewed assistance job absent from the base schedule");
@@ -453,7 +446,7 @@ const pt316 = JSON.parse(fs.readFileSync(path.join(root, "i18n-pt.json"), "utf8"
 const splitCases316 = Object.entries(Compiler.SPLITS).flatMap(([split, entry]) =>
   entry.compatibleDays.map((daysPerWeek) => ({ split, daysPerWeek })));
 for (const { split, daysPerWeek } of splitCases316) {
-  const generated = Compiler.generateProgram(request({ split, daysPerWeek }), raw, `p316-${split}-${daysPerWeek}`);
+  const generated = Compiler.generateProgram(request({ split, daysPerWeek, ...(split === "upper_lower_full" ? { goal: "hybrid", experience: "advanced", timeCeilingMinutes: 60 } : {}) }), raw);
   assert.equal(generated.ok, true, `${split}/${daysPerWeek} generates`);
   const training = generated.value.days.filter((day) => day.kind === "training");
   for (const day of training) {
@@ -543,9 +536,9 @@ const weightedPulls = raw.exercises.filter((exercise) => (exercise.preconditions
 assert.equal(weightedPulls.length, 3, "three catalog movements carry the weighted vertical pull prerequisite");
 const pullAnswer = (pullups10) => request({ movementConfirmations: {},
   competencyAnswers: { ...request().competencyAnswers, pullups10 } });
-const pullProgram = (pullups10, seed) => Compiler.generateProgram(pullAnswer(pullups10), raw, seed);
+const pullProgram = (pullups10) => Compiler.generateProgram(pullAnswer(pullups10), raw);
 const pullSlot = (program) => program.value.days.flatMap((day) => day.slots).find((slot) => /vertical_pull/.test(slot.purposeId));
-const verticalBase = pullProgram(null, "pullups10-proof");
+const verticalBase = pullProgram(null);
 assert.equal(verticalBase.ok, true, JSON.stringify(verticalBase.conflicts));
 const pullCandidates = (pullups10) => Compiler.findSubstitutions(verticalBase.value, pullSlot(verticalBase).id, {
   gymProfile: { equipmentIds: gym.equipment.map((entry) => entry.equipmentId) },
@@ -555,15 +548,11 @@ assert.ok(weightedPulls.every((id) => pullCandidates(true).includes(id)),
   "pullups10 = yes makes every weighted vertical pull an eligible substitute");
 assert.ok(weightedPulls.every((id) => !pullCandidates(null).includes(id) && !pullCandidates(false).includes(id)),
   "pullups10 unanswered or no keeps the weighted vertical pulls behind their prerequisite");
-let pullChanged = 0, pullPicked = 0;
-for (const seed of ["a", "b", "c", "d", "e", "f", "g", "h"]) {
-  const unsure = pullProgram(null, `pullups10-${seed}`), yes = pullProgram(true, `pullups10-${seed}`);
-  assert.equal(unsure.ok && yes.ok, true);
-  const ids = (program) => program.value.days.flatMap((day) => day.slots.map((slot) => slot.exerciseId));
-  if (JSON.stringify(ids(unsure)) !== JSON.stringify(ids(yes))) pullChanged++;
-  if (ids(yes).some((id) => weightedPulls.includes(id))) pullPicked++;
-  assert.ok(!ids(unsure).some((id) => weightedPulls.includes(id)), "without the answer no weighted vertical pull is selected");
-}
-assert.ok(pullChanged > 0 && pullPicked > 0, `pullups10 = yes changes generated programs (${pullChanged}/8 changed, ${pullPicked}/8 pick a weighted pull)`);
+const ids = (program) => program.value.days.flatMap((day) => day.slots.map((slot) => slot.exerciseId));
+const unsure = pullProgram(null), yes = pullProgram(true);
+assert.equal(unsure.ok && yes.ok, true);
+assert.ok(!ids(unsure).some((id) => weightedPulls.includes(id)),
+  "without the answer no weighted vertical pull is selected");
+assert.deepEqual(pullProgram(true), yes, "capability answers regenerate deterministically");
 
-console.log("PASS Plan 067 program compiler algorithm contract");
+console.log("PASS program compiler dose, eligibility and definition contracts");

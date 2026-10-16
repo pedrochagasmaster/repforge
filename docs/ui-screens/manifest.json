@@ -634,14 +634,14 @@
       "id": "muscle-priorities",
       "flow": "onboarding-recommend",
       "label": "Recommend Program 4 — muscle priorities",
-      "scenario": "Twelve muscles, each Less, Normal or More; glutes set to More and calves to Less; Skip.",
+      "scenario": "Twenty-two muscles, each Less, Normal or More; glutes set to More and calves to Less; Skip.",
       "variants": "demandingText"
     },
     {
       "id": "muscle-priorities-limit",
       "flow": "onboarding-recommend",
-      "label": "Recommend Program 4 — priority limit",
-      "scenario": "Five muscles prioritized and a sixth refused with the limit line.",
+      "label": "Recommend Program 4 — all twenty-two priorities",
+      "scenario": "All twenty-two muscles prioritized and accepted, with every More radio selected.",
       "variants": "localized"
     },
     {

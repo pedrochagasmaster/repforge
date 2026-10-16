@@ -157,7 +157,7 @@ async function activateGeneratedPredecessor(page) {
       return { ok: false, error: "program generator or exercise catalog unavailable in window" };
     }
     const generated = window.RepForgeProgramCompiler.generateProgram(
-      request, window.RepForgeExerciseCatalog.snapshot(), "p6a-transition-commit");
+      request, window.RepForgeExerciseCatalog.snapshot());
     if (!generated.ok) return { ok: false, error: "generation failed", issues: generated.conflicts };
     const definition = generated.value;
     const finalized = await window.__repforgeFinalizeProgramSetup({

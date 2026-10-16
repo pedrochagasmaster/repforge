@@ -38,7 +38,7 @@ function check(condition, message, detail) {
 async function seedGeneratedPress(page) {
   return page.evaluate(async ({ request, exerciseId }) => {
     const generated = window.RepForgeProgramCompiler.generateProgram(
-      request, window.RepForgeExerciseCatalog.snapshot(), "p069-s3-per-side-generated-journey");
+      request, window.RepForgeExerciseCatalog.snapshot());
     if (!generated.ok) throw new Error("Could not generate the production program: " + JSON.stringify(generated.conflicts));
     const target = generated.value.days.filter((day) => day.kind === "training").flatMap((day) =>
       day.slots.map((slot) => ({ day, slot }))).find(({ slot }) => slot.exerciseId === exerciseId &&

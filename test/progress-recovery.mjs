@@ -77,7 +77,7 @@ async function main() {
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
     const seeded = await page.evaluate(async (request) => {
-      const generated = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot(), "progress-recovery-067");
+      const generated = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot());
       if (!generated.ok) return { ok: false, generated };
       const finalized = await window.__repforgeFinalizeProgramSetup({
         programDefinition: generated.value, name: "Recovery volume", answers: {}, destination: "log", origin: "first-run",

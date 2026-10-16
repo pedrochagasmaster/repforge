@@ -20,7 +20,7 @@ const mapped = Adapter.programRequestFromAnswers({
 if (!mapped.ok) throw new Error("request mapping failed");
 // One cycle keeps the documented example small; the contract is per cycle.
 mapped.value.cycles = 1;
-const generated = Compiler.generateProgram(mapped.value, catalogSnapshot, "clone-fixture-v1");
+const generated = Compiler.generateProgram(mapped.value, catalogSnapshot);
 if (!generated.ok) throw new Error("generator returned conflicts");
 const programDefinition = generated.value;
 

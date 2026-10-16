@@ -724,7 +724,7 @@ async function run() {
   phase("A generated program ends each lift on the engine's next target");
   {
     await seed(page, { settings: fixture().settings, program: [], log: [], programHistory: [] });
-    const generated = await installGeneratedProgram(page, { seed: "session-summary" });
+    const generated = await installGeneratedProgram(page, {});
     const dayA = generated.program[0].day;
     const lifts = generated.program.filter((row) => row.day === dayA && isWeightRepsSlot(definitionSlot(generated.programMeta, row)));
     const past = isoDaysAgo(7);

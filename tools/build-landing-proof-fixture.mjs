@@ -48,7 +48,7 @@ const REQUEST = {
   preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 6, deloadCycles: [],
 };
 
-const generated = Compiler.generateProgram(REQUEST, catalogSnapshot, "landing-proof-067");
+const generated = Compiler.generateProgram(REQUEST, catalogSnapshot);
 if (!generated.ok) throw new Error(`generation failed: ${JSON.stringify(generated.conflicts || generated)}`);
 const definition = generated.value;
 

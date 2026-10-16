@@ -161,7 +161,7 @@ async function activateRealProgram(page, name = "Block identity oracle") {
     if (!compiler || !catalog || typeof window.__repforgeFinalizeProgramSetup !== "function") {
       return { ok: false, error: "production program-entry activation seam unavailable" };
     }
-    const generated = compiler.generateProgram(request, catalog.snapshot(), "block-identity-oracle");
+    const generated = compiler.generateProgram(request, catalog.snapshot());
     if (!generated.ok) return { ok: false, error: "production generation failed", generated };
     const definition = generated.value;
     // The production entry flow derives the program answers from the

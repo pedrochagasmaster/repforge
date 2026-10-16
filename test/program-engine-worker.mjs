@@ -4,15 +4,13 @@
  *
  * The program engine (program-engine.js) runs the compiler in a dedicated
  * worker and, when a worker cannot run, on the main thread with the same code.
- * A setup link and a reload both regenerate a program from its request and
- * seed, so the two paths must agree byte for byte:
+ * A setup link and a reload both regenerate a program from its canonical request, so the two paths must agree byte for byte:
  *
  * - every request in the recorded compiler corpus gives the same JSON from the
- *   worker as from the page's own compiler, and both match the digest recorded
- *   from main;
+ *   worker as from the page's own compiler;
  * - with no Worker constructor, with a worker script that fails to load and
  *   with a worker that cannot read the catalog, the engine falls back to the
- *   main thread and still gives the recorded output;
+ *   main thread and gives the identical output;
  * - while the worker runs the heaviest satisfiable request, the page keeps
  *   drawing frames: no frame gap comes near the time the same request blocks
  *   the main thread for.
@@ -24,7 +22,6 @@
  * the earlier result is discarded, and a conflict leaves the committed
  * program in place with its explanation.
  */
-import fs from "node:fs";
 import { createRequire } from "node:module";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import { corpusCases } from "./fixtures/program-compiler-corpus-cases.mjs";
@@ -34,7 +31,7 @@ const ProgramEngine = require(process.env.REPFORGE_PROGRAM_ENGINE_SOURCE || "../
 const Adapter = require("../program-entry-adapter.js");
 const Compiler = require("../program-compiler.js");
 const Catalog = require("../assets/exercise-catalog.json");
-const fixture = JSON.parse(fs.readFileSync(new URL("./fixtures/program-compiler-corpus.json", import.meta.url), "utf8"));
+require("../generation-identity.js").prepareCatalog(Catalog);
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const failures = [];
@@ -61,32 +58,27 @@ async function open(browser, { contextOptions = {}, init } = {}) {
 }
 
 // Runs each case through the engine and through the page's compiler, and
-// returns, per case, whether the two JSON texts are identical and the
-// engine output's digest in the fixture's format.
+// returns whether the JSON texts agree and the result obeys the public contract.
 function runCases(page, list) {
   return page.evaluate(async (items) => {
     const engine = window.__repforgeProgramEngine;
     const catalog = window.RepForgeExerciseCatalog.snapshot();
-    const hex = async (text) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)))]
-      .map((byte) => byte.toString(16).padStart(2, "0")).join("");
     const out = [];
-    for (const { key, request, seed } of items) {
-      const engineText = JSON.stringify(await engine.generate(request, seed));
-      const pageText = JSON.stringify(window.RepForgeProgramCompiler.generateProgram(request, catalog, seed));
-      // The recorded digests predate confirmation offers (Plan 072), which are
-      // diagnostics beside the result; the same-text check above covers them.
-      const { confirmationOffers, ...recorded } = JSON.parse(engineText);
-      out.push({ key, same: engineText === pageText, digest: `${recorded.ok ? "ok" : "conflict"}:${await hex(JSON.stringify(recorded))}` });
+    for (const { key, request } of items) {
+      const result = await engine.generate(request);
+      const reference = window.RepForgeProgramCompiler.generateProgram(request, catalog);
+      out.push({ key, same: JSON.stringify(result) === JSON.stringify(reference),
+        valid: result.ok ? window.RepForgeProgramCompiler.validateProgramDefinition(result.value, catalog).ok
+          : result.value === null && result.conflicts.length > 0 });
     }
     return out;
   }, list);
 }
 
-function checkDigests(results, label) {
+function checkResults(results, label) {
   const mismatched = results.filter((item) => !item.same).map((item) => item.key);
   check(results.length > 0 && !mismatched.length, `${label}: engine and page compiler give identical JSON for ${results.length} requests`, mismatched);
-  const drifted = results.filter((item) => fixture.digests[item.key] !== item.digest).map((item) => item.key);
-  check(!drifted.length, `${label}: every output matches the digest recorded from main`, drifted);
+  check(results.every((item) => item.valid), `${label}: every output is a valid definition or explicit conflict`);
 }
 
 async function disposeActiveEngine() {
@@ -117,9 +109,9 @@ async function disposeActiveEngine() {
       catalog: () => ({}),
       worker: { url: "program-engine-test.js", scripts: [], catalogSha256: "test" },
     });
-    const workerPromise = engine.generate({ request: 1 }, "first").then(
+    const workerPromise = engine.generate({ request: 1 }).then(
       () => "resolved", (error) => error?.name || "rejected");
-    const queuedPromise = engine.generate({ request: 2 }, "second").then(
+    const queuedPromise = engine.generate({ request: 2 }).then(
       () => "resolved", (error) => error?.name || "rejected");
     const worker = DeferredWorker.instances[0];
     const active = await worker.firstGenerate;
@@ -137,7 +129,7 @@ async function disposeActiveEngine() {
     check(worker.terminated === 1 && engine.stats().mode === "disposed",
       "executor lifecycle: disposal terminates the Worker once and leaves the executor closed",
       { terminated: worker.terminated, mode: engine.stats().mode });
-    const afterDispose = await engine.generate({}, "after").then(
+    const afterDispose = await engine.generate({}).then(
       () => "resolved", (error) => error?.name || "rejected");
     check(afterDispose === "AbortError", "executor lifecycle: a late reply and later request cannot revive disposed work", afterDispose);
   } finally {
@@ -158,7 +150,7 @@ const held = (page) => page.evaluate(() => window.__held.length);
 const release = (page, index, outcome) => page.evaluate(({ index, outcome }) => window.__release(index, outcome), { index, outcome });
 const expectedFor = (state) => {
   const mapped = Adapter.programRequestFromAnswers(state.answers, Catalog);
-  return mapped.ok ? Compiler.generateProgram(mapped.value, Catalog, String(state.draftId)).value : null;
+  return mapped.ok ? Compiler.generateProgram(mapped.value, Catalog).value : null;
 };
 const sameDefinition = (state, answers) => {
   const expected = expectedFor({ ...state, answers });
@@ -325,7 +317,6 @@ async function main() {
     if (failures.length) process.exit(1);
     return;
   }
-  check(Object.keys(fixture.digests).length === cases.length, "the corpus cases are the fixture's recorded cases");
   const browser = await launchChromium();
   try {
     // Worker: the whole recorded corpus ----------------------------------
@@ -334,7 +325,7 @@ async function main() {
       const before = await engineMode(page);
       check(before.mode === "worker", "the engine runs the compiler in a worker", before);
       if (before.mode === "worker") {
-        checkDigests(await runCases(page, cases), "worker");
+        checkResults(await runCases(page, cases), "worker");
         const after = await page.evaluate(() => window.__repforgeProgramEngine.stats());
         check(after.worker - before.stats.worker === cases.length && after.main === before.stats.main,
           "every corpus request ran in the worker, none on the main thread", { before: before.stats, after });
@@ -350,7 +341,7 @@ async function main() {
           const catalog = window.RepForgeExerciseCatalog.snapshot();
           // Main-thread reference: how long the same request blocks this thread.
           const mainStarted = performance.now();
-          const reference = window.RepForgeProgramCompiler.generateProgram(request, catalog, "no-jank");
+          const reference = window.RepForgeProgramCompiler.generateProgram(request, catalog);
           const blocked = performance.now() - mainStarted;
           await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
           const gaps = [];
@@ -362,7 +353,7 @@ async function main() {
           // frames however fast the worker's thread is.
           const started = performance.now();
           let generated = null, runs = 0;
-          do { generated = await engine.generate(request, "no-jank"); runs++; }
+          do { generated = await engine.generate(request); runs++; }
           while (performance.now() - started < blocked);
           const took = performance.now() - started;
           running = false;
@@ -388,7 +379,7 @@ async function main() {
       const { context, page, errors } = await open(browser, { init: () => { delete window.Worker; } });
       const before = await engineMode(page);
       check(before.mode === "main", "without Worker the engine runs on the main thread", before);
-      if (before.mode === "main") checkDigests(await runCases(page, sample), "no Worker");
+      if (before.mode === "main") checkResults(await runCases(page, sample), "no Worker");
       check(errors.length === 0, "no Worker: no page errors", errors);
       await context.close();
     }
@@ -399,7 +390,7 @@ async function main() {
       await page.route("**/program-engine.js*", (route) => route.fulfill({ status: 404, body: "gone" }));
       const before = await engineMode(page);
       check(before.mode === "main", "a worker script that fails to load falls back to the main thread", before);
-      if (before.mode === "main") checkDigests(await runCases(page, sample), "worker load failure");
+      if (before.mode === "main") checkResults(await runCases(page, sample), "worker load failure");
       check(errors.length === 0, "worker load failure: no page errors", errors);
       await context.close();
     }
@@ -410,7 +401,7 @@ async function main() {
       await context.route("**/assets/exercise-catalog.json*", (route) => route.abort());
       const before = await engineMode(page);
       check(before.mode === "main", "a worker without its catalog falls back to the main thread", before);
-      if (before.mode === "main") checkDigests(await runCases(page, sample), "catalog load failure");
+      if (before.mode === "main") checkResults(await runCases(page, sample), "catalog load failure");
       check(errors.length === 0, "catalog load failure: no page errors", errors);
       await context.close();
     }

@@ -84,7 +84,7 @@ async function installProgram(page) {
     };
     const mapped = window.RepForgeProgramEntryAdapter.programRequestFromAnswers(answers, catalog);
     if (!mapped.ok) throw new Error("Could not prepare the catalog request: " + JSON.stringify(mapped.conflicts));
-    const generated = window.RepForgeProgramCompiler.generateProgram(mapped.value, catalog, "p069-s2-per-side-reading");
+    const generated = window.RepForgeProgramCompiler.generateProgram(mapped.value, catalog);
     if (!generated.ok) throw new Error("Could not generate the production program: " + JSON.stringify(generated.conflicts));
     const finalized = await window.__repforgeFinalizeProgramSetup({
       programDefinition: generated.value,

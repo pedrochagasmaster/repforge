@@ -71,6 +71,9 @@
         try { value = JSON.parse(sourceText); }
         catch { throw new Error("The local exercise catalog is not valid JSON"); }
         if (!validCatalog(value)) throw new Error("The local exercise catalog has an invalid shape");
+        const identity = root.RepForgeGenerationIdentity || (typeof require === "function" ? require("./generation-identity.js") : null);
+        if (!identity) throw new Error("The catalog identity module is unavailable");
+        identity.prepareCatalog(value);
         rawCatalog = value;
         exerciseById = new Map(value.exercises.map(exercise => [exercise.id, exercise]));
         return value;

@@ -21,6 +21,7 @@ const Entry = require(path.join(root, "program-entry.js"));
 const Adapter = require(path.join(root, "program-entry-adapter.js"));
 const Compiler = require(path.join(root, "program-compiler.js"));
 const Catalog = require(path.join(root, "assets/exercise-catalog.json"));
+require(path.join(root, "generation-identity.js")).prepareCatalog(Catalog);
 const fixturePath = path.join(root, "test/fixtures/program-entry-request-baseline.json");
 const index = Catalog.uuidIndex;
 
@@ -236,9 +237,9 @@ test("a draft an earlier release stored normalizes to itself and maps to the sam
 
 // Offers: the generator reports, per slot, the best-ranked candidate that is
 // blocked only by prerequisites nobody has answered. The adapter keeps an
-// offer only when confirming it alone, with the same seed, puts that movement
+// offer only when confirming it alone, puts that movement
 // in that slot.
-const generate = (request, seed) => Compiler.generateProgram(request, Catalog, seed);
+const generate = (request) => Compiler.generateProgram(request, Catalog);
 const slotsById = (definition) => new Map(definition.days.flatMap((day) => day.slots.map((slot) => [slot.id, { day, slot }])));
 
 function offerCorpus() {
@@ -249,7 +250,7 @@ function offerCorpus() {
       for (const daysPerWeek of [3, 5]) {
         for (const [label, competencyAnswers] of [["unsure", {}], ["yes", competencyAll(true)], ["no", competencyAll(false)]]) {
           cases.push({ key: `${kind}|${desiredResult}|${daysPerWeek}|${label}`, label,
-            request: requestFor({ desiredResult, daysPerWeek, environment: { kind }, competencyAnswers }), seed: `offers-${daysPerWeek}` });
+            request: requestFor({ desiredResult, daysPerWeek, environment: { kind }, competencyAnswers }) });
         }
       }
     }
@@ -260,8 +261,8 @@ function offerCorpus() {
 test("confirmation offers are verified swaps that name every other slot they move", async () => {
   let offered = 0;
   let verified = 0;
-  for (const { key, label, request, seed } of offerCorpus()) {
-    const result = generate(request, seed);
+  for (const { key, label, request } of offerCorpus()) {
+    const result = generate(request);
     assert.equal(result.ok, true, key);
     assert.ok(Array.isArray(result.confirmationOffers), `${key}: the generator reports offers`);
     const slots = slotsById(result.value);
@@ -285,12 +286,11 @@ test("confirmation offers are verified swaps that name every other slot they mov
       }
     }
     const checks = [];
-    const kept = await Adapter.verifyConfirmationOffers({ generate: async (next, nextSeed) => {
-      checks.push({ request: next, seed: nextSeed });
-      return generate(next, nextSeed);
-    }, request, seed, result });
+    const kept = await Adapter.verifyConfirmationOffers({ generate: async (next) => {
+      checks.push({ request: next });
+      return generate(next);
+    }, request, result });
     assert.equal(checks.length, result.confirmationOffers.length, `${key}: each reported offer is checked once`);
-    assert.ok(checks.every((check) => check.seed === seed), `${key}: each check preserves the result seed`);
     for (const check of checks) {
       const added = Object.keys(check.request.movementConfirmations).filter((id) =>
         JSON.stringify(check.request.movementConfirmations[id]) !== JSON.stringify(request.movementConfirmations[id] || []));
@@ -299,11 +299,14 @@ test("confirmation offers are verified swaps that name every other slot they mov
     for (const offer of kept) {
       verified++;
       const confirmed = generate({ ...request, movementConfirmations: { ...request.movementConfirmations,
-        [offer.offeredExerciseId]: offer.prerequisiteIds } }, seed);
+        [offer.offeredExerciseId]: offer.prerequisiteIds } });
       assert.equal(confirmed.ok, true);
-      const after = slotsById(confirmed.value);
-      assert.equal(after.get(offer.slotId)?.slot.exerciseId, offer.offeredExerciseId, `${key}: the offer swaps in alone`);
-      const changed = [...slots.keys()].filter((id) => id !== offer.slotId && after.get(id)?.slot.exerciseId !== slots.get(id).slot.exerciseId);
+      const positions = result.value.days.flatMap((day, dayIndex) => day.slots.map((slot, slotIndex) =>
+        ({ slot, dayIndex, slotIndex })));
+      const after = ({ dayIndex, slotIndex }) => confirmed.value.days[dayIndex]?.slots[slotIndex]?.exerciseId;
+      assert.equal(after(positions.find(({ slot }) => slot.id === offer.slotId)), offer.offeredExerciseId, `${key}: the offer swaps in alone`);
+      const changed = positions.filter((position) => position.slot.id !== offer.slotId && after(position) !== position.slot.exerciseId)
+        .map(({ slot }) => slot.id);
       assert.deepEqual(offer.alsoChangedSlotIds, changed, `${key}: the offer names the other slots it moves`);
     }
     assert.ok(kept.every((offer) => result.confirmationOffers.some((item) => item.slotId === offer.slotId)));
@@ -328,4 +331,16 @@ test("ten strict pull-ups implies five in the request (owner decision on #340)",
     "a stored yes to ten with a no to five resolves to the stronger answer");
   const five = requestFor({ environment: { kind: "commercial_gym" }, competencyAnswers: { pullups5: true, pullups10: false } });
   assert.deepEqual([five.competencyAnswers.pullups5, five.competencyAnswers.pullups10], [true, false], "five does not imply ten");
+});
+
+test("confirmation verification compares corresponding positions across request identities", async () => {
+  const definition = (prefix, first, second) => ({ days: [{ id: `${prefix}-day`, slots: [
+    { id: `${prefix}-one`, exerciseId: first }, { id: `${prefix}-two`, exerciseId: second },
+  ] }] });
+  const offer = { slotId: "before-one", dayId: "before-day", currentExerciseId: "old",
+    offeredExerciseId: "new", prerequisiteIds: ["confirmed"] };
+  const verified = await Adapter.verifyConfirmationOffers({ request: { movementConfirmations: {} },
+    result: { ok: true, value: definition("before", "old", "other"), confirmationOffers: [offer] },
+    generate: async () => ({ ok: true, value: definition("after", "new", "changed") }) });
+  assert.deepEqual(verified, [{ ...offer, alsoChangedSlotIds: ["before-two"] }]);
 });

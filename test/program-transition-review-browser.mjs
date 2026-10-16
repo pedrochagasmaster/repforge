@@ -188,7 +188,7 @@ async function freshPage(browser, errors, { locale } = {}) {
 async function seed(page, { manual = false, request = REQUEST } = {}) {
   const result = await page.evaluate(async ({ request, manual }) => {
     const catalogSnapshot = window.RepForgeExerciseCatalog.snapshot();
-    const generated = window.RepForgeProgramCompiler.generateProgram(request, catalogSnapshot, "review-browser-067");
+    const generated = window.RepForgeProgramCompiler.generateProgram(request, catalogSnapshot);
     if (!generated.ok) return { ok: false, generated };
     const definition = generated.value;
     if (manual) {

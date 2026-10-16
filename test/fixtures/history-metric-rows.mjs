@@ -84,27 +84,27 @@ export function withValues(row, { load = row.load, reps = row.reps } = {}) {
 
 /**
  * Generate and activate a real program through the production Generate path:
- * four days of muscle growth in a commercial gym, deterministic seed. Unlike the
+ * four days of muscle growth in a commercial gym, deterministic request. Unlike the
  * seed program (manual Build prescriptions), its slots carry RIR targets, so the
  * adaptive engine recommends a next load once comparable history exists.
  * Returns the persisted state after activation.
  */
-export async function installGeneratedProgram(page, { name = "Generated program", seed = "history-fixture" } = {}) {
+export async function installGeneratedProgram(page, { name = "Generated program" } = {}) {
   await page.waitForFunction(() => !!window.RepForgeExerciseCatalog?.snapshot?.() &&
     typeof window.__repforgeFinalizeProgramSetup === "function", undefined, { timeout: 15000 });
-  return page.evaluate(async ({ name, seed }) => {
+  return page.evaluate(async ({ name }) => {
     const catalog = window.RepForgeExerciseCatalog.snapshot();
     const request = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
       desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: 4, sessionMinutes: 60,
       environment: { kind: "commercial_gym" },
     }, catalog).value;
-    const generated = window.RepForgeProgramCompiler.generateProgram(request, catalog, seed);
+    const generated = window.RepForgeProgramCompiler.generateProgram(request, catalog);
     if (!generated.ok) throw new Error(`generation failed: ${JSON.stringify(generated.conflicts || generated)}`);
     await window.__repforgeFinalizeProgramSetup({
       programDefinition: generated.value, name, answers: {}, destination: "log", origin: "first-run",
-      draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: seed },
+      draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: window.RepForgeProgramCompiler.generationIdentity(request, catalog) },
     });
     await window.__repforgeStorage.flush();
     return JSON.parse(localStorage.getItem("repforge_v1"));
-  }, { name, seed });
+  }, { name });
 }

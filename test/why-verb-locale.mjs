@@ -54,7 +54,7 @@ function assert(cond, name, detail) {
  *  training day that prescribes three sets. */
 async function seed(page) {
   return page.evaluate(({ request, weight, reps }) => {
-    const definition = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot(), "why-verb-locale").value;
+    const definition = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot()).value;
     const target = definition.days.filter((day) => day.kind === "training").flatMap((day) =>
       day.slots.map((slot, index) => ({ day, slot, index }))).find(({ slot, index }) => {
       const sets = slot.prescriptionsByCycle[0].sets;

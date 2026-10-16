@@ -1,7 +1,10 @@
 (function (root) {
   "use strict";
 
-  const GENERATOR_VERSION = "067.2";
+  const GENERATOR_VERSION = "073.0";
+  const IDENTITY = root?.RepForgeGenerationIdentity || (typeof require === "function" ? require("./generation-identity.js") : null);
+  const CANDIDATES = root?.RepForgeGenerationCandidates || (typeof require === "function" ? require("./generation-candidates.js") : null);
+  const LAYOUT = root?.RepForgeGenerationLayout || (typeof require === "function" ? require("./generation-layout.js") : null);
   const PROGRAM_SCHEMA_VERSION = 2;
   const SUPPORTED_PROGRAM_SCHEMA_VERSIONS = Object.freeze([1, 2]);
   const ROLES = Object.freeze([
@@ -10,6 +13,7 @@
   ]);
   const SPLITS = Object.freeze({
     full_body: Object.freeze({ days: ["Full Body A", "Full Body B", "Full Body C"], compatibleDays: [2, 3] }),
+    upper_lower_full: Object.freeze({ days: ["Upper", "Lower", "Full Body"], compatibleDays: [3] }),
     upper_lower: Object.freeze({ days: ["Upper A", "Lower A", "Upper B", "Lower B"], compatibleDays: [4] }),
     push_pull_legs_upper_lower: Object.freeze({ days: ["Push", "Pull", "Legs", "Upper", "Lower"], compatibleDays: [5] }),
     push_pull_legs: Object.freeze({ days: ["Push A", "Pull A", "Legs A", "Push B", "Pull B", "Legs B"], compatibleDays: [6] }),
@@ -225,7 +229,12 @@
   function validateRequest(rawRequest, catalog) {
     const issues = [];
     if (!isPlainObject(rawRequest)) return { ok: false, issues: [{ field: "request", code: "invalid_request", message: "Expected a request object." }] };
-    const request = clone(rawRequest);
+    for (const key of Object.keys(rawRequest)) {
+      if (!REQUEST_KEYS.has(key) || key === "seed") issues.push(fieldIssue(key, "unknown_request_field", "This generation input is not supported."));
+    }
+    let request;
+    try { request = JSON.parse(IDENTITY.canonicalJSON(rawRequest)); }
+    catch { return { ok: false, issues: [fieldIssue("request", "invalid_request", "Expected plain JSON generation inputs.")] }; }
     if (!GOALS.includes(request.goal)) issues.push(fieldIssue("goal", "unsupported_goal", "Choose hypertrophy, strength, or hybrid."));
     if (!EXPERIENCES.includes(request.experience)) issues.push(fieldIssue("experience", "unsupported_experience", "Choose beginner, intermediate, or advanced."));
     if (!Number.isInteger(request.daysPerWeek) || request.daysPerWeek < 2 || request.daysPerWeek > 6) {
@@ -238,9 +247,19 @@
       issues.push(fieldIssue("gymProfile.equipmentIds", "equipment_required", "Choose the equipment available in this gym."));
     }
     if (isPlainObject(request.gymProfile) && Array.isArray(request.gymProfile.equipmentIds)) {
+      for (const key of Object.keys(request.gymProfile)) {
+        if (!["equipmentIds", "equipmentLoadsKg"].includes(key)) issues.push(fieldIssue(`gymProfile.${key}`, "unknown_request_field", "This gym input is not supported."));
+      }
       const unknown = request.gymProfile.equipmentIds.filter((id) => catalogObject(catalog, id)?.type !== "equipment");
       if (unknown.length) issues.push(fieldIssue("gymProfile.equipmentIds", "unknown_equipment", "The equipment profile contains an unknown equipment ID."));
-      request.gymProfile.equipmentIds = unique(request.gymProfile.equipmentIds);
+      request.gymProfile.equipmentIds = sorted(unique(request.gymProfile.equipmentIds));
+      const loads = request.gymProfile.equipmentLoadsKg;
+      if (loads !== undefined) {
+        if (!isPlainObject(loads) || Object.entries(loads).some(([id, grid]) => catalogObject(catalog, id)?.type !== "equipment"
+          || !Array.isArray(grid) || grid.some((load) => !finite(load) || load < 0))) {
+          issues.push(fieldIssue("gymProfile.equipmentLoadsKg", "invalid_request", "Expected catalog equipment IDs and nonnegative load grids."));
+        } else if (!Object.keys(loads).length) delete request.gymProfile.equipmentLoadsKg;
+      }
     }
     request.split = request.split || "auto";
     if (request.split !== "auto" && !owns(SPLITS, request.split)) issues.push(fieldIssue("split", "unsupported_split", "Choose an authored split."));
@@ -248,7 +267,6 @@
       && !SPLITS[request.split].compatibleDays.includes(request.daysPerWeek)) {
       issues.push(fieldIssue("split", "split_frequency_mismatch", "This split is only available at its authored training frequency."));
     }
-    if (request.split === "auto" && Number.isInteger(request.daysPerWeek)) request.split = automaticSplit(request.daysPerWeek);
     request.periodization = request.periodization || "static";
     if (!PERIODIZATIONS.includes(request.periodization)) issues.push(fieldIssue("periodization", "unsupported_periodization", "Choose static, linear, reverse linear, or undulating."));
     request.cycles = request.cycles === undefined ? 7 : request.cycles;
@@ -266,29 +284,32 @@
         issues.push(fieldIssue(field, "invalid_id_list", "Expected a list of catalog IDs."));
         continue;
       }
-      request[field] = unique(request[field]);
-      if (["emphasisMuscleIds", "deprioritizedMuscleIds", "excludedMuscleIds"].includes(field) && request[field].length > 5) {
-        issues.push(fieldIssue(field, "too_many_muscle_groups", "Choose no more than five muscle groups."));
-      }
+      request[field] = sorted(unique(request[field]));
       const expected = field.includes("Muscle") ? "featureMuscleGroup" : "exercise";
       if (request[field].some((id) => catalogObject(catalog, id)?.type !== expected)) {
         issues.push(fieldIssue(field, "unknown_catalog_id", `Each ID must name a ${expected} record.`));
       }
     }
+    if (request.competencyAnswers !== undefined && !isPlainObject(request.competencyAnswers)) issues.push(fieldIssue("competencyAnswers", "invalid_competency_answers", "Expected explicit movement ability answers."));
     request.competencyAnswers = isPlainObject(request.competencyAnswers) ? request.competencyAnswers : {};
+    for (const key of Object.keys(request.competencyAnswers)) {
+      if (!COMPETENCY_KEYS.includes(key)) issues.push(fieldIssue(`competencyAnswers.${key}`, "unknown_request_field", "This movement ability is not supported."));
+    }
     for (const key of COMPETENCY_KEYS) {
       if (request.competencyAnswers[key] === undefined) request.competencyAnswers[key] = null;
       if (![true, false, null].includes(request.competencyAnswers[key])) {
         issues.push(fieldIssue(`competencyAnswers.${key}`, "invalid_competency_answer", "Answer yes, no, or leave this movement ability unconfirmed."));
       }
     }
+    if (request.movementConfirmations !== undefined && !isPlainObject(request.movementConfirmations)) issues.push(fieldIssue("movementConfirmations", "invalid_movement_confirmations", "Expected movement confirmations."));
     request.movementConfirmations = isPlainObject(request.movementConfirmations) ? request.movementConfirmations : {};
     for (const [exerciseId, ids] of Object.entries(request.movementConfirmations)) {
       if (catalogObject(catalog, exerciseId)?.type !== "exercise" || !Array.isArray(ids)
         || ids.some((id) => catalogObject(catalog, id)?.type !== "preconditions")) {
         issues.push(fieldIssue(`movementConfirmations.${exerciseId}`, "invalid_movement_confirmation", "Confirmations must name prerequisites for a current catalog exercise."));
-      }
+      } else request.movementConfirmations[exerciseId] = sorted(unique(ids));
     }
+    if (request.executionContexts !== undefined && !isPlainObject(request.executionContexts)) issues.push(fieldIssue("executionContexts", "invalid_execution_context", "Expected execution contexts."));
     request.executionContexts = isPlainObject(request.executionContexts) ? request.executionContexts : {};
     for (const [exerciseId, mode] of Object.entries(request.executionContexts)) {
       const exercise = catalog.exercises.find((entry) => entry.id === exerciseId);
@@ -304,7 +325,32 @@
       }
     }
     if (!request.gymProfile) request.gymProfile = { equipmentIds: [] };
-    return issues.length ? { ok: false, issues } : { ok: true, value: request };
+    if (Array.isArray(request.emphasisMuscleIds) && Array.isArray(request.deprioritizedMuscleIds) && request.emphasisMuscleIds.some((id) => request.deprioritizedMuscleIds.includes(id))) issues.push(fieldIssue("emphasisMuscleIds", "contradictory_muscle_priorities", "A muscle cannot be both prioritized and deprioritized."));
+    if (Array.isArray(request.deloadCycles)) request.deloadCycles.sort((a, b) => a - b);
+    if (request.split === "auto" && Number.isInteger(request.daysPerWeek)) request.split = initialGenerationDomain(request) ? "upper_lower_full" : automaticSplit(request.daysPerWeek);
+    return issues.length ? { ok: false, issues } : { ok: true, value: JSON.parse(IDENTITY.canonicalJSON(request)) };
+  }
+
+  function initialGenerationDomain(request) {
+    return request.daysPerWeek === 3 && request.goal === "hybrid" && request.experience === "advanced"
+      && request.timeCeilingMinutes === 60 && (request.periodization || "static") === "static"
+      && (request.cycles ?? 7) === 7 && (!request.deloadCycles || request.deloadCycles.length === 0);
+  }
+
+  function availableSplits(request) {
+    return Object.keys(SPLITS).filter((id) => SPLITS[id].compatibleDays.includes(request.daysPerWeek)
+      && (id !== "upper_lower_full" || initialGenerationDomain(request)));
+  }
+
+  function canonicalizeRequest(request, catalog) {
+    if (!validCatalog(catalog)) return { ok: false, issues: [fieldIssue("catalog", "invalid_catalog", "A raw catalog snapshot is required.")] };
+    return validateRequest(request, catalog);
+  }
+
+  function generationIdentity(request, catalog) {
+    const normalized = canonicalizeRequest(request, catalog);
+    if (!normalized.ok) throw new TypeError("Cannot identify invalid generation inputs");
+    return IDENTITY.generationIdentity(normalized.value, catalog, GENERATOR_VERSION);
   }
 
   function automaticSplit(days) {
@@ -472,7 +518,7 @@
 
   function seedRank(seed, purposeId, exerciseId) {
     let hash = 2166136261;
-    const input = `${String(seed)}\u0000${purposeId}\u0000${exerciseId}`;
+    const input = `${typeof seed === "object" ? seed.namespace : String(seed)}\u0000${purposeId}\u0000${exerciseId}`;
     for (let index = 0; index < input.length; index += 1) {
       hash ^= input.charCodeAt(index);
       hash = Math.imul(hash, 16777619);
@@ -515,7 +561,7 @@
     return left.roleTier - right.roleTier
       || Number(right._preferred) - Number(left._preferred)
       || left._seedRank - right._seedRank
-      || left.exerciseId.localeCompare(right.exerciseId);
+      || (left.exerciseId < right.exerciseId ? -1 : left.exerciseId > right.exerciseId ? 1 : 0);
   }
 
   function usedFailure(exercise, usedIds, usedGroups) {
@@ -551,6 +597,7 @@
 
   function dayKinds(daysPerWeek, split) {
     if (split === "full_body") return Array.from({ length: daysPerWeek }, (_, index) => ({ name: `Full Body ${String.fromCharCode(65 + index)}`, group: "all" }));
+    if (split === "upper_lower_full") return [{ name: "Upper", group: "upper" }, { name: "Lower", group: "lower" }, { name: "Full Body", group: "all" }];
     if (split === "upper_lower") return [
       { name: "Upper A", group: "upper" }, { name: "Lower A", group: "lower" },
       { name: "Upper B", group: "upper" }, { name: "Lower B", group: "lower" },
@@ -645,7 +692,7 @@
   }
 
   function stableId(seed, value) {
-    return seedRank(seed, "id", value).toString(36).padStart(7, "0");
+    return typeof seed?.allocate === "function" ? seed.allocate(value) : IDENTITY.digestCanonical([String(seed), value]);
   }
 
   function roleForJob(jobValue, goal) { return roleFor(jobValue, goal); }
@@ -912,14 +959,13 @@
     }
   }
 
-  function generateProgram(rawRequest, catalogSnapshot, seed) {
+  function generateProgram(rawRequest, catalogSnapshot) {
     if (!validCatalog(catalogSnapshot)) return failure([{ field: "catalog", code: "invalid_catalog", message: "A raw catalog snapshot is required." }]);
     const normalized = validateRequest(rawRequest, catalogSnapshot);
     if (!normalized.ok) return failure(normalized.issues);
-    if (typeof seed !== "string" && typeof seed !== "number") {
-      return failure([fieldIssue("seed", "invalid_seed", "Provide a stable string or numeric seed." )]);
-    }
-    const seedValue = String(seed);
+    const namespace = generationIdentity(normalized.value, catalogSnapshot);
+    const seedValue = { namespace, allocate: IDENTITY.createIdAllocator(namespace) };
+    if (normalized.value.split === "upper_lower_full") return generateRecovered(normalized.value, catalogSnapshot, seedValue);
     const request = { ...normalized.value, seed: seedValue };
     const jobs = prepareJobs(request, catalogSnapshot);
     const selected = selectAllJobs(jobs, request, catalogSnapshot, seedValue);
@@ -967,8 +1013,7 @@
     const output = {
       schemaVersion: PROGRAM_SCHEMA_VERSION,
       generatorVersion: GENERATOR_VERSION,
-      seed: seedValue,
-      request: clone(request),
+      request: clone(normalized.value),
       days,
       cycles: request.cycles,
       deloadCycles: [...request.deloadCycles],
@@ -997,6 +1042,87 @@
       ok: true, value: output, conflicts: [], explanations: buildExplanations(output, fit, focus),
       confirmationOffers: confirmationOffers(days, selected, slotPositions, request, catalogSnapshot),
     };
+  }
+
+  function generateRecovered(request, catalog, namespace) {
+    if (!initialGenerationDomain(request)) return failure([fieldIssue("split", "unsupported_generation_domain", "This configuration has not yet been validated for Upper/Lower/Full.")]);
+    const hardAllowed = (exercise) => {
+      if (request.excludedExerciseIds.includes(exercise.id) || excludedByMuscle(exercise, request.excludedMuscleIds)) return false;
+      if (!prerequisitesSatisfied(exercise, request, catalog).ok) return false;
+      const metrics = metricDefinitionsFor(exercise, catalog);
+      if (!metrics.length || metrics.some((metric) => !metric)) return false;
+      return repsSemantic(metrics) !== "repsPerSide" || executionMode(exercise, request, catalog) !== null;
+    };
+    let selector;
+    try { selector = CANDIDATES.create(catalog, request, hardAllowed); }
+    catch (error) {
+      if (!(error instanceof TypeError || error instanceof RangeError)) throw error;
+      return failure([fieldIssue("request", "unsupported_generation_domain", error.message)]);
+    }
+    const layout = LAYOUT.generate(request, selector);
+    if (layout.status !== "ok" || layout.days.some((day) => !day.templates.length)) {
+      return failure(layout.issues || [fieldIssue("request", layout.code || "insufficient_candidates", "The selected equipment and movement confirmations cannot fill this program.")]);
+    }
+    const adjustments = { 1: [0], 2: [0, -1], 3: [1, 0, -1], 4: [1, 0, 0, -1], 5: [1, 0, 0, -1, -1], 6: [1, 1, 0, 0, -1, -1] };
+    const estimatedSessionSeconds = {};
+    const days = layout.weeklySlots.map((trainingIndex, weekIndex) => {
+      const dayId = `day-${stableId(namespace, `week/${weekIndex}`)}`;
+      if (trainingIndex === null) return { id: dayId, name: "Rest", kind: "rest", order: weekIndex + 1, slots: [] };
+      const source = layout.days[trainingIndex];
+      const name = source.name === "Full" ? "Full Body" : source.name;
+      estimatedSessionSeconds[dayId] = layout.estimatedSessionSeconds[trainingIndex];
+      const slots = source.templates.map((template, slotIndex) => {
+        const exercise = template.exercise.raw;
+        const metrics = metricDefinitionsFor(exercise, catalog);
+        const repsKey = repsSemantic(metrics);
+        const accessory = template.type === "accessory";
+        const primary = template.type === "primary";
+        const isPull = template.exercise.patterns.some((pattern) => ["horizontalPull", "verticalPull"].includes(pattern));
+        const center = accessory ? 15 : primary ? (isPull ? 8 : 5) : (isPull ? 12 : 10);
+        const baseRir = accessory ? 0 : isPull ? 1 : 2;
+        const role = primary ? "strengthPrimaryCompound" : accessory ? "hypertrophyAccessory" : "hypertrophySecondaryCompound";
+        const path = `day/${trainingIndex}/slot/${slotIndex}`;
+        const muscleId = accessory ? selector.muscleId(template.accessoryMuscle) : null;
+        const slot = {
+          id: `slot-${stableId(namespace, `${path}/exercise/${exercise.id}`)}`,
+          purposeId: `ulf_${template.type}_${accessory ? template.accessoryMuscle : trainingIndex}_${slotIndex}`,
+          exerciseId: exercise.id, sourceExerciseIds: [exercise.id], role,
+          musclePurposeIds: muscleId ? [muscleId] : [...(exercise.emphasizedAgonist || [])],
+          movementPatternIds: [...(exercise.movementPattern || [])],
+          exerciseTypeId: exercise.exerciseType,
+          metricIds: [...exercise.exerciseMetrics], metricDefinitions: metrics.map((metric) => ({ ...metric })),
+          metricOrigin: "source_catalog", lateralityIds: [...(exercise.laterality || [])],
+          executionMode: executionMode(exercise, request, catalog),
+          loadingModel: { bodyweightCoefficient: finite(exercise.bodyweight) ? exercise.bodyweight : null, assistanceDirection: "subtract" },
+          order: slotIndex + 1,
+          prescriptionsByCycle: Array.from({ length: 7 }, (_, cycle) => ({
+            cycleIndex: cycle + 1,
+            sets: Array.from({ length: template.numSets }, (_, setIndex) => ({
+              id: `set-${stableId(namespace, `${path}/cycle/${cycle + 1}/set/${setIndex + 1}`)}`,
+              cycleIndex: cycle + 1, setIndex: setIndex + 1, metricType: "source_metrics@1",
+              targets: repsKey ? { [repsKey]: { min: center - 1, max: center + 1 } } : {},
+              rir: repsKey ? Math.max(0, baseRir + adjustments[template.numSets][setIndex]) : null,
+              restSeconds: null, status: repsKey ? "ready" : "manual",
+              provenance: { source: "recovered_static_rules", policyVersion: GENERATOR_VERSION, periodization: "static", deload: false, approximation: false },
+            })),
+          })),
+        };
+        return slot;
+      });
+      return { id: dayId, name, kind: "training", order: weekIndex + 1, slots };
+    });
+    const output = {
+      schemaVersion: PROGRAM_SCHEMA_VERSION, generatorVersion: GENERATOR_VERSION, request: clone(request), days,
+      cycles: 7, deloadCycles: [],
+      provenance: {
+        source: "recovered_generation_rules", policyVersion: GENERATOR_VERSION, goal: request.goal, split: request.split,
+        selection: "recovered-pool_then-explicit-preference_then-ascii-id", approximations: [],
+        generationBudgetMinutes: layout.budgetMinutes, estimatedSessionSeconds, focusNotApplied: [],
+      },
+    };
+    const checked = validateProgramDefinition(output, catalog);
+    if (!checked.ok) return failure([{ code: "generated_program_invalid", field: "program", issues: checked.issues }]);
+    return { ok: true, value: output, conflicts: [], explanations: [{ code: "recovered_initial_rules", generationBudgetMinutes: layout.budgetMinutes }], confirmationOffers: [] };
   }
 
   function applyEmphasis(request, days, jobs, catalog, seed) {
@@ -1161,7 +1287,7 @@
 
   function buildExplanations(program, fit, focus) {
     const explanations = [
-      "Exercises were selected from the raw catalog by hard eligibility, then the lowest available role tier, explicit preference, and the supplied seed.",
+      "Exercises were selected from the raw catalog by hard eligibility, then the lowest available role tier, explicit preference, and deterministic ordering.",
       "Rep ranges and set counts follow the Plan 067 observed four-day anchors or documented approximation policy; no initial load is fabricated.",
     ];
     if (fit.removedPurposes.length) explanations.push(`Time fit removed optional assistance jobs: ${unique(fit.removedPurposes).join(", ")}.`);
@@ -1246,7 +1372,7 @@
   const REQUEST_KEYS = new Set(["goal", "experience", "daysPerWeek", "timeCeilingMinutes", "gymProfile", "competencyAnswers",
     "movementConfirmations", "emphasisMuscleIds", "deprioritizedMuscleIds", "excludedExerciseIds", "excludedMuscleIds",
     "preferredExerciseIds", "split", "periodization", "cycles", "deloadCycles", "seed", "executionContexts"]);
-  const ROOT_PROVENANCE_KEYS = new Set(["source", "policyVersion", "goal", "split", "selection", "approximations", "estimatedSessionSeconds", "focusNotApplied"]);
+  const ROOT_PROVENANCE_KEYS = new Set(["source", "policyVersion", "goal", "split", "selection", "approximations", "estimatedSessionSeconds", "focusNotApplied", "generationBudgetMinutes"]);
   const SET_PROVENANCE_KEYS = new Set(["source", "policyVersion", "periodization", "deload", "approximation"]);
   const CUSTOM_EXERCISE_KEYS = new Set([
     "id", "name", "namePt", "equipment", "primary", "secondary", "notes", "metricIds", "metricDefinitions",
@@ -1376,7 +1502,7 @@
     if (!checkKeys(program, PROGRAM_KEYS, "program", issues)) return { ok: false, issues };
     if (!SUPPORTED_PROGRAM_SCHEMA_VERSIONS.includes(program.schemaVersion)) issues.push("program.schemaVersion: unsupported");
     if (typeof program.generatorVersion !== "string" || !program.generatorVersion) issues.push("program.generatorVersion: expected a version");
-    if (typeof program.seed !== "string") issues.push("program.seed: expected a string");
+    if (program.seed !== undefined && typeof program.seed !== "string") issues.push("program.seed: expected a string");
     validateRequestSnapshot(program.request, validCatalog(catalogSnapshot) ? catalogSnapshot : null, issues);
     if (!Number.isInteger(program.cycles) || program.cycles < 1 || program.cycles > 12) issues.push("program.cycles: unsupported");
     if (!Array.isArray(program.deloadCycles) || program.deloadCycles.some((value) => !Number.isInteger(value) || value < 1 || value > program.cycles)
@@ -1386,6 +1512,7 @@
     for (const key of ["source", "policyVersion"]) if (typeof program.provenance[key] !== "string" || !program.provenance[key]) issues.push(`program.provenance.${key}: required`);
     if (program.provenance.goal !== undefined && !GOALS.includes(program.provenance.goal)) issues.push("program.provenance.goal: unsupported");
     if (program.provenance.split !== undefined && program.provenance.split !== "auto" && !owns(SPLITS, program.provenance.split)) issues.push("program.provenance.split: unsupported");
+    if (program.provenance.generationBudgetMinutes !== undefined && (!finite(program.provenance.generationBudgetMinutes) || program.provenance.generationBudgetMinutes <= 0)) issues.push("program.provenance.generationBudgetMinutes: expected a positive number");
     if (program.provenance.selection !== undefined && typeof program.provenance.selection !== "string") issues.push("program.provenance.selection: expected a string");
     if (program.provenance.approximations !== undefined && (!Array.isArray(program.provenance.approximations) || program.provenance.approximations.some((entry) => typeof entry !== "string"))) issues.push("program.provenance.approximations: invalid list");
     if (program.provenance.estimatedSessionSeconds !== undefined && (!isPlainObject(program.provenance.estimatedSessionSeconds)
@@ -1593,6 +1720,9 @@
     METRIC_SEMANTICS,
     METRIC_SOURCE_IDS,
     generateProgram,
+    canonicalizeRequest,
+    generationIdentity,
+    availableSplits,
     generatedDayNameKey,
     findSubstitutions,
     validateProgramDefinition,

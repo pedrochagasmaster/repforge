@@ -71,7 +71,7 @@ function assert(cond, name, detail) {
 
 async function seed(page, { ambiguousPerSideReview = false, knownModeNullConfigRequired = false } = {}) {
   return page.evaluate(({ request, weight, reps, ambiguousPerSideReview, knownModeNullConfigRequired }) => {
-    const generated = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot(), "why-sheet-067");
+    const generated = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot());
     let definition = generated.value;
     const target = definition.days.filter((day) => day.kind === "training").map((day) => ({ day, slot: day.slots[0] }))
       .find(({ slot }) => JSON.stringify(slot.metricIds) === JSON.stringify([weight, reps]) &&

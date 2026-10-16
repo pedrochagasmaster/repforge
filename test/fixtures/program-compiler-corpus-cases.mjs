@@ -1,6 +1,6 @@
 // The requests behind test/fixtures/program-compiler-corpus.json, shared by the
 // Node digest check (program-compiler-search.mjs) and the worker equivalence
-// check (program-engine-worker.mjs). Each case is { key, request, seed }; the
+// check (program-engine-worker.mjs). Each case is { key, request }; the
 // key is the fixture's digest key.
 export function corpusCases({ Adapter, Catalog }) {
   const allEquipment = Object.keys(Catalog.uuidIndex).filter((id) => Catalog.uuidIndex[id]?.type === "equipment").sort();
@@ -14,7 +14,7 @@ export function corpusCases({ Adapter, Catalog }) {
     return mapped.value;
   };
   // Byte-identical regeneration across goals, experience, day counts, gym
-  // templates, session lengths, muscle and exercise answers, and seeds.
+  // templates, session lengths, muscle and exercise answers. Legacy seed labels remain only in recorded case keys.
   const variants = {
     plain: {},
     focus: { primaryMuscles: ["side_delts", "back"], deEmphasizedMuscles: ["calves"] },
@@ -49,7 +49,6 @@ export function corpusCases({ Adapter, Catalog }) {
     return {
       key: [item.goal, item.experience, item.days, item.environment, item.minutes, item.variant, item.seed].join("|"),
       request: item.environment === "everything" ? { ...request, gymProfile: { equipmentIds: allEquipment } } : request,
-      seed: item.seed,
     };
   });
 }

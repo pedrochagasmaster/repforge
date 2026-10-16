@@ -21,7 +21,6 @@ const VERSIONS = {
 
 function canonicalCandidate() {
   const request = structuredClone(workerFixture.request);
-  const seed = request.seed;
   delete request.seed;
   Object.assign(request, {
     daysPerWeek: 4,
@@ -32,7 +31,7 @@ function canonicalCandidate() {
   });
   request.gymProfile.equipmentIds = Object.keys(Catalog.uuidIndex)
     .filter((id) => Catalog.uuidIndex[id]?.type === "equipment");
-  const generated = Compiler.generateProgram(request, Catalog, seed);
+  const generated = Compiler.generateProgram(request, Catalog);
   assert.equal(generated.ok, true, generated.conflicts?.map((item) => item.message).join("; "));
 
   const rows = [];

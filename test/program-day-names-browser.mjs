@@ -58,7 +58,7 @@ try {
   await waitForAppBoot(page, { base: BASE });
   assert.match(await page.evaluate(() => document.documentElement.lang), /^pt/, "a Portuguese device runs the app in Portuguese");
   await page.evaluate(() => localStorage.setItem("repforge_ui_v1", JSON.stringify({ tourDone: true })));
-  const generated = await installGeneratedProgram(page, { name: "Generated browser fixture", seed: "day-names" });
+  const generated = await installGeneratedProgram(page, { name: "Generated browser fixture" });
 
   const authored = trainingDayNames(generated);
   assert.deepEqual(authored, ["Upper A", "Lower A", "Upper B", "Lower B"], "the generator authors the four-day split");

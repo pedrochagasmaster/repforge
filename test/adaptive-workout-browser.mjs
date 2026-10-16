@@ -51,7 +51,7 @@ const draftSet = (page, slotId, ordinal) => page.evaluate(({ slotId, ordinal }) 
 
 async function seed(page) {
   return page.evaluate(async ({ request, weight, reps }) => {
-    const generated = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot(), "adaptive-067");
+    const generated = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot());
     const definition = generated.value;
     // A day's first weighted movement. No bodyweight is entered, so its share is
     // off in both the history and the recommendation (external load only).

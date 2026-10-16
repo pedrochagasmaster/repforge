@@ -242,9 +242,10 @@ reportar as etapas concluídas e manter o plano global em andamento.
 
 ## 4. Donos das provas
 
-Os arquivos abaixo existem na base. Novas asserções estão **planejadas**;
-nenhuma suite de aplicação foi executada nesta etapa. Os controles offline de
-S0 estão registrados no suplemento.
+A tabela abaixo registra os donos previstos na base. A implementação S2 e suas
+provas estão em [estado da implementação](073/implementation-status.md). As
+provas locais já executadas não substituem o gate de CI no head final. Os controles
+offline de S0 estão registrados no suplemento.
 
 | Contrato | Donos de teste a ampliar/substituir | Violação que a prova deve detectar |
 | --- | --- | --- |

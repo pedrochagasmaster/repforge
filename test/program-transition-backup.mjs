@@ -184,7 +184,7 @@ async function activatePredecessor(page) {
     if (!compiler || !catalog || typeof window.__repforgeFinalizeProgramSetup !== "function") {
       return { ok: false, error: "production program entry services unavailable" };
     }
-    const generated = compiler.generateProgram(request, catalog.snapshot(), "p052-backup-predecessor");
+    const generated = compiler.generateProgram(request, catalog.snapshot());
     if (!generated.ok) return { ok: false, error: "production generation failed", generated };
     const definition = generated.value;
     // The production entry flow derives the program answers from the

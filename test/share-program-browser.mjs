@@ -81,7 +81,7 @@ async function activateGenerated(page, { edit = false } = {}) {
       desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: 4, sessionMinutes: 60,
       environment: { kind: "commercial_gym" },
     }, catalog);
-    const definition = window.RepForgeProgramCompiler.generateProgram(mapped.value, catalog, "share-journey").value;
+    const definition = window.RepForgeProgramCompiler.generateProgram(mapped.value, catalog).value;
     if (edit) definition.days.find((day) => day.kind === "training").slots[0].setupNotes = "Rack at 7";
     const result = await window.__repforgeFinalizeProgramSetup({
       programDefinition: definition, name: "Shared generated block", answers: {}, destination: "log",

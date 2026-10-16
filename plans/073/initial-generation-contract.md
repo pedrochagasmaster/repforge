@@ -22,6 +22,9 @@ Prioridades e desprioridades aceitam os 22 músculos recuperados por UUID. São
 conjuntos independentes e contraditórios são recusados. O desempate próprio usa
 preferência explícita dentro do pool final equivalente e, depois, UUID em ordem
 ASCII. Não altera tiers, batches ou níveis recuperados.
+Os grupos de score são formados antes de remover exercícios já escolhidos.
+Um grupo esvaziado conserva sua posição nos batches de dois. Removê-lo pode
+adiantar um tier inferior e mudar a escolha.
 
 O perfil inicial fixa somente o domínio recuperado: warmup smart, overrides de
 descanso null e sexo fonte null, cujo ramo usa male. Não ler Basics.sex. A história
@@ -52,6 +55,8 @@ sobre a linha original. O retorno tem:
   `isFirstOfType`. `selected` é a lista corrente de templates.
 - `priorities` e `depriorities`: enums internos de músculos em ordem da entrada
   canônica por UUID, sem tradução.
+- `muscleId(sourceName)`: UUID do músculo resolvido, ou undefined para um nome
+  fora dos 22 enums. O compilador não duplica esse mapeamento.
 
 Um exercício resolvido contém `id`, `raw`, `patterns`, `region`, `effectiveRegion`,
 `exerciseType`, `primaryJointActions` e `exclusionGroupings`. `raw` é a linha do

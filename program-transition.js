@@ -239,7 +239,13 @@
     const preferred = [...new Set([...(definition.request.preferredExerciseIds || []), ...current])].sort();
     const request = { ...copyJson(definition.request, "request"), ...overrides, preferredExerciseIds: preferred };
     delete request.seed;
-    const generated = compiler.generateProgram(request, catalog, definition.seed);
+    if (definition.provenance?.source === "recovered_generation_rules") {
+      const canonical = compiler.canonicalizeRequest(request, catalog);
+      if (!canonical.ok || canonical.value.split !== "upper_lower_full") {
+        return unavailable("generation_conflict", { conflicts: [{ code: "unsupported_generation_domain" }] });
+      }
+    }
+    const generated = compiler.generateProgram(request, catalog);
     if (!generated.ok) return unavailable("generation_conflict", { conflicts: generated.conflicts || [] });
     const carried = carryEdits(definition, generated.value, catalog, compiler);
     return { ok: true, value: carryAlternates(definition, carried.value), carry: carried.carry };
@@ -247,7 +253,7 @@
 
   // ---- Carrying block edits across a regeneration -------------------------
   // An edit is wherever the stored definition differs from what its own
-  // request and seed generate. Each one is reapplied, week by week and field
+  // canonical request generates. Each one is reapplied, week by week and field
   // by field, to the successor slot holding the same movement, as long as no
   // week then runs longer than the ceiling allows or than the generator's own
   // successor already does. The report holds codes only.
@@ -265,7 +271,7 @@
     const request = copyJson(definition.request, "request");
     delete request.seed;
     let generated;
-    try { generated = compiler.generateProgram(request, catalog, definition.seed); } catch { return null; }
+    try { generated = compiler.generateProgram(request, catalog); } catch { return null; }
     if (!generated?.ok || generated.value.generatorVersion !== definition.generatorVersion) return null;
     return generated.value;
   }

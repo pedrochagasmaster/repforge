@@ -1,8 +1,9 @@
 # Estado da recuperação das regras de geração
 
 Retomada de 15/10/2026 após o reset dos limites. O gate de pesquisa de S2 está
-fechado somente para o domínio inicial descrito abaixo. A implementação começou;
-a paridade no produto ainda precisa das provas de S2. O contrato continua na
+fechado somente para o domínio inicial descrito abaixo. A implementação S2 passou
+nas jornadas locais de geração e worker. A validação visual completa fica na CI por decisão do owner; commit limpo e CI
+ainda são pendentes, registrados no [estado da implementação](implementation-status.md). O contrato continua na
 [spec](../../docs/generator-rule-parity-spec.md) e o gate no
 [Plano 073](../073-generator-rule-parity.md).
 
@@ -54,7 +55,8 @@ comando, fonte, assert, estado e screenshot. A primeira tentativa tinha um erro
 de fixture antes de abrir o hub e está retida separadamente; não conta como red
 semântico. Nenhum resultado verde de produto é inferido dessa reprodução.
 
-O trabalho restante é implementar e provar S2 no fluxo completo. Outros objetivos,
+A implementação S2 já passou no fluxo local completo com 203 verificações de
+geração e 46 do worker. Isso ainda não fecha seus gates de publicação. Outros objetivos,
 faixas, períodos, deload e divisões mantêm seus gates de ampliação. As entradas
 observadas de Godmode2 continuam sem vínculo transacional completo; isso não
 impede validar o domínio parametrizado nem autoriza afirmar paridade observada.

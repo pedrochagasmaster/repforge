@@ -713,7 +713,7 @@ async function installPerSideHistory(page, { bodyweightAssumption = false } = {}
       sessionMinutes: 90, environment: { kind: "commercial_gym" }, mustHaveExercises: [rowId, pressId],
     }, catalog);
     if (!mapped.ok) throw new Error(`Per-side catalog program request failed: ${JSON.stringify(mapped.conflicts)}`);
-    const generated = window.RepForgeProgramCompiler.generateProgram(mapped.value, catalog, "p069-s2-per-side-reading");
+    const generated = window.RepForgeProgramCompiler.generateProgram(mapped.value, catalog);
     if (!generated.ok) throw new Error(`Per-side catalog program generation failed: ${JSON.stringify(generated.conflicts)}`);
     await window.__repforgeFinalizeProgramSetup({
       programDefinition: generated.value, name: "Per-side history", answers: {}, destination: "log",
@@ -817,7 +817,7 @@ async function completeCompiledProgram(page, { days = 4, minutes = 90, edits = [
       desiredResult: "balanced", structuredExperience: "6_to_24m", daysPerWeek: days, sessionMinutes: minutes,
       environment: { kind: "commercial_gym" },
     }, catalog).value;
-    const generated = window.RepForgeProgramCompiler.generateProgram(request, catalog, "catalog-transition");
+    const generated = window.RepForgeProgramCompiler.generateProgram(request, catalog);
     if (!generated.ok) throw new Error(`catalog compiler failed: ${JSON.stringify(generated.conflicts || generated)}`);
     // Block edits shaped as the installed editor writes them, so a Review
     // regeneration has something to carry, clamp or drop.
@@ -1083,7 +1083,7 @@ async function logAdaptiveSet(page, slotId, ordinal, { load, reps, rir }) {
  * always leads with "engine-anchor", "engine-target" and "engine-assumptions".
  */
 async function adaptiveWhyFixture(page) {
-  const state = await installGeneratedProgram(page, { name: "Why sheet proof", seed: "why-sheet-ui" });
+  const state = await installGeneratedProgram(page, { name: "Why sheet proof" });
   const day = state.program[0]?.day;
   const row = state.program.find((candidate) => candidate.day === day && isWeightRepsSlot(definitionSlot(state.programMeta, candidate)));
   if (!row) throw new Error("adaptive Why fixture: no Weight+Reps slot on the generated program's first day");
@@ -1356,8 +1356,7 @@ async function whyOnBuildRange(page) {
 async function whyOnGeneratedPerSide(page) {
   const target = await page.evaluate(async (request) => {
     const catalog = window.RepForgeExerciseCatalog.snapshot();
-    const generated = window.RepForgeProgramCompiler.generateProgram(request,
-      catalog, "why-sheet-067");
+    const generated = window.RepForgeProgramCompiler.generateProgram(request, catalog);
     if (!generated.ok) throw new Error(`generation failed: ${JSON.stringify(generated.conflicts || generated)}`);
     const definition = generated.value;
     const perSide = definition.days.filter((day) => day.kind === "training").flatMap((day) =>
@@ -2325,7 +2324,7 @@ export const APP_SCENARIOS = {
         desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: 4, sessionMinutes: 60,
         environment: { kind: "commercial_gym" },
       }, catalog).value;
-      const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog, "catalog-share-too-large").value;
+      const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog).value;
       definition.days.find((day) => day.kind === "training").slots[0].setupNotes = "Rack at 7";
       const finalized = await window.__repforgeFinalizeProgramSetup({
         programDefinition: definition, name: "Edited generated block", answers: {}, destination: "log",

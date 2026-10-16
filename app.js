@@ -1933,7 +1933,7 @@ function manualProgramDefinitionFromRows(rows,dayNames=[],customDefinitions=cust
         prescriptionsByCycle};});
     if(slots.some(slot=>!slot))return null;
     days.push({id:`manual-day-${index+1}`,name:label,kind:entries.length?"training":"rest",order:index+1,slots})}
-  const definition={schemaVersion:2,generatorVersion:"manual@1",seed:"manual",request:{},days,
+  const definition={schemaVersion:2,generatorVersion:"manual@1",request:{},days,
     cycles:7,deloadCycles:[],provenance:{source:"manual",policyVersion:"manual@1"}};
   return canonicalProgramDefinition(definition,customDefinitions)}
 /* Durable program rows are stored exactly as an accepted snapshot normalizes
@@ -2207,7 +2207,7 @@ let programEngineInstance=null;
 function createProgramEngineInstance(){
   const Engine=typeof window!=="undefined"?window.RepForgeProgramEngine:null;
   if(!Engine||!ProgramCompiler)return null;
-  const scripts=["exercise-metrics.js","program-compiler.js","exercise-catalog.js","program-transition.js"].map(Engine.pageScript);
+  const scripts=["exercise-metrics.js","generation-identity.js","generation-candidates.js","generation-layout.js","program-compiler.js","exercise-catalog.js","program-transition.js"].map(Engine.pageScript);
   const pin=window.RepForgeExercises?.catalogSha256;
   return Engine.create({compiler:ProgramCompiler,transition:transitionDomain(),catalog:()=>rawExerciseCatalog,
     worker:Engine.url&&scripts.every(Boolean)&&typeof pin==="string"?{url:Engine.url,scripts,catalogSha256:pin}:null})}
@@ -12679,15 +12679,15 @@ function sharedSettings(settings){
     hardRir:settings.hardRir,restSec:settings.restSec,unit:settings.unit,
     lang:settings.lang||I18N?.getLang?.()||I18N?.detectLang?.()||"en",rirMode:settings.rirMode}}
 /* The codec validates the canonical definition with the compiler and may carry
-   an unedited generated program as its generator request and seed. */
+   an unedited generated program as its canonical generator request. */
 function sharedSetupCodecOptions(){
   return{builtInIds:SHARED_BUILT_IN_IDS,catalogSnapshot:rawExerciseCatalog,
     validateProgramDefinition:ProgramCompiler?.validateProgramDefinition,
     generateProgram:ProgramCompiler?.generateProgram,generatorVersion:ProgramCompiler?.GENERATOR_VERSION}}
 function sharedSetupDecodeCodecOptions(signal){
-  return{...sharedSetupCodecOptions(),signal,generateProgramAsync:(request,catalogSnapshot,seed,options={})=>{
+  return{...sharedSetupCodecOptions(),signal,generateProgramAsync:(request,catalogSnapshot,options={})=>{
     const engine=programEngine();
-    return engine?engine.generate(request,seed,{signal:options.signal}):ProgramCompiler?.generateProgram(request,catalogSnapshot,seed)}}}
+    return engine?engine.generate(request,{signal:options.signal}):ProgramCompiler?.generateProgram(request,catalogSnapshot)}}}
 /* A setup link shares the active program's canonical definition, the custom
    movements it references, the eight allowlisted settings and the language. */
 function buildSharedSetupValidation(){
@@ -15977,13 +15977,13 @@ function renderMusclePrioritiesStep(){
   return entryHeading(t("entry.muscle_priorities.title"))+`<p class="onb__explain">${esc(t("entry.muscle_priorities.lede"))}</p>`+
     `<div class="entry-b__priorities">${rows}</div>`+
     `<p class="entry__hint entry__limit" id="entryPriorityLimit" role="status"${entryPriorityLimitShown?"":" hidden"}>${esc(t("entry.muscle_priorities.limit"))}</p>`}
-const ENTRY_B_MUSCLES=Object.freeze(["chest","lats","back","side_delts","front_delts","rear_delts","biceps","triceps","quads","hamstrings","glutes","calves"]);
+const ENTRY_B_MUSCLES=ProgramEntry.ENTRY_MUSCLES;
 function entrySetMusclePriority(muscle,status){
   if(!ENTRY_B_MUSCLES.includes(muscle)||!["reduce","normal","prioritize"].includes(status))return;
   const a=entryState.answers;
   const primary=(a.primaryMuscles||[]).filter(item=>item!==muscle);
   const reduced=(a.deEmphasizedMuscles||[]).filter(item=>item!==muscle);
-  const limit=ProgramEntry.MAX_PRIORITY_MUSCLES||5;
+  const limit=ProgramEntry.MAX_PRIORITY_MUSCLES||22;
   if(status==="prioritize")primary.push(muscle);
   if(status==="reduce")reduced.push(muscle);
   entryPriorityLimitShown=primary.length>limit||reduced.length>limit;
@@ -16335,13 +16335,13 @@ function entryMuscleStatus(muscle){
 function entryMuscleStatusDisabled(muscle,status){
   if(status==="prioritize"){
     const primary=entryState?.answers?.primaryMuscles||[];
-    return primary.length>=2&&!primary.includes(muscle)}
+    return primary.length>=ProgramEntry.MAX_PRIORITY_MUSCLES&&!primary.includes(muscle)}
   if(status==="deemphasize"){
     const selected=entryState?.answers?.deEmphasizedMuscles||[];
-    return selected.length>=(ProgramEntry?.MAX_MUSCLE_CONTROLS||10)&&!selected.includes(muscle)}
+    return selected.length>=(ProgramEntry?.MAX_MUSCLE_CONTROLS||22)&&!selected.includes(muscle)}
   if(status==="ignore"){
     const selected=entryState?.answers?.ignoredMuscles||[];
-    return selected.length>=(ProgramEntry?.MAX_MUSCLE_CONTROLS||10)&&!selected.includes(muscle)}
+    return selected.length>=(ProgramEntry?.MAX_MUSCLE_CONTROLS||22)&&!selected.includes(muscle)}
   return false}
 function entryMuscleStatusOption(muscle,status){
   const selected=entryMuscleStatus(muscle)===status;
@@ -16473,7 +16473,7 @@ function entryPrioritiesBody(){
   return `<div class="onb__opts entry__none" role="radiogroup" aria-label="${esc(t("entry.priorities.primary"))}"><button type="button" class="radio-card${primary.length===0?" is-selected":""}" data-entry-action="clear-priorities" role="radio" aria-checked="${primary.length===0?"true":"false"}"><span class="radio-card__body"><span class="radio-card__title">${esc(t("entry.priorities.none"))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button></div>`+
     `<p class="entry__group-lab">${esc(t("entry.priorities.primary"))}</p><div class="onb__opts onb__grid onb__grid--balanced" role="group">`+
     ENTRY_MUSCLES.map(m=>entryOpt("primaryMuscles",m,t(`entry.muscle.${m}`)||m,"",{multi:true,disabled:entryMuscleBlocked("primaryMuscles",m),role:"checkbox"})).join("")+`</div>`+
-    (primary.length>=2?`<p class="entry__hint entry__limit" id="entryPrimaryLimit">${esc(t("entry.priorities.limit"))}</p>`:"")+
+    (primary.length>=ProgramEntry.MAX_PRIORITY_MUSCLES?`<p class="entry__hint entry__limit" id="entryPrimaryLimit">${esc(t("entry.priorities.limit"))}</p>`:"")+
     `<p class="entry__group-lab">${esc(t("entry.priorities.movements"))}</p><div class="onb__opts onb__grid onb__grid--balanced" role="group">`+
     ENTRY_MOVEMENTS.map(m=>entryOpt("priorityMovements",m,t(`entry.movement.${m}`)||m,"",{multi:true,role:"checkbox"})).join("")+`</div>`+
     renderAvoidanceSection()}
@@ -16507,7 +16507,7 @@ function renderCustomShapeStep(){
     `<p class="onb__explain">${esc(t(sole?"entry.custom_shape.lede_sole":"entry.custom_shape.lede"))}</p>`+entryCustomShapeBody(splits)}
 /* Generate maps the answers to a canonical request, runs the one generator, and
    previews its ProgramDefinition through the same flat projection as Build. The
-   draft id seeds selection, so a draft regenerates the same program. */
+   canonical request identifies selection, so equal requests regenerate the same program. */
 /* A generated candidate's preview is a pure projection of its definition, so
    the review editor rebuilds it the same way after every adjustment. */
 function generatedPreview(definition,route){
@@ -16521,14 +16521,16 @@ function entryGeneratorRequest(from){
   const answers=from.answers||{};
   const mapped=answers.programRequest?{ok:true,value:cloneSnapshot(answers.programRequest)}
     :ProgramEntryAdapter.programRequestFromAnswers(answers,rawExerciseCatalog);
-  return mapped.ok?{ok:true,request:mapped.value,seed:String(from.draftId||"taurifer")}
-    :{ok:false,failure:{code:"rules_changed",conflicts:mapped.conflicts}}}
+  if(!mapped.ok)return{ok:false,failure:{code:"rules_changed",conflicts:mapped.conflicts}};
+  const canonical=ProgramCompiler.canonicalizeRequest(mapped.value,rawExerciseCatalog);
+  return canonical.ok?{ok:true,request:canonical.value}
+    :{ok:false,failure:{code:"rules_changed",conflicts:canonical.issues}}}
 function entryCandidate(from,services,request,definition){
   const answers=from.answers||{},preview=generatedPreview(definition,from.route);
   const days=preview.days;
   const name=t("entry.result.generated_name",{days:days.length});
   return{
-    fingerprint:services.fingerprint({route:from.route,request,seed:definition.seed}),
+    fingerprint:ProgramCompiler.generationIdentity(request,rawExerciseCatalog),
     name,
     selected:{id:"generated",source:"generator",daysPerWeek:days.length},
     candidates:[],
@@ -16552,18 +16554,18 @@ function settleGeneration(token,outcome){
   let duration=null;
   try{duration=window.RepForgeTelemetry?.bucketGeneration?.(generationClock()-token.at)}catch{}
   if(duration)captureEvent("generation_settled",{route:token.route,outcome,duration})}
-/* Generation is deterministic in its request and seed, so the last few
+/* Generation is deterministic in its canonical request, so the last few
    outputs are kept: the review's recommendation is then at hand on the render
    that follows its own generation. A test's services override is never cached. */
 const entryGenerated=new Map();
-const entryGeneratedKey=(request,seed)=>entryCanon({request,seed});
+const entryGeneratedKey=request=>ProgramCompiler.generationIdentity(request,rawExerciseCatalog);
 function entryGeneratedPeek(from){
   if(!from||window.__repforgeProgramEntryServicesOverride||!ProgramEntryAdapter?.programRequestFromAnswers)return null;
   const services=entryServices(),mapped=entryGeneratorRequest(from);
-  const generated=services&&mapped.ok?entryGenerated.get(entryGeneratedKey(mapped.request,mapped.seed)):null;
+  const generated=services&&mapped.ok?entryGenerated.get(entryGeneratedKey(mapped.request)):null;
   if(!generated?.ok)return null;
   const result=entryCandidate(from,services,mapped.request,cloneSnapshot(generated.value));
-  startEntryOfferVerification(from,{confirmationOffers:generated.confirmationOffers,request:mapped.request,seed:mapped.seed,
+  startEntryOfferVerification(from,{confirmationOffers:generated.confirmationOffers,request:mapped.request,
     definition:generated.value,result});
   return result}
 let entryOfferJob=null,entryOfferState={key:"",offers:[]};
@@ -16583,7 +16585,7 @@ function entryOfferSlotEligible(state,offer){
 function entryCurrentVerifiedOffers(state=entryState){
   const key=entryOfferKey(state,entryOfferBaseline(state));
   return key&&entryOfferState.key===key?entryOfferState.offers.filter(offer=>entryOfferSlotEligible(state,offer)):[]}
-function startEntryOfferVerification(state,{confirmationOffers=[],request,seed,definition,result=entryOfferBaseline(state)}={}){
+function startEntryOfferVerification(state,{confirmationOffers=[],request,definition,result=entryOfferBaseline(state)}={}){
   const key=entryOfferKey(state,result);
   if(!key||state?.step!=="result"||state?.route!=="recommend")return;
   // The generator override is a test harness for the foreground transaction,
@@ -16600,11 +16602,11 @@ function startEntryOfferVerification(state,{confirmationOffers=[],request,seed,d
   entryOfferJob=job;
   const engine=window.__repforgeProgramEntryServicesOverride?null:createProgramEngineInstance();
   job.engine=engine;
-  const generate=(nextRequest,nextSeed,{signal}={})=>engine
-    ?engine.generate(nextRequest,nextSeed,{signal})
-    :entryServices()?.generateProgram({request:nextRequest,seed:nextSeed});
+  const generate=(nextRequest,{signal}={})=>engine
+    ?engine.generate(nextRequest,{signal})
+    :entryServices()?.generateProgram({request:nextRequest});
   ProgramEntryAdapter.verifyConfirmationOffers({
-    generate,request,seed,signal:controller.signal,
+    generate,request,signal:controller.signal,
     result:{ok:true,value:definition,confirmationOffers},
   }).then(offers=>{
     if(entryOfferJob!==job||controller.signal.aborted||entryState?.step!=="result"||
@@ -16618,8 +16620,8 @@ function startEntryOfferVerification(state,{confirmationOffers=[],request,seed,d
     if(entryState?.step!=="result"||entryOfferKey(entryState,entryOfferBaseline(entryState))!==key)return;
     entryOfferState={key,offers:[]};entryAdjustMount?.refresh?.();
   }).finally(()=>job.engine?.dispose?.())}
-/* The one call site of Generate (#353). The answers' request and the draft's
-   seed go to the program engine, which runs the generator in its worker (or
+/* The one call site of Generate (#353). The canonical request goes to the
+   program engine, which runs the generator in its worker (or
    on this thread when it cannot); the outcome is a candidate or the failure
    the result screen explains. Rejects only when `signal` aborts it, and an
    aborted request is never reported. `timed` marks a generation the lifter
@@ -16635,12 +16637,12 @@ async function runEntryGeneration(from,services,signal){
   const mapped=entryGeneratorRequest(from);
   if(!mapped.ok)return mapped;
   const override=window.__repforgeProgramEntryServicesOverride,engine=override?null:programEngine();
-  const key=entryGeneratedKey(mapped.request,mapped.seed);
+  const key=entryGeneratedKey(mapped.request);
   let generated;
   try{
-    generated=override?await services.generateProgram({request:mapped.request,seed:mapped.seed})
-      :engine?await engine.generate(mapped.request,mapped.seed,{signal})
-      :services.generateProgram({request:mapped.request,seed:mapped.seed})}
+    generated=override?await services.generateProgram({request:mapped.request})
+      :engine?await engine.generate(mapped.request,{signal})
+      :services.generateProgram({request:mapped.request})}
   catch(error){
     if(error?.name==="AbortError")throw error;
     console.warn("program generation failed",error);return{ok:false,failure:{code:"rebuild_failed"}}}
@@ -16651,7 +16653,7 @@ async function runEntryGeneration(from,services,signal){
   const definition=cloneSnapshot(generated.value);
   return{ok:true,result:entryCandidate(from,services,mapped.request,definition),
     confirmationOffers:Array.isArray(generated.confirmationOffers)?cloneSnapshot(generated.confirmationOffers):[],
-    request:cloneSnapshot(mapped.request),seed:mapped.seed,definition}}
+    request:cloneSnapshot(mapped.request),definition}}
 /** O3: the generation whose program has not been drawn yet. Only a compile
  *  arms it (a saved draft that is reopened, and every later render of a result
  *  that already exists, never do), and the first render of that result takes it,
@@ -17082,7 +17084,9 @@ const ENTRY_CODE_COPY=Object.freeze({
     // Canonical generator conflicts and Generate's own answer mapping.
     time_ceiling_exceeded:"entry.issue.time_ceiling_generated",no_eligible_exercise:"entry.issue.required_slot",
     no_complete_program:"entry.issue.compile",generated_program_invalid:"entry.issue.compile",
+    insufficient_candidates:"entry.issue.required_slot",
     policy_identity_unresolved:"entry.issue.compile",invalid_request:"entry.issue.compile",invalid_catalog:"entry.issue.compile",
+    unsupported_generation_domain:"entry.issue.compile",
     generation_conflict:"entry.issue.compile",rules_changed:"entry.issue.generic",catalog_unavailable:"entry.issue.compile",
     goal_required:"entry.issue.generic",experience_required:"entry.issue.generic",days_unsupported:"entry.issue.generic",
     environment_required:"entry.issue.generic"}),
@@ -17136,8 +17140,10 @@ function entryBuildChange(beforePreview,afterPreview,state,{lead,beforeLabel="",
   return{key:entryChangeKey(state),lead,beforeLabel,afterLabel,before:entryFactsText(beforePreview),after:entryFactsText(afterPreview),
     changed:diff.n,total:diff.total,added:entryAddedRowIds(beforePreview,afterPreview)}}
 function entryChangedExerciseNames(beforePreview,afterPreview){
-  const before=new Map((beforePreview?.program||[]).map(row=>[row.slotId||row.id,row.libraryId||row.name]));
-  return(afterPreview?.program||[]).filter(row=>before.get(row.slotId||row.id)!==(row.libraryId||row.name))
+  const before=beforePreview?.programDefinition?.days||[];
+  const changed=new Set((afterPreview?.programDefinition?.days||[]).flatMap((day,dayIndex)=>
+    day.slots.filter((slot,slotIndex)=>before[dayIndex]?.slots[slotIndex]?.exerciseId!==slot.exerciseId).map(slot=>slot.id)));
+  return(afterPreview?.program||[]).filter(row=>changed.has(row.slotId||row.id))
     .map(row=>libraryName(libraryEntry(row.libraryId))||row.name).filter(Boolean)}
 function entryChangeNow(){return entryChange&&entryChange.key&&entryChange.key===entryChangeKey()?entryChange:null}
 /* After a change the statement is the first thing the lifter should see: the top
@@ -17271,6 +17277,10 @@ async function applyEntryAnswerEdit(patch,{lead,beforeLabel,afterLabel}={}){
   if(route!=="recommend"&&route!=="custom")return{ok:false};
   const committed=entryState,before=committed.result;
   let next=ProgramEntry.setAnswers(entryAnswerJob?.committed===committed?entryAnswerJob.next:committed,patch);
+  if(before.preview.programDefinition?.provenance?.source==="recovered_generation_rules"){
+    const mapped=entryGeneratorRequest(next);
+    if(!mapped.ok||mapped.request.split!=="upper_lower_full")return{ok:false,failure:{code:"generation_conflict",
+      conflicts:[{code:"unsupported_generation_domain"}]}}}
   if(route==="custom"){
     const choices=entryCustomSplitChoices(next.answers).choices;
     if(choices.length&&!choices.some(choice=>choice.id===next.answers.splitPreference))
@@ -17463,8 +17473,8 @@ function renderResultStep(){
     (entryEditor?"":renderEntryPinned({progressionIssue,configurationIssue:entryNeedsMetricConfiguration(),reviewIssue:entryAdjustIssue()}))+
     `</section>`}
 /* Plan 070: onboarding B's review editor (program-review.js) on Generate's
-   result screen. The recommendation is regenerated in memory from the draft's
-   answers and seed, which is deterministic; every adjustment is committed to
+   result screen. The recommendation is regenerated in memory from the canonical
+   request; every adjustment is committed to
    the setup draft as the edited definition. The edit log that makes undo
    survive a reload is tab-scoped and never leaves the device: it holds the
    draft id, the recommendation's fingerprint and the edits, and is kept after
@@ -17486,6 +17496,7 @@ const sameDefinition=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 function ensureEntryAdjust(){
   const Review=window.RepForgeProgramReview,result=entryState?.result;
   if(!Review||!entryAdjustRoute()||!result?.preview?.programDefinition||!rawExerciseCatalog)return null;
+  if(entryGeneratorReviewRoute()&&result.preview.programDefinition.generatorVersion!==ProgramCompiler.GENERATOR_VERSION)return null;
   if(entryAdjust&&entryAdjust.draftId===entryState.draftId&&entryAdjust.answers===result.answersFingerprint)return entryAdjust;
   const baseline=entryState.route==="shared"?cloneSnapshot(result):entryGeneratedPeek(entryState);
   if(!baseline){loadEntryAdjustBaseline();return null}
@@ -17505,7 +17516,7 @@ function adoptEntryAdjust(baseline){
    the review it belongs to if that result is still on screen. */
 let entryAdjustLoading=null;
 function loadEntryAdjustBaseline(){
-  if(!entryGeneratorReviewRoute())return Promise.resolve(null);
+  if(!entryGeneratorReviewRoute()||entryState?.result?.preview?.programDefinition?.generatorVersion!==ProgramCompiler.GENERATOR_VERSION)return Promise.resolve(null);
   const from=entryState,answers=from?.result?.answersFingerprint;
   if(entryAdjustLoading?.draftId===from?.draftId&&entryAdjustLoading?.answers===answers)return entryAdjustLoading.promise;
   const promise=generateEntryCandidate(from).catch(()=>({ok:false})).then(outcome=>{
@@ -17622,7 +17633,7 @@ function resolveEntryAdjustDialog(confirmed){
   closeEntryDialog();
   pending?.resolve(confirmed)}
 /* A change that rebuilds the program (an answer, the alternative split) asks
-   first when it would discard the lifter's adjustments; confirming drops them. */
+   first when a successful rebuild would discard the lifter's adjustments. */
 async function guardEntryRebuild(rebuild){
   // A rebuild of this same result is already generating: its guard has dealt
   // with the adjustments, and the next answer builds on that rebuild.
@@ -17634,11 +17645,9 @@ async function guardEntryRebuild(rebuild){
       body:t(count===1?"entry.review.rebuild_body_one":"entry.review.rebuild_body",{n:count}),
       go:t("entry.review.rebuild_go"),keep:t("entry.review.keep")});
     if(!confirmed)return false;
-    // The rebuild replaces the candidate; start it from the recommendation.
-    const restored=await commitEntryAdjust({definition:entryAdjust.baseline.preview.programDefinition,edits:[],name:null});
-    if(!restored.ok)return false}
-  // The review stays mounted on the recommendation while the rebuild runs;
-  // a rebuilt program brings its own (applyEntryAnswerEdit).
+  }
+  // The successful rebuild replaces the reviewed candidate atomically. A
+  // rejected configuration keeps the lifter's adjustments and saved draft.
   return rebuild()}
 function mountEntryAdjust(){
   entryAdjustMount?.dispose();entryAdjustMount=null;
@@ -18656,7 +18665,7 @@ function wireEntryDom(){
       const deemphasized=[...(entryState.answers.deEmphasizedMuscles||[])].filter(item=>item!==muscle);
       const ignored=[...(entryState.answers.ignoredMuscles||[])].filter(item=>item!==muscle);
       if(status==="prioritize"){
-        if(primary.length>=2)return;
+        if(primary.length>=ProgramEntry.MAX_PRIORITY_MUSCLES)return;
         primary.push(muscle);
       }else if(status==="deemphasize")deemphasized.push(muscle);
       else if(status==="ignore")ignored.push(muscle);
@@ -18692,9 +18701,9 @@ function wireEntryDom(){
       const current=[...(entryState.answers[key]||[])];
       const idx=current.indexOf(raw);
       if(idx>=0)current.splice(idx,1);
-      else if(key==="primaryMuscles"||key==="priorityMovements"){if(current.length<2&&!entryMuscleBlocked(key,raw))current.push(raw)}
+      else if(key==="primaryMuscles"||key==="priorityMovements"){if(current.length<(key==="primaryMuscles"?ProgramEntry.MAX_PRIORITY_MUSCLES:2)&&!entryMuscleBlocked(key,raw))current.push(raw)}
       else if(key==="deEmphasizedMuscles"||key==="ignoredMuscles"){
-        if(current.length<(ProgramEntry?.MAX_MUSCLE_CONTROLS||10)&&!entryMuscleBlocked(key,raw))current.push(raw)}
+        if(current.length<(ProgramEntry?.MAX_MUSCLE_CONTROLS||22)&&!entryMuscleBlocked(key,raw))current.push(raw)}
       else current.push(raw);
       entryPatchAnswers({[key]:current});
       return}

@@ -11,6 +11,7 @@
  * straight at `step:"preview"` (see the setup-link commit path), so that step
  * has no production surface to photograph.
  */
+import assert from "node:assert/strict";
 import { encodeSetupLink } from "../../test/fixtures/setup-link-v4.mjs";
 import { answerRecommend } from "../../test/browser.mjs";
 import { activeEntryState, emptyEntryState } from "./fixtures.mjs";
@@ -196,14 +197,15 @@ function installOfferVerificationObserverInBrowser() {
       const used = new Set();
       const verification = candidates.map(offer => {
         const confirmations = { ...baseConfirmations, [offer.offeredExerciseId]: [...(offer.prerequisiteIds || [])] };
-        const requestDigest = digest({ request: { ...baseline.request, movementConfirmations: confirmations }, seed: baseline.seed });
+        const requestDigest = window.RepForgeGenerationIdentity.digestCanonical({ ...baseline.request, movementConfirmations: confirmations });
         const job = this.jobs.find(candidate => candidate.engineId !== primaryEngineId
           && candidate.draftDigest === draftDigest && candidate.requestDigest === requestDigest
           && candidate.startedOrder > baseline.startedOrder && !used.has(candidate.jobId));
         if (job) used.add(job.jobId);
         if (!job || job.status === "pending") return { ready: false, requestDigest, job: job || null };
-        const slot = job.result?.ok ? job.result.value?.days?.flatMap(day => day.slots || [])
-          .find(item => item.id === offer.slotId) : null;
+        const dayIndex = baseline.result.value.days.findIndex(day => day.slots.some(slot => slot.id === offer.slotId));
+        const slotIndex = dayIndex < 0 ? -1 : baseline.result.value.days[dayIndex].slots.findIndex(slot => slot.id === offer.slotId);
+        const slot = job.result?.ok ? job.result.value?.days?.[dayIndex]?.slots?.[slotIndex] : null;
         return { ready: true, accepted: slot?.exerciseId === offer.offeredExerciseId, requestDigest, job };
       });
       const allSettled = verification.every(item => item.ready);
@@ -309,25 +311,24 @@ function installOfferVerificationObserverInBrowser() {
         const facade = Object.create(engine);
         Object.defineProperty(facade, "generate", {
           configurable: false,
-          value(request, seed, options) {
+          value(request, options) {
             const state = window.__repforgeEntryState?.();
             const job = {
               engineId,
               jobId: observer.jobs.filter(item => item.engineId === engineId).length + 1,
               foreground: engineId === 1,
-              draftDigest: digest(seed || ""),
+              draftDigest: digest(state?.draftId || ""),
               step: state?.step || null,
-              requestDigest: digest({ request, seed }),
+              requestDigest: window.RepForgeGenerationIdentity.digestCanonical(request),
               confirmationCount: Object.keys(request?.movementConfirmations || {}).length,
               request,
-              seed,
               status: "pending",
               startedOrder: ++observer.order,
             };
             observer.jobs.push(job);
             let generated;
             try {
-              generated = engine.generate(request, seed, options);
+              generated = engine.generate(request, options);
             } catch (error) {
               job.status = "rejected";
               job.outcome = error?.name || "error";
@@ -871,6 +872,18 @@ async function activationConflict(page) {
   if (step !== "activation_conflict") {
     throw new Error(`activation conflict did not enter activation_conflict (step=${step || "unknown"})`);
   }
+  // Reload restores the candidate before its generated comparison is ready.
+  // Wait for the production review to mount over the conflict state.
+  await page.waitForFunction(() => {
+    const current = window.__repforgeEntryState?.();
+    const selected = document.querySelector('#entryReview [data-review-tab][aria-selected="true"]');
+    const day = current?.result?.preview?.programDefinition?.days?.[Number(selected?.dataset.reviewTab)];
+    const rows = [...document.querySelectorAll('#entryReview [data-review-slot]')];
+    return current?.step === "activation_conflict" && Boolean(selected) && day?.slots?.length > 0
+      && rows.length === day.slots.length && rows.every((row, index) => row.dataset.reviewSlot === day.slots[index].id)
+      && Boolean(document.querySelector('.entry__notice[role="alert"]'));
+  }, undefined, { timeout: 40000 });
+  await reviewSettled(page);
 }
 
 /** Bring the frame's subject into view for surfaces taller than the viewport. */
@@ -883,13 +896,13 @@ const FOCUS_SELECTOR = {
   "onboarding-start/first-run-close": ".firstrun-close__actions",
   "onboarding-recommend/chip-editor-open": ".entry-chips",
   "onboarding-recommend/result-avoided": ".entry__constraints",
-  "onboarding-recommend/activation-conflict": ".entry__notice",
+  "onboarding-recommend/activation-conflict": '#onbBody .entry__notice[role="alert"]',
   "onboarding-build/editor-ready": "#entryEditorActivate",
   "onboarding-recommend/result-changed": ".review__row.is-changed",
   "onboarding-recommend/review-reorder": "[data-review-reorder]",
   "onboarding-recommend/review-empty-day": ".review__empty",
   "onboarding-recommend/review-sheet-execution-mode": "#reviewSheet [data-review-execution-question]",
-  "onboarding-recommend/muscle-priorities-limit": "#entryPriorityLimit",
+  "onboarding-recommend/muscle-priorities-limit": '[data-entry-pick="musclePriorityB"][aria-checked="true"][data-entry-val$="|prioritize"]',
 };
 
 /**
@@ -1007,8 +1020,15 @@ export const ONBOARDING_SCENARIOS = {
   },
   "onboarding-recommend/muscle-priorities-limit": async (page) => {
     await recommendStep(page, "muscle_priorities");
-    for (const muscle of ["chest", "lats", "back", "side_delts", "glutes", "quads"]) await pick(page, "musclePriorityB", `${muscle}|prioritize`);
-    await page.waitForSelector("#entryPriorityLimit:not([hidden])", { timeout: 10000 });
+    const muscles = await page.evaluate(() => [...window.RepForgeProgramEntry.ENTRY_MUSCLES]);
+    assert.equal(muscles.length, 22);
+    for (const muscle of muscles) await pick(page, "musclePriorityB", `${muscle}|prioritize`);
+    const selected = await page.evaluate(() => ({
+      muscles: window.__repforgeEntryState().answers.primaryMuscles,
+      radios: document.querySelectorAll('[data-entry-pick="musclePriorityB"][aria-checked="true"][data-entry-val$="|prioritize"]').length,
+    }));
+    assert.deepEqual([...selected.muscles].sort(), [...muscles].sort());
+    assert.equal(selected.radios, 22);
   },
   "onboarding-recommend/deload": (page) => recommendStep(page, "deload"),
   "onboarding-recommend/abilities": (page) => recommendStep(page, "abilities"),
@@ -1289,6 +1309,24 @@ export async function focusOnboardingSubject(page, key) {
     await sleep(page, 400);
   }
   await sleep(page, 200);
+  if (key === "onboarding-recommend/activation-conflict") {
+    await page.evaluate(() => {
+      const host = document.querySelector("#onboarding");
+      const notice = document.querySelector('#onbBody .entry__notice[role="alert"]');
+      if (host && notice) host.scrollTop += notice.getBoundingClientRect().top - host.getBoundingClientRect().top - 16;
+    });
+    await page.waitForFunction(() => {
+      const notice = document.querySelector('#onbBody .entry__notice[role="alert"]');
+      const bounds = notice?.getBoundingClientRect();
+      return bounds?.width > 0 && bounds.top >= 0 && bounds.bottom <= window.innerHeight
+        && Boolean(document.querySelector('#entryReview [data-review-slot]'));
+    }, undefined, { timeout: 5000 });
+    console.log("catalog activation conflict viewport " + JSON.stringify(await page.evaluate(() => {
+      const bounds = document.querySelector('#onbBody .entry__notice[role="alert"]').getBoundingClientRect();
+      return { top: bounds.top, bottom: bounds.bottom, viewport: window.innerHeight,
+        reviewRows: document.querySelectorAll('#entryReview [data-review-slot]').length };
+    })));
+  }
   if (key === "onboarding-recommend/result-block-sheet") {
     await page.waitForFunction(() => {
       const sheet = document.querySelector("#reviewSheet.is-open");

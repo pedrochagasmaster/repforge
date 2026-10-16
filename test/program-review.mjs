@@ -48,14 +48,14 @@ const PLAN069_S3_ADDITIONS = [
   ["reps", "loadPerSideKg"],
 ];
 
-function generate({ days = 4, goal = "muscle_growth", environment = "commercial_gym", extra = {}, seed = 1 } = {}) {
+function generate({ days = 4, goal = "muscle_growth", environment = "commercial_gym", extra = {} } = {}) {
   const request = Adapter.programRequestFromAnswers({
     desiredResult: goal, structuredExperience: "6_to_24m", daysPerWeek: days,
     environment: { kind: environment }, sessionMinutes: 60, competencyAnswers: {},
     primaryMuscles: [], deEmphasizedMuscles: [],
   }, Catalog);
   if (!request.ok) throw new Error("request failed");
-  const generated = Compiler.generateProgram({ ...request.value, ...extra }, Catalog, seed);
+  const generated = Compiler.generateProgram({ ...request.value, ...extra }, Catalog);
   if (!generated.ok) throw new Error("generation failed");
   return generated.value;
 }
@@ -446,7 +446,7 @@ console.log("program-review: replay determinism over random edit logs");
   // A seeded generator of plausible edits; refused edits are part of the test
   // too, because they must leave the log and the definition unchanged.
   function rng(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
-  const fixtures = [plain, deload, generate({ days: 5, goal: "strength", seed: 7 }), generate({ days: 3, environment: "limited_home", seed: 3 })];
+  const fixtures = [plain, deload, generate({ days: 5, goal: "strength" }), generate({ days: 3, environment: "limited_home" })];
   const pool = Catalog.exercises.filter((exercise) => Metrics.definitionsForIds(exercise.exerciseMetrics || []).ok &&
     Metrics.definitionsForIds(exercise.exerciseMetrics).value.some((metric) => metric.semantic === "reps" || metric.semantic === "repsPerSide"));
   for (const [fixtureIndex, baseline] of fixtures.entries()) {

@@ -41,7 +41,7 @@ const request = {
   excludedExerciseIds: [], excludedMuscleIds: [], preferredExerciseIds: [],
   split: "auto", periodization: "static", cycles: 12, deloadCycles: [],
 };
-const compiled = Compiler.generateProgram(request, catalogSnapshot, "install-transfer-plan067");
+const compiled = Compiler.generateProgram(request, catalogSnapshot);
 assert.equal(compiled.ok, true, "install fixture uses a real complete compiler definition");
 const programDefinition = compiled.value;
 const customState = structuredClone(fixture.durableState.customExercises[0]);

@@ -266,11 +266,11 @@ try {
     const after = await entry(page);
     const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).state, DRAFT);
     const request = Adapter.programRequestFromAnswers(aged.answers, Catalog);
-    const expected = Compiler.generateProgram(request.value, Catalog, String(aged.draftId));
+    const expected = Compiler.generateProgram(request.value, Catalog);
     assert.ok(expected.ok, `${route}: the saved answers still generate a program`);
     assert.notEqual(after.result.name, STALE_NAME, `${route}: the rebuild replaces the stale preview`);
     assert.deepEqual(after.result.preview.programDefinition, expected.value,
-      `${route}: the replacement is the current generator's program for the saved answers and draft seed`);
+      `${route}: the replacement is the current generator's program for the saved canonical answers`);
     assert.equal(saved.versions.rules, current.rules, `${route}: the saved draft records the current rules`);
     assert.deepEqual(saved.result.preview.programDefinition, expected.value, `${route}: the replacement is what the draft saved`);
     await context.close();

@@ -638,7 +638,7 @@ async function main() {
     await waitForBoot(page);
     const adaptive = await page.evaluate(async ({ request, weight, reps }) => {
       const generated = window.RepForgeProgramCompiler.generateProgram(request,
-        window.RepForgeExerciseCatalog.snapshot(), "draft-storage-adaptive");
+        window.RepForgeExerciseCatalog.snapshot());
       if (!generated.ok) return { ok: false, code: "generation-failed" };
       const definition = generated.value;
       const target = definition.days.filter((day) => day.kind === "training").map((day) => ({ day, slot: day.slots[0] }))
