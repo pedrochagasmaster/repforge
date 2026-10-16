@@ -19,7 +19,7 @@
   const ascii = (a, b) => a < b ? -1 : a > b ? 1 : 0;
   function create(catalog, request, hardAllowed) {
     if (typeof hardAllowed !== "function") throw new TypeError("hardAllowed is required");
-    if (request.goal !== "hybrid" || request.experience !== "advanced") throw new RangeError("Unsupported initial candidate profile");
+    if (!["hybrid", "hypertrophy"].includes(request.goal) || request.experience !== "advanced") throw new RangeError("Unsupported initial candidate profile");
     if (request.gymProfile?.equipmentConfigById && Object.keys(request.gymProfile.equipmentConfigById).length) throw new RangeError("Unsupported equipment overrides");
     if (request.gymProfile?.useBumperPlatesInPlateCalculator != null) throw new RangeError("Unsupported bumper override");
     if (request.history !== undefined && (!Array.isArray(request.history) || request.history.length)) throw new RangeError("Unsupported history input");

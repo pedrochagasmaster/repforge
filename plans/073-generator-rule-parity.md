@@ -42,6 +42,11 @@ A [auditoria S1](073/rule-recovery-status.md) registra os fechamentos e distingu
 os limites históricos, os inputs desconhecidos de Godmode2 e as provas de produto
 que ainda faltam.
 
+A implementação `073.1` amplia a primeira fatia conforme a
+[união delimitada de S3](073/three-day-expansion-contract.md). As provas puras
+passaram; as novas jornadas e a comparação visual ficam na CI, por decisão do
+owner de reduzir testes locais. S3–S5 continuam em andamento.
+
 ## 1. Base e matriz de gaps
 
 As referências abaixo descrevem o SHA da base, não nomes privados que os testes

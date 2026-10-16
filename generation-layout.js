@@ -47,7 +47,7 @@
       return sum + 120 + fixed + 30 * t.numSets + between * Math.max(0, t.numSets - 1);
     }, 0);
   }
-  function allocations() {
+  function allocations(budgetMinutes) {
     const compounds = [];
     for (let count = 1; count <= 4; count++) for (let sets = 2; sets <= (count === 1 ? 2 : 3); sets++) compounds.push([count, sets, 0, 0]);
     for (let count = 1; count <= 4; count++) for (const sets of [2, 3]) compounds.push([4, 3, count, sets]);
@@ -71,8 +71,8 @@
     }
     const result = {};
     for (const [name, between, minimum] of [["upper", 120, 4], ["lower", 180, 2]]) {
-      const compound = choose(compounds.filter(a => a[0] * a[1] + a[2] * a[3] >= minimum), 2250, between, 180, false);
-      const isolation = choose(isolations, 4500 - allocationCost(compound, between, 180), 90, 90, true);
+      const compound = choose(compounds.filter(a => a[0] * a[1] + a[2] * a[3] >= minimum), budgetMinutes * 45, between, 180, false);
+      const isolation = choose(isolations, budgetMinutes * 90 - allocationCost(compound, between, 180), 90, 90, true);
       result[name] = { compound, isolation };
     }
     return result;
@@ -230,14 +230,20 @@
     return [...primary, ...rr(secondary), ...rr([rr(priority), rr(a)]), ...rr(b), ...rr(c)];
   }
   function generate(request, selector) {
-    const supported = request && request.goal === "hybrid" && request.split === "upper_lower_full" && request.daysPerWeek === 3 && request.timeCeilingMinutes === 60 && request.experience === "advanced" && request.periodization === "static" && request.cycles === 7 && Array.isArray(request.deloadCycles) && request.deloadCycles.length === 0;
+    const profile = request && (request.goal === "hybrid" && (
+      request.timeCeilingMinutes === 40 && request.periodization === "static"
+      || request.timeCeilingMinutes === 60 && ["static", "linear", "reverse_linear", "undulating"].includes(request.periodization))
+      || request.goal === "hypertrophy" && request.timeCeilingMinutes === 60 && request.periodization === "static");
+    const supported = profile && request.split === "upper_lower_full" && request.daysPerWeek === 3
+      && request.experience === "advanced" && request.cycles === 7 && Array.isArray(request.deloadCycles) && request.deloadCycles.length === 0;
     const priorities = selector?.priorities; const depriorities = selector?.depriorities;
     if (!supported || !Array.isArray(priorities) || !Array.isArray(depriorities) || !priorities.every(m => allMuscles.has(m)) || !depriorities.every(m => allMuscles.has(m)) || priorities.some(m => depriorities.includes(m))) return { status: "unsupported", code: "unsupported_generation_domain" };
-    const allocation = allocations(); const { selected, missing } = produce(selector, allocation);
+    const budgetMinutes = request.timeCeilingMinutes === 40 ? 30 : 50;
+    const allocation = allocations(budgetMinutes); const { selected, missing } = produce(selector, allocation);
     const days = distribute(selected); spillover(days); optimize(days);
     const ordered = days.map(t => finish(t, priorities));
     const insufficient = missing || ordered.flat().length < selected.length;
-    return { status: insufficient ? "insufficient" : "ok", ...(insufficient ? { issues: [{ code: "insufficient_candidates" }] } : {}), days: ordered.map((templates, index) => ({ name: dayRules[index].name, templates })), weeklySlots: [0, null, 1, null, 2, null, null], budgetMinutes: 50, allocations: allocation, estimatedSessionSeconds: ordered.map(cost) };
+    return { status: insufficient ? "insufficient" : "ok", ...(insufficient ? { issues: [{ code: "insufficient_candidates" }] } : {}), days: ordered.map((templates, index) => ({ name: dayRules[index].name, templates })), weeklySlots: [0, null, 1, null, 2, null, null], budgetMinutes, allocations: allocation, estimatedSessionSeconds: ordered.map(cost) };
   }
   const api = Object.freeze({ generate });
   if (typeof module !== "undefined" && module.exports) module.exports = api;

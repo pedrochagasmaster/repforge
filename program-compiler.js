@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const GENERATOR_VERSION = "073.0";
+  const GENERATOR_VERSION = "073.1";
   const IDENTITY = root?.RepForgeGenerationIdentity || (typeof require === "function" ? require("./generation-identity.js") : null);
   const CANDIDATES = root?.RepForgeGenerationCandidates || (typeof require === "function" ? require("./generation-candidates.js") : null);
   const LAYOUT = root?.RepForgeGenerationLayout || (typeof require === "function" ? require("./generation-layout.js") : null);
@@ -327,19 +327,23 @@
     if (!request.gymProfile) request.gymProfile = { equipmentIds: [] };
     if (Array.isArray(request.emphasisMuscleIds) && Array.isArray(request.deprioritizedMuscleIds) && request.emphasisMuscleIds.some((id) => request.deprioritizedMuscleIds.includes(id))) issues.push(fieldIssue("emphasisMuscleIds", "contradictory_muscle_priorities", "A muscle cannot be both prioritized and deprioritized."));
     if (Array.isArray(request.deloadCycles)) request.deloadCycles.sort((a, b) => a - b);
-    if (request.split === "auto" && Number.isInteger(request.daysPerWeek)) request.split = initialGenerationDomain(request) ? "upper_lower_full" : automaticSplit(request.daysPerWeek);
+    if (request.split === "auto" && Number.isInteger(request.daysPerWeek)) request.split = recoveredGenerationDomain(request) ? "upper_lower_full" : automaticSplit(request.daysPerWeek);
     return issues.length ? { ok: false, issues } : { ok: true, value: JSON.parse(IDENTITY.canonicalJSON(request)) };
   }
 
-  function initialGenerationDomain(request) {
-    return request.daysPerWeek === 3 && request.goal === "hybrid" && request.experience === "advanced"
-      && request.timeCeilingMinutes === 60 && (request.periodization || "static") === "static"
+  function recoveredGenerationDomain(request) {
+    const periodization = request.periodization || "static";
+    const hybrid = request.goal === "hybrid" && (
+      request.timeCeilingMinutes === 40 && periodization === "static"
+      || request.timeCeilingMinutes === 60 && PERIODIZATIONS.includes(periodization));
+    const hypertrophy = request.goal === "hypertrophy" && request.timeCeilingMinutes === 60 && periodization === "static";
+    return request.daysPerWeek === 3 && request.experience === "advanced" && (hybrid || hypertrophy)
       && (request.cycles ?? 7) === 7 && (!request.deloadCycles || request.deloadCycles.length === 0);
   }
 
   function availableSplits(request) {
     return Object.keys(SPLITS).filter((id) => SPLITS[id].compatibleDays.includes(request.daysPerWeek)
-      && (id !== "upper_lower_full" || initialGenerationDomain(request)));
+      && (id !== "upper_lower_full" || recoveredGenerationDomain(request)));
   }
 
   function canonicalizeRequest(request, catalog) {
@@ -1045,7 +1049,7 @@
   }
 
   function generateRecovered(request, catalog, namespace) {
-    if (!initialGenerationDomain(request)) return failure([fieldIssue("split", "unsupported_generation_domain", "This configuration has not yet been validated for Upper/Lower/Full.")]);
+    if (!recoveredGenerationDomain(request)) return failure([fieldIssue("split", "unsupported_generation_domain", "This configuration has not yet been validated for Upper/Lower/Full.")]);
     const hardAllowed = (exercise) => {
       if (request.excludedExerciseIds.includes(exercise.id) || excludedByMuscle(exercise, request.excludedMuscleIds)) return false;
       if (!prerequisitesSatisfied(exercise, request, catalog).ok) return false;
@@ -1078,9 +1082,18 @@
         const accessory = template.type === "accessory";
         const primary = template.type === "primary";
         const isPull = template.exercise.patterns.some((pattern) => ["horizontalPull", "verticalPull"].includes(pattern));
-        const center = accessory ? 15 : primary ? (isPull ? 8 : 5) : (isPull ? 12 : 10);
+        const center = accessory ? 15 : primary ? (request.goal === "hypertrophy" ? (isPull ? 10 : 8) : (isPull ? 8 : 5)) : (isPull ? 12 : 10);
+        const cycleIndices = {
+          linear: [6, 6, 4, 3, 2, 0, 0],
+          reverse_linear: [0, 0, 2, 3, 4, 6, 6],
+          undulating: [6, 3, 0, 6, 2, 4, 0],
+        }[request.periodization];
+        const doseTable = accessory ? [10, 13, 13, 15, 17, 18, 20]
+          : primary ? (isPull ? [6, 8, 8, 9, 10, 11, 12] : [3, 4, 5, 5, 6, 7, 8])
+          : [8, 10, 10, 11, 13, 13, 15];
+        const centers = cycleIndices ? cycleIndices.map((index) => doseTable[index]) : Array(7).fill(center);
         const baseRir = accessory ? 0 : isPull ? 1 : 2;
-        const role = primary ? "strengthPrimaryCompound" : accessory ? "hypertrophyAccessory" : "hypertrophySecondaryCompound";
+        const role = primary ? (request.goal === "hypertrophy" ? "hypertrophyPrimaryCompound" : "strengthPrimaryCompound") : accessory ? "hypertrophyAccessory" : "hypertrophySecondaryCompound";
         const path = `day/${trainingIndex}/slot/${slotIndex}`;
         const muscleId = accessory ? selector.muscleId(template.accessoryMuscle) : null;
         const slot = {
@@ -1100,10 +1113,10 @@
             sets: Array.from({ length: template.numSets }, (_, setIndex) => ({
               id: `set-${stableId(namespace, `${path}/cycle/${cycle + 1}/set/${setIndex + 1}`)}`,
               cycleIndex: cycle + 1, setIndex: setIndex + 1, metricType: "source_metrics@1",
-              targets: repsKey ? { [repsKey]: { min: center - 1, max: center + 1 } } : {},
+              targets: repsKey ? { [repsKey]: { min: centers[cycle] - 1, max: centers[cycle] + 1 } } : {},
               rir: repsKey ? Math.max(0, baseRir + adjustments[template.numSets][setIndex]) : null,
               restSeconds: null, status: repsKey ? "ready" : "manual",
-              provenance: { source: "recovered_static_rules", policyVersion: GENERATOR_VERSION, periodization: "static", deload: false, approximation: false },
+              provenance: { source: request.periodization === "static" ? "recovered_static_rules" : "recovered_periodized_rules", policyVersion: GENERATOR_VERSION, periodization: request.periodization, deload: false, approximation: false },
             })),
           })),
         };

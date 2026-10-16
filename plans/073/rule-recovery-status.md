@@ -7,6 +7,10 @@ ainda são pendentes, registrados no [estado da implementação](implementation-
 [spec](../../docs/generator-rule-parity-spec.md) e o gate no
 [Plano 073](../073-generator-rule-parity.md).
 
+A ampliação inicial de S3 tem domínio próprio no
+[contrato de três dias](three-day-expansion-contract.md). As provas puras passaram;
+a aceitação no produto depende da CI do novo head. Isso não encerra S3.
+
 ## Domínio liberado e revisão da retomada
 
 A [primeira implementação](initial-generation-contract.md) usa Upper/Lower/Full,

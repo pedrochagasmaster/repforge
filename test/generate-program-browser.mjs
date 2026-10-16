@@ -951,13 +951,19 @@ async function recoveredGenerationJourney(browser) {
   const priorities = Object.fromEntries(reductions.map((muscle) => [muscle, "reduce"]));
   let workerDefinition;
   const errors = [];
-  for (const withoutWorker of [false, true]) {
+  for (const { withoutWorker, minutes, goal, expectedGoal } of [
+    { withoutWorker: false, minutes: 60, goal: "balanced", expectedGoal: "hybrid" },
+    { withoutWorker: true, minutes: 60, goal: "balanced", expectedGoal: "hybrid" },
+    { withoutWorker: false, minutes: 40, goal: "balanced", expectedGoal: "hybrid" },
+    { withoutWorker: false, minutes: 60, goal: "muscle_growth", expectedGoal: "hypertrophy" },
+  ]) {
     const run = await fresh(browser, { withoutWorker });
     const { page } = run;
-    const mode = withoutWorker ? "fallback" : "worker";
+    const mode = `${withoutWorker ? "fallback" : "worker"} ${expectedGoal}/${minutes}`;
+    const supportsPeriodized = expectedGoal === "hybrid" && minutes === 60;
     await page.click("#firstRunCreate");
-    await answerRecommend(page, { skipBasics: true, days: 3, minutes: 60,
-      goal: "balanced", lifting: "over_24m", deload: false, priorities,
+    await answerRecommend(page, { skipBasics: true, days: 3, minutes,
+      goal, lifting: "over_24m", deload: false, priorities,
       until: "muscle_priorities" });
     check(await page.locator('#onbBody > .entry-motion-page:not([aria-hidden="true"]) [data-entry-pick="musclePriorityB"][data-entry-val$="|reduce"]').count() === 22,
       `P073 ${mode}: the form exposes all 22 independent muscle reductions`);
@@ -970,15 +976,16 @@ async function recoveredGenerationJourney(browser) {
     const mapped = Adapter.programRequestFromAnswers(staged.answers, Catalog);
     check(mapped.ok && mapped.value.deprioritizedMuscleIds.length === 8,
       `P073 ${mode}: the compiler request carries all eight muscle UUIDs`, mapped);
-    const definition = staged.result?.preview?.programDefinition;
+    let definition = staged.result?.preview?.programDefinition;
     const expected = mapped.ok ? Compiler.generateProgram(mapped.value, Catalog) : null;
     check(expected?.ok && JSON.stringify(definition) === JSON.stringify(expected.value),
       `P073 ${mode}: review contains the canonical seedless compiler definition`, expected?.conflicts);
-    check(definition?.request?.goal === "hybrid" && definition.request.experience === "advanced" &&
-      definition.request.daysPerWeek === 3 && definition.request.timeCeilingMinutes === 60 &&
+    check(definition?.request?.goal === expectedGoal && definition.request.experience === "advanced" &&
+      definition.request.daysPerWeek === 3 && definition.request.timeCeilingMinutes === minutes &&
+      definition.provenance.generationBudgetMinutes === (minutes === 40 ? 30 : 50) &&
       definition.request.periodization === "static" && definition.cycles === 7 &&
       definition.request.deloadCycles.length === 0 && definition.request.deprioritizedMuscleIds.length === 8,
-      `P073 ${mode}: hybrid Advanced, 60-minute option, Static seven cycles and no deload reach review`, definition?.request);
+      `P073 ${mode}: requested goal, option and recovered budget reach Static seven-cycle review`, definition?.request);
     check(trainingDays(definition).length === 3 && definition.provenance?.split === "upper_lower_full",
       `P073 ${mode}: the recovered definition is Upper/Lower/Full`, { split: definition.provenance?.split, days: trainingDays(definition).map((day) => day.name) });
     const stats = await page.evaluate(() => window.__repforgeProgramEngine?.stats());
@@ -986,7 +993,7 @@ async function recoveredGenerationJourney(browser) {
       `P073 ${mode}: the production engine uses the expected execution path`, stats);
     if (withoutWorker) check(JSON.stringify(definition) === JSON.stringify(workerDefinition),
       "P073: worker and fallback produce identical definitions across fresh drafts");
-    else workerDefinition = definition;
+    else if (supportsPeriodized) workerDefinition = definition;
     check(!(await state(page)).programMeta.onboarded && (await state(page)).program.length === 0,
       `P073 ${mode}: review has not activated training state`);
     if (!withoutWorker) {
@@ -1013,8 +1020,10 @@ async function recoveredGenerationJourney(browser) {
       const rebuiltStats = await page.evaluate(() => window.__repforgeProgramEngine?.stats());
       check(rebuiltStats?.worker > 0 && JSON.stringify(await reviewed(page)) === JSON.stringify(definition),
         "P073: explicit Rebuild generates the current deterministic recommendation", rebuiltStats);
-      for (const [label, control] of [["eight cycles", '[data-review-block-step="1"]'],
-        ["linear pattern", '[data-review-block-pattern="linear"]'], ["deload", "[data-review-block-deload]"]]) {
+      const unsupportedEdits = [["eight cycles", '[data-review-block-step="1"]'],
+        ["deload", "[data-review-block-deload]"]];
+      if (!supportsPeriodized) unsupportedEdits.push(["linear pattern", '[data-review-block-pattern="linear"]']);
+      for (const [label, control] of unsupportedEdits) {
         const beforeEdit = await entry(page);
         const stored = await page.evaluate(() => localStorage.getItem("repforge_program_setup_draft_v1"));
         await page.locator("#entryReview [data-review-block-edit]").click();
@@ -1030,6 +1039,40 @@ async function recoveredGenerationJourney(browser) {
           await page.evaluate(() => localStorage.getItem("repforge_program_setup_draft_v1")) === stored,
           `P073: unsupported ${label} refuses explicitly and preserves the reviewed program, answers and persisted draft`);
         await page.waitForSelector("#toast.hidden", { state: "attached", timeout: 10000 });
+      }
+      if (supportsPeriodized) {
+      const sourceCenters = {
+        linear: { primary: [[8,8,6,5,5,3,3],[12,12,10,9,8,6,6]], secondary: [15,15,13,11,10,8,8], accessory: [20,20,17,15,13,10,10] },
+        reverse_linear: { primary: [[3,3,5,5,6,8,8],[6,6,8,9,10,12,12]], secondary: [8,8,10,11,13,15,15], accessory: [10,10,13,15,17,20,20] },
+        undulating: { primary: [[8,5,3,8,5,6,3],[12,9,6,12,8,10,6]], secondary: [15,11,8,15,10,13,8], accessory: [20,15,10,20,13,17,10] },
+      };
+      const assembly = value => value.days.map(day => day.slots.map(slot => [slot.exerciseId, slot.role, slot.prescriptionsByCycle.map(cycle => cycle.sets.length)]));
+      const staticAssembly = assembly(definition);
+      for (const periodization of ["reverse_linear", "undulating", "linear"]) {
+        await page.locator("#entryReview [data-review-block-edit]").click();
+        await page.locator(`#reviewSheet [data-review-block-pattern="${periodization}"]`).click();
+        await page.locator("#reviewSheet [data-review-block-apply]").click();
+        await page.waitForFunction(pattern => window.__repforgeEntryState()?.result?.preview?.programDefinition?.request?.periodization === pattern
+          && !document.querySelector("#entryReview[aria-busy]"), periodization, { timeout: 20000 });
+        definition = (await entry(page)).result.preview.programDefinition;
+        check(JSON.stringify(assembly(definition)) === JSON.stringify(staticAssembly) && definition.cycles === 7 && definition.deloadCycles.length === 0,
+          `P073 ${periodization}: block edit preserves exercises and sets by position across seven normal cycles`);
+        const pullIds = new Set(["19e5c6f170d88009ba40c03d2f6271df", "19e5c6f170d8808fbc7ffe35bc0bf0ca"]);
+        check(definition.days.every(day => day.slots.every(slot => {
+          const role = slot.role.endsWith("Accessory") ? "accessory" : slot.role.endsWith("PrimaryCompound") ? "primary" : "secondary";
+          const raw = Catalog.exercises.find(exercise => exercise.id === slot.exerciseId);
+          const key = raw.exerciseMetrics.includes("2555c6f170d88072bbf6d9ad3f16ea86") ? "reps"
+            : raw.exerciseMetrics.includes("25a5c6f170d880baaa2dc8c7b67d4b65") ? "repsPerSide" : null;
+          const pull = Number(raw.movementPattern.some(id => pullIds.has(id)));
+          const centers = role === "primary" ? sourceCenters[periodization][role][pull] : sourceCenters[periodization][role];
+          return slot.prescriptionsByCycle.every((cycle, index) => cycle.sets.every(set => {
+            const range = key ? set.targets[key] : null;
+            return set.provenance.periodization === periodization && set.restSeconds === null
+              && (key ? Object.keys(set.targets).length === 1 && range?.min === centers[index] - 1 && range?.max === centers[index] + 1
+                : Object.keys(set.targets).length === 0 && set.rir === null);
+          }));
+        })), `P073 ${periodization}: review carries the seven recovered source centers and null metric targets`);
+      }
       }
     }
     await page.click("#entryActivate");

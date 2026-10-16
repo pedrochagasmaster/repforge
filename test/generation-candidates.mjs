@@ -23,6 +23,33 @@ assert.equal(selector([row('b'), row('a')]).choose(spec, []).id, 'a');
 assert.equal(selector([row('a', 1), row('b', 2)], request({ preferredExerciseIds: ['b'] })).choose(spec, []).id, 'a');
 assert.equal(selector([row('a'), row('b')], request({ preferredExerciseIds: ['b'] })).choose(spec, []).id, 'b');
 assert.equal(selector([row('a')], request(), () => false).choose(spec, []), null);
+// Hypertrophy60 is a separate source-backed slice. Synthetic tier/classification
+// counterexamples distinguish selection from changing only the final doses.
+const hRequest=request({goal:'hypertrophy'});
+const hTierRows=[row('a',1,{hypertrophyPrimaryCompoundRecommendationLevel:3}),
+ row('b',3,{hypertrophyPrimaryCompoundRecommendationLevel:1})];
+let hTierSelector;
+assert.doesNotThrow(()=>{hTierSelector=selector(hTierRows,hRequest);},'hypertrophy must enter the recovered candidate domain');
+assert.equal(selector(hTierRows).choose(spec,[]).id,'a','both primary keeps its strength tier');
+assert.equal(hTierSelector.choose(spec,[]).id,'b','hypertrophy primary uses its own recommendation tier');
+const hClassRows=[row('a',0,{exerciseClassificationHypertrophy:[secondary,accessory],hypertrophyPrimaryCompoundRecommendationLevel:0}),
+ row('b',2,{exerciseClassificationStrength:[secondary,accessory],hypertrophyPrimaryCompoundRecommendationLevel:2})];
+assert.equal(selector(hClassRows).choose(spec,[]).id,'a');
+assert.equal(selector(hClassRows,hRequest).choose(spec,[]).id,'b','hypertrophy primary uses hypertrophy classification, independently of strength classification');
+assert.equal(selector([row('a',0,{hypertrophyPrimaryCompoundRecommendationLevel:null})],hRequest).choose(spec,[]),null,
+ 'a null hypertrophy tier cannot borrow an available strength tier');
+const hSecondaryRows=[row('a',0,{strengthSecondaryCompoundRecommendationLevel:0,hypertrophySecondaryCompoundRecommendationLevel:3}),
+ row('b',3,{strengthSecondaryCompoundRecommendationLevel:3,hypertrophySecondaryCompoundRecommendationLevel:1})];
+assert.equal(selector(hSecondaryRows,hRequest).choose({...spec,type:'secondary'},[]).id,'b','secondary keeps hypertrophy tier');
+const hChestPattern='19e5c6f170d8805c9eace37a0d0113f1';
+const hAccessoryRows=hSecondaryRows.map(raw=>({...raw,movementPattern:[hChestPattern],
+ strengthAccessoryRecommendationLevel:raw.strengthSecondaryCompoundRecommendationLevel,
+ hypertrophyAccessoryRecommendationLevel:raw.hypertrophySecondaryCompoundRecommendationLevel}));
+assert.equal(selector(hAccessoryRows,hRequest).choose({type:'accessory',muscle:'chest'},[]).id,'b','accessories keep hypertrophy tier');
+const hAdjustedRows=[row('a',0,{hypertrophyPrimaryCompoundRecommendationLevel:2}),
+ row('b',3,{hypertrophyPrimaryCompoundRecommendationLevel:2,emphasizedAgonist:[CHEST,LATS]})];
+assert.equal(selector(hAdjustedRows,request({goal:'hypertrophy',emphasisMuscleIds:[CHEST,LATS]})).choose(spec,[]).id,'b',
+ 'the primary goal tier changes without losing the boolean source priority adjustment');
 assert.throws(() => selector([], request({ goal: 'strength' })), /Unsupported/);
 assert.throws(() => selector([], request({ gymProfile: { equipmentIds: [], equipmentConfigById: { x: {} } } })), /Unsupported/);
 assert.throws(() => selector([]).choose({ type: 'primary', pattern: 'horizontalPush' }, []), /specification/);

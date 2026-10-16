@@ -4,6 +4,28 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const Compiler = require("../program-compiler.js");
 const catalog = JSON.parse(fs.readFileSync(new URL("../assets/exercise-catalog.json", import.meta.url)));
+
+// The oracle reads raw metric UUIDs, never target presence from generated output.
+const REPS_ID='2555c6f170d88072bbf6d9ad3f16ea86';
+const REPS_PER_SIDE_ID='25a5c6f170d880baaa2dc8c7b67d4b65';
+const sourceRepsKey=raw=>raw.exerciseMetrics.includes(REPS_ID)?'reps':raw.exerciseMetrics.includes(REPS_PER_SIDE_ID)?'repsPerSide':null;
+function assertSourceDose(raw,set,center,rir){
+ const key=sourceRepsKey(raw);
+ assert.deepEqual(set.targets,key?{[key]:{min:center-1,max:center+1}}:{},'required source metric key and exact range');
+ assert.equal(set.rir,key?rir:null,'RIR follows source metric presence, not generated target presence');
+}
+// Falsify the oracle before the unsupported-domain assertion stops this RED run.
+for(const key of ['reps','repsPerSide']){
+ const raw={exerciseMetrics:[key==='reps'?REPS_ID:REPS_PER_SIDE_ID]};
+ assertSourceDose(raw,{targets:{[key]:{min:4,max:6}},rir:2},5,2);
+ assert.throws(()=>assertSourceDose(raw,{targets:{},rir:null},5,2));
+ assert.throws(()=>assertSourceDose(raw,{targets:{[key==='reps'?'repsPerSide':'reps']:{min:4,max:6}},rir:2},5,2));
+ assert.throws(()=>assertSourceDose(raw,{targets:{[key]:{min:4,max:6}},rir:1},5,2));
+}
+assertSourceDose({exerciseMetrics:[]},{targets:{},rir:null},5,2);
+assert.throws(()=>assertSourceDose({exerciseMetrics:[]},{targets:{reps:{min:4,max:6}},rir:2},5,2));
+console.log('PASS source-dose oracle controls: omitted targets, wrong key, wrong RIR, invented reps rejected');
+
 const muscle = name => Object.entries(catalog.uuidIndex).find(([, row]) => row.type === "featureMuscleGroup" && row.name === name)?.[0];
 const depriority = ["Chest", "Lats", "Upper Back", "Side Delts", "Front Delts", "Rear Delts", "Biceps", "Triceps"].map(muscle);
 assert(depriority.every(Boolean), "fixture identities exist in the pinned catalogue");
@@ -90,16 +112,145 @@ for (const invalidBudget of [-1, "50", null]) {
   invalidDefinition.provenance.generationBudgetMinutes = invalidBudget;
   assert.equal(Compiler.validateProgramDefinition(invalidDefinition, catalog).ok, false, "invalid generation budgets are refused at the definition boundary");
 }
-const outside = Compiler.generateProgram({ ...request, periodization: "linear" }, catalog);
+const outside = Compiler.generateProgram({ ...request, cycles: 8 }, catalog);
 assert.equal(outside.ok, false, "explicit ULF outside the validated domain must not silently use the old engine");
 assert.equal(outside.value, null);
+// Preserve this exact pure8D fixture and change only its explicit goal.
+// These expected primary UUIDs come from independently reviewed source-model
+// canonical-pure8D choices, not a new snapshot of the public compiler.
+const hRequest={...request,goal:'hypertrophy'};
+const hBefore=JSON.stringify(hRequest);
+const hGenerated=Compiler.generateProgram(hRequest,catalog);
+assert.equal(hGenerated.ok,true,'hypertrophy60 must compile through recovered rules: '+JSON.stringify(hGenerated.conflicts));
+assert.equal(JSON.stringify(hRequest),hBefore);
+const hDefinition=hGenerated.value;
+assert.equal(hDefinition.request.goal,'hypertrophy');
+assert.equal(hDefinition.request.timeCeilingMinutes,60);
+assert.equal(hDefinition.provenance.generationBudgetMinutes,50);
+assert.equal(hDefinition.provenance.source,'recovered_generation_rules');
+assert.equal(hDefinition.request.split,'upper_lower_full');assert.equal(hDefinition.cycles,7);
+assert.deepEqual(hDefinition.deloadCycles,[]);
+assert.equal(Compiler.validateProgramDefinition(hDefinition,catalog).ok,true);
+const hSlots=hDefinition.days.flatMap(day=>day.slots);
+const hPrimary=hSlots.filter(slot=>slot.role.endsWith('PrimaryCompound'));
+const hExpectedPrimary=['19f5c6f170d88013ae78cc9e6c967813','1a05c6f170d8802ba26bf25efbec5e68',
+ '1a15c6f170d8802facb6eb0a316ae895','1a15c6f170d8800d8fc9d2c235673bf6',
+ '1a25c6f170d88008a9adde9f71881c36','1a35c6f170d880bebc64f4dce0d5f5f1'];
+assert.deepEqual(hPrimary.map(slot=>slot.exerciseId).sort(),hExpectedPrimary.slice().sort(),
+ 'hypertrophy primary selection follows its independently recovered classification/tier pools');
+assert.notDeepEqual(hPrimary.map(slot=>slot.exerciseId).sort(),first.value.days.flatMap(day=>day.slots)
+ .filter(slot=>slot.role.endsWith('PrimaryCompound')).map(slot=>slot.exerciseId).sort(),
+ 'changing only both primary doses cannot satisfy hypertrophy selection');
+const hPrimaryDescriptor='2dc5c6f170d88157bb0bd7609d767bc6';
+const hIds=[];
+for(const day of hDefinition.days){hIds.push(day.id);for(const slot of day.slots){
+ hIds.push(slot.id);
+ const raw=catalog.exercises.find(exercise=>exercise.id===slot.exerciseId);assert(raw);
+ const accessory=slot.role.endsWith('Accessory'),primary=slot.role.endsWith('PrimaryCompound');
+ const isPull=raw.movementPattern.some(id=>pull.has(id));
+ if(primary){
+  assert.equal(slot.role,'hypertrophyPrimaryCompound');
+  assert(raw.exerciseClassificationHypertrophy.includes(hPrimaryDescriptor));
+  assert.notEqual(raw.hypertrophyPrimaryCompoundRecommendationLevel,null);
+ }
+ const center=accessory?15:primary?(isPull?10:8):(isPull?12:10);
+ const base=accessory?0:isPull?1:2;
+ assert.equal(slot.prescriptionsByCycle.length,7);
+ for(const cycle of slot.prescriptionsByCycle){
+  assert(adjustments[cycle.sets.length]);
+  for(const [index,set] of cycle.sets.entries()){
+   hIds.push(set.id);assertSourceDose(raw,set,center,Math.max(0,base+adjustments[cycle.sets.length][index]));
+   assert.equal(set.restSeconds,null);
+  }
+  assert.deepEqual(cycle.sets.map(({id,cycleIndex,...set})=>set),slot.prescriptionsByCycle[0].sets.map(({id,cycleIndex,...set})=>set));
+ }
+}}
+assert.equal(new Set(hIds).size,hIds.length);
+const hPermuted=structuredClone(hRequest);hPermuted.gymProfile.equipmentIds.reverse();hPermuted.deprioritizedMuscleIds.reverse();
+assert.deepEqual(Compiler.generateProgram(hPermuted,catalog).value,hDefinition);
+assert.notEqual(Compiler.generationIdentity(hRequest,catalog),Compiler.generationIdentity(request,catalog));
+for(const outside of [{...hRequest,timeCeilingMinutes:40},{...hRequest,goal:'strength'}]){
+ const denied=Compiler.generateProgram(outside,catalog);assert.equal(denied.ok,false);assert.equal(denied.value,null);
+}
+const hExhausted=Compiler.generateProgram({...hRequest,excludedExerciseIds:catalog.exercises.map(exercise=>exercise.id)},catalog);
+assert.equal(hExhausted.ok,false);assert.equal(hExhausted.value,null);assert(hExhausted.conflicts.length>0);
+// Change only duration in this existing source-catalogue fixture. Keep its
+// eight muscle UUIDs, equipment and confirmations distinct from browser fixtures.
+const request40 = { ...request, timeCeilingMinutes: 40 };
+const unchanged40 = JSON.stringify(request40);
+const generated40 = Compiler.generateProgram(request40, catalog);
+assert.equal(generated40.ok, true, 'option40 must compile with recovered budget30: '+JSON.stringify(generated40.conflicts));
+assert.equal(JSON.stringify(request40), unchanged40);
+assert.equal(generated40.value.request.timeCeilingMinutes, 40);
+assert.equal(generated40.value.provenance.generationBudgetMinutes, 30);
+assert.equal(generated40.value.provenance.source, 'recovered_generation_rules');
+assert.equal(generated40.value.request.split, 'upper_lower_full');
+assert.equal(generated40.value.cycles, 7);
+assert.deepEqual(generated40.value.deloadCycles, []);
+assert.equal(Compiler.validateProgramDefinition(generated40.value, catalog).ok, true);
+assert.notEqual(Compiler.generationIdentity(request40,catalog),Compiler.generationIdentity(request,catalog),'option participates in canonical identity');
+const permuted40=structuredClone(request40);
+permuted40.gymProfile.equipmentIds.reverse();permuted40.deprioritizedMuscleIds.reverse();
+assert.deepEqual(Compiler.generateProgram(permuted40,catalog).value,generated40.value);
+const ids40=[];let oneSetPrimaries40=0;
+for(const day of generated40.value.days){
+ ids40.push(day.id);
+ for(const slot of day.slots){
+  ids40.push(slot.id);
+  assert.equal(slot.prescriptionsByCycle.length,7);
+  const raw=catalog.exercises.find(exercise=>exercise.id===slot.exerciseId);
+  assert(raw,'selected UUID still belongs to the source catalogue');
+  const accessory=slot.role.endsWith('Accessory'),primary=slot.role.endsWith('PrimaryCompound');
+  const isPull=raw.movementPattern.some(id=>pull.has(id));
+  const center=accessory?15:primary?(isPull?8:5):(isPull?12:10);
+  const base=accessory?0:isPull?1:2;
+  const count=slot.prescriptionsByCycle[0].sets.length;
+  if(primary&&count===1)oneSetPrimaries40++;
+  for(const cycle of slot.prescriptionsByCycle){
+   assert.equal(cycle.sets.length,count,'Static retains its authored count across seven cycles');
+   assert(adjustments[count]);
+   for(const [index,set] of cycle.sets.entries()){
+    ids40.push(set.id);
+    assertSourceDose(raw,set,center,Math.max(0,base+adjustments[count][index]));
+    assert.equal(set.restSeconds,null);
+    if(count===1)assert.equal(set.rir,sourceRepsKey(raw)?base:null,'one-set adjustment[0] is zero');
+   }
+   assert.deepEqual(cycle.sets.map(({id,cycleIndex,...set})=>set),slot.prescriptionsByCycle[0].sets.map(({id,cycleIndex,...set})=>set));
+  }
+ }
+}
+const oneSetCoverage40=[];
+for(const [patternId,expectedPull,expectedCenter,expectedRir] of [
+ ['19e5c6f170d8805a8a1cf72d5e7a401f',false,5,2],
+ ['19e5c6f170d8808fbc7ffe35bc0bf0ca',true,8,1]]){
+ const matching=generated40.value.days.flatMap(day=>day.slots).filter(slot=>slot.role.endsWith('PrimaryCompound')&&
+  slot.prescriptionsByCycle[0].sets.length===1&&catalog.exercises.find(raw=>raw.id===slot.exerciseId).movementPattern.includes(patternId));
+ assert(matching.length>0,'pinned option40 fixture must reach each vertical one-set primary source branch');
+ for(const slot of matching){
+  const raw=catalog.exercises.find(raw=>raw.id===slot.exerciseId);
+  assert.equal(raw.movementPattern.some(id=>pull.has(id)),expectedPull,'source pattern membership determines the one-set baseline');
+  assert(sourceRepsKey(raw),'named one-set branch must actually exercise a reps-bearing target');
+  for(const cycle of slot.prescriptionsByCycle){assert.equal(cycle.sets.length,1);assertSourceDose(raw,cycle.sets[0],expectedCenter,expectedRir);}
+  oneSetCoverage40.push({patternId,exerciseId:slot.exerciseId,expectedPull,expectedCenter,expectedRir});
+ }
+}
+console.log('ONE_SET_40_SOURCE_COVERAGE',JSON.stringify(oneSetCoverage40));
+assert.equal(new Set(ids40).size,ids40.length);
+const exhausted40=Compiler.generateProgram({...request40,excludedExerciseIds:catalog.exercises.map(exercise=>exercise.id)},catalog);
+assert.equal(exhausted40.ok,false);assert.equal(exhausted40.value,null,'catalogue exhaustion returns no partial program');
+assert(exhausted40.conflicts.length>0);
+for(const minutes of [20,90,120,150]){
+ const unsupported=Compiler.generateProgram({...request,timeCeilingMinutes:minutes},catalog);
+ assert.equal(unsupported.ok,false,'only40 and60 enter the recovered duration domain');
+ assert.equal(unsupported.value,null);
+}
 // Transition protocol proofs exercise unsupported recovered-domain overrides
 // without needing to complete a block in the browser for every configuration.
 const Transition = require("../program-transition.js");
 const reviewed = structuredClone(first.value);
 reviewed.days.find(day => day.kind === "training").slots[0].prescriptionsByCycle[0].sets[0].rir = 3;
 const savedReviewed = JSON.stringify(reviewed);
-for (const change of [{ kind: "fewer_days", daysPerWeek: 2 }, { kind: "shorter_sessions", sessionMinutes: 40 }]) {
+for (const change of [{ kind: "fewer_days", daysPerWeek: 2 }, { kind: "shorter_sessions", sessionMinutes: 20 }]) {
   const derived = Transition.deriveSuccessor({ programDefinition: reviewed,
     customExerciseDefinitions: [], catalogSnapshot: catalog, change });
   assert.equal(derived.ok, false, `${change.kind} cannot replace recovered rules with old policy`);
@@ -107,4 +258,12 @@ for (const change of [{ kind: "fewer_days", daysPerWeek: 2 }, { kind: "shorter_s
   assert.ok(derived.conflicts.some(conflict => conflict.code === "unsupported_generation_domain"));
   assert.equal(JSON.stringify(reviewed), savedReviewed, "refusal preserves the exact reviewed predecessor");
 }
+const shorter40=Transition.deriveSuccessor({programDefinition:reviewed,customExerciseDefinitions:[],catalogSnapshot:catalog,
+ change:{kind:'shorter_sessions',sessionMinutes:40}});
+assert.equal(shorter40.ok,true,'supported shorter40 keeps the recovered policy');
+assert.equal(shorter40.value.programDefinition.provenance.source,'recovered_generation_rules');
+assert.equal(shorter40.value.programDefinition.request.timeCeilingMinutes,40);
+assert.equal(shorter40.value.programDefinition.provenance.generationBudgetMinutes,30);
+assert.equal(Compiler.validateProgramDefinition(shorter40.value.programDefinition,catalog).ok,true);
+assert.equal(JSON.stringify(reviewed),savedReviewed,'successful derivation also preserves its reviewed predecessor');
 console.log("program-generation-parity: canonical inputs, recovered Static targets, seven cycles, identity and strict failures pass");

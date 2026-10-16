@@ -1,6 +1,7 @@
-# Implementação S2
+# Implementação S2 e ampliação inicial de S3
 
-O gerador `073.0` implementa o [domínio inicial validado](initial-generation-contract.md).
+O gerador `073.1` preserva o [domínio inicial validado](initial-generation-contract.md)
+e implementa a [união delimitada de S3](three-day-expansion-contract.md).
 O Plano 073 permanece em andamento. S3, S4 e S5 não estão concluídas, e as entradas
 reais usadas para gerar Godmode2 continuam sem confirmação transacional.
 
@@ -41,6 +42,24 @@ revisado e o draft. Um rascunho de outra versão aguarda Rebuild explícito ante
 de gerar uma nova baseline. Configurações novas ainda não substituídas conservam
 a política vigente, sem alegação de paridade recuperada.
 
+## Ampliação inicial de S3
+
+A mesma geração recuperada aceita agora Hybrid/Advanced na opção 40, com
+orçamento 30 e Static, Hypertrophy/Advanced na opção 60 com Static, e os três
+modos periodizados em Hybrid/Advanced na opção 60. Todos conservam três dias,
+sete ciclos normais e ausência de deload. Isso não libera o produto cartesiano
+entre essas opções. Deload, outras experiências, outros orçamentos e divisões
+continuam pendentes.
+
+As provas RED privadas precederam cada implementação isolada. Após compor os
+patches, as quatro suítes de candidatos, layout, paridade e periodização passaram
+localmente. A última cobre 324 combinações controladas de role, pull, séries e
+métricas, além dos três modos no catálogo real. A revisão independente aceitou
+a união dos gates e a preservação das recusas. As jornadas de duração 40,
+Hypertrophy 60 e edição dos três modos foram preparadas para a CI, sem execução
+local. Não repetir a captura exaustiva na devbox; revisar as diferenças visuais
+pelos artefatos remotos.
+
 ## Provas e pendências
 
 As provas puras foram escritas antes das respectivas implementações. Os testes
@@ -53,14 +72,15 @@ numéricas. O navegador usa os produtores e consumidores reais.
 | Canonicalização, SHA-256, mutabilidade e colisões | `node test/generation-identity.mjs` | Passou |
 | Elegibilidade, tiers, equipamentos e alternância | `node test/generation-candidates.mjs` | Passou |
 | Alocação, distribuição, custo e ordenação | `node test/generation-layout.mjs` | Passou |
-| Domínio recuperado, sete ciclos, IDs e recusas | `node test/program-generation-parity.mjs` | Passou |
+| Domínios recuperados, sete ciclos, IDs e recusas | `node test/program-generation-parity.mjs` | Passou |
+| Períodos, centros, RIR, métricas null e posições repetidas | `node test/generation-periodization.mjs` | Passou, 324 combinações controladas e três modos no catálogo real |
 | Entrada, oito despriorizações e limites | `node --test test/program-entry.mjs test/program-entry-inputs.mjs test/program-entry-production-adapter.mjs` | Passou |
 | Catálogo verificado e imutável | `node test/exercise-catalog.mjs` | Passou |
 | Receita atual, recusa de versão e catálogo, full share | `node test/shared-setup-unit.mjs` | Passou |
 | Propriedades gerativas do compilador | `node test/generative/run.mjs --profile smoke --filter "program compiler" --seed 2895473493` | Passou |
 | Configurações anteriores e contratos de transição | `node test/program-compiler-plan067.mjs`; `node test/program-compiler-search.mjs`; `node test/program-transition-plan067.mjs` | Passou |
-| Formulário → worker/fallback → review → ativação → Focus → reload; edição não suportada e versão antiga | `node tools/run-tests.mjs entry --suite-id test-generate-program-browser-mjs` | Passou, 203 verificações |
-| Worker, cancelamento e fallback | `node tools/run-tests.mjs entry --suite-id test-program-engine-worker-mjs` | Passou, 46 verificações |
+| Formulário → worker/fallback → review → ativação → Focus → reload; edição não suportada e versão antiga | `node tools/run-tests.mjs entry --suite-id test-generate-program-browser-mjs` | Passou em 073.0, 203 verificações; ampliação 073.1 aguarda CI |
+| Worker, cancelamento e fallback | `node tools/run-tests.mjs entry --suite-id test-program-engine-worker-mjs` | Passou em 073.0, 46 verificações; head atual aguarda CI |
 | Confirmação, anúncio exato, respostas antigas e rebuild do bloco | `node tools/run-tests.mjs entry --suite-id test-program-entry-s4-mjs` | Passou |
 | Compartilhamento real e receitas | `node tools/run-tests.mjs entry --suite-id test-shared-setup-flow-mjs` | Passou, 184 verificações |
 | Catálogo visual completo | Inventário remoto de captura e comparação | Delegado à CI por decisão do owner; sem gate local exaustivo |
