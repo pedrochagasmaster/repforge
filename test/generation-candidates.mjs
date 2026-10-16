@@ -50,7 +50,7 @@ const hAdjustedRows=[row('a',0,{hypertrophyPrimaryCompoundRecommendationLevel:2}
  row('b',3,{hypertrophyPrimaryCompoundRecommendationLevel:2,emphasizedAgonist:[CHEST,LATS]})];
 assert.equal(selector(hAdjustedRows,request({goal:'hypertrophy',emphasisMuscleIds:[CHEST,LATS]})).choose(spec,[]).id,'b',
  'the primary goal tier changes without losing the boolean source priority adjustment');
-assert.throws(() => selector([], request({ goal: 'strength' })), /Unsupported/);
+assert.throws(() => selector([], request({ goal: 'unknown' })), /Unsupported/);
 assert.throws(() => selector([], request({ gymProfile: { equipmentIds: [], equipmentConfigById: { x: {} } } })), /Unsupported/);
 assert.throws(() => selector([]).choose({ type: 'primary', pattern: 'horizontalPush' }, []), /specification/);
 assert.throws(() => selector([]).choose({ type: 'accessory', muscle: 'unknown' }, []), /specification/);
@@ -192,3 +192,23 @@ for (const pattern of ['horizontalPush', 'verticalPush', 'horizontalPull', 'vert
 }
 assert.equal(new Set(realSelected.map(({ exercise }) => exercise.id)).size, 6);
 console.log(`generation-candidates: ranking/eligibility/identity cases, ${boundaries} alternation boundaries and pinned catalogue smoke passed`);
+
+// Strength has source-owned classification and recommendation fields for all roles.
+const strengthRequest=request({goal:'strength'});
+for(const [kind,descriptor,field] of [['primary',primary,'PrimaryCompound'],['secondary',secondary,'SecondaryCompound'],['accessory',accessory,'Accessory']]){
+ const strengthSpec=kind==='accessory'?{type:kind,muscle:'chest'}:{...spec,type:kind};
+ const rows=[row('a',1,{['strength'+field+'RecommendationLevel']:3,['hypertrophy'+field+'RecommendationLevel']:1}),
+  row('b',3,{['strength'+field+'RecommendationLevel']:1,['hypertrophy'+field+'RecommendationLevel']:3})];
+ if(kind==='accessory')for(const raw of rows)raw.movementPattern=['19e5c6f170d8805c9eace37a0d0113f1'];
+ assert.equal(selector(rows,strengthRequest).choose(strengthSpec,[]).id,'b',`${kind} uses the strength recommendation field`);
+ const classificationRows=rows.map((raw,index)=>({...raw,exerciseClassificationStrength:index?[primary,secondary,accessory].filter(d=>d!==descriptor):[descriptor],exerciseClassificationHypertrophy:index?[descriptor]:[]}));
+ assert.equal(selector(classificationRows,strengthRequest).choose(strengthSpec,[]).id,'a',`${kind} uses strength classification rather than hypertrophy`);
+ assert.equal(selector([{...rows[0],['strength'+field+'RecommendationLevel']:null}],strengthRequest).choose(strengthSpec,[]),null,`${kind} cannot borrow a nonnull hypertrophy tier`);
+}
+
+for(const experience of ['beginner','intermediate']){
+ const xpRequest=request({experience,split:'upper_lower_full',daysPerWeek:3,timeCeilingMinutes:60,periodization:'static',cycles:7,deloadCycles:[]});
+ assert.equal(selector([row('a')],xpRequest).choose(spec,[]).id,'a','controlled experience reaches same candidate pool');
+ for(const patch of [{timeCeilingMinutes:40},{goal:'hypertrophy'},{periodization:'linear'},{periodization:'reverse_linear'},{periodization:'undulating'}])
+  assert.throws(()=>selector([row('a')],{...xpRequest,...patch}),/Unsupported/);
+}

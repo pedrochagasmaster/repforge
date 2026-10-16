@@ -1,6 +1,6 @@
 # Implementação S2 e ampliação inicial de S3
 
-O gerador `073.1` preserva o [domínio inicial validado](initial-generation-contract.md)
+O gerador `073.2` preserva o [domínio inicial validado](initial-generation-contract.md)
 e implementa a [união delimitada de S3](three-day-expansion-contract.md).
 O Plano 073 permanece em andamento. S3, S4 e S5 não estão concluídas, e as entradas
 reais usadas para gerar Godmode2 continuam sem confirmação transacional.
@@ -44,21 +44,29 @@ a política vigente, sem alegação de paridade recuperada.
 
 ## Ampliação inicial de S3
 
-A mesma geração recuperada aceita agora Hybrid/Advanced na opção 40, com
-orçamento 30 e Static, Hypertrophy/Advanced na opção 60 com Static, e os três
-modos periodizados em Hybrid/Advanced na opção 60. Todos conservam três dias,
-sete ciclos normais e ausência de deload. Isso não libera o produto cartesiano
-entre essas opções. Deload, outras experiências, outros orçamentos e divisões
-continuam pendentes.
+A geração recuperada aceita Hybrid/Advanced na opção 40 com Static, os três
+modos periodizados em Hybrid/Advanced/60, Hypertrophy/Advanced/60/Static e
+Strength/Advanced/60/Static. Hybrid/60/Static aceita também Beginner e
+Intermediate. A tabela do contrato enumera a união exata. Todos conservam três
+dias, sete ciclos normais e ausência de deload. Outras combinações, deload,
+orçamentos e divisões continuam pendentes.
+
+Strength usa os tiers, classificações e grupos padrão específicos do objetivo.
+Seus grupos também chegam à ordenação final depois de spillover e trocas.
+Experiência preserva a montagem no caso controlado, sem conceder capacidades;
+a requisição e a identidade ainda distinguem Beginner, Intermediate e Advanced.
 
 As provas RED privadas precederam cada implementação isolada. Após compor os
-patches, as quatro suítes de candidatos, layout, paridade e periodização passaram
-localmente. A última cobre 324 combinações controladas de role, pull, séries e
-métricas, além dos três modos no catálogo real. A revisão independente aceitou
-a união dos gates e a preservação das recusas. As jornadas de duração 40,
-Hypertrophy 60 e edição dos três modos foram preparadas para a CI, sem execução
-local. Não repetir a captura exaustiva na devbox; revisar as diferenças visuais
-pelos artefatos remotos.
+patches de Strength e experiência, as quatro suítes afetadas passaram localmente:
+candidatos, layout, paridade e periodização. Esta última conserva 324 combinações
+controladas de role, pull, séries e métricas, além dos três modos no catálogo real.
+A correção de ordenação Strength recebeu revisão independente. A comparação de
+experiência preserva IDs semânticos de métricas e remove somente os IDs gerados.
+
+As jornadas de duração 40, Hypertrophy 60, Strength 60, duas experiências novas
+e edição dos três modos foram preparadas para a CI, sem execução local. Não
+repetir a captura exaustiva na devbox; revisar diferenças visuais pelos artefatos
+remotos. Resultados de 073.1 ou anteriores não substituem o gate no head 073.2.
 
 ## Provas e pendências
 
@@ -79,7 +87,7 @@ numéricas. O navegador usa os produtores e consumidores reais.
 | Receita atual, recusa de versão e catálogo, full share | `node test/shared-setup-unit.mjs` | Passou |
 | Propriedades gerativas do compilador | `node test/generative/run.mjs --profile smoke --filter "program compiler" --seed 2895473493` | Passou |
 | Configurações anteriores e contratos de transição | `node test/program-compiler-plan067.mjs`; `node test/program-compiler-search.mjs`; `node test/program-transition-plan067.mjs` | Passou |
-| Formulário → worker/fallback → review → ativação → Focus → reload; edição não suportada e versão antiga | `node tools/run-tests.mjs entry --suite-id test-generate-program-browser-mjs` | Passou em 073.0, 203 verificações; ampliação 073.1 aguarda CI |
+| Formulário → worker/fallback → review → ativação → Focus → reload; edição não suportada e versão antiga | `node tools/run-tests.mjs entry --suite-id test-generate-program-browser-mjs` | Passou em 073.0, 203 verificações; ampliação 073.2 aguarda CI |
 | Worker, cancelamento e fallback | `node tools/run-tests.mjs entry --suite-id test-program-engine-worker-mjs` | Passou em 073.0, 46 verificações; head atual aguarda CI |
 | Confirmação, anúncio exato, respostas antigas e rebuild do bloco | `node tools/run-tests.mjs entry --suite-id test-program-entry-s4-mjs` | Passou |
 | Compartilhamento real e receitas | `node tools/run-tests.mjs entry --suite-id test-shared-setup-flow-mjs` | Passou, 184 verificações |
@@ -97,6 +105,7 @@ conclusão deve registrar o SHA limpo, a revisão independente e o resultado de
 | S2-LOW-03 | Observer visual usava seed e IDs de slots de outro namespace. Agora separa identidade do request e posse do draft, e correlaciona posições. Os 89 frames focados passaram sem retries; a validação visual completa foi delegada à CI pelo owner. |
 | S2-LOW-04 | Anúncio após confirmação incluía dois nomes que não mudaram. A prova real falhou antes da correção por posições; a mesma suíte passou após a correção, incluindo foco e descarte de respostas antigas. |
 | S2-LOW-05 | A fixture de conflito podia fotografar antes de montar o Review ou fora do aviso. A espera exige as linhas da definição atual; o enquadramento exige o aviso completo no viewport. Os três variants focados passaram. |
+| S3-STR-LOW-01 | Strength usava os grupos Hybrid na ordenação final. A prova por dia reproduziu A,B,A em vez de A,A,B; os grupos específicos agora chegam à produção e à ordenação. RED/GREEN e correção receberam revisão independente. |
 | S2-LOW-06 | A CI encontrou dois loaders VM sem os módulos novos, inventário de sintaxe incompleto e vocabulário de telemetria sem ULF. Os loaders seguem a ordem real, o inventário inclui os três módulos e o enum fechado aceita ULF. As quatro provas exatas passaram; cache 462. |
 
 A primeira captura completa foi interrompida após 141 frames para corrigir os

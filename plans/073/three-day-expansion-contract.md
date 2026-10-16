@@ -17,6 +17,8 @@ Não alteram as fórmulas de carga, progressão ou fadiga.
 | S2 preservada | hybrid | advanced | 60 | 50 | static |
 | S3 duração | hybrid | advanced | 40 | 30 | static |
 | S3 objetivo | hypertrophy | advanced | 60 | 50 | static |
+| S3 força | strength | advanced | 60 | 50 | static |
+| S3 experiência | hybrid | beginner, intermediate | 60 | 50 | static |
 | S3 períodos | hybrid | advanced | 60 | 50 | linear, reverse_linear, undulating |
 
 Essa tabela define uma união de domínios, não seu produto cartesiano. Por
@@ -37,6 +39,24 @@ seletores sintéticos continuam condicionais, sem virar invariantes do programa.
 Hypertrophy altera a classificação dos primários e os tiers consultados, além
 dos alvos. Uma implementação que somente muda as repetições não satisfaz essa
 fatia. As provas devem distinguir essas duas falhas com o catálogo controlado.
+
+Strength também altera os tiers, as três famílias de classificação e os grupos
+padrão de músculos. A alocação regional reserva 60% aos compostos, preservando
+a partição upper/lower. Os grupos específicos de Strength devem participar
+tanto da produção como da ordenação final, inclusive após spillover e trocas.
+A prova por dia distingue a ordem A,B,A incorreta da ordem A,A,B recuperada.
+
+## Experiência
+
+Beginner e Intermediate são aceitos apenas em Hybrid/60/Static. Na chamada
+direta controlada do gerador recuperado, experiência é metadado e conserva a
+montagem, as métricas e os alvos de Advanced. As identidades Taurifer continuam
+distintas porque a requisição contém a experiência. Essa evidência não confirma
+os defaults nem a disponibilidade do formulário original. O valor fonte none
+não vira Beginner, e experiência não concede equipamentos ou capacidades.
+
+A comparação remove somente IDs gerados de dias, slots e séries. IDs de métricas
+são semânticos e permanecem na comparação.
 
 ## Períodos
 

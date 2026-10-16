@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const GENERATOR_VERSION = "073.1";
+  const GENERATOR_VERSION = "073.2";
   const IDENTITY = root?.RepForgeGenerationIdentity || (typeof require === "function" ? require("./generation-identity.js") : null);
   const CANDIDATES = root?.RepForgeGenerationCandidates || (typeof require === "function" ? require("./generation-candidates.js") : null);
   const LAYOUT = root?.RepForgeGenerationLayout || (typeof require === "function" ? require("./generation-layout.js") : null);
@@ -336,8 +336,10 @@
     const hybrid = request.goal === "hybrid" && (
       request.timeCeilingMinutes === 40 && periodization === "static"
       || request.timeCeilingMinutes === 60 && PERIODIZATIONS.includes(periodization));
-    const hypertrophy = request.goal === "hypertrophy" && request.timeCeilingMinutes === 60 && periodization === "static";
-    return request.daysPerWeek === 3 && request.experience === "advanced" && (hybrid || hypertrophy)
+    const staticGoal = ["hypertrophy", "strength"].includes(request.goal) && request.timeCeilingMinutes === 60 && periodization === "static";
+    const experienceAllowed = request.experience === "advanced" || (["beginner", "intermediate"].includes(request.experience)
+      && request.goal === "hybrid" && request.timeCeilingMinutes === 60 && periodization === "static");
+    return request.daysPerWeek === 3 && experienceAllowed && (hybrid || staticGoal)
       && (request.cycles ?? 7) === 7 && (!request.deloadCycles || request.deloadCycles.length === 0);
   }
 
@@ -1082,7 +1084,8 @@
         const accessory = template.type === "accessory";
         const primary = template.type === "primary";
         const isPull = template.exercise.patterns.some((pattern) => ["horizontalPull", "verticalPull"].includes(pattern));
-        const center = accessory ? 15 : primary ? (request.goal === "hypertrophy" ? (isPull ? 10 : 8) : (isPull ? 8 : 5)) : (isPull ? 12 : 10);
+        const strength = request.goal === "strength";
+        const center = accessory ? (strength ? 10 : 15) : primary ? (request.goal === "hypertrophy" ? (isPull ? 10 : 8) : (isPull ? 8 : 5)) : strength ? (isPull ? 10 : 8) : (isPull ? 12 : 10);
         const cycleIndices = {
           linear: [6, 6, 4, 3, 2, 0, 0],
           reverse_linear: [0, 0, 2, 3, 4, 6, 6],
@@ -1093,7 +1096,9 @@
           : [8, 10, 10, 11, 13, 13, 15];
         const centers = cycleIndices ? cycleIndices.map((index) => doseTable[index]) : Array(7).fill(center);
         const baseRir = accessory ? 0 : isPull ? 1 : 2;
-        const role = primary ? (request.goal === "hypertrophy" ? "hypertrophyPrimaryCompound" : "strengthPrimaryCompound") : accessory ? "hypertrophyAccessory" : "hypertrophySecondaryCompound";
+        const role = primary ? (request.goal === "hypertrophy" ? "hypertrophyPrimaryCompound" : "strengthPrimaryCompound")
+          : accessory ? (strength ? "strengthAccessory" : "hypertrophyAccessory")
+          : strength ? "strengthSecondaryCompound" : "hypertrophySecondaryCompound";
         const path = `day/${trainingIndex}/slot/${slotIndex}`;
         const muscleId = accessory ? selector.muscleId(template.accessoryMuscle) : null;
         const slot = {

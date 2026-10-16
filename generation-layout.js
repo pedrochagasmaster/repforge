@@ -7,6 +7,11 @@
     ["upperTraps", "upperBack", "forearms", "neck", "abductors", "obliques"],
     ["frontDelts", "glutes", "adductors", "lowerBack"],
   ];
+  const strengthDefaults = [
+    ["sideDelts", "biceps", "triceps", "chest", "rearDelts", "lats", "calves", "hamstrings", "quads"],
+    ["upperTraps", "upperBack", "forearms", "neck", "abs", "glutes", "abductors", "obliques"],
+    ["frontDelts", "adductors", "lowerBack"],
+  ];
   const upperMuscles = new Set(["triceps", "forearms", "sideDelts", "rearDelts", "upperBack", "neck", "lats", "upperTraps", "biceps", "chest", "frontDelts", "serratus"]);
   const allMuscles = new Set([...defaults.flat(), "serratus", "tibs"]);
   const dayRules = [
@@ -47,7 +52,7 @@
       return sum + 120 + fixed + 30 * t.numSets + between * Math.max(0, t.numSets - 1);
     }, 0);
   }
-  function allocations(budgetMinutes) {
+  function allocations(budgetMinutes, goal) {
     const compounds = [];
     for (let count = 1; count <= 4; count++) for (let sets = 2; sets <= (count === 1 ? 2 : 3); sets++) compounds.push([count, sets, 0, 0]);
     for (let count = 1; count <= 4; count++) for (const sets of [2, 3]) compounds.push([4, 3, count, sets]);
@@ -71,7 +76,8 @@
     }
     const result = {};
     for (const [name, between, minimum] of [["upper", 120, 4], ["lower", 180, 2]]) {
-      const compound = choose(compounds.filter(a => a[0] * a[1] + a[2] * a[3] >= minimum), budgetMinutes * 45, between, 180, false);
+      const compoundSeconds = budgetMinutes * 90 * (goal === "strength" ? 0.6 : 0.5);
+      const compound = choose(compounds.filter(a => a[0] * a[1] + a[2] * a[3] >= minimum), compoundSeconds, between, 180, false);
       const isolation = choose(isolations, budgetMinutes * 90 - allocationCost(compound, between, 180), 90, 90, true);
       result[name] = { compound, isolation };
     }
@@ -88,7 +94,7 @@
     const highCount = count ? remaining % count : 0;
     return [first, ...Array(count - highCount).fill(low), ...Array(highCount).fill(low + 1)];
   }
-  function produce(selector, allocation) {
+  function produce(selector, allocation, goal) {
     const selected = []; let missing = false;
     const choose = (spec, numSets) => {
       const exercise = selector.choose(spec, selected);
@@ -105,7 +111,7 @@
       });
     });
     const p = selector.priorities; const depriority = new Set(selector.depriorities);
-    const [a, b, c] = defaults.map(group => group.filter(m => !p.includes(m)));
+    const [a, b, c] = (goal === "strength" ? strengthDefaults : defaults).map(group => group.filter(m => !p.includes(m)));
     for (const [category, spec] of [["upper", allocation.upper.isolation], ["lower", allocation.lower.isolation]]) {
       const requested = [...Array(spec[0]).fill(spec[1]), ...Array(spec[2]).fill(spec[3])];
       let emitted = 0; let first = true;
@@ -219,29 +225,31 @@
     for (let index = 0; index < maximum; index++) for (const g of groups) if (index < g.length) output.push(g[index]);
     return output;
   }
-  function finish(templates, priorities) {
+  function finish(templates, priorities, defaultGroups) {
     const key = t => { const index = orderPatterns.findIndex(p => has(t.exercise, p)); return index < 0 ? 12 : index + (t.type === "secondary" ? 6 : 0); };
     const primary = templates.filter(t => t.type === "primary").sort((a, b) => key(a) - key(b));
     const secondary = [...group(templates.filter(t => t.type === "secondary"), key)].sort((a, b) => a[0] - b[0]).map(x => x[1]);
     const accessory = [...group(templates.filter(t => t.type === "accessory"), t => t.accessoryMuscle)];
     const priority = accessory.filter(([m]) => priorities.includes(m)).map(x => x[1]);
     const rest = accessory.filter(([m]) => !priorities.includes(m));
-    const [a, b, c] = defaults.map(ds => rest.filter(([m]) => ds.includes(m)).map(x => x[1]));
+    const [a, b, c] = defaultGroups.map(ds => rest.filter(([m]) => ds.includes(m)).map(x => x[1]));
     return [...primary, ...rr(secondary), ...rr([rr(priority), rr(a)]), ...rr(b), ...rr(c)];
   }
   function generate(request, selector) {
     const profile = request && (request.goal === "hybrid" && (
       request.timeCeilingMinutes === 40 && request.periodization === "static"
       || request.timeCeilingMinutes === 60 && ["static", "linear", "reverse_linear", "undulating"].includes(request.periodization))
-      || request.goal === "hypertrophy" && request.timeCeilingMinutes === 60 && request.periodization === "static");
+      || ["hypertrophy", "strength"].includes(request.goal) && request.timeCeilingMinutes === 60 && request.periodization === "static");
+    const experienceAllowed = request && (request.experience === "advanced" || (["beginner", "intermediate"].includes(request.experience)
+      && request.goal === "hybrid" && request.timeCeilingMinutes === 60 && request.periodization === "static"));
     const supported = profile && request.split === "upper_lower_full" && request.daysPerWeek === 3
-      && request.experience === "advanced" && request.cycles === 7 && Array.isArray(request.deloadCycles) && request.deloadCycles.length === 0;
+      && experienceAllowed && request.cycles === 7 && Array.isArray(request.deloadCycles) && request.deloadCycles.length === 0;
     const priorities = selector?.priorities; const depriorities = selector?.depriorities;
     if (!supported || !Array.isArray(priorities) || !Array.isArray(depriorities) || !priorities.every(m => allMuscles.has(m)) || !depriorities.every(m => allMuscles.has(m)) || priorities.some(m => depriorities.includes(m))) return { status: "unsupported", code: "unsupported_generation_domain" };
     const budgetMinutes = request.timeCeilingMinutes === 40 ? 30 : 50;
-    const allocation = allocations(budgetMinutes); const { selected, missing } = produce(selector, allocation);
+    const allocation = allocations(budgetMinutes, request.goal); const { selected, missing } = produce(selector, allocation, request.goal);
     const days = distribute(selected); spillover(days); optimize(days);
-    const ordered = days.map(t => finish(t, priorities));
+    const ordered = days.map(t => finish(t, priorities, request.goal === "strength" ? strengthDefaults : defaults));
     const insufficient = missing || ordered.flat().length < selected.length;
     return { status: insufficient ? "insufficient" : "ok", ...(insufficient ? { issues: [{ code: "insufficient_candidates" }] } : {}), days: ordered.map((templates, index) => ({ name: dayRules[index].name, templates })), weeklySlots: [0, null, 1, null, 2, null, null], budgetMinutes, allocations: allocation, estimatedSessionSeconds: ordered.map(cost) };
   }

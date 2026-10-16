@@ -169,7 +169,7 @@ assert.equal(new Set(hIds).size,hIds.length);
 const hPermuted=structuredClone(hRequest);hPermuted.gymProfile.equipmentIds.reverse();hPermuted.deprioritizedMuscleIds.reverse();
 assert.deepEqual(Compiler.generateProgram(hPermuted,catalog).value,hDefinition);
 assert.notEqual(Compiler.generationIdentity(hRequest,catalog),Compiler.generationIdentity(request,catalog));
-for(const outside of [{...hRequest,timeCeilingMinutes:40},{...hRequest,goal:'strength'}]){
+for(const outside of [{...hRequest,timeCeilingMinutes:40},{...hRequest,goal:'strength',timeCeilingMinutes:40}]){
  const denied=Compiler.generateProgram(outside,catalog);assert.equal(denied.ok,false);assert.equal(denied.value,null);
 }
 const hExhausted=Compiler.generateProgram({...hRequest,excludedExerciseIds:catalog.exercises.map(exercise=>exercise.id)},catalog);
@@ -267,3 +267,86 @@ assert.equal(shorter40.value.programDefinition.provenance.generationBudgetMinute
 assert.equal(Compiler.validateProgramDefinition(shorter40.value.programDefinition,catalog).ok,true);
 assert.equal(JSON.stringify(reviewed),savedReviewed,'successful derivation also preserves its reviewed predecessor');
 console.log("program-generation-parity: canonical inputs, recovered Static targets, seven cycles, identity and strict failures pass");
+
+// Exact identities are source-model fixtures, not compiler output snapshots or global counts.
+const strengthSourceFixtures=[{"fixture":"canonical-pure8D","days":[["19f5c6f170d88013ae78cc9e6c967813","1a15c6f170d880e9bd65f120ac4908a0","1a05c6f170d8802d9233da6c4897b8e7","1a15c6f170d880bf8710e3cf4209936d","1a15c6f170d8804cbd9afa04567bd5f7"],["1a25c6f170d8803d8231d083fdd65458","1a35c6f170d8807aae84e2c6eb136395","2175c6f170d88016a63deff6b692c180","1a15c6f170d880518057cd4d484cbecb","1a25c6f170d880c59f17ce7802758fc3"],["1a35c6f170d880bebc64f4dce0d5f5f1","1a35c6f170d8800bab2dca0110e26c4a","1a15c6f170d880629cb0e70c9f87e027","1a15c6f170d8800abba4d3ef66a48aa6","1a45c6f170d8808bb970dd2156495ae2"]]},{"fixture":"no-P-D","days":[["19f5c6f170d88013ae78cc9e6c967813","1a15c6f170d8800abe49f4321d63a1ef","1a05c6f170d8802d9233da6c4897b8e7","1a15c6f170d88037945ece29e66bdf4d","1a05c6f170d880e28b6bfbd0e217fcbc"],["1a25c6f170d8803d8231d083fdd65458","1a35c6f170d8807aae84e2c6eb136395","2175c6f170d88016a63deff6b692c180","1a15c6f170d880518057cd4d484cbecb","1a25c6f170d880c59f17ce7802758fc3"],["1a35c6f170d880bebc64f4dce0d5f5f1","1a15c6f170d88015841af06a4533b9b3","1a05c6f170d8801f98afff449f6a3b05","1a35c6f170d8800bab2dca0110e26c4a","1a15c6f170d88003bf5cd77bef6a5034"]]},{"fixture":"priority-hamstrings-pure8D","days":[["19f5c6f170d88013ae78cc9e6c967813","1a15c6f170d880e9bd65f120ac4908a0","1a05c6f170d8802d9233da6c4897b8e7","1a15c6f170d880bf8710e3cf4209936d","1a15c6f170d8804cbd9afa04567bd5f7"],["1a25c6f170d8803d8231d083fdd65458","1a35c6f170d880489b7be1d31faff56b","2175c6f170d88016a63deff6b692c180","1a35c6f170d8800bab2dca0110e26c4a","1a15c6f170d880518057cd4d484cbecb"],["1a35c6f170d880d697d3f111b6bd16f5","1a35c6f170d88029bc9ff9ded538758c","1a15c6f170d880629cb0e70c9f87e027","1a15c6f170d8800abba4d3ef66a48aa6","1a45c6f170d8808bb970dd2156495ae2"]]}];
+for(const fixture of strengthSourceFixtures){
+ const sourceRequest={...request,goal:'strength',...(fixture.fixture==='no-P-D'?{deprioritizedMuscleIds:[]}:{}),
+  ...(fixture.fixture==='priority-hamstrings-pure8D'?{emphasisMuscleIds:[muscle('Hamstrings')]}:{})};
+ const generated=Compiler.generateProgram(sourceRequest,catalog);assert.equal(generated.ok,true,JSON.stringify(generated.conflicts));
+ assert.deepEqual(generated.value.days.filter(day=>day.kind==='training').map(day=>day.slots.map(slot=>slot.exerciseId)),fixture.days,fixture.fixture);
+ assert.equal(generated.value.provenance.generationBudgetMinutes,50);
+ assert.equal(Compiler.validateProgramDefinition(generated.value,catalog).ok,true);
+ assert.deepEqual(Compiler.generateProgram({...sourceRequest,split:'auto'},catalog).value,generated.value);
+ assert(Compiler.availableSplits(sourceRequest).includes('upper_lower_full'));
+ const identities=[];
+ for(const day of generated.value.days){identities.push(day.id);for(const slot of day.slots){
+  identities.push(slot.id);const raw=catalog.exercises.find(ex=>ex.id===slot.exerciseId);
+  const accessory=slot.role.endsWith('Accessory'),primary=slot.role.endsWith('PrimaryCompound');
+  assert.equal(slot.role,accessory?'strengthAccessory':primary?'strengthPrimaryCompound':'strengthSecondaryCompound');
+  const pullMovement=raw.movementPattern.some(id=>pull.has(id));
+  const center=accessory?10:primary?(pullMovement?8:5):(pullMovement?10:8),base=accessory?0:pullMovement?1:2;
+  const descriptor=accessory?'2dc5c6f170d881faa946ee13702e7ea7':primary?'2dc5c6f170d88157bb0bd7609d767bc6':'2dc5c6f170d8814c8fcaf2e322abde4d';
+  assert(raw.exerciseClassificationStrength.includes(descriptor));
+  const tier=accessory?'strengthAccessoryRecommendationLevel':primary?'strengthPrimaryCompoundRecommendationLevel':'strengthSecondaryCompoundRecommendationLevel';
+  assert.notEqual(raw[tier],null);
+  assert.equal(slot.prescriptionsByCycle.length,7);
+  for(const cycle of slot.prescriptionsByCycle)for(const [index,set]of cycle.sets.entries()){
+   identities.push(set.id);assertSourceDose(raw,set,center,Math.max(0,base+adjustments[cycle.sets.length][index]));assert.equal(set.restSeconds,null);
+  }
+ }}
+ assert.equal(new Set(identities).size,identities.length);
+ for(const change of [{timeCeilingMinutes:40},{periodization:'linear'},{periodization:'reverse_linear'},{periodization:'undulating'},{experience:'intermediate'},{cycles:8},{deloadCycles:[7]}]){
+  const outside={...sourceRequest,...change};const denied=Compiler.generateProgram(outside,catalog);assert.equal(denied.ok,false);assert.equal(denied.value,null);
+  assert.equal(Compiler.availableSplits(outside).includes('upper_lower_full'),false);
+ }
+ const exhausted=Compiler.generateProgram({...sourceRequest,excludedExerciseIds:catalog.exercises.map(ex=>ex.id)},catalog);
+ assert.equal(exhausted.ok,false);assert.equal(exhausted.value,null);
+}
+console.log('strength60: source-model selections, source-typed Static targets, identities and closed domain PASS');
+
+// Controlled direct-generator experience slice, not source UI listener policy.
+function experienceSemantics(definition){
+ const days=definition.days.map(({id:dayId,slots,...day})=>({...day,
+  slots:slots.map(({id:slotId,prescriptionsByCycle,...slot})=>({...slot,
+   prescriptionsByCycle:prescriptionsByCycle.map(({sets,...cycle})=>({...cycle,
+    sets:sets.map(({id:setId,...set})=>set)}))}))}));
+ return {days,cycles:definition.cycles,deloadCycles:definition.deloadCycles,
+  estimates:definition.days.map(day=>definition.provenance.estimatedSessionSeconds[day.id]??null)};
+}
+// Only generated day/slot/set IDs are excluded. Metric UUIDs remain semantic.
+const metricIdentityControl=structuredClone(first.value);
+const metricIdentitySlot=metricIdentityControl.days.flatMap(day=>day.slots).find(slot=>slot.metricDefinitions.length);
+assert(metricIdentitySlot,'fixture reaches source metric identities');
+metricIdentitySlot.metricDefinitions[0].id='different-semantic-metric';
+assert.notDeepEqual(experienceSemantics(metricIdentityControl),experienceSemantics(first.value));
+const experienceIdentities=new Set([Compiler.generationIdentity(request,catalog)]);
+for(const experience of ['beginner','intermediate']){
+ const input={...request,experience};const original=JSON.stringify(input);
+ const canonical=Compiler.canonicalizeRequest(input,catalog);
+ assert.equal(canonical.ok,true);assert.equal(canonical.value.experience,experience);
+ const identity=Compiler.generationIdentity(input,catalog);assert(!experienceIdentities.has(identity));experienceIdentities.add(identity);
+ const compiled=Compiler.generateProgram(input,catalog);
+ assert.equal(compiled.ok,true,'controlled hybrid60Static experience must compile: '+experience);
+ assert.equal(JSON.stringify(input),original,'caller experience request is unchanged');
+ assert.equal(compiled.value.request.experience,experience);
+ assert.deepEqual(compiled.value.request,canonical.value,'recipe request retains every canonical field');
+ assert.equal(Compiler.validateProgramDefinition(compiled.value,catalog).ok,true);
+ assert.deepEqual(experienceSemantics(compiled.value),experienceSemantics(first.value),'experience changes metadata/namespace, not controlled assembly or seven target values');
+ assert.notEqual(compiled.value.days[0].id,first.value.days[0].id,'experience participates in generation identity');
+ for(const patch of [{timeCeilingMinutes:40},{goal:'hypertrophy'},{goal:'strength'},{periodization:'linear'},
+  {periodization:'reverse_linear'},{periodization:'undulating'},{daysPerWeek:4},{cycles:8},{deloadCycles:[7]}]){
+  const denied=Compiler.generateProgram({...input,...patch},catalog);assert.equal(denied.ok,false);assert.equal(denied.value,null);
+ }
+ const noEquipment={...input,gymProfile:{equipmentIds:[]}};
+ const baselineNoEquipment=Compiler.generateProgram({...noEquipment,experience:'advanced'},catalog);
+ const limited=Compiler.generateProgram(noEquipment,catalog);
+ assert.equal(limited.ok,false);assert.equal(limited.value,null);assert.deepEqual(limited.conflicts,baselineNoEquipment.conflicts);
+ const noCapability={...input,competencyAnswers:Object.fromEntries(Object.keys(input.competencyAnswers).map(key=>[key,false]))};
+ const capability=Compiler.generateProgram(noCapability,catalog),advancedCapability=Compiler.generateProgram({...noCapability,experience:'advanced'},catalog);
+ assert.equal(capability.ok,advancedCapability.ok);
+ if(capability.ok)assert.deepEqual(experienceSemantics(capability.value),experienceSemantics(advancedCapability.value));
+ else {assert.equal(capability.value,null);assert.deepEqual(capability.conflicts,advancedCapability.conflicts);}
+}
+assert.equal(Compiler.generateProgram({...request,experience:'none'},catalog).ok,false,'source None is not Taurifer beginner');
+console.log('PASS controlled beginner/intermediate semantic assembly, identities, exact request and cross-dimension refusal');

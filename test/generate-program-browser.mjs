@@ -951,19 +951,22 @@ async function recoveredGenerationJourney(browser) {
   const priorities = Object.fromEntries(reductions.map((muscle) => [muscle, "reduce"]));
   let workerDefinition;
   const errors = [];
-  for (const { withoutWorker, minutes, goal, expectedGoal } of [
+  for (const { withoutWorker, minutes, goal, expectedGoal, lifting = "over_24m", expectedExperience = "advanced" } of [
     { withoutWorker: false, minutes: 60, goal: "balanced", expectedGoal: "hybrid" },
     { withoutWorker: true, minutes: 60, goal: "balanced", expectedGoal: "hybrid" },
     { withoutWorker: false, minutes: 40, goal: "balanced", expectedGoal: "hybrid" },
     { withoutWorker: false, minutes: 60, goal: "muscle_growth", expectedGoal: "hypertrophy" },
+    { withoutWorker: false, minutes: 60, goal: "strength", expectedGoal: "strength" },
+    { withoutWorker: false, minutes: 60, goal: "balanced", expectedGoal: "hybrid", lifting: "under_6m", expectedExperience: "beginner" },
+    { withoutWorker: false, minutes: 60, goal: "balanced", expectedGoal: "hybrid", lifting: "6_to_24m", expectedExperience: "intermediate" },
   ]) {
     const run = await fresh(browser, { withoutWorker });
     const { page } = run;
-    const mode = `${withoutWorker ? "fallback" : "worker"} ${expectedGoal}/${minutes}`;
-    const supportsPeriodized = expectedGoal === "hybrid" && minutes === 60;
+    const mode = `${withoutWorker ? "fallback" : "worker"} ${expectedGoal}/${expectedExperience}/${minutes}`;
+    const supportsPeriodized = expectedGoal === "hybrid" && expectedExperience === "advanced" && minutes === 60;
     await page.click("#firstRunCreate");
     await answerRecommend(page, { skipBasics: true, days: 3, minutes,
-      goal, lifting: "over_24m", deload: false, priorities,
+      goal, lifting, deload: false, priorities,
       until: "muscle_priorities" });
     check(await page.locator('#onbBody > .entry-motion-page:not([aria-hidden="true"]) [data-entry-pick="musclePriorityB"][data-entry-val$="|reduce"]').count() === 22,
       `P073 ${mode}: the form exposes all 22 independent muscle reductions`);
@@ -980,7 +983,7 @@ async function recoveredGenerationJourney(browser) {
     const expected = mapped.ok ? Compiler.generateProgram(mapped.value, Catalog) : null;
     check(expected?.ok && JSON.stringify(definition) === JSON.stringify(expected.value),
       `P073 ${mode}: review contains the canonical seedless compiler definition`, expected?.conflicts);
-    check(definition?.request?.goal === expectedGoal && definition.request.experience === "advanced" &&
+    check(definition?.request?.goal === expectedGoal && definition.request.experience === expectedExperience &&
       definition.request.daysPerWeek === 3 && definition.request.timeCeilingMinutes === minutes &&
       definition.provenance.generationBudgetMinutes === (minutes === 40 ? 30 : 50) &&
       definition.request.periodization === "static" && definition.cycles === 7 &&

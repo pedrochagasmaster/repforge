@@ -41,7 +41,7 @@ assert.deepEqual(hypertrophyLayout.days.map(day=>day.templates.map(t=>[t.type,t.
  'distinct successful synthetic selections preserve both allocation and male/default muscle sequence');
 assert.deepEqual(hypertrophySelector.calls.map(c=>c.selected.length),chosen.calls.map(c=>c.selected.length));
 assert.equal(layout.generate({...hypertrophyRequest,timeCeilingMinutes:40},selector()).status,'unsupported','hypertrophy40 is not part of this slice');
-assert.equal(layout.generate({...hypertrophyRequest,goal:'strength'},selector()).status,'unsupported','strength remains outside this slice');
+assert.equal(layout.generate({...hypertrophyRequest,goal:'strength',timeCeilingMinutes:40},selector()).status,'unsupported','strength40 remains outside this slice');
 const hEmpty=layout.generate(hypertrophyRequest,selector({fail:()=>true}));
 assert.equal(hEmpty.status,'insufficient');assert.equal(hEmpty.days.flatMap(day=>day.templates).length,0);
 // Option40 adds two ordered-tie discriminants to the retained option60 proof.
@@ -82,7 +82,7 @@ const noAccessories40=layout.generate(request40,selector({fail:s=>s.type==='acce
 assert.equal(noAccessories40.status,'insufficient');
 assert.equal(noAccessories40.days.flatMap(d=>d.templates).length,6);
 assert.equal(noAccessories40.days.flatMap(d=>d.templates).reduce((n,t)=>n+t.numSets,0),12);
-for (const change of [{goal:'strength'},{split:'upper_lower'},{daysPerWeek:4},{timeCeilingMinutes:20},{timeCeilingMinutes:90},{timeCeilingMinutes:120},{timeCeilingMinutes:150},{experience:'beginner'},{cycles:8},{deloadCycles:[7]}]) {
+for (const change of [{goal:'strength',periodization:'linear'},{split:'upper_lower'},{daysPerWeek:4},{timeCeilingMinutes:20},{timeCeilingMinutes:90},{timeCeilingMinutes:120},{timeCeilingMinutes:150},{experience:'beginner',timeCeilingMinutes:40},{cycles:8},{deloadCycles:[7]}]) {
  assert.equal(layout.generate({...request,...change},selector()).status,'unsupported');
 }
 for(const periodization of ['linear','reverse_linear','undulating']) {
@@ -115,3 +115,72 @@ for(let seed=0;seed<30;seed++) {
  assert.equal(new Set(actual.map(t=>t.exercise.id)).size,actual.length);
 }
 console.log('generation-layout: allocation, lazy selection, null/insufficiency, domains, ordering and 30 failure masks PASS');
+
+// Strength option60 reserves 60% of each 75-minute regional budget for compounds.
+const strengthRequest={...request,goal:'strength'};
+const strengthChoices=selector();const strengthLayout=layout.generate(strengthRequest,strengthChoices);
+assert.equal(strengthLayout.status,'ok','strength60 enters only the recovered Static profile');
+assert.equal(strengthLayout.budgetMinutes,50);
+assert.deepEqual(strengthLayout.allocations.upper.compound,[4,3,0,0]);
+assert.deepEqual(strengthLayout.allocations.upper.isolation,[4,3,0,0]);
+assert.deepEqual(strengthLayout.allocations.lower.compound,[4,3,0,0]);
+assert.deepEqual(strengthLayout.allocations.lower.isolation,[3,3,0,0]);
+const strengthLowerTies=[[3,3,0,0],[4,2,0,0]];
+assert.deepEqual(strengthLowerTies.map(a=>allocationSeconds(a,90,90)),[1440,1440]);
+assert.deepEqual(strengthLowerTies.map(a=>Math.abs(1500-allocationSeconds(a,90,90))),[60,60]);
+const strengthTemplates=strengthLayout.days.flatMap(day=>day.templates);
+assert.deepEqual(['squat','hipHinge'].map(pattern=>strengthTemplates.filter(t=>t.type!=='accessory'&&t.exercise.patterns.includes(pattern)).map(t=>t.numSets)),[[3,3],[3,3]]);
+assert.equal(strengthTemplates.length,15,'conditional distinct-success synthetic selector, not a universal count');
+assert.equal(strengthTemplates.reduce((n,t)=>n+t.numSets,0),45);
+// Exhaustion exposes the complete source default order without inventing a successful exercise.
+const strengthDefaults=[['sideDelts','biceps','triceps','chest','rearDelts','lats','calves','hamstrings','quads'],
+ ['upperTraps','upperBack','forearms','neck','abs','glutes','abductors','obliques'],['frontDelts','adductors','lowerBack']];
+const strengthExhausted=selector({fail:spec=>spec.type==='accessory'});
+assert.equal(layout.generate(strengthRequest,strengthExhausted).status,'insufficient');
+const sourceWalk=[strengthDefaults[0],strengthDefaults[1],strengthDefaults[0],strengthDefaults[2],strengthDefaults[1]].flat();
+assert.deepEqual(strengthExhausted.calls.filter(c=>c.type==='accessory').map(c=>c.muscle),
+ [...sourceWalk.filter(m=>upper.has(m)),...sourceWalk.filter(m=>!upper.has(m))]);
+for(const change of [{timeCeilingMinutes:40},{periodization:'linear'},{periodization:'reverse_linear'},{periodization:'undulating'},{experience:'intermediate'},{cycles:8},{deloadCycles:[7]}])
+ assert.equal(layout.generate({...strengthRequest,...change},selector()).status,'unsupported');
+
+// Route synthetic accessories to Full so source A/B/C ordering and repeated
+// non-priority muscles are observed together through the public layout API.
+function strengthFinalOrder(priorities,allowed){
+ const choices=selector({priorities,depriorities:['calves','hamstrings','quads'],
+  fail:spec=>spec.type==='accessory'&&!allowed.includes(spec.muscle)});
+ const select=choices.choose;
+ choices.choose=(spec,selected)=>{
+  const exercise=select(spec,selected);
+  return exercise&&spec.type==='accessory'?{...exercise,effectiveRegion:'fullBody'}:exercise;
+ };
+ const generated=layout.generate(strengthRequest,choices);
+ assert.equal(generated.status,'ok');
+ const accessories=generated.days.flatMap(day=>day.templates).filter(t=>t.type==='accessory');
+ assert.equal(accessories.length,7,'conditional successful synthetic choices are conserved');
+ assert.equal(new Set(accessories.map(t=>t.exercise.id)).size,7,'repeated muscles retain distinct exercises');
+ return generated.days.map(day=>day.templates.filter(t=>t.type==='accessory').map(t=>t.accessoryMuscle));
+}
+function assertStrengthCategories(days,priorities=[]){
+ for(const muscles of days){
+  const nonpriority=muscles.filter(m=>!priorities.includes(m));
+  const categories=nonpriority.map(m=>strengthDefaults.findIndex(group=>group.includes(m)));
+  assert.deepEqual(categories,[...categories].sort((a,b)=>a-b),'non-priority source A must finish before B, which must finish before C');
+  const firstB=muscles.findIndex(m=>!priorities.includes(m)&&strengthDefaults[1].includes(m));
+  if(firstB>=0)assert(muscles.every((m,index)=>!priorities.includes(m)||index<firstB),'priority/A round-robin must finish before source B');
+ }
+}
+const absOrder=strengthFinalOrder([],['chest','forearms','frontDelts','abs','glutes','abductors']);
+assert(absOrder.some(day=>day.includes('abs')&&day.filter(m=>m==='chest').length===2),'fixture observes abs beside repeated non-priority A');
+assertStrengthCategories(absOrder);
+const gluteOrder=strengthFinalOrder([],['chest','forearms','frontDelts','glutes','adductors','lowerBack']);
+assert(gluteOrder.some(day=>day.includes('glutes')&&day.includes('frontDelts')),'fixture observes glutes beside source C');
+assertStrengthCategories(gluteOrder);
+const priorityOrder=strengthFinalOrder(['neck'],['neck','chest','abs','glutes','abductors']);
+assert(priorityOrder.some(day=>day.includes('abs')&&day.filter(m=>m==='neck').length>1),'fixture observes B beside repeated priority entries');
+assertStrengthCategories(priorityOrder,['neck']);
+
+for(const experience of ['beginner','intermediate']){
+ const xpRequest={...request,experience};assert.deepEqual(layout.generate(xpRequest,selector()),result,'controlled experience preserves layout');
+ for(const patch of [{timeCeilingMinutes:40},{goal:'hypertrophy'},{periodization:'linear'},{periodization:'reverse_linear'},{periodization:'undulating'}])
+  assert.equal(layout.generate({...xpRequest,...patch},selector()).status,'unsupported');
+}
