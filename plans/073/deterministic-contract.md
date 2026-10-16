@@ -1,5 +1,9 @@
 # Contrato de identidade e fronteiras do gerador
 
+> Registro histórico da auditoria anterior à implementação. As referências a
+> código atual, propostas e pendências abaixo descrevem a base identificada,
+> não o candidato `073.4`. Consulte o [estado atual e seus gates](implementation-status.md).
+
 Auditoria de G01, G12 e G13 na base `d0242c4679ba6a00cea6fd48f42450f3b6e93322`.
 As linhas e símbolos abaixo referem-se a essa base. Este arquivo registra fatos
 observados e uma proposta técnica ainda não implementada. Não libera S2.

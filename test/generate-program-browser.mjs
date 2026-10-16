@@ -392,16 +392,24 @@ async function reviewGuards(browser) {
   return run.errors;
 }
 
-async function impossible(browser) {
+async function minimumBudget(browser) {
   const run = await fresh(browser);
   await answerGenerate(run.page, { days: 2, minutes: 20 });
-  const notice = run.page.locator("#onbBody .entry__notice[role=alert]");
-  await notice.waitFor({ state: "visible", timeout: 15000 });
-  const text = await notice.innerText();
-  check(text.includes("These answers don't make a program. Adjust the equipment or the schedule.")
-    && !await run.page.locator("#entryActivate").count(),
-    "two full-body days in up to 20 minutes show the time conflict and offer no program", text);
-  check(!(await state(run.page)).programMeta.programDefinition, "a conflicting request writes no program");
+  await run.page.waitForSelector("#entryReview [data-review-slot]", { timeout: 15000 });
+  const result = await run.page.evaluate(() => {
+    const definition = window.__repforgeEntryState?.()?.result?.preview?.programDefinition;
+    return { definition, valid: window.RepForgeProgramCompiler.validateProgramDefinition(
+      definition, window.RepForgeExerciseCatalog.snapshot(), []).ok };
+  });
+  check(result.valid && result.definition.request.timeCeilingMinutes === 20 &&
+    result.definition.provenance.generationBudgetMinutes === 18 &&
+    result.definition.request.split === "full_body" &&
+    result.definition.days.filter((day) => day.kind === "training").length === 2,
+    "two full-body days use the supported 20-minute option and source budget18", result);
+  check(await run.page.locator("#entryActivate").isVisible(), "the minimum-budget program reaches Review for confirmation");
+  const pending = await state(run.page);
+  check(!pending.programMeta.onboarded && !pending.programMeta.programDefinition && pending.program.length === 0,
+    "reviewing the minimum-budget program does not activate it");
   await run.context.close();
   return run.errors;
 }
@@ -840,45 +848,26 @@ async function onboardingConflict(browser) {
   const notice = page.locator("#onbBody .entry__notice[role=alert]");
   await notice.waitFor({ state: "visible", timeout: 15000 });
   const text = await notice.innerText();
-  check(/Without this equipment, nothing in the catalog can train: .*vertical pull/i.test(text) && /Nothing was saved/.test(text),
-    "Home without the pull-up bar and bands names the vertical pull it cannot train", text);
+  const expected = await page.evaluate(() => ({
+    generic: window.RepForgeI18n.t("entry.conflict_b.generic"),
+    nothing: window.RepForgeI18n.t("entry.conflict_b.nothing"),
+  }));
+  check(text.includes(expected.generic) && text.includes(expected.nothing),
+    "Home without the pull-up bar and bands explains the conflict and says nothing was saved", text);
   check(!(await state(page)).programMeta.onboarded && !(await page.locator("#entryActivate").count()), "a conflict activates nothing");
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
   if (await page.locator("#firstRunCreate").isVisible().catch(() => false)) await page.click("#firstRunCreate");
   if (await page.locator("#entryResumeContinue").count()) await page.click("#entryResumeContinue");
   await notice.waitFor({ state: "visible", timeout: 15000 });
-  check(/nothing in the catalog can train/i.test(await notice.innerText()), "a reload on the conflict shows it again");
+  check((await notice.innerText()) === text, "a reload on the conflict shows the same explanation");
+  check(await page.locator("[data-entry-action='conflict-back']").getAttribute("data-entry-step") === "equipment",
+    "an equipment generation conflict offers the equipment repair path");
   await page.click("[data-entry-action='conflict-back']");
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "equipment");
   const env = (await entry(page)).answers.environment;
   check(env.kind === "limited_home" && JSON.stringify(env.adjust?.remove || []) === JSON.stringify(["pullup_bar", "bands"]),
     "Back to equipment keeps the adjustment the lifter made", JSON.stringify(env));
-  await run.context.close();
-  return run.errors;
-}
-
-async function onboardingTimeConflict(browser) {
-  const run = await fresh(browser, { uuid: "cause-map" });
-  const { page } = run;
-  await page.click("#firstRunCreate");
-  await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
-  await answerRecommend(page, { skipBasics: true, environment: "everything", days: 2, minutes: 20, until: "abilities" });
-  await page.click("#onbNext");
-  const notice = page.locator("#onbBody .entry__notice[role=alert]");
-  await notice.waitFor({ state: "visible", timeout: 15000 });
-  const text = await notice.innerText();
-  check(text.includes("These answers don't make a program. Adjust the equipment or the schedule."),
-    "a time conflict uses B's approved generic copy", text);
-  const back = page.locator("[data-entry-action='conflict-back']");
-  check(await back.getAttribute("data-entry-step") === "session_length" && (await back.innerText()).trim() === "Back",
-    "a time conflict returns through the existing Back control to session length", {
-      step: await back.getAttribute("data-entry-step"), label: (await back.innerText()).trim(),
-    });
-  await back.click();
-  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "session_length");
-  check((await entry(page)).answers.sessionMinutes === 20,
-    "returning from the time conflict preserves the selected session length", (await entry(page)).answers.sessionMinutes);
   await run.context.close();
   return run.errors;
 }
@@ -1416,7 +1405,7 @@ async function main() {
     allErrors.push(await reviewAndAdjust(browser));
     allErrors.push(await reviewGuards(browser));
     allErrors.push(await answerEditorMatchesRecommend(browser));
-    allErrors.push(await impossible(browser));
+    allErrors.push(await minimumBudget(browser));
     allErrors.push(await onboardingB(browser));
     allErrors.push(await onboardingBNavigation(browser));
     allErrors.push(await onboardingPounds(browser));
@@ -1425,7 +1414,6 @@ async function main() {
     allErrors.push(await onboardingBuildingReduced(browser));
     allErrors.push(await onboardingBuildingMainFallback(browser));
     allErrors.push(await onboardingConflict(browser));
-    allErrors.push(await onboardingTimeConflict(browser));
     check(allErrors.flat().length === 0, "no page errors during Generate", allErrors.flat());
   } catch (error) {
     failures.push(String(error?.stack || error));

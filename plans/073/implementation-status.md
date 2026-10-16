@@ -79,7 +79,7 @@ embarcada para replay. Histórico e definições legíveis são preservados.
 | Worker e fallback | `test/program-engine-worker.mjs` | Comparação real no gate remoto |
 | Review, ativação, Focus, salvar e reload | `test/program-entry-s4.mjs` | Jornada atualizada; execução na CI |
 | Dados e versões | leitor de definição, receita e retomada de draft | Revisão independente; prova real na CI |
-| Visuais | captura oficial remota e comparação | Sem captura exaustiva local, por decisão do owner |
+| Visuais | captura oficial remota e comparação | 95 pares revisados em fc079; 92 incorporados, três aguardam nova captura após correção de texto |
 | Conclusão | revisão independente e `ci` verde no head final | Pendente |
 
 A matriz pública contém resultados do modelo de fonte independente do
@@ -107,6 +107,20 @@ A correção recusa esses pedidos. Fixtures novos usam sete ciclos normais, e as
 jornadas por lado fazem sua escolha explícita pelo Review de produção.
 A revisão independente fechou os findings de classificação, custo e essas
 correções. A CI completa da base não certifica este candidato.
-Resolver as falhas concretas restantes e publicar o conjunto coerente.
-Revisar os artefatos visuais remotos antes de atualizar a baseline.
-Só então reconciliar A01–A10 e encerrar S3, S4, S5 e o plano.
+Em `fc079ad0`, a CI confirmou as 17 escolhas na interface, equivalência do
+worker nas 17 variantes, persistência e reload do preview máximo e RIR 6 até
+salvar o treino. A suíte de geração ainda encontrou uma expectativa antiga de
+impossibilidade para dois dias e 20 minutos. Essa opção usa orçamento 18 e é
+válida; a jornada foi corrigida para provar Review sem ativação. O teste de
+transição também passou a preencher carga e repetições pela semântica da métrica.
+
+Os seis artefatos oficiais desse head contêm 95 pares de imagens e 86 mudanças
+semânticas revisados. Foram incorporadas 92 imagens e todas as 86 entradas
+semânticas; três imagens do seletor de periodização foram preservadas para nova
+captura. A revisão encontrou descrições antigas de variação fixa de duas reps e
+teto de recuperação em RIR 4. Os textos em inglês e português agora descrevem
+as faixas variáveis e o teto 6, sem alterar as fórmulas.
+
+A nova CI deve confirmar as duas jornadas corrigidas e produzir as capturas
+desses textos. Revisar as diferenças remanescentes, obter `ci` verde no head
+final e reconciliar A01–A10 antes de encerrar o plano.

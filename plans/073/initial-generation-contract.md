@@ -1,5 +1,9 @@
 # Primeira implementação das regras recuperadas
 
+> Contrato histórico do primeiro domínio liberado para implementação (S2).
+> Seus limites não restringem o candidato `073.4`; o domínio implementado e os
+> gates de produto pendentes estão no [estado atual](implementation-status.md).
+
 O gate de pesquisa está fechado para a primeira implementação parametrizada:
 Upper/Lower/Full, três dias, objetivo both, Advanced, faixa 40–60 com orçamento
 interno de 50 minutos, Static, sete ciclos normais e sem deload. Isso autoriza S2;

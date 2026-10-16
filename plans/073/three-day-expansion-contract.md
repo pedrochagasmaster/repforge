@@ -1,5 +1,9 @@
 # Ampliação controlada de Upper/Lower/Full
 
+> Contrato histórico das primeiras fatias de S3. A união de domínios e os
+> bloqueios registrados abaixo antecedem a composição ampliada e o deload do
+> candidato `073.4`. Consulte o [estado atual e seus gates](implementation-status.md).
+
 Este contrato delimita as próximas fatias de S3. Os gates de fonte abaixo foram
 revisados independentemente; a implementação e a aceitação no produto permanecem
 separadas. S2 está no PR 422, com a validação completa delegada à CI por decisão
