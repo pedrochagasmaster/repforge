@@ -40,6 +40,9 @@ assert.equal(typeof Compiler.canonicalizeRequest, "function", "compiler owns the
 const normalized = Compiler.canonicalizeRequest(request, catalog);
 assert.equal(normalized.ok, true, JSON.stringify(normalized));
 assert.equal(normalized.value.deprioritizedMuscleIds.length, 8);
+for (const field of ["split", "periodization"]) for (const value of ["", false, 0, []]) {
+ assert.equal(Compiler.canonicalizeRequest({...request,[field]:value},catalog).ok,false,"explicit unknown enum values must not become defaults");
+}
 for (const loads of [null, [], 0, { unknown: [1] }, { unknown: "wrong" }]) {
   assert.equal(Compiler.canonicalizeRequest({ ...request, gymProfile: { ...request.gymProfile, equipmentLoadsKg: loads } }, catalog).ok, false, "invalid equipment grids are refused at the canonical boundary");
 }

@@ -28,7 +28,7 @@ const WHY_REQUEST = {
   movementConfirmations: Object.fromEntries(WHY_OBSERVED_IDS.map((id) =>
     [id, [...WHY_CATALOG.exercises.find((entry) => entry.id === id).preconditions]])),
   emphasisMuscleIds: [], deprioritizedMuscleIds: [], excludedExerciseIds: [], excludedMuscleIds: [],
-  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 4, deloadCycles: [],
+  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 7, deloadCycles: [],
 };
 
 export function stabilizeShareUrlForCapture(value) {

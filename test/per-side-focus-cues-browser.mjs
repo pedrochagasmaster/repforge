@@ -21,7 +21,7 @@ const REQUEST = {
   movementConfirmations: Object.fromEntries(observedIds.map((id) =>
     [id, [...catalogFixture.exercises.find((entry) => entry.id === id).preconditions]])),
   emphasisMuscleIds: [], deprioritizedMuscleIds: [], excludedExerciseIds: [], excludedMuscleIds: [],
-  preferredExerciseIds: [PRESS_ID], split: "auto", periodization: "static", cycles: 4, deloadCycles: [],
+  preferredExerciseIds: [PRESS_ID], split: "auto", periodization: "static", cycles: 7, deloadCycles: [],
 };
 
 const CASES = [

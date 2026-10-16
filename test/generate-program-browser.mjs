@@ -1187,7 +1187,7 @@ async function sourceSplitChoicesJourney(browser) {
     await page.click("#entryResumeContinue");
     await page.waitForFunction(() => window.__repforgeEntryState()?.step === "exercise_preferences");
     await page.click("#onbNext");
-    const choices = page.locator('#onbBody > .entry-motion-page:not([aria-hidden="true"]) [data-entry-pick="splitPreference"]');
+    const choices = page.locator('#onbBody [data-entry-pick="splitPreference"]:not([aria-hidden="true"] *)');
     await choices.first().waitFor({ state: "visible", timeout: 10000 });
     const visible = await choices.evaluateAll(nodes => nodes.map(node => ({ id: node.dataset.entryVal,
       selected: node.getAttribute("aria-checked") === "true", text: node.textContent })));
@@ -1196,7 +1196,7 @@ async function sourceSplitChoicesJourney(browser) {
       visible.every(choice => !choice.text.includes("split.")),
       `source choices: ${daysPerWeek} days exposes every compatible translated split and the canonical default`, visible);
     for (const id of expected) {
-      await page.locator(`#onbBody > .entry-motion-page:not([aria-hidden="true"]) [data-entry-pick="splitPreference"][data-entry-val="${id}"]`).click();
+      await page.locator(`#onbBody [data-entry-pick="splitPreference"]:not([aria-hidden="true"] *)[data-entry-val="${id}"]`).click();
       await page.waitForFunction(id => JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1"))?.state?.answers?.splitPreference === id,
         id, { timeout: 10000 });
       const selected = await entry(page);

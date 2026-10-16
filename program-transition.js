@@ -464,7 +464,8 @@
     } else if (change.kind === "shorter_sessions") {
       if (change.sessionMinutes < 15 || change.sessionMinutes > 240) return unavailable("minutes_unsupported");
       const ceilings = compiler.TIME_CEILINGS;
-      const ceiling = [...ceilings].reverse().find((value) => value <= change.sessionMinutes) ?? ceilings[0];
+      const ceiling = [...ceilings].reverse().find((value) => value <= change.sessionMinutes);
+      if (ceiling === undefined) return unavailable("minutes_unsupported");
       if (definition.request?.goal && ceiling >= definition.request.timeCeilingMinutes) return unavailable("not_shorter_sessions");
       derived = regenerate(definition, { timeCeilingMinutes: ceiling }, catalog, compiler);
     } else if (change.kind === "reduce_volume") {

@@ -1,8 +1,10 @@
 # Implementação das regras de geração
 
 O candidato `073.4` integra S3 e S4 e remove o caminho de geração anterior.
-A conclusão do Plano 073 ainda depende da revisão dos consumidores e da CI no
-head final. O commit anterior `f4a3fda5` passou a CI completa, incluindo os 14
+A conclusão do Plano 073 ainda depende da CI no head final e da revisão dos
+artefatos visuais remotos. A revisão independente dos consumidores foi concluída;
+as correções posteriores também recebem revisão antes da publicação.
+O commit anterior `f4a3fda5` passou a CI completa, incluindo os 14
 shards de navegador. Esse resultado não certifica as alterações posteriores.
 
 ## Domínio implementado
@@ -98,7 +100,13 @@ paridade transacional desse export.
 ## Próximos passos exatos
 
 A implementação foi publicada em `d7ae4b3e`, com correção de descanso em
-`c3597bbc`. A revisão independente fechou os findings de classificação e custo.
-Inspecionar a CI e resolver suas falhas concretas.
+`c3597bbc`. O candidato `9f14ebb0` passou os gates rápidos e de serviço; os
+testes de navegador identificaram fixtures de geração nova com quatro ciclos
+e uma transição que elevava silenciosamente pedidos abaixo de 20 minutos.
+A correção recusa esses pedidos. Fixtures novos usam sete ciclos normais, e as
+jornadas por lado fazem sua escolha explícita pelo Review de produção.
+A revisão independente fechou os findings de classificação, custo e essas
+correções. A CI completa da base não certifica este candidato.
+Resolver as falhas concretas restantes e publicar o conjunto coerente.
 Revisar os artefatos visuais remotos antes de atualizar a baseline.
 Só então reconciliar A01–A10 e encerrar S3, S4, S5 e o plano.

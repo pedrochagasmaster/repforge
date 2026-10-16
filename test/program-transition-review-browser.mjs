@@ -42,7 +42,7 @@ const REQUEST = {
   movementConfirmations: Object.fromEntries(observedIds.map((id) =>
     [id, [...catalog.exercises.find((entry) => entry.id === id).preconditions]])),
   emphasisMuscleIds: [], deprioritizedMuscleIds: [], excludedExerciseIds: [], excludedMuscleIds: [],
-  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 4, deloadCycles: [],
+  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 7, deloadCycles: [],
 };
 const DAY = 86400000;
 let now = Date.parse("2026-03-02T09:00:00.000Z");

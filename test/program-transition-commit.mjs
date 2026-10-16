@@ -49,7 +49,7 @@ const REQUEST = {
   movementConfirmations: Object.fromEntries(observedIds.map((id) =>
     [id, [...rawCatalog.exercises.find((entry) => entry.id === id).preconditions]])),
   emphasisMuscleIds: [], deprioritizedMuscleIds: [], excludedExerciseIds: [], excludedMuscleIds: [],
-  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 4, deloadCycles: [],
+  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 7, deloadCycles: [],
 };
 const FEWER_DAYS = { kind: "fewer_days", daysPerWeek: 3 };
 const SHORTER_SESSIONS = { kind: "shorter_sessions", sessionMinutes: 60 };

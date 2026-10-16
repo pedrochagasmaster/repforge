@@ -111,13 +111,13 @@
         } else if (!Object.keys(loads).length) delete request.gymProfile.equipmentLoadsKg;
       }
     }
-    request.split = request.split || "auto";
+    request.split = request.split ?? "auto";
     if (request.split !== "auto" && !owns(SPLITS, request.split)) issues.push(fieldIssue("split", "unsupported_split", "Choose an authored split."));
     if (Number.isInteger(request.daysPerWeek) && owns(SPLITS, request.split)
       && !SPLITS[request.split].compatibleDays.includes(request.daysPerWeek)) {
       issues.push(fieldIssue("split", "split_frequency_mismatch", "This split is only available at its authored training frequency."));
     }
-    request.periodization = request.periodization || "static";
+    request.periodization = request.periodization ?? "static";
     if (!PERIODIZATIONS.includes(request.periodization)) issues.push(fieldIssue("periodization", "unsupported_periodization", "Choose static, linear, reverse linear, or undulating."));
     request.cycles = request.cycles === undefined ? 7 : request.cycles;
     if (!Number.isInteger(request.cycles) || request.cycles < 1 || request.cycles > 12) {
@@ -187,7 +187,7 @@
 
   function availableSplits(request) {
     return Object.keys(SPLITS).filter((id) => LAYOUT.supportsRequest({ ...request, split: id,
-      periodization: request.periodization || "static", cycles: request.cycles ?? 7, deloadCycles: request.deloadCycles || [] }));
+      periodization: request.periodization ?? "static", cycles: request.cycles ?? 7, deloadCycles: request.deloadCycles || [] }));
   }
 
   function canonicalizeRequest(request, catalog) {

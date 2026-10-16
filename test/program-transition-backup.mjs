@@ -56,7 +56,7 @@ const REQUEST = {
   movementConfirmations: Object.fromEntries(observedIds.map((id) =>
     [id, [...rawCatalog.exercises.find((entry) => entry.id === id).preconditions]])),
   emphasisMuscleIds: [], deprioritizedMuscleIds: [], excludedExerciseIds: [], excludedMuscleIds: [],
-  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 4, deloadCycles: [],
+  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 7, deloadCycles: [],
 };
 
 const failures = [];

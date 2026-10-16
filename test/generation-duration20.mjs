@@ -105,5 +105,11 @@ test('shorter-session transition preserves recovered option20 and its predecesso
   assert.equal(derived.value.programDefinition.provenance.generationBudgetMinutes,budget);
   assert.equal(Compiler.validateProgramDefinition(derived.value.programDefinition,catalog).ok,true);
  }
+ // A target below the shortest option cannot silently become a longer session.
+ for(const minutes of [15,19]){
+  const refused=Transition.deriveSuccessor({programDefinition:previous.value,customExerciseDefinitions:[],catalogSnapshot:catalog,
+   change:{kind:'shorter_sessions',sessionMinutes:minutes}});
+  assert.equal(refused.ok,false);assert.equal(refused.code,'minutes_unsupported');
+ }
  assert.equal(JSON.stringify(previous.value),saved);
 });

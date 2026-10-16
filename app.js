@@ -17398,7 +17398,7 @@ function entryJobName(purposeId){
   return key?t(`entry.review.job.${key}`):""}
 function renderBConflict(failure){
   const conflicts=Array.isArray(failure?.conflicts)?failure.conflicts:[];
-  const equipment=conflicts.filter(item=>item?.code==="no_eligible_exercise");
+  const equipment=conflicts.filter(item=>item?.code==="no_eligible_exercise"||item?.code==="insufficient_candidates");
   const time=conflicts.some(item=>item?.code==="time_ceiling_exceeded");
   const jobs=[...new Set(equipment.map(item=>entryJobName(item.purposeId)).filter(Boolean))];
   if(!equipment.length&&!time)return null;
