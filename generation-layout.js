@@ -237,7 +237,7 @@
   }
   function generate(request, selector) {
     const profile = request && (request.goal === "hybrid" && (
-      request.timeCeilingMinutes === 40 && request.periodization === "static"
+      [20, 40].includes(request.timeCeilingMinutes) && request.periodization === "static"
       || request.timeCeilingMinutes === 60 && ["static", "linear", "reverse_linear", "undulating"].includes(request.periodization))
       || ["hypertrophy", "strength"].includes(request.goal) && request.timeCeilingMinutes === 60 && request.periodization === "static");
     const experienceAllowed = request && (request.experience === "advanced" || (["beginner", "intermediate"].includes(request.experience)
@@ -246,7 +246,7 @@
       && experienceAllowed && request.cycles === 7 && Array.isArray(request.deloadCycles) && request.deloadCycles.length === 0;
     const priorities = selector?.priorities; const depriorities = selector?.depriorities;
     if (!supported || !Array.isArray(priorities) || !Array.isArray(depriorities) || !priorities.every(m => allMuscles.has(m)) || !depriorities.every(m => allMuscles.has(m)) || priorities.some(m => depriorities.includes(m))) return { status: "unsupported", code: "unsupported_generation_domain" };
-    const budgetMinutes = request.timeCeilingMinutes === 40 ? 30 : 50;
+    const budgetMinutes = request.timeCeilingMinutes === 20 ? 18 : request.timeCeilingMinutes === 40 ? 30 : 50;
     const allocation = allocations(budgetMinutes, request.goal); const { selected, missing } = produce(selector, allocation, request.goal);
     const days = distribute(selected); spillover(days); optimize(days);
     const ordered = days.map(t => finish(t, priorities, request.goal === "strength" ? strengthDefaults : defaults));

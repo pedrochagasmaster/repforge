@@ -51,6 +51,7 @@ export const SUITES = {
     s("test/generation-identity.mjs", [], { domains: ["program"] }),
     s("test/generation-candidates.mjs", [], { domains: ["program"] }),
     s("test/generation-layout.mjs", [], { domains: ["program"] }),
+    s("test/generation-duration20.mjs", [], { nodeArgs: ["--test"], domains: ["program"] }),
     s("test/program-generation-parity.mjs", [], { domains: ["program"] }),
     s("test/generation-periodization.mjs", [], { domains: ["program"] }),
     s("test/program-compiler-plan067.mjs"),

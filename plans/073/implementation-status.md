@@ -1,6 +1,6 @@
 # Implementação S2 e ampliação inicial de S3
 
-O gerador `073.2` preserva o [domínio inicial validado](initial-generation-contract.md)
+O gerador `073.3` preserva o [domínio inicial validado](initial-generation-contract.md)
 e implementa a [união delimitada de S3](three-day-expansion-contract.md).
 O Plano 073 permanece em andamento. S3, S4 e S5 não estão concluídas, e as entradas
 reais usadas para gerar Godmode2 continuam sem confirmação transacional.
@@ -44,7 +44,7 @@ a política vigente, sem alegação de paridade recuperada.
 
 ## Ampliação inicial de S3
 
-A geração recuperada aceita Hybrid/Advanced na opção 40 com Static, os três
+A geração recuperada aceita Hybrid/Advanced nas opções 20 e 40 com Static, os três
 modos periodizados em Hybrid/Advanced/60, Hypertrophy/Advanced/60/Static e
 Strength/Advanced/60/Static. Hybrid/60/Static aceita também Beginner e
 Intermediate. A tabela do contrato enumera a união exata. Todos conservam três
@@ -63,10 +63,15 @@ controladas de role, pull, séries e métricas, além dos três modos no catálo
 A correção de ordenação Strength recebeu revisão independente. A comparação de
 experiência preserva IDs semânticos de métricas e remove somente os IDs gerados.
 
-As jornadas de duração 40, Hypertrophy 60, Strength 60, duas experiências novas
+A opção 20 usa orçamento 18 e conserva o empate recuperado dos compostos
+lower. A prova curta passou nos quatro contratos de alocação, doses tipadas,
+receita e transição 20/40. A suíte de layout também passou. As expectativas
+anteriores de recusa para Static/20 foram migradas, e Linear/20 continua recusado.
+
+As jornadas de duração 20 e 40, Hypertrophy 60, Strength 60, duas experiências novas
 e edição dos três modos foram preparadas para a CI, sem execução local. Não
 repetir a captura exaustiva na devbox; revisar diferenças visuais pelos artefatos
-remotos. Resultados de 073.1 ou anteriores não substituem o gate no head 073.2.
+remotos. Resultados de versões anteriores não substituem o gate no head 073.3.
 
 ## Provas e pendências
 
@@ -81,13 +86,14 @@ numéricas. O navegador usa os produtores e consumidores reais.
 | Elegibilidade, tiers, equipamentos e alternância | `node test/generation-candidates.mjs` | Passou |
 | Alocação, distribuição, custo e ordenação | `node test/generation-layout.mjs` | Passou |
 | Domínios recuperados, sete ciclos, IDs e recusas | `node test/program-generation-parity.mjs` | Passou |
+| Duração 20, empate lower, quatro primários de uma série, métricas, receita e transições | `node --test test/generation-duration20.mjs` | Passou, quatro contratos; navegador na CI |
 | Períodos, centros, RIR, métricas null e posições repetidas | `node test/generation-periodization.mjs` | Passou, 324 combinações controladas e três modos no catálogo real |
 | Entrada, oito despriorizações e limites | `node --test test/program-entry.mjs test/program-entry-inputs.mjs test/program-entry-production-adapter.mjs` | Passou |
 | Catálogo verificado e imutável | `node test/exercise-catalog.mjs` | Passou |
 | Receita atual, recusa de versão e catálogo, full share | `node test/shared-setup-unit.mjs` | Passou |
 | Propriedades gerativas do compilador | `node test/generative/run.mjs --profile smoke --filter "program compiler" --seed 2895473493` | Passou |
 | Configurações anteriores e contratos de transição | `node test/program-compiler-plan067.mjs`; `node test/program-compiler-search.mjs`; `node test/program-transition-plan067.mjs` | Passou |
-| Formulário → worker/fallback → review → ativação → Focus → reload; edição não suportada e versão antiga | `node tools/run-tests.mjs entry --suite-id test-generate-program-browser-mjs` | Passou em 073.0, 203 verificações; ampliação 073.2 aguarda CI |
+| Formulário → worker/fallback → review → ativação → Focus → reload; edição não suportada e versão antiga | `node tools/run-tests.mjs entry --suite-id test-generate-program-browser-mjs` | Passou em 073.0, 203 verificações; ampliação 073.3 aguarda CI |
 | Worker, cancelamento e fallback | `node tools/run-tests.mjs entry --suite-id test-program-engine-worker-mjs` | Passou em 073.0, 46 verificações; head atual aguarda CI |
 | Confirmação, anúncio exato, respostas antigas e rebuild do bloco | `node tools/run-tests.mjs entry --suite-id test-program-entry-s4-mjs` | Passou |
 | Compartilhamento real e receitas | `node tools/run-tests.mjs entry --suite-id test-shared-setup-flow-mjs` | Passou, 184 verificações |
@@ -106,6 +112,8 @@ conclusão deve registrar o SHA limpo, a revisão independente e o resultado de
 | S2-LOW-04 | Anúncio após confirmação incluía dois nomes que não mudaram. A prova real falhou antes da correção por posições; a mesma suíte passou após a correção, incluindo foco e descarte de respostas antigas. |
 | S2-LOW-05 | A fixture de conflito podia fotografar antes de montar o Review ou fora do aviso. A espera exige as linhas da definição atual; o enquadramento exige o aviso completo no viewport. Os três variants focados passaram. |
 | S3-STR-LOW-01 | Strength usava os grupos Hybrid na ordenação final. A prova por dia reproduziu A,B,A em vez de A,A,B; os grupos específicos agora chegam à produção e à ordenação. RED/GREEN e correção receberam revisão independente. |
+| S2-LOW-08 | A prova de acessibilidade ainda exigia os 12 músculos anteriores. Agora exige os 22 grupos, nomes distintos, três opções e uma seleção por grupo. A navegação por teclado permanece coberta; execução na CI. |
+| S2-LOW-07 | A CI reproduziu uma fixture que confundia elegibilidade com seleção automática de Barbell bench press. A prova usa escolha explícita pelo Review real. Sem a resposta, exige geração válida e ausência tanto no programa como nas substituições. Correção revisada independentemente; navegador fica na CI. |
 | S2-LOW-06 | A CI encontrou dois loaders VM sem os módulos novos, inventário de sintaxe incompleto e vocabulário de telemetria sem ULF. Os loaders seguem a ordem real, o inventário inclui os três módulos e o enum fechado aceita ULF. As quatro provas exatas passaram; cache 462. |
 
 A primeira captura completa foi interrompida após 141 frames para corrigir os

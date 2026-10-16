@@ -954,6 +954,7 @@ async function recoveredGenerationJourney(browser) {
   for (const { withoutWorker, minutes, goal, expectedGoal, lifting = "over_24m", expectedExperience = "advanced" } of [
     { withoutWorker: false, minutes: 60, goal: "balanced", expectedGoal: "hybrid" },
     { withoutWorker: true, minutes: 60, goal: "balanced", expectedGoal: "hybrid" },
+    { withoutWorker: false, minutes: 20, goal: "balanced", expectedGoal: "hybrid" },
     { withoutWorker: false, minutes: 40, goal: "balanced", expectedGoal: "hybrid" },
     { withoutWorker: false, minutes: 60, goal: "muscle_growth", expectedGoal: "hypertrophy" },
     { withoutWorker: false, minutes: 60, goal: "strength", expectedGoal: "strength" },
@@ -985,7 +986,7 @@ async function recoveredGenerationJourney(browser) {
       `P073 ${mode}: review contains the canonical seedless compiler definition`, expected?.conflicts);
     check(definition?.request?.goal === expectedGoal && definition.request.experience === expectedExperience &&
       definition.request.daysPerWeek === 3 && definition.request.timeCeilingMinutes === minutes &&
-      definition.provenance.generationBudgetMinutes === (minutes === 40 ? 30 : 50) &&
+      definition.provenance.generationBudgetMinutes === (minutes === 20 ? 18 : minutes === 40 ? 30 : 50) &&
       definition.request.periodization === "static" && definition.cycles === 7 &&
       definition.request.deloadCycles.length === 0 && definition.request.deprioritizedMuscleIds.length === 8,
       `P073 ${mode}: requested goal, option and recovered budget reach Static seven-cycle review`, definition?.request);
@@ -1165,16 +1166,34 @@ async function main() {
       "answering yes to bench press x10 records a true competency answer", abilityYesStaged.answers.competencyAnswers);
     const benchId = Catalog.exercises.find((item) => item.name === "Barbell bench press").id;
     const abilityYesMapped = Adapter.programRequestFromAnswers(abilityYesStaged.answers, Catalog);
-    const withAnswer = abilityYesMapped.ok ? Compiler.generateProgram(abilityYesMapped.value, Catalog) : { ok: false };
+    const withAnswer = abilityYesStaged.result?.preview?.programDefinition;
+    if (!slotsOf(withAnswer).some((slot) => slot.exerciseId === benchId)) {
+      const eligible = slotsOf(withAnswer).map((slot) => ({ slot,
+        candidate: Compiler.findSubstitutions(withAnswer, slot.id, {}, Catalog).find((item) => item.exerciseId === benchId) }))
+        .find((item) => item.candidate);
+      check(!!eligible, "answering yes exposes barbell bench press as an engine substitution");
+      if (eligible) {
+        const dayIndex = withAnswer.days.findIndex((day) => (day.slots || []).some((slot) => slot.id === eligible.slot.id));
+        await abilityYes.page.locator(`#entryReview [data-review-tab="${dayIndex}"]`).click();
+        await openSlot(abilityYes.page, eligible.slot.id);
+        if (!await abilityYes.page.locator(`#reviewSheet [data-review-swap="${benchId}"]`).count()) {
+          await abilityYes.page.locator("#reviewSheet [data-review-more-subs]").click();
+        }
+        await abilityYes.page.locator(`#reviewSheet [data-review-swap="${benchId}"]`).click();
+        await closeSheet(abilityYes.page);
+      }
+    }
     const withoutAnswerRequest = abilityYesMapped.ok
       ? { ...abilityYesMapped.value, competencyAnswers: { ...abilityYesMapped.value.competencyAnswers, benchPress10: null } }
       : null;
     const withoutAnswer = withoutAnswerRequest ? Compiler.generateProgram(withoutAnswerRequest, Catalog) : { ok: false };
-    const idsWith = withAnswer.ok ? withAnswer.value.days.flatMap((day) => (day.slots || []).map((slot) => slot.exerciseId)) : [];
-    const idsWithout = withoutAnswer.ok ? withoutAnswer.value.days.flatMap((day) => (day.slots || []).map((slot) => slot.exerciseId)) : [];
-    check(idsWith.includes(benchId) && !idsWithout.includes(benchId),
-      "answering yes to bench press x10 makes barbell bench press eligible for a commercial-gym program, where it was not without the answer",
-      { idsWith, idsWithout });
+    const idsWith = slotsOf(await reviewed(abilityYes.page)).map((slot) => slot.exerciseId);
+    const idsWithout = withoutAnswer.ok ? slotsOf(withoutAnswer.value).map((slot) => slot.exerciseId) : null;
+    const benchAvailableWithout = withoutAnswer.ok && slotsOf(withoutAnswer.value).some((slot) =>
+      Compiler.findSubstitutions(withoutAnswer.value, slot.id, {}, Catalog).some((item) => item.exerciseId === benchId));
+    check(idsWith.includes(benchId) && idsWithout && !idsWithout.includes(benchId) && !benchAvailableWithout,
+      "answering yes permits the chosen barbell bench press in review; without the answer it is neither generated nor offered",
+      { idsWith, idsWithout, benchAvailableWithout });
     await abilityYes.context.close();
 
     // #340: answering yes to 10 strict pull-ups permits a weighted vertical

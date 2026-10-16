@@ -82,7 +82,7 @@ const noAccessories40=layout.generate(request40,selector({fail:s=>s.type==='acce
 assert.equal(noAccessories40.status,'insufficient');
 assert.equal(noAccessories40.days.flatMap(d=>d.templates).length,6);
 assert.equal(noAccessories40.days.flatMap(d=>d.templates).reduce((n,t)=>n+t.numSets,0),12);
-for (const change of [{goal:'strength',periodization:'linear'},{split:'upper_lower'},{daysPerWeek:4},{timeCeilingMinutes:20},{timeCeilingMinutes:90},{timeCeilingMinutes:120},{timeCeilingMinutes:150},{experience:'beginner',timeCeilingMinutes:40},{cycles:8},{deloadCycles:[7]}]) {
+for (const change of [{goal:'strength',periodization:'linear'},{split:'upper_lower'},{daysPerWeek:4},{timeCeilingMinutes:20,periodization:'linear'},{timeCeilingMinutes:90},{timeCeilingMinutes:120},{timeCeilingMinutes:150},{experience:'beginner',timeCeilingMinutes:40},{cycles:8},{deloadCycles:[7]}]) {
  assert.equal(layout.generate({...request,...change},selector()).status,'unsupported');
 }
 for(const periodization of ['linear','reverse_linear','undulating']) {

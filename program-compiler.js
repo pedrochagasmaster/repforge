@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const GENERATOR_VERSION = "073.2";
+  const GENERATOR_VERSION = "073.3";
   const IDENTITY = root?.RepForgeGenerationIdentity || (typeof require === "function" ? require("./generation-identity.js") : null);
   const CANDIDATES = root?.RepForgeGenerationCandidates || (typeof require === "function" ? require("./generation-candidates.js") : null);
   const LAYOUT = root?.RepForgeGenerationLayout || (typeof require === "function" ? require("./generation-layout.js") : null);
@@ -334,7 +334,7 @@
   function recoveredGenerationDomain(request) {
     const periodization = request.periodization || "static";
     const hybrid = request.goal === "hybrid" && (
-      request.timeCeilingMinutes === 40 && periodization === "static"
+      [20, 40].includes(request.timeCeilingMinutes) && periodization === "static"
       || request.timeCeilingMinutes === 60 && PERIODIZATIONS.includes(periodization));
     const staticGoal = ["hypertrophy", "strength"].includes(request.goal) && request.timeCeilingMinutes === 60 && periodization === "static";
     const experienceAllowed = request.experience === "advanced" || (["beginner", "intermediate"].includes(request.experience)

@@ -239,9 +239,9 @@ assert.equal(new Set(ids40).size,ids40.length);
 const exhausted40=Compiler.generateProgram({...request40,excludedExerciseIds:catalog.exercises.map(exercise=>exercise.id)},catalog);
 assert.equal(exhausted40.ok,false);assert.equal(exhausted40.value,null,'catalogue exhaustion returns no partial program');
 assert(exhausted40.conflicts.length>0);
-for(const minutes of [20,90,120,150]){
+for(const minutes of [90,120,150]){
  const unsupported=Compiler.generateProgram({...request,timeCeilingMinutes:minutes},catalog);
- assert.equal(unsupported.ok,false,'only40 and60 enter the recovered duration domain');
+ assert.equal(unsupported.ok,false,'only20,40 and60 enter the recovered duration domain');
  assert.equal(unsupported.value,null);
 }
 // Transition protocol proofs exercise unsupported recovered-domain overrides
@@ -250,7 +250,7 @@ const Transition = require("../program-transition.js");
 const reviewed = structuredClone(first.value);
 reviewed.days.find(day => day.kind === "training").slots[0].prescriptionsByCycle[0].sets[0].rir = 3;
 const savedReviewed = JSON.stringify(reviewed);
-for (const change of [{ kind: "fewer_days", daysPerWeek: 2 }, { kind: "shorter_sessions", sessionMinutes: 20 }]) {
+for (const change of [{ kind: "fewer_days", daysPerWeek: 2 }]) {
   const derived = Transition.deriveSuccessor({ programDefinition: reviewed,
     customExerciseDefinitions: [], catalogSnapshot: catalog, change });
   assert.equal(derived.ok, false, `${change.kind} cannot replace recovered rules with old policy`);
@@ -258,13 +258,15 @@ for (const change of [{ kind: "fewer_days", daysPerWeek: 2 }, { kind: "shorter_s
   assert.ok(derived.conflicts.some(conflict => conflict.code === "unsupported_generation_domain"));
   assert.equal(JSON.stringify(reviewed), savedReviewed, "refusal preserves the exact reviewed predecessor");
 }
-const shorter40=Transition.deriveSuccessor({programDefinition:reviewed,customExerciseDefinitions:[],catalogSnapshot:catalog,
- change:{kind:'shorter_sessions',sessionMinutes:40}});
-assert.equal(shorter40.ok,true,'supported shorter40 keeps the recovered policy');
-assert.equal(shorter40.value.programDefinition.provenance.source,'recovered_generation_rules');
-assert.equal(shorter40.value.programDefinition.request.timeCeilingMinutes,40);
-assert.equal(shorter40.value.programDefinition.provenance.generationBudgetMinutes,30);
-assert.equal(Compiler.validateProgramDefinition(shorter40.value.programDefinition,catalog).ok,true);
+for(const [minutes,budget] of [[20,18],[40,30]]) {
+ const shorter=Transition.deriveSuccessor({programDefinition:reviewed,customExerciseDefinitions:[],catalogSnapshot:catalog,
+  change:{kind:'shorter_sessions',sessionMinutes:minutes}});
+ assert.equal(shorter.ok,true,`supported shorter${minutes} keeps the recovered policy`);
+ assert.equal(shorter.value.programDefinition.provenance.source,'recovered_generation_rules');
+ assert.equal(shorter.value.programDefinition.request.timeCeilingMinutes,minutes);
+ assert.equal(shorter.value.programDefinition.provenance.generationBudgetMinutes,budget);
+ assert.equal(Compiler.validateProgramDefinition(shorter.value.programDefinition,catalog).ok,true);
+}
 assert.equal(JSON.stringify(reviewed),savedReviewed,'successful derivation also preserves its reviewed predecessor');
 console.log("program-generation-parity: canonical inputs, recovered Static targets, seven cycles, identity and strict failures pass");
 

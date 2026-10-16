@@ -16,6 +16,7 @@ Não alteram as fórmulas de carga, progressão ou fadiga.
 | --- | --- | --- | --- | --- | --- |
 | S2 preservada | hybrid | advanced | 60 | 50 | static |
 | S3 duração | hybrid | advanced | 40 | 30 | static |
+| S3 duração mínima | hybrid | advanced | 20 | 18 | static |
 | S3 objetivo | hypertrophy | advanced | 60 | 50 | static |
 | S3 força | strength | advanced | 60 | 50 | static |
 | S3 experiência | hybrid | beginner, intermediate | 60 | 50 | static |
@@ -28,6 +29,12 @@ Requisições explícitas fora dela são recusadas; uma edição recusada preser
 programa revisado e o draft.
 
 ## Duração e objetivo
+
+A opção 20 usa orçamento de 18 minutos. A alocação recuperada distingue o
+empate dos compostos lower e produz quatro primários de uma série no caso
+controlado. Não generalizar essa opção para outras experiências, objetivos ou
+modos. A prova conserva as métricas tipadas, RIR e identidade de cada ciclo,
+além da requisição e receita completas.
 
 A opção 40 representa a faixa 20–40 e resolve orçamento de 30 minutos. Não
 reintroduzir o corte temporal antigo nem usar a estimativa como teto obrigatório.

@@ -296,8 +296,9 @@ async function runBControlsA11y(browser, check) {
       name: document.getElementById(group.getAttribute("aria-labelledby"))?.textContent || "",
       radios: group.querySelectorAll("[role='radio']").length,
       checked: group.querySelectorAll("[role='radio'][aria-checked='true']").length })));
-    check(groups.length === 12 && groups.every((group) => group.name && group.radios === 3 && group.checked === 1),
-      "each of the twelve muscles is a labelled radio group of Less, Normal and More with one choice", JSON.stringify(groups.slice(0, 2)));
+    check(groups.length === 22 && new Set(groups.map((group) => group.name)).size === 22
+      && groups.every((group) => group.name && group.radios === 3 && group.checked === 1),
+      "each of the 22 muscles is a distinctly labelled radio group of Less, Normal and More with one choice", JSON.stringify(groups));
     const first = page.locator(".entry-b__priority [role='radiogroup']").first().locator("[role='radio'][aria-checked='true']");
     await first.focus();
     await page.keyboard.press("ArrowRight");
