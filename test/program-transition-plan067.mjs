@@ -437,8 +437,8 @@ assert.deepEqual(unidentified.value.programDefinition, threeDays);
     const surviving = slotsOf(base).find((slot) => successorSlotFor(successor, slot));
     const removedSlot = slotsOf(base).find((slot) => !exerciseIds(successor).has(slot.exerciseId));
     assert.ok(surviving, `${change.kind}: the fixture keeps a movement`);
-    // Fewer days keeps every movement; a shorter session drops some.
-    assert.equal(!!removedSlot, change.kind === "shorter_sessions", `${change.kind}: removed movements as expected`);
+    // Both smaller-budget fixtures keep a movement and remove another.
+    assert.ok(removedSlot, `${change.kind}: the fixture removes a movement for the alternates cleanup proof`);
     const others = slotsOf(base).map((slot) => slot.exerciseId).filter((id) => id !== surviving.exerciseId && id !== removedSlot?.exerciseId);
     const alternates = [removedSlot?.exerciseId || others[2], others[0]];
     const withAlternates = structuredClone(base);

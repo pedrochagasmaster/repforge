@@ -12,7 +12,7 @@ const primary = '2dc5c6f170d88157bb0bd7609d767bc6';
 const secondary = '2dc5c6f170d8814c8fcaf2e322abde4d';
 const accessory = '2dc5c6f170d881faa946ee13702e7ea7';
 function row(id, tier = 1, extra = {}) {
-  return { ...source.exercises[0], id, movementPattern: [HP], preconditions: [], resistanceEquipmentGroupIds: [], supportEquipmentGroupIds: [], emphasizedAgonist: [], deemphasizedAgonist: [], exclusionGroupings: [], exerciseClassificationStrength: [primary, secondary, accessory], exerciseClassificationHypertrophy: [primary, secondary, accessory], strengthPrimaryCompoundRecommendationLevel: tier, hypertrophySecondaryCompoundRecommendationLevel: tier, hypertrophyAccessoryRecommendationLevel: tier, ...extra };
+  return { ...source.exercises[0], id, movementPattern: [HP], preconditions: [], resistanceEquipmentGroupIds: [], supportEquipmentGroupIds: [], emphasizedAgonist: [], deemphasizedAgonist: [], exclusionGroupings: [], exerciseClassificationStrength: [primary, secondary, accessory], exerciseClassificationHypertrophy: [primary, secondary, accessory], strengthPrimaryCompoundRecommendationLevel: tier, hypertrophyPrimaryCompoundRecommendationLevel: tier, hypertrophySecondaryCompoundRecommendationLevel: tier, hypertrophyAccessoryRecommendationLevel: tier, ...extra };
 }
 const request = (extra = {}) => ({ goal: 'hybrid', experience: 'advanced', gymProfile: { equipmentIds: [] }, competencyAnswers: {}, emphasisMuscleIds: [], deprioritizedMuscleIds: [], preferredExerciseIds: [], ...extra });
 const selector = (rows, req = request(), hard = () => true) => create({ ...source, exercises: rows }, req, hard);

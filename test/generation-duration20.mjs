@@ -66,8 +66,12 @@ test('option20 source identities, typed targets and production cycle consumer pr
   }
  }
  for(const patch of [{experience:'beginner'},{experience:'intermediate'},{goal:'hypertrophy'},{goal:'strength'},
-  {periodization:'linear'},{periodization:'reverse_linear'},{periodization:'undulating'},{cycles:8},{deloadCycles:[7]}]){
-  const outside={...request,...patch};assert.equal(Compiler.generateProgram(outside,catalog).ok,false);
+  {periodization:'linear'},{periodization:'reverse_linear'},{periodization:'undulating'}]){
+  const supported={...request,...patch};assert.equal(Compiler.generateProgram(supported,catalog).ok,true,'option20 composes with recovered experience, goal and periodization rules');
+  assert.equal(Compiler.availableSplits(supported).includes('upper_lower_full'),true);
+ }
+ for(const patch of [{cycles:8},{deloadCycles:[7]}]){
+  const outside={...request,...patch};assert.equal(Compiler.generateProgram(outside,catalog).ok,false,'seven normal positions remain mandatory');
   assert.equal(Compiler.availableSplits(outside).includes('upper_lower_full'),false);
  }
  const exhausted=Compiler.generateProgram({...request,gymProfile:{equipmentIds:[]}},catalog);

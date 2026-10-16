@@ -17,7 +17,7 @@ delete request.seed;
 Object.assign(request, {
   daysPerWeek: 4,
   timeCeilingMinutes: 150,
-  cycles: 1,
+  cycles: 7,
   deloadCycles: [],
   split: "auto",
 });

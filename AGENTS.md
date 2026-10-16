@@ -39,12 +39,21 @@ See `docs/adr/0014-free-form-program-import-handoff.md`.
 Generate's result screen is onboarding B's review editor (`program-review.js`,
 Plan 070, ADR 0020 on PR #350). Each adjustment is one validated edit,
 committed to the setup draft as the edited definition; the recommendation it
-is compared with is regenerated in memory from the draft's answers and seed.
+is compared with is regenerated in memory from the canonical request, generator
+version and semantic catalogue identity.
 The edit log that lets Undo survive a reload is tab-scoped `sessionStorage`
 (`repforge_entry_review_v1`: draft id, the recommendation's fingerprint, the
 edits). It is never exported, transferred or logged, is kept after a reload
 only when replaying it rebuilds the saved definition, and is cleared on
 activation and whenever the setup draft is removed.
+
+Generation policy is owned by `program-compiler.js`, `generation-candidates.js`
+and `generation-layout.js`. When changing generation, split choices, cycle
+prescriptions, recipes or rebuild, read `plans/073/implementation-status.md` and
+`docs/generator-rule-parity-spec.md`. `generation-layout.js` owns the 13 split
+identities and 17 frequency variants; do not add a parallel compatibility list
+or restore the retired jobs/time-cut generator. Stored definitions are read by
+their authored structure, separately from current generation eligibility.
 
 Generation runs off the main thread whenever a worker can (#353).
 `program-engine.js` is both the page client and its dedicated worker. The worker

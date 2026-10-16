@@ -1,9 +1,8 @@
 # Plano 073: implementação das regras de geração recuperadas
 
-**Estado:** contrato aprovado em 15/10/2026; S0 iniciada com suplemento offline,
-verificador e auditorias. A pesquisa S1 liberou o domínio inicial; S2 iniciada
-conforme [contrato de implementação](073/initial-generation-contract.md).
-A aceitação funcional ainda depende do fluxo completo.
+**Estado:** contrato aprovado em 15/10/2026. A recuperação sustenta o candidato
+`073.4`, com S2–S4 implementadas e caminho anterior removido. A conclusão de S5
+permanece condicionada à revisão final, CI no head final e reconciliação A01–A10.
 **Issue:** [#421](https://github.com/pedrochagasmaster/repforge/issues/421).
 **Spec:** [fechamento dos gaps de geração](../docs/generator-rule-parity-spec.md).
 **Base examinada:** `d0242c4679ba6a00cea6fd48f42450f3b6e93322`.
@@ -313,6 +312,7 @@ Gaps de fonte exigem investigação, não respostas do usuário para fatos que
 podem ser recuperados. Decisões de produto Q1–Q12 estão encerradas; só um novo
 conflito de produto fora desse contrato exige reabrir a entrevista.
 
-Sem mudança de engine nesta entrega, nenhum teste de paridade da aplicação foi
-declarado aprovado. A publicação do suplemento para revisão não libera uma etapa funcional.
+O suplemento inicial não alterou a engine. A implementação posterior e suas
+provas estão no estado da implementação; o suplemento isolado não libera uma
+etapa funcional.
 Não fazer merge ou liberar a engine por ter apenas documentação e corpus válidos.

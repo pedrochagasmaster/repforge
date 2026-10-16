@@ -28,9 +28,8 @@ const requestArbitrary = fc.record({
   experience: fc.constantFrom(...Compiler.EXPERIENCES),
   daysPerWeek: fc.integer({ min: 3, max: 6 }),
   timeCeilingMinutes: fc.constantFrom(...Compiler.TIME_CEILINGS.filter((minutes) => minutes >= 40 && minutes <= 120)),
-  cycles: fc.integer({ min: 1, max: 12 }),
-  requestDeload: fc.boolean(),
-}).map(({ goal, experience, daysPerWeek, timeCeilingMinutes, cycles, requestDeload }) => ({
+  deloadPosition: fc.constantFrom(null, "first", "last"),
+}).map(({ goal, experience, daysPerWeek, timeCeilingMinutes, deloadPosition }) => ({
   request: {
     goal,
     experience,
@@ -46,8 +45,9 @@ const requestArbitrary = fc.record({
     preferredExerciseIds: [],
     split: "auto",
     periodization: "static",
-    cycles,
-    deloadCycles: requestDeload ? [Math.max(1, Math.ceil(cycles / 2))] : [],
+    // Seven normal positions; the optional sentinel is an extra endpoint.
+    cycles: deloadPosition === null ? 7 : 8,
+    deloadCycles: deloadPosition === "first" ? [1] : deloadPosition === "last" ? [8] : [],
   },
 }));
 

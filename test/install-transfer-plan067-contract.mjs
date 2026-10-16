@@ -39,7 +39,7 @@ const request = {
   },
   movementConfirmations, emphasisMuscleIds: [], deprioritizedMuscleIds: [],
   excludedExerciseIds: [], excludedMuscleIds: [], preferredExerciseIds: [],
-  split: "auto", periodization: "static", cycles: 12, deloadCycles: [],
+  split: "auto", periodization: "static", cycles: 7, deloadCycles: [],
 };
 const compiled = Compiler.generateProgram(request, catalogSnapshot);
 assert.equal(compiled.ok, true, "install fixture uses a real complete compiler definition");

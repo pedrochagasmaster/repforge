@@ -321,6 +321,10 @@ try {
     assert.equal(resumed.route, "custom", "the resume card keeps the saved Custom route");
     assert.equal(resumed.step, "exercise_preferences", "the resume card returns to the saved Custom question");
     await page.click("#onbNext");
+    await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "custom_shape", undefined, { timeout: 10000 });
+    assert.equal(await page.locator('#onbBody > .entry-motion-page:not([aria-hidden="true"]) [data-entry-pick="splitPreference"][aria-checked="true"]').getAttribute("data-entry-val"),
+      "upper_lower_upper_lower", "the resumed four-day route offers split choice with the canonical default selected");
+    await page.click("#onbNext");
     await page.waitForFunction(() => window.__repforgeEntryState?.()?.route === "custom" &&
       window.__repforgeEntryState()?.step === "result" && !!window.__repforgeEntryState()?.result?.preview?.programDefinition,
     undefined, { timeout: 20000 });

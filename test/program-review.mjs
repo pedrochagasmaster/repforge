@@ -420,7 +420,7 @@ console.log("program-review: estimates follow the edits");
   const day = plain.days.find((item) => item.kind === "training");
   const result = apply(plain, { kind: "sets", slotId: day.slots[0].id, count: 6 });
   const edited = result.definition.days.find((item) => item.id === day.id);
-  check(result.definition.provenance.estimatedSessionSeconds[edited.name] === Compiler.estimateDaySeconds(edited),
+  check(result.definition.provenance.estimatedSessionSeconds[edited.name] === Compiler.estimateDaySeconds(edited, undefined, Catalog),
     "estimates: the provenance estimate is the engine's for the edited day");
 }
 

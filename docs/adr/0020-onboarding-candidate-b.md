@@ -55,6 +55,18 @@ recommendation, and it was the weakest one in the flow.
    needs measured completion or drop-off, time to first set, or lifter feedback. A new
    reference app is not enough.
 
+## Generation contract after Plan 073
+
+New generated blocks have seven normal cycles and an optional additional final
+deload. The block sheet keeps the normal-cycle count fixed; rep pattern and
+deload remain editable with the existing discard guard. Stored manual/imported
+blocks retain their authored lengths. Review preserves programmed RIR up to six.
+
+Day estimates use the recovered catalogue-based cost. An RIR-only edit preserves
+that estimate; an explicit rest edit replaces the applicable between-set rest
+intervals. This is a Taurifer editing policy over the recovered default cost.
+The source generation budget is not a post-generation time cut.
+
 ## Consequences
 
 - An implementation plan follows. It folds in Plan 068's inputs as B places them. Equipment

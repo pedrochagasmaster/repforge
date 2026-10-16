@@ -48,7 +48,9 @@ A colocação dos treinos no calendário semanal conserva a política do produto
 a recuperação estabelece a ordem dos treinos, não esses dias de calendário.
 A edição manual do RIR de uma definição recuperada aplica a diferença sobre
 os alvos de cada ciclo. Isso preserva o perfil por série e evita acrescentar
-o ajuste de deload duas vezes. O fluxo manual conserva seu ajuste de dois.
+o ajuste de deload duas vezes. O fluxo manual conserva seu ajuste de dois. O custo considera descansos
+explícitos nos intervalos entre séries; uma edição apenas de RIR conserva
+o custo recuperado.
 
 Uma confirmação pontual vale somente para aquele exercício e para um handler
 conhecido da fonte. Não concede uma capacidade global, não supera uma resposta
@@ -95,7 +97,8 @@ paridade transacional desse export.
 
 ## Próximos passos exatos
 
-Integrar as últimas migrações de testes e consumidores, registrar a revisão do
-diff, publicar o candidato coerente e resolver falhas concretas da CI.
+A implementação foi publicada em `d7ae4b3e`, com correção de descanso em
+`c3597bbc`. A revisão independente fechou os findings de classificação e custo.
+Inspecionar a CI e resolver suas falhas concretas.
 Revisar os artefatos visuais remotos antes de atualizar a baseline.
 Só então reconciliar A01–A10 e encerrar S3, S4, S5 e o plano.

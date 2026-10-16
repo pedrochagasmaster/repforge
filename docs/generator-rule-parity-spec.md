@@ -1,7 +1,8 @@
 # Spec: fechamento dos gaps de geração
 
 **Contrato aprovado pelo proprietário em 15 de outubro de 2026**, após grilling
-Q1–Q12 e confirmação do entendimento consolidado. Suplemento offline de S0 em revisão; nenhuma alteração de engine.
+Q1–Q12 e confirmação do entendimento consolidado. A implementação atual e os
+gates pendentes estão no [estado do Plano 073](../plans/073/implementation-status.md).
 Base de código examinada:
 `d0242c4679ba6a00cea6fd48f42450f3b6e93322`, gerador `067.2`, schema 2.
 
@@ -12,7 +13,7 @@ conforme a [convenção do tracker](agents/issue-tracker.md).
 
 ## 1. Problema e resultado esperado
 
-O gerador atual redistribui tarefas derivadas de programas observados de quatro
+Na base examinada, o gerador redistribuía tarefas de programas observados de quatro
 dias. Para três dias, escolhe Full Body. A investigação do MacroFactor recuperou
 uma decisão diferente: sem preferência explícita, três dias selecionam
 Upper/Lower/Full. Também recuperou listas de roles por dia e a conversão das
@@ -115,27 +116,30 @@ incompatível recebe um conflito acionável, sem conversão silenciosa. O ramo A
 que preserva a seleção explícita não prova a validade de toda combinação.
 Dias fora do domínio aceito não entram no ramo residual de seis dias.
 
-As 13 identidades abaixo delimitam o objetivo de cobertura, não o estado da
-implementação. O campo numérico do enum não substitui a validação da interface.
+As 13 identidades abaixo têm construtores recuperados, com 17 variantes de
+frequência. A prova de produto de cada opção continua vinculada à CI do head
+final. O campo numérico do enum não substitui a validação da interface.
 
-| Identidade no fonte | Dias fixos no enum | Evidência atual |
+| Identidade no fonte | Frequência validada no fonte | Evidência |
 | --- | ---: | --- |
-| `fullBody` | Não codificado como fixo | Default de 2 dias; opção observada para 3. Outras frequências precisam de confirmação. |
-| `upperLower` | 2 | Enum identificado |
-| `pushPull` | 2 | Enum identificado |
-| `upperLowerFull` | 3 | Default, ordem de dias e listas recuperados; distribuição/doses parciais |
-| `pushPullLegs` | 3 | Enum e opção de três dias identificados |
-| `upperLowerUpperLower` | 4 | Default identificado; exports P1–P4 |
-| `pushPullHingeSquat` | 4 | Enum identificado |
-| `pushPullLegsAccessories` | 4 | Enum identificado |
-| `upperLowerUpperLowerUpper` | 5 | Enum identificado |
-| `pushPullHingeSquatAccessorries` | 5 | Grafia do identificador original preservada neste inventário |
-| `pushPullLegsUpperLower` | 5 | Default identificado |
-| `pushPullHingeSquatUpperLower` | 6 | Enum identificado |
-| `pushPullLegsPushPullLegs` | 6 | Default identificado |
+| `fullBody` | 2–6 | Construtor variável e recusa fora de 2–6 recuperados |
+| `upperLower` | 2 | Construtor recuperado |
+| `pushPull` | 2 | Construtor recuperado |
+| `upperLowerFull` | 3 | Ordem, roles, preferências secundárias e spillover recuperados |
+| `pushPullLegs` | 3 | Construtor recuperado |
+| `upperLowerUpperLower` | 4 | Construtor recuperado |
+| `pushPullHingeSquat` | 4 | Construtor recuperado |
+| `pushPullLegsAccessories` | 4 | Construtor recuperado |
+| `upperLowerUpperLowerUpper` | 5 | Construtor recuperado |
+| `pushPullHingeSquatAccessorries` | 5 | Grafia original preservada; construtor recuperado |
+| `pushPullLegsUpperLower` | 5 | Construtor recuperado |
+| `pushPullHingeSquatUpperLower` | 6 | Ordem real Push/Squat/Pull/Hinge/Upper/Lower recuperada |
+| `pushPullLegsPushPullLegs` | 6 | Construtor recuperado |
 
 Nomes internos Taurifer e textos de interface terão um mapeamento explícito para
-essas identidades. Uma opção nova só fica disponível quando toda sua cadeia
+essas identidades. O mapeamento executável está em `generation-layout.js`, e as montagens de
+fonte sanitizadas estão em `test/fixtures/source-generation-v073.json`.
+Uma opção nova só fica disponível quando toda sua cadeia
 necessária de geração e consumo estiver validada. Não oferecer controles sem
 implementação nem usar um template de outra divisão como substituto oculto.
 
@@ -155,6 +159,11 @@ Experiência, objetivo, periodização e deload devem ter domínio e efeitos
 identificados antes de uma configuração ser declarada coberta. Cada ciclo
 prescrito precisa de prova da regra que o produz. Sete ciclos declarados num
 export que contém apenas Cycle 1 não são sete ciclos observados.
+
+O domínio recuperado tem sete ciclos normais. Um deload inicial ou final
+acrescenta uma posição: sete sem deload ou oito com um deload. Nunca substituir
+um dos sete targets normais pelo deload. Os limites da requisição atual e os
+limites de leitura de uma definição armazenada são contratos distintos.
 
 ### R04. Orçamento e estimativa de duração
 
@@ -250,7 +259,8 @@ integridade de artefato não prova o algoritmo ou a aplicação.
 | E02: `auto-split.decoded.json` e `duration.decoded.json` | Resolver `0xeb87dc..0xeb886c`; conversão `0xee3314..0xee33f0`; label max60 em `0xecdccc` | 534 instruções conferidas no ELF; 5 casos automáticos, 65 de precedência explícita, 6 durações. Precedência não é validade da UI |
 | E03: `godmode2.differential-fixture.json` | Questionário fotografado, perfil exportado com 82 equipamentos e programa de 18 exercícios/45 séries | Associação dos arquivos sem ID transacional; versão fotografada, estado aleatório e edições não confirmados |
 | E04: [corpus Plano 067](../plans/067/README.md) | Catálogo e observações P1–P4 | Defaults escolhidos não são regras recuperadas |
-| E05: investigação de seleção | `getBestMatch` chama seleção `0xedf94c`, com `_Random` sem seed explícita | Não recupera todo ranking; a equivalência estatística de seleções não foi demonstrada |
+| E05: investigação inicial de seleção | `getBestMatch` chama seleção `0xedf94c`, com `_Random` sem seed explícita | Não recupera todo ranking; a equivalência estatística de seleções não foi demonstrada |
+| E06: recuperação e revisão de 16/10, [estado das regras](../plans/073/rule-recovery-status.md) | 13 construtores/17 variantes, frações regionais, 34 roles, seleção e ranking, alocação, distribuição, doses por objetivo/período, deload e custo | Modelo de fonte com bytes do ELF e SDK tipado finito, sem executar a VM ou o gerador original; inputs controlados não confirmam o perfil real de Godmode2 |
 
 Identidade do binário E01/E02/E05, MacroFactor Workouts 1.4.0:
 `a79f5db63bb7dffdd683fae131fe033deabaef20d14d6ce4e5d4a6debb3f1312`.
@@ -290,8 +300,10 @@ privada inteira para um teste público.
 | A09 | Cada nova divisão tem estrutura, compatibilidade, distribuição e doses validadas antes de aparecer como opção. Cobre R02/R03. |
 | A10 | Proveniência diferencia regras recuperadas, política determinística aprovada e pendências; corpus público passa revisão de campos permitidos. Cobre toda a spec. |
 
-Todos esses testes de aplicação são **planejados**, não executados por esta
-entrega documental. O plano associa cada um a seus donos e etapas.
+A tabela define o gate de conclusão, não um resultado de execução. O
+[estado da implementação](../plans/073/implementation-status.md) associa cada
+linha à prova executada ou pendente. Só a CI e a revisão do head final podem
+encerrar o conjunto.
 
 Uma etapa só termina quando sua cadeia completa de dependências estiver
 validada, com casos capazes de detectar violações e prova no produto. A spec

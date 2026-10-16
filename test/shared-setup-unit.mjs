@@ -214,7 +214,7 @@ function generationRequest(overrides = {}) {
     preferredExerciseIds: [],
     split: "auto",
     periodization: "static",
-    cycles: 1,
+    cycles: 7,
     deloadCycles: [],
     ...overrides,
   };
@@ -390,14 +390,15 @@ console.log("a generated compact four-day program fits the setup-link limit loss
   Object.assign(request, {
     daysPerWeek: 4,
     timeCeilingMinutes: 40,
-    cycles: 1,
+    cycles: 7,
     deloadCycles: [],
     split: "auto",
   });
   const generated = Compiler.generateProgram(request, source);
   assert.equal(generated.ok, true, JSON.stringify(generated.conflicts));
-  assert.deepEqual(generated.value.days.filter((day) => day.kind === "training")
-    .map((day) => day.slots.length), [4, 3, 5, 3]);
+  const training = generated.value.days.filter((day) => day.kind === "training");
+  assert.equal(training.length, 4, "the complete proposal contains every requested training day");
+  assert.ok(training.every((day) => day.slots.length > 0), "no requested day is replaced with an empty placeholder");
   const input = document({ program: { name: "Compact four-day", definition: generated.value } });
   const generatorOptions = { ...compilerOptions, generateProgram: Compiler.generateProgram,
     generatorVersion: Compiler.GENERATOR_VERSION };
@@ -566,7 +567,7 @@ console.log("v4 compact wire, roundtrip, and legacy byte retention");
 
 console.log("hard size refusal never truncates semantic fields");
 {
-  const generated = Compiler.generateProgram(generationRequest({ cycles: 12 }), source);
+  const generated = Compiler.generateProgram(generationRequest({ cycles: 8, deloadCycles: [8] }), source);
   assert.equal(generated.ok, true, JSON.stringify(generated.conflicts));
   const tooLarge = document({ program: { name: "Coach program", definition: generated.value } });
   const before = structuredClone(tooLarge);
@@ -576,7 +577,7 @@ console.log("hard size refusal never truncates semantic fields");
   assert.equal(rejected.ok, false);
   assert.equal(rejected.code, "encoded-too-large");
   assert.deepEqual(tooLarge, before, "failed size checks leave the complete input unchanged");
-  assert.equal(tooLarge.program.definition.cycles, 12, "too-large programs are not trimmed to fewer cycles");
+  assert.equal(tooLarge.program.definition.cycles, 8, "too-large programs are not trimmed to fewer cycles");
 }
 
 console.log("fragment and cookie handoff helpers retain source bytes");
@@ -698,31 +699,44 @@ console.log("fragment and cookie handoff helpers retain source bytes");
   assert.equal(generated, 0, "the generator never runs for it");
 }
 
-// #317: a slot's alternates are part of the canonical definition. A generated
-// program with alternates is no longer what its generator produces, so it
-// cannot travel as canonical request; it travels in full, alternates and the
-// custom movements they name included, and decodes to the same definition.
+// #317: alternate identities travel in the full definition. A current large
+// edited program may need a file; that refusal must never drop the alternates.
 {
   const generatorOptions = { ...compilerOptions, generateProgram: Compiler.generateProgram,
     generatorVersion: Compiler.GENERATOR_VERSION };
   const request = structuredClone(workerFixture.request);
   delete request.seed;
-  // Two short days keep the full form inside the link limit.
-  Object.assign(request, { daysPerWeek: 2, timeCeilingMinutes: 40, cycles: 1, deloadCycles: [], split: "auto" });
+  Object.assign(request, { daysPerWeek: 2, timeCeilingMinutes: 20, cycles: 7, deloadCycles: [], split: "auto" });
   const generated = Compiler.generateProgram(request, source);
   assert.equal(generated.ok, true, JSON.stringify(generated.conflicts));
-  const definition = structuredClone(generated.value);
-  const slots = definition.days.flatMap((day) => day.slots);
-  const catalogAlternate = slots[1].exerciseId;
+  const unchanged = document({ program: { name: "Generated program", definition: generated.value } });
+  const recipe = await Setup.encode(unchanged, generatorOptions);
+  assert.equal(recipe.ok, true, recipe.code);
+  assert.equal(recipe.form, "recipe", "the unedited current program is exactly regenerable");
+  const editedDefinition = structuredClone(generated.value);
+  const generatedSlots = editedDefinition.days.flatMap((day) => day.slots);
   const customAlternate = { id: "custom:alt", name: "Coach press",
     equipment: [], primary: "", secondary: "", notes: "", metricIds: [], metricDefinitions: [] };
-  slots[0].alternates = [customAlternate.id, catalogAlternate];
-  const input = document({ program: { name: "Generated with alternates", definition, customExercises: [customAlternate] } });
+  generatedSlots[0].alternates = [customAlternate.id, generatedSlots[1].exerciseId];
+  const edited = document({ program: { name: "Generated with alternates", definition: editedDefinition,
+    customExercises: [customAlternate] } });
+  const before = structuredClone(edited);
+  const refused = await Setup.encode(edited, generatorOptions);
+  assert.equal(refused.ok, false);
+  assert.equal(refused.code, "encoded-too-large", "the complete edited source program requires a file instead of a recipe that loses alternates");
+  assert.deepEqual(edited, before, "size refusal preserves every authored alternate and prescription");
+
+  const compact = definition();
+  const first = compact.days.flatMap((day) => day.slots)[0];
+  const catalogAlternate = generatedSlots.find((slot) => slot.exerciseId !== first.exerciseId).exerciseId;
+  first.alternates = [customAlternate.id, catalogAlternate];
+  const input = document({ program: { name: "Coach program with alternates", definition: compact,
+    customExercises: [customAlternate] } });
   const encoded = await Setup.encode(input, generatorOptions);
-  assert.equal(encoded.ok, true, `a generated program with alternates still shares: ${encoded.code || ""}`);
+  assert.equal(encoded.ok, true, `a compact full definition with alternates shares losslessly: ${encoded.code || ""}`);
   const wire = JSON.parse(await gunzipText(bytesFromBase64url(encoded.value.slice(3))));
   const form = wire.find((entry) => Array.isArray(entry) && (entry[0] === "g" || entry[0] === "c"))?.[0];
-  assert.equal(form, "c", "alternates make the recipe form non-regenerable, so the definition travels in full");
+  assert.equal(form, "c", "the full form carries catalog and custom alternate identities");
   const decoded = await Setup.decode(encoded.value, generatorOptions);
   assert.equal(decoded.ok, true, JSON.stringify(decoded));
   assert.deepEqual(decoded.value, input, "the alternates and the custom movement they name arrive unchanged");

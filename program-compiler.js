@@ -546,7 +546,7 @@
           id: `slot-${stableId(namespace, `${path}/exercise/${exercise.id}`)}`,
           purposeId: `generated_${template.type}_${accessory ? template.accessoryMuscle : trainingIndex}_${slotIndex}`,
           exerciseId: exercise.id, sourceExerciseIds: [exercise.id], role,
-          musclePurposeIds: muscleId ? [muscleId] : [...(exercise.emphasizedAgonist || [])],
+          musclePurposeIds: muscleId ? [muscleId] : [...(exercise.primaryFeatureMuscle || [])],
           movementPatternIds: [...(exercise.movementPattern || [])],
           exerciseTypeId: exercise.exerciseType,
           metricIds: [...exercise.exerciseMetrics], metricDefinitions: metrics.map((metric) => ({ ...metric })),
@@ -673,10 +673,13 @@
     excludedIds.add(selectedSlot.exerciseId);
     if (!Array.isArray(selectedSlot.movementPatternIds) || !Array.isArray(selectedSlot.musclePurposeIds)
       || typeof selectedSlot.exerciseTypeId !== "string") return [];
+    const selectedExercise = catalog.exercises.find((exercise) => exercise.id === selectedSlot.exerciseId);
+    const purposeMuscles = selectedSlot.role.endsWith("Accessory") ? selectedSlot.musclePurposeIds
+      : selectedExercise?.primaryFeatureMuscle || selectedSlot.musclePurposeIds;
     const pool = candidatesForJob({
       purposeId: selectedSlot.purposeId,
       patternIds: selectedSlot.movementPatternIds,
-      muscleIds: selectedSlot.musclePurposeIds,
+      muscleIds: purposeMuscles,
       exerciseTypeId: selectedSlot.exerciseTypeId,
     }, selectedSlot.role, normalizedContext, catalog, { excludedIds, usedIds, usedGroups });
     let sourceSelector;

@@ -6,7 +6,9 @@ device. The link is a bearer capability, not proof of identity and not an
 upload. The first-run gate is the consent boundary: no proposal field is
 persisted until the recipient starts the program.
 
-The active contract is the v4 protocol described below and in Plan 067. The
+The active contract is the v4 protocol described below and in Plan 067.
+[Plan 073](../../plans/073-generator-rule-parity.md) owns the current
+deterministic generation and recipe-version rules. The
 older implementation plan at
 [`docs/superpowers/plans/2026-08-17-shared-setup-links.md`](../superpowers/plans/2026-08-17-shared-setup-links.md)
 records the original interface and is retained as history; its v1/v2 codec and
@@ -61,11 +63,12 @@ values, and one language code. The prefix identifies the wire format; the
 semantic document's `version` identifies its object contract. Compression is
 not encryption and does not authenticate the coach.
 
-A generated program that its generator reproduces exactly from the stored
-request and seed travels in a regenerable form instead of the full definition:
-the catalog fingerprint, the generator version, the compacted request, and the
-seed. A seven-cycle generated definition is roughly 290 KB of JSON and could
-never fit a link; the regenerable form does. The receiver regenerates with its
+A generated program that its generator reproduces exactly from the canonical
+request travels in a regenerable form instead of the full definition. The recipe
+binds the semantic catalogue fingerprint, generator version and compact request.
+It has no variable seed. Complete multi-cycle definitions can exceed the link
+limit; the recipe can share an unchanged generated definition within that limit.
+The receiver regenerates with its
 own generator, and the result must equal the shared definition, so this form is
 only chosen when the sender's regeneration is identical. A link from a
 different generator version decodes as `unsupported-version` rather than

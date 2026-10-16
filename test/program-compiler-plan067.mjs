@@ -478,14 +478,16 @@ const weightedPullPrerequisite = Object.entries(raw.uuidIndex)
 const weightedPulls = raw.exercises.filter((exercise) => (exercise.preconditions || []).includes(weightedPullPrerequisite))
   .map((exercise) => exercise.id).sort();
 assert.equal(weightedPulls.length, 3, "three catalog movements carry the weighted vertical pull prerequisite");
-const pullAnswer = (pullups10) => request({ movementConfirmations: {},
+// Hold equipment availability constant while proving the capability boundary.
+const pullGym = { equipmentIds: Object.entries(raw.uuidIndex).filter(([, entry]) => entry.type === "equipment").map(([id]) => id) };
+const pullAnswer = (pullups10) => request({ gymProfile: pullGym, movementConfirmations: {},
   competencyAnswers: { ...Object.fromEntries(Object.keys(request().competencyAnswers).map(key => [key, null])), pullups10 } });
 const pullProgram = (pullups10) => Compiler.generateProgram(pullAnswer(pullups10), raw);
 const pullSlot = (program) => program.value.days.flatMap((day) => day.slots).find((slot) => slot.role.endsWith("PrimaryCompound") && slot.movementPatternIds.includes("19e5c6f170d8808fbc7ffe35bc0bf0ca"));
 const verticalBase = pullProgram(null);
 assert.equal(verticalBase.ok, true, JSON.stringify(verticalBase.conflicts));
 const pullCandidates = (pullups10) => Compiler.findSubstitutions(verticalBase.value, pullSlot(verticalBase).id, {
-  gymProfile: { equipmentIds: gym.equipment.map((entry) => entry.equipmentId) },
+  gymProfile: pullGym,
   movementConfirmations: {}, competencyAnswers: { pullups10 },
 }, raw).map((candidate) => candidate.exerciseId);
 assert.ok(weightedPulls.every((id) => pullCandidates(true).includes(id)),
