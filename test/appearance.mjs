@@ -477,6 +477,55 @@ async function runSettingsReadsAsOneList(browser) {
   );
 }
 
+/** Mean RGB of a viewport strip, decoded from real pixels rather than declared styles. */
+async function stripColor(page, clip) {
+  const png = (await page.screenshot({ clip })).toString("base64");
+  return page.evaluate(async (src) => {
+    const img = new Image();
+    img.src = `data:image/png;base64,${src}`;
+    await img.decode();
+    const c = document.createElement("canvas");
+    c.width = img.width; c.height = img.height;
+    const g = c.getContext("2d");
+    g.drawImage(img, 0, 0);
+    const d = g.getImageData(0, 0, c.width, c.height).data;
+    const sum = [0, 0, 0];
+    for (let i = 0; i < d.length; i += 4) for (let k = 0; k < 3; k++) sum[k] += d[i + k];
+    return sum.map((v) => v / (d.length / 4));
+  }, png);
+}
+
+async function runPaperFillsViewport(browser) {
+  console.log("\n8. The paper fills the whole viewport when the page is shorter than it");
+  // The installed app showed plain white under a short Today: the root is a size container, and containment stops
+  // the body's background from reaching the canvas, so everything past the body's box was the default white.
+  // Standalone has no browser chrome to hide it; the cause is the same in a tab, so a tab measures it.
+  for (const theme of ["light", "dark"]) {
+    const { context, page } = await freshPage(browser, "light");
+    try {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.evaluate((t) => window.__repforgeUi.setTheme(t), theme);
+      await page.waitForFunction((t) => document.documentElement.dataset.theme === t, theme);
+      const geo = await page.evaluate(() => ({
+        bodyBottom: document.body.getBoundingClientRect().bottom,
+        navTop: document.querySelector("nav").getBoundingClientRect().top,
+        bg: getComputedStyle(document.documentElement).getPropertyValue("--bg").trim(),
+      }));
+      assert(geo.bodyBottom < geo.navTop - 24, `${theme}: Today with no program ends above the dock`, JSON.stringify(geo));
+      const y = Math.round((Math.max(geo.bodyBottom, 0) + geo.navTop) / 2);
+      const seen = await stripColor(page, { x: 0, y, width: 390, height: 4 });
+      const distance = colorDistance(seen, parseColor(geo.bg));
+      assert(
+        distance < 3,
+        `${theme}: below the page, the viewport shows --bg`,
+        `measured rgb(${seen.map((v) => v.toFixed(0)).join(",")}) at y=${y}; --bg ${geo.bg}`
+      );
+    } finally {
+      await context.close();
+    }
+  }
+}
+
 async function main() {
   console.log("Appearance / dark theme");
   console.log(`Target: ${BASE}`);
@@ -490,6 +539,7 @@ async function main() {
     await runChartRepaint(browser);
     await runStaysOutOfTrainingData(browser);
     await runSettingsReadsAsOneList(browser);
+    await runPaperFillsViewport(browser);
   } finally {
     await browser.close();
   }
