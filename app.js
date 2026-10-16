@@ -11307,7 +11307,7 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     if(!slot||!cycle||!set||!["rir","restSeconds"].includes(edit.field))return false;
     const current=set[edit.field]??null;
     if(current!==edit.before&&current!==edit.after)return false;
-    if(edit.field==="rir"&&edit.after!==null&&(!Number.isFinite(edit.after)||edit.after<0||edit.after>4))return false;
+    if(edit.field==="rir"&&edit.after!==null&&(!Number.isFinite(edit.after)||edit.after<0||edit.after>6))return false;
     if(edit.field==="restSeconds"&&edit.after!==null&&(!Number.isSafeInteger(edit.after)||edit.after<0||edit.after>86400))return false;
     const keepsAdaptive=edit.field==="rir"&&set.status==="ready";
     if(keepsAdaptive&&edit.after===null)return false;
@@ -16942,7 +16942,7 @@ function previewDayMinutes(preview,day){
   if(+day?.estimateMinutes>0)return +day.estimateMinutes;
   const canonical=preview?.programDefinition?.days?.find?.(item=>item.id===day?.dayId||item.name===day?.label);
   if(!canonical||typeof ProgramCompiler?.estimateDaySeconds!=="function")return null;
-  try{const seconds=ProgramCompiler.estimateDaySeconds(canonical);return seconds>0?Math.ceil(seconds/60):null}
+  try{const seconds=ProgramCompiler.estimateDaySeconds(canonical,undefined,rawExerciseCatalog);return seconds>0?Math.ceil(seconds/60):null}
   catch{return null}}
 function entryPreviewFacts(preview){
   const program=Array.isArray(preview?.program)?preview.program:[];
@@ -17278,15 +17278,12 @@ async function applyEntryAnswerEdit(patch,{lead,beforeLabel,afterLabel}={}){
   const route=entryState.route;
   if(route!=="recommend"&&route!=="custom")return{ok:false};
   const committed=entryState,before=committed.result;
-  let next=ProgramEntry.setAnswers(entryAnswerJob?.committed===committed?entryAnswerJob.next:committed,patch);
+  const next=ProgramEntry.setAnswers(entryAnswerJob?.committed===committed?entryAnswerJob.next:committed,patch);
   if(before.preview.programDefinition?.provenance?.source==="recovered_generation_rules"){
     const mapped=entryGeneratorRequest(next);
-    if(!mapped.ok||mapped.request.split!=="upper_lower_full")return{ok:false,failure:{code:"generation_conflict",
+    if(!mapped.ok)return{ok:false,failure:{code:"generation_conflict",conflicts:mapped.failure?.conflicts||[]}};
+    if(!ProgramCompiler.availableSplits(mapped.request).includes(mapped.request.split))return{ok:false,failure:{code:"generation_conflict",
       conflicts:[{code:"unsupported_generation_domain"}]}}}
-  if(route==="custom"){
-    const choices=entryCustomSplitChoices(next.answers).choices;
-    if(choices.length&&!choices.some(choice=>choice.id===next.answers.splitPreference))
-      next=ProgramEntry.setAnswers(next,{splitPreference:(choices.find(choice=>choice.default)||choices[0]).id})}
   entryAnswerJob?.controller.abort();
   const job={committed,next,controller:new AbortController()};
   entryAnswerJob=job;syncEntryBusy();

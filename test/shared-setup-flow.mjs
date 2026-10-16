@@ -1252,6 +1252,58 @@ export async function runSharedSetupFlow(browser) {
     await fallback.context.close();
   });
 
+  await runCase("Saved 073.3 split definitions remain readable without regeneration", async () => {
+    const fixtures = JSON.parse(readFileSync(new URL("./fixtures/generation-policy-073-3.json", import.meta.url), "utf8"));
+    for (const fixture of fixtures.cases) {
+      const { context, page } = await openAppPage(browser);
+      await freshDevice(page);
+      const committed = await page.evaluate(async ({ definition, label }) => {
+        const outcome = await window.__repforgeFinalizeProgramSetup({ programDefinition: definition,
+          name: `Retained ${label}`, answers: {}, destination: "log", origin: "first-run", draftConfirmed: true,
+          telemetryRoute: "import", entrySource: { route: "import", fingerprint: label } });
+        await window.__repforgeStorage.flush();
+        return outcome;
+      }, fixture);
+      assert(committed?.localOk || committed?.idbOk, `${fixture.label}: the real definition reader and finalizer accept the recorded old definition`);
+      const before = await page.evaluate(readDurableState);
+      assert(canonicalJson(before.state?.programMeta?.programDefinition) === canonicalJson(fixture.definition),
+        `${fixture.label}: saving retains the old split identity, positions and prescriptions exactly`);
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(page, { timeout: 15000, base: BASE });
+      const after = await page.evaluate(readDurableState);
+      const stats = await page.evaluate(() => window.__repforgeProgramEngine?.stats?.());
+      assert(canonicalJson(after.state?.programMeta?.programDefinition) === canonicalJson(fixture.definition),
+        `${fixture.label}: ordinary reload reads the exact old definition instead of reinterpreting its split ID`);
+      assert(!stats?.worker && !stats?.main, `${fixture.label}: reading the saved definition never invokes the current generator`, stats);
+      await context.close();
+    }
+  });
+
+  await runCase("073.3 recipes are refused before the current generator runs", async () => {
+    const fixtures = JSON.parse(readFileSync(new URL("./fixtures/generation-policy-073-3.json", import.meta.url), "utf8"));
+    for (const fixture of fixtures.cases) {
+      const { context, page } = await openAppPage(browser);
+      await freshDevice(page);
+      await waitForFirstRun(page);
+      const before = await page.evaluate(readDurableState);
+      await page.goto(setupUrl(fixture.recipe, `old-${fixture.label}`), { waitUntil: "domcontentloaded" });
+      await waitForFirstRun(page);
+      const hook = await page.evaluate(readSharedHook);
+      const gate = await page.evaluate(sharedGateSnapshot);
+      const after = await page.evaluate(readDurableState);
+      const stats = await page.evaluate(() => window.__repforgeProgramEngine?.stats?.());
+      assert(hook.status === "unsupported" && hook.error === "unsupported-version",
+        `${fixture.label}: the recorded earlier recipe is explicitly unsupported`, hook);
+      assert(!gate.startVisible && gate.createVisible && gate.importVisible,
+        `${fixture.label}: refusal restores ordinary setup choices`);
+      assert(!stats?.worker && !stats?.main, `${fixture.label}: version refusal occurs before generation`, stats);
+      assert(noSharedWrite(before, after, `Retained ${fixture.label}`).length === 0,
+        `${fixture.label}: refusing the old recipe writes no program, draft or history`);
+      assert(!after.cookie && !(await handoffCookie(context)), `${fixture.label}: no proposal cookie is retained`);
+      await context.close();
+    }
+  });
+
   // #340 (Plan 072 OD-11): the plain GENERATOR_VERSION bump retires recipe
   // links from the earlier generator. This one was recorded with 067.1 for a
   // program the current generator builds differently; it must be refused with

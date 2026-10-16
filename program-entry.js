@@ -688,7 +688,10 @@
         issues.push(`${path}.${key}:invalid`);
       }
     }
-    if (hasOwn(raw, "split") && (typeof raw.split !== "string" || !["auto", "full_body", "upper_lower", "upper_lower_full", "push_pull_legs_upper_lower", "push_pull_legs"].includes(raw.split))) {
+    if (hasOwn(raw, "split") && (typeof raw.split !== "string" || !["auto", "full_body", "upper_lower", "push_pull", "upper_lower_full", "push_pull_legs",
+      "upper_lower_upper_lower", "push_pull_hinge_squat", "push_pull_legs_accessories", "upper_lower_upper_lower_upper",
+      "push_pull_hinge_squat_accessories", "push_pull_legs_upper_lower", "push_pull_hinge_squat_upper_lower",
+      "push_pull_legs_push_pull_legs"].includes(raw.split))) {
       issues.push(`${path}.split:invalid`);
     }
     if (hasOwn(raw, "periodization") && !["static", "linear", "reverse_linear", "undulating"].includes(raw.periodization)) issues.push(`${path}.periodization:invalid`);

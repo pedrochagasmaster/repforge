@@ -1,125 +1,101 @@
-# Implementação S2 e ampliação inicial de S3
+# Implementação das regras de geração
 
-O gerador `073.3` preserva o [domínio inicial validado](initial-generation-contract.md)
-e implementa a [união delimitada de S3](three-day-expansion-contract.md).
-O Plano 073 permanece em andamento. S3, S4 e S5 não estão concluídas, e as entradas
-reais usadas para gerar Godmode2 continuam sem confirmação transacional.
+O candidato `073.4` integra S3 e S4 e remove o caminho de geração anterior.
+A conclusão do Plano 073 ainda depende da revisão dos consumidores e da CI no
+head final. O commit anterior `f4a3fda5` passou a CI completa, incluindo os 14
+shards de navegador. Esse resultado não certifica as alterações posteriores.
 
-## Comportamento implementado
+## Domínio implementado
 
-O compilador canonicaliza o request e usa uma identidade SHA-256 que inclui a
-versão do gerador e o conteúdo semântico do catálogo. `generatedAt`, a ordem dos
-exercícios e a ordem das chaves não alteram essa identidade. Arrays semânticos
-permanecem ordenados; conjuntos declarados são deduplicados e ordenados por UUID.
-Entradas desconhecidas ou contraditórias são recusadas.
+A única cadeia de geração é requisição canônica → candidatos recuperados →
+alocação → distribuição → spillover → trocas → ordenação → prescrições.
+Não há fallback para jobs, doses, redistribuição ou corte temporal do Plano 067.
+O namespace inclui a versão do gerador e a identidade semântica do catálogo.
+O desempate Taurifer usa preferência explícita e UUID em ordem ASCII dentro do
+pool final recuperado. Não usa relógio, locale ou semente variável.
 
-O caminho Upper/Lower/Full usa seleção, elegibilidade, distribuição, orçamento e
-alvos recuperados. Não aplica o corte temporal antigo. A opção 60 continua sendo
-a faixa 40–60 da interface e resolve orçamento interno de 50 minutos. Estimativas
-podem ultrapassar esse orçamento conforme a regra recuperada. O descanso de cada
-set permanece null porque esse produtor não define override.
+As 13 identidades e suas 17 variantes de frequência vêm de
+`RepForgeGenerationLayout.SPLITS`. Full Body aceita de dois a seis dias; as
+outras divisões mantêm suas frequências fixas. Os defaults são Full Body,
+Upper/Lower/Full, Upper/Lower/Upper/Lower, Push/Pull/Legs/Upper/Lower e
+Push/Pull/Legs/Push/Pull/Legs, respectivamente para dois a seis dias.
+Uma escolha explícita incompatível produz conflito, sem troca silenciosa.
 
-A seleção forma grupos de score antes de remover exercícios já escolhidos.
-Grupos esvaziados conservam suas posições nos batches de dois. A prova de três
-scores distingue essa regra da remoção antecipada, que escolhia outro exercício.
+As três metas, três experiências, seis durações e quatro periodizações usam
+os ramos recuperados. As opções 20/40/60/90/120/150 resolvem orçamentos internos
+18/30/50/75/105/125. Esses orçamentos não são tetos de corte do resultado.
+A alocação usa a fração regional própria de cada divisão, separadamente da
+fração de compostos por objetivo. Os 22 músculos preservam prioridades e
+desprioridades; exclusões continuam restrições duras distintas.
 
-Os IDs compartilham o namespace SHA-256 completo da geração. Cada caminho recebe
-um digest SHA-256 abreviado a oito hexadecimais, com mapa local de caminhos e
-resolução determinística de colisões. A unicidade dentro da geração não depende
-da ausência de colisões do digest abreviado. Isso mantém os IDs dentro de 96
-caracteres e permite compartilhar definições completas sem repetir hashes
-independentes de alta entropia. Nomes de dias continuam limitados a 80 caracteres.
+Cada bloco novo tem sete ciclos normais. Um deload opcional antes ou depois
+acrescenta uma oitava posição, sem substituir um ciclo normal. A requisição
+registra posições totais: `7/[]`, `8/[1]` ou `8/[8]`. A interface oferece o
+deload final; o contrato também representa o inicial. O adapter recebe sete
+ciclos normais e converte a opção para oito posições quando necessário.
 
-Formulário, adapter, cache, worker, fallback, receitas e reconstrução usam a mesma
-requisição canônica, sem seed variável. As 22 opções musculares não são truncadas.
-Uma receita de versão anterior é recusada antes de executar o gerador. Mudança
-semântica do catálogo retorna `catalog-mismatch`; metadados e ordem incidental
-não invalidam uma receita. Definições legíveis continuam legíveis.
+O deload usa o primeiro ou último target normal, preserva o prefixo de
+`max(1, floor(0.8 * N))` séries e arredonda cada limite de repetições por
+`round(0.8 * limite)`. Acrescenta três ao RIR somente quando a métrica é
+repetições ou repetições por lado. Mantém métricas ausentes, nulls e descanso
+null, sem inventar carga. A prescrição admite RIR de zero a seis. Editores,
+draft e o guard de progressão conservam esse valor; as fórmulas de carga,
+capacidade, fadiga e progressão não mudaram.
 
-Uma edição de um programa recuperado não pode trocar silenciosamente para a
-política anterior ao sair do domínio validado. A recusa preserva o programa
-revisado e o draft. Um rascunho de outra versão aguarda Rebuild explícito antes
-de gerar uma nova baseline. Configurações novas ainda não substituídas conservam
-a política vigente, sem alegação de paridade recuperada.
+## Políticas próprias do Taurifer
 
-## Ampliação inicial de S3
+A colocação dos treinos no calendário semanal conserva a política do produto;
+a recuperação estabelece a ordem dos treinos, não esses dias de calendário.
+A edição manual do RIR de uma definição recuperada aplica a diferença sobre
+os alvos de cada ciclo. Isso preserva o perfil por série e evita acrescentar
+o ajuste de deload duas vezes. O fluxo manual conserva seu ajuste de dois.
 
-A geração recuperada aceita Hybrid/Advanced nas opções 20 e 40 com Static, os três
-modos periodizados em Hybrid/Advanced/60, Hypertrophy/Advanced/60/Static e
-Strength/Advanced/60/Static. Hybrid/60/Static aceita também Beginner e
-Intermediate. A tabela do contrato enumera a união exata. Todos conservam três
-dias, sete ciclos normais e ausência de deload. Outras combinações, deload,
-orçamentos e divisões continuam pendentes.
+Uma confirmação pontual vale somente para aquele exercício e para um handler
+conhecido da fonte. Não concede uma capacidade global, não supera uma resposta
+negativa e não permite preconditions desconhecidas. As ofertas são provisórias:
+o adapter regenera a requisição confirmada e confere a posição real antes de
+mostrar a oferta. As substituições também passam pela elegibilidade da fonte.
 
-Strength usa os tiers, classificações e grupos padrão específicos do objetivo.
-Seus grupos também chegam à ordenação final depois de spillover e trocas.
-Experiência preserva a montagem no caso controlado, sem conceder capacidades;
-a requisição e a identidade ainda distinguem Beginner, Intermediate e Advanced.
+Definições armazenadas são lidas pela sua estrutura explícita, mesmo quando
+seu antigo ID de split já não é válido para nova geração nessa frequência.
+O leitor não reinterpreta esses IDs. Receitas de outra versão são recusadas;
+um draft de versão antiga exige Rebuild explícito. A engine antiga não é
+embarcada para replay. Histórico e definições legíveis são preservados.
 
-As provas RED privadas precederam cada implementação isolada. Após compor os
-patches de Strength e experiência, as quatro suítes afetadas passaram localmente:
-candidatos, layout, paridade e periodização. Esta última conserva 324 combinações
-controladas de role, pull, séries e métricas, além dos três modos no catálogo real.
-A correção de ordenação Strength recebeu revisão independente. A comparação de
-experiência preserva IDs semânticos de métricas e remove somente os IDs gerados.
+## Evidência e gates
 
-A opção 20 usa orçamento 18 e conserva o empate recuperado dos compostos
-lower. A prova curta passou nos quatro contratos de alocação, doses tipadas,
-receita e transição 20/40. A suíte de layout também passou. As expectativas
-anteriores de recusa para Static/20 foram migradas, e Linear/20 continua recusado.
-
-As jornadas de duração 20 e 40, Hypertrophy 60, Strength 60, duas experiências novas
-e edição dos três modos foram preparadas para a CI, sem execução local. Não
-repetir a captura exaustiva na devbox; revisar diferenças visuais pelos artefatos
-remotos. Resultados de versões anteriores não substituem o gate no head 073.3.
-
-## Provas e pendências
-
-As provas puras foram escritas antes das respectivas implementações. Os testes
-cobrem falhas de identidade e operadores que o navegador não pode produzir de
-forma controlada, incluindo colisões de digest, limites combinatórios e somas
-numéricas. O navegador usa os produtores e consumidores reais.
-
-| Contrato | Prova reproduzível | Estado local |
+| Contrato | Evidência | Estado do candidato |
 | --- | --- | --- |
-| Canonicalização, SHA-256, mutabilidade e colisões | `node test/generation-identity.mjs` | Passou |
-| Elegibilidade, tiers, equipamentos e alternância | `node test/generation-candidates.mjs` | Passou |
-| Alocação, distribuição, custo e ordenação | `node test/generation-layout.mjs` | Passou |
-| Domínios recuperados, sete ciclos, IDs e recusas | `node test/program-generation-parity.mjs` | Passou |
-| Duração 20, empate lower, quatro primários de uma série, métricas, receita e transições | `node --test test/generation-duration20.mjs` | Passou, quatro contratos; navegador na CI |
-| Períodos, centros, RIR, métricas null e posições repetidas | `node test/generation-periodization.mjs` | Passou, 324 combinações controladas e três modos no catálogo real |
-| Entrada, oito despriorizações e limites | `node --test test/program-entry.mjs test/program-entry-inputs.mjs test/program-entry-production-adapter.mjs` | Passou |
-| Catálogo verificado e imutável | `node test/exercise-catalog.mjs` | Passou |
-| Receita atual, recusa de versão e catálogo, full share | `node test/shared-setup-unit.mjs` | Passou |
-| Propriedades gerativas do compilador | `node test/generative/run.mjs --profile smoke --filter "program compiler" --seed 2895473493` | Passou |
-| Configurações anteriores e contratos de transição | `node test/program-compiler-plan067.mjs`; `node test/program-compiler-search.mjs`; `node test/program-transition-plan067.mjs` | Passou |
-| Formulário → worker/fallback → review → ativação → Focus → reload; edição não suportada e versão antiga | `node tools/run-tests.mjs entry --suite-id test-generate-program-browser-mjs` | Passou em 073.0, 203 verificações; ampliação 073.3 aguarda CI |
-| Worker, cancelamento e fallback | `node tools/run-tests.mjs entry --suite-id test-program-engine-worker-mjs` | Passou em 073.0, 46 verificações; head atual aguarda CI |
-| Confirmação, anúncio exato, respostas antigas e rebuild do bloco | `node tools/run-tests.mjs entry --suite-id test-program-entry-s4-mjs` | Passou |
-| Compartilhamento real e receitas | `node tools/run-tests.mjs entry --suite-id test-shared-setup-flow-mjs` | Passou, 184 verificações |
-| Catálogo visual completo | Inventário remoto de captura e comparação | Delegado à CI por decisão do owner; sem gate local exaustivo |
-| Head limpo e regressão remota | [PR 422](https://github.com/pedrochagasmaster/repforge/pull/422) | Gate obrigatório; resultados por SHA registrados no PR |
+| S0, corpus permitido e coordenadas | `plans/073/verify.py`, `test_verify.py` | Suplemento original preservado |
+| Identidade, catálogo, colisões | `test/generation-identity.mjs` | Prova existente; CI do head final obrigatória |
+| Candidatos e restrições | `test/generation-candidates.mjs`, jornadas de confirmação | RED/GREEN pontual da confirmação; regressão na CI |
+| 13 divisões, 17 frequências e novos orçamentos | `test/generation-source-matrix.mjs`, fixture sanitizada | RED contra f4a; GREEN local de uma montagem; matriz completa na CI |
+| 18 ramos de dose, períodos e deload | `test/generation-source-dose-boundaries.mjs` | RED privado anterior à implementação; GREEN local de um limite; matriz na CI |
+| Formulário e escolhas explícitas | adapter, `test/generate-program-browser.mjs` | Jornadas preparadas; execução na CI |
+| Worker e fallback | `test/program-engine-worker.mjs` | Comparação real no gate remoto |
+| Review, ativação, Focus, salvar e reload | `test/program-entry-s4.mjs` | Jornada atualizada; execução na CI |
+| Dados e versões | leitor de definição, receita e retomada de draft | Revisão independente; prova real na CI |
+| Visuais | captura oficial remota e comparação | Sem captura exaustiva local, por decisão do owner |
+| Conclusão | revisão independente e `ci` verde no head final | Pendente |
 
-Os resultados locais acima foram obtidos durante a integração. A evidência de
-conclusão deve registrar o SHA limpo, a revisão independente e o resultado de
-`ci` nesse mesmo head. O PR 422 mantém esse registro por commit. Não declarar o plano completo com base nessa primeira fatia.
+A matriz pública contém resultados do modelo de fonte independente do
+compilador público. Não foi gerada a partir da saída da implementação.
+Ela inclui as 17 variantes e os eixos de objetivo e orçamento de ULF.
+Os testes de doses usam a fronteira pública de layout para alcançar séries e
+métricas que uma única montagem real não contém. Isso complementa as jornadas
+de produto; não substitui persistência e execução no navegador.
 
-| Finding | Correção e prova |
-| --- | --- |
-| S2-LOW-01 | URL de `program-transition.js` alinhada ao precache `459`; inventário de release 33/33 e alinhamento conservado após a suíte do worker. |
-| S2-LOW-02 | Repetidos eram removidos antes de formar grupos de score. Prova pública de três grupos falhou com `c` em vez de `a`; remoção dentro de cada grupo passou para compostos e acessórios. Fonte e correção receberam revisão independente. |
-| S2-LOW-03 | Observer visual usava seed e IDs de slots de outro namespace. Agora separa identidade do request e posse do draft, e correlaciona posições. Os 89 frames focados passaram sem retries; a validação visual completa foi delegada à CI pelo owner. |
-| S2-LOW-04 | Anúncio após confirmação incluía dois nomes que não mudaram. A prova real falhou antes da correção por posições; a mesma suíte passou após a correção, incluindo foco e descarte de respostas antigas. |
-| S2-LOW-05 | A fixture de conflito podia fotografar antes de montar o Review ou fora do aviso. A espera exige as linhas da definição atual; o enquadramento exige o aviso completo no viewport. Os três variants focados passaram. |
-| S3-STR-LOW-01 | Strength usava os grupos Hybrid na ordenação final. A prova por dia reproduziu A,B,A em vez de A,A,B; os grupos específicos agora chegam à produção e à ordenação. RED/GREEN e correção receberam revisão independente. |
-| S2-LOW-08 | A prova de acessibilidade ainda exigia os 12 músculos anteriores. Agora exige os 22 grupos, nomes distintos, três opções e uma seleção por grupo. A navegação por teclado permanece coberta; execução na CI. |
-| S2-LOW-07 | A CI reproduziu uma fixture que confundia elegibilidade com seleção automática de Barbell bench press. A prova usa escolha explícita pelo Review real. Sem a resposta, exige geração válida e ausência tanto no programa como nas substituições. Correção revisada independentemente; navegador fica na CI. |
-| S2-LOW-06 | A CI encontrou dois loaders VM sem os módulos novos, inventário de sintaxe incompleto e vocabulário de telemetria sem ULF. Os loaders seguem a ordem real, o inventário inclui os três módulos e o enum fechado aceita ULF. As quatro provas exatas passaram; cache 462. |
+A recuperação usa bytes do ELF e metadados ligados aos objetos de compilação,
+com revisão independente dos operadores, callbacks, construtores e bindings
+numéricos. Não executou o gerador original ou a VM Dart completa. Os limites
+SDK finitos estão explícitos nos recibos privados. Perfil fonte null,
+sexo fonte null e mapas vazios de histórico/carga são inputs controlados.
+As entradas reais de Godmode2 continuam desconhecidas; não há alegação de
+paridade transacional desse export.
 
-A primeira captura completa foi interrompida após 141 frames para corrigir os
-findings. Depois das correções, 89 frames focados passaram sem retries. A nova
-execução foi interrompida após 340/1.110 frames, por decisão do owner de priorizar
-a implementação e reduzir o uso da devbox. Os diretórios originais, o preview
-e o processo pausado foram restaurados, com os hashes de fonte intactos.
-A validação completa fica na CI. As imagens atualizadas vêm exclusivamente da
-ferramenta oficial; o restante do catálogo conserva a baseline até essa prova.
+## Próximos passos exatos
+
+Integrar as últimas migrações de testes e consumidores, registrar a revisão do
+diff, publicar o candidato coerente e resolver falhas concretas da CI.
+Revisar os artefatos visuais remotos antes de atualizar a baseline.
+Só então reconciliar A01–A10 e encerrar S3, S4, S5 e o plano.

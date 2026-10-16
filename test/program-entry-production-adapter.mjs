@@ -27,8 +27,8 @@ test("production services pass the typed request and raw snapshot to the canonic
   const { request } = generatedRequest({
     daysPerWeek: 4,
     timeCeilingMinutes: 150,
-    cycles: 12,
-    deloadCycles: [6, 12],
+    cycles: 8,
+    deloadCycles: [8],
     split: "auto",
   });
   const originalRequest = structuredClone(request);
@@ -38,7 +38,7 @@ test("production services pass the typed request and raw snapshot to the canonic
   assert.equal(actual.ok, true, actual.conflicts?.map((item) => item.message).join("; "));
   assert.deepEqual(actual, expected, "the adapter returns the real compiler result without a family/candidate wrapper");
   assert.deepEqual(request, originalRequest, "generation does not mutate the authored request");
-  assert.equal(actual.value.cycles, 12);
+  assert.equal(actual.value.cycles, 8);
   assert.deepEqual(Compiler.validateProgramDefinition(actual.value, Catalog), { ok: true, issues: [] });
   assert.deepEqual(Object.keys(actual).sort(), ["confirmationOffers", "conflicts", "explanations", "ok", "value"]);
 });
@@ -185,12 +185,17 @@ test("incomplete or unsupported Generate answers are explicit conflicts", () => 
 
 test("split choices are the generator's authored splits compatible with the day count", () => {
   const services = Adapter.createProductionServices({ Compiler, catalog: Catalog });
-  assert.deepEqual(services.splitChoices({ daysPerWeek: 3 }).choices.map((choice) => choice.id), ["full_body"]);
-  assert.deepEqual(services.splitChoices({ daysPerWeek: 4 }).choices.map((choice) => choice.id), ["upper_lower"]);
+  const three = services.splitChoices(answersFor({ daysPerWeek: 3 })).choices;
+  assert.deepEqual(three.map((choice) => choice.id), ["full_body", "upper_lower_full", "push_pull_legs"]);
+  assert.deepEqual(three.filter((choice) => choice.default).map((choice) => choice.id), ["upper_lower_full"]);
+  const four = services.splitChoices(answersFor({ daysPerWeek: 4 })).choices;
+  assert.deepEqual(four.map((choice) => choice.id), ["full_body", "upper_lower_upper_lower", "push_pull_hinge_squat", "push_pull_legs_accessories"]);
+  assert.deepEqual(four.filter((choice) => choice.default).map((choice) => choice.id), ["upper_lower_upper_lower"]);
   assert.deepEqual(services.splitChoices({}).choices, []);
-  assert.equal(Adapter.programRequestFromAnswers(answersFor({ splitPreference: "upper_lower" }), Catalog).value.split, "upper_lower");
-  assert.equal(Adapter.programRequestFromAnswers(answersFor({ daysPerWeek: 3, splitPreference: "upper_lower" }), Catalog).value.split, "auto",
-    "an incompatible split falls back to the generator's own choice");
+  assert.equal(Adapter.programRequestFromAnswers(answersFor({ splitPreference: "upper_lower_upper_lower" }), Catalog).value.split, "upper_lower_upper_lower");
+  const incompatible = Adapter.programRequestFromAnswers(answersFor({ daysPerWeek: 3, splitPreference: "upper_lower" }), Catalog);
+  assert.equal(incompatible.ok, false, "an incompatible explicit split is refused");
+  assert.deepEqual(incompatible.conflicts, [{ field: "split", code: "split_unsupported" }]);
 });
 
 test("Generate preserves all 22 source muscles by identity even when catalogue labels change", () => {

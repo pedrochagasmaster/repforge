@@ -14,7 +14,7 @@ function assertSourceDose(raw,set,center,rir){
  assert.deepEqual(set.targets,key?{[key]:{min:center-1,max:center+1}}:{},'required source metric key and exact range');
  assert.equal(set.rir,key?rir:null,'RIR follows source metric presence, not generated target presence');
 }
-// Falsify the oracle before the unsupported-domain assertion stops this RED run.
+// Deliberately falsify the independent source-dose oracle.
 for(const key of ['reps','repsPerSide']){
  const raw={exerciseMetrics:[key==='reps'?REPS_ID:REPS_PER_SIDE_ID]};
  assertSourceDose(raw,{targets:{[key]:{min:4,max:6}},rir:2},5,2);
@@ -113,7 +113,7 @@ for (const invalidBudget of [-1, "50", null]) {
   assert.equal(Compiler.validateProgramDefinition(invalidDefinition, catalog).ok, false, "invalid generation budgets are refused at the definition boundary");
 }
 const outside = Compiler.generateProgram({ ...request, cycles: 8 }, catalog);
-assert.equal(outside.ok, false, "explicit ULF outside the validated domain must not silently use the old engine");
+assert.equal(outside.ok, false, "eight positions without a deload are outside the seven-normal-cycle domain");
 assert.equal(outside.value, null);
 // Preserve this exact pure8D fixture and change only its explicit goal.
 // These expected primary UUIDs come from independently reviewed source-model
@@ -169,9 +169,8 @@ assert.equal(new Set(hIds).size,hIds.length);
 const hPermuted=structuredClone(hRequest);hPermuted.gymProfile.equipmentIds.reverse();hPermuted.deprioritizedMuscleIds.reverse();
 assert.deepEqual(Compiler.generateProgram(hPermuted,catalog).value,hDefinition);
 assert.notEqual(Compiler.generationIdentity(hRequest,catalog),Compiler.generationIdentity(request,catalog));
-for(const outside of [{...hRequest,timeCeilingMinutes:40},{...hRequest,goal:'strength',timeCeilingMinutes:40}]){
- const denied=Compiler.generateProgram(outside,catalog);assert.equal(denied.ok,false);assert.equal(denied.value,null);
-}
+// Other goal/duration combinations are covered by the source dimension proof.
+
 const hExhausted=Compiler.generateProgram({...hRequest,excludedExerciseIds:catalog.exercises.map(exercise=>exercise.id)},catalog);
 assert.equal(hExhausted.ok,false);assert.equal(hExhausted.value,null);assert(hExhausted.conflicts.length>0);
 // Change only duration in this existing source-catalogue fixture. Keep its
@@ -239,12 +238,7 @@ assert.equal(new Set(ids40).size,ids40.length);
 const exhausted40=Compiler.generateProgram({...request40,excludedExerciseIds:catalog.exercises.map(exercise=>exercise.id)},catalog);
 assert.equal(exhausted40.ok,false);assert.equal(exhausted40.value,null,'catalogue exhaustion returns no partial program');
 assert(exhausted40.conflicts.length>0);
-for(const minutes of [90,120,150]){
- const unsupported=Compiler.generateProgram({...request,timeCeilingMinutes:minutes},catalog);
- assert.equal(unsupported.ok,false,'only20,40 and60 enter the recovered duration domain');
- assert.equal(unsupported.value,null);
-}
-// Transition protocol proofs exercise unsupported recovered-domain overrides
+// Transition protocol proofs exercise current recovered-domain changes
 // without needing to complete a block in the browser for every configuration.
 const Transition = require("../program-transition.js");
 const reviewed = structuredClone(first.value);
@@ -253,10 +247,10 @@ const savedReviewed = JSON.stringify(reviewed);
 for (const change of [{ kind: "fewer_days", daysPerWeek: 2 }]) {
   const derived = Transition.deriveSuccessor({ programDefinition: reviewed,
     customExerciseDefinitions: [], catalogSnapshot: catalog, change });
-  assert.equal(derived.ok, false, `${change.kind} cannot replace recovered rules with old policy`);
-  assert.equal(derived.code, "generation_conflict");
-  assert.ok(derived.conflicts.some(conflict => conflict.code === "unsupported_generation_domain"));
-  assert.equal(JSON.stringify(reviewed), savedReviewed, "refusal preserves the exact reviewed predecessor");
+  assert.equal(derived.ok, true, `${change.kind} uses the recovered two-day split`);
+  assert.equal(derived.value.programDefinition.provenance.source, "recovered_generation_rules");
+  assert.equal(derived.value.programDefinition.request.split, "full_body");
+  assert.equal(JSON.stringify(reviewed), savedReviewed, "derivation preserves the exact reviewed predecessor");
 }
 for(const [minutes,budget] of [[20,18],[40,30]]) {
  const shorter=Transition.deriveSuccessor({programDefinition:reviewed,customExerciseDefinitions:[],catalogSnapshot:catalog,
@@ -298,14 +292,14 @@ for(const fixture of strengthSourceFixtures){
   }
  }}
  assert.equal(new Set(identities).size,identities.length);
- for(const change of [{timeCeilingMinutes:40},{periodization:'linear'},{periodization:'reverse_linear'},{periodization:'undulating'},{experience:'intermediate'},{cycles:8},{deloadCycles:[7]}]){
+ for(const change of [{timeCeilingMinutes:30},{experience:'none'},{cycles:8},{deloadCycles:[7]}]){
   const outside={...sourceRequest,...change};const denied=Compiler.generateProgram(outside,catalog);assert.equal(denied.ok,false);assert.equal(denied.value,null);
   assert.equal(Compiler.availableSplits(outside).includes('upper_lower_full'),false);
  }
  const exhausted=Compiler.generateProgram({...sourceRequest,excludedExerciseIds:catalog.exercises.map(ex=>ex.id)},catalog);
  assert.equal(exhausted.ok,false);assert.equal(exhausted.value,null);
 }
-console.log('strength60: source-model selections, source-typed Static targets, identities and closed domain PASS');
+console.log('strength60: source-model selections, source-typed Static targets, identities and invalid-domain refusals PASS');
 
 // Controlled direct-generator experience slice, not source UI listener policy.
 function experienceSemantics(definition){
@@ -336,8 +330,7 @@ for(const experience of ['beginner','intermediate']){
  assert.equal(Compiler.validateProgramDefinition(compiled.value,catalog).ok,true);
  assert.deepEqual(experienceSemantics(compiled.value),experienceSemantics(first.value),'experience changes metadata/namespace, not controlled assembly or seven target values');
  assert.notEqual(compiled.value.days[0].id,first.value.days[0].id,'experience participates in generation identity');
- for(const patch of [{timeCeilingMinutes:40},{goal:'hypertrophy'},{goal:'strength'},{periodization:'linear'},
-  {periodization:'reverse_linear'},{periodization:'undulating'},{daysPerWeek:4},{cycles:8},{deloadCycles:[7]}]){
+ for(const patch of [{timeCeilingMinutes:30},{daysPerWeek:4},{cycles:8},{deloadCycles:[7]}]){
   const denied=Compiler.generateProgram({...input,...patch},catalog);assert.equal(denied.ok,false);assert.equal(denied.value,null);
  }
  const noEquipment={...input,gymProfile:{equipmentIds:[]}};
@@ -351,4 +344,4 @@ for(const experience of ['beginner','intermediate']){
  else {assert.equal(capability.value,null);assert.deepEqual(capability.conflicts,advancedCapability.conflicts);}
 }
 assert.equal(Compiler.generateProgram({...request,experience:'none'},catalog).ok,false,'source None is not Taurifer beginner');
-console.log('PASS controlled beginner/intermediate semantic assembly, identities, exact request and cross-dimension refusal');
+console.log('PASS controlled beginner/intermediate semantic assembly, identities, exact request and invalid-domain refusal');

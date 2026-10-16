@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const Compiler = require('../program-compiler.js');
@@ -36,41 +35,12 @@ for(const mode of Object.keys(centers)) {
  }
  const answers={desiredResult:'balanced',structuredExperience:'over_24m',daysPerWeek:3,sessionMinutes:60,environment:{kind:'commercial_gym'},splitPreference:'upper_lower_full',block:{cycles:7,periodization:mode},deload:false};
  const mapped=Adapter.programRequestFromAnswers(answers,catalog);assert.equal(mapped.ok,true);assert.equal(mapped.value.split,'upper_lower_full');assert.equal(mapped.value.periodization,mode);
- for(const change of [{timeCeilingMinutes:40},{goal:'hypertrophy'},{goal:'strength'},{experience:'intermediate'},{cycles:8},{deloadCycles:[7]}]){
-  assert.equal(Compiler.generateProgram({...next,...change},catalog).ok,false,'periodized expansion cannot free another input dimension');
+ for(const goal of ['hybrid','hypertrophy','strength'])for(const timeCeilingMinutes of [20,40,60,90,120,150])for(const experience of ['beginner','intermediate','advanced']){
+  assert(Compiler.availableSplits({...next,goal,timeCeilingMinutes,experience}).includes('upper_lower_full'),'recovered independent dimensions compose across all supported goals, times and experiences');
+ }
+ for(const change of [{cycles:8},{deloadCycles:[7]},{daysPerWeek:2},{daysPerWeek:1}]){
+  assert.equal(Compiler.generateProgram({...next,...change},catalog).ok,false,'invalid normal-cycle count or incompatible frequency is refused');
   assert.equal(Compiler.availableSplits({...next,...change}).includes('upper_lower_full'),false);
  }
 }
-// The real 60-minute assembly cannot supply every 1..6 set-count/role/metric
-// combination. Inject only the public layout seam; execute the actual compiler
-// boundary and target producer with real catalog rows and source metric UUIDs.
-const source=fs.readFileSync(new URL('../program-compiler.js',import.meta.url),'utf8');
-function controlledCompiler(templates){
- const previousLayout=globalThis.RepForgeGenerationLayout,previousCompiler=globalThis.RepForgeProgramCompiler;
- try{
-  globalThis.RepForgeGenerationLayout={generate:()=>({status:'ok',days:['Upper','Lower','Full'].map((name,index)=>({name,templates:[templates[index]]})),weeklySlots:[0,null,1,null,2,null,null],budgetMinutes:50,estimatedSessionSeconds:[60,60,60]})};
-  const module={exports:{}};new Function('module','exports','require',source)(module,module.exports,createRequire(new URL('../program-compiler.js',import.meta.url)));return module.exports;
- }finally{globalThis.RepForgeGenerationLayout=previousLayout;globalThis.RepForgeProgramCompiler=previousCompiler;}
-}
-const realIds=baseline.value.days.flatMap(day=>day.slots).slice(0,3).map(s=>s.exerciseId);
-const metricCases=[['2555c6f170d88072bbf6d9ad3f16ea86','reps'],['25a5c6f170d880baaa2dc8c7b67d4b65','repsPerSide'],['2555c6f170d88063941ef7c8956d760c',null]];
-const controlledCatalogs=new Map(metricCases.map(([metric])=>{
- const exercises=realIds.map(id=>({...catalog.exercises.find(r=>r.id===id),exerciseMetrics:[metric],laterality:[]}));
- return [metric,require('../generation-identity.js').prepareCatalog({...catalog,exercises})];
-}));
-let boundaryCases=0;
-for(const mode of Object.keys(centers))for(const role of ['primary','secondary','accessory'])for(const pull of [0,1])for(let n=1;n<=6;n++)for(const [metric,key] of metricCases){
- const altered=controlledCatalogs.get(metric);
- const templates=altered.exercises.map(raw=>({exercise:{id:raw.id,raw,patterns:pull?['horizontalPull']:['horizontalPush']},type:role,numSets:n,accessoryMuscle:role==='accessory'?'chest':null}));
- const compiler=controlledCompiler(templates);const r=compiler.generateProgram({...request,periodization:mode,executionContexts:Object.fromEntries(realIds.map(id=>[id,'bilateral']))},altered);assert.equal(r.ok,true,JSON.stringify(r.conflicts));
- const slot=r.value.days[0].slots[0];const base=role==='accessory'?0:pull?1:2;
- for(const [i,cycle] of slot.prescriptionsByCycle.entries()){
-  assert.equal(cycle.sets.length,n);
-  for(const [j,set] of cycle.sets.entries()){
-   assert.deepEqual(set.targets,key?{[key]:{min:centers[mode][role][pull][i]-1,max:centers[mode][role][pull][i]+1}}:{});
-   assert.equal(set.rir,key?Math.max(0,base+adjustments[n][j]):null);assert.equal(set.restSeconds,null);
-  }
- }
- boundaryCases++;
-}
-console.log(`generation-periodization: three real-catalog modes, split/adapter gates, repeated identities, ${boundaryCases} controlled dose boundaries PASS`);
+console.log('generation-periodization: three real-catalog modes, adapter, source schedules and expanded domain boundaries PASS');

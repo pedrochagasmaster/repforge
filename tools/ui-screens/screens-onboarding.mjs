@@ -1081,16 +1081,18 @@ export const ONBOARDING_SCENARIOS = {
     await recommendTo(page, { result: true, desired: "balanced" });
     await page.click("#entryReview [data-review-block-edit]");
     await page.waitForSelector("#reviewSheet.is-open [data-review-block-weeks]", { timeout: 10000 });
-    for (let index = 0; index < 3; index++) await page.click('#reviewSheet [data-review-block-step="1"]');
+    assert.equal(await page.locator('#reviewSheet [data-review-block-step]').count(), 0);
+    assert.equal(await page.locator('#reviewSheet [data-review-block-deload]').getAttribute("aria-checked"), "true");
     await page.click('#reviewSheet [data-review-block-pattern="undulating"]');
+    await page.click('#reviewSheet [data-review-block-deload]');
     const visible = await page.evaluate(() => ({
       weeks: document.querySelector("[data-review-block-weeks]")?.textContent.trim(),
       pattern: document.querySelector("[data-review-block-pattern][aria-checked='true']")?.dataset.reviewBlockPattern,
       deload: document.querySelector("[data-review-block-deload]")?.getAttribute("aria-checked"),
     }));
-    const expected = await page.evaluate(() => window.RepForgeI18n.t("entry.review.block.weeks", { n: 10 }));
-    if (visible.weeks !== expected || visible.pattern !== "undulating" || visible.deload !== "true")
-      throw new Error(`The result block sheet did not reach its approved 10-week state: ${JSON.stringify(visible)}`);
+    const expected = await page.evaluate(() => window.RepForgeI18n.t("entry.review.block.regular_weeks", { n: 7 }));
+    if (visible.weeks !== expected || visible.pattern !== "undulating" || visible.deload !== "false")
+      throw new Error(`The result block sheet did not keep seven regular weeks with the edited pattern and recovery choice: ${JSON.stringify(visible)}`);
   },
   "onboarding-recommend/result-existing": (page) => recommendTo(page, { result: true, existing: true }),
   "onboarding-recommend/chip-editor-open": (page) => reviewWithEditor(page, "days"),

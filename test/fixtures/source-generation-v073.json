@@ -1,0 +1,5340 @@
+{
+  "source": {
+    "classification": "sanitized source-model outputs under explicit SDK contracts and approved ASCII equivalent-pool draw; not observed random output",
+    "binarySHA256": "a79f5db63bb7dffdd683fae131fe033deabaef20d14d6ce4e5d4a6debb3f1312",
+    "limitations": [
+      "explicit commercialGym equipment; seven affirmative competency answers; empty history/load settings; null source sex and rest overrides; smart warmup",
+      "three-day goal/duration axis and all17 split variants at hybrid60 only; no inferred cross-product snapshots"
+    ],
+    "packetSHA256": {
+      "resume-s4-splits-20261016-low/split-schema.json": "a381da081701124e81c3fc892639bc270dcc407311aa5e69ae20756bf400b9ed",
+      "resume-s4-pool-correction-20261016-low/compositions.json": "66f7c004317a8c43cf528e36532565710cd4846b2e31805fb6c0e29a7f62bffb",
+      "resume-s3-cross-dimension-20261016-root/matrix.json": "0451afaf468874bb4e23639fca1289d2bdf80e7e2d980b1f39a254042d642271"
+    }
+  },
+  "deprioritizedMuscleIds": [
+    "2545c6f170d8805f823bcfb076a74397",
+    "2545c6f170d88060a50ec9b41a066a5d",
+    "2545c6f170d880da9b28f1e024be796b",
+    "2545c6f170d880088132c5739103e625",
+    "2545c6f170d8809a8fa7e24a77c25416",
+    "2545c6f170d880a9899eec0e496c8cba",
+    "2545c6f170d880349546e5d8f6df2e2a",
+    "2545c6f170d88017a44bcd5bc21b8d98"
+  ],
+  "cases": [
+    {
+      "split": "full_body",
+      "daysPerWeek": 2,
+      "goal": "hybrid",
+      "timeCeilingMinutes": 60,
+      "budgetMinutes": 50,
+      "days": [
+        {
+          "name": "Workout A",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Workout B",
+          "slots": [
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "full_body",
+      "daysPerWeek": 3,
+      "goal": "hybrid",
+      "timeCeilingMinutes": 60,
+      "budgetMinutes": 50,
+      "days": [
+        {
+          "name": "Workout A",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8805bb5a0eca0cb756494",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Workout B",
+          "slots": [
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8802facb6eb0a316ae895",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Workout C",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8803da198c200611265c3",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880d5bdf8fd24dec58684",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "full_body",
+      "daysPerWeek": 4,
+      "goal": "hybrid",
+      "timeCeilingMinutes": 60,
+      "budgetMinutes": 50,
+      "days": [
+        {
+          "name": "Workout A",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8802facb6eb0a316ae895",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880d5bdf8fd24dec58684",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Workout B",
+          "slots": [
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8800d8fc9d2c235673bf6",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8805bb5a0eca0cb756494",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Workout C",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8803da198c200611265c3",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d88008a9adde9f71881c36",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d88058affcfe5558485d48",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Workout D",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8802ba26bf25efbec5e68",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8808fa1c6e81741d5a44b",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d88002a708fd4827890e8c",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8805b8898fd86e0d99d28",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "full_body",
+      "daysPerWeek": 5,
+      "goal": "hybrid",
+      "timeCeilingMinutes": 60,
+      "budgetMinutes": 50,
+      "days": [
+        {
+          "name": "Workout A",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8808fa1c6e81741d5a44b",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8805bb5a0eca0cb756494",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880a48120f245094f9530",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8805c8bc9f17b441a96d9",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Workout B",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8802ba26bf25efbec5e68",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d88008a9adde9f71881c36",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d88058affcfe5558485d48",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Workout C",
+          "slots": [
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8802facb6eb0a316ae895",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8805b8898fd86e0d99d28",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d88061b074caacc5a76081",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Workout D",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8803da198c200611265c3",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d88002a708fd4827890e8c",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880fb9521f93aa126739f",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Workout E",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8800d8fc9d2c235673bf6",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880d5bdf8fd24dec58684",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8801da273dbdc61789e83",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8801e907be574e89e5c65",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880c68df7cd7ee49de492",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "full_body",
+      "daysPerWeek": 6,
+      "goal": "hybrid",
+      "timeCeilingMinutes": 60,
+      "budgetMinutes": 50,
+      "days": [
+        {
+          "name": "Workout A",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "2e85c6f170d8802f91e4e8f17dd763ad",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8801e907be574e89e5c65",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880c68df7cd7ee49de492",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Workout B",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d88058affcfe5558485d48",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8805c8bc9f17b441a96d9",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8803fbfb3de3621bd96b5",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Workout C",
+          "slots": [
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8802facb6eb0a316ae895",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880409004f87e18f9b974",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8805b8898fd86e0d99d28",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d88061b074caacc5a76081",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Workout D",
+          "slots": [
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a25c6f170d88008a9adde9f71881c36",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d88074b3d4e1548e32c508",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880fb9521f93aa126739f",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Workout E",
+          "slots": [
+            {
+              "exerciseId": "1a05c6f170d8803da198c200611265c3",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8808fa1c6e81741d5a44b",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d880198e1aceac084f30eb",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880d5bdf8fd24dec58684",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8801da273dbdc61789e83",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Workout F",
+          "slots": [
+            {
+              "exerciseId": "1a05c6f170d8802ba26bf25efbec5e68",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8800d8fc9d2c235673bf6",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d880c5ad11c99b302b1bf9",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1ca5c6f170d88029b5f6c3464d50ea03",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d88002a708fd4827890e8c",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8805bb5a0eca0cb756494",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880a48120f245094f9530",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "upper_lower",
+      "daysPerWeek": 2,
+      "goal": "hybrid",
+      "timeCeilingMinutes": 60,
+      "budgetMinutes": 50,
+      "days": [
+        {
+          "name": "Upper",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 1
+            },
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 1
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Lower",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "push_pull",
+      "daysPerWeek": 2,
+      "goal": "hybrid",
+      "timeCeilingMinutes": 60,
+      "budgetMinutes": 50,
+      "days": [
+        {
+          "name": "Push",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Pull",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "upper_lower_full",
+      "daysPerWeek": 3,
+      "goal": "hybrid",
+      "timeCeilingMinutes": 60,
+      "budgetMinutes": 50,
+      "days": [
+        {
+          "name": "Upper",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Lower",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d88008a9adde9f71881c36",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8801e907be574e89e5c65",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Full Body",
+          "slots": [
+            {
+              "exerciseId": "1a35c6f170d8808fa1c6e81741d5a44b",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d88002a708fd4827890e8c",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8805c8bc9f17b441a96d9",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "push_pull_legs",
+      "daysPerWeek": 3,
+      "goal": "hybrid",
+      "timeCeilingMinutes": 60,
+      "budgetMinutes": 50,
+      "days": [
+        {
+          "name": "Push",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8803da198c200611265c3",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880d5bdf8fd24dec58684",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8805bb5a0eca0cb756494",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Pull",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8802facb6eb0a316ae895",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Legs",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "upper_lower_upper_lower",
+      "daysPerWeek": 4,
+      "goal": "hybrid",
+      "timeCeilingMinutes": 60,
+      "budgetMinutes": 50,
+      "days": [
+        {
+          "name": "Upper A",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880d5bdf8fd24dec58684",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8805bb5a0eca0cb756494",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Lower A",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8808fa1c6e81741d5a44b",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8801e907be574e89e5c65",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Upper B",
+          "slots": [
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8803da198c200611265c3",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8802facb6eb0a316ae895",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Lower B",
+          "slots": [
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d88008a9adde9f71881c36",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d88002a708fd4827890e8c",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8805c8bc9f17b441a96d9",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "push_pull_hinge_squat",
+      "daysPerWeek": 4,
+      "goal": "hybrid",
+      "timeCeilingMinutes": 60,
+      "budgetMinutes": 50,
+      "days": [
+        {
+          "name": "Push",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8803da198c200611265c3",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8801e907be574e89e5c65",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880d5bdf8fd24dec58684",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Hinge",
+          "slots": [
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8808fa1c6e81741d5a44b",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8805bb5a0eca0cb756494",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8805c8bc9f17b441a96d9",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Pull",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8802facb6eb0a316ae895",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Squat",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d88008a9adde9f71881c36",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d88002a708fd4827890e8c",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "push_pull_legs_accessories",
+      "daysPerWeek": 4,
+      "goal": "hybrid",
+      "timeCeilingMinutes": 60,
+      "budgetMinutes": 50,
+      "days": [
+        {
+          "name": "Push",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8803da198c200611265c3",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8802ba26bf25efbec5e68",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880d5bdf8fd24dec58684",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Pull",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8802facb6eb0a316ae895",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8800d8fc9d2c235673bf6",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8805b8898fd86e0d99d28",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d88058affcfe5558485d48",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Legs",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d88008a9adde9f71881c36",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8808fa1c6e81741d5a44b",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d88002a708fd4827890e8c",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Accessories",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8805bb5a0eca0cb756494",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "upper_lower_upper_lower_upper",
+      "daysPerWeek": 5,
+      "goal": "hybrid",
+      "timeCeilingMinutes": 60,
+      "budgetMinutes": 50,
+      "days": [
+        {
+          "name": "Upper A",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8800d8fc9d2c235673bf6",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8805bb5a0eca0cb756494",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8805b8898fd86e0d99d28",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d88061b074caacc5a76081",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Lower A",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8808fa1c6e81741d5a44b",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8801e907be574e89e5c65",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Upper B",
+          "slots": [
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8803da198c200611265c3",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880fb9521f93aa126739f",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8801da273dbdc61789e83",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Lower B",
+          "slots": [
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d88008a9adde9f71881c36",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d88002a708fd4827890e8c",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8805c8bc9f17b441a96d9",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Upper C",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d8802facb6eb0a316ae895",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8802ba26bf25efbec5e68",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880d5bdf8fd24dec58684",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d88058affcfe5558485d48",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880a48120f245094f9530",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880c68df7cd7ee49de492",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "push_pull_hinge_squat_accessories",
+      "daysPerWeek": 5,
+      "goal": "hybrid",
+      "timeCeilingMinutes": 60,
+      "budgetMinutes": 50,
+      "days": [
+        {
+          "name": "Push",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8803da198c200611265c3",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8802ba26bf25efbec5e68",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d88002a708fd4827890e8c",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8805c8bc9f17b441a96d9",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Hinge",
+          "slots": [
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a35c6f170d8808fa1c6e81741d5a44b",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d88029bc9ff9ded538758c",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880d5bdf8fd24dec58684",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Pull",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8802facb6eb0a316ae895",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8800d8fc9d2c235673bf6",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8805b8898fd86e0d99d28",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d88058affcfe5558485d48",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Squat",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a25c6f170d88008a9adde9f71881c36",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d8802ea9b9ce71cd9d3d67",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Accessories",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d88074b3d4e1548e32c508",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8801e907be574e89e5c65",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8805bb5a0eca0cb756494",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "push_pull_legs_upper_lower",
+      "daysPerWeek": 5,
+      "goal": "hybrid",
+      "timeCeilingMinutes": 60,
+      "budgetMinutes": 50,
+      "days": [
+        {
+          "name": "Push",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8803da198c200611265c3",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8805c8bc9f17b441a96d9",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880fb9521f93aa126739f",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Pull",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8800d8fc9d2c235673bf6",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880d5bdf8fd24dec58684",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8801da273dbdc61789e83",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8805b8898fd86e0d99d28",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Legs",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8808fa1c6e81741d5a44b",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8801e907be574e89e5c65",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Upper",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d8802facb6eb0a316ae895",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8802ba26bf25efbec5e68",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880a48120f245094f9530",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8805bb5a0eca0cb756494",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d88058affcfe5558485d48",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Lower",
+          "slots": [
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d88008a9adde9f71881c36",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d88002a708fd4827890e8c",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880c68df7cd7ee49de492",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d88061b074caacc5a76081",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "push_pull_hinge_squat_upper_lower",
+      "daysPerWeek": 6,
+      "goal": "hybrid",
+      "timeCeilingMinutes": 60,
+      "budgetMinutes": 50,
+      "days": [
+        {
+          "name": "Push",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d88002a708fd4827890e8c",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8805c8bc9f17b441a96d9",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d88058affcfe5558485d48",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8805b8898fd86e0d99d28",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Squat",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a25c6f170d88019bb29d293690154c8",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d88074b3d4e1548e32c508",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8801e907be574e89e5c65",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Pull",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880c68df7cd7ee49de492",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880fb9521f93aa126739f",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d88061b074caacc5a76081",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880a48120f245094f9530",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8801da273dbdc61789e83",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Hinge",
+          "slots": [
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a35c6f170d88029bc9ff9ded538758c",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8805bb5a0eca0cb756494",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880d5bdf8fd24dec58684",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Upper",
+          "slots": [
+            {
+              "exerciseId": "1a05c6f170d8803da198c200611265c3",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8802facb6eb0a316ae895",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8802ba26bf25efbec5e68",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8800d8fc9d2c235673bf6",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Lower",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d88008a9adde9f71881c36",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8808fa1c6e81741d5a44b",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d8802ea9b9ce71cd9d3d67",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d880bebc64f4dce0d5f5f1",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "push_pull_legs_push_pull_legs",
+      "daysPerWeek": 6,
+      "goal": "hybrid",
+      "timeCeilingMinutes": 60,
+      "budgetMinutes": 50,
+      "days": [
+        {
+          "name": "Push A",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a05c6f170d8802ba26bf25efbec5e68",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d880c5ad11c99b302b1bf9",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "2e85c6f170d8802f91e4e8f17dd763ad",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d88061b074caacc5a76081",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880fb9521f93aa126739f",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Pull A",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a15c6f170d8800d8fc9d2c235673bf6",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1ca5c6f170d88029b5f6c3464d50ea03",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880d5bdf8fd24dec58684",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8805bb5a0eca0cb756494",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8801da273dbdc61789e83",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8805b8898fd86e0d99d28",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Legs A",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8808fa1c6e81741d5a44b",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8801e907be574e89e5c65",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Push B",
+          "slots": [
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a05c6f170d8803da198c200611265c3",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d880198e1aceac084f30eb",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8803fbfb3de3621bd96b5",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8805c8bc9f17b441a96d9",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880c68df7cd7ee49de492",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Pull B",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a15c6f170d8802facb6eb0a316ae895",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880409004f87e18f9b974",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880a48120f245094f9530",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d88058affcfe5558485d48",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Legs B",
+          "slots": [
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d88008a9adde9f71881c36",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d88002a708fd4827890e8c",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d88074b3d4e1548e32c508",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "upper_lower_full",
+      "daysPerWeek": 3,
+      "goal": "hybrid",
+      "timeCeilingMinutes": 20,
+      "budgetMinutes": 18,
+      "days": [
+        {
+          "name": "Upper",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 1
+            },
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 1
+            },
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 1
+            },
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 1
+            }
+          ]
+        },
+        {
+          "name": "Lower",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Full Body",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "upper_lower_full",
+      "daysPerWeek": 3,
+      "goal": "hybrid",
+      "timeCeilingMinutes": 40,
+      "budgetMinutes": 30,
+      "days": [
+        {
+          "name": "Upper",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 1
+            },
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 1
+            }
+          ]
+        },
+        {
+          "name": "Lower",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Full Body",
+          "slots": [
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "upper_lower_full",
+      "daysPerWeek": 3,
+      "goal": "hybrid",
+      "timeCeilingMinutes": 90,
+      "budgetMinutes": 75,
+      "days": [
+        {
+          "name": "Upper",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8803da198c200611265c3",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880d5bdf8fd24dec58684",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8805c8bc9f17b441a96d9",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d88058affcfe5558485d48",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Lower",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a25c6f170d88008a9adde9f71881c36",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d88029bc9ff9ded538758c",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d88002a708fd4827890e8c",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8801e907be574e89e5c65",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Full Body",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d8802facb6eb0a316ae895",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8802ba26bf25efbec5e68",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8800d8fc9d2c235673bf6",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8808fa1c6e81741d5a44b",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d88074b3d4e1548e32c508",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d8806ba0efd970f13028c3",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8805bb5a0eca0cb756494",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8805b8898fd86e0d99d28",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8801da273dbdc61789e83",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "upper_lower_full",
+      "daysPerWeek": 3,
+      "goal": "hybrid",
+      "timeCeilingMinutes": 120,
+      "budgetMinutes": 105,
+      "days": [
+        {
+          "name": "Upper",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8803da198c200611265c3",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880d5bdf8fd24dec58684",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8805c8bc9f17b441a96d9",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d88058affcfe5558485d48",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880a48120f245094f9530",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880c68df7cd7ee49de492",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880fb9521f93aa126739f",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Lower",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a25c6f170d88008a9adde9f71881c36",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d8802ea9b9ce71cd9d3d67",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d88029bc9ff9ded538758c",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d88050a8b7db0d4f1bc8f2",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d88002a708fd4827890e8c",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8801e907be574e89e5c65",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Full Body",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d8802facb6eb0a316ae895",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8802ba26bf25efbec5e68",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8800d8fc9d2c235673bf6",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8808fa1c6e81741d5a44b",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d880bebc64f4dce0d5f5f1",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d88074b3d4e1548e32c508",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d88019bb29d293690154c8",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8805bb5a0eca0cb756494",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8805b8898fd86e0d99d28",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8801da273dbdc61789e83",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "2e85c6f170d8802f91e4e8f17dd763ad",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d88061b074caacc5a76081",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "upper_lower_full",
+      "daysPerWeek": 3,
+      "goal": "hybrid",
+      "timeCeilingMinutes": 150,
+      "budgetMinutes": 125,
+      "days": [
+        {
+          "name": "Upper",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8803da198c200611265c3",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d88002a708fd4827890e8c",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880d5bdf8fd24dec58684",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d88058affcfe5558485d48",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880a48120f245094f9530",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880c68df7cd7ee49de492",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880fb9521f93aa126739f",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Lower",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a25c6f170d88008a9adde9f71881c36",
+              "type": "secondary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a25c6f170d8802ea9b9ce71cd9d3d67",
+              "type": "secondary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d88029bc9ff9ded538758c",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d88050a8b7db0d4f1bc8f2",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8801e907be574e89e5c65",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8805c8bc9f17b441a96d9",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8805391a2e2f61009d836",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Full Body",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d8802facb6eb0a316ae895",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8802ba26bf25efbec5e68",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8800d8fc9d2c235673bf6",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8808fa1c6e81741d5a44b",
+              "type": "secondary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a35c6f170d880bebc64f4dce0d5f5f1",
+              "type": "secondary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d88074b3d4e1548e32c508",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d88019bb29d293690154c8",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8805bb5a0eca0cb756494",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8805b8898fd86e0d99d28",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8801da273dbdc61789e83",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d88061b074caacc5a76081",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "upper_lower_full",
+      "daysPerWeek": 3,
+      "goal": "hypertrophy",
+      "timeCeilingMinutes": 20,
+      "budgetMinutes": 18,
+      "days": [
+        {
+          "name": "Upper",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 1
+            },
+            {
+              "exerciseId": "1a15c6f170d8802facb6eb0a316ae895",
+              "type": "primary",
+              "numSets": 1
+            },
+            {
+              "exerciseId": "1a05c6f170d8802ba26bf25efbec5e68",
+              "type": "primary",
+              "numSets": 1
+            },
+            {
+              "exerciseId": "1a15c6f170d8800d8fc9d2c235673bf6",
+              "type": "primary",
+              "numSets": 1
+            }
+          ]
+        },
+        {
+          "name": "Lower",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d88008a9adde9f71881c36",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d880bebc64f4dce0d5f5f1",
+              "type": "primary",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Full Body",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "upper_lower_full",
+      "daysPerWeek": 3,
+      "goal": "hypertrophy",
+      "timeCeilingMinutes": 40,
+      "budgetMinutes": 30,
+      "days": [
+        {
+          "name": "Upper",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8802facb6eb0a316ae895",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8802ba26bf25efbec5e68",
+              "type": "primary",
+              "numSets": 1
+            },
+            {
+              "exerciseId": "1a15c6f170d8800d8fc9d2c235673bf6",
+              "type": "primary",
+              "numSets": 1
+            }
+          ]
+        },
+        {
+          "name": "Lower",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d88008a9adde9f71881c36",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d880bebc64f4dce0d5f5f1",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Full Body",
+          "slots": [
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "upper_lower_full",
+      "daysPerWeek": 3,
+      "goal": "hypertrophy",
+      "timeCeilingMinutes": 60,
+      "budgetMinutes": 50,
+      "days": [
+        {
+          "name": "Upper",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8802facb6eb0a316ae895",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8802ba26bf25efbec5e68",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8800d8fc9d2c235673bf6",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Lower",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d88008a9adde9f71881c36",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d880bebc64f4dce0d5f5f1",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d8800a86efdcb6f902b9a9",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8801e907be574e89e5c65",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Full Body",
+          "slots": [
+            {
+              "exerciseId": "1a35c6f170d8808fa1c6e81741d5a44b",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d88002a708fd4827890e8c",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8805c8bc9f17b441a96d9",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "upper_lower_full",
+      "daysPerWeek": 3,
+      "goal": "hypertrophy",
+      "timeCeilingMinutes": 90,
+      "budgetMinutes": 75,
+      "days": [
+        {
+          "name": "Upper",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8802facb6eb0a316ae895",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8802ba26bf25efbec5e68",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8800d8fc9d2c235673bf6",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8803da198c200611265c3",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880d5bdf8fd24dec58684",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8805c8bc9f17b441a96d9",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d88058affcfe5558485d48",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Lower",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d88008a9adde9f71881c36",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a35c6f170d880bebc64f4dce0d5f5f1",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a25c6f170d8800a86efdcb6f902b9a9",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d88029bc9ff9ded538758c",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d88002a708fd4827890e8c",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8801e907be574e89e5c65",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Full Body",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d880409004f87e18f9b974",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d880c5ad11c99b302b1bf9",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1ca5c6f170d88029b5f6c3464d50ea03",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8808fa1c6e81741d5a44b",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d88074b3d4e1548e32c508",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d8806ba0efd970f13028c3",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8805bb5a0eca0cb756494",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8805b8898fd86e0d99d28",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8801da273dbdc61789e83",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "upper_lower_full",
+      "daysPerWeek": 3,
+      "goal": "hypertrophy",
+      "timeCeilingMinutes": 120,
+      "budgetMinutes": 105,
+      "days": [
+        {
+          "name": "Upper",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8802facb6eb0a316ae895",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8802ba26bf25efbec5e68",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8800d8fc9d2c235673bf6",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8803da198c200611265c3",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880d5bdf8fd24dec58684",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8805c8bc9f17b441a96d9",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d88058affcfe5558485d48",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880a48120f245094f9530",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880c68df7cd7ee49de492",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880fb9521f93aa126739f",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Lower",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d88008a9adde9f71881c36",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a35c6f170d880bebc64f4dce0d5f5f1",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a25c6f170d8800a86efdcb6f902b9a9",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d8802ea9b9ce71cd9d3d67",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d88029bc9ff9ded538758c",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d88050a8b7db0d4f1bc8f2",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d88002a708fd4827890e8c",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8801e907be574e89e5c65",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Full Body",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d880409004f87e18f9b974",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d880c5ad11c99b302b1bf9",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1ca5c6f170d88029b5f6c3464d50ea03",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8808fa1c6e81741d5a44b",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "2925c6f170d880e5ba36f6cc1fb32a88",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d88074b3d4e1548e32c508",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d88019bb29d293690154c8",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8805bb5a0eca0cb756494",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8805b8898fd86e0d99d28",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8801da273dbdc61789e83",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "2e85c6f170d8802f91e4e8f17dd763ad",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d88061b074caacc5a76081",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "upper_lower_full",
+      "daysPerWeek": 3,
+      "goal": "hypertrophy",
+      "timeCeilingMinutes": 150,
+      "budgetMinutes": 125,
+      "days": [
+        {
+          "name": "Upper",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8802facb6eb0a316ae895",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8802ba26bf25efbec5e68",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8800d8fc9d2c235673bf6",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8803da198c200611265c3",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d88002a708fd4827890e8c",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880d5bdf8fd24dec58684",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d88058affcfe5558485d48",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880a48120f245094f9530",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880c68df7cd7ee49de492",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880fb9521f93aa126739f",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Lower",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d88008a9adde9f71881c36",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a35c6f170d880bebc64f4dce0d5f5f1",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a25c6f170d8800a86efdcb6f902b9a9",
+              "type": "secondary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a25c6f170d8802ea9b9ce71cd9d3d67",
+              "type": "secondary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d88029bc9ff9ded538758c",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d88050a8b7db0d4f1bc8f2",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8801e907be574e89e5c65",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8805c8bc9f17b441a96d9",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8805391a2e2f61009d836",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Full Body",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d880409004f87e18f9b974",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d880c5ad11c99b302b1bf9",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1ca5c6f170d88029b5f6c3464d50ea03",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8808fa1c6e81741d5a44b",
+              "type": "secondary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "2925c6f170d880e5ba36f6cc1fb32a88",
+              "type": "secondary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d88074b3d4e1548e32c508",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d88019bb29d293690154c8",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8805bb5a0eca0cb756494",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8805b8898fd86e0d99d28",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8801da273dbdc61789e83",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d88061b074caacc5a76081",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "upper_lower_full",
+      "daysPerWeek": 3,
+      "goal": "strength",
+      "timeCeilingMinutes": 20,
+      "budgetMinutes": 18,
+      "days": [
+        {
+          "name": "Upper",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 1
+            },
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 1
+            },
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 1
+            },
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 1
+            }
+          ]
+        },
+        {
+          "name": "Lower",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Full Body",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "upper_lower_full",
+      "daysPerWeek": 3,
+      "goal": "strength",
+      "timeCeilingMinutes": 40,
+      "budgetMinutes": 30,
+      "days": [
+        {
+          "name": "Upper",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 1
+            },
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 1
+            }
+          ]
+        },
+        {
+          "name": "Lower",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Full Body",
+          "slots": [
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "upper_lower_full",
+      "daysPerWeek": 3,
+      "goal": "strength",
+      "timeCeilingMinutes": 60,
+      "budgetMinutes": 50,
+      "days": [
+        {
+          "name": "Upper",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Lower",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "2175c6f170d88016a63deff6b692c180",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Full Body",
+          "slots": [
+            {
+              "exerciseId": "1a35c6f170d880bebc64f4dce0d5f5f1",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "upper_lower_full",
+      "daysPerWeek": 3,
+      "goal": "strength",
+      "timeCeilingMinutes": 90,
+      "budgetMinutes": 75,
+      "days": [
+        {
+          "name": "Upper",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d880198e1aceac084f30eb",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880d5bdf8fd24dec58684",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Lower",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "2175c6f170d88016a63deff6b692c180",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d88008a9adde9f71881c36",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8809696b9f49a464504b0",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8805c8bc9f17b441a96d9",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Full Body",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d8802facb6eb0a316ae895",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8802ba26bf25efbec5e68",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8800d8fc9d2c235673bf6",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d880bebc64f4dce0d5f5f1",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d880d697d3f111b6bd16f5",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8805bb5a0eca0cb756494",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d88002a708fd4827890e8c",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d8801e907be574e89e5c65",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "upper_lower_full",
+      "daysPerWeek": 3,
+      "goal": "strength",
+      "timeCeilingMinutes": 120,
+      "budgetMinutes": 105,
+      "days": [
+        {
+          "name": "Upper",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a05c6f170d880198e1aceac084f30eb",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8803ba48ec1443eab5978",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880d5bdf8fd24dec58684",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d88002a708fd4827890e8c",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d88058affcfe5558485d48",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        },
+        {
+          "name": "Lower",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "2175c6f170d88016a63deff6b692c180",
+              "type": "secondary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a25c6f170d88008a9adde9f71881c36",
+              "type": "secondary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8809696b9f49a464504b0",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8805c8bc9f17b441a96d9",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8801e907be574e89e5c65",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Full Body",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d8802facb6eb0a316ae895",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8802ba26bf25efbec5e68",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8800d8fc9d2c235673bf6",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d880bebc64f4dce0d5f5f1",
+              "type": "secondary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a15c6f170d880409004f87e18f9b974",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d880c5ad11c99b302b1bf9",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1ca5c6f170d88029b5f6c3464d50ea03",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d880d697d3f111b6bd16f5",
+              "type": "secondary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a45c6f170d8805bb5a0eca0cb756494",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d880358201e8f16fbd355e",
+              "type": "accessory",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8801da273dbdc61789e83",
+              "type": "accessory",
+              "numSets": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "upper_lower_full",
+      "daysPerWeek": 3,
+      "goal": "strength",
+      "timeCeilingMinutes": 150,
+      "budgetMinutes": 125,
+      "days": [
+        {
+          "name": "Upper",
+          "slots": [
+            {
+              "exerciseId": "19f5c6f170d88013ae78cc9e6c967813",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a15c6f170d880e9bd65f120ac4908a0",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a05c6f170d8802d9233da6c4897b8e7",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a15c6f170d880bf8710e3cf4209936d",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a05c6f170d880198e1aceac084f30eb",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8803ba48ec1443eab5978",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d8806ba0efd970f13028c3",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8800abba4d3ef66a48aa6",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8808bb970dd2156495ae2",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880d5bdf8fd24dec58684",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d88002a708fd4827890e8c",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d88058affcfe5558485d48",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Lower",
+          "slots": [
+            {
+              "exerciseId": "1a25c6f170d8803d8231d083fdd65458",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a35c6f170d8807aae84e2c6eb136395",
+              "type": "primary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "2175c6f170d88016a63deff6b692c180",
+              "type": "secondary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a25c6f170d88008a9adde9f71881c36",
+              "type": "secondary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a15c6f170d880518057cd4d484cbecb",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a25c6f170d880c59f17ce7802758fc3",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d88029bc9ff9ded538758c",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d88074b3d4e1548e32c508",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8809696b9f49a464504b0",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8805c8bc9f17b441a96d9",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d88070b25eec47bc2e1940",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        },
+        {
+          "name": "Full Body",
+          "slots": [
+            {
+              "exerciseId": "1a15c6f170d8802facb6eb0a316ae895",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a05c6f170d8802ba26bf25efbec5e68",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a15c6f170d8800d8fc9d2c235673bf6",
+              "type": "secondary",
+              "numSets": 2
+            },
+            {
+              "exerciseId": "1a35c6f170d880bebc64f4dce0d5f5f1",
+              "type": "secondary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a15c6f170d880409004f87e18f9b974",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a05c6f170d880c5ad11c99b302b1bf9",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1ca5c6f170d88029b5f6c3464d50ea03",
+              "type": "secondary",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d880d697d3f111b6bd16f5",
+              "type": "secondary",
+              "numSets": 4
+            },
+            {
+              "exerciseId": "1a35c6f170d8800bab2dca0110e26c4a",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880629cb0e70c9f87e027",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8804cbd9afa04567bd5f7",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a45c6f170d8805bb5a0eca0cb756494",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a35c6f170d8801e907be574e89e5c65",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d880358201e8f16fbd355e",
+              "type": "accessory",
+              "numSets": 3
+            },
+            {
+              "exerciseId": "1a15c6f170d8801da273dbdc61789e83",
+              "type": "accessory",
+              "numSets": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "doseTables": [
+    {
+      "goal": "strength",
+      "role": "primary",
+      "pull": false,
+      "center": 5,
+      "cycle_table": [
+        3,
+        4,
+        5,
+        5,
+        6,
+        7,
+        8
+      ]
+    },
+    {
+      "goal": "strength",
+      "role": "primary",
+      "pull": true,
+      "center": 8,
+      "cycle_table": [
+        6,
+        8,
+        8,
+        9,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "goal": "strength",
+      "role": "secondary",
+      "pull": false,
+      "center": 8,
+      "cycle_table": [
+        5,
+        6,
+        7,
+        7,
+        8,
+        9,
+        10
+      ]
+    },
+    {
+      "goal": "strength",
+      "role": "secondary",
+      "pull": true,
+      "center": 10,
+      "cycle_table": [
+        8,
+        10,
+        10,
+        11,
+        13,
+        13,
+        15
+      ]
+    },
+    {
+      "goal": "strength",
+      "role": "accessory",
+      "pull": false,
+      "center": 10,
+      "cycle_table": [
+        8,
+        10,
+        10,
+        11,
+        13,
+        13,
+        15
+      ]
+    },
+    {
+      "goal": "strength",
+      "role": "accessory",
+      "pull": true,
+      "center": 10,
+      "cycle_table": [
+        8,
+        10,
+        10,
+        11,
+        13,
+        13,
+        15
+      ]
+    },
+    {
+      "goal": "both",
+      "role": "primary",
+      "pull": false,
+      "center": 5,
+      "cycle_table": [
+        3,
+        4,
+        5,
+        5,
+        6,
+        7,
+        8
+      ]
+    },
+    {
+      "goal": "both",
+      "role": "primary",
+      "pull": true,
+      "center": 8,
+      "cycle_table": [
+        6,
+        8,
+        8,
+        9,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "goal": "both",
+      "role": "secondary",
+      "pull": false,
+      "center": 10,
+      "cycle_table": [
+        8,
+        10,
+        10,
+        11,
+        13,
+        13,
+        15
+      ]
+    },
+    {
+      "goal": "both",
+      "role": "secondary",
+      "pull": true,
+      "center": 12,
+      "cycle_table": [
+        8,
+        10,
+        10,
+        11,
+        13,
+        13,
+        15
+      ]
+    },
+    {
+      "goal": "both",
+      "role": "accessory",
+      "pull": false,
+      "center": 15,
+      "cycle_table": [
+        10,
+        13,
+        13,
+        15,
+        17,
+        18,
+        20
+      ]
+    },
+    {
+      "goal": "both",
+      "role": "accessory",
+      "pull": true,
+      "center": 15,
+      "cycle_table": [
+        10,
+        13,
+        13,
+        15,
+        17,
+        18,
+        20
+      ]
+    },
+    {
+      "goal": "hypertrophy",
+      "role": "primary",
+      "pull": false,
+      "center": 8,
+      "cycle_table": [
+        6,
+        8,
+        8,
+        9,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "goal": "hypertrophy",
+      "role": "primary",
+      "pull": true,
+      "center": 10,
+      "cycle_table": [
+        8,
+        10,
+        10,
+        11,
+        13,
+        13,
+        15
+      ]
+    },
+    {
+      "goal": "hypertrophy",
+      "role": "secondary",
+      "pull": false,
+      "center": 10,
+      "cycle_table": [
+        8,
+        10,
+        10,
+        11,
+        13,
+        13,
+        15
+      ]
+    },
+    {
+      "goal": "hypertrophy",
+      "role": "secondary",
+      "pull": true,
+      "center": 12,
+      "cycle_table": [
+        8,
+        10,
+        10,
+        11,
+        13,
+        13,
+        15
+      ]
+    },
+    {
+      "goal": "hypertrophy",
+      "role": "accessory",
+      "pull": false,
+      "center": 15,
+      "cycle_table": [
+        10,
+        13,
+        13,
+        15,
+        17,
+        18,
+        20
+      ]
+    },
+    {
+      "goal": "hypertrophy",
+      "role": "accessory",
+      "pull": true,
+      "center": 15,
+      "cycle_table": [
+        10,
+        13,
+        13,
+        15,
+        17,
+        18,
+        20
+      ]
+    }
+  ],
+  "schedules": {
+    "static": null,
+    "linear": [
+      6,
+      6,
+      4,
+      3,
+      2,
+      0,
+      0
+    ],
+    "reverse_linear": [
+      0,
+      0,
+      2,
+      3,
+      4,
+      6,
+      6
+    ],
+    "undulating": [
+      6,
+      3,
+      0,
+      6,
+      2,
+      4,
+      0
+    ]
+  }
+}

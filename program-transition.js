@@ -241,7 +241,7 @@
     delete request.seed;
     if (definition.provenance?.source === "recovered_generation_rules") {
       const canonical = compiler.canonicalizeRequest(request, catalog);
-      if (!canonical.ok || canonical.value.split !== "upper_lower_full") {
+      if (!canonical.ok) {
         return unavailable("generation_conflict", { conflicts: [{ code: "unsupported_generation_domain" }] });
       }
     }
@@ -313,13 +313,13 @@
   // Start each day from the generator's prescriptions, which fit, and add the
   // edits back compounds first and in slot order: an edit stays whole if the
   // day still fits, gives back extra sets if that is enough, or is dropped.
-  function fitCarried(successor, generated, carried, compiler) {
+  function fitCarried(successor, generated, carried, compiler, catalog) {
     const ceiling = successor.request.timeCeilingMinutes * 60;
     const cycleIndexes = Array.from({ length: successor.cycles }, (_, index) => index + 1);
     for (const day of successor.days.filter((entry) => entry.kind === "training")) {
       const fresh = generated.days.find((entry) => entry.id === day.id);
-      const over = () => cycleIndexes.filter((cycleIndex) => compiler.estimateDaySeconds(day, cycleIndex) >
-        Math.max(ceiling, compiler.estimateDaySeconds(fresh, cycleIndex)));
+      const over = () => cycleIndexes.filter((cycleIndex) => compiler.estimateDaySeconds(day, cycleIndex, catalog) >
+        Math.max(ceiling, compiler.estimateDaySeconds(fresh, cycleIndex, catalog)));
       const order = day.slots.filter((slot) => carried.has(slot)).sort((left, right) =>
         Number(/Accessory$/.test(left.role)) - Number(/Accessory$/.test(right.role)) || left.order - right.order);
       const wanted = new Map(order.map((slot) => [slot, slot.prescriptionsByCycle]));
@@ -386,7 +386,7 @@
       for (const edit of edits) applyCycleEdit(target, source, edit);
       carried.set(target, entry);
     }
-    fitCarried(next, successor, carried, compiler);
+    fitCarried(next, successor, carried, compiler, catalog);
     return { value: next, carry: { identified: true, entries: entries.map((entry) => ({
       exerciseId: entry.source.exerciseId,
       predecessorSlotId: entry.source.id,
@@ -431,7 +431,7 @@
           ...set,
           id: `${set.id}~recovery`,
           cycleIndex: 1,
-          rir: set.rir == null ? null : Math.min(4, set.rir + 2),
+          rir: set.rir == null ? null : Math.min(6, set.rir + 2),
           provenance: { ...set.provenance, deload: true },
         })),
       };

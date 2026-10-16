@@ -210,5 +210,49 @@ for(const experience of ['beginner','intermediate']){
  const xpRequest=request({experience,split:'upper_lower_full',daysPerWeek:3,timeCeilingMinutes:60,periodization:'static',cycles:7,deloadCycles:[]});
  assert.equal(selector([row('a')],xpRequest).choose(spec,[]).id,'a','controlled experience reaches same candidate pool');
  for(const patch of [{timeCeilingMinutes:40},{goal:'hypertrophy'},{periodization:'linear'},{periodization:'reverse_linear'},{periodization:'undulating'}])
-  assert.throws(()=>selector([row('a')],{...xpRequest,...patch}),/Unsupported/);
+  assert.equal(selector([row('a')],{...xpRequest,...patch}).choose(spec,[]).id,'a','layout duration and period choices do not gate candidate eligibility');
+}
+
+// The source capability pool and the product's explicit-no boundary compose at
+// the real compiler entry point. Capturing the layout seam avoids constructing
+// an unrelated complete program for four eligibility cases.
+{
+ const Compiler=require('../program-compiler.js');
+ const actualLayout=require('../generation-layout.js');
+ const compilerText=readFileSync(new URL('../program-compiler.js',import.meta.url),'utf8');
+ const bench=source.exercises.find(exercise=>exercise.id==='19f5c6f170d8808bb424e98de4472a7e');
+ const unknownHandler=source.exercises.find(exercise=>exercise.id==='24b5c6f170d88089aa60dc0fdfa4478a');
+ const base={goal:'hybrid',experience:'advanced',daysPerWeek:4,split:'auto',timeCeilingMinutes:60,periodization:'static',cycles:7,deloadCycles:[],gymProfile:{equipmentIds:allEquipment},competencyAnswers:{},emphasisMuscleIds:[],deprioritizedMuscleIds:[],movementConfirmations:{}};
+ let captured;
+ const previousLayout=globalThis.RepForgeGenerationLayout,previousCompiler=globalThis.RepForgeProgramCompiler;
+ let capturingCompiler;
+ try{
+  globalThis.RepForgeGenerationLayout={...actualLayout,generate:(_request,candidates)=>{
+   captured=candidates.eligibleExerciseIds;return {status:'insufficient',issues:[{code:'controlled_layout_stop'}]};
+  }};
+  const module={exports:{}};new Function('module','exports','require',compilerText)(module,module.exports,createRequire(new URL('../program-compiler.js',import.meta.url)));capturingCompiler=module.exports;
+ }finally{globalThis.RepForgeGenerationLayout=previousLayout;globalThis.RepForgeProgramCompiler=previousCompiler;}
+ function eligible(change){
+  captured=null;capturingCompiler.generateProgram({...base,...change},source);
+  assert(Array.isArray(captured),'valid request reaches the actual source candidate pool');return captured;
+ }
+ assert(!eligible({}).includes(bench.id),'missing capability is not affirmative');
+ assert(eligible({movementConfirmations:{[bench.id]:bench.preconditions}}).includes(bench.id),'individual confirmation unlocks only its known source assessment');
+ assert(!eligible({competencyAnswers:{benchPress10:false},movementConfirmations:{[bench.id]:bench.preconditions}}).includes(bench.id),'explicit no remains a product veto after individual confirmation');
+ assert(!eligible({competencyAnswers:{benchPress10:true},movementConfirmations:{[unknownHandler.id]:unknownHandler.preconditions}}).includes(unknownHandler.id),'confirmation cannot invent a missing source handler');
+ const confirmedAnswers=Object.fromEntries(['pullups10','pullups5','pushups15','inclineBarbell10','overheadPress10','bodyweightDips10','benchPress10'].map(key=>[key,true]));
+ const result=Compiler.generateProgram({...base,goal:'strength',competencyAnswers:confirmedAnswers},source);
+ assert.equal(result.ok,true,JSON.stringify(result.conflicts));
+ const rejectedRow='3895c6f170d8804f9e7edf37ac311801';
+ const horizontalPull='19e5c6f170d88009ba40c03d2f6271df';
+ const target=result.value.days.flatMap(day=>day.slots).find(slot=>slot.role==='strengthPrimaryCompound'&&slot.movementPatternIds.includes(horizontalPull));
+ assert(target,'fixture contains the real primary pulling slot');
+ const replacements=Compiler.findSubstitutions(result.value,target.id,{},source);
+ assert(replacements.length,'fixture has actual substitution alternatives');
+ assert(!replacements.some(candidate=>candidate.exerciseId===rejectedRow),'a finite primary tier does not admit the real Secondary-only D.Y. row');
+ for(const replacement of replacements){
+  const raw=source.exercises.find(exercise=>exercise.id===replacement.exerciseId);
+  assert(raw.exerciseClassificationStrength.includes(primary),'every primary replacement keeps its source classification');
+ }
+ console.log('generation-candidates: real compiler confirmation vetoes and source-role substitution classification PASS');
 }

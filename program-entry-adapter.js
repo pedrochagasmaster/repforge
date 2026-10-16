@@ -266,21 +266,21 @@
     const days = answers?.daysPerWeek;
     if (!Number.isInteger(days)) return { choices: [] };
     const mapped = programRequestFromAnswers({ ...answers, splitPreference: "auto" }, catalog);
-    const available = typeof Compiler.availableSplits === "function"
-      ? Compiler.availableSplits(mapped.ok ? mapped.value : { daysPerWeek: days })
-      : Object.keys(Compiler.SPLITS || {}).filter((id) => id !== "upper_lower_full");
-    return { choices: Object.entries(Compiler.SPLITS || {})
+    if (!mapped.ok) return { choices: [] };
+    const canonical = Compiler.canonicalizeRequest(mapped.value, catalog);
+    if (!canonical.ok) return { choices: [] };
+    const available = Compiler.availableSplits(mapped.value);
+    return { choices: Object.entries(Compiler.SPLITS)
       .filter(([id, split]) => split.compatibleDays.includes(days) && available.includes(id))
-      .map(([id], index) => ({ id, default: index === 0, frequency: days })) };
+      .map(([id]) => ({ id, default: id === canonical.value.split, frequency: days })) };
   }
 
   function compatibleSplit(preference, request) {
     const Compiler = compilerApi();
-    const split = Compiler.SPLITS?.[preference];
-    const available = typeof Compiler.availableSplits === "function"
-      ? Compiler.availableSplits({ ...request, split: preference })
-      : Object.keys(Compiler.SPLITS || {}).filter((id) => id !== "upper_lower_full");
-    return split && split.compatibleDays.includes(request.daysPerWeek) && available.includes(preference) ? preference : "auto";
+    if (preference === undefined || preference === "auto") return "auto";
+    const split = Compiler.SPLITS[preference];
+    const available = Compiler.availableSplits({ ...request, split: preference });
+    return split && split.compatibleDays.includes(request.daysPerWeek) && available.includes(preference) ? preference : null;
   }
 
   function programRequestFromAnswers(answers, catalog) {
@@ -306,8 +306,11 @@
     const exerciseIds = (values) => (Array.isArray(values) ? values : [])
       .filter((id) => typeof id === "string" && index[id]?.type === "exercise");
     const answersIn = isPlainObject(source.competencyAnswers) ? source.competencyAnswers : {};
+    if (source.block?.cycles !== undefined && source.block.cycles !== 7) {
+      return { ok: false, conflicts: [{ field: "block", code: "block_cycles_unsupported" }] };
+    }
     const block = {
-      cycles: Number.isInteger(source.block?.cycles) && source.block.cycles >= 4 && source.block.cycles <= 12 ? source.block.cycles : 7,
+      cycles: 7,
       periodization: PERIODIZATIONS.includes(source.block?.periodization) ? source.block.periodization : "static",
     };
     const request = {
@@ -325,11 +328,11 @@
       preferredExerciseIds: exerciseIds(source.mustHaveExercises),
       split: "auto",
       periodization: block.periodization,
-      cycles: block.cycles,
-      deloadCycles: source.deload === true ? [block.cycles] : [],
+      cycles: block.cycles + (source.deload === true ? 1 : 0),
+      deloadCycles: source.deload === true ? [block.cycles + 1] : [],
     };
     request.split = compatibleSplit(source.splitPreference, request);
-    if (source.splitPreference === "upper_lower_full" && request.split !== source.splitPreference) {
+    if (request.split === null) {
       return { ok: false, conflicts: [{ field: "split", code: "split_unsupported" }] };
     }
     return { ok: true, value: request };

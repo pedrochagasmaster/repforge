@@ -441,7 +441,7 @@ async function onboardingB(browser) {
     groups.kettlebells.every((id) => !request.gymProfile.equipmentIds.includes(id)),
     "ticking the bench adds it and unticking the kettlebells removes them from Home");
   check(request.goal === "strength" && request.daysPerWeek === 3 && request.timeCeilingMinutes === 90 &&
-    request.experience === "advanced" && JSON.stringify(request.deloadCycles) === "[7]" && request.competencyAnswers.benchPress10 === true &&
+    request.experience === "advanced" && request.cycles === 8 && JSON.stringify(request.deloadCycles) === "[8]" && request.competencyAnswers.benchPress10 === true &&
     request.emphasisMuscleIds.length === 1 && request.deprioritizedMuscleIds.length === 1,
   "goal, days, session length, experience, deload, abilities and both muscle priorities reach the request", request);
   check(staged.answers.competencyAnswers?.pullups10 === true && staged.answers.competencyAnswers?.pullups5 === true &&
@@ -1024,26 +1024,62 @@ async function recoveredGenerationJourney(browser) {
       const rebuiltStats = await page.evaluate(() => window.__repforgeProgramEngine?.stats());
       check(rebuiltStats?.worker > 0 && JSON.stringify(await reviewed(page)) === JSON.stringify(definition),
         "P073: explicit Rebuild generates the current deterministic recommendation", rebuiltStats);
-      const unsupportedEdits = [["eight cycles", '[data-review-block-step="1"]'],
-        ["deload", "[data-review-block-deload]"]];
-      if (!supportsPeriodized) unsupportedEdits.push(["linear pattern", '[data-review-block-pattern="linear"]']);
-      for (const [label, control] of unsupportedEdits) {
-        const beforeEdit = await entry(page);
-        const stored = await page.evaluate(() => localStorage.getItem("repforge_program_setup_draft_v1"));
-        await page.locator("#entryReview [data-review-block-edit]").click();
-        await page.locator(`#reviewSheet ${control}`).click();
-        await page.locator("#reviewSheet [data-review-block-apply]").click();
-        await page.waitForFunction(() => {
-          const notice = document.querySelector("#toast");
-          return notice && !notice.classList.contains("hidden") && /could not build|not.*supported|not.*validated/i.test(notice.textContent);
-        }, undefined, { timeout: 10000 });
-        const afterEdit = await entry(page);
-        check(JSON.stringify(afterEdit.answers) === JSON.stringify(beforeEdit.answers) &&
-          JSON.stringify(afterEdit.result) === JSON.stringify(beforeEdit.result) &&
-          await page.evaluate(() => localStorage.getItem("repforge_program_setup_draft_v1")) === stored,
-          `P073: unsupported ${label} refuses explicitly and preserves the reviewed program, answers and persisted draft`);
-        await page.waitForSelector("#toast.hidden", { state: "attached", timeout: 10000 });
-      }
+      await page.locator("#entryReview [data-review-block-edit]").click();
+      check(await page.locator("#reviewSheet [data-review-block-step]").count() === 0 &&
+        /7/.test(await page.locator("#reviewSheet [data-review-block-weeks]").innerText()),
+        "P073: the generated block exposes seven regular weeks without unsupported length controls");
+      await page.locator("#reviewSheet [data-review-block-deload]").click();
+      await page.locator("#reviewSheet [data-review-block-apply]").click();
+      await page.waitForFunction(() => {
+        const definition = window.__repforgeEntryState()?.result?.preview?.programDefinition;
+        return definition?.cycles === 8 && JSON.stringify(definition.deloadCycles) === "[8]"
+          && !document.querySelector("#entryReview[aria-busy]");
+      }, undefined, { timeout: 20000 });
+      const withDeload = await entry(page);
+      const deloadRequest = Adapter.programRequestFromAnswers(withDeload.answers, Catalog);
+      const deloadExpected = deloadRequest.ok ? Compiler.generateProgram(deloadRequest.value, Catalog) : null;
+      check(withDeload.answers.block.cycles === 7 && deloadExpected?.ok &&
+        JSON.stringify(withDeload.result.preview.programDefinition) === JSON.stringify(deloadExpected.value),
+        "P073: adding a lighter week retains seven regular weeks and rebuilds the canonical eight-week program");
+      check((await page.locator("#entryReview .review__facts .entry__strip-value").last().innerText()).trim() === "8" &&
+        /7/.test(await page.locator("#entryReview .review__block").innerText()) &&
+        /8/.test(await page.locator("#entryReview .review__block").innerText()),
+        "P073: total facts show eight weeks while block copy distinguishes seven regular weeks and recovery week eight");
+      await page.locator("#entryReview [data-review-block-edit]").click();
+      await page.locator("#reviewSheet [data-review-block-deload]").click();
+      await page.locator("#reviewSheet [data-review-block-apply]").click();
+      await page.waitForFunction(() => {
+        const definition = window.__repforgeEntryState()?.result?.preview?.programDefinition;
+        return definition?.cycles === 7 && definition.deloadCycles.length === 0
+          && !document.querySelector("#entryReview[aria-busy]");
+      }, undefined, { timeout: 20000 });
+      check(JSON.stringify(await reviewed(page)) === JSON.stringify(definition),
+        "P073: removing the additional recovery week restores the identical regular program");
+      const beforeEdit = await entry(page);
+      const stored = await page.evaluate(() => localStorage.getItem("repforge_program_setup_draft_v1"));
+      await page.evaluate(() => {
+        const base = window.RepForgeProgramEntryAdapter.createProductionServices({
+          Compiler: window.RepForgeProgramCompiler, catalog: window.RepForgeExerciseCatalog.snapshot(),
+        });
+        window.__repforgeProgramEntryServicesOverride = { ...base, generateProgram: () => ({
+          ok: false, conflicts: [{ code: "unsupported_generation_domain" }],
+        }) };
+      });
+      await page.locator("#entryReview [data-review-block-edit]").click();
+      await page.locator('#reviewSheet [data-review-block-pattern="linear"]').click();
+      await page.locator("#reviewSheet [data-review-block-apply]").click();
+      await page.waitForFunction(() => {
+        const notice = document.querySelector("#toast");
+        return notice && !notice.classList.contains("hidden") && /could not build/i.test(notice.textContent)
+          && !document.querySelector("#entryReview[aria-busy]");
+      }, undefined, { timeout: 10000 });
+      const afterEdit = await entry(page);
+      check(JSON.stringify(afterEdit.answers) === JSON.stringify(beforeEdit.answers) &&
+        JSON.stringify(afterEdit.result) === JSON.stringify(beforeEdit.result) &&
+        await page.evaluate(() => localStorage.getItem("repforge_program_setup_draft_v1")) === stored,
+        "P073: a refused rebuild preserves the reviewed program, answers and exact persisted draft");
+      await page.evaluate(() => { delete window.__repforgeProgramEntryServicesOverride; });
+      await page.waitForSelector("#toast.hidden", { state: "attached", timeout: 10000 });
       if (supportsPeriodized) {
       const sourceCenters = {
         linear: { primary: [[8,8,6,5,5,3,3],[12,12,10,9,8,6,6]], secondary: [15,15,13,11,10,8,8], accessory: [20,20,17,15,13,10,10] },
@@ -1110,12 +1146,115 @@ async function recoveredGenerationJourney(browser) {
   return errors;
 }
 
+async function resumeSavedReview(page) {
+  await page.waitForSelector("#entryReview [data-review-slot], #entryResumeContinue, #firstRunCreate", { timeout: 15000 });
+  if (!await page.locator("#entryReview [data-review-slot]").count()) {
+    if (!await page.locator("#entryResumeContinue").count()) await page.click("#firstRunCreate");
+    await page.click("#entryResumeContinue");
+  }
+  await page.locator("#entryReview [data-review-slot]").first().waitFor({ state: "visible", timeout: 15000 });
+}
+
+async function sourceSplitChoicesJourney(browser) {
+  const domains = [
+    [2, "full_body", ["full_body", "upper_lower", "push_pull"]],
+    [3, "upper_lower_full", ["full_body", "upper_lower_full", "push_pull_legs"]],
+    [4, "upper_lower_upper_lower", ["full_body", "upper_lower_upper_lower", "push_pull_hinge_squat", "push_pull_legs_accessories"]],
+    [5, "push_pull_legs_upper_lower", ["full_body", "upper_lower_upper_lower_upper", "push_pull_hinge_squat_accessories", "push_pull_legs_upper_lower"]],
+    [6, "push_pull_legs_push_pull_legs", ["full_body", "push_pull_hinge_squat_upper_lower", "push_pull_legs_push_pull_legs"]],
+  ];
+  let visited = 0;
+  const errors = [];
+  for (const [daysPerWeek, automatic, expected] of domains) {
+    const run = await fresh(browser);
+    const { page } = run;
+    const persisted = await page.evaluate(async (daysPerWeek) => {
+      window.startOnboarding("first-run", { userInitiated: true, forceFresh: true });
+      const Entry = window.RepForgeProgramEntry;
+      const active = window.__repforgeEntryState();
+      let draft = Entry.selectRoute(Entry.createState({ draftId: `source-custom-${daysPerWeek}`,
+        activeProgramRevisionAtStart: active.activeProgramRevisionAtStart, now: new Date().toISOString(),
+        versions: window.RepForgeProgramEntryAdapter.currentVersions(window.RepForgeProgramCompiler) }), "custom");
+      draft = Entry.setAnswers(draft, { desiredResult: "balanced", structuredExperience: "over_24m", daysPerWeek,
+        sessionMinutes: 60, environment: { kind: "everything" }, primaryMuscles: [], deEmphasizedMuscles: [],
+        ignoredMuscles: [], mustHaveExercises: [], exerciseConstraints: [], block: { cycles: 7, periodization: "static" }, deload: true });
+      return window.__repforgePersistSetupDraft({ ...draft, step: "exercise_preferences" });
+    }, daysPerWeek);
+    check(persisted?.ok === true, `source choices: the saved ${daysPerWeek}-day Custom route uses the production draft writer`);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    await page.click("#firstRunCreate");
+    await page.click("#entryResumeContinue");
+    await page.waitForFunction(() => window.__repforgeEntryState()?.step === "exercise_preferences");
+    await page.click("#onbNext");
+    const choices = page.locator('#onbBody > .entry-motion-page:not([aria-hidden="true"]) [data-entry-pick="splitPreference"]');
+    await choices.first().waitFor({ state: "visible", timeout: 10000 });
+    const visible = await choices.evaluateAll(nodes => nodes.map(node => ({ id: node.dataset.entryVal,
+      selected: node.getAttribute("aria-checked") === "true", text: node.textContent })));
+    check(JSON.stringify(visible.map(choice => choice.id)) === JSON.stringify(expected) &&
+      JSON.stringify(visible.filter(choice => choice.selected).map(choice => choice.id)) === JSON.stringify([automatic]) &&
+      visible.every(choice => !choice.text.includes("split.")),
+      `source choices: ${daysPerWeek} days exposes every compatible translated split and the canonical default`, visible);
+    for (const id of expected) {
+      await page.locator(`#onbBody > .entry-motion-page:not([aria-hidden="true"]) [data-entry-pick="splitPreference"][data-entry-val="${id}"]`).click();
+      await page.waitForFunction(id => JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1"))?.state?.answers?.splitPreference === id,
+        id, { timeout: 10000 });
+      const selected = await entry(page);
+      const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1")));
+      check(selected.answers.splitPreference === id && saved?.state?.answers?.splitPreference === id,
+        `source choices: ${daysPerWeek}/${id} survives the production answer and draft writers`);
+      visited++;
+    }
+    await page.click("#onbNext");
+    await page.locator("#entryReview [data-review-slot]").first().waitFor({ state: "visible", timeout: 20000 });
+    const candidate = await entry(page);
+    const mapped = Adapter.programRequestFromAnswers(candidate.answers, Catalog);
+    const reference = mapped.ok ? Compiler.generateProgram(mapped.value, Catalog) : null;
+    check(reference?.ok && JSON.stringify(candidate.result.preview.programDefinition) === JSON.stringify(reference.value),
+      `source choices: the selected ${daysPerWeek}-day split generates the exact canonical definition`);
+    errors.push(...run.errors);
+    await run.context.close();
+  }
+  check(visited === 17, "all seventeen authored split/frequency choices were rendered and selected");
+  return errors;
+}
+
+async function maximumSourcePreviewPersistence(browser) {
+  const { context, page, errors } = await fresh(browser);
+  await page.click("#firstRunCreate");
+  await answerRecommend(page, { skipBasics: true, goal: "muscle_growth", lifting: "over_24m",
+    days: 6, minutes: 150, environment: "everything", deload: true });
+  await page.locator("#entryReview [data-review-slot]").first().waitFor({ state: "visible", timeout: 20000 });
+  const before = await entry(page);
+  check(before.answers.daysPerWeek === 6 && before.answers.sessionMinutes === 150 &&
+    before.answers.environment.kind === "everything" && before.result.preview.programDefinition.cycles === 8,
+    "the maximum source preview reaches Review with six days, every equipment item and the extra recovery week");
+  await page.waitForFunction(() => {
+    const stored = JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1"));
+    return stored?.state?.result?.fingerprint === window.__repforgeEntryState()?.result?.fingerprint;
+  }, undefined, { timeout: 15000 });
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1")));
+  check(JSON.stringify(stored.state.result) === JSON.stringify(before.result),
+    "the maximum complete result, including flat preview rows, is durably acknowledged before reload");
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  await resumeSavedReview(page);
+  const after = await entry(page);
+  check(JSON.stringify(after.result) === JSON.stringify(before.result) && JSON.stringify(after.answers) === JSON.stringify(before.answers),
+    "the maximum source preview and all answers survive ordinary production reload without regeneration");
+  check((await state(page)).program.length === 0, "resuming the maximum preview does not activate it");
+  await context.close();
+  return errors;
+}
+
 async function main() {
   console.log("P067 slice 2: Generate → review → activate through the production entry UI");
   const browser = await launchChromium();
   const allErrors = [];
   try {
     allErrors.push(await recoveredGenerationJourney(browser));
+    allErrors.push(await sourceSplitChoicesJourney(browser));
+    allErrors.push(await maximumSourcePreviewPersistence(browser));
     // Generate and activate ------------------------------------------------
     const { context, page, errors } = await fresh(browser);
     allErrors.push(errors);

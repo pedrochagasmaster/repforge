@@ -17,13 +17,24 @@
   const BUMPER = "25d5c6f170d880eba241c26f8f426024", BUMPERS = "25a5c6f170d8805b8c95e7e5b4e8a989", BODY = "19e5c6f170d880ec8238f837c5284019";
   const overlap = (a, b) => a.some((value) => b.includes(value));
   const ascii = (a, b) => a < b ? -1 : a > b ? 1 : 0;
+  function describeExercise(raw) {
+    const patterns = (raw.movementPattern || []).map((id) => PATTERNS[id]).filter(Boolean);
+    const region = REGIONS[raw.regionTrained] ?? null;
+    let effectiveRegion = region;
+    if (region === "core") {
+      const mapped = patterns.map((pattern) => PATTERN_MUSCLES[pattern]);
+      if (!mapped.some((muscle) => muscle === "abs" || muscle === "obliques")) {
+        const first = mapped.map((muscle) => MUSCLE_REGIONS[muscle]).find((value) => value != null);
+        effectiveRegion = first === "upper" ? "upperBody" : first === "lower" ? "lowerBody" : "core";
+      }
+    }
+    return Object.freeze({ id: raw.id, raw, patterns, patternMuscles: Object.freeze(patterns.map((pattern) => PATTERN_MUSCLES[pattern] ?? null)), region, effectiveRegion, exerciseType: TYPES[raw.exerciseType] ?? null,
+      primaryJointActions: (raw.primaryJointAction || []).map((id) => ACTIONS[id]).filter(Boolean), exclusionGroupings: raw.exclusionGroupings || [] });
+  }
   function create(catalog, request, hardAllowed) {
     if (typeof hardAllowed !== "function") throw new TypeError("hardAllowed is required");
-    const controlledExperience = ["beginner", "intermediate"].includes(request.experience)
-      && request.goal === "hybrid" && request.split === "upper_lower_full" && request.daysPerWeek === 3
-      && request.timeCeilingMinutes === 60 && request.periodization === "static" && request.cycles === 7
-      && Array.isArray(request.deloadCycles) && request.deloadCycles.length === 0;
-    if (!["hybrid", "hypertrophy", "strength"].includes(request.goal) || (request.experience !== "advanced" && !controlledExperience)) throw new RangeError("Unsupported initial candidate profile");
+    if (!["hybrid", "hypertrophy", "strength"].includes(request.goal)
+      || !["beginner", "intermediate", "advanced"].includes(request.experience)) throw new RangeError("Unsupported candidate profile");
     if (request.gymProfile?.equipmentConfigById && Object.keys(request.gymProfile.equipmentConfigById).length) throw new RangeError("Unsupported equipment overrides");
     if (request.gymProfile?.useBumperPlatesInPlateCalculator != null) throw new RangeError("Unsupported bumper override");
     if (request.history !== undefined && (!Array.isArray(request.history) || request.history.length)) throw new RangeError("Unsupported history input");
@@ -80,30 +91,32 @@
         return available(group.equipment);
       }));
     }
-    function resolve(raw) {
-      const patterns = (raw.movementPattern || []).map((id) => PATTERNS[id]).filter(Boolean);
-      const region = REGIONS[raw.regionTrained] ?? null;
-      let effectiveRegion = region;
-      if (region === "core") {
-        const mapped = patterns.map((pattern) => PATTERN_MUSCLES[pattern]);
-        if (!mapped.some((muscle) => muscle === "abs" || muscle === "obliques")) {
-          const first = mapped.map((muscle) => MUSCLE_REGIONS[muscle]).find((value) => value != null);
-          effectiveRegion = first === "upper" ? "upperBody" : first === "lower" ? "lowerBody" : "core";
-        }
-      }
-      return Object.freeze({ id: raw.id, raw, patterns, region, effectiveRegion, exerciseType: TYPES[raw.exerciseType] ?? null,
-        primaryJointActions: (raw.primaryJointAction || []).map((id) => ACTIONS[id]).filter(Boolean), exclusionGroupings: raw.exclusionGroupings || [] });
-    }
     const seenIds = new Set();
     const exercises = catalog.exercises.map((raw) => {
       if (seenIds.has(raw.id)) throw new TypeError("Duplicate exercise UUID");
-      seenIds.add(raw.id); return resolve(raw);
+      seenIds.add(raw.id); return describeExercise(raw);
     });
     const pool = exercises.filter((exercise) => {
       const required = ASSESSMENTS[exercise.id];
-      if (required ? !overlap(required, assessments) : (exercise.raw.preconditions || []).length) return false;
+      const prerequisites = exercise.raw.preconditions || [];
+      const confirmations = request.movementConfirmations?.[exercise.id] || [];
+      const explicitlyConfirmed = prerequisites.length > 0 && prerequisites.every((id) => confirmations.includes(id));
+      if (required ? !overlap(required, assessments) && !explicitlyConfirmed : prerequisites.length) return false;
       return gymAllowed(exercise.raw) && hardAllowed(exercise.raw);
     });
+    function classificationAllowed(candidate, type) {
+      const accessory = type === "accessory";
+      const descriptor = accessory ? "isolationAccessory" : type === "primary" ? "primaryCompound" : "secondaryCompound";
+      const strength = request.goal === "strength" || (request.goal === "hybrid" && type === "primary");
+      const tierField = `${strength ? "strength" : "hypertrophy"}${accessory ? "Accessory" : type === "primary" ? "PrimaryCompound" : "SecondaryCompound"}RecommendationLevel`;
+      const raw = candidate.raw;
+      return (raw[strength ? "exerciseClassificationStrength" : "exerciseClassificationHypertrophy"] || [])
+        .some((id) => DESCRIPTORS[id] === descriptor) && raw[tierField] != null;
+    }
+    function eligibleForRole(exerciseId, type) {
+      return ["primary", "secondary", "accessory"].includes(type)
+        && pool.some((candidate) => candidate.id === exerciseId && classificationAllowed(candidate, type));
+    }
     function variant(exercise, muscle) {
       const p = exercise.patterns, actions = exercise.primaryJointActions;
       if (muscle === "forearms" || muscle === "neck") {
@@ -141,15 +154,13 @@
       const accessory = spec.type === "accessory";
       if (accessory ? !Object.values(MUSCLES).includes(spec.muscle)
         : typeof spec.isFirstOfType !== "boolean" || !["horizontalPush", "verticalPush", "horizontalPull", "verticalPull", "squat", "hipHinge", "hinge"].includes(spec.pattern)) throw new TypeError("Invalid template specification");
-      const descriptor = accessory ? "isolationAccessory" : spec.type === "primary" ? "primaryCompound" : "secondaryCompound";
       const pattern = spec.pattern === "hinge" ? "hipHinge" : spec.pattern;
       const strength = request.goal === "strength" || (request.goal === "hybrid" && spec.type === "primary");
       const tierField = `${strength ? "strength" : "hypertrophy"}${accessory ? "Accessory" : spec.type === "primary" ? "PrimaryCompound" : "SecondaryCompound"}RecommendationLevel`;
       const groups = new Map();
       for (const candidate of pool) {
         const raw = candidate.raw;
-        const classifications = raw[strength ? "exerciseClassificationStrength" : "exerciseClassificationHypertrophy"] || [];
-        if (!classifications.some((id) => DESCRIPTORS[id] === descriptor) || raw[tierField] == null) continue;
+        if (!classificationAllowed(candidate, spec.type)) continue;
         if (accessory ? !accessoryAllowed(candidate, spec.muscle, selected) : !candidate.patterns.includes(pattern)) continue;
         let score = raw[tierField];
         if (!Number.isFinite(score)) throw new TypeError("Invalid recommendation tier");
@@ -183,9 +194,9 @@
       }
       return null;
     }
-    return Object.freeze({ choose, muscleId: (name) => MUSCLE_IDS.get(name), priorities: Object.freeze(priorities), depriorities: Object.freeze(depriorities) });
+    return Object.freeze({ choose, eligibleForRole, eligibleExerciseIds: Object.freeze(pool.map((exercise) => exercise.id)), muscleId: (name) => MUSCLE_IDS.get(name), priorities: Object.freeze(priorities), depriorities: Object.freeze(depriorities) });
   }
-  const api = Object.freeze({ create });
+  const api = Object.freeze({ create, describeExercise });
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.RepForgeGenerationCandidates = api;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -43,8 +43,23 @@ function check(condition, message, detail) {
   if (detail !== undefined) console.error(`    ${typeof detail === "string" ? detail : JSON.stringify(detail).slice(0, 2000)}`);
 }
 
-const cases = corpusCases({ Adapter, Catalog });
-const sample = cases.filter((_, index) => index % 12 === 0);
+const recorded = corpusCases({ Adapter, Catalog });
+const splitDomain = [
+  [2, ["full_body", "upper_lower", "push_pull"]],
+  [3, ["full_body", "upper_lower_full", "push_pull_legs"]],
+  [4, ["full_body", "upper_lower_upper_lower", "push_pull_hinge_squat", "push_pull_legs_accessories"]],
+  [5, ["full_body", "upper_lower_upper_lower_upper", "push_pull_hinge_squat_accessories", "push_pull_legs_upper_lower"]],
+  [6, ["full_body", "push_pull_hinge_squat_upper_lower", "push_pull_legs_push_pull_legs"]],
+];
+const sourceCases = splitDomain.flatMap(([daysPerWeek, splits]) => splits.map((splitPreference) => {
+  const mapped = Adapter.programRequestFromAnswers({ desiredResult: "balanced", structuredExperience: "over_24m",
+    daysPerWeek, sessionMinutes: 60, environment: { kind: "everything" }, splitPreference,
+    block: { cycles: 7, periodization: "static" }, deload: true }, Catalog);
+  if (!mapped.ok) throw new Error(`Source split fixture is unsupported: ${daysPerWeek}/${splitPreference}`);
+  return { key: `source-${daysPerWeek}-${splitPreference}`, request: mapped.value, expectedSplit: splitPreference };
+}));
+const cases = [...recorded, ...sourceCases];
+const sample = recorded.filter((_, index) => index % 12 === 0);
 
 async function open(browser, { contextOptions = {}, init } = {}) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, ...contextOptions });
@@ -64,10 +79,12 @@ function runCases(page, list) {
     const engine = window.__repforgeProgramEngine;
     const catalog = window.RepForgeExerciseCatalog.snapshot();
     const out = [];
-    for (const { key, request } of items) {
+    for (const { key, request, expectedSplit } of items) {
       const result = await engine.generate(request);
       const reference = window.RepForgeProgramCompiler.generateProgram(request, catalog);
       out.push({ key, same: JSON.stringify(result) === JSON.stringify(reference),
+        sourceSupported: !expectedSplit || (result.ok && result.value.request.split === expectedSplit
+          && result.value.cycles === 8 && JSON.stringify(result.value.deloadCycles) === "[8]"),
         valid: result.ok ? window.RepForgeProgramCompiler.validateProgramDefinition(result.value, catalog).ok
           : result.value === null && result.conflicts.length > 0 });
     }
@@ -79,6 +96,7 @@ function checkResults(results, label) {
   const mismatched = results.filter((item) => !item.same).map((item) => item.key);
   check(results.length > 0 && !mismatched.length, `${label}: engine and page compiler give identical JSON for ${results.length} requests`, mismatched);
   check(results.every((item) => item.valid), `${label}: every output is a valid definition or explicit conflict`);
+  check(results.every((item) => item.sourceSupported), `${label}: all seventeen source split/frequency requests remain supported with eight total cycles`);
 }
 
 async function disposeActiveEngine() {
@@ -330,9 +348,9 @@ async function main() {
         check(after.worker - before.stats.worker === cases.length && after.main === before.stats.main,
           "every corpus request ran in the worker, none on the main thread", { before: before.stats, after });
 
-        // The heaviest satisfiable request: all equipment, two long days.
+        // The maximum source request: all equipment, six 150-minute days and an extra deload.
         const heavy = Adapter.programRequestFromAnswers({ desiredResult: "muscle_growth", structuredExperience: "over_24m",
-          daysPerWeek: 2, sessionMinutes: 120, environment: { kind: "commercial_gym" } }, Catalog).value;
+          daysPerWeek: 6, sessionMinutes: 150, environment: { kind: "everything" }, deload: true }, Catalog).value;
         heavy.gymProfile = { equipmentIds: Object.keys(Catalog.uuidIndex).filter((id) => Catalog.uuidIndex[id]?.type === "equipment").sort() };
         const cdp = await context.newCDPSession(page);
         await cdp.send("Emulation.setCPUThrottlingRate", { rate: 6 });
@@ -379,7 +397,7 @@ async function main() {
       const { context, page, errors } = await open(browser, { init: () => { delete window.Worker; } });
       const before = await engineMode(page);
       check(before.mode === "main", "without Worker the engine runs on the main thread", before);
-      if (before.mode === "main") checkResults(await runCases(page, sample), "no Worker");
+      if (before.mode === "main") checkResults(await runCases(page, [...sample, ...sourceCases]), "no Worker");
       check(errors.length === 0, "no Worker: no page errors", errors);
       await context.close();
     }

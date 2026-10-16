@@ -138,14 +138,21 @@ test("equipment adjustment is the preset plus added groups minus removed groups"
   assert.deepEqual(both.gymProfile.equipmentIds, [...expected].sort());
 });
 
-test("block length, rep pattern and deload map to cycles, periodization and a last-week deload", () => {
+test("seven regular weeks and optional extra deload map to total cycles", () => {
   const untouched = requestFor({ environment: { kind: "commercial_gym" } });
   assert.deepEqual([untouched.cycles, untouched.periodization, untouched.deloadCycles], [7, "static", []]);
-  const block = requestFor({ environment: { kind: "commercial_gym" }, block: { cycles: 10, periodization: "undulating" }, deload: true });
-  assert.deepEqual([block.cycles, block.periodization, block.deloadCycles], [10, "undulating", [10]]);
-  const off = requestFor({ environment: { kind: "commercial_gym" }, block: { cycles: 4, periodization: "linear" }, deload: false });
-  assert.deepEqual([off.cycles, off.periodization, off.deloadCycles], [4, "linear", []]);
-  assert.deepEqual(requestFor({ environment: { kind: "commercial_gym" }, deload: true }).deloadCycles, [7]);
+  const block = requestFor({ environment: { kind: "commercial_gym" }, block: { cycles: 7, periodization: "undulating" }, deload: true });
+  assert.deepEqual([block.cycles, block.periodization, block.deloadCycles], [8, "undulating", [8]]);
+  const off = requestFor({ environment: { kind: "commercial_gym" }, block: { cycles: 7, periodization: "linear" }, deload: false });
+  assert.deepEqual([off.cycles, off.periodization, off.deloadCycles], [7, "linear", []]);
+  for (const cycles of [4, 10]) {
+    const answers = { desiredResult: "balanced", structuredExperience: "6_to_24m", daysPerWeek: 4,
+      environment: { kind: "commercial_gym" }, block: { cycles, periodization: "static" } };
+    const before = structuredClone(answers);
+    const result = Adapter.programRequestFromAnswers(answers, Catalog);
+    assert.deepEqual(result, { ok: false, conflicts: [{ field: "block", code: "block_cycles_unsupported" }] });
+    assert.deepEqual(answers, before);
+  }
 });
 
 const exercisesById = new Map(Catalog.exercises.map((exercise) => [exercise.id, exercise]));

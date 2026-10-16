@@ -40,8 +40,8 @@ assert.deepEqual(hypertrophyLayout.days.map(day=>day.templates.map(t=>[t.type,t.
  result.days.map(day=>day.templates.map(t=>[t.type,t.numSets,t.accessoryMuscle])),
  'distinct successful synthetic selections preserve both allocation and male/default muscle sequence');
 assert.deepEqual(hypertrophySelector.calls.map(c=>c.selected.length),chosen.calls.map(c=>c.selected.length));
-assert.equal(layout.generate({...hypertrophyRequest,timeCeilingMinutes:40},selector()).status,'unsupported','hypertrophy40 is not part of this slice');
-assert.equal(layout.generate({...hypertrophyRequest,goal:'strength',timeCeilingMinutes:40},selector()).status,'unsupported','strength40 remains outside this slice');
+assert.equal(layout.generate({...hypertrophyRequest,timeCeilingMinutes:40},selector()).status,'ok','hypertrophy40 enters the recovered layout domain');
+assert.equal(layout.generate({...hypertrophyRequest,goal:'strength',timeCeilingMinutes:40},selector()).status,'ok','strength40 enters the recovered layout domain');
 const hEmpty=layout.generate(hypertrophyRequest,selector({fail:()=>true}));
 assert.equal(hEmpty.status,'insufficient');assert.equal(hEmpty.days.flatMap(day=>day.templates).length,0);
 // Option40 adds two ordered-tie discriminants to the retained option60 proof.
@@ -82,7 +82,7 @@ const noAccessories40=layout.generate(request40,selector({fail:s=>s.type==='acce
 assert.equal(noAccessories40.status,'insufficient');
 assert.equal(noAccessories40.days.flatMap(d=>d.templates).length,6);
 assert.equal(noAccessories40.days.flatMap(d=>d.templates).reduce((n,t)=>n+t.numSets,0),12);
-for (const change of [{goal:'strength',periodization:'linear'},{split:'upper_lower'},{daysPerWeek:4},{timeCeilingMinutes:20,periodization:'linear'},{timeCeilingMinutes:90},{timeCeilingMinutes:120},{timeCeilingMinutes:150},{experience:'beginner',timeCeilingMinutes:40},{cycles:8},{deloadCycles:[7]}]) {
+for (const change of [{split:'upper_lower'},{daysPerWeek:4},{timeCeilingMinutes:30},{experience:'none'},{cycles:8},{deloadCycles:[7]}]) {
  assert.equal(layout.generate({...request,...change},selector()).status,'unsupported');
 }
 for(const periodization of ['linear','reverse_linear','undulating']) {
@@ -140,7 +140,7 @@ assert.equal(layout.generate(strengthRequest,strengthExhausted).status,'insuffic
 const sourceWalk=[strengthDefaults[0],strengthDefaults[1],strengthDefaults[0],strengthDefaults[2],strengthDefaults[1]].flat();
 assert.deepEqual(strengthExhausted.calls.filter(c=>c.type==='accessory').map(c=>c.muscle),
  [...sourceWalk.filter(m=>upper.has(m)),...sourceWalk.filter(m=>!upper.has(m))]);
-for(const change of [{timeCeilingMinutes:40},{periodization:'linear'},{periodization:'reverse_linear'},{periodization:'undulating'},{experience:'intermediate'},{cycles:8},{deloadCycles:[7]}])
+for(const change of [{timeCeilingMinutes:30},{experience:'none'},{cycles:8},{deloadCycles:[7]}])
  assert.equal(layout.generate({...strengthRequest,...change},selector()).status,'unsupported');
 
 // Route synthetic accessories to Full so source A/B/C ordering and repeated
@@ -182,5 +182,5 @@ assertStrengthCategories(priorityOrder,['neck']);
 for(const experience of ['beginner','intermediate']){
  const xpRequest={...request,experience};assert.deepEqual(layout.generate(xpRequest,selector()),result,'controlled experience preserves layout');
  for(const patch of [{timeCeilingMinutes:40},{goal:'hypertrophy'},{periodization:'linear'},{periodization:'reverse_linear'},{periodization:'undulating'}])
-  assert.equal(layout.generate({...xpRequest,...patch},selector()).status,'unsupported');
+  assert.equal(layout.generate({...xpRequest,...patch},selector()).status,'ok');
 }

@@ -17,18 +17,19 @@ async function editFirstSlotToSixSets(page, slotId) {
   await page.locator("#reviewSheet.is-open [data-review-sets]").first().waitFor({ state: "visible", timeout: 5000 });
   const locale = await page.locator("html").getAttribute("lang");
   const expectedDeloadNote = locale?.toLowerCase().startsWith("pt")
-    ? "Na semana de deload: cerca de metade das séries e RIR 2 acima."
-    : "In the deload week: about half the sets and RIR 2 higher.";
+    ? "Uma semana mais leve, com menos séries e mais repetições em reserva."
+    : "A lighter week with fewer sets and more reps in reserve.";
   assert.equal((await page.locator("#reviewSheet .review-sheet__note").innerText()).trim(), expectedDeloadNote,
     "the exercise sheet explains the compiler's deload rule with approved copy");
   for (;;) {
     const count = await page.evaluate((id) => window.__repforgeEntryState().result.preview.programDefinition.days
       .flatMap((day) => day.slots).find((slot) => slot.id === id).prescriptionsByCycle[0].sets.length, slotId);
-    if (count >= 6) break;
-    await page.locator('#reviewSheet [data-review-sets="1"]').click();
+    if (count === 6) break;
+    const direction = count < 6 ? 1 : -1;
+    await page.locator(`#reviewSheet [data-review-sets="${direction}"]`).click();
     await page.waitForFunction(({ id, want }) => window.__repforgeEntryState()?.result?.preview?.programDefinition.days
       .flatMap((day) => day.slots).find((slot) => slot.id === id)?.prescriptionsByCycle[0]?.sets.length === want,
-    { id: slotId, want: count + 1 }, { timeout: 10000 });
+    { id: slotId, want: count + direction }, { timeout: 10000 });
   }
 }
 
@@ -471,7 +472,7 @@ try {
     deload: document.querySelector("#reviewSheet [data-review-block-deload]")?.getAttribute("aria-checked"),
   }));
   const expectedBlockTitle = await page.evaluate(() => window.RepForgeI18n.t("entry.review.block.sheet.title"));
-  const expectedSevenWeeks = await page.evaluate(() => window.RepForgeI18n.t("entry.review.block.weeks", { n: 7 }));
+  const expectedSevenWeeks = await page.evaluate(() => window.RepForgeI18n.t("entry.review.block.regular_weeks", { n: 7 }));
   assert.equal(initialBlockSheet.title, expectedBlockTitle, "the block sheet uses the approved title");
   assert.equal(initialBlockSheet.weeks, expectedSevenWeeks, "the block sheet defaults to seven weeks");
   assert.equal(initialBlockSheet.patternCount, 4, "all four approved rep patterns are available");
@@ -495,7 +496,8 @@ try {
 
   await page.locator("#entryReview [data-review-block-edit]").click();
   await page.locator("#reviewSheet.is-open [data-review-block-weeks]").waitFor({ state: "visible", timeout: 5000 });
-  for (let index = 0; index < 3; index++) await page.locator('#reviewSheet [data-review-block-step="1"]').click();
+  assert.equal(await page.locator('#reviewSheet [data-review-block-step]').count(), 0,
+    "the recovered block keeps seven regular weeks without unsupported length controls");
   await page.locator('#reviewSheet [data-review-block-pattern="undulating"]').click();
   await page.locator("#reviewSheet [data-review-block-apply]").click();
   await page.waitForFunction(() => document.querySelector("#entryDialog")?.open === true,
@@ -505,10 +507,10 @@ try {
     const slot = current.result.preview.programDefinition.days.flatMap((day) => day.slots).find((item) => item.id === id);
     return { cycles: current.result.preview.programDefinition.cycles, sets: slot.prescriptionsByCycle[0].sets.length };
   }, firstSlot.id);
-  assert.equal(heldForConfirmation.cycles, 7, "block answers do not change before the edit-discard confirmation");
+  assert.equal(heldForConfirmation.cycles, 8, "block answers do not change before the edit-discard confirmation");
   assert.equal(heldForConfirmation.sets, 6, "the existing review edit remains while confirmation is open");
   await page.locator("#reviewConfirmGo").click();
-  await page.waitForFunction(() => window.__repforgeEntryState()?.result?.preview?.programDefinition?.cycles === 10 &&
+  await page.waitForFunction(() => window.__repforgeEntryState()?.result?.preview?.programDefinition?.cycles === 8 &&
     window.__repforgeEntryState()?.answers?.block?.periodization === "undulating" &&
     window.__repforgeEntryState()?.answers?.deload === true,
   undefined, { timeout: 20000 });
@@ -521,7 +523,7 @@ try {
   });
   assert.deepEqual(rebuilt.result.preview.programDefinition, canonicalRebuilt,
     "the block edit commits the complete canonical program for its new answers");
-  assert.deepEqual(rebuilt.result.preview.programDefinition.deloadCycles, [10], "deload moves to the new last week");
+  assert.deepEqual(rebuilt.result.preview.programDefinition.deloadCycles, [8], "deload moves to the new last week");
   assert.equal(rebuilt.result.preview.programDefinition.days.flatMap((day) => day.slots)[0]
     .prescriptionsByCycle[0].sets[0].provenance.periodization, "undulating", "the new rep pattern reaches the compiler output");
 
@@ -641,6 +643,18 @@ try {
   assert.equal((await entry(page)).result.preview.programDefinition.days.flatMap((day) => day.slots)
     .find((slot) => slot.id === firstSlot.id).executionMode, executionMode,
   "the review-sheet intent stores the selected execution mode on its slot");
+  for (let attempts = 0; attempts < 7; attempts++) {
+    const rir = await page.evaluate((id) => window.__repforgeEntryState().result.preview.programDefinition.days
+      .flatMap((day) => day.slots).find((slot) => slot.id === id).prescriptionsByCycle[0].sets[0].rir, firstSlot.id);
+    if (rir === 6) break;
+    await page.locator('#reviewSheet [data-review-rir="1:1"]').click();
+    await page.waitForFunction(({ id, want }) => window.__repforgeEntryState().result.preview.programDefinition.days
+      .flatMap((day) => day.slots).find((slot) => slot.id === id).prescriptionsByCycle[0].sets[0].rir === want,
+    { id: firstSlot.id, want: (rir ?? 2) + 1 }, { timeout: 10000 });
+  }
+  assert.equal((await entry(page)).result.preview.programDefinition.days.flatMap((day) => day.slots)
+    .find((slot) => slot.id === firstSlot.id).prescriptionsByCycle[0].sets[0].rir, 6,
+    "Review accepts a six-RIR target on the actual edited source slot");
   await page.locator("#reviewSheet [data-review-done]").click();
 
   await page.locator("#entryActivate").click();
@@ -653,24 +667,28 @@ try {
     "no duplicate stored day names reach the activated program");
   const activeSlot = active.programMeta.programDefinition.days.flatMap((day) => day.slots).find((slot) => slot.id === firstSlot.id);
   assert.equal(activeSlot.executionMode, executionMode, "activation carries the chosen execution mode");
-  assert.equal(active.programMeta.programDefinition.cycles, 10, "activation retains the edited block length");
+  assert.equal(activeSlot.prescriptionsByCycle[0].sets[0].rir, 6, "activation preserves the six-RIR target");
+  assert.equal(activeSlot.prescriptionsByCycle.at(-1).sets[0].rir, 6, "the activated recovery-week target remains six, without a four-RIR clamp");
+  assert.equal(active.programMeta.programDefinition.cycles, 8, "activation retains the edited block length");
   assert.equal(active.programMeta.programDefinition.days.flatMap((day) => day.slots)[0]
     .prescriptionsByCycle[0].sets[0].provenance.periodization, "undulating", "activation retains the edited rep pattern");
   assert.equal(activeSlot.prescriptionsByCycle.at(-1).sets.length, 3,
     "activation retains the review editor's deload prescription");
-  assert.deepEqual(active.programMeta.programDefinition.deloadCycles, [10], "the generated program has its last-week deload");
+  assert.deepEqual(active.programMeta.programDefinition.deloadCycles, [8], "the generated program has its last-week deload");
   const firstWeek = await page.evaluate(() => window.__repforgeMesocycleWeek());
-  assert.deepEqual([firstWeek.current, firstWeek.total], [1, 10], "Today starts at week one of ten after activation");
+  assert.deepEqual([firstWeek.current, firstWeek.total], [1, 8], "Today starts at week one of eight after activation");
 
-  await page.clock.setFixedTime(new Date(START.getTime() + 63 * 24 * 60 * 60 * 1000));
+  await page.clock.setFixedTime(new Date(START.getTime() + 49 * 24 * 60 * 60 * 1000));
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
   const reloaded = await state(page);
-  assert.equal(reloaded.programMeta.programDefinition.cycles, 10, "the edited block length survives reload");
+  assert.equal(reloaded.programMeta.programDefinition.cycles, 8, "the edited block length survives reload");
   const reloadedSlot = reloaded.programMeta.programDefinition.days.flatMap((day) => day.slots).find((slot) => slot.id === firstSlot.id);
   assert.equal(reloadedSlot.prescriptionsByCycle.at(-1).sets.length, 3,
     "the activated six-set edit survives the ordinary reload");
-  assert.deepEqual(reloaded.programMeta.programDefinition.deloadCycles, [10],
+  assert.equal(reloadedSlot.prescriptionsByCycle[0].sets[0].rir, 6, "the six-RIR target survives the production save/load boundary");
+  assert.equal(reloadedSlot.prescriptionsByCycle.at(-1).sets[0].rir, 6, "the recovery-week six-RIR target survives ordinary reload");
+  assert.deepEqual(reloaded.programMeta.programDefinition.deloadCycles, [8],
     "the active program keeps its final deload cycle after reload");
   const today = await page.evaluate(() => ({
     block: window.__repforgeMesocycleWeek(),
@@ -678,7 +696,7 @@ try {
       node.children.length === 0 && node.textContent.trim() === window.RepForgeI18n.t("today.deload_week")),
     text: document.querySelector("#todayDash")?.innerText || "",
   }));
-  assert.equal(today.block.current, 10, "Today is in the active program's final week");
+  assert.equal(today.block.current, 8, "Today is in the active program's final week");
   assert.equal(today.deload, true, "Today shows the approved deload-week line");
 
   await page.locator("#startWorkout").click();

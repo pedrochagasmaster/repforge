@@ -1,15 +1,25 @@
 # Estado da recuperação das regras de geração
 
-Retomada de 15/10/2026 após o reset dos limites. O gate de pesquisa de S2 está
-fechado somente para o domínio inicial descrito abaixo. A implementação S2 passou
-nas jornadas locais de geração e worker. A validação visual completa fica na CI por decisão do owner; commit limpo e CI
-ainda são pendentes, registrados no [estado da implementação](implementation-status.md). O contrato continua na
-[spec](../../docs/generator-rule-parity-spec.md) e o gate no
-[Plano 073](../073-generator-rule-parity.md).
+A recuperação posterior ampliou o domínio inicial para as três metas, três
+experiências, seis durações, quatro periodizações e deload inicial ou final,
+com sete ciclos normais preservados. Também validou os construtores das 13
+divisões e suas 17 variantes de frequência. A composição comum mantém as
+restrições controladas de perfil, histórico e configuração de cargas descritas
+abaixo. O [estado da implementação](implementation-status.md) registra o
+candidato atual e os gates de produto ainda pendentes.
 
-A ampliação inicial de S3 tem domínio próprio no
-[contrato de três dias](three-day-expansion-contract.md). As provas puras passaram;
-a aceitação no produto depende da CI do novo head. Isso não encerra S3.
+Os pacotes privados da retomada de 16/10/2026 preservam os hashes das fontes.
+A revisão dos construtores conferiu 6.049 PCs contra o ELF e corrigiu um
+verificador que confiava numa anotação de pool sem conferir o opcode. A
+correção rejeitou 3.111 mutações. Os ramos numéricos de deload foram vinculados
+à tabela compilada de runtime e ao símbolo C `round`; os operadores finitos
+são floor para a quantidade de séries e round para os limites de repetições.
+As três recuperações de deload receberam revisão independente, incluindo
+757 PCs e 493 dependências de headers. Esses números delimitam a evidência;
+não representam execução da VM ou do gerador original.
+
+As seções seguintes conservam o registro histórico do domínio inicial e das
+primeiras ampliações. Seus limites antigos não descrevem o candidato atual.
 
 ## Domínio liberado e revisão da retomada
 

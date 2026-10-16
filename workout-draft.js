@@ -27,7 +27,7 @@
   // genuinely corrupt value (negative, NaN, non-finite, or a magnitude no
   // lifter would ever log) still fails validation instead of being silently
   // accepted.
-  const MAX_TARGET_RIR = 4;
+  const MAX_TARGET_RIR = 6;
   const LEGACY_TARGET_RIR_CLAMP_CEILING = 20;
   const MuscleDomain = root?.RepForgeProgramEntry ||
     (typeof require === "function" ? require("./program-entry.js") : null);
@@ -841,7 +841,7 @@
   }
 
   // A stored V2 draft written before Plan 067 can carry a programmed target
-  // RIR above the current 0-4 ceiling (see clampLegacyTargetRir). Clamp it
+  // RIR above the current 0-6 ceiling (see clampLegacyTargetRir). Clamp it
   // on read so the draft resumes instead of failing validation into
   // recovery; this only ever touches `programmed.targetRir`, never the
   // lifter's own edited/logged value for the set, which has no upper bound
