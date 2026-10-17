@@ -6,6 +6,7 @@ import { mkdtemp, mkdir, readFile, writeFile, cp, rm, readdir } from 'node:fs/pr
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { buildProgramLab } from '../tools/build-programlab.mjs';
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -15,7 +16,7 @@ try {
   await mkdir(path.join(fixture, 'programlab'), { recursive: true });
   const html = await readFile(path.join(repo, 'programlab/index.html'), 'utf8');
   const sources = [...html.matchAll(/(?:src|href)="([^"#]+)"/g)].map(match => match[1]).filter(name => /\.(js|css)$/.test(name));
-  for (const name of [...sources, 'assets/exercise-catalog.json', 'fonts/plexsans.woff2', 'fonts/plexmono-400.woff2']) {
+  for (const name of [...sources, 'programlab/archive-entry.js', 'programlab/archive.js', 'test/fixtures/program-compiler-corpus-cases.mjs', 'assets/exercise-catalog.json', 'fonts/plexsans.woff2', 'fonts/plexmono-400.woff2']) {
     await mkdir(path.dirname(path.join(fixture, name)), { recursive: true });
     try { await cp(path.join(repo, name), path.join(fixture, name)); }
     catch (error) {
@@ -32,7 +33,7 @@ try {
   await assert.rejects(buildProgramLab({ sourceDir: fixture, outDir: out }), /Missing required.*services\.js/);
   await writeFile(missing, original);
   const manifest = await buildProgramLab({ sourceDir: fixture, outDir: out });
-  assert.equal(manifest.generatorVersion, '073.4');
+  assert.equal(manifest.generatorVersion, createRequire(import.meta.url)('../program-compiler.js').GENERATOR_VERSION);
   for (const [name, record] of Object.entries(manifest.files)) {
     const bytes = await readFile(path.join(out, name));
     assert.equal(record.sha256, createHash('sha256').update(bytes).digest('hex'), `hash matches shipped bytes: ${name}`);

@@ -8,3 +8,11 @@
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 
 .header-tools{min-width:0;max-width:34rem}.header-tools>label{max-width:12rem;margin:0 0 .5rem auto}#workbench:focus{outline:none}.mode-picker button{overflow-wrap:anywhere}
+
+#exportDownloads a{color:var(--accent-deep);overflow-wrap:anywhere}.result-table{table-layout:fixed}.result-table caption{text-align:left;padding:.7rem 0;font-weight:600}
+@media(max-width:720px){.result-table,.result-table tbody,.result-table tr,.result-table td{display:block}.result-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}.result-table tr{border-top:2px solid var(--rule);margin-top:.8rem}.result-table td{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.5rem}.result-table td::before{content:attr(data-label);font-weight:500}}
+.metrics{grid-template-columns:repeat(auto-fit,minmax(min(8rem,100%),1fr))}.program-pair{grid-template-columns:repeat(auto-fit,minmax(min(16rem,100%),1fr))}.policies{container-type:inline-size;container-name:policy-fields}.results{container-type:inline-size;container-name:result-area}
+@container policy-fields (max-width:20rem){.policy-values{grid-template-columns:minmax(0,4.5rem) minmax(0,1fr)}.policy-values button{grid-column:2;justify-self:start}}
+@container result-area (max-width:25rem){.result-table,.result-table tbody,.result-table tr,.result-table td{display:block}.result-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}.result-table tr{border-top:2px solid var(--rule);margin-top:.8rem}.result-table td{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.5rem}.result-table td::before{content:attr(data-label);font-weight:500}}
+.runbar>.actions{align-self:flex-start;flex-shrink:0}
+@media(max-width:720px){.runbar>.actions{order:-1}}

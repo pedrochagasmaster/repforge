@@ -29,8 +29,9 @@
   let savedIdentity = null, plan = null, validationToken = 0, runToken = 0, viewToken = 0, selectedView = null, dirty = false;
   const policyInputs = new Map();
   const scenarioInputs = new Map();
-  const pendingScenarioEdits = new Set();
-  const buttons = ['save', 'export', 'fixture', 'applyPreset', 'preset', 'updateScenario', 'duplicateScenario', 'moveUp', 'moveDown', 'removeScenario', 'applyCanonical', 'resetPolicy'];
+  const pendingScenarioEdits = new Set(), canonicalDrafts = new Map();
+  const extraInputs = new Map([['canonicalRequest', { input: $('canonicalRequest'), message: $('canonicalError') }]]);
+  const buttons = ['save', 'export', 'exportConfiguration', 'runWithBuild', 'fixture', 'applyPreset', 'preset', 'updateScenario', 'duplicateScenario', 'moveUp', 'moveDown', 'removeScenario', 'applyCanonical', 'resetPolicy'];
 
   function errorMessage(error) { return labelText(String(error?.message || error)); }
   function showError(error) {
@@ -54,8 +55,12 @@
     active = value;
     for (const id of buttons) $(id).disabled = value;
     $('cancel').disabled = !value;
+    $('export').disabled = value || !run;
     $('run').disabled = value || !plan;
     $('load').disabled = value || !$('savedExperiments').value;
+    $('loadRun').disabled = value || !$('savedRuns').value;
+    $('savedRuns').disabled = value;
+    $('savedExperiments').disabled = value;
     $('importFiles').disabled = value;
     $('language').disabled = value;
     document.querySelector('.workbench-grid').setAttribute('aria-busy', String(value));
@@ -65,6 +70,8 @@
     $('seed').disabled = value;
     $('scenarioName').disabled = value;
     $('canonicalRequest').disabled = value;
+    const scenario = draft?.scenarios[selectedScenario];
+    $('updateScenario').disabled = value || scenario?.inputMode !== 'answers' || canonicalDrafts.has(scenario?.id);
   }
   function readConfiguration() {
     if (pendingScenarioEdits.size) throw new Error(_('Apply or replace the pending scenario edits before saving, exporting or running.'));
@@ -83,7 +90,7 @@
   }
   function presentIssues(issues) {
     $('validation').replaceChildren();
-    for (const { input, message } of [...policyInputs.values(), ...scenarioInputs.values()]) {
+    for (const { input, message } of [...policyInputs.values(), ...scenarioInputs.values(), ...extraInputs.values()]) {
       input.removeAttribute('aria-invalid');
       message.textContent = '';
     }
@@ -92,9 +99,10 @@
       const label = issue.message || issue.code || String(issue);
       $('validation').append(text('p', `${path ? `${path}: ` : ''}${label}`));
       const scenarioPath = path.replace(/^scenarios(?:\.\d+|\[\d+\])\./, '').replace(/^(answers|request)\./, '');
-      const field = policyInputs.get(path.replace(/^candidatePolicy\./, '')) || scenarioInputs.get(scenarioPath);
+      const field = policyInputs.get(path.replace(/^candidatePolicy\./, '')) || scenarioInputs.get(scenarioPath) || extraInputs.get(path);
       if (field) {
         field.input.setAttribute('aria-invalid', 'true');
+        const group = field.input.closest('details'); if (group) group.open = true;
         field.message.textContent = label;
       }
     }
@@ -103,6 +111,10 @@
     if (!services || active) return;
     const token = ++validationToken;
     plan = null;
+    if (run?.archived && run.plan.experiment.experimentId === draft.experimentId) {
+      $('run').disabled = true; presentIssues([{ message: _('Archived results are read-only. Use Run with this build to create a new attempt.') }]);
+      say('planSummary', 'Archived build · exact replay unavailable here'); return;
+    }
     $('run').disabled = true;
     try {
       const configuration = readConfiguration();
@@ -155,7 +167,7 @@
     $('sweepPath').replaceChildren();
     const groups = new Map();
     for (const field of definitions.policyFields) {
-      const groupName = field.group || 'Policy';
+      const groupName = labelText(field.group || 'Policy');
       if (!groups.has(groupName)) {
         const details = document.createElement('details');
         details.open = groups.size < 2;
@@ -169,8 +181,9 @@
       const label = text('label', labelText(field.label || field.path));
       label.htmlFor = id;
       const values = text('div', '', 'policy-values');
-      const baseline = text('span', at(definitions.defaultPolicy, field.path), 'baseline');
-      baseline.setAttribute('aria-label', _('Baseline: {value}', { value: at(definitions.defaultPolicy, field.path) }));
+      const baselineValue = at(draft.baselinePolicy, field.path) === null ? _('Recovered default') : at(draft.baselinePolicy, field.path);
+      const baseline = text('span', baselineValue, 'baseline');
+      baseline.setAttribute('aria-label', _('Baseline: {value}', { value: at(draft.baselinePolicy, field.path) }));
       values.append(baseline);
       const input = createInput(field, at(draft.candidatePolicy, field.path), next => {
         assign(draft.candidatePolicy, field.path, next);
@@ -178,11 +191,12 @@
       });
       input.id = id;
       input.dataset.policyPath = field.path;
+      input.setAttribute('aria-label', `${labelText(field.label || field.path)} (${field.path})`);
       const reset = text('button', _('Reset'));
       reset.type = 'button';
       reset.setAttribute('aria-label', _('Reset {field} to baseline', { field: labelText(field.label || field.path) }));
       reset.addEventListener('click', () => {
-        assign(draft.candidatePolicy, field.path, clone(at(definitions.defaultPolicy, field.path)));
+        assign(draft.candidatePolicy, field.path, clone(at(draft.baselinePolicy, field.path)));
         renderPolicy();
         markDirty();
         policyInputs.get(field.path)?.input.focus();
@@ -196,20 +210,22 @@
       row.append(label, values, hint, text('p', field.path, 'policy-path'), message);
       groups.get(groupName).append(row);
       policyInputs.set(field.path, { input, message });
-      if (field.sweepable !== false && typeof at(definitions.defaultPolicy, field.path) === 'number') $('sweepPath').append(option(field.path, `${labelText(field.label || field.path)} (${field.path})`));
+      if (field.sweepable !== false && (typeof at(definitions.defaultPolicy, field.path) === 'number' || field.nullable)) $('sweepPath').append(option(field.path, `${labelText(field.label || field.path)} (${field.path})`));
     }
     if (draft.sweep) { $('sweepPath').value = draft.sweep.path; $('sweepValues').value = draft.sweep.values.join(', '); }
   }
   function renderScenarios() {
-    $('caseList').replaceChildren(...draft.scenarios.map((scenario, index) => option(String(index), `${index + 1}. ${scenario.name || scenario.key}`)));
+    $('caseList').replaceChildren(...draft.scenarios.map((scenario, index) => option(String(index), `${index + 1}. ${scenario.name || scenario.id}`)));
     $('caseList').value = String(selectedScenario);
     const scenario = draft.scenarios[selectedScenario];
-    $('scenarioName').value = scenario.name || scenario.key;
-    $('seed').value = scenario.seed;
-    $('seed').readOnly = definitions.seedMode !== 'explicit';
-    say('seedLabel', definitions.seedMode === 'explicit' ? 'Execution seed' : 'Canonical generation identity');
-    $('seed').setAttribute('aria-label', _(definitions.seedMode === 'explicit' ? 'Execution seed' : 'Canonical generation identity'));
-    $('canonicalRequest').value = json(scenario.request);
+    $('scenarioName').value = scenario.name || scenario.id;
+    const archived = !!run?.archived && run.plan.experiment.experimentId === draft.experimentId;
+    $('seed').value = services.scenarioIdentity(scenario, { archived });
+    $('seed').readOnly = true;
+    say('seedLabel', archived ? 'Archived input fingerprint (read-only)' : 'Canonical generation identity');
+    $('seed').setAttribute('aria-label', _('Canonical generation identity'));
+    $('canonicalRequest').value = canonicalDrafts.get(scenario.id) ?? json(scenario.request);
+    $('updateScenario').disabled = active || scenario.inputMode !== 'answers' || canonicalDrafts.has(scenario.id);
     $('normalizedRequest').textContent = json(scenario.request);
     $('scenarioControls').replaceChildren();
     scenarioInputs.clear();
@@ -222,7 +238,7 @@
       const input = createInput(field, at(scenario.answers, field.path), next => {
         const current = draft.scenarios[selectedScenario];
         assign(current.answers, field.path, next);
-        pendingScenarioEdits.add(current.key);
+        pendingScenarioEdits.add(current.id);
         $('run').disabled = true;
         plan = null;
         say('planSummary', 'Apply scenario edits to validate the mapped request.');
@@ -231,6 +247,7 @@
       });
       input.id = `scenario-${index}`;
       label.htmlFor = input.id;
+      input.dataset.scenarioPath = field.path;
       label.append(input);
       const hint = text('p', labelText(field.description || ''), 'hint');
       hint.id = `${input.id}-hint`;
@@ -243,12 +260,15 @@
   }
   function renderDraft(configuration) {
     draft = clone(configuration);
-    pendingScenarioEdits.clear();
+    pendingScenarioEdits.clear(); canonicalDrafts.clear();
     selectedScenario = Math.min(selectedScenario, draft.scenarios.length - 1);
     $('experimentName').value = draft.name;
     $('experimentNotes').value = draft.notes || '';
     document.querySelectorAll('[data-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.mode === draft.mode)));
     $('sweepControls').hidden = draft.mode !== 'sweep';
+    const archived = !!run?.archived && run.plan.experiment.experimentId === draft.experimentId;
+    if (archived) say('baselineBadge', 'Archived baseline · runtime {fingerprint}', { fingerprint: run.plan.build.runtimeFingerprint.slice(0, 12) });
+    else say('baselineBadge', 'Bundled default · generator {version} · {fingerprint}', { version: definitions.manifest.generatorVersion, fingerprint: definitions.manifest.runtimeFingerprint.slice(0, 12) });
     renderScenarios();
     renderPolicy();
     validate();
@@ -265,6 +285,20 @@
     }
     container.append(grid);
   }
+  function renderTable(container, data) {
+    const table = text('table', '', 'result-table');
+    table.append(text('caption', labelText(data.caption)));
+    const head = document.createElement('thead'), header = document.createElement('tr');
+    for (const column of data.columns) { const cell = text('th', labelText(column)); cell.scope = 'col'; header.append(cell); }
+    head.append(header); table.append(head);
+    const body = document.createElement('tbody');
+    for (const row of data.rows) {
+      const tr = document.createElement('tr');
+      for (const [index, value] of row.entries()) { const cell = text('td', value ?? _('Unavailable')); cell.dataset.label = labelText(data.columns[index]); tr.append(cell); }
+      body.append(tr);
+    }
+    table.append(body); container.append(table);
+  }
   function renderProgram(container, cell, cycle, changedLineages = []) {
     container.replaceChildren();
     if (!cell) { container.append(text('p', _('Not executed'), 'hint')); return; }
@@ -280,7 +314,7 @@
       dayNode.append(text('h3', `${day.name}${day.kind === 'rest' ? ` · ${_('rest')}` : ''}`));
       for (const slot of day.slots || []) {
         const slotNode = text('div', '', `slot${changedLineages.includes(slot.id) ? ' changed' : ''}`);
-        const name = cell.exerciseLabels?.[slot.exerciseId] || (!cell.archived && definitions.exerciseLabels?.[slot.exerciseId]) || slot.exerciseId;
+        const name = cell.exerciseLabels?.[slot.exerciseId] || slot.displayName || (!cell.archived && definitions.exerciseLabels?.[slot.exerciseId]) || slot.exerciseId;
         slotNode.append(text('p', name), text('p', `${labelText(slot.role || '')} · ${labelText(slot.executionMode || 'unspecified execution')}`, 'hint'));
         const list = text('ol', '', 'sets');
         const sets = slot.prescriptionsByCycle?.find(item => item.cycleIndex === cycle)?.sets || [];
@@ -300,6 +334,9 @@
     const view = await services.inspect(run, { comparisonKey: $('resultCase').value || null, cycleIndex: Number($('cycle').value || 1) });
     if (token !== viewToken) return;
     selectedView = view;
+    $('archiveActions').hidden = !run.archived;
+    say('baselineHeading', run.archived ? 'Archived baseline' : 'Bundled baseline');
+    say('candidateHeading', run.archived ? 'Archived candidate' : 'Candidate');
     const previous = $('resultCase').value;
     $('resultCase').replaceChildren(...view.comparisons.map(item => option(item.key, item.label)));
     if (view.comparisons.some(item => item.key === previous)) $('resultCase').value = previous;
@@ -309,11 +346,16 @@
     $('cycle').value = String(view.cycles.some(item => item.index === cycle) ? cycle : view.cycles[0]?.index || 1);
     $('cycle').disabled = !view.cycles.length;
     $('cycleStatus').textContent = labelText(view.cycleLabel || '');
-    say('resultSnapshot', 'Run {id} · {status} · snapshot {revision}', { id: run.runId, status: _(run.status), revision: run.revision ?? run.configuration?.revision ?? _('embedded') });
+    say('resultSnapshot', 'Run {id} · {status} · snapshot {revision}', { id: run.runId, status: _(run.status), revision: run.revision ?? run.plan?.experiment?.revision ?? run.configuration?.revision ?? _('embedded') });
     $('aggregateSummary').replaceChildren();
     metrics($('aggregateSummary'), view.aggregateRows);
+    if (view.aggregateTable) renderTable($('aggregateSummary'), view.aggregateTable);
+    if (view.aggregateStrataTable) renderTable($('aggregateSummary'), view.aggregateStrataTable);
     $('comparisonSummary').replaceChildren();
     metrics($('comparisonSummary'), view.metricRows);
+    if (view.distributionTable) renderTable($('comparisonSummary'), view.distributionTable);
+    if (view.setCountTable) renderTable($('comparisonSummary'), view.setCountTable);
+    $('metricDetails').textContent = json(view.metricDetails || null);
     if (view.notice) $('comparisonSummary').append(text('p', labelText(view.notice), 'badge'));
     renderProgram($('baselineProgram'), view.baseline, Number($('cycle').value), view.baselineChangedSlotIds);
     renderProgram($('candidateProgram'), view.candidate, Number($('cycle').value), view.candidateChangedSlotIds);
@@ -327,12 +369,13 @@
   function renderRaw() {
     if (!$('rawDetails').open || !run || !selectedView) return;
     $('rawResult').textContent = json({ runId: run.runId, revision: run.revision, status: run.status,
-      configuration: run.configuration, baseline: selectedView.baseline, candidate: selectedView.candidate,
+      configuration: run.plan?.experiment || run.configuration, baseline: selectedView.baseline, candidate: selectedView.candidate,
       changes: selectedView.changes });
   }
   function clearResult() {
     selectedView = null;
-    for (const id of ['baselineProgram', 'candidateProgram', 'aggregateSummary', 'comparisonSummary', 'semanticChanges', 'diagnostics', 'rawResult']) $(id).replaceChildren();
+    $('archiveActions').hidden = true;
+    for (const id of ['baselineProgram', 'candidateProgram', 'aggregateSummary', 'comparisonSummary', 'semanticChanges', 'diagnostics', 'metricDetails', 'rawResult']) $(id).replaceChildren();
     say('resultSnapshot', 'This configuration has no saved execution snapshot.');
     $('resultCase').replaceChildren(option('', _('No results yet')));
     $('resultCase').disabled = true;
@@ -345,6 +388,15 @@
     $('savedExperiments').replaceChildren(option('', _('Choose an experiment')), ...items.map(item => option(item.id, item.name)));
     if (items.some(item => item.id === selected)) $('savedExperiments').value = selected;
     $('load').disabled = active || !$('savedExperiments').value;
+    await refreshRuns();
+  }
+  async function refreshRuns() {
+    const experimentId = $('savedExperiments').value;
+    const selected = $('savedRuns').value;
+    const rows = experimentId ? await services.listRuns(experimentId) : [];
+    $('savedRuns').replaceChildren(option('', _('Choose a saved run')), ...rows.map(row => option(row.runId, _('Revision {revision} · {status} · {completed}/{total} · {id}', { revision: row.revision, status: _(row.status), completed: row.completed, total: row.total, id: row.runId.slice(0, 12) }))));
+    if (rows.some(row => row.runId === selected)) $('savedRuns').value = selected;
+    $('loadRun').disabled = active || !$('savedRuns').value;
   }
   async function save() {
     const record = await services.save(readConfiguration(), run);
@@ -354,6 +406,8 @@
     await refreshSaved();
     if (record.id) $('savedExperiments').value = record.id;
     $('load').disabled = false;
+    if (run?.saved === false) say('persistenceStatus', 'Configuration saved; displayed run remains unsaved and exportable.');
+    await refreshRuns();
   }
   async function execute(allowUnsaved = false) {
     const configuration = readConfiguration();
@@ -365,6 +419,8 @@
     $('runUnsaved').hidden = true;
     $('inputsChanged').hidden = true;
     say('runStatus', 'validating');
+    $('progress').value = 0;
+    $('progress').max = Math.max(1, plan?.cellCount || 1);
     setBusy(true);
     try {
       const result = await services.run(configuration, {
@@ -380,15 +436,16 @@
       if (token !== runToken) return;
       run = result;
       say('runStatus', '{status} · {completed}/{total} cells{case}', { status: _(result.status), completed: result.completed, total: result.total, case: '' });
-      say('persistenceStatus', result.persisted === false ? 'Unsaved run · export remains available' : 'Saved run snapshot');
+      say('persistenceStatus', (result.persisted === false || result.saved === false) ? 'Unsaved run · export remains available' : 'Saved run snapshot');
       dirty = false;
       await renderResult();
       await refreshSaved();
+      if (result.saved) { $('savedExperiments').value = result.plan.experiment.experimentId; await refreshRuns(); }
     } catch (error) {
       if (token !== runToken) return;
       showError(error);
       say('runStatus', 'failed');
-      if (error.code === 'persistence_failed') $('runUnsaved').hidden = false;
+      if (['persistence_failed', 'storage_initialization_failed'].includes(error.code)) $('runUnsaved').hidden = false;
     } finally {
       if (token === runToken) { setBusy(false); await validate(); }
     }
@@ -397,10 +454,6 @@
     $('experimentName').addEventListener('input', markDirty);
     $('experimentNotes').addEventListener('input', markDirty);
     $('scenarioName').addEventListener('change', () => { draft.scenarios[selectedScenario].name = $('scenarioName').value; renderScenarios(); markDirty(); });
-    $('seed').addEventListener('change', guard(async () => {
-      draft.scenarios[selectedScenario] = await services.normalizeScenario({ ...draft.scenarios[selectedScenario], seed: $('seed').value });
-      renderScenarios(); markDirty();
-    }));
     document.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click', () => {
       draft.mode = button.dataset.mode;
       document.querySelectorAll('[data-mode]').forEach(item => item.setAttribute('aria-pressed', String(item.dataset.mode === draft.mode)));
@@ -410,22 +463,34 @@
     $('fixture').addEventListener('change', guard(async () => {
       const fixture = await services.fixture($('fixture').value);
       const scenarios = Array.isArray(fixture) ? fixture : [fixture];
-      draft.scenarios = draft.mode === 'single' ? [scenarios[0]] : scenarios;
-      pendingScenarioEdits.clear(); selectedScenario = 0; renderScenarios(); markDirty();
+      draft.scenarios = clone(draft.mode === 'single' ? [scenarios[0]] : scenarios);
+      pendingScenarioEdits.clear(); canonicalDrafts.clear(); selectedScenario = 0; renderScenarios(); markDirty();
     }));
     $('caseList').addEventListener('change', () => { selectedScenario = Number($('caseList').value); renderScenarios(); validate(); });
     $('updateScenario').addEventListener('click', guard(async () => {
-      draft.scenarios[selectedScenario] = await services.normalizeScenario({ ...draft.scenarios[selectedScenario], inputMode: 'answers' });
-      pendingScenarioEdits.delete(draft.scenarios[selectedScenario].key);
+      draft.scenarios[selectedScenario] = clone(await services.normalizeScenario({ ...draft.scenarios[selectedScenario], inputMode: 'answers' }));
+      pendingScenarioEdits.delete(draft.scenarios[selectedScenario].id);
       renderScenarios(); markDirty();
     }));
+    $('canonicalRequest').addEventListener('input', () => {
+      const id = draft.scenarios[selectedScenario].id; canonicalDrafts.set(id, $('canonicalRequest').value); pendingScenarioEdits.add(id);
+      $('run').disabled = true; $('updateScenario').disabled = true; plan = null;
+      say('planSummary', 'Validate and apply the pending canonical request before running.');
+      say('persistenceStatus', 'Unapplied canonical request'); $('inputsChanged').hidden = !run;
+    });
     $('applyCanonical').addEventListener('click', guard(async () => {
-      draft.scenarios[selectedScenario] = await services.normalizeScenario({ ...draft.scenarios[selectedScenario], request: JSON.parse($('canonicalRequest').value), inputMode: 'canonical' });
-      pendingScenarioEdits.delete(draft.scenarios[selectedScenario].key);
+      let request;
+      try { request = JSON.parse($('canonicalRequest').value); }
+      catch { throw Object.assign(new Error(_('Enter valid canonical request JSON.')), { issues: [{ path: 'canonicalRequest', message: _('Enter valid canonical request JSON.') }] }); }
+      try { draft.scenarios[selectedScenario] = clone(await services.normalizeScenario({ ...draft.scenarios[selectedScenario], request, inputMode: 'canonical' })); }
+      catch (error) { if (error.issues) error.issues = error.issues.map(item => ({ ...item, path: 'canonicalRequest', message: `${item.path || item.field || ''}: ${item.message || item.code}` })); throw error; }
+      pendingScenarioEdits.delete(draft.scenarios[selectedScenario].id); canonicalDrafts.delete(draft.scenarios[selectedScenario].id);
+      $('canonicalRequest').removeAttribute('aria-invalid'); $('canonicalError').textContent = '';
       renderScenarios(); markDirty();
     }));
     $('duplicateScenario').addEventListener('click', guard(async () => {
-      const duplicate = await services.duplicateScenario(draft.scenarios[selectedScenario]);
+      if (pendingScenarioEdits.has(draft.scenarios[selectedScenario].id)) throw new Error(_('Apply pending scenario edits before duplicating.'));
+      const duplicate = clone(await services.duplicateScenario(draft.scenarios[selectedScenario]));
       draft.scenarios.splice(selectedScenario + 1, 0, duplicate); selectedScenario++; renderScenarios(); markDirty();
     }));
     for (const [id, delta] of [['moveUp', -1], ['moveDown', 1]]) $(id).addEventListener('click', () => {
@@ -436,11 +501,12 @@
     });
     $('removeScenario').addEventListener('click', () => {
       if (draft.scenarios.length < 2) return;
+      pendingScenarioEdits.delete(draft.scenarios[selectedScenario].id); canonicalDrafts.delete(draft.scenarios[selectedScenario].id);
       draft.scenarios.splice(selectedScenario, 1); selectedScenario = Math.min(selectedScenario, draft.scenarios.length - 1); renderScenarios(); markDirty();
     });
     $('applyPreset').addEventListener('click', guard(async () => {
       const preset = definitions.presets.find(item => item.id === $('preset').value);
-      draft.candidatePolicy = await services.applyPreset(preset.id, draft.candidatePolicy);
+      draft.candidatePolicy = clone(await services.applyPreset(preset.id, draft.candidatePolicy));
       $('presetDescription').textContent = labelText(preset.description);
       renderPolicy(); markDirty();
     }));
@@ -448,44 +514,72 @@
       const description = text('p', _('{description} Fields: {fields}', { description: labelText(operation.description), fields: operation.paths.join(', ') }), 'hint');
       const button = text('button', labelText(operation.label));
       button.addEventListener('click', guard(async () => {
-        draft.candidatePolicy = await services.bulkEdit(operation.id, draft.candidatePolicy); renderPolicy(); markDirty();
+        draft.candidatePolicy = clone(await services.bulkEdit(operation.id, draft.candidatePolicy)); renderPolicy(); markDirty();
       }));
       $('bulkActions').append(description, button);
     }
-    $('resetPolicy').addEventListener('click', () => { draft.candidatePolicy = clone(definitions.defaultPolicy); renderPolicy(); markDirty(); });
+    $('resetPolicy').addEventListener('click', () => { draft.candidatePolicy = clone(draft.baselinePolicy); renderPolicy(); markDirty(); });
     $('sweepPath').addEventListener('change', markDirty);
     $('sweepValues').addEventListener('input', markDirty);
+    $('runWithBuild').addEventListener('click', guard(async () => {
+      const configuration = await services.adoptCurrentBuild(readConfiguration(), run);
+      renderDraft(configuration); markDirty(); await execute();
+    }));
     $('run').addEventListener('click', guard(() => execute()));
     $('runUnsaved').addEventListener('click', guard(() => execute(true)));
-    $('cancel').addEventListener('click', guard(async () => { $('cancel').disabled = true; say('runStatus', 'Canceling active worker…'); await services.cancel(); }));
+    $('cancel').addEventListener('click', guard(async () => { $('cancel').disabled = true; say('runStatus', 'Canceling active worker…'); await services.cancel(); if (active) say('runStatus', 'Cancellation acknowledged; finalizing accepted checkpoints.'); }));
     $('save').addEventListener('click', guard(save));
-    $('savedExperiments').addEventListener('change', () => { $('load').disabled = active || !$('savedExperiments').value; });
+    $('savedExperiments').addEventListener('change', guard(async () => { $('load').disabled = active || !$('savedExperiments').value; await refreshRuns(); }));
+    $('savedRuns').addEventListener('change', () => { $('loadRun').disabled = active || !$('savedRuns').value; });
+    $('loadRun').addEventListener('click', guard(async () => {
+      const record = await services.loadRun($('savedRuns').value);
+      run = record.run; runToken++; renderDraft(record.configuration);
+      $('inputsChanged').hidden = true; say('persistenceStatus', 'Saved · revision {revision}', { revision: record.revision });
+      await renderResult();
+    }));
     $('load').addEventListener('click', guard(async () => {
       const record = await services.load($('savedExperiments').value);
       savedIdentity = record; run = record.run || null; runToken++; renderDraft(record.configuration);
       dirty = false; $('inputsChanged').hidden = true; say('persistenceStatus', 'Saved · revision {revision}', { revision: record.revision });
       if (run) await renderResult(); else clearResult();
     }));
-    $('export').addEventListener('click', guard(async () => {
-      const parts = await services.exportArchive(readConfiguration(), run);
-      for (const part of parts) {
-        const blob = part.blob || new Blob([part.text], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = Object.assign(document.createElement('a'), { href: url, download: part.name });
-        document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000);
-      }
-      say('persistenceStatus', 'Exported {count} archive part(s)', { count: parts.length });
-    }));
+    const downloadURLs = [];
+    async function exportArchive(includeRun) {
+      setBusy(true); say('runStatus', 'Preparing archive in a dedicated worker…');
+      say('cancel', 'Cancel operation');
+      try {
+        const parts = await services.exportArchive(includeRun && run ? run.plan.experiment : readConfiguration(), includeRun ? run : null);
+        for (const url of downloadURLs.splice(0)) URL.revokeObjectURL(url);
+        $('exportDownloads').replaceChildren();
+        for (const part of parts) {
+          const blob = part.blob || new Blob([part.text], { type: 'application/json' });
+          const url = URL.createObjectURL(blob); downloadURLs.push(url);
+          const link = Object.assign(document.createElement('a'), { href: url, download: part.name, textContent: part.name });
+          $('exportDownloads').append(link, document.createElement('br'));
+          if (parts.length === 1) link.click();
+        }
+        say('persistenceStatus', 'Prepared {count} archive part(s). Download every part.', { count: parts.length });
+        say('runStatus', includeRun ? 'Archive contains the selected immutable run snapshot.' : 'Configuration-only archive prepared.');
+      } catch (error) { say('runStatus', error.code === 'archive_canceled' ? 'Archive operation canceled.' : 'Archive operation failed.'); throw error;
+      } finally { setBusy(false); say('cancel', 'Cancel run'); await validate(); }
+    }
+    $('export').addEventListener('click', guard(() => exportArchive(true)));
+    $('exportConfiguration').addEventListener('click', guard(() => exportArchive(false)));
     $('importFiles').addEventListener('change', guard(async () => {
       const files = [...$('importFiles').files];
       if (!files.length) return;
+      setBusy(true); say('runStatus', 'Validating archive in a dedicated worker…'); say('cancel', 'Cancel operation');
       try {
         const record = await services.importArchive(files);
         run = record.run || null; runToken++; renderDraft(record.configuration); dirty = false;
         $('inputsChanged').hidden = true; say('persistenceStatus', record.archived ? 'Imported archived result · exact replay unavailable on this build' : 'Imported experiment');
         if (run) await renderResult(); else clearResult();
         await refreshSaved();
-      } finally { $('importFiles').value = ''; }
+        $('savedExperiments').value = record.configuration.experimentId;
+        await refreshRuns();
+        say('runStatus', 'Imported archive validated and committed.');
+      } catch (error) { say('runStatus', error.code === 'archive_canceled' ? 'Archive operation canceled.' : 'Archive operation failed.'); throw error;
+      } finally { $('importFiles').value = ''; setBusy(false); say('cancel', 'Cancel run'); await validate(); }
     }));
     $('rawDetails').addEventListener('toggle', renderRaw);
     $('resultCase').addEventListener('change', guard(renderResult));
@@ -493,10 +587,11 @@
   }
 
   /** The UI adapter contract deliberately contains no engine/persistence logic.
-   * initialize() -> { manifest, defaultPolicy, policyFields[], presets[], fixtures[],
+   * initialize({locale}) -> { manifest, defaultPolicy, policyFields[], presets[], fixtures[],
    *   scenarioFields[], configuration, exerciseLabels? }
    * validate(config) -> {ok,issues:[{path,code,message}]}; plan(config) ->
    *   {caseCount,cellCount,baselineReuse}; fixture(id) -> scenario | scenario[];
+   * scenarioIdentity(scenario) -> read-only current compiler identity;
    * normalizeScenario(scenario), duplicateScenario(scenario), applyPreset(id,policy),
    * bulkEdit(operation,policy) -> detached validated data.
    * run(config,{allowUnsaved,onProgress}) -> frozen run; cancel() terminates worker.
@@ -518,8 +613,8 @@
       say('buildIdentity', 'Generator {version} · {commit}{dirty} · catalog {catalog}', () => ({ version: manifest.generatorVersion, commit: String(manifest.sourceCommit || _('uncommitted')).slice(0, 12), dirty: manifest.dirty ? _(' · modified build') : '', catalog: String(manifest.catalogSha256).slice(0, 12) }));
       $('buildManifest').textContent = json(manifest);
       say('baselineBadge', 'Bundled default · generator {version} · {fingerprint}', { version: manifest.generatorVersion, fingerprint: String(manifest.runtimeFingerprint).slice(0, 12) });
-      $('fixture').replaceChildren(...definitions.fixtures.map(item => option(item.id, item.label || item.name || item.id)));
-      $('preset').replaceChildren(...definitions.presets.map(item => option(item.id, item.label || item.name || item.id)));
+      $('fixture').replaceChildren(...definitions.fixtures.map(item => option(item.id, labelText(item.label || item.name || item.id))));
+      $('preset').replaceChildren(...definitions.presets.map(item => option(item.id, labelText(item.label || item.name || item.id))));
       wire(); renderDraft(definitions.configuration); setBusy(false);
       await refreshSaved(); await validate();
       say('runStatus', 'Ready');
@@ -542,7 +637,7 @@
         await renderResult();
         say('runStatus', '{status} · {completed}/{total} cells{case}', { status: _(run.status), completed: run.completed, total: run.total, case: '' });
       }
-      await validate();
+      await validate(); await refreshRuns();
     }
     if (!persisted) showError('Language preference could not be saved. It applies to this tab only.');
   }));

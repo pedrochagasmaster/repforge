@@ -9,7 +9,8 @@ import { execFileSync } from 'node:child_process';
 const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 const workerSources = ['exercise-metrics.js', 'generation-identity.js', 'engine-policy.js', 'generation-candidates.js', 'generation-layout.js', 'program-compiler.js', 'exercise-catalog.js'];
-const required = ['programlab/index.html', 'programlab/styles.css', 'programlab/app.js', 'programlab/i18n.js', 'programlab/domain.js', 'programlab/store.js', 'programlab/services.js', 'assets/exercise-catalog.json', 'fonts/plexsans.woff2', 'fonts/plexmono-400.woff2', 'exercises.js', 'program-entry-adapter.js', 'program-engine.js', ...workerSources];
+const corpusSource = 'test/fixtures/program-compiler-corpus-cases.mjs';
+const required = ['programlab/index.html', 'programlab/styles.css', 'programlab/app.js', 'programlab/i18n.js', 'programlab/archive-entry.js', 'programlab/archive.js', 'programlab/archive-worker.js', 'programlab/domain.js', 'programlab/store.js', 'programlab/services.js', 'assets/exercise-catalog.json', 'fonts/plexsans.woff2', 'fonts/plexmono-400.woff2', 'exercises.js', 'program-entry-adapter.js', 'program-engine.js', ...workerSources];
 function git(sourceDir, args) {
   try { return execFileSync('git', ['-C', sourceDir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); }
   catch { return null; }
@@ -33,7 +34,7 @@ export async function buildProgramLab({ sourceDir = repository, outDir } = {}) {
   const output = path.resolve(outDir || path.join(source, 'dist/programlab'));
   if (output === source || source.startsWith(`${output}${path.sep}`)) throw new Error('Output must not contain the source checkout');
   if (existsSync(output)) throw new Error(`Output already exists; choose a new artifact directory: ${output}`);
-  for (const name of new Set(required)) {
+  for (const name of new Set([...required, corpusSource])) {
     if (!existsSync(path.join(source, name))) throw new Error(`Missing required Program Lab source: ${name}`);
     if (!(await lstat(path.join(source, name))).isFile()) throw new Error(`Source must be a regular file: ${name}`);
   }
@@ -47,6 +48,8 @@ export async function buildProgramLab({ sourceDir = repository, outDir } = {}) {
     if (!(await lstat(path.join(source, name))).isFile()) throw new Error(`Source must be a regular file: ${name}`);
     content.set(name, await readFile(path.join(source, name)));
   }
+  content.set('programlab-archive-worker.js', await readFile(path.join(source, 'programlab/archive-entry.js')));
+  content.set('programlab/corpus-cases.mjs', await readFile(path.join(source, corpusSource)));
   const catalogSha256 = sha256(content.get('assets/exercise-catalog.json'));
   const pin = content.get('exercises.js').toString().match(/(?:EXERCISE_CATALOG_SHA256|catalogSha256)\s*(?:=|:)\s*["']([a-f0-9]{64})["']/)?.[1];
   if (pin !== catalogSha256) throw new Error('Catalog bytes do not match the generated catalog integrity pin');
@@ -55,16 +58,16 @@ export async function buildProgramLab({ sourceDir = repository, outDir } = {}) {
   content.set('index.html', Buffer.from(html.replace('<base href="../">', '<base href="./">')));
   const sourceCommit = git(source, ['rev-parse', 'HEAD']);
   const dirtyStatus = git(source, ['status', '--porcelain']);
-  const files = Object.fromEntries([...content].map(([name, bytes]) => [name, { sha256: sha256(bytes), bytes: bytes.length, source: name === 'index.html' ? 'programlab/index.html (root entry)' : name }]));
+  const files = Object.fromEntries([...content].map(([name, bytes]) => [name, { sha256: sha256(bytes), bytes: bytes.length, source: name === 'index.html' ? 'programlab/index.html (root entry)' : name === 'programlab/corpus-cases.mjs' ? corpusSource : name === 'programlab-archive-worker.js' ? 'programlab/archive-entry.js (root worker entry)' : name }]));
   const fingerprint = list => sha256(Buffer.from(JSON.stringify(list.map(name => [name, files[name].sha256]))));
   const runtimeFiles = [...new Set([...workerSources, 'exercises.js', 'program-entry-adapter.js', 'program-engine.js'])].sort();
-  const labFiles = names.filter(name => name.startsWith('programlab/') && /\.(?:js|mjs)$/.test(name));
+  const labFiles = [...content.keys()].filter(name => name.startsWith('programlab/') && /\.(?:js|mjs)$/.test(name));
   const manifest = {
     kind: 'taurifer-programlab-build', schemaVersion: 1, sourceCommit,
     dirty: sourceCommit ? dirtyStatus !== '' : null,
-    generatorVersion, programSchemaVersion: 2, policyVersion: 'engine-policy@1', diagnosticsVersion: 'lineage-timefit@1',
+    generatorVersion, programSchemaVersion: 2, policyVersion: 'engine-policy@1', diagnosticsVersion: 'allocation-lineage@1',
     catalogSha256, runtimeFingerprint: fingerprint(runtimeFiles), labFingerprint: fingerprint(labFiles),
-    worker: { url: 'program-engine.js', scripts: workerSources, catalogSha256 }, files,
+    worker: { url: 'program-engine.js', scripts: workerSources, catalogSha256 }, archiveWorker: { url: 'programlab-archive-worker.js' }, files,
   };
   await mkdir(path.dirname(output), { recursive: true });
   const staging = await mkdtemp(path.join(path.dirname(output), '.programlab-build-'));

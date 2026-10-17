@@ -21,8 +21,8 @@
       <label>Experiment name<input id="experimentName" maxlength="160" value="Untitled experiment" autocomplete="off"></label>
       <label>Notes<textarea id="experimentNotes" rows="2" maxlength="4000"></textarea></label>
       <p id="persistenceStatus" role="status">Unsaved draft</p>
-      <div class="actions"><button id="save" disabled>Save experiment</button><button id="export" disabled>Export JSON</button><label class="file-button">Import JSON<input id="importFiles" type="file" accept="application/json,.json" multiple></label></div>
-      <div class="saved"><label>Saved experiments<select id="savedExperiments"><option value="">Choose an experiment</option></select></label><button id="load" disabled>Load</button></div>
+      <div class="actions"><button id="save" disabled>Save experiment</button><button id="export" disabled>Export run JSON</button><button id="exportConfiguration" disabled>Export configuration JSON</button><label class="file-button">Import JSON<input id="importFiles" type="file" accept="application/json,.json" multiple></label></div>
+      <div id="exportDownloads" aria-live="polite"></div><div class="saved"><label>Saved experiments<select id="savedExperiments"><option value="">Choose an experiment</option></select></label><button id="load" disabled>Load</button></div><div class="saved"><label>Saved runs<select id="savedRuns"><option value="">Choose a saved run</option></select></label><button id="loadRun" disabled>Inspect saved run</button></div>
     </section>
     <div class="mode-picker" role="group" aria-label="Execution mode"><button data-mode="single" aria-pressed="true">Single</button><button data-mode="batch" aria-pressed="false">Batch</button><button data-mode="sweep" aria-pressed="false">Sweep</button></div>
     <div class="workbench-grid">
@@ -30,14 +30,14 @@
         <p class="eyebrow">01 / INPUTS</p><h2 id="scenarioHeading">Scenarios</h2>
         <label>Fixture<select id="fixture" disabled><option>Loading verified fixtures…</option></select></label>
         <label>Scenario name<input id="scenarioName" maxlength="160" autocomplete="off"></label>
-        <label><span id="seedLabel">Canonical generation identity</span><input id="seed" maxlength="240" autocomplete="off" spellcheck="false"></label>
+        <label><span id="seedLabel">Canonical generation identity</span><input id="seed" readonly maxlength="240" autocomplete="off" spellcheck="false"></label>
         <p class="hint">Both policies receive the same normalized scenario. Generation identity follows this build’s rules.</p>
         <div id="scenarioControls"></div>
         <div class="actions"><button id="updateScenario" disabled>Apply scenario edits</button><button id="duplicateScenario" disabled>Duplicate scenario</button></div>
-        <label>Ordered cases<select id="caseList" size="6" aria-describedby="caseHint"></select></label><p id="caseHint" class="hint">Single uses the selected case. Batch and Sweep use every listed case.</p>
+        <label>Ordered cases<select id="caseList" size="6" aria-describedby="caseHint"></select></label><p id="caseHint" class="hint">Single saves and runs only the selected case. Batch and Sweep use every listed case.</p>
         <div class="actions"><button id="moveUp" disabled>Move up</button><button id="moveDown" disabled>Move down</button><button id="removeScenario" disabled>Remove case</button></div>
         <details><summary>Normalized request</summary><pre id="normalizedRequest" tabindex="0" aria-label="Normalized scenario request"></pre></details>
-        <details><summary>Advanced canonical request</summary><p class="hint">Bypasses the answer adapter. Shared compiler validation applies.</p><label>Canonical request JSON<textarea id="canonicalRequest" rows="12" spellcheck="false"></textarea></label><button id="applyCanonical" disabled>Validate and apply request</button></details>
+        <details><summary>Advanced canonical request</summary><p class="hint">Bypasses the answer adapter. Shared compiler validation applies.</p><label>Canonical request JSON<textarea id="canonicalRequest" aria-describedby="canonicalError" rows="12" spellcheck="false"></textarea></label><p id="canonicalError" class="field-error"></p><button id="applyCanonical" disabled>Validate and apply request</button></details>
       </section>
       <section class="panel policies" aria-labelledby="policyHeading">
         <p class="eyebrow">02 / POLICY</p><h2 id="policyHeading">Baseline → candidate</h2>
@@ -50,13 +50,13 @@
       </section>
       <section class="panel results" aria-labelledby="resultsHeading">
         <p class="eyebrow">03 / OBSERVED OUTPUT</p><h2 id="resultsHeading">Results</h2><p id="resultSnapshot">Run a comparison to inspect actual generated prescriptions.</p>
-        <p id="inputsChanged" class="badge" hidden>Inputs changed · these results belong to the earlier snapshot.</p>
+        <div id="archiveActions" hidden><p class="hint">Creates a new run with this build; the archive stays unchanged. Historical seed labels do not control generation.</p><button id="runWithBuild">Run with this build</button></div><p id="inputsChanged" class="badge" hidden>Inputs changed · these results belong to the earlier snapshot.</p>
         <div id="aggregateSummary"></div>
-        <label>Comparison<select id="resultCase" disabled><option>No results yet</option></select></label><label>Cycle<select id="cycle" disabled><option value="1">Cycle 1</option></select></label><p id="cycleStatus" class="hint"></p>
+        <label>Comparison<select id="resultCase" disabled><option value="">No results yet</option></select></label><label>Cycle<select id="cycle" disabled><option value="1">Cycle 1</option></select></label><p id="cycleStatus" class="hint"></p>
         <div id="comparisonSummary"></div>
         <div class="program-pair"><section aria-labelledby="baselineHeading"><h3 id="baselineHeading">Bundled baseline</h3><div id="baselineProgram"></div></section><section aria-labelledby="candidateHeading"><h3 id="candidateHeading">Candidate</h3><div id="candidateProgram"></div></section></div>
         <details><summary>Semantic changes</summary><div id="semanticChanges"></div></details>
-        <details><summary>Constraint and allocation trace</summary><pre id="diagnostics" tabindex="0"></pre></details>
+        <details><summary>Realized metrics and distributions</summary><pre id="metricDetails" tabindex="0"></pre></details><details><summary>Constraint and allocation trace</summary><pre id="diagnostics" tabindex="0"></pre></details>
         <details id="rawDetails"><summary>Raw selected comparison JSON</summary><pre id="rawResult" tabindex="0"></pre></details>
       </section>
     </div>
@@ -71,6 +71,6 @@
   <script src="exercises.js"></script><script src="exercise-metrics.js"></script>
   <script src="generation-identity.js"></script><script src="engine-policy.js"></script><script src="generation-candidates.js"></script><script src="generation-layout.js"></script>
   <script src="program-compiler.js"></script><script src="exercise-catalog.js"></script><script src="program-entry-adapter.js"></script><script src="program-engine.js"></script>
-  <script src="programlab/i18n.js"></script><script src="programlab/domain.js"></script><script src="programlab/store.js"></script><script src="programlab/services.js"></script><script src="programlab/app.js"></script>
+  <script src="programlab/i18n.js"></script><script src="programlab/domain.js"></script><script src="programlab/store.js"></script><script src="programlab/archive-worker.js"></script><script src="programlab/services.js"></script><script src="programlab/app.js"></script>
 </body>
 </html>
