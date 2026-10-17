@@ -1,10 +1,23 @@
 # Program editor redesign: three candidates
 
-**Status:** design candidates for the owner's choice. No production code changes.
+**Status:** decided. The owner chose candidate A on 2026-10-18. No production code changes in this record; the implementation follows its own ADR and plan.
 **Asked by the owner, 2026-10-18:** "The program editor page is the one that needs the most polishing of all the screens we worked on recently. It needs a complete redesign."
 **Scope:** the post-activation Program editor (Program tab → Editar), meaning `program-editor.js` and its host in `app.js`. Onboarding, Focus and the other tabs are out of scope.
 
 Every frame is hand-built HTML and CSS on the live tokens, captured at 390 px in light and dark. Portuguese comes first; the two densest screens of each candidate are also in English. The HTML for each candidate is in its folder (`candidate-*/index.html?lang=pt|en&theme=light|dark`), and `capture.mjs` redraws the PNGs.
+
+## Decision
+
+On 2026-10-18 the owner chose **candidate A, "one editing language"**, and accepted every recommendation ("I agree with the recommendations"). The answers to [Decisions for the owner](#decisions-for-the-owner):
+
+1. **Candidate A.** The Program editor (Program tab → Editar) converges on onboarding B's review editor (`program-review.js`, Plan 070, ADR 0020): day tabs, exercise rows with set lines, the exercise sheet, the changes bar with Undo, the live day estimate and a pinned Apply. It adds the Weeks row ("Igual nas N semanas", then a week list, then one week as a per-set table) and the Loads block (Suggest loads, smallest load change, the per-side question). C's one-line row stays the first fallback if the overview proves too tall.
+2. **Mono for figures only.** "4–6" is Plex Mono and "reps" is Plex Sans.
+3. **"Semana", not "Ciclo"** in the editor (EN "Week").
+4. **The Suggest loads switch is ink,** not orange.
+5. **Typed names only for custom movements.** Catalog movements show their catalog name.
+6. **Day reorder is in scope,** as a new capability with its own intent.
+
+Decision 7 (the edit session's action bar replaces the dock) comes with A. Decision 8 still holds: every new string is approved by the owner before release, and the final EN/PT table goes to the owner as soon as it is known.
 
 - [Recommendation](#recommendation)
 - [What is wrong today](#what-is-wrong-today)
