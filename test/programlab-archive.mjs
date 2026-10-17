@@ -37,9 +37,7 @@ test("fingerprint mismatch is a readable archive, configuration-only exchange ha
   assert.equal(config.run, null); assert.equal(config.experiment.name, "Archive");
 });
 
-test("successful native archives require complete, typed diagnostic references", () => {
-  // These corruptions can carry self-consistent hashes but must be refused
-  // before persistence; otherwise the real semantic inspector cannot join slots.
+function nativeArchiveFixture() {
   const Compiler = require("../program-compiler.js"), Policy = require("../engine-policy.js");
   const Adapter = require("../program-entry-adapter.js"), Catalog = require("../assets/exercise-catalog.json");
   require("../generation-identity.js").prepareCatalog(Catalog);
@@ -58,6 +56,13 @@ test("successful native archives require complete, typed diagnostic references",
       result, resultJSON: JSON.stringify(result), error: null }], completed: 1, total: 1, saved: true, error: null };
   const checked = A.create({ validatePolicy: Policy.normalizeEnginePolicy, validateRequest: normalizeRequest,
     validateProgram: program => Compiler.validateProgramDefinition(program, Catalog), build });
+  return { Compiler, Policy, Catalog, nativePlan, original, checked, policy };
+}
+
+test("successful native archives require complete, typed diagnostic references", () => {
+  // These corruptions can carry self-consistent hashes but must be refused
+  // before persistence; otherwise the real semantic inspector cannot join slots.
+  const { nativePlan, original, checked } = nativeArchiveFixture();
   assert.equal(checked.validateSnapshot(nativePlan.experiment, original), false);
   for (const mutate of [
     result => { delete result.diagnostics; },
@@ -77,4 +82,45 @@ test("successful native archives require complete, typed diagnostic references",
     broken.records[0].resultJSON = JSON.stringify(broken.records[0].result);
     assert.throws(() => checked.validateSnapshot(nativePlan.experiment, broken), /diagnostic/i);
   }
+});
+
+test("real historical programs retain unknown catalog identities without current eligibility or duration claims", async () => {
+  const { Compiler, Policy, original, policy } = nativeArchiveFixture();
+  const historical = structuredClone(original);
+  const historicalId = "historical:exercise-not-in-this-catalog";
+  const record = historical.records[0];
+  const slot = record.result.value.days.flatMap(day => day.slots)[0];
+  slot.exerciseId = historicalId; slot.sourceExerciseIds = [historicalId];
+  slot.displayName = "Saved historical exercise label";
+  record.result.diagnostics.slots.find(entry => entry.slotId === slot.id).exerciseId = historicalId;
+  const request = { ...record.result.value.request, executionContexts: { [historicalId]: "bilateral" } };
+  record.result.value.request = request;
+  historical.plan.experiment.scenarios[0].request = request;
+  historical.plan.build.runtimeFingerprint = "c".repeat(64);
+  const cell = historical.plan.cells[0]; cell.request = request;
+  cell.cellKey = D.digest({ cellSchemaVersion: 1, runtimeFingerprint: historical.plan.build.runtimeFingerprint,
+    catalogSha256: historical.plan.build.catalogSha256, request, policy: cell.policy, diagnostics: cell.diagnostics });
+  record.cellKey = cell.cellKey; record.resultJSON = JSON.stringify(record.result);
+  for (const comparison of historical.plan.comparisons) {
+    comparison.baselineKey = cell.cellKey; comparison.candidateKey = cell.cellKey;
+    comparison.comparisonKey = D.digest({ baselineKey: cell.cellKey, candidateKey: cell.cellKey,
+      metricsVersion: D.METRICS_VERSION, referenceTimePolicy: policy });
+  }
+  const reader = A.create({ build, validatePolicy: Policy.normalizeEnginePolicy,
+    validateRequest: () => { throw Error("Historical inputs must not be certified against today's catalog"); },
+    validateProgram: (program, options) => options.archived ? Compiler.validateProgramDefinitionStructure(program) : { ok: false } });
+  const parts = await reader.exportArchive(historical.plan.experiment, historical);
+  const restored = await reader.importArchive(parts.map(part => part.text));
+  assert.equal(restored.archived, true); assert.equal(restored.exactReplayAvailable, false);
+  assert.equal(restored.run.records[0].resultJSON, record.resultJSON);
+  assert.equal(restored.run.records[0].result.value.days.flatMap(day => day.slots)[0].displayName, slot.displayName);
+  const metricsDomain = D.create({ estimateDaySeconds: () => { throw Error("Historical duration must not use today's catalog"); } });
+  const metrics = metricsDomain.metrics(record.result, policy, policy, { archived: true });
+  assert.ok(metrics.cycles[0].workingSets > 0);
+  assert.equal(metrics.cycles[0].duration.own, null); assert.equal(metrics.cycles[0].duration.common, null);
+  assert.equal(metrics.durationUnavailableReason, "archive_fingerprint_mismatch");
+  const malformed = structuredClone(historical);
+  malformed.records[0].result.value.days.flatMap(day => day.slots)[0].prescriptionsByCycle[0].sets[0].rir = 7;
+  malformed.records[0].resultJSON = JSON.stringify(malformed.records[0].result);
+  await assert.rejects(reader.exportArchive(malformed.plan.experiment, malformed), /program envelope/);
 });
