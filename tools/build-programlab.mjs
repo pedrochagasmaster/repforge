@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process';
 const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 const workerSources = ['exercise-metrics.js', 'generation-identity.js', 'engine-policy.js', 'generation-candidates.js', 'generation-layout.js', 'program-compiler.js', 'exercise-catalog.js'];
-const required = ['programlab/index.html', 'programlab/styles.css', 'programlab/app.js', 'programlab/domain.js', 'programlab/store.js', 'programlab/services.js', 'assets/exercise-catalog.json', 'fonts/plexsans.woff2', 'fonts/plexmono-400.woff2', 'exercises.js', 'program-entry-adapter.js', 'program-engine.js', ...workerSources];
+const required = ['programlab/index.html', 'programlab/styles.css', 'programlab/app.js', 'programlab/i18n.js', 'programlab/domain.js', 'programlab/store.js', 'programlab/services.js', 'assets/exercise-catalog.json', 'fonts/plexsans.woff2', 'fonts/plexmono-400.woff2', 'exercises.js', 'program-entry-adapter.js', 'program-engine.js', ...workerSources];
 function git(sourceDir, args) {
   try { return execFileSync('git', ['-C', sourceDir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); }
   catch { return null; }

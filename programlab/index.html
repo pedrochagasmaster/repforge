@@ -13,9 +13,9 @@
   <a class="skip" href="#workbench">Skip to workbench</a>
   <header class="masthead">
     <div><p class="eyebrow">TAURIFER / OWNER WORKBENCH</p><h1>Program Lab</h1><p>Compare explicit policies against the bundled production baseline.</p></div>
-    <details class="identity"><summary id="buildIdentity">Checking build identity…</summary><pre id="buildManifest" aria-label="Source manifest"></pre></details>
+    <div class="header-tools"><label>Language<select id="language"><option value="en">English</option><option value="pt">Português</option></select></label><details class="identity"><summary id="buildIdentity">Checking build identity…</summary><pre id="buildManifest" aria-label="Source manifest"></pre></details></div>
   </header>
-  <main id="workbench">
+  <main id="workbench" tabindex="-1">
     <section class="experiment" aria-labelledby="experimentHeading">
       <h2 id="experimentHeading" class="sr-only">Experiment</h2>
       <label>Experiment name<input id="experimentName" maxlength="160" value="Untitled experiment" autocomplete="off"></label>
@@ -30,8 +30,8 @@
         <p class="eyebrow">01 / INPUTS</p><h2 id="scenarioHeading">Scenarios</h2>
         <label>Fixture<select id="fixture" disabled><option>Loading verified fixtures…</option></select></label>
         <label>Scenario name<input id="scenarioName" maxlength="160" autocomplete="off"></label>
-        <label>Seed<input id="seed" maxlength="240" autocomplete="off" spellcheck="false"></label>
-        <p class="hint">The same normalized request and string seed reach both policies.</p>
+        <label><span id="seedLabel">Canonical generation identity</span><input id="seed" maxlength="240" autocomplete="off" spellcheck="false"></label>
+        <p class="hint">Both policies receive the same normalized scenario. Generation identity follows this build’s rules.</p>
         <div id="scenarioControls"></div>
         <div class="actions"><button id="updateScenario" disabled>Apply scenario edits</button><button id="duplicateScenario" disabled>Duplicate scenario</button></div>
         <label>Ordered cases<select id="caseList" size="6" aria-describedby="caseHint"></select></label><p id="caseHint" class="hint">Single uses the selected case. Batch and Sweep use every listed case.</p>
@@ -62,7 +62,7 @@
     </div>
     <section class="runbar" aria-label="Execution controls">
       <div><p id="planSummary">Validating inputs…</p><div id="validation" role="alert"></div><p id="runStatus" role="status" aria-live="polite">Initializing</p><progress id="progress" value="0" max="1" aria-label="Compiler cells completed"></progress></div>
-      <div class="actions"><button id="run" class="primary" disabled>Run comparison</button><button id="cancel" disabled>Cancel run</button><button id="runUnsaved" hidden>Run without saving</button></div>
+      <div class="actions"><button id="run" class="primary" aria-describedby="planSummary validation" disabled>Run comparison</button><button id="cancel" disabled>Cancel run</button><button id="runUnsaved" hidden>Run without saving</button></div>
     </section>
     <p id="fatalError" role="alert" hidden></p>
   </main>
@@ -71,6 +71,6 @@
   <script src="exercises.js"></script><script src="exercise-metrics.js"></script>
   <script src="generation-identity.js"></script><script src="engine-policy.js"></script><script src="generation-candidates.js"></script><script src="generation-layout.js"></script>
   <script src="program-compiler.js"></script><script src="exercise-catalog.js"></script><script src="program-entry-adapter.js"></script><script src="program-engine.js"></script>
-  <script src="programlab/domain.js"></script><script src="programlab/store.js"></script><script src="programlab/services.js"></script><script src="programlab/app.js"></script>
+  <script src="programlab/i18n.js"></script><script src="programlab/domain.js"></script><script src="programlab/store.js"></script><script src="programlab/services.js"></script><script src="programlab/app.js"></script>
 </body>
 </html>

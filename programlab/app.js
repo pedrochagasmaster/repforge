@@ -4,6 +4,10 @@
 (function attachProgramLabUI(root) {
   'use strict';
   const $ = id => document.getElementById(id);
+  const L = root.RepForgeProgramLabI18n;
+  const _ = (key, values) => L.t(key, values);
+  const say = (id, key, values) => L.bind($(id), key, values);
+  const labelText = value => typeof value === 'object' && value ? value[L.locale()] || value.en || '' : _(String(value ?? ''));
   const clone = value => structuredClone(value);
   const json = value => JSON.stringify(value, null, 2);
   const text = (tag, value, className) => {
@@ -28,20 +32,21 @@
   const pendingScenarioEdits = new Set();
   const buttons = ['save', 'export', 'fixture', 'applyPreset', 'preset', 'updateScenario', 'duplicateScenario', 'moveUp', 'moveDown', 'removeScenario', 'applyCanonical', 'resetPolicy'];
 
-  function errorMessage(error) { return String(error?.message || error); }
+  function errorMessage(error) { return labelText(String(error?.message || error)); }
   function showError(error) {
     $('fatalError').hidden = false;
-    $('fatalError').textContent = errorMessage(error);
+    say('fatalError', error?.messageKey || String(error?.message || error));
   }
   function guard(action) {
     return async event => {
+      if (services) $('fatalError').hidden = true;
       try { await action(event); }
-      catch (error) { showError(error); }
+      catch (error) { if (Array.isArray(error.issues)) presentIssues(error.issues); showError(error); }
     };
   }
   function markDirty() {
     dirty = true;
-    $('persistenceStatus').textContent = 'Unsaved changes';
+    say('persistenceStatus', 'Unsaved changes');
     $('inputsChanged').hidden = !run;
     validate();
   }
@@ -52,6 +57,8 @@
     $('run').disabled = value || !plan;
     $('load').disabled = value || !$('savedExperiments').value;
     $('importFiles').disabled = value;
+    $('language').disabled = value;
+    document.querySelector('.workbench-grid').setAttribute('aria-busy', String(value));
     document.querySelectorAll('[data-mode], #scenarioControls input, #scenarioControls select, #scenarioControls textarea, #policyControls input, #policyControls select, #bulkActions button, #sweepControls input, #sweepControls select').forEach(control => { control.disabled = value; });
     $('experimentName').disabled = value;
     $('experimentNotes').disabled = value;
@@ -60,23 +67,23 @@
     $('canonicalRequest').disabled = value;
   }
   function readConfiguration() {
-    if (pendingScenarioEdits.size) throw new Error('Apply or replace the pending scenario edits before saving, exporting or running.');
+    if (pendingScenarioEdits.size) throw new Error(_('Apply or replace the pending scenario edits before saving, exporting or running.'));
     const configuration = clone(draft);
     configuration.name = $('experimentName').value;
     configuration.notes = $('experimentNotes').value;
     if (configuration.mode === 'single') configuration.scenarios = [configuration.scenarios[selectedScenario]];
     if (configuration.mode === 'sweep') {
       const raw = $('sweepValues').value.split(',').map(value => value.trim());
-      if (!raw.length || raw.some(value => !value)) throw new Error('Enter explicit numeric sweep values separated by commas.');
+      if (!raw.length || raw.some(value => !value)) throw new Error(_('Enter explicit numeric sweep values separated by commas.'));
       const values = raw.map(Number);
-      if (values.some(value => !Number.isFinite(value))) throw new Error('Sweep values must be finite numbers.');
+      if (values.some(value => !Number.isFinite(value))) throw new Error(_('Sweep values must be finite numbers.'));
       configuration.sweep = { path: $('sweepPath').value, values };
     } else configuration.sweep = null;
     return configuration;
   }
   function presentIssues(issues) {
     $('validation').replaceChildren();
-    for (const { input, message } of policyInputs.values()) {
+    for (const { input, message } of [...policyInputs.values(), ...scenarioInputs.values()]) {
       input.removeAttribute('aria-invalid');
       message.textContent = '';
     }
@@ -84,7 +91,8 @@
       const path = issue.path || issue.field || '';
       const label = issue.message || issue.code || String(issue);
       $('validation').append(text('p', `${path ? `${path}: ` : ''}${label}`));
-      const field = policyInputs.get(path.replace(/^candidatePolicy\./, ''));
+      const scenarioPath = path.replace(/^scenarios(?:\.\d+|\[\d+\])\./, '').replace(/^(answers|request)\./, '');
+      const field = policyInputs.get(path.replace(/^candidatePolicy\./, '')) || scenarioInputs.get(scenarioPath);
       if (field) {
         field.input.setAttribute('aria-invalid', 'true');
         field.message.textContent = label;
@@ -101,16 +109,16 @@
       const validation = await services.validate(configuration);
       if (token !== validationToken) return;
       presentIssues(validation.issues || []);
-      if (!validation.ok) { $('planSummary').textContent = 'Resolve input errors before running.'; return; }
+      if (!validation.ok) { say('planSummary', 'Resolve input errors before running.'); return; }
       const planned = await services.plan(configuration);
       if (token !== validationToken) return;
       plan = planned;
-      $('planSummary').textContent = `${planned.caseCount} scenario/seed pairs · ${planned.cellCount} compiler cells · ${planned.baselineReuse || 0} baseline reuses`;
+      say('planSummary', '{cases} scenario/seed pairs · {cells} compiler cells · {reuse} baseline reuses', { cases: planned.caseCount, cells: planned.cellCount, reuse: planned.baselineReuse || 0 });
       $('run').disabled = false;
     } catch (error) {
       if (token !== validationToken) return;
       presentIssues([{ message: errorMessage(error) }]);
-      $('planSummary').textContent = 'Unable to plan this draft.';
+      say('planSummary', 'Unable to plan this draft.');
     }
   }
 
@@ -121,7 +129,7 @@
       input = document.createElement('select');
       for (const choice of choices) {
         const item = typeof choice === 'object' ? choice : { value: choice, label: String(choice) };
-        input.append(option(String(item.value), item.label));
+        input.append(option(String(item.value), labelText(item.label)));
       }
       input.value = String(value);
     } else if (field.type === 'boolean' || typeof value === 'boolean') {
@@ -151,26 +159,28 @@
       if (!groups.has(groupName)) {
         const details = document.createElement('details');
         details.open = groups.size < 2;
-        details.append(text('summary', groupName));
+        details.append(text('summary', labelText(groupName)));
         groups.set(groupName, details);
         $('policyControls').append(details);
       }
       const row = text('div', '', 'policy-row');
       const index = policyInputs.size;
       const id = `policy-${index}`;
-      const label = text('label', field.label || field.path);
+      const label = text('label', labelText(field.label || field.path));
       label.htmlFor = id;
       const values = text('div', '', 'policy-values');
-      values.append(text('span', at(definitions.defaultPolicy, field.path), 'baseline'));
+      const baseline = text('span', at(definitions.defaultPolicy, field.path), 'baseline');
+      baseline.setAttribute('aria-label', _('Baseline: {value}', { value: at(definitions.defaultPolicy, field.path) }));
+      values.append(baseline);
       const input = createInput(field, at(draft.candidatePolicy, field.path), next => {
         assign(draft.candidatePolicy, field.path, next);
         markDirty();
       });
       input.id = id;
       input.dataset.policyPath = field.path;
-      const reset = text('button', 'Reset');
+      const reset = text('button', _('Reset'));
       reset.type = 'button';
-      reset.setAttribute('aria-label', `Reset ${field.label || field.path} to baseline`);
+      reset.setAttribute('aria-label', _('Reset {field} to baseline', { field: labelText(field.label || field.path) }));
       reset.addEventListener('click', () => {
         assign(draft.candidatePolicy, field.path, clone(at(definitions.defaultPolicy, field.path)));
         renderPolicy();
@@ -178,7 +188,7 @@
         policyInputs.get(field.path)?.input.focus();
       });
       values.append(input, reset);
-      const hint = text('p', [field.unit, field.description, ...(field.dependencies || [])].filter(Boolean).join(' · '), 'hint');
+      const hint = text('p', [field.unit, field.description, ...(field.dependencies || [])].filter(Boolean).map(labelText).join(' · '), 'hint');
       hint.id = `${id}-hint`;
       const message = text('p', '', 'field-error');
       message.id = `${id}-error`;
@@ -186,7 +196,7 @@
       row.append(label, values, hint, text('p', field.path, 'policy-path'), message);
       groups.get(groupName).append(row);
       policyInputs.set(field.path, { input, message });
-      if (field.sweepable !== false && typeof at(definitions.defaultPolicy, field.path) === 'number') $('sweepPath').append(option(field.path, `${field.label || field.path} (${field.path})`));
+      if (field.sweepable !== false && typeof at(definitions.defaultPolicy, field.path) === 'number') $('sweepPath').append(option(field.path, `${labelText(field.label || field.path)} (${field.path})`));
     }
     if (draft.sweep) { $('sweepPath').value = draft.sweep.path; $('sweepValues').value = draft.sweep.values.join(', '); }
   }
@@ -197,32 +207,38 @@
     $('scenarioName').value = scenario.name || scenario.key;
     $('seed').value = scenario.seed;
     $('seed').readOnly = definitions.seedMode !== 'explicit';
-    $('seed').setAttribute('aria-label', definitions.seedMode === 'explicit' ? 'Execution seed' : 'Canonical generation identity');
+    say('seedLabel', definitions.seedMode === 'explicit' ? 'Execution seed' : 'Canonical generation identity');
+    $('seed').setAttribute('aria-label', _(definitions.seedMode === 'explicit' ? 'Execution seed' : 'Canonical generation identity'));
     $('canonicalRequest').value = json(scenario.request);
     $('normalizedRequest').textContent = json(scenario.request);
     $('scenarioControls').replaceChildren();
     scenarioInputs.clear();
     if (scenario.inputMode === 'canonical' || !scenario.answers) {
-      $('scenarioControls').append(text('p', 'Canonical input · use the advanced request editor to change this scenario.', 'hint'));
+      $('scenarioControls').append(text('p', _('Canonical input · use the advanced request editor to change this scenario.'), 'hint'));
       return;
     }
     for (const [index, field] of (definitions.scenarioFields || []).entries()) {
-      const label = text('label', field.label || field.path);
+      const label = text('label', labelText(field.label || field.path));
       const input = createInput(field, at(scenario.answers, field.path), next => {
         const current = draft.scenarios[selectedScenario];
         assign(current.answers, field.path, next);
         pendingScenarioEdits.add(current.key);
         $('run').disabled = true;
         plan = null;
-        $('planSummary').textContent = 'Apply scenario edits to validate the mapped request.';
+        say('planSummary', 'Apply scenario edits to validate the mapped request.');
         dirty = true;
-        $('persistenceStatus').textContent = 'Unapplied scenario changes';
+        say('persistenceStatus', 'Unapplied scenario changes');
       });
       input.id = `scenario-${index}`;
       label.htmlFor = input.id;
       label.append(input);
-      $('scenarioControls').append(label);
-      scenarioInputs.set(field.path, input);
+      const hint = text('p', labelText(field.description || ''), 'hint');
+      hint.id = `${input.id}-hint`;
+      const message = text('p', '', 'field-error');
+      message.id = `${input.id}-error`;
+      input.setAttribute('aria-describedby', `${hint.id} ${message.id}`);
+      $('scenarioControls').append(label, hint, message);
+      scenarioInputs.set(field.path, { input, message });
     }
   }
   function renderDraft(configuration) {
@@ -243,34 +259,34 @@
     const grid = text('div', '', 'metrics');
     for (const row of rows) {
       const metric = text('div', '', 'metric');
-      metric.append(text('strong', row.value === null ? 'Unavailable' : row.value), text('span', row.label));
-      if (row.detail) metric.append(text('p', row.detail, 'hint'));
+      metric.append(text('strong', row.value === null ? _('Unavailable') : row.value), text('span', labelText(row.label)));
+      if (row.detail) metric.append(text('p', labelText(row.detail), 'hint'));
       grid.append(metric);
     }
     container.append(grid);
   }
   function renderProgram(container, cell, cycle, changedLineages = []) {
     container.replaceChildren();
-    if (!cell) { container.append(text('p', 'Not executed', 'hint')); return; }
+    if (!cell) { container.append(text('p', _('Not executed'), 'hint')); return; }
     const result = cell.result;
     if (!result?.ok) {
-      container.append(text('p', cell.outcome || (result ? 'Domain conflict' : 'Execution error'), 'field-error'), text('pre', json(result || cell.error)));
+      container.append(text('p', labelText(cell.outcome || (result ? 'Domain conflict' : 'Execution error')), 'field-error'), text('pre', json(result || cell.error)));
       return;
     }
     metrics(container, cell.metricRows);
     const program = result.value;
     for (const day of program.days || []) {
       const dayNode = text('section', '', 'day');
-      dayNode.append(text('h3', `${day.name}${day.kind === 'rest' ? ' · rest' : ''}`));
+      dayNode.append(text('h3', `${day.name}${day.kind === 'rest' ? ` · ${_('rest')}` : ''}`));
       for (const slot of day.slots || []) {
         const slotNode = text('div', '', `slot${changedLineages.includes(slot.id) ? ' changed' : ''}`);
         const name = cell.exerciseLabels?.[slot.exerciseId] || (!cell.archived && definitions.exerciseLabels?.[slot.exerciseId]) || slot.exerciseId;
-        slotNode.append(text('p', name), text('p', `${slot.role || ''} · ${slot.executionMode || 'unspecified execution'}`, 'hint'));
+        slotNode.append(text('p', name), text('p', `${labelText(slot.role || '')} · ${labelText(slot.executionMode || 'unspecified execution')}`, 'hint'));
         const list = text('ol', '', 'sets');
         const sets = slot.prescriptionsByCycle?.find(item => item.cycleIndex === cycle)?.sets || [];
         for (const [index, set] of sets.entries()) {
-          const targets = Object.entries(set.targets || {}).map(([key, target]) => `${key} ${typeof target === 'object' ? `${target.min ?? '?'}–${target.max ?? '?'}` : target}`).join(' · ');
-          list.append(text('li', `${index + 1}. ${targets || 'Manual targets'} · RIR ${set.rir ?? 'unspecified'} · rest ${set.restSeconds === null ? 'unspecified' : `${set.restSeconds}s`}${set.status === 'manual' ? ' · manual' : ''}`));
+          const targets = Object.entries(set.targets || {}).map(([key, target]) => `${labelText(key)} ${typeof target === 'object' ? `${target.min ?? '?'}–${target.max ?? '?'}` : target}`).join(' · ');
+          list.append(text('li', _('{ordinal}. {targets} · RIR {rir} · rest {rest}{manual}', { ordinal: index + 1, targets: targets || _('Manual targets'), rir: set.rir ?? _('unspecified'), rest: set.restSeconds === null ? _('unspecified') : `${set.restSeconds}s`, manual: set.status === 'manual' ? ` · ${_('manual')}` : '' })));
         }
         slotNode.append(list);
         dayNode.append(slotNode);
@@ -289,23 +305,23 @@
     if (view.comparisons.some(item => item.key === previous)) $('resultCase').value = previous;
     $('resultCase').disabled = !view.comparisons.length;
     const cycle = Number($('cycle').value || 1);
-    $('cycle').replaceChildren(...view.cycles.map(item => option(String(item.index), `Cycle ${item.index}${item.deload ? ' · deload' : ' · ordinary'}`)));
+    $('cycle').replaceChildren(...view.cycles.map(item => option(String(item.index), _('Cycle {index} · {kind}', { index: item.index, kind: item.deload ? 'deload' : _('ordinary') }))));
     $('cycle').value = String(view.cycles.some(item => item.index === cycle) ? cycle : view.cycles[0]?.index || 1);
     $('cycle').disabled = !view.cycles.length;
-    $('cycleStatus').textContent = view.cycleLabel || '';
-    $('resultSnapshot').textContent = `Run ${run.runId} · ${run.status} · snapshot ${run.revision ?? run.configuration?.revision ?? 'embedded'}`;
+    $('cycleStatus').textContent = labelText(view.cycleLabel || '');
+    say('resultSnapshot', 'Run {id} · {status} · snapshot {revision}', { id: run.runId, status: _(run.status), revision: run.revision ?? run.configuration?.revision ?? _('embedded') });
     $('aggregateSummary').replaceChildren();
     metrics($('aggregateSummary'), view.aggregateRows);
     $('comparisonSummary').replaceChildren();
     metrics($('comparisonSummary'), view.metricRows);
-    if (view.notice) $('comparisonSummary').append(text('p', view.notice, 'badge'));
+    if (view.notice) $('comparisonSummary').append(text('p', labelText(view.notice), 'badge'));
     renderProgram($('baselineProgram'), view.baseline, Number($('cycle').value), view.baselineChangedSlotIds);
     renderProgram($('candidateProgram'), view.candidate, Number($('cycle').value), view.candidateChangedSlotIds);
     $('semanticChanges').replaceChildren();
     for (const change of view.changes || []) $('semanticChanges').append(text('p', typeof change === 'string' ? change : json(change), 'hint'));
-    if (!view.changes?.length) $('semanticChanges').append(text('p', 'No semantic prescription changes in this comparison.', 'hint'));
+    if (!view.changes?.length) $('semanticChanges').append(text('p', _('No semantic prescription changes in this comparison.'), 'hint'));
     $('diagnostics').textContent = json(view.diagnostics || { baseline: view.baseline?.result?.diagnostics, candidate: view.candidate?.result?.diagnostics });
-    $('rawResult').textContent = '';
+    say('rawResult', '');
     renderRaw();
   }
   function renderRaw() {
@@ -317,16 +333,16 @@
   function clearResult() {
     selectedView = null;
     for (const id of ['baselineProgram', 'candidateProgram', 'aggregateSummary', 'comparisonSummary', 'semanticChanges', 'diagnostics', 'rawResult']) $(id).replaceChildren();
-    $('resultSnapshot').textContent = 'This configuration has no saved execution snapshot.';
-    $('resultCase').replaceChildren(option('', 'No results yet'));
+    say('resultSnapshot', 'This configuration has no saved execution snapshot.');
+    $('resultCase').replaceChildren(option('', _('No results yet')));
     $('resultCase').disabled = true;
     $('cycle').disabled = true;
-    $('cycleStatus').textContent = '';
+    say('cycleStatus', '');
   }
   async function refreshSaved() {
     const selected = $('savedExperiments').value;
     const items = await services.list();
-    $('savedExperiments').replaceChildren(option('', 'Choose an experiment'), ...items.map(item => option(item.id, item.name)));
+    $('savedExperiments').replaceChildren(option('', _('Choose an experiment')), ...items.map(item => option(item.id, item.name)));
     if (items.some(item => item.id === selected)) $('savedExperiments').value = selected;
     $('load').disabled = active || !$('savedExperiments').value;
   }
@@ -334,7 +350,7 @@
     const record = await services.save(readConfiguration(), run);
     savedIdentity = record;
     dirty = false;
-    $('persistenceStatus').textContent = `Saved · revision ${record.revision}`;
+    say('persistenceStatus', 'Saved · revision {revision}', { revision: record.revision });
     await refreshSaved();
     if (record.id) $('savedExperiments').value = record.id;
     $('load').disabled = false;
@@ -348,29 +364,30 @@
     $('fatalError').hidden = true;
     $('runUnsaved').hidden = true;
     $('inputsChanged').hidden = true;
-    $('runStatus').textContent = 'validating';
+    say('runStatus', 'validating');
     setBusy(true);
     try {
       const result = await services.run(configuration, {
         allowUnsaved,
         onProgress: update => {
           if (token !== runToken) return;
-          $('runStatus').textContent = `${update.status} · ${update.completed}/${update.total} cells${update.caseName ? ` · ${update.caseName}` : ''}`;
+          say('runStatus', '{status} · {completed}/{total} cells{case}', { status: _(update.status), completed: update.completed, total: update.total, case: update.caseName ? ` · ${update.caseName}` : '' });
+          $('progress').setAttribute('aria-valuetext', _('{status} · {completed}/{total} cells{case}', { status: _(update.status), completed: update.completed, total: update.total, case: '' }));
           $('progress').max = Math.max(1, update.total);
           $('progress').value = update.completed;
         },
       });
       if (token !== runToken) return;
       run = result;
-      $('runStatus').textContent = `${result.status} · ${result.completed}/${result.total} cells`;
-      $('persistenceStatus').textContent = result.persisted === false ? 'Unsaved run · export remains available' : 'Saved run snapshot';
+      say('runStatus', '{status} · {completed}/{total} cells{case}', { status: _(result.status), completed: result.completed, total: result.total, case: '' });
+      say('persistenceStatus', result.persisted === false ? 'Unsaved run · export remains available' : 'Saved run snapshot');
       dirty = false;
       await renderResult();
       await refreshSaved();
     } catch (error) {
       if (token !== runToken) return;
       showError(error);
-      $('runStatus').textContent = 'failed';
+      say('runStatus', 'failed');
       if (error.code === 'persistence_failed') $('runUnsaved').hidden = false;
     } finally {
       if (token === runToken) { setBusy(false); await validate(); }
@@ -424,12 +441,12 @@
     $('applyPreset').addEventListener('click', guard(async () => {
       const preset = definitions.presets.find(item => item.id === $('preset').value);
       draft.candidatePolicy = await services.applyPreset(preset.id, draft.candidatePolicy);
-      $('presetDescription').textContent = preset.description;
+      $('presetDescription').textContent = labelText(preset.description);
       renderPolicy(); markDirty();
     }));
     for (const operation of definitions.bulkEdits || []) {
-      const description = text('p', `${operation.description} Fields: ${operation.paths.join(', ')}`, 'hint');
-      const button = text('button', operation.label);
+      const description = text('p', _('{description} Fields: {fields}', { description: labelText(operation.description), fields: operation.paths.join(', ') }), 'hint');
+      const button = text('button', labelText(operation.label));
       button.addEventListener('click', guard(async () => {
         draft.candidatePolicy = await services.bulkEdit(operation.id, draft.candidatePolicy); renderPolicy(); markDirty();
       }));
@@ -440,13 +457,13 @@
     $('sweepValues').addEventListener('input', markDirty);
     $('run').addEventListener('click', guard(() => execute()));
     $('runUnsaved').addEventListener('click', guard(() => execute(true)));
-    $('cancel').addEventListener('click', guard(async () => { $('cancel').disabled = true; $('runStatus').textContent = 'Canceling active worker…'; await services.cancel(); }));
+    $('cancel').addEventListener('click', guard(async () => { $('cancel').disabled = true; say('runStatus', 'Canceling active worker…'); await services.cancel(); }));
     $('save').addEventListener('click', guard(save));
     $('savedExperiments').addEventListener('change', () => { $('load').disabled = active || !$('savedExperiments').value; });
     $('load').addEventListener('click', guard(async () => {
       const record = await services.load($('savedExperiments').value);
       savedIdentity = record; run = record.run || null; runToken++; renderDraft(record.configuration);
-      dirty = false; $('inputsChanged').hidden = true; $('persistenceStatus').textContent = `Saved · revision ${record.revision}`;
+      dirty = false; $('inputsChanged').hidden = true; say('persistenceStatus', 'Saved · revision {revision}', { revision: record.revision });
       if (run) await renderResult(); else clearResult();
     }));
     $('export').addEventListener('click', guard(async () => {
@@ -457,7 +474,7 @@
         const link = Object.assign(document.createElement('a'), { href: url, download: part.name });
         document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000);
       }
-      $('persistenceStatus').textContent = `Exported ${parts.length} archive part${parts.length === 1 ? '' : 's'}`;
+      say('persistenceStatus', 'Exported {count} archive part(s)', { count: parts.length });
     }));
     $('importFiles').addEventListener('change', guard(async () => {
       const files = [...$('importFiles').files];
@@ -465,7 +482,7 @@
       try {
         const record = await services.importArchive(files);
         run = record.run || null; runToken++; renderDraft(record.configuration); dirty = false;
-        $('inputsChanged').hidden = true; $('persistenceStatus').textContent = record.archived ? 'Imported archived result · exact replay unavailable on this build' : 'Imported experiment';
+        $('inputsChanged').hidden = true; say('persistenceStatus', record.archived ? 'Imported archived result · exact replay unavailable on this build' : 'Imported experiment');
         if (run) await renderResult(); else clearResult();
         await refreshSaved();
       } finally { $('importFiles').value = ''; }
@@ -495,25 +512,45 @@
     if (services) throw new Error('Program Lab is already connected');
     services = injected;
     try {
-      definitions = await services.initialize();
+      definitions = await services.initialize({ locale: L.locale() });
       $('fatalError').hidden = true;
       const manifest = definitions.manifest;
-      $('buildIdentity').textContent = `Generator ${manifest.generatorVersion} · ${String(manifest.sourceCommit || 'uncommitted').slice(0, 12)}${manifest.dirty ? ' · modified build' : ''} · catalog ${String(manifest.catalogSha256).slice(0, 12)}`;
+      say('buildIdentity', 'Generator {version} · {commit}{dirty} · catalog {catalog}', () => ({ version: manifest.generatorVersion, commit: String(manifest.sourceCommit || _('uncommitted')).slice(0, 12), dirty: manifest.dirty ? _(' · modified build') : '', catalog: String(manifest.catalogSha256).slice(0, 12) }));
       $('buildManifest').textContent = json(manifest);
-      $('baselineBadge').textContent = `Bundled default · generator ${manifest.generatorVersion} · ${String(manifest.runtimeFingerprint).slice(0, 12)}`;
+      say('baselineBadge', 'Bundled default · generator {version} · {fingerprint}', { version: manifest.generatorVersion, fingerprint: String(manifest.runtimeFingerprint).slice(0, 12) });
       $('fixture').replaceChildren(...definitions.fixtures.map(item => option(item.id, item.label || item.name || item.id)));
       $('preset').replaceChildren(...definitions.presets.map(item => option(item.id, item.label || item.name || item.id)));
       wire(); renderDraft(definitions.configuration); setBusy(false);
       await refreshSaved(); await validate();
-      $('runStatus').textContent = 'Ready';
+      say('runStatus', 'Ready');
       document.documentElement.dataset.labReady = 'true';
-    } catch (error) { services = null; showError(error); $('runStatus').textContent = 'Initialization failed'; throw error; }
+    } catch (error) { services = null; showError(error); say('runStatus', 'Initialization failed'); throw error; }
   }
+  L.localize(document);
+  const skip = document.querySelector('.skip');
+  skip.href = new URL('#workbench', root.location.href).href;
+  skip.addEventListener('click', () => $('workbench').focus({ preventScroll: true }));
+  $('language').addEventListener('change', guard(async () => {
+    if (active) { $('language').value = L.locale(); throw new Error(_('Language cannot change while a run is active.')); }
+    const persisted = L.setLocale($('language').value);
+    L.localize(document);
+    if (draft) {
+      draft.name = $('experimentName').value; draft.notes = $('experimentNotes').value;
+      const canonicalDraft = $('canonicalRequest').value;
+      renderPolicy(); renderScenarios(); $('canonicalRequest').value = canonicalDraft;
+      if (run) {
+        await renderResult();
+        say('runStatus', '{status} · {completed}/{total} cells{case}', { status: _(run.status), completed: run.completed, total: run.total, case: '' });
+      }
+      await validate();
+    }
+    if (!persisted) showError('Language preference could not be saved. It applies to this tab only.');
+  }));
   root.RepForgeProgramLabUI = Object.freeze({ connect });
   if (root.RepForgeProgramLabServices) connect(root.RepForgeProgramLabServices).catch(() => {});
   else {
-    $('planSummary').textContent = 'Build incomplete';
-    $('runStatus').textContent = 'Shared lab services are not assembled';
+    say('planSummary', 'Build incomplete');
+    say('runStatus', 'Shared lab services are not assembled');
     showError('This source checkout is missing the lab integration services. Build the complete standalone artifact; generation is unavailable until the shared policy, domain and store modules are connected.');
   }
 })(globalThis);

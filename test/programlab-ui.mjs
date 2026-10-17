@@ -30,9 +30,34 @@ try {
       assert.equal(await page.locator('.skip').evaluate(element => element === document.activeElement), width === 1440, 'keyboard skip link is reachable');
       await page.screenshot({ path: path.join(artifacts, `shell-${width}.png`), fullPage: true });
     }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'shell supports 200% enlarged text without page overflow');
+    await page.screenshot({ path: path.join(artifacts, 'shell-text-200.png'), fullPage: true });
+    await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
+    await page.locator('.skip').focus();
+    await page.keyboard.press('Enter');
+    assert.equal(new URL(page.url()).pathname, new URL(lab).pathname, 'skip link stays in the lab despite document base');
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'workbench', 'skip link moves focus to main');
+    await page.locator('#experimentName').fill('Keep this draft / manter rascunho');
+    await page.getByText('Advanced canonical request', { exact: true }).click();
+    await page.locator('#canonicalRequest').fill('{"pending":true}');
+    await page.locator('#language').selectOption('pt');
+    await page.locator('html[lang="pt"]').waitFor();
+    assert.equal(await page.locator('#run').textContent(), 'Executar comparação');
+    assert.equal(await page.locator('#experimentName').inputValue(), 'Keep this draft / manter rascunho', 'language change preserves the name draft');
+    assert.equal(await page.locator('#canonicalRequest').inputValue(), '{"pending":true}', 'language change preserves unapplied JSON');
+    await page.screenshot({ path: path.join(artifacts, 'shell-pt.png'), fullPage: true });
+    assert.match(await page.locator('#fatalError').textContent(), /módulos compartilhados/);
+    await page.reload();
+    await page.locator('html[lang="pt"]').waitFor();
+    assert.equal(await page.locator('#language').inputValue(), 'pt', 'lab language survives reload');
+    assert.deepEqual(await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('repforge'))), [], 'language preference never touches production keys');
+    await page.locator('#language').selectOption('en');
+    await page.locator('html[lang="en"]').waitFor();
     assert.equal(await page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).length), 0);
     assert.deepEqual(errors, []);
-    console.log('Program Lab shell: missing integration blocks run; labels, keyboard skip, 1440/720/390 layouts and storage isolation passed. Full worker journey remains pending.');
+    console.log('Program Lab shell: missing integration blocks run; labels, same-page keyboard skip, 1440/720/390 layouts, 200% enlarged text, English/Portuguese draft preservation and storage isolation passed. Full worker journey remains pending.');
     await context.close();
   } else {
   await page.locator('html[data-lab-ready="true"]').waitFor({ timeout: 20000 });
