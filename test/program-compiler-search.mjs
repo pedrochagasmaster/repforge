@@ -65,3 +65,5 @@ assert.ok(elapsed < 1000, `a missing mandatory candidate fails without search ex
 // Program Lab uses the same compiler seam, including complete baseline bytes.
 await (await import("./fixtures/programlab-policy-proof.mjs")).default();
 await (await import("./fixtures/programlab-compiler-proof.mjs")).default();
+
+await (await import("./fixtures/programlab-structure-proof.mjs")).default();
