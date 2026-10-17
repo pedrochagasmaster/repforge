@@ -33,8 +33,8 @@ const request = {
   split: "auto", periodization: "static", cycles: 7, deloadCycles: [],
 };
 
-const predecessorDefinition = Compiler.generateProgram(request, catalogSnapshot, "transition-source-067");
-const successorDefinition = Compiler.generateProgram(request, catalogSnapshot, "transition-successor-067");
+const predecessorDefinition = Compiler.generateProgram(request, catalogSnapshot);
+const successorDefinition = Compiler.generateProgram({ ...request, cycles: 8, deloadCycles: [8] }, catalogSnapshot);
 assert.equal(predecessorDefinition.ok, true, "transition source is a real complete compiler output");
 assert.equal(successorDefinition.ok, true, "replacement is a second real complete compiler output");
 const predecessor = {
@@ -153,7 +153,7 @@ const fewer = derive({ kind: "fewer_days", daysPerWeek: 3 });
 assert.equal(fewer.ok, true, `fewer days regenerates a generated program: ${fewer.code || ""}`);
 assert.equal(trainingDays(fewer.value.programDefinition), 3, "the successor trains on the requested number of days");
 assert.equal(fewer.value.programDefinition.request.daysPerWeek, 3);
-assert.equal(fewer.value.programDefinition.seed, base.seed, "regeneration keeps the program seed");
+assert.equal(fewer.value.programDefinition.seed, undefined, "regeneration uses the canonical request without a caller seed");
 assert.equal(Compiler.validateProgramDefinition(fewer.value.programDefinition, catalogSnapshot, []).ok, true);
 const keptExercises = new Set(slotsOf(base).map((slot) => slot.exerciseId));
 assert.ok(slotsOf(fewer.value.programDefinition).filter((slot) => keptExercises.has(slot.exerciseId)).length >=
@@ -201,7 +201,7 @@ for (const [slotIndex, slot] of slotsOf(recovered).entries()) {
   assert.equal(deload.sets.length, Math.ceil(original.prescriptionsByCycle[0].sets.length / 2), "deload halves sets, rounding up");
   deload.sets.forEach((set, index) => {
     const source = original.prescriptionsByCycle[0].sets[index];
-    assert.equal(set.rir, source.rir == null ? null : Math.min(4, source.rir + 2), "deload adds two RIR, capped at four");
+    assert.equal(set.rir, source.rir == null ? null : Math.min(6, source.rir + 2), "adaptive recovery adds two RIR, capped at six");
     assert.deepEqual(set.targets, source.targets, "deload keeps the targets");
     assert.equal(set.provenance.deload, true);
   });
@@ -251,7 +251,7 @@ const preferredNow = [...new Set(slotsOf(base).map((slot) => slot.exerciseId))].
 const regenerated = (overrides) => {
   const generatorRequest = { ...base.request, ...overrides, preferredExerciseIds: preferredNow };
   delete generatorRequest.seed;
-  const generated = Compiler.generateProgram(generatorRequest, catalogSnapshot, base.seed);
+  const generated = Compiler.generateProgram(generatorRequest, catalogSnapshot);
   assert.equal(generated.ok, true, "the bare regeneration is a real compiler output");
   return generated.value;
 };
@@ -279,8 +279,8 @@ const trainingOf = (definition) => definition.days.filter((day) => day.kind === 
 const cycleIndexes = (definition) => Array.from({ length: definition.cycles }, (_, index) => index + 1);
 const fitsEveryWeek = (definition, generated) => trainingOf(definition).every((day) => {
   const fresh = generated.days.find((candidate) => candidate.id === day.id);
-  return cycleIndexes(definition).every((cycleIndex) => Compiler.estimateDaySeconds(day, cycleIndex) <=
-    Math.max(definition.request.timeCeilingMinutes * 60, Compiler.estimateDaySeconds(fresh, cycleIndex)));
+  return cycleIndexes(definition).every((cycleIndex) => Compiler.estimateDaySeconds(day, cycleIndex, catalogSnapshot) <=
+    Math.max(definition.request.timeCeilingMinutes * 60, Compiler.estimateDaySeconds(fresh, cycleIndex, catalogSnapshot)));
 });
 
 assert.deepEqual(fewer.value.programDefinition, threeDays, "an unedited program regenerates to exactly the generator's output");
@@ -357,7 +357,7 @@ assert.deepEqual(withDuplicate.value.carry.entries.map(({ predecessorSlotId, out
 // Clamped: more extra accessory sets than the shorter session has room for.
 const slack = (definition, slot) => {
   const day = trainingOf(definition).find((candidate) => candidate.slots.includes(slot));
-  return definition.request.timeCeilingMinutes * 60 - Compiler.estimateDaySeconds(day, 1);
+  return definition.request.timeCeilingMinutes * 60 - Compiler.estimateDaySeconds(day, 1, catalogSnapshot);
 };
 const roomy = slotsOf(fortyMinutes).filter((slot) => /Accessory$/.test(slot.role) && exerciseIds(base).has(slot.exerciseId))
   .sort((left, right) => slack(fortyMinutes, right) - slack(fortyMinutes, left))[0];
@@ -437,8 +437,8 @@ assert.deepEqual(unidentified.value.programDefinition, threeDays);
     const surviving = slotsOf(base).find((slot) => successorSlotFor(successor, slot));
     const removedSlot = slotsOf(base).find((slot) => !exerciseIds(successor).has(slot.exerciseId));
     assert.ok(surviving, `${change.kind}: the fixture keeps a movement`);
-    // Fewer days keeps every movement; a shorter session drops some.
-    assert.equal(!!removedSlot, change.kind === "shorter_sessions", `${change.kind}: removed movements as expected`);
+    // Both smaller-budget fixtures keep a movement and remove another.
+    assert.ok(removedSlot, `${change.kind}: the fixture removes a movement for the alternates cleanup proof`);
     const others = slotsOf(base).map((slot) => slot.exerciseId).filter((id) => id !== surviving.exerciseId && id !== removedSlot?.exerciseId);
     const alternates = [removedSlot?.exerciseId || others[2], others[0]];
     const withAlternates = structuredClone(base);

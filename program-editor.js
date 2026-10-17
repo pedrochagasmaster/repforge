@@ -417,7 +417,7 @@
       range.min >= 1 && range.max >= range.min && range.max <= 30 ? range : null;
   }
   function validRir(value) {
-    return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 4;
+    return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 6;
   }
   function uniformRir(slot) {
     const values = slotSets(slot).map(set => set.rir);
@@ -1022,7 +1022,7 @@
       const rir = field === "rir", fieldLabel = label(rir ? "metricRir" : "metricRestSeconds");
       const unit = rir ? "" : "s", value = set[field];
       const cycleTitle = label("metricCycle", { n: cycle.cycleIndex }), setTitle = label("metricSet", { n: set.setIndex });
-      return `<label class="program-editor__metric-field program-editor__prescription-field"><span>${esc(fieldLabel)}${unit ? ` <small>${esc(unit)}</small>` : ""}</span><input type="number" inputmode="decimal" min="0" max="${rir ? "4" : "86400"}" step="${rir ? "any" : "1"}" data-role="prescription-field" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" data-cycle-index="${cycle.cycleIndex}" data-set-index="${set.setIndex}" data-field="${field}" value="${value == null ? "" : esc(String(value))}" aria-label="${esc(label("prescriptionFieldAria", { cycle: cycleTitle, set: setTitle, field: fieldLabel }))}"></label>`;
+      return `<label class="program-editor__metric-field program-editor__prescription-field"><span>${esc(fieldLabel)}${unit ? ` <small>${esc(unit)}</small>` : ""}</span><input type="number" inputmode="decimal" min="0" max="${rir ? "6" : "86400"}" step="${rir ? "any" : "1"}" data-role="prescription-field" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" data-cycle-index="${cycle.cycleIndex}" data-set-index="${set.setIndex}" data-field="${field}" value="${value == null ? "" : esc(String(value))}" aria-label="${esc(label("prescriptionFieldAria", { cycle: cycleTitle, set: setTitle, field: fieldLabel }))}"></label>`;
     }
     function renderMetricComposition(exercise, slot) {
       const currentIds = Array.isArray(slot.metricIds) ? slot.metricIds : [];
@@ -1201,7 +1201,7 @@
         `</div>` : "";
       return `<section class="program-editor__suggest-loads is-on" data-role="suggest-loads-section" data-slot-id="${esc(slot.id)}">${toggle}` +
         (range ? `<p class="program-editor__suggest-loads-range" data-role="suggest-loads-range">${esc(label("suggestLoadsRange", { min: format(adapter, range.min), max: format(adapter, range.max) }))}</p>` : "") +
-        `<label class="program-editor__metric-field"><span>${esc(label("metricRir"))}</span><input type="number" inputmode="decimal" min="0" max="4" step="any" required data-role="suggest-loads-rir" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" value="${rir == null ? "" : esc(String(rir))}"></label>` +
+        `<label class="program-editor__metric-field"><span>${esc(label("metricRir"))}</span><input type="number" inputmode="decimal" min="0" max="6" step="any" required data-role="suggest-loads-rir" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" value="${rir == null ? "" : esc(String(rir))}"></label>` +
         renderLoadStep(exercise, slot) + mode + `</section>`;
     }
     function toggleSuggestLoads(button) {
@@ -1298,7 +1298,7 @@
       if (raw) {
         after = Number(raw);
         const valid = field === "rir"
-          ? Number.isFinite(after) && after >= 0 && after <= 4
+          ? Number.isFinite(after) && after >= 0 && after <= 6
           : Number.isSafeInteger(after) && after >= 0 && after <= 86400;
         if (!valid) {
           setStatus(label("invalid"), { error: true });

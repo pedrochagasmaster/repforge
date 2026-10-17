@@ -406,7 +406,10 @@ phase("Journey 4: returning landing -> chooser resume -> activation");
   await page.waitForSelector(recommendHubChoice, { timeout: 15000 });
   await answerRecommend(page, { skipBasics: true, until: "background" });
   await page.waitForFunction((key) => {
-    try { return JSON.parse(localStorage.getItem(key) || "{}").state?.route === "recommend"; } catch { return false; }
+    try {
+      const saved = JSON.parse(localStorage.getItem(key) || "{}").state;
+      return saved?.route === "recommend" && saved.step === "background";
+    } catch { return false; }
   }, SETUP_DRAFT, { timeout: 10000 });
 
   await reload(page);

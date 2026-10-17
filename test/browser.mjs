@@ -137,12 +137,16 @@ export async function answerRecommend(page, {
   // route look selectable or receive a click during the push.
   const livePage = () => page.locator("#onbBody > .entry-motion-page:not([aria-hidden='true'])");
   const pick = (key, value) => livePage().locator(`[data-entry-pick="${key}"][data-entry-val="${value}"]`).first().click();
+  const settle = () => page.waitForFunction(() => !document.querySelector(
+    "#onbBody .entry-motion-page.is-push-over, #onbBody .entry-motion-page.is-push-under, #onbBody .entry-motion-page.is-edge-swiping"));
   const next = async () => {
+    await settle();
     const before = await step();
     await page.click("#onbNext");
     await page.waitForFunction((prev) => window.__repforgeEntryState?.()?.step !== prev, before, { timeout: 15000 });
   };
   const skip = async () => {
+    await settle();
     const before = await step();
     await page.click("#onbSkip");
     await page.waitForFunction((prev) => window.__repforgeEntryState?.()?.step !== prev, before, { timeout: 15000 });

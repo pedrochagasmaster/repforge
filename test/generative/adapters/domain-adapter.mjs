@@ -23,6 +23,7 @@ export function loadDomain() {
   const Compiler = requireRoot("program-compiler.js");
   const Metrics = requireRoot("exercise-metrics.js");
   const CATALOG_SNAPSHOT = JSON.parse(readFileSync(join(ROOT, "assets/exercise-catalog.json"), "utf8"));
+  requireRoot("generation-identity.js").prepareCatalog(CATALOG_SNAPSHOT);
   const EXERCISES_BY_ID = new Map(CATALOG_SNAPSHOT.exercises.map((entry) => [entry.id, entry]));
   const BUILT_IN_IDS = new Set(EXERCISES_BY_ID.keys());
   const RAW_EQUIPMENT_IDS = Object.entries(CATALOG_SNAPSHOT.uuidIndex)

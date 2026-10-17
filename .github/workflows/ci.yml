@@ -63,6 +63,7 @@ jobs:
           cache-dependency-path: test/package-lock.json
       - run: npm ci --prefix test
       - run: node tools/run-tests.mjs --check
+      - run: python3 -B plans/073/test_verify.py
       - run: node tools/run-tests.mjs fast --keep-going
       - if: always()
         uses: actions/upload-artifact@v4
@@ -76,7 +77,8 @@ jobs:
     needs: plan
     if: needs.plan.outputs.run == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Full-history checkout can take 10 minutes. Keep time for the suites and artifacts.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:

@@ -5,7 +5,7 @@
  * A generated program's weighted movement starts cold (no invented load).
  * After a session at 110 kg × 6 reps with 2 RIR on both sets, and a 5 kg
  * smallest load change set in the program editor, the next session prefills the
- * plan's screenshot checkpoint (7–9 reps at 1 RIR → 105 kg × 8) without
+ * source checkpoint (7–9 reps at 2 RIR → 100 kg × 9) without
  * performing it. A value the lifter types is never overwritten by later
  * recommendations, and completing a set recomputes only untouched sets.
  */
@@ -31,7 +31,7 @@ const REQUEST = {
   movementConfirmations: Object.fromEntries(observedIds.map((id) =>
     [id, [...catalog.exercises.find((entry) => entry.id === id).preconditions]])),
   emphasisMuscleIds: [], deprioritizedMuscleIds: [], excludedExerciseIds: [], excludedMuscleIds: [],
-  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 4, deloadCycles: [],
+  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 7, deloadCycles: [],
 };
 
 const failures = [];
@@ -51,7 +51,7 @@ const draftSet = (page, slotId, ordinal) => page.evaluate(({ slotId, ordinal }) 
 
 async function seed(page) {
   return page.evaluate(async ({ request, weight, reps }) => {
-    const generated = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot(), "adaptive-067");
+    const generated = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot());
     const definition = generated.value;
     // A day's first weighted movement. No bodyweight is entered, so its share is
     // off in both the history and the recommendation (external load only).
@@ -171,8 +171,8 @@ async function main() {
     await waitForAppBoot(page, { base: BASE });
     const target = await seed(page);
     if (!target) throw new Error("no weighted first slot in the generated program");
-    check(target.sets[1].rir === 1 && target.sets[1].targets.reps.min === 7 && target.sets[1].targets.reps.max === 9,
-      "the target's second set is the screenshot prescription (7–9 reps at 1 RIR)", target.sets);
+    check(target.sets[1].rir === 2 && target.sets[1].targets.reps.min === 7 && target.sets[1].targets.reps.max === 9,
+      "the target's second set is the source prescription (7–9 reps at 2 RIR)", target.sets);
 
     // Session 1: a cold start invents no load ---------------------------------
     if (!await page.evaluate((day) => window.__repforgeEnterWorkout({ day }), target.day)) throw new Error("could not enter day");
@@ -187,15 +187,17 @@ async function main() {
     const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1")).programMeta.loadingConfiguration);
     check(stored?.byExerciseId?.[target.exerciseId]?.loadStepKg === 5, "the load step is stored for the movement", stored);
 
-    // Session 2: the screenshot checkpoint ------------------------------------
+    // Session 2: the source checkpoint ------------------------------------
     await page.clock.setFixedTime(new Date("2026-03-04T09:00:00.000Z"));
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
     if (!await page.evaluate((day) => window.__repforgeEnterWorkout({ day }), target.day)) throw new Error("could not re-enter day");
     await waitForSettledFocusExercise(page, target.slotId);
     const second = await draftSet(page, target.slotId, 2);
-    check(second?.edited?.metrics?.[WEIGHT] === "105" && second?.edited?.metrics?.[REPS] === "8",
-      "after 110 kg × 6 at 2 RIR, the 7–9 at 1 RIR set is prefilled with 105 kg × 8", second?.edited?.metrics);
+    // Independent Epley checkpoint: 110 × (1 + (6 + 2) / 30) = 139.333 kg.
+    // On the 5 kg grid, 100 kg × 9 predicts 30 × (139.333 / 100 - 1) - 9 = 2.8 RIR.
+    check(second?.edited?.metrics?.[WEIGHT] === "100" && second?.edited?.metrics?.[REPS] === "9",
+      "after 110 kg × 6 at 2 RIR, the 7–9 at 2 RIR set is prefilled with 100 kg × 9", second?.edited?.metrics);
     check(second?.completion === "pending" && second?.touched?.metrics?.[WEIGHT] === false,
       "the recommendation is prefilled, untouched and not performed");
     const first = await draftSet(page, target.slotId, 1);

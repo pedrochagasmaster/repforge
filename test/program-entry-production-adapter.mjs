@@ -15,31 +15,30 @@ const workerFixture = JSON.parse(require("node:fs").readFileSync(new URL(
 
 function generatedRequest(overrides = {}) {
   const request = structuredClone(workerFixture.request);
-  const seed = request.seed;
   delete request.seed;
   Object.assign(request, overrides);
   request.gymProfile.equipmentIds = Object.keys(Catalog.uuidIndex)
     .filter((id) => Catalog.uuidIndex[id]?.type === "equipment");
-  return { request, seed };
+  return { request };
 }
 
-test("production services pass the typed request, raw snapshot and explicit seed to the canonical compiler", () => {
+test("production services pass the typed request and raw snapshot to the canonical compiler", () => {
   const services = Adapter.createProductionServices({ Compiler, catalog: Catalog });
-  const { request, seed } = generatedRequest({
+  const { request } = generatedRequest({
     daysPerWeek: 4,
     timeCeilingMinutes: 150,
-    cycles: 12,
-    deloadCycles: [6, 12],
+    cycles: 8,
+    deloadCycles: [8],
     split: "auto",
   });
   const originalRequest = structuredClone(request);
-  const expected = Compiler.generateProgram(request, Catalog, seed);
-  const actual = services.generateProgram({ request, seed });
+  const expected = Compiler.generateProgram(request, Catalog);
+  const actual = services.generateProgram({ request });
 
   assert.equal(actual.ok, true, actual.conflicts?.map((item) => item.message).join("; "));
   assert.deepEqual(actual, expected, "the adapter returns the real compiler result without a family/candidate wrapper");
   assert.deepEqual(request, originalRequest, "generation does not mutate the authored request");
-  assert.equal(actual.value.cycles, 12);
+  assert.equal(actual.value.cycles, 8);
   assert.deepEqual(Compiler.validateProgramDefinition(actual.value, Catalog), { ok: true, issues: [] });
   assert.deepEqual(Object.keys(actual).sort(), ["confirmationOffers", "conflicts", "explanations", "ok", "value"]);
 });
@@ -56,10 +55,10 @@ test("production services expose no family, browse, or legacy compile façade", 
 
 test("invalid compiler requests stay explicit conflicts and never fall back to a starter program", () => {
   const services = Adapter.createProductionServices({ Compiler, catalog: Catalog });
-  const { request, seed } = generatedRequest();
+  const { request } = generatedRequest();
   request.gymProfile.equipmentIds = ["vague:machine"];
-  const actual = services.generateProgram({ request, seed });
-  const expected = Compiler.generateProgram(request, Catalog, seed);
+  const actual = services.generateProgram({ request });
+  const expected = Compiler.generateProgram(request, Catalog);
   assert.equal(actual.ok, false);
   assert.deepEqual(actual, expected);
   assert.equal(actual.value, null);
@@ -143,7 +142,7 @@ test("Generate answers map to the generator's goal, experience, time ceiling and
   assert.equal(request.periodization, "static");
   assert.equal(request.cycles, 7);
   assert.deepEqual(request.deloadCycles, []);
-  const generated = Compiler.generateProgram(request, Catalog, "entry-map");
+  const generated = Compiler.generateProgram(request, Catalog);
   assert.equal(generated.ok, true, "the mapped request generates a program");
 
   for (const [result, goal] of [["balanced", "hybrid"], ["strength", "strength"]]) {
@@ -186,10 +185,52 @@ test("incomplete or unsupported Generate answers are explicit conflicts", () => 
 
 test("split choices are the generator's authored splits compatible with the day count", () => {
   const services = Adapter.createProductionServices({ Compiler, catalog: Catalog });
-  assert.deepEqual(services.splitChoices({ daysPerWeek: 3 }).choices.map((choice) => choice.id), ["full_body"]);
-  assert.deepEqual(services.splitChoices({ daysPerWeek: 4 }).choices.map((choice) => choice.id), ["upper_lower"]);
+  const three = services.splitChoices(answersFor({ daysPerWeek: 3 })).choices;
+  assert.deepEqual(three.map((choice) => choice.id), ["full_body", "upper_lower_full", "push_pull_legs"]);
+  assert.deepEqual(three.filter((choice) => choice.default).map((choice) => choice.id), ["upper_lower_full"]);
+  const four = services.splitChoices(answersFor({ daysPerWeek: 4 })).choices;
+  assert.deepEqual(four.map((choice) => choice.id), ["full_body", "upper_lower_upper_lower", "push_pull_hinge_squat", "push_pull_legs_accessories"]);
+  assert.deepEqual(four.filter((choice) => choice.default).map((choice) => choice.id), ["upper_lower_upper_lower"]);
   assert.deepEqual(services.splitChoices({}).choices, []);
-  assert.equal(Adapter.programRequestFromAnswers(answersFor({ splitPreference: "upper_lower" }), Catalog).value.split, "upper_lower");
-  assert.equal(Adapter.programRequestFromAnswers(answersFor({ daysPerWeek: 3, splitPreference: "upper_lower" }), Catalog).value.split, "auto",
-    "an incompatible split falls back to the generator's own choice");
+  assert.equal(Adapter.programRequestFromAnswers(answersFor({ splitPreference: "upper_lower_upper_lower" }), Catalog).value.split, "upper_lower_upper_lower");
+  const incompatible = Adapter.programRequestFromAnswers(answersFor({ daysPerWeek: 3, splitPreference: "upper_lower" }), Catalog);
+  assert.equal(incompatible.ok, false, "an incompatible explicit split is refused");
+  assert.deepEqual(incompatible.conflicts, [{ field: "split", code: "split_unsupported" }]);
+});
+
+test("Generate preserves all 22 source muscles by identity even when catalogue labels change", () => {
+  const muscles = ["chest", "lats", "back", "side_delts", "front_delts", "rear_delts", "biceps", "triceps",
+    "quads", "hamstrings", "glutes", "calves", "forearms", "lower_back", "abductors", "adductors",
+    "neck", "upper_traps", "abs", "serratus", "tibs", "obliques"];
+  assert.deepEqual(new Set(Entry.ENTRY_MUSCLES), new Set(muscles));
+  const expected = muscles.map((token) => ({
+    chest: "2545c6f170d8805f823bcfb076a74397", lats: "2545c6f170d88060a50ec9b41a066a5d",
+    back: "2545c6f170d880da9b28f1e024be796b", side_delts: "2545c6f170d880088132c5739103e625",
+    front_delts: "2545c6f170d8809a8fa7e24a77c25416", rear_delts: "2545c6f170d880a9899eec0e496c8cba",
+    biceps: "2545c6f170d880349546e5d8f6df2e2a", triceps: "2545c6f170d88017a44bcd5bc21b8d98",
+    quads: "2545c6f170d88084b35affb3c3375aa6", hamstrings: "2545c6f170d88002b193de9106604e79",
+    glutes: "2545c6f170d8804bb1fbdfc4471debe5", calves: "2545c6f170d880bbb34fc724d677176f",
+    forearms: "2545c6f170d88024b49fcea90e7d1ed9", lower_back: "2545c6f170d880768fc0ec766d080c01",
+    abductors: "2545c6f170d8803d89bcf1ee5a11b23b", adductors: "2545c6f170d880a0ad32cd4e83834959",
+    neck: "2545c6f170d88021b648feb29a2427c2", upper_traps: "2545c6f170d880af953ace5a631c8cd2",
+    abs: "2545c6f170d8806aab76c6830449a3ff", serratus: "27a5c6f170d880c39b2df5e861495666",
+    tibs: "27a5c6f170d880a5baa9c716b240d0f6", obliques: "2545c6f170d8809da3f3cd80f2f14a4d",
+  })[token]);
+  const renamed = structuredClone(Catalog);
+  for (const id of expected) renamed.uuidIndex[id].name = "Presentation only";
+  for (const field of ["primaryMuscles", "deEmphasizedMuscles"]) {
+    const mapped = Adapter.programRequestFromAnswers(answersFor({ [field]: muscles }), renamed);
+    assert.equal(mapped.ok, true, JSON.stringify(mapped.conflicts));
+    assert.deepEqual(mapped.value[field === "primaryMuscles" ? "emphasisMuscleIds" : "deprioritizedMuscleIds"], expected);
+  }
+});
+
+test("an explicitly saved recovered split cannot silently become another policy outside its domain", () => {
+  const answers = answersFor({ desiredResult: "balanced", structuredExperience: "over_24m", daysPerWeek: 4,
+    sessionMinutes: 60, splitPreference: "upper_lower_full", block: { cycles: 7, periodization: "static" }, deload: false });
+  const original = structuredClone(answers);
+  const mapped = Adapter.programRequestFromAnswers(answers, Catalog);
+  assert.equal(mapped.ok, false);
+  assert.ok(mapped.conflicts.some((item) => item.field === "split" && item.code === "split_unsupported"));
+  assert.deepEqual(answers, original, "unreplayable saved answers remain available for rules recovery");
 });

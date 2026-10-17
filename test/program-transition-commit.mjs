@@ -49,7 +49,7 @@ const REQUEST = {
   movementConfirmations: Object.fromEntries(observedIds.map((id) =>
     [id, [...rawCatalog.exercises.find((entry) => entry.id === id).preconditions]])),
   emphasisMuscleIds: [], deprioritizedMuscleIds: [], excludedExerciseIds: [], excludedMuscleIds: [],
-  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 4, deloadCycles: [],
+  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 7, deloadCycles: [],
 };
 const FEWER_DAYS = { kind: "fewer_days", daysPerWeek: 3 };
 const SHORTER_SESSIONS = { kind: "shorter_sessions", sessionMinutes: 60 };
@@ -157,7 +157,7 @@ async function activateGeneratedPredecessor(page) {
       return { ok: false, error: "program generator or exercise catalog unavailable in window" };
     }
     const generated = window.RepForgeProgramCompiler.generateProgram(
-      request, window.RepForgeExerciseCatalog.snapshot(), "p6a-transition-commit");
+      request, window.RepForgeExerciseCatalog.snapshot());
     if (!generated.ok) return { ok: false, error: "generation failed", issues: generated.conflicts };
     const definition = generated.value;
     const finalized = await window.__repforgeFinalizeProgramSetup({
@@ -178,7 +178,7 @@ async function activateGeneratedPredecessor(page) {
   }, REQUEST);
 }
 
-// Edit the first set's first programmed metric, complete it, and add notes.
+// Edit the first set's load and repetitions, complete it, and add notes.
 async function populateDraft(page, { value, notes, complete = true }) {
   return page.evaluate(async ({ value, notes, complete }) => {
     const dayLabel = (window.__repforgeWorkoutDraft.state()?.program || [])[0]?.day;
@@ -192,9 +192,10 @@ async function populateDraft(page, { value, notes, complete = true }) {
     const metrics = draft?.exercises?.[exId]?.sets?.[setId]?.programmed?.metrics || [];
     if (!exId || !setId || !metrics.length) return { ok: false, error: "draft has no programmed metric to edit" };
     const results = [];
-    for (const [index, metric] of metrics.entries()) {
+    for (const metric of metrics) {
+      const metricValue = ["reps", "repsPerSide"].includes(metric.semantic) ? "8" : value;
       results.push(await hook.dispatch("editMetricValue",
-        { exerciseInstanceId: exId, setId, metricId: metric.id, value: index === 0 ? value : "8" }));
+        { exerciseInstanceId: exId, setId, metricId: metric.id, value: metricValue }));
     }
     if (complete) results.push(await hook.dispatch("completeSet", { exerciseInstanceId: exId, setId, completedAt: new Date().toISOString() }));
     results.push(await hook.dispatch("setSessionNotes", { value: notes }));

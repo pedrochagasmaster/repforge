@@ -49,7 +49,7 @@ const REQUEST = {
   movementConfirmations: Object.fromEntries(observedIds.map((id) =>
     [id, [...catalog.exercises.find((entry) => entry.id === id).preconditions]])),
   emphasisMuscleIds: [], deprioritizedMuscleIds: [], excludedExerciseIds: [], excludedMuscleIds: [],
-  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 4, deloadCycles: [],
+  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 7, deloadCycles: [],
 };
 
 /** The same plain-number formatting `fmtPlain`/`fmt` apply in app.js: an
@@ -71,19 +71,20 @@ function assert(cond, name, detail) {
 
 async function seed(page, { ambiguousPerSideReview = false, knownModeNullConfigRequired = false } = {}) {
   return page.evaluate(({ request, weight, reps, ambiguousPerSideReview, knownModeNullConfigRequired }) => {
-    const generated = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot(), "why-sheet-067");
+    const generated = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot());
     let definition = generated.value;
     const target = definition.days.filter((day) => day.kind === "training").map((day) => ({ day, slot: day.slots[0] }))
       .find(({ slot }) => JSON.stringify(slot.metricIds) === JSON.stringify([weight, reps]) &&
         slot.prescriptionsByCycle[0].sets.length >= 2);
     const knownPerSide = definition.days.filter((day) => day.kind === "training").flatMap((day) =>
       day.slots.map((slot) => ({ day, slot }))).find(({ slot }) =>
+      slot.executionMode === "bilateral" &&
       slot.metricDefinitions.some((metric) => metric.semantic === "loadPerSideKg") &&
       slot.metricDefinitions.some((metric) => metric.semantic === "repsPerSide"));
     let perSide = knownPerSide;
     if (ambiguousPerSideReview) {
       const hipHinge = definition.days.filter((day) => day.kind === "training").flatMap((day) =>
-        day.slots.map((slot) => ({ day, slot }))).find(({ slot }) => slot.purposeId === "lower_b_hip_hinge");
+        day.slots.map((slot) => ({ day, slot }))).find(({ slot }) => (slot.movementPatternIds || []).includes("19e5c6f170d88068951fd7fffc03ed0d"));
       if (!hipHinge) throw new Error("generated recommendation has no lower B hip-hinge slot to swap in Review");
       const exerciseId = "3895c6f170d88002b51fdf96c7dc50e1";
       const exerciseCatalog = window.RepForgeExerciseCatalog.snapshot();

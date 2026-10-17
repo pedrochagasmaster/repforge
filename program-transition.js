@@ -239,7 +239,13 @@
     const preferred = [...new Set([...(definition.request.preferredExerciseIds || []), ...current])].sort();
     const request = { ...copyJson(definition.request, "request"), ...overrides, preferredExerciseIds: preferred };
     delete request.seed;
-    const generated = compiler.generateProgram(request, catalog, definition.seed);
+    if (definition.provenance?.source === "recovered_generation_rules") {
+      const canonical = compiler.canonicalizeRequest(request, catalog);
+      if (!canonical.ok) {
+        return unavailable("generation_conflict", { conflicts: [{ code: "unsupported_generation_domain" }] });
+      }
+    }
+    const generated = compiler.generateProgram(request, catalog);
     if (!generated.ok) return unavailable("generation_conflict", { conflicts: generated.conflicts || [] });
     const carried = carryEdits(definition, generated.value, catalog, compiler);
     return { ok: true, value: carryAlternates(definition, carried.value), carry: carried.carry };
@@ -247,7 +253,7 @@
 
   // ---- Carrying block edits across a regeneration -------------------------
   // An edit is wherever the stored definition differs from what its own
-  // request and seed generate. Each one is reapplied, week by week and field
+  // canonical request generates. Each one is reapplied, week by week and field
   // by field, to the successor slot holding the same movement, as long as no
   // week then runs longer than the ceiling allows or than the generator's own
   // successor already does. The report holds codes only.
@@ -265,7 +271,7 @@
     const request = copyJson(definition.request, "request");
     delete request.seed;
     let generated;
-    try { generated = compiler.generateProgram(request, catalog, definition.seed); } catch { return null; }
+    try { generated = compiler.generateProgram(request, catalog); } catch { return null; }
     if (!generated?.ok || generated.value.generatorVersion !== definition.generatorVersion) return null;
     return generated.value;
   }
@@ -307,13 +313,13 @@
   // Start each day from the generator's prescriptions, which fit, and add the
   // edits back compounds first and in slot order: an edit stays whole if the
   // day still fits, gives back extra sets if that is enough, or is dropped.
-  function fitCarried(successor, generated, carried, compiler) {
+  function fitCarried(successor, generated, carried, compiler, catalog) {
     const ceiling = successor.request.timeCeilingMinutes * 60;
     const cycleIndexes = Array.from({ length: successor.cycles }, (_, index) => index + 1);
     for (const day of successor.days.filter((entry) => entry.kind === "training")) {
       const fresh = generated.days.find((entry) => entry.id === day.id);
-      const over = () => cycleIndexes.filter((cycleIndex) => compiler.estimateDaySeconds(day, cycleIndex) >
-        Math.max(ceiling, compiler.estimateDaySeconds(fresh, cycleIndex)));
+      const over = () => cycleIndexes.filter((cycleIndex) => compiler.estimateDaySeconds(day, cycleIndex, catalog) >
+        Math.max(ceiling, compiler.estimateDaySeconds(fresh, cycleIndex, catalog)));
       const order = day.slots.filter((slot) => carried.has(slot)).sort((left, right) =>
         Number(/Accessory$/.test(left.role)) - Number(/Accessory$/.test(right.role)) || left.order - right.order);
       const wanted = new Map(order.map((slot) => [slot, slot.prescriptionsByCycle]));
@@ -380,7 +386,7 @@
       for (const edit of edits) applyCycleEdit(target, source, edit);
       carried.set(target, entry);
     }
-    fitCarried(next, successor, carried, compiler);
+    fitCarried(next, successor, carried, compiler, catalog);
     return { value: next, carry: { identified: true, entries: entries.map((entry) => ({
       exerciseId: entry.source.exerciseId,
       predecessorSlotId: entry.source.id,
@@ -425,7 +431,7 @@
           ...set,
           id: `${set.id}~recovery`,
           cycleIndex: 1,
-          rir: set.rir == null ? null : Math.min(4, set.rir + 2),
+          rir: set.rir == null ? null : Math.min(6, set.rir + 2),
           provenance: { ...set.provenance, deload: true },
         })),
       };
@@ -458,7 +464,8 @@
     } else if (change.kind === "shorter_sessions") {
       if (change.sessionMinutes < 15 || change.sessionMinutes > 240) return unavailable("minutes_unsupported");
       const ceilings = compiler.TIME_CEILINGS;
-      const ceiling = [...ceilings].reverse().find((value) => value <= change.sessionMinutes) ?? ceilings[0];
+      const ceiling = [...ceilings].reverse().find((value) => value <= change.sessionMinutes);
+      if (ceiling === undefined) return unavailable("minutes_unsupported");
       if (definition.request?.goal && ceiling >= definition.request.timeCeilingMinutes) return unavailable("not_shorter_sessions");
       derived = regenerate(definition, { timeCeilingMinutes: ceiling }, catalog, compiler);
     } else if (change.kind === "reduce_volume") {

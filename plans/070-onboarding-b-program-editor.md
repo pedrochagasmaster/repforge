@@ -1,5 +1,11 @@
 # Plan 070: Onboarding B's program editor (review and adjust before Activate)
 
+> Prospective generation amendment, 15 October 2026: [Plan 073](073-generator-rule-parity.md)
+> owns canonical-input determinism and its propagation through review, rebuild
+> and undo. Its implementation must replace any variable-seed dependency in the
+> recommendation baseline without discarding manual edits implicitly. This
+> pointer records the future contract; the behavior described below is historical.
+
 - **Status:** IN PROGRESS. The owner approved the implementation on 2026-10-10.
 - **Decision:** ADR 0020, decision 2, on PR #350 (`design/onboarding-mf-candidates`,
   not yet on `main`): Generate's result screen becomes the place where the

@@ -1,5 +1,13 @@
 # Plan 067: Replace program generation, exercise ontology, and progression
 
+> Generation follow-up, approved 15 October 2026: [Plan 073](073-generator-rule-parity.md)
+> and its [spec](../docs/generator-rule-parity-spec.md) supersede this plan's chosen
+> generation defaults as recovered rules become validated. The follow-up is
+> deterministic, staged and evidence-gated; new approximations cannot close its
+> gaps. Generator 067.2 is present on main at `d0242c46`. This document remains the
+> historical replacement contract and the authority for unaffected progression
+> work. The follow-up documentation does not itself change runtime behavior.
+
 - **Status:** Application replacement in progress on `impl/067-engine-replacement`.
 - **Owner direction:** 5 October 2026 conversation. Closest practicable mirror,
   full usable catalog and ontology, generation and progression replacement,

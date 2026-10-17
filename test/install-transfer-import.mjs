@@ -63,7 +63,7 @@ const REQUEST = {
   movementConfirmations: Object.fromEntries(observedIds.map((id) =>
     [id, [...rawCatalog.exercises.find((entry) => entry.id === id).preconditions]])),
   emphasisMuscleIds: [], deprioritizedMuscleIds: [], excludedExerciseIds: [], excludedMuscleIds: [],
-  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 4, deloadCycles: [],
+  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 7, deloadCycles: [],
 };
 
 const POSTHOG_SDK_FIXTURE = `(() => {
@@ -275,7 +275,7 @@ async function activateProgram(page) {
     if (!compiler || !catalog || typeof window.__repforgeFinalizeProgramSetup !== "function") {
       return { ok: false, code: "production-entry-finalization-unavailable" };
     }
-    const generated = compiler.generateProgram(request, catalog.snapshot(), "install-transfer-oracle");
+    const generated = compiler.generateProgram(request, catalog.snapshot());
     if (!generated.ok) return { ok: false, code: "production-generation-failed", generated };
     const finalized = await window.__repforgeFinalizeProgramSetup({
       programDefinition: generated.value,

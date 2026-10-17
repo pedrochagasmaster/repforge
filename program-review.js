@@ -21,7 +21,7 @@
   const MIN_SETS = 1;
   const MAX_SETS = 8;
   const MAX_REPS = 30;
-  const MAX_RIR = 4;
+  const MAX_RIR = 6;
   const DELOAD_RIR_OFFSET = 2;
   const REST_PRESETS = Object.freeze([60, 90, 120, 150, 180, 240]);
   const MAX_DAY_NAME = 40;
@@ -61,6 +61,10 @@
   const isDeload = (cycle) => (cycle.sets || []).some((set) => set.provenance?.deload === true);
   const repKey = (targets) => REP_SEMANTICS.find((key) => isObject(targets?.[key])) || null;
   const renumber = (day) => (day.slots || []).forEach((slot, index) => { slot.order = index + 1; });
+
+  function recoveredBlock(definition) {
+    return definition.provenance?.source === "recovered_generation_rules";
+  }
 
   function markReviewed(set) {
     set.provenance = { ...(set.provenance || {}), source: PROVENANCE_SOURCE };
@@ -208,13 +212,18 @@
   function editRir(definition, edit) {
     const at = locate(definition, edit.slotId);
     if (!at) return refuse("slot_missing");
-    if (!Number.isInteger(edit.rir) || edit.rir < 0 || edit.rir > MAX_RIR) return refuse("rir_out_of_range");
+    const maximum = MAX_RIR;
+    if (!Number.isInteger(edit.rir) || edit.rir < 0 || edit.rir > maximum) return refuse("rir_out_of_range");
     const index = edit.setIndex - 1;
     if (!Number.isInteger(edit.setIndex) || index < 0 || index >= (at.slot.prescriptionsByCycle[0]?.sets?.length || 0)) return refuse("set_missing");
+    const delta = edit.rir - at.slot.prescriptionsByCycle[0].sets[index].rir;
     for (const cycle of at.slot.prescriptionsByCycle) {
       const set = cycle.sets[index];
       if (!set) continue;
-      set.rir = Math.min(MAX_RIR, isDeload(cycle) ? edit.rir + DELOAD_RIR_OFFSET : edit.rir);
+      // Taurifer's manual edit preserves the generated week-to-week profile.
+      set.rir = recoveredBlock(definition)
+        ? Math.max(0, Math.min(maximum, set.rir + delta))
+        : Math.min(maximum, isDeload(cycle) ? edit.rir + DELOAD_RIR_OFFSET : edit.rir);
       markReviewed(set);
     }
     return null;
@@ -392,7 +401,7 @@
     const estimates = definition.provenance?.estimatedSessionSeconds;
     if (!isObject(estimates) || typeof ctx.compiler.estimateDaySeconds !== "function") return;
     const next = {};
-    for (const day of definition.days) if (day.kind === "training") next[day.name] = ctx.compiler.estimateDaySeconds(day);
+    for (const day of definition.days) if (day.kind === "training") next[day.name] = ctx.compiler.estimateDaySeconds(day, undefined, ctx.catalog);
     definition.provenance.estimatedSessionSeconds = next;
   }
 
@@ -505,7 +514,7 @@
   const TOAST_MS = 4200;
 
   function minutesOf(ctx, day) {
-    const seconds = ctx.compiler.estimateDaySeconds(day);
+    const seconds = ctx.compiler.estimateDaySeconds(day, undefined, ctx.catalog);
     return seconds > 0 ? Math.ceil(seconds / 60) : 0;
   }
 
@@ -592,12 +601,17 @@
         `<div class="entry__strip review__facts" aria-hidden="true">${cells.map(([value, unit]) =>
           `<div class="entry__strip-cell"><span class="entry__strip-value">${esc(value)}</span><span class="entry__strip-unit">${esc(unit)}</span></div>`).join("")}</div>`;
     }
+    function regularCycles(definition) {
+      return recoveredBlock(definition) ? definition.cycles - (definition.deloadCycles || []).length : definition.cycles;
+    }
     function blockHtml(definition) {
       const pattern = slotsOf(definition)[0]?.prescriptionsByCycle?.[0]?.sets?.[0]?.provenance?.periodization || "static";
       const deload = (definition.deloadCycles || [])[0];
-      const parts = [t(definition.cycles === 1 ? "entry.review.block.week_one" : "entry.review.block.weeks", { n: definition.cycles }),
+      const regular = regularCycles(definition);
+      const parts = [t(recoveredBlock(definition) ? "entry.review.block.regular_weeks"
+        : definition.cycles === 1 ? "entry.review.block.week_one" : "entry.review.block.weeks", { n: regular }),
         t(`entry.review.block.pattern.${pattern}`)];
-      if (deload) parts.push(t("entry.review.block.deload", { n: deload }));
+      if (deload) parts.push(t(recoveredBlock(definition) ? "entry.review.block.additional_deload" : "entry.review.block.deload", { n: deload }));
       // A host without changeBlock (a received shared program) keeps its block as received.
       const change = typeof adapter.changeBlock === "function"
         ? `<button type="button" class="text-link" data-review-block-edit>${esc(t("entry.review.block.change"))}</button>` : "";
@@ -853,10 +867,12 @@
         parts.title.textContent = t("entry.review.block.sheet.title");
         parts.body.innerHTML =
           `<section class="review-sheet__sec review-block__sec"><h3 class="sheetgroup__head">${esc(t("entry.review.block.sheet.length"))}</h3>` +
-          `<div class="review-step review-block__stepper"><button type="button" data-review-block-step="-1" aria-label="−"${sheet.cycles <= 4 ? " disabled" : ""}>−</button>` +
-          `<b class="num" data-review-block-weeks>${esc(t(sheet.cycles === 1 ? "entry.review.block.week_one" : "entry.review.block.weeks", { n: sheet.cycles }))}</b>` +
-          `<button type="button" data-review-block-step="1" aria-label="+"${sheet.cycles >= 12 ? " disabled" : ""}>+</button></div>` +
-          `<p class="review-sheet__lede">${esc(t("entry.review.block.sheet.length_hint"))}</p></section>` +
+          (sheet.fixedCycles
+            ? `<p class="num" data-review-block-weeks>${esc(t("entry.review.block.regular_weeks", { n: sheet.cycles }))}</p>`
+            : `<div class="review-step review-block__stepper"><button type="button" data-review-block-step="-1" aria-label="−"${sheet.cycles <= 4 ? " disabled" : ""}>−</button>` +
+              `<b class="num" data-review-block-weeks>${esc(t(sheet.cycles === 1 ? "entry.review.block.week_one" : "entry.review.block.weeks", { n: sheet.cycles }))}</b>` +
+              `<button type="button" data-review-block-step="1" aria-label="+"${sheet.cycles >= 12 ? " disabled" : ""}>+</button></div>`) +
+          `<p class="review-sheet__lede">${esc(t(sheet.fixedCycles ? "entry.review.block.sheet.fixed_length_hint" : "entry.review.block.sheet.length_hint"))}</p></section>` +
           `<section class="review-sheet__sec review-block__sec"><h3 class="sheetgroup__head" id="reviewBlockPatternLab">${esc(t("entry.review.block.sheet.pattern"))}</h3>` +
           `<div class="review-block__patterns" role="radiogroup" aria-labelledby="reviewBlockPatternLab">${patterns.map((pattern) => {
             const selected = pattern === sheet.periodization;
@@ -864,8 +880,8 @@
               `<span class="radio-card__body"><span class="radio-card__title">${esc(t(`entry.review.block.card.${pattern}.title`))}</span>` +
               `<span class="radio-card__cap">${esc(t(`entry.review.block.card.${pattern}.hint`))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button>`;
           }).join("")}</div></section>` +
-          `<div class="review-block__deload"><span class="review-block__copy"><strong>${esc(t("entry.deload.card"))}</strong><span>${esc(t("entry.deload.body"))}</span></span>` +
-          `<button type="button" class="toggle" role="switch" aria-label="${esc(t("entry.deload.card"))}" aria-checked="${sheet.deload}" data-review-block-deload></button></div>`;
+          `<div class="review-block__deload"><span class="review-block__copy"><strong>${esc(t(sheet.fixedCycles ? "entry.deload.card" : "entry.review.block.manual_deload_card"))}</strong><span>${esc(t(sheet.fixedCycles ? "entry.deload.body" : "entry.review.block.manual_deload_body"))}</span></span>` +
+          `<button type="button" class="toggle" role="switch" aria-label="${esc(t(sheet.fixedCycles ? "entry.deload.card" : "entry.review.block.manual_deload_card"))}" aria-checked="${sheet.deload}" data-review-block-deload></button></div>`;
         parts.foot.innerHTML = `<button type="button" class="btn btn--cta btn--noarrow" data-review-block-apply>${esc(t("entry.review.block.apply"))}</button>`;
       } else if (sheet.kind === "exercise") {
         const at = findSlot(definition, sheet.slotId);
@@ -976,6 +992,7 @@
       if (sheet.kind === "block") {
         let button;
         if ((button = hit("[data-review-block-step]"))) {
+          if (sheet.fixedCycles) return;
           sheet.cycles = Math.max(4, Math.min(12, sheet.cycles + Number(button.dataset.reviewBlockStep)));
           const body = adapter.sheet().body;
           body.querySelector("[data-review-block-weeks]").textContent = t("entry.review.block.weeks", { n: sheet.cycles });
@@ -996,9 +1013,10 @@
           const next = { block: { cycles: sheet.cycles, periodization: sheet.periodization }, deload: sheet.deload };
           const definition = state.definition, answers = state.answers || {};
           const current = {
-            cycles: Number.isInteger(answers.block?.cycles) ? answers.block.cycles : definition.cycles,
+            cycles: recoveredBlock(definition) ? 7 : Number.isInteger(answers.block?.cycles) ? answers.block.cycles : definition.cycles,
             periodization: answers.block?.periodization || slotsOf(definition)[0]?.prescriptionsByCycle?.[0]?.sets?.[0]?.provenance?.periodization || "static",
-            deload: typeof answers.deload === "boolean" ? answers.deload : (definition.deloadCycles || []).includes(definition.cycles),
+            deload: typeof answers.deload === "boolean" ? answers.deload : recoveredBlock(definition)
+              ? (definition.deloadCycles || []).length > 0 : (definition.deloadCycles || []).includes(definition.cycles),
           };
           if (next.block.cycles === current.cycles && next.block.periodization === current.periodization && next.deload === current.deload) {
             closeSheet();
@@ -1152,9 +1170,11 @@
         const state = read(), definition = state.definition, answers = state.answers || {};
         sheet = {
           kind: "block",
-          cycles: Number.isInteger(answers.block?.cycles) ? answers.block.cycles : definition.cycles,
+          fixedCycles: recoveredBlock(definition),
+          cycles: recoveredBlock(definition) ? 7 : Number.isInteger(answers.block?.cycles) ? answers.block.cycles : definition.cycles,
           periodization: answers.block?.periodization || slotsOf(definition)[0]?.prescriptionsByCycle?.[0]?.sets?.[0]?.provenance?.periodization || "static",
-          deload: typeof answers.deload === "boolean" ? answers.deload : (definition.deloadCycles || []).includes(definition.cycles),
+          deload: typeof answers.deload === "boolean" ? answers.deload : recoveredBlock(definition)
+              ? (definition.deloadCycles || []).length > 0 : (definition.deloadCycles || []).includes(definition.cycles),
         };
         openSheet();
         return;

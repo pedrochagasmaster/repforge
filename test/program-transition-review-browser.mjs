@@ -42,7 +42,7 @@ const REQUEST = {
   movementConfirmations: Object.fromEntries(observedIds.map((id) =>
     [id, [...catalog.exercises.find((entry) => entry.id === id).preconditions]])),
   emphasisMuscleIds: [], deprioritizedMuscleIds: [], excludedExerciseIds: [], excludedMuscleIds: [],
-  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 4, deloadCycles: [],
+  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 7, deloadCycles: [],
 };
 const DAY = 86400000;
 let now = Date.parse("2026-03-02T09:00:00.000Z");
@@ -188,7 +188,7 @@ async function freshPage(browser, errors, { locale } = {}) {
 async function seed(page, { manual = false, request = REQUEST } = {}) {
   const result = await page.evaluate(async ({ request, manual }) => {
     const catalogSnapshot = window.RepForgeExerciseCatalog.snapshot();
-    const generated = window.RepForgeProgramCompiler.generateProgram(request, catalogSnapshot, "review-browser-067");
+    const generated = window.RepForgeProgramCompiler.generateProgram(request, catalogSnapshot);
     if (!generated.ok) return { ok: false, generated };
     const definition = generated.value;
     if (manual) {

@@ -266,11 +266,11 @@ try {
     const after = await entry(page);
     const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).state, DRAFT);
     const request = Adapter.programRequestFromAnswers(aged.answers, Catalog);
-    const expected = Compiler.generateProgram(request.value, Catalog, String(aged.draftId));
+    const expected = Compiler.generateProgram(request.value, Catalog);
     assert.ok(expected.ok, `${route}: the saved answers still generate a program`);
     assert.notEqual(after.result.name, STALE_NAME, `${route}: the rebuild replaces the stale preview`);
     assert.deepEqual(after.result.preview.programDefinition, expected.value,
-      `${route}: the replacement is the current generator's program for the saved answers and draft seed`);
+      `${route}: the replacement is the current generator's program for the saved canonical answers`);
     assert.equal(saved.versions.rules, current.rules, `${route}: the saved draft records the current rules`);
     assert.deepEqual(saved.result.preview.programDefinition, expected.value, `${route}: the replacement is what the draft saved`);
     await context.close();
@@ -320,6 +320,10 @@ try {
     const resumed = await entry(page);
     assert.equal(resumed.route, "custom", "the resume card keeps the saved Custom route");
     assert.equal(resumed.step, "exercise_preferences", "the resume card returns to the saved Custom question");
+    await page.click("#onbNext");
+    await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "custom_shape", undefined, { timeout: 10000 });
+    assert.equal(await page.locator('#onbBody [data-entry-pick="splitPreference"]:not([aria-hidden="true"] *)[aria-checked="true"]').getAttribute("data-entry-val"),
+      "upper_lower_upper_lower", "the resumed four-day route offers split choice with the canonical default selected");
     await page.click("#onbNext");
     await page.waitForFunction(() => window.__repforgeEntryState?.()?.route === "custom" &&
       window.__repforgeEntryState()?.step === "result" && !!window.__repforgeEntryState()?.result?.preview?.programDefinition,

@@ -28,11 +28,8 @@ const requestArbitrary = fc.record({
   experience: fc.constantFrom(...Compiler.EXPERIENCES),
   daysPerWeek: fc.integer({ min: 3, max: 6 }),
   timeCeilingMinutes: fc.constantFrom(...Compiler.TIME_CEILINGS.filter((minutes) => minutes >= 40 && minutes <= 120)),
-  cycles: fc.integer({ min: 1, max: 12 }),
-  seed: fc.integer({ min: 0, max: 0xffffffff }),
-  requestDeload: fc.boolean(),
-}).map(({ goal, experience, daysPerWeek, timeCeilingMinutes, cycles, seed, requestDeload }) => ({
-  seed: String(seed),
+  deloadPosition: fc.constantFrom(null, "first", "last"),
+}).map(({ goal, experience, daysPerWeek, timeCeilingMinutes, deloadPosition }) => ({
   request: {
     goal,
     experience,
@@ -48,8 +45,9 @@ const requestArbitrary = fc.record({
     preferredExerciseIds: [],
     split: "auto",
     periodization: "static",
-    cycles,
-    deloadCycles: requestDeload ? [Math.max(1, Math.ceil(cycles / 2))] : [],
+    // Seven normal positions; the optional sentinel is an extra endpoint.
+    cycles: deloadPosition === null ? 7 : 8,
+    deloadCycles: deloadPosition === "first" ? [1] : deloadPosition === "last" ? [8] : [],
   },
 }));
 
@@ -94,14 +92,14 @@ export function buildSuites() {
   return [
     {
       name: "program compiler: generated requests replay deterministically against the raw UUID catalog",
-      property: fc.property(requestArbitrary, ({ request, seed }) => {
+      property: fc.property(requestArbitrary, ({ request }) => {
         const before = stableStringify(request);
-        const first = Compiler.generateProgram(request, CATALOG_SNAPSHOT, seed);
-        const second = Compiler.generateProgram(structuredClone(request), CATALOG_SNAPSHOT, seed);
+        const first = Compiler.generateProgram(request, CATALOG_SNAPSHOT);
+        const second = Compiler.generateProgram(structuredClone(request), CATALOG_SNAPSHOT);
         if (!first || typeof first.ok !== "boolean") throw new Error("compiler omitted its typed result");
         if (!first.ok) throw new Error(`feasible generated request conflicted: ${stableStringify(first.conflicts).slice(0, 600)}`);
         if (!second.ok) throw new Error(`replayed request conflicted: ${stableStringify(second.conflicts).slice(0, 600)}`);
-        if (stableStringify(first.value) !== stableStringify(second.value)) throw new Error("same request and seed changed ProgramDefinition");
+        if (stableStringify(first.value) !== stableStringify(second.value)) throw new Error("same canonical request changed ProgramDefinition");
         if (stableStringify(request) !== before) throw new Error("compiler mutated its request");
         const checked = Compiler.validateProgramDefinition(first.value, CATALOG_SNAPSHOT);
         if (!checked.ok) throw new Error(`generated ProgramDefinition did not validate: ${checked.issues.join("; ")}`);
@@ -112,7 +110,7 @@ export function buildSuites() {
       name: "program compiler: arbitrary JSON requests fail with typed results instead of throwing",
       property: fc.property(jsonJunkArbitrary(), (request) => {
         let result;
-        try { result = Compiler.generateProgram(request, CATALOG_SNAPSHOT, "hostile-json"); }
+        try { result = Compiler.generateProgram(request, CATALOG_SNAPSHOT); }
         catch (error) { throw new Error(`compiler threw on a JSON request: ${error.message}`); }
         if (!result || typeof result.ok !== "boolean") throw new Error("compiler returned an untyped result");
         if (result.ok) {

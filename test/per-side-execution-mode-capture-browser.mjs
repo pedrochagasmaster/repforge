@@ -71,9 +71,11 @@ try {
   await page.waitForSelector("#entryReview [data-review-slot]", { timeout: 15000 });
   const source = await page.evaluate(() => {
     const definition = window.__repforgeEntryState?.()?.result?.preview?.programDefinition;
+    const hinge = "19e5c6f170d88068951fd7fffc03ed0d"; // Catalog Hip Hinge movement pattern
+    const isHinge = slot => (slot.movementPatternIds || []).includes(hinge);
     const day = definition?.days?.find(item => item.kind === "training" &&
-      (item.slots || []).some(slot => String(slot.purposeId || "").includes("hip_extension")));
-    const slot = day?.slots?.find(item => String(item.purposeId || "").includes("hip_extension"));
+      (item.slots || []).some(isHinge));
+    const slot = day?.slots?.find(isHinge);
     return slot ? { id: slot.id, dayIndex: definition.days.indexOf(day) } : null;
   });
   if (!source) throw new Error("Recommend produced no lower hip-extension slot to edit in Review");

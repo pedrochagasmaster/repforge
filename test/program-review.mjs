@@ -6,8 +6,8 @@
  * Isolated from the browser on purpose. The browser journey in
  * generate-program-browser.mjs proves one path through the screen. These
  * rules have boundaries it cannot reach deterministically:
- * - deload arithmetic (one set fewer, RIR 2 higher, capped at 4), which today's
- *   Generate never produces;
+ * - manual-edit deload arithmetic (half the edited sets, RIR 2 higher, capped
+ *   at 6), distinct from recovered generation's prefix and +3 rule;
  * - periodized ranges that shift together across cycles;
  * - the per-side retarget and catalog-derived fields on a swap;
  * - the alternates limit and identity rules;
@@ -48,14 +48,15 @@ const PLAN069_S3_ADDITIONS = [
   ["reps", "loadPerSideKg"],
 ];
 
-function generate({ days = 4, goal = "muscle_growth", environment = "commercial_gym", extra = {}, seed = 1 } = {}) {
+function generate({ days = 4, goal = "muscle_growth", environment = "commercial_gym", extra = {} } = {}) {
   const request = Adapter.programRequestFromAnswers({
     desiredResult: goal, structuredExperience: "6_to_24m", daysPerWeek: days,
-    environment: { kind: environment }, sessionMinutes: 60, competencyAnswers: {},
+    environment: { kind: environment }, sessionMinutes: 60,
+    competencyAnswers: Object.fromEntries(["pullups10", "pullups5", "pushups15", "inclineBarbell10", "overheadPress10", "bodyweightDips10", "benchPress10"].map(key => [key, true])),
     primaryMuscles: [], deEmphasizedMuscles: [],
   }, Catalog);
   if (!request.ok) throw new Error("request failed");
-  const generated = Compiler.generateProgram({ ...request.value, ...extra }, Catalog, seed);
+  const generated = Compiler.generateProgram({ ...request.value, ...extra }, Catalog);
   if (!generated.ok) throw new Error("generation failed");
   return generated.value;
 }
@@ -79,11 +80,15 @@ function apply(definition, edit, ordinal = 1) {
   return Review.applyEdit(definition, edit, { ...ctx, ordinal });
 }
 
-// A program with a deload week and a periodized range, which the edit rules
-// must respect; Generate's defaults (static, no deload) are covered as well.
+// A manually authored fixture retains the review editor's own deload policy.
+// Its valid source-generated shell supplies metric identities and cycle ranges;
+// this is not an assertion that generation uses the manual +2 editing rule.
 const plain = generate();
-const deload = generate({ days: 3, extra: { cycles: 5, deloadCycles: [5], periodization: "linear" } });
-check(valid(plain) && valid(deload), "fixtures: generated programs validate");
+const deload = clone(generate({ days: 3, extra: { cycles: 8, deloadCycles: [8], periodization: "linear" } }));
+deload.generatorVersion = "manual@1";
+deload.request = {};
+deload.provenance = { source: "manual", policyVersion: "manual@1" };
+check(valid(plain) && valid(deload), "fixtures: generated and manually authored programs validate");
 
 console.log("program-review: set count");
 {
@@ -147,18 +152,18 @@ console.log("program-review: RIR per set");
   const result = apply(deload, { kind: "rir", slotId: slot.id, setIndex: 1, rir: 3 });
   check(result.ok, "rir: RIR 3 on set 1 is accepted", result);
   const edited = slotById(result.definition, slot.id);
-  check(edited.prescriptionsByCycle.every((cycle) => cycle.sets[0].rir === (isDeload(cycle) ? 4 : 3)),
-    "rir: set 1 in every cycle, deload 2 higher and capped at 4",
+  check(edited.prescriptionsByCycle.every((cycle) => cycle.sets[0].rir === (isDeload(cycle) ? 5 : 3)),
+    "rir: set 1 in every cycle, manual deload 2 higher and capped at 6",
     edited.prescriptionsByCycle.map((cycle) => cycle.sets[0].rir));
   check(edited.prescriptionsByCycle.every((cycle, index) => cycle.sets.slice(1).every((set, k) => set.rir === slot.prescriptionsByCycle[index].sets[k + 1].rir)),
     "rir: other sets keep their RIR");
   const second = apply(deload, { kind: "rir", slotId: slot.id, setIndex: 2, rir: 0 });
-  check(second.ok && slotById(second.definition, slot.id).prescriptionsByCycle.every((cycle) => !cycle.sets[1] || cycle.sets[1].rir === 0),
-    "rir: a set missing from the deload cycle is skipped there");
+  check(second.ok && slotById(second.definition, slot.id).prescriptionsByCycle.every((cycle) => !cycle.sets[1] || cycle.sets[1].rir === (isDeload(cycle) ? 2 : 0)),
+    "rir: present sets retain the manual deload offset and absent sets are skipped");
   const deloadLow = apply(deload, { kind: "rir", slotId: slot.id, setIndex: 1, rir: 0 });
   check(deloadLow.ok && slotById(deloadLow.definition, slot.id).prescriptionsByCycle.filter(isDeload).every((cycle) => cycle.sets[0].rir === 2),
     "rir: deload is 2 above the edited value");
-  for (const rir of [-1, 5]) check(!apply(deload, { kind: "rir", slotId: slot.id, setIndex: 1, rir }).ok, `rir: ${rir} is refused`);
+  for (const rir of [-1, 7]) check(!apply(deload, { kind: "rir", slotId: slot.id, setIndex: 1, rir }).ok, `rir: ${rir} is refused`);
   check(!apply(deload, { kind: "rir", slotId: slot.id, setIndex: 9, rir: 2 }).ok, "rir: a set the slot does not have is refused");
 }
 
@@ -415,7 +420,7 @@ console.log("program-review: estimates follow the edits");
   const day = plain.days.find((item) => item.kind === "training");
   const result = apply(plain, { kind: "sets", slotId: day.slots[0].id, count: 6 });
   const edited = result.definition.days.find((item) => item.id === day.id);
-  check(result.definition.provenance.estimatedSessionSeconds[edited.name] === Compiler.estimateDaySeconds(edited),
+  check(result.definition.provenance.estimatedSessionSeconds[edited.name] === Compiler.estimateDaySeconds(edited, undefined, Catalog),
     "estimates: the provenance estimate is the engine's for the edited day");
 }
 
@@ -446,7 +451,7 @@ console.log("program-review: replay determinism over random edit logs");
   // A seeded generator of plausible edits; refused edits are part of the test
   // too, because they must leave the log and the definition unchanged.
   function rng(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
-  const fixtures = [plain, deload, generate({ days: 5, goal: "strength", seed: 7 }), generate({ days: 3, environment: "limited_home", seed: 3 })];
+  const fixtures = [plain, deload, generate({ days: 5, goal: "strength" }), generate({ days: 3, environment: "limited_home" })];
   const pool = Catalog.exercises.filter((exercise) => Metrics.definitionsForIds(exercise.exerciseMetrics || []).ok &&
     Metrics.definitionsForIds(exercise.exerciseMetrics).value.some((metric) => metric.semantic === "reps" || metric.semantic === "repsPerSide"));
   for (const [fixtureIndex, baseline] of fixtures.entries()) {

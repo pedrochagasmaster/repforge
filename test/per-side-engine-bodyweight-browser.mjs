@@ -24,7 +24,7 @@ const REQUEST = {
   movementConfirmations: Object.fromEntries(observedIds.map((id) =>
     [id, [...catalog.exercises.find((entry) => entry.id === id).preconditions]])),
   emphasisMuscleIds: [], deprioritizedMuscleIds: [], excludedExerciseIds: [], excludedMuscleIds: [],
-  preferredExerciseIds: [PRESS_ID], split: "auto", periodization: "static", cycles: 4, deloadCycles: [],
+  preferredExerciseIds: [PRESS_ID], split: "auto", periodization: "static", cycles: 7, deloadCycles: [],
 };
 
 const failures = [];
@@ -40,7 +40,7 @@ async function setupProgram(page, exerciseId, executionMode) {
   return page.evaluate(async ({ request, exerciseId, executionMode }) => {
     const snapshot = window.RepForgeExerciseCatalog.snapshot();
     const generated = window.RepForgeProgramCompiler.generateProgram(
-      request, snapshot, "p069-s3-bodyweight-history");
+      request, snapshot);
     if (!generated.ok) throw new Error("Could not generate the production program: " + JSON.stringify(generated.conflicts));
     const target = generated.value.days.filter((day) => day.kind === "training").flatMap((day) =>
       day.slots.map((slot) => ({ day, slot }))).find(({ slot }) =>

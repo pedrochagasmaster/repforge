@@ -3528,7 +3528,7 @@ async function main() {
       desiredResult: "muscle_growth", structuredExperience: "under_6m", daysPerWeek: 3, sessionMinutes: 60,
       environment: { kind: "commercial_gym" },
     }, catalog).value;
-    const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog, "simulation-beginner").value;
+    const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog).value;
     const first = definition.days.find((day) => day.kind === "training").slots[0];
     first.setupNotes = "Use a stable machine setup and controlled range.";
     await window.__repforgeFinalizeProgramSetup({

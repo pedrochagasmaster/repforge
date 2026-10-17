@@ -11,6 +11,7 @@ const Setup = require(join(root, "shared-setup.js"));
 const Metrics = require(join(root, "exercise-metrics.js"));
 const Compiler = require(join(root, "program-compiler.js"));
 const source = JSON.parse(fs.readFileSync(join(root, "plans/067/data/app_file.json"), "utf8"));
+require(join(root, "generation-identity.js")).prepareCatalog(source);
 const gym = JSON.parse(fs.readFileSync(join(root, "plans/067/data/gym.json"), "utf8"));
 const workerFixture = JSON.parse(fs.readFileSync(join(root,
   "services/install-transfer/test/fixtures/program-definition-plan067-worker.json"), "utf8"));
@@ -213,7 +214,7 @@ function generationRequest(overrides = {}) {
     preferredExerciseIds: [],
     split: "auto",
     periodization: "static",
-    cycles: 1,
+    cycles: 7,
     deloadCycles: [],
     ...overrides,
   };
@@ -276,7 +277,7 @@ console.log("canonical validation and full definition fidelity");
 
 console.log("the production compiler validates a complete generated definition");
 {
-  const generated = Compiler.generateProgram(generationRequest(), source, "shared-setup-generated-proof");
+  const generated = Compiler.generateProgram(generationRequest(), source);
   assert.equal(generated.ok, true, JSON.stringify(generated.conflicts));
   const input = document({ program: { name: "Coach program", definition: generated.value } });
   const validated = Setup.validate(input, compilerOptions);
@@ -385,25 +386,27 @@ console.log("representative complete URL is short and lossless");
 console.log("a generated compact four-day program fits the setup-link limit losslessly");
 {
   const request = structuredClone(workerFixture.request);
-  const seed = request.seed;
   delete request.seed;
   Object.assign(request, {
     daysPerWeek: 4,
     timeCeilingMinutes: 40,
-    cycles: 1,
+    cycles: 7,
     deloadCycles: [],
     split: "auto",
   });
-  const generated = Compiler.generateProgram(request, source, seed);
+  const generated = Compiler.generateProgram(request, source);
   assert.equal(generated.ok, true, JSON.stringify(generated.conflicts));
-  assert.deepEqual(generated.value.days.filter((day) => day.kind === "training")
-    .map((day) => day.slots.length), [4, 3, 5, 3]);
+  const training = generated.value.days.filter((day) => day.kind === "training");
+  assert.equal(training.length, 4, "the complete proposal contains every requested training day");
+  assert.ok(training.every((day) => day.slots.length > 0), "no requested day is replaced with an empty placeholder");
   const input = document({ program: { name: "Compact four-day", definition: generated.value } });
-  const encoded = await Setup.encode(input, compilerOptions);
+  const generatorOptions = { ...compilerOptions, generateProgram: Compiler.generateProgram,
+    generatorVersion: Compiler.GENERATOR_VERSION };
+  const encoded = await Setup.encode(input, generatorOptions);
   assert.equal(encoded.ok, true, JSON.stringify(encoded));
   assert.ok(encoded.value.length <= Setup.MAX_ENCODED_CHARS,
     `generated compact four-day link measured ${encoded.value.length} characters`);
-  const decoded = await Setup.decode(encoded.value, compilerOptions);
+  const decoded = await Setup.decode(encoded.value, generatorOptions);
   assert.equal(decoded.ok, true, JSON.stringify(decoded));
   assert.deepEqual(decoded.value, input,
     "a real generated four-day proposal preserves every day, stable identity, metric, target, and setting");
@@ -564,7 +567,7 @@ console.log("v4 compact wire, roundtrip, and legacy byte retention");
 
 console.log("hard size refusal never truncates semantic fields");
 {
-  const generated = Compiler.generateProgram(generationRequest({ cycles: 12 }), source, "shared-setup-size-proof");
+  const generated = Compiler.generateProgram(generationRequest({ cycles: 8, deloadCycles: [8] }), source);
   assert.equal(generated.ok, true, JSON.stringify(generated.conflicts));
   const tooLarge = document({ program: { name: "Coach program", definition: generated.value } });
   const before = structuredClone(tooLarge);
@@ -574,7 +577,7 @@ console.log("hard size refusal never truncates semantic fields");
   assert.equal(rejected.ok, false);
   assert.equal(rejected.code, "encoded-too-large");
   assert.deepEqual(tooLarge, before, "failed size checks leave the complete input unchanged");
-  assert.equal(tooLarge.program.definition.cycles, 12, "too-large programs are not trimmed to fewer cycles");
+  assert.equal(tooLarge.program.definition.cycles, 8, "too-large programs are not trimmed to fewer cycles");
 }
 
 console.log("fragment and cookie handoff helpers retain source bytes");
@@ -627,25 +630,39 @@ console.log("fragment and cookie handoff helpers retain source bytes");
 }
 
 // R13: a generated program is far larger than a link can carry. An unedited one
-// travels as its generator request and seed; the receiver regenerates it with
+// travels as its canonical generator request; the receiver regenerates it with
 // the same generator version and must arrive at the identical definition.
 {
   const generatorOptions = { ...compilerOptions, generateProgram: Compiler.generateProgram,
     generatorVersion: Compiler.GENERATOR_VERSION };
   // As Generate produces it: no per-movement confirmations.
   const request = generationRequest({ cycles: 7, timeCeilingMinutes: 90, movementConfirmations: {} });
-  const generated = Compiler.generateProgram(request, source, "share-regenerable");
+  const generated = Compiler.generateProgram(request, source);
   assert.equal(generated.ok, true);
   const shared = document({ program: { name: "Generated", definition: generated.value } });
   const full = await Setup.encode(shared, compilerOptions);
   assert.equal(full.ok, false, "without the generator the full seven-cycle definition does not fit");
   assert.equal(full.code, "encoded-too-large");
   const compact = await Setup.encode(shared, generatorOptions);
-  assert.equal(compact.ok, true, `an unedited generated program encodes by request and seed: ${compact.code || ""}`);
+  assert.equal(compact.ok, true, `an unedited generated program encodes by canonical request: ${compact.code || ""}`);
   assert.ok(compact.value.length <= 3072, `regenerable link fits the limit (${compact.value.length})`);
   const received = await Setup.decode(compact.value, generatorOptions);
   assert.equal(received.ok, true, `the regenerable link decodes: ${received.code || ""}`);
   assert.deepEqual(received.value.program.definition, generated.value, "the receiver regenerates the identical definition");
+  const reorderedCatalog = structuredClone(source);
+  reorderedCatalog.generatedAt = "different publication timestamp";
+  reorderedCatalog.exercises.reverse();
+  const reordered = await Setup.decode(compact.value, { ...generatorOptions, catalogSnapshot: reorderedCatalog });
+  assert.equal(reordered.ok, true, "catalogue publication timestamp and container order preserve recipe identity");
+  assert.deepEqual(reordered.value.program.definition, generated.value);
+  const changedCatalog = structuredClone(source);
+  changedCatalog.exercises[0].name += " changed";
+  let unexpectedGeneration = 0;
+  const changed = await Setup.decode(compact.value, { ...generatorOptions, catalogSnapshot: changedCatalog,
+    generateProgram: () => { unexpectedGeneration++; throw Error("catalogue mismatch must precede generation"); } });
+  assert.equal(changed.ok, false, "semantic catalogue changes refuse a bound recipe");
+  assert.equal(changed.code, "catalog-mismatch");
+  assert.equal(unexpectedGeneration, 0);
   const withoutGenerator = await Setup.decode(compact.value, compilerOptions);
   assert.equal(withoutGenerator.ok, false, "a regenerable link needs the generator to decode");
   const otherVersion = await Setup.decode(compact.value, { ...generatorOptions, generatorVersion: "999.0" });
@@ -682,32 +699,44 @@ console.log("fragment and cookie handoff helpers retain source bytes");
   assert.equal(generated, 0, "the generator never runs for it");
 }
 
-// #317: a slot's alternates are part of the canonical definition. A generated
-// program with alternates is no longer what its generator produces, so it
-// cannot travel as request and seed; it travels in full, alternates and the
-// custom movements they name included, and decodes to the same definition.
+// #317: alternate identities travel in the full definition. A current large
+// edited program may need a file; that refusal must never drop the alternates.
 {
   const generatorOptions = { ...compilerOptions, generateProgram: Compiler.generateProgram,
     generatorVersion: Compiler.GENERATOR_VERSION };
   const request = structuredClone(workerFixture.request);
-  const seed = request.seed;
   delete request.seed;
-  // Two short days keep the full form inside the link limit.
-  Object.assign(request, { daysPerWeek: 2, timeCeilingMinutes: 40, cycles: 1, deloadCycles: [], split: "auto" });
-  const generated = Compiler.generateProgram(request, source, seed);
+  Object.assign(request, { daysPerWeek: 2, timeCeilingMinutes: 20, cycles: 7, deloadCycles: [], split: "auto" });
+  const generated = Compiler.generateProgram(request, source);
   assert.equal(generated.ok, true, JSON.stringify(generated.conflicts));
-  const definition = structuredClone(generated.value);
-  const slots = definition.days.flatMap((day) => day.slots);
-  const catalogAlternate = slots[1].exerciseId;
+  const unchanged = document({ program: { name: "Generated program", definition: generated.value } });
+  const recipe = await Setup.encode(unchanged, generatorOptions);
+  assert.equal(recipe.ok, true, recipe.code);
+  assert.equal(recipe.form, "recipe", "the unedited current program is exactly regenerable");
+  const editedDefinition = structuredClone(generated.value);
+  const generatedSlots = editedDefinition.days.flatMap((day) => day.slots);
   const customAlternate = { id: "custom:alt", name: "Coach press",
     equipment: [], primary: "", secondary: "", notes: "", metricIds: [], metricDefinitions: [] };
-  slots[0].alternates = [customAlternate.id, catalogAlternate];
-  const input = document({ program: { name: "Generated with alternates", definition, customExercises: [customAlternate] } });
+  generatedSlots[0].alternates = [customAlternate.id, generatedSlots[1].exerciseId];
+  const edited = document({ program: { name: "Generated with alternates", definition: editedDefinition,
+    customExercises: [customAlternate] } });
+  const before = structuredClone(edited);
+  const refused = await Setup.encode(edited, generatorOptions);
+  assert.equal(refused.ok, false);
+  assert.equal(refused.code, "encoded-too-large", "the complete edited source program requires a file instead of a recipe that loses alternates");
+  assert.deepEqual(edited, before, "size refusal preserves every authored alternate and prescription");
+
+  const compact = definition();
+  const first = compact.days.flatMap((day) => day.slots)[0];
+  const catalogAlternate = generatedSlots.find((slot) => slot.exerciseId !== first.exerciseId).exerciseId;
+  first.alternates = [customAlternate.id, catalogAlternate];
+  const input = document({ program: { name: "Coach program with alternates", definition: compact,
+    customExercises: [customAlternate] } });
   const encoded = await Setup.encode(input, generatorOptions);
-  assert.equal(encoded.ok, true, `a generated program with alternates still shares: ${encoded.code || ""}`);
+  assert.equal(encoded.ok, true, `a compact full definition with alternates shares losslessly: ${encoded.code || ""}`);
   const wire = JSON.parse(await gunzipText(bytesFromBase64url(encoded.value.slice(3))));
   const form = wire.find((entry) => Array.isArray(entry) && (entry[0] === "g" || entry[0] === "c"))?.[0];
-  assert.equal(form, "c", "alternates make the recipe form non-regenerable, so the definition travels in full");
+  assert.equal(form, "c", "the full form carries catalog and custom alternate identities");
   const decoded = await Setup.decode(encoded.value, generatorOptions);
   assert.equal(decoded.ok, true, JSON.stringify(decoded));
   assert.deepEqual(decoded.value, input, "the alternates and the custom movement they name arrive unchanged");

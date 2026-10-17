@@ -235,19 +235,14 @@
     if (!isPlainObject(snapshot) || !Array.isArray(snapshot.exercises) || !isPlainObject(snapshot.uuidIndex)) return null;
     const ids = Object.keys(snapshot.uuidIndex).filter((id) => /^[a-f0-9]{32}$/i.test(id)).sort();
     if (!ids.length) return null;
-    let digest;
+    let fingerprint;
     try {
-      const identityText = stableStringify({ generatedAt: snapshot.generatedAt, exercises: snapshot.exercises, uuidIndex: snapshot.uuidIndex });
-      const bytes = new TextEncoder().encode(identityText);
-      if (root.crypto?.subtle?.digest) {
-        digest = new Uint8Array(await root.crypto.subtle.digest("SHA-256", bytes));
-      } else if (typeof require === "function") {
-        digest = new Uint8Array(require("node:crypto").createHash("sha256").update(bytes).digest());
-      } else return null;
+      const identity = root.RepForgeGenerationIdentity || (typeof require === "function" ? require("./generation-identity.js") : null);
+      if (!identity) return null;
+      fingerprint = identity.catalogIdentity(snapshot);
     } catch {
       return null;
     }
-    const fingerprint = Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
     return {
       ids,
       indexById: new Map(ids.map((id, index) => [id, index])),
@@ -256,7 +251,7 @@
   }
 
   // An unedited generated program is reproduced exactly by its generator from
-  // the stored request and seed, so the link carries only those. The receiver
+  // the canonical request, so the link carries only that request. The receiver
   // must run the same generator version and arrive at the identical definition.
   function regenerableForm(definition, identityContext, options) {
     if (typeof options?.generateProgram !== "function" || definition?.provenance?.source === "manual"
@@ -264,15 +259,15 @@
     const request = cloneCanonical(definition.request);
     delete request.seed;
     let regenerated;
-    try { regenerated = options.generateProgram(request, options.catalogSnapshot, definition.seed); }
+    try { regenerated = options.generateProgram(request, options.catalogSnapshot); }
     catch { return null; }
     if (!regenerated?.ok || stableStringify(regenerated.value) !== stableStringify(definition)) return null;
-    return ["g", identityContext.fingerprint, definition.generatorVersion, compactTree(request, identityContext), definition.seed];
+    return ["g", identityContext.fingerprint, definition.generatorVersion, compactTree(request, identityContext)];
   }
 
   async function regenerate(compact, identityContext, options) {
-    if (compact.length !== 5 || typeof compact[1] !== "string" || typeof compact[2] !== "string"
-      || typeof compact[4] !== "string") return { ok: false, code: "invalid-envelope" };
+    if (typeof compact[2] === "string" && compact[2] !== options?.generatorVersion) return { ok: false, code: "unsupported-version" };
+    if (compact.length !== 4 || typeof compact[1] !== "string" || typeof compact[2] !== "string") return { ok: false, code: "invalid-envelope" };
     if (!identityContext) return { ok: false, code: "catalog-unavailable" };
     if (compact[1] !== identityContext.fingerprint) return { ok: false, code: "catalog-mismatch" };
     if (typeof options?.generateProgram !== "function" || compact[2] !== options.generatorVersion) {
@@ -283,8 +278,8 @@
     let generated;
     try {
       generated = typeof options.generateProgramAsync === "function"
-        ? await options.generateProgramAsync(request.value, options.catalogSnapshot, compact[4], { signal: options.signal })
-        : options.generateProgram(request.value, options.catalogSnapshot, compact[4]);
+        ? await options.generateProgramAsync(request.value, options.catalogSnapshot, { signal: options.signal })
+        : options.generateProgram(request.value, options.catalogSnapshot);
     } catch (error) {
       if (error?.name === "AbortError") throw error;
       return { ok: false, code: "invalid-envelope" };
@@ -649,8 +644,8 @@
       return { ok: false, code: "invalid-envelope" };
     }
     const expandedDefinition = await expandProgramDefinition(compactDefinition, identityContext, options);
-    // A link from another generator version is unsupported, not malformed.
-    if (!expandedDefinition.ok && expandedDefinition.code === "unsupported-version") return expandedDefinition;
+    // Preserve the reason a current recipe cannot be regenerated.
+    if (!expandedDefinition.ok && ["unsupported-version", "catalog-mismatch", "catalog-unavailable"].includes(expandedDefinition.code)) return expandedDefinition;
     const expandedCustomExercises = compactCustomExercises === null
       ? { ok: true, value: null }
       : expandTree(compactCustomExercises, identityContext?.ids || null);
@@ -691,7 +686,7 @@
     let json, form;
     try {
       const tuple = v4Tuple(checked.value, identityContext, options);
-      // "recipe": the generator request and seed; "full": the whole definition.
+      // "recipe": the generator request; "full": the whole definition.
       form = Array.isArray(tuple[2]) && tuple[2][0] === "g" ? "recipe" : "full";
       json = JSON.stringify(tuple);
     }

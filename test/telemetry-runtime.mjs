@@ -202,7 +202,7 @@ async function trustProgram(browser) {
       desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: 4, sessionMinutes: 60,
       environment: { kind: "commercial_gym" },
     }, catalog).value;
-    const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog, "telemetry").value;
+    const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog).value;
     const weighted = (slot) => JSON.stringify(slot.metricIds) === JSON.stringify([weight, reps]) &&
       slot.prescriptionsByCycle[0].sets.length >= 3;
     const day = definition.days.find((item) => item.kind === "training" &&

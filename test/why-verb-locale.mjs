@@ -41,7 +41,7 @@ const REQUEST = {
   movementConfirmations: Object.fromEntries(observedIds.map((id) =>
     [id, [...catalog.exercises.find((entry) => entry.id === id).preconditions]])),
   emphasisMuscleIds: [], deprioritizedMuscleIds: [], excludedExerciseIds: [], excludedMuscleIds: [],
-  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 4, deloadCycles: [],
+  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 7, deloadCycles: [],
 };
 
 const results = { passed: 0, failed: 0 };
@@ -54,7 +54,7 @@ function assert(cond, name, detail) {
  *  training day that prescribes three sets. */
 async function seed(page) {
   return page.evaluate(({ request, weight, reps }) => {
-    const definition = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot(), "why-verb-locale").value;
+    const definition = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot()).value;
     const target = definition.days.filter((day) => day.kind === "training").flatMap((day) =>
       day.slots.map((slot, index) => ({ day, slot, index }))).find(({ slot, index }) => {
       const sets = slot.prescriptionsByCycle[0].sets;

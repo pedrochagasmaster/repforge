@@ -1,19 +1,20 @@
 (function (root) {
   "use strict";
 
-  const GENERATOR_VERSION = "067.2";
+  const GENERATOR_VERSION = "073.4";
+  const IDENTITY = root?.RepForgeGenerationIdentity || (typeof require === "function" ? require("./generation-identity.js") : null);
+  const CANDIDATES = root?.RepForgeGenerationCandidates || (typeof require === "function" ? require("./generation-candidates.js") : null);
+  const LAYOUT = root?.RepForgeGenerationLayout || (typeof require === "function" ? require("./generation-layout.js") : null);
   const PROGRAM_SCHEMA_VERSION = 2;
   const SUPPORTED_PROGRAM_SCHEMA_VERSIONS = Object.freeze([1, 2]);
   const ROLES = Object.freeze([
     "hypertrophyPrimaryCompound", "hypertrophySecondaryCompound", "hypertrophyAccessory",
     "strengthPrimaryCompound", "strengthSecondaryCompound", "strengthAccessory", "manual",
   ]);
-  const SPLITS = Object.freeze({
-    full_body: Object.freeze({ days: ["Full Body A", "Full Body B", "Full Body C"], compatibleDays: [2, 3] }),
-    upper_lower: Object.freeze({ days: ["Upper A", "Lower A", "Upper B", "Lower B"], compatibleDays: [4] }),
-    push_pull_legs_upper_lower: Object.freeze({ days: ["Push", "Pull", "Legs", "Upper", "Lower"], compatibleDays: [5] }),
-    push_pull_legs: Object.freeze({ days: ["Push A", "Pull A", "Legs A", "Push B", "Pull B", "Legs B"], compatibleDays: [6] }),
-  });
+  const SPLITS = Object.freeze(Object.fromEntries(LAYOUT.SPLITS.map((split) => [split.id, Object.freeze({
+    compatibleDays: Object.freeze([...split.daysPerWeek]),
+    variants: split.variants,
+  })])));
   const TIME_CEILINGS = Object.freeze([20, 40, 60, 90, 120, 150]);
   const PERIODIZATIONS = Object.freeze(["static", "linear", "reverse_linear", "undulating"]);
   const GOALS = Object.freeze(["hypertrophy", "strength", "hybrid"]);
@@ -47,96 +48,6 @@
     "Weighted vertical pulls preconditions": "pullups10",
     "Intermediate push-up preconditions": "pushups15",
   });
-  const ONTOLOGY_NAMES = Object.freeze({
-    compound: "Multi-joint (compound)",
-    isolation: "Single joint (isolation)",
-    core: "Core",
-    lateral: "Lateral Delt Accessory",
-    triceps: "Triceps Accessory",
-    rearDelt: "Rear Delt Accessory",
-    lat: "Lat Accessory",
-    squat: "Squat",
-    hipHinge: "Hip Hinge",
-    calf: "Calf Accessory",
-    quad: "Quad Accessory",
-    hipAbductor: "Hip Abductor Accessory",
-    verticalPush: "Vertical Push",
-    horizontalPush: "Horizontal Push",
-    verticalPull: "Vertical Pull",
-    horizontalPull: "Horizontal Pull",
-    biceps: "Biceps Accessory",
-    chest: "Chest Accessory",
-    hamstring: "Hamstring Accessory",
-    abs: "Ab Accessory",
-    obliques: "Oblique Acessory",
-    chestMuscle: "Chest",
-    backMuscle: "Upper Back",
-    latsMuscle: "Lats",
-    sideDelts: "Side Delts",
-    tricepsMuscle: "Triceps",
-    rearDelts: "Rear Delts",
-    frontDelts: "Front Delts",
-    glutes: "Glutes",
-    hamstrings: "Hamstrings",
-    quads: "Quads",
-    calves: "Calves",
-    abductors: "Abductors",
-    bicepsMuscle: "Biceps",
-    absMuscle: "Abs",
-    obliquesMuscle: "Obliques",
-    unilateral: "Unilateral",
-  });
-
-  const STANDARD_JOBS = Object.freeze([
-    job("upper_a_horizontal_push", "Upper A", "horizontal_push", "compound", ["horizontalPush"], ["chestMuscle"], "upper", "first_push_lower", 2),
-    job("upper_a_horizontal_pull", "Upper A", "horizontal_pull", "compound", ["horizontalPull"], ["latsMuscle", "backMuscle"], "upper", "first_pull", 2),
-    job("upper_a_lateral_delts", "Upper A", "lateral_delts", "isolation", ["lateral"], ["sideDelts"], "upper", "assistance", 3),
-    job("upper_a_triceps", "Upper A", "triceps", "isolation", ["triceps"], ["tricepsMuscle"], "upper", "assistance", 3),
-    job("upper_a_rear_delts", "Upper A", "rear_delts", "isolation", ["rearDelt"], ["rearDelts"], "upper", "assistance", 3),
-    job("upper_a_lat_isolation", "Upper A", "lat_isolation", "isolation", ["lat"], ["latsMuscle"], "upper", "assistance", 3),
-    job("lower_a_squat", "Lower A", "squat", "compound", ["squat"], ["quads", "glutes"], "lower", "first_push_lower", 3),
-    job("lower_a_secondary_hip_extension", "Lower A", "secondary_hip_extension", "compound", ["hipHinge"], ["glutes", "hamstrings"], "lower", "secondary_push_lower", 3),
-    job("lower_a_calves", "Lower A", "calves", "isolation", ["calf"], ["calves"], "lower", "assistance", 3),
-    job("lower_a_quadriceps_isolation", "Lower A", "quadriceps_isolation", "isolation", ["quad"], ["quads"], "lower", "assistance", 3),
-    job("lower_a_hip_abduction", "Lower A", "hip_abduction", "isolation", ["hipAbductor"], ["abductors"], "lower", "assistance", 3),
-    job("upper_b_incline_or_overhead_push", "Upper B", "incline_or_overhead_push", "compound", ["verticalPush", "horizontalPush"], ["frontDelts", "chestMuscle"], "upper", "first_push_lower", 3),
-    job("upper_b_vertical_pull", "Upper B", "vertical_pull", "compound", ["verticalPull"], ["latsMuscle"], "upper", "first_pull", 3),
-    job("upper_b_additional_horizontal_push", "Upper B", "additional_horizontal_push", "compound", ["horizontalPush"], ["chestMuscle"], "upper", "secondary_push_lower", 2),
-    job("upper_b_additional_horizontal_pull", "Upper B", "additional_horizontal_pull", "compound", ["horizontalPull"], ["latsMuscle", "backMuscle"], "upper", "secondary_pull", 2),
-    job("upper_b_biceps", "Upper B", "biceps", "isolation", ["biceps"], ["bicepsMuscle"], "upper", "assistance", 3),
-    job("upper_b_chest_isolation", "Upper B", "chest_isolation", "isolation", ["chest"], ["chestMuscle"], "upper", "assistance", 3),
-    job("lower_b_hip_hinge", "Lower B", "hip_hinge", "compound", ["hipHinge"], ["hamstrings", "glutes"], "lower", "first_push_lower", 3),
-    job("lower_b_secondary_squat", "Lower B", "secondary_squat", "compound", ["squat"], ["quads"], "lower", "secondary_push_lower", 3),
-    job("lower_b_knee_flexion", "Lower B", "knee_flexion", "isolation", ["hamstring"], ["hamstrings"], "lower", "assistance", 3),
-    job("lower_b_abs", "Lower B", "abs", "core", ["abs"], ["absMuscle"], "trunk", "assistance", 3),
-    job("lower_b_obliques", "Lower B", "obliques", "core", ["obliques"], ["obliquesMuscle"], "trunk", "assistance", 3),
-  ]);
-  const COMPACT_PURPOSES = new Set([
-    "upper_a_horizontal_push", "upper_a_horizontal_pull", "upper_a_lateral_delts", "upper_a_triceps",
-    "lower_a_squat", "lower_a_calves", "lower_a_quadriceps_isolation",
-    "upper_b_incline_or_overhead_push", "upper_b_vertical_pull", "upper_b_biceps", "upper_b_chest_isolation", "upper_b_rear_delts",
-    "lower_b_hip_hinge", "lower_b_knee_flexion", "lower_b_abs",
-  ]);
-  const COMPACT_SET_COUNTS = Object.freeze({
-    upper_a_horizontal_push: 3, upper_a_horizontal_pull: 2, upper_a_lateral_delts: 2, upper_a_triceps: 2,
-    lower_a_squat: 3, lower_a_calves: 3, lower_a_quadriceps_isolation: 3,
-    upper_b_incline_or_overhead_push: 2, upper_b_vertical_pull: 2, upper_b_biceps: 2,
-    upper_b_chest_isolation: 2, upper_b_rear_delts: 2,
-    lower_b_hip_hinge: 3, lower_b_knee_flexion: 3, lower_b_abs: 3,
-  });
-  const STANDARD_SET_COUNTS = Object.freeze({
-    upper_a_horizontal_push: 2, upper_a_horizontal_pull: 2, upper_a_lateral_delts: 3,
-    upper_a_triceps: 3, upper_a_rear_delts: 3, upper_a_lat_isolation: 3,
-    lower_a_squat: 3, lower_a_secondary_hip_extension: 3, lower_a_calves: 3,
-    lower_a_quadriceps_isolation: 3, lower_a_hip_abduction: 3,
-    upper_b_incline_or_overhead_push: 3, upper_b_vertical_pull: 3,
-    upper_b_additional_horizontal_push: 2, upper_b_additional_horizontal_pull: 2,
-    upper_b_biceps: 3, upper_b_chest_isolation: 3,
-    lower_b_hip_hinge: 3, lower_b_secondary_squat: 3, lower_b_knee_flexion: 3,
-    lower_b_abs: 3, lower_b_obliques: 3,
-  });
-
-  const ontologyByCatalog = new WeakMap();
   const isPlainObject = (value) => !!value && typeof value === "object" && !Array.isArray(value)
     && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
   const finite = (value) => typeof value === "number" && Number.isFinite(value);
@@ -145,58 +56,12 @@
   const owns = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
   const sorted = (values) => [...values].sort();
 
-  function job(purposeId, day, musclePurposeKey, typeKey, patternKeys, muscleKeys, region, repClass, sets) {
-    return Object.freeze({
-      purposeId, day, musclePurposeKey, typeKey, patternKeys: Object.freeze(patternKeys),
-      muscleKeys: Object.freeze(muscleKeys), region, repClass, sets,
-      order: -1,
-    });
-  }
-
-  function finalizedJobs(compact) {
-    const chosen = STANDARD_JOBS.filter((entry) => !compact || COMPACT_PURPOSES.has(entry.purposeId));
-    const jobs = chosen.map((entry, index) => ({
-      ...entry,
-      order: index,
-      sets: compact ? COMPACT_SET_COUNTS[entry.purposeId] : STANDARD_SET_COUNTS[entry.purposeId],
-    }));
-    if (compact) {
-      const rear = STANDARD_JOBS.find((entry) => entry.purposeId === "upper_a_rear_delts");
-      jobs.push({ ...rear, purposeId: "upper_b_rear_delts", day: "Upper B", order: jobs.length, sets: COMPACT_SET_COUNTS.upper_b_rear_delts });
-    }
-    return jobs;
-  }
-
   function validCatalog(catalog) {
     return isPlainObject(catalog) && Array.isArray(catalog.exercises) && isPlainObject(catalog.uuidIndex);
   }
 
   function catalogObject(catalog, id) {
     return typeof id === "string" && owns(catalog.uuidIndex, id) ? catalog.uuidIndex[id] : null;
-  }
-
-  function ontology(catalog) {
-    if (ontologyByCatalog.has(catalog)) return ontologyByCatalog.get(catalog);
-    const values = new Map();
-    for (const [id, entry] of Object.entries(catalog.uuidIndex)) {
-      if (!isPlainObject(entry) || typeof entry.type !== "string") continue;
-      const key = `${entry.type}\u0000${String(entry.name)}`;
-      if (!values.has(key)) values.set(key, []);
-      values.get(key).push(id);
-    }
-    const resolved = Object.freeze({
-      lookup(type, name) {
-        const matches = values.get(`${type}\u0000${String(name)}`) || [];
-        return matches.length === 1 ? matches[0] : null;
-      },
-      resolve(type, name) {
-        const matches = values.get(`${type}\u0000${String(name)}`) || [];
-        return matches.length === 1 ? matches[0] : null;
-      },
-      matches(type, name) { return [...(values.get(`${type}\u0000${String(name)}`) || [])]; },
-    });
-    ontologyByCatalog.set(catalog, resolved);
-    return resolved;
   }
 
   function resolveJobPolicy(jobValue, catalog) {
@@ -208,24 +73,18 @@
       if (catalogObject(catalog, jobValue.exerciseTypeId)?.type !== "exerciseType") issues.push(`exerciseType ${jobValue.exerciseTypeId} is absent or invalid`);
       return { ...jobValue, patternIds: [...jobValue.patternIds], muscleIds: [...jobValue.muscleIds], issues };
     }
-    const index = ontology(catalog);
-    const patternNames = jobValue.patternKeys.map((key) => ONTOLOGY_NAMES[key]);
-    const muscleNames = jobValue.muscleKeys.map((key) => ONTOLOGY_NAMES[key]);
-    const patternIds = patternNames.map((name) => index.resolve("movementPattern", name));
-    const muscleIds = muscleNames.map((name) => index.resolve("featureMuscleGroup", name));
-    const typeName = ONTOLOGY_NAMES[jobValue.typeKey];
-    const exerciseTypeId = index.resolve("exerciseType", typeName);
-    const issues = [];
-    patternNames.forEach((name, position) => { if (!patternIds[position]) issues.push(`movementPattern ${name} is absent or ambiguous`); });
-    muscleNames.forEach((name, position) => { if (!muscleIds[position]) issues.push(`featureMuscleGroup ${name} is absent or ambiguous`); });
-    if (!exerciseTypeId) issues.push(`exerciseType ${typeName} is absent or ambiguous`);
-    return { ...jobValue, patternIds, muscleIds, exerciseTypeId, issues };
+    return { ...jobValue, issues: ["The slot does not carry current catalog identities."] };
   }
 
   function validateRequest(rawRequest, catalog) {
     const issues = [];
     if (!isPlainObject(rawRequest)) return { ok: false, issues: [{ field: "request", code: "invalid_request", message: "Expected a request object." }] };
-    const request = clone(rawRequest);
+    for (const key of Object.keys(rawRequest)) {
+      if (!REQUEST_KEYS.has(key) || key === "seed") issues.push(fieldIssue(key, "unknown_request_field", "This generation input is not supported."));
+    }
+    let request;
+    try { request = JSON.parse(IDENTITY.canonicalJSON(rawRequest)); }
+    catch { return { ok: false, issues: [fieldIssue("request", "invalid_request", "Expected plain JSON generation inputs.")] }; }
     if (!GOALS.includes(request.goal)) issues.push(fieldIssue("goal", "unsupported_goal", "Choose hypertrophy, strength, or hybrid."));
     if (!EXPERIENCES.includes(request.experience)) issues.push(fieldIssue("experience", "unsupported_experience", "Choose beginner, intermediate, or advanced."));
     if (!Number.isInteger(request.daysPerWeek) || request.daysPerWeek < 2 || request.daysPerWeek > 6) {
@@ -238,18 +97,27 @@
       issues.push(fieldIssue("gymProfile.equipmentIds", "equipment_required", "Choose the equipment available in this gym."));
     }
     if (isPlainObject(request.gymProfile) && Array.isArray(request.gymProfile.equipmentIds)) {
+      for (const key of Object.keys(request.gymProfile)) {
+        if (!["equipmentIds", "equipmentLoadsKg"].includes(key)) issues.push(fieldIssue(`gymProfile.${key}`, "unknown_request_field", "This gym input is not supported."));
+      }
       const unknown = request.gymProfile.equipmentIds.filter((id) => catalogObject(catalog, id)?.type !== "equipment");
       if (unknown.length) issues.push(fieldIssue("gymProfile.equipmentIds", "unknown_equipment", "The equipment profile contains an unknown equipment ID."));
-      request.gymProfile.equipmentIds = unique(request.gymProfile.equipmentIds);
+      request.gymProfile.equipmentIds = sorted(unique(request.gymProfile.equipmentIds));
+      const loads = request.gymProfile.equipmentLoadsKg;
+      if (loads !== undefined) {
+        if (!isPlainObject(loads) || Object.entries(loads).some(([id, grid]) => catalogObject(catalog, id)?.type !== "equipment"
+          || !Array.isArray(grid) || grid.some((load) => !finite(load) || load < 0))) {
+          issues.push(fieldIssue("gymProfile.equipmentLoadsKg", "invalid_request", "Expected catalog equipment IDs and nonnegative load grids."));
+        } else if (!Object.keys(loads).length) delete request.gymProfile.equipmentLoadsKg;
+      }
     }
-    request.split = request.split || "auto";
+    request.split = request.split ?? "auto";
     if (request.split !== "auto" && !owns(SPLITS, request.split)) issues.push(fieldIssue("split", "unsupported_split", "Choose an authored split."));
     if (Number.isInteger(request.daysPerWeek) && owns(SPLITS, request.split)
       && !SPLITS[request.split].compatibleDays.includes(request.daysPerWeek)) {
       issues.push(fieldIssue("split", "split_frequency_mismatch", "This split is only available at its authored training frequency."));
     }
-    if (request.split === "auto" && Number.isInteger(request.daysPerWeek)) request.split = automaticSplit(request.daysPerWeek);
-    request.periodization = request.periodization || "static";
+    request.periodization = request.periodization ?? "static";
     if (!PERIODIZATIONS.includes(request.periodization)) issues.push(fieldIssue("periodization", "unsupported_periodization", "Choose static, linear, reverse linear, or undulating."));
     request.cycles = request.cycles === undefined ? 7 : request.cycles;
     if (!Number.isInteger(request.cycles) || request.cycles < 1 || request.cycles > 12) {
@@ -266,29 +134,32 @@
         issues.push(fieldIssue(field, "invalid_id_list", "Expected a list of catalog IDs."));
         continue;
       }
-      request[field] = unique(request[field]);
-      if (["emphasisMuscleIds", "deprioritizedMuscleIds", "excludedMuscleIds"].includes(field) && request[field].length > 5) {
-        issues.push(fieldIssue(field, "too_many_muscle_groups", "Choose no more than five muscle groups."));
-      }
+      request[field] = sorted(unique(request[field]));
       const expected = field.includes("Muscle") ? "featureMuscleGroup" : "exercise";
       if (request[field].some((id) => catalogObject(catalog, id)?.type !== expected)) {
         issues.push(fieldIssue(field, "unknown_catalog_id", `Each ID must name a ${expected} record.`));
       }
     }
+    if (request.competencyAnswers !== undefined && !isPlainObject(request.competencyAnswers)) issues.push(fieldIssue("competencyAnswers", "invalid_competency_answers", "Expected explicit movement ability answers."));
     request.competencyAnswers = isPlainObject(request.competencyAnswers) ? request.competencyAnswers : {};
+    for (const key of Object.keys(request.competencyAnswers)) {
+      if (!COMPETENCY_KEYS.includes(key)) issues.push(fieldIssue(`competencyAnswers.${key}`, "unknown_request_field", "This movement ability is not supported."));
+    }
     for (const key of COMPETENCY_KEYS) {
       if (request.competencyAnswers[key] === undefined) request.competencyAnswers[key] = null;
       if (![true, false, null].includes(request.competencyAnswers[key])) {
         issues.push(fieldIssue(`competencyAnswers.${key}`, "invalid_competency_answer", "Answer yes, no, or leave this movement ability unconfirmed."));
       }
     }
+    if (request.movementConfirmations !== undefined && !isPlainObject(request.movementConfirmations)) issues.push(fieldIssue("movementConfirmations", "invalid_movement_confirmations", "Expected movement confirmations."));
     request.movementConfirmations = isPlainObject(request.movementConfirmations) ? request.movementConfirmations : {};
     for (const [exerciseId, ids] of Object.entries(request.movementConfirmations)) {
       if (catalogObject(catalog, exerciseId)?.type !== "exercise" || !Array.isArray(ids)
         || ids.some((id) => catalogObject(catalog, id)?.type !== "preconditions")) {
         issues.push(fieldIssue(`movementConfirmations.${exerciseId}`, "invalid_movement_confirmation", "Confirmations must name prerequisites for a current catalog exercise."));
-      }
+      } else request.movementConfirmations[exerciseId] = sorted(unique(ids));
     }
+    if (request.executionContexts !== undefined && !isPlainObject(request.executionContexts)) issues.push(fieldIssue("executionContexts", "invalid_execution_context", "Expected execution contexts."));
     request.executionContexts = isPlainObject(request.executionContexts) ? request.executionContexts : {};
     for (const [exerciseId, mode] of Object.entries(request.executionContexts)) {
       const exercise = catalog.exercises.find((entry) => entry.id === exerciseId);
@@ -304,14 +175,35 @@
       }
     }
     if (!request.gymProfile) request.gymProfile = { equipmentIds: [] };
-    return issues.length ? { ok: false, issues } : { ok: true, value: request };
+    if (Array.isArray(request.emphasisMuscleIds) && Array.isArray(request.deprioritizedMuscleIds) && request.emphasisMuscleIds.some((id) => request.deprioritizedMuscleIds.includes(id))) issues.push(fieldIssue("emphasisMuscleIds", "contradictory_muscle_priorities", "A muscle cannot be both prioritized and deprioritized."));
+    if (Array.isArray(request.deloadCycles)) request.deloadCycles.sort((a, b) => a - b);
+    if (request.split === "auto" && Number.isInteger(request.daysPerWeek)) request.split = automaticSplit(request.daysPerWeek);
+    return issues.length ? { ok: false, issues } : { ok: true, value: JSON.parse(IDENTITY.canonicalJSON(request)) };
+  }
+
+  function recoveredGenerationDomain(request) {
+    return LAYOUT.supportsRequest(request);
+  }
+
+  function availableSplits(request) {
+    return Object.keys(SPLITS).filter((id) => LAYOUT.supportsRequest({ ...request, split: id,
+      periodization: request.periodization ?? "static", cycles: request.cycles ?? 7, deloadCycles: request.deloadCycles || [] }));
+  }
+
+  function canonicalizeRequest(request, catalog) {
+    if (!validCatalog(catalog)) return { ok: false, issues: [fieldIssue("catalog", "invalid_catalog", "A raw catalog snapshot is required.")] };
+    return validateRequest(request, catalog);
+  }
+
+  function generationIdentity(request, catalog) {
+    const normalized = canonicalizeRequest(request, catalog);
+    if (!normalized.ok) throw new TypeError("Cannot identify invalid generation inputs");
+    return IDENTITY.generationIdentity(normalized.value, catalog, GENERATOR_VERSION);
   }
 
   function automaticSplit(days) {
-    if (days === 2 || days === 3) return "full_body";
-    if (days === 4) return "upper_lower";
-    if (days === 5) return "push_pull_legs_upper_lower";
-    return "push_pull_legs";
+    return { 2: "full_body", 3: "upper_lower_full", 4: "upper_lower_upper_lower",
+      5: "push_pull_legs_upper_lower", 6: "push_pull_legs_push_pull_legs" }[days];
   }
 
   function fieldIssue(field, code, message) { return { field, code, message }; }
@@ -414,14 +306,6 @@
     return ["bilateral", "unilateral"].includes(explicit) ? explicit : null;
   }
 
-  function roleFor(jobValue, goal) {
-    const useStrength = goal === "strength" || (goal === "hybrid" && jobValue.repClass !== "assistance");
-    if (jobValue.repClass === "assistance") return goal === "strength" ? "strengthAccessory" : "hypertrophyAccessory";
-    const level = jobValue.repClass === "first_push_lower" || jobValue.repClass === "first_pull"
-      ? "PrimaryCompound" : "SecondaryCompound";
-    return `${useStrength ? "strength" : "hypertrophy"}${level}`;
-  }
-
   function roleTier(exercise, role) {
     const fields = {
       hypertrophyPrimaryCompound: "hypertrophyPrimaryCompoundRecommendationLevel",
@@ -470,16 +354,6 @@
     return null;
   }
 
-  function seedRank(seed, purposeId, exerciseId) {
-    let hash = 2166136261;
-    const input = `${String(seed)}\u0000${purposeId}\u0000${exerciseId}`;
-    for (let index = 0; index < input.length; index += 1) {
-      hash ^= input.charCodeAt(index);
-      hash = Math.imul(hash, 16777619);
-    }
-    return hash >>> 0;
-  }
-
   // A job's pool before the search: every exercise's state-independent
   // verdict in catalog order, and the eligible candidates in selection order.
   // Only the repeat and exclusion-group checks depend on what the search has
@@ -502,7 +376,6 @@
         eligibleEquipmentContexts: equipmentContexts(exercise, context, catalog),
         reasons: ["purpose_match", "required_role_tier", "hard_constraints_passed"],
         _preferred: (context.preferredExerciseIds || []).includes(exercise.id),
-        _seedRank: seedRank(options.seed || "", jobValue.purposeId, exercise.id),
         _exercise: exercise,
         _job: resolvedJob,
       });
@@ -514,8 +387,7 @@
   function compareCandidates(left, right) {
     return left.roleTier - right.roleTier
       || Number(right._preferred) - Number(left._preferred)
-      || left._seedRank - right._seedRank
-      || left.exerciseId.localeCompare(right.exerciseId);
+      || (left.exerciseId < right.exerciseId ? -1 : left.exerciseId > right.exerciseId ? 1 : 0);
   }
 
   function usedFailure(exercise, usedIds, usedGroups) {
@@ -542,56 +414,6 @@
     return availableCandidates(pool, options.usedIds || new Set(), options.usedGroups || new Set());
   }
 
-  function prepareJobs(request, catalog) {
-    const compact = request.timeCeilingMinutes <= 40;
-    const all = finalizedJobs(compact);
-    if (request.daysPerWeek === 4) return all;
-    return distributeJobs(all, request.daysPerWeek, request.split);
-  }
-
-  function dayKinds(daysPerWeek, split) {
-    if (split === "full_body") return Array.from({ length: daysPerWeek }, (_, index) => ({ name: `Full Body ${String.fromCharCode(65 + index)}`, group: "all" }));
-    if (split === "upper_lower") return [
-      { name: "Upper A", group: "upper" }, { name: "Lower A", group: "lower" },
-      { name: "Upper B", group: "upper" }, { name: "Lower B", group: "lower" },
-    ];
-    if (split === "push_pull_legs_upper_lower") return [
-      { name: "Push", group: "push" }, { name: "Pull", group: "pull" }, { name: "Legs", group: "legs" },
-      { name: "Upper", group: "upper" }, { name: "Lower", group: "lower" },
-    ];
-    return [
-      { name: "Push A", group: "push" }, { name: "Pull A", group: "pull" }, { name: "Legs A", group: "legs" },
-      { name: "Push B", group: "push" }, { name: "Pull B", group: "pull" }, { name: "Legs B", group: "legs" },
-    ];
-  }
-
-  function compatibleDay(jobValue, day) {
-    if (day.group === "all") return true;
-    if (jobValue.region === "trunk") return true;
-    if (jobValue.region === "lower") return day.group === "legs" || day.group === "lower";
-    const patterns = jobValue.patternKeys;
-    if (day.group === "upper") return jobValue.region === "upper";
-    if (day.group === "push") return jobValue.region === "upper"
-      && !patterns.includes("horizontalPull") && !patterns.includes("verticalPull")
-      && !patterns.includes("biceps");
-    if (day.group === "pull") return jobValue.region === "upper"
-      && (patterns.includes("horizontalPull") || patterns.includes("verticalPull")
-        || patterns.includes("rearDelt") || patterns.includes("lat") || patterns.includes("biceps"));
-    return false;
-  }
-
-  function distributeJobs(jobs, daysPerWeek, split) {
-    const days = dayKinds(daysPerWeek, split).map((day, index) => ({ ...day, index, assignedSets: 0 }));
-    return jobs.map((entry) => {
-      const eligible = days.filter((day) => compatibleDay(entry, day));
-      const destinations = eligible.length ? eligible : days;
-      destinations.sort((left, right) => left.assignedSets - right.assignedSets || left.index - right.index);
-      const destination = destinations[0];
-      destination.assignedSets += entry.sets;
-      return { ...entry, day: destination.name, dayIndex: destination.index, movable: true };
-    });
-  }
-
   function scheduledTrainingIndexes(frequency) {
     const maps = {
       2: [0, 3],
@@ -601,29 +423,6 @@
       6: [0, 1, 2, 4, 5, 6],
     };
     return maps[frequency];
-  }
-
-  function rawDays(jobs, request, seed) {
-    const schedule = Array.from({ length: 7 }, (_, index) => ({
-      id: `day-${stableId(seed, `week-day-${index + 1}`)}`,
-      name: "Rest",
-      kind: "rest",
-      order: index + 1,
-      slots: [],
-      _group: "rest",
-    }));
-    const authored = dayKinds(request.daysPerWeek, request.split);
-    const trainingIndexes = scheduledTrainingIndexes(request.daysPerWeek);
-    const idForName = new Map();
-    authored.forEach((entry, index) => {
-      const scheduleIndex = trainingIndexes[index];
-      const day = schedule[scheduleIndex];
-      day.name = entry.name;
-      day.kind = "training";
-      day._group = entry.group;
-      idForName.set(entry.name, day.id);
-    });
-    return { days: schedule, idForName };
   }
 
   // Generated day names stay English in the definition, so fingerprints,
@@ -639,495 +438,140 @@
     const position = definition.days.findIndex((day) => day?.id === dayId);
     const authoredIndex = trainingIndexes.indexOf(position);
     if (authoredIndex < 0 || definition.days[position].kind !== "training") return null;
-    const authored = dayKinds(request.daysPerWeek, request.split)[authoredIndex];
-    if (!authored || definition.days[position].name !== authored.name) return null;
-    return `program.split_day.${authored.name.toLowerCase().replace(/\s+/g, "_")}`;
+    const authored = SPLITS[request.split].variants[request.daysPerWeek]?.days[authoredIndex];
+    const name = authored?.name === "Full" ? "Full Body" : authored?.name;
+    if (!name || definition.days[position].name !== name) return null;
+    return `program.split_day.${name.toLowerCase().replace(/\s+/g, "_")}`;
   }
 
   function stableId(seed, value) {
-    return seedRank(seed, "id", value).toString(36).padStart(7, "0");
+    return typeof seed?.allocate === "function" ? seed.allocate(value) : IDENTITY.digestCanonical([String(seed), value]);
   }
 
-  function roleForJob(jobValue, goal) { return roleFor(jobValue, goal); }
-
-  function candidateIsBetterThanCollision(candidate, usedIds, usedGroups) {
-    const ex = candidate._exercise;
-    if (usedIds.has(ex.id)) return false;
-    return !(Array.isArray(ex.exclusionGroupings) && ex.exclusionGroupings.some((id) => usedGroups.has(id)));
-  }
-
-  function selectAllJobs(jobs, request, catalog, seed) {
-    const assignments = new Array(jobs.length);
-    const usedIds = new Set();
-    const usedGroups = new Set();
-    const conflicts = [];
-    let visited = 0;
-    const MAX_SEARCH_NODES = 50000;
-    const roles = jobs.map((entry) => roleForJob(entry, request.goal));
-    const pools = jobs.map((entry, position) => jobCandidatePool(entry, roles[position], request, catalog, { seed }));
-    function unfillable(position, pool) {
-      const entry = jobs[position];
-      if (pool.policyIssues.length) {
-        conflicts.push({ code: "policy_identity_unresolved", purposeId: entry.purposeId, issues: pool.policyIssues });
-        return true;
-      }
-      if (pool.candidates.length) return false;
-      conflicts.push({
-        code: "no_eligible_exercise", purposeId: entry.purposeId, role: roles[position],
-        reasons: pool.rejected,
-        message: `No eligible catalog exercise can fill ${entry.purposeId} under the current constraints.`,
-      });
-      return true;
-    }
-    // A job that no exercise can fill under any earlier choice makes the whole
-    // request unsatisfiable, so report it before backtracking through the
-    // other jobs' combinations.
-    if (pools.some((pool, position) => unfillable(position, availableCandidates(pool, usedIds, usedGroups)))) {
-      return { ok: false, conflicts };
-    }
-    function visit(position) {
-      if (position >= jobs.length) return true;
-      if (++visited > MAX_SEARCH_NODES) return false;
-      const entry = jobs[position];
-      const role = roles[position];
-      const pool = availableCandidates(pools[position], usedIds, usedGroups);
-      if (unfillable(position, pool)) return false;
-      for (const candidate of pool.candidates) {
-        if (!candidateIsBetterThanCollision(candidate, usedIds, usedGroups)) continue;
-        const exercise = candidate._exercise;
-        assignments[position] = { job: entry, role, candidate };
-        usedIds.add(exercise.id);
-        const groupings = Array.isArray(exercise.exclusionGroupings) ? exercise.exclusionGroupings : [];
-        groupings.forEach((id) => usedGroups.add(id));
-        if (visit(position + 1)) return true;
-        groupings.forEach((id) => usedGroups.delete(id));
-        usedIds.delete(exercise.id);
-        assignments[position] = null;
-        if (visited > MAX_SEARCH_NODES) break;
-      }
-      return false;
-    }
-    const ok = visit(0);
-    if (!ok && !conflicts.length) conflicts.push({
-      code: "no_complete_program", message: "The hard constraints leave no complete program without repeated or conflicting movements.",
-    });
-    if (!ok) return { ok: false, conflicts: uniqueConflicts(conflicts) };
-    return { ok: true, assignments, pools, roles };
-  }
-
-  // Diagnostic output beside the definition (Plan 072, Plan 068 slice C): for
-  // each selected slot, the best-ranked candidate blocked only by
-  // prerequisites nobody has answered, which a confirmation would rank above
-  // the selection. A "no" answer is never overridden. It reads the selection's
-  // own pools and changes no selection state, so `value` is unchanged; the
-  // adapter verifies that a confirmation actually lands where it is offered.
-  function confirmationOffers(days, selected, slotPositions, request, catalog) {
-    const offers = [];
-    for (const day of days) {
-      for (const slot of day.slots) {
-        const position = slotPositions.get(slot.id);
-        const assignment = position === undefined ? null : selected.assignments[position];
-        if (!assignment || assignment.candidate._exercise.id !== slot.exerciseId) continue;
-        const usedIds = new Set();
-        const usedGroups = new Set();
-        selected.assignments.forEach((other, index) => {
-          if (index === position || !other) return;
-          const exercise = other.candidate._exercise;
-          usedIds.add(exercise.id);
-          (Array.isArray(exercise.exclusionGroupings) ? exercise.exclusionGroupings : []).forEach((id) => usedGroups.add(id));
-        });
-        const role = selected.roles[position];
-        const resolvedJob = assignment.candidate._job;
-        let best = null;
-        for (const { exercise, failure } of selected.pools[position].verdicts) {
-          if (failure !== "prerequisite_confirmation_required") continue;
-          // Ranking first: it is cheap, and most blocked movements rank below.
-          const candidate = {
-            exerciseId: exercise.id,
-            roleTier: roleTier(exercise, role),
-            _preferred: (request.preferredExerciseIds || []).includes(exercise.id),
-            _seedRank: seedRank(request.seed, assignment.job.purposeId, exercise.id),
-          };
-          if (compareCandidates(candidate, assignment.candidate) >= 0) continue;
-          if (best && compareCandidates(candidate, best.candidate) >= 0) continue;
-          const prerequisites = prerequisitesSatisfied(exercise, request, catalog);
-          if (prerequisites.ok || prerequisites.failures.some((item) => item.reason !== "movement_confirmation_required")) continue;
-          const prerequisiteIds = prerequisites.failures.map((item) => item.prerequisiteId).sort();
-          const confirmed = {
-            ...request,
-            movementConfirmations: {
-              ...request.movementConfirmations,
-              [exercise.id]: unique([...(request.movementConfirmations?.[exercise.id] || []), ...prerequisiteIds]),
-            },
-          };
-          if (candidateFailure(exercise, resolvedJob, role, confirmed, catalog, new Set(), usedIds, usedGroups)) continue;
-          best = { candidate, prerequisiteIds };
-        }
-        if (best) {
-          offers.push({
-            dayId: day.id, slotId: slot.id, currentExerciseId: slot.exerciseId,
-            offeredExerciseId: best.candidate.exerciseId, prerequisiteIds: best.prerequisiteIds,
-          });
-        }
-      }
-    }
-    return offers;
-  }
-
-  function uniqueConflicts(conflicts) {
-    const seen = new Set();
-    return conflicts.filter((item) => {
-      const key = `${item.code}|${item.purposeId || ""}|${JSON.stringify(item.reasons || {})}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }
-
-  function trainingDayLabel(day) { return day.name; }
-
-  function createInternalSlot(assignment, day, ordinal, request, seed, catalog) {
-    const { job: entry, role, candidate } = assignment;
-    const ex = candidate._exercise;
-    const resolved = candidate._job;
-    const metrics = metricDefinitionsFor(ex, catalog);
-    const repsKey = repsSemantic(metrics);
-    const slotId = `slot-${stableId(seed, `${entry.purposeId}|${ordinal}`)}`;
-    return {
-      id: slotId,
-      purposeId: entry.purposeId,
-      exerciseId: ex.id,
-      sourceExerciseIds: [ex.id],
-      role,
-      musclePurposeIds: [...resolved.muscleIds],
-      movementPatternIds: [...resolved.patternIds],
-      exerciseTypeId: resolved.exerciseTypeId,
-      metricIds: [...ex.exerciseMetrics],
-      metricDefinitions: metrics.map((item) => ({ ...item })),
-      metricOrigin: "source_catalog",
-      lateralityIds: Array.isArray(ex.laterality) ? [...ex.laterality] : [],
-      executionMode: executionMode(ex, request, catalog),
-      loadingModel: {
-        bodyweightCoefficient: finite(ex.bodyweight) ? ex.bodyweight : null,
-        assistanceDirection: "subtract",
-      },
-      prescriptionsByCycle: [],
-      _dayId: day.id,
-      _dayName: day.name,
-      _dayGroup: day._group,
-      _repClass: entry.repClass,
-      _baseSetCount: entry.sets,
-      _setCount: request.experience === "beginner" ? Math.max(1, entry.sets - 1) : entry.sets,
-      _bonusSets: 0,
-      _isEmphasisSlot: false,
-      _order: entry.order,
-      _dayMovable: entry.movable === true,
-      _repsKey: repsKey,
-      _executionMode: executionMode(ex, request, catalog),
-      _lateralityId: ex.laterality?.[0] || null,
-      _exercise: ex,
-      _sourceEvidence: entry.purposeId.startsWith("emphasis_") ? "approximation" : "observed_job_policy",
-      _timeCeilingSeconds: request.timeCeilingMinutes * 60,
-    };
-  }
-
-  function stableRepRange(jobValue, goal) {
-    if (goal === "strength") {
-      return {
-        first_push_lower: [3, 5], first_pull: [5, 7],
-        secondary_push_lower: [5, 7], secondary_pull: [7, 9], assistance: [8, 12],
-      }[jobValue.repClass];
-    }
-    return {
-      first_push_lower: [7, 9], first_pull: [9, 11],
-      secondary_push_lower: [9, 11], secondary_pull: [11, 13], assistance: [14, 16],
-    }[jobValue.repClass];
-  }
-
-  function finalRir(jobValue) {
-    return jobValue.repClass === "assistance" || jobValue.repClass === "first_pull" || jobValue.repClass === "secondary_pull" ? 0 : 1;
-  }
-
-  function roundHalvesAwayFromZero(value) {
-    return value < 0 ? -Math.floor(Math.abs(value) + 0.5) : Math.floor(value + 0.5);
-  }
-
-  function cycleRepOffset(periodization, cycleNumber, cycles) {
-    if (cycles <= 1 || periodization === "static") return 0;
-    if (periodization === "undulating") return cycleNumber % 2 === 1 ? 2 : -2;
-    const linear = roundHalvesAwayFromZero(2 + (cycleNumber - 1) * (-4 / (cycles - 1)));
-    return periodization === "reverse_linear" ? -linear : linear;
-  }
-
-  function buildSetPrescription(slot, request, cycleNumber, setIndex, catalog) {
-    const exercise = slot._exercise;
-    const isStrengthDose = request.goal === "strength" || (request.goal === "hybrid" && slot._repClass !== "assistance");
-    const doseGoal = isStrengthDose ? "strength" : "hypertrophy";
-    const jobValue = { repClass: slot._repClass };
-    const range = stableRepRange(jobValue, doseGoal);
-    const offset = cycleRepOffset(request.periodization, cycleNumber, request.cycles);
-    let repMin = Math.max(3, Math.min(30, range[0] + offset));
-    let repMax = Math.max(3, Math.min(30, range[1] + offset));
-    if (repMin > repMax) [repMin, repMax] = [repMax, repMin];
-    const setCount = slot._setCount;
-    const extraFailureSet = slot._repClass === "assistance" ? 1 : 0;
-    let rir = Math.max(0, setCount - (setIndex + 1) + finalRir(jobValue) - extraFailureSet);
-    if (request.experience === "beginner") rir = Math.min(4, rir + 1);
-    const isDeload = request.deloadCycles.includes(cycleNumber);
-    if (isDeload) rir = Math.min(4, rir + 2);
-    const actualSetCount = isDeload ? Math.ceil(setCount / 2) : setCount;
-    if (setIndex >= actualSetCount) return null;
-    const repsKey = slot._repsKey;
-    const targets = repsKey ? { [repsKey]: { min: repMin, max: repMax } } : {};
-    const status = repsKey ? "ready" : "manual";
-    const id = `set-${stableId(request.seed || "", `${slot.id}|${cycleNumber}|${setIndex + 1}`)}`;
-    return {
-      id,
-      cycleIndex: cycleNumber,
-      setIndex: setIndex + 1,
-      metricType: "source_metrics@1",
-      targets,
-      rir,
-      restSeconds: slot.role.endsWith("Accessory") ? 90 : 120,
-      status,
-      provenance: {
-        source: slot._sourceEvidence,
-        policyVersion: GENERATOR_VERSION,
-        periodization: request.periodization,
-        deload: isDeload,
-        approximation: request.experience === "beginner" || request.goal !== "hypertrophy" || slot._isEmphasisSlot,
-      },
-    };
-  }
-
-  function populatePrescriptions(slot, request, catalog) {
-    slot.prescriptionsByCycle = [];
-    for (let cycleNumber = 1; cycleNumber <= request.cycles; cycleNumber += 1) {
-      const targetCount = request.deloadCycles.includes(cycleNumber) ? Math.ceil(slot._setCount / 2) : slot._setCount;
-      const sets = [];
-      for (let setIndex = 0; setIndex < targetCount; setIndex += 1) {
-        sets.push(buildSetPrescription(slot, request, cycleNumber, setIndex, catalog));
-      }
-      slot.prescriptionsByCycle.push({ cycleIndex: cycleNumber, sets });
-    }
-  }
-
-  function generateProgram(rawRequest, catalogSnapshot, seed) {
+  function generateProgram(rawRequest, catalogSnapshot) {
     if (!validCatalog(catalogSnapshot)) return failure([{ field: "catalog", code: "invalid_catalog", message: "A raw catalog snapshot is required." }]);
     const normalized = validateRequest(rawRequest, catalogSnapshot);
     if (!normalized.ok) return failure(normalized.issues);
-    if (typeof seed !== "string" && typeof seed !== "number") {
-      return failure([fieldIssue("seed", "invalid_seed", "Provide a stable string or numeric seed." )]);
-    }
-    const seedValue = String(seed);
-    const request = { ...normalized.value, seed: seedValue };
-    const jobs = prepareJobs(request, catalogSnapshot);
-    const selected = selectAllJobs(jobs, request, catalogSnapshot, seedValue);
-    if (!selected.ok) return failure(selected.conflicts);
-    const { days, idForName } = rawDays(jobs, request, seedValue);
-    const slotsByName = new Map();
-    const slotPositions = new Map();
-    selected.assignments.forEach((assignment, index) => {
-      const day = days.find((entry) => entry.id === idForName.get(assignment.job.day));
-      if (!day) return;
-      const slot = createInternalSlot(assignment, day, index + 1, request, seedValue, catalogSnapshot);
-      slotPositions.set(slot.id, index);
-      day.slots.push(slot);
-      if (!slotsByName.has(day.name)) slotsByName.set(day.name, []);
-      slotsByName.get(day.name).push(slot);
+    const namespace = generationIdentity(normalized.value, catalogSnapshot);
+    const seedValue = { namespace, allocate: IDENTITY.createIdAllocator(namespace) };
+    return generateRecovered(normalized.value, catalogSnapshot, seedValue);
+  }
+
+  function recoveredDoseCenters(request, type, isPull) {
+    const primary = type === "primary";
+    const accessory = type === "accessory";
+    const strength = request.goal === "strength";
+    const hypertrophyPrimary = primary && request.goal === "hypertrophy";
+    const center = accessory ? (strength ? 10 : 15)
+      : primary ? (hypertrophyPrimary ? (isPull ? 10 : 8) : (isPull ? 8 : 5))
+      : strength ? (isPull ? 10 : 8) : (isPull ? 12 : 10);
+    const table = accessory ? (strength ? [8, 10, 10, 11, 13, 13, 15] : [10, 13, 13, 15, 17, 18, 20])
+      : primary ? (hypertrophyPrimary ? (isPull ? [8, 10, 10, 11, 13, 13, 15] : [6, 8, 8, 9, 10, 11, 12])
+        : (isPull ? [6, 8, 8, 9, 10, 11, 12] : [3, 4, 5, 5, 6, 7, 8]))
+      : strength && !isPull ? [5, 6, 7, 7, 8, 9, 10] : [8, 10, 10, 11, 13, 13, 15];
+    const indices = {
+      linear: [6, 6, 4, 3, 2, 0, 0],
+      reverse_linear: [0, 0, 2, 3, 4, 6, 6],
+      undulating: [6, 3, 0, 6, 2, 4, 0],
+    }[request.periodization];
+    return indices ? indices.map((index) => table[index]) : Array(7).fill(center);
+  }
+
+  function recoveredPrescriptions(request, template, repsKey, namespace, path) {
+    const isPull = template.exercise.patterns.some((pattern) => ["horizontalPull", "verticalPull"].includes(pattern));
+    const centers = recoveredDoseCenters(request, template.type, isPull);
+    const adjustments = { 1: [0], 2: [0, -1], 3: [1, 0, -1], 4: [1, 0, 0, -1], 5: [1, 0, 0, -1, -1], 6: [1, 1, 0, 0, -1, -1] };
+    const baseRir = template.type === "accessory" ? 0 : isPull ? 1 : 2;
+    const normal = centers.map((center) => Array.from({ length: template.numSets }, (_, index) => ({
+      targets: repsKey ? { [repsKey]: { min: center - 1, max: center + 1 } } : {},
+      rir: repsKey ? Math.max(0, baseRir + adjustments[template.numSets][index]) : null,
+      restSeconds: null, status: repsKey ? "ready" : "manual",
+    })));
+    let normalIndex = 0;
+    return Array.from({ length: request.cycles }, (_, index) => {
+      const cycleIndex = index + 1;
+      const deload = request.deloadCycles.includes(cycleIndex);
+      const endpoint = cycleIndex === 1 ? normal[0] : normal[normal.length - 1];
+      const source = deload ? endpoint.slice(0, Math.max(1, Math.floor(0.8 * endpoint.length))) : normal[normalIndex++];
+      return { cycleIndex, sets: source.map((set, setIndex) => ({
+        ...set,
+        id: `set-${stableId(namespace, `${path}/cycle/${cycleIndex}/set/${setIndex + 1}`)}`,
+        cycleIndex, setIndex: setIndex + 1, metricType: "source_metrics@1",
+        targets: deload && repsKey ? { [repsKey]: Object.fromEntries(Object.entries(set.targets[repsKey]).map(([bound, value]) => [bound, value === null ? null : Math.round(0.8 * value)])) } : clone(set.targets),
+        rir: deload && repsKey ? (set.rir ?? 0) + 3 : set.rir,
+        provenance: { source: request.periodization === "static" ? "recovered_static_rules" : "recovered_periodized_rules", policyVersion: GENERATOR_VERSION, periodization: request.periodization, deload, approximation: false },
+      })) };
     });
-    const focus = applyEmphasis(request, days, jobs, catalogSnapshot, seedValue);
-    if (focus.conflicts.length) return failure(focus.conflicts);
-    const fit = fitProgramTime(days, request, jobs, catalogSnapshot);
-    if (!fit.ok) return failure(fit.conflicts);
-    for (const day of days) {
-      day.slots = day.slots.filter((slot) => slot._setCount > 0);
-      for (const slot of day.slots) populatePrescriptions(slot, request, catalogSnapshot);
-      day.slots.forEach((slot, index) => {
-        slot.order = index + 1;
-        delete slot._dayId;
-        delete slot._dayName;
-        delete slot._dayGroup;
-        delete slot._baseSetCount;
-        delete slot._setCount;
-        delete slot._bonusSets;
-        delete slot._isEmphasisSlot;
-        delete slot._order;
-        delete slot._dayMovable;
-        delete slot._repsKey;
-        delete slot._lateralityId;
-        delete slot._executionMode;
-        delete slot._exercise;
-        delete slot._repClass;
-        delete slot._timeCeilingSeconds;
-        delete slot._sourceEvidence;
-      });
-      delete day._group;
+  }
+
+  function generateRecovered(request, catalog, namespace) {
+    if (!recoveredGenerationDomain(request)) return failure([fieldIssue("split", "unsupported_generation_domain", "Choose a supported split, seven normal cycles, and at most one first or last deload.")]);
+    const hardAllowed = (exercise) => {
+      if (request.excludedExerciseIds.includes(exercise.id) || excludedByMuscle(exercise, request.excludedMuscleIds)) return false;
+      if (!prerequisitesSatisfied(exercise, request, catalog).ok) return false;
+      const metrics = metricDefinitionsFor(exercise, catalog);
+      if (!metrics.length || metrics.some((metric) => !metric)) return false;
+      return repsSemantic(metrics) !== "repsPerSide" || executionMode(exercise, request, catalog) !== null;
+    };
+    let selector;
+    try { selector = CANDIDATES.create(catalog, request, hardAllowed); }
+    catch (error) {
+      if (!(error instanceof TypeError || error instanceof RangeError)) throw error;
+      return failure([fieldIssue("request", "unsupported_generation_domain", error.message)]);
     }
+    const layout = LAYOUT.generate(request, selector);
+    if (layout.status !== "ok" || layout.days.some((day) => !day.templates.length)) {
+      return failure(layout.issues || [fieldIssue("request", layout.code || "insufficient_candidates", "The selected equipment and movement confirmations cannot fill this program.")]);
+    }
+    const estimatedSessionSeconds = {};
+    const days = layout.weeklySlots.map((trainingIndex, weekIndex) => {
+      const dayId = `day-${stableId(namespace, `week/${weekIndex}`)}`;
+      if (trainingIndex === null) return { id: dayId, name: "Rest", kind: "rest", order: weekIndex + 1, slots: [] };
+      const source = layout.days[trainingIndex];
+      const name = source.name === "Full" ? "Full Body" : source.name;
+      estimatedSessionSeconds[dayId] = layout.estimatedSessionSeconds[trainingIndex];
+      const slots = source.templates.map((template, slotIndex) => {
+        const exercise = template.exercise.raw;
+        const metrics = metricDefinitionsFor(exercise, catalog);
+        const repsKey = repsSemantic(metrics);
+        const accessory = template.type === "accessory";
+        const primary = template.type === "primary";
+        const strength = request.goal === "strength";
+        const role = primary ? (request.goal === "hypertrophy" ? "hypertrophyPrimaryCompound" : "strengthPrimaryCompound")
+          : accessory ? (strength ? "strengthAccessory" : "hypertrophyAccessory")
+          : strength ? "strengthSecondaryCompound" : "hypertrophySecondaryCompound";
+        const path = `day/${trainingIndex}/slot/${slotIndex}`;
+        const muscleId = accessory ? selector.muscleId(template.accessoryMuscle) : null;
+        const slot = {
+          id: `slot-${stableId(namespace, `${path}/exercise/${exercise.id}`)}`,
+          purposeId: `generated_${template.type}_${accessory ? template.accessoryMuscle : trainingIndex}_${slotIndex}`,
+          exerciseId: exercise.id, sourceExerciseIds: [exercise.id], role,
+          musclePurposeIds: muscleId ? [muscleId] : [...(exercise.primaryFeatureMuscle || [])],
+          movementPatternIds: [...(exercise.movementPattern || [])],
+          exerciseTypeId: exercise.exerciseType,
+          metricIds: [...exercise.exerciseMetrics], metricDefinitions: metrics.map((metric) => ({ ...metric })),
+          metricOrigin: "source_catalog", lateralityIds: [...(exercise.laterality || [])],
+          executionMode: executionMode(exercise, request, catalog),
+          loadingModel: { bodyweightCoefficient: finite(exercise.bodyweight) ? exercise.bodyweight : null, assistanceDirection: "subtract" },
+          order: slotIndex + 1,
+          prescriptionsByCycle: recoveredPrescriptions(request, template, repsKey, namespace, path),
+        };
+        return slot;
+      });
+      return { id: dayId, name, kind: "training", order: weekIndex + 1, slots };
+    });
     const output = {
-      schemaVersion: PROGRAM_SCHEMA_VERSION,
-      generatorVersion: GENERATOR_VERSION,
-      seed: seedValue,
-      request: clone(request),
-      days,
-      cycles: request.cycles,
-      deloadCycles: [...request.deloadCycles],
+      schemaVersion: PROGRAM_SCHEMA_VERSION, generatorVersion: GENERATOR_VERSION, request: clone(request), days,
+      cycles: request.cycles, deloadCycles: [...request.deloadCycles],
       provenance: {
-        source: "raw_catalog_and_reviewed_policy",
-        policyVersion: GENERATOR_VERSION,
-        goal: request.goal,
-        split: request.split,
-        selection: "role-tier_then_explicit-preference_then-seeded-canonical-id",
-        approximations: unique([
-          request.daysPerWeek !== 4 ? "redistributed-day-jobs" : null,
-          request.experience === "beginner" ? "beginner-dose-adjustment" : null,
-          request.goal !== "hypertrophy" ? "goal-specific-rep-ranges" : null,
-          request.periodization !== "static" ? "cycle-rep-offsets" : null,
-          request.deloadCycles.length ? "requested-deload-cycles" : null,
-          request.emphasisMuscleIds.length || request.deprioritizedMuscleIds.length ? "focus-allocation" : null,
-          fit.removedPurposes.length ? "time-fit-assistance-removal" : null,
-        ].filter(Boolean)),
-        estimatedSessionSeconds: fit.estimates,
-        focusNotApplied: focus.notApplied,
+        source: "recovered_generation_rules", policyVersion: GENERATOR_VERSION, goal: request.goal, split: request.split,
+        selection: "recovered-pool_then-explicit-preference_then-ascii-id", approximations: [],
+        generationBudgetMinutes: layout.budgetMinutes, estimatedSessionSeconds, focusNotApplied: [],
       },
     };
-    const checked = validateProgramDefinition(output, catalogSnapshot);
+    const checked = validateProgramDefinition(output, catalog);
     if (!checked.ok) return failure([{ code: "generated_program_invalid", field: "program", issues: checked.issues }]);
-    return {
-      ok: true, value: output, conflicts: [], explanations: buildExplanations(output, fit, focus),
-      confirmationOffers: confirmationOffers(days, selected, slotPositions, request, catalogSnapshot),
-    };
-  }
-
-  function applyEmphasis(request, days, jobs, catalog, seed) {
-    const conflicts = [];
-    const notApplied = [];
-    const featureMap = new Map();
-    const candidates = finalizedJobs(false).filter((entry) => entry.repClass === "assistance");
-    for (const entry of candidates) {
-      const resolved = resolveJobPolicy(entry, catalog);
-      if (resolved.issues.length) continue;
-      for (const id of resolved.muscleIds) {
-        if (!featureMap.has(id)) featureMap.set(id, entry);
-      }
-    }
-    const findAccessory = (muscleId) => days.flatMap((day) => day.slots)
-      .filter((slot) => slot.role.endsWith("Accessory") && slot.musclePurposeIds.includes(muscleId))
-      .sort((a, b) => b._order - a._order)[0];
-    const findDonor = (muscleIds) => {
-      const requested = muscleIds;
-      const all = days.flatMap((day) => day.slots).filter((slot) => slot.role.endsWith("Accessory") && slot._setCount > 1);
-      const byPriority = all.sort((a, b) => {
-        const deprioritizedA = a.musclePurposeIds.some((id) => requested.includes(id)) ? 0 : 1;
-        const deprioritizedB = b.musclePurposeIds.some((id) => requested.includes(id)) ? 0 : 1;
-        return deprioritizedA - deprioritizedB || b._order - a._order;
-      });
-      return byPriority[0] || null;
-    };
-    for (const muscleId of request.emphasisMuscleIds) {
-      const existing = findAccessory(muscleId);
-      const donor = findDonor(request.deprioritizedMuscleIds);
-      if (existing) {
-        if (existing._setCount < 3) {
-          if (donor && donor !== existing) donor._setCount -= 1;
-          existing._setCount += 1;
-          existing._bonusSets += 1;
-          existing._isEmphasisSlot = true;
-        } else notApplied.push({ muscleId, reason: "assistance_set_cap" });
-        continue;
-      }
-      const base = featureMap.get(muscleId);
-      if (!base) { notApplied.push({ muscleId, reason: "no_reviewed_assistance_purpose" }); continue; }
-      const original = STANDARD_JOBS.find((entry) => entry.purposeId === base.purposeId);
-      const occurrence = days.flatMap((day) => day.slots).length + 1;
-      const slotId = `slot-${stableId(seed, `emphasis|${muscleId}|${occurrence}`)}`;
-      const role = request.goal === "strength" ? "strengthAccessory" : "hypertrophyAccessory";
-      const jobForSlot = { ...original, purposeId: `emphasis_${muscleId}`, order: 100 + occurrence, sets: 1 };
-      const pool = candidatesForJob(jobForSlot, role, request, catalog, {
-        seed, usedIds: new Set(days.flatMap((day) => day.slots.map((slot) => slot.exerciseId))),
-        usedGroups: new Set(days.flatMap((day) => day.slots.flatMap((slot) => slot._exercise.exclusionGroupings || []))),
-      });
-      if (!pool.candidates.length) { notApplied.push({ muscleId, reason: "no_eligible_exercise" }); continue; }
-      const compatible = days.filter((day) => day.kind === "training" && compatibleDay(jobForSlot, { group: day._group }));
-      const targetDay = (compatible.length ? compatible : days.filter((day) => day.kind === "training"))
-        .sort((left, right) => estimateDaySeconds(left) - estimateDaySeconds(right) || left.order - right.order)[0];
-      const slot = createInternalSlot({ job: jobForSlot, role, candidate: pool.candidates[0] }, targetDay, occurrence, request, seed, catalog);
-      slot.id = slotId;
-      slot._setCount = 1;
-      slot._baseSetCount = 0;
-      slot._bonusSets = 1;
-      slot._isEmphasisSlot = true;
-      targetDay.slots.push(slot);
-    }
-    return { conflicts, notApplied };
-  }
-
-  function fitProgramTime(days, request, jobs) {
-    const ceiling = request.timeCeilingMinutes * 60;
-    const removedPurposes = [];
-    if (days.some((day) => day.kind === "training" && day.slots.some((slot) => slot._dayMovable))) {
-      moveOptionalSlots(days, ceiling);
-    }
-    const over = () => days.filter((day) => day.kind === "training" && estimateDaySeconds(day) > ceiling);
-    for (const day of over()) {
-      for (const slot of day.slots) {
-        if (slot._bonusSets > 0) {
-          slot._setCount = Math.max(0, slot._setCount - slot._bonusSets);
-          slot._bonusSets = 0;
-        }
-      }
-    }
-    for (const stage of [2, 1]) {
-      for (const day of over()) {
-        const accessories = [...day.slots].filter((slot) => slot.role.endsWith("Accessory") && slot._setCount > stage)
-          .sort((left, right) => right._order - left._order);
-        for (const slot of accessories) slot._setCount = stage;
-      }
-    }
-    for (const day of over()) {
-      const optional = [...day.slots].filter((slot) => slot.role.endsWith("Accessory"))
-        .sort((left, right) => right._order - left._order);
-      for (const slot of optional) {
-        if (estimateDaySeconds(day) <= ceiling) break;
-        slot._setCount = 0;
-        removedPurposes.push(slot.purposeId);
-      }
-    }
-    const conflicts = over().map((day) => ({
-      code: "time_ceiling_exceeded",
-      dayId: day.id,
-      dayName: day.name,
-      estimatedSeconds: estimateDaySeconds(day),
-      ceilingSeconds: ceiling,
-      protectedPurposeIds: day.slots.filter((slot) => slot._setCount > 0 && !slot.role.endsWith("Accessory")).map((slot) => slot.purposeId),
-      message: `${day.name} still exceeds the selected time ceiling after optional assistance is moved or removed.`,
-    }));
-    return {
-      ok: conflicts.length === 0,
-      conflicts,
-      removedPurposes,
-      estimates: Object.fromEntries(days.filter((day) => day.kind === "training").map((day) => [day.name, estimateDaySeconds(day)])),
-    };
-  }
-
-  function moveOptionalSlots(days, ceiling) {
-    for (const day of [...days].filter((entry) => entry.kind === "training" && estimateDaySeconds(entry) > ceiling)) {
-      const candidates = [...day.slots].filter((slot) => slot.role.endsWith("Accessory") && slot._dayMovable)
-        .sort((left, right) => right._order - left._order);
-      for (const slot of candidates) {
-        const destinations = days.filter((entry) => entry !== day && entry.kind === "training"
-          && compatibleDay({ region: slot._dayGroup === "lower" ? "lower" : "upper", patternKeys: [] }, { group: entry._group })
-          && estimateDaySeconds(entry) + estimateSlotSeconds(slot) <= ceiling)
-          .sort((left, right) => estimateDaySeconds(left) - estimateDaySeconds(right) || left.order - right.order);
-        if (!destinations.length) continue;
-        const target = destinations[0];
-        day.slots = day.slots.filter((entry) => entry !== slot);
-        slot._dayId = target.id;
-        slot._dayName = target.name;
-        target.slots.push(slot);
-        if (estimateDaySeconds(day) <= ceiling) break;
-      }
-    }
+    return { ok: true, value: output, conflicts: [], explanations: [{ code: "recovered_initial_rules", generationBudgetMinutes: layout.budgetMinutes }], confirmationOffers: confirmationOffers(output, request, catalog) };
   }
 
   function estimateSlotSeconds(slot, cycleIndex) {
@@ -1137,11 +581,8 @@
     if (!sets) return 0;
     const repetitionMetric = slot.metricDefinitions?.find((entry) => entry.semantic === "reps" || entry.semantic === "repsPerSide");
     const target = cycle?.sets?.[0]?.targets?.[repetitionMetric?.semantic];
-    const [fallbackMin, fallbackMax] = stableRepRange({
-      repClass: slot._repClass || (slot.role?.endsWith("Accessory") ? "assistance" : "first_push_lower"),
-    }, slot.role?.startsWith("strength") ? "strength" : "hypertrophy") || [8, 12];
-    const repMin = finite(target?.min) ? target.min : fallbackMin;
-    const repMax = finite(target?.max) ? target.max : fallbackMax;
+    const repMin = finite(target?.min) ? target.min : 8;
+    const repMax = finite(target?.max) ? target.max : 12;
     const reps = (repMin + repMax) / 2;
     const mode = slot._executionMode ?? slot.executionMode;
     const sides = repetitionMetric?.semantic === "repsPerSide" && mode === "unilateral" ? 2 : 1;
@@ -1152,21 +593,61 @@
   }
 
   // Without a cycle the estimate is the first cycle's, which is what the
-  // generator fits; a cycle index estimates that week's prescriptions.
-  function estimateDaySeconds(day, cycleIndex) {
+  // preview displays; a cycle index estimates that week's prescriptions.
+  function estimateDaySeconds(day, cycleIndex, catalogSnapshot) {
     if (day.kind !== "training") return 0;
+    if (validCatalog(catalogSnapshot) && day.slots.length && day.slots.every((slot) => {
+      const cycle = cycleIndex === undefined ? slot.prescriptionsByCycle?.[0]
+        : slot.prescriptionsByCycle?.find((entry) => entry.cycleIndex === cycleIndex);
+      return cycle?.sets?.length && cycle.sets.every((set) => set.provenance?.source === "recovered_static_rules"
+        || set.provenance?.source === "recovered_periodized_rules"
+        || set.provenance?.source === "lifter_review" && set.provenance.policyVersion === GENERATOR_VERSION);
+    })) {
+      const templates = day.slots.map((slot) => {
+        const raw = catalogSnapshot.exercises.find((exercise) => exercise.id === slot.exerciseId);
+        const cycle = cycleIndex === undefined ? slot.prescriptionsByCycle[0]
+          : slot.prescriptionsByCycle.find((entry) => entry.cycleIndex === cycleIndex);
+        return raw ? { exercise: CANDIDATES.describeExercise(raw), numSets: cycle.sets.length,
+          restSecondsBySet: cycle.sets.map((set) => set.restSeconds),
+          type: slot.role.endsWith("Accessory") ? "accessory" : slot.role.endsWith("PrimaryCompound") ? "primary" : "secondary" } : null;
+      });
+      if (templates.every(Boolean)) return LAYOUT.estimateTemplatesSeconds(templates);
+    }
     if (!day.slots.length) return 180;
     return 180 + day.slots.reduce((sum, slot) => sum + estimateSlotSeconds(slot, cycleIndex), 0);
   }
 
-  function buildExplanations(program, fit, focus) {
-    const explanations = [
-      "Exercises were selected from the raw catalog by hard eligibility, then the lowest available role tier, explicit preference, and the supplied seed.",
-      "Rep ranges and set counts follow the Plan 067 observed four-day anchors or documented approximation policy; no initial load is fabricated.",
-    ];
-    if (fit.removedPurposes.length) explanations.push(`Time fit removed optional assistance jobs: ${unique(fit.removedPurposes).join(", ")}.`);
-    if (focus.notApplied.length) explanations.push(`${focus.notApplied.length} emphasis request(s) could not be applied under the reviewed assistance policies.`);
-    return explanations;
+  // Offers are provisional until the adapter regenerates the canonical request
+  // and verifies the movement at its exact position. No confirmation is applied
+  // to the displayed definition while constructing this report.
+  function confirmationOffers(program, request, catalog) {
+    const offers = [];
+    const slots = program.days.flatMap((day) => day.slots.map((slot) => ({ day, slot })));
+    for (const { day, slot } of slots) {
+      const current = catalog.exercises.find((exercise) => exercise.id === slot.exerciseId);
+      const currentCandidate = { exerciseId: current.id, roleTier: roleTier(current, slot.role),
+        _preferred: request.preferredExerciseIds.includes(current.id) };
+      const purpose = { patternIds: slot.movementPatternIds, muscleIds: slot.musclePurposeIds, exerciseTypeId: slot.exerciseTypeId };
+      const usedIds = new Set(slots.filter((entry) => entry.slot !== slot).map((entry) => entry.slot.exerciseId));
+      const usedGroups = new Set(catalog.exercises.filter((exercise) => usedIds.has(exercise.id)).flatMap((exercise) => exercise.exclusionGroupings || []));
+      let best = null;
+      for (const exercise of catalog.exercises) {
+        const prerequisites = prerequisitesSatisfied(exercise, request, catalog);
+        if (prerequisites.ok || prerequisites.failures.some((item) => item.reason !== "movement_confirmation_required")) continue;
+        const candidate = { exerciseId: exercise.id, roleTier: roleTier(exercise, slot.role),
+          _preferred: request.preferredExerciseIds.includes(exercise.id) };
+        if (candidate.roleTier === null || compareCandidates(candidate, currentCandidate) >= 0
+          || best && compareCandidates(candidate, best.candidate) >= 0) continue;
+        const prerequisiteIds = prerequisites.failures.map((item) => item.prerequisiteId).sort();
+        const confirmed = { ...request, movementConfirmations: { ...request.movementConfirmations,
+          [exercise.id]: unique([...(request.movementConfirmations[exercise.id] || []), ...prerequisiteIds]) } };
+        if (candidateFailure(exercise, purpose, slot.role, confirmed, catalog, new Set(), usedIds, usedGroups)) continue;
+        best = { candidate, prerequisiteIds };
+      }
+      if (best) offers.push({ dayId: day.id, slotId: slot.id, currentExerciseId: slot.exerciseId,
+        offeredExerciseId: best.candidate.exerciseId, prerequisiteIds: best.prerequisiteIds });
+    }
+    return offers;
   }
 
   function failure(conflicts) { return { ok: false, value: null, conflicts, explanations: [] }; }
@@ -1192,16 +673,22 @@
     excludedIds.add(selectedSlot.exerciseId);
     if (!Array.isArray(selectedSlot.movementPatternIds) || !Array.isArray(selectedSlot.musclePurposeIds)
       || typeof selectedSlot.exerciseTypeId !== "string") return [];
-    const selectedExercise = catalog.exercises.find((entry) => entry.id === selectedSlot.exerciseId);
-    const executionContexts = normalizedContext.executionContexts || {};
+    const selectedExercise = catalog.exercises.find((exercise) => exercise.id === selectedSlot.exerciseId);
+    const purposeMuscles = selectedSlot.role.endsWith("Accessory") ? selectedSlot.musclePurposeIds
+      : selectedExercise?.primaryFeatureMuscle || selectedSlot.musclePurposeIds;
     const pool = candidatesForJob({
       purposeId: selectedSlot.purposeId,
       patternIds: selectedSlot.movementPatternIds,
-      muscleIds: selectedSlot.musclePurposeIds,
+      muscleIds: purposeMuscles,
       exerciseTypeId: selectedSlot.exerciseTypeId,
-      repClass: selectedSlot.role.endsWith("Accessory") ? "assistance" : selectedSlot.role.startsWith("strength") ? "first_push_lower" : "first_push_lower",
-    }, selectedSlot.role, normalizedContext, catalog, { excludedIds, usedIds, usedGroups, seed: program.seed || "" });
-    return pool.candidates.map((candidate) => ({
+    }, selectedSlot.role, normalizedContext, catalog, { excludedIds, usedIds, usedGroups });
+    let sourceSelector;
+    try { sourceSelector = CANDIDATES.create(catalog, normalizedContext, (exercise) =>
+      prerequisitesSatisfied(exercise, normalizedContext, catalog).ok); }
+    catch { return []; }
+    const sourceType = selectedSlot.role.endsWith("PrimaryCompound") ? "primary"
+      : selectedSlot.role.endsWith("Accessory") ? "accessory" : "secondary";
+    return pool.candidates.filter((candidate) => sourceSelector.eligibleForRole(candidate.exerciseId, sourceType)).map((candidate) => ({
       exerciseId: candidate.exerciseId,
       roleTier: candidate.roleTier,
       eligibleEquipmentContexts: candidate.eligibleEquipmentContexts,
@@ -1246,7 +733,7 @@
   const REQUEST_KEYS = new Set(["goal", "experience", "daysPerWeek", "timeCeilingMinutes", "gymProfile", "competencyAnswers",
     "movementConfirmations", "emphasisMuscleIds", "deprioritizedMuscleIds", "excludedExerciseIds", "excludedMuscleIds",
     "preferredExerciseIds", "split", "periodization", "cycles", "deloadCycles", "seed", "executionContexts"]);
-  const ROOT_PROVENANCE_KEYS = new Set(["source", "policyVersion", "goal", "split", "selection", "approximations", "estimatedSessionSeconds", "focusNotApplied"]);
+  const ROOT_PROVENANCE_KEYS = new Set(["source", "policyVersion", "goal", "split", "selection", "approximations", "estimatedSessionSeconds", "focusNotApplied", "generationBudgetMinutes"]);
   const SET_PROVENANCE_KEYS = new Set(["source", "policyVersion", "periodization", "deload", "approximation"]);
   const CUSTOM_EXERCISE_KEYS = new Set([
     "id", "name", "namePt", "equipment", "primary", "secondary", "notes", "metricIds", "metricDefinitions",
@@ -1376,7 +863,7 @@
     if (!checkKeys(program, PROGRAM_KEYS, "program", issues)) return { ok: false, issues };
     if (!SUPPORTED_PROGRAM_SCHEMA_VERSIONS.includes(program.schemaVersion)) issues.push("program.schemaVersion: unsupported");
     if (typeof program.generatorVersion !== "string" || !program.generatorVersion) issues.push("program.generatorVersion: expected a version");
-    if (typeof program.seed !== "string") issues.push("program.seed: expected a string");
+    if (program.seed !== undefined && typeof program.seed !== "string") issues.push("program.seed: expected a string");
     validateRequestSnapshot(program.request, validCatalog(catalogSnapshot) ? catalogSnapshot : null, issues);
     if (!Number.isInteger(program.cycles) || program.cycles < 1 || program.cycles > 12) issues.push("program.cycles: unsupported");
     if (!Array.isArray(program.deloadCycles) || program.deloadCycles.some((value) => !Number.isInteger(value) || value < 1 || value > program.cycles)
@@ -1386,6 +873,7 @@
     for (const key of ["source", "policyVersion"]) if (typeof program.provenance[key] !== "string" || !program.provenance[key]) issues.push(`program.provenance.${key}: required`);
     if (program.provenance.goal !== undefined && !GOALS.includes(program.provenance.goal)) issues.push("program.provenance.goal: unsupported");
     if (program.provenance.split !== undefined && program.provenance.split !== "auto" && !owns(SPLITS, program.provenance.split)) issues.push("program.provenance.split: unsupported");
+    if (program.provenance.generationBudgetMinutes !== undefined && (!finite(program.provenance.generationBudgetMinutes) || program.provenance.generationBudgetMinutes <= 0)) issues.push("program.provenance.generationBudgetMinutes: expected a positive number");
     if (program.provenance.selection !== undefined && typeof program.provenance.selection !== "string") issues.push("program.provenance.selection: expected a string");
     if (program.provenance.approximations !== undefined && (!Array.isArray(program.provenance.approximations) || program.provenance.approximations.some((entry) => typeof entry !== "string"))) issues.push("program.provenance.approximations: invalid list");
     if (program.provenance.estimatedSessionSeconds !== undefined && (!isPlainObject(program.provenance.estimatedSessionSeconds)
@@ -1519,7 +1007,7 @@
             }
             const targets = METRIC_DOMAIN.validateTargets(slot.metricIds || [], set.targets);
             if (!targets.ok) issues.push(...targets.issues.map((issue) => `${setPath}.${issue}`));
-            if (set.rir !== null && (!finite(set.rir) || set.rir < 0 || set.rir > 4)) issues.push(`${setPath}.rir: outside 0–4`);
+            if (set.rir !== null && (!finite(set.rir) || set.rir < 0 || set.rir > 6)) issues.push(`${setPath}.rir: outside 0–6`);
             if (set.restSeconds !== null && (!Number.isSafeInteger(set.restSeconds) || set.restSeconds < 0 || set.restSeconds > 86400)) issues.push(`${setPath}.restSeconds: invalid`);
             if (!["ready", "manual", "configuration_required"].includes(set.status)) issues.push(`${setPath}.status: unsupported`);
             if (!slot.metricIds?.length && set.status !== "configuration_required") issues.push(`${setPath}.status: explicit metric configuration required`);
@@ -1566,14 +1054,6 @@
     return target.min >= 0 && target.max >= target.min;
   }
 
-  function purposePolicyForMuscle(muscleId, catalog) {
-    for (const jobValue of STANDARD_JOBS.filter((entry) => entry.repClass === "assistance")) {
-      const resolved = resolveJobPolicy(jobValue, catalog);
-      if (!resolved.issues.length && resolved.muscleIds.includes(muscleId)) return resolved;
-    }
-    return null;
-  }
-
   function apiMetricDefinition(name) {
     const entry = METRIC_SEMANTICS[name];
     return entry ? { semantic: entry.semantic, unit: entry.unit } : null;
@@ -1593,6 +1073,9 @@
     METRIC_SEMANTICS,
     METRIC_SOURCE_IDS,
     generateProgram,
+    canonicalizeRequest,
+    generationIdentity,
+    availableSplits,
     generatedDayNameKey,
     findSubstitutions,
     validateProgramDefinition,

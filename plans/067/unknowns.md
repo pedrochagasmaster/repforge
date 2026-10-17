@@ -1,5 +1,16 @@
 # Unrecovered behavior and chosen defaults
 
+> Historical dispositions for Plan 067. For the generation follow-up, use the
+> [approved spec](../../docs/generator-rule-parity-spec.md) and
+> [Plan 073 gap matrix](../073-generator-rule-parity.md#1-base-e-matriz-de-gaps).
+> Generation entries below are historical. Plan 073 now reconstructs candidate
+> selection, allocation, all 13 split constructors, distribution, ordering,
+> goal/period targets and deload under explicit source and finite SDK contracts.
+> Its implementation status separates source recovery from final product proof.
+> Godmode2's actual inputs remain unconfirmed; matching that export is not a
+> transactional parity claim. The old chosen defaults do not override Plan 073.
+> Progression/fatigue uncertainties below remain outside that follow-up.
+
 Read the raw database before relying on the supplied reconstruction. Evidence
 labels here take precedence over statements of exactness in the supplied reports.
 

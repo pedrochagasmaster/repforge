@@ -931,12 +931,12 @@
     "onboarding-recommend/muscle-priorities": {
       "owner": "plan-072",
       "content": "flat",
-      "scenario": "Twelve muscles, each Less, Normal or More; glutes set to More and calves to Less; Skip."
+      "scenario": "Twenty-two muscles, each Less, Normal or More; glutes set to More and calves to Less; Skip."
     },
     "onboarding-recommend/muscle-priorities-limit": {
       "owner": "plan-072",
       "content": "flat",
-      "scenario": "Five muscles prioritized and a sixth refused with the limit line."
+      "scenario": "All twenty-two muscles prioritized and accepted, with every More radio selected."
     },
     "onboarding-recommend/deload": {
       "owner": "plan-072",

@@ -816,8 +816,8 @@ assert(Draft.isPristine(apply(fresh(), "beginFinish", {})) === false, "starting 
 assert(Draft.isPristine(apply(apply(fresh(), "beginFinish", {}), "cancelFinish", {})) === true, "cancelling the finish flow restores pristine state");
 assert(Draft.isPristine(null) === false && Draft.isPristine({}) === false, "pristine rejects non-aggregates closed");
 
-console.log("\nIssue #320: a pre-Plan-067 programmed target RIR above 4 clamps and resumes");
-for (const legacyTargetRir of [5, 6]) {
+console.log("\nIssue #320: a pre-Plan-067 programmed target RIR above 6 clamps and resumes");
+for (const legacyTargetRir of [7, 8]) {
   const draft = fresh();
   const setId = draft.exercises["slot-squat"].setOrder[0];
   const rawDraft = JSON.parse(JSON.stringify(Draft.serialize(draft)));
@@ -827,13 +827,13 @@ for (const legacyTargetRir of [5, 6]) {
   rawDraft.exercises["slot-squat"].sets[setId].edited.load = "61.5";
   rawDraft.exercises["slot-squat"].sets[setId].edited.reps = "7";
   // The lifter's own typed/logged RIR has never had an upper bound (it still
-  // doesn't), so a value above 4 here must resume untouched.
+  // doesn't), so a value above 6 here must resume untouched.
   rawDraft.exercises["slot-squat"].sets[setId].edited.rir = "8";
 
   const parsed = Draft.parse(JSON.stringify(rawDraft));
   assert(parsed.kind === "valid", `a stored draft with programmed target RIR ${legacyTargetRir} parses as valid, not invalid-schema`);
   const parsedSet = parsed.kind === "valid" ? parsed.draft.exercises["slot-squat"].sets[setId] : null;
-  assert(parsedSet?.programmed.targetRir === 4, `programmed target RIR ${legacyTargetRir} clamps down to 4`);
+  assert(parsedSet?.programmed.targetRir === 6, `programmed target RIR ${legacyTargetRir} clamps down to 6`);
   assert(parsedSet?.programmed.targetRirClamped === true, `the clamp from ${legacyTargetRir} is recorded as programmed.targetRirClamped`);
   assert(parsedSet?.edited.load === "61.5" && parsedSet?.edited.reps === "7",
     "the lifter's typed load and reps resume intact alongside the clamp");
@@ -841,7 +841,7 @@ for (const legacyTargetRir of [5, 6]) {
     "the lifter's own logged RIR, unbounded before and after Plan 067, resumes untouched by the clamp");
 
   const resaved = parsed.kind === "valid" ? Draft.serialize(parsed.draft) : null;
-  assert(resaved?.exercises["slot-squat"].sets[setId].programmed.targetRir === 4 &&
+  assert(resaved?.exercises["slot-squat"].sets[setId].programmed.targetRir === 6 &&
     resaved?.exercises["slot-squat"].sets[setId].programmed.targetRirClamped === true,
     "the draft saves back out with the clamped target and its marker intact");
 }
@@ -879,17 +879,17 @@ console.log("\nIssue #320: create() clamps a target RIR that falls back to the l
       exerciseInstanceId: "slot-squat",
       setupNotes: "",
       sets: [
-        { ordinal: 1, load: 47.5, reps: 9, rir: 6 },
+        { ordinal: 1, load: 47.5, reps: 9, rir: 8 },
         { ordinal: 2, load: 47.5, reps: 8, rir: 1 },
       ],
     },
   });
-  assert(!Draft.isDomainError(created), "create() does not fail closed when the only available target RIR is a historical 6 above the ceiling",
+  assert(!Draft.isDomainError(created), "create() does not fail closed when the only available target RIR is a historical 8 above the ceiling",
     Draft.isDomainError(created) ? JSON.stringify(created) : "");
   if (!Draft.isDomainError(created)) {
     const setId = created.exercises["slot-squat"].setOrder[0];
     const set = created.exercises["slot-squat"].sets[setId];
-    assert(set.programmed.targetRir === 4, "the historical RIR 6 fallback clamps to 4 on creation");
+    assert(set.programmed.targetRir === 6, "the historical RIR 8 fallback clamps to 6 on creation");
     assert(set.programmed.targetRirClamped === true, "the clamp on creation is recorded as programmed.targetRirClamped");
     assert(Draft.validate(created).ok, "the freshly created draft with the clamped target still validates");
   }

@@ -321,15 +321,6 @@ export async function openAppPage(browser, {
 function installRecipeWorkerProbe({ holdReplies = true } = {}) {
   const NativeWorker = window.Worker;
   const probe = { requests: [], held: [], workers: [], holdReplies };
-  const canonical = (value) => {
-    if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
-    if (value && typeof value === "object") {
-      return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`;
-    }
-    return JSON.stringify(value);
-  };
-  const digest = (value) => crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical(value)))
-    .then((bytes) => [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, "0")).join(""));
   probe.release = (index) => {
     const held = probe.held.splice(index, 1)[0];
     if (!held) return false;
@@ -370,7 +361,8 @@ function installRecipeWorkerProbe({ holdReplies = true } = {}) {
     postMessage(message, ...rest) {
       if (message?.type === "generate") {
         const item = { id: message.id, identity: null };
-        item.identityReady = digest({ request: message.request, seed: message.seed })
+        item.identityReady = Promise.resolve(window.RepForgeProgramCompiler.generationIdentity(
+          message.request, window.RepForgeExerciseCatalog.snapshot()))
           .then((value) => { item.identity = value; });
         probe.requests.push(item);
       }
@@ -387,17 +379,16 @@ function installRecipeWorkerProbe({ holdReplies = true } = {}) {
  * A current setup document, built in the page from the app's own catalog. One
  * training day uses the seed fixture's Build definition with its other training
  * days turned into rest days; two to six days use a real generated program,
- * which the codec carries as its generator request and seed.
+ * which the codec carries as its canonical generator request.
  */
 export async function buildSetupDocument(page, {
   name = "Coach program",
   settings = DEFAULT_SHARED_SETTINGS,
   trainingDays = 1,
-  seed = "shared-setup-flow",
 } = {}) {
   const shared = Object.fromEntries(SETTING_KEYS.map((key) => [key, settings[key] ?? DEFAULT_SHARED_SETTINGS[key]]));
   const seedDefinition = trainingDays === 1 ? seedProgramMeta().programDefinition : null;
-  return page.evaluate(({ name, settings, trainingDays, seed, seedDefinition }) => {
+  return page.evaluate(({ name, settings, trainingDays, seedDefinition }) => {
     const api = window.RepForgeSharedSetup;
     let definition;
     if (seedDefinition) {
@@ -416,10 +407,10 @@ export async function buildSetupDocument(page, {
         daysPerWeek: Math.min(6, Math.max(2, trainingDays)), sessionMinutes: 60,
         environment: { kind: "commercial_gym" },
       }, catalog).value;
-      definition = window.RepForgeProgramCompiler.generateProgram(request, catalog, seed).value;
+      definition = window.RepForgeProgramCompiler.generateProgram(request, catalog).value;
     }
     return { kind: api.KIND, version: api.VERSION, program: { name, definition }, settings, language: settings.lang };
-  }, { name, settings: shared, trainingDays, seed, seedDefinition });
+  }, { name, settings: shared, trainingDays, seedDefinition });
 }
 
 /** Encode a current setup document with the app's codec and its production options. */
@@ -558,21 +549,21 @@ async function freshDevice(page) {
 }
 
 /** Activate a real generated program through the production finalize path. */
-async function activateGeneratedProgram(page, { name = "Coach program", daysPerWeek = 3, seed = "sender" } = {}) {
-  const ok = await page.evaluate(async ({ name, daysPerWeek, seed }) => {
+async function activateGeneratedProgram(page, { name = "Coach program", daysPerWeek = 3 } = {}) {
+  const ok = await page.evaluate(async ({ name, daysPerWeek }) => {
     const catalog = window.RepForgeExerciseCatalog.snapshot();
     const request = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
       desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek, sessionMinutes: 60,
       environment: { kind: "commercial_gym" },
     }, catalog).value;
-    const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog, seed).value;
+    const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog).value;
     const result = await window.__repforgeFinalizeProgramSetup({
       programDefinition: definition, name, answers: {}, destination: "log", origin: "first-run",
-      draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: seed },
+      draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: window.RepForgeProgramCompiler.generationIdentity(request, catalog) },
     });
     await window.__repforgeStorage.flush();
     return !!(result?.localOk || result?.idbOk);
-  }, { name, daysPerWeek, seed });
+  }, { name, daysPerWeek });
   if (!ok) throw new Error("the generated program did not activate");
 }
 
@@ -1141,9 +1132,9 @@ export async function runSharedSetupFlow(browser) {
   await runCase("Recipe link decoding waits for the foreground engine and keeps only the latest open", async () => {
     const sender = await openAppPage(browser);
     await freshDevice(sender.page);
-    const firstDocument = await buildSetupDocument(sender.page, { name: "First recipe", trainingDays: 4, seed: "s5-recipe-first" });
+    const firstDocument = await buildSetupDocument(sender.page, { name: "First recipe", trainingDays: 4 });
     const firstEncoded = await encodeSetupDocument(sender.page, firstDocument);
-    const secondDocument = await buildSetupDocument(sender.page, { name: "Latest recipe", trainingDays: 5, seed: "s5-recipe-latest" });
+    const secondDocument = await buildSetupDocument(sender.page, { name: "Latest recipe", trainingDays: 5 });
     const secondEncoded = await encodeSetupDocument(sender.page, secondDocument);
     assert(firstEncoded.ok && firstEncoded.form === "recipe" && secondEncoded.ok && secondEncoded.form === "recipe",
       "both links use the compact recipe form", { firstForm: firstEncoded.form, secondForm: secondEncoded.form });
@@ -1259,6 +1250,58 @@ export async function runSharedSetupFlow(browser) {
       fallbackState.engine?.mode === "main" && fallbackState.engine?.main === 1 && fallbackState.engine?.worker === 0,
     "recipe decode uses the existing engine's honest main-thread fallback", fallbackState);
     await fallback.context.close();
+  });
+
+  await runCase("Saved 073.3 split definitions remain readable without regeneration", async () => {
+    const fixtures = JSON.parse(readFileSync(new URL("./fixtures/generation-policy-073-3.json", import.meta.url), "utf8"));
+    for (const fixture of fixtures.cases) {
+      const { context, page } = await openAppPage(browser);
+      await freshDevice(page);
+      const committed = await page.evaluate(async ({ definition, label }) => {
+        const outcome = await window.__repforgeFinalizeProgramSetup({ programDefinition: definition,
+          name: `Retained ${label}`, answers: {}, destination: "log", origin: "first-run", draftConfirmed: true,
+          telemetryRoute: "import", entrySource: { route: "import", fingerprint: label } });
+        await window.__repforgeStorage.flush();
+        return outcome;
+      }, fixture);
+      assert(committed?.localOk || committed?.idbOk, `${fixture.label}: the real definition reader and finalizer accept the recorded old definition`);
+      const before = await page.evaluate(readDurableState);
+      assert(canonicalJson(before.state?.programMeta?.programDefinition) === canonicalJson(fixture.definition),
+        `${fixture.label}: saving retains the old split identity, positions and prescriptions exactly`);
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(page, { timeout: 15000, base: BASE });
+      const after = await page.evaluate(readDurableState);
+      const stats = await page.evaluate(() => window.__repforgeProgramEngine?.stats?.());
+      assert(canonicalJson(after.state?.programMeta?.programDefinition) === canonicalJson(fixture.definition),
+        `${fixture.label}: ordinary reload reads the exact old definition instead of reinterpreting its split ID`);
+      assert(!stats?.worker && !stats?.main, `${fixture.label}: reading the saved definition never invokes the current generator`, stats);
+      await context.close();
+    }
+  });
+
+  await runCase("073.3 recipes are refused before the current generator runs", async () => {
+    const fixtures = JSON.parse(readFileSync(new URL("./fixtures/generation-policy-073-3.json", import.meta.url), "utf8"));
+    for (const fixture of fixtures.cases) {
+      const { context, page } = await openAppPage(browser);
+      await freshDevice(page);
+      await waitForFirstRun(page);
+      const before = await page.evaluate(readDurableState);
+      await page.goto(setupUrl(fixture.recipe, `old-${fixture.label}`), { waitUntil: "domcontentloaded" });
+      await waitForFirstRun(page);
+      const hook = await page.evaluate(readSharedHook);
+      const gate = await page.evaluate(sharedGateSnapshot);
+      const after = await page.evaluate(readDurableState);
+      const stats = await page.evaluate(() => window.__repforgeProgramEngine?.stats?.());
+      assert(hook.status === "unsupported" && hook.error === "unsupported-version",
+        `${fixture.label}: the recorded earlier recipe is explicitly unsupported`, hook);
+      assert(!gate.startVisible && gate.createVisible && gate.importVisible,
+        `${fixture.label}: refusal restores ordinary setup choices`);
+      assert(!stats?.worker && !stats?.main, `${fixture.label}: version refusal occurs before generation`, stats);
+      assert(noSharedWrite(before, after, `Retained ${fixture.label}`).length === 0,
+        `${fixture.label}: refusing the old recipe writes no program, draft or history`);
+      assert(!after.cookie && !(await handoffCookie(context)), `${fixture.label}: no proposal cookie is retained`);
+      await context.close();
+    }
   });
 
   // #340 (Plan 072 OD-11): the plain GENERATOR_VERSION bump retires recipe
@@ -1442,7 +1485,7 @@ export async function runSharedSetupFlow(browser) {
     for (const label of ["onboarded program", "archived history"]) {
       const { context, page } = await openAppPage(browser, { locale: "en-US" });
       await freshDevice(page);
-      await activateGeneratedProgram(page, { name: "Existing split", seed: "existing-a" });
+      await activateGeneratedProgram(page, { name: "Existing split" });
       if (label === "onboarded program") {
         // Activation writes what boot would normalize, so the next boot rewrites nothing.
         const rawActivated = await page.evaluate((k) => localStorage.getItem(k), KEY);
@@ -1458,7 +1501,7 @@ export async function runSharedSetupFlow(browser) {
           { before: JSON.parse(rawActivated)?._storageRevision, after: JSON.parse(rawReloaded)?._storageRevision });
       }
       if (label === "archived history") {
-        await activateGeneratedProgram(page, { name: "Existing split", seed: "existing-b" });
+        await activateGeneratedProgram(page, { name: "Existing split" });
         await editDurableState(page, (state) => { state.programMeta.onboarded = false; });
       }
       const encoded = await encodeSetupDocument(page,
@@ -1556,8 +1599,8 @@ export async function runSharedSetupFlow(browser) {
       let spec = { onboarded: true };
       if (label === "concurrent program history") {
         // A real archive entry: what activating and then replacing a program leaves behind.
-        await activateGeneratedProgram(page, { name: "Archived", seed: "archived-a" });
-        await activateGeneratedProgram(page, { name: "Archived", seed: "archived-b" });
+        await activateGeneratedProgram(page, { name: "Archived" });
+        await activateGeneratedProgram(page, { name: "Archived" });
         spec = { addHistory: (await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).programHistory, KEY)).slice(0, 1) };
         await freshDevice(page);
       }

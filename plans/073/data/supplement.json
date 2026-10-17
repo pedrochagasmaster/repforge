@@ -1,0 +1,1156 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "id": "source-manifest.json",
+      "sha256": "73bd826c17864b6039d527cff9598df071cf09abfb1783fe1bc2cdc8549a56e9"
+    },
+    {
+      "id": "screenshots.transcribed.json",
+      "sha256": "563ffd6a4d3eb75d110011c5a314e008f60aa73432b25c63492474246ca05cca"
+    },
+    {
+      "id": "programs.normalized.json",
+      "sha256": "a408002f2f3688cd4fd399770bd6f53c39c5fcd4a9c8de693a4317e42afade39"
+    },
+    {
+      "id": "gym-profile.normalized.json",
+      "sha256": "b0376507de827eefb1fd0c97e26d955bd186b56eeae6595500482a0550dc66c8"
+    },
+    {
+      "id": "auto-split.decoded.json",
+      "sha256": "e66c7b4271cfc2f7757258fd65867ca29d564554335a539af28c08a5465ac101"
+    },
+    {
+      "id": "duration.decoded.json",
+      "sha256": "4009a64c6161b8fbcac68a0835376bf3f6e8bc91d71395d092fac09d7bb07960"
+    },
+    {
+      "id": "upperLowerFull.decoded.json",
+      "sha256": "39cbcce53afc9b5fa17a9f18b8896b1ba0ad5a53e6d4004ecfcce97dc7425d70"
+    },
+    {
+      "id": "Godmode2 archive",
+      "sha256": "aa01f483cdc697d4b1f169402c62fd3eb00c9be73373b6e027f5e1ab23dda52b"
+    },
+    {
+      "id": "Screenshot_20261015_070054.jpg",
+      "sha256": "1224148d5b346851b9e32b14488614a5d3de93e6da1dc257057a1627744037cc"
+    },
+    {
+      "id": "Screenshot_20261015_070106.jpg",
+      "sha256": "2ef68c9f3f2f1729865566753cfaab5161c4c86e94a1d2f61b232a9b3a15c60e"
+    },
+    {
+      "id": "Screenshot_20261015_070154.jpg",
+      "sha256": "d5b1b409257a98d37f814f1d7ca41fa530bdc7dbae39cc7a585f487e3eeffd13"
+    },
+    {
+      "id": "Screenshot_20261015_070204.jpg",
+      "sha256": "9633ab3fb51e5997e7b7e35f826e0b3ed1172652ba6faaff50a9ceeb3d49fcb4"
+    },
+    {
+      "id": "Screenshot_20261015_070209.jpg",
+      "sha256": "52eedb21318f0750f717279081feab01afc0f60e96883c33c4b226c07502ba31"
+    },
+    {
+      "id": "Screenshot_20261015_070215.jpg",
+      "sha256": "4c623fc704bae8a596d9fe2624bd856b82fc5241782102602c667b9f480a5401"
+    },
+    {
+      "id": "Screenshot_20261015_070307.jpg",
+      "sha256": "c8b4a9d1072b9b0984fd188abca35d17f8196157ed23b1af5e16e5792e9d3269"
+    },
+    {
+      "id": "Screenshot_20261015_070318.jpg",
+      "sha256": "099f6988917309bcba87a7e13e020cc165e0fe715cc1a9a888f9b7da217a0a9a"
+    },
+    {
+      "id": "Screenshot_20261015_070325.jpg",
+      "sha256": "09375dbebacc084d922515dd03370384d7f550cf2c11b2764f7021c945f08960"
+    },
+    {
+      "id": "Screenshot_20261015_070332.jpg",
+      "sha256": "49313f68ddb013f77b664269d05a215860629a60264502f94ea105e221fbdda7"
+    },
+    {
+      "id": "Screenshot_20261015_070336.jpg",
+      "sha256": "70d511fc8206ef8ebdc548fe3db8d0d3b8594cd3ce70096c36e62f71ff56ed32"
+    },
+    {
+      "id": "MacroFactor-20261015070505.xlsx",
+      "sha256": "059d9566ba2eb5347daa3683d772606ef3595eb7896d8190d6b2508192cf0bf8"
+    }
+  ],
+  "questionnaire": {
+    "creation_mode": {
+      "value": "smart",
+      "sources": [
+        "Screenshot_20261015_070054.jpg"
+      ]
+    },
+    "goal": {
+      "value": "both",
+      "sources": [
+        "Screenshot_20261015_070106.jpg"
+      ]
+    },
+    "days_per_week": {
+      "value": 3,
+      "sources": [
+        "Screenshot_20261015_070154.jpg"
+      ]
+    },
+    "split_preference": {
+      "value": null,
+      "sources": [
+        "Screenshot_20261015_070204.jpg"
+      ]
+    },
+    "periodization": {
+      "value": "static",
+      "sources": [
+        "Screenshot_20261015_070215.jpg"
+      ]
+    },
+    "experience": {
+      "value": "Advanced",
+      "sources": [
+        "Screenshot_20261015_070332.jpg",
+        "Screenshot_20261015_070336.jpg"
+      ]
+    },
+    "workout_length": {
+      "enum": "max60",
+      "label": "40 to 60 minutes",
+      "source": "Screenshot_20261015_070209.jpg"
+    },
+    "muscle_emphasis": {
+      "prioritized": [],
+      "deprioritized": [
+        "Abs",
+        "Obliques",
+        "Serratus",
+        "Neck",
+        "Calves",
+        "Abductors",
+        "Adductors",
+        "Tibialis"
+      ],
+      "sources": [
+        "Screenshot_20261015_070307.jpg",
+        "Screenshot_20261015_070318.jpg",
+        "Screenshot_20261015_070325.jpg"
+      ]
+    },
+    "deload": {
+      "value": false,
+      "source": "Screenshot_20261015_070336.jpg"
+    }
+  },
+  "equipment": [
+    {
+      "name": "45° Leg Press",
+      "source": "Gym Profiles!D3:E3"
+    },
+    {
+      "name": "Ab Wheel",
+      "source": "Gym Profiles!D4:E4"
+    },
+    {
+      "name": "Adjustable Bench",
+      "source": "Gym Profiles!D5:E5"
+    },
+    {
+      "name": "Aerobic Steps",
+      "source": "Gym Profiles!D6:E6"
+    },
+    {
+      "name": "Anchor Point For Resistance Band",
+      "source": "Gym Profiles!D7:E7"
+    },
+    {
+      "name": "Anchor Point For Suspension Trainer",
+      "source": "Gym Profiles!D8:E8"
+    },
+    {
+      "name": "Barbell",
+      "source": "Gym Profiles!D9:E9"
+    },
+    {
+      "name": "Bike",
+      "source": "Gym Profiles!D10:E10"
+    },
+    {
+      "name": "Bodyweight Only",
+      "source": "Gym Profiles!D11:E11"
+    },
+    {
+      "name": "Captain’s Chair",
+      "source": "Gym Profiles!D12:E12"
+    },
+    {
+      "name": "Chest-Supported Pin-Loaded Row",
+      "source": "Gym Profiles!D13:E13"
+    },
+    {
+      "name": "Chest-Supported T-Bar Row",
+      "source": "Gym Profiles!D14:E14"
+    },
+    {
+      "name": "Cuff Cable Attachments",
+      "source": "Gym Profiles!D15:E15"
+    },
+    {
+      "name": "Decline Bench",
+      "source": "Gym Profiles!D16:E16"
+    },
+    {
+      "name": "Decline Bench Press Station",
+      "source": "Gym Profiles!D17:E17"
+    },
+    {
+      "name": "Dip Bars",
+      "source": "Gym Profiles!D18:E18"
+    },
+    {
+      "name": "Dip/Pull-Up/Belt Squat Belt",
+      "source": "Gym Profiles!D19:E19"
+    },
+    {
+      "name": "Dumbbells",
+      "source": "Gym Profiles!D20:E20"
+    },
+    {
+      "name": "EZ Bar",
+      "source": "Gym Profiles!D21:E21"
+    },
+    {
+      "name": "Elliptical",
+      "source": "Gym Profiles!D22:E22"
+    },
+    {
+      "name": "Fixed-Weight EZ Bar",
+      "source": "Gym Profiles!D23:E23"
+    },
+    {
+      "name": "Fixed-Weight Straight Bar",
+      "source": "Gym Profiles!D24:E24"
+    },
+    {
+      "name": "Flat Bench",
+      "source": "Gym Profiles!D25:E25"
+    },
+    {
+      "name": "Flat Bench Press Station",
+      "source": "Gym Profiles!D26:E26"
+    },
+    {
+      "name": "Glute Ham Developer",
+      "source": "Gym Profiles!D27:E27"
+    },
+    {
+      "name": "Hack Squat",
+      "source": "Gym Profiles!D28:E28"
+    },
+    {
+      "name": "Incline Bench Press Station",
+      "source": "Gym Profiles!D29:E29"
+    },
+    {
+      "name": "Kettlebells",
+      "source": "Gym Profiles!D30:E30"
+    },
+    {
+      "name": "Landmine Attachment/Wall Corner",
+      "source": "Gym Profiles!D31:E31"
+    },
+    {
+      "name": "Long Resistance Bands",
+      "source": "Gym Profiles!D32:E32"
+    },
+    {
+      "name": "Lying Pin-Loaded Leg Curl",
+      "source": "Gym Profiles!D33:E33"
+    },
+    {
+      "name": "Medicine Ball",
+      "source": "Gym Profiles!D34:E34"
+    },
+    {
+      "name": "Multi-Grip Pull-Up Bar",
+      "source": "Gym Profiles!D35:E35"
+    },
+    {
+      "name": "Pec Deck",
+      "source": "Gym Profiles!D36:E36"
+    },
+    {
+      "name": "Pin-Loaded Assisted Pull-Up/Dip",
+      "source": "Gym Profiles!D37:E37"
+    },
+    {
+      "name": "Pin-Loaded Biceps Curl With Arms At Side",
+      "source": "Gym Profiles!D38:E38"
+    },
+    {
+      "name": "Pin-Loaded Cable Crossover",
+      "source": "Gym Profiles!D39:E39"
+    },
+    {
+      "name": "Pin-Loaded Cable Lat Pulldown",
+      "source": "Gym Profiles!D40:E40"
+    },
+    {
+      "name": "Pin-Loaded Crunch (With Overhead Handles)",
+      "source": "Gym Profiles!D41:E41"
+    },
+    {
+      "name": "Pin-Loaded Fixed Lat Pulldown",
+      "source": "Gym Profiles!D42:E42"
+    },
+    {
+      "name": "Pin-Loaded Functional Trainer",
+      "source": "Gym Profiles!D43:E43"
+    },
+    {
+      "name": "Pin-Loaded Hip Abductor/Adductor Combo Machine",
+      "source": "Gym Profiles!D44:E44"
+    },
+    {
+      "name": "Pin-Loaded Leg Extension",
+      "source": "Gym Profiles!D45:E45"
+    },
+    {
+      "name": "Pin-Loaded Leg Press",
+      "source": "Gym Profiles!D46:E46"
+    },
+    {
+      "name": "Pin-Loaded Overhead Triceps Extension",
+      "source": "Gym Profiles!D47:E47"
+    },
+    {
+      "name": "Pin-Loaded Preacher Curl",
+      "source": "Gym Profiles!D48:E48"
+    },
+    {
+      "name": "Pin-Loaded Shoulder Press",
+      "source": "Gym Profiles!D49:E49"
+    },
+    {
+      "name": "Pin-Loaded Single Cable Machine",
+      "source": "Gym Profiles!D50:E50"
+    },
+    {
+      "name": "Pin-Loaded Triceps Extension (With Angled Arm Pad)",
+      "source": "Gym Profiles!D51:E51"
+    },
+    {
+      "name": "Plate-Loaded Hip Thrust (Starting From The Bottom)",
+      "source": "Gym Profiles!D52:E52"
+    },
+    {
+      "name": "Plate-Loaded Lat Pulldown",
+      "source": "Gym Profiles!D53:E53"
+    },
+    {
+      "name": "Plate-Loaded Shoulder Press",
+      "source": "Gym Profiles!D54:E54"
+    },
+    {
+      "name": "Plyometric Boxes",
+      "source": "Gym Profiles!D55:E55"
+    },
+    {
+      "name": "Power Rack",
+      "source": "Gym Profiles!D56:E56"
+    },
+    {
+      "name": "Preacher Curl Bench",
+      "source": "Gym Profiles!D57:E57"
+    },
+    {
+      "name": "Roman Chair",
+      "source": "Gym Profiles!D58:E58"
+    },
+    {
+      "name": "Rowing Machine",
+      "source": "Gym Profiles!D59:E59"
+    },
+    {
+      "name": "Seated Bench",
+      "source": "Gym Profiles!D60:E60"
+    },
+    {
+      "name": "Seated Cable Row",
+      "source": "Gym Profiles!D61:E61"
+    },
+    {
+      "name": "Seated Pin-Loaded Back Extension",
+      "source": "Gym Profiles!D62:E62"
+    },
+    {
+      "name": "Seated Pin-Loaded Chest Press",
+      "source": "Gym Profiles!D63:E63"
+    },
+    {
+      "name": "Seated Pin-Loaded Dip",
+      "source": "Gym Profiles!D64:E64"
+    },
+    {
+      "name": "Seated Pin-Loaded Lateral Raise",
+      "source": "Gym Profiles!D65:E65"
+    },
+    {
+      "name": "Seated Pin-Loaded Leg Curl",
+      "source": "Gym Profiles!D66:E66"
+    },
+    {
+      "name": "Seated Plate-Loaded Calf Raise",
+      "source": "Gym Profiles!D67:E67"
+    },
+    {
+      "name": "Seated Plate-Loaded Chest Press",
+      "source": "Gym Profiles!D68:E68"
+    },
+    {
+      "name": "Short Resistance Band",
+      "source": "Gym Profiles!D69:E69"
+    },
+    {
+      "name": "Sissy Squat Machine",
+      "source": "Gym Profiles!D70:E70"
+    },
+    {
+      "name": "Smith Machine",
+      "source": "Gym Profiles!D71:E71"
+    },
+    {
+      "name": "Stability Ball",
+      "source": "Gym Profiles!D72:E72"
+    },
+    {
+      "name": "Stair Climber",
+      "source": "Gym Profiles!D73:E73"
+    },
+    {
+      "name": "Staircase",
+      "source": "Gym Profiles!D74:E74"
+    },
+    {
+      "name": "Standing Pin-Loaded Calf Raise",
+      "source": "Gym Profiles!D75:E75"
+    },
+    {
+      "name": "Standing Pin-Loaded Glute Kickback",
+      "source": "Gym Profiles!D76:E76"
+    },
+    {
+      "name": "Straight Pull-Up Bar",
+      "source": "Gym Profiles!D77:E77"
+    },
+    {
+      "name": "Suspension Trainer",
+      "source": "Gym Profiles!D78:E78"
+    },
+    {
+      "name": "Trap Bar",
+      "source": "Gym Profiles!D79:E79"
+    },
+    {
+      "name": "Treadmill",
+      "source": "Gym Profiles!D80:E80"
+    },
+    {
+      "name": "Upper Torso Rotation With Arm Or Shoulder Pads",
+      "source": "Gym Profiles!D81:E81"
+    },
+    {
+      "name": "V-Bar Row Grip Attachment",
+      "source": "Gym Profiles!D82:E82"
+    },
+    {
+      "name": "Weight Plates",
+      "source": "Gym Profiles!D83:E83"
+    },
+    {
+      "name": "Wrist Roller",
+      "source": "Gym Profiles!D84:E84"
+    }
+  ],
+  "observation": {
+    "name": "Godmode2",
+    "source": "Training Programs!A1",
+    "declaredCycles": 7,
+    "observedCycles": 1,
+    "deload": "None",
+    "days": [
+      {
+        "kind": "training",
+        "source": "Training Programs!A4",
+        "name": "Upper",
+        "exercises": [
+          {
+            "name": "Pause Barbell Bench Press",
+            "source": "Training Programs!B4",
+            "sets": [
+              {
+                "type": "Standard Set",
+                "reps": [
+                  4,
+                  6
+                ],
+                "rir": 3.0,
+                "source": "Training Programs!E4:H4"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  4,
+                  6
+                ],
+                "rir": 2.0,
+                "source": "Training Programs!I4:L4"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  4,
+                  6
+                ],
+                "rir": 1.0,
+                "source": "Training Programs!M4:P4"
+              }
+            ]
+          },
+          {
+            "name": "Pendlay Row",
+            "source": "Training Programs!B5",
+            "sets": [
+              {
+                "type": "Standard Set",
+                "reps": [
+                  7,
+                  9
+                ],
+                "rir": 2.0,
+                "source": "Training Programs!E5:H5"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  7,
+                  9
+                ],
+                "rir": 1.0,
+                "source": "Training Programs!I5:L5"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  7,
+                  9
+                ],
+                "rir": 0.0,
+                "source": "Training Programs!M5:P5"
+              }
+            ]
+          },
+          {
+            "name": "Pause Barbell Overhead Press",
+            "source": "Training Programs!B6",
+            "sets": [
+              {
+                "type": "Standard Set",
+                "reps": [
+                  4,
+                  6
+                ],
+                "rir": 3.0,
+                "source": "Training Programs!E6:H6"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  4,
+                  6
+                ],
+                "rir": 2.0,
+                "source": "Training Programs!I6:L6"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  4,
+                  6
+                ],
+                "rir": 1.0,
+                "source": "Training Programs!M6:P6"
+              }
+            ]
+          },
+          {
+            "name": "Neutral Grip Weighted Pull-Up",
+            "source": "Training Programs!B7",
+            "sets": [
+              {
+                "type": "Standard Set",
+                "reps": [
+                  7,
+                  9
+                ],
+                "rir": 2.0,
+                "source": "Training Programs!E7:H7"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  7,
+                  9
+                ],
+                "rir": 1.0,
+                "source": "Training Programs!I7:L7"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  7,
+                  9
+                ],
+                "rir": 0.0,
+                "source": "Training Programs!M7:P7"
+              }
+            ]
+          },
+          {
+            "name": "Seated Dumbbell Lateral Raise",
+            "source": "Training Programs!B8",
+            "sets": [
+              {
+                "type": "Standard Set",
+                "reps": [
+                  14,
+                  16
+                ],
+                "rir": 1.0,
+                "source": "Training Programs!E8:H8"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  14,
+                  16
+                ],
+                "rir": 0.0,
+                "source": "Training Programs!I8:L8"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  14,
+                  16
+                ],
+                "rir": 0.0,
+                "source": "Training Programs!M8:P8"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "rest",
+        "source": "Training Programs!A9"
+      },
+      {
+        "kind": "training",
+        "source": "Training Programs!A10",
+        "name": "Lower",
+        "exercises": [
+          {
+            "name": "Barbell Back Squat",
+            "source": "Training Programs!B10",
+            "sets": [
+              {
+                "type": "Standard Set",
+                "reps": [
+                  4,
+                  6
+                ],
+                "rir": 3.0,
+                "source": "Training Programs!E10:H10"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  4,
+                  6
+                ],
+                "rir": 2.0,
+                "source": "Training Programs!I10:L10"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  4,
+                  6
+                ],
+                "rir": 1.0,
+                "source": "Training Programs!M10:P10"
+              }
+            ]
+          },
+          {
+            "name": "Conventional Deadlift",
+            "source": "Training Programs!B11",
+            "sets": [
+              {
+                "type": "Standard Set",
+                "reps": [
+                  4,
+                  6
+                ],
+                "rir": 2.0,
+                "source": "Training Programs!E11:H11"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  4,
+                  6
+                ],
+                "rir": 1.0,
+                "source": "Training Programs!I11:L11"
+              }
+            ]
+          },
+          {
+            "name": "Hack Squat",
+            "source": "Training Programs!B12",
+            "sets": [
+              {
+                "type": "Standard Set",
+                "reps": [
+                  9,
+                  11
+                ],
+                "rir": 2.0,
+                "source": "Training Programs!E12:H12"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  9,
+                  11
+                ],
+                "rir": 1.0,
+                "source": "Training Programs!I12:L12"
+              }
+            ]
+          },
+          {
+            "name": "Seated Single Leg Hamstring Curl",
+            "source": "Training Programs!B13",
+            "sets": [
+              {
+                "type": "Standard Set",
+                "reps": [
+                  14,
+                  16
+                ],
+                "rir": 0.0,
+                "source": "Training Programs!E13:H13"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  14,
+                  16
+                ],
+                "rir": 0.0,
+                "source": "Training Programs!I13:L13"
+              }
+            ]
+          },
+          {
+            "name": "Dumbbell Reverse Lunge",
+            "source": "Training Programs!B14",
+            "sets": [
+              {
+                "type": "Standard Set",
+                "reps": [
+                  14,
+                  16
+                ],
+                "rir": 0.0,
+                "source": "Training Programs!E14:H14"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  14,
+                  16
+                ],
+                "rir": 0.0,
+                "source": "Training Programs!I14:L14"
+              }
+            ]
+          },
+          {
+            "name": "Machine Back Extension",
+            "source": "Training Programs!B15",
+            "sets": [
+              {
+                "type": "Standard Set",
+                "reps": [
+                  14,
+                  16
+                ],
+                "rir": 0.0,
+                "source": "Training Programs!E15:H15"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  14,
+                  16
+                ],
+                "rir": 0.0,
+                "source": "Training Programs!I15:L15"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "rest",
+        "source": "Training Programs!A16"
+      },
+      {
+        "kind": "training",
+        "source": "Training Programs!A17",
+        "name": "Full",
+        "exercises": [
+          {
+            "name": "Plate-Loaded Machine Hip Thrust (Starting From The Bottom)",
+            "source": "Training Programs!B17",
+            "sets": [
+              {
+                "type": "Standard Set",
+                "reps": [
+                  9,
+                  11
+                ],
+                "rir": 2.0,
+                "source": "Training Programs!E17:H17"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  9,
+                  11
+                ],
+                "rir": 1.0,
+                "source": "Training Programs!I17:L17"
+              }
+            ]
+          },
+          {
+            "name": "Standing Dumbbell Biceps Curl",
+            "source": "Training Programs!B18",
+            "sets": [
+              {
+                "type": "Standard Set",
+                "reps": [
+                  14,
+                  16
+                ],
+                "rir": 1.0,
+                "source": "Training Programs!E18:H18"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  14,
+                  16
+                ],
+                "rir": 0.0,
+                "source": "Training Programs!I18:L18"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  14,
+                  16
+                ],
+                "rir": 0.0,
+                "source": "Training Programs!M18:P18"
+              }
+            ]
+          },
+          {
+            "name": "Pec Deck Fly",
+            "source": "Training Programs!B19",
+            "sets": [
+              {
+                "type": "Standard Set",
+                "reps": [
+                  14,
+                  16
+                ],
+                "rir": 1.0,
+                "source": "Training Programs!E19:H19"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  14,
+                  16
+                ],
+                "rir": 0.0,
+                "source": "Training Programs!I19:L19"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  14,
+                  16
+                ],
+                "rir": 0.0,
+                "source": "Training Programs!M19:P19"
+              }
+            ]
+          },
+          {
+            "name": "Leg Extension",
+            "source": "Training Programs!B20",
+            "sets": [
+              {
+                "type": "Standard Set",
+                "reps": [
+                  14,
+                  16
+                ],
+                "rir": 0.0,
+                "source": "Training Programs!E20:H20"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  14,
+                  16
+                ],
+                "rir": 0.0,
+                "source": "Training Programs!I20:L20"
+              }
+            ]
+          },
+          {
+            "name": "Lying Hamstring Curl",
+            "source": "Training Programs!B21",
+            "sets": [
+              {
+                "type": "Standard Set",
+                "reps": [
+                  14,
+                  16
+                ],
+                "rir": 0.0,
+                "source": "Training Programs!E21:H21"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  14,
+                  16
+                ],
+                "rir": 0.0,
+                "source": "Training Programs!I21:L21"
+              }
+            ]
+          },
+          {
+            "name": "Cable Straight Bar Overhead Triceps Extension",
+            "source": "Training Programs!B22",
+            "sets": [
+              {
+                "type": "Standard Set",
+                "reps": [
+                  14,
+                  16
+                ],
+                "rir": 1.0,
+                "source": "Training Programs!E22:H22"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  14,
+                  16
+                ],
+                "rir": 0.0,
+                "source": "Training Programs!I22:L22"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  14,
+                  16
+                ],
+                "rir": 0.0,
+                "source": "Training Programs!M22:P22"
+              }
+            ]
+          },
+          {
+            "name": "Standing Pin-Loaded Machine Glute Kickback",
+            "source": "Training Programs!B23",
+            "sets": [
+              {
+                "type": "Standard Set",
+                "reps": [
+                  14,
+                  16
+                ],
+                "rir": 0.0,
+                "source": "Training Programs!E23:H23"
+              },
+              {
+                "type": "Standard Set",
+                "reps": [
+                  14,
+                  16
+                ],
+                "rir": 0.0,
+                "source": "Training Programs!I23:L23"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "rest",
+        "source": "Training Programs!A24"
+      },
+      {
+        "kind": "rest",
+        "source": "Training Programs!A25"
+      }
+    ]
+  },
+  "contracts": {
+    "automatic": [
+      {
+        "days": 2,
+        "split": "fullBody"
+      },
+      {
+        "days": 3,
+        "split": "upperLowerFull"
+      },
+      {
+        "days": 4,
+        "split": "upperLowerUpperLower"
+      },
+      {
+        "days": 5,
+        "split": "pushPullLegsUpperLower"
+      },
+      {
+        "days": 6,
+        "split": "pushPullLegsPushPullLegs"
+      }
+    ],
+    "duration": [
+      {
+        "enum": "max20",
+        "rawMicroseconds": 1080000000,
+        "minutes": 18.0
+      },
+      {
+        "enum": "max40",
+        "rawMicroseconds": 1800000000,
+        "minutes": 30.0
+      },
+      {
+        "enum": "max60",
+        "rawMicroseconds": 3000000000,
+        "minutes": 50.0
+      },
+      {
+        "enum": "max90",
+        "rawMicroseconds": 4500000000,
+        "minutes": 75.0
+      },
+      {
+        "enum": "max120",
+        "rawMicroseconds": 6300000000,
+        "minutes": 105.0
+      },
+      {
+        "enum": "over120",
+        "rawMicroseconds": 7500000000,
+        "minutes": 125.0
+      }
+    ],
+    "splitDays": [
+      {
+        "allocationPc": "0xecf8c4",
+        "fields": {
+          "0xc": [
+            "primaryPushCompounds",
+            "primaryPullCompounds",
+            "secondaryHorizontalPush",
+            "upperBodyAccessories"
+          ],
+          "0x10": [
+            "secondaryVerticalPush",
+            "secondaryHorizontalPull",
+            "secondaryVerticalPull"
+          ],
+          "0x14": []
+        }
+      },
+      {
+        "allocationPc": "0xecf9b0",
+        "fields": {
+          "0xc": [
+            "primarySquat",
+            "primaryHinge",
+            "secondarySquat",
+            "lowerBodyAccessories"
+          ],
+          "0x10": [
+            "secondaryHinge"
+          ],
+          "0x14": []
+        }
+      },
+      {
+        "allocationPc": "0xecfa9c",
+        "fields": {
+          "0xc": [
+            "secondaryPullCompounds",
+            "secondaryVerticalPush",
+            "secondaryHinge",
+            "allAccessories"
+          ],
+          "0x10": [
+            "secondaryHorizontalPush"
+          ],
+          "0x14": []
+        }
+      }
+    ]
+  },
+  "unknowns": [
+    "generation inputs not transactionally controlled",
+    "gym selection not shown",
+    "post-generation edits unknown",
+    "PRNG state unknown",
+    "app version not shown",
+    "cycles 2 through 7 not exported",
+    "distribution and target formulas unresolved",
+    "deprioritization is not exclusion",
+    "explicit split UI compatibility not established"
+  ]
+}

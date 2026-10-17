@@ -84,7 +84,7 @@ const REQUEST = {
   movementConfirmations: Object.fromEntries(observedIds.map((id) =>
     [id, [...rawCatalog.exercises.find((entry) => entry.id === id).preconditions]])),
   emphasisMuscleIds: [], deprioritizedMuscleIds: [], excludedExerciseIds: [], excludedMuscleIds: [],
-  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 4, deloadCycles: [],
+  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 7, deloadCycles: [],
 };
 
 const failures = [];
@@ -246,7 +246,7 @@ async function activateGeneratedPredecessor(page) {
       return { ok: false, error: "program generator or exercise catalog unavailable in window" };
     }
     const generated = window.RepForgeProgramCompiler.generateProgram(
-      request, window.RepForgeExerciseCatalog.snapshot(), "p6c-crash-replay");
+      request, window.RepForgeExerciseCatalog.snapshot());
     if (!generated.ok) return { ok: false, error: "generation failed", issues: generated.conflicts };
     const definition = generated.value;
     const finalized = await window.__repforgeFinalizeProgramSetup({

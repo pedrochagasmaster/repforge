@@ -1,0 +1,78 @@
+{
+  "base": "d0242c4679ba6a00cea6fd48f42450f3b6e93322",
+  "headAtExecution": "d0242c4679ba6a00cea6fd48f42450f3b6e93322",
+  "scope": "S0 offline supplement only; dirty worktree; not clean-commit or completion evidence",
+  "runs": [
+    {
+      "command": "python3 plans/073/test_verify.py (before implementation)",
+      "outcome": "failed as expected: ModuleNotFoundError: verify"
+    },
+    {
+      "command": "python3 plans/073/test_verify.py",
+      "outcome": "passed: six controls rejected through validate and CLI"
+    },
+    {
+      "command": "python3 plans/073/verify.py",
+      "outcome": "passed: 1 observed cycle, 7 declared, 3 training days, 18 exercises, 45 sets"
+    },
+    {
+      "command": "extract.py --source-dir <private-source> --out <fresh-output>; cmp <fresh-output>/supplement.json plans/073/data/supplement.json",
+      "outcome": "passed: deterministic byte equality"
+    },
+    {
+      "command": "extract.py --source-dir <private-source> --out <private-source>/rejected-output",
+      "outcome": "exit 2 as expected; refused private-tree output"
+    },
+    {
+      "command": "recursive published JSON privacy scan",
+      "outcome": "passed: no private paths, profile/settings identifiers, account fields or equipment loads"
+    },
+    {
+      "command": "test_verify.py and verify.py after adding exact cell-coordinate assertions",
+      "outcome": "passed after correcting a temporary SyntaxError; extractor reproduced byte-identical artifact"
+    },
+    {
+      "review": "R-S0-01",
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 plans/073/test_verify.py (new duplicate-byte controls, before fix)",
+      "outcome": "exit 1; root and nested duplicate artifacts erroneously accepted by CLI with exit 0"
+    },
+    {
+      "review": "R-S0-01",
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 plans/073/test_verify.py",
+      "outcome": "exit 0; six original mutations rejected; root and nested duplicate bytes rejected by CLI and extractor source parser"
+    },
+    {
+      "review": "R-S0-01",
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 plans/073/verify.py",
+      "outcome": "exit 0; original supplement valid"
+    },
+    {
+      "review": "R-S0-01",
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 plans/073/extract.py --source-dir <private-source> --out /tmp/plan073-s0-duplicate-fix; cmp /tmp/plan073-s0-duplicate-fix/supplement.json plans/073/data/supplement.json",
+      "outcome": "both exit 0; public artifact byte-identical"
+    },
+    {
+      "review": "R-S0-02",
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 plans/073/test_verify.py",
+      "outcome": "exit 0; 3 tests passed, including committed artifact through strict CLI"
+    },
+    {
+      "review": "R-S0-02",
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 plans/073/verify.py",
+      "outcome": "exit 0; original artifact valid"
+    },
+    {
+      "review": "R-S0-02",
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 - (isolated temporary copies; python -B <copy>/test_verify.py VerificationFaults.test_committed_artifact_through_cli)",
+      "outcome": "independent rerun: valid copy exit 0; root duplicate and nested duplicate copies each exit 1 with duplicate JSON key",
+      "limitation": "Pre-fix green/red reproduction was performed by reviewer; this rerun verifies only the corrected test."
+    }
+  ],
+  "artifactSha256": "15b44b4823c03b2ffd306cc72983850610010386c930ad06a3c8631d2f24a07f",
+  "limits": [
+    "No binary/ASM replay",
+    "No browser/application parity run",
+    "Sources are existing transcriptions/normalizations/decodings",
+    "Original archive and screenshot hashes inherited from source manifest"
+  ]
+}

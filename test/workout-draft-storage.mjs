@@ -57,7 +57,7 @@ const REQUEST = {
   movementConfirmations: Object.fromEntries(observedIds.map((id) =>
     [id, [...rawCatalog.exercises.find((entry) => entry.id === id).preconditions]])),
   emphasisMuscleIds: [], deprioritizedMuscleIds: [], excludedExerciseIds: [], excludedMuscleIds: [],
-  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 4, deloadCycles: [],
+  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 7, deloadCycles: [],
 };
 const failures = [];
 let passed = 0;
@@ -638,7 +638,7 @@ async function main() {
     await waitForBoot(page);
     const adaptive = await page.evaluate(async ({ request, weight, reps }) => {
       const generated = window.RepForgeProgramCompiler.generateProgram(request,
-        window.RepForgeExerciseCatalog.snapshot(), "draft-storage-adaptive");
+        window.RepForgeExerciseCatalog.snapshot());
       if (!generated.ok) return { ok: false, code: "generation-failed" };
       const definition = generated.value;
       const target = definition.days.filter((day) => day.kind === "training").map((day) => ({ day, slot: day.slots[0] }))

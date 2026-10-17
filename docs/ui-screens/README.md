@@ -82,8 +82,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Recommend Program 1 — goal](screens/onboarding-recommend/desired-result__phone-390-light-en.png) | 3 | Muscle growth, Strength and Both. |
 | [Recommend Program 2 — days per week](screens/onboarding-recommend/days-per-week__phone-390-light-en.png) | 8 | Two to six days with four chosen and its split fact. |
 | [Recommend Program 3 — session length](screens/onboarding-recommend/session-length__phone-390-light-en.png) | 8 | Up to 20 to up to 150 minutes, with 60 shown as the default. |
-| [Recommend Program 4 — muscle priorities](screens/onboarding-recommend/muscle-priorities__phone-390-light-en.png) | 8 | Twelve muscles, each Reduce, Normal or Prioritize; glutes prioritized and calves reduced; Skip. |
-| [Recommend Program 4 — priority limit](screens/onboarding-recommend/muscle-priorities-limit__phone-390-light-en.png) | 3 | Five muscles prioritized and a sixth refused with the limit line. |
+| [Recommend Program 4 — muscle priorities](screens/onboarding-recommend/muscle-priorities__phone-390-light-en.png) | 8 | Twenty-two muscles, each Less, Normal or More; glutes set to More and calves to Less; Skip. |
+| [Recommend Program 4 — all twenty-two priorities](screens/onboarding-recommend/muscle-priorities-limit__phone-390-light-en.png) | 3 | All twenty-two muscles prioritized and accepted, with every More radio selected. |
 | [Recommend Program 5 — deload](screens/onboarding-recommend/deload__phone-390-light-en.png) | 3 | The deload card switched on, marked Recommended. |
 | [Recommend Program 6 — movement abilities](screens/onboarding-recommend/abilities__phone-390-light-en.png) | 3 | Seven yes, no or not sure questions in B's wording, with Skip pinned under Continue. |
 | [Recommend — building](screens/onboarding-recommend/building__phone-390-light-en.png) | 3 | B's third checklist line is active after two lines complete, with generation still in the real worker and Show the program now available. |

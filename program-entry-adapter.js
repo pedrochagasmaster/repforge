@@ -75,9 +75,8 @@
       slots: [],
     }));
     const programDefinition = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       generatorVersion: "manual@1",
-      seed: "manual",
       request: {},
       days,
       cycles,
@@ -233,10 +232,29 @@
     ]),
   });
   const PERIODIZATIONS = Object.freeze(["static", "linear", "reverse_linear", "undulating"]);
-  const MUSCLE_NAMES = Object.freeze({
-    chest: "Chest", back: "Upper Back", quads: "Quads", hamstrings: "Hamstrings", glutes: "Glutes",
-    side_delts: "Side Delts", rear_delts: "Rear Delts", front_delts: "Front Delts", biceps: "Biceps",
-    triceps: "Triceps", calves: "Calves", lats: "Lats",
+  const MUSCLE_IDS = Object.freeze({
+    chest: "2545c6f170d8805f823bcfb076a74397",
+    back: "2545c6f170d880da9b28f1e024be796b",
+    quads: "2545c6f170d88084b35affb3c3375aa6",
+    hamstrings: "2545c6f170d88002b193de9106604e79",
+    glutes: "2545c6f170d8804bb1fbdfc4471debe5",
+    side_delts: "2545c6f170d880088132c5739103e625",
+    rear_delts: "2545c6f170d880a9899eec0e496c8cba",
+    front_delts: "2545c6f170d8809a8fa7e24a77c25416",
+    biceps: "2545c6f170d880349546e5d8f6df2e2a",
+    triceps: "2545c6f170d88017a44bcd5bc21b8d98",
+    calves: "2545c6f170d880bbb34fc724d677176f",
+    lats: "2545c6f170d88060a50ec9b41a066a5d",
+    forearms: "2545c6f170d88024b49fcea90e7d1ed9",
+    lower_back: "2545c6f170d880768fc0ec766d080c01",
+    abductors: "2545c6f170d8803d89bcf1ee5a11b23b",
+    adductors: "2545c6f170d880a0ad32cd4e83834959",
+    neck: "2545c6f170d88021b648feb29a2427c2",
+    upper_traps: "2545c6f170d880af953ace5a631c8cd2",
+    abs: "2545c6f170d8806aab76c6830449a3ff",
+    serratus: "27a5c6f170d880c39b2df5e861495666",
+    tibs: "27a5c6f170d880a5baa9c716b240d0f6",
+    obliques: "2545c6f170d8809da3f3cd80f2f14a4d",
   });
   const COMPETENCY_KEYS = Object.freeze([
     "pullups10", "pullups5", "pushups15", "inclineBarbell10", "overheadPress10", "bodyweightDips10", "benchPress10",
@@ -244,17 +262,25 @@
   const TIME_CEILINGS = Object.freeze([20, 40, 60, 90, 120, 150]);
 
   // Explicit split choices are the generator's authored splits for this day count.
-  function splitChoices(answers, Compiler) {
+  function splitChoices(answers, Compiler, catalog) {
     const days = answers?.daysPerWeek;
     if (!Number.isInteger(days)) return { choices: [] };
-    return { choices: Object.entries(Compiler.SPLITS || {})
-      .filter(([, split]) => split.compatibleDays.includes(days))
-      .map(([id], index) => ({ id, default: index === 0, frequency: days })) };
+    const mapped = programRequestFromAnswers({ ...answers, splitPreference: "auto" }, catalog);
+    if (!mapped.ok) return { choices: [] };
+    const canonical = Compiler.canonicalizeRequest(mapped.value, catalog);
+    if (!canonical.ok) return { choices: [] };
+    const available = Compiler.availableSplits(mapped.value);
+    return { choices: Object.entries(Compiler.SPLITS)
+      .filter(([id, split]) => split.compatibleDays.includes(days) && available.includes(id))
+      .map(([id]) => ({ id, default: id === canonical.value.split, frequency: days })) };
   }
 
-  function compatibleSplit(preference, days) {
-    const split = compilerApi().SPLITS?.[preference];
-    return split && split.compatibleDays.includes(days) ? preference : "auto";
+  function compatibleSplit(preference, request) {
+    const Compiler = compilerApi();
+    if (preference === undefined || preference === "auto") return "auto";
+    const split = Compiler.SPLITS[preference];
+    const available = Compiler.availableSplits({ ...request, split: preference });
+    return split && split.compatibleDays.includes(request.daysPerWeek) && available.includes(preference) ? preference : null;
   }
 
   function programRequestFromAnswers(answers, catalog) {
@@ -276,35 +302,40 @@
     const ceiling = [...TIME_CEILINGS].reverse().find((value) => value <= minutes) ?? TIME_CEILINGS[0];
     const ids = (type, predicate) => Object.keys(index).filter((id) => index[id]?.type === type && predicate(index[id])).sort();
     const muscleIds = (tokens) => (Array.isArray(tokens) ? tokens : []).map((token) =>
-      ids("featureMuscleGroup", (entry) => entry.name === MUSCLE_NAMES[token])[0]).filter(Boolean);
+      MUSCLE_IDS[token]).filter((id) => index[id]?.type === "featureMuscleGroup");
     const exerciseIds = (values) => (Array.isArray(values) ? values : [])
       .filter((id) => typeof id === "string" && index[id]?.type === "exercise");
     const answersIn = isPlainObject(source.competencyAnswers) ? source.competencyAnswers : {};
+    if (source.block?.cycles !== undefined && source.block.cycles !== 7) {
+      return { ok: false, conflicts: [{ field: "block", code: "block_cycles_unsupported" }] };
+    }
     const block = {
-      cycles: Number.isInteger(source.block?.cycles) && source.block.cycles >= 4 && source.block.cycles <= 12 ? source.block.cycles : 7,
+      cycles: 7,
       periodization: PERIODIZATIONS.includes(source.block?.periodization) ? source.block.periodization : "static",
     };
-    return {
-      ok: true,
-      value: {
-        goal,
-        experience,
-        daysPerWeek: days,
-        timeCeilingMinutes: ceiling,
-        gymProfile: { equipmentIds: gymEquipment(ids("equipment", (entry) => flag === "*" || entry[flag] === 1), source.environment.adjust) },
-        competencyAnswers: competencies(answersIn),
-        movementConfirmations: confirmations(source.movementConfirmations, catalog),
-        emphasisMuscleIds: muscleIds(source.primaryMuscles).slice(0, 5),
-        deprioritizedMuscleIds: muscleIds(source.deEmphasizedMuscles).slice(0, 5),
-        excludedExerciseIds: exerciseIds((source.exerciseConstraints || []).map((item) => item?.exerciseId)),
-        excludedMuscleIds: muscleIds(source.ignoredMuscles),
-        preferredExerciseIds: exerciseIds(source.mustHaveExercises),
-        split: compatibleSplit(source.splitPreference, days),
-        periodization: block.periodization,
-        cycles: block.cycles,
-        deloadCycles: source.deload === true ? [block.cycles] : [],
-      },
+    const request = {
+      goal,
+      experience,
+      daysPerWeek: days,
+      timeCeilingMinutes: ceiling,
+      gymProfile: { equipmentIds: gymEquipment(ids("equipment", (entry) => flag === "*" || entry[flag] === 1), source.environment.adjust) },
+      competencyAnswers: competencies(answersIn),
+      movementConfirmations: confirmations(source.movementConfirmations, catalog),
+      emphasisMuscleIds: muscleIds(source.primaryMuscles),
+      deprioritizedMuscleIds: muscleIds(source.deEmphasizedMuscles),
+      excludedExerciseIds: exerciseIds((source.exerciseConstraints || []).map((item) => item?.exerciseId)),
+      excludedMuscleIds: muscleIds(source.ignoredMuscles),
+      preferredExerciseIds: exerciseIds(source.mustHaveExercises),
+      split: "auto",
+      periodization: block.periodization,
+      cycles: block.cycles + (source.deload === true ? 1 : 0),
+      deloadCycles: source.deload === true ? [block.cycles + 1] : [],
     };
+    request.split = compatibleSplit(source.splitPreference, request);
+    if (request.split === null) {
+      return { ok: false, conflicts: [{ field: "split", code: "split_unsupported" }] };
+    }
+    return { ok: true, value: request };
   }
 
   // Ten strict pull-ups is also five (owner decision on #340). Resolved here,
@@ -351,22 +382,23 @@
 
   // The compiler predicts which slots a confirmation would change; collision
   // avoidance and time fit can still stop it landing. An offer is kept only
-  // when confirming it alone, with the same seed, puts that movement in that
+  // when confirming it alone puts that movement in that
   // slot, and it names the other slots that confirmation also moves.
-  async function verifyConfirmationOffers({ generate, request, seed, result, signal } = {}) {
+  async function verifyConfirmationOffers({ generate, request, result, signal } = {}) {
     if (!result?.ok || !Array.isArray(result.confirmationOffers)) return [];
-    const exerciseBySlot = (definition) => new Map(definition.days.flatMap((day) =>
-      day.slots.map((slot) => [slot.id, slot.exerciseId])));
-    const before = exerciseBySlot(result.value);
+    const before = result.value.days.flatMap((day, dayIndex) => day.slots.map((slot, slotIndex) =>
+      ({ id: slot.id, exerciseId: slot.exerciseId, dayIndex, slotIndex })));
     const verified = await Promise.all(result.confirmationOffers.map(async (offer) => {
       const confirmed = await generate({
         ...request,
         movementConfirmations: { ...(request.movementConfirmations || {}), [offer.offeredExerciseId]: [...offer.prerequisiteIds] },
-      }, seed, { signal });
+      }, { signal });
       if (!confirmed?.ok) return null;
-      const after = exerciseBySlot(confirmed.value);
-      if (after.get(offer.slotId) !== offer.offeredExerciseId) return null;
-      const alsoChangedSlotIds = [...before.keys()].filter((id) => id !== offer.slotId && after.get(id) !== before.get(id));
+      const target = before.find((slot) => slot.id === offer.slotId);
+      const after = (slot) => confirmed.value.days[slot.dayIndex]?.slots[slot.slotIndex]?.exerciseId;
+      if (!target || after(target) !== offer.offeredExerciseId) return null;
+      const alsoChangedSlotIds = before.filter((slot) => slot.id !== offer.slotId && after(slot) !== slot.exerciseId)
+        .map((slot) => slot.id);
       return { ...offer, prerequisiteIds: [...offer.prerequisiteIds], alsoChangedSlotIds };
     }));
     return verified.filter(Boolean);
@@ -380,9 +412,9 @@
     return Object.freeze({
       version: versions.compiler,
       currentVersions: () => ({ ...versions }),
-      generateProgram: ({ request, seed } = {}) => Compiler.generateProgram(request, catalog, seed),
+      generateProgram: ({ request } = {}) => Compiler.generateProgram(request, catalog),
       buildEmptyProgram: (answers) => buildEmptyProgram(answers, Compiler, catalog),
-      splitChoices: (answers) => splitChoices(answers, Compiler),
+      splitChoices: (answers) => splitChoices(answers, Compiler, catalog),
       fingerprint,
       identityDiff,
     });

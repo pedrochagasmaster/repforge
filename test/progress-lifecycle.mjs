@@ -101,7 +101,7 @@ if (BROWSER) {
         sessionMinutes: minutes, environment: { kind: "commercial_gym" },
       }, catalog);
       if (!request.ok) return { ok: false, request };
-      const generated = window.RepForgeProgramCompiler.generateProgram(request.value, catalog, `lifecycle-${days}-${minutes}`);
+      const generated = window.RepForgeProgramCompiler.generateProgram(request.value, catalog);
       if (!generated.ok) return { ok: false, generated };
       const finalized = await window.__repforgeFinalizeProgramSetup({
         programDefinition: generated.value, name: "Schedule repair oracle", answers: {}, destination: "log",

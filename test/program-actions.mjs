@@ -80,7 +80,7 @@ async function installGeneratedProgram(page) {
       desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: 4,
       sessionMinutes: 60, environment: { kind: "commercial_gym" },
     }, catalog).value;
-    const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog, "program-actions").value;
+    const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog).value;
     const found = definition.days.filter((day) => day.kind === "training").map((day) => ({ day, slot: day.slots[0] }))
       .find(({ slot }) => JSON.stringify(slot.metricIds) === JSON.stringify([weight, reps]));
     await window.__repforgeFinalizeProgramSetup({

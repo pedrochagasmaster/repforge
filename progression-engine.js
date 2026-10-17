@@ -88,7 +88,7 @@
       || range.min < 1 || range.max < range.min || range.max > 30) {
       return { ok: true, supported: false, kind, semantics, repSemantic, reasons: ["target_range_required"] };
     }
-    if (!finite(value.rir) || value.rir < 0 || value.rir > 4) {
+    if (!finite(value.rir) || value.rir < 0 || value.rir > 6) {
       return { ok: true, supported: false, kind, semantics, repSemantic, range, reasons: ["rir_target_required"] };
     }
     const coefficient = value.loadingModel?.bodyweightCoefficient;

@@ -38,7 +38,7 @@ const REQUEST = {
   movementConfirmations: Object.fromEntries(observedIds.map((id) =>
     [id, [...catalog.exercises.find((entry) => entry.id === id).preconditions]])),
   emphasisMuscleIds: [], deprioritizedMuscleIds: [], excludedExerciseIds: [], excludedMuscleIds: [],
-  preferredExerciseIds: [PRESS_ID], split: "auto", periodization: "static", cycles: 4, deloadCycles: [],
+  preferredExerciseIds: [PRESS_ID], split: "auto", periodization: "static", cycles: 7, deloadCycles: [],
 };
 
 let passed = 0;
@@ -53,15 +53,24 @@ function check(condition, message, detail) {
 async function seedGeneratedPress(page) {
   return page.evaluate(async ({ request, exerciseId }) => {
     const generated = window.RepForgeProgramCompiler.generateProgram(
-      request, window.RepForgeExerciseCatalog.snapshot(), "p069-s3-transfer-roundtrip");
+      request, window.RepForgeExerciseCatalog.snapshot());
     if (!generated.ok) throw new Error("Production compiler failed: " + JSON.stringify(generated.conflicts));
-    const target = generated.value.days.filter((day) => day.kind === "training").flatMap((day) =>
-      day.slots.map((slot) => ({ day, slot }))).find(({ slot }) => slot.exerciseId === exerciseId &&
-        slot.metricDefinitions.some((metric) => metric.semantic === "repsPerSide") &&
+    // Explicit Review choice keeps this transfer proof independent of ranking.
+    const catalog = window.RepForgeExerciseCatalog.snapshot();
+    const compatible = generated.value.days.filter((day) => day.kind === "training").flatMap((day) => day.slots)
+      .find((slot) => slot.metricDefinitions.some((metric) => metric.semantic === "repsPerSide") &&
         slot.metricDefinitions.some((metric) => metric.semantic === "loadPerSideKg"));
-    if (!target) throw new Error("Generated definition has no bilateral per-side press");
+    if (!compatible) throw new Error("Generated definition has no compatible per-side slot");
+    const reviewed = window.RepForgeProgramReview.applyEdit(generated.value,
+      { kind: "swap", slotId: compatible.id, exerciseId },
+      { compiler: window.RepForgeProgramCompiler, catalog, metrics: window.RepForgeExerciseMetrics });
+    if (!reviewed.ok) throw new Error("The explicit press choice was refused: " + JSON.stringify(reviewed));
+    const definition = reviewed.definition;
+    const target = definition.days.filter((day) => day.kind === "training").flatMap((day) =>
+      day.slots.map((slot) => ({ day, slot }))).find(({ slot }) => slot.id === compatible.id && slot.exerciseId === exerciseId);
+    if (!target) throw new Error("The explicit press choice did not retain its slot");
     await window.__repforgeFinalizeProgramSetup({
-      programDefinition: generated.value, name: "Per-side transfer proof", answers: {},
+      programDefinition: definition, name: "Per-side transfer proof", answers: {},
       destination: "log", origin: "first-run", draftConfirmed: true,
       telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: "p069-s3-transfer-roundtrip" },
     });

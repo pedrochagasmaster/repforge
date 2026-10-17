@@ -634,14 +634,14 @@
       "id": "muscle-priorities",
       "flow": "onboarding-recommend",
       "label": "Recommend Program 4 — muscle priorities",
-      "scenario": "Twelve muscles, each Less, Normal or More; glutes set to More and calves to Less; Skip.",
+      "scenario": "Twenty-two muscles, each Less, Normal or More; glutes set to More and calves to Less; Skip.",
       "variants": "demandingText"
     },
     {
       "id": "muscle-priorities-limit",
       "flow": "onboarding-recommend",
-      "label": "Recommend Program 4 — priority limit",
-      "scenario": "Five muscles prioritized and a sixth refused with the limit line.",
+      "label": "Recommend Program 4 — all twenty-two priorities",
+      "scenario": "All twenty-two muscles prioritized and accepted, with every More radio selected.",
       "variants": "localized"
     },
     {
@@ -697,14 +697,14 @@
       "id": "result-block-sheet",
       "flow": "onboarding-recommend",
       "label": "Recommend — block inputs",
-      "scenario": "The result's block sheet with 10 weeks, the undulating rep pattern selected, and the recommended deload switch on.",
+      "scenario": "The result's block sheet with seven regular weeks and the undulating rep pattern selected; the additional deload is off after exercising its switch.",
       "variants": "localized"
     },
     {
       "id": "result-equipment-conflict",
       "flow": "onboarding-recommend",
       "label": "Recommend — equipment conflict",
-      "scenario": "The result explains that Home equipment cannot cover vertical pull, says nothing was saved, and offers Back to equipment with the adjustment preserved.",
+      "scenario": "The result explains that the available candidates cannot complete the program, says nothing was saved, and offers Back to equipment with the adjustment preserved.",
       "variants": "localized"
     },
     {

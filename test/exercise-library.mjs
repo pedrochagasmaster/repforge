@@ -149,6 +149,9 @@ assert(buildCheck.status === 0, "generated index and detail asset match their co
   const expectedBaseRevision = 395;
   const cacheRevision = Number(sw.match(/const CACHE = "repforge-v(\d+)"/)?.[1] || 0);
   const transitionAssets = [
+    "generation-identity.js",
+    "generation-candidates.js",
+    "generation-layout.js",
     "motion-layer.js",
     "progress-model.js",
     "exercises.js",
