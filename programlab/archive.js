@@ -28,6 +28,7 @@
       check(diagnostic.kind === "taurifer-generation-diagnostics" && diagnostic.schemaVersion === 1
         && diagnostic.version === version && ["validation", "selection", "definition_validation", "complete"].includes(diagnostic.terminalStage)
         && Array.isArray(diagnostic.slots) && diagnostic.slots.length <= D.LIMITS.cells, "Invalid diagnostic schema/bounds");
+      if (result.ok) check(diagnostic.terminalStage === "complete", "Successful program has incomplete diagnostics");
       const programSlots = new Map(), dayIds = new Set();
       if (result.ok) {
         check(Array.isArray(result.value?.days), "Invalid diagnostic program reference");
@@ -57,7 +58,27 @@
         }
       }
       if (result.ok) check(retained.size === programSlots.size, "Diagnostics omit saved program slots");
-      if (diagnostic.allocation) D.keys(diagnostic.allocation, ["requestedMinutes", "budgetMinutes", "selected", "estimatedSecondsByDay"]);
+      if (diagnostic.allocation !== undefined) {
+        const allocation = diagnostic.allocation;
+        D.keys(allocation, ["requestedMinutes", "budgetMinutes", "selected", "estimatedSecondsByDay"]);
+        check(Number.isFinite(allocation.requestedMinutes) && allocation.requestedMinutes > 0
+          && (allocation.budgetMinutes === null || Number.isFinite(allocation.budgetMinutes) && allocation.budgetMinutes > 0), "Invalid diagnostic allocation duration");
+        check(allocation.estimatedSecondsByDay && typeof allocation.estimatedSecondsByDay === "object" && !Array.isArray(allocation.estimatedSecondsByDay)
+          && Object.values(allocation.estimatedSecondsByDay).every(seconds => Number.isFinite(seconds) && seconds >= 0), "Invalid diagnostic allocation estimates");
+        if (allocation.selected !== null) {
+          D.keys(allocation.selected, ["upper", "lower"]);
+          for (const region of Object.values(allocation.selected)) {
+            D.keys(region, ["compound", "isolation"]);
+            for (const counts of Object.values(region)) check(Array.isArray(counts) && counts.length === 4
+              && counts.every(count => Number.isSafeInteger(count) && count >= 0), "Invalid diagnostic allocation counts");
+          }
+        }
+        if (result.ok) {
+          check(allocation.requestedMinutes === result.value.request.timeCeilingMinutes, "Diagnostic request duration does not match the saved program");
+          check(allocation.budgetMinutes === result.value.provenance.generationBudgetMinutes
+            && D.canonicalJSON(allocation.estimatedSecondsByDay) === D.canonicalJSON(result.value.provenance.estimatedSessionSeconds), "Diagnostic allocation estimates do not match the saved program");
+        }
+      }
     }
     function validate(experiment, run) {
       D.keys(experiment, ["experimentId", "revision", "name", "notes", "mode", "scenarios", "baselinePolicy", "candidatePolicy", "referenceTimePolicy", "sweep"], ["provenance"]);

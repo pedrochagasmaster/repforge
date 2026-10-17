@@ -67,6 +67,10 @@ test("successful native archives require complete, typed diagnostic references",
     result => { result.diagnostics.slots[0].exerciseId = "another-exercise"; },
     result => { result.diagnostics.slots[0].finalDayId = "missing-day"; },
     result => { result.diagnostics.slots[0].finalSetCount++; },
+    result => { result.diagnostics.terminalStage = "validation"; },
+    result => { result.diagnostics.allocation.requestedMinutes = "ninety"; },
+    result => { result.diagnostics.allocation.selected.upper.compound[0] = -1; },
+    result => { result.diagnostics.allocation.estimatedSecondsByDay[result.diagnostics.slots[0].finalDayId]++; },
   ]) {
     const broken = structuredClone(original);
     mutate(broken.records[0].result);
