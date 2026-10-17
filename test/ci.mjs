@@ -760,6 +760,27 @@ test("temporary preview exports its isolated origin to browser suites", async (t
   preview.cleanup();
 });
 
+test("standalone artifact preview preserves shipped bytes without app preparation", async (t) => {
+  const cwd = scratch(t);
+  const index = Buffer.from('<!doctype html><title>Standalone packaged lab</title>\n');
+  writeFileSync(join(cwd, "index.html"), index);
+  const child = { pid: 4322, once() { return this; } };
+  const preview = await maybeStartLocalPreview([{ lane: "entry" }], {
+    cwd, prepareApp: false,
+    env: { ...process.env, REPFORGE_URL: "" },
+    signalSource: new EventEmitter(),
+    execFileSyncImpl: () => { throw new Error("Artifact preview must not generate application config"); },
+    fetchImpl: async url => ({ ok: true, text: async () => readFileSync(join(cwd, new URL(url).pathname), "utf8") }),
+    spawnImpl: () => child, killGroup: () => {}, allocatePort: async () => 29342,
+    identityToken: "fixture-artifact-token",
+  });
+  assert.equal(preview.env.REPFORGE_URL, "http://127.0.0.1:29342/");
+  assert.deepEqual(readFileSync(join(cwd, "index.html")), index);
+  assert.equal(existsSync(join(cwd, "posthog-config.js")), false);
+  preview.cleanup();
+  assert.deepEqual(readFileSync(join(cwd, "index.html")), index);
+});
+
 test("explicit loopback preview must prove current-worktree identity", async (t) => {
   const cwd = scratch(t);
   writeFileSync(join(cwd, "index.html"), "original index bytes\n");
