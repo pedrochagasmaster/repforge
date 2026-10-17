@@ -46,7 +46,7 @@
         busy = true;
         const archive = await createArchive(request.context);
         const value = request.operation === "import" ? await archive.importArchive(request.input)
-          : archive.exportArchive(request.input.experiment, request.input.run);
+          : await archive.exportArchive(request.input.experiment, request.input.run);
         root.postMessage({ id, ok: true, value });
       } catch (error) { root.postMessage({ id, ok: false, error: { code: error.code || "invalid_archive", message: String(error.message || error) } }); }
       finally { busy = false; }

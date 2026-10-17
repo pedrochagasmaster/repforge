@@ -119,7 +119,7 @@
         cells, comparisons, caseCount: scenarios.length, cellCount: cells.length,
         baselineReuse: scenarios.length * (1 + variants.length) - cells.length, metricsVersion: METRICS_VERSION });
     }
-    function metrics(result, ownPolicy, referencePolicy) {
+    function metrics(result, ownPolicy, referencePolicy, { archived = false } = {}) {
       if (classify(result) !== "success") return null;
       const program = result.value;
       const cycles = Array.from({ length: program.cycles }, (_, index) => {
@@ -150,6 +150,7 @@
             }
           }
           const estimate = policy => {
+            if (archived) return null;
             try { const value = estimateDaySeconds(day, cycleIndex, policy); return Number.isFinite(value) && value >= 0 ? value : null; }
             catch { return null; }
           };
@@ -168,6 +169,7 @@
           aboveRequestedMinutes: days.filter(day => day.ownSeconds !== null && day.ownSeconds > program.request.timeCeilingMinutes * 60).map(day => day.dayId) };
       });
       return snapshot({ metricsVersion: METRICS_VERSION, cycles, fittingEstimate: program.provenance?.estimatedSessionSeconds || null,
+        durationUnavailableReason: archived ? "archive_fingerprint_mismatch" : null,
         constraints: { focusNotApplied: program.provenance?.focusNotApplied || [], diagnostics: result.diagnostics || null } });
     }
     return Object.freeze({ plan, metrics, compare, aggregate });

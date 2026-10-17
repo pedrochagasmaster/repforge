@@ -76,7 +76,7 @@ preserves the **original complete compiler-result JSON bytes/property order**;
 null. Diagnostics remain a result-root sibling. Archived imports may add
 `archived:true` to a run.
 
-`domain.metrics(result, ownPolicy, referencePolicy)` returns null for failed
+`domain.metrics(result, ownPolicy, referencePolicy, {archived:false})` returns null for failed
 generation. Successful metrics contain `cycles[]`, each with actual working
 sets, occurrence/set-count histograms, pooled numerator/denominator RIR and
 two-set shares, target distributions, manual status counts, attributed-purpose
@@ -84,6 +84,10 @@ counts and own/common materialized duration. `fittingEstimate` preserves the
 engine's historical property name; in 073.4 it is an allocation estimate, not
 time trimming. Muscle attribution explicitly overlaps. Per-side/non-repetition
 prescriptions do not produce fabricated repetition totals.
+Pass `{archived:true}` for fingerprint-mismatched archived results: actual saved
+prescriptions remain countable and the saved allocation estimate remains visible,
+but own/common materialized durations are null with an explicit reason. Today's
+catalog/estimator must not certify an old build's duration model.
 
 `domain.compare(baselineRecord,candidateRecord)` returns exact equality,
 outcomes, semantic `changes[]` and separate `provenanceChanges[]`. It requires
@@ -135,7 +139,7 @@ const archive = ProgramLabArchive.create({
   validateRequest: request => Compiler.normalizeProgramRequest(request, catalog),
   validateProgram: (program, {archived}) => /* shared structural validator */
 });
-const parts = archive.exportArchive(experiment, selectedRun); // null: config only
+const parts = await archive.exportArchive(experiment, selectedRun); // null: config only
 const staged = await archive.importArchive(filesOrTextParts);
 await store.importArchive(staged);
 ```
@@ -156,6 +160,9 @@ all hashes/references and completeness. Each file is at most 50 MiB, at most ten
 parts and 500 MiB total. A cell is never split. Exact size is preflighted;
 oversize full-result exports throw `archive_too_large` with a configuration-only
 alternative. Missing parts throw `incomplete_archive`; nothing is committed.
+Both archive import and export are asynchronous. Large record hashing uses native
+Web Crypto SHA-256 over the shared canonical JSON format, avoiding repeated
+JavaScript SHA compression on near-limit archives.
 
 The worker entry is assembled by the packaging owner from fixed bundled URLs;
 archive data never selects module/worker/catalog URLs. After loading exact shared

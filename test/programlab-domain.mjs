@@ -108,6 +108,8 @@ test("semantic comparisons ignore generated IDs/provenance and count actual pres
   assert.equal(metrics.cycles[0].duration.own.totalSeconds, 2);
   assert.equal(metrics.cycles[0].duration.common.totalSeconds, 3);
   assert.equal(metrics.cycles[1].deload, true);
+  const historical = domain.metrics(baseline, { dose: 2 }, { dose: 3 }, { archived: true });
+  assert.equal(historical.cycles[0].duration.own, null, "historical prescriptions must not claim today's estimator validated their old model");
   assert.equal(domain.metrics({ ok: false }, { dose: 2 }, { dose: 3 }), null);
   assert.equal(domain.compare({ result: baseline }, { error: { code: "timeout" }, result: null }).candidateOutcome, "execution_error");
 });

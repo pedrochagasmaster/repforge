@@ -15,7 +15,7 @@ const run = { kind: "taurifer-programlab-run", schemaVersion: 1, runId: "source-
 for (const record of run.records) record.resultJSON = JSON.stringify(record.result);
 const archive = A.create({ validatePolicy, validateRequest: value => ({ ok: true, value }), validateProgram: () => ({ ok: true }), build });
 test("multipart archives retain canceled completeness and require every exact part", async () => {
-  const parts = archive.exportArchive(plan.experiment, run, { partBytes: 30000 });
+  const parts = await archive.exportArchive(plan.experiment, run, { partBytes: 30000 });
   assert.ok(parts.length > 1 && parts.length <= 10);
   const restored = await archive.importArchive(parts.map(part => part.text));
   assert.equal(restored.run.status, "canceled"); assert.equal(restored.run.completed, 6); assert.equal(restored.archived, false);
@@ -27,12 +27,12 @@ test("multipart archives retain canceled completeness and require every exact pa
   const unknown = JSON.parse(parts[0].text); unknown.workerURL = "https://example.test/code.js";
   await assert.rejects(archive.importArchive([JSON.stringify(unknown)]), /unknown|schema/i);
   await assert.rejects(archive.importArchive([{ size: D.LIMITS.partBytes + 1, text: () => { throw Error("must not read"); } }]), error => error.code === "archive_too_large");
-  assert.throws(() => archive.exportArchive(plan.experiment, run, { partBytes: 300 }), error => error.code === "archive_too_large");
+  await assert.rejects(archive.exportArchive(plan.experiment, run, { partBytes: 300 }), error => error.code === "archive_too_large");
 });
 test("fingerprint mismatch is a readable archive, configuration-only exchange has no records", async () => {
-  const parts = archive.exportArchive(plan.experiment, run);
+  const parts = await archive.exportArchive(plan.experiment, run);
   const historical = A.create({ validatePolicy, validateRequest: () => { throw Error("historical input must not be revalidated against current catalog"); }, validateProgram: (program, options) => ({ ok: options.archived }), build: { ...build, catalogSha256: "c".repeat(64) } });
   assert.equal((await historical.importArchive(parts.map(part => part.text))).archived, true);
-  const config = await archive.importArchive(archive.exportArchive(plan.experiment, null).map(part => part.text));
+  const config = await archive.importArchive((await archive.exportArchive(plan.experiment, null)).map(part => part.text));
   assert.equal(config.run, null); assert.equal(config.experiment.name, "Archive");
 });

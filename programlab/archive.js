@@ -6,6 +6,12 @@
   const summary = run => { const { records, ...metadata } = run; return metadata; };
   const freeze = value => { if (value && typeof value === "object" && !Object.isFrozen(value)) { Object.values(value).forEach(freeze); Object.freeze(value); } return value; };
   const check = (condition, message, code = "invalid_archive") => { if (!condition) D.fail(code, message); };
+  async function recordHash(value) {
+    if (!root.crypto?.subtle) return D.digest(value);
+    const encoded = new TextEncoder().encode(D.canonicalJSON(value));
+    const hash = await root.crypto.subtle.digest("SHA-256", encoded);
+    return Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, "0")).join("");
+  }
 
   function create({ validatePolicy, validateRequest, validateProgram, build, sweepPaths = [] }) {
     check(typeof validatePolicy === "function" && typeof validateRequest === "function" && typeof validateProgram === "function", "Archive validators are required");
@@ -92,7 +98,7 @@
         D.keys(result, ["ok", "value", "conflicts", "explanations"], ["confirmationOffers", "diagnostics"]);
         check(Array.isArray(result.conflicts) && Array.isArray(result.explanations)
           && (result.confirmationOffers === undefined || Array.isArray(result.confirmationOffers)), "Malformed generation result lists");
-        check(typeof record.resultJSON === "string" && D.digest(JSON.parse(record.resultJSON)) === D.digest(result), "Original result JSON mismatch");
+        check(typeof record.resultJSON === "string" && D.canonicalJSON(JSON.parse(record.resultJSON)) === D.canonicalJSON(result), "Original result JSON mismatch");
         check(record.outcome === D.classify(result), "Cell outcome mismatch");
         if (result.diagnostics !== undefined) {
           const diagnostic = result.diagnostics;
@@ -116,7 +122,7 @@
       }
       return archived;
     }
-    function exportArchive(experiment, run = null, { partBytes = D.LIMITS.partBytes, exportedAt = new Date().toISOString() } = {}) {
+    async function exportArchive(experiment, run = null, { partBytes = D.LIMITS.partBytes, exportedAt = new Date().toISOString() } = {}) {
       check(Number.isSafeInteger(partBytes) && partBytes > 0 && partBytes <= D.LIMITS.partBytes, "Invalid archive part limit");
       const records = run?.records || [];
       check(Array.isArray(records) && records.length <= D.LIMITS.cells, "Cell bound exceeded");
@@ -127,7 +133,8 @@
       validate(experiment, run);
       const shared = { exportedAt, experiment, run: run ? summary(run) : null };
       const metadataHash = D.digest(shared);
-      const hashes = records.map(record => ({ cellKey: record.cellKey, hash: D.digest(record) }));
+      const hashes = [];
+      for (const record of records) hashes.push({ cellKey: record.cellKey, hash: await recordHash(record) });
       const envelope = (group, index, count, manifest) => ({ kind: KIND, schemaVersion: 1, exportedAt, experiment,
         runs: run ? [{ ...shared.run, records: group }] : [], transfer: { archiveId: D.digest(manifest), partIndex: index, partCount: count, manifest } });
       const worstManifest = { kind: MANIFEST, schemaVersion: 1, metadataHash, partCount: 10, records: hashes.map(entry => ({ ...entry, partIndex: 10 })) };
@@ -193,7 +200,7 @@
         for (const record of part.runs[0]?.records || []) {
           check(!records.has(record.cellKey), "Duplicate cell record");
           const declared = manifest.records.find(entry => entry.cellKey === record.cellKey);
-          check(declared && declared.partIndex === transfer.partIndex && declared.hash === D.digest(record), "Cell record hash or part assignment mismatch");
+          check(declared && declared.partIndex === transfer.partIndex && declared.hash === await recordHash(record), "Cell record hash or part assignment mismatch");
           records.set(record.cellKey, record);
         }
       }
