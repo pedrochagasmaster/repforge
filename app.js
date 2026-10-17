@@ -6613,14 +6613,16 @@ function swapRestSlot(slot,mode,next){
     slot.innerHTML=next;slot.dataset.rest=mode;
     bindRestControls(slot);
     if(m)crossfadeIn(slot,fromHtml,"fx-slot__out")};
-  if(window.RepForgeMotion?.animateSlot)window.RepForgeMotion.animateSlot(slot,apply);
-  else apply()}
+  const moved=window.RepForgeMotion?.animateSlot?window.RepForgeMotion.animateSlot(slot,apply):(apply(),null);
+  settleFocusContext(moved)}
+/** Once the slot has its new height, the context region is brought back to whole lines under the segment bar. */
+function settleFocusContext(moved){Promise.resolve(moved).then(()=>sizeFocusCard(focusCard()),()=>{})}
 /** L3 after a render: the card was drawn with the slot's new content (and every handler bound), so the new content
  *  stays where it is. The slot is held at the height it had, the old content is laid over it, and `animateSlot` carries
  *  the height from there to the new content's own while the two cross over. */
 function arriveRestSlot(slot,before){
   slot.style.height=`${before.height}px`;
-  window.RepForgeMotion.animateSlot(slot,()=>crossfadeIn(slot,before.html,"fx-slot__out"))}
+  settleFocusContext(window.RepForgeMotion.animateSlot(slot,()=>crossfadeIn(slot,before.html,"fx-slot__out")))}
 /** The pad row trades the field pads for the rest controls and back, in the same crossfade. */
 function swapRestPads(card,pads){
   const base=prog.find(card.dataset.ex);if(!base||!activeWorkoutDraft)return;
@@ -8202,8 +8204,9 @@ function shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek}){
   const raw=pending??set.edited.metrics?.[metric.id]??"";
   const shown=raw!==""?shelfText(metricTextValue(raw,metric)):metricTargetText(set.programmed.targets?.[metric.semantic]);
   const target=metricTargetText(set.programmed.targets?.[metric.semantic]);
-  const unit=metric.unit==="kg"?unitLabel():metric.unit==="metres"?"m":metric.unit==="seconds"?"s":metric.unit;
-  const label=`${metricLabel(metric)}${unit?` (${unit})`:""}`;
+  // A unit the name already says (reps) is not repeated; any other follows the load field's "Load, kg".
+  const unit=metricDisplayUnit(metric);
+  const label=`${metricLabel(metric)}${unit?`, ${unit}`:""}`;
   const name=`${label}, ${t("focus.set_label",{n})}`;
   const soft=!touched.metrics?.[metric.id]&&!pendingFields.has(inputKey);
   const cls=`shelf__field${selected?" is-sel":""}${soft?" is-untouched":""}${live?" is-editing":""}`;
@@ -8299,8 +8302,10 @@ function focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
   const label=editing?t("log.save_set_aria",{n}):t("focus.shelf.log_set",{n});
   const setId=activeWorkoutDraft?.exercises?.[ex.id]?.setOrder?.find(id=>activeWorkoutDraft.exercises[ex.id].sets[id].ordinal===n);
   const set=activeWorkoutDraft?.exercises?.[ex.id]?.sets?.[setId];
+  // The fields read in the order of the set table's columns: load, then reps, then effort.
+  const column=metric=>METRIC_FIELD_SEMANTICS.load.includes(metric.semantic)?0:METRIC_FIELD_SEMANTICS.reps.includes(metric.semantic)?1:2;
   const fields=metricDefinitions.length
-    ?metricDefinitions.map(metric=>shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek})).join("")+shelfFieldHtml(ex,n,"rir",vals,{ui,touched,effortMode,peek})
+    ?[...metricDefinitions].sort((a,b)=>column(a)-column(b)).map(metric=>shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek})).join("")+shelfFieldHtml(ex,n,"rir",vals,{ui,touched,effortMode,peek})
     :["load","reps","rir"].map(id=>shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek})).join("");
   return `<div class="focus-shelf workshelf${editing?" is-editing":""}" role="region" aria-label="${esc(label)}">`+
     `<div class="shelf__fields">${fields}</div>`+
@@ -8619,8 +8624,30 @@ function sizeFocusCard(card){
       resting=!!slot&&slot.dataset.rest&&slot.dataset.rest!=="none"&&context.clientHeight<slot.offsetHeight+row.height+24;
     const keep=resting?slot.getBoundingClientRect().top:NaN;
     const room=Number.isFinite(keep)?Math.max(0,keep-box.top):Infinity;
-    context.scrollTop+=Math.min(row.bottom-box.bottom+8,room)}
-  else if(row.top<box.top)context.scrollTop=Math.max(0,context.scrollTop-(box.top-row.top)-8)}
+    const need=row.bottom-box.bottom+8;
+    // Held at the rest, the window keeps what is under the rest's top; otherwise it moves on past a line it would cut.
+    context.scrollTop=wholeLineScroll(context,context.scrollTop+Math.min(need,room),room<need?-1:1,context.scrollTop+room)}
+  else if(row.top<box.top)context.scrollTop=wholeLineScroll(context,Math.max(0,context.scrollTop-(box.top-row.top)-8),-1);
+  else if(context.scrollTop>0){
+    // The row is in view, but what sits above it may have changed height since (a rest's slot trading its content):
+    // show a cut line whole if the row stays in view, else move on past it.
+    const back=wholeLineScroll(context,context.scrollTop,-1);
+    context.scrollTop=row.bottom+(context.scrollTop-back)<=box.bottom?back
+      :wholeLineScroll(context,context.scrollTop,1,context.scrollTop+Math.max(0,row.top-box.top))}}
+/** A scroll position for the context region that leaves no line cut at its top edge, under the segment bar: from
+ *  `target`, `dir` 1 moves on past a cut line and -1 moves back to show it whole, never beyond `limit`. */
+function wholeLineScroll(context,target,dir,limit=Infinity){
+  const origin=context.getBoundingClientRect().top-context.scrollTop;
+  const lines=[...context.querySelectorAll("*")].filter(el=>!el.children.length&&el.getClientRects().length).map(el=>{
+    const r=el.getBoundingClientRect();return{top:r.top-origin,bottom:r.bottom-origin}}).filter(r=>r.bottom-r.top>=1);
+  const most=Math.min(limit,context.scrollHeight-context.clientHeight);
+  let at=Math.max(0,Math.min(target,most));
+  for(let i=0;i<8;i++){
+    const cut=lines.filter(r=>r.top<at-0.5&&r.bottom>at+0.5);if(!cut.length)break;
+    const next=dir>0?Math.max(...cut.map(r=>r.bottom)):Math.min(...cut.map(r=>r.top));
+    if(next>most||next<0)break;
+    at=next}
+  return at}
 
 async function refreshAfterCommittedEdit(row){
   if(!row?.dataset.set||!committed.has(row.dataset.set))return{status:"unchanged"};
@@ -8701,6 +8728,19 @@ function bindWorkout(){
     const set=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId];
     const editing=!!(focusEdit&&`${focusEdit.exId}_${focusEdit.n}`===key);
     const type=set.completion==="pending"?"completeSet":"uncommitSet";
+    // A metric-backed set starts with no effort of its own, while its field shows one (the last session's, or the
+    // default). Logging the set logs what the field shows, as it does for every other set.
+    if(type==="completeSet"&&set.programmed?.metrics){
+      const field=isEffortMode()?"effort":"rir";
+      const base=prog.find(target.exerciseInstanceId);
+      if(base&&set.edited[field]==null&&!pendingFields.has(`${key}_${field}`)){
+        const ex=sessionExercise(base);
+        const vals=setFieldVals(ex,target.ordinal,recommendation(ex),hydrateWorkoutDraft(),last(ex));
+        const shown=field==="effort"?vals.effortVal:String(vals.rirVal??"");
+        if(shown!==""){
+          const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,field,value:shown});
+          if(result.status==="domain-error"){applyDraftIssue(result.error?.issues);return}
+          if(result.status!=="applied")return}}}
     const refreshReservation=type==="completeSet"?reserveDraftRefresh():null;
     let refreshStarted=false;
     try{

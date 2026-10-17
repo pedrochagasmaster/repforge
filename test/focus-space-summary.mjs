@@ -115,7 +115,15 @@ try {
         const row = document.querySelector("#workout .exercise--focus.is-current .ledgerline--open");
         return row && +row.dataset.lrow === 3 && document.querySelector("#workout .exercise.is-current .fx-slot")?.dataset.rest === "done";
       }, undefined, { timeout: 15000 });
-      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      // The rest's slot trades its content and height after the render; the window settles once that is done.
+      await page.waitForFunction(() => {
+        const context = document.querySelector("#workout .exercise--focus.is-current .fcard__context");
+        const top = context.getBoundingClientRect().top;
+        return context.scrollTop > 0 && ![...context.querySelectorAll("*")].some((el) => {
+          const box = el.getBoundingClientRect();
+          return !el.children.length && box.height >= 1 && box.width >= 1 && box.top < top - 0.5 && box.bottom > top + 0.5;
+        });
+      }, undefined, { timeout: 5000 }).catch(() => {});
       const after = await page.evaluate(contextCuts);
       check(after.scrollTop > 0, "the third set's row needs the card to scroll (the case under test)", after);
       check(after.top >= after.barBottom - 0.5 && !after.cuts.length, "after scrolling to the third set nothing is cut under the segments", after);
