@@ -31,8 +31,11 @@ async function staticFiles(sourceDir, folder) {
 }
 export async function buildProgramLab({ sourceDir = repository, outDir } = {}) {
   const source = path.resolve(sourceDir);
-  const output = path.resolve(outDir || path.join(source, 'dist/programlab'));
+  const output = path.resolve(outDir || path.join(source, '.ci-results/programlab-local'));
   if (output === source || source.startsWith(`${output}${path.sep}`)) throw new Error('Output must not contain the source checkout');
+  const publicOutput = path.join(source, 'dist'), labSource = path.join(source, 'programlab');
+  if (output === publicOutput || output.startsWith(`${publicOutput}${path.sep}`)) throw new Error('Program Lab output must stay outside the production dist/ directory');
+  if (output === labSource || output.startsWith(`${labSource}${path.sep}`)) throw new Error('Program Lab output must stay outside its source directory');
   if (existsSync(output)) throw new Error(`Output already exists; choose a new artifact directory: ${output}`);
   for (const name of new Set([...required, corpusSource])) {
     if (!existsSync(path.join(source, name))) throw new Error(`Missing required Program Lab source: ${name}`);
@@ -77,7 +80,7 @@ export async function buildProgramLab({ sourceDir = repository, outDir } = {}) {
       await writeFile(path.join(staging, name), bytes);
     }
     await writeFile(path.join(staging, 'programlab/build-manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
-    await writeFile(path.join(staging, 'README.txt'), 'Taurifer Program Lab — local standalone artifact\n\nServe only on loopback:\n  python3 -m http.server 8000 --bind 127.0.0.1 --directory <this-directory>\nOpen http://127.0.0.1:8000/ in a fresh browser profile.\nNo service worker, production navigation, or deployment is included.\nDo not expose this artifact on a public server. Hosted owner access must be configured separately before exposure.\nBuild provenance: programlab/build-manifest.json. Hashes detect changes; they do not establish authorship.\n');
+    await writeFile(path.join(staging, 'README.txt'), 'Taurifer Program Lab — local standalone artifact\n\nServe only on loopback:\n  python3 -m http.server 8765 --bind 127.0.0.1 --directory <this-directory>\nChoose an unused loopback port that you do not use for the workout app.\nOpen http://127.0.0.1:8765/ in a separate browser profile.\nNo service worker, production navigation, or deployment is included.\nDo not expose this artifact on a public server. Hosted owner access must be configured separately before exposure.\nBuild provenance: programlab/build-manifest.json. Hashes detect changes; they do not establish authorship.\n');
     // rename is the only publication point; existing output is never deleted.
     if (existsSync(output)) throw new Error(`Output already exists: ${output}`);
     await rename(staging, output);
@@ -90,7 +93,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     console.error('Usage: node tools/build-programlab.mjs [--out <new-directory>]'); process.exitCode = 1;
   } else {
     try {
-      const outDir = path.resolve(args[1] || path.join(repository, 'dist/programlab'));
+      const outDir = path.resolve(args[1] || path.join(repository, '.ci-results/programlab-local'));
       const manifest = await buildProgramLab({ outDir });
       console.log(`Program Lab assembled at ${outDir}\nGenerator ${manifest.generatorVersion}; runtime ${manifest.runtimeFingerprint}; catalog ${manifest.catalogSha256}`);
     } catch (error) { console.error(error.message); process.exitCode = 1; }

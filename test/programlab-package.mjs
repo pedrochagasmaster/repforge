@@ -47,6 +47,7 @@ try {
   assert(manifest.worker.scripts.includes('engine-policy.js'));
   assert(manifest.worker.scripts.includes('generation-layout.js'));
   await assert.rejects(buildProgramLab({ sourceDir: fixture, outDir: out }), /already exists/, 'never overwrites an existing artifact');
+  await assert.rejects(buildProgramLab({ sourceDir: fixture, outDir: path.join(fixture, 'dist/lab') }), /production/, 'lab artifacts stay outside the public deployment output');
   await writeFile(path.join(fixture, 'programlab/index.html'), html.replace('src="exercises.js"', 'src="https://example.com/exercises.js"'));
   await assert.rejects(buildProgramLab({ sourceDir: fixture, outDir: path.join(temporary, 'unsafe') }), /local source paths/);
   console.log('Program Lab packaging: shipped-byte hashes, exact catalog, local worker inventory, missing-source/remote-source rejection, and no overwrite passed.');
