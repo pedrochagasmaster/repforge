@@ -207,6 +207,7 @@ export const SUITES = {
     s("test/slot-alternates.mjs", [], { domains: ["program", "workout", "history"], seconds: 20 }),
     s("test/focus-navigation.mjs"),
     s("test/focus-geometry.mjs", [], { seconds: 187 }),
+    s("test/focus-space-summary.mjs", [], { domains: ["workout"], seconds: 40 }),
     s("test/management-summary.mjs"),
     s("test/summary-evidence.mjs"),
     s("test/why-sheet.mjs", [], { domains: ["workout"], seconds: 40 }),
