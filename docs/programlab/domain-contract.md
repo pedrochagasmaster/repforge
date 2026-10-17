@@ -184,6 +184,9 @@ metadata; it is separate from imported archive contents.
 `test/programlab-domain.mjs` and `test/programlab-archive.mjs` are fast Node suites.
 `test/programlab-store.mjs` is a real Chromium/IndexedDB/Worker fault-injection
 suite, using `REPFORGE_URL`'s origin and the repository browser launcher.
+`node --max-old-space-size=8192 test/programlab-archive-limits.mjs` is the
+separate resource stress: 1,000 planned cells, 200 scenarios, 20-value boundary,
+ten parts within 129 bytes of 500 MiB, raw-byte round trip and oversize rejection.
 Integration owns their registration in `test/suites.mjs` and ownership of
 `programlab/{domain,store,archive,archive-worker}.js` in `tools/test-selection.mjs`.
 The final packaged UI/engine/browser journey and full CI remain integration gates.
