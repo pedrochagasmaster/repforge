@@ -59,6 +59,9 @@ export const SUITES = {
     s("test/program-compiler-plan067.mjs"),
     s("test/program-compiler-search.mjs", [], { seconds: 10 }),
     s("test/programlab-default-parity.mjs", [], { domains: ["program"], seconds: 40 }),
+    s("test/programlab-domain.mjs", [], { domains: ["program", "persistence"] }),
+    s("test/programlab-archive.mjs", [], { domains: ["program", "persistence"] }),
+    s("test/programlab-archive-limits.mjs", [], { nodeArgs: ["--max-old-space-size=8192"], domains: ["program", "persistence"], cost: "long", tier: "candidate", seconds: 45 }),
     s("test/progression-engine-plan067.mjs"),
     s("test/program-entry-contracts.mjs"),
     s("test/ui-screens.mjs"),
@@ -85,6 +88,7 @@ export const SUITES = {
     s("test/manual-matrix.mjs", ["--self-test"]),
   ],
   state: [
+    s("test/programlab-store.mjs", [], { domains: ["program", "persistence", "privacy"], seconds: 10 }),
     s("test/ci-browser.mjs"),
     s("test/privacy-offline.mjs", [], { domains: ["privacy", "offline"], tier: "packet" }),
     s("test/program-entry-conflict-runtime.mjs"),

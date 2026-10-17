@@ -146,6 +146,11 @@ function addEntries(target, additions) {
 
 const EXPLICIT_INPUT_RULES = [
   {
+    match: /^programlab\/(?:domain|store|archive|archive-worker)\.js$/,
+    suiteFiles: ["test/programlab-domain.mjs", "test/programlab-archive.mjs", "test/programlab-archive-limits.mjs", "test/programlab-store.mjs"],
+    why: "lab planning, archive protocol and isolated persistence consumers",
+  },
+  {
     match: /^test\/fixtures\/programlab-integration-default-results\.json$/,
     suiteFiles: ["test/programlab-default-parity.mjs"],
     why: "pre-extraction complete-result baseline",
