@@ -21,7 +21,7 @@ test("multipart archives retain canceled completeness and require every exact pa
   assert.equal(restored.run.status, "canceled"); assert.equal(restored.run.completed, 6); assert.equal(restored.archived, false);
   assert.deepEqual(restored.run.records, run.records);
   await assert.rejects(archive.importArchive(parts.slice(1).map(part => part.text)), error => error.code === "incomplete_archive");
-  await assert.rejects(archive.importArchive([parts[0].text, parts[0].text]), /duplicate|incomplete/i);
+  await assert.rejects(archive.importArchive([parts[0].text, parts[0].text]), error => error.code === "incomplete_archive");
   const corrupted = parts.map(part => JSON.parse(part.text)); corrupted[0].runs[0].records[0].outcome = "success";
   await assert.rejects(archive.importArchive(corrupted.map(JSON.stringify)), /hash|outcome/i);
   const unknown = JSON.parse(parts[0].text); unknown.workerURL = "https://example.test/code.js";

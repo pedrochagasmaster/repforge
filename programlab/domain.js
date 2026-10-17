@@ -55,6 +55,7 @@
       if (!Array.isArray(input.scenarios) || !input.scenarios.length || input.scenarios.length > LIMITS.pairs
         || input.mode === "single" && input.scenarios.length !== 1) fail("pair_limit", "Invalid scenario count");
       if (typeof input.name !== "string" || typeof input.notes !== "string") fail("invalid_schema", "Name and notes must be strings");
+      if (normalizePolicy(snapshot(input.baselinePolicy))?.isDefault === false) fail("invalid_baseline", "New runs require this build's bundled default baseline");
       const baselinePolicy = normalized(normalizePolicy, input.baselinePolicy, "invalid_engine_policy");
       const candidatePolicy = normalized(normalizePolicy, input.candidatePolicy, "invalid_engine_policy");
       const referenceTimePolicy = normalized(normalizePolicy, input.referenceTimePolicy, "invalid_engine_policy");
@@ -62,6 +63,7 @@
       const scenarios = input.scenarios.map(scenario => {
         keys(scenario, ["id", "name", "request"], ["inputMode", "answers", "seed"]);
         text(scenario.id, "scenario ID");
+        text(scenario.name, "scenario name");
         if (ids.has(scenario.id)) fail("duplicate_scenario", "Duplicate scenario ID");
         ids.add(scenario.id);
         if (scenario.seed !== undefined && !allowSeedLabels) fail("unsupported_seed", "073.4 derives identity from canonical inputs; variable seeds are unsupported");
@@ -285,7 +287,7 @@
       active = state;
       let current = { kind: "taurifer-programlab-run", schemaVersion: 1, runId: identity,
         plan: frozenPlan, status: "validating", records: [], completed: 0, total: frozenPlan.cellCount,
-        saved: !allowUnsaved, error: null };
+        saved: !allowUnsaved, error: null, startedAt: new Date().toISOString(), finishedAt: null };
       const publish = () => { try { progress(snapshot(current)); } catch { /* Rendering cannot change the run. */ } };
       const task = (async () => {
         try {
@@ -341,6 +343,7 @@
             }
           }
           if (current.status !== "failed") current.status = state.canceled ? "canceled" : "completed";
+          current.finishedAt = new Date().toISOString();
           dispose(state);
           if (!allowUnsaved && current.saved) {
             try { await store.finalize(snapshot(current)); }

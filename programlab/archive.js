@@ -29,13 +29,17 @@
       const ids = new Set();
       for (const scenario of experiment.scenarios) {
         D.keys(scenario, ["id", "name", "request"], ["inputMode", "answers", "seed"]);
+        D.text(scenario.name, "scenario name");
         check(typeof scenario.id === "string" && scenario.id.length > 0 && !ids.has(scenario.id), "Duplicate or invalid scenario ID"); ids.add(scenario.id);
         if (!archived) checked(validateRequest, scenario.request, false, "request");
         if (scenario.request.seed !== undefined && scenario.seed !== undefined) check(scenario.request.seed === String(scenario.seed), "Contradictory effective request seed");
       }
       if (!run) return false;
-      D.keys(run, ["kind", "schemaVersion", "runId", "plan", "status", "records", "completed", "total", "saved", "error"], ["archived"]);
+      D.keys(run, ["kind", "schemaVersion", "runId", "plan", "status", "records", "completed", "total", "saved", "error"], ["archived", "startedAt", "finishedAt"]);
       check(run.kind === "taurifer-programlab-run" && run.schemaVersion === 1 && typeof run.runId === "string", "Unsupported run kind or version");
+      check(typeof run.saved === "boolean" && run.runId.length > 0, "Invalid run metadata");
+      for (const field of ["startedAt", "finishedAt"]) if (run[field] !== undefined && run[field] !== null) check(typeof run[field] === "string" && Number.isFinite(Date.parse(run[field])), "Invalid run timestamp");
+      if (run.error !== null) { D.keys(run.error, ["code", "message"]); check(typeof run.error.code === "string" && typeof run.error.message === "string", "Invalid run error"); }
       check(["validating", "running", "completed", "canceled", "interrupted", "failed"].includes(run.status), "Invalid run status");
       check(Array.isArray(run.records) && run.records.length <= D.LIMITS.cells && run.records.length === run.completed, "Run completeness mismatch");
       const plan = run.plan;
@@ -81,10 +85,13 @@
         check(planned.has(record.cellKey) && !seen.has(record.cellKey), "Duplicate or unplanned cell outcome"); seen.add(record.cellKey);
         if (record.error !== null) {
           D.keys(record.error, ["code", "message"]);
+          check(typeof record.error.code === "string" && typeof record.error.message === "string", "Invalid execution error");
           check(record.outcome === "execution_error" && record.result === null && record.resultJSON === null, "Execution error outcome mismatch"); continue;
         }
         const result = record.result;
         D.keys(result, ["ok", "value", "conflicts", "explanations"], ["confirmationOffers", "diagnostics"]);
+        check(Array.isArray(result.conflicts) && Array.isArray(result.explanations)
+          && (result.confirmationOffers === undefined || Array.isArray(result.confirmationOffers)), "Malformed generation result lists");
         check(typeof record.resultJSON === "string" && D.digest(JSON.parse(record.resultJSON)) === D.digest(result), "Original result JSON mismatch");
         check(record.outcome === D.classify(result), "Cell outcome mismatch");
         if (result.diagnostics !== undefined) {
@@ -111,18 +118,26 @@
     }
     function exportArchive(experiment, run = null, { partBytes = D.LIMITS.partBytes, exportedAt = new Date().toISOString() } = {}) {
       check(Number.isSafeInteger(partBytes) && partBytes > 0 && partBytes <= D.LIMITS.partBytes, "Invalid archive part limit");
+      const records = run?.records || [];
+      check(Array.isArray(records) && records.length <= D.LIMITS.cells, "Cell bound exceeded");
+      // Size preflight precedes detailed record hashing, including rejection of
+      // a locally saved cell that cannot fit into any supported archive part.
+      const recordSizes = records.map(record => bytes(record));
+      check(recordSizes.every(size => size <= partBytes), "One cell exceeds the individual file bound; export configuration only", "archive_too_large");
       validate(experiment, run);
       const shared = { exportedAt, experiment, run: run ? summary(run) : null };
-      const records = run?.records || [], metadataHash = D.digest(shared);
+      const metadataHash = D.digest(shared);
       const hashes = records.map(record => ({ cellKey: record.cellKey, hash: D.digest(record) }));
       const envelope = (group, index, count, manifest) => ({ kind: KIND, schemaVersion: 1, exportedAt, experiment,
         runs: run ? [{ ...shared.run, records: group }] : [], transfer: { archiveId: D.digest(manifest), partIndex: index, partCount: count, manifest } });
       const worstManifest = { kind: MANIFEST, schemaVersion: 1, metadataHash, partCount: 10, records: hashes.map(entry => ({ ...entry, partIndex: 10 })) };
       const overhead = bytes(envelope([], 10, 10, worstManifest));
-      check(overhead <= partBytes, "Shared archive metadata exceeds the individual file bound; export configuration only", "archive_too_large");
-      const groups = [[]]; let used = overhead;
-      for (const record of records) {
-        const size = bytes(record) + 1;
+      const singleManifest = { kind: MANIFEST, schemaVersion: 1, metadataHash, partCount: 1, records: hashes.map(entry => ({ ...entry, partIndex: 1 })) };
+      const singleFits = bytes(envelope([], 1, 1, singleManifest)) + recordSizes.reduce((sum, size) => sum + size, 0) + Math.max(0, records.length - 1) <= partBytes;
+      check(singleFits || overhead <= partBytes, "Shared archive metadata exceeds the individual file bound; export configuration only", "archive_too_large");
+      const groups = singleFits ? [records] : [[]]; let used = overhead;
+      if (!singleFits) for (const [index, record] of records.entries()) {
+        const size = recordSizes[index] + 1;
         check(overhead + size <= partBytes, "One cell exceeds the individual file bound; export configuration only", "archive_too_large");
         if (used + size > partBytes) { groups.push([]); used = overhead; }
         groups.at(-1).push(record); used += size;
@@ -162,6 +177,7 @@
         check(Number.isInteger(transfer.partCount) && transfer.partCount >= 1 && transfer.partCount <= D.LIMITS.parts
           && transfer.partCount === transfer.manifest.partCount && Number.isInteger(transfer.partIndex)
           && transfer.partIndex >= 1 && transfer.partIndex <= transfer.partCount && !indexes.has(transfer.partIndex), "Duplicate or invalid part index", "incomplete_archive");
+        check(parts.length === transfer.partCount, "Select every declared archive part", "incomplete_archive");
         check(Array.isArray(part.runs) && part.runs.length <= 1, "Only one selected run is supported");
         check(!part.runs.length || Array.isArray(part.runs[0].records) && part.runs[0].records.length <= D.LIMITS.cells, "Cell bound exceeded");
         check(Array.isArray(part.experiment.scenarios) && part.experiment.scenarios.length <= D.LIMITS.pairs, "Scenario bound exceeded");

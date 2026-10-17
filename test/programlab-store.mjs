@@ -28,6 +28,8 @@ try {
     assert((await store.loadRun("first")).completed === 1, "duplicate checkpoint cannot double count");
     await store.close();
     const reloaded = await S.open(); await reloaded.recoverInterrupted();
+    const savedRuns = await reloaded.listRuns("test", 1);
+    assert(savedRuns.length === 1 && savedRuns[0].runId === "first", "saved runs are discoverable after reload without transient UI state");
     const restored = await reloaded.loadRun("first");
     assert(restored.status === "interrupted" && restored.records.length === 1, "reload preserves partial run honestly");
     const unchanged = await reloaded.resolveRevision(experiment);

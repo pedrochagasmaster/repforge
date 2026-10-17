@@ -121,6 +121,18 @@
             tx.objectStore("revisions").getAll().onsuccess = guard(values => done(D.snapshot(values)));
           });
         }
+        function listRuns(experimentId, revision) {
+          return transact(["runs"], "readonly", (tx, done, guard) => {
+            tx.objectStore("runs").index("experimentId").getAll(experimentId).onsuccess = guard(values => {
+              const rows = values.filter(run => revision === undefined || run.plan.experiment.revision === revision)
+                .map(run => ({ runId: run.runId, revision: run.plan.experiment.revision, status: run.status,
+                  completed: run.completed, total: run.total, startedAt: run.startedAt || null }));
+              rows.sort((a, b) => String(a.startedAt || "") < String(b.startedAt || "") ? 1
+                : String(a.startedAt || "") > String(b.startedAt || "") ? -1 : a.runId < b.runId ? -1 : a.runId > b.runId ? 1 : 0);
+              done(D.snapshot(rows));
+            });
+          });
+        }
         async function loadExperiment(experimentId, revision) {
           const all = await listExperiments();
           const matching = all.filter(value => value.experimentId === experimentId && (revision === undefined || value.revision === revision));
@@ -156,7 +168,7 @@
           });
         }
         resolve(Object.freeze({ begin, checkpoint, finalize, loadRun, recoverInterrupted,
-          saveExperiment, resolveRevision, listExperiments, loadExperiment, importArchive, close: () => db.close() }));
+          saveExperiment, resolveRevision, listExperiments, listRuns, loadExperiment, importArchive, close: () => db.close() }));
       };
     });
   }

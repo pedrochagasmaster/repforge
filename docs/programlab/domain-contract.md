@@ -67,7 +67,9 @@ failure leaves a visible failed unsaved in-memory result. Progress callbacks
 cannot change execution outcomes.
 
 Run fields: `kind`, `schemaVersion`, `runId`, `plan`, `status`, `records`,
-`completed`, `total`, `saved`, and `error` (null or `{code,message}`). Every cell
+`completed`, `total`, `saved`, and `error` (null or `{code,message}`).
+New runs also carry `startedAt`/`finishedAt` ISO timestamps outside computation
+identity; historical records can omit them. Every cell
 record contains `{cellKey,outcome,result,resultJSON,error}`. `resultJSON`
 preserves the **original complete compiler-result JSON bytes/property order**;
 `result` is the detached parsed data. Execution errors have both result fields
@@ -114,6 +116,8 @@ It never reads or writes workout-app databases or localStorage.
 - `recoverInterrupted()`: explicitly marks persisted validating/running runs
   interrupted. Call on reload; no implicit execution resume exists.
 - `listExperiments()` / `loadExperiment(experimentId,revision?)`: frozen inputs.
+- `listRuns(experimentId,revision?)`: run summaries for reload discovery,
+  newest timestamp first; `loadRun(runId)` loads selected result details.
 - `importArchive(staged)`: one atomic commit of validated, staged input; mints
   local experiment/run UUIDs and keeps external source IDs in provenance.
   Imported unfinished runs become interrupted. `close()` releases the handle.
