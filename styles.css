@@ -979,9 +979,11 @@ body.is-workout.is-focus-wo #logForm{padding-bottom:0}
    back in the header, where the mockups put it. */
 body.is-focus-wo nav{display:none}
 body.is-focus-wo{padding-bottom:0}
+/* The screen runs to the bottom edge: the shelf's surface goes under the home indicator and pays that inset
+   from its own padding, so no strip of page shows under it. */
 body.is-workout.is-focus-wo main{
   display:flex;flex-direction:column;
-  height:calc(100dvh - env(safe-area-inset-bottom));
+  height:100dvh;
   padding-bottom:0;
   /* The deck reaches both edges so the shelf can; the rest of the screen keeps the gutter. */
   padding-left:0;padding-right:0;
@@ -1016,6 +1018,8 @@ body.is-workout.is-focus-wo #workoutShell > :not(.wo-head):not(#logForm){
 :root[data-keyboard="up"] body.is-workout.is-focus-wo #workoutShell,
 :root[data-keyboard="up"] body.is-workout.is-focus-wo #logForm{min-height:0}
 :root[data-keyboard="up"] body.is-workout.is-focus-wo article.exercise--focus .fcard__context{min-height:0}
+/* The keyboard covers the home indicator, so the shelf does not pay its inset again above the keyboard. */
+:root[data-keyboard="up"] body.is-workout.is-focus-wo .focus-shelf{padding-bottom:var(--space-16)}
 /* A guide above the deck never takes more than a quarter of the screen, so the card under it keeps its context. */
 body.is-workout.is-focus-wo #workoutShell > .guide-cue{max-height:25dvh}
 body.is-workout.is-focus-wo #dayTabs,
@@ -3031,16 +3035,22 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
   --sum-pad-l:max(16px,env(safe-area-inset-left));
   --sum-pad-r:max(16px,env(safe-area-inset-right));
   position:fixed;inset:0;z-index:75;overflow-y:auto;overscroll-behavior:contain;
+  display:flex;flex-direction:column;
   background:var(--bg);
   padding:calc(30px + env(safe-area-inset-top)) 0 var(--sum-pad-b);
 }
 .sumsheet.hidden{display:none!important}
 /* The side padding belongs to the body, not the sheet, so the pinned bar can reach
-   through it to the edges while staying inside the body's own box. */
+   through it to the edges while staying inside the body's own box. The body fills
+   the sheet down through its bottom band, so a short report still puts the bar on
+   the bottom edge and a long one ends with the bar on it. */
 .sumsheet__body{
-  width:min(100%,calc(var(--maxw) + var(--sum-pad-l) + var(--sum-pad-r)));margin:0 auto;
+  flex:1 0 auto;display:flex;flex-direction:column;
+  width:min(100%,calc(var(--maxw) + var(--sum-pad-l) + var(--sum-pad-r)));margin:0 auto calc(-1 * var(--sum-pad-b));
   padding:0 var(--sum-pad-r) 0 var(--sum-pad-l);
 }
+/* The bar keeps its gap above the report and takes up whatever height the report leaves. */
+.sumsheet__body::after{content:"";flex:1 0 var(--space-14)}
 
 /* The report is a ledger (Direction D, spec 4.4): flat groups on hairlines, outcome
    words in ink, green only for a record, and no mark celebrating the save. */
@@ -3120,8 +3130,8 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
    persistent-action surface runs edge to edge under its hairline instead of sitting in
    the text column as a box. */
 .sum-actions{
-  position:sticky;bottom:calc(-1 * var(--sum-pad-b));z-index:1;display:flex;gap:var(--space-12);
-  margin:var(--space-14) calc(-1 * var(--sum-pad-r)) 0 calc(-1 * var(--sum-pad-l));
+  position:sticky;bottom:calc(-1 * var(--sum-pad-b));z-index:1;display:flex;gap:var(--space-12);order:1;
+  margin:0 calc(-1 * var(--sum-pad-r)) 0 calc(-1 * var(--sum-pad-l));
   padding:var(--space-12) var(--sum-pad-r) var(--sum-pad-b) var(--sum-pad-l);
   background:var(--bg);border-top:1px solid var(--boundary-persistent);
   box-shadow:var(--elevation-persistent-shadow);
