@@ -38,7 +38,7 @@
     if (typeof value !== "string" || !value || value.length > 4096) fail("invalid_schema", `Invalid ${field}`);
     return value;
   }
-  function create({ normalizePolicy, normalizeRequest, estimateDaySeconds, sweepPaths = [] }) {
+  function create({ normalizePolicy, normalizeRequest, estimateDaySeconds, sweepPaths = [], allowSeedLabels = false }) {
     function normalized(normalize, value, code) {
       const checked = normalize(snapshot(value));
       if (!checked?.ok) { const error = new TypeError(code); error.code = code; error.issues = checked?.issues || []; throw error; }
@@ -64,7 +64,8 @@
         text(scenario.id, "scenario ID");
         if (ids.has(scenario.id)) fail("duplicate_scenario", "Duplicate scenario ID");
         ids.add(scenario.id);
-        if (scenario.seed !== undefined) fail("unsupported_seed", "073.4 derives identity from canonical inputs; variable seeds are unsupported");
+        if (scenario.seed !== undefined && !allowSeedLabels) fail("unsupported_seed", "073.4 derives identity from canonical inputs; variable seeds are unsupported");
+        if (scenario.seed !== undefined && typeof scenario.seed !== "string") fail("invalid_schema", "Historical seed labels must be strings");
         if (scenario.inputMode !== undefined && !["canonical", "answers"].includes(scenario.inputMode)) fail("invalid_schema", "Unknown scenario input mode");
         return { ...scenario, request: normalized(normalizeRequest, scenario.request, "invalid_request") };
       });
@@ -286,12 +287,13 @@
             catch (cause) { const error = new Error("Could not save the run plan. Choose Run without saving to continue.", { cause }); error.code = "storage_initialization_failed"; throw error; }
           }
           current.status = "running"; publish();
+          let initializationFailures = 0;
           for (const cell of frozenPlan.cells) {
             if (state.canceled) break;
-            let result = null, resultJSON = null, error = null;
+            let result = null, resultJSON = null, error = null, initialized = !!state.executor;
             try {
               if (!state.executor) {
-                const executor = await deadline(Promise.resolve().then(() => createExecutor({ allowMainThreadFallback: false })), initializationTimeoutMs, "initialization_timeout", state);
+                const executor = createExecutor({ allowMainThreadFallback: false });
                 if (state.canceled) { executor?.dispose(); break; }
                 state.executor = executor;
                 if (!executor || typeof executor.generate !== "function" || typeof executor.dispose !== "function") throw new Error("Invalid lab executor");
@@ -301,6 +303,7 @@
                 }
               }
               if (state.canceled) break;
+              initialized = true; initializationFailures = 0;
               // The adapter owns the current engine signature; no request or policy rule lives here.
               result = await deadline(state.executor.generate(cell.request, {
                 enginePolicy: cell.policy, diagnostics: cell.diagnostics }), cellTimeoutMs, "cell_timeout", state);
@@ -312,6 +315,7 @@
             } catch (cause) {
               if (state.canceled) break;
               error = { code: typeof cause.code === "string" ? cause.code : "worker_error", message: String(cause.message || cause) };
+              if (!initialized) initializationFailures++;
               dispose(state);
             }
             const record = snapshot({ cellKey: cell.cellKey, outcome: error ? "execution_error" : classify(result), result: error ? null : result,
@@ -322,6 +326,11 @@
               catch (cause) { current.saved = false; current.error = { code: "checkpoint_failed", message: String(cause.message || cause) }; current.status = "failed"; dispose(state); break; }
             }
             publish();
+            if (initializationFailures >= 2 && current.completed < current.total) {
+              current.status = "failed";
+              current.error = { code: "worker_initialization_failed", message: "Worker initialization could not recover; remaining cells were not scheduled" };
+              break;
+            }
           }
           if (current.status !== "failed") current.status = state.canceled ? "canceled" : "completed";
           dispose(state);
@@ -339,7 +348,9 @@
       if (!active) return Promise.resolve();
       const state = active;
       state.canceled = true; dispose(state); state.stopNow();
-      return state.done?.then(() => undefined);
+      // Acknowledge worker termination immediately. run() still waits for any
+      // accepted checkpoint before finalization, without blocking the Cancel UI.
+      return Promise.resolve();
     }
     return Object.freeze({ run, cancel });
   }

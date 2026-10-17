@@ -30,6 +30,12 @@ try {
     const reloaded = await S.open(); await reloaded.recoverInterrupted();
     const restored = await reloaded.loadRun("first");
     assert(restored.status === "interrupted" && restored.records.length === 1, "reload preserves partial run honestly");
+    const unchanged = await reloaded.resolveRevision(experiment);
+    assert(unchanged.revision === 1, "identical complete inputs reuse the revision");
+    const edited = await reloaded.resolveRevision({ ...experiment, marker: "new immutable input" });
+    assert(edited.revision === 2, "dirty inputs receive a new revision");
+    await reloaded.saveExperiment(edited);
+    assert((await reloaded.loadExperiment("test", 1)).marker === "immutable", "new revisions cannot rewrite previous inputs");
     let failed = false;
     try { await reloaded.begin({ ...experiment, marker: "replacement" }, { ...run, runId: "wrong" }); } catch { failed = true; }
     assert(failed && await reloaded.loadRun("wrong") === null, "revision mismatch aborts initial transaction");

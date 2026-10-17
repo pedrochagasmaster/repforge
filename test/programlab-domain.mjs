@@ -62,6 +62,7 @@ test("cancel terminates executor, waits for accepted checkpoint and rejects late
   const result = runner.run(domain.plan(configuration(), build), { runId: "run" });
   await accepted.promise;
   const canceled = runner.cancel(); assert.ok(disposed);
+  await Promise.race([canceled, new Promise((_, reject) => setTimeout(() => reject(Error("cancel acknowledgment waited for storage")), 20))]);
   checkpoint.resolve(); await canceled;
   const run = await result;
   assert.equal(run.status, "canceled"); assert.equal(run.completed, 1); assert.equal(calls, 1);
@@ -81,6 +82,11 @@ test("timeout is an execution error with a fresh executor; initial storage failu
   assert.equal(run.records[0].error.code, "cell_timeout"); assert.equal(executors, 2);
   const broken = Domain.createRunner({ createExecutor: () => { throw Error("must not run"); }, store: { begin: async () => { throw Error("quota"); } } });
   await assert.rejects(broken.run(domain.plan(configuration(), build), { runId: "broken" }), error => error.code === "storage_initialization_failed");
+  let attempts = 0;
+  const unavailable = Domain.createRunner({ createExecutor: () => { attempts++; throw Error("worker cannot initialize"); } });
+  const batch = domain.plan({ ...configuration(), mode: "batch", scenarios: [0, 1, 2].map(index => ({ id: String(index), name: "Case", request: { index } })) }, build);
+  const failed = await unavailable.run(batch, { runId: "unavailable", allowUnsaved: true });
+  assert.equal(failed.status, "failed"); assert.equal(failed.completed, 2); assert.equal(attempts, 2);
 });
 
 const successful = (prefix, rir = 0) => ({ ok: true, conflicts: [], explanations: [], value: { cycles: 2, deloadCycles: [2],

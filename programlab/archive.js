@@ -66,12 +66,13 @@
         check(D.digest(planned.get(comparison.baselineKey).request) === D.digest(scenario.request)
           && D.digest(planned.get(comparison.candidateKey).request) === D.digest(scenario.request), "Comparison request mismatch");
       }
-      // Compatible builds can prove the complete planning contract using the same
-      // domain planner. Historical records retain their saved input representation.
-      if (!archived) {
+      // Recheck the entire planning contract without asking today's catalog to
+      // normalize historical inputs or resolve historical eligibility.
+      {
         const inferredPaths = experiment.sweep ? [experiment.sweep.path] : [];
-        const expected = D.create({ normalizePolicy: validatePolicy, normalizeRequest: validateRequest,
-          sweepPaths: sweepPaths.length ? sweepPaths : inferredPaths }).plan(experiment, plan.build);
+        const expected = D.create({ normalizePolicy: value => ({ ok: true, value: checked(validatePolicy, value, archived, "policy") }),
+          normalizeRequest: archived ? value => ({ ok: true, value }) : validateRequest, allowSeedLabels: archived,
+          sweepPaths: sweepPaths.length && !archived ? sweepPaths : inferredPaths }).plan(experiment, plan.build);
         check(D.digest(expected) === D.digest(plan), "Saved plan does not match its complete inputs");
       }
       const seen = new Set();
@@ -86,6 +87,19 @@
         D.keys(result, ["ok", "value", "conflicts", "explanations"], ["confirmationOffers", "diagnostics"]);
         check(typeof record.resultJSON === "string" && D.digest(JSON.parse(record.resultJSON)) === D.digest(result), "Original result JSON mismatch");
         check(record.outcome === D.classify(result), "Cell outcome mismatch");
+        if (result.diagnostics !== undefined) {
+          const diagnostic = result.diagnostics;
+          D.keys(diagnostic, ["kind", "schemaVersion", "version", "terminalStage", "slots"], ["allocation"]);
+          check(diagnostic.kind === "taurifer-generation-diagnostics" && diagnostic.schemaVersion === 1
+            && diagnostic.version === run.plan.build.diagnostics && Array.isArray(diagnostic.slots)
+            && diagnostic.slots.length <= D.LIMITS.cells, "Invalid diagnostic schema/bounds");
+          const lineages = new Set();
+          for (const slot of diagnostic.slots) {
+            D.keys(slot, ["lineage", "origin", "purposeId", "slotId", "exerciseId", "repClass", "finalDayId", "baseSetCount", "afterExperienceSetCount", "finalSetCount", "retained", "initialDayId"]);
+            check(typeof slot.lineage === "string" && !lineages.has(slot.lineage) && typeof slot.retained === "boolean", "Invalid or duplicate diagnostic lineage"); lineages.add(slot.lineage);
+          }
+          if (diagnostic.allocation) D.keys(diagnostic.allocation, ["requestedMinutes", "budgetMinutes", "selected", "estimatedSecondsByDay"]);
+        }
         if (result.ok) {
           checked(validateProgram, result.value, archived, "program envelope");
           const cell = planned.get(record.cellKey);
@@ -138,7 +152,6 @@
         const encoded = typeof file === "string" ? file : await file.text();
         check(bytes(encoded) <= D.LIMITS.partBytes, "Archive file exceeds encoded size limit", "archive_too_large");
         const part = JSON.parse(encoded);
-        D.canonicalJSON(part); // Depth/plain-data guards precede hashing and rendering.
         D.keys(part, ["kind", "schemaVersion", "exportedAt", "experiment", "runs", "transfer"]);
         check(part.kind === KIND && part.schemaVersion === 1 && typeof part.exportedAt === "string", "Unknown archive kind/version");
         D.keys(part.transfer, ["archiveId", "partIndex", "partCount", "manifest"]);
@@ -151,6 +164,10 @@
           && transfer.partIndex >= 1 && transfer.partIndex <= transfer.partCount && !indexes.has(transfer.partIndex), "Duplicate or invalid part index", "incomplete_archive");
         check(Array.isArray(part.runs) && part.runs.length <= 1, "Only one selected run is supported");
         check(!part.runs.length || Array.isArray(part.runs[0].records) && part.runs[0].records.length <= D.LIMITS.cells, "Cell bound exceeded");
+        check(Array.isArray(part.experiment.scenarios) && part.experiment.scenarios.length <= D.LIMITS.pairs, "Scenario bound exceeded");
+        if (part.experiment.sweep) check(Array.isArray(part.experiment.sweep.values) && part.experiment.sweep.values.length <= D.LIMITS.sweepValues, "Sweep bound exceeded");
+        if (part.runs.length) check(Array.isArray(part.runs[0].plan.cells) && part.runs[0].plan.cells.length <= D.LIMITS.cells, "Planned cell bound exceeded");
+        D.canonicalJSON(part); // Bounds and depth/plain-data guards precede hashing/rendering.
         const metadata = { exportedAt: part.exportedAt, experiment: part.experiment, run: part.runs[0] ? summary(part.runs[0]) : null };
         check(D.digest(metadata) === transfer.manifest.metadataHash, "Shared metadata hash mismatch");
         check(D.digest(transfer.manifest) === transfer.archiveId, "Archive manifest hash mismatch");

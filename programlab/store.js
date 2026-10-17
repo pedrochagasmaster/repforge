@@ -126,13 +126,25 @@
           const matching = all.filter(value => value.experimentId === experimentId && (revision === undefined || value.revision === revision));
           return matching.sort((a, b) => b.revision - a.revision)[0] || null;
         }
+        async function resolveRevision(experiment) {
+          const input = D.snapshot(experiment), experimentId = input.experimentId || root.crypto.randomUUID();
+          const latest = await loadExperiment(experimentId);
+          const inputs = value => { const { revision, ...fields } = value; return fields; };
+          if (latest && D.digest(inputs(latest)) === D.digest(inputs({ ...input, experimentId }))) return latest;
+          const revision = latest ? latest.revision + 1 : 1;
+          if (!Number.isSafeInteger(revision)) throw new Error("Experiment revision limit reached");
+          // Read-only preparation. begin() adds this exact revision and the run in
+          // one transaction, rejecting a concurrent conflicting revision safely.
+          return D.snapshot({ ...input, experimentId, revision });
+        }
         // Archive validators stage all records before this single transaction.
         function importArchive(validated, { experimentId = root.crypto.randomUUID(), runId = root.crypto.randomUUID() } = {}) {
           const source = D.snapshot(validated), external = source.experiment;
           const experiment = D.snapshot({ ...external, experimentId, revision: 1,
             provenance: { externalExperimentId: external.experimentId, externalRevision: external.revision,
               externalRunId: source.run?.runId || null } });
-          const run = source.run ? D.snapshot({ ...source.run, runId,
+          const run = source.run ? D.snapshot({ ...source.run, runId, saved: true,
+            status: unfinished(source.run.status) ? "interrupted" : source.run.status,
             plan: { ...source.run.plan, experiment }, archived: !!source.archived }) : null;
           return transact(["revisions", "runs", "cells"], "readwrite", (tx, done) => {
             tx.objectStore("revisions").add(experiment);
@@ -144,7 +156,7 @@
           });
         }
         resolve(Object.freeze({ begin, checkpoint, finalize, loadRun, recoverInterrupted,
-          saveExperiment, listExperiments, loadExperiment, importArchive, close: () => db.close() }));
+          saveExperiment, resolveRevision, listExperiments, loadExperiment, importArchive, close: () => db.close() }));
       };
     });
   }
