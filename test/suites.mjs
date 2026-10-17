@@ -58,6 +58,7 @@ export const SUITES = {
     s("test/generation-source-dose-boundaries.mjs", [], { domains: ["program"] }),
     s("test/program-compiler-plan067.mjs"),
     s("test/program-compiler-search.mjs", [], { seconds: 10 }),
+    s("test/programlab-default-parity.mjs", [], { domains: ["program"], seconds: 5 }),
     s("test/progression-engine-plan067.mjs"),
     s("test/program-entry-contracts.mjs"),
     s("test/ui-screens.mjs"),
