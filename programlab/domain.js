@@ -9,12 +9,22 @@
 
   function guard(value, depth = 0, active = new Set()) {
     if (depth > LIMITS.depth) throw new TypeError("Lab data exceeds maximum depth");
-    if (value === null || typeof value !== "object") return;
+    if (value === null || typeof value === "string" || typeof value === "boolean") return;
+    if (typeof value === "number") {
+      if (!Number.isFinite(value)) throw new TypeError("Lab data requires finite JSON numbers");
+      return;
+    }
+    if (typeof value !== "object") throw new TypeError("Lab data requires plain JSON values");
+    const array = Array.isArray(value);
+    if (!array && ![Object.prototype, null].includes(Object.getPrototypeOf(value))) throw new TypeError("Lab data requires plain JSON objects");
+    if (Object.getOwnPropertySymbols(value).length) throw new TypeError("Lab data cannot contain symbol properties");
+    if (array && (Object.keys(value).length !== value.length || Object.keys(value).some((key, index) => key !== String(index)))) throw new TypeError("Lab data requires dense JSON arrays");
     if (active.has(value)) throw new TypeError("Lab data must be acyclic");
     active.add(value);
     for (const [key, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(value))) {
       if (unsafe.has(key)) throw new TypeError("Unsafe lab data key");
       if (!Object.hasOwn(descriptor, "value")) throw new TypeError("Lab properties must be data, not accessors");
+      if (!descriptor.enumerable && !(array && key === "length")) throw new TypeError("Lab data cannot contain hidden properties");
       guard(descriptor.value, depth + 1, active);
     }
     active.delete(value);
@@ -22,10 +32,15 @@
   function canonicalJSON(value) { guard(value); return Identity.canonicalJSON(value); }
   function digest(value) { guard(value); return Identity.digestCanonical(value); }
   function freeze(value) {
-    if (value && typeof value === "object") { Object.values(value).forEach(freeze); Object.freeze(value); }
-    return value;
+    if (value && typeof value === "object" && !Object.isFrozen(value)) {
+      for (const key of Object.keys(value)) value[key] = freeze(value[key]);
+      Object.freeze(value);
+    }
+    return Object.is(value, -0) ? 0 : value;
   }
-  function snapshot(value) { return freeze(JSON.parse(canonicalJSON(value))); }
+  // Canonical encoding remains the shared identity/archive representation.
+  // A detached in-memory run need not fit into one aggregate JSON string.
+  function snapshot(value) { guard(value); return freeze(root.structuredClone(value)); }
   function fail(code, message) { const error = new TypeError(message); error.code = code; throw error; }
   function keys(value, required, optional = []) {
     if (!value || Array.isArray(value) || typeof value !== "object"
@@ -290,7 +305,10 @@
       let current = { kind: "taurifer-programlab-run", schemaVersion: 1, runId: identity,
         plan: frozenPlan, status: "validating", records: [], completed: 0, total: frozenPlan.cellCount,
         saved: !allowUnsaved, error: null, startedAt: new Date().toISOString(), finishedAt: null };
-      const publish = () => { try { progress(snapshot(current)); } catch { /* Rendering cannot change the run. */ } };
+      // Plan and accepted cell records are already detached and deeply frozen.
+      // Copy only mutable run metadata/list membership for each progress event.
+      const runSnapshot = () => Object.freeze({ ...current, error: snapshot(current.error), records: Object.freeze([...current.records]) });
+      const publish = () => { try { progress(runSnapshot()); } catch { /* Rendering cannot change the run. */ } };
       const task = (async () => {
         try {
           if (!allowUnsaved) {
@@ -348,10 +366,10 @@
           current.finishedAt = new Date().toISOString();
           dispose(state);
           if (!allowUnsaved && current.saved) {
-            try { await store.finalize(snapshot(current)); }
+            try { await store.finalize(runSnapshot()); }
             catch (cause) { current.saved = false; current.status = "failed"; current.error = { code: "finalization_failed", message: String(cause.message || cause) }; }
           }
-          publish(); return snapshot(current);
+          publish(); return runSnapshot();
         } finally { dispose(state); if (active === state) active = null; }
       })();
       state.done = task;

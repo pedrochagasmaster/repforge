@@ -23,6 +23,25 @@ test("lab snapshots share canonical identity and reject hostile/non-data inputs"
   assert.throws(() => Domain.snapshot(nested), /depth/);
   const getter = {}; Object.defineProperty(getter, "x", { enumerable: true, get() { throw Error("executed"); } });
   assert.throws(() => Domain.snapshot(getter), /data|accessor/);
+  const hidden = {}; Object.defineProperty(hidden, "x", { value: 1 });
+  const extra = [1]; extra.label = "not a JSON array member";
+  for (const malformed of [undefined, 1n, () => {}, new Date(), new Map(), [,,], extra, hidden, { [Symbol("hidden")]: 1 }]) {
+    assert.throws(() => Domain.snapshot(malformed), "detached copying must retain the plain/dense JSON validation boundary");
+  }
+});
+
+test("bounded large-run snapshots do not require one aggregate JSON string", () => {
+  // A real six-day/eight-cycle result is about 859 KB before the parsed/raw
+  // result pair. 1,000 permitted cells can exceed V8's single-string ceiling
+  // while each cell remains bounded and individually persistable.
+  const cell = { resultJSON: "x".repeat(600000) };
+  const source = { records: Array(1000).fill(cell), zero: -0 };
+  const saved = Domain.snapshot(source);
+  cell.resultJSON = "edited caller";
+  assert.equal(saved.records.length, 1000);
+  assert.equal(saved.records[999].resultJSON.length, 600000);
+  assert.ok(Object.isFrozen(saved.records) && Object.isFrozen(saved.records[0]));
+  assert.equal(Object.is(saved.zero, -0), false);
 });
 
 const domain = Domain.create({

@@ -3,7 +3,7 @@
   const D = typeof module !== "undefined" && module.exports ? require("./domain.js") : root.ProgramLabDomain;
   const DB_NAME = "taurifer_programlab_v1", DB_VERSION = 1;
   const unfinished = status => status === "validating" || status === "running";
-  const summary = run => { const value = JSON.parse(D.canonicalJSON(run)); delete value.records; return value; };
+  const summary = run => { const { records, ...metadata } = run; return D.snapshot(metadata); };
 
   function open() {
     return new Promise((resolve, reject) => {
@@ -90,7 +90,7 @@
                 const byKey = new Map(cells.map(({ runId: ignored, ...cell }) => [cell.cellKey, cell]));
                 const records = run.plan.cells.flatMap(cell => byKey.has(cell.cellKey) ? [byKey.get(cell.cellKey)] : []);
                 if (records.length !== run.completed || cells.length !== records.length) throw new Error("Stored run completeness mismatch");
-                done(D.snapshot({ ...run, records }));
+                done(Object.freeze({ ...D.snapshot(run), records: Object.freeze(records.map(record => D.snapshot(record))) }));
               });
             });
           });
