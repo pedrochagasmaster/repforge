@@ -92,3 +92,24 @@ property order, explanations, confirmation offers and provenance is retained in
 `/tmp/programlab-pre-refactor-full-results.json` (39,705,071 bytes), SHA-256
 `6ced782b289ad74a2eedeb54904775cbd1c399b96cc92624f2afd6e2f9da0a88`.
 A compact committed fixture records hashes of every complete serialized result.
+
+## Archive structural-validation boundary
+
+```js
+Compiler.validateProgramDefinitionStructure(program, customExerciseDefinitions = []);
+// -> {ok:boolean, issues:string[]}; no normalization or program mutation
+```
+
+Use this shared boundary for the archive factory's `validateProgram` callback
+when `{archived:true}`. For compatible current-build results, retain
+`Compiler.validateProgramDefinition(program, catalog, customDefinitions)`.
+The structural method reads supported ProgramDefinition schemas 1 and 2 without
+consulting a current catalog: historical exercise/equipment/muscle/pattern/type/
+laterality/prerequisite IDs and nonempty retired split names are saved data.
+It checks JSON data safety, closed fields, supported metric vocabulary/composition,
+targets, RIR/rest bounds, order, identity uniqueness, provenance shape and optional
+custom definitions. Unknown schemas or metric-definition versions are rejected.
+It does not certify catalog membership, exercise eligibility, source authenticity,
+exact replay or today's duration model. Current generation and existing validation
+calls keep their prior behavior. Archive envelope hashes/bounds/fingerprints remain
+the domain/archive owner's responsibility.

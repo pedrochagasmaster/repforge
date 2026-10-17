@@ -839,13 +839,13 @@
     }
   }
 
-  function validateRequestSnapshot(request, catalog, issues) {
+  function validateRequestSnapshot(request, catalog, issues, structureOnly = false) {
     if (!checkKeys(request, REQUEST_KEYS, "program.request", issues)) return;
     if (request.goal !== undefined && !GOALS.includes(request.goal)) issues.push("program.request.goal: unsupported");
     if (request.experience !== undefined && !EXPERIENCES.includes(request.experience)) issues.push("program.request.experience: unsupported");
     if (request.daysPerWeek !== undefined && (!Number.isInteger(request.daysPerWeek) || request.daysPerWeek < 2 || request.daysPerWeek > 6)) issues.push("program.request.daysPerWeek: unsupported");
     if (request.timeCeilingMinutes !== undefined && !TIME_CEILINGS.includes(request.timeCeilingMinutes)) issues.push("program.request.timeCeilingMinutes: unsupported");
-    if (request.split !== undefined && request.split !== "auto" && !owns(SPLITS, request.split)) issues.push("program.request.split: unsupported");
+    if (request.split !== undefined && (structureOnly ? !structuralId(request.split) : request.split !== "auto" && !owns(SPLITS, request.split))) issues.push("program.request.split: unsupported");
     if (request.periodization !== undefined && !PERIODIZATIONS.includes(request.periodization)) issues.push("program.request.periodization: unsupported");
     if (request.cycles !== undefined && (!Number.isInteger(request.cycles) || request.cycles < 1 || request.cycles > 12)) issues.push("program.request.cycles: unsupported");
     if (request.seed !== undefined && typeof request.seed !== "string") issues.push("program.request.seed: expected a string");
@@ -883,20 +883,53 @@
     if (request.executionContexts !== undefined) {
       if (!isPlainObject(request.executionContexts)) issues.push("program.request.executionContexts: expected a record");
       else for (const [id, mode] of Object.entries(request.executionContexts)) {
-        if (!catalog || catalogObject(catalog, id)?.type !== "exercise" || !["bilateral", "unilateral"].includes(mode)) issues.push(`program.request.executionContexts.${id}: invalid execution mode`);
+        if ((catalog ? catalogObject(catalog, id)?.type !== "exercise" : !structureOnly) || !["bilateral", "unilateral"].includes(mode)) issues.push(`program.request.executionContexts.${id}: invalid execution mode`);
       }
+    }
+    if (structureOnly) {
+      for (const field of ["emphasisMuscleIds", "deprioritizedMuscleIds", "excludedExerciseIds", "excludedMuscleIds", "preferredExerciseIds"]) {
+        if (Array.isArray(request[field]) && request[field].some(id => !structuralId(id))) issues.push(`program.request.${field}: expected nonempty identity strings`);
+      }
+      if (Array.isArray(request.gymProfile?.equipmentIds) && request.gymProfile.equipmentIds.some(id => !structuralId(id))) issues.push("program.request.gymProfile.equipmentIds: expected nonempty identity strings");
+      for (const field of ["movementConfirmations", "executionContexts"]) if (isPlainObject(request[field])) {
+        for (const [id, value] of Object.entries(request[field])) {
+          if (!structuralId(id) || field === "movementConfirmations" && Array.isArray(value) && value.some(id => !structuralId(id))) issues.push(`program.request.${field}.${id}: invalid identity`);
+        }
+      }
+      if (isPlainObject(request.gymProfile?.equipmentLoadsKg) && Object.keys(request.gymProfile.equipmentLoadsKg).some(id => !structuralId(id))) issues.push("program.request.gymProfile.equipmentLoadsKg: invalid identity");
     }
     if (request.deloadCycles !== undefined && (!Array.isArray(request.deloadCycles)
       || request.deloadCycles.some((cycle) => !Number.isInteger(cycle) || cycle < 1 || cycle > (request.cycles || 12)))) issues.push("program.request.deloadCycles: invalid cycles");
   }
 
+  const structuralId = value => typeof value === "string" && value.trim().length > 0;
+
+  // This remains the existing catalog-aware consumer/generation boundary.
   function validateProgramDefinition(program, catalogSnapshot, customExerciseDefinitions = []) {
+    return inspectProgramDefinition(program, catalogSnapshot, customExerciseDefinitions, false);
+  }
+
+  // Archive readability is a supported-schema claim, never current eligibility,
+  // catalog membership, source authenticity, replay or duration-model approval.
+  function validateProgramDefinitionStructure(program, customExerciseDefinitions = []) {
+    try {
+      const data = JSON.parse(IDENTITY.canonicalJSON({ program, customExerciseDefinitions }), (key, value) => {
+        if (["__proto__", "prototype", "constructor"].includes(key)) throw new TypeError("Unsafe data key");
+        return value;
+      });
+      return inspectProgramDefinition(data.program, null, data.customExerciseDefinitions, true);
+    } catch {
+      return { ok: false, issues: ["program: expected a supported plain JSON program definition"] };
+    }
+  }
+
+  function inspectProgramDefinition(program, catalogSnapshot, customExerciseDefinitions, structureOnly) {
     const issues = [];
     if (!checkKeys(program, PROGRAM_KEYS, "program", issues)) return { ok: false, issues };
     if (!SUPPORTED_PROGRAM_SCHEMA_VERSIONS.includes(program.schemaVersion)) issues.push("program.schemaVersion: unsupported");
     if (typeof program.generatorVersion !== "string" || !program.generatorVersion) issues.push("program.generatorVersion: expected a version");
     if (program.seed !== undefined && typeof program.seed !== "string") issues.push("program.seed: expected a string");
-    validateRequestSnapshot(program.request, validCatalog(catalogSnapshot) ? catalogSnapshot : null, issues);
+    validateRequestSnapshot(program.request, validCatalog(catalogSnapshot) ? catalogSnapshot : null, issues, structureOnly);
     if (!Number.isInteger(program.cycles) || program.cycles < 1 || program.cycles > 12) issues.push("program.cycles: unsupported");
     if (!Array.isArray(program.deloadCycles) || program.deloadCycles.some((value) => !Number.isInteger(value) || value < 1 || value > program.cycles)
       || new Set(Array.isArray(program.deloadCycles) ? program.deloadCycles : []).size !== (Array.isArray(program.deloadCycles) ? program.deloadCycles.length : 0)) issues.push("program.deloadCycles: invalid cycles");
@@ -904,7 +937,7 @@
     if (!checkKeys(program.provenance, ROOT_PROVENANCE_KEYS, "program.provenance", issues)) return { ok: false, issues };
     for (const key of ["source", "policyVersion"]) if (typeof program.provenance[key] !== "string" || !program.provenance[key]) issues.push(`program.provenance.${key}: required`);
     if (program.provenance.goal !== undefined && !GOALS.includes(program.provenance.goal)) issues.push("program.provenance.goal: unsupported");
-    if (program.provenance.split !== undefined && program.provenance.split !== "auto" && !owns(SPLITS, program.provenance.split)) issues.push("program.provenance.split: unsupported");
+    if (program.provenance.split !== undefined && (structureOnly ? !structuralId(program.provenance.split) : program.provenance.split !== "auto" && !owns(SPLITS, program.provenance.split))) issues.push("program.provenance.split: unsupported");
     if (program.provenance.generationBudgetMinutes !== undefined && (!finite(program.provenance.generationBudgetMinutes) || program.provenance.generationBudgetMinutes <= 0)) issues.push("program.provenance.generationBudgetMinutes: expected a positive number");
     if (program.provenance.selection !== undefined && typeof program.provenance.selection !== "string") issues.push("program.provenance.selection: expected a string");
     if (program.provenance.approximations !== undefined && (!Array.isArray(program.provenance.approximations) || program.provenance.approximations.some((entry) => typeof entry !== "string"))) issues.push("program.provenance.approximations: invalid list");
@@ -947,6 +980,12 @@
         if (!Array.isArray(slot.sourceExerciseIds) || !slot.sourceExerciseIds.includes(slot.exerciseId)
           || slot.sourceExerciseIds.some((id) => typeof id !== "string")) issues.push(`${slotPath}.sourceExerciseIds: must include selected exercise`);
         for (const field of ["musclePurposeIds", "movementPatternIds", "metricIds", "metricDefinitions"]) if (!Array.isArray(slot[field])) issues.push(`${slotPath}.${field}: expected an array`);
+        if (structureOnly) {
+          for (const field of ["sourceExerciseIds", "musclePurposeIds", "movementPatternIds", "lateralityIds"]) {
+            if (Array.isArray(slot[field]) && slot[field].some(id => !structuralId(id))) issues.push(`${slotPath}.${field}: expected nonempty identity strings`);
+          }
+          if (slot.exerciseTypeId !== undefined && !structuralId(slot.exerciseTypeId)) issues.push(`${slotPath}.exerciseTypeId: expected a nonempty identity string`);
+        }
         if (catalog && Array.isArray(slot.musclePurposeIds) && slot.musclePurposeIds.some((id) => catalogObject(catalog, id)?.type !== "featureMuscleGroup")) issues.push(`${slotPath}.musclePurposeIds: invalid feature muscle IDs`);
         if (catalog && Array.isArray(slot.movementPatternIds) && slot.movementPatternIds.some((id) => catalogObject(catalog, id)?.type !== "movementPattern")) issues.push(`${slotPath}.movementPatternIds: invalid movement pattern IDs`);
         if (catalog && slot.exerciseTypeId !== undefined && catalogObject(catalog, slot.exerciseTypeId)?.type !== "exerciseType") issues.push(`${slotPath}.exerciseTypeId: invalid exercise type ID`);
@@ -1112,6 +1151,7 @@
     generatedDayNameKey,
     findSubstitutions,
     validateProgramDefinition,
+    validateProgramDefinitionStructure,
     canonicalizeProgramDefinition,
     validateCustomExerciseDefinitions,
     prescriptionsForCycle,
