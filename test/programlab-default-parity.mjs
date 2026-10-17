@@ -14,7 +14,7 @@ const Layout = require('../generation-layout.js');
 const Catalog = require('../assets/exercise-catalog.json');
 require('../generation-identity.js').prepareCatalog(Catalog);
 const hash = text => createHash('sha256').update(text).digest('hex');
-const fixture = JSON.parse(readFileSync(new URL('./fixtures/programlab-default-results.json', import.meta.url)));
+const fixture = JSON.parse(readFileSync(new URL('./fixtures/programlab-integration-default-results.json', import.meta.url)));
 const cases = programLabDefaultCases({ Adapter, Catalog, Layout });
 assert.equal(Compiler.GENERATOR_VERSION, fixture.generatorVersion);
 assert.equal(hash(readFileSync(new URL('../assets/exercise-catalog.json', import.meta.url))), fixture.catalogSha256);

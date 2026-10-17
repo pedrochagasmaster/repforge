@@ -146,7 +146,7 @@ function addEntries(target, additions) {
 
 const EXPLICIT_INPUT_RULES = [
   {
-    match: /^test\/fixtures\/programlab-default-results\.json$/,
+    match: /^test\/fixtures\/programlab-integration-default-results\.json$/,
     suiteFiles: ["test/programlab-default-parity.mjs"],
     why: "pre-extraction complete-result baseline",
   },
