@@ -491,7 +491,9 @@ async function focusMotion(browser, { reducedMotion = "no-preference" } = {}) {
     assert(!adv.samples.some((s) => s.rect) && adv.ringAfter === 0, "no outline travels: the open row simply wears its ring", JSON.stringify(adv.samples.filter((s) => s.rect).slice(0, 3)));
   } else {
     const tops = adv.samples.filter((s) => s.rect).map((s) => s.rect.top);
-    assert(tops.length > 1 && Math.abs(tops[0] - adv.openBefore) < 14 && tops.some((v) => v > adv.openBefore + 3 && v < adv.openAfterTop - 3),
+    // The card scrolls the next row into view on whole lines, so on screen it can land above or below the row just logged.
+    const lo = Math.min(adv.openBefore, adv.openAfterTop), hi = Math.max(adv.openBefore, adv.openAfterTop);
+    assert(tops.length > 1 && Math.abs(tops[0] - adv.openBefore) < 14 && hi - lo > 6 && tops.some((v) => v > lo + 3 && v < hi - 3),
       "on advance the outline leaves the row just logged and passes between the rows", JSON.stringify({ tops: tops.slice(0, 10), from: adv.openBefore, to: adv.openAfterTop }));
     assert(adv.ringAfter === 0 && adv.travelAfter === 0 && adv.borderWidth === "2px" && adv.border !== "rgba(0, 0, 0, 0)",
       "afterwards the open row wears its own 2px ring and nothing is left over", JSON.stringify({ ring: adv.ringAfter, travel: adv.travelAfter, border: adv.border, width: adv.borderWidth }));
