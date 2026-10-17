@@ -25,6 +25,7 @@
   let savedIdentity = null, plan = null, validationToken = 0, runToken = 0, viewToken = 0, selectedView = null, dirty = false;
   const policyInputs = new Map();
   const scenarioInputs = new Map();
+  const pendingScenarioEdits = new Set();
   const buttons = ['save', 'export', 'fixture', 'applyPreset', 'preset', 'updateScenario', 'duplicateScenario', 'moveUp', 'moveDown', 'removeScenario', 'applyCanonical', 'resetPolicy'];
 
   function errorMessage(error) { return String(error?.message || error); }
@@ -59,6 +60,7 @@
     $('canonicalRequest').disabled = value;
   }
   function readConfiguration() {
+    if (pendingScenarioEdits.size) throw new Error('Apply or replace the pending scenario edits before saving, exporting or running.');
     const configuration = clone(draft);
     configuration.name = $('experimentName').value;
     configuration.notes = $('experimentNotes').value;
@@ -194,6 +196,8 @@
     const scenario = draft.scenarios[selectedScenario];
     $('scenarioName').value = scenario.name || scenario.key;
     $('seed').value = scenario.seed;
+    $('seed').readOnly = definitions.seedMode !== 'explicit';
+    $('seed').setAttribute('aria-label', definitions.seedMode === 'explicit' ? 'Execution seed' : 'Canonical generation identity');
     $('canonicalRequest').value = json(scenario.request);
     $('normalizedRequest').textContent = json(scenario.request);
     $('scenarioControls').replaceChildren();
@@ -207,6 +211,7 @@
       const input = createInput(field, at(scenario.answers, field.path), next => {
         const current = draft.scenarios[selectedScenario];
         assign(current.answers, field.path, next);
+        pendingScenarioEdits.add(current.key);
         $('run').disabled = true;
         plan = null;
         $('planSummary').textContent = 'Apply scenario edits to validate the mapped request.';
@@ -222,6 +227,7 @@
   }
   function renderDraft(configuration) {
     draft = clone(configuration);
+    pendingScenarioEdits.clear();
     selectedScenario = Math.min(selectedScenario, draft.scenarios.length - 1);
     $('experimentName').value = draft.name;
     $('experimentNotes').value = draft.notes || '';
@@ -308,6 +314,15 @@
       configuration: run.configuration, baseline: selectedView.baseline, candidate: selectedView.candidate,
       changes: selectedView.changes });
   }
+  function clearResult() {
+    selectedView = null;
+    for (const id of ['baselineProgram', 'candidateProgram', 'aggregateSummary', 'comparisonSummary', 'semanticChanges', 'diagnostics', 'rawResult']) $(id).replaceChildren();
+    $('resultSnapshot').textContent = 'This configuration has no saved execution snapshot.';
+    $('resultCase').replaceChildren(option('', 'No results yet'));
+    $('resultCase').disabled = true;
+    $('cycle').disabled = true;
+    $('cycleStatus').textContent = '';
+  }
   async function refreshSaved() {
     const selected = $('savedExperiments').value;
     const items = await services.list();
@@ -376,15 +391,17 @@
       const fixture = await services.fixture($('fixture').value);
       const scenarios = Array.isArray(fixture) ? fixture : [fixture];
       draft.scenarios = draft.mode === 'single' ? [scenarios[0]] : scenarios;
-      selectedScenario = 0; renderScenarios(); markDirty();
+      pendingScenarioEdits.clear(); selectedScenario = 0; renderScenarios(); markDirty();
     }));
     $('caseList').addEventListener('change', () => { selectedScenario = Number($('caseList').value); renderScenarios(); validate(); });
     $('updateScenario').addEventListener('click', guard(async () => {
       draft.scenarios[selectedScenario] = await services.normalizeScenario({ ...draft.scenarios[selectedScenario], inputMode: 'answers' });
+      pendingScenarioEdits.delete(draft.scenarios[selectedScenario].key);
       renderScenarios(); markDirty();
     }));
     $('applyCanonical').addEventListener('click', guard(async () => {
       draft.scenarios[selectedScenario] = await services.normalizeScenario({ ...draft.scenarios[selectedScenario], request: JSON.parse($('canonicalRequest').value), inputMode: 'canonical' });
+      pendingScenarioEdits.delete(draft.scenarios[selectedScenario].key);
       renderScenarios(); markDirty();
     }));
     $('duplicateScenario').addEventListener('click', guard(async () => {
@@ -427,7 +444,7 @@
       const record = await services.load($('savedExperiments').value);
       savedIdentity = record; run = record.run || null; runToken++; renderDraft(record.configuration);
       dirty = false; $('inputsChanged').hidden = true; $('persistenceStatus').textContent = `Saved · revision ${record.revision}`;
-      if (run) await renderResult();
+      if (run) await renderResult(); else clearResult();
     }));
     $('export').addEventListener('click', guard(async () => {
       const parts = await services.exportArchive(readConfiguration(), run);
@@ -446,7 +463,7 @@
         const record = await services.importArchive(files);
         run = record.run || null; runToken++; renderDraft(record.configuration); dirty = false;
         $('inputsChanged').hidden = true; $('persistenceStatus').textContent = record.archived ? 'Imported archived result · exact replay unavailable on this build' : 'Imported experiment';
-        if (run) await renderResult();
+        if (run) await renderResult(); else clearResult();
         await refreshSaved();
       } finally { $('importFiles').value = ''; }
     }));
