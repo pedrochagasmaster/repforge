@@ -36,3 +36,41 @@ test("fingerprint mismatch is a readable archive, configuration-only exchange ha
   const config = await archive.importArchive((await archive.exportArchive(plan.experiment, null)).map(part => part.text));
   assert.equal(config.run, null); assert.equal(config.experiment.name, "Archive");
 });
+
+test("successful native archives require complete, typed diagnostic references", () => {
+  // These corruptions can carry self-consistent hashes but must be refused
+  // before persistence; otherwise the real semantic inspector cannot join slots.
+  const Compiler = require("../program-compiler.js"), Policy = require("../engine-policy.js");
+  const Adapter = require("../program-entry-adapter.js"), Catalog = require("../assets/exercise-catalog.json");
+  require("../generation-identity.js").prepareCatalog(Catalog);
+  const normalizeRequest = value => Compiler.normalizeProgramRequest(value, Catalog);
+  const native = D.create({ normalizePolicy: Policy.normalizeEnginePolicy, normalizeRequest });
+  const request = Adapter.programRequestFromAnswers({ desiredResult: "muscle_growth", structuredExperience: "6_to_24m",
+    daysPerWeek: 4, sessionMinutes: 90, environment: { kind: "commercial_gym" } }, Catalog).value;
+  const policy = Policy.getDefaultEnginePolicy();
+  const nativePlan = native.plan({ name: "Native archive", notes: "", mode: "single",
+    scenarios: [{ id: "case", name: "Case", request }], baselinePolicy: policy,
+    candidatePolicy: policy, referenceTimePolicy: policy, sweep: null }, build);
+  const result = Compiler.generateProgram(nativePlan.cells[0].request, Catalog, { diagnostics: build.diagnostics });
+  assert.equal(result.ok, true);
+  const original = { kind: "taurifer-programlab-run", schemaVersion: 1, runId: "native", plan: nativePlan,
+    status: "completed", records: [{ cellKey: nativePlan.cells[0].cellKey, outcome: "success",
+      result, resultJSON: JSON.stringify(result), error: null }], completed: 1, total: 1, saved: true, error: null };
+  const checked = A.create({ validatePolicy: Policy.normalizeEnginePolicy, validateRequest: normalizeRequest,
+    validateProgram: program => Compiler.validateProgramDefinition(program, Catalog), build });
+  assert.equal(checked.validateSnapshot(nativePlan.experiment, original), false);
+  for (const mutate of [
+    result => { delete result.diagnostics; },
+    result => { result.diagnostics.slots.pop(); },
+    result => { result.diagnostics.slots[0].finalSetCount = "two"; },
+    result => { result.diagnostics.slots[0].slotId = "missing-slot"; },
+    result => { result.diagnostics.slots[0].exerciseId = "another-exercise"; },
+    result => { result.diagnostics.slots[0].finalDayId = "missing-day"; },
+    result => { result.diagnostics.slots[0].finalSetCount++; },
+  ]) {
+    const broken = structuredClone(original);
+    mutate(broken.records[0].result);
+    broken.records[0].resultJSON = JSON.stringify(broken.records[0].result);
+    assert.throws(() => checked.validateSnapshot(nativePlan.experiment, broken), /diagnostic/i);
+  }
+});

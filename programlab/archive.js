@@ -20,6 +20,45 @@
       check(result?.ok === true, `Invalid archived ${label}`);
       return result.value ?? value;
     }
+    function validateDiagnosticReferences(result, version) {
+      if (result.ok && version === "allocation-lineage@1") check(result.diagnostics !== undefined, "Requested diagnostics are missing");
+      if (result.diagnostics === undefined) return;
+      const diagnostic = result.diagnostics;
+      D.keys(diagnostic, ["kind", "schemaVersion", "version", "terminalStage", "slots"], ["allocation"]);
+      check(diagnostic.kind === "taurifer-generation-diagnostics" && diagnostic.schemaVersion === 1
+        && diagnostic.version === version && ["validation", "selection", "definition_validation", "complete"].includes(diagnostic.terminalStage)
+        && Array.isArray(diagnostic.slots) && diagnostic.slots.length <= D.LIMITS.cells, "Invalid diagnostic schema/bounds");
+      const programSlots = new Map(), dayIds = new Set();
+      if (result.ok) {
+        check(Array.isArray(result.value?.days), "Invalid diagnostic program reference");
+        for (const day of result.value.days) {
+          dayIds.add(day.id);
+          check(Array.isArray(day.slots), "Invalid diagnostic slot list");
+          for (const slot of day.slots) programSlots.set(slot.id, { slot, dayId: day.id });
+        }
+      }
+      const lineages = new Set(), retained = new Set(), slotIds = new Set();
+      for (const record of diagnostic.slots) {
+        D.keys(record, ["lineage", "origin", "purposeId", "slotId", "exerciseId", "repClass", "finalDayId", "baseSetCount", "afterExperienceSetCount", "finalSetCount", "retained", "initialDayId"]);
+        for (const field of ["lineage", "origin", "purposeId", "slotId", "exerciseId"]) check(typeof record[field] === "string" && record[field].length > 0, "Invalid diagnostic identity");
+        check(!lineages.has(record.lineage) && !slotIds.has(record.slotId) && typeof record.retained === "boolean", "Invalid or duplicate diagnostic lineage");
+        lineages.add(record.lineage); slotIds.add(record.slotId);
+        check(["first_push_lower", "first_pull", "secondary_push_lower", "secondary_pull", "assistance"].includes(record.repClass), "Invalid diagnostic rep class");
+        for (const field of ["baseSetCount", "afterExperienceSetCount", "finalSetCount"]) check(Number.isSafeInteger(record[field]) && record[field] >= 0, "Invalid diagnostic set count");
+        for (const field of ["initialDayId", "finalDayId"]) check(record[field] === null || typeof record[field] === "string" && record[field].length > 0, "Invalid diagnostic day identity");
+        if (result.ok && record.initialDayId !== null) check(dayIds.has(record.initialDayId), "Unknown initial diagnostic day");
+        if (result.ok && record.retained) {
+          const actual = programSlots.get(record.slotId);
+          check(actual && actual.dayId === record.finalDayId && actual.slot.exerciseId === record.exerciseId
+            && actual.slot.purposeId === record.purposeId, "Diagnostic slot reference does not match the saved program");
+          const ordinary = actual.slot.prescriptionsByCycle?.find(cycle => !(result.value.deloadCycles || []).includes(cycle.cycleIndex));
+          if (ordinary) check(record.finalSetCount === ordinary.sets?.length, "Diagnostic set count does not match the saved prescriptions");
+          retained.add(record.slotId);
+        }
+      }
+      if (result.ok) check(retained.size === programSlots.size, "Diagnostics omit saved program slots");
+      if (diagnostic.allocation) D.keys(diagnostic.allocation, ["requestedMinutes", "budgetMinutes", "selected", "estimatedSecondsByDay"]);
+    }
     function validate(experiment, run) {
       D.keys(experiment, ["experimentId", "revision", "name", "notes", "mode", "scenarios", "baselinePolicy", "candidatePolicy", "referenceTimePolicy", "sweep"], ["provenance"]);
       check(typeof experiment.name === "string" && typeof experiment.notes === "string", "Invalid experiment text");
@@ -100,19 +139,7 @@
           && (result.confirmationOffers === undefined || Array.isArray(result.confirmationOffers)), "Malformed generation result lists");
         check(typeof record.resultJSON === "string" && D.canonicalJSON(JSON.parse(record.resultJSON)) === D.canonicalJSON(result), "Original result JSON mismatch");
         check(record.outcome === D.classify(result), "Cell outcome mismatch");
-        if (result.diagnostics !== undefined) {
-          const diagnostic = result.diagnostics;
-          D.keys(diagnostic, ["kind", "schemaVersion", "version", "terminalStage", "slots"], ["allocation"]);
-          check(diagnostic.kind === "taurifer-generation-diagnostics" && diagnostic.schemaVersion === 1
-            && diagnostic.version === run.plan.build.diagnostics && Array.isArray(diagnostic.slots)
-            && diagnostic.slots.length <= D.LIMITS.cells, "Invalid diagnostic schema/bounds");
-          const lineages = new Set();
-          for (const slot of diagnostic.slots) {
-            D.keys(slot, ["lineage", "origin", "purposeId", "slotId", "exerciseId", "repClass", "finalDayId", "baseSetCount", "afterExperienceSetCount", "finalSetCount", "retained", "initialDayId"]);
-            check(typeof slot.lineage === "string" && !lineages.has(slot.lineage) && typeof slot.retained === "boolean", "Invalid or duplicate diagnostic lineage"); lineages.add(slot.lineage);
-          }
-          if (diagnostic.allocation) D.keys(diagnostic.allocation, ["requestedMinutes", "budgetMinutes", "selected", "estimatedSecondsByDay"]);
-        }
+        validateDiagnosticReferences(result, run.plan.build.diagnostics);
         if (result.ok) {
           checked(validateProgram, result.value, archived, "program envelope");
           const cell = planned.get(record.cellKey);
