@@ -18,6 +18,7 @@ const files = execFileSync("git", ["ls-files", "-z", "--", "*.js"], { encoding: 
 const expected = [
   "app.js",
   "durable-state.js",
+  "engine-policy.js",
   "exercise-catalog.js",
   "exercise-metrics.js",
   "exercises.js",

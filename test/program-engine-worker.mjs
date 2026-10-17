@@ -92,6 +92,35 @@ function runCases(page, list) {
   }, list);
 }
 
+async function policyCases(page, label) {
+  const request = recorded.find(item => item.key.startsWith("muscle_growth|6_to_24m|4|everything|90")).request;
+  const results = await page.evaluate(async request => {
+    const defaults = window.RepForgeEnginePolicy.getDefaultEnginePolicy();
+    const low = structuredClone(defaults);
+    Object.keys(low.volume.setsByType).forEach(key => low.volume.setsByType[key] = 2);
+    Object.keys(low.prescription.baseRirByClass).forEach(key => low.prescription.baseRirByClass[key] = key === "assistance" ? 0 : 1);
+    const zero = structuredClone(low);
+    Object.keys(zero.prescription.baseRirByClass).forEach(key => zero.prescription.baseRirByClass[key] = 0);
+    Object.values(zero.prescription.rirAdjustmentsBySetCount).forEach(row => row.fill(0));
+    const engine = window.__repforgeProgramEngine;
+    const catalog = window.RepForgeExerciseCatalog.snapshot();
+    const outcomes = [];
+    for (const enginePolicy of [defaults, low, zero]) {
+      const options = { enginePolicy, diagnostics: "allocation-lineage@1" };
+      const expected = window.RepForgeProgramCompiler.generateProgram(request, catalog, options);
+      const actual = await engine.generate(request, options);
+      outcomes.push({ same: JSON.stringify(actual) === JSON.stringify(expected), ok: actual.ok });
+    }
+    const mutable = structuredClone(low), options = { enginePolicy: mutable, diagnostics: "allocation-lineage@1" };
+    const expected = window.RepForgeProgramCompiler.generateProgram(request, catalog, options);
+    const queued = engine.generate(request, options);
+    mutable.volume.setsByType.primary = 3;
+    outcomes.push({ same: JSON.stringify(await queued) === JSON.stringify(expected), ok: true });
+    return outcomes;
+  }, request);
+  check(results.every(item => item.same && item.ok), `${label}: default, low/zero RIR and enqueue snapshot match direct compiler including diagnostics`, results);
+}
+
 function checkResults(results, label) {
   const mismatched = results.filter((item) => !item.same).map((item) => item.key);
   check(results.length > 0 && !mismatched.length, `${label}: engine and page compiler give identical JSON for ${results.length} requests`, mismatched);
@@ -329,6 +358,7 @@ async function heldFlow(browser) {
 
 async function main() {
   console.log("#353 Generate in a worker: equivalence, fallback and responsiveness");
+  await (await import("./fixtures/programlab-worker-proof.mjs")).default();
   await disposeActiveEngine();
   if (process.env.REPFORGE_ENGINE_LIFECYCLE_ONLY === "1") {
     console.log(`\n${passed} lifecycle checks passed, ${failures.length} failed`);
@@ -347,6 +377,7 @@ async function main() {
         const after = await page.evaluate(() => window.__repforgeProgramEngine.stats());
         check(after.worker - before.stats.worker === cases.length && after.main === before.stats.main,
           "every corpus request ran in the worker, none on the main thread", { before: before.stats, after });
+        await policyCases(page, "real worker");
 
         // The maximum source request: all equipment, six 150-minute days and an extra deload.
         const heavy = Adapter.programRequestFromAnswers({ desiredResult: "muscle_growth", structuredExperience: "over_24m",
@@ -397,7 +428,10 @@ async function main() {
       const { context, page, errors } = await open(browser, { init: () => { delete window.Worker; } });
       const before = await engineMode(page);
       check(before.mode === "main", "without Worker the engine runs on the main thread", before);
-      if (before.mode === "main") checkResults(await runCases(page, [...sample, ...sourceCases]), "no Worker");
+      if (before.mode === "main") {
+        checkResults(await runCases(page, [...sample, ...sourceCases]), "no Worker");
+        await policyCases(page, "main fallback");
+      }
       check(errors.length === 0, "no Worker: no page errors", errors);
       await context.close();
     }

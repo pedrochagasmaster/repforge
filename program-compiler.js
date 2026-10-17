@@ -2,6 +2,7 @@
   "use strict";
 
   const GENERATOR_VERSION = "073.4";
+  const POLICY = root?.RepForgeEnginePolicy || (typeof require === "function" ? require("./engine-policy.js") : null);
   const IDENTITY = root?.RepForgeGenerationIdentity || (typeof require === "function" ? require("./generation-identity.js") : null);
   const CANDIDATES = root?.RepForgeGenerationCandidates || (typeof require === "function" ? require("./generation-candidates.js") : null);
   const LAYOUT = root?.RepForgeGenerationLayout || (typeof require === "function" ? require("./generation-layout.js") : null);
@@ -448,63 +449,72 @@
     return typeof seed?.allocate === "function" ? seed.allocate(value) : IDENTITY.digestCanonical([String(seed), value]);
   }
 
-  function generateProgram(rawRequest, catalogSnapshot) {
-    if (!validCatalog(catalogSnapshot)) return failure([{ field: "catalog", code: "invalid_catalog", message: "A raw catalog snapshot is required." }]);
+  function generateProgram(rawRequest, catalogSnapshot, options = {}) {
+    const diagnosticVersion = options?.diagnostics;
+    const diagnostics = diagnosticVersion === "allocation-lineage@1" ? {
+      kind: "taurifer-generation-diagnostics", schemaVersion: 1, version: diagnosticVersion,
+      terminalStage: "validation", slots: [],
+    } : null;
+    const finish = result => diagnostics ? { ...result, diagnostics } : result;
+    if (diagnosticVersion !== undefined && !diagnostics) return failure([fieldIssue("diagnostics", "invalid_diagnostics", "Choose allocation-lineage@1 or omit diagnostics.")]);
+    const policy = POLICY.normalizeEnginePolicy(options?.enginePolicy);
+    if (!policy.ok) return finish(failure([{ field: "enginePolicy", code: "invalid_engine_policy", issues: policy.issues }]));
+    if (!validCatalog(catalogSnapshot)) return finish(failure([{ field: "catalog", code: "invalid_catalog", message: "A raw catalog snapshot is required." }]));
     const normalized = validateRequest(rawRequest, catalogSnapshot);
-    if (!normalized.ok) return failure(normalized.issues);
+    if (!normalized.ok) return finish(failure(normalized.issues));
     const namespace = generationIdentity(normalized.value, catalogSnapshot);
     const seedValue = { namespace, allocate: IDENTITY.createIdAllocator(namespace) };
-    return generateRecovered(normalized.value, catalogSnapshot, seedValue);
+    return finish(generateRecovered(normalized.value, catalogSnapshot, seedValue, policy, diagnostics));
   }
 
-  function recoveredDoseCenters(request, type, isPull) {
-    const primary = type === "primary";
-    const accessory = type === "accessory";
-    const strength = request.goal === "strength";
-    const hypertrophyPrimary = primary && request.goal === "hypertrophy";
-    const center = accessory ? (strength ? 10 : 15)
-      : primary ? (hypertrophyPrimary ? (isPull ? 10 : 8) : (isPull ? 8 : 5))
-      : strength ? (isPull ? 10 : 8) : (isPull ? 12 : 10);
-    const table = accessory ? (strength ? [8, 10, 10, 11, 13, 13, 15] : [10, 13, 13, 15, 17, 18, 20])
-      : primary ? (hypertrophyPrimary ? (isPull ? [8, 10, 10, 11, 13, 13, 15] : [6, 8, 8, 9, 10, 11, 12])
-        : (isPull ? [6, 8, 8, 9, 10, 11, 12] : [3, 4, 5, 5, 6, 7, 8]))
-      : strength && !isPull ? [5, 6, 7, 7, 8, 9, 10] : [8, 10, 10, 11, 13, 13, 15];
-    const indices = {
-      linear: [6, 6, 4, 3, 2, 0, 0],
-      reverse_linear: [0, 0, 2, 3, 4, 6, 6],
-      undulating: [6, 3, 0, 6, 2, 4, 0],
-    }[request.periodization];
-    return indices ? indices.map((index) => table[index]) : Array(7).fill(center);
+  function recoveredRepClass(template) {
+    if (template.type === "accessory") return "assistance";
+    const isPull = template.exercise.patterns.some(pattern => ["horizontalPull", "verticalPull"].includes(pattern));
+    return template.type === "primary" ? (isPull ? "first_pull" : "first_push_lower")
+      : isPull ? "secondary_pull" : "secondary_push_lower";
   }
 
-  function recoveredPrescriptions(request, template, repsKey, namespace, path) {
-    const isPull = template.exercise.patterns.some((pattern) => ["horizontalPull", "verticalPull"].includes(pattern));
-    const centers = recoveredDoseCenters(request, template.type, isPull);
-    const adjustments = { 1: [0], 2: [0, -1], 3: [1, 0, -1], 4: [1, 0, 0, -1], 5: [1, 0, 0, -1, -1], 6: [1, 1, 0, 0, -1, -1] };
-    const baseRir = template.type === "accessory" ? 0 : isPull ? 1 : 2;
+  function recoveredDoseCenters(request, repClass, policy) {
+    const centers = policy.prescription.periodizedRepCenters[request.goal][repClass];
+    const indices = policy.periodization.indices[request.periodization];
+    return indices ? indices.map(index => centers[index])
+      : Array(7).fill(policy.prescription.staticRepCenters[request.goal][repClass]);
+  }
+
+  function retainedDeloadSetCount(count, policy) {
+    return Math.max(1, Math.floor(policy.deload.setRetention * count));
+  }
+
+  function recoveredPrescriptions(request, template, repsKey, namespace, path, policy, isDefault) {
+    const repClass = recoveredRepClass(template);
+    const centers = recoveredDoseCenters(request, repClass, policy);
+    const adjustments = policy.prescription.rirAdjustmentsBySetCount;
+    const baseRir = policy.prescription.baseRirByClass[repClass];
     const normal = centers.map((center) => Array.from({ length: template.numSets }, (_, index) => ({
       targets: repsKey ? { [repsKey]: { min: center - 1, max: center + 1 } } : {},
-      rir: repsKey ? Math.max(0, baseRir + adjustments[template.numSets][index]) : null,
-      restSeconds: null, status: repsKey ? "ready" : "manual",
+      rir: repsKey ? Math.max(0, baseRir + adjustments[template.numSets][index]) + (request.experience === "beginner" ? policy.prescription.beginnerRirBonus : 0) : null,
+      restSeconds: policy.prescription.restSeconds[template.type === "accessory" ? "accessory" : "compound"], status: repsKey ? "ready" : "manual",
     })));
     let normalIndex = 0;
     return Array.from({ length: request.cycles }, (_, index) => {
       const cycleIndex = index + 1;
       const deload = request.deloadCycles.includes(cycleIndex);
       const endpoint = cycleIndex === 1 ? normal[0] : normal[normal.length - 1];
-      const source = deload ? endpoint.slice(0, Math.max(1, Math.floor(0.8 * endpoint.length))) : normal[normalIndex++];
+      const source = deload ? endpoint.slice(0, retainedDeloadSetCount(endpoint.length, policy)) : normal[normalIndex++];
       return { cycleIndex, sets: source.map((set, setIndex) => ({
         ...set,
         id: `set-${stableId(namespace, `${path}/cycle/${cycleIndex}/set/${setIndex + 1}`)}`,
         cycleIndex, setIndex: setIndex + 1, metricType: "source_metrics@1",
-        targets: deload && repsKey ? { [repsKey]: Object.fromEntries(Object.entries(set.targets[repsKey]).map(([bound, value]) => [bound, value === null ? null : Math.round(0.8 * value)])) } : clone(set.targets),
-        rir: deload && repsKey ? (set.rir ?? 0) + 3 : set.rir,
-        provenance: { source: request.periodization === "static" ? "recovered_static_rules" : "recovered_periodized_rules", policyVersion: GENERATOR_VERSION, periodization: request.periodization, deload, approximation: false },
+        targets: deload && repsKey ? { [repsKey]: Object.fromEntries(Object.entries(set.targets[repsKey]).map(([bound, value]) => [bound, value === null ? null : Math.round(policy.deload.repRetention * value)])) } : clone(set.targets),
+        rir: deload && repsKey ? (set.rir ?? 0) + policy.deload.rirBonus : set.rir,
+        provenance: { source: isDefault ? (request.periodization === "static" ? "recovered_static_rules" : "recovered_periodized_rules") : "experimental_policy", policyVersion: isDefault ? GENERATOR_VERSION : "engine-policy@1", periodization: request.periodization, deload, approximation: false },
       })) };
     });
   }
 
-  function generateRecovered(request, catalog, namespace) {
+  function generateRecovered(request, catalog, namespace, policyResult, diagnostics) {
+    const policy = policyResult.value;
+    if (diagnostics) diagnostics.terminalStage = "selection";
     if (!recoveredGenerationDomain(request)) return failure([fieldIssue("split", "unsupported_generation_domain", "Choose a supported split, seven normal cycles, and at most one first or last deload.")]);
     const hardAllowed = (exercise) => {
       if (request.excludedExerciseIds.includes(exercise.id) || excludedByMuscle(exercise, request.excludedMuscleIds)) return false;
@@ -519,7 +529,11 @@
       if (!(error instanceof TypeError || error instanceof RangeError)) throw error;
       return failure([fieldIssue("request", "unsupported_generation_domain", error.message)]);
     }
-    const layout = LAYOUT.generate(request, selector);
+    const layout = LAYOUT.generate(request, selector, { enginePolicy: policy, diagnostics: !!diagnostics });
+    if (diagnostics) diagnostics.allocation = {
+      requestedMinutes: request.timeCeilingMinutes, budgetMinutes: layout.budgetMinutes ?? null,
+      selected: layout.allocations ? clone(layout.allocations) : null, estimatedSecondsByDay: {},
+    };
     if (layout.status !== "ok" || layout.days.some((day) => !day.templates.length)) {
       return failure(layout.issues || [fieldIssue("request", layout.code || "insufficient_candidates", "The selected equipment and movement confirmations cannot fill this program.")]);
     }
@@ -554,8 +568,17 @@
           executionMode: executionMode(exercise, request, catalog),
           loadingModel: { bodyweightCoefficient: finite(exercise.bodyweight) ? exercise.bodyweight : null, assistanceDirection: "subtract" },
           order: slotIndex + 1,
-          prescriptionsByCycle: recoveredPrescriptions(request, template, repsKey, namespace, path),
+          prescriptionsByCycle: recoveredPrescriptions(request, template, repsKey, namespace, path, policy, policyResult.isDefault),
         };
+        if (diagnostics) {
+          const record = layout.diagnosticRecords.find(record => record.template === template);
+          const initialWeekIndex = layout.weeklySlots.indexOf(record.initialDayIndex);
+          diagnostics.slots.push({ lineage: record.lineage, origin: "recovered_template",
+            purposeId: slot.purposeId, slotId: slot.id, exerciseId: slot.exerciseId, repClass: recoveredRepClass(template),
+            initialWeekIndex,
+            finalDayId: dayId, baseSetCount: record.baseSetCount,
+            afterExperienceSetCount: template.numSets, finalSetCount: template.numSets, retained: true });
+        }
         return slot;
       });
       return { id: dayId, name, kind: "training", order: weekIndex + 1, slots };
@@ -564,14 +587,19 @@
       schemaVersion: PROGRAM_SCHEMA_VERSION, generatorVersion: GENERATOR_VERSION, request: clone(request), days,
       cycles: request.cycles, deloadCycles: [...request.deloadCycles],
       provenance: {
-        source: "recovered_generation_rules", policyVersion: GENERATOR_VERSION, goal: request.goal, split: request.split,
-        selection: "recovered-pool_then-explicit-preference_then-ascii-id", approximations: [],
+        source: policyResult.isDefault ? "recovered_generation_rules" : "experimental_policy", policyVersion: policyResult.isDefault ? GENERATOR_VERSION : "engine-policy@1", goal: request.goal, split: request.split,
+        selection: "recovered-pool_then-explicit-preference_then-ascii-id", approximations: policyResult.isDefault ? [] : ["experimental-engine-policy"],
         generationBudgetMinutes: layout.budgetMinutes, estimatedSessionSeconds, focusNotApplied: [],
       },
     };
+    if (diagnostics) diagnostics.slots = diagnostics.slots.map(({ initialWeekIndex, ...record }) => ({
+      ...record, initialDayId: initialWeekIndex < 0 ? null : days[initialWeekIndex].id,
+    }));
+    if (diagnostics) { diagnostics.terminalStage = "definition_validation"; diagnostics.allocation.estimatedSecondsByDay = clone(estimatedSessionSeconds); }
     const checked = validateProgramDefinition(output, catalog);
     if (!checked.ok) return failure([{ code: "generated_program_invalid", field: "program", issues: checked.issues }]);
-    return { ok: true, value: output, conflicts: [], explanations: [{ code: "recovered_initial_rules", generationBudgetMinutes: layout.budgetMinutes }], confirmationOffers: confirmationOffers(output, request, catalog) };
+    if (diagnostics) diagnostics.terminalStage = "complete";
+    return { ok: true, value: output, conflicts: [], explanations: [{ code: policyResult.isDefault ? "recovered_initial_rules" : "experimental_engine_policy", generationBudgetMinutes: layout.budgetMinutes }], confirmationOffers: confirmationOffers(output, request, catalog) };
   }
 
   function estimateSlotSeconds(slot, cycleIndex) {
@@ -594,13 +622,17 @@
 
   // Without a cycle the estimate is the first cycle's, which is what the
   // preview displays; a cycle index estimates that week's prescriptions.
-  function estimateDaySeconds(day, cycleIndex, catalogSnapshot) {
+  function estimateDaySeconds(day, cycleIndex, catalogSnapshot, options = {}) {
+    const normalizedPolicy = POLICY.normalizeEnginePolicy(options.enginePolicy);
+    if (!normalizedPolicy.ok) throw new TypeError("Invalid engine policy for duration estimate");
+    const policy = normalizedPolicy.value;
     if (day.kind !== "training") return 0;
     if (validCatalog(catalogSnapshot) && day.slots.length && day.slots.every((slot) => {
       const cycle = cycleIndex === undefined ? slot.prescriptionsByCycle?.[0]
         : slot.prescriptionsByCycle?.find((entry) => entry.cycleIndex === cycleIndex);
       return cycle?.sets?.length && cycle.sets.every((set) => set.provenance?.source === "recovered_static_rules"
         || set.provenance?.source === "recovered_periodized_rules"
+        || set.provenance?.source === "experimental_policy"
         || set.provenance?.source === "lifter_review" && set.provenance.policyVersion === GENERATOR_VERSION);
     })) {
       const templates = day.slots.map((slot) => {
@@ -611,7 +643,7 @@
           restSecondsBySet: cycle.sets.map((set) => set.restSeconds),
           type: slot.role.endsWith("Accessory") ? "accessory" : slot.role.endsWith("PrimaryCompound") ? "primary" : "secondary" } : null;
       });
-      if (templates.every(Boolean)) return LAYOUT.estimateTemplatesSeconds(templates);
+      if (templates.every(Boolean)) return LAYOUT.estimateTemplatesSeconds(templates, policy);
     }
     if (!day.slots.length) return 180;
     return 180 + day.slots.reduce((sum, slot) => sum + estimateSlotSeconds(slot, cycleIndex), 0);
@@ -1074,6 +1106,7 @@
     METRIC_SOURCE_IDS,
     generateProgram,
     canonicalizeRequest,
+    normalizeProgramRequest: canonicalizeRequest,
     generationIdentity,
     availableSplits,
     generatedDayNameKey,
