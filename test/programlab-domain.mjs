@@ -111,3 +111,17 @@ test("semantic comparisons ignore generated IDs/provenance and count actual pres
   assert.equal(domain.metrics({ ok: false }, { dose: 2 }, { dose: 3 }), null);
   assert.equal(domain.compare({ result: baseline }, { error: { code: "timeout" }, result: null }).candidateOutcome, "execution_error");
 });
+
+test("sweep summaries share a successful population and separate ordinary/deload cases", () => {
+  const result = { result: successful("aggregate") };
+  const metrics = domain.metrics(result.result, { dose: 2 }, { dose: 3 });
+  const deloadMetrics = structuredClone(metrics); deloadMetrics.cycles[0].deload = true;
+  const pair = (id, selected = metrics) => ({ id, baseline: result, candidate: result, baselineMetrics: selected, candidateMetrics: selected });
+  const rows = [{ value: 1, cases: [pair("ordinary"), pair("deload", deloadMetrics), pair("excluded")] },
+    { value: 2, cases: [pair("ordinary"), pair("deload", deloadMetrics), { ...pair("excluded"), candidate: { result: { ok: false, value: null } } }] }];
+  const summary = domain.aggregate(rows, { commonPopulation: true });
+  assert.deepEqual(summary[0].includedCaseIds, ["ordinary", "deload"]);
+  assert.equal(summary[0].strata.ordinary.comparablePairs, 1);
+  assert.equal(summary[0].strata.deload.comparablePairs, 1);
+  assert.equal(summary[0].durationMeanPairedMaxDayMinutesDelta, null, "a combined dose/duration value must not hide mixed strata");
+});

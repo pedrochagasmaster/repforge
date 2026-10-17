@@ -93,6 +93,9 @@ order. Rows have `{value,cases:[{id,baseline,candidate,baselineMetrics,
 candidateMetrics}]}`. Sweep aggregation uses the shared successful-case
 intersection; each row names included/excluded cases, outcome counts, pooled
 shares and mean/range paired changes in maximum common-model day minutes.
+`strata.ordinary` and `strata.deload` keep case populations separate. When a
+selected cycle mixes ordinary/deload cases, top-level comparative values are
+null and `mixedStrata:true`; consume the two explicit strata instead.
 
 ## IndexedDB
 
@@ -160,7 +163,9 @@ The page calls `ProgramLabArchiveWorker.createClient({workerURL})` and then
 `client.importArchive(File[],context)` or
 `client.exportArchive(experiment,run,context)`. There is one outstanding operation;
 the helper rejects stale messages, propagates validation errors, terminates on
-timeout, and `dispose()` cancels pending operations. The context is trusted build
+its ten-minute resource-bound timeout, and `dispose()` cancels pending operations.
+The long deadline permits the largest supported archive while Cancel still
+terminates immediately. The context is trusted build
 metadata; it is separate from imported archive contents.
 
 ## Focused proof and integration registration

@@ -239,13 +239,20 @@
         const baseline = pair.baselineMetrics?.cycles.find(cycle => cycle.cycleIndex === cycleIndex), candidate = pair.candidateMetrics?.cycles.find(cycle => cycle.cycleIndex === cycleIndex);
         if (baseline && candidate) pairs.push({ id: pair.id, baseline, candidate });
       }
-      const deltas = pairs.map(pair => pair.baseline.duration.common && pair.candidate.duration.common
-        ? (pair.candidate.duration.common.maxDaySeconds - pair.baseline.duration.common.maxDaySeconds) / 60 : null);
-      const duration = deltas.length && deltas.every(value => value !== null) ? { mean: deltas.reduce((a, b) => a + b, 0) / deltas.length, min: Math.min(...deltas), max: Math.max(...deltas) } : null;
-      const pooled = field => { const numerator = pairs.reduce((sum, pair) => sum + field(pair.candidate).numerator, 0), denominator = pairs.reduce((sum, pair) => sum + field(pair.candidate).denominator, 0); return { numerator, denominator, fraction: denominator ? numerator / denominator : null }; };
+      function summarize(population) {
+        const deltas = population.map(pair => pair.baseline.duration.common && pair.candidate.duration.common
+          ? (pair.candidate.duration.common.maxDaySeconds - pair.baseline.duration.common.maxDaySeconds) / 60 : null);
+        const duration = deltas.length && deltas.every(value => value !== null) ? { mean: deltas.reduce((a, b) => a + b, 0) / deltas.length, min: Math.min(...deltas), max: Math.max(...deltas) } : null;
+        const pooled = field => { const numerator = population.reduce((sum, pair) => sum + field(pair.candidate).numerator, 0), denominator = population.reduce((sum, pair) => sum + field(pair.candidate).denominator, 0); return { numerator, denominator, fraction: denominator ? numerator / denominator : null }; };
+        return { comparablePairs: population.length, durationMeanPairedMaxDayMinutesDelta: duration,
+          pooledTwoSetShare: pooled(cycle => cycle.twoSetShare), pooledRirZeroShare: pooled(cycle => cycle.rir.zero),
+          meanWorkingSetDelta: population.length ? population.reduce((sum, pair) => sum + pair.candidate.workingSets - pair.baseline.workingSets, 0) / population.length : null };
+      }
+      const ordinary = pairs.filter(pair => !pair.baseline.deload && !pair.candidate.deload), deload = pairs.filter(pair => pair.baseline.deload && pair.candidate.deload);
+      const mixedStrata = ordinary.length > 0 && deload.length > 0 || ordinary.length + deload.length !== pairs.length;
       return { value: row.value, outcomes, includedCaseIds: pairs.map(pair => pair.id), excluded, comparablePairs: pairs.length,
-        commonPopulation, durationMeanPairedMaxDayMinutesDelta: duration, pooledTwoSetShare: pooled(cycle => cycle.twoSetShare), pooledRirZeroShare: pooled(cycle => cycle.rir.zero),
-        meanWorkingSetDelta: pairs.length ? pairs.reduce((sum, pair) => sum + pair.candidate.workingSets - pair.baseline.workingSets, 0) / pairs.length : null };
+        commonPopulation, ...summarize(mixedStrata ? [] : pairs), comparablePairs: pairs.length, mixedStrata,
+        strata: { ordinary: summarize(ordinary), deload: summarize(deload) } };
     }));
   }
   function classify(result) {
@@ -272,10 +279,11 @@
       if (active) fail("run_active", "A run is already active");
       const frozenPlan = snapshot(plan);
       if (frozenPlan.cells.length > LIMITS.cells || frozenPlan.cellCount !== frozenPlan.cells.length) fail("invalid_plan", "Invalid run plan");
+      const identity = text(runId, "run ID");
       let stop;
       const state = { executor: null, canceled: false, stop: new Promise(resolve => { stop = resolve; }), stopNow: () => stop(null), done: null };
       active = state;
-      let current = { kind: "taurifer-programlab-run", schemaVersion: 1, runId: text(runId, "run ID"),
+      let current = { kind: "taurifer-programlab-run", schemaVersion: 1, runId: identity,
         plan: frozenPlan, status: "validating", records: [], completed: 0, total: frozenPlan.cellCount,
         saved: !allowUnsaved, error: null };
       const publish = () => { try { progress(snapshot(current)); } catch { /* Rendering cannot change the run. */ } };

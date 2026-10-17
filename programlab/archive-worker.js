@@ -2,7 +2,7 @@
    dependencies and calls install(createArchive). No archive supplies code URLs. */
 (function (root) {
   "use strict";
-  function createClient({ workerURL, WorkerClass = root.Worker, timeoutMs = 60000 }) {
+  function createClient({ workerURL, WorkerClass = root.Worker, timeoutMs = 600000 }) {
     const worker = new WorkerClass(workerURL), pending = new Map();
     let sequence = 0, disposed = false;
     function terminate(error) {
