@@ -1,0 +1,726 @@
+{
+  "baseSHA": "5a2a39284e27f7276c2b5e87bb2e11f05d67f3fa",
+  "generatorVersion": "073.4",
+  "results": [
+    {
+      "key": "muscle_growth|6_to_24m|2|limited_home|40|plain|corpus-b",
+      "sha256": "a226e079aa62c81a39fcd3904a8a979c330131ff448fc28d4bc5ce39dfeace74"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|2|limited_home|90|plain|corpus-b",
+      "sha256": "740b22b919e85fed187dd76853e3bebeb11a18fabce1654acc510bd65a956489"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|2|full_home|40|plain|corpus-b",
+      "sha256": "c2f09e0d6d6587128e60fc12682886c0c936f993ecb41a3f5e675e69daefe947"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|2|full_home|90|plain|corpus-b",
+      "sha256": "02c261e2cb972a91473227ff46d88be8592da895c736c216a937461a7feefe5c"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|2|basic_gym|40|plain|corpus-b",
+      "sha256": "9450df3c228111a8c661debbf0ca7e3ae035c41e53a309116c73711401f35093"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|2|basic_gym|90|plain|corpus-b",
+      "sha256": "e08d40ece14544f39764e14e8f97660284c4e9c4a4031bb38190a0b47950a094"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|2|commercial_gym|40|plain|corpus-b",
+      "sha256": "032433ada830f0aa776fb94ce478ca4359d8bc7f530a5b82d8d8acbe6f02abe7"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|2|commercial_gym|90|plain|corpus-b",
+      "sha256": "5df67a42b7e84658fbf14904f2d512045aada2e13163c41e5053d28b1ce0aaeb"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|2|everything|40|plain|corpus-b",
+      "sha256": "02768aa70b92364c296c3f4e87ae48549052d6f901a8ec14a26d7a607cf531c1"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|2|everything|90|plain|corpus-b",
+      "sha256": "993722ad97446f4c0f53c2a3924456ced0711f5eeba8d3b342fb67c7c7505f11"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|3|limited_home|40|plain|1",
+      "sha256": "f35d8a33a2b20dc7195bccf8e101bbc82a273b190ec0fab7f7c8dd0dae5c12b5"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|3|limited_home|90|plain|1",
+      "sha256": "36ffa051072d53a2d469c7042382b54ab9aefd4469b704c2968607ab20a02702"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|3|full_home|40|plain|1",
+      "sha256": "1828006ee7125cdb85ffb44d158178366207b973f9b044b5f502f98c721cfc9c"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|3|full_home|90|plain|1",
+      "sha256": "96581c7f732992da76b63663c84c33508863fc3042556925f4758991705946fc"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|3|basic_gym|40|plain|1",
+      "sha256": "7c2702e1f86b3407b2f9c8c7b26f36faac9dd70543f0e009aeafed8b043b32e2"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|3|basic_gym|90|plain|1",
+      "sha256": "47011712e3eec5b66b9398ee2fd1f11e2884e318f7ab3a81458d56c70e5686ae"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|3|commercial_gym|40|plain|1",
+      "sha256": "db7a7ae183b7b15ab7a4efdba2d9a43ce13c3fd735d4b746d394e3b1c7d94f9f"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|3|commercial_gym|90|plain|1",
+      "sha256": "3f8d8cf89619d6e91bed788850e49120aa79ad9a62f8bdd6121c1dd4656fd85d"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|3|everything|40|plain|1",
+      "sha256": "1bfcdb3f6567f483a105abcf2871c3064af00b137dc1b9fca18c97240c8d5900"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|3|everything|90|plain|1",
+      "sha256": "426932cb017ecaa7009552fcea84de4e935a189074872dcbb407d9e1739c964b"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|4|limited_home|40|plain|corpus-b",
+      "sha256": "623105e6630957637d9bba1206b70feb516ad19d75d30059f141349d9671bcdd"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|4|limited_home|90|plain|corpus-b",
+      "sha256": "7e02fe45646289f79b89ec1ba6fba33a41f62693c3c63ed3936bfc6b9a660f2c"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|4|full_home|40|plain|corpus-b",
+      "sha256": "83a7fbbf93d5cc49a82dfb45060aae4d331caeb1c887e8428fd81c2cc81636b5"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|4|full_home|90|plain|corpus-b",
+      "sha256": "9a3265c6d893ef364066ed30ca952a96a90f1965cb4502c9c372bef896663ab9"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|4|basic_gym|40|plain|corpus-b",
+      "sha256": "b7d642f4c08ceb52738359514c7b9cc651a3f543bff77f354ae67dc3f8f74fdf"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|4|basic_gym|90|plain|corpus-b",
+      "sha256": "089657ed0c12dd1df20618dfdf44679beeebc35917806f91a1341564ddb572cc"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|4|commercial_gym|40|plain|corpus-b",
+      "sha256": "65dcf76484f398c9110fdbebd27b69df9e89248b15fd974a3edde04fe228da7b"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|4|commercial_gym|90|plain|corpus-b",
+      "sha256": "5f5d8b135baf03e8eac168c55ccbc7ae0aab02dc0ff14171138baafe9c705069"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|4|everything|40|plain|corpus-b",
+      "sha256": "f300e7deda491c4f3b8f41bd29ae65bcc706e53a104d91b7a3eba144931803be"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|4|everything|90|plain|corpus-b",
+      "sha256": "6321456acf5611f0d078d5b3f0f7186f3280132818925ee2ea21c5ada075e87e"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|5|limited_home|40|plain|1",
+      "sha256": "78997d3f09b8c12775b4b79711c6e77282b1c1919eabe30fef58c072beecaf8d"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|5|limited_home|90|plain|1",
+      "sha256": "f4462510ef1033c004614e4727e887ad4d4f09a874162174e859eeacf60ccac1"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|5|full_home|40|plain|1",
+      "sha256": "2a9fed9d4fff6dc5242599bcca70649c8b3326de36f3411b49562f6777ddfcde"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|5|full_home|90|plain|1",
+      "sha256": "add7fb3933b5d4f4ba1e517e6ae467911b61e7a510d0a7eba969d0647a048bf0"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|5|basic_gym|40|plain|1",
+      "sha256": "e3e0be73bf35a19e76e8a503bf4d4c497df6e4e59b32435e557945d603446364"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|5|basic_gym|90|plain|1",
+      "sha256": "83b8a84d2c922c8589fc4b8d5ea0499e68bea8a3ed7ee62be03ec7c0d9466e5c"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|5|commercial_gym|40|plain|1",
+      "sha256": "a61d9a5cc20e256bc97c12b6ebc4003320a6d2db1efd69ec49175da177203409"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|5|commercial_gym|90|plain|1",
+      "sha256": "374465bfc472c08e81602b175bda7046824a2bc6ee3c3730cacdf2556937fe05"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|5|everything|40|plain|1",
+      "sha256": "6345f473e14f31f9d9fbbce5eda757c8825a3c83a3e6c6d710b66ec7bea5d2ec"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|5|everything|90|plain|1",
+      "sha256": "38ff57a049e36bb88a960143429d07598ba769e5b43f13194d686c0422a5ebb7"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|6|limited_home|40|plain|corpus-b",
+      "sha256": "e581cf95e51b3d5308c9dd7f2a0777c9dd89770f4c764e4d9c3d88c636b52001"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|6|limited_home|90|plain|corpus-b",
+      "sha256": "7594f03db8271c586877b6a94669bebc5ffbb3db94e9fc8e172883ba4e82db45"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|6|full_home|40|plain|corpus-b",
+      "sha256": "4443b473d581151f3a235a98b8e73902ce217b98cba878219b0100a0afb6b06c"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|6|full_home|90|plain|corpus-b",
+      "sha256": "61af6c5f4a40e20c2317361545bf9fec4921ef384140454d756858f689493685"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|6|basic_gym|40|plain|corpus-b",
+      "sha256": "57fb9c5312ebd3ccb242da4af40b62d4ee69c387475c1f3572d71a66a39a808b"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|6|basic_gym|90|plain|corpus-b",
+      "sha256": "39423f0c49596986a2ff621ac8fd3ef8911c3888a9862fe52beb2aa512f35a28"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|6|commercial_gym|40|plain|corpus-b",
+      "sha256": "766ff2320b6745f68840b1fd472e126cf20db597f853237054eb28ce337d0840"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|6|commercial_gym|90|plain|corpus-b",
+      "sha256": "0e47cf2d56a974e1764024b1de704457aa4308c115f3d2e77524745315e67419"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|6|everything|40|plain|corpus-b",
+      "sha256": "0f0f8d314fc23858f1bd6345034993148efbd94731f29cb722517ad85680b8b8"
+    },
+    {
+      "key": "muscle_growth|6_to_24m|6|everything|90|plain|corpus-b",
+      "sha256": "741db4a62ff5033e14d59f26d2e454801597ece3f7ac5ef821560cd8712874a7"
+    },
+    {
+      "key": "balanced|6_to_24m|2|limited_home|40|plain|corpus-b",
+      "sha256": "8c5b14415123d2f734f97ba8a12de499944edf2a9d8977fb0cb1c21e02281191"
+    },
+    {
+      "key": "balanced|6_to_24m|2|limited_home|90|plain|corpus-b",
+      "sha256": "bda993dba387d3c859efb9cfead741a2f9301c8d89eab4c13fc2e754b80f0fdf"
+    },
+    {
+      "key": "balanced|6_to_24m|2|full_home|40|plain|corpus-b",
+      "sha256": "fc7430de583954e2b786fb4e67bd6679e3f78733c3ffbaa6f2e409706833a1e5"
+    },
+    {
+      "key": "balanced|6_to_24m|2|full_home|90|plain|corpus-b",
+      "sha256": "55073e9608b35f927fb6534a4538e7f2629745420c66ad02f46bc0377ab7fc29"
+    },
+    {
+      "key": "balanced|6_to_24m|2|basic_gym|40|plain|corpus-b",
+      "sha256": "c8c17478af82e216b09c44975f200d769c85dcb1e0a4ac38d310f9e005a8728e"
+    },
+    {
+      "key": "balanced|6_to_24m|2|basic_gym|90|plain|corpus-b",
+      "sha256": "704b7fe21456bde7045c5cecb83753dd993a956d789740b3ae28354a1497396b"
+    },
+    {
+      "key": "balanced|6_to_24m|2|commercial_gym|40|plain|corpus-b",
+      "sha256": "c1c56136ea6c30e9cfc9614f77d44645319db3b4344a3c6e396db17bc9dd42e9"
+    },
+    {
+      "key": "balanced|6_to_24m|2|commercial_gym|90|plain|corpus-b",
+      "sha256": "20cd63c875b71a4499548f498026077b72dbeab6e93cc4777c344e6eea8eb010"
+    },
+    {
+      "key": "balanced|6_to_24m|2|everything|40|plain|corpus-b",
+      "sha256": "f7a5169bf1ebe3fdfdc198ce54212a54570f40a9c90769aa4cf05bc0d22b1895"
+    },
+    {
+      "key": "balanced|6_to_24m|2|everything|90|plain|corpus-b",
+      "sha256": "4c9c3949609ec197285606b3b6606ba48f7a566806bb97392daca5014baa2136"
+    },
+    {
+      "key": "balanced|6_to_24m|3|limited_home|40|plain|1",
+      "sha256": "b5c3d9a79b87e3c812ed89e6a0b8ba666a0298371f14b550b697c152acb2f3f6"
+    },
+    {
+      "key": "balanced|6_to_24m|3|limited_home|90|plain|1",
+      "sha256": "badd8a68cfb0974bff9661212e189968293407e4e8f4c712e2466359d126ac2f"
+    },
+    {
+      "key": "balanced|6_to_24m|3|full_home|40|plain|1",
+      "sha256": "fecfca67c3707841a9d00840a2e51c61c1ac328e097b34248f2bb5d7a2b87ca7"
+    },
+    {
+      "key": "balanced|6_to_24m|3|full_home|90|plain|1",
+      "sha256": "1da644a303018d9f546caa1bb2ff3999c7020f395c60d487fb6c89eb2bfbb6e5"
+    },
+    {
+      "key": "balanced|6_to_24m|3|basic_gym|40|plain|1",
+      "sha256": "f265cdfd17303c08f5560bd73e86a5d0bb818fb47c6748c073723a677b5e134b"
+    },
+    {
+      "key": "balanced|6_to_24m|3|basic_gym|90|plain|1",
+      "sha256": "179a3106db3817efb554499d9af9136afbe442f292e3a40c6f9bfa3492ada493"
+    },
+    {
+      "key": "balanced|6_to_24m|3|commercial_gym|40|plain|1",
+      "sha256": "230ba79c09d6b1c06fb56b8567d9e53acb5999e18a3cc4d6c06ee54094cd43c0"
+    },
+    {
+      "key": "balanced|6_to_24m|3|commercial_gym|90|plain|1",
+      "sha256": "b50ec0d4b42d252843365d0f0be2bd0377676690770e4b660df92830165bdafa"
+    },
+    {
+      "key": "balanced|6_to_24m|3|everything|40|plain|1",
+      "sha256": "00f72b7f61fb353d0e47109965c61d04ad8a022b7a9dc6fc7fdd66f39379e4d4"
+    },
+    {
+      "key": "balanced|6_to_24m|3|everything|90|plain|1",
+      "sha256": "95237c9d4b000aa80b80c6328c8a5f436f268c810c7724e59d51a8b5412e3f31"
+    },
+    {
+      "key": "balanced|6_to_24m|4|limited_home|40|plain|corpus-b",
+      "sha256": "14da4f62b1c3fde03c9dc93047f035b374bbe077835b063354d624ec006044f8"
+    },
+    {
+      "key": "balanced|6_to_24m|4|limited_home|90|plain|corpus-b",
+      "sha256": "a9095cea17bf519e17e570f44e869af3835bb2dbb8b6f9ac55d68bfc5691905d"
+    },
+    {
+      "key": "balanced|6_to_24m|4|full_home|40|plain|corpus-b",
+      "sha256": "b5064636e91c0751c3c536c98ebf27c662f949096f3c3a07d685115b9d746f36"
+    },
+    {
+      "key": "balanced|6_to_24m|4|full_home|90|plain|corpus-b",
+      "sha256": "786b70625eca77d5e8774916aa4b60a8494040b7500f4bcd5ec62084983ba736"
+    },
+    {
+      "key": "balanced|6_to_24m|4|basic_gym|40|plain|corpus-b",
+      "sha256": "ba78c1de58affe5c62d787d04cd68105dbff6f0f5c7f81370b5bf3fce8fb73b3"
+    },
+    {
+      "key": "balanced|6_to_24m|4|basic_gym|90|plain|corpus-b",
+      "sha256": "c475fd45fc3ce0b29386680a49f337be430d3140050e47ad74e86081176b9955"
+    },
+    {
+      "key": "balanced|6_to_24m|4|commercial_gym|40|plain|corpus-b",
+      "sha256": "28e45402279ebe7d1a8cc6957383a2148b9374b233064a884d35accbe2dccdfa"
+    },
+    {
+      "key": "balanced|6_to_24m|4|commercial_gym|90|plain|corpus-b",
+      "sha256": "d26fe83436d2c03a1535cc363ffd1f02bad5166992a173a49c817d8a2ccdf997"
+    },
+    {
+      "key": "balanced|6_to_24m|4|everything|40|plain|corpus-b",
+      "sha256": "667f60b32f70a04813e9c3714b5bacee3e57b0f122f0c8b9e37d6afe3a3a72e5"
+    },
+    {
+      "key": "balanced|6_to_24m|4|everything|90|plain|corpus-b",
+      "sha256": "04900e57738b93cde56c3daacabf5f2f9ad794dc6ea4b9f2382ab8d9b07b66fe"
+    },
+    {
+      "key": "balanced|6_to_24m|5|limited_home|40|plain|1",
+      "sha256": "f29bbfb766012d461829d49abf81fafe043fea11f04c8103ee3e4e53ca6fb2c9"
+    },
+    {
+      "key": "balanced|6_to_24m|5|limited_home|90|plain|1",
+      "sha256": "1c480dbfa60f58f6670bda38fd39fc07d2754926832fe2ac3a372438459cbf33"
+    },
+    {
+      "key": "balanced|6_to_24m|5|full_home|40|plain|1",
+      "sha256": "5a7e6dbd11b6b19661d90f05d6fcdf3aa3db32a5fdc198346616286f4c85e0dc"
+    },
+    {
+      "key": "balanced|6_to_24m|5|full_home|90|plain|1",
+      "sha256": "bbe16ef051a7cc19038169205e263f99df78ff153e16ee784e471c04884466cc"
+    },
+    {
+      "key": "balanced|6_to_24m|5|basic_gym|40|plain|1",
+      "sha256": "e286b5503d7118d4bb7614e267c3f7cc1fa71d1ef672054e22c35b7398234ed5"
+    },
+    {
+      "key": "balanced|6_to_24m|5|basic_gym|90|plain|1",
+      "sha256": "e1fa1542fabfe090a8a688dccaad4df6784dfe9344640396d5b46075085259be"
+    },
+    {
+      "key": "balanced|6_to_24m|5|commercial_gym|40|plain|1",
+      "sha256": "cfdfd46ec7007a82612ffd48317e67b3dd6018fc5e6f3bec4518aec5dd659247"
+    },
+    {
+      "key": "balanced|6_to_24m|5|commercial_gym|90|plain|1",
+      "sha256": "4d97f2064ea7d12a773b285587f37834152f968aba4f9f1b776f417801b5bdcc"
+    },
+    {
+      "key": "balanced|6_to_24m|5|everything|40|plain|1",
+      "sha256": "819810396177e826c2a419e18e9ffa23f8be2341293ef92b7d9a0cdc76ea4712"
+    },
+    {
+      "key": "balanced|6_to_24m|5|everything|90|plain|1",
+      "sha256": "a8cb73eb17f5593b0c85cd6ae0f2de01c30bf0c34574162c4be54601999195cf"
+    },
+    {
+      "key": "balanced|6_to_24m|6|limited_home|40|plain|corpus-b",
+      "sha256": "f2cc119aed8739cc30e2ca71962ed7281dffda3d2af8980fde7d7b48ef2cad0b"
+    },
+    {
+      "key": "balanced|6_to_24m|6|limited_home|90|plain|corpus-b",
+      "sha256": "3b410f6593cf9c7b8954ce19a6c8a90e100b1ea2dc75bf3c83631b645bb32681"
+    },
+    {
+      "key": "balanced|6_to_24m|6|full_home|40|plain|corpus-b",
+      "sha256": "481eaaca9326960b21f72987f6966dec88f424b7e9a23c06e2559e513a2e84a4"
+    },
+    {
+      "key": "balanced|6_to_24m|6|full_home|90|plain|corpus-b",
+      "sha256": "d5a4460d42c13d1c1e5dc8e64797616e9e95b12e3de7781ba8b5c39944f6e896"
+    },
+    {
+      "key": "balanced|6_to_24m|6|basic_gym|40|plain|corpus-b",
+      "sha256": "643f0b028cbd843ac219d7d709d33951622c46c6f2b3d3aceb6aec49270c29f1"
+    },
+    {
+      "key": "balanced|6_to_24m|6|basic_gym|90|plain|corpus-b",
+      "sha256": "be6155ed87816abf9cd5e73a35a3be79c64b2c7d4c5e54858bed07a9d977b1b4"
+    },
+    {
+      "key": "balanced|6_to_24m|6|commercial_gym|40|plain|corpus-b",
+      "sha256": "ffb1fd6e0523379b0da8afa401b3a0bada23e629962d911d51361366573f57be"
+    },
+    {
+      "key": "balanced|6_to_24m|6|commercial_gym|90|plain|corpus-b",
+      "sha256": "13eb2a49c5e644819d591a27ca2c45d794908a5aad21bd11011f99e96d0a2e1b"
+    },
+    {
+      "key": "balanced|6_to_24m|6|everything|40|plain|corpus-b",
+      "sha256": "9ebdc8212a7533284ed9b8e915cb2ea3de706aa0aeda017432297f2cea6c32c1"
+    },
+    {
+      "key": "balanced|6_to_24m|6|everything|90|plain|corpus-b",
+      "sha256": "a78ddce7115546493dab7edfb550267c5b58a2b9193938f6081b4a93cb2ff481"
+    },
+    {
+      "key": "strength|6_to_24m|2|limited_home|40|plain|corpus-b",
+      "sha256": "8cef7fb49c20c57c483e1614c8d8c4902678d02f25247ee7faf0f2f6bc94d543"
+    },
+    {
+      "key": "strength|6_to_24m|2|limited_home|90|plain|corpus-b",
+      "sha256": "10659c0179dd441782ea8cf75c5ba752e9205868e30066fb750a93d4f0439561"
+    },
+    {
+      "key": "strength|6_to_24m|2|full_home|40|plain|corpus-b",
+      "sha256": "c54ec170babe1caf30effbc096f9576b45fdfa8d20a885c16c21d8f653f14888"
+    },
+    {
+      "key": "strength|6_to_24m|2|full_home|90|plain|corpus-b",
+      "sha256": "9ccef4c106ebcdc280eee58eb3ec385446c08cfe0d389ab1ce18e7e559f949d0"
+    },
+    {
+      "key": "strength|6_to_24m|2|basic_gym|40|plain|corpus-b",
+      "sha256": "e5fd55e04b84c50d50bc6d78f88f5da1127a9ce99bf46c74b0ebabbaf00f7eee"
+    },
+    {
+      "key": "strength|6_to_24m|2|basic_gym|90|plain|corpus-b",
+      "sha256": "32dbb18a295132d1833e6c180b0bd843fd83c60d5d6c3d1f9578e186fff49cfc"
+    },
+    {
+      "key": "strength|6_to_24m|2|commercial_gym|40|plain|corpus-b",
+      "sha256": "d326858c995e0f7b8000a8a315fe33c6d4af3e747f4a32924727d6f1d08b917c"
+    },
+    {
+      "key": "strength|6_to_24m|2|commercial_gym|90|plain|corpus-b",
+      "sha256": "2a66969801f9907c79db674cfe5e32ab098d3733dccbd325aa7d57420617940a"
+    },
+    {
+      "key": "strength|6_to_24m|2|everything|40|plain|corpus-b",
+      "sha256": "8287cc6533bdbcbcd5cb140fbaa3e1aedd855199f6416c7d4cca9d5104e4c93a"
+    },
+    {
+      "key": "strength|6_to_24m|2|everything|90|plain|corpus-b",
+      "sha256": "46acabb2123c0a4edc6f84d888a1e0c8dfb80ffe43c3a5377fbc88ea0a1eb81e"
+    },
+    {
+      "key": "strength|6_to_24m|3|limited_home|40|plain|1",
+      "sha256": "1dbf8277cc64ad0ec93dffb093d013a509039d006a4c8712f8887ab6daa2aedb"
+    },
+    {
+      "key": "strength|6_to_24m|3|limited_home|90|plain|1",
+      "sha256": "b03476982d85969ef26dd67706dda9809b6285eb552696ec83b52a9411831b96"
+    },
+    {
+      "key": "strength|6_to_24m|3|full_home|40|plain|1",
+      "sha256": "444b94f71515540fb3f73991e756003835813fa4f3048ef6dff7f6d982dea53d"
+    },
+    {
+      "key": "strength|6_to_24m|3|full_home|90|plain|1",
+      "sha256": "f7b7980e0a862388eda4eb9ac5f4b24f142d6f6beae7205c5619af000293c8b7"
+    },
+    {
+      "key": "strength|6_to_24m|3|basic_gym|40|plain|1",
+      "sha256": "f2d3ba654e9351ba14fdd6976a7653181d6e30f372747c486fbf4207bd86b933"
+    },
+    {
+      "key": "strength|6_to_24m|3|basic_gym|90|plain|1",
+      "sha256": "6c6fd83f532de996f2cf423ca37d18d82204e5d1b7e0e5b987c79e4fb716b274"
+    },
+    {
+      "key": "strength|6_to_24m|3|commercial_gym|40|plain|1",
+      "sha256": "243edac48e05f8645a122003e76f826d1d9592faf068ddcbc542da2e46b868ca"
+    },
+    {
+      "key": "strength|6_to_24m|3|commercial_gym|90|plain|1",
+      "sha256": "51aefd19fd987d6df4723ac0e08062f9fe539c2ea0eb9812765a3805d840914b"
+    },
+    {
+      "key": "strength|6_to_24m|3|everything|40|plain|1",
+      "sha256": "70f15f3ca7d870381907ff365e5f8c015d7cfec3aea5e151ff87dcf8fdf32eb3"
+    },
+    {
+      "key": "strength|6_to_24m|3|everything|90|plain|1",
+      "sha256": "759f402631d982fa5ed1c2d29b8a44d1674452a0c985c389e748bea2f29b13dd"
+    },
+    {
+      "key": "strength|6_to_24m|4|limited_home|40|plain|corpus-b",
+      "sha256": "828c13615ca963a3c7eb5d20644689ab79e488c2070df3fbb2e327e4c7cb434a"
+    },
+    {
+      "key": "strength|6_to_24m|4|limited_home|90|plain|corpus-b",
+      "sha256": "bbc0c7c976874c18f4d7d2914cb32d46f5a1798acadc539d06784a2c41e5a688"
+    },
+    {
+      "key": "strength|6_to_24m|4|full_home|40|plain|corpus-b",
+      "sha256": "0aef43bc65bf472113ec387951d4effe0aaec48626ca26096a5988a121932e92"
+    },
+    {
+      "key": "strength|6_to_24m|4|full_home|90|plain|corpus-b",
+      "sha256": "faea4c01748d731b54173dc21d4fb7b2d78ecc418ec2913639d4c0f2fae99dbd"
+    },
+    {
+      "key": "strength|6_to_24m|4|basic_gym|40|plain|corpus-b",
+      "sha256": "0ac9f88a0297fe1032cf7f355e8a5b5114fe189be5b16287936c7e196779f5f0"
+    },
+    {
+      "key": "strength|6_to_24m|4|basic_gym|90|plain|corpus-b",
+      "sha256": "a8b9856217c99d6c27d2340ed079470cb1fd35a756e8540cb178778066e866af"
+    },
+    {
+      "key": "strength|6_to_24m|4|commercial_gym|40|plain|corpus-b",
+      "sha256": "3eda8c05c56190d4f1986611482b4d821c64b35260ce622eeb2a65f9be646933"
+    },
+    {
+      "key": "strength|6_to_24m|4|commercial_gym|90|plain|corpus-b",
+      "sha256": "38af52b20ca281493774a852ea874a0d6d10eb934062eaaefea0b434e7ae6588"
+    },
+    {
+      "key": "strength|6_to_24m|4|everything|40|plain|corpus-b",
+      "sha256": "6061015cbf34e7be2fafae03f4d79b70f6a082b3b9e56a6b8690a3103b52b804"
+    },
+    {
+      "key": "strength|6_to_24m|4|everything|90|plain|corpus-b",
+      "sha256": "e9c95bbe7c3fb6a295e83dbcf0237c8c2034b328f33e9ad203548d1d7e145c54"
+    },
+    {
+      "key": "strength|6_to_24m|5|limited_home|40|plain|1",
+      "sha256": "b25f5adc3142b2e8db2b435021a6971d853f4d9e35600f10a0ae19cbf5cdd917"
+    },
+    {
+      "key": "strength|6_to_24m|5|limited_home|90|plain|1",
+      "sha256": "f08fdafbd5e13b6ddf430f8bd6a152a5762d54b880baa92b5af0a470115fd326"
+    },
+    {
+      "key": "strength|6_to_24m|5|full_home|40|plain|1",
+      "sha256": "29e0a5de231dbc26e435474be9840d5bfac672119fca7faa0fa1807dde268d79"
+    },
+    {
+      "key": "strength|6_to_24m|5|full_home|90|plain|1",
+      "sha256": "6b9b5be614b642dc2ecb8fc857887b8eef69d41fb9bb994739bda7980ad04743"
+    },
+    {
+      "key": "strength|6_to_24m|5|basic_gym|40|plain|1",
+      "sha256": "90bea82ce3566fb526656af60bdf6a527903118b6425c2899784ab13c2678f1f"
+    },
+    {
+      "key": "strength|6_to_24m|5|basic_gym|90|plain|1",
+      "sha256": "04d80d91373b940f21415edc24922191c5b9b6ff2b689eb1b82f62f3bd5eeb5e"
+    },
+    {
+      "key": "strength|6_to_24m|5|commercial_gym|40|plain|1",
+      "sha256": "fbe85fefea63c5c4d8b922e954df4d91e5e35f569c0f4b61057bc43f85ef2c97"
+    },
+    {
+      "key": "strength|6_to_24m|5|commercial_gym|90|plain|1",
+      "sha256": "4e8cf27e0247271df4657129902d508cbf14df0d02b7d743c93298fcc515ade1"
+    },
+    {
+      "key": "strength|6_to_24m|5|everything|40|plain|1",
+      "sha256": "82c9cdd0391ae403ff30d6ec718d84d6f6d1b7f0a6bf0c3ed67ed05777aa0891"
+    },
+    {
+      "key": "strength|6_to_24m|5|everything|90|plain|1",
+      "sha256": "90bc27faba00fbebc9db633b1d59e90a846d5f579c97065c42cbf7b19e332a6b"
+    },
+    {
+      "key": "strength|6_to_24m|6|limited_home|40|plain|corpus-b",
+      "sha256": "cb372b0a3cc0aca83ab90ff140b587a2c5b67714549d279395a040cb1a4385b5"
+    },
+    {
+      "key": "strength|6_to_24m|6|limited_home|90|plain|corpus-b",
+      "sha256": "dd14add03722ad125ebf7ada33cad03ad96a9791a9f63e18b579f0282821c801"
+    },
+    {
+      "key": "strength|6_to_24m|6|full_home|40|plain|corpus-b",
+      "sha256": "f256371c7cd6eb37170118c3dbe458d43cdae9a3aa26a32052f763163637be6b"
+    },
+    {
+      "key": "strength|6_to_24m|6|full_home|90|plain|corpus-b",
+      "sha256": "3e1b03d45cd40c20e406f34b89da25be65a96840f550155ec1e75bcd38f7b364"
+    },
+    {
+      "key": "strength|6_to_24m|6|basic_gym|40|plain|corpus-b",
+      "sha256": "75410033309af0bf7d4c140cb25f014fe909de0235591c0cd791ba73623abdf3"
+    },
+    {
+      "key": "strength|6_to_24m|6|basic_gym|90|plain|corpus-b",
+      "sha256": "06a1265dde563b81a7d6cd73f9e3165305c074fdda5a3a5920ad5949e99f0e1d"
+    },
+    {
+      "key": "strength|6_to_24m|6|commercial_gym|40|plain|corpus-b",
+      "sha256": "400bfccb19db0cc200f484b972e545ebb7d5c64a09b2b40ad3fb10f256bfafa7"
+    },
+    {
+      "key": "strength|6_to_24m|6|commercial_gym|90|plain|corpus-b",
+      "sha256": "f06d506268dea66cebbb834f068fe55b91fd77269b22c5c686724810bc047a2e"
+    },
+    {
+      "key": "strength|6_to_24m|6|everything|40|plain|corpus-b",
+      "sha256": "4b912490f4ce3a10bac40132b7cda7e5bc04ff850923254b6913eb77974fee41"
+    },
+    {
+      "key": "strength|6_to_24m|6|everything|90|plain|corpus-b",
+      "sha256": "3ffec7a344d1ab94dffe63448c221753a723ef5976b85db66b2daa2e814f2faa"
+    },
+    {
+      "key": "muscle_growth|first|3|limited_home|60|plain|variant",
+      "sha256": "ab62a391fe9e308ee81d2ec617ab45e695361b7feca914597d44c4d675395306"
+    },
+    {
+      "key": "muscle_growth|first|3|basic_gym|60|plain|variant",
+      "sha256": "cd67cb265627dfcea6bcfae740d45860bb7dbad5187f0926ce7c36d4205f1d9c"
+    },
+    {
+      "key": "muscle_growth|first|3|commercial_gym|60|plain|variant",
+      "sha256": "e16ce065893f94925fbf6f0c1299b6de8a2f6ac64cd7d69f9dd2b32073972273"
+    },
+    {
+      "key": "strength|over_24m|5|limited_home|60|plain|variant",
+      "sha256": "32aff6481419a46d66fd06f2c0ff468902dc059c733a1fa816c8958abbdb99ba"
+    },
+    {
+      "key": "strength|over_24m|5|basic_gym|60|plain|variant",
+      "sha256": "b939c8dd0e2dd035dadb5505fdbdc8011ed1b1ef563893800e5072bc871b2514"
+    },
+    {
+      "key": "strength|over_24m|5|commercial_gym|60|plain|variant",
+      "sha256": "07f08c0c3b7c99d7d929d91e0d85b7e0ab72a196a6d49b470acd70218b01c740"
+    },
+    {
+      "key": "muscle_growth|first|3|limited_home|60|focus|variant",
+      "sha256": "d57a48a0d52c60bf95efbb5a488b881d17d28f9c823b57bf88fc5e8a9977a6d9"
+    },
+    {
+      "key": "muscle_growth|first|3|basic_gym|60|focus|variant",
+      "sha256": "b137d68d4a5b1c15d52b495a6186ef3055e3112accc57a7124431e9afe8bd928"
+    },
+    {
+      "key": "muscle_growth|first|3|commercial_gym|60|focus|variant",
+      "sha256": "83aaf7c581f9fbd203b2e333840c0a285a2291a9558dcbc3afcd596ef88a678d"
+    },
+    {
+      "key": "strength|over_24m|5|limited_home|60|focus|variant",
+      "sha256": "f1dfdcb4e72a62b2c86b943ae9bad129c71dfe9cbaa35b0d1fbb9a635b41fd8e"
+    },
+    {
+      "key": "strength|over_24m|5|basic_gym|60|focus|variant",
+      "sha256": "b1001c2cac6530032ee45913fa7282a7a232fbadb289b2dfd940482b78943c62"
+    },
+    {
+      "key": "strength|over_24m|5|commercial_gym|60|focus|variant",
+      "sha256": "6b78b19a22c57dce6eb8c9629bbca9d6922d9c0457ac699d01db3b4da4a463d6"
+    },
+    {
+      "key": "muscle_growth|first|3|limited_home|60|avoid|variant",
+      "sha256": "5fc792bd03e577f3a36ab70ee1e595ab87584e2d2b02563d437b54316d3754fc"
+    },
+    {
+      "key": "muscle_growth|first|3|basic_gym|60|avoid|variant",
+      "sha256": "5fc792bd03e577f3a36ab70ee1e595ab87584e2d2b02563d437b54316d3754fc"
+    },
+    {
+      "key": "muscle_growth|first|3|commercial_gym|60|avoid|variant",
+      "sha256": "5fc792bd03e577f3a36ab70ee1e595ab87584e2d2b02563d437b54316d3754fc"
+    },
+    {
+      "key": "strength|over_24m|5|limited_home|60|avoid|variant",
+      "sha256": "5fc792bd03e577f3a36ab70ee1e595ab87584e2d2b02563d437b54316d3754fc"
+    },
+    {
+      "key": "strength|over_24m|5|basic_gym|60|avoid|variant",
+      "sha256": "5fc792bd03e577f3a36ab70ee1e595ab87584e2d2b02563d437b54316d3754fc"
+    },
+    {
+      "key": "strength|over_24m|5|commercial_gym|60|avoid|variant",
+      "sha256": "5fc792bd03e577f3a36ab70ee1e595ab87584e2d2b02563d437b54316d3754fc"
+    },
+    {
+      "key": "muscle_growth|first|3|limited_home|60|prefer|variant",
+      "sha256": "612202ec32a672aac3f71010e1c573c05174deaf7bb972364a8eb293b9751836"
+    },
+    {
+      "key": "muscle_growth|first|3|basic_gym|60|prefer|variant",
+      "sha256": "a96087ec7775dc7bc6d0ec998a578c40e5102cb2c2ac52facb2d3eb9f2fc55be"
+    },
+    {
+      "key": "muscle_growth|first|3|commercial_gym|60|prefer|variant",
+      "sha256": "f4a26f1ff1c311824d54455eda165047c830d707ce6503b16b977af0d35c59e0"
+    },
+    {
+      "key": "strength|over_24m|5|limited_home|60|prefer|variant",
+      "sha256": "f71a74a2915373b97faff99a3ac922e5e9f0a03c87f4bd879ea89c986b363f2f"
+    },
+    {
+      "key": "strength|over_24m|5|basic_gym|60|prefer|variant",
+      "sha256": "fe343582f007d3fca8f1a4fa0ce2ebb1e9600865694cebb11a3d1478d623526e"
+    },
+    {
+      "key": "strength|over_24m|5|commercial_gym|60|prefer|variant",
+      "sha256": "d9531a0d2fa7bfa7e6036eaf880bcae81d56c37e4d4fb3cb130084ec8c788f7b"
+    },
+    {
+      "key": "muscle_growth|first|3|limited_home|60|competent|variant",
+      "sha256": "a0a9ca05b2ec8cc8478865b0ea797b218324213abe0a731fd6a29e510c8c86a3"
+    },
+    {
+      "key": "muscle_growth|first|3|basic_gym|60|competent|variant",
+      "sha256": "84c34624d3c5bee16a9a82f6d94bd1988aeb1d414e13ec78e7d6cb4c9ebbc349"
+    },
+    {
+      "key": "muscle_growth|first|3|commercial_gym|60|competent|variant",
+      "sha256": "daca8b391cacaf4f555b3c634e4e8c23e76d09b899bf2d5b9caf9d48f059b7ba"
+    },
+    {
+      "key": "strength|over_24m|5|limited_home|60|competent|variant",
+      "sha256": "05083ccd0790072ae84d1c7a1d314da75b9612cdcf421f961a017d3717ef5bfa"
+    },
+    {
+      "key": "strength|over_24m|5|basic_gym|60|competent|variant",
+      "sha256": "13d5b3d82c8cd99ff60226cc315c16481d521f743664ce8f733f331644d07abd"
+    },
+    {
+      "key": "strength|over_24m|5|commercial_gym|60|competent|variant",
+      "sha256": "c8ee9da64b24bbdfe47e9ff186556d300863a3c2c4999b3064394af68dd2fb1b"
+    }
+  ]
+}
