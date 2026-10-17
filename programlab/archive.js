@@ -1,0 +1,183 @@
+(function (root) {
+  "use strict";
+  const D = typeof module !== "undefined" && module.exports ? require("./domain.js") : root.ProgramLabDomain;
+  const KIND = "taurifer-programlab-experiment", MANIFEST = "taurifer-programlab-archive-manifest";
+  const bytes = value => new TextEncoder().encode(typeof value === "string" ? value : D.canonicalJSON(value)).length;
+  const summary = run => { const { records, ...metadata } = run; return metadata; };
+  const freeze = value => { if (value && typeof value === "object" && !Object.isFrozen(value)) { Object.values(value).forEach(freeze); Object.freeze(value); } return value; };
+  const check = (condition, message, code = "invalid_archive") => { if (!condition) D.fail(code, message); };
+
+  function create({ validatePolicy, validateRequest, validateProgram, build, sweepPaths = [] }) {
+    check(typeof validatePolicy === "function" && typeof validateRequest === "function" && typeof validateProgram === "function", "Archive validators are required");
+    function checked(validator, value, archived, label) {
+      const result = validator(value, { archived });
+      check(result?.ok === true, `Invalid archived ${label}`);
+      return result.value ?? value;
+    }
+    function validate(experiment, run) {
+      D.keys(experiment, ["experimentId", "revision", "name", "notes", "mode", "scenarios", "baselinePolicy", "candidatePolicy", "referenceTimePolicy", "sweep"], ["provenance"]);
+      check(typeof experiment.name === "string" && typeof experiment.notes === "string", "Invalid experiment text");
+      check(typeof experiment.experimentId === "string" && experiment.experimentId.length > 0 && Number.isSafeInteger(experiment.revision) && experiment.revision > 0, "Invalid experiment identity");
+      check(Array.isArray(experiment.scenarios) && experiment.scenarios.length > 0 && experiment.scenarios.length <= D.LIMITS.pairs, "Scenario bound exceeded");
+      check(["single", "batch", "sweep"].includes(experiment.mode), "Invalid experiment mode");
+      if (experiment.sweep !== null) {
+        D.keys(experiment.sweep, ["path", "values"]);
+        check(experiment.mode === "sweep" && Array.isArray(experiment.sweep.values) && experiment.sweep.values.length > 0 && experiment.sweep.values.length <= D.LIMITS.sweepValues, "Sweep bound exceeded");
+      } else check(experiment.mode !== "sweep", "Missing sweep definition");
+      const archived = !!run && (run.plan.build.runtimeFingerprint !== build.runtimeFingerprint || run.plan.build.catalogSha256 !== build.catalogSha256);
+      for (const policy of [experiment.baselinePolicy, experiment.candidatePolicy, experiment.referenceTimePolicy]) checked(validatePolicy, policy, archived, "policy");
+      const ids = new Set();
+      for (const scenario of experiment.scenarios) {
+        D.keys(scenario, ["id", "name", "request"], ["inputMode", "answers", "seed"]);
+        check(typeof scenario.id === "string" && scenario.id.length > 0 && !ids.has(scenario.id), "Duplicate or invalid scenario ID"); ids.add(scenario.id);
+        if (!archived) checked(validateRequest, scenario.request, false, "request");
+        if (scenario.request.seed !== undefined && scenario.seed !== undefined) check(scenario.request.seed === String(scenario.seed), "Contradictory effective request seed");
+      }
+      if (!run) return false;
+      D.keys(run, ["kind", "schemaVersion", "runId", "plan", "status", "records", "completed", "total", "saved", "error"], ["archived"]);
+      check(run.kind === "taurifer-programlab-run" && run.schemaVersion === 1 && typeof run.runId === "string", "Unsupported run kind or version");
+      check(["validating", "running", "completed", "canceled", "interrupted", "failed"].includes(run.status), "Invalid run status");
+      check(Array.isArray(run.records) && run.records.length <= D.LIMITS.cells && run.records.length === run.completed, "Run completeness mismatch");
+      const plan = run.plan;
+      D.keys(plan, ["kind", "schemaVersion", "experiment", "build", "cells", "comparisons", "caseCount", "cellCount", "baselineReuse", "metricsVersion"]);
+      D.keys(plan.build, ["runtimeFingerprint", "catalogSha256", "diagnostics"]);
+      check(plan.kind === "taurifer-programlab-plan" && plan.schemaVersion === 1 && Array.isArray(plan.cells) && plan.cells.length > 0 && plan.cells.length <= D.LIMITS.cells, "Invalid planned cell bound");
+      check(plan.metricsVersion === D.METRICS_VERSION && plan.cellCount === plan.cells.length && run.total === plan.cellCount && run.completed <= run.total, "Run plan completeness mismatch");
+      check(run.status !== "completed" || run.completed === run.total, "Completed run is missing outcomes");
+      check(D.digest(experiment) === D.digest(plan.experiment), "Run experiment snapshot mismatch");
+      const planned = new Map();
+      for (const cell of plan.cells) {
+        D.keys(cell, ["cellKey", "request", "policy", "policyHash", "diagnostics"]);
+        check(!planned.has(cell.cellKey), "Duplicate planned cell");
+        check(cell.policyHash === D.digest(cell.policy), "Policy hash mismatch");
+        checked(validatePolicy, cell.policy, archived, "cell policy");
+        if (!archived) checked(validateRequest, cell.request, false, "cell request");
+        check(cell.cellKey === D.digest({ cellSchemaVersion: 1, runtimeFingerprint: plan.build.runtimeFingerprint,
+          catalogSha256: plan.build.catalogSha256, request: cell.request, policy: cell.policy, diagnostics: cell.diagnostics }) && cell.diagnostics === plan.build.diagnostics, "Cell identity hash mismatch");
+        planned.set(cell.cellKey, cell);
+      }
+      check(Array.isArray(plan.comparisons) && plan.comparisons.length <= D.LIMITS.pairs * D.LIMITS.sweepValues, "Comparison bound exceeded");
+      for (const comparison of plan.comparisons) {
+        D.keys(comparison, ["scenarioId", "value", "baselineKey", "candidateKey", "comparisonKey"]);
+        check(ids.has(comparison.scenarioId) && planned.has(comparison.baselineKey) && planned.has(comparison.candidateKey), "Broken comparison reference");
+        check(comparison.comparisonKey === D.digest({ baselineKey: comparison.baselineKey, candidateKey: comparison.candidateKey,
+          metricsVersion: D.METRICS_VERSION, referenceTimePolicy: experiment.referenceTimePolicy }), "Comparison hash mismatch");
+        const scenario = experiment.scenarios.find(value => value.id === comparison.scenarioId);
+        check(D.digest(planned.get(comparison.baselineKey).request) === D.digest(scenario.request)
+          && D.digest(planned.get(comparison.candidateKey).request) === D.digest(scenario.request), "Comparison request mismatch");
+      }
+      // Compatible builds can prove the complete planning contract using the same
+      // domain planner. Historical records retain their saved input representation.
+      if (!archived) {
+        const inferredPaths = experiment.sweep ? [experiment.sweep.path] : [];
+        const expected = D.create({ normalizePolicy: validatePolicy, normalizeRequest: validateRequest,
+          sweepPaths: sweepPaths.length ? sweepPaths : inferredPaths }).plan(experiment, plan.build);
+        check(D.digest(expected) === D.digest(plan), "Saved plan does not match its complete inputs");
+      }
+      const seen = new Set();
+      for (const record of run.records) {
+        D.keys(record, ["cellKey", "outcome", "result", "resultJSON", "error"]);
+        check(planned.has(record.cellKey) && !seen.has(record.cellKey), "Duplicate or unplanned cell outcome"); seen.add(record.cellKey);
+        if (record.error !== null) {
+          D.keys(record.error, ["code", "message"]);
+          check(record.outcome === "execution_error" && record.result === null && record.resultJSON === null, "Execution error outcome mismatch"); continue;
+        }
+        const result = record.result;
+        D.keys(result, ["ok", "value", "conflicts", "explanations"], ["confirmationOffers", "diagnostics"]);
+        check(typeof record.resultJSON === "string" && D.digest(JSON.parse(record.resultJSON)) === D.digest(result), "Original result JSON mismatch");
+        check(record.outcome === D.classify(result), "Cell outcome mismatch");
+        if (result.ok) {
+          checked(validateProgram, result.value, archived, "program envelope");
+          const cell = planned.get(record.cellKey);
+          check(D.digest(result.value.request) === D.digest(cell.request), "Input/result request mismatch");
+          if (result.value.seed !== undefined || cell.request.seed !== undefined) check(result.value.seed === cell.request.seed, "Input/result seed mismatch");
+        } else check(result.ok === false && result.value === null, "Invalid failed result envelope");
+      }
+      return archived;
+    }
+    function exportArchive(experiment, run = null, { partBytes = D.LIMITS.partBytes, exportedAt = new Date().toISOString() } = {}) {
+      check(Number.isSafeInteger(partBytes) && partBytes > 0 && partBytes <= D.LIMITS.partBytes, "Invalid archive part limit");
+      validate(experiment, run);
+      const shared = { exportedAt, experiment, run: run ? summary(run) : null };
+      const records = run?.records || [], metadataHash = D.digest(shared);
+      const hashes = records.map(record => ({ cellKey: record.cellKey, hash: D.digest(record) }));
+      const envelope = (group, index, count, manifest) => ({ kind: KIND, schemaVersion: 1, exportedAt, experiment,
+        runs: run ? [{ ...shared.run, records: group }] : [], transfer: { archiveId: D.digest(manifest), partIndex: index, partCount: count, manifest } });
+      const worstManifest = { kind: MANIFEST, schemaVersion: 1, metadataHash, partCount: 10, records: hashes.map(entry => ({ ...entry, partIndex: 10 })) };
+      const overhead = bytes(envelope([], 10, 10, worstManifest));
+      check(overhead <= partBytes, "Shared archive metadata exceeds the individual file bound; export configuration only", "archive_too_large");
+      const groups = [[]]; let used = overhead;
+      for (const record of records) {
+        const size = bytes(record) + 1;
+        check(overhead + size <= partBytes, "One cell exceeds the individual file bound; export configuration only", "archive_too_large");
+        if (used + size > partBytes) { groups.push([]); used = overhead; }
+        groups.at(-1).push(record); used += size;
+      }
+      check(groups.length <= D.LIMITS.parts, "Full-results archive exceeds 10 parts; export configuration only", "archive_too_large");
+      const assignments = new Map(groups.flatMap((group, index) => group.map(record => [record.cellKey, index + 1])));
+      const manifest = { kind: MANIFEST, schemaVersion: 1, metadataHash, partCount: groups.length,
+        records: hashes.map(entry => ({ ...entry, partIndex: assignments.get(entry.cellKey) })) };
+      let total = 0;
+      return groups.map((group, index) => {
+        const encoded = D.canonicalJSON(envelope(group, index + 1, groups.length, manifest)), size = bytes(encoded); total += size;
+        check(size <= partBytes && total <= D.LIMITS.totalBytes, "Archive encoded size exceeds limits", "archive_too_large");
+        return { name: `programlab-${D.digest(manifest).slice(0, 12)}-${index + 1}-of-${groups.length}.json`, text: encoded, size };
+      });
+    }
+    async function importArchive(parts) {
+      check(Array.isArray(parts) && parts.length > 0 && parts.length <= D.LIMITS.parts, "Invalid archive part count", "incomplete_archive");
+      let total = 0;
+      for (const part of parts) {
+        const size = typeof part === "string" ? bytes(part) : part.size;
+        check(Number.isSafeInteger(size) && size >= 0 && size <= D.LIMITS.partBytes, "Archive file exceeds 50 MiB", "archive_too_large");
+        total += size; check(total <= D.LIMITS.totalBytes, "Archive total exceeds 500 MiB", "archive_too_large");
+      }
+      let manifest, shared, archiveId;
+      const indexes = new Set(), records = new Map();
+      for (const file of parts) {
+        const encoded = typeof file === "string" ? file : await file.text();
+        check(bytes(encoded) <= D.LIMITS.partBytes, "Archive file exceeds encoded size limit", "archive_too_large");
+        const part = JSON.parse(encoded);
+        D.canonicalJSON(part); // Depth/plain-data guards precede hashing and rendering.
+        D.keys(part, ["kind", "schemaVersion", "exportedAt", "experiment", "runs", "transfer"]);
+        check(part.kind === KIND && part.schemaVersion === 1 && typeof part.exportedAt === "string", "Unknown archive kind/version");
+        D.keys(part.transfer, ["archiveId", "partIndex", "partCount", "manifest"]);
+        const transfer = part.transfer;
+        D.keys(transfer.manifest, ["kind", "schemaVersion", "metadataHash", "partCount", "records"]);
+        check(transfer.manifest.kind === MANIFEST && transfer.manifest.schemaVersion === 1
+          && Array.isArray(transfer.manifest.records) && transfer.manifest.records.length <= D.LIMITS.cells, "Invalid manifest schema/bounds");
+        check(Number.isInteger(transfer.partCount) && transfer.partCount >= 1 && transfer.partCount <= D.LIMITS.parts
+          && transfer.partCount === transfer.manifest.partCount && Number.isInteger(transfer.partIndex)
+          && transfer.partIndex >= 1 && transfer.partIndex <= transfer.partCount && !indexes.has(transfer.partIndex), "Duplicate or invalid part index", "incomplete_archive");
+        check(Array.isArray(part.runs) && part.runs.length <= 1, "Only one selected run is supported");
+        check(!part.runs.length || Array.isArray(part.runs[0].records) && part.runs[0].records.length <= D.LIMITS.cells, "Cell bound exceeded");
+        const metadata = { exportedAt: part.exportedAt, experiment: part.experiment, run: part.runs[0] ? summary(part.runs[0]) : null };
+        check(D.digest(metadata) === transfer.manifest.metadataHash, "Shared metadata hash mismatch");
+        check(D.digest(transfer.manifest) === transfer.archiveId, "Archive manifest hash mismatch");
+        if (!manifest) { manifest = transfer.manifest; shared = metadata; archiveId = transfer.archiveId; }
+        else check(archiveId === transfer.archiveId && D.digest(manifest) === D.digest(transfer.manifest), "Parts have different manifests");
+        indexes.add(transfer.partIndex);
+        for (const record of part.runs[0]?.records || []) {
+          check(!records.has(record.cellKey), "Duplicate cell record");
+          const declared = manifest.records.find(entry => entry.cellKey === record.cellKey);
+          check(declared && declared.partIndex === transfer.partIndex && declared.hash === D.digest(record), "Cell record hash or part assignment mismatch");
+          records.set(record.cellKey, record);
+        }
+      }
+      check(indexes.size === manifest.partCount && records.size === manifest.records.length, "Select every declared archive part and cell", "incomplete_archive");
+      const declarations = new Set();
+      for (const entry of manifest.records) {
+        D.keys(entry, ["cellKey", "hash", "partIndex"]);
+        check(!declarations.has(entry.cellKey) && records.has(entry.cellKey), "Duplicate or missing manifest cell", "incomplete_archive"); declarations.add(entry.cellKey);
+      }
+      const run = shared.run ? { ...shared.run, records: manifest.records.map(entry => records.get(entry.cellKey)) } : null;
+      check(run !== null || records.size === 0, "Configuration archive cannot contain run outcomes");
+      const archived = validate(shared.experiment, run);
+      return freeze({ experiment: shared.experiment, run, archived, exactReplayAvailable: !archived });
+    }
+    return Object.freeze({ exportArchive, importArchive, validateSnapshot: validate });
+  }
+  const api = Object.freeze({ create, KIND, MANIFEST });
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+  if (root) root.ProgramLabArchive = api;
+})(typeof globalThis !== "undefined" ? globalThis : this);

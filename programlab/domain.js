@@ -198,7 +198,9 @@
         if (!next) { changes.push({ type: "slot_removed", lineage, before: item.slot, after: null }); continue; }
         change("exercise_replacement", lineage, item.slot.exerciseId, next.slot.exerciseId);
         change("movement", lineage, { dayOrder: item.dayOrder, position: item.position }, { dayOrder: next.dayOrder, position: next.position });
-        for (const [field, type] of [["purposeId", "effective_purpose"], ["executionMode", "execution_mode"], ["metricIds", "metric_composition"], ["role", "role"]]) {
+        change("effective_purpose", lineage, { role: item.slot.role, muscles: item.slot.musclePurposeIds || [], patterns: item.slot.movementPatternIds || [] },
+          { role: next.slot.role, muscles: next.slot.musclePurposeIds || [], patterns: next.slot.movementPatternIds || [] });
+        for (const [field, type] of [["executionMode", "execution_mode"], ["metricIds", "metric_composition"], ["role", "role"]]) {
           change(type, lineage, item.slot[field] ?? null, next.slot[field] ?? null);
         }
         const cyclesA = new Map(item.slot.prescriptionsByCycle.map(cycle => [cycle.cycleIndex, cycle]));
@@ -217,7 +219,7 @@
       for (const [lineage, item] of b) if (!a.has(lineage)) changes.push({ type: "slot_added", lineage, before: null, after: item.slot });
       if (canonicalJSON(left.value.provenance || null) !== canonicalJSON(right.value.provenance || null)) provenanceChanges.push({ root: true });
     }
-    return snapshot({ baselineOutcome, candidateOutcome, exactEqual: JSON.stringify(left) === JSON.stringify(right), changes, provenanceChanges });
+    return snapshot({ baselineOutcome, candidateOutcome, exactEqual: (baseline.resultJSON ?? JSON.stringify(left)) === (candidate.resultJSON ?? JSON.stringify(right)), changes, provenanceChanges });
   }
   function aggregate(rows, { cycleIndex = 1, commonPopulation = false } = {}) {
     // Each row is one declared variant; cases carry {id, baseline, candidate,
@@ -286,7 +288,7 @@
           current.status = "running"; publish();
           for (const cell of frozenPlan.cells) {
             if (state.canceled) break;
-            let result = null, error = null;
+            let result = null, resultJSON = null, error = null;
             try {
               if (!state.executor) {
                 const executor = await deadline(Promise.resolve().then(() => createExecutor({ allowMainThreadFallback: false })), initializationTimeoutMs, "initialization_timeout", state);
@@ -300,9 +302,11 @@
               }
               if (state.canceled) break;
               // The adapter owns the current engine signature; no request or policy rule lives here.
-              result = await deadline(state.executor.generate(cell.request, undefined, {
+              result = await deadline(state.executor.generate(cell.request, {
                 enginePolicy: cell.policy, diagnostics: cell.diagnostics }), cellTimeoutMs, "cell_timeout", state);
               if (state.canceled) break;
+              canonicalJSON(result); // Validate data before capturing the compiler's original key order.
+              resultJSON = JSON.stringify(result);
               result = snapshot(result);
               if (classify(result) === "execution_error") { const malformed = new Error("Malformed generation result"); malformed.code = "invalid_engine_result"; throw malformed; }
             } catch (cause) {
@@ -310,7 +314,8 @@
               error = { code: typeof cause.code === "string" ? cause.code : "worker_error", message: String(cause.message || cause) };
               dispose(state);
             }
-            const record = snapshot({ cellKey: cell.cellKey, outcome: error ? "execution_error" : classify(result), result, error });
+            const record = snapshot({ cellKey: cell.cellKey, outcome: error ? "execution_error" : classify(result), result: error ? null : result,
+              resultJSON: error ? null : resultJSON, error });
             current.records.push(record); current.completed = current.records.length;
             if (!allowUnsaved) {
               try { await store.checkpoint(runId, record); }

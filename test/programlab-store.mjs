@@ -11,7 +11,7 @@ const base = process.env.REPFORGE_URL || "http://localhost:8000/";
 try {
   await page.route(new URL("programlab-storage-test.html", base).href, route => route.fulfill({ contentType: "text/html", body: "<!doctype html><title>Program Lab persistence proof</title>" }));
   await page.goto(new URL("programlab-storage-test.html", base).href);
-  for (const file of ["generation-identity.js", "programlab/domain.js", "programlab/store.js"]) {
+  for (const file of ["generation-identity.js", "programlab/domain.js", "programlab/store.js", "programlab/archive-worker.js"]) {
     await page.addScriptTag({ content: readFileSync(new URL(`../${file}`, import.meta.url), "utf8") });
   }
   const evidence = await page.evaluate(async () => {
@@ -61,4 +61,28 @@ try {
   });
   assert.ok(Object.values(evidence).every(Boolean));
   console.log(JSON.stringify(evidence));
+  const workerSource = ["generation-identity.js", "programlab/domain.js", "programlab/archive.js", "programlab/archive-worker.js"]
+    .map(file => readFileSync(new URL(`../${file}`, import.meta.url), "utf8")).join("\n");
+  const workerProof = await page.evaluate(async source => {
+    const workerURL = URL.createObjectURL(new Blob([source, `\nProgramLabArchiveWorker.install(context => ProgramLabArchive.create({
+      build: context.build, validatePolicy: value => ({ok:true,value}), validateRequest: value => ({ok:true,value}), validateProgram: () => ({ok:true})
+    }));`], { type: "text/javascript" }));
+    const client = ProgramLabArchiveWorker.createClient({ workerURL });
+    const experiment = { experimentId: "worker-source", revision: 1, name: "Worker", notes: "", mode: "single",
+      scenarios: [{id:"case", name:"Case", request:{}}], baselinePolicy:{dose:1}, candidatePolicy:{dose:2}, referenceTimePolicy:{dose:1}, sweep:null };
+    const context = { build: { runtimeFingerprint: "a".repeat(64), catalogSha256: "b".repeat(64), diagnostics: "allocation-lineage@1" } };
+    const parts = await client.exportArchive(experiment, null, context);
+    const staged = await client.importArchive(parts.map(part => new File([part.text], part.name)), context);
+    const store = await ProgramLabStore.open();
+    const imported = await store.importArchive(staged);
+    if (imported.experiment.experimentId === experiment.experimentId || imported.experiment.provenance.externalExperimentId !== experiment.experimentId) throw Error("import must mint new local IDs and preserve source provenance");
+    const before = await store.listExperiments();
+    let rejected = false;
+    try { const malformed = JSON.parse(parts[0].text); malformed.experiment.name = "corrupt"; await client.importArchive([JSON.stringify(malformed)], context); }
+    catch { rejected = true; }
+    if (!rejected || JSON.stringify(before) !== JSON.stringify(await store.listExperiments())) throw Error("corrupted worker validation must not write storage");
+    client.dispose(); await store.close(); URL.revokeObjectURL(workerURL);
+    return { offThreadValidation: true, importedNewIdentity: true, rejectedWithoutWrites: true };
+  }, workerSource);
+  console.log(JSON.stringify(workerProof));
 } finally { await context.close(); await browser.close(); }
