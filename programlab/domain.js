@@ -116,7 +116,134 @@
         cells, comparisons, caseCount: scenarios.length, cellCount: cells.length,
         baselineReuse: scenarios.length * (1 + variants.length) - cells.length, metricsVersion: METRICS_VERSION });
     }
-    return Object.freeze({ plan });
+    function metrics(result, ownPolicy, referencePolicy) {
+      if (classify(result) !== "success") return null;
+      const program = result.value;
+      const cycles = Array.from({ length: program.cycles }, (_, index) => {
+        const cycleIndex = index + 1, counts = {}, histogram = {}, purposeSets = {}, muscleAttributedSets = {}, repRanges = {}, statuses = {};
+        let workingSets = 0, occurrences = 0, unspecified = 0, repMin = 0, repMax = 0, unsupportedReps = 0;
+        const days = program.days.filter(day => day.kind === "training").map(day => {
+          let daySets = 0;
+          for (const slot of day.slots) {
+            const cycle = slot.prescriptionsByCycle.find(entry => entry.cycleIndex === cycleIndex);
+            const sets = cycle?.sets || [];
+            occurrences++; histogram[sets.length] = (histogram[sets.length] || 0) + 1;
+            purposeSets[slot.purposeId] = (purposeSets[slot.purposeId] || 0) + sets.length;
+            for (const muscle of slot.musclePurposeIds || []) muscleAttributedSets[muscle] = (muscleAttributedSets[muscle] || 0) + sets.length;
+            for (const set of sets) {
+              workingSets++; daySets++;
+              if (typeof set.rir === "number" && Number.isFinite(set.rir)) counts[set.rir] = (counts[set.rir] || 0) + 1;
+              else unspecified++;
+              statuses[set.status] = (statuses[set.status] || 0) + 1;
+              const reps = Object.entries(set.targets || {}).filter(([semantic]) => semantic === "reps" || semantic === "repsPerSide");
+              if (reps.length !== 1 || !reps[0][1] || typeof reps[0][1].min !== "number" || typeof reps[0][1].max !== "number") unsupportedReps++;
+              else {
+                const [semantic, target] = reps[0];
+                const key = canonicalJSON({ role: slot.role, semantic, target }); repRanges[key] = (repRanges[key] || 0) + 1;
+                // Per-side repetitions remain their own semantic; totals are not doubled.
+                if (semantic === "repsPerSide") unsupportedReps++;
+                else { repMin += target.min; repMax += target.max; }
+              }
+            }
+          }
+          const estimate = policy => {
+            try { const value = estimateDaySeconds(day, cycleIndex, policy); return Number.isFinite(value) && value >= 0 ? value : null; }
+            catch { return null; }
+          };
+          return { dayId: day.id, workingSets: daySets, ownSeconds: estimate(ownPolicy), commonSeconds: estimate(referencePolicy) };
+        });
+        const summarize = field => days.some(day => day[field] === null) ? null
+          : { totalSeconds: days.reduce((sum, day) => sum + day[field], 0), maxDaySeconds: Math.max(0, ...days.map(day => day[field])) };
+        const numeric = workingSets - unspecified;
+        const share = (numerator, denominator) => ({ numerator, denominator, fraction: denominator ? numerator / denominator : null });
+        return { cycleIndex, deload: (program.deloadCycles || []).includes(cycleIndex), workingSets, occurrences,
+          setCountHistogram: histogram, twoSetShare: share(histogram[2] || 0, occurrences),
+          rir: { counts, unspecified, zero: share(counts[0] || 0, numeric), low: share((counts[0] || 0) + (counts[1] || 0), numeric) },
+          repRanges, repetitionTotals: unsupportedReps ? null : { min: repMin, max: repMax, semantic: "reps" },
+          unsupportedRepetitionSets: unsupportedReps, purposeSets, muscleAttributedSets, muscleCountsOverlap: true, statuses, days,
+          duration: { own: summarize("ownSeconds"), common: summarize("commonSeconds") },
+          aboveRequestedMinutes: days.filter(day => day.ownSeconds !== null && day.ownSeconds > program.request.timeCeilingMinutes * 60).map(day => day.dayId) };
+      });
+      return snapshot({ metricsVersion: METRICS_VERSION, cycles, fittingEstimate: program.provenance?.estimatedSessionSeconds || null,
+        constraints: { focusNotApplied: program.provenance?.focusNotApplied || [], diagnostics: result.diagnostics || null } });
+    }
+    return Object.freeze({ plan, metrics, compare, aggregate });
+  }
+  function semanticSlots(result) {
+    const slots = new Map(), lineage = new Map();
+    for (const entry of result.diagnostics?.slots || []) {
+      if (!entry.retained) continue;
+      if (lineage.has(entry.slotId)) fail("duplicate_lineage", "Duplicate diagnostic slot identity");
+      lineage.set(entry.slotId, entry.lineage);
+    }
+    for (const day of result.value.days) for (const [position, slot] of day.slots.entries()) {
+      const id = lineage.get(slot.id);
+      if (typeof id !== "string" || !id || slots.has(id)) fail("missing_lineage", "Unique compiler lineage is required for semantic comparison");
+      slots.set(id, { slot, dayOrder: day.order, position });
+    }
+    return slots;
+  }
+  function compare(baseline, candidate) {
+    const left = baseline.result, right = candidate.result;
+    const baselineOutcome = baseline.error ? "execution_error" : classify(left);
+    const candidateOutcome = candidate.error ? "execution_error" : classify(right);
+    const changes = [], provenanceChanges = [];
+    if (baselineOutcome === "success" && candidateOutcome === "success") {
+      const a = semanticSlots(left), b = semanticSlots(right);
+      const change = (type, lineage, before, after, extra = {}) => {
+        if (canonicalJSON(before) !== canonicalJSON(after)) changes.push({ type, lineage, before, after, ...extra });
+      };
+      for (const [lineage, item] of a) {
+        const next = b.get(lineage);
+        if (!next) { changes.push({ type: "slot_removed", lineage, before: item.slot, after: null }); continue; }
+        change("exercise_replacement", lineage, item.slot.exerciseId, next.slot.exerciseId);
+        change("movement", lineage, { dayOrder: item.dayOrder, position: item.position }, { dayOrder: next.dayOrder, position: next.position });
+        for (const [field, type] of [["purposeId", "effective_purpose"], ["executionMode", "execution_mode"], ["metricIds", "metric_composition"], ["role", "role"]]) {
+          change(type, lineage, item.slot[field] ?? null, next.slot[field] ?? null);
+        }
+        const cyclesA = new Map(item.slot.prescriptionsByCycle.map(cycle => [cycle.cycleIndex, cycle]));
+        const cyclesB = new Map(next.slot.prescriptionsByCycle.map(cycle => [cycle.cycleIndex, cycle]));
+        for (const cycleIndex of new Set([...cyclesA.keys(), ...cyclesB.keys()])) {
+          const setsA = cyclesA.get(cycleIndex)?.sets || [], setsB = cyclesB.get(cycleIndex)?.sets || [];
+          change("set_count", lineage, setsA.length, setsB.length, { cycleIndex });
+          for (let i = 0; i < Math.min(setsA.length, setsB.length); i++) {
+            for (const [field, type] of [["targets", "targets"], ["rir", "rir"], ["restSeconds", "rest"], ["status", "status"]]) {
+              change(type, lineage, setsA[i][field] ?? null, setsB[i][field] ?? null, { cycleIndex, setOrdinal: i + 1 });
+            }
+            if (canonicalJSON(setsA[i].provenance || null) !== canonicalJSON(setsB[i].provenance || null)) provenanceChanges.push({ lineage, cycleIndex, setOrdinal: i + 1 });
+          }
+        }
+      }
+      for (const [lineage, item] of b) if (!a.has(lineage)) changes.push({ type: "slot_added", lineage, before: null, after: item.slot });
+      if (canonicalJSON(left.value.provenance || null) !== canonicalJSON(right.value.provenance || null)) provenanceChanges.push({ root: true });
+    }
+    return snapshot({ baselineOutcome, candidateOutcome, exactEqual: JSON.stringify(left) === JSON.stringify(right), changes, provenanceChanges });
+  }
+  function aggregate(rows, { cycleIndex = 1, commonPopulation = false } = {}) {
+    // Each row is one declared variant; cases carry {id, baseline, candidate,
+    // baselineMetrics,candidateMetrics}. An all-variant success intersection is explicit.
+    let included = null;
+    if (commonPopulation) for (const row of rows) {
+      const successes = new Set(row.cases.filter(pair => classify(pair.baseline.result) === "success" && classify(pair.candidate.result) === "success").map(pair => pair.id));
+      included = included === null ? successes : new Set([...included].filter(id => successes.has(id)));
+    }
+    return snapshot(rows.map(row => {
+      const outcomes = {}, pairs = [], excluded = [];
+      for (const pair of row.cases) {
+        const a = pair.baseline.error ? "execution_error" : classify(pair.baseline.result), b = pair.candidate.error ? "execution_error" : classify(pair.candidate.result);
+        const key = `${a}→${b}`; outcomes[key] = (outcomes[key] || 0) + 1;
+        if (a !== "success" || b !== "success" || included && !included.has(pair.id)) { excluded.push({ id: pair.id, baselineOutcome: a, candidateOutcome: b }); continue; }
+        const baseline = pair.baselineMetrics?.cycles.find(cycle => cycle.cycleIndex === cycleIndex), candidate = pair.candidateMetrics?.cycles.find(cycle => cycle.cycleIndex === cycleIndex);
+        if (baseline && candidate) pairs.push({ id: pair.id, baseline, candidate });
+      }
+      const deltas = pairs.map(pair => pair.baseline.duration.common && pair.candidate.duration.common
+        ? (pair.candidate.duration.common.maxDaySeconds - pair.baseline.duration.common.maxDaySeconds) / 60 : null);
+      const duration = deltas.length && deltas.every(value => value !== null) ? { mean: deltas.reduce((a, b) => a + b, 0) / deltas.length, min: Math.min(...deltas), max: Math.max(...deltas) } : null;
+      const pooled = field => { const numerator = pairs.reduce((sum, pair) => sum + field(pair.candidate).numerator, 0), denominator = pairs.reduce((sum, pair) => sum + field(pair.candidate).denominator, 0); return { numerator, denominator, fraction: denominator ? numerator / denominator : null }; };
+      return { value: row.value, outcomes, includedCaseIds: pairs.map(pair => pair.id), excluded, comparablePairs: pairs.length,
+        commonPopulation, durationMeanPairedMaxDayMinutesDelta: duration, pooledTwoSetShare: pooled(cycle => cycle.twoSetShare), pooledRirZeroShare: pooled(cycle => cycle.rir.zero),
+        meanWorkingSetDelta: pairs.length ? pairs.reduce((sum, pair) => sum + pair.candidate.workingSets - pair.baseline.workingSets, 0) / pairs.length : null };
+    }));
   }
   function classify(result) {
     if (result?.ok === true && result.value) return "success";

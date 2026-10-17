@@ -82,3 +82,26 @@ test("timeout is an execution error with a fresh executor; initial storage failu
   const broken = Domain.createRunner({ createExecutor: () => { throw Error("must not run"); }, store: { begin: async () => { throw Error("quota"); } } });
   await assert.rejects(broken.run(domain.plan(configuration(), build), { runId: "broken" }), error => error.code === "storage_initialization_failed");
 });
+
+const successful = (prefix, rir = 0) => ({ ok: true, conflicts: [], explanations: [], value: { cycles: 2, deloadCycles: [2],
+  provenance: { estimatedSessionSeconds: [10] }, request: { timeCeilingMinutes: 20 }, days: [{ id: `${prefix}-day`, kind: "training", order: 1,
+    slots: [{ id: `${prefix}-slot`, purposeId: "purpose", exerciseId: "exercise", role: "accessory", executionMode: null,
+      musclePurposeIds: ["muscle"], metricIds: ["reps"], metricDefinitions: [{ id: "reps", semantic: "reps" }],
+      prescriptionsByCycle: [1, 2].map(cycleIndex => ({ cycleIndex, sets: [{ id: `${prefix}-set`, targets: { reps: { min: 8, max: 10 } }, rir, restSeconds: 90, status: "ready", provenance: { source: prefix } }] })) }] }] },
+  diagnostics: { slots: [{ lineage: "job:stable", slotId: `${prefix}-slot`, retained: true }] } });
+
+test("semantic comparisons ignore generated IDs/provenance and count actual prescriptions", () => {
+  const baseline = successful("base"), candidate = successful("candidate");
+  const equal = domain.compare({ result: baseline }, { result: candidate });
+  assert.equal(equal.exactEqual, false); assert.equal(equal.changes.length, 0);
+  candidate.value.days[0].slots[0].prescriptionsByCycle[0].sets[0].rir = 1;
+  assert.deepEqual(domain.compare({ result: baseline }, { result: candidate }).changes.map(change => change.type), ["rir"]);
+  const metrics = domain.metrics(baseline, { dose: 2 }, { dose: 3 });
+  assert.equal(metrics.cycles[0].workingSets, 1);
+  assert.equal(metrics.cycles[0].rir.zero.numerator, 1);
+  assert.equal(metrics.cycles[0].duration.own.totalSeconds, 2);
+  assert.equal(metrics.cycles[0].duration.common.totalSeconds, 3);
+  assert.equal(metrics.cycles[1].deload, true);
+  assert.equal(domain.metrics({ ok: false }, { dose: 2 }, { dose: 3 }), null);
+  assert.equal(domain.compare({ result: baseline }, { error: { code: "timeout" }, result: null }).candidateOutcome, "execution_error");
+});
