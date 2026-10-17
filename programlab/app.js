@@ -264,7 +264,7 @@
       dayNode.append(text('h3', `${day.name}${day.kind === 'rest' ? ' · rest' : ''}`));
       for (const slot of day.slots || []) {
         const slotNode = text('div', '', `slot${changedLineages.includes(slot.id) ? ' changed' : ''}`);
-        const name = cell.exerciseLabels?.[slot.exerciseId] || definitions.exerciseLabels?.[slot.exerciseId] || slot.exerciseId;
+        const name = cell.exerciseLabels?.[slot.exerciseId] || (!cell.archived && definitions.exerciseLabels?.[slot.exerciseId]) || slot.exerciseId;
         slotNode.append(text('p', name), text('p', `${slot.role || ''} · ${slot.executionMode || 'unspecified execution'}`, 'hint'));
         const list = text('ol', '', 'sets');
         const sets = slot.prescriptionsByCycle?.find(item => item.cycleIndex === cycle)?.sets || [];
@@ -385,7 +385,10 @@
       renderScenarios(); markDirty();
     }));
     document.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click', () => {
-      draft.mode = button.dataset.mode; renderDraft(draft); markDirty();
+      draft.mode = button.dataset.mode;
+      document.querySelectorAll('[data-mode]').forEach(item => item.setAttribute('aria-pressed', String(item.dataset.mode === draft.mode)));
+      $('sweepControls').hidden = draft.mode !== 'sweep';
+      markDirty();
     }));
     $('fixture').addEventListener('change', guard(async () => {
       const fixture = await services.fixture($('fixture').value);
