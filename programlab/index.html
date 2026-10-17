@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="referrer" content="no-referrer">
+  <base href="../">
+  <title>Program Lab · Taurifer</title>
+  <link rel="stylesheet" href="programlab/styles.css">
+</head>
+<body>
+  <a class="skip" href="#workbench">Skip to workbench</a>
+  <header class="masthead">
+    <div><p class="eyebrow">TAURIFER / OWNER WORKBENCH</p><h1>Program Lab</h1><p>Compare explicit policies against the bundled production baseline.</p></div>
+    <details class="identity"><summary id="buildIdentity">Checking build identity…</summary><pre id="buildManifest" aria-label="Source manifest"></pre></details>
+  </header>
+  <main id="workbench">
+    <section class="experiment" aria-labelledby="experimentHeading">
+      <h2 id="experimentHeading" class="sr-only">Experiment</h2>
+      <label>Experiment name<input id="experimentName" maxlength="160" value="Untitled experiment" autocomplete="off"></label>
+      <label>Notes<textarea id="experimentNotes" rows="2" maxlength="4000"></textarea></label>
+      <p id="persistenceStatus" role="status">Unsaved draft</p>
+      <div class="actions"><button id="save" disabled>Save experiment</button><button id="export" disabled>Export JSON</button><label class="file-button">Import JSON<input id="importFiles" type="file" accept="application/json,.json" multiple></label></div>
+      <div class="saved"><label>Saved experiments<select id="savedExperiments"><option value="">Choose an experiment</option></select></label><button id="load" disabled>Load</button></div>
+    </section>
+    <div class="mode-picker" role="group" aria-label="Execution mode"><button data-mode="single" aria-pressed="true">Single</button><button data-mode="batch" aria-pressed="false">Batch</button><button data-mode="sweep" aria-pressed="false">Sweep</button></div>
+    <div class="workbench-grid">
+      <section class="panel scenarios" aria-labelledby="scenarioHeading">
+        <p class="eyebrow">01 / INPUTS</p><h2 id="scenarioHeading">Scenarios</h2>
+        <label>Fixture<select id="fixture" disabled><option>Loading verified fixtures…</option></select></label>
+        <label>Scenario name<input id="scenarioName" maxlength="160" autocomplete="off"></label>
+        <label>Seed<input id="seed" maxlength="240" autocomplete="off" spellcheck="false"></label>
+        <p class="hint">The same normalized request and string seed reach both policies.</p>
+        <div id="scenarioControls"></div>
+        <div class="actions"><button id="updateScenario" disabled>Apply scenario edits</button><button id="duplicateScenario" disabled>Duplicate scenario</button></div>
+        <label>Ordered cases<select id="caseList" size="6" aria-describedby="caseHint"></select></label><p id="caseHint" class="hint">Single uses the selected case. Batch and Sweep use every listed case.</p>
+        <div class="actions"><button id="moveUp" disabled>Move up</button><button id="moveDown" disabled>Move down</button><button id="removeScenario" disabled>Remove case</button></div>
+        <details><summary>Normalized request</summary><pre id="normalizedRequest" tabindex="0" aria-label="Normalized scenario request"></pre></details>
+        <details><summary>Advanced canonical request</summary><p class="hint">Bypasses the answer adapter. Shared compiler validation applies.</p><label>Canonical request JSON<textarea id="canonicalRequest" rows="12" spellcheck="false"></textarea></label><button id="applyCanonical" disabled>Validate and apply request</button></details>
+      </section>
+      <section class="panel policies" aria-labelledby="policyHeading">
+        <p class="eyebrow">02 / POLICY</p><h2 id="policyHeading">Baseline → candidate</h2>
+        <p class="badge" id="baselineBadge">Bundled default · build verification pending</p>
+        <label>Candidate preset<select id="preset" disabled><option>Loading shared policies…</option></select></label><button id="applyPreset" disabled>Apply preset</button>
+        <p id="presetDescription" class="hint">Final prescriptions also reflect experience, deload, emphasis and allocation rules.</p>
+        <details><summary>Bulk edits</summary><div id="bulkActions"></div><button id="resetPolicy" disabled>Reset candidate to baseline</button></details>
+        <div id="policyControls"></div>
+        <section id="sweepControls" hidden aria-labelledby="sweepHeading"><h3 id="sweepHeading">One-parameter sweep</h3><label>Numeric field<select id="sweepPath"></select></label><label>Explicit values (comma separated)<input id="sweepValues" value="1, 2" inputmode="decimal" aria-describedby="sweepHint"></label><p id="sweepHint" class="hint">At most 20 distinct values; each complete policy must pass validation.</p></section>
+      </section>
+      <section class="panel results" aria-labelledby="resultsHeading">
+        <p class="eyebrow">03 / OBSERVED OUTPUT</p><h2 id="resultsHeading">Results</h2><p id="resultSnapshot">Run a comparison to inspect actual generated prescriptions.</p>
+        <p id="inputsChanged" class="badge" hidden>Inputs changed · these results belong to the earlier snapshot.</p>
+        <div id="aggregateSummary"></div>
+        <label>Comparison<select id="resultCase" disabled><option>No results yet</option></select></label><label>Cycle<select id="cycle" disabled><option value="1">Cycle 1</option></select></label><p id="cycleStatus" class="hint"></p>
+        <div id="comparisonSummary"></div>
+        <div class="program-pair"><section aria-labelledby="baselineHeading"><h3 id="baselineHeading">Bundled baseline</h3><div id="baselineProgram"></div></section><section aria-labelledby="candidateHeading"><h3 id="candidateHeading">Candidate</h3><div id="candidateProgram"></div></section></div>
+        <details><summary>Semantic changes</summary><div id="semanticChanges"></div></details>
+        <details><summary>Constraint and allocation trace</summary><pre id="diagnostics" tabindex="0"></pre></details>
+        <details id="rawDetails"><summary>Raw selected comparison JSON</summary><pre id="rawResult" tabindex="0"></pre></details>
+      </section>
+    </div>
+    <section class="runbar" aria-label="Execution controls">
+      <div><p id="planSummary">Validating inputs…</p><div id="validation" role="alert"></div><p id="runStatus" role="status" aria-live="polite">Initializing</p><progress id="progress" value="0" max="1" aria-label="Compiler cells completed"></progress></div>
+      <div class="actions"><button id="run" class="primary" disabled>Run comparison</button><button id="cancel" disabled>Cancel run</button><button id="runUnsaved" hidden>Run without saving</button></div>
+    </section>
+    <p id="fatalError" role="alert" hidden></p>
+  </main>
+  <footer>Local experiments · prescriptions are observations, not predicted training outcomes. Candidate programs cannot be activated here.</footer>
+  <!-- Exact shared source files; no production app, navigation or service worker. -->
+  <script src="exercises.js"></script><script src="exercise-metrics.js"></script>
+  <script src="generation-identity.js"></script><script src="engine-policy.js"></script><script src="generation-candidates.js"></script><script src="generation-layout.js"></script>
+  <script src="program-compiler.js"></script><script src="exercise-catalog.js"></script><script src="program-entry-adapter.js"></script><script src="program-engine.js"></script>
+  <script src="programlab/domain.js"></script><script src="programlab/store.js"></script><script src="programlab/services.js"></script><script src="programlab/app.js"></script>
+</body>
+</html>
