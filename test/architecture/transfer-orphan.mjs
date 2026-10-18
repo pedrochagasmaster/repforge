@@ -1,6 +1,6 @@
 /** The shipped boot recovers only after acquiring the actual transfer Web Lock. */
 import assert from 'node:assert/strict';
-import {launchChromium,waitForAppBoot} from '../browser.mjs';
+import {launchChromium,waitForAppBoot,waitForAsyncCondition} from '../browser.mjs';
 const base=process.env.REPFORGE_URL||'http://localhost:8000/';
 const key='repforge_install_transfer_freeze_v1';
 const browser=await launchChromium();
@@ -40,7 +40,7 @@ try{
   const context=await browser.newContext({serviceWorkers:'block'}),writer=await modulePage(context);
   await own(writer,{malformed});const raw=await writer.evaluate(key=>localStorage.getItem(key),key),reader=await context.newPage();
   await reader.goto(base);
-  await reader.waitForFunction(async()=>window.__repforgeBooted===true||(await navigator.locks.query()).pending.some(lock=>lock.name==='install-transfer'));
+  await waitForAsyncCondition(reader,async()=>window.__repforgeBooted===true||(await navigator.locks.query()).pending.some(lock=>lock.name==='install-transfer'));
   assert.equal(await reader.evaluate(()=>window.__repforgeBooted===true),false,'a live real lock owner blocks boot before publication');
   assert.deepEqual(await reader.evaluate(key=>({freeze:localStorage.getItem(key),training:localStorage.getItem('repforge_v1'),identity:localStorage.getItem('repforge_telemetry_identity_v1')}),key),{freeze:raw,training:null,identity:null},'waiting boot neither reclaims a live signal nor mints training/telemetry state');
   await writer.evaluate(()=>window.__release());await waitForAppBoot(reader);
