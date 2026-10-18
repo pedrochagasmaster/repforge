@@ -33,14 +33,33 @@ gesture feels with no application diff at all.
 
 ## build-seed-program-fixture.mjs
 
-Evaluates the page's runtime scripts in Node through `app-runtime-harness.mjs`
-and writes
-`test/fixtures/seed-program-v067.json`, the ready-to-log program behind
-`test/fixtures/seed-program.mjs`: the app's own Build definition over real
-Weight + Reps catalog movements, each aliased to its familiar seed name.
+Checks the immutable ready-to-log archive in `test/fixtures/seed-program-v067.json`
+through public training and persistence factories. `app-runtime-harness.mjs` is
+an isolated Node composition root: it imports public owners, verifies the real
+catalog integrity pin and binds the production durable writers/readers to memory
+storage. It never evaluates `app.js`, discovers private helpers or installs DOM
+globals.
 
 ```bash
-node tools/build-seed-program-fixture.mjs
+node tools/build-seed-program-fixture.mjs --check
+node tools/build-landing-proof-fixture.mjs --check
+node tools/ui-screens/build-direction-d-canonical-fixture.mjs --check
+```
+
+These archives retain their saved identities and authored metadata. The old
+manual fixtures contain `seed: "manual"`; today's manual builder does not mint
+that metadata. The clone and landing archives also carry historical generator
+requests (one/six cycles and an embedded seed) that current generation refuses,
+while their authored definitions remain readable. `--check` proves current
+validation, full-field normalization and real two-replica round trips; it does
+not claim the current generator can reproduce retired policies.
+
+New specimen generation is separate and requires an explicit destination outside
+the archive path. Inspect its differences and choose a new owning fixture before
+using it; this command never silently accepts drift in an existing archive.
+
+```bash
+node tools/build-seed-program-fixture.mjs --generate-new --output /tmp/new-seed.json
 ```
 
 ## record-verification.mjs
@@ -301,22 +320,25 @@ node tools/check-canonical-hash-semantics.mjs
 
 ## build-clone-fixture.mjs
 
-Regenerates `test/fixtures/install-transfer-clone-v1.json` through the actual
-application path (see `app-runtime-harness.mjs`): Generate's answer mapping and
-the canonical generator produce a one-cycle program, DraftV2 compiles one
-completed set into a metric History row, `normalizeLoaded` normalizes the
-state, and the production `storageIO` writer and
-`readLocalStatus`/`readIdbStatus`/`chooseSnapshot` reader boundary round-trip
-it. It then boots `telemetry.js` against the same storage, proves the UUID-v4
-identity is preserved, and fills the canonical digest through
-`canonical-hash-core.mjs`. Update the digest recorded in ADR 0013,
-`canonical-clone-hash.mjs` and `check-canonical-hash-semantics.mjs` after a
-deliberate regeneration.
+Checks the immutable Plan 067 clone archive through current authored-definition
+validation, normalization, actual durable replica writers/readers, canonical
+clone digest and telemetry identity preservation. The archived one-cycle
+program remains saved-data evidence; its old request is explicitly outside
+current generation eligibility. No archived bytes or documented digest change.
 
 ```bash
-node tools/build-clone-fixture.mjs
-node tools/canonical-clone-hash.mjs --check   # always verify after regenerating
+node tools/build-clone-fixture.mjs --check
+node tools/canonical-clone-hash.mjs --check
 ```
+
+For a separate specimen using today's supported seven-cycle generation policy:
+
+```bash
+node tools/build-clone-fixture.mjs --generate-new --output /tmp/new-clone.json
+```
+
+The destination must differ from the immutable archive. Adopting a new specimen
+as a new fixture is separate from proving compatibility with the existing one.
 
 ## review-pt-names-server.mjs (owner-only, issue #315)
 

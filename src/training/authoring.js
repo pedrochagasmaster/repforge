@@ -4,3 +4,5 @@ export { default as review } from "./authoring/internal/review.js";
 export * from "./authoring/internal/review.js";
 export { createInstalledEditorRules } from "./authoring/internal/installed.js";
 export { default as suggestion } from "./authoring/internal/suggestion.js";
+
+export { createEntryAdapter } from "./authoring/internal/adapter.js";

@@ -1,3 +1,4 @@
+// Default/--check preserves the historical archive; --generate-new requires --output.
 // Generates test/fixtures/landing-proof.json: a canonical generated program
 // (Plan 067 ProgramDefinition) whose Focus screen recommends the exact
 // numbers the landing's own `landingEvaluate` (app.js) computes for its "add"
@@ -14,10 +15,24 @@
 //
 // BENCH_ID, the rep range, RIR and logged sets below are copied from
 // LANDING_CASES.add in app.js; keep them in sync if that case changes.
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { loadAppRuntime } from "./app-runtime-harness.mjs";
+import { writeFixture } from "./fixture-output.mjs";
+import { createFixtureRuntime, verifyHistoricalState } from "./app-runtime-harness.mjs";
 import { metricLogRow } from "../test/fixtures/history-metric-rows.mjs";
+
+// These committed fixtures predate current generation/manual metadata policy.
+// Default/--check validates immutable saved bytes. New specimens are explicit
+// and must target a different output path; never silently replace the archive.
+if(process.argv.includes('--generate-new')){
+  if(process.argv.includes('--check')||!process.argv.includes('--output'))throw new Error('--generate-new requires --output <new-path>, without --check');
+  await generateNewFixture();
+}else{
+  const historical=JSON.parse(readFileSync(new URL("../test/fixtures/landing-proof.json",import.meta.url),"utf8"));
+  await verifyHistoricalState(historical,{obsoleteGeneration:true});
+  console.log('Verified immutable historical fixture through public validation and real mirrored IO');
+}
+async function generateNewFixture(){
 
 const BENCH_ID = "19f5c6f170d8808bb424e98de4472a7e"; // LANDING_CASES.add.ex
 const REP_MIN = 8, REP_MAX = 10; // LANDING_CASES.add.{repMin,repMax}
@@ -26,7 +41,7 @@ const SETS = 3; // LANDING_CASES.add.sets
 const LOGGED = [[60, 10, 2], [60, 10, 2], [60, 10, 2]]; // LANDING_CASES.add.logged
 
 const { Compiler, canonicalProgramDefinition, durableProgramRows, normalizeLoaded, catalogSnapshot, ROOT } =
-  await loadAppRuntime(["canonicalProgramDefinition", "durableProgramRows", "normalizeLoaded"]);
+  await createFixtureRuntime();
 
 const DATA = join(ROOT, "plans/067/data");
 const gym = JSON.parse(readFileSync(join(DATA, "gym.json"), "utf8"));
@@ -45,7 +60,7 @@ const REQUEST = {
   movementConfirmations: Object.fromEntries(observedIds.map((id) =>
     [id, [...appFile.exercises.find((entry) => entry.id === id).preconditions]])),
   emphasisMuscleIds: [], deprioritizedMuscleIds: [], excludedExerciseIds: [BENCH_ID], excludedMuscleIds: [],
-  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 6, deloadCycles: [],
+  preferredExerciseIds: [], split: "auto", periodization: "static", cycles: 7, deloadCycles: [],
 };
 
 const generated = Compiler.generateProgram(REQUEST, catalogSnapshot);
@@ -139,5 +154,7 @@ if (JSON.stringify(normalized.program) !== JSON.stringify(program))
   throw new Error("normalization changed the durable program rows");
 if (normalized.log.length !== log.length) throw new Error("normalization dropped or added log rows");
 
-writeFileSync(join(ROOT, "test/fixtures/landing-proof.json"), `${JSON.stringify(fixture, null, 2)}\n`);
-console.log(`landing-proof fixture regenerated: bench slot ${slot.id} on ${row.day}, ${SETS} sets, ${log.length} log rows`);
+const outcome=writeFixture(join(ROOT, "test/fixtures/landing-proof.json"), `${JSON.stringify(fixture, null, 2)}\n`);
+console.log(`landing-proof fixture ${outcome}: bench slot ${slot.id} on ${row.day}, ${SETS} sets, ${log.length} log rows`);
+
+}
