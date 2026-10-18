@@ -1,3 +1,4 @@
+import {createWorkoutDraftPolicy,createWorkoutCommands,createFocusWorkoutCommands,createWorkoutExerciseCommands,createWorkoutSuggestionCommands} from './src/app/workout.js';
 import {createWorkoutContext} from './src/app/workout-context.js';
 import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,createEntryAnswerCommands,createEntryQuestionFlow,createEntryReviewSession,createEntrySetup,createEntryActivation,createProgramImport,createReceivedSetup,buildLandingProof,FREEFORM_MAX_CHARS} from './src/app/entry.js';
 import {createProgramSource,definitionMovementIds,unsupportedGrammar} from './src/interchange/program-file.js';
@@ -73,7 +74,6 @@ import * as ReadModels from './src/app/read-models.js';
 import {verdictMarkHtml as sharedVerdictMarkHtml,formatSetsLine,formatTable,formatProgramContext,formatCycleLabel,formatShortDate,sameLoad,recommendationVerdict,formatList} from './src/ui/format.js';
 let TodayUi,SummaryUi,ProgressUi,ReviewUi,TrainingModel,ProgressReadModels;
 import {createSession} from './src/app/session.js';
-import {createWorkoutCommands,createFocusWorkoutCommands,createWorkoutExerciseCommands,createWorkoutSuggestionCommands} from './src/app/workout.js';
 import {createCustomExerciseCommands,createProgramReplacementCommands,createProgramAdditionCommands} from './src/app/program.js';
 import {createHistoryCommands} from './src/app/history.js';
 import {createMotion} from './src/platform/motion.js';
@@ -348,35 +348,9 @@ function pendingJournalEffectState(effect){return DurableState.pendingJournalEff
 function readDraftRaw(){
   return DraftStore.readRaw()}
 
-function destructiveDraftClearEffect(expectedRaw){
-  return draftEffectOutcome({required:true,kind:"clear-draft",expectedRaw,
-    precondition:DRAFT_PRECONDITION_ABORT_CHANGED})}
-function draftPreservationEffect(expectedRaw){
-  if(expectedRaw==null)return destructiveDraftClearEffect(null);
-  return draftEffectOutcome({required:true,kind:"replace-draft",expectedRaw,replacementRaw:expectedRaw,
-    precondition:DRAFT_PRECONDITION_ABORT_CHANGED})}
-function draftDayReplacementEffect(oldDay,newDay,nextProgramSnapshot=null){
-  try{
-    const expectedRaw=DraftStore.readRaw();
-    if(expectedRaw==null)return draftEffectOutcome({required:true,kind:"clear-draft",expectedRaw:null,
-      precondition:DRAFT_PRECONDITION_ABORT_SAME_DAY,conflictDay:oldDay});
-    let replacementRaw=expectedRaw;
-    try{
-      const draft=JSON.parse(expectedRaw);
-      if(draft&&typeof draft==="object"&&!Array.isArray(draft)){
-        if(draft.schemaVersion===2&&draft.program?.dayLabel===oldDay&&nextProgramSnapshot){
-          const operationId=`day-rename-${uid()}`;
-          draft.program.dayLabel=newDay;
-          draft.program.programFingerprint=workoutProgramFingerprint(nextProgramSnapshot);
-          draft.revision+=1;draft.session.updatedAt=new Date().toISOString();draft.writer=draftWriter(operationId);
-          const checked=WorkoutDraft?.parse(draft);
-          if(checked?.kind!=="valid")return{status:DRAFT_EFFECT_INVALID,effect:null,reason:"v2-day-replacement"};
-          replacementRaw=JSON.stringify(WorkoutDraft.serialize(checked.draft))}
-        else if(draft.__day===oldDay){draft.__day=newDay;replacementRaw=JSON.stringify(draft)}}}
-    catch{}
-    return draftEffectOutcome({required:true,kind:"replace-draft",expectedRaw,replacementRaw,
-      precondition:DRAFT_PRECONDITION_ABORT_SAME_DAY,conflictDay:oldDay})}
-  catch{return{status:DRAFT_EFFECT_INVALID,effect:null,reason:"draft-read"}}}
+function destructiveDraftClearEffect(raw){return WorkoutDraftPolicy.destructiveClear(raw)}
+function draftPreservationEffect(raw){return WorkoutDraftPolicy.preserve(raw)}
+function draftDayReplacementEffect(oldDay,newDay,nextSnapshot=null){return WorkoutDraftPolicy.renameDay(oldDay,newDay,nextSnapshot)}
 
 /* DraftV2 bounds its stored fingerprint. Hash the complete canonical program
    instead of truncating it: length plus four independent FNV-1a passes make
@@ -386,10 +360,8 @@ function draftDayReplacementEffect(oldDay,newDay,nextProgramSnapshot=null){
 
 
 
-let DraftStore;
-function parsedAcknowledgedDraftV2(raw,source){
-  const parsed=WorkoutDraft?.parse(raw);
-  return parsed?.kind==="valid"?{status:"live",raw,draft:parsed.draft,source}:null}
+let DraftStore,WorkoutDraftPolicy;
+
 /*
  * This is deliberately a read-only boundary. A block start may not trigger
  * boot reconciliation, checkpoint repair, recovery retention, or any other
@@ -397,49 +369,8 @@ function parsedAcknowledgedDraftV2(raw,source){
  * The committed checkpoint is the acknowledged aggregate; a valid queued V2
  * sidecar is also live because it is the next ordered draft publication.
  */
-function readLiveAcknowledgedDraftV2(snapshot=state){
-  const canonical=DraftStore.readCanonicalStatus();
-  if(canonical.status!=="ok")return{status:"unavailable",reason:"canonical-read"};
-  const checkpoint=DraftStore.readV2Checkpoint();
-  if(checkpoint.status==="invalid"||checkpoint.status==="read-failed")
-    return{status:"unavailable",reason:"checkpoint-read"};
-  const context=draftContextFingerprint(snapshot);
-  const queued=DraftStore.pending().entries.filter(entry=>entry.value.programFingerprint===context).at(-1);
-  const queuedDraft=queued?parsedAcknowledgedDraftV2(queued.value.raw,"pending"):null;
-  if(queuedDraft)return queuedDraft;
-  if(checkpoint.status==="valid"){
-    const value=checkpoint.value;
-    if(value.kind==="tombstone")return{status:"none"};
-    if(value.kind==="committed"){
-      const committed=parsedAcknowledgedDraftV2(value.raw,"checkpoint");
-      return committed||{status:"unavailable",reason:"committed-draft"};
-    }
-    if(value.kind==="pending"){
-      // Before canonical publication, retain the acknowledged predecessor when
-      // present; with no predecessor the candidate itself is the in-flight
-      // V2 value and must still block a destructive block start.
-      const protectedRaw=canonical.raw===value.baseRaw&&value.previous?.raw||value.raw;
-      const pendingDraft=parsedAcknowledgedDraftV2(protectedRaw,"checkpoint-pending");
-      return pendingDraft||{status:"unavailable",reason:"pending-draft"};
-    }
-    if(value.kind==="pending-removal"){
-      // The removal is not acknowledged until the tombstone is committed. If
-      // canonical bytes have been overwritten in the meantime, the protected
-      // V2 value remains the authoritative live draft until reconciliation.
-      const pendingRemoval=parsedAcknowledgedDraftV2(value.raw,"checkpoint-pending-removal");
-      return pendingRemoval||{status:"unavailable",reason:"pending-removal"};
-    }
-    return{status:"unavailable",reason:"checkpoint-kind"};
-  }
-  const canonicalDraft=parsedAcknowledgedDraftV2(canonical.raw,"canonical");
-  return canonicalDraft||{status:"none"};
-}
-function blockStartDraftGuard(snapshot=state){
-  const live=readLiveAcknowledgedDraftV2(snapshot);
-  if(live.status==="live")return{draftConflict:true,code:"live_draft_blocks_next_block"};
-  if(live.status==="unavailable")return{draftConflict:true,code:"draft_state_unavailable"};
-  return null;
-}
+function readLiveAcknowledgedDraftV2(snapshot=state){return WorkoutDraftPolicy.readLive(snapshot)}
+function blockStartDraftGuard(snapshot=state){return WorkoutDraftPolicy.blockStartGuard(snapshot)}
 
 
 
@@ -8328,6 +8259,7 @@ function initializePersistenceOwners(){
     resolveCustomMutationIntent,onAccepted:applyAcceptedSnapshot,
     mutationGate:installTransferMutationFrozen,platform:window});
   storageIO=DurableState.storageIO;DraftStore=DurableState.DraftStore;
+  WorkoutDraftPolicy=createWorkoutDraftPolicy({drafts:DraftStore,workout:WorkoutDraft,writer:draftWriter,operationId:uid,now:()=>new Date().toISOString()});
   BackupCommands=createBackupCommands({read:applicationSession.read,policy,model,
     drafts:{readRaw:readDraftRaw,clearEffect:destructiveDraftClearEffect},
     commit:(proposal,options,io)=>commitProposedState(proposal,io||storageIO,options),
