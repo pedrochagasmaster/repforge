@@ -5,7 +5,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-import {createCatalog,CATALOG_URL} from '../src/platform/catalog.js';
+import {createCatalog} from '../src/platform/catalog.js';
 import {parseLoadInput} from '../src/training/metrics.js';
 import * as librarySource from '../exercises.js';
 const {EXERCISE_LIBRARY,LEGACY_LIBRARY_IDS}=librarySource;
@@ -69,7 +69,7 @@ test("catalog loads complete source values and exposes exact references", async 
     assert.equal(first, second, "all callers share the same load promise");
     await first;
     assert.equal(calls.length, 2, "a later caller retries a rejected fetch and then caches the success");
-    assert.equal(calls[0], CATALOG_URL, "the catalog reads only its versioned local detail asset");
+    assert.equal(calls[0], new URL('../assets/exercise-catalog.json?v=067',import.meta.url).href, "the catalog reads only its versioned local detail asset");
     assert.deepEqual(catalog.snapshot(), rawSource, "snapshot preserves the complete source object");
 
     const { exercises, uuidIndex } = catalog.snapshot();
