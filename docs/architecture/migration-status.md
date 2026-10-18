@@ -34,10 +34,18 @@ All remain open drafts, none assumed merged:
 | Owner | Exact head | Integration disposition |
 | --- | --- | --- |
 | Program Lab #432 | `ce0b4403341ee9dbdd34dc6994a1244172189fb8` | Shared engine contract compatibility required; Lab stays separate. Integration decision and parity evidence pending. |
-| Test redesign #446 | `9448989d52e144c32c5b036f43b9071dd4648eba` | Ordinary CI 39134455385 passed. Paired benchmark 39134455479 pending at last owner report. Adoption decision pending current run inspection; existing production risks remain required. |
-| Focused-name Back #445 | `39581e85ca9850c9dd2baf28742a9215b3063227` | Preserve exact owned guard and production proof, reconcile before editor cutover. |
+| Test redesign #446 | `9448989d52e144c32c5b036f43b9071dd4648eba` | Ordinary CI 39134455385 passed. Paired benchmark 39134455479 pending at last owner report. Adopted onto this branch as `79ef3d51` from exact head `9448989d`, as explicitly requested. Benchmark still running at implementation intake; performance acceptance is provisional. Existing risk semantics/retirement decisions remain authoritative. |
+| Focused-name Back #445 | `39581e85ca9850c9dd2baf28742a9215b3063227` | Included exact owned guard and production proof in `792fc25f`; cache/editor URLs advanced to 477 above the test-redesign release. |
 | Guides #435 | `7c0c438c8f654c7bb12c25db0e9b95c3932c0bbc` | Preserve native dialog/held tap/replay/focus/placement; owner's draft remains independent. |
 | Editor #437 / issue #434 / Plan 074 | `1b3de1b8ea8bdfb7bd8d4c85736b9fefa5f149e8` | Preserve candidate A and canonical all-days renumbering; reconcile duplication with #446 exactly once. |
+
+## Included fixes / provenance checklist
+
+- [x] #445 focused unblurred program/day name Back guard and Apply/Discard/Keep-editing regression: exact source/proof diff `147e4afa..39581e85`, adopted `792fc25f`.
+- [x] #434 canonical non-final removal and all-days cross-day renumbering: carried by #446 `9448989d` (originating Plan074 commits `37ddc408` / `a99f2238`), adopted once in `79ef3d51`.
+- [x] #439 DPR2 screenshot sampling correction: carried by #446 from approved guide-owner `65ac8a7e`, adopted once in `79ef3d51`.
+- [x] Existing current-main #440 iOS/layout/manual-load-carry fixes remain in integration base `147e4afa`.
+- [ ] Later fixes from moving inputs reconciled before final acceptance.
 
 ## Evidence
 
