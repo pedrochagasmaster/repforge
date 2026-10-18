@@ -103,7 +103,7 @@ function isoDate(value) {
 // must never move a later dated workout before an earlier one. When only
 // one same-day session has creation metadata, fall back to the stable
 // session identity instead of treating a missing timestamp as earliest.
-/** @param {HistoryRow|null|undefined} a @param {HistoryRow|null|undefined} b */
+/** @param {Pick<HistoryRow,"date"|"created"|"session"|"sessionKey"|"id"|"set">|null|undefined} a @param {Pick<HistoryRow,"date"|"created"|"session"|"sessionKey"|"id"|"set">|null|undefined} b */
 function compareChronology(a, b) {
   const dateOrder = isoDate(a?.date).localeCompare(isoDate(b?.date));
   if (dateOrder) return dateOrder;
