@@ -8,6 +8,7 @@ import {cloneSnapshot,isPlainStateObject,canonicalize,isBoundedProgressionValue,
 /** @typedef {'match-only'|'abort-changed'|'abort-same-day'} DraftPrecondition
  * @typedef {{kind:'clear-draft',expectedRaw:string|null,precondition:DraftPrecondition,required?:true,conflictDay?:string}|{kind:'replace-draft',expectedRaw:string,replacementRaw:string,precondition:DraftPrecondition,required?:true,conflictDay?:string}} DraftEffect
  * @typedef {{status:'valid',effect:DraftEffect}|{status:'none',effect:null}|{status:'invalid',effect:null,reason:unknown}} DraftEffectOutcome
+ * @typedef {{programMeta?:{id?:unknown,blockId?:unknown},program?:unknown[],settings?:{unit?:unknown,rirMode?:unknown}}} SnapshotIdentity
  * @typedef {Record<string,unknown>} RawRecord
  */
 
@@ -18,19 +19,22 @@ const PENDING_EFFECT_MAX_RAW=1000000;
 const DRAFT_EFFECT_VALID='valid', DRAFT_EFFECT_INVALID='invalid', DRAFT_EFFECT_NONE='none';
 const DRAFT_PRECONDITION_MATCH_ONLY='match-only', DRAFT_PRECONDITION_ABORT_CHANGED='abort-changed', DRAFT_PRECONDITION_ABORT_SAME_DAY='abort-same-day';
 
-  function readRevision(snapshot) {
-    return Number.isInteger(snapshot?.[STORAGE_REV]) && snapshot[STORAGE_REV] > 0
-      ? snapshot[STORAGE_REV]
+  /** @param {RawRecord|null|undefined} snapshot @returns {number} */
+function readRevision(snapshot) {
+    return Number.isInteger(snapshot?.[STORAGE_REV]) && /** @type {number} */(snapshot?.[STORAGE_REV]) > 0
+      ? /** @type {number} */(snapshot?.[STORAGE_REV])
       : 0;
   }
 
-  function unversionedSnapshot(snapshot) {
+  /** @template {RawRecord|null|undefined} T @param {T} snapshot @returns {T} */
+function unversionedSnapshot(snapshot) {
     const out = cloneSnapshot(snapshot);
     if (out && typeof out === "object") delete out[STORAGE_REV];
     return out;
   }
 
-  function stripStorageMeta(snapshot) {
+  /** @template {RawRecord|null|undefined} T @param {T} snapshot @returns {T} */
+function stripStorageMeta(snapshot) {
     const out = cloneSnapshot(snapshot);
     if (out && typeof out === "object") {
       delete out[STORAGE_REV];
@@ -42,15 +46,18 @@ const DRAFT_PRECONDITION_MATCH_ONLY='match-only', DRAFT_PRECONDITION_ABORT_CHANG
     return out;
   }
 
-  function exportableState(snapshot) {
+  /** @template {RawRecord|null|undefined} T @param {T} snapshot @returns {T} */
+function exportableState(snapshot) {
     return stripStorageMeta(snapshot);
   }
 
-  function canonicalPayload(snapshot) {
+  /** @param {RawRecord|null|undefined} snapshot */
+function canonicalPayload(snapshot) {
     return JSON.stringify(canonicalize(stripStorageMeta(snapshot)));
   }
 
-  function mirrorComparisonSnapshot(snapshot) {
+  /** @template {RawRecord|null|undefined} T @param {T} snapshot @returns {T} */
+function mirrorComparisonSnapshot(snapshot) {
     const clean = cloneSnapshot(snapshot);
     if (clean && typeof clean === "object") {
       delete clean._storageRevision;
@@ -60,62 +67,76 @@ const DRAFT_PRECONDITION_MATCH_ONLY='match-only', DRAFT_PRECONDITION_ABORT_CHANG
     return clean;
   }
 
-  function snapshotsEqual(a, b) {
+  /** @param {RawRecord|null|undefined} a @param {RawRecord|null|undefined} b */
+function snapshotsEqual(a, b) {
     return JSON.stringify(canonicalize(mirrorComparisonSnapshot(a))) ===
       JSON.stringify(canonicalize(mirrorComparisonSnapshot(b)));
   }
 
-  function storageSnapshotsEqual(a, b) {
+  /** @param {unknown} a @param {unknown} b */
+function storageSnapshotsEqual(a, b) {
     return JSON.stringify(canonicalize(a)) === JSON.stringify(canonicalize(b));
   }
 
 
-    function snapshotBlockId(snapshot){
+    /** @param {SnapshotIdentity|null|undefined} snapshot */
+function snapshotBlockId(snapshot){
     const meta=snapshot?.programMeta;
-    return Object.prototype.hasOwnProperty.call(meta||{},"blockId")?meta.blockId:null}
+    return Object.prototype.hasOwnProperty.call(meta||{},"blockId")?meta?.blockId:null}
 
     // A program row never owns prescriptions; the ProgramDefinition does, and
     // loading drops a row's copy. Older installed-editor builds persisted that
     // copy (#344), so it cannot count toward the durable program's identity.
-    function fingerprintRow(row){
+    /** @param {unknown} row */
+function fingerprintRow(row){
     if(!row||typeof row!=="object"||!Object.prototype.hasOwnProperty.call(row,"prescriptionsByCycle"))return row;
-    const{prescriptionsByCycle,...rest}=row;return rest}
+    const{prescriptionsByCycle,...rest}=/** @type {RawRecord} */(row);return rest}
 
-    function draftProgramFingerprint(snapshot){
+    /** @param {SnapshotIdentity|null|undefined} snapshot */
+function draftProgramFingerprint(snapshot){
+    /** @type {Record<string,unknown>} */
     const value={programMetaId:snapshot?.programMeta?.id||null,
       program:Array.isArray(snapshot?.program)?snapshot.program.map(fingerprintRow):[]};
     if(Object.prototype.hasOwnProperty.call(snapshot?.programMeta||{},"blockId"))
-      value.programMetaBlockId=snapshot.programMeta.blockId;
+      value.programMetaBlockId=snapshot?.programMeta?.blockId;
     return JSON.stringify(canonicalize(value))}
 
 
 const CHANGE_MISSING=Symbol("change-missing");
+/** @param {unknown} a @param {unknown} b */
 function changeValueEqual(a,b){
   if(a===CHANGE_MISSING||b===CHANGE_MISSING)return a===b;
   return JSON.stringify(canonicalize(a))===JSON.stringify(canonicalize(b))}
+/** @param {unknown} v @returns {v is RawRecord} */
 function changeObject(v){return!!(v&&typeof v==="object"&&!Array.isArray(v))}
-function changeEntityKey(root,value,index){
+/** @param {string} root @param {unknown} raw @param {number} index */
+function changeEntityKey(root,raw,index){
+  const value=/** @type {RawRecord|null|undefined} */(raw);
   if(!value||typeof value!=="object")return`${root}:value:${index}:${JSON.stringify(canonicalize(value))}`;
   if(root==="log")return value.session?`session:${value.session}`:`row:${index}:${JSON.stringify(canonicalize(value))}`;
   if(root==="program"||root==="programHistory"||root==="customExercises")
     return value.id?`id:${value.id}`:`row:${index}:${JSON.stringify(canonicalize(value))}`;
   return null}
+/** @param {unknown[]} list @param {string} root */
 function changeGroups(list,root){
-  const order=[],map=new Map();
+  /** @type {string[]} */const order=[];
+  /** @type {Map<string,unknown[]>} */const map=new Map();
   (Array.isArray(list)?list:[]).forEach((value,index)=>{
     const key=changeEntityKey(root,value,index);
     if(key==null)return;
     if(!map.has(key)){order.push(key);map.set(key,[])}
-    map.get(key).push(value)});
+    /** @type {unknown[]} */(map.get(key)).push(value)});
   return{order,map}}
+/** @param {unknown[]} base @param {unknown[]} proposal @param {unknown[]} target @param {string} root @param {boolean} preferProposal @returns {unknown[]} */
 function mergeChangedArray(base,proposal,target,root,preferProposal){
   const b=changeGroups(base,root),p=changeGroups(proposal,root),tgt=changeGroups(target,root);
   const order=[...tgt.order],out=new Map([...tgt.map].map(([key,value])=>[key,cloneSnapshot(value)]));
+  /** @param {string} key */
   const remove=key=>{out.delete(key);const i=order.indexOf(key);if(i>=0)order.splice(i,1)};
   for(const key of new Set([...b.order,...p.order])){
-    const bv=b.map.has(key)?b.map.get(key):CHANGE_MISSING;
-    const pv=p.map.has(key)?p.map.get(key):CHANGE_MISSING;
-    const tv=tgt.map.has(key)?tgt.map.get(key):CHANGE_MISSING;
+    const bv=b.map.has(key)?/** @type {unknown[]} */(b.map.get(key)):CHANGE_MISSING;
+    const pv=p.map.has(key)?/** @type {unknown[]} */(p.map.get(key)):CHANGE_MISSING;
+    const tv=tgt.map.has(key)?/** @type {unknown[]} */(tgt.map.get(key)):CHANGE_MISSING;
     if(changeValueEqual(pv,bv))continue;
     if(pv===CHANGE_MISSING){
       if(tv!==CHANGE_MISSING&&(changeValueEqual(tv,bv)||preferProposal))remove(key);
@@ -134,6 +155,7 @@ function mergeChangedArray(base,proposal,target,root,preferProposal){
       continue}
     if(changeValueEqual(tv,bv)||preferProposal)out.set(key,cloneSnapshot(pv))}
   return order.flatMap(key=>out.get(key)||[])}
+/** @param {unknown} base @param {unknown} proposal @param {unknown} target @param {string[]} path @param {boolean} preferProposal @returns {unknown} */
 function mergeStateValue(base,proposal,target,path,preferProposal){
   if(changeValueEqual(proposal,base))return target===CHANGE_MISSING?CHANGE_MISSING:cloneSnapshot(target);
   if(changeValueEqual(target,base))return proposal===CHANGE_MISSING?CHANGE_MISSING:cloneSnapshot(proposal);
@@ -142,7 +164,7 @@ function mergeStateValue(base,proposal,target,path,preferProposal){
     (root==="log"||root==="program"||root==="programHistory"||root==="customExercises"))
     return mergeChangedArray(base,proposal,target,root,preferProposal);
   if(changeObject(base)&&changeObject(proposal)&&changeObject(target)){
-    const out={};
+    /** @type {RawRecord} */const out={};
     for(const key of new Set([...Object.keys(base),...Object.keys(proposal),...Object.keys(target)])){
       if(path.length===0&&key===STORAGE_REV)continue;
       const bv=Object.prototype.hasOwnProperty.call(base,key)?base[key]:CHANGE_MISSING;
@@ -153,10 +175,12 @@ function mergeStateValue(base,proposal,target,path,preferProposal){
     return out}
   const chosen=preferProposal?proposal:target;
   return chosen===CHANGE_MISSING?CHANGE_MISSING:cloneSnapshot(chosen)}
+/** @param {unknown} base @param {unknown} proposal @param {unknown} target @param {{preferProposal?:boolean}} [options] @returns {unknown} */
 function rebaseStateChange(base,proposal,target,{preferProposal=true}={}){
   const merged=mergeStateValue(base,proposal,target,[],preferProposal);
   return merged===CHANGE_MISSING?{}:merged}
 
+/** @param {SnapshotIdentity|null|undefined} snapshot */
 function workoutProgramFingerprint(snapshot){
   const source=draftProgramFingerprint(snapshot),seeds=[0x811c9dc5,0x9e3779b9,0x85ebca6b,0xc2b2ae35];
   const hashes=seeds.map(seed=>{let hash=seed;
@@ -164,15 +188,17 @@ function workoutProgramFingerprint(snapshot){
     return(hash>>>0).toString(16).padStart(8,"0")});
   return`program-v1:${source.length}:${hashes.join("")}`}
 
+/** @param {SnapshotIdentity|null|undefined} snapshot */
 function draftContextFingerprint(snapshot){
-  const value={programMetaId:snapshot?.programMeta?.id||null,
+  /** @type {Record<string,unknown>} */
+    const value={programMetaId:snapshot?.programMeta?.id||null,
     program:Array.isArray(snapshot?.program)?snapshot.program:[],
     unit:snapshot?.settings?.unit||"kg",rirMode:snapshot?.settings?.rirMode||"numeric"};
   if(Object.prototype.hasOwnProperty.call(snapshot?.programMeta||{},"blockId"))
-    value.programMetaBlockId=snapshot.programMeta.blockId;
+    value.programMetaBlockId=snapshot?.programMeta?.blockId;
   return JSON.stringify(canonicalize(value))}
 
-/** @param {unknown} value @param {unknown} [programId] */
+/** @param {unknown} value @param {unknown} [programId] @returns {value is string} */
 function isValidBlockId(value,programId=null){
   return typeof value==="string"&&value.trim().length>0&&value.length<=240&&
     (programId==null||value!==programId)}
@@ -187,6 +213,15 @@ function isBoundedTransitionValue(value,depth=0,state={nodes:0}){
   if(!isPlainStateObject(value)||Object.keys(value).length>TRANSITION_VALUE_LIMITS.keys)return false;
   return Object.keys(value).every(key=>isBoundedTransitionValue(value[key],depth+1,state));
 }
+
+/** @typedef {RawRecord & {blockId:string,transitionId:string,eligibilityEvidence:RawRecord & {sourceBlockId:string},entries:unknown[],createdAt:string,confirmedAt:string,reassessmentDueAt:string}} RecoveryOverlay
+ * @typedef {RawRecord & {diff:RawRecord & {recoveryWeek:RawRecord}}} RecoveryEnvelope
+ * @typedef {RawRecord & {schemaVersion:1,kind:'recovery_week',status:'committed',transitionId:string,createdAt:string,confirmedAt:string,proposalHash:string,archiveId:null,predecessor:RawRecord & {programId:string,blockId:string},diff:RawRecord & {recoveryWeek:RecoveryOverlay}}} RecoveryRecord
+ * @typedef {RawRecord & {schemaVersion:1,digest:string,raw:string,sourceReplica:string,detectedAt:string,reason:string}} RecoveryQuarantine
+ * @typedef {{targetBlockId:string,records:RecoveryRecord[]}} RecoveryConflict
+ * @typedef {{kind:'unknown'}|{kind:'absent',malformed:[],valid:[],needsEvidence:false}|{kind:'known',valid:RecoveryRecord[],malformed:RecoveryEnvelope[],conflicts:RecoveryConflict[],needsEvidence:boolean}} RecoveryClassification
+ */
+
 const RECOVERY_HASH_RE=/^[0-9a-f]{64}$/;
 const RECOVERY_CARRIER_INSTANT_RE=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const RECOVERY_CARRIER_KEYS=["schemaVersion","records","quarantine"];
@@ -195,44 +230,49 @@ const RECOVERY_OVERLAY_KEYS=["schemaVersion","policyVersion","transitionId","blo
 const RECOVERY_DIFF_KEYS=["days","exercises","prescriptions","recoveryWeek"];
 const RECOVERY_QUARANTINE_REASONS=["known-schema-malformed-recovery","duplicate-target-conflict"];
 const RECOVERY_REPLICA_SOURCES=["localStorage","indexedDB","both"];
+/** @param {string} left @param {string} right */
 function recoveryCodeUnitCompare(left,right){return left<right?-1:left>right?1:0}
+/** @param {unknown} value @param {string[]} keys */
 function exactRecoveryKeys(value,keys){
   return isPlainStateObject(value)&&Object.keys(value).length===keys.length&&
     keys.every(key=>Object.prototype.hasOwnProperty.call(value,key))}
+/** @param {unknown} value @returns {value is RecoveryQuarantine} */
 function isRecoveryCarrierQuarantineEntry(value){
   if(!isPlainStateObject(value)||!isBoundedTransitionValue(value))return false;
   const keys=["schemaVersion","digest","raw","sourceReplica","detectedAt","reason"];
   if(Object.keys(value).length!==keys.length||!keys.every(key=>Object.prototype.hasOwnProperty.call(value,key)))return false;
-  return value.schemaVersion===1&&RECOVERY_HASH_RE.test(value.digest)&&
+  return value.schemaVersion===1&&RECOVERY_HASH_RE.test(/** @type {string} */(value.digest))&&
     typeof value.raw==="string"&&value.raw.length<=TRANSITION_VALUE_LIMITS.stringLength&&
-    RECOVERY_REPLICA_SOURCES.includes(value.sourceReplica)&&
-    RECOVERY_CARRIER_INSTANT_RE.test(value.detectedAt)&&
-    RECOVERY_QUARANTINE_REASONS.includes(value.reason);
+    RECOVERY_REPLICA_SOURCES.includes(/** @type {string} */(value.sourceReplica))&&
+    RECOVERY_CARRIER_INSTANT_RE.test(/** @type {string} */(value.detectedAt))&&
+    RECOVERY_QUARANTINE_REASONS.includes(/** @type {string} */(value.reason));
 }
+/** @param {unknown} value @returns {value is RecoveryRecord} */
 function isRecoveryCarrierRecord(value){
   if(!isPlainStateObject(value)||!isBoundedTransitionValue(value))return false;
   if(!exactRecoveryKeys(value,RECOVERY_RECORD_KEYS))return false;
-  const predecessor=value.predecessor,overlay=value.diff?.recoveryWeek,evidence=overlay?.eligibilityEvidence;
+  const predecessor=value.predecessor,overlay=/** @type {RawRecord|undefined} */(/** @type {RawRecord|undefined} */(value.diff)?.recoveryWeek),evidence=overlay?.eligibilityEvidence;
   const overlayKeys=RECOVERY_OVERLAY_KEYS;
   const diffKeys=RECOVERY_DIFF_KEYS;
   if(value.schemaVersion!==1||value.kind!=="recovery_week"||value.status!=="committed"||
     typeof value.transitionId!=="string"||!value.transitionId.trim()||
-    !RECOVERY_CARRIER_INSTANT_RE.test(value.createdAt)||!RECOVERY_CARRIER_INSTANT_RE.test(value.confirmedAt)||
-    !RECOVERY_HASH_RE.test(value.proposalHash)||value.archiveId!==null||
+    !RECOVERY_CARRIER_INSTANT_RE.test(/** @type {string} */(value.createdAt))||!RECOVERY_CARRIER_INSTANT_RE.test(/** @type {string} */(value.confirmedAt))||
+    !RECOVERY_HASH_RE.test(/** @type {string} */(value.proposalHash))||value.archiveId!==null||
     !isPlainStateObject(predecessor)||typeof predecessor.programId!=="string"||!predecessor.programId.trim()||
     !isValidBlockId(predecessor.blockId,predecessor.programId)||
     !isPlainStateObject(value.diff)||Object.keys(value.diff).length!==diffKeys.length||!diffKeys.every(key=>Object.prototype.hasOwnProperty.call(value.diff,key))||
     !isPlainStateObject(overlay)||Object.keys(overlay).length!==overlayKeys.length||!overlayKeys.every(key=>Object.prototype.hasOwnProperty.call(overlay,key))||
     overlay.schemaVersion!==1||overlay.policyVersion!==2||overlay.transitionId!==value.transitionId||
     typeof overlay.blockId!=="string"||!overlay.blockId.trim()||overlay.blockId===predecessor.blockId||
-    overlay.activePeriod!=="nextBlockWeek1"||!RECOVERY_CARRIER_INSTANT_RE.test(overlay.createdAt)||
-    !RECOVERY_CARRIER_INSTANT_RE.test(overlay.reassessmentDueAt)||overlay.confirmedAt!==value.confirmedAt||
-    ![null,"Better","About the same","Worse"].includes(overlay.reassessmentOutcome)||
+    overlay.activePeriod!=="nextBlockWeek1"||!RECOVERY_CARRIER_INSTANT_RE.test(/** @type {string} */(overlay.createdAt))||
+    !RECOVERY_CARRIER_INSTANT_RE.test(/** @type {string} */(overlay.reassessmentDueAt))||overlay.confirmedAt!==value.confirmedAt||
+    ![null,"Better","About the same","Worse"].includes(/** @type {string|null} */(overlay.reassessmentOutcome))||
     !isPlainStateObject(evidence)||evidence.sourceBlockId!==predecessor.blockId||
     typeof evidence.sourceBlockId!=="string"||!evidence.sourceBlockId.trim()||
     !Array.isArray(overlay.entries)||overlay.entries.length===0)return false;
   return true;
 }
+/** @param {unknown} value @returns {value is RawRecord & {schemaVersion:1,records:RecoveryRecord[],quarantine:RecoveryQuarantine[]}} */
 function isValidRecoveryTransitions(value){
   if(!isPlainStateObject(value)||!isBoundedTransitionValue(value)||value.schemaVersion!==1)return false;
   const keys=RECOVERY_CARRIER_KEYS;
@@ -245,15 +285,17 @@ function isValidRecoveryTransitions(value){
    supported envelope is closed: an unknown key/version is storage recovery,
    while a known envelope whose semantic record is malformed can fall back to
    the canonical program and leave bounded evidence. */
+/** @param {unknown} value */
 function classifyRecoveryRecordEnvelope(value){
   if(!isPlainStateObject(value)||!isBoundedTransitionValue(value)||
     !exactRecoveryKeys(value,RECOVERY_RECORD_KEYS)||value.schemaVersion!==1)return"unknown";
-  const diff=value.diff,overlay=diff?.recoveryWeek;
+  const diff=value.diff,overlay=/** @type {RawRecord|undefined} */(diff)?.recoveryWeek;
   if(!isPlainStateObject(diff)||!exactRecoveryKeys(diff,RECOVERY_DIFF_KEYS)||
     !isPlainStateObject(overlay)||!exactRecoveryKeys(overlay,RECOVERY_OVERLAY_KEYS)||
     overlay.schemaVersion!==1||overlay.policyVersion!==2)return"unknown";
   return isRecoveryCarrierRecord(value)?"valid":"malformed";
 }
+/** @param {unknown} value @returns {RecoveryClassification} */
 function classifyRecoveryCarrier(value){
   if(value===undefined)return{kind:"absent",malformed:[],valid:[],needsEvidence:false};
   if(!isPlainStateObject(value)||!isBoundedTransitionValue(value)||
@@ -261,28 +303,30 @@ function classifyRecoveryCarrier(value){
     !Array.isArray(value.records)||value.records.length>TRANSITION_VALUE_LIMITS.arrayItems||
     !Array.isArray(value.quarantine)||value.quarantine.length>TRANSITION_VALUE_LIMITS.arrayItems||
     !value.quarantine.every(isRecoveryCarrierQuarantineEntry))return{kind:"unknown"};
-  const valid=[],malformed=[];
+  /** @type {RecoveryRecord[]} */const valid=[];
+  /** @type {RecoveryEnvelope[]} */const malformed=[];
   for(const record of value.records){
     const status=classifyRecoveryRecordEnvelope(record);
     if(status==="unknown")return{kind:"unknown"};
-    if(status==="valid")valid.push(record);
-    else malformed.push(record)}
-  const targets=new Map();
+    if(status==="valid")valid.push(/** @type {RecoveryRecord} */(record));
+    else malformed.push(/** @type {RecoveryEnvelope} */(record))}
+  /** @type {Map<string,RecoveryRecord[]>} */const targets=new Map();
   for(const record of valid){
     const target=record.diff.recoveryWeek.blockId;
     if(!targets.has(target))targets.set(target,[]);
-    targets.get(target).push(record)}
+    /** @type {RecoveryRecord[]} */(targets.get(target)).push(record)}
   const conflicts=[...targets].filter(([,records])=>records.length>1)
     .map(([targetBlockId,records])=>({targetBlockId,records}));
   return{kind:"known",valid,malformed,conflicts,
     needsEvidence:malformed.length>0||conflicts.length>0};
 }
+/** @param {RecoveryRecord[]} records @returns {RecoveryConflict[]} */
 function recoveryCarrierConflictGroups(records){
-  const targets=new Map();
+  /** @type {Map<string,RecoveryRecord[]>} */const targets=new Map();
   for(const record of records){
     const target=record.diff.recoveryWeek.blockId;
     if(!targets.has(target))targets.set(target,[]);
-    targets.get(target).push(record)}
+    /** @type {RecoveryRecord[]} */(targets.get(target)).push(record)}
   return[...targets].filter(([,group])=>group.length>1)
     .map(([targetBlockId,group])=>({targetBlockId,records:group}))
 }
