@@ -312,7 +312,7 @@ export function createEntryAdapter({compiler: boundCompiler}) {
     const Compiler = compilerApi();
     if (preference === undefined || preference === "auto") return "auto";
     const split = Compiler.SPLITS[/** @type {string} */(preference)];
-    const available = Compiler.availableSplits({ ...request, split: preference });
+    const available = Compiler.availableSplits({ ...request, split: /** @type {string} */(preference) });
     return split && split.compatibleDays.some((/** @type {unknown} */ value)=>value===request.daysPerWeek) && available.some((/** @type {unknown} */ value)=>value===preference) ? preference : null;
   }
 

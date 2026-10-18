@@ -4,13 +4,13 @@ import {canonicalDraftField,canonicalMetricInput} from '../training/metrics.js';
 /** @typedef {import('./session.js').Snapshot} Snapshot
  * @typedef {import('./session.js').HistoryRow} HistoryRow
  * @typedef {import('./session.js').Commit} Commit
- * @typedef {{code:string,exerciseInstanceId?:string,setId?:string,[key:string]:unknown}} Issue
- * @typedef {{kind:'domain-error',issues?:Issue[]}} DomainError
+ * @typedef {import('../training/workout-contracts.js').SaveIssue} Issue
+ * @typedef {import('../training/workout-contracts.js').DomainError} DomainError
  * @typedef {{draftId:string,revision:number}} DraftIdentity
- * @typedef {{ordinal:number,role?:string,completion:'pending'|{completedAt:string},programmed:{metrics?:import('../training/metrics.js').MetricDefinition[],targets?:Record<string,unknown>},edited:{load?:string|null,reps?:string|null,rir?:string|null,effort?:string|null,metrics?:Record<string,string|null>},touched?:{metrics?:Record<string,boolean>,load?:boolean}}} DraftSet
- * @typedef {DraftIdentity & {program:{programId:string,blockId?:string|null,scheduleDate:string,dayLabel:string},session:{startedAt:string},exerciseOrder:string[],exercises:Record<string,{status?:string,setOrder:string[],sets:Record<string,DraftSet>}>}} WorkoutDraft
- * @typedef {{read:()=>Readonly<Snapshot>,run:<R>(command:()=>R|Promise<R>)=>Promise<R>,idle:()=>Promise<void>}} SessionOwner
- * @typedef {{validateForSave:(draft:WorkoutDraft)=>Issue[],reduce:(draft:WorkoutDraft,command:Record<string,unknown>)=>WorkoutDraft|DomainError,isDomainError:(value:unknown)=>value is DomainError,toHistoryRows:(draft:WorkoutDraft,createdAt:string)=>HistoryRow[]|DomainError}} WorkoutRules
+ * @typedef {import('../training/workout-contracts.js').DraftSet} DraftSet
+ * @typedef {import('../training/workout-contracts.js').Draft} WorkoutDraft
+ * @typedef {Pick<ReturnType<typeof import('./session.js').createSession<Snapshot>>,'read'|'run'|'idle'>} SessionOwner
+ * @typedef {ReturnType<typeof import('../training/workout.js').createWorkoutRules>} WorkoutRules
  * @typedef {{flush:()=>Promise<void>,read:()=>{draft:WorkoutDraft|null,raw:string|null,recovery?:{attempt?:unknown,status?:string}|null},start:(label:string,options?:Record<string,unknown>)=>Promise<unknown>,dispatch:(type:string,payload:Record<string,unknown>,ui:Record<string,unknown>)=>Promise<unknown>,projection:()=>unknown,clearIdentity:()=>void,clearEffect:(raw:string|null)=>import('./session.js').DraftEffect|null,canLeave:()=>boolean}} DraftOwner
  */
 
@@ -23,7 +23,7 @@ export const EARLY_FINISH_CONFIRMATION = Symbol('confirmed early finish');
  * flushing and raw checkpoint identity; commit holds the durable-state lock.
  * finish never clears identity until both committed and settled are true.
  * clock/id/writer are supplied by the page root so import has no side effects.
- * @param {{session:SessionOwner,training:WorkoutRules,drafts:DraftOwner,commit:Commit,now:()=>string,operationId:()=>string,writer:(id:string)=>unknown,earlyFinishConfirmation?:symbol,beforeCommit?:(captured:{session:string,draftId:string,revision:number})=>Promise<void>}} options */
+ * @param {{session:SessionOwner,training:WorkoutRules,drafts:DraftOwner,commit:Commit,now:()=>string,operationId:()=>string,writer:(id:string)=>import('../training/workout-contracts.js').Writer,earlyFinishConfirmation?:symbol,beforeCommit?:(captured:{session:string,draftId:string,revision:number})=>Promise<void>}} options */
 export function createWorkoutCommands({session, training, drafts, commit, now, operationId, writer,
   earlyFinishConfirmation = EARLY_FINISH_CONFIRMATION, beforeCommit = async () => {}}) {
   /** @param {string} label @param {Record<string,unknown>} [options] */
@@ -62,11 +62,11 @@ export function createWorkoutCommands({session, training, drafts, commit, now, o
       const capturedDraft = copySnapshot(draft), capturedRaw = raw, id = operationId();
       const finishing = training.reduce(capturedDraft, {type: 'beginFinish', operationId: id,
         expectedRevision: capturedDraft.revision, updatedAt: now(), writer: writer(id)});
-      if (training.isDomainError(finishing)) return {result: invalid(finishing.issues || [])};
+      if (training.isDomainError(finishing)) return {result: invalid(/** @type {Issue[]} */(finishing.issues || []))};
       const issues = training.validateForSave(finishing);
       if (issues.length) return {result: invalid(issues)};
       const rows = training.toHistoryRows(finishing, now());
-      if (training.isDomainError(rows)) return {result: invalid(rows.issues || [])};
+      if (training.isDomainError(rows)) return {result: invalid(/** @type {Issue[]} */(rows.issues || []))};
       const snapshot = session.read(), proposal = {...copySnapshot(snapshot)}, prevLog = copySnapshot(snapshot.log);
       proposal.log = proposal.log.concat(copySnapshot(rows));
       const savedSession = capturedDraft.draftId;

@@ -2,7 +2,17 @@
  * a store, schedule work, allocate identity or decide a recommendation/outcome.
  * Names are localized by the catalog/presentation boundary before projection.
  */
+/** @typedef {Record<string,unknown>} JsonRecord
+ * @typedef {{date?:unknown,session?:unknown,day?:unknown,[key:string]:unknown}} LogProjection
+ * @typedef {{index:number,total:number}} ResumePosition
+ * @typedef {{label:string,position:ResumePosition|null}} ResumeLocation
+ * @typedef {{exerciseId:string,name:string,glyph:string,sub:string,load:number|null,target:string,verdictLabel:string,sets:number|string,[key:string]:unknown}} PrescriptionRow
+ * @typedef {{liftGroups:{liftKey:string,name:string,[key:string]:unknown}[],muscles:{name:string,[key:string]:unknown}[],next?:{day:string,[key:string]:unknown}|null,[key:string]:unknown}} SummaryFacts
+ * @typedef {{dateLabel:string,hasProgram:false}|{date:string,dateLabel:string,hasProgram:true,program:{name?:string,visible:boolean,total:number|null,current:number|null,weekCopy:string,deload:boolean},day:string,dayLabel:string,prescriptionRows?:PrescriptionRow[],canPickDay?:boolean,recap?:JsonRecord|null,inProgress?:boolean,workoutActive?:boolean,resume?:ResumeLocation|null,week:{completedDays:number,plannedDays:number},weekStart:string,weekdayLetters:string[],log?:LogProjection[],next?:{day:string,label:string,exercises:number}|null,logContext?:string}} TodayInput
+ */
+/** @template {LogProjection} R @param {R[]} log @param {string} date */
 export function sessionsOnDate(log, date) {
+  /** @type {Map<string,{session:string,day:unknown,rows:R[]}>} */
   const bySession = new Map();
   for (const row of log) {
     if (String(row.date) !== date) continue;
@@ -17,6 +27,7 @@ export function sessionsOnDate(log, date) {
   return [...bySession.values()];
 }
 
+/** @param {string[]} days @param {string} from */
 export function nextProgramDay(days, from) {
   if (!days.length) return null;
   const index = days.indexOf(from);
@@ -27,29 +38,33 @@ export function nextProgramDay(days, from) {
 /** Selection position is over unskipped exercises; no draft bytes are rewritten.
  * labels/exerciseIdsByDay are snapshots, including legacy draft day support.
  */
-export function draftResumeLocation({ draft, day, days, labels, exerciseIdsByDay }) {
+/** @param {{draft:unknown,day:string,days:string[],labels:Record<string,string>,exerciseIdsByDay:Record<string,string[]>}} input @returns {ResumeLocation} */
+export function draftResumeLocation({ draft:rawDraft, day, days, labels, exerciseIdsByDay }) {
+  const draft = /** @type {JsonRecord|null|undefined} */(rawDraft);
   if (!draft || typeof draft !== "object") return { label: labels[day] || day, position: null };
   if (draft.schemaVersion === 2 && Array.isArray(draft.exerciseOrder)) {
-    const live = draft.exerciseOrder.filter(id => draft.exercises?.[id] && draft.exercises[id].status !== "skipped");
-    const named = draft.program?.dayLabel || day;
+    const live = draft.exerciseOrder.filter(id => (/** @type {Record<string,{status?:unknown}>|null|undefined} */(draft.exercises))?.[/** @type {string} */(id)] && (/** @type {Record<string,{status?:unknown}>} */(draft.exercises))[/** @type {string} */(id)].status !== "skipped");
+    const named = /** @type {string} */((/** @type {JsonRecord|null|undefined} */(draft.program))?.dayLabel || day);
     return { label: labels[named] || named, position: live.length
-      ? { index: Math.max(0, live.indexOf(draft.session?.selectedExerciseId)) + 1, total: live.length } : null };
+      ? { index: Math.max(0, live.indexOf((/** @type {JsonRecord|null|undefined} */(draft.session))?.selectedExerciseId)) + 1, total: live.length } : null };
   }
   const named = typeof draft.__day === "string" && days.includes(draft.__day) ? draft.__day : day;
   const skipped = new Set(Array.isArray(draft.__skipped) ? draft.__skipped : []);
   const live = (exerciseIdsByDay[named] || []).filter(id => !skipped.has(id));
   return { label: labels[named] || named, position: live.length
-    ? { index: Math.max(0, live.indexOf(draft.__selectedExerciseId)) + 1, total: live.length } : null };
+    ? { index: Math.max(0, live.indexOf(/** @type {string} */(draft.__selectedExerciseId))) + 1, total: live.length } : null };
 }
 
 /** Engine rows: {exerciseId,name,glyph,sub,load,target,verdictLabel,sets}.
  * Recap carries canonical summary liftGroups, never a second outcome calculation.
  * UI controllers treat all returned values as readonly.
  */
-export function buildTodayReadModel({ date, dateLabel, hasProgram, program, day, dayLabel,
+/** @param {TodayInput} input */
+export function buildTodayReadModel(input) {
+  if (!input.hasProgram) return Object.freeze({dateLabel:input.dateLabel,hasProgram:false});
+  const { date, dateLabel, hasProgram, program, day, dayLabel,
   prescriptionRows = [], canPickDay = false, recap = null, inProgress = false, workoutActive = false, resume = null,
-  week, weekStart, weekdayLetters, log = [], next = null, logContext = "" }) {
-  if (!hasProgram) return Object.freeze({dateLabel, hasProgram: false});
+  week, weekStart, weekdayLetters, log = [], next = null, logContext = "" } = input;
   const trained = new Set(log.filter(row => String(row.date) >= weekStart && String(row.date) <= date).map(row => String(row.date)));
   const cells = weekdayLetters.map((label, index) => {
     const at = new Date(`${weekStart}T12:00:00`);
@@ -59,7 +74,7 @@ export function buildTodayReadModel({ date, dateLabel, hasProgram, program, day,
   });
   const dates = log.map(row => String(row.date)).filter(Boolean).sort();
   const last = dates.at(-1);
-  const lastTrainingDays = last ? Math.max(0, Math.round((new Date(`${date}T12:00:00`) - new Date(`${last}T12:00:00`)) / 86400000)) : null;
+  const lastTrainingDays = last ? Math.max(0, Math.round((new Date(`${date}T12:00:00`).getTime() - new Date(`${last}T12:00:00`).getTime()) / 86400000)) : null;
   return Object.freeze({ dateLabel, hasProgram, program, day, dayLabel,
     prescriptionRows: prescriptionRows.map(row => Object.freeze({ ...row })),
     plannedSets: prescriptionRows.reduce((total, row) => total + (+row.sets || 0), 0),
@@ -72,6 +87,7 @@ export function buildTodayReadModel({ date, dateLabel, hasProgram, program, day,
 /** Adds presentation labels to canonical completion facts without changing session,
  * exercise, outcome or target identity. The producer owns load-unit conversion.
  */
+/** @template {SummaryFacts} T @param {{summary:T,dayLabel:string,volumeDisplay:number,nextLabel:string|null,liftNames:Record<string,string>,muscleNames:Record<string,string>}} input */
 export function buildSummaryReadModel({ summary, dayLabel, volumeDisplay, nextLabel, liftNames, muscleNames }) {
   return Object.freeze({ ...summary, dayLabel, volumeDisplay,
     liftGroups: summary.liftGroups.map(lift => Object.freeze({ ...lift, displayName: liftNames[lift.liftKey] ?? lift.name })),

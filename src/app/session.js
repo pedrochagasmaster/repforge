@@ -2,14 +2,14 @@
 // Unknown historical fields remain in each record and survive JSON cloning.
 /** @typedef {Record<string, unknown> & {session?:string|number}} HistoryRow
  * @typedef {Record<string, unknown> & {id?:string,libraryId?:string}} ProgramRow
- * @typedef {Record<string, unknown> & {id:string,created?:string,metricIds?:unknown[],metricDefinitions?:unknown[]}} CustomExercise
+ * @typedef {Record<string, unknown> & {id:string,name:string,created?:string,metricIds?:unknown[],metricDefinitions?:unknown[]}} CustomExercise
  * @typedef {Record<string, unknown> & {id?:string,blockId?:string,programDefinition?:unknown}} ProgramMeta
  * @typedef {Record<string, unknown> & {id:string,meta:ProgramMeta,program:ProgramRow[],completedAt:string,review?:unknown,transitionOut?:unknown,archiveId?:string}} ProgramHistory
  * @typedef {Record<string, unknown> & {log:HistoryRow[],program?:ProgramRow[],programMeta?:ProgramMeta,customExercises?:CustomExercise[],programHistory?:ProgramHistory[]}} Snapshot
- * @typedef {{status?:string,effect?:{kind?:string,precondition?:string,[key:string]:unknown},[key:string]:unknown}} DraftEffect
+ * @typedef {import('../persistence/snapshot.js').DraftEffect|import('../persistence/snapshot.js').DraftEffectOutcome} DraftEffect
  * @typedef {{committed?:boolean,settled?:boolean,localOk?:boolean,idbOk?:boolean,alreadyCommitted?:boolean,pendingJournalId?:string,head?:Snapshot,revision?:number,conflict?:boolean,staleRevision?:boolean,[key:string]:unknown}} CommitResult
  * @typedef {{reject:true,result:CommitResult}|{proposal:Snapshot}|null} PreflightResult
- * @typedef {Record<string,unknown> & {preflight?:((context:{head:Snapshot})=>PreflightResult|Promise<PreflightResult>)|null,effect?:DraftEffect|null}} CommitOptions
+ * @typedef {Omit<import('../persistence/contracts.js').CommitOptions,'preflight'|'effect'> & {preflight?:((context:{head:Snapshot})=>PreflightResult|Promise<PreflightResult>)|null,effect?:DraftEffect|null}} CommitOptions
  * @typedef {(proposal:Snapshot,options:CommitOptions,io?:unknown)=>Promise<CommitResult>} Commit
  */
 
