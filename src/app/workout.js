@@ -1,4 +1,5 @@
 import {copySnapshot} from './session.js';
+import {canonicalDraftField,canonicalMetricInput} from '../training/metrics.js';
 
 /** @typedef {import('./session.js').Snapshot} Snapshot
  * @typedef {import('./session.js').HistoryRow} HistoryRow
@@ -6,7 +7,8 @@ import {copySnapshot} from './session.js';
  * @typedef {{code:string,exerciseInstanceId?:string,setId?:string,[key:string]:unknown}} Issue
  * @typedef {{kind:'domain-error',issues?:Issue[]}} DomainError
  * @typedef {{draftId:string,revision:number}} DraftIdentity
- * @typedef {DraftIdentity & {program:{programId:string,blockId?:string|null,scheduleDate:string,dayLabel:string},session:{startedAt:string},exerciseOrder:string[],exercises:Record<string,{status?:string,setOrder:string[],sets:Record<string,{completion?:string}>}>}} WorkoutDraft
+ * @typedef {{ordinal:number,role?:string,completion:'pending'|{completedAt:string},programmed:{metrics?:import('../training/metrics.js').MetricDefinition[],targets?:Record<string,unknown>},edited:{load?:string|null,reps?:string|null,rir?:string|null,effort?:string|null,metrics?:Record<string,string|null>},touched?:{metrics?:Record<string,boolean>,load?:boolean}}} DraftSet
+ * @typedef {DraftIdentity & {program:{programId:string,blockId?:string|null,scheduleDate:string,dayLabel:string},session:{startedAt:string},exerciseOrder:string[],exercises:Record<string,{status?:string,setOrder:string[],sets:Record<string,DraftSet>}>}} WorkoutDraft
  * @typedef {{read:()=>Readonly<Snapshot>,run:<R>(command:()=>R|Promise<R>)=>Promise<R>,idle:()=>Promise<void>}} SessionOwner
  * @typedef {{validateForSave:(draft:WorkoutDraft)=>Issue[],reduce:(draft:WorkoutDraft,command:Record<string,unknown>)=>WorkoutDraft|DomainError,isDomainError:(value:unknown)=>value is DomainError,toHistoryRows:(draft:WorkoutDraft,createdAt:string)=>HistoryRow[]|DomainError}} WorkoutRules
  * @typedef {{flush:()=>Promise<void>,read:()=>{draft:WorkoutDraft|null,raw:string|null,recovery?:{attempt?:unknown,status?:string}|null},start:(label:string,options?:Record<string,unknown>)=>Promise<unknown>,dispatch:(type:string,payload:Record<string,unknown>,ui:Record<string,unknown>)=>Promise<unknown>,projection:()=>unknown,clearIdentity:()=>void,clearEffect:(raw:string|null)=>import('./session.js').DraftEffect|null,canLeave:()=>boolean}} DraftOwner
@@ -106,4 +108,147 @@ function normalFinishIssues(draft) {
       issues.push({code: 'incomplete-workout', exerciseInstanceId, setId});
   }
   return issues;
+}
+
+/** @typedef {{exerciseInstanceId:string,setId:string,ordinal:number,field?:string,metricId?:string|null}} SetTarget
+ * @typedef {{status:string,error?:{code?:string,issues?:unknown[]},[key:string]:unknown}} DraftCommandResult
+ * @typedef {{dispatch:(type:string,payload:Record<string,unknown>,ui?:Record<string,unknown>)=>Promise<DraftCommandResult>}} WorkoutPort
+ */
+
+/** One suggestion queue owns the reservation before Complete and the bounded
+ * source-revision retry. planUpdates is pure training data construction; this
+ * owner performs all writes. No renderer, recovery sheet or arbitrary job bus.
+ * @param {{workout:WorkoutPort,readDraft:()=>WorkoutDraft|null,readSnapshot:()=>Readonly<Snapshot>,planUpdates:(input:{exerciseId:string,draft:WorkoutDraft,snapshot:Readonly<Snapshot>})=>unknown[]|null,beforeRefresh?:(exerciseId:string)=>Promise<void>}} options */
+export function createWorkoutSuggestionCommands({workout,readDraft,readSnapshot,planUpdates,beforeRefresh=async()=>{}}) {
+  let tail=Promise.resolve();
+  /** @param {string} exerciseId @returns {Promise<DraftCommandResult>} */
+  async function perform(exerciseId) {
+    await beforeRefresh(exerciseId);
+    for(let attempt=0;attempt<2;attempt++){
+      const draft=readDraft();if(!draft)return{status:'missing'};
+      const sourceRevision=draft.revision;
+      const updates=planUpdates({exerciseId,draft,snapshot:readSnapshot()});
+      if(updates===null)return{status:'missing'};
+      if(!updates.length)return{status:'unchanged'};
+      const result=await workout.dispatch('refreshUntouchedSuggestions',{sourceRevision,updates});
+      if(result.status==='applied')return result;
+      if(result.status==='domain-error'&&result.error?.code==='stale-suggestion')continue;
+      return result;
+    }
+    return{status:'refresh-failed'};
+  }
+  /** @param {string} exerciseId */
+  function refresh(exerciseId){
+    const result=tail.then(()=>perform(exerciseId));
+    tail=result.then(()=>undefined,()=>undefined);
+    return result;
+  }
+  function reserve(){
+    /** @type {(exerciseId:string|null)=>void} */
+    let release=()=>{};
+    let started=false;
+    const gate=new Promise(/** @param {(value:string|null)=>void} resolve */ resolve=>{release=resolve});
+    const result=tail.then(()=>gate).then(exerciseId=>exerciseId===null?{status:'unchanged'}:perform(exerciseId));
+    tail=result.then(()=>undefined,()=>undefined);
+    return Object.freeze({
+      /** @param {string} exerciseId */
+      start(exerciseId){if(!started){started=true;release(exerciseId);}return result;},
+      cancel(){if(!started){started=true;release(null);}},
+    });
+  }
+  async function flush(){for(;;){const pending=tail;await pending;if(pending===tail)return;}}
+  return Object.freeze({refresh,reserve,flush});
+}
+
+/** @typedef {{draftId:string,exerciseInstanceId:string,setId:string,fields:{load?:string|null,reps?:string|null,rir?:string|null,effort?:string|null},metrics:Record<string,string|null>|null,completedAt?:string}} EditSnapshot
+ * @typedef {{metric:import('../training/metrics.js').MetricDefinition|null,ordinal:number,value:string}} LoadCarry
+ */
+
+/** Focus emits stable aggregate targets and captured display facts. These
+ * commands own canonical input, what gets acknowledged before Complete, and
+ * raw-value cancellation. DOM focus, pending tokens, rest and toasts stay UI.
+ * @param {{workout:WorkoutPort,training:{manualLoadCarry:(draft:WorkoutDraft,exerciseId:string,ordinal:number,options:{status?:string,pendingLoad?:boolean})=>LoadCarry|null},readDraft:()=>WorkoutDraft|null,readUnit:()=>string,suggestions:ReturnType<typeof createWorkoutSuggestionCommands>,now:()=>string,onSetAcknowledged?:(facts:{nowDone:boolean,exerciseInstanceId:string,ordinal:number,editing:boolean})=>void}} options */
+export function createFocusWorkoutCommands({workout,training,readDraft,readUnit,suggestions,now,onSetAcknowledged=()=>{}}) {
+  /** @param {SetTarget} target */
+  const current=target=>readDraft()?.exercises?.[target.exerciseInstanceId]?.sets?.[target.setId]||null;
+  /** @param {{target:SetTarget,rawValue:unknown}} request */
+  async function editField({target,rawValue}){
+    const set=current(target);if(!set||!target.field)return{status:'missing'};
+    const at={exerciseInstanceId:target.exerciseInstanceId,setId:target.setId};
+    if(target.metricId){
+      const metric=set.programmed.metrics?.find(item=>item.id===target.metricId);
+      if(!metric)return{status:'missing'};
+      return workout.dispatch('editMetricValue',{...at,metricId:target.metricId,value:canonicalMetricInput(metric,rawValue,readUnit())},{pendingValue:String(rawValue??'')});
+    }
+    return workout.dispatch('editSetField',{...at,field:target.field,value:canonicalDraftField(target.field,rawValue,readUnit())},{pendingValue:String(rawValue??'')});
+  }
+  /** @param {{target:SetTarget,status?:string,pendingLoad?:boolean,editing?:boolean,displayedEffort?:{field:'rir'|'effort',value:string,pending:boolean}|null}} request */
+  async function toggleSet({target,status,pendingLoad=false,editing=false,displayedEffort=null}){
+    const draft=readDraft(),set=current(target);if(!draft||!set)return{status:'missing'};
+    const type=set.completion==='pending'?'completeSet':'uncommitSet';
+    const at={exerciseInstanceId:target.exerciseInstanceId,setId:target.setId};
+    if(type==='completeSet'){
+      const carry=training.manualLoadCarry(draft,target.exerciseInstanceId,target.ordinal,{status,pendingLoad});
+      if(carry){
+        const result=await workout.dispatch(carry.metric?'editMetricValue':'editSetField',carry.metric
+          ?{...at,metricId:carry.metric.id,value:carry.value}:{...at,field:'load',value:carry.value});
+        if(result.status!=='applied')return result;
+      }
+      if(set.programmed.metrics&&displayedEffort&&set.edited[displayedEffort.field]==null&&!displayedEffort.pending&&displayedEffort.value!==''){
+        const result=await workout.dispatch('editSetField',{...at,field:displayedEffort.field,value:displayedEffort.value});
+        if(result.status!=='applied')return result;
+      }
+    }
+    const reservation=type==='completeSet'?suggestions.reserve():null;
+    let refreshStarted=false;
+    try{
+      const result=await workout.dispatch(type,at);
+      if(result.status!=='applied')return result;
+      const acknowledged=current(target);if(!acknowledged)return{status:'missing'};
+      const nowDone=acknowledged.completion!=='pending';
+      onSetAcknowledged({nowDone,exerciseInstanceId:target.exerciseInstanceId,ordinal:target.ordinal,editing});
+      if(nowDone&&reservation){
+        refreshStarted=true;
+        const refreshed=await reservation.start(target.exerciseInstanceId);
+        if(refreshed.status!=='applied'&&refreshed.status!=='unchanged')return{...refreshed,phase:'suggestion-refresh'};
+      }
+      return{...result,nowDone,exerciseInstanceId:target.exerciseInstanceId,ordinal:target.ordinal};
+    }finally{if(reservation&&!refreshStarted)reservation.cancel();}
+  }
+  /** @param {{target:SetTarget}} request */
+  async function reopenSet({target}){
+    const draft=readDraft(),set=current(target);if(!draft||!set)return{status:'missing'};
+    /** @type {EditSnapshot} */
+    const snapshot={draftId:draft.draftId,exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,
+      fields:copySnapshot({load:set.edited.load,reps:set.edited.reps,rir:set.edited.rir,effort:set.edited.effort}),
+      metrics:set.programmed.metrics?.length?copySnapshot(set.edited.metrics||{}):null,
+      completedAt:typeof set.completion==='object'?set.completion.completedAt:undefined};
+    const result=await workout.dispatch('uncommitSet',{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId});
+    return result.status==='applied'?{...result,snapshot}:result;
+  }
+  /** @param {{target:SetTarget,snapshot:EditSnapshot}} request */
+  async function cancelEdit({target,snapshot}){
+    const draft=readDraft(),set=current(target);if(!draft||!set)return{status:'missing'};
+    if(draft.draftId!==snapshot.draftId||target.exerciseInstanceId!==snapshot.exerciseInstanceId||target.setId!==snapshot.setId)
+      return{status:'stale'};
+    const at={exerciseInstanceId:target.exerciseInstanceId,setId:target.setId};
+    if(snapshot.metrics){
+      for(const [metricId,value]of Object.entries(snapshot.metrics)){
+        if(set.edited.metrics?.[metricId]===value)continue;
+        const result=await workout.dispatch('editMetricValue',{...at,metricId,value});if(result.status!=='applied')return result;
+      }
+    }
+    const fields=/** @type {('load'|'reps'|'rir'|'effort')[]} */(snapshot.metrics?['rir','effort']:['load','reps','rir','effort']);
+    for(const field of fields){
+      const value=snapshot.fields[field];if(value==null)continue;
+      const result=await workout.dispatch('editSetField',{...at,field,value});if(result.status!=='applied')return result;
+    }
+    return workout.dispatch('completeSet',{...at,completedAt:snapshot.completedAt||now()});
+  }
+  /** @param {{target:SetTarget}} request */
+  async function toggleWarmup({target}){
+    const set=current(target);if(!set)return{status:'missing'};
+    return workout.dispatch(set.role==='warmup'?'markWorking':'markWarmup',{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId});
+  }
+  return Object.freeze({editField,toggleSet,reopenSet,cancelEdit,toggleWarmup});
 }

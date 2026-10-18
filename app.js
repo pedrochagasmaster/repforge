@@ -11,7 +11,7 @@ import * as ReadModels from './src/app/read-models.js';
 import {verdictMarkHtml as sharedVerdictMarkHtml,formatSetsLine} from './src/ui/format.js';
 let TodayUi,SummaryUi,TrainingModel;
 import {createSession} from './src/app/session.js';
-import {createWorkoutCommands} from './src/app/workout.js';
+import {createWorkoutCommands,createFocusWorkoutCommands,createWorkoutSuggestionCommands} from './src/app/workout.js';
 import {createProgramCommands,createCustomExerciseCommands,createProgramReplacementCommands} from './src/app/program.js';
 import {createHistoryCommands} from './src/app/history.js';
 import {createMotion} from './src/platform/motion.js';
@@ -1648,25 +1648,11 @@ const DRAFT_RECOVERY=`${DRAFT}:recovery`,draftTabId=uid();
 let activeWorkoutDraft=null,activeWorkoutDraftRaw=null,workoutDraftRecovery=null;
 let draftUiRecovery=null;
 let draftWriteTail=Promise.resolve();
-let draftRefreshTail=Promise.resolve();
 async function drainDraftWork(){
   for(;;){
-    const writes=draftWriteTail,refreshes=draftRefreshTail;
-    await writes;await refreshes;
-    if(writes===draftWriteTail&&refreshes===draftRefreshTail)return;
-  }}
-function trackDraftRefresh(factory){
-  const operation=draftRefreshTail.then(factory);
-  draftRefreshTail=operation.then(()=>undefined,()=>undefined);
-  return operation}
-function reserveDraftRefresh(){
-  let release,settled=false;
-  const gate=new Promise(resolve=>{release=resolve});
-  const operation=draftRefreshTail.then(()=>gate).then(factory=>factory());
-  draftRefreshTail=operation.then(()=>undefined,()=>undefined);
-  return{
-    start(factory){if(!settled){settled=true;release(factory)}return operation},
-    cancel(){if(!settled){settled=true;release(()=>Promise.resolve({status:"unchanged"}))}}
+    const writes=draftWriteTail;
+    await writes;await workoutSuggestions.flush();
+    if(writes===draftWriteTail)return;
   }}
 function workoutDayId(label){
   // The canonical definition's day id survives renames; it is what a draft keys on.
@@ -4967,44 +4953,28 @@ function suggestionUpdatesFor(ex,draft){
     if(Object.keys(fields).length)updates.push({exerciseInstanceId:ex.id,setId,fields});
   }
   return updates}
-async function persistUntouchedSuggestions(exId){
-  if(!activeWorkoutDraft)return{status:"missing"};
-  for(let attempt=0;attempt<2;attempt++){
-    const sourceRevision=activeWorkoutDraft.revision,draft=WorkoutSession.projection(),ex=prog.find(exId);
-    if(!ex)return{status:"missing"};
-    const targets=[ex,...exercises(ex.day).filter(o=>o.id!==ex.id&&!hasCommittedSets(o))];
-    const updates=targets.flatMap(o=>suggestionUpdatesFor(sessionExercise(o),draft));
-    if(!updates.length)return{status:"unchanged"};
-    const result=await WorkoutSession.dispatch("refreshUntouchedSuggestions",{sourceRevision,updates});
-    if(result.status==="applied")return result;
-    if(result.status==="domain-error"&&result.error?.code==="stale-suggestion")continue;
-    return result}
+function showSuggestionFailure(exId,result){
+  if(result.status!=="refresh-failed")return result;
   const retryAction=async()=>{
     const prior=draftUiRecovery;
     if(prior)prior.allowRetry=true;
     try{
-      const retry=await persistUntouchedSuggestions(exId);
+      const retry=await workoutSuggestions.refresh(exId);
       return retry.status==="unchanged"?{status:"applied",noOp:true}:retry}
     finally{if(draftUiRecovery===prior)draftUiRecovery.allowRetry=false}};
   draftUiRecovery={kind:"persist",status:"refresh-failed",attempt:null,pendingValue:null,
     copyValue:null,copyKind:"value",focus:draftFocusIdentity(),retry:true,retryAction,discard:false,allowRetry:false};
   renderDraftRecovery();focusDraftRecovery();
-  return{status:"refresh-failed"}}
-// After a set is committed, acknowledge the compiler's values in DraftV2 before
-// painting them. The DOM-only projection remains a fast follow-up for committed
-// edits where a full workout render would steal focus.
-async function runRefreshSuggestions(exId){
-  if(typeof window.__repforgeBeforeSuggestionRefresh==="function"){
-    const hook=window.__repforgeBeforeSuggestionRefresh;delete window.__repforgeBeforeSuggestionRefresh;
-    await hook({exId})}
-  const result=await persistUntouchedSuggestions(exId);
-  if(result.status!=="applied"&&result.status!=="unchanged")return result;
+  return result}
+// Suggestion commands acknowledge values before this presentation-only update.
+async function refreshSuggestions(exId){
+  const result=await workoutSuggestions.refresh(exId);
+  if(result.status!=="applied"&&result.status!=="unchanged")return showSuggestionFailure(exId,result);
   const ex=prog.find(exId);if(!ex)return result;const draft=WorkoutSession.projection();
   applyAcknowledgedSuggestions(sessionExercise(ex),draft);
   for(const o of exercises(ex.day)){if(o.id===ex.id||hasCommittedSets(o))continue;
     applyAcknowledgedSuggestions(sessionExercise(o),draft)}
   return result}
-function refreshSuggestions(exId){return trackDraftRefresh(()=>runRefreshSuggestions(exId))}
 function fmtClock(s){const sec=Math.max(0,Math.round(Number(s)||0));const m=Math.floor(sec/60);return `${m}:${String(sec%60).padStart(2,"0")}`}
 /** Rest reads in two places: the floating bar outside the workout and the chip
  *  in the workout header, where it must never sit over a control.
@@ -6224,25 +6194,14 @@ function metricPendingValue(exId,n,field){
  *  lifter's takes the load of the nearest set logged above it on the same exercise this session. It is a prefill only:
  *  nothing is stored until the set is logged, and logging it logs the load it shows. Warm-ups neither give nor take
  *  it, and nothing carries across sessions; that is Suggest loads' job. */
-function manualLoadCarry(exId,n,r){
-  if(r?.status!=="manual"&&r?.status!=="configuration_required")return null;
-  const stored=activeWorkoutDraft?.exercises?.[exId];if(!stored)return null;
-  const at=k=>{const setId=stored.setOrder.find(id=>stored.sets[id]?.ordinal===k);return setId?stored.sets[setId]:null};
-  const set=at(n);
-  if(!set||set.completion!=="pending"||set.role==="warmup")return null;
-  const metric=draftSetMetrics(set).find(item=>METRIC_FIELD_SEMANTICS.load.includes(item.semantic))||null;
-  if(Array.isArray(set.programmed?.metrics)&&!metric)return null;
-  const loadOf=item=>metric?item.edited?.metrics?.[metric.id]:item.edited?.load;
-  const own=loadOf(set);
-  if(own!=null&&own!=="")return null;
-  if(metric?set.touched?.metrics?.[metric.id]||set.programmed.targets?.[metric.semantic]!=null:set.touched?.load)return null;
-  if(pendingFields.has(metric?`${exId}_${n}_metric_${metric.id}`:`${exId}_${n}_load`))return null;
-  for(let k=n-1;k>=1;k--){
-    const above=at(k);
-    if(!above||above.completion==="pending"||above.role==="warmup")continue;
-    const value=loadOf(above);
-    if(value!=null&&value!=="")return{metric,ordinal:k,value:String(value)}}
-  return null}
+function pendingFocusLoad(exId,ordinal){
+  const target=draftTargetFromKey(`${exId}_${ordinal}`);
+  const set=target?activeWorkoutDraft?.exercises?.[exId]?.sets?.[target.setId]:null;
+  const metric=draftSetMetrics(set).find(item=>METRIC_FIELD_SEMANTICS.load.includes(item.semantic));
+  return pendingFields.has(metric?`${exId}_${ordinal}_metric_${metric.id}`:`${exId}_${ordinal}_load`)}
+function manualLoadCarry(exId,ordinal,recommendation){
+  return WorkoutDraft.manualLoadCarry(activeWorkoutDraft,exId,ordinal,
+    {status:recommendation?.status,pendingLoad:pendingFocusLoad(exId,ordinal)})}
 function setFieldVals(ex,n,r,draft,prev){
   // A field the lifter has just set and the draft has not yet acknowledged shows what they set.
   // A metric-backed set's pending value sits under its metric input's key.
@@ -6988,13 +6947,7 @@ function bindWorkout(){
     // those rebuilds, and the acknowledgement is applied to the control that is on screen then, not to this node.
     const key=i.dataset.k,token=holdPendingField(key,i.value);
     let result;
-    try{
-      if(target.metricId){
-        const metric=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].programmed.metrics.find(item=>item.id===target.metricId);
-        result=await WorkoutSession.dispatch("editMetricValue",{exerciseInstanceId:target.exerciseInstanceId,
-          setId:target.setId,metricId:target.metricId,value:canonicalMetricInput(metric,i.value)},{pendingValue:i.value})
-      }else result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
-        setId:target.setId,field:target.field,value:canonicalDraftField(target.field,i.value)},{pendingValue:i.value})}
+    try{result=await focusWorkoutCommands.editField({target,rawValue:i.value})}
     finally{releasePendingField(key,token)}
     if(result.status!=="applied")return;
     const live=liveShelfInput(key);
@@ -7009,50 +6962,25 @@ function bindWorkout(){
     if(!activeWorkoutDraft||!target)return;
     const set=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId];
     const editing=!!(focusUi.edit&&`${focusUi.edit.exId}_${focusUi.edit.n}`===key);
-    const type=set.completion==="pending"?"completeSet":"uncommitSet";
-    // A manual set showing the load carried from the set above logs that load, not a blank under it.
-    if(type==="completeSet"){
-      const base=prog.find(target.exerciseInstanceId);
-      const carry=base?manualLoadCarry(target.exerciseInstanceId,target.ordinal,recommendation(sessionExercise(base))):null;
-      if(carry){
-        const at={exerciseInstanceId:target.exerciseInstanceId,setId:target.setId};
-        const result=await WorkoutSession.dispatch(carry.metric?"editMetricValue":"editSetField",
-          carry.metric?{...at,metricId:carry.metric.id,value:carry.value}:{...at,field:"load",value:carry.value});
-        if(result.status==="domain-error"){applyDraftIssue(result.error?.issues);return}
-        if(result.status!=="applied")return}}
-    // A metric-backed set starts with no effort of its own, while its field shows one (the last session's, or the
-    // default). Logging the set logs what the field shows, as it does for every other set.
-    if(type==="completeSet"&&set.programmed?.metrics){
-      const field=isEffortMode()?"effort":"rir";
-      const base=prog.find(target.exerciseInstanceId);
-      if(base&&set.edited[field]==null&&!pendingFields.has(`${key}_${field}`)){
-        const ex=sessionExercise(base);
-        const vals=setFieldVals(ex,target.ordinal,recommendation(ex),hydrateWorkoutDraft(),last(ex));
-        const shown=field==="effort"?vals.effortVal:String(vals.rirVal??"");
-        if(shown!==""){
-          const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,field,value:shown});
-          if(result.status==="domain-error"){applyDraftIssue(result.error?.issues);return}
-          if(result.status!=="applied")return}}}
-    const refreshReservation=type==="completeSet"?reserveDraftRefresh():null;
-    let refreshStarted=false;
+    const base=prog.find(target.exerciseInstanceId),ex=base?sessionExercise(base):null;
+    const recommendationNow=ex?recommendation(ex):null;
+    const field=isEffortMode()?"effort":"rir",pending=pendingFields.has(`${key}_${field}`);
+    let displayedEffort=null;
+    if(set.completion==="pending"&&set.programmed?.metrics&&ex&&set.edited[field]==null&&!pending){
+      const values=setFieldVals(ex,target.ordinal,recommendationNow,hydrateWorkoutDraft(),last(ex));
+      displayedEffort={field,value:field==="effort"?values.effortVal:String(values.rirVal??""),pending}}
     try{
-      const result=await WorkoutSession.dispatch(type,{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId});
-      if(result.status==="domain-error"){applyDraftIssue(result.error?.issues);return}
+      const result=await focusWorkoutCommands.toggleSet({target,editing,status:recommendationNow?.status,
+        pendingLoad:pendingFocusLoad(target.exerciseInstanceId,target.ordinal),displayedEffort});
+      if(result.status==="refresh-failed"){showSuggestionFailure(target.exerciseInstanceId,result);return}
+      if(result.status==="domain-error"&&result.phase!=="suggestion-refresh"){applyDraftIssue(result.error?.issues);return}
       if(result.status!=="applied")return;
-      const nowDone=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].completion!=="pending";
-      if(editing&&nowDone){focusUi.edit=null;focusUi.ledgerOpen=null;toast(t("toast.set_updated"))}
-      if(nowDone&&!editing){lastCommitAt=Date.now();if(!sessionStartedAt)sessionStartedAt=lastCommitAt;restRenderPending=true;startRest();armUnfinishedWatch()}
-      if(nowDone&&!editing)focusUi.logged={exId:target.exerciseInstanceId,n:target.ordinal};
-      if(nowDone&&refreshReservation){refreshStarted=true;const refreshed=await refreshReservation.start(()=>runRefreshSuggestions(target.exerciseInstanceId));
-        if(refreshed.status!=="applied"&&refreshed.status!=="unchanged")return}
       renderWorkout();
-      // The action's own button is rebuilt: a corrected set returns to its row, a logged one hands on to the next set.
-      if(nowDone)focusWorkoutHandoff(editing?"row":"next",{exId:target.exerciseInstanceId,n:target.ordinal});
-    }finally{restRenderPending=false;if(refreshReservation&&!refreshStarted)refreshReservation.cancel()}});
+      if(result.nowDone)focusWorkoutHandoff(editing?"row":"next",{exId:target.exerciseInstanceId,n:target.ordinal});
+    }finally{restRenderPending=false}});
   $w("[data-warm]").forEach(b=>b.onclick=async()=>{const key=b.dataset.warm,target=draftTargetFromKey(key);
     if(!activeWorkoutDraft||!target)return;
-    const result=await WorkoutSession.dispatch(warmups.has(key)?"markWorking":"markWarmup",
-      {exerciseInstanceId:target.exerciseInstanceId,setId:target.setId});if(result.status!=="applied")return;
+    const result=await focusWorkoutCommands.toggleWarmup({target});if(result.status!=="applied")return;
     renderWorkout()});
   $w(".stepbtn").forEach(b=>b.onclick=async()=>{if(!b.dataset.step)return;
     const inp=$(`[data-k="${b.dataset.step}"]`);if(!inp)return;
@@ -7081,8 +7009,7 @@ function bindWorkout(){
     setEffortPick(key,next,dir);
     const pendingKey=`${key}_effort`,token=holdPendingField(pendingKey,next);
     let result;
-    try{result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
-      setId:target.setId,field:"effort",value:next})}
+    try{result=await focusWorkoutCommands.editField({target:{...target,field:"effort",metricId:null},rawValue:next})}
     finally{releasePendingField(pendingKey,token)}
     if(result.status!=="applied")return;
     updateSaveMeta();
@@ -7127,33 +7054,18 @@ function bindWorkout(){
     $w("[data-ledgermore]").forEach(b=>b.onclick=()=>toggleFocusLedger(b));
     // Tap a logged row to reopen that set in the shelf, with a way back out.
     $w("[data-editn]").forEach(b=>b.onclick=async()=>{
-      const exId=b.dataset.editex,n=+b.dataset.editn,key=`${exId}_${n}`,d=loadDraft(),target=draftTargetFromKey(key);
+      const exId=b.dataset.editex,n=+b.dataset.editn,key=`${exId}_${n}`,target=draftTargetFromKey(key);
       if(!activeWorkoutDraft||!target)return;
-      const editedSet=activeWorkoutDraft.exercises[exId].sets[target.setId];
-      focusUi.edit={exId,n,snap:{load:d[`${key}_load`],reps:d[`${key}_reps`],rir:d[`${key}_rir`],effort:d[`${key}_effort`],
-        metrics:draftSetMetrics(editedSet).length?cloneSnapshot(editedSet.edited?.metrics||{}):null,
-        completedAt:editedSet.completion?.completedAt}};
-      const result=await WorkoutSession.dispatch("uncommitSet",{exerciseInstanceId:exId,setId:target.setId});
-      if(result.status!=="applied"){focusUi.edit=null;return}
+      const result=await focusWorkoutCommands.reopenSet({target});
+      if(result.status!=="applied")return;
+      focusUi.edit={exId,n,snap:result.snapshot};
       renderWorkout();
       focusWorkoutHandoff("cta")});
     $w("[data-fcancel]").forEach(b=>b.onclick=async()=>{
       if(!focusUi.edit)return;
       const{exId,n,snap}=focusUi.edit,key=`${exId}_${n}`,target=draftTargetFromKey(key);
       if(!activeWorkoutDraft||!target)return;
-      // A metric-backed set restores each metric it held; only effort lives
-      // outside the metric composition.
-      const metricBacked=!!snap.metrics;
-      if(metricBacked){
-        const current=activeWorkoutDraft.exercises[exId].sets[target.setId].edited?.metrics||{};
-        for(const [metricId,value] of Object.entries(snap.metrics)){
-          if(current[metricId]===value)continue;
-          const result=await WorkoutSession.dispatch("editMetricValue",{exerciseInstanceId:exId,setId:target.setId,metricId,value});
-          if(result.status!=="applied")return}}
-      for(const field of metricBacked?["rir","effort"]:["load","reps","rir","effort"]){
-        if(snap[field]==null)continue;const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:exId,
-          setId:target.setId,field,value:snap[field]});if(result.status!=="applied")return}
-      const restored=await WorkoutSession.dispatch("completeSet",{exerciseInstanceId:exId,setId:target.setId,completedAt:snap.completedAt||new Date().toISOString()});
+      const restored=await focusWorkoutCommands.cancelEdit({target,snapshot:snap});
       if(restored.status!=="applied")return;focusUi.edit=null;focusUi.ledgerOpen=null;renderWorkout();focusWorkoutHandoff("row",{exId,n})});
     }
   updateFocusChrome();
@@ -7335,6 +7247,24 @@ const WorkoutSession=createWorkoutCommands({
   earlyFinishConfirmation:EARLY_FINISH_CONFIRMATION,
   beforeCommit:async captured=>{if(typeof window.__repforgeDraftBeforeSaveCommit==="function")
     await window.__repforgeDraftBeforeSaveCommit(captured)}});
+
+const workoutSuggestions=createWorkoutSuggestionCommands({workout:WorkoutSession,
+  readDraft:()=>activeWorkoutDraft,readSnapshot:applicationSession.read,
+  planUpdates:({exerciseId,draft})=>{
+    const ex=prog.find(exerciseId);if(!ex)return null;
+    const projection=workoutDraftProjection(draft);
+    const targets=[ex,...exercises(ex.day).filter(other=>other.id!==ex.id&&!hasCommittedSets(other))];
+    return targets.flatMap(other=>suggestionUpdatesFor(sessionExercise(other),projection))},
+  beforeRefresh:async exId=>{
+    if(typeof window.__repforgeBeforeSuggestionRefresh==="function"){
+      const hook=window.__repforgeBeforeSuggestionRefresh;delete window.__repforgeBeforeSuggestionRefresh;await hook({exId})}}});
+const focusWorkoutCommands=createFocusWorkoutCommands({workout:WorkoutSession,training:WorkoutDraft,
+  readDraft:()=>activeWorkoutDraft,readUnit:()=>state.settings.unit,suggestions:workoutSuggestions,
+  now:()=>new Date().toISOString(),
+  onSetAcknowledged:({nowDone,exerciseInstanceId,ordinal,editing})=>{
+    if(editing&&nowDone){focusUi.edit=null;focusUi.ledgerOpen=null;toast(t("toast.set_updated"))}
+    if(nowDone&&!editing){lastCommitAt=Date.now();if(!sessionStartedAt)sessionStartedAt=lastCommitAt;
+      restRenderPending=true;startRest();armUnfinishedWatch();focusUi.logged={exId:exerciseInstanceId,n:ordinal}}}});
 
 // Asked once, at the first completed session: a device with nothing logged has
 // nothing to protect, and Firefox turns the request into a permission prompt.
