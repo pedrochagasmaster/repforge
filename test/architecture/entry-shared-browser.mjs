@@ -72,7 +72,7 @@ try{
  await discard.addInitScript(head=>{if(!localStorage.getItem('repforge_v1'))localStorage.setItem('repforge_v1',JSON.stringify({...head,settings:{...head.settings,lang:'pt'}}))},fixture.head);
  await fresh.goto(`${base}#setup=${fixture.encoded}`);await waitForAppBoot(fresh,{base});
  await fresh.locator('#firstRunSharedStart').waitFor({state:'visible'});
- await fresh.click('#firstRunCreate');await fresh.locator('#onboarding.active').waitFor();
+ await fresh.click('#firstRunSharedCreate');await fresh.locator('#onboarding.active').waitFor();
  assert.equal(await fresh.evaluate(()=>window.__repforgeSharedSetup.status),'none');
  assert.equal(await fresh.evaluate(()=>document.documentElement.lang),'pt');
  assert.equal(await fresh.evaluate(()=>JSON.parse(localStorage.getItem('repforge_v1')).program.length),0);
