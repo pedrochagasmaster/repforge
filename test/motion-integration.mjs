@@ -2330,43 +2330,9 @@ async function dockMotion(browser, { reducedMotion = "no-preference" } = {}) {
   assert(shownFrames.length > 3 && shownFrames.every((f) => f.view === "stats" && onButton(f) && f.transform === "" && f.count === 1),
     "back from the page the lens is on the tab it returns to on every frame the dock shows, with no travel", JSON.stringify(shownFrames.slice(0, 2).map((f) => ({ v: f.view, l: f.lens, a: f.active }))));
 
-  phase(`N1: in the Program edit bar the button keeps its own paint and the lens shows only in the air${tag}`);
-  // `render()` clears this class when a tab changes; it is held on so the bar's CSS stays the one under test.
-  await page.evaluate(() => {
-    const list = document.querySelector("#program").classList, toggle = list.toggle.bind(list);
-    window.__holdBarToggle = list.toggle;
-    list.toggle = (name, force) => (name === "program-editor-installed" ? toggle(name, true) : toggle(name, force));
-    list.add("program-editor-installed");
-  });
-  await wait(page, 350);
-  const bar = await page.evaluate(() => {
-    const nav = document.querySelector("nav"), act = nav.querySelector("button.active"), cs = getComputedStyle(act);
-    return { ...window.__dock.read(), vis: getComputedStyle(nav.querySelector(".dock-lens")).visibility, bg: cs.backgroundColor, shadow: cs.boxShadow, border: cs.borderTopColor, barWide: nav.getBoundingClientRect().width };
-  });
-  assert(bar.barWide > 380 && bar.vis === "hidden" && bar.bg !== "rgba(0, 0, 0, 0)" && bar.shadow !== "none" && bar.border !== "rgba(0, 0, 0, 0)",
-    "at rest the bar's active button paints its own fill, inset ring and border and the lens is hidden", JSON.stringify({ vis: bar.vis, bg: bar.bg, border: bar.border, w: bar.barWide }));
-  assert(onButton(bar), "the hidden lens still sits on the active button's box", JSON.stringify({ lens: bar.lens, active: bar.active }));
-  const barAir = await page.evaluate(async () => {
-    window.__dock.click("history");
-    await new Promise((r) => setTimeout(r, 400));
-    const nav = document.querySelector("nav");
-    window.__dock.click("stats");
-    await new Promise((r) => setTimeout(r, 90));
-    const act = nav.querySelector("button.active"), cs = getComputedStyle(act);
-    return { mode: nav.dataset.lens, vis: getComputedStyle(nav.querySelector(".dock-lens")).visibility, bg: cs.backgroundColor, shadow: cs.boxShadow, border: cs.borderTopColor, n: document.querySelectorAll(".dock-lens").length };
-  });
-  await page.waitForFunction(() => window.__dock.settled());
-  const barRest = await page.evaluate(() => { const nav = document.querySelector("nav"), cs = getComputedStyle(nav.querySelector("button.active")); return { ...window.__dock.read(), vis: getComputedStyle(nav.querySelector(".dock-lens")).visibility, bg: cs.backgroundColor, border: cs.borderTopColor }; });
-  if (reduced) {
-    assert(barAir.mode === "on" && barAir.vis === "hidden" && barAir.bg !== "rgba(0, 0, 0, 0)", "under reduced motion the lens never shows: the button's own paint is the selected tab on every frame", JSON.stringify(barAir));
-  } else {
-    assert(barAir.mode === "travel" && barAir.vis === "visible" && barAir.bg === "rgba(0, 0, 0, 0)" && barAir.shadow === "none" && barAir.border === "rgba(0, 0, 0, 0)" && barAir.n === 1,
-      "in the air the lens carries the whole selected paint and the destination button sets its own aside: one selected paint on screen", JSON.stringify(barAir));
-  }
-  assert(barRest.view === "stats" && barRest.vis === "hidden" && barRest.bg !== "rgba(0, 0, 0, 0)" && barRest.border !== "rgba(0, 0, 0, 0)" && onButton(barRest),
-    "and on arrival the lens is hidden again and the button paints its own", JSON.stringify({ vis: barRest.vis, bg: barRest.bg, border: barRest.border, view: barRest.view, lens: barRest.lens, active: barRest.active }));
-  await page.evaluate(() => { const list = document.querySelector("#program").classList; delete list.toggle; list.remove("program-editor-installed"); });
-  await wait(page, 350);
+  // Plan 074 (ADR 0021 decision 7): the Program editor hides the dock and pins its own Apply, so there is no
+  // edit bar left for the lens to paint; test/program-editor-a.mjs asserts the dock is hidden while editing.
+
 
   phase(`N1: a resize or a text-size change re-snaps the lens without animation${tag}`);
   await page.setViewportSize({ width: 320, height: 700 });

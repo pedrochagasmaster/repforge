@@ -71,7 +71,7 @@ try {
   // Week 1's first set, in the Weeks table.
   await row.locator('[data-role="weeks-open"]').click();
   await page.locator('#reviewSheet [data-role="week-row"][data-cycle-index="1"]').click();
-  await commitField(page.locator('#reviewSheet [data-role="metric-target"][data-cycle-index="1"][data-set-index="1"]'), "6–12");
+  await commitField(page.locator('#reviewSheet [data-role="metric-target"][data-cycle-index="1"][data-set-index="1"][data-semantic="reps"]'), "6–12");
   await settled(page);
   await commitField(page.locator('#reviewSheet [data-role="prescription-field"][data-cycle-index="1"][data-set-index="1"][data-field="rir"]'), 3);
   await settled(page);

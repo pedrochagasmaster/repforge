@@ -267,6 +267,8 @@ async function buildPart(browser) {
       "alternates are not a free-text field");
 
     // 8. The edits are what the activated program keeps, across a reload.
+    const day2 = page.locator(`${BUILD} [data-role="toggle-day"][data-day="Day 2"]`);
+    if (await day2.getAttribute("aria-expanded") === "false") await day2.click();
     await page.locator(`${BUILD} [data-role="add-exercise"][data-day="Day 2"]`).click();
     await page.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
     await page.locator("#exPickList .pickrow").first().click();

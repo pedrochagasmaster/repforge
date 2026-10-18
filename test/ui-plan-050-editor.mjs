@@ -16,47 +16,49 @@ try {
       await dismissChrome(opened.page);
       await APP_SCENARIOS["program/progression-editor"](opened.page);
       await settle(opened.page);
+      // Plan 074: per-week targets live in the exercise's Weeks sheet, one week
+      // opened as a per-set table. That table (its column labels and cells) is
+      // the current analog of the old metric-cycle disclosure under test.
+      await opened.page.locator('#programEditor [data-role="exercise-row"]').first().click();
+      await opened.page.waitForSelector('#reviewSheet.is-open [data-pe-sheet="exercise"]', { timeout: 20000 });
+      await opened.page.locator('#reviewSheet [data-role="weeks-open"]').click();
+      await opened.page.locator('#reviewSheet [data-role="week-row"]').first().click();
+      await opened.page.waitForSelector('#reviewSheet [data-role="week-body"]', { timeout: 20000 });
+      await settle(opened.page);
       const geometry = await opened.page.evaluate(() => {
-        const editor = document.querySelector("#programEditor");
-        // Canonical program rows no longer edit a flat min/max rep range;
-        // they edit per-cycle metric targets inside the active exercise's
-        // metric-cycle disclosure. That disclosure (its legend, set legends,
-        // metric/RIR/rest field labels, and inputs) is the current analog of
-        // the old `fieldset.program-editor__range` geometry under test.
-        const cycle = editor?.querySelector('[data-role="metric-targets"] details.program-editor__metric-cycle[open]');
-        const parts = [...cycle?.querySelectorAll("legend, label") || []];
-        const boxes = parts.map((element) => ({ text: element.textContent.trim() || element.getAttribute("aria-label") || element.tagName, box: element.getBoundingClientRect() }));
-        const targets = [...editor?.querySelectorAll("button, input") || []].filter((element) => {
+        const sheet = document.querySelector('#reviewSheet [data-pe-sheet="weeks"]');
+        const table = sheet?.querySelector('[data-role="week-body"]');
+        const labels = [...table?.querySelectorAll(".program-editor-a__th") || []];
+        const cells = [...table?.querySelectorAll("input") || []];
+        const visible = (element) => {
           const style = getComputedStyle(element), box = element.getBoundingClientRect();
           return style.display !== "none" && box.width > 0 && box.height > 0;
-        });
-        const firstInput = cycle?.querySelector("input");
-        firstInput?.focus();
+        };
+        const targets = [...sheet?.querySelectorAll("button, input") || []].filter(visible);
         const overlaps = (elements) => elements.some((element, index) => elements.some((other, otherIndex) => {
           if (index === otherIndex) return false;
           const a = element.getBoundingClientRect(), b = other.getBoundingClientRect();
           return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
         }));
+        const firstInput = cells[0];
+        firstInput?.focus();
         return {
           overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-          labels: [...cycle?.querySelectorAll("legend, label") || []].map((element) => element.textContent.trim()),
-          overlap: boxes.some(({ box }, index) => boxes.some(({ box: other }, otherIndex) => index !== otherIndex &&
-            box.left < other.right && box.right > other.left && box.top < other.bottom && box.bottom > other.top)),
+          tableOverflow: table ? table.scrollWidth - table.clientWidth : null,
+          labels: labels.map((element) => element.textContent.trim()),
+          overlap: overlaps([...labels, ...cells]),
           smallestTarget: Math.min(...targets.map((element) => Math.min(element.getBoundingClientRect().width, element.getBoundingClientRect().height))),
           focusOutline: firstInput ? getComputedStyle(firstInput).outlineStyle : "none",
-          headOverlap: [...editor.querySelectorAll(".program-editor__exercise-head")].some((head) =>
-            overlaps([...head.children].filter((element) => getComputedStyle(element).display !== "none"))),
-          actionOverlap: [...editor.querySelectorAll(".program-editor__exercise-actions")].some((actions) =>
-            overlaps([...actions.querySelectorAll("button")])),
+          rowOverlap: overlaps([...document.querySelectorAll('#programEditor [data-role="exercise-row"]')]),
         };
       });
       assert.equal(geometry.overflow <= 0, true, `${locale}/${theme}/${text}: editor has no document overflow: ${JSON.stringify(geometry)}`);
-      assert.equal(geometry.overlap, false, `${locale}/${theme}/${text}: metric-cycle legends, labels, and inputs do not collide: ${JSON.stringify(geometry)}`);
-      assert.equal(geometry.headOverlap, false, `${locale}/${theme}/${text}: exercise name and summary row do not collide: ${JSON.stringify(geometry)}`);
-      assert.equal(geometry.actionOverlap, false, `${locale}/${theme}/${text}: exercise actions reflow without overlap: ${JSON.stringify(geometry)}`);
-      assert.ok(geometry.labels.length >= 3 && geometry.labels.every(Boolean), `${locale}/${theme}/${text}: metric-cycle retains persistent localized labels: ${JSON.stringify(geometry)}`);
-      assert.ok(geometry.smallestTarget >= 44, `${locale}/${theme}/${text}: editor controls retain 44px targets: ${JSON.stringify(geometry)}`);
-      assert.notEqual(geometry.focusOutline, "none", `${locale}/${theme}/${text}: metric target input has visible focus treatment`);
+      assert.equal(geometry.tableOverflow <= 0, true, `${locale}/${theme}/${text}: the week table fits the sheet: ${JSON.stringify(geometry)}`);
+      assert.equal(geometry.overlap, false, `${locale}/${theme}/${text}: week-table labels and cells do not collide: ${JSON.stringify(geometry)}`);
+      assert.equal(geometry.rowOverlap, false, `${locale}/${theme}/${text}: exercise rows do not collide: ${JSON.stringify(geometry)}`);
+      assert.ok(geometry.labels.length >= 3 && geometry.labels.every(Boolean), `${locale}/${theme}/${text}: the week table retains persistent localized labels: ${JSON.stringify(geometry)}`);
+      assert.ok(geometry.smallestTarget >= 44, `${locale}/${theme}/${text}: Weeks sheet controls retain 44px targets: ${JSON.stringify(geometry)}`);
+      assert.notEqual(geometry.focusOutline, "none", `${locale}/${theme}/${text}: a week-table input has visible focus treatment`);
       console.log(`program editor geometry ${locale}/${theme}/${text}: ${JSON.stringify(geometry)}`);
     } finally {
       await opened.context.close();
