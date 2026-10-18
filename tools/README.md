@@ -101,14 +101,12 @@ claims require a new run. This tool never labels a phase complete or changes a P
 
 ## move-draft-store-owner.mjs
 
-Moves the historical DraftStore checkpoint, CAS, tombstone, sidecar, and boot
-reconciliation algorithms from `app.js` into `durable-state.js`. The migration
-is idempotent; its check mode guards the forwarding-only boundary after the
-move and rejects direct primary-replica deletion or checkpoint mutation from
-`app.js`. A negative fixture proves that the ownership check fails closed.
+Historical inventory command retained as a read-only ownership check. The completed
+one-off rewrite was removed during the architecture migration. It verifies the
+native durable factory owns DraftV2 algorithms and checkpoint reconciliation,
+and that the app cannot directly mutate checkpoints or primary replicas.
 
-```bash
-node tools/move-draft-store-owner.mjs
+```sh
 node tools/move-draft-store-owner.mjs --check
 ```
 
