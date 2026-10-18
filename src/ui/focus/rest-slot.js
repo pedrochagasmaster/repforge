@@ -13,7 +13,7 @@ export function createRestSlot({window,focus,presentation,motion,effects,geometr
   /** @param {HTMLElement} root */
   function bindControls(root){
     for(const button of root.querySelectorAll(/** @type {'button'} */('[data-rest-act],[data-why]'))){
-      if(bound.has(button))continue;bound.add(button);
+      if(bound.has(button)||button.closest('.is-peek'))continue;bound.add(button);
       button.addEventListener('click',event=>{
         if(button.hasAttribute('data-rest-act'))actions.rest(button.dataset.restAct);
         else{event.stopPropagation();actions.why(button.dataset.why,button);}

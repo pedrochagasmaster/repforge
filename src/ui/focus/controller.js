@@ -22,3 +22,5 @@ export {createFocusEffects} from './effects.js';
 export {createRestSlot} from './rest-slot.js';
 
 export {createFocusDom,syncWorkoutMore} from './dom.js';
+
+export {createFocusBindings,setWorkoutOverflow} from './bindings.js';

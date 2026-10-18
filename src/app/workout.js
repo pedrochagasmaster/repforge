@@ -250,5 +250,16 @@ export function createFocusWorkoutCommands({workout,training,readDraft,readUnit,
     const set=current(target);if(!set)return{status:'missing'};
     return workout.dispatch(set.role==='warmup'?'markWorking':'markWarmup',{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId});
   }
-  return Object.freeze({editField,toggleSet,reopenSet,cancelEdit,toggleWarmup});
+  /** Restore the captured skipped membership in acknowledged exercise order.
+   * A refusal stops the sequence; subsequent commands never guess a new list. */
+  async function restoreExercises(){
+    const draft=readDraft();if(!draft)return false;
+    const skipped=draft.exerciseOrder.filter(id=>draft.exercises[id]?.status==='skipped');
+    for(const exerciseInstanceId of skipped){
+      const result=await workout.dispatch('restoreExercise',{exerciseInstanceId});
+      if(result.status!=='applied')return false;
+    }
+    return true;
+  }
+  return Object.freeze({editField,toggleSet,reopenSet,cancelEdit,toggleWarmup,restoreExercises});
 }

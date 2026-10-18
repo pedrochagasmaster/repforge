@@ -35,7 +35,7 @@ export function createRestClock({window}) {
   /** @param {number} defaultSeconds */
   function skip(defaultSeconds){if(!end||Math.round(left(defaultSeconds)/1000)<=0)return false;end=window.Date.now();paused=null;notified=true;return true;}
   function expire(over=0){if(!end)return false;end=window.Date.now()-1-Math.max(0,Math.round(+over||0))*1000;paused=null;disarm();return true;}
-  return Object.freeze({plan,left,arm,disarm,start,stop,nudge,toggleHold,skip,expire,clamp,dispose:disarm,
+  return Object.freeze({revealFieldPads(){padsBack=true;},plan,left,arm,disarm,start,stop,nudge,toggleHold,skip,expire,clamp,dispose:disarm,
     get end(){return end;},get paused(){return paused;},get ticking(){return timer!=null;},
     get length(){return length;},set length(value){length=value;},
     get notified(){return notified;},set notified(value){notified=value;},

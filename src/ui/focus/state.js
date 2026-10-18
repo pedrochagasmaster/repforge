@@ -71,6 +71,7 @@ export function createFocusState() {
       restRenderPending=false;return at;
     },
     finishFrame(){logged=null;},
+    finishRestRender(){restRenderPending=false;},
     /** @param {string} exerciseId @param {boolean} open */
     discloseLedger(exerciseId,open){ledgerOpen=open?exerciseId:null;},
     /** @param {number} next */

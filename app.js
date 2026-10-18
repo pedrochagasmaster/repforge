@@ -1808,10 +1808,7 @@ async function requestWorkoutDay(nextDay){
   }
   return true}
 
-async function applyShowAll(){
-  if(!activeWorkoutDraft)return false;
-  for(const id of [...skipped]){const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return false}
-  renderWorkout();return true}
+async function applyShowAll(){if(!await focusWorkoutCommands.restoreExercises())return false;renderWorkout();return true}
 function replacementSnapshot(id,name,libraryRef){
   const entry=libraryRef?libraryEntry(libraryRef):null,token=movementToken(name),original=activeWorkoutDraft?.exercises?.[id],slot=prog.find(id);
   if(entry)return{exerciseInstanceId:`replacement:${entry.id}`,sourceExerciseId:entry.id,libraryId:entry.id,
@@ -2445,11 +2442,7 @@ function focusList(){
   }
   const exs=exercises();
   return exs.filter(e=>!skipped.has(e.id))}
-function setWorkoutOverflow(open){const menu=$("#woOverflow");if(!menu)return;
-  menu.classList.toggle("hidden",!open);
-  $("#woOverflowBtn")?.setAttribute("aria-expanded",open?"true":"false")}
-function closeWorkoutOverflow(){setWorkoutOverflow(false)}
-function toggleWorkoutOverflow(){setWorkoutOverflow($("#woOverflow")?.classList.contains("hidden"))}
+function closeWorkoutOverflow(){Focus.setWorkoutOverflow(document,false)}
 async function goToLogExercise(exId){
   const ex=prog.find(exId);if(!ex)return;
   if(!await requestWorkoutDay(ex.day))return;
@@ -2961,12 +2954,7 @@ function focusRestSlot(){return FocusRestSlot||(FocusRestSlot=Focus.createRestSl
   presentation:FocusPresentation,motion:ensureBrowserPresentation().motion,effects:focusEffects(),geometry:focusGeometry,
   readFrame:()=>activeWorkoutDraft?focusPresentationFacts():null,
   actions:{rest:restAct,why:openWhySheet},onPadsReplaced:bindWorkout}))}
-const liveHtml=host=>focusEffects().liveHtml(host);
-const crossfadeIn=(...args)=>focusEffects().crossfadeIn(...args);
-const settleFocusContext=moved=>focusRestSlot().settle(moved);
 const restInlineSync=()=>focusRestSlot().sync();
-const captureRestSlot=()=>focusRestSlot().capture();
-const restSlotArrive=before=>focusRestSlot().arrive(before);
 /** Shared visibility handler — rest-timer catch-up + session banner. */
 function onAppVisible(){
   if(document.visibilityState!=="visible")return;
@@ -3705,10 +3693,7 @@ function setFieldVals(ex,n,r,draft,prev){return FocusValues.fields({draft:active
  *  the same box, no action to fire and no place in the tab order. The peek card
  *  is `inert` as a whole, so this is belt and braces — but it also keeps the
  *  handlers in bindWorkout from ever seeing a neighbour's id. */
-const dead=()=>` tabindex="-1"`;
 /** Set numbers already committed on this exercise, in order. */
-const focusSelection=(ex,peek=false)=>focusUi.selectExercise(ex,committed,{peek});
-const focusActiveSet=ex=>focusSelection(ex).active;
 /** The two lines above the ledger: what to do with this set, and why. Line one
  *  is the verb and the load, line two the reps to aim for. The load is the
  *  engine's: `setSuggestion` for this set, never a figure derived here. */
@@ -3721,21 +3706,10 @@ function focusCue(ex,n,r,draft,prev,editing){return focusPresentationView(draft)
    shelf's pad row. At zero, or after Pular, it collapses to one line that counts
    the overrun up in soft ink and the cue returns. Logging never waits on it. */
 /** What the timer is doing, said once for every consumer: no rest, time left, or past the bell. */
-const restInlineMode=()=>RestPresentation.mode();
-const restFraction=()=>RestPresentation.fraction();
-const restOverSec=()=>RestPresentation.overSeconds();
-const restDoneText=over=>RestPresentation.doneText(over);
-const restSlotMode=editing=>RestPresentation.slotMode(editing);
-const restPadsFit=()=>RestPresentation.padsFit();
-const restPadsOn=editing=>RestPresentation.padsOn(editing);
 
-function focusSlotInner(ex,n,r,cue,mode,opts){return focusPresentationView(opts.draft).slotInner(ex,n,r,cue,mode,opts)}
 /** The rest controls in the shelf's pad row: -30s, Pausar or Retomar, +30s, Pular. They act on the timer
  *  the header chip and the presets sheet act on. */
-const selectRestPads=peek=>RestPresentation.selectPads(peek);
-const restPadsHtml=peek=>RestPresentation.padsHtml(peek);
 function canonicalSlotFacts(...args){return workoutQueries().canonicalSlotFacts(...args)}
-function toggleFocusLedger(button){return focusDom().toggleLedger(button)}
 
 /** The line under the exercise name: sets and reps, the effort window, and the
  *  name of the strategy that sets the target. Read off the program's own
@@ -3757,7 +3731,6 @@ const shelfSelect=(key,field,editing=false)=>focusUi.shelfSelect(key,field,editi
 /** A field's text as the lifter reads it: a number in their locale, anything else as typed. */
 const shelfText=raw=>FocusShelf.text(raw);
 /** The load step the pads move by, in the unit the lifter sees. */
-function shelfLoadStep(){return FocusFormat.loadStep()}
 function focusMetricDefinitions(exId,n){return FocusValues.definitions(activeWorkoutDraft,exId,n)}
 const metricTextValue=workoutMetricDisplay.text,canonicalMetricInput=workoutMetricDisplay.canonicalInput,
   metricKgFromDisplay=workoutMetricDisplay.kgFromDisplay,metricTargetText=workoutMetricDisplay.targetText,
@@ -3767,9 +3740,6 @@ function programPrescriptionSummary(ex,cycleNumber){return FocusPrescription.sum
 const metricLabel=workoutMetricDisplay.label,metricDisplayUnit=workoutMetricDisplay.displayUnit,
   parseHistoryMetricInput=workoutMetricDisplay.parseHistoryInput;
 
-function focusPadsHtml(ex,n,ui,vals,{effortMode,peek,editing}){
-  return FocusShelf.padsHtml({exerciseId:ex.id,ordinal:n,ui,values:vals,effortMode,peek,editing,
-    metrics:focusMetricDefinitions(ex.id,n),loadStep:shelfLoadStep()})}
 function refreshShelf(options){return focusDom().refreshShelf(options)}
 
 /* ---- Focus across a rebuild (Plan 064 rule 12, R7 J-03) ----
@@ -3780,7 +3750,7 @@ function refreshShelf(options){return focusDom().refreshShelf(options)}
    moves the shelf to the next set, Edit turns a row into the open one) the handler names
    the next control with `focusWorkoutHandoff`. */
 const workoutControlFocus=Focus.createControlFocus({window,shell:{canTakeFocus,resolveReturnFocus,nativeFocusSelector:ROUTE_NATIVE_FOCUS}});
-workoutControlFocus.mount();
+
 const workoutFocusKey=workoutControlFocus.key,focusWorkoutControl=workoutControlFocus.control,
   restoreWorkoutFocus=workoutControlFocus.restore,focusWorkoutHandoff=workoutControlFocus.handoff,
   liveShelfInput=workoutControlFocus.input,liveEffortField=workoutControlFocus.effortField;
@@ -3808,12 +3778,13 @@ function shelfReveal(input){
  *  What a peek does not carry is behaviour — its controls hold no hooks and no
  *  tab stop — and no `data-k` field, which would duplicate the draft keys the
  *  live card owns. */
+function focusViewFrame(){return workoutActive?{active:true,context:focusPresentationFacts(),hiddenCount:exercises().filter(ex=>skipped.has(ex.id)).length,
+  programName:state.programMeta?.name,cycle:mesocycleWeek(),deload:isProgramDeloadWeek(),dayLabel:dayLabel(day)}:{active:false}}
 let FocusDom;
 function focusDom(){return FocusDom||(FocusDom=Focus.createFocusDom({window,focus:focusUi,presentation:FocusPresentation,
   controls:workoutControlFocus,geometry:focusGeometry,effects:focusEffects(),rest:focusRestSlot(),
   motion:ensureBrowserPresentation().motion,guides:guidesView(),exercise:{open:openExerciseView},copy:{t},
-  readFrame:()=>workoutActive?{active:true,context:focusPresentationFacts(),hiddenCount:exercises().filter(ex=>skipped.has(ex.id)).length,
-    programName:state.programMeta?.name,cycle:mesocycleWeek(),deload:isProgramDeloadWeek(),dayLabel:dayLabel(day)}:{active:false},
+  readFrame:focusViewFrame,
   onControlsReplaced:bindWorkout,onRendered:({active})=>{
     updateGauge();if(active){updateSaveMeta();renderFatigue();updateBodyweightField();}
     updateSessionBanner();if(active)updateFocusChrome();}}))}
@@ -3821,18 +3792,7 @@ function renderWorkout(){return focusDom().render()}
 /** ⋯ is the current exercise's actions. Where the device offers voice input and
  *  the lifter has turned it on, the same button opens a short menu that holds
  *  both; the button says which it is. */
-function workoutMoreIsMenu(){const voice=$("#voiceBtn");return !!voice&&!voice.classList.contains("hidden")}
 function syncWorkoutMore(){return Focus.syncWorkoutMore(document)}
-function openWorkoutMore(){
-  if(workoutMoreIsMenu()){
-    const menu=$("#woOverflow");
-    if(menu&&!$("#woExActions")){
-      const item=document.createElement("button");
-      item.type="button";item.id="woExActions";item.className="wo-overflow__item";item.textContent=t("ex.actions.title");
-      item.onclick=()=>{closeWorkoutOverflow();const card=focusCard();if(card)openExActionsSheet(card.dataset.ex)};
-      menu.prepend(item)}
-    toggleWorkoutOverflow();return}
-  const card=focusCard();if(card)openExActionsSheet(card.dataset.ex)}
 /** After a render, bring every card in the deck to the row that matters — the
  *  peeks included, so a neighbour rides in already showing what it will show
  *  once it lands. The card's own height comes from the layout, so nothing is
@@ -3889,7 +3849,6 @@ function applyDraftIssue(issues){
 /** Controls of the live workout. The deck also holds a full copy of each
  *  neighbouring card, so every focus control exists three times over; only the
  *  live one takes a handler. */
-const $w=sel=>$$(`#workout ${sel}`).filter(el=>!el.closest(".is-peek"));
 let FocusInputs;
 function focusInputs(){return FocusInputs||(FocusInputs=Focus.createFocusInputs({window,focus:focusUi,
   read:()=>({draft:activeWorkoutDraft,unit:state.settings.unit,minJump:state.settings.minJump}),
@@ -3897,60 +3856,13 @@ function focusInputs(){return FocusInputs||(FocusInputs=Focus.createFocusInputs(
   captureSet:()=>({draft:activeWorkoutDraft,flat:WorkoutSession.projection(),query:workoutQueries(),program:state.program,effortMode:isEffortMode()}),
   shelf:FocusShelf,effort:FocusEffort,controls:workoutControlFocus,
   onAcknowledged:async field=>{updateSaveMeta();if(field)await refreshAfterCommittedEdit(field)}}))}
-function bindWorkout(){
-  focusInputs().bind();
-  $w(".term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
-  const workoutHost=$("#workout");if(workoutHost)focusRestSlot().bindControls(workoutHost);
-  $w(".saveset").forEach(b=>b.onclick=async()=>{
-    try{
-      const outcome=await focusInputs().toggleSet(b.dataset.save);if(!outcome)return;
-      const {result,target,editing}=outcome;
-      if(result.status==="refresh-failed"){showSuggestionFailure(target.exerciseInstanceId,result);return}
-      if(result.status==="domain-error"&&result.phase!=="suggestion-refresh"){applyDraftIssue(result.error?.issues);return}
-      if(result.status!=="applied")return;
-      renderWorkout();
-      if(result.nowDone)focusWorkoutHandoff(editing?"row":"next",{exId:target.exerciseInstanceId,n:target.ordinal});
-    }finally{focusUi.restRenderPending=false}});
-  $w("[data-warm]").forEach(b=>b.onclick=async()=>{
-    const result=await focusInputs().toggleWarmup(b.dataset.warm);if(result?.status==="applied")renderWorkout()});
-  $w("[data-shelf-field]").forEach(b=>b.onclick=()=>{
-    const key=b.dataset.set,id=b.dataset.shelfField,ui=shelfFor(key);
-    const effortField=id==="rir"&&isEffortMode();
-    // A tap on any field brings the field pads back for the rest of this rest.
-    const fromRest=restPadsOn(false);
-    if(fromRest)focusRest.padsBack=true;
-    // A second tap on the selected field opens it: a typed value, or the word's explainer.
-    if(ui.field===id&&effortField){toggleEffortPop(key);if(fromRest)restInlineSync();return}
-    if(ui.field===id&&!ui.editing){shelfSelect(key,id,true);refreshShelf({focus:id});return}
-    closeEffortPop();shelfSelect(key,id,false);refreshShelf({focus:id})});
-  const sb=$("#workout .skipbar__show");if(sb)sb.onclick=()=>applyShowAll();
-  {const fl=focusList();const at=fl.length?Math.min(focusUi.index,fl.length-1):0;
-    const progEl=$("#woProgress");
-    if(progEl){progEl.classList.remove("hidden");
-      // The segments are the visible route between exercises (with the Next row
-      // and the swipe); the live region still says which exercise this is.
-      progEl.innerHTML=`<span class="visually-hidden">${esc(t("today.exercise_of",{n:fl.length?at+1:0,m:fl.length}))}</span>`+
-        `<div class="segbar segbar--ex" data-progress-dimension="exercise-set" data-progress-scope="workout-exercise-order">`+
-        fl.map((_,i)=>i===at
-          // The current exercise is where the lifter already is: its segment is a mark, not a control.
-          ?`<span class="segbar__seg is-current" data-focusgo="${i}" aria-hidden="true"><span class="segbar__bar"></span></span>`
-          :`<button type="button" class="segbar__seg${i<at?" is-done":""}" data-focusgo="${i}" `+
-            `aria-label="${esc(t("today.exercise_of",{n:i+1,m:fl.length}))}"><span class="segbar__bar" aria-hidden="true"></span></button>`).join("")+`</div>`;
-      progEl.querySelectorAll("button[data-focusgo]").forEach(b=>b.onclick=()=>focusJump(+b.dataset.focusgo))}
-    const f=$w("[data-ffinish]")[0];if(f)f.onclick=()=>$("#logForm").requestSubmit();
-    $w("[data-fnext],[data-fnextrow]").forEach(b=>b.onclick=()=>focusAnimateTo(1));
-    $w("[data-ledgermore]").forEach(b=>b.onclick=()=>toggleFocusLedger(b));
-    // Tap a logged row to reopen that set in the shelf, with a way back out.
-    $w("[data-editn]").forEach(b=>b.onclick=async()=>{
-      const result=await focusInputs().reopenSet(b.dataset.editex,+b.dataset.editn);
-      if(result?.status!=="applied")return;
-      renderWorkout();focusWorkoutHandoff("cta")});
-    $w("[data-fcancel]").forEach(b=>b.onclick=async()=>{
-      const outcome=await focusInputs().cancelEdit();if(outcome?.result.status!=="applied")return;
-      renderWorkout();focusWorkoutHandoff("row",{exId:outcome.exId,n:outcome.n})});
-    }
-  updateFocusChrome();
-}
+let FocusBindings;
+function focusBindings(){return FocusBindings||(FocusBindings=Focus.createFocusBindings({window,focus:focusUi,clock:focusRest,
+  presentation:FocusPresentation,inputs:focusInputs(),controls:workoutControlFocus,geometry:focusGeometry,dom:focusDom(),
+  rest:focusRestSlot(),motion:ensureBrowserPresentation().motion,navigation:focusNavigation(),commands:focusWorkoutCommands,
+  readFrame:focusViewFrame,copy:{t},help:{term:glossaryPopover},
+  feedback:{suggestionFailure:showSuggestionFailure,draftIssues:applyDraftIssue},exerciseActions:{open:openExActionsSheet}}))}
+function bindWorkout(){focusBindings().bind();updateRestChrome()}
 
 function updateGauge(){const exs=exercises();const hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
   const g=$("#heatGauge"),frac=exs.length?hot/exs.length:0;
@@ -9621,33 +9533,7 @@ function init(){
   // opens the day that follows the one already done rather than repeating it.
   const another=$("#logAnotherSession");if(another)another.onclick=()=>enterWorkout({day:dayAfterTrainedToday()||day});
   const leaveWo=$("#leaveWorkout");if(leaveWo)leaveWo.onclick=leaveWorkout;
-  const woOv=$("#woOverflowBtn");if(woOv)woOv.onclick=e=>{e.stopPropagation();openWorkoutMore()};
-  // The menu is a popover: any choice inside it, a tap outside, or Escape closes it.
-  // iOS does not reliably bubble click to document, so touchstart backs it up.
-  const dismissOverflow=e=>{
-    const menu=$("#woOverflow");if(!menu||menu.classList.contains("hidden"))return;
-    const target=e.target instanceof Element?e.target:null;
-    if(target&&(menu.contains(target)||target.closest("#woOverflowBtn")))return;
-    closeWorkoutOverflow()};
-  document.addEventListener("click",dismissOverflow);
-  document.addEventListener("touchstart",dismissOverflow,{passive:true});
-  document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeWorkoutOverflow();closeEffortPop()}});
-  // The effort explainer dismisses like any popover: a tap anywhere off it, or
-  // a swipe of the card underneath. Capture, so a card drag never outlives it.
-  document.addEventListener("pointerdown",e=>{
-    const el=e.target instanceof Element?e.target:null;
-    if(el?.closest(".effortpop, [data-effspin], [data-effstep]"))return;
-    closeEffortPop()},{capture:true});
-  let deckResize;
-  window.addEventListener("resize",()=>{clearTimeout(deckResize);deckResize=setTimeout(sizeFocusDeck,120)});
-  // Keyboard navigation for card deck; pointer drag owned by gesture controller.
-  document.addEventListener("keydown",e=>{
-    if(!workoutActive)return;
-    if(e.metaKey||e.ctrlKey||e.altKey)return;
-    const el=e.target instanceof Element?e.target:null;
-    if(el&&el.closest("button,a,input,select,textarea,[contenteditable],[role=spinbutton]"))return;
-    if(e.key==="ArrowRight")focusAnimateTo(1);
-    else if(e.key==="ArrowLeft")focusAnimateTo(-1)});
+  focusBindings().mount();
   initializeSessionSheet();
 
   const exActionRepeat=$("#exActionRepeatBtn");
@@ -9760,7 +9646,7 @@ function init(){
     if(next===t.value)return;
     const s=t.selectionStart,en=t.selectionEnd;t.value=next;
     if(s!=null)try{t.setSelectionRange(s,en)}catch{}});
-  $$("[data-term]").forEach(b=>{if(!b.onclick)b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)}});
+  $$("[data-term]").forEach(b=>{if(!b.onclick&&!b.closest("#workout"))b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)}});
   applyDraftContextToDom();
   updateBodyweightField();
   const vBtn=$("#voiceBtn");if(vBtn)vBtn.onclick=()=>{closeWorkoutOverflow();startVoiceInput()};
