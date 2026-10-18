@@ -6169,7 +6169,9 @@
         "onboarding-recommend/review-day-name-refused",
         "workout/deload-week",
         "program/progression-editor",
-        "program/editor-alternates"
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused"
       ]
     },
     {
@@ -7823,7 +7825,9 @@
         "onboarding-recommend/review-sheet-execution-mode",
         "onboarding-recommend/result-block-sheet",
         "onboarding-recommend/review-day-name-refused",
-        "program/editor-alternates"
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused"
       ]
     },
     {
@@ -7859,7 +7863,8 @@
         "onboarding-recommend/result-block-sheet",
         "onboarding-recommend/review-day-name-refused",
         "program/editor-alternates",
-        "program/editor-suggest-loads"
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused"
       ]
     },
     {
@@ -9577,7 +9582,9 @@
         "onboarding-recommend/result-block-sheet",
         "onboarding-recommend/review-sheet-execution-mode",
         "onboarding-recommend/review-day-name-refused",
-        "program/editor-alternates"
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused"
       ]
     },
     {
@@ -9600,7 +9607,9 @@
         "onboarding-recommend/result-block-sheet",
         "onboarding-recommend/review-sheet-execution-mode",
         "onboarding-recommend/review-day-name-refused",
-        "program/editor-alternates"
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused"
       ]
     },
     {
@@ -10094,6 +10103,28 @@
       "catalogStates": [
         "program/editor-alternates",
         "program/editor-suggest-loads"
+      ]
+    },
+    {
+      "id": "programeditorrenameinput",
+      "selector": "#programEditorRenameInput",
+      "roles": {
+        "control": "field",
+        "boundary": "required"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "focus-visible",
+        "disabled",
+        "validation-error"
+      ],
+      "rationale": "Renames the program or a day in the installed editor; a name another day already shows is refused on the field.",
+      "owner": "plan-074",
+      "catalogStates": [
+        "program/editor-day-name-refused"
       ]
     }
   ],
