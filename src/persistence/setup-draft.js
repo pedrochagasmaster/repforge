@@ -7,9 +7,10 @@ export const SETUP_DRAFT_KEY='repforge_program_setup_draft_v1';
  * @typedef {ReturnType<Rules['createState']>} Draft
  * @typedef {Extract<ReturnType<Rules['normalizeSetupDraftEnvelope']>,{ok:true}>['value']['envelope']} Envelope
  * @typedef {{raw:string,envelope:Envelope|null}} Handle
+ * @typedef {{ok?:never,conflict:boolean,transferFrozen:boolean,code:string|null,localOk:boolean,idbOk:boolean}} FrozenWrite
  * @typedef {{ok:true,absent?:boolean,envelope?:Envelope}|{ok:false,conflict?:boolean,writeFailed?:boolean,invalid?:boolean}} WriteResult
  */
-/** @param {{rules:Rules,storage:Pick<Storage,'getItem'|'setItem'|'removeItem'>,lock:<T>(operation:()=>T|Promise<T>)=>Promise<T>,ownerId:string,onFailure:(kind:'save_failed'|'save_conflict',error?:unknown)=>void,onSaved:()=>void}} options */
+/** @param {{rules:Rules,storage:Pick<Storage,'getItem'|'setItem'|'removeItem'>,lock:<T>(operation:()=>T|Promise<T>)=>Promise<T|FrozenWrite>,ownerId:string,onFailure:(kind:'save_failed'|'save_conflict',error?:unknown)=>void,onSaved:()=>void}} options */
 export function createSetupDraftStore({rules,storage,lock,ownerId,onFailure,onSaved}){
  /** @type {Handle|null} */ let owned=null;
  /** @type {Draft|null} */ let accepted=null;
@@ -36,7 +37,7 @@ export function createSetupDraftStore({rules,storage,lock,ownerId,onFailure,onSa
  /** Transfer uses this same queue and production lock.
   * @template T @param {()=>T|Promise<T>} operation @returns {Promise<T>} */
  function enqueue(operation){const pending=tail.then(operation,operation);tail=pending.catch(()=>{});return pending}
- /** @template T @param {()=>T|Promise<T>} operation @returns {Promise<T>} */
+ /** @template T @param {()=>T|Promise<T>} operation @returns {Promise<T|FrozenWrite>} */
  function transaction(operation){return enqueue(()=>lock(operation))}
  /** Must run under the production lock. Exact bytes protect a newer writer.
   * @param {Handle|null} handle @returns {WriteResult} */
@@ -47,7 +48,7 @@ export function createSetupDraftStore({rules,storage,lock,ownerId,onFailure,onSa
   if(owned?.raw===handle.raw)adopt(null,null);
   return{ok:true};
  }
- /** @param {Handle|null} [handle] @returns {Promise<WriteResult>} */
+ /** @param {Handle|null} [handle] @returns {Promise<WriteResult|FrozenWrite>} */
  function remove(handle=clone(owned)){return !handle?Promise.resolve({ok:true,absent:true}):transaction(()=>removeObserved(handle))}
  // Resolve the handle when the queued operation runs: an earlier pending write
  // may advance it before clear obtains the lock.
@@ -57,7 +58,7 @@ export function createSetupDraftStore({rules,storage,lock,ownerId,onFailure,onSa
   * optimistic application draft. Only the write adapter is replaceable; the
   * lock is always the production capability supplied at composition.
   * @param {Draft} queued @param {Draft} logical @param {{writeSetupDraft?:(raw:string)=>void|Promise<void>}} [io]
-  * @returns {Promise<WriteResult>} */
+  * @returns {Promise<WriteResult|FrozenWrite>} */
  function write(queued,logical,io={}){
   if(conflicted){onFailure('save_conflict');return Promise.resolve({ok:false,conflict:true})}
   const state=clone(queued),baseline=clone(logical);
