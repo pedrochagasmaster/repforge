@@ -1,3 +1,4 @@
+import {parseFreeformProgramReply,assembleFreeformProgramDocument,parseSetsInput,parseRepsInput} from '../interchange/freeform.js';
 /** Entry's private tab session. Pasted source/replies never enter a training
  * proposal, telemetry or backup. Read models are snapshots; named commands
  * own every mutation and the six flow exits call reset(). */
@@ -62,4 +63,36 @@ export function createEntryImportSession({tabStorage}){
   function importSource(){try{return tabStorage().getItem(SOURCE_KEY)==='freeform'?'freeform':'file'}catch{return 'file'}}
   function clearImportSource(){try{tabStorage().removeItem(SOURCE_KEY)}catch{}}
   return Object.freeze({read,load,save,clearStored,reset,setSource,setReply,continueSource,editSource,markOpened,markCopied,copyCompleted,tryAnother,fail,setGaps,clearGaps,setGapAnswer,validateGaps,stageImportSource,importSource,clearImportSource});
+}
+
+/** @typedef {import('../interchange/freeform.js').ParsedProgram} ParsedProgram
+ * @typedef {{kind:'empty'|'unreadable'|'gaps'|'invalid'|'none',gapCount:number}|{kind:'complete',gapCount:0,source:ParsedProgram,originalText:string}} ImportOutcome
+ */
+/** Freeform uses the ordinary file parser and review path. This owner decides
+ * completeness/gaps and clears private text exactly when handing off a review.
+ * UI commands never supply training snapshots or bypass review/activation.
+ * @param {{session:ReturnType<typeof createEntryImportSession>,parseSource:(text:string)=>ParsedProgram|null,sourceName:()=>string}} options
+ */
+export function createEntryImportCommands({session,parseSource,sourceName}){
+ /** @param {ParsedProgram} source @returns {ImportOutcome} */
+ function complete(source){return{kind:'complete',gapCount:0,source,originalText:session.read().source}}
+ /** @returns {ImportOutcome} */
+ function review(){
+  const reply=session.read().reply.trim();if(!reply)return{kind:'empty',gapCount:0};
+  const parsed=parseFreeformProgramReply(reply,parseSource);
+  if(!parsed||parsed.status==='unreadable'){session.fail(parsed?.reason||'no_json');return{kind:'unreadable',gapCount:0}}
+  if(parsed.status==='gaps'){session.setGaps(parsed);return{kind:'gaps',gapCount:parsed.gaps.length}}
+  if(!parsed.exercises.length){session.fail('invalid_rows');return{kind:'unreadable',gapCount:0}}
+  return complete(parsed);
+ }
+ /** @returns {ImportOutcome} */
+ function submitGaps(){
+  const model=session.read();if(!model.gapResult)return{kind:'none',gapCount:0};
+  if(!session.validateGaps({parseSets:parseSetsInput,parseReps:parseRepsInput}))return{kind:'invalid',gapCount:model.gapResult.gaps.length};
+  const document=assembleFreeformProgramDocument(model.gapResult,model.gapAnswers,sourceName());
+  const parsed=document?parseSource(document):null;
+  if(!parsed?.exercises.length){session.fail('assemble_failed');session.clearGaps();return{kind:'unreadable',gapCount:0}}
+  return complete({...parsed,notImported:model.gapResult.notImported||[]});
+ }
+ return Object.freeze({review,submitGaps,reviewOpened:session.reset});
 }

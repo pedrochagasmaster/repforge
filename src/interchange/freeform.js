@@ -7,6 +7,7 @@ import * as unsupportedGrammar from './unsupported-grammar.js';
  * @typedef {{key:string,rowIndex:number,day:string,order:number,name:string,field:string}} Gap
  * @typedef {{status:'gaps',envelope:JsonRecord,exercises:GapExercise[],gaps:Gap[],notImported:string[]}} GapResult
  * @typedef {{exercises:unknown[],[key:string]:unknown}} ParsedProgram
+ * @typedef {ParsedProgram & {status:'complete',notImported:string[]}} CompleteProgram
  */
 /** @param {unknown} value @returns {value is JsonRecord} */
 const isRecord=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
@@ -71,7 +72,7 @@ export function parseSetsInput(str){
    some rows and omits others collides on that pair, and two rows sharing a key
    means one entered number silently lands on a second exercise. */
 /** @param {unknown} candidate @returns {GapResult|null} */
-function readFreeformGapEnvelope(candidate){
+export function readFreeformGapEnvelope(candidate){
   /** @type {unknown} */ let raw=null;
   if(typeof candidate==="string"){
     const trimmed=candidate.trim();
@@ -204,7 +205,7 @@ export function assembleFreeformProgramDocument(gapResult,gapAnswers,sourceName)
    1. Fast path: The JSON the prompt asked for, or plain-text export parser.
    2. Gap path: Structured envelope with missing sidecars or absent numeric fields.
    Nothing incomplete reaches parseProgramSource or the program model. */
-/** @param {unknown} text @param {(source:string)=>ParsedProgram|null} parseProgramSource */
+/** @param {unknown} text @param {(source:string)=>ParsedProgram|null} parseProgramSource @returns {CompleteProgram|GapResult|{status:'unreadable',reason:string}|null} */
 export function parseFreeformProgramReply(text,parseProgramSource){
   const raw=String(text||"");
   if(!raw.trim()||importUtf8Bytes(raw)>IMPORT_MAX_BYTES)return null;
@@ -215,14 +216,14 @@ export function parseFreeformProgramReply(text,parseProgramSource){
     if(parsed?.exercises?.length){
       /** @type {string[]} */ let notImported=[];
       try{notImported=extractNotImported(boundedImportJson(candidate.trim()))}catch{}
-      return Object.assign(parsed,{status:"complete",notImported});
+      return Object.assign(parsed,{status:/** @type {'complete'} */("complete"),notImported});
     }
   }
   const direct=parseProgramSource(raw);
   if(direct?.exercises?.length){
     /** @type {string[]} */ let notImported=[];
     try{notImported=extractNotImported(boundedImportJson(raw.trim()))}catch{}
-    return Object.assign(direct,{status:"complete",notImported});
+    return Object.assign(direct,{status:/** @type {'complete'} */("complete"),notImported});
   }
 
   for(const candidate of candidates){

@@ -70,7 +70,8 @@ export function createEntryController({document,navigator,session,copy,commands,
  }
  function onVisible(){if(document.visibilityState==='visible'&&session.read().stage===3){const out=/** @type {HTMLElement|null} */(q('#entryFreeformOut'));if(out){out.scrollIntoView?.({behavior:scrollBehavior(),block:'nearest'});out.classList.add('is-returned');if(returnTimer!==null)clearTimeout(returnTimer);returnTimer=setTimeout(()=>{out.classList.remove('is-returned');returnTimer=null},2000)}}}
  function mount(){if(mounted||disposed)return;mounted=true;win?.addEventListener('visibilitychange',onVisible)}
- function reset(){session.reset();note=null;sequence++}
+ function resetTransport(){note=null;sequence++}
+ function reset(){session.reset();resetTransport()}
  function dispose(){disposed=true;sequence++;win?.removeEventListener('visibilitychange',onVisible);if(returnTimer!==null)clearTimeout(returnTimer);returnTimer=null}
- return Object.freeze({mount,bind,dispose,reset,importClipboard,renderSource:({activeProgram}=/** @type {{activeProgram:boolean}} */({activeProgram:false}))=>view.renderSource({...model(),activeProgram})});
+ return Object.freeze({mount,bind,dispose,reset,resetTransport,importClipboard,renderSource:({activeProgram}=/** @type {{activeProgram:boolean}} */({activeProgram:false}))=>view.renderSource({...model(),activeProgram})});
 }

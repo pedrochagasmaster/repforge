@@ -29,6 +29,10 @@
     "../../src/ui/focus/**/*.js",
     "../../src/platform/telemetry.js",
     "../../src/platform/motion.js",
-    "../../src/ui/entry/pickers.js"
+    "../../src/ui/entry/pickers.js",
+    "../../src/app/entry.js",
+    "../../src/interchange/freeform.js",
+    "../../src/ui/entry/controller.js",
+    "../../src/ui/entry/view.js"
   ]
 }
