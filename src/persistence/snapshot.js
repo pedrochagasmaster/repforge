@@ -8,7 +8,7 @@ import {cloneSnapshot,isPlainStateObject,canonicalize,isBoundedProgressionValue,
 /** @typedef {'match-only'|'abort-changed'|'abort-same-day'} DraftPrecondition
  * @typedef {{kind:'clear-draft',expectedRaw:string|null,precondition:DraftPrecondition,required?:true,conflictDay?:string}|{kind:'replace-draft',expectedRaw:string,replacementRaw:string,precondition:DraftPrecondition,required?:true,conflictDay?:string}} DraftEffect
  * @typedef {{status:'valid',effect:DraftEffect}|{status:'none',effect:null}|{status:'invalid',effect:null,reason:unknown}} DraftEffectOutcome
- * @typedef {{programMeta?:{id?:unknown,blockId?:unknown},program?:unknown[],settings?:{unit?:unknown,rirMode?:unknown}}} SnapshotIdentity
+ * @typedef {{programMeta?:{id?:unknown,blockId?:unknown}|null,program?:unknown[],settings?:unknown}} SnapshotIdentity
  * @typedef {Record<string,unknown>} RawRecord
  */
 
@@ -200,10 +200,11 @@ function workoutProgramFingerprint(snapshot){
 
 /** @param {SnapshotIdentity|null|undefined} snapshot */
 function draftContextFingerprint(snapshot){
+  const settings=/** @type {RawRecord|null|undefined} */(snapshot?.settings);
   /** @type {Record<string,unknown>} */
     const value={programMetaId:snapshot?.programMeta?.id||null,
     program:Array.isArray(snapshot?.program)?snapshot.program:[],
-    unit:snapshot?.settings?.unit||"kg",rirMode:snapshot?.settings?.rirMode||"numeric"};
+    unit:settings?.unit||"kg",rirMode:settings?.rirMode||"numeric"};
   if(Object.prototype.hasOwnProperty.call(snapshot?.programMeta||{},"blockId"))
     value.programMetaBlockId=snapshot?.programMeta?.blockId;
   return JSON.stringify(canonicalize(value))}
@@ -426,7 +427,8 @@ export { cloneSnapshot, isPlainStateObject, readRevision, unversionedSnapshot, s
 /** @typedef {RawRecord & {id:string,name:string,day:string,libraryId?:string}} ProgramRow
  * @typedef {RawRecord & {id:string,name:string,metricIds?:unknown[],metricDefinitions?:unknown[]}} CustomDefinition
  * @typedef {(id:string)=>RawRecord|null} LibraryLookup
- * @typedef {RawRecord & {program:RawRecord[],log:RawRecord[],programMeta?:RawRecord,settings?:RawRecord,customExercises?:CustomDefinition[],programHistory?:RawRecord[],recoveryTransitions?:unknown}} RawSnapshot
+ * @typedef {RawRecord & {id:string,name:string}} RawCustomDefinition
+ * @typedef {RawRecord & {program:RawRecord[],log:RawRecord[],programMeta?:RawRecord|null,settings?:unknown,customExercises?:RawCustomDefinition[],programHistory?:RawRecord[],recoveryTransitions?:unknown}} RawSnapshot
  * @typedef {RawRecord & {id:string,name:string,created:string,updated:string}} ProgramMetadata
  * @typedef {{program:ProgramRow[],log:RawRecord[],settings:RawRecord,customExercises:CustomDefinition[],programHistory:RawRecord[]}} NormalizedFields
  * @typedef {RawRecord & NormalizedFields & {programMeta:ProgramMetadata}} NormalizedSnapshot
@@ -618,7 +620,7 @@ function isSafeLogRow(entry){
     if(entry.equipmentId!=null&&rawCatalogObject(entry.equipmentId)?.type!=="equipment")return false;
   }
   return true}
-/** @param {unknown} entry @returns {entry is CustomDefinition} */
+/** @param {unknown} entry @returns {entry is RawCustomDefinition} */
 function isSafeCustomExercise(entry){
   if(!isPlainStateObject(entry))return false;
   if(!isValidMuscleDomainTree(entry))return false;
