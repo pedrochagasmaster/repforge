@@ -45,6 +45,7 @@
     "../../src/ui/exercise-media.js",
     "../../src/app/history.js",
     "../../src/app/history-read-models.js",
-    "../../src/ui/history/**/*.js"
+    "../../src/ui/history/**/*.js",
+    "../../src/app/block-transition.js"
   ]
 }

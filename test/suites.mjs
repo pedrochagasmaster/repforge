@@ -29,6 +29,7 @@ export const SUITES = {
 
     s("test/library-addition-commands.mjs", [], {domains:["program","library"],nodeArgs:["--test"]}),
     s("test/custom-command-recovery.mjs", [], {domains:["library","persistence"],nodeArgs:["--test"]}),
+    s("test/app-block-transition.mjs", [], {domains:["program","transition","progress"]}),
     s("test/focus-workout-commands.mjs", [], {domains:["workout","persistence"]}),
     s("test/platform-catalog-contract.mjs", [], {domains:["library","offline"],nodeArgs:["--test"]}),
     s("test/platform-executor-contract.mjs", [], {domains:["program","offline"],nodeArgs:["--test"]}),
