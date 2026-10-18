@@ -8,8 +8,10 @@ import { calendarDayDistance } from "../../progress.js";
  * A command's explicit catalog, identity, clock and display inputs. State/custom
  * lists are operation arguments; no function consults the live app snapshot.
  * `now` is an ISO instant or explicit clock supplied by the caller.
+ * `calendarDate` is the caller's local YYYY-MM-DD (value/getter), independent of
+ * UTC timestamps. Language/default label may be getters for live display state.
  */
-export function createProgramModel({catalog,librarySource={library:[],legacyIds:{}},nextId,now,language="en",defaultExerciseName="Exercise"}) {
+export function createProgramModel({catalog,librarySource={library:[],legacyIds:{}},nextId,now,calendarDate,language="en",defaultExerciseName="Exercise"}) {
 const rawExerciseCatalog=catalog;
 const LIBRARY_BY_ID=new Map((librarySource.library||[]).map(entry=>[entry.id,entry]));
 const LEGACY_LIBRARY_IDS=librarySource.legacyIds||{};
@@ -18,14 +20,17 @@ const MuscleDomain=createEntryRules(catalog);
 const rawExercise=id=>catalog?.exercises?.find(entry=>entry.id===String(id??""))||null;
 const rawCatalogObject=id=>catalog?.uuidIndex?.[String(id??"")]||null;
 const uid=()=>{if(typeof nextId!=="function")throw new TypeError("nextId required to create training identity");return nextId();};
-const isPt=()=>language==="pt";
-const t=key=>{if(key!=="program.default.exercise")throw new TypeError("unknown model label");return defaultExerciseName;};
+const isPt=()=>(typeof language==="function"?language():language)==="pt";
+const t=key=>{if(key!=="program.default.exercise")throw new TypeError("unknown model label");return typeof defaultExerciseName==="function"?defaultExerciseName():defaultExerciseName;};
 const libraryName=entry=>!entry?"":(isPt()&&entry.namePt)||entry.name;
 const isCustomLibraryId=id=>String(id||"").startsWith(CUSTOM_ID_PREFIX);
 const libraryEntry=id=>LIBRARY_BY_ID.get(String(id??""))||null;
 const muscles=value=>MuscleDomain.normalizeMuscleAttribution(value).tokens;
 const volMapToObj=map=>Object.fromEntries([...map].map(([key,value])=>[key,{d:value.d,p:value.p}]));
-const today=()=>requiredNow().slice(0,10);
+const today=()=>{const date=typeof calendarDate==="function"?calendarDate():calendarDate;
+  if(date===undefined)return requiredNow().slice(0,10);
+  if(typeof date!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(date))throw new TypeError("calendarDate must be YYYY-MM-DD");
+  return date;};
 const PLANNED_VOLUME_HISTORY_KEYS=["schemaVersion","throughWeek","plannedSessions","plannedWorkingSets","muscles"];
 const PLANNED_VOLUME_HISTORY_MUSCLE_KEYS=["direct","secondary"];
 const requiredNow=()=>{const instant=typeof now==="function"?now():now;if(typeof instant!=="string")throw new TypeError("now required to create custom exercise timestamp");return instant;};
@@ -691,6 +696,7 @@ class Program{
      structureDays (optional) keeps empty programStructure containers visible. */
   constructor(list=[],lookup=null,structureDays=null,emptyDayContainers=false,options={}){const ids=new Set();
     const preserveLinkedSnapshot=options?.preserveLinkedSnapshot===true;
+    this._lookup=lookup;
     this.exercises=(Array.isArray(list)?list:[]).map(e=>{const ex=new Exercise(e);if(ids.has(ex.id))ex.id=uid();ids.add(ex.id);
       return ex.resolveIdentity(lookup,{preserveLinkedSnapshot})});
     this._structureDays=Array.isArray(structureDays)&&structureDays.length
@@ -719,10 +725,10 @@ class Program{
       // On a linked slot a rename is an alias, never a change of movement: the
       // canonical name comes back if the alias is cleared or matches it.
       if(e.libraryId!==undefined){
-        const entry=libraryEntry(e.libraryId);
+        const entry=this._lookup?this._lookup(e.libraryId):libraryEntry(e.libraryId);
         if(entry&&next&&next!==libraryName(entry))e.displayName=next;
         else delete e.displayName;
-        e.resolveIdentity();
+        e.resolveIdentity(this._lookup);
         return}
       e.name=next}
     else if(field==="primary"||field==="secondary"){

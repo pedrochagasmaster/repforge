@@ -3,7 +3,8 @@ import { createRequire } from "node:module";
 import { createProgramModel } from "../src/training/model.js";
 const require=createRequire(import.meta.url);
 const catalog=require("../assets/exercise-catalog.json");
-const librarySource=require("../exercises.js");
+const {EXERCISE_LIBRARY,LEGACY_LIBRARY_IDS}=require("../exercises.js");
+const librarySource={library:EXERCISE_LIBRARY,legacyIds:LEGACY_LIBRARY_IDS};
 let sequence=0;
 const model=createProgramModel({catalog,librarySource,now:"2026-10-18T12:00:00.000Z",nextId:()=>`new-${++sequence}`});
 const original=[{id:"a",day:"Day 1",order:1,name:"A",sets:3},{id:"b",day:"Day 1",order:2,name:"B",sets:2},{id:"c",day:"Day 1",order:3,name:"C",sets:1}];
@@ -43,3 +44,36 @@ const liveModel=createProgramModel({catalog,now:()=>clock,nextId:()=>"id"});
 assert.equal(liveModel.mesocycleLifecycle(meta).elapsedWeek,1);
 clock="2026-10-19T12:00:00.000Z";
 assert.equal(liveModel.mesocycleLifecycle(meta).elapsedWeek,3,"explicit caller clock is read per operation, never frozen at boot");
+
+// Display dependencies stay explicit and follow the caller's current locale.
+let language="en",label="Exercise",calendarDate="2026-10-04";
+const localized=createProgramModel({catalog,librarySource,nextId:()=>`locale-${++sequence}`,
+  now:()=>"2026-10-05T01:30:00.000Z",calendarDate:()=>calendarDate,
+  language:()=>language,defaultExerciseName:()=>label});
+const localizedProgram=new localized.Program([]);
+assert.equal(localizedProgram.addExercise("A").name,"Exercise");
+language="pt";label="Exercício";
+assert.equal(localizedProgram.addExercise("A").name,"Exercício","new placeholder uses current injected label");
+assert.equal(localized.mesocycleLifecycle(meta).elapsedWeek,1,"local Sunday does not advance to UTC Monday");
+calendarDate="2026-10-12";
+assert.equal(localized.mesocycleLifecycle(meta).elapsedWeek,2,"calendar getter is read per operation");
+const customLookup=localized.snapshotLookup(normalized);
+const linked=new localized.Program([{id:"custom-slot",libraryId:"custom:one",day:"A",name:"old",sets:3}],customLookup);
+linked.update("custom-slot","name","My machine");
+assert.equal(linked.find("custom-slot").displayName,"My machine");
+assert.equal(linked.find("custom-slot").name,"My machine");
+linked.update("custom-slot","name","");
+assert.equal(linked.find("custom-slot").name,"My row","clearing alias resolves the instance's custom snapshot");
+assert.equal(linked.find("custom-slot").displayName,undefined);
+linked.update("custom-slot","name","My row");
+assert.equal(linked.find("custom-slot").displayName,undefined,"canonical custom name does not become redundant alias");
+assert.equal(linked.find("custom-slot").primary,"Lats");
+console.log("PASS injected current labels/local calendar and custom-linked alias edits");
+const translated=librarySource.library.find(entry=>entry.namePt&&entry.namePt!==entry.name);
+assert.ok(translated,"real library has translated entry");
+const translatedProgram=new localized.Program([{id:"translated",libraryId:translated.id,day:"A",name:translated.name,sets:3}]);
+translatedProgram.update("translated","name",translated.namePt);
+assert.equal(translatedProgram.find("translated").displayName,undefined,"current Portuguese canonical label clears alias");
+language="en";
+translatedProgram.update("translated","name",translated.name);
+assert.equal(translatedProgram.find("translated").displayName,undefined,"live language getter is consulted after switching back");
