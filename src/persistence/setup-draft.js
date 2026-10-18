@@ -48,6 +48,14 @@ export function createSetupDraftStore({rules,storage,lock,ownerId,onFailure,onSa
   if(owned?.raw===handle.raw)adopt(null,null);
   return{ok:true};
  }
+ /** Exact-byte replacement for install transfer, already inside transaction().
+  * Transfer owns import/rollback eligibility and adopts only after acknowledgement.
+  * @param {{raw:string|null}} observed @param {string} nextRaw @returns {WriteResult} */
+ function writeObserved(observed,nextRaw){
+  if(readRaw()!==observed.raw)return{ok:false,conflict:true};
+  try{storage.setItem(SETUP_DRAFT_KEY,nextRaw);return{ok:true}}
+  catch{return{ok:false,writeFailed:true}}
+ }
  /** @param {Handle|null} [handle] @returns {Promise<WriteResult|FrozenWrite>} */
  function remove(handle=clone(owned)){return !handle?Promise.resolve({ok:true,absent:true}):transaction(()=>removeObserved(handle))}
  // Resolve the handle when the queued operation runs: an earlier pending write
@@ -74,6 +82,6 @@ export function createSetupDraftStore({rules,storage,lock,ownerId,onFailure,onSa
    owned={raw,envelope};accepted=baseline;failed=false;onSaved();return{ok:true,envelope:clone(envelope)};
   });
  }
- return Object.freeze({readRaw,readRecord,importedEnvelope,transaction,removeObserved,remove,clear,write,adopt,
+ return Object.freeze({readRaw,readRecord,importedEnvelope,transaction,removeObserved,writeObserved,remove,clear,write,adopt,
   handle:()=>clone(owned),baseline:()=>clone(accepted),isConflicted:()=>conflicted,failure:()=>conflicted?'save_conflict':failed?'save_failed':null,flush:()=>tail});
 }
