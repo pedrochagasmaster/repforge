@@ -21,6 +21,8 @@ const s = (file, args = [], extra = {}) => {
 const shards = (count) => Array.from({ length: count }, (_, index) => `${index + 1}/${count}`);
 export const SUITES = {
   "fast": [
+    s("test/interchange-native.mjs", [], {domains:["privacy","program"]}),
+    s("test/interchange-protocol-native.mjs", [], {domains:["privacy","persistence"]}),
     s("test/architecture-source-inventory.mjs", [], {domains:["offline"],nodeArgs:["--test"]}),
     s("test/fixture-runtime-contracts.mjs", [], {domains:["program", "persistence"]}),
     s("test/training-installed-editor.mjs", [], {domains:["program","workout"], nodeArgs:["--test"]}),
@@ -147,6 +149,7 @@ export const SUITES = {
 };
 
 export const SUPPORT = {
+  "test/interchange-runtime.mjs": "Separate-realm native module loader shared by retained transfer contract proofs.",
   "test/persistence-artifacts.mjs": "Imported persistence race evidence collector; standalone self-test retired in the risk ledger.",
   "test/entry-privacy.mjs": "Shared privacy characterization/oracles imported by the four scoped contracts.",
   "test/suites.mjs": "CI/local inventory, imported by tools/run-tests.mjs.",
