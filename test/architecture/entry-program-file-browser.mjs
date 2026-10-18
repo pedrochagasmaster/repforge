@@ -37,6 +37,13 @@ try{
  await target.locator('#importReview.active').waitFor();
  assert.equal(await target.locator('[data-imp-row] .improw__name').innerText(),'Different movement');
  assert.equal(await target.locator('#importCommit').isEnabled(),true);
+ await target.locator('[data-imp-act="expand"]').evaluate(button=>{window.__retainedImportChange=button});
+ await target.click('#importBack');
+ await target.setInputFiles('#importProgram',{name:'replacement.json',mimeType:'application/json',buffer:Buffer.from(fixture.file.text)});
+ await target.locator('#importReview.active').waitFor();
+ await target.evaluate(()=>window.__retainedImportChange.click());
+ assert.equal(await target.locator('[data-imp-row].is-folded').count(),1,'detached previous review control cannot expand a replacement review');
+
  assert.equal(await target.evaluate(()=>localStorage.getItem('repforge_v1')),before,'file review must leave training bytes unchanged');
  await target.click('#importCommit');await target.locator('#entryActivate').waitFor({state:'visible'});
  assert.equal(await target.evaluate(()=>localStorage.getItem('repforge_v1')),before,'staging a candidate must not install it');

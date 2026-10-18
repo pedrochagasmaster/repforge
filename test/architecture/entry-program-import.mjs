@@ -45,3 +45,19 @@ assert.equal(head.customExercises.length,2);assert.equal(JSON.stringify(definiti
 assert.equal(importer.classify({name:'Lat pulldown machine thing'},librarySource.library).status,'probable');
 assert.equal(importer.classify({name:'not a movement 782999'},librarySource.library).status,'unmatched');
 console.log('Program source/import: real text producer, literal alias/refusal bounds, canonical file collision+alternate identity, readonly source and explicit uncertain-match status passed');
+
+// Private review ownership: caller graphs and stale rendered/picker lifetimes
+// cannot change a replacement review through an untracked row mutation.
+const opened=importer.open(review);
+assert.throws(()=>{opened.rows[0].raw.name='escaped mutation'},TypeError);
+review.rows[0].raw.name='retained ingress mutation';
+assert.equal(importer.read().rows[0].raw.name,'Different movement');
+const replacement=importer.open({...review,fileName:'Replacement file'});
+assert.equal(importer.select(opened,'imp0',librarySource.library[0]),null);
+assert.equal(importer.read(),replacement);
+assert.equal(importer.read().fileName,'Replacement file');
+assert.equal(importer.expand(replacement,'imp0').firstResolution,false);
+assert.equal(importer.read().rows[0].expanded,true);
+const pendingPicker=importer.read();importer.close();
+assert.equal(importer.custom(pendingPicker,'imp0',incoming[0]),null);assert.equal(importer.read(),null);
+console.log('Program import private owner: ingress/egress alias protection, replaced render token and closed picker result refusal passed');
