@@ -1,6 +1,15 @@
+/** @typedef {import("./entry-contracts.js").Route} Route */
+/** @typedef {import("./entry-contracts.js").Answers} Answers */
+/** @typedef {import("./entry-contracts.js").Preview} Preview */
+/** @typedef {import("./entry-contracts.js").EntryResult} EntryResult */
+/** @typedef {import("./entry-contracts.js").SetupDraft} SetupDraft */
+/** @typedef {import("./entry-contracts.js").DraftEnvelope} DraftEnvelope */
+/** @typedef {import('../../model/internal/contracts.js').Catalog} Catalog */
+/** @template T @typedef {{ok:true,value:T}|{ok:false,code:string,issues:string[]}} SchemaResult */
+/** @typedef {{ok:true,value:string,tokens:string[]}|{ok:false,code:string,reason:string}} MuscleAttributionResult */
 import { compiler as Compiler } from "../../generation.js";
 
-/** Bind the verified immutable catalog explicitly; drafts never perform IO. */
+/** Bind the verified immutable catalog explicitly; drafts never perform IO. @param {Catalog} catalog */
 export function createEntryRules(catalog) {
 "use strict";
 
@@ -60,23 +69,34 @@ const PROGRAM_REQUEST_KEYS = new Set([
 const PROGRAM_REQUEST_LISTS = Object.freeze([
   "emphasisMuscleIds", "deprioritizedMuscleIds", "excludedExerciseIds", "excludedMuscleIds", "preferredExerciseIds",
 ]);
+/** @type {ReadonlySet<unknown>} */
 const DESIRED_RESULTS = new Set(["muscle_growth", "balanced", "strength"]);
+/** @type {ReadonlySet<unknown>} */
 const STRUCTURED_EXPERIENCE = new Set(["first", "under_6m", "6_to_24m", "over_24m"]);
+/** @type {ReadonlySet<unknown>} */
 const RECENT_CONSISTENCY = new Set(["most", "about_half", "few", "none"]);
 // Generator time ceilings: up to 20, 20–40, 40–60, 60–90, 90–120, over 120 (150).
+/** @type {ReadonlySet<unknown>} */
 const SESSION_MINUTES = new Set([20, 40, 60, 90, 120, 150]);
+/** @type {ReadonlySet<unknown>} */
 const PREFERRED_REST_SECONDS = new Set([null, 60, 90, 120, 180]);
 // B's six presets, in its order. A stored Other resumes as Local gym, whose
 // catalog flag it always shared.
 const ENTRY_ENVIRONMENTS = Object.freeze(["everything", "commercial_gym", "warehouse_gym", "basic_gym", "full_home", "limited_home"]);
+/** @type {ReadonlySet<unknown>} */
 const ENVIRONMENTS = new Set([...ENTRY_ENVIRONMENTS, "other"]);
 // B's Basics. Only weight has a use (the first sessions' bodyweight); the
 // rest stay on the device and never reach the request, a link or telemetry.
+/** @type {ReadonlySet<unknown>} */
 const BASICS_SEX = new Set(["female", "male", "undisclosed"]);
+/** @type {ReadonlySet<unknown>} */
 const CARDIO_EXPERIENCE = new Set(["none", "under_1y", "1_to_4y", "over_4y"]);
+/** @type {ReadonlySet<unknown>} */
 const HEIGHT_UNITS = new Set(["cm", "ftin"]);
+/** @type {ReadonlySet<unknown>} */
 const WEIGHT_UNITS = new Set(["kg", "lb"]);
 const BASICS_KEYS = new Set(["sex", "birthDate", "heightCm", "heightUnit", "weightKg", "weightUnit", "cardioExperience"]);
+/** @type {ReadonlySet<unknown>} */
 const BLOCK_PERIODIZATIONS = new Set(["static", "linear", "reverse_linear", "undulating"]);
 const MAX_CONFIRMATIONS = 160;
 const MAX_CONFIRMATION_PREREQUISITES = 8;
@@ -94,9 +114,12 @@ const VERSION_KEYS = Object.freeze([
 ]);
 // Browse offered the retired family catalogue; it is no longer a route.
 const ROUTES = Object.freeze(["recommend", "custom", "build", "import", "shared"]);
+/** @type {ReadonlySet<unknown>} */
 const ROUTE_SET = new Set(ROUTES);
 // Routes whose result screen is where the candidate is reviewed and activated.
+/** @type {ReadonlySet<unknown>} */
 const RESULT_ROUTES = new Set(["recommend", "custom"]);
+/** @type {Readonly<Record<string,readonly string[]>>} */
 const ROUTE_STEPS = Object.freeze({
   // Onboarding B (ADR 0020, Plan 072): Basics, then gym and equipment, then
   // the program. Each id names what the step asks.
@@ -137,6 +160,7 @@ const ROUTE_STEPS = Object.freeze({
 });
 // A Recommend draft saved on a screen B split or replaced resumes on the
 // screen that now asks that question.
+/** @type {Readonly<Record<string,string>>} */
 const RETIRED_RECOMMEND_STEPS = Object.freeze({ schedule: "days_per_week", priorities: "muscle_priorities" });
 const SHARED_GENERATOR_KEYS = Object.freeze([
   "desiredResult",
@@ -165,6 +189,7 @@ const CUSTOM_KEYS = Object.freeze([
 // Reusable context is deliberately narrower than the answer schema. These
 // are the fields each route actually renders and asks the user to review;
 // anything else must not influence a route's compiler input implicitly.
+/** @type {Readonly<Record<string,readonly string[]>>} */
 const ROUTE_PREFILL_KEYS = Object.freeze({
   recommend: Object.freeze([...SHARED_GENERATOR_KEYS]),
   custom: Object.freeze([...SHARED_GENERATOR_KEYS, "deEmphasizedMuscles", "ignoredMuscles"]),
@@ -174,10 +199,12 @@ const ROUTE_PREFILL_KEYS = Object.freeze({
   shared: Object.freeze([]),
 });
 
+/** @param {unknown} value @param {string} key */
 function hasOwn(value, key) {
   return Object.prototype.hasOwnProperty.call(value, key);
 }
 
+/** @param {unknown} value @returns {value is Record<string,unknown>} */
 function isPlainObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const prototype = Object.getPrototypeOf(value);
@@ -188,14 +215,17 @@ function runtimeProgramCompiler() { return Compiler; }
 
 function runtimeCatalog() { return catalog; }
 
+/** @template T @param {T} value @returns {T} */
 function clone(value) {
-  if (Array.isArray(value)) return value.map(clone);
+  if (Array.isArray(value)) return /** @type {T} */(value.map(clone));
   if (!isPlainObject(value)) return value;
+  /** @type {Record<string,unknown>} */
   const copy = {};
   for (const key of Object.keys(value)) copy[key] = clone(value[key]);
-  return copy;
+  return /** @type {T} */(copy);
 }
 
+/** @param {string} value */
 function utf8Bytes(value) {
   let bytes = 0;
   for (let index = 0; index < value.length; index++) {
@@ -213,10 +243,12 @@ function utf8Bytes(value) {
   return bytes;
 }
 
+/** @param {string} reason @returns {MuscleAttributionResult} */
 function invalidMuscleAttribution(reason) {
   return { ok: false, code: "invalid-muscle-domain", reason };
 }
 
+/** @param {unknown} value @returns {MuscleAttributionResult} */
 function normalizeMuscleAttribution(value) {
   if (value === undefined || value === null) return { ok: true, value: "", tokens: [] };
   if (typeof value !== "string") return invalidMuscleAttribution("expected-string");
@@ -234,21 +266,26 @@ function normalizeMuscleAttribution(value) {
   return { ok: true, value: tokens.join(","), tokens };
 }
 
+/** @param {unknown} value */
 function isCanonicalMuscleAttribution(value) {
   if (typeof value !== "string") return false;
   const result = normalizeMuscleAttribution(value);
   return result.ok && result.value === value;
 }
 
+/** @param {unknown} value */
 function isMuscleToken(value) {
   return typeof value === "string" && MUSCLE_TOKEN_SET.has(value);
 }
 
+/** @param {unknown} value @param {number} maxBytes @returns {string[]} */
 function inspectJson(value, maxBytes) {
   const seen = new WeakSet();
   let nodes = 0;
+  /** @type {string[]} */
   const issues = [];
 
+  /** @param {unknown} current @param {number} depth @param {string} path */
   function visit(current, depth, path) {
     if (issues.length) return;
     nodes++;
@@ -283,7 +320,7 @@ function inspectJson(value, maxBytes) {
         issues.push(`${path}.${key}:forbidden_key`);
         return;
       }
-      visit(current[key], depth + 1, `${path}.${key}`);
+      visit(/** @type {Record<string,unknown>} */(current)[key], depth + 1, `${path}.${key}`);
     }
   }
 
@@ -300,6 +337,7 @@ function inspectJson(value, maxBytes) {
   return [];
 }
 
+/** @param {unknown} value @param {number} maxBytes @returns {{ok:true,value:unknown}|{ok:false,issues:string[]}} */
 function parseBounded(value, maxBytes) {
   if (typeof value !== "string") return { ok: true, value };
   if (utf8Bytes(value) > maxBytes) return { ok: false, issues: ["too_large"] };
@@ -310,26 +348,30 @@ function parseBounded(value, maxBytes) {
   }
 }
 
+/** @template T @param {string} kind @param {string[]} issues @param {T} [value] @returns {SchemaResult<T>} */
 function schemaResult(kind, issues, value) {
   if (issues.length) {
     const code = issues.some((issue) => String(issue).startsWith("invalid-muscle-domain:"))
       ? "invalid-muscle-domain" : `invalid-${kind}`;
     return { ok: false, code, issues };
   }
-  return { ok: true, value };
+  return { ok: true, value:/** @type {T} */(value) };
 }
 
+/** @param {Record<string,unknown>} value @param {ReadonlySet<string>} allowed @param {string} path @param {string[]} issues */
 function rejectUnknownKeys(value, allowed, path, issues) {
   for (const key of Object.keys(value)) {
     if (!allowed.has(key)) issues.push(`${path}.${key}:unknown_key`);
   }
 }
 
+/** @param {unknown} value @returns {value is string} */
 function validToken(value) {
   return typeof value === "string" && value.length > 0 && value.length <= MAX_TOKEN_LENGTH &&
     /^[a-z0-9][a-z0-9_.:@-]*$/.test(value);
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues @param {number} maxLength @returns {string[]} */
 function normalizeTokenList(value, path, issues, maxLength) {
   if (!Array.isArray(value) || value.length > maxLength) {
     issues.push(`${path}:invalid_list`);
@@ -352,6 +394,7 @@ function normalizeTokenList(value, path, issues, maxLength) {
   return output;
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues @param {number} maxLength @param {ReadonlySet<string>} vocabularySet @param {string} label */
 function normalizeVocabularyList(value, path, issues, maxLength, vocabularySet, label) {
   const tokens = normalizeTokenList(value, path, issues, maxLength);
   return tokens.filter((token) => {
@@ -363,14 +406,17 @@ function normalizeVocabularyList(value, path, issues, maxLength, vocabularySet, 
   });
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues @param {number} maxLength */
 function normalizeMuscleList(value, path, issues, maxLength) {
   return normalizeVocabularyList(value, path, issues, maxLength, ENTRY_MUSCLES_SET, "muscle");
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues @param {number} maxLength */
 function normalizeMovementList(value, path, issues, maxLength) {
   return normalizeVocabularyList(value, path, issues, maxLength, ENTRY_MOVEMENTS_SET, "movement");
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues @param {number} maxLength */
 function normalizeStrategyList(value, path, issues, maxLength) {
   if (!Array.isArray(value) || value.length > maxLength) { issues.push(`${path}:invalid_list`); return []; }
   const output = [];
@@ -385,6 +431,7 @@ function normalizeStrategyList(value, path, issues, maxLength) {
   return output;
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues */
 function normalizeEnvironment(value, path, issues) {
   if (!isPlainObject(value)) {
     issues.push(`${path}:required`);
@@ -397,6 +444,7 @@ function normalizeEnvironment(value, path, issues) {
   // draft unchanged. Nothing reads them; the adapter maps Other to Local.
   rejectUnknownKeys(value, new Set(["kind", "adjust", "capabilities", "equipment"]), path, issues);
   if (!ENVIRONMENTS.has(value.kind)) issues.push(`${path}.kind:invalid`);
+  /** @type {Record<string,unknown>} */
   const output = { kind: value.kind };
   for (const key of ["capabilities", "equipment"]) {
     if (hasOwn(value, key)) output[key] = normalizeTokenList(value[key], `${path}.${key}`, issues, MAX_LIST_LENGTH);
@@ -410,12 +458,14 @@ function normalizeEnvironment(value, path, issues) {
 
 // Groups added to and removed from the preset, sorted. Unknown groups are
 // dropped, and a group in both lists cancels out.
+/** @param {unknown} value @param {string} path @param {string[]} issues */
 function normalizeEquipmentAdjust(value, path, issues) {
   if (!isPlainObject(value)) {
     issues.push(`${path}:not_object`);
     return null;
   }
   rejectUnknownKeys(value, new Set(["add", "remove"]), path, issues);
+  /** @type {Record<string,Set<string>>} */
   const lists = {};
   for (const key of ["add", "remove"]) {
     const raw = hasOwn(value, key) ? value[key] : [];
@@ -425,10 +475,12 @@ function normalizeEquipmentAdjust(value, path, issues) {
     }
     lists[key] = new Set(raw.filter((token) => EQUIPMENT_GROUP_SET.has(token)));
   }
+  /** @param {ReadonlySet<string>} from @param {ReadonlySet<string>} other */
   const only = (from, other) => EQUIPMENT_GROUPS.filter((token) => from.has(token) && !other.has(token));
   return { add: only(lists.add, lists.remove), remove: only(lists.remove, lists.add) };
 }
 
+/** @param {unknown} value */
 function validBirthDate(value) {
   const match = typeof value === "string" ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(value) : null;
   if (!match) return false;
@@ -437,19 +489,23 @@ function validBirthDate(value) {
   return year >= 1900 && year <= 2100 && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues */
 function normalizeBasics(value, path, issues) {
   if (!isPlainObject(value)) {
     issues.push(`${path}:not_object`);
     return {};
   }
   rejectUnknownKeys(value, BASICS_KEYS, path, issues);
+  /** @type {Record<string,unknown>} */
   const output = {};
+  /** @param {string} key @param {(value:unknown)=>boolean} valid */
   const take = (key, valid) => {
     if (!hasOwn(value, key) || value[key] === null) return;
     if (!valid(value[key])) issues.push(`${path}.${key}:invalid`);
     else output[key] = value[key];
   };
-  const tenth = (min, max) => (number) => Number.isFinite(number) && number >= min && number <= max
+  /** @param {number} min @param {number} max */
+  const tenth = (min, max) => (/** @type {unknown} */ number) => typeof number === "number" && Number.isFinite(number) && number >= min && number <= max
     && Math.abs(Math.round(number * 10) - number * 10) < 1e-9;
   take("sex", (item) => BASICS_SEX.has(item));
   take("birthDate", validBirthDate);
@@ -463,31 +519,36 @@ function normalizeBasics(value, path, issues) {
 
 // The lifter's profile (Plan 072 OD-4): the Basics answers kept on the
 // device after activation. The weight unit lives in settings.unit instead.
+/** @param {unknown} value @returns {{ok:true,value:import("./entry-contracts.js").Profile}|{ok:false,issues:string[]}} */
 function normalizeProfile(value) {
+  /** @type {string[]} */
   const issues = [];
   if (isPlainObject(value) && hasOwn(value, "weightUnit")) issues.push("$.profile.weightUnit:unexpected");
   const profile = normalizeBasics(value, "$.profile", issues);
   return issues.length ? { ok: false, issues } : { ok: true, value: profile };
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues */
 function normalizeBlock(value, path, issues) {
   if (!isPlainObject(value)) {
     issues.push(`${path}:not_object`);
     return null;
   }
   rejectUnknownKeys(value, new Set(["cycles", "periodization"]), path, issues);
-  if (!Number.isInteger(value.cycles) || value.cycles < 4 || value.cycles > 12) issues.push(`${path}.cycles:invalid`);
+  if (typeof value.cycles !== "number" || !Number.isInteger(value.cycles) || value.cycles < 4 || value.cycles > 12) issues.push(`${path}.cycles:invalid`);
   if (!BLOCK_PERIODIZATIONS.has(value.periodization)) issues.push(`${path}.periodization:invalid`);
   return { cycles: value.cycles, periodization: value.periodization };
 }
 
 // Shape only: whether an exercise and its prerequisites are current catalog
 // objects is the adapter's check, against the catalog it generates from.
+/** @param {unknown} value @param {string} path @param {string[]} issues */
 function normalizeConfirmations(value, path, issues) {
   if (!isPlainObject(value) || Object.keys(value).length > MAX_CONFIRMATIONS) {
     issues.push(`${path}:invalid`);
     return {};
   }
+  /** @type {Record<string,unknown>} */
   const output = {};
   for (const exerciseId of Object.keys(value).sort()) {
     if (!validToken(exerciseId) || !Array.isArray(value[exerciseId])) {
@@ -500,12 +561,14 @@ function normalizeConfirmations(value, path, issues) {
   return output;
 }
 
+/** @param {Record<string,unknown>} answers @param {string} pathPrefix */
 function musclePartitionIssues(answers, pathPrefix) {
+  /** @type {string[]} */
   const issues = [];
-  const primary = answers.primaryMuscles || [];
-  const deemphasized = answers.deEmphasizedMuscles || [];
-  const ignored = answers.ignoredMuscles || [];
-  const movements = answers.priorityMovements || [];
+  const primary = Array.isArray(answers.primaryMuscles) ? answers.primaryMuscles : [];
+  const deemphasized = Array.isArray(answers.deEmphasizedMuscles) ? answers.deEmphasizedMuscles : [];
+  const ignored = Array.isArray(answers.ignoredMuscles) ? answers.ignoredMuscles : [];
+  const movements = Array.isArray(answers.priorityMovements) ? answers.priorityMovements : [];
   if (primary.length > MAX_PRIORITY_MUSCLES) issues.push(`${pathPrefix}.primaryMuscles:too_many`);
   if (movements.length > 2) issues.push(`${pathPrefix}.priorityMovements:too_many`);
   if (deemphasized.length > MAX_MUSCLE_CONTROLS) issues.push(`${pathPrefix}.deEmphasizedMuscles:too_many`);
@@ -523,6 +586,7 @@ function musclePartitionIssues(answers, pathPrefix) {
   return issues;
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues */
 function normalizeConstraints(value, path, issues) {
   if (!Array.isArray(value) || value.length > MAX_LIST_LENGTH) {
     issues.push(`${path}:invalid_list`);
@@ -536,7 +600,7 @@ function normalizeConstraints(value, path, issues) {
       continue;
     }
     rejectUnknownKeys(item, new Set(["exerciseId", "reason"]), path, issues);
-    if (!validToken(item.exerciseId) || !CONSTRAINT_REASONS.includes(item.reason)) {
+    if (!validToken(item.exerciseId) || !(/** @type {readonly unknown[]} */(CONSTRAINT_REASONS)).includes(item.reason)) {
       issues.push(`${path}:invalid_item`);
       continue;
     }
@@ -550,12 +614,14 @@ function normalizeConstraints(value, path, issues) {
   return output;
 }
 
+/** @param {unknown} value */
 function validIsoTimestamp(value) {
   return typeof value === "string" &&
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) &&
     !Number.isNaN(Date.parse(value));
 }
 
+/** @param {unknown} input @returns {SchemaResult<import("./entry-contracts.js").ProgrammingContext>} */
 function normalizeProgrammingContext(input) {
   const parsed = parseBounded(input, MAX_CONTEXT_BYTES);
   if (!parsed.ok) return schemaResult("programming-context", parsed.issues);
@@ -563,6 +629,7 @@ function normalizeProgrammingContext(input) {
   const structural = inspectJson(raw, MAX_CONTEXT_BYTES);
   if (structural.length) return schemaResult("programming-context", structural);
   if (!isPlainObject(raw)) return schemaResult("programming-context", ["root:not_object"]);
+  /** @type {string[]} */
   const issues = [];
   const allowed = new Set([
     "schemaVersion",
@@ -586,7 +653,7 @@ function normalizeProgrammingContext(input) {
   if (!isPlainObject(raw.availability)) issues.push("$.availability:required");
   const availability = isPlainObject(raw.availability) ? raw.availability : {};
   rejectUnknownKeys(availability, new Set(["daysPerWeek", "sessionMinutes", "preferredRestSeconds"]), "$.availability", issues);
-  if (!Number.isInteger(availability.daysPerWeek) || availability.daysPerWeek < 2 || availability.daysPerWeek > 6) {
+  if (typeof availability.daysPerWeek !== "number" || !Number.isInteger(availability.daysPerWeek) || availability.daysPerWeek < 2 || availability.daysPerWeek > 6) {
     issues.push("$.availability.daysPerWeek:invalid");
   }
   if (!SESSION_MINUTES.has(availability.sessionMinutes)) issues.push("$.availability.sessionMinutes:invalid");
@@ -616,9 +683,10 @@ function normalizeProgrammingContext(input) {
   };
   if (!validIsoTimestamp(raw.reviewedAt)) issues.push("$.reviewedAt:invalid");
   issues.push(...musclePartitionIssues(output, "$"));
-  return schemaResult("programming-context", issues, output);
+  return schemaResult("programming-context", issues, /** @type {import("./entry-contracts.js").ProgrammingContext} */(output));
 }
 
+/** @param {unknown} raw @param {string[]} issues */
 function normalizeProgramRequest(raw, issues) {
   const path = "$.answers.programRequest";
   if (!isPlainObject(raw)) {
@@ -627,10 +695,10 @@ function normalizeProgramRequest(raw, issues) {
   }
   rejectUnknownKeys(raw, PROGRAM_REQUEST_KEYS, path, issues);
   const output = clone(raw);
-  if (hasOwn(raw, "goal") && !["hypertrophy", "strength", "hybrid"].includes(raw.goal)) issues.push(`${path}.goal:invalid`);
-  if (hasOwn(raw, "experience") && !["beginner", "intermediate", "advanced"].includes(raw.experience)) issues.push(`${path}.experience:invalid`);
-  if (hasOwn(raw, "daysPerWeek") && (!Number.isInteger(raw.daysPerWeek) || raw.daysPerWeek < 2 || raw.daysPerWeek > 6)) issues.push(`${path}.daysPerWeek:invalid`);
-  if (hasOwn(raw, "timeCeilingMinutes") && ![20, 40, 60, 90, 120, 150].includes(raw.timeCeilingMinutes)) issues.push(`${path}.timeCeilingMinutes:invalid`);
+  if (hasOwn(raw, "goal") && !(/** @type {readonly unknown[]} */(["hypertrophy", "strength", "hybrid"])).includes(raw.goal)) issues.push(`${path}.goal:invalid`);
+  if (hasOwn(raw, "experience") && !(/** @type {readonly unknown[]} */(["beginner", "intermediate", "advanced"])).includes(raw.experience)) issues.push(`${path}.experience:invalid`);
+  if (hasOwn(raw, "daysPerWeek") && (typeof raw.daysPerWeek !== "number" || !Number.isInteger(raw.daysPerWeek) || raw.daysPerWeek < 2 || raw.daysPerWeek > 6)) issues.push(`${path}.daysPerWeek:invalid`);
+  if (hasOwn(raw, "timeCeilingMinutes") && !(/** @type {readonly unknown[]} */([20, 40, 60, 90, 120, 150])).includes(raw.timeCeilingMinutes)) issues.push(`${path}.timeCeilingMinutes:invalid`);
   if (hasOwn(raw, "gymProfile")) {
     if (!isPlainObject(raw.gymProfile)) issues.push(`${path}.gymProfile:not_object`);
     else {
@@ -656,7 +724,7 @@ function normalizeProgramRequest(raw, issues) {
     else {
       rejectUnknownKeys(answers, new Set(COMPETENCY_ANSWERS), `${path}.competencyAnswers`, issues);
       for (const [key, value] of Object.entries(answers)) {
-        if (![true, false, null].includes(value)) issues.push(`${path}.competencyAnswers.${key}:invalid`);
+        if (!(value === true || value === false || value === null)) issues.push(`${path}.competencyAnswers.${key}:invalid`);
       }
     }
   }
@@ -677,14 +745,14 @@ function normalizeProgramRequest(raw, issues) {
       issues.push(`${path}.${key}:invalid`);
     }
   }
-  if (hasOwn(raw, "split") && (typeof raw.split !== "string" || !["auto", "full_body", "upper_lower", "push_pull", "upper_lower_full", "push_pull_legs",
+  if (hasOwn(raw, "split") && (typeof raw.split !== "string" || !(/** @type {readonly unknown[]} */(["auto", "full_body", "upper_lower", "push_pull", "upper_lower_full", "push_pull_legs",
     "upper_lower_upper_lower", "push_pull_hinge_squat", "push_pull_legs_accessories", "upper_lower_upper_lower_upper",
     "push_pull_hinge_squat_accessories", "push_pull_legs_upper_lower", "push_pull_hinge_squat_upper_lower",
-    "push_pull_legs_push_pull_legs"].includes(raw.split))) {
+    "push_pull_legs_push_pull_legs"])).includes(raw.split))) {
     issues.push(`${path}.split:invalid`);
   }
-  if (hasOwn(raw, "periodization") && !["static", "linear", "reverse_linear", "undulating"].includes(raw.periodization)) issues.push(`${path}.periodization:invalid`);
-  if (hasOwn(raw, "cycles") && (!Number.isInteger(raw.cycles) || raw.cycles < 1 || raw.cycles > 12)) issues.push(`${path}.cycles:invalid`);
+  if (hasOwn(raw, "periodization") && !(/** @type {readonly unknown[]} */(["static", "linear", "reverse_linear", "undulating"])).includes(raw.periodization)) issues.push(`${path}.periodization:invalid`);
+  if (hasOwn(raw, "cycles") && (typeof raw.cycles !== "number" || !Number.isInteger(raw.cycles) || raw.cycles < 1 || raw.cycles > 12)) issues.push(`${path}.cycles:invalid`);
   if (hasOwn(raw, "deloadCycles")) {
     if (!Array.isArray(raw.deloadCycles) || raw.deloadCycles.length > 12
       || raw.deloadCycles.some((cycle) => !Number.isInteger(cycle) || cycle < 1 || cycle > (raw.cycles || 12))
@@ -694,12 +762,13 @@ function normalizeProgramRequest(raw, issues) {
     const contexts = raw.executionContexts;
     if (!isPlainObject(contexts) || Object.keys(contexts).length > MAX_CATALOG_SELECTIONS) issues.push(`${path}.executionContexts:invalid`);
     else for (const [exerciseId, mode] of Object.entries(contexts)) {
-      if (!validToken(exerciseId) || !["bilateral", "unilateral"].includes(mode)) issues.push(`${path}.executionContexts.${exerciseId}:invalid`);
+      if (!validToken(exerciseId) || !(/** @type {readonly unknown[]} */(["bilateral", "unilateral"])).includes(mode)) issues.push(`${path}.executionContexts.${exerciseId}:invalid`);
     }
   }
   return output;
 }
 
+/** @param {unknown} raw @param {string[]} issues */
 function normalizeAnswers(raw, issues) {
   if (!isPlainObject(raw)) {
     issues.push("$.answers:not_object");
@@ -719,6 +788,7 @@ function normalizeAnswers(raw, issues) {
     "movementConfirmations",
   ]);
   rejectUnknownKeys(raw, allowed, "$.answers", issues);
+  /** @type {Record<string,unknown>} */
   const output = {};
   if (hasOwn(raw, "programRequest")) output.programRequest = normalizeProgramRequest(raw.programRequest, issues);
   if (hasOwn(raw, "desiredResult")) {
@@ -734,7 +804,7 @@ function normalizeAnswers(raw, issues) {
     else output.recentConsistency = raw.recentConsistency;
   }
   if (hasOwn(raw, "daysPerWeek")) {
-    if (!Number.isInteger(raw.daysPerWeek) || raw.daysPerWeek < 2 || raw.daysPerWeek > 6) issues.push("$.answers.daysPerWeek:invalid");
+    if (typeof raw.daysPerWeek !== "number" || !Number.isInteger(raw.daysPerWeek) || raw.daysPerWeek < 2 || raw.daysPerWeek > 6) issues.push("$.answers.daysPerWeek:invalid");
     else output.daysPerWeek = raw.daysPerWeek;
   }
   if (hasOwn(raw, "sessionMinutes")) {
@@ -783,16 +853,17 @@ function normalizeAnswers(raw, issues) {
     if (!isPlainObject(answers)) issues.push("$.answers.competencyAnswers:not_object");
     else {
       rejectUnknownKeys(answers, new Set(COMPETENCY_ANSWERS), "$.answers.competencyAnswers", issues);
+      /** @type {Record<string,unknown>} */
       const normalizedCompetency = {};
       for (const [key, value] of Object.entries(answers)) {
-        if (![true, false, null].includes(value)) issues.push(`$.answers.competencyAnswers.${key}:invalid`);
+        if (!(value === true || value === false || value === null)) issues.push(`$.answers.competencyAnswers.${key}:invalid`);
         else normalizedCompetency[key] = value;
       }
       output.competencyAnswers = normalizedCompetency;
     }
   }
-  const mustHave = new Set(output.mustHaveExercises || []);
-  for (const constraint of output.exerciseConstraints || []) {
+  const mustHave = new Set(Array.isArray(output.mustHaveExercises)?output.mustHaveExercises:[]);
+  for (const constraint of Array.isArray(output.exerciseConstraints)?output.exerciseConstraints:[]) {
     if (mustHave.has(constraint.exerciseId)) issues.push(`$.answers:must_have_avoided:${constraint.exerciseId}`);
   }
   for (const key of ["splitPreference", "catalogueSelection"]) {
@@ -813,12 +884,14 @@ function normalizeAnswers(raw, issues) {
   return output;
 }
 
+/** @param {unknown} raw @param {string[]} issues */
 function normalizeVersions(raw, issues) {
   if (!isPlainObject(raw)) {
     issues.push("$.versions:not_object");
     return {};
   }
   rejectUnknownKeys(raw, new Set(VERSION_KEYS), "$.versions", issues);
+  /** @type {Record<string,unknown>} */
   const output = {};
   for (const key of VERSION_KEYS) {
     // The two policy pins were added after the original draft shape. Keep
@@ -836,6 +909,7 @@ const RESULT_KEYS = new Set([
   "selected", "candidates", "alternative", "diagnostics", "explanation", "preview",
   "telemetry", "serviceVersion",
 ]);
+/** @type {Readonly<Record<string,ReadonlySet<string>>>} */
 const RESULT_ROUTE_KEYS = Object.freeze({
   recommend: new Set(["selected", "candidates", "alternative", "diagnostics", "explanation", "telemetry", "serviceVersion"]),
   custom: new Set(["selected", "candidates", "alternative", "diagnostics", "explanation", "telemetry", "serviceVersion"]),
@@ -859,7 +933,9 @@ const SELECTED_KEYS = new Set([
 ]);
 const ALTERNATIVE_KEYS = new Set([...SELECTED_KEYS, "fingerprint", "provenance", "reason", "preview"]);
 const ALTERNATIVE_REASON_KEYS = new Set(["code", "facts"]);
+/** @type {ReadonlySet<unknown>} */
 const ALTERNATIVE_REASON_CODES = new Set(["compatible_split_variation"]);
+/** @type {Readonly<Record<string,ReadonlySet<string>>>} */
 const PREVIEW_KEYS = Object.freeze({
   recommend: new Set(["source", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "customExercises"]),
   custom: new Set(["source", "frequency", "blueprintId", "program", "programDefinition", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "customExercises"]),
@@ -889,12 +965,14 @@ const CUSTOM_EXERCISE_KEYS = new Set(["id", "name", "namePt", "equipment", "prim
 const SHARED_SETTINGS_KEYS = new Set(["jumpPct", "minJump", "rirHigh", "hardRir", "restSec", "unit", "lang", "rirMode"]);
 const SHARED_META_KEYS = new Set(["name", "goal", "experience", "daysPerWeek", "splitType", "equipment", "priorityMuscles", "sessionLength", "mesocycleLengthWeeks"]);
 
+/** @param {unknown} value @param {string} path @param {string[]} issues @param {number} [maxLength] */
 function optionalString(value, path, issues, maxLength = MAX_PROGRAM_NAME_LENGTH) {
   if (value !== undefined && value !== null && (typeof value !== "string" || value.length > maxLength)) {
     issues.push(`${path}:invalid`);
   }
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues */
 function normalizeMuscleField(value, path, issues) {
   if (value === undefined || value === null) return value;
   if (typeof value !== "string") {
@@ -913,6 +991,7 @@ function normalizeMuscleField(value, path, issues) {
   return result.value;
 }
 
+/** @param {Record<string,unknown>} value @param {string} path @param {string[]} issues */
 function validateDayMetadata(value, path, issues) {
   if (hasOwn(value, "displayNameKey")) {
     const match = typeof value.displayNameKey === "string"
@@ -925,6 +1004,7 @@ function validateDayMetadata(value, path, issues) {
   if (hasOwn(value, "nameOverride")) optionalString(value.nameOverride, `${path}.nameOverride`, issues, 200);
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues */
 function validateSelected(value, path, issues) {
   if (!isPlainObject(value)) {
     issues.push(`${path}:not_object`);
@@ -936,11 +1016,12 @@ function validateSelected(value, path, issues) {
     if (hasOwn(value, key) && !validToken(value[key])) issues.push(`${path}.${key}:invalid`);
   }
   for (const key of ["name", "namePt"]) if (hasOwn(value, key)) optionalString(value[key], `${path}.${key}`, issues);
-  if (hasOwn(value, "daysPerWeek") && (!Number.isInteger(value.daysPerWeek) || value.daysPerWeek < 2 || value.daysPerWeek > 6)) {
+  if (hasOwn(value, "daysPerWeek") && (typeof value.daysPerWeek !== "number" || !Number.isInteger(value.daysPerWeek) || value.daysPerWeek < 2 || value.daysPerWeek > 6)) {
     issues.push(`${path}.daysPerWeek:invalid`);
   }
 }
 
+/** @param {unknown} value @param {string|null} route @param {string} path @param {string[]} issues */
 function validateAlternative(value, route, path, issues) {
   if (!isPlainObject(value)) { issues.push(`${path}:not_object`); return; }
   rejectUnknownKeys(value, ALTERNATIVE_KEYS, path, issues);
@@ -967,10 +1048,12 @@ function validateAlternative(value, route, path, issues) {
 // an entry token: the authoritative engine permits camelCase targets (and a
 // null target for modifiers that adjust no field), while the surrounding
 // modifier envelope remains closed below.
+/** @param {unknown} value */
 function validModifierTarget(value) {
   return value === null || (typeof value === "string" && value.trim().length > 0);
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues */
 function validateProgression(value, path, issues) {
   if (!isPlainObject(value)) { issues.push(`${path}:not_object`); return; }
   rejectUnknownKeys(value, PROGRESSION_KEYS, path, issues);
@@ -979,7 +1062,7 @@ function validateProgression(value, path, issues) {
   else {
     rejectUnknownKeys(value.strategy, STRATEGY_KEYS, `${path}.strategy`, issues);
     if (!validToken(value.strategy.id)) issues.push(`${path}.strategy.id:invalid`);
-    if (!Number.isInteger(value.strategy.version) || value.strategy.version < 1) issues.push(`${path}.strategy.version:invalid`);
+    if (typeof value.strategy.version !== "number" || !Number.isInteger(value.strategy.version) || value.strategy.version < 1) issues.push(`${path}.strategy.version:invalid`);
     if (!isPlainObject(value.strategy.params)) issues.push(`${path}.strategy.params:invalid`);
     else if (inspectJson(value.strategy.params, MAX_CONTEXT_BYTES).length) issues.push(`${path}.strategy.params:invalid`);
   }
@@ -990,14 +1073,15 @@ function validateProgression(value, path, issues) {
     if (!isPlainObject(modifier)) { issues.push(`${modifierPath}:not_object`); return; }
     rejectUnknownKeys(modifier, MODIFIER_KEYS, modifierPath, issues);
     if (!validToken(modifier.id)) issues.push(`${modifierPath}.id:invalid`);
-    if (modifier.version !== undefined && (!Number.isInteger(modifier.version) || modifier.version < 1)) issues.push(`${modifierPath}.version:invalid`);
+    if (modifier.version !== undefined && (typeof modifier.version !== "number" || !Number.isInteger(modifier.version) || modifier.version < 1)) issues.push(`${modifierPath}.version:invalid`);
     if (modifier.compatibleStrategies !== undefined) normalizeStrategyList(modifier.compatibleStrategies, `${modifierPath}.compatibleStrategies`, issues, MAX_LIST_LENGTH);
-    if (modifier.weekNumber !== undefined && (!Number.isInteger(modifier.weekNumber) || modifier.weekNumber < 1)) issues.push(`${modifierPath}.weekNumber:invalid`);
+    if (modifier.weekNumber !== undefined && (typeof modifier.weekNumber !== "number" || !Number.isInteger(modifier.weekNumber) || modifier.weekNumber < 1)) issues.push(`${modifierPath}.weekNumber:invalid`);
     if (modifier.target !== undefined && !validModifierTarget(modifier.target)) issues.push(`${modifierPath}.target:invalid`);
     if (modifier.params !== undefined && !isPlainObject(modifier.params)) issues.push(`${modifierPath}.params:invalid`);
   });
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues @param {{allowInternalMuscles?:boolean}} [options] */
 function validateStructure(value, path, issues, { allowInternalMuscles = false } = {}) {
   if (value === null) return;
   if (!isPlainObject(value)) { issues.push(`${path}:not_object`); return; }
@@ -1010,7 +1094,7 @@ function validateStructure(value, path, issues, { allowInternalMuscles = false }
     rejectUnknownKeys(day, new Set(["dayId", "label", "order", "displayNameKey", "nameOverride"]), dayPath, issues);
     if (!validToken(day.dayId)) issues.push(`${dayPath}.dayId:invalid`);
     if (typeof day.label !== "string") issues.push(`${dayPath}.label:invalid`);
-    if (!Number.isInteger(day.order)) issues.push(`${dayPath}.order:invalid`);
+    if (typeof day.order !== "number" || !Number.isInteger(day.order)) issues.push(`${dayPath}.order:invalid`);
     validateDayMetadata(day, dayPath, issues);
   });
   if (value.provenance !== undefined) {
@@ -1023,7 +1107,7 @@ function validateStructure(value, path, issues, { allowInternalMuscles = false }
       const prescriptionPath = `${path}.weekPrescriptions[${index}]`;
       if (!isPlainObject(prescription)) { issues.push(`${prescriptionPath}:not_object`); return; }
       rejectUnknownKeys(prescription, new Set(["week", "days", "phase"]), prescriptionPath, issues);
-      if (prescription.week !== undefined && (!Number.isInteger(prescription.week) || prescription.week < 1)) issues.push(`${prescriptionPath}.week:invalid`);
+      if (prescription.week !== undefined && (typeof prescription.week !== "number" || !Number.isInteger(prescription.week) || prescription.week < 1)) issues.push(`${prescriptionPath}.week:invalid`);
       if (prescription.phase !== undefined && !validToken(prescription.phase)) issues.push(`${prescriptionPath}.phase:invalid`);
       if (prescription.days !== undefined) {
         if (!Array.isArray(prescription.days)) issues.push(`${prescriptionPath}.days:invalid`);
@@ -1037,7 +1121,7 @@ function validateStructure(value, path, issues, { allowInternalMuscles = false }
             const slotPath = `${dayPath}.slots[${slotIndex}]`;
             if (!isPlainObject(slot)) { issues.push(`${slotPath}:not_object`); return; }
             rejectUnknownKeys(slot, new Set(["slotId", "sets", "primary", "secondary"]), slotPath, issues);
-            if (!validToken(slot.slotId) || !Number.isInteger(slot.sets)) issues.push(`${slotPath}:invalid`);
+            if (!validToken(slot.slotId) || typeof slot.sets !== "number" || !Number.isInteger(slot.sets)) issues.push(`${slotPath}:invalid`);
             for (const key of ["primary", "secondary"]) {
               if (slot[key] !== undefined && typeof slot[key] !== "string") {
                 issues.push(`${slotPath}.${key}:invalid`);
@@ -1052,6 +1136,7 @@ function validateStructure(value, path, issues, { allowInternalMuscles = false }
   }
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues */
 function validateCustomExercises(value, path, issues) {
   if (!Array.isArray(value) || value.length > MAX_LIST_LENGTH) { issues.push(`${path}:invalid`); return; }
   value.forEach((item, index) => {
@@ -1080,6 +1165,7 @@ function validateCustomExercises(value, path, issues) {
   });
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues */
 function validateRelations(value, path, issues) {
   if (!Array.isArray(value) || value.length > MAX_LIST_LENGTH) { issues.push(`${path}:invalid`); return; }
   value.forEach((relation, index) => {
@@ -1097,6 +1183,7 @@ function validateRelations(value, path, issues) {
   });
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues */
 function validateProgressionIncompatibility(value, path, issues) {
   if (!isPlainObject(value)) { issues.push(`${path}:invalid`); return; }
   rejectUnknownKeys(value, INCOMPATIBILITY_KEYS, path, issues);
@@ -1110,6 +1197,7 @@ function validateProgressionIncompatibility(value, path, issues) {
   }
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues */
 function validateFacts(value, path, issues) {
   if (!isPlainObject(value)) { issues.push(`${path}:not_object`); return; }
   rejectUnknownKeys(value, new Set(["desiredResult", "structuredExperience", "recentConsistency", "daysPerWeek", "sessionMinutes", "mainConstraint", "familyId", "diagnostics"]), path, issues);
@@ -1124,6 +1212,7 @@ function validateFacts(value, path, issues) {
   }
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues @param {{allowInternalMuscles?:boolean}} [options] */
 function validateProgramRow(value, path, issues, { allowInternalMuscles = false } = {}) {
   if (!isPlainObject(value)) { issues.push(`${path}:not_object`); return; }
   rejectUnknownKeys(value, PROGRAM_ROW_KEYS, path, issues);
@@ -1149,17 +1238,21 @@ function validateProgramRow(value, path, issues, { allowInternalMuscles = false 
   if (hasOwn(value, "progressionIncompatibility")) validateProgressionIncompatibility(value.progressionIncompatibility, `${path}.progressionIncompatibility`, issues);
 }
 
+/** @param {unknown} programDefinition */
 function definitionSlots(programDefinition) {
   if (!isPlainObject(programDefinition) || !Array.isArray(programDefinition.days)) return [];
-  return programDefinition.days.flatMap((day) => day?.kind === "training" && Array.isArray(day.slots)
-    ? day.slots.map((slot) => ({ day, slot })) : []);
+  return programDefinition.days.flatMap((/** @type {unknown} */ day) =>
+    isPlainObject(day) && day.kind === "training" && Array.isArray(day.slots)
+      ? day.slots.filter(isPlainObject).map((slot) => ({ day, slot })) : []);
 }
 
+/** @param {Record<string,unknown>} preview @param {string} path @param {string[]} issues */
 function validateFlatProgramProjection(preview, path, issues) {
   if (!Array.isArray(preview.program)) {
     issues.push(`${path}.program:required_projection`);
     return;
   }
+  const program=preview.program;
   const slots = definitionSlots(preview.programDefinition);
   if (preview.program.length !== slots.length) {
     issues.push(`${path}.program:definition_mismatch`);
@@ -1167,12 +1260,12 @@ function validateFlatProgramProjection(preview, path, issues) {
   }
   const seen = new Set();
   slots.forEach(({ day, slot }, index) => {
-    const row = preview.program[index];
+    const row = program[index];
     const cycle = Array.isArray(slot.prescriptionsByCycle)
-      ? slot.prescriptionsByCycle.find((item) => item.cycleIndex === 1) : null;
+      ? slot.prescriptionsByCycle.find((/** @type {unknown} */ item) => isPlainObject(item)&&item.cycleIndex === 1) : null;
     const definitions = Array.isArray(slot.metricDefinitions) ? slot.metricDefinitions : [];
-    const hasRepTarget = definitions.some((definition) =>
-      definition.semantic === "reps" || definition.semantic === "repsPerSide");
+    const hasRepTarget = definitions.some((/** @type {unknown} */ definition) =>
+      isPlainObject(definition)&&(definition.semantic === "reps" || definition.semantic === "repsPerSide"));
     if (!isPlainObject(row) || row.id !== slot.id || row.slotId !== slot.id || row.dayId !== day.id
       || row.day !== day.name || row.order !== slot.order || row.libraryId !== slot.exerciseId
       || !cycle || !Array.isArray(cycle.sets) || row.sets !== cycle.sets.length
@@ -1190,11 +1283,12 @@ function validateFlatProgramProjection(preview, path, issues) {
   });
 }
 
+/** @param {unknown} value @param {string|null} route @param {string} path @param {string[]} issues */
 function validatePreview(value, route, path, issues) {
   if (!isPlainObject(value)) { issues.push(`${path}:not_object`); return; }
-  rejectUnknownKeys(value, PREVIEW_KEYS[route] || PREVIEW_KEYS.recommend, path, issues);
+  rejectUnknownKeys(value, PREVIEW_KEYS[route||""] || PREVIEW_KEYS.recommend, path, issues);
   for (const key of ["source", "family", "familyId", "blueprintId", "format"]) if (hasOwn(value, key)) optionalString(value[key], `${path}.${key}`, issues);
-  if (hasOwn(value, "frequency") && (!Number.isInteger(value.frequency) || value.frequency < 1 || value.frequency > 7)) issues.push(`${path}.frequency:invalid`);
+  if (hasOwn(value, "frequency") && (typeof value.frequency !== "number" || !Number.isInteger(value.frequency) || value.frequency < 1 || value.frequency > 7)) issues.push(`${path}.frequency:invalid`);
   if (!hasOwn(value, "programDefinition")) {
     issues.push(`${path}.programDefinition:required`);
   } else {
@@ -1238,8 +1332,8 @@ function validatePreview(value, route, path, issues) {
       for (const key of ["id", "dayId"]) if (hasOwn(day, key)) optionalString(day[key], `${dayPath}.${key}`, issues, MAX_TOKEN_LENGTH);
       if (hasOwn(day, "label")) optionalString(day.label, `${dayPath}.label`, issues);
       validateDayMetadata(day, dayPath, issues);
-      if (hasOwn(day, "order") && !Number.isInteger(day.order)) issues.push(`${dayPath}.order:invalid`);
-      if (hasOwn(day, "estimateMinutes") && (!Number.isInteger(day.estimateMinutes) || day.estimateMinutes < 0)) issues.push(`${dayPath}.estimateMinutes:invalid`);
+      if (hasOwn(day, "order") && (typeof day.order !== "number" || !Number.isInteger(day.order))) issues.push(`${dayPath}.order:invalid`);
+      if (hasOwn(day, "estimateMinutes") && (typeof day.estimateMinutes !== "number" || !Number.isInteger(day.estimateMinutes) || day.estimateMinutes < 0)) issues.push(`${dayPath}.estimateMinutes:invalid`);
       if (hasOwn(day, "exercises")) {
         if (!Array.isArray(day.exercises)) issues.push(`${dayPath}.exercises:invalid`);
         else day.exercises.forEach((row, rowIndex) => validateProgramRow(row, `${dayPath}.exercises[${rowIndex}]`, issues, { allowInternalMuscles }));
@@ -1274,7 +1368,7 @@ function validatePreview(value, route, path, issues) {
     else {
       rejectUnknownKeys(value.sharedMeta, SHARED_META_KEYS, `${path}.sharedMeta`, issues);
       if (value.sharedMeta.name !== undefined) optionalString(value.sharedMeta.name, `${path}.sharedMeta.name`, issues, 100);
-      if (value.sharedMeta.daysPerWeek !== undefined && (!Number.isInteger(value.sharedMeta.daysPerWeek) || value.sharedMeta.daysPerWeek < 1 || value.sharedMeta.daysPerWeek > 7)) issues.push(`${path}.sharedMeta.daysPerWeek:invalid`);
+      if (value.sharedMeta.daysPerWeek !== undefined && (typeof value.sharedMeta.daysPerWeek !== "number" || !Number.isInteger(value.sharedMeta.daysPerWeek) || value.sharedMeta.daysPerWeek < 1 || value.sharedMeta.daysPerWeek > 7)) issues.push(`${path}.sharedMeta.daysPerWeek:invalid`);
       if (value.sharedMeta.equipment !== undefined) normalizeTokenList(value.sharedMeta.equipment, `${path}.sharedMeta.equipment`, issues, MAX_LIST_LENGTH);
       if (value.sharedMeta.priorityMuscles !== undefined && !Array.isArray(value.sharedMeta.priorityMuscles)) issues.push(`${path}.sharedMeta.priorityMuscles:invalid`);
     }
@@ -1283,9 +1377,9 @@ function validatePreview(value, route, path, issues) {
     if (!isPlainObject(value.sharedSettings)) issues.push(`${path}.sharedSettings:invalid`);
     else {
       rejectUnknownKeys(value.sharedSettings, SHARED_SETTINGS_KEYS, `${path}.sharedSettings`, issues);
-      if (value.sharedSettings.lang !== undefined && !["en", "pt"].includes(value.sharedSettings.lang)) issues.push(`${path}.sharedSettings.lang:invalid`);
-      if (value.sharedSettings.unit !== undefined && !["kg", "lb"].includes(value.sharedSettings.unit)) issues.push(`${path}.sharedSettings.unit:invalid`);
-      if (value.sharedSettings.rirMode !== undefined && !["numeric", "effort"].includes(value.sharedSettings.rirMode)) issues.push(`${path}.sharedSettings.rirMode:invalid`);
+      if (value.sharedSettings.lang !== undefined && !(/** @type {readonly unknown[]} */(["en", "pt"])).includes(value.sharedSettings.lang)) issues.push(`${path}.sharedSettings.lang:invalid`);
+      if (value.sharedSettings.unit !== undefined && !(/** @type {readonly unknown[]} */(["kg", "lb"])).includes(value.sharedSettings.unit)) issues.push(`${path}.sharedSettings.unit:invalid`);
+      if (value.sharedSettings.rirMode !== undefined && !(/** @type {readonly unknown[]} */(["numeric", "effort"])).includes(value.sharedSettings.rirMode)) issues.push(`${path}.sharedSettings.rirMode:invalid`);
       for (const key of ["jumpPct", "minJump", "rirHigh", "hardRir", "restSec"]) if (value.sharedSettings[key] !== undefined && (typeof value.sharedSettings[key] !== "number" || !Number.isFinite(value.sharedSettings[key]))) issues.push(`${path}.sharedSettings.${key}:invalid`);
     }
   }
@@ -1305,6 +1399,7 @@ function validatePreview(value, route, path, issues) {
   }
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues */
 function validateLoadingConfiguration(value, path, issues) {
   if (value === null) return;
   if (!isPlainObject(value)) { issues.push(`${path}:invalid`); return; }
@@ -1330,12 +1425,14 @@ function validateLoadingConfiguration(value, path, issues) {
 
 // Plan 069 S4: Build slots whose "Suggest loads" switch is on but not yet
 // confirmed by activation. Slot ids only; the draft keeps no other opt-in.
+/** @param {unknown} value @param {string} path @param {string[]} issues */
 function validateSuggestLoadsPending(value, path, issues) {
   if (!Array.isArray(value) || !value.length || value.length > MAX_CATALOG_SELECTIONS
     || value.some((id) => typeof id !== "string" || !id || id.length > 256)
     || new Set(value).size !== value.length) issues.push(`${path}:invalid`);
 }
 
+/** @param {unknown} answers */
 function answerFingerprint(answers) {
   const text = stableStringify(answers || {});
   let hash = 0x811c9dc5;
@@ -1346,14 +1443,16 @@ function answerFingerprint(answers) {
   return `ans-${(hash >>> 0).toString(16).padStart(8, "0")}`;
 }
 
+/** @param {unknown} value @returns {string} */
 function stableStringify(value) {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
   if (value && typeof value === "object") {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(/** @type {Record<string,unknown>} */(value)[key])}`).join(",")}}`;
   }
   return JSON.stringify(value);
 }
 
+/** @param {unknown} raw @param {string|null} route @param {Record<string,unknown>} answers @param {string[]} issues @param {boolean} persisted */
 function normalizeResult(raw, route, answers, issues, persisted) {
   if (!isPlainObject(raw)) {
     issues.push("$.result:not_object");
@@ -1367,7 +1466,7 @@ function normalizeResult(raw, route, answers, issues, persisted) {
     ? { ...clone(raw), schemaVersion: SCHEMA_VERSION, route, answersFingerprint: answerFingerprint(answers) }
     : raw;
   if (persisted) {
-    const routeKeys = RESULT_ROUTE_KEYS[route] || new Set();
+    const routeKeys = RESULT_ROUTE_KEYS[route||""] || new Set();
     for (const key of Object.keys(candidate)) {
       if (!RESULT_KEYS.has(key)) issues.push(`$.result.${key}:unknown_key`);
       else if (!RESULT_COMMON_KEYS.has(key) && !routeKeys.has(key)) issues.push(`$.result.${key}:not_allowed_for_route`);
@@ -1380,14 +1479,15 @@ function normalizeResult(raw, route, answers, issues, persisted) {
     else validatePreview(candidate.preview, route, "$.result.preview", issues);
     if (hasOwn(candidate, "selected")) validateSelected(candidate.selected, "$.result.selected", issues);
     if (hasOwn(candidate, "alternative") && candidate.alternative !== null) {
-      const richAlternative = isPlainObject(candidate.alternative) &&
+      const alternative=candidate.alternative;
+      const richAlternative = isPlainObject(alternative) &&
         ["fingerprint", "provenance", "reason", "preview"].some((key) => hasOwn(candidate.alternative, key));
-      if (richAlternative) {
+      if (richAlternative && isPlainObject(alternative)) {
         validateAlternative(candidate.alternative, route, "$.result.alternative", issues);
-        if (candidate.alternative.fingerprint === candidate.fingerprint) issues.push("$.result.alternative.fingerprint:not_independent");
-        if (candidate.alternative.blueprintId === candidate.selected?.blueprintId) issues.push("$.result.alternative.blueprintId:not_independent");
-        if (candidate.alternative.preview?.blueprintId !== candidate.alternative.blueprintId) issues.push("$.result.alternative.preview.blueprintId:mismatch");
-        if (candidate.alternative.preview?.frequency !== candidate.alternative.daysPerWeek) issues.push("$.result.alternative.preview.frequency:mismatch");
+        if (alternative.fingerprint === candidate.fingerprint) issues.push("$.result.alternative.fingerprint:not_independent");
+        if (alternative.blueprintId === (isPlainObject(candidate.selected)?candidate.selected.blueprintId:undefined)) issues.push("$.result.alternative.blueprintId:not_independent");
+        if ((isPlainObject(alternative.preview)?alternative.preview.blueprintId:undefined) !== alternative.blueprintId) issues.push("$.result.alternative.preview.blueprintId:mismatch");
+        if ((isPlainObject(alternative.preview)?alternative.preview.frequency:undefined) !== alternative.daysPerWeek) issues.push("$.result.alternative.preview.frequency:mismatch");
       }
       else validateSelected(candidate.alternative, "$.result.alternative", issues);
     }
@@ -1412,7 +1512,7 @@ function normalizeResult(raw, route, answers, issues, persisted) {
     }
     if (hasOwn(candidate, "diagnostics")) validateFacts(candidate.diagnostics, "$.result.diagnostics", issues);
     if (hasOwn(candidate, "explanation")) validateFacts(candidate.explanation, "$.result.explanation", issues);
-    for (const key of RESULT_ROUTE_KEYS[route] || []) {
+    for (const key of RESULT_ROUTE_KEYS[route||""] || []) {
       // Recommendation/custom previews historically carried their selected
       // candidate only after the user made a choice. Keep those resumable
       // drafts readable, while every persisted activation route remains
@@ -1425,6 +1525,7 @@ function normalizeResult(raw, route, answers, issues, persisted) {
   return clone(candidate);
 }
 
+/** @param {unknown} input @returns {SchemaResult<SetupDraft>} */
 function normalizeSetupDraft(input) {
   const parsed = parseBounded(input, MAX_DRAFT_BYTES);
   if (!parsed.ok) return schemaResult("setup-draft", parsed.issues);
@@ -1432,6 +1533,7 @@ function normalizeSetupDraft(input) {
   const structural = inspectJson(raw, MAX_DRAFT_BYTES);
   if (structural.length) return schemaResult("setup-draft", structural);
   if (!isPlainObject(raw)) return schemaResult("setup-draft", ["root:not_object"]);
+  /** @type {string[]} */
   const issues = [];
   const allowed = new Set([
     "schemaVersion",
@@ -1456,17 +1558,17 @@ function normalizeSetupDraft(input) {
   const step = RESULT_ROUTES.has(raw.route) && raw.step === "preview" ? "result" : raw.step;
   // A Recommend draft saved on a screen B split or replaced stays valid as
   // stored; resumeSetupDraft moves it to the screen that now asks.
-  const retired = raw.route === "recommend" && hasOwn(RETIRED_RECOMMEND_STEPS, step);
+  const retired = raw.route === "recommend" && hasOwn(RETIRED_RECOMMEND_STEPS, String(step));
   if (ROUTE_SET.has(raw.route) && step !== "entry" && step !== "activation_conflict" && !retired &&
-    !ROUTE_STEPS[raw.route].includes(step)) {
+    !ROUTE_STEPS[typeof raw.route==="string"?raw.route:""].includes(/** @type {string} */(step))) {
     issues.push("$.step:invalid_for_route");
   }
   const answers = normalizeAnswers(raw.answers, issues);
   issues.push(...musclePartitionIssues(answers, "$.answers"));
   if (!isPlainObject(raw.legacyHints)) issues.push("$.legacyHints:not_object");
-  const result = raw.result === null ? null : normalizeResult(raw.result, raw.route, answers, issues, true);
+  const result = raw.result === null ? null : normalizeResult(raw.result, typeof raw.route==="string"?raw.route:null, answers, issues, true);
   const versions = normalizeVersions(raw.versions, issues);
-  if (!Number.isInteger(raw.activeProgramRevisionAtStart) || raw.activeProgramRevisionAtStart < 0) {
+  if (typeof raw.activeProgramRevisionAtStart !== "number" || !Number.isInteger(raw.activeProgramRevisionAtStart) || raw.activeProgramRevisionAtStart < 0) {
     issues.push("$.activeProgramRevisionAtStart:invalid");
   }
   if (!validIsoTimestamp(raw.createdAt)) issues.push("$.createdAt:invalid");
@@ -1484,9 +1586,10 @@ function normalizeSetupDraft(input) {
     createdAt: raw.createdAt,
     updatedAt: raw.updatedAt,
   };
-  return schemaResult("setup-draft", issues, output);
+  return schemaResult("setup-draft", issues, /** @type {SetupDraft} */(output));
 }
 
+/** @param {unknown} input @returns {SchemaResult<{envelope:DraftEnvelope,migrated:boolean}>} */
 function normalizeSetupDraftEnvelope(input) {
   const parsed = parseBounded(input, MAX_DRAFT_ENVELOPE_BYTES);
   if (!parsed.ok) return schemaResult("setup-draft-envelope", parsed.issues);
@@ -1512,18 +1615,19 @@ function normalizeSetupDraftEnvelope(input) {
       },
     };
   }
+  /** @type {string[]} */
   const issues = [];
   rejectUnknownKeys(raw, new Set(["schemaVersion", "draftId", "revision", "ownerId", "state"]), "$", issues);
   if (raw.schemaVersion !== SCHEMA_VERSION) issues.push("$.schemaVersion:unsupported");
   if (typeof raw.draftId !== "string" || raw.draftId.length < 1 || raw.draftId.length > 64) {
     issues.push("$.draftId:invalid");
   }
-  if (!Number.isInteger(raw.revision) || raw.revision < 0) issues.push("$.revision:invalid");
+  if (typeof raw.revision !== "number" || !Number.isInteger(raw.revision) || raw.revision < 0) issues.push("$.revision:invalid");
   if (raw.ownerId !== null && !validToken(raw.ownerId)) issues.push("$.ownerId:invalid");
   const state = normalizeSetupDraft(raw.state);
   if (!state.ok) issues.push(...state.issues.map((issue) => `$.state:${issue}`));
   else if (state.value.draftId !== raw.draftId) issues.push("$.draftId:state_mismatch");
-  return schemaResult("setup-draft-envelope", issues, {
+  return schemaResult("setup-draft-envelope", issues, /** @type {{envelope:DraftEnvelope,migrated:boolean}} */({
     envelope: {
       schemaVersion: SCHEMA_VERSION,
       draftId: raw.draftId,
@@ -1532,9 +1636,10 @@ function normalizeSetupDraftEnvelope(input) {
       state: state.ok ? state.value : null,
     },
     migrated: false,
-  });
+  }));
 }
 
+/** @param {unknown} observed @param {unknown} nextState @param {unknown} ownerId */
 function advanceSetupDraftEnvelope(observed, nextState, ownerId) {
   const current = normalizeSetupDraftEnvelope(observed);
   if (!current.ok || current.value.migrated) throw new TypeError("Observed setup draft envelope is invalid");
@@ -1553,6 +1658,7 @@ function advanceSetupDraftEnvelope(observed, nextState, ownerId) {
   };
 }
 
+/** @param {unknown} input @param {unknown} options */
 function migrateLegacyAnswers(input, options) {
   const parsed = parseBounded(input, MAX_CONTEXT_BYTES);
   if (!parsed.ok) return schemaResult("legacy-answers", parsed.issues);
@@ -1565,10 +1671,13 @@ function migrateLegacyAnswers(input, options) {
   const compatibleSplits = Array.isArray(config.compatibleSplits) && config.compatibleSplits.length <= 2
     ? config.compatibleSplits.filter(validToken)
     : [];
+  /** @type {Record<string,unknown>} */
   const answers = {};
+  /** @type {Record<string,unknown>} */
   const legacyHints = {};
   const reviewRequired = [];
 
+  /** @param {string} key @param {unknown} value */
   function hint(key, value) {
     if (value === undefined) return;
     legacyHints[key] = clone(value);
@@ -1588,7 +1697,7 @@ function migrateLegacyAnswers(input, options) {
 
   if (hasOwn(raw, "daysPerWeek")) {
     hint("daysPerWeek", raw.daysPerWeek);
-    if (Number.isInteger(raw.daysPerWeek) && raw.daysPerWeek >= 2 && raw.daysPerWeek <= 6) {
+    if (typeof raw.daysPerWeek === "number" && Number.isInteger(raw.daysPerWeek) && raw.daysPerWeek >= 2 && raw.daysPerWeek <= 6) {
       answers.daysPerWeek = raw.daysPerWeek;
     }
     reviewRequired.push("schedule");
@@ -1609,7 +1718,7 @@ function migrateLegacyAnswers(input, options) {
 
   if (hasOwn(raw, "splitType")) {
     hint("splitType", raw.splitType);
-    if (route === "custom" && compatibleSplits.includes(raw.splitType)) {
+    if (route === "custom" && typeof raw.splitType === "string" && compatibleSplits.includes(raw.splitType)) {
       answers.splitPreference = raw.splitType;
     }
     if (route === "custom") reviewRequired.push("custom_shape");
@@ -1633,7 +1742,9 @@ function migrateLegacyAnswers(input, options) {
   };
 }
 
+/** @param {unknown} source @param {readonly string[]} keys @returns {Record<string,unknown>} */
 function copyKeys(source, keys) {
+  /** @type {Record<string,unknown>} */
   const result = {};
   if (!isPlainObject(source)) return result;
   for (const key of keys) {
@@ -1642,6 +1753,7 @@ function copyKeys(source, keys) {
   return result;
 }
 
+/** @param {unknown} input */
 function programmingContextAnswers(input) {
   const normalized = normalizeProgrammingContext(input);
   if (!normalized.ok) return {};
@@ -1662,11 +1774,13 @@ function programmingContextAnswers(input) {
   };
 }
 
+/** @param {unknown} input @param {string} route */
 function reusableContextAnswers(input, route) {
   if (!ROUTE_SET.has(route)) return {};
   return copyKeys(programmingContextAnswers(input), ROUTE_PREFILL_KEYS[route]);
 }
 
+/** @param {Record<string,unknown>} answers @param {string|null} fromRoute @param {string} toRoute */
 function compatibleAnswers(answers, fromRoute, toRoute) {
   if (toRoute === "recommend" || toRoute === "custom") {
     const kept = copyKeys(answers, SHARED_GENERATOR_KEYS);
@@ -1680,6 +1794,7 @@ function compatibleAnswers(answers, fromRoute, toRoute) {
   return {};
 }
 
+/** @param {unknown} options @returns {SetupDraft} */
 function createState(options) {
   const input = isPlainObject(options) ? options : {};
   return {
@@ -1691,7 +1806,7 @@ function createState(options) {
     legacyHints: {},
     result: null,
     versions: isPlainObject(input.versions) ? clone(input.versions) : {},
-    activeProgramRevisionAtStart: Number.isInteger(input.activeProgramRevisionAtStart)
+    activeProgramRevisionAtStart: typeof input.activeProgramRevisionAtStart === "number" && Number.isInteger(input.activeProgramRevisionAtStart)
       ? input.activeProgramRevisionAtStart
       : 0,
     createdAt: typeof input.now === "string" ? input.now : "",
@@ -1699,16 +1814,18 @@ function createState(options) {
   };
 }
 
+/** @param {unknown} state */
 function assertState(state) {
   if (!isPlainObject(state)) throw new TypeError("Program-entry state must be an object");
   if (state.route !== null && !ROUTE_SET.has(state.route)) throw new TypeError("Unknown program-entry route");
   if (state.route === null && state.step !== "entry") throw new TypeError("Entry state cannot name a route step");
   if (state.route !== null && state.step !== "entry" && state.step !== "activation_conflict" &&
-    !ROUTE_STEPS[state.route].includes(state.step)) {
+    !ROUTE_STEPS[typeof state.route==="string"?state.route:""].includes(/** @type {string} */(state.step))) {
     throw new TypeError("Step does not belong to route");
   }
 }
 
+/** @param {SetupDraft} state @param {Route} route @param {unknown} options */
 function selectRoute(state, route, options) {
   assertState(state);
   if (!ROUTE_SET.has(route)) throw new TypeError("Unknown program-entry route");
@@ -1729,11 +1846,13 @@ function selectRoute(state, route, options) {
   };
 }
 
+/** @param {SetupDraft} state @param {unknown} patch */
 function setAnswers(state, patch) {
   assertState(state);
   if (!isPlainObject(patch)) throw new TypeError("Answer patch must be an object");
   const structural = inspectJson(patch, MAX_DRAFT_BYTES);
   if (structural.length) throw new TypeError(`Invalid answer patch: ${structural.join(",")}`);
+  /** @type {string[]} */
   const issues = [];
   const normalized = normalizeAnswers(patch, issues);
   if (issues.length) throw new TypeError(`Invalid answer patch: ${issues.join(",")}`);
@@ -1747,6 +1866,7 @@ function setAnswers(state, patch) {
   };
 }
 
+/** @param {SetupDraft} state @param {unknown} result */
 function setResult(state, result) {
   assertState(state);
   if (result === null || result === undefined) throw new TypeError("Result is required");
@@ -1764,6 +1884,7 @@ function setResult(state, result) {
   return { ...clone(state), result: next };
 }
 
+/** @param {SetupDraft} state */
 function validationIssues(state) {
   assertState(state);
   const answers = state.answers || {};
@@ -1771,11 +1892,13 @@ function validationIssues(state) {
     case "entry": return state.route ? [] : ["route_required"];
     case "desired_result": return answers.desiredResult ? [] : ["desired_result_required"];
     case "background": {
+      /** @type {string[]} */
       const issues = [];
       if (!answers.structuredExperience) issues.push("structured_experience_required");
       return issues;
     }
     case "schedule": {
+      /** @type {string[]} */
       const issues = [];
       if (!answers.daysPerWeek) issues.push("days_per_week_required");
       if (!answers.sessionMinutes) issues.push("session_minutes_required");
@@ -1805,24 +1928,28 @@ function validationIssues(state) {
       return issues;
     }
     case "catalogue": {
+      /** @type {string[]} */
       const issues = [];
       if (!answers.catalogueSelection) issues.push("catalogue_selection_required");
       if (!state.result) issues.push("catalogue_preview_required");
       return issues;
     }
     case "build_setup": {
+      /** @type {string[]} */
       const issues = [];
       if (!answers.programName) issues.push("program_name_required");
       if (!answers.daysPerWeek) issues.push("days_per_week_required");
       return issues;
     }
     case "import_source": {
+      /** @type {string[]} */
       const issues = [];
       if (!answers.importReady) issues.push("import_source_required");
       if (!state.result) issues.push("import_preview_required");
       return issues;
     }
     case "shared_review": {
+      /** @type {string[]} */
       const issues = [];
       if (!answers.sharedReady) issues.push("shared_review_required");
       if (!state.result) issues.push("shared_preview_required");
@@ -1837,26 +1964,29 @@ function validationIssues(state) {
 
 /* Where a candidate is reviewed before Activate: the result screen on the
    generated routes, the preview on the others. */
+/** @param {string|null} route */
 function reviewStep(route) {
   return RESULT_ROUTES.has(route) ? "result" : "preview";
 }
 
+/** @param {SetupDraft} state */
 function advance(state) {
   assertState(state);
   const issues = validationIssues(state);
   if (issues.length) return { ok: false, state: clone(state), issues };
   if (state.step === "entry") return { ok: true, state: clone(state), issues: [] };
-  const steps = ROUTE_STEPS[state.route];
+  const steps = ROUTE_STEPS[typeof state.route==="string"?state.route:""];
   const index = steps.indexOf(state.step);
   const nextStep = steps[Math.min(index + 1, steps.length - 1)];
   return { ok: true, state: { ...clone(state), step: nextStep }, issues: [] };
 }
 
+/** @param {SetupDraft} state */
 function back(state) {
   assertState(state);
   if (state.step === "entry") return clone(state);
   if (state.step === "activation_conflict") return { ...clone(state), step: reviewStep(state.route) };
-  const steps = ROUTE_STEPS[state.route];
+  const steps = ROUTE_STEPS[typeof state.route==="string"?state.route:""];
   const index = steps.indexOf(state.step);
   if (index === 0) return { ...clone(state), step: "entry" };
   // The building moment only runs a generation; Back passes over it.
@@ -1864,16 +1994,19 @@ function back(state) {
   return { ...clone(state), step: previous };
 }
 
+/** @param {unknown} saved @param {unknown} current */
 function changedVersions(saved, current) {
   if (!isPlainObject(saved) || !isPlainObject(current)) return VERSION_KEYS.slice();
   // Drafts written before the two policy pins existed have no value to
   // compare. Treat their released baseline as version 1 during migration;
   // a real later pin still reports its own independent drift.
+  /** @type {Record<string,string>} */
   const legacyDefaults = { recentConsistency: "1", simpleStart: "1" };
   return VERSION_KEYS.filter((key) =>
     (saved[key] ?? legacyDefaults[key]) !== (current[key] ?? legacyDefaults[key]));
 }
 
+/** @param {unknown} input @param {unknown} options */
 function resumeSetupDraft(input, options) {
   const normalized = normalizeSetupDraft(input);
   if (!normalized.ok) return normalized;
@@ -1900,6 +2033,7 @@ function resumeSetupDraft(input, options) {
   };
 }
 
+/** @param {SetupDraft} state @param {string} now */
 function updateTimestamp(state, now) {
   assertState(state);
   if (!validIsoTimestamp(now)) throw new TypeError("Invalid update timestamp");
@@ -1909,6 +2043,7 @@ function updateTimestamp(state, now) {
   return { ...clone(state), updatedAt: now };
 }
 
+/** @param {unknown} options */
 function startOver(options) {
   return {
     state: createState(options),
@@ -1916,10 +2051,12 @@ function startOver(options) {
   };
 }
 
+/** @param {SetupDraft} state */
 function candidateActivationIssues(state) {
   assertState(state);
   const preview = state.result?.preview;
   const program = Array.isArray(preview?.program) ? preview.program : [];
+  /** @type {string[]} */
   const issues = [];
   const definition = preview?.programDefinition;
   if (!isPlainObject(definition)) {
@@ -1932,7 +2069,7 @@ function candidateActivationIssues(state) {
     issues.push("program_definition_validator_unavailable");
     return issues;
   }
-  const customDefinitions = (Array.isArray(preview.customExercises) ? preview.customExercises : []).map((item) => {
+  const customDefinitions = (Array.isArray(preview?.customExercises) ? preview.customExercises : []).map((item) => {
     if (!isPlainObject(item)) return item;
     return {
       id: item.id,
@@ -1951,24 +2088,25 @@ function candidateActivationIssues(state) {
     issues.push("program_definition_invalid");
     return issues;
   }
-  validateFlatProgramProjection(preview, "$.result.preview", issues);
+  if(preview)validateFlatProgramProjection(preview, "$.result.preview", issues);
   if (Array.isArray(preview?.progressionIncompatibilities) && preview.progressionIncompatibilities.length) {
     issues.push("progression_incompatible:program");
   }
   if (!program.length) issues.push("program_exercises_required");
   for (const exercise of program) {
     if (!exercise || typeof exercise !== "object" || !String(exercise.name || "").trim() ||
-      !Number.isInteger(exercise.sets) || exercise.sets < 1 ||
-      (exercise.hasRepTarget && (!Number.isInteger(exercise.min) || exercise.min < 1 ||
-        !Number.isInteger(exercise.max) || exercise.max < exercise.min)) ||
+      typeof exercise.sets !== "number" || !Number.isInteger(exercise.sets) || exercise.sets < 1 ||
+      (exercise.hasRepTarget && (typeof exercise.min !== "number" || !Number.isInteger(exercise.min) || exercise.min < 1 ||
+        typeof exercise.max !== "number" || !Number.isInteger(exercise.max) || exercise.max < exercise.min)) ||
       (!exercise.hasRepTarget && (hasOwn(exercise, "min") || hasOwn(exercise, "max")))) {
       issues.push(`exercise_invalid:${String(exercise?.id || "unknown")}`);
     }
   }
   for (const { slot } of definitionSlots(definition)) {
-    const cycle = slot.prescriptionsByCycle?.find((item) => item.cycleIndex === 1);
-    if (!slot.metricIds?.length || !Array.isArray(cycle?.sets)
-      || cycle.sets.some((set) => set.status === "configuration_required")) {
+    const cycles=Array.isArray(slot.prescriptionsByCycle)?slot.prescriptionsByCycle:[];
+    const cycle = cycles.find((/** @type {unknown} */ item)=>isPlainObject(item)&&item.cycleIndex===1);
+    if (!Array.isArray(slot.metricIds)||!slot.metricIds.length || !Array.isArray(cycle?.sets)
+      || cycle.sets.some((/** @type {unknown} */ set) => isPlainObject(set)&&set.status === "configuration_required")) {
       issues.push(`metric_configuration_required:${slot.id}`);
     }
   }
@@ -1981,10 +2119,11 @@ function candidateActivationIssues(state) {
   return issues;
 }
 
+/** @param {SetupDraft} state @param {unknown} options */
 function activationReadiness(state, options) {
   assertState(state);
   const config = isPlainObject(options) ? options : {};
-  if (!Number.isInteger(config.liveActiveProgramRevision) || config.liveActiveProgramRevision < 0) {
+  if (typeof config.liveActiveProgramRevision !== "number" || !Number.isInteger(config.liveActiveProgramRevision) || config.liveActiveProgramRevision < 0) {
     return { ok: false, code: "live_revision_required" };
   }
   if (config.liveActiveProgramRevision !== state.activeProgramRevisionAtStart) {

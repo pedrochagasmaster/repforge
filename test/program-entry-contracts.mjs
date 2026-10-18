@@ -144,3 +144,13 @@ test("typed generation answers keep unknown prerequisites unconfirmed and reject
     },
   }), /competencyAnswers\.pullups10:invalid/);
 });
+
+// A rejected definition must not throw while its flat projection is inspected.
+test("malformed nested compiler slots are refused as schema failures", () => {
+  const {state}=canonicalCandidate();
+  const malformed=structuredClone(state);
+  malformed.result.preview.programDefinition.days.find(day=>day.kind==="training").slots[0]=null;
+  const result=Entry.normalizeSetupDraft(malformed);
+  assert.equal(result.ok,false);
+  assert.ok(result.issues.some(issue=>issue.includes("programDefinition:invalid")));
+});
