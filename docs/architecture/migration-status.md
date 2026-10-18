@@ -4,15 +4,23 @@ Owner-authorized implementation of [specification #447](https://github.com/pedro
 
 Implementation base: `147e4afa07fea3243efd42b5b7d167c196c6a7ca`. Specification imported from `46c1996901841868ba133e860cc5662b053effa6` without merging #447 to main. Runtime is unchanged at initialization. A checkbox closes only with its objective evidence and review recorded below.
 
+## Current acceptance: 5 of 20
+
+Accepted: slices1,3,4,6,7. Fifteen remain open. Independent implementation review supports the four new acceptances: native pure model/training consumption and strict closure; verified catalog plus one app/worker generation authority; browser-free snapshot policy; one durable/preferences owner with qualified outcomes and lock-held checkpoint preflight. The missed pending-checkpoint promotion was corrected in `4e08ce9f` before slice7 acceptance. Physical bridge/classic deletion, public type-edge enforcement and full final-head/offline CI remain explicit slices19–20 gates, not claims attached to intermediate pushes.
+
+Independent evidence: `/tmp/core-independent-native-proof.json`, `/tmp/core-native-worker-independent.json` (actual worker50/0), `/tmp/core-training-model-final-independent.json`, source-produced snapshot/fixed-point/refusal contracts, immutable233 result corpus, actual DraftV2 storage81 and integrated persistence107.42s. Reviewer independently reproduced the pending-promotion failure and verified the common lock-held guard; new proof has4 positive and16 competing-head refusals preserving canonical/checkpoint bytes. Motion's actual vendor follow-up is reviewed separately and does not prematurely close slice11.
+
+The sections below record earlier checkpoints; their smaller acceptance totals describe those earlier revisions. Latest acceptance is the checklist here.
+
 ## Implementation checklist
 
 - [x] 1. Baseline and reconciliation contract
 - [ ] 2. ESM/checkJs and release protocol
-- [ ] 3. Pure values/model/log/progression extraction
-- [ ] 4. Generator/catalog/executor ESM
+- [x] 3. Pure values/model/log/progression extraction
+- [x] 4. Generator/catalog/executor ESM
 - [ ] 5. Authoring/entry/edit/replay pure seams
-- [ ] 6. Pure snapshot policy
-- [ ] 7. Durable instance and preferences ownership
+- [x] 6. Pure snapshot policy
+- [x] 7. Durable instance and preferences ownership
 - [ ] 8. App session/workout commands
 - [ ] 9. Program/custom/history command policy
 - [ ] 10. Interchange and transfer local orchestration
