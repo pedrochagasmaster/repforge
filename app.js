@@ -1,5 +1,5 @@
 import {createEntryController} from './src/ui/entry/controller.js';
-import {createEntryImportSession,FREEFORM_MAX_CHARS} from './src/app/entry.js';
+import {createEntryImportSession,createEntryImportCommands,FREEFORM_MAX_CHARS} from './src/app/entry.js';
 import * as FreeformGrammar from './src/interchange/freeform.js';
 import * as InstallPolicy from './src/platform/install.js';
 import {createInstallView} from './src/ui/settings/install.js';
