@@ -1,3 +1,4 @@
+import {evidence as progressEvidence} from "../training/progress.js";
 /** Read models take snapshots and already-derived training facts. They never read
  * a store, schedule work, allocate identity or decide a recommendation/outcome.
  * Names are localized by the catalog/presentation boundary before projection.
@@ -93,4 +94,35 @@ export function buildSummaryReadModel({ summary, dayLabel, volumeDisplay, nextLa
     liftGroups: summary.liftGroups.map(lift => Object.freeze({ ...lift, displayName: liftNames[lift.liftKey] ?? lift.name })),
     muscles: summary.muscles.map(muscle => Object.freeze({ ...muscle, label: muscleNames[muscle.name] ?? muscle.name })),
     next: summary.next ? Object.freeze({ ...summary.next, label: nextLabel }) : null });
+}
+
+/** Exercise detail groups acknowledged rows without normalizing saved identity.
+ * Row projection supplies canonical e1RM and attribution; this builder owns only
+ * grouping, maxima and display ordering, never training recommendations.
+ * @param {import('./exercise-contracts.js').ExerciseFacts} facts
+ */
+export function buildExerciseReadModel({rows,prs,summaries,comparisons}){
+  const sessions=groupExerciseSessions(rows);
+  const work=rows.filter(row=>!row.warmup),events=[...prs].reverse();
+  return Object.freeze({sessions:Object.freeze(sessions.map(session=>Object.freeze({...session,rows:Object.freeze(session.rows.map(row=>Object.freeze({...row})))}))),
+    topLoad:Math.max(0,...work.map(row=>Number(row.load)||0)),bestE:work.length?Math.max(...work.map(row=>row.e1rm)):0,
+    prCount:prs.length,loadPr:events.find(event=>event.kind==='load'),e1Pr:events.find(event=>event.kind==='e1rm'),summaries:Object.freeze([...summaries]),
+    recent:Object.freeze([...sessions].reverse().slice(0,8).map(session=>Object.freeze({...session,rows:Object.freeze(session.rows.map(row=>Object.freeze({...row}))),
+      best:[...session.rows].filter(row=>!row.warmup).sort((a,b)=>Number(b.load)-Number(a.load)||Number(b.reps)-Number(a.reps))[0],
+      comparison:comparisons.get(session.session)||null})))});
+}
+
+/** @param {readonly import("./exercise-contracts.js").ExerciseRow[]} rows */
+export function groupExerciseSessions(rows){
+  /** @type {Map<string|number|undefined,import('./exercise-contracts.js').ExerciseSession>} */
+  const groups=new Map();
+  for(const row of rows){
+    let session=groups.get(row.session);
+    if(!session){session={session:row.session,date:row.date,day:row.day,created:row.created,rows:[],note:''};groups.set(row.session,session)}
+    if(!session.date&&row.date)session.date=row.date;
+    if(!session.created&&row.created)session.created=row.created;
+    session.rows.push(row);
+    if(!session.note&&String(row.exNote||'').trim())session.note=String(row.exNote).trim();
+  }
+  return [...groups.values()].sort(progressEvidence.compareChronology);
 }

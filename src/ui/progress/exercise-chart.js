@@ -183,7 +183,7 @@ function chartMotionIntent(prev,model){
 function settleBeat(el,cls,remove=false){
   if(!el)return;
   let over=false,timer=0;
-  const clear=()=>{clearTimeout(timer);el.removeEventListener("animationend",end);el.removeEventListener("animationcancel",end);cleanups.delete(clear)};
+  const clear=()=>{clearTimeout(timer);el.removeEventListener("animationend",end);el.removeEventListener("animationcancel",end);if(remove)el.remove();else el.classList.remove(cls);cleanups.delete(clear)};
   const end=/** @param {Event} [e] */ e=>{if(over||(e&&e.target!==el))return;over=true;clear();if(remove)el.remove();else el.classList.remove(cls)};
   cleanups.add(clear);timer=setTimeout(end,700);
   el.addEventListener("animationend",end);el.addEventListener("animationcancel",end)}

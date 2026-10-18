@@ -21,6 +21,7 @@ try{
   await new Promise((resolve,reject)=>{const tx=db.transaction('kv','readwrite');tx.objectStore('kv').put(state,'repforge_v1');tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});db.close();
  });
  await page.reload();await waitForAppBoot(page,{base});
+ const savedBefore=await page.evaluate(()=>localStorage.getItem('repforge_v1'));
  await page.locator('nav [data-view="stats"]').click();
  await page.locator('#overviewStrength [data-ovkey]').first().click();
  await page.waitForSelector('#exercise.active .exchart__plot');
@@ -37,6 +38,15 @@ try{
  assert.equal(await page.locator('#exDetail [data-metric="e1rm"]').getAttribute('aria-pressed'),'true');
  assert.match(await page.locator('.exchart__readout').innerText(),/57/,'45 × 8 Epley value is literal 57');
  await page.locator('#exBack').click();await page.waitForSelector('#stats.active');
+ await page.locator('nav [data-view="log"]').click();
+ await page.locator('#log [data-exopen]').first().click();
+ await page.waitForSelector('#exercise.active #exChart');
+ assert.equal(await page.locator('.exdet__stats .statrow__val').first().innerText(),'3','detail includes the three fixed sessions');
+ assert.match(await page.locator('.exdet__stats .statrow__val').nth(1).innerText(),/45/,'detail top load is the fixed 45kg');
+ assert.equal(await page.locator('.exsess').count(),3,'detail has all fixed sessions');
+ assert.equal(await page.evaluate(()=>window.__repforgeChartLastPresentation),'trend','canvas owns honest three-point trend');
+ await page.locator('#exBack').click();await page.waitForSelector('#log.active');
+ assert.equal(await page.evaluate(()=>localStorage.getItem('repforge_v1')),savedBefore,'chart/detail navigation and selection preserve acknowledged bytes');
  assert.deepEqual(errors,[],'actual app has no module-scope leaks');
  await context.close();console.log('PASS real Exercise chart scope/metric/point/focus/Back with fixed history oracle');
 }finally{await browser.close()}

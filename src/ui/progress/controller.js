@@ -128,4 +128,4 @@ return Object.freeze({mount,dispose,presentation,renderEvidence:renderEvidenceVi
   state:()=>Object.freeze({segment:statsSeg,evidence:evidenceView,strengthScope,volumeScope,prFilter})});
 }
 
-export {createExerciseChart} from "./exercise-chart.js";
+export {createExerciseController} from "./exercise.js";

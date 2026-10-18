@@ -30,7 +30,7 @@ import {createCatalog,CATALOG_URL} from './src/platform/catalog.js';
 import {create as createProgramExecutor,url as programWorkerUrl} from './src/platform/program-executor.js';
 import {createGenerationRules} from './src/training/generation.js';
 import {createEntryAdapter} from './src/training/authoring.js';
-import {createProgressController,createExerciseChart} from './src/ui/progress/controller.js';
+import {createProgressController,createExerciseController} from './src/ui/progress/controller.js';
 import {createReviewController} from './src/ui/progress/review.js';
 import {createReviewCommands} from './src/app/review.js';
 import {evidence as NativeProgressModel,buildSessionSummary as deriveSessionSummary,sessionOutcomeGroups as deriveSessionOutcomeGroups} from './src/training/progress.js';
@@ -2138,9 +2138,8 @@ async function applyFatigueTrim(){
 
 /** True while the card being written is the one that just gained a set. */
 const focusIsFresh=(ex,peek)=>!peek&&!!focusUi.logged&&focusUi.logged.exId===ex.id;
-let exView=null;
 /** The Progress chart page: scope, metric and the selected point (null = the latest session). */
-let ExerciseChart=null;
+let ExerciseUi=null;
 let workoutActive=false,workoutLeft=false,programEditMode=false,setupEditorOpen=false;
 /* The editor module owns the draft document. Hosts retain only its lifecycle
    and adapter session so the installed editor can stay private until Done. */
@@ -5363,7 +5362,7 @@ function render(){applyI18n();
   setWorkoutActive(workoutActive);
   renderToday();renderTabs();renderWorkout();renderStats();HistoryUi.render();ProgramUi.renderProgram();renderSettings();renderBlockPrompt();
   updateSessionBanner();
-  if(exView&&$("#exercise")?.classList.contains("active"))renderExerciseView();
+  if(ExerciseUi?.active()&&$("#exercise")?.classList.contains("active"))renderExerciseView();
   queueMicrotask(()=>maybeShowContextualGuides())}
 
 function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
@@ -6339,8 +6338,15 @@ async function mountDashboardPresentation(){
     review:ReviewUi,queries:{review:reviewReadModel,strength:strengthEvidenceReadModel,volume:volumeEvidenceReadModel,prs:prEvidenceReadModel},
     onOpenExercise:key=>openExerciseView(key,"stats"),onGoToday:()=>navTo("log"),onReviewViewed:captureBlockReviewViewed,
     onSelected:segment=>queueMicrotask(()=>maybeShowContextualGuides([segment==="review"?"block-transition":"progress"]))});
-  ExerciseChart=createExerciseChart({window,copy,format:{number:fmt,load:fmtLoad,displayLoad:toDisplay,unit:unitLabel,date:shortDate},
-    queries:{projection:strengthProjection},motion:window.RepForgeMotion,focus:focusRoute});
+  ExerciseUi=createExerciseController({window,copy,format:{number:fmt,load:fmtLoad,displayLoad:toDisplay,unit:unitLabel,date:shortDate},
+    queries:{projection:strengthProjection,detail:exerciseDetailReadModel,open:key=>{
+      const slot=prog.find(key),movement=slot?(workoutActive?sessionExercise(slot):slot):null;
+      return{key:movement?exerciseLiftKey(movement):key,exercise:movement?Object.assign({},movement):null}}},
+    motion:window.RepForgeMotion,shell:shellView(),onChartPresentation:kind=>{window.__repforgeChartLastPresentation=kind},onRender:render,onSettings:showSettings,
+    onSeePrs:()=>{navTo("stats");setStatsSeg("prs")},onGlossary:glossaryPopover,
+    onWhy:(id,anchor)=>{const slot=prog.find(id);if(slot)openWhySheetFor(slot,anchor)}});
+  window.__repforgeChartPalette=ExerciseUi.palette;
+  window.__repforgeChartLabelDecimals=ExerciseUi.labelDecimals;
   TodayUi=createTodayController({document,copy,format,motion:window.RepForgeMotion,
     onCreateProgram:()=>startOnboarding(null,{userInitiated:true}),onOpenExercise:id=>openExerciseView(id,"log"),
     onStartDay:day=>enterWorkout({day}),onReviewProgram:()=>{navTo("stats");setStatsSeg("review")}});
@@ -7037,81 +7043,8 @@ function volumePlannedMuscleMap(ev,prescriptions=progressWeekPrescriptions()){
   for(const rx of selected)for(const[name,v]of Object.entries(rx?.musclesByName||{})){
     add(name,v.d,v.p)}
   return m}
-function chartLabelDecimals(rngKg){return toDisplay(rngKg/3)<1?1:0}
-window.__repforgeChartLabelDecimals=chartLabelDecimals;
-function chartPalette(){
-  const css=getComputedStyle(document.documentElement),rootSize=parseFloat(css.fontSize)||16;
-  const tok=n=>(css.getPropertyValue(n)||"").trim();
-  return{
-    accent:tok("--accent")||"#E04E14",
-    deep:tok("--color-action-text")||"#B8410E",
-    text:tok("--color-ink-secondary")||"#6E6A63",
-    ink:tok("--color-ink")||"#1B1A17",
-    rule:tok("--boundary-decorative")||"#E4E1DA",
-    bg:tok("--bg")||"#F4F2EF",
-    surface:tok("--color-surface")||"#FFFFFF",
-    captionSize:rootSize*(parseFloat(tok("--font-size-caption"))||.75),
-    fontFamily:tok("--font-language")||"sans-serif",
-    strongWeight:tok("--weight-semibold")||"600"
-  }}
-window.__repforgeChartPalette=chartPalette;
-function draw(rows,sel="#chart"){
-  const c=$(sel);if(!c)return;
-  const ctx=c.getContext("2d"),w=c.clientWidth||320,h=240,ratio=devicePixelRatio||1;
-  c.width=w*ratio;c.height=h*ratio;ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,w,h);
-  const pal=chartPalette(),C={accent:pal.accent,steel:pal.text,dim:pal.text,rule:pal.rule,mist:pal.ink};
-  const fontSize=`${pal.captionSize}px`,fontFamily=pal.fontFamily;
-  ctx.font=`${fontSize} ${fontFamily}`;ctx.textBaseline="middle";
-  if(!rows.length){
-    ctx.fillStyle=C.steel;ctx.textAlign="center";
-    const lines=[];
-    for(const word of t("stats.chart.empty").split(/\s+/)){
-      const current=lines.at(-1),candidate=current?`${current} ${word}`:word;
-      if(current&&ctx.measureText(candidate).width>w-24)lines.push(word);
-      else if(current)lines[lines.length-1]=candidate;
-      else lines.push(word)
-    }
-    const lineHeight=pal.captionSize*1.35,startY=h/2-(lines.length-1)*lineHeight/2;
-    lines.forEach((line,index)=>ctx.fillText(line,w/2,startY+index*lineHeight));return
-  }
-  const vals=rows.map(r=>r.e1rm??r.top),max=Math.max(...vals),min=Math.min(...vals),span=max-min||1,pad=span*0.25;
-  const lo=Math.max(0,min-pad),hi=max+pad,rng=hi-lo||1;
-  const decimals=chartLabelDecimals(rng),yLabel=v=>{const d=toDisplay(v);return decimals?fmt(+d.toFixed(1)):fmt(Math.round(d))};
-  const tickLabels=Array.from({length:4},(_,i)=>`${yLabel(hi-(rng*i/3))} ${unitLabel()}`);
-  const measuredLeft=Math.max(...tickLabels.map(label=>ctx.measureText(label).width));
-  const padL=Math.max(42,Math.ceil(measuredLeft)+12),padR=14;
-  const padT=Math.max(22,pal.captionSize*1.35),padB=Math.max(26,pal.captionSize*1.5);
-  const iw=Math.max(1,w-padL-padR),ih=Math.max(1,h-padT-padB);
-  const X=i=>padL+(rows.length===1?iw/2:i*iw/(rows.length-1)),Y=v=>padT+ih-((v-lo)/rng)*ih;
-  const accent=pal.accent;
-  ctx.strokeStyle=C.rule;ctx.lineWidth=1;ctx.fillStyle=C.dim;ctx.textAlign="right";
-  for(let i=0;i<=3;i++){const gy=padT+ih*i/3;ctx.beginPath();ctx.moveTo(padL,gy);ctx.lineTo(w-padR,gy);ctx.stroke();ctx.fillText(tickLabels[i],padL-8,gy)}
-  // Sparse-evidence policy (UI-29 / G-27): one point is a snapshot with no
-  // connector, two points a comparison with a restrained secondary connector,
-  // three or more a trend. The line never draws before the evidence supports it.
-  const presentation=rows.length>=3?"trend":rows.length===2?"comparison":"snapshot";
-  window.__repforgeChartLastPresentation=presentation;
-  ctx.strokeStyle=accent;ctx.lineJoin="round";ctx.lineCap="round";
-  if(presentation==="trend"){ctx.lineWidth=2;
-    ctx.beginPath();rows.forEach((r,i)=>{const v=r.e1rm??r.top;i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v))});ctx.stroke()}
-  else if(presentation==="comparison"){ctx.lineWidth=1.5;ctx.globalAlpha=.4;
-    ctx.beginPath();rows.forEach((r,i)=>{const v=r.e1rm??r.top;i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v))});ctx.stroke();ctx.globalAlpha=1}
-  else window.__repforgeChartLastPresentation=presentation;
-  rows.forEach((r,i)=>{const v=r.e1rm??r.top,last=i===rows.length-1;ctx.beginPath();ctx.arc(X(i),Y(v),last?4:3.5,0,7);
-    ctx.fillStyle=accent;ctx.fill()});
-  const lastV=rows.at(-1).e1rm??rows.at(-1).top,lx=X(rows.length-1),ly=Y(lastV),valueLabel=`${fmt(Math.round(toDisplay(lastV)))} ${unitLabel()}`;
-  ctx.fillStyle=pal.deep;ctx.font=`${pal.strongWeight} ${fontSize} ${fontFamily}`;
-  const alignRight=lx+ctx.measureText(valueLabel).width+10>w-padR;ctx.textAlign=alignRight?"right":"left";
-  ctx.fillText(valueLabel,lx+(alignRight?-10:9),ly-pal.captionSize*.75);
-  ctx.fillStyle=C.dim;ctx.font=`${fontSize} ${fontFamily}`;ctx.textBaseline="alphabetic";
-  ctx.textAlign="left";ctx.fillText(shortDate(rows[0].date),padL,h-8);
-  if(rows.length>2){ctx.textAlign="center";ctx.fillText(shortDate(rows[Math.floor(rows.length/2)].date),padL+iw/2,h-8)}
-  ctx.textAlign="right";ctx.fillText(shortDate(rows.at(-1).date),w-padR,h-8);
-}
 
-function redrawChart(){
-  if($("#exercise")?.classList.contains("active")&&exView){draw(summaries().filter(x=>x.liftKey===exView.key),"#exChart");return}
-}
+function redrawChart(){ExerciseUi?.redraw()}
 
 // @ci-domain history
 function adoptHistoryDurableHead(head){
@@ -7200,124 +7133,27 @@ window.__repforgeSaveSessionEdit=HistoryUi.saveSessionEdit;
 // @ci-domain global
 // ---- Exercise detail: one lift's stats, session history and session notes ----
 // Reached by tapping an exercise name on the Log tab; not part of the bottom nav.
-function exerciseSessionsDetail(key){const m=new Map();
-  for(const r of state.log){if(liftKey(r)!==key)continue;
-    if(!m.has(r.session))m.set(r.session,{session:r.session,date:r.date,day:r.day,created:r.created,rows:[],note:""});
-    const e=mergeLogChronology(m.get(r.session),r);e.rows.push(r);
-    if(!e.note&&String(r.exNote||"").trim())e.note=String(r.exNote).trim()}
-  return [...m.values()].sort(compareLogChronology)}
+function exerciseDetailReadModel(key,capturedExercise){
+  const tmpl=currentExerciseForLiftKey(key)||capturedExercise||null,rows=state.log.filter(row=>liftKey(row)===key).map(row=>({...row,e1rm:e1rm(+row.load,+row.reps)}));
+  const sessions=ReadModels.groupExerciseSessions(rows),latest=sessions.at(-1)?.rows.at(-1),name=latest?exerciseDisplayName(latest):((tmpl&&exerciseDisplayName(tmpl))||key);
+  const exRef=tmpl||(latest?exerciseIdentityFromRow(latest):null),artEntry=libraryUi.exerciseRefEntry(exRef),artSrc=exerciseMedia(artEntry);
+  const comparisons=new Map(exRef?sessions.map(session=>[session.session,compareExerciseSession(exRef,session.rows)]):[]);
+  const stats=ReadModels.buildExerciseReadModel({rows,
+    prs:detectPRs(state.log).filter(event=>event.liftKey===key).map(event=>({...event,e1rm:e1rm(event.load,event.reps)})),
+    summaries:summaries().filter(row=>row.liftKey===key),comparisons});
+  const rec=tmpl?recommendation(tmpl):null;
+  return{key,name,slotId:tmpl?.id||null,muscle:muscleListLabel(tmpl?.primary||""),
+    prescription:tmpl?{day:dayLabel(tmpl.day),text:tmpl.hasRepTarget===false?programPrescriptionSummary(tmpl):`${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${t("log.reps")}`,
+      hasRepTarget:tmpl.hasRepTarget!==false,rirHigh:state.settings.rirHigh}:null,
+    art:artSrc?{src:artSrc,bg:exerciseMediaBg(artEntry)}:null,
+    recommendation:rec?{status:rec.status,cue:rec.load!=null?recCueLoad(rec):rec.label,text:rec.text}:null,...stats};
+}
 
 function currentViewId(){return $$(".view").find(v=>v.classList.contains("active"))?.id||"log"}
-function openExerciseView(key,from){if(!key)return;
-  const slot=prog.find(key),movement=slot?(workoutActive?sessionExercise(slot):slot):null;
-  exView={key:movement?exerciseLiftKey(movement):key,openKey:key,from:from||currentViewId(),exercise:movement?Object.assign({},movement):null};
-  ExerciseChart.reset();
-  const settle=routePushBegin("in",{pushed:$("#exercise"),under:routeViewEl(exView.from)});
-  $$("nav button").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-current","false")});
-  $$(".view").forEach(v=>v.classList.toggle("active",v.id==="exercise"));
-  document.body.classList.add("is-exercise");document.body.classList.remove("is-settings","is-onboarding","is-workout");
-  window.scrollTo({top:0});renderExerciseView();
-  focusRoute(routeHeading("exercise")||$("#exercise .exview-head__title"));
-  settle?.()}
-function closeExerciseView(){const back=exView?.from||"log",openKey=exView?.openKey;exView=null;ExerciseChart.reset();
-  const settle=routePushBegin("out",{pushed:$("#exercise"),under:routeViewEl(back)});
-  document.body.classList.remove("is-exercise");
-  if(back==="settings"){showSettings();settle?.();return}
-  $$("nav button").forEach(x=>{const on=x.dataset.view===back;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
-  $$(".view").forEach(v=>v.classList.toggle("active",v.id===back));
-  window.scrollTo({top:0});render();
-  // Back puts focus on the row that opened the page (found again by its key: the render replaced it).
-  const sel=openKey?[`data-exopen`,`data-ovkey`,`data-action-lift`].map(a=>`#${back} [${a}="${CSS.escape(openKey)}"]`).join(","):null;
-  // Ending a push in that is still arriving clears the inert page beneath first.
-  settle?.();
-  focusRoute((sel&&$(sel))||routeHeading(back))}
+function openExerciseView(key,from){return ExerciseUi.open(key,from)}
+function closeExerciseView(){return ExerciseUi.close()}
+function renderExerciseView(){return ExerciseUi.render()}
 function openSettingsView(){showSettings()}
-
-function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
-  const key=exView.key,tmpl=currentExerciseForLiftKey(key)||exView.exercise||null,sessions=exerciseSessionsDetail(key);
-  const latest=sessions.at(-1)?.rows.at(-1);
-  const name=latest?exerciseDisplayName(latest):((tmpl&&exerciseDisplayName(tmpl))||key);
-  const exRef=tmpl||(latest?exerciseIdentityFromRow(latest):null);
-  const backKey=exView.from==="stats"?"nav.stats":exView.from==="program"?"nav.program":exView.from==="history"?"nav.history":"nav.log";
-  const back=$("#exBack");if(back)back.textContent=`‹ ${t(backKey)}`;
-  // Reached from Progress, the page is the lift's chart: the step series, the
-  // scope and metric toggles, a plot that snaps to a session, and its table.
-  $("#exercise")?.classList.toggle("exview--chart",exView.from==="stats");
-  if(exView.from==="stats"){
-    if(back)back.innerHTML=`<span class="chevron" aria-hidden="true"></span>${esc(t(backKey))}`;
-    return renderExerciseChart(el,key,sessions,tmpl)}
-
-  /* Unlike a list thumbnail this drawing is the only place the lifter can see
-     how the movement is set up, so it gets a describing alt and no lazy hint —
-     it is above the fold. Movements without licensed artwork render nothing at
-     all; a placeholder tile would only promise something that never arrives. */
-  const artEntry=libraryUi.exerciseRefEntry(exRef),artSrc=exerciseMedia(artEntry);
-  const artBg=artSrc?exerciseMediaBg(artEntry):null;
-  const artHtml=artSrc?`<div class="exdet-art"`+
-    (artBg?` style="--exercise-art-bg:${esc(artBg)}"`:"")+`><div class="exdet-art__figure">`+
-    `<img class="exdet-art__img" src="${esc(artSrc)}" alt="${esc(t("preview.art_alt",{name}))}" `+
-    `decoding="async" width="768" height="768"></div></div>`:"";
-
-  const rec=tmpl?recommendation(tmpl):null;
-  const recHtml=rec?`<div class="recblock is-${rec.status}"><div class="recblock__row"><div><div class="recblock__lab">${esc(t("today.recommendation"))}</div>`+
-    `<div class="recblock__head">${esc(rec.load!=null?recCueLoad(rec):rec.label)}</div>`+
-    `<p class="recblock__body">${esc(rec.text)}</p></div>`+
-    `<button type="button" class="link-accent" data-term="RIR">${esc(t("exercise.understand"))}</button>`+
-    (rec.status!=="new"?`<button type="button" class="text-link recblock__why" data-why="${esc(tmpl.id)}" aria-label="${esc(t("why.open_aria",{name}))}">${esc(t("why.open"))}</button>`:"")+
-    `</div></div>`:"";
-
-  const work=state.log.filter(r=>liftKey(r)===key&&isWork(r));
-  const topLoad=Math.max(0,...work.map(r=>+r.load||0));
-  const bestE=work.length?Math.max(...work.map(r=>e1rm(+r.load,+r.reps))):0;
-  const prCount=detectPRs(state.log).filter(ev=>ev.liftKey===key).length;
-  const lcFirst=s=>s?s.charAt(0).toLowerCase()+s.slice(1):s;
-  const tiles=[
-    {label:lcFirst(t("stats.metric.sessions")),val:sessions.length},
-    {label:t("exercise.top_load"),val:topLoad?`${fmtLoad(topLoad)} ${unitLabel()}`:"—"},
-    {label:lcFirst(t("stats.metric.best_e1rm")),val:bestE?`${fmt(Math.round(toDisplay(bestE)))} ${unitLabel()}`:"—"},
-    {label:t("stats.metric.prs"),val:prCount},
-  ];
-  const sums=summaries().filter(x=>x.liftKey===key);
-  const prEvents=detectPRs(state.log).filter(ev=>ev.liftKey===key).reverse();
-  const loadPr=prEvents.find(e=>e.kind==="load"),e1Pr=prEvents.find(e=>e.kind==="e1rm");
-  const historyHtml=sessions.length?[...sessions].reverse().slice(0,8).map(s=>{
-    const best=[...s.rows].filter(isWork).sort((a,b)=>+b.load-+a.load||+b.reps-+a.reps)[0];
-    const cmp=exRef?compareExerciseSession(exRef,s.rows):null;
-    const note=s.note?`<p class="exsess__note">${esc(s.note)}</p>`:"";
-    return `<div class="exsess"><div class="exsess__head"><span class="exsess__date">${esc(shortDate(s.date))}</span>`+
-      (best?`<span class="exsess__set">${fmtLoad(best.load)} × ${best.reps}</span><span class="exsess__day">RIR ${fmt(best.rir)}</span>`:"")+
-      (cmp&&cmp.status!=="not_comparable"?`<span class="exsess__delta">${esc(cmp.label)}</span>`:"")+`</div>${note}</div>`}).join("")
-    :`<div class="empty">${esc(t("exercise.empty.no_sets"))}</div>`;
-
-  el.innerHTML=`<p class="exdet__muscle">${esc(muscleListLabel(tmpl?.primary||""))}</p><h2 class="exdet__name">${esc(name)}</h2>`+
-    `<p class="exdet__meta">${tmpl?`${esc(dayLabel(tmpl.day))} · ${esc(tmpl.hasRepTarget===false?programPrescriptionSummary(tmpl):`${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${t("log.reps")}`)}${tmpl.hasRepTarget===false?"":` · RIR 0–${fmt(state.settings.rirHigh)}`}`:esc(t("exercise.not_in_program"))}</p>`+
-    artHtml+
-    recHtml+
-    `<div class="statrow statrow--4 exdet__stats">${tiles.map(tile=>`<div class="statrow__cell"><div class="statrow__val">${tile.val}</div><div class="statrow__cap">${tile.label}</div></div>`).join("")}</div>`+
-    `<p class="section-label section-label--row"><span>${esc(t("exercise.progression"))}</span><span class="range-static">${esc(t("exercise.range_12w"))}</span></p>`+
-    `<p class="lede">${esc(t("stats.e1rm_caption"))}</p>`+
-    `<div class="chart-wrap"><canvas id="exChart" height="240" aria-label="${esc(t("exercise.chart_aria",{name}))}"></canvas></div>`+
-    `<p class="section-label">${esc(t("exercise.records"))}</p>`+
-    (loadPr?`<div class="listrow listrow--static"><div class="listrow__main"><div class="listrow__title">${esc(t("stats.pr.load"))}</div><div class="listrow__sub">${fmtLoad(loadPr.load)} ${unitLabel()} × ${loadPr.reps}</div></div><span class="listrow__meta">${esc(shortDate(loadPr.date))}</span></div>`:"")+
-    (e1Pr?`<div class="listrow listrow--static"><div class="listrow__main"><div class="listrow__title">${esc(t("stats.pr.e1rm"))}</div><div class="listrow__sub">${fmt(Math.round(toDisplay(e1rm(e1Pr.load,e1Pr.reps))))} ${unitLabel()}</div></div><span class="listrow__meta">${esc(shortDate(e1Pr.date))}</span></div>`:"")+
-    `<button type="button" class="link-row-cta" id="exSeePrs"><span>${esc(t("exercise.see_all_prs"))}</span><span class="chevron" aria-hidden="true"></span></button>`+
-    `<p class="section-label">${esc(t("exercise.recent_sessions"))}</p><div class="exsessions">${historyHtml}</div>`;
-  draw(sums,"#exChart");
-  $$("#exDetail [data-term]").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
-  $$("#exDetail [data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheetFor(tmpl,b)});
-  const see=$("#exSeePrs");if(see)see.onclick=()=>{closeExerciseView();navTo("stats");setStatsSeg("prs")}}
-
-/* ---- Progress: the exercise chart (Plan 064 R3i) ----
-   One honest series: the shipped Strength metric (top load), drawn as the step
-   itself with a tick where the load went up, and best e1RM as the second
-   metric. Points, scope and block membership come from strengthProjection(); the
-   plot, the readout and every table row select the same session, and the table is
-   the accessible alternative. Nothing explains a past load change: the app does
-   not store one. */
-function renderExerciseChart(el,key,sessions,tmpl){
-  const latest=sessions.at(-1)?.rows.at(-1),name=latest?exerciseDisplayName(latest):((tmpl&&exerciseDisplayName(tmpl))||key);
-  ExerciseChart.render(el,{key,name,identity:exView});
-}
 
 function editorDocumentFromSnapshot(snapshot){
   return{program:cloneSnapshot(snapshot?.program||[]),programMeta:cloneSnapshot(snapshot?.programMeta||{}),
@@ -14264,7 +14100,7 @@ function init(){
       return;
     }
     if(programEditMode)finishInstalledEditor();
-    exView=null;workoutActive=false;workoutLeft=true;
+    ExerciseUi?.reset();workoutActive=false;workoutLeft=true;
     // Progress remembers its segment, so arriving there can itself open the review.
     const opensReview=b.dataset.view==="stats"&&ProgressUi.state().segment==="review"&&!ProgressUi.state().evidence&&!$("#stats")?.classList.contains("active");
     document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-workout");
