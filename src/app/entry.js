@@ -1,3 +1,4 @@
+export {createEntryReviewSession} from './entry/review-session.js';
 export {createEntryQuestionFlow} from './entry/questions.js';
 export {createEntryAnswerCommands} from './entry/answers.js';
 export {createEntryGeneration} from './entry/generation.js';
