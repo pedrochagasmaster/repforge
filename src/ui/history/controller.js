@@ -11,7 +11,7 @@ import {historyFrequency,historyWeekGroups,isoDayNumber} from "../../app/history
  */
 export function createHistoryController({window,queries,commands,copy,format,inputs,shell,onChanged,onNotice,onOutcome}){
 const document=window.document,Element=window.Element,CSS=window.CSS;
-let disposed=false,retryController=null;
+let disposed=false,retryController=null,discardFrame=0;
 const listeners=[];
 function listen(element,type,handler){if(!element)return;element.addEventListener(type,handler);listeners.push({element,type,handler})}
 function clearListeners(){for(const {element,type,handler}of listeners)element.removeEventListener(type,handler);listeners.length=0}
@@ -141,7 +141,7 @@ function historyConfirmDiscard(){
     document.body.classList.add("is-sheet-open");
     const opened=shell.openModal(sheet,{onEscape:()=>finish(false),scrim,returnFocus:document.activeElement,initialFocus:keep,delayHide:reduced?0:280});
     if(opened===false){document.body.classList.remove("is-sheet-open");settled=true;historyDiscardAsk=null;resolve(false);return}
-    requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim.classList.add("is-open")})});
+    discardFrame=requestAnimationFrame(()=>{discardFrame=0;if(disposed)return;sheet.classList.add("is-open");scrim.classList.add("is-open")})});
   return historyDiscardAsk}
 /** True when the lifter agreed to drop the unsaved changes of this session. */
 async function historyDiscardAgreed(sid){
@@ -688,7 +688,7 @@ async function saveSessionEdit(sid){
   return result}
 
     return {
-      dispose(){disposed=true;retryController?.abort();clearListeners();cancelDiscard?.();closeHistoryCalendar();historySetSelection(emptyHistorySelection())},
+      dispose(){disposed=true;if(discardFrame)window.cancelAnimationFrame(discardFrame);discardFrame=0;retryController?.abort();clearListeners();cancelDiscard?.();closeHistoryCalendar();historySetSelection(emptyHistorySelection())},
       buildIndex:buildHistoryIndex,
       indexFor:historyIndexFor,
       searchIndex:searchHistoryIndex,
