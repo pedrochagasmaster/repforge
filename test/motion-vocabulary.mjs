@@ -362,7 +362,7 @@ await section(async () => {
   const vocab = layer.slice(layer.indexOf("const VOCABULARY"), layer.indexOf("};", layer.indexOf("const VOCABULARY")));
   const outside = layer.replace(vocab, "");
   assert(!/stiffness|damping|restDelta|restSpeed/.test(outside), "no spring parameter appears in the layer outside the vocabulary");
-  for (const file of ["app.js", "program-editor.js", "history-ui.js"]) {
+  for (const file of ["app.js", "program-editor.js", "src/ui/history/controller.js"]) {
     assert(!/\bstiffness\b|type\s*:\s*["']spring["']/.test(read(file)), `${file} declares no spring`);
   }
   for (const name of ["animateIndicator", "animateCoordinates", "animateSlot", "animatePush", "trackEdgeSwipe"]) {

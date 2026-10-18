@@ -33,7 +33,7 @@ Use the module that owns the behavior. These are the principal production owners
 | `program-engine.js` | Generation and Review regeneration in a precached dedicated worker that loads the page's own compiler, transition and catalog scripts; when no worker can run, the same code runs on the main thread. `app.js` owns the one async generation call site (`generateEntryCandidate`). |
 | `program-editor.js` | Reusable program editor. Its host supplies data and handles returned intents. |
 | `program-review.js` | Onboarding B's review editor on Generate's result screen: pure edit rules on a `ProgramDefinition` (validated, replayable), the diff against the recommendation, and `mountProgramReview`. `app.js` supplies the document, persistence, sheet and picker. |
-| `history-ui.js` | History rendering and interactions through dependencies supplied by the app. |
+| `src/ui/history/controller.js` | History reads immutable application models and invokes named correction/deletion commands. |
 | `shared-setup.js` | Setup-link codec and validation; this module and `AGENTS.md` own the current format, compatibility, and privacy contract. |
 | `install-transfer.js`, `install-transfer-contract.js` | Browser transfer client and its shared request/envelope contract. `services/install-transfer/` owns the service. |
 | `install-policy.js`, `guide-registry.js` | Install-prompt eligibility and versioned contextual-guide definitions/state. |

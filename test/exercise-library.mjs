@@ -166,7 +166,6 @@ assert(buildCheck.status === 0, "generated index and detail asset match their co
     "install-policy.js",
     "guide-registry.js",
     "durable-state.js",
-    "history-ui.js",
     "exercise-catalog.js",
     "app.js",
   ];

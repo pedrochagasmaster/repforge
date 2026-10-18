@@ -25,7 +25,6 @@ const expected = [
   "generation-identity.js",
   "generation-layout.js",
   "guide-registry.js",
-  "history-ui.js",
   "i18n.js",
   "install-policy.js",
   "motion-layer.js",
@@ -61,8 +60,8 @@ console.log(`production syntax: ${files.length} modules pass`);
 const require = createRequire(import.meta.url);
 const Telemetry = require("../telemetry.js");
 const allowedEvents = new Set(Telemetry.getEventNames("all"));
-const producers = ["app.js", "history-ui.js"].map((file) => readFileSync(file, "utf8")).join("\n");
-const captured = [...producers.matchAll(/captureEvent\("([^"]+)"/g)].map((match) => match[1]);
+const producers = ["app.js", "src/ui/history/controller.js"].map((file) => readFileSync(file, "utf8")).join("\n");
+const captured = [...producers.matchAll(/(?:captureEvent|onOutcome)\("([^"]+)"/g)].map((match) => match[1]);
 const unknownEvents = [...new Set(captured)].filter((name) => !allowedEvents.has(name));
 if (unknownEvents.length) {
   console.error(`Unknown telemetry event producer(s): ${unknownEvents.join(", ")}`);
