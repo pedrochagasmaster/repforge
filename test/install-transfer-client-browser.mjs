@@ -85,7 +85,13 @@ async function main() {
 
     const first = await page.evaluate(async ({ token, expected }) => {
       const transfer = window.__repforgeTransferTest;
-      const vault = transfer.createCredentialVault({ crypto: globalThis.crypto });
+      const openedDatabases = [];
+      const vault = transfer.createCredentialVault({ crypto: globalThis.crypto, indexedDB: {
+        open(...args) {
+          openedDatabases.push(String(args[0]));
+          return indexedDB.open(...args);
+        },
+      } });
       const sealed = await vault.seal("browser-outbound", { token, claimId: "browser-claim-id" });
       const getRawKey = () => new Promise((resolve, reject) => {
         const request = indexedDB.open(expected.credentialDatabase.name);
@@ -121,7 +127,7 @@ async function main() {
         rawRecordHasToken: JSON.stringify(rawKey).includes(token),
         domHasToken: document.documentElement.outerHTML.includes(token),
         urlHasToken: location.href.includes(token),
-        database: expected.credentialDatabase.name,
+        openedDatabases,
       };
       return { sealed, probe };
     }, { token, expected: EXPECTATIONS });
@@ -133,7 +139,8 @@ async function main() {
     check(first.probe.rawKeyExtractable === false, "persisted credential key is non-extractable");
     check(first.probe.rawKeyAlgorithm === EXPECTATIONS.vault.algorithm && first.probe.rawKeyLength === EXPECTATIONS.vault.keyLength, "persisted key algorithm and length are bounded");
     assert.deepEqual(first.probe.rawKeyUsages, EXPECTATIONS.vault.keyUsages, "persisted key usages are encryption-only");
-    check(first.probe.database === EXPECTATIONS.credentialDatabase.name, "credential key is stored in the context-owned database");
+    check(first.probe.openedDatabases.length > 0 && first.probe.openedDatabases.every(name => name === EXPECTATIONS.credentialDatabase.name),
+      "vault opens only the context-owned credential database");
     check(first.probe.exportRejected === EXPECTATIONS.vault.exportKeyRejected, "raw key export is rejected by WebCrypto");
     check(first.probe.unsealedMatches, "sealed credentials decrypt before reload");
     check(!first.probe.sealedHasToken && !first.probe.rawRecordHasToken, "plaintext token is absent from sealed and raw IndexedDB records");
@@ -170,46 +177,38 @@ async function main() {
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await installBrowserClient(page);
-    const afterReload = await page.evaluate(async ({ token, sealed, expected }) => {
+    const afterReload = await page.evaluate(async ({ token, sealed }) => {
       const transfer = window.__repforgeTransferTest;
-      const vault = transfer.createCredentialVault({ crypto: globalThis.crypto });
+      const openedDatabases = [];
+      const vault = transfer.createCredentialVault({ crypto: globalThis.crypto, indexedDB: {
+        open(...args) {
+          openedDatabases.push(String(args[0]));
+          return indexedDB.open(...args);
+        },
+      } });
       const value = await vault.unseal("browser-outbound", sealed);
       return {
         sameCredential: value?.token === token && value?.claimId === "browser-claim-id",
         keyId: sealed.keyId,
-        dbName: expected.credentialDatabase.name,
+        openedDatabases,
       };
-    }, { token, sealed, expected: EXPECTATIONS });
+    }, { token, sealed });
     check(afterReload.sameCredential, "credential decrypts after a real page reload");
-    check(afterReload.dbName === EXPECTATIONS.credentialDatabase.name, "reload uses the context-owned credential database");
+    check(afterReload.openedDatabases.length > 0 && afterReload.openedDatabases.every(name => name === EXPECTATIONS.credentialDatabase.name),
+      "reload opens only the context-owned credential database");
 
+    // This fresh context has no workout draft. Check persistence wiring only;
+    // workout-draft.mjs proves populated logical-field normalization and
+    // install-transfer-import.mjs crosses the real live-draft transfer path.
     const producerBoundary = await page.evaluate(() => {
       const hook = window.__repforgeWorkoutDraft;
-      const producer = window.RepForgeWorkoutDraft;
       const hookMethods = ["flush", "current", "checkpoint", "read"].every((name) => typeof hook?.[name] === "function");
-      const moduleReady = typeof producer?.logicalCloneSection === "function";
-      let current = null;
-      let normalized = null;
-      let failed = false;
-      try {
-        current = hookMethods ? hook.current() : null;
-        if (current !== null && current !== undefined && moduleReady) normalized = producer.logicalCloneSection(current);
-      } catch {
-        failed = true;
-      }
-      const normalizedObject = normalized !== null && typeof normalized === "object" && !Array.isArray(normalized) && normalized.kind !== "error" && normalized.ok !== false;
       return {
         hookMethods,
         hookHasLogicalClone: typeof hook?.logicalCloneSection === "function",
-        moduleReady,
-        currentAbsent: current === null || current === undefined,
-        normalizedObject,
-        normalizedStripsVolatile: normalizedObject && !Object.hasOwn(normalized, "writer") && !Object.hasOwn(normalized, "revision") && !Object.hasOwn(normalized.program || {}, "durableRevision"),
-        failed,
       };
     });
-    check(producerBoundary.hookMethods && producerBoundary.moduleReady && !producerBoundary.failed, "real app draft producer does not expose the acknowledged hook and logical normalizer seam");
-    check(producerBoundary.currentAbsent || (producerBoundary.normalizedObject && producerBoundary.normalizedStripsVolatile), "real app draft producer normalization retained volatile storage metadata");
+    check(producerBoundary.hookMethods, "real app exposes the draft persistence methods required by the transfer adapter");
     check(!producerBoundary.hookHasLogicalClone, "clone client does not silently treat the raw app draft hook as its logical producer");
 
     const abortProbe = await page.evaluate(async ({ expected }) => {

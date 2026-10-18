@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import contract from "../src/contract.js";
 import programEntry from "../../../program-entry.js";
+import historicalDrafts from "../../../test/fixtures/program-entry-draft-plan070.json" with { type: "json" };
 
 // Plan 072: the service validates a transferred setup draft by requiring it to
 // equal its own normalization through program-entry.js. Onboarding B adds
@@ -47,16 +48,15 @@ function envelope({ programEntryDraft = null, profile } = {}) {
 
 describe("setup drafts across the onboarding B release", () => {
   it("accepts a Recommend draft an earlier release stored, exactly as stored", () => {
-    // What the release before Plan 072 wrote: the combined schedule screen, the
-    // coarse equipment lists the environment pick always stored, and Other.
-    const older = recommendDraft({
-      desiredResult: "balanced", structuredExperience: "6_to_24m", daysPerWeek: 4, sessionMinutes: 60,
-      primaryMuscles: ["back", "glutes"],
-    });
-    older.step = "schedule";
-    older.answers.environment = { kind: "other", capabilities: [], equipment: [] };
-    const result = contract.validateEnvelope(envelope({ programEntryDraft: older }));
-    expect(result).toMatchObject({ ok: true });
+    // Fixed prior-release bytes, shared with the public Entry consumer proof.
+    expect(historicalDrafts.cases.map(c => c.id)).toEqual(["commercial-empty", "commercial-authored", "other-empty"]);
+    for (const sample of historicalDrafts.cases) {
+      const older = structuredClone(sample.draft);
+      const result = contract.validateEnvelope(envelope({ programEntryDraft: older }));
+      expect(result.ok).toBe(true);
+      expect(result.value.programEntryDraft).toEqual(sample.draft);
+      expect(older).toEqual(sample.draft);
+    }
   });
 
   it("accepts a B draft with the Basics, equipment changes, block and deload", () => {
