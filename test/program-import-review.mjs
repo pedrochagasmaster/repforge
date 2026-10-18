@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {browserLanguage} from './language-browser.mjs';
 import {installBrowserSnapshotPolicy} from './training-browser.mjs';
 /**
  * Importing a program is a review, not a write.
@@ -1003,7 +1004,7 @@ async function main() {
       "a legacy backup through the program door goes to review, not to a restore", JSON.stringify(choice));
     await page.click("#importReviewCancel");
     await settle(page);
-    const expectedLegacyToast = await page.evaluate(() => window.RepForgeI18n.t("toast.backup_legacy"));
+    const expectedLegacyToast = await (await browserLanguage(page)).evaluate(language => language.t("toast.backup_legacy"));
     await page.setInputFiles("#importJson", { name: "legacy-backup.json", mimeType: "application/json", buffer: Buffer.from(legacyBackup) });
     await page.waitForFunction((text) => document.querySelector("#toast")?.textContent?.includes(text), expectedLegacyToast, { timeout: 5000 });
     choice = await dialogState();

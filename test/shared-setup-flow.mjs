@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {browserLanguage} from './language-browser.mjs';
 import {installBrowserTraining,installBrowserTrainingBeforeNavigation} from './training-browser.mjs';
 import {ensureBrowserInterchange} from './interchange-browser.mjs';
 /**
@@ -139,7 +140,7 @@ export function wireFragment(value, version = 1) {
 const setupUrl = (fragment, testCase) =>
   `${APP_INDEX}?shared-test=${encodeURIComponent(testCase)}#setup=${fragment}`;
 
-export function sharedGateSnapshot() {
+export function sharedGateSnapshot(language) {
   const hidden = (node) =>
     !node || node.hidden === true || node.classList.contains("hidden") || !!node.closest(".hidden,[hidden]");
   const shown = (node) => {
@@ -195,7 +196,7 @@ export function sharedGateSnapshot() {
     errorText: (error?.textContent || "").trim(),
     errorRole: error?.getAttribute("role") || null,
     langAttr: document.documentElement.lang || null,
-    i18n: window.RepForgeI18n?.getLang?.() || null,
+    i18n: language?.getLang?.() || null,
     logActive: document.querySelector("#log")?.classList.contains("active") || false,
     onboarding: document.querySelector("#onboarding")?.classList.contains("active") || false,
     overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
@@ -363,9 +364,9 @@ function installRecipeWorkerProbe({ holdReplies = true } = {}) {
     }
     postMessage(message, ...rest) {
       if (message?.type === "generate") {
-        const item = { id: message.id, identity: null };
+        const item = { id: message.id, identity: null },request=structuredClone(message.request);
         item.identityReady = window.__repforgeTrainingTestReady.then(()=>window.__repforgeTrainingTest.compiler.generationIdentity(
-          message.request, window.__repforgeTrainingTest.catalog))
+          request, window.__repforgeTrainingTest.catalog))
           .then((value) => { item.identity = value; });
         probe.requests.push(item);
       }
@@ -820,7 +821,7 @@ export async function runSharedSetupFlow(browser) {
     assert(encoded.ok === true, "a one-day document encodes", encoded.code);
     await page.goto(setupUrl(encoded.value, "fresh-en"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
-    const gate = await page.evaluate(sharedGateSnapshot);
+    const gate = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
     assert(gate.gate && gate.hero, "first-run hero remains on a shared link", gate);
     assert(gate.install, "iOS Safari still offers the install card", gate);
     assert(gate.headline === SHARED_COPY.en.title, "shared gate headline uses the approved title", gate.headline);
@@ -968,7 +969,7 @@ export async function runSharedSetupFlow(browser) {
     await page.evaluate(() => window.__repforgeStorage?.flush?.());
     const after = await page.evaluate(readDurableState);
     const state = after.state || {};
-    const gate = await page.evaluate(sharedGateSnapshot);
+    const gate = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
     assert(state.programMeta?.onboarded === true && state.programMeta?.name === "Força compartilhada",
       "activation onboards the recipient with the shared name", state.programMeta?.name);
     assert(canonicalJson(state.programMeta?.programDefinition) === canonicalJson(document.program.definition),
@@ -988,7 +989,7 @@ export async function runSharedSetupFlow(browser) {
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { timeout: 15000, base: BASE });
     await page.evaluate(() => window.__repforgeStorage?.flush?.());
-    assert(!(await page.evaluate(sharedGateSnapshot)).gate, "the gate stays closed after reload");
+    assert(!(await page.evaluate(sharedGateSnapshot, await browserLanguage(page))).gate, "the gate stays closed after reload");
     const rawAfter = await page.evaluate((k) => localStorage.getItem(k), KEY);
     const replicasAfter = await readBothReplicas(page);
     assert(rawAfter === rawBefore && canonicalJson(replicasAfter.idb) === canonicalJson(replicasBefore.idb),
@@ -1061,11 +1062,11 @@ export async function runSharedSetupFlow(browser) {
     assert(staged?.value === encoded.value, "the gate stages the proposal before the lifter decides", { present: !!staged });
     await page.click("#firstRunSharedCreate");
     await page.waitForSelector('[data-entry-hub="build"]', { state: "visible", timeout: 10000 });
-    const hub = await page.evaluate(() => ({
+    const hub = await (await browserLanguage(page)).evaluate(language => ({
       gate: !document.querySelector("#firstRun")?.classList.contains("hidden"),
       onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
       route: window.__repforgeEntryState?.()?.route ?? null,
-      i18n: window.RepForgeI18n?.getLang?.() || null,
+      i18n: language?.getLang?.() || null,
     }));
     const hook = await page.evaluate(readSharedHook);
     assert(!hub.gate && hub.onboarding && hub.route === null,
@@ -1079,7 +1080,7 @@ export async function runSharedSetupFlow(browser) {
     assert(hits.length === 0 && !/setup=/.test(after.hash), "nothing from the received proposal was written", { hits, hash: after.hash });
     await page.goto(APP_INDEX, { waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { timeout: 15000, base: BASE });
-    const reloaded = await page.evaluate(sharedGateSnapshot);
+    const reloaded = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
     const reloadedHook = await page.evaluate(readSharedHook);
     const reloadedDurable = await page.evaluate(readDurableState);
     assert(!reloaded.startVisible && !reloaded.sharedCardVisible && reloadedHook.status === "none",
@@ -1096,7 +1097,7 @@ export async function runSharedSetupFlow(browser) {
       await buildSetupDocument(page, { name: "Força compartilhada", settings: PT_SHARED_SETTINGS, trainingDays: 4 }));
     await page.goto(setupUrl(encoded.value, "pt-gate"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
-    const gate = await page.evaluate(sharedGateSnapshot);
+    const gate = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
     assert(gate.i18n === "pt" && /^pt/i.test(gate.langAttr || ""), "runtime language is Portuguese before accept", gate);
     assert(gate.lede === SHARED_COPY.pt.lede && gate.headline === SHARED_COPY.pt.title &&
       gate.startTitle === SHARED_COPY.pt.view, "Portuguese shared gate copy before accept", gate);
@@ -1115,7 +1116,7 @@ export async function runSharedSetupFlow(browser) {
     await page.click("#firstRunContinue");
     await page.waitForFunction(() => document.querySelector("#firstRunContinue")?.classList.contains("hidden") ||
       document.querySelector("#firstRunInstall")?.classList.contains("hidden"), null, { timeout: 5000 });
-    const after = await page.evaluate(sharedGateSnapshot);
+    const after = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
     assert(after.gate && after.startVisible, "Continue leaves the shared action standing", after);
     assert(!after.install && !after.continueShown, "Continue removes only the install offer", after);
     assert(!after.createVisible && !after.importVisible, "Create/Import stay hidden after Continue", after);
@@ -1134,7 +1135,7 @@ export async function runSharedSetupFlow(browser) {
     await page.goto(APP_INDEX, { waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { timeout: 15000, base: BASE });
     await waitForFirstRun(page);
-    const gate = await page.evaluate(sharedGateSnapshot);
+    const gate = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
     const hook = await page.evaluate(readSharedHook);
     assert(gate.gate && gate.startVisible && gate.startCap === SHARED_COPY.en.capOne("Cookie program"),
       "a standalone launch with only the cookie shows the shared gate", { gate, hook });
@@ -1305,7 +1306,7 @@ export async function runSharedSetupFlow(browser) {
       await page.goto(setupUrl(fixture.recipe, `old-${fixture.label}`), { waitUntil: "domcontentloaded" });
       await waitForFirstRun(page);
       const hook = await page.evaluate(readSharedHook);
-      const gate = await page.evaluate(sharedGateSnapshot);
+      const gate = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
       const after = await page.evaluate(readDurableState);
       const stats = await page.evaluate(() => window.__repforgeProgramEngine?.stats?.());
       assert(hook.status === "unsupported" && hook.error === "unsupported-version",
@@ -1332,7 +1333,7 @@ export async function runSharedSetupFlow(browser) {
     const before = await page.evaluate(readDurableState);
     await page.goto(setupUrl(legacy.link, "recipe-067-1"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
-    const gate = await page.evaluate(sharedGateSnapshot);
+    const gate = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
     const hook = await page.evaluate(readSharedHook);
     const after = await page.evaluate(readDurableState);
     await installBrowserTraining(page);
@@ -1340,7 +1341,7 @@ export async function runSharedSetupFlow(browser) {
     assert(version !== legacy.generatorVersion, "the app runs a later generator than the link's", version);
     assert(hook.status === "unsupported" && hook.error === "unsupported-version", "the recipe link is unsupported", hook);
     assert(!gate.startVisible && gate.createVisible && gate.importVisible, "no shared action; standard choices are restored", gate);
-    const outdated = await page.evaluate(() => window.RepForgeI18n.t("setup.shared.outdated"));
+    const outdated = await (await browserLanguage(page)).evaluate(language => language.t("setup.shared.outdated"));
     assert(gate.errorVisible && gate.errorRole === "status" && outdated !== "setup.shared.outdated" && gate.errorText === outdated,
       "an inline status asks for the program to be shared again (setup.shared.outdated)", gate.errorText);
     const hits = noSharedWrite(before, after, legacy.name);
@@ -1363,12 +1364,12 @@ export async function runSharedSetupFlow(browser) {
       const before = await page.evaluate(readDurableState);
       await page.goto(setupUrl(fragment, `legacy-${label}`), { waitUntil: "domcontentloaded" });
       await waitForFirstRun(page);
-      const gate = await page.evaluate(sharedGateSnapshot);
+      const gate = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
       const hook = await page.evaluate(readSharedHook);
       const after = await page.evaluate(readDurableState);
       assert(hook.status === "unsupported" && hook.error === "unsupported-version", `${label}: the link is unsupported`, hook);
       assert(!gate.startVisible && gate.createVisible && gate.importVisible, `${label}: no shared action; standard choices are restored`, gate);
-      const outdated = await page.evaluate(() => window.RepForgeI18n.t("setup.shared.outdated"));
+      const outdated = await (await browserLanguage(page)).evaluate(language => language.t("setup.shared.outdated"));
       assert(gate.errorVisible && gate.errorRole === "status" && outdated !== "setup.shared.outdated" && gate.errorText === outdated,
         `${label}: an inline status asks for the program to be shared again (setup.shared.outdated)`, gate.errorText);
       assert(gate.i18n === "en", `${label}: the legacy link's language is not applied`, gate.i18n);
@@ -1405,10 +1406,10 @@ export async function runSharedSetupFlow(browser) {
     const before = await page.evaluate(readDurableState);
     await page.goto(setupUrl(fragment, "newer-envelope"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
-    const gate = await page.evaluate(sharedGateSnapshot);
+    const gate = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
     const hook = await page.evaluate(readSharedHook);
     const after = await page.evaluate(readDurableState);
-    const unsupported = await page.evaluate(() => window.RepForgeI18n.t("setup.shared.unsupported"));
+    const unsupported = await (await browserLanguage(page)).evaluate(language => language.t("setup.shared.unsupported"));
     assert(hook.status === "unsupported" && hook.error === "unsupported-version", "a v5 link is unsupported", hook);
     assert(gate.errorVisible && gate.errorRole === "status" && unsupported !== "setup.shared.unsupported" && gate.errorText === unsupported,
       "a v5 link says it was made by a newer version (setup.shared.unsupported)", gate.errorText);
@@ -1436,7 +1437,7 @@ export async function runSharedSetupFlow(browser) {
       const before = await page.evaluate(readDurableState);
       await page.goto(setupUrl(fragment, label), { waitUntil: "domcontentloaded" });
       await waitForFirstRun(page);
-      const gate = await page.evaluate(sharedGateSnapshot);
+      const gate = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
       const after = await page.evaluate(readDurableState);
       const hook = await page.evaluate(readSharedHook);
       assert(hook.status === "invalid", `${label}: the proposal is invalid`, hook);
@@ -1491,7 +1492,7 @@ export async function runSharedSetupFlow(browser) {
     const before = await open.page.evaluate(readDurableState);
     await open.page.goto(setupUrl(encoded.value, "no-decompression"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(open.page);
-    const gate = await open.page.evaluate(sharedGateSnapshot);
+    const gate = await open.page.evaluate(sharedGateSnapshot, await browserLanguage(open.page));
     const after = await open.page.evaluate(readDurableState);
     assert(gate.createVisible && gate.importVisible && !gate.startVisible, "a browser without DecompressionStream restores standard choices", gate);
     assert(gate.errorText === SHARED_COPY.en.browserUnsupported, "browser_unsupported copy is used", gate.errorText);
@@ -1534,7 +1535,7 @@ export async function runSharedSetupFlow(browser) {
       await page.waitForFunction((expected) => document.querySelector("#toast")?.textContent === expected,
         SHARED_COPY.en.existing, { timeout: 10000 });
       const after = await page.evaluate(readDurableState);
-      const gate = await page.evaluate(sharedGateSnapshot);
+      const gate = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
       assert(!gate.startVisible, `${label}: no shared Start is offered`, gate);
       assert(canonicalJson(after.state) === canonicalJson(before.state), `${label}: the durable state is unchanged`,
         { before: before.state?.programMeta?.name, after: after.state?.programMeta?.name });
@@ -1658,7 +1659,7 @@ export async function runSharedSetupFlow(browser) {
       window.addEventListener("hashchange", () => requestAnimationFrame(() => requestAnimationFrame(resolve)), { once: true });
       location.hash = "section";
     }));
-    const afterGate = await page.evaluate(sharedGateSnapshot);
+    const afterGate = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
     const afterHook = await page.evaluate(readSharedHook);
     const afterDurable = await page.evaluate(readDurableState);
     assert(afterHook.status === "ready" && afterGate.startVisible && !afterGate.startDisabled,
@@ -1667,7 +1668,7 @@ export async function runSharedSetupFlow(browser) {
     const second = await encodeSetupDocument(page, await buildSetupDocument(page, { name: "Second coach program" }));
     await page.evaluate((value) => { location.hash = `setup=${value}`; }, second.value);
     await page.waitForFunction(() => window.__repforgeSharedSetup?.summary?.name === "Second coach program", null, { timeout: 10000 });
-    const secondGate = await page.evaluate(sharedGateSnapshot);
+    const secondGate = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
     assert(secondGate.startVisible && secondGate.startCap === SHARED_COPY.en.capOne("Second coach program"),
       "a later genuine setup fragment still loads", secondGate);
     await context.close();
