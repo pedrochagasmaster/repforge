@@ -11,24 +11,30 @@ export const INSTALL_PROMPT_STATES = Object.freeze([
 ]);
 export const MONTHLY_COOLDOWN_MS = 30 * 86400000;
 
+/** @typedef {'unsupported'|'already-installed'|'ios-empty-handoff'|'ios-transfer'|'chromium-awaiting-value'|'eligible-milestone'|'cooldown'|'manual-settings'} InstallState */
+/** @param {InstallState} state @param {boolean} eligible @param {number|null} milestone @param {string} reason */
 function result(state, eligible, milestone, reason) {
   return Object.freeze({ state, eligible, milestone, reason });
 }
 
+/** @param {unknown} value */
 function finiteTime(value) {
   return Number.isFinite(Number(value)) && Number(value) > 0 ? Number(value) : 0;
 }
 
-export function evaluateInstallPolicy(input) {
-  if (!input || typeof input !== "object") return result("unsupported", false, null, "invalid-input");
+/** Unknown device/preference inputs are inspected before they influence eligibility.
+ * @param {unknown} candidate */
+export function evaluateInstallPolicy(candidate) {
+  if (!candidate || typeof candidate !== "object") return result("unsupported", false, null, "invalid-input");
+  const input = /** @type {Record<string,unknown>} */(candidate);
   const platform = input.platform;
   const iosSafari = input.isIOSSafari == null ? platform === "ios" : input.isIOSSafari === true;
   const capability = input.hasInstallCapability === true || input.beforeInstallPrompt === true;
   const standalone = input.standalone === true || input.isStandalone === true;
   const meaningful = input.hasMeaningfulData === true;
-  const workouts = Number.isInteger(input.savedWorkoutsCount) ? Math.max(0, input.savedWorkoutsCount) : 0;
-  const prefs = input.uiPrefs && typeof input.uiPrefs === "object" ? input.uiPrefs : {};
-  const now = Number.isFinite(input.nowMs) ? input.nowMs : Date.now();
+  const workouts = Number.isInteger(input.savedWorkoutsCount) ? Math.max(0, /** @type {number} */(input.savedWorkoutsCount)) : 0;
+  const prefs = /** @type {Record<string,unknown>} */(input.uiPrefs && typeof input.uiPrefs === "object" ? input.uiPrefs : {});
+  const now = Number.isFinite(input.nowMs) ? /** @type {number} */(input.nowMs) : Date.now();
   const manual = input.source === "manual-settings" || input.isManualSettings === true;
 
   if (standalone) return result("already-installed", false, null, "standalone");
@@ -48,9 +54,9 @@ export function evaluateInstallPolicy(input) {
     if (!meaningful) return result("ios-empty-handoff", true, 0, "ios-empty");
     if (input.transferAvailable !== true) return result("unsupported", false, null, "transfer-unavailable");
     const offeredMilestone = Number.isInteger(prefs.installLastOfferedMilestone)
-      ? prefs.installLastOfferedMilestone : null;
+      ? /** @type {number} */(prefs.installLastOfferedMilestone) : null;
     const dismissedMilestone = Number.isInteger(prefs.installDismissedMilestone)
-      ? prefs.installDismissedMilestone : null;
+      ? /** @type {number} */(prefs.installDismissedMilestone) : null;
     const offeredAt = finiteTime(prefs.installLastOfferedAt);
     const dismissedAt = finiteTime(prefs.installDismissedAt);
     if (offeredAt && now < offeredAt || dismissedAt && now < dismissedAt)
@@ -74,9 +80,9 @@ export function evaluateInstallPolicy(input) {
   if (workouts < 1) return result("chromium-awaiting-value", false, null, "awaiting-first-workout");
 
   const offeredMilestone = Number.isInteger(prefs.installLastOfferedMilestone)
-    ? prefs.installLastOfferedMilestone : null;
+    ? /** @type {number} */(prefs.installLastOfferedMilestone) : null;
   const dismissedMilestone = Number.isInteger(prefs.installDismissedMilestone)
-    ? prefs.installDismissedMilestone : null;
+    ? /** @type {number} */(prefs.installDismissedMilestone) : null;
   const offeredAt = finiteTime(prefs.installLastOfferedAt);
   const dismissedAt = finiteTime(prefs.installDismissedAt);
   if (offeredAt && now < offeredAt || dismissedAt && now < dismissedAt)
@@ -98,11 +104,13 @@ export function evaluateInstallPolicy(input) {
   return result("eligible-milestone", true, 3, interactions.length ? "monthly" : "third-workout");
 }
 
+/** @param {unknown} uiPrefs @param {{milestone:number|null,nowMs:number}} event */
 export function recordInstallOffer(uiPrefs, { milestone, nowMs }) {
   return Object.freeze({ ...(uiPrefs && typeof uiPrefs === "object" ? uiPrefs : {}),
     installLastOfferedMilestone: milestone, installLastOfferedAt: nowMs });
 }
 
+/** @param {unknown} uiPrefs @param {{milestone:number|null,nowMs:number}} event */
 export function recordInstallDismissal(uiPrefs, { milestone, nowMs }) {
   return Object.freeze({ ...(uiPrefs && typeof uiPrefs === "object" ? uiPrefs : {}),
     installDismissedMilestone: milestone, installDismissedAt: nowMs });

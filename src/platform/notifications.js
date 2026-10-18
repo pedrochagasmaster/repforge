@@ -1,4 +1,6 @@
 /** Device notification capability. Construction performs no permission request or storage IO. */
+/** @typedef {{canUse?:()=>boolean,permission?:()=>string,request?:()=>Promise<string>}} NotificationAdapter */
+/** @param {{Notification?:typeof globalThis.Notification|null,navigator?:{serviceWorker?:Pick<ServiceWorkerContainer,'getRegistration'>},adapter?:NotificationAdapter|null,console?:Pick<Console,'warn'>}} options */
 export function createNotifications({ Notification = null, navigator = {}, adapter = null, console = { warn() {} } } = {}) {
   const TYPES = ["timer", "session", "unfinished", "missed"];
 
@@ -15,7 +17,7 @@ export function createNotifications({ Notification = null, navigator = {}, adapt
       return p || "unsupported";
     }
     if (!canUse()) return "unsupported";
-    return Notification.permission;
+    return /** @type {typeof globalThis.Notification} */(Notification).permission;
   }
 
   async function request() {
@@ -25,10 +27,11 @@ export function createNotifications({ Notification = null, navigator = {}, adapt
       catch { return permission(); }
     }
     if (!canUse()) return "unsupported";
-    try { return await Notification.requestPermission(); }
+    try { return await /** @type {typeof globalThis.Notification} */(Notification).requestPermission(); }
     catch { return permission(); }
   }
 
+  /** @param {{notify?:{enabled?:unknown,[key:string]:unknown}}|null|undefined} settings @param {string} type */
   function enabledFor(settings, type) {
     const n = settings && settings.notify;
     if (!n || !n.enabled) return false;
@@ -43,12 +46,13 @@ export function createNotifications({ Notification = null, navigator = {}, adapt
   async function swRegistration() {
     try {
       if (!("serviceWorker" in navigator)) return null;
-      return (await navigator.serviceWorker.getRegistration()) || null;
+      return (await navigator.serviceWorker?.getRegistration()) || null;
     } catch { return null; }
   }
 
+  /** @param {{title?:string,body?:string,tag?:string,url?:string}} notification */
   async function fireOS({ title, body, tag, url }) {
-    if (!canUse() || Notification.permission !== "granted") return false;
+    if (!canUse() || /** @type {typeof globalThis.Notification} */(Notification).permission !== "granted") return false;
     const opts = {
       body: body || "",
       tag: tag || "repforge",
@@ -65,7 +69,7 @@ export function createNotifications({ Notification = null, navigator = {}, adapt
       } catch (e) { console.warn("showNotification failed", e); }
     }
     try {
-      new Notification(title || "Taurifer", opts);
+      new (/** @type {typeof globalThis.Notification} */(Notification))(title || "Taurifer", opts);
       return true;
     } catch (e) {
       console.warn("Notification constructor failed", e);
@@ -73,6 +77,7 @@ export function createNotifications({ Notification = null, navigator = {}, adapt
     }
   }
 
+  /** @param {string} tag */
   async function closeTag(tag) {
     try {
       const reg = await swRegistration();

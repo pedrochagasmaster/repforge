@@ -19,6 +19,8 @@
     "../../src/training/identity.js",
     "../../src/training/metrics.js",
     "../../src/persistence/preferences.js",
-    "../../src/platform/files.js"
+    "../../src/platform/files.js",
+    "../../src/platform/notifications.js",
+    "../../src/platform/install.js"
   ]
 }
