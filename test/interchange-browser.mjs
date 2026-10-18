@@ -4,7 +4,13 @@
 export async function ensureBrowserInterchange(page){
   await page.evaluate(async()=>{
     if(window.__repforgeInterchangeTest)return;
-    const url=path=>new URL(path,document.baseURI).href;
+    // Follow the page's actual immutable release graph when assembled; source
+    // previews keep the same relative module paths under the app scope.
+    const entry=[...document.querySelectorAll('script[src]')].map(script=>script.src)
+      .find(src=>new URL(src).pathname.includes('/src/'));
+    const marker=entry?.lastIndexOf('/src/');
+    const graphBase=entry&&marker!==undefined&&marker>=0?entry.slice(0,marker+1):document.baseURI;
+    const url=path=>new URL(path,graphBase).href;
     const [setup,transfer,wire,generation,metrics,identity,authoring,workout]=await Promise.all([
       import(url('src/interchange/setup-link.js')),import(url('src/platform/install-transfer.js')),
       import(url('src/interchange/transfer-contract.js')),import(url('src/training/generation.js')),

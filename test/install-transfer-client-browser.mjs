@@ -8,6 +8,7 @@
  * consumer suite; this boundary proof stays focused on the browser vault.
  */
 import assert from "node:assert/strict";
+import {ensureBrowserInterchange} from "./interchange-browser.mjs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -50,18 +51,10 @@ async function assertOrigin() {
   await response.arrayBuffer();
 }
 
-function moduleUrl() {
-  return new URL("src/platform/install-transfer.js", ORIGIN).href;
-}
-
 async function installBrowserClient(page){
   await waitForAppBoot(page,{base:INDEX_URL});
-  await page.evaluate(async url=>{
-    const {createInstallTransfer}=await import(url);
-    window.__repforgeTransferTest=createInstallTransfer({crypto:globalThis.crypto,TextEncoder,TextDecoder,document,
-      location:globalThis.location,navigator,matchMedia:globalThis.matchMedia.bind(globalThis),
-      fetch:globalThis.fetch.bind(globalThis),indexedDB,atob,btoa,now:()=>new Date().toISOString()});
-  },moduleUrl());
+  await ensureBrowserInterchange(page);
+  await page.evaluate(()=>{window.__repforgeTransferTest=window.__repforgeInterchangeTest.transfer;});
 }
 async function openBrowserClient(page){
   await page.goto(INDEX_URL,{waitUntil:'domcontentloaded'});
