@@ -6,6 +6,7 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import historicalDrafts from "./fixtures/program-entry-draft-plan070.json" with { type: "json" };
 
 // Plan 072 S1: the answers onboarding B adds before any of its screens exist.
 // These are isolated proofs because each contract is combinatorial or a
@@ -228,7 +229,7 @@ test("the answer schema takes B's Basics, presets, adjustment, block, deload and
 test("a draft an earlier release stored normalizes to itself and maps to the same request", () => {
   // Both consumers use frozen outputs of the pre-Plan-072 public producer and
   // adapter, never a draft enriched by today's constructors or normalizer.
-  const fixture = JSON.parse(fs.readFileSync(path.join(root, "test/fixtures/program-entry-draft-plan070.json"), "utf8"));
+  const fixture = historicalDrafts;
   assert.deepEqual(fixture.cases.map(c => c.id), ["commercial-empty", "commercial-authored", "other-empty"]);
   for (const sample of fixture.cases) {
     const stored = structuredClone(sample.draft);
