@@ -40,6 +40,7 @@ function historyMeaning(values) {
   assert.equal(row.sourceLibraryId, '1a05c6f170d88058a3a0c07e098a9605');
   assert.equal(row.performedLibraryId, row.sourceLibraryId);
   assert.equal(row.metricType, 'source_metrics@1');
+  assert.deepEqual(row.loadingContext, { loadingConvention: 'external', bodyweightKg: null, bodyweightContributionEnabled: false, externalLoadMultiplier: 1, bodyweightCoefficient: 0.076 });
   assert.deepEqual([row.load, row.reps, row.rir], [42.5, 8, 2]);
   assert.deepEqual(row.metricValues.map(value => [value.value, value.unit]), [[42.5, 'kg'], [8, 'reps']]);
   assert.equal(row.date, '2026-10-18');
@@ -47,7 +48,7 @@ function historyMeaning(values) {
 }
 historyMeaning(rows);
 for (const mutate of [row => { row.session = 'wrong'; }, row => { row.exerciseId = row.sourceLibraryId; },
-  row => { row.load = 43; }, row => { row.metricValues[0].unit = 'lb'; }, row => { delete row.loadingContext; row.sourceLibraryId = 'wrong'; }]) {
+  row => { row.load = 43; }, row => { row.metricValues[0].unit = 'lb'; }, row => { delete row.loadingContext; }]) {
   const bad = structuredClone(expected.historyRows);
   mutate(bad[0]);
   assert.throws(() => historyMeaning(bad), 'deliberate identity/metric corruption must fail independent oracle');
