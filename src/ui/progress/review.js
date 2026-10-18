@@ -2,21 +2,30 @@ import {escapeHtml as esc} from "../format.js";
 /** Owns only Review's volatile diagnosis/preview flow. Models are readonly;
  * named application commands own proposals, staging and durable confirmation.
  */
+/** @param {import("./contracts.js").ReviewOptions} options */
 export function createReviewController({document,copy,queries,commands,onChange,onNotice}){
-const {t}=copy,$=(selector,root=document)=>root.querySelector(selector),$$=(selector,root=document)=>[...root.querySelectorAll(selector)];
+const {t}=copy;
+/** @param {string} selector @param {ParentNode} [root] */
+const $=(selector,root=document)=>/** @type {HTMLElement|null} */(root.querySelector(selector));
+/** @param {string} selector @param {ParentNode} [root] */
+const $$=(selector,root=document)=>/** @type {HTMLElement[]} */([...root.querySelectorAll(selector)]);
 let disposed=false;
 const requestRender=()=>{if(!disposed)onChange()};
+/** @type {Readonly<import("./contracts.js").ReviewPreview>|null} */
 let previewModel=null;
+/** @type {Readonly<Record<string,string>>} */
 const EVIDENCE_OUTCOME_KEYS={improved:"stats.outcome.improved",maintained:"stats.outcome.maintained",declined:"stats.outcome.declined"};
+/** @type {Readonly<Record<string,string>>} */
 const REVIEW_ACTION_LABELS={repeat:"review.action.repeat","schedule-repair":"review.action.schedule_repair",
   "reduce-volume":"review.action.reduce_volume","recovery-week":"review.action.recovery_week","guided-edit":"review.action.guided_edit"};
+/** @param {Extract<import("./contracts.js").ReviewModel,{started:true}>["checkpoint"]} checkpoint */
 function renderReviewActions(checkpoint){
   const kinds=checkpoint.structuralActions.filter(k=>REVIEW_ACTION_LABELS[k]);
   if(!kinds.length)return "";
   return `<p class="section-label">${esc(t("review.actions.label"))}</p><div class="review__actions">`+
     kinds.map(k=>`<button type="button" class="btn btn--steel" data-review-action="${k}">${esc(t(REVIEW_ACTION_LABELS[k]))}</button>`).join("")+`</div>`}
 function bindReviewActions(){
-  document.querySelectorAll("[data-review-action]").forEach(button=>button.onclick=()=>{
+  /** @type {NodeListOf<HTMLElement>} */(document.querySelectorAll("[data-review-action]")).forEach(button=>button.onclick=()=>{
     const kind=button.dataset.reviewAction;
     if(kind==="repeat")commands.repeat();
     else if(kind==="schedule-repair")startScheduleRepair();
@@ -25,6 +34,7 @@ function bindReviewActions(){
     else if(kind==="guided-edit")startGuidedEdit();
   });
 }
+/** @type {import("./contracts.js").ReviewFlow|null} */
 let reviewFlow=null;
 function startScheduleRepair(){reviewFlow={stage:"diagnosis",action:"schedule-repair",kind:"fewer_days",target:""};requestRender()}
 function startGuidedEdit(){reviewFlow={stage:"diagnosis",action:"guided-edit",kind:"fewer_days",target:""};requestRender()}
@@ -37,8 +47,9 @@ async function closeReviewFlow(){
     if(disposed||reviewFlow!==flow)return;
     if(!cleared?.ok){reviewFlow={stage:"error",code:cleared?.conflict?"save_conflict":"save_failed"};requestRender();return}}
   reviewFlow=null;requestRender()}
+/** @param {HTMLElement} el */
 function renderReviewFlow(el){
-  const flow=reviewFlow||{};
+  const flow=/** @type {import("./contracts.js").ReviewFlow} */(reviewFlow);
   if(flow.stage==="preview")return renderSiblingPreview(el,flow);
   if(flow.stage==="volume-question"){
     el.innerHTML=`<p class="section-label">${esc(t("review.volume.title"))}</p><p>${esc(t("review.volume.question"))}</p>`+
@@ -54,7 +65,7 @@ function renderReviewFlow(el){
       ["Yes","No","Not sure"].map(answer=>`<button type="button" class="btn btn--steel" data-recovery-answer="${esc(answer)}">${esc(t(`review.recovery.answer.${answer}`))}</button>`).join("")+`</div>`+
       (flow.message?`<p class="review__readonly" role="status">${esc(t(flow.message))}</p>`:"")+
       `<div class="btnrow"><button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
-    $$('[data-recovery-answer]',el).forEach(button=>button.onclick=()=>answerRecoveryQuestion(button.dataset.recoveryAnswer));
+    $$('[data-recovery-answer]',el).forEach(button=>button.onclick=()=>answerRecoveryQuestion(button.dataset.recoveryAnswer||""));
     bindFlowCancel(el);return}
   if(flow.stage==="staged"){
     el.innerHTML=`<p class="review__staged" role="status">${esc(t("review.staged.done"))}</p>`+
@@ -87,11 +98,12 @@ function renderReviewFlow(el){
     (flow.error?`<p class="review__error" role="alert">${esc(t(flow.error))}</p>`:"")+
     `<div class="btnrow"><button type="button" class="btn btn--cta" data-diag-continue>${esc(t(flow.action==="guided-edit"?"review.diagnosis.edit":"review.diagnosis.continue"))}</button>`+
     `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
-  $$("[data-diag]",el).forEach(b=>b.onclick=()=>{flow.kind=b.dataset.diag;flow.error=null;requestRender()});
-  const input=$("[data-diag-target]",el);
+  $$("[data-diag]",el).forEach(b=>b.onclick=()=>{flow.kind=/** @type {"fewer_days"|"sessions_too_long"} */(b.dataset.diag);flow.error=null;requestRender()});
+  const input=/** @type {HTMLInputElement|null} */($("[data-diag-target]",el));
   if(input)input.oninput=()=>{flow.target=input.value;flow.error=null};
   const cont=$("[data-diag-continue]",el);if(cont)cont.onclick=continueScheduleDiagnosis;
   bindFlowCancel(el)}
+/** @param {HTMLElement} el */
 function bindFlowCancel(el){const c=$("[data-flow-cancel]",el);if(c)c.onclick=()=>void closeReviewFlow()}
 async function continueScheduleDiagnosis(){
   const flow=reviewFlow;if(!flow||flow.stage!=="diagnosis")return;
@@ -101,6 +113,7 @@ async function continueScheduleDiagnosis(){
   const answers=flow.kind==="fewer_days"?{availableDays:n}:{sessionMinutes:n};
   const diagnosis={kind:flow.kind,answers};
   if(flow.action==="guided-edit")return stageGuidedRepairFlow(diagnosis);
+  /** @type {import("../../app/review-contracts.js").Change} */
   const change=flow.kind==="fewer_days"?{kind:"fewer_days",daysPerWeek:n}:{kind:"shorter_sessions",sessionMinutes:n};
   const res=await commands.propose(change);
   if(disposed||reviewFlow!==flow)return;
@@ -108,6 +121,7 @@ async function continueScheduleDiagnosis(){
   // no eligible fit) becomes guided editing of the live program.
   if(res?.ok){reviewFlow={stage:"preview",action:"schedule-repair",proposal:res.proposal,carry:res.carry||null};requestRender()}
   else await stageGuidedRepairFlow(diagnosis)}
+/** @param {import("../../app/review-contracts.js").Diagnosis} diagnosis */
 async function stageGuidedRepairFlow(diagnosis){
   const flow=reviewFlow;
   const staged=await commands.stage(diagnosis);
@@ -122,6 +136,7 @@ async function proposeVolumeReductionFlow(){
     :{stage:"error",action:"reduce-volume",code:result?.code||"volume_reduction_unavailable"};
   requestRender()}
 /* A recovery week is the lifter's call: a Yes schedules it, nothing infers it. */
+/** @param {string} answer */
 async function answerRecoveryQuestion(answer){
   const flow=reviewFlow;
   if(answer!=="Yes"){
@@ -132,19 +147,25 @@ async function answerRecoveryQuestion(answer){
   reviewFlow=result?.ok?{stage:"preview",action:"recovery-week",proposal:result.proposal}
     :{stage:"error",action:"recovery-week",code:result?.code||"recovery_unavailable"};
   requestRender()}
+/** @param {{exerciseId?:string,displayName?:string}|undefined} slot */
 function definitionMovementLabel(slot){
-  return slot?.displayName||previewModel.movementLabels[slot?.exerciseId]||slot?.exerciseId||"—"}
+  return slot?.displayName||previewModel?.movementLabels[String(slot?.exerciseId)]||slot?.exerciseId||"—"}
 /* What the lifter sees before confirming: the first cycle of each program,
    compared slot by slot, then movement by movement. */
+/** @param {import("./contracts.js").ProgramDefinition|undefined} before @param {import("./contracts.js").ProgramDefinition|undefined} after */
 function definitionPreviewLines(before,after){
+  /** @param {import("./contracts.js").ProgramDefinition|undefined} definition */
   const training=definition=>(definition?.days||[]).filter(day=>day.kind==="training");
+  /** @param {import("./contracts.js").ProgramSlot} slot */
   const setsOf=slot=>slot.prescriptionsByCycle?.[0]?.sets.length??0;
   const lines=[],beforeDays=training(before),afterDays=training(after);
-  const shown=(day,definition)=>`${(definition===before?previewModel.beforeDayLabels:previewModel.afterDayLabels)[day.name]||day.name} · ${day.slots.length}`;
+  /** @param {import("./contracts.js").ProgramDefinition["days"][number]} day @param {import("./contracts.js").ProgramDefinition|undefined} definition */
+  const shown=(day,definition)=>`${((definition===before?previewModel?.beforeDayLabels:previewModel?.afterDayLabels)||{})[day.name]||day.name} · ${day.slots.length}`;
   for(let index=0;index<Math.max(beforeDays.length,afterDays.length);index++){
     const was=beforeDays[index],now=afterDays[index];
     if(was&&now&&was.name===now.name&&was.slots.length===now.slots.length)continue;
     lines.push(t("review.preview.day_change",{before:was?shown(was,before):"—",after:now?shown(now,after):"—"}))}
+  /** @param {import("./contracts.js").ProgramDefinition|undefined} definition */
   const slots=definition=>training(definition).flatMap(day=>day.slots);
   const remaining=slots(after).slice();
   for(const slot of slots(before)){
@@ -156,21 +177,24 @@ function definitionPreviewLines(before,after){
   return lines}
 /* What a regeneration did with the lifter's block edits, movement by movement
    and week by week, read from the successor the proposal commits. */
+/** @param {import("./contracts.js").CarryReport|null|undefined} carry @param {import("./contracts.js").ProgramDefinition|undefined} before @param {import("./contracts.js").ProgramDefinition|undefined} after */
 function carryPreviewLines(carry,before,after){
   if(!carry)return[];
   if(!carry.identified)return[t("review.preview.carry.unidentified")];
+  /** @param {import("./contracts.js").ProgramDefinition|undefined} definition */
   const slots=definition=>new Map((definition?.days||[]).flatMap(day=>day.slots).map(slot=>[slot.id,slot]));
   const was=slots(before),now=slots(after);
   return carry.entries.map(entry=>{
     const movement=definitionMovementLabel(was.get(entry.predecessorSlotId)||{exerciseId:entry.exerciseId});
     const carried=entry.outcome!=="dropped";
+    /** @type {{first:number,last:number,changes:string}[]} */
     const weeks=[];
     for(const cycle of entry.cycles){
       const changes=cycle.fields.map(field=>{
         if(field==="targets")return t("review.preview.carry.targets");
         if(field==="rir")return t("review.preview.carry.rir");
         if(field==="restSeconds")return t("review.preview.carry.rest");
-        const sets=carried?cycleSets(now.get(entry.successorSlotId),cycle.cycleIndex):cycle.requestedSets;
+        const sets=carried?cycleSets(now.get(String(entry.successorSlotId)),cycle.cycleIndex):cycle.requestedSets;
         return sets<cycle.requestedSets?t("review.preview.carry.sets_clamped",{sets,requested:cycle.requestedSets})
           :t("review.preview.carry.sets",{sets})}).join(", ");
       const last=weeks.at(-1);
@@ -182,12 +206,15 @@ function carryPreviewLines(carry,before,after){
     if(entry.outcome==="clamped")return t("review.preview.carry.clamped",{movement,details});
     return entry.reason==="slot_removed"?t("review.preview.carry.removed",{movement,details})
       :t("review.preview.carry.over_limit",{movement,details})})}
+/** @param {import("./contracts.js").ProgramSlot|null|undefined} slot @param {number} cycleIndex */
 function cycleSets(slot,cycleIndex){
   return slot?.prescriptionsByCycle?.find(cycle=>cycle.cycleIndex===cycleIndex)?.sets.length??0}
+/** @param {HTMLElement} el @param {import("./contracts.js").PreviewFlow} flow */
 function renderSiblingPreview(el,flow){
-  const p=flow.proposal||{},change=p.change||{};
+  const p=flow.proposal,change=/** @type {Partial<import("../../app/review-contracts.js").Change>} */(p.change||{});
   previewModel=queries.preview(flow);
   const {before,after}=previewModel;
+  /** @param {import("./contracts.js").ProgramDefinition|undefined} definition */
   const trainingDays=definition=>(definition?.days||[]).filter(day=>day.kind==="training").length;
   const recovery=change.kind==="recovery_week";
   const lines=recovery?[]:definitionPreviewLines(before,after);
@@ -195,7 +222,7 @@ function renderSiblingPreview(el,flow){
   const summary=recovery
     ?`<p>${esc(t("review.recovery.preview_body"))}</p><p><b>${esc(t("review.recovery.preview_weeks",{before:before?.cycles,after:after?.cycles}))}</b></p>`
     :(change.kind==="fewer_days"?`<p><b>${esc(t("review.preview.frequency",{before:trainingDays(before),after:trainingDays(after)}))}</b></p>`:"")+
-      (change.kind==="shorter_sessions"?`<p><b>${esc(t("review.preview.duration",{before:before?.request?.timeCeilingMinutes,after:after?.request?.timeCeilingMinutes}))}</b></p>`:"")+
+      (change.kind==="shorter_sessions"?`<p><b>${esc(t("review.preview.duration",{before:/** @type {{timeCeilingMinutes?:unknown}|undefined} */(before?.request)?.timeCeilingMinutes,after:/** @type {{timeCeilingMinutes?:unknown}|undefined} */(after?.request)?.timeCeilingMinutes}))}</b></p>`:"")+
       (change.kind==="fewer_days"||change.kind==="shorter_sessions"?`<p class="lede">${esc(t("review.preview.provenance"))}</p>`:"")+
       (carryLines.length?`<ul class="review__diff">${carryLines.map(line=>`<li>${esc(line)}</li>`).join("")}</ul>`:"")+
       (lines.length?`<ul class="review__diff">${lines.map(line=>`<li>${esc(line)}</li>`).join("")}</ul>`:`<p class="lede">${esc(t("review.preview.exercises_unchanged"))}</p>`);
@@ -206,17 +233,18 @@ function renderSiblingPreview(el,flow){
     `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.preview.cancel"))}</button></div>`;
   const confirm=$("[data-preview-confirm]",el);
   if(confirm)confirm.onclick=async()=>{
-    confirm.disabled=true;
+    /** @type {HTMLButtonElement} */(confirm).disabled=true;
     const persisted=await commands.confirm(flow);
     if(disposed||reviewFlow!==flow)return;
     if(persisted?.committed){
       const doneKey=persisted.doneKey;
-      reviewFlow={stage:"done",doneKey};onNotice(t(doneKey));requestRender();
+      reviewFlow={stage:"done",doneKey};onNotice(t(/** @type {string} */(doneKey)));requestRender();
     }else{
       reviewFlow={stage:"error",action:flow.action,code:persisted?.code,stale:persisted?.duplicate===true||!!persisted?.stale||!!persisted?.staleRevision};
       requestRender();
     }}
   bindFlowCancel(el)}
+/** @param {Readonly<import("./contracts.js").ReviewModel>} model */
 function render(model){
   if(disposed)return;
   const host=$("#reviewPanel");if(!host)return;

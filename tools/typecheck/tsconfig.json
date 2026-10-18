@@ -35,6 +35,8 @@
     "../../src/app/interchange.js",
     "../../src/ui/settings/**/*.js",
     "../../src/ui/shell.js",
-    "../../src/ui/workout/session-sheet.js"
+    "../../src/ui/workout/session-sheet.js",
+    "../../src/ui/progress/**/*.js",
+    "../../src/app/review.js"
   ]
 }

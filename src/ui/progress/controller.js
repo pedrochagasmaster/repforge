@@ -5,11 +5,18 @@ import {createEvidenceViews} from "./evidence.js";
  * Review separately owns its diagnosis/preview flow. No application state or
  * storage is retained here. Explicit mount/dispose own keyboard/tab handlers.
  */
+/** @param {import("./contracts.js").ControllerOptions} options */
 export function createProgressController({document,copy,format,motion,queries,review,onOpenExercise,onGoToday,onReviewViewed,onSelected}){
-const $=selector=>document.querySelector(selector),$$=selector=>[...document.querySelectorAll(selector)];
+/** @param {string} selector */
+const $=selector=>/** @type {HTMLElement|null} */(document.querySelector(selector));
+/** @param {string} selector */
+const $$=selector=>/** @type {HTMLElement[]} */([...document.querySelectorAll(selector)]);
+/** @type {Readonly<Record<string,string>>} */
 const STATS_SEG={overview:"segOverview",review:"segReview"};
+/** @type {Readonly<Record<string,string>>} */
 const EVIDENCE_SEG={strength:"segStrength",volume:"segVolume",prs:"segPRs"};
-let statsSeg="overview",evidenceView=null,strengthScope="current-block",volumeScope="this-week",prFilter="all",mounted=false,disposed=false;
+/** @type {string|null} */let evidenceView=null;
+let statsSeg="overview",strengthScope="current-block",volumeScope="this-week",prFilter="all",mounted=false,disposed=false;
 const presentation=createProgressOverview({document,copy,format,onOpenExercise,onGoToday});
 const evidence=createEvidenceViews({document,copy,format,presentation,
   onStrengthScope:scope=>{strengthScope=scope;renderStrength()},
@@ -37,8 +44,9 @@ function paintStatsTabs(){
       const row=b.parentElement,left=b.offsetLeft-row.offsetLeft;
       if(left<row.scrollLeft||left+b.offsetWidth>row.scrollLeft+row.clientWidth)row.scrollLeft=Math.max(0,left-16)}});
   const now=row?.querySelector('.tabrow__tab[aria-selected="true"]');
-  if(fromRect&&was&&now&&now!==was){fromRect.left-=row.scrollLeft-scrolled;travelTabIndicator(now,fromRect)}}
+  if(fromRect&&was&&now&&now!==was){fromRect.left-=/** @type {HTMLElement} */(row).scrollLeft-scrolled;travelTabIndicator(/** @type {HTMLElement} */(now),fromRect)}}
 /** The rect of a tab's indicator: the 2px border along its foot, or a travelling indicator as drawn. */
+/** @param {Element|null|undefined} el @param {boolean} isRing */
 function tabIndicatorRect(el,isRing){
   if(!el)return null;
   const r=el.getBoundingClientRect();
@@ -47,6 +55,7 @@ function tabIndicatorRect(el,isRing){
 /** N3: the indicator travels from the tab it left to the one that now carries it. The tab keeps its own
  *  2px border for the rest state and sets it aside while this one is in the air, so there is one
  *  indicator on screen. Selecting, the panel switch, focus and ARIA are already done and wait on nothing. */
+/** @param {HTMLElement} tab @param {{left:number,top:number,width:number,height:number}} fromRect */
 function travelTabIndicator(tab,fromRect){
   const m=(motion&&motion.available()&&!motion.reducedMotion()?motion:null),row=tab.parentElement;
   if(!m||!row)return false;
@@ -58,13 +67,14 @@ function travelTabIndicator(tab,fromRect){
   const done=()=>{ring.remove();if(!row.querySelector(".tabrow__ring"))tab.classList.remove("is-ring-travel")};
   m.animateIndicator(ring,fromRect).then(done,done);
   return true}
+/** @param {string|null|undefined} view */
 function setEvidenceView(view){
   if(disposed)return;
-  if(!EVIDENCE_SEG[view]){evidenceView=null;
+  if(!EVIDENCE_SEG[String(view)]){evidenceView=null;
     paintStatsTabs();
     for(const id of Object.values(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
     return}
-  evidenceView=view;
+  evidenceView=/** @type {string} */(view);
   paintStatsTabs();
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
   for(const [k,id] of Object.entries(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===view)}
@@ -83,26 +93,27 @@ function wireStatsTabs(){
     b.onclick=()=>setStatsSeg(b.dataset.seg)});
   row.onkeydown=e=>{
     if(e.altKey||e.ctrlKey||e.metaKey||e.shiftKey)return;
-    const at=tabs.indexOf(document.activeElement);if(at<0)return;
+    const at=tabs.indexOf(/** @type {HTMLElement} */(document.activeElement));if(at<0)return;
     const to=e.key==="ArrowRight"?(at+1)%tabs.length:e.key==="ArrowLeft"?(at+tabs.length-1)%tabs.length:
       e.key==="Home"?0:e.key==="End"?tabs.length-1:-1;
     if(to<0)return;
     e.preventDefault();
     setStatsSeg(tabs[to].dataset.seg);tabs[to].focus()}}
+/** @param {string|undefined} seg */
 function setStatsSeg(seg){
   if(disposed)return;
   // Legacy one-level values route to their Evidence view (Plan 056 migration).
-  if(EVIDENCE_SEG[seg])return setEvidenceView(seg);
-  if(!STATS_SEG[seg])seg="overview";
+  if(EVIDENCE_SEG[String(seg)])return setEvidenceView(seg);
+  if(!STATS_SEG[String(seg)])seg="overview";
   // Opening the review is the move onto it, not re-selecting it while it is showing.
   const opensReview=seg==="review"&&!(statsSeg==="review"&&!evidenceView&&$("#stats")?.classList.contains("active"));
-  statsSeg=seg;evidenceView=null;
+  statsSeg=/** @type {string} */(seg);evidenceView=null;
   paintStatsTabs();
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
   for(const [k,id] of Object.entries(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
   if(seg==="review")review.render(queries.review());
   if(opensReview)onReviewViewed();
-  onSelected(seg)}
+  onSelected(/** @type {string} */(seg))}
 
 function mount(){if(mounted||disposed)return;mounted=true;wireStatsTabs()}
 function dispose(){
