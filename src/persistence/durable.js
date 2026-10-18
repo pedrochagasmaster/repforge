@@ -152,14 +152,28 @@ export function createDurableStore({snapshotPolicy, workout, session,
         return{status:"checkpoint-missing",raw:read.raw}}
       return read}
     const value=checkpoint.value;
-    /** @template T @param {(current:Extract<import('./contracts.js').CanonicalRead,{status:'ok'}>)=>T|Promise<T>} operation */
-    const underCheckpointLock=async operation=>{
+    /** @template T @param {(current:Extract<import('./contracts.js').CanonicalRead,{status:'ok'}>)=>T|Promise<T>} operation @param {string} [candidateRaw] */
+    const underCheckpointLock=async(operation,candidateRaw)=>{
       if(!platform.navigator?.locks?.request)return{status:"lock-unavailable",raw:read.raw};
       return platform.navigator?.locks.request(STORAGE_LOCK,()=>withDraftWriteLock(async()=>{
         const current=DraftStore.readCanonicalStatus(),currentCheckpoint=DraftStore.readV2Checkpoint();
         if(current.status!=="ok")return current;
         if(current.raw!==read.raw||currentCheckpoint.raw!==checkpoint.raw)
           return{status:"stale-recovery",raw:current.raw};
+        if(candidateRaw!==undefined){
+          const candidate=parser.parse(candidateRaw);
+          if(candidate.kind!=='valid')return{status:'checkpoint-unreadable',raw:current.raw};
+          // Every committed checkpoint promotion or restoration uses the same
+          // head captured under STORAGE -> draft locks. A pending checkpoint
+          // with no predecessor is equally capable of resurrecting a draft.
+          const head=chooseSnapshot(readLocalStatus(),await readIdbStatus());
+          if(head.kind!=='chosen'||pendingDraftTransaction(head.snapshot)||hasPendingJournal()||
+            head.snapshot.log.some(row=>row?.session===candidate.draft.draftId))
+            return{status:'stale-recovery',raw:current.raw};
+          const contextual=parser.parse(candidateRaw,Snapshot.workoutParseContextForSnapshot(head.snapshot,candidate.draft.program.dayLabel||label));
+          if(contextual.kind!=='valid'){
+            retainDraftRecovery(current.raw,contextual.kind==='stale'?`stale-${contextual.reason}`:'code' in contextual?contextual.code:'checkpoint-unreadable');
+            return{status:'stale-recovery',error:contextual,raw:current.raw}}}
         return operation(current)}))};
     /** @param {string} reason @param {import('./contracts.js').DraftIdentity} draft */
     const clearProtected=async(reason,draft)=>{
@@ -186,7 +200,7 @@ export function createDurableStore({snapshotPolicy, workout, session,
     if(value.kind==="pending-removal"&&read.raw===value.raw){
       return underCheckpointLock(()=>DraftStore.writeV2Checkpoint(v2CheckpointRecord(
         checkpointParsed.draft,value.raw,value.operationId))?read:
-        {status:"checkpoint-rollback-failed",raw:read.raw})}
+        {status:"checkpoint-rollback-failed",raw:read.raw},value.raw)}
     if(value.kind==="pending-removal"&&read.raw==null){
       return underCheckpointLock(()=>DraftStore.writeV2Checkpoint(DraftStore.v2Tombstone(
         checkpointParsed.draft,value.operationId))?read:
@@ -197,37 +211,26 @@ export function createDurableStore({snapshotPolicy, workout, session,
     if(value.kind==="pending"&&read.raw===value.raw){
       return underCheckpointLock(()=>DraftStore.writeV2Checkpoint(v2CheckpointRecord(
         checkpointParsed.draft,value.raw,value.operationId))?read:
-        {status:"checkpoint-commit-failed",raw:read.raw})}
+        {status:"checkpoint-commit-failed",raw:read.raw},value.raw)}
     if(value.kind==="pending"&&read.raw===value.baseRaw){
       if(value.previous&&read.raw===value.previous.raw){
         return underCheckpointLock(()=>DraftStore.writeV2Checkpoint({.../** @type {import('./contracts.js').V2Record} */(value.previous),kind:"committed"})
-          ?read:{status:"checkpoint-rollback-failed",raw:read.raw})}
+          ?read:{status:"checkpoint-rollback-failed",raw:read.raw},value.previous.raw)}
       if(!value.previous)return underCheckpointLock(current=>{
         const prepared=prepareV2CheckpointEffect(current.raw,value.raw,value.operationId,{previous:null});
         if(!prepared.ok||!DraftStore.publishCanonical(value.raw)||!commitV2CheckpointEffect(prepared,value.raw))
           return{status:"recovery-write-failed",raw:current.raw};
-        return{status:"ok",raw:value.raw}})}
+        return{status:"ok",raw:value.raw}},value.raw)}
     if(!protectedValue||protectedParsed?.kind!=="valid"){
       retainDraftRecovery(read.raw,"orphaned-v2-pending");
       return{status:"checkpoint-conflict",raw:read.raw}}
-    return underCheckpointLock(async current=>{
-      // The checkpoint may be unchanged while a different tab commits a new
-      // program head. Validate against the selected replicas under both locks.
-      const head=chooseSnapshot(readLocalStatus(),await readIdbStatus());
-      if(head.kind!=='chosen'||pendingDraftTransaction(head.snapshot)||hasPendingJournal()||
-        head.snapshot.log.some(row=>row?.session===protectedParsed.draft.draftId))
-        return{status:'stale-recovery',raw:current.raw};
-      const protectedDraft=parser.parse(protectedValue.raw,
-        Snapshot.workoutParseContextForSnapshot(head.snapshot,protectedParsed.draft.program.dayLabel||label));
-      if(protectedDraft.kind!=='valid'){
-        retainDraftRecovery(current.raw,protectedDraft.kind==='stale'?`stale-${protectedDraft.reason}`:'code' in protectedDraft?protectedDraft.code:'checkpoint-unreadable');
-        return{status:'stale-recovery',error:protectedDraft,raw:current.raw}}
+    return underCheckpointLock(current=>{
       if(current.raw!==protectedValue.raw)retainDraftRecovery(current.raw,'superseded-v2-canonical');
       const operationId=`recover-${pendingJournalUuid()}`;
       const prepared=prepareV2CheckpointEffect(current.raw,protectedValue.raw,operationId,{previous:protectedValue});
       if(!prepared.ok||!DraftStore.publishCanonical(protectedValue.raw)||
         !commitV2CheckpointEffect(prepared,protectedValue.raw))return{status:"recovery-write-failed",raw:current.raw};
-      return{status:"ok",raw:protectedValue.raw}})}
+      return{status:"ok",raw:protectedValue.raw}},protectedValue.raw)}
 
   const DraftStore={
     readCanonicalRaw(){
