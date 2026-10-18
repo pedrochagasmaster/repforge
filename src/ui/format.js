@@ -56,3 +56,24 @@ export function formatProgramContext(name,cycle,t){
 export function formatCycleLabel(cycle,deload,t){
   return deload?t('today.deload_week'):cycle.isComplete?t('meso.complete'):cycle.current!=null?t('today.week_short',{n:cycle.current}):'';
 }
+
+/** Numeric load grouping for display; never rounds a stored value.
+ * @param {number|null|undefined} a @param {number|null|undefined} b */
+export const sameLoad=(a,b)=>a!=null&&b!=null&&Math.abs(a-b)<=1e-6;
+/** @param {{status:string,reason?:string}} recommendation */
+export function recommendationVerdict(recommendation){
+  if(['configuration_required','manual','new'].includes(recommendation.status))return recommendation.status;
+  if(recommendation.status==='add'||recommendation.status==='add2')return 'up';
+  if(recommendation.status==='reduce')return recommendation.reason==='stalled'?'stalled':'down';
+  return recommendation.reason==='recover'?'recover':'hold';
+}
+/** @param {unknown} date @param {(key:string)=>string} t @param {string} language */
+export function formatShortDate(date,t,language){
+  const parts=String(date||'').split('-');if(parts.length!==3)return String(date||'');
+  const day=Number(parts[2]),month=t('month_short.'+(Number(parts[1])-1));
+  return language==='pt'?`${day} ${month}`:`${month} ${day}`;
+}
+
+/** Locale list formatting shared by Why and entry conflict copy.
+ * @param {unknown[]} items @param {string} language */
+export function formatList(items,language){const values=items.map(String);try{return new Intl.ListFormat(language==='pt'?'pt-BR':'en-GB',{style:'long',type:'conjunction'}).format(values);}catch{return values.join(', ');}}

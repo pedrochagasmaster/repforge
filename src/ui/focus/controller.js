@@ -28,3 +28,5 @@ export {createFocusBindings,setWorkoutOverflow} from './bindings.js';
 export {createFocusView} from './workout.js';
 
 export {createRestSheet} from './rest-sheet.js';
+
+export {createWhyPresentation} from './why-model.js';

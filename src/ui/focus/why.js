@@ -15,6 +15,9 @@ function calcHtml(calc) {
 /** Why presentation owns no recommendation math, workout state or durable IO. */
 /** @param {{document:Document,shell:WhyShell,motion?:DisclosureMotion|null,commands:{recommendationExplained:(payload:{surface:"focus"|"exercise"})=>unknown}}} options */
 export function createWhySheet({document,shell,motion=null,commands}) {
+  let disposed=false,openingFrame=0;
+  /** @type {AbortController|null} */let mounted=null;
+  /** @type {AbortController|null} */let rendered=null;
   /** @param {string} selector */
   const $=selector=>/** @type {HTMLElement|null} */ (document.querySelector(selector));
   const host=document.defaultView;if(!host)throw new TypeError("Why sheet requires a browser document");
@@ -31,7 +34,8 @@ export function createWhySheet({document,shell,motion=null,commands}) {
   }
   /** @param {WhyModel} model */
   function render(model) {
-    const labels=model.labels;
+    if(disposed)return;rendered?.abort();rendered=new view.AbortController();
+    const signal=rendered.signal,labels=model.labels;
     const target=$("#whyTarget");if(target){target.innerHTML=model.target?`${model.markHtml}<span>${esc(model.target)}</span>`:"";target.classList.toggle("hidden",!model.target);}
     const decision=$("#whyDecision");if(decision)decision.textContent=model.decision;
     const body=$("#whyBody");
@@ -41,27 +45,33 @@ export function createWhySheet({document,shell,motion=null,commands}) {
         (model.calc.length?`<button type="button" class="whysheet__disc" data-why-calc aria-expanded="false" aria-controls="whyCalc"><span>${esc(labels.calc)}</span><span class="chevron is-down" aria-hidden="true"></span></button>`+
           `<div class="whycalc" id="whyCalc" aria-hidden="true">${calcHtml(model.calc)}</div>`:"");
       const disc=/** @type {HTMLElement|null} */ (body.querySelector("[data-why-calc]")),panel=/** @type {HTMLElement|null} */ (body.querySelector("#whyCalc"));
-      if(disc&&panel)disc.onclick=()=>{
+      if(disc&&panel)disc.addEventListener('click',()=>{
         const open=disc.getAttribute("aria-expanded")!=="true";disclose(disc,panel,open);
         const label=disc.querySelector("span");if(label)label.textContent=open?labels.calcHide:labels.calc;
         const chev=disc.querySelector(".chevron");if(chev)chev.classList.toggle("is-down",!open);
-      };
+      },{signal});
     }
     const evidence=$("#whyEvidence");if(evidence){evidence.textContent=model.evidence;evidence.classList.toggle("hidden",!model.evidence);}
   }
   /** @param {{model:WhyModel,opener:HTMLElement|null,surface?:"focus"|"exercise"}} input */
   function open({model,opener,surface="focus"}) {
-    const sheet=$("#whySheet"),scrim=$("#whyScrim");if(!sheet)return;
+    if(disposed)return;mount();const sheet=$("#whySheet"),scrim=$("#whyScrim");if(!sheet)return;
     commands.recommendationExplained({surface});render(model);
-    const ok=$("#whyOk");if(ok)ok.onclick=close;
     document.body.classList.add("is-sheet-open");
     shell.openModal(sheet,{initialFocus:$("#whyClose"),returnFocus:opener,onEscape:close,scrim,delayHide:reduced()?0:280});
-    view.requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open");});
+    if(openingFrame)view.cancelAnimationFrame(openingFrame);
+    openingFrame=view.requestAnimationFrame(()=>{openingFrame=0;if(disposed)return;sheet.classList.add("is-open");scrim?.classList.add("is-open");});
   }
   function close() {
+    if(openingFrame)view.cancelAnimationFrame(openingFrame);openingFrame=0;
     const sheet=$("#whySheet");if(!sheet)return Promise.resolve(false);
     if(sheet.hidden&&shell.activeModal?.el!==sheet)return Promise.resolve(false);
     return shell.closeModal(sheet);
   }
-  return Object.freeze({open,close,render});
+  function mount(){
+    if(mounted||disposed)return;mounted=new view.AbortController();
+    for(const selector of ['#whyClose','#whyScrim','#whyOk'])$(selector)?.addEventListener('click',close,{signal:mounted.signal});
+  }
+  function dispose(){disposed=true;mounted?.abort();rendered?.abort();mounted=null;rendered=null;void close();}
+  return Object.freeze({open,close,render,dispose});
 }
