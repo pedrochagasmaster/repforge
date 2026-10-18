@@ -5139,11 +5139,7 @@ const metricTextValue=workoutMetricDisplay.text,canonicalMetricInput=workoutMetr
   metricKgFromDisplay=workoutMetricDisplay.kgFromDisplay,metricTargetText=workoutMetricDisplay.targetText,
   canonicalMetricTargetText=workoutMetricDisplay.canonicalTargetText;
 const FocusPrescription=createPrescriptionPresentation({metrics:workoutMetricDisplay,copy:{t},format:{number:fmt}});
-function prescriptionPresentationFacts(ex,cycleNumber=mesocycleLifecycle(state?.programMeta).current||1){
-  const slot=canonicalPrescriptionSlot(ex)?.slot;
-  const cycle=slot?.prescriptionsByCycle?.find(item=>item.cycleIndex===cycleNumber)||slot?.prescriptionsByCycle?.[0];
-  const set=cycle?.sets?.[0];
-  return {sets:ex?.sets,metrics:(slot?.metricDefinitions||[]).map(metric=>({metric,target:set?.targets?.[metric.semantic]}))}}
+function prescriptionPresentationFacts(ex,cycleNumber){return workoutQueries().prescriptionFacts(ex,cycleNumber)}
 function programPrescriptionSummary(ex,cycleNumber){return FocusPrescription.summary(prescriptionPresentationFacts(ex,cycleNumber))}
 const metricLabel=workoutMetricDisplay.label,metricDisplayUnit=workoutMetricDisplay.displayUnit,
   parseHistoryMetricInput=workoutMetricDisplay.parseHistoryInput;
