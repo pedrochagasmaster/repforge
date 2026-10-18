@@ -18,21 +18,21 @@
   },
   "include": [
     "../../src/release/**/*.js",
-    "../../src/training/identity.js",
-    "../../src/training/metrics.js",
-    "../../src/persistence/preferences.js",
-    "../../src/platform/files.js",
-    "../../src/platform/notifications.js",
-    "../../src/platform/install.js",
-    "../../src/platform/catalog.js",
-    "../../src/platform/program-executor.js",
+    "../../src/training/**/*.js",
     "../../src/ui/focus/**/*.js",
-    "../../src/platform/telemetry.js",
-    "../../src/platform/motion.js",
     "../../src/ui/entry/pickers.js",
     "../../src/app/entry.js",
-    "../../src/interchange/freeform.js",
     "../../src/ui/entry/controller.js",
-    "../../src/ui/entry/view.js"
+    "../../src/ui/entry/view.js",
+    "../../src/persistence/**/*.js",
+    "../../src/platform/**/*.js",
+    "../../src/interchange/**/*.js",
+    "../../src/app/session.js",
+    "../../src/app/workout.js",
+    "../../src/app/read-models.js",
+    "../../src/app/settings.js",
+    "../../src/app/profile.js",
+    "../../src/app/interchange.js",
+    "../../src/ui/settings/**/*.js"
   ]
 }

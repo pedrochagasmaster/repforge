@@ -176,24 +176,29 @@ export function createDurableStore({snapshotPolicy, workout, session,
       const markerDraft={draftId:value.draftId,revision:value.revision,
         program:{programFingerprint:value.programFingerprint}};
       return clearProtected("canonical-after-v2-removal",markerDraft)}
+    // readV2Checkpoint already validates every non-tombstone raw value. Keep
+    // that discriminant explicit at this consumer rather than treating every
+    // parse result as a valid aggregate.
+    const checkpointParsed=parser.parse(value.raw);
+    if(checkpointParsed.kind!=="valid")return{status:"checkpoint-unreadable",raw:read.raw};
     if((currentStateSnapshot()?.log||[]).some(row=>row?.session===value.draftId)){
-      const savedDraft=parser?.parse(value.raw)?.draft;
+      const savedDraft=checkpointParsed.draft;
       if(!savedDraft)return{status:"checkpoint-unreadable",raw:read.raw};
       return clearProtected("canonical-after-saved-v2",savedDraft)}
     if(value.kind==="pending-removal"&&read.raw===value.raw){
       return underCheckpointLock(()=>DraftStore.writeV2Checkpoint(v2CheckpointRecord(
-        parser.parse(value.raw).draft,value.raw,value.operationId))?read:
+        checkpointParsed.draft,value.raw,value.operationId))?read:
         {status:"checkpoint-rollback-failed",raw:read.raw})}
     if(value.kind==="pending-removal"&&read.raw==null){
       return underCheckpointLock(()=>DraftStore.writeV2Checkpoint(DraftStore.v2Tombstone(
-        parser.parse(value.raw).draft,value.operationId))?read:
+        checkpointParsed.draft,value.operationId))?read:
         {status:"checkpoint-commit-failed",raw:read.raw})}
     const protectedValue=value.kind==="committed"||value.kind==="pending-removal"?value:value.previous;
     const protectedParsed=protectedValue?parser?.parse(protectedValue.raw):null;
     if(protectedValue&&protectedParsed?.kind!=="valid")return{status:"checkpoint-unreadable",raw:read.raw};
     if(value.kind==="pending"&&read.raw===value.raw){
       return underCheckpointLock(()=>DraftStore.writeV2Checkpoint(v2CheckpointRecord(
-        parser.parse(value.raw).draft,value.raw,value.operationId))?read:
+        checkpointParsed.draft,value.raw,value.operationId))?read:
         {status:"checkpoint-commit-failed",raw:read.raw})}
     if(value.kind==="pending"&&read.raw===value.baseRaw){
       if(value.previous&&read.raw===value.previous.raw){
@@ -204,13 +209,13 @@ export function createDurableStore({snapshotPolicy, workout, session,
         if(!prepared.ok||!DraftStore.publishCanonical(value.raw)||!commitV2CheckpointEffect(prepared,value.raw))
           return{status:"recovery-write-failed",raw:current.raw};
         return{status:"ok",raw:value.raw}})}
-    if(!protectedValue){
+    if(!protectedValue||protectedParsed?.kind!=="valid"){
       retainDraftRecovery(read.raw,"orphaned-v2-pending");
       return{status:"checkpoint-conflict",raw:read.raw}}
     const protectedDraft=parser.parse(protectedValue.raw,
       workoutParseContext(protectedParsed.draft.program.dayLabel||label));
     if(protectedDraft.kind!=="valid"){
-      retainDraftRecovery(read.raw,protectedDraft.kind==="stale"?`stale-${protectedDraft.reason}`:protectedDraft.code);
+      retainDraftRecovery(read.raw,protectedDraft.kind==="stale"?`stale-${protectedDraft.reason}`:"code" in protectedDraft?protectedDraft.code:"checkpoint-unreadable");
       return{status:protectedDraft.kind,error:protectedDraft,raw:read.raw}}
     if(read.raw!==protectedValue.raw)retainDraftRecovery(read.raw,"superseded-v2-canonical");
     return underCheckpointLock(current=>{
@@ -275,7 +280,7 @@ export function createDurableStore({snapshotPolicy, workout, session,
         const currentRaw=this.readRaw(),current=workoutDraft()?.parse(currentRaw);
         if(expectedRaw!==undefined?currentRaw!==expectedRaw:
           current?.kind!=="valid"||current.draft.draftId!==expectedDraftId||current.draft.revision!==expectedRevision)
-          return{status:"stale",raw:currentRaw,draft:current?.draft};
+          return{status:"stale",raw:currentRaw,draft:current?.kind==="valid"?current.draft:undefined};
         if(current?.kind==="valid"){
           const checkpoint=this.readV2Checkpoint();
           const context=draftContextFingerprint(currentStateSnapshot());
@@ -294,7 +299,7 @@ export function createDurableStore({snapshotPolicy, workout, session,
               if(authoritative?.kind==="valid"&&authoritative.draft.draftId!==current.draft.draftId||
                 authoritative?.kind==="valid"&&authoritative.draft.revision>current.draft.revision)
                 return{status:"stale",raw:checkpoint.value.raw,draft:authoritative.draft};
-              return{status:"checkpoint-conflict",raw:checkpoint.value.raw,draft:authoritative?.draft};}}
+              return{status:"checkpoint-conflict",raw:checkpoint.value.raw,draft:authoritative?.kind==="valid"?authoritative.draft:undefined};}}
           else if(checkpoint.value.kind==="pending"&&checkpoint.value.operationId===operationId){
             if(checkpoint.value.raw!==nextRaw)return{status:"operation-conflict",raw:currentRaw};
             if(currentRaw!==checkpoint.value.baseRaw&&currentRaw!==checkpoint.value.raw)
@@ -305,7 +310,7 @@ export function createDurableStore({snapshotPolicy, workout, session,
         const acceptedRaw=this.readRaw();
         if(acceptedRaw!==nextRaw){
           const accepted=workoutDraft()?.parse(acceptedRaw);
-          return{status:"stale",raw:acceptedRaw,draft:accepted?.draft};}
+          return{status:"stale",raw:acceptedRaw,draft:accepted?.kind==="valid"?accepted.draft:undefined};}
         return{status:"applied",raw:nextRaw,draft:candidate.draft,staged:true}};
       const target=this.writeTarget();
       if(target){
