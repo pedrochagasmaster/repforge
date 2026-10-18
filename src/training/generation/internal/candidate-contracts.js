@@ -6,6 +6,6 @@
 /** @typedef {{exercises:CandidateSource[],uuidIndex:Record<string,CatalogEntity>}} CandidateCatalog */
 /** @typedef {{goal:string,experience:string,gymProfile:{equipmentIds:string[],equipmentConfigById?:Record<string,unknown>,useBumperPlatesInPlateCalculator?:boolean,equipmentLoadsKg?:Record<string,number[]>},history?:unknown,emphasisMuscleIds?:string[],deprioritizedMuscleIds?:string[],competencyAnswers?:Record<string,boolean|null>,movementConfirmations?:Record<string,string[]>,preferredExerciseIds?:string[]}} CandidateRequest */
 /** @typedef {{id:string,raw:CandidateSource,patterns:string[],patternMuscles:readonly (string|null)[],region:string|null,effectiveRegion:string|null,exerciseType:string|null,primaryJointActions:string[],exclusionGroupings:string[]}} DescribedExercise */
-/** @typedef {{type:string,accessoryMuscle?:string,exercise:DescribedExercise}} SelectedTemplate */
+/** @typedef {{type:string,accessoryMuscle?:string|null,exercise:DescribedExercise}} SelectedTemplate */
 /** @typedef {{type:string,muscle?:string,pattern?:string,isFirstOfType?:boolean}} TemplateSpec */
 export {};

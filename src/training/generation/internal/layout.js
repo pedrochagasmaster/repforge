@@ -1,3 +1,15 @@
+/** @typedef {import("./layout-contracts.js").DescribedExercise} DescribedExercise */
+/** @typedef {import("./layout-contracts.js").TemplateSpec} TemplateSpec */
+/** @typedef {import("./layout-contracts.js").LayoutRequest} LayoutRequest */
+/** @typedef {import("./layout-contracts.js").Selector} Selector */
+/** @typedef {import("./layout-contracts.js").LayoutTemplate} LayoutTemplate */
+/** @typedef {import("./layout-contracts.js").DayRule} DayRule */
+/** @typedef {import("./layout-contracts.js").SplitDescriptor} SplitDescriptor */
+/** @typedef {import("./layout-contracts.js").AllocationRow} AllocationRow */
+/** @typedef {import("./layout-contracts.js").RegionalAllocation} RegionalAllocation */
+/** @typedef {import("./layout-contracts.js").Allocation} Allocation */
+/** @typedef {import("./layout-contracts.js").DiagnosticRecord} DiagnosticRecord */
+/** @typedef {import("./policy-contracts.js").EnginePolicy} EnginePolicy */
 import { getDefaultEnginePolicy } from "./policy.js";
 "use strict";
 const patterns = ["horizontalPush", "verticalPush", "horizontalPull", "verticalPull", "squat", "hipHinge"];
@@ -14,7 +26,8 @@ const strengthDefaults = [
 ];
 const upperMuscles = new Set(["triceps", "forearms", "sideDelts", "rearDelts", "upperBack", "neck", "lats", "upperTraps", "biceps", "chest", "frontDelts", "serratus"]);
 const allMuscles = new Set([...defaults.flat(), "serratus", "tibs"]);
-const SPLITS = Object.freeze([
+/** @type {readonly SplitDescriptor[]} */
+const SPLITS = Object.freeze(/** @type {SplitDescriptor[]} */([
   { id: "full_body", daysPerWeek: [2, 3, 4, 5, 6], variants: {
     2: { upperFraction: 0.65, days: [
       {"name": "Workout A", "primary": ["primaryHorizontalPush", "primaryHorizontalPull", "primarySquat"], "secondary": [], "extra": []},
@@ -144,7 +157,7 @@ const SPLITS = Object.freeze([
       {"name": "Legs B", "primary": ["primaryHinge", "secondarySquat", "lowerBodyAccessories"], "secondary": ["secondaryHinge"], "extra": ["primarySquat", "secondaryHinge"]},
     ] },
   } },
-].map((split) => {
+]).map((split) => {
   Object.freeze(split.daysPerWeek);
   for (const variant of Object.values(split.variants)) {
     for (const day of variant.days) {
@@ -158,7 +171,9 @@ const SPLITS = Object.freeze([
 }));
 // Supported request ceilings remain the production domain, independent of experimental budgets.
 const budgets = Object.freeze({20:18,40:30,60:50,90:75,120:105,150:125});
+/** @type {Readonly<Record<number,number[]>>} */
 const calendar = Object.freeze({ 2: [0, 3], 3: [0, 2, 4], 4: [0, 2, 4, 6], 5: [0, 1, 2, 4, 6], 6: [0, 1, 2, 4, 5, 6] });
+/** @type {Record<string,[string,string[]]>} */
 const rolePatterns = {
   primaryPushCompounds: ["primary", ["horizontalPush", "verticalPush"]], primaryPullCompounds: ["primary", ["horizontalPull", "verticalPull"]],
   secondaryPullCompounds: ["secondary", ["horizontalPull", "verticalPull"]],
@@ -169,20 +184,22 @@ for (const type of ["primary", "secondary"]) {
     rolePatterns[type + suffix] = [type, [pattern]];
   }
 }
+/** @param {DescribedExercise} exercise @param {string} pattern */
 function has(exercise, pattern) {
   return exercise.patterns.includes(pattern) || (pattern === "hipHinge" && exercise.patterns.includes("hinge"));
 }
+/** @param {string} role @param {LayoutTemplate} template */
 function fits(role, template) {
   const exercise = template.exercise;
   const region = exercise.effectiveRegion;
   if (role === "allExercises") return true;
   if (role === "allUpper") return region === "upperBody";
   if (role === "allLower") return region === "lowerBody" || region === "core";
-  const regional = { primaryUpperBodyCompounds: ["primary", "upperBody"], secondaryUpperBodyCompounds: ["secondary", "upperBody"], primaryLowerBodyCompounds: ["primary", "lowerBody"], secondaryLowerBodyCompounds: ["secondary", "lowerBody"] }[role];
+  const regional = /** @type {Record<string,[string,string]>} */({ primaryUpperBodyCompounds: ["primary", "upperBody"], secondaryUpperBodyCompounds: ["secondary", "upperBody"], primaryLowerBodyCompounds: ["primary", "lowerBody"], secondaryLowerBodyCompounds: ["secondary", "lowerBody"] })[role];
   if (regional) return template.type === regional[0] && region === regional[1];
-  const compound = { pushCompounds: ["horizontalPush", "verticalPush"], pullCompounds: ["horizontalPull", "verticalPull"], squatCompounds: ["squat"], hingeCompounds: ["hipHinge"] }[role];
+  const compound = /** @type {Record<string,string[]>} */({ pushCompounds: ["horizontalPush", "verticalPush"], pullCompounds: ["horizontalPull", "verticalPull"], squatCompounds: ["squat"], hingeCompounds: ["hipHinge"] })[role];
   if (compound) return ["primary", "secondary"].includes(template.type) && compound.some(pattern => has(exercise, pattern));
-  const rule = rolePatterns[role] || (role === "secondaryPushCompounds" ? ["secondary", ["horizontalPush", "verticalPush"]] : null);
+  const rule = rolePatterns[role] || (role === "secondaryPushCompounds" ? /** @type {[string,string[]]} */(["secondary", ["horizontalPush", "verticalPush"]]) : null);
   if (rule) return template.type === rule[0] && rule[1].some(pattern => has(exercise, pattern));
   if (template.type !== "accessory") return false;
   if (role === "allAccessories") return true;
@@ -191,15 +208,18 @@ function fits(role, template) {
   if (role === "pushAccessories") return ["horizontalPush", "verticalPush", "tricepsAccessory", "lateralDeltAccessory", "chestAccessory", "frontDeltAccessory", "serratusAccessory"].some(pattern => has(exercise, pattern));
   if (role === "pullAccessories") return ["horizontalPull", "verticalPull", "rearDeltAccessory", "upperBackAccessory", "latAccessory", "upperTrapAccessory", "bicepsAccessory", "posteriorForearmAccessory", "anteriorForearmAccessory"].some(pattern => has(exercise, pattern));
   const muscles = role === "squatAccessories" ? ["quads", "adductors", "glutes"] : role === "hingeAccessories" ? ["hamstrings", "lowerBack", "glutes"] : [];
-  return exercise.patternMuscles.some(muscle => muscles.includes(muscle));
+  return exercise.patternMuscles.some(muscle => muscles.includes(muscle||""));
 }
+/** @param {readonly string[]} roles @param {LayoutTemplate} template */
 function anyFit(roles, template) { return roles.some(role => fits(role, template)); }
+/** @param {LayoutTemplate} a @param {LayoutTemplate} b */
 function equal(a, b) { return a.exercise === b.exercise && a.numSets === b.numSets && a.type === b.type && a.accessoryMuscle === b.accessoryMuscle; }
+/** @param {LayoutTemplate[]} templates @param {EnginePolicy} [policy] */
 function cost(templates, policy = getDefaultEnginePolicy()) {
   const model = policy.timeModel;
   return templates.reduce((sum, t) => {
     const region = t.exercise.effectiveRegion;
-    if (!["upperBody", "lowerBody", "fullBody", "core"].includes(region)) return sum;
+    if (!["upperBody", "lowerBody", "fullBody", "core"].includes(region||"")) return sum;
     const isolation = t.type === "accessory" && region !== "core";
     const fixed = isolation ? model.isolationFixedSeconds : model.compoundFixedSeconds;
     const between = region === "core" ? model.coreRestSeconds : isolation ? model.isolationRestSeconds : region === "upperBody" ? model.upperRestSeconds : model.lowerRestSeconds;
@@ -209,17 +229,19 @@ function cost(templates, policy = getDefaultEnginePolicy()) {
 }
 // Explicit rest edits are a Taurifer override on the recovered default cost.
 // Generation itself passes no overrides and continues to use cost().
+/** @param {LayoutTemplate[]} templates @param {EnginePolicy} [policy] */
 function estimateTemplatesSeconds(templates, policy = getDefaultEnginePolicy()) {
   const model = policy.timeModel;
   return cost(templates, policy) + templates.reduce((total, template) => {
     const region = template.exercise.effectiveRegion;
-    if (!["upperBody", "lowerBody", "fullBody", "core"].includes(region)) return total;
+    if (!["upperBody", "lowerBody", "fullBody", "core"].includes(region||"")) return total;
     const isolation = template.type === "accessory" && region !== "core";
     const between = region === "core" ? model.coreRestSeconds : isolation ? model.isolationRestSeconds : region === "upperBody" ? model.upperRestSeconds : model.lowerRestSeconds;
     return total + (template.restSecondsBySet || []).slice(0, Math.max(0, template.numSets - 1))
-      .reduce((delta, seconds) => delta + (Number.isFinite(seconds) ? seconds - (policy.prescription.restSeconds[template.type === "accessory" ? "accessory" : "compound"] ?? between) : 0), 0);
+      .reduce((/** @type {number} */ delta, seconds) => delta + (typeof seconds==="number"&&Number.isFinite(seconds) ? seconds - (policy.prescription.restSeconds[template.type === "accessory" ? "accessory" : "compound"] ?? between) : 0), 0);
   }, 0);
 }
+/** @param {number} budgetMinutes @param {string} goal @param {number} dayCount @param {number} upperFraction @param {EnginePolicy} policy @returns {Allocation} */
 function allocations(budgetMinutes, goal, dayCount, upperFraction, policy) {
   const model = policy.timeModel;
   const compounds = [];
@@ -233,18 +255,23 @@ function allocations(budgetMinutes, goal, dayCount, upperFraction, policy) {
   for (let count = 1; count <= 42; count++) {
     for (let sets = count <= 20 ? 2 : count <= 30 ? 3 : 4; sets <= (count < 20 ? 3 : count < 30 ? 4 : 5); sets++) isolations.push([count, sets, 0, 0]);
   }
-  function setsFor(a) { return [...Array(a[0]).fill(a[1]), ...Array(a[2]).fill(a[3])]; }
-  function allocationCost(a, between, fixed) { return setsFor(a).reduce((n, s) => n + model.perExerciseOverheadSeconds + fixed + model.secondsPerSet * s + between * Math.max(0, s - 1), 0); }
-  function choose(rows, target, between, fixed, first) {
+  /** @param {AllocationRow} a @returns {number[]} */
+function setsFor(a) { return [...Array(a[0]).fill(a[1]), ...Array(a[2]).fill(a[3])]; }
+  /** @param {AllocationRow} a @param {number} between @param {number} fixed */
+function allocationCost(a, between, fixed) { return setsFor(a).reduce((n, s) => n + model.perExerciseOverheadSeconds + fixed + model.secondsPerSet * s + between * Math.max(0, s - 1), 0); }
+  /** @param {AllocationRow[]} rows @param {number} target @param {number} between @param {number} fixed @param {boolean} first */
+function choose(rows, target, between, fixed, first) {
+    /** @type {AllocationRow|null} */
     let best = null; let distance = Infinity;
     for (const a of rows) {
       const d = Math.abs(Math.trunc((target - allocationCost(a, between, fixed) * 1000000) / 1000));
       if (d < distance || (!first && d === distance)) { best = a; distance = d; }
     }
-    return best.slice();
+    return best?best.slice():[];
   }
+  /** @type {Allocation} */
   const result = {};
-  for (const [name, between, minimum] of [["upper", policy.prescription.restSeconds.compound ?? model.upperRestSeconds, 4], ["lower", policy.prescription.restSeconds.compound ?? model.lowerRestSeconds, 2]]) {
+  for (const [name, between, minimum] of /** @type {[string,number,number][]} */([["upper", policy.prescription.restSeconds.compound ?? model.upperRestSeconds, 4], ["lower", policy.prescription.restSeconds.compound ?? model.lowerRestSeconds, 2]])) {
     const partition = Math.round(budgetMinutes * 60000000 * dayCount * (name === "upper" ? upperFraction : 1 - upperFraction));
     const compoundTarget = Math.round(partition * (goal === "strength" ? policy.allocation.compoundFraction.strength : policy.allocation.compoundFraction.other));
     const compound = choose(compounds.filter(a => a[0] * a[1] + a[2] * a[3] >= minimum), compoundTarget, between, model.compoundFixedSeconds, false);
@@ -253,7 +280,9 @@ function allocations(budgetMinutes, goal, dayCount, upperFraction, policy) {
   }
   return result;
 }
+/** @param {number} total */
 function bisect(total) { const first = Math.round(total / 2); return [first, total - first]; }
+/** @param {number} total @returns {number[]} */
 function splitSets(total) {
   if (total === 4) return [2, 2];
   const factor = 1.884 * Math.pow(total, -0.673);
@@ -264,14 +293,18 @@ function splitSets(total) {
   const highCount = count ? remaining % count : 0;
   return [first, ...Array(count - highCount).fill(low), ...Array(highCount).fill(low + 1)];
 }
+/** @param {Selector} selector @param {Allocation} allocation @param {string} goal */
 function produce(selector, allocation, goal) {
+  /** @type {LayoutTemplate[]} */
   const selected = []; let missing = false;
+  /** @param {TemplateSpec} spec @param {number} numSets */
   const choose = (spec, numSets) => {
     const exercise = selector.choose(spec, selected);
     if (exercise === null) return false;
     selected.push({ exercise, numSets, type: spec.type, accessoryMuscle: spec.muscle || null });
     return true;
   };
+  /** @param {AllocationRow} a */
   const total = a => a[0] * a[1] + a[2] * a[3];
   const upper = bisect(total(allocation.upper.compound)).flatMap(bisect);
   const lower = bisect(total(allocation.lower.compound));
@@ -282,7 +315,7 @@ function produce(selector, allocation, goal) {
   });
   const p = selector.priorities; const depriority = new Set(selector.depriorities);
   const [a, b, c] = (goal === "strength" ? strengthDefaults : defaults).map(group => group.filter(m => !p.includes(m)));
-  for (const [category, spec] of [["upper", allocation.upper.isolation], ["lower", allocation.lower.isolation]]) {
+  for (const [category, spec] of /** @type {[string,AllocationRow][]} */([["upper", allocation.upper.isolation], ["lower", allocation.lower.isolation]])) {
     const requested = [...Array(spec[0]).fill(spec[1]), ...Array(spec[2]).fill(spec[3])];
     let emitted = 0; let first = true;
     while (emitted < requested.length) {
@@ -299,7 +332,9 @@ function produce(selector, allocation, goal) {
   }
   return { selected, missing };
 }
+/** @param {LayoutTemplate[]} selected @param {readonly DayRule[]} dayRules */
 function distribute(selected, dayRules) {
+  /** @type {LayoutTemplate[][]} */
   const days = dayRules.map(() => []);
   for (const type of ["primary", "secondary", "accessory"]) {
     const cursors = new Map(); const occurrences = new Map();
@@ -316,18 +351,19 @@ function distribute(selected, dayRules) {
       let day = candidates[(cursor + offset) % candidates.length];
       const pattern = type === "secondary" ? patterns.find(p => has(t.exercise, p)) : null;
       const occurrence = pattern ? (occurrences.get(pattern) || 0) + 1 : null;
-      if (occurrence > 1 && occurrence % 2 === 1) {
+      if (occurrence!==null&&occurrence > 1 && occurrence % 2 === 1) {
         const preferred = dayRules.findIndex(d => anyFit(d.secondary, t));
         if (preferred >= 0) day = preferred;
       }
       if (!days[day].some(x => equal(x, t))) {
         days[day].push(t); cursors.set(role, cursor + offset + 1);
-        if (pattern) occurrences.set(pattern, occurrence);
+        if (pattern&&occurrence!==null) occurrences.set(pattern, occurrence);
       }
     }
   }
   return days;
 }
+/** @param {LayoutTemplate[][]} days @param {readonly DayRule[]} dayRules @param {EnginePolicy} policy */
 function spillover(days, dayRules, policy) {
   for (let iteration = 0; iteration < 200; iteration++) {
     const durations = days.map(templates => cost(templates, policy)); const ordered = days.map((_, index) => index).sort((a, b) => durations[a] - durations[b]);
@@ -351,6 +387,7 @@ function spillover(days, dayRules, policy) {
     days[best.source].splice(index, 1); days[best.dest].push(best.template);
   }
 }
+/** @param {LayoutTemplate} t */
 function variant(t) {
   const e = t.exercise; const joints = e.primaryJointActions;
   if (t.accessoryMuscle === "hamstrings") return has(e, "hamstringAccessory") && joints.includes("kneeFlexion") ? true : has(e, "hamstringAccessory") && joints.includes("hipExtension") ? false : null;
@@ -358,6 +395,7 @@ function variant(t) {
   if (t.accessoryMuscle === "lats") return has(e, "latAccessory") && e.exerciseType === "singleJoint" ? true : has(e, "latAccessory") && e.exerciseType === "multiJoint" ? false : null;
   return null;
 }
+/** @param {LayoutTemplate[]} templates */
 function score(templates) {
   const xs = templates.filter(t => t.type === "accessory"); let overlaps = 0; let repeats = 0;
   for (let i = 0; i < xs.length; i++) for (let j = i + 1; j < xs.length; j++) {
@@ -368,6 +406,7 @@ function score(templates) {
   }
   return [overlaps, repeats];
 }
+/** @param {LayoutTemplate[][]} days @param {readonly DayRule[]} dayRules */
 function optimize(days, dayRules) {
   for (let iteration = 0; iteration < 100; iteration++) {
     const old = days.map(score); let best = null;
@@ -387,26 +426,31 @@ function optimize(days, dayRules) {
     const { i, j, k, l } = best; [days[i][k], days[j][l]] = [days[j][l], days[i][k]];
   }
 }
+/** @template K @param {LayoutTemplate[]} templates @param {(template:LayoutTemplate)=>K} key @returns {Map<K,LayoutTemplate[]>} */
 function group(templates, key) {
-  const groups = new Map();
-  for (const t of templates) { const k = key(t); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(t); }
+  const groups = new Map(/** @type {[K,LayoutTemplate[]][]} */([]));
+  for (const t of templates) { const k = key(t); if (!groups.has(k)) groups.set(k, []); groups.get(k)?.push(t); }
   return groups;
 }
+/** @param {LayoutTemplate[][]} groups */
 function rr(groups) {
   const output = []; const maximum = Math.max(0, ...groups.map(g => g.length));
   for (let index = 0; index < maximum; index++) for (const g of groups) if (index < g.length) output.push(g[index]);
   return output;
 }
+/** @param {LayoutTemplate[]} templates @param {readonly string[]} priorities @param {string[][]} defaultGroups */
 function finish(templates, priorities, defaultGroups) {
+  /** @param {LayoutTemplate} t */
   const key = t => { const index = orderPatterns.findIndex(p => has(t.exercise, p)); return index < 0 ? 12 : index + (t.type === "secondary" ? 6 : 0); };
   const primary = templates.filter(t => t.type === "primary").sort((a, b) => key(a) - key(b));
   const secondary = [...group(templates.filter(t => t.type === "secondary"), key)].sort((a, b) => a[0] - b[0]).map(x => x[1]);
   const accessory = [...group(templates.filter(t => t.type === "accessory"), t => t.accessoryMuscle)];
-  const priority = accessory.filter(([m]) => priorities.includes(m)).map(x => x[1]);
-  const rest = accessory.filter(([m]) => !priorities.includes(m));
-  const [a, b, c] = defaultGroups.map(ds => rest.filter(([m]) => ds.includes(m)).map(x => x[1]));
+  const priority = accessory.filter(([m]) => priorities.includes(m||"")).map(x => x[1]);
+  const rest = accessory.filter(([m]) => !priorities.includes(m||""));
+  const [a, b, c] = defaultGroups.map(ds => rest.filter(([m]) => ds.includes(m||"")).map(x => x[1]));
   return [...primary, ...rr(secondary), ...rr([rr(priority), rr(a)]), ...rr(b), ...rr(c)];
 }
+/** @param {LayoutRequest|null|undefined} request */
 function supportsRequest(request) {
   if (!request || !SPLITS.some(split => split.id === request.split && split.daysPerWeek.includes(request.daysPerWeek))
     || !["hybrid", "hypertrophy", "strength"].includes(request.goal)
@@ -418,15 +462,19 @@ function supportsRequest(request) {
   return request.cycles === 7 && deload.length === 0
     || request.cycles === 8 && deload.length === 1 && (deload[0] === 1 || deload[0] === 8);
 }
+/** @param {LayoutRequest} request @param {Selector} selector @param {{enginePolicy?:EnginePolicy,diagnostics?:boolean}} [options] @returns {import("./layout-contracts.js").LayoutResult} */
 function generate(request, selector, { enginePolicy = getDefaultEnginePolicy(), diagnostics } = {}) {
   const supported = supportsRequest(request);
   const priorities = selector?.priorities; const depriorities = selector?.depriorities;
-  if (!supported || !Array.isArray(priorities) || !Array.isArray(depriorities) || !priorities.every(m => allMuscles.has(m)) || !depriorities.every(m => allMuscles.has(m)) || priorities.some(m => depriorities.includes(m))) return { status: "unsupported", code: "unsupported_generation_domain" };
+  if (!supported || !Array.isArray(priorities) || !Array.isArray(depriorities) || !priorities.every(m => allMuscles.has(m)) || !depriorities.every(m => allMuscles.has(m)) || priorities.some(m => depriorities.includes(m||""))) return { status: "unsupported", code: "unsupported_generation_domain" };
   const budgetMinutes = enginePolicy.allocation.budgetMinutesByCeiling[request.timeCeilingMinutes];
-  const variant = SPLITS.find(split => split.id === request.split).variants[request.daysPerWeek];
+  const split=SPLITS.find(split=>split.id===request.split);
+  if(!split)return{status:"unsupported",code:"unsupported_generation_domain"};
+  const variant = split.variants[request.daysPerWeek];
   const dayRules = variant.days;
   const allocation = allocations(budgetMinutes, request.goal, request.daysPerWeek, variant.upperFraction, enginePolicy); const { selected, missing } = produce(selector, allocation, request.goal);
   const occurrences = new Map();
+  /** @type {DiagnosticRecord[]|null} */
   const records = diagnostics ? selected.map(template => {
     const identity = `${template.type}:${template.accessoryMuscle || patterns.find(pattern => has(template.exercise, pattern)) || "other"}`;
     const occurrence = (occurrences.get(identity) || 0) + 1; occurrences.set(identity, occurrence);
