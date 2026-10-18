@@ -1,18 +1,13 @@
 /** Node test composition of production public interchange/training modules.
  * No schema, normalizer or protocol is implemented in this helper. */
-import {readFileSync} from 'node:fs';
 import {webcrypto} from 'node:crypto';
 import {createSetupLinkCodec} from '../src/interchange/setup-link.js';
 import {createTransferContract} from '../src/interchange/transfer-contract.js';
 import {createInstallTransfer} from '../src/platform/install-transfer.js';
-import {compiler} from '../src/training/generation.js';
-import metrics from '../src/training/metrics.js';
+import {Compiler as compiler,Metrics as metrics,Catalog as catalog,Entry as entry,Draft as workout} from './fixtures/training-runtime.mjs';
 import {createIdentityRules} from '../src/training/identity.js';
 export const setupIdentity=createIdentityRules();
-import {createEntryRules} from '../src/training/authoring.js';
-import {createWorkoutRules} from '../src/training/workout.js';
-export const catalog=JSON.parse(readFileSync(new URL('../assets/exercise-catalog.json',import.meta.url),'utf8'));
-export const entry=createEntryRules(catalog),workout=createWorkoutRules(catalog);
+export {catalog,entry,workout};
 export const capabilities={crypto:webcrypto,TextEncoder,TextDecoder,CompressionStream,DecompressionStream,Blob,atob,btoa,now:()=>new Date().toISOString()};
 export function transferContract(overrides={}){
   return createTransferContract({compiler,entry,workout,metrics,catalog,crypto:webcrypto,TextEncoder,TextDecoder,...overrides});
