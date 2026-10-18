@@ -675,12 +675,12 @@ function pendingDraftTransaction(snapshot){
     return{id:value.id,effect:effectOutcome.effect,previous:cloneSnapshot(previous)}}
 
 
-/** @param {unknown} value */
+/** @param {unknown} value @returns {value is RawSnapshot} */
 function isValidStateWithoutRecoveryCarrier(value){
   if(!isPlainStateObject(value)||!Object.prototype.hasOwnProperty.call(value,"recoveryTransitions"))return false;
   const copy=cloneSnapshot(value);delete copy.recoveryTransitions;
   return isValidStateShape(copy)}
-/** @param {RawRecord|null|undefined} parsed @param {unknown} raw */
+/** @param {RawRecord|null|undefined} parsed @param {unknown} raw @returns {{status:"valid",raw:unknown,parsed:RawSnapshot,recoveryCarrierClassification:Extract<RecoveryClassification,{kind:"known"}>}|null} */
 function carrierReadStatus(parsed,raw){
   const classification=classifyRecoveryCarrier(parsed?.recoveryTransitions);
   if(classification.kind==="known"&&
@@ -708,7 +708,7 @@ function mergeRecoveryQuarantine(list,entry){
   return true;
 }
 
-/** @param {RawSnapshot} snapshot @param {string} sourceReplica @param {{priorQuarantine?:RecoveryQuarantine[]}} [options] */
+/** @param {RawSnapshot} snapshot @param {string} sourceReplica @param {{priorQuarantine?:RecoveryQuarantine[]}} [options] @returns {Promise<{kind:"known",snapshot:RawSnapshot,changed:boolean}|{kind:"absent"|"unknown"|"full-recovery",snapshot:RawSnapshot}>} */
 async function normalizeRecoveryCarrierSnapshot(snapshot,sourceReplica,{priorQuarantine=[]}={}){
   let classification=classifyRecoveryCarrier(snapshot?.recoveryTransitions);
   if(classification.kind!=="known")return{kind:classification.kind,snapshot};
@@ -725,7 +725,7 @@ async function normalizeRecoveryCarrierSnapshot(snapshot,sourceReplica,{priorQua
   for(const entry of priorQuarantine)
     mergeRecoveryQuarantine(normalized.quarantine,cloneSnapshot(entry));
   const detectedAt=()=>/** @type {()=>string} */(nowInstant)();
-  /** @param {string} raw @param {string} reason */
+  /** @param {string} raw @param {string} reason @returns {Promise<{kind:"ok"|"full-recovery"}>} */
   const addEvidence=async(raw,reason)=>{
     if(typeof raw!=="string"||raw.length>TRANSITION_VALUE_LIMITS.stringLength)
       return{kind:"full-recovery"};
