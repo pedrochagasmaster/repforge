@@ -1,3 +1,17 @@
+/** @typedef {import("./transition-contracts.js").ProgramDefinition} ProgramDefinition */
+/** @typedef {import("./transition-contracts.js").SourceCatalog} SourceCatalog */
+/** @typedef {import("./transition-contracts.js").CustomDefinition} CustomDefinition */
+/** @typedef {import("./transition-contracts.js").Change} Change */
+/** @typedef {import("./transition-contracts.js").DefinitionSnapshot} DefinitionSnapshot */
+/** @typedef {import("./transition-contracts.js").Proposal} Proposal */
+/** @typedef {import("./transition-contracts.js").CommittedRecord} CommittedRecord */
+/** @typedef {import("./transition-contracts.js").ReplacementInput} ReplacementInput */
+/** @typedef {import("./transition-contracts.js").Unavailable} Unavailable */
+/** @typedef {import("./transition-contracts.js").CycleEdit} CycleEdit */
+/** @typedef {import("./transition-contracts.js").CarryReport} CarryReport */
+/** @typedef {import("./transition-contracts.js").CarryState} CarryState */
+/** @typedef {import("./compiler-contracts.js").ProgramSlot} ProgramSlot */
+/** @typedef {ReturnType<typeof createCompiler>} CompilerApi */
 import { createCompiler } from "./compiler.js";
 import Metrics from "../../metrics.js";
 import { sha256Text } from "../../identity.js";
@@ -11,12 +25,14 @@ const ARRAY_PROTO = Array.prototype;
 const replacementCapabilities = new WeakSet();
 const committedCapabilities = new WeakSet();
 
+/** @param {unknown} value @returns {value is Record<string,unknown>} */
 function plainRecord(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const proto = Object.getPrototypeOf(value);
   return proto === OBJECT_PROTO || proto === null;
 }
 
+/** @template T @param {T} value @param {string} [path] @param {Set<object>} [seen] @returns {T} */
 function copyJson(value, path = "$", seen = new Set()) {
   if (value === null || typeof value === "string" || typeof value === "boolean") return value;
   if (typeof value === "number") {
@@ -25,6 +41,7 @@ function copyJson(value, path = "$", seen = new Set()) {
   }
   if (typeof value !== "object" || seen.has(value)) throw new TypeError(`${path}: unsupported JSON value`);
   seen.add(value);
+  /** @type {unknown[]|Record<string,unknown>} */
   let result;
   if (Array.isArray(value)) {
     if (Object.getPrototypeOf(value) !== ARRAY_PROTO || Object.getOwnPropertySymbols(value).length) {
@@ -45,22 +62,24 @@ function copyJson(value, path = "$", seen = new Set()) {
     result = {};
     for (const key of Object.getOwnPropertyNames(value)) {
       const descriptor = Object.getOwnPropertyDescriptor(value, key);
-      if (DANGEROUS_KEYS.has(key) || !descriptor.enumerable || !Object.hasOwn(descriptor, "value")) {
+      if (DANGEROUS_KEYS.has(key) || !descriptor||!descriptor.enumerable || !Object.hasOwn(descriptor, "value")) {
         throw new TypeError(`${path}.${key}: unsupported property`);
       }
-      result[key] = copyJson(descriptor.value, `${path}.${key}`, seen);
+      /** @type {Record<string,unknown>} */(result)[key] = copyJson(descriptor.value, `${path}.${key}`, seen);
     }
   }
   seen.delete(value);
-  return result;
+  return /** @type {T} */(result);
 }
 
+/** @param {unknown} value @returns {string} */
 function canonicalJson(value) {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
-  return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
+  return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(/** @type {Record<string,unknown>} */(value)[key])}`).join(",")}}`;
 }
 
+/** @template T @param {T} value @returns {T} */
 function deepFreeze(value) {
   if (value && typeof value === "object" && !Object.isFrozen(value)) {
     Object.values(value).forEach(deepFreeze);
@@ -69,16 +88,19 @@ function deepFreeze(value) {
   return value;
 }
 
+/** @param {unknown} value @param {string[]} expected @returns {value is Record<string,unknown>} */
 function ownKeysAre(value, expected) {
   return plainRecord(value) && Object.keys(value).length === expected.length &&
     expected.every((key) => Object.hasOwn(value, key));
 }
 
+/** @param {unknown} value @returns {value is string} */
 function validIdentity(value) {
   return typeof value === "string" && value.length > 0 && value.length <= 256 &&
     value.trim() === value && !/[\u0000-\u001f\u007f]/.test(value);
 }
 
+/** @param {unknown} value @returns {value is string} */
 function isCanonicalInstant(value) {
   if (typeof value !== "string" || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(value)) return false;
   const milliseconds = Date.parse(value);
@@ -89,8 +111,10 @@ function compilerApi() { return Compiler; }
 
 function exerciseMetricsApi() { return Metrics; }
 
+/** @param {unknown} value */
 function catalogFrom(value) { return value ?? null; }
 
+/** @param {unknown} definitions @param {unknown} catalog @returns {{ok:true}|{ok:false,code:string}} */
 function validateCustomDefinitions(definitions, catalog) {
   if (!Array.isArray(definitions)) return { ok: false, code: "custom_definitions_invalid" };
   const compiler = compilerApi();
@@ -109,12 +133,13 @@ function validateCustomDefinitions(definitions, catalog) {
   return { ok: true };
 }
 
+/** @param {unknown} programDefinition @param {unknown} customDefinitions @param {unknown} catalog @returns {import("./transition-contracts.js").Validation<ProgramDefinition>} */
 function validateProgramDefinition(programDefinition, customDefinitions, catalog) {
   const compiler = compilerApi();
   if (!compiler || typeof compiler.validateProgramDefinition !== "function") {
     return { ok: false, code: "program_compiler_unavailable" };
   }
-  if (!catalog || !Array.isArray(catalog.exercises) || !plainRecord(catalog.uuidIndex)) {
+  if (!plainRecord(catalog) || !Array.isArray(catalog.exercises) || !plainRecord(catalog.uuidIndex)) {
     return { ok: false, code: "catalog_unavailable" };
   }
   const customCheck = validateCustomDefinitions(customDefinitions, catalog);
@@ -128,34 +153,41 @@ function validateProgramDefinition(programDefinition, customDefinitions, catalog
     return { ok: false, code: "program_definition_invalid" };
   }
   const checked = compiler.validateProgramDefinition(safeProgram, catalog, safeDefinitions);
-  return checked.ok ? { ok: true, value: safeProgram } : { ok: false, code: "program_definition_invalid" };
+  return checked.ok ? { ok: true, value: /** @type {ProgramDefinition} */(safeProgram) } : { ok: false, code: "program_definition_invalid" };
 }
 
+/** @param {string} text */
 async function sha256Hex(text) { return sha256Text(text); }
 
+/** @param {import("./transition-contracts.js").ProposalDraft} proposal */
 function proposalPreimage(proposal) {
   const preimage = copyJson(proposal, "proposal");
   delete preimage.proposalHash;
   return preimage;
 }
 
+/** @param {import("./transition-contracts.js").ProposalDraft} proposal */
 async function hashProposal(proposal) {
   return sha256Hex(canonicalJson(proposalPreimage(proposal)));
 }
 
+/** @param {unknown} programDefinition @param {unknown} [customExerciseDefinitions] */
 async function fingerprintProgramDefinition(programDefinition, customExerciseDefinitions = []) {
   const snapshot = copyJson({ programDefinition, customExerciseDefinitions }, "programSnapshot");
   return `program-definition-sha256:${await sha256Hex(canonicalJson(snapshot))}`;
 }
 
+/** @param {string} code @returns {import("./transition-contracts.js").InvalidResult} */
 function resultInvalid(code) {
   return { ok: false, status: "invalid", code };
 }
 
+/** @param {string} code @returns {import("./transition-contracts.js").InvalidResult} */
 function resultStale(code) {
   return { ok: false, status: "stale", code };
 }
 
+/** @param {unknown} input @param {unknown} catalog @returns {import("./transition-contracts.js").Validation<ReplacementInput>} */
 function canonicalInput(input, catalog) {
   if (!ownKeysAre(input, ["transitionId", "createdAt", "predecessor", "successor", "catalogSnapshot"]) ||
       !validIdentity(input.transitionId) || !isCanonicalInstant(input.createdAt) ||
@@ -163,7 +195,7 @@ function canonicalInput(input, catalog) {
   const predecessorKeys = ["programId", "durableRevision", "programDefinition", "customExerciseDefinitions"];
   const successorKeys = ["programId", "programDefinition", "customExerciseDefinitions"];
   if (!ownKeysAre(input.predecessor, predecessorKeys) || !ownKeysAre(input.successor, successorKeys) ||
-      !validIdentity(input.predecessor.programId) || !Number.isSafeInteger(input.predecessor.durableRevision) ||
+      !validIdentity(input.predecessor.programId) || typeof input.predecessor.durableRevision!=="number"||!Number.isSafeInteger(input.predecessor.durableRevision) ||
       input.predecessor.durableRevision < 0 || !validIdentity(input.successor.programId) ||
       input.successor.programId === input.predecessor.programId) return { ok: false, code: "replacement_input_invalid" };
   const predecessor = validateProgramDefinition(input.predecessor.programDefinition,
@@ -181,12 +213,12 @@ function canonicalInput(input, catalog) {
         programId: input.predecessor.programId,
         durableRevision: input.predecessor.durableRevision,
         programDefinition: predecessor.value,
-        customExerciseDefinitions: input.predecessor.customExerciseDefinitions,
+        customExerciseDefinitions: /** @type {CustomDefinition[]} */(input.predecessor.customExerciseDefinitions),
       },
       successor: {
         programId: input.successor.programId,
         programDefinition: successor.value,
-        customExerciseDefinitions: input.successor.customExerciseDefinitions,
+        customExerciseDefinitions: /** @type {CustomDefinition[]} */(input.successor.customExerciseDefinitions),
       },
     },
   };
@@ -199,23 +231,27 @@ function canonicalInput(input, catalog) {
 const CHANGE_KINDS = Object.freeze(["fewer_days", "shorter_sessions", "reduce_volume", "recovery_week"]);
 const PROTECTED_ROLE = /PrimaryCompound$|SecondaryCompound$/;
 
+/** @param {string} code @param {{conflicts?:import("./compiler-contracts.js").Conflict[]}} [extra] @returns {Unavailable} */
 function unavailable(code, extra = {}) {
   return { ok: false, status: "unavailable", code, ...extra };
 }
 
+/** @param {unknown} change @returns {change is Change} */
 function validChange(change) {
-  if (!plainRecord(change) || !CHANGE_KINDS.includes(change.kind)) return false;
+  if (!plainRecord(change) || !(/** @type {readonly unknown[]} */(CHANGE_KINDS)).includes(change.kind)) return false;
   if (change.kind === "fewer_days") return ownKeysAre(change, ["kind", "daysPerWeek"]) && Number.isSafeInteger(change.daysPerWeek);
   if (change.kind === "shorter_sessions") return ownKeysAre(change, ["kind", "sessionMinutes"]) && Number.isSafeInteger(change.sessionMinutes);
   return ownKeysAre(change, ["kind"]);
 }
 
+/** @param {ProgramDefinition} definition @param {Record<string,unknown>} overrides @param {unknown} catalog @param {CompilerApi} compiler @returns {import("./transition-contracts.js").DefinitionDerivation} */
 function regenerate(definition, overrides, catalog, compiler) {
   if (definition.provenance?.source === "manual" || !plainRecord(definition.request) || !definition.request.goal) {
     return unavailable("manual_program");
   }
   const current = new Set(definition.days.flatMap((day) => day.slots.map((slot) => slot.exerciseId)));
-  const preferred = [...new Set([...(definition.request.preferredExerciseIds || []), ...current])].sort();
+  const preferred = [...new Set([...(Array.isArray(definition.request.preferredExerciseIds)?definition.request.preferredExerciseIds:[]), ...current])].sort();
+  /** @type {Record<string,unknown>} */
   const request = { ...copyJson(definition.request, "request"), ...overrides, preferredExerciseIds: preferred };
   delete request.seed;
   if (definition.provenance?.source === "recovered_generation_rules") {
@@ -236,18 +272,21 @@ function regenerate(definition, overrides, catalog, compiler) {
 // by field, to the successor slot holding the same movement, as long as no
 // week then runs longer than the ceiling allows or than the generator's own
 // successor already does. The report holds codes only.
-const CARRIED_FIELDS = Object.freeze(["targets", "rir", "restSeconds"]);
+const CARRIED_FIELDS = Object.freeze(/** @type {const} */(["targets", "rir", "restSeconds"]));
 
+/** @param {ProgramDefinition} definition */
 function trainingSlots(definition) {
   return definition.days.filter((day) => day.kind === "training").flatMap((day) => day.slots);
 }
 
+/** @param {ProgramSlot} slot @param {number} cycleIndex */
 function cycleOf(slot, cycleIndex) {
   return slot.prescriptionsByCycle.find((cycle) => cycle.cycleIndex === cycleIndex);
 }
 
+/** @param {ProgramDefinition} definition @param {unknown} catalog @param {CompilerApi} compiler */
 function generatorBaseline(definition, catalog, compiler) {
-  const request = copyJson(definition.request, "request");
+  const request = copyJson(/** @type {Record<string,unknown>} */(definition.request), "request");
   delete request.seed;
   let generated;
   try { generated = compiler.generateProgram(request, catalog); } catch { return null; }
@@ -255,6 +294,7 @@ function generatorBaseline(definition, catalog, compiler) {
   return generated.value;
 }
 
+/** @param {ProgramSlot} slot @param {ProgramSlot|undefined} baselineSlot @returns {CycleEdit[]} */
 function slotEdits(slot, baselineSlot) {
   const edits = [];
   for (const cycle of slot.prescriptionsByCycle) {
@@ -262,16 +302,19 @@ function slotEdits(slot, baselineSlot) {
     // A set beyond the generated count is authored whole and counts as "sets".
     const changed = cycle.sets.map((set, index) => index >= freshSets.length ? []
       : CARRIED_FIELDS.filter((field) => canonicalJson(set[field] ?? null) !== canonicalJson(freshSets[index][field] ?? null)));
-    const fields = new Set(changed.flat());
+    const fields = new Set(/** @type {(import("./transition-contracts.js").CarryField|"sets")[]} */(changed.flat()));
     if (cycle.sets.length !== freshSets.length) fields.add("sets");
     if (fields.size) edits.push({ cycleIndex: cycle.cycleIndex, fields: [...fields].sort(), changed, generated: freshSets.length });
   }
   return edits;
 }
 
+/** @param {ProgramSlot} slot @param {ProgramSlot} source @param {CycleEdit} edit */
 function applyCycleEdit(slot, source, edit) {
   const cycle = cycleOf(slot, edit.cycleIndex);
-  const sourceSets = cycleOf(source, edit.cycleIndex).sets;
+  const sourceCycle=cycleOf(source,edit.cycleIndex);
+  if(!sourceCycle)throw new TypeError("Missing source cycle");
+  const sourceSets = sourceCycle.sets;
   if (!cycle) return;
   const count = edit.fields.includes("sets") ? sourceSets.length : cycle.sets.length;
   const template = cycle.sets.at(-1) || sourceSets.at(-1);
@@ -281,8 +324,11 @@ function applyCycleEdit(slot, source, edit) {
       cycleIndex: edit.cycleIndex, setIndex: index + 1 }, "set");
     const from = sourceSets[index];
     const fields = !from ? [] : index >= edit.generated ? CARRIED_FIELDS : edit.changed[index];
-    if (!fields.length) return set;
-    for (const field of fields) set[field] = copyJson(from[field] ?? null, field);
+    if (!from||!fields.length) return set;
+    for (const field of fields) {
+      if(field==="targets")set.targets=copyJson(from.targets,field);
+      else set[field] = copyJson(from[field] ?? null, field);
+    }
     set.status = from.status;
     set.provenance = copyJson(from.provenance, "provenance");
     return set;
@@ -292,23 +338,29 @@ function applyCycleEdit(slot, source, edit) {
 // Start each day from the generator's prescriptions, which fit, and add the
 // edits back compounds first and in slot order: an edit stays whole if the
 // day still fits, gives back extra sets if that is enough, or is dropped.
+/** @param {ProgramDefinition} successor @param {ProgramDefinition} generated @param {Map<ProgramSlot,CarryState>} carried @param {CompilerApi} compiler @param {unknown} catalog */
 function fitCarried(successor, generated, carried, compiler, catalog) {
-  const ceiling = successor.request.timeCeilingMinutes * 60;
+  const ceiling = Number(plainRecord(successor.request)?successor.request.timeCeilingMinutes:undefined) * 60;
   const cycleIndexes = Array.from({ length: successor.cycles }, (_, index) => index + 1);
   for (const day of successor.days.filter((entry) => entry.kind === "training")) {
     const fresh = generated.days.find((entry) => entry.id === day.id);
+    if(!fresh)throw new TypeError("Missing generated day");
+    /** @param {ProgramSlot} slot */
+    const carriedFor=slot=>{const entry=carried.get(slot);if(!entry?.fresh)throw new TypeError("Missing carried template");return /** @type {CarryState & {fresh:ProgramSlot}} */(entry);};
     const over = () => cycleIndexes.filter((cycleIndex) => compiler.estimateDaySeconds(day, cycleIndex, catalog) >
       Math.max(ceiling, compiler.estimateDaySeconds(fresh, cycleIndex, catalog)));
     const order = day.slots.filter((slot) => carried.has(slot)).sort((left, right) =>
       Number(/Accessory$/.test(left.role)) - Number(/Accessory$/.test(right.role)) || left.order - right.order);
     const wanted = new Map(order.map((slot) => [slot, slot.prescriptionsByCycle]));
-    for (const slot of order) slot.prescriptionsByCycle = copyJson(carried.get(slot).fresh.prescriptionsByCycle, "prescriptionsByCycle");
+    for (const slot of order) slot.prescriptionsByCycle = copyJson(carriedFor(slot).fresh.prescriptionsByCycle, "prescriptionsByCycle");
     for (const slot of order) {
-      const entry = carried.get(slot);
-      slot.prescriptionsByCycle = wanted.get(slot);
+      const entry = carriedFor(slot);
+      slot.prescriptionsByCycle = wanted.get(slot)||slot.prescriptionsByCycle;
       for (const cycleIndex of over()) {
-        const sets = cycleOf(slot, cycleIndex).sets;
-        const generatedCount = cycleOf(entry.fresh, cycleIndex).sets.length;
+        const cycle=cycleOf(slot,cycleIndex),freshCycle=cycleOf(entry.fresh,cycleIndex);
+        if(!cycle||!freshCycle)throw new TypeError("Missing carried cycle");
+        const sets = cycle.sets;
+        const generatedCount = freshCycle.sets.length;
         while (sets.length > generatedCount && over().includes(cycleIndex)) { sets.pop(); entry.outcome = "clamped"; }
       }
       if (!over().length) continue;
@@ -323,8 +375,11 @@ function fitCarried(successor, generated, carried, compiler, catalog) {
 // (exercise and metric composition), or null when regeneration removed it.
 // Generated slots claim their movement before a copy the lifter added by
 // hand, which regeneration never reproduces.
+/** @param {ProgramDefinition} predecessor @param {ProgramDefinition} next */
 function matchSlots(predecessor, next) {
+  /** @param {ProgramSlot} slot */
   const movement = (slot) => `${slot.exerciseId}|${canonicalJson(slot.metricIds)}`;
+  /** @type {Map<string,ProgramSlot[]>} */
   const unclaimed = new Map();
   for (const slot of trainingSlots(next)) unclaimed.set(movement(slot), [...(unclaimed.get(movement(slot)) || []), slot]);
   const sources = trainingSlots(predecessor);
@@ -334,6 +389,7 @@ function matchSlots(predecessor, next) {
 
 // #317: a slot's alternates are the lifter's own choice, not a prescription,
 // so they travel with the movement whether or not the edits were identified.
+/** @param {ProgramDefinition} predecessor @param {ProgramDefinition} successor */
 function carryAlternates(predecessor, successor) {
   if (!trainingSlots(predecessor).some((slot) => Array.isArray(slot.alternates) && slot.alternates.length)) return successor;
   const next = copyJson(successor, "programDefinition");
@@ -344,6 +400,7 @@ function carryAlternates(predecessor, successor) {
   return next;
 }
 
+/** @param {ProgramDefinition} predecessor @param {ProgramDefinition} successor @param {unknown} catalog @param {CompilerApi} compiler @returns {{value:ProgramDefinition,carry:CarryReport}} */
 function carryEdits(predecessor, successor, catalog, compiler) {
   const baseline = generatorBaseline(predecessor, catalog, compiler);
   if (!baseline) return { value: successor, carry: { identified: false, entries: [] } };
@@ -352,7 +409,9 @@ function carryEdits(predecessor, successor, catalog, compiler) {
   const freshSlots = new Map(trainingSlots(successor).map((slot) => [slot.id, slot]));
   const sources = trainingSlots(predecessor);
   const targets = matchSlots(predecessor, next);
+  /** @type {CarryState[]} */
   const entries = [];
+  /** @type {Map<ProgramSlot,CarryState>} */
   const carried = new Map();
   for (const source of sources) {
     const edits = slotEdits(source, baselineSlots.get(source.id));
@@ -375,12 +434,13 @@ function carryEdits(predecessor, successor, catalog, compiler) {
     cycles: entry.edits.map((edit) => ({
       cycleIndex: edit.cycleIndex,
       fields: edit.fields,
-      requestedSets: cycleOf(entry.source, edit.cycleIndex).sets.length,
+      requestedSets: cycleOf(entry.source, edit.cycleIndex)?.sets.length||0,
       sets: entry.target ? cycleOf(entry.target, edit.cycleIndex)?.sets.length ?? null : null,
     })),
   })) } };
 }
 
+/** @param {ProgramDefinition} definition @returns {import("./transition-contracts.js").DefinitionDerivation} */
 function reduceVolume(definition) {
   let changed = false;
   const next = copyJson(definition, "programDefinition");
@@ -393,6 +453,7 @@ function reduceVolume(definition) {
   return changed ? { ok: true, value: next } : unavailable("volume_floor");
 }
 
+/** @param {ProgramDefinition} definition @returns {import("./transition-contracts.js").DefinitionDerivation} */
 function insertRecoveryWeek(definition) {
   if (definition.cycles >= 12) return unavailable("cycles_limit");
   const next = copyJson(definition, "programDefinition");
@@ -423,6 +484,7 @@ function insertRecoveryWeek(definition) {
   return { ok: true, value: next };
 }
 
+/** @param {unknown} input @returns {import("./transition-contracts.js").DeriveResult} */
 function deriveSuccessor(input) {
   let copied;
   try { copied = copyJson(input, "input"); } catch { return resultInvalid("derive_input_invalid"); }
@@ -445,7 +507,7 @@ function deriveSuccessor(input) {
     const ceilings = compiler.TIME_CEILINGS;
     const ceiling = [...ceilings].reverse().find((value) => value <= change.sessionMinutes);
     if (ceiling === undefined) return unavailable("minutes_unsupported");
-    if (definition.request?.goal && ceiling >= definition.request.timeCeilingMinutes) return unavailable("not_shorter_sessions");
+    if (plainRecord(definition.request)&&definition.request.goal && ceiling >= Number(definition.request.timeCeilingMinutes)) return unavailable("not_shorter_sessions");
     derived = regenerate(definition, { timeCeilingMinutes: ceiling }, catalog, compiler);
   } else if (change.kind === "reduce_volume") {
     derived = reduceVolume(definition);
@@ -455,12 +517,13 @@ function deriveSuccessor(input) {
   if (!derived.ok) return derived;
   const checked = validateProgramDefinition(derived.value, custom, catalog);
   if (!checked.ok) return resultInvalid("derived_definition_invalid");
-  return { ok: true, value: { programDefinition: checked.value, customExerciseDefinitions: custom, change,
+  return { ok: true, value: { programDefinition: checked.value, customExerciseDefinitions: /** @type {CustomDefinition[]} */(custom), change,
     ...(derived.carry ? { carry: derived.carry } : {}) } };
 }
 
 // A caller may supply the derivation (#353: the program engine runs it in a
 // worker); it must return exactly what deriveSuccessor returns.
+/** @param {Change} change @param {DefinitionSnapshot} predecessor @param {DefinitionSnapshot} successor @param {unknown} catalog @param {typeof deriveSuccessor|((input:unknown)=>Promise<ReturnType<typeof deriveSuccessor>>)} [derive] */
 async function derivationMatches(change, predecessor, successor, catalog, derive = deriveSuccessor) {
   const derived = await derive({
     change,
@@ -473,9 +536,11 @@ async function derivationMatches(change, predecessor, successor, catalog, derive
     await fingerprintProgramDefinition(successor.programDefinition, successor.customExerciseDefinitions);
 }
 
+/** @param {unknown} input @param {{deriveSuccessor?:typeof deriveSuccessor|((input:unknown)=>Promise<ReturnType<typeof deriveSuccessor>>)}} [options] @returns {Promise<import("./transition-contracts.js").InvalidResult|{ok:true,proposal:Proposal}>} */
 async function createReplacementProposal(input, { deriveSuccessor: derive } = {}) {
   try {
     const copied = copyJson(input, "input");
+    if(!plainRecord(copied))return resultInvalid("replacement_input_invalid");
     const catalog = catalogFrom(copied.catalogSnapshot);
     const change = copied.change;
     delete copied.change;
@@ -485,6 +550,7 @@ async function createReplacementProposal(input, { deriveSuccessor: derive } = {}
     if (change !== undefined && !await derivationMatches(change, normalized.value.predecessor, normalized.value.successor, catalog, derive)) {
       return resultInvalid("successor_derivation_mismatch");
     }
+    /** @type {import("./transition-contracts.js").ProposalDraft} */
     const proposal = {
       schemaVersion: SCHEMA_VERSION,
       kind: KIND,
@@ -513,12 +579,13 @@ async function createReplacementProposal(input, { deriveSuccessor: derive } = {}
     proposal.proposalHash = await hashProposal(proposal);
     deepFreeze(proposal);
     replacementCapabilities.add(proposal);
-    return { ok: true, proposal };
+    return { ok: true, proposal:/** @type {Proposal} */(proposal) };
   } catch (error) {
-    return resultInvalid(error?.code || "replacement_input_invalid");
+    return resultInvalid(error&&typeof error==="object"&&"code" in error&&typeof error.code==="string"?error.code:"replacement_input_invalid");
   }
 }
 
+/** @param {unknown} proposal @returns {proposal is Proposal} */
 function proposalShape(proposal) {
   const top = ["schemaVersion", "kind", "status", "transitionId", "createdAt", "predecessor", "successor", "proposalHash",
     ...(Object.hasOwn(proposal || {}, "change") ? ["change"] : [])];
@@ -528,13 +595,14 @@ function proposalShape(proposal) {
     ownKeysAre(proposal.successor, successor) && proposal.schemaVersion === SCHEMA_VERSION &&
     proposal.kind === KIND && proposal.status === "preview" && validIdentity(proposal.transitionId) &&
     isCanonicalInstant(proposal.createdAt) && validIdentity(proposal.predecessor.programId) &&
-    Number.isSafeInteger(proposal.predecessor.durableRevision) && proposal.predecessor.durableRevision >= 0 &&
+    typeof proposal.predecessor.durableRevision==="number"&&Number.isSafeInteger(proposal.predecessor.durableRevision) && proposal.predecessor.durableRevision >= 0 &&
     validIdentity(proposal.predecessor.definitionFingerprint) && validIdentity(proposal.successor.programId) &&
     proposal.successor.programId !== proposal.predecessor.programId &&
     validIdentity(proposal.successor.definitionFingerprint) && typeof proposal.proposalHash === "string" &&
     /^[0-9a-f]{64}$/.test(proposal.proposalHash) && (!Object.hasOwn(proposal, "change") || validChange(proposal.change));
 }
 
+/** @param {unknown} proposal @param {unknown} current @param {{deriveSuccessor?:typeof deriveSuccessor|((input:unknown)=>Promise<ReturnType<typeof deriveSuccessor>>)}} [options] @returns {Promise<import("./transition-contracts.js").InvalidResult|{ok:true,status:"preview",proposal:Proposal}>} */
 async function validateProposal(proposal, current, { deriveSuccessor: derive } = {}) {
   let safeProposal;
   let safeCurrent;
@@ -544,12 +612,12 @@ async function validateProposal(proposal, current, { deriveSuccessor: derive } =
   } catch {
     return resultInvalid("proposal_or_current_invalid");
   }
-  if (!proposalShape(safeProposal)) return resultInvalid(safeProposal.kind === KIND
+  if (!proposalShape(safeProposal)) return resultInvalid(plainRecord(safeProposal)&&safeProposal.kind === KIND
     ? "replacement_proposal_invalid" : "unsupported_transition_kind");
   if (!plainRecord(safeCurrent) || !plainRecord(safeCurrent.predecessor)) return resultInvalid("current_predecessor_invalid");
   const catalog = catalogFrom(safeCurrent.catalogSnapshot);
   if (!validIdentity(safeCurrent.predecessor.programId) ||
-      !Number.isSafeInteger(safeCurrent.predecessor.durableRevision) || safeCurrent.predecessor.durableRevision < 0 ||
+      typeof safeCurrent.predecessor.durableRevision!=="number"||!Number.isSafeInteger(safeCurrent.predecessor.durableRevision) || safeCurrent.predecessor.durableRevision < 0 ||
       !Array.isArray(safeCurrent.predecessor.customExerciseDefinitions)) return resultInvalid("current_predecessor_invalid");
   const currentDefinition = validateProgramDefinition(safeCurrent.predecessor.programDefinition,
     safeCurrent.predecessor.customExerciseDefinitions, catalog);
@@ -571,14 +639,14 @@ async function validateProposal(proposal, current, { deriveSuccessor: derive } =
       safeProposal.successor.customExerciseDefinitions,
     );
   } catch (error) {
-    return resultInvalid(error?.code || "proposal_hash_unavailable");
+    return resultInvalid(error&&typeof error==="object"&&"code" in error&&typeof error.code==="string"?error.code:"proposal_hash_unavailable");
   }
   if (expectedHash !== safeProposal.proposalHash) return resultInvalid("proposal_hash_mismatch");
   if (safeCurrent.predecessor.programId !== safeProposal.predecessor.programId) return resultStale("predecessor_changed");
   if (safeCurrent.predecessor.durableRevision !== safeProposal.predecessor.durableRevision) return resultStale("predecessor_revision_changed");
   if (predecessorFingerprint !== safeProposal.predecessor.definitionFingerprint) return resultStale("predecessor_definition_changed");
   if (successorFingerprint !== safeProposal.successor.definitionFingerprint) return resultInvalid("successor_definition_mismatch");
-  if (Object.hasOwn(safeProposal, "change") && !await derivationMatches(safeProposal.change,
+  if (safeProposal.change!==undefined && !await derivationMatches(safeProposal.change,
     { programDefinition: currentDefinition.value, customExerciseDefinitions: safeCurrent.predecessor.customExerciseDefinitions },
     safeProposal.successor, catalog, derive)) return resultInvalid("successor_derivation_mismatch");
   deepFreeze(safeProposal);
@@ -586,6 +654,7 @@ async function validateProposal(proposal, current, { deriveSuccessor: derive } =
   return { ok: true, status: "preview", proposal: safeProposal };
 }
 
+/** @param {Proposal} proposal @param {unknown} options @returns {CommittedRecord} */
 function commitRecord(proposal, options) {
   if (!proposal || typeof proposal !== "object" || !replacementCapabilities.has(proposal)) {
     throw new TypeError("proposal: expected a canonical validated replacement proposal");
@@ -617,6 +686,7 @@ function commitRecord(proposal, options) {
   return record;
 }
 
+/** @param {CommittedRecord} record */
 function createTransitionOut(record) {
   if (!record || typeof record !== "object" || !committedCapabilities.has(record)) {
     throw new TypeError("record: expected a committed replacement record");
@@ -632,7 +702,7 @@ function createTransitionOut(record) {
 const api = Object.freeze({
   SCHEMA_VERSION,
   KIND,
-  canonicalProposalJson: (proposal) => canonicalJson(proposalPreimage(proposal)),
+  canonicalProposalJson: (/** @type {Proposal} */ proposal) => canonicalJson(proposalPreimage(proposal)),
   hashProposal,
   fingerprintProgramDefinition,
   CHANGE_KINDS,
