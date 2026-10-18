@@ -3202,7 +3202,7 @@ async function enterWorkout(opts={}){if(opts.day&&!await requestWorkoutDay(opts.
   hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});
   // Focus is the sole workout route.
   document.body.classList.add("is-focus-wo");
-  renderTabs();renderWorkout();renderToday();window.scrollTo({top:0});return true}
+  renderTabs();renderWorkout();renderToday();window.scrollTo({top:0});scheduleCurrentSurfaceGuides();return true}
 async function leaveWorkout(){
   if(document.activeElement&&document.activeElement.tagName==="INPUT"){
     document.activeElement.blur();
@@ -3377,7 +3377,7 @@ function render(){applyI18n();
   renderToday();renderTabs();renderWorkout();renderStats();HistoryUi.render();ProgramUi.renderProgram();renderSettings();renderBlockPrompt();
   updateSessionBanner();
   if(ExerciseUi?.active()&&$("#exercise")?.classList.contains("active"))renderExerciseView();
-  queueMicrotask(()=>maybeShowContextualGuides())}
+}
 
 function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
   $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" aria-pressed="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(dayLabel(d))}</button>`).join("");
@@ -8130,6 +8130,19 @@ function removeContextualGuide(){return guidesView().remove()}
 function dismissContextualGuide(options){return guidesView().dismiss(options)}
 function showContextualGuide(id,options){return guidesView().show(id,options)}
 function maybeShowContextualGuides(ids){return guidesView().maybeShow(ids)}
+// Guide eligibility can persist a shown transition. Attempt it only after a
+// route/entry command, never from a repaint. Read the settled route inside the
+// microtask so a superseded navigation cannot show a cue on the wrong surface.
+function scheduleCurrentSurfaceGuides(){
+  queueMicrotask(()=>{
+    if(workoutActive){maybeShowContextualGuides(["first-set","focus-utilities"]);return}
+    if($("#stats")?.classList.contains("active")){
+      const state=ProgressUi.state();
+      if(!state.evidence)maybeShowContextualGuides([state.segment==="review"?"block-transition":"progress"]);
+      return}
+    maybeShowContextualGuides()
+  })}
+
 function completeContextualGuide(){return guidesView().complete()}
 function replayContextualGuide(id){return guidesView().replay(id)}
 function contextualGuideState(){return guidesView().state()}
@@ -8151,13 +8164,13 @@ function returnToTab(view){
   $$("nav button").forEach(b=>{const on=b.dataset.view===view;
     b.classList.toggle("active",on);b.setAttribute("aria-current",on?"page":"false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id===view));
-  window.scrollTo({top:0})}
+  window.scrollTo({top:0});scheduleCurrentSurfaceGuides()}
 function navTo(view){
   if(view==="settings"){showSettings();return}
   const b=$(`nav button[data-view="${view}"]`);
   if(b){if(!b.classList.contains("active"))b.click();return}
   $$(".view").forEach(v=>v.classList.toggle("active",v.id===view));
-  window.scrollTo({top:0});render()
+  window.scrollTo({top:0});render();scheduleCurrentSurfaceGuides()
 }
 window.__repforgeEnterWorkout=enterWorkout;
 window.__repforgeGoToLogExercise=goToLogExercise;
@@ -8363,7 +8376,7 @@ function init(){
     document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-workout");
     $$("nav button").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     $$(".view").forEach(v=>v.classList.toggle("active",v.id===b.dataset.view));window.scrollTo({top:0});render();
-    if(opensReview)captureBlockReviewViewed()});
+    if(opensReview)captureBlockReviewViewed();scheduleCurrentSurfaceGuides()});
   $("#exBack").onclick=closeExerciseView;
   $("nav button.active")?.setAttribute("aria-current","page");
   render();
@@ -8384,6 +8397,7 @@ function init(){
   // The one signal that the whole boot pipeline — replica recovery, first-run
   // persistence, the first render — has finished. Test gates used to wait for a
   // day tab, which a device with no program never grows.
+  scheduleCurrentSurfaceGuides();
   window.__repforgeBooted=true;
 }
 function applyGotoParam(){
