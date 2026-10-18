@@ -128,7 +128,7 @@ function dispose(){
   const row=$("#statsSeg");if(row){row.onkeydown=null;row.querySelectorAll("button").forEach(button=>button.onclick=null)}
   row?.querySelectorAll(".tabrow__ring").forEach(ring=>ring.remove());
   row?.querySelectorAll(".is-ring-travel").forEach(tab=>tab.classList.remove("is-ring-travel"));
-  evidence.dispose();review.dispose();
+  presentation.dispose();evidence.dispose();review.dispose();
 }
 return Object.freeze({mount,dispose,render,
   selectSegment:setStatsSeg,selectEvidence:setEvidenceView,

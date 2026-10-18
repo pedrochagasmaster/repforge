@@ -15,9 +15,11 @@ const strengthProjection=scope=>queries.projection(scope);
 /** @type {import("./exercise-contracts.js").ChartLive|null} */let chartLive=null;
 /** @type {object|null} */let view=null;
 /** @type {{el:HTMLElement,input:import("./exercise-contracts.js").ChartInput}|null} */let current=null;
+let disposed=false;
 const activeMotion=()=>motion?.available()&&!motion.reducedMotion()?motion:null;
 const beatsOn=()=>!!activeMotion(),focusRoute=focus;
 /** @type {Set<()=>void>} */const cleanups=new Set();
+/** @type {(()=>void)|null} */let clearPointer=null;
 function repaint(){if(current)render(current.el,current.input)}
 const CHART_W=328,CHART_H=190;
 const CHART_PAD={padL:42,padR:12,padT:20,padB:24};
@@ -121,6 +123,8 @@ function chartRowHtml(model,i){
     `<span class="exchart__mono">${esc(fmt(Math.round(toDisplay(p.e1rm)*10)/10))}${esc(loadCue)}</span><span class="exchart__mono exchart__soft">${esc(delta)}</span></button>`}
 /** @param {HTMLElement} el @param {import("./exercise-contracts.js").ChartInput} input */
 function render(el,input){
+  if(disposed)return;
+  clearPointer?.();clearPointer=null;
   current={el,input};view=input.identity;
   const {key,name}=input;
   const model=chartModel(key),{metric,scope}=chartView;
@@ -155,8 +159,10 @@ function render(el,input){
     const at=(e.clientX-r.left)/r.width*CHART_W,xs=plot.xs;let best=0;
     xs.forEach((v,i)=>{if(Math.abs(v-at)<Math.abs(xs[best]-at))best=i});
     selectChartPoint(best)};
-  surface.addEventListener("pointerdown",e=>{pick(e);try{surface.setPointerCapture(e.pointerId)}catch{}});
-  surface.addEventListener("pointermove",e=>{if(e.buttons)pick(e)});
+  const down=/** @param {PointerEvent} e */ e=>{pick(e);try{surface.setPointerCapture(e.pointerId)}catch{}};
+  const move=/** @param {PointerEvent} e */ e=>{if(e.buttons)pick(e)};
+  surface.addEventListener("pointerdown",down);surface.addEventListener("pointermove",move);
+  clearPointer=()=>{surface.removeEventListener("pointerdown",down);surface.removeEventListener("pointermove",move)};
   $$("#exDetail .exrow").forEach(b=>b.onclick=()=>selectChartPoint(Number(b.dataset.pt)));
   if(intent)chartMotionPlay(el,surface,intent,prev,live,ghost)}
 
@@ -260,8 +266,8 @@ function chartTogglesHtml(scope,metric){
 function bindChartToggles(){
   // The page is rebuilt for every choice, so the pressed toggle is a new node: focus goes back to its equivalent by key (R7 J-10).
   const keep=/** @param {string} attr @param {string} value */ (attr,value)=>{const el=$(`#exDetail [${attr}="${CSS.escape(value)}"]`);if(el)focusRoute(el)};
-  $$("#exDetail [data-scope]").forEach(b=>b.onclick=()=>{const value=/** @type {string} */(b.dataset.scope);chartView.scope=value;chartView.pt=null;repaint();keep("data-scope",value)});
-  $$("#exDetail [data-metric]").forEach(b=>b.onclick=()=>{const value=/** @type {string} */(b.dataset.metric);chartView.metric=value;repaint();keep("data-metric",value)})}
+  $$("#exDetail [data-scope]").forEach(b=>b.onclick=()=>{if(disposed)return;const value=/** @type {string} */(b.dataset.scope);chartView.scope=value;chartView.pt=null;repaint();keep("data-scope",value)});
+  $$("#exDetail [data-metric]").forEach(b=>b.onclick=()=>{if(disposed)return;const value=/** @type {string} */(b.dataset.metric);chartView.metric=value;repaint();keep("data-metric",value)})}
 /** Moves the selection in place, so the plot, the readout and the table agree and nothing loses focus. */
 /** @param {number} i */
 function selectChartPoint(i){
@@ -310,6 +316,8 @@ function moveChartMarker(plot,model,from,to){
     pair.dot.remove();pair.line.remove();chartMarkers.delete(plot);plot.classList.remove("is-marker-travel")};
   Promise.all([m.animateIndicator(pair.line,cursorBefore),m.animateIndicator(pair.dot,before)]).then(done,done)}
 
-function reset(){chartLive=null;view=null;current=null;chartView={scope:"current-block",metric:"top",pt:null};for(const clear of [...cleanups])clear()}
-return Object.freeze({render,reset,dispose:reset,state:()=>Object.freeze({...chartView})});
+function reset(){clearPointer?.();clearPointer=null;chartLive=null;view=null;current=null;chartView={scope:"current-block",metric:"top",pt:null};for(const clear of [...cleanups])clear()}
+function dispose(){if(disposed)return;disposed=true;reset();
+  $$("#exDetail [data-scope],#exDetail [data-metric],#exDetail .exrow").forEach(button=>button.onclick=null)}
+return Object.freeze({render,reset,dispose,state:()=>Object.freeze({...chartView})});
 }

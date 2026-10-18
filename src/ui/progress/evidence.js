@@ -11,6 +11,7 @@ export function createEvidenceViews({document,copy,format,presentation,onStrengt
   const $=selector=>/** @type {HTMLElement|null} */(document.querySelector(selector));
   /** @type {string|null} */
   let volumeDrillMuscle=null;
+  let disposed=false;
   /** @param {Record<string,unknown>[]} rows */
   const table=rows=>formatTable(rows,t("stats.table.no_data"));
   /** @param {import("./contracts.js").StrengthRow} row */
@@ -28,10 +29,11 @@ export function createEvidenceViews({document,copy,format,presentation,onStrengt
   }
   /** @param {Readonly<{scope:string,rows:readonly import("./contracts.js").StrengthRow[]}>} model */
   function renderStrength(model){
+    if(disposed)return;
     const host=$("#strengthDash");if(!host)return;
     /** @type {NodeListOf<HTMLElement>} */(document.querySelectorAll("#strengthScopeSeg button")).forEach(button=>{
       const selected=/** @type {string} */(button.dataset.scope)===model.scope;button.classList.toggle("active",selected);button.setAttribute("aria-pressed",selected?"true":"false");
-      button.onclick=()=>onStrengthScope(/** @type {string} */(button.dataset.scope));
+      button.onclick=()=>!disposed&&onStrengthScope(/** @type {string} */(button.dataset.scope));
     });
     if(!model.rows.length){host.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}
     host.innerHTML=model.rows.map(row=>{
@@ -47,7 +49,7 @@ export function createEvidenceViews({document,copy,format,presentation,onStrengt
         `<span class="evrow__out${word.soft?" is-soft":""}">${word.html}${change?esc(` · ${change}`):""}</span>`+
         `<span class="evrow__kind">${esc(presentation.kindText(row.series))}</span><span class="evrow__spark">${presentation.sparkline(row.series.points.map(point=>point.value))}</span></button>${panel}`;
     }).join("");
-    /** @type {NodeListOf<HTMLElement>} */(host.querySelectorAll("[data-evkey]")).forEach(button=>button.onclick=()=>{
+    /** @type {NodeListOf<HTMLElement>} */(host.querySelectorAll("[data-evkey]")).forEach(button=>button.onclick=()=>{if(disposed)return;
       const detail=/** @type {HTMLElement|null} */(host.querySelector(`[data-evdetail="${CSS.escape(/** @type {string} */(button.dataset.evkey))}"]`));if(!detail)return;
       const open=detail.hidden;detail.hidden=!open;button.setAttribute("aria-expanded",open?"true":"false");button.classList.toggle("is-open",open);
       const chevron=button.querySelector(".chevron.is-down,.chevron.is-up");if(chevron){chevron.classList.toggle("is-down",!open);chevron.classList.toggle("is-up",open)}
@@ -55,9 +57,10 @@ export function createEvidenceViews({document,copy,format,presentation,onStrengt
   }
   /** @param {Readonly<import("./contracts.js").VolumeModel>} model */
   function renderVolume(model){
+    if(disposed)return;
     const host=$("#volumeDash");if(!host)return;
     /** @type {NodeListOf<HTMLElement>} */(document.querySelectorAll("#volumeScopeSeg button")).forEach(button=>{
-      const selected=/** @type {string} */(button.dataset.vscope)===model.scope;button.classList.toggle("active",selected);button.setAttribute("aria-pressed",selected?"true":"false");button.onclick=()=>onVolumeScope(/** @type {string} */(button.dataset.vscope));
+      const selected=/** @type {string} */(button.dataset.vscope)===model.scope;button.classList.toggle("active",selected);button.setAttribute("aria-pressed",selected?"true":"false");button.onclick=()=>!disposed&&onVolumeScope(/** @type {string} */(button.dataset.vscope));
     });
     const period=$("#volumePeriod");if(period)period.textContent=model.periodLabel;
     if(!model.rows.length){host.innerHTML=`<div class="empty">${esc(t("stats.empty.no_hard_sets",{n:7}))}</div>`;return}
@@ -70,7 +73,7 @@ export function createEvidenceViews({document,copy,format,presentation,onStrengt
         `<span class="vrow__num">${format.number(row.done)} / ${format.number(row.planned)}</span><span class="vrow__status">${esc(caption)}</span><span class="chevron" aria-hidden="true"></span></button>`+
         `<div class="evrow__detail" data-volume-detail="${esc(row.muscle)}" hidden>${detail}</div>`;
     }).join("")+`</div>`;
-    /** @type {NodeListOf<HTMLElement>} */(host.querySelectorAll("[data-volume-muscle]")).forEach(button=>button.onclick=()=>{
+    /** @type {NodeListOf<HTMLElement>} */(host.querySelectorAll("[data-volume-muscle]")).forEach(button=>button.onclick=()=>{if(disposed)return;
       const detail=/** @type {HTMLElement|null} */(host.querySelector(`[data-volume-detail="${CSS.escape(/** @type {string} */(button.dataset.volumeMuscle))}"]`)),open=detail?.hidden;
       if(detail)detail.hidden=!open;button.setAttribute("aria-expanded",open?"true":"false");volumeDrillMuscle=open?/** @type {string} */(button.dataset.volumeMuscle):null;
     });
@@ -78,9 +81,10 @@ export function createEvidenceViews({document,copy,format,presentation,onStrengt
   }
   /** @param {Readonly<import("./contracts.js").PrModel>} model */
   function renderPrs(model){
+    if(disposed)return;
     const host=$("#prTimeline");if(!host)return;
     /** @type {NodeListOf<HTMLElement>} */(document.querySelectorAll("#prFilterSeg button")).forEach(button=>{
-      const selected=/** @type {string} */(button.dataset.prf)===model.filter;button.classList.toggle("active",selected);button.setAttribute("aria-pressed",selected?"true":"false");button.onclick=()=>onPrFilter(/** @type {string} */(button.dataset.prf));
+      const selected=/** @type {string} */(button.dataset.prf)===model.filter;button.classList.toggle("active",selected);button.setAttribute("aria-pressed",selected?"true":"false");button.onclick=()=>!disposed&&onPrFilter(/** @type {string} */(button.dataset.prf));
     });
     if(!model.events.length){host.innerHTML=`<div class="empty">${esc(t("stats.empty.no_pr_filter"))}</div>`;return}
     /** @param {string|undefined} iso */
@@ -98,9 +102,10 @@ export function createEvidenceViews({document,copy,format,presentation,onStrengt
         `<div class="evrow__detail" data-prdetail="${index}" hidden><p class="lede">${esc(event.dateLabel)}</p>`+
         `<p class="lede">${esc(`${kindLabel(event.kind)} · ${format.load(event.load)}${format.unit()} × ${event.reps}`)}${change?` · ${esc(change)}`:""}</p></div>`;
     }).join("");
-    /** @type {NodeListOf<HTMLElement>} */(host.querySelectorAll("[data-prrow]")).forEach(button=>button.onclick=()=>{
+    /** @type {NodeListOf<HTMLElement>} */(host.querySelectorAll("[data-prrow]")).forEach(button=>button.onclick=()=>{if(disposed)return;
       const detail=/** @type {HTMLElement|null} */(host.querySelector(`[data-prdetail="${button.dataset.prrow}"]`));if(!detail)return;const open=detail.hidden;detail.hidden=!open;button.setAttribute("aria-expanded",open?"true":"false");
     });
   }
-  return Object.freeze({renderStrength,renderVolume,renderPrs,dispose(){volumeDrillMuscle=null}});
+  return Object.freeze({renderStrength,renderVolume,renderPrs,dispose(){disposed=true;volumeDrillMuscle=null;
+    /** @type {NodeListOf<HTMLElement>} */(document.querySelectorAll("#strengthScopeSeg button,#volumeScopeSeg button,#prFilterSeg button,#strengthDash [data-evkey],#volumeDash [data-volume-muscle],#prTimeline [data-prrow]")).forEach(button=>button.onclick=null)}});
 }

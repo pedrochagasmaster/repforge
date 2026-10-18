@@ -6,6 +6,7 @@ import {escapeHtml as esc} from "../format.js";
 /** @param {import("./contracts.js").OverviewOptions} options */
 export function createProgressOverview({document,copy,format,onOpenExercise,onGoToday}){
 const {t}=copy;
+let disposed=false;
 /** @param {string} selector */
 const $=selector=>/** @type {HTMLElement|null} */(document.querySelector(selector));
 /** @param {readonly number[]} values */
@@ -47,17 +48,17 @@ function strengthOutcomeWord({series,latest,comparison:cmp,slotId}){
   if((reason==="changed-load"||reason==="incompatible-exposure")&&cmp)return{html:word(cmp.label),soft:true,status:""};
   return{html:esc(t("stats.evidence.baseline")),soft:true,status:""}}
 /** @param {boolean} hasLog */
-function renderIntro(hasLog){
+function renderIntro(hasLog){if(disposed)return;
   const intro=$("#statsIntro");if(!intro)return;
   intro.classList.toggle("hidden",hasLog);
   intro.innerHTML=hasLog?"":`<p class="emptystate__title">${esc(t("stats.empty.title"))}</p>`+
     `<p class="emptystate__body">${esc(t("stats.empty.body"))}</p>`+
     `<button type="button" class="btn btn--cta" id="statsIntroGo">${esc(t("stats.empty.cta"))}</button>`;
-  const go=$("#statsIntroGo");if(go)go.onclick=()=>onGoToday();
+  const go=$("#statsIntroGo");if(go)go.onclick=()=>{if(!disposed)onGoToday()};
   for(const selector of["#thisWeek","#attention","#overviewStrength"])$(selector)?.classList.toggle("hidden",!hasLog);
 }
 /** @param {Readonly<import("./contracts.js").WeekModel>} model */
-function renderWeek(model){
+function renderWeek(model){if(disposed)return;
   const element=$("#thisWeek");if(!element)return;
   const weekLine=model.status==="in-progress"&&model.week?t("stats.overview.week",{n:model.week,total:model.totalWeeks}):t("stats.this_week.in_progress");
   /** @param {string} metric @param {number} done @param {number} planned @param {string} caption */
@@ -70,7 +71,7 @@ function renderWeek(model){
     `<p class="ovweekline">${esc(weekLine)}</p>`;
 }
 /** @param {readonly Omit<import("./contracts.js").StrengthRow,"sessions">[]} rows */
-function renderStrength(rows){
+function renderStrength(rows){if(disposed)return;
   const element=$("#overviewStrength");if(!element)return;
   if(!rows.length){element.innerHTML="";return}
   element.innerHTML=`<div class="ovsec"><h3 class="ovsec__title">${esc(t("stats.overview.strength"))}</h3><span class="ovsec__meta">${esc(t("stats.metric.top_load"))}</span></div>`+
@@ -82,10 +83,10 @@ function renderStrength(rows){
       return row.series.evidenceCount>1?`<button type="button" class="strrow" data-ovkey="${esc(row.key)}">${body}</button>`:
         `<div class="strrow strrow--snap" data-ovkey="${esc(row.key)}">${body}</div>`;
     }).join("");
-  /** @type {NodeListOf<HTMLElement>} */(element.querySelectorAll("button[data-ovkey]")).forEach(button=>button.onclick=()=>onOpenExercise(/** @type {string} */(button.dataset.ovkey)));
+  /** @type {NodeListOf<HTMLElement>} */(element.querySelectorAll("button[data-ovkey]")).forEach(button=>button.onclick=()=>!disposed&&onOpenExercise(/** @type {string} */(button.dataset.ovkey)));
 }
 /** @param {readonly import("./contracts.js").AttentionRow[]} rows */
-function renderAttention(rows){
+function renderAttention(rows){if(disposed)return;
   const element=$("#attention");if(!element)return;
   element.innerHTML=`<div class="ovsec"><h3 class="ovsec__title">${esc(t("stats.overview.attention",{n:rows.length}))}</h3></div>`+
     (rows.length?rows.map(row=>{
@@ -102,7 +103,9 @@ function renderAttention(rows){
         `<span class="attnrow__verdict">${verdict}</span>`+
         `<small class="attnrow__evidence">${esc(row.series?strengthKindText(row.series):"")}</small></button>`;
     }).join(""):`<p class="ovnone">${esc(t("stats.needs_action.none"))}</p>`);
-  /** @type {NodeListOf<HTMLElement>} */(element.querySelectorAll("[data-action-lift]")).forEach(button=>button.onclick=()=>onOpenExercise(/** @type {string} */(button.dataset.actionLift)));
+  /** @type {NodeListOf<HTMLElement>} */(element.querySelectorAll("[data-action-lift]")).forEach(button=>button.onclick=()=>!disposed&&onOpenExercise(/** @type {string} */(button.dataset.actionLift)));
 }
-return Object.freeze({renderIntro,renderWeek,renderStrength,renderAttention,sparkline:sparklineSvg,kindText:strengthKindText,figure:strengthFigure,outcomeWord:strengthOutcomeWord});
+function dispose(){disposed=true;
+  document.querySelectorAll("#statsIntroGo,[data-ovkey],[data-action-lift]").forEach(node=>{if(node instanceof /** @type {Window & typeof globalThis} */(document.defaultView).HTMLElement)node.onclick=null})}
+return Object.freeze({dispose,renderIntro,renderWeek,renderStrength,renderAttention,sparkline:sparklineSvg,kindText:strengthKindText,figure:strengthFigure,outcomeWord:strengthOutcomeWord});
 }

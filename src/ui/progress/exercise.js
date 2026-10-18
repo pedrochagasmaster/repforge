@@ -15,9 +15,10 @@ const {routePushBegin,routeViewEl,routeHeading,focusRoute}=shell;
 const chart=createExerciseChart({window,copy,format,queries,motion,focus:focusRoute});
 const trend=createExerciseTrend({window,copy,format,onPresentation:onChartPresentation});
 /** @type {import("./exercise-contracts.js").ExerciseSelection|null} */let exView=null;
+let disposed=false;
 function currentViewId(){return $$(".view").find(v=>v.classList.contains("active"))?.id||"log"}
 /** @param {string} key @param {string} [from] */
-function openExerciseView(key,from){if(!key)return;
+function openExerciseView(key,from){if(disposed||!key)return;
   exView={...queries.open(key),openKey:key,from:from||currentViewId()};
   chart.reset();
   const settle=routePushBegin("in",{pushed:$("#exercise"),under:routeViewEl(exView.from)});
@@ -27,7 +28,7 @@ function openExerciseView(key,from){if(!key)return;
   window.scrollTo({top:0});renderExerciseView();
   focusRoute(routeHeading("exercise")||$("#exercise .exview-head__title"));
   settle?.()}
-function closeExerciseView(){const back=exView?.from||"log",openKey=exView?.openKey;exView=null;chart.reset();
+function closeExerciseView(){if(disposed)return;const back=exView?.from||"log",openKey=exView?.openKey;exView=null;chart.reset();
   const settle=routePushBegin("out",{pushed:$("#exercise"),under:routeViewEl(back)});
   document.body.classList.remove("is-exercise");
   if(back==="settings"){onSettings();settle?.();return}
@@ -41,7 +42,7 @@ function closeExerciseView(){const back=exView?.from||"log",openKey=exView?.open
   focusRoute((sel&&$(sel))||routeHeading(back))}
 
 
-function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
+function renderExerciseView(){if(disposed)return;const el=$("#exDetail");if(!el||!exView)return;
   const key=exView.key,model=queries.detail(key,exView.exercise);
   const {name,recommendation:rec,art,topLoad,bestE,prCount,sessions,loadPr,e1Pr,summaries:sums}=model;
   const backKey=exView.from==="stats"?"nav.stats":exView.from==="program"?"nav.program":exView.from==="history"?"nav.history":"nav.log";
@@ -99,12 +100,14 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     `<button type="button" class="link-row-cta" id="exSeePrs"><span>${esc(t("exercise.see_all_prs"))}</span><span class="chevron" aria-hidden="true"></span></button>`+
     `<p class="section-label">${esc(t("exercise.recent_sessions"))}</p><div class="exsessions">${historyHtml}</div>`;
   trend.draw(sums,"#exChart");
-  $$("#exDetail [data-term]").forEach(b=>b.onclick=e=>{e.stopPropagation();onGlossary(/** @type {string} */(b.dataset.term),b)});
-  $$("#exDetail [data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();onWhy(/** @type {string} */(model.slotId),b)});
-  const see=$("#exSeePrs");if(see)see.onclick=()=>{closeExerciseView();onSeePrs()}}
+  $$("#exDetail [data-term]").forEach(b=>b.onclick=e=>{if(disposed)return;e.stopPropagation();onGlossary(/** @type {string} */(b.dataset.term),b)});
+  $$("#exDetail [data-why]").forEach(b=>b.onclick=e=>{if(disposed)return;e.stopPropagation();onWhy(/** @type {string} */(model.slotId),b)});
+  const see=$("#exSeePrs");if(see)see.onclick=()=>{if(disposed)return;closeExerciseView();onSeePrs()}}
 
 function reset(){exView=null;chart.reset();document.body.classList.remove("is-exercise")}
-function redraw(){if($("#exercise")?.classList.contains("active")&&exView){if(exView.from==="stats")renderExerciseView();else trend.draw(queries.detail(exView.key,exView.exercise).summaries,"#exChart")}}
-return Object.freeze({open:openExerciseView,close:closeExerciseView,render:renderExerciseView,redraw,reset,dispose:reset,
+function redraw(){if(disposed)return;if($("#exercise")?.classList.contains("active")&&exView){if(exView.from==="stats")renderExerciseView();else trend.draw(queries.detail(exView.key,exView.exercise).summaries,"#exChart")}}
+function dispose(){if(disposed)return;disposed=true;reset();chart.dispose();
+  $$("#exDetail [data-term],#exDetail [data-why],#exSeePrs").forEach(button=>button.onclick=null)}
+return Object.freeze({open:openExerciseView,close:closeExerciseView,render:renderExerciseView,redraw,reset,dispose,
   active:()=>!!exView,palette:trend.palette,labelDecimals:trend.labelDecimals});
 }

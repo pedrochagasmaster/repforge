@@ -25,7 +25,7 @@ function renderReviewActions(checkpoint){
   return `<p class="section-label">${esc(t("review.actions.label"))}</p><div class="review__actions">`+
     kinds.map(k=>`<button type="button" class="btn btn--steel" data-review-action="${k}">${esc(t(REVIEW_ACTION_LABELS[k]))}</button>`).join("")+`</div>`}
 function bindReviewActions(){
-  /** @type {NodeListOf<HTMLElement>} */(document.querySelectorAll("[data-review-action]")).forEach(button=>button.onclick=()=>{
+  /** @type {NodeListOf<HTMLElement>} */(document.querySelectorAll("[data-review-action]")).forEach(button=>button.onclick=()=>{if(disposed)return;
     const kind=button.dataset.reviewAction;
     if(kind==="repeat")commands.repeat();
     else if(kind==="schedule-repair")startScheduleRepair();
@@ -36,11 +36,11 @@ function bindReviewActions(){
 }
 /** @type {import("./contracts.js").ReviewFlow|null} */
 let reviewFlow=null;
-function startScheduleRepair(){reviewFlow={stage:"diagnosis",action:"schedule-repair",kind:"fewer_days",target:""};requestRender()}
-function startGuidedEdit(){reviewFlow={stage:"diagnosis",action:"guided-edit",kind:"fewer_days",target:""};requestRender()}
-function startVolumeReduction(){reviewFlow={stage:"volume-question",action:"reduce-volume"};requestRender()}
-function startRecoveryWeek(){reviewFlow={stage:"recovery-question",action:"recovery-week",answer:null};requestRender()}
-async function closeReviewFlow(){
+function startScheduleRepair(){if(disposed)return;reviewFlow={stage:"diagnosis",action:"schedule-repair",kind:"fewer_days",target:""};requestRender()}
+function startGuidedEdit(){if(disposed)return;reviewFlow={stage:"diagnosis",action:"guided-edit",kind:"fewer_days",target:""};requestRender()}
+function startVolumeReduction(){if(disposed)return;reviewFlow={stage:"volume-question",action:"reduce-volume"};requestRender()}
+function startRecoveryWeek(){if(disposed)return;reviewFlow={stage:"recovery-question",action:"recovery-week",answer:null};requestRender()}
+async function closeReviewFlow(){if(disposed)return;
   const flow=reviewFlow;
   if(reviewFlow?.stage==="staged"){
     const cleared=await commands.discardStaging();
@@ -71,7 +71,7 @@ function renderReviewFlow(el){
     el.innerHTML=`<p class="review__staged" role="status">${esc(t("review.staged.done"))}</p>`+
       `<div class="btnrow"><button type="button" class="btn btn--cta" data-flow-editor>${esc(t("review.staged.open"))}</button>`+
       `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
-    const open=$("[data-flow-editor]",el);if(open)open.onclick=()=>{
+    const open=$("[data-flow-editor]",el);if(open)open.onclick=()=>{if(disposed)return;
       reviewFlow=null;commands.openStagedEditor()};
     bindFlowCancel(el);return}
   if(flow.stage==="error"){
@@ -98,14 +98,14 @@ function renderReviewFlow(el){
     (flow.error?`<p class="review__error" role="alert">${esc(t(flow.error))}</p>`:"")+
     `<div class="btnrow"><button type="button" class="btn btn--cta" data-diag-continue>${esc(t(flow.action==="guided-edit"?"review.diagnosis.edit":"review.diagnosis.continue"))}</button>`+
     `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
-  $$("[data-diag]",el).forEach(b=>b.onclick=()=>{flow.kind=/** @type {"fewer_days"|"sessions_too_long"} */(b.dataset.diag);flow.error=null;requestRender()});
+  $$("[data-diag]",el).forEach(b=>b.onclick=()=>{if(disposed)return;flow.kind=/** @type {"fewer_days"|"sessions_too_long"} */(b.dataset.diag);flow.error=null;requestRender()});
   const input=/** @type {HTMLInputElement|null} */($("[data-diag-target]",el));
-  if(input)input.oninput=()=>{flow.target=input.value;flow.error=null};
+  if(input)input.oninput=()=>{if(disposed)return;flow.target=input.value;flow.error=null};
   const cont=$("[data-diag-continue]",el);if(cont)cont.onclick=continueScheduleDiagnosis;
   bindFlowCancel(el)}
 /** @param {HTMLElement} el */
 function bindFlowCancel(el){const c=$("[data-flow-cancel]",el);if(c)c.onclick=()=>void closeReviewFlow()}
-async function continueScheduleDiagnosis(){
+async function continueScheduleDiagnosis(){if(disposed)return;
   const flow=reviewFlow;if(!flow||flow.stage!=="diagnosis")return;
   const n=Number(flow.target);
   const valid=flow.kind==="fewer_days"?Number.isInteger(n)&&n>=1&&n<=7:Number.isInteger(n)&&n>=15&&n<=240;
@@ -122,13 +122,13 @@ async function continueScheduleDiagnosis(){
   if(res?.ok){reviewFlow={stage:"preview",action:"schedule-repair",proposal:res.proposal,carry:res.carry||null};requestRender()}
   else await stageGuidedRepairFlow(diagnosis)}
 /** @param {import("../../app/review-contracts.js").Diagnosis} diagnosis */
-async function stageGuidedRepairFlow(diagnosis){
+async function stageGuidedRepairFlow(diagnosis){if(disposed)return;
   const flow=reviewFlow;
   const staged=await commands.stage(diagnosis);
   if(disposed||reviewFlow!==flow)return;
   if(staged?.ok){reviewFlow={stage:"staged"};requestRender()}
   else{reviewFlow={stage:"error",action:"guided-edit",code:staged?.code||"guided_staging_failed"};requestRender()}}
-async function proposeVolumeReductionFlow(){
+async function proposeVolumeReductionFlow(){if(disposed)return;
   const flow=reviewFlow;
   const result=await commands.propose({kind:"reduce_volume"});
   if(disposed||reviewFlow!==flow)return;
@@ -137,7 +137,7 @@ async function proposeVolumeReductionFlow(){
   requestRender()}
 /* A recovery week is the lifter's call: a Yes schedules it, nothing infers it. */
 /** @param {string} answer */
-async function answerRecoveryQuestion(answer){
+async function answerRecoveryQuestion(answer){if(disposed)return;
   const flow=reviewFlow;
   if(answer!=="Yes"){
     reviewFlow={stage:"recovery-question",action:"recovery-week",answer,
@@ -233,6 +233,7 @@ function renderSiblingPreview(el,flow){
     `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.preview.cancel"))}</button></div>`;
   const confirm=$("[data-preview-confirm]",el);
   if(confirm)confirm.onclick=async()=>{
+    if(disposed)return;
     /** @type {HTMLButtonElement} */(confirm).disabled=true;
     const persisted=await commands.confirm(flow);
     if(disposed||reviewFlow!==flow)return;
@@ -266,5 +267,7 @@ function render(model){
   bindReviewActions();
 }
 return Object.freeze({render,startScheduleRepair,startGuidedEdit,startVolumeReduction,startRecoveryWeek,
-  close:closeReviewFlow,flow:()=>reviewFlow,dispose(){disposed=true;reviewFlow=null;previewModel=null}});
+  close:closeReviewFlow,flow:()=>reviewFlow,dispose(){disposed=true;reviewFlow=null;previewModel=null;
+  $$("#reviewPanel button").forEach(button=>button.onclick=null);
+  const input=$("#reviewPanel [data-diag-target]");if(input)input.oninput=null}});
 }
