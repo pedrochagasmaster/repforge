@@ -11527,9 +11527,10 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     if(edit.after.length)slot.alternates=edit.after.map(String);else delete slot.alternates;
   }else if(edit?.kind==="exercise_remove"){
     if(!beforeRef.slot)return false;
+    // The slots after it close the gap: validateProgramDefinition wants a day's orders contiguous.
     for(const day of definition.days||[]){
       day.slots=day.slots.filter(slot=>slot.id!==slotId);
-      day.slots.forEach((slot,index)=>{slot.order=index+1})}
+      day.slots.forEach((item,index)=>{item.order=index+1})}
     dropPendingSuggestLoads(document,slotId);
   }else if(edit?.kind==="exercise_move"){
     const {slot}=find(slotId);if(!slot)return false;
@@ -11538,7 +11539,8 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     for(const day of definition.days||[])day.slots=day.slots.filter(item=>item.id!==slotId);
     const day=(definition.days||[]).find(item=>item.name===row.day);if(!day)return false;
     day.slots.splice(Math.max(0,Math.min(day.slots.length,Number(row.order)-1)),0,slot);
-    day.slots.forEach((item,index)=>{item.order=index+1});
+    // The day it left closes its gap too (#434): validateProgramDefinition wants every day's orders contiguous.
+    for(const container of definition.days||[])container.slots.forEach((item,index)=>{item.order=index+1});
   }else if(edit?.kind==="day_name"){
     const target=(definition.days||[]).find(item=>item.name===edit.before);
     if(!target)return false;

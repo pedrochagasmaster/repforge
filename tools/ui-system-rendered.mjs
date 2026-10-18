@@ -60,16 +60,18 @@ export async function measureRenderedRoles(input) {
   };
   const sample = (rect, exclusions = []) => {
     if (!pixels || !rect || rect.width < 4 || rect.height < 4) return null;
-    const scaleX = pixels.width / window.innerWidth;
-    const scaleY = pixels.height / window.innerHeight;
-    const left = Math.max(0, Math.ceil((rect.left + 2) * scaleX));
-    const top = Math.max(0, Math.ceil((rect.top + 2) * scaleY));
-    const right = Math.min(pixels.width - 1, Math.floor((rect.right - 2) * scaleX));
-    const bottom = Math.min(pixels.height - 1, Math.floor((rect.bottom - 2) * scaleY));
+    // The screenshot is in device pixels; the rectangles are in CSS pixels.
+    const scale = pixels.width / (window.innerWidth || pixels.width);
+    const box = (r) => ({ left: r.left * scale, top: r.top * scale, right: r.right * scale, bottom: r.bottom * scale });
+    rect = box(rect); exclusions = exclusions.map(box);
+    const left = Math.max(0, Math.ceil(rect.left + 2));
+    const top = Math.max(0, Math.ceil(rect.top + 2));
+    const right = Math.min(pixels.width - 1, Math.floor(rect.right - 2));
+    const bottom = Math.min(pixels.height - 1, Math.floor(rect.bottom - 2));
     const step = Math.max(2, Math.floor(Math.max(right - left, bottom - top) / 24));
     const channels = [[], [], []];
     for (let y = top; y <= bottom; y += step) for (let x = left; x <= right; x += step) {
-      if (exclusions.some((box) => x / scaleX >= box.left - 1 && x / scaleX <= box.right + 1 && y / scaleY >= box.top - 1 && y / scaleY <= box.bottom + 1)) continue;
+      if (exclusions.some((box) => x >= box.left - 1 && x <= box.right + 1 && y >= box.top - 1 && y <= box.bottom + 1)) continue;
       const offset = (y * pixels.width + x) * 4;
       if (pixels.data[offset + 3] < 240) continue;
       for (let channel = 0; channel < 3; channel++) channels[channel].push(pixels.data[offset + channel]);

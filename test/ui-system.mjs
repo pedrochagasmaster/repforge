@@ -34,7 +34,7 @@ try {
     await page.setContent(`<style>body{margin:0;background:white}.glass{position:absolute;top:500px;left:20px;width:200px;height:60px;background:rgba(0,0,0,.8);backdrop-filter:blur(2px);color:#333}</style><button class="glass">Unreadable action</button>`);
     const baseline = await page.screenshot();
     const rendered = await page.evaluate(measureRenderedRoles, { requests: [{ selector: ".glass", kind: "text" }], pixels: baseline.toString("base64") });
-    assert.ok(renderedRoleProblems("injected glass", rendered).length, "DPR2 contrast defect over a low-page glass layer must fail");
+    assert.ok(rendered.some(item => item.kind === "text" && item.status === "fail"), "DPR2 contrast defect over a low-page glass layer must fail the actual contrast measurement");
     await page.locator("button").evaluate(el => { el.textContent = "A changed action"; el.style.cssText = "position:absolute;top:20px;width:350px;height:300px;background:red;color:white;font-size:36px"; });
     assert.equal(comparePngBuffers(baseline, await page.screenshot()).ok, false, "real layout/copy defect fails pixel comparison");
     const coverage = await page.evaluate(inspectRoleCoverage, { key: "injected", components: [], exceptions: [], progressCandidateSelectors: [] });

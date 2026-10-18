@@ -109,7 +109,7 @@ No numeric runtime success is claimed yet. Final-head CI and a complete paired
 benchmark remain required; local Chromium 151 is diagnostic and cannot certify
 the pinned Chromium 149 screenshot baseline.
 
-Consolidation exposed an existing canonical editor bug: removing a moved-first
+Consolidation independently reproduced the already tracked #434/Plan074 canonical editor bug: removing a moved-first
 slot filtered the canonical list without renumbering its remaining orders.
 Canonical validation refused that edit, while the row projection could later
 persist without the removal reaching the definition. The retained real editor
@@ -123,3 +123,40 @@ initial browser evidence for the exact command and clean source. Matching
 malformed SHA identities fail. The focused Why, guide replay and retained entry
 accessibility protocols pass locally; the guide's Chromium-151 pixel mismatch
 remains separately recorded, with normal CI comparison unchanged.
+
+## Overlap provenance and integration
+
+The product fixes below belong to existing work; this task contributes their
+retained consolidation proofs and the redesigned execution architecture.
+
+| Existing owner | Provenance | Reconciliation |
+| --- | --- | --- |
+| [#434](https://github.com/pedrochagasmaster/repforge/issues/434), Plan074 S1 removal | `37ddc40852c800a52bb45b3d797cfcc6ad2b71eb` on `feat/program-editor-a-s1` | Use that canonical renumbering hunk; preserve the moved-first deletion/Done/replica/reload proof when porting to Plan074's renderer. |
+| #434 cross-day move | `a99f22389f612e44fe051e60e75779af01614d8c` | Use the existing all-days renumbering follow-up. The retained journey independently fails before that fix when moving a non-last slot across days. |
+| #439, approved fix carried by [#435](https://github.com/pedrochagasmaster/repforge/pull/435) | `65ac8a7e6089e0f0744d543a76086661156e3956` | Adopt that exact screenshot sampler implementation; retain the independent DPR2 glass failure proof. No competing sampler fork or unique-fix claim. |
+
+Plan074 owns its renderer, grouped intent reachability, week-specific targets,
+Apply/Cancel/Undo, empty-day validation and S2 day-reorder/shape/next-workout
+requirements. This PR does not claim those forthcoming changes are certified.
+When integrating, move retained editor tests to its controls without weakening
+identity, canonical/replica, cancellation or conflict assertions; preserve its
+additional important negatives and reconcile cache URLs above current main.
+
+#435 owns native guide timing, first-tap hold/replay, one guide per Focus visit,
+all-guide dismissal/replay/focus and anchor-placement behavior. Preserve those
+proof requirements when the guide owner joins this architecture; adapt the
+current replay cell from inline cue to native dialog. Preserve #441's exact
+issue/state/measurement exemption and rejection self-tests; the retired full
+selector-never-rendered rule is not implicitly restored. The current 21 cells
+do not certify every new guide state. Recompute the ledger, counts and fair
+baseline after incoming #432/#435/Plan074 work reaches main; do not silently
+reintroduce full render sweeps or discard their meaningful new coverage.
+
+Reconciliation evidence: the cross-day case failed before the existing Plan074
+fix (73.449s) and passed after the exact selective port (73.696s); the upstream sampler
+passes the same independent DPR2 contrast/image/role fault proof. Both product
+fixes were already owned by their originating work. The final benchmark measures
+the entire candidate, so its speedup is not attributed exclusively to harness
+changes. #435's shared launcher must also preserve live-guide fresh transfer
+destinations and clone eligibility; do not seed dismissed guides into those
+fresh-destination proofs.

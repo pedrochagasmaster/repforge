@@ -1432,6 +1432,30 @@ async function testEditorReorderAndRemoval(page) {
   const expected = [id, original[0].id, ...original.slice(2).map(row => row.id)];
   check(JSON.stringify(order(reordered.local)) === JSON.stringify(expected) && JSON.stringify(order(reordered.idb)) === JSON.stringify(expected),
     "editor reorder commits exact slot identities to both replicas");
+  // #434 also covers source-day gaps in cross-day moves (Plan 074 S1).
+  const movedId = original[0].id;
+  const otherDay = before.local.program.find(row => row.day !== day)?.day;
+  if (!otherDay) throw new Error("editor proof needs another seeded day");
+  await page.click("#programEditToggle");
+  const sourceDay = page.locator('#programEditor [data-role="day"]').first();
+  await sourceDay.locator('[data-role="day-menu"]').click();
+  await sourceDay.locator('[data-role="toggle-reorder"]').click();
+  const moved = page.locator(`#programEditor [data-role="exercise"][data-id="${movedId}"]`).first();
+  await moved.locator('[data-role="exercise-menu"]').click();
+  await moved.locator('[data-role="move-other"]').click();
+  await moved.locator(`[data-role="move-to-day"][data-day="${otherDay}"]`).click();
+  await page.click("#programEditToggle");
+  await page.waitForSelector("#programEditorWrap.is-hidden", { state: "attached", timeout: 5000 });
+  await page.evaluate(() => window.__repforgeStorage.flush());
+  const movedReplicas = await readReplicas(page);
+  const movedCorrectly = state => {
+    const days = state.programMeta.programDefinition.days;
+    return state.program.find(row => row.id === movedId)?.day === otherDay
+      && days.find(day => day.slots.some(slot => slot.id === movedId))?.name === otherDay
+      && days.every(day => day.slots.every((slot,index) => slot.order === index + 1));
+  };
+  check(movedCorrectly(movedReplicas.local) && movedCorrectly(movedReplicas.idb),
+    "cross-day move keeps canonical source/destination orders and both replicas aligned (#434)");
   // A new edit starts from the committed reorder and uses normal removal.
   await page.click("#programEditToggle");
   if (await row().locator('[data-role="toggle-exercise"]').getAttribute("aria-expanded") !== "true")
