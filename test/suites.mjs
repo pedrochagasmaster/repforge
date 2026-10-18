@@ -223,7 +223,8 @@ export const SUITES = {
     s("test/motion-integration.mjs", [], { seconds: 172 }),
     s("test/session-summary.mjs", [], { seconds: 19 }),
     s("test/exercise-display-name.mjs", [], { domains: ["workout", "history", "progress", "program", "today", "entry"], seconds: 90 }),
-    s("test/simulation.mjs", ["--smoke"], { domains: ["workout", "progress", "history"], cost: "long", tier: "packet", timeoutMs: 900000, seconds: 7 }),
+    // The complete simulation below executes every smoke phase and oracle;
+    // keep --smoke available for manual feedback without running it twice in CI.
     s("test/simulation.mjs", [], {"env": {"REPFORGE_SIM_WEEKS": "52", "REPFORGE_PROFILE": "1"}, "timeoutMs": 900000, seconds: 620 }),
   ],
   privacy: [

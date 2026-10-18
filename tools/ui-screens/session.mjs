@@ -32,7 +32,7 @@ export function waitForApp(page) {
   );
 }
 
-export async function seed(page, state) {
+async function seedStorage(page, state) {
   await page.evaluate(async ({ key, logDraft, setupDraft, uiKey, blob }) => {
     localStorage.removeItem(logDraft);
     localStorage.removeItem(setupDraft);
@@ -57,26 +57,20 @@ export async function seed(page, state) {
       };
     });
   }, { key: KEY, logDraft: LOG_DRAFT, setupDraft: SETUP_DRAFT, uiKey: UI_KEY, blob: state });
+}
+
+export async function seed(page, state) {
+  await seedStorage(page, state);
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
 }
 
 /**
- * Seed, then prove the seed survived.
- *
- * openPage has to load the app once before it can touch its origin's storage,
- * and that first boot persists a state of its own. Its write can land *after*
- * the seed, replacing it — the page then comes up with an unrelated program
- * (18 exercises, onboarded false, revision 1) instead of the fixture. It looks
- * like a rendering race in the app and is not one: the storage genuinely holds
- * something else. Flushing first narrows the window; verifying closes it.
+ * Prove the production loader accepted the fixture. openPage seeds on an
+ * inert same-origin document before boot, so no empty app can race its writes.
  */
-async function seedVerified(page, state) {
-  let last = null;
-  for (let attempt = 0; attempt < 4; attempt++) {
-    await page.evaluate(() => window.__repforgeStorage?.flush?.()).catch(() => {});
-    await seed(page, state);
-    last = await page.evaluate((key) => {
+async function verifySeed(page, state) {
+  const last = await page.evaluate((key) => {
       const stored = JSON.parse(localStorage.getItem(key) || "{}");
       return {
         onboarded: !!stored?.programMeta?.onboarded,
@@ -84,12 +78,7 @@ async function seedVerified(page, state) {
         revision: stored?._storageRevision ?? null,
       };
     }, KEY);
-    const wanted = {
-      onboarded: !!state.programMeta?.onboarded,
-      exercises: (state.program || []).length,
-    };
-    if (last.onboarded === wanted.onboarded && last.exercises === wanted.exercises) return;
-  }
+  if (last.onboarded === !!state.programMeta?.onboarded && last.exercises === (state.program || []).length) return;
   throw new Error(
     `seeded state did not survive boot: wanted onboarded=${!!state.programMeta?.onboarded} `
     + `exercises=${(state.program || []).length}, got onboarded=${last?.onboarded} exercises=${last?.exercises}`
@@ -158,9 +147,18 @@ export async function openPage(browser, manifest, capture, state, options = {}) 
       document.addEventListener("DOMContentLoaded", apply, { once: true });
     }, rootFontScale);
   }
+  // Establish the fixture's origin without executing the app. Both replicas
+  // commit before the first production script runs; no competing empty app
+  // boot or seed retry is needed. Reload the same history entry so fixture
+  // setup does not create an extra Back destination.
+  const seedRoute = route => route.fulfill({ contentType: "text/html", body: "<!doctype html><title>Capture fixture</title>" });
+  await page.route(BASE, seedRoute);
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await seedStorage(page, state);
+  await page.unroute(BASE, seedRoute);
+  await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
-  await seedVerified(page, state);
+  await verifySeed(page, state);
   await page.evaluate(({ theme, uiKey }) => {
     localStorage.setItem(uiKey, JSON.stringify({ theme }));
     window.__repforgeUi.setTheme(theme);
@@ -203,11 +201,25 @@ export async function settle(page) {
   await page.evaluate(() => new Promise((resolve) => {
     let quiet;
     const finish = () => { observer.disconnect(); clearTimeout(cap); resolve(); };
-    const observer = new MutationObserver(() => {
+    const observer = new MutationObserver((records) => {
+      // A pinned clock still has live timer callbacks. Reassigning the same
+      // attribute or text generates mutation records without changing the
+      // document; treating these as new work burns the entire 5s cap on every
+      // rest frame. Ignore only demonstrable no-ops, never element replacement
+      // or a real text/style change.
+      const changed = records.some((record) => {
+        if (record.type === "attributes") return record.oldValue !== record.target.getAttribute(record.attributeName);
+        if (record.type === "characterData") return record.oldValue !== record.target.data;
+        return !(record.addedNodes.length === 1 && record.removedNodes.length === 1
+          && record.addedNodes[0].nodeType === Node.TEXT_NODE && record.removedNodes[0].nodeType === Node.TEXT_NODE
+          && record.addedNodes[0].data === record.removedNodes[0].data);
+      });
+      if (!changed) return;
       clearTimeout(quiet);
       quiet = setTimeout(finish, 400);
     });
-    observer.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
+    observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeOldValue: true,
+      characterData: true, characterDataOldValue: true });
     quiet = setTimeout(finish, 400);
     // Looping animations mutate attributes forever; never wait on them.
     const cap = setTimeout(finish, 5000);

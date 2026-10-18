@@ -16,6 +16,42 @@ import { domainsForAppDiff } from "../tools/visual-domains.mjs";
 import { stabilizeShareUrlForCapture } from "../tools/ui-screens/screens-app.mjs";
 import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, selectAffected, selectEdit, selectPacket } from "../tools/test-selection.mjs";
 import { execute, maybeStartLocalPreview, runLane, shardPlan } from "../tools/run-tests.mjs";
+import { summarizeBenchmark } from "../tools/benchmark-tests.mjs";
+
+test("paired benchmark reports complete scope and refuses missing, duplicate, or failed evidence", () => {
+  const inventory = ["fast:a", "service:b", "entry:c", "visual:d"].map(id => ({ id, file: `${id}.mjs` }));
+  const worker = (scope, ids) => ({ scope, base: "a".repeat(40), head: "b".repeat(40), seed: "147443",
+    phases: ["before", "after"].map((phase) => ({ phase, durationMs: phase === "before" ? 100 : 80,
+      inventory, expected: ids, rows: ids.map(id => ({ id, status: "passed", durationMs: phase === "before" ? 90 : 70 })),
+      commandsPassed: true })) });
+  const records = [worker("fast", ["fast:a"]), worker("service", ["service:b"]), worker("1/2", ["entry:c"]), worker("2/2", ["visual:d"])];
+  const summary = summarizeBenchmark(records, 2);
+  assert.equal(summary.before.commands, 4);
+  assert.equal(summary.after.commands, 4);
+  assert.equal(summary.after.files, 4);
+  assert.equal(summary.before.runnerMs, 360);
+  assert.equal(summary.after.runnerMs, 280);
+  assert.equal(summary.before.executionWallMs, 100);
+  assert.equal(summary.after.executionWallMs, 80);
+  assert.equal(summary.runtimeRatio, 0.8);
+  assert.throws(() => summarizeBenchmark(records.slice(1), 2), /scope/);
+  const duplicate = structuredClone(records);
+  duplicate[3].phases[0].rows[0].id = "entry:c";
+  assert.throws(() => summarizeBenchmark(duplicate, 2), /inventory|duplicate/);
+  const omitted = structuredClone(records);
+  omitted[0].phases[1].rows = [];
+  assert.throws(() => summarizeBenchmark(omitted, 2), /inventory/);
+  const failed = structuredClone(records);
+  failed[0].phases[0].rows[0].status = "failed";
+  assert.throws(() => summarizeBenchmark(failed, 2), /passed/);
+  const differentSeed = structuredClone(records);
+  differentSeed[1].seed = "2";
+  assert.throws(() => summarizeBenchmark(differentSeed, 2), /identity/);
+  const missingEverywhere = structuredClone(records);
+  missingEverywhere[0].phases[0].expected = [];
+  missingEverywhere[0].phases[0].rows = [];
+  assert.throws(() => summarizeBenchmark(missingEverywhere, 2), /complete inventory/);
+});
 
 const manifest = { screens: [{ flow: "app", id: "today" }, { flow: "onboarding", id: "start" }] };
 const scratch = (t) => {

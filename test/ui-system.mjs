@@ -501,6 +501,74 @@ setCaptureBase(preview.env.REPFORGE_URL);
 const browser = await launchChromium();
 let context;
 try {
+  // Harness protocol: a catalog fixture must exist in both replicas before
+  // any app code can publish a competing fresh-device state. This synthetic
+  // boot is deliberately isolated from product assertions below.
+  {
+    const boots = [];
+    const fixture = { program: [{ id: "capture-fixture" }], programMeta: { onboarded: true }, marker: "before-first-boot" };
+    const fixtureBrowser = {
+      async newContext(options) {
+        const fixtureContext = await browser.newContext(options);
+        await fixtureContext.exposeBinding("recordFixtureBoot", (_, value) => boots.push(value));
+        await fixtureContext.route(preview.env.REPFORGE_URL, route => route.fulfill({
+          contentType: "text/html",
+          body: `<!doctype html><script>
+            (async () => {
+              const local = JSON.parse(localStorage.getItem("repforge_v1") || "null");
+              const db = await new Promise((resolve, reject) => {
+                const request = indexedDB.open("repforge", 1);
+                request.onupgradeneeded = () => request.result.createObjectStore("kv");
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+              });
+              const indexed = await new Promise((resolve, reject) => {
+                const request = db.transaction("kv").objectStore("kv").get("repforge_v1");
+                request.onsuccess = () => resolve(request.result || null);
+                request.onerror = () => reject(request.error);
+              });
+              db.close();
+              await recordFixtureBoot({ local, indexed });
+              window.__repforgeStorage = { flush: async () => {} };
+              window.__repforgeUi = { setTheme: () => {} };
+              window.__repforgeBooted = true;
+            })();
+          </script>`,
+        }));
+        return fixtureContext;
+      },
+    };
+    const fixturePage = await openPage(fixtureBrowser, manifest,
+      { viewport: "phone-390", theme: "light", locale: "en", text: "normal", motion: "normal" }, fixture);
+    try {
+      assert.deepEqual(boots, [{ local: fixture, indexed: fixture }],
+        "the first app boot observes the complete fixture in both replicas without a competing empty boot");
+      await fixturePage.page.evaluate(() => {
+        const node = document.createElement("span");
+        node.id = "capture-ticker";
+        node.textContent = "Pinned clock";
+        node.setAttribute("data-time", "12:00");
+        document.body.append(node);
+        window.captureTicker = setInterval(() => {
+          node.textContent = "Pinned clock";
+          node.setAttribute("data-time", "12:00");
+        }, 40);
+      });
+      const settledAt = performance.now();
+      await settle(fixturePage.page);
+      const settlingMs = performance.now() - settledAt;
+      await fixturePage.page.evaluate(() => clearInterval(window.captureTicker));
+      assert.ok(settlingMs < 2500,
+        `repeated identical clock writes must settle without exhausting the 5s deadline (${settlingMs.toFixed(0)}ms)`);
+      await fixturePage.page.evaluate(() => {
+        setTimeout(() => { document.querySelector("#capture-ticker").textContent = "Real update"; }, 250);
+      });
+      const changedAt = performance.now();
+      await settle(fixturePage.page);
+      assert.ok(performance.now() - changedAt >= 650, "a real delayed mutation restarts the complete 400ms quiet window");
+      assert.equal(await fixturePage.page.locator("#capture-ticker").textContent(), "Real update");
+    } finally { await fixturePage.context.close(); }
+  }
   const capture = { flow: "onboarding-start", screen: "first-run", viewport: "phone-390", theme: "light", locale: "en", text: "normal", motion: "normal" };
   const opened = await openPage(browser, manifest, capture, onboardingState("onboarding-start/first-run", "en"));
   context = opened.context;
