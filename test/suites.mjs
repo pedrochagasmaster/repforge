@@ -33,6 +33,7 @@ export const SUITES = {
     s("test/editor-document-rules.mjs", [], {domains:["program","entry"],nodeArgs:["--test"]}),
     s("test/architecture/entry-draft-store.mjs", [], {domains:["entry","persistence"],nodeArgs:["--test"]}),
     s("test/app-workout-model.mjs", [], {domains:["workout","history"],nodeArgs:["--test"]}),
+    s("test/session-outcome-owner.mjs", [], {domains:["progress","history"],nodeArgs:["--test"]}),
     s("test/progress-read-model-owner.mjs", [], {domains:["progress","history"],nodeArgs:["--test"]}),
     s("test/focus-workout-commands.mjs", [], {domains:["workout","persistence"]}),
     s("test/platform-catalog-contract.mjs", [], {domains:["library","offline"],nodeArgs:["--test"]}),

@@ -14,7 +14,7 @@ import {createNotifications} from './src/platform/notifications.js';
 import {createMetricDisplay} from './src/ui/workout/metrics.js';
 import {createSessionSheet} from './src/ui/workout/session-sheet.js';
 import {createEntryController} from './src/ui/entry/controller.js';
-import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,createEntryAnswerCommands,createEntryQuestionFlow,createEntryReviewSession,FREEFORM_MAX_CHARS} from './src/app/entry.js';
+import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,createEntryAnswerCommands,createEntryQuestionFlow,createEntryReviewSession,createEntrySetup,FREEFORM_MAX_CHARS} from './src/app/entry.js';
 import * as FreeformGrammar from './src/interchange/freeform.js';
 import * as InstallPolicy from './src/platform/install.js';
 import {createInstallView} from './src/ui/settings/install.js';
@@ -8483,10 +8483,9 @@ const ENTRY_AVOID_REASONS=ProgramEntry.CONSTRAINT_REASONS;
 function entryAnswerVocabulary(){return{muscles:ENTRY_MUSCLES,competencies:entryAbilityKeys(),equipmentGroups:ProgramEntry.EQUIPMENT_GROUPS||[],avoidReasons:ENTRY_AVOID_REASONS,maxPriority:ProgramEntry.MAX_PRIORITY_MUSCLES,maxMuscles:ProgramEntry.MAX_MUSCLE_CONTROLS||22}}
 const EntryLiveAnswerCommands=createEntryAnswerCommands({read:()=>entryState,apply:entryPatchAnswers,vocabulary:entryAnswerVocabulary(),presetEquipmentGroups:entryPresetGroups});
 let entryState=null,entryEngaged=false,entryUiNotice=null,entryCompileError=null,entryValidationNotice=false,entryEditorStatusFocusPending=false,entryEditorStatusFocusTimer=null,entryPinnedVersionsExecutable=false,entryDurableConflictNeedsReload=false,entryVisibleScreenKey=null;
-// The alias is the exact frozen snapshot owned by this Entry session. Only
-// composition-root commands receive publication; views consume read models.
-const entrySession=createSession({initialSnapshot:null,onUpdate:next=>{entryState=next}});
-function publishEntryDraft(next){return entrySession.publish(next)}
+// EntrySetup publishes the exact frozen live draft to this read-model alias.
+let EntrySetup=null;
+function publishEntryDraft(next){return EntrySetup.publish(next)}
 let entryMotionRun=null,entryMotionCleanup=null,entryEdgeSwipe=null,entryEdgeUnder=null,entrySwipeCommitting=false;
 let entryPersistenceDiagnostic=null;
 /* Entry presentation state: the confirm dialog on screen ("restart", "replace";
@@ -8564,60 +8563,8 @@ async function recoverCommittedSetupDraft(){
   if(raw===null||raw!==marker.raw)return{ok:true,absent:raw===null,conflict:raw!==null};
   return withStorageLock(storageIO,()=>removeObservedSetupDraft({raw,envelope:null}));
 }
-function setupDraftPersistenceProjection(value){
-  const projected=cloneSnapshot(value);
-  const projectStructure=structure=>{
-    if(!structure||typeof structure!=="object"||!Array.isArray(structure.weekPrescriptions))return;
-    structure.weekPrescriptions=structure.weekPrescriptions.map(entry=>({...entry,
-      days:Array.isArray(entry.days)?entry.days.map(day=>({...day,
-        slots:Array.isArray(day.slots)?day.slots.map(slot=>({slotId:slot.slotId,sets:slot.sets})):day.slots
-      })):entry.days
-    }));
-  };
-  projectStructure(projected.result?.preview?.programStructure);
-  projectStructure(projected.result?.alternative?.preview?.programStructure);
-  return projected;
-}
-function persistSetupDraft(next,io=storageIO){
-  // A received definition is a transient proposal until the recipient presses
-  // Use this program. Keep the shared review editable in memory, but never put
-  // its payload in the resumable setup-draft store before activation.
-  if(next?.route==="shared"){
-    publishEntryDraft(cloneSnapshot(next));
-    return Promise.resolve({ok:true,transient:true})}
-  if(io===storageIO&&installTransferMutationFrozen())return Promise.resolve({ok:false,conflict:true,code:"install-transfer-frozen"});
-  if(!ProgramEntry||!next)return Promise.resolve({ok:false});
-  // Once a real foreign write has been detected, this tab's handle can never
-  // match the draft on disk again until a fresh session re-syncs it
-  // (startOnboarding) — the lifter has already been told to reload. Refuse
-  // outright rather than let a new edit optimistically advance entryState
-  // toward a candidate that will only have to be unwound again.
-  if(EntryDraft.isConflicted()){
-    reportSetupDraftWriteFailure("save_conflict");
-    return Promise.resolve({ok:false,conflict:true})}
-  const stamped=ProgramEntry.updateTimestamp(next,entryNow());
-  const draftProjection=setupDraftPersistenceProjection(stamped);
-  const normalized=ProgramEntry.normalizeSetupDraft(draftProjection);
-  if(!normalized.ok){
-    entryPersistenceDiagnostic={operation:"normalize",ok:false,code:normalized.code||"setup-draft-invalid",
-      issues:(normalized.issues||[]).slice(0,12).map(issue=>String(issue).slice(0,240))};
-    return Promise.resolve({ok:false,invalid:true,code:normalized.code||"setup-draft-invalid",
-      issues:(normalized.issues||[]).slice(0,12)})}
-  const queuedState=normalized.value;
-  entryPersistenceDiagnostic={operation:"normalize",ok:true,code:null,issues:[]};
-  // The staged draft omits attribution that is derivable from its current
-  // program to stay within the setup-draft contract. Keep the richer in-memory
-  // candidate for the editor and let the durable commit boundary restore the
-  // canonical receipt representation before either replica is touched.
-  publishEntryDraft({...queuedState,result:cloneSnapshot(stamped.result)});
-  return EntryDraft.write(queuedState,entryState,io)}
-function createEntryState(extra={}){
-  return ProgramEntry.createState({
-    draftId:uid(),
-    activeProgramRevisionAtStart:liveProgramRevision(),
-    now:entryNow(),
-    versions:entryVersions(),
-    ...extra})}
+function persistSetupDraft(next,io=storageIO){return EntrySetup.save(next,{io,production:io===storageIO})}
+function createEntryState(extra={}){return EntrySetup.create(extra)}
 function applyLegacyHints(stateIn){
   if(!ProgramEntry)return stateIn;
   const legacy=state?.programMeta;
@@ -8735,39 +8682,8 @@ function startOnboarding(origin,opts={}){
   entryPickerInput=null;
   onboardingOrigin=origin||(!state.programMeta?.onboarded&&!state.log.length?"first-run":"settings");
   entryEngaged=false;EntryUi.clearHubChoice();entryDialog=null;entryChange=null;entryGoalFromHub=false;entryReplaceResolve=null;entryCompileError=null;entryUiNotice=null;entryValidationNotice=false;EntryUi.resetAnswerFields();entryPinnedVersionsExecutable=false;entryDurableConflictNeedsReload=false;
-  const record=readSetupDraftRecord();
-  const draftHandle=record.raw!==null?{raw:record.raw,envelope:record.envelope}:null;
-  // A fresh session re-syncs with whatever is durably on disk right now, so
-  // any earlier conflict is moot and the state read here is, by
-  // construction, the new "last known durable" baseline.
-  if(opts.forceFresh||opts.resume===false){
-    clearSetupDraft();
-    publishEntryDraft(createEntryState());
-  }else if(record.raw&&opts.resume!==false&&record.ok){
-    const resumed=ProgramEntry.resumeSetupDraft(record.envelope.state,{
-      currentVersions:entryVersions(),
-      liveActiveProgramRevision:liveProgramRevision(),
-      pinnedVersionsExecutable:false});
-    if(!resumed.ok){
-      clearSetupDraft();
-      entryUiNotice="corrupt";
-      publishEntryDraft(createEntryState());
-    }else if(resumed.value.status==="activation_conflict"){
-      publishEntryDraft(resumed.value.state);
-      entryUiNotice="conflict";
-    }else if(resumed.value.status==="rules_changed"){
-      publishEntryDraft(resumed.value.state);
-      entryUiNotice="rules_changed";
-    }else if(resumed.value.state.route||Object.keys(resumed.value.state.answers||{}).length){
-      publishEntryDraft(resumed.value.state);
-      entryUiNotice="resume";
-    }else publishEntryDraft(createEntryState());
-  }else if(record.raw&&!record.ok){
-    clearSetupDraft();
-    entryUiNotice="corrupt";
-    publishEntryDraft(createEntryState());
-  }else publishEntryDraft(createEntryState());
-  EntryDraft.adopt(draftHandle,entryState);
+  const started=EntrySetup.start(opts);entryUiNotice=started.notice;
+  if(started.cleared)clearEntryAdjust();
   const resumedScreen=entryQuestionFlow().normalizeScreen(entryState);
   if(resumedScreen!==entryState){publishEntryDraft(resumedScreen);persistSetupDraft(entryState)}
   reportEntryStart(opts.userInitiated===false);
@@ -8827,13 +8743,12 @@ function requestEntryCancel(){
   persistSetupDraft(entryState);
   renderOnboarding()}
 async function keepEntryDraftAndCancel(){
-  await EntryDraft.flush();
-  if(entryUiNotice==="save_failed"||entryUiNotice==="save_conflict")return renderOnboarding();
+  if(!await EntrySetup.keep())return renderOnboarding();
   reportEntryExit("keep_draft");
   cancelOnboarding()}
 async function discardEntryDraftAndCancel(){
-  await EntryDraft.flush();
-  const removed=await clearSetupDraft();
+  clearEntryAdjust();
+  const removed=await EntrySetup.discard();
   if(!removed.ok)return renderOnboarding();
   reportEntryExit("discard_draft");
   cancelOnboarding()}
@@ -9408,21 +9323,7 @@ function reportGeneratorCompleted(result){
 function entryPinnedPreviewCanActivate(){
   if(!entryState?.result?.preview)return false;
   try{return ProgramEntry.candidateActivationIssues(entryState).length===0}catch{return false}}
-async function persistEntryRulesState(next,previous=entryState){
-  // persistSetupDraft advances the in-memory state synchronously, ahead of
-  // its own durable round trip, so a second call started while this write is
-  // still pending already builds on this one's result — capture that outcome
-  // so a later failure can tell whether anything has superseded it. See the
-  // matching rebase in commitProgramEditorProposal for why a real conflict
-  // and a merely-superseded attempt need different recoveries.
-  const persisted=persistSetupDraft(next);
-  const attemptedEntryState=entryState;
-  const saved=await persisted;
-  if(!saved?.ok){
-    if(saved?.conflict&&EntryDraft.baseline())publishEntryDraft(cloneSnapshot(EntryDraft.baseline()));
-    else if(entryState===attemptedEntryState)publishEntryDraft(previous);
-  }
-  return saved}
+function persistEntryRulesState(next,previous=entryState){return EntrySetup.saveRules(next,previous)}
 function browseResultFromCard(card){
   return{
     fingerprint:card.fingerprint,
@@ -13214,6 +13115,9 @@ function initializePersistenceOwners(){
   EntryDraft=createSetupDraftStore({rules:ProgramEntry,storage:localStorage,
   lock:operation=>withStorageLock(storageIO,operation),ownerId:uid(),onFailure:reportSetupDraftWriteFailure,
   onSaved:()=>{if(entryUiNotice==="save_failed"||entryUiNotice==="save_conflict")entryUiNotice=null}});
+  EntrySetup=createEntrySetup({rules:ProgramEntry,store:EntryDraft,nextId:uid,now:entryNow,
+    context:()=>({versions:entryVersions(),activeProgramRevision:liveProgramRevision()}),mutationFrozen:installTransferMutationFrozen,
+    onUpdate:next=>{entryState=next},onFailure:reportSetupDraftWriteFailure,onDiagnostic:value=>{entryPersistenceDiagnostic=value}});
   const policy=SnapshotPolicy.createSnapshotPolicy({entry,workout,compiler:ProgramCompiler,
     catalog:rawExerciseCatalog,model,transition:generationRules.transition,metrics:PersistenceMetrics,
     progression:PersistenceProgression,now,nextId:uid,language:I18N,digest:recoverySha256});

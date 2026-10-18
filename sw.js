@@ -8,6 +8,7 @@ const ASSETS = [
   "./src/app/entry/generation.js",
   "./src/app/entry/questions.js",
   "./src/app/entry/review-session.js",
+  "./src/app/entry/setup.js",
   "./src/app/history-read-models.js",
   "./src/app/history.js",
   "./src/app/interchange.js",
