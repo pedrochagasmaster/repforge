@@ -1,3 +1,4 @@
+export {createEntryGeneration} from './entry/generation.js';
 import {parseFreeformProgramReply,assembleFreeformProgramDocument,parseSetsInput,parseRepsInput} from '../interchange/freeform.js';
 /** Entry's private tab session. Pasted source/replies never enter a training
  * proposal, telemetry or backup. Read models are snapshots; named commands
