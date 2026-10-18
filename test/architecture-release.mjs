@@ -12,7 +12,13 @@ test('AST boundary checker accepts pure public contracts and rejects seeded viol
   const good={'training/metrics.js':'export const add = (a,b) => a+b;', 'app/index.js':"import {add} from '../training/metrics.js'; export const command = () => add(1,2);"};
   assert.deepEqual(inspectModules(good),[]);
   assert.deepEqual(inspectModules({'training/metrics.js':"const flag = Symbol('flag'); const api = Object.freeze({flag}); Object.freeze(api); export {api};"}),[]);
+  assert.deepEqual(inspectModules({'training/metrics.js':"const lookup = new Map([['a',1]]); export const find = key => lookup.get(key);"}),[]);
+  assert.deepEqual(inspectModules({'training/metrics.js':"const lookup = new Set(['a']); function read(values,key){return values.has(key);} export const find=key=>read(lookup,key);"}),[]);
   const rejects = [
+    [{'training/metrics.js':"const lookup = new Set(); function write(values){values.add('x');} export const mutate=()=>write(lookup);"},/initializer call/],
+    [{'training/metrics.js':"const lookup = new Map(); export const mutate=()=>lookup.set('x',1);"},/initializer call/],
+    [{'training/metrics.js':"const lookup = new Map(); export const alias=()=>lookup;"},/initializer call/],
+    [{'training/metrics.js':"const lookup = new WeakMap(); export const read=key=>lookup.get(key);"},/initializer call/],
     [{'training/index.js':"import '../ui/index.js';",'ui/index.js':'export const ui = 1;'}, /forbidden direction/],
     [{'app/index.js':"import '../training/private.js';",'training/private.js':'export const value = 1;'}, /public entry/],
     [{'training/index.js':"export const a=()=>localStorage.getItem('x');"}, /domain IO/],

@@ -25,6 +25,7 @@ export function inspectModules(sources) {
   for (const [file, source] of Object.entries(sources)) {
     const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
     for(const diagnostic of ast.parseDiagnostics) errors.push(`${file}: syntax ${ts.flattenDiagnosticMessageText(diagnostic.messageText,' ')}`);
+    const readonlyCollections = discoverReadonlyCollections(ast);
     const deps = [];
     const inspect = node => {
       if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node) || (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword)) {
@@ -46,7 +47,7 @@ export function inspectModules(sources) {
       if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && ['Date.now','Math.random'].includes(node.expression.getText(ast)) && layer(file) === 'training') errors.push(`${file}: implicit nondeterminism`);
       if (layer(file) === 'training' && ts.isIdentifier(node) && io.has(node.text)) errors.push(`${file}: domain IO ${node.text}`);
       if (!compositionRoots.has(file) && ts.isExpressionStatement(node) && node.parent === ast && !ts.isStringLiteral(node.expression) && containsCall(node.expression)) errors.push(`${file}: import-time effect`);
-      if (!compositionRoots.has(file) && ts.isVariableDeclaration(node) && node.initializer && node.parent.parent?.parent === ast && containsCall(node.initializer)) errors.push(`${file}:${ast.getLineAndCharacterOfPosition(node.getStart(ast)).line+1}: import-time initializer call ${node.name.getText(ast)}`);
+      if (!compositionRoots.has(file) && ts.isVariableDeclaration(node) && node.initializer && node.parent.parent?.parent === ast && !readonlyCollections.has(node.name.getText(ast)) && containsCall(node.initializer)) errors.push(`${file}:${ast.getLineAndCharacterOfPosition(node.getStart(ast)).line+1}: import-time initializer call ${node.name.getText(ast)}`);
       if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && !ts.isStringLiteral(node.arguments[0])) errors.push(`${file}: non-literal dynamic import`);
       ts.forEachChild(node, inspect);
     };
@@ -67,12 +68,61 @@ function containsCall(node) {
   if (ts.isDeleteExpression(node) || ((ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node)) && [ts.SyntaxKind.PlusPlusToken,ts.SyntaxKind.MinusMinusToken].includes(node.operator))) return true;
   if (ts.isCallExpression(node)) {
     const callee = node.expression;
+    if (ts.isPropertyAccessExpression(callee) && ts.isIdentifier(callee.expression) && callee.expression.text==='JSON' && callee.name.text==='stringify') return node.arguments.some(containsCall);
     if (ts.isIdentifier(callee) && callee.text === 'Symbol') return node.arguments.some(containsCall);
+    if (ts.isPropertyAccessExpression(callee) && ['map','flatMap','flat','filter'].includes(callee.name.text)) {
+      return containsCall(callee.expression) || node.arguments.some(argument => ts.isArrowFunction(argument) || ts.isFunctionExpression(argument) ? containsCall(argument.body) : containsCall(argument));
+    }
     if (ts.isPropertyAccessExpression(callee) && ts.isIdentifier(callee.expression) && callee.expression.text === 'Object' && ['freeze','fromEntries','keys','values','entries'].includes(callee.name.text)) return node.arguments.some(containsCall);
     return true;
   }
-  if (ts.isNewExpression(node)) return true;
+  if (ts.isNewExpression(node)) {
+    if(ts.isIdentifier(node.expression) && node.expression.text==='URL' && ts.isPropertyAccessExpression(node.parent) && node.parent.name.text==='href') return (node.arguments || []).some(containsCall);
+    return true;
+  }
   return !!ts.forEachChild(node, containsCall);
+}
+// Fixed lookup collections are allowed only when private and all uses are
+// structurally read-only. Mutation, aliasing, export and passing to another
+// function fail closed; WeakMap/WeakSet never qualify (owned lifetime required).
+function discoverReadonlyCollections(ast) {
+  const candidates = new Map();
+  for(const statement of ast.statements) {
+    if(!ts.isVariableStatement(statement) || !(statement.declarationList.flags & ts.NodeFlags.Const) || statement.modifiers?.some(modifier=>modifier.kind===ts.SyntaxKind.ExportKeyword)) continue;
+    for(const declaration of statement.declarationList.declarations) {
+      const init=declaration.initializer;
+      if(ts.isIdentifier(declaration.name) && init && ts.isNewExpression(init) && ts.isIdentifier(init.expression) && ['Map','Set'].includes(init.expression.text) && !(init.arguments || []).some(containsCall)) candidates.set(declaration.name.text,declaration.name);
+    }
+  }
+  const readMethods=new Set(['get','has','keys','values','entries','size']);
+  const localFunctions=new Map(ast.statements.filter(ts.isFunctionDeclaration).filter(node=>node.name).map(node=>[node.name.text,node]));
+  const readonlyArgument=(call,index)=> {
+    if(!ts.isIdentifier(call.expression)) return false;
+    const fn=localFunctions.get(call.expression.text), parameter=fn?.parameters[index];
+    if(!parameter || !ts.isIdentifier(parameter.name)) return false;
+    let safe=true;
+    const inspectParameter=node=> {
+      if(ts.isIdentifier(node)&&node.text===parameter.name.text&&node!==parameter.name) {
+        const parent=node.parent;
+        if(!(ts.isPropertyAccessExpression(parent)&&parent.expression===node&&readMethods.has(parent.name.text))) safe=false;
+      }
+      ts.forEachChild(node,inspectParameter);
+    };
+    inspectParameter(fn.body);
+    return safe;
+  };
+  const inspect=node=> {
+    if(ts.isIdentifier(node) && candidates.has(node.text) && candidates.get(node.text)!==node) {
+      const parent=node.parent;
+      const readProperty=ts.isPropertyAccessExpression(parent) && parent.expression===node && readMethods.has(parent.name.text) && !(ts.isBinaryExpression(parent.parent) && parent.parent.left===parent);
+      const iteration=ts.isSpreadElement(parent) || (ts.isForOfStatement(parent) && parent.expression===node);
+      const checkedLocalCall=ts.isCallExpression(parent) && readonlyArgument(parent,parent.arguments.indexOf(node));
+      if(!readProperty&&!iteration&&!checkedLocalCall) candidates.delete(node.text);
+    }
+    ts.forEachChild(node,inspect);
+  };
+  inspect(ast);
+  return new Set(candidates.keys());
 }
 function gather(dir) {
   if (!existsSync(dir)) return {};
