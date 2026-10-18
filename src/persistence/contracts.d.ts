@@ -39,7 +39,6 @@ export type SnapshotPolicy=Pick<ReturnType<typeof import('./snapshot.js').create
 export interface ParseContext {programId:string;programFingerprint:string;dayId:string;blockId?:string}
 export interface SessionCapabilities {
   getState():StoredSnapshot|null|undefined;
-  parseContext(label:string):ParseContext;
   blockStartGuard(snapshot:StoredSnapshot|null):null|{ok:false;code?:string;[key:string]:unknown};
   onDraftRecovery?(value:{raw:string|null;reason:string}):void;
 }

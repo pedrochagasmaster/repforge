@@ -198,6 +198,25 @@ function workoutProgramFingerprint(snapshot){
     return(hash>>>0).toString(16).padStart(8,"0")});
   return`program-v1:${source.length}:${hashes.join("")}`}
 
+/** Identity pins for parsing one day of a released snapshot. No loading,
+ * recommendation, UI projection or operation clock is involved.
+ * @param {RawSnapshot} snapshot @param {string} label */
+function workoutDayIdForSnapshot(snapshot,label){
+  const meta=snapshot.programMeta||{};
+  const definition=isPlainStateObject(meta.programDefinition)?meta.programDefinition:null;
+  const canonical=Array.isArray(definition?.days)?definition.days.find(day=>isPlainStateObject(day)&&day.kind==='training'&&day.name===label):null;
+  const structure=isPlainStateObject(meta.programStructure)?meta.programStructure:null;
+  const structured=Array.isArray(structure?.days)?structure.days.find(day=>isPlainStateObject(day)&&String(day.label||day.dayId||'')===label):null;
+  const rows=snapshot.program.filter(row=>row.day===label).slice().sort((a,b)=>Number(a.order)-Number(b.order)||String(a.name).localeCompare(String(b.name)));
+  return String((isPlainStateObject(canonical)&&canonical.id)||(isPlainStateObject(structured)&&structured.dayId)||rows[0]?.dayId||label);
+}
+/** @param {RawSnapshot} snapshot @param {string} label */
+function workoutParseContextForSnapshot(snapshot,label){
+  const meta=snapshot.programMeta||{},dayId=workoutDayIdForSnapshot(snapshot,label);
+  const context={programId:String(meta.id||'local-program'),programFingerprint:workoutProgramFingerprint(snapshot),dayId,
+    ...(Object.prototype.hasOwnProperty.call(meta,'blockId')?{blockId:meta.blockId}: {})};
+  return context}
+
 /** @param {SnapshotIdentity|null|undefined} snapshot */
 function draftContextFingerprint(snapshot){
   const settings=/** @type {RawRecord|null|undefined} */(snapshot?.settings);
@@ -422,7 +441,7 @@ function isCoherentV1TransitionOut(tout){
       typeof tout.successorProgramId==="string"&&tout.successorProgramId.trim()!==""}
 
 
-export { cloneSnapshot, isPlainStateObject, readRevision, unversionedSnapshot, stripStorageMeta, exportableState, canonicalize, canonicalPayload, mirrorComparisonSnapshot, snapshotsEqual, storageSnapshotsEqual, snapshotBlockId, draftProgramFingerprint, rebaseStateChange, workoutProgramFingerprint, draftContextFingerprint, isValidBlockId, isBoundedProgressionValue, isBoundedTransitionValue, isValidRecoveryTransitions, classifyRecoveryCarrier, draftEffectOutcome, normalizeDraftEffectOutcome, pendingJournalEffect, draftEffectRequiresCoordination, isCoherentV1TransitionIn, isCoherentV1TransitionOut };
+export { workoutDayIdForSnapshot, workoutParseContextForSnapshot, cloneSnapshot, isPlainStateObject, readRevision, unversionedSnapshot, stripStorageMeta, exportableState, canonicalize, canonicalPayload, mirrorComparisonSnapshot, snapshotsEqual, storageSnapshotsEqual, snapshotBlockId, draftProgramFingerprint, rebaseStateChange, workoutProgramFingerprint, draftContextFingerprint, isValidBlockId, isBoundedProgressionValue, isBoundedTransitionValue, isValidRecoveryTransitions, classifyRecoveryCarrier, draftEffectOutcome, normalizeDraftEffectOutcome, pendingJournalEffect, draftEffectRequiresCoordination, isCoherentV1TransitionIn, isCoherentV1TransitionOut };
 
 /** @typedef {RawRecord & {id:string,name:string,day:string,libraryId?:string}} ProgramRow
  * @typedef {RawRecord & {id:string,name:string,metricIds?:unknown[],metricDefinitions?:unknown[]}} CustomDefinition

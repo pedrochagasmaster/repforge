@@ -104,8 +104,6 @@ export function createDurableStore({snapshotPolicy, workout, session,
     try { platform.localStorage.setItem('repforge_draft_v1:recovery',JSON.stringify({version:1,reason,raw})); } catch {}
     session?.onDraftRecovery?.({raw,reason});
   }
-  /** @param {string} label */
-  function workoutParseContext(label){return session.parseContext(label)}
   /** @param {string} point */
   function workoutDraftFault(point){
     if(platform.__repforgeDraftFault!==point)return false;
@@ -212,13 +210,19 @@ export function createDurableStore({snapshotPolicy, workout, session,
     if(!protectedValue||protectedParsed?.kind!=="valid"){
       retainDraftRecovery(read.raw,"orphaned-v2-pending");
       return{status:"checkpoint-conflict",raw:read.raw}}
-    const protectedDraft=parser.parse(protectedValue.raw,
-      workoutParseContext(protectedParsed.draft.program.dayLabel||label));
-    if(protectedDraft.kind!=="valid"){
-      retainDraftRecovery(read.raw,protectedDraft.kind==="stale"?`stale-${protectedDraft.reason}`:"code" in protectedDraft?protectedDraft.code:"checkpoint-unreadable");
-      return{status:protectedDraft.kind,error:protectedDraft,raw:read.raw}}
-    if(read.raw!==protectedValue.raw)retainDraftRecovery(read.raw,"superseded-v2-canonical");
-    return underCheckpointLock(current=>{
+    return underCheckpointLock(async current=>{
+      // The checkpoint may be unchanged while a different tab commits a new
+      // program head. Validate against the selected replicas under both locks.
+      const head=chooseSnapshot(readLocalStatus(),await readIdbStatus());
+      if(head.kind!=='chosen'||pendingDraftTransaction(head.snapshot)||hasPendingJournal()||
+        head.snapshot.log.some(row=>row?.session===protectedParsed.draft.draftId))
+        return{status:'stale-recovery',raw:current.raw};
+      const protectedDraft=parser.parse(protectedValue.raw,
+        Snapshot.workoutParseContextForSnapshot(head.snapshot,protectedParsed.draft.program.dayLabel||label));
+      if(protectedDraft.kind!=='valid'){
+        retainDraftRecovery(current.raw,protectedDraft.kind==='stale'?`stale-${protectedDraft.reason}`:'code' in protectedDraft?protectedDraft.code:'checkpoint-unreadable');
+        return{status:'stale-recovery',error:protectedDraft,raw:current.raw}}
+      if(current.raw!==protectedValue.raw)retainDraftRecovery(current.raw,'superseded-v2-canonical');
       const operationId=`recover-${pendingJournalUuid()}`;
       const prepared=prepareV2CheckpointEffect(current.raw,protectedValue.raw,operationId,{previous:protectedValue});
       if(!prepared.ok||!DraftStore.publishCanonical(protectedValue.raw)||
