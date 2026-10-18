@@ -1,3 +1,5 @@
+import {createStorageRecoveryView} from './src/ui/storage-recovery.js';
+import {createStorageRecoveryCommands} from './src/app/storage-recovery.js';
 import {createFocusFormat} from './src/ui/focus/format.js';
 import {createFocusValues} from './src/ui/focus/values.js';
 import {createTelemetry} from './src/platform/telemetry.js';
@@ -274,11 +276,6 @@ async function recoverySha256(raw){
 
 
 
-function snapshotSummary(s){
-  const log=Array.isArray(s?.log)?s.log:[];
-  const sessions=new Set(log.map(r=>r&&r.session).filter(Boolean)).size;
-  const dates=log.map(r=>String(r&&r.date||"")).filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
-  return{name:String(s?.programMeta?.name||"").trim(),sessions,sets:log.length,lastDate:dates.length?dates[dates.length-1]:""}}
 function encodeRawExport(raw){if(raw==null)return"";if(typeof raw==="string")return raw;try{return JSON.stringify(raw,null,2)}catch{return String(raw)}}
 function readLocalStatus(){return DurableState.readLocalStatus()}
 async function readIdbStatus(){return DurableState.readIdbStatus()}
@@ -12716,106 +12713,12 @@ function applyGotoParam(){
   }catch{}
 }
 
-function recoveryCopyLabel(side){return t(side==="local"?"dialog.storage_recovery.copy_a":"dialog.storage_recovery.copy_b")}
-function recoverySummaryText(parsed){
-  const sum=snapshotSummary(parsed),name=sum.name||t("dialog.storage_recovery.unnamed");
-  if(sum.lastDate)return t("dialog.storage_recovery.summary",{name,sessions:countText("sessions",sum.sessions),sets:countText("sets",sum.sets),date:sum.lastDate});
-  return t("dialog.storage_recovery.summary_empty",{name,sessions:countText("sessions",sum.sessions),sets:countText("sets",sum.sets)})}
-function recoveryStatusText(read){
-  if(read.status==="valid")return recoverySummaryText(read.parsed);
-  if(read.status==="invalid")return t("dialog.storage_recovery.invalid_copy");
-  if(read.status==="failed")return t("dialog.storage_recovery.unread_copy");
-  return t("dialog.storage_recovery.absent_copy")}
-function closeStorageRecovery(){
-  closeModal($("#storageRecovery"))}
-function bindStorageRecoveryGuard(d){
-  if(!d||d.dataset.guarded)return;
-  d.dataset.guarded="1";
-  d.addEventListener("cancel",e=>e.preventDefault());
-  d.addEventListener("click",e=>{if(e.target===d)e.stopPropagation()})}
-function exportRecoveryRaw(raw,name){download(encodeRawExport(raw),name,"application/json")}
+let storageRecoveryView;
 function presentStorageRecovery(decision){
-  return new Promise(resolve=>{
-    const d=$("#storageRecovery");if(!d){resolve({kind:"first-run"});return}
-    bindStorageRecoveryGuard(d);
-    const langHint=decision.local?.parsed?.settings?.lang||decision.idb?.parsed?.settings?.lang;
-    if(I18N)I18N.setLang(langHint||I18N.detectLang());
-    let retryBusy=false;
-    const bump=()=>{d.dataset.seq=String((+d.dataset.seq||0)+1)};
-    const finish=choice=>{d.dataset.resolved="1";d.dataset.busy="0";bump();closeStorageRecovery();resolve(choice)};
-    const paint=()=>{
-      const title=$("#storageRecoveryTitle"),lead=$("#storageRecoveryLead"),copies=$("#storageRecoveryCopies"),actions=$("#storageRecoveryActions");
-      const reason=decision.reason;
-      title.textContent=reason==="no-valid"?t("dialog.storage_recovery.title_blocked"):t("dialog.storage_recovery.title");
-      lead.textContent=reason==="divergent"?t("dialog.storage_recovery.divergent"):
-        reason==="valid-plus-failed"?t("dialog.storage_recovery.valid_failed"):
-        reason==="valid-plus-invalid"?t("dialog.storage_recovery.valid_invalid"):
-        t("dialog.storage_recovery.none_valid");
-      copies.innerHTML=`<div class="storage-recovery__copy"><p class="storage-recovery__copy-label">${esc(recoveryCopyLabel("local"))}</p><p>${esc(recoveryStatusText(decision.local))}</p></div>`+
-        `<div class="storage-recovery__copy"><p class="storage-recovery__copy-label">${esc(recoveryCopyLabel("idb"))}</p><p>${esc(recoveryStatusText(decision.idb))}</p></div>`;
-      const btns=[];
-      const add=(id,cls,key)=>btns.push(`<button type="button" class="btn ${cls}" id="${id}">${esc(t(key))}</button>`);
-      add("storageExportA","btn--steel","dialog.storage_recovery.export_a");
-      add("storageExportB","btn--steel","dialog.storage_recovery.export_b");
-      add("storageRetry","btn--steel","dialog.storage_recovery.retry");
-      if(reason==="divergent"){
-        add("storageUseA","btn--cta","dialog.storage_recovery.use_a");
-        add("storageUseB","btn--cta","dialog.storage_recovery.use_b")}
-      else if(reason==="valid-plus-invalid"||reason==="valid-plus-failed"){
-        add("storageOverwrite","btn--cta","dialog.storage_recovery.overwrite")}
-      else{
-        add("storageExportRaw","btn--steel","dialog.storage_recovery.export_raw");
-        add("storageStartFresh","btn--danger","dialog.storage_recovery.start_fresh")}
-      actions.innerHTML=btns.join("");
-      $("#storageExportA").onclick=()=>exportRecoveryRaw(decision.local?.raw,"taurifer_copy_a.json");
-      $("#storageExportB").onclick=()=>exportRecoveryRaw(decision.idb?.raw,"taurifer_copy_b.json");
-      $("#storageRetry").onclick=async()=>{
-        if(retryBusy)return;retryBusy=true;d.dataset.busy="1";
-        try{const local=readLocalStatus(),idb=await readIdbStatus(),next=chooseSnapshot(local,idb);
-          if(next.kind!=="unresolved"){finish(next);return}
-          decision=next;paint()}
-        finally{retryBusy=false;d.dataset.busy="0"}};
-      const useA=$("#storageUseA");if(useA)useA.onclick=()=>finish({kind:"chosen",snapshot:decision.local.parsed,source:"local",heal:"idb"});
-      const useB=$("#storageUseB");if(useB)useB.onclick=()=>finish({kind:"chosen",snapshot:decision.idb.parsed,source:"idb",heal:"local"});
-      const overwrite=$("#storageOverwrite");
-      if(overwrite)overwrite.onclick=()=>{
-        if(!confirm(t("dialog.storage_recovery.overwrite_confirm")))return;
-        const winner=decision.local?.status==="valid"?decision.local.parsed:decision.idb.parsed;
-        const heal=decision.local?.status==="valid"?"idb":"local";
-        finish({kind:"chosen",snapshot:winner,source:heal==="idb"?"local":"idb",heal})};
-      const exportRaw=$("#storageExportRaw");
-      if(exportRaw)exportRaw.onclick=()=>{
-        exportRecoveryRaw(decision.local?.raw,"taurifer_copy_a.json");
-        exportRecoveryRaw(decision.idb?.raw,"taurifer_copy_b.json")};
-      const fresh=$("#storageStartFresh");
-      if(fresh)fresh.onclick=async()=>{
-        if(retryBusy)return;
-        if(!confirm(t("dialog.storage_recovery.start_fresh_confirm")))return;
-        retryBusy=true;d.dataset.busy="1";
-        const cleared=await DurableState.clearPrimaryReplicas();
-        const localNow=cleared.localNow||readLocalStatus();
-        const idbNow=cleared.idbNow||await readIdbStatus();
-        if(localNow.status==="absent"&&idbNow.status==="absent"){
-          clearAllPendingJournal();
-          finish({kind:"first-run"})}
-        else{
-          decision={kind:"unresolved",reason:"no-valid",local:localNow,idb:idbNow};
-          retryBusy=false;delete d.dataset.busy;paint()}
-      };
-      if(!d.open)d.showModal();
-      openModal(d,{
-        initialFocus:$("#storageExportA")||$("#storageRetry")||title,
-        returnFocus:todayPrimaryControl,
-        onEscape:null
-      });
-      bump();
-      const focusEl=$("#storageExportA")||$("#storageRetry")||title;
-      if(focusEl)focusEl.focus()};
-    paint()})}
-function recoveryChoiceMatches(candidate,current){
-  if(candidate?.kind!=="chosen"||(candidate.source!=="local"&&candidate.source!=="idb"))return false;
-  const selected=candidate.source==="local"?current.local:current.idb;
-  return selected?.status==="valid"&&storageSnapshotsEqual(selected.parsed,candidate.snapshot)}
+  storageRecoveryView||=createStorageRecoveryView({window,commands:createStorageRecoveryCommands({durable:DurableState}),
+    t,countText,i18n:I18N,files:{exportRaw:(raw,name)=>download(encodeRawExport(raw),name,"application/json")},
+    shell:{openModal,closeModal},returnFocus:()=>todayPrimaryControl});
+  return storageRecoveryView.present(decision)}
 async function resolveBootReplicas(candidate=null){return DurableState.resolveBootReplicas(candidate)}
 async function settlePendingJournal(){return DurableState.settlePendingJournal()}
 async function applyBootDecision(decision){

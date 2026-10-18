@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import {createStorageRecoveryCommands} from '../src/app/storage-recovery.js';
+const a={programMeta:{name:' Archive A '},settings:{lang:'pt'},log:[{session:'workout-1',date:'2026-10-16'},{session:'workout-1',date:'2026-10-16'},{session:'workout-2',date:'2026-10-18'}]};
+const b={programMeta:{name:'Archive B'},settings:{lang:'en'},log:[]};
+let local={status:'valid',raw:'raw A',parsed:a},idb={status:'valid',raw:'raw B',parsed:b},journalClears=0,clearSucceeds=false;
+const durable={readLocalStatus:()=>local,readIdbStatus:async()=>idb,chooseSnapshot:(local,idb)=>({kind:'unresolved',reason:'divergent',local,idb}),clearPrimaryReplicas:async()=>{
+ local={status:'absent',raw:null,parsed:null};if(clearSucceeds)idb={status:'absent',raw:null,parsed:null};
+ return{localNow:local,idbNow:idb};
+},clearAllPendingJournal:()=>journalClears++};
+const owner=createStorageRecoveryCommands({durable}),decision=await owner.retry();
+assert.deepEqual(owner.summary(a),{name:'Archive A',sessions:2,sets:3,lastDate:'2026-10-18'});
+assert.equal(owner.languageHint(decision),'pt');
+assert.deepEqual(owner.choose(decision,'local'),{kind:'chosen',snapshot:a,source:'local',heal:'idb'});
+assert.deepEqual(owner.choose(decision,'idb'),{kind:'chosen',snapshot:b,source:'idb',heal:'local'});
+assert.equal(owner.choose({...decision,local:{status:'invalid',raw:'broken',parsed:null}},'local'),null);
+assert.equal((await owner.startFresh()).kind,'unresolved','one surviving replica prevents first-run publication');
+assert.equal(journalClears,0,'partial deletion preserves the recovery journal');
+clearSucceeds=true;
+assert.deepEqual(await owner.startFresh(),{kind:'first-run'});
+assert.equal(journalClears,1);
+assert.deepEqual(a.log.map(row=>row.session),['workout-1','workout-1','workout-2']);
+console.log('PASS recovery selection, literal history summary, partial deletion refusal and acknowledged first-run boundary');

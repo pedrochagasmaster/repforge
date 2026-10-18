@@ -49,6 +49,8 @@
     "../../src/app/block-transition.js",
     "../../src/app/progress-read-models.js",
     "../../src/app/workout-model.js",
-    "../../src/ui/editors.js"
+    "../../src/ui/editors.js",
+    "../../src/app/storage-recovery.js",
+    "../../src/ui/storage-recovery.js"
   ]
 }
