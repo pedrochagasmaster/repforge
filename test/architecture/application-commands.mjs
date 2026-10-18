@@ -108,4 +108,11 @@ const drained=drainingOwner.idle().then(()=>drainOrder.push('idle'));
 drainingOwner.run(()=>drainOrder.push('late-command'));
 unlock();await drained;
 assert.deepEqual(drainOrder,['late-command','idle'],'idle drains commands accepted while it waits');
+
+let forwardedIo='sentinel';
+const fallbackWorkout=createWorkoutCommands({session:createSession({initialSnapshot:{log:[]}}),training:rules,
+  drafts:{flush:async()=>{},read:()=>({draft,raw:'raw'}),clearEffect:raw=>({raw}),clearIdentity:()=>{}},
+  commit:async(proposal,options,io)=>{forwardedIo=io;return{committed:true,settled:true}},
+  now:()=> '2026-10-18T11:00:00Z',operationId:()=> 'finish-default-io',writer:id=>({id})});
+await fallbackWorkout.finish({io:null});assert.equal(forwardedIo,undefined,'null adapter uses the root default like the original Finish');
 console.log('Application command contracts passed');

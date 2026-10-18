@@ -73,7 +73,7 @@ export function createWorkoutCommands({session, training, drafts, commit, now, o
       const expectedBlockId = Object.prototype.hasOwnProperty.call(capturedDraft.program || {}, 'blockId')
         ? capturedDraft.program.blockId : null;
       const result = await commit(proposal, {effect, reconcileSessionIds: [savedSession],
-        expectedProgramId: capturedDraft.program.programId, expectedBlockId}, io);
+        expectedProgramId: capturedDraft.program.programId, expectedBlockId}, io || undefined);
       if (result.committed !== true || result.settled !== true) return {result, capturedRaw};
       drafts.clearIdentity();
       return {result, completed: {rows, prevLog, session: savedSession, date: capturedDraft.program.scheduleDate,
