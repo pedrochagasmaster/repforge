@@ -14,14 +14,15 @@ import {draftProgramFingerprint,readRevision,snapshotBlockId} from '../persisten
 /** The installed editor owns a speculative document/intents until qualified
  * Apply. Canonical edits/rebase belong to training; this owner captures draft
  * effects and coordinates the real existing lock-held durable command.
- * @param {{read:()=>Snapshot,refreshHead:()=>Promise<{conflict?:boolean,head?:Snapshot}>,commit:import('./session.js').Commit,model:ReturnType<typeof import('../training/model.js').createProgramModel>,catalog:import('../training/generation/internal/compiler-contracts.js').SourceCatalog,nextId:()=>string,defaultMeta:(log:unknown[])=>import('../training/authoring/internal/editor-contracts.js').EditorMeta,now:()=>string,readRecovery:()=>import('../training/model/internal/contracts.js').RecoveryRecord|null,drafts:Drafts,muscles:{validate:(value:unknown)=>boolean,invalid:()=>import('./session.js').CommitResult},readActiveDraft:()=>import('../training/workout-contracts.js').Draft|null,onSettled:(result:import('./session.js').CommitResult,context:{draftBefore:import('../training/workout-contracts.js').Draft|null})=>void}} options */
+ * @param {{read:()=>Snapshot,refreshHead:()=>Promise<{conflict?:boolean,head?:Snapshot}>,commit:import('./session.js').Commit,model:ReturnType<typeof import('../training/model.js').createProgramModel>,catalog:import('../training/generation/internal/compiler-contracts.js').SourceCatalog,nextId:()=>string,defaultMeta:(log:unknown[])=>import('../training/authoring/internal/editor-contracts.js').EditorMeta,now:()=>string,readRecovery:(snapshot:import('../training/authoring/internal/editor-contracts.js').EditorSnapshot)=>import('../training/model/internal/contracts.js').RecoveryRecord|null,drafts:Drafts,muscles:{validate:(value:unknown)=>boolean,invalid:()=>import('./session.js').CommitResult},readActiveDraft:()=>import('../training/workout-contracts.js').Draft|null,onSettled:(result:import('./session.js').CommitResult,context:{draftBefore:import('../training/workout-contracts.js').Draft|null})=>void}} options */
 export function createInstalledEditor({read,refreshHead,commit,model,catalog,nextId,defaultMeta,now,readRecovery,drafts,muscles,readActiveDraft,onSettled}){
   const rules=createInstalledEditorRules({model,catalog,nextId,defaultProgramMeta:defaultMeta});
   /** @type {{document:Document,token:Token|undefined,edits:Intent[]}|null} */ let session=null;
   // Rebase can compact a renamed/moved document too. Read the current recovery
   // receipt for each operation, including lock-held rebase, instead of freezing
   // boot-time recovery state in the stateless authoring instance.
-  function rulesForCurrentRecovery(){const recovery=readRecovery();return recovery?createInstalledEditorRules({model,catalog,nextId,defaultProgramMeta:defaultMeta,recoveryRecord:recovery}):rules}
+  /** @param {import('../training/authoring/internal/editor-contracts.js').EditorSnapshot} snapshot */
+  function rulesForCurrentRecovery(snapshot){const recovery=readRecovery(snapshot);return recovery?createInstalledEditorRules({model,catalog,nextId,defaultProgramMeta:defaultMeta,recoveryRecord:recovery}):rules}
 
   /** Durable heads are normalized by the snapshot owner before they enter this
    * application boundary. The shared durable type preserves unknown historical
@@ -65,13 +66,13 @@ export function createInstalledEditor({read,refreshHead,commit,model,catalog,nex
   }
   const commands=createProgramCommands({read,refreshHead,commit,defaultMeta,now,
     authoring:{token,tokenEqual:(a,b)=>rules.editorTokenEqual(a,b),
-      rebaseDocument:(captured,head)=>{const result=rulesForCurrentRecovery().editorRebaseDocument({edits:/** @type {Intent[]} */(captured.edits)},authoringSnapshot(head));
+      rebaseDocument:(captured,head)=>{const result=rulesForCurrentRecovery(authoringSnapshot(head)).editorRebaseDocument({edits:/** @type {Intent[]} */(captured.edits)},authoringSnapshot(head));
         return result.conflict||!result.document?{conflict:true,code:result.code}:{conflict:false,document:result.document}},
       confirmOptIn:document=>{const result=rules.suggestion.confirm(authoringDocument(document),rules.editorSuggestLoadsPolicy);
         return result.ok&&result.document?{ok:true,document:result.document}:{ok:false,issues:result.issues||[]}},
       impact:(document,head,edits)=>impact(authoringDocument(document),authoringSnapshot(head),/** @type {Intent[]} */(edits)),
       snapshotFromDocument:(document,head)=>{
-        return /** @type {Snapshot} */(rulesForCurrentRecovery().editorSnapshotFromDocument(authoringDocument(document),authoringSnapshot(head)));
+        return /** @type {Snapshot} */(rulesForCurrentRecovery(authoringDocument(document)).editorSnapshotFromDocument(authoringDocument(document),authoringSnapshot(head)));
       }},
     drafts:{readRaw:drafts.readRaw,clearEffect:drafts.clear,dayReplacementEffect:(before,after,proposal)=>drafts.rename(before,after,rules.editorDocumentFromSnapshot(authoringSnapshot(proposal)))}});
   function readDocument(){return{document:rules.editorDocumentFromSnapshot(read()),token:token(read())}}
@@ -100,7 +101,7 @@ export function createInstalledEditor({read,refreshHead,commit,model,catalog,nex
     const previous=read();
     if(proposal.programMeta)model.syncProgramStructureFromProgram(/** @type {Snapshot & {programMeta:NonNullable<Snapshot['programMeta']>}} */(proposal),
       model.makeProgram(proposal.program||[],model.snapshotLookup(proposal.customExercises),proposal.programMeta),
-      previous.program||null,previous.programMeta||null,{recoveryRecord:readRecovery()});
+      previous.program||null,previous.programMeta||null,{recoveryRecord:readRecovery(proposal)});
     return commit(proposal,options,io);
   }
   return Object.freeze({read:readDocument,commit:commitDocument,reset:()=>{session=null},readSession:()=>copySnapshot(session),commitForm,commands,rules});

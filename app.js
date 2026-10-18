@@ -10258,7 +10258,7 @@ function initializePersistenceOwners(){
   InstalledEditor=createInstalledEditor({read:applicationSession.read,model,catalog:rawExerciseCatalog,nextId:uid,
     defaultMeta:defaultProgramMeta,now,refreshHead:refreshPersistenceHead,
     commit:(proposal,options,io=storageIO)=>commitProposedState(proposal,io,options),
-    readRecovery:()=>activeRecoveryRecord?.diff?.recoveryWeek?.blockId===applicationSession.read().programMeta?.blockId?activeRecoveryRecord:null,
+    readRecovery:snapshot=>activeRecoveryRecord?.diff?.recoveryWeek?.blockId===snapshot.programMeta?.blockId?activeRecoveryRecord:null,
     drafts:{readRaw:readDraftRaw,hasProgress:draftHasProgress,parse:raw=>WorkoutDraft.parse(raw),clear:destructiveDraftClearEffect,
       rename:draftDayReplacementEffect,removedSetsHaveProgress:draftHasProgressInRemovedSets},
     muscles:{validate:isValidMuscleDomainTree,invalid:invalidMuscleDomainCommit},

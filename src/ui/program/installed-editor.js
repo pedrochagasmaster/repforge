@@ -77,7 +77,7 @@ export function createInstalledEditorView({window,session,mountEditor,shell,t,on
    $('#programEditorDiscard')?.addEventListener('click',()=>finish({discard:true}),{signal});
    $('#programEditorKeep')?.addEventListener('click',closeLeave,{signal});
  }
- function dispose(){disposeEditor();listeners?.abort();listeners=null;leave=null;pendingNavigation=null;editing=false}
+ function dispose(){closeLeave();disarm();disposeEditor();listeners?.abort();listeners=null;leave=null;pendingNavigation=null;editing=false}
  return Object.freeze({mount,bind,dispose,disposeEditor,arm,done,apply,finish,closeLeave,openLeave,onPopState,requestNavigation,
    get editing(){return editing},get hasEditor(){return!!mounted},setEditing:(/** @type {boolean} */value)=>{editing=value}});
 }
