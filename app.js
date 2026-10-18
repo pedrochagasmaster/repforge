@@ -1,5 +1,6 @@
 import {createTelemetry} from './src/platform/telemetry.js';
 import {createPostHog} from './src/platform/posthog.js';
+import {createCuePresentation} from './src/ui/focus/cue.js';
 import {createRestPresentation} from './src/ui/focus/rest-view.js';
 import {createBlockTransitionCommands} from './src/app/block-transition.js';
 import {createWorkoutReadModel,movementToken,movementIdKey,loggedMovementName,liftKey,exerciseLiftKey} from './src/app/workout-model.js';
@@ -5067,34 +5068,16 @@ function focusRefLoad(ex,n,draft,prev){
 /** The two lines above the ledger: what to do with this set, and why. Line one
  *  is the verb and the load, line two the reps to aim for. The load is the
  *  engine's: `setSuggestion` for this set, never a figure derived here. */
+const FocusCue=createCuePresentation({copy:{t},format:{load:fmtLoad,unit:unitLabel},rest:RestPresentation});
 function focusCue(ex,n,r,draft,prev,editing){
-  const unit=unitLabel();
-  if(editing){const text=t("focus.cue.editing_set",{n,total:ex.sets});
-    return{kind:"edit",move:"",headHtml:esc(text),sub:""}}
-  const sg=setSuggestion(ex,n,r,draft,prev.find(x=>x.set===n));
-  if(r.status==="manual")return{kind:"manual",move:"",headHtml:esc(t("focus.cue.your_targets")),
-    sub:t("focus.cue.range_reps",{reps:`${ex.min}–${ex.max}`})};
-  if(r.status==="configuration_required")return{kind:"setup",move:"",headHtml:esc(t("focus.cue.needs_setup")),
-    sub:t("focus.cue.range_reps",{reps:`${ex.min}–${ex.max}`})};
-  if(sg.load==null){const head=t("focus.cue.pick_load",{min:ex.min,max:ex.max});
-    return{kind:"start",move:"",headHtml:esc(head),sub:""}}
-  // A canonical target's move is the engine's: against this session's last set
-  // once one is logged, else the recommendation's own verdict.
-  const ref=Array.isArray(r.targetSets)?null:focusRefLoad(ex,n,draft,prev);
+  const sg=editing?{}:setSuggestion(ex,n,r,draft,prev.find(x=>x.set===n));
+  const ref=editing||r.status==="manual"||r.status==="configuration_required"||sg.load==null||Array.isArray(r.targetSets)
+    ?null:focusRefLoad(ex,n,draft,prev);
   const move=Array.isArray(r.targetSets)
     ?(sg.src==="session-up"?"up":sg.src==="session-down"?"down":sg.src==="session-hold"?"hold":
       r.status==="add"?"up":r.status==="reduce"?"down":"hold")
     :ref==null||sameLoad(sg.load,ref)?"hold":sg.load>ref?"up":"down";
-  const reps=sg.reps!=null?sg.reps:ex.min;
-  // The load rides in the sentence as a token so the figure can be set in Mono.
-  const sentence=t(`focus.cue.${move}`,{load:"\u0000",unit});
-  const loadText=fmtLoad(sg.load);
-  // The first target of the day is `recommendation()`'s own load; a later set's
-  // is the engine's in-session answer, which the parity check does not compare.
-  const parity=sg.src==="base"&&!sg.tempered?` data-parity-target="${esc(ex.id)}"`:"";
-  return{kind:"now",move,loadText,reps,parity,
-    headHtml:esc(sentence).replace("\u0000",`<b class="fx-cue__load"${parity}>${esc(loadText)}</b>`),
-    sub:t("focus.cue.reps",{reps})}}
+  return FocusCue.cue({exerciseId:ex.id,ordinal:n,total:ex.sets,min:ex.min,max:ex.max,status:r.status,editing,suggestion:sg,move})}
 
 /* ---- Inline rest (Direction D 4.2, owner gate OG-4 job 3) ----
    The rest clock reads the one timer (`focusRest.end`, `focusRest.paused`, `focusRest.length`):
@@ -5106,47 +5089,14 @@ function focusCue(ex,n,r,draft,prev,editing){
 const restInlineMode=()=>RestPresentation.mode();
 const restFraction=()=>RestPresentation.fraction();
 const restOverSec=()=>RestPresentation.overSeconds();
+const restDoneText=over=>RestPresentation.doneText(over);
 const restSlotMode=editing=>RestPresentation.slotMode(editing);
 const restPadsFit=()=>RestPresentation.padsFit();
 const restPadsOn=editing=>RestPresentation.padsOn(editing);
 
-/** The Por quê? link of a cue: the same control in the cue and in the rest line. */
-function focusWhyHtml(ex,r,{peek,name,draft,label,cls}){
-  if(!(r.status!=="new"||inSessionNote(ex,draft)))return"";
-  return `<button type="button" class="text-link focus-ex__why ${cls}"${peek?dead()
-    :` data-why="${esc(ex.id)}" aria-label="${esc(t("why.open_aria",{name}))}"`}>${esc(label)}</button>`}
-/** The 24px cue: the verb and the load, the reps under it, and the Why link. The mark is the shared verdict mark,
- *  so hold draws the ink "=" and up the orange arrow exactly as the Why headline does. The column stays when the
- *  cue has no mark, so the lines never shift. */
-function focusCueBlockHtml(ex,r,cue,{peek,name,draft}){
-  const mark=`<span class="fx-cue__mark" aria-hidden="true">${verdictMarkHtml(cue.move)}</span>`;
-  const why=focusWhyHtml(ex,r,{peek,name,draft,label:t("why.open"),cls:"fx-cue__why"});
-  const cancel=cue.kind==="edit"
-    ?`<button type="button" class="text-link fx-cue__cancel"${peek?dead():" data-fcancel"}>${esc(t("focus.cancel_edit"))}</button>`:"";
-  return `<div class="fx-cue is-${cue.kind}">${mark}<p class="fx-cue__l1">${cue.headHtml}</p>`+
-    (cue.sub?`<p class="fx-cue__l2">${esc(cue.sub)}</p>`:"")+why+cancel+`</div>`}
-/** The running clock: "Descanso 1:30 de 2:00" over the drain bar. */
-const restClockHtml=()=>RestPresentation.clockHtml();
-const restDoneText=over=>RestPresentation.doneText(over);
-const restDoneHtml=()=>RestPresentation.doneHtml();
-/** The next set's cue on one 18px line, its figures in Mono: the engine's own load and reps for that set. */
-function restNextHtml(ex,n,r,cue,{peek,name,draft}){
-  let line;
-  if(cue.kind==="now"){
-    const vars={n,load:"\u0000",reps:"\u0001",unit:unitLabel()};
-    const sentence=cue.move==="up"?t("rest.inline.next_up",vars):cue.move==="down"?t("rest.inline.next_down",vars):t("rest.inline.next",vars);
-    line=esc(sentence).replace("\u0000",`<b class="restinline__val"${cue.parity}>${esc(cue.loadText)}</b>`)
-      .replace("\u0001",`<b class="restinline__val">${esc(String(cue.reps))}</b>`)}
-  // A manual slot or a first set with no load has no sentence of its own: its cue lines, as they read.
-  else line=cue.headHtml+(cue.sub?` · ${esc(cue.sub)}`:"");
-  return `<div class="restinline__nextrow"><p class="restinline__next">${line}</p>`+
-    focusWhyHtml(ex,r,{peek,name,draft,label:t("why.short"),cls:"restinline__why"})+`</div>`}
-/** The cue slot's content for one mode of the timer: the cue, the running clock with the next cue, or the
- *  collapsed clock above the returned cue. */
 function focusSlotInner(ex,n,r,cue,mode,opts){
-  if(mode==="running")return restClockHtml()+restNextHtml(ex,n,r,cue,opts);
-  if(mode==="done")return restDoneHtml()+focusCueBlockHtml(ex,r,cue,opts);
-  return focusCueBlockHtml(ex,r,cue,opts)}
+  return FocusCue.slotInner(n,cue,mode,{exerciseId:ex.id,status:r.status,peek:opts.peek,
+    name:opts.name,hasNote:r.status==="new"&&!!inSessionNote(ex,opts.draft)})}
 function focusSlotHtml(ex,n,r,cue,opts){
   const mode=restSlotMode(opts.editing);
   return `<div class="fx-slot" data-rest="${mode}">${focusSlotInner(ex,n,r,cue,mode,opts)}</div>`}
