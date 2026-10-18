@@ -312,7 +312,8 @@ async function expectAnchored(page, anchorSelector, label) {
   await page.evaluate(() => { document.querySelector("dialog#guideDialog").style.display = "none"; });
   const bare = { anchor: await regionLuma(page, clip), side: await regionLuma(page, side) };
   await page.evaluate(() => { document.querySelector("dialog#guideDialog").style.display = ""; });
-  ok(Math.abs(up.anchor - bare.anchor) < 1.5 && bare.side - up.side > 1, `${label}: the anchor is undimmed and the page around it is dimmed`, { up, bare });
+  // The scrim moves a light anchor by over a hundred luma steps; the panel's own shadow may reach its edge by one or two.
+  ok(Math.abs(up.anchor - bare.anchor) < 3 && bare.side - up.side > 1, `${label}: the anchor is undimmed and the page around it is dimmed`, { up, bare });
 }
 
 // Highlight: the scrim leaves the anchor uncovered on Focus and Progress, in

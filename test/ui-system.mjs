@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { ROOT, loadManifest } from "../tools/ui-screens/manifest.mjs";
-import { loadRoleInventory, validateRoleInventory, cssLiteralDebt, cssCompatibilityAliasDebt, contrastRatio, requiredBoundaryExceptionRequests, uninventoriedSharedComponents, SHARED_COMPONENTS_MARKER } from "../tools/ui-system-core.mjs";
+import { loadRoleInventory, validateRoleInventory, renderedFindingExemption, cssLiteralDebt, cssCompatibilityAliasDebt, contrastRatio, requiredBoundaryExceptionRequests, uninventoriedSharedComponents, SHARED_COMPONENTS_MARKER } from "../tools/ui-system-core.mjs";
 import { measureClampedHeadings, measureRenderedRoles, renderedRoleProblems } from "../tools/ui-system-rendered.mjs";
 import { auditFocusRoles, inspectRoleCoverage } from "../tools/check-ui-system.mjs";
 import { maybeStartLocalPreview } from "../tools/local-preview.mjs";
@@ -45,6 +45,19 @@ assert.ok(validateRoleInventory(missingDisabled, manifest).some((error) => error
 const badException = structuredClone(inventory);
 badException.exceptions.push({ selector: ".bad" });
 assert.ok(validateRoleInventory(badException, manifest).some((error) => error.startsWith("exception .bad needs")), "an unowned exception cannot suppress a failure");
+// A rendered finding is held open only by an exception that names its issue, for its exact measurement and states.
+const heldFinding = inventory.exceptions.find((item) => item.renderedFindings);
+const [finding] = heldFinding.renderedFindings;
+assert.equal(renderedFindingExemption(inventory.exceptions, heldFinding.catalogStates[0], { kind: finding.kind, selector: finding.measured }), heldFinding,
+  "a held rendered finding is exempt in its own catalog state");
+assert.equal(renderedFindingExemption(inventory.exceptions, "settings/main", { kind: finding.kind, selector: finding.measured }), null,
+  "a held rendered finding is not exempt in any other state");
+assert.equal(renderedFindingExemption(inventory.exceptions, heldFinding.catalogStates[0], { kind: "text", selector: finding.measured }), null,
+  "a held rendered finding is not exempt for another measurement kind");
+const unnamedHold = structuredClone(inventory);
+unnamedHold.exceptions.find((item) => item.renderedFindings).rationale = "Temporary.";
+assert.ok(validateRoleInventory(unnamedHold, manifest).some((error) => error.includes("without naming its issue")),
+  "a rendered finding cannot be held open without its issue");
 const firstRecipe = inventory.rootRecipeOwners[0].id;
 const missingRecipeOwner = structuredClone(inventory);
 delete missingRecipeOwner.rootRecipeOwners[0].rationale;

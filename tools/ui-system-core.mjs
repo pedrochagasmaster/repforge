@@ -20,6 +20,16 @@ export function requiredBoundaryExceptionRequests(exceptions, key) {
     .map((item) => ({ selector: item.selector, kind: "boundary" }));
 }
 
+/**
+ * A rendered finding an exception holds open while its issue is fixed: the measurement's kind and selector, in the
+ * exception's catalog states only. The exception is "rendered" while the finding persists, so once the fix lands the
+ * full sweep reports it as never rendered and it has to be removed.
+ */
+export function renderedFindingExemption(exceptions, key, measurement) {
+  return (exceptions || []).find((item) => item.catalogStates?.includes(key)
+    && item.renderedFindings?.some((finding) => finding.kind === measurement.kind && finding.measured === measurement.selector)) || null;
+}
+
 export function validateRoleInventory(inventory, manifest) {
   const errors = [];
   const expected = new Set(manifest.screens.map(({ flow, id }) => `${flow}/${id}`));
@@ -71,6 +81,12 @@ export function validateRoleInventory(inventory, manifest) {
     for (const key of item.catalogStates || []) if (!expected.has(key)) errors.push(`exception ${item.selector} names stale catalog state ${key}`);
     for (const literal of item.cssLiterals || []) {
       if (!literal.property || !literal.value) errors.push(`exception ${item.selector} has an incomplete CSS literal`);
+    }
+    if (item.renderedFindings) {
+      if (!/#\d+/.test(item.rationale || "")) errors.push(`exception ${item.selector} holds a rendered finding open without naming its issue`);
+      for (const finding of item.renderedFindings) {
+        if (!finding.kind || !finding.measured) errors.push(`exception ${item.selector} has an incomplete rendered finding`);
+      }
     }
   }
   for (const item of inventory.contextualVariants || []) {

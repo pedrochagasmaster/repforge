@@ -3,7 +3,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { ROOT, captureKey, loadManifest, screenKey } from "./ui-screens/manifest.mjs";
 import { parseShard } from "../test/suites.mjs";
-import { loadRoleInventory, validateRoleInventory, cssLiteralDebt, cssCompatibilityAliasDebt, requiredBoundaryExceptionRequests, SHARD_REPORT, neverRenderedProblems, shardCaptures, uninventoriedSharedComponents } from "./ui-system-core.mjs";
+import { loadRoleInventory, validateRoleInventory, renderedFindingExemption, cssLiteralDebt, cssCompatibilityAliasDebt, requiredBoundaryExceptionRequests, SHARD_REPORT, neverRenderedProblems, shardCaptures, uninventoriedSharedComponents } from "./ui-system-core.mjs";
 import { APP_CLOCK, APP_SCENARIOS, APP_USER_AGENT, appState } from "./ui-screens/screens-app.mjs";
 import { ONBOARDING_SCENARIOS, onboardingState } from "./ui-screens/screens-onboarding.mjs";
 import { setCaptureBase, launchChromium, openPage, dismissChrome, settle } from "./ui-screens/session.mjs";
@@ -251,6 +251,13 @@ export async function auditCatalog({ allowProgressDebt = false, flow = null, sta
         problems.push(...focus.problems);
         for (const [status, count] of Object.entries(focus.measurements)) measurements[status] = (measurements[status] || 0) + count;
         const rendered = await opened.page.evaluate(measureRenderedRoles, { components: inventory.components, pixels });
+        for (const item of rendered) {
+          if (["pass", "exempt"].includes(item.status)) continue;
+          const held = renderedFindingExemption(inventory.exceptions, key, item);
+          if (!held) continue;
+          item.status = "exempt";
+          matchedExceptions.add(held.selector);
+        }
         for (const item of rendered) measurements[item.status] = (measurements[item.status] || 0) + 1;
         measurements.total += rendered.length;
         problems.push(...renderedRoleProblems(`${key} [${capture.locale}/${capture.theme}]`, rendered));

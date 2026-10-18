@@ -9,8 +9,9 @@ import { instrumentBrowser } from "./browser-artifacts.mjs";
  * records up to date, a guide it has never shown (a pristine `unseen` record) becomes `dismissed`. A guide a suite has moved
  * on purpose (shown, deferred, replayed, completed) is left alone, and Settings → Replay still shows any guide.
  *
- * Suites that prove guide behaviour, and the screen catalog, keep the guides live: `launchChromium({ guides: "live" })`
- * for every context, or `browser.newContext({ guides: "live" })` for one.
+ * Suites that prove guide behaviour, or that need a device as the app leaves it (a fresh install-transfer destination,
+ * where a dismissed guide is the lifter's own state), keep the guides live: `launchChromium({ guides: "live" })` for
+ * every context, or `browser.newContext({ guides: "live" })` for one (and `guides: "read"` the other way round).
  */
 function readGuidesByDefault(browser, liveByDefault) {
   const newContext = browser.newContext.bind(browser);

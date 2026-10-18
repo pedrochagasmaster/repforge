@@ -752,8 +752,8 @@ async function reloadAndObserveBoot(page) {
   }, INSTALL_MARKER_KEY) };
 }
 
-async function openFreshContext(browser) {
-  const context = await browser.newContext();
+async function openFreshContext(browser, { guides } = {}) {
+  const context = await browser.newContext({ guides });
   const page = await context.newPage();
   page.on("dialog", (dialog) => dialog.dismiss().catch(() => {}));
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
@@ -1460,7 +1460,7 @@ async function runMalformedProfileSettings(browser) {
     ["invalid birth date", { sex: "female", birthDate: "not-a-date", weightKg: 83 }, 2, ["Invalid Date", "not-a-date"]],
     ["string weight", { sex: "female", birthDate: "1990-03-10", weightKg: "83" }, 2, ["83"]],
   ];
-  const { context, page } = await openFreshContext(browser);
+  const { context, page } = await openFreshContext(browser, { guides: "read" });
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
   try {
@@ -2134,12 +2134,15 @@ async function main() {
   console.log("Plan 053-P4a/P4b: production-backed install-transfer import oracle");
   await assertServingApp(BASE);
 
-  const browser = await launchChromium();
+  // Destinations are fresh devices, and a dismissed guide is the lifter's own state: guides stay as the app leaves
+  // them everywhere but on the source device.
+  const browser = await launchChromium({ guides: "live" });
   let sourceContext;
   let destinationContext;
   let refusalContext;
   try {
-    sourceContext = await browser.newContext();
+    // The source is a lifter who has trained here, past the first-use guides.
+    sourceContext = await browser.newContext({ guides: "read" });
     const source = await sourceContext.newPage();
     source.on("dialog", (dialog) => dialog.dismiss().catch(() => {}));
     await source.goto(BASE, { waitUntil: "domcontentloaded" });

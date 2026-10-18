@@ -10386,6 +10386,21 @@
           "value": "#ECE0CF"
         }
       ]
+    },
+    {
+      "selector": ".radio-card__mark",
+      "role": "required boundary held open (#441)",
+      "rationale": "Temporary, #441: in the result block sheet the unselected radio mark's boundary reads 1:1 against its ground. The rendered-role audit only reports it since its sampled grounds are read at device-pixel positions (#439). Remove this exception with the fix.",
+      "owner": "tip-modal-2026-10-17",
+      "catalogStates": [
+        "onboarding-recommend/result-block-sheet"
+      ],
+      "renderedFindings": [
+        {
+          "kind": "boundary",
+          "measured": ".radio-card:not([id]):span.radio-card__mark"
+        }
+      ]
     }
   ],
   "rootRecipeOwners": [
