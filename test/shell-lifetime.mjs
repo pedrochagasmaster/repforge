@@ -43,7 +43,7 @@ try {
   check(edgeDisposals===2,'native route shell remount owns one registration');
   // The real shipped animation owner paints a transform synchronously. Shell
   // teardown must cancel that owned run, not only remove presentation classes.
-  const animatedMotion=createMotion({window,fallback:{mount:()=>({dispose(){}}),navigate:()=>false}});
+  const animatedMotion=createMotion({window,fallback:{navigate:()=>false}});
   const animatedShell=createShell({window,motion:animatedMotion,isBooted:()=>true});
   check(animatedMotion.available(),'actual vendored animation runtime present');
   animatedShell.routePushBegin('in',{pushed,under})?.();
@@ -51,7 +51,14 @@ try {
   animatedShell.dispose();check(pushed.style.transform==='','dispose cancels actual route transform');
   await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
   check(pushed.style.transform==='','disposed route animation cannot paint again');
-  animatedMotion.dispose();
+  const movingSheet=document.querySelector('#sheet');
+  const sheetRun=animatedMotion.trackSheetGesture(movingSheet,null);sheetRun.follow(60);
+  check(movingSheet.style.transform!=='','actual sheet drag paints its position');
+  const settling=sheetRun.settle();animatedMotion.dispose();await settling;
+  check(movingSheet.style.transform==='','mid-settle disposal clears the actual sheet transform');
+  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  sheetRun.follow(100);check(movingSheet.style.transform==='','disposed sheet cannot repaint from frames or late input');
+
   pushed.remove();under.classList.add('active');
   const shell=createShell({window});shell.mount();shell.mount();
   const opener=document.querySelector('#opener'),sheet=document.querySelector('#sheet'),second=document.querySelector('#second');
@@ -67,12 +74,20 @@ try {
   shell.openModal(sheet,{returnFocus:opener,delayHide:1000});const closing=shell.closeModal(sheet);shell.dispose();await closing;
   check(sheet.hidden&&!document.querySelector('main').inert,'dispose closes pending transition');
   shell.mount();shell.dispose();
-  let mounts=0,disposed=0;
-  const motion=createMotion({window,runtime:null,fallback:{mount(){mounts++;return{dispose(){disposed++}}},navigate:()=>true}});
-  check(mounts===0,'motion construct does not mount');
-  const controller=motion.mount();check(motion.mount()===controller&&mounts===1,'idempotent gesture mount');
-  check(controller.navigate(1)===true,'fallback navigation');motion.dispose();check(disposed===1,'dispose fallback');
-  check(controller.navigate(1)===false,'disposed navigation inert');
+  let starts=0,moves=0,ends=0,cancels=0,navigations=0;
+  const motion=createMotion({window,runtime:null,sheets:{dragStart(){starts++},dragMove(){moves++},dragEnd(){ends++},cancel(){cancels++}},
+    fallback:{navigate(){navigations++;return true}}});
+  const input=()=>{document.dispatchEvent(new PointerEvent('pointerdown'));window.dispatchEvent(new PointerEvent('pointermove'));
+    window.dispatchEvent(new PointerEvent('pointercancel'));document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}))};
+  input();check(starts===0&&moves===0&&ends===0&&cancels===0,'motion construction installs no listeners');
+  const controller=motion.mount();check(motion.mount()===controller,'idempotent gesture mount');
+  input();check(starts===1&&moves===1&&ends===1&&cancels===1,'one event invokes each pointer/keyboard handler once');
+  check(controller.navigate(1)===true&&navigations===1,'fallback navigation');
+  motion.dispose();motion.dispose();check(cancels===2,'disposal cancels active work once');
+  input();check(starts===1&&moves===1&&ends===1&&cancels===2,'disposed pointer and keyboard listeners removed');
+  check(controller.navigate(1)===false&&navigations===1,'disposed navigation inert');
+  const remounted=motion.mount();check(remounted!==controller,'remount creates a new controller');input();
+  check(starts===2&&moves===2&&ends===2&&cancels===3,'remount establishes exactly one new listener lifetime');motion.dispose();
   result.textContent='PASS shell focus/inert/handoff/transition disposal/remount and motion fallback lifetime';
 } catch(error){result.textContent='FAIL '+error.stack}
 

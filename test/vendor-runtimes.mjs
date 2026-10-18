@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
+import {createSheetGestures} from "../src/ui/shell/sheet-gestures.js";
 import {createMotion} from "../src/platform/motion.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -48,7 +49,7 @@ function loadLayer() {
       },
     },
   };
-  const api=createMotion({window:sandbox,fallback:{mount:()=>({dispose(){}}),navigate(){}}});
+  const api=createMotion({window:sandbox,fallback:{navigate(){}}});
   return { api, query, mediaCalls: () => mediaCalls, stops: () => stops };
 }
 const motion = loadLayer();
@@ -205,10 +206,10 @@ assert(!/\.view\b/.test(layer) && !/\.toast\b/.test(layer) && !/effortpop/.test(
   assert(/\bCOLLAPSING\s*=\s*"is-collapsing"/.test(layer) && /\.settings-panel\.is-collapsing\{display:block\}/.test(styles), "closing panels have a transient display marker");
   assert(/apply\(\);\s*panel\.classList\.toggle\(COLLAPSING/.test(layer), "the disclosure class changes at the tap, allowing reversal");
   assert((layer.match(/hint\([a-zA-Z]+,\s*null\)/g) || []).length >= 5, "layer promotions are removed after animation");
-  assert(/rec\.motion/.test(app) && (`${app}\n${shell}`.match(/rec\.motion\.cancel\(\)/g) || []).length >= 2, "teardown and interruption cancel the active sheet animation");
+
 }
 {
-  assert(/if\s*\(sheetDrag\.motion\)\s*sheetDrag\.motion\.follow/.test(app) && /else\s*\{\s*rec\.el\.style\.transform\s*=/.test(app), "sheet gestures retain a no-runtime fallback");
+
   const gestures=read("src/ui/focus/gestures.js");
   assert(/if\(run\)\{run\.then\(done\);return\}/.test(gestures) &&
     /fallbackFocusLater\(done,220\)/.test(gestures) &&
@@ -249,5 +250,74 @@ assert(!/\.view\b/.test(layer) && !/\.toast\b/.test(layer) && !/effortpop/.test(
   assert(divDialog("installBanner") && /banner\.setAttribute\("role", "region"\)/.test(layer), "install banner becomes a region at runtime");
   assert((shell.match(/if\(el\.tagName==="DIALOG"\)/g)||[]).length===2 && /dialog\.showModal\(\)/.test(shell) && /dialog\.close\(\)/.test(shell), "the native Shell owns both modal type lifecycles");
 }
+// Public sheet owner: literal pointer input checks the no-runtime path and
+// cancellation at its presentation boundary, without copying gesture policy.
+{
+  class Element {
+    constructor() {
+      const classes = new Set(['sheet']);
+      this.classList = {contains: value => classes.has(value), add: value => classes.add(value), remove: value => classes.delete(value)};
+      this.style = {transform: '', opacity: ''}; this.offsetHeight = 200;
+      this.scrollHeight = this.clientHeight = 200; this.scrollTop = 0;
+      this.parentElement = null;
+    }
+    contains(target) { return target === this; }
+    closest() { return null; }
+  }
+  const sheet = new Element(), scrim = new Element();
+  let escaped = 0, swallowed = 0, active = null;
+  const rec = {el: sheet, scrim, onEscape() { escaped++; }};
+  active = rec;
+  const gestures = createSheetGestures({window: {Element, performance, getComputedStyle: () => ({userSelect: 'none'})},
+    readModal: () => active, readMotion: () => null, swallowNextClick() { swallowed++; }});
+  const pointer = (y, timeStamp = 1000) => ({target: sheet, pointerId: 1, pointerType: 'touch', clientX: 0, clientY: y, timeStamp});
+  const start = () => gestures.dragStart(pointer(0));
+  start(); gestures.dragMove(pointer(20, 2000));
+  assert(sheet.style.transform === 'translate3d(0,8px,0)' && scrim.style.opacity === '0.96', 'no-runtime drag paints the sheet and scrim from literal pointer input');
+  gestures.dragEnd({pointerId: 1, type: 'pointercancel'});
+  assert(sheet.style.transform === '' && scrim.style.opacity === '' && escaped === 0 && swallowed === 0,
+    'pointercancel clears presentation without dismissing or swallowing a click');
+  start(); gestures.dragMove(pointer(20, 2000)); gestures.dragMove(pointer(90, 3000)); gestures.dragEnd({pointerId: 1, type: 'pointerup'});
+  assert(escaped === 1 && swallowed === 1 && sheet.style.transform === '', 'deliberate no-runtime drag dismisses through the existing Escape action once');
+  start(); gestures.dragMove(pointer(20, 2000)); gestures.cancel();
+  assert(sheet.style.transform === '' && escaped === 1, 'Escape cancellation clears an active fallback gesture without another dismissal');
+  start(); gestures.dragMove(pointer(20, 2000)); gestures.release(rec);
+  gestures.dragMove(pointer(100, 3000)); gestures.dragEnd({pointerId: 1, type: 'pointerup'});
+  assert(sheet.style.transform === '' && escaped === 1, 'sheet teardown releases a live drag and later events cannot repaint it');
+  start(); gestures.dragMove(pointer(20, 2000)); gestures.dispose(); gestures.dispose();
+  start(); gestures.dragMove(pointer(100, 3000));
+  assert(sheet.style.transform === '', 'repeated sheet disposal is safe and later input stays inert');
+}
+// EventTarget is the platform dispatch primitive. These observations prove the
+// real Motion owner registers and removes handlers, including after remount.
+{
+  // Node 24 EventTarget does not normalize boolean capture on removal as DOM
+  // does. Normalize option syntax here; registration/dispatch remain native.
+  class DOMTarget extends EventTarget {
+    addEventListener(type, callback, options) { super.addEventListener(type, callback, typeof options === 'boolean' ? {capture: options} : options); }
+    removeEventListener(type, callback, options) { super.removeEventListener(type, callback, typeof options === 'boolean' ? {capture: options} : options); }
+  }
+  const document = new DOMTarget(), window = new DOMTarget();
+  Object.assign(document, {getElementById: () => null, createElement: () => ({}), head: {append() {}}, querySelector: () => null});
+  Object.assign(window, {document, performance, setTimeout, clearTimeout, getComputedStyle: () => ({transform: 'none'}),
+    requestAnimationFrame: fn => setTimeout(fn, 0), cancelAnimationFrame: clearTimeout, matchMedia: () => ({matches: false})});
+  const effects = {down: 0, move: 0, end: 0, cancel: 0, navigation: 0};
+  const api = createMotion({window, runtime: null, sheets: {
+    dragStart() { effects.down++; }, dragMove() { effects.move++; }, dragEnd() { effects.end++; }, cancel() { effects.cancel++; },
+  }, fallback: {navigate(direction) { effects.navigation += direction; return true; }}});
+  const input = () => { document.dispatchEvent(new Event('pointerdown')); window.dispatchEvent(new Event('pointermove'));
+    window.dispatchEvent(new Event('pointercancel')); const escape = new Event('keydown'); Object.defineProperty(escape, 'key', {value: 'Escape'}); document.dispatchEvent(escape); };
+  input(); assert(Object.values(effects).every(value => value === 0), 'Motion construction registers no input handlers');
+  const controller = api.mount(); assert(api.mount() === controller, 'two Motion mounts return the same live controller');
+  input(); assert(effects.down === 1 && effects.move === 1 && effects.end === 1 && effects.cancel === 1, 'one pointer or Escape event reaches each mounted handler once');
+  assert(controller.navigate(1) === true && effects.navigation === 1, 'no-runtime navigation reaches the supplied public fallback');
+  api.dispose(); api.dispose();
+  assert(effects.cancel === 2 && controller.navigate(1) === false, 'disposal cancels active fallback work once and makes navigation inert');
+  const stopped = JSON.stringify(effects); input(); assert(JSON.stringify(effects) === stopped, 'disposal unregisters pointer and keyboard handlers');
+  const next = api.mount(); input();
+  assert(next !== controller && effects.down === 2 && effects.move === 2 && effects.end === 2 && effects.cancel === 3, 'remount establishes exactly one new input lifetime');
+  api.dispose();
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

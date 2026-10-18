@@ -156,16 +156,17 @@ assert(buildCheck.status === 0, "generated index and detail asset match their co
     'src/platform/motion.js','src/training/progress.js','exercises.js','src/training/generation.js',
     'src/training/authoring.js','src/training/workout.js','src/training/generation/internal/transition.js',
     'src/platform/program-executor.js','src/platform/program-worker.js','src/platform/install.js',
-    'src/persistence/durable.js','src/platform/catalog.js','app.js',
+    'src/persistence/durable.js','src/platform/catalog.js','src/bootstrap.js','app.js',
   ];
   const missingNative=runtime.filter(file=>file.startsWith('src/')&&!native.includes(file));
   const missingCache=native.filter(file=>!sw.includes(JSON.stringify('./'+file)));
-  const appEntry=index.match(/<script\b[^>]*\bdata-module\b[^>]*\bsrc="([^"]*app\.js\?v=\d+)"/i)?.[1];
+  const appEntry=index.match(/<link\b[^>]*\brel="taurifer-entry"[^>]*\bhref="(app\.js\?v=\d+)"/i)?.[1];
+  const bootstrapEntry=index.match(/<script\b[^>]*\btype="module"[^>]*\bsrc="(src\/bootstrap\.js)"/i)?.[1];
   const app=readFileSync(join(ROOT,'app.js'),'utf8');
   assert(cacheRevision > expectedBaseRevision,
     `service-worker cache advances beyond repforge-v${expectedBaseRevision}`,
     `got ${cacheRevision}`);
-  assert(!!appEntry&&missingNative.length===0,
+  assert(!!appEntry&&!!bootstrapEntry&&!/<script\b[^>]*\bsrc="app\.js/.test(index)&&missingNative.length===0,
     'the HTML app entry is native ESM and the complete successor runtime has discoverable native paths',missingNative.join(', '));
   assert(missingCache.length===0,
     'every native browser/Worker dependency is precached for raw-source offline launch',missingCache.join(', '));
@@ -182,7 +183,7 @@ assert(buildCheck.status === 0, "generated index and detail asset match their co
   // avoids mutating dist/ or racing another release/build gate.
   const staged=mkdtempSync(join(tmpdir(),'taurifer-catalog-release-'));
   try {
-    const htmlRuntime=[...index.matchAll(/<(?:script\b[^>]*\bsrc|link\b[^>]*\brel="stylesheet"[^>]*\bhref)="([^"]+)"/g)]
+    const htmlRuntime=[...index.matchAll(/<(?:script\b[^>]*\bsrc|link\b[^>]*\brel="(?:stylesheet|taurifer-entry)"[^>]*\bhref)="([^"]+)"/g)]
       .map(([,url])=>new URL(url,'https://catalog.test/').pathname.slice(1));
     const files=new Set([...native,...runtime,...htmlRuntime,'index.html','manifest.webmanifest','i18n.js','assets/exercise-catalog.json',
       ...mediaFiles.map(file=>'assets/exercises/'+file)]);
@@ -197,8 +198,24 @@ assert(buildCheck.status === 0, "generated index and detail asset match their co
     assert(/^[a-f0-9]{24}$/.test(manifest.id)&&runtime.every(pinned),
       'the complete native successor runtime has immutable required release paths with exact source-byte hashes');
     const published=readFileSync(join(staged,'index.html'),'utf8');
-    assert(published.includes(`src="${base}${appEntry}"`)&&htmlRuntime.every(file=>required.has(base+file)),
-      'each exact HTML runtime URL resolves inside its required immutable release');
+    const validPublished = (html, inventory = required) =>
+      html.includes(`rel="taurifer-entry" href="${base}${appEntry}"`) &&
+      html.includes(`type="module" src="${base}${bootstrapEntry}"`) &&
+      htmlRuntime.every(file => {
+        const asset = inventory.get(base + file);
+        return !!asset && asset.sha256 === createHash('sha256').update(readFileSync(join(ROOT,file))).digest('hex') &&
+          readFileSync(join(staged,asset.url)).equals(readFileSync(join(ROOT,file)));
+      });
+    assert(validPublished(published),
+      'each exact HTML runtime URL resolves inside its required immutable release with source-byte hashes');
+    assert(!validPublished(published.replace('rel="taurifer-entry"', 'rel="invalid-entry"')) &&
+      !validPublished(published.replace(`href="${base}${appEntry}"`, `href="${appEntry}"`)) &&
+      !validPublished(published.replace('type="module" src=', 'type="text/javascript" src=')),
+      'entry marker, release-relative href and deferred module bootstrap corruptions are rejected');
+    const missingBootstrap = new Map(required); missingBootstrap.delete(base + 'src/bootstrap.js');
+    const wrongEntryHash = new Map(required); wrongEntryHash.set(base + 'app.js', {...required.get(base + 'app.js'), sha256: '0'.repeat(64)});
+    assert(!validPublished(published, missingBootstrap) && !validPublished(published, wrongEntryHash),
+      'a missing required bootstrap and a corrupted entry byte hash are rejected');
     assert(pinned('src/training/generation.js')&&pinned('src/training/generation/internal/compiler.js'),
       'the actual compiler entry and implementation remain required offline assets');
     assert(pinned('src/training/authoring.js')&&pinned('src/training/authoring/internal/entry.js')&&pinned('src/training/authoring/internal/adapter.js'),
