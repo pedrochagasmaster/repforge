@@ -1,7 +1,7 @@
 /**
  * @typedef {{get:()=>number,set:(value:number)=>void,stop:()=>void,on:(event:'change',paint:(value:number)=>void)=>()=>void}} MotionValue
  * @typedef {{type?:string,stiffness?:number,damping?:number,mass?:number,restDelta?:number,restSpeed?:number,duration?:number,ease?:number[],velocity?:number}} AnimationOptions
- * @typedef {{then:(arrived:()=>unknown,failed:()=>unknown)=>Promise<unknown>}} Playback
+ * @typedef {{stop?:()=>void,then:(arrived:()=>unknown,failed:()=>unknown)=>Promise<unknown>}} Playback
  * @typedef {{animate:(target:MotionValue|HTMLElement,to:number|{height:string[]},options:AnimationOptions)=>Playback,motionValue:(initial:number)=>MotionValue}} MotionRuntime
  * @typedef {Promise<boolean> & {abandon:()=>void}} Arrival
  * @typedef {{left:number,top:number,width:number,height:number}} Rect
@@ -33,6 +33,9 @@ export function createMotion({ window: global, runtime = global.Motion || null,
   const performance = global.performance;
   const getComputedStyle = global.getComputedStyle.bind(global);
   const requestAnimationFrame = global.requestAnimationFrame.bind(global);
+  const cancelAnimationFrame = global.cancelAnimationFrame.bind(global);
+  /** Actual in-flight presentation work owned by this capability instance. */
+  /** @type {Set<()=>void>} */const liveCancellations=new Set();
   const setTimeout = global.setTimeout.bind(global);
   const clearTimeout = global.clearTimeout.bind(global);
   const MutationObserver = global.MutationObserver;
@@ -131,6 +134,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     hint(sheet, "transform");
 
     let disposed = false;
+    /** @type {Arrival|null} */let settlement=null;
     const handOff = () => {
       sheet.style.transform = "";
       if (scrim) scrim.style.opacity = "";
@@ -139,11 +143,14 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     const dispose = ({ preserve = false } = {}) => {
       if (disposed) return;
       disposed = true;
+      liveCancellations.delete(dispose);
+      settlement?.abandon();
       y.stop();
       stopPaint();
       if (!preserve) handOff();
     };
 
+    liveCancellations.add(dispose);
     return {
       /** @param {number} dy */
       follow(dy) {
@@ -159,15 +166,14 @@ export function createMotion({ window: global, runtime = global.Motion || null,
       settle({ velocity = 0 } = {}) {
         if (disposed) return settled;
         if (reducedMotion()) { dispose(); return settled; }
-        return animate(y, 0, { ...VOCABULARY.gestureSettle, velocity: perSecond(velocity) })
-          .then(() => { dispose(); return true; }, () => false);
+        settlement=arrival(animate(y,0,{...VOCABULARY.gestureSettle,velocity:perSecond(velocity)}),()=>!disposed);
+        return settlement.finally(()=>dispose());
       },
       dismiss({ velocity = 0 } = {}) {
         if (disposed) return settled;
         if (reducedMotion()) { dispose(); return settled; }
-        return animate(y, height, { ...VOCABULARY.gestureExit, velocity: perSecond(velocity) })
-          .then(() => true, () => false)
-          .finally(() => dispose());
+        settlement=arrival(animate(y,height,{...VOCABULARY.gestureExit,velocity:perSecond(velocity)}),()=>!disposed);
+        return settlement.finally(()=>dispose());
       },
       cancel: dispose,
     };
@@ -205,12 +211,14 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     const dispose = ({ preserve = false } = {}) => {
       if (disposed) return;
       disposed = true;
+      liveCancellations.delete(dispose);
       commitRun?.abandon();
       x.stop();
       stopPaint();
       if (!preserve) handOff();
     };
 
+    liveCancellations.add(dispose);
     return {
       width,
       /** @param {number} dx */
@@ -227,8 +235,8 @@ export function createMotion({ window: global, runtime = global.Motion || null,
       settle({ velocity = 0 } = {}) {
         if (disposed) return settled;
         if (reducedMotion()) { dispose(); return settled; }
-        return animate(x, 0, { ...VOCABULARY.gestureSettle, velocity: perSecond(velocity) })
-          .then(() => { dispose(); return true; }, () => false);
+        commitRun=arrival(animate(x,0,{...VOCABULARY.gestureSettle,velocity:perSecond(velocity)}),()=>!disposed);
+        return commitRun.finally(()=>dispose());
       },
       /* Resolves true only if the page reached the edge: a takeover or a cancel
          that stops the spring first resolves false, and the caller then does
@@ -261,15 +269,13 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     });
     track.style.transition = "none";
     hint(track, "transform");
-    return animate(x, 0, { ...VOCABULARY.gestureSettle, velocity: perSecond(velocity) })
-      .then(() => true, () => false)
-      .finally(() => {
-        stopPaint();
-        x.stop();
-        track.style.removeProperty("transition");
-        track.style.transform = "";
-        hint(track, null);
-      });
+    let active=true;
+    const arrived=arrival(animate(x,0,{...VOCABULARY.gestureSettle,velocity:perSecond(velocity)}),()=>active);
+    const cancel=()=>{
+      active=false;arrived.abandon();liveCancellations.delete(cancel);stopPaint();x.stop();
+      track.style.removeProperty('transition');track.style.transform='';hint(track,null)};
+    liveCancellations.add(cancel);
+    return arrived.finally(cancel);
   }
 
   /** @param {HTMLElement[]} rows @param {Map<string|undefined,{top:number}>} before */
@@ -288,12 +294,9 @@ export function createMotion({ window: global, runtime = global.Motion || null,
         row.style.transform = value ? `translate3d(0,${value}px,0)` : "";
       });
       hint(row, "transform");
-      animate(y, 0, VOCABULARY.layoutShift).then(() => true, () => false).finally(() => {
-        stopPaint();
-        y.stop();
-        row.style.transform = "";
-        hint(row, null);
-      });
+      const cancel=()=>{liveCancellations.delete(cancel);stopPaint();y.stop();row.style.transform='';hint(row,null)};
+      liveCancellations.add(cancel);
+      animate(y,0,VOCABULARY.layoutShift).then(()=>true,()=>false).finally(cancel);
     }
     return moved;
   }
@@ -313,14 +316,16 @@ export function createMotion({ window: global, runtime = global.Motion || null,
      step. A run superseded before then never starts. */
   /** @type {Array<()=>void>|null} */
   let frameStarts = null;
+  let frameStartId=0;
   /** @param {()=>void} start */
   function startOnNextFrame(start) {
     if (!frameStarts) {
       frameStarts = [];
-      requestAnimationFrame(() => {
+      frameStartId=requestAnimationFrame(() => {
+        frameStartId=0;
         const due = frameStarts;
         frameStarts = null;
-        for (const fn of /** @type {Array<()=>void>} */ (due)) fn();
+        for (const fn of due||[]) fn();
       });
     }
     frameStarts.push(start);
@@ -389,7 +394,14 @@ export function createMotion({ window: global, runtime = global.Motion || null,
       { then: (onArrive, onFail) => started.then(({ animation }) => animation.then(onArrive, onFail)) },
       () => indicatorRuns.get(el) === run
     );
+    const cancel=()=>{
+      if(indicatorRuns.get(el)!==run)return;
+      indicatorRuns.delete(el);y.stop();stopPaint();run.arrived?.abandon();
+      el.style.transform='';el.style.removeProperty('transform-origin');hint(el,null);
+      liveCancellations.delete(cancel)};
+    liveCancellations.add(cancel);
     return run.arrived.finally(() => {
+      liveCancellations.delete(cancel);
       stopPaint();
       if (indicatorRuns.get(el) !== run) return;
       indicatorRuns.delete(el);
@@ -435,7 +447,13 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     run.stopPaint = y.on("change", frame);
     frame(distance);
     run.arrived = arrival(animate(y, 0, VOCABULARY.layoutShift), () => coordinateRuns.get(host) === run);
+    const cancel=()=>{
+      if(coordinateRuns.get(host)!==run)return;
+      coordinateRuns.delete(host);y.stop();run.stopPaint();run.arrived?.abandon();
+      liveCancellations.delete(cancel)};
+    liveCancellations.add(cancel);
     return run.arrived.finally(() => {
+      liveCancellations.delete(cancel);
       run.stopPaint();
       if (coordinateRuns.get(host) !== run) return;
       coordinateRuns.delete(host);
@@ -484,6 +502,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     hint(page, "transform");
     run.arrived = arrival(animate(x, to, { ...VOCABULARY.navPush, velocity: perSecond(velocity) }), () => pushRuns.get(page) === run);
     const done = /** @type {Promise<boolean> & {cancel?:()=>void}} */ (run.arrived.finally(() => {
+      if(done.cancel)liveCancellations.delete(done.cancel);
       run.stopPaint();
       if (pushRuns.get(page) !== run) return;
       pushRuns.delete(page);
@@ -491,6 +510,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
       hint(page, null);
     }));
     done.cancel = () => {
+      if(done.cancel)liveCancellations.delete(done.cancel);
       if (pushRuns.get(page) !== run) return;
       pushRuns.delete(page);
       /** @type {Arrival} */(run.arrived).abandon();
@@ -499,6 +519,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
       page.style.transform = "";
       hint(page, null);
     };
+    liveCancellations.add(done.cancel);
     return done;
   }
 
@@ -518,12 +539,20 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     // Hold the measured start while Motion schedules its first keyframe.
     panel.style.height = `${from}px`;
     hint(panel, "height");
+    const playback=animate(panel,{height:[`${from}px`,`${to}px`]},tween);
     const arrived = arrival(
-      animate(panel, { height: [`${from}px`, `${to}px`] }, tween),
+      playback,
       () => disclosureRuns.get(panel) === token
     );
-    token.abandon = arrived.abandon;
+    const cancel=()=>{
+      liveCancellations.delete(cancel);
+      if(disclosureRuns.get(panel)!==token)return;
+      disclosureRuns.delete(panel);playback.stop?.();arrived.abandon();
+      panel.classList.remove(COLLAPSING);panel.style.height='';panel.style.overflow='';hint(panel,null)};
+    token.abandon=()=>{playback.stop?.();arrived.abandon();liveCancellations.delete(cancel)};
+    liveCancellations.add(cancel);
     return arrived.finally(() => {
+      liveCancellations.delete(cancel);
       if (disclosureRuns.get(panel) !== token) return;
       disclosureRuns.delete(panel);
       panel.classList.remove(COLLAPSING);
@@ -1268,6 +1297,10 @@ export function createMotion({ window: global, runtime = global.Motion || null,
   }
   function dispose() {
     activeGestureController?.dispose();
+    if(frameStartId)cancelAnimationFrame(frameStartId);
+    frameStartId=0;frameStarts=null;
+    for(const cancel of [...liveCancellations])cancel();
+    liveCancellations.clear();
     cancelEdgeSwipe();
     edgeTarget = null;
   }
