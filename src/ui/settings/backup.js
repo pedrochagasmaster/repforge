@@ -1,8 +1,8 @@
 /** Saved-backup selection/confirmation. The app owns parsing, restore/merge,
  * session identity and settlement; this view owns modal lifetime and feedback. */
 /** @typedef {ReturnType<typeof import('../../app/interchange.js').createBackupCommands>} Commands
- * @typedef {import('../../persistence/snapshot.js').RawSnapshot} Snapshot
- * @typedef {import('../../persistence/contracts.js').StorageIO} StorageIO
+ * @typedef {import('../../app/interchange.js').RawSnapshot} Snapshot
+ * @typedef {import('../../app/interchange.js').StorageIO} StorageIO
  * @typedef {ReturnType<Commands['describe']> & {s:Snapshot,io?:StorageIO|null,opener?:Element|null,bodyKey?:string,programOnly?:(()=>unknown)|null}} Choice
  */
 /** @param {{window:Window & typeof globalThis,commands:Pick<Commands,'describe'|'readFile'|'isImportable'|'isLegacy'|'replace'|'merge'>,

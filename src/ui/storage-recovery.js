@@ -1,8 +1,8 @@
 import {escapeHtml as esc} from './format.js';
-/** @typedef {import('../persistence/contracts.js').SnapshotChoice} Choice
+/** @typedef {import('../app/storage-recovery.js').Choice} Choice
  * @typedef {Extract<Choice,{kind:'unresolved'}>} Unresolved
- * @typedef {import('../persistence/contracts.js').ReplicaRead} Replica
- * @typedef {import('../persistence/contracts.js').StoredSnapshot} Snapshot
+ * @typedef {import('../app/storage-recovery.js').Replica} Replica
+ * @typedef {import('../app/storage-recovery.js').Snapshot} Snapshot
  */
 /** Recovery only presents copies and explicit actions. The application command
  * owns replica reads, choice validation, and destructive clearing.
