@@ -21,6 +21,12 @@
  *    correction and when the lifter moves to another exercise.
  * 9. While a rest runs, its clock line is never scrolled out of the context window, with the skip bar above the deck
  *    (owner screenshot of 2026-10-18) or without it, at 390×700 and on an SE-class 375×667.
+ * 10. #300, the software keyboard (owner's iPhone screenshots of 2026-10-18). Chromium has no software keyboard, so
+ *    the live visualViewport is given the band iOS leaves (the keyboard plus its 44 px accessory bar) and then the pan
+ *    iOS adds to show the field, with a browser focus-scroll attempt on top. The shelf sits flush on the band's bottom
+ *    edge, the field being edited and Log set are inside the band, the document never scrolls and the header keeps
+ *    its place at the band's top, from the moment of focus and across a change of field; dismissing the keyboard
+ *    gives back the layout from before. Android's resizes-content (a shorter layout viewport) gets the same checks.
  */
 import { launchChromium } from "./browser.mjs";
 import { SAFE_AREA, openCatalogState } from "./fixtures/catalog-state.mjs";
@@ -437,6 +443,116 @@ try {
       });
       check(m.skipbar === skip && m.open === "2", `${phone}${skip ? ", skip bar showing" : ""}: set 2 is open while the rest runs (the case under test)`, m);
       check(m.clockTop >= m.top - 0.5 && m.clockBottom <= m.bottom + 0.5, `${phone}${skip ? ", skip bar showing" : ""}: the rest's clock line is whole in the window`, m);
+    } finally { await context.close(); }
+  }
+
+  console.log("\n10. #300: the shelf sits on the keyboard, the page never scrolls, dismissing restores the layout");
+  /** Model the software keyboard on the live visualViewport the app listens to. `kb` is the keyboard plus its
+   *  accessory bar; `pan` is the visual viewport's offset inside the layout viewport (iOS pans it to show a field). */
+  const keyboard = async (page, state) => {
+    await page.evaluate((state) => {
+      const vv = window.visualViewport;
+      if (!state) { delete vv.height; delete vv.offsetTop; }
+      else {
+        const height = innerHeight - state.kb;
+        Object.defineProperty(vv, "height", { configurable: true, get: () => height });
+        Object.defineProperty(vv, "offsetTop", { configurable: true, get: () => state.pan });
+        // The browser's own focus scroll, which the app has to leave with nothing to show for it.
+        if (state.pan) window.scrollTo(0, state.pan);
+      }
+      vv.dispatchEvent(new Event("resize"));
+      vv.dispatchEvent(new Event("scroll"));
+      window.dispatchEvent(new Event("scroll"));
+    }, state);
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve)))));
+  };
+  const kbGeometry = (page) => page.evaluate(() => {
+    const vv = window.visualViewport, art = document.querySelector("#workout .exercise--focus.is-current");
+    const box = (el) => { const r = el?.getBoundingClientRect(); return r ? { top: Math.round(r.top * 10) / 10, bottom: Math.round(r.bottom * 10) / 10 } : null; };
+    const active = document.activeElement?.closest?.(".shelf__field") ? document.activeElement : null;
+    return {
+      band: [vv.offsetTop, vv.offsetTop + vv.height], flag: document.documentElement.dataset.keyboard || "",
+      scroll: document.scrollingElement.scrollTop, scrollY: window.scrollY,
+      head: box(document.querySelector("#workoutShell .wo-head")), shelf: box(art.querySelector(".focus-shelf")),
+      context: box(art.querySelector(".fcard__context")), field: box(active), fieldKey: active?.dataset.k || "",
+      cta: box(art.querySelector(".focus-shelf .saveset")),
+      // The status bar's paper band (body::before, #440).
+      paper: parseFloat(getComputedStyle(document.body, "::before").top) || 0,
+    };
+  });
+  /** Open the selected field as the real input: the second tap on the selected field. */
+  const openField = async (page, field) => {
+    // A field opened earlier stays open after the keyboard goes; a tap on its input brings the caret back.
+    const open = page.locator("#workout .exercise--focus.is-current .focus-shelf .shelf__field.is-sel.is-editing .shelf__input");
+    if (!field && await open.count()) await open.click();
+    else {
+      const btn = page.locator(`#workout .exercise--focus.is-current .focus-shelf ${field ? `[data-shelf-field='${field}']` : ".shelf__field.is-sel .shelf__fieldbtn"}`);
+      if (field) await btn.click();
+      await btn.click();
+    }
+    await page.waitForFunction(() => document.activeElement?.matches?.(".focus-shelf .shelf__input"), undefined, { timeout: 5000 });
+  };
+  const near1 = (a, b) => Math.abs(a - b) <= 1;
+  const KB = { "390x844": 291 + 44, "375x667": 216 + 44 };
+  for (const [phone, spec] of Object.entries(D_PHONES)) for (const key of ["workout/focus", "workout/rest-running"]) {
+    const { context, page } = await openCatalogState(browser, key, spec.width, "en", "normal", { height: spec.height, safe: spec.safe });
+    const label = `${phone} ${key}${key === "workout/rest-running" ? " with the skip bar" : ""}`;
+    try {
+      await noGuide(page);
+      if (key === "workout/rest-running") {
+        const first = await page.evaluate(() => document.querySelector("#workout .exercise--focus.is-current").dataset.ex);
+        const other = await page.evaluate((id) => window.__repforgeFocus.list().find((e) => e.id !== id)?.id, first);
+        await exerciseAction(page, other, "#exActionSkipBtn");
+        await selectExercise(page, first);
+        await page.waitForSelector("#workout .skipbar");
+      }
+      const before = await kbGeometry(page);
+      await openField(page);
+      const kb = KB[phone];
+      // 1. The keyboard comes up, before anything is typed and before any pan.
+      await keyboard(page, { kb, pan: 0 });
+      const up = await kbGeometry(page);
+      // 2. iOS pans the visual viewport to show the field (the 2026-10-18 screenshot: about 49 px) and the browser
+      //    tries its own focus scroll.
+      await keyboard(page, { kb, pan: 49 });
+      const panned = await kbGeometry(page);
+      for (const [when, g] of [["on focus", up], ["after the pan", panned]]) {
+        check(g.flag === "up" && near1(g.shelf.bottom, g.band[1]), `${label} ${when}: the shelf sits flush on the keyboard`, g);
+        check(g.field && g.field.top >= g.band[0] - 0.5 && g.field.bottom <= g.band[1] + 0.5
+          && g.cta.top >= g.band[0] - 0.5 && g.cta.bottom <= g.band[1] + 0.5, `${label} ${when}: the field and Log set are inside the band`, g);
+        check(g.scroll === 0 && g.scrollY === 0, `${label} ${when}: the document does not scroll`, g);
+        check(near1(g.head.top - g.band[0], before.head.top), `${label} ${when}: the header keeps its place at the top of the band`, { before: before.head, ...g });
+        check(near1(g.paper, g.band[0]), `${label} ${when}: the status bar's paper band stays at the top of the band`, g);
+      }
+      // 3. Another field: tapping its button closes the keyboard first, as on the phone; it opens again on that field.
+      await page.evaluate(() => document.activeElement?.blur());
+      await keyboard(page, null);
+      const other = await page.evaluate(() => [...document.querySelectorAll("#workout .exercise--focus.is-current .focus-shelf [data-shelf-field]")]
+        .find((b) => b.getAttribute("aria-pressed") !== "true")?.dataset.shelfField);
+      await openField(page, other);
+      await keyboard(page, { kb, pan: 0 });
+      await keyboard(page, { kb, pan: 49 });
+      const switched = await kbGeometry(page);
+      check(switched.fieldKey !== panned.fieldKey && near1(switched.shelf.bottom, switched.band[1]) && near1(switched.shelf.top - switched.band[0], panned.shelf.top - panned.band[0])
+        && switched.scroll === 0 && near1(switched.head.top - switched.band[0], before.head.top),
+        `${label}: another field keeps the same place`, { panned, switched });
+      // 4. The keyboard goes: the layout is the one from before.
+      await page.evaluate(() => document.activeElement?.blur());
+      await keyboard(page, null);
+      const after = await kbGeometry(page);
+      check(!after.flag && after.scroll === 0 && after.scrollY === 0 && ["head", "shelf", "context"].every((k) => near1(after[k].top, before[k].top) && near1(after[k].bottom, before[k].bottom)),
+        `${label}: dismissing the keyboard restores the layout`, { before, after });
+      // 5. Android with resizes-content: the layout viewport itself shrinks.
+      if (key === "workout/focus") {
+        await openField(page);
+        await page.setViewportSize({ width: spec.width, height: spec.height - kb });
+        await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        const android = await kbGeometry(page);
+        check(near1(android.shelf.bottom, android.band[1]) && android.field && android.field.bottom <= android.band[1] + 0.5 && android.cta.bottom <= android.band[1] + 0.5
+          && android.scroll === 0 && near1(android.head.top, before.head.top), `${label}, Android resizes-content: the shelf sits on the keyboard and nothing scrolls`, android);
+        await page.evaluate(() => document.activeElement?.blur());
+        await page.setViewportSize({ width: spec.width, height: spec.height });
+      }
     } finally { await context.close(); }
   }
 } finally {

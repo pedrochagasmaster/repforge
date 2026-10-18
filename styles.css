@@ -1035,7 +1035,16 @@ body.is-workout.is-focus-wo #workoutShell > :not(.wo-head):not(#logForm){
    band the keyboard leaves visible, not 100dvh, so the shelf and the field being edited sit just above the keyboard
    (#300). The floors that keep the shelf from being squeezed by the chrome above it stand down: in that band the shelf
    is what matters, and the context region gives up its height instead. */
-:root[data-keyboard="up"] body.is-workout.is-focus-wo main{height:var(--vvh,100dvh)}
+/* The band is where the visual viewport is, not the top of the layout one: iOS pans the visual viewport to show the
+   field (and a browser may try its own focus scroll), so Focus is pinned to the band itself. The header keeps its
+   place under the safe area, the shelf sits on the keyboard's accessory bar, and the document has nothing to scroll. */
+:root[data-keyboard="up"] body.is-workout.is-focus-wo main{position:fixed;top:var(--vv-top,0px);left:0;right:0;height:var(--vvh,100dvh)}
+/* The status bar's paper band follows the band too, so it stays under the clock after the pan. */
+:root[data-keyboard="up"] body.is-workout.is-focus-wo::before{top:var(--vv-top,0px)}
+/* The deck keeps the shelf whole (`--focus-deck-floor`, from syncFocusFloor) and the skip bar gives way like the
+   banners above the deck, so a short band still holds the whole shelf. */
+:root[data-keyboard="up"] body.is-workout.is-focus-wo #workout > .deck{min-height:var(--focus-deck-floor,0px)}
+:root[data-keyboard="up"] body.is-workout.is-focus-wo #workout > .skipbar{flex:0 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
 :root[data-keyboard="up"] body.is-workout.is-focus-wo #workoutShell,
 :root[data-keyboard="up"] body.is-workout.is-focus-wo #logForm{min-height:0}
 :root[data-keyboard="up"] body.is-workout.is-focus-wo article.exercise--focus .fcard__context{min-height:0}
