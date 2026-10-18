@@ -1,0 +1,280 @@
+diff --git a/programlab/archive-entry.js b/programlab/archive-entry.js
+--- a/programlab/archive-entry.js
++++ b/programlab/archive-entry.js
+@@ -1,27 +1,30 @@
+-/* Packaged at the artifact root as programlab-archive-worker.js so the shared
+-   catalog loader resolves its original ./assets URL. No archive selects code. */
++import {createGenerationRules} from "../src/training/generation.js";
++import {createCatalog} from "../src/platform/catalog.js";
++import "./domain.js";
++import "./archive.js";
++import "./archive-worker.js";
++/* Native archive worker. Catalog URLs resolve from their native module;
++   archives never select executable code. */
+ const waiting = [];
+ globalThis.onmessage = event => waiting.push(event);
+ (async function initializeArchiveWorker(root) {
+   'use strict';
+   try {
+-    const response = await fetch('./programlab/build-manifest.json', { cache: 'no-store' });
++    const response = await fetch(new URL("./build-manifest.json",import.meta.url), { cache: 'no-store' });
+     if (!response.ok) throw new Error('Archive build manifest unavailable');
+     const manifest = await response.json();
+     if (manifest.kind !== 'taurifer-programlab-build' || manifest.schemaVersion !== 1
+-      || !Array.isArray(manifest.worker?.scripts) || manifest.worker.scripts.some(name => !/^[a-z0-9-]+\.js$/.test(name))) throw new Error('Invalid archive build manifest');
+-    root.RepForgeExercises = { library: [], catalogSha256: manifest.catalogSha256 };
+-    root.importScripts(...manifest.worker.scripts, './programlab/domain.js', './programlab/archive.js', './programlab/archive-worker.js');
+-    await root.RepForgeExerciseCatalog.load();
+-    const catalog = root.RepForgeExerciseCatalog.snapshot();
+-    const Compiler = root.RepForgeProgramCompiler, Policy = root.RepForgeEnginePolicy, D = root.ProgramLabDomain;
++      || manifest.worker?.type !== 'module' || manifest.worker?.url !== 'src/platform/program-worker.js') throw new Error('Invalid archive build manifest');
++    const generation=createGenerationRules(), Compiler=generation.compiler, Policy=Compiler, D=root.ProgramLabDomain;
++    const source=createCatalog({identity:generation.identity,catalogSha256:manifest.catalogSha256});
++    await source.load(); const catalog=source.snapshot();
+     const build = { runtimeFingerprint: manifest.runtimeFingerprint, catalogSha256: manifest.catalogSha256, diagnostics: manifest.diagnosticsVersion };
+     root.ProgramLabArchiveWorker.install(context => {
+       if (D.digest(context) !== D.digest(build)) throw new Error('Archive worker build context mismatch');
+       return root.ProgramLabArchive.create({
+         build, sweepPaths: Policy.getEnginePolicyMetadata().fields.map(field => field.path),
+         validatePolicy: Policy.normalizeEnginePolicy,
+-        validateRequest: value => Compiler.normalizeProgramRequest(value, catalog),
++        validateRequest: value => Compiler.canonicalizeRequest(value, catalog),
+         // Historical definitions use the engine's catalog-independent structural
+         // boundary; their eligibility is never checked against today's catalog.
+         validateProgram: (value, { archived }) => archived ? Compiler.validateProgramDefinitionStructure(value) : Compiler.validateProgramDefinition(value, catalog),
+diff --git a/programlab/archive-worker.js b/programlab/archive-worker.js
+--- a/programlab/archive-worker.js
++++ b/programlab/archive-worker.js
+@@ -3,7 +3,7 @@
+ (function (root) {
+   "use strict";
+   function createClient({ workerURL, WorkerClass = root.Worker, timeoutMs = 600000 }) {
+-    const worker = new WorkerClass(workerURL), pending = new Map();
++    const worker = new WorkerClass(workerURL,{type:"module"}), pending = new Map();
+     let sequence = 0, disposed = false;
+     function terminate(error) {
+       if (disposed) return;
+diff --git a/programlab/archive.js b/programlab/archive.js
+--- a/programlab/archive.js
++++ b/programlab/archive.js
+@@ -1,6 +1,6 @@
++import D from "./domain.js";
+ (function (root) {
+   "use strict";
+-  const D = typeof module !== "undefined" && module.exports ? require("./domain.js") : root.ProgramLabDomain;
+   const KIND = "taurifer-programlab-experiment", MANIFEST = "taurifer-programlab-archive-manifest";
+   const bytes = value => new TextEncoder().encode(typeof value === "string" ? value : D.canonicalJSON(value)).length;
+   const summary = run => { const { records, ...metadata } = run; return metadata; };
+@@ -270,3 +270,5 @@
+   if (typeof module !== "undefined" && module.exports) module.exports = api;
+   if (root) root.ProgramLabArchive = api;
+ })(typeof globalThis !== "undefined" ? globalThis : this);
++
++export default globalThis.ProgramLabArchive;
+diff --git a/programlab/domain.js b/programlab/domain.js
+--- a/programlab/domain.js
++++ b/programlab/domain.js
+@@ -1,7 +1,6 @@
++import Identity from "../src/training/identity.js";
+ (function (root) {
+   "use strict";
+-  const Identity = typeof module !== "undefined" && module.exports
+-    ? require("../generation-identity.js") : root.RepForgeGenerationIdentity;
+   const LIMITS = Object.freeze({ pairs: 200, sweepValues: 20, cells: 1000,
+     depth: 40, parts: 10, partBytes: 50 * 1024 * 1024, totalBytes: 500 * 1024 * 1024 });
+   const METRICS_VERSION = "programlab-metrics@1";
+@@ -77,7 +76,7 @@
+       sourceCommit: manifest.sourceCommit, dirty: manifest.dirty, generatorVersion: manifest.generatorVersion,
+       programSchemaVersion: manifest.programSchemaVersion, policyVersion: manifest.policyVersion, diagnosticsVersion: manifest.diagnosticsVersion,
+       labFingerprint: manifest.labFingerprint, sourceHashes: Object.fromEntries(Object.entries(manifest.files).map(([name, file]) => [name, file.sha256])),
+-      runtimeFiles: [...new Set([...manifest.worker.scripts, "exercises.js", "program-entry-adapter.js", "program-engine.js"])].sort(),
++      runtimeFiles: [...manifest.runtimeFiles],
+       labFiles: Object.keys(manifest.files).filter(name => name.startsWith("programlab/") && /\.(?:js|mjs)$/.test(name)),
+     }, { runtimeFingerprint: manifest.runtimeFingerprint, catalogSha256: manifest.catalogSha256, diagnostics: manifest.diagnosticsVersion });
+   }
+@@ -419,3 +418,5 @@
+   if (typeof module !== "undefined" && module.exports) module.exports = api;
+   if (root) root.ProgramLabDomain = api;
+ })(typeof globalThis !== "undefined" ? globalThis : this);
++
++export default globalThis.ProgramLabDomain;
+diff --git a/programlab/index.html b/programlab/index.html
+--- a/programlab/index.html
++++ b/programlab/index.html
+@@ -68,9 +68,7 @@
+   </main>
+   <footer>Local experiments · prescriptions are observations, not predicted training outcomes. Candidate programs cannot be activated here.</footer>
+   <!-- Exact shared source files; no production app, navigation or service worker. -->
+-  <script src="exercises.js"></script><script src="exercise-metrics.js"></script>
+-  <script src="generation-identity.js"></script><script src="engine-policy.js"></script><script src="generation-candidates.js"></script><script src="generation-layout.js"></script>
+-  <script src="program-compiler.js"></script><script src="exercise-catalog.js"></script><script src="program-entry-adapter.js"></script><script src="program-engine.js"></script>
+-  <script src="programlab/i18n.js"></script><script src="programlab/domain.js"></script><script src="programlab/store.js"></script><script src="programlab/archive-worker.js"></script><script src="programlab/services.js"></script><script src="programlab/app.js"></script>
++  <script src="exercises.js"></script><script src="programlab/i18n.js"></script>
++  <script type="module" src="programlab/native-entry.js"></script>
+ </body>
+ </html>
+diff --git a/programlab/services.js b/programlab/services.js
+--- a/programlab/services.js
++++ b/programlab/services.js
+@@ -1,3 +1,7 @@
++import {createGenerationRules} from "../src/training/generation.js";
++import {createEntryAdapter} from "../src/training/authoring.js";
++import {createCatalog} from "../src/platform/catalog.js";
++import * as NativeEngine from "../src/platform/program-executor.js";
+ /* UI adapter for the real shared engine, lab domain and lab-only store.
+    No generation, identity, metric, archive or database implementation lives here. */
+ (function attachProgramLabServices(root) {
+@@ -7,7 +11,7 @@
+   const L = () => root.RepForgeProgramLabI18n;
+   const t = (key, values) => L().t(key, values);
+   const issue = (code, message) => Object.assign(new Error(message), { code });
+-  let Policy, Compiler, Adapter, Engine, D, db, domain, runner, catalog, manifest, metadata, corpus;
++  let generation, Policy, Compiler, Adapter, Engine, D, db, domain, runner, catalog, manifest, metadata, corpus;
+   let storageError = null, activeArchive = null, archivedMetricsDomain, planCache = null;
+   const metricsCache = new WeakMap();
+   const build = () => ({ runtimeFingerprint: manifest.runtimeFingerprint, catalogSha256: manifest.catalogSha256, diagnostics: manifest.diagnosticsVersion });
+@@ -49,7 +53,7 @@
+       if (!checked.ok) throw Object.assign(issue('invalid_scenario', t('Review the scenario answers.')), { issues: checked.issues || checked.conflicts });
+       scenario.request = checked.value;
+     }
+-    checked = Compiler.normalizeProgramRequest(scenario.request, catalog);
++    checked = Compiler.canonicalizeRequest(scenario.request, catalog);
+     if (!checked.ok) throw Object.assign(issue('invalid_scenario', t('Review the canonical request.')), { issues: checked.issues });
+     scenario.request = checked.value;
+     return D.snapshot(scenario);
+@@ -240,22 +244,23 @@
+     };
+   }
+   async function initialize() {
+-    Policy = root.RepForgeEnginePolicy; Compiler = root.RepForgeProgramCompiler; Adapter = root.RepForgeProgramEntryAdapter;
+-    Engine = root.RepForgeProgramEngine; D = root.ProgramLabDomain;
++    generation=createGenerationRules(); Compiler=generation.compiler; Policy=Compiler; Adapter=createEntryAdapter({compiler:Compiler});
++    Engine=NativeEngine; D=root.ProgramLabDomain;
+     if (!Policy || !Compiler || !Adapter || !Engine || !D || !root.ProgramLabStore || !root.ProgramLabArchiveWorker) throw issue('artifact_incomplete', t('Shared lab modules are unavailable. Assemble the complete standalone artifact.'));
+     manifest = await getJSON('programlab/build-manifest.json');
+     await verifyManifest(manifest);
+-    await root.RepForgeExerciseCatalog.load(); catalog = root.RepForgeExerciseCatalog.snapshot();
++    const source=createCatalog({identity:generation.identity,catalogSha256:manifest.catalogSha256});
++    await source.load(); catalog=source.snapshot();
+     metadata = Policy.getEnginePolicyMetadata();
+     const factory = await import(new URL('programlab/corpus-cases.mjs', document.baseURI).href);
+     corpus = factory.corpusCases({ Adapter, Catalog: catalog });
+-    domain = D.create({ normalizePolicy: Policy.normalizeEnginePolicy, normalizeRequest: request => Compiler.normalizeProgramRequest(request, catalog),
++    domain = D.create({ normalizePolicy: Policy.normalizeEnginePolicy, normalizeRequest: request => Compiler.canonicalizeRequest(request, catalog),
+       estimateDaySeconds: (day, cycle, enginePolicy) => Compiler.estimateDaySeconds(day, cycle, catalog, { enginePolicy }),
+       sweepPaths: metadata.fields.map(field => field.path) });
+     archivedMetricsDomain = D.create({ estimateDaySeconds: () => NaN });
+     try { db = await root.ProgramLabStore.open(); await db.recoverInterrupted(); } catch (error) { storageError = error; db = null; }
+-    runner = D.createRunner({ store: db, buildProvenance: D.buildProvenance(manifest), createExecutor: () => Engine.create({ compiler: Compiler, catalog: () => catalog, allowMainThreadFallback: false,
+-      worker: { url: new URL(manifest.worker.url, document.baseURI).href, scripts: manifest.worker.scripts.map(name => new URL(name, document.baseURI).href), catalogSha256: manifest.catalogSha256 } }) });
++    runner = D.createRunner({ store: db, buildProvenance: D.buildProvenance(manifest), createExecutor: () => Engine.create({ compiler: Compiler, transition:generation.transition, catalog: () => catalog, allowMainThreadFallback: false,
++      worker: { url: NativeEngine.url, catalogSha256: manifest.catalogSha256 } }) });
+     return {
+       manifest, defaultPolicy: Policy.getDefaultEnginePolicy(), configuration: configuration(), seedMode: 'canonical',
+       exerciseLabels: Object.fromEntries(catalog.exercises.map(item => [item.id, item.name])),
+@@ -320,7 +325,7 @@
+   }
+   async function archiveOperation(action) {
+     if (activeArchive) throw issue('archive_active', t('An archive operation is already active.'));
+-    const client = root.ProgramLabArchiveWorker.createClient({ workerURL: new URL(manifest.archiveWorker.url, document.baseURI).href });
++    const client = root.ProgramLabArchiveWorker.createClient({ workerURL: new URL("./archive-entry.js",import.meta.url).href });
+     activeArchive = client;
+     try { return await action(client); }
+     finally { client.dispose(); if (activeArchive === client) activeArchive = null; }
+diff --git a/tools/build-programlab.mjs b/tools/build-programlab.mjs
+--- a/tools/build-programlab.mjs
++++ b/tools/build-programlab.mjs
+@@ -6,11 +6,41 @@
+ import { fileURLToPath, pathToFileURL } from 'node:url';
+ import { createHash } from 'node:crypto';
+ import { execFileSync } from 'node:child_process';
++import ts from './typecheck/node_modules/typescript/lib/typescript.js';
+ const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+ const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
+-const workerSources = ['exercise-metrics.js', 'generation-identity.js', 'engine-policy.js', 'generation-candidates.js', 'generation-layout.js', 'program-compiler.js', 'exercise-catalog.js'];
++const runtimeRoots=['src/training/generation.js','src/training/authoring.js','src/platform/catalog.js','src/platform/program-executor.js','src/platform/program-worker.js'];
+ const corpusSource = 'test/fixtures/program-compiler-corpus-cases.mjs';
+-const required = ['programlab/index.html', 'programlab/styles.css', 'programlab/app.js', 'programlab/i18n.js', 'programlab/archive-entry.js', 'programlab/archive.js', 'programlab/archive-worker.js', 'programlab/domain.js', 'programlab/store.js', 'programlab/services.js', 'assets/exercise-catalog.json', 'fonts/plexsans.woff2', 'fonts/plexmono-400.woff2', 'exercises.js', 'program-entry-adapter.js', 'program-engine.js', ...workerSources];
++const required = ['programlab/index.html','programlab/styles.css','programlab/app.js','programlab/i18n.js','programlab/native-entry.js','programlab/archive-entry.js','programlab/archive.js','programlab/archive-worker.js','programlab/domain.js','programlab/store.js','programlab/services.js','assets/exercise-catalog.json','fonts/plexsans.woff2','fonts/plexmono-400.woff2','exercises.js',...runtimeRoots];
++async function nativeModules(source) {
++  const seen=new Set();
++  async function visit(name) {
++    localPath(name);
++    if(!/^src\/(?:training|platform)\//.test(name))throw new Error(`Lab runtime crossed its isolated public graph: ${name}`);
++    if(seen.has(name))return;
++    seen.add(name);
++    const text=await readFile(path.join(source,name),'utf8');
++    const ast=ts.createSourceFile(name,text,ts.ScriptTarget.Latest,true,ts.ScriptKind.JS),deps=[];
++    function inspect(node) {
++      if(ts.isImportDeclaration(node)||ts.isExportDeclaration(node)) {
++        const spec=node.moduleSpecifier;
++        if(spec) {
++          if(!ts.isStringLiteral(spec)||!spec.text.startsWith('.'))throw new Error(`Nonlocal runtime import in ${name}`);
++          deps.push(path.posix.normalize(path.posix.join(path.posix.dirname(name),spec.text)));
++        }
++      }
++      if(ts.isCallExpression(node)&&node.expression.kind===ts.SyntaxKind.ImportKeyword) {
++        if(!ts.isStringLiteral(node.arguments[0]))throw new Error(`Dynamic runtime import in ${name}`);
++        deps.push(path.posix.normalize(path.posix.join(path.posix.dirname(name),node.arguments[0].text)));
++      }
++      ts.forEachChild(node,inspect);
++    }
++    inspect(ast);
++    for(const dependency of deps)await visit(dependency);
++  }
++  for(const name of runtimeRoots)await visit(name);
++  return [...seen].sort();
++}
+ function git(sourceDir, args) {
+   try { return execFileSync('git', ['-C', sourceDir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); }
+   catch { return null; }
+@@ -44,33 +74,33 @@
+   const html = await readFile(path.join(source, 'programlab/index.html'), 'utf8');
+   const references = [...html.matchAll(/(?:src|href)="([^"#]+)"/g)].map(match => match[1]).filter(name => !['../', './'].includes(name));
+   references.forEach(localPath);
+-  const names = [...new Set([...required, ...references, ...await staticFiles(source, 'programlab')])].sort();
++  const moduleSources=await nativeModules(source);
++  const names = [...new Set([...moduleSources,...required, ...references, ...await staticFiles(source, 'programlab')])].sort();
+   const content = new Map();
+   for (const name of names) {
+     localPath(name);
+     if (!(await lstat(path.join(source, name))).isFile()) throw new Error(`Source must be a regular file: ${name}`);
+     content.set(name, await readFile(path.join(source, name)));
+   }
+-  content.set('programlab-archive-worker.js', await readFile(path.join(source, 'programlab/archive-entry.js')));
+   content.set('programlab/corpus-cases.mjs', await readFile(path.join(source, corpusSource)));
+   const catalogSha256 = sha256(content.get('assets/exercise-catalog.json'));
+   const pin = content.get('exercises.js').toString().match(/(?:EXERCISE_CATALOG_SHA256|catalogSha256)\s*(?:=|:)\s*["']([a-f0-9]{64})["']/)?.[1];
+   if (pin !== catalogSha256) throw new Error('Catalog bytes do not match the generated catalog integrity pin');
+-  const generatorVersion = content.get('program-compiler.js').toString().match(/const GENERATOR_VERSION\s*=\s*["']([^"']+)["']/)?.[1];
++  const generatorVersion = content.get('src/training/generation/internal/compiler.js').toString().match(/const GENERATOR_VERSION\s*=\s*["']([^"']+)["']/)?.[1];
+   if (!generatorVersion) throw new Error('Compiler generator identity is unavailable');
+   content.set('index.html', Buffer.from(html.replace('<base href="../">', '<base href="./">')));
+   const sourceCommit = git(source, ['rev-parse', 'HEAD']);
+   const dirtyStatus = git(source, ['status', '--porcelain']);
+   const files = Object.fromEntries([...content].map(([name, bytes]) => [name, { sha256: sha256(bytes), bytes: bytes.length, source: name === 'index.html' ? 'programlab/index.html (root entry)' : name === 'programlab/corpus-cases.mjs' ? corpusSource : name === 'programlab-archive-worker.js' ? 'programlab/archive-entry.js (root worker entry)' : name }]));
+   const fingerprint = list => sha256(Buffer.from(JSON.stringify(list.map(name => [name, files[name].sha256]))));
+-  const runtimeFiles = [...new Set([...workerSources, 'exercises.js', 'program-entry-adapter.js', 'program-engine.js'])].sort();
++  const runtimeFiles = [...moduleSources,'exercises.js'].sort();
+   const labFiles = [...content.keys()].filter(name => name.startsWith('programlab/') && /\.(?:js|mjs)$/.test(name));
+   const manifest = {
+     kind: 'taurifer-programlab-build', schemaVersion: 1, sourceCommit,
+     dirty: sourceCommit ? dirtyStatus !== '' : null,
+     generatorVersion, programSchemaVersion: 2, policyVersion: 'engine-policy@1', diagnosticsVersion: 'allocation-lineage@1',
+     catalogSha256, runtimeFingerprint: fingerprint(runtimeFiles), labFingerprint: fingerprint(labFiles),
+-    worker: { url: 'program-engine.js', scripts: workerSources, catalogSha256 }, archiveWorker: { url: 'programlab-archive-worker.js' }, files,
++    runtimeFiles, worker: { url: 'src/platform/program-worker.js', type:'module', modules:moduleSources, catalogSha256 }, archiveWorker: { url: 'programlab/archive-entry.js', type:'module' }, files,
+   };
+   await mkdir(path.dirname(output), { recursive: true });
+   const staging = await mkdtemp(path.join(path.dirname(output), '.programlab-build-'));
+diff --git a/programlab/native-entry.js b/programlab/native-entry.js
+new file mode 100644
+--- /dev/null
++++ b/programlab/native-entry.js
+@@ -0,0 +1,6 @@
++// One Lab-owned composition root. Keep owned host initialization ordered.
++await import('./domain.js');
++await import('./store.js');
++await import('./archive-worker.js');
++await import('./services.js');
++await import('./app.js');
