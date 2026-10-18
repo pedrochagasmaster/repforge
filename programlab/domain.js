@@ -53,6 +53,34 @@
     if (typeof value !== "string" || !value || value.length > 4096) fail("invalid_schema", `Invalid ${field}`);
     return value;
   }
+  // Provenance is bounded inert data; imported filenames never select code.
+  function validateBuildProvenance(value, build) {
+    keys(value, ["kind", "schemaVersion", "sourceCommit", "dirty", "generatorVersion", "programSchemaVersion", "policyVersion", "diagnosticsVersion", "labFingerprint", "sourceHashes", "runtimeFiles", "labFiles"]);
+    const check = (valid, message) => { if (!valid) fail("invalid_provenance", message); };
+    check(value.kind === "taurifer-programlab-build-provenance" && value.schemaVersion === 1, "Unsupported build provenance");
+    check(value.sourceCommit === null || typeof value.sourceCommit === "string" && /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(value.sourceCommit), "Invalid source commit");
+    check(value.dirty === null || typeof value.dirty === "boolean", "Invalid dirty state");
+    for (const field of ["generatorVersion", "policyVersion", "diagnosticsVersion"]) check(typeof value[field] === "string" && value[field].length > 0 && value[field].length <= 128, "Invalid provenance version");
+    check([1, 2].includes(value.programSchemaVersion), "Invalid program schema version");
+    const hash = item => typeof item === "string" && /^[a-f0-9]{64}$/.test(item);
+    const filename = name => typeof name === "string" && name.length > 0 && name.length <= 256 && !/[\\:?#]/.test(name) && name.split("/").every(part => part && part !== "." && part !== "..");
+    check(value.sourceHashes && !Array.isArray(value.sourceHashes) && typeof value.sourceHashes === "object" && Object.keys(value.sourceHashes).length <= 200, "Invalid source hash bound");
+    for (const [name, sha] of Object.entries(value.sourceHashes)) check(filename(name) && hash(sha), "Invalid source hash");
+    for (const field of ["runtimeFiles", "labFiles"]) check(Array.isArray(value[field]) && value[field].length > 0 && value[field].length <= 200 && new Set(value[field]).size === value[field].length && value[field].every(name => filename(name) && Object.hasOwn(value.sourceHashes, name)), "Invalid provenance file list");
+    check(hash(value.labFingerprint) && digest(value.labFiles.map(name => [name, value.sourceHashes[name]])) === value.labFingerprint, "Lab fingerprint mismatch");
+    check(digest(value.runtimeFiles.map(name => [name, value.sourceHashes[name]])) === build.runtimeFingerprint, "Runtime fingerprint mismatch");
+    check(value.sourceHashes["assets/exercise-catalog.json"] === build.catalogSha256 && value.diagnosticsVersion === build.diagnostics, "Build provenance identity mismatch");
+    return snapshot(value);
+  }
+  function buildProvenance(manifest) {
+    return validateBuildProvenance({ kind: "taurifer-programlab-build-provenance", schemaVersion: 1,
+      sourceCommit: manifest.sourceCommit, dirty: manifest.dirty, generatorVersion: manifest.generatorVersion,
+      programSchemaVersion: manifest.programSchemaVersion, policyVersion: manifest.policyVersion, diagnosticsVersion: manifest.diagnosticsVersion,
+      labFingerprint: manifest.labFingerprint, sourceHashes: Object.fromEntries(Object.entries(manifest.files).map(([name, file]) => [name, file.sha256])),
+      runtimeFiles: [...new Set([...manifest.worker.scripts, "exercises.js", "program-entry-adapter.js", "program-engine.js"])].sort(),
+      labFiles: Object.keys(manifest.files).filter(name => name.startsWith("programlab/") && /\.(?:js|mjs)$/.test(name)),
+    }, { runtimeFingerprint: manifest.runtimeFingerprint, catalogSha256: manifest.catalogSha256, diagnostics: manifest.diagnosticsVersion });
+  }
   function create({ normalizePolicy, normalizeRequest, estimateDaySeconds, sweepPaths = [], allowSeedLabels = false }) {
     function normalized(normalize, value, code) {
       const checked = normalize(snapshot(value));
@@ -282,7 +310,7 @@
     }
     return "execution_error";
   }
-  function createRunner({ createExecutor, store = null, onProgress = () => {},
+  function createRunner({ createExecutor, store = null, onProgress = () => {}, buildProvenance: provenance = null,
     initializationTimeoutMs = 15000, cellTimeoutMs = 10000 }) {
     let active = null;
     function dispose(state) {
@@ -298,11 +326,13 @@
       if (active) fail("run_active", "A run is already active");
       const frozenPlan = snapshot(plan);
       if (frozenPlan.cells.length > LIMITS.cells || frozenPlan.cellCount !== frozenPlan.cells.length) fail("invalid_plan", "Invalid run plan");
+      const retainedProvenance = provenance === null ? null : validateBuildProvenance(provenance, frozenPlan.build);
       const identity = text(runId, "run ID");
       let stop;
       const state = { executor: null, canceled: false, stop: new Promise(resolve => { stop = resolve; }), stopNow: () => stop(null), done: null };
       active = state;
       let current = { kind: "taurifer-programlab-run", schemaVersion: 1, runId: identity,
+        ...(retainedProvenance ? { buildProvenance: retainedProvenance } : {}),
         plan: frozenPlan, status: "validating", records: [], completed: 0, total: frozenPlan.cellCount,
         saved: !allowUnsaved, error: null, startedAt: new Date().toISOString(), finishedAt: null };
       // Plan and accepted cell records are already detached and deeply frozen.
@@ -385,7 +415,7 @@
     }
     return Object.freeze({ run, cancel });
   }
-  const api = { LIMITS, METRICS_VERSION, canonicalJSON, digest, snapshot, keys, fail, text, create, classify, createRunner };
+  const api = { LIMITS, METRICS_VERSION, canonicalJSON, digest, snapshot, buildProvenance, validateBuildProvenance, keys, fail, text, create, classify, createRunner };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.ProgramLabDomain = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

@@ -56,6 +56,30 @@ const configuration = () => ({ experimentId: "experiment", revision: 1, name: "T
   baselinePolicy: { dose: 3 }, candidatePolicy: { dose: 2 }, referenceTimePolicy: { dose: 3 }, sweep: null });
 const build = { runtimeFingerprint: "a".repeat(64), catalogSha256: "b".repeat(64), diagnostics: "lineage-timefit@1" };
 
+test("runs retain detached build provenance and verify its declared source fingerprints", async () => {
+  const hashes = Object.fromEntries(['program-compiler.js', 'program-engine.js', 'program-entry-adapter.js', 'exercises.js', 'programlab/domain.js']
+    .map((name, index) => [name, String(index + 1).repeat(64)]));
+  hashes['assets/exercise-catalog.json'] = build.catalogSha256;
+  const runtime = ['program-compiler.js', 'program-engine.js', 'program-entry-adapter.js', 'exercises.js'].sort();
+  const hashPairs = names => createHash('sha256').update(JSON.stringify(names.map(name => [name, hashes[name]]))).digest('hex');
+  const manifest = { kind: 'taurifer-programlab-build', schemaVersion: 1, sourceCommit: 'd'.repeat(40), dirty: true,
+    generatorVersion: '073.4', programSchemaVersion: 2, policyVersion: 'engine-policy@1', diagnosticsVersion: build.diagnostics,
+    catalogSha256: build.catalogSha256, runtimeFingerprint: hashPairs(runtime), labFingerprint: hashPairs(['programlab/domain.js']),
+    worker: { scripts: ['program-compiler.js'] }, files: Object.fromEntries(Object.entries(hashes).map(([name, sha256]) => [name, { sha256 }])) };
+  const provenance = Domain.buildProvenance(manifest);
+  manifest.files['program-compiler.js'].sha256 = 'f'.repeat(64);
+  assert.equal(provenance.sourceHashes['program-compiler.js'], hashes['program-compiler.js']);
+  assert.ok(Object.isFrozen(provenance.sourceHashes));
+  const context = { ...build, runtimeFingerprint: manifest.runtimeFingerprint };
+  assert.throws(() => Domain.validateBuildProvenance({ ...provenance, sourceHashes: { ...provenance.sourceHashes, 'program-compiler.js': 'f'.repeat(64) } }, context), /fingerprint/i);
+  assert.throws(() => Domain.validateBuildProvenance({ ...provenance, workerURL: 'https://example.test/code.js' }, context));
+  const runner = Domain.createRunner({ buildProvenance: provenance, createExecutor: () => ({
+    generate: async () => ({ ok: false, value: null, conflicts: [], explanations: [] }), dispose() {} }) });
+  const run = await runner.run(domain.plan(configuration(), context), { allowUnsaved: true });
+  assert.deepEqual(run.buildProvenance, provenance);
+  assert.equal(run.buildProvenance.dirty, true);
+});
+
 test("single/batch/sweep cells share complete identities and immutable inputs", () => {
   const source = configuration(), single = domain.plan(source, build);
   source.candidatePolicy.dose = 4;

@@ -329,6 +329,36 @@
         "text": "text200",
         "motion": "normal"
       }
+    ],
+    "programlab": [
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "pt",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "dark",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      }
     ]
   },
   "catalogChecks": {
@@ -424,6 +454,10 @@
     {
       "id": "catalog-recovery",
       "label": "Exercise catalog recovery"
+    },
+    {
+      "id": "programlab",
+      "label": "Program Lab — isolated standalone artifact"
     }
   ],
   "screens": [
@@ -1770,6 +1804,20 @@
       "label": "Exercise catalog retry failed",
       "scenario": "The lifter retries while the catalog remains unavailable; the dialog reports the failed retry and keeps the retry action available.",
       "variants": "localized"
+    },
+    {
+      "id": "editor",
+      "flow": "programlab",
+      "label": "Program Lab scenario editor",
+      "scenario": "Separate packaged artifact origin, verified catalog, current four-day fixture and two-set low-RIR policy. Stable scenario editor subject.",
+      "variants": "programlab"
+    },
+    {
+      "id": "comparison",
+      "flow": "programlab",
+      "label": "Program Lab candidate prescriptions",
+      "scenario": "Actual dedicated worker runs bundled default and low-RIR candidate; frame the resulting candidate prescriptions on the isolated artifact origin.",
+      "variants": "programlab"
     }
   ]
 }

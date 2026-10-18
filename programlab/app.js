@@ -183,7 +183,7 @@
       const values = text('div', '', 'policy-values');
       const baselineValue = at(draft.baselinePolicy, field.path) === null ? _('Recovered default') : at(draft.baselinePolicy, field.path);
       const baseline = text('span', baselineValue, 'baseline');
-      baseline.setAttribute('aria-label', _('Baseline: {value}', { value: at(draft.baselinePolicy, field.path) }));
+      baseline.setAttribute('aria-label', _('Baseline: {value}', { value: baselineValue }));
       values.append(baseline);
       const input = createInput(field, at(draft.candidatePolicy, field.path), next => {
         assign(draft.candidatePolicy, field.path, next);
@@ -369,7 +369,7 @@
   function renderRaw() {
     if (!$('rawDetails').open || !run || !selectedView) return;
     $('rawResult').textContent = json({ runId: run.runId, revision: run.revision, status: run.status,
-      configuration: run.plan?.experiment || run.configuration, baseline: selectedView.baseline, candidate: selectedView.candidate,
+      buildProvenance: run.buildProvenance || null, configuration: run.plan?.experiment || run.configuration, baseline: selectedView.baseline, candidate: selectedView.candidate,
       changes: selectedView.changes });
   }
   function clearResult() {

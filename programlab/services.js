@@ -145,7 +145,7 @@
     metricsCache.set(record, result);
     return result;
   }
-  function inspect(run, selection) {
+  async function inspect(run, selection) {
     const { plan, records } = run;
     const byKey = new Map(records.map(record => [record.cellKey, record]));
     const scenarios = new Map(plan.experiment.scenarios.map(item => [item.id, item]));
@@ -159,7 +159,13 @@
     const deload = baseline?.result?.value?.deloadCycles || candidate?.result?.value?.deloadCycles || plan.cells.find(item => item.cellKey === selected.baselineKey).request.deloadCycles || [];
     const cycleIndex = Math.min(selection.cycleIndex || 1, cycles);
     const rowMap = new Map();
+    let yieldedAt = performance.now();
     for (const entry of plan.comparisons) {
+      // A bounded corpus can contain hundreds of full programs. Keep the
+      // final aggregate calculation interruptible by paint/input tasks too.
+      if (performance.now() - yieldedAt >= 16) {
+        await new Promise(resolve => setTimeout(resolve, 0)); yieldedAt = performance.now();
+      }
       if (!rowMap.has(entry.value)) rowMap.set(entry.value, { value: entry.value, cases: [] });
       const a = byKey.get(entry.baselineKey), b = byKey.get(entry.candidateKey);
       if (!a || !b) continue;
@@ -224,7 +230,7 @@
       sweepPaths: metadata.fields.map(field => field.path) });
     archivedMetricsDomain = D.create({ estimateDaySeconds: () => NaN });
     try { db = await root.ProgramLabStore.open(); await db.recoverInterrupted(); } catch (error) { storageError = error; db = null; }
-    runner = D.createRunner({ store: db, createExecutor: () => Engine.create({ compiler: Compiler, catalog: () => catalog, allowMainThreadFallback: false,
+    runner = D.createRunner({ store: db, buildProvenance: D.buildProvenance(manifest), createExecutor: () => Engine.create({ compiler: Compiler, catalog: () => catalog, allowMainThreadFallback: false,
       worker: { url: new URL(manifest.worker.url, document.baseURI).href, scripts: manifest.worker.scripts.map(name => new URL(name, document.baseURI).href), catalogSha256: manifest.catalogSha256 } }) });
     return {
       manifest, defaultPolicy: Policy.getDefaultEnginePolicy(), configuration: configuration(), seedMode: 'canonical',

@@ -146,9 +146,19 @@ function addEntries(target, additions) {
 
 const EXPLICIT_INPUT_RULES = [
   {
+    match: /^(?:engine-policy|generation-layout|program-compiler)\.js$/,
+    suiteFiles: ["test/programlab-native-policy.mjs"],
+    why: "native allocation, explicit-rest and own/common duration acceptance",
+  },
+  {
     match: /^programlab\/(?:domain|store|archive|archive-worker)\.js$/,
-    suiteFiles: ["test/programlab-domain.mjs", "test/programlab-archive.mjs", "test/programlab-archive-limits.mjs", "test/programlab-store.mjs"],
+    suiteFiles: ["test/programlab-domain.mjs", "test/programlab-archive.mjs", "test/programlab-archive-limits.mjs", "test/programlab-store.mjs", "test/programlab-ui.mjs", "test/programlab-package.mjs"],
     why: "lab planning, archive protocol and isolated persistence consumers",
+  },
+  {
+    match: /^programlab\/|^tools\/build-programlab\.mjs$/,
+    suiteFiles: ["test/programlab-ui.mjs", "test/programlab-package.mjs", "test/pages-deploy-boundary.mjs"],
+    why: "standalone workbench presentation, services, packaged URLs and production exclusion",
   },
   {
     match: /^test\/fixtures\/programlab-integration-default-results\.json$/,

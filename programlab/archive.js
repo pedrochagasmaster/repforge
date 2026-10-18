@@ -101,7 +101,7 @@
         if (scenario.request.seed !== undefined && scenario.seed !== undefined) check(scenario.request.seed === String(scenario.seed), "Contradictory effective request seed");
       }
       if (!run) return false;
-      D.keys(run, ["kind", "schemaVersion", "runId", "plan", "status", "records", "completed", "total", "saved", "error"], ["archived", "startedAt", "finishedAt"]);
+      D.keys(run, ["kind", "schemaVersion", "runId", "plan", "status", "records", "completed", "total", "saved", "error"], ["archived", "startedAt", "finishedAt", "buildProvenance"]);
       check(run.kind === "taurifer-programlab-run" && run.schemaVersion === 1 && typeof run.runId === "string", "Unsupported run kind or version");
       check(typeof run.saved === "boolean" && run.runId.length > 0, "Invalid run metadata");
       for (const field of ["startedAt", "finishedAt"]) if (run[field] !== undefined && run[field] !== null) check(typeof run[field] === "string" && Number.isFinite(Date.parse(run[field])), "Invalid run timestamp");
@@ -111,6 +111,7 @@
       const plan = run.plan;
       D.keys(plan, ["kind", "schemaVersion", "experiment", "build", "cells", "comparisons", "caseCount", "cellCount", "baselineReuse", "metricsVersion"]);
       D.keys(plan.build, ["runtimeFingerprint", "catalogSha256", "diagnostics"]);
+      if (run.buildProvenance !== undefined) D.validateBuildProvenance(run.buildProvenance, plan.build);
       check(plan.kind === "taurifer-programlab-plan" && plan.schemaVersion === 1 && Array.isArray(plan.cells) && plan.cells.length > 0 && plan.cells.length <= D.LIMITS.cells, "Invalid planned cell bound");
       check(plan.metricsVersion === D.METRICS_VERSION && plan.cellCount === plan.cells.length && run.total === plan.cellCount && run.completed <= run.total, "Run plan completeness mismatch");
       check(run.status !== "completed" || run.completed === run.total, "Completed run is missing outcomes");

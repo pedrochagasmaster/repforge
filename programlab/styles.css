@@ -16,3 +16,6 @@
 @container result-area (max-width:25rem){.result-table,.result-table tbody,.result-table tr,.result-table td{display:block}.result-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}.result-table tr{border-top:2px solid var(--rule);margin-top:.8rem}.result-table td{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.5rem}.result-table td::before{content:attr(data-label);font-weight:500}}
 .runbar>.actions{align-self:flex-start;flex-shrink:0}
 @media(max-width:720px){.runbar>.actions{order:-1}}
+
+/* Long schema labels remain readable with enlarged text. */
+.policy-row label{overflow-wrap:anywhere;min-width:0}.file-button input{margin:0}.file-button{min-height:max(44px,3rem)}

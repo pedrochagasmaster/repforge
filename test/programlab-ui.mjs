@@ -7,21 +7,25 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildProgramLab } from '../tools/build-programlab.mjs';
 import { launchChromium } from './browser.mjs';
+import { maybeStartLocalPreview } from '../tools/local-preview.mjs';
 const base = process.env.REPFORGE_URL || 'http://localhost:8000/';
 let lab = new URL('programlab/', base).href;
 const artifacts = process.env.REPFORGE_ARTIFACT_DIR || path.resolve('.ci-results/programlab-ui');
 await mkdir(artifacts, { recursive: true });
+let artifactPreview = null;
 if (process.env.REPFORGE_PROGRAMLAB_URL) lab = process.env.REPFORGE_PROGRAMLAB_URL;
-else if (!process.argv.includes('--shell')) {
+else {
   const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const parent = path.join(repository, '.ci-results');
   await mkdir(parent, { recursive: true });
   const staging = await mkdtemp(path.join(parent, 'programlab-artifact-'));
   const outDir = path.join(staging, 'artifact');
   const manifest = await buildProgramLab({ outDir });
-  const relative = path.relative(repository, outDir).split(path.sep).map(encodeURIComponent).join('/');
-  lab = new URL(`${relative}/programlab/`, base).href;
   await writeFile(path.join(artifacts, 'packaged-build.json'), JSON.stringify({ sourceCommit: manifest.sourceCommit, runtimeFingerprint: manifest.runtimeFingerprint, catalogSha256: manifest.catalogSha256, generatorVersion: manifest.generatorVersion, artifact: outDir }, null, 2));
+  artifactPreview = await maybeStartLocalPreview([{ lane: 'entry' }], { cwd: outDir,
+    prepareApp: false, env: { ...process.env, REPFORGE_URL: '' } });
+  lab = artifactPreview.env.REPFORGE_URL;
+  assert.notEqual(new URL(lab).origin, new URL(base).origin, 'packaged lab has a separate origin from production preview');
 }
 async function selectedComparison(page, previousId = null) {
   if (!await page.locator('#rawDetails').evaluate(element => element.open)) await page.locator('#rawDetails summary').click();
@@ -53,7 +57,11 @@ async function historicalArchive(page, envelope, unknownCatalogId) {
       scenario.request = replace(scenario.request);
       if (unknownCatalogId) scenario.request.executionContexts[historicalId] = 'bilateral';
     }
-    const build = { ...source.plan.build, runtimeFingerprint: '1'.repeat(64), catalogSha256: '2'.repeat(64) };
+    const provenance = source.buildProvenance;
+    provenance.sourceHashes['program-compiler.js'] = '3'.repeat(64);
+    provenance.sourceHashes['assets/exercise-catalog.json'] = '2'.repeat(64);
+    provenance.sourceCommit = null; provenance.dirty = null;
+    const build = { ...source.plan.build, runtimeFingerprint: D.digest(provenance.runtimeFiles.map(name => [name, provenance.sourceHashes[name]])), catalogSha256: provenance.sourceHashes['assets/exercise-catalog.json'] };
     // Author a structurally coherent historical fixture with the public planner.
     // Historical inputs deliberately bypass current catalog normalization here;
     // the actual worker archive validator must still validate their structure.
@@ -102,6 +110,59 @@ async function exerciseHistoricalArchives(page) {
   await page.screenshot({ path: path.join(artifacts, 'historical-unknown-id.png'), fullPage: true });
   console.log('Program Lab historical archives: fingerprint mismatch, read-only identity, new-build attempt and unknown catalog IDs through the shared structural boundary passed.');
 }
+async function exerciseCorpus(page, browserVersion, workers) {
+  await page.locator('html[data-lab-ready="true"]').waitFor({ timeout: 20000 });
+  await page.locator('[data-mode="batch"]').click();
+  await page.locator('#fixture').selectOption('compiler-corpus');
+  await page.locator('#preset').selectOption('two_sets_low_rir@1');
+  await page.locator('#applyPreset').click();
+  await page.evaluate(() => {
+    const sample = window.__corpusFrames = { frames: 0, maxGapMs: 0, last: performance.now(), running: true };
+    function tick(now) { sample.frames++; sample.maxGapMs = Math.max(sample.maxGapMs, now - sample.last); sample.last = now; if (sample.running) requestAnimationFrame(tick); }
+    requestAnimationFrame(tick);
+  });
+  const started = performance.now();
+  await page.locator('#run').click();
+  await page.locator('#runStatus').filter({ hasText: 'completed' }).waitFor({ timeout: 900000 });
+  const selected = await selectedComparison(page);
+  const proof = await page.evaluate(async runId => {
+    window.__corpusFrames.running = false;
+    const { run } = await window.RepForgeProgramLabServices.loadRun(runId);
+    const candidates = new Set(run.plan.comparisons.map(item => item.candidateKey));
+    const counts = {}, violations = [];
+    let candidateSuccesses = 0, checkedSets = 0;
+    for (const record of run.records) {
+      counts[record.outcome] = (counts[record.outcome] || 0) + 1;
+      if (!candidates.has(record.cellKey) || !record.result?.ok) continue;
+      candidateSuccesses++;
+      const program = record.result.value;
+      for (const day of program.days.filter(day => day.kind === 'training')) for (const slot of day.slots) {
+        for (const cycle of slot.prescriptionsByCycle) {
+          if ((program.deloadCycles || []).includes(cycle.cycleIndex)) continue;
+          if (cycle.sets.length !== 2) violations.push({ cellKey: record.cellKey, exerciseId: slot.exerciseId, cycleIndex: cycle.cycleIndex, sets: cycle.sets.length });
+          checkedSets += cycle.sets.length;
+          for (const set of cycle.sets) if (set.rir !== null && ![0, 1].includes(set.rir)) violations.push({ cellKey: record.cellKey, rir: set.rir });
+        }
+      }
+    }
+    return { status: run.status, scenarios: run.plan.experiment.scenarios.length, planned: run.total,
+      completed: run.completed, uniqueRecords: new Set(run.records.map(record => record.cellKey)).size,
+      counts, candidateSuccesses, checkedSets, violations, frames: window.__corpusFrames };
+  }, selected.runId);
+  const evidence = { ...proof, elapsedMs: performance.now() - started, browser: browserVersion, node: process.version,
+    platform: process.platform, workerURLs: [...new Set(workers)] };
+  await writeFile(path.join(artifacts, 'corpus.json'), JSON.stringify(evidence, null, 2));
+  assert.equal(proof.scenarios, 180);
+  assert.equal(proof.status, 'completed');
+  assert.equal(proof.completed, proof.planned);
+  assert.equal(proof.uniqueRecords, proof.planned);
+  assert.equal(proof.counts.execution_error || 0, 0);
+  assert.equal(proof.counts.invalid_input || 0, 0);
+  assert(proof.candidateSuccesses > 0 && proof.checkedSets > 0);
+  assert.deepEqual(proof.violations, [], 'every successful candidate has two ordinary-cycle sets and low/native null RIR');
+  assert(workers.some(url => url.includes('program-engine.js')), 'corpus uses actual generation worker');
+  console.log(`Program Lab corpus: ${proof.scenarios} scenarios, ${proof.completed} distinct two-policy cells, ${JSON.stringify(proof.counts)}, ${(evidence.elapsedMs / 1000).toFixed(1)}s; browser ${browserVersion}.`);
+}
 async function exerciseModes(page) {
   await page.locator('html[data-lab-ready="true"]').waitFor({ timeout: 20000 });
   await page.locator('[data-mode="single"]').click();
@@ -136,13 +197,14 @@ async function exerciseModes(page) {
   await page.locator('#run').click();
   await page.waitForFunction(() => Number(document.getElementById('progress').value) > 0 && document.getElementById('cancel').disabled === false);
   const cancelStart = performance.now();
-  await page.locator('#cancel').click();
+  await page.evaluate(() => { window.__programlabCancellationProof.cancelNextGenerate = true; });
   await page.locator('#runStatus').filter({ hasText: /Cancellation acknowledged|canceled/ }).waitFor({ timeout: 30000 });
   const automationMs = performance.now() - cancelStart;
   const audit = await page.evaluate(() => window.__programlabCancellationProof);
   const acknowledgmentMs = audit.acknowledgedAt - audit.clickAt;
   const terminationMs = audit.terminatedAt - audit.clickAt;
   await writeFile(path.join(artifacts, 'cancellation.json'), JSON.stringify({ environment: process.platform, node: process.version, automationMs, acknowledgmentMs, terminationMs, audit }, null, 2));
+  assert(audit.pendingAtTermination > 0, 'cancellation terminates an actual outstanding compiler job');
   assert(audit.terminatedAt !== null && terminationMs >= 0 && terminationMs < 1000, `native worker terminated in ${terminationMs.toFixed(0)}ms from the click event`);
   assert(audit.acknowledgedAt !== null && acknowledgmentMs >= 0 && acknowledgmentMs < 1000, `cancellation acknowledged in ${acknowledgmentMs.toFixed(0)}ms from the click event`);
   await page.locator('#runStatus').filter({ hasText: 'canceled' }).waitFor({ timeout: 30000 });
@@ -157,17 +219,39 @@ async function exerciseModes(page) {
   assert(await page.locator('#run').isDisabled(), '180 cases times 20 values is rejected before execution');
   console.log(`Program Lab modes: exact single/batch/sweep parity, native three-day scenario editing, shared-cohort table, cell bound and real cancellation (${acknowledgmentMs.toFixed(0)}ms) passed.`);
 }
-const browser = await launchChromium();
+let browser;
 try {
+  browser = await launchChromium();
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, acceptDownloads: true });
+  const production = await context.newPage();
+  await production.goto(base);
+  await production.waitForFunction(() => window.__repforgeBooted === true);
+  const productionBefore = await production.evaluate(async () => {
+    await window.__repforgeStorage.flush();
+    localStorage.setItem('repforge_programlab_acceptance_sentinel', 'preserve-production');
+    return { program: localStorage.getItem('repforge_v1'), sentinel: localStorage.getItem('repforge_programlab_acceptance_sentinel') };
+  });
   const page = await context.newPage();
   const errors = [];
   const workers = [];
   await page.addInitScript(() => {
-    const audit = { clickAt: null, handledAt: null, terminatedAt: null, acknowledgedAt: null };
+    const audit = { clickAt: null, handledAt: null, terminatedAt: null, acknowledgedAt: null, pendingAtTermination: 0, cancelNextGenerate: false };
     window.__programlabCancellationProof = audit;
-    const terminate = Worker.prototype.terminate;
-    Worker.prototype.terminate = function() { if (audit.clickAt !== null) audit.terminatedAt = performance.now(); return terminate.call(this); };
+    const terminate = Worker.prototype.terminate, post = Worker.prototype.postMessage;
+    const pending = new WeakMap();
+    Worker.prototype.postMessage = function(message, ...rest) {
+      if (!pending.has(this)) { const ids = new Set(); pending.set(this, ids); this.addEventListener('message', event => ids.delete(event.data?.id)); }
+      if (message?.type === 'generate') pending.get(this).add(message.id);
+      const returned = post.call(this, message, ...rest);
+      // Activate the real cancel button at a deterministic active-job boundary;
+      // do not substitute a fake worker or invoke the runner directly.
+      if (message?.type === 'generate' && audit.cancelNextGenerate) {
+        audit.cancelNextGenerate = false;
+        queueMicrotask(() => document.getElementById('cancel').click());
+      }
+      return returned;
+    };
+    Worker.prototype.terminate = function() { if (audit.clickAt !== null) { audit.terminatedAt = performance.now(); audit.pendingAtTermination = pending.get(this)?.size || 0; } return terminate.call(this); };
     document.addEventListener('click', event => {
       if (!event.target.closest?.('#cancel')) return;
       audit.clickAt = event.timeStamp; audit.handledAt = performance.now(); audit.terminatedAt = null; audit.acknowledgedAt = null;
@@ -230,6 +314,10 @@ try {
     assert.deepEqual(errors, []);
     console.log('Program Lab shell: missing integration blocks run; labels, same-page keyboard skip, 1440/720/390 layouts, 200% enlarged text, English/Portuguese draft preservation and storage isolation passed. Full worker journey remains pending.');
     await context.close();
+  } else if (process.argv.includes('--corpus')) {
+    await exerciseCorpus(page, browser.version(), workers);
+    assert.deepEqual(errors, []);
+    await context.close();
   } else if (process.argv.includes('--modes')) {
     await exerciseModes(page);
     assert.deepEqual(errors, []);
@@ -256,6 +344,17 @@ try {
   await page.waitForFunction(() => document.getElementById('rawResult').textContent.length > 0);
   const inspected = JSON.parse(await page.locator('#rawResult').textContent());
   assert.equal(inspected.configuration.candidatePolicy.prescription.rirAdjustmentsBySetCount[2][0], -1, 'run embeds the exact dirty candidate draft');
+  const provenance = await page.evaluate(async runId => {
+    const saved = await window.RepForgeProgramLabServices.loadRun(runId);
+    const manifest = await (await fetch(new URL('programlab/build-manifest.json', document.baseURI))).json();
+    return { actual: saved.run.buildProvenance, sourceCommit: manifest.sourceCommit, dirty: manifest.dirty,
+      labFingerprint: manifest.labFingerprint, compilerHash: manifest.files['program-compiler.js'].sha256 };
+  }, inspected.runId);
+  assert(provenance.actual, 'saved run retains its immutable build provenance');
+  assert.equal(provenance.actual.sourceCommit, provenance.sourceCommit);
+  assert.equal(provenance.actual.dirty, provenance.dirty);
+  assert.equal(provenance.actual.labFingerprint, provenance.labFingerprint);
+  assert.equal(provenance.actual.sourceHashes['program-compiler.js'], provenance.compilerHash);
   await page.locator('#save').click();
   await page.locator('#persistenceStatus').filter({ hasText: 'Saved' }).waitFor();
   const actual = await page.locator('#candidateProgram').textContent();
@@ -316,12 +415,14 @@ try {
   assert.deepEqual(errors, []);
   await exerciseModes(page);
   await exerciseHistoricalArchives(page);
+  assert.deepEqual(await production.evaluate(() => ({ program: localStorage.getItem('repforge_v1'), sentinel: localStorage.getItem('repforge_programlab_acceptance_sentinel') })), productionBefore, 'lab run/cancel/import/reload preserves the separate production origin program and sentinel');
+  assert.deepEqual(await page.evaluate(async () => (await indexedDB.databases()).map(database => database.name).sort()), ['taurifer_programlab_v1'], 'lab owns only its isolated database');
   assert.deepEqual(errors, []);
   await context.close();
   console.log('Program Lab: actual worker → edited prescriptions → save/reload/export/import; validation, keyboard and narrow layouts passed.');
   }
 } catch (error) {
-  const page = browser.contexts()[0]?.pages()[0];
+  const page = browser?.contexts()[0]?.pages()[0];
   if (page) { console.error(await page.locator('#runStatus').textContent(), await page.locator('#fatalError').textContent()); await page.screenshot({ path: path.join(artifacts, 'failure.png'), fullPage: true }); }
   throw error;
-} finally { await browser.close(); }
+} finally { await browser?.close(); artifactPreview?.cleanup(); }

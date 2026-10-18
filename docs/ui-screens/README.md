@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 192 screens,
-1110 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 194 screens,
+1118 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -315,3 +315,10 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | --- | --- | --- |
 | [Exercise catalog unavailable](screens/catalog-recovery/unavailable__phone-390-light-en.png) | 3 | The required offline exercise catalog fails to load. Saved data remains in place and a blocking retry dialog explains what happened. |
 | [Exercise catalog retry failed](screens/catalog-recovery/retry-failed__phone-390-light-en.png) | 3 | The lifter retries while the catalog remains unavailable; the dialog reports the failed retry and keeps the retry action available. |
+
+### Program Lab — isolated standalone artifact
+
+| Screen | Frames | What it shows |
+| --- | --- | --- |
+| [Program Lab scenario editor](screens/programlab/editor__phone-390-light-en.png) | 4 | Separate packaged artifact origin, verified catalog, current four-day fixture and two-set low-RIR policy. Stable scenario editor subject. |
+| [Program Lab candidate prescriptions](screens/programlab/comparison__phone-390-light-en.png) | 4 | Actual dedicated worker runs bundled default and low-RIR candidate; frame the resulting candidate prescriptions on the isolated artifact origin. |

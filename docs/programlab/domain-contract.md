@@ -68,6 +68,8 @@ cannot change execution outcomes.
 
 Run fields: `kind`, `schemaVersion`, `runId`, `plan`, `status`, `records`,
 `completed`, `total`, `saved`, and `error` (null or `{code,message}`).
+Packaged runs also retain optional `buildProvenance`: immutable source commit, dirty state, generator/schema/policy/diagnostics versions, lab fingerprint, source filename/hash map, and runtime/lab fingerprint file lists. Archives validate bounded closed data and its fingerprint relationships; these filenames never select executable modules. Older archives may omit this field. It is outside cell identity.
+
 New runs also carry `startedAt`/`finishedAt` ISO timestamps outside computation
 identity; historical records can omit them. Every cell
 record contains `{cellKey,outcome,result,resultJSON,error}`. `resultJSON`
