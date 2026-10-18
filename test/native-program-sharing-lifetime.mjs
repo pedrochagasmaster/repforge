@@ -15,7 +15,7 @@ try{
     const commands={link:()=>new Promise(resolve=>replies.push(resolve)),file:()=>null,text:()=>({text:'ONE, 1 day per week\n\nA\n1. Squat: 3× 5',name:'literal.txt'})};
     const files={copyText:async text=>{copies.push(text);return clipboard},download:()=>{},shareOrDownload:async()=>{}};
     const shell={openModal:sheet=>{active={el:sheet};sheet.hidden=false},closeModal:async sheet=>{sheet.hidden=true;active=null},activeModal:()=>active};
-    const view=createProgramSharingView({window,commands,files,shell,reducedMotion:()=>true,t:key=>key,programName:()=> 'Literal split',toast:message=>notices.push(message),event:(name,properties)=>events.push({name,...properties})});
+    const view=createProgramSharingView({window,commands,files,shell,reducedMotion:()=>true,t:key=>key,programName:()=> 'Literal split',toast:message=>notices.push(message),report:(name,properties)=>events.push({name,...properties})});
     view.mount();view.mount();
     const first=view.openSetup();await view.closeSetup();const second=view.openSetup();
     replies[1]({status:'ready',url:'https://example.invalid/index.html#setup=v4.SECOND',outcome:{program_kind:'manual',form:'full',size_vs_limit:'under_limit'}});await second;

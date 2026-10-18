@@ -10249,7 +10249,7 @@ function initializePersistenceOwners(){
     format:{t,muscleLabel,exerciseName:exerciseDisplayName}});
   programSharingView=createProgramSharingView({window,commands:programSharing,files:Files,
     shell:{openModal,closeModal,activeModal:()=>shellView().activeModal},reducedMotion,t,
-    programName:()=>applicationSession.read().programMeta?.name||t('untitled_program'),toast,event:captureEvent});
+    programName:()=>applicationSession.read().programMeta?.name||t('untitled_program'),toast,report:captureEvent});
   initializeBlockTransitionCommands(model);
   workoutReadModel=createWorkoutReadModel({catalog:rawExerciseCatalog,librarySource:{library:EXERCISE_LIBRARY},model});
   ProgressReadModels=createProgressReadModels({training:model,copy:{t},format:{locale:locTag,exercise:liftDisplayName,muscle:muscleLabel,shortDate,longDate,displayLoad:toDisplay,number:fmt}});

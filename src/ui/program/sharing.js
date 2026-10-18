@@ -6,8 +6,8 @@
  */
 /** Owns only outbound sheet state and browser presentation lifetimes. The
  * application captures payloads; format validation and encoding stay outside UI.
- * @param {{window:Window & typeof globalThis,commands:Sharing,files:Files,shell:Shell,reducedMotion:()=>boolean,t:Text,programName:()=>string,toast:(message:string)=>void,event:(name:string,properties:Record<string,string>)=>void}} options */
-export function createProgramSharingView({window,commands,files,shell,reducedMotion,t,programName,toast,event}) {
+ * @param {{window:Window & typeof globalThis,commands:Sharing,files:Files,shell:Shell,reducedMotion:()=>boolean,t:Text,programName:()=>string,toast:(message:string)=>void,report:(name:string,properties:Record<string,string>)=>void}} options */
+export function createProgramSharingView({window,commands,files,shell,reducedMotion,t,programName,toast,report}) {
   const document=window.document;
   const $=(/** @type {string} */ selector)=>/** @type {HTMLElement|null} */(document.querySelector(selector));
   /** @type {AbortController|null} */ let listeners=null;
@@ -15,7 +15,7 @@ export function createProgramSharingView({window,commands,files,shell,reducedMot
   /** @type {import('../../app/program-sharing.js').ShareOutcome|null} */ let outcome=null;
   /** @type {{text:string,name:string}|null} */ let shownText=null;
   /** @param {string} action @param {import('../../app/program-sharing.js').ShareOutcome|null} [facts] */
-  function capture(action,facts=outcome){if(facts)event('share_setup_outcome',{action,...facts})}
+  function capture(action,facts=outcome){if(facts)report('share_setup_outcome',{action,...facts})}
   /** @param {string} message @param {{ready?:boolean,fileFallback?:boolean}} [options] */
   function setLinkState(message,{ready=false,fileFallback=false}={}){
     const status=$('#shareSetupStatus'),output=$('#shareSetupLink'),share=$('#shareSetupShare'),copy=$('#shareSetupCopy'),file=$('#shareSetupFile');
