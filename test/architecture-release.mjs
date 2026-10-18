@@ -9,7 +9,7 @@ import {assembleRelease} from '../scripts/release-assembly.mjs';
 import {startRelease,controllerMatches} from '../src/release/gate.js';
 
 test('AST boundary checker accepts pure public contracts and rejects seeded violations',()=> {
-  const good={'training/index.js':'export const add = (a,b) => a+b;', 'app/index.js':"import {add} from '../training/index.js'; export const command = () => add(1,2);"};
+  const good={'training/metrics.js':'export const add = (a,b) => a+b;', 'app/index.js':"import {add} from '../training/metrics.js'; export const command = () => add(1,2);"};
   assert.deepEqual(inspectModules(good),[]);
   const rejects = [
     [{'training/index.js':"import '../ui/index.js';",'ui/index.js':'export const ui = 1;'}, /forbidden direction/],
@@ -18,6 +18,7 @@ test('AST boundary checker accepts pure public contracts and rejects seeded viol
     [{'training/index.js':"fetch('/exfiltrate');"}, /import-time effect/],
     [{'training/index.js':'const n = Date.now();'}, /initializer call/],
     [{'training/index.js':"import './b.js';",'training/b.js':"import './index.js';"}, /cycle/],
+    [{'app/index.js':"export const get=()=>import('../training/private.js');",'training/private.js':'export const n=1;'}, /public entry/],
   ];
   for(const [fixture,pattern] of rejects) assert.match(inspectModules(fixture).join('\n'),pattern);
 });

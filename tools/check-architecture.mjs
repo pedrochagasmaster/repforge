@@ -6,7 +6,16 @@ import {resolve, relative, dirname, sep} from 'node:path';
 import {pathToFileURL} from 'node:url';
 const ROOT = resolve(import.meta.dirname, '..');
 const layer = file => file.split('/')[0];
-const permitted = {training:['training'], persistence:['persistence','training'], platform:['platform'], ui:['ui','training'], app:['app','training','persistence','platform','ui'], release:['release'], compat:['compat','app','training','persistence','platform','ui','release']};
+const permitted = {training:['training'], persistence:['persistence','training'], interchange:['interchange','training'], platform:['platform','training','interchange'], ui:['ui','app','training'], app:['app','training','persistence','interchange','platform'], release:['release'], compat:['compat','app','training','persistence','interchange','platform','ui','release']};
+// Purpose-specific public entries, not generic pass-through barrels.
+const publicEntries = new Set([
+  ...['metrics','identity','model','generation','authoring','workout','progress'].map(name=>`training/${name}.js`),
+  ...['durable','snapshot','preferences'].map(name=>`persistence/${name}.js`),
+  ...['backup','program-file','setup-link','csv','transfer-contract'].map(name=>`interchange/${name}.js`),
+  ...['catalog','program-executor','files','notifications','telemetry','install-transfer','motion','install'].map(name=>`platform/${name}.js`),
+  ...['session','workout','program','history','interchange','settings'].map(name=>`app/${name}.js`),
+  'release/gate.js', 'ui/shell.js','ui/format.js','ui/editors.js',
+]);
 const io = new Set(['window','document','localStorage','sessionStorage','indexedDB','fetch','Worker','navigator','setTimeout','setInterval']);
 /** Also exported so seeded negative tests exercise the real checker. */
 export function inspectModules(sources) {
@@ -15,8 +24,8 @@ export function inspectModules(sources) {
     const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
     const deps = [];
     const inspect = node => {
-      if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
-        const spec = node.moduleSpecifier;
+      if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node) || (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword)) {
+        const spec = ts.isCallExpression(node) ? node.arguments[0] : node.moduleSpecifier;
         if (spec && ts.isStringLiteral(spec)) {
           if (!spec.text.startsWith('.')) errors.push(`${file}: non-relative runtime import ${spec.text}`);
           else {
@@ -24,7 +33,7 @@ export function inspectModules(sources) {
             deps.push(target);
             if (!sources[target]) errors.push(`${file}: missing import ${target}`);
             if (!permitted[layer(file)]?.includes(layer(target))) errors.push(`${file}: forbidden direction to ${target}`);
-            if (layer(file) !== layer(target) && !/\/(?:index|public)\.js$/.test(target)) errors.push(`${file}: bypasses public entry ${target}`);
+            if (layer(file) !== layer(target) && !publicEntries.has(target)) errors.push(`${file}: bypasses public entry ${target}`);
           }
         }
       }
