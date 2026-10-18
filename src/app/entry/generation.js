@@ -15,7 +15,7 @@ import {cloneSnapshot} from '../../training/model.js';
  * Cache reads have no verifier, UI or storage effects.
  * @param {{compiler:Pick<Compiler,'canonicalizeRequest'|'generationIdentity'>,adapter:Pick<Adapter,'programRequestFromAnswers'>,
  * catalog:Parameters<Compiler['generationIdentity']>[1] & NonNullable<Parameters<Adapter['programRequestFromAnswers']>[1]>,model:Pick<Model,'flatProgramFromDefinition'>,
- * execute:(request:Request,options:{signal?:AbortSignal})=>Promise<{generated:Generated,cache:boolean}>,
+ * execute:(request:Request,options:{signal?:AbortSignal})=>Promise<{generated:Generated|null|undefined,cache:boolean}>,
  * candidateName:(days:number)=>string,onFailure:(error:unknown)=>void}} bindings */
 export function createEntryGeneration({compiler,adapter,catalog,model,execute,candidateName,onFailure}){
  /** @type {Map<string,Extract<Generated,{ok:true}>>} */ const generatedCache=new Map();
@@ -55,7 +55,7 @@ export function createEntryGeneration({compiler,adapter,catalog,model,execute,ca
   }
   const {generated,cache}=execution;
   if(signal?.aborted)throw new DOMException('The generation request was superseded','AbortError');
-  if(!generated.ok)return{ok:false,failure:{code:'generation_conflict',conflicts:generated.conflicts||[]}};
+  if(!generated?.ok)return{ok:false,failure:{code:'generation_conflict',conflicts:generated?.conflicts||[]}};
   if(cache){const key=compiler.generationIdentity(mapped.request,catalog);generatedCache.delete(key);generatedCache.set(key,cloneSnapshot(generated));
    while(generatedCache.size>4){const oldest=generatedCache.keys().next().value;if(oldest===undefined)break;generatedCache.delete(oldest)}}
   const definition=cloneSnapshot(generated.value);
