@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {ensureBrowserInterchange} from './interchange-browser.mjs';
 /**
  * The installed launch URL on a host that redirects `/index.html` (#304).
  *
@@ -128,16 +129,18 @@ try {
   check(!Object.hasOwn(manifest, "id"), "the manifest keeps id omitted (ADR 0008)");
   {
     const safari = await openSafari();
-    const wrote = await safari.page.evaluate(({ token, expiresAt }) => window.RepForgeInstallTransfer
+    await ensureBrowserInterchange(safari.page);
+    const wrote = await safari.page.evaluate(({ token, expiresAt }) => window.__repforgeInterchangeTest.transfer
       .writeTransferCookie({ token, expiresAt }, { document, location }), { token: TOKEN, expiresAt: EXPIRES_AT });
     check(wrote === true, "Safari writes the transfer cookie");
     // The cookie is now visible to Safari's own page; only the installed app claims it.
     await safari.page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(safari.page, { base });
+    await ensureBrowserInterchange(safari.page);
     const safariAfter = await safari.page.evaluate(() => ({
       failure: window.__repforgeBootFailure?.code ?? null,
       sheet: document.querySelector("#iosInstallSheet")?.getAttribute("data-transfer-state") ?? null,
-      cookie: !!window.RepForgeInstallTransfer.readTransferCookie(),
+      cookie: !!window.__repforgeInterchangeTest.transfer.readTransferCookie(),
     }));
     check(host.serviceRequests.length === 0 && safariAfter.failure === null && safariAfter.cookie,
       "a Safari reload keeps its transfer cookie and does not claim it", JSON.stringify({ safariAfter, requests: host.serviceRequests }));
@@ -158,8 +161,9 @@ try {
     const safari = await openSafari();
     const encoded = await encodeSetupDocument(safari.page, await buildSetupDocument(safari.page, { name: "Redirect program" }));
     check(encoded.ok === true, "the codec encodes a setup document", JSON.stringify(encoded));
-    const wrote = await safari.page.evaluate((value) => window.RepForgeSharedSetup.writeHandoffCookie(value)
-      && window.RepForgeSharedSetup.readHandoffCookie() === value, encoded.value);
+    await ensureBrowserInterchange(safari.page);
+    const wrote = await safari.page.evaluate((value) => window.__repforgeInterchangeTest.setup.writeHandoffCookie(value)
+      && window.__repforgeInterchangeTest.setup.readHandoffCookie() === value, encoded.value);
     check(wrote === true, "Safari writes the setup cookie and reads it back");
     const cookies = await safari.context.cookies();
     await safari.context.close();

@@ -1,3 +1,4 @@
+import {ensureBrowserInterchange} from '../interchange-browser.mjs';
 /**
  * Current-format (v4) setup links for the entry suites (install-modes,
  * entry-landing).
@@ -11,8 +12,9 @@ export const SETUP_SETTINGS = Object.freeze({
 });
 
 async function waitForCodec(page) {
+  await ensureBrowserInterchange(page);
   await page.waitForFunction(() => !!window.RepForgeExerciseCatalog?.snapshot?.()?.exercises?.length
-    && !!window.RepForgeSharedSetup && !!window.RepForgeProgramCompiler, undefined, { timeout: 20000 });
+    && !!window.__repforgeInterchangeTest.setup && !!window.RepForgeProgramCompiler, undefined, { timeout: 20000 });
 }
 
 /**
@@ -27,6 +29,7 @@ async function waitForCodec(page) {
  */
 export async function encodeSetupLink(page, { name = "Coach block", language = "en", daysPerWeek = 3, definition = null, custom = null } = {}) {
   await waitForCodec(page);
+  await ensureBrowserInterchange(page);
   return page.evaluate(async ({ name, language, daysPerWeek, definition: supplied, custom, settings }) => {
     const catalog = window.RepForgeExerciseCatalog.snapshot();
     const Compiler = window.RepForgeProgramCompiler;
@@ -55,7 +58,7 @@ export async function encodeSetupLink(page, { name = "Coach block", language = "
         metricIds: structuredClone(slot.metricIds), metricDefinitions: structuredClone(slot.metricDefinitions),
       }];
     }
-    const api = window.RepForgeSharedSetup;
+    const api = window.__repforgeInterchangeTest.setup;
     return api.encode({
       kind: api.KIND, version: api.VERSION, program, settings: { ...settings, lang: language }, language,
     }, {
@@ -71,10 +74,11 @@ export async function encodeSetupLink(page, { name = "Coach block", language = "
 /** Encode an already-built payload (for example the app's own Share build). */
 export async function encodeSetupPayload(page, payload) {
   await waitForCodec(page);
+  await ensureBrowserInterchange(page);
   return page.evaluate(async (payload) => {
     const catalog = window.RepForgeExerciseCatalog.snapshot();
     const Compiler = window.RepForgeProgramCompiler;
-    return window.RepForgeSharedSetup.encode(payload, {
+    return window.__repforgeInterchangeTest.setup.encode(payload, {
       builtInIds: new Set(catalog.exercises.map((exercise) => exercise.id)),
       catalogSnapshot: catalog,
       validateProgramDefinition: Compiler.validateProgramDefinition,
@@ -87,10 +91,11 @@ export async function encodeSetupPayload(page, payload) {
 /** Decode a `v4.` value with the same codec options. */
 export async function decodeSetupLink(page, value) {
   await waitForCodec(page);
+  await ensureBrowserInterchange(page);
   return page.evaluate(async (value) => {
     const catalog = window.RepForgeExerciseCatalog.snapshot();
     const Compiler = window.RepForgeProgramCompiler;
-    return window.RepForgeSharedSetup.decode(value, {
+    return window.__repforgeInterchangeTest.setup.decode(value, {
       builtInIds: new Set(catalog.exercises.map((exercise) => exercise.id)),
       catalogSnapshot: catalog,
       validateProgramDefinition: Compiler.validateProgramDefinition,

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {ensureBrowserInterchange} from '../test/interchange-browser.mjs';
 /**
  * Landing proof tooling (Plan 064 R2a-3). Everything here drives the real app;
  * nothing is redrawn, copied from a prototype or hand-typed.
@@ -717,8 +718,9 @@ async function captureMatrix(browser, output, report) {
       if (item.route === 'shared') {
         const payload = structuredClone(MINIMAL_PAYLOAD);
         payload.settings.lang = config.lang;
+        await ensureBrowserInterchange(page);
         const encoded = await page.evaluate(async ({payload, ids}) => {
-          const result = await window.RepForgeSharedSetup.encode(payload, {builtInIds: ids});
+          const result = await window.__repforgeInterchangeTest.setup.encode(payload, {builtInIds: ids});
           if (!result.ok) throw Error('Could not encode proof setup fixture');
           return result.value;
         }, {payload, ids: [...BUILT_IN_IDS]});

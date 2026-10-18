@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {ensureBrowserInterchange} from './interchange-browser.mjs';
 import {Transfer,Contract} from './interchange-runtime.mjs';
 /**
  * Plan 053-P4a: production-backed install-transfer import oracle.
@@ -550,9 +551,10 @@ function assertImportedLogical(actual, idbState, expected, label) {
 
 async function importInto(page, envelope, { retainCredentials = false } = {}) {
   const cookie = transferCookieFixture();
+  await ensureBrowserInterchange(page);
   return page.evaluate(async ({ value, token, expiresAt, inboundKey, retainCredentials: keepCredentials }) => {
-    const transfer = window.RepForgeInstallTransfer;
-    const contract = window.RepForgeInstallTransferContract;
+    const transfer = window.__repforgeInterchangeTest.transfer;
+    const contract = window.__repforgeInterchangeTest.contract;
     const credentials = transfer?.createCredentialVault?.({ crypto: window.crypto, indexedDB: window.indexedDB });
     const cookieValues = new Map();
     const cookieDocument = {
@@ -869,12 +871,13 @@ async function waitForP3Events(events, predicate, timeoutMs = 5000) {
 }
 
 async function readSealedInboundClaim(page) {
+  await ensureBrowserInterchange(page);
   return page.evaluate(async (key) => {
     const raw = localStorage.getItem(key);
     let marker;
     try { marker = raw === null ? null : JSON.parse(raw); } catch { return { ok: false, code: "inbound-marker-invalid" }; }
     const sealed = marker?.sealedCredentials;
-    const vault = window.RepForgeInstallTransfer?.createCredentialVault?.();
+    const vault = window.__repforgeInterchangeTest.transfer?.createCredentialVault?.();
     if (!sealed || !vault?.unseal) return { ok: false, code: "sealed-inbound-credential-unavailable" };
     let pair;
     try { pair = await vault.unseal("standalone-inbound", sealed); }

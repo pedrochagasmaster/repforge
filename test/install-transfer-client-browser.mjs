@@ -12,7 +12,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchChromium } from "./browser.mjs";
+import { launchChromium,waitForAppBoot } from "./browser.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -55,6 +55,7 @@ function moduleUrl() {
 }
 
 async function installBrowserClient(page){
+  await waitForAppBoot(page,{base:INDEX_URL});
   await page.evaluate(async url=>{
     const {createInstallTransfer}=await import(url);
     window.__repforgeTransferTest=createInstallTransfer({crypto:globalThis.crypto,TextEncoder,TextDecoder,document,

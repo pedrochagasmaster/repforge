@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {ensureBrowserInterchange} from './interchange-browser.mjs';
 /**
  * Characterization and proof-first assertion suite for Plan 054 Packet 054-P9:
  * Cached in-app Privacy route/page and Share sheet disclosure audit.
@@ -699,8 +700,9 @@ export async function runPrivacy(scope = "all") {
 
       // 3. Verify approved cookie transport (repforge_setup_v1) is NOT rejected
       // ADR 0007 approves repforge_setup_v1 cookie transport.
+      await ensureBrowserInterchange(page);
       const cookieTransportApproved = await page.evaluate(() => {
-        const api = window.RepForgeSharedSetup;
+        const api = window.__repforgeInterchangeTest.setup;
         const writes = [];
         let stored = "";
         const fakeDocument = {

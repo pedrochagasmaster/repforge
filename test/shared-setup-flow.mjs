@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {ensureBrowserInterchange} from './interchange-browser.mjs';
 /**
  * Browser behaviour for shared setup links (ADR 0007, Plan 067 format).
  *
@@ -388,8 +389,9 @@ export async function buildSetupDocument(page, {
 } = {}) {
   const shared = Object.fromEntries(SETTING_KEYS.map((key) => [key, settings[key] ?? DEFAULT_SHARED_SETTINGS[key]]));
   const seedDefinition = trainingDays === 1 ? seedProgramMeta().programDefinition : null;
+  await ensureBrowserInterchange(page);
   return page.evaluate(({ name, settings, trainingDays, seedDefinition }) => {
-    const api = window.RepForgeSharedSetup;
+    const api = window.__repforgeInterchangeTest.setup;
     let definition;
     if (seedDefinition) {
       let kept = 0;
@@ -415,8 +417,9 @@ export async function buildSetupDocument(page, {
 
 /** Encode a current setup document with the app's codec and its production options. */
 export async function encodeSetupDocument(page, document) {
+  await ensureBrowserInterchange(page);
   return page.evaluate(async (document) => {
-    const api = window.RepForgeSharedSetup;
+    const api = window.__repforgeInterchangeTest.setup;
     const compiler = window.RepForgeProgramCompiler;
     if (!api || typeof api.encode !== "function") return { ok: false, code: "missing-module", missing: true };
     const result = await api.encode(document, {
@@ -431,8 +434,9 @@ export async function encodeSetupDocument(page, document) {
 
 /** Decode a link fragment with the app's codec and its production options. */
 async function decodeSetup(page, encoded) {
+  await ensureBrowserInterchange(page);
   return page.evaluate(async (encoded) => {
-    const api = window.RepForgeSharedSetup;
+    const api = window.__repforgeInterchangeTest.setup;
     const compiler = window.RepForgeProgramCompiler;
     return api.decode(encoded, {
       catalogSnapshot: window.RepForgeExerciseCatalog.snapshot(),
@@ -698,8 +702,9 @@ export async function runSharedSetupFlow(browser) {
 
   await runCase("Module API is present", async () => {
     const { context, page } = await openAppPage(browser);
+    await ensureBrowserInterchange(page);
     const api = await page.evaluate((required) => {
-      const mod = window.RepForgeSharedSetup;
+      const mod = window.__repforgeInterchangeTest.setup;
       if (!mod) return { present: false, keys: [] };
       return {
         present: true,
@@ -1115,7 +1120,8 @@ export async function runSharedSetupFlow(browser) {
     const { context, page } = await openAppPage(browser, { ua: ANDROID_UA, standalone: true });
     await freshDevice(page);
     const encoded = await encodeSetupDocument(page, await buildSetupDocument(page, { name: "Cookie program" }));
-    const wrote = await page.evaluate((value) => window.RepForgeSharedSetup.writeHandoffCookie(value), encoded.value);
+    await ensureBrowserInterchange(page);
+    const wrote = await page.evaluate((value) => window.__repforgeInterchangeTest.setup.writeHandoffCookie(value), encoded.value);
     assert(wrote === true, "the codec writes a current envelope to the handoff cookie");
     await page.goto(APP_INDEX, { waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { timeout: 15000, base: BASE });
@@ -1174,6 +1180,7 @@ export async function runSharedSetupFlow(browser) {
     await page.evaluate(() => window.__repforgeRecipeWorkerProbe.release(0));
     await page.waitForFunction(() => window.__repforgeRecipeWorkerProbe?.requests.length === 2, null, { timeout: 10000 });
     await page.waitForFunction(() => window.__repforgeRecipeWorkerProbe?.held.length === 1, null, { timeout: 10000 });
+    await ensureBrowserInterchange(page);
     const secondPending = await page.evaluate(async () => {
       const probe = window.__repforgeRecipeWorkerProbe;
       await Promise.all(probe.requests.map((request) => request.identityReady));
@@ -1190,7 +1197,7 @@ export async function runSharedSetupFlow(browser) {
         sharedName: window.__repforgeSharedSetup?.summary?.name || null,
         gateVisible: visible(start) && !start.disabled,
         cookieMatchesCurrentFragment: !!cookie && decodeURIComponent(cookie.slice("repforge_setup_v1=".length)) ===
-          window.RepForgeSharedSetup.readSetupFragment(location.href),
+          window.__repforgeInterchangeTest.setup.readSetupFragment(location.href),
         inMemoryName: state?.result?.name || null,
         setupDraftPresent: localStorage.getItem("repforge_program_setup_draft_v1") !== null,
       };
@@ -1339,7 +1346,8 @@ export async function runSharedSetupFlow(browser) {
       await freshDevice(page);
       await waitForFirstRun(page);
       const fragment = wireFragment({ ...LEGACY_PAYLOAD, version }, version);
-      const legacyCookieWritten = await page.evaluate((value) => window.RepForgeSharedSetup.writeHandoffCookie(value), fragment);
+      await ensureBrowserInterchange(page);
+      const legacyCookieWritten = await page.evaluate((value) => window.__repforgeInterchangeTest.setup.writeHandoffCookie(value), fragment);
       assert(legacyCookieWritten === false, `${label}: the codec refuses to stage a legacy envelope in the cookie`);
       const before = await page.evaluate(readDurableState);
       await page.goto(setupUrl(fragment, `legacy-${label}`), { waitUntil: "domcontentloaded" });
