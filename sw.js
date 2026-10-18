@@ -108,6 +108,7 @@ const ASSETS = [
   "./src/ui/entry/answer-controls.js",
   "./src/ui/entry/answer-fields.js",
   "./src/ui/entry/controller.js",
+  "./src/ui/entry/import/review.js",
   "./src/ui/entry/landing/artwork.js",
   "./src/ui/entry/landing/controller.js",
   "./src/ui/entry/landing/proof.js",

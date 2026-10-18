@@ -289,7 +289,7 @@
       "baselineCommand": "node test/vendor-runtimes.mjs",
       "baselineLane": "fast",
       "disposition": "retained",
-      "evidence": "Retained native production Motion factory, pinned bundle/inventory and caller-boundary checks. Architecture cutover reads native editor/Shell rather than dead classic files. Retired the equivalent-source-formatting self-comparison (and its duplicate media query assertion); no behavior guarantee depended on reparsing one declaration with whitespace changed. Actual modal/route/remount and editor behaviors are owned by shell-lifetime and program-editor-text-fields browser proofs."
+      "evidence": "Retained native production Motion factory, pinned bundle/inventory and caller-boundary checks. Architecture cutover reads native editor/Shell rather than dead classic files. Retired the equivalent-source-formatting self-comparison (and its duplicate media query assertion), plus the redundant literal composition-constructor spelling assertion. The app never accesses window.Motion directly; the injected platform Motion factory owns acquisition. Actual vendor cancellation, native boot and caller-boundary proofs remain. Former constructor spelling was inconsistent with the retained no-direct-vendor-access rule; no behavior guarantee depended on reparsing one declaration with whitespace changed. Actual modal/route/remount and editor behaviors are owned by shell-lifetime and program-editor-text-fields browser proofs."
     },
     {
       "baselineCommand": "node test/motion-vocabulary.mjs",
