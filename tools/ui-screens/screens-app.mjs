@@ -1966,7 +1966,10 @@ export const APP_SCENARIOS = {
     await view(page, "stats");
     await startExerciseChartViewportTracking(page);
     const evkey = `library:${PER_SIDE_READING_EXERCISES.bilateral}`;
-    await page.evaluate((key) => window.openExerciseView(key, "stats"), evkey);
+    // Open the same keyed movement through Progress's real mounted control.
+    // The native exercise owner is private; its overview callback owns route
+    // state, chart reset, focus transfer and the return destination together.
+    await page.locator(`#overviewStrength button[data-ovkey="${evkey}"]`).click();
     await page.waitForSelector("#exercise.view.active .exchart__plot", { timeout: 20000 });
     await waitForExerciseChartRoute(page);
     await page.locator('#exDetail [data-metric="e1rm"]').click();
