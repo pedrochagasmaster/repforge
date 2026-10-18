@@ -7236,7 +7236,9 @@ function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
   $("#saveMeta").textContent=done?t("log.save_meta.done",{day:dayLabel(day),done,planned}):(entered?t("log.save_meta.entered",{day:dayLabel(day),entered,planned}):t("log.save_meta.planned",{day:dayLabel(day),planned}));}
 
 const EARLY_FINISH_CONFIRMATION=Symbol("confirmed early finish");
-const WorkoutSession=createWorkoutCommands({
+let WorkoutSession,workoutSuggestions,focusWorkoutCommands;
+function initializeWorkoutCommands(){
+WorkoutSession=createWorkoutCommands({
   session:applicationSession,training:WorkoutDraft,
   drafts:{flush:drainDraftWork,read:()=>({draft:activeWorkoutDraft,raw:activeWorkoutDraftRaw,recovery:draftUiRecovery}),
     start:createWorkoutDraft,dispatch:enqueueDraftCommand,projection:workoutDraftProjection,
@@ -7248,7 +7250,7 @@ const WorkoutSession=createWorkoutCommands({
   beforeCommit:async captured=>{if(typeof window.__repforgeDraftBeforeSaveCommit==="function")
     await window.__repforgeDraftBeforeSaveCommit(captured)}});
 
-const workoutSuggestions=createWorkoutSuggestionCommands({workout:WorkoutSession,
+workoutSuggestions=createWorkoutSuggestionCommands({workout:WorkoutSession,
   readDraft:()=>activeWorkoutDraft,readSnapshot:applicationSession.read,
   planUpdates:({exerciseId,draft})=>{
     const ex=prog.find(exerciseId);if(!ex)return null;
@@ -7258,13 +7260,15 @@ const workoutSuggestions=createWorkoutSuggestionCommands({workout:WorkoutSession
   beforeRefresh:async exId=>{
     if(typeof window.__repforgeBeforeSuggestionRefresh==="function"){
       const hook=window.__repforgeBeforeSuggestionRefresh;delete window.__repforgeBeforeSuggestionRefresh;await hook({exId})}}});
-const focusWorkoutCommands=createFocusWorkoutCommands({workout:WorkoutSession,training:WorkoutDraft,
+focusWorkoutCommands=createFocusWorkoutCommands({workout:WorkoutSession,training:WorkoutDraft,
   readDraft:()=>activeWorkoutDraft,readUnit:()=>state.settings.unit,suggestions:workoutSuggestions,
   now:()=>new Date().toISOString(),
   onSetAcknowledged:({nowDone,exerciseInstanceId,ordinal,editing})=>{
     if(editing&&nowDone){focusUi.edit=null;focusUi.ledgerOpen=null;toast(t("toast.set_updated"))}
     if(nowDone&&!editing){lastCommitAt=Date.now();if(!sessionStartedAt)sessionStartedAt=lastCommitAt;
       restRenderPending=true;startRest();armUnfinishedWatch();focusUi.logged={exId:exerciseInstanceId,n:ordinal}}}});
+
+}
 
 // Asked once, at the first completed session: a device with nothing logged has
 // nothing to protect, and Firefox turns the request into a permission prompt.
@@ -19433,6 +19437,7 @@ boot();
 
 function initializePersistenceOwners(){
   if(DurableState)return;
+  initializeWorkoutCommands();
   const now=()=>new Date().toISOString();
   const model=TrainingModel=createProgramModel({catalog:rawExerciseCatalog,
     librarySource:{library:EXERCISE_LIBRARY,legacyIds:LEGACY_LIBRARY_IDS},nextId:uid,now,

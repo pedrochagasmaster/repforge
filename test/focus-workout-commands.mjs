@@ -50,3 +50,30 @@ let revision=0,attempts=0;
 const staleSuggestions=createWorkoutSuggestionCommands({readDraft:()=>({revision:revision++}),readSnapshot:()=>({log:[]}),planUpdates:()=>[{}],workout:{dispatch:async()=>{attempts++;return{status:'domain-error',error:{code:'stale-suggestion'}}}}});
 assert.equal((await staleSuggestions.refresh('e')).status,'refresh-failed');assert.equal(attempts,2,'stale suggestion retries are bounded');
 console.log('PASS Focus input completion reopen cancellation and bounded suggestion commands');
+
+// A completion acknowledgement starts the rest presentation before a gated
+// suggestion refresh finishes; Finish can flush the reservation afterward.
+const order=[];
+draft=rules.create(context,fixture.inputs.selection,{});
+await focus.editField({target:{...first,field:'metric',metricId:loadId},rawValue:'12.5'});
+await focus.editField({target:{...first,field:'metric',metricId:repsId},rawValue:'8'});
+let releaseRefresh,enteredRefresh;
+const entered=new Promise(resolve=>{enteredRefresh=resolve});
+const held=new Promise(resolve=>{releaseRefresh=resolve});
+const orderedSuggestions=createWorkoutSuggestionCommands({workout,readDraft:()=>draft,readSnapshot:()=>({log:[]}),planUpdates:()=>[],beforeRefresh:async()=>{order.push('refresh');enteredRefresh();await held;}});
+const orderedFocus=createFocusWorkoutCommands({workout,training:rules,readDraft:()=>draft,readUnit:()=> 'kg',suggestions:orderedSuggestions,now:()=> '2026-10-18T10:05:00.000Z',onSetAcknowledged:()=>order.push('acknowledged')});
+const pendingComplete=orderedFocus.toggleSet({target:first,status:'manual',displayedEffort:{field:'rir',value:'2',pending:false}});
+await entered;
+assert.deepEqual(order,['acknowledged','refresh']);
+let flushed=false;const flush=orderedSuggestions.flush().then(()=>{flushed=true});
+await Promise.resolve();assert.equal(flushed,false,'Finish flush waits for the reserved post-completion refresh');
+releaseRefresh();assert.equal((await pendingComplete).status,'applied');await flush;
+const abandoned=orderedSuggestions.reserve();abandoned.cancel();await orderedSuggestions.flush();
+const beforeStale=JSON.stringify(draft);
+assert.equal((await orderedFocus.cancelEdit({target:first,snapshot:{draftId:'a-different-workout',exerciseInstanceId,setId:'set-a',fields:{},metrics:null}})).status,'stale');
+assert.equal(JSON.stringify(draft),beforeStale,'a cancellation captured for another workout never writes');
+let writes=0;
+const rejectedFocus=createFocusWorkoutCommands({workout:{dispatch:async()=>{writes++;return{status:'persist-failed'}}},training:rules,readDraft:()=>rules.create(context,fixture.inputs.selection,{}),readUnit:()=> 'kg',suggestions:orderedSuggestions,now:()=> 'unused'});
+assert.equal((await rejectedFocus.toggleSet({target:first,status:'manual',displayedEffort:{field:'rir',value:'2',pending:false}})).status,'persist-failed');
+assert.equal(writes,1,'a failed shown-effort write prevents Complete');
+console.log('PASS completion acknowledgement ordering, Finish flush, cancelled reservation and stale edit guards');
