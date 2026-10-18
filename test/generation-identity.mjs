@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import test from "node:test";
 const require = createRequire(import.meta.url);
-const Identity = require("../generation-identity.js");
+const Identity = require("../src/training/identity.js");
 const hash = (text) => createHash("sha256").update(text, "utf8").digest("hex");
 const catalog = () => ({ generatedAt: "one", exercises: [{ id: "b", name: "B" }, { id: "a", name: "A" }],
   uuidIndex: { b: { equipment: ["one", "two"] }, a: { movementPattern: ["push", "pull"] } } });

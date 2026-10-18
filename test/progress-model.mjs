@@ -12,7 +12,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const fixturePath = path.join(root, "test/fixtures/progress-evidence-v1.json");
 const fixture = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
-const modelPath = path.join(root, "progress-model.js");
+const modelPath = path.join(root, "src/training/progress.js");
 
 assert.equal(fixture.kind, "taurifer-progress-evidence-fixtures");
 assert.equal(fixture.schemaVersion, 1);
@@ -123,7 +123,7 @@ assert.ok(!forbiddenLabels.includes("attention"), "fresh-program rows must not b
 
 let plannedSections = 0;
 if (fs.existsSync(modelPath)) {
-  const { default: model } = await import(`${pathToFileURL(modelPath).href}?p=${fs.statSync(modelPath).mtimeMs}`);
+  const { evidence: model } = await import(`${pathToFileURL(modelPath).href}?p=${fs.statSync(modelPath).mtimeMs}`);
   const now = `${anchor}T12:00:00`;
   const weekStatus = model.buildWeekStatus(program, { started: program.started, mesocycleLengthWeeks: program.mesocycleLengthWeeks }, log, now);
   assert.equal(weekStatus.status, "in-progress");

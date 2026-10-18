@@ -9,7 +9,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const { default: model } = await import(`${pathToFileURL(path.join(root, "progress-model.js")).href}?p=${fs.statSync(path.join(root, "progress-model.js")).mtimeMs}`);
+const { evidence: model } = await import(`${pathToFileURL(path.join(root, "src/training/progress.js")).href}?p=${fs.statSync(path.join(root, "src/training/progress.js")).mtimeMs}`);
 
 const program = [
   { id: "e1", day: "Day 1", sets: 2, primary: "Chest" },

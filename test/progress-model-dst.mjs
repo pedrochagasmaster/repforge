@@ -12,7 +12,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const fixture = JSON.parse(fs.readFileSync(path.join(root, "test/fixtures/progress-evidence-v1.json"), "utf8"));
-const { default: model } = await import(pathToFileURL(path.join(root, "progress-model.js")).href);
+const { evidence: model } = await import(pathToFileURL(path.join(root, "src/training/progress.js")).href);
 const { program } = fixture;
 const perWeek = fixture.canonicalPlan;
 
