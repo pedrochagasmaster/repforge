@@ -89,12 +89,16 @@ async function benchmark(base, head, scope) {
           ? inventory.shardSuites(inventory.browserEntries(), CI_SHARDS)[inventory.parseShard(scope).index - 1].entries
           : inventory.SUITES[scope].map(suite => ({ lane: scope, suite }));
         if (!entries?.length) throw new Error(`Invalid benchmark scope ${scope}`);
-        // Locks must match before dependencies can be shared. This measures test
+        // Locks must match before installed dependencies can be copied. This measures test
         // execution separately from installation, on identical dependencies.
         const dependency = scope === "service" ? "services/install-transfer" : "test";
         const lock = `${dependency}/package-lock.json`;
         if (!readFileSync(join(worktree, lock)).equals(readFileSync(join(ROOT, lock)))) throw new Error(`Dependency lock changed: ${lock}`);
-        symlinkSync(join(ROOT, dependency, "node_modules"), join(worktree, dependency, "node_modules"), "dir");
+        // A directory symlink is not covered by a trailing-slash .gitignore
+        // rule, so it would make every source identity dirty. Real directories
+        // preserve both source cleanliness and each phase's isolated caches.
+        cpSync(join(ROOT, dependency, "node_modules"), join(worktree, dependency, "node_modules"),
+          { recursive: true, verbatimSymlinks: true });
         let browserVersion = null;
         if (browser) {
           const require = createRequire(join(worktree, "test/package.json"));
@@ -114,7 +118,10 @@ async function benchmark(base, head, scope) {
         const durationMs = performance.now() - started;
         const sourceAfter = sourceAt(worktree);
         if (sourceBefore.head !== sha || sourceBefore.status || sourceAfter.status
-            || JSON.stringify(sourceBefore) !== JSON.stringify(sourceAfter)) commandsPassed = false;
+            || JSON.stringify(sourceBefore) !== JSON.stringify(sourceAfter)) {
+          commandsPassed = false;
+          console.error("Benchmark source integrity failed", { sourceBefore, sourceAfter });
+        }
         const rows = [];
         for (const lane of new Set(entries.map(e => e.lane))) {
           const resultPath = join(worktree, ".ci-results", lane, "results.json");

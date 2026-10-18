@@ -60,6 +60,7 @@ tool/workflow changes in a PR. Each of the original 14 browser scopes, plus
 fast and service, runs its baseline and candidate sequentially on the **same
 worker** with Node 22.23.0, matching dependency locks, pinned test Chromium, and
 generative seed `147443`. Each phase gets an isolated detached worktree and
+its own copy of the pinned installed dependencies (outside the timed interval),
 its own truthful `CI_SOURCE_SHA`. The fast scope includes inventory validation
 and the Plan 073 Python verifier; the service scope retains its complete gate.
 Initial failures remain failures; benchmark execution never retries to green.
