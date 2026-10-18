@@ -659,6 +659,9 @@
     };
     const titleFor = (day, index) => dayDisplay(adapter, document, day, index);
     const changed = () => !equal(document, baseDocument);
+    // Browser Back need not blur a name field before the host asks to leave.
+    const pendingNameEdit = () => [...host.querySelectorAll('[data-role="program-name"], [data-role="day-name"]')]
+      .some(input => input.value.trim() !== input.defaultValue.trim());
     const intent = (kind, detail = {}) => {
       if (!INTENT_SET.has(kind)) throw new TypeError(`Unknown program editor intent: ${kind}`);
       return Object.freeze({ kind, ...clone(detail) });
@@ -1917,7 +1920,7 @@
       dispose() { destroyed = true; teardownSorting(); if (statusTimer) clearTimeout(statusTimer); host.classList.remove("program-editor-host"); host.dataset.editorMounted = "false"; host.replaceChildren(); },
       getDocument: () => clone(document),
       getToken: () => clone(token),
-      isDirty: () => edits.length > 0 || changed(),
+      isDirty: () => edits.length > 0 || changed() || pendingNameEdit(),
       validationIssues: () => validation(document),
       checkSuggestLoads,
       commit: apply,
