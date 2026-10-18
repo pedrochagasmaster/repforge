@@ -27,6 +27,15 @@ const oldCache = cacheName(oldWorker);
 const currentCache = cacheName(currentWorker);
 assert(oldCache && currentCache && oldCache !== currentCache, `worker cache versions differ (${oldCache}, ${currentCache})`);
 
+// Exercise the composed Entry owner, rather than importing a spare module.
+async function assertEntryReady(page, label) {
+  await page.evaluate(() => window.openFirstRun());
+  await page.locator("#firstRunCreate").click();
+  await page.locator("#onboarding.active .entry__hub").waitFor({ state: "visible" });
+  assert.equal(await page.locator('[data-entry-hub="recommend"]').isVisible(), true,
+    `${label} opens the native Entry route chooser`);
+}
+
 let mode = "old";
 let requiredCodeRequested = false;
 const statSafe = (file) => { try { return statSync(file); } catch { return null; } };
@@ -108,7 +117,7 @@ try {
   await waitForWorkerTakeover(page,{cache:currentCache,replaced:oldCache});
   await waitForAppBoot(page, { base });
   assert.equal(await page.locator("#dayTabs").count(), 1, "updated worker boots the entry shell");
-  assert.equal(await page.evaluate(() => !!window.RepForgeProgramEntry), true, "updated shell includes program entry code");
+  await assertEntryReady(page, "updated shell");
 
   await context.setOffline(true);
   try {
@@ -117,8 +126,7 @@ try {
     await waitForAppBoot(page, { base });
     assert.equal(await page.evaluate(() => !navigator.onLine && !!navigator.serviceWorker.controller), true,
       "the installed shell remains controlled while offline");
-    assert.equal(await page.evaluate(() => window.__repforgeBooted === true && !!window.RepForgeProgramEntry), true,
-      "the cached offline shell loads required code and cold-boots the entry application");
+    await assertEntryReady(page, "cached offline shell");
   } finally {
     await context.setOffline(false);
   }
