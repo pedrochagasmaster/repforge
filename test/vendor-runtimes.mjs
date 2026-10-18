@@ -182,15 +182,17 @@ assert(!/sumsheet[^{]*\{[^}]*animation/.test(styles + polish) && !/\.statrow[^{]
   "the summary's blocks and stat row have no CSS animation or transition");
 assert(!/is-played|style\.setProperty\("--i"/.test(app), "the summary sets no staged class and no per-block stagger index in the app");
 {
-  const ramp = app.slice(app.indexOf("function rampSessionStats("), app.indexOf("let sessionSummaryCurrent"));
-  assert(app.includes("const SUMMARY_RAMP_MS=600"), "the summary count ramp lasts 600 ms");
-  assert(/RepForgeMotion\?\.reducedMotion/.test(ramp) && /if\(reduced\|\|document\.hidden\)return/.test(ramp),
+  const summary = read("src/ui/workout/summary.js");
+  const markup = read("src/ui/session-summary.js");
+  const ramp = summary.slice(summary.indexOf("function rampStats("), summary.indexOf("function render(")).replace(/\s+/g, "");
+  assert(/\(now-start\)\/600/.test(ramp), "the summary count ramp lasts 600 ms");
+  assert(/motion\?\.reducedMotion/.test(ramp) && /if\(reduced\|\|document\.hidden\)return/.test(ramp),
     "the count ramp asks the motion layer for the reduced-motion decision and leaves the final figures untouched under it");
-  assert(/1-Math\.pow\(1-p,3\)/.test(ramp) && /Math\.min\(1,Math\.max\(0,/.test(ramp),
+  assert(/1-Math\.pow\(1-progress,3\)/.test(ramp) && /Math\.min\(1,Math\.max\(0,/.test(ramp),
     "the count ramp eases out to exactly 1 and is clamped, so it neither overshoots nor dips below zero");
   assert(/setTimeout\(finish/.test(ramp), "a backgrounded tab still lands on the final figures");
   assert(!/odometer|translateY|transform|toLocaleString|\.animate\(/.test(ramp), "the count ramp rewrites the figure's text only: no odometer digits or transforms");
-  assert(/data-ramp="\$\{esc\(n\)\}"/.test(app) && app.includes("rampSessionStats(el.querySelector(\".sum-stats\"))"),
+  assert(/data-ramp="\$\{esc\(n\)\}"/.test(markup) && /rampStats\(el.querySelector\("\.sum-stats"\)\)/.test(summary),
     "only the stat row's totals ramp, and only when the summary opens");
 }
 assert(!/\.view\b/.test(layer) && !/\.toast\b/.test(layer) && !/effortpop/.test(layer), "navigation, toasts and effort explanations remain CSS-owned");
