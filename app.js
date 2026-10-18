@@ -1,3 +1,8 @@
+import {createTodayController} from './src/ui/today/controller.js';
+import {createSessionSummary} from './src/ui/workout/summary.js';
+import * as ReadModels from './src/app/read-models.js';
+import {verdictMarkHtml as sharedVerdictMarkHtml,formatSetsLine} from './src/ui/format.js';
+let TodayUi,SummaryUi;
 import {createSession} from './src/app/session.js';
 import {createWorkoutCommands} from './src/app/workout.js';
 import {createProgramCommands,createCustomExerciseCommands,createProgramReplacementCommands} from './src/app/program.js';
@@ -6456,12 +6461,7 @@ function formatLongDate(iso){const d=new Date(`${iso}T12:00:00`);if(Number.isNaN
   catch{return iso}}
 function weekdayLetters(){return isPt()?["S","T","Q","Q","S","S","D"]:["M","T","W","T","F","S","S"]}
 /** Sessions saved today, in the order they were logged. */
-function sessionsToday(){const iso=today(),by=new Map();
-  for(const r of state.log){if(String(r.date)!==iso)continue;
-    const k=String(r.session||iso);
-    let s=by.get(k);if(!s){s={session:k,day:r.day,rows:[]};by.set(k,s)}
-    s.rows.push(r)}
-  return [...by.values()]}
+function sessionsToday(){return ReadModels.sessionsOnDate(state.log,today())}
 /** What today already holds, or null when nothing is logged yet. Today swaps its
  *  whole session block for this: a finished day is not one to start again. */
 function todayRecap(week){const sessions=sessionsToday();if(!sessions.length)return null;
@@ -6477,27 +6477,13 @@ function todayRecap(week){const sessions=sessionsToday();if(!sessions.length)ret
     sets:work.length,volume:movedTonnage(work),prs:prLifts.size,
     lifts:new Set(work.map(liftKey)).size,rows:sessions.flatMap(s=>s.rows),session:sessions.at(-1).session}}
 /** The program day that follows `from`, or null when the split has only one. */
-function nextDayAfter(from){const ds=days();if(!ds.length)return null;
-  const i=ds.indexOf(from);if(i<0)return ds[0];
-  return ds.length>1?ds[(i+1)%ds.length]:null}
+function nextDayAfter(from){return ReadModels.nextProgramDay(days(),from)}
 /** The program day that follows the last one trained today. */
 function dayAfterTrainedToday(){const done=sessionsToday();
   return nextDayAfter(done.length?done.at(-1).day:day)}
 /* Today's finished day (OG-6 `today/done`, Direction D 4.1): the day's name, its totals, the record line and the shipped
    note, then each lift's outcome word and the engine's next target. The words and targets come from the same lift groups the
    session summary reads (`sessionOutcomeGroups`), so Today can never disagree with the screen it sends you to. */
-function todayDoneHtml(recap){
-  const{liftGroups,showBaseline}=sessionOutcomeGroups(recap.rows),s={showBaseline,session:recap.session};
-  const cell=(n,cap)=>`<div class="statrow__cell"><div class="statrow__val">${esc(n)}</div><div class="statrow__cap">${esc(cap)}</div></div>`;
-  return `<div class="today-done">`+
-    `<div class="today-session__name today-session__name--day today-done__name"><span class="today-done__check" aria-hidden="true"></span>`+
-    `${esc(recap.days.join(" \u00b7 ")||t("today.done_title"))}</div>`+
-    `<div class="statrow sum-stats">${cell(fmt(recap.sets),tp(recap.sets,"set"))}${cell(kfmt(toDisplay(recap.volume)),t("summary.stat.moved",{unit:unitLabel()}))}`+
-    `${cell(fmt(recap.lifts),tp(recap.lifts,"lift"))}</div>`+
-    (recap.prs?`<p class="today-done__pr">${esc(recap.prs===1?t("today.done_pr_one"):t("today.done_prs",{n:recap.prs}))}</p>`:"")+
-    `<p class="today-done__note">${esc(t("today.done_note"))}</p>`+
-    (liftGroups.length?`<h3 class="sum-sec today-done__head">${esc(t("summary.outcome_head"))}</h3><div class="sum-grps today-done__lifts">`+
-      liftGroups.map(lift=>summaryGroupHtml(lift,s,{compact:true})).join("")+`</div>`:"")+`</div>`}
 /** Whichever action Today is currently leading with — the start CTA, or the
  *  recap's review action once the day's session is saved. */
 function todayPrimaryControl(){
@@ -6512,15 +6498,6 @@ function openTodaySessionInHistory(){const done=sessionsToday();if(!done.length)
    Nothing here decides a load or a reps target: the load is recommendation().load,
    the reps come from setSuggestion() or the authored strategy parameters, and the
    verdict glyph only names the status and reason the engine already attached. */
-const TODAY_TALLY_ORDER=["up","hold","recover","stalled","down","new","manual"];
-const TODAY_TALLY_KEYS={
-  up:["today.tally.up.one","today.tally.up.other"],
-  hold:["today.tally.hold.one","today.tally.hold.other"],
-  recover:["today.tally.recover.one","today.tally.recover.other"],
-  stalled:["today.tally.stalled.one","today.tally.stalled.other"],
-  down:["today.tally.down.one","today.tally.down.other"],
-  new:["today.tally.new.one","today.tally.new.other"],
-  manual:["today.tally.manual.one","today.tally.manual.other"]};
 /** One word for a recommendation, from the status and reason the engine attached. */
 function rxVerdict(rec){
   if(rec.status==="configuration_required")return"configuration_required";
@@ -6531,15 +6508,8 @@ function rxVerdict(rec){
   if(rec.reason==="recover")return"recover";
   return"hold"}
 /** The shared verdict mark. Up, down, hold ("=") and recover draw a glyph; stalled, new and manual stay word-only. */
-function verdictMarkHtml(glyph){
-  if(glyph!=="up"&&glyph!=="down"&&glyph!=="hold"&&glyph!=="recover")return"";
-  return `<span class="verdictmark verdictmark--${glyph}"><span class="verdictmark__glyph" aria-hidden="true"></span></span>`}
-/** "100 × 8, 8, 8" for one load, "100 × 8, 90 × 10" when the load moved. */
-function rxSetsLine(sets,withUnit){
-  const rows=sets.filter(x=>+x.reps>0);if(!rows.length)return"";
-  const same=rows.every(x=>sameLoad(+x.load,+rows[0].load));
-  return same?`${fmtLoad(rows[0].load)}${withUnit?` ${unitLabel()}`:""} × ${rows.map(x=>x.reps).join(", ")}`
-    :rows.map(x=>`${fmtLoad(x.load)} × ${x.reps}`).join(", ")}
+function verdictMarkHtml(glyph){return sharedVerdictMarkHtml(glyph)}
+function rxSetsLine(sets,withUnit){return formatSetsLine(sets,{load:fmtLoad,unit:unitLabel},withUnit)}
 function rxTargetText(ex,rec){
   if(ex?.hasRepTarget===false)return programPrescriptionSummary(ex);
   if(rec.status==="manual")return t("today.target.manual",{sets:ex.sets,min:ex.min,max:ex.max});
@@ -6558,158 +6528,34 @@ function todayRxModel(exs){
     const sub=glyph==="stalled"?rec.label
       :prev.length?t("today.sub.before",{sets:rxSetsLine(prev)}):t("today.sub.first");
     return{ex,rec,glyph,sub,load:rec.status==="manual"||rec.load==null?null:rec.load,target:rxTargetText(ex,rec)}})}
-function todayTallyHtml(model){
-  const counts={};for(const row of model)counts[row.glyph]=(counts[row.glyph]||0)+1;
-  const items=TODAY_TALLY_ORDER.filter(g=>counts[g]).map(g=>
-    `<li class="today-tally__i">${verdictMarkHtml(g)}<span>${esc(t(TODAY_TALLY_KEYS[g][counts[g]===1?0:1],{n:counts[g]}))}</span></li>`);
-  return items.length?`<ul class="today-tally">${items.join("")}</ul>`:""}
-function todayRxRowHtml(row,index){
-  const{ex,rec,glyph}=row,verdictId=`rxv${index}`,hasVerdict=!!rec.label&&glyph!=="manual";
-  return `<button type="button" class="rxrow${glyph==="manual"?" is-manual":""}" data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name:exerciseDisplayName(ex)}))}"${hasVerdict?` aria-describedby="${verdictId}"`:""}>`+
-    `<span class="rxrow__mark">${verdictMarkHtml(glyph)}</span>`+
-    `<span class="rxrow__name">${esc(exerciseDisplayName(ex))}<span class="rxrow__sub">${esc(row.sub)}</span></span>`+
-    `<span class="rxrow__load"${row.load!=null?` data-parity-target="${esc(ex.id)}"`:""}>${row.load!=null?esc(fmtLoad(row.load)):"\u2013"}</span>`+
-    `<span class="rxrow__target">${esc(row.target).replace(/\u00d7/g,`<span class="rxrow__op">\u00d7</span>`)}</span>`+
-    (hasVerdict?`<span class="visually-hidden" id="${verdictId}">${esc(rec.label)}</span>`:"")+`</button>`}
-function todayRxHtml(exs){
-  if(!exs.length)return"";
-  const model=todayRxModel(exs),sets=sum(exs.map(e=>+e.sets||0));
-  return todayTallyHtml(model)+
-    `<div class="today-rx__head"><h3 class="today-rx__title">${esc(t("today.rx.title"))}</h3>`+
-    `<span class="today-rx__meta">${esc(t("today.rx.meta",{exercises:countText("exercises",exs.length),sets:countText("sets",sets)}))}</span></div>`+
-    `<div class="today-rx" id="todayExList"><div class="today-rx__grid">`+
-    `<div class="today-rx__cols" aria-hidden="true"><span></span><span>${esc(t("stats.exercise"))}</span><span>${esc(unitLabel())}</span><span>${esc(t("ledger.col.target"))}</span></div>`+
-    model.map((row,index)=>todayRxRowHtml(row,index)).join("")+`</div></div>`}
-/* The unfinished-session band (OG-6 `today/draft-resume`, Direction D 4.1): a status line above the prescription that
-   says a session is open and where the lifter left it. It reads the draft and never writes it. The position uses the
-   Focus position format (`focus.head.day_ex`) over the draft's exercise order, skipped lifts left out the way
-   `focusList` leaves them out. */
-function draftResumeWhere(){
-  let d=activeWorkoutDraft;
-  if(!d){try{d=JSON.parse(DraftStore.readRaw()||"null")}catch{d=null}}
-  if(!d||typeof d!=="object")return dayLabel(day);
-  if(d.schemaVersion===2&&Array.isArray(d.exerciseOrder)){
-    const live=d.exerciseOrder.filter(id=>d.exercises?.[id]&&d.exercises[id].status!=="skipped");
-    const label=dayLabel(d.program?.dayLabel||day);
-    if(!live.length)return label;
-    return t("focus.head.day_ex",{day:label,n:Math.max(0,live.indexOf(d.session?.selectedExerciseId))+1,m:live.length})}
-  const named=typeof d.__day==="string"&&days().includes(d.__day)?d.__day:day,label=dayLabel(named);
-  const skip=new Set(Array.isArray(d.__skipped)?d.__skipped:[]),live=exercises(named).filter(e=>!skip.has(e.id));
-  if(!live.length)return label;
-  return t("focus.head.day_ex",{day:label,n:Math.max(0,live.findIndex(e=>e.id===d.__selectedExerciseId))+1,m:live.length})}
-/** The band's host stands before Today's session label and is empty (zero height) while no session is open, so the
- *  first band measures in from nothing (S2: `animateDisclosure`, the R1c vocabulary's `revealIn`). It is made here, not in
- *  the shell markup, because the band has no meaning before the first render that needs it. */
-function todayResumeHost(){
-  let host=$("#todayResume");if(host)return host;
-  const before=$("#todaySessionLabel");if(!before?.parentNode)return null;
-  host=document.createElement("div");host.id="todayResume";host.className="today-resume";
-  before.parentNode.insertBefore(host,before);return host}
-/** Draw the band while a session is open and Today is the surface in view; take it away otherwise. A render that finds
- *  the band already there keeps it (and only rewrites it when its words changed, so the status region does not speak
- *  again); the render that adds it to an empty host measures it open, or draws it at once under reduced motion or
- *  without the runtime. The Start/Continue label is a separate instant swap in `renderToday`. */
-function renderTodayResume(show){
-  const host=todayResumeHost();if(!host)return;
-  if(!show){host.innerHTML="";host.removeAttribute("style");return}
-  const html=`<div class="today-resume__band" role="status"><span class="today-resume__title">${esc(t("today.resume.title"))}</span>`+
-    `<span class="today-resume__where">${esc(draftResumeWhere())}</span></div>`;
-  if(host.firstElementChild){if(host.innerHTML!==html)host.innerHTML=html;return}
-  const draw=()=>{host.innerHTML=html};
-  if(window.RepForgeMotion?.animateDisclosure)window.RepForgeMotion.animateDisclosure(host,true,draw);
-  else draw()}
-/* Today with nothing behind it. Backing out of onboarding used to land here on
-   a bundled program the lifter had never seen, which read as "your training" —
-   so the empty device now says it is empty and offers the way back in. Every
-   part of the dashboard that describes a program is taken down together: a week
-   strip and an Up next built from no program are the same lie in smaller type. */
-function renderTodayNoProgram(){
-  for(const sel of["#todayProgram","#todaySessionLabel","#todaySession","#startWorkout","#chooseAnotherDay",
-    "#reviewTodaySession","#logAnotherSession","#todayWeekLabel","#todayWeek",
-    "#todayUpNextLabel","#todayUpNext","#todayLast"]){
-    const el=$(sel);if(el)el.classList.add("hidden")}
-  const sess=$("#todaySession");if(sess)sess.innerHTML="";
-  renderTodayResume(false);
-  const empty=$("#todayNoProgram");if(empty)empty.classList.remove("hidden");
-  // No origin: `startOnboarding` reads first-run against the live state, which
-  // is the same reading the gate and Settings' Create program already get.
-  const cta=$("#todaySetupProgram");
-  if(cta)cta.onclick=()=>startOnboarding(null,{userInitiated:true})}
-function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent=formatLongDate(today());
-  // The dashboard describes a program: with none there is nothing to describe,
-  // and the empty state stands in for the whole surface.
-  const empty=$("#todayNoProgram");
-  if(!hasProgramContent())return renderTodayNoProgram();
-  if(empty)empty.classList.add("hidden");
-  for(const sel of["#todaySessionLabel","#todaySession","#todayWeekLabel","#todayWeek","#todayUpNextLabel","#todayUpNext","#todayLast"]){
-    const el=$(sel);if(el)el.classList.remove("hidden")}
-  const week=weeklySnapshot();
-  const mc=mesocycleWeek(),nm=state.programMeta?.name,progEl=$("#todayProgram");
-  if(progEl){if(nm||mc.current!=null||mc.isComplete){progEl.classList.remove("hidden");
-    const segs=mc.total||6,cur=mc.current||0,weekCopy=mesocycleWeekCopy(mc);
-    progEl.innerHTML=`<div class="today-prog__name">${esc(nm||t("untitled_program"))}</div>`+
-      (weekCopy?`<div class="today-prog__week">${esc(weekCopy)}</div>`:"")+
-      (isProgramDeloadWeek(mc)?`<div class="today-prog__deload">${esc(t("today.deload_week"))}</div>`:"")+
-      `<div class="segbar" data-progress-dimension="block" data-progress-scope="active-program-week">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}${i===Math.min(cur,segs)-1?" is-current":""}"></span>`).join("")}</div>`}
-    else{progEl.classList.add("hidden");progEl.innerHTML=""}}
-  // A saved session means today is spent: Today recaps it instead of offering the
-  // day again. An unsaved draft still outranks it — that session is not over.
+function todayDashboardModel(){
+  const date=today(),dateLabel=formatLongDate(date);
+  if(!hasProgramContent())return ReadModels.buildTodayReadModel({dateLabel,hasProgram:false});
+  const week=weeklySnapshot(),mc=mesocycleWeek(),name=state.programMeta?.name;
   const inProgress=draftHasProgress(),recap=inProgress?null:todayRecap(week);
-  const sessLabel=$("#todaySessionLabel");if(sessLabel){const key=recap?"today.done_label":"today.session_label";
-    sessLabel.setAttribute("data-i18n",key);sessLabel.textContent=t(key)}
-  const sess=$("#todaySession");if(sess&&recap)sess.innerHTML=todayDoneHtml(recap);
-  else if(sess){const exs=exercises();
-    sess.innerHTML=`<div class="today-session__name today-session__name--day">${esc(dayLabel(day))}</div>`+todayRxHtml(exs)}
-    // A one-day split has no other day to offer, so the picker would open onto
-    // the day Today already leads with.
-    const canPickDay=!recap&&days().length>1;
-    for(const[sel,shown]of[["#startWorkout",!recap],["#chooseAnotherDay",canPickDay],["#reviewTodaySession",!!recap],["#logAnotherSession",!!recap]]){
-      const el=$(sel);if(el)el.classList.toggle("hidden",!shown)}
-    // The finished day's way on is the screen's one commitment: View today's session takes the primary control and its
-    // arrow, and Log another session sits under it as the quieter choice, as Choose another day does under Start.
-    const review=$("#reviewTodaySession");if(review){review.classList.toggle("btn--cta",!!recap);review.classList.toggle("btn--steel",!recap)}
-    $$("#todayExList [data-exopen]").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.exopen,"log"));
-  // A draft with logged or filled sets means the session is still open.
-  const cta=$("#startWorkout")?.querySelector("span");
-  if(cta){const key=inProgress?"today.continue":"today.start";
-    cta.setAttribute("data-i18n",key);cta.textContent=t(key)}
-  // The band is drawn only while Today is in view: the render that returns from a session is the one that finds it
-  // absent, so that is the render it measures in on. The CTA above is the same condition and an instant text swap.
-  renderTodayResume(inProgress&&!workoutActive);
-  const weekEl=$("#todayWeek");if(weekEl){const w=week,{start}=weekRange(today()),letters=weekdayLetters();
-    const trained=new Set(state.log.filter(r=>String(r.date)>=start&&String(r.date)<=today()).map(r=>String(r.date)));
-    const cells=letters.map((lab,i)=>{const d=new Date(`${start}T12:00:00`);d.setDate(d.getDate()+i);
-      const iso=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-      const isToday=iso===today(),done=trained.has(iso);
-      const mark=done?`<span class="week-letters__check">✓</span>`:`<span class="week-letters__dot${isToday?" is-today":""}"></span>`;
-      return `<div><div class="week-letters__d">${esc(lab)}</div><div class="week-letters__m">${mark}</div></div>`}).join("");
-    // A finished day says where the week stands in words alone (OG-6 `today/done`); the weekday strip stays for the days still to train.
-    weekEl.innerHTML=`<div class="ov-week-line">${esc(t("today.sessions_done",{done:w.completedDays,planned:w.plannedDays}))}</div>`+
-      (recap?"":`<div class="week-letters" data-progress-dimension="week" data-progress-scope="current-week-trained-days">${cells}</div>`)}
-  const up=$("#todayUpNext");if(up){const next=nextDayAfter(recap?recap.lastDay:day);
-    if(next){const nEx=exercises(next).length;
-      up.innerHTML=`<button type="button" class="listrow" id="upNextBtn"><div class="listrow__main"><div class="listrow__title">${esc(dayLabel(next))}</div>`+
-        `<div class="listrow__sub">${esc(tOne("today.exercise_count",nEx))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
-      $("#upNextBtn").onclick=()=>enterWorkout({day:next})}
-    else up.innerHTML=`<p class="lede">${esc(t("today.no_up_next"))}</p>`}
-  // The recap above already says today was trained; the footer would only echo it.
-  const lastEl=$("#todayLast");if(lastEl&&recap)lastEl.innerHTML="";
-  else if(lastEl){const dates=state.log.map(r=>String(r.date)).filter(Boolean).sort();
-    if(dates.length){const lastD=dates.at(-1),n=Math.max(0,Math.round((new Date(`${today()}T12:00:00`)-new Date(`${lastD}T12:00:00`))/86400000));
-      lastEl.innerHTML=`<span class="today-footer__icon" aria-hidden="true">⏱</span>${esc(n===0?t("today.last_trained_today"):n===1?t("today.last_trained_one"):t("today.last_trained",{n}))}`}
-    else lastEl.innerHTML=""}
-  const lc=$("#logContext");if(lc){const nm2=state.programMeta?.name,mc2=mesocycleWeek();
-    const hasCtx=!!(nm2||mc2.current!=null||mc2.isComplete);
-    lc.textContent=hasCtx?programWeekContext(nm2,mc2):t("log.context.today");
-    // Kept as a hidden deep-link hook; Today shows the program strip instead.
-    lc.classList.add("hidden")}
-  // Program strip also jumps to Progress → Review (legacy #logContext affordance).
-  const progClick=$("#todayProgram");if(progClick&&!progClick.classList.contains("hidden")){
-    progClick.style.cursor="pointer";progClick.onclick=()=>{navTo("stats");setStatsSeg("review")}}
-  // The workout header names the day until a workout is open; then updateWorkoutHeader owns the title.
-  if(!workoutActive){const woTitle=$("#woDayTitle");if(woTitle){woTitle.removeAttribute("aria-label");woTitle.textContent=dayLabel(day)}}
-  renderFocusDeloadLine();
+  if(recap){
+    const facts=sessionOutcomeGroups(recap.rows);
+    Object.assign(recap,{showBaseline:facts.showBaseline,volumeDisplay:toDisplay(recap.volume),
+      liftGroups:facts.liftGroups.map(lift=>({...lift,displayName:liftDisplayName(lift.name,lift.liftKey)}))});
+  }
+  const prescriptionRows=recap?[]:todayRxModel(exercises()).map(({ex,rec,...row})=>({...row,
+    exerciseId:ex.id,name:exerciseDisplayName(ex),sets:ex.sets,verdictLabel:rec.label}));
+  const programDays=days();
+  let draft=activeWorkoutDraft;
+  if(!draft){try{draft=JSON.parse(DraftStore.readRaw()||"null")}catch{draft=null}}
+  const labels=Object.fromEntries([...programDays,day,draft?.program?.dayLabel].filter(Boolean).map(label=>[label,dayLabel(label)]));
+  const resume=ReadModels.draftResumeLocation({draft,day,days:programDays,labels,
+    exerciseIdsByDay:Object.fromEntries(programDays.map(label=>[label,exercises(label).map(ex=>ex.id)]))});
+  const next=nextDayAfter(recap?recap.lastDay:day);
+  return ReadModels.buildTodayReadModel({date,dateLabel,hasProgram:true,day,dayLabel:dayLabel(day),
+    program:{name,visible:!!(name||mc.current!=null||mc.isComplete),total:mc.total,current:mc.current,
+      weekCopy:mesocycleWeekCopy(mc),deload:isProgramDeloadWeek(mc)},
+    prescriptionRows,canPickDay:programDays.length>1,recap,inProgress,workoutActive,resume,
+    week,weekStart:weekRange(date).start,weekdayLetters:weekdayLetters(),log:state.log,
+    next:next?{day:next,label:dayLabel(next),exercises:exercises(next).length}:null,
+    logContext:name||mc.current!=null||mc.isComplete?programWeekContext(name,mc):t("log.context.today")});
 }
+function renderToday(){const model=todayDashboardModel();TodayUi.render(model);if(model.hasProgram)renderFocusDeloadLine()}
 /* ---- Session sheet (Focus workout) ---- */
 let sessionEarlyRevision = null;
 let sessionEarlyDraftId = null;
@@ -8463,175 +8309,38 @@ async function saveWorkout(e,io,options={}){if(e&&e.preventDefault)e.preventDefa
     if(form&&!form.inert){const invalid=form.querySelector("[aria-invalid='true']");if(invalid){try{invalid.focus()}catch{}}}
     saving=false}}
 
-/* ---- Session summary (Direction D, spec 4.4) ----
-   One group per lift: its outcome word, the sets it performed, a record line when it set one, and the
-   engine's next target as the strongest line. The word is the canonical session outcome (the
-   compareExerciseSession rule in CONTEXT.md, read through the evidence record); the target is recommendation(). */
-const SUMMARY_MUSCLES_SHOWN=6;
-/** One PR line: a record mark and how far past the best it went. The sentence names the kind. */
-function sessionPRHtml(p){
-  const unit=unitLabel(),over=p.kind==="load"?t("summary.pr.over_load",{n:fmtLoad(p.delta),unit})
-    :p.kind==="reps"?t("summary.pr.over_reps",{n:fmt(p.delta),reps:tp(p.delta,"rep")})
-    :t("summary.pr.over_e1rm",{n:fmtLoad(p.delta),unit});
-  return `<p class="sum-pr"><span class="verdictmark verdictmark--record"><span class="verdictmark__glyph" aria-hidden="true"></span>${esc(t("summary.pr.label"))}</span>`+
-    `<span class="sum-pr__over">${esc(over)}</span></p>`}
-/** The lift's outcome word. Only a canonical outcome carries the .sum-outcome role. */
-function summaryWordHtml(lift,session,{mark=true}={}){
-  const st=lift.state,parity=lift.exerciseId?` data-parity-outcome="${esc(lift.exerciseId)}" data-parity-session="${esc(session)}"`:"";
-  if(st.kind==="outcome"){
-    const variant={improved:"up",maintained:"maintained",declined:"down"}[st.outcome];
-    // Today's finished day says the word alone: its glyph rides the next target below (OG-6 `today/done`).
-    if(!mark)return `<span class="sum-outcome" data-exercise-id="${esc(lift.liftKey)}" data-outcome="${esc(st.outcome)}"${parity}>${esc(t(EVIDENCE_OUTCOME_KEYS[st.outcome]))}</span>`;
-    return `<span class="sum-outcome verdictmark verdictmark--${variant}" data-exercise-id="${esc(lift.liftKey)}" data-outcome="${esc(st.outcome)}"${parity}>`+
-      `<span class="verdictmark__glyph" aria-hidden="true"></span>${esc(t(EVIDENCE_OUTCOME_KEYS[st.outcome]))}</span>`}
-  if(st.kind==="baseline")return `<span class="sum-word">${esc(t("stats.outcome_short.single_observation"))}</span>`;
-  if(st.reason==="missing-effort")return `<span class="sum-word">${esc(t("stats.outcome_short.missing_effort"))}</span>`;
-  const key=st.reason==="changed-load"?"delta.changed_load.label":"delta.not_comparable.label";
-  return `<span class="sum-word"${parity}>${esc(t(key))}</span>`}
-/** `compact` is Today's finished day: the name and its word, then the next target, without the sets or the record line. */
-function summaryGroupHtml(lift,s,{compact=false}={}){
-  const session=compact?lift.session??s.session:s.session;
-  return `<div class="sum-grp"><div class="sum-grp__h"><span class="sum-grp__n">${esc(liftDisplayName(lift.name,lift.liftKey))}</span>${s.showBaseline?"":summaryWordHtml(lift,session,{mark:!compact})}</div>`+
-    (compact?"":`<p class="sum-grp__sets">${esc(rxSetsLine(lift.sets,true))}</p>`)+
-    (lift.pr&&!compact?sessionPRHtml(lift.pr):"")+
-    (lift.next?`<p class="sum-grp__next"${lift.exerciseId?` data-parity-target="${esc(lift.exerciseId)}"`:""}>${verdictMarkHtml(lift.next.glyph)}`+
-      `<span>${esc(t("summary.next_target",{target:lift.next.line}))}</span></p>`:"")+`</div>`}
-
-function sessionSummaryHtml(s){
-  const unit=unitLabel(),out=[];
-  out.push(`<p class="sum-eyebrow">${esc(t("summary.eyebrow"))}</p>`);
-  out.push(`<h2 class="sum-hero" id="sumTitle" tabindex="-1">${esc(dayLabel(s.day))}</h2>`);
-  out.push(`<p class="sum-sub">${esc(s.meso.current!=null?t("summary.saved_week",{date:formatLongDate(s.date),n:s.meso.current}):formatLongDate(s.date))}</p>`);
-  // What the work itself was: sets, load moved, lifts touched, plus the clock when it measured this session.
-  const cell=(n,cap,k)=>`<div class="statrow__cell"><div class="statrow__val" data-ramp="${esc(n)}"`+
-    `${k?' data-kfmt="1"':""}>${esc(k?kfmt(n):fmt(n))}</div>`+
-    `<div class="statrow__cap">${esc(cap)}</div></div>`;
-  const cells=[cell(s.sets,tp(s.sets,"logged set")),
-    cell(toDisplay(s.volume),t("summary.stat.moved",{unit}),true),
-    cell(s.lifts,tp(s.lifts,"lift"))];
-  if(s.minutes!=null)cells.push(cell(s.minutes,tp(s.minutes,"minute")));
-  out.push(`<div class="statrow${cells.length>3?" statrow--4":""} sum-stats">${cells.join("")}</div>`);
-  // A session whose lifts have no past says so, instead of grading itself against nothing.
-  if(s.showBaseline===true)out.push(`<p class="sum-baseline">${esc(t("summary.baseline"))}</p>`);
-  if(s.liftGroups.length)
-    out.push(`<h3 class="sum-sec">${esc(t("summary.outcome_head"))}</h3><div class="sum-grps">${s.liftGroups.map(lift=>summaryGroupHtml(lift,s)).join("")}</div>`);
-  if(s.muscles.length){
-    const shown=s.muscles.slice(0,SUMMARY_MUSCLES_SHOWN),rest=s.muscles.slice(SUMMARY_MUSCLES_SHOWN);
-    out.push(`<h3 class="sum-sec">${esc(t("summary.muscles.title"))}</h3>`+
-      `<p class="sum-muscles__note">${esc(t("summary.muscles.note"))}</p>`+
-      `<div class="volume sum-muscles">`+
-      [...shown.map(m=>[m,false]),...rest.map(m=>[m,true])].map(([m,extra])=>
-        `<div class="vrow${extra?" hidden":""}"${extra?" data-muscle-extra":""}><span class="vrow__name">${esc(muscleLabel(m.name))}</span>`+
-        `<span class="vrow__num"><b>${fmt(m.sets)}</b> ${esc(tp(m.sets,"set"))}</span></div>`).join("")+`</div>`+
-      (rest.length?`<button type="button" class="sum-muscles__more" id="sumMuscles" aria-expanded="false" data-total="${s.muscles.length}">${esc(t("summary.muscles_all",{n:s.muscles.length}))}</button>`:""))}
-  // Where the session leaves the week, and what comes next.
-  if(s.week.planned||s.next){
-    const segs=Math.max(s.week.planned,s.week.done,1),done=Math.min(s.week.done,segs);
-    out.push(`<div class="sum-split">`+
-      (s.week.planned?`<div class="sum-split__cell"><p class="sum-split__k">${esc(t("summary.week.title"))}</p>`+
-        `<p class="sum-week">${esc(t("today.sessions_done",{done:s.week.done,planned:s.week.planned}))}</p>`+
-        `<div class="segbar sum-segbar" data-progress-dimension="week" data-progress-scope="completed-session-week" aria-hidden="true">`+
-        Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<done?" is-done":""}"></span>`).join("")+`</div></div>`:"")+
-      (s.next?`<div class="sum-next sum-split__cell"><p class="sum-split__k sum-next__lab">${esc(t("summary.next"))}</p>`+
-        `<p class="sum-next__day">${esc(dayLabel(s.next.day))}</p>`+
-        `<p class="sum-next__meta">${esc(tOne("today.exercise_count",s.next.exercises))}</p></div>`:"")+`</div>`)}
-  // The detour beside the door, both pinned: the report scrolls under them.
-  out.push(`<div class="sum-actions"><button type="button" class="btn btn--steel" id="sumSee">${esc(t("summary.see_session"))}</button>`+
-    `<button type="button" class="btn btn--cta btn--noarrow" id="sumDone">${esc(t("summary.done"))}</button></div>`);
-  return out.join("")}
-
-/** The summary's totals count up to their figures over 600 ms (motion amendment M2, owner decision on #295).
- *  They are the reward, so they are the one thing on the screen that moves by itself, and nothing else on
- *  the page does: no row stagger, no overshoot, no odometer digits. The ramp always lands on exactly the
- *  figure the markup already rendered, so a reader who never sees the motion reads the same page. The
- *  motion layer owns the reduced-motion decision: under it, or in a tab with no screen to animate onto,
- *  the finished figures the markup carries stay put and nothing is repainted. */
-const SUMMARY_RAMP_MS=600;
-let summaryRamp=null;
-function stopSummaryRamp(){
-  if(!summaryRamp)return;
-  cancelAnimationFrame(summaryRamp.raf);clearTimeout(summaryRamp.land);summaryRamp=null}
-function rampSessionStats(root){
-  stopSummaryRamp();
-  const cells=[...(root?.querySelectorAll("[data-ramp]")||[])];
-  if(!cells.length)return;
-  const reduced=window.RepForgeMotion?.reducedMotion?.()??!!window.matchMedia?.("(prefers-reduced-motion:reduce)").matches;
-  if(reduced||document.hidden)return;
-  const targets=cells.map(el=>({el,to:+el.dataset.ramp||0,k:el.dataset.kfmt==="1"}));
-  const paint=e=>{for(const{el,to,k}of targets)el.textContent=k?kfmt(to*e):fmt(Math.round(to*e))};
-  const run={raf:0,land:0};summaryRamp=run;
-  const finish=()=>{if(summaryRamp!==run)return;cancelAnimationFrame(run.raf);clearTimeout(run.land);summaryRamp=null;paint(1)};
-  paint(0);
-  // rAF stops in a backgrounded tab. This timer is what guarantees the figures are never left short of
-  // their final value for a lifter who looks back at the screen.
-  run.land=setTimeout(finish,SUMMARY_RAMP_MS+400);
-  const start=performance.now();
-  const step=now=>{
-    if(summaryRamp!==run)return;
-    // A frame timestamp can predate the moment the ramp started; clamp so a figure never dips below zero.
-    const p=Math.min(1,Math.max(0,(now-start)/SUMMARY_RAMP_MS));
-    if(p>=1)return finish();
-    paint(1-Math.pow(1-p,3));
-    run.raf=requestAnimationFrame(step)};
-  run.raf=requestAnimationFrame(step)}
-
-let sessionSummaryCurrent=null;
-function renderSessionSummary(s){
-  const body=$("#sessionSummaryBody");if(!body)return;
-  stopSummaryRamp();
-  body.innerHTML=sessionSummaryHtml(s);
-  const done=$("#sumDone");if(done)done.onclick=()=>closeSessionSummary();
-  const more=$("#sumMuscles");if(more)more.onclick=()=>{
-    const open=more.getAttribute("aria-expanded")!=="true";
-    more.setAttribute("aria-expanded",open?"true":"false");
-    more.textContent=t(open?"summary.muscles_fewer":"summary.muscles_all",{n:more.dataset.total});
-    $$("#sessionSummary [data-muscle-extra]").forEach(row=>row.classList.toggle("hidden",!open))};
-  const see=$("#sumSee");if(see)see.onclick=()=>{
-    HistoryUi.startReading(s.session);
-    closeSessionSummary({nav:"history"})}}
-
-function clearSessionSummaryView(){
-  sessionSummaryCurrent=null;
-  stopSummaryRamp();
-  const el=$("#sessionSummary");
-  if(el&&activeModal?.el===el)closeModal(el);
-  $("#sessionSummaryBody")?.replaceChildren();
+/* ---- Completion application actions; presentation belongs to ui/workout/summary.js. ---- */
+function summaryPresentationModel(summary){
+  return ReadModels.buildSummaryReadModel({summary,dayLabel:dayLabel(summary.day),volumeDisplay:toDisplay(summary.volume),
+    nextLabel:summary.next?dayLabel(summary.next.day):null,
+    liftNames:Object.fromEntries(summary.liftGroups.map(lift=>[lift.liftKey,liftDisplayName(lift.name,lift.liftKey)])),
+    muscleNames:Object.fromEntries(summary.muscles.map(muscle=>[muscle.name,muscleLabel(muscle.name)]))});
 }
-
-/** The screen the lifter earns by finishing. It opens over the workout, so
- *  leaving it is what actually ends the session and returns to Today. */
-function openSessionSummary(s){
-  const el=$("#sessionSummary");if(!el)return false;
-  sessionSummaryCurrent=s;
-  renderSessionSummary(s);
-  const ok=openModal(el,{initialFocus:()=>$("#sumTitle"),onEscape:()=>closeSessionSummary()});
-  if(!ok){sessionSummaryCurrent=null;return false}
-  // The blocks are all present and opaque on the first frame; only the totals count up. The ramp starts
-  // before the first paint, so the finished figures are never seen and then reset to zero.
-  rampSessionStats(el.querySelector(".sum-stats"));
-  el.scrollTop=0;
-  captureEvent("session_summary_viewed",{});
-  return true}
-
+function clearSessionSummaryView(){SummaryUi.clear()}
+function openSessionSummary(summary){
+  const opened=SummaryUi.open(summaryPresentationModel(summary));
+  if(opened)captureEvent("session_summary_viewed",{});
+  return opened;
+}
 function closeSessionSummary(opts={}){
-  const el=$("#sessionSummary");
-  sessionSummaryCurrent=null;
-  stopSummaryRamp();
-  if(el&&activeModal?.el===el)closeModal(el);
-  // Finishing a session ends it: the shell steps back to Today either way.
+  SummaryUi.close();
   workoutLeft=true;focusEdit=null;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");
-  if(opts.nav)navTo(opts.nav);
-  else render();
-  // The control that opened this is gone with the workout, so focus lands on
-  // whatever Today now leads with rather than falling back to the body. Saving
-  // the day's session swaps the start CTA for the recap, so the target is read
-  // off the rendered dashboard instead of assumed to be the CTA.
-  if(!opts.nav){const next=resolveReturnFocus(todayPrimaryControl);
-    if(next){try{next.focus({preventScroll:true})}catch{}}}
-  maybeShowInstallBanner()}
-window.__repforgeSessionSummary={
-  open:openSessionSummary,close:closeSessionSummary,
-  build:buildSessionSummary,current:()=>sessionSummaryCurrent};
+  if(opts.nav)navTo(opts.nav);else render();
+  if(!opts.nav){const next=resolveReturnFocus(todayPrimaryControl);if(next){try{next.focus({preventScroll:true})}catch{}}}
+  maybeShowInstallBanner();
+}
+window.__repforgeSessionSummary={open:openSessionSummary,close:closeSessionSummary,
+  build:buildSessionSummary,current:()=>SummaryUi.current()};
+async function mountDashboardPresentation(){
+  const copy={t:(...args)=>t(...args),tp:(...args)=>tp(...args),tOne:(...args)=>tOne(...args),countText:(...args)=>countText(...args)};
+  const format={number:fmt,compact:kfmt,load:fmtLoad,unit:unitLabel,date:formatLongDate};
+  TodayUi=createTodayController({document,copy,format,motion:window.RepForgeMotion,
+    onCreateProgram:()=>startOnboarding(null,{userInitiated:true}),onOpenExercise:id=>openExerciseView(id,"log"),
+    onStartDay:day=>enterWorkout({day}),onReviewProgram:()=>{navTo("stats");setStatsSeg("review")}});
+  SummaryUi=createSessionSummary({window,copy,format,motion:window.RepForgeMotion,
+    shell:{openModal,closeModal,get activeModal(){return activeModal}},
+    onDone:()=>closeSessionSummary(),onSeeSession:session=>{HistoryUi.startReading(session);closeSessionSummary({nav:"history"})}});
+}
 
 function summaries(){const m=new Map();
   for(const raw of state.log){if(!isWork(raw))continue;const x=readLogRow(raw);
@@ -20776,6 +20485,7 @@ async function installTransferBootNeedsLock(){
     return transfer.contextFrom()==="standalone"&&!!transfer.readTransferCookie({document});
   }catch{return false}}
 async function boot(){
+  await mountDashboardPresentation();
   // The full source catalog is an offline shell asset. Load it before state
   // normalization or any program surface can consume metric/taxonomy details;
   // the synchronous exercise index remains available for first-paint search.
