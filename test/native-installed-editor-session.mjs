@@ -8,7 +8,7 @@ const clone=value=>structuredClone(value);
 let snapshot={...clone(fixture),log:[],customExercises:[],_storageRevision:1};
 let acknowledge;const pending=new Promise(resolve=>acknowledge=resolve);let settled=0;
 const model=createProgramModel({catalog,librarySource:{library:[]},nextId:()=> 'new-editor-id',now:()=> '2026-10-18T10:00:00.000Z',language:()=> 'en',defaultExerciseName:()=> 'Exercise'});
-const editor=createInstalledEditor({read:()=>snapshot,refreshHead:async()=>({head:snapshot}),model,catalog,nextId:()=> 'new-editor-id',defaultMeta:()=>({}),now:()=> '2026-10-18T10:00:00.000Z',readRecovery:()=>null,readActiveDraft:()=>null,
+const editor=createInstalledEditor({read:()=>snapshot,refreshHead:async()=>({head:snapshot}),model,catalog,nextId:()=> 'new-editor-id',defaultMeta:()=>({}),now:()=> '2026-10-18T10:00:00.000Z',readRecovery:()=>null,muscles:{validate:()=>true,invalid:()=>({invalid:true})},readActiveDraft:()=>null,
  drafts:{readRaw:()=>null,hasProgress:()=>false,parse:()=>({kind:'absent'}),clear:()=>null,rename:()=>null,removedSetsHaveProgress:()=>false},
  commit:async(proposal,options)=>{const check=await options.preflight({head:snapshot,proposal});if(check?.reject)return check.result;await pending;snapshot=check?.proposal||proposal;return{committed:true,settled:true,localOk:true,idbOk:true}},onSettled:()=>settled++});
 async function stage(name){const baseline=editor.read(),next=clone(baseline.document);next.programMeta.name=name;const result=await editor.commit({expectedToken:baseline.token,nextDocument:next,intent:{kind:'program_name',before:baseline.document.programMeta.name,after:name}});assert.equal(result.staged,true);return{...baseline,document:next}}

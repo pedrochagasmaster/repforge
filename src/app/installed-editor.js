@@ -14,8 +14,8 @@ import {draftProgramFingerprint,readRevision,snapshotBlockId} from '../persisten
 /** The installed editor owns a speculative document/intents until qualified
  * Apply. Canonical edits/rebase belong to training; this owner captures draft
  * effects and coordinates the real existing lock-held durable command.
- * @param {{read:()=>Snapshot,refreshHead:()=>Promise<{conflict?:boolean,head?:Snapshot}>,commit:import('./session.js').Commit,model:ReturnType<typeof import('../training/model.js').createProgramModel>,catalog:import('../training/generation/internal/compiler-contracts.js').SourceCatalog,nextId:()=>string,defaultMeta:(log:unknown[])=>import('../training/authoring/internal/editor-contracts.js').EditorMeta,now:()=>string,readRecovery:()=>import('../training/model/internal/contracts.js').RecoveryRecord|null,drafts:Drafts,readActiveDraft:()=>import('../training/workout-contracts.js').Draft|null,onSettled:(result:import('./session.js').CommitResult,context:{draftBefore:import('../training/workout-contracts.js').Draft|null})=>void}} options */
-export function createInstalledEditor({read,refreshHead,commit,model,catalog,nextId,defaultMeta,now,readRecovery,drafts,readActiveDraft,onSettled}){
+ * @param {{read:()=>Snapshot,refreshHead:()=>Promise<{conflict?:boolean,head?:Snapshot}>,commit:import('./session.js').Commit,model:ReturnType<typeof import('../training/model.js').createProgramModel>,catalog:import('../training/generation/internal/compiler-contracts.js').SourceCatalog,nextId:()=>string,defaultMeta:(log:unknown[])=>import('../training/authoring/internal/editor-contracts.js').EditorMeta,now:()=>string,readRecovery:()=>import('../training/model/internal/contracts.js').RecoveryRecord|null,drafts:Drafts,muscles:{validate:(value:unknown)=>boolean,invalid:()=>import('./session.js').CommitResult},readActiveDraft:()=>import('../training/workout-contracts.js').Draft|null,onSettled:(result:import('./session.js').CommitResult,context:{draftBefore:import('../training/workout-contracts.js').Draft|null})=>void}} options */
+export function createInstalledEditor({read,refreshHead,commit,model,catalog,nextId,defaultMeta,now,readRecovery,drafts,muscles,readActiveDraft,onSettled}){
   const rules=createInstalledEditorRules({model,catalog,nextId,defaultProgramMeta:defaultMeta});
   /** @type {{document:Document,token:Token|undefined,edits:Intent[]}|null} */ let session=null;
   // Rebase can compact a renamed/moved document too. Read the current recovery
@@ -92,5 +92,16 @@ export function createInstalledEditor({read,refreshHead,commit,model,catalog,nex
     if(result.committed===true&&result.settled===true){if(session===capturedSession)session=null;onSettled(result,{draftBefore});return{...result,ok:true,token:token(read())}}
     return{...result,ok:false,conflict:!!(result.conflict||result.staleRevision)};
   }
-  return Object.freeze({read:readDocument,commit:commitDocument,reset:()=>{session=null},readSession:()=>copySnapshot(session),commands,rules});
+  /** The alternate row/JSON ingress shares installed prescription-history
+   * publication. It cannot cross into the private Entry draft branch.
+   * @param {Snapshot} proposal @param {import('./session.js').CommitOptions} [options] @param {unknown} [io] */
+  function commitForm(proposal,options={},io){
+    if(!muscles.validate(proposal))return Promise.resolve(muscles.invalid());
+    const previous=read();
+    if(proposal.programMeta)model.syncProgramStructureFromProgram(/** @type {Snapshot & {programMeta:NonNullable<Snapshot['programMeta']>}} */(proposal),
+      model.makeProgram(proposal.program,model.snapshotLookup(proposal.customExercises),proposal.programMeta),
+      previous.program||null,previous.programMeta||null,{recoveryRecord:readRecovery()});
+    return commit(proposal,options,io);
+  }
+  return Object.freeze({read:readDocument,commit:commitDocument,reset:()=>{session=null},readSession:()=>copySnapshot(session),commitForm,commands,rules});
 }

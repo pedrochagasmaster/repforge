@@ -4939,21 +4939,7 @@ function programEditorProgram(){
   const snapshot=programEditorSnapshot();
   return makeProgram(snapshot.program,null,snapshot.programMeta)}
 async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
-  // Check before synchronising the edited program into the compact history
-  // aggregate. An unsupported attribution is an ingress error, not a reason
-  // for the history projector to throw after the user has pressed Apply.
-  if(!setupEditorOpen){
-    if(!isValidMuscleDomainTree(proposal))return invalidMuscleDomainCommit(proposal);
-    // Every installed-program mutation, including the legacy field/JSON
-    // editor, crosses this boundary. Record the effective prescription before
-    // the durable commit so an edit in week N cannot reproject weeks < N from
-    // today's mutable program. The mounted editor also uses this helper at
-    // its final Apply, so there is one owner for the history receipt.
-    syncProgramStructureFromProgram(proposal,
-      makeProgram(proposal.program,snapshotLookup(proposal.customExercises),proposal.programMeta),
-      state.program,state.programMeta);
-    return commitProposedState(proposal,io,opts);
-  }
+  if(!setupEditorOpen)return InstalledEditor.commitForm(proposal,opts,io);
   if(!entryState?.result?.preview){
     entryPersistenceDiagnostic={operation:"editor-commit",ok:false,code:"editor-preview-missing",issues:[]};
     return{localOk:false,idbOk:false,setupDraftInvalid:true,code:"editor-preview-missing"}}
@@ -10271,10 +10257,11 @@ function initializePersistenceOwners(){
   BuildAuthoring=createInstalledEditorRules({model,catalog:rawExerciseCatalog,nextId:uid,defaultProgramMeta,allowCreateDefinition:true});
   InstalledEditor=createInstalledEditor({read:applicationSession.read,model,catalog:rawExerciseCatalog,nextId:uid,
     defaultMeta:defaultProgramMeta,now,refreshHead:refreshPersistenceHead,
-    commit:(proposal,options)=>commitProposedState(proposal,storageIO,options),
+    commit:(proposal,options,io=storageIO)=>commitProposedState(proposal,io,options),
     readRecovery:()=>activeRecoveryRecord?.diff?.recoveryWeek?.blockId===applicationSession.read().programMeta?.blockId?activeRecoveryRecord:null,
     drafts:{readRaw:readDraftRaw,hasProgress:draftHasProgress,parse:raw=>WorkoutDraft.parse(raw),clear:destructiveDraftClearEffect,
       rename:draftDayReplacementEffect,removedSetsHaveProgress:draftHasProgressInRemovedSets},
+    muscles:{validate:isValidMuscleDomainTree,invalid:invalidMuscleDomainCommit},
     readActiveDraft:()=>activeWorkoutDraft,
     onSettled:(result,{draftBefore})=>{const discarded=result.discardedWorkout===true;
       if(discarded)reportWorkoutDiscarded(activeWorkoutDraft||draftBefore,'program_edit');
@@ -10359,7 +10346,7 @@ let settingsCommandsOwner=null,settingsUiOwner=null,notificationUiOwner=null,set
 function settingsDraftEffects(){return settingsDraftEffectsOwner||(settingsDraftEffectsOwner=createSettingsDraftEffects({workout:WorkoutDraft,
   outcome:draftEffectOutcome,writer:draftWriter,operationId:uid,now:()=>new Date().toISOString()}))}
 function settingsCommands(){return settingsCommandsOwner||(settingsCommandsOwner=createSettingsCommands({
-  read:applicationSession.read,commit:(proposal,options)=>commitProposedState(proposal,storageIO,options),
+  read:applicationSession.read,commit:(proposal,options,io=storageIO)=>commitProposedState(proposal,io,options),
   policy:{normalizeSettings,normalizeProfile:value=>ProgramEntry.normalizeProfile(value)},draft:{readRaw:readDraftRaw,hasProgress:draftHasProgress,unitEffect:(raw,oldUnit,newUnit)=>settingsDraftEffects().unitEffect(raw,oldUnit,newUnit)},report:captureEvent,revision:readRevision}))}
 function notificationControls(){return notificationUiOwner||(notificationUiOwner=createNotificationControls({window,
   settings:settingsCommands(),capability:{permission:()=>Notifications?Notifications.permission():"unsupported",
