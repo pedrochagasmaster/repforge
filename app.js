@@ -1,3 +1,4 @@
+import {workoutDayIdForSnapshot,workoutParseContextForSnapshot} from './src/persistence/snapshot.js';
 import {review as ReviewRules} from './src/training/authoring.js';
 import {createProgramReview} from './src/ui/editors.js';
 import {createStorageRecoveryView} from './src/ui/storage-recovery.js';
@@ -1238,13 +1239,7 @@ async function drainDraftWork(){
     await writes;await workoutSuggestions.flush();
     if(writes===draftWriteTail)return;
   }}
-function workoutDayId(label){
-  // The canonical definition's day id survives renames; it is what a draft keys on.
-  const canonical=state.programMeta?.programDefinition?.days?.find?.(day=>day?.kind==="training"&&day.name===label);
-  if(canonical?.id)return String(canonical.id);
-  const structured=state.programMeta?.programStructure?.days;
-  const matched=Array.isArray(structured)?structured.find(item=>String(item?.label||item?.dayId||"")===label):null;
-  return String(matched?.dayId||exercises(label)[0]?.dayId||label)}
+function workoutDayId(label){return workoutDayIdForSnapshot(state,label)}
 function metricLoading(...args){return workoutQueries().metricLoading(...args)}
 function catalogExecutionMode(...args){return workoutQueries().catalogExecutionMode(...args)}
 function executionModeForSlot(...args){return workoutQueries().executionModeForSlot(...args)}
@@ -1341,10 +1336,7 @@ function workoutProgramContext(label=day){
   if(Object.prototype.hasOwnProperty.call(state.programMeta||{},"blockId"))context.blockId=state.programMeta.blockId;
   return context
 }
-function workoutParseContext(label=day){const context=workoutProgramContext(label);
-  const parsed={programId:context.programId,programFingerprint:context.programFingerprint,dayId:context.dayId};
-  if(Object.prototype.hasOwnProperty.call(context,"blockId"))parsed.blockId=context.blockId;
-  return parsed}
+function workoutParseContext(label=day){return workoutParseContextForSnapshot(state,label)}
 function displayDraftText(field,value){
   if(value==null)return value;
   if(field!=="load"&&field!=="bodyweight")return value;
@@ -12939,7 +12931,7 @@ function initializePersistenceOwners(){
     readEditor:programEditorSnapshot,commit:proposal=>commitProposedState(proposal),commitEditor:commitProgramEditorProposal,
     model,authoring:createInstalledEditorRules({model,catalog:rawExerciseCatalog,nextId:uid,defaultProgramMeta})});
   DurableState=createDurableStore({snapshotPolicy:policy,workout,
-    session:{getState:applicationSession.read,parseContext:workoutParseContext,blockStartGuard:blockStartDraftGuard,
+    session:{getState:applicationSession.read,blockStartGuard:blockStartDraftGuard,
       onDraftRecovery:value=>{workoutDraftRecovery=value}},
     setup:{readRaw:readSetupDraftRaw,rebase:rebaseSharedSetupSnapshot},
     resolveCustomMutationIntent,onAccepted:applyAcceptedSnapshot,
