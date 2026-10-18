@@ -1,5 +1,5 @@
+import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,createEntryAnswerCommands,createEntryQuestionFlow,createEntryReviewSession,createEntrySetup,createEntryActivation,createReceivedSetup,buildLandingProof,FREEFORM_MAX_CHARS} from './src/app/entry.js';
 import {createEntryLanding} from './src/ui/entry/landing/controller.js';
-import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,createEntryAnswerCommands,createEntryQuestionFlow,createEntryReviewSession,createEntrySetup,createEntryActivation,buildLandingProof,FREEFORM_MAX_CHARS} from './src/app/entry.js';
 import * as ExerciseSource from './exercises.js';
 import {EXERCISE_LIBRARY,LEGACY_LIBRARY_IDS,EXERCISE_CATALOG_SHA256} from './exercises.js';
 import {STRINGS} from './i18n.js';
@@ -8326,7 +8326,8 @@ window.addEventListener("beforeinstallprompt",event=>installView().capturePrompt
    what the browser can actually do — a captured beforeinstallprompt, Safari's
    manual Home Screen flow, or nothing — so no lifter is ever asked which phone
    they are holding. */
-let sharedSetupDraft={status:"none",source:null,encoded:null,payload:null,error:null,previousLang:null};
+let ReceivedSetup=null;
+const readSharedSetup=()=>ReceivedSetup.read();
 let landingOwner=null;
 function landingView(){return landingOwner||(landingOwner=createEntryLanding({window,motion:ensureBrowserPresentation().motion,install:installView(),copy:{t,language:()=>uiLang()},
   report:captureEvent,markSeen:()=>setUiPref("entryLandingSeen",true),commands:{
@@ -8334,11 +8335,11 @@ function landingView(){return landingOwner||(landingOwner=createEntryLanding({wi
     selectImport:()=>{setImportSourceMode("freeform",{render:false});entrySelectRoute("import")},clearShared:discardSharedSetup,
     acceptShared:()=>commitSharedSetup(storageIO),privacy:()=>openPrivacySheet(),install:triggerInstall}}))}
 const firstRunOpen=()=>landingView().isOpen();
-function landingSharedView(){return{ready:sharedSetupReady(),invalid:sharedSetupInvalid(),name:sharedSetupDraft.payload?.program?.name||"",days:sharedTrainingDays(sharedSetupDraft.payload?.program?.definition),errorKey:sharedSetupErrorKey(sharedSetupDraft.error,sharedSetupDraft.errorVersion)}}
+function landingSharedView(){return{ready:sharedSetupReady(),invalid:sharedSetupInvalid(),name:readSharedSetup().payload?.program?.name||"",days:sharedTrainingDays(readSharedSetup().payload?.program?.definition),errorKey:sharedSetupErrorKey(readSharedSetup().error,readSharedSetup().errorVersion)}}
 function landingPaint(){return{shared:landingSharedView(),proof:buildLandingProof({model:TrainingModel,catalog:rawExerciseCatalog,minJump:DEFAULTS.minJump,defaultWeeks:EntryActivation.defaultCycles})}}
-const sharedSetupReady=()=>sharedSetupDraft.status==="ready"&&!!sharedSetupDraft.payload;
+const sharedSetupReady=()=>readSharedSetup().status==="ready"&&!!readSharedSetup().payload;
 const sharedTrainingDays=definition=>(definition?.days||[]).filter(day=>day.kind==="training").length;
-const sharedSetupInvalid=()=>sharedSetupDraft.status==="invalid"||sharedSetupDraft.status==="unsupported";
+const sharedSetupInvalid=()=>readSharedSetup().status==="invalid"||readSharedSetup().status==="unsupported";
 const sharedSetupEligible=()=>firstRunPending()&&!(state.programHistory?.length);
 function sharedSetupErrorKey(code,version=null){
   // Only a link from a later envelope is "newer". Retired envelopes and links
@@ -8353,7 +8354,7 @@ async function commitSharedSetup(io=storageIO){
   if(!sharedSetupEligible()){
     toast(t("setup.shared.existing"),{assertive:true});
     return{revision:readRevision(state),localOk:false,idbOk:false,ineligible:true}}
-  const checked=SharedSetup?.validate(sharedSetupDraft.payload,sharedSetupCodecOptions());
+  const checked=ReceivedSetup.validate();
   if(!checked?.ok){
     toast(t("setup.shared.commit_failed"),{assertive:true});
     $("#firstRunSharedStart")?.focus();
@@ -8364,21 +8365,10 @@ async function commitSharedSetup(io=storageIO){
   // until the shared preview's explicit activation action.
   setSharedSetupBusy(true);
   try {
-    const shared=checked.value.program,definition=cloneSnapshot(shared.definition);
-    const customs=cloneSnapshot(shared.customExercises||[]);
-    const program=flatProgramFromDefinition(definition,customs,1);
-    const days=definition.days.filter(day=>day.kind==="training").map((day,index)=>({dayId:day.id,label:day.name,order:index+1,
-      exercises:program.filter(row=>row.dayId===day.id).map(cloneSnapshot)}));
-    const preview={source:"shared",frequency:days.length,program,programDefinition:definition,
-      programStructure:{schemaVersion:1,days:days.map(({dayId,label,order})=>({dayId,label,order})),provenance:{source:"shared"}},
-      days,customExercises:customs,primaryMuscles:[],
-      sharedMeta:{name:shared.name,daysPerWeek:days.length,mesocycleLengthWeeks:definition.cycles},
-      sharedSettings:cloneSnapshot(checked.value.settings)};
     startOnboarding("first-run",{userInitiated:true,forceFresh:true});
-    let next=ProgramEntry.selectRoute(entryState,"shared");
-    next=ProgramEntry.setAnswers(next,{sharedReady:true});
-    next=ProgramEntry.setResult(next,{fingerprint:entryServices()?.fingerprint?.({route:"shared",name:shared.name,preview})||"shared",selected:{id:"shared",source:"shared"},name:shared.name,preview,telemetry:{family:"shared_v1"}});
-    next={...next,step:"preview"};
+    const reviewed=ReceivedSetup.review(entryState,checked.value);
+    if(!reviewed.ok)throw new Error(reviewed.code);
+    const next=reviewed.value;
     publishEntryDraft(next);
     // The first-run Start control opens the in-memory review. The received
     // definition stays out of the resumable setup-draft store until activation.
@@ -8413,7 +8403,7 @@ const firstRunPending=()=>!state.programMeta?.onboarded&&!state.log.length;
  *  amending G-47/L-08 and Q633): the full landing on the first visit, the
  *  returning landing on later ones; the chooser is reached from it. */
 function maybeShowFirstRun(){
-  if(sharedSetupDraft.status==="existing")return false;
+  if(readSharedSetup().status==="existing")return false;
   if(!firstRunPending())return false;
   const kind=currentEntryLanding();
   // A restored or migrated program with the flag unset is real content
@@ -8836,94 +8826,26 @@ async function applyBootDecision(decision){
   if(decision.kind==="first-run"||decision.migrate||revisionless||migrated||metaDrift||decision.recoveryChanged)await persistBootNormalization();
   if(I18N)I18N.setLang(resolveLang())}
 window.__repforgeSharedSetup={
-  get status(){return sharedSetupDraft.status},
-  get source(){return sharedSetupDraft.source},
-  get error(){return sharedSetupDraft.error},
-  get summary(){return sharedSetupDraft.payload?{
-    name:sharedSetupDraft.payload.program.name,
-    daysPerWeek:sharedTrainingDays(sharedSetupDraft.payload.program.definition),
-    lang:sharedSetupDraft.payload.settings.lang}:null},
+  get status(){return readSharedSetup().status},
+  get source(){return readSharedSetup().source},
+  get error(){return readSharedSetup().error},
+  get summary(){return readSharedSetup().payload?{
+    name:readSharedSetup().payload.program.name,
+    daysPerWeek:sharedTrainingDays(readSharedSetup().payload.program.definition),
+    lang:readSharedSetup().payload.settings.lang}:null},
   build:()=>programSharing.buildPayload(),
   buildPayload:()=>programSharing.buildPayload(),
   buildValidation:()=>programSharing.buildValidation(),
   commit:io=>commitSharedSetup(io||storageIO),
   eligible:sharedSetupEligible};
-function captureSharedSetupSource({allowCookie=true}={}){
-  if(!SharedSetup)return null;
-  try{
-    const fragment=SharedSetup.readSetupFragment();
-    if(fragment!=null){
-      sharedSetupDraft={status:"loading",source:"fragment",encoded:null,payload:null,error:null,previousLang:null};
-      return{source:"fragment",encoded:fragment}}
-    if(!allowCookie)return null;
-    const cookie=SharedSetup.readHandoffCookie();
-    if(cookie){
-      sharedSetupDraft={status:"loading",source:"cookie",encoded:null,payload:null,error:null,previousLang:null};
-      return{source:"cookie",encoded:cookie}}
-    return null}
-  catch{
-    sharedSetupDraft={status:"invalid",source:null,encoded:null,payload:null,error:"invalid-schema",previousLang:null};
-    return null}}
-let sharedSetupDecodeRequest=0,sharedSetupDecodeController=null;
-function cancelSharedSetupDecode(){
-  sharedSetupDecodeRequest++;
-  sharedSetupDecodeController?.abort();
-  sharedSetupDecodeController=null}
-function clearSharedSetupHandoffIfMatches(encoded){
-  try{if(SharedSetup.readHandoffCookie()===encoded)SharedSetup.clearHandoffCookie()}catch{}}
-/* Owner decision (2026-10-13): "Create a program from scratch" discards the
-   received proposal. The cookie and any fragment go, so a reload cannot bring
-   it back; nothing from it was ever written, and its language is not kept. */
+function captureSharedSetupSource(options){return ReceivedSetup.capture(options)}
+function cancelSharedSetupDecode(){ReceivedSetup.cancel()}
+/* Creating from scratch consumes the received proposal and its handoff. */
 function discardSharedSetup(){
-  cancelSharedSetupDecode();
-  try{SharedSetup?.clearHandoffCookie?.()}catch{}
-  try{if(SharedSetup?.readSetupFragment?.()!=null)history.replaceState({},"",SharedSetup.removeSetupFragment())}catch{}
+  ReceivedSetup.discard();
   if(entryState?.route==="shared"){clearEntryAdjust();publishEntryDraft(null)}
-  sharedSetupDraft={status:"none",source:null,encoded:null,payload:null,error:null,previousLang:null};
   syncLang()}
-async function prepareSharedSetup(candidate){
-  if(!candidate||!SharedSetup)return false;
-  sharedSetupDecodeController?.abort();
-  const request=++sharedSetupDecodeRequest,controller=new AbortController();
-  sharedSetupDecodeController=controller;
-  const isCurrent=()=>request===sharedSetupDecodeRequest&&!controller.signal.aborted;
-  const {source,encoded}=candidate;
-  let staged=false,matchingCookie=false;
-  try{matchingCookie=SharedSetup.readHandoffCookie()===encoded}catch{}
-  if(source==="fragment"&&typeof encoded==="string"&&
-    encoded.length<=SharedSetup.MAX_ENCODED_CHARS){
-    try{
-      staged=SharedSetup.writeHandoffCookie(encoded)===true;
-      if(staged&&location.pathname===SharedSetup.handoffCookiePath())
-        staged=SharedSetup.readHandoffCookie()===encoded}
-    catch{staged=false}}
-  let decoded;
-  try{decoded=await SharedSetup.decode(encoded,sharedSetupDecodeCodecOptions(controller.signal))}
-  catch(error){
-    if(error?.name==="AbortError"||!isCurrent())return false;
-    decoded={ok:false,code:"invalid-schema"}}
-  if(!isCurrent())return false;
-  if(!decoded.ok){
-    if(source==="cookie"||staged||matchingCookie)clearSharedSetupHandoffIfMatches(encoded);
-    const unsupported=decoded.code==="unsupported-version"||decoded.code==="decompression-unavailable";
-    sharedSetupDraft={status:unsupported?"unsupported":"invalid",source,encoded:null,payload:null,
-      error:decoded.code,errorVersion:decoded.version??null,previousLang:null};
-    return true}
-  if(source==="fragment"&&staged){
-    if(SharedSetup.readSetupFragment()!==encoded)return false;
-    const next=SharedSetup.removeSetupFragment();
-    history.replaceState({},"",next)}
-  if(!sharedSetupEligible()){
-    // The handoff cookie only exists to carry a link into first run. A device
-    // that cannot accept it must not keep it waiting for a later data wipe.
-    if(source==="cookie"||staged||matchingCookie)clearSharedSetupHandoffIfMatches(encoded);
-    sharedSetupDraft={status:source==="fragment"?"existing":"none",source,encoded:null,payload:null,
-      error:source==="fragment"?"existing":null,previousLang:null};
-    return true}
-  const previousLang=I18N?.getLang?.()||state.settings.lang||I18N?.detectLang?.()||"en";
-  sharedSetupDraft={status:"ready",source,encoded,payload:decoded.value,error:null,previousLang};
-  I18N?.setLang(decoded.value.settings.lang);
-  return true}
+function prepareSharedSetup(candidate){return ReceivedSetup.prepare(candidate)}
 async function handleSharedSetupHash(){
   const candidate=captureSharedSetupSource({allowCookie:false});
   if(!candidate||candidate.source!=="fragment"){
@@ -8931,7 +8853,7 @@ async function handleSharedSetupHash(){
     return}
   if(firstRunOpen())suspendFirstRun();
   if(!await prepareSharedSetup(candidate))return;
-  if(sharedSetupDraft.status==="existing"){
+  if(readSharedSetup().status==="existing"){
     closeFirstRun();toast(t("setup.shared.existing"),{assertive:true});return}
   applyI18n();
   // A shared fragment can finish its asynchronous hash handoff after the
@@ -9010,7 +8932,7 @@ async function boot(){
     openIosInstallSheet(transferResult.transferResult.cleanup?.ok===true?"success":"cleanup")}
   if(draftBoot.status!=="ready"&&draftBoot.status!=="absent")showDraftInitializationRecovery(draftBoot);
   captureEvent("app_boot",{first_run:firstRunPending(),language:I18N?.getLang?.()==="pt"?"pt":"en",platform_class:telemetryPlatformClass(),display_mode:isStandalone()?"standalone":"browser"});
-  if(sharedSetupDraft.status==="existing")toast(t("setup.shared.existing"),{assertive:true});
+  if(readSharedSetup().status==="existing")toast(t("setup.shared.existing"),{assertive:true});
   if(decision.draftConflict)toast(t("toast.draft_conflict_retry"),{assertive:true})}
 
 boot();
@@ -9045,6 +8967,11 @@ function initializePersistenceOwners(){
   EntrySetup=createEntrySetup({rules:ProgramEntry,store:EntryDraft,nextId:uid,now:entryNow,
     context:()=>({versions:entryVersions(),activeProgramRevision:liveProgramRevision()}),mutationFrozen:installTransferMutationFrozen,
     onUpdate:next=>{entryState=next},onFailure:reportSetupDraftWriteFailure,onDiagnostic:value=>{entryPersistenceDiagnostic=value}});
+  ReceivedSetup=createReceivedSetup({codec:SharedSetup,model,rules:ProgramEntry,options:sharedSetupCodecOptions,
+    decodeOptions:sharedSetupDecodeCodecOptions,eligible:sharedSetupEligible,
+    language:{read:()=>I18N?.getLang?.()||state.settings.lang||I18N?.detectLang?.()||"en",write:language=>I18N?.setLang(language)},
+    navigation:{pathname:()=>location.pathname,replace:url=>history.replaceState({},"",url)},
+    fingerprint:value=>entryServices()?.fingerprint?.(value)||"shared"});
   const policy=SnapshotPolicy.createSnapshotPolicy({entry,workout,compiler:ProgramCompiler,
     catalog:rawExerciseCatalog,model,transition:generationRules.transition,metrics:PersistenceMetrics,
     progression:PersistenceProgression,now,nextId:uid,language:I18N,digest:recoverySha256});
