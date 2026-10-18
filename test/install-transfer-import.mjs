@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {Transfer,Contract} from './interchange-runtime.mjs';
 /**
  * Plan 053-P4a: production-backed install-transfer import oracle.
  *
@@ -27,8 +28,8 @@ const require = createRequire(import.meta.url);
 // reads for its metric-bearing sets; provide the same catalog.
 const RAW_CATALOG = require("../assets/exercise-catalog.json");
 globalThis.RepForgeExerciseCatalog = { snapshot: () => RAW_CATALOG };
-const Transfer = require("../install-transfer.js");
-const Contract = require("../install-transfer-contract.js");
+
+
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const STATE_KEY = "repforge_v1";

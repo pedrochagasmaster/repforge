@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {Setup} from './interchange-runtime.mjs';
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -7,7 +8,7 @@ import fs from "node:fs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const require = createRequire(import.meta.url);
-const Setup = require(join(root, "shared-setup.js"));
+
 const Metrics = require(join(root, "exercise-metrics.js"));
 const Compiler = require(join(root, "program-compiler.js"));
 const source = JSON.parse(fs.readFileSync(join(root, "plans/067/data/app_file.json"), "utf8"));

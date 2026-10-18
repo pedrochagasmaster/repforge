@@ -51,13 +51,21 @@ async function assertOrigin() {
 }
 
 function moduleUrl() {
-  return new URL("install-transfer.js", ORIGIN).href;
+  return new URL("src/platform/install-transfer.js", ORIGIN).href;
 }
 
-async function openBrowserClient(page) {
-  await page.goto(INDEX_URL, { waitUntil: "domcontentloaded" });
-  await page.addScriptTag({ url: moduleUrl() });
-  await page.waitForFunction(() => typeof window.RepForgeInstallTransfer?.createCredentialVault === "function");
+async function installBrowserClient(page){
+  await page.evaluate(async url=>{
+    const {createInstallTransfer}=await import(url);
+    window.__repforgeTransferTest=createInstallTransfer({crypto:globalThis.crypto,TextEncoder,TextDecoder,document,
+      location:globalThis.location,navigator,matchMedia:globalThis.matchMedia.bind(globalThis),
+      fetch:globalThis.fetch.bind(globalThis),indexedDB,atob,btoa,now:()=>new Date().toISOString()});
+  },moduleUrl());
+}
+async function openBrowserClient(page){
+  await page.goto(INDEX_URL,{waitUntil:'domcontentloaded'});
+  await installBrowserClient(page);
+  await page.waitForFunction(()=>typeof window.__repforgeTransferTest?.createCredentialVault==='function');
 }
 
 async function main() {
@@ -79,10 +87,10 @@ async function main() {
       sessionStorage.clear();
     }, EXPECTATIONS.credentialDatabase.name);
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.addScriptTag({ url: moduleUrl() });
+    await installBrowserClient(page);
 
     const first = await page.evaluate(async ({ token, expected }) => {
-      const transfer = window.RepForgeInstallTransfer;
+      const transfer = window.__repforgeTransferTest;
       const vault = transfer.createCredentialVault({ crypto: globalThis.crypto });
       const sealed = await vault.seal("browser-outbound", { token, claimId: "browser-claim-id" });
       const getRawKey = () => new Promise((resolve, reject) => {
@@ -141,7 +149,7 @@ async function main() {
       document.cookie = "repforge_setup_v1=v1.setup-canary; Path=/index.html; SameSite=Lax";
     });
     const cookieResult = await page.evaluate(async ({ token }) => {
-      const transfer = window.RepForgeInstallTransfer;
+      const transfer = window.__repforgeTransferTest;
       const wrote = transfer.writeTransferCookie({ token, expiresAt: "2099-01-01T00:00:00.000Z" });
       const parsed = transfer.readTransferCookie();
       const rawCookie = document.cookie;
@@ -167,9 +175,9 @@ async function main() {
     check(!transferCookie?.value.includes(COOKIE_TOKEN), "encoded cookie value does not expose the raw token");
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.addScriptTag({ url: moduleUrl() });
+    await installBrowserClient(page);
     const afterReload = await page.evaluate(async ({ token, sealed, expected }) => {
-      const transfer = window.RepForgeInstallTransfer;
+      const transfer = window.__repforgeTransferTest;
       const vault = transfer.createCredentialVault({ crypto: globalThis.crypto });
       const value = await vault.unseal("browser-outbound", sealed);
       return {
@@ -211,7 +219,7 @@ async function main() {
     check(!producerBoundary.hookHasLogicalClone, "clone client does not silently treat the raw app draft hook as its logical producer");
 
     const abortProbe = await page.evaluate(async ({ expected }) => {
-      const transfer = window.RepForgeInstallTransfer;
+      const transfer = window.__repforgeTransferTest;
       const vault = transfer.createCredentialVault({ crypto: globalThis.crypto });
       const originalTransaction = IDBDatabase.prototype.transaction;
       let abortScheduled = false;
@@ -245,7 +253,7 @@ async function main() {
     check(abortProbe.contextRecords === 0, "aborted credential write left a persisted key");
 
     const faultProbes = await page.evaluate(async ({ token, expected }) => {
-      const transfer = window.RepForgeInstallTransfer;
+      const transfer = window.__repforgeTransferTest;
       const contract = {
         canonicalJson: (value) => JSON.stringify(value),
         validateEnvelope: (value) => ({ ok: true, value }),
@@ -374,7 +382,7 @@ async function main() {
     check(faultProbes.cleanup.secondConfirmed && faultProbes.cleanup.noSealedFinal && faultProbes.cleanup.oneStatusRequest, "real-browser cleanup retry did not leave a digest-only recovery snapshot");
 
     const keyLoss = await page.evaluate(async ({ sealed, expected }) => {
-      const transfer = window.RepForgeInstallTransfer;
+      const transfer = window.__repforgeTransferTest;
       const vault = transfer.createCredentialVault({ crypto: globalThis.crypto });
       const keyName = `${expected.credentialDatabase.keyNamePrefix}${sealed.keyId}`;
       const database = await new Promise((resolve, reject) => {

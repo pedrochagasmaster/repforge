@@ -28,8 +28,6 @@ const expected = [
   "history-ui.js",
   "i18n.js",
   "install-policy.js",
-  "install-transfer-contract.js",
-  "install-transfer.js",
   "motion-layer.js",
   "notify.js",
   "posthog-init.js",
@@ -42,10 +40,8 @@ const expected = [
   "program-transition.js",
   "progress-model.js",
   "progression-engine.js",
-  "shared-setup.js",
   "sw.js",
   "telemetry.js",
-  "unsupported-workout-grammar.js",
   "workout-draft.js",
 ];
 const missing = expected.filter((file) => !files.includes(file));

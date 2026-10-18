@@ -1,3 +1,4 @@
+import {Setup} from '../../interchange-runtime.mjs';
 /**
  * Domain adapter for current browser-free production modules. The compiler,
  * metric definitions and full source UUID snapshot remain the schema owners.
@@ -18,7 +19,7 @@ let cached;
 
 export function loadDomain() {
   if (cached) return cached;
-  const Setup = requireRoot("shared-setup.js");
+
   const Progression = requireRoot("progression-engine.js");
   const Compiler = requireRoot("program-compiler.js");
   const Metrics = requireRoot("exercise-metrics.js");

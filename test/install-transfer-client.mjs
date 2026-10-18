@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {Transfer} from './interchange-runtime.mjs';
 /**
  * Plan 053 P3 isolated browser-client contract tests.
  *
@@ -15,10 +16,9 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { runInNewContext } from "node:vm";
 
 const require = createRequire(import.meta.url);
-const Transfer = require("../install-transfer.js");
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const EXPECTATIONS = JSON.parse(readFileSync(join(ROOT, "test/fixtures/install-transfer-client/expectations.json"), "utf8"));
 const FAULT_EXPECTATIONS = JSON.parse(readFileSync(join(ROOT, "test/fixtures/install-transfer-client/fault-expectations.json"), "utf8"));
@@ -381,11 +381,10 @@ async function main() {
     check(!Transfer.validateTransferToken(token.replace(/\.[^.]+$/, "." + "A".repeat(42))), "non-32-byte bearer segment was accepted");
   });
 
-  await test("exports the same API through a classic browser global", () => {
-    const browserGlobal = {};
-    runInNewContext(readFileSync(join(ROOT, "install-transfer.js"), "utf8"), { globalThis: browserGlobal });
-    check(browserGlobal.RepForgeInstallTransfer?.COOKIE_NAME === EXPECTATIONS.cookieName, "classic global was not published");
-    check(browserGlobal.RepForgeInstallTransfer?.ENDPOINTS?.claim === EXPECTATIONS.endpoints.claim, "classic global endpoint contract drifted");
+  await test("native capability construction preserves cookie and endpoint contracts without publishing globals", () => {
+    check(Transfer.COOKIE_NAME === EXPECTATIONS.cookieName, "native cookie contract drifted");
+    check(Transfer.ENDPOINTS.claim === EXPECTATIONS.endpoints.claim, "native endpoint contract drifted");
+    check(globalThis.RepForgeInstallTransfer === undefined, "native factory published a legacy module global");
   });
 
   await test("builds a fresh semantic envelope from acknowledged producers", async () => {

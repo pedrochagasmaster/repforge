@@ -160,7 +160,6 @@ assert(buildCheck.status === 0, "generated index and detail asset match their co
     "program-review.js",
     "program-entry.js",
     "program-entry-adapter.js",
-    "shared-setup.js",
     "workout-draft.js",
     "program-transition.js",
     "program-engine.js",

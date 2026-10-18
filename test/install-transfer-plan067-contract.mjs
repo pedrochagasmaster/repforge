@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {Contract} from './interchange-runtime.mjs';
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -19,7 +20,7 @@ globalThis.RepForgeProgramCompiler = Compiler;
 globalThis.RepForgeExerciseMetrics = Metrics;
 globalThis.RepForgeExerciseCatalog = { snapshot: () => catalogSnapshot };
 globalThis.RepForgeProgramEntry = ProgramEntry;
-const Contract = require(path.join(root, "install-transfer-contract.js"));
+
 const fixture = JSON.parse(fs.readFileSync(path.join(root, "test/fixtures/install-transfer-clone-v1.json"), "utf8"));
 const gym = JSON.parse(fs.readFileSync(path.join(root, "plans/067/data/gym.json"), "utf8"));
 const observations = JSON.parse(fs.readFileSync(path.join(root, "plans/067/data/programs.json"), "utf8"));

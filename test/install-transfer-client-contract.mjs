@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {Transfer,Contract,nativeContractRealm} from './interchange-runtime.mjs';
 /**
  * Plan 053 P3 client/contract parity proof.
  *
@@ -18,8 +19,8 @@ import { webcrypto } from "node:crypto";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
-const Transfer = require(join(ROOT, "install-transfer.js"));
-const Contract = require(join(ROOT, "install-transfer-contract.js"));
+
+
 const WorkoutDraft = require(join(ROOT, "workout-draft.js"));
 const ProgramEntry = require(join(ROOT, "program-entry.js"));
 const ProgramEntryAdapter = require(join(ROOT, "program-entry-adapter.js"));
@@ -341,34 +342,22 @@ function assertFailureShape(result, code, label) {
   assert.deepEqual(Object.keys(result).sort(), ["code", "ok"], `${label} does not expose payload data`);
 }
 
-async function browserContractForParity() {
-  // The page loads the catalog, metric domain, compiler and draft modules
-  // before the contract, and the catalog's detail asset before boot.
-  const catalogText = readFileSync(join(ROOT, "assets/exercise-catalog.json"), "utf8");
-  const browserContext = vm.createContext({ TextEncoder, TextDecoder, crypto: webcrypto,
-    fetch: async () => ({ ok: true, status: 200, text: async () => catalogText }) });
-  browserContext.window = vm.runInContext("globalThis", browserContext);
-  for (const file of ["generation-identity.js", "exercises.js", "exercise-catalog.js", "exercise-metrics.js",
-    "generation-candidates.js", "generation-layout.js", "program-compiler.js",
-    "workout-draft.js", "install-transfer-contract.js"]) {
-    vm.runInContext(readFileSync(join(ROOT, file), "utf8"), browserContext, { filename: file });
-  }
-  await browserContext.RepForgeExerciseCatalog.load();
-  const contract = browserContext.RepForgeInstallTransferContract;
-  return Object.assign(Object.create(contract), { __parse: vm.runInContext("(text) => JSON.parse(text)", browserContext) });
+async function nativeRealmContractForParity(){
+  const realm=await nativeContractRealm();
+  return Object.assign(Object.create(realm.contract),{__parse:realm.parse});
 }
 
 async function main() {
   console.log("Plan 053 P3 install-transfer client/shared-contract parity");
 
-  await test("canonical fixture and accepted shared contract agree across Node and browser consumers", async () => {
+  await test("canonical fixture and accepted shared contract agree across independent native module realms", async () => {
     const nodeResult = await Contract.validateEnvelopeIntegrity(canonicalFixture, webcrypto);
     assert.equal(nodeResult.ok, true, "canonical fixture integrity is valid");
-    const browserContract = await browserContractForParity();
+    const browserContract = await nativeRealmContractForParity();
     // A page parses the claimed bytes in its own realm.
     const browserValue = browserContract.__parse(JSON.stringify(canonicalFixture));
     const browserResult = await browserContract.validateEnvelopeIntegrity(browserValue, webcrypto);
-    assert.equal(JSON.stringify(browserResult), JSON.stringify(nodeResult), "Node and browser contract results agree");
+    assert.equal(JSON.stringify(browserResult), JSON.stringify(nodeResult), "independent native realm results agree");
     const tampered = clone(canonicalFixture);
     tampered.durableState.settings.restSec += 1;
     const invalid = await Contract.validateEnvelopeIntegrity(tampered, webcrypto);
