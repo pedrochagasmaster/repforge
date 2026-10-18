@@ -115,6 +115,13 @@ try {
   assert.ok(rendered.muscleNumbers.length > 0 && rendered.muscleNumbers.every(text => /\d/.test(text)) && rendered.relativeBars === 0 && rendered.inlineWidths.length === 0,
     "summary renders numeric muscle totals without relative bars", JSON.stringify(rendered));
 
+  const overview = await page.evaluate(() => [...document.querySelectorAll("#overviewStrength [data-parity-outcome]")]
+    .map(node=>({id:node.dataset.parityOutcome,session:node.dataset.paritySession,text:node.textContent.trim()})));
+  const expectedOverview=result.summary.liftGroups.filter(lift=>lift.state.kind==="outcome")
+    .map(lift=>({id:lift.exerciseId,session:lift.session,text:rendered.outcomes.find(row=>row.exerciseId===lift.liftKey)?.text}));
+  assert.deepEqual(overview.sort((a,b)=>a.id.localeCompare(b.id)),expectedOverview.sort((a,b)=>a.id.localeCompare(b.id)),
+    "readonly Progress overview preserves the summary's canonical outcome words, session and exercise identities");
+
   // F057-02: deliberately fail the canonical post-commit derivation through
   // the real completion path. The durable result, not the presentation, is
   // the oracle for whether this workout finished.
