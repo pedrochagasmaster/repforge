@@ -62,6 +62,8 @@ export function createFocusState() {
     /** @param {string} exId @param {number} n @param {import('../../app/workout.js').EditSnapshot} snap */
     beginEdit(exId,n,snap){edit={exId,n,snap};},
     finishEdit(){edit=null;ledgerOpen=null;},
+    /** @param {number} next */
+    navigateTo(next){index=next;edit=null;},
     get index(){return index;},set index(value){index=value;},
     get edit(){return edit;},set edit(value){edit=value;},
     get logged(){return logged;},set logged(value){logged=value;},

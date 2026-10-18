@@ -1286,6 +1286,8 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     animateSlot,
     animatePush,
     registerEdgeSwipeBack,
+    /** @param {number} direction */
+    navigate:direction=>activeGestureController?.navigate(direction)||false,
     mountGestureController,
     mount,
     dispose,

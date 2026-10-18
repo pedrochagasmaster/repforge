@@ -1,5 +1,6 @@
 import {createCustomDefinitionImport} from './src/app/custom-import.js';
 import {workoutDayIdForSnapshot,workoutParseContextForSnapshot} from './src/persistence/snapshot.js';
+import {createExerciseLabels} from './src/ui/exercise-labels.js';
 import {review as ReviewRules} from './src/training/authoring.js';
 import {createProgramReview} from './src/ui/editors.js';
 import {createStorageRecoveryView} from './src/ui/storage-recovery.js';
@@ -1057,24 +1058,8 @@ const libraryName=e=>!e?"":(isPt()&&e.namePt)||e.name;
    one and every other language keep the stored text. Nothing here is
    ever written: storage, setup links, telemetry, lift keys, sort and match keys
    all keep the stored name. */
-function localizedMovementName(name,libraryId){
-  const stored=String(name??"");
-  if(!isPt()||libraryId==null||libraryId==="")return stored;
-  const entry=libraryEntry(String(libraryId));
-  return entry&&entry.namePt&&stored===entry.name?entry.namePt:stored}
-/* The item is a program slot or session exercise ({name, libraryId}), a draft
-   exercise or replacement snapshot ({displayName, libraryId}) or a log row
-   ({name, performedName, performedLibraryId}). */
-function exerciseDisplayName(item){
-  if(!item)return"";
-  if(item.performedLibraryId!==undefined||item.performedName!==undefined||item.session!==undefined)
-    return localizedMovementName(loggedMovementName(item),item.performedLibraryId);
-  return localizedMovementName(item.name??item.displayName,item.libraryId)}
-/* A projection that carries a lift key instead of the row: `library:<id>` names the
-   library entry the lift was performed as. Any other key keeps the stored name. */
-function liftDisplayName(name,key){
-  const k=String(key??"");
-  return k.startsWith("library:")?localizedMovementName(name,k.slice(8)):String(name??"")}
+const MovementLabels=createExerciseLabels({builtIns:LIBRARY_BY_ID,readCustom:customExercises,language:uiLang});
+const localizedMovementName=MovementLabels.movementName,exerciseDisplayName=MovementLabels.exercise,liftDisplayName=MovementLabels.lift;
 function resolveSplit(daysPerWeek,splitType){
   const n=Math.max(1,Math.min(7,Math.round(+daysPerWeek)||3)),st=splitType||"full_body";
   if(st==="full_body"||st==="machine_only")return Array.from({length:n},()=>"full_body");
@@ -4436,21 +4421,13 @@ function sheetDragEnd(e){
   // could not.
   if(dismiss){motion.dismiss({velocity:vy});rec.onEscape()}
   else motion.settle({velocity:vy}).finally(()=>{if(rec.motion===motion)rec.motion=null})}
-function focusGo(dir){
-  const fl=focusList(),at=fl.length?Math.min(focusUi.index,fl.length-1):0,next=at+dir;
-  if(next<0||next>=fl.length)return false;
-  focusUi.index=next;focusUi.edit=null;
-  if(activeWorkoutDraft&&fl[next])void WorkoutSession.dispatch("selectExercise",{exerciseInstanceId:fl[next].id});
-  renderWorkout();window.scrollTo({top:0});return true}
-/** Jump to an exercise by its place in the deck: a neighbour slides in the way
- *  a swipe does, anything further away lands directly. */
-function focusJump(to){
-  const fl=focusList(),at=fl.length?Math.min(focusUi.index,fl.length-1):0,d=to-at;
-  if(!d||to<0||to>=fl.length)return false;
-  if(Math.abs(d)===1)return focusAnimateTo(d);
-  focusDirectTo(to);return true}
-function focusCanGo(dir){const fl=focusList(),at=fl.length?Math.min(focusUi.index,fl.length-1):0;
-  return at+dir>=0&&at+dir<fl.length}
+let FocusNavigation;
+function focusNavigation(){return FocusNavigation||(FocusNavigation=Focus.createFocusNavigation({focus:focusUi,
+  read:()=>({hasDraft:!!activeWorkoutDraft,exercises:focusList()}),workout:WorkoutSession,motion:ensureBrowserPresentation().motion,
+  onSelection:({scrollTop})=>{renderWorkout();if(scrollTop)window.scrollTo({top:0})}}))}
+function focusGo(direction){return focusNavigation().go(direction)}
+function focusJump(index){return focusNavigation().jump(index)}
+function focusCanGo(direction){return focusNavigation().canGo(direction)}
 function focusCard(){return focusGestureView().card()}
 function focusTrack(){return focusGestureView().track()}
 function focusStep(){return focusGestureView().step()}
@@ -4471,8 +4448,7 @@ const scrollBehavior=()=>(window.RepForgeMotion?.reducedMotion?.()??!!reducedMot
  *  responsiveness. `focusSettle` below is the half of this that is a real catch,
  *  and that half does use a spring. */
 function focusAnimateTo(dir){
-  const controller=window.__repforgeGestureHandle;
-  return controller?.navigate(dir)||false}
+  return ensureBrowserPresentation().motion.navigate(dir)}
 function fallbackFocusAnimateTo(dir){return focusGestureView().navigate(dir)}
 
 /** One place that writes the track's transform, so drag, fling and reset agree. */
@@ -11971,12 +11947,7 @@ window.__repforgeWorkoutDraft={
   state:()=>cloneSnapshot(state),
 };
 // Test seam for the Focus deck, alongside the other __repforge* harness hooks.
-function focusDirectTo(i){
-  focusUi.index=Math.max(0,i);focusUi.edit=null;
-  const list=focusList();
-  if(activeWorkoutDraft&&list[focusUi.index])void WorkoutSession.dispatch("selectExercise",{exerciseInstanceId:list[focusUi.index].id});
-  renderWorkout();
-}
+function focusDirectTo(index){focusNavigation().direct(index)}
 window.__repforgeFocus={
   go:focusAnimateTo,list:focusList,at:()=>focusUi.index,editing:()=>focusUi.edit,
   to:focusDirectTo,

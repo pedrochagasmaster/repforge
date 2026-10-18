@@ -14,3 +14,5 @@ export {createControlFocus} from "./control-focus.js";
 export {createFocusPresentation} from './presentation.js';
 export {createFocusInputs} from './inputs.js';
 export {EFFORT_STEPS,effortForRir} from './effort.js';
+
+export {createFocusNavigation} from './navigation.js';
