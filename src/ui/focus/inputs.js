@@ -5,8 +5,8 @@ import {EFFORT_STEPS} from './effort.js';
 /** Actual input-to-command binding. Pending tokens survive a rebuild, and an
  * acknowledgement finds the current control by stable identity. Disposal stops
  * UI effects while letting an already-issued durable command settle normally.
- * @param {{window:Window,focus:ReturnType<typeof import('./state.js').createFocusState>,read:()=>{draft:import('../../training/workout-contracts.js').Draft|null,unit:string,minJump:unknown},commands:Pick<ReturnType<typeof import('../../app/workout.js').createFocusWorkoutCommands>,'editField'>,shelf:ReturnType<typeof import('./shelf.js').createShelfPresentation>,effort:ReturnType<typeof import('./effort.js').createEffortPresentation>,controls:ReturnType<typeof import('./control-focus.js').createControlFocus>,onAcknowledged:(field:Element|null)=>Promise<unknown>}} options */
-export function createFocusInputs({window,focus,read,commands,shelf,effort,controls,onAcknowledged}){
+ * @param {{window:Window,focus:ReturnType<typeof import('./state.js').createFocusState>,read:()=>{draft:import('../../training/workout-contracts.js').Draft|null,unit:string,minJump:unknown},commands:ReturnType<typeof import('../../app/workout.js').createFocusWorkoutCommands>,captureSet:()=>{draft:import('../../training/workout-contracts.js').Draft|null,flat:import('../../app/workout-model.js').FlatDraft,query:import('../../app/workout-model.js').WorkoutCapture,program:import('../../app/workout-model.js').Exercise[],effortMode:boolean},values:ReturnType<typeof import('./values.js').createFocusValues>,shelf:ReturnType<typeof import('./shelf.js').createShelfPresentation>,effort:ReturnType<typeof import('./effort.js').createEffortPresentation>,controls:ReturnType<typeof import('./control-focus.js').createControlFocus>,onAcknowledged:(field:Element|null)=>Promise<unknown>}} options */
+export function createFocusInputs({window,focus,read,commands,captureSet,values,shelf,effort,controls,onAcknowledged}){
   const document=window.document;
   let lifetime=0;
   /** @type {Array<()=>void>} */ let unbind=[];
@@ -65,6 +65,43 @@ export function createFocusInputs({window,focus,read,commands,shelf,effort,contr
     if(result.status!=='applied'||version!==lifetime)return;
     await onAcknowledged(controls.effortField(key));
   }
+  /** Capture the exact displayed completion facts before issuing the command.
+   * @param {string|undefined} key */
+  async function toggleSet(key){
+    const context=captureSet(),{draft,query,program,flat,effortMode}=context;
+    const target=selectDraftTarget(draft,key);if(!draft||!target)return null;
+    const set=draft.exercises[target.exerciseInstanceId].sets[target.setId];
+    const editing=!!focus.edit&&`${focus.edit.exId}_${focus.edit.n}`===key;
+    const base=program.find(ex=>ex.id===target.exerciseInstanceId),exercise=base?query.sessionExercise(base):null;
+    const recommendation=exercise?query.recommendation(exercise):null;
+    const field=effortMode?'effort':'rir',pending=focus.pending.has(`${key}_${field}`);
+    /** @type {{field:'effort'|'rir',value:string,pending:boolean}|null} */ let displayedEffort=null;
+    if(set.completion==='pending'&&set.programmed.metrics&&exercise&&recommendation&&set.edited[field]==null&&!pending){
+      const shown=values.fields({draft,flat,query,exercise,ordinal:target.ordinal,recommendation,previous:query.last(exercise)});
+      displayedEffort={field,value:field==='effort'?shown.effortVal:String(shown.rirVal??''),pending};
+    }
+    const result=await commands.toggleSet({target,editing,status:recommendation?.status,
+      pendingLoad:values.pendingLoad(draft,target.exerciseInstanceId,target.ordinal),displayedEffort});
+    return {result,target,editing};
+  }
+  /** @param {string|undefined} key */
+  async function toggleWarmup(key){const target=selectDraftTarget(read().draft,key);return target?commands.toggleWarmup({target}):null;}
+  /** @param {string|undefined} exerciseId @param {number} ordinal */
+  async function reopenSet(exerciseId,ordinal){
+    const target=selectDraftTarget(read().draft,`${exerciseId}_${ordinal}`);if(!target)return null;
+    const result=await commands.reopenSet({target});
+    if(result.status==='applied'&&'snapshot' in result){
+      focus.beginEdit(target.exerciseInstanceId,ordinal,/** @type {import('../../app/workout.js').EditSnapshot} */(result.snapshot));
+    }
+    return result;
+  }
+  async function cancelEdit(){
+    if(!focus.edit)return null;
+    const {exId,n,snap}=focus.edit,target=selectDraftTarget(read().draft,`${exId}_${n}`);if(!target)return null;
+    const result=await commands.cancelEdit({target,snapshot:snap});
+    if(result.status==='applied')focus.finishEdit();
+    return {result,exId,n};
+  }
   function clearBindings(){for(const clear of unbind)clear();unbind=[];}
   function bind(){
     clearBindings();
@@ -90,5 +127,5 @@ export function createFocusInputs({window,focus,read,commands,shelf,effort,contr
     }
   }
   function dispose(){lifetime++;clearBindings();}
-  return {bind,dispose};
+  return {bind,dispose,toggleSet,toggleWarmup,reopenSet,cancelEdit};
 }

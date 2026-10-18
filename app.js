@@ -1154,7 +1154,6 @@ const focusRest=Focus.createRestClock({window});
 
 // True from the set commit that starts a rest until the render that draws it: that render owns the swap
 // into the cue slot, so the clock's own repaint leaves the slot's structure alone in between.
-let restRenderPending=false;
 function announceRestDone(){
   if(focusRest.announced)return;
   focusRest.announced=true;
@@ -4146,7 +4145,7 @@ function restInlineSync(){
   const card=focusCard();if(!card||!activeWorkoutDraft)return;
   const slot=card.querySelector(".fx-slot"),pads=card.querySelector(".shelf__pads");
   const editing=!!(focusUi.edit&&focusUi.edit.exId===card.dataset.ex);
-  if(!restRenderPending){
+  if(!focusUi.restRenderPending){
     if(slot&&slot.dataset.rest!==restSlotMode(editing)){
       const mode=restSlotMode(editing),next=restSlotMarkup(card,mode);
       if(next!=null)swapRestSlot(slot,mode,next);
@@ -5171,7 +5170,7 @@ function renderWorkout(){
   const openRow=focusMotion()?focusOpenRow():null;
   // L3: the cue slot and pad row as they stand, so a change of job arrives from them.
   const restBefore=focusMotion()?captureRestSlot():null;
-  restRenderPending=false;
+  focusUi.restRenderPending=false;
   // Focus survives the rebuild when the lifter is still on the same exercise: the control is asked for again by its keys.
   const heldFocus=focusCard()?.contains(document.activeElement)?{ex:focusCard().dataset.ex,key:workoutFocusKey(document.activeElement)}:null;
   wk.innerHTML=banner+(current ? focusDeckHtml(current,recommendation(current),draft,last(current),{fl,at}) : "");
@@ -5292,37 +5291,27 @@ const $w=sel=>$$(`#workout ${sel}`).filter(el=>!el.closest(".is-peek"));
 let FocusInputs;
 function focusInputs(){return FocusInputs||(FocusInputs=createFocusInputs({window,focus:focusUi,
   read:()=>({draft:activeWorkoutDraft,unit:state.settings.unit,minJump:state.settings.minJump}),
-  commands:focusWorkoutCommands,shelf:FocusShelf,effort:FocusEffort,controls:workoutControlFocus,
+  commands:focusWorkoutCommands,values:FocusValues,
+  captureSet:()=>({draft:activeWorkoutDraft,flat:WorkoutSession.projection(),query:workoutQueries(),program:state.program,effortMode:isEffortMode()}),
+  shelf:FocusShelf,effort:FocusEffort,controls:workoutControlFocus,
   onAcknowledged:async field=>{updateSaveMeta();if(field)await refreshAfterCommittedEdit(field)}}))}
 function bindWorkout(){
   focusInputs().bind();
   $w(".term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
   $w("[data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheet(b.dataset.why,b)});
   $w("[data-rest-act]").forEach(b=>b.onclick=()=>restAct(b.dataset.restAct));
-  $w(".saveset").forEach(b=>b.onclick=async()=>{const key=b.dataset.save,target=draftTargetFromKey(key);
-    if(!activeWorkoutDraft||!target)return;
-    const set=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId];
-    const editing=!!(focusUi.edit&&`${focusUi.edit.exId}_${focusUi.edit.n}`===key);
-    const base=prog.find(target.exerciseInstanceId),ex=base?sessionExercise(base):null;
-    const recommendationNow=ex?recommendation(ex):null;
-    const field=isEffortMode()?"effort":"rir",pending=pendingFields.has(`${key}_${field}`);
-    let displayedEffort=null;
-    if(set.completion==="pending"&&set.programmed?.metrics&&ex&&set.edited[field]==null&&!pending){
-      const values=setFieldVals(ex,target.ordinal,recommendationNow,hydrateWorkoutDraft(),last(ex));
-      displayedEffort={field,value:field==="effort"?values.effortVal:String(values.rirVal??""),pending}}
+  $w(".saveset").forEach(b=>b.onclick=async()=>{
     try{
-      const result=await focusWorkoutCommands.toggleSet({target,editing,status:recommendationNow?.status,
-        pendingLoad:pendingFocusLoad(target.exerciseInstanceId,target.ordinal),displayedEffort});
+      const outcome=await focusInputs().toggleSet(b.dataset.save);if(!outcome)return;
+      const {result,target,editing}=outcome;
       if(result.status==="refresh-failed"){showSuggestionFailure(target.exerciseInstanceId,result);return}
       if(result.status==="domain-error"&&result.phase!=="suggestion-refresh"){applyDraftIssue(result.error?.issues);return}
       if(result.status!=="applied")return;
       renderWorkout();
       if(result.nowDone)focusWorkoutHandoff(editing?"row":"next",{exId:target.exerciseInstanceId,n:target.ordinal});
-    }finally{restRenderPending=false}});
-  $w("[data-warm]").forEach(b=>b.onclick=async()=>{const key=b.dataset.warm,target=draftTargetFromKey(key);
-    if(!activeWorkoutDraft||!target)return;
-    const result=await focusWorkoutCommands.toggleWarmup({target});if(result.status!=="applied")return;
-    renderWorkout()});
+    }finally{focusUi.restRenderPending=false}});
+  $w("[data-warm]").forEach(b=>b.onclick=async()=>{
+    const result=await focusInputs().toggleWarmup(b.dataset.warm);if(result?.status==="applied")renderWorkout()});
   $w("[data-shelf-field]").forEach(b=>b.onclick=()=>{
     const key=b.dataset.set,id=b.dataset.shelfField,ui=shelfFor(key);
     const effortField=id==="rir"&&isEffortMode();
@@ -5352,19 +5341,12 @@ function bindWorkout(){
     $w("[data-ledgermore]").forEach(b=>b.onclick=()=>toggleFocusLedger(b));
     // Tap a logged row to reopen that set in the shelf, with a way back out.
     $w("[data-editn]").forEach(b=>b.onclick=async()=>{
-      const exId=b.dataset.editex,n=+b.dataset.editn,key=`${exId}_${n}`,target=draftTargetFromKey(key);
-      if(!activeWorkoutDraft||!target)return;
-      const result=await focusWorkoutCommands.reopenSet({target});
-      if(result.status!=="applied")return;
-      focusUi.edit={exId,n,snap:result.snapshot};
-      renderWorkout();
-      focusWorkoutHandoff("cta")});
+      const result=await focusInputs().reopenSet(b.dataset.editex,+b.dataset.editn);
+      if(result?.status!=="applied")return;
+      renderWorkout();focusWorkoutHandoff("cta")});
     $w("[data-fcancel]").forEach(b=>b.onclick=async()=>{
-      if(!focusUi.edit)return;
-      const{exId,n,snap}=focusUi.edit,key=`${exId}_${n}`,target=draftTargetFromKey(key);
-      if(!activeWorkoutDraft||!target)return;
-      const restored=await focusWorkoutCommands.cancelEdit({target,snapshot:snap});
-      if(restored.status!=="applied")return;focusUi.edit=null;focusUi.ledgerOpen=null;renderWorkout();focusWorkoutHandoff("row",{exId,n})});
+      const outcome=await focusInputs().cancelEdit();if(outcome?.result.status!=="applied")return;
+      renderWorkout();focusWorkoutHandoff("row",{exId:outcome.exId,n:outcome.n})});
     }
   updateFocusChrome();
 }
@@ -5470,7 +5452,7 @@ focusWorkoutCommands=createFocusWorkoutCommands({workout:WorkoutSession,training
   onSetAcknowledged:({nowDone,exerciseInstanceId,ordinal,editing})=>{
     if(editing&&nowDone){focusUi.edit=null;focusUi.ledgerOpen=null;toast(t("toast.set_updated"))}
     if(nowDone&&!editing){lastCommitAt=Date.now();if(!sessionStartedAt)sessionStartedAt=lastCommitAt;
-      restRenderPending=true;startRest();armUnfinishedWatch();focusUi.logged={exId:exerciseInstanceId,n:ordinal}}}});
+      focusUi.restRenderPending=true;startRest();armUnfinishedWatch();focusUi.logged={exId:exerciseInstanceId,n:ordinal}}}});
 
 }
 

@@ -1,4 +1,4 @@
-/** @typedef {{exId:string,n:number,snap:Record<string,unknown>}} FocusEdit */
+/** @typedef {{exId:string,n:number,snap:import('../../app/workout.js').EditSnapshot}} FocusEdit */
 /** @typedef {{exId:string,n:number}} LoggedSet */
 /** Transient Focus lifetime. DraftV2 remains the sole acknowledged workout. */
 export function createFocusState() {
@@ -10,7 +10,7 @@ export function createFocusState() {
   /** @type {Map<string,Readonly<{value:string,token:number}>>} */
   const held=new Map();
   /** @type {WeakMap<object,number>} */ let padTaps=new WeakMap();
-  let valueBeat="directional";
+  let valueBeat="directional",restRenderPending=false;
   const padTap=Object.freeze({get:/** @param {object} element */ element=>padTaps.get(element),
     set:/** @param {object} element @param {number} direction */ (element,direction)=>{padTaps.set(element,direction);},
     delete:/** @param {object} element */ element=>padTaps.delete(element)});
@@ -18,6 +18,7 @@ export function createFocusState() {
     entries:()=>held.entries(),[Symbol.iterator]:()=>held[Symbol.iterator]()});
   return Object.freeze({
     pending,padTap,
+    get restRenderPending(){return restRenderPending;},set restRenderPending(value){restRenderPending=value;},
     get valueBeat(){return valueBeat;},set valueBeat(value){valueBeat=value;},
     /** @param {string} key @param {unknown} value */
     holdPendingField(key,value) {
@@ -58,10 +59,13 @@ export function createFocusState() {
         expanded,visible:Object.freeze(visible),
         fresh,freshOrdinal:fresh?(logged?.n??0):0});
     },
+    /** @param {string} exId @param {number} n @param {import('../../app/workout.js').EditSnapshot} snap */
+    beginEdit(exId,n,snap){edit={exId,n,snap};},
+    finishEdit(){edit=null;ledgerOpen=null;},
     get index(){return index;},set index(value){index=value;},
     get edit(){return edit;},set edit(value){edit=value;},
     get logged(){return logged;},set logged(value){logged=value;},
     get ledgerOpen(){return ledgerOpen;},set ledgerOpen(value){ledgerOpen=value;},
-    reset() {index=0;edit=null;logged=null;ledgerOpen=null;shelf={key:"",field:"reps",editing:false};held.clear();padTaps=new WeakMap();},
+    reset() {restRenderPending=false;index=0;edit=null;logged=null;ledgerOpen=null;shelf={key:"",field:"reps",editing:false};held.clear();padTaps=new WeakMap();},
   });
 }
