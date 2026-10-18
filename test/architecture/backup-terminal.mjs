@@ -19,12 +19,12 @@ try{
  await page.locator('#importCancel').click();await page.waitForFunction(()=>!document.querySelector('#importChoice').open);
  await page.evaluate(async()=>{await window.__cancelledReplace();await window.__cancelledMerge()});
  assert.equal(await page.evaluate(()=>localStorage.getItem('repforge_v1')),before,'retained cancelled callbacks cannot issue either durable command');
- assert.equal(await page.evaluate(()=>document.querySelector('#importReplace').onclick),null,'only the owned handler is cleared at terminal close');
+ assert.equal(await page.evaluate(()=>document.querySelector('#importReplace').onclick===null),true,'only the owned handler is cleared at terminal close');
  await select('First choice');await select('Second choice');await page.keyboard.press('Escape');
  await page.waitForFunction(()=>!document.querySelector('#importChoice').open);
  assert.equal(await page.evaluate(()=>localStorage.getItem('repforge_v1')),before,'the current choice owns Escape even when the same dialog is reused');
  await page.evaluate(()=>{
-  const text=File.prototype.text;File.prototype.text=async function(){window.__pendingRead=true;await new Promise(resolve=>window.__releasePending=resolve);return text.call(this)};
+  const text=File.prototype.text;File.prototype.text=async function(){if(this.name==='pending.json'){window.__pendingRead=true;await new Promise(resolve=>window.__releasePending=resolve)}return text.call(this)};
  });
  await page.locator('#importJson').setInputFiles({name:'pending.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({...original,profile:{name:'Disposed pending file'}}))});
  await page.waitForFunction(()=>window.__pendingRead===true);
