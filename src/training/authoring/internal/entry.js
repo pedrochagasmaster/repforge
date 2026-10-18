@@ -1,4 +1,4 @@
-import Compiler from "../../generation/internal/compiler.js";
+import { compiler as Compiler } from "../../generation.js";
 
 /** Bind the verified immutable catalog explicitly; drafts never perform IO. */
 export function createEntryRules(catalog) {

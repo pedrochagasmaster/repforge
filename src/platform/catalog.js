@@ -1,7 +1,7 @@
-import { prepareCatalog, sha256Text } from "../training/identity.js";
+import Identity, { sha256Text } from "../training/identity.js";
 export const CATALOG_URL = new URL("../../assets/exercise-catalog.json?v=067", import.meta.url).href;
 /** One catalog lifetime per app/worker; failed loads retry, verified snapshots freeze. */
-export function createCatalog({librarySource={library:[]},catalogSha256=librarySource.catalogSha256,fetcher=(url)=>globalThis.fetch(url),assetUrl=CATALOG_URL}={}) {
+export function createCatalog({identity=Identity,librarySource={library:[]},catalogSha256=librarySource.catalogSha256,fetcher=(url)=>globalThis.fetch(url),assetUrl=CATALOG_URL}={}) {
 
 
 let loadPromise = null;
@@ -44,8 +44,7 @@ function load() {
       try { value = JSON.parse(sourceText); }
       catch { throw new Error("The local exercise catalog is not valid JSON"); }
       if (!validCatalog(value)) throw new Error("The local exercise catalog has an invalid shape");
-      const identity = { prepareCatalog };
-      if (!identity) throw new Error("The catalog identity module is unavailable");
+            if (!identity) throw new Error("The catalog identity module is unavailable");
       identity.prepareCatalog(value);
       rawCatalog = value;
       exerciseById = new Map(value.exercises.map(exercise => [exercise.id, exercise]));

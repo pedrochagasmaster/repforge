@@ -1,8 +1,8 @@
-import IDENTITY from "../../identity.js";
+import PureIdentity from "../../identity.js";
 import CANDIDATES from "./candidates.js";
 import LAYOUT from "./layout.js";
 import METRIC_DOMAIN from "../../metrics.js";
-"use strict";
+export function createCompiler(IDENTITY=PureIdentity) {
 
 const GENERATOR_VERSION = "073.4";
 const PROGRAM_SCHEMA_VERSION = 2;
@@ -1085,5 +1085,5 @@ const api = Object.freeze({
 });
 
 
-export { GENERATOR_VERSION, PROGRAM_SCHEMA_VERSION, MAX_SLOT_ALTERNATES, ROLES, SPLITS, GOALS, EXPERIENCES, TIME_CEILINGS, PERIODIZATIONS, PRECONDITION_COMPETENCIES, METRIC_SEMANTICS, METRIC_SOURCE_IDS, generateProgram, canonicalizeRequest, generationIdentity, availableSplits, generatedDayNameKey, findSubstitutions, validateProgramDefinition, canonicalizeProgramDefinition, validateCustomExerciseDefinitions, prescriptionsForCycle, estimateDaySeconds, apiMetricDefinition as metricDefinitionForName };
-export default api;
+return api;
+}

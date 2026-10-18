@@ -57,13 +57,15 @@ const rotate = (word, bits) => (word >>> bits) | (word << (32 - bits));
 function sha256(text) {
   let length = 0;
   for (const character of text) {
-    const point = /** @type {number} */ (character.codePointAt(0));
+    const rawPoint = /** @type {number} */ (character.codePointAt(0));
+    const point = rawPoint >= 0xd800 && rawPoint <= 0xdfff ? 0xfffd : rawPoint;
     length += point < 0x80 ? 1 : point < 0x800 ? 2 : point < 0x10000 ? 3 : 4;
   }
   const bytes = new Uint8Array(Math.ceil((length + 9) / 64) * 64);
   let cursor = 0;
   for (const character of text) {
-    const point = /** @type {number} */ (character.codePointAt(0));
+    const rawPoint = /** @type {number} */ (character.codePointAt(0));
+    const point = rawPoint >= 0xd800 && rawPoint <= 0xdfff ? 0xfffd : rawPoint;
     if (point < 0x80) bytes[cursor++] = point;
     else if (point < 0x800) {
       bytes[cursor++] = 0xc0 | (point >>> 6);
@@ -120,7 +122,6 @@ function sha256(text) {
   return state.map((word) => word.toString(16).padStart(8, "0")).join("");
 }
 
-const preparedCatalogs = new WeakMap();
 
 /** @param {unknown} value @returns {PropertyDescriptorMap} */
 function dataRecord(value) {
@@ -136,8 +137,6 @@ function dataRecord(value) {
 
 /** @param {object} catalog @returns {string} */
 function catalogIdentity(catalog) {
-  const prepared = preparedCatalogs.get(catalog);
-  if (prepared) return prepared;
   const fields = dataRecord(catalog);
   const exercises = fields.exercises?.value;
   if (!Array.isArray(exercises)) throw new TypeError("Identity requires catalogue exercises");
@@ -165,8 +164,7 @@ function catalogIdentity(catalog) {
 
 /** @template {object} T @param {T} catalog @returns {T} */
 function prepareCatalog(catalog) {
-  if (preparedCatalogs.has(catalog)) return catalog;
-  const identity = catalogIdentity(catalog);
+  catalogIdentity(catalog);
   const seen = new Set();
   /** @param {unknown} value @returns {void} */
   function freeze(value) {
@@ -176,7 +174,6 @@ function prepareCatalog(catalog) {
     Object.freeze(value);
   }
   freeze(catalog);
-  preparedCatalogs.set(catalog, identity);
   return catalog;
 }
 
@@ -185,7 +182,7 @@ function generationIdentity(request, catalog, generatorVersion) {
   if (!request || Array.isArray(request) || typeof request !== "object" || typeof generatorVersion !== "string" || !generatorVersion) {
     throw new TypeError("Generation identity requires a canonical request and generator version");
   }
-  return sha256(canonicalJSON({ requestVersion: 1, generatorVersion, catalogIdentity: catalogIdentity(catalog), request }));
+  return generationIdentityForCatalog(request, catalogIdentity(catalog), generatorVersion);
 }
 
 /** @param {unknown} value @returns {string} */
@@ -214,6 +211,37 @@ function createIdAllocator(namespace, { digest = sha256 } = {}) {
     paths.set(path, id);
     return id;
   };
+}
+
+/** @param {object} request @param {string} catalogFingerprint @param {string} generatorVersion */
+function generationIdentityForCatalog(request,catalogFingerprint,generatorVersion) {
+  return sha256(canonicalJSON({requestVersion:1,generatorVersion,catalogIdentity:catalogFingerprint,request}));
+}
+/**
+ * Explicit app/worker lifetime for immutable catalog memoization. The cache has
+ * no authority: mutable catalogs are recomputed; only this owner's explicit
+ * prepareCatalog operation freezes a graph before caching its identity.
+ */
+export function createIdentityRules() {
+  /** @type {WeakMap<object,string>} */
+  const preparedCatalogs=new WeakMap();
+  /** @param {object} catalog */
+  const cachedIdentity=catalog=>preparedCatalogs.get(catalog)||catalogIdentity(catalog);
+  /** @template {object} T @param {T} catalog @returns {T} */
+  function prepare(catalog) {
+    if(preparedCatalogs.has(catalog))return catalog;
+    const identity=catalogIdentity(catalog);
+    prepareCatalog(catalog);
+    preparedCatalogs.set(catalog,identity);
+    return catalog;
+  }
+  /** @param {object} request @param {object} catalog @param {string} generatorVersion */
+  function generation(request,catalog,generatorVersion) {
+    if(!request||Array.isArray(request)||typeof request!=="object"||typeof generatorVersion!=="string"||!generatorVersion)
+      throw new TypeError("Generation identity requires a canonical request and generator version");
+    return generationIdentityForCatalog(request,cachedIdentity(catalog),generatorVersion);
+  }
+  return Object.freeze({...api,catalogIdentity:cachedIdentity,prepareCatalog:prepare,generationIdentity:generation});
 }
 
 const api = Object.freeze({ canonicalJSON, catalogIdentity, generationIdentity, prepareCatalog, digestCanonical, createIdAllocator });

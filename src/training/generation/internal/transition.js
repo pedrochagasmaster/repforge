@@ -1,8 +1,7 @@
-import Compiler from "./compiler.js";
+import { createCompiler } from "./compiler.js";
 import Metrics from "../../metrics.js";
 import { sha256Text } from "../../identity.js";
-export function createTransitionRules() {
-"use strict";
+export function createTransitionRules(Compiler=createCompiler()) {
 
 const SCHEMA_VERSION = 1;
 const KIND = "program_definition_replacement";

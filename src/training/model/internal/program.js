@@ -1,4 +1,4 @@
-import Compiler from "../../generation/internal/compiler.js";
+import { compiler as Compiler } from "../../generation.js";
 import ExerciseMetrics from "../../metrics.js";
 import { createEntryRules } from "../../authoring/internal/entry.js";
 import { progression } from "../../progress.js";

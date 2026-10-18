@@ -1,10 +1,10 @@
-import { compiler, createTransitionRules } from "../training/generation.js";
+import { createGenerationRules } from "../training/generation.js";
 import { createCatalog } from "./catalog.js";
-const transition=createTransitionRules();
+const {compiler,transition,identity}=createGenerationRules();
 let catalog=null, ready=null;
 function initialize(message) {
   if(!ready) {
-    catalog=createCatalog({catalogSha256:message.catalogSha256,assetUrl:message.catalogUrl});
+    catalog=createCatalog({identity,catalogSha256:message.catalogSha256,assetUrl:message.catalogUrl});
     ready=catalog.load();
   }
   return ready;
