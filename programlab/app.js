@@ -26,7 +26,7 @@
     parent[last] = next;
   }
   let services, definitions, draft, selectedScenario = 0, run = null, active = false;
-  let savedIdentity = null, plan = null, validationToken = 0, runToken = 0, viewToken = 0, selectedView = null, dirty = false;
+  let savedIdentity = null, plan = null, validationToken = 0, runToken = 0, viewToken = 0, selectedView = null, selectedRun = null, analysisController = null, dirty = false;
   const policyInputs = new Map();
   const scenarioInputs = new Map();
   const pendingScenarioEdits = new Set(), canonicalDrafts = new Map();
@@ -62,6 +62,8 @@
     $('savedRuns').disabled = value;
     $('savedExperiments').disabled = value;
     $('caseList').disabled = value;
+    $('resultCase').disabled = value || !run;
+    $('cycle').disabled = value || !run;
     $('importFiles').disabled = value;
     $('language').disabled = value;
     document.querySelector('.workbench-grid').setAttribute('aria-busy', String(value));
@@ -302,7 +304,7 @@
     }
     table.append(body); container.append(table);
   }
-  function renderProgram(container, cell, cycle, changedLineages = []) {
+  function renderProgram(container, cell, cycle, markers = {}) {
     container.replaceChildren();
     if (!cell) { container.append(text('p', _('Not executed'), 'hint')); return; }
     const result = cell.result;
@@ -316,7 +318,9 @@
       const dayNode = text('section', '', 'day');
       dayNode.append(text('h3', `${day.name}${day.kind === 'rest' ? ` · ${_('rest')}` : ''}`));
       for (const slot of day.slots || []) {
-        const slotNode = text('div', '', `slot${changedLineages.includes(slot.id) ? ' changed' : ''}`);
+        const marker = Object.hasOwn(markers, slot.id) ? markers[slot.id] : null;
+        const slotNode = text('div', '', `slot${marker ? ' changed' : ''}`);
+        if (marker) slotNode.append(text('p', marker, 'badge'));
         const name = cell.exerciseLabels?.[slot.exerciseId] || slot.displayName || (!cell.archived && definitions.exerciseLabels?.[slot.exerciseId]) || slot.exerciseId;
         slotNode.append(text('p', name), text('p', `${labelText(slot.role || '')} · ${labelText(slot.executionMode || 'unspecified execution')}`, 'hint'));
         const list = text('ol', '', 'sets');
@@ -333,50 +337,61 @@
   }
   async function renderResult() {
     if (!run) return;
-    const token = ++viewToken;
-    const view = await services.inspect(run, { comparisonKey: $('resultCase').value || null, cycleIndex: Number($('cycle').value || 1) });
-    if (token !== viewToken) return;
-    selectedView = view;
-    $('archiveActions').hidden = !run.archived;
-    say('baselineHeading', run.archived ? 'Archived baseline' : 'Bundled baseline');
-    say('candidateHeading', run.archived ? 'Archived candidate' : 'Candidate');
-    const previous = $('resultCase').value;
-    $('resultCase').replaceChildren(...view.comparisons.map(item => option(item.key, item.label)));
-    if (view.comparisons.some(item => item.key === previous)) $('resultCase').value = previous;
-    $('resultCase').disabled = !view.comparisons.length;
-    const cycle = Number($('cycle').value || 1);
-    $('cycle').replaceChildren(...view.cycles.map(item => option(String(item.index), _('Cycle {index} · {kind}', { index: item.index, kind: item.deload ? 'deload' : _('ordinary') }))));
-    $('cycle').value = String(view.cycles.some(item => item.index === cycle) ? cycle : view.cycles[0]?.index || 1);
-    $('cycle').disabled = !view.cycles.length;
-    $('cycleStatus').textContent = labelText(view.cycleLabel || '');
-    say('resultSnapshot', 'Run {id} · {status} · snapshot {revision}', { id: run.runId, status: _(run.status), revision: run.revision ?? run.plan?.experiment?.revision ?? run.configuration?.revision ?? _('embedded') });
-    $('aggregateSummary').replaceChildren();
-    metrics($('aggregateSummary'), view.aggregateRows);
-    if (view.aggregateTable) renderTable($('aggregateSummary'), view.aggregateTable);
-    if (view.aggregateStrataTable) renderTable($('aggregateSummary'), view.aggregateStrataTable);
-    $('comparisonSummary').replaceChildren();
-    metrics($('comparisonSummary'), view.metricRows);
-    if (view.distributionTable) renderTable($('comparisonSummary'), view.distributionTable);
-    if (view.setCountTable) renderTable($('comparisonSummary'), view.setCountTable);
-    $('metricDetails').textContent = json(view.metricDetails || null);
-    if (view.notice) $('comparisonSummary').append(text('p', labelText(view.notice), 'badge'));
-    renderProgram($('baselineProgram'), view.baseline, Number($('cycle').value), view.baselineChangedSlotIds);
-    renderProgram($('candidateProgram'), view.candidate, Number($('cycle').value), view.candidateChangedSlotIds);
-    $('semanticChanges').replaceChildren();
-    for (const change of view.changes || []) $('semanticChanges').append(text('p', typeof change === 'string' ? change : json(change), 'hint'));
-    if (!view.changes?.length) $('semanticChanges').append(text('p', _('No semantic prescription changes in this comparison.'), 'hint'));
-    $('diagnostics').textContent = json(view.diagnostics || { baseline: view.baseline?.result?.diagnostics, candidate: view.candidate?.result?.diagnostics });
-    say('rawResult', '');
-    renderRaw();
+    const sourceRun = run, token = ++viewToken;
+    analysisController?.abort();
+    const controller = new AbortController(); analysisController = controller;
+    say('analysisStatus', 'Preparing result metrics…');
+    try {
+      const view = await services.inspect(sourceRun, {
+        comparisonKey: $('resultCase').value || null, cycleIndex: Number($('cycle').value || 1), signal: controller.signal,
+        onProgress: update => { if (token === viewToken) say('analysisStatus', 'Preparing cohort metrics · {completed}/{total} cells', update); },
+      });
+      if (!view || token !== viewToken) return;
+      selectedView = view; selectedRun = sourceRun;
+      $('archiveActions').hidden = !sourceRun.archived;
+      say('baselineHeading', sourceRun.archived ? 'Archived baseline' : 'Bundled baseline');
+      say('candidateHeading', sourceRun.archived ? 'Archived candidate' : 'Candidate');
+      const previous = $('resultCase').value;
+      $('resultCase').replaceChildren(...view.comparisons.map(item => option(item.key, item.label)));
+      if (view.comparisons.some(item => item.key === previous)) $('resultCase').value = previous;
+      $('resultCase').disabled = active || !view.comparisons.length;
+      const cycle = Number($('cycle').value || 1);
+      $('cycle').replaceChildren(...view.cycles.map(item => option(String(item.index), _('Cycle {index} · {kind}', { index: item.index, kind: item.deload ? 'deload' : _('ordinary') }))));
+      $('cycle').value = String(view.cycleIndex || (view.cycles.some(item => item.index === cycle) ? cycle : view.cycles[0]?.index || 1));
+      $('cycle').disabled = active || !view.cycles.length;
+      $('cycleStatus').textContent = labelText(view.cycleLabel || '');
+      say('resultSnapshot', 'Run {id} · {status} · {completed}/{total} cells · snapshot {revision}', { id: sourceRun.runId, status: _(sourceRun.status), completed: sourceRun.completed, total: sourceRun.total, revision: sourceRun.revision ?? sourceRun.plan?.experiment?.revision ?? sourceRun.configuration?.revision ?? _('embedded') });
+      $('aggregateSummary').replaceChildren();
+      metrics($('aggregateSummary'), view.aggregateRows);
+      if (view.aggregateTable) renderTable($('aggregateSummary'), view.aggregateTable);
+      if (view.aggregateStrataTable) renderTable($('aggregateSummary'), view.aggregateStrataTable);
+      $('comparisonSummary').replaceChildren();
+      metrics($('comparisonSummary'), view.metricRows);
+      if (view.distributionTable) renderTable($('comparisonSummary'), view.distributionTable);
+      if (view.setCountTable) renderTable($('comparisonSummary'), view.setCountTable);
+      $('metricDetails').textContent = json(view.metricDetails || null);
+      if (view.notice) $('comparisonSummary').append(text('p', labelText(view.notice), 'badge'));
+      renderProgram($('baselineProgram'), view.baseline, Number($('cycle').value), view.baselineMarkers);
+      renderProgram($('candidateProgram'), view.candidate, Number($('cycle').value), view.candidateMarkers);
+      $('semanticChanges').replaceChildren();
+      for (const change of view.changes || []) $('semanticChanges').append(text('p', typeof change === 'string' ? change : json(change), 'hint'));
+      if (!view.changes?.length) $('semanticChanges').append(text('p', _('No semantic prescription changes in this comparison.'), 'hint'));
+      $('diagnostics').textContent = json(view.diagnostics || { baseline: view.baseline?.result?.diagnostics, candidate: view.candidate?.result?.diagnostics });
+      say('rawResult', '');
+      renderRaw();
+      if (!active) { $('progress').max = Math.max(1, sourceRun.total); $('progress').value = sourceRun.completed; say('runStatus', '{status} · {completed}/{total} cells{case}', { status: _(sourceRun.status), completed: sourceRun.completed, total: sourceRun.total, case: '' }); }
+      say('analysisStatus', 'Cohort metrics ready.');
+    } finally { if (analysisController === controller) analysisController = null; }
   }
   function renderRaw() {
-    if (!$('rawDetails').open || !run || !selectedView) return;
-    $('rawResult').textContent = json({ runId: run.runId, revision: run.revision, status: run.status,
-      configuration: run.plan?.experiment || run.configuration, baseline: selectedView.baseline, candidate: selectedView.candidate,
+    if (!$('rawDetails').open || !selectedRun || !selectedView) return;
+    const source = selectedRun;
+    $('rawResult').textContent = json({ runId: source.runId, revision: source.revision, status: source.status, completed: source.completed, total: source.total, saved: source.saved, error: source.error,
+      configuration: source.plan?.experiment || source.configuration, baseline: selectedView.baseline, candidate: selectedView.candidate,
       changes: selectedView.changes });
   }
   function clearResult() {
-    selectedView = null;
+    selectedView = null; selectedRun = null; analysisController?.abort(); say('analysisStatus', '');
     $('archiveActions').hidden = true;
     for (const id of ['baselineProgram', 'candidateProgram', 'aggregateSummary', 'comparisonSummary', 'semanticChanges', 'diagnostics', 'metricDetails', 'rawResult']) $(id).replaceChildren();
     say('resultSnapshot', 'This configuration has no saved execution snapshot.');
@@ -398,6 +413,7 @@
     const selected = $('savedRuns').value;
     const rows = experimentId ? await services.listRuns(experimentId) : [];
     $('savedRuns').replaceChildren(option('', _('Choose a saved run')), ...rows.map(row => option(row.runId, _('Revision {revision} · {status} · {completed}/{total} · {id}', { revision: row.revision, status: _(row.status), completed: row.completed, total: row.total, id: row.runId.slice(0, 12) }))));
+    if ($('savedExperiments').value !== experimentId) return;
     if (rows.some(row => row.runId === selected)) $('savedRuns').value = selected;
     $('loadRun').disabled = active || !$('savedRuns').value;
   }
@@ -438,6 +454,8 @@
       });
       if (token !== runToken) return;
       run = result;
+      $('cancel').disabled = true; // The executor is disposed; only result preparation remains.
+      if (result.error) showError(result.error);
       say('runStatus', '{status} · {completed}/{total} cells{case}', { status: _(result.status), completed: result.completed, total: result.total, case: '' });
       say('persistenceStatus', (result.persisted === false || result.saved === false) ? 'Unsaved run · export remains available' : 'Saved run snapshot');
       dirty = false;
@@ -576,7 +594,7 @@
         const record = await services.importArchive(files);
         run = record.run || null; runToken++; renderDraft(record.configuration); dirty = false;
         $('inputsChanged').hidden = true; say('persistenceStatus', record.archived ? 'Imported archived result · exact replay unavailable on this build' : 'Imported experiment');
-        if (run) await renderResult(); else clearResult();
+        if (run) { await renderResult(); $('progress').max = Math.max(1, run.total); $('progress').value = run.completed; } else clearResult();
         await refreshSaved();
         $('savedExperiments').value = record.configuration.experimentId;
         await refreshRuns();

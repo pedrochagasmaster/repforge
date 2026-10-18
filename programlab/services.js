@@ -149,7 +149,21 @@
     metricsCache.set(record, result);
     return result;
   }
-  function inspect(run, selection) {
+  async function inspect(run, selection) {
+    // Derive one accepted cell at a time. Yield between uncached cells so a
+    // completed corpus never blocks the workbench while preparing summaries.
+    let processed = 0;
+    selection.onProgress?.({ completed: 0, total: run.records.length });
+    for (const record of run.records) {
+      if (selection.signal?.aborted) return null;
+      if (!metricsCache.has(record)) {
+        recordMetrics(run, record);
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      processed++;
+      if (processed % 16 === 0 || processed === run.records.length) selection.onProgress?.({ completed: processed, total: run.records.length });
+    }
+    if (selection.signal?.aborted) return null;
     const { plan, records } = run;
     const byKey = new Map(records.map(record => [record.cellKey, record]));
     const scenarios = new Map(plan.experiment.scenarios.map(item => [item.id, item]));
@@ -185,8 +199,20 @@
     const rirKeys = [...new Set([...Object.keys(selectedBaseline?.rir.counts || {}), ...Object.keys(selectedCandidate?.rir.counts || {})])].sort((a, b) => Number(a) - Number(b));
     const setKeys = [...new Set([...Object.keys(selectedBaseline?.setCountHistogram || {}), ...Object.keys(selectedCandidate?.setCountHistogram || {})])].sort((a, b) => Number(a) - Number(b));
 
+    const visibleChanges = (comparison?.changes || []).filter(change => change.cycleIndex === undefined || change.cycleIndex === cycleIndex);
+    function markers(record, side) {
+      const labels = Object.create(null);
+      for (const slot of record?.result?.diagnostics?.slots || []) {
+        const changes = visibleChanges.filter(change => change.lineage === slot.lineage);
+        if (!changes.length) continue;
+        labels[slot.slotId] = side === 'baseline' && changes.some(change => change.type === 'slot_removed') ? t('Removed in candidate')
+          : side === 'candidate' && changes.some(change => change.type === 'slot_added') ? t('Added in candidate') : t('Changed in candidate');
+      }
+      return labels;
+    }
     return {
-      comparisons, cycles: Array.from({ length: cycles }, (_, index) => ({ index: index + 1, deload: deload.includes(index + 1) })),
+      baselineMarkers: markers(baseline, 'baseline'), candidateMarkers: markers(candidate, 'candidate'),
+      cycleIndex, comparisons, cycles: Array.from({ length: cycles }, (_, index) => ({ index: index + 1, deload: deload.includes(index + 1) })),
       baseline: baseline ? { ...baseline, archived: !!run.archived, metricRows: metricRows(baselineMetrics, cycleIndex) } : null,
       candidate: candidate ? { ...candidate, archived: !!run.archived, metricRows: metricRows(candidateMetrics, cycleIndex) } : null,
       changes: comparison?.changes || [], aggregateRows,
