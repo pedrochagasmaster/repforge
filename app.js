@@ -1,3 +1,6 @@
+import {createProgressOverview} from './src/ui/progress/overview.js';
+import {createHistoryController} from './src/ui/history/controller.js';
+import {groupHistoryRows,completeHistoryIndex,searchHistoryIndex} from './src/app/history-read-models.js';
 import {createTodayController} from './src/ui/today/controller.js';
 import {createSessionSummary} from './src/ui/workout/summary.js';
 import * as ReadModels from './src/app/read-models.js';
@@ -5082,7 +5085,7 @@ function announceRestStart(sec){
   const el=$("#restAnnounce");if(!el)return;
   el.textContent="";
   requestAnimationFrame(()=>requestAnimationFrame(()=>{if(focusRest.end&&!focusRest.announced)el.textContent=t("rest.inline.started",{time:fmtClock(sec)})}))}
-window.__repforgeRest={expire:over=>focusRest.expire(over)};
+window.__repforgeRest={expire:over=>focusRest.expire(over),stop:stopRest,openSheet:openRestSheet};
 
 /* ---- Rest presets sheet ---- */
 /* The running clock lives inline in the Focus cue slot (see "Inline rest"
@@ -7457,26 +7460,11 @@ window.__repforgeProgression={
    points come from progress-model.js through strengthProjection(); an outcome
    word is the compareExerciseSession label the summary and History read; an
    attention target is recommendation(). Nothing is derived in this layer. */
-function sparklineSvg(values,w=60,h=22){
-  const nums=values.map(Number).filter(Number.isFinite);
-  if(!nums.length)return"";
-  const min=Math.min(...nums),span=Math.max(...nums)-min||1;
-  const pts=nums.length===1?[[w/2,h/2]]:nums.map((v,i)=>[2+i*(w-4)/(nums.length-1),h-3-(v-min)/span*(h-6)]);
-  const line=pts.length>1?`<path class="spark__line" d="${pts.map((q,i)=>`${i?"L":"M"}${q[0].toFixed(1)} ${q[1].toFixed(1)}`).join(" ")}"/>`:"";
-  const last=pts.at(-1);
-  return`<svg class="spark" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true">${line}<circle class="spark__dot" cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="${pts.length>1?2.4:3}"/></svg>`}
-const STRENGTH_KIND_KEYS={snapshot:"stats.evidence.snapshot",comparison:"stats.evidence.comparison",trend:"stats.evidence.trend"};
-/** "Tendência, 4 sessões": the evidence kind and how many sessions back it. */
-function strengthKindText(series){
-  if(series.presentation==="empty"||!STRENGTH_KIND_KEYS[series.presentation])return t("stats.evidence.empty");
-  const n=series.evidenceCount;
-  return t(n===1?"stats.overview.evidence.one":"stats.overview.evidence.other",{kind:t(STRENGTH_KIND_KEYS[series.presentation]),n})}
-/** `a→b kg`: the scope's first and latest top load, both the model's points. */
-function strengthFigure(series){
-  const pts=series.points;if(!pts.length)return"—";
-  const last=fmtLoad(pts.at(-1).value);
-  const cue=series.perSideLoad?` · ${t("focus.metric.load_per_side_kg")}`:"";
-  return`${pts.length>1?`${fmtLoad(pts[0].value)}→${last} `:`${last} `}${unitLabel()}${cue}`}
+const ProgressUi=createProgressOverview({document,copy:{t},format:{load:fmtLoad,unit:unitLabel},
+  onOpenExercise:key=>openExerciseView(key,"stats"),onGoToday:()=>navTo("log")});
+function sparklineSvg(values,w=60,h=22){return ProgressUi.sparkline(values,w,h)}
+function strengthKindText(series){return ProgressUi.kindText(series)}
+function strengthFigure(series){return ProgressUi.figure(series)}
 function strengthSessionRows(key,sessionId,comparisonConvention="load"){
   return strengthEvidenceRows().filter(row=>row.exerciseId===key&&String(row.session??row.date)===String(sessionId)&&
     row.strengthComparable!==false&&(row.strengthConvention||"load")===comparisonConvention)}
@@ -7489,19 +7477,8 @@ function strengthSessionDelta(key,series){
 /** The word under a lift's name. With a sufficient outcome it is the label of
  *  compareExerciseSession for the latest session, marked for the parity check;
  *  otherwise it is the short reason the model gave (no outcome is invented). */
-function strengthOutcomeWord(key,series,latest){
-  if(!latest)return{html:esc(t("stats.evidence.baseline")),soft:true,status:""};
-  const cmp=strengthSessionDelta(key,series),slot=currentExerciseForLiftKey(key);
-  const parity=slot?` data-parity-outcome="${esc(slot.id)}" data-parity-session="${esc(latest.session)}"`+
-    ` data-parity-reader="progress-strength" data-parity-scope="${esc(series.scope)}"`+
-    ` data-parity-convention="${esc(series.comparisonConvention||"load")}"`:"";
-  const word=label=>`<span class="evword"${parity}>${esc(label)}</span>`;
-  if(series.outcome&&cmp)return{html:word(cmp.label),soft:false,status:series.outcome};
-  const reason=series.reason;
-  if(reason==="single-observation")return{html:esc(t("stats.outcome_short.single_observation")),soft:true,status:""};
-  if(reason==="missing-effort")return{html:esc(t("stats.outcome_short.missing_effort")),soft:true,status:""};
-  if((reason==="changed-load"||reason==="incompatible-exposure")&&cmp)return{html:word(cmp.label),soft:true,status:""};
-  return{html:esc(t("stats.evidence.baseline")),soft:true,status:""}}
+function strengthOutcomeWord(key,series,latest){return ProgressUi.outcomeWord({series,latest,
+  comparison:latest?strengthSessionDelta(key,series):null,slotId:latest?currentExerciseForLiftKey(key)?.id:null})}
 /** The two-point change, `+2,5 kg (+2,63%)`. A rep-only improvement moved no
  *  load, so its zero change is not printed and the row reads the word alone. */
 function strengthChangeText(series){
@@ -7566,39 +7543,28 @@ function legacyStrengthTable(el){
 
 // The week reads as two totals and a line (Plan 064 R3i). Every number comes
 // from the same evidence model the lists below render, so none of them disagree.
-function renderThisWeek(){const el=$("#thisWeek");if(!el)return;
+function renderThisWeek(){
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return;
-  const meta=progressEvidenceMeta(),w=Model.buildWeekStatus(prog.toJSON(),meta,readLogRows(),today());
-  const records=strengthEvidenceRecords("current-block"),baselineN=records.filter(r=>r.evidenceState==="insufficient").length;
-  const weekLine=w.status==="in-progress"&&w.week?t("stats.overview.week",{n:w.week,total:meta.mesocycleLengthWeeks}):t("stats.this_week.in_progress");
-  const cell=(metric,done,planned,caption)=>`<div class="ovtotal" data-week-metric="${metric}"><b class="ovtotal__val"><span class="ovtotal__n">${done}</span>`+
-    `${planned>0?`<i class="ovtotal__of">/${planned}</i>`:""}</b><span class="ovtotal__cap">${esc(caption)}</span></div>`;
-  el.innerHTML=`<div class="ovtotals${baselineN>0?" ovtotals--3":""}">`+
-    cell("sessions",w.completedSessions,w.plannedSessions,t("stats.this_week.sessions"))+
-    cell("sets",w.completedWorkingSets,w.plannedWorkingSets,t("stats.this_week.working_sets"))+
-    (baselineN>0?cell("baseline",baselineN,0,t("stats.this_week.baseline")):"")+`</div>`+
-    `<p class="ovweekline">${esc(weekLine)}</p>`}
+  const meta=progressEvidenceMeta(),week=Model.buildWeekStatus(prog.toJSON(),meta,readLogRows(),today());
+  const records=strengthEvidenceRecords("current-block");
+  ProgressUi.renderWeek({...week,totalWeeks:meta.mesocycleLengthWeeks,baselineCount:records.filter(record=>record.evidenceState==="insufficient").length});
+}
 /** Strength this block: a row per lift that has a session, in program order. A
  *  row with two or more sessions opens that lift's chart; one session is a dot
  *  with no chart behind it. */
-function renderOverviewStrength(){const el=$("#overviewStrength");if(!el)return;
+function renderOverviewStrength(){
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
-  if(!Model){el.innerHTML="";return}
+  if(!Model){ProgressUi.renderStrength([]);return}
   const projection=strengthProjection("current-block"),order=prog.exercises.map(ex=>exerciseLiftKey(ex)||`slot:${ex.id}`);
-  const keys=[...projection.series.keys()].filter(k=>projection.series.get(k).evidenceCount>0)
+  const keys=[...projection.series.keys()].filter(key=>projection.series.get(key).evidenceCount>0)
     .sort((a,b)=>{const ia=order.indexOf(a),ib=order.indexOf(b);return(ia<0?1e6:ia)-(ib<0?1e6:ib)});
-  if(!keys.length){el.innerHTML="";return}
-  const nameOf=k=>projection.dashboard.find(r=>r.key===k)?.exercise||prog.exercises.find(ex=>(exerciseLiftKey(ex)||`slot:${ex.id}`)===k)?.name||k;
-  el.innerHTML=`<div class="ovsec"><h3 class="ovsec__title">${esc(t("stats.overview.strength"))}</h3><span class="ovsec__meta">${esc(t("stats.metric.top_load"))}</span></div>`+
-    keys.map(k=>{
-      const series=projection.series.get(k),latest=projection.sessions.filter(x=>x.liftKey===k).at(-1),word=strengthOutcomeWord(k,series,latest);
-      const body=`<span class="strrow__main"><b class="strrow__name">${esc(liftDisplayName(nameOf(k),k))}</b>`+
-        `<span class="strrow__sub${word.soft?" is-soft":""}">${word.html}${latest?esc(` · ${shortDate(latest.date)}`):""}</span></span>`+
-        `${sparklineSvg(series.points.map(point=>point.value))}<span class="strrow__fig">${esc(strengthFigure(series))}</span>`;
-      return series.evidenceCount>1
-        ?`<button type="button" class="strrow" data-ovkey="${esc(k)}">${body}</button>`
-        :`<div class="strrow strrow--snap" data-ovkey="${esc(k)}">${body}</div>`}).join("");
-  $$("#overviewStrength button[data-ovkey]").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.ovkey,"stats"))}
+  const nameOf=key=>projection.dashboard.find(row=>row.key===key)?.exercise||prog.exercises.find(ex=>(exerciseLiftKey(ex)||`slot:${ex.id}`)===key)?.name||key;
+  ProgressUi.renderStrength(keys.map(key=>{
+    const series=projection.series.get(key),latest=projection.sessions.filter(session=>session.liftKey===key).at(-1);
+    return{key,name:liftDisplayName(nameOf(key),key),series,latest,comparison:latest?strengthSessionDelta(key,series):null,
+      slotId:currentExerciseForLiftKey(key)?.id,dateLabel:latest?shortDate(latest.date):null};
+  }));
+}
 function overviewBarPct(planned,completed7){return planned>0?Math.min(100,Math.round(completed7/planned*100)):0}
 function volumeStatusKey(planned,completed){
   if(!planned)return completed>0?"high":"on-target";
@@ -7633,15 +7599,8 @@ function overviewVolumeSorted(){return overviewVolumeProjection()}
 
 function renderStats(){
   // First run: point at the Log tab instead of an all-zero dashboard.
-  const hasLog=state.log.some(isWork),intro=$("#statsIntro");
-  if(intro){
-    intro.classList.toggle("hidden",hasLog);
-    intro.innerHTML=hasLog?"":`<p class="emptystate__title">${esc(t("stats.empty.title"))}</p>`+
-      `<p class="emptystate__body">${esc(t("stats.empty.body"))}</p>`+
-      `<button type="button" class="btn btn--cta" id="statsIntroGo">${esc(t("stats.empty.cta"))}</button>`;
-    const go=$("#statsIntroGo");if(go)go.onclick=()=>navTo("log");
-    for(const sel of["#thisWeek","#attention","#overviewStrength"]){const el=$(sel);if(el)el.classList.toggle("hidden",!hasLog)}
-  }
+  const hasLog=state.log.some(isWork);
+  ProgressUi.renderIntro(hasLog);
   renderThisWeek();
   renderAttention();renderOverviewStrength();renderReview();
   if(statsSeg==="review")renderReview();
@@ -8225,37 +8184,24 @@ function attentionVerdict(rec){
   if(rec.status==="add"||rec.status==="add2")return"up";
   if(rec.status==="reduce")return rec.stalled?"recover":"down";
   return rec.reason==="recover"?"recover":"hold"}
-function attentionMarkHtml(move){
-  return move==="up"||move==="down"
-    ?`<span class="verdictmark verdictmark--${move}"><span class="verdictmark__glyph" aria-hidden="true"></span></span>`
-    :`<span class="verdictmark verdictmark--${move}" aria-hidden="true"></span>`}
 /** Needs attention: the action-queue lifts whose recommendation changes the load
  *  (add, add2, reduce). A hold, a recover and a stalled lift stay out of this
  *  section only; the queue and every model output are unchanged. The mark, label and
  *  reason are the engine's recommendation for the lift, the evidence line is the
  *  model's, and the whole row opens that lift's chart. */
-function renderAttention(){const el=$("#attention");if(!el)return;
+function renderAttention(){
   const groups=attentionGroups(),projection=strengthProjection("current-block");
   const rows=groups.flatMap(group=>group.items.map(entry=>{
     const slot=currentExerciseForLiftKey(entry.item.destinationId);
-    return{...entry,group,slot,rec:slot?recommendation(slot):null}}))
-    .filter(row=>{const move=attentionVerdict(row.rec);return move==="up"||move==="down"});
-  el.innerHTML=`<div class="ovsec"><h3 class="ovsec__title">${esc(t("stats.overview.attention",{n:rows.length}))}</h3></div>`+
-    (rows.length?rows.map(({ex,item,group,slot,rec})=>{
-      const series=projection.series.get(item.destinationId),last=series?.latest?.value,target=rec&&rec.load!=null?rec.load:null;
-      const figure=target!=null
-        ?(last!=null&&!sameLoad(last,target)?`${fmtLoad(last)}→${fmtLoad(target)} ${unitLabel()}`:`${fmtLoad(target)} ${unitLabel()}`)
-        :last!=null?`${fmtLoad(last)} ${unitLabel()}`:"";
-      const parity=target!=null&&slot?` data-parity-target="${esc(slot.id)}"`:"";
-      const verdict=rec&&rec.label?`<span class="attnrow__label">${esc(rec.label)}</span><span class="attnrow__reason">${esc(rec.text)}</span>`:`<span class="attnrow__reason">${esc(group.lead)}</span>`;
-      return `<button type="button" class="attn__chip attnrow" data-action-lift="${esc(item.destinationId)}" data-attn="${esc(ex.id)}" data-attngo="${esc(group.key)}">`+
-        `<span class="attnrow__mark">${attentionMarkHtml(attentionVerdict(rec))}</span>`+
-        `<b class="attnrow__name">${esc(exerciseDisplayName(ex))}</b>`+
-        `<span class="attnrow__fig"><span${parity}>${esc(figure)}</span><span class="chevron" aria-hidden="true"></span></span>`+
-        `<span class="attnrow__verdict">${verdict}</span>`+
-        `<small class="attnrow__evidence">${esc(series?strengthKindText(series):"")}</small></button>`}).join("")
-      :`<p class="ovnone">${esc(t("stats.needs_action.none"))}</p>`);
-  $$("#attention [data-action-lift]").forEach(button=>button.onclick=()=>openExerciseView(button.dataset.actionLift,"stats"))}
+    return{...entry,group,slot,rec:slot?recommendation(slot):null};
+  })).filter(row=>{const move=attentionVerdict(row.rec);return move==="up"||move==="down"});
+  ProgressUi.renderAttention(rows.map(({ex,item,group,slot,rec})=>{
+    const series=projection.series.get(item.destinationId);
+    return{destinationId:item.destinationId,id:ex.id,group:group.key,name:exerciseDisplayName(ex),move:attentionVerdict(rec),
+      last:series?.latest?.value,target:rec&&rec.load!=null?rec.load:null,exerciseId:slot?.id,
+      label:rec?.label,reason:rec?.text,lead:group.lead,series};
+  }));
+}
 
 // Completed hard sets per muscle over a rolling window (load>0, reps>0, RIR within hardRir).
 function completedHardSets(windowDays){const cutoff=daysAgo(windowDays-1),hr=+state.settings.hardRir,m=new Map();
@@ -8611,24 +8557,54 @@ function historySessionOutcome(rows){
   return compareProjectedSessionOutcome(current,previous,convention)}
 const historyCommands=createHistoryCommands({read:applicationSession.read,
   commit:(proposal,opts)=>commitProposedState(proposal,storageIO,opts),readRevision,
-  settleAlreadyCommitted:opts=>DurableState.settleHistoryAlreadyCommitted(opts)});
-const HistoryUi=window.RepForgeHistoryUi.create({
-  locTag, blockContext:historyBlockContext, sessionOutcome:historySessionOutcome, openModal, closeModal, reducedMotion,
-  $, $$, t, esc, cloneSnapshot, canonicalize, currentMovementNames, mergeLogChronology,
-  compareLogChronology, isWork, liftKey, buildSessionDelta, detectPRs,
-  readLogRow,
-  displayName, exerciseDisplayName, currentNameForRow, dayLabel, canTakeFocus, parseCalendarDate,
-  parseLoadDisplay, parseRepsValue, parseRirValue, clearFieldInvalid,
-  toast, formatLongDate, fmtLoad, fmtLoadPlain, sum, kfmt, fmt, toDisplay, unitLabel, muscleLabel,
-  metricLabel, metricDisplayValue:metricTextValue, metricDisplayUnit, parseHistoryMetricInput,
-  weekdayLetters, table, today, uid, readRevision,
-  historyCommands,
-  readDurableState:()=>DurableState.readDurableState(),
-  settleHistoryAlreadyCommitted:opts=>DurableState.settleHistoryAlreadyCommitted(opts),
-  settlePendingJournal,
-  getState:applicationSession.read, renderApp:()=>render(),
-  adoptHistoryDurableHead, captureEvent,
-});
+  settleAlreadyCommitted:opts=>DurableState.settleHistoryAlreadyCommitted(opts),
+  readDurable:()=>DurableState.readDurableState(),settlePending:()=>settlePendingJournal(),publish:adoptHistoryDurableHead});
+const historyDiagnostics={enabled:false,builds:0,sourceRowVisits:0,last:null,onBuilt:null,
+  reset(){this.enabled=true;this.builds=0;this.sourceRowVisits=0;this.last=null;this.onBuilt=null},
+  disable(){this.enabled=false;this.last=null;this.onBuilt=null}};
+const historyIndexCache=new WeakMap(),historyRowFactsCache=new WeakMap();
+let historyContextCache=null;
+function historyReadContext(){
+  const language=locTag(),date=today();
+  if(historyContextCache?.snapshot===state&&historyContextCache.language===language&&historyContextCache.date===date)return historyContextCache.value;
+  const dayLabels=Object.fromEntries([...new Set([...(state.program||[]).map(ex=>ex.day),...(state.log||[]).map(row=>row.day)])].map(day=>[day,dayLabel(day)]));
+  const value={block:historyBlockContext(),locale:language,today:date,weekdayLetters:weekdayLetters(),dayLabels,revision:readRevision(state)};
+  historyContextCache={snapshot:state,language,date,value};return value;
+}
+function historyReadRow(row){
+  const context=historyReadContext(),cached=historyRowFactsCache.get(row);
+  if(cached?.context===context)return cached.value;
+  const value={reading:readLogRow(row),name:exerciseDisplayName(row),storedName:displayName(row),liftKey:liftKey(row)};
+  historyRowFactsCache.set(row,{context,value});return value;
+}
+function buildHistoryReadIndex(log){
+  const source=(log||[]).map(raw=>raw&&typeof raw==="object"?raw:{}),currentNames=currentMovementNames();
+  const rowFacts=new Map(source.map(row=>[row,{...historyReadRow(row),currentName:currentNameForRow(row,currentNames)}]));
+  const grouped=groupHistoryRows({rows:source,rowFacts});
+  const comparisons=new Map(grouped.pairs.filter(pair=>!pair.first).map(pair=>[`${pair.session}|${pair.liftKey}`,buildSessionDelta(pair.previous,pair.current)]));
+  const dayLabels=Object.fromEntries([...new Set(source.map(row=>row.day))].map(day=>[day,dayLabel(day)]));
+  const index=completeHistoryIndex(grouped,{rowFacts,comparisons,prEvents:detectPRs(source),dayLabels});
+  if(historyDiagnostics.enabled){
+    historyDiagnostics.builds++;historyDiagnostics.sourceRowVisits+=source.length;historyDiagnostics.last=index;
+    if(typeof historyDiagnostics.onBuilt==="function")historyDiagnostics.onBuilt(index);
+  }
+  return index;
+}
+function historyReadIndex(source=state.log){
+  const cached=historyIndexCache.get(source),context=historyReadContext();
+  if(cached?.program===state.program&&cached.language===context.locale)return cached.index;
+  const index=buildHistoryReadIndex(source);
+  historyIndexCache.set(source,{program:state.program,language:context.locale,index});return index;
+}
+const HistoryUi=createHistoryController({window,
+  queries:{rows:()=>state.log,index:historyReadIndex,buildIndex:buildHistoryReadIndex,search:searchHistoryIndex,
+    row:historyReadRow,context:historyReadContext,outcome:historySessionOutcome,diagnostics:historyDiagnostics},
+  commands:historyCommands,copy:{t},
+  format:{date:formatLongDate,load:fmtLoad,loadPlain:fmtLoadPlain,compact:kfmt,number:fmt,displayLoad:toDisplay,unit:unitLabel,muscle:muscleLabel,
+    metricLabel,metricText:metricTextValue,metricUnit:metricDisplayUnit},
+  inputs:{date:parseCalendarDate,load:parseLoadDisplay,reps:parseRepsValue,rir:parseRirValue,metric:parseHistoryMetricInput},
+  shell:{openModal,closeModal,reducedMotion,canTakeFocus},
+  onChanged:()=>render(),onNotice:toast,onOutcome:payload=>captureEvent("history_session_outcome",payload)});
 window.__repforgeHistory=HistoryUi;
 window.__repforgeSaveSessionEdit=HistoryUi.saveSessionEdit;
 

@@ -2,6 +2,7 @@ const CACHE = "repforge-v479";
 const SOURCE_RELEASE = "source-479";
 const ASSETS = [
   // BEGIN GENERATED NATIVE SOURCE ASSETS
+  "./src/app/history-read-models.js",
   "./src/app/history.js",
   "./src/app/interchange.js",
   "./src/app/program.js",
@@ -60,6 +61,10 @@ const ASSETS = [
   "./src/ui/focus/view.js",
   "./src/ui/focus/why.js",
   "./src/ui/format.js",
+  "./src/ui/history/controller.js",
+  "./src/ui/history/fields.js",
+  "./src/ui/history/view.js",
+  "./src/ui/progress/overview.js",
   "./src/ui/session-summary.js",
   "./src/ui/shell.js",
   "./src/ui/today/controller.js",
