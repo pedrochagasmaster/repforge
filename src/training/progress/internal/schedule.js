@@ -1,12 +1,16 @@
+/** @typedef {{day?:string,date?:string,session?:string,created?:string}} ScheduleRow */
+/** @param {unknown} ymd */
 function ymdToUTC(ymd) {
   const [y, m, d] = String(ymd).split("-").map(Number);
   return Date.UTC(y, m - 1, d);
 }
 
+/** @param {unknown} aYmd @param {unknown} bYmd */
 function daysBetween(aYmd, bYmd) {
   return Math.round((ymdToUTC(bYmd) - ymdToUTC(aYmd)) / 86400000);
 }
 
+/** @param {ScheduleRow[]|null|undefined} log @param {string} dayLabel */
 function lastDateForDay(log, dayLabel) {
   let best = null;
   for (const r of log || []) {
@@ -16,6 +20,7 @@ function lastDateForDay(log, dayLabel) {
   return best;
 }
 
+/** @param {ScheduleRow[]|null|undefined} log @param {string[]|null|undefined} programDays @param {string} todayYmd */
 function mostOverdueDay(log, programDays, todayYmd) {
   const days = Array.isArray(programDays) ? programDays : [];
   if (!days.length || !Array.isArray(log) || !log.length || !todayYmd) return null;
@@ -34,17 +39,19 @@ function mostOverdueDay(log, programDays, todayYmd) {
   return best;
 }
 
+/** @param {ScheduleRow[]|null|undefined} log @param {string} ymd */
 function hasLoggedOn(log, ymd) {
   return (log || []).some(r => r.date === ymd);
 }
 
+/** @param {ScheduleRow[]|null|undefined} log */
 function usualHour(log) {
   const seen = new Set();
   const hours = [];
   for (const r of log || []) {
     if (!r.session || seen.has(r.session)) continue;
     seen.add(r.session);
-    const t = Date.parse(r.created);
+    const t = Date.parse(r.created??"");
     if (!Number.isFinite(t)) continue;
     hours.push(new Date(t).getHours());
   }

@@ -1,3 +1,11 @@
+/** @typedef {import("./contracts.js").HistoryRow} HistoryRow */
+/** @typedef {import("./contracts.js").ProgramRow} ProgramRow */
+/** @typedef {import("./contracts.js").ProgramObject} ProgramObject */
+/** @typedef {import("./contracts.js").ProgramInput} ProgramInput */
+/** @typedef {import("./contracts.js").EvidenceRecord} EvidenceRecord */
+/** @typedef {import("./contracts.js").EvidenceMeta} EvidenceMeta */
+/** @typedef {import("./contracts.js").PlannedVolumeHistory} PlannedVolumeHistory */
+/** @typedef {import("./contracts.js").EvidencePoint} EvidencePoint */
 "use strict";
 
 // Plan 056 — pure Progress evidence/view-model boundary.
@@ -24,6 +32,7 @@ const EVIDENCE_SCOPES = Object.freeze(["current-block", "all-history"]);
 // Recommendation verb for a sufficient observed outcome. This is the
 // vocabulary separation (G-24), not progression math: the engine still owns
 // whether an outcome happened at all.
+/** @type {Readonly<Record<string,string>>} */
 const OUTCOME_TO_RECOMMENDATION = Object.freeze({
   improved: "progress",
   maintained: "repeat",
@@ -40,37 +49,42 @@ const DAY_MS = 86400000;
 // current-block surface. A sufficient record is deliberately strict: it is
 // an assertion that the authoritative comparison produced an outcome, not a
 // count-based presentation guess.
+/** @param {unknown} record @param {string|null} [defaultScope] @returns {EvidenceRecord|null} */
 function normalizeEvidenceRecord(record, defaultScope = null) {
-  if (!record || !EVIDENCE_STATES.includes(record.evidenceState)) return null;
-  const exerciseId = String(record.exerciseId ?? "");
+  if (!record || typeof record!=="object")return null;
+  const raw=/** @type {Record<string,unknown>} */(record);
+  if(raw.evidenceState!=="sufficient"&&raw.evidenceState!=="insufficient")return null;
+  const exerciseId = String(raw.exerciseId ?? "");
   if (!exerciseId) return null;
-  const scope = EVIDENCE_SCOPES.includes(record.scope)
-    ? record.scope
-    : EVIDENCE_SCOPES.includes(defaultScope) ? defaultScope : null;
-  const evidenceCount = Number.isInteger(record.evidenceCount) && record.evidenceCount >= 0
-    ? record.evidenceCount : 0;
+  const scope = typeof raw.scope==="string"&&EVIDENCE_SCOPES.includes(raw.scope)
+    ? raw.scope
+    : typeof defaultScope==="string"&&EVIDENCE_SCOPES.includes(defaultScope) ? defaultScope : null;
+  const evidenceCount = typeof raw.evidenceCount==="number"&&Number.isInteger(raw.evidenceCount) && raw.evidenceCount >= 0
+    ? raw.evidenceCount : 0;
+  /** @type {EvidenceRecord} */
   const normalized = {
     exerciseId,
     scope,
-    evidenceState: record.evidenceState,
+    evidenceState: raw.evidenceState,
     evidenceCount,
-    reason: record.evidenceState === "insufficient"
-      ? String(record.reason ?? "").trim() || DEFAULT_INSUFFICIENT_REASON
+    reason: raw.evidenceState === "insufficient"
+      ? String(raw.reason ?? "").trim() || DEFAULT_INSUFFICIENT_REASON
       : null,
   };
-  if (record.evidenceState === "sufficient") {
-    if (evidenceCount < 2 || !OUTCOMES.includes(record.outcome)) return null;
-    const expectedRecommendation = OUTCOME_TO_RECOMMENDATION[record.outcome];
-    if (record.recommendation !== undefined && record.recommendation !== expectedRecommendation) return null;
-    normalized.outcome = record.outcome;
+  if (raw.evidenceState === "sufficient") {
+    if (evidenceCount < 2 || typeof raw.outcome!=="string"||!OUTCOMES.includes(raw.outcome)) return null;
+    const expectedRecommendation = OUTCOME_TO_RECOMMENDATION[raw.outcome];
+    if (raw.recommendation !== undefined && raw.recommendation !== expectedRecommendation) return null;
+    normalized.outcome = raw.outcome;
     normalized.recommendation = expectedRecommendation;
   }
-  if (Array.isArray(record.reasonCodes)) {
-    normalized.reasonCodes = record.reasonCodes.filter((code) => typeof code === "string").slice();
+  if (Array.isArray(raw.reasonCodes)) {
+    normalized.reasonCodes = raw.reasonCodes.filter((code) => typeof code === "string").slice();
   }
   return normalized;
 }
 
+/** @param {unknown} records @param {{scope?:string|null}} [options] */
 function normalizeEvidenceRecords(records, { scope = null } = {}) {
   if (!Array.isArray(records)) return [];
   return records.flatMap((record) => {
@@ -79,6 +93,7 @@ function normalizeEvidenceRecords(records, { scope = null } = {}) {
   });
 }
 
+/** @param {unknown} value */
 function isoDate(value) {
   return String(value == null ? "" : value).slice(0, 10);
 }
@@ -88,6 +103,7 @@ function isoDate(value) {
 // must never move a later dated workout before an earlier one. When only
 // one same-day session has creation metadata, fall back to the stable
 // session identity instead of treating a missing timestamp as earliest.
+/** @param {HistoryRow|null|undefined} a @param {HistoryRow|null|undefined} b */
 function compareChronology(a, b) {
   const dateOrder = isoDate(a?.date).localeCompare(isoDate(b?.date));
   if (dateOrder) return dateOrder;
@@ -101,11 +117,12 @@ function compareChronology(a, b) {
   const bSession = String(b?.sessionKey ?? b?.session ?? b?.id ?? "");
   const sessionOrder = aSession.localeCompare(bSession);
   if (sessionOrder) return sessionOrder;
-  const aSet = Number.isFinite(Number(a?.set)) ? Number(a.set) : 0;
-  const bSet = Number.isFinite(Number(b?.set)) ? Number(b.set) : 0;
+  const aSet = Number.isFinite(Number(a?.set)) ? Number(a?.set) : 0;
+  const bSet = Number.isFinite(Number(b?.set)) ? Number(b?.set) : 0;
   return aSet - bSet;
 }
 
+/** @param {unknown} value */
 function dateAtNoon(value) {
   return new Date(`${isoDate(value)}T12:00:00`);
 }
@@ -115,7 +132,9 @@ function dateAtNoon(value) {
 // is not a valid YYYY-MM-DD. Both dates are placed on UTC midnight, so the
 // difference is an exact multiple of DAY_MS; elapsed local milliseconds
 // would lose an hour across a spring DST change and floor to one day short.
+/** @param {unknown} from @param {unknown} to */
 function calendarDayDistance(from, to) {
+  /** @param {unknown} value */
   const parse = (value) => {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate(value));
     if (!m) return NaN;
@@ -127,6 +146,7 @@ function calendarDayDistance(from, to) {
   return Math.round((parse(to) - parse(from)) / DAY_MS);
 }
 
+/** @param {unknown} date @param {number} days */
 function shiftIso(date, days) {
   const d = dateAtNoon(date);
   d.setDate(d.getDate() + days);
@@ -134,6 +154,7 @@ function shiftIso(date, days) {
   return `${y}-${m}-${day}`;
 }
 
+/** @param {unknown} date */
 function weekStartOf(date) {
   const d = dateAtNoon(date);
   const dow = d.getDay(), diff = dow === 0 ? 6 : dow - 1;
@@ -142,6 +163,7 @@ function weekStartOf(date) {
   return `${y}-${m}-${day}`;
 }
 
+/** @param {unknown} date @param {number} n */
 function addDays(date, n) {
   return shiftIso(date, n);
 }
@@ -150,15 +172,17 @@ function addDays(date, n) {
 // model's fixture shape ({days:[...], exercises:[{id, day,
 // plannedWorkingSetsPerWeek, slot, pattern}]}). Both normalize to the same
 // planned denominators.
+/** @param {ProgramInput} program @param {EvidenceMeta|null|undefined} meta */
 function normalizeProgram(program, meta) {
-const weeks = Math.max(1, Number(meta?.mesocycleLengthWeeks ?? program?.mesocycleLengthWeeks) || 6);
+const programInfo=Array.isArray(program)?null:program;
+const weeks = Math.max(1, Number(meta?.mesocycleLengthWeeks ?? programInfo?.mesocycleLengthWeeks) || 6);
 // An explicit meta.started of null means "no block" and must not fall
 // through to the program's own start date.
-const started = isoDate(meta && meta.started !== undefined ? meta.started : program?.started) || null;
+const started = isoDate(meta && meta.started !== undefined ? meta.started : programInfo?.started) || null;
   const days = new Set();
   const exercises = [];
   let plannedWorkingSetsPerWeek = 0;
-  const rows = Array.isArray(program) ? program : Array.isArray(program?.exercises) ? program.exercises : [];
+  const rows = Array.isArray(program) ? program : Array.isArray(programInfo?.exercises) ? programInfo.exercises : [];
   for (const row of rows || []) {
     if (!row) continue;
     const day = String(row.day ?? "");
@@ -183,15 +207,18 @@ const started = isoDate(meta && meta.started !== undefined ? meta.started : prog
   };
 }
 
+/** @param {HistoryRow|null|undefined} row */
 function isWorkingRow(row) {
   return row && row.work !== false && row.warmup !== true && Number(row.load) > 0 && Number(row.reps) > 0;
 }
 
+/** @param {HistoryRow|null|undefined} row @param {number} [hardRir] */
 function isHardWorkingRow(row, hardRir = 4) {
   const rir = Number(row?.rir);
   return isWorkingRow(row) && Number.isFinite(rir) && rir <= Number(hardRir);
 }
 
+/** @param {HistoryRow[]|null|undefined} log @param {string|null} start @param {string|null} end */
 function rowsInRange(log, start, end) {
   const out = [];
   for (const row of log || []) {
@@ -205,6 +232,7 @@ function rowsInRange(log, start, end) {
   return out;
 }
 
+/** @param {HistoryRow} row @param {EvidenceMeta|null|undefined} meta */
 function belongsToBlock(row, meta) {
   const blockId = String(meta?.blockId ?? "").trim();
   if (!blockId) return true;
@@ -213,22 +241,27 @@ function belongsToBlock(row, meta) {
   return String(row?.blockId ?? "").trim() === blockId;
 }
 
+/** @param {HistoryRow[]|null|undefined} log @param {string|null} start @param {string|null} end @param {EvidenceMeta|null|undefined} meta */
 function scopedRows(log, start, end, meta) {
   return rowsInRange(log, start, end).filter((row) => belongsToBlock(row, meta));
 }
 
+/** @param {HistoryRow[]} rows */
 function countSessions(rows) {
   return new Set(rows.filter(isWorkingRow).map((r) => r.session ?? r.date)).size;
 }
 
+/** @param {HistoryRow[]} rows */
 function countWorkingSets(rows) {
   return rows.filter(isWorkingRow).length;
 }
 
+/** @param {HistoryRow[]|null|undefined} log @param {string|null} start @param {string|null} end @param {number|undefined} hardRir @param {EvidenceMeta|null|undefined} meta */
 function completedHardRows(log, start, end, hardRir, meta) {
   return scopedRows(log, start, end, meta).filter((row) => isHardWorkingRow(row, hardRir));
 }
 
+/** @param {string|null|undefined} started @param {unknown} now @param {number} weeks */
 function elapsedWeekOf(started, now, weeks) {
   if (!started) return null;
   const days = calendarDayDistance(started, now);
@@ -236,6 +269,7 @@ function elapsedWeekOf(started, now, weeks) {
   return Math.min(Math.max(Math.floor(days / 7) + 1, 1), weeks);
 }
 
+/** @param {EvidenceMeta|null|undefined} meta @param {number} weekIndex0 */
 function weekPrescription(meta, weekIndex0) {
   const list = Array.isArray(meta?.weekPrescriptions) ? meta.weekPrescriptions : [];
   const numbered = list.some((item) => Number.isInteger(item?.week));
@@ -246,19 +280,23 @@ function weekPrescription(meta, weekIndex0) {
   return entry;
 }
 
+/** @param {unknown} value @returns {value is PlannedVolumeHistory} */
 function validPlannedVolumeHistory(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value) || value.schemaVersion !== 1 ||
-      !Number.isInteger(value.throughWeek) || value.throughWeek < 0 || value.throughWeek > 52 ||
-      !Number.isFinite(value.plannedSessions) || value.plannedSessions < 0 ||
-      !Number.isFinite(value.plannedWorkingSets) || value.plannedWorkingSets < 0 ||
-      !value.muscles || typeof value.muscles !== "object" || Array.isArray(value.muscles)) return false;
+  if (!value || typeof value !== "object" || Array.isArray(value))return false;
+  const raw=/** @type {Record<string,unknown>} */(value);
+  if (raw.schemaVersion !== 1 ||
+      typeof raw.throughWeek!=="number"||!Number.isInteger(raw.throughWeek) || raw.throughWeek < 0 || raw.throughWeek > 52 ||
+      typeof raw.plannedSessions!=="number"||!Number.isFinite(raw.plannedSessions) || raw.plannedSessions < 0 ||
+      typeof raw.plannedWorkingSets!=="number"||!Number.isFinite(raw.plannedWorkingSets) || raw.plannedWorkingSets < 0 ||
+      !raw.muscles || typeof raw.muscles !== "object" || Array.isArray(raw.muscles)) return false;
   return ["direct", "secondary"].every((kind) => {
-    const map = value.muscles[kind];
+    const map = /** @type {Record<string,unknown>} */(raw.muscles)[kind];
     return map && typeof map === "object" && !Array.isArray(map) &&
-      Object.entries(map).every(([name, amount]) => name && Number.isFinite(amount) && amount >= 0);
+      Object.entries(map).every(([name, amount]) => name && typeof amount==="number"&&Number.isFinite(amount) && amount >= 0);
   });
 }
 
+/** @param {string} scope @param {EvidenceMeta|null|undefined} meta */
 function evidenceBounds(scope, meta) {
   const started = isoDate(meta?.started) || null;
   if (scope !== "current-block" || !started) return { start: null, end: null };
@@ -269,6 +307,7 @@ function evidenceBounds(scope, meta) {
 // WeekStatus — the current program week: position, plan/completed
 // quantities, and a neutral status. No outcome inference: a partial week is
 // never a verdict.
+/** @param {ProgramInput} program @param {EvidenceMeta|null|undefined} meta @param {HistoryRow[]|null|undefined} log @param {unknown} now */
 function buildWeekStatus(program, meta, log, now) {
   const norm = normalizeProgram(program, meta);
   const today = isoDate(now);
@@ -303,22 +342,23 @@ function buildWeekStatus(program, meta, log, now) {
 // ActionItem[] — program-wide actions backed by sufficient evidence only.
 // Facts come from the authoritative progression layer; zero or insufficient
 // evidence produces an empty queue, never "attention".
+/** @param {ProgramInput} program @param {EvidenceMeta|null|undefined} meta @param {HistoryRow[]|null|undefined} log @param {unknown} progressionFacts */
 function buildProgramActionQueue(program, meta, log, progressionFacts) {
-  const scope = EVIDENCE_SCOPES.includes(meta?.evidenceScope) ? meta.evidenceScope : "current-block";
+  const scope = meta&&typeof meta.evidenceScope==="string"&&EVIDENCE_SCOPES.includes(meta.evidenceScope) ? meta.evidenceScope : "current-block";
   const facts = normalizeEvidenceRecords(progressionFacts, { scope })
     .filter((fact) => fact.scope === scope);
   const items = [];
   const seen = new Set();
   for (const fact of facts) {
     if (!fact || fact.evidenceState !== "sufficient") continue;
-    if (!OUTCOMES.includes(fact.outcome)) continue;
+    if (!(typeof fact.outcome==="string"&&OUTCOMES.includes(fact.outcome))) continue;
     const id = String(fact.exerciseId ?? "");
     if (!id || seen.has(id)) continue;
     seen.add(id);
     items.push({
       id: `action:${id}`,
       destinationId: id,
-      recommendation: RECOMMENDATIONS.includes(fact.recommendation) ? fact.recommendation : OUTCOME_TO_RECOMMENDATION[fact.outcome],
+      recommendation: typeof fact.recommendation==="string"&&RECOMMENDATIONS.includes(fact.recommendation) ? fact.recommendation : OUTCOME_TO_RECOMMENDATION[fact.outcome||""],
       rationaleCodes: Array.isArray(fact.reasonCodes) ? fact.reasonCodes.slice() : [],
       evidenceCount: Number.isFinite(fact.evidenceCount) ? fact.evidenceCount : null,
     });
@@ -331,12 +371,13 @@ function buildProgramActionQueue(program, meta, log, progressionFacts) {
 // kinds appear only at a completed boundary; performance-derived kinds
 // require sufficient observed outcomes, and recovery eligibility is passed
 // through from the approved policy (never recomputed here).
+/** @param {ProgramInput} program @param {EvidenceMeta|null|undefined} meta @param {HistoryRow[]|null|undefined} log @param {unknown} now */
 function buildReviewCheckpoint(program, meta, log, now) {
   const norm = normalizeProgram(program, meta);
   const today = isoDate(now);
   const facts = normalizeEvidenceRecords(meta?.evidenceRecords, { scope: "current-block" })
     .filter((fact) => fact.scope === "current-block");
-  const sufficient = facts.filter((f) => f && f.evidenceState === "sufficient" && OUTCOMES.includes(f.outcome));
+  const sufficient = facts.filter((f) => f && f.evidenceState === "sufficient" && typeof f.outcome==="string"&&OUTCOMES.includes(f.outcome));
   const base = {
     start: norm.started,
     totalWeeks: norm.weeks,
@@ -365,21 +406,26 @@ function buildReviewCheckpoint(program, meta, log, now) {
 // facts stay in the progression layer and are never display-load inputs. 0/1 compatible points are insufficient
 // baseline-building; presentation stays empty/snapshot/comparison/trend.
 // The outcome is never computed here — it arrives through meta.evidenceRecords.
+/** @param {string} scope @param {string} exerciseId @param {HistoryRow[]|null|undefined} log @param {EvidenceMeta|null|undefined} meta */
 function buildStrengthEvidence(scope, exerciseId, log, meta) {
   const bounds = evidenceBounds(scope, meta);
   const useBlock = scope === "current-block" && bounds.start;
+  /** @param {HistoryRow} row */
   const matches = (row) => {
     const rowId = String(row.exerciseId ?? row.exercise ?? row.name ?? "");
     return rowId === String(exerciseId);
   };
   const candidates = scopedRows(log, useBlock ? bounds.start : null, useBlock ? bounds.end : null, useBlock ? meta : null)
     .filter((row) => row && matches(row) && row.strengthComparable !== false);
+  /** @param {HistoryRow} row */
   const conventionKey = (row) => row?.strengthConvention == null ? null : String(row.strengthConvention);
   const latestCompatible = candidates.slice().sort(compareChronology).at(-1);
   const comparisonConvention = latestCompatible ? conventionKey(latestCompatible) : null;
+  /** @type {Map<string,EvidencePoint & {reps:number}>} */
   const bySession = new Map();
   let excludedHardRows = 0;
   let missingEffortRows = 0;
+  /** @param {HistoryRow} row */
   const sessionKeyFor = (row) => `${String(row.session ?? row.date)}\u0000${String(row.blockId ?? "")}`;
   for (const row of candidates) {
     if (conventionKey(row) !== comparisonConvention) continue;
@@ -420,9 +466,9 @@ function buildStrengthEvidence(scope, exerciseId, log, meta) {
     // Only the producer's authoritative comparable-exposure fact can make a
     // series sufficient; otherwise it remains neutral baseline-building.
     evidenceState: fact?.evidenceState ?? "insufficient",
-    reason: fact?.reason ?? (count === 0 ? (excludedHardRows > 0 ? "missing-effort" : "untested") :
-      count === 1 ? "single-observation" : missingEffortRows > 0 ? "missing-effort" : "untested"),
-    outcome: undefined,
+    reason: /** @type {string|null} */(fact?.reason ?? (count === 0 ? (excludedHardRows > 0 ? "missing-effort" : "untested") :
+      count === 1 ? "single-observation" : missingEffortRows > 0 ? "missing-effort" : "untested")),
+    outcome: /** @type {string|undefined} */(undefined),
     latest: count ? { ...points.at(-1) } : null,
     comparison: count === 2 ? {
       from: points[0].value,
@@ -431,7 +477,7 @@ function buildStrengthEvidence(scope, exerciseId, log, meta) {
       percentage: points[0].value === 0 ? null : (points[1].value - points[0].value) / points[0].value * 100,
     } : null,
   };
-  if (series.evidenceState === "sufficient" && fact && OUTCOMES.includes(fact.outcome)) series.outcome = fact.outcome;
+  if (series.evidenceState === "sufficient" && fact && typeof fact.outcome==="string"&&OUTCOMES.includes(fact.outcome)) series.outcome = fact.outcome;
   if (series.evidenceState === "sufficient") series.reason = null;
   return series;
 }
@@ -441,6 +487,7 @@ function buildStrengthEvidence(scope, exerciseId, log, meta) {
 // canonical weekly prescriptions for the elapsed numbered block weeks,
 // capped at the block length, honoring applied weekPrescription overrides.
 // A fixed 28-day window is never a substitute.
+/** @param {string} scope @param {ProgramInput} program @param {EvidenceMeta|null|undefined} meta @param {HistoryRow[]|null|undefined} log @param {unknown} now */
 function buildVolumeEvidence(scope, program, meta, log, now) {
   const norm = normalizeProgram(program, meta);
   const today = isoDate(now);
@@ -527,20 +574,23 @@ function buildVolumeEvidence(scope, program, meta, log, now) {
 // entry. (e1RM/PR detection that needs engine math stays in app.js; this
 // covers the presentation-level load record with locale dates applied by
 // the renderer, not here.)
+/** @param {string} scope @param {HistoryRow[]|null|undefined} log @param {EvidenceMeta|null|undefined} meta */
 function buildPREvidence(scope, log, meta) {
   const bounds = evidenceBounds(scope, meta);
   const useBlock = scope === "current-block" && bounds.start;
+  /** @type {Map<string,HistoryRow[]>} */
   const byKey = new Map();
   for (const row of scopedRows(log, useBlock ? bounds.start : null, useBlock ? bounds.end : null, useBlock ? meta : null)) {
     if (!isWorkingRow(row)) continue;
     const key = String(row.exerciseId ?? row.exercise ?? row.name ?? "");
     if (!key) continue;
     if (!byKey.has(key)) byKey.set(key, []);
-    byKey.get(key).push(row);
+    byKey.get(key)?.push(row);
   }
   const entries = [];
   for (const [key, rows] of byKey) {
-    const bySession = new Map();
+    /** @type {Map<string,EvidencePoint>} */
+  const bySession = new Map();
     for (const row of rows) {
       const skey = `${String(row.session ?? row.date)}\u0000${String(row.blockId ?? "")}`;
       const value = Number(row.load);
