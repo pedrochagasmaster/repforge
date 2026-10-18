@@ -11033,6 +11033,16 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
   }
   if(kind==="slot_alternates")
     return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true,code:"invalid_canonical_alternates"};
+  if(kind==="day_move"){
+    // A move made against one day order does not replay over another.
+    const current=(document.programMeta?.programStructure?.days||[]).map(entry=>String(entry?.label||entry?.dayId||""));
+    if(check&&JSON.stringify(current)!==JSON.stringify(edit.before||[]))return{conflict:true,code:"day_order_changed"};
+    const byLabel=new Map((document.programMeta?.programStructure?.days||[]).map(entry=>[String(entry?.label||entry?.dayId||""),entry]));
+    if((edit.after||[]).some(label=>!byLabel.has(label)))return{conflict:true,code:"day_order_changed"};
+    document.programMeta={...(document.programMeta||{}),programStructure:{...(document.programMeta?.programStructure||{}),
+      days:edit.after.map((label,index)=>({...byLabel.get(label),order:index+1}))}};
+    return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true,code:"day_order_changed"};
+  }
   if(kind==="metric_target"||kind==="metric_composition"||kind==="prescription_field"||
     kind==="prescription"&&edit.field==="sets"){
     return syncEditorCanonicalIntent(document,document,edit,{cycleIndex:Number(edit.cycleIndex)||1})
@@ -11474,6 +11484,18 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     const target=(definition.days||[]).find(day=>day.kind==="rest"&&!day.slots?.length);
     if(!target)return false;
     target.name=nextName;target.kind="training";
+  }else if(edit?.kind==="day_move"){
+    // Plan 074 S2: the training days take the structure's new order in the
+    // positions training days already hold; rest days stay where they are.
+    const wanted=Array.isArray(edit.after)?edit.after.map(String):null;
+    const training=(definition.days||[]).filter(day=>day.kind==="training");
+    if(!wanted||wanted.length!==training.length||new Set(wanted).size!==wanted.length)return false;
+    const byName=new Map(training.map(day=>[day.name,day]));
+    if(wanted.some(name=>!byName.has(name)))return false;
+    const ordered=wanted.map(name=>byName.get(name));
+    let next=0;
+    definition.days=(definition.days||[]).map(day=>day.kind==="training"?ordered[next++]:day);
+    definition.days.forEach((day,index)=>{day.order=index+1});
   }else if(edit?.kind==="day_remove"){
     const target=(definition.days||[]).find(item=>item.name===edit.targetDay);
     if(!target)return false;

@@ -127,21 +127,27 @@ keeps the deload offset.
 ## 6. Day reorder (`day_move`)
 
 - Intent: `{ kind: "day_move", targetDay, fromIndex, toIndex, before: [labels], after: [labels] }`
-  over training days.
-- Editor: reorders `programStructure.days` and sets each `order`.
-- Host (`syncEditorCanonicalIntent`, `applyInstalledEditorIntent`): reorders the
-  training days of `programDefinition.days` to match, keeping each rest day after the
-  training day it followed; refuses when `before` no longer matches the head (rebase
-  conflict). `installedEditorImpact`: a reorder is harmless to a draft (the draft keeps
-  its day label).
-- **Shape check before merge:** no field is added or removed; only array order
-  changes. The slice proves that `validateProgramDefinition`, the setup-link codec,
-  the backup round trip and the install-transfer contract accept a reordered program
-  unchanged. If any of them does not, the slice stops and tells the coordinator: the
-  Worker in `services/install-transfer/` must be redeployed from the exact head before
-  merge.
-- The schedule and "next workout" follow the stored day order today; the journey
-  proves the next workout follows the new order.
+  over the training days.
+- Editor: the day's ··· menu → Treinos/Training days sheet. Each day has a handle
+  (pointer drag; the press stops at the sheet, so the sheet's drag-to-dismiss never
+  starts), its name (opens the rename sheet and returns), its exercise count, and
+  Move up / Move down as the accessible path. + Add day sits at the foot. A move
+  reorders `programStructure.days` and renumbers `order`; Undo takes it back.
+- Host (`syncEditorCanonicalIntent`): the training days take the new order in the
+  positions training days already hold; rest days stay where they are; every day is
+  renumbered (`validateProgramDefinition` wants `order` to follow week order).
+  `applyInstalledEditorIntent` refuses a move whose `before` no longer matches the
+  head, so a second tab's reorder against the old order is a conflict and writes
+  nothing. `installedEditorImpact`: a reorder is harmless to a draft (the draft
+  keeps its day label).
+- Today's day tabs are `days()`, the structure's order, which is what the next day
+  is chosen from (`nextDayAfter`).
+- **Shape check (P074-S2-SHAPE, `test/program-day-move-shape.mjs`):** no field is
+  added or removed; only array order and `order` values change.
+  `validateProgramDefinition` accepts the reordered definition, every day and slot
+  keeps its keys, canonicalization is stable, and a setup link round-trips it in the
+  new order. No draft or profile shape changes, so the install-transfer Worker does
+  not need a redeploy for S2.
 
 ## 7. Catalog, roles and telemetry
 
