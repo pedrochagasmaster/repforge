@@ -3727,7 +3727,7 @@ function baseSetReps(ex,rec,old){
 /** No sets of this lift logged yet today: previous-session recommendation, eased by
  *  session freshness. Freshness moves reps; it only touches load when the tempered
  *  target would otherwise fall out of the bottom of the range. */
-function baseSuggestion(ex,rec,draft,old){return workoutQueries().setSuggestion(ex,1,rec,draft,old)}
+function baseSuggestion(ex,rec,draft,old){return workoutQueries().setSuggestion(ex,1,rec)}
 // Per-set load + reps suggestion, layering three signals:
 //  1. previous session (rec.load / baseSetReps) — primary
 //  2. current-session performance (completed sets this workout) — strong autoregulation
@@ -3752,7 +3752,7 @@ function completedCurrentSets(ex,n,draft){
    live anchors, so nothing is re-derived here. The source names how the target
    moved from the last completed set this session. */
 
-function setSuggestion(ex,n,rec,draft,old){return workoutQueries().setSuggestion(ex,n,rec,draft,old)}
+function setSuggestion(ex,n,rec,draft,old){return workoutQueries().setSuggestion(ex,n,rec)}
 // One-line summary of how the current session is steering the next unlogged set.
 /** A row of the explanation carries its kind (and the facts it printed) without changing what serialises:
  *  the rows stay {label?,text}, so the parity proofs that compare them see the same list. */

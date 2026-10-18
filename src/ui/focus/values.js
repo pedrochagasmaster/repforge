@@ -4,7 +4,7 @@ import {effortForRir} from './effort.js';
 /** @typedef {import('../../training/workout-contracts.js').Draft} Draft
  * @typedef {import('../../app/workout-model.js').Exercise} Exercise
  * @typedef {import('../../app/workout-model.js').LogRow} LogRow
- * @typedef {import('../../app/workout-model.js').FlatDraft} FlatDraft
+ * @typedef {Record<string,unknown>} FlatDraft
  * @typedef {import('../../app/workout-model.js').WorkoutCapture} WorkoutCapture
  * @typedef {import('../../app/workout-model.js').WorkoutRecommendation} Recommendation
  */
@@ -33,7 +33,7 @@ export function createFocusValues({focus,training,format,copy:{t}}){
   function fields({draft,flat,query,exercise:ex,ordinal:n,recommendation:r,previous}){
     const pending=(/** @type {string} */ field)=>focus.pending.get(`${ex.id}_${n}_${field}`)?.value??metricPending(draft,ex.id,n,field);
     const old=previous.find(row=>row.set===n),draftKg=pending('load')??flat[`${ex.id}_${n}_load`];
-    const suggestion=query.setSuggestion(ex,n,r,flat,old);
+    const suggestion=query.setSuggestion(ex,n,r);
     const carried=carry(draft,ex.id,n,r),load=carried?String(flat[`${ex.id}_${carried.ordinal}_load`]??carried.value):null;
     const kgVal=load!=null?load:draftKg!=null?draftKg:suggestion.load!=null?format.plainLoad(suggestion.load)
       :r.status==='manual'||r.status==='configuration_required'?'':old&&old.load!=null?format.plainLoad(old.load):'';
