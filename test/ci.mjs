@@ -18,6 +18,7 @@ import { domainsForAppDiff } from "../tools/visual-domains.mjs";
 import { stabilizeShareUrlForCapture } from "../tools/ui-screens/screens-app.mjs";
 import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, selectAffected, selectEdit, selectPacket } from "../tools/test-selection.mjs";
 import { execute, maybeStartLocalPreview, runLane, shardPlan } from "../tools/run-tests.mjs";
+import * as benchmark from "../tools/benchmark-tests.mjs";
 import { summarizeBenchmark } from "../tools/benchmark-tests.mjs";
 
 test("paired benchmark reports complete scope and refuses missing, duplicate, or failed evidence", () => {
@@ -65,6 +66,47 @@ const scratch = (t) => {
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   return dir;
 };
+// Setup is outside measured execution. Exercise module resolution in separate
+// revision directories so missing tooling and shared mutable caches cannot hide.
+test("paired benchmark prepares isolated dependencies for current and legacy revisions", (t) => {
+  const root = scratch(t), before = scratch(t), after = scratch(t);
+  const packages = ["test", "tools/typecheck", "services/install-transfer"];
+  for (const dependency of packages) {
+    for (const dir of [root, before, after]) {
+      if (dir === before && dependency === "tools/typecheck") continue;
+      mkdirSync(join(dir, dependency), { recursive: true });
+      writeFileSync(join(dir, dependency, "package-lock.json"), `${dependency} pinned lock`);
+    }
+    const module = join(root, dependency, "node_modules", "probe");
+    mkdirSync(module, { recursive: true });
+    writeFileSync(join(module, "index.js"), 'module.exports = "ready";');
+  }
+  benchmark.prepareBenchmarkDependencies(root, before, "fast");
+  benchmark.prepareBenchmarkDependencies(root, after, "fast");
+  assert.ok(!existsSync(join(before, "tools/typecheck")), "legacy sources remain untouched");
+  for (const dependency of ["test", "tools/typecheck"]) {
+    const module = join(after, dependency, "node_modules", "probe", "index.js");
+    assert.equal(execFileSync(process.execPath, ["-e", `process.stdout.write(require(${JSON.stringify(module)}))`], { encoding: "utf8" }), "ready");
+    writeFileSync(module, 'module.exports = "changed";');
+    assert.match(readFileSync(join(root, dependency, "node_modules/probe/index.js"), "utf8"), /ready/);
+  }
+  assert.ok(!existsSync(join(after, "services/install-transfer/node_modules")));
+  const service = scratch(t), browser = scratch(t);
+  for (const [dir, dependency, scope] of [[service, "services/install-transfer", "service"], [browser, "test", "1/4"]]) {
+    mkdirSync(join(dir, dependency), { recursive: true });
+    cpSync(join(root, dependency, "package-lock.json"), join(dir, dependency, "package-lock.json"));
+    benchmark.prepareBenchmarkDependencies(root, dir, scope);
+    assert.ok(existsSync(join(dir, dependency, "node_modules/probe/index.js")));
+    assert.ok(!existsSync(join(dir, "tools/typecheck")));
+  }
+  writeFileSync(join(after, "tools/typecheck/package-lock.json"), "different lock");
+  assert.throws(() => benchmark.prepareBenchmarkDependencies(root, after, "fast"), /Dependency lock changed: tools\/typecheck/);
+  cpSync(join(root, "tools/typecheck/package-lock.json"), join(after, "tools/typecheck/package-lock.json"));
+  rmSync(join(root, "tools/typecheck/node_modules"), { recursive: true });
+  assert.throws(() => benchmark.prepareBenchmarkDependencies(root, after, "fast"), /ENOENT/,
+    "a required but uninstalled tool must not silently skip setup");
+});
+
 function serviceWorkerFixture(t) {
   const cwd = scratch(t);
   const git = (...args) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });

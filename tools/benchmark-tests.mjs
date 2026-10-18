@@ -69,6 +69,25 @@ function run(command, cwd, env) {
   });
 }
 
+export function prepareBenchmarkDependencies(root, worktree, scope) {
+  const dependencies = [scope === "service" ? "services/install-transfer" : "test"];
+  // Older baselines predate the architecture checker and its tooling package.
+  // Decide from each revision, never create that package in a legacy checkout.
+  if (scope === "fast" && existsSync(join(worktree, "tools/typecheck/package-lock.json"))) {
+    dependencies.push("tools/typecheck");
+  }
+  for (const dependency of dependencies) {
+    // Locks must match before installed dependencies can be copied. This measures
+    // execution separately from installation, on identical dependencies.
+    const lock = `${dependency}/package-lock.json`;
+    if (!readFileSync(join(worktree, lock)).equals(readFileSync(join(root, lock)))) throw new Error(`Dependency lock changed: ${lock}`);
+    // Real directories preserve source cleanliness and isolate mutable caches;
+    // a directory symlink is not covered by trailing-slash .gitignore rules.
+    cpSync(join(root, dependency, "node_modules"), join(worktree, dependency, "node_modules"),
+      { recursive: true, verbatimSymlinks: true });
+  }
+}
+
 async function benchmark(base, head, scope) {
   for (const sha of [base, head]) if (!/^[0-9a-f]{40}$/.test(sha || "")) throw new Error("Base and head must be full immutable commit SHAs");
   if (git(["rev-parse", "HEAD"]) !== head) throw new Error("Checkout must be the benchmark head");
@@ -89,16 +108,7 @@ async function benchmark(base, head, scope) {
           ? inventory.shardSuites(inventory.browserEntries(), CI_SHARDS)[inventory.parseShard(scope).index - 1].entries
           : inventory.SUITES[scope].map(suite => ({ lane: scope, suite }));
         if (!entries?.length) throw new Error(`Invalid benchmark scope ${scope}`);
-        // Locks must match before installed dependencies can be copied. This measures test
-        // execution separately from installation, on identical dependencies.
-        const dependency = scope === "service" ? "services/install-transfer" : "test";
-        const lock = `${dependency}/package-lock.json`;
-        if (!readFileSync(join(worktree, lock)).equals(readFileSync(join(ROOT, lock)))) throw new Error(`Dependency lock changed: ${lock}`);
-        // A directory symlink is not covered by a trailing-slash .gitignore
-        // rule, so it would make every source identity dirty. Real directories
-        // preserve both source cleanliness and each phase's isolated caches.
-        cpSync(join(ROOT, dependency, "node_modules"), join(worktree, dependency, "node_modules"),
-          { recursive: true, verbatimSymlinks: true });
+        prepareBenchmarkDependencies(ROOT, worktree, scope);
         let browserVersion = null;
         if (browser) {
           const require = createRequire(join(worktree, "test/package.json"));
