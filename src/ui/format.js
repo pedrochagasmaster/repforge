@@ -33,3 +33,11 @@ export function formatSetsLine(sets, { load, unit }, withUnit = false) {
     ? `${load(rows[0].load)}${withUnit ? ` ${unit()}` : ""} × ${rows.map(row => row.reps).join(", ")}`
     : rows.map(row => `${load(row.load)} × ${row.reps}`).join(", ");
 }
+
+/** @param {Record<string,unknown>[]} rows @param {string} emptyLabel */
+export function formatTable(rows, emptyLabel) {
+  if (!rows.length) return `<div class="empty">${escapeHtml(emptyLabel)}</div>`;
+  const headings=Object.keys(rows[0]);
+  return `<table><thead><tr>${headings.map(key=>`<th>${escapeHtml(key)}</th>`).join("")}</tr></thead><tbody>`+
+    rows.map(row=>`<tr>${headings.map(key=>`<td>${escapeHtml(row[key])}</td>`).join("")}</tr>`).join("")+`</tbody></table>`;
+}
