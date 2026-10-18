@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import contract from "../../../install-transfer-contract.js";
+import contract from "../src/contract.js";
 import programEntry from "../../../program-entry.js";
 
 // Plan 072: the service validates a transferred setup draft by requiring it to

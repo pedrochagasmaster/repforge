@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { listDurableObjectIds, reset } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
-import contract from "../../../install-transfer-contract.js";
+import contract from "../src/contract.js";
 import worker from "../src/index.js";
 import { base64UrlDecode, base64UrlEncode } from "../src/crypto.js";
 import { euStub } from "../src/namespaces.js";

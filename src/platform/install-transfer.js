@@ -1,7 +1,7 @@
 /** Browser transfer protocol capabilities. Construction performs no IO; each client owns its state. */
 export function createInstallTransfer(capabilities) {
   const clock = capabilities.now;
-  const {TextEncoder,TextDecoder,Buffer} = capabilities;
+  const {TextEncoder,TextDecoder,Buffer,atob,btoa} = capabilities;
 
   const KIND = "taurifer-install-transfer";
   const VERSION = 1;
@@ -121,14 +121,14 @@ export function createInstallTransfer(capabilities) {
     if (typeof Buffer !== "undefined") return Buffer.from(bytes).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
     let binary = "";
     for (const byte of bytes) binary += String.fromCharCode(byte);
-    return capabilities.btoa(binary).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+    return btoa(binary).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
   }
 
   function decodeBytes(value) {
     if (typeof value !== "string" || !BASE64URL.test(value) || value.length % 4 === 1) throw new TypeError("invalid-base64url");
     const padded = value.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (value.length % 4)) % 4);
     if (typeof Buffer !== "undefined") return new Uint8Array(Buffer.from(padded, "base64"));
-    const binary = capabilities.atob(padded);
+    const binary = atob(padded);
     return Uint8Array.from(binary, (character) => character.charCodeAt(0));
   }
 

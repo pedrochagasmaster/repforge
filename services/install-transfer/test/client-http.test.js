@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import { env } from "cloudflare:workers";
 import { reset } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
-import contract from "../../../install-transfer-contract.js";
+import contract from "../src/contract.js";
 import canonicalFixture from "../../../test/fixtures/install-transfer-clone-v1.json" with { type: "json" };
 import catalogSnapshot from "../../../assets/exercise-catalog.json" with { type: "json" };
 import worker from "../src/index.js";

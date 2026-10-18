@@ -19,6 +19,14 @@ import PersistenceMetrics from './src/training/metrics.js';
 import {progression as PersistenceProgression,schedule} from './src/training/progress.js';
 const {cloneSnapshot,isPlainStateObject,isValidBlockId,isBoundedProgressionValue,isBoundedTransitionValue,classifyRecoveryCarrier,isValidRecoveryTransitions,readRevision,stripStorageMeta,exportableState,mirrorComparisonSnapshot,canonicalize,canonicalPayload,snapshotsEqual,storageSnapshotsEqual,rebaseStateChange,unversionedSnapshot,draftProgramFingerprint,workoutProgramFingerprint,draftContextFingerprint,snapshotBlockId}=SnapshotPolicy;
 let normalizeMuscleAttribution,isValidMuscleDomainTree,isValidStoredMuscleField,isValidPlannedVolumeHistory,normalizeRecoveryCarrierSnapshot,isSafeProgressionFields,isSafeProgressionMeta,isSafeProgramHistoryEntry,isSafeLogRow,isSafeCustomExercise,isValidSetupActivationMarker,setupActivationMarker,setupActivationMatches,isValidStateShape,migrateLogSnapshot,defaultProgramMeta,normalizeProgramEntrySource,normalizeProgramMeta,normalizeLoadingConfiguration,withExplicitProgramStructure,normalizeProgramHistory,normalizeLoaded,normalizeNotify,normalizeSettings;
+import {createSetupLinkCodec} from './src/interchange/setup-link.js';
+import NativeGenerationIdentity from './src/training/identity.js';
+import {createTransferContract} from './src/interchange/transfer-contract.js';
+import {createInstallTransfer} from './src/platform/install-transfer.js';
+import {csvFile} from './src/interchange/csv.js';
+import {exportBackup} from './src/app/interchange.js';
+import {parseBackupFile as parseBackupValue,isLegacyBackup as legacyBackupValue,BACKUP_MAX_BYTES} from './src/interchange/backup.js';
+import {programFile as makeProgramFile,parseCanonicalProgramFile as parseCanonicalFile,parseProgramImport,definitionMovementIds,fileSlug,boundedImportJson,importUtf8Bytes,PROGRAM_MAX_BYTES as IMPORT_MAX_BYTES,PROGRAM_FILE_KIND,PROGRAM_FILE_VERSION,unsupportedGrammar} from './src/interchange/program-file.js';
 let fallbackGestureController=null;
 const fallbackFocusTimers=new Set();
 function fallbackFocusLater(callback,delay){
@@ -1437,9 +1445,6 @@ function canonicalProgramDefinition(value,customDefinitions=customExercises()){
 /* Every movement a canonical definition names: each slot's own and its
    alternates. A custom movement that is only an alternate is still part of the
    program, so it travels, stays in use and is never deleted out from under it. */
-function definitionMovementIds(definition){
-  return(definition?.days||[]).flatMap(day=>(day?.slots||[]).flatMap(slot=>
-    [slot?.exerciseId,...(Array.isArray(slot?.alternates)?slot.alternates:[])])).filter(id=>typeof id==="string"&&id)}
 /* A movement outside the catalog carries the lifter's own muscle labels. An
    empty label is no attribution, not an invalid one. */
 function manualAttributionFor(row){
@@ -1762,7 +1767,9 @@ const EXERCISE_LIBRARY=Array.isArray(LIBRARY_SOURCE.library)?LIBRARY_SOURCE.libr
 const LEGACY_LIBRARY_IDS=LIBRARY_SOURCE.legacyIds||{};
 const LIBRARY_BY_ID=new Map(EXERCISE_LIBRARY.map(e=>[e.id,e]));
 const SHARED_BUILT_IN_IDS=new Set(EXERCISE_LIBRARY.map(e=>e.id));
-const SharedSetup=typeof window!=="undefined"?window.RepForgeSharedSetup:null;
+const SharedSetup=createSetupLinkCodec({metrics:ExerciseMetrics,identity:NativeGenerationIdentity,
+  capabilities:{TextEncoder,TextDecoder,CompressionStream:window.CompressionStream,DecompressionStream:window.DecompressionStream,
+    Blob,atob,btoa,document,location:window.location}});
 const ProgramCompiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
 /* #353: generation and Review regeneration run in the program engine's worker,
    which loads exactly the compiler, transition and catalog scripts this page
@@ -2811,13 +2818,7 @@ function isImportableState(s){return isValidStateShape(s)}
    ProgramDefinition. Restoring it would install a program the engine cannot
    read, so it is refused; its program can still come in through import review,
    which re-links each name to a catalog movement. */
-function isLegacyBackup(s){
-  const rows=Array.isArray(s?.program)?s.program:[];
-  if(!rows.length)return false;
-  const definition=s?.programMeta?.programDefinition;
-  if(!definition)return true;
-  const customs=normalizeCustomExercises(s.customExercises||[]);
-  return !canonicalProgramDefinition(definition,compilerCustomDefinitions(customs))}
+function isLegacyBackup(s){return legacyBackupValue(s,{normalizeCustomExercises,canonicalProgramDefinition,compilerCustomDefinitions})}
 /* A custom exercise is a library entry the lifter authored, so it is normalised
    into the same shape the built-ins have — the pickers and the copy-into-template
    path then cannot tell the two apart. */
@@ -3584,16 +3585,6 @@ function programStatusLabel(adherence,health){
   if(adRatio>=1&&hRatio>=0.4)return t("status.on_track");if(adRatio>=0.5)return t("status.partial_week");return t("status.rebuilding")}
 /* Accepts v3, v2, a bare exercise array, and {program:[…]} — every shape
    Taurifer has ever written. customExercises only exists in v3. */
-function parseProgramImport(parsed){
-  const custom=Array.isArray(parsed?.customExercises)?parsed.customExercises:[];
-  if(Array.isArray(parsed))return{exercises:parsed,meta:null,customExercises:[]};
-  // A backup files the same metadata under programMeta. Importing one as a
-  // program is a partial import by design — but a split's name is part of the
-  // split, so it travels with the exercises rather than being reinvented.
-  const meta=parsed?.meta??parsed?.programMeta??null;
-  if(Array.isArray(parsed?.exercises))return{exercises:parsed.exercises,meta,customExercises:custom};
-  if(Array.isArray(parsed?.program))return{exercises:parsed.program,meta,customExercises:custom};
-  return null}
 function validImportedCustomExercise(entry){
   if(!entry||typeof entry!=="object"||Array.isArray(entry))return false;
   for(const key of ["primary","secondary"]){
@@ -3801,10 +3792,12 @@ function installTransferDeviceMeaningful(){
 async function ensureInstallTransferModules(){
   if(!installTransferModulePromise){
     installTransferModulePromise=Promise.resolve().then(()=>{
-      const contract=window.RepForgeInstallTransferContract;
-      const transfer=window.RepForgeInstallTransfer;
-      if(!contract?.validateEnvelopeIntegrity||!transfer?.captureLogicalSnapshot)
-        throw new Error("install-transfer modules unavailable");
+      if(!rawExerciseCatalog)throw new Error("install-transfer catalog unavailable");
+      const contract=createTransferContract({compiler:ProgramCompiler,entry:ProgramEntry,metrics:ExerciseMetrics,
+        workout:WorkoutDraft,catalog:rawExerciseCatalog,crypto:window.crypto,TextEncoder,TextDecoder});
+      const transfer=createInstallTransfer({crypto:window.crypto,TextEncoder,TextDecoder,document,location:window.location,
+        navigator,matchMedia:window.matchMedia?.bind(window),fetch:window.fetch?.bind(window),indexedDB,
+        atob,btoa,now:()=>new Date().toISOString()});
       return{contract,transfer}}).catch(error=>{installTransferModulePromise=null;throw error})}
   return installTransferModulePromise}
 function installTransferDraftSource(){
@@ -11657,37 +11650,11 @@ function table(rows){if(!rows.length)return`<div class="empty">${esc(t("stats.ta
   return`<table><thead><tr>${h.map(x=>`<th>${esc(x)}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${h.map(x=>`<td>${esc(r[x])}</td>`).join("")}</tr>`).join("")}</tbody></table>`}
 
 function exportCsv(){
-  const hr=+state.settings.hardRir;
-  const reading=row=>readLogRow(row);
-  const hasPerSideMetric=row=>(row?.metricDefinitions||[]).some(metric=>
-    PER_SIDE_LOAD_SEMANTICS.has(metric?.semantic)||metric?.semantic==="repsPerSide");
-  const cols=[
-    ["session",r=>r.session],["date",r=>r.date],["day",r=>r.day],
-    ["name",r=>exerciseLabel(r)],["performed_name",r=>r.performedName||""],["exercise_id",r=>r.exerciseId||""],
-    ["set",r=>r.set],["load",r=>reading(r).totalLoad??""],["reps",r=>reading(r).totalReps??""],
-    ["load_per_side",r=>reading(r).loadPerSide??""],["reps_per_side",r=>reading(r).repsPerSide??""],["rir",r=>r.rir],
-    ["e1rm",r=>{const value=reading(r);return value.strengthComparable?+value.e1rm.toFixed(2):hasPerSideMetric(r)?"":+e1rm(+r.load,+r.reps).toFixed(2)}],
-    ["tonnage",r=>{const value=reading(r);return Number.isFinite(value.tonnage)?+value.tonnage.toFixed(2):hasPerSideMetric(r)?"":+((+r.load||0)*(+r.reps||0)).toFixed(2)}],
-    ["primary",r=>rowMuscles(r).primary],["secondary",r=>rowMuscles(r).secondary],
-    ["is_hard_set",r=>(+reading(r).load>0&&+reading(r).reps>0&&+r.rir<=hr&&!r.warmup)?1:0],
-    ["is_warmup",r=>r.warmup?1:0],
-    ["bodyweight",r=>r.bodyweight??""],
-    ["notes",r=>r.notes],["exercise_note",r=>r.exNote||""],["created",r=>r.created],
-  ];
-  const q=v=>`"${String(v??"").replaceAll('"','""')}"`;
-  const csv=[cols.map(c=>c[0]).join(","),
-    ...state.log.map(r=>cols.map(c=>q(c[1](r))).join(","))].join("\n");
-  download(csv,`taurifer_log_${today()}.csv`,"text/csv");
-}
+  const file=csvFile({state,readLogRow,exerciseLabel,rowMuscles,e1rm,date:today()});
+  download(file.text,file.name,"text/csv")}
 async function exportJson(){
-  const proposal=cloneSnapshot(state);proposal.settings.lastExport=new Date().toISOString();
-  const result=await commitProposedState(proposal);
-  if(!(result.localOk||result.idbOk))return result;
-  const text=JSON.stringify(exportableState(state)),name=`taurifer_backup_${today()}.json`;
-  shareOrDownload(text,name,"application/json");
-  renderSettings();
-  return result}
-const fileSlug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40);
+  return exportBackup({read:()=>state,commit:commitProposedState,now:()=>new Date().toISOString(),date:today,
+    shareOrDownload,onExported:renderSettings})}
 /* A program-only export carries its own custom definitions. Without them a
    template arriving on another device points at a "custom:…" id that device has
    never seen: the movement survives as copied strings but stops being a
@@ -11729,14 +11696,8 @@ function buildSharedSetupPayload(){return buildSharedSetupValidation().payload}
    references and its name. Identity and lifecycle stay in full backups only. */
 /* The program file: the canonical definition and the custom movements it names. */
 function programFile(){
-  const definition=state.programMeta?.programDefinition;
-  if(!definition)return null;
-  const referenced=new Set(definitionMovementIds(definition).filter(isCustomLibraryId));
-  const payload={kind:PROGRAM_FILE_KIND,version:PROGRAM_FILE_VERSION,name:state.programMeta?.name||"",
-    definition:cloneSnapshot(definition),
-    customExercises:customExercises().filter(entry=>referenced.has(entry.id)).map(cloneSnapshot)};
-  const slug=fileSlug(state.programMeta?.name);
-  return{text:JSON.stringify(payload),name:`taurifer_program_${slug?`${slug}_`:""}${today()}.json`}}
+  return makeProgramFile({definition:state.programMeta?.programDefinition,name:state.programMeta?.name,
+    customExercises:customExercises(),date:today()})}
 function exportProgram(){
   const file=programFile();
   if(!file){toast(t("toast.program_import_invalid"));return}
@@ -12718,28 +12679,6 @@ function parseProgramTextExport(text){
   if(metaOut&&data){if(Array.isArray(data.relations))metaOut.progressionRelations=data.relations;if(Array.isArray(data.modifiers))metaOut.progressionModifiers=data.modifiers;if(Array.isArray(data.incompatibilities))metaOut.progressionIncompatibilities=data.incompatibilities}
   return{exercises,meta:metaOut,customExercises:[]}}
 
-const IMPORT_MAX_BYTES=1024*1024;
-const IMPORT_MAX_DEPTH=32;
-// A canonical 12-cycle program file has tens of thousands of nodes; this
-// matches the setup-draft bound that program must already fit.
-const IMPORT_MAX_NODES=65536;
-function importUtf8Bytes(value){return new TextEncoder().encode(String(value||"")).byteLength}
-// A backup carries every archived block's full ProgramDefinition (a generated
-// program is roughly 300 KB and 25,000 nodes), so whole-state files get their
-// own bound instead of the program-file one.
-const BACKUP_MAX_BYTES=16*1024*1024;
-const BACKUP_MAX_NODES=2000000;
-function boundedImportJson(text,{maxBytes=IMPORT_MAX_BYTES,maxNodes=IMPORT_MAX_NODES}={}){
-  if(importUtf8Bytes(text)>maxBytes)return null;
-  let parsed;
-  try{parsed=JSON.parse(String(text||""))}catch{return null}
-  let nodes=0;
-  const visit=(value,depth)=>{
-    if(++nodes>maxNodes||depth>IMPORT_MAX_DEPTH)return false;
-    if(value===null||typeof value!=="object")return true;
-    if(Array.isArray(value))return value.every(child=>visit(child,depth+1));
-    return Object.keys(value).every(key=>visit(value[key],depth+1))};
-  return visit(parsed,0)?parsed:null}
 function importedMuscleValues(row,{canonical=false}={}){
   for(const key of ["primary","secondary"]){
     if(!Object.prototype.hasOwnProperty.call(row,key))continue;
@@ -12789,18 +12728,11 @@ function normalizeImportedRows(rows){
       if(!Object.prototype.hasOwnProperty.call(out,key))continue;
       out[key]=MuscleDomain.normalizeMuscleAttribution(out[key]).value}
     return out})}
-const PROGRAM_FILE_KIND="taurifer-program",PROGRAM_FILE_VERSION=4;
 /* A Taurifer program file is imported as its exact definition: every row is
    already a catalog or carried custom identity, so nothing is matched by name. */
 function parseCanonicalProgramFile(parsed){
-  if(parsed.version!==PROGRAM_FILE_VERSION)return null;
-  const customs=Array.isArray(parsed.customExercises)?parsed.customExercises:[];
-  if(!customs.every(validImportedCustomExercise))return null;
-  const normalizedCustoms=normalizeCustomExercises(customs);
-  const definition=canonicalProgramDefinition(parsed.definition,normalizedCustoms);
-  if(!definition)return null;
-  return{format:"json",legacy:false,exercises:flatProgramFromDefinition(definition,normalizedCustoms,1),
-    customExercises:normalizedCustoms,meta:{name:String(parsed.name||"").slice(0,80)},definition}}
+  return parseCanonicalFile(parsed,{validImportedCustomExercise,normalizeCustomExercises,
+    canonicalProgramDefinition,flatProgramFromDefinition})}
 function parseProgramSource(text,fileName=""){
   const trimmed=String(text||"").trim();
   if(trimmed.startsWith("{")||trimmed.startsWith("[")){
@@ -13616,9 +13548,7 @@ async function commitImportReview(){
    there, and the lifter restoring onto a fresh install has nothing else left to
    read them out of. Recognised here so the program door can offer the restore
    instead of quietly discarding it. */
-function parseBackupFile(text){
-  const parsed=boundedImportJson(text,{maxBytes:BACKUP_MAX_BYTES,maxNodes:BACKUP_MAX_NODES});
-  return isImportableState(parsed)?parsed:null}
+function parseBackupFile(text){return parseBackupValue(text,isImportableState)}
 
 /* Reading a file no longer changes anything: it opens the review screen. The
    old path linked names and wrote the program behind one confirm(), which meant
@@ -13837,13 +13767,13 @@ function freeformJsonCandidates(text){
 function extractNotImported(obj){
   if(!obj||typeof obj!=="object")return[];
   const raw=Array.isArray(obj.notImported)?obj.notImported:[];
-  const grammar=window.RepForgeUnsupportedWorkoutGrammar;
+  const grammar=unsupportedGrammar;
   return grammar?.recognizedForDisplay
     ?grammar.recognizedForDisplay(raw,Object.keys(FREEFORM_NOT_IMPORTED_KEYS))
     :[]}
 
 function captureUnsupportedWorkoutConcepts(sidecar){
-  const grammar=window.RepForgeUnsupportedWorkoutGrammar;
+  const grammar=unsupportedGrammar;
   if(!grammar?.normalize)return;
   for(const category of grammar.normalize(sidecar))
     captureEvent("program_import_unsupported_concept",{category})}
@@ -18378,9 +18308,7 @@ const IOS_SHARE_SVG='<svg class="ios-share" viewBox="0 0 24 24" aria-hidden="tru
 function installPolicySavedWorkouts(){
   return new Set((state?.log||[]).filter(isWork).map(row=>row.session)).size}
 function installPolicyTransferAvailable(){
-  return typeof window.RepForgeInstallTransferContract?.validateEnvelopeIntegrity==="function"&&
-    typeof window.RepForgeInstallTransfer?.captureLogicalSnapshot==="function"&&
-    typeof navigator.locks?.request==="function"&&!!window.crypto?.subtle}
+  return typeof navigator.locks?.request==="function"&&!!window.crypto?.subtle}
 function installPolicyDecision(source="automatic"){
   if(!InstallPolicy?.evaluateInstallPolicy)return{state:"unsupported",eligible:false,milestone:null,reason:"policy-unavailable"};
   return InstallPolicy.evaluateInstallPolicy({

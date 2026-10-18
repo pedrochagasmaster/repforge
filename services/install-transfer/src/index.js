@@ -1,4 +1,4 @@
-import contract from "../../../install-transfer-contract.js";
+import contract from "./contract.js";
 import { base64UrlDecode } from "./crypto.js";
 import { operationalServiceHealth } from "./operations.js";
 import { rateBucketName, rateLimitForScope } from "./rate-limit.js";
