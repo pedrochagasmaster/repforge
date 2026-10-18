@@ -36,6 +36,8 @@ export const SUITES = {
     s("test/progress-read-model-owner.mjs", [], {domains:["progress","history"],nodeArgs:["--test"]}),
     s("test/focus-workout-commands.mjs", [], {domains:["workout","persistence"]}),
     s("test/platform-catalog-contract.mjs", [], {domains:["library","offline"],nodeArgs:["--test"]}),
+    s("test/guide-preferences-owner.mjs", [], {domains:["settings","entry"],nodeArgs:["--test"]}),
+    s("test/program-executor-lifecycle.mjs", [], {domains:["program","offline"],nodeArgs:["--test"]}),
     s("test/platform-executor-contract.mjs", [], {domains:["program","offline"],nodeArgs:["--test"]}),
     s("test/focus-rest-clock.mjs", [], {domains:["workout"],nodeArgs:["--test"]}),
     s("test/focus-state-contract.mjs", [], {domains:["workout"],nodeArgs:["--test"]}),

@@ -220,7 +220,7 @@ async function catalog(lang) {
 }
 
 /** Every one-time guide dismissed at its current version: a returning lifter's screen has none of them. */
-const {GUIDE_DEFINITIONS} = createRequire(import.meta.url)('../guide-registry.js');
+const {GUIDE_DEFINITIONS} = await import('../src/ui/settings/guide-registry.js');
 const QUIET_GUIDES = Object.fromEntries(GUIDE_DEFINITIONS.map(guide =>
   [guide.id, {version: guide.version, status: 'dismissed', lastTransitionAt: null}]));
 

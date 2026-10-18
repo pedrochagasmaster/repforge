@@ -23,6 +23,7 @@ import {interpretProfile} from './src/app/profile.js';
 import {createSettingsView} from './src/ui/settings/view.js';
 import {createAppearance} from './src/ui/settings/appearance.js';
 import {createGuidesView} from './src/ui/settings/guides.js';
+import GuideRegistry from './src/ui/settings/guide-registry.js';
 import {createNotificationControls} from './src/ui/settings/notifications.js';
 import {createEntryPickers,ENTRY_WHEEL_ROW} from './src/ui/entry/pickers.js';
 import {createProgramController} from "./src/ui/program/controller.js";
@@ -163,7 +164,6 @@ function showExerciseCatalogUnavailable(){
   retry.focus();
   return true}
 
-const GuideRegistry=window.RepForgeGuideRegistry;
 const Notifications=createNotifications({Notification:window.Notification,navigator:window.navigator,console:window.console});
 const DRAFT_PENDING_PREFIX=`${DRAFT}:pending:`,DRAFT_CLOSE_PREFIX=`${DRAFT}:closing:`;
 const DRAFT_V2_CHECKPOINT=`${DRAFT}:v2-checkpoint`;
