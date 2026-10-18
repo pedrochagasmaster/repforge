@@ -1037,9 +1037,9 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     if (activeGestureController) return activeGestureController;
 
     if (!available) {
-      const fallback=fallback.mount();
+      const mountedFallback=fallback.mount();
       const controller={isFluid:false,navigate:dir=>activeGestureController===controller && fallback.navigate(dir),dispose(){
-        fallback.dispose();
+        mountedFallback.dispose();
         if(activeGestureController===controller)activeGestureController=null;
       }};
       activeGestureController=controller;
