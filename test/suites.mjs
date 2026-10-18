@@ -21,6 +21,8 @@ const s = (file, args = [], extra = {}) => {
 const shards = (count) => Array.from({ length: count }, (_, index) => `${index + 1}/${count}`);
 export const SUITES = {
   "fast": [
+    s("test/focus-restore-commands.mjs", [], {domains:["workout","persistence"],nodeArgs:["--test"]}),
+    s("test/native-generated-data.mjs", [], {domains:["entry","library"]}),
     s("test/programlab-default-parity.mjs", [], {domains:["program"]}),
     s("test/programlab-executor-contract.mjs", [], {domains:["program"]}),
     s("test/programlab-native-policy.mjs", [], {domains:["program"]}),
@@ -129,6 +131,9 @@ export const SUITES = {
     s("test/install-transfer-recovery.mjs", [], {"domains": ["install"], "cost": "normal", "tier": "feedback", "nodeArgs": ["--test"]}),
   ],
   "state": [
+    s("test/native-generated-data-browser.mjs", [], {domains:["entry","library"],seconds:10}),
+    s("test/architecture/entry-landing-browser.mjs", [], {domains:["entry","shell"],seconds:20}),
+    s("test/architecture/entry-shared-browser.mjs", [], {domains:["entry","persistence"],seconds:20}),
     s("test/architecture/motion-vendor-disposal.mjs", [], {domains:["shell","workout"],seconds:10}),
     s("test/architecture/backup-file-lifetime.mjs", [], {domains:["settings","persistence"],seconds:10}),
     s("test/architecture/backup-terminal.mjs", [], {domains:["settings","persistence"],seconds:10}),

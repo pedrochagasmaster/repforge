@@ -37,6 +37,25 @@ test('AST boundary checker accepts pure public contracts and rejects seeded viol
   for(const [fixture,pattern] of rejects) assert.match(inspectModules(fixture).join('\n'),pattern);
 });
 
+test('AST type boundaries inspect JSDoc and declarations without inventing runtime cycles',()=> {
+  const publicModel={'training/model.js':'export const model = 1;'};
+  const publicTypes={'persistence/contracts.d.ts':'export interface Stored {version:number}'};
+  const privateModel={'training/model/private.js':'export const privateModel = 1;'};
+  const rejects=[
+    [{...privateModel,'app/command.js':"/** @typedef {import('../training/model/private.js').Private} Private */\nexport function apply() {}"},/bypasses public entry/],
+    [{...privateModel,'app/types.d.ts':"export type Private = import('../training/model/private.js').Private;"},/bypasses public entry/],
+    [{...privateModel,'app/types.d.ts':"import type {Private} from '../training/model/private.js'; export {Private};"},/bypasses public entry/],
+    [{'ui/focus/contracts.d.ts':"export type Peer = import('../workout/private.js').Peer;",'ui/workout/private.js':'export const n=1;'},/cross-feature private/],
+    [{'training/types.d.ts':"export type View = import('../ui/shell.js').View;",'ui/shell.js':'export const n=1;'},/forbidden direction/],
+    [{'app/command.js':"/** @typedef {import('../training/missing.js').Missing} Missing */\nexport function apply() {}"},/missing import/],
+    [{'app/types.d.ts':"export type X = import('unapproved-package').X;"},/non-relative type import/],
+  ];
+  for(const [fixture,pattern] of rejects)assert.match(inspectModules(fixture).join('\n'),pattern);
+  assert.deepEqual(inspectModules({...publicModel,...publicTypes,'app/command.js':"/** @typedef {import('../training/model.js').Model} Model */\n/** @typedef {import('../persistence/contracts.js').Stored} Stored */\nexport function apply() {}"}),[],'published .js type specifier resolves the actual declaration file');
+  assert.deepEqual(inspectModules({'app/a.d.ts':"export interface A {next:import('./b.js').B}",'app/b.d.ts':"export interface B {next:import('./a.js').A}"}),[],'recursive DTO references have no runtime loading edge');
+  assert.match(inspectModules({'app/a.js':"import './b.js';",'app/b.js':"import './a.js';"}).join('\n'),/dependency cycle/,'actual runtime cycles still fail');
+});
+
 test('startup refuses historical/mismatched controllers before loading and permits no-SW',async()=> {
   let calls=0; const load=async()=>{calls++;};
   assert.equal(await startRelease({releaseId:'r1',load}),'started');

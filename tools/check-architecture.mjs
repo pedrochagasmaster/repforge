@@ -13,18 +13,27 @@ const publicEntries = new Set([
   ...['durable','snapshot','preferences','setup-draft'].map(name=>`persistence/${name}.js`),
   ...['backup','program-file','freeform','setup-link','csv','transfer-contract','program-text'].map(name=>`interchange/${name}.js`),
   ...['catalog','program-executor','files','notifications','telemetry','install-transfer','motion','install'].map(name=>`platform/${name}.js`),
-  ...['session','workout','program','history','entry','interchange','settings','read-models','history-read-models','review','block-transition','progress-read-models','workout-model','storage-recovery','custom-import','block-review','program-sharing','install-transfer','installed-editor'].map(name=>`app/${name}.js`),
+  ...['session','workout','program','history','entry','interchange','settings','read-models','history-read-models','review','block-transition','progress-read-models','workout-model','storage-recovery','custom-import','block-review','program-sharing','install-transfer','installed-editor','program-form','profile'].map(name=>`app/${name}.js`),
   'release/gate.js', 'ui/storage-recovery.js','ui/shell.js','ui/format.js','ui/editors.js',
   ...['today','workout','focus','history','progress','entry','program','library','settings'].map(name=>`ui/${name}/controller.js`),
 ]);
 const compositionRoots = new Set(['app/browser.js','platform/program-worker.js','compat/bootstrap.js']);
+// These are consumed DTO/capability contracts, not runtime entry points. A UI
+// may describe an injected platform capability without importing its runtime.
+const publicTypeEntries = new Set([
+  'training/workout-contracts.d.ts', 'persistence/contracts.d.ts',
+  'platform/install-transfer-contracts.d.ts',
+  'app/progress-contracts.d.ts', 'app/exercise-contracts.d.ts',
+  'app/history-contracts.d.ts', 'app/review-contracts.d.ts',
+]);
+const typePermitted = {...permitted,ui:[...permitted.ui,'platform']};
 const io = new Set(['globalThis','global','self','window','document','localStorage','sessionStorage','indexedDB','fetch','Worker','navigator','setTimeout','setInterval']);
 /** Also exported so seeded negative tests exercise the real checker. */
 export function inspectModules(sources) {
   const errors = [], edges = new Map();
   // Resolve actual lexical bindings: an editor parameter named `document` is
   // domain data, while an unbound DOM `document` is forbidden browser IO.
-  const syntax = new Map(Object.entries(sources).map(([file,source])=>[resolve('/src',file),ts.createSourceFile(resolve('/src',file),source,ts.ScriptTarget.Latest,true,ts.ScriptKind.JS)]));
+  const syntax = new Map(Object.entries(sources).map(([file,source])=>[resolve('/src',file),ts.createSourceFile(resolve('/src',file),source,ts.ScriptTarget.Latest,true,file.endsWith('.d.ts')?ts.ScriptKind.TS:ts.ScriptKind.JS)]));
   const options={allowJs:true,noLib:true,noResolve:true,target:ts.ScriptTarget.Latest};
   const host=ts.createCompilerHost(options);
   host.getSourceFile=file=>syntax.get(resolve(file));
@@ -36,21 +45,31 @@ export function inspectModules(sources) {
     for(const diagnostic of ast.parseDiagnostics) errors.push(`${file}: syntax ${ts.flattenDiagnosticMessageText(diagnostic.messageText,' ')}`);
     const readonlyCollections = discoverReadonlyCollections(ast);
     const deps = [];
+    const inspectDependency = (spec,typeOnly) => {
+      const kind=typeOnly?'type':'runtime';
+      if (!spec.text.startsWith('.')) {errors.push(`${file}: non-relative ${kind} import ${spec.text}`);return;}
+      const requested=relative('/src',resolve('/src',dirname(file),spec.text)).split(sep).join('/');
+      const declaration=requested.endsWith('.js')?requested.slice(0,-3)+'.d.ts':requested;
+      const target=typeOnly&&!Object.hasOwn(sources,requested)&&Object.hasOwn(sources,declaration)?declaration:requested;
+      if (!Object.hasOwn(sources,target)) errors.push(`${file}: missing import ${target}`);
+      if (!typeOnly) deps.push(target);
+      if (!((file === 'app/browser.js' || file === 'compat/bootstrap.js') || (typeOnly?typePermitted:permitted)[layer(file)]?.includes(layer(target)))) errors.push(`${file}: forbidden direction to ${target}`);
+      if (file.startsWith('ui/') && target.startsWith('ui/') && file.split('/').length > 2 && target.split('/').length > 2 && file.split('/')[1] !== target.split('/')[1]) errors.push(`${file}: cross-feature private import ${target}`);
+      if (layer(file) !== layer(target) && !publicEntries.has(target) && !(typeOnly&&publicTypeEntries.has(target)) && !compositionRoots.has(target)) errors.push(`${file}: bypasses public entry ${target}`);
+    };
+    const inspected=new WeakSet();
     const inspect = node => {
+      if(inspected.has(node))return;
+      inspected.add(node);
       if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node) || (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword)) {
         const spec = ts.isCallExpression(node) ? node.arguments[0] : node.moduleSpecifier;
         if (spec && ts.isStringLiteral(spec)) {
-          if (!spec.text.startsWith('.')) errors.push(`${file}: non-relative runtime import ${spec.text}`);
-          else {
-            const target = relative('/src', resolve('/src', dirname(file), spec.text)).split(sep).join('/');
-            deps.push(target);
-            if (!sources[target]) errors.push(`${file}: missing import ${target}`);
-            if (!((file === 'app/browser.js' || file === 'compat/bootstrap.js') || permitted[layer(file)]?.includes(layer(target)))) errors.push(`${file}: forbidden direction to ${target}`);
-            if (file.startsWith('ui/') && target.startsWith('ui/') && file.split('/').length > 2 && target.split('/').length > 2 && file.split('/')[1] !== target.split('/')[1]) errors.push(`${file}: cross-feature private import ${target}`);
-            if (layer(file) !== layer(target) && !publicEntries.has(target) && !compositionRoots.has(target)) errors.push(`${file}: bypasses public entry ${target}`);
-          }
+          const typeOnly=file.endsWith('.d.ts') || node.isTypeOnly===true || node.importClause?.isTypeOnly===true ||
+            (ts.isImportDeclaration(node)&&node.importClause?.namedBindings&&ts.isNamedImports(node.importClause.namedBindings)&&node.importClause.namedBindings.elements.length>0&&node.importClause.namedBindings.elements.every(element=>element.isTypeOnly));
+          inspectDependency(spec,!!typeOnly);
         }
       }
+      if(ts.isImportTypeNode(node)&&ts.isLiteralTypeNode(node.argument)&&ts.isStringLiteral(node.argument.literal))inspectDependency(node.argument.literal,true);
       if (ts.isPropertyAccessExpression(node) && /^RepForge/.test(node.name.text) && ts.isIdentifier(node.expression) && ['window','globalThis','self','global'].includes(node.expression.text) && layer(file) !== 'compat') errors.push(`${file}: global module lookup`);
       if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'require') errors.push(`${file}: dynamic require`);
       if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && ['Date.now','Math.random'].includes(node.expression.getText(ast)) && layer(file) === 'training') errors.push(`${file}: implicit nondeterminism`);
@@ -59,6 +78,8 @@ export function inspectModules(sources) {
       if (!compositionRoots.has(file) && ts.isVariableDeclaration(node) && node.initializer && node.parent.parent?.parent === ast && !readonlyCollections.has(node.name.getText(ast)) && containsCall(node.initializer)) errors.push(`${file}:${ast.getLineAndCharacterOfPosition(node.getStart(ast)).line+1}: import-time initializer call ${node.name.getText(ast)}`);
       if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && !ts.isStringLiteral(node.arguments[0])) errors.push(`${file}: non-literal dynamic import`);
       ts.forEachChild(node, inspect);
+      // TypeScript does not include attached JSDoc in ordinary child traversal.
+      for(const doc of node.jsDoc||[])inspect(doc);
     };
     inspect(ast); edges.set(file, deps);
   }
@@ -137,7 +158,7 @@ function gather(dir) {
   if (!existsSync(dir)) return {};
   return Object.assign({}, ...readdirSync(dir, {withFileTypes:true}).map(entry => {
     const path = resolve(dir, entry.name);
-    return entry.isDirectory() ? gather(path) : entry.name.endsWith('.js') ? {[relative(resolve(ROOT,'src'),path).split(sep).join('/')]:readFileSync(path,'utf8')} : {};
+    return entry.isDirectory() ? gather(path) : /\.(?:js|d\.ts)$/.test(entry.name) ? {[relative(resolve(ROOT,'src'),path).split(sep).join('/')]:readFileSync(path,'utf8')} : {};
   }));
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
