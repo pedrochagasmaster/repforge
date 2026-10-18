@@ -121,6 +121,20 @@ try {
   await page.waitForSelector("#history.view.active");
   await page.locator('#sessions [data-sess="delete-crash-target"] .session__open').click();
   await page.waitForSelector('[data-reading="delete-crash-target"]');
+  // The ESM controller must use its injected window; the former classic
+  // `root` alias is unavailable and a swallowed ReferenceError loses this call.
+  await page.evaluate(() => {
+    window.__historyScrollCalls=0;
+    window.__historyOriginalScroll=window.scrollTo;
+    window.scrollTo=function(...args){window.__historyScrollCalls++;return window.__historyOriginalScroll.apply(window,args)};
+  });
+  await page.locator('[data-history-edit="delete-crash-target"]').click();
+  await page.waitForSelector('[data-editing="delete-crash-target"]');
+  assert.equal(await page.evaluate(()=>window.__historyScrollCalls),1,'entering the actual History editor scrolls through its owned window capability');
+  await page.evaluate(()=>{window.scrollTo=window.__historyOriginalScroll;delete window.__historyOriginalScroll});
+  await page.locator('[data-history-back]').click();
+  await page.locator('#sessions [data-sess="delete-crash-target"] .session__open').click();
+  await page.waitForSelector('[data-reading="delete-crash-target"]');
   await page.locator('[data-reading="delete-crash-target"] [data-del="delete-crash-target"]').click();
   await page.waitForSelector('[data-history-delete-confirm="delete-crash-target"]');
 

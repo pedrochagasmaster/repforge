@@ -42,6 +42,9 @@
     "../../src/app/program-form.js",
     "../../src/ui/program/**/*.js",
     "../../src/ui/library/**/*.js",
-    "../../src/ui/exercise-media.js"
+    "../../src/ui/exercise-media.js",
+    "../../src/app/history.js",
+    "../../src/app/history-read-models.js",
+    "../../src/ui/history/**/*.js"
   ]
 }

@@ -1,49 +1,65 @@
+/** @typedef {import("./contracts.js").HistoryRow} HistoryRow
+ * @typedef {import("./contracts.js").MetricRecord} MetricRecord
+ * @typedef {import("../../training/metrics.js").MetricDefinition} MetricDefinition */
 import {escapeHtml as esc} from "../format.js";
 import {isSourceMetricRow,historyMetricRecords,historyHasLoadAndReps,historyHasStrengthMetrics,historyHasRir} from "./fields.js";
 /** Pure read/edit markup over canonical facts and volatile field values. */
+/** @param {import("./contracts.js").MarkupOptions} options */
 export function createHistoryMarkup({copy,format}){
 const {t}=copy;
 const {load:fmtLoad,loadPlain:fmtLoadPlain,number:fmt,unit:unitLabel,metricLabel:metricLabelDep,metricText:metricDisplayValue,metricUnit:metricDisplayUnit}=format;
+/** @param {HistoryRow} row */
 const isWork=row=>!row.warmup;
 const EDROW_RM_GLYPH={remove:"×",undo:"↺"};
+/** @param {unknown} value */
 const integer=value=>{const number=Math.round(Number(value)||0);try{return number.toLocaleString(format.locale())}catch{return String(number)}};
+/** @param {unknown} iso */
 const shortDate=iso=>{const date=new Date(`${iso}T12:00:00`);return Number.isNaN(+date)?String(iso||""):`${date.getDate()} ${t("month_short."+date.getMonth())}`};
+    /** @param {MetricDefinition} metric */
     const historyMetricLabel=metric=>typeof metricLabelDep==="function"?metricLabelDep(metric):String(metric?.sourceName||metric?.semantic||"");
+    /** @param {MetricDefinition} metric */
     const historyMetricUnit=metric=>typeof metricDisplayUnit==="function"?metricDisplayUnit(metric)
       :metric?.unit==="kg"?unitLabel():metric?.unit==="metres"?"m":metric?.unit==="seconds"?"s":String(metric?.unit||"");
+    /** @param {number} value @param {MetricDefinition} metric */
     const historyMetricText=(value,metric)=>typeof metricDisplayValue==="function"
       ?metricDisplayValue(value,metric):String(value??"");
+    /** @param {HistoryRow} row @param {MetricRecord} record */
     function historyMetricCell(row,record){
       const id=record.definition.id,label=historyMetricLabel(record.definition),unit=historyMetricUnit(record.definition),shown=historyMetricText(record.value,record.definition);
       return`<span class="fx-col history-metric" data-history-metric-id="${esc(id)}" data-metric-value="${esc(record.value)}" data-metric-unit="${esc(record.unit||record.definition.unit||"")}" aria-label="${esc(`${label}: ${shown}${unit?` ${unit}`:""}`)}">`+
         `<span class="history-metric__value">${esc(shown||"–")}</span><span class="history-metric__unit">${esc(unit)}</span></span>`}
+    /** @param {MetricRecord[]} records */
     function historyMetricHeader(records){
       return(records||[]).map(record=>{
         const unit=historyMetricUnit(record.definition),label=historyMetricLabel(record.definition);
         return`<span class="fx-col">${esc(label)}${unit?` (${esc(unit)})`:""}</span>`}).join("")}
+    /** @param {HistoryRow} row */
     function historyMetricSummary(row){
       const records=historyMetricRecords(row);
       if(records===null)return"";
       return records.map(record=>{
         const label=historyMetricLabel(record.definition),unit=historyMetricUnit(record.definition),shown=historyMetricText(record.value,record.definition);
         return`${label}: ${shown}${unit?` ${unit}`:""}`}).join(" · ")}
+/** @param {readonly HistoryRow[]} rows */
 function historySetsLine(rows){
-  const work=rows.filter(r=>isSourceMetricRow(r)?isWork(r):isWork(r)&&+r.load>0&&+r.reps>0)
+  const work=rows.filter(r=>isSourceMetricRow(r)?isWork(r):isWork(r)&&Number(r.load)>0&&Number(r.reps)>0)
     .sort((a,b)=>Number(a.set)-Number(b.set));
   if(!work.length)return"";
   if(work.some(row=>isSourceMetricRow(row)&&!historyHasLoadAndReps(row)))
     return work.map(row=>`${row.set}: ${isSourceMetricRow(row)?historyMetricSummary(row):`${fmtLoad(row.load)} × ${row.reps}`}`).join("; ");
-  const same=work.every(r=>+r.load===+work[0].load);
+  const same=work.every(r=>Number(r.load)===Number(work[0].load));
   return same?`${fmtLoad(work[0].load)} × ${work.map(r=>r.reps).join(", ")}`
     :work.map(r=>`${fmtLoad(r.load)} × ${r.reps}`).join(", ")}
+/** @param {import("./contracts.js").ReadingGroup} group @param {string} sid */
 function historyOutcomeMark(group,sid){
   const cmp=group.outcome;
   if(!cmp)return"";
-  const kind={improved:" verdictmark--up",flat:" verdictmark--maintained",regressed:" verdictmark--down"}[cmp.status];
+  const kind=/** @type {Readonly<Record<string,string>>} */({improved:" verdictmark--up",flat:" verdictmark--maintained",regressed:" verdictmark--down"})[cmp.status];
   const exerciseId=group.rows[0]?.exerciseId;
   const parity=exerciseId?` data-parity-outcome="${esc(exerciseId)}" data-parity-session="${esc(sid)}"`:"";
   return`<span class="verdictmark${kind||" is-insufficient"}"${parity}>`+
     (kind?`<span class="verdictmark__glyph" aria-hidden="true"></span>`:"")+`${esc(cmp.label)}</span>`}
+/** @param {import("./contracts.js").ReadingModel} model */
 function historyReadingView({record:s,groups,setCount,volumeDisplay,hasStrengthProjection,prCount}){
   const sid=String(s.session);
   const lifts=groups.map(g=>{
@@ -69,6 +85,7 @@ function historyReadingView({record:s,groups,setCount,volumeDisplay,hasStrengthP
     return`<section class="histlift" data-lift="${esc(g.key)}" data-history-exercise-id="${esc(exerciseId)}"><div class="histlift__head"><h3 class="histlift__name">${esc(g.name)}</h3>`+
       `<span class="histlift__tags">${record}${historyOutcomeMark(g,sid)}</span></div>`+
       (before?`<p class="histlift__before">${esc(before)}</p>`:"")+groupHeader+`<div class="histlift__sets">${setRows}</div></section>`}).join("");
+  /** @param {string} value @param {string} label */
   const total=(value,label)=>`<div><b>${esc(value)}</b><span>${esc(label)}</span></div>`;
   const totals=total(integer(setCount),setCount===1?t("plural.set.one"):t("plural.set.other"))+
     (hasStrengthProjection?total(integer(volumeDisplay),t("summary.stat.moved",{unit:unitLabel()}))+
@@ -78,6 +95,7 @@ function historyReadingView({record:s,groups,setCount,volumeDisplay,hasStrengthP
     lifts+
     `<div class="histpage__actions"><button type="button" class="btn btn--steel" data-history-edit="${esc(sid)}"><span class="icon-mask icon-mask--pencil" aria-hidden="true"></span>${esc(t("history.session.edit"))}</button>`+
     `<button type="button" class="session__del" data-del="${esc(sid)}">${esc(t("history.session.delete"))}</button></div></article>`}
+/** @param {import("./contracts.js").EditorModel} model */
 function sessionEditor({record:s,sets,selection,groups}){
   const removed=new Set((selection.removedRowIndices||[]).map(Number));
   const lifts=groups.map(g=>{

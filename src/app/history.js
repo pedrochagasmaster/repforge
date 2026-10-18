@@ -67,7 +67,7 @@ export function createHistoryCommands({read, commit, readRevision, settleAlready
   }
   /** Retry preserves the captured baseline, and never treats visible desired
    * rows as proof that their WAL has finished. */
-  /** @param {HistoryChange} request */
+  /** @param {HistoryChange} request @returns {Promise<import("./history-contracts.js").HistoryResult>} */
   async function retryCorrection(request) {
     const cancelled=()=>request.signal?.aborted===true;
     const cancellation={ok:false,cancelled:true,code:'history_cancelled'};

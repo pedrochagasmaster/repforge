@@ -1,3 +1,13 @@
+/** @typedef {import('./contracts.js').HistoryRow} HistoryRow
+ * @typedef {import('./contracts.js').HistorySession} HistorySession
+ * @typedef {import('./contracts.js').HistoryIndex} HistoryIndex
+ * @typedef {import('./contracts.js').HistorySelection} HistorySelection
+ * @typedef {import('./contracts.js').HistoryResult} HistoryResult
+ * @typedef {import('./contracts.js').MetricRecord} MetricRecord
+ * @typedef {import('../../training/metrics.js').MetricDefinition} MetricDefinition
+ * @typedef {string|number|null|undefined} SessionId
+ * @typedef {{field:HTMLElement|null,key?:string}} ValidationError
+ */
 import {createHistoryMarkup} from "./view.js";
 import {isSourceMetricRow,historyMetricRecords,historyMetricProjection,historyHasLoadAndReps} from "./fields.js";
 import {cloneSnapshot} from "../../training/model.js";
@@ -9,50 +19,77 @@ import {historyFrequency,historyWeekGroups,isoDayNumber} from "../../app/history
  * acknowledged facts; only the named application commands can change saved data.
  * No browser work occurs until render or an explicit user operation.
  */
+/** @param {import("./contracts.js").HistoryOptions} options */
 export function createHistoryController({window,queries,commands,copy,format,inputs,shell,onChanged,onNotice,onOutcome}){
 const document=window.document,Element=window.Element,CSS=window.CSS;
-let disposed=false,retryController=null,discardFrame=0;
+let disposed=false,discardFrame=0;
+/** @type {AbortController|null} */let retryController=null;
+/** @type {{element:EventTarget,type:string,handler:EventListener}[]} */
 const listeners=[];
+/** @param {EventTarget|null} element @param {string} type @param {EventListener} handler */
 function listen(element,type,handler){if(!element)return;element.addEventListener(type,handler);listeners.push({element,type,handler})}
 function clearListeners(){for(const {element,type,handler}of listeners)element.removeEventListener(type,handler);listeners.length=0}
 const requestAnimationFrame=window.requestAnimationFrame.bind(window);
-const $=selector=>document.querySelector(selector),$$=selector=>[...document.querySelectorAll(selector)];
+/** @param {string} selector */
+const $=selector=>/** @type {HTMLElement|null} */(document.querySelector(selector));
+/** Shell IDs required by the release's History markup. @param {string} selector */
+const required=selector=>/** @type {HTMLElement} */($(selector));
+/** @param {string} selector */
+const $$=selector=>/** @type {HTMLElement[]} */([.../** @type {NodeListOf<HTMLElement>} */(document.querySelectorAll(selector))]);
 const {t}=copy;
 const markup=createHistoryMarkup({copy,format:{...format,locale:()=>queries.context().locale}});
 const canTakeFocus=shell.canTakeFocus;
 const {date:formatLongDate,load:fmtLoad,loadPlain:fmtLoadPlain,compact:kfmt,number:fmt,displayLoad:toDisplay,unit:unitLabel,muscle:muscleLabel,
   metricLabel:metricLabelDep,metricText:metricDisplayValue,metricUnit:metricDisplayUnit}=format;
 const {date:parseCalendarDate,load:parseLoadDisplay,reps:parseRepsValue,rir:parseRirValue,metric:parseHistoryMetricInput}=inputs;
+/** @param {HistoryRow} row */
 const isWork=row=>!row.warmup;
+/** @param {HistoryRow} row */
 const readLogRow=row=>queries.row(row).reading;
-const displayName=row=>queries.row(row).storedName,shownName=row=>queries.row(row).name,liftKey=row=>queries.row(row).liftKey;
-const dayLabel=day=>queries.context().dayLabels[day]||String(day??"");
+/** @param {HistoryRow} row */
+const displayName=row=>queries.row(row).storedName,shownName=/** @param {HistoryRow} row */ row=>queries.row(row).name,liftKey=/** @param {HistoryRow} row */ row=>queries.row(row).liftKey;
+/** @param {string|null|undefined} day */
+const dayLabel=day=>queries.context().dayLabels[String(day)]||String(day??"");
 const weekdayLetters=()=>queries.context().weekdayLetters,today=()=>queries.context().today;
 const uid=()=>window.crypto?.randomUUID?.()||`id_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-const sum=values=>values.reduce((total,value)=>total+Number(value||0),0);
+/** @param {(number|null|undefined)[]} values */
+const sum=values=>values.reduce(/** @param {number} total @param {number|null|undefined} value */ (total,value)=>total+Number(value||0),0);
+/** @param {string} message */
 const toast=message=>onNotice(message);
+/** @param {string} _event @param {{action:string,status:string}} payload */
 const captureEvent=(_event,payload)=>onOutcome(payload);
-function clearFieldInvalid(root){root?.querySelectorAll('[aria-invalid="true"]').forEach(node=>node.removeAttribute("aria-invalid"))}
+/** @param {HTMLElement|null} root */
+function clearFieldInvalid(root){/** @type {NodeListOf<HTMLElement>} */(root?.querySelectorAll('[aria-invalid="true"]')).forEach(node=>node.removeAttribute("aria-invalid"))}
+/** @param {Record<string,unknown>[]} rows */
 function table(rows){if(!rows.length)return`<div class="empty">${esc(t("stats.table.no_data"))}</div>`;const headings=Object.keys(rows[0]);
   return`<table><thead><tr>${headings.map(key=>`<th>${esc(key)}</th>`).join("")}</tr></thead><tbody>${rows.map(row=>`<tr>${headings.map(key=>`<td>${esc(row[key])}</td>`).join("")}</tr>`).join("")}</tbody></table>`}
-    const historyMetricErrorKey=metric=>["reps","repsPerSide"].includes(metric?.semantic)?"validation.reps"
-      :["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric?.semantic)?"validation.load":"validation.metric";
+    /** @param {MetricDefinition|undefined|null} metric */
+    const historyMetricErrorKey=metric=>["reps","repsPerSide"].includes(String(metric?.semantic))?"validation.reps"
+      :["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(String(metric?.semantic))?"validation.load":"validation.metric";
     const parseHistoryMetric=typeof parseHistoryMetricInput==="function"
-      ?(metric,raw)=>parseHistoryMetricInput(metric,raw)
-      :(metric)=>({field:"metric",key:historyMetricErrorKey(metric)});
+      ?/** @param {MetricDefinition} metric @param {unknown} raw */ (metric,raw)=>parseHistoryMetricInput(metric,raw)
+      :/** @param {MetricDefinition} metric @returns {import("./contracts.js").FieldParse<number>} */ (metric)=>({field:"metric",key:historyMetricErrorKey(metric)});
     const render=()=>onChanged();
+    /** @returns {HistorySelection} */
     const emptyHistorySelection=()=>({mode:"calendar",sessionId:null,originalFingerprint:"",
       desiredFingerprint:null,workingCopy:null,removedRowIndices:[],dirty:false,validation:null,
       baselineRows:null,operation:null,operationId:null});
     let historySelection=emptyHistorySelection();
-    let histMonth=null,histQuery="";
+    /** @type {{y:number,m:number}|null} */let histMonth=null;
+    let histQuery="";
+    /** @param {string} action @param {string} status */
     const historyOutcome=(action,status)=>{try{if(typeof captureEvent==="function")captureEvent("history_session_outcome",{action,status})}catch{}};
 const historyDiagnostics=queries.diagnostics;
+/** @param {readonly HistoryRow[]} source */
 const buildHistoryIndex=source=>queries.buildIndex(source);
+/** @param {readonly HistoryRow[]} source */
 const historyIndexFor=source=>queries.index(source);
+/** @param {Readonly<HistoryIndex>} index @param {string} query */
 const searchHistoryIndex=(index,query)=>queries.search(index,query);
+/** @param {readonly HistoryRow[]} source */
 function renderHistoryWithSource(source){renderHistory(source)}
 function isHistorySearchOpen(){return!$("#historySearchWrap")?.classList.contains("hidden")}
+/** @param {boolean} open */
 function setHistorySearchOpen(open){
   if(!open&&histQuery.trim())return;
   $("#historySearchWrap")?.classList.toggle("hidden",!open);
@@ -60,48 +97,59 @@ function setHistorySearchOpen(open){
   if(open)$("#historySearch")?.focus()}
 function clearHistorySearch(){
   histQuery="";
-  const inp=$("#historySearch");if(inp)inp.value="";
+  const inp=/** @type {HTMLInputElement|null} */($("#historySearch"));if(inp)inp.value="";
   renderHistory();
   setHistorySearchOpen(false)}
 function syncHistorySearchChrome(){
   const open=isHistorySearchOpen()||!!histQuery.trim();
   if(histQuery.trim())$("#historySearchWrap")?.classList.remove("hidden");
   $("#historySearchBtn")?.setAttribute("aria-expanded",open?"true":"false");
-  const inp=$("#historySearch");if(inp&&inp.value!==histQuery)inp.value=histQuery}
+  const inp=/** @type {HTMLInputElement|null} */($("#historySearch"));if(inp&&inp.value!==histQuery)inp.value=histQuery}
+/** @param {readonly HistoryRow[]} source @param {SessionId} sid */
 function historySessionRows(source,sid){
   return(source||[]).filter(row=>String(row?.session??"")===String(sid))
     .sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||Number(a?.set||0)-Number(b?.set||0))}
+/** @param {readonly HistoryRow[]} rows */
 function historySessionFingerprint(rows){return commands.fingerprint(rows)}
+/** @param {SessionId} sid @param {string} [mode] @param {readonly HistoryRow[]} [source] @returns {HistorySelection|null} */
 function historySelectionFor(sid,mode="reading",source=queries.rows()){
   const rows=historySessionRows(source,sid);if(!rows.length)return null;
   return{mode,sessionId:String(sid),originalFingerprint:historySessionFingerprint(rows),
     desiredFingerprint:null,workingCopy:mode==="editing"?cloneSnapshot(rows):null,
     baselineRows:mode==="editing"?cloneSnapshot(rows):null,
     removedRowIndices:[],dirty:false,validation:null,operation:null,operationId:null}}
+/** @param {HistorySelection} selection @param {HTMLElement|null} input */
 function historyInputEdit(selection,input){
   const key=String(input?.dataset?.ek||""),edits=selection?.inputEdits;
   return edits&&Object.hasOwn(edits,key)?edits[key]:null}
 function historySelectedRecord(source=queries.rows()){
   const sid=historySelection.sessionId;if(!sid)return null;
   return historyIndexFor(source).sessions.find(item=>String(item.session)===String(sid))||null}
+/** @param {HistorySelection|null} next */
 function historySetSelection(next){retryController?.abort();retryController=null;historySelection=next||emptyHistorySelection()}
+/** @param {unknown} operationId @param {SessionId} sid @param {"edit"|"delete"} operation */
 function historyOperationCurrent(operationId,sid,operation){
   return !disposed&&typeof operationId==="string"&&operationId.length>0&&historySelection.operationId===operationId&&
     String(historySelection.sessionId)===String(sid)&&historySelection.operation===operation}
+/** @param {HTMLElement|null} node */
 function historyFocus(node){
   if(!node||!canTakeFocus(node))return false;
   try{node.focus({preventScroll:true})}catch{try{node.focus()}catch{return false}}
   return true}
+/** @param {SessionId} sid */
 function historyEditAction(sid){
   return $$("#sessions [data-history-edit]").find(button=>String(button.dataset.historyEdit)===String(sid))||null}
+/** @param {SessionId} sid */
 function historyCalendarAction(sid){
-  return $$("#sessions .session__open").find(button=>String(button.closest("[data-sess]")?.dataset.sess)===String(sid))||null}
+  return $$("#sessions .session__open").find(button=>String(/** @type {HTMLElement|null} */(button.closest("[data-sess]"))?.dataset.sess)===String(sid))||null}
+/** @param {SessionId} sid */
 function historyFocusRead(sid){
   const edit=historyEditAction(sid);
   if(historyFocus(edit))return true;
   const calendar=historyCalendarAction(sid);
   if(historyFocus(calendar))return true;
   return historyFocus($("#historyRecentLabel"))}
+/** @param {string} mode */
 function historyFocusFailure(mode){
   return historyFocus($('[data-history-operation="'+CSS.escape(mode)+'"] h3'))}
 function historyFocusEditing(){
@@ -110,7 +158,8 @@ function historyFocusEditing(){
 // Leaving an edit with unsaved changes asks in a sheet, not the native confirm:
 // "Keep editing" is the first and default choice, and Escape, the scrim and a
 // downward swipe all mean it. The page behind the sheet is inert while it is open.
-let historyDiscardAsk=null,cancelDiscard=null;
+/** @type {Promise<boolean>|null} */let historyDiscardAsk=null;
+/** @type {(()=>Promise<void>)|null} */let cancelDiscard=null;
 function historyDiscardParts(){
   let sheet=$("#historyDiscardSheet"),scrim=$("#historyDiscardScrim");
   if(sheet&&scrim)return{sheet,scrim};
@@ -126,11 +175,12 @@ function historyConfirmDiscard(){
   if(historyDiscardAsk)return historyDiscardAsk;
   if(typeof shell.openModal!=="function"||typeof shell.closeModal!=="function")return Promise.resolve(false);
   const {sheet,scrim}=historyDiscardParts();
-  $("#historyDiscardTitle").textContent=t("history.confirm.discard_changes");
-  const keep=$("#historyDiscardKeep"),drop=$("#historyDiscardDrop");
+  required("#historyDiscardTitle").textContent=t("history.confirm.discard_changes");
+  const keep=required("#historyDiscardKeep"),drop=required("#historyDiscardDrop");
   keep.textContent=t("history.edit.keep_editing");drop.textContent=t("history.edit.discard_changes");
   historyDiscardAsk=new Promise(resolve=>{
     let settled=false;
+    /** @param {boolean} discard */
     const finish=async discard=>{
       if(settled)return;settled=true;
       await shell.closeModal(sheet);
@@ -144,6 +194,7 @@ function historyConfirmDiscard(){
     discardFrame=requestAnimationFrame(()=>{discardFrame=0;if(disposed)return;sheet.classList.add("is-open");scrim.classList.add("is-open")})});
   return historyDiscardAsk}
 /** True when the lifter agreed to drop the unsaved changes of this session. */
+/** @param {SessionId} sid */
 async function historyDiscardAgreed(sid){
   const agreed=await historyConfirmDiscard();
   return agreed&&String(historySelection.sessionId)===String(sid)}
@@ -154,6 +205,7 @@ async function historyBackToCalendar(){
   renderHistory();
   historyFocus(historyCalendarAction(sid)||$("#historyRecentLabel"));historyOutcome("cancel","success");
   return true}
+/** @param {SessionId} sid */
 function historyStartReading(sid){
   const next=historySelectionFor(sid);if(!next)return false;
   histQuery="";historySetSelection(next);renderHistory();
@@ -165,19 +217,20 @@ function historyStartEditing(){
     operation:null,operationId:null});
   renderHistory();
   // The editor is a new page: it opens at its top, whatever the read page was scrolled to, so the heading focus lands in view (R7 J-06).
-  try{root.scrollTo?.(0,0)}catch{}
+  try{window.scrollTo?.(0,0)}catch{}
   historyFocusEditing();return true}
+/** @param {HTMLElement} card @returns {{rows:HistoryRow[],error?:never,dateP:import("./contracts.js").FieldParse<string>}|{error:ValidationError,rows?:never,dateP:import("./contracts.js").FieldParse<string>}} */
 function historySessionFromWorkingCopy(card){
   const selection=historySelection,source=selection.workingCopy||historySessionRows(queries.rows(),selection.sessionId),out=[];
-  const dateEl=card?.querySelector('[data-ed="date"]'),dateP=parseCalendarDate(dateEl?.value);
+  const dateEl=/** @type {HTMLInputElement|null} */(card?.querySelector('[data-ed="date"]')),dateP=parseCalendarDate(dateEl?.value);
   if(dateP.field)return{error:{field:dateEl,key:dateP.key},dateP};
   const removed=new Set((selection.removedRowIndices||[]).map(Number));
-  for(const rowEl of card.querySelectorAll(".edrow[data-edidx]")){
+  for(const rowEl of /** @type {NodeListOf<HTMLElement>} */(card.querySelectorAll(".edrow[data-edidx]"))){
     const i=Number(rowEl.dataset.edidx);if(removed.has(i))continue;
     const src=source[i],baseline=selection.baselineRows?.[i]||src;if(!src||!baseline)continue;
-    const next=cloneSnapshot(baseline),rirEl=rowEl.querySelector('[data-ek^="rir|"]');
+    const next=cloneSnapshot(baseline),rirEl=/** @type {HTMLInputElement|null} */(rowEl.querySelector('[data-ek^="rir|"]'));
     if(isSourceMetricRow(baseline)){
-      const records=historyMetricRecords(baseline)||[],inputs=[...rowEl.querySelectorAll('[data-ek^="metric|"]')];
+      const records=historyMetricRecords(baseline)||[],inputs=[.../** @type {NodeListOf<HTMLInputElement>} */(rowEl.querySelectorAll('[data-ek^="metric|"]'))];
       if(!records.length)return{error:{field:rowEl,key:"validation.metric"},dateP};
       if(inputs.length!==records.length)return{error:{field:inputs[0]||rowEl,key:"validation.metric"},dateP};
       for(let metricIndex=0;metricIndex<records.length;metricIndex++){
@@ -196,7 +249,7 @@ function historySessionFromWorkingCopy(card){
           next.rir=edit.value;
           if(edit.value==null)delete next.rirMeasured;else next.rirMeasured=true}}
     }else{
-      const loadEl=rowEl.querySelector('[data-ek^="load|"]'),repsEl=rowEl.querySelector('[data-ek^="reps|"]');
+      const loadEl=/** @type {HTMLInputElement|null} */(rowEl.querySelector('[data-ek^="load|"]')),repsEl=/** @type {HTMLInputElement|null} */(rowEl.querySelector('[data-ek^="reps|"]'));
       const loadEdit=historyInputEdit(selection,loadEl),repsEdit=historyInputEdit(selection,repsEl),rirEdit=historyInputEdit(selection,rirEl);
       if(loadEdit){if(loadEdit.valid!==true)return{error:{field:loadEl,key:loadEdit.key||"validation.load"},dateP};next.load=loadEdit.value}
       if(repsEdit){if(repsEdit.valid!==true)return{error:{field:repsEl,key:repsEdit.key||"validation.reps"},dateP};next.reps=repsEdit.value}
@@ -208,30 +261,34 @@ function historySessionFromWorkingCopy(card){
 // error boundary and the reason sits under its row until the value is fixed or the row
 // is removed. It is announced once as an alert; a toast would fade before it was read.
 const HISTORY_ERROR_ID="histedit-error";
+/** @param {HTMLElement} card */
 function historyClearErrors(card){
   clearFieldInvalid(card);
-  card.querySelectorAll("[data-histedit-error]").forEach(note=>note.remove());
-  card.querySelectorAll('[aria-describedby="'+HISTORY_ERROR_ID+'"]').forEach(el=>el.removeAttribute("aria-describedby"))}
+  /** @type {NodeListOf<HTMLElement>} */(card.querySelectorAll("[data-histedit-error]")).forEach(note=>note.remove());
+  /** @type {NodeListOf<HTMLElement>} */(card.querySelectorAll('[aria-describedby="'+HISTORY_ERROR_ID+'"]')).forEach(el=>el.removeAttribute("aria-describedby"))}
+/** @param {HTMLElement} card @param {ValidationError} error */
 function historyMarkValidation(card,error){
   historyClearErrors(card);
   const field=error?.field;
   if(field){
     field.setAttribute("aria-invalid","true");
     if(error.key){
-      const host=field.closest(".edrow")||field.closest(".histedit__date")||field,
+      const host=/** @type {HTMLElement|null} */(field.closest(".edrow"))||/** @type {HTMLElement|null} */(field.closest(".histedit__date"))||field,
         note=document.createElement("p");
       note.className="histedit__error";note.id=HISTORY_ERROR_ID;note.setAttribute("role","alert");
       note.setAttribute("data-histedit-error","");note.textContent=t(error.key);
       host.after(note);field.setAttribute("aria-describedby",HISTORY_ERROR_ID)}
     try{field.focus()}catch{}}
   return false}
+/** @param {Event} event */
 function historyApplyWorkingInput(event){
-  const target=event.target,card=target.closest(".session--edit");if(!card||historySelection.mode!=="editing")return;
+  const target=/** @type {HTMLInputElement} */(event.target),card=/** @type {HTMLElement|null} */(target.closest(".session--edit"));if(!card||historySelection.mode!=="editing")return;
   // The reason under a field goes when that field holds a usable value again.
   const fixed=()=>{if(target.getAttribute("aria-invalid")==="true")historyClearErrors(card)};
-  const row=target.closest(".edrow[data-edidx]");if(row){const i=Number(row.dataset.edidx),key=String(target.dataset.ek||"").split("|")[0];
+  const row=/** @type {HTMLElement|null} */(target.closest(".edrow[data-edidx]"));if(row){const i=Number(row.dataset.edidx),key=String(target.dataset.ek||"").split("|")[0];
     const parts=String(target.dataset.ek||"").split("|"),src=historySelection.workingCopy?.[i];
     const metric=key==="metric"?historyMetricRecords(src)?.find(record=>record.definition.id===parts[2]):null;
+    /** @type {import("./contracts.js").FieldParse<number|null>|null} */
     const parsed=key==="load"?parseLoadDisplay(target.value):key==="reps"?parseRepsValue(target.value)
       :key==="rir"?(isSourceMetricRow(src)&&String(target.value??"").trim()===""?{value:null}:parseRirValue(target.value))
       :metric?parseHistoryMetric(metric.definition,target.value):null;
@@ -258,6 +315,7 @@ function historyApplyWorkingInput(event){
     const parsed=parseCalendarDate(target.value);
     if(!parsed.field){fixed();for(const row of historySelection.workingCopy||[])row.date=parsed.value}}
   historySelection.dirty=true}
+/** @param {import("../../app/session.js").CommitResult|null|undefined} result @param {string} successKey @param {"edit"|"delete"} operation @param {string|null} operationId */
 function historyResultMessage(result,successKey,operation,operationId){
   const action=operation==="edit"?"edit_save":"delete";
   if(result?.committed===true&&result?.settled===true){historyOutcome(action,"success");return"committed"}
@@ -279,6 +337,7 @@ async function historyReloadLatest(){
   render();
   if(next)historyFocusRead(sid);else historyFocus($("#historyRecentLabel"));
   return next}
+/** @param {import("../../app/session.js").CommitResult|null|undefined} result @param {string} successKey @param {"edit"|"delete"} operation @param {string|null} operationId */
 async function historyFinishResult(result,successKey,operation,operationId){
   const sid=historySelection.sessionId;
   if(!historyOperationCurrent(operationId,sid,operation))return false;
@@ -289,8 +348,9 @@ async function historyFinishResult(result,successKey,operation,operationId){
     historySetSelection(next||emptyHistorySelection());
     render();historyFocusRead(sid);toast(t(successKey));return true}
   render();historyFocusFailure(status);return false}
+/** @param {SessionId} sid @param {HistoryRow[]} proposed @param {string} original */
 function historyEditCommit(sid,proposed,original){
-  return commands.correct({sessionId:sid,rows:proposed,originalFingerprint:original})}
+  return commands.correct({sessionId:String(sid),rows:proposed,originalFingerprint:original})}
 async function historyRetryEdit(){
   const sid=historySelection.sessionId,original=historySelection.originalFingerprint;
   const proposed=cloneSnapshot(historySelection.workingCopy||[]);
@@ -300,12 +360,13 @@ async function historyRetryEdit(){
     desiredFingerprint:historySelection.desiredFingerprint||historySessionFingerprint(proposed),workingCopy:proposed,dirty:true};
   retryController?.abort();
   const controller=new window.AbortController();retryController=controller;
-  const result=await commands.retryCorrection({sessionId:sid,rows:proposed,originalFingerprint:original,signal:controller.signal});
+  const result=await commands.retryCorrection({sessionId:String(sid),rows:proposed,originalFingerprint:original,signal:controller.signal});
   if(retryController===controller)retryController=null;
   if(!historyOperationCurrent(operationId,sid,"edit"))return false;
   await historyFinishResult(result,"toast.session_updated","edit",operationId);
   return result?.committed===true&&result?.settled===true;
 }
+/** @param {SessionId} sid */
 async function historyBeginDelete(sid){
   const rows=historySessionRows(queries.rows(),sid);if(!rows.length)return false;
   if(historySelection.mode==="editing"&&historySelection.dirty){
@@ -316,48 +377,56 @@ async function historyBeginDelete(sid){
     desiredFingerprint:null,workingCopy:null,removedRowIndices:[],dirty:false,validation:null,
     operation:"delete",operationId:uid()});
   renderHistory();historyFocus($("[data-history-delete-status]"));return true}
+/** @param {SessionId} sid @param {{originalFingerprint?:string|null,operationId?:string|null}} [options] */
 async function deleteSession(sid,{originalFingerprint=null,operationId=null}={}){
   const original=typeof originalFingerprint==="string"?originalFingerprint:"";
   if(!original){
     const result={ok:false,committed:false,settled:true,failed:true,code:"history_missing_fingerprint",revision:queries.context().revision,localOk:false,idbOk:false};
     await historyFinishResult(result,"toast.session_deleted","delete",operationId||historySelection.operationId);
     return result}
-  const result=await commands.remove({sessionId:sid,originalFingerprint:original});
+  const result=await commands.remove({sessionId:String(sid),originalFingerprint:original});
   await historyFinishResult(result,"toast.session_deleted","delete",operationId||historySelection.operationId);
   return result}
 // ---- The session as a page (Plan 064 R3j) ----
 // Read mode: totals, then one group per lift with its outcome, the previous
 // exposure and the numbered sets. Outcomes come from the same comparison the
 // summary and Progress read; nothing here derives a second one.
+/** @param {unknown} date */
 function historyWeekOf(date){
   const d=isoDayNumber(date);if(d==null)return null;
   for(const block of historyBlocks(historyContext())){
-    const start=isoDayNumber(block.start),end=block.end?isoDayNumber(block.end):null;
+    const start=/** @type {number} */(isoDayNumber(block.start)),end=block.end?isoDayNumber(block.end):null;
     if(d>=start&&(end==null||d<=end))return Math.floor((d-start)/7)+1}
   return null}
 /** "100 × 8, 8, 8" when one load, otherwise one "load × reps" per set. */
+/** @param {HistorySession} record @param {readonly HistoryRow[]} rows */
 function historyReadingView(record,rows){
   const sid=String(record.session),index=historyIndexFor(queries.rows());
   const volumeRows=rows.map(row=>({row,reading:readLogRow(row)})).filter(entry=>isWork(entry.row)&&Number.isFinite(entry.reading.tonnage));
-  const prLifts=historyPrLifts(index).get(sid)||new Set(),groups=[],byLift=new Map();
-  for(const row of rows){const key=liftKey(row);if(!byLift.has(key)){const group={key,rows:[]};byLift.set(key,group);groups.push(group)}byLift.get(key).rows.push(row)}
+  const prLifts=historyPrLifts(index).get(sid)||new Set();
+  /** @type {{key:string,rows:HistoryRow[]}[]} */const groups=[];
+  /** @type {Map<string,{key:string,rows:HistoryRow[]}>} */const byLift=new Map();
+  for(const row of rows){const key=liftKey(row);if(!byLift.has(key)){const group={key,rows:[]};byLift.set(key,group);groups.push(group)}/** @type {{rows:HistoryRow[]}} */(byLift.get(key)).rows.push(row)}
   return markup.readSession({record:{...record,dayLabel:dayLabel(record.day)},setCount:rows.length,
     volumeDisplay:toDisplay(sum(volumeRows.map(entry=>entry.reading.tonnage))),hasStrengthProjection:volumeRows.length>0,prCount:prLifts.size,
     groups:groups.map(group=>({...group,name:shownName(group.rows[0]),outcome:queries.outcome(group.rows),record:prLifts.has(group.key),
       previous:index.liftPred.get(`${sid}|${group.key}`)||[]}))});
 }
 /** Back, the day's name as the page title, and the date with its block week. */
+/** @param {HistorySession} record */
 function historySessionHead(record){
   const longDate=formatLongDate(String(record.date||"")),week=historyWeekOf(record.date);
   return`<div class="histpage__head"><button type="button" class="back-link" data-history-back><span class="chevron" aria-hidden="true"></span>${esc(t("history.title"))}</button>`+
     `<h2 class="page-title histpage__title" data-history-selection-heading tabindex="-1">${esc(dayLabel(record.day))}</h2>`+
     `<p class="histpage__lede">${esc(week!=null?t("history.saved_week",{date:longDate,n:week}):longDate)}</p></div>`}
+/** @param {HistorySession} s */
 function historyDeleteView(s){
   return '<article class="session session--delete" data-deleting="'+esc(s.session)+'" role="alert">'+
     '<div class="history-delete__icon" aria-hidden="true">!</div><h3 data-history-delete-status tabindex="-1">'+esc(t("history.delete_title"))+'</h3>'+
     '<p>'+esc(t("confirm.delete_session"))+'</p><div class="edbtns">'+
     '<button type="button" class="btn btn--steel" data-history-delete-cancel>'+esc(t("history.edit.cancel"))+'</button>'+
     '<button type="button" class="btn btn--danger" data-history-delete-confirm="'+esc(s.session)+'">'+esc(t("history.session.delete"))+'</button></div></article>'}
+/** @param {HistorySession} s @param {string} mode @param {"edit"|"delete"|null} operation */
 function historyConflictView(s,mode,operation){
   const failure=mode==="failure",copy=failure?t("history.operation_failed"):t("history.operation_conflict");
   return`<article class="session history-operation" data-history-operation="${esc(mode)}" role="alert">`+
@@ -367,21 +436,21 @@ function historyConflictView(s,mode,operation){
     (operation==="edit"?`<button type="button" class="btn btn--cta" data-history-retry>${esc(t("history.retry"))}</button>`:"")+`</div></article>`}
 function bindHistoryEditRows(){
   $$("[data-edrm]").forEach(b=>b.onclick=e=>{e.stopPropagation();
-    const row=b.closest(".edrow"),card=b.closest(".session--edit");if(!row||!card)return;
+    const row=/** @type {HTMLElement|null} */(b.closest(".edrow")),card=/** @type {HTMLElement|null} */(b.closest(".session--edit"));if(!row||!card)return;
     const index=Number(row.dataset.edidx),removed=new Set((historySelection.removedRowIndices||[]).map(Number));
     const removing=!row.classList.contains("is-removed");
     if(removing){
-      const left=[...card.querySelectorAll(".edrow[data-edidx]:not(.is-removed)")];
+      const left=[.../** @type {NodeListOf<HTMLElement>} */(card.querySelectorAll(".edrow[data-edidx]:not(.is-removed)"))];
       if(left.length<=1){toast(t("history.edit.keep_one"));return}
       removed.add(index);historySelection.removedRowIndices=[...removed].sort((a,c)=>a-c);
       row.classList.add("is-removed");setEdrowRmState(b,true);
       // A removed row is not saved, so a reason about its values goes with them.
-      if(row.querySelector('.edrow__in[aria-invalid="true"]'))historyClearErrors(card);
-      row.querySelectorAll(".edrow__in").forEach(inp=>{inp.disabled=true;inp.removeAttribute("aria-invalid")});
+      if(/** @type {HTMLInputElement|null} */(row.querySelector('.edrow__in[aria-invalid="true"]')))historyClearErrors(card);
+      /** @type {NodeListOf<HTMLInputElement>} */(row.querySelectorAll(".edrow__in")).forEach(inp=>{inp.disabled=true;inp.removeAttribute("aria-invalid")});
       historySelection.dirty=true}
     else{removed.delete(index);historySelection.removedRowIndices=[...removed].sort((a,c)=>a-c);
       row.classList.remove("is-removed");setEdrowRmState(b,false);
-      row.querySelectorAll(".edrow__in").forEach(inp=>inp.disabled=false);historySelection.dirty=true}});
+      /** @type {NodeListOf<HTMLInputElement>} */(row.querySelectorAll(".edrow__in")).forEach(inp=>inp.disabled=false);historySelection.dirty=true}});
   listen($(".session--edit"),"input",historyApplyWorkingInput);
 }
 async function historyCancelOperation(){
@@ -396,7 +465,7 @@ function bindHistorySelection(){
   listen($("[data-history-back]"),"click",historyBackToCalendar);
   listen($("[data-history-edit]"),"click",historyStartEditing);
   listen($("[data-history-delete-cancel]"),"click",historyCancelOperation);
-  listen($("[data-history-delete-confirm]"),"click",()=>deleteSession($("[data-history-delete-confirm]").dataset.historyDeleteConfirm,{originalFingerprint:historySelection.originalFingerprint,operationId:historySelection.operationId}));
+  listen($("[data-history-delete-confirm]"),"click",()=>deleteSession(required("[data-history-delete-confirm]").dataset.historyDeleteConfirm,{originalFingerprint:historySelection.originalFingerprint,operationId:historySelection.operationId}));
   $$("[data-del]").forEach(b=>listen(b,"click",async e=>{
     e.stopPropagation();historyBeginDelete(b.dataset.del)}));
   $$("[data-edcancel]").forEach(b=>listen(b,"click",historyCancelOperation));
@@ -409,19 +478,22 @@ function bindHistorySelection(){
 // ---- The list: blocks, weeks and sessions (Plan 064 R3j) ----
 // Everything shown here derives from the saved log and the block bounds. The
 // counts, the week tallies and the PR marks are read, never stored.
+/** @type {WeakMap<Readonly<HistoryIndex>,Map<string,Set<string>>>} */
 const historyPrCache=new WeakMap();
 /** Session id -> the lifts that broke a record in it. Only an event that beat an
  *  earlier best carries a delta, so a lift's first appearance is not a record. */
+/** @param {Readonly<HistoryIndex>} index @returns {Map<string,Set<string>>} */
 function historyPrLifts(index){
   let found=historyPrCache.get(index);if(found)return found;
   found=new Map();
   for(const ev of index.prEvents||[]){
     if(ev.deltaLoad==null&&ev.deltaReps==null&&ev.deltaE1rm==null)continue;
     const sid=String(ev.session);if(!found.has(sid))found.set(sid,new Set());
-    found.get(sid).add(ev.liftKey)}
+    /** @type {Set<string>} */(found.get(sid)).add(ev.liftKey)}
   historyPrCache.set(index,found);return found}
 const historyContext=()=>queries.context().block;
 /** The current block first, then archived ones, newest first. */
+/** @param {import("../../app/history-contracts.js").HistoryBlockContext} ctx @returns {import("../../app/history-contracts.js").HistoryBlock[]} */
 function historyBlocks(ctx){
   const out=[];
   if(ctx.started&&+ctx.planned>0)out.push({key:"current",kind:"current",name:ctx.name||"",start:ctx.started,end:null,planned:+ctx.planned});
@@ -430,26 +502,34 @@ function historyBlocks(ctx){
   archived.forEach((b,i)=>out.push({key:`archive:${i}`,kind:"archived",name:b.name||"",start:b.start,end:b.end||null,planned:+b.planned}));
   return out}
 const historyLocale=()=>queries.context().locale;
+/** @param {number} value */
 function historyInt(value){
   const n=Math.round(Number(value)||0);
   try{return n.toLocaleString(historyLocale())}catch{return String(n)}}
+/** @param {string|null} iso */
 function historyShortDate(iso){
   const d=new Date(`${iso}T12:00:00`);
   return Number.isNaN(+d)?String(iso||""):`${d.getDate()} ${t("month_short."+d.getMonth())}`}
+/** @param {number} m */
 function historyMonthName(m){const s=t("month."+m);return s?s.charAt(0).toUpperCase()+s.slice(1):s}
 /** Names as a spoken list. The separators are decoration, so they stay out of
  *  the accessibility tree and every name keeps its own element. */
+/** @param {string[]} items */
 function historyNameList(items){
   if(!items.length)return"";
   let parts=null;
   try{parts=new Intl.ListFormat(historyLocale(),{style:"long",type:"conjunction"}).formatToParts(items)}catch{}
   if(!parts)parts=items.flatMap((value,i)=>i?[{type:"literal",value:" · "},{type:"element",value}]:[{type:"element",value}]);
   return parts.map(p=>p.type==="element"?`<span>${esc(p.value)}</span>`:`<span aria-hidden="true">${esc(p.value)}</span>`).join("")}
+/** @param {number} n */
 const historySetsText=n=>n===1?t("history.sets.one",{n}):t("entry.catalogue.sets_exact",{n});
 /** "1 session" / "2 sessions": the count catalog keeps a `_one` form for exactly 1 (R7 V-14). */
+/** @param {string} kind @param {number} n */
 const historyCountText=(kind,n)=>t(n===1?`count.${kind}_one`:`count.${kind}`,{n});
+/** @param {number} n */
 const historyPrText=n=>n===1?t("history.prs",{n}):t("history.prs_many",{n});
 
+/** @param {Readonly<HistoryIndex>} index @param {string|undefined} date */
 function historyMonthHeading(index,date){
   const ym=String(date||"").slice(0,7),bucket=index.months?.get(ym);
   if(!bucket)return"";
@@ -457,9 +537,10 @@ function historyMonthHeading(index,date){
   return`<h3 class="hist-month"><b>${esc(t("history.month_title",{month:historyMonthName(d.getMonth()),year:d.getFullYear()}))}</b>`+
     `<span>${esc(t("history.month_summary",{sessions:historyCountText("sessions",bucket.sessions.size),sets:historyCountText("sets",bucket.sets)}))}</span></h3>`}
 
+/** @param {HistorySession} s @param {Map<string,Set<string>>} prLifts */
 function historyRowHtml(s,prLifts){
   const sets=s.rows,work=sets.filter(isWork),volumeRows=work.filter(row=>!isSourceMetricRow(row)||historyHasLoadAndReps(row)),
-    vol=sum(volumeRows.map(x=>(+x.load||0)*(+x.reps||0)));
+    vol=sum(volumeRows.map(x=>(Number(x.load)||0)*(Number(x.reps)||0)));
   const d=new Date(`${s.date}T12:00:00`),valid=!Number.isNaN(+d);
   const muscles=[...new Set(work.map(r=>String(r.primary||"").split(",")[0].trim()).filter(Boolean))].slice(0,3).map(muscleLabel);
   const prs=prLifts.get(String(s.session))?.size||0;
@@ -472,10 +553,12 @@ function historyRowHtml(s,prLifts){
     (volumeRows.length?`<span><b>${esc(historyInt(toDisplay(vol)))}</b> ${esc(unitLabel())}</span>`:"")+
     (prs?`<span class="hist-sess__pr">${esc(historyPrText(prs))}</span>`:"")+`</span></button></article>`}
 
+/** @param {Readonly<HistoryIndex>} index @param {readonly HistorySession[]} shown */
 function historyListHtml(index,shown){
   const groups=historyWeekGroups({sessions:index.sessions,shown,blocks:historyBlocks(historyContext())});
   const prLifts=historyPrLifts(index);
   let out="",lastMonth="";
+  /** @param {string|undefined} date */
   const month=date=>{const key=String(date||"").slice(0,7);if(key===lastMonth)return"";lastMonth=key;return historyMonthHeading(index,date)};
   for(const group of groups){
     if(group.kind==="archived"){out+=`<h3 class="hist-block">${esc(group.name||t("untitled_program"))}</h3>`;lastMonth=""}
@@ -488,10 +571,12 @@ function historyListHtml(index,shown){
   return out}
 
 // ---- Frequency counts: two small tallies above the list ----
+/** @param {{count:number|null,share:number,label:string,now?:boolean,show?:boolean}} input */
 function historyFreqBar({count,share,label,now=false,show=true}){
   return`<span class="freqcount__bar${now?" freqcount__bar--now":""}"><span class="freqcount__n">${show&&count!=null?count:""}</span>`+
     `<span class="freqcount__track"><span class="freqcount__fill" style="--freq-share:${share}"></span></span>`+
     `<span class="freqcount__label">${esc(label)}</span></span>`}
+/** @param {Readonly<HistoryIndex>} index */
 function renderHistoryFrequency(index){
   const el=$("#historyFreq");if(!el)return;
   const ctx=historyContext();
@@ -541,12 +626,13 @@ function bindHistoryChrome(){
   const scrim=$("#historyCalScrim");if(scrim)scrim.onclick=closeHistoryCalendar;
   const cal=$("#historyCalendar");
   if(cal)cal.onclick=event=>{
-    const day=event.target instanceof Element?event.target.closest("[data-cal-session]"):null;
+    const day=event.target instanceof Element?/** @type {HTMLElement|null} */(event.target.closest("[data-cal-session]")):null;
     if(!day)return;
     const sid=day.dataset.calSession;
     // Wait for the sheet to hand the page back, or the heading cannot take focus.
     closeHistoryCalendar().then(()=>historyStartReading(sid))}}
 
+/** @param {Readonly<HistoryIndex>} index */
 function renderHistoryCalendar(index){const el=$("#historyCalendar");if(!el)return;
   if(!histMonth){const n=new Date();histMonth={y:n.getFullYear(),m:n.getMonth()}}
   const {y,m}=histMonth,first=new Date(y,m,1),startDow=(first.getDay()+6)%7;
@@ -578,14 +664,15 @@ function renderHistoryCalendar(index){const el=$("#historyCalendar");if(!el)retu
   el.innerHTML=`<div class="cal-head"><button type="button" class="icon-btn icon-btn--ghost" id="calPrev" aria-label="${esc(t("history.calendar_prev_aria"))}"><span class="chevron cal-head__prev" aria-hidden="true"></span></button>`+
     `<button type="button" class="icon-btn icon-btn--ghost" id="calNext" aria-label="${esc(t("history.calendar_next_aria"))}"><span class="chevron" aria-hidden="true"></span></button></div>`+
     `<div class="cal-grid">${cells}</div>`;
-  $("#calPrev").onclick=()=>{if(histMonth.m===0){histMonth={y:histMonth.y-1,m:11}}else histMonth={y:histMonth.y,m:histMonth.m-1};renderHistoryCalendar(index)};
-  $("#calNext").onclick=()=>{if(histMonth.m===11){histMonth={y:histMonth.y+1,m:0}}else histMonth={y:histMonth.y,m:histMonth.m+1};renderHistoryCalendar(index)}}
+  required("#calPrev").onclick=()=>{const month=/** @type {{y:number,m:number}} */(histMonth);if(month.m===0){histMonth={y:month.y-1,m:11}}else histMonth={y:month.y,m:month.m-1};renderHistoryCalendar(index)};
+  required("#calNext").onclick=()=>{const month=/** @type {{y:number,m:number}} */(histMonth);if(month.m===11){histMonth={y:month.y+1,m:0}}else histMonth={y:month.y,m:month.m+1};renderHistoryCalendar(index)}}
 
+/** @param {readonly HistoryRow[]} [source] @returns {void} */
 function renderHistory(source=queries.rows()){
   if(disposed)return;
   clearListeners();
   const selected=historySelection.mode!=="calendar";
-  const selectionEl=$("#historySelection"),freqEl=$("#historyFreq"),recent=$("#historyRecentLabel"),tableDetails=$("#historyTable")?.closest("details");
+  const selectionEl=$("#historySelection"),freqEl=$("#historyFreq"),recent=$("#historyRecentLabel"),tableDetails=/** @type {HTMLElement|null} */($("#historyTable")?.closest("details"));
   const listControls=[$("#historySearchBtn"),$("#historyCalBtn"),$("#historyExportBtn")];
   bindHistoryChrome();
   if(selected){
@@ -607,27 +694,27 @@ function renderHistory(source=queries.rows()){
     // conflict states keep the head they have always had.
     $("#history")?.classList.toggle("is-session-page",mode==="reading");
     $("#history")?.classList.toggle("is-session-edit",mode==="editing");
-    selectionEl.innerHTML=mode==="reading"?historySessionHead(record):mode==="editing"?historyEditHead()
+    /** @type {HTMLElement} */(selectionEl).innerHTML=mode==="reading"?historySessionHead(record):mode==="editing"?historyEditHead()
       :`<div class="history-selection__head"><button type="button" class="back-link" data-history-back><span class="chevron" aria-hidden="true"></span>${esc(t("history.title"))}</button>`+
       `<div class="history-selection__date"><span class="section-label">${esc(t("history.selected"))}</span><h3 data-history-selection-heading tabindex="-1">${esc(longDate)}</h3></div></div>`;
-    $("#sessions").innerHTML=body;$("#historyTable").innerHTML="";
+    required("#sessions").innerHTML=body;required("#historyTable").innerHTML="";
     bindHistorySelection();return}
   $("#history")?.classList.remove("is-session-page","is-session-edit");
   recent?.classList.remove("hidden");tableDetails?.classList.remove("hidden");
   listControls.forEach(b=>b?.classList.remove("hidden"));selectionEl?.classList.add("hidden");selectionEl&&(selectionEl.innerHTML="");
   if(!histMonth){const n=new Date();histMonth={y:n.getFullYear(),m:n.getMonth()}}
   const focusedToggle=document.activeElement?.matches?.("#sessions .session__open")?document.activeElement:null;
-  const focusedSession=focusedToggle?.closest("[data-sess]")?.dataset.sess||null;
+  const focusedSession=/** @type {HTMLElement|null} */(focusedToggle?.closest("[data-sess]"))?.dataset.sess||null;
   const index=historyIndexFor(source);
   renderHistoryFrequency(index);
   renderHistoryCalendar(index);
   const q=histQuery.trim();
   const sessions=searchHistoryIndex(index,q);
   syncHistorySearchChrome();
-  $("#sessions").innerHTML=sessions.length?historyListHtml(index,sessions)
+  required("#sessions").innerHTML=sessions.length?historyListHtml(index,sessions)
     :`<div class="table"><div class="empty" data-hist-empty="${q?"nomatch":"none"}">${esc(t(q?"history.empty.no_match":"history.empty.sessions"))}</div></div>`;
   if(focusedSession){
-    const next=$$("#sessions .session__open").find(btn=>btn.closest("[data-sess]")?.dataset.sess===focusedSession);
+    const next=$$("#sessions .session__open").find(btn=>/** @type {HTMLElement|null} */(btn.closest("[data-sess]"))?.dataset.sess===focusedSession);
     if(next&&canTakeFocus(next)){try{next.focus({preventScroll:true})}catch{try{next.focus()}catch{}}}}
   $$("#sessions [data-edit]").forEach(b=>b.onclick=e=>{e.stopPropagation();historyStartReading(b.dataset.edit)});
   const hasSourceMetrics=index.tableRows.some(isSourceMetricRow);
@@ -638,17 +725,18 @@ function renderHistory(source=queries.rows()){
         :`${fmtLoad(x.load)} ${unitLabel()} × ${x.reps}`,
       [t("stats.table.rir")]:x.rir==null?"":fmt(x.rir)}
     :{[t("stats.table.date")]:x.date,[t("stats.table.day")]:dayLabel(x.day),[t("stats.table.exercise")]:shownName(x),[t("stats.table.set")]:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),[t("stats.table.reps")]:x.reps,[t("stats.table.rir")]:fmt(x.rir)});
-  $("#historyTable").innerHTML=table(rows);
+  required("#historyTable").innerHTML=table(rows);
 }
 
 
 const EDROW_RM_GLYPH={remove:"×",undo:"↺"};
 // The per-row remove control is icon-only, so its state lives in the glyph plus
 // the accessible name rather than visible copy.
+/** @param {HTMLElement} btn @param {boolean} removed */
 function setEdrowRmState(btn,removed){
   const label=t(removed?"history.edit.undo_remove":"history.edit.remove_set");
   btn.setAttribute("aria-label",label);btn.title=label;btn.classList.toggle("is-undo",removed);
-  const glyph=btn.querySelector(".edrow__rm-glyph")||btn;
+  const glyph=/** @type {HTMLElement|null} */(btn.querySelector(".edrow__rm-glyph"))||btn;
   glyph.textContent=removed?EDROW_RM_GLYPH.undo:EDROW_RM_GLYPH.remove}
 
 // The editor is the session page turned into a form (Plan 064 R3j2): the lift's name once
@@ -657,7 +745,9 @@ function setEdrowRmState(btn,removed){
 // row stays on the page, struck through, until Undo or Save.
 function historyEditHead(){
   return`<div class="histpage__head"><button type="button" class="back-link" data-history-back><span class="chevron" aria-hidden="true"></span>${esc(t("history.title"))}</button></div>`}
+/** @param {HistorySession} record @param {readonly HistoryRow[]} sets */
 function sessionEditor(record,sets){
+  /** @type {{key:string,rows:{r:HistoryRow,i:number}[]}[]} */
   const groups=[];
   sets.forEach((row,index)=>{const key=liftKey(row),last=groups.at(-1);if(last&&last.key===key)last.rows.push({r:row,i:index});else groups.push({key,rows:[{r:row,i:index}]})});
   return markup.editSession({record:{...record,dayLabel:dayLabel(record.day)},sets,selection:historySelection,
@@ -667,6 +757,7 @@ function sessionEditor(record,sets){
 // The editor is a volatile projection. Its commit path validates the exact
 // session fingerprint again while holding the durable-state lock, so an edit
 // can never merge over a changed or deleted session.
+/** @param {SessionId} sid */
 async function saveSessionEdit(sid){
   const card=$(".session--edit[data-editing=\""+String(sid).replaceAll("\"","\\\"")+"\"]");if(!card)return;
   const parsed=historySessionFromWorkingCopy(card);
@@ -709,6 +800,7 @@ async function saveSessionEdit(sid){
       isSearchOpen:isHistorySearchOpen,
       setSearchOpen:setHistorySearchOpen,
       clearSearch:clearHistorySearch,
+      /** @param {unknown} value */
       setQuery(value){histQuery=String(value??"");renderHistory()},
       query:()=>histQuery,
     };
