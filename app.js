@@ -1,7 +1,8 @@
 import {createTelemetry} from './src/platform/telemetry.js';
 import {createPostHog} from './src/platform/posthog.js';
+import {createLedgerPresentation} from './src/ui/focus/ledger.js';
 import {createShelfPresentation} from './src/ui/focus/shelf.js';
-import {createEffortPresentation,EFFORT_STEPS} from './src/ui/focus/effort.js';
+import {createEffortPresentation,EFFORT_STEPS,effortForRir} from './src/ui/focus/effort.js';
 import {createCuePresentation} from './src/ui/focus/cue.js';
 import {createRestPresentation} from './src/ui/focus/rest-view.js';
 import {createBlockTransitionCommands} from './src/app/block-transition.js';
@@ -709,7 +710,6 @@ async function shareOrDownload(text,name,type,title="Taurifer backup"){
 const EFFORT_RIR={easy:3,hard:1,max:0};
 const isEffortMode=()=>state?.settings?.rirMode==="effort";
 /** Bucket a logged RIR into the effort word closest to it. */
-const effortForRir=rir=>+rir>=2.5?"easy":+rir<=0.5?"max":"hard";
 const effortLabel=e=>t("effort."+e);
 /** The same word inside a sentence ("… at hard effort", "… esforço difícil"). */
 const effortWord=e=>effortLabel(e).toLocaleLowerCase(locTag());
@@ -5059,25 +5059,6 @@ function focusTargetEffort(ex){
   return `${fmt(lo)}–${fmt(hi)}`}
 
 /** The previous session's matching set, as the second line of a ledger row. */
-function focusPrevLine(x,effortMode){
-  if(!x)return"";
-  const projection=readLogRow(x),definitions=Array.isArray(x.metricDefinitions)?x.metricDefinitions:[];
-  const hasSideLoad=definitions.some(metric=>PER_SIDE_LOAD_SEMANTICS.has(metric?.semantic));
-  const hasSideReps=definitions.some(metric=>metric?.semantic==="repsPerSide");
-  const hasTotalLoad=definitions.some(metric=>metric?.semantic==="loadKg");
-  const family=hasSideLoad&&hasSideReps?"both_per_side":hasSideLoad?"per_side_load"
-    :hasSideReps&&hasTotalLoad?"total_load_reps_per_side"
-      :hasSideReps?"bodyweight_reps_per_side":null;
-  if(family){
-    const ending=x.rir==null||x.rir===""?"norir":effortMode?"effort":"rir";
-    return t(`focus.prev_line.${family}.${ending}`,{
-      load:fmtLoad(projection.load),unit:unitLabel(),reps:projection.reps,
-      rir:fmt(x.rir),effort:effortLabel(effortForRir(x.rir))})}
-  const load=fmtLoad(projection.load??x.load),reps=projection.reps??x.reps;
-  if(x.rir==null||x.rir==="")return t("focus.prev_line_norir",{load,reps});
-  return effortMode?t("focus.prev_line_effort",{load,reps,effort:effortLabel(effortForRir(x.rir))})
-    :t("focus.prev_line",{load,reps,rir:fmt(x.rir)})}
-
 /** What the lifter has confirmed on a set. `touched.effort` also covers RIR. */
 function shelfTouched(exId,n){
   const draft=activeWorkoutDraft?.exercises?.[exId];if(!draft)return{};
@@ -5101,31 +5082,17 @@ function ledgerSetIsWarmup(exId,n){
  *  through a correction, and closes after it and whenever the lifter moves on.
  *  A finished exercise keeps its whole ledger, as it always has. */
 
-const focusLedgerExpanded=(ex,peek)=>focusSelection(ex,peek).expanded;
-const focusLoggedCount=ex=>focusSelection(ex).loggedCount;
-function focusLedgerToggleHtml(ex,{peek=false}={}){
-  const count=focusLoggedCount(ex);if(!count||focusActiveSet(ex)===0)return "";
-  const open=focusLedgerExpanded(ex,peek);
-  return Focus.renderFocusLedgerToggle({count,open,fresh:!open&&focusIsFresh(ex,peek),peek,exerciseId:ex.id,
-    labelTemplate:t("focus.ex_done_sets",{n:"\u0000",sets:"\u0001"}),setsWord:tp(count,"logged set")})}
-function focusLedgerHtml(ex,r,draft,prev,{effortMode,peek=false}){
-  return Focus.renderFocusLedger({exerciseId:ex.id,headers:{set:t("log.set"),load:unitLabel(),reps:t("log.reps"),
-    effortHtml:effortMode?(peek?esc(t("log.effort")):term("Effort")):(peek?"RIR":term("RIR"))},
-    toggleHtml:focusLedgerToggleHtml(ex,{peek}),rowsHtml:focusLedgerRowsHtml(ex,r,draft,prev,{effortMode,peek})})}
-function focusLedgerRowsHtml(ex,r,draft,prev,{effortMode,peek=false}){
-  const {active,after,editing:editN,freshOrdinal:freshN,expanded}=focusSelection(ex,peek);
-  const rows=[];
-  for(let n=1;n<=ex.sets;n++){
-    if(!expanded&&n!==active&&n!==after)continue;
-    const done=committed.has(`${ex.id}_${n}`)&&n!==editN,open=n===active;
-    const vals=focusRowVals(ex,n,r,draft,prev,effortMode),touched=open||done?shelfTouched(ex.id,n):{};
-    const soft=field=>!done&&!(field==="rir"?touched.effort:touched[field]);
-    const indexHtml=done?`<span class="fx-check" aria-hidden="true"></span>`:!peek&&ledgerSetIsWarmup(ex.id,n)?`<span aria-hidden="true">${esc(t("ledger.set.warmup"))}</span><span class="visually-hidden">${esc(t("ex.actions.role_warmup"))}</span>`:String(n);
-    rows.push({ordinal:n,done,open,fresh:n===freshN,editing:n===editN,indexHtml,load:vals.load,reps:vals.reps,
-      rir:open||done?vals.eff:focusTargetEffort(ex),softLoad:open||done?soft("load"):true,softReps:open||done?soft("reps"):true,softRir:open||done?soft("rir"):true,
-      previousLine:focusPrevLine(prev.find(x=>x.set===n),effortMode),editLabel:t("focus.edit_set_aria",{n})});
-  }
-  return Focus.renderFocusLedgerRows({rows,peek,exerciseId:ex.id})}
+const FocusLedger=createLedgerPresentation({copy:{t,plural:tp,term},format:{number:fmt,load:fmtLoad,unit:unitLabel}});
+function focusLedgerModel(ex,r,draft,prev,{effortMode,peek=false}){
+  const selection=focusSelection(ex,peek);
+  return {exerciseId:ex.id,selection,effortMode,peek,targetEffort:focusTargetEffort(ex),facts:selection.visible.map(n=>{
+    const done=committed.has(`${ex.id}_${n}`)&&n!==selection.editing,open=n===selection.active;
+    const vals=focusRowVals(ex,n,r,draft,prev,effortMode),previous=prev.find(x=>x.set===n)||null;
+    return {ordinal:n,done,warmup:ledgerSetIsWarmup(ex.id,n),load:vals.load,reps:vals.reps,effort:vals.eff,
+      touched:open||done?shelfTouched(ex.id,n):{},previous,projection:previous?readLogRow(previous):null}})}
+}
+function focusLedgerHtml(ex,r,draft,prev,options){return FocusLedger.render(focusLedgerModel(ex,r,draft,prev,options))}
+function focusLedgerRowsHtml(ex,r,draft,prev,options){return FocusLedger.rows(focusLedgerModel(ex,r,draft,prev,options))}
 function toggleFocusLedger(button){
   const card=button.closest(".exercise--focus"),base=card&&prog.find(card.dataset.ex);if(!base)return;
   const ex=sessionExercise(base),rows=card.querySelector(`#ledger_${CSS.escape(ex.id)}`);if(!rows)return;

@@ -52,8 +52,10 @@ export function createFocusState() {
       let after=0;
       for(let n=active+1;n<=exercise.sets&&!after;n++)if(!committed.has(`${exercise.id}_${n}`))after=n;
       const fresh=!peek&&!!logged&&logged.exId===exercise.id;
+      const expanded=active===0||!peek&&(ledgerOpen===exercise.id||edit?.exId===exercise.id);
+      const visible=[];for(let n=1;n<=exercise.sets;n++)if(expanded||n===active||n===after)visible.push(n);
       return Object.freeze({active,after,editing,done:Object.freeze(done),loggedCount,
-        expanded:active===0||!peek&&(ledgerOpen===exercise.id||edit?.exId===exercise.id),
+        expanded,visible:Object.freeze(visible),
         fresh,freshOrdinal:fresh?(logged?.n??0):0});
     },
     get index(){return index;},set index(value){index=value;},
