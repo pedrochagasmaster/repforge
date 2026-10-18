@@ -18,3 +18,5 @@ export {EFFORT_STEPS,effortForRir} from './effort.js';
 export {createFocusNavigation} from './navigation.js';
 
 export {createFocusEffects} from './effects.js';
+
+export {createRestSlot} from './rest-slot.js';

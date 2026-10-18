@@ -88,6 +88,15 @@ export function createFocusPresentation({window,focus,clock,training,readSetting
         set:n?values.set(draft,ex.id,n):null,carry:n?values.carry(draft,ex.id,n,recommendation):null,
         metrics:n?values.definitions(draft,ex.id,n):[],loadStep:format.loadStep()});
     }
+    /** The same selected pad facts used by the complete shelf, without a draft
+     * mutation or an intermediate detached shelf render.
+     * @param {Exercise} ex @param {number} ordinal @param {Recommendation} recommendation @param {LogRow[]} previous */
+    function padsHtml(ex,ordinal,recommendation,previous){
+      const definitions=values.definitions(draft,ex.id,ordinal),key=`${ex.id}_${ordinal}`;
+      return shelf.padsHtml({exerciseId:ex.id,ordinal,ui:focus.shelfFor(key,definitions[0]?'metric_'+definitions[0].id:'reps'),
+        values:values.fields(fieldFacts(ex,ordinal,recommendation,previous)),effortMode,peek:false,
+        editing:focus.edit?.exId===ex.id,metrics:definitions,loadStep:format.loadStep()});
+    }
     /** @param {Exercise} ex */
     function lastNote(ex){const match=query.matchLift(ex),rows=log.filter(row=>match(row)&&String(row.exNote||'').trim());return rows.length?String(rows.sort(compareChronology).at(-1)?.exNote).trim():'';}
     /** @param {Exercise} ex @param {Recommendation} recommendation @param {LogRow[]} previous @param {CardOptions} options */
@@ -105,7 +114,7 @@ export function createFocusPresentation({window,focus,clock,training,readSetting
       const peek=(/** @type {number} */ index)=>{const base=list[index];if(!base)return '';const ex=query.sessionExercise(base);return card(ex,query.recommendation(ex),query.last(ex),{peek:true,hasNext:index<list.length-1,allDone,nextName:nameAt(index+1)})};
       return renderFocusDeck({label:copy.t('focus.deck_aria'),previousHtml:peek(at-1),currentHtml:card(current,recommendation,previous,{hasNext:at<list.length-1,allDone,nextName:nameAt(at+1)}),nextHtml:peek(at+1)});
     }
-    return {meta,targetEffort,sessionNote,cue:cueFor,slotInner,slotHtml,ledgerModel,ledgerHtml,ledgerRows,shelfHtml,card,deck};
+    return {meta,targetEffort,sessionNote,padsHtml,exerciseName:labels.exercise,cue:cueFor,slotInner,slotHtml,ledgerModel,ledgerHtml,ledgerRows,shelfHtml,card,deck};
   }
   return {format,metrics,values,effort,rest,cue,ledger,prescription,shelf,capture,dispose:effort.dispose};
 }

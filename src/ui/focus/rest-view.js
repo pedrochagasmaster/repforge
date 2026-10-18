@@ -39,5 +39,21 @@ export function createRestPresentation({window,clock,readDefaultSeconds,copy:{t}
   }
   /** @param {boolean} peek */
   const padsHtml=peek=>renderFocusPadsInner(selectPads(peek));
-  return {mode,fraction,overSeconds,slotMode,padsFit,padsOn,clockHtml,doneText,doneHtml,selectPads,padsHtml};
+  /** Paint live clock text without replacing controls or their keyboard focus.
+   * @param {HTMLElement} card */
+  function syncNumbers(card){
+    const clockNode=card.querySelector('[data-rest-clock]');
+    if(clockNode){
+      const left=formatClock(Math.max(0,leftSeconds()));if(clockNode.textContent!==left)clockNode.textContent=left;
+      const of=card.querySelector('[data-rest-of]'),text=t('rest.inline.of',{t:formatClock(plan())});
+      if(of&&of.textContent!==text)of.textContent=text;
+      const fill=card.querySelector(/** @type {'div'} */('[data-rest-fill]'));
+      if(fill)fill.style.transform=`scaleX(${fraction().toFixed(4)})`;
+    }
+    const done=card.querySelector('[data-rest-done]');
+    if(done){const text=doneText(overSeconds());if(done.textContent!==text)done.textContent=text;}
+    const pause=card.querySelector('[data-rest-act="pause"]');
+    if(pause){const label=t(clock.paused!=null?'rest.inline.resume':'rest.inline.pause');if(pause.textContent!==label)pause.textContent=label;}
+  }
+  return {syncNumbers,mode,fraction,overSeconds,slotMode,padsFit,padsOn,clockHtml,doneText,doneHtml,selectPads,padsHtml};
 }

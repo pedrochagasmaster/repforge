@@ -2979,98 +2979,19 @@ function restAct(act){
   else if(act==="plus")nudgeRest(REST_NUDGE);
   else if(act==="pause")toggleRestHold();
   else if(act==="skip")skipRest()}
-/** Handlers for content swapped into the live card after bindWorkout ran. */
-function bindRestControls(root){
-  root.querySelectorAll("[data-rest-act]").forEach(b=>{b.onclick=()=>restAct(b.dataset.restAct)});
-  root.querySelectorAll("[data-why]").forEach(b=>{b.onclick=e=>{e.stopPropagation();openWhySheet(b.dataset.why,b)}})}
-/** What a host shows right now, without a crossfade layer that is still leaving it (a second swap during the first
- *  fades out what the lifter sees, not the layer on top of it). */
+/** Rest DOM consumes one readonly acknowledged frame; replacements return to
+ * the enclosing Focus binder until its remaining controls move at slice19. */
+let FocusRestSlot;
+function focusRestSlot(){return FocusRestSlot||(FocusRestSlot=Focus.createRestSlot({window,focus:focusUi,
+  presentation:FocusPresentation,motion:ensureBrowserPresentation().motion,effects:focusEffects(),geometry:focusGeometry,
+  readFrame:()=>activeWorkoutDraft?focusPresentationFacts():null,
+  actions:{rest:restAct,why:openWhySheet},onPadsReplaced:bindWorkout}))}
 const liveHtml=host=>focusEffects().liveHtml(host);
 const crossfadeIn=(...args)=>focusEffects().crossfadeIn(...args);
-/** The rest markup for a card's cue slot, built from the same pieces the card is: the engine's cue for the set
- *  the shelf is working on. */
-function restSlotMarkup(card,mode){
-  const base=prog.find(card.dataset.ex);if(!base||!activeWorkoutDraft)return null;
-  const ex=sessionExercise(base),n=focusActiveSet(ex);if(!n)return null;
-  const draft=hydrateWorkoutDraft(),r=recommendation(ex),prev=last(ex);
-  const editing=!!(focusUi.edit&&focusUi.edit.exId===ex.id);
-  const cue=focusCue(ex,n,r,draft,prev,editing);
-  return focusSlotInner(ex,n,r,cue,mode,{peek:false,name:exerciseDisplayName(ex),draft,editing})}
-/** L3: trade the slot's content for `next` (the markup for `mode`). The slot measures its height before and after
- *  and grows or shrinks between them; the crossfade rides in the same beat. Without the runtime, or under reduced
- *  motion, the end state is drawn on the first frame. */
-function swapRestSlot(slot,mode,next){
-  const fromHtml=liveHtml(slot),m=focusMotion();
-  const apply=()=>{
-    slot.innerHTML=next;slot.dataset.rest=mode;
-    bindRestControls(slot);
-    if(m)crossfadeIn(slot,fromHtml,"fx-slot__out")};
-  const moved=window.RepForgeMotion?.animateSlot?window.RepForgeMotion.animateSlot(slot,apply):(apply(),null);
-  settleFocusContext(moved)}
-/** Once the slot has its new height, the context region is brought back to whole lines under the segment bar. */
-function settleFocusContext(moved){Promise.resolve(moved).then(()=>sizeFocusCard(focusCard()),()=>{})}
-/** L3 after a render: the card was drawn with the slot's new content (and every handler bound), so the new content
- *  stays where it is. The slot is held at the height it had, the old content is laid over it, and `animateSlot` carries
- *  the height from there to the new content's own while the two cross over. */
-function arriveRestSlot(slot,before){
-  slot.style.height=`${before.height}px`;
-  settleFocusContext(window.RepForgeMotion.animateSlot(slot,()=>crossfadeIn(slot,before.html,"fx-slot__out")))}
-/** The pad row trades the field pads for the rest controls and back, in the same crossfade. */
-function swapRestPads(card,pads){
-  const base=prog.find(card.dataset.ex);if(!base||!activeWorkoutDraft)return;
-  const ex=sessionExercise(base),n=focusActiveSet(ex);if(!n)return;
-  const draft=hydrateWorkoutDraft(),r=recommendation(ex),prev=last(ex);
-  const editing=!!(focusUi.edit&&focusUi.edit.exId===ex.id);
-  const key=`${ex.id}_${n}`,vals=setFieldVals(ex,n,r,draft,prev);
-  const hadFocus=pads.contains(document.activeElement);
-  const fromHtml=liveHtml(pads),fromClass=pads.className;
-  const holder=document.createElement("div");
-  holder.innerHTML=focusPadsHtml(ex,n,shelfFor(key),vals,{effortMode:isEffortMode(),peek:false,editing});
-  const next=holder.firstElementChild;
-  pads.replaceWith(next);
-  bindWorkout();
-  crossfadeIn(next,fromHtml,fromClass);
-  // A control that left the row must not take the lifter's place with it.
-  if(hadFocus)card.querySelector(".focus-shelf .shelf__field.is-sel .shelf__fieldbtn")?.focus({preventScroll:true})}
-/** Called with every repaint of the clock. */
-function restInlineSync(){
-  const card=focusCard();if(!card||!activeWorkoutDraft)return;
-  const slot=card.querySelector(".fx-slot"),pads=card.querySelector(".shelf__pads");
-  const editing=!!(focusUi.edit&&focusUi.edit.exId===card.dataset.ex);
-  if(!focusUi.restRenderPending){
-    if(slot&&slot.dataset.rest!==restSlotMode(editing)){
-      const mode=restSlotMode(editing),next=restSlotMarkup(card,mode);
-      if(next!=null)swapRestSlot(slot,mode,next);
-      // The slot was swapped for its new job, which drew the clock at this repaint.
-    }
-    if(pads&&pads.dataset.pads!==(restPadsOn(editing)?"rest":"field"))swapRestPads(card,pads)}
-  const clock=card.querySelector("[data-rest-clock]");
-  if(clock){
-    const left=fmtClock(Math.max(0,restTimeLeftSec()));
-    if(clock.textContent!==left)clock.textContent=left;
-    const of=card.querySelector("[data-rest-of]"),ofText=t("rest.inline.of",{t:fmtClock(restPlanSec())});
-    if(of&&of.textContent!==ofText)of.textContent=ofText;
-    const fill=card.querySelector("[data-rest-fill]");
-    if(fill)fill.style.transform=`scaleX(${restFraction().toFixed(4)})`}
-  const done=card.querySelector("[data-rest-done]");
-  if(done){const text=restDoneText(restOverSec());if(done.textContent!==text)done.textContent=text}
-  const pause=card.querySelector('[data-rest-act="pause"]');
-  if(pause){const label=t(focusRest.paused!=null?"rest.inline.resume":"rest.inline.pause");if(pause.textContent!==label)pause.textContent=label}}
-/** What a render is about to replace: the live cue slot and pad row, so the render can carry them to what it drew. */
-function captureRestSlot(){
-  const card=focusCard();if(!card)return null;
-  const slot=card.querySelector(".fx-slot"),pads=card.querySelector(".shelf__pads");
-  return{exId:card.dataset.ex,
-    slot:slot?{mode:slot.dataset.rest,html:liveHtml(slot),height:slot.getBoundingClientRect().height}:null,
-    pads:pads?{mode:pads.dataset.pads,html:liveHtml(pads),cls:pads.className}:null}}
-/** After a render: if the same exercise's slot or pad row now shows another job, it arrives from the old one. */
-function restSlotArrive(before){
-  const card=focusCard();
-  if(!before||!card||card.dataset.ex!==before.exId||!focusMotion())return;
-  const slot=card.querySelector(".fx-slot");
-  if(slot&&before.slot&&slot.dataset.rest!==before.slot.mode)arriveRestSlot(slot,before.slot);
-  const pads=card.querySelector(".focus-shelf .shelf__pads");
-  if(pads&&before.pads&&pads.dataset.pads!==before.pads.mode)crossfadeIn(pads,before.pads.html,before.pads.cls)}
+const settleFocusContext=moved=>focusRestSlot().settle(moved);
+const restInlineSync=()=>focusRestSlot().sync();
+const captureRestSlot=()=>focusRestSlot().capture();
+const restSlotArrive=before=>focusRestSlot().arrive(before);
 /** Shared visibility handler — rest-timer catch-up + session banner. */
 function onAppVisible(){
   if(document.visibilityState!=="visible")return;
@@ -3791,9 +3712,10 @@ function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
   $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" aria-pressed="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(dayLabel(d))}</button>`).join("");
   $$("#dayTabs button").forEach(b=>b.onclick=async()=>{if(!await requestWorkoutDay(b.dataset.day))return;renderTabs();renderWorkout();renderToday()})}
 
-function focusPresentationView(flat=WorkoutSession.projection()){
-  return FocusPresentation.capture({draft:activeWorkoutDraft,flat,query:workoutQueries(),committed,log:state.log,
-    list:focusList(),effortMode:isEffortMode(),rirHigh:state.settings.rirHigh,beats:beatsOn()})}
+function focusPresentationFacts(flat=WorkoutSession.projection()){
+  return {draft:activeWorkoutDraft,flat,query:workoutQueries(),committed,log:state.log,
+    list:focusList(),effortMode:isEffortMode(),rirHigh:state.settings.rirHigh,beats:beatsOn()}}
+function focusPresentationView(flat=WorkoutSession.projection()){return FocusPresentation.capture(focusPresentationFacts(flat))}
 function pendingFocusLoad(exId,ordinal){return FocusValues.pendingLoad(activeWorkoutDraft,exId,ordinal)}
 function setFieldVals(ex,n,r,draft,prev){return FocusValues.fields({draft:activeWorkoutDraft,flat:draft,
   query:workoutQueries(),exercise:ex,ordinal:n,recommendation:r,previous:prev})}
@@ -3849,7 +3771,7 @@ function toggleFocusLedger(button){
     rows.innerHTML=focusLedgerRowsHtml(ex,r,draft,prev,{effortMode:isEffortMode(),peek:false});
     button.setAttribute("aria-expanded",open?"true":"false");button.classList.remove("is-fresh");
     bindWorkout()};
-  const moved=window.RepForgeMotion?.animateSlot?window.RepForgeMotion.animateSlot(rows,apply):(apply(),null);
+  const moved=ensureBrowserPresentation().motion.animateSlot(rows,apply);
   // Opening reveals the logged rows under the disclosure where the lifter is looking; closing brings the open set back.
   if(!open)settleFocusContext(moved)}
 
@@ -4113,8 +4035,7 @@ function focusInputs(){return FocusInputs||(FocusInputs=Focus.createFocusInputs(
 function bindWorkout(){
   focusInputs().bind();
   $w(".term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
-  $w("[data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheet(b.dataset.why,b)});
-  $w("[data-rest-act]").forEach(b=>b.onclick=()=>restAct(b.dataset.restAct));
+  const workoutHost=$("#workout");if(workoutHost)focusRestSlot().bindControls(workoutHost);
   $w(".saveset").forEach(b=>b.onclick=async()=>{
     try{
       const outcome=await focusInputs().toggleSet(b.dataset.save);if(!outcome)return;
