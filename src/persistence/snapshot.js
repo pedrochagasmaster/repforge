@@ -4,6 +4,13 @@ import {cloneSnapshot,isPlainStateObject,canonicalize,isBoundedProgressionValue,
  * Storage receipts are deliberately included in mirror arbitration and omitted
  * only from interchange exports. Changing that distinction loses activations.
  */
+
+/** @typedef {'match-only'|'abort-changed'|'abort-same-day'} DraftPrecondition
+ * @typedef {{kind:'clear-draft',expectedRaw:string|null,precondition:DraftPrecondition,required?:true,conflictDay?:string}|{kind:'replace-draft',expectedRaw:string,replacementRaw:string,precondition:DraftPrecondition,required?:true,conflictDay?:string}} DraftEffect
+ * @typedef {{status:'valid',effect:DraftEffect}|{status:'none',effect:null}|{status:'invalid',effect:null,reason:unknown}} DraftEffectOutcome
+ * @typedef {Record<string,unknown>} RawRecord
+ */
+
 const STORAGE_REV='_storageRevision', STORAGE_FOLLOWUP='_storageFollowUp';
 const STORAGE_DRAFT_TXN='_storageDraftTransaction', STORAGE_SETUP_TXN='_storageSetupActivation';
 const SHARED_IMPORT='_sharedSetupImport';
@@ -165,10 +172,12 @@ function draftContextFingerprint(snapshot){
     value.programMetaBlockId=snapshot.programMeta.blockId;
   return JSON.stringify(canonicalize(value))}
 
+/** @param {unknown} value @param {unknown} [programId] */
 function isValidBlockId(value,programId=null){
   return typeof value==="string"&&value.trim().length>0&&value.length<=240&&
     (programId==null||value!==programId)}
 const TRANSITION_VALUE_LIMITS=Object.freeze({depth:32,nodes:10000,keys:128,arrayItems:256,stringLength:10000});
+/** @param {unknown} value @param {number} [depth] @param {{nodes:number}} [state] @returns {boolean} */
 function isBoundedTransitionValue(value,depth=0,state={nodes:0}){
   if(++state.nodes>TRANSITION_VALUE_LIMITS.nodes||depth>TRANSITION_VALUE_LIMITS.depth)return false;
   if(typeof value==="string")return value.length<=TRANSITION_VALUE_LIMITS.stringLength;
@@ -278,6 +287,7 @@ function recoveryCarrierConflictGroups(records){
     .map(([targetBlockId,group])=>({targetBlockId,records:group}))
 }
 
+    /** @param {unknown} effect @returns {DraftEffectOutcome} */
     function draftEffectOutcome(effect){
     if(effect==null)return{status:DRAFT_EFFECT_NONE,effect:null};
     if(!isPlainStateObject(effect))return{status:DRAFT_EFFECT_INVALID,effect:null,reason:"shape"};
@@ -293,6 +303,7 @@ function recoveryCarrierConflictGroups(records){
       if(effect.expectedRaw!==null&&
         (typeof effect.expectedRaw!=="string"||effect.expectedRaw.length>PENDING_EFFECT_MAX_RAW))
         return{status:DRAFT_EFFECT_INVALID,effect:null,reason:"expected-raw"};
+      /** @type {Extract<DraftEffect,{kind:"clear-draft"}>} */
       const receipt={kind:"clear-draft",expectedRaw:effect.expectedRaw,precondition};
       if(effect.required===true)receipt.required=true;
       if(precondition===DRAFT_PRECONDITION_ABORT_SAME_DAY){
@@ -304,6 +315,7 @@ function recoveryCarrierConflictGroups(records){
       effect.replacementRaw.length<=PENDING_EFFECT_MAX_RAW){
       if(typeof effect.expectedRaw!=="string"||effect.expectedRaw.length>PENDING_EFFECT_MAX_RAW)
         return{status:DRAFT_EFFECT_INVALID,effect:null,reason:"expected-raw"};
+      /** @type {Extract<DraftEffect,{kind:"replace-draft"}>} */
       const receipt={kind:"replace-draft",expectedRaw:effect.expectedRaw,replacementRaw:effect.replacementRaw,precondition};
       if(effect.required===true)receipt.required=true;
       if(precondition===DRAFT_PRECONDITION_ABORT_SAME_DAY){
@@ -313,6 +325,7 @@ function recoveryCarrierConflictGroups(records){
       return{status:DRAFT_EFFECT_VALID,effect:receipt}}
     return{status:DRAFT_EFFECT_INVALID,effect:null,reason:"kind"}}
 
+    /** @param {unknown} value @returns {DraftEffectOutcome} */
     function normalizeDraftEffectOutcome(value){
     if(isPlainStateObject(value)&&
       (value.status===DRAFT_EFFECT_VALID||value.status===DRAFT_EFFECT_INVALID||value.status===DRAFT_EFFECT_NONE)){
@@ -321,17 +334,20 @@ function recoveryCarrierConflictGroups(records){
       return{status:DRAFT_EFFECT_INVALID,effect:null,reason:value.reason||"invalid"}}
     return draftEffectOutcome(value)}
 
+    /** @param {unknown} effect */
     function pendingJournalEffect(effect){
     const outcome=normalizeDraftEffectOutcome(effect);
     return outcome.status===DRAFT_EFFECT_VALID?outcome.effect:null}
 
+    /** @param {unknown} effect */
     function draftEffectRequiresCoordination(effect){
     const outcome=normalizeDraftEffectOutcome(effect);
     return outcome.status===DRAFT_EFFECT_VALID&&
       outcome.effect.precondition!==DRAFT_PRECONDITION_MATCH_ONLY}
 
 
-  function isCoherentV1TransitionIn(tin){
+  /** @param {unknown} tin */
+function isCoherentV1TransitionIn(tin){
     return isPlainStateObject(tin)&&isBoundedTransitionValue(tin)&&
       tin.schemaVersion===1&&tin.status==="committed"&&
       typeof tin.transitionId==="string"&&tin.transitionId.trim()!==""&&
@@ -342,7 +358,8 @@ function recoveryCarrierConflictGroups(records){
       typeof tin.successor.programId==="string"&&tin.successor.programId.trim()!==""&&
       typeof tin.predecessor.programId==="string"&&tin.predecessor.programId.trim()!==""}
 
-  function isCoherentV1TransitionOut(tout){
+  /** @param {unknown} tout */
+function isCoherentV1TransitionOut(tout){
     return isPlainStateObject(tout)&&isBoundedTransitionValue(tout)&&
       tout.schemaVersion===1&&
       typeof tout.transitionId==="string"&&tout.transitionId.trim()!==""&&
