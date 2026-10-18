@@ -1,3 +1,4 @@
+export {createEntryActivation} from './entry/activation.js';
 export {createEntrySetup} from './entry/setup.js';
 export {createEntryReviewSession} from './entry/review-session.js';
 export {createEntryQuestionFlow} from './entry/questions.js';
