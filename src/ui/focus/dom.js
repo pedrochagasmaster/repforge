@@ -5,7 +5,7 @@ import {escapeHtml as esc,formatProgramContext,formatCycleLabel} from '../format
 /** Card rebuilds, ledger disclosure and shelf refresh share one DOM lifetime.
  * Rendering captures acknowledged facts once; it does not hydrate or publish a
  * draft. Controls and other page widgets receive explicit replacement events.
- * @param {{window:Window & typeof globalThis,focus:ReturnType<typeof import('./state.js').createFocusState>,presentation:ReturnType<typeof import('./presentation.js').createFocusPresentation>,controls:ReturnType<typeof import('./control-focus.js').createControlFocus>,geometry:ReturnType<typeof import('./geometry.js').createFocusGeometry>,effects:ReturnType<typeof import('./effects.js').createFocusEffects>,rest:ReturnType<typeof import('./rest-slot.js').createRestSlot>,motion:ReturnType<typeof import('../../platform/motion.js').createMotion>,readFrame:()=>Frame,copy:{t:(key:string,values?:Record<string,unknown>)=>string},guides:{maybeShow:(ids:string[])=>unknown,refreshAnchor:()=>unknown},exercise:{open:(id:string,from:'log')=>unknown},onControlsReplaced:()=>void,onRendered:(event:{active:boolean})=>void}} options */
+ * @param {{window:Window & typeof globalThis,focus:ReturnType<typeof import('./state.js').createFocusState>,presentation:ReturnType<typeof import('./presentation.js').createFocusPresentation>,controls:ReturnType<typeof import('./control-focus.js').createControlFocus>,geometry:ReturnType<typeof import('./geometry.js').createFocusGeometry>,effects:ReturnType<typeof import('./effects.js').createFocusEffects>,rest:ReturnType<typeof import('./rest-slot.js').createRestSlot>,motion:ReturnType<typeof import('../../platform/motion.js').createMotion>,readFrame:()=>Frame,copy:{t:(key:string,values?:Record<string,unknown>)=>string},guides:{refreshAnchor:()=>unknown},exercise:{open:(id:string,from:'log')=>unknown},onControlsReplaced:()=>void,onRendered:(event:{active:boolean})=>void}} options */
 export function createFocusDom({window,focus,presentation,controls,geometry,effects,rest,motion,readFrame,copy:{t},guides,exercise,onControlsReplaced,onRendered}){
   const document=window.document;
   let disposed=false;
@@ -51,8 +51,6 @@ export function createFocusDom({window,focus,presentation,controls,geometry,effe
       if(next&&open&&next.dataset.ex===previousOpen.exId&&Number(open.dataset.lrow)!==previousOpen.n)effects.travelOutline(open,previousOpen.rect,'ledgerline');
     }
     rest.arrive(before);
-    window.queueMicrotask(()=>{if(!disposed)guides.maybeShow(['first-set']);});
-    window.queueMicrotask(()=>{if(!disposed)guides.maybeShow(['focus-utilities']);});
   }
   /** @param {{focus?:string|null}} [options] */
   function refreshShelf({focus:target=null}={}){

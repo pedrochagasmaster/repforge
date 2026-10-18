@@ -120,7 +120,6 @@ function render(){
   const model=queries.overview();
   presentation.renderIntro(model.hasLog);presentation.renderWeek(model.week);presentation.renderAttention(model.attention);presentation.renderStrength(model.strength);
   review.render(queries.review());renderEvidenceView();
-  if($("#stats")?.classList.contains("active")&&!evidenceView)onSelected(statsSeg);
 }
 function mount(){if(mounted||disposed)return;mounted=true;wireStatsTabs()}
 function dispose(){
