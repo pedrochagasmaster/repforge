@@ -955,7 +955,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     } catch {
       return ERROR_CODES.INVALID_ENVELOPE;
     }
-    const logicalState = normalized?.value?.envelope?.state;
+    const logicalState = normalized?.ok ? normalized.value?.envelope?.state : undefined;
     if (!normalized?.ok || !isPlainObject(logicalState)) return ERROR_CODES.INVALID_ENVELOPE;
     try {
       if (canonicalJson(logicalState) !== canonicalJson(value)) return ERROR_CODES.INVALID_ENVELOPE;

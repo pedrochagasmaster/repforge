@@ -1,4 +1,6 @@
 /** Browser transfer protocol capabilities. Construction performs no IO; each client owns its state. */
+/** @import {JsonRecord,Contract,CookieDocument,LocationLike,CookieAdapters,Capabilities,Failure,Success,Result,Producer,DraftSource,Sections,LogicalSnapshot,Source,SealedCredential,CredentialPair,CredentialVault,KeyStore,StorageAdapters,Transport,TransportRequest,CreateOptions,ClientOptions} from './install-transfer-contracts.js' */
+/** @param {Capabilities} capabilities */
 export function createInstallTransfer(capabilities) {
   const clock = capabilities.now;
   const {TextEncoder,TextDecoder,Buffer,atob,btoa} = capabilities;
@@ -34,6 +36,7 @@ export function createInstallTransfer(capabilities) {
   // wrapper. The parser owns the envelope bound; the transport keeps enough
   // bounded headroom for that wrapper without accepting an unbounded body.
   const CLAIM_RESPONSE_MAX_BYTES = ENVELOPE_MAX_BYTES + SMALL_RESPONSE_MAX_BYTES;
+  /** @type {Readonly<Record<string,number>>} */
   const RESPONSE_LIMITS = Object.freeze({
     [ENDPOINTS.create]: SMALL_RESPONSE_MAX_BYTES,
     [ENDPOINTS.claim]: CLAIM_RESPONSE_MAX_BYTES,
@@ -49,20 +52,24 @@ export function createInstallTransfer(capabilities) {
     status: TRANSFER_LOCK_NAME,
   });
 
+  /** @param {string} code @param {string} [state] @returns {Failure} */
   function failure(code, state) {
-    const result = { ok: false, code };
+    /** @type {Failure} */ const result = { ok: false, code };
     if (state) result.state = state;
     return result;
   }
 
+  /** @template {object} T @param {T} fields @returns {Success<T>} */
   function success(fields) {
     return { ok: true, ...fields };
   }
 
+  /** @param {unknown} value @param {PropertyKey} key */
   function own(value, key) {
     return value !== null && typeof value === "object" && Object.hasOwn(value, key);
   }
 
+  /** @param {unknown} value @param {string[]} keys @returns {value is JsonRecord} */
   function exactKeys(value, keys) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return false;
     const actual = Object.keys(value).sort();
@@ -70,6 +77,7 @@ export function createInstallTransfer(capabilities) {
     return actual.length === expected.length && actual.every((key, index) => key === expected[index]);
   }
 
+  /** @param {unknown} value @param {{max?:number,nonEmpty?:boolean}} [options] @returns {value is string} */
   function validString(value, { max = CREDENTIAL_MAX_CHARS, nonEmpty = true } = {}) {
     if (typeof value !== "string" || nonEmpty && value.length === 0) return false;
     let scalars = 0;
@@ -86,12 +94,18 @@ export function createInstallTransfer(capabilities) {
     return true;
   }
 
+  /** @param {unknown} value @returns {value is number} */
+  function safeInteger(value) { return typeof value === "number" && Number.isSafeInteger(value); }
+  /** @template T @param {readonly T[]} allowed @param {unknown} value @returns {value is T} */
+  function oneOf(allowed,value) { return allowed.some(item=>item===value); }
+  /** @param {unknown} value @returns {value is string} */
   function strictUtcMilliseconds(value) {
     if (typeof value !== "string" || !UTC_MILLISECONDS_ISO.test(value)) return false;
     const parsed = new Date(value);
     return !Number.isNaN(parsed.valueOf()) && parsed.toISOString() === value;
   }
 
+  /** @template T @param {T} value @param {Set<object>} [seen] @returns {T} */
   function jsonClone(value, seen = new Set()) {
     if (value === null || typeof value === "string" || typeof value === "boolean") return value;
     if (typeof value === "number") {
@@ -106,17 +120,19 @@ export function createInstallTransfer(capabilities) {
       result = {};
       for (const key of Object.keys(value)) {
         if (DANGEROUS_KEYS.has(key)) throw new TypeError("dangerous-key");
-        result[key] = jsonClone(value[key], seen);
+        (/** @type {JsonRecord} */(result))[key] = jsonClone((/** @type {JsonRecord} */(value))[key], seen);
       }
     }
     seen.delete(value);
-    return result;
+    return /** @type {T} */(result);
   }
 
+  /** @param {Crypto} [value] */
   function cryptoOf(value) {
     return value || capabilities.crypto;
   }
 
+  /** @param {Uint8Array} bytes */
   function encodeBytes(bytes) {
     if (typeof Buffer !== "undefined") return Buffer.from(bytes).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
     let binary = "";
@@ -124,6 +140,7 @@ export function createInstallTransfer(capabilities) {
     return btoa(binary).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
   }
 
+  /** @param {unknown} value */
   function decodeBytes(value) {
     if (typeof value !== "string" || !BASE64URL.test(value) || value.length % 4 === 1) throw new TypeError("invalid-base64url");
     const padded = value.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (value.length % 4)) % 4);
@@ -132,6 +149,7 @@ export function createInstallTransfer(capabilities) {
     return Uint8Array.from(binary, (character) => character.charCodeAt(0));
   }
 
+  /** @param {unknown} value @returns {value is string} */
   function validTransferToken(value) {
     if (typeof value !== "string" || value.length > 512) return false;
     const parts = value.split(".");
@@ -141,8 +159,9 @@ export function createInstallTransfer(capabilities) {
     } catch { return false; }
   }
 
+  /** @param {unknown} value @param {string} context @returns {value is SealedCredential} */
   function validSealedCredential(value, context) {
-    if (!value || typeof value !== "object" || Array.isArray(value) || !exactKeys(value, ["version", "algorithm", "context", "keyId", "iv", "ciphertext"])) return false;
+    if (!exactKeys(value, ["version", "algorithm", "context", "keyId", "iv", "ciphertext"])) return false;
     if (value.version !== 1 || value.algorithm !== "AES-GCM" || value.context !== context ||
       !validString(value.keyId, { max: IDENTIFIER_MAX_CHARS }) ||
       !validString(value.iv, { max: CREDENTIAL_MAX_CHARS }) ||
@@ -154,20 +173,24 @@ export function createInstallTransfer(capabilities) {
     } catch { return false; }
   }
 
+  /** @param {string} value */
   function textBytes(value) {
     return new TextEncoder().encode(value);
   }
 
+  /** @param {Uint8Array} bytes */
   function decodeText(bytes) {
     return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   }
 
+  /** @param {string} code */
   function codedError(code) {
-    const error = new Error(code);
+    const error = /** @type {Error & {code:string}} */(new Error(code));
     error.code = code;
     return error;
   }
 
+  /** @param {Response} response @param {number} maxBytes */
   async function readBoundedResponse(response, maxBytes) {
     if (!response || !response.body || typeof response.body.getReader !== "function") throw codedError("response-body-unavailable");
     const declared = response.headers?.get?.("content-length");
@@ -191,6 +214,7 @@ export function createInstallTransfer(capabilities) {
     return total === bytes.byteLength ? bytes : bytes.slice(0, total);
   }
 
+  /** @param {unknown} value @param {Contract|undefined} contract @param {Crypto|undefined} crypto */
   async function sha256Hex(value, contract, crypto) {
     if (!crypto?.subtle?.digest || typeof contract?.canonicalJson !== "function") return failure("contract-unavailable");
     let serialized;
@@ -203,14 +227,16 @@ export function createInstallTransfer(capabilities) {
     } catch { return failure("hash-failed"); }
   }
 
+  /** @param {Contract|undefined} contract @returns {contract is Contract} */
   function requireContract(contract) {
-    return contract && typeof contract.canonicalJson === "function" &&
+    return !!contract && typeof contract.canonicalJson === "function" &&
       typeof contract.validateEnvelope === "function" &&
       typeof contract.validateEnvelopeIntegrity === "function" &&
       typeof contract.validateRequest === "function" &&
       typeof contract.parseBoundedJson === "function";
   }
 
+  /** @param {DraftSource|undefined} source @returns {Promise<Result<JsonRecord|null>>} */
   async function acknowledgedDraftSection(source) {
     if (!source || typeof source !== "object" || typeof source.flush !== "function" ||
       typeof source.current !== "function" || typeof source.checkpoint !== "function" ||
@@ -235,10 +261,11 @@ export function createInstallTransfer(capabilities) {
     }
     let logical;
     try { logical = source.logicalCloneSection(current); } catch { return failure("workout-draft-clone-failed"); }
-    if (!logical || typeof logical !== "object" || Array.isArray(logical) || logical.kind === "error" || logical.ok === false) return failure("untrusted-workout-draft");
-    try { return success({ value: jsonClone(logical) }); } catch { return failure("untrusted-workout-draft"); }
+    if (!logical || typeof logical !== "object" || Array.isArray(logical) || (/** @type {JsonRecord} */(logical)).kind === "error" || (/** @type {JsonRecord} */(logical)).ok === false) return failure("untrusted-workout-draft");
+    try { return success({ value: /** @type {JsonRecord} */(jsonClone(logical)) }); } catch { return failure("untrusted-workout-draft"); }
   }
 
+  /** @param {Producer} producer @param {string} code @param {{stripKeys?:string[],stripPrefixes?:string[]}} [options] @returns {Promise<Result<JsonRecord|null>>} */
   async function normalizedProducer(producer, code, { stripKeys = [], stripPrefixes = [] } = {}) {
     if (producer === null || producer === undefined) return success({ value: null });
     let value;
@@ -249,8 +276,8 @@ export function createInstallTransfer(capabilities) {
     } catch { return failure(`${code}-producer-failed`); }
     if (value === null || value === undefined) return success({ value: null });
     try {
-      if (typeof value !== "object" || Array.isArray(value) || value.kind === "error" || value.ok === false) return failure(`${code}-invalid`);
-      const cloned = jsonClone(value);
+      if (typeof value !== "object" || Array.isArray(value) || (/** @type {JsonRecord} */(value)).kind === "error" || (/** @type {JsonRecord} */(value)).ok === false) return failure(`${code}-invalid`);
+      const cloned = /** @type {JsonRecord} */(jsonClone(value));
       for (const key of stripKeys) delete cloned[key];
       for (const key of Object.keys(cloned)) {
         if (stripPrefixes.some((prefix) => key.startsWith(prefix))) delete cloned[key];
@@ -259,6 +286,7 @@ export function createInstallTransfer(capabilities) {
     } catch { return failure(`${code}-invalid`); }
   }
 
+  /** @param {Producer} producer @returns {Promise<Result<JsonRecord|null>>} */
   async function candidateSection(producer) {
     const produced = await normalizedProducer(producer, "invalid-program-entry-draft");
     if (!produced.ok) return produced;
@@ -273,11 +301,12 @@ export function createInstallTransfer(capabilities) {
       if (!own(value, "state") || value.state === null || typeof value.state !== "object" || Array.isArray(value.state)) {
         return failure("invalid-program-entry-draft");
       }
-      value = value.state;
+      value = /** @type {JsonRecord} */(value.state);
     }
     try { return success({ value: jsonClone(value) }); } catch { return failure("invalid-program-entry-draft"); }
   }
 
+  /** @param {Sections|undefined} sections @returns {Promise<Result<LogicalSnapshot>>} */
   async function logicalSections(sections) {
     if (!sections || typeof sections !== "object") return failure("sections-unavailable");
     const workout = await acknowledgedDraftSection(sections.workoutDraft);
@@ -309,10 +338,12 @@ export function createInstallTransfer(capabilities) {
     } catch { return failure("sections-invalid"); }
   }
 
+  /** @param {Sections|undefined} sections */
   async function captureLogicalSnapshot(sections) {
     return logicalSections(sections);
   }
 
+  /** @param {Sections|undefined} sections @param {Contract|undefined} contract @param {Crypto} [crypto] @param {LogicalSnapshot} [logicalSnapshot] */
   async function logicalStateDigest(sections, contract, crypto = cryptoOf(), logicalSnapshot) {
     if (!requireContract(contract)) return failure("contract-unavailable");
     const logical = logicalSnapshot ? success({ value: logicalSnapshot }) : await logicalSections(sections);
@@ -328,10 +359,11 @@ export function createInstallTransfer(capabilities) {
     return sha256Hex(ordered, contract, crypto);
   }
 
+  /** @param {{sections?:Sections,source?:Source,contract?:Contract,crypto?:Crypto,createdAt?:string,logicalSnapshot?:LogicalSnapshot}} [options] */
   async function buildEnvelope({ sections, source, contract, crypto = cryptoOf(), createdAt = clock(), logicalSnapshot } = {}) {
     if (!requireContract(contract)) return failure("contract-unavailable");
     if (!source || source.context !== "browser" || typeof source.logicalInstallationId !== "string" || !source.logicalInstallationId ||
-      !Number.isSafeInteger(source.sourceRevision) || source.sourceRevision < 0 || typeof createdAt !== "string") {
+      !safeInteger(source.sourceRevision) || source.sourceRevision < 0 || typeof createdAt !== "string") {
       return failure("invalid-source");
     }
     const logical = logicalSnapshot ? success({ value: logicalSnapshot }) : await logicalSections(sections);
@@ -348,7 +380,7 @@ export function createInstallTransfer(capabilities) {
         integrity: { canonicalPayloadHash: "" },
       };
       const preimage = jsonClone(envelope);
-      delete preimage.integrity.canonicalPayloadHash;
+      delete (/** @type {{canonicalPayloadHash?:string}} */(preimage.integrity)).canonicalPayloadHash;
       const digest = await sha256Hex(preimage, contract, crypto);
       if (!digest.ok) return digest;
       envelope.integrity.canonicalPayloadHash = digest.value;
@@ -361,66 +393,78 @@ export function createInstallTransfer(capabilities) {
     catch { return failure("invalid-envelope"); }
   }
 
+  /** @param {{action?:string,context?:string,hasMeaningfulData?:boolean}} [options] */
   function contextEligibility({ action, context, hasMeaningfulData = false } = {}) {
     if (action === "create" && context !== "browser") return { eligible: false, code: "wrong-context" };
     if (action === "claim" && context !== "standalone") return { eligible: false, code: "wrong-context" };
     if (action === "create" && hasMeaningfulData !== true) return { eligible: false, code: "no-transferable-data" };
-    if (!["create", "claim"].includes(action)) return { eligible: false, code: "invalid-action" };
+    if (!oneOf(["create", "claim"],action)) return { eligible: false, code: "invalid-action" };
     return { eligible: true, code: null };
   }
 
+  /** @param {{window?:Pick<Capabilities,"matchMedia">,navigator?:Capabilities["navigator"],matchMedia?:Capabilities["matchMedia"]}} [options] */
   function contextFrom({ window: win = capabilities, navigator = capabilities.navigator, matchMedia = win?.matchMedia } = {}) {
     if (navigator?.standalone === true || typeof matchMedia === "function" && matchMedia("(display-mode: standalone)")?.matches) return "standalone";
     return "browser";
   }
 
+  /** @param {LocationLike} [locationLike] */
   function hostname(locationLike) {
-    try { return new URL(locationLike?.href || locationLike || capabilities.location?.href || "http://localhost/").hostname; }
+    try { return new URL(/** @type {string} */((/** @type {{href?:string}|null|undefined} */(locationLike))?.href || locationLike || capabilities.location?.href || "http://localhost/")).hostname; }
     catch { return "localhost"; }
   }
 
   // The app scope (the directory the document lives in), not its document URL:
   // the host may serve the document at `/` or at `/index.html`, and the
   // installed app launches through `./index.html`, which a host can redirect.
+  /** @param {LocationLike} [locationLike] */
   function cookiePath(locationLike) {
-    try { return new URL("./", locationLike?.href || locationLike || capabilities.location?.href || "http://localhost/").pathname; }
+    try { return new URL("./", /** @type {string} */((/** @type {{href?:string}|null|undefined} */(locationLike))?.href || locationLike || capabilities.location?.href || "http://localhost/")).pathname; }
     catch { return "/"; }
   }
 
   // Releases before the scope path wrote the cookie at the document URL.
+  /** @param {LocationLike} [locationLike] */
   function legacyCookiePath(locationLike) {
-    try { return new URL("index.html", locationLike?.href || locationLike || capabilities.location?.href || "http://localhost/").pathname; }
+    try { return new URL("index.html", /** @type {string} */((/** @type {{href?:string}|null|undefined} */(locationLike))?.href || locationLike || capabilities.location?.href || "http://localhost/")).pathname; }
     catch { return "/index.html"; }
   }
 
+  /** @param {LocationLike|undefined} locationLike @param {string} path */
   function cookieVisibleAtLocation(locationLike, path) {
     try {
-      const current = new URL(locationLike?.href || locationLike || capabilities.location?.href || "http://localhost/").pathname;
+      const current = new URL(/** @type {string} */((/** @type {{href?:string}|null|undefined} */(locationLike))?.href || locationLike || capabilities.location?.href || "http://localhost/")).pathname;
       return current === path || current.startsWith(path.endsWith("/") ? path : `${path}/`);
     } catch { return false; }
   }
 
+  /** @param {CookieDocument|undefined} document */
   function browserCookieDocument(document) {
     return document?.nodeType === 9 && typeof document.defaultView === "object";
   }
 
+  /** @param {string} host */
   function localHost(host) {
     return host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host === "::1";
   }
 
+  /** @param {unknown} value */
   function cookieValue(value) {
-    if (!value || !validTransferToken(value.token) || !strictUtcMilliseconds(value.expiresAt)) return null;
-    return `${COOKIE_VERSION}.${encodeBytes(textBytes(JSON.stringify({ token: value.token, expiresAt: value.expiresAt })))}`;
+    const fields = /** @type {JsonRecord|null|undefined} */(value);
+    if (!fields || !validTransferToken(fields.token) || !strictUtcMilliseconds(fields.expiresAt)) return null;
+    return `${COOKIE_VERSION}.${encodeBytes(textBytes(JSON.stringify({ token: fields.token, expiresAt: fields.expiresAt })))}`;
   }
 
+  /** @param {unknown} value @returns {{token:string,expiresAt:string}|null} */
   function parseCookieValue(value) {
     if (typeof value !== "string" || !value.startsWith(`${COOKIE_VERSION}.`)) return null;
     try {
       const decoded = JSON.parse(decodeText(decodeBytes(value.slice(COOKIE_VERSION.length + 1))));
-      return exactKeys(decoded, ["token", "expiresAt"]) && cookieValue(decoded) === value ? decoded : null;
+      return exactKeys(decoded, ["token", "expiresAt"]) && cookieValue(decoded) === value ? /** @type {{token:string,expiresAt:string}} */(decoded) : null;
     } catch { return null; }
   }
 
+  /** @param {CookieDocument|undefined} document @param {string} name */
   function readCookie(document, name) {
     try {
       if (typeof document?.cookie !== "string") return null;
@@ -433,11 +477,13 @@ export function createInstallTransfer(capabilities) {
     } catch { return null; }
   }
 
+  /** @param {unknown} value @param {CookieAdapters} [adapters] */
   function writeTransferCookie(value, { document = capabilities.document, location = capabilities.location, now = Date.parse(clock()) } = {}) {
     const encoded = cookieValue(value);
     const at = typeof now === "function" ? now() : now;
     const nowMs = typeof at === "number" ? at : Date.parse(at);
-    const expiryMs = strictUtcMilliseconds(value?.expiresAt) ? Date.parse(value.expiresAt) : NaN;
+    const expiresAt = (/** @type {JsonRecord|null|undefined} */(value))?.expiresAt;
+    const expiryMs = strictUtcMilliseconds(expiresAt) ? Date.parse(expiresAt) : NaN;
     if (!document || !encoded || !Number.isFinite(nowMs) || !Number.isFinite(expiryMs)) return false;
     const maxAge = Math.min(COOKIE_MAX_AGE, Math.ceil((expiryMs - nowMs) / 1000));
     if (maxAge <= 0) return false;
@@ -450,10 +496,12 @@ export function createInstallTransfer(capabilities) {
     } catch { return false; }
   }
 
+  /** @param {CookieAdapters} [adapters] */
   function readTransferCookie({ document = capabilities.document } = {}) {
     return parseCookieValue(readCookie(document, COOKIE_NAME));
   }
 
+  /** @param {CookieAdapters} [adapters] */
   function clearTransferCookie({ document = capabilities.document, location = capabilities.location } = {}) {
     if (!document) return false;
     const secure = localHost(hostname(location)) ? "" : "; Secure";
@@ -465,18 +513,20 @@ export function createInstallTransfer(capabilities) {
     } catch { return false; }
   }
 
+  /** @param {CookieAdapters} [adapters] */
   function consumeTransferCookie(adapters = {}) {
     const value = readTransferCookie(adapters);
     if (!value || !clearTransferCookie(adapters)) return null;
     return value;
   }
 
+  /** @param {{fetch?:typeof fetch,baseUrl?:string}} [options] @returns {Transport} */
   function createFetchTransport({ fetch: fetchFn = capabilities.fetch, baseUrl = capabilities.location?.href } = {}) {
     return {
       async request({ path, body, maxResponseBytes = RESPONSE_LIMITS[path] || SMALL_RESPONSE_MAX_BYTES }) {
-        if (typeof fetchFn !== "function" || typeof path !== "string" || !Object.values(ENDPOINTS).includes(path)) throw new Error("invalid-transport-request");
+        if (typeof fetchFn !== "function" || typeof path !== "string" || !oneOf(Object.values(ENDPOINTS),path)) throw new Error("invalid-transport-request");
         const approvedLimit = RESPONSE_LIMITS[path] || SMALL_RESPONSE_MAX_BYTES;
-        const requestedLimit = Number.isSafeInteger(maxResponseBytes) && maxResponseBytes >= 0 ? maxResponseBytes : approvedLimit;
+        const requestedLimit = safeInteger(maxResponseBytes) && maxResponseBytes >= 0 ? maxResponseBytes : approvedLimit;
         const responseLimit = Math.min(approvedLimit, requestedLimit);
         const url = new URL(path, baseUrl);
         if (url.pathname !== path || url.search || url.hash) throw new Error("endpoint-must-be-exact");
@@ -495,6 +545,7 @@ export function createInstallTransfer(capabilities) {
     };
   }
 
+  /** @param {Crypto|undefined} crypto @param {number} length */
   function randomBytes(crypto, length) {
     if (!crypto?.getRandomValues) throw new Error("crypto-unavailable");
     const bytes = new Uint8Array(length);
@@ -502,46 +553,56 @@ export function createInstallTransfer(capabilities) {
     return bytes;
   }
 
+  /** @param {string} value @param {Crypto|undefined} crypto */
   async function digestString(value, crypto) {
-    const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", textBytes(value)));
+    const digest = new Uint8Array(await (/** @type {Crypto} */(crypto)).subtle.digest("SHA-256", textBytes(value)));
     return encodeBytes(digest);
   }
 
+  /** @param {Crypto|undefined} crypto @param {number} [bytes] */
   function idFor(crypto, bytes = 16) {
     return encodeBytes(randomBytes(crypto, bytes));
   }
 
+  /** @param {{crypto?:Crypto,indexedDB?:IDBFactory,keyStore?:KeyStore}} [options] @returns {CredentialVault} */
   function createCredentialVault({ crypto = capabilities.crypto, indexedDB = capabilities.indexedDB, keyStore } = {}) {
     const store = keyStore || idbKeyStore({ indexedDB });
+    /** @param {string} context @param {unknown} value */
     async function seal(context, value) {
       const keyId = idFor(crypto);
-      const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+      const key = await (/** @type {Crypto} */(crypto)).subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
       await store.put(context, keyId, key);
       try {
         const iv = randomBytes(crypto, 12);
         const plaintext = textBytes(JSON.stringify(value));
-        const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext));
+        const ciphertext = new Uint8Array(await (/** @type {Crypto} */(crypto)).subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext));
         return { version: 1, algorithm: "AES-GCM", context, keyId, iv: encodeBytes(iv), ciphertext: encodeBytes(ciphertext) };
       } catch (error) {
         await store.delete(context, keyId).catch(() => {});
         throw error;
       }
     }
+    /** @param {string} context @param {unknown} sealed */
     async function unseal(context, sealed) {
-      if (!sealed || sealed.version !== 1 || sealed.algorithm !== "AES-GCM" || sealed.context !== context) throw new Error("sealed-credential-invalid");
-      const key = await store.get(context, sealed.keyId);
+      const fields = /** @type {Partial<SealedCredential>|null|undefined} */(sealed);
+      if (!fields || fields.version !== 1 || fields.algorithm !== "AES-GCM" || fields.context !== context) throw new Error("sealed-credential-invalid");
+      const key = await store.get(context, /** @type {string} */(fields.keyId));
       if (!key) throw new Error("sealed-credential-unavailable");
-      const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv: decodeBytes(sealed.iv) }, key, decodeBytes(sealed.ciphertext));
+      const plaintext = await (/** @type {Crypto} */(crypto)).subtle.decrypt({ name: "AES-GCM", iv: decodeBytes(fields.iv) }, key, decodeBytes(fields.ciphertext));
       return JSON.parse(decodeText(new Uint8Array(plaintext)));
     }
+    /** @param {string} context @param {unknown} sealed */
     async function forget(context, sealed) {
-      if (sealed?.keyId) await store.delete(context, sealed.keyId);
+      const fields = /** @type {{keyId?:string}|null|undefined} */(sealed);
+      if (fields?.keyId) await store.delete(context, fields.keyId);
     }
     return Object.freeze({ seal, unseal, forget });
   }
 
+  /** @param {{indexedDB?:IDBFactory}} [options] @returns {KeyStore} */
   function idbKeyStore({ indexedDB } = {}) {
-    let dbPromise;
+    /** @type {Promise<IDBDatabase>|undefined} */ let dbPromise;
+    /** @returns {Promise<IDBDatabase>} */
     function db() {
       if (!indexedDB?.open) return Promise.reject(new Error("indexeddb-unavailable"));
       if (dbPromise) return dbPromise;
@@ -555,8 +616,9 @@ export function createInstallTransfer(capabilities) {
       });
       return dbPromise;
     }
-    const key = (context, keyId) => `${context}:${keyId}`;
+    const key = (/** @type {string} */ context, /** @type {string} */ keyId) => `${context}:${keyId}`;
     return {
+      /** @param {string} context @param {string} keyId @returns {Promise<CryptoKey|null>} */
       async get(context, keyId) {
         const database = await db();
         return new Promise((resolve, reject) => {
@@ -565,12 +627,13 @@ export function createInstallTransfer(capabilities) {
           request.onerror = () => reject(request.error || new Error("indexeddb-read-failed"));
         });
       },
+      /** @param {string} context @param {string} keyId @param {CryptoKey} value @returns {Promise<void>} */
       async put(context, keyId, value) {
         const database = await db();
         return new Promise((resolve, reject) => {
           let settled = false;
           const transaction = database.transaction("keys", "readwrite");
-          const finish = (error) => {
+          const finish = (/** @type {unknown} */ error = undefined) => {
             if (settled) return;
             settled = true;
             if (error) reject(error); else resolve();
@@ -584,12 +647,13 @@ export function createInstallTransfer(capabilities) {
           transaction.oncomplete = () => finish();
         });
       },
+      /** @param {string} context @param {string} keyId @returns {Promise<void>} */
       async delete(context, keyId) {
         const database = await db();
         return new Promise((resolve, reject) => {
           let settled = false;
           const transaction = database.transaction("keys", "readwrite");
-          const finish = (error) => {
+          const finish = (/** @type {unknown} */ error = undefined) => {
             if (settled) return;
             settled = true;
             if (error) reject(error); else resolve();
@@ -606,6 +670,7 @@ export function createInstallTransfer(capabilities) {
     };
   }
 
+  /** @param {ClientOptions} [options] */
   function createClient({ contract, crypto = capabilities.crypto, transport, context = contextFrom(), document = capabilities.document, location = capabilities.location, storage, now = () => clock() } = {}) {
     const outbound = storage?.outbound;
     const inbound = storage?.inbound;
@@ -613,14 +678,16 @@ export function createInstallTransfer(capabilities) {
     const operationLock = storage?.operationLock;
     let currentState = "idle";
     let recoveryState = "none";
+    /** @template {object} T @param {T} result @returns {T} */
     const stateResult = (result) => {
-      if (result?.state && CLIENT_STATES.includes(result.state)) currentState = result.state;
-      if (context === "browser" && result?.state === "ready") recoveryState = "awaitingClaimOutcome";
-      if (context === "browser" && result?.state === "unknown-outcome") recoveryState = "resumeWarning";
+      const details = /** @type {{state?:string}} */(result);
+      if (details?.state && CLIENT_STATES.includes(details.state)) currentState = details.state;
+      if (context === "browser" && details?.state === "ready") recoveryState = "awaitingClaimOutcome";
+      if (context === "browser" && details?.state === "unknown-outcome") recoveryState = "resumeWarning";
       return result;
     };
-    const unavailable = (code, state = "retryable") => stateResult(failure(code, state));
-    const pendingStatus = (remoteState, expiresAt) => {
+    const unavailable = (/** @type {string} */ code, state = "retryable") => stateResult(failure(code, state));
+    const pendingStatus = (/** @type {unknown} */ remoteState, /** @type {unknown} */ expiresAt) => {
       recoveryState = "awaitingClaimOutcome";
       return stateResult({ ok: false, state: "retryable", code: "transfer-pending", remoteState, expiresAt });
     };
@@ -630,15 +697,17 @@ export function createInstallTransfer(capabilities) {
         return typeof value === "string" ? value : null;
       } catch { return null; }
     };
+    /** @template T @param {string} name @param {()=>T|Promise<T>} work */
     async function withOperationLock(name, work) {
       if (typeof operationLock?.withLock !== "function") return unavailable("operation-lock-unavailable");
       try { return await operationLock.withLock(name, work); }
       catch { return unavailable("operation-lock-failed", "unknown-outcome"); }
     }
+    /** @param {string} path @param {unknown} body @param {string} [parseEndpoint] */
     async function request(path, body, parseEndpoint = path) {
       if (!requireContract(contract) || !transport?.request) return failure("contract-unavailable");
       const claimResponse = parseEndpoint === "/envelope";
-      const claimResponseLimit = Number.isSafeInteger(contract.LIMITS?.claimResponseBytes)
+      const claimResponseLimit = safeInteger(contract.LIMITS?.claimResponseBytes)
         ? contract.LIMITS.claimResponseBytes
         : CLAIM_RESPONSE_MAX_BYTES;
       let validated;
@@ -657,15 +726,20 @@ export function createInstallTransfer(capabilities) {
         const parsed = contract.parseBoundedJson(reply.bytes, parseEndpoint, claimResponse ? "claim-response" : "request");
         if (!parsed?.ok) return failure(parsed.code || "invalid-response");
         return success({ status: reply.status, body: parsed.value });
-      } catch (error) { return failure(error?.code === "response-too-large" ? "response-too-large" : "network-failure"); }
+      } catch (error) { return failure((error instanceof Error && "code" in error ? error.code : null) === "response-too-large" ? "response-too-large" : "network-failure"); }
     }
+    /** @param {Failure|Success<{status:number,body:unknown}>} reply @param {string} [fallback] @param {string} [unknownCode] */
     function responseFailure(reply, fallback = "invalid-response", unknownCode = "network-failure") {
       if (reply.code === "network-failure") return unavailable(unknownCode, "unknown-outcome");
       if (!reply.ok) return unavailable(reply.code || fallback);
       if ([404, 429, 503].includes(reply.status) && exactKeys(reply.body, ["state"]) && reply.body.state === "unavailable") return unavailable("service-unavailable", "terminalUnavailable");
       return null;
     }
+    /** @param {CreateOptions} [options] */
     async function createLocked({ sections, source, sourceAfter } = {}) {
+      // create() checks these capabilities before entering its locked operation.
+      const outbound = /** @type {NonNullable<StorageAdapters["outbound"]>} */(storage?.outbound);
+      const credentials = /** @type {CredentialVault} */(storage?.credentials);
       let existing;
       try { existing = await outbound.read(); }
       catch { return unavailable("marker-read-failed", "unknown-outcome"); }
@@ -693,6 +767,7 @@ export function createInstallTransfer(capabilities) {
       catch { return unavailable("idempotency-unavailable"); }
       const createdAt = timestampNow();
       if (typeof createdAt !== "string") return unavailable("source-time-unavailable", "unknown-outcome");
+      /** @type {JsonRecord} */
       const marker = existing ? { ...existing, phase: "creating", idempotencyKey } : {
         version: 1,
         idempotencyKey,
@@ -700,7 +775,7 @@ export function createInstallTransfer(capabilities) {
         mutatedAfterCreation: false,
         phase: "creating",
       };
-      if (!existing && Number.isSafeInteger(source?.sourceRevision) && source.sourceRevision >= 0) marker.sourceRevision = source.sourceRevision;
+      if (!existing && safeInteger(source?.sourceRevision) && source.sourceRevision >= 0) marker.sourceRevision = source.sourceRevision;
       if (!existing) {
         try { await outbound.write(marker); }
         catch { return unavailable("marker-write-failed", "unknown-outcome"); }
@@ -784,16 +859,17 @@ export function createInstallTransfer(capabilities) {
       }
       return stateResult(success({ state: "ready", expiresAt: reply.body.expiresAt, stale }));
     }
+    /** @param {CreateOptions} [options] */
     async function create({ sections, source, consent, sourceAfter, hasMeaningfulData = false } = {}) {
       const eligibility = contextEligibility({ action: "create", context, hasMeaningfulData });
-      if (!eligibility.eligible) return stateResult(failure(eligibility.code, "idle"));
+      if (!eligibility.eligible) return stateResult(failure(/** @type {string} */(eligibility.code), "idle"));
       if (consent?.enabled !== true) return stateResult(failure("consent-required", "idle"));
       if (!outbound || !credentials) return unavailable("storage-unavailable");
       return withOperationLock(OPERATION_NAMES.create, () => createLocked({ sections, source, sourceAfter }));
     }
     async function claimLocked() {
       const eligibility = contextEligibility({ action: "claim", context });
-      if (!eligibility.eligible) return stateResult(failure(eligibility.code, "idle"));
+      if (!eligibility.eligible) return stateResult(failure(/** @type {string} */(eligibility.code), "idle"));
       if (!inbound || !credentials) return unavailable("storage-unavailable");
       let marker;
       try { marker = await inbound.read(); }
@@ -801,16 +877,15 @@ export function createInstallTransfer(capabilities) {
       if (marker !== null && marker !== undefined && (typeof marker !== "object" || Array.isArray(marker))) {
         return stateResult(unavailable("marker-invalid", "unknown-outcome"));
       }
-      const markerPresent = marker !== null && marker !== undefined;
-      if (["local-committed", "cleanup-pending", "cleared"].includes(marker?.phase)) {
+      if (oneOf(["local-committed", "cleanup-pending", "cleared"],marker?.phase)) {
         return stateResult(unavailable("claim-state-changed", "unknown-outcome"));
       }
-      if (markerPresent && !Object.hasOwn(marker, "sealedCredentials")) {
+      if (marker != null && !Object.hasOwn(marker, "sealedCredentials")) {
         return stateResult(unavailable("marker-invalid", "unknown-outcome"));
       }
       let pair;
-      if (markerPresent) {
-        if (!["staged", "claiming", "claimed"].includes(marker.phase)) return stateResult(unavailable("marker-invalid", "unknown-outcome"));
+      if (marker != null) {
+        if (!oneOf(["staged", "claiming", "claimed"],marker.phase)) return stateResult(unavailable("marker-invalid", "unknown-outcome"));
         if (!validSealedCredential(marker.sealedCredentials, "standalone-inbound")) return stateResult(unavailable("marker-invalid", "unknown-outcome"));
         try { pair = await credentials.unseal("standalone-inbound", marker.sealedCredentials); } catch { return stateResult(unavailable("credential-unavailable", "terminalUnavailable")); }
       } else {
@@ -818,7 +893,7 @@ export function createInstallTransfer(capabilities) {
         if (!cookie) return stateResult(unavailable("transfer-cookie-missing", "terminalUnavailable"));
         let claimId;
         try { claimId = idFor(crypto); } catch { return stateResult(unavailable("claim-id-unavailable")); }
-        if (!contract.validateClaimId?.(claimId)?.ok) return stateResult(unavailable("claim-id-invalid"));
+        if (!(/** @type {Contract} */(contract)).validateClaimId?.(claimId)?.ok) return stateResult(unavailable("claim-id-invalid"));
         let sealedCredentials;
         try { sealedCredentials = await credentials.seal("standalone-inbound", { token: cookie.token, claimId }); }
         catch { return stateResult(unavailable("credential-seal-failed")); }
@@ -830,7 +905,7 @@ export function createInstallTransfer(capabilities) {
         }
         pair = { token: cookie.token, claimId };
       }
-      if (!validTransferToken(pair?.token) || !validString(pair?.claimId, { max: IDENTIFIER_MAX_CHARS }) || !contract.validateClaimId?.(pair.claimId)?.ok) return stateResult(unavailable("claim-credential-invalid", "terminalUnavailable"));
+      if (!validTransferToken(pair?.token) || !validString(pair?.claimId, { max: IDENTIFIER_MAX_CHARS }) || !(/** @type {Contract} */(contract)).validateClaimId?.(pair.claimId)?.ok) return stateResult(unavailable("claim-credential-invalid", "terminalUnavailable"));
       if (marker?.phase === "staged") {
         try { await inbound.write({ ...marker, phase: "claiming" }); }
         catch { return stateResult(unavailable("marker-write-failed", "unknown-outcome")); }
@@ -845,18 +920,18 @@ export function createInstallTransfer(capabilities) {
       if (knownFailure) return stateResult(knownFailure.state === "terminalUnavailable" ? knownFailure : unavailable(knownFailure.code, "unknown-outcome"));
       if (!reply.ok || reply.status !== 200 || !exactKeys(reply.body, ["envelope", "expiresAt"]) || !strictUtcMilliseconds(reply.body.expiresAt)) return stateResult(unavailable("claim-unknown-outcome", "unknown-outcome"));
       let checked;
-      try { checked = await contract.validateEnvelopeIntegrity(reply.body.envelope, crypto); } catch { checked = failure("integrity-validation-failed"); }
+      try { checked = await (/** @type {Contract} */(contract)).validateEnvelopeIntegrity(reply.body.envelope, crypto); } catch { checked = failure("integrity-validation-failed"); }
       if (!checked?.ok) return stateResult(unavailable("claim-unknown-outcome", "unknown-outcome"));
       let latest;
       try { latest = await inbound.read(); }
       catch { return stateResult(unavailable("claim-state-changed", "unknown-outcome")); }
       const credentialFields = ["version", "algorithm", "context", "keyId", "iv", "ciphertext"];
-      const sameClaimCredentials = credentialFields.every((field) => latest?.sealedCredentials?.[field] === marker.sealedCredentials?.[field]);
-      if (!["claiming", "claimed"].includes(latest?.phase) || !sameClaimCredentials) {
+      const sameClaimCredentials = credentialFields.every((field) => (/** @type {JsonRecord|null|undefined} */(latest?.sealedCredentials))?.[field] === (/** @type {JsonRecord|null|undefined} */(marker?.sealedCredentials))?.[field]);
+      if (!latest || !oneOf(["claiming", "claimed"],latest.phase) || !sameClaimCredentials) {
         return stateResult(unavailable("claim-state-changed", "unknown-outcome"));
       }
       if (latest.phase === "claiming") {
-        try { await inbound.write({ ...latest, phase: "claimed", sealedCredentials: marker.sealedCredentials, expiresAt: reply.body.expiresAt }); }
+        try { await inbound.write({ ...latest, phase: "claimed", sealedCredentials: marker?.sealedCredentials, expiresAt: reply.body.expiresAt }); }
         catch { return stateResult(unavailable("marker-write-failed", "unknown-outcome")); }
       }
       return stateResult(success({ state: "validating", envelope: checked.value || reply.body.envelope, expiresAt: reply.body.expiresAt }));
@@ -898,18 +973,23 @@ export function createInstallTransfer(capabilities) {
     async function commit() {
       return withOperationLock(OPERATION_NAMES.commit, commitLocked);
     }
+    /** @param {CredentialPair} pair @param {JsonRecord} marker */
     async function tokenDigestFor(pair, marker) {
       if (validString(marker?.tokenDigest, { max: IDENTIFIER_MAX_CHARS })) return success({ value: marker.tokenDigest });
       try {
-        const digest = await digestString(pair.token, crypto);
+        const digest = await digestString(/** @type {string} */(pair.token), crypto);
         return validString(digest, { max: IDENTIFIER_MAX_CHARS }) ? success({ value: digest }) : failure("credential-hash-failed");
       } catch { return failure("credential-hash-failed"); }
     }
+    /** @param {JsonRecord} marker */
     async function finishOutboundCleanup(marker) {
+      // statusLocked() checks these capabilities before resuming cleanup.
+      const outbound = /** @type {NonNullable<StorageAdapters["outbound"]>} */(storage?.outbound);
+      const credentials = /** @type {CredentialVault} */(storage?.credentials);
       const remoteState = marker?.cleanupState;
-      const recovery = marker?.recoverySnapshot;
-      if (!["deleted", "expired"].includes(remoteState) || !recovery || !validString(recovery.tokenDigest, { max: IDENTIFIER_MAX_CHARS })) return unavailable("cleanup-marker-invalid", "unknown-outcome");
-      const sealed = marker.sealedCredentials || (marker.credentialKeyId ? { keyId: marker.credentialKeyId } : null);
+      const recovery = /** @type {JsonRecord|null|undefined} */(marker?.recoverySnapshot);
+      if (!oneOf(["deleted", "expired"],remoteState) || !recovery || !validString(recovery.tokenDigest, { max: IDENTIFIER_MAX_CHARS })) return unavailable("cleanup-marker-invalid", "unknown-outcome");
+      const sealed = /** @type {{keyId?:unknown}|null} */(marker.sealedCredentials || (marker.credentialKeyId ? { keyId: marker.credentialKeyId } : null));
       if (!sealed?.keyId) return unavailable("credential-unavailable", "unknown-outcome");
       if (!clearTransferCookie({ document, location })) return unavailable("cookie-clear-failed", "unknown-outcome");
       try { await credentials.forget("browser-outbound", sealed); }
@@ -925,6 +1005,7 @@ export function createInstallTransfer(capabilities) {
       recoveryState = "none";
       return stateResult(success({ state: "idle", remoteState: "expired", expiresAt: recovery.expiresAt }));
     }
+    /** @param {{source?:Source}} [options] */
     async function statusLocked({ source } = {}) {
       if (context !== "browser") return stateResult(failure("wrong-context", "idle"));
       if (!outbound || !credentials) return unavailable("storage-unavailable");
@@ -934,7 +1015,7 @@ export function createInstallTransfer(capabilities) {
       if (marker?.phase === "confirmed" && marker.recoverySnapshot) {
         if (!clearTransferCookie({ document, location })) return unavailable("cookie-clear-failed", "unknown-outcome");
         recoveryState = "confirmed";
-        return stateResult(success({ state: "confirmed", remoteState: "deleted", expiresAt: marker.recoverySnapshot.expiresAt, recoverySnapshot: marker.recoverySnapshot }));
+        return stateResult(success({ state: "confirmed", remoteState: "deleted", expiresAt: (/** @type {JsonRecord} */(marker.recoverySnapshot)).expiresAt, recoverySnapshot: marker.recoverySnapshot }));
       }
       if (marker?.phase === "resumedDiverged") {
         recoveryState = "resumedDiverged";
@@ -949,8 +1030,8 @@ export function createInstallTransfer(capabilities) {
       if (!reply.ok && reply.code === "network-failure") return stateResult(unavailable("status-unavailable", "unknown-outcome"));
       if (!reply.ok) return stateResult(unavailable("status-unavailable", "unknown-outcome"));
       if (reply.status === 404 && exactKeys(reply.body, ["state"]) && reply.body.state === "unavailable") return stateResult(unavailable("status-unavailable", "unknown-outcome"));
-      if (reply.status !== 200 || !exactKeys(reply.body, ["state", "expiresAt"]) || !REMOTE_STATES.has(reply.body.state) || !strictUtcMilliseconds(reply.body.expiresAt)) return stateResult(unavailable("invalid-response", "unknown-outcome"));
-      if (["available", "claiming"].includes(reply.body.state)) return pendingStatus(reply.body.state, reply.body.expiresAt);
+      if (reply.status !== 200 || !exactKeys(reply.body, ["state", "expiresAt"]) || !(typeof reply.body.state === "string" && REMOTE_STATES.has(reply.body.state)) || !strictUtcMilliseconds(reply.body.expiresAt)) return stateResult(unavailable("invalid-response", "unknown-outcome"));
+      if (oneOf(["available", "claiming"],reply.body.state)) return pendingStatus(reply.body.state, reply.body.expiresAt);
       if (reply.body.state === "deleted") {
         const digest = await tokenDigestFor(pair, marker);
         if (!digest.ok) return unavailable("status-unknown-outcome", "unknown-outcome");
@@ -960,15 +1041,15 @@ export function createInstallTransfer(capabilities) {
           tokenDigest: digest.value,
           confirmedAt,
           expiresAt: reply.body.expiresAt,
-          sourceRevision: Number.isSafeInteger(marker.sourceRevision) ? marker.sourceRevision : undefined,
-          mutatedAfterCreation: marker.mutatedAfterCreation === true || (Number.isSafeInteger(source?.sourceRevision) && marker.sourceRevision !== undefined && source.sourceRevision !== marker.sourceRevision),
+          sourceRevision: safeInteger(marker.sourceRevision) ? marker.sourceRevision : undefined,
+          mutatedAfterCreation: marker.mutatedAfterCreation === true || (safeInteger(source?.sourceRevision) && marker.sourceRevision !== undefined && source.sourceRevision !== marker.sourceRevision),
         };
         if (recovery.sourceRevision === undefined) delete recovery.sourceRevision;
         try {
-          await outbound.write({ version: 1, phase: "cleanup-pending", cleanupState: "deleted", recoverySnapshot: recovery, sealedCredentials: marker.sealedCredentials, credentialKeyId: marker.sealedCredentials.keyId });
+          await outbound.write({ version: 1, phase: "cleanup-pending", cleanupState: "deleted", recoverySnapshot: recovery, sealedCredentials: marker.sealedCredentials, credentialKeyId: (/** @type {JsonRecord} */(marker.sealedCredentials)).keyId });
         } catch { return unavailable("marker-write-failed", "unknown-outcome"); }
         if (!clearTransferCookie({ document, location })) return unavailable("cookie-clear-failed", "unknown-outcome");
-        return finishOutboundCleanup({ version: 1, phase: "cleanup-pending", cleanupState: "deleted", recoverySnapshot: recovery, sealedCredentials: marker.sealedCredentials, credentialKeyId: marker.sealedCredentials.keyId });
+        return finishOutboundCleanup({ version: 1, phase: "cleanup-pending", cleanupState: "deleted", recoverySnapshot: recovery, sealedCredentials: marker.sealedCredentials, credentialKeyId: (/** @type {JsonRecord} */(marker.sealedCredentials)).keyId });
       }
       if (reply.body.state === "expired") {
         const digest = await tokenDigestFor(pair, marker);
@@ -977,10 +1058,10 @@ export function createInstallTransfer(capabilities) {
         if (!confirmedAt) return unavailable("status-unknown-outcome", "unknown-outcome");
         const recovery = { tokenDigest: digest.value, confirmedAt, expiresAt: reply.body.expiresAt };
         try {
-          await outbound.write({ version: 1, phase: "cleanup-pending", cleanupState: "expired", recoverySnapshot: recovery, sealedCredentials: marker.sealedCredentials, credentialKeyId: marker.sealedCredentials.keyId });
+          await outbound.write({ version: 1, phase: "cleanup-pending", cleanupState: "expired", recoverySnapshot: recovery, sealedCredentials: marker.sealedCredentials, credentialKeyId: (/** @type {JsonRecord} */(marker.sealedCredentials)).keyId });
         } catch { return unavailable("marker-write-failed", "unknown-outcome"); }
         if (!clearTransferCookie({ document, location })) return unavailable("cookie-clear-failed", "unknown-outcome");
-        return finishOutboundCleanup({ version: 1, phase: "cleanup-pending", cleanupState: "expired", recoverySnapshot: recovery, sealedCredentials: marker.sealedCredentials, credentialKeyId: marker.sealedCredentials.keyId });
+        return finishOutboundCleanup({ version: 1, phase: "cleanup-pending", cleanupState: "expired", recoverySnapshot: recovery, sealedCredentials: marker.sealedCredentials, credentialKeyId: (/** @type {JsonRecord} */(marker.sealedCredentials)).keyId });
       }
       if (reply.body.state === "claimed-expired") {
         recoveryState = "resumeWarning";
@@ -988,6 +1069,7 @@ export function createInstallTransfer(capabilities) {
       }
       return stateResult(unavailable("status-unavailable", "unknown-outcome"));
     }
+    /** @param {{source?:Source}} [options] */
     async function status(options) {
       return withOperationLock(OPERATION_NAMES.status, () => statusLocked(options));
     }
@@ -1052,7 +1134,7 @@ export function createInstallTransfer(capabilities) {
     buildEnvelope,
     captureLogicalSnapshot,
     logicalStateDigest,
-    validateTransferToken: (value) => validTransferToken(value),
+    validateTransferToken: (/** @type {unknown} */ value) => validTransferToken(value),
     contextEligibility,
     contextFrom,
     writeTransferCookie,
