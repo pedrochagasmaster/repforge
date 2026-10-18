@@ -1,0 +1,257 @@
+/** @typedef {import('./editor-contracts.js').EditorDocument} EditorDocument
+ * @typedef {import('./editor-contracts.js').EditorRow} EditorRow
+ * @typedef {import('./editor-contracts.js').ProgramSlot} ProgramSlot
+ * @typedef {import('./editor-contracts.js').MetricDefinition} MetricDefinition
+ * @typedef {import('./editor-contracts.js').TargetEdit} TargetEdit
+ * @typedef {import('../../model/internal/contracts.js').LibraryEntry & {sets?:number,min?:number,max?:number}} LibraryEntry
+ */
+/** Speculative program editor documents. Mutations touch only the caller's cloned
+ * document; installed/setup application commands own validation and publication. */
+import {cloneSnapshot as clone} from '../../model.js';
+import {definitionFor,definitionSlot} from './suggestion.js';
+const REP_TARGET_SEMANTICS = new Set(['reps','repsPerSide']);
+/** @param {unknown} value */
+const number=value=>{const n=Number(value);return Number.isFinite(n)?n:0};
+/** @param {unknown} value @param {number} fallback */
+const positiveInt=(value,fallback)=>{const n=Math.round(number(value));return n>0?n:fallback};
+export const PROGRAM_EDITOR_INTENTS = Object.freeze([
+    "program_name", "day_name", "day_add", "exercise_field", "prescription",
+    "exercise_add", "exercise_remove", "day_remove", "exercise_replace",
+    "exercise_move", "slot_alternates", "metric_target", "metric_composition",
+    "prescription_field", "load_step", "suggest_loads", "suggest_loads_rir", "execution_mode",
+    "save_draft", "apply", "apply_discard_workout",
+  ]);
+
+/** @param {{nextId:()=>string}} options */
+export function createEditorDocumentRules({nextId:uid}) {
+  /** @param {Partial<EditorDocument>} document */
+  function metaDays(document) {
+    const entries = document?.programMeta?.programStructure?.days;
+    return Array.isArray(entries) ? entries : [];
+  }
+  /** @param {Partial<EditorDocument>} document */
+  function labels(document) {
+    const out = [], seen = new Set();
+    for (const entry of metaDays(document)) {
+      const label = String(entry?.label || entry?.dayId || "").trim();
+      if (label && !seen.has(label)) { seen.add(label); out.push(label); }
+    }
+    for (const exercise of Array.isArray(document?.program) ? document.program : []) {
+      const label = String(exercise?.day || "").trim();
+      if (label && !seen.has(label)) { seen.add(label); out.push(label); }
+    }
+    return out;
+  }
+  /** @param {Partial<EditorDocument>} document @param {string} day */
+  function exercisesFor(document, day) {
+    return (Array.isArray(document?.program) ? document.program : [])
+      .filter(exercise => exercise?.day === day)
+      .sort((a, b) => number(a.order) - number(b.order) || String(a.name || "").localeCompare(String(b.name || "")));
+  }
+  /** @param {EditorDocument} document */
+  function normalizeOrders(document) {
+    const rows = Array.isArray(document.program) ? document.program : [];
+    for (const day of labels(document)) exercisesFor({ program: rows }, day).forEach((exercise, index) => { exercise.order = index + 1; });
+    return document;
+  }
+  /** @param {Partial<EditorDocument>} document @param {string} label */
+  function structureFor(document, label) {
+    return metaDays(document).find(entry => String(entry?.label || entry?.dayId || "") === label) || null;
+  }
+  /** @param {ProgramSlot|null|undefined} slot @param {number} cycleIndex */
+  function definitionCycle(slot, cycleIndex) {
+    return (slot?.prescriptionsByCycle || []).find(cycle => cycle?.cycleIndex === cycleIndex) || null;
+  }
+  /** @param {EditorDocument} document @param {string} slotId @param {number} cycleIndex @param {number} setIndex */
+  function definitionSet(document, slotId, cycleIndex, setIndex) {
+    const cycle = definitionCycle(definitionSlot(document, slotId), cycleIndex);
+    return (cycle?.sets || []).find(set => set?.setIndex === setIndex) || null;
+  }
+  /** @param {EditorDocument} document @param {EditorRow} exercise @param {number} cycleIndex */
+  function setCountFor(document, exercise, cycleIndex) {
+    const slot = definitionSlot(document, exercise?.slotId || exercise?.id || '');
+    const cycle = definitionCycle(slot, cycleIndex);
+    return Array.isArray(cycle?.sets) ? cycle.sets.length : positiveInt(exercise?.sets, 1);
+  }
+  /** @param {ProgramSlot|null|undefined} slot */
+  function editableMetricComposition(slot) {
+    return !!slot && (slot.metricOrigin === "user_defined" || !slot.metricIds?.length);
+  }
+  /** @param {EditorDocument} document @param {EditorRow} exercise @param {string[]} metricIds @param {MetricDefinition[]} definitions */
+  function replaceMetricComposition(document, exercise, metricIds, definitions) {
+    const slotId = exercise?.slotId || exercise?.id || '';
+    const slot = definitionSlot(document, slotId);
+    if (!slot || !editableMetricComposition(slot)) return false;
+    const keepSemantics = new Set(definitions.map(definition => definition.semantic));
+    slot.metricIds = clone(metricIds);
+    slot.metricDefinitions = clone(definitions);
+    slot.metricOrigin = String(slot.exerciseId || exercise.libraryId || "").startsWith("custom:") || metricIds.length
+      ? "user_defined" : "source_catalog";
+    // Schema v2: a set derives its metric composition from its slot rather
+    // than storing it again, so only the slot above is rewritten here.
+    for (const cycle of slot.prescriptionsByCycle || []) for (const set of cycle.sets || []) {
+      set.targets = Object.fromEntries(Object.entries(set.targets || {}).filter(([semantic]) => keepSemantics.has(semantic)));
+      set.status = metricIds.length ? "manual" : "configuration_required";
+      set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: "manual@1" };
+    }
+    const custom = (document.customExercises || []).find(entry => entry?.id === slot.exerciseId);
+    if (custom) {
+      custom.metricIds = clone(metricIds);
+      custom.metricDefinitions = clone(definitions);
+    }
+    const row = (document.program || []).find(candidate => (candidate.slotId || candidate.id) === slotId);
+    if (row) {
+      row.metricIds = clone(metricIds);
+      row.metricDefinitions = clone(definitions);
+      row.metricOrigin = slot.metricOrigin;
+      row.prescriptionsByCycle = clone(slot.prescriptionsByCycle || []);
+    }
+    return true;
+  }
+  /** @param {EditorDocument} document @param {string} slotId @param {number} cycleIndex @param {number} setIndex @param {string} semantic @param {TargetEdit} after */
+  function replaceMetricTarget(document, slotId, cycleIndex, setIndex, semantic, after) {
+    const set = definitionSet(document, slotId, cycleIndex, setIndex);
+    if (!set) return false;
+    const targets = { ...(set.targets || {}) };
+    if (after.present) targets[semantic] = clone(after.value);
+    else delete targets[semantic];
+    set.targets = targets;
+    // Plan 069 D3: the rep range is an input of the suggestion, so editing it
+    // keeps an adaptive set adaptive. Any other target is the lifter's own.
+    if (!(set.status === "ready" && REP_TARGET_SEMANTICS.has(semantic))) {
+      set.status = "manual";
+      set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: "manual@1" };
+    }
+    const row = (document.program || []).find(candidate => (candidate.slotId || candidate.id) === slotId);
+    const slot = definitionSlot(document, slotId);
+    if (row && slot) row.prescriptionsByCycle = clone(slot.prescriptionsByCycle || []);
+    return true;
+  }
+
+  /** @param {EditorDocument} document */
+  function ensureStructure(document) {
+    if (!document.programMeta || typeof document.programMeta !== "object") document.programMeta = {};
+    const current = metaDays(document);
+    if (!current.length) {
+      document.programMeta.programStructure = {
+        ...(document.programMeta.programStructure || {}),
+        days: labels(document).map((label, index) => ({ dayId: `manual_d${index + 1}`, label, order: index + 1 })),
+      };
+    }
+    return document;
+  }
+  /** @param {EditorDocument} document @param {string} oldLabel @param {string} nextLabel */
+  function setDayLabel(document, oldLabel, nextLabel) {
+    const value = String(nextLabel || "").trim();
+    if (!value || value === oldLabel || labels(document).includes(value)) return false;
+    for (const exercise of document.program || []) if (exercise.day === oldLabel) exercise.day = value;
+    const structure = metaDays(document);
+    const entry = structure.find(item => String(item?.label || item?.dayId || "") === oldLabel);
+    if (entry) {
+      entry.label = value;
+      entry.nameOverride = value;
+    } else {
+      document.programMeta.programStructure = {
+        ...(document.programMeta.programStructure || {}),
+        days: structure.concat({ dayId: `manual_d${structure.length + 1}`, label: value, order: structure.length + 1 }),
+      };
+    }
+    normalizeOrders(document);
+    return true;
+  }
+  /** @param {EditorDocument} document */
+  function appendDay(document) {
+    const current = labels(document);
+    let n = current.length + 1, label = `Day ${n}`;
+    while (current.includes(label)) label = `Day ${++n}`;
+    const structure = metaDays(document).slice();
+    structure.push({ dayId: `manual_d${structure.length + 1}`, label, order: structure.length + 1 });
+    document.programMeta.programStructure = { ...(document.programMeta.programStructure || {}), days: structure };
+    return label;
+  }
+  /** @param {EditorDocument} document @param {string} day */
+  function removeDayFromDocument(document, day) {
+    document.program = (document.program || []).filter(exercise => exercise.day !== day);
+    const structure = metaDays(document).filter(entry => String(entry?.label || entry?.dayId || "") !== day);
+    document.programMeta.programStructure = structure.length
+      ? { ...(document.programMeta.programStructure || {}), days: structure }
+      : null;
+    normalizeOrders(document);
+  }
+  /** @param {EditorRow} exercise @param {string} field @param {unknown} value */
+  function fieldValue(exercise, field, value) {
+    if (field === "sets") return Math.max(1, Math.min(100, positiveInt(value, positiveInt(exercise.sets, 1))));
+    if (field === "min") return positiveInt(value, positiveInt(exercise.min, 1));
+    if (field === "max") return positiveInt(value, positiveInt(exercise.max, 1));
+    return String(value ?? "").trim();
+  }
+  /** @param {LibraryEntry} entry @param {string} day @param {number} order */
+  function entryFields(entry, day, order) {
+    return {
+      id: uid(), day, order, name: String(entry?.name || entry?.namePt || "Exercise"),
+      sets: positiveInt(entry?.sets, 3), min: positiveInt(entry?.min, 6), max: positiveInt(entry?.max, 10),
+      primary: String(entry?.primary || ""), secondary: String(entry?.secondary || ""), notes: String(entry?.notes || ""),
+      ...(entry?.id ? { libraryId: String(entry.id), movementId: `library:${String(entry.id)}` } : {}),
+    };
+  }
+  /** @param {EditorDocument} document @param {string} day @param {LibraryEntry} entry */
+  function addExercise(document, day, entry) {
+    const list = exercisesFor(document, day), exercise = entryFields(entry, day, list.length + 1);
+    document.program = (document.program || []).concat(exercise);
+    return exercise;
+  }
+  /** @param {EditorDocument} document @param {string} id @param {LibraryEntry} entry */
+  function replaceExercise(document, id, entry) {
+    const exercise = (document.program || []).find(item => item.id === id);
+    if (!exercise || !entry) return false;
+    const old = { id: exercise.id, day: exercise.day||'', order: exercise.order||1, notes: exercise.notes };
+    const replacement = entryFields(entry, old.day, old.order);
+    // A replacement repoints the slot's movement identity but keeps its
+    // authored prescription and notes. Leaving the old movementId behind
+    // would make a paired-exposure relation look valid after a swap.
+    delete exercise.libraryId; delete exercise.movementId; delete exercise.displayName;
+    Object.assign(exercise, {
+      name: replacement.name, primary: replacement.primary, secondary: replacement.secondary,
+      ...(replacement.libraryId ? { libraryId: replacement.libraryId, movementId: replacement.movementId } : {}),
+      notes: old.notes,
+    });
+    return true;
+  }
+  /** @param {EditorDocument} document @param {string} id @param {string} toDay @param {number} toIndex */
+  function reorder(document, id, toDay, toIndex) {
+    const rows = document.program || [], exercise = rows.find(item => item.id === id);
+    if (!exercise || !labels(document).includes(toDay)) return false;
+    const sourceDay = exercise.day||'', source = exercisesFor(document, sourceDay), sourceIndex = source.findIndex(item => item.id === id);
+    if (sourceIndex < 0) return false;
+    const destination = exercisesFor(document, toDay).filter(item => item.id !== id);
+    const at = Math.max(0, Math.min(Number.isInteger(toIndex) ? toIndex : destination.length, destination.length));
+    exercise.day = toDay;
+    destination.splice(at, 0, exercise);
+    for (const item of rows) if (item.id !== id && item.day === sourceDay && !destination.includes(item)) item.order = 0;
+    destination.forEach((item, index) => { item.day = toDay; item.order = index + 1; });
+    normalizeOrders(document);
+    return sourceDay !== toDay || sourceIndex !== at;
+  }
+
+  /** @param {EditorDocument} document */
+  function validation(document) {
+    const issues = [];
+    for (const day of labels(document)) {
+      const list = exercisesFor(document, day);
+      if (!list.length) issues.push(`day_empty:${day}`);
+      for (const exercise of list) {
+        if (!exercise.id) issues.push("exercise_invalid:id");
+        if (!String(exercise.name || "").trim()) issues.push(`exercise_invalid:${exercise.id}:name`);
+        const sets = number(exercise.sets), min = number(exercise.min), max = number(exercise.max);
+        // A metric composition without repetitions (duration, distance, or a
+        // custom movement not yet configured) carries no rep range to check.
+        const reps = exercise.hasRepTarget !== false;
+        if (!(sets > 0) || reps && (!(min > 0) || !(max >= min))) issues.push(`exercise_invalid:${exercise.id}:prescription`);
+      }
+    }
+    return issues;
+  }
+
+
+return Object.freeze({metaDays,labels,exercisesFor,normalizeOrders,structureFor,definitionCycle,definitionSet,setCountFor,editableMetricComposition,replaceMetricComposition,replaceMetricTarget,ensureStructure,setDayLabel,appendDay,removeDayFromDocument,fieldValue,entryFields,addExercise,replaceExercise,reorder,validation});
+}

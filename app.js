@@ -48,7 +48,8 @@ import * as SnapshotPolicy from './src/persistence/snapshot.js';
 import {createDurableStore} from './src/persistence/durable.js';
 import {createPreferences} from './src/persistence/preferences.js';
 import {createProgramModel,PROGRESSION_VALUE_LIMITS} from './src/training/model.js';
-import {createEntryRules,createInstalledEditorRules} from './src/training/authoring.js';
+import {createEntryRules,createInstalledEditorRules,suggestion} from './src/training/authoring.js';
+import {createProgramEditor} from './src/ui/editors/program.js';
 import {createWorkoutRules} from './src/training/workout.js';
 import PersistenceMetrics from './src/training/metrics.js';
 import {progression as PersistenceProgression,schedule} from './src/training/progress.js';
@@ -7996,7 +7997,7 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     const after=edit.on?(adaptive?"ready":"pending"):"off";
     if(slot.exerciseId!==edit.before?.exerciseId||(current!==edit.before?.state&&current!==after))return false;
     if(edit.on&&editorSuggestLoadsPolicy.eligibility(slot)!=="eligible")return false;
-    if(!window.ProgramEditorSuggestLoads?.set(document,slotId,edit.on))return false;
+    if(!suggestion?.set(document,slotId,edit.on))return false;
   }else if(edit?.kind==="suggest_loads_rir"){
     const {slot}=find(slotId);
     if(!slot||!Array.isArray(edit.before))return false;
@@ -8006,7 +8007,7 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     if(after===null&&sets.some(set=>set.status==="ready"))return false;
     const current=sets.map(set=>set.rir??null);
     if(!changeValueEqualForEditor(current,edit.before)&&!current.every(value=>value===after))return false;
-    window.ProgramEditorSuggestLoads?.setRir(document,slotId,after);
+    suggestion?.setRir(document,slotId,after);
     syncEditorRowFromCanonical(document,slot,cycleIndex);
   }else if(edit?.kind==="execution_mode"){
     const {slot}=find(slotId);
@@ -8161,7 +8162,7 @@ const programCommands=createProgramCommands({read:applicationSession.read,refres
   defaultMeta:log=>defaultProgramMeta(log),now:()=>new Date().toISOString(),
   commit:(proposal,opts)=>commitProposedState(proposal,storageIO,opts),
   authoring:{token:installedEditorToken,tokenEqual:editorTokenEqual,rebaseDocument:editorRebaseDocument,
-    confirmOptIn:candidate=>window.ProgramEditorSuggestLoads?.confirm(candidate,editorSuggestLoadsPolicy)||{ok:false,issues:[]},
+    confirmOptIn:candidate=>suggestion?.confirm(candidate,editorSuggestLoadsPolicy)||{ok:false,issues:[]},
     impact:installedEditorImpact,snapshotFromDocument:editorSnapshotFromDocument},
   drafts:{readRaw:readDraftRaw,clearEffect:destructiveDraftClearEffect,dayReplacementEffect:draftDayReplacementEffect}});
 function createInstalledProgramEditorAdapter(){
@@ -8286,19 +8287,26 @@ function updateOnboardingEditorActions(){
   status.setAttribute("aria-live",issues.length?"assertive":"polite");
 }
 let onboardingEditorAnnounced=null;
+let mountedProgramEditorInstance=null;
+function mountedProgramEditor(){
+  return mountedProgramEditorInstance||(mountedProgramEditorInstance=createProgramEditor({window,nextId:uid,
+    motion:{animateExerciseReorder:(...args)=>window.RepForgeMotion?.animateExerciseReorder(...args)},
+    sorting:{read:()=>window.DndKit||null,available:()=>window.RepForgeDndRuntime?.available()===true,
+      load:()=>window.RepForgeDndRuntime?.load()||Promise.resolve(null)}}));
+}
 function mountOnboardingProgramEditor(){
-  const host=$("#onbProgramEditor");if(!host||!window.mountProgramEditor)return null;
+  const host=$("#onbProgramEditor");if(!host)return null;
   onboardingEditorAnnounced=null;
   onboardingProgramEditor?.dispose?.();
-  onboardingProgramEditor=window.mountProgramEditor(host,createOnboardingProgramEditorAdapter());
+  onboardingProgramEditor=mountedProgramEditor().mountProgramEditor(host,createOnboardingProgramEditorAdapter());
   const status=host.querySelector('[data-role="editor-status"]');if(status)status.id="entryEditorStatus";
   return onboardingProgramEditor;
 }
 function mountInstalledProgramEditor(){
-  const host=$("#programEditor");if(!host||!window.mountProgramEditor)return null;
+  const host=$("#programEditor");if(!host)return null;
   installedProgramEditor?.dispose?.();
   installedEditorSession=null;
-  installedProgramEditor=window.mountProgramEditor(host,createInstalledProgramEditorAdapter());
+  installedProgramEditor=mountedProgramEditor().mountProgramEditor(host,createInstalledProgramEditorAdapter());
   return installedProgramEditor;
 }
 function disposeProgramEditors(){
@@ -13025,7 +13033,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     renderOnboarding();
     return{invalid:true,code:"program-definition-required"}}
   if(route==="build"){
-    const confirmed=window.ProgramEditorSuggestLoads?.confirm({program:[],
+    const confirmed=suggestion?.confirm({program:[],
       programMeta:{programDefinition,suggestLoadsPending:cloneSnapshot(preview?.suggestLoadsPending||[])}},editorSuggestLoadsPolicy);
     const checked=confirmed?.ok?canonicalProgramDefinition(confirmed.document.programMeta.programDefinition,baseProposal.customExercises||[]):null;
     if(!checked){

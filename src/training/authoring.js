@@ -6,3 +6,5 @@ export { createInstalledEditorRules } from "./authoring/internal/installed.js";
 export { default as suggestion } from "./authoring/internal/suggestion.js";
 
 export { createEntryAdapter } from "./authoring/internal/adapter.js";
+
+export {createEditorDocumentRules,PROGRAM_EDITOR_INTENTS} from './authoring/internal/editor-document.js';
