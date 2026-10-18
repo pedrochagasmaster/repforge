@@ -1,5 +1,5 @@
-const CACHE = "repforge-v480";
-const SOURCE_RELEASE = "source-480";
+const CACHE = "repforge-v481";
+const SOURCE_RELEASE = "source-481";
 const ASSETS = [
   // BEGIN GENERATED NATIVE SOURCE ASSETS
   "./src/app/block-review.js",
@@ -177,6 +177,7 @@ const ASSETS = [
   "./src/ui/storage-recovery.js",
   "./src/ui/today/controller.js",
   "./src/ui/today/view.js",
+  "./src/ui/workout/recovery.js",
   "./src/ui/workout/reminder.js",
   "./src/ui/workout/session-sheet.js",
   "./src/ui/workout/summary.js",
@@ -186,7 +187,7 @@ const ASSETS = [
   { url: "./vendor/dnd-kit/dnd-kit.js", owner: "RepForgeDndRuntime", required: false },
   { url: "./vendor/dnd-kit/dnd-kit.runtime.js", owner: "RepForgeDndRuntime", required: false, immutable: true },
   { url: "./posthog-config.js", owner: "RepForgeTelemetry", required: false },
-  "./i18n.js", "./exercises.js", "./assets/exercise-catalog.json?v=067", "./app.js", "./app.js?v=480",
+  "./i18n.js", "./exercises.js", "./assets/exercise-catalog.json?v=067", "./app.js", "./app.js?v=481",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",

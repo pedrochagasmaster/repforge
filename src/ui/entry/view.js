@@ -189,3 +189,17 @@ function renderEntryHub(model){
     `<p class="entry-hub__link"><span class="icon-mask icon-mask--clipboard icon-mask--sm" aria-hidden="true"></span><span>${esc(t("entry.hub.b.link_note"))}</span></p>`}
 return Object.freeze({renderHub:renderEntryHub,renderSource:renderFreeformSourceStep,renderApps:(/** @type {FreeformModel} */ model)=>Object.keys(FREEFORM_APPS).map(app=>freeformAppLink(app,model)).join(""),countLabel,noteText});
 }
+
+/** Resume copy is requested only when the card is actually shown. The entry
+ * sentinel names the hub, not a question called "entry".
+ * @param {{step?:string,route?:string|null,updatedAt?:string}|null} candidate
+ * @param {string|null} notice
+ * @param {(key:string)=>string} t
+ * @param {(route:string)=>string} routeLabel
+ */
+export function entryResumeCopy(candidate,notice,t,routeLabel){
+  const resuming=notice==='resume';
+  const key=candidate?.step==='entry'?'entry.hub.title':candidate?.step==='shared_review'?'entry.preview.title':candidate?.step?`entry.${candidate.step}.title`:null;
+  return {updatedAt:candidate?.updatedAt||null,routeLabel:resuming&&candidate?.route?routeLabel(candidate.route):'',
+    stepLabel:resuming&&key?t(key):''};
+}

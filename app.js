@@ -1,3 +1,5 @@
+import {draftRecoveryMessageKind,initializationRecoveryKind} from './src/ui/workout/recovery.js';
+import {entryResumeCopy} from './src/ui/entry/view.js';
 import {createImportReview} from './src/ui/entry/import/review.js';
 import {createWorkoutReminder} from './src/app/workout-reminder.js';
 import {createWorkoutReminderView} from './src/ui/workout/reminder.js';
@@ -1202,24 +1204,6 @@ function restoreDraftFocus(identity){
     // control the lifter can actually use, not the dormant one (R7 C-01).
     if(el.matches(".shelf__input")&&!el.closest(".shelf__field.is-editing"))el=shelfReveal(el)||el;
     try{el.focus();if(identity.start!=null&&typeof el.setSelectionRange==="function")el.setSelectionRange(identity.start,identity.end??identity.start)}catch{}})}
-function draftRecoveryMessageKind(status,initialization=false){
-  // A legacy flat draft that cannot migrate against the current program
-  // (metric composition, identity, or any other structural mismatch the
-  // migrator refuses to guess at) reads the same "earlier program" notice as
-  // a stale V2 draft: the lifter's program moved on, and the typed values
-  // stay in recovery until they choose export or clear.
-  // unmapped-legacy-metric is migrateLegacy's explicit refusal to guess a
-  // legacy load/reps value onto an ambiguous metric-backed composition (a
-  // per-side or assistance load, a per-side rep count, or a missing metric;
-  // see workout-draft.js, issue #332). It is the same "cannot migrate against
-  // the current program" situation invalid-migrated-draft already covers.
-  if(status==="invalid-migrated-draft"||status==="unmapped-legacy-metric")return"program";
-  if(status==="stale")return initialization?"program":"stale";
-  if(status==="lock-unavailable"||status==="read-failed"||status==="checkpoint-unreadable"||
-    status==="checkpoint-missing"||status==="checkpoint-conflict")return"unavailable";
-  if(initialization||status==="invalid"||status==="migration-error"||status==="legacy"||
-    String(status||"").includes("recovery"))return"invalid";
-  return"persist"}
 function renderDraftRecovery(){
   const root=$("#draftRecovery");if(!root)return;
   if(!draftUiRecovery){root.classList.add("hidden");return}
@@ -1262,12 +1246,11 @@ function showDraftCommandRecovery(status,attempt,{pendingValue=null,focus=null,r
     copyValue:pendingValue,copyKind:"value",focus,retry:status!=="stale",retryAction,discard:false};
   renderDraftRecovery();focusDraftRecovery()}
 function showDraftInitializationRecovery(result,{retryMode="initialize",label=day,contextTouched=null}={}){
-  // migrateLegacy's specific reason (e.g. invalid-migrated-draft) is the
-  // signal the copy map keys off; initializeWorkoutDraft only ever widens it
-  // to the generic "migration-error" status, so recover the exact code here.
-  const reason=result?.status==="migration-error"?result?.error?.code:result?.status;
-  const kind=draftRecoveryMessageKind(reason,true),raw=result?.raw??workoutDraftRecovery?.raw??null,
-    parsed=WorkoutDraft?.parse(raw),identity=parsed?.kind==="valid"?
+  // Present the contextual refusal only when it describes the raw draft shown
+  // here. The recovery projection leaves unrelated reconciliation failures
+  // non-destructive and preserves migration-specific copy.
+  const raw=result?.raw??workoutDraftRecovery?.raw??null,parsed=WorkoutDraft?.parse(raw),
+    kind=initializationRecoveryKind(result,parsed),identity=parsed?.kind==="valid"?
       {draftId:parsed.draft.draftId,revision:parsed.draft.revision}:null;
   // A legacy flat raw has no V2 identity to CAS on; it can still be cleared by
   // its exact raw bytes through DraftStore.removeLegacy (never a fuzzy match,
@@ -4785,8 +4768,7 @@ function entryHeading(title){
 function renderEntryHub({candidate=entryState,notice=entryUiNotice,choice=EntryUi.hubChoice()}={}){
   return EntryUi.renderHub({activeProgram:hasActiveProgram(),resuming:notice==="resume",choice,
     hasLegacyHints:!!candidate?.legacyHints&&Object.keys(candidate.legacyHints).length>0,
-    resume:{updatedAt:candidate?.updatedAt||null,routeLabel:candidate?.route?entryRouteLabel(candidate.route):"",
-      stepLabel:candidate?.step?t(`entry.${candidate.step}.title`):""}});
+    resume:entryResumeCopy(candidate,notice,t,entryRouteLabel)});
 }
 function entryChooseHubRoute(){
   const route=EntryUi.hubChoice();

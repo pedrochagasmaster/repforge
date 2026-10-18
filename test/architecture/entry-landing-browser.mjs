@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {launchChromium,waitForAppBoot} from '../browser.mjs';
+import {browserLanguage} from '../language-browser.mjs';
 const base=process.env.REPFORGE_URL||'http://localhost:8000/';
 const browser=await launchChromium();
 try{
@@ -32,8 +33,11 @@ try{
    await page.waitForFunction(()=>Number(document.querySelector('.firstrun-proof__rail [aria-current="step"]')?.getAttribute('data-go'))>0);
    assert.equal(await page.locator('.firstrun-proof__rail [aria-current="step"]').count(),1);
   }
+  const language=await browserLanguage(page);
+  await language.evaluate(owner=>owner.consumeMissingRequests());
   await page.click('#firstRunCreate');
   await page.locator('#onboarding.active').waitFor();
+  assert.deepEqual(await language.evaluate(owner=>owner.consumeMissingRequests()),[],`${locale}: fresh hub requests only valid copy`);
   assert.equal(await page.locator('.firstrun-proof__phone').count(),0);
   assert.deepEqual(await page.evaluate(()=>window.__repforgeLandingProof()),{open:false,listeners:0,observers:0,timers:0,frames:0,pinned:false,step:null,ticks:0});
   await page.click('#onbCancel');await page.click('#entryCancelDiscard');
@@ -42,6 +46,7 @@ try{
   assert.equal(await page.locator('#firstRunHeadline').innerText(),pt?'Escolha como você quer treinar.':'Choose how you want to train.');
   assert.equal(await page.locator('#firstRun').getAttribute('data-entry-visit'),'returning');
   assert.equal(await page.locator('.firstrun-proof__phone').count(),0);
+  assert.deepEqual(await language.evaluate(owner=>owner.consumeMissingRequests()),[],`${locale}: cancel and reopen requests only valid copy`);
   await page.evaluate(()=>{window.closeFirstRun();window.dispatchEvent(new Event('resize'));document.querySelector('#firstRun').dispatchEvent(new Event('scroll'))});
   assert.equal(await page.locator('.firstrun-proof__phone').count(),0);
   assert.deepEqual(errors,[]);
