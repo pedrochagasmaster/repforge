@@ -123,6 +123,7 @@ export const SUITES = {
     s("test/install-transfer-recovery.mjs", [], {"domains": ["install"], "cost": "normal", "tier": "feedback", "nodeArgs": ["--test"]}),
   ],
   "state": [
+    s("test/native-program-sharing-lifetime.mjs", [], {domains:["program","entry"],seconds:10}),
     s("test/native-review-lifetime.mjs", [], {domains:["program","entry"],seconds:10}),
     s("test/native-editor-lifetime.mjs", [], {domains:["program","entry"],seconds:10}),
     s("test/exercise-chart-owner.mjs", [], {domains:["progress","history"],seconds:15}),

@@ -53,6 +53,7 @@
     "../../src/ui/editors.js",
     "../../src/app/storage-recovery.js",
     "../../src/ui/storage-recovery.js",
-    "../../src/app/custom-import.js"
+    "../../src/app/custom-import.js",
+    "../../src/app/program-sharing.js"
   ]
 }
