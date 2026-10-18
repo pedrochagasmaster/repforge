@@ -1,5 +1,6 @@
 import {createTelemetry} from './src/platform/telemetry.js';
 import {createPostHog} from './src/platform/posthog.js';
+import {createFocusInputs} from './src/ui/focus/inputs.js';
 import {createLedgerPresentation} from './src/ui/focus/ledger.js';
 import {createShelfPresentation} from './src/ui/focus/shelf.js';
 import {createEffortPresentation,EFFORT_STEPS,effortForRir} from './src/ui/focus/effort.js';
@@ -5241,16 +5242,8 @@ const workoutFocusKey=workoutControlFocus.key,focusWorkoutControl=workoutControl
 
 /** Keep the shelf and the open ledger row reading what a field now holds. */
 function syncShelfField(input,padDir=0){
-  const field=input.closest(".shelf__field");if(!field)return;
-  // A metric field writes the ledger column its metric fills (load or reps).
-  const metricId=field.dataset.metric,metric=metricId?focusMetricDefinitions(...setKeyParts(field.dataset.set)).find(item=>item.id===metricId):null;
-  const id=metric?(METRIC_FIELD_SEMANTICS.reps.includes(metric.semantic)?"reps":METRIC_FIELD_SEMANTICS.load.includes(metric.semantic)?"load":null):field.dataset.field;
-  const text=id==="reps"?String(input.value||""):shelfText(input.value);
-  const val=field.querySelector(".shelf__val");
-  if(val){const moved=val.textContent!==(text||"—");val.textContent=text||"—";if(moved)shelfValueMove(val,padDir)}
-  field.classList.remove("is-untouched");
-  const cell=id?input.closest(".exercise")?.querySelector(`.ledgerline--open [data-lv="${id}"]`):null;
-  if(cell){cell.textContent=text||"—";cell.classList.remove("is-soft")}}
+  const field=input.closest(".shelf__field");
+  FocusShelf.syncInput(input,{definitions:field?focusMetricDefinitions(...setKeyParts(field.dataset.set)):[],direction:padDir})}
 function setKeyParts(key){const text=String(key||""),at=text.lastIndexOf("_");return[text.slice(0,at),+text.slice(at+1)]}
 
 /** A field the draft flags must be seen, not just focused: bring its input into the shelf. */
@@ -5421,23 +5414,13 @@ function applyDraftIssue(issues){
  *  neighbouring card, so every focus control exists three times over; only the
  *  live one takes a handler. */
 const $w=sel=>$$(`#workout ${sel}`).filter(el=>!el.closest(".is-peek"));
+let FocusInputs;
+function focusInputs(){return FocusInputs||(FocusInputs=createFocusInputs({window,focus:focusUi,
+  read:()=>({draft:activeWorkoutDraft,unit:state.settings.unit,minJump:state.settings.minJump}),
+  commands:focusWorkoutCommands,shelf:FocusShelf,effort:FocusEffort,controls:workoutControlFocus,
+  onAcknowledged:async field=>{updateSaveMeta();if(field)await refreshAfterCommittedEdit(field)}}))}
 function bindWorkout(){
-  $w("input").forEach(i=>{i.oninput=async()=>{const row=i.closest(".shelf__field"),target=draftTargetFromKey(i.dataset.k);
-    const padDir=focusUi.padTap.get(i)||0;focusUi.padTap.delete(i);
-    if(!activeWorkoutDraft||!target?.field)return;
-    row?.classList.remove("is-suggested");
-    // The write may wait on the lock while the lifter moves on and the shelf is rebuilt: the value is held for
-    // those rebuilds, and the acknowledgement is applied to the control that is on screen then, not to this node.
-    const key=i.dataset.k,token=holdPendingField(key,i.value);
-    let result;
-    try{result=await focusWorkoutCommands.editField({target,rawValue:i.value})}
-    finally{releasePendingField(key,token)}
-    if(result.status!=="applied")return;
-    const live=liveShelfInput(key);
-    if(!live)return;
-    syncShelfField(live,padDir);
-    updateSaveMeta();await refreshAfterCommittedEdit(live.closest(".shelf__field"))};
-  i.onfocus=()=>i.select()});
+  focusInputs().bind();
   $w(".term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
   $w("[data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheet(b.dataset.why,b)});
   $w("[data-rest-act]").forEach(b=>b.onclick=()=>restAct(b.dataset.restAct));
@@ -5465,49 +5448,6 @@ function bindWorkout(){
     if(!activeWorkoutDraft||!target)return;
     const result=await focusWorkoutCommands.toggleWarmup({target});if(result.status!=="applied")return;
     renderWorkout()});
-  $w(".stepbtn").forEach(b=>b.onclick=async()=>{if(!b.dataset.step)return;
-    const inp=$(`[data-k="${b.dataset.step}"]`);if(!inp)return;
-    const key=b.dataset.step||"",dir=+b.dataset.dir||0;
-    const target=draftTargetFromKey(key);
-    if(target?.metricId){
-      const metric=activeWorkoutDraft?.exercises?.[target.exerciseInstanceId]?.sets?.[target.setId]?.programmed?.metrics?.find(item=>item.id===target.metricId);
-      const cur=parseDec(inp.value)||0,load=["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric?.semantic);
-      const step=load?(parseDec(shelfLoadStep())||1):1;
-      inp.value=fmtPlain(Math.max(0,Math.round((cur+step*dir)*10)/10));
-    }else if(/_reps$|_rir$/.test(key)){
-      const cur=parseDec(inp.value)||0;inp.value=fmtPlain(Math.max(0,cur+dir));
-    }else{
-      const incKg=parseDec(state.settings.minJump)||2.5,curKg=fromDisplay(inp.value||0),
-        nextKg=Math.max(0,Math.round((curKg+incKg*dir)/incKg)*incKg);
-      inp.value=fmtPlain(toDisplay(nextKg));
-    }
-    focusUi.padTap.set(inp,dir);
-    await inp.oninput?.()});
-  const stepEffort=async(key,dir)=>{
-    const el=$(`[data-effspin="${key}"]`);if(!el)return;
-    const i=Math.max(0,EFFORT_STEPS.indexOf(el.dataset.e));
-    const next=EFFORT_STEPS[Math.min(EFFORT_STEPS.length-1,Math.max(0,i+dir))];
-    if(next===el.dataset.e)return;
-    const target=draftTargetFromKey(key);if(!activeWorkoutDraft||!target)return;
-    setEffortPick(key,next,dir);
-    const pendingKey=`${key}_effort`,token=holdPendingField(pendingKey,next);
-    let result;
-    try{result=await focusWorkoutCommands.editField({target:{...target,field:"effort",metricId:null},rawValue:next})}
-    finally{releasePendingField(pendingKey,token)}
-    if(result.status!=="applied")return;
-    updateSaveMeta();
-    const live=liveEffortField(key);
-    if(live)refreshAfterCommittedEdit(live)};
-  $w("[data-effstep]").forEach(b=>b.onclick=()=>stepEffort(b.dataset.effstep,+b.dataset.dir||0));
-  $w("[data-effspin]").forEach(el=>{
-    // The tap belongs to the field handler (select, then explain); the arrow
-    // keys step the word the way the pads do.
-    el.onkeydown=e=>{
-      if(e.key==="Escape"){closeEffortPop();return}
-      const step=e.key==="ArrowUp"||e.key==="ArrowRight"?1:e.key==="ArrowDown"||e.key==="ArrowLeft"?-1:0;
-      const jump=e.key==="Home"?-EFFORT_STEPS.length:e.key==="End"?EFFORT_STEPS.length:null;
-      if(!step&&jump==null)return;
-      e.preventDefault();stepEffort(el.dataset.effspin,jump??step)}});
   $w("[data-shelf-field]").forEach(b=>b.onclick=()=>{
     const key=b.dataset.set,id=b.dataset.shelfField,ui=shelfFor(key);
     const effortField=id==="rir"&&isEffortMode();

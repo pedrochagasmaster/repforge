@@ -81,5 +81,20 @@ export function createShelfPresentation({focus,metrics,effort,rest,copy:{t,plura
       :['load','reps','rir'].map(id=>field(exerciseId,n,id,values,ui,touched,effortMode));
     return renderFocusShelf({key,label,editing,peek,fields,...pads({exerciseId,ordinal:n,ui,values,effortMode,peek,editing,metrics:definitions,loadStep})});
   }
-  return {render,padsHtml,text};
+  /** Update the currently mounted shelf and its open ledger row after a raw edit.
+   * @param {HTMLInputElement} input
+   * @param {{definitions:readonly MetricDefinition[],direction?:number}} options */
+  function syncInput(input,{definitions,direction=0}){
+    const field=input.closest('.shelf__field'),host=input.ownerDocument.defaultView;
+    if(!host||!(field instanceof host.HTMLElement))return;
+    const metricId=field.dataset.metric,metric=metricId?definitions.find(item=>item.id===metricId):null;
+    const id=metric?(FIELD_SEMANTICS.reps.includes(metric.semantic)?'reps':FIELD_SEMANTICS.load.includes(metric.semantic)?'load':null):field.dataset.field;
+    const shown=id==='reps'?String(input.value||''):text(input.value);
+    const value=field.querySelector(/** @type {'span'} */('.shelf__val'));
+    if(value){const moved=value.textContent!==(shown||'—');value.textContent=shown||'—';if(moved)effort.valueMove(value,direction)}
+    field.classList.remove('is-untouched');
+    const cell=id?input.closest('.exercise')?.querySelector(`.ledgerline--open [data-lv="${id}"]`):null;
+    if(cell){cell.textContent=shown||'—';cell.classList.remove('is-soft')}
+  }
+  return {render,padsHtml,text,syncInput};
 }
