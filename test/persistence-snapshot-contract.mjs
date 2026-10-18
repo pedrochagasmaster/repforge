@@ -49,7 +49,7 @@ console.log('production snapshot shape and unknown-carrier refusal contract pass
 const {createProgramModel}=await import('../src/training/model.js');
 const {createEntryRules}=await import('../src/training/authoring.js');
 const {createWorkoutRules}=await import('../src/training/workout.js');
-const {compiler,transition}=await import('../src/training/generation.js');
+const {compiler,createTransitionRules}=await import('../src/training/generation.js');
 const {progression}=await import('../src/training/progress.js');
 const {readFileSync}=await import('node:fs');
 const {createRequire}=await import('node:module');
@@ -59,7 +59,7 @@ const {seedProgram,seedProgramMeta}=await import('./fixtures/seed-program.mjs');
 const instant='2026-10-18T12:00:00.000Z';let sequence=0;
 const model=createProgramModel({catalog,librarySource:require('../exercises.js'),now:instant,nextId:()=>`new-${++sequence}`});
 const actual=policy.createSnapshotPolicy({catalog,model,entry:createEntryRules(catalog),metrics,
-  workout:createWorkoutRules(catalog),compiler,transition,progression,now:()=>instant,nextId:()=>`new-${++sequence}`,
+  workout:createWorkoutRules(catalog),compiler,transition:createTransitionRules(),progression,now:()=>instant,nextId:()=>`new-${++sequence}`,
   language:{normalizeLang:value=>['en','pt'].includes(value)?value:null,detectLang:()=> 'en'}});
 const saved={program:seedProgram(),programMeta:seedProgramMeta(),log:[],_storageRevision:11,
   settings:{unit:'kg',futureSetting:{retained:true},notify:{futureNotification:true}},
@@ -88,3 +88,18 @@ const changed=structuredClone(row);changed.metricValues[0].metricId='foreign-met
 assert.equal(actual.isValidStateShape({...saved,log:[changed]}),false,'foreign metric identities refuse without repair');
 const withLog=actual.normalizeLoaded({...saved,log:[row]});
 assert.deepEqual(withLog.log,[row],'normalization preserves saved metric bytes and session identity');
+const migrationSource={program:[{...saved.program[0],name:'Day-specific row',day:'Day 1'},{...saved.program[1],name:'Day-specific row',day:'Day 2'}],customExercises:[],log:[
+  {name:'Day-specific row',day:'Day 2',load:'50,5',reps:'8',rir:''},
+  {exerciseId:saved.program[0].id,name:'Unrelated swapped movement',day:'Day 1',load:20,reps:8,rir:2},
+]};
+assert.equal(actual.migrateLogSnapshot(migrationSource),true);
+assert.equal(migrationSource.log[0].exerciseId,saved.program[1].id,'exact authored day disambiguates repeated names');
+assert.equal(migrationSource.log[0].day,'Day 2');
+assert.equal(migrationSource.log[0].load,50.5);
+assert.equal(migrationSource.log[0].rirMeasured,false);
+assert.equal(migrationSource.log[1].performedLibraryId,undefined,'linked slot alone cannot attribute a different performed name');
+assert.equal(migrationSource.log[1].performedMovementId,undefined,'linked slot alone cannot invent movement identity');
+const metricSource={program:saved.program,customExercises:[],log:[structuredClone(row)]};
+actual.migrateLogSnapshot(metricSource);
+assert.equal(metricSource.log[0].session,row.session);
+assert.deepEqual(metricSource.log[0].metricValues,row.metricValues,'metric logs never enter legacy numeric repair');

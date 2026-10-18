@@ -9,26 +9,30 @@ const IMPORT_SOURCE_KEY='repforge_import_source_v1';
 const ENTRY_REVIEW_KEY='repforge_entry_review_v1';
 
 export function createPreferences({local,tab,mutationGate=()=>false,onError=()=>{}}) {
+  const copy=value=>value==null?value:JSON.parse(JSON.stringify(value));
   function raw(storage,key){try{return storage.getItem(key)}catch{return null}}
   function parseUi(){try{const value=JSON.parse(raw(local,UI_KEY));return value&&typeof value==='object'?value:{}}catch{return{}}}
   let ui=parseUi();
-  function setUi(key,value){
+  function setUi(key,value,{base}={}){
     if(mutationGate())return false;
     // Historical behavior retains the user's live choice even on quota failure.
-    ui[key]=value;
-    try{local.setItem(UI_KEY,JSON.stringify(ui));return true}
+    try{
+      if(base!==undefined)ui=copy(base);
+      ui[key]=copy(value);
+      local.setItem(UI_KEY,JSON.stringify(ui));return true
+    }
     catch(error){onError(error);return false}
   }
   function replaceUi(next){
     if(mutationGate())return false;
-    try{local.setItem(UI_KEY,JSON.stringify(next));ui=next;return true}
+    try{const captured=copy(next);local.setItem(UI_KEY,JSON.stringify(captured));ui=captured;return true}
     catch(error){onError(error);return false}
   }
   function writeRaw(storage,key,value){try{storage.setItem(key,value);return true}catch{return false}}
   function clear(storage,key){try{storage.removeItem(key);return true}catch{return false}}
   return Object.freeze({
-    readUi:()=>ui,setUi,replaceUi,
-    reloadUi(){ui=parseUi();return ui},
+    readUi:()=>copy(ui),setUi,replaceUi,
+    reloadUi(){ui=parseUi();return copy(ui)},
     readUiRaw:()=>raw(local,UI_KEY),
     readNotify(){try{return JSON.parse(raw(local,NOTIFY_KEY)||'{}')||{}}catch{return{}}},
     writeNotify(value){local.setItem(NOTIFY_KEY,JSON.stringify(value))},

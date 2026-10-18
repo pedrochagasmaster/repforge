@@ -891,13 +891,48 @@ function normalizeLoaded(s,options={}){
     else if(s.programmingContext&&typeof s.programmingContext==="object")out.programmingContext=cloneSnapshot(s.programmingContext)}
   return out}
 
+  const movementToken=s=>String(s??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+  const parseDec=v=>{if(typeof v==='number')return Number.isFinite(v)?v:NaN;if(v==null||v==='')return NaN;const n=Number(String(v).trim().replace(/(\d),(\d)/g,'$1.$2'));return Number.isFinite(n)?n:NaN};
+  const posNum=(v,f=0)=>{const n=parseDec(v);return Math.max(0,Number.isFinite(n)?n:f)};
+function migrateLogSnapshot(snapshot){let changed=false;const lookup=snapshotLookup(snapshot.customExercises);
+  for(const row of snapshot.log){
+  const named=snapshot.program.find(e=>e.name===row.name&&e.day===row.day)||snapshot.program.find(e=>e.name===row.name);
+  const slotted=snapshot.program.find(e=>e.id===row.exerciseId);
+  const ex=named||(!slotted?.libraryId?slotted:null);
+  if(!row.exerciseId&&ex){row.exerciseId=ex.id;changed=true}
+  if(row.performedName==null&&row.name){row.performedName=String(row.name);changed=true}
+  if(row.performedLibraryId==null&&ex?.libraryId){
+    const entry=lookup(ex.libraryId),names=new Set([ex.name,entry?.name,entry?.namePt].map(movementToken).filter(Boolean));
+    if(names.has(movementToken(row.name))){row.performedLibraryId=ex.libraryId;changed=true}}
+  if(row.performedLibraryId==null&&row.performedMovementId==null&&ex?.movementId){
+    row.performedMovementId=ex.movementId;changed=true}
+  const performed=row.performedLibraryId?lookup(row.performedLibraryId):null;
+  if(performed){
+    if(row.performedPrimary==null){row.performedPrimary=libraryMuscleAttribution(performed,"primary");changed=true}
+    if(row.performedSecondary==null){row.performedSecondary=libraryMuscleAttribution(performed,"secondary");changed=true}}
+  else if(row.performedName===row.name){
+    if(row.performedPrimary==null&&row.primary!=null){row.performedPrimary=String(row.primary||"");changed=true}
+    if(row.performedSecondary==null&&row.secondary!=null){row.performedSecondary=String(row.secondary||"");changed=true}}
+  if(Array.isArray(row.metricValues))continue;
+  const ld=posNum(row.load),rp=posNum(row.reps);
+  const missingRir=row.rir==null||row.rir==="",parsedRir=parseDec(row.rir);
+  const explicitStrategy=ex?.progression?.strategy?.id;
+  const preserveMissingRir=explicitStrategy&&explicitStrategy!=="range"&&missingRir;
+  // Keep the released progression input exactly as it was. Progress also needs
+  // to know that a legacy range row which was coerced to RIR 0 was unmeasured,
+  // so retain that provenance separately instead of changing recommendation
+  // arithmetic for every existing program.
+  const rr=preserveMissingRir?null:posNum(row.rir);
+  if((missingRir||!Number.isFinite(parsedRir)||parsedRir<0)&&row.rirMeasured!==false){row.rirMeasured=false;changed=true}
+  if(ld!==row.load||rp!==row.reps||rr!==row.rir){row.load=ld;row.reps=rp;row.rir=rr;changed=true}}
+  return changed}
   return Object.freeze({isValidStateShape,isValidStateWithoutRecoveryCarrier,carrierReadStatus,
     classifyRecoveryCarrier,isValidRecoveryTransitions,isValidBlockId,isBoundedTransitionValue,
     normalizeRecoveryCarrierSnapshot,pendingDraftTransaction,canonicalProgramDefinition,
-    isValidMuscleDomainTree,isSafeProgressionFields,isSafeProgressionMeta,isSafeLogRow,
+    isValidMuscleDomainTree,isValidStoredMuscleField,isSafeCustomExercise,isSafeProgressionFields,isSafeProgressionMeta,isSafeLogRow,
     isSafeProgramHistoryEntry,isValidPlannedVolumeHistory,isValidSetupActivationMarker,
     setupActivationMarker,setupActivationMatches,normalizeMuscleAttribution,
-    normalizeLoaded,normalizeSettings,normalizeNotify,normalizeProgramMeta,defaultProgramMeta,
+    migrateLogSnapshot,normalizeLoaded,normalizeSettings,normalizeNotify,normalizeProgramMeta,defaultProgramMeta,
     normalizeProgramHistory,withExplicitProgramStructure,canonicalizeDurableMuscleAttributions,
     canonicalizeProgramStructureMuscles,canonicalizeLinkedMuscleRows,normalizeLoadingConfiguration,
     normalizeProgramEntrySource});

@@ -2819,5 +2819,5 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     settleCommittedSetupActivation,
   };
 
-  return Object.freeze(api);
+  return api;
 }

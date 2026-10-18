@@ -18,3 +18,15 @@ map.set('repforge_ui_v1','malformed');
 const malformed=createPreferences({local:storage(map),tab:storage(tab)});
 assert.deepEqual(malformed.readUi(),{});assert.equal(map.get('repforge_ui_v1'),'malformed','reading never repairs unrecognized raw bytes');
 console.log('device preference and private tab-scope contract passed');
+
+const stable=createPreferences({local:storage(map),tab:storage(tab),mutationGate:()=>frozen});
+assert.equal(stable.replaceUi({theme:'dark',nested:{mode:'retained'}}),true);
+const escaped=stable.readUi();escaped.theme='light';escaped.nested.mode='changed';
+assert.equal(stable.readUi().theme,'dark','read models cannot mutate owner state');
+assert.equal(stable.readUi().nested.mode,'retained','nested read model values are isolated');
+const replacement={theme:'dark',nested:{mode:'retained'}};
+assert.equal(stable.replaceUi(replacement),true);replacement.theme='light';replacement.nested.mode='changed';
+assert.equal(stable.readUi().theme,'dark','replacement caller cannot retain a mutable owner reference');
+frozen=true;const frozenView=stable.readUi();frozenView.theme='light';
+assert.equal(stable.readUi().theme,'dark');assert.equal(JSON.parse(map.get('repforge_ui_v1')).theme,'dark');
+frozen=false;
