@@ -30,6 +30,7 @@ const ASSETS = [
   "./src/app/session.js",
   "./src/app/settings.js",
   "./src/app/storage-recovery.js",
+  "./src/app/workout-context.js",
   "./src/app/workout-model.js",
   "./src/app/workout.js",
   "./src/bootstrap.js",

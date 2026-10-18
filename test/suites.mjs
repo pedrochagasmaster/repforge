@@ -21,6 +21,8 @@ const s = (file, args = [], extra = {}) => {
 const shards = (count) => Array.from({ length: count }, (_, index) => `${index + 1}/${count}`);
 export const SUITES = {
   "fast": [
+    s("test/workout-context-contract.mjs", [], {domains:["workout","program"]}),
+    s("test/architecture/entry-program-import.mjs", [], {domains:["entry","program"]}),
     s("test/architecture/history-read-owner.mjs", [], {domains:["history","progress"],nodeArgs:["--test"]}),
     s("test/workout-exercise-actions.mjs", [], {domains:["workout","history"],nodeArgs:["--test"]}),
     s("test/focus-restore-commands.mjs", [], {domains:["workout","persistence"],nodeArgs:["--test"]}),
@@ -133,6 +135,8 @@ export const SUITES = {
     s("test/install-transfer-recovery.mjs", [], {"domains": ["install"], "cost": "normal", "tier": "feedback", "nodeArgs": ["--test"]}),
   ],
   "state": [
+    s("test/architecture/program-disposal.mjs", [], {domains:["program","shell"],seconds:10}),
+    s("test/architecture/entry-program-file-browser.mjs", [], {domains:["entry","program","persistence"],seconds:20}),
     s("test/architecture/guide-effect-boundaries.mjs", [], {domains:["entry","progress","workout","settings"],seconds:20}),
     s("test/native-generated-data-browser.mjs", [], {domains:["entry","library"],seconds:10}),
     s("test/architecture/entry-landing-browser.mjs", [], {domains:["entry","shell"],seconds:20}),
