@@ -110,15 +110,52 @@ async function exerciseHistoricalArchives(page) {
   await page.screenshot({ path: path.join(artifacts, 'historical-unknown-id.png'), fullPage: true });
   console.log('Program Lab historical archives: fingerprint mismatch, read-only identity, new-build attempt and unknown catalog IDs through the shared structural boundary passed.');
 }
+async function exerciseStorageFailure(browser) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, acceptDownloads: true });
+  try {
+    const page = await context.newPage();
+    await page.addInitScript(() => {
+      const add = IDBObjectStore.prototype.add;
+      IDBObjectStore.prototype.add = function(...args) {
+        if (this.name === 'cells') throw new DOMException('Injected checkpoint quota failure', 'QuotaExceededError');
+        return add.apply(this, args);
+      };
+    });
+    await page.goto(lab);
+    await page.locator('html[data-lab-ready="true"]').waitFor({ timeout: 20000 });
+    await page.locator('#preset').selectOption('two_sets_low_rir@1'); await page.locator('#applyPreset').click();
+    await page.locator('#run').click();
+    await page.locator('#runStatus').filter({ hasText: 'failed' }).waitFor({ timeout: 30000 });
+    await page.locator('#fatalError').filter({ hasText: 'quota failure' }).waitFor();
+    await page.locator('#persistenceStatus').filter({ hasText: 'Unsaved run' }).waitFor();
+    const failed = await selectedComparison(page);
+    assert.equal(failed.error.code, 'checkpoint_failed');
+    assert.equal(failed.completed, 1); assert.equal(failed.total, 2); assert.equal(failed.saved, false);
+    assert.equal(failed.baseline.result.ok, true, 'actual accepted worker result remains inspectable after failed checkpoint');
+    const download = page.waitForEvent('download'); await page.locator('#export').click();
+    const file = path.join(artifacts, 'unsaved-checkpoint.json'); await (await download).saveAs(file);
+    const exported = JSON.parse(await readFile(file, 'utf8'));
+    assert.equal(exported.runs[0].status, 'failed'); assert.equal(exported.runs[0].records.length, 1);
+    await page.reload(); await page.locator('html[data-lab-ready="true"]').waitFor();
+    await page.locator('#savedExperiments').selectOption({ index: 1 }); await page.locator('#load').click();
+    await page.locator('#resultSnapshot').filter({ hasText: 'interrupted' }).waitFor();
+    const restored = await selectedComparison(page);
+    assert.equal(restored.completed, 0, 'reload never promotes the rejected checkpoint to committed data');
+    assert.equal(restored.status, 'interrupted');
+    await page.screenshot({ path: path.join(artifacts, 'interrupted-checkpoint.png'), fullPage: true });
+    console.log('Program Lab storage failure: actual worker result, explicit checkpoint cause, unsaved export and honest interrupted reload passed.');
+  } finally { await context.close(); }
+}
 async function exerciseCorpus(page, browserVersion, workers) {
   await page.locator('html[data-lab-ready="true"]').waitFor({ timeout: 20000 });
   await page.locator('[data-mode="batch"]').click();
   await page.locator('#fixture').selectOption('compiler-corpus');
   await page.locator('#preset').selectOption('two_sets_low_rir@1');
   await page.locator('#applyPreset').click();
+  await page.locator('#planSummary').filter({ hasText: /180 scenarios/ }).waitFor();
   await page.evaluate(() => {
     const sample = window.__corpusFrames = { frames: 0, maxGapMs: 0, last: performance.now(), running: true };
-    function tick(now) { sample.frames++; sample.maxGapMs = Math.max(sample.maxGapMs, now - sample.last); sample.last = now; if (sample.running) requestAnimationFrame(tick); }
+    function tick(now) { sample.frames++; if (now - sample.last > sample.maxGapMs) { sample.maxGapMs = now - sample.last; sample.statusAtMaxGap = document.getElementById('runStatus').textContent; sample.analysisAtMaxGap = document.getElementById('analysisStatus').textContent; } sample.last = now; if (sample.running) requestAnimationFrame(tick); }
     requestAnimationFrame(tick);
   });
   const started = performance.now();
@@ -169,7 +206,14 @@ async function exerciseModes(page) {
   await page.locator('#fixture').selectOption('production-answers');
   await page.locator('#preset').selectOption('two_sets_low_rir@1');
   await page.locator('#applyPreset').click();
-  const single = await executeAndInspect(page);
+  let single = await executeAndInspect(page);
+  await page.locator('#fixture').selectOption('anchor-deload');
+  const deload = await executeAndInspect(page, single.runId);
+  await page.locator('#cycle').selectOption('8');
+  await page.locator('#fixture').selectOption('production-answers');
+  single = await executeAndInspect(page, deload.runId);
+  assert.equal(await page.locator('#cycle').inputValue(), '7', 'cycle selector follows the resolved comparison cycle after replacing a deload program');
+  assert.equal(JSON.parse(await page.locator('#metricDetails').textContent()).selectedCycle, 7);
   await page.locator('[data-mode="batch"]').click();
   await page.locator('#duplicateScenario').click();
   await page.locator('[data-scenario-path="daysPerWeek"]').selectOption('3');
@@ -314,6 +358,9 @@ try {
     assert.deepEqual(errors, []);
     console.log('Program Lab shell: missing integration blocks run; labels, same-page keyboard skip, 1440/720/390 layouts, 200% enlarged text, English/Portuguese draft preservation and storage isolation passed. Full worker journey remains pending.');
     await context.close();
+  } else if (process.argv.includes('--storage')) {
+    await exerciseStorageFailure(browser);
+    await context.close();
   } else if (process.argv.includes('--corpus')) {
     await exerciseCorpus(page, browser.version(), workers);
     assert.deepEqual(errors, []);
@@ -339,6 +386,8 @@ try {
   await page.locator('#runStatus').filter({ hasText: 'completed' }).waitFor({ timeout: 120000 });
   assert(workers.some(url => url.includes('program-engine.js')), 'real shared compiler worker was started');
   assert.match(await page.locator('#candidateProgram').textContent(), /RIR 0/);
+  assert(await page.locator('#candidateProgram .changed').count() > 0, 'changed prescriptions have text markers as well as color');
+  assert.match(await page.locator('#candidateProgram').textContent(), /Changed in candidate|Added in candidate/);
   assert(!await page.locator('#candidateProgram .sets').getByText(/\bRIR 1\b/).count(), 'metadata edit changes the actual candidate prescriptions');
   await page.locator('#rawDetails summary').click();
   await page.waitForFunction(() => document.getElementById('rawResult').textContent.length > 0);
@@ -415,6 +464,7 @@ try {
   assert.deepEqual(errors, []);
   await exerciseModes(page);
   await exerciseHistoricalArchives(page);
+  await exerciseStorageFailure(browser);
   assert.deepEqual(await production.evaluate(() => ({ program: localStorage.getItem('repforge_v1'), sentinel: localStorage.getItem('repforge_programlab_acceptance_sentinel') })), productionBefore, 'lab run/cancel/import/reload preserves the separate production origin program and sentinel');
   assert.deepEqual(await page.evaluate(async () => (await indexedDB.databases()).map(database => database.name).sort()), ['taurifer_programlab_v1'], 'lab owns only its isolated database');
   assert.deepEqual(errors, []);

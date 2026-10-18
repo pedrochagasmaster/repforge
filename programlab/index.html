@@ -51,7 +51,7 @@
       <section class="panel results" aria-labelledby="resultsHeading">
         <p class="eyebrow">03 / OBSERVED OUTPUT</p><h2 id="resultsHeading">Results</h2><p id="resultSnapshot">Run a comparison to inspect actual generated prescriptions.</p>
         <div id="archiveActions" hidden><p class="hint">Creates a new run with this build; the archive stays unchanged. Historical seed labels do not control generation.</p><button id="runWithBuild">Run with this build</button></div><p id="inputsChanged" class="badge" hidden>Inputs changed · these results belong to the earlier snapshot.</p>
-        <div id="aggregateSummary"></div>
+        <p id="analysisStatus" class="hint" role="status" aria-live="polite"></p><div id="aggregateSummary"></div>
         <label>Comparison<select id="resultCase" disabled><option value="">No results yet</option></select></label><label>Cycle<select id="cycle" disabled><option value="1">Cycle 1</option></select></label><p id="cycleStatus" class="hint"></p>
         <div id="comparisonSummary"></div>
         <div class="program-pair"><section aria-labelledby="baselineHeading"><h3 id="baselineHeading">Bundled baseline</h3><div id="baselineProgram"></div></section><section aria-labelledby="candidateHeading"><h3 id="candidateHeading">Candidate</h3><div id="candidateProgram"></div></section></div>
@@ -61,7 +61,7 @@
       </section>
     </div>
     <section class="runbar" aria-label="Execution controls">
-      <div><p id="planSummary">Validating inputs…</p><div id="validation" role="alert"></div><p id="runStatus" role="status" aria-live="polite">Initializing</p><progress id="progress" value="0" max="1" aria-label="Compiler cells completed"></progress></div>
+      <div><p id="sweepPlan" class="hint" hidden></p><p id="planSummary">Validating inputs…</p><div id="validation" role="alert"></div><p id="runStatus" role="status" aria-live="polite">Initializing</p><progress id="progress" value="0" max="1" aria-label="Compiler cells completed"></progress></div>
       <div class="actions"><button id="run" class="primary" aria-describedby="planSummary validation" disabled>Run comparison</button><button id="cancel" disabled>Cancel run</button><button id="runUnsaved" hidden>Run without saving</button></div>
     </section>
     <p id="fatalError" role="alert" hidden></p>
