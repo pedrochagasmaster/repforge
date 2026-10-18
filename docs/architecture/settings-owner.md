@@ -7,6 +7,12 @@ and coordinates exact unit-conversion receipts. It emits setting names only.
 unknown stored fields. Profile deletion and backup `lastExport` keep the released
 `localOk || idbOk` acceptance policy; workout settlement has different rules.
 Backup acknowledgement remains in `src/app/interchange.js`.
+The immediate RIR-mode guard is followed by the existing WAL protocol: native draft
+work acknowledged while a settings proposal waits becomes a sidecar, which
+`executeDraftTransaction` refuses before any prepared replica write. The two-tab
+Settings proof holds the real state lock, captures the exact effort-mode journal,
+acknowledges a new DraftV2 session and verifies settled refusal plus exact draft
+preservation. This is existing protocol coverage, not a new parallel preflight.
 
 `src/ui/settings/view.js` owns the form edit revision, decimal validation and
 profile display. A failed older save cannot repaint newer input. Appearance owns
