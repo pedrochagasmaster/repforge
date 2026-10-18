@@ -15,7 +15,6 @@ import {copySnapshot} from './session.js';
  * @typedef {{id:string,name:string,sets:number,min:number,max:number,day:string,libraryId?:string,movementId?:string,slotId?:string,displayName?:string|null,progression?:Record<string,unknown> & {strategy?:{id?:string}},progressionType?:string,progressionIncompatibility?:unknown}} Exercise
  * @typedef {{exercises:{id:string,name:string,bodyweight?:number,laterality?:string[]}[],uuidIndex:Record<string,{id:string,name:string,type:string}>}} Catalog
  * @typedef {{log:LogRow[],program:Exercise[],customExercises?:LibraryEntry[],programMeta?:{programDefinition?:ProgramDefinition,loadingConfiguration?:{byExerciseId?:Record<string,{loadStepKg?:number}>}},settings:{unit?:string,minJump?:number,weightMatch?:boolean,expandRepRange?:boolean}}} WorkoutSnapshot
- * @typedef {Record<string,unknown> & {__done?:string[]}} FlatDraft
  */
   /** @param {unknown} value */
 export const movementToken=value=>String(value??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
@@ -375,8 +374,8 @@ function recommendation(ex){
     loadingAssumptions:result?.loadingAssumptions||null};
 }
 
-/** @param {Exercise} ex @param {number} n @param {ReturnType<typeof recommendation>} rec @param {FlatDraft} draft */
-function engineSetSuggestion(ex,n,rec,draft){
+/** @param {Exercise} ex @param {number} n @param {ReturnType<typeof recommendation>} rec */
+function engineSetSuggestion(ex,n,rec){
   const item=rec.targetSets.find(entry=>entry.prescription?.setIndex===n)||rec.targetSets[n-1];
   if(!item||item.status!=="recommended")return{load:null,reps:null,src:"manual"};
   const definitions=("metricDefinitions" in rec?rec.metricDefinitions:[])||[];
@@ -385,12 +384,20 @@ function engineSetSuggestion(ex,n,rec,draft){
   const load=loadMetric?item.result?.targets?.[loadMetric.semantic]??null:null;
   const rawReps=repsMetric?item.result?.targets?.[repsMetric.semantic]:null;
   const reps=rawReps??null;
-  const done=new Set(draft?.__done||[]);
+  const exercise=draft?.exercises[ex.id];
   let previous=null;
-  for(let k=n-1;k>=1;k--)if(done.has(`${ex.id}_${k}`)){previous=Number(draft[`${ex.id}_${k}_load`]);break}
+  for(let k=n-1;k>=1;k--){
+    const set=exercise?.setOrder.map(id=>exercise.sets[id]).find(item=>item.ordinal===k);
+    if(!set||set.completion==='pending')continue;
+    const definitions=set.programmed.metrics||[];
+    const metric=definitions.find(item=>['loadKg','assistanceKg','loadPerSideKg','persistentLoadPerSideKg'].includes(item.semantic));
+    // Metric-backed slots never read a stale flat edited.load projection.
+    const raw=definitions.length?(metric?set.edited.metrics?.[metric.id]:null):set.edited.load;
+    previous=raw==null?null:Number(raw);
+    break}
   if(!(Number(previous)>0)||load==null)return{load,reps,src:"base"};
-  // The projected draft field is display text; the engine's load is canonical kg.
-  const shown=Math.round(toDisplay(load)*100)/100,before=Math.round(Number(previous)*100)/100;
+  // Compare the same two-decimal display values in the captured unit.
+  const shown=Math.round(toDisplay(load)*100)/100,before=Number(toDisplay(Number(previous)).toFixed(2));
   const src=shown>before?"session-up":shown<before?"session-down":"session-hold";
   return{load,reps,src,drop:false}}
 
@@ -422,10 +429,10 @@ function progressionForExercise(ex){
   return{schemaVersion:1,modifiers:[],strategy:{id:'range',version:1,params:{workingSets:Number(ex?.sets)||1,repMin:Number(ex?.min),repMax:Number(ex?.max)}}}}
 /** Every recommendation, including refusals, carries canonical targetSets.
  * Scalar capacity targets belonged to the retired engine and are not a second
- * recommendation path. @param {Exercise} ex @param {number} n @param {ReturnType<typeof recommendation>} rec @param {FlatDraft} flat @param {LogRow|null|undefined} [old] */
-function setSuggestion(ex,n,rec,flat,old){
+ * recommendation path. @param {Exercise} ex @param {number} n @param {ReturnType<typeof recommendation>} rec */
+function setSuggestion(ex,n,rec){
   if(rec.status==='manual')return{load:null,reps:null,src:'manual'};
-  return engineSetSuggestion(ex,n,rec,flat)}
+  return engineSetSuggestion(ex,n,rec)}
 return Object.freeze({sessionExercise,readLogRow,readLogRows:(rows=snapshot.log)=>rows.map(readLogRow),matchLift,last,recommendation,setSuggestion,progressionForExercise,canonicalSlotFacts,prescriptionFacts,currentCycle,canonicalPrescriptionSlot,slotLoadingProjection,progressionCurrentSession,progressionHistoryFor,slotLoadingContext,metricLoading,catalogExecutionMode,executionModeForSlot,liftKey,exerciseLiftKey,movementToken,loggedMovementName});
 }
   return Object.freeze({capture});

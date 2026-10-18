@@ -16,7 +16,7 @@ const before=JSON.stringify(snapshot),q=owner.capture({snapshot,draft:null,curre
 assert.deepEqual(q.last(ex).map(row=>row.id),['old'],'live slot identity cannot acquire another performed movement');
 assert.equal(q.matchLift(ex)(snapshot.log[1]),false);
 assert.deepEqual(q.recommendation(ex),{status:'manual',engineStatus:'manual',reason:'canonical_program_definition_required',load:null,targetSets:[]},'a legacy flat row never silently executes retired capacity policy');
-assert.deepEqual(q.setSuggestion(ex,1,q.recommendation(ex),{},null),{load:null,reps:null,src:'manual'});
+assert.deepEqual(q.setSuggestion(ex,1,q.recommendation(ex)),{load:null,reps:null,src:'manual'});
 assert.deepEqual(q.canonicalSlotFacts(ex),null);
 assert.deepEqual(q.prescriptionFacts(ex),{sets:2,metrics:[]});
 const scalar=q.readLogRow({load:'100',reps:'5'});
@@ -55,3 +55,22 @@ const ambiguous=owner.capture({snapshot:{...withCustom,customExercises:[...custo
 assert.equal(ambiguous.sessionExercise(ex).libraryId,undefined,'ambiguous old names never borrow either offered identity');
 assert.equal(ambiguous.sessionExercise(ex).movementId,'adhoc:workout query legacy target');
 console.log('PASS real reducer substitution, name-only identity recovery, ambiguity refusal and immutable DraftV2');
+
+// Source classification reads acknowledged canonical edits, never a UI projection.
+// Targets are literal policy outputs; this tests the query boundary, not engine math.
+function committedFixture({load='18',semantic='loadPerSideKg',unit='kg',complete=true}={}){
+  const fixture=structuredClone(draft),set=fixture.exercises.slot.sets.s1;
+  set.programmed.metrics=[{...metricDefinitions[0],id:'load',semantic}];
+  set.edited.metrics={load};set.edited.load='999';
+  set.completion=complete?{completedAt:now}:'pending';
+  freeze(fixture);
+  return owner.capture({snapshot:{...snapshot,settings:{...snapshot.settings,unit}},draft:fixture,currentCycle:1,profileWeightKg:null})}
+const literalRec={status:'hold',metricDefinitions:[{id:'target',semantic:'loadPerSideKg'}],targetSets:[{prescription:{setIndex:2},status:'recommended',result:{targets:{loadPerSideKg:18}}}]};
+assert.deepEqual(committedFixture().setSuggestion(ex,2,literalRec),{load:18,reps:null,src:'session-hold',drop:false});
+assert.equal(committedFixture({load:'17'}).setSuggestion(ex,2,literalRec).src,'session-up');
+assert.equal(committedFixture({load:'19',semantic:'assistanceKg'}).setSuggestion(ex,2,literalRec).src,'session-down');
+assert.equal(committedFixture({complete:false}).setSuggestion(ex,2,literalRec).src,'base');
+assert.equal(committedFixture({load:'',semantic:'persistentLoadPerSideKg'}).setSuggestion(ex,2,literalRec).src,'base','empty metric must not read stale scalar 999');
+assert.equal(committedFixture({load:'18.0001',unit:'lb'}).setSuggestion(ex,2,literalRec).src,'session-hold','both canonical loads display as 39.68 lb');
+assert.equal(committedFixture({load:'18.01',unit:'lb'}).setSuggestion(ex,2,literalRec).src,'session-down');
+console.log('PASS canonical completed load source, per-side/assistance metrics, pending refusal, stale scalar exclusion and lb rounding');
