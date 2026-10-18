@@ -27,3 +27,5 @@ node tools/run-tests.mjs entry --suite-id test-programlab-ui-mjs---corpus
 ```
 
 The runner builds and serves separate temporary loopback artifacts and cleans up its previews. It never needs a production deployment. The final implementation PR lists exact-head independent evidence and remaining CI or attachment limitations. An artifact existing in a cloud executor is not a delivered user attachment.
+
+Canonical visual references use the repository's Playwright-pinned browser (CI currently installs Chromium 149). Use that browser for `tools/capture-ui-screens.mjs`; a system-browser override such as Chromium 151 can produce perceptual differences even when the rendered semantics agree. Functional journeys can use `REPFORGE_CHROME`, and their evidence must name the actual browser version.

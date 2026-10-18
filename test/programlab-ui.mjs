@@ -279,14 +279,15 @@ try {
   const errors = [];
   const workers = [];
   await page.addInitScript(() => {
-    const audit = { clickAt: null, handledAt: null, terminatedAt: null, acknowledgedAt: null, pendingAtTermination: 0, cancelNextGenerate: false };
+    const audit = { clickAt: null, handledAt: null, terminatedAt: null, acknowledgedAt: null, pendingAtTermination: 0, cancelNextGenerate: false, generateMessages: 0, generateReplies: 0 };
     window.__programlabCancellationProof = audit;
     const terminate = Worker.prototype.terminate, post = Worker.prototype.postMessage;
     const pending = new WeakMap();
     Worker.prototype.postMessage = function(message, ...rest) {
-      if (!pending.has(this)) { const ids = new Set(); pending.set(this, ids); this.addEventListener('message', event => ids.delete(event.data?.id)); }
+      if (!pending.has(this)) { const ids = new Set(); pending.set(this, ids); this.addEventListener('message', event => { if (ids.has(event.data?.id) && event.data?.ok === true) audit.generateReplies++; ids.delete(event.data?.id); }); }
       if (message?.type === 'generate') pending.get(this).add(message.id);
       const returned = post.call(this, message, ...rest);
+      if (message?.type === 'generate') audit.generateMessages++;
       // Activate the real cancel button at a deterministic active-job boundary;
       // do not substitute a fake worker or invoke the runner directly.
       if (message?.type === 'generate' && audit.cancelNextGenerate) {
@@ -385,7 +386,7 @@ try {
   await page.locator('#run').click();
   await page.locator('#runStatus').filter({ hasText: 'completed' }).waitFor({ timeout: 120000 });
   await page.locator('#analysisStatus').filter({ hasText: 'Cohort metrics ready.' }).waitFor();
-  assert(workers.some(url => url.includes('program-engine.js')), 'real shared compiler worker was started');
+  assert(await page.evaluate(() => window.__programlabCancellationProof.generateMessages >= 2 && window.__programlabCancellationProof.generateReplies >= 2), 'both cells completed through native Worker request/reply messages');
   assert.match(await page.locator('#candidateProgram').textContent(), /RIR 0/);
   assert(await page.locator('#candidateProgram .changed').count() > 0, 'changed prescriptions have text markers as well as color');
   assert.match(await page.locator('#candidateProgram').textContent(), /Changed in candidate|Added in candidate/);
@@ -473,7 +474,18 @@ try {
   console.log('Program Lab: actual worker → edited prescriptions → save/reload/export/import; validation, keyboard and narrow layouts passed.');
   }
 } catch (error) {
-  const page = browser?.contexts()[0]?.pages()[0];
-  if (page) { console.error(await page.locator('#runStatus').textContent(), await page.locator('#fatalError').textContent()); await page.screenshot({ path: path.join(artifacts, 'failure.png'), fullPage: true }); }
+  // Keep the original failure even if the production sentinel page or a
+  // closed context cannot provide diagnostics. Short-lived worker CDP events
+  // are observations; the native postMessage proof above owns execution.
+  console.error('Program Lab journey failed:', error?.stack || error);
+  try {
+    const pages = browser?.contexts().flatMap(context => context.pages()).reverse() || [];
+    for (const page of pages) {
+      if (!await page.locator('#runStatus').count()) continue;
+      console.error(await page.locator('#runStatus').textContent({ timeout: 1000 }), await page.locator('#fatalError').textContent({ timeout: 1000 }));
+      await page.screenshot({ path: path.join(artifacts, 'failure.png'), fullPage: true, timeout: 5000 });
+      break;
+    }
+  } catch (captureError) { console.error('Failure capture unavailable:', String(captureError)); }
   throw error;
 } finally { await browser?.close(); artifactPreview?.cleanup(); }
