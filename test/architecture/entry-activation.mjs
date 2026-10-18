@@ -76,3 +76,30 @@ const protectedUnit=activation.candidate({draft,head:profileHead,name:'Reviewed 
 assert.equal(protectedUnit.value.baseProposal.settings.unit,'kg');
 assert.equal(candidate.value.programDefinition.days.filter(day=>day.kind==='training').length,3);
 console.log('Entry reviewed candidate: real generation, local profile replacement/skips, context exclusion and workout unit guard passed');
+
+// A canonical incoming program must keep its authored movement when this
+// device already owns the same custom id for a different movement. Re-flatten
+// through the actual candidate consumer; the generic merge test cannot prove it.
+const clash=model.normalizeCustomExercises([{id:'custom:same-id',name:'Different movement',equipment:['dumbbell'],primary:'Chest',secondary:''},{id:'custom:other-id',name:'ELEVATION',equipment:['dumbbell'],primary:'Side delts',secondary:''}]);
+const clashRows=[{id:'clash-slot',day:'A',order:1,name:'Different movement',libraryId:'custom:same-id',sets:2,min:6,max:10,primary:'Chest',secondary:''}];
+const clashDefinition=model.manualProgramDefinitionFromRows(clashRows,['A'],clash);
+assert.ok(clashDefinition);
+const originalSlotId=clashDefinition.days[0].slots[0].id;
+const clashDraft={...draft,route:'custom',result:{preview:{program:clashRows,customExercises:clash,programDefinition:clashDefinition}}};
+const clashCandidate=activation.candidate({draft:clashDraft,head:{...base,customExercises:existing},name:'Collision',hasWorkoutDraft:false});
+assert.equal(clashCandidate.ok,true);
+const installedSlot=clashCandidate.value.programDefinition.days[0].slots[0];
+assert.equal(installedSlot.exerciseId,'custom:unused-custom-id');
+assert.deepEqual(installedSlot.sourceExerciseIds,['custom:unused-custom-id']);
+assert.equal(installedSlot.id,originalSlotId,'movement remapping must preserve workout slot identity');
+assert.equal(clashCandidate.value.exercises[0].libraryId,'custom:unused-custom-id');
+assert.equal(clashCandidate.value.exercises[0].name,'Different movement');
+assert.equal(clashCandidate.value.baseProposal.customExercises.find(row=>row.id==='custom:unused-custom-id').name,'Different movement');
+assert.equal(clashCandidate.value.baseProposal.customExercises.find(row=>row.id==='custom:same-id').name,'Old movement');
+assert.equal(clashDefinition.days[0].slots[0].exerciseId,'custom:same-id','incoming program remains unmodified');
+const withAlternate=structuredClone(clashDefinition);withAlternate.days[0].slots[0].alternates=['custom:other-id'];
+assert.ok(model.canonicalProgramDefinition(withAlternate,clash),'real producer source is valid before collision remapping');
+const alternateCandidate=activation.candidate({draft:{...clashDraft,result:{preview:{...clashDraft.result.preview,programDefinition:withAlternate}}},head:{...base,customExercises:existing},name:'Collision',hasWorkoutDraft:false});
+assert.equal(alternateCandidate.ok,true);
+assert.deepEqual(alternateCandidate.value.programDefinition.days[0].slots[0].alternates,['custom:reuse']);
+console.log('Entry canonical custom collision: primary/source/alternate references agree with actual flattened rows and authored definitions; slot identity retained');
