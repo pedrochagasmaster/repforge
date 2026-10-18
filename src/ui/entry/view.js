@@ -10,7 +10,7 @@ export const FREEFORM_APPS={
   claude:{base:"https://claude.ai/new",param:"q",label:"entry.freeform.open_claude",copyLabel:"entry.freeform.copy_claude",copiedLabel:"entry.freeform.open_claude_copied"},
 };
 /** @type {Record<string,string>} */
-const FREEFORM_NOT_IMPORTED_KEYS = {
+export const FREEFORM_NOT_IMPORTED_KEYS = {
   rest_times: "entry.freeform.not_imported.rest_times",
   rir_rpe: "entry.freeform.not_imported.rir_rpe",
   tempo: "entry.freeform.not_imported.tempo",
