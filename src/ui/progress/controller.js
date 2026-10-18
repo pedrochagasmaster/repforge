@@ -127,3 +127,5 @@ return Object.freeze({mount,dispose,presentation,renderEvidence:renderEvidenceVi
   selectSegment:setStatsSeg,selectEvidence:setEvidenceView,
   state:()=>Object.freeze({segment:statsSeg,evidence:evidenceView,strengthScope,volumeScope,prFilter})});
 }
+
+export {createExerciseChart} from "./exercise-chart.js";

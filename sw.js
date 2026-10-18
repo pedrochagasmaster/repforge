@@ -101,6 +101,7 @@ const ASSETS = [
   "./src/ui/program/controller.js",
   "./src/ui/progress/controller.js",
   "./src/ui/progress/evidence.js",
+  "./src/ui/progress/exercise-chart.js",
   "./src/ui/progress/overview.js",
   "./src/ui/progress/review.js",
   "./src/ui/session-summary.js",

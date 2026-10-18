@@ -30,7 +30,7 @@ import {createCatalog,CATALOG_URL} from './src/platform/catalog.js';
 import {create as createProgramExecutor,url as programWorkerUrl} from './src/platform/program-executor.js';
 import {createGenerationRules} from './src/training/generation.js';
 import {createEntryAdapter} from './src/training/authoring.js';
-import {createProgressController} from './src/ui/progress/controller.js';
+import {createProgressController,createExerciseChart} from './src/ui/progress/controller.js';
 import {createReviewController} from './src/ui/progress/review.js';
 import {createReviewCommands} from './src/app/review.js';
 import {evidence as NativeProgressModel,buildSessionSummary as deriveSessionSummary,sessionOutcomeGroups as deriveSessionOutcomeGroups} from './src/training/progress.js';
@@ -2140,7 +2140,7 @@ async function applyFatigueTrim(){
 const focusIsFresh=(ex,peek)=>!peek&&!!focusUi.logged&&focusUi.logged.exId===ex.id;
 let exView=null;
 /** The Progress chart page: scope, metric and the selected point (null = the latest session). */
-let chartView={scope:"current-block",metric:"top",pt:null},chartLive=null;
+let ExerciseChart=null;
 let workoutActive=false,workoutLeft=false,programEditMode=false,setupEditorOpen=false;
 /* The editor module owns the draft document. Hosts retain only its lifecycle
    and adapter session so the installed editor can stay private until Done. */
@@ -2347,7 +2347,7 @@ function rowMusclesPure(row,program){
   const ex=(program||[]).find(e=>e.name===row.name);
   return ex?{primary:ex.primary,secondary:ex.secondary}:{primary:"",secondary:""}}
 function compareLogChronology(a,b){
-  const model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
+  const model=NativeProgressModel;
   if(typeof model?.compareChronology==="function")return model.compareChronology(a,b);
   const dateOrder=String(a?.date??"").slice(0,10).localeCompare(String(b?.date??"").slice(0,10));
   if(dateOrder)return dateOrder;
@@ -3866,10 +3866,10 @@ window.__repforgeStatsNav={setStatsSeg,setEvidenceView};
 // views render, without scraping DOM markup.
 window.__repforgeProgressEvidence={
   strength:liftId=>{
-    const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return null;
+    const Model=NativeProgressModel;if(!Model)return null;
     return strengthProjection(ProgressUi.state().strengthScope).series.get(liftId)||null},
   volume:scope=>{
-    const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return null;
+    const Model=NativeProgressModel;if(!Model)return null;
     return Model.buildVolumeEvidence(scope==="block-to-date"?"block-to-date":"this-week",prog.toJSON(),
       progressEvidenceMeta(),readLogRows(),today())},
   records:scope=>strengthEvidenceRecords(scope||ProgressUi.state().strengthScope),
@@ -6339,6 +6339,8 @@ async function mountDashboardPresentation(){
     review:ReviewUi,queries:{review:reviewReadModel,strength:strengthEvidenceReadModel,volume:volumeEvidenceReadModel,prs:prEvidenceReadModel},
     onOpenExercise:key=>openExerciseView(key,"stats"),onGoToday:()=>navTo("log"),onReviewViewed:captureBlockReviewViewed,
     onSelected:segment=>queueMicrotask(()=>maybeShowContextualGuides([segment==="review"?"block-transition":"progress"]))});
+  ExerciseChart=createExerciseChart({window,copy,format:{number:fmt,load:fmtLoad,displayLoad:toDisplay,unit:unitLabel,date:shortDate},
+    queries:{projection:strengthProjection},motion:window.RepForgeMotion,focus:focusRoute});
   TodayUi=createTodayController({document,copy,format,motion:window.RepForgeMotion,
     onCreateProgram:()=>startOnboarding(null,{userInitiated:true}),onOpenExercise:id=>openExerciseView(id,"log"),
     onStartDay:day=>enterWorkout({day}),onReviewProgram:()=>{navTo("stats");setStatsSeg("review")}});
@@ -6409,7 +6411,7 @@ function strengthEvidenceReadModel(scope){
   })};
 }
 function renderThisWeek(){
-  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return;
+  const Model=NativeProgressModel;if(!Model)return;
   const meta=progressEvidenceMeta(),week=Model.buildWeekStatus(prog.toJSON(),meta,readLogRows(),today());
   const records=strengthEvidenceRecords("current-block");
   ProgressUi.presentation.renderWeek({...week,totalWeeks:meta.mesocycleLengthWeeks,baselineCount:records.filter(record=>record.evidenceState==="insufficient").length});
@@ -6418,7 +6420,7 @@ function renderThisWeek(){
  *  row with two or more sessions opens that lift's chart; one session is a dot
  *  with no chart behind it. */
 function renderOverviewStrength(){
-  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
+  const Model=NativeProgressModel;
   if(!Model){ProgressUi.presentation.renderStrength([]);return}
   const projection=strengthProjection("current-block"),order=prog.exercises.map(ex=>exerciseLiftKey(ex)||`slot:${ex.id}`);
   const keys=[...projection.series.keys()].filter(key=>projection.series.get(key).evidenceCount>0)
@@ -6436,7 +6438,7 @@ function volumeStatusKey(planned,completed){
   const ratio=completed/planned;
   return ratio<0.6?"below":ratio<=1.3?"on-target":"high"}
 function overviewVolumeProjection(){
-  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
+  const Model=NativeProgressModel;
   if(!Model)return volumeDashboard(7).map(row=>({...row,statusKey:volumeStatusKey(row.planned,row.completed7)}));
   const meta=progressEvidenceMeta(),evidence=Model.buildVolumeEvidence("this-week",prog.toJSON(),meta,readLogRows(),today());
   const planned=volumePlannedMuscleMap(evidence,meta.weekPrescriptions),completed=volumeMapFromRows(evidence.completedRows,state.program);
@@ -6774,7 +6776,7 @@ function prEvidenceReadModel(filter){return{filter,events:prTimeline(filter).map
 
 // Needs action is derived only from canonical sufficient evidence records.
 function attentionGroups(){
-  const items=RepForgeProgressModel.buildProgramActionQueue(prog.toJSON(),progressEvidenceMeta(),state.log,
+  const items=NativeProgressModel.buildProgramActionQueue(prog.toJSON(),progressEvidenceMeta(),state.log,
     strengthEvidenceRecords("current-block"));
   const groups=new Map();
   for(const item of items){const key=item.recommendation,ex=currentExerciseForLiftKey(item.destinationId);
@@ -6846,7 +6848,7 @@ function strengthEvidenceRows(log=state.log){return readLogRows(log).filter(isWo
   strengthComparable:r.strengthComparable,strengthConvention:r.strengthConvention,perSideLoad:r.perSideLoad,perSideReps:r.perSideReps,
   loadPerSide:r.loadPerSide,repsPerSide:r.repsPerSide,tonnage:r.tonnage,repetitionsPerformed:r.repetitionsPerformed}))}
 function compareProgressStrengthSession(ex,currentRows,readerContext){
-  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
+  const Model=NativeProgressModel;
   const notComparable=noComparableSessionOutcome(),key=exerciseLiftKey(ex)||`slot:${ex?.id||""}`;
   const{scope,convention,session,log}=readerContext||{};
   if(!Model||!Model.EVIDENCE_SCOPES?.includes(scope)||!convention||!session||!Array.isArray(log)||!Array.isArray(currentRows)||!currentRows.length)
@@ -6864,7 +6866,7 @@ function compareProgressStrengthSession(ex,currentRows,readerContext){
     row.strengthComparable!==false&&(row.strengthConvention||"load")===convention);
   return compareProjectedSessionOutcome(forPoint(point),forPoint(previousPoint),convention)}
 function strengthEvidenceRecords(scope="current-block"){
-  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return[];
+  const Model=NativeProgressModel;if(!Model)return[];
   const meta={started:state.programMeta?.started||null,
     mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6,
     blockId:snapshotBlockId(state)};
@@ -6906,7 +6908,7 @@ function strengthEvidenceRecords(scope="current-block"){
 function strengthFactsByLift(scope="current-block"){
   return Object.fromEntries(strengthEvidenceRecords(scope).filter(r=>r.outcome).map(r=>[r.exerciseId,r.outcome]))}
 function strengthProjection(scope="current-block"){
-  const Model=RepForgeProgressModel,meta={started:state.programMeta?.started||null,
+  const Model=NativeProgressModel,meta={started:state.programMeta?.started||null,
     mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6,
     blockId:snapshotBlockId(state)};
   const records=strengthEvidenceRecords(scope),rows=strengthEvidenceRows(),dashboard=[],keys=new Set();
@@ -7209,7 +7211,7 @@ function currentViewId(){return $$(".view").find(v=>v.classList.contains("active
 function openExerciseView(key,from){if(!key)return;
   const slot=prog.find(key),movement=slot?(workoutActive?sessionExercise(slot):slot):null;
   exView={key:movement?exerciseLiftKey(movement):key,openKey:key,from:from||currentViewId(),exercise:movement?Object.assign({},movement):null};
-  chartView={scope:"current-block",metric:"top",pt:null};
+  ExerciseChart.reset();
   const settle=routePushBegin("in",{pushed:$("#exercise"),under:routeViewEl(exView.from)});
   $$("nav button").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-current","false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="exercise"));
@@ -7217,7 +7219,7 @@ function openExerciseView(key,from){if(!key)return;
   window.scrollTo({top:0});renderExerciseView();
   focusRoute(routeHeading("exercise")||$("#exercise .exview-head__title"));
   settle?.()}
-function closeExerciseView(){const back=exView?.from||"log",openKey=exView?.openKey;exView=null;
+function closeExerciseView(){const back=exView?.from||"log",openKey=exView?.openKey;exView=null;ExerciseChart.reset();
   const settle=routePushBegin("out",{pushed:$("#exercise"),under:routeViewEl(back)});
   document.body.classList.remove("is-exercise");
   if(back==="settings"){showSettings();settle?.();return}
@@ -7312,274 +7314,10 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
    plot, the readout and every table row select the same session, and the table is
    the accessible alternative. Nothing explains a past load change: the app does
    not store one. */
-const CHART_W=328,CHART_H=190;
-const CHART_PAD={padL:42,padR:12,padT:20,padB:24};
-function chartModel(key){
-  const{scope,metric}=chartView;
-  const projection=strengthProjection(scope);
-  const current=scope==="all-history"?new Set((strengthProjection("current-block").series.get(key)?.points||[]).map(point=>point.sessionKey)):null;
-  const pts=projection.sessions.filter(x=>x.liftKey===key).map(x=>({date:x.date,top:x.top,reps:x.topReps,e1rm:x.e1rm,
-    perSideLoad:x.perSideLoad===true,perSideReps:x.perSideReps===true,sessionKey:x.sessionKey,block:current?current.has(x.sessionKey):true}));
-  const value=p=>metric==="top"?toDisplay(p.top):Math.round(toDisplay(p.e1rm)*10)/10;
-  const vals=pts.map(value);
-  const sel=chartView.pt==null||chartView.pt>=pts.length?pts.length-1:chartView.pt;
-  return{pts,vals,sel,metric,scope,value}}
-const chartNum=(v,metric)=>metric==="top"?fmt(v):fmt(Math.round(v*10)/10);
-/** Where the axis runs and where each session sits on it. */
-function chartGeometry(model){
-  const{pts,vals}=model,{padL,padR,padT,padB}=CHART_PAD,W=CHART_W,H=CHART_H;
-  let lo=Math.min(...vals),hi=Math.max(...vals);
-  const step=hi-lo>12?5:2.5;
-  lo=Math.floor((lo-step*.6)/step)*step;hi=Math.ceil((hi+step*.6)/step)*step;
-  const x=i=>padL+(pts.length===1?(W-padL-padR)/2:i*(W-padL-padR)/(pts.length-1));
-  const y=v=>padT+(1-(v-lo)/(hi-lo))*(H-padT-padB);
-  return{lo,hi,step,x,y}}
-/** One entry per session: where it is drawn and how it reads. The plot is drawn from these, so
- *  a frame of the scope change (C2) is the same drawing with moved coordinates and some fades. */
-function chartItems(model,geo){
-  return model.pts.map((z,i)=>({i,key:z.sessionKey,x:geo.x(i),y:geo.y(model.vals[i]),
-    tick:model.metric==="top"&&i>0&&z.top>model.pts[i-1].top,old:!z.block,sel:i===model.sel,alpha:1}))}
-/** The axes: grid, tick labels, the block rule and the two end dates. They belong to the scope and metric. */
-function chartAxesSvg(model,geo){
-  const{pts}=model,{padL,padR,padT,padB}=CHART_PAD,W=CHART_W,H=CHART_H,{lo,hi,step,x,y}=geo;
-  let g="";const ticks=[];
-  for(let v=lo;v<=hi+1e-6&&ticks.length<40;v+=step)ticks.push(v);
-  const every=ticks.length>5?2:1;
-  ticks.forEach((v,i)=>{
-    g+=`<line x1="${padL}" x2="${W-padR}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" class="ch-grid"/>`;
-    if(i%every===0)g+=`<text x="${padL-6}" y="${(y(v)+3.5).toFixed(1)}" class="ch-ax" text-anchor="end">${esc(fmt(v))}</text>`});
-  const first=pts.findIndex(z=>z.block);
-  if(first>0){const bx=(x(first-1)+x(first))/2;
-    g+=`<line x1="${bx.toFixed(1)}" x2="${bx.toFixed(1)}" y1="${padT-12}" y2="${H-padB}" class="ch-block"/>`;
-    g+=`<text x="${(bx+4).toFixed(1)}" y="${padT-4}" class="ch-ax ch-ax--l">${esc(t("stats.scope.current_block"))}</text>`}
-  g+=`<text x="${padL}" y="${H-6}" class="ch-ax">${esc(shortDate(pts[0].date))}</text>`+
-    `<text x="${W-padR}" y="${H-6}" class="ch-ax" text-anchor="end">${esc(shortDate(pts.at(-1).date))}</text>`;
-  return g}
-/** The series: the cursor, then the line with its ticks and points. `reveal` is the index of the first
- *  item the clip wipe (C1) covers, 0 for the whole line; the line before it is drawn at rest. An item
- *  with an `alpha` below 1 is entering or leaving (C2) and its stretch of the line fades with it. */
-function chartSeriesSvg(items,metric,{reveal=null}={}){
-  const{padT,padB}=CHART_PAD,H=CHART_H,n=items.length,sel=items.find(it=>it.sel);
-  const stepPath=list=>list.map((q,i)=>metric==="top"
-    ?(i?`H${q.x.toFixed(1)} V${q.y.toFixed(1)}`:`M${q.x.toFixed(1)} ${q.y.toFixed(1)}`)
-    :`${i?"L":"M"}${q.x.toFixed(1)} ${q.y.toFixed(1)}`).join(" ");
-  const lines=(from,to)=>{
-    const list=items.slice(from,to),runs=[];
-    list.forEach((q,i)=>{const faded=q.alpha<1,last=runs.at(-1);
-      if(last&&last.faded===faded){last.to=i}else runs.push({faded,from:i,to:i,alpha:q.alpha})});
-    return runs.map(r=>{
-      const part=r.faded?list.slice(Math.max(0,r.from-1),Math.min(list.length,r.to+2)):list.slice(r.from,r.to+1);
-      return `<path d="${stepPath(part)}" class="ch-line"${r.faded?` opacity="${r.alpha.toFixed(2)}"`:""}/>`}).join("")};
-  const points=(from,to)=>items.slice(from,to).map(z=>{
-    const fade=z.alpha<1?` opacity="${z.alpha.toFixed(2)}"`:"";
-    return (z.tick?`<path d="M${(z.x-4).toFixed(1)} ${(H-padB-6).toFixed(1)} l4 -6 l4 6 z" class="ex-tick"${fade}/>`:"")+
-      `<circle cx="${z.x.toFixed(1)}" cy="${z.y.toFixed(1)}" r="${z.sel?5:3}" class="ex-pt${z.sel?" ex-pt--sel":z.old?" ex-pt--old":""}"${z.i==null?"":` data-i="${z.i}"`}${fade}/>`}).join("");
-  const trace=(cls,lineFrom,lineTo,pointFrom,pointTo)=>`<g class="ch-trace${cls}">${lines(lineFrom,lineTo)}${points(pointFrom,pointTo)}</g>`;
-  // The cursor sits under the series and its points, never across a dot.
-  let g=sel?`<line x1="${sel.x.toFixed(1)}" x2="${sel.x.toFixed(1)}" y1="${padT-6}" y2="${H-padB}" class="ex-cursor"/>`:"";
-  if(reveal==null)g+=trace("",0,n,0,n);
-  else if(reveal<=0)g+=trace(" motion-clip-reveal",0,n,0,n);
-  else g+=trace("",0,reveal,0,reveal)+trace(" motion-clip-reveal",reveal-1,n,reveal,n);
-  return g}
-function chartSvg(model,{reveal=null}={}){
-  const geo=chartGeometry(model),items=chartItems(model,geo);
-  const xs=model.pts.map((_,i)=>geo.x(i));
-  return{svg:`<svg class="exchart__svg" viewBox="0 0 ${CHART_W} ${CHART_H}" aria-hidden="true">`+
-    `<g class="ch-axes">${chartAxesSvg(model,geo)}</g><g class="ch-series">${chartSeriesSvg(items,model.metric,{reveal})}</g></svg>`,
-    xs,geo,items}}
-function chartReadout(model){
-  const p=model.pts[model.sel],loadCue=model.pts.every(point=>point.perSideLoad)?` · ${t("focus.metric.load_per_side_kg")}`:"",
-    repsCue=model.pts.every(point=>point.perSideReps)?` · ${t("focus.metric.reps_per_side")}`:"",
-    label=(model.metric==="top"?t("stats.metric.top_load"):t("stats.metric.best_e1rm"))+loadCue;
-  return t("exercise.chart.readout",{date:esc(shortDate(p.date)),metric:esc(label),unit:esc(unitLabel()),
-    value:`<b class="exchart__mono">${esc(chartNum(model.value(p),model.metric))}</b>`,
-    set:`<b class="exchart__mono">${esc(fmtLoad(p.top))} × ${esc(p.reps)}${esc(repsCue)}</b>`})}
-function chartRowHtml(model,i){
-  const p=model.pts[i],prev=model.pts[i-1],v=model.value(p),pv=prev?model.value(prev):null;
-  const delta=pv==null?"–":Math.abs(v-pv)<.05?"0":`${v>pv?"+":"−"}${chartNum(Math.abs(v-pv),model.metric)}`;
-  const loadCue=model.pts.every(point=>point.perSideLoad)?` · ${t("focus.metric.load_per_side_kg")}`:"",
-    repsCue=model.pts.every(point=>point.perSideReps)?` · ${t("focus.metric.reps_per_side")}`:"";
-  return `<button type="button" class="exrow${i===model.sel?" is-sel":""}${p.block?"":" is-old"}" data-pt="${i}" aria-pressed="${i===model.sel}">`+
-    `<span>${esc(shortDate(p.date))}</span><span class="exchart__mono">${esc(fmtLoad(p.top))} × ${esc(p.reps)}${esc(loadCue+repsCue)}</span>`+
-    `<span class="exchart__mono">${esc(fmt(Math.round(toDisplay(p.e1rm)*10)/10))}${esc(loadCue)}</span><span class="exchart__mono exchart__soft">${esc(delta)}</span></button>`}
 function renderExerciseChart(el,key,sessions,tmpl){
   const latest=sessions.at(-1)?.rows.at(-1),name=latest?exerciseDisplayName(latest):((tmpl&&exerciseDisplayName(tmpl))||key);
-  const model=chartModel(key),{metric,scope}=chartView;
-  const head=`<h2 class="exdet__name exchart__title">${esc(name)}</h2>`;
-  const prev=chartLive&&chartLive.view===exView&&chartLive.key===key?chartLive:null;
-  if(!model.pts.length){
-    chartLive=null;
-    el.innerHTML=head+chartTogglesHtml(scope,metric)+`<div class="empty">${esc(t("exercise.empty.no_sets"))}</div>`;
-    bindChartToggles();return}
-  // What this render hands to the motion is decided before the page is rewritten.
-  const intent=beatsOn()?chartMotionIntent(prev,model):null;
-  const ghost=intent&&(intent.kind==="metric"||intent.kind==="scope")?chartGhost(el.querySelector(".exchart__svg"),intent.kind):null;
-  const plot=chartSvg(model,{reveal:intent?.kind==="open"?0:intent?.kind==="extend"?intent.from:null});
-  const live=chartLive={key,view:exView,model,scope,metric,geo:plot.geo,items:plot.items,
-    keys:model.pts.map(p=>p.sessionKey),drawn:new Map(plot.items.map(it=>[it.key,[it.x,it.y]]))};
-  const vals=model.vals,change=vals.at(-1)-vals[0];
-  const cue=model.pts.every(point=>point.perSideLoad)?` · ${t("focus.metric.load_per_side_kg")}`:"";
-  const repsCue=model.pts.every(point=>point.perSideReps)?` · ${t("focus.metric.reps_per_side")}`:"";
-  const figs=[[chartNum(Math.max(...vals),metric),`${t(metric==="top"?"exercise.chart.fig.top":"exercise.chart.fig.e1rm",{unit:unitLabel()})}${cue}`],
-    [`${change<0?"−":"+"}${chartNum(Math.abs(change),metric)}`,`${t("exercise.chart.fig.change",{unit:unitLabel()})}${cue}`],
-    [String(vals.length),t(vals.length===1?"plural.session.one":"plural.session.other")]];
-  const metricLabel=`${metric==="top"?t("stats.metric.top_load"):t("stats.metric.best_e1rm")}${cue}`;
-  el.innerHTML=head+chartTogglesHtml(scope,metric)+
-    `<div class="exchart__figs">${figs.map(([v,l])=>`<div><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join("")}</div>`+
-    `<div class="exchart__plot" role="img" aria-label="${esc(t("exercise.chart.aria",{metric:metricLabel,name}))}" data-xs="${plot.xs.map(v=>v.toFixed(1)).join(",")}" data-w="${CHART_W}">${plot.svg}</div>`+
-    `<p class="exchart__readout" aria-live="polite">${chartReadout(model)}</p>`+
-    `<div class="exchart__cols"><span>${esc(t("stats.table.date"))}</span><span>${esc(t("ledger.col.top_set"))}${esc(cue+repsCue)}</span><span>${esc(t("stats.table.e1rm"))}${esc(cue)}</span><span>${esc(t("exercise.chart.col.delta"))}</span></div>`+
-    model.pts.map((_,i)=>i).reverse().map(i=>chartRowHtml(model,i)).join("");
-  bindChartToggles();
-  const surface=$("#exDetail .exchart__plot");
-  const pick=e=>{const r=surface.getBoundingClientRect();if(!r.width)return;
-    const at=(e.clientX-r.left)/r.width*CHART_W,xs=plot.xs;let best=0;
-    xs.forEach((v,i)=>{if(Math.abs(v-at)<Math.abs(xs[best]-at))best=i});
-    selectChartPoint(best)};
-  surface.addEventListener("pointerdown",e=>{pick(e);try{surface.setPointerCapture(e.pointerId)}catch{}});
-  surface.addEventListener("pointermove",e=>{if(e.buttons)pick(e)});
-  $$("#exDetail .exrow").forEach(b=>b.onclick=()=>selectChartPoint(+b.dataset.pt));
-  if(intent)chartMotionPlay(el,surface,intent,prev,live,ghost)}
-
-/* ---- Progress chart motion (Plan 064 rule 11: owner picks C1, C2 and D4) ----
-   The table, the readout and the figures are the accessible alternative and are
-   written at once, whatever the plot is doing. Everything drawn here is the end
-   state first: the page is rendered at rest, then the plot is carried from where
-   it was. Under reduced motion (or without the runtime) none of it runs and the
-   rest drawing is all there is. */
-/** What a render of the chart should play, if anything. A render of the same chart as before
- *  (a language or unit change, a repaint) plays nothing. */
-function chartMotionIntent(prev,model){
-  if(!prev)return{kind:"open"};
-  // Two different quantities on two different axes: they crossfade, they never travel.
-  if(prev.metric!==model.metric)return{kind:"metric"};
-  if(prev.scope!==model.scope)return{kind:"scope"};
-  const was=prev.keys,now=model.pts.map(p=>p.sessionKey);
-  if(now.length>was.length&&was.every((k,i)=>now[i]===k))return{kind:"extend",from:was.length};
-  return null}
-/** Run one stylesheet beat once and put the element back at rest. The timer is only for an element
- *  that never animated (a hidden page), so nothing is left on the plot. */
-function settleBeat(el,cls,remove=false){
-  if(!el)return;
-  let over=false,timer=0;
-  const end=e=>{if(over||(e&&e.target!==el))return;over=true;clearTimeout(timer);if(remove)el.remove();else el.classList.remove(cls)};
-  timer=setTimeout(end,700);
-  el.addEventListener("animationend",end);el.addEventListener("animationcancel",end)}
-/** The drawing as it stood, kept to fade out over the new one. It is not `.exchart__svg`, and for a
- *  scope change it keeps only the axes, so a selector for the live plot finds one copy of anything. */
-function chartGhost(svg,kind){
-  if(!svg)return null;
-  const ghost=svg.cloneNode(true);
-  ghost.setAttribute("class","exchart__ghost");ghost.setAttribute("aria-hidden","true");
-  if(kind==="scope")ghost.querySelector(".ch-series")?.remove();
-  ghost.querySelectorAll(".motion-clip-reveal,.motion-fade-in").forEach(n=>n.classList.remove("motion-clip-reveal","motion-fade-in"));
-  ghost.querySelectorAll("[data-i]").forEach(n=>n.removeAttribute("data-i"));
-  return ghost}
-function chartMotionPlay(el,host,intent,prev,live,ghost){
-  const svg=host.querySelector(".exchart__svg");
-  if(!svg)return;
-  if(intent.kind==="open"||intent.kind==="extend"){
-    // C1: the line wipes in on open; on extension only the stretch to the new session does.
-    settleBeat(svg.querySelector(".ch-trace.motion-clip-reveal"),"motion-clip-reveal");return}
-  if(intent.kind==="metric"){
-    // The old drawing fades out over the new one, which fades in; no point travels.
-    if(!ghost)return;
-    ghost.classList.add("motion-fade-out");host.append(ghost);
-    svg.classList.add("motion-fade-in");
-    settleBeat(svg,"motion-fade-in");settleBeat(ghost,"motion-fade-out",true);return}
-  if(intent.kind==="scope")chartScopeTravel(el,host,svg,prev,live,ghost)}
-/** C2: the sessions both scopes have travel to their new coordinates; the ones only one scope has
- *  fade in or out; the axes, which belong to the scope, crossfade. The path is rebuilt on every frame
- *  from the interpolated points (`animateCoordinates`), so the step stays a step all the way. */
-function chartScopeTravel(el,host,svg,prev,live,ghost){
-  if(ghost){
-    const axes=svg.querySelector(".ch-axes");
-    ghost.classList.add("motion-fade-out");host.append(ghost);settleBeat(ghost,"motion-fade-out",true);
-    if(axes){axes.classList.add("motion-fade-in");settleBeat(axes,"motion-fade-in")}}
-  const m=focusMotion();
-  if(!m||!prev)return;
-  const was=prev.keys,now=live.keys,known=new Set(was);
-  const shared=now.filter(k=>known.has(k));
-  // One scope sits inside the other: the block inside all history.
-  if(!shared.length||shared.length!==Math.min(was.length,now.length))return;
-  const from=[],to=[];
-  for(const k of shared){
-    const a=prev.drawn.get(k),b=live.drawn.get(k);
-    if(!a||!b)return;
-    from.push(a[0],a[1]);to.push(b[0],b[1])}
-  const rest=new Map(live.drawn),entering=now.length>=was.length;
-  const base=entering?live.items:prev.items,current=new Map(live.items.map(it=>[it.key,it]));
-  const index=new Map(shared.map((k,i)=>[k,i]));
-  const series=svg.querySelector(".ch-series");
-  m.animateCoordinates(el,from,to,(vals,progress)=>{
-    if(chartLive!==live||!series.isConnected)return;
-    const items=base.map(it=>{
-      const at=index.get(it.key),own=current.get(it.key);
-      if(at!=null){
-        const x=vals[2*at],y=vals[2*at+1];live.drawn.set(it.key,[x,y]);
-        return{...own,x,y,sel:own.i===live.model.sel,alpha:1}}
-      const place=entering?[it.x,it.y]:(prev.drawn.get(it.key)||[it.x,it.y]);
-      return{...it,i:entering?it.i:null,x:place[0],y:place[1],sel:false,alpha:entering?progress:1-progress}});
-    series.innerHTML=chartSeriesSvg(items,live.metric)
-  }).then(arrived=>{
-    if(!arrived||chartLive!==live||!series.isConnected)return;
-    live.drawn=rest;
-    series.innerHTML=chartSeriesSvg(chartItems(live.model,live.geo),live.metric)})}
-function chartTogglesHtml(scope,metric){
-  const seg=(attr,label,options)=>`<div class="segpill" role="group" aria-label="${esc(label)}">`+
-    options.map(([value,text,on])=>`<button type="button" ${attr}="${value}" aria-pressed="${on}">${esc(text)}</button>`).join("")+`</div>`;
-  return `<div class="exchart__toggles">`+
-    seg("data-scope",t("stats.scope_aria"),[["current-block",t("stats.scope.current_block"),scope==="current-block"],["all-history",t("stats.scope.all_history"),scope==="all-history"]])+
-    seg("data-metric",t("stats.metric.top_load"),[["top",t("stats.metric.top_load"),metric==="top"],["e1rm",t("stats.metric.best_e1rm"),metric==="e1rm"]])+`</div>`}
-function bindChartToggles(){
-  // The page is rebuilt for every choice, so the pressed toggle is a new node: focus goes back to its equivalent by key (R7 J-10).
-  const keep=(attr,value)=>{const el=$(`#exDetail [${attr}="${CSS.escape(value)}"]`);if(el)focusRoute(el)};
-  $$("#exDetail [data-scope]").forEach(b=>b.onclick=()=>{const value=b.dataset.scope;chartView.scope=value;chartView.pt=null;renderExerciseView();keep("data-scope",value)});
-  $$("#exDetail [data-metric]").forEach(b=>b.onclick=()=>{const value=b.dataset.metric;chartView.metric=value;renderExerciseView();keep("data-metric",value)})}
-/** Moves the selection in place, so the plot, the readout and the table agree and nothing loses focus. */
-function selectChartPoint(i){
-  if(!chartLive)return;
-  const model=chartLive.model;if(i<0||i>=model.pts.length)return;
-  const was=model.sel;
-  chartView.pt=i;model.sel=i;
-  const plot=$("#exDetail .exchart__plot"),readout=$("#exDetail .exchart__readout");
-  if(plot&&i!==was)moveChartMarker(plot,model,was,i);
-  if(readout)readout.innerHTML=chartReadout(model);
-  $$("#exDetail .exrow").forEach(b=>{const on=+b.dataset.pt===i;b.classList.toggle("is-sel",on);b.setAttribute("aria-pressed",on?"true":"false")})}
-/** D4: the marker snaps to the session and, when the layer can animate, travels there. The selection
- *  itself (the points, the cursor, the readout, the table) changes in the same call; the travelling
- *  marker is a separate pair of elements over the plot, so scrubbing never waits for it and a
- *  second snap mid-flight starts from where the marker is on screen. */
-const chartMarkers=new WeakMap();
-function moveChartMarker(plot,model,from,to){
-  const svg=plot.querySelector(".exchart__svg");if(!svg)return;
-  const dot=n=>svg.querySelector(`.ex-pt[data-i="${n}"]`),cursor=svg.querySelector(".ex-cursor");
-  const m=focusMotion(),before=m&&dot(from)?dot(from).getBoundingClientRect():null;
-  const cursorBox=()=>{const r=cursor.getBoundingClientRect();return{left:r.left-.5,top:r.top,width:1,height:r.height}};
-  const cursorBefore=m&&cursor?cursorBox():null;
-  svg.querySelectorAll(".ex-pt[data-i]").forEach(c=>{
-    const n=+c.dataset.i,on=n===to;
-    c.setAttribute("r",on?"5":"3");c.classList.toggle("ex-pt--sel",on);
-    c.classList.toggle("ex-pt--old",!on&&!model.pts[n]?.block)});
-  const target=dot(to);
-  if(cursor&&target){const x=target.getAttribute("cx");cursor.setAttribute("x1",x);cursor.setAttribute("x2",x)}
-  if(!m||!before||!cursorBefore||!target||!cursor)return;
-  const box=plot.getBoundingClientRect();
-  let pair=chartMarkers.get(plot);
-  if(!pair){
-    pair={dot:document.createElement("span"),line:document.createElement("span")};
-    pair.dot.className="exchart__marker";pair.line.className="exchart__scrub";
-    for(const n of [pair.line,pair.dot]){n.setAttribute("aria-hidden","true");plot.append(n)}
-    chartMarkers.set(plot,pair);plot.classList.add("is-marker-travel")}
-  const place=(node,r)=>{node.style.left=`${r.left-box.left}px`;node.style.top=`${r.top-box.top}px`;
-    node.style.width=`${r.width}px`;node.style.height=`${r.height}px`};
-  const toDot=target.getBoundingClientRect(),toLine=cursorBox();
-  place(pair.dot,toDot);place(pair.line,toLine);
-  const token=pair.token={};
-  const done=()=>{
-    if(pair.token!==token)return;
-    pair.dot.remove();pair.line.remove();chartMarkers.delete(plot);plot.classList.remove("is-marker-travel")};
-  Promise.all([m.animateIndicator(pair.line,cursorBefore),m.animateIndicator(pair.dot,before)]).then(done,done)}
+  ExerciseChart.render(el,{key,name,identity:exView});
+}
 
 function editorDocumentFromSnapshot(snapshot){
   return{program:cloneSnapshot(snapshot?.program||[]),programMeta:cloneSnapshot(snapshot?.programMeta||{}),
@@ -13487,7 +13225,7 @@ function landingEvaluate(c){
   return{status:result.status,load:result.targets.loadKg,reps:result.targets.reps}}
 /** Strength-trend figures for the chart, from the Progress model. */
 function landingChartFigures(){
-  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
+  const Model=NativeProgressModel;
   if(!Model)return null;
   const series=Model.buildStrengthEvidence("all-history",LANDING_CHART.exerciseId,landingChartRows(),{started:LANDING_CHART.started});
   if(!series?.points?.length)return null;
