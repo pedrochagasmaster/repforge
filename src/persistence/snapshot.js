@@ -772,8 +772,8 @@ async function normalizeRecoveryCarrierSnapshot(snapshot,sourceReplica,{priorQua
   return{kind:"known",snapshot:next,changed:!storageSnapshotsEqual(next,snapshot)};
 }
 
-/** @param {RawSnapshot} snapshot @param {RecoveryRecord} record */
-async function validateRecoveryCarrierRecord(snapshot,record){
+/** @param {RawSnapshot} snapshot @param {RecoveryRecord} record @param {RecoveryRecord[]} [existingRecoveryRecords] */
+async function validateRecoveryCarrierRecord(snapshot,record,existingRecoveryRecords=[record]){
   const Transition=transition;
   const Compiler=compiler;
   const catalogue=catalog;
@@ -792,13 +792,21 @@ async function validateRecoveryCarrierRecord(snapshot,record){
       // Validate each candidate independently. The candidate itself is the
       // only repeat context, so two independently valid records can become a
       // deterministic target conflict after validation.
-      existingRecoveryRecords:[record],
+      existingRecoveryRecords,
     });
   }catch{return{kind:"unavailable"}}
-  if(validation?.ok===true&&validation.record)return{kind:"valid"};
+  if(validation?.ok===true&&validation.record)return{kind:"valid",record:validation.record};
   if(!validation||typeof validation!=="object")return{kind:"unavailable"};
   return{kind:"malformed"};
 }
+/** Apply the released carrier context when selecting a live projection. Carrier
+ * classification validates each record independently; projection also checks
+ * repeat context against all retained records.
+ * @param {RawSnapshot} snapshot @param {RecoveryRecord} record */
+async function validateRecoveryProjectionRecord(snapshot,record){
+  const records=isValidRecoveryTransitions(snapshot.recoveryTransitions)?snapshot.recoveryTransitions.records:[];
+  const result=await validateRecoveryCarrierRecord(snapshot,record,records);
+  return result.kind==='valid'?result.record:null}
 /** @param {RawSnapshot} snapshot @param {Extract<RecoveryClassification,{kind:"known"}>} classification @returns {Promise<{kind:"unavailable"}|Extract<RecoveryClassification,{kind:"known"}>>} */
 async function classifyRecoveryCarrierSemantics(snapshot,classification){
   /** @type {RecoveryRecord[]} */const valid=[];
@@ -1093,7 +1101,7 @@ function migrateLogSnapshot(snapshot){let changed=false;const lookup=snapshotLoo
   return changed}
   return Object.freeze({isValidStateShape,isValidStateWithoutRecoveryCarrier,carrierReadStatus,
     classifyRecoveryCarrier,isValidRecoveryTransitions,isValidBlockId,isBoundedTransitionValue,
-    normalizeRecoveryCarrierSnapshot,pendingDraftTransaction,canonicalProgramDefinition,
+    normalizeRecoveryCarrierSnapshot,validateRecoveryProjectionRecord,pendingDraftTransaction,canonicalProgramDefinition,
     isValidMuscleDomainTree,isValidStoredMuscleField,isSafeCustomExercise,isSafeProgressionFields,isSafeProgressionMeta,isSafeLogRow,
     isSafeProgramHistoryEntry,isValidPlannedVolumeHistory,isValidSetupActivationMarker,
     setupActivationMarker,setupActivationMatches,normalizeMuscleAttribution,
