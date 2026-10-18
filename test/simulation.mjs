@@ -729,8 +729,12 @@ async function finishEarlyOrRefused(page) {
     return (toast && !toast.classList.contains("hidden") && Boolean(toast.textContent?.trim())) ||
       !document.querySelector("#sessionSummary")?.classList.contains("hidden");
   }, undefined, { timeout: 8000 });
-  const toast = await readToast(page);
-  const saved = await page.evaluate(() => !document.querySelector("#sessionSummary")?.classList.contains("hidden"));
+  // The summary is the success signal. Successful saves deliberately have no
+  // toast; waiting for one spends the entire timeout on every valid boundary.
+  const { saved, toast } = await page.evaluate(() => ({
+    saved: document.querySelector("#sessionSummary")?.classList.contains("hidden") === false,
+    toast: document.querySelector("#toast:not(.hidden)")?.textContent?.trim() || "",
+  }));
   if (saved) await dismissSessionSummary(page);
   return { saved, toast };
 }
@@ -961,7 +965,7 @@ async function readToast(page) {
   await page.waitForFunction(() => {
     const el = document.querySelector("#toast");
     return el && !el.classList.contains("hidden") && (el.textContent || "").trim();
-  }, { timeout: 2500 }).catch(() => {});
+  }, undefined, { timeout: 2500 }).catch(() => {});
   return page.evaluate(() => document.querySelector("#toast:not(.hidden)")?.textContent?.trim() || "");
 }
 
