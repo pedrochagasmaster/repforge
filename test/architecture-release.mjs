@@ -56,6 +56,25 @@ test('AST type boundaries inspect JSDoc and declarations without inventing runti
   assert.match(inspectModules({'app/a.js':"import './b.js';",'app/b.js':"import './a.js';"}).join('\n'),/dependency cycle/,'actual runtime cycles still fail');
 });
 
+test('actual JSDoc imports and declaration references obey public type boundaries',()=> {
+  const privateSource={'training/private.d.ts':'export interface Private {}'};
+  const rejects=[
+    [{'app/a.js':"/** @import {Private} from '../training/private.js' */\nexport function f() {}",...privateSource},/bypasses public entry/],
+    [{'app/a.js':"/** @import * as Private from '../training/private.js' */\nexport function f() {}",...privateSource},/bypasses public entry/],
+    [{'app/a.js':"/** @import {Missing} from './missing.js' */\nexport function f() {}"},/missing import/],
+    [{'app/a.js':"/** @import {X} from 'unapproved-package' */\nexport function f() {}"},/non-relative type import/],
+    [{'app/a.d.ts':"import Private = require('../training/private.js'); export type A=Private.Private;",...privateSource},/bypasses public entry/],
+    [{'app/a.d.ts':"import Private = require('unapproved-package'); export type A=Private.Private;"},/non-relative type import/],
+    [{'app/a.d.ts':'/// <reference path="../training/private.d.ts" />\nexport interface A {}',...privateSource},/bypasses public entry/],
+    [{'app/a.d.ts':'/// <reference types="unapproved-package" />\nexport interface A {}'},/non-relative type import/],
+  ];
+  for(const [fixture,pattern] of rejects)assert.match(inspectModules(fixture).join('\n'),pattern);
+  assert.deepEqual(inspectModules({'app/a.js':"/** @import {B} from './b.js' */\nexport function a() {}",'app/b.js':"/** @import {A} from './a.js' */\nexport function b() {}"}),[],'JSDoc references do not create runtime cycles');
+  assert.deepEqual(inspectModules({'app/a.d.ts':'/// <reference path="./b.d.ts" />\nexport interface A {}','app/b.d.ts':'/// <reference path="./a.d.ts" />\nexport interface B {}'}),[],'declaration references do not create runtime cycles');
+  assert.deepEqual(inspectModules({'app/a.d.ts':"import B = require('./b.js'); export type A=B.B;",'app/b.d.ts':"import A = require('./a.js'); export type B=A.A;"}),[],'declaration import-equals resolves declarations without runtime cycles');
+  assert.deepEqual(inspectModules({'app/a.js':"/** @import {Model} from '../training/model.js' */\nexport function a() {}",'training/model.js':'export const model=1;'}),[],'published JSDoc imports remain permitted');
+});
+
 test('startup refuses historical/mismatched controllers before loading and permits no-SW',async()=> {
   let calls=0; const load=async()=>{calls++;};
   assert.equal(await startRelease({releaseId:'r1',load}),'started');
