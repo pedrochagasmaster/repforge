@@ -30,14 +30,14 @@ import {verdictMarkHtml as sharedVerdictMarkHtml,formatSetsLine,formatTable} fro
 let TodayUi,SummaryUi,ProgressUi,ReviewUi,TrainingModel;
 import {createSession} from './src/app/session.js';
 import {createWorkoutCommands,createFocusWorkoutCommands,createWorkoutSuggestionCommands} from './src/app/workout.js';
-import {createProgramCommands,createCustomExerciseCommands,createProgramReplacementCommands} from './src/app/program.js';
+import {createProgramCommands,createCustomExerciseCommands,createProgramReplacementCommands,createProgramAdditionCommands} from './src/app/program.js';
 import {createHistoryCommands} from './src/app/history.js';
 import {createMotion} from './src/platform/motion.js';
 import * as SnapshotPolicy from './src/persistence/snapshot.js';
 import {createDurableStore} from './src/persistence/durable.js';
 import {createPreferences} from './src/persistence/preferences.js';
 import {createProgramModel,PROGRESSION_VALUE_LIMITS} from './src/training/model.js';
-import {createEntryRules} from './src/training/authoring.js';
+import {createEntryRules,createInstalledEditorRules} from './src/training/authoring.js';
 import {createWorkoutRules} from './src/training/workout.js';
 import PersistenceMetrics from './src/training/metrics.js';
 import {progression as PersistenceProgression,schedule} from './src/training/progress.js';
@@ -2224,7 +2224,8 @@ const customExerciseCommands=createCustomExerciseCommands({
   model:{normalizeCustomExercises,isCustomLibraryId,definitionMovementIds},
   normalizeMuscleAttribution:value=>MuscleDomain.normalizeMuscleAttribution(value),
   now:()=>new Date().toISOString(),newId:()=>`${CUSTOM_ID_PREFIX}${uid()}`,
-  invalidMuscleCommit:()=>invalidMuscleDomainCommit()});
+  invalidMuscleCommit:()=>invalidMuscleDomainCommit(),
+  settleMutation:options=>DurableState.settleCustomExerciseMutation(options)});
 const customExerciseStateEqual=customExerciseCommands.stateEqual;
 const customExerciseUpsert=customExerciseCommands.upsert;
 const customExerciseRemoveOrArchive=customExerciseCommands.removeOrArchive;
@@ -10081,67 +10082,7 @@ function customExerciseMutationNeedsRecovery(result){
   return result?.status==="partial"||result?.status==="deferred"||
     result?.recoveryPending===true||result?.finalizationPending===true||
     result?.pendingJournalCleanup===true}
-function customExerciseMutationMatches(snapshot,mutation){
-  const current=customExercises(snapshot).find(value=>value.id===mutation.id)||null;
-  if(mutation.operation==="delete")return current===null&&!customExerciseInUse(mutation.id,snapshot);
-  if(!current)return false;
-  if(mutation.operation==="archive"){
-    if(current.archived!==true)return false;
-    const expected=cloneSnapshot(mutation.entry),actual=cloneSnapshot(current);
-    delete expected.archived;delete actual.archived;
-    return customExerciseStateEqual(actual,expected)}
-  return customExerciseStateEqual(current,mutation.entry)}
-function resolveCustomMutationIntent({head,journal}){
-  const intent=journal?.customMutationIntent;
-  if(intent?.version!==1||intent.operation!=="delete"||!isCustomLibraryId(intent.id)||
-    intent.entry?.id!==intent.id)return{ok:false,code:"custom_mutation_intent_invalid"};
-  const id=intent.id,source=normalizeCustomExercises([intent.entry])[0];
-  if(!source||source.id!==id)return{ok:false,code:"custom_mutation_intent_invalid"};
-  const current=customExercises(head).find(value=>value.id===id)||null;
-  const referenced=customExerciseInUse(id,head);
-  let snapshot=cloneSnapshot(head),mode="delete";
-  if(referenced){
-    mode="preserve-used";
-    if(!current)snapshot=customExerciseUpsert(snapshot,source);
-  }else if(current&&!customExerciseStateEqual(current,source)){
-    // A concurrent edit owns the newer definition. The older Delete intent
-    // must not erase it, even when the ID has not gained a reference.
-    mode="preserve-changed";
-  }else if(current){
-    snapshot=customExerciseRemoveOrArchive(snapshot,id,"delete");
-  }
-  const expected=current&&!referenced&&!customExerciseStateEqual(current,source)
-    ?cloneSnapshot(current):null;
-  return{ok:true,snapshot,
-    code:mode==="preserve-used"?"custom_delete_became_used":
-      mode==="preserve-changed"?"custom_delete_changed_elsewhere":null,
-    verify:value=>{
-      const actual=customExercises(value).find(entry=>entry.id===id)||null;
-      if(mode==="preserve-used")return actual
-        ?{ok:true}:{ok:false,code:"custom_delete_definition_missing"};
-      if(mode==="preserve-changed")return customExerciseStateEqual(actual,expected)
-        ?{ok:true}:{ok:false,code:"custom_delete_newer_definition_changed"};
-      return!actual&&!customExerciseInUse(id,value)
-        ?{ok:true}:{ok:false,code:"custom_delete_not_safe"};
-    }}
-}
-function customExerciseDeleteRecovery({snapshot,journal,mutation,stage}){
-  if(mutation.operation!=="delete")return null;
-  const marker=journal?.customMutationRecovery;
-  if(stage==="journal")
-    return marker?.operation==="delete"&&marker.id===mutation.id?{owned:true}:null;
-  const referenced=customExerciseInUse(mutation.id,snapshot);
-  const current=customExercises(snapshot).find(value=>value.id===mutation.id)||null;
-  if(!referenced&&!current&&marker?.id!==mutation.id)return null;
-  const entry=current||normalizeCustomExercises([mutation.entry])[0];
-  if(!entry||entry.id!==mutation.id)return null;
-  const candidate=current?snapshot:customExerciseUpsert(snapshot,entry);
-  return{
-    snapshot:candidate,
-    code:referenced?"custom_delete_became_used":"custom_delete_changed_elsewhere",
-    journalMarker:{version:1,operation:"delete",id:mutation.id},
-    verify:value=>({ok:customExercises(value).some(item=>item.id===mutation.id)})
-  }}
+const resolveCustomMutationIntent=customExerciseCommands.resolveIntent;
 function returnCustomDeleteToEditing(active,mutation,snapshot,code){
   const entry=customExercises(snapshot).find(value=>value.id===mutation.id);
   if(!entry)return false;
@@ -10174,14 +10115,7 @@ async function recoverCustomExerciseMutation(active,mutation){
     mutation.operation==="delete"?"custom.finishing_delete":"custom.finishing_save";
   setCustomExercisePhase(active,"recovering");
   let receipt=null;
-  try{receipt=await DurableState.settleCustomExerciseMutation({
-    pendingJournalId:mutation.pendingJournalId,
-    verify:({snapshot})=>customExerciseMutationMatches(snapshot,mutation)
-      ?{ok:true}
-      :{ok:false,code:mutation.operation==="delete"&&customExerciseInUse(mutation.id,snapshot)
-        ?"custom_delete_became_used":"custom_settlement_mismatch"},
-    recover:context=>customExerciseDeleteRecovery({...context,mutation})
-  })}catch{}
+  try{receipt=await customExerciseCommands.recover(mutation)}catch{}
   if(customState!==active)return false;
   if(typeof receipt?.pendingJournalId==="string")mutation.pendingJournalId=receipt.pendingJournalId;
   if(customExerciseMutationSucceeded(receipt))return true;
@@ -10950,22 +10884,7 @@ async function commitLibrarySelection(){
   if(libFlow.step!=="configure"){libFlow.step="configure";renderLibrary();window.scrollTo({top:0});return null}
   const rows=libraryConfigureRows();
   const editorScope=!!libFlow.editorScope;
-  const proposal=libFlow.editorScope?programEditorSnapshot():cloneSnapshot(state);
-  const nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
-  const baseline=cloneSnapshot(proposal),addedIds=[];
-  for(const r of rows){
-    const added=nextProgram.addExercise(libFlow.day,r.entry);
-    added.sets=r.cfg.sets;added.min=r.cfg.min;added.max=Math.max(r.cfg.min,r.cfg.max);addedIds.push(added.id)}
-  proposal.program=nextProgram.toJSON();
-  // The canonical definition is the program; each added row becomes a slot
-  // through the same intent the editor's own Add uses.
-  for(const id of addedIds){
-    const cycleIndex=mesocycleLifecycle(proposal.programMeta).current||1;
-    if(!syncEditorCanonicalIntent(proposal,baseline,{kind:"exercise_add",targetId:id,targetDay:libFlow.day},{cycleIndex})){
-      toast(t("toast.program_save_failed"));return{ok:false,invalid:true,code:"invalid_canonical_editor_intent"}}}
-  const result=libFlow.editorScope
-    ?await commitProgramEditorProposal(proposal)
-    :await commitProposedState(proposal);
+  const result=await programAdditionCommands.addExercises({day:libFlow.day,rows,editorScope});
   const setupDraftAccepted=editorScope&&setupEditorOpen&&result?.setupDraft===true&&
     result?.localOk===true&&result?.idbOk===true;
   if(!(result?.committed===true&&result?.settled===true)&&!setupDraftAccepted){
@@ -16889,6 +16808,7 @@ async function boot(){
 
 boot();
 
+let programAdditionCommands;
 function initializePersistenceOwners(){
   if(DurableState)return;
   initializeWorkoutCommands();
@@ -16901,6 +16821,9 @@ function initializePersistenceOwners(){
     catalog:rawExerciseCatalog,model,transition:generationRules.transition,metrics:PersistenceMetrics,
     progression:PersistenceProgression,now,nextId:uid,language:I18N,digest:recoverySha256});
   ({normalizeMuscleAttribution,isValidMuscleDomainTree,isValidStoredMuscleField,isValidPlannedVolumeHistory,normalizeRecoveryCarrierSnapshot,isSafeProgressionFields,isSafeProgressionMeta,isSafeProgramHistoryEntry,isSafeLogRow,isSafeCustomExercise,isValidSetupActivationMarker,setupActivationMarker,setupActivationMatches,isValidStateShape,migrateLogSnapshot,defaultProgramMeta,normalizeProgramEntrySource,normalizeProgramMeta,normalizeLoadingConfiguration,withExplicitProgramStructure,normalizeProgramHistory,normalizeLoaded,normalizeNotify,normalizeSettings}=policy);
+  programAdditionCommands=createProgramAdditionCommands({read:applicationSession.read,
+    readEditor:programEditorSnapshot,commit:proposal=>commitProposedState(proposal),commitEditor:commitProgramEditorProposal,
+    model,authoring:createInstalledEditorRules({model,catalog:rawExerciseCatalog,nextId:uid,defaultProgramMeta})});
   DurableState=createDurableStore({snapshotPolicy:policy,workout,
     session:{getState:applicationSession.read,parseContext:workoutParseContext,blockStartGuard:blockStartDraftGuard,
       onDraftRecovery:value=>{workoutDraftRecovery=value}},

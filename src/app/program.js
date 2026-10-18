@@ -1,3 +1,7 @@
+/** @typedef {{operation:string,id:string,entry:CustomExercise,pendingJournalId?:string|null}} CustomMutation
+ * @typedef {{snapshot:Snapshot,journal:{customMutationRecovery?:{operation?:string,id?:string}},stage:string}} CustomRecoveryContext
+ * @typedef {{owned:true}|{snapshot:Snapshot,code:string,journalMarker:{version:number,operation:string,id:string},verify:(snapshot:Snapshot)=>{ok:boolean}}} CustomRecoveryResult
+ */
 import {copySnapshot} from './session.js';
 import {canonicalize, draftProgramFingerprint, snapshotBlockId, readRevision} from '../persistence/snapshot.js';
 
@@ -95,9 +99,9 @@ function abortsSameDay(effect) { return effect?.status === 'valid' && effect.eff
 /** Custom-definition CAS and archive policy. The canonical model instance owns
  * normalization/identity; this application owner owns lock-held mutation intent.
  * Policy methods also serve explicit Undo/retry commands during extraction.
- * @param {{read:()=>Snapshot,commit:Commit,model:{normalizeCustomExercises:(entries:unknown[])=>CustomExercise[],isCustomLibraryId:(id:unknown)=>boolean,definitionMovementIds:(definition:unknown)=>string[]},normalizeMuscleAttribution:(value:unknown)=>{ok:boolean,value?:unknown},now:()=>string,newId:()=>string,invalidMuscleCommit:()=>CommitResult}} options */
+ * @param {{read:()=>Snapshot,commit:Commit,model:{normalizeCustomExercises:(entries:unknown[])=>CustomExercise[],isCustomLibraryId:(id:unknown)=>boolean,definitionMovementIds:(definition:unknown)=>string[]},normalizeMuscleAttribution:(value:unknown)=>{ok:boolean,value?:unknown},now:()=>string,newId:()=>string,invalidMuscleCommit:()=>CommitResult,settleMutation?:(options:{pendingJournalId?:string|null,verify:(context:{snapshot:Snapshot})=>{ok:boolean,code?:string},recover:(context:CustomRecoveryContext)=>CustomRecoveryResult|null})=>Promise<CommitResult>}} options */
 export function createCustomExerciseCommands({read, commit, model, normalizeMuscleAttribution,
-  now, newId, invalidMuscleCommit}) {
+  now, newId, invalidMuscleCommit, settleMutation}) {
   const {normalizeCustomExercises, isCustomLibraryId, definitionMovementIds} = model;
   /** @param {Snapshot} snapshot */
   const entries = snapshot => Array.isArray(snapshot?.customExercises) ? snapshot.customExercises : [];
@@ -181,7 +185,84 @@ export function createCustomExerciseCommands({read, commit, model, normalizeMusc
       customMutationIntent: operation === 'delete' ? {version: 1, operation: 'delete', id, entry: source} : null}, io);
     return result ? {...result, archived: operation === 'archive', operation} : result;
   }
-  return Object.freeze({save, remove, inUse, stateEqual, upsert, removeOrArchive});
+  /** @param {Snapshot} snapshot @param {CustomMutation} mutation */
+  function mutationMatches(snapshot,mutation){
+  const current=entries(snapshot).find(value=>value.id===mutation.id)||null;
+  if(mutation.operation==="delete")return current===null&&!inUse(mutation.id,snapshot);
+  if(!current)return false;
+  if(mutation.operation==="archive"){
+    if(current.archived!==true)return false;
+    const expected=copySnapshot(mutation.entry),actual=copySnapshot(current);
+    delete expected.archived;delete actual.archived;
+    return stateEqual(actual,expected)}
+  return stateEqual(current,mutation.entry)}
+/** @param {{head:Snapshot,journal:{customMutationIntent?:{version?:number,operation?:string,id?:string,entry?:CustomExercise}}}} context */
+  function resolveIntent({head,journal}){
+  const intent=journal?.customMutationIntent;
+  if(intent?.version!==1||intent.operation!=="delete"||!isCustomLibraryId(intent.id)||
+    !intent.entry||intent.entry.id!==intent.id)return{ok:false,code:"custom_mutation_intent_invalid"};
+  const id=intent.id,source=normalizeCustomExercises([intent.entry])[0];
+  if(!source||source.id!==id)return{ok:false,code:"custom_mutation_intent_invalid"};
+  const current=entries(head).find(value=>value.id===id)||null;
+  const referenced=inUse(id,head);
+  let snapshot=copySnapshot(head),mode="delete";
+  if(referenced){
+    mode="preserve-used";
+    if(!current)snapshot=upsert(snapshot,source);
+  }else if(current&&!stateEqual(current,source)){
+    // A concurrent edit owns the newer definition. The older Delete intent
+    // must not erase it, even when the ID has not gained a reference.
+    mode="preserve-changed";
+  }else if(current){
+    snapshot=removeOrArchive(snapshot,id,"delete");
+  }
+  const expected=current&&!referenced&&!stateEqual(current,source)
+    ?copySnapshot(current):null;
+  return{ok:true,snapshot,
+    code:mode==="preserve-used"?"custom_delete_became_used":
+      mode==="preserve-changed"?"custom_delete_changed_elsewhere":null,
+    verify:/** @param {Snapshot} value */ value=>{
+      const actual=entries(value).find(entry=>entry.id===id)||null;
+      if(mode==="preserve-used")return actual
+        ?{ok:true}:{ok:false,code:"custom_delete_definition_missing"};
+      if(mode==="preserve-changed")return stateEqual(actual,expected)
+        ?{ok:true}:{ok:false,code:"custom_delete_newer_definition_changed"};
+      return!actual&&!inUse(id,value)
+        ?{ok:true}:{ok:false,code:"custom_delete_not_safe"};
+    }}
+}
+/** @param {CustomRecoveryContext & {mutation:CustomMutation}} context @returns {CustomRecoveryResult|null} */
+  function deleteRecovery({snapshot,journal,mutation,stage}){
+  if(mutation.operation!=="delete")return null;
+  const marker=journal?.customMutationRecovery;
+  if(stage==="journal")
+    return marker?.operation==="delete"&&marker.id===mutation.id?{owned:true}:null;
+  const referenced=inUse(mutation.id,snapshot);
+  const current=entries(snapshot).find(value=>value.id===mutation.id)||null;
+  if(!referenced&&!current&&marker?.id!==mutation.id)return null;
+  const entry=current||normalizeCustomExercises([mutation.entry])[0];
+  if(!entry||entry.id!==mutation.id)return null;
+  const candidate=current?snapshot:upsert(snapshot,entry);
+  return{
+    snapshot:candidate,
+    code:referenced?"custom_delete_became_used":"custom_delete_changed_elsewhere",
+    journalMarker:{version:1,operation:"delete",id:mutation.id},
+    verify:/** @param {Snapshot} value */ value=>({ok:entries(value).some(item=>item.id===mutation.id)})
+  }}
+
+  /** Settle the durable intent before the UI acknowledges a custom mutation.
+   * The durable owner holds locks and publishes accepted heads; semantic
+   * matching and preservation of changed/referenced definitions belong here.
+   * @param {CustomMutation} mutation */
+  async function recover(mutation){
+    if(!settleMutation)throw new Error('custom settlement capability unavailable');
+    return settleMutation({pendingJournalId:mutation.pendingJournalId,
+      verify:({snapshot})=>mutationMatches(snapshot,mutation)?{ok:true}:
+        {ok:false,code:mutation.operation==='delete'&&inUse(mutation.id,snapshot)?'custom_delete_became_used':'custom_settlement_mismatch'},
+      recover:context=>deleteRecovery({...context,mutation})});
+  }
+
+  return Object.freeze({save, remove, recover, resolveIntent, inUse, stateEqual, upsert, removeOrArchive});
 }
 
 /** Program activation/replacement commit. The reviewed setup/transition owner
@@ -225,4 +306,29 @@ export function createProgramReplacementCommands({read, commit, capture, allocat
     return commit(next, {...transition, effect, expectedSetupDraftRaw, replace, expectedFirstRunEmpty, preflight}, io);
   }
   return Object.freeze({commit: replace, archiveCapturedProgram});
+}
+
+/** Add library choices through the same canonical intent used by the editor.
+ * A private setup document and installed state have different commit owners;
+ * the UI chooses its scope, but never builds or writes a durable proposal.
+ * @param {{read:()=>Snapshot,readEditor:()=>Snapshot,commit:(proposal:Snapshot)=>Promise<CommitResult>,commitEditor:(proposal:Snapshot)=>Promise<CommitResult>,model:{makeProgram:(rows:ProgramRow[]|undefined,lookup:unknown,meta:ProgramMeta|undefined)=>{addExercise:(day:string,entry:Record<string,unknown>)=>ProgramRow & {sets:number,min:number,max:number},toJSON:()=>ProgramRow[]},snapshotLookup:(entries:CustomExercise[]|undefined)=>unknown,mesocycleLifecycle:(meta:ProgramMeta|undefined)=>{current?:number|null}},authoring:{syncEditorCanonicalIntent:(proposal:Snapshot,baseline:Snapshot,intent:{kind:string,targetId:string|undefined,targetDay:string},options:{cycleIndex:number})=>boolean}}} options */
+export function createProgramAdditionCommands({read,readEditor,commit,commitEditor,model,authoring}){
+  /** @param {{day:string,editorScope?:boolean,rows:{entry:Record<string,unknown>,cfg:{sets:number,min:number,max:number}}[]}} request */
+  async function addExercises({day,editorScope=false,rows}){
+    const proposal=copySnapshot(editorScope?readEditor():read());
+    const next=model.makeProgram(proposal.program,model.snapshotLookup(proposal.customExercises),proposal.programMeta);
+    const baseline=copySnapshot(proposal),addedIds=[];
+    for(const row of rows){
+      const added=next.addExercise(day,row.entry);
+      added.sets=row.cfg.sets;added.min=row.cfg.min;added.max=Math.max(row.cfg.min,row.cfg.max);addedIds.push(added.id);
+    }
+    proposal.program=next.toJSON();
+    for(const id of addedIds){
+      const cycleIndex=model.mesocycleLifecycle(proposal.programMeta).current||1;
+      if(!authoring.syncEditorCanonicalIntent(proposal,baseline,{kind:'exercise_add',targetId:id,targetDay:day},{cycleIndex}))
+        return{ok:false,invalid:true,code:'invalid_canonical_editor_intent'};
+    }
+    return editorScope?commitEditor(proposal):commit(proposal);
+  }
+  return Object.freeze({addExercises});
 }
