@@ -6167,7 +6167,9 @@
         "onboarding-recommend/result-confirm-offer",
         "onboarding-recommend/result-confirmed",
         "onboarding-recommend/review-day-name-refused",
-        "workout/deload-week"
+        "workout/deload-week",
+        "program/progression-editor",
+        "program/editor-alternates"
       ]
     },
     {
@@ -7820,7 +7822,8 @@
         "onboarding-recommend/review-sheet-swap",
         "onboarding-recommend/review-sheet-execution-mode",
         "onboarding-recommend/result-block-sheet",
-        "onboarding-recommend/review-day-name-refused"
+        "onboarding-recommend/review-day-name-refused",
+        "program/editor-alternates"
       ]
     },
     {
@@ -7854,7 +7857,9 @@
         "onboarding-recommend/review-sheet-swap",
         "onboarding-recommend/review-sheet-execution-mode",
         "onboarding-recommend/result-block-sheet",
-        "onboarding-recommend/review-day-name-refused"
+        "onboarding-recommend/review-day-name-refused",
+        "program/editor-alternates",
+        "program/editor-suggest-loads"
       ]
     },
     {
@@ -9217,7 +9222,8 @@
         "onboarding-recommend/review-reorder",
         "onboarding-recommend/result-confirm-offer",
         "onboarding-recommend/result-confirmed",
-        "onboarding-shared/preview"
+        "onboarding-shared/preview",
+        "program/progression-editor"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -9250,7 +9256,8 @@
         "onboarding-recommend/review-reorder",
         "onboarding-recommend/result-confirm-offer",
         "onboarding-recommend/result-confirmed",
-        "onboarding-shared/preview"
+        "onboarding-shared/preview",
+        "program/progression-editor"
       ],
       "neverDisabledReason": "Every day of the week, rest days included, can always be shown."
     },
@@ -9280,7 +9287,8 @@
         "onboarding-recommend/result-existing",
         "onboarding-recommend/result-confirm-offer",
         "onboarding-recommend/result-confirmed",
-        "onboarding-shared/preview"
+        "onboarding-shared/preview",
+        "program/progression-editor"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -9312,7 +9320,8 @@
         "onboarding-recommend/review-reorder",
         "onboarding-recommend/result-confirm-offer",
         "onboarding-recommend/result-confirmed",
-        "onboarding-shared/preview"
+        "onboarding-shared/preview",
+        "program/progression-editor"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -9343,7 +9352,8 @@
         "onboarding-recommend/review-empty-day",
         "onboarding-recommend/result-confirm-offer",
         "onboarding-recommend/result-confirmed",
-        "onboarding-shared/preview"
+        "onboarding-shared/preview",
+        "program/progression-editor"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -9374,7 +9384,8 @@
         "onboarding-recommend/review-empty-day",
         "onboarding-recommend/result-confirm-offer",
         "onboarding-recommend/result-confirmed",
-        "onboarding-shared/preview"
+        "onboarding-shared/preview",
+        "program/progression-editor"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -9397,7 +9408,8 @@
       "owner": "plan-070",
       "catalogStates": [
         "onboarding-recommend/review-reorder",
-        "onboarding-recommend/review-sheet-swap"
+        "onboarding-recommend/review-sheet-swap",
+        "program/editor-alternates"
       ]
     },
     {
@@ -9421,7 +9433,9 @@
         "onboarding-recommend/review-sheet",
         "onboarding-recommend/review-sheet-swap",
         "onboarding-recommend/result-block-sheet",
-        "onboarding-recommend/review-sheet-execution-mode"
+        "onboarding-recommend/review-sheet-execution-mode",
+        "program/editor-alternates",
+        "program/editor-suggest-loads"
       ]
     },
     {
@@ -9444,7 +9458,9 @@
       "catalogStates": [
         "onboarding-recommend/review-sheet",
         "onboarding-recommend/review-sheet-swap",
-        "onboarding-recommend/review-sheet-execution-mode"
+        "onboarding-recommend/review-sheet-execution-mode",
+        "program/editor-alternates",
+        "program/editor-suggest-loads"
       ],
       "neverDisabledReason": "Every rest preset is always a valid choice."
     },
@@ -9467,7 +9483,9 @@
       "catalogStates": [
         "onboarding-recommend/review-sheet",
         "onboarding-recommend/review-sheet-swap",
-        "onboarding-recommend/review-sheet-execution-mode"
+        "onboarding-recommend/review-sheet-execution-mode",
+        "program/editor-alternates",
+        "program/editor-suggest-loads"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -9533,7 +9551,9 @@
       "catalogStates": [
         "onboarding-recommend/review-sheet",
         "onboarding-recommend/review-sheet-swap",
-        "onboarding-recommend/review-sheet-execution-mode"
+        "onboarding-recommend/review-sheet-execution-mode",
+        "program/editor-alternates",
+        "program/editor-suggest-loads"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -9556,7 +9576,8 @@
         "onboarding-recommend/review-sheet-swap",
         "onboarding-recommend/result-block-sheet",
         "onboarding-recommend/review-sheet-execution-mode",
-        "onboarding-recommend/review-day-name-refused"
+        "onboarding-recommend/review-day-name-refused",
+        "program/editor-alternates"
       ]
     },
     {
@@ -9578,7 +9599,8 @@
         "onboarding-recommend/review-sheet-swap",
         "onboarding-recommend/result-block-sheet",
         "onboarding-recommend/review-sheet-execution-mode",
-        "onboarding-recommend/review-day-name-refused"
+        "onboarding-recommend/review-day-name-refused",
+        "program/editor-alternates"
       ]
     },
     {
@@ -9970,6 +9992,108 @@
       "owner": "plan-056",
       "catalogStates": [
         "workout/deload-week"
+      ]
+    },
+    {
+      "id": "program-editor-a-navrow",
+      "selector": ".program-editor-a__navrow",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "A sheet row that opens the exercise's Weeks or Swap sheet.",
+      "owner": "plan-074",
+      "catalogStates": [
+        "program/editor-alternates",
+        "program/editor-suggest-loads"
+      ],
+      "neverDisabledReason": "Opening the exercise's Weeks or Swap sheet is always available while its sheet is open."
+    },
+    {
+      "id": "program-editor-a-bar",
+      "selector": ".program-editor-a__bar",
+      "roles": {
+        "elevation": "persistent-action"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Holds the installed editor's Apply, and its blocked reason, where the dock was while editing.",
+      "owner": "plan-074",
+      "catalogStates": [
+        "program/progression-editor"
+      ]
+    },
+    {
+      "id": "programeditcancel",
+      "selector": "#programEditCancel",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Leaves the installed editor; with unapplied changes it asks first.",
+      "owner": "plan-074",
+      "catalogStates": [
+        "program/progression-editor"
+      ],
+      "neverDisabledReason": "Leaving the editor is always available; with unapplied changes it asks first."
+    },
+    {
+      "id": "programeditorremove",
+      "selector": "#programEditorRemove",
+      "roles": {
+        "control": "destructive"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Removes the exercise from its day; a toast offers Undo.",
+      "owner": "plan-074",
+      "catalogStates": [
+        "program/editor-alternates",
+        "program/editor-suggest-loads"
+      ],
+      "neverDisabledReason": "Any exercise can be removed; an emptied day blocks Apply instead."
+    },
+    {
+      "id": "program-editor-a-sheet-field",
+      "selector": ".review-sheet__field .input:not([id])",
+      "roles": {
+        "control": "field"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "A text field in the installed editor's More details: notes, and the muscles a catalog movement reads (read-only).",
+      "owner": "plan-074",
+      "catalogStates": [
+        "program/editor-alternates",
+        "program/editor-suggest-loads"
       ]
     }
   ],

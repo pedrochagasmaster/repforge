@@ -640,7 +640,10 @@
 
     const rootElement = () => host;
     const label = (key, vars, fallback) => t(adapter, I18N_KEYS[key] || key, vars, fallback ?? FALLBACK[key]);
+    // The review layout redraws its status line with every render, so it keeps the message to draw.
+    let reviewStatus = null;
     const setStatus = (message, { error = false, undo = false } = {}) => {
+      if (reviewLayout) reviewStatus = message && !undo ? { message, error } : null;
       const status = host.querySelector('[data-role="editor-status"]');
       if (!status) return;
       status.classList.toggle("is-error", error);
@@ -653,7 +656,7 @@
       status.querySelector('[data-role="undo-move"]')?.addEventListener("click", undoLastMove);
       status.hidden = !message;
       if (statusTimer) clearTimeout(statusTimer);
-      if (message && !undo) statusTimer = setTimeout(() => { if (status.isConnected) status.hidden = true; }, 2600);
+      if (message && !undo) statusTimer = setTimeout(() => { reviewStatus = null; if (status.isConnected) status.hidden = true; }, 2600);
     };
     const context = () => {
       try { return adapter.context?.(document) || ""; } catch { return ""; }
@@ -2292,7 +2295,7 @@
       host.innerHTML = `<div class="program-editor program-editor-a review" data-role="editor" data-layout="review"${busy ? ' aria-busy="true"' : ""} aria-label="${esc(rt("program.editor.aria", undefined, "Program editor"))}">` +
         `<h2 class="onb__q review__title program-editor-a__title"><button type="button" class="review__titlebtn" data-role="program-name-edit" aria-label="${esc(rt("entry.review.rename_program_aria", { name }, `Rename ${name}`))}"><span>${esc(name)}</span>${icon("pencil")}</button></h2>` +
         `<p class="review__daymeta program-editor-a__facts" data-role="facts">${factsHtml()}</p>` +
-        `<p class="program-editor__status" data-role="editor-status" role="status" aria-live="polite" tabindex="-1" hidden></p>` +
+        `<p class="program-editor__status${reviewStatus?.error ? " is-error" : ""}" data-role="editor-status" role="status" aria-live="polite" tabindex="-1"${reviewStatus ? "" : " hidden"}>${esc(reviewStatus?.message || "")}</p>` +
         changesBar + tabs +
         `<div class="review__panel" id="programEditorPanel" role="tabpanel" data-role="day-panel">${view.tab == null ? `<p class="program-editor__empty">${esc(label("emptyDays"))}</p>` : dayPanelHtml(view.tab)}</div>` +
         `<div class="program-editor-a__bar" data-role="apply-bar" data-elevation="persistent-action">` +
@@ -2372,7 +2375,7 @@
           return `<li data-role="alternate" data-exercise-id="${esc(id)}"><span class="review__setn">${index + 1}</span><span class="review-sheet__alt-name" data-role="alternate-name">${esc(name)}</span>` +
             `<button type="button" class="review__ro-btn" data-role="alternate-up" ${attrs} aria-label="${esc(label("alternateUp", { name }))}"${index === 0 ? " disabled" : ""}>${icon("chev-up")}</button>` +
             `<button type="button" class="review__ro-btn" data-role="alternate-down" ${attrs} aria-label="${esc(label("alternateDown", { name }))}"${index === list.length - 1 ? " disabled" : ""}>${icon("chev-down")}</button>` +
-            `<button type="button" class="review__ro-btn" data-role="alternate-remove" data-action-role="removal" ${attrs} aria-label="${esc(label("alternateRemove", { name }))}">${icon("close")}</button></li>`;
+            `<button type="button" class="review__ro-btn" data-role="alternate-remove" ${attrs} aria-label="${esc(label("alternateRemove", { name }))}">${icon("close")}</button></li>`;
         }).join("")}</ol>` : "") +
         `<div class="review-sheet__links"><button type="button" class="text-link" data-role="add-alternate" data-id="${esc(exercise.id)}"${full ? " disabled" : ""}>${icon("plus")}${esc(label("addAlternate"))}</button></div></section>`;
     }
@@ -2445,7 +2448,7 @@
         (others.length ? `<section class="review-sheet__sec"><h3 class="sheetgroup__head">${esc(rt("entry.review.sheet.move", undefined, label("moveOther")))}</h3><div class="review-sheet__chips">${others.map(day =>
           `<button type="button" class="review-chipbtn" data-role="move-to-day" data-id="${esc(exercise.id)}" data-day="${esc(day)}">${esc(titleForDay(day))}</button>`).join("")}</div></section>` : "") +
         detailsHtml(exercise, slot) +
-        `<section class="review-sheet__sec"><button type="button" class="btn btn--steel btn--destructive" data-role="remove-exercise" data-action-role="removal" data-id="${esc(exercise.id)}">${esc(rt("entry.review.sheet.remove", undefined, label("removeExercise")))}</button></section>` +
+        `<section class="review-sheet__sec"><button type="button" class="btn btn--steel btn--destructive" id="programEditorRemove" data-role="remove-exercise" data-action-role="removal" data-id="${esc(exercise.id)}">${esc(rt("entry.review.sheet.remove", undefined, label("removeExercise")))}</button></section>` +
         `</div>`;
     }
     function weekTableHtml(exercise, slot, cycle, common) {

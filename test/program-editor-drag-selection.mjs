@@ -141,9 +141,10 @@ async function main() {
 
     // Plan 074: exercises are reordered from the day menu's Reorder exercises list.
     const editor = page.locator("#programEditor");
-    const name = editor.locator('[data-role="exercise-row"] .review__name').first();
+    // Rows are buttons, and controls never select (styles.css); the day's plain text does.
+    const name = editor.locator('[data-role="day-meta"]').first();
     const before = await name.evaluate((element) => getComputedStyle(element).userSelect);
-    check(before !== "none", "exercise names remain selectable during ordinary editing", { userSelect: before });
+    check(before !== "none", "the day's text remains selectable during ordinary editing", { userSelect: before });
 
     await editor.locator('[data-role="day-menu"]').click();
     await page.locator('#reviewSheet [data-role="day-action"][data-action="reorder"]').click();
@@ -180,7 +181,7 @@ async function main() {
     );
 
     await editor.locator('[data-role="reorder-done"]').click();
-    const after = await editor.locator('[data-role="exercise-row"] .review__name').first().evaluate((element) => getComputedStyle(element).userSelect);
+    const after = await editor.locator('[data-role="day-meta"]').first().evaluate((element) => getComputedStyle(element).userSelect);
     check(after !== "none", "leaving reorder mode restores normal text selection", { userSelect: after });
   } finally {
     await context.close();
