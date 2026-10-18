@@ -1,3 +1,4 @@
+import {createEntryQuestions,renderEntryWheel} from './questions.js';
 import {createEntryViews,FREEFORM_APPS,FREEFORM_URL_MAX} from './view.js';
 /** @typedef {ReturnType<typeof import('../../app/entry.js').createEntryImportSession>} ImportSession
  * @typedef {{review:()=>unknown,submitGaps:()=>unknown,changeDoor:(mode:string)=>unknown,writeOwn:()=>unknown}} ImportCommands
@@ -10,7 +11,7 @@ import {createEntryViews,FREEFORM_APPS,FREEFORM_URL_MAX} from './view.js';
  * copyText:(text:string,successKey:string,errorKey:string)=>Promise<boolean>,onRender:()=>void,onNotice:(key:string)=>void,
  * onHandoff:(event:{method:string,outcome:string,long_prompt:boolean})=>void,confirm:(key:string)=>boolean,scrollBehavior:()=>ScrollBehavior}} options */
 export function createEntryController({document,navigator,session,copy,commands,queries,copyText,onRender,onNotice,onHandoff,confirm,scrollBehavior}){
- const view=createEntryViews(copy),{t}=copy,win=document.defaultView;
+ const view=createEntryViews(copy),questions=createEntryQuestions(copy),{t}=copy,win=document.defaultView;
  let busy=false,sequence=0,mounted=false,disposed=false;
  /** @type {string|null} */ let note=null;
  /** @type {string|null} */ let hubChoice=null;
@@ -81,5 +82,5 @@ export function createEntryController({document,navigator,session,copy,commands,
  function resetTransport(){note=null;sequence++}
  function reset(){session.reset();resetTransport()}
  function dispose(){disposed=true;sequence++;win?.removeEventListener('visibilitychange',onVisible);if(returnTimer!==null)clearTimeout(returnTimer);returnTimer=null}
- return Object.freeze({mount,bind,bindHub,dispose,reset,resetTransport,importClipboard,hubChoice:()=>hubChoice,clearHubChoice:()=>{hubChoice=null},renderHub:view.renderHub,renderSource:({activeProgram}=/** @type {{activeProgram:boolean}} */({activeProgram:false}))=>view.renderSource({...model(),activeProgram})});
+ return Object.freeze({mount,bind,bindHub,dispose,reset,resetTransport,importClipboard,hubChoice:()=>hubChoice,clearHubChoice:()=>{hubChoice=null},renderHub:view.renderHub,renderQuestion:questions.render,renderWheel:renderEntryWheel,renderSource:({activeProgram}=/** @type {{activeProgram:boolean}} */({activeProgram:false}))=>view.renderSource({...model(),activeProgram})});
 }
