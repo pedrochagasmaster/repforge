@@ -71,6 +71,12 @@ export async function waitForAppBoot(page, { timeout = 15000, base } = {}) {
           readyState: document.readyState,
           storageHook: typeof window.__repforgeStorage?.flush === "function",
           booted: window.__repforgeBooted === true,
+          releaseState: ["started", "update-required", "missing-release-identity", "load-failed"].includes(window.__repforgeReleaseState)
+            ? window.__repforgeReleaseState : null,
+          releaseRecoveryVisible: !!document.querySelector("#releaseRecovery"),
+          catalogUnavailable: typeof window.__repforgeCatalogUnavailable === "string",
+          bootFailureCode: /^[a-z][a-z0-9-]{0,79}$/.test(window.__repforgeBootFailure?.code || "")
+            ? window.__repforgeBootFailure.code : null,
           dayTabButtons: document.querySelectorAll("#dayTabs button").length,
         }))
       );

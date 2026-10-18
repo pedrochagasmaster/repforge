@@ -87,6 +87,22 @@ test('startup refuses historical/mismatched controllers before loading and permi
   await assert.rejects(startRelease({releaseId:'r1',load:async()=>{throw Error('bad graph');}}),/bad graph/);
 });
 
+test('source shell starts with its actual service-worker release handshake',async()=> {
+  const {runInNewContext}=await import('node:vm');
+  const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
+  const releaseId=html.match(/<meta name="taurifer-release" content="([^"]+)"/)?.[1];
+  assert.ok(releaseId,'source shell declares a release identity');
+  const handlers={};
+  runInNewContext(readFileSync(new URL('../sw.js',import.meta.url),'utf8'),{
+    self:{registration:{scope:'https://app.test/'},addEventListener(type,handler){handlers[type]=handler;}},URL,
+  });
+  const controller={postMessage(data,ports){handlers.message({data,ports});}};
+  let loaded=false;
+  assert.equal(await startRelease({controller,releaseId,load:async()=>{loaded=true;}}),'started',
+    'the checked-in shell must accept its own worker before loading the application');
+  assert.equal(loaded,true);
+});
+
 test('assembly preserves native relative graph, fingerprints all bytes and isolates public release',()=> {
   const dir=mkdtempSync(join(tmpdir(),'taurifer-release-'));
   try {
