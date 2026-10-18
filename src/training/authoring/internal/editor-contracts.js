@@ -3,7 +3,7 @@
 /** @typedef {import('../../generation/internal/compiler-contracts.js').ProgramDefinition} ProgramDefinition */
 /** @typedef {import('../../generation/internal/compiler-contracts.js').ProgramSlot} ProgramSlot */
 /** @typedef {import('../../generation/internal/compiler-contracts.js').ProgramSet} ProgramSet */
-/** @typedef {import('../../model/internal/contracts.js').ExerciseInput & {prescriptionsByCycle?:ProgramSlot['prescriptionsByCycle']}} EditorRow */
+/** @typedef {import('../../model/internal/contracts.js').ExerciseInput & {prescriptionsByCycle?:ProgramSlot['prescriptionsByCycle'],metricIds?:string[],metricDefinitions?:import('../../metrics.js').MetricDefinition[],metricOrigin?:string}} EditorRow */
 /** @typedef {import('../../model/internal/contracts.js').ProgramMeta & {id?:string,blockId?:string,name?:string,suggestLoadsPending?:string[],loadingConfiguration?:{byExerciseId?:Record<string,{loadStepKg:number}>}}} EditorMeta */
 /** @typedef {{program:EditorRow[],programMeta:EditorMeta,customExercises:import('../../model/internal/contracts.js').LibraryEntry[]}} EditorDocument */
 /** @typedef {Partial<EditorDocument> & {log?:unknown[]}} EditorSnapshot */

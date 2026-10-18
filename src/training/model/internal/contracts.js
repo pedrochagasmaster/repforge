@@ -18,7 +18,7 @@
 /** @typedef {{fromWeek:number,program:ExerciseInput[]}} ProgramVersion */
 /** @typedef {{days?:StructureDay[],weekPrescriptions?:Receipt[],programVersions?:ProgramVersion[],provenance?:{source?:string}}} ProgramStructure */
 /** @typedef {{schemaVersion:number,throughWeek:number,plannedSessions:number,plannedWorkingSets:number,muscles:{direct:Record<string,number>,secondary:Record<string,number>}}} PlannedVolumeHistory */
-/** @typedef {{started?:string,mesocycleLengthWeeks?:number,mesocycleStatus?:string,programStructure?:ProgramStructure,programDefinition?:ProgramDefinition,plannedVolumeHistory?:PlannedVolumeHistory}} ProgramMeta */
+/** @typedef {{started?:string,mesocycleLengthWeeks?:number,mesocycleStatus?:string,programStructure?:ProgramStructure|null,programDefinition?:ProgramDefinition,plannedVolumeHistory?:PlannedVolumeHistory}} ProgramMeta */
 /** @typedef {{diff?:{recoveryWeek?:{entries?:{slot:string,effectiveWorkingSets:number}[]}}}} RecoveryRecord */
 /** @typedef {{plannedSessions:number,plannedWorkingSets:number,musclesByName:Record<string,{d:number,p:number}>}} PrescriptionSummary */
 /** @typedef {{id:string,cycleIndex?:number,setIndex?:number,targets?:Record<string,number|{min:number,max:number}>,rir?:number|null,restSeconds?:number|null,status?:string,metricType?:string,provenance?:{source:string,policyVersion:string}}} DefinitionSet */
