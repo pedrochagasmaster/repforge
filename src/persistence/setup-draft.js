@@ -14,7 +14,7 @@ export const SETUP_DRAFT_KEY='repforge_program_setup_draft_v1';
 export function createSetupDraftStore({rules,storage,lock,ownerId,onFailure,onSaved}){
  /** @type {Handle|null} */ let owned=null;
  /** @type {Draft|null} */ let accepted=null;
- let conflicted=false;
+ let conflicted=false,failed=false;
  /** @type {Promise<unknown>} */ let tail=Promise.resolve();
  /** @template T @param {T} value @returns {T} */
  const clone=value=>value==null?value:JSON.parse(JSON.stringify(value));
@@ -28,7 +28,7 @@ export function createSetupDraftStore({rules,storage,lock,ownerId,onFailure,onSa
  /** Adoption is only for a record read under its owning protocol. It does not
   * write storage or publish an application draft.
   * @param {Handle|null} handle @param {Draft|null} logical */
- function adopt(handle,logical){owned=clone(handle);accepted=clone(logical);conflicted=false}
+ function adopt(handle,logical){owned=clone(handle);accepted=clone(logical);conflicted=false;failed=false}
  /** @param {Draft} next @returns {Envelope} */
  function freshEnvelope(next){return{schemaVersion:rules.SCHEMA_VERSION,draftId:next.draftId,revision:0,ownerId:null,state:next}}
  /** A transferred candidate starts a fresh local ownership revision.
@@ -44,7 +44,7 @@ export function createSetupDraftStore({rules,storage,lock,ownerId,onFailure,onSa
  function removeObserved(handle){
   if(!handle)return{ok:true,absent:true};
   if(readRaw()!==handle.raw)return{ok:false,conflict:true};
-  try{storage.removeItem(SETUP_DRAFT_KEY)}catch(error){onFailure('save_failed',error);return{ok:false,writeFailed:true}}
+  try{storage.removeItem(SETUP_DRAFT_KEY)}catch(error){failed=true;onFailure('save_failed',error);return{ok:false,writeFailed:true}}
   if(owned?.raw===handle.raw)adopt(null,null);
   return{ok:true};
  }
@@ -67,13 +67,13 @@ export function createSetupDraftStore({rules,storage,lock,ownerId,onFailure,onSa
    if(readRaw()!==handle.raw){conflicted=true;onFailure('save_conflict');return{ok:false,conflict:true}}
    let envelope;
    try{envelope=rules.advanceSetupDraftEnvelope(handle.envelope,state,ownerId)}
-   catch(error){onFailure('save_failed',error);return{ok:false,invalid:true}}
+   catch(error){failed=true;onFailure('save_failed',error);return{ok:false,invalid:true}}
    const raw=JSON.stringify(envelope);
    try{if(typeof io.writeSetupDraft==='function')await io.writeSetupDraft(raw);else storage.setItem(SETUP_DRAFT_KEY,raw)}
-   catch(error){onFailure('save_failed',error);return{ok:false,writeFailed:true}}
-   owned={raw,envelope};accepted=baseline;onSaved();return{ok:true,envelope:clone(envelope)};
+   catch(error){failed=true;onFailure('save_failed',error);return{ok:false,writeFailed:true}}
+   owned={raw,envelope};accepted=baseline;failed=false;onSaved();return{ok:true,envelope:clone(envelope)};
   });
  }
  return Object.freeze({readRaw,readRecord,importedEnvelope,transaction,removeObserved,remove,clear,write,adopt,
-  handle:()=>clone(owned),baseline:()=>clone(accepted),isConflicted:()=>conflicted,flush:()=>tail});
+  handle:()=>clone(owned),baseline:()=>clone(accepted),isConflicted:()=>conflicted,failure:()=>conflicted?'save_conflict':failed?'save_failed':null,flush:()=>tail});
 }
