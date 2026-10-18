@@ -40,5 +40,5 @@ export function createHistoryCommands({read, commit, readRevision, settleAlready
       ok: deleting ? rowsFor(head, sessionId).length === 0 : sessionFingerprint(rowsFor(head, sessionId)) === desired,
       code: 'history_settlement_mismatch'})});
   }
-  return Object.freeze({correct: request => change(request, false), remove: request => change(request, true)});
+  return Object.freeze({correct: request => change(request, false), remove: request => change(request, true), fingerprint: sessionFingerprint});
 }

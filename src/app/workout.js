@@ -23,7 +23,7 @@ export function createWorkoutCommands({session, training, drafts, commit, now, o
   async function dispatch(type, payload, ui) {
     return session.run(() => drafts.dispatch(type, payload, ui));
   }
-  async function finish({expectedDraft = null, completion = 'normal'} = {}) {
+  async function finish({expectedDraft = null, completion = 'normal', io} = {}) {
     // Flush outside the command queue: pending Focus input may itself dispatch
     // a queued command. Holding the queue while flushing would deadlock.
     await drafts.flush();
@@ -57,7 +57,7 @@ export function createWorkoutCommands({session, training, drafts, commit, now, o
       const expectedBlockId = Object.prototype.hasOwnProperty.call(capturedDraft.program || {}, 'blockId')
         ? capturedDraft.program.blockId : null;
       const result = await commit(proposal, {effect, reconcileSessionIds: [savedSession],
-        expectedProgramId: capturedDraft.program.programId, expectedBlockId});
+        expectedProgramId: capturedDraft.program.programId, expectedBlockId}, io);
       if (result.committed !== true || result.settled !== true) return {result, capturedRaw};
       drafts.clearIdentity();
       return {result, completed: {rows, prevLog, session: savedSession, date: capturedDraft.program.scheduleDate,

@@ -1,4 +1,5 @@
 import {copySnapshot} from './session.js';
+import {canonicalize, draftProgramFingerprint, snapshotBlockId, readRevision} from '../persistence/snapshot.js';
 
 /** Installed editor Apply owns refreshing, lock-held canonical intent rebase,
  * pending Suggest loads confirmation and exact draft impact. The authoring owner
@@ -67,3 +68,123 @@ function staleBlock() { return {ok: false, conflict: true, editorConflict: true,
 function editorConflict(code) { return {ok: false, conflict: true, editorConflict: true, code}; }
 function invalidOptIn(result) { return {ok: false, invalid: true, suggestLoads: result.issues?.[0] || null}; }
 function abortsSameDay(effect) { return effect?.status === 'valid' && effect.effect?.precondition === 'abort-same-day'; }
+
+/** Custom-definition CAS and archive policy. The canonical model instance owns
+ * normalization/identity; this application owner owns lock-held mutation intent.
+ * Policy methods also serve explicit Undo/retry commands during extraction. */
+export function createCustomExerciseCommands({read, commit, model, normalizeMuscleAttribution,
+  now, newId, invalidMuscleCommit}) {
+  const {normalizeCustomExercises, isCustomLibraryId, definitionMovementIds} = model;
+  const entries = snapshot => Array.isArray(snapshot?.customExercises) ? snapshot.customExercises : [];
+  function stateEqual(a, b) {
+    const comparable = entry => {
+      const normalized = normalizeCustomExercises([entry])[0];
+      if (!normalized) return null;
+      const value = copySnapshot(normalized);
+      // Synthesized legacy creation timestamps are immutable provenance, not CAS.
+      delete value.created;
+      return value;
+    };
+    const left = comparable(a), right = comparable(b);
+    return !!left && !!right && JSON.stringify(canonicalize(left)) === JSON.stringify(canonicalize(right));
+  }
+  function upsert(snapshot, entry) {
+    const next = copySnapshot(snapshot), list = entries(next);
+    next.customExercises = normalizeCustomExercises(list.some(value => value.id === entry.id)
+      ? list.map(value => value.id === entry.id ? entry : value) : list.concat(entry));
+    return next;
+  }
+  function removeOrArchive(snapshot, id, operation) {
+    const next = copySnapshot(snapshot), list = entries(next);
+    next.customExercises = operation === 'archive'
+      ? list.map(value => value.id === id ? {...copySnapshot(value), archived: true} : value)
+      : list.filter(value => value.id !== id);
+    return next;
+  }
+  function inUse(id, snapshot = read()) {
+    if ((snapshot?.program || []).some(entry => entry.libraryId === id)) return true;
+    if (definitionMovementIds(snapshot?.programMeta?.programDefinition).includes(id)) return true;
+    if ((snapshot?.log || []).some(row => row.performedLibraryId === id || row.performedMovementId === `library:${id}`)) return true;
+    return (snapshot?.programHistory || []).some(entry => (entry?.program || []).some(row => row.libraryId === id));
+  }
+  async function save(draft, {expectedEntry = null, io} = {}) {
+    const name = String(draft?.name ?? '').trim();
+    if (!name) return {result: null, entry: null};
+    const id = isCustomLibraryId(draft?.id) ? String(draft.id) : newId();
+    const primary = normalizeMuscleAttribution(draft?.primary ?? ''), secondary = normalizeMuscleAttribution(draft?.secondary ?? '');
+    if (!primary?.ok || !secondary?.ok) return {result: invalidMuscleCommit(), entry: null};
+    const snapshot = read(), existing = entries(snapshot).find(entry => entry.id === id);
+    const configuration = Array.isArray(draft?.metricIds) ? draft : Array.isArray(existing?.metricIds) ? existing : null;
+    const entry = normalizeCustomExercises([{id, name, namePt: name,
+      equipment: Array.isArray(draft.equipment) && draft.equipment.length ? draft.equipment : ['machine'],
+      primary: primary.value, secondary: secondary.value, notes: String(draft.notes ?? '').trim(),
+      ...(configuration ? {metricIds: copySnapshot(configuration.metricIds),
+        ...(Array.isArray(configuration.metricDefinitions) ? {metricDefinitions: copySnapshot(configuration.metricDefinitions)} : {})} : {}),
+      created: existing?.created || now()}])[0];
+    if (!entry) return {result: {invalid: true, code: 'invalid-custom-exercise'}, entry: null};
+    const source = existing ? copySnapshot(expectedEntry || existing) : null;
+    const preflight = ({head}) => {
+      const current = entries(head).find(value => value.id === id) || null;
+      if (source && !stateEqual(current, source)) return {reject: true, result: {conflict: true, stale: true, code: 'custom-exercise-changed'}};
+      if (!source && current) return {reject: true, result: {conflict: true, duplicate: true, code: 'custom-id-collision'}};
+      return {proposal: upsert(head, entry)};
+    };
+    return {result: await commit(upsert(snapshot, entry), {preflight}, io), entry};
+  }
+  async function remove(id, {action = null, expectedEntry = null, io} = {}) {
+    if (!isCustomLibraryId(id)) return null;
+    const snapshot = read(), existing = entries(snapshot).find(entry => entry.id === id) || null;
+    if (!existing) return null;
+    const source = copySnapshot(expectedEntry || existing), operation = action || (inUse(id, snapshot) ? 'archive' : 'delete');
+    if (operation !== 'delete' && operation !== 'archive') return null;
+    const preflight = ({head}) => {
+      const current = entries(head).find(value => value.id === id) || null;
+      if (!stateEqual(current, source)) return {reject: true, result: {conflict: true, stale: true, code: 'custom-exercise-changed'}};
+      if (operation === 'delete' && inUse(id, head)) return {reject: true, result: {conflict: true, code: 'custom-exercise-became-used'}};
+      return {proposal: removeOrArchive(head, id, operation)};
+    };
+    const result = await commit(removeOrArchive(snapshot, id, operation), {preflight,
+      customMutationIntent: operation === 'delete' ? {version: 1, operation: 'delete', id, entry: source} : null}, io);
+    return result ? {...result, archived: operation === 'archive', operation} : result;
+  }
+  return Object.freeze({save, remove, inUse, stateEqual, upsert, removeOrArchive});
+}
+
+/** Program activation/replacement commit. The reviewed setup/transition owner
+ * supplies a validated proposal and exact capture. This owner archives the
+ * captured predecessor once and preserves all lock/draft/setup preconditions. */
+export function createProgramReplacementCommands({read, commit, capture, allocateBlockId, now}) {
+  function archiveCapturedProgram(proposal, captured) {
+    if (!captured?.oldProgramId) return proposal;
+    if (!captured.oldMeta || typeof captured.oldMeta !== 'object' || Array.isArray(captured.oldMeta) || !Array.isArray(captured.oldProgram))
+      throw new TypeError('program replacement capture must be materialized before archive');
+    const history = Array.isArray(proposal.programHistory) ? proposal.programHistory : [];
+    if (history.some(entry => entry.id === captured.oldProgramId)) { proposal.programHistory = history; return proposal; }
+    const entry = {id: captured.oldProgramId, meta: copySnapshot(captured.oldMeta), program: copySnapshot(captured.oldProgram),
+      completedAt: now(), review: copySnapshot(captured.review)};
+    if (captured.transitionOut) entry.transitionOut = copySnapshot(captured.transitionOut);
+    if (captured.archiveId) entry.archiveId = captured.archiveId;
+    history.push(entry); proposal.programHistory = history;
+    return proposal;
+  }
+  async function replace(proposal, options = {}) {
+    const snapshot = read(), captured = options.capture === undefined ? capture(snapshot) : options.capture;
+    const {effect = null, expectedSetupDraftRaw, replace = false, expectedFirstRunEmpty = false, preflight = null,
+      expectedProgramId, expectedProgramFingerprint, expectedBlockId, expectedStorageRevision, io} = options;
+    const next = copySnapshot(proposal), predecessorId = captured?.oldProgramId ?? snapshot?.programMeta?.id;
+    if (next?.programMeta && next.programMeta.id !== predecessorId && !Object.prototype.hasOwnProperty.call(next.programMeta, 'blockId'))
+      next.programMeta.blockId = allocateBlockId();
+    if (captured) archiveCapturedProgram(next, captured);
+    const transition = replace && expectedFirstRunEmpty
+      ? {expectedProgramId: snapshot?.programMeta?.id || null, expectedProgramFingerprint: draftProgramFingerprint(snapshot), expectedBlockId: snapshotBlockId(snapshot)}
+      : captured
+        ? {expectedProgramId: captured.oldProgramId, expectedProgramFingerprint: captured.programFingerprint,
+          expectedBlockId: captured.oldBlockId, expectedStorageRevision: captured.storageRevision}
+        : {expectedProgramId: expectedProgramId !== undefined ? expectedProgramId : snapshot?.programMeta?.id || null,
+          expectedProgramFingerprint: expectedProgramFingerprint !== undefined ? expectedProgramFingerprint : draftProgramFingerprint(snapshot),
+          expectedBlockId: expectedBlockId !== undefined ? expectedBlockId : snapshotBlockId(snapshot),
+          expectedStorageRevision: expectedStorageRevision !== undefined ? expectedStorageRevision : readRevision(snapshot)};
+    return commit(next, {...transition, effect, expectedSetupDraftRaw, replace, expectedFirstRunEmpty, preflight}, io);
+  }
+  return Object.freeze({commit: replace, archiveCapturedProgram});
+}

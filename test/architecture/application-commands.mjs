@@ -50,3 +50,19 @@ assert.equal(applied.ok,true);assert.equal(rebaseCount,1);assert.equal(applied.p
 locked.block='new';
 assert.equal((await program.applyEdits({expectedToken:{programId:'p',blockId:'b',version:1},nextDocument:{},edits:[]})).staleBlock,true);
 console.log('Application command contracts passed');
+
+// Custom identity cannot be deleted after another tab introduces a reference.
+const {createCustomExerciseCommands,createProgramReplacementCommands}=await import('../../src/app/program.js');
+let customHead={program:[],programMeta:{},programHistory:[],log:[],customExercises:[{id:'custom:x',name:'X',created:'old',primary:'chest',secondary:''}]};
+let customBeforeLock=()=>{};
+const customs=createCustomExerciseCommands({read:()=>customHead,commit:async(proposal,opts)=>{customBeforeLock();const checked=await opts.preflight({head:customHead});if(checked.reject)return checked.result;customHead=checked.proposal;return{committed:true,settled:true}},model:{normalizeCustomExercises:rows=>rows,isCustomLibraryId:id=>id.startsWith('custom:'),definitionMovementIds:()=>[]},normalizeMuscleAttribution:value=>({ok:true,value}),now:()=> 'now',newId:()=> 'custom:new',invalidMuscleCommit:()=>({invalid:true})});
+const source=structuredClone(customHead.customExercises[0]);
+customBeforeLock=()=>{customHead.log=[{performedLibraryId:'custom:x'}]};
+assert.equal((await customs.remove('custom:x',{action:'delete',expectedEntry:source})).code,'custom-exercise-became-used');
+customBeforeLock=()=>{};
+assert.equal((await customs.remove('custom:x')).archived,true);assert.equal(customHead.customExercises[0].archived,true);
+
+let replacementOptions;
+const replacement=createProgramReplacementCommands({read:()=>({programMeta:{id:'old'}}),commit:async(proposal,opts)=>{replacementOptions=opts;return{committed:true,settled:true,proposal}},capture:()=>({oldProgramId:'old',oldBlockId:'block-old',oldProgram:[],oldMeta:{id:'old'},storageRevision:3,programFingerprint:'captured'}),allocateBlockId:()=> 'block-new',now:()=> 'now'});
+const replacementResult=await replacement.commit({program:[],programMeta:{id:'new'},programHistory:[]});
+assert.equal(replacementResult.proposal.programMeta.blockId,'block-new');assert.equal(replacementResult.proposal.programHistory[0].id,'old');assert.equal(replacementOptions.expectedProgramFingerprint,'captured');
