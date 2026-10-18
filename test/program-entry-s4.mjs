@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /** Packet 1.3 production journey: review deload edit → activation → Today/Focus. */
 import assert from "node:assert/strict";
+import {installBrowserTraining} from "./training-browser.mjs";
 import { answerRecommend, launchChromium, waitForAppBoot } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -99,8 +100,8 @@ async function resumeEntryReview(page) {
 
 async function findAmbiguousPerSideMovement(page) {
   return page.evaluate(() => {
-    const catalog = window.RepForgeExerciseCatalog.snapshot();
-    const metrics = window.RepForgeExerciseMetrics;
+    const catalog = window.__repforgeTrainingTest.catalog;
+    const metrics = window.__repforgeTrainingTest.metrics;
     const current = window.__repforgeEntryState().result.preview.programDefinition;
     const used = new Set(current.days.flatMap((day) => day.slots || []).map((slot) => slot.exerciseId));
     const supportedPerSide = [["repsPerSide", "loadPerSideKg"], ["persistentLoadPerSideKg", "repsPerSide"]];
@@ -126,6 +127,7 @@ async function fallbackOfferFlow(browser) {
   await page.addInitScript(() => { delete window.Worker; });
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
+  await installBrowserTraining(page);
   await page.evaluate(() => {
     window.__s4FallbackEvents = [];
     const record = () => {
@@ -164,6 +166,7 @@ try {
   page.on("pageerror", (error) => errors.push(String(error?.stack || error)));
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
+  await installBrowserTraining(page);
   await page.click("#firstRunCreate");
   await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
   await answerRecommend(page, { skipBasics: true });
@@ -174,8 +177,8 @@ try {
   let firstSlot = firstDay.slots[0];
   const offerProbe = await page.evaluate(async () => {
     const current = window.__repforgeEntryState();
-    const mapped = window.RepForgeProgramEntryAdapter.programRequestFromAnswers(
-      current.answers, window.RepForgeExerciseCatalog.snapshot());
+    const mapped = window.__repforgeTrainingTest.entryAdapter.programRequestFromAnswers(
+      current.answers, window.__repforgeTrainingTest.catalog);
     if (!mapped.ok) return { ok: false, conflicts: mapped.conflicts, offers: [] };
     const generated = await window.__repforgeProgramEngine.generate(mapped.value);
     return { ok: generated.ok, offers: generated.confirmationOffers || [] };
@@ -196,8 +199,8 @@ try {
   assert.ok(expectedOffer, "each shown offer came from this result's compiler report");
   const offerRebuildProbe = await page.evaluate(async ({ offer }) => {
     const current = window.__repforgeEntryState();
-    const mapped = window.RepForgeProgramEntryAdapter.programRequestFromAnswers(
-      current.answers, window.RepForgeExerciseCatalog.snapshot());
+    const mapped = window.__repforgeTrainingTest.entryAdapter.programRequestFromAnswers(
+      current.answers, window.__repforgeTrainingTest.catalog);
     if (!mapped.ok) return { ok: false, conflicts: mapped.conflicts };
     const request = { ...mapped.value, movementConfirmations: {
       ...(mapped.value.movementConfirmations || {}), [offer.offeredExerciseId]: [...offer.prerequisiteIds],
@@ -376,6 +379,7 @@ try {
   const confirmedBeforeReload = await entry(page);
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
+  await installBrowserTraining(page);
   await resumeEntryReview(page);
   await page.locator(`#entryReview [data-review-confirmed="${offerTarget.exerciseId}"]`).waitFor({ state: "visible", timeout: 15000 });
   const confirmedAfterReload = await entry(page);
@@ -517,9 +521,9 @@ try {
   const rebuilt = await entry(page);
   const canonicalRebuilt = await page.evaluate(() => {
     const current = window.__repforgeEntryState();
-    const catalog = window.RepForgeExerciseCatalog.snapshot();
-    const mapped = window.RepForgeProgramEntryAdapter.programRequestFromAnswers(current.answers, catalog);
-    return mapped.ok ? window.RepForgeProgramCompiler.generateProgram(mapped.value, catalog).value : null;
+    const catalog = window.__repforgeTrainingTest.catalog;
+    const mapped = window.__repforgeTrainingTest.entryAdapter.programRequestFromAnswers(current.answers, catalog);
+    return mapped.ok ? window.__repforgeTrainingTest.compiler.generateProgram(mapped.value, catalog).value : null;
   });
   assert.deepEqual(rebuilt.result.preview.programDefinition, canonicalRebuilt,
     "the block edit commits the complete canonical program for its new answers");
@@ -681,6 +685,7 @@ try {
   await page.clock.setFixedTime(new Date(START.getTime() + 49 * 24 * 60 * 60 * 1000));
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
+  await installBrowserTraining(page);
   const reloaded = await state(page);
   assert.equal(reloaded.programMeta.programDefinition.cycles, 8, "the edited block length survives reload");
   const reloadedSlot = reloaded.programMeta.programDefinition.days.flatMap((day) => day.slots).find((slot) => slot.id === firstSlot.id);
