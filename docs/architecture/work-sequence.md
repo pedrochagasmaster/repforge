@@ -12,6 +12,13 @@ Completed review packets, prepared without application execution:
 - [PR intake reconciliation](pr-intake-reconciliation.md): all nineteen PRs, unique semantics, native target owners, failing evidence and explicit intake decisions. In particular, current S2 diverges from S1; do not apply its full stack blindly.
 - [Phone acceptance worksheet](phone-acceptance-checklist.md): twelve physical cases, exact-build evidence, historical results, launch gates and owner decisions. All new test results are NOT RUN.
 
+Sequential preparation completed after the initial packets:
+
+1. #448 failures: [offline/redirect lifecycle](offline-upgrade-diagnosis.md), [DraftV2 recovery presentation](draft-recovery-diagnosis.md), and [all six critical UI cells](critical-ui-diagnosis.md) now have source/artifact diagnoses and bounded repair proposals. They are not implemented or validated fixes.
+2. Priority incoming bugs: [#383 parser, #443 keyboard and #384 test-only proposals](priority-bug-patch-proposals.md) specify native destinations and independent acceptance tests. The remaining scope/destination decisions are unchanged.
+3. Editor S1 → S2 and guides retain the concrete intake packets in [PR reconciliation](pr-intake-reconciliation.md). S2 must be rebased semantically on the completed native S1; guide highlight authorization remains unresolved until original evidence or a new owner decision is recorded.
+4. Integrated execution/acceptance, PR disposition, phone results and launch evidence remain blocked or pending as described below. Documentation progress must never be counted as migration acceptance.
+
 When coding capacity returns, resume the existing task and integration branch. First preserve and inspect any interrupted local edits; fetch/reconcile these documentation commits without overwriting that work. Then execute the repair plan and remaining migration gates. Do not reopen a competing architecture branch.
 
 ## 1. Finish the authorized integration
