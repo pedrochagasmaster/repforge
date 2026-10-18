@@ -16,8 +16,9 @@ export function parseBackupFile(text,isImportableState){
 }
 /** Legacy flat programs cannot be restored wholesale into the canonical engine.
  * Their rows can still enter the distinct authoring review/matching path. */
-/** @param {{program?:unknown,programMeta?:{programDefinition?:unknown},customExercises?:unknown}|null|undefined} snapshot
- * @param {{normalizeCustomExercises:(value:unknown)=>unknown[],canonicalProgramDefinition:(value:unknown,customs:unknown[])=>unknown,compilerCustomDefinitions:(value:unknown[])=>unknown[]}} policy */
+/** @template T,U
+ * @param {{program?:unknown,programMeta?:{programDefinition?:unknown}|null,customExercises?:unknown}|null|undefined} snapshot
+ * @param {{normalizeCustomExercises:(value:unknown)=>T[],canonicalProgramDefinition:(value:unknown,customs:U[])=>unknown,compilerCustomDefinitions:(value:T[])=>U[]}} policy */
 export function isLegacyBackup(snapshot,{normalizeCustomExercises,canonicalProgramDefinition,compilerCustomDefinitions}){
   const rows=Array.isArray(snapshot?.program)?snapshot.program:[];
   if(!rows.length)return false;

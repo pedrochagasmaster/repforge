@@ -85,9 +85,10 @@ let normalizeMuscleAttribution,isValidMuscleDomainTree,isValidStoredMuscleField,
 import {createSetupLinkCodec} from './src/interchange/setup-link.js';
 import {createTransferContract} from './src/interchange/transfer-contract.js';
 import {createInstallTransfer,createTransferDevice} from './src/platform/install-transfer.js';
-import {csvFile} from './src/interchange/csv.js';
-import {exportBackup} from './src/app/interchange.js';
-import {parseBackupFile as parseBackupValue,isLegacyBackup as legacyBackupValue,BACKUP_MAX_BYTES} from './src/interchange/backup.js';
+
+import {createBackupCommands} from './src/app/interchange.js';
+import {createBackupView} from './src/ui/settings/backup.js';
+import {BACKUP_MAX_BYTES} from './src/interchange/backup.js';
 import {parseCanonicalProgramFile as parseCanonicalFile,parseProgramImport,definitionMovementIds,boundedImportJson,importUtf8Bytes,PROGRAM_MAX_BYTES as IMPORT_MAX_BYTES,PROGRAM_FILE_KIND,PROGRAM_FILE_VERSION,unsupportedGrammar} from './src/interchange/program-file.js';
 import * as Focus from "./src/ui/focus/controller.js";
 let fallbackGestureController=null;
@@ -1903,12 +1904,12 @@ function buildProgramMeta(input={}){return EntryActivation.metadata(input)}
 
 
 
-function isImportableState(s){return isValidStateShape(s)}
+function isImportableState(s){return BackupCommands.isImportable(s)}
 /* A backup from before the canonical program model carries flat rows with no
    ProgramDefinition. Restoring it would install a program the engine cannot
    read, so it is refused; its program can still come in through import review,
    which re-links each name to a catalog movement. */
-function isLegacyBackup(s){return legacyBackupValue(s,{normalizeCustomExercises,canonicalProgramDefinition,compilerCustomDefinitions})}
+function isLegacyBackup(s){return BackupCommands.isLegacy(s)}
 /* A custom exercise is a library entry the lifter authored, so it is normalised
    into the same shape the built-ins have — the pickers and the copy-into-template
    path then cannot tell the two apart. */
@@ -1920,33 +1921,11 @@ function canonicalizeDurableMuscleAttributions(...args){return TrainingModel.can
 function normalizeCustomExercises(...args){return TrainingModel.normalizeCustomExercises(...args)}
 
 
-function proposalFromImport(incoming){
-  if(!isValidStateShape(incoming))throw new TypeError("Invalid Taurifer backup");
-  return normalizeLoaded(stripStorageMeta(incoming),{preserveInvalidProgression:true,source:"backup-restore"})}
-async function replaceImportedState(incoming,io=storageIO,{discardDraftRaw=readDraftRaw()}={}){
-  requireAdapter(io,"replaceImportedState");
-  const transition=programTransitionPrecondition(state);
-  const proposal=proposalFromImport(incoming);
-  delete proposal[STORAGE_FOLLOWUP];
-  migrateLogSnapshot(proposal);
-  const effect=destructiveDraftClearEffect(discardDraftRaw);
-  const result=await commitProposedState(proposal,io,{replace:true,effect,...transition});
-  return result}
-async function mergeImportedLog(incoming,io=storageIO){
-  requireAdapter(io,"mergeImportedLog");
-  if(!isValidStateShape(incoming))throw new TypeError("Invalid Taurifer backup");
-  const rows=(incoming.log||[]).filter(r=>r&&r.session);
-  const have=new Set(state.log.map(r=>r.session));
-  const add=rows.filter(r=>!have.has(r.session));
-  const added=new Set(add.map(r=>r.session)).size;
-  if(!added)return{revision:readRevision(state),localOk:true,idbOk:true,added:0};
-  const proposal=cloneSnapshot(state);
-  proposal.log=proposal.log.concat(cloneSnapshot(add));
-  migrateLogSnapshot(proposal);
-  const result=await commitProposedState(proposal,io);
-  result.added=added;
-  return result}
-function applyState(s){return replaceImportedState(s)}
+// Compatibility for retained adapters; native commands own restore/merge policy.
+function replaceImportedState(incoming,io=storageIO,options={}){
+  requireAdapter(io,"replaceImportedState");return BackupCommands.replace(incoming,{...options,io})}
+function mergeImportedLog(incoming,io=storageIO){
+  requireAdapter(io,"mergeImportedLog");return BackupCommands.merge(incoming,{io})}
 /* Creates or edits one of the lifter's own movements. Returns the stored entry
    so a caller can drop it straight into a program slot — creating a custom
    exercise is almost always the first half of "put this in my program". */
@@ -5091,12 +5070,8 @@ function commitSettings(silent){return settingsView().save(silent)}
 
 function table(rows){return formatTable(rows,t("stats.table.no_data"))}
 
-function exportCsv(){
-  const file=csvFile({state,readLogRow,exerciseLabel,rowMuscles,e1rm,date:today()});
-  download(file.text,file.name,"text/csv")}
-async function exportJson(){
-  return exportBackup({read:()=>state,commit:proposal=>commitProposedState(proposal,storageIO),now:()=>new Date().toISOString(),date:today,
-    shareOrDownload,onExported:renderSettings})}
+function exportCsv(){return BackupCommands.exportCsv()}
+function exportJson(){return BackupCommands.exportJson()}
 /* A program-only export carries its own custom definitions. Without them a
    template arriving on another device points at a "custom:…" id that device has
    never seen: the movement survives as copied strings but stops being a
@@ -5727,7 +5702,7 @@ async function commitImportReview(){
    there, and the lifter restoring onto a fresh install has nothing else left to
    read them out of. Recognised here so the program door can offer the restore
    instead of quietly discarding it. */
-function parseBackupFile(text){return parseBackupValue(text,isImportableState)}
+function parseBackupFile(text){return BackupCommands.parse(text)}
 
 /* Reading a file no longer changes anything: it opens the review screen. The
    old path linked names and wrote the program behind one confirm(), which meant
@@ -5855,21 +5830,8 @@ function submitFreeformGaps(){
 
 /* What the restore choice needs to state the trade honestly: what this device
    holds, what the file holds, and how much of the file is actually new. */
-function importChoiceContext(s,opener,io){
-  const have=new Set(state.log.map(r=>r.session));
-  return{s,io:io||null,opener,
-    inSessions:new Set(s.log.map(r=>r.session)).size,inSets:s.log.length,
-    curSessions:have.size,curSets:state.log.length,
-    newSessions:new Set(s.log.filter(r=>!have.has(r.session)).map(r=>r.session)).size}}
-async function importJson(e){const f=e.target.files?.[0];if(!f)return;
-  try{
-    if(Number.isFinite(f.size)&&f.size>BACKUP_MAX_BYTES)throw Error();
-    const s=parseBackupFile(await f.text());
-    if(!isImportableState(s))throw Error();
-    if(isLegacyBackup(s)){toast(t("toast.backup_legacy"));e.target.value="";return}
-    openImportChoice(importChoiceContext(s,e.target))}
-  catch{toast(t("toast.import_invalid"))}
-  e.target.value=""}
+function importChoiceContext(s,opener,io){return backupView().context(s,opener,io)}
+function importJson(event){return backupView().importJson(event)}
 /* Restoring answers the setup gate it may have arrived through: the lifter now
    has both a program and a history, so there is nothing left for the gate to
    ask. Idempotent, since the Settings door has no gate standing. */
@@ -5881,40 +5843,7 @@ function leaveSetupGates(){
    so the session arithmetic is noise and Merge has nothing to add: what the
    file still holds is the program and the settings, and the choice is restore
    it or leave this device alone. */
-function openImportChoice(ctx){const d=$("#importChoice");
-  const bodyKey=ctx.bodyKey||"dialog.import.body",mergeable=ctx.inSessions>0;
-  $("#importChoiceBody").textContent=t(mergeable?bodyKey:`${bodyKey}_nolog`,{curSessions:ctx.curSessions,curSets:ctx.curSets,inSessions:ctx.inSessions,inSets:ctx.inSets,newSessions:ctx.newSessions});
-  const active=document.activeElement;
-  // The file input itself is never the way back: it is the invisible half of a
-  // label button. Whichever door this came through, focus returns to that
-  // label — the Settings row stays the fallback for a caller without one.
-  const opener=canTakeFocus(active)?active
-    :(ctx.opener?.closest?.("label")||$("#importJson")?.closest("label")||$("#dataImportRow"));
-  const close=()=>closeModal(d);
-  const io=ctx.io||storageIO;
-  const onlyBtn=$("#importProgramOnly"),mergeBtn=$("#importMerge");
-  if(onlyBtn)onlyBtn.classList.toggle("hidden",!ctx.programOnly);
-  if(mergeBtn)mergeBtn.classList.toggle("hidden",!mergeable);
-  openModal(d,{initialFocus:$("#importCancel"),returnFocus:opener,onEscape:close});
-  let importBusy=false;
-  $("#importCancel").onclick=()=>{if(importBusy)return;close();toast(t("toast.import_cancelled"))};
-  if(onlyBtn)onlyBtn.onclick=()=>{
-    if(importBusy||!ctx.programOnly)return;
-    // Nothing has been written, so this is still just a change of screen.
-    close();ctx.programOnly()};
-  $("#importReplace").onclick=async()=>{
-    if(importBusy)return;importBusy=true;
-    const discardDraftRaw=readDraftRaw();
-    try{const result=await replaceImportedState(ctx.s,io,{discardDraftRaw});
-      if(result.localOk||result.idbOk){close();resetDraftSessionState();day=days()[0]||"Day 1";syncLang();leaveSetupGates();render();toast(tOne("toast.imported_sessions",ctx.inSessions,{sessions:ctx.inSessions}))}}
-    finally{importBusy=false}};
-  $("#importMerge").onclick=async()=>{
-    if(importBusy)return;importBusy=true;
-    try{const result=await mergeImportedLog(ctx.s,io);
-      if(result.added===0){close();toast(t("toast.nothing_to_merge"));return}
-      if(result.localOk||result.idbOk){close();leaveSetupGates();render();toast(t("toast.merged_sessions",{n:result.added,sessions:tp(result.added,"session")}))}}
-    finally{importBusy=false}}}
-function mergeLog(s){return mergeImportedLog(s)}
+function openImportChoice(context){return backupView().open(context)}
 
 const ProgramEntryAdapter=createEntryAdapter({compiler:ProgramCompiler});
 const ENTRY_MUSCLES=ProgramEntry.ENTRY_MUSCLES;
@@ -10222,6 +10151,11 @@ async function boot(){
 
 boot();
 
+let BackupCommands,backupUi=null;
+function backupView(){return backupUi||(backupUi=createBackupView({window,commands:BackupCommands,
+  copy:{t,tOne,tp},shell:{openModal,closeModal,canTakeFocus},toast,
+  onImported:kind=>{if(kind==="replace"){resetDraftSessionState();day=days()[0]||"Day 1";syncLang()}
+    leaveSetupGates();render()}}))}
 let programAdditionCommands;
 function initializePersistenceOwners(){
   if(DurableState)return;
@@ -10283,6 +10217,11 @@ function initializePersistenceOwners(){
     resolveCustomMutationIntent,onAccepted:applyAcceptedSnapshot,
     mutationGate:installTransferMutationFrozen,platform:window});
   storageIO=DurableState.storageIO;DraftStore=DurableState.DraftStore;
+  BackupCommands=createBackupCommands({read:applicationSession.read,policy,model,
+    drafts:{readRaw:readDraftRaw,clearEffect:destructiveDraftClearEffect},
+    commit:(proposal,options,io)=>commitProposedState(proposal,io||storageIO,options),
+    files:Files,csv:{readLogRow,exerciseLabel,rowMuscles,e1rm},now,date:today,onExported:renderSettings});
+
   const transferContract=createTransferContract({compiler:ProgramCompiler,entry:ProgramEntry,metrics:ExerciseMetrics,
     workout:WorkoutDraft,catalog:rawExerciseCatalog,crypto:window.crypto,TextEncoder,TextDecoder});
   const transferClient=createInstallTransfer({crypto:window.crypto,TextEncoder,TextDecoder,document,location:window.location,

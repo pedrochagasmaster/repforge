@@ -1,7 +1,7 @@
 /** CSV presentation uses the same source-metric and locale readers as History. */
 /** @typedef {{[key:string]:unknown,load?:number|string|null,reps?:number|string|null,rir?:number|string|null,warmup?:boolean,metricDefinitions?:Array<{semantic?:string}>}} CsvRow
  * @typedef {{load:number|null,reps:number|null,totalLoad:number|null,totalReps:number|null,loadPerSide:number|null,repsPerSide:number|null,tonnage:number|null}&({strengthComparable:true,e1rm:number}|{strengthComparable:false,e1rm:null})} CsvReading */
-/** @param {{state:{settings:{hardRir:unknown},log:CsvRow[]},readLogRow?:(row:CsvRow)=>CsvReading,exerciseLabel?:(row:CsvRow)=>string,rowMuscles?:(row:CsvRow)=>{primary:string,secondary:string},e1rm?:(load:number,reps:number)=>number,date:string}} input */
+/** @param {{state:{settings:{hardRir?:unknown},log:CsvRow[]},readLogRow?:(row:CsvRow)=>CsvReading,exerciseLabel?:(row:CsvRow)=>string,rowMuscles?:(row:CsvRow)=>{primary:string,secondary:string},e1rm?:(load:number,reps:number)=>number,date:string}} input */
 export function csvFile({state,readLogRow,exerciseLabel,rowMuscles,e1rm,date}){
   const PER_SIDE_LOAD_SEMANTICS=new Set(["loadPerSideKg","persistentLoadPerSideKg"]);
   if(state.log.length&&(!readLogRow||!exerciseLabel||!rowMuscles||!e1rm))throw new TypeError('CSV readers unavailable');
