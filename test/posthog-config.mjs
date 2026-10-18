@@ -18,7 +18,7 @@ function run(environment) {
   const directory = mkdtempSync(resolve(tmpdir(), "taurifer-posthog-config-"));
   mkdirSync(resolve(directory, "scripts"));
   copyFileSync(resolve(root, "scripts/generate-posthog-config.mjs"), resolve(directory, "scripts/generate-posthog-config.mjs"));
-  writeFileSync(resolve(directory, "index.html"), '  <script type="application/taurifer-script" data-module src="app.js?v=fixture"></script>\n');
+  writeFileSync(resolve(directory, "index.html"), '  <link rel="taurifer-entry" href="app.js?v=fixture">\n');
   const result = spawnSync(process.execPath, ["scripts/generate-posthog-config.mjs"], {
     cwd: directory,
     encoding: "utf8",
@@ -39,7 +39,7 @@ function run(environment) {
   assert.match(generated, /"sdkVersion":"1\.400\.0"/);
   assert.match(generated, /"appVersion":"abcdef123456"/);
   assert.match(generated, /"releaseChannel":"production"/);
-  assert.match(readFileSync(resolve(directory, "index.html"), "utf8"), /posthog-config\.js\?v=abcdef123456" data-optional-runtime="RepForgeTelemetry"/);
+  assert.match(readFileSync(resolve(directory, "index.html"), "utf8"), /posthog-config\.js\?v=abcdef123456"/);
 }
 
 {

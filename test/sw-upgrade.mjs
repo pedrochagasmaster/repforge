@@ -71,8 +71,8 @@ const server = createServer((request, response) => {
   response.writeHead(200, { "content-type": mimeType(extname(file)) });
   if (mode === "optional-html" && ["/", "/index.html"].includes(pathname)) {
     const html = readFileSync(file, "utf8").replace(
-      /^(  <script type="application\/taurifer-script" data-module src="app\.js[^\"]*"><\/script>)$/m,
-      '  <script type="application/taurifer-script" src="posthog-config.js?v=sw-contract" data-optional-runtime="RepForgeTelemetry"></script>\n$1',
+      /^(  <link rel="taurifer-entry" href="app\.js[^\"]*">)$/m,
+      '  <link rel="taurifer-config" href="posthog-config.js?v=sw-contract">\n$1',
     );
     response.end(html);
     return;

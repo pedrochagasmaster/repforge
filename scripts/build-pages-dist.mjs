@@ -60,7 +60,7 @@ for (const url of media) {
 }
 required.delete(null);
 // posthog-config.js is precached as optional but must ship whenever index.html loads it.
-if (/<script src="posthog-config\.js\?/.test(html)) { optional.delete("posthog-config.js"); required.add("posthog-config.js"); }
+if (/<link rel="taurifer-config" href="posthog-config\.js\?/.test(html)) { optional.delete("posthog-config.js"); required.add("posthog-config.js"); }
 
 // All migrated native modules ship at native paths, including Worker entrypoints.
 for (const file of nativeSourceAssets(ROOT)) required.add(file);
@@ -88,7 +88,7 @@ for (const sensitive of ["plans", "docs", "test", "tools", "services", ".github"
 }
 const releaseOptional = releaseAssets().filter(asset => asset.required === false).map(asset => localPath(asset.url));
 // A generated analytics config explicitly loaded by HTML is required.
-if (/<script src="posthog-config\.js\?/.test(html)) releaseOptional.splice(releaseOptional.indexOf("posthog-config.js"), 1);
+if (/<link rel="taurifer-config" href="posthog-config\.js\?/.test(html)) releaseOptional.splice(releaseOptional.indexOf("posthog-config.js"), 1);
 const release = assembleRelease(OUT, { optional: releaseOptional });
 console.log(`Assembled immutable native release ${release.id}`);
 const count = (dir) => readdirSync(dir, { withFileTypes: true })

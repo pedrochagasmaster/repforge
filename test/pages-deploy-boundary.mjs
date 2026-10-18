@@ -99,7 +99,7 @@ test("the Pages build command publishes the generated posthog-config.js", () => 
     assert.equal(result.status, 0, result.stderr);
     const out = join(work, "dist");
     assert.match(readFileSync(join(out, "index.html"), "utf8"),
-      /<script type="application\/taurifer-script" src="releases\/[a-f0-9]{24}\/posthog-config\.js\?v=local" data-optional-runtime="RepForgeTelemetry"><\/script>/);
+      /<link rel="taurifer-config" href="releases\/[a-f0-9]{24}\/posthog-config\.js\?v=local">/);
     assert.equal(readFileSync(join(out, "posthog-config.js"), "utf8"), readFileSync(join(work, "posthog-config.js"), "utf8"));
     assert.ok(!existsSync(join(out, "plans")), "plans/ stays private");
   } finally {
