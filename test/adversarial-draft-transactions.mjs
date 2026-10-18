@@ -11,6 +11,7 @@ import {
   inventoryPersistenceArtifacts,
 } from "./persistence-artifacts.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
+import { installBrowserTraining } from "./training-browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://127.0.0.1:8000/";
 const KEY = "repforge_v1";
@@ -568,16 +569,17 @@ async function queueDraftLoad(page, load) {
 }
 
 async function nextDraftRaw(page, load, operationId = `adversarial-${Date.now()}`) {
+  await installBrowserTraining(page);
   return page.evaluate(({ load, operationId, weightMetric }) => {
     const hook = window.__repforgeWorkoutDraft, draft = hook.current();
     const exerciseInstanceId = draft.session.selectedExerciseId;
-    const next = window.RepForgeWorkoutDraft.reduce(draft, {
+    const next = window.__repforgeTrainingTest.workout.reduce(draft, {
       type: "editMetricValue", exerciseInstanceId, setId: draft.exercises[exerciseInstanceId].setOrder[0],
       metricId: weightMetric, value: String(load), expectedRevision: draft.revision, operationId,
       updatedAt: new Date(Date.parse(draft.session.updatedAt) + 1000).toISOString(),
       writer: { ...draft.writer, operationId },
     });
-    return JSON.stringify(window.RepForgeWorkoutDraft.serialize(next));
+    return JSON.stringify(window.__repforgeTrainingTest.workout.serialize(next));
   }, { load: String(load), operationId, weightMetric: WEIGHT_METRIC });
 }
 
@@ -855,18 +857,19 @@ async function runSameRawDraftWalAcceptance(browser) {
     await seedScenario(page, { draftRaw: null });
     await page.evaluate(() => window.__repforgeEnterWorkout({}));
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+    await installBrowserTraining(page);
     const staged = await page.evaluate(async (weightMetric) => {
       const hook = window.__repforgeWorkoutDraft, draft = hook.current();
       const exerciseInstanceId = draft.session.selectedExerciseId;
       const operationId = "same-raw-checkpoint-retry";
-      const next = window.RepForgeWorkoutDraft.reduce(draft, {
+      const next = window.__repforgeTrainingTest.workout.reduce(draft, {
         type: "editMetricValue", exerciseInstanceId, setId: draft.exercises[exerciseInstanceId].setOrder[0],
         metricId: weightMetric, value: "136.25", expectedRevision: draft.revision, operationId,
         updatedAt: new Date(Date.parse(draft.session.updatedAt) + 1000).toISOString(),
         writer: { ...draft.writer, operationId },
       });
       const request = { expectedDraftId: draft.draftId, expectedRevision: draft.revision,
-        nextRaw: JSON.stringify(window.RepForgeWorkoutDraft.serialize(next)), operationId };
+        nextRaw: JSON.stringify(window.__repforgeTrainingTest.workout.serialize(next)), operationId };
       window.__repforgeDraftFault = "after-canonical-write";
       const first = await hook.cas(request);
       const retry = await hook.cas(request);
