@@ -4,7 +4,7 @@ import {effortForRir} from './effort.js';
 /** @typedef {import('../../training/workout-contracts.js').Draft} Draft
  * @typedef {import('../../app/workout-model.js').Exercise} Exercise
  * @typedef {import('../../app/workout-model.js').LogRow} LogRow
- * @typedef {Record<string,unknown>} FlatDraft
+ * @typedef {Record<string,unknown> & {__done?:string[],__warm?:string[],__touched?:string[],__exnotes?:Record<string,string>}} FlatDraft
  * @typedef {import('../../app/workout-model.js').WorkoutCapture} WorkoutCapture
  * @typedef {import('../../app/workout-model.js').WorkoutRecommendation} Recommendation
  */

@@ -1,7 +1,7 @@
 import {escapeHtml as esc} from '../format.js';
 import {effortForRir} from './effort.js';
 import {renderFocusLedgerToggle,renderFocusLedgerRows,renderFocusLedger} from './view.js';
-/** @typedef {{load:unknown,reps:unknown,rir?:unknown,metricDefinitions?:readonly {semantic:string}[]}} PreviousSet
+/** @typedef {{load?:unknown,reps?:unknown,rir?:unknown,metricDefinitions?:readonly {semantic:string}[]}} PreviousSet
  * @typedef {{ordinal:number,done:boolean,warmup:boolean,load:string,reps:string,effort:string,touched:Partial<import('../../training/workout-contracts.js').Touched>,previous:PreviousSet|null,projection:{load:number|null,reps:number|null}|null}} LedgerFacts
  */
 /** Ledger layout and localized readback. All history/training projections and

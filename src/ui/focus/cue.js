@@ -1,11 +1,12 @@
 import {escapeHtml as esc,verdictMarkHtml} from '../format.js';
-/** @typedef {{kind:string,move:string,headHtml:string,sub:string,loadText?:string,reps?:number,parity?:string}} Cue
+/** @typedef {ReturnType<import('../../app/workout-model.js').WorkoutCapture['setSuggestion']>} Suggestion
+ * @typedef {{kind:string,move:string,headHtml:string,sub:string,loadText?:string,reps?:Suggestion['reps'],parity?:string}} Cue
  * @typedef {{exerciseId:string,status:string,peek:boolean,name:string,hasNote:boolean}} CueContext
- * @typedef {{exerciseId:string,ordinal:number,total:number,min:number,max:number,status:string,editing:boolean,suggestion:{load?:number|null,reps?:number|null,src?:string,tempered?:boolean},move:string}} CueFacts
+ * @typedef {{exerciseId:string,ordinal:number,total:number,min:number,max:number,status:string,editing:boolean,suggestion:Pick<Suggestion,'load'|'reps'|'src'>,move:string}} CueFacts
  */
 /** Presentation receives the engine's suggestion and already-selected movement.
  * It never queries a draft/history, calculates a training target or writes state.
- * @param {{copy:{t:(key:string,values?:Record<string,unknown>)=>string},format:{load:(value:number)=>string,unit:()=>string},rest:ReturnType<typeof import('./rest-view.js').createRestPresentation>}} options */
+ * @param {{copy:{t:(key:string,values?:Record<string,unknown>)=>string},format:{load:(value:unknown)=>string,unit:()=>string},rest:ReturnType<typeof import('./rest-view.js').createRestPresentation>}} options */
 export function createCuePresentation({copy:{t},format,rest}){
   /** @param {CueFacts} facts @returns {Cue} */
   function cue({exerciseId,ordinal,total,min,max,status,editing,suggestion,move}){
@@ -16,7 +17,7 @@ export function createCuePresentation({copy:{t},format,rest}){
     const reps=suggestion.reps!=null?suggestion.reps:min;
     const sentence=t(`focus.cue.${move}`,{load:'\u0000',unit:format.unit()});
     const loadText=format.load(suggestion.load);
-    const parity=suggestion.src==='base'&&!suggestion.tempered?` data-parity-target="${esc(exerciseId)}"`:'';
+    const parity=suggestion.src==='base'?` data-parity-target="${esc(exerciseId)}"`:'';
     return {kind:'now',move,loadText,reps,parity,
       headHtml:esc(sentence).replace('\u0000',`<b class="fx-cue__load"${parity}>${esc(loadText)}</b>`),
       sub:t('focus.cue.reps',{reps})};

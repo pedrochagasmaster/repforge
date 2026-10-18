@@ -1124,10 +1124,10 @@ function publishTrainingSnapshot(snapshot){
 let activeRecoveryRecord=null,activeRecoveryRecordBlockId=null;
 const focusRest=Focus.createRestClock({window});
 const FocusPresentation=Focus.createFocusPresentation({window,focus:focusUi,clock:focusRest,
-  training:{manualLoadCarry:WorkoutDraft.manualLoadCarry},readSettings:()=>state.settings,
+  training:{manualLoadCarry:WorkoutDraft.manualLoadCarry},readSettings:()=>state.settings,labels:MovementLabels,
   readDefaultRest:()=>normalizeRestSec(state?.settings?.restSec),copy:{t,plural:tp,language:uiLang,term},motion:{playBeat}});
 const {format:FocusFormat,metrics:workoutMetricDisplay,values:FocusValues,effort:FocusEffort,
-  rest:RestPresentation,cue:FocusCue,ledger:FocusLedger,prescription:FocusPrescription,shelf:FocusShelf}=FocusPresentation;
+  rest:RestPresentation,prescription:FocusPrescription,shelf:FocusShelf}=FocusPresentation;
 // focusRest.paused holds the milliseconds left while the clock is held (null while it
 // runs); focusRest.length is the length the current or next rest is armed at.
 
@@ -3550,22 +3550,7 @@ function setSuggestion(ex,n,rec,draft,old){return workoutQueries().setSuggestion
  *  the rows stay {label?,text}, so the parity proofs that compare them see the same list. */
 const whyRow=(kind,row,facts)=>{Object.defineProperty(row,"kind",{value:kind});
   if(facts)Object.defineProperty(row,"facts",{value:facts});return row};
-function inSessionNote(ex,draft){
-  const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]),changed=new Set(draft.__touched||[]);
-  const rec=recommendation(ex),u=unitLabel();
-  if(rec.status==="manual")return"";
-  for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;
-    if(done.has(key)||warm.has(key)||changed.has(key))continue;
-    const sg=setSuggestion(ex,n,rec,draft,null);
-    if(sg.src==="session-up")return t("log.insession.up",{set:n,load:fmtLoad(sg.load),unit:u});
-    if(sg.src==="session-down")return t("log.insession.down",{set:n,load:fmtLoad(sg.load),unit:u});
-    // Name the signal, never the arithmetic: an anticipated fade reads as a trend.
-    if(sg.src==="session-hold"&&sg.drop)return t("log.insession.drop",{set:n,load:fmtLoad(sg.load),unit:u,reps:sg.reps});
-    if(sg.src==="session-hold")return t("log.insession.hold",{set:n,load:fmtLoad(sg.load),unit:u,reps:sg.reps});
-    if(sg.tempered)return t("log.insession.temper");
-    if((rec.status==="add"||rec.status==="add2")&&sg.load!=null&&sg.reps>ex.min)
-      return t("log.insession.reentry",{load:fmtLoad(sg.load),unit:u,reps:sg.reps})}
-  return""}
+function inSessionNote(ex,draft){return focusPresentationView(draft).sessionNote(ex)}
 // On-demand arithmetic behind one recommendation (plan 043). Built at tap time only,
 // never during renderWorkout: the Log tab's render path stays free of this work.
 // One brain — every number here is a field the engine attached to its own result;
@@ -4690,8 +4675,10 @@ function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
   $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" aria-pressed="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(dayLabel(d))}</button>`).join("");
   $$("#dayTabs button").forEach(b=>b.onclick=async()=>{if(!await requestWorkoutDay(b.dataset.day))return;renderTabs();renderWorkout();renderToday()})}
 
+function focusPresentationView(flat=WorkoutSession.projection()){
+  return FocusPresentation.capture({draft:activeWorkoutDraft,flat,query:workoutQueries(),committed,log:state.log,
+    list:focusList(),effortMode:isEffortMode(),rirHigh:state.settings.rirHigh,beats:beatsOn()})}
 function pendingFocusLoad(exId,ordinal){return FocusValues.pendingLoad(activeWorkoutDraft,exId,ordinal)}
-function manualLoadCarry(exId,ordinal,recommendation){return FocusValues.carry(activeWorkoutDraft,exId,ordinal,recommendation)}
 function setFieldVals(ex,n,r,draft,prev){return FocusValues.fields({draft:activeWorkoutDraft,flat:draft,
   query:workoutQueries(),exercise:ex,ordinal:n,recommendation:r,previous:prev})}
 /* =====================================================   Focus mode
@@ -4708,16 +4695,11 @@ function setFieldVals(ex,n,r,draft,prev){return FocusValues.fields({draft:active
 const dead=()=>` tabindex="-1"`;
 /** Set numbers already committed on this exercise, in order. */
 const focusSelection=(ex,peek=false)=>focusUi.selectExercise(ex,committed,{peek});
-const focusDoneSets=ex=>focusSelection(ex).done;
 const focusActiveSet=ex=>focusSelection(ex).active;
 /** The two lines above the ledger: what to do with this set, and why. Line one
  *  is the verb and the load, line two the reps to aim for. The load is the
  *  engine's: `setSuggestion` for this set, never a figure derived here. */
-function focusCue(ex,n,r,draft,prev,editing){
-  const sg=editing?{}:setSuggestion(ex,n,r,draft,prev.find(x=>x.set===n));
-  const move=sg.src==="session-up"?"up":sg.src==="session-down"?"down":sg.src==="session-hold"?"hold":
-    r.status==="add"?"up":r.status==="reduce"?"down":"hold";
-  return FocusCue.cue({exerciseId:ex.id,ordinal:n,total:ex.sets,min:ex.min,max:ex.max,status:r.status,editing,suggestion:sg,move})}
+function focusCue(ex,n,r,draft,prev,editing){return focusPresentationView(draft).cue(ex,n,r,editing)}
 
 /* ---- Inline rest (Direction D 4.2, owner gate OG-4 job 3) ----
    The rest clock reads the one timer (`focusRest.end`, `focusRest.paused`, `focusRest.length`):
@@ -4734,48 +4716,13 @@ const restSlotMode=editing=>RestPresentation.slotMode(editing);
 const restPadsFit=()=>RestPresentation.padsFit();
 const restPadsOn=editing=>RestPresentation.padsOn(editing);
 
-function focusSlotInner(ex,n,r,cue,mode,opts){
-  return FocusCue.slotInner(n,cue,mode,{exerciseId:ex.id,status:r.status,peek:opts.peek,
-    name:opts.name,hasNote:r.status==="new"&&!!inSessionNote(ex,opts.draft)})}
-function focusSlotHtml(ex,n,r,cue,opts){
-  const mode=restSlotMode(opts.editing);
-  return `<div class="fx-slot" data-rest="${mode}">${focusSlotInner(ex,n,r,cue,mode,opts)}</div>`}
+function focusSlotInner(ex,n,r,cue,mode,opts){return focusPresentationView(opts.draft).slotInner(ex,n,r,cue,mode,opts)}
 /** The rest controls in the shelf's pad row: -30s, Pausar or Retomar, +30s, Pular. They act on the timer
  *  the header chip and the presets sheet act on. */
 const selectRestPads=peek=>RestPresentation.selectPads(peek);
 const restPadsHtml=peek=>RestPresentation.padsHtml(peek);
-function focusRowVals(ex,n,r,draft,prev,effortMode){return FocusValues.row({draft:activeWorkoutDraft,flat:draft,
-  query:workoutQueries(),exercise:ex,ordinal:n,recommendation:r,previous:prev},effortMode)}
-
-/** The effort window a set that has not been logged is aimed at. These are the
- *  program's own parameters and the lifter's RIR ceiling, formatted — the same
- *  figures the exercise line above shows. */
-/* What a canonical slot's current cycle prescribes: whether the adaptive engine
-   owns its targets, and the RIR its sets aim at. Null for a flat legacy row. */
 function canonicalSlotFacts(...args){return workoutQueries().canonicalSlotFacts(...args)}
-function focusTargetEffort(ex){return FocusPrescription.targetEffort({effortMode:isEffortMode(),rirHigh:state.settings.rirHigh,
-  facts:canonicalSlotFacts(ex),progression:progressionForExercise(ex)})}
-
-/** What the lifter has confirmed on a set. `touched.effort` also covers RIR. */
-function shelfTouched(exId,n){return FocusValues.touched(activeWorkoutDraft,exId,n)}
-function ledgerSetIsWarmup(exId,n){return FocusValues.set(activeWorkoutDraft,exId,n)?.role==="warmup"}
-
-/** Layout D's table (owner decision of 2026-10-17): the set being worked on and
- *  the one after it, with the logged sets behind a disclosure above them. The
- *  disclosure is transient: it is open for one exercise at a time, stays open
- *  through a correction, and closes after it and whenever the lifter moves on.
- *  A finished exercise keeps its whole ledger, as it always has. */
-
-function focusLedgerModel(ex,r,draft,prev,{effortMode,peek=false}){
-  const selection=focusSelection(ex,peek);
-  return {exerciseId:ex.id,selection,effortMode,peek,targetEffort:focusTargetEffort(ex),facts:selection.visible.map(n=>{
-    const done=committed.has(`${ex.id}_${n}`)&&n!==selection.editing,open=n===selection.active;
-    const vals=focusRowVals(ex,n,r,draft,prev,effortMode),previous=prev.find(x=>x.set===n)||null;
-    return {ordinal:n,done,warmup:ledgerSetIsWarmup(ex.id,n),load:vals.load,reps:vals.reps,effort:vals.eff,
-      touched:open||done?shelfTouched(ex.id,n):{},previous,projection:previous?readLogRow(previous):null}})}
-}
-function focusLedgerHtml(ex,r,draft,prev,options){return FocusLedger.render(focusLedgerModel(ex,r,draft,prev,options))}
-function focusLedgerRowsHtml(ex,r,draft,prev,options){return FocusLedger.rows(focusLedgerModel(ex,r,draft,prev,options))}
+function focusLedgerRowsHtml(ex,r,draft,prev,options){return focusPresentationView(draft).ledgerRows(ex,r,prev,options)}
 function toggleFocusLedger(button){
   const card=button.closest(".exercise--focus"),base=card&&prog.find(card.dataset.ex);if(!base)return;
   const ex=sessionExercise(base),rows=card.querySelector(`#ledger_${CSS.escape(ex.id)}`);if(!rows)return;
@@ -4793,9 +4740,6 @@ function toggleFocusLedger(button){
 /** The line under the exercise name: sets and reps, the effort window, and the
  *  name of the strategy that sets the target. Read off the program's own
  *  envelope; a slot with none is the range it always was. */
-function focusExMeta(ex){return FocusPrescription.exerciseMeta({exercise:ex,facts:canonicalSlotFacts(ex),
-  progression:progressionForExercise(ex),prescription:prescriptionPresentationFacts(ex),rirHigh:state.settings.rirHigh})}
-
 /* ---- The shelf ----
    The shelf is a presentation over the DraftV2 commands. It holds nothing of its own that is saved: the three fields show
    the values of the active set, the pads nudge the selected one through the
@@ -4826,14 +4770,7 @@ const metricLabel=workoutMetricDisplay.label,metricDisplayUnit=workoutMetricDisp
 function focusPadsHtml(ex,n,ui,vals,{effortMode,peek,editing}){
   return FocusShelf.padsHtml({exerciseId:ex.id,ordinal:n,ui,values:vals,effortMode,peek,editing,
     metrics:focusMetricDefinitions(ex.id,n),loadStep:shelfLoadStep()})}
-function focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}) {
-  const selection=focusSelection(ex,peek),n=selection.active;
-  const exercise=n?activeWorkoutDraft?.exercises?.[ex.id]:null;
-  const setId=exercise?.setOrder.find(id=>exercise.sets[id].ordinal===n);
-  return FocusShelf.render({exerciseId:ex.id,selection,allDone,hasNext,peek,exerciseCount:focusList().length,
-    beats:beatsOn(),effortMode:isEffortMode(),values:n?setFieldVals(ex,n,r,draft,prev):null,
-    touched:n?shelfTouched(ex.id,n):{},set:exercise?.sets?.[setId]||null,
-    carry:n?manualLoadCarry(ex.id,n,r):null,metrics:n?focusMetricDefinitions(ex.id,n):[],loadStep:shelfLoadStep()})}
+function focusShelfHtml(ex,r,draft,prev,options){return focusPresentationView(draft).shelfHtml(ex,r,prev,options)}
 function refreshShelf({focus=null}={}){
   const card=focusCard();if(!card||!activeWorkoutDraft)return false;
   const base=prog.find(card.dataset.ex);if(!base)return false;
@@ -4909,17 +4846,7 @@ function shelfReveal(input){
  *  What a peek does not carry is behaviour — its controls hold no hooks and no
  *  tab stop — and no `data-k` field, which would duplicate the draft keys the
  *  live card owns. */
-function focusCardHtml(ex,r,draft,prev,opts){
-  const{peek=false,hasNext=true,allDone=false,nextName=""}=opts,effortMode=isEffortMode(),n=focusActiveSet(ex),name=exerciseDisplayName(ex);
-  const editing=!!(focusUi.edit&&focusUi.edit.exId===ex.id&&n),cue=n?focusCue(ex,n,r,draft,prev,editing):null;
-  return Focus.renderFocusCard({exerciseId:ex.id,status:r.status,peek,name,meta:focusExMeta(ex),note:draft.__exnotes?.[ex.id]??lastExerciseNote(ex),
-    slotHtml:cue?focusSlotHtml(ex,n,r,cue,{peek,name,draft,editing}):"",ledgerHtml:focusLedgerHtml(ex,r,draft,prev,{effortMode,peek}),
-    shelfHtml:focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek}),nextName:hasNext?nextName:"",nextTemplate:t("focus.next_row",{name:"\u0000"})})}
-function focusDeckHtml(ex,r,draft,prev,{fl,at}){
-  const allDone=fl.every(e=>{for(let n=1;n<=e.sets;n++)if(!committed.has(`${e.id}_${n}`))return false;return true});
-  const nameAt=i=>fl[i]?exerciseDisplayName(sessionExercise(fl[i])):"";
-  const peek=i=>{if(!fl[i])return "";const active=sessionExercise(fl[i]);return focusCardHtml(active,recommendation(active),draft,last(active),{peek:true,hasNext:i<fl.length-1,allDone,nextName:nameAt(i+1)})};
-  return Focus.renderFocusDeck({label:t("focus.deck_aria"),previousHtml:peek(at-1),currentHtml:focusCardHtml(ex,r,draft,prev,{hasNext:at<fl.length-1,allDone,nextName:nameAt(at+1)}),nextHtml:peek(at+1)})}
+function focusDeckHtml(ex,r,draft,prev,{at}){return focusPresentationView(draft).deck(ex,r,prev,at)}
 function focusOpenRow(){
   const card=focusCard(),ledger=card?.querySelector(".fcard__ledger");
   const open=ledger?.querySelector(".ledgerline--open");if(!open)return null;
