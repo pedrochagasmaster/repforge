@@ -3,7 +3,7 @@ export { createFocusState } from "./state.js";
 export { renderFocusShelf } from "./view.js";
 export { createWhySheet } from "./why.js";
 export { createFocusGestures } from "./gestures.js";
-export { createRestClock } from "./rest.js";
+export { createRestClock,REST_NUDGE } from "./rest.js";
 export { createFocusGeometry } from "./geometry.js";
 export { renderFocusLedgerToggle, renderFocusLedgerRows, renderFocusLedger, renderFocusCard, renderFocusDeck } from "./view.js";
 export { renderFocusPadsInner, renderFocusPads } from "./view.js";
@@ -26,3 +26,5 @@ export {createFocusDom,syncWorkoutMore} from './dom.js';
 export {createFocusBindings,setWorkoutOverflow} from './bindings.js';
 
 export {createFocusView} from './workout.js';
+
+export {createRestSheet} from './rest-sheet.js';

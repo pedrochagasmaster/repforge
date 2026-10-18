@@ -2833,79 +2833,19 @@ window.__repforgeRest={expire:over=>focusRest.expire(over),stop:stopRest,openShe
    end. Every operation of the clock is reachable from here, because the inline
    pad row that also holds them gives way to the field pads once a field is
    tapped, while a set is corrected, and at large text. */
-const REST_PRESETS=[60,90,180,300];
-const REST_NUDGE=30;
-const REST_MIN_SEC=15,REST_MAX_SEC=60*60;
-let restSheetReturn=null;
-/** The length this rest was armed at — the ring's full turn, and the length the
- *  next one starts at until Settings changes the default again. */
+const REST_NUDGE=Focus.REST_NUDGE;
 function restPlanSec(){return focusRest.plan(normalizeRestSec(state?.settings?.restSec))}
-const clampRestSec=s=>Math.min(REST_MAX_SEC,Math.max(REST_MIN_SEC,Math.round(s)||0));
-function restPresetSecs(){
-  const secs=new Set(REST_PRESETS);
-  const dflt=normalizeRestSec(state?.settings?.restSec);
-  if(dflt>0)secs.add(dflt);
-  return [...secs].sort((a,b)=>a-b)}
-/** Pause or Resume in the sheet: the same hold as the inline pad (`toggleRestHold`), drawn here so a clock that
- *  was held can always be let go, whatever the pad row of the card is showing. Built once, as the first control. */
-function ensureRestHold(){
-  const row=$("#restSheet .restsheet__controls");if(!row)return null;
-  let hold=$("#restHold");
-  if(!hold){
-    hold=document.createElement("button");hold.type="button";hold.id="restHold";hold.className="restctl";
-    const label=document.createElement("span");label.className="restctl__label";
-    hold.append(label);hold.onclick=toggleRestHold;
-    row.prepend(hold)}
-  return hold}
-function renderRestPresets(){
-  const host=$("#restPresets");if(!host)return;
-  host.innerHTML=restPresetSecs().map(s=>
-    `<button type="button" class="restpreset" data-restpreset="${s}" aria-pressed="false" aria-label="${esc(t("rest.sheet.preset_aria",{time:fmtClock(s)}))}">${esc(fmtClock(s))}</button>`).join("");
-  $$("#restPresets [data-restpreset]").forEach(b=>{b.onclick=()=>setRestLength(+b.dataset.restpreset)})}
-/** The sheet reads the same clock the inline block does: the length the rest is
- *  armed at is the active preset, and Restart and End wait for a rest to act on. */
-function paintRestSheet(){
-  const sheet=$("#restSheet");if(!sheet||sheet.hidden)return;
-  sheet.classList.toggle("is-idle",!focusRest.end);
-  const armed=restPlanSec();
-  $$("#restPresets [data-restpreset]").forEach(b=>{
-    const on=+b.dataset.restpreset===armed;
-    b.classList.toggle("is-active",on);
-    b.setAttribute("aria-pressed",on?"true":"false")});
-  const hold=ensureRestHold();
-  if(hold){
-    // Pause and Resume wait for a rest to hold, like Restart and End; they never start one.
-    hold.disabled=!focusRest.end;
-    const label=hold.querySelector(".restctl__label"),text=t(focusRest.paused!=null?"rest.inline.resume":"rest.inline.pause");
-    if(label&&label.textContent!==text)label.textContent=text}
-  const reset=$("#restReset");if(reset)reset.disabled=!focusRest.end;
-  const stop=$("#restStop");if(stop)stop.disabled=!focusRest.end}
-function openRestSheet(){
-  const sheet=$("#restSheet"),scrim=$("#restSheetScrim");
-  if(!sheet)return;
-  restSheetReturn=document.activeElement;
-  ensureRestHold();
-  renderRestPresets();
-  document.body.classList.add("is-sheet-open");
-  openModal(sheet,{
-    initialFocus:$$("#restPresets .restpreset").find(b=>+b.dataset.restpreset===restPlanSec())||$("#restMinus"),
-    returnFocus:restSheetReturn,
-    onEscape:closeRestSheet,
-    scrim,
-    delayHide:reducedMotion()?0:280
-  });
-  paintRestSheet();
-  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
-function closeRestSheet(){
-  const sheet=$("#restSheet");
-  if(!sheet)return Promise.resolve(false);
-  if(sheet.hidden&&!(shellView().activeModal&&shellView().activeModal.el===sheet))return Promise.resolve(false);
-  restSheetReturn=null;
-  return closeModal(sheet)}
+let RestSheet;
+function restSheet(){return RestSheet||(RestSheet=Focus.createRestSheet({window,clock:focusRest,shell:shellView(),
+  motion:ensureBrowserPresentation().motion,readDefaultSeconds:()=>normalizeRestSec(state?.settings?.restSec),copy:{t},
+  commands:{start:startRest,length:setRestLength,nudge:nudgeRest,hold:toggleRestHold,reset:resetRest,stop:stopRest}}))}
+function paintRestSheet(){return restSheet().paint()}
+function openRestSheet(){return restSheet().open()}
+function closeRestSheet(){return restSheet().close()}
 /** Picking a length restarts the rest at it; idle, it only sets what the next
  *  one will run for. */
 function setRestLength(sec){
-  const s=clampRestSec(sec);
+  const s=focusRest.clamp(sec);
   focusRest.length=s;
   if(focusRest.end)startRest(s);
   else syncRest();
@@ -2922,7 +2862,6 @@ function toggleRestHold(){const result=focusRest.toggleHold(normalizeRestSec(sta
   if(result.idle){startRest(restPlanSec());return}
   if(result.needsTick)armRestTick();syncRest()}
 function resetRest(){if(!focusRest.end)return;startRest(restPlanSec())}
-function endRestFromSheet(){stopRest();closeRestSheet()}
 /** Pular on the inline pad. It ends the rest the way the bell does: the clock
  *  stands at zero and its overrun counts up from there (owner decision on
  *  OG-4, proposal 5). The lifter ended it, so there is no buzz or OS notice;
@@ -9466,16 +9405,7 @@ function init(){
   $("#guideReplayToggle").onclick=()=>setDisclosure($("#guideReplayToggle"),$("#guideReplayPanel"),!$("#guideReplayPanel")?.classList.contains("is-open"));
   $$('[data-guide-replay]').forEach(button=>button.onclick=()=>replayContextualGuide(button.dataset.guideReplay));
   $("#installApp").onclick=()=>triggerInstall("manual-settings");
-  $("#restBar").onclick=openRestSheet;
-  // One rest control in the workout header: it starts the clock when idle, and
-  // opens the timer sheet once it is running rather than ending the rest.
-  const woRest=$("#woRest");if(woRest)woRest.onclick=()=>{focusRest.end?openRestSheet():startRest()};
-  const restClose=$("#restSheetClose");if(restClose)restClose.onclick=closeRestSheet;
-  const restScrim=$("#restSheetScrim");if(restScrim)restScrim.onclick=closeRestSheet;
-  const restMinus=$("#restMinus");if(restMinus)restMinus.onclick=()=>nudgeRest(-REST_NUDGE);
-  const restPlus=$("#restPlus");if(restPlus)restPlus.onclick=()=>nudgeRest(REST_NUDGE);
-  const restReset=$("#restReset");if(restReset)restReset.onclick=resetRest;
-  const restStop=$("#restStop");if(restStop)restStop.onclick=endRestFromSheet;
+  restSheet().mount();
   const noteCancel=$("#exNoteCancel");if(noteCancel)noteCancel.onclick=closeExNoteSheet;
   const noteSave=$("#exNoteSave");if(noteSave)noteSave.onclick=saveExNoteSheet;
   const noteScrim=$("#exNoteScrim");if(noteScrim)noteScrim.onclick=closeExNoteSheet;

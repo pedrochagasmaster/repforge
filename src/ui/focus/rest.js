@@ -1,3 +1,5 @@
+/** Shared rest adjustment in seconds; presentation and clock commands agree. */
+export const REST_NUDGE=30;
 /** The one Focus rest clock. Device time and interval lifetime are UI-owned. */
 /** @param {{window:Window & typeof globalThis}} options */
 export function createRestClock({window}) {
