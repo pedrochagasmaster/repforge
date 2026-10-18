@@ -7,7 +7,7 @@ Scope: documentation only. Base `147e4afa07fea3243efd42b5b7d167c196c6a7ca`. The 
 - Fresh main fetched from GitHub; old saved checkout `c1d64320` excluded from final measurements. Used a separate documentation checkout/branch. Measurements came from actual source, not September's architecture audit.
 - Inspected root/test/tools guidance, current generator 073.4 status/parity specification, ADR 0021/Plan 074, product thesis, transfer ADR, public script/SW/deployment inventories and representative command/read/write paths.
 - Read pinned upstream codebase-design SKILL, DEEPENING and DESIGN-IT-TWICE directly through GitHub; exact URLs/revision and adoption/departures are in section 9. No third-party scripts installed or executed.
-- Concurrent metadata/patches and selected Lab/test-redesign source read at the heads recorded in section 1. #434 was resolved as an issue with implementation #437. Check runs independently read: #432/#445 successful `ci`; #435/#437 failed at observed heads; #446 ordinary `ci` successful with separate benchmark `report` failed. These remain moving inputs.
+- Concurrent metadata/patches and selected Lab/test-redesign source read at the heads recorded in section 1. #434 was resolved as an issue with implementation #437. Check runs independently read: #432/#445 successful `ci`; #435/#437 failed at observed heads; #446 advanced during review from `5a501e0a` to `9448989d`; compared both new commits and all three changed files (telemetry test and ledger/docs only). Its new exact-head ordinary `ci` is successful, new paired benchmark pending; the previous benchmark had failed `report`. These remain moving inputs. Main and all other feature heads were unchanged at final reconciliation.
 
 ## Independent review
 
