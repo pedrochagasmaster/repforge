@@ -14,7 +14,7 @@ try{
   const script=[...document.querySelectorAll('script[src]')].map(node=>node.src).find(src=>new URL(src).pathname.includes('/src/'));
   const graph=script?script.slice(0,script.lastIndexOf('/src/')+1):document.baseURI;
   const {createProgramModel}=await import(new URL('src/training/model.js',graph).href);
-  const model=createProgramModel({catalog:training.catalog,librarySource:window.RepForgeExercises,nextId:()=> 'fixture-id',now:'2026-10-18T12:00:00.000Z',calendarDate:'2026-10-18'});
+  const model=createProgramModel({catalog:training.catalog,librarySource:training.librarySource,nextId:()=> 'fixture-id',now:'2026-10-18T12:00:00.000Z',calendarDate:'2026-10-18'});
   const metricIds=['2555c6f170d8805cafa6d16d3fdddbaa','2555c6f170d88072bbf6d9ad3f16ea86'];
   const checkedMetrics=training.metrics.default.definitionsForIds(metricIds);
   if(!checkedMetrics.ok)throw new Error(JSON.stringify(checkedMetrics));
