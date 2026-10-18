@@ -64,7 +64,12 @@ export function createWorkoutCommands({session, training, drafts, commit, now, o
         day: capturedDraft.program.dayLabel, startedAt: Date.parse(capturedDraft.session.startedAt) || 0, draftId: savedSession}};
     });
   }
-  return Object.freeze({start, leave, dispatch, finish, projection: () => drafts.projection(), flush: () => drafts.flush()});
+  async function flush() {
+    await drafts.flush();
+    await session.idle();
+    await drafts.flush();
+  }
+  return Object.freeze({start, leave, dispatch, finish, projection: () => drafts.projection(), flush});
 }
 
 function failure(reason) { return {localOk: false, idbOk: false, reason}; }

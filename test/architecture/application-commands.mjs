@@ -49,7 +49,6 @@ const applied=await program.applyEdits({expectedToken:{programId:'p',blockId:'b'
 assert.equal(applied.ok,true);assert.equal(rebaseCount,1);assert.equal(applied.proposal.log[0].session,'concurrent');
 locked.block='new';
 assert.equal((await program.applyEdits({expectedToken:{programId:'p',blockId:'b',version:1},nextDocument:{},edits:[]})).staleBlock,true);
-console.log('Application command contracts passed');
 
 // Custom identity cannot be deleted after another tab introduces a reference.
 const {createCustomExerciseCommands,createProgramReplacementCommands}=await import('../../src/app/program.js');
@@ -66,3 +65,38 @@ let replacementOptions;
 const replacement=createProgramReplacementCommands({read:()=>({programMeta:{id:'old'}}),commit:async(proposal,opts)=>{replacementOptions=opts;return{committed:true,settled:true,proposal}},capture:()=>({oldProgramId:'old',oldBlockId:'block-old',oldProgram:[],oldMeta:{id:'old'},storageRevision:3,programFingerprint:'captured'}),allocateBlockId:()=> 'block-new',now:()=> 'now'});
 const replacementResult=await replacement.commit({program:[],programMeta:{id:'new'},programHistory:[]});
 assert.equal(replacementResult.proposal.programMeta.blockId,'block-new');assert.equal(replacementResult.proposal.programHistory[0].id,'old');assert.equal(replacementOptions.expectedProgramFingerprint,'captured');
+
+// flush must include commands accepted into the app queue but not yet enrolled
+// in the lower draft queue (e.g. a rapid edit immediately after Finish returns).
+let release,dispatched=false;
+const gate=new Promise(resolve=>{release=resolve});
+const queueOwner=createSession({initialSnapshot:{log:[]}});
+const queuedWorkout=createWorkoutCommands({session:queueOwner,training:rules,drafts:{flush:async()=>{},dispatch:async()=>{dispatched=true}},commit:()=>{},now:()=>'',operationId:()=>'',writer:()=>({})});
+queueOwner.run(()=>gate);
+const pending=queuedWorkout.dispatch('editSetField',{});
+const flushed=queuedWorkout.flush();release();await flushed;
+assert.equal(dispatched,true,'flush includes accepted app commands');await pending;
+
+
+// A rename started with no draft must reject a draft introduced while waiting
+// for the durable lock; it has no captured replacement receipt to settle.
+let lateDraft=false;
+const lateProgram=createProgramCommands({read:()=>({}),refreshHead:async()=>({head:{}}),
+  commit:async(proposal,opts)=>{lateDraft=true;const checked=opts.preflight({head:{}});return checked.reject?checked.result:{committed:true,settled:true}},
+  authoring:{token:()=>({programId:'p',blockId:'b'}),tokenEqual:()=>true,
+    rebaseDocument:()=>{throw Error('unchanged token must not rebase')},confirmOptIn:document=>({ok:true,document}),
+    impact:()=>lateDraft?{active:true,incompatible:false,effect:{status:'valid',effect:{precondition:'abort-same-day'}}}:{active:false,incompatible:false},
+    snapshotFromDocument:(document,head)=>({...head,document})},
+  drafts:{readRaw:()=>null,clearEffect:()=>null,dayReplacementEffect:()=>null}});
+assert.equal((await lateProgram.applyEdits({expectedToken:{programId:'p',blockId:'b'},nextDocument:{},edits:[]})).draftConflict,true);
+
+// Whole raw aggregate is frozen in the finish request. A newer checkpoint
+// observed by the durable owner rejects it and leaves the session identity live.
+let liveRaw='captured',identityCleared=false;
+const racedWorkout=createWorkoutCommands({session:createSession({initialSnapshot:{log:[]}}),training:rules,
+  drafts:{flush:async()=>{},read:()=>({draft,raw:liveRaw}),clearEffect:raw=>({raw}),clearIdentity:()=>{identityCleared=true}},
+  beforeCommit:async()=>{liveRaw='newer-aggregate'},
+  commit:async(proposal,opts)=>opts.effect.raw===liveRaw?{committed:true,settled:true}:{committed:false,settled:false,draftConflict:true},
+  now:()=> '2026-10-18T11:00:00Z',operationId:()=> 'finish-race',writer:id=>({id})});
+assert.equal((await racedWorkout.finish()).result.draftConflict,true);assert.equal(identityCleared,false);
+console.log('Application command contracts passed');
