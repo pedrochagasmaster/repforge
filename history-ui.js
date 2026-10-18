@@ -252,12 +252,7 @@ function syncHistorySearchChrome(){
 function historySessionRows(source,sid){
   return(source||[]).filter(row=>String(row?.session??"")===String(sid))
     .sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||Number(a?.set||0)-Number(b?.set||0))}
-function historySessionFingerprint(rows){
-  // Canonicalize each complete row before sorting the encoded rows. Sorting the
-  // row strings, rather than de-duplicating objects, keeps duplicate sets in
-  // the identity and makes the fingerprint independent of display order.
-  return JSON.stringify((Array.isArray(rows)?rows:[])
-    .map(row=>JSON.stringify(canonicalize(row))).sort())}
+function historySessionFingerprint(rows){return deps.historyCommands.fingerprint(rows)}
 function historySelectionFor(sid,mode="reading",source=state.log){
   const rows=historySessionRows(source,sid);if(!rows.length)return null;
   return{mode,sessionId:String(sid),originalFingerprint:historySessionFingerprint(rows),
@@ -469,23 +464,8 @@ async function historyReloadLatest(){
 async function historyFinishResult(result,successKey,operation,operationId){
   const sid=historySelection.sessionId;
   if(!historyOperationCurrent(operationId,sid,operation))return false;
-  let settledResult=result;
-  if(result?.alreadyCommitted){
-    const desired=historySelection.desiredFingerprint;
-    const settled=await settleHistoryAlreadyCommitted({
-      pendingJournalId:result.pendingJournalId,
-      verify:head=>{
-        const rows=historySessionRows(head?.log,sid);
-        const ok=operation==="delete"
-          ? rows.length===0
-          : typeof desired==="string"&&historySessionFingerprint(rows)===desired;
-        return{ok,code:"history_settlement_mismatch"}}
-    });
-    settledResult=settled;
-    if(!historyOperationCurrent(operationId,sid,operation))return false;
-    if(settled?.committed===true&&settled?.settled===true&&settled.head)
-      adoptHistoryDurableHead(settled.head);
-  }
+  const settledResult=result;
+  if(result?.committed===true&&result?.settled===true&&result.head)adoptHistoryDurableHead(result.head);
   const status=historyResultMessage(settledResult,successKey,operation,operationId);
   if(status==="committed"){
     const next=historySelectionFor(sid);
@@ -493,18 +473,7 @@ async function historyFinishResult(result,successKey,operation,operationId){
     render();historyFocusRead(sid);toast(t(successKey));return true}
   render();historyFocusFailure(status);return false}
 function historyEditCommit(sid,proposed,original){
-  const desired=historySessionFingerprint(proposed),proposal=cloneSnapshot(deps.getState());
-  proposal.log=proposal.log.filter(row=>String(row?.session??"")!==String(sid)).concat(cloneSnapshot(proposed));
-  const preflight=({head})=>{
-    const current=historySessionRows(head.log,sid),fingerprint=historySessionFingerprint(current);
-    if(fingerprint===desired)return{reject:true,result:{ok:true,committed:true,alreadyCommitted:true,
-      revision:readRevision(head),localOk:true,idbOk:true,kind:"committed"}};
-    if(!current.length || fingerprint!==original)return{reject:true,result:{ok:false,committed:false,conflict:true,stale:true,
-      code:"history_stale",revision:readRevision(head),localOk:false,idbOk:false}};
-    const next=cloneSnapshot(head);
-    next.log=next.log.filter(row=>String(row?.session??"")!==String(sid)).concat(cloneSnapshot(proposed));
-    return{proposal:next}};
-  return commitProposedState(proposal,{preflight})}
+  return deps.historyCommands.correct({sessionId:sid,rows:proposed,originalFingerprint:original})}
 async function historyRetryEdit(){
   const sid=historySelection.sessionId,original=historySelection.originalFingerprint;
   const proposed=cloneSnapshot(historySelection.workingCopy||[]);
@@ -561,19 +530,7 @@ async function deleteSession(sid,{originalFingerprint=null,operationId=null}={})
     const result={ok:false,committed:false,settled:true,failed:true,code:"history_missing_fingerprint",revision:readRevision(state),localOk:false,idbOk:false};
     await historyFinishResult(result,"toast.session_deleted","delete",operationId||historySelection.operationId);
     return result}
-  const proposal=cloneSnapshot(getState());
-  proposal.log=proposal.log.filter(row=>String(row?.session??"")!==String(sid));
-  const preflight=({head})=>{
-    const current=historySessionRows(head.log,sid),fingerprint=historySessionFingerprint(current);
-    if(!current.length)return{reject:true,result:{ok:true,committed:true,alreadyCommitted:true,
-      revision:readRevision(head),localOk:true,idbOk:true,kind:"committed"}};
-    if(fingerprint!==original)return{reject:true,result:{ok:false,committed:false,conflict:true,stale:true,
-      code:"history_stale",revision:readRevision(head),localOk:false,idbOk:false}};
-    const next=cloneSnapshot(head);
-    next.log=next.log.filter(row=>String(row?.session??"")!==String(sid));
-    return{proposal:next};
-  };
-  const result=await commitProposedState(proposal,{preflight});
+  const result=await deps.historyCommands.remove({sessionId:sid,originalFingerprint:original});
   await historyFinishResult(result,"toast.session_deleted","delete",operationId||historySelection.operationId);
   return result}
 // ---- The session as a page (Plan 064 R3j) ----

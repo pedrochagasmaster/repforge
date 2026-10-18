@@ -1,5 +1,9 @@
-const CACHE = "repforge-v477";
+const CACHE = "repforge-v478";
+const SOURCE_RELEASE = "source-478";
 const ASSETS = [
+  "./src/release/gate.js", "./src/compat/bootstrap.js", "./src/compat/legacy-host.js",
+  "./src/training/progress.js", "./src/training/progress/internal/progression.js",
+  "./src/training/progress/internal/evidence.js", "./src/training/progress/internal/schedule.js",
   "./", "./index.html", "./styles.css", "./motion-polish.css", "./manifest.webmanifest",
   { url: "./vendor/motion/motion.js", owner: "RepForgeMotion", required: false, immutable: true },
   { url: "./vendor/dnd-kit/dnd-kit.js", owner: "RepForgeDndRuntime", required: false },
@@ -8,7 +12,7 @@ const ASSETS = [
   "./telemetry.js", "./unsupported-workout-grammar.js", { url: "./posthog-config.js", owner: "RepForgeTelemetry", required: false }, "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js", "./exercises.js?v=067", "./exercise-catalog.js?v=459", "./assets/exercise-catalog.json?v=067", "./exercise-metrics.js?v=475", "./install-transfer-contract.js", "./install-transfer.js",
   "./generation-identity.js", "./generation-identity.js?v=459", "./generation-candidates.js", "./generation-candidates.js?v=466", "./generation-layout.js", "./generation-layout.js?v=467",
   "./progression-engine.js", "./progress-model.js", "./progress-model.js?v=309", "./program-compiler.js", "./program-compiler.js?v=469", "./program-entry.js", "./program-entry.js?v=466", "./program-entry-adapter.js", "./program-entry-adapter.js?v=466", "./program-editor.js", "./program-editor.js?v=477", "./program-review.js", "./program-review.js?v=466",
-  "./shared-setup.js", "./shared-setup.js?v=461", "./workout-draft.js", "./workout-draft.js?v=466", "./program-transition.js", "./program-transition.js?v=469", "./program-engine.js?v=459", "./install-policy.js", "./install-policy.js?v=307", "./guide-registry.js", "./guide-registry.js?v=423", "./durable-state.js", "./durable-state.js?v=447", "./history-ui.js", "./history-ui.js?v=315", "./app.js", "./app.js?v=476",
+  "./shared-setup.js", "./shared-setup.js?v=461", "./workout-draft.js", "./workout-draft.js?v=466", "./program-transition.js", "./program-transition.js?v=469", "./program-engine.js?v=459", "./install-policy.js", "./install-policy.js?v=307", "./guide-registry.js", "./guide-registry.js?v=423", "./durable-state.js", "./durable-state.js?v=447", "./history-ui.js", "./history-ui.js?v=315", "./app.js", "./app.js?v=478",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
@@ -131,15 +135,19 @@ async function installReleaseAssets() {
 }
 
 self.addEventListener("install", event => {
-  event.waitUntil(installReleaseAssets().then(() => self.skipWaiting()));
+  event.waitUntil(installReleaseAssets());
 });
 
 self.addEventListener("activate", event => {
-  event.waitUntil(
-    caches.keys()
-      .then(keys => Promise.all(keys.map(key => key === CACHE ? null : caches.delete(key))))
-      .then(() => self.clients.claim())
-  );
+  // Natural activation means the previous worker has no controlled clients.
+  // Keep unrelated origin caches; do not take over an open session.
+  event.waitUntil(caches.keys().then(keys => Promise.all(keys
+    .filter(key => key !== CACHE && /^repforge-(?:v\d+|release-)/.test(key))
+    .map(key => caches.delete(key)))));
+});
+self.addEventListener("message", event => {
+  if(event.data?.type === "taurifer-release-query")
+    event.ports[0]?.postMessage({type:"taurifer-release",id:SOURCE_RELEASE});
 });
 
 // The install-transfer Worker answers the origin-root `/v1/` endpoints on the app's own host; no cached copy,

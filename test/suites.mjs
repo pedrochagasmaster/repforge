@@ -21,6 +21,15 @@ const s = (file, args = [], extra = {}) => {
 const shards = (count) => Array.from({ length: count }, (_, index) => `${index + 1}/${count}`);
 export const SUITES = {
   "fast": [
+    s("test/training-installed-editor.mjs", [], {domains:["program","workout"], nodeArgs:["--test"]}),
+    s("test/architecture-release.mjs", [], {domains:["shell", "offline"], nodeArgs:["--test"]}),
+    s("test/training-module-contracts.mjs", [], {domains:["program", "progress"], nodeArgs:["--test"]}),
+    s("test/training-model.mjs", [], {domains:["program", "persistence"], nodeArgs:["--test"]}),
+    s("test/persistence-snapshot-contract.mjs", [], {domains:["persistence"], nodeArgs:["--test"]}),
+    s("test/persistence-instance-contract.mjs", [], {domains:["persistence"], nodeArgs:["--test"]}),
+    s("test/persistence-preferences-contract.mjs", [], {domains:["persistence", "privacy"], nodeArgs:["--test"]}),
+    s("test/platform-modules.mjs", [], {domains:["install", "telemetry"], nodeArgs:["--test"]}),
+    s("test/architecture/application-commands.mjs", [], {domains:["workout", "program", "history", "persistence"]}),
     s("test/ci.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "nodeArgs": ["--test"]}),
     s("test/privacy-contract.mjs", [], {"domains": ["privacy"], "cost": "tiny", "tier": "feedback"}),
     s("test/pages-deploy-boundary.mjs", [], {"domains": ["privacy", "offline"], "cost": "normal", "tier": "feedback", "nodeArgs": ["--test"]}),
@@ -81,6 +90,8 @@ export const SUITES = {
     s("test/install-transfer-recovery.mjs", [], {"domains": ["install"], "cost": "normal", "tier": "feedback", "nodeArgs": ["--test"]}),
   ],
   "state": [
+    s("test/architecture-release-browser.mjs", [], {domains:["offline","privacy"], seconds:30}),
+    s("test/shell-lifetime.mjs", [], {domains:["shell"], seconds:10}),
     s("test/privacy-offline.mjs", [], {"domains": ["privacy", "offline"], "cost": "normal", "tier": "packet", "seconds": 2.51}),
     s("test/sw-upgrade.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "seconds": 6.22}),
     s("test/sw-error-responses.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "seconds": 5.58}),
@@ -102,6 +113,7 @@ export const SUITES = {
     s("test/adversarial-draft-transactions.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "seconds": 40.41}),
   ],
   "entry": [
+    s("test/training-worker-modules.mjs", [], {domains:["program","offline"], seconds:20}),
     s("test/program-entry-s4.mjs", [], {"domains": ["entry", "program", "today", "workout", "persistence"], "cost": "normal", "tier": "feedback", "seconds": 39.14}),
     s("test/program-engine-worker.mjs", [], {"domains": ["entry", "program", "offline"], "cost": "normal", "tier": "feedback", "seconds": 28.09}),
     s("test/per-side-engine-browser.mjs", [], {"domains": ["workout", "program", "persistence"], "cost": "normal", "tier": "packet", "seconds": 8.18, "timeoutMs": 900000}),

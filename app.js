@@ -1,3 +1,7 @@
+import {createSession} from './src/app/session.js';
+import {createWorkoutCommands} from './src/app/workout.js';
+import {createProgramCommands,createCustomExerciseCommands,createProgramReplacementCommands} from './src/app/program.js';
+import {createHistoryCommands} from './src/app/history.js';
 let fallbackGestureController=null;
 const fallbackFocusTimers=new Set();
 function fallbackFocusLater(callback,delay){
@@ -3544,94 +3548,20 @@ async function persistProgramMeta(partial={}){
 /* Creates or edits one of the lifter's own movements. Returns the stored entry
    so a caller can drop it straight into a program slot — creating a custom
    exercise is almost always the first half of "put this in my program". */
-function customExerciseStateEqual(a,b){
-  const comparable=entry=>{
-    const value=normalizeCustomExercises([entry])[0];
-    if(!value)return null;
-    // Boot normalizes older durable rows with current defaults and derived
-    // fields. Compare that meaning on both sides of the lock-held preflight;
-    // comparing the raw IndexedDB/localStorage row against the already-
-    // normalized in-memory entry would misreport an unchanged definition as
-    // a concurrent edit. `created` is immutable provenance and may be
-    // synthesized for legacy rows, so it does not participate in this CAS.
-    delete value.created;
-    return value};
-  const left=comparable(a),right=comparable(b);
-  return !!left&&!!right&&JSON.stringify(canonicalize(left))===JSON.stringify(canonicalize(right))}
-function customExerciseUpsert(snapshot,entry){
-  const next=cloneSnapshot(snapshot),list=customExercises(next);
-  const existing=list.some(value=>value.id===entry.id);
-  next.customExercises=normalizeCustomExercises(existing
-    ?list.map(value=>value.id===entry.id?entry:value)
-    :list.concat(entry));
-  return next}
-function customExerciseRemoveOrArchive(snapshot,id,operation){
-  const next=cloneSnapshot(snapshot),list=customExercises(next);
-  next.customExercises=operation==="archive"
-    ?list.map(value=>value.id===id?Object.assign(cloneSnapshot(value),{archived:true}):value)
-    :list.filter(value=>value.id!==id);
-  return next}
-function customMetricConfiguration(draft,existing){
-  const from=Array.isArray(draft?.metricIds)?draft:Array.isArray(existing?.metricIds)?existing:null;
-  return from?{metricIds:cloneSnapshot(from.metricIds),
-    ...(Array.isArray(from.metricDefinitions)?{metricDefinitions:cloneSnapshot(from.metricDefinitions)}:{})}:{}}
-async function saveCustomExercise(draft,io=storageIO,{expectedEntry=null}={}){
-  const name=String(draft?.name??"").trim();
-  if(!name)return{result:null,entry:null};
-  const id=isCustomLibraryId(draft?.id)?String(draft.id):`${CUSTOM_ID_PREFIX}${uid()}`;
-  const primary=MuscleDomain?.normalizeMuscleAttribution?.(draft?.primary??"");
-  const secondary=MuscleDomain?.normalizeMuscleAttribution?.(draft?.secondary??"");
-  if(!primary?.ok||!secondary?.ok)return{result:invalidMuscleDomainCommit(),entry:null};
-  const existing=customExercises().find(e=>e.id===id);
-  const entry=normalizeCustomExercises([{id,name,namePt:name,
-    equipment:Array.isArray(draft.equipment)&&draft.equipment.length?draft.equipment:["machine"],
-    primary:primary.value,
-    secondary:secondary.value,
-    notes:String(draft.notes??"").trim(),
-    // A metric composition is part of what program slots and logged sets mean;
-    // editing the name or muscles keeps it unless the edit supplies a new one.
-    ...customMetricConfiguration(draft,existing),
-    created:existing?.created||new Date().toISOString()}])[0];
-  if(!entry)return{result:{invalid:true,code:"invalid-custom-exercise"},entry:null};
-  const source=existing?(expectedEntry||cloneSnapshot(existing)):null;
-  const proposal=customExerciseUpsert(state,entry);
-  const preflight=({head})=>{
-    const current=customExercises(head).find(value=>value.id===id)||null;
-    if(source&&!customExerciseStateEqual(current,source))
-      return{reject:true,result:{conflict:true,stale:true,code:"custom-exercise-changed"}};
-    if(!source&&current)
-      return{reject:true,result:{conflict:true,duplicate:true,code:"custom-id-collision"}};
-    return{proposal:customExerciseUpsert(head,entry)}};
-  const result=await commitProposedState(proposal,io,{preflight});
-  return{result,entry}}
-/* A definition with anything pointing at it — a program slot, an archived
-   block, a logged set — is still the meaning of that data, so it is archived
-   rather than deleted: hidden from the pickers, intact behind the history. */
-function customExerciseInUse(id,snapshot=state){
-  if((snapshot?.program||[]).some(e=>e.libraryId===id))return true;
-  if(definitionMovementIds(snapshot?.programMeta?.programDefinition).includes(id))return true;
-  if((snapshot?.log||[]).some(r=>r.performedLibraryId===id||
-    r.performedMovementId===`library:${id}`))return true;
-  return(snapshot?.programHistory||[]).some(h=>(h?.program||[]).some(e=>e.libraryId===id))}
-async function deleteCustomExercise(id,io=storageIO,{action=null,expectedEntry=null}={}){
-  if(!isCustomLibraryId(id))return null;
-  const existing=customExercises().find(e=>e.id===id)||null;
-  if(!existing)return null;
-  const source=expectedEntry||cloneSnapshot(existing);
-  const operation=action||(customExerciseInUse(id)?"archive":"delete");
-  if(operation!=="delete"&&operation!=="archive")return null;
-  const proposal=customExerciseRemoveOrArchive(state,id,operation);
-  const preflight=({head})=>{
-    const current=customExercises(head).find(value=>value.id===id)||null;
-    if(!customExerciseStateEqual(current,source))
-      return{reject:true,result:{conflict:true,stale:true,code:"custom-exercise-changed"}};
-    if(operation==="delete"&&customExerciseInUse(id,head))
-      return{reject:true,result:{conflict:true,code:"custom-exercise-became-used"}};
-    return{proposal:customExerciseRemoveOrArchive(head,id,operation)}};
-  const result=await commitProposedState(proposal,io,{preflight,
-    customMutationIntent:operation==="delete"
-      ?{version:1,operation:"delete",id,entry:source}:null});
-  return result?Object.assign(result,{archived:operation==="archive",operation}):result}
+const customExerciseCommands=createCustomExerciseCommands({
+  read:()=>state,commit:(proposal,opts,io=storageIO)=>commitProposedState(proposal,io,opts),
+  model:{normalizeCustomExercises,isCustomLibraryId,definitionMovementIds},
+  normalizeMuscleAttribution:value=>MuscleDomain.normalizeMuscleAttribution(value),
+  now:()=>new Date().toISOString(),newId:()=>`${CUSTOM_ID_PREFIX}${uid()}`,
+  invalidMuscleCommit:()=>invalidMuscleDomainCommit()});
+const customExerciseStateEqual=customExerciseCommands.stateEqual;
+const customExerciseUpsert=customExerciseCommands.upsert;
+const customExerciseRemoveOrArchive=customExerciseCommands.removeOrArchive;
+const customExerciseInUse=customExerciseCommands.inUse;
+function saveCustomExercise(draft,io=storageIO,opts={}){
+  return customExerciseCommands.save(draft,{...opts,io})}
+function deleteCustomExercise(id,io=storageIO,opts={}){
+  return customExerciseCommands.remove(id,{...opts,io})}
 function programAdherence(asOf=today()){const totalDays=prog.days().length;if(!totalDays)return{logged:0,total:0,ratio:0};
   // Inclusive rolling [asOf-6, asOf] — distinct planned days; future rows excluded.
   const end=asOf,start=shiftDate(end,-6),programDaySet=new Set(prog.days()),loggedDays=new Set();
@@ -4139,44 +4069,12 @@ function materializeProgramReplacementCapture(intent,snapshot=state){
 function captureProgramReplacement(snapshot=state,review=null){
   const intent=captureProgramReplacementIntent(snapshot,review);
   return intent?materializeProgramReplacementCapture(intent,snapshot):null}
-function archiveCapturedProgram(proposal,cap){
-  if(!cap?.oldProgramId)return proposal;
-  if(!isPlainStateObject(cap.oldMeta)||!Array.isArray(cap.oldProgram))
-    throw new TypeError("program replacement capture must be materialized before archive");
-  const history=Array.isArray(proposal.programHistory)?proposal.programHistory:[];
-  if(history.some(h=>h.id===cap.oldProgramId)){proposal.programHistory=history;return proposal}
-  const entry={id:cap.oldProgramId,meta:cloneSnapshot(cap.oldMeta),program:cloneSnapshot(cap.oldProgram),
-    completedAt:new Date().toISOString(),review:cloneSnapshot(cap.review)};
-  if(cap.transitionOut)entry.transitionOut=cloneSnapshot(cap.transitionOut);
-  if(cap.archiveId)entry.archiveId=cap.archiveId;
-  history.push(entry);
-  proposal.programHistory=history;return proposal}
-async function commitProgramReplacement(proposal,io=storageIO,{capture=captureProgramReplacement(state),
-  effect=null,expectedSetupDraftRaw=undefined,replace=false,expectedFirstRunEmpty=false,preflight=null,
-  expectedProgramId=undefined,expectedProgramFingerprint=undefined,expectedBlockId=undefined,
-  expectedStorageRevision=undefined}={}){
+const programReplacementCommands=createProgramReplacementCommands({
+  read:()=>state,commit:(proposal,opts,io=storageIO)=>commitProposedState(proposal,io,opts),
+  capture:captureProgramReplacement,allocateBlockId,now:()=>new Date().toISOString()});
+function commitProgramReplacement(proposal,io=storageIO,opts={}){
   requireAdapter(io,"commitProgramReplacement");
-  const predecessorId=capture?.oldProgramId??state?.programMeta?.id;
-  if(proposal?.programMeta&&proposal.programMeta.id!==predecessorId&&
-    !Object.prototype.hasOwnProperty.call(proposal.programMeta,"blockId"))
-    proposal.programMeta.blockId=allocateBlockId();
-  if(capture)archiveCapturedProgram(proposal,capture);
-  // A first-run shared proposal is deliberately rebased onto the newest
-  // eligible head. Its eligibility guard replaces the ordinary active-program
-  // precondition; retaining the stale starter revision would reject exactly
-  // the concurrent custom/settings cases the shared transaction is designed to
-  // converge.
-  const transition=replace&&expectedFirstRunEmpty
-    ?{expectedProgramId:state?.programMeta?.id||null,
-      expectedProgramFingerprint:draftProgramFingerprint(state),expectedBlockId:snapshotBlockId(state)}
-    :capture
-    ?{expectedProgramId:capture.oldProgramId,expectedProgramFingerprint:capture.programFingerprint,
-      expectedBlockId:capture.oldBlockId,expectedStorageRevision:capture.storageRevision}
-    :{expectedProgramId:expectedProgramId!==undefined?expectedProgramId:(state?.programMeta?.id||null),
-      expectedProgramFingerprint:expectedProgramFingerprint!==undefined?expectedProgramFingerprint:draftProgramFingerprint(state),
-      expectedBlockId:expectedBlockId!==undefined?expectedBlockId:snapshotBlockId(state),
-      expectedStorageRevision:expectedStorageRevision!==undefined?expectedStorageRevision:readRevision(state)};
-  return commitProposedState(proposal,io,{...transition,effect,expectedSetupDraftRaw,replace,expectedFirstRunEmpty,preflight})}
+  return programReplacementCommands.commit(proposal,{...opts,io})}
 function blockTransitionResult(kind,result={}){
   const deferred=kind==="deferred"||result.deferred===true;
   const outcomeKind=deferred?"deferred":kind;
@@ -9111,70 +9009,20 @@ function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
   $("#saveMeta").textContent=done?t("log.save_meta.done",{day:dayLabel(day),done,planned}):(entered?t("log.save_meta.entered",{day:dayLabel(day),entered,planned}):t("log.save_meta.planned",{day:dayLabel(day),planned}));}
 
 const EARLY_FINISH_CONFIRMATION=Symbol("confirmed early finish");
-const WorkoutSession=(()=>{
-  async function start(label,options){
-    await drainDraftWork();
-    return createWorkoutDraft(label,options)}
-  async function leave(){
-    await drainDraftWork();
-    return !draftUiRecovery?.attempt&&!draftUiRecovery?.status&&window.__repforgeDraftFault!=="persist-failure"}
-function normalFinishIssues(draft){
-  const issues=[];
-  for(const exerciseId of draft?.exerciseOrder||[]){
-    const exercise=draft.exercises?.[exerciseId];
-    if(!exercise)continue;
-    if(exercise.status==="skipped"){
-      issues.push({code:"incomplete-workout",exerciseInstanceId:exerciseId});
-      continue}
-    for(const setId of exercise.setOrder||[]){
-      const set=exercise.sets?.[setId];
-      if(set?.completion==="pending")issues.push({code:"incomplete-workout",exerciseInstanceId:exerciseId,setId})}}
-  return issues}
-async function finish(io,{expectedDraft=null,completion="normal"}={}){
-  await drainDraftWork();
-  if(expectedDraft&&(activeWorkoutDraft?.draftId!==expectedDraft.draftId||activeWorkoutDraft?.revision!==expectedDraft.revision)){
-    return{result:{localOk:false,idbOk:false,reason:"stale-confirmation"}}}
-  if(!activeWorkoutDraft)return{result:null};
-  if(draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed")return{result:{localOk:false,idbOk:false,reason:"recovery-pending"}};
-  const earlyConfirmed=completion===EARLY_FINISH_CONFIRMATION;
-  if(completion!=="normal"&&!earlyConfirmed)return{result:{localOk:false,idbOk:false,reason:"invalid-finish-kind"}};
-  if(!earlyConfirmed){
-    // Surface malformed user input before the completeness boundary. A
-    // touched invalid set is not an invitation to take the early-finish path;
-    // it must remain an ordinary validation error while untouched/pending
-    // planned work is what makes normal completion incomplete.
-    const inputIssues=WorkoutDraft.validateForSave(activeWorkoutDraft)
-      .filter(issue=>issue.code!=="finish-required"&&issue.code!=="no-work");
-    if(inputIssues.length)return{result:{localOk:false,idbOk:false,validation:true,issues:inputIssues}};
-    const issues=normalFinishIssues(activeWorkoutDraft);
-    if(issues.length)return{result:{localOk:false,idbOk:false,validation:true,issues}}}
-  const capturedDraft=activeWorkoutDraft,capturedRaw=activeWorkoutDraftRaw,operationId=`finish-${uid()}`,now=new Date().toISOString();
-  const finishing=WorkoutDraft.reduce(capturedDraft,{type:"beginFinish",operationId,
-    expectedRevision:capturedDraft.revision,updatedAt:now,writer:draftWriter(operationId)});
-  if(WorkoutDraft.isDomainError(finishing))return{result:{localOk:false,idbOk:false,validation:true,issues:finishing.issues||[]}};
-  const issues=WorkoutDraft.validateForSave(finishing);
-  if(issues.length)return{result:{localOk:false,idbOk:false,validation:true,issues}};
-  const created=new Date().toISOString(),rows=WorkoutDraft.toHistoryRows(finishing,created);
-  if(WorkoutDraft.isDomainError(rows))return{result:{localOk:false,idbOk:false,validation:true,issues:rows.issues}};
-  const session=capturedDraft.draftId,date=capturedDraft.program.scheduleDate,
-    savedDay=capturedDraft.program.dayLabel,startedAt=Date.parse(capturedDraft.session.startedAt)||0,
-    prevLog=state.log.slice(),rawDraft=capturedRaw,savedDraft=capturedDraft;
-  const proposal=cloneSnapshot(state);proposal.log=proposal.log.concat(cloneSnapshot(rows));
-  // DraftV2 save owns an exact aggregate revision. A second tab that changes
-  // that revision before the durable log transaction wins keeps the draft and
-  // rejects these rows instead of letting an old finish consume newer work.
-  const effect=destructiveDraftClearEffect(rawDraft);
-  if(typeof window.__repforgeDraftBeforeSaveCommit==="function")
-    await window.__repforgeDraftBeforeSaveCommit({session,draftId:savedDraft.draftId,revision:savedDraft.revision});
-  const expectedBlockId=Object.prototype.hasOwnProperty.call(savedDraft.program||{},"blockId")
-    ?savedDraft.program.blockId:null;
-  const result=await commitProposedState(proposal,io||storageIO,
-    {effect,reconcileSessionIds:[session],expectedProgramId:savedDraft.program.programId,
-      expectedBlockId});
-  if(result.committed!==true||result.settled!==true)return{result,capturedRaw};
-  resetWorkoutSessionIdentity();
-  return{result,completed:{rows,prevLog,session,date,day:savedDay,startedAt,draftId:savedDraft.draftId}}}
-  return Object.freeze({start,leave,finish,dispatch:enqueueDraftCommand,projection:workoutDraftProjection,flush:drainDraftWork})})();
+// Slice 8 compatibility binding: remaining legacy writers still use state.
+// The integration owner replaces read with applicationSession.read as writers move.
+const applicationSession=createSession({initialSnapshot:null});
+const WorkoutSession=createWorkoutCommands({
+  session:{...applicationSession,read:()=>state},training:WorkoutDraft,
+  drafts:{flush:drainDraftWork,read:()=>({draft:activeWorkoutDraft,raw:activeWorkoutDraftRaw,recovery:draftUiRecovery}),
+    start:createWorkoutDraft,dispatch:enqueueDraftCommand,projection:workoutDraftProjection,
+    clearIdentity:resetWorkoutSessionIdentity,clearEffect:destructiveDraftClearEffect,
+    canLeave:()=>!draftUiRecovery?.attempt&&!draftUiRecovery?.status&&window.__repforgeDraftFault!=="persist-failure"},
+  commit:(proposal,opts,io=storageIO)=>commitProposedState(proposal,io,opts),
+  now:()=>new Date().toISOString(),operationId:()=>`finish-${uid()}`,writer:draftWriter,
+  earlyFinishConfirmation:EARLY_FINISH_CONFIRMATION,
+  beforeCommit:async captured=>{if(typeof window.__repforgeDraftBeforeSaveCommit==="function")
+    await window.__repforgeDraftBeforeSaveCommit(captured)}});
 
 // Asked once, at the first completed session: a device with nothing logged has
 // nothing to protect, and Firefox turns the request into a permission prompt.
@@ -9184,7 +9032,7 @@ async function requestPersistentStorage(){try{
   await navigator.storage.persist()}catch{}}
 
 async function saveWorkoutV2(io,{expectedDraft=null,completion="normal"}={}){
-  const {result,completed,capturedRaw}=await WorkoutSession.finish(io,{expectedDraft,completion});
+  const {result,completed,capturedRaw}=await WorkoutSession.finish({expectedDraft,completion,io});
   if(!completed){
     if(result?.reason==="stale-confirmation")toast(t("session.sheet.stale_error"));
     if(result?.validation&&!applyDraftIssue(result.issues||[]))
@@ -10616,6 +10464,9 @@ function historySessionOutcome(rows){
     (row.strengthConvention||"load")===convention);
   const previous=previousSessionRowsLog(ex,session,comparableLog);
   return compareProjectedSessionOutcome(current,previous,convention)}
+const historyCommands=createHistoryCommands({read:()=>state,
+  commit:(proposal,opts)=>commitProposedState(proposal,storageIO,opts),readRevision,
+  settleAlreadyCommitted:opts=>DurableState.settleHistoryAlreadyCommitted(opts)});
 const HistoryUi=window.RepForgeHistoryUi.create({
   locTag, blockContext:historyBlockContext, sessionOutcome:historySessionOutcome, openModal, closeModal, reducedMotion,
   $, $$, t, esc, cloneSnapshot, currentMovementNames, mergeLogChronology,
@@ -10626,7 +10477,7 @@ const HistoryUi=window.RepForgeHistoryUi.create({
   toast, formatLongDate, fmtLoad, sum, kfmt, fmt, toDisplay, unitLabel,
   metricLabel, metricDisplayValue:metricTextValue, metricDisplayUnit, parseHistoryMetricInput,
   weekdayLetters, table, today, uid, readRevision,
-  commitProposedState:(proposal,opts)=>commitProposedState(proposal,storageIO,opts),
+  historyCommands,
   readDurableState:()=>DurableState.readDurableState(),
   settleHistoryAlreadyCommitted:opts=>DurableState.settleHistoryAlreadyCommitted(opts),
   settlePendingJournal,
@@ -11603,6 +11454,12 @@ function installedEditorImpact(document,base=state,edits=[]){
   }
   return{active:true,incompatible,harmless:!incompatible,effect:incompatible?null:effect}
 }
+const programCommands=createProgramCommands({read:()=>state,refreshHead:refreshPersistenceHead,
+  commit:(proposal,opts)=>commitProposedState(proposal,storageIO,opts),
+  authoring:{token:installedEditorToken,tokenEqual:editorTokenEqual,rebaseDocument:editorRebaseDocument,
+    confirmOptIn:candidate=>window.ProgramEditorSuggestLoads?.confirm(candidate,editorSuggestLoadsPolicy)||{ok:false,issues:[]},
+    impact:installedEditorImpact,snapshotFromDocument:editorSnapshotFromDocument},
+  drafts:{readRaw:readDraftRaw,clearEffect:destructiveDraftClearEffect,dayReplacementEffect:draftDayReplacementEffect}});
 function createInstalledProgramEditorAdapter(){
   return{
     read(){
@@ -11620,64 +11477,12 @@ function createInstalledProgramEditorAdapter(){
         return{ok:true,staged:true,document:cloneSnapshot(staged),token:cloneSnapshot(expectedToken)}
       }
       const session=installedEditorSession||{document:cloneSnapshot(nextDocument),token:cloneSnapshot(expectedToken),edits:intent?.edits||[]};
-      const refreshed=await refreshPersistenceHead();
-      if(refreshed.conflict)return{ok:false,conflict:true,editorConflict:true};
-      const head=refreshed.head||state,headToken=installedEditorToken(head);
-      let document=cloneSnapshot(nextDocument),edits=session.edits||intent?.edits||[];
-      if(expectedToken?.blockId!==headToken.blockId)
-        return{ok:false,conflict:true,editorConflict:true,staleBlock:true};
-      if(!editorTokenEqual(expectedToken,headToken)){
-        const rebased=editorRebaseDocument({edits},head);
-        if(rebased.conflict)return{ok:false,conflict:true,editorConflict:true,code:rebased.code};
-        document=rebased.document}
-      // Plan 069 S4: Done confirms every pending Suggest loads opt-in, or
-      // commits nothing. The editor checked it already; this is the boundary.
-      const confirmOptIn=candidate=>window.ProgramEditorSuggestLoads?.confirm(candidate,editorSuggestLoadsPolicy)||{ok:false,issues:[]};
-      const optIn=confirmOptIn(document);
-      if(!optIn.ok)return{ok:false,invalid:true,suggestLoads:optIn.issues[0]||null};
-      document=optIn.document;
-      const impact=installedEditorImpact(document,head,edits);
-      if(impact.active&&impact.incompatible&&intent.kind!=="apply_discard_workout")
-        return{ok:false,workoutConflict:true,impact};
-      const proposal=editorSnapshotFromDocument(document,head);
-      const rename=edits.find(edit=>edit?.kind==="day_name"&&edit.before!==undefined&&edit.after!==undefined);
-      const renameEffect=rename?draftDayReplacementEffect(String(rename.before),String(rename.after),proposal):null;
-      const effect=impact.active&&impact.incompatible||intent.kind==="apply_discard_workout"&&readDraftRaw()!=null
-        ?destructiveDraftClearEffect(readDraftRaw()):impact.effect||renameEffect;
-      const dayRenames=edits.filter(edit=>edit?.kind==="day_name"&&edit.before!==undefined&&edit.after!==undefined)
-        .map(edit=>({from:String(edit.before),to:String(edit.after)}));
       const draftBefore=activeWorkoutDraft;
-      const result=await commitProposedState(proposal,storageIO,{effect,dayRenames,
-        expectedProgramId:headToken.programId,expectedBlockId:headToken.blockId,
-        preflight:({head:lockedHead})=>{
-          const lockedToken=installedEditorToken(lockedHead);
-          if(headToken.blockId!==lockedToken.blockId)
-            return{reject:true,result:{ok:false,conflict:true,editorConflict:true,staleBlock:true}};
-          if(!editorTokenEqual(headToken,lockedToken)){
-            const rebased=editorRebaseDocument({edits},lockedHead);
-            if(rebased.conflict)
-              return{reject:true,result:{ok:false,conflict:true,editorConflict:true,code:rebased.code}};
-            const lockedOptIn=confirmOptIn(rebased.document);
-            if(!lockedOptIn.ok)
-              return{reject:true,result:{ok:false,invalid:true,suggestLoads:lockedOptIn.issues[0]||null}};
-            document=lockedOptIn.document;
-          }
-          const lockedImpact=installedEditorImpact(document,lockedHead,edits);
-          if(lockedImpact.active&&lockedImpact.incompatible&&intent.kind!=="apply_discard_workout")
-            return{reject:true,result:{ok:false,workoutConflict:true,impact:lockedImpact}};
-          // A rename that started with no draft must still abort if a second
-          // tab creates a draft for the old day while this write waits on the
-          // lock. There is no frozen replace-draft receipt to settle in that
-          // case, so reject before preparing either durable replica.
-          if(intent.kind!=="apply_discard_workout"&&lockedImpact.effect?.status==="valid"&&
-            lockedImpact.effect.effect?.precondition==="abort-same-day"&&
-            !(effect?.status==="valid"&&effect.effect?.precondition==="abort-same-day"))
-            return{reject:true,result:{ok:false,draftConflict:true,impact:lockedImpact}};
-          const lockedProposal=editorSnapshotFromDocument(document,lockedHead);
-          return{proposal:lockedProposal};
-        }});
+      const result=await programCommands.applyEdits({expectedToken,nextDocument,
+        edits:session.edits||intent?.edits||[],discardWorkout:intent.kind==="apply_discard_workout"});
+      const document=result.document;
       if(result.committed===true&&result.settled===true){
-        const discarded=effect?.status==="valid"&&effect.effect?.kind==="clear-draft";
+        const discarded=result.discardedWorkout===true;
         if(discarded)reportWorkoutDiscarded(activeWorkoutDraft||draftBefore,"program_edit");
         captureEvent("active_program_edited",{outcome:discarded?"discarded_workout":"saved"});
         if(discarded)resetDraftSessionState();

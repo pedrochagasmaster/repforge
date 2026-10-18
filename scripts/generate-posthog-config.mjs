@@ -2,8 +2,8 @@ import { readFileSync, writeFileSync } from "node:fs";
 
 const INDEX_PATH = "index.html";
 const CONFIG_PATH = "posthog-config.js";
-const POSTHOG_INIT_TAG = '  <script src="posthog-init.js"></script>';
-const GENERATED_TAG_PATTERN = /^\s*<script src="posthog-config\.js\?v=[^"]+" data-optional-runtime="RepForgeTelemetry"><\/script>\r?\n/m;
+const POSTHOG_INIT_TAG_PATTERN = /^  <script(?: type="application\/taurifer-script")? src="posthog-init\.js"><\/script>$/m;
+const GENERATED_TAG_PATTERN = /^\s*<script(?: type="application\/taurifer-script")? src="posthog-config\.js\?v=[^"]+" data-optional-runtime="RepForgeTelemetry"><\/script>\r?\n/m;
 const SDK_VERSION = "1.400.0";
 
 const branch = process.env.CF_PAGES_BRANCH || "";
@@ -45,11 +45,11 @@ writeFileSync(
 );
 
 let html = readFileSync(INDEX_PATH, "utf8").replace(GENERATED_TAG_PATTERN, "");
-if (!html.includes(POSTHOG_INIT_TAG)) {
-  throw new Error(`Could not find ${POSTHOG_INIT_TAG} in ${INDEX_PATH}.`);
-}
+const POSTHOG_INIT_TAG = html.match(POSTHOG_INIT_TAG_PATTERN)?.[0];
+if (!POSTHOG_INIT_TAG) throw new Error(`Could not find posthog-init script in ${INDEX_PATH}.`);
 
-const configTag = `  <script src="${CONFIG_PATH}?v=${revision}" data-optional-runtime="RepForgeTelemetry"></script>`;
+const scriptType = POSTHOG_INIT_TAG.includes('type="application/taurifer-script"') ? ' type="application/taurifer-script"' : '';
+const configTag = `  <script${scriptType} src="${CONFIG_PATH}?v=${revision}" data-optional-runtime="RepForgeTelemetry"></script>`;
 html = html.replace(POSTHOG_INIT_TAG, `${configTag}\n${POSTHOG_INIT_TAG}`);
 writeFileSync(INDEX_PATH, html, "utf8");
 
