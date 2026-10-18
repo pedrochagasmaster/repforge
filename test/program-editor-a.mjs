@@ -192,7 +192,7 @@ async function editJourney(page) {
   const workout = await page.evaluate((id) => {
     const draft = window.__repforgeWorkoutDraft.current();
     const exercise = draft?.exercises?.[id];
-    return { sets: exercise?.setOrder?.length, name: document.querySelector(`#workout .exercise[data-ex="${id}"] .focus-ex__name`)?.textContent };
+    return { sets: exercise?.setOrder?.length, name: document.querySelector(`#workout .exercise[data-ex="${id}"] .fcard__context`)?.getAttribute("aria-label") };
   }, SLOT);
   check(workout.sets === 3 && workout.name?.includes(LAT.name), "the next workout is built from the edited program", workout);
 }
