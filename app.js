@@ -1,3 +1,4 @@
+import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,createEntryAnswerCommands,createEntryQuestionFlow,createEntryReviewSession,createEntrySetup,createEntryActivation,buildLandingProof,landingExampleInputs,FREEFORM_MAX_CHARS} from './src/app/entry.js';
 import * as ExerciseSource from './exercises.js';
 import {EXERCISE_LIBRARY,LEGACY_LIBRARY_IDS,EXERCISE_CATALOG_SHA256} from './exercises.js';
 import {STRINGS} from './i18n.js';
@@ -31,7 +32,6 @@ import {createShell,NATIVE_FOCUS_SELECTOR as ROUTE_NATIVE_FOCUS} from './src/ui/
 import {createNotifications} from './src/platform/notifications.js';
 import {createSessionSheet} from './src/ui/workout/session-sheet.js';
 import {createEntryController} from './src/ui/entry/controller.js';
-import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,createEntryAnswerCommands,createEntryQuestionFlow,createEntryReviewSession,createEntrySetup,createEntryActivation,FREEFORM_MAX_CHARS} from './src/app/entry.js';
 import * as FreeformGrammar from './src/interchange/freeform.js';
 import * as InstallPolicy from './src/platform/install.js';
 import {createInstallView} from './src/ui/settings/install.js';
@@ -8460,24 +8460,7 @@ function closeFirstRunInstall(){return installView().closeLanding()}
    the chart's figures come from the Progress model over the same four-session
    history the chart image is captured from (owner decision L-2). The inputs
    below are the only authored numbers: what the example lifter logged. */
-const LANDING_UNIT="kg";
-const LANDING_CASES={
-	add:{ex:"19f5c6f170d8808bb424e98de4472a7e",sets:3,repMin:8,repMax:10,logged:[[60,10,2],[60,10,2],[60,10,2]]},
-	hold:{ex:"1a25c6f170d8803d8231d083fdd65458",sets:3,repMin:5,repMax:8,logged:[[100,7,1],[100,6,0],[100,6,0]]},
-	reduce:{ex:"19f5c6f170d8808bb424e98de4472a7e",sets:3,repMin:8,repMax:10,logged:[[70,7,0],[70,6,0],[70,6,0]]}};
-/** The squat history behind the chart image: four sessions, one rung up each week. */
-const LANDING_CHART={exerciseId:"ex-squat",libraryId:"1a25c6f170d8803d8231d083fdd65458",started:"2026-08-03",
-  dates:["2026-08-03","2026-08-10","2026-08-17","2026-08-24"],
-  ladder:[92.5,95,97.5,100],reps:[6,7,7,8],rir:[2,2,1,1],sets:3,min:5,
-  /* the capture size per language (the Portuguese figure captions wrap, so it is taller), from tools/capture-landing-proof.mjs */
-  dims:{en:[584,728],pt:[584,766]}};
-function landingChartRows(){
-  const c=LANDING_CHART,rows=[];
-  c.dates.forEach((date,week)=>{
-    for(let set=1;set<=c.sets;set++)rows.push({session:`${date}_landing`,date,exerciseId:c.exerciseId,set,
-      load:c.ladder[week],reps:Math.max(c.min,c.reps[week]-(set-1)),
-      rir:Math.max(0,c.rir[week]-(set-1)),created:`${date}T18:${10+set}:00.000Z`})});
-  return rows}
+const {unit:LANDING_UNIT,cases:LANDING_CASES,chart:LANDING_CHART}=landingExampleInputs;
 /** The proof's screens (dark only, EN and PT) and where the lens reads on each:
  *  [centre x, centre y, width, height] as percentages of the screen. The numbers
  *  are measured from the live app by tools/capture-landing-proof.mjs. */
@@ -8510,39 +8493,6 @@ function landingList(values){
   const items=values.map(landingNum);
   try{return new Intl.ListFormat(landingLang()==="pt"?"pt-BR":"en-GB",{style:"long",type:"conjunction"}).format(items)}
   catch{return items.join(", ")}}
-function landingEvaluate(c){
-  const engine=PersistenceProgression;
-  const exercise=rawExercise(c.ex),definitions=rawMetricDefinitions(c.ex);
-  if(!engine?.recommendSets||!exercise||!definitions?.length)return null;
-  const loadMetric=definitions.find(definition=>definition.semantic==="loadKg");
-  const repsMetric=definitions.find(definition=>definition.semantic==="reps");
-  if(!loadMetric||!repsMetric)return null;
-  const slotId=`landing:${c.ex}`,equipmentId="landing-demo-barbell";
-  const prescription={id:`${slotId}:cycle-1:set-1`,slotId,exerciseId:c.ex,setIndex:1,
-    metricType:"source_metrics@1",metricIds:[...exercise.exerciseMetrics],metricDefinitions:definitions,
-    targets:{reps:{min:c.repMin,max:c.repMax}},rir:1,status:"ready",loadingModel:{bodyweightCoefficient:0}};
-  const sets=c.logged.map(([load,reps,rir],setIndex)=>({exerciseId:c.ex,completed:true,setIndex,rir,equipmentId,
-    loadingConvention:"external",metricIds:[...exercise.exerciseMetrics],
-    metricValues:definitions.map(definition=>({metricId:definition.id,
-      value:definition.semantic==="loadKg"?load:definition.semantic==="reps"?reps:null,unit:definition.unit})),
-    loadingContext:{loadingConvention:"external",bodyweightContributionEnabled:false,bodyweightKg:null,
-      bodyweightCoefficient:0,externalLoadMultiplier:1}}));
-  const increment=Number.isFinite(+DEFAULTS.minJump)&&+DEFAULTS.minJump>0?+DEFAULTS.minJump:2.5;
-  const maxLoad=Math.max(...c.logged.map(([load])=>load))+increment*12;
-  const availableLoadsKg=Array.from({length:Math.ceil(maxLoad/increment)+1},(_,index)=>index*increment);
-  const result=engine.recommendSets([prescription],[{sessionId:`${slotId}:history`,completed:true,sets}],[],
-    {bySlotId:{[slotId]:{equipmentId,availableLoadsKg,loadingConvention:"external",
-      bodyweightContributionEnabled:false,bodyweightKg:null,externalLoadMultiplier:1}}},
-    {weightMatch:false,expandRepRange:true})[0];
-  if(result?.status!=="recommended")return null;
-  return{status:result.status,load:result.targets.loadKg,reps:result.targets.reps}}
-/** Strength-trend figures for the chart, from the Progress model. */
-function landingChartFigures(){
-  const Model=NativeProgressModel;
-  if(!Model)return null;
-  const series=Model.buildStrengthEvidence("all-history",LANDING_CHART.exerciseId,landingChartRows(),{started:LANDING_CHART.started});
-  if(!series?.points?.length)return null;
-  return{from:series.points[0].value,to:series.points.at(-1).value,sessions:series.evidenceCount}}
 /** A catalog template as markup: the template is escaped, then each {name} becomes
  *  escaped text or, for an app control's label, the bold interface term. */
 function landingRich(key,text,terms={}){
@@ -8606,9 +8556,9 @@ function renderLandingOutcomes(results){
     node.querySelector("[data-landing-next]").textContent=t("landing.outcomes.target",{load:landingKg(got.load),reps:landingNum(got.reps)});
     node.querySelector("[data-landing-exercise]").textContent=landingExerciseName(c.ex);
     node.querySelector("[data-landing-explain]").textContent=`${did} ${rule}`}}
-function renderLandingChart(){
+function renderLandingChart(fig){
   const root=$("#firstRun");if(!root)return;
-  const figure=root.querySelector("[data-landing-chart]"),fig=landingChartFigures();
+  const figure=root.querySelector("[data-landing-chart]");
   if(!figure||!fig)return;
   const vars={exercise:landingExerciseName(LANDING_CHART.libraryId),from:landingNum(fig.from),to:landingKg(fig.to),sessions:landingNum(fig.sessions),metric:t("stats.metric.best_e1rm")};
   const img=figure.querySelector("img");
@@ -8633,11 +8583,10 @@ function renderLandingWays(){
       typed,exercise:landingExerciseName(shot.exercise),status:t("import.status.probable")})}}
 /** Everything on the landing that is a number or is built from one. */
 function renderLandingContent(){
-  const results={};
-  for(const [id,c] of Object.entries(LANDING_CASES)){const got=landingEvaluate(c);if(got)results[id]=got}
-  renderLandingProof(results.add||null);
-  renderLandingOutcomes(results);
-  renderLandingChart();
+  const frame=buildLandingProof({model:TrainingModel,catalog:rawExerciseCatalog,minJump:DEFAULTS.minJump});
+  renderLandingProof(frame.recommendations.add||null);
+  renderLandingOutcomes(frame.recommendations);
+  renderLandingChart(frame.chart);
   renderLandingWays()}
 
 /* The proof controller. One object per open landing: it adds the pinned stage
