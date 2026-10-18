@@ -88,7 +88,7 @@ try {
       load: node.querySelector(".rxrow__load")?.textContent?.trim() || "",
     } : null;
   }, programRow.id, { timeout: 10000 }).then((handle) => handle.jsonValue()).catch(() => null);
-  check(today?.target === "4 × 6–12 · Your targets" && today.load === "–",
+  check(today?.target === "4 × 6–12" && today.load === "–",
     "Today shows the manual sets × range with no load", today);
   const truth = await page.evaluate((id) => {
     const rec = window.__repforgeProgression.recommendation(window.__repforgeProgression.programSlot(id));

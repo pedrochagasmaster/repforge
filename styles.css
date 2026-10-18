@@ -426,10 +426,19 @@ body{
   font-family:var(--font-language);
   color:var(--ink);
   background:var(--bg);
-  padding-bottom:calc(var(--nav) + env(safe-area-inset-bottom));
+  padding-bottom:calc(var(--nav) + env(safe-area-inset-bottom) + var(--restbar-reserve,0px));
   -webkit-font-smoothing:antialiased;
   text-rendering:optimizeLegibility;
   font-variant-numeric:tabular-nums;
+}
+/* Installed, the page runs under the iOS status bar (viewport-fit=cover), which
+   draws no ground of its own: scrolled content would show through the clock.
+   The top inset is painted with the page's own paper, above everything that
+   scrolls and below the dock, the sheets and the full-screen layers, which
+   handle the inset themselves. Zero tall in a browser tab. */
+body::before{
+  content:"";position:fixed;top:0;left:0;right:0;z-index:24;
+  height:env(safe-area-inset-top,0px);background:var(--bg);pointer-events:none;
 }
 h1,h2,h3,p{margin:0}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -858,7 +867,7 @@ div.settings-row{cursor:default}
    once the lifter scrolls there. Nothing under it is ever covered for good, and hidden it leaves no surface behind.
    It floats on the existing floating elevation, a primary pill over the page, never a fifth dock item. */
 #startWorkout{
-  position:sticky;bottom:calc(var(--nav) + env(safe-area-inset-bottom) + var(--space-12));z-index:5;
+  position:sticky;bottom:calc(var(--nav) + env(safe-area-inset-bottom) + var(--restbar-reserve,0px) + var(--space-12));z-index:5;
   box-shadow:var(--elevation-floating-shadow);
 }
 /* The alternative to the day Today leads with, so it sits under the CTA and
@@ -1377,6 +1386,13 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
   box-shadow:var(--elevation-persistent-shadow);
 }
 .restbar.hidden{display:none!important}
+/* The pill floats over the page the way the dock does, so while it shows the
+   page reserves its band as well: the end of every tab scrolls clear of it, and
+   Today's floating Start/Continue rides above it instead of under it. The band
+   is the pill's gap above the dock plus its height, which grows with the text. */
+body:not(.is-focus-wo):has(#restBar:not(.hidden)){
+  --restbar-reserve:calc(16px + max(44px, calc(var(--font-size-body-small) * var(--line-standard) + 18px)));
+}
 .restbar__dot{width:7px;height:7px;border-radius:50%;background:var(--color-ink-secondary)}
 .restbar.is-done{border-color:var(--boundary-persistent);color:var(--color-ink)}
 .restbar__time{min-width:2.5em;text-align:center}
@@ -3563,7 +3579,12 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .today-rx__title{margin:0;font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
 .today-rx__meta{flex:none;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .today-rx{container-type:inline-size}
-.today-rx__grid{display:grid;grid-template-columns:1rem minmax(0,1fr) minmax(4.125rem,auto) minmax(4.875rem,auto);column-gap:var(--space-12)}
+/* The name keeps a fair share of the row (9rem, about three words) and breaks
+   only between words; the figures give way first, the target wrapping under
+   itself when it has to. */
+.today-rx__grid{display:grid;grid-template-columns:1rem minmax(min(9rem,100%),1fr) minmax(4.125rem,auto) minmax(4.875rem,auto);column-gap:var(--space-12)}
+.today-rx__grid > .rxrow .rxrow__name{overflow-wrap:break-word}
+.today-rx__grid > .rxrow .rxrow__target{white-space:normal}
 .today-rx__cols,.today-rx__grid > .rxrow{grid-column:1 / -1;display:grid;grid-template-columns:subgrid}
 .today-rx__cols{align-items:baseline;padding:var(--space-8) 0;border-bottom:1px solid var(--boundary-decorative);font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary)}
 .today-rx__cols > :nth-child(n+3){text-align:right}
