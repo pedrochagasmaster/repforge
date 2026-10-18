@@ -3,13 +3,12 @@
 // Covers the old statsSeg migration map, exclusive selection across the five
 // tabs, and the Program End block route into the single Review surface.
 import assert from "node:assert/strict";
-import { chromium } from "playwright";
-import { assertServingApp } from "./browser.mjs";
+import { assertServingApp, launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta, installSeedProgram } from "./fixtures/seed-program.mjs";
 
 const base = process.env.REPFORGE_URL || "http://localhost:8000/";
 await assertServingApp(base);
-const browser = await chromium.launch();
+const browser = await launchChromium();
 const errors = [];
 
 async function freshPage() {

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Plan 056 P8 — Progress contextual guides through the Plan 054 registry.
-// Covers anchored completion, dismissal, targeted replay, deferred replay,
+// Covers the anchored dialog, dismissal, targeted replay, deferred replay,
 // keyboard focus restoration, and functional navigation without the registry.
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
@@ -44,60 +44,65 @@ async function openProgress(page) {
   await page.waitForSelector("#stats.view.active", { timeout: 5000 });
 }
 
-// Automatic Overview guidance is in document flow and completing its anchor
-// records only presentation state.
+// The automatic Overview guide is the modal guide dialog, placed on its
+// Overview anchor. "Got it" records only presentation state.
 {
   const { context, page } = await freshPage();
   await openProgress(page);
-  await page.waitForSelector('[data-guide-cue="progress"]', { timeout: 5000 });
+  await page.waitForSelector('dialog#guideDialog[open][data-guide="progress"]', { timeout: 5000 });
   const anchor = await page.evaluate(() => {
-    const cue = document.querySelector('[data-guide-cue="progress"]');
-    const target = document.querySelector(cue?.dataset.anchorTarget || "[data-never]");
+    const dialog = document.querySelector("dialog#guideDialog");
+    const target = document.querySelector('#statsSeg [data-seg="overview"]');
     return {
-      cueParent: cue?.parentElement?.id,
+      modal: dialog?.matches(":modal"),
+      anchored: dialog?.classList.contains("is-anchored"),
       targetVisible: Boolean(target?.getClientRects().length),
-      role: cue?.getAttribute("role"),
-      labelled: Boolean(cue?.getAttribute("aria-labelledby")),
+      labelled: Boolean(document.getElementById(dialog?.getAttribute("aria-labelledby") || "")),
     };
   });
-  assert.equal(anchor.cueParent, "stats", "Progress cue stays beside its concrete Overview anchor and outside the tablist");
+  assert.equal(anchor.modal, true, "Progress guide is a modal dialog");
+  assert.equal(anchor.anchored, true, "Progress guide is placed on its concrete Overview anchor");
   assert.equal(anchor.targetVisible, true);
-  assert.equal(anchor.role, "status");
   assert.equal(anchor.labelled, true);
-  await page.click('#statsSeg [data-seg="overview"]');
-  await page.waitForFunction(() => !document.querySelector('[data-guide-cue="progress"]'));
-  assert.equal(await page.evaluate(() => window.__repforgeUi.guideState().progress.status), "completed");
+  await page.click("#guideDialogOk");
+  await page.waitForFunction(() => !document.querySelector("dialog#guideDialog[open]"));
+  assert.equal(await page.evaluate(() => window.__repforgeUi.guideState().progress.status), "dismissed");
 
   await page.click('#statsSeg [data-seg="review"]');
-  await page.waitForSelector('[data-guide-cue="block-transition"]', { timeout: 5000 });
-  await page.click('[data-guide-cue="block-transition"] [data-guide-dismiss]');
+  await page.waitForSelector('dialog#guideDialog[open][data-guide="block-transition"]', { timeout: 5000 });
+  await page.click("#guideDialogOk");
   assert.equal(await page.evaluate(() => window.__repforgeUi.guideState()["block-transition"].status), "dismissed");
-  assert.equal(await page.locator('[data-guide-cue="block-transition"]').count(), 0);
+  assert.equal(await page.locator("dialog#guideDialog[open]").count(), 0);
   await context.close();
 }
 
 // Replaying from Settings with no live anchor defers cleanly. Returning to the
-// relevant route presents the cue; replay in place moves focus to Dismiss and
-// Escape restores the invoking control.
+// relevant route presents the guide; replay in place moves focus to the
+// dialog's title and Escape restores the invoking control.
 {
   const { context, page } = await freshPage();
   await page.evaluate(() => window.__repforgeShowSettings());
+  // Settings presents its own guide on arrival; this journey replays another.
+  await page.waitForSelector("dialog#guideDialog[open]", { timeout: 5000 });
+  await page.click("#guideDialogOk");
   await page.click("#guideReplayToggle");
   const replay = page.locator('[data-guide-replay="block-transition"]');
   await replay.click();
   await page.waitForFunction(() => window.__repforgeUi.guideState()["block-transition"]?.status === "deferred");
-  assert.equal(await page.locator('[data-guide-cue="block-transition"]').count(), 0,
-    "missing anchor never leaves a floating cue");
+  assert.equal(await page.locator("dialog#guideDialog[open]").count(), 0,
+    "missing anchor never opens a guide");
   assert.equal(await replay.evaluate((button) => document.activeElement === button), true,
     "deferred replay leaves focus on the invoking button");
 
   await openProgress(page);
-  await page.locator('[data-guide-cue="progress"] [data-guide-dismiss]').click();
+  await page.waitForSelector('dialog#guideDialog[open][data-guide="progress"]', { timeout: 5000 });
+  await page.click("#guideDialogOk");
   await page.click('#statsSeg [data-seg="review"]');
-  await page.waitForSelector('[data-guide-cue="block-transition"]', { timeout: 5000 });
+  await page.waitForSelector('dialog#guideDialog[open][data-guide="block-transition"]', { timeout: 5000 });
+  await page.click("#guideDialogOk");
   await page.focus('#statsSeg [data-seg="review"]');
   await page.evaluate(() => window.__repforgeUi.replayGuide("block-transition"));
-  await page.waitForFunction(() => document.activeElement?.hasAttribute("data-guide-dismiss"));
+  await page.waitForFunction(() => document.activeElement?.id === "guideDialogTitle");
   await page.keyboard.press("Escape");
   assert.equal(await page.evaluate(() => document.activeElement === document.querySelector('#statsSeg [data-seg="review"]')), true,
     "Escape dismisses replay and restores focus to its invoker");
@@ -113,10 +118,10 @@ async function openProgress(page) {
   await page.click('#statsSeg [data-seg="review"]');
   assert.equal(await page.locator("#segReview.active").count(), 1);
   assert.equal(await page.locator("#reviewPanel").count(), 1);
-  assert.equal(await page.locator("[data-guide-cue]").count(), 0);
+  assert.equal(await page.locator("dialog#guideDialog").count(), 0);
   await context.close();
 }
 
 assert.deepEqual(errors, [], "no page errors during Progress guide journeys");
 await browser.close();
-console.log("PASS: Progress contextual guides (complete, dismiss, replay, defer, focus, disabled)");
+console.log("PASS: Progress contextual guides (dialog, dismiss, replay, defer, focus, disabled)");

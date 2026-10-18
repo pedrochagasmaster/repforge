@@ -245,26 +245,28 @@ async function readLogicalFocus(page, selector) {
 }
 
 async function runContextualGuideAccessibility(browser) {
-  const { context, page } = await freshPage(browser);
+  const { context, page } = await freshPage(browser, { guides: "live" });
   await showView(page, "settings");
-  await page.waitForSelector('[data-guide-cue="privacy"]');
+  await page.waitForSelector('dialog#guideDialog[open][data-guide="privacy"]');
   const automatic = await page.evaluate(() => {
-    const cue = document.querySelector('[data-guide-cue="privacy"]');
+    const dialog = document.querySelector("dialog#guideDialog");
     const anchor = document.querySelector("#privacyDetails");
     return {
-      role: cue?.getAttribute("role"),
-      labelledBy: cue?.getAttribute("aria-labelledby"),
-      labelExists: !!document.getElementById(cue?.getAttribute("aria-labelledby") || ""),
-      anchorMatches: !!(anchor && cue?.dataset.anchorTarget && anchor.matches(cue.dataset.anchorTarget)),
-      modal: cue?.getAttribute("aria-modal"),
+      modal: !!dialog?.matches(":modal"),
+      labelExists: !!document.getElementById(dialog?.getAttribute("aria-labelledby") || ""),
+      bodyExists: !!document.getElementById(dialog?.getAttribute("aria-describedby") || ""),
+      titleFocused: document.activeElement?.id === "guideDialogTitle",
+      anchorVisible: !!anchor?.getClientRects().length,
       mainInert: !!document.querySelector("main")?.inert,
     };
   });
   assert(
-    automatic.role === "status" && automatic.labelExists && automatic.anchorMatches && !automatic.modal && !automatic.mainInert,
-    "Contextual Privacy guide is labelled, anchored, and non-modal",
+    automatic.modal && automatic.labelExists && automatic.bodyExists && automatic.titleFocused && automatic.anchorVisible && automatic.mainInert,
+    "Contextual Privacy guide is a labelled modal dialog over its anchor, focused on its title",
     JSON.stringify(automatic)
   );
+  await page.click("#guideDialogOk");
+  await page.waitForFunction(() => !document.querySelector("dialog#guideDialog")?.open);
   // Every keyboard stop in Settings is a named, visible control (R7 J-01: two clipped,
   // unnamed state checkboxes sat in the tab order beside the toggles that own them).
   const settingsStops = await page.evaluate(() => {
@@ -291,22 +293,21 @@ async function runContextualGuideAccessibility(browser) {
       .filter((entry) => entry.exposed);
   });
   assert(legacyHooks.length === 0, "No legacy hook button is exposed to assistive technology", JSON.stringify(legacyHooks));
-  await page.locator('[data-guide-cue="privacy"] [data-guide-dismiss]').click();
   await page.locator("#guideReplayToggle").focus();
   await page.keyboard.press("Enter");
   await page.waitForSelector("#guideReplayPanel.is-open");
   const replay = page.locator('[data-guide-replay="privacy"]');
   await replay.focus();
   await page.keyboard.press("Enter");
-  await page.waitForSelector('[data-guide-cue="privacy"]');
-  const focusBeforeEscape = await readLogicalFocus(page, '[data-guide-cue="privacy"] [data-guide-dismiss]');
+  await page.waitForSelector('dialog#guideDialog[open][data-guide="privacy"]');
+  const focusBeforeEscape = await readLogicalFocus(page, "#guideDialogTitle");
   assert(
     focusBeforeEscape.isTarget && focusBeforeEscape.connected && focusBeforeEscape.visible,
-    "Settings replay moves focus to the contextual guide dismiss action",
+    "Settings replay moves focus to the contextual guide's title",
     JSON.stringify(focusBeforeEscape)
   );
   await page.keyboard.press("Escape");
-  await page.waitForSelector('[data-guide-cue="privacy"]', { state: "detached" });
+  await page.waitForFunction(() => !document.querySelector("dialog#guideDialog")?.open);
   const focus = await readLogicalFocus(page, '[data-guide-replay="privacy"]');
   assert(
     focus.isTarget && focus.connected && focus.visible,

@@ -5,8 +5,7 @@
  * interaction suite so the producer/rendering boundary stays explicit.
  */
 import assert from "node:assert/strict";
-import { chromium } from "playwright";
-import { assertServingApp } from "./browser.mjs";
+import { assertServingApp, launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { metricLogRow } from "./fixtures/history-metric-rows.mjs";
 
@@ -51,7 +50,7 @@ async function seed(page) {
   await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 20000 });
 }
 
-const browser = await chromium.launch();
+const browser = await launchChromium();
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "UTC" });
   const page = await context.newPage();

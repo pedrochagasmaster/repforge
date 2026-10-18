@@ -8420,9 +8420,6 @@ function refreshShelf({focus=null}={}){
   if(fromRect&&nowSel&&nowSel.dataset.set===prevSet&&(liveRing||fieldIdentity(nowSel)!==prevField))
     travelOutline(nowSel,fromRect,"shelf");
   syncFocusFloor();
-  // The first-set cue points at the shelf's action; the rebuilt action is the same control.
-  if(activeGuideId&&activeGuideAnchor&&!activeGuideAnchor.isConnected){
-    const anchor=guideAnchor(guideDefinition(activeGuideId));if(anchor)activeGuideAnchor=anchor}
   if(focus){
     const shelf=card.querySelector(".focus-shelf");
     const el=focus.startsWith("pad:")?shelf?.querySelector(`.shelf__pad[data-dir="${focus.slice(4)}"]`)
@@ -8660,8 +8657,8 @@ function sizeFocusDeck(){
   syncFocusFloor()}
 /** The shelf keeps its fields, pads and action whole at every text size, and its height depends on the text, so the
  *  layout cannot know it. This publishes the height the shell has to keep (the rigid chrome, the progress bar, the
- *  context region's floor and the shelf) as `--focus-floor` and `--focus-form-floor`; the stylesheet lets banners and
- *  guides above the deck give way to it. Watching the header and the shelf republishes it when a timer widens a chip
+ *  context region's floor and the shelf) as `--focus-floor` and `--focus-form-floor`; the stylesheet lets banners above
+ *  the deck give way to it. Watching the header and the shelf republishes it when a timer widens a chip
  *  or an edit rebuilds the shelf. */
 let focusFloorWatch=null,focusFloorWatched=[];
 function syncFocusFloor(){
@@ -8676,15 +8673,8 @@ function syncFocusFloor(){
   shell.style.setProperty("--focus-deck-floor",`${Math.ceil(deck)}px`);
   let form=tall($("#woProgress"))+tall(shelf)+(least?Math.max(parseFloat(least.minHeight)||0,parseFloat(least.paddingTop)+parseFloat(least.paddingBottom)):0);
   for(const el of $("#workout")?.children||[])if(!el.matches(".deck"))form+=tall(el);
-  // A guide gives way to everything but its own padding, border and margins.
-  const guideLeast=el=>{
-    if(!el?.getClientRects().length)return 0;
-    const s=getComputedStyle(el);
-    return["paddingTop","paddingBottom","borderTopWidth","borderBottomWidth","marginTop","marginBottom"].reduce((n,k)=>n+(parseFloat(s[k])||0),0)};
-  form+=guideLeast(card.querySelector(":scope > .guide-cue"));
-  const shellGuide=guideLeast(shell.querySelector(":scope > .guide-cue"));
   shell.style.setProperty("--focus-form-floor",`${Math.ceil(form)}px`);
-  shell.style.setProperty("--focus-floor",`${Math.ceil(form+tall(head)+shellGuide)}px`);
+  shell.style.setProperty("--focus-floor",`${Math.ceil(form+tall(head))}px`);
   if(typeof ResizeObserver!=="function")return;
   // Observing starts with a notification of its own, so the watch is only re-pointed when its elements changed.
   const watched=[head,shelf,$("#woProgress")].filter(Boolean);
@@ -20734,7 +20724,19 @@ async function installTransferRequestDivergence(){
   showInstallTransferDivergenceDialog(installTransferConfirmDivergence)}
 
 // ---- Contextual guides ----
-let activeGuideId=null,activeGuideAnchor=null,activeGuideCue=null,activeGuideReturnFocus=null;
+/* A guide is a note about one control, shown once per version. It is the entry dialogs' native <dialog>: the title,
+   the body and one "Got it", with focus on the title and kept inside, the page inert behind it, and focus back on the
+   control it explains when it closes. "Got it", Escape and the platform's cancel all record `dismissed`; Replay in
+   Settings resets the record. It is built at body level on first use because `openModal` makes every other body child
+   inert. When another modal is up a guide waits for its next moment rather than taking that modal's place. */
+let activeGuideId=null,activeGuideAfter=null;
+/* The first-set guide does not stand between the lifter and the set they came to log: arriving in Focus only arms
+   it, and the first tap on a shelf field or pad opens it before that tap does anything. "Got it" then applies the
+   tap. Logging the set without touching the shelf completes it, as using its anchor always has. */
+let firstSetGuideArmed=false;
+/* One guide per Focus visit: once one has been dismissed in Focus, the next waits for the next arrival rather than
+   opening after the set the lifter has just logged. */
+let focusGuideHeld=false;
 function guideDefinition(id){return GuideRegistry?.GUIDE_DEFINITIONS?.find(guide=>guide.id===id)||null}
 function guideAnchor(guide){
   if(!guide?.anchorSelector)return null;
@@ -20748,17 +20750,84 @@ function saveGuideTransition(id,status){
   const live=GuideRegistry.migrateLegacyTourDone(loadUiPrefs());
   const next=GuideRegistry.recordGuideTransition(live,id,status,{version:guide.version,nowMs:Date.now()});
   return replaceUiPrefs({...next})}
+function guideDialogElement(){
+  let el=$("#guideDialog");
+  if(el)return el;
+  el=document.createElement("dialog");
+  el.id="guideDialog";el.className="guide-dialog";el.setAttribute("aria-modal","true");
+  el.setAttribute("aria-labelledby","guideDialogTitle");el.setAttribute("aria-describedby","guideDialogBody");
+  el.innerHTML=`<div class="guide-dialog__hole" aria-hidden="true"></div><div class="entry-dialog guide-dialog__panel">`+
+    `<h2 class="entry-dialog__title" id="guideDialogTitle" tabindex="-1"></h2><p class="entry-dialog__body" id="guideDialogBody"></p>`+
+    `<div class="entry-dialog__actions"><button type="button" id="guideDialogOk" class="btn btn--cta btn--noarrow"></button></div></div>`;
+  document.body.append(el);
+  // Some engines close a modal <dialog> on Escape before a capture listener runs; cancel routes that to the same dismissal.
+  el.addEventListener("cancel",event=>{event.preventDefault();dismissContextualGuide()});
+  el.querySelector("#guideDialogOk").onclick=()=>dismissContextualGuide();
+  return el}
+/* The scrim leaves the control the guide explains uncovered, and the panel sits above or below it, whichever side has
+   room in the visible viewport. Where the control is off screen or neither side has room, the guide is the plain
+   centred dialog over the whole scrim. Placement follows the keyboard, the viewport and a rebuilt anchor. */
+let guidePlaceFrame=0,guidePlaceWatch=null;
+function placeGuideDialog(){
+  guidePlaceFrame=0;
+  const dialog=$("#guideDialog");
+  if(!dialog?.open||!activeGuideId)return;
+  const panel=dialog.querySelector(".guide-dialog__panel");
+  const anchor=guideAnchor(guideDefinition(activeGuideId));
+  const root=getComputedStyle(document.documentElement),px=name=>parseFloat(root.getPropertyValue(name))||0;
+  const pad=px("--space-8"),gap=px("--space-12"),edge=px("--space-16");
+  const vv=window.visualViewport,top=vv?vv.offsetTop:0,bottom=top+(vv?vv.height:innerHeight);
+  const left=vv?vv.offsetLeft:0,right=left+(vv?vv.width:innerWidth);
+  let y=null,rect=null;
+  if(anchor){
+    rect=anchor.getBoundingClientRect();
+    const hole={top:rect.top-pad,bottom:rect.bottom+pad};
+    const visible=hole.top>=top&&hole.bottom<=bottom&&rect.left>=left&&rect.right<=right;
+    const height=panel.offsetHeight;
+    if(visible&&hole.bottom+gap+height<=bottom-edge)y=hole.bottom+gap;
+    else if(visible&&hole.top-gap-height>=top+edge)y=hole.top-gap-height}
+  const anchored=y!=null;
+  dialog.classList.toggle("is-anchored",anchored);
+  if(!anchored)return;
+  dialog.style.setProperty("--guide-hole-x",`${rect.left-pad}px`);
+  dialog.style.setProperty("--guide-hole-y",`${rect.top-pad}px`);
+  dialog.style.setProperty("--guide-hole-w",`${rect.width+2*pad}px`);
+  dialog.style.setProperty("--guide-hole-h",`${rect.height+2*pad}px`);
+  dialog.style.setProperty("--guide-panel-y",`${Math.round(y)}px`)}
+function scheduleGuidePlacement(){if(!guidePlaceFrame)guidePlaceFrame=requestAnimationFrame(placeGuideDialog)}
+function watchGuidePlacement(on){
+  if(!on){guidePlaceWatch?.();guidePlaceWatch=null;return}
+  if(guidePlaceWatch)return;
+  const vv=window.visualViewport,panel=$("#guideDialog .guide-dialog__panel");
+  const resize=typeof ResizeObserver==="function"?new ResizeObserver(scheduleGuidePlacement):null;
+  if(panel)resize?.observe(panel);
+  window.addEventListener("resize",scheduleGuidePlacement);
+  window.addEventListener("scroll",scheduleGuidePlacement,true);
+  vv?.addEventListener("resize",scheduleGuidePlacement);vv?.addEventListener("scroll",scheduleGuidePlacement);
+  guidePlaceWatch=()=>{
+    resize?.disconnect();
+    window.removeEventListener("resize",scheduleGuidePlacement);
+    window.removeEventListener("scroll",scheduleGuidePlacement,true);
+    vv?.removeEventListener("resize",scheduleGuidePlacement);vv?.removeEventListener("scroll",scheduleGuidePlacement);
+    if(guidePlaceFrame){cancelAnimationFrame(guidePlaceFrame);guidePlaceFrame=0}}}
+function guideOpen(){return !!activeGuideId&&!!$("#guideDialog")?.open}
 function removeContextualGuide(){
-  const hadCue=!!activeGuideCue;
-  activeGuideCue?.remove();activeGuideId=null;activeGuideAnchor=null;activeGuideCue=null;activeGuideReturnFocus=null;
-  if(hadCue)syncFocusFloor()}
-function dismissContextualGuide({restoreFocus=false}={}){
+  const el=$("#guideDialog");
+  activeGuideId=null;activeGuideAfter=null;
+  watchGuidePlacement(false);
+  if(!el?.open)return;
+  closeModal(el);
+  if(el.open)try{el.close()}catch{}}
+function dismissContextualGuide(){
   if(!activeGuideId)return false;
-  const target=activeGuideReturnFocus||activeGuideAnchor;
-  saveGuideTransition(activeGuideId,"dismissed");removeContextualGuide();
-  if(restoreFocus&&target instanceof HTMLElement&&target.isConnected)target.focus({preventScroll:true});
+  const after=activeGuideAfter;
+  saveGuideTransition(activeGuideId,"dismissed");
+  if(document.body.classList.contains("is-workout"))focusGuideHeld=true;
+  // Closing restores focus first, so the tap the guide held lands where the lifter aimed it.
+  removeContextualGuide();
+  after?.();
   return true}
-function showContextualGuide(id,{focus=false,returnFocus=null,persistDeferred=false}={}){
+function showContextualGuide(id,{returnFocus=null,persistDeferred=false,after=null}={}){
   const guide=guideDefinition(id);if(!guide?.wired)return false;
   const anchor=guideAnchor(guide);
   const decision=GuideRegistry.evaluateGuide(guide,{
@@ -20766,37 +20835,29 @@ function showContextualGuide(id,{focus=false,returnFocus=null,persistDeferred=fa
   if(!decision.eligible){
     if(persistDeferred&&decision.decision==="deferred"&&guideStored(id)?.status!=="deferred")saveGuideTransition(id,"deferred");
     return false}
+  const dialog=guideDialogElement();
+  if(activeModal&&activeModal.el!==dialog)return false;
   removeContextualGuide();
-  const cue=document.createElement("aside"),titleId=`guideCueTitle-${id}`;
-  cue.className="guide-cue";cue.dataset.guideCue=id;cue.dataset.anchorTarget=guide.anchorSelector;
-  cue.setAttribute("role","status");cue.setAttribute("aria-labelledby",titleId);
-  cue.innerHTML=`<div class="guide-cue__copy"><p class="guide-cue__title" id="${titleId}">${esc(t(`guide.${id}.title`))}</p>`+
-    `<p class="guide-cue__body">${esc(t(`guide.${id}.body`))}</p></div>`+
-    `<button type="button" class="guide-cue__dismiss" data-guide-dismiss aria-label="${esc(t("guide.dismiss"))}">×</button>`;
-  const dismiss=cue.querySelector("[data-guide-dismiss]");
-  dismiss.onclick=event=>{event.stopPropagation();dismissContextualGuide({restoreFocus:focus})};
-  cue.addEventListener("keydown",event=>{
-    if(event.key!=="Escape")return;
-    event.preventDefault();event.stopPropagation();dismissContextualGuide({restoreFocus:true})});
-  // #firstRunPrivacy lives in the narrow header utility row: inserted there,
-  // the cue is a flex sibling with no room and collapses into a vertical
-  // sliver of one word per line. Focus's own controls likewise need the whole
-  // owning surface as their insertion point so a cue never joins a fixed row.
-  const shelf=anchor.closest(".focus-shelf");
-  const placement=shelf||anchor.closest(".wo-head")||
-    anchor.closest(".firstrun__actions")||anchor.closest(".firstrun__header")||anchor.closest(".entry__hub")||anchor.closest(".entry-feature")||
-    anchor.closest("#statsSeg")||anchor;
-  placement.insertAdjacentElement(shelf?"beforebegin":"afterend",cue);
-  syncFocusFloor();
-  activeGuideId=id;activeGuideAnchor=anchor;activeGuideCue=cue;
-  activeGuideReturnFocus=returnFocus instanceof HTMLElement?returnFocus:null;
+  dialog.dataset.guide=id;
+  dialog.querySelector(".entry-dialog__title").textContent=t(`guide.${id}.title`);
+  dialog.querySelector(".entry-dialog__body").textContent=t(`guide.${id}.body`);
+  dialog.querySelector("#guideDialogOk").textContent=t("why.ok");
+  const invoker=returnFocus instanceof HTMLElement||typeof returnFocus==="function"?returnFocus:null;
+  // The anchor may be rebuilt while the guide is up (a running rest timer redraws the shelf), so it is found again on close.
+  const back=()=>(typeof invoker==="function"?invoker():invoker?.isConnected?invoker:null)||guideAnchor(guide);
+  if(!openModal(dialog,{initialFocus:dialog.querySelector(".entry-dialog__title"),returnFocus:back,onEscape:()=>dismissContextualGuide()}))return false;
+  if(id==="first-set")firstSetGuideArmed=false;
+  activeGuideId=id;activeGuideAfter=typeof after==="function"?after:null;
+  placeGuideDialog();watchGuidePlacement(true);
   const stored=guideStored(id);
   if(stored?.version!==guide.version||stored?.status!=="shown")saveGuideTransition(id,"shown");
-  if(focus)queueMicrotask(()=>dismiss?.focus({preventScroll:true}));
   return true}
+function firstSetGuideEligible(){
+  const guide=guideDefinition("first-set");
+  return !!guide?.wired&&GuideRegistry.evaluateGuide(guide,{anchorPresent:true,anchorVisible:!!guideAnchor(guide),uiPrefs}).eligible}
 function maybeShowContextualGuides(ids=GuideRegistry?.PLAN_054_GUIDE_IDS||[]){
   // Never while the entry landing is up. It is a full-screen threshold whose
-  // one job is the proposition, and every cue that can anchor to it explains
+  // one job is the proposition, and every guide that can anchor to it explains
   // a control it has already named — the entry actions carry their labels,
   // the install card carries its title and body, Privacy is a standing link.
   // The app's ordinary render loop runs behind this gate, so the rule belongs
@@ -20804,14 +20865,15 @@ function maybeShowContextualGuides(ids=GuideRegistry?.PLAN_054_GUIDE_IDS||[]){
   // re-opens the same hole. The guides keep their state and their real
   // moments — "entry" at the chooser, "install" and "privacy" in Settings.
   if(firstRunOpen())return false;
-  if(activeGuideCue?.isConnected&&activeGuideAnchor&&guideAnchor(guideDefinition(activeGuideId))===activeGuideAnchor)return true;
-  removeContextualGuide();
+  if(guideOpen())return true;
+  if(firstSetGuideArmed&&!firstSetGuideEligible())firstSetGuideArmed=false;
+  if(firstSetGuideArmed)return true;
+  if(!document.body.classList.contains("is-workout"))focusGuideHeld=false;
+  else if(focusGuideHeld)return false;
   for(const id of ids){
+    if(id==="first-set"){if(firstSetGuideEligible()){firstSetGuideArmed=true;return true}continue}
     if(showContextualGuide(id))return true}
   return false}
-function completeContextualGuide(){
-  if(!activeGuideId)return false;
-  saveGuideTransition(activeGuideId,"completed");removeContextualGuide();return true}
 function replayContextualGuide(id){
   const guide=guideDefinition(id);if(!guide||!GuideRegistry?.replayGuideState)return false;
   uiPrefs=loadUiPrefs();
@@ -20820,11 +20882,20 @@ function replayContextualGuide(id){
   if(!replaceUiPrefs({...next}))return false;
   captureEvent("guide_replay",{guideId:id});
   const returnFocus=document.activeElement;
-  queueMicrotask(()=>showContextualGuide(id,{focus:true,returnFocus,persistDeferred:true}));return true}
+  queueMicrotask(()=>showContextualGuide(id,{returnFocus,persistDeferred:true}));return true}
 function contextualGuideState(){return cloneSnapshot(uiPrefs.guideState||{})}
 function onContextualGuideAction(event){
+  if(!firstSetGuideArmed)return;
   const target=event.target instanceof Element?event.target:null;
-  if(activeGuideAnchor&&target&&activeGuideAnchor.contains(target))completeContextualGuide()}
+  if(target?.closest(".focus-shelf .saveset")&&firstSetGuideEligible()){
+    firstSetGuideArmed=false;saveGuideTransition("first-set","completed");return}
+  const control=target?.closest(".focus-shelf .shelf__fieldbtn[data-shelf-field],.focus-shelf .shelf__pad[data-dir]");
+  if(!control||control.disabled)return;
+  const key=workoutFocusKey(control);
+  if(!key)return;
+  const tapped=()=>$(key.sel);
+  if(!showContextualGuide("first-set",{returnFocus:tapped,after:()=>tapped()?.click()}))return;
+  event.preventDefault();event.stopImmediatePropagation()}
 
 function showSettings(){
   $$("nav button").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-current","false")});

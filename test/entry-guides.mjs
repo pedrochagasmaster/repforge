@@ -723,7 +723,7 @@ async function run() {
   // Phase 5: Bounded Browser Projections on Live App (REPFORGE_URL)
   // ---------------------------------------------------------------------------
   phase("Phase 5: Bounded Browser Projections on Live App");
-  const browser = await launchChromium();
+  const browser = await launchChromium({ guides: "live" });
   try {
     // Projection G1: Obsolete Global Modal Tour Markup, API, and Route Removal
     // Plan 054 requirement: Global modal tour (#tour) and startTour/closeTour APIs
@@ -876,20 +876,16 @@ async function run() {
       await page.goto(BASE, { waitUntil: "domcontentloaded" });
       await waitForAppBoot(page, { base: BASE });
 
-      // Check DOM for any unanchored/floating guide overlays
+      // An open guide dialog must stand on a live anchor of its own guide.
       const floatingCuesCount = await page.evaluate(() => {
-        // Guide cues should have a distinct class, attribute, or container
-        const cues = document.querySelectorAll(
-          ".guide-cue, .contextual-cue, [data-guide-cue], .guide-overlay:not(.anchored)"
-        );
+        const definitions = window.RepForgeGuideRegistry?.GUIDE_DEFINITIONS || [];
+        const open = [...document.querySelectorAll("dialog#guideDialog[open], .guide-cue, [data-guide-cue]")];
         let unanchoredCount = 0;
-        for (const cue of cues) {
-          const anchorId = cue.getAttribute("data-anchor-target");
-          if (!anchorId || !document.querySelector(anchorId)) {
-            unanchoredCount++;
-          }
+        for (const dialog of open) {
+          const selector = definitions.find((guide) => guide.id === dialog.dataset.guide)?.anchorSelector;
+          if (!selector || ![...document.querySelectorAll(selector)].some((el) => el.getClientRects().length)) unanchoredCount++;
         }
-        return { totalCues: cues.length, unanchoredCount };
+        return { totalCues: open.length, unanchoredCount };
       });
 
       // Deliberate fault injection check
@@ -926,84 +922,58 @@ async function run() {
       // accessibility — drive to the chooser, which is where the entry guide
       // is anchored, and audit the cue that genuinely renders there.
       const landingCues = await page.evaluate(() =>
-        document.querySelectorAll(".guide-cue, [data-guide-cue]").length);
+        document.querySelectorAll("dialog#guideDialog[open], .guide-cue, [data-guide-cue]").length);
       assert(
         landingCues === 0,
-        "browser projection: the entry landing presents no contextual cue automatically",
+        "browser projection: the entry landing presents no contextual guide automatically",
         String(landingCues)
       );
 
       await page.click("#firstRunCreate");
       await page.waitForSelector("#onboarding.active", { timeout: 20000 });
-      await page.waitForSelector("[data-guide-cue='entry']", { timeout: 20000 });
+      await page.waitForSelector('dialog#guideDialog[open][data-guide="entry"]', { timeout: 20000 });
 
       const cueA11y = await page.evaluate(() => {
-        const sampleCue = document.querySelector(".guide-cue, [data-guide-cue]");
-        if (!sampleCue) {
-          return { cueFound: false, accessible: false, reason: "no cue rendered at the chooser" };
-        }
-        const hasAriaRole =
-          sampleCue.getAttribute("role") === "region" ||
-          sampleCue.getAttribute("role") === "status" ||
-          sampleCue.getAttribute("role") === "tooltip";
-        const hasAccessibleName =
-          sampleCue.hasAttribute("aria-label") || sampleCue.hasAttribute("aria-labelledby");
-        const dismissBtn = sampleCue.querySelector("button.cue-dismiss, [data-guide-dismiss]");
-        const dismissAccessible =
-          dismissBtn &&
-          (dismissBtn.hasAttribute("aria-label") || dismissBtn.textContent.trim().length > 0);
-        const anchor = document.querySelector(sampleCue.dataset.anchorTarget || "\\0");
-        return {
+        const dialog = document.querySelector("dialog#guideDialog[open]");
+        if (!dialog) return { cueFound: false, accessible: false, reason: "no guide at the chooser" };
+        const ok = dialog.querySelector("#guideDialogOk");
+        const anchor = document.querySelector('[data-entry-hub="recommend"]').getBoundingClientRect();
+        const hole = dialog.querySelector(".guide-dialog__hole").getBoundingClientRect();
+        const result = {
           cueFound: true,
-          hasAriaRole,
-          hasAccessibleName,
-          dismissAccessible: Boolean(dismissAccessible),
-          anchored: Boolean(anchor),
-          notModal: !sampleCue.getAttribute("aria-modal"),
-          accessible: hasAriaRole && hasAccessibleName && Boolean(dismissAccessible) &&
-            Boolean(anchor) && !sampleCue.getAttribute("aria-modal"),
+          modal: dialog.matches(":modal"),
+          hasAccessibleName: !!document.getElementById(dialog.getAttribute("aria-labelledby") || "")?.textContent.trim(),
+          hasDescription: !!document.getElementById(dialog.getAttribute("aria-describedby") || "")?.textContent.trim(),
+          dismissAccessible: !!ok?.textContent.trim(),
+          titleFocused: document.activeElement?.id === "guideDialogTitle",
+          anchored: dialog.classList.contains("is-anchored") && hole.top <= anchor.top && hole.bottom >= anchor.bottom,
+          choices: [...document.querySelectorAll("[data-entry-hub]")].map((el) => el.dataset.entryHub),
+          count: document.querySelectorAll("dialog#guideDialog[open]").length,
         };
+        result.accessible = result.modal && result.hasAccessibleName && result.hasDescription && result.dismissAccessible && result.titleFocused;
+        return result;
       });
 
       assert(
         cueA11y.cueFound && cueA11y.accessible,
-        "browser projection: guide cue implements accessible role, label, anchor, and focusable dismiss",
+        "browser projection: the guide dialog is modal, named, described, focused on its title, with a labelled Got it",
         JSON.stringify(cueA11y)
       );
 
-      // B's hub (Plan 072): the guide anchors on the Recommend choice, shows
-      // once after the choice group rather than between two choices, and
-      // choosing Recommend completes it.
-      const hubGuide = await page.evaluate(() => {
-        const choices = [...document.querySelectorAll("[data-entry-hub]")];
-        const cues = [...document.querySelectorAll("[data-guide-cue='entry']")];
-        const group = document.querySelector(".entry__hub");
-        const target = cues[0]?.dataset.anchorTarget;
-        return {
-          choices: choices.map((el) => el.dataset.entryHub),
-          anchorIsRecommend: !!target && document.querySelector(target)?.dataset.entryHub === "recommend",
-          cueCount: cues.length,
-          cueFollowsGroup: !!group && group.nextElementSibling === cues[0],
-          cueInsideGroup: !!group?.contains(cues[0]),
-        };
-      });
+      // B's hub (Plan 072): the guide is about the Recommend choice, shows once,
+      // and Got it puts it away for good.
       assert(
-        JSON.stringify(hubGuide.choices) === JSON.stringify(["recommend", "build", "import"]) &&
-          hubGuide.anchorIsRecommend && hubGuide.cueCount === 1,
-        "browser projection: the entry cue anchors on the hub's Recommend choice and shows once",
-        JSON.stringify(hubGuide)
+        JSON.stringify(cueA11y.choices) === JSON.stringify(["recommend", "build", "import"]) &&
+          cueA11y.anchored && cueA11y.count === 1,
+        "browser projection: the entry guide is placed on the hub's Recommend choice and shows once",
+        JSON.stringify(cueA11y)
       );
+      await page.click("#guideDialogOk");
+      const dismissed = await page.evaluate(() => window.__repforgeUi?.loadUiPrefs?.()?.guideState?.entry?.status);
       assert(
-        hubGuide.cueFollowsGroup && !hubGuide.cueInsideGroup,
-        "browser projection: the entry cue sits after the hub's choices, not between two of them",
-        JSON.stringify(hubGuide)
-      );
-      await page.click('[data-entry-hub="recommend"]');
-      const completedAfterChoice = await page.evaluate(() => window.__repforgeUi?.loadUiPrefs?.()?.guideState?.entry?.status);
-      assert(
-        completedAfterChoice === "completed",
-        "browser projection: choosing Recommend completes the entry cue",
-        String(completedAfterChoice)
+        dismissed === "dismissed",
+        "browser projection: Got it dismisses the entry guide",
+        String(dismissed)
       );
 
       await context.close();

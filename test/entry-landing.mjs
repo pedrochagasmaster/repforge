@@ -27,7 +27,7 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "url";
 import { isDeepStrictEqual } from "node:util";
-import { launchChromium, waitForAppBoot, answerRecommend } from "./browser.mjs";
+import { launchChromium, waitForAppBoot, answerRecommend, dismissGuidesInTheWay } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { decodeSetupLink, encodeSetupLink, encodeSetupPayload } from "./fixtures/setup-link-v4.mjs";
 import {
@@ -459,7 +459,7 @@ function assertSameDurableSemantics(actual, expected, label) {
 // Main suite execution
 // --------------------------------------------------------------------------
 
-const browser = await launchChromium();
+const browser = await launchChromium({ guides: "live" });
 
 try {
   // ------------------------------------------------------------------------
@@ -468,6 +468,7 @@ try {
   phase("Phase 1: Three entry routes reachable through production controls to semantic first step");
   {
     const { context, page } = await openAppPage(browser);
+    await dismissGuidesInTheWay(page);
     await clearSite(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
@@ -560,6 +561,7 @@ try {
   phase("Phase 2: Route staging preserves active durable state while owned setup draft persists");
   {
     const { context, page } = await openAppPage(browser);
+    await dismissGuidesInTheWay(page);
     await clearSite(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
@@ -588,6 +590,7 @@ try {
   phase("Phase 3: Valid shared setup pre-Start isolation (with proof-first fault switch)");
   {
     const { context, page } = await openAppPage(browser);
+    await dismissGuidesInTheWay(page);
     await clearSite(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
@@ -729,6 +732,7 @@ try {
   phase("Phase 4b: Invalid shared proposal gets a complete fail-closed landing (054-P3)");
   {
     const { context, page } = await openAppPage(browser);
+    await dismissGuidesInTheWay(page);
     await clearSite(page);
     await page.goto(`${APP_INDEX}#setup=v1.not+base64`, { waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
@@ -775,6 +779,7 @@ try {
     // 5A: Onboarded device
     {
       const { context, page } = await openAppPage(browser, { locale: "en-US" });
+      await dismissGuidesInTheWay(page);
       await clearSite(page);
 
       const existingState = seededProgramState({
@@ -830,6 +835,7 @@ try {
     // 5B: History-bearing device (archived program history)
     {
       const { context, page } = await openAppPage(browser, { locale: "en-US" });
+      await dismissGuidesInTheWay(page);
       await clearSite(page);
 
       const historyState = {
@@ -907,6 +913,7 @@ try {
   phase("Phase 6: Abandoning first run returns to ordinary Today and Program no-program states");
   {
     const { context, page } = await openAppPage(browser);
+    await dismissGuidesInTheWay(page);
     await clearSite(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
@@ -977,6 +984,7 @@ try {
     // 7A: Chromium captures capability but withholds promotion before value
     {
       const { context, page } = await openAppPage(browser);
+      await dismissGuidesInTheWay(page);
       await clearSite(page);
       await page.reload({ waitUntil: "domcontentloaded" });
       await waitForAppBoot(page, { base: BASE });
@@ -1019,6 +1027,7 @@ try {
     // 7B: Standalone mode hides install card
     {
       const { context, page } = await openAppPage(browser, { standalone: true });
+      await dismissGuidesInTheWay(page);
       await clearSite(page);
       await page.reload({ waitUntil: "domcontentloaded" });
       await waitForAppBoot(page, { base: BASE });
@@ -1048,9 +1057,9 @@ try {
       await waitForAppBoot(page, { base: BASE });
 
       const globals = await page.evaluate(() => {
-        const cues = [...document.querySelectorAll("[data-guide-cue]")].map((el) => el.dataset.guideCue);
+        const cues = [...document.querySelectorAll("dialog#guideDialog[open]")].map((el) => el.dataset.guide);
         const headline = document.querySelector("#firstRunHeadline");
-        const above = [...document.querySelectorAll("#firstRun [data-guide-cue]")]
+        const above = [...document.querySelectorAll("dialog#guideDialog[open] .guide-dialog__panel")]
           .filter((el) => el.getBoundingClientRect().top < headline.getBoundingClientRect().top);
         return {
           modalAbsent: !document.querySelector("#tour"),
@@ -1082,13 +1091,14 @@ try {
 
       await page.click("#firstRunCreate");
       await page.waitForSelector("#onboarding.active");
-      await page.waitForSelector("[data-guide-cue='entry'][data-anchor-target]");
+      await page.waitForSelector('dialog#guideDialog[open][data-guide="entry"]');
       const chooserGuide = await page.evaluate(() => {
-        const cue = document.querySelector("[data-guide-cue='entry']");
-        const anchor = document.querySelector('[data-entry-hub="recommend"]');
+        const dialog = document.querySelector("dialog#guideDialog");
+        const anchor = document.querySelector('[data-entry-hub="recommend"]').getBoundingClientRect();
+        const hole = dialog.querySelector(".guide-dialog__hole").getBoundingClientRect();
         return {
-          cueAnchored: !!cue?.getAttribute("data-anchor-target"),
-          anchorsRecommendCard: !!(anchor && cue?.dataset.anchorTarget && anchor.matches(cue.dataset.anchorTarget)),
+          cueAnchored: dialog.classList.contains("is-anchored"),
+          anchorsRecommendCard: hole.top <= anchor.top && hole.bottom >= anchor.bottom && hole.left <= anchor.left && hole.right >= anchor.right,
         };
       });
       assert(chooserGuide.cueAnchored, "entry guidance is attached to its action");
@@ -1108,6 +1118,7 @@ try {
   phase("Phase 8: Generic landing renders, then and only then records entryLandingSeen (054-P3)");
   {
     const { context, page } = await openAppPage(browser);
+    await dismissGuidesInTheWay(page);
     await clearSite(page);
     const prefsBeforeLanding = await readUiPrefsRaw(page);
     assert(prefsBeforeLanding === null, "entryLandingSeen is absent before the empty first visit begins");
@@ -1149,6 +1160,7 @@ try {
   phase("Phase 9: A second empty/no-program visit shows the returning landing, not the chooser (054-P3, amended)");
   {
     const { context, page } = await openAppPage(browser);
+    await dismissGuidesInTheWay(page);
     await clearSite(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
@@ -1219,6 +1231,7 @@ try {
   phase("Phase 9b: The first visit stays the full landing; the returning landing leads with a welcome back and the actions");
   {
     const { context, page } = await openAppPage(browser);
+    await dismissGuidesInTheWay(page);
     await clearSite(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
@@ -1258,6 +1271,7 @@ try {
   phase("Phase 9c: A returning landing with a setup draft leads with a resume action that opens the chooser's resume card");
   for (const lang of ["en", "pt"]) {
     const { context, page } = await openAppPage(browser, { locale: lang === "pt" ? "pt-BR" : "en-US" });
+    await dismissGuidesInTheWay(page);
     await clearSite(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
@@ -1296,6 +1310,7 @@ try {
   phase("Phase 9d: Every saved route has its own resume line, with a generic fallback");
   {
     const { context, page } = await openAppPage(browser);
+    await dismissGuidesInTheWay(page);
     await clearSite(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
@@ -1355,6 +1370,7 @@ try {
     for (const [label, device] of [["a program present", program], ["a log present", logged]]) {
       for (const seen of [false, true]) {
         const { context, page } = await openAppPage(browser);
+        await dismissGuidesInTheWay(page);
         await clearSite(page);
         await persistState(page, device);
         await page.evaluate(({ k, d, seen }) => {
@@ -1377,6 +1393,7 @@ try {
   phase("Phase 9g: SPEC-01 — Track on a returning landing with a saved setup goes to the chooser's resume card, never over the draft");
   {
     const { context, page } = await openAppPage(browser);
+    await dismissGuidesInTheWay(page);
     await clearSite(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
@@ -1401,6 +1418,7 @@ try {
   }
   {
     const { context, page } = await openAppPage(browser);
+    await dismissGuidesInTheWay(page);
     await clearSite(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
@@ -1417,6 +1435,7 @@ try {
     const restored = seededProgramState({ id: "restored-program", name: "Restored Program", onboarded: false });
     for (const seen of [false, true]) {
       const { context, page } = await openAppPage(browser);
+      await dismissGuidesInTheWay(page);
       await clearSite(page);
       await persistState(page, restored);
       if (seen) await page.evaluate((k) => localStorage.setItem(k, JSON.stringify({ entryLandingSeen: true })), UIKEY);
@@ -1437,6 +1456,7 @@ try {
   phase("Phase 9f: A shared-setup handoff keeps its own landing whatever the device has seen or saved");
   {
     const { context, page } = await openAppPage(browser);
+    await dismissGuidesInTheWay(page);
     await clearSite(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
@@ -1480,6 +1500,7 @@ try {
 
   {
     const { context, page } = await openAppPage(browser);
+    await dismissGuidesInTheWay(page);
     await clearSite(page);
     const encoded = await encodeSentinelLink(page);
     assert(encoded?.ok, "sentinel payload encoded for the fresh shared-route preference check", JSON.stringify(encoded));
@@ -1507,6 +1528,7 @@ try {
   phase("Phase 10: Valid shared proposal bypasses entryLandingSeen and stays storage-silent before Start (054-P3)");
   {
     const { context, page } = await openAppPage(browser);
+    await dismissGuidesInTheWay(page);
     await clearSite(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
@@ -1566,6 +1588,7 @@ try {
   phase("Phase 11: entryLandingSeen absent from export and setup-link proposal, with proof-first fault switch (054-P3)");
   {
     const { context, page } = await openAppPage(browser);
+    await dismissGuidesInTheWay(page);
     await clearSite(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });

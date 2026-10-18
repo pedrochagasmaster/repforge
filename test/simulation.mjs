@@ -7290,29 +7290,27 @@ async function main() {
   await nav(page, "settings");
   await page.click("#guideReplayToggle");
   await page.click('[data-guide-replay="privacy"]');
-  await page.waitForSelector('[data-guide-cue="privacy"]');
+  await page.waitForSelector('dialog#guideDialog[open][data-guide="privacy"]');
   const cue = await page.evaluate(() => {
-    const node = document.querySelector('[data-guide-cue="privacy"]');
-    const anchor = document.querySelector("#privacyDetails");
+    const dialog = document.querySelector("dialog#guideDialog");
+    const anchor = document.querySelector("#privacyDetails").getBoundingClientRect();
+    const hole = dialog.querySelector(".guide-dialog__hole").getBoundingClientRect();
     return {
-      role: node?.getAttribute("role"),
-      anchored: !!(node?.dataset.anchorTarget && anchor?.matches(node.dataset.anchorTarget)),
-      modal: node?.getAttribute("aria-modal"),
+      modal: !!dialog?.matches(":modal"),
+      anchored: dialog.classList.contains("is-anchored") && hole.top <= anchor.top && hole.bottom >= anchor.bottom,
       mainInert: !!document.querySelector("main")?.inert,
     };
   });
-  assert(cue.role === "status" && cue.anchored && !cue.modal && !cue.mainInert, "Privacy guide is contextual and non-modal", JSON.stringify(cue));
-  await page.click("#privacyDetails");
-  await page.waitForSelector("#privacySheet.is-open");
-  const completed = await page.evaluate(() => window.__repforgeUi.guideState().privacy);
-  assert(completed.status === "completed", "Performing the anchored Privacy action completes its guide", JSON.stringify(completed));
-  await page.click("#privacyClose");
-  await page.waitForSelector("#privacySheet", { state: "hidden" });
+  assert(cue.modal && cue.mainInert, "Privacy guide is a modal dialog", JSON.stringify(cue));
+  await page.click("#guideDialogOk");
+  await page.waitForFunction(() => !document.querySelector("dialog#guideDialog")?.open);
+  const dismissed = await page.evaluate(() => window.__repforgeUi.guideState().privacy);
+  assert(dismissed.status === "dismissed", "Got it dismisses the Privacy guide", JSON.stringify(dismissed));
   await page.click('[data-guide-replay="entry"]');
   await page.waitForFunction(() => window.__repforgeUi.guideState().entry?.status === "deferred");
   const missingAnchor = await page.evaluate(() => ({
     entry: window.__repforgeUi.guideState().entry,
-    floating: !!document.querySelector('[data-guide-cue="entry"]'),
+    floating: !!document.querySelector("dialog#guideDialog[open]"),
     draft: localStorage.getItem("repforge_draft_v1"),
   }));
   assert(missingAnchor.entry.status === "deferred" && !missingAnchor.floating, "A hidden entry anchor defers without a floating guide", JSON.stringify(missingAnchor));

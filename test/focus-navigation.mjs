@@ -12,7 +12,7 @@
  * 4. Leave persistence fault safety: leaving cannot drop unpersisted work.
  */
 
-import { chromium } from "playwright";
+import { launchChromium } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
 const BASE_URL = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -27,7 +27,7 @@ function assert(condition, message, detail = "") {
 }
 
 async function main() {
-  const browser = await chromium.launch({
+  const browser = await launchChromium({
     headless: true,
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
   });

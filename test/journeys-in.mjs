@@ -12,13 +12,13 @@
  *
  * At every hand-off the same questions are asked of the destination: it is the
  * only active view, the scroll is at the top, focus is on the new surface's
- * heading (or its documented focus target, named at the call), the announcements
- * it made are one and not repeated, the guide that should fire is on screen once
- * (G-62) and the landing is not shown again.
+ * heading (or its documented focus target, named at the call; a guide's dialog
+ * takes it to its title), the announcements it made are one and not repeated, the
+ * guide that should fire is on screen once (G-62) and the landing is not shown again.
  *
  * Seeded broken hand-offs (the RED proof): REPFORGE_JOURNEYS_FAULT=
  *   focus-lost      the hand-off leaves focus on <body>
- *   guide-not-fired the guide cue that should have fired is not on screen
+ *   guide-not-fired the guide dialog that should have fired is not on screen
  *   landing-reshown the landing comes back over the destination
  * each makes the matching assertions fail.
  *
@@ -96,7 +96,7 @@ function readSurface() {
     return st.display !== "none" && st.visibility !== "hidden" && el.getClientRects().length > 0;
   };
   const active = document.activeElement;
-  const cues = [...document.querySelectorAll("[data-guide-cue]")].map((cue) => cue.dataset.guideCue);
+  const cues = [...document.querySelectorAll("dialog#guideDialog[open]")].map((dialog) => dialog.dataset.guide);
   let guideState = {};
   try { guideState = JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}").guideState || {}; } catch {}
   const describe = (el) => (el ? `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ""}` : "none");
@@ -122,9 +122,9 @@ function readSurface() {
 async function handoff(page, name, want) {
   const { view, focus, guide = null, landing = false, announced = 0, top = true, bodyOk = false } = want;
   await page.waitForFunction((sel) => !sel || document.activeElement?.matches?.(sel), focus, { timeout: 2500 }).catch(() => {});
-  if (want.guide) await page.waitForSelector(`[data-guide-cue="${want.guide}"]`, { timeout: 2500 }).catch(() => {});
+  if (want.guide) await page.waitForSelector(`dialog#guideDialog[open][data-guide="${want.guide}"]`, { timeout: 2500 }).catch(() => {});
   if (FAULT === "focus-lost") await page.evaluate(() => document.activeElement?.blur?.());
-  if (FAULT === "guide-not-fired") await page.evaluate(() => document.querySelectorAll("[data-guide-cue]").forEach((c) => c.remove()));
+  if (FAULT === "guide-not-fired") await page.evaluate(() => document.querySelector("dialog#guideDialog")?.close());
   if (FAULT === "landing-reshown") await page.evaluate(() => window.openFirstRun?.());
   const s = await page.evaluate(readSurface);
   const matches = await page.evaluate((sel) => !sel || !!document.activeElement?.matches?.(sel), focus);
@@ -140,6 +140,17 @@ async function handoff(page, name, want) {
   assert(s.live.length === announced, `${name}: ${announced ? `announced ${announced === 1 ? "once" : `${announced} times`}` : "nothing announced"}`,
     JSON.stringify(s.live));
   assert(new Set(s.live).size === s.live.length, `${name}: no announcement is repeated`, JSON.stringify(s.live));
+  return s;
+}
+
+/** "Got it" on the open guide: it is recorded dismissed and focus returns to `anchor`. */
+async function gotIt(page, id, anchor) {
+  await page.click("#guideDialogOk");
+  await page.waitForFunction(() => !document.querySelector("dialog#guideDialog")?.open, undefined, { timeout: 2500 }).catch(() => {});
+  const s = await page.evaluate(readSurface);
+  const onAnchor = await page.evaluate((sel) => !!document.activeElement?.matches?.(sel), anchor);
+  assert(s.cues.length === 0 && s.guideState[id] === "dismissed", `Got it dismisses the ${id} guide`, JSON.stringify({ cues: s.cues, state: s.guideState }));
+  assert(onAnchor, `Got it returns focus to what the ${id} guide explains`, `focus=${s.focus} "${s.focusText}"`);
   return s;
 }
 
@@ -181,7 +192,7 @@ process.on("uncaughtException", (error) => {
 });
 
 const TODAY_HEADING = "#todayDash .page-title";
-const browser = await launchChromium();
+const browser = await launchChromium({ guides: "live" });
 
 // ---------------------------------------------------------------------------
 phase("Journey 1: landing -> entry -> activation -> Today");
@@ -194,14 +205,12 @@ const first = await newDevice(browser);
   await mark(page);
   await page.click("#firstRunCreate");
   await page.waitForSelector("#onboarding.active", { timeout: 15000 });
-  const entered = await handoff(page, "landing -> entry hub", { view: "onboarding", focus: "#entryHeading", guide: "entry" });
+  const entered = await handoff(page, "landing -> entry hub", { view: "onboarding", focus: "#guideDialogTitle", guide: "entry" });
   assert(entered.guideState.entry === "shown", "the entry guide is recorded as shown", JSON.stringify(entered.guideState));
+  // B's hub (Plan 072): the guide explains the Recommend choice.
+  await gotIt(page, "entry", recommendHubChoice);
 
-  // B's hub (Plan 072): choosing Recommend is the action the guide points at.
   await page.click(recommendHubChoice);
-  const acted = await page.evaluate(readSurface);
-  assert(acted.cues.length === 0 && acted.guideState.entry === "completed",
-    "choosing the route the guide points at completes it and takes it down (G-62)", JSON.stringify({ cues: acted.cues, state: acted.guideState }));
   await page.click("#onbNext");
 
   await walkRecommend(page);
@@ -228,7 +237,7 @@ phase("Journey 5: first session -> summary -> Progress");
   await mark(page);
   await page.click("#startWorkout");
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 15000 });
-  const focus = await handoff(page, "Today -> Focus", { view: "log", focus: "#woDayTitle", guide: "first-set" });
+  const focus = await handoff(page, "Today -> Focus", { view: "log", focus: "#woDayTitle" });
   const shell = await page.evaluate(() => ({
     shell: !document.querySelector("#workoutShell").classList.contains("hidden"),
     dash: !document.querySelector("#todayDash").classList.contains("hidden"),
@@ -236,23 +245,34 @@ phase("Journey 5: first session -> summary -> Progress");
     draft: !!window.__repforgeWorkoutDraft.current(),
   }));
   assert(shell.shell && !shell.dash && shell.body && shell.draft, "Focus replaces the Today dashboard and a draft is open", JSON.stringify(shell));
-  assert(focus.guideState["first-set"] === "shown", "the first-set guide is recorded as shown", JSON.stringify(focus.guideState));
+  assert((focus.guideState["first-set"] || "unseen") === "unseen", "the first-set guide waits for the first tap on the shelf", JSON.stringify(focus.guideState));
 
   const exId = await page.evaluate(() => Object.keys(window.__repforgeWorkoutDraft.current().exercises)[0]);
   // The first set's metric fields are whatever the movement records (weight and
   // reps for a generated compound), filled through the Focus shelf.
   const VALUES = { "2555c6f170d8805cafa6d16d3fdddbaa": "50", "2555c6f170d88072bbf6d9ad3f16ea86": "8" };
   const shelf = "#workout .exercise.is-current .focus-shelf";
+  // The first tap on a shelf field opens the first-set guide; "Got it" then carries the tap out.
+  let firstSetShown = 0;
+  const tapField = async (selector) => {
+    await page.locator(selector).click();
+    if (await page.locator('dialog#guideDialog[open][data-guide="first-set"]').count()) {
+      firstSetShown++;
+      // The tap the guide held is carried out: a field that was already selected opens for typing.
+      await gotIt(page, "first-set", `${selector}, ${shelf} .shelf__field.is-editing .shelf__input`);
+    }
+  };
   const metricIds = await page.locator(`${shelf} input[data-metric-id]`).evaluateAll((inputs) => inputs.map((input) => input.dataset.metricId));
   assert(metricIds.length > 0, "the first set offers its metric fields", JSON.stringify(metricIds));
   for (const metricId of metricIds) {
     const input = page.locator(`${shelf} input[data-metric-id="${metricId}"]`);
-    if (await input.getAttribute("aria-hidden") === "true") await page.locator(`${shelf} [data-shelf-field="metric_${metricId}"]`).click();
+    if (await input.getAttribute("aria-hidden") === "true") await tapField(`${shelf} [data-shelf-field="metric_${metricId}"]`);
     await input.fill(VALUES[metricId] || "1");
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   }
   const rirInput = page.locator(`${shelf} input[data-k="${exId}_1_rir"]`);
-  if (await rirInput.getAttribute("aria-hidden") === "true") await page.locator(`${shelf} [data-shelf-field="rir"]`).click();
+  if (await rirInput.getAttribute("aria-hidden") === "true") await tapField(`${shelf} [data-shelf-field="rir"]`);
+  assert(firstSetShown === 1, "the first tap on the shelf opens the first-set guide, once", String(firstSetShown));
   await rirInput.fill("2");
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await page.locator(`#workout .exercise.is-current [data-save="${exId}_1"]`).click();
@@ -261,8 +281,8 @@ phase("Journey 5: first session -> summary -> Progress");
     return set && set.completion !== "pending";
   }, exId, { timeout: 15000 });
   const logged = await page.evaluate(readSurface);
-  assert(logged.guideState["first-set"] === "completed" && !logged.cues.includes("first-set"),
-    "logging the first set completes the first-set guide (G-62)", JSON.stringify({ cues: logged.cues, state: logged.guideState }));
+  assert(logged.guideState["first-set"] === "dismissed" && logged.cues.length === 0,
+    "logging the first set opens no further guide in the same Focus visit (G-62)", JSON.stringify({ cues: logged.cues, state: logged.guideState }));
   // Logging starts the rest, and its live region speaks two frames later. That
   // announcement belongs to this step: wait for it, so the next window does not
   // inherit it.
@@ -273,7 +293,7 @@ phase("Journey 5: first session -> summary -> Progress");
   await mark(page);
   await finishEarly(page);
   await page.waitForSelector("#sessionSummary:not(.hidden)", { timeout: 15000 });
-  const summary = await handoff(page, "Focus -> summary", { view: "log", focus: "#sumTitle", top: false, guide: "focus-utilities" });
+  const summary = await handoff(page, "Focus -> summary", { view: "log", focus: "#sumTitle", top: false });
   const inert = await page.evaluate(() => ({
     main: document.querySelector("main").inert, nav: document.querySelector("nav").inert,
     modal: document.querySelector("#sessionSummary").getAttribute("aria-modal") || document.querySelector("#sessionSummary").tagName,
@@ -295,12 +315,9 @@ phase("Journey 5: first session -> summary -> Progress");
 
   await mark(page);
   await page.click('nav button[data-view="stats"]');
-  const progress = await handoff(page, "Today -> Progress", { view: "stats", focus: 'nav button[data-view="stats"]', guide: "progress" });
+  const progress = await handoff(page, "Today -> Progress", { view: "stats", focus: "#guideDialogTitle", guide: "progress" });
   assert(progress.dock.join() === "stats", "the dock marks Progress", JSON.stringify(progress.dock));
-  await page.click('#statsSeg [data-seg="overview"]');
-  const completed = await page.evaluate(readSurface);
-  assert(completed.cues.length === 0 && completed.guideState.progress === "completed",
-    "using what the Progress guide points at completes it (G-62)", JSON.stringify({ cues: completed.cues, state: completed.guideState }));
+  await gotIt(page, "progress", '#statsSeg [data-seg="overview"]');
   await page.click('nav button[data-view="log"]');
   await mark(page);
   await page.click('nav button[data-view="stats"]');
@@ -353,7 +370,8 @@ phase("Journey 3: no-program surfaces -> entry hub, cancel and return");
   await mark(page);
   await page.click("#firstRunCreate");
   await page.waitForSelector("#onboarding.active", { timeout: 15000 });
-  await handoff(page, "landing -> entry hub", { view: "onboarding", focus: "#entryHeading", guide: "entry" });
+  await handoff(page, "landing -> entry hub", { view: "onboarding", focus: "#guideDialogTitle", guide: "entry" });
+  await gotIt(page, "entry", recommendHubChoice);
   await cancelEntry(page);
   await handoff(page, "cancel from the landing's entry", { view: "log", focus: TODAY_HEADING });
   const empty = await page.evaluate(() => ({
@@ -365,7 +383,7 @@ phase("Journey 3: no-program surfaces -> entry hub, cancel and return");
   await mark(page);
   await page.click("#todaySetupProgram");
   await page.waitForSelector("#onboarding.active", { timeout: 15000 });
-  await handoff(page, "no-program Today -> entry hub", { view: "onboarding", focus: "#entryHeading", guide: "entry" });
+  await handoff(page, "no-program Today -> entry hub", { view: "onboarding", focus: "#entryHeading" });
   await cancelEntry(page);
   await handoff(page, "cancel returns to Today", { view: "log", focus: "#todaySetupProgram" });
 
@@ -378,7 +396,7 @@ phase("Journey 3: no-program surfaces -> entry hub, cancel and return");
   await mark(page);
   await page.click("#programSetupProgram");
   await page.waitForSelector("#onboarding.active", { timeout: 15000 });
-  await handoff(page, "no-program Program -> entry hub", { view: "onboarding", focus: "#entryHeading", guide: "entry" });
+  await handoff(page, "no-program Program -> entry hub", { view: "onboarding", focus: "#entryHeading" });
   await cancelEntry(page);
   const back = await handoff(page, "cancel returns to Program", { view: "program", focus: "#programSetupProgram" });
   assert(back.dock.join() === "program", "and the dock still marks Program", JSON.stringify(back.dock));
@@ -387,13 +405,14 @@ phase("Journey 3: no-program surfaces -> entry hub, cancel and return");
   await mark(page);
   await page.click('nav button[data-view="log"]');
   await page.click("#openSettings");
-  await handoff(page, "Today -> Settings", { view: "settings", focus: null, guide: "privacy", bodyOk: true });
+  await handoff(page, "Today -> Settings", { view: "settings", focus: "#guideDialogTitle", guide: "privacy" });
+  await gotIt(page, "privacy", "#privacyDetails");
   await mark(page);
   await page.click("#createProgram");
   await page.waitForSelector("#onboarding.active", { timeout: 15000 });
-  await handoff(page, "Settings -> entry hub", { view: "onboarding", focus: "#entryHeading", guide: "entry" });
+  await handoff(page, "Settings -> entry hub", { view: "onboarding", focus: "#entryHeading" });
   await cancelEntry(page);
-  await handoff(page, "cancel returns to Settings", { view: "settings", focus: "#createProgram", guide: "privacy" });
+  await handoff(page, "cancel returns to Settings", { view: "settings", focus: "#createProgram" });
 
   await context.close();
 }
@@ -404,6 +423,8 @@ phase("Journey 4: returning landing -> chooser resume -> activation");
   const { page, context } = await newDevice(browser);
   await page.click("#firstRunCreate");
   await page.waitForSelector(recommendHubChoice, { timeout: 15000 });
+  await page.waitForSelector('dialog#guideDialog[open][data-guide="entry"]', { timeout: 15000 });
+  await gotIt(page, "entry", recommendHubChoice);
   await answerRecommend(page, { skipBasics: true, until: "background" });
   await page.waitForFunction((key) => {
     try {
@@ -448,6 +469,8 @@ phase("Journey 6: Build route -> Open editor (R7 J-05)");
   const { page, context } = await newDevice(browser);
   await page.click("#firstRunCreate");
   await page.waitForSelector('[data-entry-hub="build"]', { timeout: 15000 });
+  await page.waitForSelector('dialog#guideDialog[open][data-guide="entry"]', { timeout: 15000 });
+  await gotIt(page, "entry", recommendHubChoice);
   await page.click('[data-entry-hub="build"]');
   await page.click("#onbNext");
   await page.locator("#entryProgramName").fill("Meu plano");

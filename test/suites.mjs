@@ -219,6 +219,7 @@ export const SUITES = {
     s("test/progress-lifecycle.mjs", [], {"env": {"REPFORGE_LIFECYCLE_BROWSER": "1"}, "timeoutMs": 900000, seconds: 10 }),
     s("test/progress-recovery.mjs", [], {"timeoutMs": 900000, seconds: 3 }),
     s("test/progress-guides.mjs"),
+    s("test/guide-modal.mjs", [], { domains: ["workout", "progress", "settings", "entry"] }),
     s("test/sheet-swipe-dismiss.mjs", [], { seconds: 11 }),
     s("test/motion-integration.mjs", [], { seconds: 172 }),
     s("test/session-summary.mjs", [], { seconds: 19 }),

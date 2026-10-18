@@ -1,15 +1,60 @@
 /** Shared Chromium launcher. Normal runs do not record traces. */
 import { chromium } from "playwright";
 import { existsSync } from "fs";
+import { createRequire } from "module";
 import { instrumentBrowser } from "./browser-artifacts.mjs";
 
-export async function launchChromium(opts = {}) {
+const { GUIDE_DEFINITIONS } = createRequire(import.meta.url)("../guide-registry.js");
+
+/**
+ * A contextual guide is a modal dialog that holds the page inert until "Got it". Most suites are not about guides,
+ * so by default every context starts as a device whose lifter has already read them: on each document load, a guide
+ * the app has never shown (no record, or a pristine `unseen` one) is recorded `dismissed`. A guide a suite has moved
+ * on purpose (shown, deferred, replayed, completed) is left alone, and Settings → Replay still shows any guide.
+ *
+ * Suites that prove guide behaviour, and the screen catalog, keep the guides live: `launchChromium({ guides: "live" })`
+ * for every context, or `browser.newContext({ guides: "live" })` for one.
+ */
+function readGuidesByDefault(browser, liveByDefault) {
+  const newContext = browser.newContext.bind(browser);
+  browser.newContext = async ({ guides, ...options } = {}) => {
+    const context = await newContext(options);
+    if ((guides ?? (liveByDefault ? "live" : "read")) !== "live") {
+      await context.addInitScript(({ key, guides: definitions }) => {
+        try {
+          const prefs = JSON.parse(localStorage.getItem(key) || "{}") || {};
+          const state = prefs.guideState && typeof prefs.guideState === "object" ? { ...prefs.guideState } : {};
+          let changed = false;
+          for (const { id, version } of definitions) {
+            const record = state[id];
+            const pristine = !record || (record.version === version && record.status === "unseen" && record.lastTransitionAt == null && record.replayedAt == null);
+            if (!pristine) continue;
+            state[id] = { version, status: "dismissed", lastTransitionAt: null };
+            changed = true;
+          }
+          if (changed) localStorage.setItem(key, JSON.stringify({ ...prefs, guideState: state }));
+        } catch {}
+      }, { key: "repforge_ui_v1", guides: GUIDE_DEFINITIONS.map(({ id, version }) => ({ id, version })) });
+    }
+    return context;
+  };
+  // Playwright's convenience newPage makes its own context; route it through the one above.
+  browser.newPage = async (options = {}) => {
+    const context = await browser.newContext(options);
+    const page = await context.newPage();
+    page.on("close", () => context.close().catch(() => {}));
+    return page;
+  };
+}
+
+export async function launchChromium({ guides, ...opts } = {}) {
   const exe = process.env.REPFORGE_CHROME;
   const browser = await chromium.launch({
     headless: true,
     ...(exe && existsSync(exe) ? { executablePath: exe } : {}),
     ...opts,
   });
+  readGuidesByDefault(browser, guides === "live");
   if (process.env.REPFORGE_TRACE === "1" && process.env.REPFORGE_ARTIFACT_DIR) {
     instrumentBrowser(browser, process.env.REPFORGE_ARTIFACT_DIR);
   }
@@ -202,4 +247,13 @@ export async function answerRecommend(page, {
     } else throw new Error(`answerRecommend: unexpected step ${current}`);
   }
   throw new Error("answerRecommend did not reach the result");
+}
+
+/**
+ * A contextual guide is a modal dialog: until the lifter taps "Got it", the page under it is inert. A suite that is
+ * not about guides drives the app as a lifter who has read the tip, so the guide is dismissed the moment it stands in
+ * the way of the suite's next action. Guide behaviour itself is proved in test/guide-modal.mjs.
+ */
+export async function dismissGuidesInTheWay(page) {
+  await page.addLocatorHandler(page.locator("dialog#guideDialog[open]"), () => page.locator("#guideDialogOk").click());
 }
