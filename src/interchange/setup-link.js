@@ -1,4 +1,15 @@
 /** v4 setup-link codec. Training rules and browser codecs are supplied at composition. */
+/** @typedef {Record<string,unknown>} JsonRecord
+ * @typedef {{ok:false,code:string}|{ok:true,value:unknown}} Expanded
+ * @typedef {{ids:string[],indexById:Map<string,number>,fingerprint:string}} IdentityContext
+ * @typedef {{href?:string,hash?:string}} LocationLike
+ * @typedef {{document?:{cookie:string}|null,location?:LocationLike|string|null}} CookieAdapters
+ * @typedef {{TextEncoder:typeof globalThis.TextEncoder,TextDecoder:typeof globalThis.TextDecoder,CompressionStream?:typeof globalThis.CompressionStream,DecompressionStream?:typeof globalThis.DecompressionStream,Blob?:typeof globalThis.Blob,atob:typeof globalThis.atob,btoa:typeof globalThis.btoa,document?:{cookie:string},location?:LocationLike}} Capabilities
+ * @typedef {{builtInIds?:unknown,catalogSnapshot?:unknown,validateProgramDefinition?:(definition:unknown,catalog:unknown,customs:unknown[])=>{ok:boolean,issues?:unknown[],code?:string},generateProgram?:(request:JsonRecord,catalog:unknown)=>{ok:false}|{ok:true,value:Definition},generateProgramAsync?:(request:JsonRecord,catalog:unknown,options:{signal?:AbortSignal})=>Promise<{ok:false}|{ok:true,value:Definition}>,generatorVersion?:string,signal?:AbortSignal}} Options
+ * @typedef {JsonRecord & {generatorVersion?:string,provenance?:{source?:unknown},request?:JsonRecord,days?:{slots?:{exerciseId?:unknown,sourceExerciseIds?:unknown,metricIds?:unknown,metricDefinitions?:unknown,prescriptionsByCycle?:{sets?:{metricIds?:unknown,metricDefinitions?:unknown}[]}[]}[]}[]}} Definition
+ * @typedef {{kind:string,version:number,program:{name:string,definition:Definition,customExercises?:unknown[]},settings:{jumpPct:number,minJump:number,rirHigh:number,hardRir:number,restSec:number,unit:string,rirMode:string,lang:string},language:string}} Payload
+ */
+/** @param {{metrics:typeof import('../training/metrics.js').default,identity:typeof import('../training/identity.js').default,capabilities:Capabilities}} bindings */
 export function createSetupLinkCodec({metrics, identity, capabilities}) {
   const {TextEncoder,TextDecoder,CompressionStream,DecompressionStream,Blob,atob,btoa} = capabilities;
 
@@ -63,27 +74,37 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
   const COMPACT_VALUE_BY_NAME = new Map(COMPACT_VALUES.map((value, index) => [value, COMPACT_VALUE_CODES[index]]));
   const COMPACT_NAME_BY_VALUE = new Map(COMPACT_VALUES.map((value, index) => [COMPACT_VALUE_CODES[index], value]));
 
+  /** @param {unknown} value @returns {value is JsonRecord} */
   function isPlainObject(value) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return false;
     const prototype = Object.getPrototypeOf(value);
     return prototype === Object.prototype || prototype === null;
   }
 
+  /** @param {unknown} value @returns {value is number} */
   function isFiniteNumber(value) {
     return typeof value === "number" && Number.isFinite(value);
   }
 
+  /** @param {unknown} value @returns {value is number} */
+  function integer(value) { return typeof value === "number" && Number.isInteger(value); }
+
+  /** @param {unknown} object @param {PropertyKey} key */
   function own(object, key) {
     return Object.prototype.hasOwnProperty.call(object, key);
   }
 
+  /** @param {string[]} issues @param {string} [code] @returns {{ok:false,code:string,issues:string[],blockers:never[]}} */
   function schemaFail(issues, code = "invalid-schema") {
     return { ok: false, code, issues: [...issues], blockers: [] };
   }
 
+  /** @template T @param {T} value @returns {T} */
   function cloneCanonical(value) {
     let nodes = 0;
     const ancestors = new Set();
+
+    /** @param {unknown} current @param {string} path @param {number} depth @returns {unknown} */
 
     function visit(current, path, depth) {
       nodes += 1;
@@ -108,7 +129,7 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
         const ownKeys = Reflect.ownKeys(current);
         if (ownKeys.some((key) => typeof key === "symbol")) throw new TypeError(path + ": symbol key");
         result = {};
-        for (const key of ownKeys.sort()) {
+        for (const key of /** @type {string[]} */(ownKeys).sort()) {
           if (FORBIDDEN_KEYS.has(key)) throw new TypeError(path + "." + key + ": unsafe key");
           const descriptor = Object.getOwnPropertyDescriptor(current, key);
           if (!descriptor || !descriptor.enumerable || !own(descriptor, "value")) {
@@ -126,15 +147,17 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
       return result;
     }
 
-    return visit(value, "$", 0);
+    return /** @type {T} */(visit(value, "$", 0));
   }
 
+  /** @param {string} value */
   function compactString(value) {
     const code = COMPACT_VALUE_BY_NAME.get(value);
     if (code !== undefined) return "!" + code;
     return value.startsWith("!") ? "!!" + value.slice(1) : value;
   }
 
+  /** @param {string} value @returns {Expanded} */
   function expandString(value) {
     if (!value.startsWith("!")) return { ok: true, value };
     if (value.startsWith("!!")) return { ok: true, value: "!" + value.slice(2) };
@@ -142,6 +165,7 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     return expanded === undefined ? { ok: false, code: "invalid-envelope" } : { ok: true, value: expanded };
   }
 
+  /** @param {unknown} value @param {IdentityContext|null} [identityContext] @returns {unknown} */
   function compactTree(value, identityContext = null) {
     if (typeof value === "string") {
       const index = identityContext?.indexById.get(value);
@@ -161,6 +185,7 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     return ["o", ...entries];
   }
 
+  /** @param {unknown} value @param {string[]|null} [sourceIdentities] @returns {Expanded} */
   function expandTree(value, sourceIdentities = null) {
     if (value === null || typeof value === "boolean") return { ok: true, value };
     if (typeof value === "number") {
@@ -217,12 +242,14 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     return { ok: true, value: expanded };
   }
 
+  /** @param {unknown[]} metricIds */
   function metricDefinitionsForIds(metricIds) {
     const domain = metrics;
     const definitions = domain?.definitionsForIds?.(metricIds);
     return definitions?.ok === true ? cloneCanonical(definitions.value) : null;
   }
 
+  /** @param {unknown} value @returns {string|undefined} */
   function stableStringify(value) {
     if (Array.isArray(value)) return "[" + value.map(stableStringify).join(",") + "]";
     if (isPlainObject(value)) {
@@ -231,6 +258,7 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     return JSON.stringify(value);
   }
 
+  /** @param {unknown} snapshot @returns {Promise<IdentityContext|null>} */
   async function sourceIdentityContext(snapshot) {
     if (!isPlainObject(snapshot) || !Array.isArray(snapshot.exercises) || !isPlainObject(snapshot.uuidIndex)) return null;
     const ids = Object.keys(snapshot.uuidIndex).filter((id) => /^[a-f0-9]{32}$/i.test(id)).sort();
@@ -253,6 +281,7 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
   // An unedited generated program is reproduced exactly by its generator from
   // the canonical request, so the link carries only that request. The receiver
   // must run the same generator version and arrive at the identical definition.
+  /** @param {Definition} definition @param {IdentityContext} identityContext @param {Options} options */
   function regenerableForm(definition, identityContext, options) {
     if (typeof options?.generateProgram !== "function" || definition?.provenance?.source === "manual"
       || !isPlainObject(definition?.request) || typeof definition.request.goal !== "string") return null;
@@ -265,6 +294,7 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     return ["g", identityContext.fingerprint, definition.generatorVersion, compactTree(request, identityContext)];
   }
 
+  /** @param {unknown[]} compact @param {IdentityContext|null} identityContext @param {Options} options @returns {Promise<Expanded>} */
   async function regenerate(compact, identityContext, options) {
     if (typeof compact[2] === "string" && compact[2] !== options?.generatorVersion) return { ok: false, code: "unsupported-version" };
     if (compact.length !== 4 || typeof compact[1] !== "string" || typeof compact[2] !== "string") return { ok: false, code: "invalid-envelope" };
@@ -281,13 +311,14 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
         ? await options.generateProgramAsync(request.value, options.catalogSnapshot, { signal: options.signal })
         : options.generateProgram(request.value, options.catalogSnapshot);
     } catch (error) {
-      if (error?.name === "AbortError") throw error;
+      if (error instanceof Error && error.name === "AbortError") throw error;
       return { ok: false, code: "invalid-envelope" };
     }
     if (!generated?.ok || generated.value.generatorVersion !== compact[2]) return { ok: false, code: "invalid-envelope" };
     return { ok: true, value: generated.value };
   }
 
+  /** @param {Definition} definition @param {IdentityContext} identityContext @param {Options} options */
   function compactProgramDefinition(definition, identityContext, options) {
     const regenerable = regenerableForm(definition, identityContext, options);
     if (regenerable) return regenerable;
@@ -320,6 +351,7 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     return ["c", identityContext.fingerprint, compactTree(compact, identityContext)];
   }
 
+  /** @param {unknown} compact @param {IdentityContext|null} identityContext @param {Options} options @returns {Expanded|Promise<Expanded>} */
   function expandProgramDefinition(compact, identityContext, options) {
     if (Array.isArray(compact) && compact[0] === "g") return regenerate(compact, identityContext, options);
     let tree = compact;
@@ -338,7 +370,7 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     const definition = expanded.value;
     // Received bytes are untrusted until validated: walk only arrays, so a
     // malformed value reaches validation and is refused rather than thrown (#356).
-    const list = (value) => (Array.isArray(value) ? value : []);
+    const list = (/** @type {unknown} */ value) => (Array.isArray(value) ? value : []);
     for (const day of list(definition.days)) {
       for (const slot of list(day?.slots)) {
         if (!isPlainObject(slot)) continue;
@@ -365,6 +397,7 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     return { ok: true, value: definition };
   }
 
+  /** @param {unknown} value @param {string[]} issues @param {string} [path] @param {Set<object>} [seen] @param {number} [depth] */
   function scanStateFields(value, issues, path = "$", seen = new Set(), depth = 0) {
     if (value === null || typeof value !== "object") return;
     if (depth > MAX_STRUCTURE_DEPTH || seen.has(value)) return;
@@ -375,10 +408,11 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     }
     for (const key of Object.keys(value)) {
       if (FORBIDDEN_STATE_KEYS.has(key)) issues.push(path + "." + key + ": performed or durable state is not shareable");
-      scanStateFields(value[key], issues, path + "." + key, seen, depth + 1);
+      scanStateFields((/** @type {JsonRecord} */(value))[key], issues, path + "." + key, seen, depth + 1);
     }
   }
 
+  /** @param {unknown} value @param {Set<string>} allowed @param {string} path @param {string[]} issues @param {readonly string[]} [required] */
   function rejectUnknownKeys(value, allowed, path, issues, required = []) {
     if (!isPlainObject(value)) {
       issues.push(path + ": expected an object");
@@ -392,6 +426,7 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     }
   }
 
+  /** @param {Options} options @param {string[]} issues */
   function builtInSet(options, issues) {
     const rawIds = options && options.builtInIds;
     let ids = null;
@@ -423,22 +458,25 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     return ids;
   }
 
+  /** @param {unknown} settings @param {unknown} language @param {string[]} issues */
   function validateSettings(settings, language, issues) {
+    const values = /** @type {JsonRecord|null|undefined} */(settings);
     rejectUnknownKeys(settings, new Set(SETTING_KEYS), "settings", issues, SETTING_KEYS);
-    if (!isFiniteNumber(settings?.jumpPct) || settings.jumpPct < 0 || settings.jumpPct > 100) issues.push("settings.jumpPct: invalid");
-    if (!isFiniteNumber(settings?.minJump) || settings.minJump < 0.01 || settings.minJump > 1000) issues.push("settings.minJump: invalid");
-    if (!isFiniteNumber(settings?.rirHigh) || settings.rirHigh < 0 || settings.rirHigh > 100) issues.push("settings.rirHigh: invalid");
-    if (!isFiniteNumber(settings?.hardRir) || settings.hardRir < 0 || settings.hardRir > 100) issues.push("settings.hardRir: invalid");
-    if (!Number.isInteger(settings?.restSec) || settings.restSec < 0 || settings.restSec > 86400) issues.push("settings.restSec: invalid");
-    if (!UNITS.includes(settings?.unit)) issues.push("settings.unit: invalid");
-    if (!LANGUAGES.includes(settings?.lang)) issues.push("settings.lang: invalid");
-    if (!RIR_MODES.includes(settings?.rirMode)) issues.push("settings.rirMode: invalid");
-    if (!LANGUAGES.includes(language)) issues.push("language: invalid");
-    if (LANGUAGES.includes(settings?.lang) && settings.lang !== language) {
+    if (!isFiniteNumber(values?.jumpPct) || values.jumpPct < 0 || values.jumpPct > 100) issues.push("settings.jumpPct: invalid");
+    if (!isFiniteNumber(values?.minJump) || values.minJump < 0.01 || values.minJump > 1000) issues.push("settings.minJump: invalid");
+    if (!isFiniteNumber(values?.rirHigh) || values.rirHigh < 0 || values.rirHigh > 100) issues.push("settings.rirHigh: invalid");
+    if (!isFiniteNumber(values?.hardRir) || values.hardRir < 0 || values.hardRir > 100) issues.push("settings.hardRir: invalid");
+    if (!integer(values?.restSec) || values.restSec < 0 || values.restSec > 86400) issues.push("settings.restSec: invalid");
+    if (!UNITS.some(value=>value===values?.unit)) issues.push("settings.unit: invalid");
+    if (!LANGUAGES.some(value=>value===values?.lang)) issues.push("settings.lang: invalid");
+    if (!RIR_MODES.some(value=>value===values?.rirMode)) issues.push("settings.rirMode: invalid");
+    if (!LANGUAGES.some(value=>value===language)) issues.push("language: invalid");
+    if (LANGUAGES.some(value=>value===values?.lang) && values?.lang !== language) {
       issues.push("language: must equal settings.lang");
     }
   }
 
+  /** @param {unknown} program @param {Set<unknown>} builtIns @param {string[]} issues */
   function validateProgramStructure(program, builtIns, issues) {
     if (!isPlainObject(program)) {
       issues.push("program: expected an object");
@@ -446,7 +484,7 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     }
     rejectUnknownKeys(program, PROGRAM_KEYS, "program", issues, ["name", "definition"]);
     if (typeof program.name !== "string" || !program.name.trim()) issues.push("program.name: expected a nonempty name");
-    if (program.name?.length > 200) issues.push("program.name: too long");
+    if (/** @type {number} */((/** @type {{length?:number}|null|undefined} */(program.name))?.length) > 200) issues.push("program.name: too long");
     const definition = program.definition;
     if (!isPlainObject(definition)) issues.push("program.definition: expected an object");
 
@@ -493,6 +531,7 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     return { customExercises, definition };
   }
 
+  /** @param {unknown} raw @param {Options} [options] @returns {{ok:true,value:Payload,issues:never[],blockers:never[]}|ReturnType<typeof schemaFail>} */
   function validate(raw, options = {}) {
     const initialIssues = [];
     if (!isPlainObject(raw)) return schemaFail(["$: expected an object"]);
@@ -503,7 +542,7 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
         return null;
       }
     })();
-    if (initialIssues.length) return schemaFail(initialIssues);
+    if (!canonical || initialIssues.length) return schemaFail(initialIssues);
     rejectUnknownKeys(canonical, TOP_LEVEL_KEYS, "$", initialIssues, [...TOP_LEVEL_KEYS]);
     scanStateFields(canonical, initialIssues);
     if (canonical.kind !== KIND) initialIssues.push("kind: invalid");
@@ -519,21 +558,23 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
 
     let checked;
     try {
-      checked = options.validateProgramDefinition(definition, options.catalogSnapshot, customExercises);
+      checked = /** @type {NonNullable<Options["validateProgramDefinition"]>} */(options.validateProgramDefinition)(definition, options.catalogSnapshot, customExercises);
     } catch (error) {
-      return schemaFail(["program.definition: validation failed: " + (error?.message || "unknown error")], "invalid-program-definition");
+      return schemaFail(["program.definition: validation failed: " + (error instanceof Error ? error.message : "unknown error")], "invalid-program-definition");
     }
     if (!checked || checked.ok !== true) {
       const issues = Array.isArray(checked?.issues) ? checked.issues.map(String) : ["program.definition: invalid canonical definition"];
       return schemaFail(issues, checked?.code || "invalid-program-definition");
     }
-    return { ok: true, value: canonical, issues: [], blockers: [] };
+    return { ok: true, value: /** @type {Payload} */(canonical), issues: [], blockers: [] };
   }
 
+  /** @param {unknown} raw @param {Options} [options] */
   function buildProposal(raw, options = {}) {
     return validate(raw, options);
   }
 
+  /** @param {Uint8Array} bytes */
   function toBase64Url(bytes) {
     let binary = "";
     for (let offset = 0; offset < bytes.length; offset += 0x8000) {
@@ -543,6 +584,7 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   }
 
+  /** @param {unknown} text */
   function fromBase64Url(text) {
     if (typeof text !== "string" || !text || !BASE64URL_RE.test(text) || text.length % 4 === 1) return null;
     try {
@@ -557,6 +599,7 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     }
   }
 
+  /** @param {ReadableStream<Uint8Array>} stream @param {number} maximum @param {string} overflowCode @param {string} failureCode @returns {Promise<{ok:true,value:Uint8Array}|{ok:false,code:string}>} */
   async function readBoundedStream(stream, maximum, overflowCode, failureCode) {
     let reader;
     try { reader = stream.getReader(); }
@@ -586,30 +629,33 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     return { ok: true, value: bytes };
   }
 
+  /** @param {Uint8Array} bytes @returns {Promise<{ok:true,value:Uint8Array}|{ok:false,code:string}>} */
   async function gzipBytes(bytes) {
     if (typeof CompressionStream !== "function" || typeof Blob !== "function") {
       return { ok: false, code: "compression-unavailable" };
     }
     try {
-      const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream("gzip"));
+      const stream = new Blob([/** @type {Uint8Array<ArrayBuffer>} */(bytes)]).stream().pipeThrough(new CompressionStream("gzip"));
       return await readBoundedStream(stream, MAX_COMPRESSED_BYTES, "encoded-too-large", "compression-failed");
     } catch {
       return { ok: false, code: "compression-failed" };
     }
   }
 
+  /** @param {Uint8Array} bytes @returns {Promise<{ok:true,value:Uint8Array}|{ok:false,code:string}>} */
   async function gunzipBytes(bytes) {
     if (typeof DecompressionStream !== "function" || typeof Blob !== "function") {
       return { ok: false, code: "decompression-unavailable" };
     }
     try {
-      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+      const stream = new Blob([/** @type {Uint8Array<ArrayBuffer>} */(bytes)]).stream().pipeThrough(new DecompressionStream("gzip"));
       return await readBoundedStream(stream, MAX_DECOMPRESSED_BYTES, "decompressed-too-large", "invalid-gzip");
     } catch {
       return { ok: false, code: "invalid-gzip" };
     }
   }
 
+  /** @param {Payload} payload @param {IdentityContext} identityContext @param {Options} options */
   function v4Tuple(payload, identityContext, options) {
     const settings = payload.settings;
     return [
@@ -630,6 +676,7 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     ];
   }
 
+  /** @param {unknown} value @param {IdentityContext|null} identityContext @param {Options} options @returns {Promise<Expanded>} */
   async function expandV4(value, identityContext, options) {
     if (!Array.isArray(value) || value.length !== 6 || value[0] !== VERSION) {
       return { ok: false, code: "invalid-envelope" };
@@ -655,6 +702,7 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     }
     const language = LANGUAGES[languageCode];
     const [jumpPct, minJump, rirHigh, hardRir, restSec, unitCode, rirModeCode] = settingTuple;
+    /** @type {{name:string,definition:JsonRecord,customExercises?:unknown[]}} */
     const program = { name, definition: expandedDefinition.value };
     if (expandedCustomExercises.value !== null) program.customExercises = expandedCustomExercises.value;
     return {
@@ -678,6 +726,7 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     };
   }
 
+  /** @param {unknown} raw @param {Options} [options] */
   async function encode(raw, options = {}) {
     const checked = buildProposal(raw, options);
     if (!checked.ok) return checked;
@@ -714,6 +763,7 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     };
   }
 
+  /** @param {string} encoded @param {RegExpMatchArray} match */
   function versionedUnsupported(encoded, match) {
     const parsed = Number(match[1]);
     return {
@@ -726,6 +776,7 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     };
   }
 
+  /** @param {unknown} encoded @param {Options} [options] */
   async function decode(encoded, options = {}) {
     if (typeof encoded !== "string" || encoded.length === 0) {
       return { ok: false, code: "missing", issues: [], blockers: [] };
@@ -759,6 +810,7 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     };
   }
 
+  /** @param {LocationLike|string|null} [locationLike] */
   function rawHref(locationLike) {
     if (typeof locationLike === "string") return locationLike;
     if (locationLike && typeof locationLike.href === "string") return locationLike.href;
@@ -767,16 +819,19 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     return "";
   }
 
+  /** @param {string} href */
   function hashFromHref(href) {
     const index = href.indexOf("#");
     return index < 0 ? "" : href.slice(index + 1);
   }
 
+  /** @param {string} rawKey */
   function isSetupKey(rawKey) {
     try { return decodeURIComponent(rawKey.replace(/\+/g, " ")) === "setup"; }
     catch { return rawKey === "setup"; }
   }
 
+  /** @param {LocationLike|string|null} [locationLike] */
   function fragmentFromLocation(locationLike) {
     const hash = hashFromHref(rawHref(locationLike));
     if (!hash) return null;
@@ -789,10 +844,12 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     return null;
   }
 
+  /** @param {LocationLike|string|null} [url] */
   function readSetupFragment(url) {
     return fragmentFromLocation(url);
   }
 
+  /** @param {LocationLike|string|null} [url] */
   function removeSetupFragment(url) {
     const href = rawHref(url);
     const marker = href.indexOf("#");
@@ -810,6 +867,7 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     return parsed.pathname + parsed.search + (remaining.length ? "#" + remaining.join("&") : "");
   }
 
+  /** @param {LocationLike|string|null} [locationLike] */
   function cookieBase(locationLike) {
     const href = typeof locationLike === "string" ? locationLike : rawHref(locationLike);
     try { return new URL(href || "https://taurifer.invalid/index.html"); }
@@ -819,27 +877,32 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
   // The app scope (the directory the document lives in), not its document URL:
   // the host may serve the document at `/` or at `/index.html`, and the
   // installed app launches through `./index.html`, which a host can redirect.
+  /** @param {LocationLike|string|null} [locationLike] */
   function handoffCookiePath(locationLike) {
     return new URL("./", cookieBase(locationLike)).pathname;
   }
 
   // Releases before the scope path wrote the cookie at the document URL.
+  /** @param {LocationLike|string|null} [locationLike] */
   function legacyHandoffCookiePath(locationLike) {
     return new URL("index.html", cookieBase(locationLike)).pathname;
   }
 
+  /** @param {LocationLike|string|null} [locationLike] */
   function hostnameOf(locationLike) {
     const href = typeof locationLike === "string" ? locationLike : rawHref(locationLike);
     try { return new URL(href || "https://taurifer.invalid/").hostname.toLowerCase(); }
     catch { return ""; }
   }
 
+  /** @param {LocationLike|string|null} [locationLike] */
   function cookieSecureSuffix(locationLike) {
     const host = hostnameOf(locationLike);
     const local = host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host.endsWith(".localhost");
     return local ? "" : "; Secure";
   }
 
+  /** @param {unknown} value @returns {value is string} */
   function isSafeHandoffEnvelope(value) {
     if (typeof value !== "string" || value.length > MAX_ENCODED_CHARS) return false;
     const match = value.match(/^v4\.(.*)$/);
@@ -847,14 +910,17 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     return true;
   }
 
+  /** @param {CookieAdapters} [adapters] */
   function adapterDocument(adapters) {
     return adapters?.document || capabilities.document || null;
   }
 
+  /** @param {CookieAdapters} [adapters] */
   function adapterLocation(adapters) {
     return adapters?.location || capabilities.location || null;
   }
 
+  /** @param {unknown} value @param {CookieAdapters} [adapters] */
   function writeHandoffCookie(value, adapters) {
     const documentLike = adapterDocument(adapters);
     const locationLike = adapterLocation(adapters);
@@ -867,6 +933,7 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     return true;
   }
 
+  /** @param {CookieAdapters} [adapters] */
   function readHandoffCookie(adapters) {
     const documentLike = adapterDocument(adapters);
     if (!documentLike || typeof documentLike.cookie !== "string") return null;
@@ -879,6 +946,7 @@ export function createSetupLinkCodec({metrics, identity, capabilities}) {
     return null;
   }
 
+  /** @param {CookieAdapters} [adapters] */
   function clearHandoffCookie(adapters) {
     const documentLike = adapterDocument(adapters);
     const locationLike = adapterLocation(adapters);
