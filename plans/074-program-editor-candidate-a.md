@@ -42,7 +42,7 @@
 | --- | --- |
 | The installed editor's screen: header, facts, changes bar, day tabs, day head, rows, exercise sheet, Weeks sheet, Loads block, Training days sheet, pinned Apply and its blocked reason | **`program-editor.js`**, a new A renderer in the same module. It keeps its contract: a document and a token in, intents out; no storage, route or flag reads. |
 | Edit rules and intents | **`program-editor.js`**: the existing intents, plus `day_move`. A sheet control that means "every week" stages one existing intent per week (§4). |
-| Shared visual vocabulary | **`program-review.js`** exports small pure markup helpers (set line, stepper, rest presets, row shell) that both renderers call, so the two screens can't drift. Its edit log, replay and recommendation diff stay onboarding's. |
+| Shared visual vocabulary | **`program-review.js`**'s classes (`review__*`, `review-sheet__*`, `review-step`, `review-seg`, `review-toast`) and its `REST_PRESETS`: the A renderer draws with them, so both screens share one stylesheet and can't drift. Its edit log, replay and recommendation diff stay onboarding's. |
 | Sheet, picker, dialogs, toast placement, motion, labels, catalog lookups | **`app.js`** host adapter (already supplied to both editors: `openSheet`/`closeSheet`, `chooseExercise`, `confirm`, `announce`, `afterModal`, `reducedMotion`). |
 | Canonical sync, rebase, workout impact and commit of every intent, including `day_move` | **`app.js`** (`syncEditorCanonicalIntent`, `applyInstalledEditorIntent`, `installedEditorImpact`, `editorSnapshotFromDocument`). |
 | Undo of the last change | **`program-editor.js`** keeps a stack of (document, intent count). The host gets one new adapter method, `revert(count)`, that truncates `installedEditorSession` to that many intents. |
@@ -61,6 +61,7 @@ From the installed editor's screen (the Build host keeps them until Plan 072 S5)
 - the always-open per-cycle `<details>` forms and the current-cycle-only sets stepper;
 - the free-text name field on catalog movements (decision 5);
 - the row ⋮ menu and the floating Replace/Remove pair (they move into the sheet);
+- dragging an exercise onto another day (a sheet's Move to another day does it; dragging stays inside the day's Reorder exercises list, with the same @dnd-kit pointer and keyboard drag and announcements);
 - the day name input in the day card header (rename moves to the day head's pencil
   and the Training days sheet);
 - "Ciclo N" and "Metric composition" as visible labels in the installed editor
@@ -75,8 +76,8 @@ Every field editable today stays editable. The left column follows
 | Today (intent) | In A | Intents staged |
 | --- | --- | --- |
 | Program name (`program_name`) | Pencil on the name → rename sheet | `program_name` |
-| Day name (`day_name`) | Pencil on the day head; Training days sheet | `day_name` |
-| Add day (`day_add`), remove day (`day_remove`) | Training days sheet: + Adicionar dia; Remover dia (confirm) | unchanged |
+| Day name (`day_name`) | Pencil on the day head, or the day's ··· menu; the Training days sheet in S2 | `day_name` |
+| Add day (`day_add`), remove day (`day_remove`) | S1: the day's ··· menu (Adicionar dia; Remover dia, confirmed). S2: the Training days sheet | unchanged |
 | **Day order (new)** | Training days sheet: handle drag, and Move up/down buttons as the accessible path | `day_move` (§6) |
 | Add exercise (`exercise_add`) | + Adicionar exercício at the day's foot; day ··· menu | unchanged |
 | Remove (`exercise_remove`) | Sheet → Remover exercício; toast with Desfazer | unchanged |
@@ -107,6 +108,7 @@ keeps the deload offset.
 
 ## 5. Validation, Apply and Cancel
 
+- **Removal fix (#434):** the host's `exercise_remove` sync now renumbers the day's remaining slots. Without it `validateProgramDefinition` refused every removal but a day's last one, in the classic layout too.
 - **Validation** is unchanged at the boundary: every intent goes through
   `syncEditorCanonicalIntent`, and Apply goes through `confirmSuggestLoads`, the
   editor's `validation`, and `commitProposedState`, which validates the definition
@@ -151,6 +153,7 @@ keeps the deload offset.
   `editor-empty-day`, `editor-leave`. Each gets a manifest entry and role-inventory
   entries; none joins the fixed Plan 064 list in `tools/check-rules-only.mjs`.
   `progression-editor` is recaptured.
+- The facts line under the program name reads the host's block copy ("Week 3 of 7", or that the block is ready for review), so it says what Today and the Program tab say.
 - Telemetry stays inside the closed schema: `active_program_edited` with its existing
   `outcome` values is the only event. No new event or property; no free text, names or
   values.

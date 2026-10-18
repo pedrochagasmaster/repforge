@@ -140,6 +140,7 @@ export const SUITES = {
     s("test/ui-catalog-contract.mjs", [], { seconds: 17 }),
     s("test/install-modes.mjs", [], { seconds: 30 }),
     s("test/onboarding-cancel.mjs"),
+    s("test/program-editor-a.mjs", [], { domains: ["program", "workout", "persistence"], seconds: 40 }),
     s("test/program-editor-text-fields.mjs"),
     s("test/program-editor-drag-selection.mjs"),
     s("test/program-editor-sorting.mjs", [], { seconds: 13 }),

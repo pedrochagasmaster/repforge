@@ -5,6 +5,7 @@
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { openInstalledEditor } from "./fixtures/installed-editor.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -136,21 +137,19 @@ async function main() {
     await waitForAppBoot(page, { base: BASE });
     await writeFixture(page);
     await page.evaluate(() => window.__repforgeLeaveWorkout?.());
-    await page.click('nav button[data-view="program"]');
-    await page.waitForSelector("#program.view.active", { timeout: 5000 });
-    await page.click("#programEditToggle");
-    await page.waitForSelector("#programEditorWrap:not(.is-hidden)", { timeout: 5000 });
+    await openInstalledEditor(page);
 
+    // Plan 074: exercises are reordered from the day menu's Reorder exercises list.
     const editor = page.locator("#programEditor");
-    const name = editor.locator('[data-role="exercise-field"][data-field="name"]').first();
+    const name = editor.locator('[data-role="exercise-row"] .review__name').first();
     const before = await name.evaluate((element) => getComputedStyle(element).userSelect);
     check(before !== "none", "exercise names remain selectable during ordinary editing", { userSelect: before });
 
-    const day = editor.locator('[data-role="day"]').first();
-    await day.locator('[data-role="day-menu"]').click();
-    await day.locator('[data-role="toggle-reorder"]').click();
-
-    const during = await name.evaluate((element) => ({
+    await editor.locator('[data-role="day-menu"]').click();
+    await page.locator('#reviewSheet [data-role="day-action"][data-action="reorder"]').click();
+    await editor.locator('[data-role="reorder-list"]').waitFor({ timeout: 5000 });
+    const listed = editor.locator('[data-role="reorder-row"] .review__ro-name').first();
+    const during = await listed.evaluate((element) => ({
       userSelect: getComputedStyle(element).userSelect,
       webkitUserSelect: getComputedStyle(element).webkitUserSelect,
     }));
@@ -160,8 +159,10 @@ async function main() {
       during
     );
 
-    const firstRow = editor.locator('[data-role="exercise"][data-id="drag-selection-row-1"]');
-    const secondRow = editor.locator('[data-role="exercise"][data-id="drag-selection-row-2"]');
+    const firstRow = editor.locator('[data-role="reorder-row"][data-id="drag-selection-row-1"]');
+    const secondRow = editor.locator('[data-role="reorder-row"][data-id="drag-selection-row-2"]');
+    await page.waitForFunction(() => document.querySelector('#programEditor [data-role="drag-handle"]')?.hasAttribute("aria-describedby"),
+      undefined, { timeout: 5000 }).catch(() => {});
     const handleBox = await firstRow.locator('[data-role="drag-handle"]').boundingBox();
     const secondBox = await secondRow.boundingBox();
     if (!handleBox || !secondBox) throw new Error("drag controls have no browser geometry");
@@ -171,17 +172,15 @@ async function main() {
     await page.mouse.move(handleBox.x + handleBox.width / 2, secondBox.y + secondBox.height - 4, { steps: 5 });
     await page.mouse.up();
     await page.waitForFunction(() =>
-      document.querySelector('#programEditor [data-role="exercise"]')?.dataset.id === "drag-selection-row-2"
+      document.querySelector('#programEditor [data-role="reorder-row"]')?.dataset.id === "drag-selection-row-2"
     );
     check(
       await page.evaluate(() => window.getSelection()?.toString() === ""),
       "a completed pointer reorder leaves no native text selection"
     );
 
-    const rerenderedDay = editor.locator('[data-role="day"]').first();
-    await rerenderedDay.locator('[data-role="day-menu"]').click();
-    await rerenderedDay.locator('[data-role="toggle-reorder"]').click();
-    const after = await name.evaluate((element) => getComputedStyle(element).userSelect);
+    await editor.locator('[data-role="reorder-done"]').click();
+    const after = await editor.locator('[data-role="exercise-row"] .review__name').first().evaluate((element) => getComputedStyle(element).userSelect);
     check(after !== "none", "leaving reorder mode restores normal text selection", { userSelect: after });
   } finally {
     await context.close();

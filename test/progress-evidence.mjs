@@ -3,6 +3,7 @@
 // Sparse policy 0/1/2/3+, current-block vs all-history scope, this-week and
 // block-to-date denominators against model-backed values, mobile drill-ins.
 import assert from "node:assert/strict";
+import { SHEET, applyInstalledEditor, openExerciseSheet, openInstalledEditor, sheetTap } from "./fixtures/installed-editor.mjs";
 import { assertServingApp, launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
@@ -438,14 +439,14 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   await page.evaluate(() => document.querySelector('nav button[data-view="program"]')?.click());
   await page.waitForSelector("#program.view.active", { timeout: 5000 });
   if (await page.locator("#programEditorWrap").evaluate((element) => element.classList.contains("is-hidden"))) {
-    await page.click("#programEditToggle");
+    await openInstalledEditor(page);
   }
-  const editedRow = page.locator('#programEditor [data-role="exercise"][data-id="seed-ex-3"]');
-  await editedRow.waitFor({ timeout: 5000 });
-  if (await editedRow.locator('[data-role="sets-control"]').count() === 0) await editedRow.locator('[data-role="toggle-exercise"]').click();
-  await editedRow.locator('[data-role="adjust"][data-field="sets"][data-delta="1"]').click();
-  await page.click("#programEditToggle");
-  await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), null, { timeout: 10000 });
+  // One set more in week two only, through the exercise's Weeks table.
+  await openExerciseSheet(page, "seed-ex-3");
+  await page.locator(`${SHEET} [data-role="weeks-open"]`).click();
+  await page.locator(`${SHEET} [data-role="week-row"][data-cycle-index="2"]`).click();
+  await sheetTap(page, '[data-role="week-sets"][data-cycle-index="2"][data-delta="1"]');
+  await applyInstalledEditor(page);
   await page.waitForFunction(() => window.__repforgeWorkoutDraft.state().program.find((row) => row.id === "seed-ex-3")?.sets === 3,
     null, { timeout: 10000 });
   await page.evaluate(() => window.__repforgeStorage.flush());

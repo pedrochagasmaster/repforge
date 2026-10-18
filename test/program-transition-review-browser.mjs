@@ -20,6 +20,7 @@
  * program engine's worker (#353).
  */
 import { readFileSync } from "node:fs";
+import { SHEET, applyInstalledEditor, cancelInstalledEditor, closeEditorSheet, editorSettled, openExerciseSheet, openInstalledEditor, sheetTap, showEditorDay } from "./fixtures/installed-editor.mjs";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -98,37 +99,40 @@ async function openReview(page) {
   await page.locator("#reviewPanel").waitFor({ state: "visible" });
 }
 
-// Program → Edit → `+` on the first exercise's sets → Done, through
-// the production editor. Returns the slot and its set count for the cycle the
-// editor showed.
+// Program → Edit → the first exercise's sheet → Weeks → the current week's
+// `+` → Apply, through the production editor (Plan 074). Returns the slot and
+// its set count for the week the edit was made in.
 async function addSetInEditor(page) {
   if (await page.locator("#settings.view.active").count()) await page.locator("#settingsBack").click();
   await page.locator('nav button[data-view="program"]').click();
   await page.locator("#program.view.active").waitFor({ state: "visible" });
-  await page.locator("#programEditToggle").click();
-  await page.locator("#programEditorWrap:not(.is-hidden)").waitFor({ state: "visible" });
-  const rowId = await page.locator('#programEditor [data-role="adjust"][data-field="sets"][data-delta="1"]').first().getAttribute("data-id");
-  const selector = `#programEditor [data-role="adjust"][data-id="${rowId}"][data-field="sets"][data-delta="1"]`;
-  const plus = page.locator(selector);
-  // Open the day that holds it, as the lifter would; a regenerated week can
-  // list empty days first.
-  const toggle = page.locator('#programEditor [data-role="day"]')
-    .filter({ has: page.locator(`[data-role="adjust"][data-id="${rowId}"]`) }).locator('[data-role="toggle-day"]');
-  if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
-  await plus.waitFor({ state: "visible" });
-  const cycleIndex = Number(await plus.getAttribute("data-cycle-index"));
-  const shown = () => page.evaluate((target) =>
-    Number(document.querySelector(target)?.previousElementSibling?.textContent), selector);
-  const before = await shown();
-  await plus.click();
-  await page.waitForFunction(({ target, next }) =>
-    document.querySelector(target)?.previousElementSibling?.textContent === String(next), { target: selector, next: before + 1 });
-  await page.locator("#programEditToggle").click();
-  // Done either saves and closes the editor or keeps it open with an error.
+  await openInstalledEditor(page);
+  // A regenerated week can list empty days first: use the first day with a row.
+  let rowId = null;
+  for (const tab of await page.locator('#programEditor [data-role="day-tab"]').all()) {
+    await tab.click();
+    rowId = await page.locator('#programEditor [data-role="exercise-row"]').first().getAttribute("data-id").catch(() => null);
+    if (rowId) break;
+  }
+  if (!rowId) throw new Error("the installed editor shows no exercise");
+  const cycleIndex = await page.evaluate(() => window.__repforgeMesocycleWeek?.()?.current || 1);
+  const before = await page.evaluate(({ id, cycle }) => {
+    const definition = window.__repforgeWorkoutDraft.state().programMeta.programDefinition;
+    const row = window.__repforgeWorkoutDraft.state().program.find((entry) => entry.id === id);
+    const slot = definition.days.flatMap((day) => day.slots || []).find((candidate) => candidate.id === (row?.slotId || id));
+    return slot?.prescriptionsByCycle.find((entry) => entry.cycleIndex === cycle)?.sets.length;
+  }, { id: rowId, cycle: cycleIndex });
+  await openExerciseSheet(page, rowId);
+  await page.locator(`${SHEET} [data-role="weeks-open"]`).click();
+  await page.locator(`${SHEET} [data-role="week-row"][data-cycle-index="${cycleIndex}"]`).click();
+  await sheetTap(page, `[data-role="week-sets"][data-cycle-index="${cycleIndex}"][data-delta="1"]`);
+  await closeEditorSheet(page);
+  await page.locator('#programEditor [data-role="apply"]').click();
+  // Apply either saves and closes the editor or keeps it open with an error.
   await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden") ||
     /Fix the highlighted values/.test(document.querySelector("#programEditorWrap")?.innerText || ""));
   if (!await page.evaluate(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden")))
-    throw new Error("the installed editor refused Done: Fix the highlighted values before continuing.");
+    throw new Error("the installed editor refused Apply: Fix the highlighted values before continuing.");
   await flush(page);
   const row = (await state(page)).program.find((entry) => entry.id === rowId);
   return { slotId: row.slotId || row.id, movement: row.name, cycleIndex, sets: before + 1 };
@@ -140,14 +144,16 @@ async function checkEditorDays(page, label) {
   if (await page.locator("#settings.view.active").count()) await page.locator("#settingsBack").click();
   await page.locator('nav button[data-view="program"]').click();
   await page.locator("#program.view.active").waitFor({ state: "visible" });
-  await page.locator("#programEditToggle").click();
-  await page.locator("#programEditorWrap:not(.is-hidden)").waitFor({ state: "visible" });
-  const shown = await page.evaluate(() => [...document.querySelectorAll('#programEditor [data-role="day"]')].map((section) =>
-    ({ day: section.dataset.day, exercises: section.querySelectorAll('[data-role="exercise"]').length })));
+  await openInstalledEditor(page);
+  const shown = [];
+  for (const tab of await page.locator('#programEditor [data-role="day-tab"]').all()) {
+    await tab.click();
+    shown.push({ day: await tab.getAttribute("data-day"), exercises: await page.locator('#programEditor [data-role="exercise-row"]').count() });
+  }
   const want = training((await state(page)).programMeta.programDefinition).map((day) => day.name);
   check(JSON.stringify(shown.map((entry) => entry.day)) === JSON.stringify(want) && shown.every((entry) => entry.exercises > 0),
     `${label}: the installed editor shows the new block's days, each with its exercises`, { want, shown });
-  await page.locator("#programEditToggle").click();
+  await cancelInstalledEditor(page);
   await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"));
 }
 
@@ -525,14 +531,17 @@ async function main() {
     await seed(pt);
     await pt.locator('nav button[data-view="program"]').click();
     await pt.locator("#program.view.active").waitFor({ state: "visible" });
-    await pt.locator("#programEditToggle").click();
-    await pt.locator("#programEditorWrap:not(.is-hidden)").waitFor({ state: "visible" });
+    await openInstalledEditor(pt);
     const RENAMED = "Meu dia de puxar";
-    const renamedField = pt.locator("#programEditor .pday__name").nth(1);
+    const secondDay = await pt.locator('#programEditor [data-role="day-tab"]').nth(1).getAttribute("data-day");
+    await showEditorDay(pt, secondDay);
+    await pt.locator(`#programEditor [data-role="day-name-edit"][data-day="${secondDay}"]`).click();
+    const renamedField = pt.locator(`${SHEET}.is-open [data-role="rename-input"]`);
     await renamedField.fill(RENAMED);
     await renamedField.press("Enter");
-    await pt.locator("#programEditToggle").click();
-    await pt.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"));
+    await pt.waitForSelector(SHEET, { state: "hidden", timeout: 5000 });
+    await editorSettled(pt);
+    await applyInstalledEditor(pt);
     await flush(pt);
     const ptBefore = training((await state(pt)).programMeta.programDefinition);
     check(ptBefore[1]?.name === RENAMED && ptBefore.filter((_, index) => index !== 1).every((day) => ptDayName(day.name)),

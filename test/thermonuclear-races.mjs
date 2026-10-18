@@ -4,6 +4,7 @@
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium, waitForAsyncCondition } from "./browser.mjs";
+import { SHEET, closeEditorSheet, editorSettled, openExerciseSheet, openInstalledEditor, sheetTap } from "./fixtures/installed-editor.mjs";
 import {
   clearPersistenceArtifacts,
   inventoryPersistenceArtifacts,
@@ -399,7 +400,7 @@ async function openProgramEditor(page) {
   if (await page.locator("#programEditorWrap").evaluate((element) =>
     element.classList.contains("is-hidden")
   )) {
-    await page.click("#programEditToggle");
+    await openInstalledEditor(page);
   }
   await page.waitForSelector("#programEditorWrap:not(.is-hidden)", { timeout: 5000 });
 }
@@ -1657,25 +1658,31 @@ async function scenarioConcurrentExerciseFieldEdits(browser) {
     await openProgramEditor(counter);
     await holdStorageLock(locker);
 
-    await renamer
-      .locator('#programEditor [data-role="exercise-field"][data-id="audit-press"][data-field="name"]')
-      .fill("Audit press renamed");
-    await counter
-      .locator('#programEditor [data-role="adjust"][data-id="audit-press"][data-field="sets"][data-delta="1"]')
-      .click();
+    // A catalog movement keeps its name (Plan 074), so the two tabs race its notes
+    // against its set count: two distinct fields of the same exercise.
+    await openExerciseSheet(renamer, "audit-press");
+    await renamer.locator(`${SHEET} [data-role="more-details"] summary`).click();
+    const notes = renamer.locator(`${SHEET} [data-role="exercise-field"][data-id="audit-press"][data-field="notes"]`);
+    await notes.fill("Audit press notes");
+    await notes.press("Tab");
+    await editorSettled(renamer);
+    await closeEditorSheet(renamer);
+    await openExerciseSheet(counter, "audit-press");
+    await sheetTap(counter, '[data-role="sets-step"][data-delta="1"]');
+    await closeEditorSheet(counter);
     const [renamerStage, counterStage] = await Promise.all([
       renamer.evaluate(async () => (await window.__debugProgramEditor?.())?.session),
       counter.evaluate(async () => (await window.__debugProgramEditor?.())?.session),
     ]);
     check(
-      renamerStage?.document?.program?.[0]?.name === "Audit press renamed" &&
+      renamerStage?.document?.program?.[0]?.notes === "Audit press notes" &&
         counterStage?.document?.program?.[0]?.sets === 3,
       "precondition: each installed editor holds its distinct staged field",
       { renamerStage, counterStage }
     );
-    await renamer.click("#programEditToggle");
+    await renamer.locator('#programEditor [data-role="apply"]').click();
     await waitForPendingStorageLocks(locker, 1);
-    await counter.click("#programEditToggle");
+    await counter.locator('#programEditor [data-role="apply"]').click();
     await waitForPendingStorageLocks(locker, 2);
     await releaseStorageLock(locker);
     await Promise.all([
@@ -1693,9 +1700,9 @@ async function scenarioConcurrentExerciseFieldEdits(browser) {
     check(
       final.local?.program?.length === 1 &&
         final.idb?.program?.length === 1 &&
-        localExercise?.name === "Audit press renamed" &&
+        localExercise?.notes === "Audit press notes" &&
         localExercise?.sets === 3 &&
-        idbExercise?.name === "Audit press renamed" &&
+        idbExercise?.notes === "Audit press notes" &&
         idbExercise?.sets === 3,
       "distinct concurrent fields survive without duplicate exercise rows",
       { localExercise, idbExercise }

@@ -2,6 +2,7 @@
 /** Plan 057-P7 / Plan 064 R3k / Plan 067: Program roles, the ledger overview with no readiness route, its adaptive
  *  next-load column, and editor dock clearance. */
 import assert from "node:assert/strict";
+import { cancelInstalledEditor, closeEditorSheet, editorSettled, openExerciseSheet, openInstalledEditor } from "./fixtures/installed-editor.mjs";
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
@@ -169,14 +170,16 @@ async function contrastSnapshot(page) {
     };
     return ["light", "dark"].map((theme) => {
       window.__repforgeUi.setTheme(theme);
+      // Buttons ease their background between themes; measure where they land.
+      for (const animation of document.getAnimations()) animation.finish();
       return {
         theme,
         replace: (() => {
-          const button = document.querySelector('#programEditor [data-role="replace"]');
+          const button = document.querySelector('#reviewSheet [data-role="swap-open"]');
           return button ? { role: button.dataset.actionRole || "", contrast: contrast(rgb(getComputedStyle(button).color), background(button)) } : null;
         })(),
         remove: (() => {
-          const button = document.querySelector('#programEditor [data-role="remove-exercise"]');
+          const button = document.querySelector('#reviewSheet [data-role="remove-exercise"]');
           return button ? { role: button.dataset.actionRole || "", contrast: contrast(rgb(getComputedStyle(button).color), background(button)) } : null;
         })(),
       };
@@ -223,46 +226,46 @@ try {
   await page.click("#seeVolumeAudit");
   await page.waitForSelector("#programEditorWrap:not(.is-hidden) #programEditor [data-role=\"editor\"]", { timeout: 5000 });
   check(await page.locator("#programOverview.is-hidden").count() === 1, "effective-set action enters the installed Program editor");
-  await page.click("#programEditToggle");
+  await editorSettled(page);
+  await cancelInstalledEditor(page);
   await page.waitForSelector("#programOverview:not(.is-hidden)", { timeout: 5000 });
 
-  await page.click("#programEditToggle");
-  await page.waitForSelector('#programEditor [data-role="editor"]', { timeout: 5000 });
-  const row = page.locator('#programEditor [data-role="exercise"]').first();
-  if (!(await row.locator('[data-role="replace"]').count())) await row.locator('[data-role="toggle-exercise"]').click();
-  await page.waitForSelector('#programEditor [data-role="replace"]', { timeout: 5000 });
+  await openInstalledEditor(page);
+  const tabs = await page.evaluate(() => [...document.querySelectorAll('#programEditor [data-role="day-tab"]')]
+    .map((tab) => tab.getAttribute("aria-selected")));
+  const firstRow = await page.locator('#programEditor [data-role="exercise-row"]').first().getAttribute("data-id");
+  await openExerciseSheet(page, firstRow);
   const roles = await page.evaluate(() => ({
-    toggles: [...document.querySelectorAll('#programEditor [data-role="toggle-day"], #programEditor [data-role="toggle-exercise"]')]
-      .map((button) => button.getAttribute("aria-expanded")),
-    replace: document.querySelector('#programEditor [data-role="replace"]')?.dataset.actionRole || "",
-    remove: document.querySelector('#programEditor [data-role="remove-exercise"]')?.dataset.actionRole || "",
-    dockRole: document.querySelector("#program nav")?.dataset.elevation || document.querySelector("body:has(#program.program-editor-installed) nav")?.dataset.elevation || "",
-    dockShadow: getComputedStyle(document.querySelector("body:has(#program.program-editor-installed) nav")).boxShadow,
+    replace: document.querySelector('#reviewSheet [data-role="swap-open"]')?.dataset.actionRole || "",
+    remove: document.querySelector('#reviewSheet [data-role="remove-exercise"]')?.dataset.actionRole || "",
+    dockRole: document.querySelector('#programEditor [data-role="apply-bar"]')?.dataset.elevation || "",
+    dockShadow: getComputedStyle(document.querySelector('#programEditor [data-role="apply-bar"]')).boxShadow,
   }));
-  check(roles.toggles.length > 0 && roles.toggles.every((value) => value === "true" || value === "false"),
-    "editor expansion controls expose aria-expanded", roles.toggles);
+  check(tabs.length > 0 && tabs.filter((value) => value === "true").length === 1 && tabs.every((value) => value === "true" || value === "false"),
+    "the editor's day tabs expose aria-selected, one at a time", tabs);
   const zeroEditorText = await page.locator("#programMeta").textContent();
   check(!/0\s*\/\s*\d+\s*(ready|prontos)/i.test(zeroEditorText || ""),
     "zero readiness renders no editor readiness chip", zeroEditorText);
   check(roles.replace === "replacement" && roles.remove === "removal",
     "Replace and Remove expose distinct semantic action roles", roles);
   check(roles.dockRole === "persistent-action" && roles.dockShadow !== "none",
-    "installed editor dock exposes persistent-action elevation", roles);
+    "the editor's pinned Apply exposes persistent-action elevation", roles);
   const contrast = await contrastSnapshot(page);
   for (const surface of contrast) {
     check(surface.replace?.role === "replacement" && surface.remove?.role === "removal" &&
       surface.replace.contrast >= 4.5 && surface.remove.contrast >= 4.5,
     `${surface.theme} Replace/Remove roles remain distinguishable and AA`, surface);
   }
+  await closeEditorSheet(page);
   const clearance = await page.evaluate(() => {
-    const last = [...document.querySelectorAll('#programEditor [data-role="exercise"]')].at(-1);
-    const dock = document.querySelector("body:has(#program.program-editor-installed) nav");
+    const last = [...document.querySelectorAll('#programEditor [data-role="exercise-row"], #programEditor [data-role="add-exercise"]')].at(-1);
+    const dock = document.querySelector('#programEditor [data-role="apply-bar"]');
     window.scrollTo(0, document.scrollingElement?.scrollHeight || document.documentElement.scrollHeight);
     const row = last?.getBoundingClientRect(), bar = dock?.getBoundingClientRect();
     return row && bar ? { rowBottom: row.bottom, dockTop: bar.top, viewport: innerHeight, clear: row.bottom <= bar.top + 1 } : null;
   });
-  check(clearance?.clear === true, "the last editor row clears the persistent dock at scroll end", clearance);
-  await page.click("#programEditToggle");
+  check(clearance?.clear === true, "the day's last control clears the pinned Apply at scroll end", clearance);
+  await cancelInstalledEditor(page);
   await page.waitForSelector("#programOverview:not(.is-hidden)", { timeout: 5000 });
 
   console.log("\nProgram readiness is retired; the next column carries the adaptive recommendation");

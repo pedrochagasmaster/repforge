@@ -8,6 +8,7 @@
  * four-day ProgramDefinition, generated on a Portuguese device.
  */
 import assert from "node:assert/strict";
+import { EDITOR, SHEET, applyInstalledEditor, openInstalledEditor, showEditorDay } from "./fixtures/installed-editor.mjs";
 import { readFileSync } from "node:fs";
 import { launchChromium, waitForAppBoot, waitForAsyncCondition } from "./browser.mjs";
 import { definitionSlot, installGeneratedProgram, isWeightRepsSlot, metricLogRow } from "./fixtures/history-metric-rows.mjs";
@@ -25,7 +26,7 @@ const texts = (page, selector) =>
   page.evaluate((sel) => [...document.querySelectorAll(sel)].map((node) => node.textContent.trim()), selector);
 const dayTabs = (page) => texts(page, "#dayTabs button");
 const editorNames = (page) =>
-  page.evaluate(() => [...document.querySelectorAll("#programEditor .pday__name")].map((input) => input.value));
+  page.evaluate(() => [...document.querySelectorAll('#programEditor [data-role="day-tab"]')].map((tab) => tab.textContent.trim()));
 const view = async (page, name) => {
   await page.click(`nav button[data-view="${name}"]`);
   await page.waitForSelector(`#${name}.view.active`);
@@ -84,7 +85,7 @@ try {
   await view(page, "program");
   assert.deepEqual(await texts(page, "#programOverview .prog-day__title"), portugueseAuthored,
     "the program overview shows the Portuguese day names in authored order");
-  await page.click("#programEditToggle");
+  await openInstalledEditor(page);
   assert.deepEqual(await editorNames(page), portugueseAuthored, "the editor shows the Portuguese day names in authored order");
 
   // Renaming a day to the name another day already shows would leave two days reading alike.
@@ -93,41 +94,48 @@ try {
     const rows = (await window.__debugProgramEditor?.())?.session?.document?.program || JSON.parse(localStorage.getItem(key)).program;
     return [...new Set(rows.map((row) => row.day))];
   }, KEY);
-  const secondDay = page.locator("#programEditor .pday__name").nth(1);
+  // Each day is renamed from its head, in a sheet.
+  const renameField = async (day) => {
+    await showEditorDay(page, day);
+    await page.locator(`${EDITOR} [data-role="day-name-edit"][data-day="${day}"]`).click();
+    const input = page.locator(`${SHEET}.is-open [data-role="rename-input"]`);
+    await input.waitFor({ timeout: 5000 });
+    return input;
+  };
+  const secondDay = await renameField(authored[1]);
   await secondDay.fill(portugueseAuthored[0]);
   await secondDay.press("Enter");
+  await page.waitForSelector(`${SHEET} #programEditorRenameError`, { timeout: 5000 });
   assert.deepEqual(await stagedDays(), authored, "a rename to the name another day shows is refused");
-  // The refusal is visible and read out (#343): the field shows the day's name again
-  // and carries the reason, so the lifter cannot believe the rename landed.
+  // The refusal is visible and read out (#343): the field carries the reason, and the
+  // day still reads its own name, so the lifter cannot believe the rename landed.
   const fieldError = (locator) => locator.evaluate((input) => {
     const note = document.getElementById(input.getAttribute("aria-describedby") || "");
-    return { value: input.value, invalid: input.getAttribute("aria-invalid"), note: note?.textContent.trim() || null,
+    return { invalid: input.getAttribute("aria-invalid"), note: note?.textContent.trim() || null,
       role: note?.getAttribute("role") || null, visible: !!note && note.getClientRects().length > 0 };
   });
-  await page.waitForFunction(() => document.querySelectorAll("#programEditor .pday__name")[1]?.getAttribute("aria-describedby"),
-    undefined, { timeout: 5000 }).catch(() => {});
   assert.deepEqual(await fieldError(secondDay), {
-    value: portugueseAuthored[1], invalid: "true", note: PT["toast.day_name_exists"], role: "alert", visible: true,
-  }, "a refused rename restores the day's name and says why on the field");
+    invalid: "true", note: PT["toast.day_name_exists"], role: "alert", visible: true,
+  }, "a refused rename says why on the field");
+  assert.deepEqual(await editorNames(page), portugueseAuthored, "after a refused rename every day still reads its own name");
   await secondDay.fill("");
   await secondDay.press("Enter");
-  assert.deepEqual(await fieldError(secondDay), { value: portugueseAuthored[1], invalid: null, note: null, role: null, visible: false },
-    "a blank rename restores the day's name without an error");
+  await page.waitForSelector(SHEET, { state: "hidden", timeout: 5000 });
+  assert.deepEqual(await editorNames(page), portugueseAuthored, "a blank rename leaves the day's name as it was");
 
-  const firstDay = page.locator("#programEditor .pday__name").first();
+  const firstDay = await renameField(authored[0]);
   await firstDay.fill("My upper day");
   await firstDay.press("Enter");
   await waitForAsyncCondition(page, async () => {
     const debug = await window.__debugProgramEditor?.();
     return (debug?.session?.document?.program || []).some((row) => row.day === "My upper day");
   }, undefined, { timeout: 5000 });
-  assert.deepEqual(trainingDayNames(await stored(page)), authored, "installed edits stay staged until Done");
+  assert.deepEqual(trainingDayNames(await stored(page)), authored, "installed edits stay staged until Apply");
 
-  await page.click("#programEditToggle");
-  await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"));
+  await applyInstalledEditor(page);
   const renamed = await stored(page);
   assert.deepEqual(trainingDayNames(renamed), ["My upper day", ...authored.slice(1)],
-    "Done renames exactly that day in the canonical program");
+    "Apply renames exactly that day in the canonical program");
   assert.ok(renamed.program.filter((row) => row.day === "My upper day").length > 0 &&
     !renamed.program.some((row) => row.day === authored[0]), "every row of the renamed day follows it");
   assert.deepEqual(await dayTabs(page), ["My upper day", ...portugueseAuthored.slice(1)],

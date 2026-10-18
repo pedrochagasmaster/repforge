@@ -4,6 +4,7 @@
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
 import { finishEarly, openLoggedSets } from "./fixtures/focus-workout.mjs";
+import { SHEET, applyInstalledEditor, cancelInstalledEditor, closeEditorSheet, openExerciseSheet, openInstalledEditor, sheetTap } from "./fixtures/installed-editor.mjs";
 import { launchChromium } from "./browser.mjs";
 import {
   clearPersistenceArtifacts,
@@ -219,15 +220,22 @@ function draftSet(draft, ordinal) {
     done: !!set && set.completion !== "pending", warmup: set?.role === "warmup" };
 }
 
-function setsValue(page) {
-  return page.locator(`#programEditor [data-role="sets-value"]`).first();
+/** The staged set count in the exercise's sheet, as a number. */
+async function stagedSets(page) {
+  const text = await page.locator(`${SHEET} [data-role="sets-step-value"]`).textContent();
+  return Number(text?.match(/\d+/)?.[0]);
 }
 
 async function reduceSets(page) {
-  await page.locator(
-    `#programEditor [data-role="adjust"][data-id="${EXERCISE_ID}"][data-field="sets"][data-delta="-1"]`
-  ).click();
-  await page.waitForTimeout(100);
+  if (!(await page.locator(`${SHEET}.is-open [data-pe-sheet="exercise"][data-id="${EXERCISE_ID}"]`).count()))
+    await openExerciseSheet(page, EXERCISE_ID);
+  await sheetTap(page, '[data-role="sets-step"][data-delta="-1"]');
+}
+
+/** Apply from the pinned bar without waiting for the editor to close: a refusal keeps it open. */
+async function pressApply(page) {
+  await closeEditorSheet(page);
+  await page.locator('#programEditor [data-role="apply"]').click();
 }
 
 async function fillSet(page, set, load, reps, rir) {
@@ -287,7 +295,7 @@ async function openProgramEditor(page) {
   if (await page.locator("#programEditorWrap").evaluate((element) =>
     element.classList.contains("is-hidden")
   )) {
-    await page.click("#programEditToggle");
+    await openInstalledEditor(page);
   }
   await page.waitForSelector("#programEditorWrap:not(.is-hidden)", { timeout: 5000 });
 }
@@ -401,14 +409,12 @@ async function main() {
     await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
     await page.click('nav button[data-view="program"]');
     await page.waitForSelector("#program.view.active", { timeout: 5000 });
-    await page.click("#programEditToggle");
-    await page.waitForSelector("#programEditorWrap:not(.is-hidden)", { timeout: 5000 });
+    await openInstalledEditor(page);
 
-    const setsInput = setsValue(page);
     const beforeReduction = await readRuntime(page);
 
     await reduceSets(page);
-    await page.click("#programEditToggle");
+    await pressApply(page);
     await page.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
     await page.evaluate(() => window.__repforgeStorage.flush());
 
@@ -433,9 +439,8 @@ async function main() {
         artifacts: afterReduction.persistenceArtifacts,
       }
     );
-    check(await setsInput.textContent() === "1", "rejected staged reduction remains visible until discarded", {
-      inputValue: await setsInput.textContent(),
-    });
+    const stagedRows = await page.locator(`#programEditor [data-role="exercise-row"][data-id="${EXERCISE_ID}"] [data-role="set-line"]`).count();
+    check(stagedRows === 1, "rejected staged reduction remains visible until discarded", { stagedRows });
     check(replicasUnchanged, "rejection leaves both durable replicas unchanged", {
       localBefore: beforeReduction.local,
       localAfter: afterReduction.local,
@@ -458,9 +463,11 @@ async function main() {
     );
 
     await page.click("#programEditorKeep");
-    await page.click('nav button[data-view="log"]');
+    await cancelInstalledEditor(page);
     await page.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
     await page.click("#programEditorDiscard");
+    await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 5000 });
+    await page.click('nav button[data-view="log"]');
     await page.waitForSelector("#log.view.active", { timeout: 5000 });
     await page.click("#startWorkout");
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
@@ -522,20 +529,14 @@ async function main() {
     await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
     await page.click('nav button[data-view="program"]');
     await page.waitForSelector("#program.view.active", { timeout: 5000 });
-    await page.click("#programEditToggle");
-    await page.waitForSelector("#programEditorWrap:not(.is-hidden)", { timeout: 5000 });
+    await openInstalledEditor(page);
 
-    const allowedInput = setsValue(page);
     const dialogsBeforeAllowed = dialogs.length;
     await reduceSets(page);
-    check(await allowedInput.textContent() === "1", "allowed reduction updates the staged count", {
-      inputValue: await allowedInput.textContent(),
+    check(await stagedSets(page) === 1, "allowed reduction updates the staged count", {
+      staged: await stagedSets(page),
     });
-    await page.click("#programEditToggle");
-    await page.waitForFunction(
-      () => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),
-      { timeout: 5000 }
-    );
+    await applyInstalledEditor(page, { timeout: 5000 });
     await page.evaluate(() => window.__repforgeStorage.flush());
     const afterAllowedReduction = await readRuntime(page);
     const allowed =
@@ -724,7 +725,7 @@ async function main() {
       await holdStorageLock(locker);
 
       await reduceSets(page);
-      await page.click("#programEditToggle");
+      await pressApply(page);
       await waitForQueuedReductionJournal(page);
       await workout.locator(`[data-k="${EXERCISE_ID}_2_load"]`).fill("97.5");
       await waitForDraftValue(workout, `${EXERCISE_ID}_2_load`, "97.5");

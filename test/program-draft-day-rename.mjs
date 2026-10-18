@@ -4,6 +4,7 @@
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium, waitForAsyncCondition } from "./browser.mjs";
+import { EDITOR, SHEET, editorSettled, openInstalledEditor, showEditorDay } from "./fixtures/installed-editor.mjs";
 import {
   clearPersistenceArtifacts,
   inventoryPersistenceArtifacts,
@@ -458,8 +459,25 @@ async function openProgramEditor(page) {
   const editorHidden = await page.locator("#programEditorWrap").evaluate((element) =>
     element.classList.contains("is-hidden")
   );
-  if (editorHidden) await page.click("#programEditToggle");
+  if (editorHidden) await openInstalledEditor(page);
   await page.waitForSelector("#programEditorWrap:not(.is-hidden)", { timeout: 5000 });
+}
+
+/** Rename a day through the day head's rename sheet. A refused name leaves the sheet open with its reason; it is closed. */
+async function stageDayRename(page, oldDay, nextDay) {
+  await showEditorDay(page, oldDay);
+  await page.locator(`${EDITOR} [data-role="day-name-edit"][data-day="${oldDay}"]`).click();
+  const input = page.locator(`${SHEET}.is-open [data-role="rename-input"]`);
+  await input.waitFor({ timeout: 5000 });
+  await input.fill(nextDay);
+  await page.locator(`${SHEET} [data-role="rename-save"]`).click();
+  await page.waitForFunction((sheet) => document.querySelector(sheet)?.hidden ||
+    !!document.querySelector(`${sheet} #programEditorRenameError`), SHEET, { timeout: 5000 });
+  await editorSettled(page);
+  if (await page.locator(`${SHEET} #programEditorRenameError`).count()) {
+    await page.locator(`${SHEET} [data-review-sheet-close]`).click();
+    await page.waitForSelector(SHEET, { state: "hidden", timeout: 5000 });
+  }
 }
 
 async function dispatchRename(page, oldDay, nextDay) {
@@ -467,22 +485,12 @@ async function dispatchRename(page, oldDay, nextDay) {
     element.classList.contains("is-hidden")
   );
   if (editorHidden) await openProgramEditor(page);
-  await page.evaluate(
-    ({ oldDay, nextDay }) => {
-      const input = [...document.querySelectorAll('#programEditor [data-role="day-name"]')].find(
-        (candidate) => candidate.dataset.day === oldDay
-      );
-      if (!input) throw new Error(`rename input missing for ${oldDay}`);
-      input.value = nextDay;
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-    },
-    { oldDay, nextDay }
-  );
-  // Installed-editor edits are staged until the host's explicit Done action.
+  await stageDayRename(page, oldDay, nextDay);
+  // Installed-editor edits are staged until the host's explicit Apply action.
   // Let that action start its persistence attempt. A held lock intentionally
   // keeps the editor open while the test inspects the queued receipt, whereas
   // an unlocked commit closes the editor when it finishes.
-  await page.click("#programEditToggle");
+  await page.locator(`${EDITOR} [data-role="apply"]`).click();
   await page.waitForFunction(
     () => {
       const wrap = document.querySelector("#programEditorWrap");
@@ -774,6 +782,7 @@ async function runTotalFailure(browser) {
     const draftRaw = await seedProgressScenario(page);
     await openProgramEditor(page);
     const before = await readRuntime(page);
+    await stageDayRename(page, "Day 1", "Push Day");
 
     await page.evaluate(
       async ({ key, oldDay, nextDay, lockName }) => {
@@ -805,12 +814,8 @@ async function runTotalFailure(browser) {
           }
         };
         try {
-          const input = [...document.querySelectorAll('#programEditor [data-role="day-name"]')].find(
-            (candidate) => candidate.dataset.day === oldDay
-          );
-          input.value = nextDay;
-          input.dispatchEvent(new Event("change", { bubbles: true }));
-          document.querySelector("#programEditToggle")?.click();
+          // The rename is staged; Apply is what writes the replicas.
+          document.querySelector('#programEditor [data-role="apply"]')?.click();
           await settled();
           await window.__repforgeStorage.flush();
         } finally {
@@ -825,9 +830,9 @@ async function runTotalFailure(browser) {
     const ui = await page.evaluate(async () => ({
       tabDays: [...document.querySelectorAll("#dayTabs button")].map((button) => button.textContent),
       activeDay: document.querySelector("#dayTabs button.active")?.textContent ?? null,
-      editorDays: [...document.querySelectorAll('#programEditor [data-role="day-name"]')].map((input) => ({
-        dataDay: input.dataset.day,
-        value: input.value,
+      editorDays: [...document.querySelectorAll('#programEditor [data-role="day-tab"]')].map((tab) => ({
+        dataDay: tab.dataset.day,
+        value: tab.textContent,
       })),
       liveProgramDays: (await window.__debugProgramEditor?.())?.state?.program?.map((exercise) => exercise.day) ?? [],
     }));

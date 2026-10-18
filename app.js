@@ -11536,7 +11536,10 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     if(edit.after.length)slot.alternates=edit.after.map(String);else delete slot.alternates;
   }else if(edit?.kind==="exercise_remove"){
     if(!beforeRef.slot)return false;
-    for(const day of definition.days||[])day.slots=day.slots.filter(slot=>slot.id!==slotId);
+    // The slots after it close the gap: validateProgramDefinition wants a day's orders contiguous.
+    for(const day of definition.days||[]){
+      day.slots=day.slots.filter(slot=>slot.id!==slotId);
+      day.slots.forEach((item,index)=>{item.order=index+1})}
     dropPendingSuggestLoads(document,slotId);
   }else if(edit?.kind==="exercise_move"){
     const {slot}=find(slotId);if(!slot)return false;
@@ -11708,8 +11711,35 @@ function createInstalledProgramEditorAdapter(){
     reducedMotion:()=>reducedMotion(),
     announce:announceEditorChange,
     afterModal:afterModalSettles,
+    // Plan 074 (ADR 0021): onboarding B's editing language, in onboarding's sheet.
+    layout:"review",
+    sheet:entryAdjustSheet,openSheet:openEntryAdjustSheet,closeSheet:closeEntryAdjustSheet,
+    tile:(id,size)=>exerciseThumb(libraryEntry(id),{size}),
+    nums:monoNums,
+    dayMinutes:(document,day)=>installedEditorDayMinutes(document,day),
+    substitutions:(document,slotId)=>installedEditorSubstitutions(document,slotId),
+    revert:(count,document)=>revertInstalledEditorSession(count,document),
+    done:()=>requestInstalledDone(),
   }
 }
+function installedEditorDefinitionDay(document,day){
+  return(document?.programMeta?.programDefinition?.days||[]).find(item=>item?.kind==="training"&&item.name===day)||null}
+function installedEditorDayMinutes(document,day){
+  const canonical=installedEditorDefinitionDay(document,day);
+  if(!canonical||typeof ProgramCompiler?.estimateDaySeconds!=="function")return null;
+  try{const seconds=ProgramCompiler.estimateDaySeconds(canonical,undefined,rawExerciseCatalog);return seconds>0?Math.ceil(seconds/60):null}
+  catch{return null}}
+function installedEditorSubstitutions(document,slotId){
+  const definition=document?.programMeta?.programDefinition;
+  if(!definition||typeof ProgramCompiler?.findSubstitutions!=="function")return[];
+  try{return(ProgramCompiler.findSubstitutions(definition,slotId,{},rawExerciseCatalog)||[]).map(item=>item?.exerciseId).filter(Boolean)}
+  catch{return[]}}
+/* Undo in the editor takes its staged intents back to an earlier count. */
+function revertInstalledEditorSession(count,document){
+  if(!installedEditorSession)return;
+  if(!(count>0)){installedEditorSession=null;return}
+  installedEditorSession.edits=installedEditorSession.edits.slice(0,count);
+  installedEditorSession.document=cloneSnapshot(document)}
 window.__debugProgramEditor=async()=>{const local=readLocalStatus(),idb=await readIdbStatus();return{session:cloneSnapshot(installedEditorSession),state:cloneSnapshot(state),local,idb,decision:chooseSnapshot(local,idb),head:await refreshPersistenceHead()}};
 function createOnboardingProgramEditorAdapter(){
   return{
@@ -12090,6 +12120,10 @@ function renderProgram(){
   // seam, but leaves it out of the visual layout like the prior editor did.
   setProgramMetadataHidden(programEditMode);
   if(tog){tog.textContent=programEditMode?t("program.done_editing"):t("program.edit");tog.dataset.actionRole="expansion";tog.setAttribute("aria-expanded",programEditMode?"true":"false")}
+  // Plan 074: while editing, the header names the task and offers Cancel; Apply is the editor's own pinned bar.
+  tog?.classList.toggle("hidden",programEditMode);
+  const pageTitle=view?.querySelector(".page-title");if(pageTitle)pageTitle.textContent=t(programEditMode?"program.editor.title":"program.title");
+  const cancel=$("#programEditCancel");if(cancel)cancel.classList.toggle("hidden",!programEditMode);
   const end=$("#endBlock"),lede=ed?.querySelector(":scope > .program-editor-lede"),addDay=$("#addDay");
   // Advanced remains part of the installed editor. It is inside the editor
   // host, so hiding the disclosure here would strand the raw import/export
@@ -21283,6 +21317,10 @@ function init(){
     if(setupEditorOpen){requestEntryCancel();return}
     if(programEditMode){requestInstalledDone();return}
     programEditMode=true;renderProgram()};
+  const progCancel=$("#programEditCancel");if(progCancel)progCancel.onclick=()=>{
+    if(!programEditMode)return;
+    if(installedProgramEditor?.isDirty()){pendingEditorNavigation=null;openInstalledLeaveDialog();return}
+    finishInstalledEditor()};
   const leaveApply=$("#programEditorApply");if(leaveApply)leaveApply.onclick=()=>applyInstalledEditorAndContinue();
   const leaveDiscard=$("#programEditorDiscard");if(leaveDiscard)leaveDiscard.onclick=()=>finishInstalledEditor({discard:true});
   const leaveKeep=$("#programEditorKeep");if(leaveKeep)leaveKeep.onclick=()=>closeInstalledLeaveDialog();

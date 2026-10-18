@@ -20,6 +20,7 @@
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium, waitForAppBoot, answerRecommend } from "./browser.mjs";
+import { editorSettled, openExerciseSheet, openInstalledEditor } from "./fixtures/installed-editor.mjs";
 import { EVENT_DUPLICATE_POLICIES, FORBIDDEN_PROPERTY_NAMES } from "./fixtures/telemetry.mjs";
 import { exerciseAction, finishEarly, openLoggedSets, selectExercise } from "./fixtures/focus-workout.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
@@ -919,13 +920,15 @@ try {
     await page.click('nav button[data-view="program"]');
     await page.waitForSelector("#program.view.active", { timeout: 5000 });
     if (await page.locator("#programEditorWrap").evaluate((element) => element.classList.contains("is-hidden")))
-      await page.click("#programEditToggle");
-    await page.waitForSelector("#programEditorWrap:not(.is-hidden)", { timeout: 5000 });
-    await page.locator(`#programEditor [data-role="replace"][data-id="${SEED_A}"]`).click();
+      await openInstalledEditor(page);
+    await openExerciseSheet(page, SEED_A);
+    await page.locator('#reviewSheet [data-role="swap-open"]').click();
+    await page.locator('#reviewSheet [data-role="swap-search"]').click();
     await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
     await page.locator("#exPickList .pickrow").nth(2).click();
     await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
-    await page.click("#programEditToggle");
+    await editorSettled(page);
+    await page.locator('#programEditor [data-role="apply"]').click();
     await page.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
     await page.click("#programEditorApply");
     await page.waitForFunction(() => window.__captured.some(([n]) => n === "active_program_edited"), undefined, { timeout: 10000 });

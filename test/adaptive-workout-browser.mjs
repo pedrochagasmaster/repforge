@@ -10,6 +10,7 @@
  * recommendations, and completing a set recomputes only untouched sets.
  */
 import { readFileSync } from "node:fs";
+import { SHEET, applyInstalledEditor, editorSettled, openExerciseSheet, openInstalledEditor } from "./fixtures/installed-editor.mjs";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -142,19 +143,14 @@ async function setLoadStep(page, slotId, value) {
   await page.click('nav button[data-view="program"]');
   await page.waitForSelector("#program.view.active", { timeout: 5000 });
   if (await page.locator("#programEditorWrap").evaluate((element) => element.classList.contains("is-hidden")))
-    await page.click("#programEditToggle");
-  await page.waitForSelector("#programEditorWrap:not(.is-hidden)", { timeout: 5000 });
-  const row = page.locator(`#programEditor [data-role="exercise"][data-id="${slotId}"]`);
-  const day = row.locator("xpath=ancestor::*[@data-role='day']");
-  const toggleDay = day.locator('[data-role="toggle-day"]');
-  if (await toggleDay.count() && await toggleDay.getAttribute("aria-expanded") === "false") await toggleDay.click();
-  if (!await row.locator('[data-role="load-step"]').count()) await row.locator('[data-role="toggle-exercise"]').click();
-  const input = row.locator('[data-role="load-step"]');
+    await openInstalledEditor(page);
+  await openExerciseSheet(page, slotId);
+  const input = page.locator(`${SHEET} [data-role="load-step"]`);
   check(await input.inputValue() === "2.5", "the load-step field starts from the global minimum jump", await input.inputValue());
   await input.fill(String(value));
   await input.press("Tab");
-  await page.click("#programEditToggle");
-  await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 10000 });
+  await editorSettled(page);
+  await applyInstalledEditor(page);
   await flush(page);
 }
 
