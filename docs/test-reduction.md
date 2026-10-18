@@ -30,12 +30,16 @@ regex count. TAP tests, custom boolean checks, generative properties/cases,
 and rendered-role measurements use different counting conventions. Combining
 them into one invented denominator would misrepresent the reduction. New
 verification-tool and fixture protocol checks are additions, not deductions.
+Three individually duplicated static/runtime assertions are also removed;
+their retained owners are mapped below. They are not three removed commands.
 
 | Removed/reworked execution | Stronger retained evidence | Boundary preserved |
 | --- | --- | --- |
 | Scheduled `simulation.mjs --smoke` | The same file's full run executes phases 1/1b/1c/1d before proceeding, with 52 historical weeks and the final console-error oracle | Historical loading, save pipeline, log/PR invariants, attention board, manifest, viewport, navigation and contrast checks remain. No assertion specifically targets a 12-week boundary. `--smoke` remains available for manual feedback. |
 | Empty app boot before catalog seeding, followed by seed retries | Both localStorage and IndexedDB commit on an inert same-origin document before the real production loader boots; `ui-system.mjs` observes the first boot's complete replica values | Fresh isolated context, production normalization, theme/locale/clock/UUID pinning, and scenario journeys remain. Reload uses the same history entry. The exported reseed helper still supports loaded-page scenarios. |
 | Settling on repeated identical timer writes | The same 400ms mutation quiet window and 5s cap, ignoring only equal attribute/text writes and equal text-node replacement | Real delayed changes restart the quiet window; element replacement and real style/text changes remain observed. Fonts, visible images, animations, paint wait, and all role/pixel/geometry assertions remain. |
+| `vendor-runtimes.mjs`'s repeated `navPush === gestureExit` assertion | `motion-vocabulary.mjs`'s navPush section asserts the same equality plus spring type, damping and simulated release velocities | All distinct runtime/vendor assertions remain. |
+| Two `runtime-budget.mjs` source-shape assertions for the dnd release entry and absence of a second immutable-runtime list | `vendor-runtimes.mjs` parses the canonical release inventory and checks both runtime layers' owners/optional flags/immutability; its routing assertion also rejects a second immutable-runtime list | Gzip budgets, defer timing, MIME/cache behavior and bundle pin-size assertions remain in runtime-budget. |
 
 Persistence/race recovery, migrations and historical-writer fixtures, offline
 and privacy gates, accessibility, visual variants, and service checks are
