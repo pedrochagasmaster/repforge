@@ -723,43 +723,11 @@ const effortOrRirLabel=rir=>isEffortMode()?effortLabel(effortForRir(rir)):`@${fm
    commits at once, and under reduced motion (or without the runtime) the end
    state is drawn on the first frame with the same information. */
 /** The layer when it can animate, else null: the travelling outlines need the runtime. */
-function focusMotion(){
-  const m=window.RepForgeMotion;
-  return m&&m.available()&&!m.reducedMotion()?m:null}
-/** One outline travelling to the element that now wears it (T1 the shelf field,
- *  L2 the ledger open row). The destination keeps its own outline for the rest
- *  state; while this one is in flight the destination's is set aside, so there
- *  is one outline on screen, not two. `fromRect` is where the outline was drawn
- *  before the render moved it. */
-function travelOutline(host,fromRect,kind){
-  const m=focusMotion();
-  if(!m||!host||!fromRect)return false;
-  const ring=document.createElement("span");
-  ring.className=`${kind}__ring`;ring.setAttribute("aria-hidden","true");
-  host.classList.add("is-ring-travel");host.append(ring);
-  const done=()=>{ring.remove();host.classList.remove("is-ring-travel")};
-  m.animateIndicator(ring,fromRect).then(done,done);
-  return true}
-const BEAT_CLASSES=["motion-rise","motion-value-up","motion-value-down","motion-value-fade"];
-/** The CSS beats are stylesheet-only, so they play without the runtime; the
- *  layer's single reduced-motion decision keeps them off when it is on. */
-const beatsOn=()=>!window.RepForgeMotion?.reducedMotion?.();
-/** Run one CSS beat once and leave the element at rest. A beat holds its end
- *  keyframe while it is on, which would pin the element's transform, so the
- *  class comes off the moment it finishes. */
-function playBeat(el,cls){
-  if(!el||!beatsOn())return;
-  el.classList.remove(...BEAT_CLASSES);void el.offsetWidth;
-  el.classList.add(cls);
-  const end=()=>el.classList.remove(cls);
-  el.addEventListener("animationend",end,{once:true});
-  el.addEventListener("animationcancel",end,{once:true})}
-/** A beat written into a render's markup: take it off when it ends. */
-function settleBeats(root){
-  root.querySelectorAll(".motion-rise").forEach(el=>{
-    const end=()=>el.classList.remove("motion-rise");
-    el.addEventListener("animationend",end,{once:true});
-    el.addEventListener("animationcancel",end,{once:true})})}
+let FocusEffects;
+function focusEffects(){return FocusEffects||(FocusEffects=Focus.createFocusEffects({window,motion:ensureBrowserPresentation().motion}))}
+const focusMotion=()=>focusEffects().enabled(),beatsOn=()=>focusEffects().beatsOn();
+const playBeat=(...args)=>focusEffects().playBeat(...args),settleBeats=(...args)=>focusEffects().settleBeats(...args),
+  travelOutline=(...args)=>focusEffects().travelOutline(...args);
 /** M1, the shelf value on a pad tap, is conditional on a physical phone check
  *  at logging frequency (motion-rule-11-amendment.md section 5). This is the one
  *  switch: "directional" is the owner's pick (6px, 120ms, the way the value
@@ -3017,30 +2985,8 @@ function bindRestControls(root){
   root.querySelectorAll("[data-why]").forEach(b=>{b.onclick=e=>{e.stopPropagation();openWhySheet(b.dataset.why,b)}})}
 /** What a host shows right now, without a crossfade layer that is still leaving it (a second swap during the first
  *  fades out what the lifter sees, not the layer on top of it). */
-function liveHtml(host){
-  if(!host.querySelector(".motion-fade-out"))return host.innerHTML;
-  const copy=host.cloneNode(true);
-  copy.querySelectorAll(".motion-fade-out").forEach(el=>el.remove());
-  copy.querySelectorAll(".motion-fade-in").forEach(el=>el.classList.remove("motion-fade-in"));
-  return copy.innerHTML}
-/** L3, the crossfade: the outgoing content stays over the incoming for one 160ms beat and is gone. The layer is
- *  inert and hidden from assistive technology, and nothing under it waits on it. */
-function crossfadeIn(host,outHtml,outClass){
-  if(!outHtml||!focusMotion())return;
-  host.querySelectorAll(":scope > .motion-fade-out").forEach(el=>el.remove());
-  const out=document.createElement("div");
-  out.className=`${outClass} motion-fade-out`;out.setAttribute("aria-hidden","true");out.inert=true;out.innerHTML=outHtml;
-  // The copy is scenery: it carries none of the card's hooks, so nothing that looks for a control finds it twice.
-  out.querySelectorAll("*").forEach(el=>{for(const name of el.getAttributeNames())if(name.startsWith("data-"))el.removeAttribute(name)});
-  const kids=[...host.children];
-  kids.forEach(k=>k.classList.add("motion-fade-in"));
-  // First in the markup, last in the paint order (it is positioned): the real last child stays the last child.
-  host.prepend(out);
-  let over=false;
-  const end=()=>{if(over)return;over=true;out.remove();kids.forEach(k=>k.classList.remove("motion-fade-in"))};
-  out.addEventListener("animationend",end,{once:true});
-  out.addEventListener("animationcancel",end,{once:true});
-  setTimeout(end,320)}
+const liveHtml=host=>focusEffects().liveHtml(host);
+const crossfadeIn=(...args)=>focusEffects().crossfadeIn(...args);
 /** The rest markup for a card's cue slot, built from the same pieces the card is: the engine's cue for the set
  *  the shelf is working on. */
 function restSlotMarkup(card,mode){
