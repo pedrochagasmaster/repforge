@@ -70,6 +70,8 @@ export function inspectModules(sources) {
         }
       }
       if(ts.isImportTypeNode(node)&&ts.isLiteralTypeNode(node.argument)&&ts.isStringLiteral(node.argument.literal))inspectDependency(node.argument.literal,true);
+      if(ts.isJSDocImportTag(node)&&ts.isStringLiteral(node.moduleSpecifier))inspectDependency(node.moduleSpecifier,true);
+      if(ts.isImportEqualsDeclaration(node)&&ts.isExternalModuleReference(node.moduleReference)&&node.moduleReference.expression&&ts.isStringLiteral(node.moduleReference.expression))inspectDependency(node.moduleReference.expression,file.endsWith('.d.ts')||node.isTypeOnly===true);
       if (ts.isPropertyAccessExpression(node) && /^RepForge/.test(node.name.text) && ts.isIdentifier(node.expression) && ['window','globalThis','self','global'].includes(node.expression.text) && layer(file) !== 'compat') errors.push(`${file}: global module lookup`);
       if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'require') errors.push(`${file}: dynamic require`);
       if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && ['Date.now','Math.random'].includes(node.expression.getText(ast)) && layer(file) === 'training') errors.push(`${file}: implicit nondeterminism`);
@@ -81,6 +83,9 @@ export function inspectModules(sources) {
       // TypeScript does not include attached JSDoc in ordinary child traversal.
       for(const doc of node.jsDoc||[])inspect(doc);
     };
+    // Triple-slash directives are SourceFile metadata, not traversed AST nodes.
+    // Built-in lib directives describe the language environment, not app modules.
+    for(const reference of [...ast.referencedFiles,...ast.typeReferenceDirectives])inspectDependency({text:reference.fileName},true);
     inspect(ast); edges.set(file, deps);
   }
   const active = new Set(), done = new Set();
