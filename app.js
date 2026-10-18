@@ -16,7 +16,7 @@ import {createEntryRules} from './src/training/authoring.js';
 import {createWorkoutRules} from './src/training/workout.js';
 import {compiler as PersistenceCompiler,createTransitionRules} from './src/training/generation.js';
 import PersistenceMetrics from './src/training/metrics.js';
-import {progression as PersistenceProgression} from './src/training/progress.js';
+import {progression as PersistenceProgression,schedule} from './src/training/progress.js';
 const {cloneSnapshot,isPlainStateObject,isValidBlockId,isBoundedProgressionValue,isBoundedTransitionValue,classifyRecoveryCarrier,isValidRecoveryTransitions,readRevision,stripStorageMeta,exportableState,mirrorComparisonSnapshot,canonicalize,canonicalPayload,snapshotsEqual,storageSnapshotsEqual,rebaseStateChange,unversionedSnapshot,draftProgramFingerprint,workoutProgramFingerprint,draftContextFingerprint,snapshotBlockId}=SnapshotPolicy;
 let normalizeMuscleAttribution,isValidMuscleDomainTree,isValidStoredMuscleField,isValidPlannedVolumeHistory,normalizeRecoveryCarrierSnapshot,isSafeProgressionFields,isSafeProgressionMeta,isSafeProgramHistoryEntry,isSafeLogRow,isSafeCustomExercise,isValidSetupActivationMarker,setupActivationMarker,setupActivationMatches,isValidStateShape,migrateLogSnapshot,defaultProgramMeta,normalizeProgramEntrySource,normalizeProgramMeta,normalizeLoadingConfiguration,withExplicitProgramStructure,normalizeProgramHistory,normalizeLoaded,normalizeNotify,normalizeSettings;
 let fallbackGestureController=null;
@@ -5973,15 +5973,15 @@ function updateSessionBanner(){
   const n=state.settings.notify;
   const hide=()=>{el.className="sessionbanner hidden"; el.innerHTML=""; el.onclick=null};
   if(!n||!n.enabled) return hide();
-  if(RepForgeSchedule.hasLoggedOn(state.log, today())) return hide();
+  if(schedule.hasLoggedOn(state.log, today())) return hide();
   if(!state.log.length) return hide();
 
-  const due=RepForgeSchedule.mostOverdueDay(state.log, days(), today());
+  const due=schedule.mostOverdueDay(state.log, days(), today());
   if(!due) return hide();
 
   const meta=loadNotifyMeta();
   const hour=new Date().getHours();
-  const usual=RepForgeSchedule.usualHour(state.log);
+  const usual=schedule.usualHour(state.log);
   const missedOk=!!n.missed && usual!=null && hour>=usual;
   const sessionOk=!!n.session;
 

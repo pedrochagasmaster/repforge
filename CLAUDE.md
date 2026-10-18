@@ -39,7 +39,7 @@ Use the module that owns the behavior. These are the principal production owners
 | `install-policy.js`, `guide-registry.js` | Install-prompt eligibility and versioned contextual-guide definitions/state. |
 | `motion-layer.js` | Motion vocabulary, reduced-motion decision, gesture controller, and fallback. `app.js` mounts and disposes the controller through this layer. |
 | `telemetry.js`, `posthog-init.js` | Closed event/privacy boundary, consent and identity; `posthog-init.js` adapts the optional SDK using generated deployment configuration. |
-| `schedule.js`, `notify.js` | Training schedule helpers; notification adapter and delivery helpers. |
+| `src/training/progress.js`, `notify.js` | Native training schedule rules; transitional notification adapter. |
 | `sw.js` | Release asset inventory, cache lifecycle, offline shell, and code-response policy. |
 | `styles.css`, `motion-polish.css` | Presentation tokens and component styles; appearance rules and exceptions are governed by `AGENTS.md` and the design audit. |
 | `i18n-en.json`, `i18n-pt.json`, `tools/exercise-curation.json`, `tools/exercise-compiler-data.json` | Translation and exercise source data. `i18n.js` and `exercises.js` are generated runtime files; follow `AGENTS.md` and `tools/README.md`. |
