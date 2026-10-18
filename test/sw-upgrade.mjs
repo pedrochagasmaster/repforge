@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {browserMotion} from "./language-browser.mjs";
 import {serveReleasedV120Asset,activateReplacementAfterClientLeaves} from './fixtures/v120-assets.mjs';
 /**
  * Install the released worker first, then serve the current worker from the
@@ -163,9 +164,9 @@ try {
     await optionalPage.reload({ waitUntil: "domcontentloaded" });
     await optionalPage.waitForFunction(() => !!navigator.serviceWorker.controller, { timeout: 15000 });
     await waitForAppBoot(optionalPage, { base });
-    const optionalBoot = await optionalPage.evaluate(() => ({
+    const optionalBoot = await (await browserMotion(optionalPage)).evaluate(async (motion)=>({
       appBooted: window.__repforgeBooted === true,
-      motionLayer: !!window.RepForgeMotion,
+      motionLayer: !!motion,
       dndRuntime: !!window.RepForgeDndRuntime,
       telemetryBoundary: !!window.__repforgeTelemetry?.boot,
     }));

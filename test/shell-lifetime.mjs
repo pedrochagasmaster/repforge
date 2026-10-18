@@ -1,3 +1,4 @@
+import {browserMotion} from "./language-browser.mjs";
 import assert from "node:assert/strict";
 import { launchChromium,waitForAppBoot } from "./browser.mjs";
 const base=process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -90,7 +91,7 @@ try {
       else Object.defineProperty(navigator,'serviceWorker',{configurable:true,value:{controller:null,register(){window.__shellRegistrationCount=(window.__shellRegistrationCount||0)+1;return Promise.reject(new DOMException('registration disabled','SecurityError'))}}});
     },unavailable);
     await app.goto(base);await waitForAppBoot(app,{base});
-    assert.equal(await app.evaluate(()=>typeof window.RepForgeMotion?.mount),'function','actual native Motion composed for restricted/network-only startup');
+    assert.equal(await (await browserMotion(app)).evaluate(async (motion)=>typeof motion?.mount),'function','actual native Motion composed for restricted/network-only startup');
     await app.click('#firstRunPrivacy');await app.waitForSelector('#privacySheet.is-open');
     assert.equal(await app.evaluate(()=>document.activeElement?.id),'privacyClose');
     await app.click('#privacyClose');await app.waitForFunction(()=>document.activeElement?.id==='firstRunPrivacy');
@@ -107,7 +108,7 @@ try {
     if(failure==='catalog')await app.route('**/assets/exercise-catalog.json*',route=>route.abort());
     await app.goto(base);
     const id=failure==='catalog'?'exerciseCatalogRecovery':'storageRecovery';await app.waitForSelector(`#${id}[open]`);
-    const beforeInit=await app.evaluate(id=>({booted:window.__repforgeBooted===true,motion:typeof window.RepForgeMotion?.mount,
+    const beforeInit=await (await browserMotion(app)).evaluate(async (motion,id)=>({booted:window.__repforgeBooted===true,motion:typeof motion?.mount,
       mounted:!!window.__repforgeGestureHandle,styles:!!document.querySelector('#taurifer-apple-accessibility'),focus:document.querySelector('#'+id).contains(document.activeElement),
       raw:localStorage.getItem('repforge_v1')}),id);
     assert.equal(beforeInit.booted,false);assert.equal(beforeInit.motion,'function');assert.equal(beforeInit.mounted,false);

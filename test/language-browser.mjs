@@ -7,13 +7,15 @@ async function nativeHandle(page,kind){
     const matches=script=>new URL(script.src,document.baseURI).pathname.endsWith('/app.js');
     const entry=scripts.find(script=>script.type==='module'&&matches(script))||scripts.find(matches);
     if(!entry)throw new Error('Actual native app module URL unavailable');
-    if(kind==='language'){
-      const {language}=await import(entry.src);
-      if(!language)throw new Error('Actual native language instance unavailable');
-      return language;
+    if(kind==='language'||kind==='motion'){
+      const owner=(await import(entry.src))[kind];
+      if(!owner)throw new Error('Actual native '+kind+' instance unavailable');
+      return owner;
     }
     return import(new URL('exercises.js',entry.src).href);
   },kind);
 }
 export function browserLanguage(page){return nativeHandle(page,'language')}
 export function browserExerciseSource(page){return nativeHandle(page,'exercises')}
+
+export function browserMotion(page){return nativeHandle(page,'motion')}

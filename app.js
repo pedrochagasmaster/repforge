@@ -105,7 +105,7 @@ let focusGestureController=null;
 function focusGestureView(){
   if(!focusGestureController)focusGestureController=Focus.createFocusGestures({window,
     readModel:()=>{const list=focusList(),at=list.length?Math.min(focusUi.index,list.length-1):0;return {active:workoutActive,canPrevious:at>0,canNext:at+1<list.length}},
-    commands:{go:focusGo,navigate:focusAnimateTo,swallowNextClick},motion:window.RepForgeMotion||null});
+    commands:{go:focusGo,navigate:focusAnimateTo,swallowNextClick},motion:ensureBrowserPresentation().motion||null});
   return focusGestureController}
 function mountFallbackGestures() {
   if(fallbackGestureController)return fallbackGestureController;
@@ -582,23 +582,24 @@ function announceEditorChange(message,opts){
   if(opts?.change&&performance.now()-customCreatedToastAt<4000)return;
   toast(message)}
 let browserPresentation=null;
+export let motion=null;
 /** Compose presentation before catalog/storage recovery can open a modal.
  * Construction installs no gesture listeners; init explicitly mounts Motion. */
 function ensureBrowserPresentation(){
   if(browserPresentation)return browserPresentation;
-  const motion=createMotion({window,
+  const nativeMotion=createMotion({window,runtime:window.Motion||null,
     focus:{track:focusTrack,card:focusCard,step:focusStep,canGo:focusCanGo,setTrack:focusSetTrack,
       go:focusGo,dragStart:focusDragStart,dragMove:focusDragMove,dragEnd:focusDragEnd},
     sheets:{dragStart:sheetDragStart,dragMove:sheetDragMove,dragEnd:sheetDragEnd},
     selection:{isNativeTextSelectionTarget,swallowNextClick},
     fallback:{mount:mountFallbackGestures,navigate:fallbackFocusAnimateTo}});
-  const shell=createShell({window,motion,isBooted:()=>window.__repforgeBooted===true,
+  const shell=createShell({window,motion:nativeMotion,isBooted:()=>window.__repforgeBooted===true,
     isFocusActive:()=>document.body.classList.contains("is-focus-wo"),
     releaseSheetDrag:rec=>{const wasDragged=sheetDrag?.rec===rec;
       if(wasDragged)sheetDrag=null;
       if(wasDragged||rec.motion)sheetDragRelease(rec)},releaseSwallowedClick});
-  browserPresentation={motion,shell};
-  window.RepForgeMotion=motion;
+  browserPresentation={motion:nativeMotion,shell};
+  motion=nativeMotion;
   return browserPresentation;
 }
 function shellView(){return ensureBrowserPresentation().shell}
@@ -722,7 +723,7 @@ const targetEffort=()=>effortForRir(state?.settings?.rirHigh);
 /** How a set reads once it is logged: the word in effort mode, else "@RIR". */
 const effortOrRirLabel=rir=>isEffortMode()?effortLabel(effortForRir(rir)):`@${fmt(rir)}`;
 /* ---- Focus motion (Plan 064 rule 11: owner picks T1, L2, L4 and M1) ----
-   Everything animated here goes through `RepForgeMotion`: the travelling
+   Everything animated here goes through the native motion owner: the travelling
    outlines through `animateIndicator`, the short beats through the classes in
    `motion-polish.css`. Nothing waits on any of it. The shelf action stays
    enabled and takes a tap on the first frame, a set logged during a travel
@@ -2477,7 +2478,7 @@ function mountDockLens(){
     if(travel&&calm&&at){
       const from=lens.getBoundingClientRect(),id=++flight;
       at=box;place(box);
-      const run=window.RepForgeMotion?.animateIndicator?.(lens,{left:from.left,top:from.top,width:from.width,height:from.height});
+      const run=ensureBrowserPresentation().motion?.animateIndicator?.(lens,{left:from.left,top:from.top,width:from.width,height:from.height});
       // The helper paints its first frame before it returns: a transform on the lens means it is in the air.
       if(lens.style.transform&&run&&typeof run.then==="function"){
         nav.dataset.lens="travel";
@@ -3087,7 +3088,7 @@ function sheetDragMove(e){
     // painting its transform. Stop that one first: two writers on the same
     // property means whichever finishes last wins, and the loser is the thumb.
     if(rec.motion){rec.motion.cancel();rec.motion=null}
-    sheetDrag.motion=window.RepForgeMotion?.trackSheetGesture(rec.el,rec.scrim)||null;
+    sheetDrag.motion=ensureBrowserPresentation().motion?.trackSheetGesture(rec.el,rec.scrim)||null;
     // The sheet can also be torn down mid-gesture — Escape, a save, a tour step
     // — and whatever cleans it up has to be able to stop the animation too.
     rec.motion=sheetDrag.motion;
@@ -3152,9 +3153,9 @@ function focusTrack(){return focusGestureView().track()}
 function focusStep(){return focusGestureView().step()}
 
 const reducedMotion=()=>window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-/** `behavior` for a programmatic scroll. The motion layer owns the reduced-motion decision (RepForgeMotion.reducedMotion),
+/** `behavior` for a programmatic scroll. The motion layer owns the reduced-motion decision (motion.reducedMotion),
  *  so a smooth scroll is only ever asked for when motion is welcome; reduced motion jumps. */
-const scrollBehavior=()=>(window.RepForgeMotion?.reducedMotion?.()??!!reducedMotion())?"auto":"smooth";
+const scrollBehavior=()=>(ensureBrowserPresentation().motion?.reducedMotion?.()??!!reducedMotion())?"auto":"smooth";
 /** Carry the deck one card over, animating the track exactly as a fling does,
  *  then re-render at the new index with the track back at rest. Chevrons, the
  *  Next exercise button, the arrow keys and a completed swipe all land here.
@@ -3748,7 +3749,7 @@ async function mountDashboardPresentation(){
     openStagedEditor:()=>{startOnboarding("settings",{userInitiated:true});if(entryState?.step==="editor"&&entryState?.result?.preview){entryUiNotice=null;openEntryDraftEditor()}},
     onCommitted:()=>{day=days()[0]||"Day 1"},onChoice:action=>captureEvent("block_transition_chosen",{action})});
   ReviewUi=createReviewController({document,copy,queries:{preview:reviewPreviewModel},commands:reviewCommands,onChange:()=>render(),onNotice:toast});
-  ProgressUi=createProgressController({document,copy,format:{...format,displayLoad:toDisplay},motion:window.RepForgeMotion,
+  ProgressUi=createProgressController({document,copy,format:{...format,displayLoad:toDisplay},motion:ensureBrowserPresentation().motion,
     review:ReviewUi,queries:{overview:progressOverviewReadModel,review:reviewReadModel,strength:strengthEvidenceReadModel,volume:volumeEvidenceReadModel,prs:prEvidenceReadModel},
     onOpenExercise:key=>openExerciseView(key,"stats"),onGoToday:()=>navTo("log"),onReviewViewed:captureBlockReviewViewed,
     onSelected:segment=>queueMicrotask(()=>maybeShowContextualGuides([segment==="review"?"block-transition":"progress"]))});
@@ -3756,15 +3757,15 @@ async function mountDashboardPresentation(){
     queries:{projection:strengthProjection,detail:exerciseDetailReadModel,open:key=>{
       const slot=prog.find(key),movement=slot?(workoutActive?sessionExercise(slot):slot):null;
       return{key:movement?exerciseLiftKey(movement):key,exercise:movement?Object.assign({},movement):null}}},
-    motion:window.RepForgeMotion,shell:shellView(),onChartPresentation:kind=>{window.__repforgeChartLastPresentation=kind},onRender:render,onSettings:showSettings,
+    motion:ensureBrowserPresentation().motion,shell:shellView(),onChartPresentation:kind=>{window.__repforgeChartLastPresentation=kind},onRender:render,onSettings:showSettings,
     onSeePrs:()=>{navTo("stats");setStatsSeg("prs")},onGlossary:glossaryPopover,
     onWhy:(id,anchor)=>{const slot=prog.find(id);if(slot)openWhySheetFor(slot,anchor)}});
   window.__repforgeChartPalette=ExerciseUi.palette;
   window.__repforgeChartLabelDecimals=ExerciseUi.labelDecimals;
-  TodayUi=createTodayController({document,copy,format,motion:window.RepForgeMotion,
+  TodayUi=createTodayController({document,copy,format,motion:ensureBrowserPresentation().motion,
     onCreateProgram:()=>startOnboarding(null,{userInitiated:true}),onOpenExercise:id=>openExerciseView(id,"log"),
     onStartDay:day=>enterWorkout({day}),onReviewProgram:()=>{navTo("stats");setStatsSeg("review")}});
-  SummaryUi=createSessionSummary({window,copy,format,motion:window.RepForgeMotion,
+  SummaryUi=createSessionSummary({window,copy,format,motion:ensureBrowserPresentation().motion,
     shell:{openModal,closeModal,get activeModal(){return shellView().activeModal}},
     onDone:()=>closeSessionSummary(),onSeeSession:session=>{HistoryUi.startReading(session);closeSessionSummary({nav:"history"})}});
 }
@@ -7265,7 +7266,7 @@ function entryMotionDirection(from,to){
   if(a==null||b==null||a===b)return null;
   return b>a?"in":"out"}
 function entryMotionAvailable(){
-  const motion=window.RepForgeMotion;
+  const motion=ensureBrowserPresentation().motion;
   return window.__repforgeBooted===true&&!!motion?.animatePush&&motion.available?.()===true&&motion.reducedMotion?.()!==true}
 function entryStandaloneDisplay(){
   try{return window.matchMedia?.("(display-mode: standalone)")?.matches===true}catch{return false}}
@@ -7333,7 +7334,7 @@ function mountEntryEdgeUnder(page){
   body.classList.add("entry-motion-active");body.append(under);
   entryEdgeUnder=under}
 function syncEntryEdgeSwipe(){
-  const page=entryMotionLivePage(),motion=window.RepForgeMotion;
+  const page=entryMotionLivePage(),motion=ensureBrowserPresentation().motion;
   const eligible=page&&entryIsB()&&!entryHubMode()&&!entryMotionRun&&
     entryMotionRank(entryState)>-1&&motion?.registerEdgeSwipeBack&&motion.available?.()===true;
   const onboarding=$("#onboarding");
@@ -7351,7 +7352,7 @@ function syncEntryEdgeSwipe(){
   watch.observe(page,{attributes:true,attributeFilter:["class"]});
   entryEdgeSwipe={page,registration,watch}}
 function startEntryPageTransition({direction,outgoing}){
-  const body=$("#onbBody"),live=entryMotionLivePage(),motion=window.RepForgeMotion;
+  const body=$("#onbBody"),live=entryMotionLivePage(),motion=ensureBrowserPresentation().motion;
   if(!body||!live||!outgoing||!entryMotionAvailable()){
     outgoing?.remove();syncEntryEdgeSwipe();return}
   disposeEntryEdgeSwipe();
@@ -8388,11 +8389,7 @@ function init(){
     maybeShowOnboarding();
     if(!$("#onboarding").classList.contains("active"))maybeShowInstallBanner()}
   // Explicit gesture controller lifetime (Candidate D / R2)
-  if (window.RepForgeMotion?.mountGestureController) {
-    window.__repforgeGestureHandle = window.RepForgeMotion.mount();
-  } else {
-    window.__repforgeGestureHandle = mountFallbackGestures();
-  }
+  window.__repforgeGestureHandle = ensureBrowserPresentation().motion.mount();
 
   // The one signal that the whole boot pipeline — replica recovery, first-run
   // persistence, the first render — has finished. Test gates used to wait for a
