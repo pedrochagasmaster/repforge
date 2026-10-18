@@ -126,6 +126,7 @@ export const SUITES = {
     s("test/install-transfer-recovery.mjs", [], {"domains": ["install"], "cost": "normal", "tier": "feedback", "nodeArgs": ["--test"]}),
   ],
   "state": [
+    s("test/history-disposal-contract.mjs", [], {domains:["history"],seconds:10}),
     s("test/architecture/exercise-disposal.mjs", [], {domains:["progress","history"],seconds:10}),
     s("test/architecture/transfer-device.mjs", [], {domains:["install","persistence"],seconds:10}),
     s("test/architecture/transfer-consumption.mjs", [], {domains:["install","persistence"],seconds:10}),
