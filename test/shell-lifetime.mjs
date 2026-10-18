@@ -7,6 +7,7 @@ try {
   // A source document establishes the origin without mounting the application.
   await page.goto(new URL("src/ui/shell.js",base).href);
   await page.setContent('<!doctype html><html><head></head><body><main><section class="view active" id="log"><h1>Today</h1><button id="opener">Open</button></section></main><div id="announcementHost"></div><div id="sheet" hidden class="hidden"><button id="first">First</button><button id="last">Last</button></div><div id="second" hidden class="hidden"><button id="next">Next</button></div><pre id="result">PENDING</pre>\n');
+  await page.addScriptTag({url:new URL("vendor/motion/motion.js",base).href});
   const outcome=await page.evaluate(async base=>{
 
 let constructionListeners=0;
@@ -39,6 +40,17 @@ try {
   routeShell.dispose();check(edgeDisposals===1,'edge registration disposed exactly once');
   routeShell.mount();await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));routeShell.dispose();
   check(edgeDisposals===2,'native route shell remount owns one registration');
+  // The real shipped animation owner paints a transform synchronously. Shell
+  // teardown must cancel that owned run, not only remove presentation classes.
+  const animatedMotion=createMotion({window,fallback:{mount:()=>({dispose(){}}),navigate:()=>false}});
+  const animatedShell=createShell({window,motion:animatedMotion,isBooted:()=>true});
+  check(animatedMotion.available(),'actual vendored animation runtime present');
+  animatedShell.routePushBegin('in',{pushed,under})?.();
+  check(pushed.style.transform!=='','actual route animation started');
+  animatedShell.dispose();check(pushed.style.transform==='','dispose cancels actual route transform');
+  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  check(pushed.style.transform==='','disposed route animation cannot paint again');
+  animatedMotion.dispose();
   pushed.remove();under.classList.add('active');
   const shell=createShell({window});shell.mount();shell.mount();
   const opener=document.querySelector('#opener'),sheet=document.querySelector('#sheet'),second=document.querySelector('#second');
