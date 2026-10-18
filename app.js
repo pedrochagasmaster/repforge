@@ -3,14 +3,17 @@ import {createCatalog,CATALOG_URL} from './src/platform/catalog.js';
 import {create as createProgramExecutor,url as programWorkerUrl} from './src/platform/program-executor.js';
 import {createGenerationRules} from './src/training/generation.js';
 import {createEntryAdapter} from './src/training/authoring.js';
-import {createProgressOverview} from './src/ui/progress/overview.js';
+import {createProgressController} from './src/ui/progress/controller.js';
+import {createReviewController} from './src/ui/progress/review.js';
+import {createReviewCommands} from './src/app/review.js';
+import {evidence as NativeProgressModel} from './src/training/progress.js';
 import {createHistoryController} from './src/ui/history/controller.js';
 import {groupHistoryRows,completeHistoryIndex,searchHistoryIndex} from './src/app/history-read-models.js';
 import {createTodayController} from './src/ui/today/controller.js';
 import {createSessionSummary} from './src/ui/workout/summary.js';
 import * as ReadModels from './src/app/read-models.js';
-import {verdictMarkHtml as sharedVerdictMarkHtml,formatSetsLine} from './src/ui/format.js';
-let TodayUi,SummaryUi,TrainingModel;
+import {verdictMarkHtml as sharedVerdictMarkHtml,formatSetsLine,formatTable} from './src/ui/format.js';
+let TodayUi,SummaryUi,ProgressUi,ReviewUi,TrainingModel;
 import {createSession} from './src/app/session.js';
 import {createWorkoutCommands,createFocusWorkoutCommands,createWorkoutSuggestionCommands} from './src/app/workout.js';
 import {createProgramCommands,createCustomExerciseCommands,createProgramReplacementCommands} from './src/app/program.js';
@@ -2412,8 +2415,6 @@ async function applyFatigueTrim(){
   for(const id of [...skipped])if(!flagged.has(id)){const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
   for(const id of flagged)if(!skipped.has(id)){const result=await WorkoutSession.dispatch("skipExercise",{exerciseInstanceId:id},{bulk:true});if(result.status!=="applied")return}
   renderWorkout();toast(t("toast.trimmed_priority"))}
-let statsSeg="overview",evidenceView=null,prFilter="all";
-let strengthScope="current-block",volumeScope="this-week",volumeDrillMuscle=null;
 
 /** Focus mode — the set being re-opened for edit: {exId,n,snap}. `snap` is the
  *  set as it stood when editing began, so cancelling puts it back untouched. */
@@ -2438,8 +2439,6 @@ let settingsEditRevision=0;
 // tasks; Strength/Volume/PRs are a labelled Evidence group. Old one-level seg
 // values keep working: evidence keys map onto the Evidence view and unknown
 // values fall back to Overview.
-const STATS_SEG={overview:"segOverview",review:"segReview"};
-const EVIDENCE_SEG={strength:"segStrength",volume:"segVolume",prs:"segPRs"};
 
 
 function earliestLogDate(log){if(!log?.length)return null;return log.reduce((min,r)=>!min||String(r.date)<min?r.date:min,null)}
@@ -2722,286 +2721,28 @@ function buildBlockReview(programMeta,program,log){const p=new TrainingModel.Pro
   return{programId:programMeta?.id||null,started,ended,plannedSessions,completedSessions,adherenceRatio,
     improvedLifts,flatLifts,regressedLifts,stalledLifts,prs,completedHardSetsByMuscle,plannedHardSetsByMuscle,
     volumeCompliance,recommendation,created:new Date().toISOString()}}
-function blockRecommendationCopy(key){const k=key||"repeat_with_small_swaps";return{line:t(`block_rec.${k}.line`),why:t(`block_rec.${k}.why`)}}
-function blockSnapshot(programMeta,log){const review=buildBlockReview(programMeta,prog.toJSON(),log),life=mesocycleLifecycle(programMeta);
-  return{...review,weekCurrent:life.current,weekTotal:life.total,elapsedWeek:life.elapsedWeek,
-    overrunWeeks:life.overrunWeeks,isFinalWeek:life.isFinalWeek,isComplete:life.isComplete}}
-function buildPlainSummary(snapshot){if(!snapshot)return"";
-  const parts=[];
-  if(snapshot.isComplete)parts.push(t("review.summary.week_complete"));
-  else if(snapshot.isFinalWeek&&snapshot.weekCurrent!=null)parts.push(t("review.summary.week_ready",{n:snapshot.weekCurrent,total:snapshot.weekTotal}));
-  else if(snapshot.weekCurrent!=null&&snapshot.weekTotal)parts.push(t("review.summary.week",{n:snapshot.weekCurrent,total:snapshot.weekTotal}));
-  const ad=snapshot.adherenceRatio??0,adKey=ad>=.8?"solid":ad>=.5?"mixed":"low";
-  if(snapshot.plannedSessions)parts.push(t("review.summary.adherence",{status:t(`review.summary.adherence.${adKey}`),done:snapshot.completedSessions,planned:snapshot.plannedSessions}));
-  const imp=snapshot.improvedLifts??0,flat=snapshot.flatLifts??0;
-  if(imp||flat)parts.push(t("review.summary.lifts",{improved:imp,lifts:tp(imp,"lift"),flatBit:flat?t("review.summary.lifts_flat",{flat}):""}));
-  const vol=snapshot.volumeCompliance??0;
-  if(vol<.6&&snapshot.plannedSessions)parts.push(t("review.summary.volume",{pct:Math.round(vol*100)}));
-  const copy=blockRecommendationCopy(snapshot.recommendation);
-  parts.push(copy.line.replace(/^Recommendation:\s*/i,"").trim());
-  return parts.join(" ")}
-function renderReview(){const el=$("#reviewPanel");if(!el)return;
-  if(!state.programMeta?.started){el.innerHTML=`<p class="lede">${esc(t("review.no_start"))}</p>`;return}
-  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
-  if(!Model){legacyReviewPanel(el);return}
-  const meta=state.programMeta||{};
-  const checkpoint=Model.buildReviewCheckpoint(prog.toJSON(),
-    {started:meta.started,mesocycleLengthWeeks:meta.mesocycleLengthWeeks||6,
-     mesocycleStatus:meta.mesocycleStatus,evidenceRecords:reviewObservedOutcomes(),
-     recoveryEligible:true},
-    readLogRows(),today());
-  const life=mesocycleLifecycle(meta);
-  const weekLine=life.isComplete?t("meso.complete"):life.isFinalWeek&&life.current!=null?t("meso.week_ready",{n:life.current,total:life.total}):t("review.week_of",{n:life.current??"—",total:life.total});
-  const volume=Model.buildVolumeEvidence("block-to-date",prog.toJSON(),
-    progressEvidenceMeta(),readLogRows(),today());
-  const pct=volume.plannedWorkingSets?Math.min(100,Math.round(volume.completedWorkingSets/volume.plannedWorkingSets*100)):0;
-  const nameForLiftKey=key=>currentExerciseForLiftKey(key)?.name||key;
-  const outcomes=checkpoint.observedOutcomes;
-  const outcomeLine=outcomes.length
-    ?outcomes.map(o=>`${esc(liftDisplayName(nameForLiftKey(o.exerciseId),o.exerciseId))} · ${esc(t(EVIDENCE_OUTCOME_KEYS[o.outcome]||""))}`).join("<br>")
-    :`<span class="visually-hidden">${esc(t("review.outcomes.none_aria"))}</span>${esc(t("review.outcomes.none"))}`;
-  const actions=checkpoint.lifecycle==="block-complete"?renderReviewActions(checkpoint):"";
-  const readOnlyNote=checkpoint.lifecycle==="active-block"
-    ?`<p class="review__readonly" role="note">${esc(t("review.active_readonly"))}</p>`:"";
-  const evidenceNote=checkpoint.lifecycle==="block-complete"&&!checkpoint.hasSufficientEvidence
-    ?`<p class="review__summary">${esc(t("review.insufficient.note"))}</p>`:"";
-  if(reviewFlow){renderReviewFlow(el);return}
-  el.innerHTML=`<div class="blockprogress" data-progress-dimension="block" data-progress-scope="block-review-evidence"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
-    `<p><b>${esc(weekLine)}</b></p>`+
-    `<p><b>${esc(t("review.sessions"))}</b> ${esc(t("review.sessions_completed",{done:volume.completedSessions,planned:volume.period.plannedSessions||volume.plannedSessions}))}</p>`+
-    `<p><b>${esc(t("review.volume"))}</b> ${esc(t("review.volume_planned",{pct}))}</p>`+
-    `<p class="lede">${esc(t("stats.volume.period_text",{start:longDate(volume.period.start||meta.started||""),end:longDate(volume.period.end||today())}))}</p></div>`+
-    `<p class="section-label">${esc(t("review.outcomes.label"))}</p><div class="review__outcomes">${outcomeLine}</div>`+
-    evidenceNote+readOnlyNote+actions;
-  bindReviewActions()}
-// Observed outcomes are engine facts (paired-exposure comparison), never
-// representation-derived. Insufficient lifts never enter this list.
-function reviewObservedOutcomes(){
-  return strengthEvidenceRecords("current-block")}
-// Structural actions appear only at a completed boundary (Plan 056/P5). Each
-// kind renders only when its production flow is wired in this packet; the
-// eligibility contract itself lives in progress-model.js.
-const REVIEW_ACTION_LABELS={repeat:"review.action.repeat","schedule-repair":"review.action.schedule_repair",
-  "reduce-volume":"review.action.reduce_volume","recovery-week":"review.action.recovery_week","guided-edit":"review.action.guided_edit"};
-function renderReviewActions(checkpoint){
-  const kinds=checkpoint.structuralActions.filter(k=>REVIEW_ACTION_LABELS[k]);
-  if(!kinds.length)return "";
-  return `<p class="section-label">${esc(t("review.actions.label"))}</p><div class="review__actions">`+
-    kinds.map(k=>`<button type="button" class="btn btn--steel" data-review-action="${k}">${esc(t(REVIEW_ACTION_LABELS[k]))}</button>`).join("")+`</div>`}
-function bindReviewActions(){
-  $$("[data-review-action]").forEach(b=>b.onclick=()=>{
-    const kind=b.dataset.reviewAction;
-    if(kind==="repeat")finishBlockAndStart("repeat");
-    // Schedule, volume and recovery flows land with their own packets.
-    else if(kind==="schedule-repair")startScheduleRepair?.();
-    else if(kind==="reduce-volume")startVolumeReduction?.();
-    else if(kind==="recovery-week")startRecoveryWeek?.();
-    else if(kind==="guided-edit")startGuidedEdit?.()})}
-function legacyReviewPanel(el){
-  const snap=blockSnapshot(state.programMeta,state.log),pct=Math.round((snap.volumeCompliance||0)*100),summary=buildPlainSummary(snap);
-  const weekLine=snap.isComplete?t("meso.complete"):snap.isFinalWeek?t("meso.week_ready",{n:snap.weekCurrent,total:snap.weekTotal}):t("review.week_of",{n:snap.weekCurrent??"—",total:snap.weekTotal});
-  el.innerHTML=`<div class="blockprogress" data-progress-dimension="block" data-progress-scope="block-review-evidence"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
-    `<p><b>${esc(weekLine)}</b></p>`+
-    `<p><b>${esc(t("review.sessions"))}</b> ${esc(t("review.sessions_completed",{done:snap.completedSessions,planned:snap.plannedSessions}))}</p>`+
-    `<p><b>${esc(t("review.lifts"))}</b> ${esc(t("review.lifts_summary",{improved:snap.improvedLifts,flat:snap.flatLifts,stalled:snap.stalledLifts}))}</p>`+
-    `<p><b>${esc(t("review.volume"))}</b> ${esc(t("review.volume_planned",{pct}))}</p></div>`+
-    `<p class="review__summary">${esc(summary)}</p>`}
-// --- Schedule repair flow (Plan 056/P6): one diagnosed question, then either
-// the exact Plan 052 sibling proposal (rendered from its own diff and
-// confirmed by hash) or the exact-program guided fallback, which stages a
-// setup draft and never archives. Cancel leaves the program untouched.
-let reviewFlow=null;
-function startScheduleRepair(){reviewFlow={stage:"diagnosis",action:"schedule-repair",kind:"fewer_days",target:""};renderReview()}
-function startGuidedEdit(){reviewFlow={stage:"diagnosis",action:"guided-edit",kind:"fewer_days",target:""};renderReview()}
-function startVolumeReduction(){reviewFlow={stage:"volume-question",action:"reduce-volume"};renderReview()}
-function startRecoveryWeek(){reviewFlow={stage:"recovery-question",action:"recovery-week",answer:null};renderReview()}
-async function closeReviewFlow(){
-  if(reviewFlow?.stage==="staged"){
-    const cleared=await clearSetupDraft();
-    if(!cleared?.ok){reviewFlow={stage:"error",code:cleared?.conflict?"save_conflict":"save_failed"};renderReview();return}}
-  reviewFlow=null;renderReview()}
-function reviewMovementLabel(mid){
-  const raw=String(mid||"").replace(/^(library|custom):/,"");
-  const entry=raw?libraryEntry(raw):null;
-  return libraryName(entry)||raw}
-function renderReviewFlow(el){
-  const flow=reviewFlow||{};
-  if(flow.stage==="preview")return renderSiblingPreview(el,flow);
-  if(flow.stage==="volume-question"){
-    el.innerHTML=`<p class="section-label">${esc(t("review.volume.title"))}</p><p>${esc(t("review.volume.question"))}</p>`+
-      `<p class="lede">${esc(t("review.volume.body"))}</p><div class="btnrow">`+
-      `<button type="button" class="btn btn--cta" data-volume-confirm>${esc(t("review.volume.continue"))}</button>`+
-      `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
-    const confirm=$("[data-volume-confirm]",el);if(confirm)confirm.onclick=proposeVolumeReductionFlow;
-    bindFlowCancel(el);return}
-  if(flow.stage==="recovery-question"){
-    el.innerHTML=`<p class="section-label">${esc(t("review.recovery.title"))}</p>`+
-      `<p>${esc(t("review.recovery.question"))}</p>`+
-      `<div class="review__actions" role="group" aria-label="${esc(t("review.recovery.question"))}">`+
-      ["Yes","No","Not sure"].map(answer=>`<button type="button" class="btn btn--steel" data-recovery-answer="${esc(answer)}">${esc(t(`review.recovery.answer.${answer}`))}</button>`).join("")+`</div>`+
-      (flow.message?`<p class="review__readonly" role="status">${esc(t(flow.message))}</p>`:"")+
-      `<div class="btnrow"><button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
-    $$('[data-recovery-answer]',el).forEach(button=>button.onclick=()=>answerRecoveryQuestion(button.dataset.recoveryAnswer));
-    bindFlowCancel(el);return}
-  if(flow.stage==="staged"){
-    el.innerHTML=`<p class="review__staged" role="status">${esc(t("review.staged.done"))}</p>`+
-      `<div class="btnrow"><button type="button" class="btn btn--cta" data-flow-editor>${esc(t("review.staged.open"))}</button>`+
-      `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
-    const open=$("[data-flow-editor]",el);if(open)open.onclick=()=>{
-      reviewFlow=null;startOnboarding("settings",{userInitiated:true});
-      if(entryState?.step==="editor"&&entryState?.result?.preview){entryUiNotice=null;openEntryDraftEditor()}};
-    bindFlowCancel(el);return}
-  if(flow.stage==="error"){
-    const stale=flow.stale===true||String(flow.code||"").includes("stale")||String(flow.code||"").includes("mismatch");
-    el.innerHTML=`<p class="review__error" role="alert">${esc(t(stale?"review.error.stale":"review.error.failed"))}</p>`+
-      `<div class="btnrow"><button type="button" class="btn btn--steel" data-flow-restart>${esc(t("review.error.retry"))}</button>`+
-      `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
-    const restart=$("[data-flow-restart]",el);if(restart)restart.onclick=flow.action==="reduce-volume"
-      ?startVolumeReduction:flow.action==="recovery-week"?startRecoveryWeek:startScheduleRepair;
-    bindFlowCancel(el);return}
-  if(flow.stage==="done"){
-    el.innerHTML=`<p class="review__staged" role="status">${esc(t(flow.doneKey||"review.done.committed"))}</p>`+
-      `<div class="btnrow"><button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.close"))}</button></div>`;
-    bindFlowCancel(el);return}
-  // diagnosis
-  const isDays=flow.kind!=="sessions_too_long";
-  const targetLabel=isDays?t("review.diagnosis.days_question"):t("review.diagnosis.minutes_question");
-  el.innerHTML=`<p class="section-label">${esc(t("review.diagnosis.title"))}</p>`+
-    `<div class="review__diag">`+
-    `<button type="button" class="radio-card${flow.kind==="fewer_days"?" is-selected":""}" data-diag="fewer_days"><span class="radio-card__body"><span class="radio-card__title">${esc(t("review.diagnosis.fewer_days"))}</span></span><span class="radio-card__mark"></span></button>`+
-    `<button type="button" class="radio-card${flow.kind==="sessions_too_long"?" is-selected":""}" data-diag="sessions_too_long"><span class="radio-card__body"><span class="radio-card__title">${esc(t("review.diagnosis.sessions_too_long"))}</span></span><span class="radio-card__mark"></span></button>`+
-    `</div><label class="field"><span>${esc(targetLabel)}</span>`+
-    `<input type="number" inputmode="numeric" min="${isDays?1:15}" max="${isDays?7:240}" step="1" value="${esc(flow.target)}" data-diag-target></label>`+
-    (flow.error?`<p class="review__error" role="alert">${esc(t(flow.error))}</p>`:"")+
-    `<div class="btnrow"><button type="button" class="btn btn--cta" data-diag-continue>${esc(t(flow.action==="guided-edit"?"review.diagnosis.edit":"review.diagnosis.continue"))}</button>`+
-    `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
-  $$("[data-diag]",el).forEach(b=>b.onclick=()=>{flow.kind=b.dataset.diag;flow.error=null;renderReview()});
-  const input=$("[data-diag-target]",el);
-  if(input)input.oninput=()=>{flow.target=input.value;flow.error=null};
-  const cont=$("[data-diag-continue]",el);if(cont)cont.onclick=continueScheduleDiagnosis;
-  bindFlowCancel(el)}
-function bindFlowCancel(el){const c=$("[data-flow-cancel]",el);if(c)c.onclick=()=>void closeReviewFlow()}
-async function continueScheduleDiagnosis(){
-  const flow=reviewFlow;if(!flow||flow.stage!=="diagnosis")return;
-  const n=Number(flow.target);
-  const valid=flow.kind==="fewer_days"?Number.isInteger(n)&&n>=1&&n<=7:Number.isInteger(n)&&n>=15&&n<=240;
-  if(!valid){flow.error=flow.kind==="fewer_days"?"review.diagnosis.days_invalid":"review.diagnosis.minutes_invalid";renderReview();return}
-  const answers=flow.kind==="fewer_days"?{availableDays:n}:{sessionMinutes:n};
-  const diagnosis={kind:flow.kind,answers};
-  if(flow.action==="guided-edit")return stageGuidedRepairFlow(diagnosis);
-  const change=flow.kind==="fewer_days"?{kind:"fewer_days",daysPerWeek:n}:{kind:"shorter_sessions",sessionMinutes:n};
-  const res=await repforgeProgramTransitionAdapter.proposeChange({change});
-  // A change the generator cannot make (a Build program, or a request with
-  // no eligible fit) becomes guided editing of the live program.
-  if(res?.ok){reviewFlow={stage:"preview",action:"schedule-repair",proposal:res.proposal,carry:res.carry||null};renderReview()}
-  else await stageGuidedRepairFlow(diagnosis)}
-async function stageGuidedRepairFlow(diagnosis){
-  const staged=await window.__repforgeStageGuidedManualRepair({diagnosis,openEditor:false});
-  if(staged?.ok){reviewFlow={stage:"staged"};renderReview()}
-  else{reviewFlow={stage:"error",action:"guided-edit",code:staged?.code||"guided_staging_failed"};renderReview()}}
-async function proposeVolumeReductionFlow(){
-  const result=await repforgeProgramTransitionAdapter.proposeChange({change:{kind:"reduce_volume"}});
-  reviewFlow=result?.ok?{stage:"preview",action:"reduce-volume",proposal:result.proposal}
-    :{stage:"error",action:"reduce-volume",code:result?.code||"volume_reduction_unavailable"};
-  renderReview()}
-/* A recovery week is the lifter's call: a Yes schedules it, nothing infers it. */
-async function answerRecoveryQuestion(answer){
-  if(answer!=="Yes"){
-    reviewFlow={stage:"recovery-question",action:"recovery-week",answer,
-      message:answer==="No"?"review.recovery.answer_no":"review.recovery.answer_unsure"};renderReview();return}
-  const result=await repforgeProgramTransitionAdapter.proposeChange({change:{kind:"recovery_week"}});
-  reviewFlow=result?.ok?{stage:"preview",action:"recovery-week",proposal:result.proposal}
-    :{stage:"error",action:"recovery-week",code:result?.code||"recovery_unavailable"};
-  renderReview()}
-function definitionMovementLabel(slot){
-  const entry=slot?.exerciseId?libraryEntry(slot.exerciseId):null;
-  return slot?.displayName||libraryName(entry)||slot?.exerciseId||"—"}
-/* What the lifter sees before confirming: the first cycle of each program,
-   compared slot by slot, then movement by movement. */
-function definitionPreviewLines(before,after){
-  const training=definition=>(definition?.days||[]).filter(day=>day.kind==="training");
-  const setsOf=slot=>slot.prescriptionsByCycle?.[0]?.sets.length??0;
-  const lines=[],beforeDays=training(before),afterDays=training(after);
-  const shown=(day,definition)=>`${localizedDayName({label:day.name},day.name,definition)} · ${day.slots.length}`;
-  for(let index=0;index<Math.max(beforeDays.length,afterDays.length);index++){
-    const was=beforeDays[index],now=afterDays[index];
-    if(was&&now&&was.name===now.name&&was.slots.length===now.slots.length)continue;
-    lines.push(t("review.preview.day_change",{before:was?shown(was,before):"—",after:now?shown(now,after):"—"}))}
-  const slots=definition=>training(definition).flatMap(day=>day.slots);
-  const remaining=slots(after).slice();
-  for(const slot of slots(before)){
-    const index=remaining.findIndex(candidate=>candidate.id===slot.id||candidate.exerciseId===slot.exerciseId);
-    if(index<0){lines.push(t("review.preview.exercise_removed",{movement:definitionMovementLabel(slot),sets:setsOf(slot)}));continue}
-    const [match]=remaining.splice(index,1);
-    if(setsOf(match)!==setsOf(slot))lines.push(t("review.preview.sets_change",{movement:definitionMovementLabel(slot),before:setsOf(slot),after:setsOf(match)}))}
-  for(const slot of remaining)lines.push(t("review.preview.exercise_added",{movement:definitionMovementLabel(slot),sets:setsOf(slot)}));
-  return lines}
-/* What a regeneration did with the lifter's block edits, movement by movement
-   and week by week, read from the successor the proposal commits. */
-function carryPreviewLines(carry,before,after){
-  if(!carry)return[];
-  if(!carry.identified)return[t("review.preview.carry.unidentified")];
-  const slots=definition=>new Map((definition?.days||[]).flatMap(day=>day.slots).map(slot=>[slot.id,slot]));
-  const was=slots(before),now=slots(after);
-  return carry.entries.map(entry=>{
-    const movement=definitionMovementLabel(was.get(entry.predecessorSlotId)||{exerciseId:entry.exerciseId});
-    const carried=entry.outcome!=="dropped";
-    const weeks=[];
-    for(const cycle of entry.cycles){
-      const changes=cycle.fields.map(field=>{
-        if(field==="targets")return t("review.preview.carry.targets");
-        if(field==="rir")return t("review.preview.carry.rir");
-        if(field==="restSeconds")return t("review.preview.carry.rest");
-        const sets=carried?cycleSets(now.get(entry.successorSlotId),cycle.cycleIndex):cycle.requestedSets;
-        return sets<cycle.requestedSets?t("review.preview.carry.sets_clamped",{sets,requested:cycle.requestedSets})
-          :t("review.preview.carry.sets",{sets})}).join(", ");
-      const last=weeks.at(-1);
-      if(last&&last.changes===changes&&last.last+1===cycle.cycleIndex)last.last=cycle.cycleIndex;
-      else weeks.push({first:cycle.cycleIndex,last:cycle.cycleIndex,changes})}
-    const details=weeks.map(({first,last,changes})=>first===last?t("review.preview.carry.week",{week:first,changes})
-      :t("review.preview.carry.weeks",{first,last,changes})).join("; ");
-    if(entry.outcome==="kept")return t("review.preview.carry.kept",{movement,details});
-    if(entry.outcome==="clamped")return t("review.preview.carry.clamped",{movement,details});
-    return entry.reason==="slot_removed"?t("review.preview.carry.removed",{movement,details})
-      :t("review.preview.carry.over_limit",{movement,details})})}
-function cycleSets(slot,cycleIndex){
-  return slot?.prescriptionsByCycle?.find(cycle=>cycle.cycleIndex===cycleIndex)?.sets.length??0}
-function renderSiblingPreview(el,flow){
-  const p=flow.proposal||{},change=p.change||{};
-  const before=state.programMeta?.programDefinition,after=p.successor?.programDefinition;
-  const trainingDays=definition=>(definition?.days||[]).filter(day=>day.kind==="training").length;
-  const recovery=change.kind==="recovery_week";
-  const lines=recovery?[]:definitionPreviewLines(before,after);
-  const carryLines=carryPreviewLines(flow.carry,before,after);
-  const summary=recovery
-    ?`<p>${esc(t("review.recovery.preview_body"))}</p><p><b>${esc(t("review.recovery.preview_weeks",{before:before?.cycles,after:after?.cycles}))}</b></p>`
-    :(change.kind==="fewer_days"?`<p><b>${esc(t("review.preview.frequency",{before:trainingDays(before),after:trainingDays(after)}))}</b></p>`:"")+
-      (change.kind==="shorter_sessions"?`<p><b>${esc(t("review.preview.duration",{before:before?.request?.timeCeilingMinutes,after:after?.request?.timeCeilingMinutes}))}</b></p>`:"")+
-      (change.kind==="fewer_days"||change.kind==="shorter_sessions"?`<p class="lede">${esc(t("review.preview.provenance"))}</p>`:"")+
-      (carryLines.length?`<ul class="review__diff">${carryLines.map(line=>`<li>${esc(line)}</li>`).join("")}</ul>`:"")+
-      (lines.length?`<ul class="review__diff">${lines.map(line=>`<li>${esc(line)}</li>`).join("")}</ul>`:`<p class="lede">${esc(t("review.preview.exercises_unchanged"))}</p>`);
-  el.innerHTML=`<p class="section-label">${esc(t(recovery?"review.recovery.preview_title":"review.preview.title"))}</p>`+summary+
-    `<p class="lede"><code class="review__hash">${esc(String(p.proposalHash||""))}</code></p>`+
-    `<p class="lede">${esc(t("review.preview.hash_note"))}</p>`+
-    `<div class="btnrow review__preview-actions"><button type="button" class="btn btn--cta" data-preview-confirm>${esc(t(recovery?"review.recovery.confirm":"review.preview.confirm"))}</button>`+
-    `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.preview.cancel"))}</button></div>`;
-  const confirm=$("[data-preview-confirm]",el);
-  if(confirm)confirm.onclick=async()=>{
-    confirm.disabled=true;
-    const persisted=await repforgeProgramTransitionAdapter.confirmTransition({
-      proposal:p,proposalHash:p.proposalHash,transitionId:p.transitionId,
-      successorProgramId:p.successor?.programId,confirmedAt:new Date().toISOString(),
-      acknowledgedDraftRaw:readDraftRaw()});
-    if(persisted?.committed){
-      const action={"schedule-repair":"schedule_repair","reduce-volume":"reduce_volume","recovery-week":"recovery_week","guided-edit":"guided_edit"}[flow.action];
-      if(action)captureEvent("block_transition_chosen",{action});
-      const doneKey=recovery?"review.recovery.committed":change.kind==="reduce_volume"?"review.volume.committed":"review.done.committed";
-      reviewFlow={stage:"done",doneKey};
-      day=days()[0]||"Day 1";toast(t(doneKey));render();
-    }else{
-      reviewFlow={stage:"error",action:flow.action,code:persisted?.code,stale:persisted?.duplicate===true||!!persisted?.stale||!!persisted?.staleRevision};
-      render()}}
-  bindFlowCancel(el)}
+function reviewReadModel(){
+  const meta=state.programMeta||{};if(!meta.started)return{started:false};
+  const checkpoint=NativeProgressModel.buildReviewCheckpoint(prog.toJSON(),
+    {started:meta.started,mesocycleLengthWeeks:meta.mesocycleLengthWeeks||6,mesocycleStatus:meta.mesocycleStatus,
+      evidenceRecords:strengthEvidenceRecords("current-block"),recoveryEligible:true},readLogRows(),today());
+  const volume=NativeProgressModel.buildVolumeEvidence("block-to-date",prog.toJSON(),progressEvidenceMeta(),readLogRows(),today());
+  return{started:true,checkpoint,volume,life:mesocycleLifecycle(meta),
+    periodStart:longDate(volume.period.start||meta.started||""),periodEnd:longDate(volume.period.end||today()),
+    outcomes:checkpoint.observedOutcomes.map(outcome=>({...outcome,name:liftDisplayName(currentExerciseForLiftKey(outcome.exerciseId)?.name||outcome.exerciseId,outcome.exerciseId)}))};
+}
+function reviewPreviewModel(flow){
+  const before=state.programMeta?.programDefinition,after=flow.proposal?.successor?.programDefinition;
+  const labels=definition=>Object.fromEntries((definition?.days||[]).map(day=>[day.name,localizedDayName({label:day.name},day.name,definition)]));
+  const movementLabels=Object.fromEntries([...(before?.days||[]),...(after?.days||[])].flatMap(day=>day.slots||[])
+    .map(slot=>[slot.exerciseId,libraryName(libraryEntry(slot.exerciseId))||slot.exerciseId]));
+  return{before,after,beforeDayLabels:labels(before),afterDayLabels:labels(after),movementLabels};
+}
+function renderReview(){ReviewUi.render(reviewReadModel())}
+function startScheduleRepair(){ReviewUi.startScheduleRepair()}
+function startGuidedEdit(){ReviewUi.startGuidedEdit()}
+function startVolumeReduction(){ReviewUi.startVolumeReduction()}
+function startRecoveryWeek(){ReviewUi.startRecoveryWeek()}
 let pendingBlockTransition=null;
 let onboardingOrigin=null;
 let blockCommitInFlight=null;
@@ -4353,48 +4094,7 @@ async function goToLogExercise(exId){
   hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});
   renderWorkout();
   const art=$(`#workout [data-ex="${exId}"]`);if(art){art.scrollIntoView({behavior:scrollBehavior(),block:"center"})}}
-function evidenceRenderers(){
-  return{strength:renderStrengthDash,volume:renderVolumeDash,prs:renderPRTimeline}}
-function renderEvidenceView(){
-  if(!evidenceView)return;
-  const fn=evidenceRenderers()[evidenceView];
-  if(fn)fn()}
-/** One row of five tabs (Plan 064 R3i): the selected tab is the Evidence view when
- *  one is open, otherwise the primary task. Selection is exclusive. */
-function paintStatsTabs(){
-  const on=evidenceView||statsSeg,row=$("#statsSeg");
-  // N3: where the 2px indicator is drawn now (or, if one is still travelling, where it is on screen).
-  const was=row?.querySelector('.tabrow__tab[aria-selected="true"]'),liveRing=row?.querySelector(".tabrow__ring");
-  const fromRect=tabIndicatorRect(liveRing||was,!!liveRing),scrolled=row?row.scrollLeft:0;
-  $$("#statsSeg button").forEach(b=>{const sel=b.dataset.seg===on;
-    b.classList.toggle("active",sel);b.setAttribute("aria-selected",sel?"true":"false");
-    b.tabIndex=sel?0:-1;
-    // A row that scrolls keeps its selected tab in view.
-    if(sel&&b.parentElement&&b.parentElement.scrollWidth>b.parentElement.clientWidth){
-      const row=b.parentElement,left=b.offsetLeft-row.offsetLeft;
-      if(left<row.scrollLeft||left+b.offsetWidth>row.scrollLeft+row.clientWidth)row.scrollLeft=Math.max(0,left-16)}});
-  const now=row?.querySelector('.tabrow__tab[aria-selected="true"]');
-  if(fromRect&&was&&now&&now!==was){fromRect.left-=row.scrollLeft-scrolled;travelTabIndicator(now,fromRect)}}
-/** The rect of a tab's indicator: the 2px border along its foot, or a travelling indicator as drawn. */
-function tabIndicatorRect(el,isRing){
-  if(!el)return null;
-  const r=el.getBoundingClientRect();
-  if(!r.width)return null;
-  return isRing?{left:r.left,top:r.top,width:r.width,height:r.height}:{left:r.left,top:r.bottom-2,width:r.width,height:2}}
-/** N3: the indicator travels from the tab it left to the one that now carries it. The tab keeps its own
- *  2px border for the rest state and sets it aside while this one is in the air, so there is one
- *  indicator on screen. Selecting, the panel switch, focus and ARIA are already done and wait on nothing. */
-function travelTabIndicator(tab,fromRect){
-  const m=focusMotion(),row=tab.parentElement;
-  if(!m||!row)return false;
-  row.querySelectorAll(".tabrow__ring").forEach(r=>r.remove());
-  row.querySelectorAll(".is-ring-travel").forEach(x=>x.classList.remove("is-ring-travel"));
-  const ring=document.createElement("span");
-  ring.className="tabrow__ring";ring.setAttribute("aria-hidden","true");
-  tab.classList.add("is-ring-travel");tab.append(ring);
-  const done=()=>{ring.remove();if(!row.querySelector(".tabrow__ring"))tab.classList.remove("is-ring-travel")};
-  m.animateIndicator(ring,fromRect).then(done,done);
-  return true}
+function renderEvidenceView(){ProgressUi.renderEvidence()}
 /* ---- N1: the dock lens travels (Plan 064 rule 11) ----
    The selected tab sits in one lens: a single `aria-hidden` element that JS puts inside `nav` and places on the
    active button. While it is mounted the active button stops painting its own lens (`nav[data-lens]`); until
@@ -4460,61 +4160,21 @@ function mountDockLens(){
   window.addEventListener("resize",()=>sync(false));
   return nav}
 mountDockLens();
-function setEvidenceView(view){
-  if(!EVIDENCE_SEG[view]){evidenceView=null;
-    paintStatsTabs();
-    for(const id of Object.values(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
-    return}
-  evidenceView=view;
-  paintStatsTabs();
-  for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
-  for(const [k,id] of Object.entries(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===view)}
-  renderEvidenceView()}
-/* The WAI tabs pattern on the Progress row (R7 J-20): each tab names the panel it controls and each panel
-   is labelled by its tab; the selected tab is the only tab stop; Left/Right (wrapping), Home and End move
-   focus and select, as a tap does. The window, filter and day segments are toggle groups, not tabs: they
-   change one region and have no panel of their own. */
-function wireStatsTabs(){
-  const row=$("#statsSeg");if(!row)return;
-  const tabs=$$("#statsSeg button");
-  tabs.forEach(b=>{
-    b.id=`statsTab-${b.dataset.seg}`;
-    const panel=$("#"+(b.getAttribute("aria-controls")||""));
-    if(panel)panel.setAttribute("aria-labelledby",b.id);
-    b.onclick=()=>setStatsSeg(b.dataset.seg)});
-  row.onkeydown=e=>{
-    if(e.altKey||e.ctrlKey||e.metaKey||e.shiftKey)return;
-    const at=tabs.indexOf(document.activeElement);if(at<0)return;
-    const to=e.key==="ArrowRight"?(at+1)%tabs.length:e.key==="ArrowLeft"?(at+tabs.length-1)%tabs.length:
-      e.key==="Home"?0:e.key==="End"?tabs.length-1:-1;
-    if(to<0)return;
-    e.preventDefault();
-    setStatsSeg(tabs[to].dataset.seg);tabs[to].focus()}}
-function setStatsSeg(seg){
-  // Legacy one-level values route to their Evidence view (Plan 056 migration).
-  if(EVIDENCE_SEG[seg])return setEvidenceView(seg);
-  if(!STATS_SEG[seg])seg="overview";
-  // Opening the review is the move onto it, not re-selecting it while it is showing.
-  const opensReview=seg==="review"&&!(statsSeg==="review"&&!evidenceView&&$("#stats")?.classList.contains("active"));
-  statsSeg=seg;evidenceView=null;
-  paintStatsTabs();
-  for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
-  for(const [k,id] of Object.entries(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
-  if(seg==="review")renderReview();
-  if(opensReview)captureBlockReviewViewed();
-  queueMicrotask(()=>maybeShowContextualGuides([seg==="review"?"block-transition":"progress"]))}
+function setEvidenceView(view){return ProgressUi.selectEvidence(view)}
+function wireStatsTabs(){ProgressUi.mount()}
+function setStatsSeg(segment){return ProgressUi.selectSegment(segment)}
 window.__repforgeStatsNav={setStatsSeg,setEvidenceView};
 // Read-only evidence seam: suites assert the model-backed values the Evidence
 // views render, without scraping DOM markup.
 window.__repforgeProgressEvidence={
   strength:liftId=>{
     const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return null;
-    return strengthProjection(strengthScope).series.get(liftId)||null},
+    return strengthProjection(ProgressUi.state().strengthScope).series.get(liftId)||null},
   volume:scope=>{
     const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return null;
     return Model.buildVolumeEvidence(scope==="block-to-date"?"block-to-date":"this-week",prog.toJSON(),
       progressEvidenceMeta(),readLogRows(),today())},
-  records:scope=>strengthEvidenceRecords(scope||strengthScope),
+  records:scope=>strengthEvidenceRecords(scope||ProgressUi.state().strengthScope),
   chartPresentation:n=>n>=3?"trend":n===2?"comparison":"snapshot",
   keyForExerciseId:exId=>{const ex=prog.find(exId);return ex?exerciseLiftKey(ex):null}};
 window.__repforgeProgressReview={
@@ -7350,6 +7010,15 @@ window.__repforgeSessionSummary={open:openSessionSummary,close:closeSessionSumma
 async function mountDashboardPresentation(){
   const copy={t:(...args)=>t(...args),tp:(...args)=>tp(...args),tOne:(...args)=>tOne(...args),countText:(...args)=>countText(...args)};
   const format={number:fmt,compact:kfmt,load:fmtLoad,unit:unitLabel,date:formatLongDate};
+  const reviewCommands=createReviewCommands({transition:repforgeProgramTransitionAdapter,readDraft:readDraftRaw,
+    clearStaging:clearSetupDraft,repeat:()=>finishBlockAndStart("repeat"),
+    openStagedEditor:()=>{startOnboarding("settings",{userInitiated:true});if(entryState?.step==="editor"&&entryState?.result?.preview){entryUiNotice=null;openEntryDraftEditor()}},
+    onCommitted:()=>{day=days()[0]||"Day 1"},onChoice:action=>captureEvent("block_transition_chosen",{action})});
+  ReviewUi=createReviewController({document,copy,queries:{preview:reviewPreviewModel},commands:reviewCommands,onChange:()=>render(),onNotice:toast});
+  ProgressUi=createProgressController({document,copy,format:{...format,displayLoad:toDisplay},motion:window.RepForgeMotion,
+    review:ReviewUi,queries:{review:reviewReadModel,strength:strengthEvidenceReadModel,volume:volumeEvidenceReadModel,prs:prEvidenceReadModel},
+    onOpenExercise:key=>openExerciseView(key,"stats"),onGoToday:()=>navTo("log"),onReviewViewed:captureBlockReviewViewed,
+    onSelected:segment=>queueMicrotask(()=>maybeShowContextualGuides([segment==="review"?"block-transition":"progress"]))});
   TodayUi=createTodayController({document,copy,format,motion:window.RepForgeMotion,
     onCreateProgram:()=>startOnboarding(null,{userInitiated:true}),onOpenExercise:id=>openExerciseView(id,"log"),
     onStartDay:day=>enterWorkout({day}),onReviewProgram:()=>{navTo("stats");setStatsSeg("review")}});
@@ -7394,11 +7063,6 @@ window.__repforgeProgression={
    points come from progress-model.js through strengthProjection(); an outcome
    word is the compareExerciseSession label the summary and History read; an
    attention target is recommendation(). Nothing is derived in this layer. */
-const ProgressUi=createProgressOverview({document,copy:{t},format:{load:fmtLoad,unit:unitLabel},
-  onOpenExercise:key=>openExerciseView(key,"stats"),onGoToday:()=>navTo("log")});
-function sparklineSvg(values,w=60,h=22){return ProgressUi.sparkline(values,w,h)}
-function strengthKindText(series){return ProgressUi.kindText(series)}
-function strengthFigure(series){return ProgressUi.figure(series)}
 function strengthSessionRows(key,sessionId,comparisonConvention="load"){
   return strengthEvidenceRows().filter(row=>row.exerciseId===key&&String(row.session??row.date)===String(sessionId)&&
     row.strengthComparable!==false&&(row.strengthConvention||"load")===comparisonConvention)}
@@ -7411,89 +7075,36 @@ function strengthSessionDelta(key,series){
 /** The word under a lift's name. With a sufficient outcome it is the label of
  *  compareExerciseSession for the latest session, marked for the parity check;
  *  otherwise it is the short reason the model gave (no outcome is invented). */
-function strengthOutcomeWord(key,series,latest){return ProgressUi.outcomeWord({series,latest,
-  comparison:latest?strengthSessionDelta(key,series):null,slotId:latest?currentExerciseForLiftKey(key)?.id:null})}
 /** The two-point change, `+2,5 kg (+2,63%)`. A rep-only improvement moved no
  *  load, so its zero change is not printed and the row reads the word alone. */
-function strengthChangeText(series){
-  const comparison=series.comparison;
-  if(!comparison||!comparison.absolute)return"";
-  return t("stats.evidence.change",{absolute:`${comparison.absolute>0?"+":""}${fmt(toDisplay(comparison.absolute))} ${unitLabel()}`,
-    percentage:`${comparison.percentage>0?"+":""}${fmt(comparison.percentage)}`})}
-function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;
-  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
-  const scopeSeg=$("#strengthScopeSeg");
-  if(scopeSeg)$$("#strengthScopeSeg button").forEach(b=>{const on=b.dataset.scope===strengthScope;
-    b.classList.toggle("active",on);b.setAttribute("aria-pressed",on?"true":"false");
-    b.onclick=()=>{strengthScope=b.dataset.scope;renderStrengthDash()}});
-  if(!Model){legacyStrengthTable(el);return}
-  const projection=strengthProjection(strengthScope),dash=projection.dashboard;
-  // Program slots with no logged history still earn a row: zero points is
-  // baseline-building, not an absence.
-  const keys=new Set(projection.keys);
-  for(const ex of prog.exercises){const k=exerciseLiftKey(ex)||`slot:${ex.id}`;if(!keys.has(k))keys.add(k)}
-  if(!keys.size){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}
-  const nameOf=k=>dash.find(r=>r.key===k)?.exercise||prog.exercises.find(ex=>(exerciseLiftKey(ex)||`slot:${ex.id}`)===k)?.name||k;
-  const shownName=k=>liftDisplayName(nameOf(k),k);
-  el.innerHTML=[...keys].sort((a,b)=>shownName(a).localeCompare(shownName(b),locTag())).map(k=>{
-    const series=projection.series.get(k),detail=strengthDetailTable(k,projection);
-    const panel=`<div class="evrow__detail" data-evdetail="${esc(k)}" hidden>${detail}</div>`;
-    // A slot with no history in this scope keeps its shipped row: nothing is drawn for it.
-    if(series.presentation==="empty")
-      return `<button type="button" class="evrow" data-evkey="${esc(k)}" aria-expanded="false">`+
-        `<div class="listrow__main"><div class="listrow__title">${esc(liftDisplayName(nameOf(k),k))}</div>`+
-        `<div class="listrow__sub">${esc(t("stats.evidence.empty"))}${esc(` · ${t("stats.evidence.baseline")}`)}</div></div>`+
-        `<span class="evrow__val" aria-hidden="true"></span><span class="chevron" aria-hidden="true"></span></button>${panel}`;
-    const latest=projection.sessions.filter(x=>x.liftKey===k).at(-1),word=strengthOutcomeWord(k,series,latest),change=strengthChangeText(series);
-    return `<button type="button" class="evrow evrow--d" data-evkey="${esc(k)}" aria-expanded="false">`+
-      `<b class="evrow__name">${esc(liftDisplayName(nameOf(k),k))}</b>`+
-      `<span class="evrow__fig"><span class="evrow__val">${esc(strengthFigure(series))}</span><span class="chevron is-down" aria-hidden="true"></span></span>`+
-      `<span class="evrow__out${word.soft?" is-soft":""}">${word.html}${change?esc(` · ${change}`):""}</span>`+
-      `<span class="evrow__kind">${esc(strengthKindText(series))}</span>`+
-      `<span class="evrow__spark">${sparklineSvg(series.points.map(point=>point.value))}</span></button>${panel}`}).join("");
-  $$("#strengthDash [data-evkey]").forEach(b=>b.onclick=()=>{
-    const detail=$(`[data-evdetail="${b.dataset.evkey}"]`);if(!detail)return;
-    const open=detail.hidden;detail.hidden=!open;b.setAttribute("aria-expanded",open?"true":"false");b.classList.toggle("is-open",open);
-    const chev=b.querySelector(".chevron.is-down, .chevron.is-up");if(chev){chev.classList.toggle("is-down",!open);chev.classList.toggle("is-up",open)}})}
-/** The rows opened under a lift: why there is no outcome when there is none,
- *  the scope's date range, and one line per session. */
-function strengthDetailTable(k,projection=strengthProjection(strengthScope)){
-  const sess=projection.sessions.filter(x=>x.liftKey===k);
-  if(!sess.length)return `<p class="lede">${esc(t("stats.evidence.reason.untested"))}</p>`;
-  const series=projection.series.get(k),u=unitLabel();
-  const reason=series&&!series.outcome&&series.reason?`<p class="lede">${esc(t(`stats.evidence.reason.${series.reason}`))}</p>`:"";
-  const range=sess.length>1?`<p class="lede">${esc(t("stats.evidence.range",{start:longDate(sess[0].date),end:longDate(sess.at(-1).date)}))}</p>`:"";
-  const topLabel=series?.perSideLoad?t("focus.metric.load_per_side_kg"):t("stats.table.top"),
-    repsLabel=series?.perSideReps?t("focus.metric.reps_per_side"):t("stats.table.reps"),
-    e1rmLabel=series?.perSideLoad?`${t("stats.table.e1rm_unit",{unit:u})} · ${t("focus.metric.load_per_side_kg")}`:t("stats.table.e1rm_unit",{unit:u});
-  return reason+range+table(sess.map(s=>({[t("stats.table.date")]:shortDate(s.date),[topLabel]:fmtLoad(s.top),[repsLabel]:s.topReps,
-      [e1rmLabel]:fmt(Math.round(toDisplay(s.e1rm))),[t("stats.table.rir")]:fmt(s.rir)}))).replace("<table>",'<table class="evtable">')}
-function legacyStrengthTable(el){
-  const rows=strengthDashboard();
-  if(!rows.length){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}
-  const u=unitLabel(),fmtDelta=d=>{const n=toDisplay(d),a=Math.abs(n);const s=n>0?"+":n<0?"-":"";return s+(a?fmt(Math.round(a)):0)};
-  el.innerHTML=table(rows.map(r=>({[t("stats.table.exercise")]:liftDisplayName(r.exercise,r.key),[t("stats.table.latest")]:`${fmtLoad(r.latestLoad)}×${r.latestReps}`,[t("stats.table.best_e1rm_unit",{unit:u})]:fmt(Math.round(toDisplay(r.best))),
-    [t("stats.table.delta_block")]:fmtDelta(r.blockDelta),[t("stats.table.prs")]:r.prs,[t("stats.table.signal")]:r.signal})))}
-
-// The week reads as two totals and a line (Plan 064 R3i). Every number comes
-// from the same evidence model the lists below render, so none of them disagree.
+function strengthEvidenceReadModel(scope){
+  const projection=strengthProjection(scope),keys=new Set(projection.keys);
+  for(const ex of prog.exercises){const key=exerciseLiftKey(ex)||`slot:${ex.id}`;if(!keys.has(key))keys.add(key)}
+  const nameOf=key=>projection.dashboard.find(row=>row.key===key)?.exercise||prog.exercises.find(ex=>(exerciseLiftKey(ex)||`slot:${ex.id}`)===key)?.name||key;
+  const shownName=key=>liftDisplayName(nameOf(key),key);
+  return{scope,rows:[...keys].sort((a,b)=>shownName(a).localeCompare(shownName(b),locTag())).map(key=>{
+    const series=projection.series.get(key),sessions=projection.sessions.filter(session=>session.liftKey===key),latest=sessions.at(-1);
+    return{key,name:shownName(key),series,latest,comparison:latest?strengthSessionDelta(key,series):null,slotId:currentExerciseForLiftKey(key)?.id,
+      sessions:sessions.map(session=>({...session,shortDate:shortDate(session.date),longDate:longDate(session.date),e1rmDisplay:toDisplay(session.e1rm)}))};
+  })};
+}
 function renderThisWeek(){
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return;
   const meta=progressEvidenceMeta(),week=Model.buildWeekStatus(prog.toJSON(),meta,readLogRows(),today());
   const records=strengthEvidenceRecords("current-block");
-  ProgressUi.renderWeek({...week,totalWeeks:meta.mesocycleLengthWeeks,baselineCount:records.filter(record=>record.evidenceState==="insufficient").length});
+  ProgressUi.presentation.renderWeek({...week,totalWeeks:meta.mesocycleLengthWeeks,baselineCount:records.filter(record=>record.evidenceState==="insufficient").length});
 }
 /** Strength this block: a row per lift that has a session, in program order. A
  *  row with two or more sessions opens that lift's chart; one session is a dot
  *  with no chart behind it. */
 function renderOverviewStrength(){
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
-  if(!Model){ProgressUi.renderStrength([]);return}
+  if(!Model){ProgressUi.presentation.renderStrength([]);return}
   const projection=strengthProjection("current-block"),order=prog.exercises.map(ex=>exerciseLiftKey(ex)||`slot:${ex.id}`);
   const keys=[...projection.series.keys()].filter(key=>projection.series.get(key).evidenceCount>0)
     .sort((a,b)=>{const ia=order.indexOf(a),ib=order.indexOf(b);return(ia<0?1e6:ia)-(ib<0?1e6:ib)});
   const nameOf=key=>projection.dashboard.find(row=>row.key===key)?.exercise||prog.exercises.find(ex=>(exerciseLiftKey(ex)||`slot:${ex.id}`)===key)?.name||key;
-  ProgressUi.renderStrength(keys.map(key=>{
+  ProgressUi.presentation.renderStrength(keys.map(key=>{
     const series=projection.series.get(key),latest=projection.sessions.filter(session=>session.liftKey===key).at(-1);
     return{key,name:liftDisplayName(nameOf(key),key),series,latest,comparison:latest?strengthSessionDelta(key,series):null,
       slotId:currentExerciseForLiftKey(key)?.id,dateLabel:latest?shortDate(latest.date):null};
@@ -7534,13 +7145,12 @@ function overviewVolumeSorted(){return overviewVolumeProjection()}
 function renderStats(){
   // First run: point at the Log tab instead of an all-zero dashboard.
   const hasLog=state.log.some(isWork);
-  ProgressUi.renderIntro(hasLog);
+  ProgressUi.presentation.renderIntro(hasLog);
   renderThisWeek();
   renderAttention();renderOverviewStrength();renderReview();
-  if(statsSeg==="review")renderReview();
   renderEvidenceView();
-  if($("#stats")?.classList.contains("active")&&!evidenceView)
-    queueMicrotask(()=>maybeShowContextualGuides([statsSeg==="review"?"block-transition":"progress"]));
+  if($("#stats")?.classList.contains("active")&&!ProgressUi.state().evidence)
+    queueMicrotask(()=>maybeShowContextualGuides([ProgressUi.state().segment==="review"?"block-transition":"progress"]));
 }
 
 function detectPRs(log,opts={}){
@@ -7991,7 +7601,7 @@ if (typeof window !== "undefined") {
   window.__repforgeProgramTransition = repforgeProgramTransitionAdapter;
   window.__repforgeProgressReview={
     scheduledProgram:()=>cloneSnapshot(scheduledProgramRows()),
-    flow:()=>cloneSnapshot(reviewFlow),
+    flow:()=>cloneSnapshot(ReviewUi.flow()),
   };
 }
 window.__repforgeParseCommand=parseSetCommand;
@@ -8057,8 +7667,6 @@ function startVoiceInput(){
   rec.onresult=e=>{const said=e.results[0]?.[0]?.transcript;if(said)applyCommandText(said)};
   rec.onerror=()=>toast(t("toast.voice_failed"));
   try{rec.start()}catch{toast(t("toast.voice_failed"))}}
-window.__repforgeBlockSnapshot=blockSnapshot;
-window.__repforgeBuildPlainSummary=buildPlainSummary;
 
 function prTimeline(filter){
   const all=detectPRs(state.log);let events=all;
@@ -8068,28 +7676,7 @@ function prTimeline(filter){
   return events.sort((a,b)=>compareLogChronology(b,a))}
 window.__repforgePrTimeline=prTimeline;
 
-function renderPRTimeline(){const el=$("#prTimeline");if(!el)return;
-  $$("#prFilterSeg button").forEach(b=>{const on=b.dataset.prf===prFilter;b.classList.toggle("active",on);b.setAttribute("aria-pressed",on?"true":"false");
-    b.onclick=()=>{prFilter=b.dataset.prf;renderPRTimeline()}});
-  const events=prTimeline(prFilter);
-  if(!events.length){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_pr_filter"))}</div>`;return}
-  const prDate=d=>{const p=String(d||"").split("-");return p.length===3?`${t("month."+(+p[1]-1))} ${+p[2]}`:String(d||"")};
-  const kindLbl=k=>k==="load"?t("stats.pr.load"):k==="reps"?t("stats.pr.reps"):t("stats.pr.e1rm");
-  const delta=ev=>ev.kind==="load"?(ev.deltaLoad!=null?`+${fmtLoad(ev.deltaLoad)}${unitLabel()}`:"")
-    :ev.kind==="reps"?(ev.deltaReps!=null?`+${ev.deltaReps}`:"")
-    :(ev.deltaE1rm!=null?`+${fmt(Math.round(toDisplay(ev.deltaE1rm)))}${unitLabel()}`:"");
-  el.innerHTML=events.map((ev,i)=>{const kc=ev.kind==="load"?"pr-kind--load":ev.kind==="reps"?"pr-kind--reps":"pr-kind--e1rm";
-    const d=delta(ev);
-    return `<button type="button" class="prtl__row" data-prrow="${i}" aria-expanded="false"><span class="prtl__date">${esc(prDate(ev.date))}</span>`+
-      `<span class="prtl__ex">${esc(liftDisplayName(ev.exerciseName,ev.liftKey))}</span>`+
-      `<span class="pr-kind ${kc}">${esc(kindLbl(ev.kind))}</span>`+
-      `<span class="prtl__set">${esc(fmtLoad(ev.load))}${unitLabel()} × ${esc(ev.reps)}</span>`+
-      (d?`<span class="prtl__delta">${esc(d)}</span>`:"")+`<span class="chevron" aria-hidden="true"></span></button>`+
-      `<div class="evrow__detail" data-prdetail="${i}" hidden><p class="lede">${esc(longDate(ev.date))}</p>`+
-      `<p class="lede">${esc(`${kindLbl(ev.kind)} · ${fmtLoad(ev.load)}${unitLabel()} × ${ev.reps}`)}${d?` · ${esc(d)}`:""}</p></div>`}).join("");
-  $$("#prTimeline [data-prrow]").forEach(b=>b.onclick=()=>{
-    const detail=$(`[data-prdetail="${b.dataset.prrow}"]`);if(!detail)return;
-    const open=detail.hidden;detail.hidden=!open;b.setAttribute("aria-expanded",open?"true":"false")})}
+function prEvidenceReadModel(filter){return{filter,events:prTimeline(filter).map(event=>({...event,name:liftDisplayName(event.exerciseName,event.liftKey),dateLabel:longDate(event.date)}))}}
 
 // Needs action is derived only from canonical sufficient evidence records.
 function attentionGroups(){
@@ -8128,7 +7715,7 @@ function renderAttention(){
     const slot=currentExerciseForLiftKey(entry.item.destinationId);
     return{...entry,group,slot,rec:slot?recommendation(slot):null};
   })).filter(row=>{const move=attentionVerdict(row.rec);return move==="up"||move==="down"});
-  ProgressUi.renderAttention(rows.map(({ex,item,group,slot,rec})=>{
+  ProgressUi.presentation.renderAttention(rows.map(({ex,item,group,slot,rec})=>{
     const series=projection.series.get(item.destinationId);
     return{destinationId:item.destinationId,id:ex.id,group:group.key,name:exerciseDisplayName(ex),move:attentionVerdict(rec),
       last:series?.latest?.value,target:rec&&rec.load!=null?rec.load:null,exerciseId:slot?.id,
@@ -8287,51 +7874,27 @@ function strengthProjection(scope="current-block"){
 // The test seam and the legacy fallback both read the same scoped projection
 // as the primary Strength renderer. No caller gets an all-history latest value
 // while the selected surface says current block.
-window.__repforgeStrengthDashboard=()=>strengthProjection(strengthScope).dashboard;
-function renderVolumeDash(){const el=$("#volumeDash");if(!el)return;
-  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
-  const scopeSeg=$("#volumeScopeSeg");
-  if(scopeSeg)$$("#volumeScopeSeg button").forEach(b=>{const on=b.dataset.vscope===volumeScope;
-    b.classList.toggle("active",on);b.setAttribute("aria-pressed",on?"true":"false");
-    b.onclick=()=>{volumeScope=b.dataset.vscope;renderVolumeDash()}});
-  const periodEl=$("#volumePeriod");
-  if(!Model){legacyVolumeTable(el);if(periodEl)periodEl.textContent="";return}
-  const evidenceMeta=progressEvidenceMeta();
-  const ev=Model.buildVolumeEvidence(volumeScope==="this-week"?"this-week":"block-to-date",prog.toJSON(),
-    evidenceMeta,readLogRows(),today());
-  if(periodEl)periodEl.textContent=ev.period.start
-    ?t("stats.volume.period_text",{start:longDate(ev.period.start),end:longDate(ev.period.end||today())})
-    :t("stats.volume.no_period");
-  const plannedMap=volumePlannedMuscleMap(ev,evidenceMeta.weekPrescriptions);
-  const completed=volumeMapFromRows(ev.completedRows,state.program);
-  const names=new Set([...plannedMap.keys(),...completed.keys()]);
-  if(!names.size){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_hard_sets",{n:7}))}</div>`;return}
-  const progressDimension=volumeScope==="this-week"?"week":"block";
-  const progressScope=volumeScope==="this-week"?"current-week-muscle-sets":"block-to-date-muscle-sets";
-  const rows=[...names].sort((a,b)=>muscleLabel(a).localeCompare(muscleLabel(b),locTag())).map(m=>{
-    const planned=volEff(plannedMap,m),done=volEff(completed,m);
-    const inProgress=ev.periodStatus!=="complete"&&ev.period.end&&String(ev.period.end)>=today();
-    const caption=planned?(!inProgress&&done<planned?t("stats.volume.partial_period")
-      :inProgress?t("stats.volume.in_progress",{done:fmt(done),planned:fmt(planned)}):""):"";
-    const detail=volumeDetailTable(m,ev);
-    return `<button type="button" class="vrow evrow" data-volume-muscle="${esc(m)}" aria-expanded="false"><span class="vrow__name">${esc(muscleLabel(m))}</span>`+
-      `<span class="vrow__bar" data-progress-dimension="${progressDimension}" data-progress-scope="${progressScope}" aria-hidden="true"><span class="vrow__fill${done>=planned&&planned?" is-on":""}" style="width:${planned?Math.min(100,Math.round(done/planned*100)):0}%"></span></span>`+
-      `<span class="vrow__num">${fmt(done)} / ${fmt(planned)}</span>`+
-      `<span class="vrow__status${inProgress?"":""}">${esc(caption)}</span><span class="chevron" aria-hidden="true"></span></button>`+
-      `<div class="evrow__detail" data-volume-detail="${esc(m)}" hidden>${detail}</div>`}).join("");
-  el.innerHTML=`<div class="evrows">${rows}</div>`;
-  $$("#volumeDash [data-volume-muscle]").forEach(button=>button.onclick=()=>{const detail=$(`[data-volume-detail="${CSS.escape(button.dataset.volumeMuscle)}"]`);
-    const open=detail?.hidden;if(detail)detail.hidden=!open;button.setAttribute("aria-expanded",open?"true":"false");volumeDrillMuscle=open?button.dataset.volumeMuscle:null});
-  if(volumeDrillMuscle){const button=$(`#volumeDash [data-volume-muscle="${CSS.escape(volumeDrillMuscle)}"]`);button?.click()}}
-function volumeDetailTable(muscle,ev){
+window.__repforgeStrengthDashboard=()=>strengthProjection(ProgressUi.state().strengthScope).dashboard;
+function volumeEvidenceReadModel(scope){
+  const meta=progressEvidenceMeta(),evidence=NativeProgressModel.buildVolumeEvidence(scope==="this-week"?"this-week":"block-to-date",prog.toJSON(),meta,readLogRows(),today());
+  const planned=volumePlannedMuscleMap(evidence,meta.weekPrescriptions),completed=volumeMapFromRows(evidence.completedRows,state.program);
+  const names=new Set([...planned.keys(),...completed.keys()]);
+  const inProgress=evidence.periodStatus!=="complete"&&evidence.period.end&&String(evidence.period.end)>=today();
+  return{scope,periodLabel:evidence.period.start?t("stats.volume.period_text",{start:longDate(evidence.period.start),end:longDate(evidence.period.end||today())}):t("stats.volume.no_period"),
+    rows:[...names].sort((a,b)=>muscleLabel(a).localeCompare(muscleLabel(b),locTag())).map(muscle=>({
+      muscle,label:muscleLabel(muscle),planned:volEff(planned,muscle),done:volEff(completed,muscle),inProgress,details:volumeDetailRows(muscle,evidence)}))};
+}
+function volumeDetailRows(muscle,evidence){
   const groups=new Map();
-  for(const row of ev.completedRows||[]){
-    const ms=rowMuscles(row);let weight=0;
-    if(muscles(ms.primary).includes(muscle))weight=1;else if(muscles(ms.secondary).includes(muscle))weight=.5;
-    if(!weight)continue;const key=`${row.session}|${liftKey(row)}`,current=groups.get(key)||{session:row.session,date:row.date,created:row.created,name:exerciseDisplayName(row)};mergeLogChronology(current,row);current.sets=(current.sets||0)+weight;groups.set(key,current)}
-  const rows=[...groups.values()].sort((a,b)=>compareLogChronology(b,a));
-  return rows.length?table(rows.map(row=>({[t("stats.table.date")]:shortDate(row.date),[t("stats.table.exercise")]:row.name,[t("stats.table.sets")]:fmt(row.sets)})))
-    :`<p class="lede">${esc(t("stats.evidence.reason.untested"))}</p>`}
+  for(const row of evidence.completedRows||[]){
+    const attribution=rowMuscles(row);let weight=0;
+    if(muscles(attribution.primary).includes(muscle))weight=1;else if(muscles(attribution.secondary).includes(muscle))weight=.5;
+    if(!weight)continue;
+    const key=`${row.session}|${liftKey(row)}`,current=groups.get(key)||{session:row.session,date:row.date,created:row.created,name:exerciseDisplayName(row)};
+    mergeLogChronology(current,row);current.sets=(current.sets||0)+weight;groups.set(key,current);
+  }
+  return[...groups.values()].sort((a,b)=>compareLogChronology(b,a)).map(row=>({...row,dateLabel:shortDate(row.date)}));
+}
 // Planned per-muscle denominators for the rendered scope. Elapsed weeks come
 // from the compact durable aggregate; only uncovered current/future schedule
 // projections are read from the authored program or sparse receipts.
@@ -8378,9 +7941,6 @@ function volumePlannedMuscleMap(ev,prescriptions=progressWeekPrescriptions()){
   for(const rx of selected)for(const[name,v]of Object.entries(rx?.musclesByName||{})){
     add(name,v.d,v.p)}
   return m}
-function legacyVolumeTable(el){
-  const rows=volumeDashboard(7).map(r=>({[t("stats.table.muscle")]:muscleLabel(r.muscle),[t("stats.table.planned")]:fmt(r.planned),[t("stats.table.completed_7d")]:fmt(r.completed7),[t("stats.table.completed_28d")]:fmt(r.completed28),[t("stats.table.status")]:r.status}));
-  el.innerHTML=table(rows)}
 function chartLabelDecimals(rngKg){return toDisplay(rngKg/3)<1?1:0}
 window.__repforgeChartLabelDecimals=chartLabelDecimals;
 function chartPalette(){
@@ -10614,8 +10174,7 @@ async function commitSettings(silent){const editRevision=settingsEditRevision;co
   if(!silent)toast(t("toast.settings_saved"));
   return result}
 
-function table(rows){if(!rows.length)return`<div class="empty">${esc(t("stats.table.no_data"))}</div>`;const h=Object.keys(rows[0]);
-  return`<table><thead><tr>${h.map(x=>`<th>${esc(x)}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${h.map(x=>`<td>${esc(r[x])}</td>`).join("")}</tr>`).join("")}</tbody></table>`}
+function table(rows){return formatTable(rows,t("stats.table.no_data"))}
 
 function exportCsv(){
   const file=csvFile({state,readLogRow,exerciseLabel,rowMuscles,e1rm,date:today()});
@@ -19018,7 +18577,7 @@ function init(){
     if(programEditMode)finishInstalledEditor();
     exView=null;workoutActive=false;workoutLeft=true;
     // Progress remembers its segment, so arriving there can itself open the review.
-    const opensReview=b.dataset.view==="stats"&&statsSeg==="review"&&!evidenceView&&!$("#stats")?.classList.contains("active");
+    const opensReview=b.dataset.view==="stats"&&ProgressUi.state().segment==="review"&&!ProgressUi.state().evidence&&!$("#stats")?.classList.contains("active");
     document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-workout");
     $$("nav button").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     $$(".view").forEach(v=>v.classList.toggle("active",v.id===b.dataset.view));window.scrollTo({top:0});render();

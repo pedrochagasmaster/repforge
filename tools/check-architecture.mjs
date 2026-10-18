@@ -13,7 +13,7 @@ const publicEntries = new Set([
   ...['durable','snapshot','preferences'].map(name=>`persistence/${name}.js`),
   ...['backup','program-file','setup-link','csv','transfer-contract'].map(name=>`interchange/${name}.js`),
   ...['catalog','program-executor','files','notifications','telemetry','install-transfer','motion','install'].map(name=>`platform/${name}.js`),
-  ...['session','workout','program','history','interchange','settings','read-models','history-read-models'].map(name=>`app/${name}.js`),
+  ...['session','workout','program','history','interchange','settings','read-models','history-read-models','review'].map(name=>`app/${name}.js`),
   'release/gate.js', 'ui/shell.js','ui/format.js','ui/editors.js',
   ...['today','workout','focus','history','progress','entry','program','library','settings'].map(name=>`ui/${name}/controller.js`),
 ]);
