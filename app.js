@@ -1,3 +1,7 @@
+import {createBlockReview} from './src/app/block-review.js';
+let blockReview;
+import {scalarSessions,previousScalarSessionRows,mergeLogChronology,isStalled,blockCompletionBucket,programProgressionHealth as deriveProgramHealth,programVolumeCompliance as deriveVolumeCompliance,programStatusKey} from './src/training/progress.js';
+let validateRecoveryProjectionRecord=async()=>null;
 import {createCustomDefinitionImport} from './src/app/custom-import.js';
 import {workoutDayIdForSnapshot,workoutParseContextForSnapshot} from './src/persistence/snapshot.js';
 import {createExerciseLabels} from './src/ui/exercise-labels.js';
@@ -323,7 +327,7 @@ function applyAcceptedSnapshot(base,snapshot){
   if(sameCarrierRecord){activeRecoveryRecordBlockId=liveBlock}
   else{activeRecoveryRecord=null;activeRecoveryRecordBlockId=null}
   mutationBase=cloneSnapshot(snapshot);
-  baselineMemo.clear()}
+  }
 
 function draftEffectOutcome(effect){return DurableState.draftEffectOutcome(effect)}
 function normalizeDraftEffectOutcome(value){return DurableState.normalizeDraftEffectOutcome(value)}
@@ -2042,10 +2046,7 @@ window.__repforgeWeeklySnapshot=weeklySnapshot;
 function mesocycleLifecycle(...args){return TrainingModel.mesocycleLifecycle(...args)}
 /** Q617: extended past the planned length; complete in or after the final
  *  week; partial at least halfway; otherwise early. */
-function blockCompletionBucket(life){
-  if(life.overrunWeeks>0)return"extended";
-  if(life.isComplete||life.current>=life.total)return"complete";
-  return life.current>=Math.ceil(life.total/2)?"partial":"early"}
+
 /** The lifter opening the block review. Navigation calls this; render does not. */
 function captureBlockReviewViewed(){
   if(!state.programMeta?.started)return;
@@ -2075,32 +2076,8 @@ function recoveryCarrierRecords(snapshot=state){
   const carrier=snapshot?.recoveryTransitions;
   return isValidRecoveryTransitions(carrier)?carrier.records:[];
 }
-function recoveryCompilerInstance(snapshot,Compiler,catalogue){
-  const meta=snapshot?.programMeta;
-  if(classifyCompilerTransitionProvenance(meta)!=="present"||!meta?.compilerContext||
-    typeof Compiler?.compile!=="function")return null;
-  try{
-    const instance=Compiler.compile(meta.compilerContext,catalogue);
-    if(!instance||instance.kind!=="compiled"||!compilerProgramMatchesLive(snapshot.program,instance.program,snapshot.customExercises))return null;
-    return instance;
-  }catch{return null}}
-async function validatedRecoveryRecordForSnapshot(snapshot,record){
-  const Transition=typeof RepForgeProgramTransition!=="undefined"?RepForgeProgramTransition:null;
-  const Compiler=typeof ProgramCompiler!=="undefined"?ProgramCompiler:null;
-  const catalogue=typeof EXERCISE_LIBRARY!=="undefined"?EXERCISE_LIBRARY:null;
-  if(!Transition||typeof Transition.validateRecoveryRecord!=="function"||
-    typeof Transition.approvedRecoveryPolicy!=="function"||!Compiler)return null;
-  const instance=recoveryCompilerInstance(snapshot,Compiler,catalogue);
-  if(!instance)return null;
-  const validation=await Transition.validateRecoveryRecord(record,{
-    predecessor:cloneSnapshot(record.predecessor),
-    predecessorInstance:instance,
-    approvedPolicy:Transition.approvedRecoveryPolicy(),
-    supportedVersions:Compiler.VERSIONS,
-    existingRecoveryRecords:recoveryCarrierRecords(snapshot),
-  });
-  return validation?.ok?validation.record:null;
-}
+
+function validatedRecoveryRecordForSnapshot(snapshot,record){return validateRecoveryProjectionRecord(snapshot,record)}
 async function refreshRecoveryProjectionCache(snapshot=state){
   activeRecoveryRecord=null;activeRecoveryRecordBlockId=null;
   const blockId=snapshotBlockId(snapshot),records=recoveryCarrierRecords(snapshot);
@@ -2116,62 +2093,14 @@ async function refreshRecoveryProjectionCache(snapshot=state){
 }
 const rowMusclesPure=loggedMuscleAttribution;
 const compareLogChronology=NativeProgressModel.compareChronology;
-function mergeLogChronology(target,row){
-  if(!target.date&&row?.date)target.date=row.date;
-  if(!target.created&&row?.created)target.created=row.created;
-  return target}
+
 function volMapToObj(m){const o={};for(const[k,v]of m)o[k]={d:v.d,p:v.p};return o}
-function sessionsForLog(ex,log){const match=matchLift(ex),m=new Map();
-  for(const x of log||[]){if(!match(x)||!(+x.load>0)||!isWork(x))continue;
-    if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,loads:[],reps:[],rirs:[]});
-    const o=mergeLogChronology(m.get(x.session),x);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir)}
-  return[...m.values()].map(o=>({session:o.session,date:o.date,created:o.created,reps:o.reps,
-    med:median(o.loads),top:Math.max(...o.loads),minReps:Math.min(...o.reps),maxReps:Math.max(...o.reps),medReps:median(o.reps),
-    avgRir:avg(o.rirs),bestE1rm:Math.max(...o.loads.map((load,index)=>e1rm(load,o.reps[index])))}))
-    .sort(compareLogChronology)}
-function previousSessionRowsLog(ex,beforeSessionId,log){const match=matchLift(ex),m=new Map();
-  for(const x of log||[]){if(!match(x)||!(+x.load>0)||!isWork(x)||!(+x.reps>0))continue;
-    if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,rows:[]});mergeLogChronology(m.get(x.session),x).rows.push(x)}
-  const ordered=[...m.values()].sort(compareLogChronology);
-  const curIdx=ordered.findIndex(s=>s.session===beforeSessionId);
-  if(curIdx<0){const current=(log||[]).find(r=>r.session===beforeSessionId);if(!current)return ordered.length?ordered.at(-1).rows:[];
-    const older=ordered.filter(s=>compareLogChronology(s,current)<0);return older.length?older.at(-1).rows:[]}
-  return curIdx>0?ordered[curIdx-1].rows:[]}
+function sessionsForLog(ex,log){return scalarSessions((log||[]).filter(matchLift(ex)))}
+function previousSessionRowsLog(ex,beforeSessionId,log){return previousScalarSessionRows((log||[]).filter(matchLift(ex)),beforeSessionId,log||[])}
 function hardSetsInRange(log,program,started,ended,hardRir){return ProgressReadModels.hardSets(log||[],program||[],{start:started,end:ended,hardRir})}
 function volumeMapFromRows(rows,program){return ProgressReadModels.completedMap(rows,program||[])}
 
-function buildBlockReview(programMeta,program,log){const p=new TrainingModel.Program(program||[]),days=p.days(),total=programMeta?.mesocycleLengthWeeks||6;
-  const started=programMeta?.started||null,ended=today(),hardRir=DEFAULTS.hardRir;
-  const plannedSessions=total&&days.length?total*days.length:0;
-  const blockRows=(log||[]).filter(r=>!started||r.date&&(String(r.date)>=started&&String(r.date)<=ended));
-  const completedSessions=new Set(blockRows.map(r=>r.session)).size;
-  const adherenceRatio=plannedSessions?Math.min(completedSessions/plannedSessions,1):0;
-  let improvedLifts=0,flatLifts=0,regressedLifts=0,stalledLifts=0;
-  for(const ex of p.exercises){const sess=sessionsForLog(ex,log),blockSess=started?sess.filter(s=>String(s.date)>=started&&String(s.date)<=ended):sess;
-    if(!blockSess.length)continue;
-    const latest=blockSess.at(-1),latestRows=(log||[]).filter(r=>r.session===latest.session&&matchLift(ex)(r));
-    const delta=buildSessionDelta(previousSessionRowsLog(ex,latest.session,log),workingRows(latestRows));
-    if(delta.status==="improved")improvedLifts++;
-    else if(delta.status==="flat")flatLifts++;
-    else if(delta.status==="regressed")regressedLifts++;
-    if(isStalled(sess))stalledLifts++}
-  const prs=detectPRs(log||[]).filter(e=>!started||e.date&&(String(e.date)>=started&&String(e.date)<=ended)).length;
-  const plannedMap=p.volume(),plannedHardSetsByMuscle=volMapToObj(plannedMap);
-  let totalPlanned=0;for(const[,v]of plannedMap)totalPlanned+=(v.d+v.p)*total;
-  const completedMap=hardSetsInRange(log,program,started,ended,hardRir),completedHardSetsByMuscle=volMapToObj(completedMap);
-  let totalCompleted=0;for(const[,v]of completedMap)totalCompleted+=v.d+v.p;
-  const volumeCompliance=totalPlanned?Math.min(totalCompleted/totalPlanned,1):0;
-  const improvedHigh=improvedLifts>=3||(improvedLifts>0&&improvedLifts>=flatLifts+regressedLifts);
-  const fatigueHigh=(regressedLifts+flatLifts)>=4||regressedLifts>=2;
-  let recommendation;
-  if(adherenceRatio<.5)recommendation="repeat_with_simpler_schedule";
-  else if(stalledLifts>=3&&fatigueHigh)recommendation="reduce_volume_or_deload";
-  else if(improvedHigh&&adherenceRatio>=.8)recommendation="repeat_or_progress";
-  else if(volumeCompliance<.6)recommendation="keep_program_improve_completion";
-  else recommendation="repeat_with_small_swaps";
-  return{programId:programMeta?.id||null,started,ended,plannedSessions,completedSessions,adherenceRatio,
-    improvedLifts,flatLifts,regressedLifts,stalledLifts,prs,completedHardSetsByMuscle,plannedHardSetsByMuscle,
-    volumeCompliance,recommendation,created:new Date().toISOString()}}
+function buildBlockReview(programMeta,program,log){return blockReview.build({...state,programMeta,program,log},{today:today(),now:new Date().toISOString(),hardRir:DEFAULTS.hardRir})}
 function reviewReadModel(){return ProgressReadModels.review(progressReadFacts(),strengthEvidenceRecords("current-block"))}
 
 function reviewPreviewModel(flow){
@@ -2329,18 +2258,9 @@ function renderBlockPrompt(){const mc=mesocycleWeek();
     el.classList.toggle("hidden",!show);if(show){el.innerHTML=html;
       const btn=el.querySelector(".blockprompt__act");if(btn)btn.onclick=promptEndBlock;
       const dismiss=el.querySelector(".blockprompt__dismiss");if(dismiss)dismiss.onclick=async e=>{e.stopPropagation();await dismissBlockPrompt()}}}}
-function programProgressionHealth(){const withHistory=prog.exercises.filter(ex=>sessionsFor(ex).length>0);
-  if(!withHistory.length)return null;
-  const hot=withHistory.filter(ex=>{const st=recommendation(ex).status;return st==="add"||st==="add2"}).length;
-  return{hot,total:withHistory.length,ratio:hot/withHistory.length}}
-function programVolumeCompliance(){const planned=prog.volume();let plannedTotal=0;
-  for(const [,v] of planned)plannedTotal+=v.d+v.p;if(!plannedTotal)return null;
-  const m=completedHardSets(7);let completed=0;for(const [,v] of m)completed+=v.d+v.p;
-  return{planned:plannedTotal,completed,ratio:Math.min(completed/plannedTotal,1)}}
-function programStatusLabel(adherence,health){
-  const hasLog=state.log.some(isWork);if(!hasLog)return t("status.getting_started");
-  const adRatio=adherence.ratio,hRatio=health?.ratio??0;
-  if(adRatio>=1&&hRatio>=0.4)return t("status.on_track");if(adRatio>=0.5)return t("status.partial_week");return t("status.rebuilding")}
+function programProgressionHealth(){return deriveProgramHealth(prog.exercises.map(ex=>{const hasHistory=sessionsFor(ex).length>0;return{hasHistory,status:hasHistory?recommendation(ex).status:""}}))}
+function programVolumeCompliance(){return deriveVolumeCompliance(prog.volume().values(),completedHardSets(7).values())}
+function programStatusLabel(adherence,health){return t(programStatusKey(state.log.some(isWork),adherence.ratio,health?.ratio))}
 /* Accepts v3, v2, a bare exercise array, and {program:[…]} — every shape
    Taurifer has ever written. customExercises only exists in v3. */
 function validImportedCustomExercise(entry){
@@ -2414,7 +2334,7 @@ function rebaseSharedSetupSnapshot(snapshot,head,seed){
     incoming,exercises,head,deterministicCustomIdAllocator(seed)).customExercises;
   return snapshot}
 function persistBootNormalization(opts={}){
-  baselineMemo.clear();
+
   const base=cloneSnapshot(mutationBase||state);
   const snapshot=cloneSnapshot(state);
   const structured=withExplicitProgramStructure(snapshot.program,snapshot.programMeta||defaultProgramMeta(snapshot.log));
@@ -3347,36 +3267,17 @@ function exercises(d=day){return scheduledProgramRows().filter(x=>x.day===d).sor
 function matchLift(...args){return workoutQueries().matchLift(...args)}
 function last(...args){return workoutQueries().last(...args)}
 // One entry per past session for this lift, oldest→newest, working sets only (load>0).
-function sessionsFor(ex){const match=matchLift(ex),m=new Map();
-  for(const x of state.log){if(!match(x)||!(+x.load>0)||!isWork(x))continue;
-    if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,loads:[],reps:[],rirs:[],caps:[],cappedRirs:[]});
-    const o=mergeLogChronology(m.get(x.session),x);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir);
-    // Capacity twins of the RIR-blind aggregates — the engine reads these, stats keep the originals.
-    o.caps.push(capE1rm(+x.load,+x.reps,x.rir));o.cappedRirs.push(capRir(x.rir))}
-  return [...m.values()].map(o=>({session:o.session,date:o.date,created:o.created,reps:o.reps,
-    med:median(o.loads),top:Math.max(...o.loads),minReps:Math.min(...o.reps),maxReps:Math.max(...o.reps),medReps:median(o.reps),
-    avgRir:avg(o.rirs),bestE1rm:Math.max(...o.loads.map((load,index)=>e1rm(load,o.reps[index]))),
-    caps:o.caps,bestCap:Math.max(...o.caps),medCap:median(o.caps),medCappedRir:median(o.cappedRirs)}))
-    .sort(compareLogChronology)}
+function sessionsFor(ex){return sessionsForLog(ex,state.log)}
 // The lifter's own recent habitual RIR for this lift — a measurement, not a target.
-function typicalRir(ex,sess){sess=sess||sessionsFor(ex);
-  const recent=sess.slice(-CAPACITY.baselineSessions);
-  return recent.length?median(recent.map(s=>s.medCappedRir)):1}
+
 // Memo key for the capacity helpers that walk the whole log: identity plus a cheap
 // stamp of the log's shape. Accepted publication clears both memos when the log changes.
-const capMemoKey=ex=>`${exerciseLiftKey(ex)}|${state.log.length}|${state.log.at(-1)?.created||""}`;
+
 // Recent typical capacity for off-day detection. null until 2 sessions exist.
 // Memoized: session freshness asks for every other lift on the day, on every
 // keystroke in a committed row — Log-tab speed comes first.
-const baselineMemo=new Map();
-function capacityBaseline(ex,sess){
-  // Only the no-argument form is memoizable; a caller-supplied sess is its own input.
-  if(sess)return sess.length<2?null:median(sess.slice(-CAPACITY.baselineSessions).map(s=>s.bestCap));
-  const memoKey=capMemoKey(ex);
-  if(baselineMemo.has(memoKey))return baselineMemo.get(memoKey);
-  const rows=sessionsFor(ex);
-  const value=rows.length<2?null:median(rows.slice(-CAPACITY.baselineSessions).map(s=>s.bestCap));
-  baselineMemo.set(memoKey,value);return value}
+
+
 /** The working sets a saved session performed, read through the History and
  *  Progress projection: a per-side row's load and reps live in its metric
  *  values, not in the scalar fields a plain Weight × Reps row fills. */
@@ -3386,14 +3287,7 @@ function performedWorkingRows(rows){return workingRows(readLogRows(rows||[]))}
  *  row whose multiplier is unknown adds nothing. */
 function movedTonnage(rows){return sum(readLogRows(rows||[]).filter(row=>isWork(row)&&Number.isFinite(row.tonnage)).map(row=>row.tonnage))}
 
-function previousSessionForExercise(ex,beforeSessionId){const match=matchLift(ex),m=new Map();
-  for(const x of state.log){if(!match(x)||!(+x.load>0)||!isWork(x)||!(+x.reps>0))continue;
-    if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,rows:[]});mergeLogChronology(m.get(x.session),x).rows.push(x)}
-  const ordered=[...m.values()].sort(compareLogChronology);
-  const curIdx=ordered.findIndex(s=>s.session===beforeSessionId);
-  if(curIdx<0){const current=state.log.find(r=>r.session===beforeSessionId);if(!current)return ordered.length?ordered.at(-1).rows:[];
-    const older=ordered.filter(s=>compareLogChronology(s,current)<0);return older.length?older.at(-1).rows:[]}
-  return curIdx>0?ordered[curIdx-1].rows:[]}
+function previousSessionForExercise(ex,beforeSessionId){return previousSessionRowsLog(ex,beforeSessionId,state.log)}
 // All readers use the one pure training policy; composition applies current copy.
 function buildSessionDelta(previous,current){return presentSessionOutcome(deriveSessionDelta(previous,current),{t})}
 function noComparableSessionOutcome(){return presentSessionOutcome(deriveNoComparable(),{t})}
@@ -3407,15 +3301,9 @@ function compareExerciseSession(ex,currentRows,readerContext=null){
   if(!prev.length)return{status:"new",label:t("delta.new.label"),text:t("delta.new.text"),metrics:null};
   return buildSessionDelta(prev,cur)}
 // Stalled = 3+ recent sessions at the same working load with no gain in top-set reps.
-function isStalled(sess){if(sess.length<3)return false;const r=sess.slice(-3),l0=r[0].med,rep0=r[0].maxReps;
-  return r.every(s=>Math.abs(s.med-l0)<0.01)&&r.every(s=>s.maxReps<=rep0)}
+
 // Recover = grinding near failure AND performance did not improve vs prior session (same/lower load).
-function recoverSignal(ex,sess,rirCeiling=0.5){sess=sess||sessionsFor(ex);if(sess.length<2)return false;
-  const last=sess.at(-1),prior=sess.at(-2);
-  if(last.avgRir==null||!(+last.avgRir<=rirCeiling))return false;
-  if(last.maxReps==null||last.medReps==null||prior.maxReps==null||prior.medReps==null)return false;
-  if(+last.med-+prior.med>=0.01)return false;
-  return +last.maxReps<=+prior.maxReps&&+last.medReps<=+prior.medReps}
+
 function round(v){const raw=+state.settings.minJump;const inc=Number.isFinite(raw)&&raw>0?raw:2.5;return Math.round(v/inc)*inc}
 const LOAD_EPS=1e-6;
 const sameLoad=(a,b)=>a!=null&&b!=null&&Math.abs(a-b)<=LOAD_EPS;
@@ -5759,7 +5647,7 @@ window.__repforgePrTimeline=prTimeline;
 function prEvidenceReadModel(filter){return ProgressReadModels.prs(detectPRs(state.log),progressProgramFacts(),filter)}
 function attentionGroups(){return ProgressReadModels.attentionGroups(progressReadFacts(),strengthEvidenceRecords("current-block"))}
 
-window.__repforgeRecoverSignal=recoverSignal;
+
 window.__repforgeRecommendation=recommendation;
 window.__repforgeProgressionForExercise=progressionForExercise;
 window.__repforgeValidateStateShape=isValidStateShape;
@@ -5820,7 +5708,7 @@ function redrawChart(){ExerciseUi?.redraw()}
 function adoptHistoryDurableHead(head){
   if(!head)return;
   publishTrainingSnapshot(head);
-  resetPersistenceBase(state);baselineMemo.clear()}
+  resetPersistenceBase(state);}
 /** The block bounds History groups and counts by: where the running block started,
  *  how long it is, how many training days a week it plans, and the archived
  *  blocks before it. Read from the program, never stored for History. */
@@ -12551,6 +12439,7 @@ function initializePersistenceOwners(){
   initializeBlockTransitionCommands(model);
   workoutReadModel=createWorkoutReadModel({catalog:rawExerciseCatalog,librarySource:{library:EXERCISE_LIBRARY},model});
   ProgressReadModels=createProgressReadModels({training:model,copy:{t},format:{locale:locTag,exercise:liftDisplayName,muscle:muscleLabel,shortDate,longDate,displayLoad:toDisplay,number:fmt}});
+  blockReview=createBlockReview({model,queries:workoutReadModel});
   const entry=createEntryRules(rawExerciseCatalog),workout=createWorkoutRules(rawExerciseCatalog);
   EntryDraft=createSetupDraftStore({rules:ProgramEntry,storage:localStorage,
   lock:operation=>withStorageLock(storageIO,operation),ownerId:uid(),onFailure:reportSetupDraftWriteFailure,
@@ -12564,6 +12453,7 @@ function initializePersistenceOwners(){
   customDefinitionImport=createCustomDefinitionImport({model,nextId:uid});
   EntryActivation=createEntryActivation({model,policy,identity:{programId:uid,blockId:allocateBlockId,now:entryNow,date:today},defaultName:()=>t("untitled_program")});
   ({normalizeMuscleAttribution,isValidMuscleDomainTree,isValidStoredMuscleField,isValidPlannedVolumeHistory,normalizeRecoveryCarrierSnapshot,isSafeProgressionFields,isSafeProgressionMeta,isSafeProgramHistoryEntry,isSafeLogRow,isSafeCustomExercise,isValidSetupActivationMarker,setupActivationMarker,setupActivationMatches,isValidStateShape,migrateLogSnapshot,defaultProgramMeta,normalizeProgramEntrySource,normalizeProgramMeta,normalizeLoadingConfiguration,withExplicitProgramStructure,normalizeProgramHistory,normalizeLoaded,normalizeNotify,normalizeSettings}=policy);
+  validateRecoveryProjectionRecord=policy.validateRecoveryProjectionRecord;
   programAdditionCommands=createProgramAdditionCommands({read:applicationSession.read,
     readEditor:programEditorSnapshot,commit:proposal=>commitProposedState(proposal),commitEditor:commitProgramEditorProposal,
     model,authoring:createInstalledEditorRules({model,catalog:rawExerciseCatalog,nextId:uid,defaultProgramMeta})});
