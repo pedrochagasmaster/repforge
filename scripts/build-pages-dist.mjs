@@ -17,6 +17,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync,
 import { dirname, join, resolve } from "node:path";
 import vm from "node:vm";
 import { assembleRelease } from "./release-assembly.mjs";
+import { nativeSourceAssets } from "./native-source-assets.mjs";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const OUT = join(ROOT, "dist");
@@ -59,16 +60,7 @@ required.delete(null);
 if (/<script src="posthog-config\.js\?/.test(html)) { optional.delete("posthog-config.js"); required.add("posthog-config.js"); }
 
 // All migrated native modules ship at native paths, including Worker entrypoints.
-function collectSource(directory) {
-  if (!existsSync(join(ROOT, directory))) return;
-  for (const entry of readdirSync(join(ROOT, directory), { withFileTypes: true })) {
-    const path = join(directory, entry.name);
-    if (entry.isDirectory()) collectSource(path);
-    else if (/\.(?:js|json|css)$/.test(entry.name)) required.add(path);
-  }
-}
-collectSource("src");
-collectSource("styles");
+for (const file of nativeSourceAssets(ROOT)) required.add(file);
 
 const present = (relative) => existsSync(join(ROOT, relative)) && statSync(join(ROOT, relative)).isFile();
 function copyFile(relative) {
