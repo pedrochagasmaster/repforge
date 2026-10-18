@@ -52,3 +52,33 @@ function capture(definition,label,currentCycle=1,blockId='context-block'){
   const stored=draft.exercises[exercise.exerciseInstanceId].sets['set-1'];assert.deepEqual(stored.programmed.targets,{durationSeconds:75});
 }
 console.log('PASS real workout context: immutable source cycle targets, renamed-day identity, unknown preservation, exact loading units and valid repless DraftV2');
+
+assert.equal(typeof contexts.draftInputs,'function','concrete context owns draft input policy');
+const inputDefinition=structuredClone(fixture.expected.generation.value),inputDay=inputDefinition.days.find(day=>day.kind==='training');
+const inputRows=model.flatProgramFromDefinition(inputDefinition,[],1);
+const inputSnapshot={program:inputRows,programMeta:{id:'seed-program',programDefinition:inputDefinition},log:[],settings:{unit:'lb',rirMode:'effort'}};
+const inputQuery=queries.capture({snapshot:inputSnapshot,draft:null,currentCycle:1,profileWeightKg:null});
+const movementLibrary=[{id:'one',name:'Duplicate',namePt:'Duplicado',primary:'Chest'}, {id:'two',name:'Duplicate',primary:'Back'}];
+inputSnapshot.customExercises=[{id:'custom:archived',name:'Archived',archived:true,primary:'Legs'}];
+const inputs=contexts.draftInputs({snapshot:inputSnapshot,query:inputQuery,rows:inputRows,currentCycle:1,calendarDate:'2026-10-18',library:movementLibrary,language:'pt'});
+const identity={now:'2026-10-18T10:00:00.000Z',draftId:'new-seed',writer:{installationId:'i',tabId:'t',operationId:'seed'}};
+const seeds=inputs.creation(inputDay.name,{contextTouched:{day:true}},identity);
+assert.equal(seeds.sessionSelection.draftId,'new-seed');assert.equal(seeds.sessionSelection.contextTouched.day,true);
+assert.equal(seeds.sessionSelection.selectedExerciseId,seeds.programContext.exercises[0].exerciseInstanceId);
+const untouched=WorkoutDraft.create(seeds.programContext,{...seeds.sessionSelection,contextTouched:{day:false,date:false,sessionNotes:false,bodyweight:false}},seeds.previousSessionFacts);
+assert.equal(WorkoutDraft.isDomainError(untouched),false,JSON.stringify(untouched));
+assert.equal(inputs.disposable(untouched),true);
+const reordered=structuredClone(untouched);reordered.exercises[reordered.exerciseOrder[0]].programmed.order=99;
+assert.equal(inputs.disposable(reordered),false);
+const dated=structuredClone(untouched);dated.program.scheduleDate='2026-10-17';assert.equal(inputs.disposable(dated),false);
+const noted=structuredClone(untouched);noted.exercises[noted.exerciseOrder[0]].setupNotes='typed';assert.equal(inputs.disposable(noted),false);
+const legacy={__day:inputDay.name,__bodyweight:'220.46226218',slot_load:'22.046226218',slot_reps:'8',slot_rir:'2',slot_effort:'Hard',__substituted:{a:'Duplicate',b:'Old custom'},__substitutedRef:{b:'custom:archived'}};
+const migration=inputs.migration(legacy,inputDay.name,identity);
+assert.deepEqual(migration.valueResolutions,{__bodyweight:'100',slot_load:'10',slot_reps:'8',slot_rir:'2',slot_effort:'Hard'});
+assert.equal(migration.substitutionResolutions.a.replacement.movementId,'adhoc:duplicate','ambiguous legacy name cannot select a catalog identity');
+assert.equal(migration.substitutionResolutions.b.replacement.libraryId,'custom:archived','explicit archived reference remains resolvable');
+assert.equal(migration.substitutionResolutions.b.replacement.displayName,'Old custom');
+assert.equal(inputs.migration({...legacy,__bodyweight:'  invalid  '},inputDay.name,identity).valueResolutions.__bodyweight,'  invalid  ');
+inputSnapshot.settings.unit='kg';movementLibrary[0].name='changed';
+assert.equal(inputs.migration(legacy,inputDay.name,identity).valueResolutions.slot_load,'10','captured input facts survive later mutation');
+console.log('PASS concrete draft seeds, untouched classification, exact legacy values and unambiguous substitution identity');

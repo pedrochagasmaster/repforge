@@ -69,7 +69,9 @@ export function createFocusBindings({window,focus,clock,presentation,inputs,cont
         const outcome=await inputs.toggleSet(button.dataset.save);if(!outcome||version!==lifetime)return;
         const {result,target,editing}=outcome;
         if(result.status==='refresh-failed'){feedback.suggestionFailure(target.exerciseInstanceId,result);return;}
-        if(result.status==='domain-error'&&(!('phase' in result)||result.phase!=='suggestion-refresh')){feedback.draftIssues(result.error?.issues);return;}
+        if(result.status==='domain-error'&&(!('phase' in result)||result.phase!=='suggestion-refresh')){
+          const error=result.error,issues=error!==null&&typeof error==='object'&&'issues' in error&&Array.isArray(error.issues)?error.issues:undefined;
+          feedback.draftIssues(issues);return;}
         if(result.status!=='applied')return;
         dom.render();onSetApplied();if(result.nowDone)controls.handoff(editing?'row':'next',{exId:target.exerciseInstanceId,n:target.ordinal});
       }finally{focus.finishRestRender();}

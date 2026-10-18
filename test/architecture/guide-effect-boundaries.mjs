@@ -56,5 +56,46 @@ try{
  await live.locator('#workout .exercise.is-current .focus-shelf .saveset').click();
  await live.waitForSelector('[data-guide-cue="focus-utilities"]',{timeout:5000});
  assert.equal(await live.evaluate(()=>{const draft=window.__repforgeWorkoutDraft.current();return Object.values(draft.exercises).some(ex=>Object.values(ex.sets).some(set=>typeof set.completion==='object'&&typeof set.completion.completedAt==='string'))}),true,'utilities guide follows a real acknowledged set, not a repaint');
- await app.close();console.log('PASS native render purity and actual route/selection/Focus-entry/acknowledged-set guide preference effects');
+ await app.close();
+ // Exercise the actual Entry composition, including a failed preference write:
+ // a repaint must not retry the shown transition after storage recovers.
+ const entryContext=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block',reducedMotion:'reduce'}),entry=await entryContext.newPage();
+ await entry.goto(base);await waitForAppBoot(entry,{base});
+ await entry.evaluate(()=>{
+  const setItem=Storage.prototype.setItem;
+  window.entryGuideWrites=0;window.failEntryGuideWrite=true;
+  Storage.prototype.setItem=function(key,value){
+   if(key==='repforge_ui_v1'&&JSON.parse(value).guideState?.entry?.status==='shown'){
+    window.entryGuideWrites++;
+    if(window.failEntryGuideWrite)throw new DOMException('Entry preference fault','QuotaExceededError');
+   }
+   return setItem.call(this,key,value);
+  };
+ });
+ await entry.locator('#firstRunImport').click();
+ assert.equal(await entry.locator('[data-guide-cue="entry"]').count(),0,'landing import supersedes the queued chooser attempt');
+ assert.equal(await entry.evaluate(()=>window.entryGuideWrites),0);
+ await entry.locator('#onbBack').click();await entry.waitForSelector('[data-guide-cue="entry"]');
+ assert.equal(await entry.evaluate(()=>window.entryGuideWrites),1,'actual chooser navigation attempts the eligible guide once');
+ const entryRepaint=await entry.evaluate(async()=>{
+  window.failEntryGuideWrite=false;window.entryGuideWrites=0;
+  const cue=document.querySelector('[data-guide-cue="entry"]'),before=localStorage.getItem('repforge_ui_v1');
+  window.__repforgeOnboarding.render();window.__repforgeOnboarding.render();await Promise.resolve();
+  return{writes:window.entryGuideWrites,unchanged:before===localStorage.getItem('repforge_ui_v1'),sameCue:cue===document.querySelector('[data-guide-cue="entry"]')};
+ });
+ assert.deepEqual(entryRepaint,{writes:0,unchanged:true,sameCue:true},'Entry repaint preserves its inline cue without retrying a preference transition');
+ await entry.locator('[data-entry-hub="import"]').click();await entry.locator('#onbNext').click();
+ await entry.locator('#onbBack').click();await entry.waitForSelector('[data-guide-cue="entry"]');
+ assert.equal(await entry.evaluate(()=>window.__repforgeUi.guideState().entry.status),'shown','actual Back navigation retries eligibility through the guide/preferences owners');
+ assert.equal(await entry.evaluate(()=>window.__repforgeUi.guideState().entry.version),2);
+ await entry.locator('#onbCancel').click();await entry.locator('#entryCancelKeep').click();
+ await entry.evaluate(()=>window.startOnboarding('settings'));
+ await entry.waitForSelector('#entryResumeContinue');
+ assert.equal(await entry.locator('[data-guide-cue="entry"]').count(),0,'resume decision does not offer the otherwise eligible chooser guide');
+ await entry.locator('#entryResumeContinue').click();await entry.waitForSelector('[data-guide-cue="entry"]');
+ await entry.locator('[data-guide-dismiss]').click();
+ await entry.evaluate(async()=>{window.__repforgeOnboarding.render();await Promise.resolve()});
+ assert.equal(await entry.locator('[data-guide-cue="entry"]').count(),0,'dismissed Entry guide stays dismissed on repaint');
+ await entryContext.close();console.log('PASS native render purity and actual Entry/route/selection/Focus-entry/acknowledged-set guide preference effects');
+
 }finally{await browser.close()}

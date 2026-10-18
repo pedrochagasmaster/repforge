@@ -72,7 +72,7 @@ assert.equal(replacementResult.proposal.programMeta.blockId,'block-new');assert.
 let release,dispatched=false;
 const gate=new Promise(resolve=>{release=resolve});
 const queueOwner=createSession({initialSnapshot:{log:[]}});
-const queuedWorkout=createWorkoutCommands({session:queueOwner,training:rules,drafts:{flush:async()=>{},dispatch:async()=>{dispatched=true}},commit:()=>{},now:()=>'',operationId:()=>'',writer:()=>({})});
+const queuedWorkout=createWorkoutCommands({session:queueOwner,training:rules,drafts:{read:()=>({draft:null,raw:null}),flush:async()=>{},dispatch:async()=>{dispatched=true}},commit:()=>{},now:()=>'',operationId:()=>'',writer:()=>({})});
 queueOwner.run(()=>gate);
 const pending=queuedWorkout.dispatch('editSetField',{});
 const flushed=queuedWorkout.flush();release();await flushed;

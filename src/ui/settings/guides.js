@@ -67,6 +67,16 @@ function showContextualGuide(id,{focus=false,returnFocus=null,persistDeferred=fa
   cue.addEventListener("keydown",event=>{
     if(activeGuideCue!==cue||event.key!=="Escape")return;
     event.preventDefault();event.stopPropagation();dismissContextualGuide({restoreFocus:true})});
+  placeCue(anchor,cue);
+  onGeometryChanged();
+  activeGuideId=id;activeGuideAnchor=anchor;activeGuideCue=cue;
+  activeGuideReturnFocus=returnFocus instanceof HTMLElement?returnFocus:null;
+  const stored=guideStored(id);
+  if(stored?.version!==guide.version||stored?.status!=="shown")saveGuideTransition(id,"shown");
+  if(focus)queueMicrotask(()=>dismiss?.focus({preventScroll:true}));
+  return true}
+/** @param {HTMLElement} anchor @param {HTMLElement} cue */
+function placeCue(anchor,cue){
   // #firstRunPrivacy lives in the narrow header utility row: inserted there,
   // the cue is a flex sibling with no room and collapses into a vertical
   // sliver of one word per line. Focus's own controls likewise need the whole
@@ -76,13 +86,7 @@ function showContextualGuide(id,{focus=false,returnFocus=null,persistDeferred=fa
     anchor.closest(".firstrun__actions")||anchor.closest(".firstrun__header")||anchor.closest(".entry__hub")||anchor.closest(".entry-feature")||
     anchor.closest("#statsSeg")||anchor;
   placement.insertAdjacentElement(shelf?"beforebegin":"afterend",cue);
-  onGeometryChanged();
-  activeGuideId=id;activeGuideAnchor=anchor;activeGuideCue=cue;
-  activeGuideReturnFocus=returnFocus instanceof HTMLElement?returnFocus:null;
-  const stored=guideStored(id);
-  if(stored?.version!==guide.version||stored?.status!=="shown")saveGuideTransition(id,"shown");
-  if(focus)queueMicrotask(()=>dismiss?.focus({preventScroll:true}));
-  return true}
+}
 /** @param {readonly string[]} ids */
 function maybeShowContextualGuides(ids=GuideRegistry?.PLAN_054_GUIDE_IDS||[]){
   // Never while the entry landing is up. It is a full-screen threshold whose
@@ -131,8 +135,13 @@ function renderGuideReplayList(){
   })}
 
 function refreshAnchor(){
-  if(activeGuideId&&activeGuideAnchor&&!activeGuideAnchor.isConnected){
-    const anchor=guideAnchor(guideDefinition(activeGuideId));if(anchor)activeGuideAnchor=anchor}}
+  if(!activeGuideId||!activeGuideCue)return;
+  const anchor=guideAnchor(guideDefinition(activeGuideId));
+  if(!anchor){removeContextualGuide();return}
+  activeGuideAnchor=anchor;
+  // A repaint may replace the owning body. Preserve the existing presentation
+  // and its handlers without evaluating eligibility or retrying persistence.
+  if(!activeGuideCue.isConnected){placeCue(anchor,activeGuideCue);onGeometryChanged()}}
 return Object.freeze({show:showContextualGuide,maybeShow:maybeShowContextualGuides,
   dismiss:dismissContextualGuide,remove:removeContextualGuide,complete:completeContextualGuide,
   replay:replayContextualGuide,state:contextualGuideState,onAction:onContextualGuideAction,

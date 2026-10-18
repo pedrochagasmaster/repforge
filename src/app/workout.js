@@ -1,5 +1,5 @@
 import {draftEffectOutcome,workoutProgramFingerprint,draftContextFingerprint} from '../persistence/snapshot.js';
-import {copySnapshot} from './session.js';
+import {copySnapshot,createSession} from './session.js';
 import {canonicalDraftField,canonicalMetricInput,canonicalNumberText,effortForRir} from '../training/metrics.js';
 
 /** @typedef {import('./session.js').Snapshot} Snapshot
@@ -29,8 +29,9 @@ export function createWorkoutCommands({session, training, drafts, commit, now, o
   earlyFinishConfirmation = EARLY_FINISH_CONFIRMATION, beforeCommit = async () => {}}) {
   /** @param {string} label @param {Record<string,unknown>} [options] */
   async function start(label, options) {
+    const capturedOptions=copySnapshot(options);
     await drafts.flush();
-    return session.run(() => drafts.start(label, options));
+    return session.run(() => drafts.start(label, capturedOptions));
   }
   async function leave() {
     await drafts.flush();
@@ -39,7 +40,10 @@ export function createWorkoutCommands({session, training, drafts, commit, now, o
   }
   /** @param {string} type @param {Record<string,unknown>} [payload] @param {Record<string,unknown>} [ui] */
   async function dispatch(type, payload = {}, ui = {}) {
-    return session.run(() => drafts.dispatch(type, payload, ui));
+    const expectedDraftId=drafts.read().draft?.draftId??null;
+    const capturedPayload=copySnapshot(payload),capturedUi=copySnapshot(ui);
+    return session.run(() => (drafts.read().draft?.draftId??null)!==expectedDraftId
+      ?{status:'stale'}:drafts.dispatch(type,capturedPayload,capturedUi));
   }
   /** @param {{expectedDraft?:DraftIdentity|null,completion?:string|symbol,io?:unknown}} [options] */
   async function finish({expectedDraft = null, completion = 'normal', io} = {}) {
@@ -112,44 +116,65 @@ function normalFinishIssues(draft) {
 }
 
 /** @typedef {{exerciseInstanceId:string,setId:string,ordinal:number,field?:string,metricId?:string|null}} SetTarget
- * @typedef {{status:string,error?:{code?:string,issues?:unknown[]},[key:string]:unknown}} DraftCommandResult
+ * @typedef {{status:string,error?:unknown,[key:string]:unknown}} DraftCommandResult
  * @typedef {{dispatch:(type:string,payload:Record<string,unknown>,ui?:Record<string,unknown>)=>Promise<DraftCommandResult>}} WorkoutPort
  */
 
 /** One suggestion queue owns the reservation before Complete and the bounded
  * source-revision retry. planUpdates is pure training data construction; this
  * owner performs all writes. No renderer, recovery sheet or arbitrary job bus.
- * @param {{workout:WorkoutPort,readDraft:()=>WorkoutDraft|null,readSnapshot:()=>Readonly<Snapshot>,planUpdates:(input:{exerciseId:string,draft:WorkoutDraft,snapshot:Readonly<Snapshot>})=>unknown[]|null,beforeRefresh?:(exerciseId:string)=>Promise<void>}} options */
-export function createWorkoutSuggestionCommands({workout,readDraft,readSnapshot,planUpdates,beforeRefresh=async()=>{}}) {
+ * @param {{workout:WorkoutPort,readDraft:()=>WorkoutDraft|null,readSnapshot:()=>Readonly<Snapshot>,planUpdates:(input:{exerciseId:string,draft:WorkoutDraft,snapshot:Readonly<Snapshot>})=>unknown[]|null,beforeRefresh?:(exerciseId:string)=>Promise<void>,draftSession?:Pick<ReturnType<typeof createWorkoutDraftSession>,'suspendSuggestions'|'beginSuggestionRetry'|'endSuggestionRetry'|'dispatchSuggestionRetry'>}} options */
+export function createWorkoutSuggestionCommands({workout,readDraft,readSnapshot,planUpdates,beforeRefresh=async()=>{},draftSession}) {
   let tail=Promise.resolve();
-  /** @param {string} exerciseId @returns {Promise<DraftCommandResult>} */
-  async function perform(exerciseId) {
+  /** @param {string} exerciseId @param {string|null} expectedDraftId @param {{epoch:number,exerciseId:string}|null} [retryToken] @returns {Promise<DraftCommandResult>} */
+  async function perform(exerciseId,expectedDraftId,retryToken=null) {
     await beforeRefresh(exerciseId);
     for(let attempt=0;attempt<2;attempt++){
-      const draft=readDraft();if(!draft)return{status:'missing'};
+      const draft=readDraft();if((draft?.draftId??null)!==expectedDraftId)return{status:'stale'};
+      if(!draft)return{status:'missing'};
       const sourceRevision=draft.revision;
       const updates=planUpdates({exerciseId,draft,snapshot:readSnapshot()});
       if(updates===null)return{status:'missing'};
       if(!updates.length)return{status:'unchanged'};
-      const result=await workout.dispatch('refreshUntouchedSuggestions',{sourceRevision,updates});
+      const result=retryToken&&draftSession?await draftSession.dispatchSuggestionRetry(retryToken,{sourceRevision,updates})
+        :await workout.dispatch('refreshUntouchedSuggestions',{sourceRevision,updates});
       if(result.status==='applied')return result;
-      if(result.status==='domain-error'&&result.error?.code==='stale-suggestion')continue;
+      if(result.status==='domain-error'&&result.error!==null&&typeof result.error==='object'&&'code' in result.error&&result.error.code==='stale-suggestion')continue;
       return result;
     }
+    const failedDraft=readDraft();if((failedDraft?.draftId??null)!==expectedDraftId)return{status:'stale'};
+    if(failedDraft)draftSession?.suspendSuggestions(exerciseId,failedDraft.draftId);
     return{status:'refresh-failed'};
   }
   /** @param {string} exerciseId */
   function refresh(exerciseId){
-    const result=tail.then(()=>perform(exerciseId));
+    const expectedDraftId=readDraft()?.draftId??null;
+    const result=tail.then(()=>perform(exerciseId,expectedDraftId));
     tail=result.then(()=>undefined,()=>undefined);
     return result;
   }
+  /** A retry is a native recovery operation, not permission inferred from a
+   * banner. Its token cannot release a replacement draft's suspension.
+   * @param {string} exerciseId */
+  function retry(exerciseId){
+    const expectedDraftId=readDraft()?.draftId??null;
+    const result=tail.then(async()=>{
+      if((readDraft()?.draftId??null)!==expectedDraftId)return{status:'stale'};
+      const token=draftSession?.beginSuggestionRetry(exerciseId);
+      if(draftSession&&!token)return{status:'recovery-pending'};
+      /** @type {DraftCommandResult} */let outcome={status:'refresh-failed'};
+      try{outcome=await perform(exerciseId,expectedDraftId,token);return outcome;}
+      finally{if(token)draftSession?.endSuggestionRetry(token,outcome.status);}
+    });
+    tail=result.then(()=>undefined,()=>undefined);return result;
+  }
   function reserve(){
+    const expectedDraftId=readDraft()?.draftId??null;
     /** @type {(exerciseId:string|null)=>void} */
     let release=()=>{};
     let started=false;
     const gate=new Promise(/** @param {(value:string|null)=>void} resolve */ resolve=>{release=resolve});
-    const result=tail.then(()=>gate).then(exerciseId=>exerciseId===null?{status:'unchanged'}:perform(exerciseId));
+    const result=tail.then(()=>gate).then(exerciseId=>exerciseId===null?{status:'unchanged'}:perform(exerciseId,expectedDraftId));
     tail=result.then(()=>undefined,()=>undefined);
     return Object.freeze({
       /** @param {string} exerciseId */
@@ -158,7 +183,7 @@ export function createWorkoutSuggestionCommands({workout,readDraft,readSnapshot,
     });
   }
   async function flush(){for(;;){const pending=tail;await pending;if(pending===tail)return;}}
-  return Object.freeze({refresh,reserve,flush});
+  return Object.freeze({refresh,retry,reserve,flush});
 }
 
 /** @typedef {{draftId:string,exerciseInstanceId:string,setId:string,fields:{load?:string|null,reps?:string|null,rir?:string|null,effort?:string|null},metrics:Record<string,string|null>|null,completedAt?:string}} EditSnapshot
@@ -362,4 +387,217 @@ export function createWorkoutDraftPolicy({drafts,workout,writer,operationId,now}
   /** @param {DraftSnapshot} snapshot */
   function blockStartGuard(snapshot){const live=readLive(snapshot);return live.status==='live'?{draftConflict:true,code:'live_draft_blocks_next_block'}:live.status==='unavailable'?{draftConflict:true,code:'draft_state_unavailable'}:null}
   return Object.freeze({consumedClear,destructiveClear,preserve,renameDay,readLive,blockStartGuard});
+}
+
+
+/** @typedef {Parameters<ReturnType<typeof import('../persistence/durable.js').createDurableStore>['DraftStore']['compareAndSwapV2']>[0]} DraftAttempt
+ * @typedef {{status:string,raw?:string|null,draft?:WorkoutDraft,error?:unknown,code?:string,attempt?:DraftAttempt,command?:import('../training/workout-contracts.js').CommandBase,before?:WorkoutDraft,noOp?:boolean,selectedLabel?:string}} DraftLifecycleResult
+ * @typedef {{draft:WorkoutDraft|null,raw:string|null,recovery:{status:string,attempt?:DraftAttempt,exerciseId?:string}|null}} DraftPublication
+ * @typedef {{label:string,days:string[],restoreDay?:boolean,currentLabel?:string}} DraftSelection
+ */
+
+/** Owns the acknowledged DraftV2 lifetime, command ordering and exact retry.
+ * Storage remains the sole checkpoint/CAS authority. Context factories capture
+ * program/history facts; observers receive outcomes, never speculative state.
+ * @param {{workout:WorkoutRules,drafts:Pick<ReturnType<typeof import('../persistence/durable.js').createDurableStore>['DraftStore'],'readCanonicalStatus'|'compareAndSwapV2'|'removeV2'|'removeLegacy'|'remove'>,
+ * reconcile:(read:Extract<import('../persistence/contracts.js').CanonicalRead,{status:'ok'}>,label:string)=>Promise<DraftLifecycleResult>,
+ * context:Pick<ReturnType<typeof import('./workout-context.js').createWorkoutContext>,'draftInputs'>,readContext:()=>import('./workout-context.js').DraftContextFacts,
+ * now:()=>string,operationId:()=>string,writer:(id:string)=>import('../training/workout-contracts.js').Writer,
+ * onPublish?:(value:Readonly<DraftPublication>)=>void,retainRecovery:(raw:string|null,reason:string)=>void,
+ * mutationFrozen?:()=>boolean,fault?:()=>string|undefined}} options */
+export function createWorkoutDraftSession({workout,drafts,reconcile,context,readContext,now,operationId,writer,
+  onPublish=()=>{},retainRecovery,mutationFrozen=()=>false,fault=()=>undefined}){
+  const publication=createSession({initialSnapshot:/** @type {DraftPublication} */({draft:null,raw:null,recovery:null}),onUpdate:onPublish});
+  let epoch=0,sequence=0;
+  /** @type {{epoch:number,exerciseId:string}|null} */let suggestionRetry=null;
+  /** @template T @param {()=>T|Promise<T>} operation */
+  function run(operation){sequence++;return publication.run(operation);}
+  async function idle(){await publication.idle();return sequence;}
+  /** @param {WorkoutDraft|null} draft @param {string|null} raw */
+  function publish(draft,raw){
+    // Initialization may replace an existing session without calling adopt.
+    // Reused exercise/set IDs never extend the previous draft's lifetime.
+    if((publication.read().draft?.draftId??null)!==(draft?.draftId??null)){epoch++;suggestionRetry=null;}
+    publication.publish({draft,raw,recovery:null});
+  }
+  function clear(){epoch++;suggestionRetry=null;publish(null,null);}
+  /** Only composition may adopt a durable acknowledged result (e.g. transfer).
+   * @param {WorkoutDraft} draft @param {string} raw */
+  function adopt(draft,raw){epoch++;suggestionRetry=null;publish(draft,raw);}
+  /** @param {string|null} raw @param {string} reason */
+  function recover(raw,reason){retainRecovery(raw,reason);}
+  /** @param {DraftSelection} selection @param {number} lifetime @returns {Promise<DraftLifecycleResult>} */
+  async function load({label,days,restoreDay=false},lifetime){
+    if(lifetime!==epoch)return{status:'cancelled'};
+    let read=drafts.readCanonicalStatus();if(read.status!=='ok')return read;
+    const inputs=context.draftInputs(readContext());
+    const initial=workout.parse(read.raw),checkpointLabel=initial.kind==='valid'?initial.draft.program.dayLabel:label;
+    if(initial.kind==='valid'){
+      const early=workout.parse(read.raw,inputs.parse(initial.draft.program.dayLabel));
+      if(early.kind==='stale'&&inputs.disposable(early.draft)){
+        const dropped=await drafts.removeV2({expectedDraftId:early.draft.draftId,expectedRevision:early.draft.revision,operationId:`stale-pristine-${operationId()}`});
+        if(lifetime!==epoch)return{status:'cancelled'};
+        if(dropped.status==='applied'){publish(null,null);return{status:'absent'};}
+      }
+    }
+    const reconciled=await reconcile(read,checkpointLabel);
+    if(lifetime!==epoch)return{status:'cancelled'};
+    if(reconciled.status!=='ok')return reconciled;
+    read={status:'ok',raw:reconciled.raw??null};
+    let parsed=workout.parse(read.raw);
+    if(parsed.kind==='legacy'){
+      const legacy=/** @type {Record<string,unknown>} */(parsed.raw);
+      const selectedLabel=restoreDay&&typeof legacy.__day==='string'&&days.includes(legacy.__day)?legacy.__day:label;
+      const migrated=workout.migrateLegacy(legacy,inputs.migration(legacy,selectedLabel,{now:now(),draftId:`workout-${operationId()}`,writer:writer(`migrate-${operationId()}`)}));
+      if(migrated.kind==='migration-error'){recover(read.raw,String(migrated.code));return{status:'migration-error',error:migrated,raw:read.raw,selectedLabel};}
+      const migratedDraft=/** @type {WorkoutDraft} */(migrated);
+      /** @type {DraftLifecycleResult} */
+      const installed=await drafts.compareAndSwapV2({expectedRaw:read.raw,nextRaw:JSON.stringify(workout.serialize(migratedDraft)),operationId:migratedDraft.writer.operationId});
+      if(lifetime!==epoch)return{status:'cancelled'};
+      if(installed.status!=='applied'||!installed.draft)return installed;
+      parsed={kind:'valid',draft:installed.draft};read={status:'ok',raw:installed.raw??null};
+    }
+    if(parsed.kind==='valid'){
+      const parseContext=inputs.parse(parsed.draft.program.dayLabel);
+      let checked=workout.parse(read.raw,parseContext);
+      if(checked.kind==='stale'&&checked.reason==='durableRevision'){
+        const programContext=/** @type {Record<string,unknown>} */({...parseContext});delete programContext.durableRevision;
+        const rebound=workout.parse(read.raw,programContext);if(rebound.kind==='valid')checked=rebound;
+      }
+      if(checked.kind==='stale'&&inputs.disposable(checked.draft)){
+        const dropped=await drafts.removeV2({expectedDraftId:checked.draft.draftId,expectedRevision:checked.draft.revision,operationId:`stale-pristine-${operationId()}`});
+        if(lifetime!==epoch)return{status:'cancelled'};
+        if(dropped.status==='applied'){publish(null,null);return{status:'absent'};}
+      }
+      if(checked.kind!=='valid'){
+        recover(read.raw,checked.kind==='stale'?`stale-${checked.reason}`:'code' in checked?checked.code:checked.kind);
+        return{status:checked.kind,error:checked,raw:read.raw};
+      }
+      publish(checked.draft,read.raw);
+      return{status:'ready',draft:checked.draft,...(restoreDay&&days.includes(checked.draft.program.dayLabel)?{selectedLabel:checked.draft.program.dayLabel}:{})};
+    }
+    if(parsed.kind==='absent'){publish(null,null);return{status:'absent'};}
+    recover(read.raw,'code' in parsed?parsed.code:parsed.kind);return{status:parsed.kind,error:parsed,raw:read.raw};
+  }
+  /** @param {DraftSelection} selection */
+  function initialize(selection){const captured=copySnapshot(selection),lifetime=epoch;return run(()=>load(captured,lifetime));}
+  /** @param {DraftSelection} selection @param {Record<string,unknown>} [options] */
+  function start(selection,options={}){
+    const captured=copySnapshot({selection,options});let lifetime=epoch;
+    return run(async()=>{
+      const existing=await load({...captured.selection,label:captured.selection.currentLabel??captured.selection.label},lifetime);if(existing.status!=='absent')return existing;
+      // Acknowledged absence may have ended a prior identity; creation belongs
+      // to that new lifetime, while work already queued for the old one does not.
+      lifetime=epoch;
+      const id=`create-${operationId()}`,instant=now();
+      const seed=context.draftInputs(readContext()).creation(captured.selection.label,captured.options,{now:instant,draftId:`workout-${operationId()}`,writer:writer(id)});
+      const draft=workout.create(seed.programContext,seed.sessionSelection,seed.previousSessionFacts);
+      if(workout.isDomainError(draft))return{status:'create-error',error:draft};
+      /** @type {DraftLifecycleResult} */
+      const installed=await drafts.compareAndSwapV2({expectedRaw:null,nextRaw:JSON.stringify(workout.serialize(draft)),operationId:id});
+      if(lifetime!==epoch)return{status:'cancelled'};
+      if(installed.status==='applied'&&installed.draft){publish(installed.draft,installed.raw??null);return{status:'ready',draft:installed.draft};}
+      return installed;
+    });
+  }
+  /** @param {DraftAttempt} attempt @param {number} lifetime @returns {Promise<DraftLifecycleResult>} */
+  async function write(attempt,lifetime){
+    /** @type {DraftLifecycleResult} */
+    const written=await drafts.compareAndSwapV2(attempt);
+    if(lifetime!==epoch)return{status:'cancelled'};
+    if(written.status==='applied'&&written.draft)publish(written.draft,written.raw??null);
+    else publication.publish({...publication.read(),recovery:{status:written.status,attempt}});
+    return{...written,attempt};
+  }
+  /** @param {string} type @param {Record<string,unknown>} payload @param {{epoch:number,exerciseId:string}|null} retryToken */
+  function queueCommand(type,payload,retryToken){
+    const captured=copySnapshot(payload),id=`draft-${operationId()}`,lifetime=epoch;
+    return run(async()=>{
+      if(lifetime!==epoch)return{status:'cancelled'};
+      if(mutationFrozen())return{status:'transfer-frozen',code:'install-transfer-frozen'};
+      const {draft,raw,recovery}=publication.read();if(!draft)return{status:'missing'};
+      const retryAuthorized=retryToken!==null&&retryToken===suggestionRetry&&retryToken.epoch===epoch&&type==='refreshUntouchedSuggestions'&&recovery?.exerciseId===retryToken.exerciseId;
+      if(retryToken&&!retryAuthorized)return{status:'stale'};
+      if(recovery&&!(recovery.status==='refresh-failed'&&retryAuthorized))return{status:'recovery-pending'};
+      if(type==='refreshUntouchedSuggestions'&&fault()==='stale-suggestion-loop')return{status:'domain-error',error:{kind:'domain-error',code:'stale-suggestion'}};
+      const instant=now();
+      /** @type {import('../training/workout-contracts.js').CommandBase} */
+      const command={...captured,type,operationId:id,expectedRevision:draft.revision,updatedAt:instant,writer:writer(id)};
+      if(type==='completeSet'&&!command.completedAt)command.completedAt=instant;
+      const next=workout.reduce(draft,command);
+      if(workout.isDomainError(next))return{status:'domain-error',error:next};
+      if(type==='refreshUntouchedSuggestions'&&next===draft)return{status:'applied',draft,raw,noOp:true};
+      const attempt={expectedDraftId:draft.draftId,expectedRevision:draft.revision,nextRaw:JSON.stringify(workout.serialize(next)),operationId:id};
+      if(mutationFrozen())return{status:'transfer-frozen',code:'install-transfer-frozen'};
+      if(fault()==='persist-failure'){
+        publication.publish({draft,raw,recovery:{status:'storage-error',attempt}});
+        return{status:'storage-error',code:'simulated-persist-failure',attempt};
+      }
+      return{...await write(attempt,lifetime),command,before:draft};
+    });
+  }
+  /** Ordinary commands never receive the retry capability.
+   * @param {string} type @param {Record<string,unknown>} [payload] */
+  function dispatch(type,payload={}){return queueCommand(type,payload,null);}
+  /** Only the concrete suggestion owner holds this token and can publish the
+   * refresh it reserved. No global unblocking window exists.
+   * @param {{epoch:number,exerciseId:string}} token @param {{sourceRevision:number,updates:unknown[]}} payload */
+  function dispatchSuggestionRetry(token,payload){return queueCommand('refreshUntouchedSuggestions',payload,token);}
+  /** @param {DraftAttempt} attempt */
+  function retry(attempt){const captured=copySnapshot(attempt),lifetime=epoch;return run(()=>lifetime!==epoch?{status:'cancelled'}:write(captured,lifetime));}
+  /** @param {string} exerciseId @param {string} expectedDraftId */
+  function suspendSuggestions(exerciseId,expectedDraftId){
+    const current=publication.read();
+    if(current.draft?.draftId!==expectedDraftId||current.recovery?.attempt)return;
+    publication.publish({...current,recovery:{status:'refresh-failed',exerciseId}});
+  }
+  /** @param {string} exerciseId */
+  function beginSuggestionRetry(exerciseId){
+    const recovery=publication.read().recovery;
+    if(recovery?.status!=='refresh-failed'||recovery.exerciseId!==exerciseId||suggestionRetry)return null;
+    suggestionRetry={epoch,exerciseId};return suggestionRetry;
+  }
+  /** @param {{epoch:number,exerciseId:string}} token @param {string} status */
+  function endSuggestionRetry(token,status){
+    if(suggestionRetry!==token)return;
+    suggestionRetry=null;
+    const current=publication.read();
+    if(token.epoch===epoch&&current.recovery?.status==='refresh-failed'&&current.recovery.exerciseId===token.exerciseId&&(status==='applied'||status==='unchanged'))
+      publication.publish({...current,recovery:null});
+  }
+  /** Delete only the identity displayed when the lifter requested clearing.
+   * The no-active-draft path keeps the released legacy removal policy. */
+  function removeCurrent(){
+    const captured=publication.read(),lifetime=epoch;
+    return run(async()=>{
+      if(lifetime!==epoch)return{status:'cancelled'};
+      if(publication.read().recovery)return{status:'recovery-pending'};
+      if(captured.draft){
+        const removed=await drafts.removeV2({expectedDraftId:captured.draft.draftId,expectedRevision:captured.draft.revision,operationId:`clear-${operationId()}`});
+        if(lifetime!==epoch)return{status:'cancelled'};
+        if(removed.status==='applied')clear();
+        return removed;
+      }
+      const read=drafts.readCanonicalStatus();if(read.status!=='ok')return read;
+      if(workout.parse(read.raw).kind==='valid')return{status:'stale'};
+      if(!drafts.remove())return{status:'write-failed'};
+      clear();return{status:'applied'};
+    });
+  }
+  /** Recovery confirmation supplies the exact displayed identity or raw bytes.
+   * @param {{identity?:DraftIdentity|null,raw?:string|null}} request */
+  function discard(request){
+    const captured=copySnapshot(request),lifetime=epoch;
+    return run(async()=>{
+      if(lifetime!==epoch)return{status:'cancelled'};
+      const id=`discard-${operationId()}`;
+      const removed=captured.identity
+        ?await drafts.removeV2({expectedDraftId:captured.identity.draftId,expectedRevision:captured.identity.revision,operationId:id})
+        :typeof captured.raw==='string'?await drafts.removeLegacy({expectedRaw:captured.raw,operationId:id}):{status:'missing'};
+      if(lifetime!==epoch)return{status:'cancelled'};
+      if(removed.status==='applied')clear();
+      return removed;
+    });
+  }
+  return Object.freeze({initialize,start,dispatch,retry,removeCurrent,discard,suspendSuggestions,beginSuggestionRetry,endSuggestionRetry,dispatchSuggestionRetry,read:publication.read,clear,adopt,idle});
 }

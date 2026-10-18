@@ -4,7 +4,7 @@ import {entryResumeCopy} from './src/ui/entry/view.js';
 import {createImportReview} from './src/ui/entry/import/review.js';
 import {createWorkoutReminder} from './src/app/workout-reminder.js';
 import {createWorkoutReminderView} from './src/ui/workout/reminder.js';
-import {createWorkoutDraftPolicy,createWorkoutCommands,createFocusWorkoutCommands,createWorkoutExerciseCommands,createWorkoutSuggestionCommands} from './src/app/workout.js';
+import {createWorkoutDraftPolicy,createWorkoutDraftSession,createWorkoutCommands,createFocusWorkoutCommands,createWorkoutExerciseCommands,createWorkoutSuggestionCommands} from './src/app/workout.js';
 import {createWorkoutContext} from './src/app/workout-context.js';
 import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,createEntryAnswerRebuild,createEntryAnswerCommands,createEntryQuestionFlow,createEntryReviewSession,createEntrySetup,createEntryActivation,createProgramImport,createReceivedSetup,buildLandingProof,FREEFORM_MAX_CHARS} from './src/app/entry.js';
 import {createProgramSource,definitionMovementIds,unsupportedGrammar} from './src/interchange/program-file.js';
@@ -21,7 +21,7 @@ let blockReview;
 import {scalarSessions,previousScalarSessionRows,mergeLogChronology,isStalled,blockCompletionBucket,programProgressionHealth as deriveProgramHealth,programVolumeCompliance as deriveVolumeCompliance,programStatusKey} from './src/training/progress.js';
 let validateRecoveryProjectionRecord=async()=>null;
 import {createCustomDefinitionImport} from './src/app/custom-import.js';
-import {workoutDayIdForSnapshot,workoutParseContextForSnapshot} from './src/persistence/snapshot.js';
+import {workoutDayIdForSnapshot} from './src/persistence/snapshot.js';
 import {createExerciseLabels} from './src/ui/exercise-labels.js';
 import {review as ReviewRules} from './src/training/authoring.js';
 import {createProgramReview} from './src/ui/editors.js';
@@ -695,7 +695,6 @@ const parseLoadDisplay=raw=>{const p=parseLoadInput(raw);
 const parseRepsValue=raw=>{const n=parseDec(raw);if(!Number.isFinite(n)||n<=0||!Number.isInteger(n))return{field:"reps",key:"validation.reps"};return{value:n}};
 const parseRirValue=raw=>{const n=parseDec(raw);if(!Number.isFinite(n)||n<0)return{field:"rir",key:"validation.rir"};return{value:n}};
 const parseEffortValue=raw=>{const v=String(raw||"");if(!Object.prototype.hasOwnProperty.call(EFFORT_RIR,v))return{field:"effort",key:"validation.effort"};return{value:v}};
-const parseOptionalBodyweightDisplay=raw=>{if(raw==null||String(raw).trim()==="")return{value:0};const n=parseDec(raw);if(!Number.isFinite(n)||n<=0)return{field:"bodyweight",key:"validation.bodyweight"};return{value:n}};
 const parseCalendarDate=raw=>{const s=String(raw??"").trim();if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return{field:"date",key:"validation.date"};const y=+s.slice(0,4),m=+s.slice(5,7),d=+s.slice(8,10);const dt=new Date(y,m-1,d);if(dt.getFullYear()!==y||dt.getMonth()!==m-1||dt.getDate()!==d)return{field:"date",key:"validation.date"};return{value:s}};
 const toDisplayUnit=(kg,unit)=>unit==="lb"?(+kg||0)*LB:(+kg||0);
 const fromDisplayUnit=(v,unit)=>{const n=parseDec(v),x=Number.isFinite(n)?n:0;return unit==="lb"?x/LB:x};
@@ -717,7 +716,7 @@ function resetWorkoutSessionIdentity(){
   sessionStartedAt=0;
   committed.clear();touched.clear();warmups.clear();skipped.clear();
   contextTouched={day:false,date:false,sessionNotes:false,bodyweight:false};
-  activeWorkoutDraft=null;activeWorkoutDraftRaw=null;draftUiRecovery=null;
+  workoutDraftSession?.clear();draftUiRecovery=null;
 }
 function resetDraftSessionPresentation(){
   unfinishedView.clear();
@@ -727,20 +726,14 @@ function resetDraftSessionPresentation(){
    running rest belongs to the session it was started in. */
 function resetDraftSessionState(){resetWorkoutSessionIdentity();resetDraftSessionPresentation();stopRest()}
 async function clearDraft(){
-  if(draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed"){
-    renderDraftRecovery();focusDraftRecovery();return false}
-  if(activeWorkoutDraft){
-    const removed=await DraftStore.removeV2({expectedDraftId:activeWorkoutDraft.draftId,
-      expectedRevision:activeWorkoutDraft.revision,operationId:`clear-${uid()}`});
-    if(removed.status!=="applied"){
-      showDraftCommandRecovery(removed.status,null,{focus:draftFocusIdentity(),retryAction:clearDraft});
-      return false}}
-  else{
-    const read=DraftStore.readCanonicalStatus();if(read.status!=="ok")return false;
-    const parsed=WorkoutDraft?.parse(read.raw);
-    if(parsed?.kind==="valid")return false;
-    if(!DraftStore.remove())return false}
-  resetDraftSessionState();return true}
+  const hadDraft=!!activeWorkoutDraft,removed=await workoutDraftSession.removeCurrent();
+  if(removed.status==="recovery-pending"){renderDraftRecovery();focusDraftRecovery();return false}
+  if(removed.status!=="applied"){
+    if(hadDraft&&removed.status!=="cancelled")showDraftCommandRecovery(removed.status,null,{focus:draftFocusIdentity(),retryAction:clearDraft});
+    return false;
+  }
+  resetDraftSessionState();return true;
+}
 const loadDraft=()=>{if(activeWorkoutDraft)return WorkoutSession.projection();
   try{return JSON.parse(DraftStore.readRaw()||"{}")}catch{return{}}};
 const posNum=(v,f=0)=>{const n=parseDec(v);return Math.max(0,Number.isFinite(n)?n:f)};
@@ -990,13 +983,14 @@ let contextTouched={day:false,date:false,sessionNotes:false,bodyweight:false};
 const DRAFT_RECOVERY=`${DRAFT}:recovery`,draftTabId=uid();
 let activeWorkoutDraft=null,activeWorkoutDraftRaw=null,workoutDraftRecovery=null;
 let draftUiRecovery=null;
-let draftWriteTail=Promise.resolve();
+let workoutDraftSession;
 async function drainDraftWork(){
   for(;;){
-    const writes=draftWriteTail;
-    await writes;await workoutSuggestions.flush();
-    if(writes===draftWriteTail)return;
-  }}
+    const sequence=await workoutDraftSession.idle();
+    await workoutSuggestions.flush();
+    if(sequence===await workoutDraftSession.idle())return;
+  }
+}
 function workoutDayId(label){return workoutDayIdForSnapshot(state,label)}
 function metricLoading(...args){return workoutQueries().metricLoading(...args)}
 
@@ -1040,11 +1034,6 @@ function substitutionProgram(id,libraryRef){
     metricDefinitions,loadingModel,loadingConvention,loadingContext:{loadingConvention,bodyweightKg:null,...loadingContext},
     equipmentId:null,programmedSets}}
 let workoutContext;
-function workoutProgramContext(label=day){
-  if(!workoutContext)workoutContext=createWorkoutContext({model:TrainingModel,catalog:rawExerciseCatalog,editorRules:InstalledEditor.rules});
-  return workoutContext.program({snapshot:state,query:workoutQueries(),label,currentCycle:mesocycleWeek().current,calendarDate:today()})}
-
-function workoutParseContext(label=day){return workoutParseContextForSnapshot(state,label)}
 function displayDraftText(field,value){
   if(value==null)return value;
   if(field!=="load"&&field!=="bodyweight")return value;
@@ -1087,105 +1076,20 @@ function workoutDraftProjection(draft=activeWorkoutDraft){
   return out}
 function draftTargetFromKey(key){return Focus.selectDraftTarget(activeWorkoutDraft,key)}
 function canonicalDraftField(field,value){return PersistenceMetrics.canonicalDraftField(field,value,state.settings.unit)}
-function canonicalDraftBodyweight(value){const raw=String(value??"");
-  if(!raw.trim())return"";const parsed=parseOptionalBodyweightDisplay(raw);
-  return parsed.field?raw:canonicalNumberText(fromDisplay(raw))}
+function canonicalDraftBodyweight(value){return workoutContext.bodyweight(value,state.settings.unit)}
 function draftWriter(operationId){return{installationId:DurableState.getJournalWriterId(),tabId:draftTabId,operationId}}
-function migrationSubstitutionResolutions(legacy,context,migratedAt){
-  const out={},subs=isPlainStateObject(legacy.__substituted)?legacy.__substituted:{},refs=isPlainStateObject(legacy.__substitutedRef)?legacy.__substitutedRef:{};
-  const byName=new Map();for(const entry of pickableExercises())for(const label of[entry.name,entry.namePt,libraryName(entry)]){
-    const token=movementToken(label);if(!token)continue;if(!byName.has(token))byName.set(token,entry);else if(byName.get(token)?.id!==entry.id)byName.set(token,null)}
-  for(const [exId,rawName]of Object.entries(subs)){const name=String(rawName||"").trim(),ref=refs[exId]??null;
-    const entry=ref?libraryEntry(ref):byName.get(movementToken(name));
-    const replacement=entry?{exerciseInstanceId:`replacement:${entry.id}`,sourceExerciseId:entry.id,libraryId:entry.id,
-      displayName:name||libraryName(entry),primary:libraryMuscleAttribution(entry,"primary"),secondary:libraryMuscleAttribution(entry,"secondary")}
-      :{exerciseInstanceId:`replacement:${exId}`,sourceExerciseId:`adhoc:${movementToken(name)}`,
-        movementId:`adhoc:${movementToken(name)}`,displayName:name,primary:"",secondary:""};
-    out[exId]={legacyName:rawName,legacyRef:ref,replacement,selectedAt:migratedAt}}
-  return out}
-function workoutMigrationSnapshot(legacy,label){
-  const now=new Date().toISOString(),context=workoutProgramContext(label),values={};
-  for(const key of Object.keys(legacy)){
-    if(/_load$/.test(key))values[key]=canonicalDraftField("load",legacy[key]);
-    else if(/_reps$/.test(key))values[key]=canonicalDraftField("reps",legacy[key]);
-    else if(/_rir$/.test(key))values[key]=canonicalDraftField("rir",legacy[key]);
-    else if(/_effort$/.test(key))values[key]=String(legacy[key]??"");
-    else if(key==="__bodyweight")values[key]=canonicalDraftBodyweight(legacy[key])}
-  return{programContext:context,sessionSelection:{draftId:`workout-${uid()}`,writer:draftWriter(`migrate-${uid()}`),
-    startedAt:now,updatedAt:now,scheduleDate:today(),selectedExerciseId:context.exercises[0]?.exerciseInstanceId??null,
-    bodyweight:null,notes:""},previousSessionFacts:Object.fromEntries(context.exercises.map(source=>{const ex=exercises(label).find(item=>item.id===source.exerciseInstanceId);
-      return[source.exerciseInstanceId,{exerciseInstanceId:source.exerciseInstanceId,setupNotes:ex?lastExerciseNote(ex):"",sets:ex?last(ex):[]}]})),
-    valueResolutions:values,substitutionResolutions:migrationSubstitutionResolutions(legacy,context,now),migratedAt:now,completedAt:now}}
 function storeDraftRecovery(raw,reason){workoutDraftRecovery={raw,reason};
   try{localStorage.setItem(DRAFT_RECOVERY,JSON.stringify({version:1,reason,raw}))}catch{}}
 async function reconcileV2Checkpoint(read,label){
   return DurableState.reconcileV2Checkpoint(read,label)}
 async function initializeWorkoutDraft({restoreDay=false}={}){
-  if(!WorkoutDraft)return{status:"module-unavailable"};
-  let read=DraftStore.readCanonicalStatus();if(read.status!=="ok")return read;
-  const initial=WorkoutDraft.parse(read.raw),checkpointLabel=initial.kind==="valid"?initial.draft.program.dayLabel:day;
-  if(initial.kind==="valid"){
-    // A pristine draft holds no lifter input, so a changed program replaces it
-    // silently the way a day switch replaces an untouched draft. This runs
-    // before checkpoint reconciliation because reconciling a stale program
-    // binding already reports recovery; anything the lifter typed, or a lost
-    // removal race, keeps the explicit recovery surface below.
-    const early=WorkoutDraft.parse(read.raw,workoutParseContext(initial.draft.program.dayLabel));
-    if(early.kind==="stale"&&isDisposableDraft(early.draft)){
-      const dropped=await DraftStore.removeV2({expectedDraftId:early.draft.draftId,
-        expectedRevision:early.draft.revision,operationId:`stale-pristine-${uid()}`});
-      if(dropped.status==="applied"){activeWorkoutDraft=null;activeWorkoutDraftRaw=null;return{status:"absent"}}}}
-  read=await reconcileV2Checkpoint(read,checkpointLabel);
-  if(read.status!=="ok")return read;
-  let parsed=WorkoutDraft.parse(read.raw);
-  if(parsed.kind==="legacy"){
-    const legacy=parsed.raw,label=restoreDay&&typeof legacy.__day==="string"&&days().includes(legacy.__day)?legacy.__day:day;
-    if(restoreDay)day=label;
-    const migrated=WorkoutDraft.migrateLegacy(legacy,workoutMigrationSnapshot(legacy,label));
-    if(migrated?.kind==="migration-error"){storeDraftRecovery(read.raw,migrated.code);return{status:"migration-error",error:migrated,raw:read.raw}}
-    const nextRaw=JSON.stringify(WorkoutDraft.serialize(migrated));
-    const installed=await DraftStore.compareAndSwapV2({expectedRaw:read.raw,nextRaw,operationId:migrated.writer.operationId});
-    if(installed.status!=="applied")return installed;
-    parsed={kind:"valid",draft:installed.draft};activeWorkoutDraftRaw=installed.raw;read={status:"ok",raw:installed.raw}}
-  if(parsed.kind==="valid"){
-    const context=workoutParseContext(parsed.draft.program.dayLabel);
-    let checked=WorkoutDraft.parse(read.raw,context);
-    if(checked.kind==="stale"&&checked.reason==="durableRevision"){
-      // Settings, history, and other non-program writes advance the aggregate
-      // revision without changing the program that this draft belongs to.
-      // Rebind that bookkeeping boundary in memory; the fingerprint and day
-      // checks still reject a genuinely changed program.
-      const programContext={...context};delete programContext.durableRevision;
-      const rebound=WorkoutDraft.parse(read.raw,programContext);
-      if(rebound.kind==="valid")checked=rebound}
-    if(checked.kind==="stale"&&isDisposableDraft(checked.draft)){
-      // A pristine draft holds no lifter input, so a changed program replaces
-      // it silently the way a day switch replaces an untouched draft. Anything
-      // the lifter typed keeps the explicit recovery surface below; a lost
-      // removal race falls through to it as well.
-      const dropped=await DraftStore.removeV2({expectedDraftId:checked.draft.draftId,
-        expectedRevision:checked.draft.revision,operationId:`stale-pristine-${uid()}`});
-      if(dropped.status==="applied"){activeWorkoutDraft=null;activeWorkoutDraftRaw=null;return{status:"absent"}}}
-    if(checked.kind!=="valid"){storeDraftRecovery(read.raw,checked.kind==="stale"?`stale-${checked.reason}`:checked.code);return{status:checked.kind,error:checked,raw:read.raw}}
-    activeWorkoutDraft=checked.draft;activeWorkoutDraftRaw=read.raw;
-    if(restoreDay&&days().includes(activeWorkoutDraft.program.dayLabel))day=activeWorkoutDraft.program.dayLabel;
-    return{status:"ready",draft:activeWorkoutDraft}}
-  if(parsed.kind==="absent"){activeWorkoutDraft=null;activeWorkoutDraftRaw=null;return{status:"absent"}}
-  storeDraftRecovery(read.raw,parsed.code||parsed.kind);return{status:parsed.kind,error:parsed,raw:read.raw}}
-async function createWorkoutDraft(label=day,{contextTouched:selectionContextTouched}={}){
-  const existing=await initializeWorkoutDraft();if(existing.status==="ready")return existing;
-  if(existing.status!=="absent")return existing;
-  const now=new Date().toISOString(),context=workoutProgramContext(label),operationId=`create-${uid()}`;
-  const draft=WorkoutDraft.create(context,{draftId:`workout-${uid()}`,writer:draftWriter(operationId),startedAt:now,updatedAt:now,
-    scheduleDate:today(),selectedExerciseId:context.exercises[0]?.exerciseInstanceId??null,bodyweight:null,notes:"",
-    contextTouched:selectionContextTouched},
-    Object.fromEntries(context.exercises.map(source=>{const ex=exercises(label).find(item=>item.id===source.exerciseInstanceId);
-      return[source.exerciseInstanceId,{exerciseInstanceId:source.exerciseInstanceId,setupNotes:ex?lastExerciseNote(ex):"",sets:ex?last(ex):[]}]})));
-  if(WorkoutDraft.isDomainError(draft))return{status:"create-error",error:draft};
-  const nextRaw=JSON.stringify(WorkoutDraft.serialize(draft));
-  const installed=await DraftStore.compareAndSwapV2({expectedRaw:null,nextRaw,operationId});
-  if(installed.status==="applied"){activeWorkoutDraft=installed.draft;activeWorkoutDraftRaw=installed.raw;return{status:"ready",draft:installed.draft}}
-  return installed}
+  const result=await workoutDraftSession.initialize({label:day,days:days(),restoreDay});
+  if(result.selectedLabel)day=result.selectedLabel;
+  return result;
+}
+function createWorkoutDraft(label=day,options={}){
+  return workoutDraftSession.start({label,days:days(),currentLabel:day},options);
+}
 function draftFocusIdentity(payload={}){
   const el=document.activeElement;
   if(el instanceof HTMLElement){
@@ -1269,7 +1173,7 @@ async function copyDraftRecoveryValue(){const value=draftUiRecovery?.copyValue;i
     const copied=document.execCommand("copy");ta.remove();if(copied){toast(t("draft.recovery.copied"));return true}}catch{}
   toast(t("draft.recovery.copy_failed"),{assertive:true});return false}
 async function applyDraftRetryResult(result,recovery){
-  if(result.status==="applied"){activeWorkoutDraft=result.draft;activeWorkoutDraftRaw=result.raw;
+  if(result.status==="applied"){
     hydrateDraftCollections(WorkoutSession.projection());clearDraftUiRecovery();renderWorkout();restoreDraftFocus(recovery.focus);return result}
   showDraftCommandRecovery(result.status,recovery.attempt,recovery);return result}
 function retryDraftRecovery(){
@@ -1282,9 +1186,11 @@ function retryDraftRecovery(){
   try{run=Promise.resolve(runDraftRetry(recovery))}catch(error){settled();throw error}
   run.then(settled,settled);return run}
 function runDraftRetry(recovery){
+  const retryDraftId=activeWorkoutDraft?.draftId;
   if(recovery.retryAction)return Promise.resolve(recovery.retryAction()).then(result=>{
+    if(activeWorkoutDraft?.draftId!==retryDraftId||(draftUiRecovery&&draftUiRecovery!==recovery))return result;
     if(result?.status==="applied"){clearDraftUiRecovery();renderWorkout()}
-    else showDraftCommandRecovery(result?.status,null,recovery);return result});
+    else showDraftCommandRecovery(result?.status,result?.attempt??null,result?.attempt?{...recovery,retryAction:null}:recovery);return result});
   if(!recovery.attempt){const operation=recovery.retryMode==="create"?WorkoutSession.start(recovery.label,{contextTouched:recovery.contextTouched}):
       initializeWorkoutDraft({restoreDay:true});return operation.then(result=>{
     if(result.status==="ready"){hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});clearDraftUiRecovery();
@@ -1292,9 +1198,7 @@ function runDraftRetry(recovery){
       document.body.classList.add("is-focus-wo");
       renderTabs();renderWorkout();renderToday();restoreDraftFocus(recovery.focus)}
     else showDraftInitializationRecovery(result,{retryMode:recovery.retryMode,label:recovery.label,contextTouched:recovery.contextTouched});return result})}
-  const task=draftWriteTail.then(()=>DraftStore.compareAndSwapV2(recovery.attempt))
-    .then(result=>applyDraftRetryResult(result,recovery));
-  draftWriteTail=task.then(()=>undefined,()=>undefined);return task}
+  return workoutDraftSession.retry(recovery.attempt).then(result=>applyDraftRetryResult(result,recovery));}
 async function reloadLatestWorkoutDraft(){
   const recovery=draftUiRecovery,loaded=await initializeWorkoutDraft({restoreDay:true});
   if(loaded.status!=="ready"){showDraftInitializationRecovery(loaded);return loaded}
@@ -1304,11 +1208,8 @@ async function discardRecoveredWorkoutDraft(){
   const recovery=draftUiRecovery,identity=recovery?.discardIdentity,rawToClear=recovery?.discardRaw;
   if(!identity&&!rawToClear)return false;
   if(!confirm(t("confirm.discard_draft")))return false;
-  const removed=identity
-    ?await DraftStore.removeV2({expectedDraftId:identity.draftId,expectedRevision:identity.revision,
-      operationId:`discard-${uid()}`})
-    :await DraftStore.removeLegacy({expectedRaw:rawToClear,operationId:`discard-${uid()}`});
-  if(removed.status!=="applied"){showDraftInitializationRecovery(removed);return false}
+  const removed=await workoutDraftSession.discard({identity,raw:rawToClear});
+  if(removed.status!=="applied"){if(removed.status!=="cancelled")showDraftInitializationRecovery(removed);return false}
   resetDraftSessionState();clearDraftUiRecovery();renderToday();return true}
 /* Alpha trust telemetry for the Workout lifecycle attaches to an applied DraftV2
    command, not to a control, so any logger UI that dispatches through
@@ -1365,40 +1266,17 @@ function captureDraftCommandTelemetry(command,before,after,ui){
       captureEvent("substitution_used",libraryUi.SUBSTITUTION_REASONS.includes(ui.substitutionReason)
         ?{source:ui.substitutionSource,reason:ui.substitutionReason}:{source:ui.substitutionSource})}
   catch{}}
-function enqueueDraftCommand(type,payload={},ui={}){
-  const operationId=`draft-${uid()}`;
+async function enqueueDraftCommand(type,payload={},ui={}){
   const focus=draftFocusIdentity(payload),pendingValue=Object.prototype.hasOwnProperty.call(ui,"pendingValue")?
     String(ui.pendingValue??""):Object.prototype.hasOwnProperty.call(payload,"value")?String(payload.value??""):null;
-  const task=draftWriteTail.then(async()=>{
-    if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
-    if(!activeWorkoutDraft)return{status:"missing"};
-    if((draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed")&&!draftUiRecovery.allowRetry){
-      renderWorkout();restoreDraftFocus(focus);return{status:"recovery-pending"}}
-    if(type==="refreshUntouchedSuggestions"&&window.__repforgeDraftFault==="stale-suggestion-loop")
-      return{status:"domain-error",error:{kind:"domain-error",code:"stale-suggestion"}};
-    const now=new Date().toISOString(),command={type,...payload,operationId,expectedRevision:activeWorkoutDraft.revision,
-      updatedAt:now,writer:draftWriter(operationId)};
-    if(type==="completeSet"&&!command.completedAt)command.completedAt=now;
-    const before=activeWorkoutDraft,next=WorkoutDraft.reduce(before,command);
-    if(WorkoutDraft.isDomainError(next))return{status:"domain-error",error:next};
-    if(type==="refreshUntouchedSuggestions"&&next===activeWorkoutDraft)
-      return{status:"applied",draft:activeWorkoutDraft,raw:activeWorkoutDraftRaw,noOp:true};
-    const nextRaw=JSON.stringify(WorkoutDraft.serialize(next));
-    const attempt={expectedDraftId:activeWorkoutDraft.draftId,expectedRevision:activeWorkoutDraft.revision,nextRaw,operationId};
-    if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
-    if(window.__repforgeDraftFault==="persist-failure"){
-      showDraftCommandRecovery("storage-error",attempt,{pendingValue,focus});
-      return{status:"storage-error",code:"simulated-persist-failure"};
-    }
-    const written=await DraftStore.compareAndSwapV2(attempt);
-    if(written.status==="applied"){activeWorkoutDraft=written.draft;activeWorkoutDraftRaw=written.raw;
-      captureDraftCommandTelemetry(command,before,written.draft,ui);
-      hydrateDraftCollections(WorkoutSession.projection());clearDraftUiRecovery()}
-    else showDraftCommandRecovery(written.status,attempt,{pendingValue,focus});
-    return written});
-  const settled=task.then(()=>undefined,()=>undefined);
-  draftWriteTail=settled;
-  return task}
+  const result=await workoutDraftSession.dispatch(type,payload);
+  if(result.status==="recovery-pending"){renderWorkout();restoreDraftFocus(focus)}
+  else if(result.status==="applied"&&!result.noOp){
+    captureDraftCommandTelemetry(result.command,result.before,result.draft,ui);
+    hydrateDraftCollections(WorkoutSession.projection());clearDraftUiRecovery();
+  }else if(result.attempt)showDraftCommandRecovery(result.status,result.attempt,{pendingValue,focus});
+  return result;
+}
 function knownExerciseIds(){return new Set((state.program||[]).map(e=>e.id))}
 function setKeyExerciseId(k){return String(k).replace(/_\d+$/,"")}
 function retainSetKeys(list,known){return (list||[]).filter(k=>known.has(setKeyExerciseId(k)))}
@@ -1440,23 +1318,6 @@ function resetSessionContextFields(){
   if(bwEl)bwEl.value=lastBodyweight();
 
 }
-function isDisposableDraft(draft){
-  // A stale draft may skip the explicit recovery surface only when replacing
-  // it provably loses no lifter input. The domain predicate covers
-  // self-contained input; the schedule date, exercise order, and
-  // per-exercise notes need current program and history seeds to judge, so
-  // they are compared here against their creation values. Any doubt keeps
-  // the recovery prompt.
-  try{
-    if(!WorkoutDraft?.isPristine(draft))return false;
-    if(String(draft.program.scheduleDate||"")!==String(draft.session.startedAt||"").slice(0,10))return false;
-    if(!draft.exerciseOrder.every((id,index)=>draft.exercises?.[id]?.programmed?.order===index))return false;
-    const rows=exercises(draft.program.dayLabel);
-    return draft.exerciseOrder.every(id=>{
-      const current=rows.find(item=>item.id===id);
-      const seed=current?lastExerciseNote(current):"";
-      return String(draft.exercises[id]?.setupNotes??"")===String(seed??"")});
-  }catch{return false}}
 /* A lifter's typed value on a set, in either the flat or the metric shape. */
 function draftSetTouched(set){
   return !!(set?.touched?.load||set?.touched?.reps||set?.touched?.effort||
@@ -2303,7 +2164,7 @@ const strategyIdFor=ex=>progressionForExercise(ex)?.strategy?.id||"range";
 
 
 /* Keep the engine's current loading context on the program slot boundary.
-   The numeric multiplier is also copied into each new log row by workoutProgramContext. */
+   The numeric multiplier is also captured by the native Workout context for each new log row. */
 
 function recommendation(ex){const value=workoutQueries().recommendation(ex);if(!('labelKey' in value))return value;const {labelKey,...rec}=value;return {...rec,label:labelKey?t(labelKey):''}}
 // Re-entry after a load change: the reps this capacity predicts at the NEW load,
@@ -2393,15 +2254,10 @@ function suggestionUpdatesFor(ex,draft){
   return updates}
 function showSuggestionFailure(exId,result){
   if(result.status!=="refresh-failed")return result;
-  const retryAction=async()=>{
-    const prior=draftUiRecovery;
-    if(prior)prior.allowRetry=true;
-    try{
-      const retry=await workoutSuggestions.refresh(exId);
-      return retry.status==="unchanged"?{status:"applied",noOp:true}:retry}
-    finally{if(draftUiRecovery===prior)draftUiRecovery.allowRetry=false}};
+  const retryAction=async()=>{const retry=await workoutSuggestions.retry(exId);
+    return retry.status==="unchanged"?{status:"applied",noOp:true}:retry};
   draftUiRecovery={kind:"persist",status:"refresh-failed",attempt:null,pendingValue:null,
-    copyValue:null,copyKind:"value",focus:draftFocusIdentity(),retry:true,retryAction,discard:false,allowRetry:false};
+    copyValue:null,copyKind:"value",focus:draftFocusIdentity(),retry:true,retryAction,discard:false};
   renderDraftRecovery();focusDraftRecovery();
   return result}
 // Suggestion commands acknowledge values before this presentation-only update.
@@ -3146,13 +3002,6 @@ async function refreshAfterCommittedEdit(row){
   const exId=row.closest(".exercise")?.dataset.ex;
   return exId?refreshSuggestions(exId):{status:"unchanged"}}
 
-// Latest note the lifter left on this exercise, so machine setup carries into the next session.
-function lastExerciseNote(ex){const match=matchLift(ex);
-  const rows=state.log.filter(r=>match(r)&&String(r.exNote||"").trim());
-  if(!rows.length)return"";
-  const latest=rows.sort(compareLogChronology).at(-1);
-  return String(latest.exNote).trim()}
-
 function applyFieldError(res){
   if(!res||res.ok)return false;
   const el=res.el;
@@ -3261,17 +3110,17 @@ let WorkoutSession,workoutSuggestions,focusWorkoutCommands;
 function initializeWorkoutCommands(){
 WorkoutSession=createWorkoutCommands({
   session:applicationSession,training:WorkoutDraft,
-  drafts:{flush:drainDraftWork,read:()=>({draft:activeWorkoutDraft,raw:activeWorkoutDraftRaw,recovery:draftUiRecovery}),
+  drafts:{flush:drainDraftWork,read:()=>workoutDraftSession.read(),
     start:createWorkoutDraft,dispatch:enqueueDraftCommand,projection:workoutDraftProjection,
     clearIdentity:resetWorkoutSessionIdentity,clearEffect:destructiveDraftClearEffect,
-    canLeave:()=>!draftUiRecovery?.attempt&&!draftUiRecovery?.status&&window.__repforgeDraftFault!=="persist-failure"},
+    canLeave:()=>!workoutDraftSession.read().recovery&&!draftUiRecovery?.attempt&&!draftUiRecovery?.status&&window.__repforgeDraftFault!=="persist-failure"},
   commit:(proposal,opts,io=storageIO)=>commitProposedState(proposal,io,opts),
   now:()=>new Date().toISOString(),operationId:()=>`finish-${uid()}`,writer:draftWriter,
   earlyFinishConfirmation:EARLY_FINISH_CONFIRMATION,
   beforeCommit:async captured=>{if(typeof window.__repforgeDraftBeforeSaveCommit==="function")
     await window.__repforgeDraftBeforeSaveCommit(captured)}});
 
-workoutSuggestions=createWorkoutSuggestionCommands({workout:WorkoutSession,
+workoutSuggestions=createWorkoutSuggestionCommands({workout:WorkoutSession,draftSession:workoutDraftSession,
   readDraft:()=>activeWorkoutDraft,readSnapshot:applicationSession.read,
   planUpdates:({exerciseId,draft})=>{
     const ex=prog.find(exerciseId);if(!ex)return null;
@@ -4489,6 +4338,7 @@ function disarmEntryHistory(){
     if(history.state?.[ENTRY_HISTORY_STATE_KEY])
       history.replaceState(entryHistoryState(false),"",location.href)}catch{}}
 function closeOnboarding(){
+  entryGuideAttempt++;contextualGuides?.remove();
   entryPickers.dispose();
   // The pasted program and the reply belong to the flow that asked for them.
   resetFreeformImport();
@@ -4548,6 +4398,7 @@ function returnFromEntry(back){
   focusRoute(back?.control||routeHeading(view))}
 function startOnboarding(origin,opts={}){
   if(!ProgramEntry){console.warn("program entry unavailable");return}
+  contextualGuides?.remove();
   captureEntryReturn();
   cancelEntryGeneration();
   entryPickerInput=null;
@@ -4559,6 +4410,7 @@ function startOnboarding(origin,opts={}){
   if(resumedScreen!==entryState){publishEntryDraft(resumedScreen);persistSetupDraft(entryState)}
   reportEntryStart(opts.userInitiated===false);
   showOnboardingView();armEntryHistory();renderOnboarding();
+  scheduleEntryGuide();
   if(opts.userInitiated===false)return;
   // Opening the hub is not choosing a route; telemetry waits for a route pick.
 }
@@ -4643,7 +4495,8 @@ function entrySetState(next,{persist=true}={}){
   entryValidationNotice=false;
   syncEntryHistory();
   if(persist)persistSetupDraft(entryState);
-  renderOnboarding({pageTransition:outgoing?{direction,outgoing}:null})}
+  renderOnboarding({pageTransition:outgoing?{direction,outgoing}:null});
+  scheduleEntryGuide()}
 function entryCustomSplitChoices(answers=entryState?.answers||{}){
   try{return entryServices()?.splitChoices?.(answers)||{choices:[]}}catch(error){console.warn("custom split choices failed",error);return{choices:[]}}}
 function entryCustomShapeRequired(answers=entryState?.answers||{}){
@@ -6356,7 +6209,7 @@ function dismissEntryDialog(){
   entryPickerInput=null;entryDialog=null;
   closeEntryDialog();
   if(resolve)resolve(false);
-  renderOnboarding()}
+  renderOnboarding();scheduleEntryGuide()}
 function resolveEntryReplace(confirmed){
   const resolve=entryReplaceResolve;
   entryReplaceResolve=null;entryDialog=null;
@@ -6728,9 +6581,9 @@ function renderOnboarding({pageTransition=null}={}){
         // The editor has no #entryHeading: on the render that opens it, focus takes its title (R7 J-05).
         else if(isEditor&&!wasEditor)focusRoute($("#onbEditorTitle"))}}
     if(entryValidationNotice){const alert=$("#entryValidation");if(alert)try{alert.focus({preventScroll:true})}catch{}}}
-  // The "entry" guide explains the five-job chooser, so it shows here rather
-  // than on the landing that opens it. Not while a saved draft is asking first.
-  if(hub&&!resuming)queueMicrotask(()=>maybeShowContextualGuides(["entry"]));
+  // Reattach only an already-presented cue after replacing the chooser DOM.
+  // Eligibility and preference transitions belong to navigation, not repaint.
+  contextualGuides?.refreshAnchor();
   syncEntryDialog();
   if(pageTransition)startEntryPageTransition(pageTransition);else startEntryEdgeSwipeSync()}
 /** O3: draw the generated program in reading order, one block every 55ms
@@ -6846,7 +6699,8 @@ function wireEntryDom(){
   const restart=$("#entryRestart");if(restart)restart.onclick=()=>requestEntryStartOver();
   const resumeContinue=$("#entryResumeContinue");if(resumeContinue)resumeContinue.onclick=()=>{
     entryUiNotice=null;
-    if(entryState.step==="editor")openEntryDraftEditor();else renderOnboarding()};
+    if(entryState.step==="editor")openEntryDraftEditor();else renderOnboarding();
+    scheduleEntryGuide()};
   const resumeRestart=$("#entryResumeRestart");if(resumeRestart)resumeRestart.onclick=()=>requestEntryStartOver();
   const rebuild=$("#entryRebuildRules");if(rebuild)rebuild.onclick=()=>rebuildEntryForCurrentRules();
   const keepPinned=$("#entryKeepPinned");if(keepPinned)keepPinned.onclick=()=>{
@@ -7298,6 +7152,15 @@ function maybeShowContextualGuides(ids){return guidesView().maybeShow(ids)}
 // Guide eligibility can persist a shown transition. Attempt it only after a
 // route/entry command, never from a repaint. Read the settled route inside the
 // microtask so a superseded navigation cannot show a cue on the wrong surface.
+let entryGuideAttempt=0;
+function scheduleEntryGuide(){
+  const attempt=++entryGuideAttempt,draftId=entryState?.draftId;
+  queueMicrotask(()=>{
+    if(attempt!==entryGuideAttempt||draftId!==entryState?.draftId||
+      !$("#onboarding")?.classList.contains("active")||!entryHubMode()||
+      entryUiNotice==="resume"||entryDialogKind())return;
+    maybeShowContextualGuides(["entry"])
+  })}
 function scheduleCurrentSurfaceGuides(){
   queueMicrotask(()=>{
     if(workoutActive){maybeShowContextualGuides(["first-set","focus-utilities"]);return}
@@ -7715,7 +7578,6 @@ function backupView(){return backupUi||(backupUi=createBackupView({window,comman
 let programAdditionCommands;
 function initializePersistenceOwners(){
   if(DurableState)return;
-  initializeWorkoutCommands();
   const now=()=>new Date().toISOString();
   const model=TrainingModel=createProgramModel({catalog:rawExerciseCatalog,
     librarySource:{library:EXERCISE_LIBRARY,legacyIds:LEGACY_LIBRARY_IDS},nextId:uid,now,
@@ -7790,6 +7652,15 @@ function initializePersistenceOwners(){
     resolveCustomMutationIntent,onAccepted:applyAcceptedSnapshot,
     mutationGate:installTransferMutationFrozen,platform:window});
   storageIO=DurableState.storageIO;DraftStore=DurableState.DraftStore;
+  workoutContext=createWorkoutContext({model:TrainingModel,catalog:rawExerciseCatalog,editorRules:InstalledEditor.rules,workout:WorkoutDraft});
+  workoutDraftSession=createWorkoutDraftSession({workout:WorkoutDraft,drafts:DraftStore,
+    reconcile:DurableState.reconcileV2Checkpoint,
+    context:workoutContext,readContext:()=>({snapshot:applicationSession.read(),query:workoutQueries(),rows:scheduledProgramRows(),
+      currentCycle:mesocycleWeek().current,calendarDate:today(),library:EXERCISE_LIBRARY,language:uiLang()}),
+    now:()=>new Date().toISOString(),operationId:uid,writer:draftWriter,retainRecovery:storeDraftRecovery,
+    mutationFrozen:installTransferMutationFrozen,fault:()=>window.__repforgeDraftFault,
+    onPublish:({draft,raw})=>{activeWorkoutDraft=draft;activeWorkoutDraftRaw=raw}});
+  initializeWorkoutCommands();
   WorkoutDraftPolicy=createWorkoutDraftPolicy({drafts:DraftStore,workout:WorkoutDraft,writer:draftWriter,operationId:uid,now:()=>new Date().toISOString()});
   BackupCommands=createBackupCommands({read:applicationSession.read,policy,model,
     drafts:{readRaw:readDraftRaw,clearEffect:destructiveDraftClearEffect},
@@ -7806,7 +7677,7 @@ function initializePersistenceOwners(){
     trainingSession:applicationSession,entrySession:{read:()=>entryState,publish:publishEntryDraft},
     workoutSession:{current:()=>activeWorkoutDraft,flush:()=>WorkoutSession.flush(),writer:draftWriter,
       readAcknowledged:readLiveAcknowledgedDraftV2,adopt:(draft,raw)=>{
-        activeWorkoutDraft=draft;activeWorkoutDraftRaw=raw;draftUiRecovery=null}},
+        workoutDraftSession.adopt(draft,raw);draftUiRecovery=null}},
     transfer:transferClient,contract:transferContract,telemetry:Telemetry,
     telemetryTransport:{restartIfStarted:()=>{if(installTransferTelemetryBooted)bootTelemetry()}},
     guideDefinitions:GuideRegistry?.GUIDE_DEFINITIONS||[],
