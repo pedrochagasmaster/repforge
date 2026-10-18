@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {createGenerationRules} from '../src/training/generation.js';
 import {createProgramModel} from '../src/training/model.js';
@@ -31,6 +32,11 @@ function harness(){
 const params=proposal=>({proposal,proposalHash:proposal.proposalHash,transitionId:proposal.transitionId,successorProgramId:proposal.successor.programId,confirmedAt:now,acknowledgedDraftRaw:null});
 const good=harness(),preview=await good.command.proposeChange({change:{kind:'reduce_volume'},transitionId:'transition',successorProgramId:'successor',createdAt:now});
 assert(preview.ok,JSON.stringify(preview));const proposal=preview.proposal;
+const approved=JSON.parse(readFileSync(new URL('./fixtures/block-transition-hashes-v1.json',import.meta.url),'utf8'));
+assert.equal(proposal.proposalHash,approved.proposalHash,'immutable pre-extraction application corpus');
+assert.equal(proposal.predecessor.definitionFingerprint,approved.predecessorFingerprint);
+assert.equal(proposal.successor.definitionFingerprint,approved.successorFingerprint);
+assert.equal(proposal.transitionId,'transition');assert.equal(proposal.successor.programId,'successor');assert.equal(proposal.predecessor.programId,'predecessor');
 assert.equal(classifyCommittedTransition(good.read(),proposal,'predecessor'),'absent');
 const badPin=await good.command.confirmTransition({...params(proposal),proposalHash:'wrong'});assert.equal(badPin.code,'proposal_hash_mismatch');assert.equal(good.commits(),0);
 const omittedAck=params(proposal);delete omittedAck.acknowledgedDraftRaw;

@@ -1,0 +1,13 @@
+{
+  "session": "new", "date": "2026-10-18", "day": "A", "sets": 1,
+  "volume": 500, "lifts": 1, "minutes": 9,
+  "prs": [{"kind":"load","load":100,"reps":5,"delta":10,"name":"Squat","liftKey":"lift:a"}],
+  "liftGroups": [{"liftKey":"lift:a","exerciseId":"slot:a","name":"Squat","session":"new","sets":[{"load":100,"reps":5}],"state":{"kind":"baseline"},"pr":{"kind":"load","load":100,"reps":5,"delta":10,"name":"Squat","liftKey":"lift:a"},"next":{"glyph":"repeat","line":"100 × 5"}}],
+  "outcomes": [],
+  "evidence": [{"exerciseId":"lift:a","name":"Squat","kind":"baseline","evidenceState":"insufficient","evidenceCount":1,"reason":"single-observation"}],
+  "showBaseline": true,
+  "muscles": [{"name":"Quads","sets":1,"direct":1},{"name":"Glutes","sets":0.5,"direct":0}],
+  "week": {"done":2,"planned":3},
+  "meso": {"current":2,"total":6,"isComplete":false},
+  "next": {"day":"B","exercises":4}
+}
