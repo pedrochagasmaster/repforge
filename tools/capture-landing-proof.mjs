@@ -317,12 +317,14 @@ async function assertFocus(page, state, name, target) {
   assert.equal(Number((await load.inputValue()).replace(',', '.')), target.load, `${name}: actual Focus next load`);
   assert.equal(Number(await reps.inputValue()), target.reps, `${name}: actual Focus next reps`);
   // The previous session rides under each matching row as one line: "last 60 x 10 · RIR 2" / "antes 60 x 10 · RIR 2".
-  const rows = await page.locator('#workout .exercise.is-current .ledgerline__prev').evaluateAll(lines =>
-    lines.map((line, index) => {
-      const match = line.textContent.match(/(\d+(?:[.,]\d+)?) \u00d7 (\d+) \u00b7 RIR (\d+)/);
-      return match ? [String(index + 1), match[1], match[2], match[3]] : [line.textContent.trim()];
+  // Layout D draws the open set and the next one, so set 1 shows rows 1 and 2.
+  const rows = await page.locator('#workout .exercise.is-current [data-lrow]').evaluateAll(lines =>
+    lines.map(row => {
+      const line = row.querySelector('.ledgerline__prev');
+      const match = line?.textContent.match(/(\d+(?:[.,]\d+)?) \u00d7 (\d+) \u00b7 RIR (\d+)/);
+      return match ? [row.dataset.lrow, match[1], match[2], match[3]] : [row.dataset.lrow, line?.textContent.trim() || ''];
     }));
-  assert.deepEqual(rows, fixtureLastSessionRows(state), `${name}: actual last-session ledger`);
+  assert.deepEqual(rows, fixtureLastSessionRows(state).slice(0, 2), `${name}: actual last-session ledger`);
   return rows;
 }
 
@@ -334,16 +336,16 @@ async function captureSource(browser, output, report) {
     try {
       const rows = await assertFocus(page, state, name, target);
       await page.screenshot({path: `${output}/${name}.png`});
-      // The ledger under the cue lists every set of the exercise with its target; each upcoming row shows the same
-      // engine answer, read off the live rows (the session list has no per-set inputs since R3c).
+      // The ledger under the cue draws the open set and the next one (layout D) with their targets; each shows the
+      // same engine answer, read off the live rows (the session list has no per-set inputs since R3c).
       const slotId = state.program[0].id;
       const ledgerRows = page.locator(`#workout .exercise.is-current #ledger_${slotId} [data-lrow]`);
-      assert.equal(await ledgerRows.count(), 3, `${name}: actual upcoming set count`);
+      assert.equal(await ledgerRows.count(), 2, `${name}: actual upcoming set count`);
       if (values['fault-next']) {
-        await ledgerRows.nth(2).locator('[data-lv="load"]').evaluate(cell => {cell.textContent = '99';});
+        await ledgerRows.nth(1).locator('[data-lv="load"]').evaluate(cell => {cell.textContent = '99';});
       }
       const upcomingSets = [];
-      for (const set of [1, 2, 3]) {
+      for (const set of [1, 2]) {
         const row = ledgerRows.nth(set - 1);
         const load = Number((await row.locator('[data-lv="load"]').textContent()).replace(',', '.'));
         const reps = Number(await row.locator('[data-lv="reps"]').textContent());
@@ -352,7 +354,7 @@ async function captureSource(browser, output, report) {
         upcomingSets.push({set, load, reps});
       }
       report.cases.push({name, nextLoad: target.load, nextReps: target.reps, upcomingSets, lastSessionRows: rows.length});
-      console.log(`PASS ${name}: 3 × 60 kg × 10 @ RIR 2 → all 3 sets at ${target.load} kg × ${target.reps}`);
+      console.log(`PASS ${name}: 3 × 60 kg × 10 @ RIR 2 → the open and next sets at ${target.load} kg × ${target.reps}`);
     } finally {await context.close();}
   }
 }

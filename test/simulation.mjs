@@ -3545,7 +3545,7 @@ async function main() {
   });
   await nav(page, "log");
   await selectDay(page, beginnerFirst.day);
-  const begName = (await page.locator("#workout .exercise .ex__name").first().textContent()) || "";
+  const begName = (await page.locator("#woDayTitle").textContent()) || "";
   assert(
     beginnerFirst.names.some((name) => begName.includes(name)) && !/Hack squat/i.test(begName),
     "Beginner program shows its own movement names",
@@ -4128,7 +4128,9 @@ async function main() {
     if (recAfterLog === null) {
       recAfterLog = await page.evaluate(() => {
         const card = document.querySelector("#workout .exercise.is-current");
-        const logged = card?.querySelectorAll(".ledgerline[data-editn]").length || 0;
+        // Layout D draws logged sets behind the table's disclosure, so the count is the draft's.
+        const ex = card && window.__repforgeWorkoutDraft.current()?.exercises?.[card.dataset.ex];
+        const logged = ex ? ex.setOrder.filter((sid) => ex.sets[sid].completion !== "pending").length : 0;
         return logged
           ? { logged, rec: card.querySelectorAll(".recblock").length,
               // The set just logged armed a rest: until it ends, the cue's place holds the next set's line.
@@ -5824,7 +5826,7 @@ async function main() {
   const noteExs = await getExerciseMeta(page, noteDay);
   const noteEx = noteExs[0];
   const noteExName = (
-    await page.textContent(`#workout [data-ex="${noteEx.id}"] .ex__name`)
+    await page.getAttribute(`#workout [data-ex="${noteEx.id}"] .fcard__context`, "aria-label")
   ).trim();
   const NOTE_TEXT = "Seat 4, pin 6, wide grip";
   // The exercise page lists only the 8 most recent sessions for the lift —

@@ -8070,7 +8070,8 @@ function focusLedgerToggleHtml(ex,{peek=false}={}){
   // Collapsed, the set just logged leaves the table on the render that logs it; its landing beat plays here instead.
   const fresh=!open&&focusIsFresh(ex,peek);
   return `<button type="button" class="ledger__more${fresh?" is-fresh":""}"${peek?dead():` data-ledgermore`} aria-expanded="${open?"true":"false"}" aria-controls="ledger_${esc(ex.id)}">`+
-    `<span>${esc(t("focus.ex_done_sets",{n:count,sets:tp(count,"logged set")}))}</span>`+
+    // The count and the word sit in their own spans, so each reads as the figure and the catalog plural it is.
+    `<span>${esc(t("focus.ex_done_sets",{n:"\u0000",sets:"\u0001"})).replace("\u0000",`<span>${count}</span>`).replace("\u0001",`<span>${esc(tp(count,"logged set"))}</span>`)}</span>`+
     `<span class="icon-mask icon-mask--sm icon-mask--chev-down ledger__chev" aria-hidden="true"></span></button>`}
 /** The ledger: one row per set. Logged sets read back and reopen on a tap, the
  *  set being worked on (or corrected) wears the open ring, and the sets still
