@@ -6748,14 +6748,6 @@ function setNotificationsEnabled(wanted){return notificationControls().setEnable
    (OD-4): answered fields replace their old values, skipped ones leave them.
    The weight unit becomes the app's unit when no workout draft would need
    converting. Never part of a link, a state proposal's context or telemetry. */
-function applyBasicsToProposal(proposal,basics){
-  if(!basics||typeof basics!=="object")return;
-  const {weightUnit,...answered}=basics;
-  if(Object.keys(answered).length){
-    const merged=ProgramEntry.normalizeProfile({...(proposal.profile||{}),...answered});
-    if(merged.ok)proposal.profile=merged.value}
-  if((weightUnit==="kg"||weightUnit==="lb")&&weightUnit!==proposal.settings?.unit&&!readDraftRaw())
-    proposal.settings={...normalizeSettings(proposal.settings),unit:weightUnit}}
 function interpretedProfile(profile){return interpretProfile(profile,ProgramEntry)}
 function renderProfileSettings(){return settingsView().renderProfile()}
 function clearProfile(){return settingsView().clearProfile()}
@@ -7693,26 +7685,6 @@ function applyLegacyHints(stateIn){
   let next=ProgramEntry.setAnswers(stateIn,migrated.value.answers);
   next={...next,legacyHints:migrated.value.legacyHints};
   return next}
-function programmingContextFromAnswers(answers){
-  if(!ProgramEntry||!answers?.desiredResult||!answers?.structuredExperience||!answers?.recentConsistency)return null;
-  if(!answers.daysPerWeek||!answers.sessionMinutes||!answers.environment)return null;
-  if(!Object.prototype.hasOwnProperty.call(answers,"preferredRestSeconds"))return null;
-  return ProgramEntry.normalizeProgrammingContext({
-    schemaVersion:1,
-    desiredResult:answers.desiredResult,
-    structuredExperience:answers.structuredExperience,
-    recentConsistency:answers.recentConsistency,
-    availability:{
-      daysPerWeek:answers.daysPerWeek,
-      sessionMinutes:answers.sessionMinutes,
-      preferredRestSeconds:answers.preferredRestSeconds},
-    environment:answers.environment,
-    primaryMuscles:answers.primaryMuscles||[],
-    deEmphasizedMuscles:answers.deEmphasizedMuscles||[],
-    ignoredMuscles:answers.ignoredMuscles||[],
-    priorityMovements:answers.priorityMovements||[],
-    exerciseConstraints:answers.exerciseConstraints||[],
-    reviewedAt:entryNow()})}
 function showOnboardingView(){entryVisibleScreenKey=null;$("#onboarding").classList.remove("hidden");$("#onboarding").classList.add("active");document.body.classList.add("is-onboarding");
   $$(".view").forEach(v=>{if(v.id!=="onboarding")v.classList.remove("active")})}
 function entryHistoryState(active=true){
@@ -10314,104 +10286,13 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     const optIn=onboardingProgramEditor?.checkSuggestLoads?.();
     if(optIn&&!optIn.ok)return optIn}
   if(!skipReplaceConfirm&&!(await entryConfirmReplaceIfNeeded()))return{cancelled:true};
-  const preview=entryState.result?.preview;
-  let exercises=manualBuild||entryState.route==="build"
-    ?(entryState.result?.preview?.program||[])
-    :(preview?.program||[]);
-  const programStructure=entryState.result?.preview?.programStructure||preview?.programStructure||null;
-  const name=entryResultName()||entryState.answers.programName||"";
-  const route=entryState.route||"custom";
-  const answersForMeta={
-    goal:entryState.answers.desiredResult==="muscle_growth"?"hypertrophy":
-      entryState.answers.desiredResult==="strength"?"strength_hypertrophy":
-      entryState.answers.desiredResult==="balanced"?"strength_hypertrophy":null,
-    experience:null,
-    daysPerWeek:entryState.route==="browse"?(preview?.frequency||null):(entryState.answers.daysPerWeek||preview?.frequency||null),
-    splitType:null,
-    equipment:[],
-    priorityMuscles:entryState.answers.primaryMuscles||[],
-    sessionLength:null};
-  const context=programmingContextFromAnswers(entryState.answers);
-  const baseProposal=cloneSnapshot(state);
-  if(route==="shared"){
-    const sharedMeta=preview?.sharedMeta||{};
-    Object.assign(answersForMeta,{
-      goal:sharedMeta.goal??answersForMeta.goal,
-      experience:sharedMeta.experience??answersForMeta.experience,
-      daysPerWeek:sharedMeta.daysPerWeek??answersForMeta.daysPerWeek,
-      splitType:sharedMeta.splitType??null,
-      equipment:Array.isArray(sharedMeta.equipment)?sharedMeta.equipment.slice():answersForMeta.equipment,
-      priorityMuscles:Array.isArray(sharedMeta.priorityMuscles)?sharedMeta.priorityMuscles.slice():answersForMeta.priorityMuscles,
-      sessionLength:sharedMeta.sessionLength??null,
-      mesocycleLengthWeeks:sharedMeta.mesocycleLengthWeeks??null});
-    if(preview?.sharedSettings)baseProposal.settings={...normalizeSettings(baseProposal.settings),...sharedSettingsPatch(preview.sharedSettings)};
-    if(preview?.sharedImport)baseProposal[SHARED_IMPORT]=cloneSnapshot(preview.sharedImport);
-  }
-  exercises=cloneSnapshot(exercises);
-  if(Array.isArray(preview?.customExercises)&&preview.customExercises.length){
-    const merged=mergeImportedCustomExercises(preview.customExercises,exercises,baseProposal);
-    baseProposal.customExercises=merged.customExercises}
-  let programDefinition=preview?.programDefinition||preview?.definition||
-    (route==="shared"?baseProposal.programMeta?.programDefinition:null);
-  if(!programDefinition&&route==="build"){
-    const names=Array.isArray(programStructure?.days)?programStructure.days.map(item=>item?.label||item?.name).filter(Boolean):
-      (preview?.days||[]).map(item=>item?.name||item?.label).filter(Boolean);
-    programDefinition=manualProgramDefinitionFromRows(exercises,names,baseProposal.customExercises||[])}
-  programDefinition=canonicalProgramDefinition(programDefinition,baseProposal.customExercises||[]);
-  if(!programDefinition){
+  const prepared=EntryActivation.candidate({draft:entryState,head:state,name:entryResultName()||entryState.answers.programName||"",hasWorkoutDraft:!!readDraftRaw()});
+  if(!prepared.ok){
     reportActivationFailed("definition_invalid");
-    toast(t("entry.issue.compile"),{assertive:true});
-    renderOnboarding();
-    return{invalid:true,code:"program-definition-required"}}
-  if(route==="build"){
-    const confirmed=suggestion?.confirm({program:[],
-      programMeta:{programDefinition,suggestLoadsPending:cloneSnapshot(preview?.suggestLoadsPending||[])}},editorSuggestLoadsPolicy);
-    const checked=confirmed?.ok?canonicalProgramDefinition(confirmed.document.programMeta.programDefinition,baseProposal.customExercises||[]):null;
-    if(!checked){
-      reportActivationFailed("definition_invalid");
-      renderOnboarding();
-      return{invalid:true,code:"suggest-loads-incomplete"}}
-    programDefinition=checked}
-  exercises=flatProgramFromDefinition(programDefinition,baseProposal.customExercises||[]);
-  answersForMeta.daysPerWeek=programDefinition.days.filter(item=>item.kind==="training").length;
-  answersForMeta.goal=programDefinition.request.goal||answersForMeta.goal;
-  answersForMeta.experience=programDefinition.request.experience||answersForMeta.experience;
-  answersForMeta.splitType=programDefinition.request.split||answersForMeta.splitType;
-  answersForMeta.mesocycleLengthWeeks=programDefinition.cycles;
-  if(context?.ok)baseProposal.programmingContext=context.value;
-  if(route==="recommend")applyBasicsToProposal(baseProposal,entryState.answers.basics);
-  baseProposal.programMeta=baseProposal.programMeta||defaultProgramMeta(baseProposal.log);
-  baseProposal.programMeta.progressionRelations=cloneSnapshot(preview?.progressionRelations||[]);
-  baseProposal.programMeta.progressionModifiers=cloneSnapshot(preview?.progressionModifiers||[]);
-  baseProposal.programMeta.progressionIncompatibilities=cloneSnapshot(preview?.progressionIncompatibilities||[]);
-  baseProposal.programMeta.programStructure=programStructure?cloneSnapshot(programStructure):null;
-  if(route==="build"){
-    const loadingConfiguration=normalizeLoadingConfiguration(preview?.loadingConfiguration);
-    if(loadingConfiguration)baseProposal.programMeta.loadingConfiguration=loadingConfiguration;
-    else delete baseProposal.programMeta.loadingConfiguration;
-  }
-  const compilerContext=(route==="recommend"||route==="custom"||route==="browse")
-    ?(entryState.result?.compilerContext||null):null;
-  if(compilerContext)baseProposal.programMeta.compilerContext=cloneSnapshot(compilerContext);
-  const telemetryRoute=route==="recommend"||route==="custom"||route==="browse"||route==="build"||route==="import"||route==="shared"?route:"custom";
-  const result=await finalizeProgramSetup({
-    exercises,
-    name,
-    answers:answersForMeta,
-    destination,
-    origin:onboardingOrigin||"first-run",
-    io,
-    baseProposal,
-    telemetryRoute,
-    entryTelemetry:entryState.result?.telemetry||null,
-    entrySource:{route,fingerprint:entryState.result?.fingerprint},
-    programStructure,
-    programDefinition,
-    compilerContext,
-    expectedSetupDraftRaw:activationDraftHandle?.raw??null,
-    replace:route==="shared",
-    expectedFirstRunEmpty:route==="shared",
-    reviewChanges:entryReviewChanges()});
+    if(prepared.code==="program-definition-required")toast(t("entry.issue.compile"),{assertive:true});
+    renderOnboarding();return{invalid:true,code:prepared.code}}
+  const result=await finalizeProgramSetup({...prepared.value,destination,origin:onboardingOrigin||"first-run",io,
+    expectedSetupDraftRaw:activationDraftHandle?.raw??null,reviewChanges:entryReviewChanges()});
   if(result?.setupDraftConflict){
     reportActivationFailed("setup_conflict");
     entryUiNotice="save_conflict";
@@ -12095,7 +11976,7 @@ function initializePersistenceOwners(){
     catalog:rawExerciseCatalog,model,transition:generationRules.transition,metrics:PersistenceMetrics,
     progression:PersistenceProgression,now,nextId:uid,language:I18N,digest:recoverySha256});
   customDefinitionImport=createCustomDefinitionImport({model,nextId:uid});
-  EntryActivation=createEntryActivation({model,policy,identity:{programId:uid,blockId:allocateBlockId,now:entryNow,date:today},defaultName:()=>t("untitled_program")});
+  EntryActivation=createEntryActivation({model,entry,imports:customDefinitionImport,build:createInstalledEditorRules({model,catalog:rawExerciseCatalog,nextId:uid,defaultProgramMeta:policy.defaultProgramMeta,allowCreateDefinition:true}),policy,identity:{programId:uid,blockId:allocateBlockId,now:entryNow,date:today},defaultName:()=>t("untitled_program")});
   ({normalizeMuscleAttribution,isValidMuscleDomainTree,isValidStoredMuscleField,isValidPlannedVolumeHistory,normalizeRecoveryCarrierSnapshot,isSafeProgressionFields,isSafeProgressionMeta,isSafeProgramHistoryEntry,isSafeLogRow,isSafeCustomExercise,isValidSetupActivationMarker,setupActivationMarker,setupActivationMatches,isValidStateShape,migrateLogSnapshot,defaultProgramMeta,normalizeProgramEntrySource,normalizeProgramMeta,normalizeLoadingConfiguration,withExplicitProgramStructure,normalizeProgramHistory,normalizeLoaded,normalizeNotify,normalizeSettings}=policy);
   validateRecoveryProjectionRecord=policy.validateRecoveryProjectionRecord;
   programAdditionCommands=createProgramAdditionCommands({read:applicationSession.read,
