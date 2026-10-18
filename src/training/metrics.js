@@ -346,3 +346,8 @@ const VERSION = api.VERSION;
 
 export { VERSION, DEFINITIONS, SOURCE_COMPOSITIONS, TARGET_KEYS, definitionsForIds, validateMetricDefinition, parseMetricValue, parseLoadInput, validateDefinitions, validateRawIds, validateTargets, validateMetricValues, validateExerciseSourceBinding, byName };
 export default api;
+
+/** Shipped Epley estimate; nonpositive load/reps have no strength estimate.
+ * @param {number} load @param {number} reps
+ */
+export function estimateOneRepMax(load,reps){return load>0&&reps>0?load*(1+reps/30):0}
