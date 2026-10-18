@@ -5,7 +5,10 @@ try{
  const refused=await browser.newContext(),blocked=await refused.newPage(),writerRequests=[];
  await refused.addInitScript(()=>{
   localStorage.setItem('repforge_v1','{"opaque":"literal-unmigrated-user-bytes"}');
-  Object.defineProperty(navigator,'serviceWorker',{configurable:true,value:{register:async()=>({update:async()=>{}}),controller:{postMessage(_message,ports){ports[0].postMessage({type:'taurifer-release',id:'literal-other-release'})}}});
+  Object.defineProperty(navigator,'serviceWorker',{configurable:true,value:{
+    register:async()=>({update:async()=>{}}),
+    controller:{postMessage(_message,ports){ports[0].postMessage({type:'taurifer-release',id:'literal-other-release'})}}
+  }});
  });
  blocked.on('request',request=>{if(/\/(?:app\.js|src\/(?:app|training|persistence|ui)\/|vendor\/)/.test(new URL(request.url()).pathname))writerRequests.push(request.url())});
  await blocked.goto(base);await blocked.waitForSelector('#releaseRecovery');
@@ -16,7 +19,11 @@ try{
  page.on('pageerror',error=>errors.push(error.message));
  await installed.addInitScript(()=>{Object.defineProperty(window,'RepForgeMotion',{configurable:true,get(){throw Error('Retired Motion owner read')},set(){throw Error('Retired Motion owner publication')}})});
  await page.goto(base);await waitForAppBoot(page);await page.evaluate(()=>window.__repforgeStorage.flush());
- await page.evaluate(async()=>{await navigator.serviceWorker.ready;if(!navigator.serviceWorker.controller)await new Promise(resolve=>navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true}))});
+ await page.evaluate(async()=>{await navigator.serviceWorker.ready});
+ // Natural activation does not claim the first page: navigate once to the
+ // installed worker before testing its offline cache.
+ await page.reload({waitUntil:'domcontentloaded'});await waitForAppBoot(page);
+ assert.equal(await page.evaluate(()=>!!navigator.serviceWorker.controller),true);
  const raw=await page.evaluate(()=>localStorage.getItem('repforge_v1'));
  await installed.setOffline(true);await page.reload({waitUntil:'domcontentloaded'});
  await page.waitForFunction(()=>window.__repforgeBooted===true,undefined,{timeout:20000});
