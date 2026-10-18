@@ -12,6 +12,14 @@ Independent evidence: `/tmp/core-independent-native-proof.json`, `/tmp/core-nati
 
 The sections below record earlier checkpoints; their smaller acceptance totals describe those earlier revisions. Latest acceptance is the checklist here.
 
+## Latest validation checkpoint
+
+All nine independent-oracle corrections are integrated (`7365489b`, `58ffa739`) and their **six affected owners pass together on clean integration revision `817b9858346c1992f209af89921a4edc746b7a34`**. The isolated worktree retained unchanged start/end SHA, tree and clean status for each command: Entry historical inputs2.40s, compiler feasible/search cases3.57s, generative inventory self-test0.11s, all27 properties at300runs32.67s, actual browser credential persistence4.74s, complete service gate34.03s (82 cases, three CLI integrations and three dry bundles). Node24.19.0/system Chromium; this is integration behavior evidence, not physical-device or pinned-pixel certification. Reports: `/tmp/integrated-oracle-{entry-inputs,compiler,generative-self,generative,credentials,service}-v1.json`. Independent mutation/review detail remains in [the audit handoff](https://github.com/pedrochagasmaster/repforge/pull/448#issuecomment-6252708347). No service source, deployment, credentials or network policy changed.
+
+Subsequent source checkpoints integrate one captured History query/cache owner (`0a33e2c0`, `380d19a4`, `72f839da`), actual Focus/Why/exercise-action view lifetimes, native generated language/exercise data, bounded program-source parser (`fa7c7007`) and guide effects at explicit commands (`84e08daf`). Configured Entry checking now recursively includes its landing owners. AST boundary checking now inspects JSDoc imports and declaration files as well as runtime edges, with seeded negative fixtures; published type aliases remove concrete UI-to-persistence/private-editor leaks. Recursive DTO types do not create runtime loading cycles. These checkpoints do not close slices merely by being pushed; final composition, remaining Entry/Workout orchestration, physical classic deletion and final-head CI are open.
+
+Guide rendering previously queued writes to shown preferences. Native Progress/Focus renderers and root render now avoid that effect; guide attempts follow navigation, acknowledged entry or explicit user actions. The new browser owner and independent restored-source failing controls distinguish repaint purity from preserved guide behavior. The first-set acknowledgement follow-up is still being reconciled; no final slice11/17 acceptance is claimed here.
+
 ## Implementation checklist
 
 - [x] 1. Baseline and reconciliation contract
