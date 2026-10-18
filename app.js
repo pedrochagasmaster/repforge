@@ -1,5 +1,6 @@
 import {createTelemetry} from './src/platform/telemetry.js';
 import {createPostHog} from './src/platform/posthog.js';
+import {createShelfPresentation} from './src/ui/focus/shelf.js';
 import {createEffortPresentation,EFFORT_STEPS} from './src/ui/focus/effort.js';
 import {createCuePresentation} from './src/ui/focus/cue.js';
 import {createRestPresentation} from './src/ui/focus/rest-view.js';
@@ -5181,7 +5182,7 @@ function defaultShelfField(key){
 const shelfFor=(key,firstField=defaultShelfField(key))=>focusUi.shelfFor(key,firstField);
 const shelfSelect=(key,field,editing=false)=>focusUi.shelfSelect(key,field,editing);
 /** A field's text as the lifter reads it: a number in their locale, anything else as typed. */
-const shelfText=raw=>{const v=parseDec(raw);return Number.isFinite(v)?fmt(v):String(raw??"")};
+const shelfText=raw=>FocusShelf.text(raw);
 /** The load step the pads move by, in the unit the lifter sees. */
 function shelfLoadStep(){
   const kg=parseDec(state.settings.minJump)||2.5;
@@ -5206,72 +5207,19 @@ function programPrescriptionSummary(ex,cycleNumber=mesocycleLifecycle(state?.pro
 const metricLabel=workoutMetricDisplay.label,metricDisplayUnit=workoutMetricDisplay.displayUnit,
   parseHistoryMetricInput=workoutMetricDisplay.parseHistoryInput;
 
-function shelfPadsHtml(ex,n,ui,vals,{effortMode,peek}){
-  return Focus.renderFocusPadsInner({...selectFocusPads(ex,n,ui,vals,{effortMode,peek,editing:true}),peek})}
+const FocusShelf=createShelfPresentation({focus:focusUi,metrics:workoutMetricDisplay,effort:FocusEffort,
+  rest:RestPresentation,copy:{t,plural:tp},format:{number:fmt,unit:unitLabel}});
 function focusPadsHtml(ex,n,ui,vals,{effortMode,peek,editing}){
-  return Focus.renderFocusPads({...selectFocusPads(ex,n,ui,vals,{effortMode,peek,editing}),peek})}
-function selectFocusShelfField(ex,n,id,vals,{ui,touched,effortMode,metric=null,set=null,carry=null}) {
-  const key=`${ex.id}_${n}`;
-  if(metric) {
-    const fieldId=`metric_${metric.id}`,inputKey=`${key}_${fieldId}`;
-    const pending=pendingFields.get(inputKey)?.value;
-    const carried=carry?.metric?.id===metric.id?carry.value:null;
-    const raw=carried??pending??set.edited.metrics?.[metric.id]??"";
-    const shown=raw!==""?shelfText(metricTextValue(raw,metric)):metricTargetText(set.programmed.targets?.[metric.semantic]);
-    const unit=metricDisplayUnit(metric),label=`${metricLabel(metric)}${unit?`, ${unit}`:""}`;
-    return {key,id:fieldId,metricId:metric.id,selected:ui.field===fieldId,editing:ui.editing,
-      soft:!touched.metrics?.[metric.id]&&!pendingFields.has(inputKey),label,ariaLabel:`${label}, ${t("focus.set_label",{n})}`,
-      shown,raw:metricTextValue(raw,metric),placeholder:metricTargetText(set.programmed.targets?.[metric.semantic]),
-      inputMode:metric.semantic==="reps"||metric.semantic==="repsPerSide"?"numeric":"decimal"};
-  }
-  const effort=id==="rir"&&effortMode;
-  const label=id==="load"?t("focus.shelf.field_load",{unit:unitLabel()}):id==="reps"?t("stats.table.reps"):effort?t("log.effort"):t("stats.table.rir");
-  const raw=id==="load"?vals.kgVal:id==="reps"?vals.repsVal:vals.rirVal;
-  const shown=effort?effortLabel(vals.effortVal):id==="reps"?String(vals.repsVal??""):shelfText(raw);
-  return {key,id,selected:ui.field===id,editing:ui.editing,soft:!(id==="load"?touched.load:id==="reps"?touched.reps:touched.effort),
-    label,ariaLabel:`${label}, ${t("focus.set_label",{n})}`,raw,shown,effort,effortValue:vals.effortVal,
-    effortPopupHtml:effort?effortPopHtml(key,vals.effortVal):"",inputMode:id==="reps"?"numeric":"decimal"};
-}
-function selectFocusPads(ex,n,ui,vals,{effortMode,peek,editing}) {
-  const rest=restPadsOn(editing),restLabel=t("rest.inline.label");
-  if(rest)return selectRestPads(peek);
-  const key=`${ex.id}_${n}`,id=ui.field;
-  if(id==="rir"&&effortMode) {
-    const at=Math.max(0,EFFORT_STEPS.indexOf(vals.effortVal));
-    return {rest,pads:[-1,1].map(direction=>{const to=EFFORT_STEPS[at+direction],word=effortLabel(to||vals.effortVal);
-      return {direction,text:t("focus.shelf.pad_effort",{sign:direction>0?"+":"−",effort:word}),attributes:` data-effstep="${esc(key)}"`,disabled:!to};})};
-  }
-  const metricId=id.startsWith("metric_")?id.slice(7):null;
-  const metric=metricId?focusMetricDefinitions(ex.id,n).find(item=>item.id===metricId):null;
-  if(metric) {
-    const reps=metric.semantic==="reps"||metric.semantic==="repsPerSide";
-    const load=["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic);
-    const unit=metricDisplayUnit(metric),step=load?shelfLoadStep():"1";
-    return {rest,pads:[-1,1].map(direction=>({direction,attributes:' data-step="'+key+"_metric_"+metric.id+'"',
-      text:reps?t("focus.shelf.pad_reps",{sign:direction>0?"+":"−"}):load?t("focus.shelf.pad_load",{sign:direction>0?"+":"−",step,unit}):(direction>0?"+":"−")+"1"+(unit?" "+unit:"")}))};
-  }
-  return {rest,pads:[-1,1].map(direction=>({direction,attributes:` data-step="${esc(key)}_${id}"`,
-    text:id==="load"?t("focus.shelf.pad_load",{sign:direction>0?"+":"−",step:shelfLoadStep(),unit:unitLabel()}):id==="reps"?t("focus.shelf.pad_reps",{sign:direction>0?"+":"−"}):t("focus.shelf.pad_rir",{sign:direction>0?"+":"−"})}))};
-}
+  return FocusShelf.padsHtml({exerciseId:ex.id,ordinal:n,ui,values:vals,effortMode,peek,editing,
+    metrics:focusMetricDefinitions(ex.id,n),loadStep:shelfLoadStep()})}
 function focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}) {
-  const n=focusActiveSet(ex);
-  if(!n) {
-    const done=focusDoneSets(ex).length;
-    const title=allDone?t("focus.wo_done_title"):t("focus.ex_done_title");
-    const subtitle=allDone?t("focus.wo_done_sub",{n:focusList().length,lifts:tp(focusList().length,"lift")}):t("focus.ex_done_sets",{n:done,sets:tp(done,"logged set")});
-    const finish=allDone||!hasNext;
-    return Focus.renderFocusShelf({peek,completion:{title,subtitle,finish,rise:focusIsFresh(ex,peek)&&beatsOn(),actionLabel:t(finish?"log.finish":"focus.next_ex")}});
-  }
-  const effortMode=isEffortMode(),key=`${ex.id}_${n}`,metricDefinitions=focusMetricDefinitions(ex.id,n),ui=shelfFor(key,metricDefinitions[0]?"metric_"+metricDefinitions[0].id:"reps");
-  const editing=!!(focusUi.edit&&focusUi.edit.exId===ex.id),vals=setFieldVals(ex,n,r,draft,prev),touched=shelfTouched(ex.id,n);
-  const label=editing?t("log.save_set_aria",{n}):t("focus.shelf.log_set",{n});
-  const setId=activeWorkoutDraft?.exercises?.[ex.id]?.setOrder?.find(id=>activeWorkoutDraft.exercises[ex.id].sets[id].ordinal===n);
-  const set=activeWorkoutDraft?.exercises?.[ex.id]?.sets?.[setId];
-  const column=metric=>METRIC_FIELD_SEMANTICS.load.includes(metric.semantic)?0:METRIC_FIELD_SEMANTICS.reps.includes(metric.semantic)?1:2;
-  const common={ui,touched,effortMode};
-  const fields=metricDefinitions.length?[...metricDefinitions].sort((a,b)=>column(a)-column(b)).map(metric=>selectFocusShelfField(ex,n,null,vals,{...common,metric,set,carry:manualLoadCarry(ex.id,n,r)})).concat(selectFocusShelfField(ex,n,"rir",vals,common)):["load","reps","rir"].map(id=>selectFocusShelfField(ex,n,id,vals,common));
-  return Focus.renderFocusShelf({key,label,editing,peek,fields,...selectFocusPads(ex,n,ui,vals,{effortMode,peek,editing})});
-}
+  const selection=focusSelection(ex,peek),n=selection.active;
+  const exercise=n?activeWorkoutDraft?.exercises?.[ex.id]:null;
+  const setId=exercise?.setOrder.find(id=>exercise.sets[id].ordinal===n);
+  return FocusShelf.render({exerciseId:ex.id,selection,allDone,hasNext,peek,exerciseCount:focusList().length,
+    beats:beatsOn(),effortMode:isEffortMode(),values:n?setFieldVals(ex,n,r,draft,prev):null,
+    touched:n?shelfTouched(ex.id,n):{},set:exercise?.sets?.[setId]||null,
+    carry:n?manualLoadCarry(ex.id,n,r):null,metrics:n?focusMetricDefinitions(ex.id,n):[],loadStep:shelfLoadStep()})}
 function refreshShelf({focus=null}={}){
   const card=focusCard();if(!card||!activeWorkoutDraft)return false;
   const base=prog.find(card.dataset.ex);if(!base)return false;
