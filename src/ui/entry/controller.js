@@ -35,7 +35,7 @@ export function createEntryController({document,navigator,session,copy,commands,
   onHandoff({method:provider,outcome:'opened',long_prompt:prompt().length>FREEFORM_URL_MAX});session.markOpened(provider);win?.setTimeout(()=>{if(!disposed)onRender()},0);return true}
  function bindProviders(){document.querySelectorAll('[data-freeform-app]').forEach(node=>{
   const el=/** @type {HTMLElement} */(node),provider=el.dataset.freeformApp||'';
-  el.onclick=el.tagName==='BUTTON'?async event=>{event.preventDefault();const epoch=session.read().epoch,ok=await copyPrompt();onHandoff({method:provider,outcome:ok?'copied':'copy_failed',long_prompt:true});if(ok&&!disposed&&epoch===session.read().epoch){session.markCopied(provider);refresh()}}:event=>{openProvider(provider,event)};
+  el.onclick=el.tagName==='BUTTON'?async event=>{event.preventDefault();const before=session.read(),ok=await copyPrompt();onHandoff({method:provider,outcome:ok?'copied':'copy_failed',long_prompt:true});if(ok&&!disposed&&before.epoch===session.read().epoch&&before.source===session.read().source){session.markCopied(provider);refresh()}}:event=>{openProvider(provider,event)};
  })}
  async function importClipboard(){
   if(busy||disposed)return false;
@@ -59,7 +59,7 @@ export function createEntryController({document,navigator,session,copy,commands,
   click('#entryFreeformContinue',()=>{if(session.continueSource())onRender()});
   click('#entryFreeformEditSource',()=>{if(session.editSource())onNotice('entry.freeform.edit_source_warning');onRender()});
   bindProviders();
-  click('#entryFreeformCopy',async()=>{const epoch=session.read().epoch,ok=await copyPrompt();onHandoff({method:'copy',outcome:ok?'copied':'copy_failed',long_prompt:prompt().length>FREEFORM_URL_MAX});if(ok&&!disposed&&epoch===session.read().epoch){session.copyCompleted();onRender()}});
+  click('#entryFreeformCopy',async()=>{const before=session.read(),ok=await copyPrompt();onHandoff({method:'copy',outcome:ok?'copied':'copy_failed',long_prompt:prompt().length>FREEFORM_URL_MAX});if(ok&&!disposed&&before.epoch===session.read().epoch&&before.source===session.read().source){session.copyCompleted();onRender()}});
   click('#entryFreeformTryAnother',()=>{session.tryAnother();onRender()});
   click('#entryFreeformStartOver',()=>{const current=session.read();if((current.source.trim().length>10||current.reply.trim().length>10)&&!confirm('entry.freeform.confirm_start_over'))return;reset();onRender()});
   click('#entryFreeformCopyRepair',()=>copyText(t(repairKeys[session.read().failReason||'']||'entry.freeform.repair_no_json'),'entry.freeform.toast_repair_copied','toast.freeform_copy_failed'));

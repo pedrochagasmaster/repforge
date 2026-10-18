@@ -1,6 +1,7 @@
 // Fault seams justify isolation: queued failures, lock refresh, exact-draft finish
 // and a visible-but-unsettled replica cannot be reliably induced by pure engine tests.
 import assert from 'node:assert/strict';
+import {createEntryImportSession} from '../../src/app/entry.js';
 import {createSession} from '../../src/app/session.js';
 import {createWorkoutCommands} from '../../src/app/workout.js';
 import {createHistoryCommands, sessionFingerprint} from '../../src/app/history.js';
@@ -138,3 +139,13 @@ const cancelledRetryResult=await queuedRetry;
 assert.equal(cancelledRetryResult.code,'history_cancelled','cancellation is rechecked after waiting for the durable lock');
 assert.equal(historyReplicaWrites,0,'cancelled lock-queued retry produces no proposal or replica writes');
 console.log('Application command contracts passed');
+
+// Entry's private gap facts cannot be changed around the named validation command.
+const entrySession=createEntryImportSession({tabStorage:()=>({getItem:()=>null,setItem:()=>{},removeItem:()=>{}})});
+const gapFacts={status:'gaps',envelope:{meta:{name:'private draft'}},exercises:[{day:'A',name:'Curl',order:1}],
+  gaps:[{key:'0::sets',rowIndex:0,day:'A',order:1,name:'Curl',field:'sets'}],notImported:[]};
+entrySession.setGaps(gapFacts);gapFacts.gaps.length=0;gapFacts.envelope.meta.name='external write';
+assert.equal(entrySession.read().gapResult.gaps.length,1,'Entry owns an ingress copy of gap facts');
+assert.equal(entrySession.read().gapResult.envelope.meta.name,'private draft');
+assert.throws(()=>{entrySession.read().gapResult.gaps.length=0},TypeError,'readonly gap facts cannot bypass validation');
+assert.throws(()=>{entrySession.read().gapResult.envelope.meta.name='escape'},TypeError,'nested source facts are readonly too');

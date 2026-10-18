@@ -534,6 +534,19 @@ async function main() {
     assert(invalidatedState.tagName === "BUTTON" && invalidatedState.isLong,
       "editing the prompt invalidates previous copy and restores the first tap button");
 
+    // The completed clipboard write belongs to the source copied at its tap.
+    // Editing and returning to this screen must not mark a different prompt copied.
+    await page.evaluate(()=>{navigator.clipboard.writeText=()=>new Promise(resolve=>{window.__releaseEntryCopy=resolve})});
+    await page.click('[data-freeform-app="chatgpt"]');
+    await page.locator("#entryFreeformEditSource").click();
+    await page.locator("#entryFreeformIn").fill(LONG_PROGRAM+"\nNew source after the copy started");
+    await page.locator("#entryFreeformContinue").click();
+    await page.evaluate(()=>window.__releaseEntryCopy());
+    await settle(page,100);
+    assert(await page.locator('[data-freeform-app="chatgpt"]').evaluate(node=>node.tagName==="BUTTON"&&!node.dataset.freeformCopied),
+      "a late clipboard copy cannot mark an edited source as already copied");
+    await page.evaluate(()=>{navigator.clipboard.writeText=()=>Promise.resolve()});
+
     console.log("\nThe prompt contract: strict transcription without contradiction");
     await reset(page);
     await page.evaluate(() => window.RepForgeI18n.setLang("en"));

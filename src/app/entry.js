@@ -50,8 +50,11 @@ export function createEntryImportSession({tabStorage}){
   function tryAnother(){stage=2;status=null;save()}
   /** @param {string} reason */
   function fail(reason){status='unreadable';failReason=reason||'no_json'}
+  /** Freeze the owned JSON graph once, so reads need no repeated deep copy.
+   * @param {unknown} value */
+  function freezeGapFacts(value){if(value&&typeof value==='object'){Object.values(value).forEach(freezeGapFacts);Object.freeze(value)}}
   /** @param {GapResult} result */
-  function setGaps(result){gapResult=result;answers={};errors.clear()}
+  function setGaps(result){gapResult=typeof structuredClone==='function'?structuredClone(result):JSON.parse(JSON.stringify(result));freezeGapFacts(gapResult);answers={};errors.clear()}
   function clearGaps(){gapResult=null;errors.clear()}
   /** @param {string} key @param {string} value */
   function setGapAnswer(key,value){answers={...answers,[key]:value};errors.delete(key)}

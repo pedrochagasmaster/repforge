@@ -3,9 +3,9 @@
 import {boundedImportJson,importUtf8Bytes,PROGRAM_MAX_BYTES as IMPORT_MAX_BYTES,PROGRAM_MAX_NODES as IMPORT_MAX_NODES} from './json.js';
 import * as unsupportedGrammar from './unsupported-grammar.js';
 /** @typedef {Record<string,unknown>} JsonRecord
- * @typedef {{day:string,name:string,order:number,sets?:number,min?:number,max?:number,libraryId?:string}} GapExercise
- * @typedef {{key:string,rowIndex:number,day:string,order:number,name:string,field:string}} Gap
- * @typedef {{status:'gaps',envelope:JsonRecord,exercises:GapExercise[],gaps:Gap[],notImported:string[]}} GapResult
+ * @typedef {Readonly<{day:string,name:string,order:number,sets?:number,min?:number,max?:number,libraryId?:string}>} GapExercise
+ * @typedef {Readonly<{key:string,rowIndex:number,day:string,order:number,name:string,field:string}>} Gap
+ * @typedef {Readonly<{status:'gaps',envelope:Readonly<JsonRecord>,exercises:readonly GapExercise[],gaps:readonly Gap[],notImported:readonly string[]}>} GapResult
  * @typedef {{exercises:unknown[],[key:string]:unknown}} ParsedProgram
  * @typedef {ParsedProgram & {status:'complete',notImported:string[]}} CompleteProgram
  */
