@@ -59,3 +59,80 @@ assert.equal(expected.unknownProfile.ok, false, 'input validator refuses unknown
 assert.deepEqual(expected.loadComma, { kind: 'valid', kg: 42.5 });
 assert.deepEqual(expected.invalidLoad, { kind: 'invalid' });
 console.log('PASS immutable architecture baseline: complete generator, DraftV2/history identity, metric values, profile/parser, nonmutation and negative controls');
+
+// Bounded pre-cutover complete-result corpus. Expectations were captured from
+// source792fc25, never from the migrated implementation under test.
+const corpus = JSON.parse(fs.readFileSync(new URL('./fixtures/architecture-corpus-v1.json', import.meta.url)));
+assert.equal(corpus.source.captureHead, '792fc25ffbce131f347ff1084cbf130b2daf9e2a');
+assert.deepEqual(corpus.generation.map(item => item.key), ['upper-lower-full-wave', 'upper-lower-full-linear',
+  'limited-home-two-days', 'commercial-four-days', 'strength-deload', 'no-equipment-conflict', 'unsupported-wave-cycle-count']);
+const successfulNames = {
+  'upper-lower-full-wave': ['Upper', 'Lower', 'Full Body'],
+  'upper-lower-full-linear': ['Upper', 'Lower', 'Full Body'],
+  'limited-home-two-days': ['Workout A', 'Workout B'],
+  'commercial-four-days': ['Upper A', 'Lower A', 'Upper B', 'Lower B'],
+  'strength-deload': ['Upper', 'Lower', 'Full Body'],
+};
+for (const item of corpus.generation) {
+  const inputBefore = JSON.stringify(item.request);
+  if (item.answers) assert.deepEqual(Adapter.programRequestFromAnswers(item.answers, Catalog).value, item.request, item.key);
+  const result = Compiler.generateProgram(item.request, Catalog);
+  assert.deepEqual(result, item.expected, `${item.key}: complete source result parity`);
+  assert.equal(JSON.stringify(item.request), inputBefore, `${item.key}: no request mutation`);
+  if (successfulNames[item.key]) {
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.value.days.filter(day => day.kind === 'training').map(day => day.name), successfulNames[item.key]);
+    assert.equal(Compiler.validateProgramDefinition(result.value, Catalog).ok, true, item.key);
+  } else {
+    assert.equal(result.ok, false);
+    assert.equal(result.value, null);
+    assert.deepEqual(result.conflicts.map(conflict => conflict.code), [item.key === 'no-equipment-conflict' ? 'insufficient_candidates' : 'unsupported_generation_domain']);
+  }
+}
+const wave = corpus.generation[0].expected.value;
+assert.equal(wave.request.periodization, 'undulating');
+assert.equal(wave.request.split, 'upper_lower_full');
+assert.deepEqual(wave.request.deloadCycles, []);
+assert.deepEqual(wave.days.find(day => day.kind === 'training').slots[0].prescriptionsByCycle.map(cycle => cycle.sets[0].targets.reps), [{ min: 7, max: 9 }, { min: 4, max: 6 }, { min: 2, max: 4 }, { min: 7, max: 9 }, { min: 4, max: 6 }, { min: 5, max: 7 }, { min: 2, max: 4 }], 'independent undulating first-primary source schedule');
+assert.equal(corpus.generation[1].expected.value.request.periodization, 'linear');
+assert.equal(corpus.generation[2].expected.value.request.split, 'full_body');
+assert.equal(corpus.generation[3].expected.value.request.split, 'upper_lower_upper_lower');
+const deload = corpus.generation[4].expected.value;
+assert.deepEqual(deload.request.deloadCycles, [8]);
+assert.equal(deload.days.find(day => day.kind === 'training').slots[0].prescriptionsByCycle[7].sets[0].provenance.deload, true);
+assert.deepEqual(deload.days.find(day => day.kind === 'training').slots[0].prescriptionsByCycle[7].sets[0].targets.reps, { min: 3, max: 5 });
+assert.deepEqual(deload.days.find(day => day.kind === 'training').slots[0].prescriptionsByCycle.map(cycle => cycle.cycleIndex), [1, 2, 3, 4, 5, 6, 7, 8]);
+for (const item of corpus.drafts) {
+  const inputBefore = JSON.stringify(item);
+  let actual = Draft.create(item.context, item.selection, {});
+  assert.equal(Draft.isDomainError(actual), false);
+  for (const command of item.commands) {
+    actual = Draft.reduce(actual, command);
+    assert.equal(Draft.isDomainError(actual), false, item.key);
+  }
+  assert.deepEqual(actual, item.expected.draft, `${item.key}: complete finishing aggregate`);
+  const actualRows = Draft.toHistoryRows(actual, item.completedAt);
+  assert.deepEqual(actualRows, item.expected.rows, `${item.key}: complete history rows`);
+  assert.equal(JSON.stringify(item), inputBefore, `${item.key}: no fixture mutation`);
+  const [row] = actualRows;
+  assert.equal(actualRows.length, 1);
+  assert.equal(row.session, `architecture-${item.key}`);
+  assert.equal(row.exerciseId, `slot-${item.key}`);
+  assert.deepEqual([row.load, row.reps], [null, null], 'non-flat composition must not invent flat load/reps');
+  if (item.key === 'per-side') {
+    assert.equal(row.sourceLibraryId, '2a15c6f170d88066b38fd65f8757716f');
+    assert.deepEqual(row.metricValues.map(value => [value.value, value.unit]), [[9, 'reps'], [12.5, 'kg']]);
+    assert.deepEqual(row.metricDefinitions.map(definition => definition.semantic), ['repsPerSide', 'loadPerSideKg']);
+    assert.equal(row.loadingContext.externalLoadMultiplier, 2);
+    assert.equal(row.loadingConvention, 'per_side');
+    assert.equal(row.rir, 2);
+  } else {
+    assert.equal(item.key, 'repless-duration');
+    assert.equal(row.sourceLibraryId, '3015c6f170d88066b005e27ff4833597');
+    assert.deepEqual(row.metricValues.map(value => [value.value, value.unit]), [[45, 'seconds']]);
+    assert.deepEqual(row.metricDefinitions.map(definition => definition.semantic), ['durationSeconds']);
+    assert.equal(row.rir, null, 'duration-only set has no invented effort target');
+    assert.equal(row.loadingConvention, 'external');
+  }
+}
+console.log('PASS bounded source corpus: five complete successes, two complete conflicts, per-side/repless finishing aggregates and history rows');
