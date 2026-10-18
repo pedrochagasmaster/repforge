@@ -1,0 +1,59 @@
+# DraftV2 recovery diagnosis: PR #448
+
+## Result and evidence boundary
+
+The stale-program failure has a concrete producer/consumer discriminant mismatch. The durable owner returns `status: 'stale-recovery', error: {kind: 'stale', reason: 'programFingerprint', ...}`. The banner consumer understands bare `status: 'stale'` but ignores that nested classification, falls through to generic invalid recovery, and hides the explicit discard action. This is a production presentation-contract defect, not an obsolete selector or a reason to weaken the retained test.
+
+Source inspected: `959c037b33d2623ff7a218f2f817bdae813112b7` in `pedrochagasmaster/repforge`. Also read `docs/architecture/ci-repair-plan.md` on `refactor/agent-first-integration`. All repository access was read-only through GitHub connectors. Downloaded and parsed existing CI artifacts locally; no repository code, tests, browser, workflow, remote task, or application was executed or changed. Proposed repairs and acceptance tests below are unexecuted.
+
+## Existing CI evidence
+
+- [Run 39153112814](https://github.com/pedrochagasmaster/repforge/actions/runs/39153112814), shard 7 / job 117750976436.
+- Artifact `12145704699`, downloaded successfully. Its ZIP includes initial output, diagnostic output, diagnostic traces and evidence metadata.
+- `state/test-workout-draft-storage-mjs/evidence.json` pins clean head `959c037b33d2623ff7a218f2f817bdae813112b7`, command `node test/workout-draft-storage.mjs`, start `2026-10-18T18:15:55.680Z`, duration 148417 ms, result failed, initial output SHA-256 `196cfe61c391050cc63edfa12f3a09baa02ee766bbee4f02dd5e8251a2945521`.
+- Both initial and diagnostic output report 80 passed / 1 failed. The only failed assertion is “a stale-program draft remains byte-exact and offers an explicit discard.” Both report title “This unfinished workout needs recovery” and `discardVisible: false`.
+- Initial output does not separately print the pre-reload raw value, so that output alone cannot prove the raw-equality conjunct. The diagnostic trace does: decoded return values for `call@2331` (rawState before program change) and `call@2347` (banner read after reload) are identical, 19,607 UTF-8 bytes, SHA-256 `87bab71a45d914eea2f2176e63fe86fdf24605d49af5d30bcc8e4f8b93768806`. This is evidence from the existing diagnostic replay, not a new initial pass.
+- Diagnostic `call@2353` returns false for discard after a newer winner is installed during confirmation. `call@2355` contains canonical raw and committed checkpoint raw equal to `call@2349.nextRaw`, revision 2, operation `stale-program-winner-2`; recovery reason is `stale-programFingerprint`. Both logs also pass the reload-preserves-winner assertion.
+
+## Exact source path
+
+All line references below are at the pinned SHA.
+
+1. [test/workout-draft-storage.mjs L1490–1510](https://github.com/pedrochagasmaster/repforge/blob/959c037b33d2623ff7a218f2f817bdae813112b7/test/workout-draft-storage.mjs#L1490-L1510) creates a command for typed load `88`, persists it through production CAS, and asserts the canonical raw equals command.nextRaw. It changes the program metadata **name** (not ID), every exercise's notes, and aggregate storage revision, then writes both replicas and reloads. Notes are part of the program fingerprint; this is a genuine changed-program fixture. The final conjunction checks raw equality, earlier-program title and visible discard.
+2. [src/persistence/snapshot.js L106–112, L194–218](https://github.com/pedrochagasmaster/repforge/blob/959c037b33d2623ff7a218f2f817bdae813112b7/src/persistence/snapshot.js#L194-L218) derives program identity from metadata ID/block and program rows. `workoutParseContextForSnapshot` deliberately excludes aggregate durableRevision. [workout-draft.js L833–840, L886–913](https://github.com/pedrochagasmaster/repforge/blob/959c037b33d2623ff7a218f2f817bdae813112b7/workout-draft.js#L886-L913) validates structural shape and returns a contextual stale result when programFingerprint differs.
+3. [app.js L1120–1136](https://github.com/pedrochagasmaster/repforge/blob/959c037b33d2623ff7a218f2f817bdae813112b7/app.js#L1120-L1136) first permits safe replacement of pristine stale drafts, then calls durable checkpoint reconciliation. This draft has touched input, so it is retained. Any reconciliation status other than `ok` returns immediately. The later bare-stale return at L1166 is never reached for this scenario.
+4. [src/persistence/durable.js L143–177](https://github.com/pedrochagasmaster/repforge/blob/959c037b33d2623ff7a218f2f817bdae813112b7/src/persistence/durable.js#L143-L177) and [L208–233](https://github.com/pedrochagasmaster/repforge/blob/959c037b33d2623ff7a218f2f817bdae813112b7/src/persistence/durable.js#L208-L233): committed protection flows through `underCheckpointLock(..., protectedValue.raw)`. Under STORAGE then draft locks it rechecks canonical/checkpoint bytes, chooses the durable replica head, refuses pending transactions/journals/saved sessions, and parses the candidate against that head. Changed fingerprint stores a recovery copy/reason and returns `stale-recovery` with `error: contextual` and untouched `current.raw`, before the operation can publish or commit any canonical/checkpoint replacement.
+5. [app.js L1205–1221, L1264–1278](https://github.com/pedrochagasmaster/repforge/blob/959c037b33d2623ff7a218f2f817bdae813112b7/app.js#L1205-L1278): `showDraftInitializationRecovery` unwraps only migration-error codes. `draftRecoveryMessageKind('stale-recovery', true)` becomes `invalid`; bare `stale` would become `program`. It still parses original raw without current context and captures valid draft ID/revision, but action visibility requires `kind === 'program'`. Rendering at L1228/L1239 therefore produces generic text and hides discard.
+6. Boot [app.js L7806–7812](https://github.com/pedrochagasmaster/repforge/blob/959c037b33d2623ff7a218f2f817bdae813112b7/app.js#L7806-L7812) forwards the reconciliation result unchanged to that presentation consumer.
+
+Important ownership correction: `src/app/storage-recovery.js` and `src/ui/storage-recovery.js` implement the **two-replica storage recovery dialog** (`#storageRecovery`), not this **workout draft banner** (`#draftRecovery`). Reading them does not locate the broken draft presentation. `createWorkoutDraftPolicy` in `src/app/workout.js` owns draft effects for other state commands, while checkpoint reconciliation/removal are in `src/persistence/durable.js`; the banner/recovery adapter still lives in `app.js`.
+
+## Raw-byte and newer-winner safety
+
+The recovery sidecar keeps `{version:1, reason, raw}` at `repforge_draft_v1:recovery`; it does not normalize the canonical bytes. The banner's copy value is the raw result, and clipboard export uses that exact string. The durable refusal occurs before canonical publish/checkpoint commit. Do not serialize a parsed draft merely to classify or display it.
+
+[app.js L1319–1328](https://github.com/pedrochagasmaster/repforge/blob/959c037b33d2623ff7a218f2f817bdae813112b7/app.js#L1319-L1328) captures `draftUiRecovery.discardIdentity` before calling confirm, then passes its displayed ID/revision into `DraftStore.removeV2`. [durable.js L388–410](https://github.com/pedrochagasmaster/repforge/blob/959c037b33d2623ff7a218f2f817bdae813112b7/src/persistence/durable.js#L388-L410) rereads under STORAGE lock, rejects changed ID/revision, requires committed checkpoint raw exactly equal to canonical raw, and then uses pending-removal plus tombstone. The confirmation race test directly invokes the hook, so it exercises this guard even while the button is hidden. Its passing result does not prove UI availability, but does demonstrate the current newer-winner refusal.
+
+Legacy clear is separate: `removeLegacy` requires exact expected raw, refuses a valid V2 object and refuses any existing checkpoint. Keep that separation.
+
+## Minimal proposed repair
+
+Repair the result-to-banner adapter, preserving the durable recovery refusal and raw payload. Recognize a **contextual stale draft result carried by stale-recovery**, rather than treating every stale-recovery status as program recovery. It is not safe to map the status wholesale: the same status represents canonical/checkpoint races, unresolved replica selection, pending journal/transaction and already-saved-session refusal (durable L161–176), without a contextual stale error.
+
+For a narrow patch, derive the program presentation from `result.status === 'stale-recovery' && result.error?.kind === 'stale'`, verify the raw structurally parses to the same draft identity/revision and program binding as the contextual candidate, and restrict it to the actual program-binding reasons (programId/programFingerprint/dayId/blockId). Leave generic stale-recovery without that evidence non-destructive. Preserve existing bare-stale and migration-error behavior. The observed case is programFingerprint and matches the committed canonical candidate. Prefer a small named, testable recovery projection over adding durable policy or reintroducing globals.
+
+Keep `status`, nested error and raw intact for diagnostics/retry. Use original raw for copy and original displayed draft identity for discard. Do not switch to the latest identity after confirmation. Do not bypass reconciliation, remove locks, enable discard for all recovery statuses, change the fixture into malformed legacy data, rewrite fingerprints, or weaken the earlier-program/action expectation.
+
+An alternative explicit discriminated durable result could improve types later, but would widen the repair across contracts and consumers. It is unnecessary for the narrow observed defect unless the owner chooses to make that migration comprehensively.
+
+## Failing-first and negative controls (not executed)
+
+1. Reproduce this exact retained test on the pinned head with initial output, then split raw-equality/title/discard observations in a focused regression for clearer diagnostics. Preserve all original assertions and all 81 retained checks.
+2. A projection regression fed the actual shape `{status:'stale-recovery', error:{kind:'stale', reason:'programFingerprint', draft}, raw}` must fail before repair and yield program recovery plus copy/discard afterward. Require original raw identity and byte equality, not regenerated expected JSON.
+3. The browser scenario must exercise the visible discard button in a matched stale-program case, confirm, obtain canonical absence plus correct tombstone, then allow a fresh workout. Keep the existing confirmation-time newer-winner race and check canonical/checkpoint across reload; add a confirmation-call counter to prove the race injection occurred.
+4. Remove the nested stale classification in a targeted mutation: earlier-program/action assertions must fail. Drop displayed-revision CAS or replace it with a fresh identity after confirmation: newer-winner assertions must fail.
+5. Feed bare `stale-recovery` from changed raw/checkpoint, unresolved replicas, pending transaction/journal, saved-session refusal, and contextual candidate different from canonical: no program-discard affordance. A mutation that maps all stale-recovery statuses to program must fail these negatives.
+6. Keep malformed legacy bytes non-destructive/copy-only, unmigratable well-formed legacy earlier-program/export/exact-raw-clear, pristine stale replacement, checkpoint missing/unreadable/conflict, and non-program aggregate revision changes as distinct cases.
+7. Acceptance execution: all 81 retained storage checks in one initial run; adjacent `test/adversarial-draft-transactions.mjs`, `test/draftv2-staged-cas.mjs`, `test/workout-draft-policy-owner.mjs`, relevant workout draft migration/parity and recovery contracts, plus architecture/type/native-asset checks. Full final-head CI remains required; existing diagnostic replay cannot replace initial gates.
+
+No implementation or repaired behavior is claimed verified by this diagnosis.
