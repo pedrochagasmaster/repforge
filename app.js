@@ -1,6 +1,7 @@
 import {createBlockTransitionCommands} from './src/app/block-transition.js';
 import {createShell,NATIVE_FOCUS_SELECTOR as ROUTE_NATIVE_FOCUS} from './src/ui/shell.js';
 import {createNotifications} from './src/platform/notifications.js';
+import {createMetricDisplay} from './src/ui/workout/metrics.js';
 import {createSessionSheet} from './src/ui/workout/session-sheet.js';
 import {createEntryController} from './src/ui/entry/controller.js';
 import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,FREEFORM_MAX_CHARS} from './src/app/entry.js';
@@ -5713,30 +5714,10 @@ function focusMetricDefinitions(exId,n){
   const setId=exercise.setOrder.find(id=>exercise.sets[id].ordinal===n);
   const metrics=setId?exercise.sets[setId].programmed.metrics:null;
   return Array.isArray(metrics)?metrics:[]}
-function metricTextValue(raw,metric){
-  if(raw==null||raw==="")return"";
-  const number=parseDec(raw);
-  if(!Number.isFinite(number))return String(raw);
-  return ["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic)
-    ?fmtPlain(toDisplay(number)):fmtPlain(number)}
-function canonicalMetricInput(metric,raw){return PersistenceMetrics.canonicalMetricInput(metric,raw,state.settings.unit)}
-const metricKgFromDisplay=value=>PersistenceMetrics.metricKgFromDisplay(value,state.settings.unit);
-function metricTargetText(target){
-  if(target==null)return"";
-  const show=value=>fmt(value);
-  if(typeof target==="number")return show(target);
-  if(Number.isFinite(target.min)&&Number.isFinite(target.max))return target.min===target.max?show(target.min):`${show(target.min)}–${show(target.max)}`;
-  return""}
-function canonicalMetricTargetText(metric,target){
-  if(target==null)return"";
-  const loadMetric=metric?.unit==="kg";
-  const show=value=>fmt(loadMetric?toDisplay(value):value);
-  const unit=metricDisplayUnit(metric);
-  let value="";
-  if(typeof target==="number")value=show(target);
-  else if(Number.isFinite(target.min)&&Number.isFinite(target.max))
-    value=target.min===target.max?show(target.min):`${show(target.min)}–${show(target.max)}`;
-  return value?`${metricLabel(metric)} ${value}${unit?` ${unit}`:""}`:""}
+const workoutMetricDisplay=createMetricDisplay({readSettings:()=>state.settings,copy:{t,language:uiLang}});
+const metricTextValue=workoutMetricDisplay.text,canonicalMetricInput=workoutMetricDisplay.canonicalInput,
+  metricKgFromDisplay=workoutMetricDisplay.kgFromDisplay,metricTargetText=workoutMetricDisplay.targetText,
+  canonicalMetricTargetText=workoutMetricDisplay.canonicalTargetText;
 function programPrescriptionSummary(ex,cycleNumber=mesocycleLifecycle(state?.programMeta).current||1){
   const match=canonicalPrescriptionSlot(ex),slot=match?.slot;
   const cycle=slot?.prescriptionsByCycle?.find(item=>item.cycleIndex===cycleNumber)||slot?.prescriptionsByCycle?.[0];
@@ -5744,29 +5725,8 @@ function programPrescriptionSummary(ex,cycleNumber=mesocycleLifecycle(state?.pro
   const targets=definitions.map(metric=>canonicalMetricTargetText(metric,set?.targets?.[metric.semantic])).filter(Boolean);
   const setLabel=ex?.sets===1?t("history.sets.one",{n:1}):t("entry.catalogue.sets_exact",{n:+ex?.sets||0});
   return targets.length?`${setLabel} · ${targets.join(" · ")}`:setLabel}
-function metricLabel(metric){
-  const keys={loadKg:"focus.metric.load_kg",assistanceKg:"focus.metric.assistance_kg",reps:"focus.metric.reps",
-    durationSeconds:"focus.metric.duration_seconds",distanceShortMeters:"focus.metric.distance_short_meters",
-    distanceLongMeters:"focus.metric.distance_long_meters",loadPerSideKg:"focus.metric.load_per_side_kg",
-    repsPerSide:"focus.metric.reps_per_side",durationPerSideSeconds:"focus.metric.duration_per_side_seconds",
-    persistentLoadPerSideKg:"focus.metric.persistent_load_per_side_kg",distanceShortPerSideMeters:"focus.metric.distance_short_per_side_meters"};
-  return keys[metric.semantic]?t(keys[metric.semantic]):metric.sourceName}
-function metricDisplayUnit(metric){
-  if(metric?.unit==="kg")return unitLabel();
-  if(metric?.unit==="metres")return"m";
-  if(metric?.unit==="seconds")return"s";
-  return""}
-function parseHistoryMetricInput(metric,raw){
-  const semantics={reps:"validation.reps",repsPerSide:"validation.reps",
-    loadKg:"validation.load_metric",assistanceKg:"validation.load_metric",loadPerSideKg:"validation.load_metric",
-    persistentLoadPerSideKg:"validation.load_metric"};
-  const key=semantics[metric?.semantic]||"validation.metric";
-  const displayed=parseDec(raw);
-  if(!Number.isFinite(displayed))return{field:"metric",key};
-  const value=metric?.unit==="kg"?metricKgFromDisplay(displayed):displayed;
-  const checked=ExerciseMetrics?.parseMetricValue?.(metric,value);
-  return checked?.ok?{value:checked.value}:{field:"metric",key};}
-
+const metricLabel=workoutMetricDisplay.label,metricDisplayUnit=workoutMetricDisplay.displayUnit,
+  parseHistoryMetricInput=workoutMetricDisplay.parseHistoryInput;
 
 function shelfPadsHtml(ex,n,ui,vals,{effortMode,peek}){
   return Focus.renderFocusPadsInner({...selectFocusPads(ex,n,ui,vals,{effortMode,peek,editing:true}),peek})}

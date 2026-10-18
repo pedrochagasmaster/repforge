@@ -242,7 +242,8 @@ function validateExerciseSourceBinding({
   return { ok: issues.length === 0, issues };
 }
 
-const LB=2.2046226218;
+export const POUNDS_PER_KG=2.2046226218;
+const LB=POUNDS_PER_KG;
 const LOAD_RAW=/^\d+(?:[.,]\d+)?$/,MAX_LOAD_KG=1000,MAX_LOAD_LB=MAX_LOAD_KG*LB;
 /** @param {unknown} raw @param {string} [unit] */
 function parseLoadInput(raw,unit="kg"){
