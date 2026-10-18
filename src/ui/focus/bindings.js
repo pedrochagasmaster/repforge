@@ -98,7 +98,7 @@ export function createFocusBindings({window,focus,clock,presentation,inputs,cont
       const outcome=await inputs.cancelEdit();if(version!==lifetime||outcome?.result.status!=='applied')return;
       dom.render();controls.handoff('row',{exId:outcome.exId,n:outcome.n});
     },{signal});
-    document.body.classList.toggle('is-focus-wo',frame.active);
+    document.body.classList.toggle('is-focus-wo',frame.active);presentation.rest.chrome(frame.active,frame.active&&frame.restEnabled);
   }
   function dispose(){
     lifetime++;mountAbort?.abort();bindingsAbort?.abort();mountAbort=null;bindingsAbort=null;window.clearTimeout(resize);

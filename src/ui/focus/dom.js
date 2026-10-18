@@ -1,6 +1,6 @@
 import {escapeHtml as esc,formatProgramContext,formatCycleLabel} from '../format.js';
 /** @typedef {Parameters<ReturnType<typeof import('./presentation.js').createFocusPresentation>['capture']>[0]} Context
- * @typedef {{active:false}|{active:true,context:Context,hiddenCount:number,programName:unknown,cycle:import('../format.js').ProgramCycle,deload:boolean,dayLabel:string}} Frame
+ * @typedef {{active:false}|{active:true,context:Context,hiddenCount:number,restEnabled:boolean,programName:unknown,cycle:import('../format.js').ProgramCycle,deload:boolean,dayLabel:string}} Frame
  */
 /** Card rebuilds, ledger disclosure and shelf refresh share one DOM lifetime.
  * Rendering captures acknowledged facts once; it does not hydrate or publish a
@@ -30,7 +30,7 @@ export function createFocusDom({window,focus,presentation,controls,geometry,effe
   }
   function render(){
     if(disposed)return;
-    const frame=readFrame();
+    const frame=readFrame();document.body.classList.toggle('is-focus-wo',frame.active);
     if(!frame.active){focus.finishFrame();onRendered({active:false});return;}
     const context=frame.context,at=focus.beginFrame(context.list),base=context.list[at];
     const current=base?context.query.sessionExercise(base):null;

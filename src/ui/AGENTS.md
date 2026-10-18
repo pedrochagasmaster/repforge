@@ -11,7 +11,11 @@ publish training state, write storage, allocate durable identity, or implement a
 second training rule. Do not import another feature's private files; share a
 small actual contract instead. Mount/dispose/remount must not duplicate effects.
 
-Focus composition starts at `focus/controller.js` and its `presentation.js`.
+Focus composition starts at `focus/controller.js`: `workout.js` composes the
+concrete DOM, input and rest owners; `presentation.js` captures readonly frame
+facts. Locate field commands in `bindings.js`/`inputs.js`, card rebuilds and
+disclosure in `dom.js`, and inline rest replacement in `rest-slot.js`.
+Dispose ends one view lifetime; construct a new view for a new mounted lifetime.
 Shared metric labels and display targets belong to `ui/metrics.js`, used by
 Focus and History forms; canonical metric parsing stays in training.
 

@@ -2781,20 +2781,7 @@ function paintRest(text,done,over=0){
   else if(over>0)chip.setAttribute("aria-label",t("focus.rest.over_aria",{time:fmtClock(over)}));
   else chip.setAttribute("aria-label",t(done?"focus.rest.done_aria":"focus.rest.running_aria",{time:text}))}
 /** Show or hide the header chip, and keep the floating bar out of Focus. */
-function updateRestChrome(){
-  const focus=workoutActive;
-  const chip=$("#woRest");
-  const restOn=+state.settings.restSec>0;
-  if(chip){
-    const on=focus&&restOn;
-    chip.classList.toggle("hidden",!on);
-    chip.classList.toggle("is-running",!!focusRest.end);
-    chip.disabled=false;
-    if(!focusRest.end){chip.classList.remove("is-done","is-over");
-      chip.setAttribute("aria-label",t("focus.rest.start_aria"))}
-    if(!focusRest.end)chip.classList.remove("is-done","is-over","is-paused")}
-  const bar=$("#restBar");
-  if(bar)bar.classList.toggle("is-shadowed",focus)}
+function updateRestChrome(){RestPresentation.chrome(workoutActive,+state.settings.restSec>0)}
 function stopRest(){focusRest.stop();
   $("#restBar")?.classList.add("hidden");paintRest("—",false);updateRestChrome();
   const ra=$("#restAnnounce");if(ra)ra.textContent="";
@@ -2947,14 +2934,7 @@ function restAct(act){
   else if(act==="plus")nudgeRest(REST_NUDGE);
   else if(act==="pause")toggleRestHold();
   else if(act==="skip")skipRest()}
-/** Rest DOM consumes one readonly acknowledged frame; replacements return to
- * the enclosing Focus binder until its remaining controls move at slice19. */
-let FocusRestSlot;
-function focusRestSlot(){return FocusRestSlot||(FocusRestSlot=Focus.createRestSlot({window,focus:focusUi,
-  presentation:FocusPresentation,motion:ensureBrowserPresentation().motion,effects:focusEffects(),geometry:focusGeometry,
-  readFrame:()=>activeWorkoutDraft?focusPresentationFacts():null,
-  actions:{rest:restAct,why:openWhySheet},onPadsReplaced:bindWorkout}))}
-const restInlineSync=()=>focusRestSlot().sync();
+const restInlineSync=()=>focusView().restSync();
 /** Shared visibility handler — rest-timer catch-up + session banner. */
 function onAppVisible(){
   if(document.visibilityState!=="visible")return;
@@ -3740,7 +3720,7 @@ function programPrescriptionSummary(ex,cycleNumber){return FocusPrescription.sum
 const metricLabel=workoutMetricDisplay.label,metricDisplayUnit=workoutMetricDisplay.displayUnit,
   parseHistoryMetricInput=workoutMetricDisplay.parseHistoryInput;
 
-function refreshShelf(options){return focusDom().refreshShelf(options)}
+function refreshShelf(options){return focusView().refreshShelf(options)}
 
 /* ---- Focus across a rebuild (Plan 064 rule 12, R7 J-03) ----
    The shelf and the card are rebuilt from markup, so the control the lifter pressed is
@@ -3778,17 +3758,19 @@ function shelfReveal(input){
  *  What a peek does not carry is behaviour — its controls hold no hooks and no
  *  tab stop — and no `data-k` field, which would duplicate the draft keys the
  *  live card owns. */
-function focusViewFrame(){return workoutActive?{active:true,context:focusPresentationFacts(),hiddenCount:exercises().filter(ex=>skipped.has(ex.id)).length,
+function focusViewFrame(){return workoutActive?{active:true,context:focusPresentationFacts(),hiddenCount:exercises().filter(ex=>skipped.has(ex.id)).length,restEnabled:+state.settings.restSec>0,
   programName:state.programMeta?.name,cycle:mesocycleWeek(),deload:isProgramDeloadWeek(),dayLabel:dayLabel(day)}:{active:false}}
-let FocusDom;
-function focusDom(){return FocusDom||(FocusDom=Focus.createFocusDom({window,focus:focusUi,presentation:FocusPresentation,
-  controls:workoutControlFocus,geometry:focusGeometry,effects:focusEffects(),rest:focusRestSlot(),
-  motion:ensureBrowserPresentation().motion,guides:guidesView(),exercise:{open:openExerciseView},copy:{t},
-  readFrame:focusViewFrame,
-  onControlsReplaced:bindWorkout,onRendered:({active})=>{
-    updateGauge();if(active){updateSaveMeta();renderFatigue();updateBodyweightField();}
-    updateSessionBanner();if(active)updateFocusChrome();}}))}
-function renderWorkout(){return focusDom().render()}
+let FocusView;
+function focusView(){return FocusView||(FocusView=Focus.createFocusView({window,focus:focusUi,clock:focusRest,presentation:FocusPresentation,
+  controls:workoutControlFocus,geometry:focusGeometry,effects:focusEffects(),motion:ensureBrowserPresentation().motion,
+  navigation:focusNavigation(),commands:focusWorkoutCommands,guides:guidesView(),exercise:{open:openExerciseView},
+  input:{read:()=>({draft:activeWorkoutDraft,unit:state.settings.unit,minJump:state.settings.minJump}),commands:focusWorkoutCommands,
+    captureSet:()=>({draft:activeWorkoutDraft,flat:WorkoutSession.projection(),query:workoutQueries(),program:state.program,effortMode:isEffortMode()}),
+    onAcknowledged:async field=>{updateSaveMeta();if(field)await refreshAfterCommittedEdit(field)}},
+  readFrame:focusViewFrame,copy:{t},help:{term:glossaryPopover},restActions:{rest:restAct,why:openWhySheet},
+  feedback:{suggestionFailure:showSuggestionFailure,draftIssues:applyDraftIssue},exerciseActions:{open:openExActionsSheet},
+  onRendered:({active})=>{updateGauge();if(active){updateSaveMeta();renderFatigue();updateBodyweightField();}updateSessionBanner();}}))}
+function renderWorkout(){return focusView().render()}
 /** ⋯ is the current exercise's actions. Where the device offers voice input and
  *  the lifter has turned it on, the same button opens a short menu that holds
  *  both; the button says which it is. */
@@ -3846,23 +3828,7 @@ function applyDraftIssue(issues){
   const key=field==="reps"?"validation.reps":field==="rir"?"validation.rir":field==="effort"?"validation.effort":
     field==="date"?"validation.date":field==="bodyweight"?"validation.bodyweight":loadErrorKey;
   return applyFieldError({ok:false,error:{key},el})}
-/** Controls of the live workout. The deck also holds a full copy of each
- *  neighbouring card, so every focus control exists three times over; only the
- *  live one takes a handler. */
-let FocusInputs;
-function focusInputs(){return FocusInputs||(FocusInputs=Focus.createFocusInputs({window,focus:focusUi,
-  read:()=>({draft:activeWorkoutDraft,unit:state.settings.unit,minJump:state.settings.minJump}),
-  commands:focusWorkoutCommands,values:FocusValues,
-  captureSet:()=>({draft:activeWorkoutDraft,flat:WorkoutSession.projection(),query:workoutQueries(),program:state.program,effortMode:isEffortMode()}),
-  shelf:FocusShelf,effort:FocusEffort,controls:workoutControlFocus,
-  onAcknowledged:async field=>{updateSaveMeta();if(field)await refreshAfterCommittedEdit(field)}}))}
-let FocusBindings;
-function focusBindings(){return FocusBindings||(FocusBindings=Focus.createFocusBindings({window,focus:focusUi,clock:focusRest,
-  presentation:FocusPresentation,inputs:focusInputs(),controls:workoutControlFocus,geometry:focusGeometry,dom:focusDom(),
-  rest:focusRestSlot(),motion:ensureBrowserPresentation().motion,navigation:focusNavigation(),commands:focusWorkoutCommands,
-  readFrame:focusViewFrame,copy:{t},help:{term:glossaryPopover},
-  feedback:{suggestionFailure:showSuggestionFailure,draftIssues:applyDraftIssue},exerciseActions:{open:openExActionsSheet}}))}
-function bindWorkout(){focusBindings().bind();updateRestChrome()}
+function bindWorkout(){return focusView().bind()}
 
 function updateGauge(){const exs=exercises();const hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
   const g=$("#heatGauge"),frac=exs.length?hot/exs.length:0;
@@ -9533,7 +9499,7 @@ function init(){
   // opens the day that follows the one already done rather than repeating it.
   const another=$("#logAnotherSession");if(another)another.onclick=()=>enterWorkout({day:dayAfterTrainedToday()||day});
   const leaveWo=$("#leaveWorkout");if(leaveWo)leaveWo.onclick=leaveWorkout;
-  focusBindings().mount();
+  focusView().mount();
   initializeSessionSheet();
 
   const exActionRepeat=$("#exActionRepeatBtn");

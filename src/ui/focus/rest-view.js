@@ -55,5 +55,15 @@ export function createRestPresentation({window,clock,readDefaultSeconds,copy:{t}
     const pause=card.querySelector('[data-rest-act="pause"]');
     if(pause){const label=t(clock.paused!=null?'rest.inline.resume':'rest.inline.pause');if(pause.textContent!==label)pause.textContent=label;}
   }
-  return {syncNumbers,mode,fraction,overSeconds,slotMode,padsFit,padsOn,clockHtml,doneText,doneHtml,selectPads,padsHtml};
+  /** The header and floating bar read this same clock, including while idle.
+   * @param {boolean} active @param {boolean} enabled */
+  function chrome(active,enabled){
+    const chip=window.document.querySelector(/** @type {'button'} */('#woRest'));
+    if(chip){
+      chip.classList.toggle('hidden',!(active&&enabled));chip.classList.toggle('is-running',!!clock.end);chip.disabled=false;
+      if(!clock.end){chip.classList.remove('is-done','is-over','is-paused');chip.setAttribute('aria-label',t('focus.rest.start_aria'));}
+    }
+    window.document.querySelector('#restBar')?.classList.toggle('is-shadowed',active);
+  }
+  return {chrome,syncNumbers,mode,fraction,overSeconds,slotMode,padsFit,padsOn,clockHtml,doneText,doneHtml,selectPads,padsHtml};
 }
