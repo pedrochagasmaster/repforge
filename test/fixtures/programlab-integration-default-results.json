@@ -1,0 +1,1414 @@
+{
+  "kind": "programlab-default-result-capture",
+  "schemaVersion": 1,
+  "sourceCommit": "5a2a39284e27f7276c2b5e87bb2e11f05d67f3fa",
+  "sourceFiles": {
+    "program-compiler.js": "087aa6d08073167ebc6ce935c7c8b564776e812c269a5182da66a35777641c46",
+    "generation-layout.js": "0d03b2350ec105e8daa43e5808adbfe711f5a541d8dd3dcd212137d0e1c93369",
+    "generation-candidates.js": "b9d61627565d6b82339cb51053d24106822912dcb14c52f82b79a404422fa8ca",
+    "generation-identity.js": "2285fa586c0c838d5e294dbca95b1cdca53506c2df55695b8d5183a31900ac9e",
+    "program-entry-adapter.js": "3a5a3de8d6c29a1e499a337203f319476b9c16925f43224d7f7dfd0c8baeb82b"
+  },
+  "generatorVersion": "073.4",
+  "catalogSha256": "08945f092b708884f14e0bd87d7ac8ac79e2399a9c795fee8aeb2c106b2311b7",
+  "cases": [
+    {
+      "key": "muscle_growth|6_to_24m|2|limited_home|40|plain|corpus-b",
+      "resultSha256": "a226e079aa62c81a39fcd3904a8a979c330131ff448fc28d4bc5ce39dfeace74",
+      "resultBytes": 62913,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|2|limited_home|90|plain|corpus-b",
+      "resultSha256": "740b22b919e85fed187dd76853e3bebeb11a18fabce1654acc510bd65a956489",
+      "resultBytes": 144614,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|2|full_home|40|plain|corpus-b",
+      "resultSha256": "c2f09e0d6d6587128e60fc12682886c0c936f993ecb41a3f5e675e69daefe947",
+      "resultBytes": 63052,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|2|full_home|90|plain|corpus-b",
+      "resultSha256": "02c261e2cb972a91473227ff46d88be8592da895c736c216a937461a7feefe5c",
+      "resultBytes": 144920,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|2|basic_gym|40|plain|corpus-b",
+      "resultSha256": "9450df3c228111a8c661debbf0ca7e3ae035c41e53a309116c73711401f35093",
+      "resultBytes": 63844,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|2|basic_gym|90|plain|corpus-b",
+      "resultSha256": "e08d40ece14544f39764e14e8f97660284c4e9c4a4031bb38190a0b47950a094",
+      "resultBytes": 145767,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|2|commercial_gym|40|plain|corpus-b",
+      "resultSha256": "032433ada830f0aa776fb94ce478ca4359d8bc7f530a5b82d8d8acbe6f02abe7",
+      "resultBytes": 64745,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|2|commercial_gym|90|plain|corpus-b",
+      "resultSha256": "5df67a42b7e84658fbf14904f2d512045aada2e13163c41e5053d28b1ce0aaeb",
+      "resultBytes": 146469,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|2|everything|40|plain|corpus-b",
+      "resultSha256": "02768aa70b92364c296c3f4e87ae48549052d6f901a8ec14a26d7a607cf531c1",
+      "resultBytes": 72025,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|2|everything|90|plain|corpus-b",
+      "resultSha256": "993722ad97446f4c0f53c2a3924456ced0711f5eeba8d3b342fb67c7c7505f11",
+      "resultBytes": 153603,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|3|limited_home|40|plain|1",
+      "resultSha256": "f35d8a33a2b20dc7195bccf8e101bbc82a273b190ec0fab7f7c8dd0dae5c12b5",
+      "resultBytes": 79292,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|3|limited_home|90|plain|1",
+      "resultSha256": "36ffa051072d53a2d469c7042382b54ab9aefd4469b704c2968607ab20a02702",
+      "resultBytes": 209013,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|3|full_home|40|plain|1",
+      "resultSha256": "1828006ee7125cdb85ffb44d158178366207b973f9b044b5f502f98c721cfc9c",
+      "resultBytes": 79431,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|3|full_home|90|plain|1",
+      "resultSha256": "96581c7f732992da76b63663c84c33508863fc3042556925f4758991705946fc",
+      "resultBytes": 209344,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|3|basic_gym|40|plain|1",
+      "resultSha256": "7c2702e1f86b3407b2f9c8c7b26f36faac9dd70543f0e009aeafed8b043b32e2",
+      "resultBytes": 80354,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|3|basic_gym|90|plain|1",
+      "resultSha256": "47011712e3eec5b66b9398ee2fd1f11e2884e318f7ab3a81458d56c70e5686ae",
+      "resultBytes": 210389,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|3|commercial_gym|40|plain|1",
+      "resultSha256": "db7a7ae183b7b15ab7a4efdba2d9a43ce13c3fd735d4b746d394e3b1c7d94f9f",
+      "resultBytes": 81255,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|3|commercial_gym|90|plain|1",
+      "resultSha256": "3f8d8cf89619d6e91bed788850e49120aa79ad9a62f8bdd6121c1dd4656fd85d",
+      "resultBytes": 210743,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|3|everything|40|plain|1",
+      "resultSha256": "1bfcdb3f6567f483a105abcf2871c3064af00b137dc1b9fca18c97240c8d5900",
+      "resultBytes": 88650,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|3|everything|90|plain|1",
+      "resultSha256": "426932cb017ecaa7009552fcea84de4e935a189074872dcbb407d9e1739c964b",
+      "resultBytes": 218077,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|4|limited_home|40|plain|corpus-b",
+      "resultSha256": "623105e6630957637d9bba1206b70feb516ad19d75d30059f141349d9671bcdd",
+      "resultBytes": 116268,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|4|limited_home|90|plain|corpus-b",
+      "resultSha256": "7e02fe45646289f79b89ec1ba6fba33a41f62693c3c63ed3936bfc6b9a660f2c",
+      "resultBytes": 280627,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|4|full_home|40|plain|corpus-b",
+      "resultSha256": "83a7fbbf93d5cc49a82dfb45060aae4d331caeb1c887e8428fd81c2cc81636b5",
+      "resultBytes": 116407,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|4|full_home|90|plain|corpus-b",
+      "resultSha256": "9a3265c6d893ef364066ed30ca952a96a90f1965cb4502c9c372bef896663ab9",
+      "resultBytes": 280917,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|4|basic_gym|40|plain|corpus-b",
+      "resultSha256": "b7d642f4c08ceb52738359514c7b9cc651a3f543bff77f354ae67dc3f8f74fdf",
+      "resultBytes": 117389,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|4|basic_gym|90|plain|corpus-b",
+      "resultSha256": "089657ed0c12dd1df20618dfdf44679beeebc35917806f91a1341564ddb572cc",
+      "resultBytes": 281898,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|4|commercial_gym|40|plain|corpus-b",
+      "resultSha256": "65dcf76484f398c9110fdbebd27b69df9e89248b15fd974a3edde04fe228da7b",
+      "resultBytes": 118130,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|4|commercial_gym|90|plain|corpus-b",
+      "resultSha256": "5f5d8b135baf03e8eac168c55ccbc7ae0aab02dc0ff14171138baafe9c705069",
+      "resultBytes": 282065,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|4|everything|40|plain|corpus-b",
+      "resultSha256": "f300e7deda491c4f3b8f41bd29ae65bcc706e53a104d91b7a3eba144931803be",
+      "resultBytes": 125574,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|4|everything|90|plain|corpus-b",
+      "resultSha256": "6321456acf5611f0d078d5b3f0f7186f3280132818925ee2ea21c5ada075e87e",
+      "resultBytes": 289481,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|5|limited_home|40|plain|1",
+      "resultSha256": "78997d3f09b8c12775b4b79711c6e77282b1c1919eabe30fef58c072beecaf8d",
+      "resultBytes": 145859,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|5|limited_home|90|plain|1",
+      "resultSha256": "f4462510ef1033c004614e4727e887ad4d4f09a874162174e859eeacf60ccac1",
+      "resultBytes": 358026,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|5|full_home|40|plain|1",
+      "resultSha256": "2a9fed9d4fff6dc5242599bcca70649c8b3326de36f3411b49562f6777ddfcde",
+      "resultBytes": 145998,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|5|full_home|90|plain|1",
+      "resultSha256": "add7fb3933b5d4f4ba1e517e6ae467911b61e7a510d0a7eba969d0647a048bf0",
+      "resultBytes": 359579,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|5|basic_gym|40|plain|1",
+      "resultSha256": "e3e0be73bf35a19e76e8a503bf4d4c497df6e4e59b32435e557945d603446364",
+      "resultBytes": 146976,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|5|basic_gym|90|plain|1",
+      "resultSha256": "83b8a84d2c922c8589fc4b8d5ea0499e68bea8a3ed7ee62be03ec7c0d9466e5c",
+      "resultBytes": 360731,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|5|commercial_gym|40|plain|1",
+      "resultSha256": "a61d9a5cc20e256bc97c12b6ebc4003320a6d2db1efd69ec49175da177203409",
+      "resultBytes": 147668,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|5|commercial_gym|90|plain|1",
+      "resultSha256": "374465bfc472c08e81602b175bda7046824a2bc6ee3c3730cacdf2556937fe05",
+      "resultBytes": 359795,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|5|everything|40|plain|1",
+      "resultSha256": "6345f473e14f31f9d9fbbce5eda757c8825a3c83a3e6c6d710b66ec7bea5d2ec",
+      "resultBytes": 155112,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|5|everything|90|plain|1",
+      "resultSha256": "38ff57a049e36bb88a960143429d07598ba769e5b43f13194d686c0422a5ebb7",
+      "resultBytes": 367315,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|6|limited_home|40|plain|corpus-b",
+      "resultSha256": "e581cf95e51b3d5308c9dd7f2a0777c9dd89770f4c764e4d9c3d88c636b52001",
+      "resultBytes": 170371,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|6|limited_home|90|plain|corpus-b",
+      "resultSha256": "7594f03db8271c586877b6a94669bebc5ffbb3db94e9fc8e172883ba4e82db45",
+      "resultBytes": 442896,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|6|full_home|40|plain|corpus-b",
+      "resultSha256": "4443b473d581151f3a235a98b8e73902ce217b98cba878219b0100a0afb6b06c",
+      "resultBytes": 170616,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|6|full_home|90|plain|corpus-b",
+      "resultSha256": "61af6c5f4a40e20c2317361545bf9fec4921ef384140454d756858f689493685",
+      "resultBytes": 444948,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|6|basic_gym|40|plain|corpus-b",
+      "resultSha256": "57fb9c5312ebd3ccb242da4af40b62d4ee69c387475c1f3572d71a66a39a808b",
+      "resultBytes": 171480,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|6|basic_gym|90|plain|corpus-b",
+      "resultSha256": "39423f0c49596986a2ff621ac8fd3ef8911c3888a9862fe52beb2aa512f35a28",
+      "resultBytes": 445565,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|6|commercial_gym|40|plain|corpus-b",
+      "resultSha256": "766ff2320b6745f68840b1fd472e126cf20db597f853237054eb28ce337d0840",
+      "resultBytes": 171973,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|6|commercial_gym|90|plain|corpus-b",
+      "resultSha256": "0e47cf2d56a974e1764024b1de704457aa4308c115f3d2e77524745315e67419",
+      "resultBytes": 444584,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|6|everything|40|plain|corpus-b",
+      "resultSha256": "0f0f8d314fc23858f1bd6345034993148efbd94731f29cb722517ad85680b8b8",
+      "resultBytes": 179237,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|6_to_24m|6|everything|90|plain|corpus-b",
+      "resultSha256": "741db4a62ff5033e14d59f26d2e454801597ece3f7ac5ef821560cd8712874a7",
+      "resultBytes": 452058,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|2|limited_home|40|plain|corpus-b",
+      "resultSha256": "8c5b14415123d2f734f97ba8a12de499944edf2a9d8977fb0cb1c21e02281191",
+      "resultBytes": 62864,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|2|limited_home|90|plain|corpus-b",
+      "resultSha256": "bda993dba387d3c859efb9cfead741a2f9301c8d89eab4c13fc2e754b80f0fdf",
+      "resultBytes": 144551,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|2|full_home|40|plain|corpus-b",
+      "resultSha256": "fc7430de583954e2b786fb4e67bd6679e3f78733c3ffbaa6f2e409706833a1e5",
+      "resultBytes": 63183,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|2|full_home|90|plain|corpus-b",
+      "resultSha256": "55073e9608b35f927fb6534a4538e7f2629745420c66ad02f46bc0377ab7fc29",
+      "resultBytes": 145167,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|2|basic_gym|40|plain|corpus-b",
+      "resultSha256": "c8c17478af82e216b09c44975f200d769c85dcb1e0a4ac38d310f9e005a8728e",
+      "resultBytes": 63979,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|2|basic_gym|90|plain|corpus-b",
+      "resultSha256": "704b7fe21456bde7045c5cecb83753dd993a956d789740b3ae28354a1497396b",
+      "resultBytes": 146022,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|2|commercial_gym|40|plain|corpus-b",
+      "resultSha256": "c1c56136ea6c30e9cfc9614f77d44645319db3b4344a3c6e396db17bc9dd42e9",
+      "resultBytes": 65277,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|2|commercial_gym|90|plain|corpus-b",
+      "resultSha256": "20cd63c875b71a4499548f498026077b72dbeab6e93cc4777c344e6eea8eb010",
+      "resultBytes": 147121,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|2|everything|40|plain|corpus-b",
+      "resultSha256": "f7a5169bf1ebe3fdfdc198ce54212a54570f40a9c90769aa4cf05bc0d22b1895",
+      "resultBytes": 72476,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|2|everything|90|plain|corpus-b",
+      "resultSha256": "4c9c3949609ec197285606b3b6606ba48f7a566806bb97392daca5014baa2136",
+      "resultBytes": 154076,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|3|limited_home|40|plain|1",
+      "resultSha256": "b5c3d9a79b87e3c812ed89e6a0b8ba666a0298371f14b550b697c152acb2f3f6",
+      "resultBytes": 79243,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|3|limited_home|90|plain|1",
+      "resultSha256": "badd8a68cfb0974bff9661212e189968293407e4e8f4c712e2466359d126ac2f",
+      "resultBytes": 208957,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|3|full_home|40|plain|1",
+      "resultSha256": "fecfca67c3707841a9d00840a2e51c61c1ac328e097b34248f2bb5d7a2b87ca7",
+      "resultBytes": 79562,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|3|full_home|90|plain|1",
+      "resultSha256": "1da644a303018d9f546caa1bb2ff3999c7020f395c60d487fb6c89eb2bfbb6e5",
+      "resultBytes": 209290,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|3|basic_gym|40|plain|1",
+      "resultSha256": "f265cdfd17303c08f5560bd73e86a5d0bb818fb47c6748c073723a677b5e134b",
+      "resultBytes": 80489,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|3|basic_gym|90|plain|1",
+      "resultSha256": "179a3106db3817efb554499d9af9136afbe442f292e3a40c6f9bfa3492ada493",
+      "resultBytes": 210469,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|3|commercial_gym|40|plain|1",
+      "resultSha256": "230ba79c09d6b1c06fb56b8567d9e53acb5999e18a3cc4d6c06ee54094cd43c0",
+      "resultBytes": 81787,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|3|commercial_gym|90|plain|1",
+      "resultSha256": "b50ec0d4b42d252843365d0f0be2bd0377676690770e4b660df92830165bdafa",
+      "resultBytes": 210987,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|3|everything|40|plain|1",
+      "resultSha256": "00f72b7f61fb353d0e47109965c61d04ad8a022b7a9dc6fc7fdd66f39379e4d4",
+      "resultBytes": 89101,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|3|everything|90|plain|1",
+      "resultSha256": "95237c9d4b000aa80b80c6328c8a5f436f268c810c7724e59d51a8b5412e3f31",
+      "resultBytes": 218191,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|4|limited_home|40|plain|corpus-b",
+      "resultSha256": "14da4f62b1c3fde03c9dc93047f035b374bbe077835b063354d624ec006044f8",
+      "resultBytes": 116212,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|4|limited_home|90|plain|corpus-b",
+      "resultSha256": "a9095cea17bf519e17e570f44e869af3835bb2dbb8b6f9ac55d68bfc5691905d",
+      "resultBytes": 280557,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|4|full_home|40|plain|corpus-b",
+      "resultSha256": "b5064636e91c0751c3c536c98ebf27c662f949096f3c3a07d685115b9d746f36",
+      "resultBytes": 116531,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|4|full_home|90|plain|corpus-b",
+      "resultSha256": "786b70625eca77d5e8774916aa4b60a8494040b7500f4bcd5ec62084983ba736",
+      "resultBytes": 280728,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|4|basic_gym|40|plain|corpus-b",
+      "resultSha256": "ba78c1de58affe5c62d787d04cd68105dbff6f0f5c7f81370b5bf3fce8fb73b3",
+      "resultBytes": 117517,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|4|basic_gym|90|plain|corpus-b",
+      "resultSha256": "c475fd45fc3ce0b29386680a49f337be430d3140050e47ad74e86081176b9955",
+      "resultBytes": 281843,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|4|commercial_gym|40|plain|corpus-b",
+      "resultSha256": "28e45402279ebe7d1a8cc6957383a2148b9374b233064a884d35accbe2dccdfa",
+      "resultBytes": 118655,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|4|commercial_gym|90|plain|corpus-b",
+      "resultSha256": "d26fe83436d2c03a1535cc363ffd1f02bad5166992a173a49c817d8a2ccdf997",
+      "resultBytes": 282283,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|4|everything|40|plain|corpus-b",
+      "resultSha256": "667f60b32f70a04813e9c3714b5bacee3e57b0f122f0c8b9e37d6afe3a3a72e5",
+      "resultBytes": 125969,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|4|everything|90|plain|corpus-b",
+      "resultSha256": "04900e57738b93cde56c3daacabf5f2f9ad794dc6ea4b9f2382ab8d9b07b66fe",
+      "resultBytes": 289520,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|5|limited_home|40|plain|1",
+      "resultSha256": "f29bbfb766012d461829d49abf81fafe043fea11f04c8103ee3e4e53ca6fb2c9",
+      "resultBytes": 145789,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|5|limited_home|90|plain|1",
+      "resultSha256": "1c480dbfa60f58f6670bda38fd39fc07d2754926832fe2ac3a372438459cbf33",
+      "resultBytes": 357942,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|5|full_home|40|plain|1",
+      "resultSha256": "5a7e6dbd11b6b19661d90f05d6fcdf3aa3db32a5fdc198346616286f4c85e0dc",
+      "resultBytes": 146059,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|5|full_home|90|plain|1",
+      "resultSha256": "bbe16ef051a7cc19038169205e263f99df78ff153e16ee784e471c04884466cc",
+      "resultBytes": 359327,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|5|basic_gym|40|plain|1",
+      "resultSha256": "e286b5503d7118d4bb7614e267c3f7cc1fa71d1ef672054e22c35b7398234ed5",
+      "resultBytes": 147041,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|5|basic_gym|90|plain|1",
+      "resultSha256": "e1fa1542fabfe090a8a688dccaad4df6784dfe9344640396d5b46075085259be",
+      "resultBytes": 360434,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|5|commercial_gym|40|plain|1",
+      "resultSha256": "cfdfd46ec7007a82612ffd48317e67b3dd6018fc5e6f3bec4518aec5dd659247",
+      "resultBytes": 148130,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|5|commercial_gym|90|plain|1",
+      "resultSha256": "4d97f2064ea7d12a773b285587f37834152f968aba4f9f1b776f417801b5bdcc",
+      "resultBytes": 360704,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|5|everything|40|plain|1",
+      "resultSha256": "819810396177e826c2a419e18e9ffa23f8be2341293ef92b7d9a0cdc76ea4712",
+      "resultBytes": 155395,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|5|everything|90|plain|1",
+      "resultSha256": "a8cb73eb17f5593b0c85cd6ae0f2de01c30bf0c34574162c4be54601999195cf",
+      "resultBytes": 367766,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|6|limited_home|40|plain|corpus-b",
+      "resultSha256": "f2cc119aed8739cc30e2ca71962ed7281dffda3d2af8980fde7d7b48ef2cad0b",
+      "resultBytes": 170315,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|6|limited_home|90|plain|corpus-b",
+      "resultSha256": "3b410f6593cf9c7b8954ce19a6c8a90e100b1ea2dc75bf3c83631b645bb32681",
+      "resultBytes": 442812,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|6|full_home|40|plain|corpus-b",
+      "resultSha256": "481eaaca9326960b21f72987f6966dec88f424b7e9a23c06e2559e513a2e84a4",
+      "resultBytes": 170562,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|6|full_home|90|plain|corpus-b",
+      "resultSha256": "d5a4460d42c13d1c1e5dc8e64797616e9e95b12e3de7781ba8b5c39944f6e896",
+      "resultBytes": 444745,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|6|basic_gym|40|plain|corpus-b",
+      "resultSha256": "643f0b028cbd843ac219d7d709d33951622c46c6f2b3d3aceb6aec49270c29f1",
+      "resultBytes": 171560,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|6|basic_gym|90|plain|corpus-b",
+      "resultSha256": "be6155ed87816abf9cd5e73a35a3be79c64b2c7d4c5e54858bed07a9d977b1b4",
+      "resultBytes": 445317,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|6|commercial_gym|40|plain|corpus-b",
+      "resultSha256": "ffb1fd6e0523379b0da8afa401b3a0bada23e629962d911d51361366573f57be",
+      "resultBytes": 172217,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|6|commercial_gym|90|plain|corpus-b",
+      "resultSha256": "13eb2a49c5e644819d591a27ca2c45d794908a5aad21bd11011f99e96d0a2e1b",
+      "resultBytes": 445542,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|6|everything|40|plain|corpus-b",
+      "resultSha256": "9ebdc8212a7533284ed9b8e915cb2ea3de706aa0aeda017432297f2cea6c32c1",
+      "resultBytes": 179351,
+      "ok": true
+    },
+    {
+      "key": "balanced|6_to_24m|6|everything|90|plain|corpus-b",
+      "resultSha256": "a78ddce7115546493dab7edfb550267c5b58a2b9193938f6081b4a93cb2ff481",
+      "resultBytes": 452607,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|2|limited_home|40|plain|corpus-b",
+      "resultSha256": "8cef7fb49c20c57c483e1614c8d8c4902678d02f25247ee7faf0f2f6bc94d543",
+      "resultBytes": 61745,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|2|limited_home|90|plain|corpus-b",
+      "resultSha256": "10659c0179dd441782ea8cf75c5ba752e9205868e30066fb750a93d4f0439561",
+      "resultBytes": 142083,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|2|full_home|40|plain|corpus-b",
+      "resultSha256": "c54ec170babe1caf30effbc096f9576b45fdfa8d20a885c16c21d8f653f14888",
+      "resultBytes": 62064,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|2|full_home|90|plain|corpus-b",
+      "resultSha256": "9ccef4c106ebcdc280eee58eb3ec385446c08cfe0d389ab1ce18e7e559f949d0",
+      "resultBytes": 142698,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|2|basic_gym|40|plain|corpus-b",
+      "resultSha256": "e5fd55e04b84c50d50bc6d78f88f5da1127a9ce99bf46c74b0ebabbaf00f7eee",
+      "resultBytes": 62860,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|2|basic_gym|90|plain|corpus-b",
+      "resultSha256": "32dbb18a295132d1833e6c180b0bd843fd83c60d5d6c3d1f9578e186fff49cfc",
+      "resultBytes": 143703,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|2|commercial_gym|40|plain|corpus-b",
+      "resultSha256": "d326858c995e0f7b8000a8a315fe33c6d4af3e747f4a32924727d6f1d08b917c",
+      "resultBytes": 64158,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|2|commercial_gym|90|plain|corpus-b",
+      "resultSha256": "2a66969801f9907c79db674cfe5e32ab098d3733dccbd325aa7d57420617940a",
+      "resultBytes": 144342,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|2|everything|40|plain|corpus-b",
+      "resultSha256": "8287cc6533bdbcbcd5cb140fbaa3e1aedd855199f6416c7d4cca9d5104e4c93a",
+      "resultBytes": 71357,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|2|everything|90|plain|corpus-b",
+      "resultSha256": "46acabb2123c0a4edc6f84d888a1e0c8dfb80ffe43c3a5377fbc88ea0a1eb81e",
+      "resultBytes": 151492,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|3|limited_home|40|plain|1",
+      "resultSha256": "1dbf8277cc64ad0ec93dffb093d013a509039d006a4c8712f8887ab6daa2aedb",
+      "resultBytes": 79145,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|3|limited_home|90|plain|1",
+      "resultSha256": "b03476982d85969ef26dd67706dda9809b6285eb552696ec83b52a9411831b96",
+      "resultBytes": 205164,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|3|full_home|40|plain|1",
+      "resultSha256": "444b94f71515540fb3f73991e756003835813fa4f3048ef6dff7f6d982dea53d",
+      "resultBytes": 79464,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|3|full_home|90|plain|1",
+      "resultSha256": "f7b7980e0a862388eda4eb9ac5f4b24f142d6f6beae7205c5619af000293c8b7",
+      "resultBytes": 205462,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|3|basic_gym|40|plain|1",
+      "resultSha256": "f2d3ba654e9351ba14fdd6976a7653181d6e30f372747c486fbf4207bd86b933",
+      "resultBytes": 80391,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|3|basic_gym|90|plain|1",
+      "resultSha256": "6c6fd83f532de996f2cf423ca37d18d82204e5d1b7e0e5b987c79e4fb716b274",
+      "resultBytes": 206766,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|3|commercial_gym|40|plain|1",
+      "resultSha256": "243edac48e05f8645a122003e76f826d1d9592faf068ddcbc542da2e46b868ca",
+      "resultBytes": 81689,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|3|commercial_gym|90|plain|1",
+      "resultSha256": "51aefd19fd987d6df4723ac0e08062f9fe539c2ea0eb9812765a3805d840914b",
+      "resultBytes": 207177,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|3|everything|40|plain|1",
+      "resultSha256": "70f15f3ca7d870381907ff365e5f8c015d7cfec3aea5e151ff87dcf8fdf32eb3",
+      "resultBytes": 89003,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|3|everything|90|plain|1",
+      "resultSha256": "759f402631d982fa5ed1c2d29b8a44d1674452a0c985c389e748bea2f29b13dd",
+      "resultBytes": 214442,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|4|limited_home|40|plain|corpus-b",
+      "resultSha256": "828c13615ca963a3c7eb5d20644689ab79e488c2070df3fbb2e327e4c7cb434a",
+      "resultBytes": 112314,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|4|limited_home|90|plain|corpus-b",
+      "resultSha256": "bbc0c7c976874c18f4d7d2914cb32d46f5a1798acadc539d06784a2c41e5a688",
+      "resultBytes": 276541,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|4|full_home|40|plain|corpus-b",
+      "resultSha256": "0aef43bc65bf472113ec387951d4effe0aaec48626ca26096a5988a121932e92",
+      "resultBytes": 112617,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|4|full_home|90|plain|corpus-b",
+      "resultSha256": "faea4c01748d731b54173dc21d4fb7b2d78ecc418ec2913639d4c0f2fae99dbd",
+      "resultBytes": 276592,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|4|basic_gym|40|plain|corpus-b",
+      "resultSha256": "0ac9f88a0297fe1032cf7f355e8a5b5114fe189be5b16287936c7e196779f5f0",
+      "resultBytes": 113476,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|4|basic_gym|90|plain|corpus-b",
+      "resultSha256": "a8b9856217c99d6c27d2340ed079470cb1fd35a756e8540cb178778066e866af",
+      "resultBytes": 277897,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|4|commercial_gym|40|plain|corpus-b",
+      "resultSha256": "3eda8c05c56190d4f1986611482b4d821c64b35260ce622eeb2a65f9be646933",
+      "resultBytes": 114659,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|4|commercial_gym|90|plain|corpus-b",
+      "resultSha256": "38af52b20ca281493774a852ea874a0d6d10eb934062eaaefea0b434e7ae6588",
+      "resultBytes": 278093,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|4|everything|40|plain|corpus-b",
+      "resultSha256": "6061015cbf34e7be2fafae03f4d79b70f6a082b3b9e56a6b8690a3103b52b804",
+      "resultBytes": 121973,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|4|everything|90|plain|corpus-b",
+      "resultSha256": "e9c95bbe7c3fb6a295e83dbcf0237c8c2034b328f33e9ad203548d1d7e145c54",
+      "resultBytes": 285472,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|5|limited_home|40|plain|1",
+      "resultSha256": "b25f5adc3142b2e8db2b435021a6971d853f4d9e35600f10a0ae19cbf5cdd917",
+      "resultBytes": 140370,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|5|limited_home|90|plain|1",
+      "resultSha256": "f08fdafbd5e13b6ddf430f8bd6a152a5762d54b880baa92b5af0a470115fd326",
+      "resultBytes": 359518,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|5|full_home|40|plain|1",
+      "resultSha256": "29e0a5de231dbc26e435474be9840d5bfac672119fca7faa0fa1807dde268d79",
+      "resultBytes": 140985,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|5|full_home|90|plain|1",
+      "resultSha256": "6b9b5be614b642dc2ecb8fc857887b8eef69d41fb9bb994739bda7980ad04743",
+      "resultBytes": 360454,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|5|basic_gym|40|plain|1",
+      "resultSha256": "90bea82ce3566fb526656af60bdf6a527903118b6425c2899784ab13c2678f1f",
+      "resultBytes": 141840,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|5|basic_gym|90|plain|1",
+      "resultSha256": "04d80d91373b940f21415edc24922191c5b9b6ff2b689eb1b82f62f3bd5eeb5e",
+      "resultBytes": 361756,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|5|commercial_gym|40|plain|1",
+      "resultSha256": "fbe85fefea63c5c4d8b922e954df4d91e5e35f569c0f4b61057bc43f85ef2c97",
+      "resultBytes": 142988,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|5|commercial_gym|90|plain|1",
+      "resultSha256": "4e8cf27e0247271df4657129902d508cbf14df0d02b7d743c93298fcc515ade1",
+      "resultBytes": 361906,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|5|everything|40|plain|1",
+      "resultSha256": "82c9cdd0391ae403ff30d6ec718d84d6f6d1b7f0a6bf0c3ed67ed05777aa0891",
+      "resultBytes": 150302,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|5|everything|90|plain|1",
+      "resultSha256": "90bc27faba00fbebc9db633b1d59e90a846d5f579c97065c42cbf7b19e332a6b",
+      "resultBytes": 368940,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|6|limited_home|40|plain|corpus-b",
+      "resultSha256": "cb372b0a3cc0aca83ab90ff140b587a2c5b67714549d279395a040cb1a4385b5",
+      "resultBytes": 166174,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|6|limited_home|90|plain|corpus-b",
+      "resultSha256": "dd14add03722ad125ebf7ada33cad03ad96a9791a9f63e18b579f0282821c801",
+      "resultBytes": 430287,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|6|full_home|40|plain|corpus-b",
+      "resultSha256": "f256371c7cd6eb37170118c3dbe458d43cdae9a3aa26a32052f763163637be6b",
+      "resultBytes": 166659,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|6|full_home|90|plain|corpus-b",
+      "resultSha256": "3e1b03d45cd40c20e406f34b89da25be65a96840f550155ec1e75bcd38f7b364",
+      "resultBytes": 431386,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|6|basic_gym|40|plain|corpus-b",
+      "resultSha256": "75410033309af0bf7d4c140cb25f014fe909de0235591c0cd791ba73623abdf3",
+      "resultBytes": 167791,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|6|basic_gym|90|plain|corpus-b",
+      "resultSha256": "06a1265dde563b81a7d6cd73f9e3165305c074fdda5a3a5920ad5949e99f0e1d",
+      "resultBytes": 432646,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|6|commercial_gym|40|plain|corpus-b",
+      "resultSha256": "400bfccb19db0cc200f484b972e545ebb7d5c64a09b2b40ad3fb10f256bfafa7",
+      "resultBytes": 168430,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|6|commercial_gym|90|plain|corpus-b",
+      "resultSha256": "f06d506268dea66cebbb834f068fe55b91fd77269b22c5c686724810bc047a2e",
+      "resultBytes": 431926,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|6|everything|40|plain|corpus-b",
+      "resultSha256": "4b912490f4ce3a10bac40132b7cda7e5bc04ff850923254b6913eb77974fee41",
+      "resultBytes": 175825,
+      "ok": true
+    },
+    {
+      "key": "strength|6_to_24m|6|everything|90|plain|corpus-b",
+      "resultSha256": "3ffec7a344d1ab94dffe63448c221753a723ef5976b85db66b2daa2e814f2faa",
+      "resultBytes": 438811,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|first|3|limited_home|60|plain|variant",
+      "resultSha256": "ab62a391fe9e308ee81d2ec617ab45e695361b7feca914597d44c4d675395306",
+      "resultBytes": 140580,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|first|3|basic_gym|60|plain|variant",
+      "resultSha256": "cd67cb265627dfcea6bcfae740d45860bb7dbad5187f0926ce7c36d4205f1d9c",
+      "resultBytes": 141564,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|first|3|commercial_gym|60|plain|variant",
+      "resultSha256": "e16ce065893f94925fbf6f0c1299b6de8a2f6ac64cd7d69f9dd2b32073972273",
+      "resultBytes": 142373,
+      "ok": true
+    },
+    {
+      "key": "strength|over_24m|5|limited_home|60|plain|variant",
+      "resultSha256": "32aff6481419a46d66fd06f2c0ff468902dc059c733a1fa816c8958abbdb99ba",
+      "resultBytes": 229516,
+      "ok": true
+    },
+    {
+      "key": "strength|over_24m|5|basic_gym|60|plain|variant",
+      "resultSha256": "b939c8dd0e2dd035dadb5505fdbdc8011ed1b1ef563893800e5072bc871b2514",
+      "resultBytes": 230946,
+      "ok": true
+    },
+    {
+      "key": "strength|over_24m|5|commercial_gym|60|plain|variant",
+      "resultSha256": "07f08c0c3b7c99d7d929d91e0d85b7e0ab72a196a6d49b470acd70218b01c740",
+      "resultBytes": 231542,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|first|3|limited_home|60|focus|variant",
+      "resultSha256": "d57a48a0d52c60bf95efbb5a488b881d17d28f9c823b57bf88fc5e8a9977a6d9",
+      "resultBytes": 140212,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|first|3|basic_gym|60|focus|variant",
+      "resultSha256": "b137d68d4a5b1c15d52b495a6186ef3055e3112accc57a7124431e9afe8bd928",
+      "resultBytes": 141222,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|first|3|commercial_gym|60|focus|variant",
+      "resultSha256": "83aaf7c581f9fbd203b2e333840c0a285a2291a9558dcbc3afcd596ef88a678d",
+      "resultBytes": 142124,
+      "ok": true
+    },
+    {
+      "key": "strength|over_24m|5|limited_home|60|focus|variant",
+      "resultSha256": "f1dfdcb4e72a62b2c86b943ae9bad129c71dfe9cbaa35b0d1fbb9a635b41fd8e",
+      "resultBytes": 229212,
+      "ok": true
+    },
+    {
+      "key": "strength|over_24m|5|basic_gym|60|focus|variant",
+      "resultSha256": "b1001c2cac6530032ee45913fa7282a7a232fbadb289b2dfd940482b78943c62",
+      "resultBytes": 231334,
+      "ok": true
+    },
+    {
+      "key": "strength|over_24m|5|commercial_gym|60|focus|variant",
+      "resultSha256": "6b78b19a22c57dce6eb8c9629bbca9d6922d9c0457ac699d01db3b4da4a463d6",
+      "resultBytes": 231942,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|first|3|limited_home|60|avoid|variant",
+      "resultSha256": "5fc792bd03e577f3a36ab70ee1e595ab87584e2d2b02563d437b54316d3754fc",
+      "resultBytes": 92,
+      "ok": false
+    },
+    {
+      "key": "muscle_growth|first|3|basic_gym|60|avoid|variant",
+      "resultSha256": "5fc792bd03e577f3a36ab70ee1e595ab87584e2d2b02563d437b54316d3754fc",
+      "resultBytes": 92,
+      "ok": false
+    },
+    {
+      "key": "muscle_growth|first|3|commercial_gym|60|avoid|variant",
+      "resultSha256": "5fc792bd03e577f3a36ab70ee1e595ab87584e2d2b02563d437b54316d3754fc",
+      "resultBytes": 92,
+      "ok": false
+    },
+    {
+      "key": "strength|over_24m|5|limited_home|60|avoid|variant",
+      "resultSha256": "5fc792bd03e577f3a36ab70ee1e595ab87584e2d2b02563d437b54316d3754fc",
+      "resultBytes": 92,
+      "ok": false
+    },
+    {
+      "key": "strength|over_24m|5|basic_gym|60|avoid|variant",
+      "resultSha256": "5fc792bd03e577f3a36ab70ee1e595ab87584e2d2b02563d437b54316d3754fc",
+      "resultBytes": 92,
+      "ok": false
+    },
+    {
+      "key": "strength|over_24m|5|commercial_gym|60|avoid|variant",
+      "resultSha256": "5fc792bd03e577f3a36ab70ee1e595ab87584e2d2b02563d437b54316d3754fc",
+      "resultBytes": 92,
+      "ok": false
+    },
+    {
+      "key": "muscle_growth|first|3|limited_home|60|prefer|variant",
+      "resultSha256": "612202ec32a672aac3f71010e1c573c05174deaf7bb972364a8eb293b9751836",
+      "resultBytes": 140614,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|first|3|basic_gym|60|prefer|variant",
+      "resultSha256": "a96087ec7775dc7bc6d0ec998a578c40e5102cb2c2ac52facb2d3eb9f2fc55be",
+      "resultBytes": 141598,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|first|3|commercial_gym|60|prefer|variant",
+      "resultSha256": "f4a26f1ff1c311824d54455eda165047c830d707ce6503b16b977af0d35c59e0",
+      "resultBytes": 142407,
+      "ok": true
+    },
+    {
+      "key": "strength|over_24m|5|limited_home|60|prefer|variant",
+      "resultSha256": "f71a74a2915373b97faff99a3ac922e5e9f0a03c87f4bd879ea89c986b363f2f",
+      "resultBytes": 229550,
+      "ok": true
+    },
+    {
+      "key": "strength|over_24m|5|basic_gym|60|prefer|variant",
+      "resultSha256": "fe343582f007d3fca8f1a4fa0ce2ebb1e9600865694cebb11a3d1478d623526e",
+      "resultBytes": 230980,
+      "ok": true
+    },
+    {
+      "key": "strength|over_24m|5|commercial_gym|60|prefer|variant",
+      "resultSha256": "d9531a0d2fa7bfa7e6036eaf880bcae81d56c37e4d4fb3cb130084ec8c788f7b",
+      "resultBytes": 231576,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|first|3|limited_home|60|competent|variant",
+      "resultSha256": "a0a9ca05b2ec8cc8478865b0ea797b218324213abe0a731fd6a29e510c8c86a3",
+      "resultBytes": 139907,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|first|3|basic_gym|60|competent|variant",
+      "resultSha256": "84c34624d3c5bee16a9a82f6d94bd1988aeb1d414e13ec78e7d6cb4c9ebbc349",
+      "resultBytes": 140665,
+      "ok": true
+    },
+    {
+      "key": "muscle_growth|first|3|commercial_gym|60|competent|variant",
+      "resultSha256": "daca8b391cacaf4f555b3c634e4e8c23e76d09b899bf2d5b9caf9d48f059b7ba",
+      "resultBytes": 142029,
+      "ok": true
+    },
+    {
+      "key": "strength|over_24m|5|limited_home|60|competent|variant",
+      "resultSha256": "05083ccd0790072ae84d1c7a1d314da75b9612cdcf421f961a017d3717ef5bfa",
+      "resultBytes": 228629,
+      "ok": true
+    },
+    {
+      "key": "strength|over_24m|5|basic_gym|60|competent|variant",
+      "resultSha256": "13d5b3d82c8cd99ff60226cc315c16481d521f743664ce8f733f331644d07abd",
+      "resultBytes": 228490,
+      "ok": true
+    },
+    {
+      "key": "strength|over_24m|5|commercial_gym|60|competent|variant",
+      "resultSha256": "c8ee9da64b24bbdfe47e9ff186556d300863a3c2c4999b3064394af68dd2fb1b",
+      "resultBytes": 229823,
+      "ok": true
+    },
+    {
+      "key": "split/full_body/2",
+      "resultSha256": "d1626c95985fa48bf9ba6e15d11360cf5e2f342d9fcf3d9a70d8764875d84698",
+      "resultBytes": 103439,
+      "ok": true
+    },
+    {
+      "key": "split/full_body/3",
+      "resultSha256": "991d571afdfaf5b0eb9f11b88964a16341717f754725288fad0a9f7c0962f004",
+      "resultBytes": 153114,
+      "ok": true
+    },
+    {
+      "key": "split/full_body/4",
+      "resultSha256": "7b07add0f4e17c34333f97cb2d67d0ee49899ffffc215fc4ff6d6b65924e0dd3",
+      "resultBytes": 199980,
+      "ok": true
+    },
+    {
+      "key": "split/full_body/5",
+      "resultSha256": "48ac02f7ba62670c9ae936d5f250fff970ce7c95fa1b55abdbc85f892e2751b2",
+      "resultBytes": 238995,
+      "ok": true
+    },
+    {
+      "key": "split/full_body/6",
+      "resultSha256": "f4120e5fe52bb70838b9ab56ebab680113c5dafea68e416d8e2dbaf6238ce0fb",
+      "resultBytes": 301008,
+      "ok": true
+    },
+    {
+      "key": "split/upper_lower/2",
+      "resultSha256": "e75e8313110c0062b2a5eb0de21726453f6319f3e6ac2a46409e6a8d0be11718",
+      "resultBytes": 103420,
+      "ok": true
+    },
+    {
+      "key": "split/push_pull/2",
+      "resultSha256": "615cbc77a2083722a9c0e79754b15480e0076fe1f42dce94c21f6f6d520716f9",
+      "resultBytes": 103429,
+      "ok": true
+    },
+    {
+      "key": "split/upper_lower_full/3",
+      "resultSha256": "de9e58678fec2980354aac36c40388ede338f075faafe916f1167f88c6a15d45",
+      "resultBytes": 148930,
+      "ok": true
+    },
+    {
+      "key": "split/push_pull_legs/3",
+      "resultSha256": "fb1ddc7f4cca609509a818d96f401f114a1bb01e9f2301e04bd321c06f1892ec",
+      "resultBytes": 153109,
+      "ok": true
+    },
+    {
+      "key": "split/upper_lower_upper_lower/4",
+      "resultSha256": "05e7b9d1858b6c19eecd3c724676af62e82a3011e271668135d07ee1f147d38c",
+      "resultBytes": 197472,
+      "ok": true
+    },
+    {
+      "key": "split/push_pull_hinge_squat/4",
+      "resultSha256": "36e18c0f06a80e4a1f775d9853df11a39d020d0a2a231bcb0454c606d33fce6b",
+      "resultBytes": 197458,
+      "ok": true
+    },
+    {
+      "key": "split/push_pull_legs_accessories/4",
+      "resultSha256": "a40c68fbd346fc3065bae99e45f077295f659967922fb58e6dfd47b02c801d9f",
+      "resultBytes": 200001,
+      "ok": true
+    },
+    {
+      "key": "split/upper_lower_upper_lower_upper/5",
+      "resultSha256": "c3d5485280fddb2ef44ebbb71c679a42566044871a1d2a9286a37878a7d49165",
+      "resultBytes": 244100,
+      "ok": true
+    },
+    {
+      "key": "split/push_pull_hinge_squat_accessories/5",
+      "resultSha256": "3d7e6be27d735bc0c6a1f904401b1c42bb010e1ee244b7c9edf21689b6b1c417",
+      "resultBytes": 254660,
+      "ok": true
+    },
+    {
+      "key": "split/push_pull_legs_upper_lower/5",
+      "resultSha256": "04cdf87189f9bfe2423a028e613e95b3bcba35de08d0a6c1da89aebeb05baa80",
+      "resultBytes": 244081,
+      "ok": true
+    },
+    {
+      "key": "split/push_pull_hinge_squat_upper_lower/6",
+      "resultSha256": "a7181ff238b045bd1d6cca9ba80d73c8cc6dc94b6efd99d2993975f13dafe116",
+      "resultBytes": 288649,
+      "ok": true
+    },
+    {
+      "key": "split/push_pull_legs_push_pull_legs/6",
+      "resultSha256": "f77a42b00df1eb13854381e900daa84187c77907a919d1e0c8afc7eadb2322f2",
+      "resultBytes": 301030,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/beginner/static/0",
+      "resultSha256": "a021fb2d76abfd978987d20ee71b809ae80a845505610e7b45d8247cec290a30",
+      "resultBytes": 197472,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/beginner/static/1",
+      "resultSha256": "07eff7144949e79cfa0ba24b9857d87e7ad76925b65656360bb5891c7feaeb3e",
+      "resultBytes": 212659,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/beginner/static/8",
+      "resultSha256": "c6d5ea016a888dfa5f0939426ad4547a1f63ea36744e3824c41cd4e1cb3c1e73",
+      "resultBytes": 212659,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/beginner/linear/0",
+      "resultSha256": "43e59b33a5d9a1a7aeaf7d622af9cdb49ff9fe57509c15e3bce9f09411449ccd",
+      "resultBytes": 199172,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/beginner/linear/1",
+      "resultSha256": "69e9619f527faab8ac4ed9f6b698680a7594ae4f84cc6a0f5f1792fa9b46b524",
+      "resultBytes": 214533,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/beginner/linear/8",
+      "resultSha256": "2c2e8fad08790ad80e1f0714ee05a47cfdcbc6db2b73cf2c28853de4dbfdafd7",
+      "resultBytes": 214470,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/beginner/reverse_linear/0",
+      "resultSha256": "471aeb375fcfb3aea952ac9cdc3b4988ae1f63e9b354d5b79c1617851f9b8525",
+      "resultBytes": 202652,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/beginner/reverse_linear/1",
+      "resultSha256": "0d0d994652122bd2cd1c1b8b9917c4a697c8dabba956397c3a51a33e814316e8",
+      "resultBytes": 218270,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/beginner/reverse_linear/8",
+      "resultSha256": "de3c5a0a4eb3be946bb801aae4562b155ea3fc43210ec8b3b65ce73e191e4f88",
+      "resultBytes": 218333,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/beginner/undulating/0",
+      "resultSha256": "bb85e451d448461e4d15f4cd43954ceaadc2444ba96bb6422d16cfd3f2e7a1f4",
+      "resultBytes": 200912,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/beginner/undulating/1",
+      "resultSha256": "856f6cbe416ce5c533334632240083e7b5e295f5c258989eab7938936989646b",
+      "resultBytes": 216433,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/beginner/undulating/8",
+      "resultSha256": "e809e80b9b808827eb8044be741187e61e1ca74a09db17ba212e079086d396b3",
+      "resultBytes": 216370,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/intermediate/static/0",
+      "resultSha256": "69e61b25e0e958561eafa47e17d018f28a30af3b71eb5d860753ff9c4a4c8763",
+      "resultBytes": 197476,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/intermediate/static/1",
+      "resultSha256": "43e57f0b3e49bcf0db7965eaf128a12d90da264bd8684a1272a7b323b279836b",
+      "resultBytes": 212663,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/intermediate/static/8",
+      "resultSha256": "6f62471ff40ba881ad14f2b493859248683d4773486eb9e8b0d5b75e78807c49",
+      "resultBytes": 212663,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/intermediate/linear/0",
+      "resultSha256": "b48767f363d7c9c739bd6efbec4e1476f1bb8415437aa7e96b7e18053685fdc2",
+      "resultBytes": 199176,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/intermediate/linear/1",
+      "resultSha256": "7703862c9c89742f8188cab32b66a5b041ce29c5f1cec754220fdd666c9b71e0",
+      "resultBytes": 214537,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/intermediate/linear/8",
+      "resultSha256": "574d66bb411f1e1b5cd6b4de4fa0958df91781fa6aec3197f32e06669ea17a83",
+      "resultBytes": 214474,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/intermediate/reverse_linear/0",
+      "resultSha256": "4120290fc6db2979b3fb60caf225810b2744078a6b5226779045d50a0067aca8",
+      "resultBytes": 202656,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/intermediate/reverse_linear/1",
+      "resultSha256": "1472f05365f82b99b1a00ad3a7417ffb80fb51cbaac43d56a8d80515a5b46f2e",
+      "resultBytes": 218274,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/intermediate/reverse_linear/8",
+      "resultSha256": "7460aa1492c0e938a9d3948bda493608ebfb0b261b438d13b611b05ac52d1f0b",
+      "resultBytes": 218337,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/intermediate/undulating/0",
+      "resultSha256": "15d85e66f082af8522e7f5919182e79c7151f319ae31cee944e6a1ff72c7bf03",
+      "resultBytes": 200916,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/intermediate/undulating/1",
+      "resultSha256": "4b9d3e29c9d8226e486671a7ba77bc89d492c83ff596972465f7f5cc35ac0459",
+      "resultBytes": 216437,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/intermediate/undulating/8",
+      "resultSha256": "5717b4e833c1d4e364caac8eaf09b0c47805b22e0e89634c6e573204496b680a",
+      "resultBytes": 216374,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/advanced/static/0",
+      "resultSha256": "05e7b9d1858b6c19eecd3c724676af62e82a3011e271668135d07ee1f147d38c",
+      "resultBytes": 197472,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/advanced/static/1",
+      "resultSha256": "f4bdb49d9c09329dff01bf91765352399a8a3206d72f866149b696a08b05345c",
+      "resultBytes": 212659,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/advanced/static/8",
+      "resultSha256": "bd8013a5935975ecf49b43af03aede5acf97fcddc875e0444f1d586943f8efae",
+      "resultBytes": 212659,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/advanced/linear/0",
+      "resultSha256": "f1a6660a7d17572a017c43e2f4de9f95a310d13b00f9a75f7351add338796465",
+      "resultBytes": 199172,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/advanced/linear/1",
+      "resultSha256": "f030b68bbd26a16717e6baa62a3dd2974c73034874cce62508cb297633cb7b71",
+      "resultBytes": 214533,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/advanced/linear/8",
+      "resultSha256": "6b6c32bae5f5ec2ddb32aa5825c4e870f2673ad697326acacb08990dbac5fb86",
+      "resultBytes": 214470,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/advanced/reverse_linear/0",
+      "resultSha256": "6b47628ebf125088dccf135056ee410f402ed59397a5a6cc05d33cbe22ab8fc7",
+      "resultBytes": 202652,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/advanced/reverse_linear/1",
+      "resultSha256": "6d9bcbe7bf8789a1bdd5e21ca4bdec74fb5d62a44da47f4f8afe6b88d38d1140",
+      "resultBytes": 218270,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/advanced/reverse_linear/8",
+      "resultSha256": "d9c4e27c699f31e8bb66bb2bb7bba2a94639c2ff2d2bcb1ca400567a373b46b8",
+      "resultBytes": 218333,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/advanced/undulating/0",
+      "resultSha256": "fdbc31f2907b0f2913ed330fc329b21b6f9e8921c5a11e80a6b79ed23f4287e0",
+      "resultBytes": 200912,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/advanced/undulating/1",
+      "resultSha256": "96a25bb32c6467d53b86395cd180383b57f8bec38a9527a152c9384182f0ecfc",
+      "resultBytes": 216433,
+      "ok": true
+    },
+    {
+      "key": "prescriptions/advanced/undulating/8",
+      "resultSha256": "160130d42c1cdb45a21f2830f2bacefd8f5da24f7bda72518f80b07acf7971fa",
+      "resultBytes": 216370,
+      "ok": true
+    }
+  ]
+}

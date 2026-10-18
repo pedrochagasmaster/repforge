@@ -3,7 +3,7 @@ import { createCatalog } from "./catalog.js";
 const {compiler,transition,identity}=createGenerationRules();
 /** Dedicated worker composition root; the page sends this release's commands.
  * @typedef {ReturnType<typeof createCatalog>} CatalogReader
- * @typedef {{type?:unknown,id?:unknown,request?:unknown,input?:Record<string,unknown>|null,catalogSha256?:string,catalogUrl?:string}} WorkerCommand
+ * @typedef {{type?:unknown,id?:unknown,request?:unknown,generationOptions?:unknown,input?:Record<string,unknown>|null,catalogSha256?:string,catalogUrl?:string}} WorkerCommand
  */
 /** @type {CatalogReader|null} */let catalog=null;
 /** @type {Promise<import('./catalog.js').CatalogSnapshot>|null} */let ready=null;
@@ -29,7 +29,7 @@ worker.onmessage=async event=>{
   try {
     const snapshot=/** @type {CatalogReader} */(catalog).snapshot();
     /** @type {unknown} */const value=message.type==="generate"
-      ?compiler.generateProgram(message.request,snapshot)
+      ?compiler.generateProgram(message.request,snapshot,message.generationOptions)
       :transition.deriveSuccessor({...message.input,catalogSnapshot:snapshot});
     worker.postMessage({id:message.id,ok:true,value});
   } catch(error) { worker.postMessage({id:message.id,ok:false,message:errorMessage(error)}); }

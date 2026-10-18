@@ -9,6 +9,9 @@ export function createGenerationRules() {
   const transition=createTransitionRules(compiler);
   return Object.freeze({identity,compiler,transition});
 }
+import { getDefaultEnginePolicy, normalizeEnginePolicy, getEnginePolicyMetadata } from "./generation/internal/policy.js";
+export { getDefaultEnginePolicy, normalizeEnginePolicy, getEnginePolicyMetadata };
+export const validateProgramDefinitionStructure=(...args)=>createCompiler().validateProgramDefinitionStructure(...args);
 export const generateProgram=(...args)=>createCompiler().generateProgram(...args);
 export const canonicalizeRequest=(...args)=>createCompiler().canonicalizeRequest(...args);
 export const generationIdentity=(...args)=>createCompiler().generationIdentity(...args);
@@ -21,4 +24,4 @@ export const validateCustomExerciseDefinitions=(...args)=>createCompiler().valid
 export const prescriptionsForCycle=(...args)=>createCompiler().prescriptionsForCycle(...args);
 export const estimateDaySeconds=(...args)=>createCompiler().estimateDaySeconds(...args);
 export const metricDefinitionForName=(...args)=>createCompiler().metricDefinitionForName(...args);
-export const compiler=Object.freeze({GENERATOR_VERSION,PROGRAM_SCHEMA_VERSION,MAX_SLOT_ALTERNATES,ROLES,SPLITS,GOALS,EXPERIENCES,TIME_CEILINGS,PERIODIZATIONS,PRECONDITION_COMPETENCIES,METRIC_SEMANTICS,METRIC_SOURCE_IDS,generateProgram,canonicalizeRequest,generationIdentity,availableSplits,generatedDayNameKey,findSubstitutions,validateProgramDefinition,canonicalizeProgramDefinition,validateCustomExerciseDefinitions,prescriptionsForCycle,estimateDaySeconds,metricDefinitionForName});
+export const compiler=Object.freeze({GENERATOR_VERSION,PROGRAM_SCHEMA_VERSION,MAX_SLOT_ALTERNATES,ROLES,SPLITS,GOALS,EXPERIENCES,TIME_CEILINGS,PERIODIZATIONS,PRECONDITION_COMPETENCIES,METRIC_SEMANTICS,METRIC_SOURCE_IDS,generateProgram,canonicalizeRequest,generationIdentity,availableSplits,generatedDayNameKey,findSubstitutions,validateProgramDefinition,canonicalizeProgramDefinition,validateCustomExerciseDefinitions,prescriptionsForCycle,estimateDaySeconds,metricDefinitionForName,validateProgramDefinitionStructure,getDefaultEnginePolicy,normalizeEnginePolicy,getEnginePolicyMetadata});
