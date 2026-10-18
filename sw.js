@@ -1,5 +1,5 @@
-const CACHE = "repforge-v479";
-const SOURCE_RELEASE = "source-479";
+const CACHE = "repforge-v480";
+const SOURCE_RELEASE = "source-480";
 const ASSETS = [
   // BEGIN GENERATED NATIVE SOURCE ASSETS
   "./src/app/history-read-models.js",
@@ -80,7 +80,7 @@ const ASSETS = [
   "./motion-layer.js", "./motion-layer.js?v=455",
   "./telemetry.js", { url: "./posthog-config.js", owner: "RepForgeTelemetry", required: false }, "./posthog-init.js", "./notify.js", "./i18n.js", "./exercises.js", "./exercises.js?v=067", "./exercise-catalog.js?v=459", "./assets/exercise-catalog.json?v=067", "./exercise-metrics.js?v=475",
   "./generation-identity.js", "./generation-identity.js?v=459", "./generation-candidates.js", "./generation-candidates.js?v=466", "./generation-layout.js", "./generation-layout.js?v=467",
-  "./progression-engine.js", "./progress-model.js", "./progress-model.js?v=309", "./program-compiler.js", "./program-compiler.js?v=469", "./program-entry.js", "./program-entry.js?v=466", "./program-entry-adapter.js", "./program-entry-adapter.js?v=466", "./program-editor.js", "./program-editor.js?v=477", "./program-review.js", "./program-review.js?v=466", "./workout-draft.js", "./workout-draft.js?v=466", "./program-transition.js", "./program-transition.js?v=469", "./program-engine.js?v=459", "./install-policy.js", "./install-policy.js?v=307", "./guide-registry.js", "./guide-registry.js?v=423", "./durable-state.js", "./durable-state.js?v=447", "./app.js", "./app.js?v=479",
+  "./progression-engine.js", "./progress-model.js", "./progress-model.js?v=309", "./program-compiler.js", "./program-compiler.js?v=469", "./program-entry.js", "./program-entry.js?v=466", "./program-entry-adapter.js", "./program-entry-adapter.js?v=466", "./program-editor.js", "./program-editor.js?v=477", "./program-review.js", "./program-review.js?v=466", "./workout-draft.js", "./workout-draft.js?v=466", "./program-transition.js", "./program-transition.js?v=469", "./program-engine.js?v=459", "./install-policy.js", "./install-policy.js?v=307", "./guide-registry.js", "./guide-registry.js?v=423", "./durable-state.js", "./durable-state.js?v=447", "./app.js", "./app.js?v=480",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
