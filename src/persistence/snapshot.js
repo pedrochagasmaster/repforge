@@ -382,39 +382,26 @@ function recoveryCarrierConflictGroups(records){
       typeof tout.successorProgramId==="string"&&tout.successorProgramId.trim()!==""}
 
 
-export { cloneSnapshot, isPlainStateObject, readRevision, unversionedSnapshot, stripStorageMeta, exportableState, canonicalize, canonicalPayload, mirrorComparisonSnapshot, snapshotsEqual, storageSnapshotsEqual, snapshotBlockId, fingerprintRow, draftProgramFingerprint, changeValueEqual, changeObject, changeEntityKey, changeGroups, mergeChangedArray, mergeStateValue, rebaseStateChange, workoutProgramFingerprint, draftContextFingerprint, isValidBlockId, isBoundedProgressionValue, isBoundedTransitionValue, recoveryCodeUnitCompare, exactRecoveryKeys, isRecoveryCarrierQuarantineEntry, isRecoveryCarrierRecord, isValidRecoveryTransitions, classifyRecoveryRecordEnvelope, classifyRecoveryCarrier, recoveryCarrierConflictGroups, draftEffectOutcome, normalizeDraftEffectOutcome, pendingJournalEffect, draftEffectRequiresCoordination, isCoherentV1TransitionIn, isCoherentV1TransitionOut };
+export { cloneSnapshot, isPlainStateObject, readRevision, unversionedSnapshot, stripStorageMeta, exportableState, canonicalize, canonicalPayload, mirrorComparisonSnapshot, snapshotsEqual, storageSnapshotsEqual, snapshotBlockId, draftProgramFingerprint, rebaseStateChange, workoutProgramFingerprint, draftContextFingerprint, isValidBlockId, isBoundedProgressionValue, isBoundedTransitionValue, isValidRecoveryTransitions, classifyRecoveryCarrier, draftEffectOutcome, normalizeDraftEffectOutcome, pendingJournalEffect, draftEffectRequiresCoordination, isCoherentV1TransitionIn, isCoherentV1TransitionOut };
 
 /** Bind immutable training/catalog domains once; never read app/session state.
  * Catalog is the integrity-verified raw catalog, not a browser loader.
  * model supplies the canonical training program comparison, not storage policy.
  */
 export function createSnapshotPolicy({entry,metrics,workout,compiler,catalog,model,transition,
-  now=null,digest=null}) {
+  now:nowInstant=null,digest=null,nextId=null,language=null,progression=null}) {
   const MuscleDomain=entry,ProgramEntry=entry,ExerciseMetrics=metrics,WorkoutDraft=workout;
   const CUSTOM_ID_PREFIX='custom:';
   const rawCatalogObject=id=>Array.isArray(catalog)?catalog.find(row=>row?.id===id):
     (Object.hasOwn(catalog?.uuidIndex||{},id)?catalog.uuidIndex[id]:null);
   const rawExercise=id=>{const value=rawCatalogObject(id);return value?.type==='exercise'?value:null};
-  function compilerCustomDefinitions(list){
-    return (Array.isArray(list)?list:[]).filter(isPlainStateObject).map(entry=>{
-      const checked=metrics?.validateDefinitions?.(entry.metricIds,entry.metricDefinitions,{allowEmpty:true});
-      const out={id:String(entry.id||''),name:String(entry.name||'')};
-      if(typeof entry.namePt==='string'&&entry.namePt.trim())out.namePt=entry.namePt;
-      out.equipment=Array.isArray(entry.equipment)?entry.equipment.filter(value=>typeof value==='string'&&value.trim()):[];
-      out.primary=typeof entry.primary==='string'?entry.primary:'';
-      out.secondary=typeof entry.secondary==='string'?entry.secondary:'';
-      out.notes=typeof entry.notes==='string'?entry.notes:'';
-      out.metricIds=checked?.ok?cloneSnapshot(entry.metricIds):[];
-      out.metricDefinitions=checked?.ok?cloneSnapshot(entry.metricDefinitions):[];
-      return out;
-    });
-  }
-  function canonicalProgramDefinition(value,customDefinitions=[]){
-    if(!compiler?.validateProgramDefinition||!catalog)return null;
-    const checked=compiler.validateProgramDefinition(value,catalog,compilerCustomDefinitions(customDefinitions));
-    if(!checked?.ok)return null;
-    return compiler.canonicalizeProgramDefinition?compiler.canonicalizeProgramDefinition(value):cloneSnapshot(value);
-  }
+  const {Program,normalizeCustomExercises,snapshotLookup,canonicalProgramDefinition,
+    compilerCustomDefinitions,compactProgramPrescriptionState,programStructureForDefinition,
+    libraryMuscleAttribution}=model;
+  const ProgramCompiler=compiler;
+  const uid=()=>nextId();
+  const customExercises=()=>[];
+  const I18N=language;
 function normalizeMuscleAttribution(value,field="muscle attribution"){
   const result=MuscleDomain?.normalizeMuscleAttribution?.(value);
   if(!result?.ok)throw new TypeError(`${result?.code||"invalid-muscle-domain"}: ${field}`);
@@ -651,7 +638,7 @@ async function normalizeRecoveryCarrierSnapshot(snapshot,sourceReplica,{priorQua
     mergeRecoveryQuarantine(normalized.quarantine,cloneSnapshot(entry));
   for(const entry of priorQuarantine)
     mergeRecoveryQuarantine(normalized.quarantine,cloneSnapshot(entry));
-  const detectedAt=()=>now();
+  const detectedAt=()=>nowInstant();
   const addEvidence=async(raw,reason)=>{
     if(typeof raw!=="string"||raw.length>TRANSITION_VALUE_LIMITS.stringLength)
       return{kind:"full-recovery"};
@@ -748,10 +735,271 @@ function recoveryCompilerInstance(snapshot,Compiler,catalogue){
     return instance;
   }catch{return null}}
 
+const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",lang:null,rirMode:"numeric",voiceInputEnabled:false,notify:{enabled:false,timer:true,session:true,unfinished:true,missed:true}};
+const normSetting=(v,def,min=0)=>Number.isFinite(+v)&&+v>=min?+v:def;
+const normalizeRestSec=v=>{const n=+v;if(!Number.isFinite(n)||n<0)return DEFAULTS.restSec;return Math.round(n)};
+const normBool=(v,def)=>typeof v==="boolean"?v:def;
+/* A settings blob written by a newer build carries keys this one has no field
+   for. Dropping them here does not merely hide them: boot normalization would
+   leave live state without them while the mutation base still has them, so the
+   next ordinary write offers them back as deletions. Unknown keys therefore ride
+   along untouched, and the known fields always win. */
+function withUnknownKeys(raw,known){
+  if(!isPlainStateObject(raw))return known;
+  const out={};
+  for(const key of Object.keys(raw))
+    if(!Object.prototype.hasOwnProperty.call(known,key))out[key]=cloneSnapshot(raw[key]);
+  return Object.assign(out,known)}
+function normalizeNotify(n){
+  return withUnknownKeys(n,{enabled:!!(n&&n.enabled),timer:n?.timer!==false,session:n?.session!==false,unfinished:n?.unfinished!==false,missed:n?.missed!==false})}
+const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";return withUnknownKeys(s,{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normalizeRestSec(s?.restSec),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="effort"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),notify:normalizeNotify(s?.notify)})};
+
+function normalizeProgressionEnvelope(value){
+  const validator=progression;
+  const checked=validator?.validatePrescription?.(value);
+  return checked?.ok?cloneSnapshot(checked.value):null}
+function progressionIncompatibility(kind,value,checked,source){
+  return{version:1,kind,source:source||"state-restore",reason:Array.isArray(checked?.issues)?checked.issues.join("; "):"incompatible",value:cloneSnapshot(value)}
+}
+function normalizeProgressionRelations(value,program=[],options={}){
+  if(value!=null&&!Array.isArray(value))throw new TypeError("progressionRelations: expected array");
+  if(value!=null&&!isBoundedProgressionValue(value))throw new TypeError("progressionRelations: structure exceeds safety bounds");
+  // Empty released compatibility collections carry no executable intent.
+  // They remain an empty projection after retiring the old validator instead
+  // of being misclassified as an unsupported user-authored relation.
+  if(value==null||value.length===0)return[];
+  const validator=progression;
+  const checked=validator?.validateRelations?.(value,{slots:program});
+  if(!checked?.ok&&options.preserveInvalid&&value!=null&&Array.isArray(options.incompatibilities))
+    options.incompatibilities.push(progressionIncompatibility("relations",value,checked,options.source));
+  return checked?.ok?cloneSnapshot(checked.value):[]}
+function candidateProgressionData(value,program,existing=[],source="candidate"){
+  const incompatibilities=Array.isArray(existing)?cloneSnapshot(existing):[];
+  const relations=normalizeProgressionRelations(value,program,{preserveInvalid:true,incompatibilities,source});
+  return{relations,incompatibilities}}
+function normalizeProgressionModifiers(value,options={}){
+  if(value!=null&&!Array.isArray(value))throw new TypeError("progressionModifiers: expected array");
+  if(value!=null&&!isBoundedProgressionValue(value))throw new TypeError("progressionModifiers: structure exceeds safety bounds");
+  if(value==null||value.length===0)return[];
+  const validator=progression;
+  const checked=validator?.validateModifiers?.(value);
+  if(!checked?.ok&&options.preserveInvalid&&value!=null&&Array.isArray(options.incompatibilities))
+    options.incompatibilities.push(progressionIncompatibility("modifiers",value,checked,options.source));
+  return checked?.ok?cloneSnapshot(checked.value):[]}
+
+
+function earliestLogDate(log){if(!log?.length)return null;return log.reduce((min,r)=>!min||String(r.date)<min?r.date:min,null)}
+function defaultProgramMeta(log=[]){const now=nowInstant();return{id:uid(),name:"",started:earliestLogDate(log),created:now,updated:now,
+  goal:null,experience:null,daysPerWeek:null,splitType:null,equipment:[],priorityMuscles:[],sessionLength:null,
+  mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:false,
+  progressionRelations:[],progressionModifiers:[],progressionIncompatibilities:[],programStructure:null,entrySource:null}}
+function normalizeProgramEntrySource(value){
+  if(!value||typeof value!=="object"||Array.isArray(value))return null;
+  const routes=entry?.ROUTES||[];
+  const route=routes.includes(value.route)?value.route:null;
+  const fingerprint=typeof value.fingerprint==="string"&&value.fingerprint.length<=128&&/^[a-zA-Z0-9._:-]+$/.test(value.fingerprint)
+    ?value.fingerprint:null;
+  return route&&fingerprint?{route,fingerprint}:null}
+
+function normalizeProgramMeta(m,log=[],program=[],options={}){const now=nowInstant(),base=defaultProgramMeta(log);
+  if(!m||typeof m!=="object")return base;
+  if(Object.prototype.hasOwnProperty.call(m,"blockId")&&!isValidBlockId(m.blockId,m.id))
+    throw new TypeError("blockId: expected bounded opaque identity");
+  const started=typeof m.started==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(m.started)?m.started:(m.started===null?null:base.started);
+  const goal=typeof m.goal==="string"?m.goal.trim()||null:m.goal===null?null:base.goal;
+  const experience=typeof m.experience==="string"?m.experience.trim()||null:m.experience===null?null:base.experience;
+  const daysPerWeek=m.daysPerWeek===null?null:Number.isFinite(+m.daysPerWeek)?+m.daysPerWeek:base.daysPerWeek;
+  const splitType=typeof m.splitType==="string"?m.splitType.trim()||null:m.splitType===null?null:base.splitType;
+  const equipment=Array.isArray(m.equipment)?m.equipment.map(s=>String(s).trim()).filter(Boolean):base.equipment;
+  const priorityMuscles=Array.isArray(m.priorityMuscles)?m.priorityMuscles.map(s=>String(s).trim()).filter(Boolean):base.priorityMuscles;
+  const sessionLength=typeof m.sessionLength==="string"?m.sessionLength.trim()||null:m.sessionLength===null?null:base.sessionLength;
+  const mesocycleLengthWeeks=Number.isFinite(+m.mesocycleLengthWeeks)&&+m.mesocycleLengthWeeks>0?Math.round(+m.mesocycleLengthWeeks):base.mesocycleLengthWeeks;
+  const mesocycleStatus=m.mesocycleStatus==="active"||m.mesocycleStatus==="completed"?m.mesocycleStatus:base.mesocycleStatus;
+  const completedAt=typeof m.completedAt==="string"?m.completedAt:m.completedAt===null?null:base.completedAt;
+  const onboarded=typeof m.onboarded==="boolean"?m.onboarded:base.onboarded;
+  const blockPromptDismissedId=typeof m.blockPromptDismissedId==="string"&&m.blockPromptDismissedId?m.blockPromptDismissedId:null;
+  if(m.progressionIncompatibilities!=null&&!isBoundedProgressionValue(m.progressionIncompatibilities))
+    throw new TypeError("progressionIncompatibilities: structure exceeds safety bounds");
+  if(m.progressionIncompatibilities!=null&&!Array.isArray(m.progressionIncompatibilities))
+    throw new TypeError("progressionIncompatibilities: expected array");
+  const incompatibilities=Array.isArray(m.progressionIncompatibilities)?cloneSnapshot(m.progressionIncompatibilities):[];
+  const progressionOptions={preserveInvalid:options.preserveInvalidProgression===true,incompatibilities,source:options.source};
+  const progressionRelations=normalizeProgressionRelations(m.progressionRelations,program,progressionOptions);
+  const progressionModifiers=normalizeProgressionModifiers(m.progressionModifiers,progressionOptions);
+  if(m.programStructure!=null&&!isBoundedProgressionValue(m.programStructure))throw new TypeError("programStructure: structure exceeds safety bounds");
+  const programStructure=m.programStructure&&typeof m.programStructure==="object"?cloneSnapshot(m.programStructure):base.programStructure;
+  if(m.plannedVolumeHistory!=null&&!isValidPlannedVolumeHistory(m.plannedVolumeHistory))
+    throw new TypeError("plannedVolumeHistory: expected bounded aggregate");
+  const plannedVolumeHistory=m.plannedVolumeHistory==null?null:cloneSnapshot(m.plannedVolumeHistory);
+  const programDefinition=m.programDefinition==null?null:canonicalProgramDefinition(
+    m.programDefinition,options.customExercises||customExercises());
+  if(m.programDefinition!=null&&!programDefinition)throw new TypeError("programDefinition: invalid Plan 067 definition");
+  const entrySource=normalizeProgramEntrySource(m.entrySource);
+  let compilerContext=null;
+  if(m.compilerContext!=null){
+    if(!isBoundedProgressionValue(m.compilerContext))throw new TypeError("compilerContext: structure exceeds safety bounds");
+    if(typeof m.compilerContext!=="object"||Array.isArray(m.compilerContext))throw new TypeError("compilerContext: expected object");
+    const check=typeof ProgramCompiler?.validateContext==="function"
+      ?ProgramCompiler.validateContext(m.compilerContext)
+      :({ok:typeof m.compilerContext.schemaVersion==="number"&&m.compilerContext.schemaVersion>=1});
+    if(check.ok)compilerContext=cloneSnapshot(m.compilerContext);
+  }
+  let transitionIn=null;
+  if(m.transitionIn!=null){
+    if(!isBoundedTransitionValue(m.transitionIn))throw new TypeError("transitionIn: structure exceeds safety bounds");
+    if(typeof m.transitionIn!=="object"||Array.isArray(m.transitionIn))throw new TypeError("transitionIn: expected object");
+    const t=m.transitionIn;
+    if(t.schemaVersion===1&&typeof t.transitionId==="string"&&t.transitionId.trim()&&
+       typeof t.proposalHash==="string"&&t.proposalHash.trim()&&t.status==="committed"&&
+       typeof t.confirmedAt==="string"&&t.confirmedAt.trim()&&typeof t.archiveId==="string"&&t.archiveId.trim()&&
+       typeof t.successor==="object"&&t.successor!==null&&typeof t.predecessor==="object"&&t.predecessor!==null){
+      transitionIn=cloneSnapshot(t);
+    }
+  }
+  const normalizedId=typeof m.id==="string"&&m.id?m.id:base.id;
+  const metaObj={id:normalizedId,name:typeof m.name==="string"?m.name.trim():"",started,
+    created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now,
+    goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
+    progressionRelations,progressionModifiers,progressionIncompatibilities:incompatibilities,blockPromptDismissedId,programStructure,entrySource};
+  if(plannedVolumeHistory!=null)metaObj.plannedVolumeHistory=plannedVolumeHistory;
+  if(programDefinition)metaObj.programDefinition=programDefinition;
+  if(Object.prototype.hasOwnProperty.call(m,"blockId"))metaObj.blockId=m.blockId;
+  if(compilerContext!=null)metaObj.compilerContext=compilerContext;
+  if(transitionIn!=null)metaObj.transitionIn=transitionIn;
+  const loadSteps=normalizeLoadingConfiguration(m.loadingConfiguration);
+  if(loadSteps)metaObj.loadingConfiguration=loadSteps;
+  return metaObj;}
+/* Per-movement smallest load change in canonical kg; anything else is dropped. */
+function normalizeLoadingConfiguration(value){
+  const source=isPlainStateObject(value)&&isPlainStateObject(value.byExerciseId)?value.byExerciseId:null;
+  if(!source)return null;
+  const byExerciseId={};
+  for(const [exerciseId,entry] of Object.entries(source).slice(0,2048)){
+    const step=entry?.loadStepKg;
+    if(exerciseId&&exerciseId.length<=256&&Number.isFinite(step)&&step>0&&step<=100)byExerciseId[exerciseId]={loadStepKg:step}}
+  return Object.keys(byExerciseId).length?{byExerciseId}:null}
+
+function withExplicitProgramStructure(program,meta,{freezeHistory=false}={}){
+  if(!ProgramCompiler?.migrateLegacyStructure)return{program,meta};
+  if(meta?.plannedVolumeHistory!=null&&!isValidPlannedVolumeHistory(meta.plannedVolumeHistory))
+    throw new TypeError("plannedVolumeHistory: expected bounded aggregate");
+  const migrated=ProgramCompiler.migrateLegacyStructure(program,meta?.programStructure);
+  const compacted=compactProgramPrescriptionState(migrated.structure,migrated.program,meta,{freezeHistory});
+  const nextMeta={...meta,programStructure:compacted.structure};
+  if(compacted.history)nextMeta.plannedVolumeHistory=compacted.history;
+  return{program:migrated.program,meta:nextMeta}
+}
+
+function canonicalizeLinkedMuscleRows(list,customList){
+  if(!Array.isArray(list))return list;
+  const lookup=snapshotLookup(customList);
+  return list.map(row=>{
+    if(!isPlainStateObject(row)||row.libraryId==null)return row;
+    const entry=lookup(row.libraryId);
+    return entry?{...row,primary:libraryMuscleAttribution(entry,"primary"),
+      secondary:libraryMuscleAttribution(entry,"secondary")}:row})}
+function canonicalizeProgramStructureMuscles(structure,program,customList=[]){
+  if(!isPlainStateObject(structure))return structure;
+  const bySlot=new Map();
+  for(const row of Array.isArray(program)?program:[]){
+    for(const id of [row?.slotId,row?.id])
+      if(id!=null&&!bySlot.has(String(id)))bySlot.set(String(id),row)}
+  const out=cloneSnapshot(structure);
+  for(const week of Array.isArray(out.weekPrescriptions)?out.weekPrescriptions:[])
+    for(const day of Array.isArray(week?.days)?week.days:[])
+      for(const slot of Array.isArray(day?.slots)?day.slots:[]){
+        const row=bySlot.get(String(slot?.slotId));
+        if(!row)continue;
+        if(Object.prototype.hasOwnProperty.call(slot,"primary"))slot.primary=row.primary||"";
+        if(Object.prototype.hasOwnProperty.call(slot,"secondary"))slot.secondary=row.secondary||""}
+  for(const version of Array.isArray(out.programVersions)?out.programVersions:[])
+    if(Array.isArray(version?.program))
+      version.program=canonicalizeLinkedMuscleRows(version.program,customList);
+  return out}
+function canonicalizeDurableMuscleAttributions(proposal){
+  if(!isPlainStateObject(proposal))return proposal;
+  const out=cloneSnapshot(proposal),customList=out.customExercises;
+  out.program=canonicalizeLinkedMuscleRows(out.program,customList);
+  if(isPlainStateObject(out.programMeta)&&out.programMeta.programStructure)
+    out.programMeta.programStructure=canonicalizeProgramStructureMuscles(
+      out.programMeta.programStructure,out.program,customList);
+  // programHistory is an immutable archive. Its rows and structure already
+  // carry the attribution captured at archive creation; current custom
+  // definitions may update active linked rows only.
+  return out}
+
+function normalizeProgramHistory(history,lookup){
+  return(Array.isArray(history)?history:[]).map(entry=>{
+    const normalized=cloneSnapshot(entry);
+    if(Object.prototype.hasOwnProperty.call(normalized,"program")){
+      // An archived program is a historical snapshot. Keep its linked
+      // movement identity and captured attribution; resolving it through the
+      // current custom library would rewrite history after a definition edit.
+      normalized.program=new Program(normalized.program,lookup,null,false,{preserveLinkedSnapshot:true}).toJSON();
+      const structured=withExplicitProgramStructure(normalized.program,normalized.meta||normalized.programMeta||{},
+        {freezeHistory:true});
+      normalized.program=structured.program;
+      if(normalized.meta)normalized.meta=structured.meta;
+      else normalized.programMeta=structured.meta}
+    if(entry.transitionOut!=null){
+      if(!isBoundedTransitionValue(entry.transitionOut))throw new TypeError("transitionOut: structure exceeds safety bounds");
+      if(typeof entry.transitionOut==="object"&&!Array.isArray(entry.transitionOut)){
+        const t=entry.transitionOut;
+        if(t.schemaVersion===1&&typeof t.transitionId==="string"&&t.transitionId.trim()&&
+           typeof t.proposalHash==="string"&&t.proposalHash.trim()&&
+           typeof t.successorProgramId==="string"&&t.successorProgramId.trim()){
+          normalized.transitionOut=cloneSnapshot(t);
+        }
+      }
+    }
+    if(typeof entry.archiveId==="string"&&entry.archiveId.trim()){
+      normalized.archiveId=entry.archiveId.trim();
+    }
+    return normalized})}
+function normalizeLoaded(s,options={}){
+  if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program:[],log:[],programHistory:[],customExercises:[],[STORAGE_REV]:0};
+  if(!isValidStateShape(s))throw new TypeError("Invalid Taurifer state");
+  const customs=normalizeCustomExercises(s.customExercises),lookup=snapshotLookup(customs);
+  const out={settings:normalizeSettings(s.settings),programMeta:null,
+    program:[],log:cloneSnapshot(s.log),
+    programHistory:normalizeProgramHistory(Object.prototype.hasOwnProperty.call(s,"programHistory")?s.programHistory:[],lookup),
+    customExercises:customs};
+  // Resolved against this snapshot's own custom definitions: during an import
+  // or a boot they are not in live state yet.
+  out.program=new Program(s.program,lookup).toJSON();
+  out.programMeta=normalizeProgramMeta(s.programMeta,s.log,out.program,{...options,customExercises:customs});
+  const structured=withExplicitProgramStructure(out.program,out.programMeta);
+  out.program=structured.program;out.programMeta=structured.meta;
+  // An older Review successor kept its predecessor's day list (#388).
+  if(out.programMeta?.programStructure)out.programMeta.programStructure=
+    programStructureForDefinition(out.programMeta.programStructure,out.programMeta.programDefinition);
+  out[STORAGE_REV]=readRevision(s);
+  if(Object.prototype.hasOwnProperty.call(s,"recoveryTransitions"))
+    out.recoveryTransitions=cloneSnapshot(s.recoveryTransitions);
+  if(Object.prototype.hasOwnProperty.call(s,STORAGE_FOLLOWUP))out[STORAGE_FOLLOWUP]=s[STORAGE_FOLLOWUP];
+  if(Object.prototype.hasOwnProperty.call(s,STORAGE_SETUP_TXN))out[STORAGE_SETUP_TXN]=cloneSnapshot(s[STORAGE_SETUP_TXN]);
+  if(Object.prototype.hasOwnProperty.call(s,"profile")){
+    // The Basics a lifter gave in setup (Plan 072). Keep raw records this
+    // release cannot interpret so a later version can recover them.
+    const normalized=entry?.normalizeProfile?.(s.profile);
+    out.profile=normalized?.ok&&Object.keys(normalized.value).length
+      ?normalized.value:cloneSnapshot(s.profile)}
+  if(Object.prototype.hasOwnProperty.call(s,"programmingContext")){
+    const Entry=entry;
+    if(Entry){
+      const normalized=Entry.normalizeProgrammingContext(s.programmingContext);
+      if(normalized.ok)out.programmingContext=normalized.value}
+    else if(s.programmingContext&&typeof s.programmingContext==="object")out.programmingContext=cloneSnapshot(s.programmingContext)}
+  return out}
+
   return Object.freeze({isValidStateShape,isValidStateWithoutRecoveryCarrier,carrierReadStatus,
     classifyRecoveryCarrier,isValidRecoveryTransitions,isValidBlockId,isBoundedTransitionValue,
     normalizeRecoveryCarrierSnapshot,pendingDraftTransaction,canonicalProgramDefinition,
     isValidMuscleDomainTree,isSafeProgressionFields,isSafeProgressionMeta,isSafeLogRow,
     isSafeProgramHistoryEntry,isValidPlannedVolumeHistory,isValidSetupActivationMarker,
-    setupActivationMarker,setupActivationMatches,normalizeMuscleAttribution});
+    setupActivationMarker,setupActivationMatches,normalizeMuscleAttribution,
+    normalizeLoaded,normalizeSettings,normalizeNotify,normalizeProgramMeta,defaultProgramMeta,
+    normalizeProgramHistory,withExplicitProgramStructure,canonicalizeDurableMuscleAttributions,
+    canonicalizeProgramStructureMuscles,canonicalizeLinkedMuscleRows,normalizeLoadingConfiguration,
+    normalizeProgramEntrySource});
 }

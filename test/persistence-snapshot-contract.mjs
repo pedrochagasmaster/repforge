@@ -28,3 +28,20 @@ assert.equal(policy.draftEffectOutcome({kind:'clear-draft',expectedRaw:null,prec
 assert.equal(policy.draftEffectOutcome({kind:'clear-draft',expectedRaw:null,precondition:'abort-same-day',conflictDay:'Day 1'}).status,'valid');
 assert.equal(policy.isCoherentV1TransitionOut({schemaVersion:1,transitionId:'t',proposalHash:'h',successorProgramId:'p'}),true);
 console.log('persistence snapshot identity, receipts, rebase and refusal contract passed');
+
+// Production validators share the actual muscle/metric/draft domains. An absent
+// catalog is explicit and cannot turn a source-metric row into a valid record.
+const {default:entry}=await import('../program-entry.js');
+const {default:metrics}=await import('../exercise-metrics.js');
+const {default:workout}=await import('../workout-draft.js');
+const bound=policy.createSnapshotPolicy({entry,metrics,workout,model:{}});
+assert.equal(bound.isValidStateShape({program:[],log:[]}),true);
+assert.equal(bound.isValidStateShape({program:[{primary:'invented muscle'}],log:[]}),false);
+assert.equal(bound.isValidStateShape({program:[],log:[{session:'s',setIndex:-1}]}),false);
+assert.equal(bound.isValidStateShape({program:[],log:[],_storageSetupActivation:{version:1,programId:'p',raw:'setup'}}),true);
+assert.equal(bound.isValidStateShape({program:[],log:[],_storageSetupActivation:{version:1,programId:'p',raw:''}}),false);
+assert.equal(bound.isValidStateShape({program:[],log:[],recoveryTransitions:{schemaVersion:9,records:[],quarantine:[]}}),false);
+assert.equal(bound.carrierReadStatus({program:[],log:[],recoveryTransitions:{schemaVersion:9,records:[],quarantine:[]}},'raw'),null);
+const invalid=Object.create({program:[],log:[]});
+assert.equal(bound.isValidStateShape(invalid),false,'unknown prototypes cannot enter storage');
+console.log('production snapshot shape and unknown-carrier refusal contract passed');
