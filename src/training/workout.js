@@ -1933,8 +1933,35 @@ function migrateLegacy(raw, renderedProgramSnapshot) {
     : migrationError("invalid-migrated-draft", { issues: checked.issues });
 }
 
+/** Shared prefill/commit policy. Status and pending input are captured facts;
+ * this pure function reads only the supplied acknowledged aggregate. Warmups
+ * neither donate nor receive carry, and nothing crosses workout identity. */
+function manualLoadCarry(draft,exerciseId,ordinal,{status,pendingLoad=false}={}) {
+  if(status!=="manual"&&status!=="configuration_required")return null;
+  const exercise=draft?.exercises?.[exerciseId];if(!exercise)return null;
+  const at=number=>{const id=exercise.setOrder.find(id=>exercise.sets[id]?.ordinal===number);return id?exercise.sets[id]:null};
+  const set=at(ordinal);
+  if(!set||set.completion!=="pending"||set.role==="warmup")return null;
+  const metrics=Array.isArray(set.programmed?.metrics)?set.programmed.metrics:[];
+  const metric=metrics.find(item=>LOAD_SEMANTICS.has(item.semantic))||null;
+  if(Array.isArray(set.programmed?.metrics)&&!metric)return null;
+  const loadOf=item=>metric?item.edited?.metrics?.[metric.id]:item.edited?.load;
+  const own=loadOf(set);
+  if(own!=null&&own!=="")return null;
+  if(metric?set.touched?.metrics?.[metric.id]||set.programmed.targets?.[metric.semantic]!=null:set.touched?.load)return null;
+  if(pendingLoad)return null;
+  for(let number=ordinal-1;number>=1;number--){
+    const above=at(number);
+    if(!above||above.completion==="pending"||above.role==="warmup")continue;
+    const value=loadOf(above);
+    if(value!=null&&value!=="")return{metric,ordinal:number,value:String(value)};
+  }
+  return null;
+}
+
 const api = Object.freeze({
   SCHEMA_VERSION,
+  manualLoadCarry,
   create,
   parse,
   migrateLegacy,
