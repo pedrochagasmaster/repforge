@@ -150,7 +150,8 @@ async function logPreviousSession(page, exerciseId, sets) {
   }
   const result = await finishEarly(page);
   await page.evaluate(() => window.__repforgeStorage.flush());
-  await page.evaluate(() => window.closeSessionSummary?.());
+  await page.locator("#sumDone").click();
+  await page.locator("#sessionSummary").waitFor({ state: "hidden" });
   return result;
 }
 
@@ -469,7 +470,8 @@ async function main() {
     );
 
     console.log("\nAd hoc substitution: performed identity changes without losing slot muscle provenance");
-    await page.evaluate(() => window.closeSessionSummary?.());
+    await page.locator("#sumDone").click();
+    await page.locator("#sessionSummary").waitFor({ state: "hidden" });
     await page.evaluate(() => window.__repforgeEnterWorkout({day: "Day 1" }));
     await page.waitForSelector("#workoutShell:not(.hidden) #workout.is-focus", { timeout: 5000 });
     const adHocResult = await page.evaluate(async ({ exerciseId, primary, secondary }) => {
@@ -512,7 +514,8 @@ async function main() {
     JSON.stringify(adHocRows));
 
     console.log("\nCustom-movement substitution (#322): metric reprogramming and the no-composition refusal");
-    await page.evaluate(() => window.closeSessionSummary?.());
+    await page.locator("#sumDone").click();
+    await page.locator("#sessionSummary").waitFor({ state: "hidden" });
     await page.evaluate(() => window.__repforgeEnterWorkout({ day: "Day 1" }));
     await page.waitForSelector("#workoutShell:not(.hidden) #workout.is-focus", { timeout: 5000 });
 

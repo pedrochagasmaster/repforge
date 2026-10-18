@@ -316,7 +316,7 @@ export function createEntryAdapter({compiler: boundCompiler}) {
     return split && split.compatibleDays.some((/** @type {unknown} */ value)=>value===request.daysPerWeek) && available.some((/** @type {unknown} */ value)=>value===preference) ? preference : null;
   }
 
-  /** @param {unknown} answers @param {AdapterCatalog|null|undefined} catalog */
+  /** @param {unknown} answers @param {AdapterCatalog|null|undefined} catalog @returns {{ok:false,conflicts:{field:string,code:string}[]}|{ok:true,value:JsonRecord}} */
   function programRequestFromAnswers(answers, catalog) {
     /** @type {{field:string,code:string}[]} */
     const conflicts = [];
@@ -432,7 +432,7 @@ export function createEntryAdapter({compiler: boundCompiler}) {
     const verified = await Promise.all(result.confirmationOffers.map(async (offer) => {
       const confirmed = await (/** @type {NonNullable<NonNullable<Parameters<typeof verifyConfirmationOffers>[0]>["generate"]>} */(generate))({
         ...request,
-        movementConfirmations: { ...(request?.movementConfirmations || {}), [offer.offeredExerciseId]: [...offer.prerequisiteIds] },
+        movementConfirmations: { ...((/** @type {JsonRecord} */(request)).movementConfirmations || {}), [offer.offeredExerciseId]: [...offer.prerequisiteIds] },
       }, { signal });
       if (!confirmed?.ok) return null;
       const target = before.find((slot) => slot.id === offer.slotId);
