@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -72,7 +72,9 @@ export function mergeCriticalReports(root, options) {
   function visit(dir) {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const path = join(dir, entry.name);
-      if (entry.isDirectory()) {
+      // Paired benchmarks link each immutable phase's artifact directory into
+      // its own union. Follow directory links just as the original gate does.
+      if (entry.isDirectory() || (entry.isSymbolicLink() && statSync(path).isDirectory())) {
         if (!/replay|diagnostic/.test(entry.name)) visit(path);
       } else if (entry.name === "ui-critical-report.json") {
         paths.push(path);
