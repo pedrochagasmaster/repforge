@@ -197,9 +197,9 @@ function installTransferOutboundMarker(){return TransferCommands.outboundMarker(
 function installTransferRecordBootDevice(){return transferDevice.recordBootDevice()}
 function loadNotifyMeta(){return preferenceStore.readNotify()}
 function saveNotifyMeta(m){return preferenceStore.writeNotify(m)}
-async function idbGet(key){return DurableState.readAuxiliaryIdbValue(key)}
-async function idbSet(key,val){return DurableState.writeAuxiliaryIdbValue(key,val)}
-async function idbDel(key){return DurableState.deleteAuxiliaryIdbValue(key)}
+
+
+
 const STORAGE_REV="_storageRevision",STORAGE_FOLLOWUP="_storageFollowUp",STORAGE_DRAFT_TXN="_storageDraftTransaction",STORAGE_SETUP_TXN="_storageSetupActivation";
 /* Transient, journal-only: what a shared proposal contributed as its own custom
    definitions, so a rebase against a refreshed head can tell payload data from
@@ -333,21 +333,19 @@ function applyAcceptedSnapshot(base,snapshot){
   }
 
 function draftEffectOutcome(effect){return DurableState.draftEffectOutcome(effect)}
-function normalizeDraftEffectOutcome(value){return DurableState.normalizeDraftEffectOutcome(value)}
-function pendingJournalEffect(effect){return DurableState.pendingJournalEffect(effect)}
-function draftEffectRequiresCoordination(effect){return DurableState.draftEffectRequiresCoordination(effect)}
-function pendingDraftTransaction(snapshot){return DurableState.pendingDraftTransaction(snapshot)}
+
+
+
+
 function pendingJournalEffectState(effect){return DurableState.pendingJournalEffectState(effect)}
-function applyPendingJournalEffect(effect){return DurableState.applyPendingJournalEffect(effect)}
-function pendingDraftPostEffectAccepted(effect){return DurableState.pendingDraftPostEffectAccepted(effect)}
-function pendingDraftRelatedState(effect,transactionId,contextFingerprint=null){return DurableState.pendingDraftRelatedState(effect,transactionId,contextFingerprint)}
-function pendingDraftSettlementAccepted(effect,transactionId,contextFingerprint=null){return DurableState.pendingDraftSettlementAccepted(effect,transactionId,contextFingerprint)}
-function pendingDraftEffectAccepted(effect,checked,transactionId,contextFingerprint=null){return DurableState.pendingDraftEffectAccepted(effect,checked,transactionId,contextFingerprint)}
+
+
+
+
+
 function readDraftRaw(){
   return DraftStore.readRaw()}
-function consumedDraftClearEffect(expectedRaw){
-  return draftEffectOutcome({required:true,kind:"clear-draft",expectedRaw,
-    precondition:DRAFT_PRECONDITION_MATCH_ONLY})}
+
 function destructiveDraftClearEffect(expectedRaw){
   return draftEffectOutcome({required:true,kind:"clear-draft",expectedRaw,
     precondition:DRAFT_PRECONDITION_ABORT_CHANGED})}
@@ -382,16 +380,10 @@ function draftDayReplacementEffect(oldDay,newDay,nextProgramSnapshot=null){
    instead of truncating it: length plus four independent FNV-1a passes make
    every source byte participate while keeping the adapter value fixed-size. */
 
-function workoutDraftFault(point){
-  if(window.__repforgeDraftFault!==point)return false;
-  window.__repforgeDraftFault=null;return true}
 
 
-function programTransitionPrecondition(snapshot=state){
-  return{expectedProgramId:snapshot?.programMeta?.id||null,
-    expectedProgramFingerprint:draftProgramFingerprint(snapshot),
-    expectedBlockId:snapshotBlockId(snapshot),
-    expectedStorageRevision:readRevision(snapshot)}}
+
+
 let DraftStore;
 function parsedAcknowledgedDraftV2(raw,source){
   const parsed=WorkoutDraft?.parse(raw);
@@ -446,15 +438,6 @@ function blockStartDraftGuard(snapshot=state){
   if(live.status==="unavailable")return{draftConflict:true,code:"draft_state_unavailable"};
   return null;
 }
-function v2CheckpointRecord(draft,raw,operationId=draft.writer.operationId){
-  return DurableState.v2CheckpointRecord(draft,raw,operationId)}
-function prepareV2CheckpointEffect(currentRaw,nextRaw,operationId,options={}){
-  return DurableState.prepareV2CheckpointEffect(currentRaw,nextRaw,operationId,options)}
-function commitV2CheckpointEffect(prepared,nextRaw){
-  return DurableState.commitV2CheckpointEffect(prepared,nextRaw)}
-
-
-function readPendingJournal(){return DurableState.readPendingJournal()}
 
 
 
@@ -463,7 +446,13 @@ function readPendingJournal(){return DurableState.readPendingJournal()}
 
 
 
-function clearAllPendingJournal(){return DurableState.clearAllPendingJournal()}
+
+
+
+
+
+
+
 
 
 
@@ -750,8 +739,8 @@ window.__repforgeShelfValueBeat=mode=>{if(mode==="directional"||mode==="fade"||m
  *  settles, whichever way it ends, and the draft is the only record of what is saved. */
 const focusUi=Focus.createFocusState();
 const pendingFields=focusUi.pending;
-function holdPendingField(key,value){return focusUi.holdPendingField(key,value)}
-function releasePendingField(key,token){focusUi.releasePendingField(key,token)}
+
+
 const shelfValueMove=(...args)=>FocusEffort.valueMove(...args),setEffortPick=(...args)=>FocusEffort.pick(...args),
   effortPopHtml=(...args)=>FocusEffort.html(...args),openEffortPop=(...args)=>FocusEffort.open(...args),
   closeEffortPop=(...args)=>FocusEffort.close(...args),toggleEffortPop=(...args)=>FocusEffort.toggle(...args);
@@ -792,12 +781,7 @@ const normBool=(v,def)=>typeof v==="boolean"?v:def;
    leave live state without them while the mutation base still has them, so the
    next ordinary write offers them back as deletions. Unknown keys therefore ride
    along untouched, and the known fields always win. */
-function withUnknownKeys(raw,known){
-  if(!isPlainStateObject(raw))return known;
-  const out={};
-  for(const key of Object.keys(raw))
-    if(!Object.prototype.hasOwnProperty.call(known,key))out[key]=cloneSnapshot(raw[key]);
-  return Object.assign(out,known)}
+
 
 
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -920,31 +904,31 @@ const SOURCE_FEATURE_TO_LEGACY_MUSCLE=Object.freeze({
   "calves":"Calves","tibs":"Tibs","hip flexors":"Hip flexors","lower back":"Spinal erectors",
   "neck":"Neck","serratus":"Serratus","abs":"Abs","obliques":"Obliques",
 });
-function sourceFeatureAttribution(...args){return TrainingModel.sourceFeatureAttribution(...args)}
+
 function libraryMuscleAttribution(...args){return TrainingModel.libraryMuscleAttribution(...args)}
 function exerciseFieldsFromLibrary(...args){return TrainingModel.exerciseFieldsFromLibrary(...args)}
 
 /* The compiler owns the custom-definition schema. Device state carries more
    (archive flag, patterns, timestamps), so project exactly its keys; a custom
    movement without a configured composition has an empty one. */
-function compilerCustomDefinitions(...args){return TrainingModel.compilerCustomDefinitions(...args)}
+
 function canonicalProgramDefinition(value,customDefinitions=customExercises()){return TrainingModel.canonicalProgramDefinition(value,customDefinitions)}
 /* Every movement a canonical definition names: each slot's own and its
    alternates. A custom movement that is only an alternate is still part of the
    program, so it travels, stays in use and is never deleted out from under it. */
 /* A movement outside the catalog carries the lifter's own muscle labels. An
    empty label is no attribution, not an invalid one. */
-function manualAttributionFor(...args){return TrainingModel.manualAttributionFor(...args)}
+
 function manualProgramDefinitionFromRows(rows,dayNames=[],customDefinitions=customExercises()){return TrainingModel.manualProgramDefinitionFromRows(rows,dayNames,customDefinitions)}
 /* Durable program rows are stored exactly as an accepted snapshot normalizes
    them, so the lock-held program fingerprint of the stored head matches the
    in-memory state for the rest of the session. */
-function durableProgramRows(...args){return TrainingModel.durableProgramRows(...args)}
+
 function flatProgramFromDefinition(definition,customDefinitions=customExercises(),cycleNumber=1){return TrainingModel.flatProgramFromDefinition(definition,customDefinitions,cycleNumber)}
 
-function normalizeProgressionEnvelope(...args){return TrainingModel.normalizeProgressionEnvelope(...args)}
-function progressionIncompatibility(...args){return TrainingModel.progressionIncompatibility(...args)}
-function normalizeProgressionRelations(...args){return TrainingModel.normalizeProgressionRelations(...args)}
+
+
+
 function candidateProgressionData(...args){return TrainingModel.candidateProgressionData(...args)}
 function normalizeProgressionModifiers(...args){return TrainingModel.normalizeProgressionModifiers(...args)}
 
@@ -1052,8 +1036,7 @@ function dayTypeHasPrimary(dayType,equipment,experience){
   return fillable*2>=slots.length}
 function equipmentSupportsSplit(daysPerWeek,splitType,equipment,experience){
   return resolveSplit(daysPerWeek,splitType).every(dt=>dayTypeHasPrimary(dt,equipment,experience))}
-function muscleHit(ex,muscle){const m=muscle.toLowerCase();
-  return muscles(ex.primary).concat(muscles(ex.secondary)).some(x=>x.toLowerCase()===m||x.toLowerCase().includes(m))}
+
 // `state` is a read-only alias to the exact owner-published snapshot. All
 // candidates are local values until the durable owner accepts or boot reads them.
 let state,prog,day,saving=false;
@@ -1173,8 +1156,8 @@ async function drainDraftWork(){
   }}
 function workoutDayId(label){return workoutDayIdForSnapshot(state,label)}
 function metricLoading(...args){return workoutQueries().metricLoading(...args)}
-function catalogExecutionMode(...args){return workoutQueries().catalogExecutionMode(...args)}
-function executionModeForSlot(...args){return workoutQueries().executionModeForSlot(...args)}
+
+
 /* Plan 069 S4: which editor slots may offer "Suggest loads", and which need
    the lifter's execution mode first. The engine's compositions decide support;
    custom movements stay manual (R1), unsupported compositions too (R2). */
@@ -1791,7 +1774,7 @@ async function requestWorkoutDay(nextDay){
   }
   return true}
 
-async function applyShowAll(){if(!await focusWorkoutCommands.restoreExercises())return false;renderWorkout();return true}
+
 function replacementSnapshot(id,name,libraryRef){
   const entry=libraryRef?libraryEntry(libraryRef):null,token=movementToken(name),original=activeWorkoutDraft?.exercises?.[id],slot=prog.find(id);
   if(entry)return{exerciseInstanceId:`replacement:${entry.id}`,sourceExerciseId:entry.id,libraryId:entry.id,
@@ -1876,7 +1859,7 @@ let onboardingProgramEditor=null;
 // values fall back to Overview.
 
 
-function earliestLogDate(log){if(!log?.length)return null;return log.reduce((min,r)=>!min||String(r.date)<min?r.date:min,null)}
+
 
 
 let EntryActivation=null;
@@ -1886,7 +1869,7 @@ function buildProgramMeta(input={}){return EntryActivation.metadata(input)}
 
 
 
-function isImportableState(s){return BackupCommands.isImportable(s)}
+
 /* A backup from before the canonical program model carries flat rows with no
    ProgramDefinition. Restoring it would install a program the engine cannot
    read, so it is refused; its program can still come in through import review,
@@ -1897,8 +1880,8 @@ function isLegacyBackup(s){return BackupCommands.isLegacy(s)}
    path then cannot tell the two apart. */
 /* Resolves a library id against a specific custom list plus the built-ins. */
 function snapshotLookup(...args){return TrainingModel.snapshotLookup(...args)}
-function canonicalizeLinkedMuscleRows(...args){return TrainingModel.canonicalizeLinkedMuscleRows(...args)}
-function canonicalizeProgramStructureMuscles(...args){return TrainingModel.canonicalizeProgramStructureMuscles(...args)}
+
+
 function canonicalizeDurableMuscleAttributions(...args){return TrainingModel.canonicalizeDurableMuscleAttributions(...args)}
 function normalizeCustomExercises(...args){return TrainingModel.normalizeCustomExercises(...args)}
 
@@ -1965,7 +1948,7 @@ function mesocycleLifecycle(...args){return TrainingModel.mesocycleLifecycle(...
 function captureBlockReviewViewed(){
   if(!state.programMeta?.started)return;
   captureEvent("block_review_viewed",{completion:blockCompletionBucket(mesocycleLifecycle(state.programMeta))})}
-function programWeek(){return mesocycleLifecycle(state.programMeta).elapsedWeek}
+
 function mesocycleWeek(){return mesocycleLifecycle(state.programMeta)}
 function isProgramDeloadWeek(mc=mesocycleWeek()){
   const deloadCycles=state.programMeta?.programDefinition?.deloadCycles;
@@ -2005,7 +1988,7 @@ const compareLogChronology=NativeProgressModel.compareChronology;
 function volMapToObj(m){const o={};for(const[k,v]of m)o[k]={d:v.d,p:v.p};return o}
 function sessionsForLog(ex,log){return scalarSessions((log||[]).filter(matchLift(ex)))}
 function previousSessionRowsLog(ex,beforeSessionId,log){return previousScalarSessionRows((log||[]).filter(matchLift(ex)),beforeSessionId,log||[])}
-function hardSetsInRange(log,program,started,ended,hardRir){return ProgressReadModels.hardSets(log||[],program||[],{start:started,end:ended,hardRir})}
+
 
 function buildBlockReview(programMeta,program,log){return blockReview.build({...state,programMeta,program,log},{today:today(),now:new Date().toISOString(),hardRir:DEFAULTS.hardRir})}
 function reviewReadModel(){return ProgressReadModels.review(progressReadFacts(),strengthEvidenceRecords("current-block"))}
@@ -2017,11 +2000,11 @@ function reviewPreviewModel(flow){
     .map(slot=>[slot.exerciseId,libraryName(libraryEntry(slot.exerciseId))||slot.exerciseId]));
   return{before,after,beforeDayLabels:labels(before),afterDayLabels:labels(after),movementLabels};
 }
-function renderReview(){ReviewUi.render(reviewReadModel())}
-function startScheduleRepair(){ReviewUi.startScheduleRepair()}
-function startGuidedEdit(){ReviewUi.startGuidedEdit()}
-function startVolumeReduction(){ReviewUi.startVolumeReduction()}
-function startRecoveryWeek(){ReviewUi.startRecoveryWeek()}
+
+
+
+
+
 let pendingBlockTransition=null;
 let onboardingOrigin=null;
 let blockCommitInFlight=null;
@@ -2323,25 +2306,25 @@ function makeProgram(list,lookup=null,meta=null){return TrainingModel.makeProgra
 // projection for any explicit future overrides. The aggregate below owns
 // elapsed denominators; normal current/future weeks continue to come from the
 // authored program, so a block's size no longer scales with rows × weeks.
-function prescriptionProgramRows(...args){return TrainingModel.prescriptionProgramRows(...args)}
-function existingPrescriptionSlots(...args){return TrainingModel.existingPrescriptionSlots(...args)}
-function plannedPrescriptionForProgram(...args){return TrainingModel.plannedPrescriptionForProgram(...args)}
-function preservePrescriptionReceipt(...args){return TrainingModel.preservePrescriptionReceipt(...args)}
-function emptyPlannedVolumeHistory(...args){return TrainingModel.emptyPlannedVolumeHistory(...args)}
-function addPlannedVolumeHistory(...args){return TrainingModel.addPlannedVolumeHistory(...args)}
-function plannedVolumeHistoryTarget(...args){return TrainingModel.plannedVolumeHistoryTarget(...args)}
-function prescriptionWeekNumber(...args){return TrainingModel.prescriptionWeekNumber(...args)}
-function receiptHasMuscleAttribution(...args){return TrainingModel.receiptHasMuscleAttribution(...args)}
-function isSparsePrescriptionOverride(...args){return TrainingModel.isSparsePrescriptionOverride(...args)}
-function historicalPrescriptionForWeek(...args){return TrainingModel.historicalPrescriptionForWeek(...args)}
-function compactProgramPrescriptionState(structure,program,meta,options={}){return TrainingModel.compactProgramPrescriptionState(structure,program,meta,{...options,recoveryRecord:options.recoveryRecord||(activeRecoveryRecord?.diff?.recoveryWeek?.blockId===meta?.blockId?activeRecoveryRecord:null)})}
+
+
+
+
+
+
+
+
+
+
+
+
 /* A programStructure names its definition's training days, in order (#388).
    Entries that still match a training day keep their identity; any other day
    list is rebuilt from the definition, whose generated names localize. */
-function programStructureForDefinition(...args){return TrainingModel.programStructureForDefinition(...args)}
+
 /* A Review successor is a new block of a regenerated definition: it keeps the
    structure's provenance but none of the predecessor's days or receipts. */
-function successorProgramStructure(...args){return TrainingModel.successorProgramStructure(...args)}
+
 function syncProgramStructureFromProgram(proposal,program,previousProgram=null,previousMeta=null){return TrainingModel.syncProgramStructureFromProgram(proposal,program,previousProgram,previousMeta||state.programMeta,{recoveryRecord:activeRecoveryRecord?.diff?.recoveryWeek?.blockId===proposal.programMeta?.blockId?activeRecoveryRecord:null})}
 function scheduledProgramRows(){
   const week=mesocycleLifecycle(state.programMeta).current;
@@ -2378,8 +2361,8 @@ function movedTonnage(rows){return sum(readLogRows(rows||[]).filter(row=>isWork(
 function previousSessionForExercise(ex,beforeSessionId){return previousSessionRowsLog(ex,beforeSessionId,state.log)}
 // All readers use the one pure training policy; composition applies current copy.
 function buildSessionDelta(previous,current){return presentSessionOutcome(deriveSessionDelta(previous,current),{t})}
-function noComparableSessionOutcome(){return presentSessionOutcome(deriveNoComparable(),{t})}
-function compareProjectedSessionOutcome(current,previous,convention=null){return presentSessionOutcome(deriveProjectedOutcome(current,previous,convention),{t})}
+
+
 
 function compareExerciseSession(ex,currentRows,readerContext=null){
   if(readerContext?.reader==="progress-strength")return compareProgressStrengthSession(ex,currentRows,readerContext);
@@ -2392,8 +2375,8 @@ function compareExerciseSession(ex,currentRows,readerContext=null){
 
 // Recover = grinding near failure AND performance did not improve vs prior session (same/lower load).
 
-function round(v){const raw=+state.settings.minJump;const inc=Number.isFinite(raw)&&raw>0?raw:2.5;return Math.round(v/inc)*inc}
-function jump(load,mult){return Math.max(load*(+state.settings.jumpPct||0)*mult/100,+state.settings.minJump||2.5)}
+
+
 function lastBodyweight(){const rows=state.log.filter(r=>+r.bodyweight>0);
   // Until a session logs one, the weight given in setup stands in (Plan 072).
   const profileWeight=interpretedProfile(state.profile).weightKg;
@@ -2536,14 +2519,7 @@ window.__repforgeProgressReview={
 /** Raw rows for this lift, grouped and ordered exactly the way sessionsFor
  *  groups and orders them, so the engine's own summaries land on the same
  *  numbers the app used to compute inline. */
-function progressionHistory(ex){
-  const match=matchLift(ex),m=new Map();
-  for(const x of state.log){if(!match(x)||!(+x.load>0)||!isWork(x))continue;
-    if(!m.has(x.session))m.set(x.session,{sessionId:x.session,date:x.date,created:x.created,sets:[]});
-    mergeLogChronology(m.get(x.session),x).sets.push({load:+x.load,reps:+x.reps,rir:x.rir==null?null:+x.rir})}
-  return[...m.values()]
-    .sort(compareLogChronology)
-    .map(s=>({sessionId:s.sessionId,date:s.date,sets:s.sets}))}
+
 
 /* Legacy progression markers are compatibility data, not a formula switch.
  * This is the complete alias table: the old double-progression marker is the
@@ -2553,7 +2529,7 @@ function progressionHistory(ex){
 
 function progressionForExercise(...args){return workoutQueries().progressionForExercise(...args)}
 const strategyIdFor=ex=>progressionForExercise(ex)?.strategy?.id||"range";
-function canonicalPrescriptionSlot(...args){return workoutQueries().canonicalPrescriptionSlot(...args)}
+
 
 
 
@@ -2607,17 +2583,7 @@ function baseSuggestion(ex,rec,draft,old){return workoutQueries().setSuggestion(
 // projects the NEXT one, rather than echoing the last set back at the lifter.
 /* Working sets this lift has already completed earlier in THIS session, in
    order. Shared by every strategy's in-session path. */
-function completedCurrentSets(ex,n,draft){
-  const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]),sets=[];
-  const preserveMissingRir=strategyIdFor(ex)==="effort_target";
-  for(let k=1;k<n;k++){const key=`${ex.id}_${k}`;
-    if(!done.has(key)||warm.has(key))continue;
-    const ld=fromDisplay(parseDec(draft[`${key}_load`])||0),rp=parseDec(draft[`${key}_reps`])||0;
-    if(!(ld>0&&rp>0))continue;
-    let rir;if(isEffortMode())rir=EFFORT_RIR[draft[`${key}_effort`]]??(preserveMissingRir?null:1);
-    else{rir=parseDec(draft[`${key}_rir`]);if(!Number.isFinite(rir))rir=preserveMissingRir?null:1}
-    sets.push({load:ld,reps:rp,rir,cap:capE1rm(ld,rp,rir)})}
-  return sets}
+
 /* A canonical program's per-set target is the adaptive engine's own result for
    that set: recommendation() already folds this session's completed sets in as
    live anchors, so nothing is re-derived here. The source names how the target
@@ -2767,7 +2733,7 @@ function restSheet(){return RestSheet||(RestSheet=Focus.createRestSheet({window,
   commands:{start:startRest,length:setRestLength,nudge:nudgeRest,hold:toggleRestHold,reset:resetRest,stop:stopRest}}))}
 function paintRestSheet(){return restSheet().paint()}
 function openRestSheet(){return restSheet().open()}
-function closeRestSheet(){return restSheet().close()}
+
 /** Picking a length restarts the rest at it; idle, it only sets what the next
  *  one will run for. */
 function setRestLength(sec){
@@ -3146,7 +3112,7 @@ function focusNavigation(){return FocusNavigation||(FocusNavigation=Focus.create
   read:()=>({hasDraft:!!activeWorkoutDraft,exercises:focusList()}),workout:WorkoutSession,motion:ensureBrowserPresentation().motion,
   onSelection:({scrollTop})=>{renderWorkout();if(scrollTop)window.scrollTo({top:0})}}))}
 function focusGo(direction){return focusNavigation().go(direction)}
-function focusJump(index){return focusNavigation().jump(index)}
+
 function focusCanGo(direction){return focusNavigation().canGo(direction)}
 function focusCard(){return focusGestureView().card()}
 function focusTrack(){return focusGestureView().track()}
@@ -3263,7 +3229,7 @@ function openTodaySessionInHistory(){const done=sessionsToday();if(!done.length)
 /** One word for a recommendation, from the status and reason the engine attached. */
 function rxVerdict(rec){return recommendationVerdict(rec)}
 /** The shared verdict mark. Up, down, hold ("=") and recover draw a glyph; stalled, new and manual stay word-only. */
-function verdictMarkHtml(glyph){return sharedVerdictMarkHtml(glyph)}
+
 function rxSetsLine(sets,withUnit){return formatSetsLine(sets,{load:fmtLoad,unit:unitLabel},withUnit)}
 function rxTargetText(ex,rec){
   if(ex?.hasRepTarget===false)return programPrescriptionSummary(ex);
@@ -3388,9 +3354,8 @@ function focusPresentationFacts(flat=WorkoutSession.projection()){
   return {draft:activeWorkoutDraft,flat,query:workoutQueries(),committed,log:state.log,
     list:focusList(),effortMode:isEffortMode(),rirHigh:state.settings.rirHigh,beats:beatsOn()}}
 function focusPresentationView(flat=WorkoutSession.projection()){return FocusPresentation.capture(focusPresentationFacts(flat))}
-function pendingFocusLoad(exId,ordinal){return FocusValues.pendingLoad(activeWorkoutDraft,exId,ordinal)}
-function setFieldVals(ex,n,r,draft,prev){return FocusValues.fields({draft:activeWorkoutDraft,flat:draft,
-  query:workoutQueries(),exercise:ex,ordinal:n,recommendation:r,previous:prev})}
+
+
 /* =====================================================   Focus mode
    One full-height card per exercise: a scrolling ledger of what has been
    logged on top, and the shelf underneath that never moves — the set being
@@ -3406,7 +3371,7 @@ function setFieldVals(ex,n,r,draft,prev){return FocusValues.fields({draft:active
 /** The two lines above the ledger: what to do with this set, and why. Line one
  *  is the verb and the load, line two the reps to aim for. The load is the
  *  engine's: `setSuggestion` for this set, never a figure derived here. */
-function focusCue(ex,n,r,draft,prev,editing){return focusPresentationView(draft).cue(ex,n,r,editing)}
+
 
 /* ---- Inline rest (Direction D 4.2, owner gate OG-4 job 3) ----
    The rest clock reads the one timer (`focusRest.end`, `focusRest.paused`, `focusRest.length`):
@@ -3418,7 +3383,7 @@ function focusCue(ex,n,r,draft,prev,editing){return focusPresentationView(draft)
 
 /** The rest controls in the shelf's pad row: -30s, Pausar or Retomar, +30s, Pular. They act on the timer
  *  the header chip and the presets sheet act on. */
-function canonicalSlotFacts(...args){return workoutQueries().canonicalSlotFacts(...args)}
+
 
 /** The line under the exercise name: sets and reps, the effort window, and the
  *  name of the strategy that sets the target. Read off the program's own
@@ -3465,9 +3430,7 @@ const workoutFocusKey=workoutControlFocus.key,focusWorkoutControl=workoutControl
   liveShelfInput=workoutControlFocus.input,liveEffortField=workoutControlFocus.effortField;
 
 /** Keep the shelf and the open ledger row reading what a field now holds. */
-function syncShelfField(input,padDir=0){
-  const field=input.closest(".shelf__field");
-  FocusShelf.syncInput(input,{definitions:field?focusMetricDefinitions(...setKeyParts(field.dataset.set)):[],direction:padDir})}
+
 function setKeyParts(key){const text=String(key||""),at=text.lastIndexOf("_");return[text.slice(0,at),+text.slice(at+1)]}
 
 /** A field the draft flags must be seen, not just focused: bring its input into the shelf. */
@@ -3509,11 +3472,11 @@ function syncWorkoutMore(){return Focus.syncWorkoutMore(document)}
  *  peeks included, so a neighbour rides in already showing what it will show
  *  once it lands. The card's own height comes from the layout, so nothing is
  *  measured into a stale number. */
-function sizeFocusDeck(){return focusGeometry.sizeDeck()}
+
 const focusGeometry=Focus.createFocusGeometry({window});
 function syncFocusFloor(){return focusGeometry.syncFloor()}
-function sizeFocusCard(card){return focusGeometry.sizeCard(card)}
-function wholeLineScroll(context,target,dir,limit=Infinity){return focusGeometry.wholeLineScroll(context,target,dir,limit)}
+
+
 async function refreshAfterCommittedEdit(row){
   if(!row?.dataset.set||!committed.has(row.dataset.set))return{status:"unchanged"};
   const exId=row.closest(".exercise")?.dataset.ex;
@@ -3525,8 +3488,7 @@ function lastExerciseNote(ex){const match=matchLift(ex);
   if(!rows.length)return"";
   const latest=rows.sort(compareLogChronology).at(-1);
   return String(latest.exNote).trim()}
-function clearFieldInvalid(root){
-  (root||document).querySelectorAll("[aria-invalid='true']").forEach(el=>el.removeAttribute("aria-invalid"))}
+
 function applyFieldError(res){
   if(!res||res.ok)return false;
   const el=res.el;
@@ -3558,7 +3520,7 @@ function applyDraftIssue(issues){
   const key=field==="reps"?"validation.reps":field==="rir"?"validation.rir":field==="effort"?"validation.effort":
     field==="date"?"validation.date":field==="bodyweight"?"validation.bodyweight":loadErrorKey;
   return applyFieldError({ok:false,error:{key},el})}
-function bindWorkout(){return focusView().bind()}
+
 
 function updateGauge(){const exs=exercises();const hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
   const g=$("#heatGauge"),frac=exs.length?hot/exs.length:0;
@@ -3902,9 +3864,7 @@ window.__repforgePendingBlock=()=>pendingBlockTransition;
 // a missing route carry no reconstructable provenance and stay typed Unavailable.
 const TRANSITION_SOURCE_ROUTES = ["recommend", "custom", "browse"];
 // One route spelling conversion to the transition contract (Recommend/Custom/Browse).
-function transitionContractSource(route) {
-  return route.charAt(0).toUpperCase() + route.slice(1);
-}
+
 const COMPILER_PROVENANCE_FIELDS = [
   "familyId", "blueprintId", "blueprintVersion", "compilerVersion", "catalogueVersion",
   "rulesVersion", "contextVersion", "profileId", "recentConsistencyVersion",
@@ -3926,19 +3886,8 @@ function classifyCompilerTransitionProvenance(meta) {
     .every(key => Number.isSafeInteger(provenance[key]) && provenance[key] >= 1)) return "invalid";
   return "present";
 }
-function canonicalTransitionProgram(program, customExercises) {
-  const rows = new TrainingModel.Program(program, snapshotLookup(customExercises)).toJSON();
-  return rows.map(row => {
-    const canonical = cloneSnapshot(row);
-    // Compiler pattern labels are derived display data. Linked durable rows
-    // resolve those labels from the catalogue; identity and every authored
-    // field (including notes, sets, progression, and slot placement) remain.
-    delete canonical.primary;
-    delete canonical.secondary;
-    return canonical;
-  });
-}
-function compilerProgramMatchesLive(...args){return TrainingModel.compilerProgramMatchesLive(...args)}
+
+
 // The public adapter keeps the Entry-owned guided method and the actual
 // block command owner together. Commands are bound after verified catalog/model
 // initialization, before the Review UI is constructed.
@@ -4091,7 +4040,7 @@ window.__repforgeValidateStateShape=isValidStateShape;
 
 window.__repforgeAttention=attentionGroups;
 function completedHardSets(windowDays){return ProgressReadModels.hardSets(readLogRows(),state.program,{start:daysAgo(windowDays-1),hardRir:+state.settings.hardRir})}
-function volEff(map,name){const value=map.get(name);return value?value.d+value.p:0}
+
 function volumeDashboard(){return ProgressReadModels.rollingVolume(progressReadFacts(),{planned:prog.volume(),cutoff7:daysAgo(6),cutoff28:daysAgo(27)})}
 
 window.__repforgeVolumeDashboard=volumeDashboard;
@@ -4120,8 +4069,7 @@ function progressProjectionInputs(scope){const rows=strengthEvidenceRows();retur
 function strengthEvidenceRecords(scope="current-block"){
   return buildStrengthEvidenceRecords(progressProjectionInputs(scope))}
 
-function strengthFactsByLift(scope="current-block"){
-  return Object.fromEntries(strengthEvidenceRecords(scope).filter(r=>r.outcome).map(r=>[r.exerciseId,r.outcome]))}
+
 function strengthProjection(scope="current-block"){
   const facts=progressProjectionInputs(scope),records=buildStrengthEvidenceRecords(facts);
   const projection=buildStrengthProjection({...facts,records,prEvents:detectPRs(state.log)});
@@ -4325,10 +4273,7 @@ function mountOnboardingProgramEditor(){
   const status=host.querySelector('[data-role="editor-status"]');if(status)status.id="entryEditorStatus";
   return onboardingProgramEditor;
 }
-function disposeProgramEditors(){
-  onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;
-  InstalledEditorView?.disposeEditor();
-}
+
 function programEditorSnapshot(){
   if(!setupEditorOpen)return cloneSnapshot(state);
   const preview=entryState?.result?.preview||{},snapshot=cloneSnapshot(state);
@@ -4470,9 +4415,7 @@ function openEntryDraftEditor(){
   if(!entryState?.result?.preview)return;
   setupEditorOpen=true;InstalledEditorView.setEditing(false);
   showOnboardingView();armEntryHistory();renderOnboarding()}
-function closeEntryDraftEditor(){
-  setupEditorOpen=false;InstalledEditorView.setEditing(false);onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;
-  onboardingOrigin=null;document.body.classList.remove("is-entry-editor");closeOnboarding()}
+
 function focusEntryEditorStatus(){
   // A picker owns focus until its close transition has restored the editor.
   // Leave the pending request intact so the post-close call can focus the new
@@ -4487,7 +4430,7 @@ function focusEntryEditorStatus(){
   try{status.focus({preventScroll:true})}catch{try{status.focus()}catch{return false}}
   return true}
 
-function addVol(...args){return TrainingModel.addVol(...args)}
+
 
 function notifyEffective(){return notificationControls().effective()}
 function reconcileNotifyPermission(){return notificationControls().reconcile()}
@@ -4499,13 +4442,13 @@ function setNotificationsEnabled(wanted){return notificationControls().setEnable
    The weight unit becomes the app's unit when no workout draft would need
    converting. Never part of a link, a state proposal's context or telemetry. */
 function interpretedProfile(profile){return interpretProfile(profile,ProgramEntry)}
-function renderProfileSettings(){return settingsView().renderProfile()}
+
 function clearProfile(){return settingsView().clearProfile()}
 function renderSettings(){settingsView().render();updateVoiceBtn()}
 function commitSettings(silent){return settingsView().save(silent)}
 
 
-function table(rows){return formatTable(rows,t("stats.table.no_data"))}
+
 
 function exportCsv(){return BackupCommands.exportCsv()}
 function exportJson(){return BackupCommands.exportJson()}
@@ -5090,7 +5033,7 @@ const FREEFORM_NOT_IMPORTED_KEYS = {
 };
 let entryImportMode=null;
 function loadFreeformSession(){return EntryImport.load()}
-function saveFreeformSession(){EntryImport.save()}
+
 function clearFreeformSession(){EntryImport.clearStored()}
 function resetFreeformImport(){EntryUi.reset()}
 function setStagedImportSource(sourceType){EntryImport.stageImportSource(sourceType)}
@@ -5247,7 +5190,7 @@ async function recoverCommittedSetupDraft(){
   return withStorageLock(storageIO,()=>removeObservedSetupDraft({raw,envelope:null}));
 }
 function persistSetupDraft(next,io=storageIO){return EntrySetup.save(next,{io,production:io===storageIO})}
-function createEntryState(extra={}){return EntrySetup.create(extra)}
+
 function applyLegacyHints(stateIn){
   if(!ProgramEntry)return stateIn;
   const legacy=state?.programMeta;
@@ -5497,9 +5440,7 @@ function entryRouteLabel(route){
 
 function entryHeading(title){
   return `<h2 class="onb__q" id="entryHeading" tabindex="-1">${esc(title)}</h2>`}
-function entryLegacyBanner(){
-  if(!entryState?.legacyHints||!Object.keys(entryState.legacyHints).length)return"";
-  return `<p class="entry__legacy" role="note">${esc(t("entry.legacy.hint"))}</p>`}
+
 /* The resume card sits on the hub (Q633), above doors that stay inert until the
    lifter chooses Resume or Start over: any door tap would otherwise overwrite
    the saved draft on its next persist. */
@@ -5528,10 +5469,7 @@ function entryBSection(stepId){
   return index<0?null:{n:index+1,total:ENTRY_B_SECTIONS.length,name:ENTRY_B_SECTIONS[index][0]}}
 const entryIsB=()=>entryState?.route==="recommend";
 function entryBasics(source=entryState){return source?.answers?.basics||{}}
-function entryPatchBasics(patch){
-  const next={...entryBasics(),...patch};
-  for(const key of Object.keys(next))if(next[key]==null)delete next[key];
-  entryPatchAnswers({basics:next})}
+
 
 
 
@@ -6361,7 +6299,7 @@ const ENTRY_CHIP_KIND={goal:"desired_result",exp:"background",cons:"background",
 const ENTRY_EDITOR_TITLE={desired_result:"goal",background:"background",schedule:"schedule",environment:"environment",
   priorities:"priorities",exercise_preferences:"exercises",custom_shape:"shape"};
 function entryNames(ids){return ids.map(id=>{const entry=libraryEntry(id);return entry?libraryName(entry):id}).join(", ")}
-function entrySameSet(left,right){return JSON.stringify([...(left||[])].sort())===JSON.stringify([...(right||[])].sort())}
+
 function entryChipList(){
   const a=entryState.answers||{},custom=entryState.route==="custom",out=[];
   const add=(chip,text)=>out.push({chip,text,what:t(`entry.chip.what.${chip}`)});
@@ -7865,11 +7803,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     publishEntryDraft(null);
     return result}
   return result}
-function telemetryGeneratedProgram(goal){
-  if(goal==="beginner_consistency")return{goal:"muscle_growth",family:"foundation"};
-  if(goal==="strength_hypertrophy")return{goal:"balanced",family:"legacy"};
-  if(goal==="hypertrophy")return{goal:"muscle_growth",family:"legacy"};
-  return null}
+
 async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null,telemetryRoute="custom",entryTelemetry=null,entrySource=null,programStructure=null,programDefinition=null,expectedSetupDraftRaw=undefined,replace=false,expectedFirstRunEmpty=false,compilerContext=null,reviewChanges=null}={}){
   const adapter=requireAdapter(io||storageIO,"finalizeProgramSetup");
   const originEff=origin||onboardingOrigin||"first-run";
@@ -7985,7 +7919,7 @@ function triggerInstall(source){return installView().trigger(source)}
 function showInstallBanner(force){return installView().showBanner(force)}
 function hideInstallBanner(remember){return installView().hideBanner(remember)}
 function maybeShowInstallBanner(){return installView().maybeShowBanner()}
-function showInstallTransferDivergenceDialog(onConfirm){return installView().divergence(onConfirm)}
+
 // Capture Chrome's single-use offer before init, without reading training state.
 window.addEventListener("beforeinstallprompt",event=>installView().capturePrompt(event),true);
 
@@ -8116,8 +8050,8 @@ function openWhySheetFor(ex,opener){
   if(!ex)return;
   const surface=opener?.closest?.("#exDetail")?"exercise":"focus",model=whySheetModel(ex,surface);
   return focusWhyView().open({model,opener,surface})}
-function closeWhySheet(){return focusWhyView().close()}
-function installTransferRenderState(stateName,detail){return installView().renderTransfer(stateName,detail)}
+
+
 function openIosInstallSheet(stateName,options){return installView().openSheet(stateName,options)}
 function closeIosInstallSheet(){return installView().closeSheet()}
 function openPrivacySheet(options){return installView().openPrivacy(options)}
@@ -8128,8 +8062,8 @@ let contextualGuides=null;
 function guidesView(){return contextualGuides||(contextualGuides=createGuidesView({window,registry:GuideRegistry,
   preferences:{read:()=>uiPrefs,reload:loadUiPrefs,replace:replaceUiPrefs},t,landingOpen:firstRunOpen,
   onGeometryChanged:syncFocusFloor,report:captureEvent}))}
-function removeContextualGuide(){return guidesView().remove()}
-function dismissContextualGuide(options){return guidesView().dismiss(options)}
+
+
 function showContextualGuide(id,options){return guidesView().show(id,options)}
 function maybeShowContextualGuides(ids){return guidesView().maybeShow(ids)}
 // Guide eligibility can persist a shown transition. Attempt it only after a
@@ -8145,7 +8079,7 @@ function scheduleCurrentSurfaceGuides(){
     maybeShowContextualGuides()
   })}
 
-function completeContextualGuide(){return guidesView().complete()}
+
 function replayContextualGuide(id){return guidesView().replay(id)}
 function contextualGuideState(){return guidesView().state()}
 function onContextualGuideAction(event){return guidesView().onAction(event)}
