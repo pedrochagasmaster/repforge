@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {launchChromium,waitForAppBoot} from '../browser.mjs';
 import {installBrowserTraining} from '../training-browser.mjs';
 import {ensureBrowserInterchange} from '../interchange-browser.mjs';
+import {SETUP_DRAFT_KEY} from '../../src/persistence/setup-draft.js';
 const base=process.env.REPFORGE_URL||'http://localhost:8000/';
 const browser=await launchChromium();
 try{
@@ -40,7 +41,7 @@ try{
  const before=await target.evaluate(()=>localStorage.getItem('repforge_v1'));
  await target.click('#firstRunSharedStart');await target.locator('#entryActivate').waitFor({state:'visible'});
  assert.equal(await target.evaluate(()=>localStorage.getItem('repforge_v1')),before,'consent opens a private preview without installing or saving');
- assert.equal(await target.evaluate(()=>localStorage.getItem('repforge_setup_draft_v1')),null);
+ assert.equal(await target.evaluate(key=>localStorage.getItem(key),SETUP_DRAFT_KEY),null);
  assert.equal(await target.locator('#entryActivationStatus').count(),0,await target.locator('#entryActivationStatus').allInnerTexts().then(values=>values.join(' ')));
  await target.click('#entryActivate');
  await target.waitForFunction(()=>JSON.parse(localStorage.getItem('repforge_v1')).programMeta.onboarded===true);
@@ -74,7 +75,7 @@ try{
  await fresh.locator('#firstRunSharedStart').waitFor({state:'visible'});
  await fresh.click('#firstRunSharedCreate');await fresh.locator('#onboarding.active').waitFor();
  assert.equal(await fresh.evaluate(()=>window.__repforgeSharedSetup.status),'none');
- assert.equal(await fresh.evaluate(()=>document.documentElement.lang),'pt');
+ assert.equal(await fresh.evaluate(()=>document.documentElement.lang),'pt-BR');
  assert.equal(await fresh.evaluate(()=>JSON.parse(localStorage.getItem('repforge_v1')).program.length),0);
  assert.equal(await fresh.evaluate(()=>document.cookie.includes('repforge_setup_v1=')),false);
  assert.equal(await fresh.evaluate(()=>location.hash.includes('setup=')),false);
