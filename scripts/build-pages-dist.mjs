@@ -68,6 +68,7 @@ function collectSource(directory) {
   }
 }
 collectSource("src");
+collectSource("styles");
 
 const present = (relative) => existsSync(join(ROOT, relative)) && statSync(join(ROOT, relative)).isFile();
 function copyFile(relative) {

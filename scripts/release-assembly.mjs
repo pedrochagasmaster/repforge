@@ -4,6 +4,7 @@ import {readFileSync,writeFileSync,readdirSync,mkdirSync,copyFileSync} from 'nod
 import {join,dirname} from 'node:path';
 import {releaseWorker} from './release-worker.mjs';
 export function assembleRelease(out, {optional = []} = {}) {
+  if (readdirSync(out).includes('releases')) throw new Error('Release assembly requires a fresh output directory');
   const files = [];
   const walk = dir => {
     for (const entry of readdirSync(join(out, dir),{withFileTypes:true})) {
