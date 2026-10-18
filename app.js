@@ -1,7 +1,7 @@
 import {createShell} from './src/ui/shell.js';
 import {createNotifications} from './src/platform/notifications.js';
 import {createEntryController} from './src/ui/entry/controller.js';
-import {createEntryImportSession,createEntryImportCommands,FREEFORM_MAX_CHARS} from './src/app/entry.js';
+import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,FREEFORM_MAX_CHARS} from './src/app/entry.js';
 import * as FreeformGrammar from './src/interchange/freeform.js';
 import * as InstallPolicy from './src/platform/install.js';
 import {createInstallView} from './src/ui/settings/install.js';
@@ -12810,36 +12810,19 @@ function renderCustomShapeStep(){
    canonical request identifies selection, so equal requests regenerate the same program. */
 /* A generated candidate's preview is a pure projection of its definition, so
    the review editor rebuilds it the same way after every adjustment. */
-function generatedPreview(definition,route){
-  const program=flatProgramFromDefinition(definition,[],1);
-  const days=definition.days.filter(day=>day.kind==="training").map((day,index)=>({dayId:day.id,label:day.name,order:index+1,
-    exercises:program.filter(row=>row.dayId===day.id).map(cloneSnapshot)}));
-  return{source:route,frequency:days.length,program,programDefinition:definition,
-    programStructure:{schemaVersion:1,days:days.map(({dayId,label,order})=>({dayId,label,order})),provenance:{source:"generated"}},
-    days,customExercises:[],primaryMuscles:[]}}
-function entryGeneratorRequest(from){
-  const answers=from.answers||{};
-  const mapped=answers.programRequest?{ok:true,value:cloneSnapshot(answers.programRequest)}
-    :ProgramEntryAdapter.programRequestFromAnswers(answers,rawExerciseCatalog);
-  if(!mapped.ok)return{ok:false,failure:{code:"rules_changed",conflicts:mapped.conflicts}};
-  const canonical=ProgramCompiler.canonicalizeRequest(mapped.value,rawExerciseCatalog);
-  return canonical.ok?{ok:true,request:canonical.value}
-    :{ok:false,failure:{code:"rules_changed",conflicts:canonical.issues}}}
-function entryCandidate(from,services,request,definition){
-  const answers=from.answers||{},preview=generatedPreview(definition,from.route);
-  const days=preview.days;
-  const name=t("entry.result.generated_name",{days:days.length});
-  return{
-    fingerprint:ProgramCompiler.generationIdentity(request,rawExerciseCatalog),
-    name,
-    selected:{id:"generated",source:"generator",daysPerWeek:days.length},
-    candidates:[],
-    alternative:null,
-    preview,
-    telemetry:{goal:answers.desiredResult,frequency:String(days.length),family:"generated"},
-    explanation:Object.fromEntries(Object.entries({desiredResult:answers.desiredResult,
-      structuredExperience:answers.structuredExperience,daysPerWeek:days.length,
-      sessionMinutes:answers.sessionMinutes,mainConstraint:answers.environment?.kind}).filter(([,value])=>value!==undefined))}}
+let EntryGeneration=null;
+function entryGeneration(){
+  if(!EntryGeneration&&TrainingModel&&rawExerciseCatalog)EntryGeneration=createEntryGeneration({compiler:ProgramCompiler,adapter:ProgramEntryAdapter,
+    catalog:rawExerciseCatalog,model:TrainingModel,candidateName:days=>t("entry.result.generated_name",{days}),onFailure:error=>console.warn("program generation failed",error),
+    execute:async(request,{signal})=>{
+      const override=window.__repforgeProgramEntryServicesOverride,services=entryServices(),engine=override?null:programEngine();
+      const generated=override?await services.generateProgram({request}):engine?await engine.generate(request,{signal}):services.generateProgram({request});
+      return{generated,cache:!override};
+    }});
+  return EntryGeneration;
+}
+function generatedPreview(definition,route){return entryGeneration().preview(definition,route)}
+function entryGeneratorRequest(from){return entryGeneration()?.request(from)||{ok:false,failure:{code:"rules_changed"}}}
 /* Generation timing (Plan 071 §5.3). A request is stamped when it leaves and
    reported when its answer arrives, so the same pair serves a synchronous
    compile and a Worker round trip (#353): begin before posting, settle in the
@@ -12857,17 +12840,11 @@ function settleGeneration(token,outcome){
 /* Generation is deterministic in its canonical request, so the last few
    outputs are kept: the review's recommendation is then at hand on the render
    that follows its own generation. A test's services override is never cached. */
-const entryGenerated=new Map();
-const entryGeneratedKey=request=>ProgramCompiler.generationIdentity(request,rawExerciseCatalog);
 function entryGeneratedPeek(from){
-  if(!from||window.__repforgeProgramEntryServicesOverride||!ProgramEntryAdapter?.programRequestFromAnswers)return null;
-  const services=entryServices(),mapped=entryGeneratorRequest(from);
-  const generated=services&&mapped.ok?entryGenerated.get(entryGeneratedKey(mapped.request)):null;
-  if(!generated?.ok)return null;
-  const result=entryCandidate(from,services,mapped.request,cloneSnapshot(generated.value));
-  startEntryOfferVerification(from,{confirmationOffers:generated.confirmationOffers,request:mapped.request,
-    definition:generated.value,result});
-  return result}
+  if(!from||window.__repforgeProgramEntryServicesOverride||!entryServices())return null;
+  const cached=entryGeneration()?.peek(from);if(!cached)return null;
+  startEntryOfferVerification(from,{...cached,result:cached.result});return cached.result;
+}
 let entryOfferJob=null,entryOfferState={key:"",offers:[]};
 function entryOfferBaseline(state){
   const result=state?.result;
@@ -12933,27 +12910,7 @@ async function generateEntryCandidate(from=entryState,{signal,timed=false}={}){
   const outcome=await runEntryGeneration(from,services,signal);
   if(token&&(outcome.ok||outcome.failure?.code))settleGeneration(token,outcome.ok?"success":outcome.failure.code);
   return outcome}
-async function runEntryGeneration(from,services,signal){
-  const mapped=entryGeneratorRequest(from);
-  if(!mapped.ok)return mapped;
-  const override=window.__repforgeProgramEntryServicesOverride,engine=override?null:programEngine();
-  const key=entryGeneratedKey(mapped.request);
-  let generated;
-  try{
-    generated=override?await services.generateProgram({request:mapped.request})
-      :engine?await engine.generate(mapped.request,{signal})
-      :services.generateProgram({request:mapped.request})}
-  catch(error){
-    if(error?.name==="AbortError")throw error;
-    console.warn("program generation failed",error);return{ok:false,failure:{code:"rebuild_failed"}}}
-  if(signal?.aborted)throw new DOMException("The generation request was superseded","AbortError");
-  if(!generated?.ok)return{ok:false,failure:{code:"generation_conflict",conflicts:generated?.conflicts||[]}};
-  if(!override){entryGenerated.delete(key);entryGenerated.set(key,generated);
-    while(entryGenerated.size>4)entryGenerated.delete(entryGenerated.keys().next().value)}
-  const definition=cloneSnapshot(generated.value);
-  return{ok:true,result:entryCandidate(from,services,mapped.request,definition),
-    confirmationOffers:Array.isArray(generated.confirmationOffers)?cloneSnapshot(generated.confirmationOffers):[],
-    request:cloneSnapshot(mapped.request),definition}}
+async function runEntryGeneration(from,services,signal){return entryGeneration().generate(from,{signal})}
 /** O3: the generation whose program has not been drawn yet. Only a compile
  *  arms it (a saved draft that is reopened, and every later render of a result
  *  that already exists, never do), and the first render of that result takes it,

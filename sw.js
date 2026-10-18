@@ -3,6 +3,7 @@ const SOURCE_RELEASE = "source-480";
 const ASSETS = [
   // BEGIN GENERATED NATIVE SOURCE ASSETS
   "./src/app/entry.js",
+  "./src/app/entry/generation.js",
   "./src/app/history-read-models.js",
   "./src/app/history.js",
   "./src/app/interchange.js",
