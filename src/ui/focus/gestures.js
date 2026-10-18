@@ -1,17 +1,25 @@
+/** @typedef {{id:number,x:number,y:number,dx:number,axis:"x"|null,card:HTMLElement,track:HTMLElement,scrolls:boolean,vx:number,lastX:number,lastT:number}} FocusDrag */
+/** @typedef {{settleFocusDeck:(track:HTMLElement|null,options:{from:number,velocity:number})=>PromiseLike<unknown>|null}} DeckMotion */
 /** Focus-only fallback geometry; persisted selection crosses named commands. */
+/** @param {{window:Window & typeof globalThis,readModel:()=>{active:boolean,canPrevious:boolean,canNext:boolean},commands:{go:(direction:number)=>boolean,navigate:(direction:number)=>unknown,swallowNextClick:()=>void},motion?:DeckMotion|null}} options */
 export function createFocusGestures({window,readModel,commands,motion=null}) {
   const document=window.document,Element=window.Element,performance=window.performance;
   const getComputedStyle=window.getComputedStyle.bind(window);
-  const $=selector=>document.querySelector(selector);
+  /** @param {string} selector */
+  const $=selector=>/** @type {HTMLElement|null} */ (document.querySelector(selector));
   const reducedMotion=()=>window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   const FOCUS_GAP=14,FOCUS_SLIDE_MS=210,DRAG_LOCK=10;
-  let focusDrag=null,focusFlinging=false;
+  /** @type {FocusDrag|null} */ let focusDrag=null;
+  let focusFlinging=false;
   const timers=new Set();
+  /** @param {()=>void} callback @param {number} delay */
   function fallbackFocusLater(callback,delay) {
     const timer=window.setTimeout(()=>{timers.delete(timer);callback();},delay);
     timers.add(timer);return timer;
   }
+  /** @param {number} dir */
   function focusCanGo(dir) {const model=readModel();return dir<0?model.canPrevious:model.canNext;}
+/** @param {number} dir */
 function fallbackFocusAnimateTo(dir){
   if(focusFlinging||!focusCanGo(dir))return false;
   const track=focusTrack(),deck=$("#focusDeck");
@@ -27,9 +35,11 @@ function fallbackFocusAnimateTo(dir){
     commands.go(dir)},FOCUS_SLIDE_MS);
   return true}
 
+/** @param {HTMLElement|null} track @param {number} dx */
 function focusSetTrack(track,dx){
   if(track)track.style.transform=`translate3d(${dx}px,0,0)`}
 
+/** @param {PointerEvent} e */
 function focusDragStart(e){
   if(focusFlinging||!readModel().active)return;
   if(e.pointerType==="mouse"&&e.button!==0)return;
@@ -44,6 +54,7 @@ function focusDragStart(e){
     scrolls:[ledger,card.querySelector(".fcard__context")].some(el=>el&&el.scrollHeight>el.clientHeight+1),
     vx:0,lastX:e.clientX,lastT:e.timeStamp||performance.now()}}
 
+/** @param {PointerEvent} e */
 function focusDragMove(e){
   if(!focusDrag||e.pointerId!==focusDrag.id)return;
   const mx=e.clientX-focusDrag.x,my=e.clientY-focusDrag.y;
@@ -69,6 +80,7 @@ function focusDragMove(e){
   // stack it sits on together.
   focusSetTrack(focusDrag.track,focusDrag.dx)}
 
+/** @param {HTMLElement|null} track @param {HTMLElement|null} card @param {HTMLElement|null} deck @param {{from?:number,velocity?:number}} [options] */
 function focusSettle(track,card,deck,{from=0,velocity=0}={}){
   card?.classList.remove("is-dragging");
   const done=()=>{track?.classList.remove("is-settling");deck?.classList.remove("is-swiping")};
@@ -81,6 +93,7 @@ function focusSettle(track,card,deck,{from=0,velocity=0}={}){
   focusSetTrack(track,0);
   fallbackFocusLater(done,220)}
 
+/** @param {PointerEvent|null} [e] */
 function focusDragEnd(e){
   if(!focusDrag||(e&&e.pointerId!=null&&e.pointerId!==focusDrag.id))return;
   const{card,track,dx,axis,vx}=focusDrag;focusDrag=null;
@@ -103,8 +116,9 @@ function focusTrack(){return $("#focusTrack")}
 
 function focusStep(){const card=focusCard();return (card?.offsetWidth||320)+FOCUS_GAP}
 
+/** @param {Element} target */
 function isNativeTextSelectionTarget(target){
-  for(let el=target;el;el=el.parentElement){
+  for(let el=/** @type {Element|null} */ (target);el;el=el.parentElement){
     const policy=getComputedStyle(el).userSelect;
     if(policy==="none")return false;
     if(policy==="text")return true}

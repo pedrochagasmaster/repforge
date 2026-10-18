@@ -1,3 +1,5 @@
+/** @typedef {{count:number,open:boolean,fresh:boolean,peek:boolean,exerciseId:string,labelTemplate:string,setsWord:string}} LedgerToggle */
+/** @typedef {{ordinal:number,indexHtml:string,done:boolean,open:boolean,editing:boolean,fresh:boolean,load:string,reps:string,rir:string,previousLine:string,editLabel:string,softLoad:boolean,softReps:boolean,softRir:boolean}} LedgerRow */
 /** @typedef {{key:string,id:string,metricId?:string,selected:boolean,editing:boolean,soft:boolean,label:string,ariaLabel:string,shown:string,raw:unknown,placeholder?:string,effort?:boolean,effortValue?:string,effortPopupHtml?:string,inputMode?:string}} FieldModel */
 /** @typedef {{action?:string,className?:string,ariaLabel?:string,text:string,attributes?:string,direction?:number,disabled?:boolean}} PadModel */
 /** @typedef {{title:string,subtitle:string,rise:boolean,finish:boolean,actionLabel:string}} CompletionModel */
@@ -57,6 +59,7 @@ export function renderFocusShelf(model) {
     `<button type="button" class="btn btn--cta btn--noarrow saveset"${peek?dead():` data-save="${esc(key)}"`}>${esc(label)}</button></div>`;
 }
 
+/** @param {LedgerToggle|null} model */
 export function renderFocusLedgerToggle(model) {
   if(!model)return "";
   const {count,open,fresh,peek,exerciseId,labelTemplate,setsWord}=model;
@@ -64,8 +67,10 @@ export function renderFocusLedgerToggle(model) {
     `<span>${esc(labelTemplate).replace("\u0000",`<span>${count}</span>`).replace("\u0001",`<span>${esc(setsWord)}</span>`)}</span>`+
     `<span class="icon-mask icon-mask--sm icon-mask--chev-down ledger__chev" aria-hidden="true"></span></button>`;
 }
+/** @param {{rows:readonly LedgerRow[],peek:boolean,exerciseId:string}} model */
 export function renderFocusLedgerRows({rows,peek,exerciseId}) {
   return rows.map(row=>{
+    /** @param {"softLoad"|"softReps"|"softRir"} field */
     const soft=field=>row[field]?" is-soft":"";
     const cells=`<span class="ledgerline__idx">${row.indexHtml}</span>`+
       `<span class="ledgerline__vals"><span class="fx-col${soft("softLoad")}" data-lv="load">${esc(row.load||"—")}</span>`+
@@ -77,12 +82,14 @@ export function renderFocusLedgerRows({rows,peek,exerciseId}) {
     return `<div class="${cls}"${row.editing?' aria-current="true"':""} data-lrow="${row.ordinal}">${cells}</div>`;
   }).join("");
 }
+/** @param {{exerciseId:string,headers:{set:string,load:string,reps:string,effortHtml:string},toggleHtml:string,rowsHtml:string}} model */
 export function renderFocusLedger({exerciseId,headers,toggleHtml,rowsHtml}) {
   return `<div class="ledgerline__head"><span>${esc(headers.set)}</span><span class="ledgerline__vals">`+
     `<span class="fx-col">${esc(headers.load)}</span><span class="fx-col">${esc(headers.reps)}</span>`+
     `<span class="fx-col">${headers.effortHtml}</span></span></div>`+toggleHtml+
     `<div class="ledger__rows" id="ledger_${esc(exerciseId)}">${rowsHtml}</div>`;
 }
+/** @param {{exerciseId:string,status:string,peek:boolean,name:string,meta:string,note:string,slotHtml:string,ledgerHtml:string,shelfHtml:string,nextName:string,nextTemplate:string}} model */
 export function renderFocusCard(model) {
   const {exerciseId,status,peek,name,meta,note,slotHtml,ledgerHtml,shelfHtml,nextName,nextTemplate}=model;
   const noteHtml=note?`<p class="fx-note"><span class="icon-mask icon-mask--sm icon-mask--note" aria-hidden="true"></span><span>${esc(note)}</span></p>`:"";
@@ -94,12 +101,15 @@ export function renderFocusCard(model) {
     `<div class="fx-head"><p class="focus-ex__meta">${esc(meta)}</p></div>`+slotHtml+noteHtml+
     `<div class="fcard__ledger">${ledgerHtml}</div>`+nextRow+`</div>`+shelfHtml+`</article>`;
 }
+/** @param {{label:string,previousHtml:string,currentHtml:string,nextHtml:string}} model */
 export function renderFocusDeck({label,previousHtml,currentHtml,nextHtml}) {
+  /** @param {string} inner @param {string} [side] */
   const slot=(inner,side)=>`<div class="deck__slot${side?` deck__slot--${side}`:""}"${side?' aria-hidden="true"':""}>${inner}</div>`;
   return `<div class="deck" id="focusDeck" role="group" aria-roledescription="carousel" aria-label="${esc(label)}"><div class="deck__track" id="focusTrack">`+
     (previousHtml?slot(previousHtml,"prev"):"")+slot(currentHtml)+(nextHtml?slot(nextHtml,"next"):"")+`</div></div>`;
 }
 
+/** @param {ShelfModel} model */
 export function renderFocusPads(model) {
   const {rest,restLabel}=model;
   return `<div class="shelf__pads${rest?" shelf__pads--rest":""}" data-pads="${rest?"rest":"field"}"${rest?` role="group" aria-label="${esc(restLabel)}"`:""}>${renderFocusPadsInner(model)}</div>`;

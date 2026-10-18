@@ -1,12 +1,17 @@
 /** DOM geometry is derived from the rendered Focus card, never durable state. */
+/** @param {{window:Window & typeof globalThis}} options */
 export function createFocusGeometry({window}) {
 const document=window.document,ResizeObserver=window.ResizeObserver;
 const getComputedStyle=window.getComputedStyle.bind(window);
-const $=selector=>document.querySelector(selector),$$=selector=>[...document.querySelectorAll(selector)];
-const focusCard=()=>$("#workout.is-focus .exercise.is-current");
-let focusFloorWatch=null,focusFloorWatched=[];
+/** @param {string} selector */
+const $=selector=>document.querySelector(/** @type {string} */ (selector));
+/** @param {string} selector */
+const $$=selector=>[...document.querySelectorAll(/** @type {string} */ (selector))];
+const focusCard=()=>/** @type {HTMLElement|null} */ ($("#workout.is-focus .exercise.is-current"));
+/** @type {ResizeObserver|null} */ let focusFloorWatch=null;
+/** @type {Element[]} */ let focusFloorWatched=[];
 function sizeFocusDeck(){
-  const cards=$$("#focusDeck .exercise--focus");
+  const cards=/** @type {HTMLElement[]} */ ($$("#focusDeck .exercise--focus"));
   if(cards.length)cards.forEach(sizeFocusCard);
   else sizeFocusCard(focusCard());
   syncFocusFloor()}
@@ -17,31 +22,35 @@ function sizeFocusDeck(){
  *  or an edit rebuilds the shelf. */
 
 function syncFocusFloor(){
-  const card=focusCard(),shell=$("#workoutShell"),shelf=card?.querySelector(".focus-shelf"),head=shell?.querySelector(".wo-head");
+  const card=focusCard(),shell=/** @type {HTMLElement|null} */ ($("#workoutShell")),shelf=card?.querySelector(".focus-shelf"),head=shell?.querySelector(".wo-head");
   if(!card||!shell||!shelf||!head)return;
+  /** @param {Element|null} el */
   const tall=el=>el&&el.getClientRects().length?el.getBoundingClientRect().height:0;
   const context=card.querySelector(".fcard__context");
   const least=context?getComputedStyle(context):null;
   let form=tall($("#woProgress"))+tall(shelf)+(least?Math.max(parseFloat(least.minHeight)||0,parseFloat(least.paddingTop)+parseFloat(least.paddingBottom)):0);
   for(const el of $("#workout")?.children||[])if(!el.matches(".deck"))form+=tall(el);
   // A guide gives way to everything but its own padding, border and margins.
+  /** @param {Element|null} el */
   const guideLeast=el=>{
     if(!el?.getClientRects().length)return 0;
     const s=getComputedStyle(el);
-    return["paddingTop","paddingBottom","borderTopWidth","borderBottomWidth","marginTop","marginBottom"].reduce((n,k)=>n+(parseFloat(s[k])||0),0)};
+    return/** @type {const} */ (["paddingTop","paddingBottom","borderTopWidth","borderBottomWidth","marginTop","marginBottom"]).reduce((n,k)=>n+(parseFloat(s[k])||0),0)};
   form+=guideLeast(card.querySelector(":scope > .guide-cue"));
   const shellGuide=guideLeast(shell.querySelector(":scope > .guide-cue"));
   shell.style.setProperty("--focus-form-floor",`${Math.ceil(form)}px`);
   shell.style.setProperty("--focus-floor",`${Math.ceil(form+tall(head)+shellGuide)}px`);
   if(typeof ResizeObserver!=="function")return;
   // Observing starts with a notification of its own, so the watch is only re-pointed when its elements changed.
-  const watched=[head,shelf,$("#woProgress")].filter(Boolean);
+  const watched=[head,shelf,$("#woProgress")].filter((el)=>el!==null);
   if(focusFloorWatched.length===watched.length&&watched.every((el,i)=>el===focusFloorWatched[i]))return;
   focusFloorWatch??=new ResizeObserver(()=>syncFocusFloor());
   focusFloorWatch.disconnect();
-  watched.forEach(el=>focusFloorWatch.observe(el));
+  const observer=focusFloorWatch;
+  watched.forEach(el=>observer.observe(el));
   focusFloorWatched=watched}
 
+/** @param {HTMLElement|null} card */
 function sizeFocusCard(card){
   if(!card)return;
   const rootFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
@@ -49,14 +58,14 @@ function sizeFocusCard(card){
   // The context region scrolls as one: keep the row being worked on in view. At the first set nothing has been
   // logged and the shelf already shows the set, so the card opens at its top with the exercise's prescription; later
   // the row scrolls into view, but never past a rest that is running or has just ended, which sits above it.
-  const context=card.querySelector(".fcard__context");
-  const open=context?.querySelector(".ledgerline--open");if(!open)return;
-  if(+open.dataset.lrow<=1&&context.scrollTop===0)return;
+  const context=/** @type {HTMLElement|null} */ (card.querySelector(".fcard__context"));
+  const open=/** @type {HTMLElement|null|undefined} */ (context?.querySelector(".ledgerline--open"));if(!context||!open)return;
+  if(Number(open.dataset.lrow)<=1&&context.scrollTop===0)return;
   const box=context.getBoundingClientRect(),row=open.getBoundingClientRect();
   if(row.bottom>box.bottom){
     // A rest that is running or has just ended is never scrolled out: whatever else the window holds above the row
     // (a skip bar taking its height, the table's head and disclosure), the row comes no further than the rest's top.
-    const slot=context.querySelector(".fx-slot"),
+    const slot=/** @type {HTMLElement|null} */ (context.querySelector(".fx-slot")),
       resting=!!slot&&!!slot.dataset.rest&&slot.dataset.rest!=="none";
     const keep=resting?slot.getBoundingClientRect().top:NaN;
     const room=Number.isFinite(keep)?Math.max(0,keep-box.top):Infinity;
@@ -73,6 +82,7 @@ function sizeFocusCard(card){
 /** A scroll position for the context region that leaves no line cut at its top edge, under the segment bar: from
  *  `target`, `dir` 1 moves on past a cut line and -1 moves back to show it whole, never beyond `limit`. */
 
+/** @param {HTMLElement} context @param {number} target @param {number} dir @param {number} [limit] */
 function wholeLineScroll(context,target,dir,limit=Infinity){
   const origin=context.getBoundingClientRect().top-context.scrollTop;
   const lines=[...context.querySelectorAll("*")].filter(el=>!el.children.length&&el.getClientRects().length).map(el=>{

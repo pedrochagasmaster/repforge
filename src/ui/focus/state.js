@@ -9,10 +9,16 @@ export function createFocusState() {
   let shelf={key:"",field:"reps",editing:false},sequence=0;
   /** @type {Map<string,Readonly<{value:string,token:number}>>} */
   const held=new Map();
+  /** @type {WeakMap<object,number>} */ let padTaps=new WeakMap();
+  let valueBeat="directional";
+  const padTap=Object.freeze({get:/** @param {object} element */ element=>padTaps.get(element),
+    set:/** @param {object} element @param {number} direction */ (element,direction)=>{padTaps.set(element,direction);},
+    delete:/** @param {object} element */ element=>padTaps.delete(element)});
   const pending=Object.freeze({get:/** @param {string} key */ key=>held.get(key),has:/** @param {string} key */ key=>held.has(key),
     entries:()=>held.entries(),[Symbol.iterator]:()=>held[Symbol.iterator]()});
   return Object.freeze({
-    pending,
+    pending,padTap,
+    get valueBeat(){return valueBeat;},set valueBeat(value){valueBeat=value;},
     /** @param {string} key @param {unknown} value */
     holdPendingField(key,value) {
       const token=++sequence;
@@ -29,6 +35,6 @@ export function createFocusState() {
     get edit(){return edit;},set edit(value){edit=value;},
     get logged(){return logged;},set logged(value){logged=value;},
     get ledgerOpen(){return ledgerOpen;},set ledgerOpen(value){ledgerOpen=value;},
-    reset() {index=0;edit=null;logged=null;ledgerOpen=null;shelf={key:"",field:"reps",editing:false};held.clear();},
+    reset() {index=0;edit=null;logged=null;ledgerOpen=null;shelf={key:"",field:"reps",editing:false};held.clear();padTaps=new WeakMap();},
   });
 }
