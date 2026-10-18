@@ -129,7 +129,7 @@ async function recommendStep(page, until, answers = {}) {
   await answerRecommend(page, { skipBasics: true, days: 3, environment: "commercial_gym", ...answers, until });
 }
 
-function installOfferVerificationObserverInBrowser() {
+export function installOfferVerificationObserverInBrowser() {
   if (window.__catalogEntryOfferObserver) return;
   const digest = value => {
     const text = JSON.stringify(value) ?? String(value);
@@ -213,7 +213,8 @@ function installOfferVerificationObserverInBrowser() {
           && candidate.draftDigest === draftDigest && candidate.requestDigest === requestDigest
           && candidate.startedOrder > baseline.startedOrder && !used.has(candidate.jobId));
         if (job) used.add(job.jobId);
-        if (!job || job.status === "pending") return { ready: false, requestDigest, job: job || null };
+        // A rejected transport can trigger fallback; it is not a verified refusal.
+        if (!job || job.status !== "settled") return { ready: false, requestDigest, job: job || null };
         const dayIndex = baseline.result.value.days.findIndex(day => day.slots.some(slot => slot.id === offer.slotId));
         const slotIndex = dayIndex < 0 ? -1 : baseline.result.value.days[dayIndex].slots.findIndex(slot => slot.id === offer.slotId);
         const slot = job.result?.ok ? job.result.value?.days?.[dayIndex]?.slots?.[slotIndex] : null;

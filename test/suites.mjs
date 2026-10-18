@@ -60,6 +60,7 @@ export const SUITES = {
     s("test/guide-preferences-owner.mjs", [], {domains:["settings","entry"],nodeArgs:["--test"]}),
     s("test/notification-delivery-contract.mjs", [], {domains:["settings","today"],nodeArgs:["--test"]}),
     s("test/motion-disposal-contract.mjs", [], {domains:["shell","workout"],nodeArgs:["--test"]}),
+    s("test/catalog-offer-observer.mjs", [], {domains:["entry"],nodeArgs:["--test"]}),
     s("test/program-executor-lifecycle.mjs", [], {domains:["program","offline"],nodeArgs:["--test"]}),
     s("test/platform-executor-contract.mjs", [], {domains:["program","offline"],nodeArgs:["--test"]}),
     s("test/focus-rest-clock.mjs", [], {domains:["workout"],nodeArgs:["--test"]}),
