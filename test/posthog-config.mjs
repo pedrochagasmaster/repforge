@@ -10,7 +10,7 @@ assert.equal(committedIndex.status, 0, committedIndex.stderr);
 
 assert.doesNotMatch(
   committedIndex.stdout,
-  /^\s*<script src="posthog-config\.js\?v=[^"]+" data-optional-runtime="RepForgeTelemetry"><\/script>\r?$/m,
+  /^\s*<script(?: type="application\/taurifer-script")? src="posthog-config\.js\?v=[^"]+" data-optional-runtime="RepForgeTelemetry"><\/script>\r?$/m,
   "committed index.html must not contain a deploy-generated PostHog config tag",
 );
 
@@ -18,7 +18,7 @@ function run(environment) {
   const directory = mkdtempSync(resolve(tmpdir(), "taurifer-posthog-config-"));
   mkdirSync(resolve(directory, "scripts"));
   copyFileSync(resolve(root, "scripts/generate-posthog-config.mjs"), resolve(directory, "scripts/generate-posthog-config.mjs"));
-  writeFileSync(resolve(directory, "index.html"), '  <script src="posthog-init.js"></script>\n');
+  writeFileSync(resolve(directory, "index.html"), '  <script type="application/taurifer-script" data-module src="app.js?v=fixture"></script>\n');
   const result = spawnSync(process.execPath, ["scripts/generate-posthog-config.mjs"], {
     cwd: directory,
     encoding: "utf8",

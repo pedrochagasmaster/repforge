@@ -1,24 +1,17 @@
+import {readFileSync} from 'node:fs';
+import {inspectTelemetryBoundary} from '../tools/telemetry-boundary.mjs';
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-
-const require = createRequire(import.meta.url);
-const { SDK_VERSION, createAdapter, createConfig, start } = require("../posthog-init.js");
+import {SDK_VERSION,createAdapter,createConfig,createPostHog} from '../src/platform/posthog.js';
+function start(browser){const {__POSTHOG_CONFIG__:config,RepForgeTelemetry:telemetry,...platform}=browser;return createPostHog({browser:platform,telemetry,config}).start()}
 const safeLocation = { origin: "https://taurifer.example", pathname: "/index.html" };
 
 assert.equal(SDK_VERSION, "1.400.0");
 
 {
-  const calls = [];
-  const context = {
-    document: {},
-    RepForgeTelemetry: { boot: () => calls.push("boot") },
-  };
-  const source = readFileSync(resolve(process.cwd(), "posthog-init.js"), "utf8");
-  require("node:vm").runInNewContext(source, context);
-  assert.equal(typeof context.RepForgePostHog?.start, "function");
-  assert.deepEqual(calls, [], "the browser adapter is passive until app boot owns start()");
+  const calls=[];
+  const owner=createPostHog({browser:{},telemetry:{boot:()=>calls.push('boot')}});
+  assert.equal(typeof owner.start,'function');
+  assert.deepEqual(calls,[], 'native adapter construction is passive until verified app boot');
 }
 
 {
@@ -157,3 +150,27 @@ assert.equal(SDK_VERSION, "1.400.0");
 
 assert.equal(start({ __POSTHOG_CONFIG__: {}, document: {} }), false);
 console.log("posthog adapter: exact SDK pin, controlled autocapture, masked replay, opt-out, and loader pass");
+
+// The actual completion guard rejects a seeded direct-SDK producer and a
+// resurrected global owner; repairing the same real source passes.
+{
+ const app=readFileSync(new URL('../app.js',import.meta.url),'utf8');
+ const sources={app,producers:app,telemetry:readFileSync(new URL('../src/platform/telemetry.js',import.meta.url),'utf8'),adapter:readFileSync(new URL('../src/platform/posthog.js',import.meta.url),'utf8')};
+ assert.deepEqual(inspectTelemetryBoundary(sources),[]);
+ assert(inspectTelemetryBoundary({...sources,producers:app+';window.posthog.capture("first_set_logged",{});'}).length>0);
+ assert(inspectTelemetryBoundary({...sources,producers:app+';window["posthog"].capture("first_set_logged",{});'}).length>0);
+ assert(inspectTelemetryBoundary({...sources,app:app.replace('Telemetry.capture(event,properties)','window.RepForgeTelemetry.capture(event,properties)')}).length>0);
+}
+
+{
+ const scripts=[],boots=[],sdkCalls=[];
+ const sdk={capture(){},init(token,config){sdkCalls.push([token,config])},opt_out_capturing(){}};
+ const browser={crypto:{},localStorage:{},location:{},navigator:{},posthog:sdk,
+  document:{createElement:()=>({}),head:{appendChild:script=>scripts.push(script)}}};
+ Object.defineProperty(browser,'RepForgeTelemetry',{get(){throw Error('ambient owner accessed')}});
+ const status={beforeSend:value=>value,enabled:true,installationId:'123e4567-e89b-42d3-a456-426614174000',safeLocation};
+ const owner=createPostHog({browser,telemetry:{boot:options=>{boots.push(options);return status}},config:{projectToken:'phc_public',host:'https://e.taurifer.com',sdkVersion:SDK_VERSION}});
+ owner.start();owner.start();assert.equal(scripts.length,1,'one pending SDK script per native owner');
+ scripts[0].onload();assert.equal(sdkCalls.length,1);assert.equal(typeof boots.at(-1).adapter.capture,'function');
+ owner.start();assert.equal(scripts.length,1,'loaded SDK is reused and rebound after identity restore');
+}

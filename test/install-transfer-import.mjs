@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {installBrowserTraining} from './training-browser.mjs';
 import {ensureBrowserInterchange} from './interchange-browser.mjs';
 import {Transfer,Contract} from './interchange-runtime.mjs';
 /**
@@ -19,18 +20,8 @@ import {Transfer,Contract} from './interchange-runtime.mjs';
  */
 import { finishEarly } from "./fixtures/focus-workout.mjs";
 import { webcrypto } from "node:crypto";
-import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { launchChromium, assertServingApp, waitForAppBoot } from "./browser.mjs";
-
-const require = createRequire(import.meta.url);
-// The envelope is built here with the browser producer's modules. In the app
-// they run beside the raw exercise catalog global that DraftV2 validation
-// reads for its metric-bearing sets; provide the same catalog.
-const RAW_CATALOG = require("../assets/exercise-catalog.json");
-globalThis.RepForgeExerciseCatalog = { snapshot: () => RAW_CATALOG };
-
-
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const STATE_KEY = "repforge_v1";
@@ -195,6 +186,7 @@ function parseMarker(raw) {
 }
 
 async function readLogical(page, { flushDraft = true } = {}) {
+  if(!await page.evaluate(()=>!!window.__repforgeTrainingTest))await installBrowserTraining(page);
   return page.evaluate(async ({ stateKey, uiKey, consentKey, identityKey, entryKey, draftKey, flushDraft: shouldFlush }) => {
     const parse = (key) => {
       const raw = localStorage.getItem(key);
@@ -206,16 +198,16 @@ async function readLogical(page, { flushDraft = true } = {}) {
     const canonicalRaw = localStorage.getItem(draftKey);
     let persistedDraft = null;
     try {
-      const parsed = window.RepForgeWorkoutDraft?.parse?.(canonicalRaw);
-      if (parsed?.kind === "valid") persistedDraft = window.RepForgeWorkoutDraft.logicalCloneSection(parsed.draft);
+      const parsed = window.__repforgeTrainingTest.workout?.parse?.(canonicalRaw);
+      if (parsed?.kind === "valid") persistedDraft = window.__repforgeTrainingTest.workout.logicalCloneSection(parsed.draft);
     } catch {}
-    const logicalDraft = persistedDraft || (current && window.RepForgeWorkoutDraft?.logicalCloneSection
-      ? window.RepForgeWorkoutDraft.logicalCloneSection(current)
+    const logicalDraft = persistedDraft || (current && window.__repforgeTrainingTest.workout?.logicalCloneSection
+      ? window.__repforgeTrainingTest.workout.logicalCloneSection(current)
       : null);
     const candidateRaw = localStorage.getItem(entryKey);
     let candidate = null;
     try {
-      const normalized = window.RepForgeProgramEntry?.normalizeSetupDraftEnvelope?.(candidateRaw);
+      const normalized = window.__repforgeTrainingTest.entry?.normalizeSetupDraftEnvelope?.(candidateRaw);
       candidate = normalized?.ok ? normalized.value.envelope.state : null;
     } catch {}
     return {
@@ -271,13 +263,14 @@ async function flush(page) {
 }
 
 async function activateProgram(page) {
+  if(!await page.evaluate(()=>!!window.__repforgeTrainingTest))await installBrowserTraining(page);
   return page.evaluate(async (request) => {
-    const compiler = window.RepForgeProgramCompiler;
-    const catalog = window.RepForgeExerciseCatalog;
+    const compiler = window.__repforgeTrainingTest.compiler;
+    const catalog = window.__repforgeTrainingTest.catalog;
     if (!compiler || !catalog || typeof window.__repforgeFinalizeProgramSetup !== "function") {
       return { ok: false, code: "production-entry-finalization-unavailable" };
     }
-    const generated = compiler.generateProgram(request, catalog.snapshot());
+    const generated = compiler.generateProgram(request, catalog);
     if (!generated.ok) return { ok: false, code: "production-generation-failed", generated };
     const finalized = await window.__repforgeFinalizeProgramSetup({
       programDefinition: generated.value,
@@ -369,6 +362,7 @@ async function commitChange(page, { change, transitionId, successorProgramId }) 
 }
 
 async function createAcknowledgedDraft(page) {
+  if(!await page.evaluate(()=>!!window.__repforgeTrainingTest))await installBrowserTraining(page);
   return page.evaluate(async () => {
     const hook = window.__repforgeWorkoutDraft;
     const day = hook?.state?.()?.program?.[0]?.day;
@@ -387,7 +381,7 @@ async function createAcknowledgedDraft(page) {
     const live = hook.current();
     return {
       ok: live?.schemaVersion === 2,
-      logical: live && window.RepForgeWorkoutDraft.logicalCloneSection(live),
+      logical: live && window.__repforgeTrainingTest.workout.logicalCloneSection(live),
       raw: hook.raw(),
       checkpoint: hook.checkpoint(),
       read: hook.read(),
@@ -396,8 +390,9 @@ async function createAcknowledgedDraft(page) {
 }
 
 async function createCandidate(page) {
+  if(!await page.evaluate(()=>!!window.__repforgeTrainingTest))await installBrowserTraining(page);
   return page.evaluate(async () => {
-    const Entry = window.RepForgeProgramEntry;
+    const Entry = window.__repforgeTrainingTest.entry;
     const services = window.__repforgeOnboarding?.services?.();
     if (!Entry || !services || typeof window.__repforgePersistSetupDraft !== "function") {
       return { ok: false, code: "entry-candidate-producer-seam-unavailable" };
@@ -438,7 +433,7 @@ async function setDeviceSections(page) {
   return page.evaluate(() => {
     const before = localStorage.getItem("repforge_telemetry_identity_v1");
     window.__repforgeUi?.setTheme?.("dark");
-    const consent = window.RepForgeTelemetry?.setEnabled?.(false);
+    const consent = window.__repforgeTelemetry?.setEnabled?.(false);
     return {
       consent,
       identityBefore: before,
@@ -907,7 +902,7 @@ async function runPreBootImportCase(browser, envelope) {
     }
     window.__repforgeTelemetryBoots = [];
     let installed;
-    Object.defineProperty(window, "RepForgeTelemetry", {
+    Object.defineProperty(window, "__repforgeTelemetry", {
       configurable: true,
       get: () => installed,
       set: (next) => {
@@ -934,7 +929,7 @@ async function runPreBootImportCase(browser, envelope) {
           });
           return status;
         };
-        installed = wrapped;
+        Object.assign(next,wrapped);installed = next;
       },
     });
   };
@@ -996,6 +991,7 @@ async function runPreBootImportCase(browser, envelope) {
 }
 
 async function seedMeaningfulDestination(page, kind, envelope) {
+  if(!await page.evaluate(()=>!!window.__repforgeTrainingTest))await installBrowserTraining(page);
   return page.evaluate(async ({ kind, draft, candidate, stateKey, draftKey, checkpointKey, entryKey, uiKey, consentKey, identityKey, dbName, storeName }) => {
     const parse = (value) => {
       try { return JSON.parse(value); } catch { return null; }
@@ -1018,7 +1014,7 @@ async function seedMeaningfulDestination(page, kind, envelope) {
       return { ok: JSON.stringify(parse(localStorage.getItem(uiKey))?.guideState?.[id]) === JSON.stringify(record) };
     }
     if (kind === "consent-identity-only") {
-      window.RepForgeTelemetry?.setEnabled?.(false);
+      window.__repforgeTelemetry?.setEnabled?.(false);
       const identity = parse(localStorage.getItem(identityKey)) || {
         schemaVersion: 1, installationId: "destination-meaningful-identity", createdAt: "2026-10-10T09:00:00.000Z",
       };
@@ -1031,9 +1027,9 @@ async function seedMeaningfulDestination(page, kind, envelope) {
       value.revision = 0;
       value.writer = { installationId: "destination-draft-installation", tabId: "destination-draft-tab", operationId: "destination-draft-seed" };
       value.program = { ...value.program, durableRevision: 0 };
-      const serialized = window.RepForgeWorkoutDraft.serialize(value);
+      const serialized = window.__repforgeTrainingTest.workout.serialize(value);
       if (serialized?.kind === "error") return { ok: false, code: "draft-serialize-failed", serialized };
-      const checked = window.RepForgeWorkoutDraft.parse(JSON.stringify(serialized));
+      const checked = window.__repforgeTrainingTest.workout.parse(JSON.stringify(serialized));
       if (checked?.kind !== "valid") return { ok: false, code: "draft-parse-failed", checked };
       const raw = JSON.stringify(serialized);
       localStorage.setItem(draftKey, raw);
@@ -1041,10 +1037,10 @@ async function seedMeaningfulDestination(page, kind, envelope) {
         version: 1, kind: "committed", draftId: checked.draft.draftId, revision: checked.draft.revision,
         operationId: "destination-draft-seed", programFingerprint: checked.draft.program.programFingerprint, raw,
       }));
-      return { ok: window.RepForgeWorkoutDraft.parse(raw)?.kind === "valid" };
+      return { ok: window.__repforgeTrainingTest.workout.parse(raw)?.kind === "valid" };
     }
     if (kind === "candidate-only") {
-      const Entry = window.RepForgeProgramEntry;
+      const Entry = window.__repforgeTrainingTest.entry;
       const normalized = Entry?.normalizeSetupDraft?.(candidate);
       if (!normalized?.ok) return { ok: false, code: "candidate-normalize-failed", normalized };
       let persisted;
@@ -1662,7 +1658,7 @@ async function runP4cPostMarkerBootOrdering(browser, envelope) {
       },
     });
     let installed;
-    Object.defineProperty(window, "RepForgeTelemetry", {
+    Object.defineProperty(window, "__repforgeTelemetry", {
       configurable: true,
       get: () => installed,
       set: (next) => {
@@ -1686,7 +1682,7 @@ async function runP4cPostMarkerBootOrdering(browser, envelope) {
           trace.telemetryBoots.push({ before, enabled: result?.enabled, installationId: result?.installationId });
           return result;
         };
-        installed = wrapped;
+        Object.assign(next,wrapped);installed = next;
       },
     });
     window.__repforgeInstallTransferImportFault = (point) => {
@@ -1844,7 +1840,7 @@ async function runP4cSiblingFreezeBoundary(browser, envelope) {
       };
       const before = { freeze: parse(freezeKey), ui: parse(uiKey), consent: localStorage.getItem(consentKey) };
       const themeResult = window.__repforgeUi?.setTheme?.("dark");
-      const consentResult = window.RepForgeTelemetry?.setEnabled?.(false);
+      const consentResult = window.__repforgeTelemetry?.setEnabled?.(false);
       const after = { freeze: parse(freezeKey), ui: parse(uiKey), consent: localStorage.getItem(consentKey) };
       return { before, after, themeResult, consentResult };
     }, { freezeKey: FREEZE_KEY, uiKey: UI_KEY, consentKey: CONSENT_KEY });
@@ -1936,7 +1932,7 @@ async function runP4cMalformedMarkerPreTelemetryBoundary(browser) {
     localStorage.removeItem(consentKey);
     window.__p4cTelemetryBootCalls = [];
     let telemetry;
-    Object.defineProperty(window, "RepForgeTelemetry", {
+    Object.defineProperty(window, "__repforgeTelemetry", {
       configurable: true,
       get: () => telemetry,
       set: (next) => {
@@ -1945,10 +1941,10 @@ async function runP4cMalformedMarkerPreTelemetryBoundary(browser) {
           return;
         }
         const originalBoot = next.boot;
-        telemetry = { ...next, boot(...args) {
+        Object.assign(next,{ boot(...args) {
           window.__p4cTelemetryBootCalls.push({ argCount: args.length });
           return Reflect.apply(originalBoot, next, args);
-        } };
+        } });telemetry=next;
       },
     });
     window.__POSTHOG_CONFIG__ = {

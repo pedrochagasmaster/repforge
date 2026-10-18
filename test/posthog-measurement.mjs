@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, copyFileSync, exis
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { createRequire } from 'node:module';
+import {createTelemetry} from '../src/platform/telemetry.js';
 import { buildPlan, validateConfig } from '../tools/build-posthog-measurement.mjs';
 
 const internal = '00000000-0000-4000-8000-000000000001';
@@ -131,7 +131,8 @@ test('CLI is offline, external-path-only, redacts parse errors, and writes priva
     const root = join(temp, 'repo'); mkdirSync(join(root, 'tools'), { recursive: true });
     const tool = join(root, 'tools', 'build-posthog-measurement.mjs');
     copyFileSync(new URL('../tools/build-posthog-measurement.mjs', import.meta.url), tool);
-    writeFileSync(join(root, 'telemetry.js'), `module.exports = {getSchemaVersion:()=>1,getEventNames:()=>${JSON.stringify(names)},getEventPolicy:()=>"repeatable"};`);
+    mkdirSync(join(root,'src','platform'),{recursive:true});
+    writeFileSync(join(root, 'src','platform','telemetry.js'), `export function createTelemetry(){return {getSchemaVersion:()=>1,getEventNames:()=>${JSON.stringify(names)},getEventPolicy:()=>"repeatable"}};`);
     const input = join(temp, 'config.json'), output = join(temp, 'plan.json');
     writeFileSync(input, JSON.stringify(config()));
     const run = (...args) => spawnSync(process.execPath, [tool, ...args], { encoding: 'utf8' });
@@ -152,9 +153,9 @@ test('CLI is offline, external-path-only, redacts parse errors, and writes priva
 });
 
 // In a full checkout also verify the production contract. No browser or SDK needed.
-const productionModule = new URL('../telemetry.js', import.meta.url);
+const productionModule = new URL('../src/platform/telemetry.js', import.meta.url);
 test('production telemetry taxonomy compiles', { skip: !process.env.CI && !existsSync(productionModule) }, () => {
-  const actual = createRequire(import.meta.url)('../telemetry.js');
+  const actual = createTelemetry();
   const plan = buildPlan(config(), actual);
   assert.deepEqual(Object.keys(plan.eventPolicies), [...actual.getEventNames()]);
 });

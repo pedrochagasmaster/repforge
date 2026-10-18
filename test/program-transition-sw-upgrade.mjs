@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {serveReleasedV120Asset,activateReplacementAfterClientLeaves} from './fixtures/v120-assets.mjs';
 /**
  * Plan 052-P7's production-backed upgrade/recovery oracle.
  *
@@ -43,6 +44,7 @@ const statSafe = (file) => {
 let mode = "old";
 const server = createServer((request, response) => {
   const pathname = decodeURIComponent((request.url || "/").split("?", 1)[0]);
+  if(serveReleasedV120Asset(pathname,response))return;
   if (pathname === "/sw.js") {
     response.writeHead(200, { "content-type": "text/javascript", "cache-control": "no-store" });
     response.end(mode === "old" ? OLD_WORKER : CURRENT_WORKER);
@@ -236,23 +238,18 @@ async function installReleasedWorker(page, base) {
     await registration.update();
   });
   await waitForWorkerTakeover(page, { cache: oldCache, timeout: 10000 });
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await waitForAppBoot(page, { base });
   assert.equal(await page.evaluate(() => !!navigator.serviceWorker.controller), true,
-    "the released worker controls the seeded page before upgrade");
+    "the released worker controls the already-running client before seeding");
 }
 
 async function upgradeToCurrent(page, base) {
   mode = "current";
-  await page.evaluate(async () => {
-    const registration = await navigator.serviceWorker.ready;
-    await registration.update();
-  });
-  await waitForWorkerTakeover(page, { cache: currentCache, replaced: oldCache, timeout: 20000 });
-  await page.reload({ waitUntil: "domcontentloaded" });
+  await activateReplacementAfterClientLeaves(page,{cache:currentCache,replaced:oldCache});
+  await page.goto(base,{waitUntil:'domcontentloaded'});
   assert.equal(await page.evaluate(() => !!navigator.serviceWorker.controller), true,
     "a worker controls the page after the update");
-  assert.equal(await page.evaluate(() => typeof window.RepForgeProgramTransition), "object",
+  await page.waitForFunction(()=>typeof window.__repforgeProgramTransition==='object');
+  assert.equal(await page.evaluate(() => typeof window.__repforgeProgramTransition), "object",
     "the current shell executes the transition module with the current worker");
 }
 

@@ -212,7 +212,7 @@ async function main() {
     assert(await page.locator("#entryFreeformOut").isVisible(), "copying advances to stage 3");
     await page.fill("#entryFreeformOut", REPLY);
     await page.evaluate(() => {
-      const telemetry = window.RepForgeTelemetry;
+      const telemetry = window.__repforgeTelemetry;
       const original = telemetry.capture;
       window.__capturedTelemetryCalls = [];
       telemetry.capture = function(event, properties) {
@@ -934,7 +934,7 @@ async function main() {
     // A gapped reply reaches the existing gap step, disclosure and all.
     await toStage3(page);
     await page.evaluate(() => {
-      const telemetry = window.RepForgeTelemetry;
+      const telemetry = window.__repforgeTelemetry;
       const original = telemetry.capture;
       window.__gapTelemetryCalls = [];
       telemetry.capture = function(event, properties) {

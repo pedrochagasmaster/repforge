@@ -66,6 +66,12 @@ const browser = await launchChromium();
 // while a real config could send requests outside the deterministic SDK double.
 async function privacyContext() {
   const context = await browser.newContext({ serviceWorkers: "block" });
+  await context.addInitScript(()=>{
+    window.__legacyTelemetryLookups=0;
+    for(const key of ['RepForgeTelemetry','RepForgePostHog'])Object.defineProperty(window,key,{configurable:true,
+      get(){window.__legacyTelemetryLookups++;throw new Error('legacy telemetry lookup')},
+      set(){window.__legacyTelemetryLookups++;throw new Error('legacy telemetry installation')}});
+  });
   await context.route(/\/posthog-config\.js(?:\?|$)/, route => route.fulfill({
     status: 200, contentType: "application/javascript", body: "/* config supplied by privacy fixture */",
   }));
@@ -99,8 +105,9 @@ try {
     await page.goto(`${BASE}index.html?TAURIFER_SENTINEL_QUERY_7ab0#TAURIFER_SENTINEL_FRAGMENT_7ab0`);
     await waitForAppBoot(page, { base: BASE });
     await page.waitForFunction(() => window.__fakePosthogReady === true, undefined, { timeout: 10000 });
+    ok(await page.evaluate(()=>window.__legacyTelemetryLookups===0),'actual native app boots and loads SDK without reading or installing classic telemetry owners');
 
-    await page.evaluate(() => window.RepForgeTelemetry.capture("program_path_selected", { route: "import" }));
+    await page.evaluate(() => window.__repforgeTelemetry.capture("program_path_selected", { route: "import" }));
     await page.evaluate(() => {
       const config = window.posthog.__config;
       const common = {
@@ -177,8 +184,8 @@ try {
       "replay URL is reduced to the safe origin and pathname");
 
     const beforeOptOut = requests.length;
-    await page.evaluate(() => window.RepForgeTelemetry.setEnabled(false));
-    await page.evaluate(() => window.RepForgeTelemetry.capture("first_set_logged", {}));
+    await page.evaluate(() => window.__repforgeTelemetry.setEnabled(false));
+    await page.evaluate(() => window.__repforgeTelemetry.capture("first_set_logged", {}));
     await page.waitForTimeout(100);
     ok(requests.length === beforeOptOut, "opt-out stops future requests immediately");
     ok((await page.evaluate(() => window.posthog.__recording)) === false, "opt-out stops the active recording");
@@ -216,7 +223,7 @@ try {
     await page.evaluate(() => window.__repforgeShowSettings());
     ok(await page.locator("#telemetryToggle").isVisible(), "the privacy control remains usable after SDK failure");
     await context.setOffline(true);
-    ok((await page.evaluate(() => window.RepForgeTelemetry.capture("first_set_logged", {}))) === false,
+    ok((await page.evaluate(() => window.__repforgeTelemetry.capture("first_set_logged", {}))) === false,
       "offline capture fails closed without throwing");
     ok(await page.locator("#settings").isVisible(), "offline telemetry failure leaves the product view unchanged");
     await context.close();

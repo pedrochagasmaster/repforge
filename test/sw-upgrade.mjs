@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {serveReleasedV120Asset,activateReplacementAfterClientLeaves} from './fixtures/v120-assets.mjs';
 /**
  * Install the released worker first, then serve the current worker from the
  * same URL and prove that the real update lifecycle removes the old cache.
@@ -35,6 +36,7 @@ const mimeType = (extension) => ({
 }[extension] || "application/octet-stream");
 const server = createServer((request, response) => {
   const pathname = decodeURIComponent((request.url || "/").split("?", 1)[0]);
+  if(serveReleasedV120Asset(pathname,response))return;
   if (pathname === "/sw.js") {
     response.writeHead(200, { "content-type": "text/javascript", "cache-control": "no-store" });
     response.end(mode === "old" ? oldWorker : currentWorker);
@@ -68,8 +70,8 @@ const server = createServer((request, response) => {
   response.writeHead(200, { "content-type": mimeType(extname(file)) });
   if (mode === "optional-html" && ["/", "/index.html"].includes(pathname)) {
     const html = readFileSync(file, "utf8").replace(
-      '  <script src="posthog-init.js"></script>',
-      '  <script src="posthog-config.js?v=sw-contract" data-optional-runtime="RepForgeTelemetry"></script>\n  <script src="posthog-init.js"></script>',
+      /^(  <script type="application\/taurifer-script" data-module src="app\.js[^\"]*"><\/script>)$/m,
+      '  <script type="application/taurifer-script" src="posthog-config.js?v=sw-contract" data-optional-runtime="RepForgeTelemetry"></script>\n$1',
     );
     response.end(html);
     return;
@@ -96,13 +98,13 @@ try {
   assert.equal(await page.evaluate(() => navigator.serviceWorker.controller?.scriptURL.endsWith("/sw.js")), true, "released worker controls the first launch");
   assert.equal(await page.evaluate((cache) => caches.has(cache), oldCache), true, `released cache ${oldCache} is installed`);
 
+  await page.locator('#releaseRecovery').waitFor({state:'visible',timeout:10000});
+  assert.equal(await page.evaluate(()=>window.__repforgeBooted===true),false,'a fresh current writer refuses an incompatible historical controller');
+  assert.equal(await page.locator('#releaseRecovery').isVisible(),true,'incompatible release exposes update recovery');
   mode = "current";
-  await page.evaluate(async () => {
-    const registration = await navigator.serviceWorker.ready;
-    await registration.update();
-  });
-  await waitForWorkerTakeover(page, { cache: currentCache, replaced: oldCache, timeout: 20000 });
-  await page.reload({ waitUntil: "domcontentloaded" });
+  await activateReplacementAfterClientLeaves(page,{cache:currentCache,replaced:oldCache});
+  await page.goto(base,{waitUntil:'domcontentloaded'});
+  await waitForWorkerTakeover(page,{cache:currentCache,replaced:oldCache});
   await waitForAppBoot(page, { base });
   assert.equal(await page.locator("#dayTabs").count(), 1, "updated worker boots the entry shell");
   assert.equal(await page.evaluate(() => !!window.RepForgeProgramEntry), true, "updated shell includes program entry code");
@@ -157,15 +159,15 @@ try {
     const optionalPage = await optionalContext.newPage();
     await optionalPage.goto(base, { waitUntil: "domcontentloaded" });
     await waitForAppBoot(optionalPage, { base });
-    await optionalPage.evaluate(() => navigator.serviceWorker.register("./sw.js"));
-    await optionalPage.waitForFunction(() => !!navigator.serviceWorker.controller, { timeout: 15000 });
+    await optionalPage.evaluate(async () => {await navigator.serviceWorker.register("./sw.js");await navigator.serviceWorker.ready;});
     await optionalPage.reload({ waitUntil: "domcontentloaded" });
+    await optionalPage.waitForFunction(() => !!navigator.serviceWorker.controller, { timeout: 15000 });
     await waitForAppBoot(optionalPage, { base });
     const optionalBoot = await optionalPage.evaluate(() => ({
       appBooted: window.__repforgeBooted === true,
       motionLayer: !!window.RepForgeMotion,
       dndRuntime: !!window.RepForgeDndRuntime,
-      telemetryBoundary: !!window.RepForgeTelemetry?.boot,
+      telemetryBoundary: !!window.__repforgeTelemetry?.boot,
     }));
     assert.equal(optionalBoot.appBooted, true, "app cold-boots with unavailable optional runtimes and analytics config");
     assert.equal(optionalBoot.motionLayer, true, "Motion's guarded integration layer remains available");
