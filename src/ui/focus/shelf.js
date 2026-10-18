@@ -13,7 +13,7 @@ import {renderFocusShelf,renderFocusPads} from './view.js';
  */
 /** Field and pad presentation over already-selected acknowledged set facts.
  * Pending raw input belongs to Focus state; canonical values stay in DraftV2.
- * @param {{focus:ReturnType<typeof import('./state.js').createFocusState>,metrics:ReturnType<typeof import('../workout/metrics.js').createMetricDisplay>,effort:ReturnType<typeof import('./effort.js').createEffortPresentation>,rest:ReturnType<typeof import('./rest-view.js').createRestPresentation>,copy:{t:(key:string,values?:Record<string,unknown>)=>string,plural:(count:number,word:string)=>string},format:{number:(value:unknown)=>string,unit:()=>string}}} options */
+ * @param {{focus:ReturnType<typeof import('./state.js').createFocusState>,metrics:ReturnType<typeof import('../metrics.js').createMetricDisplay>,effort:ReturnType<typeof import('./effort.js').createEffortPresentation>,rest:ReturnType<typeof import('./rest-view.js').createRestPresentation>,copy:{t:(key:string,values?:Record<string,unknown>)=>string,plural:(count:number,word:string)=>string},format:{number:(value:unknown)=>string,unit:()=>string}}} options */
 export function createShelfPresentation({focus,metrics,effort,rest,copy:{t,plural},format}){
   const effortLabel=(/** @type {string} */ value)=>t('effort.'+value);
   const text=(/** @type {unknown} */ raw)=>{const value=parseDecimalInput(raw);return Number.isFinite(value)?format.number(value):String(raw??'')};
@@ -22,7 +22,7 @@ export function createShelfPresentation({focus,metrics,effort,rest,copy:{t,plura
     const key=`${exerciseId}_${ordinal}`,id=`metric_${metric.id}`,inputKey=`${key}_${id}`;
     const pending=focus.pending.get(inputKey)?.value,carried=carry?.metric?.id===metric.id?carry.value:null;
     const raw=carried??pending??set.edited.metrics?.[metric.id]??'';
-    const target=/** @type {import('../workout/metrics.js').Target} */(set.programmed.targets?.[metric.semantic]);
+    const target=/** @type {import('../metrics.js').Target} */(set.programmed.targets?.[metric.semantic]);
     const shown=raw!==''?text(metrics.text(raw,metric)):metrics.targetText(target);
     const unit=metrics.displayUnit(metric),label=`${metrics.label(metric)}${unit?`, ${unit}`:''}`;
     return {key,id,metricId:metric.id,selected:ui.field===id,editing:ui.editing,

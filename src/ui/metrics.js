@@ -1,7 +1,7 @@
-import {formatNumberPlain,formatNumber} from '../format.js';
-import {parseDecimalInput,canonicalMetricInput as metricInput,metricKgFromDisplay,parseMetricValue,POUNDS_PER_KG} from '../../training/metrics.js';
+import {formatNumberPlain,formatNumber} from './format.js';
+import {parseDecimalInput,canonicalMetricInput as metricInput,metricKgFromDisplay,parseMetricValue,POUNDS_PER_KG} from '../training/metrics.js';
 
-/** @typedef {import('../../training/metrics.js').MetricDefinition} MetricDefinition
+/** @typedef {import('../training/metrics.js').MetricDefinition} MetricDefinition
  * @typedef {number|{min:number,max:number}|null|undefined} Target
  */
 /** Metric presentation shared by the Focus shelf and existing History forms.

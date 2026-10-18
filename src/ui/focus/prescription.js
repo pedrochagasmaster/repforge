@@ -1,11 +1,11 @@
 import {effortForRir} from './effort.js';
 /** @typedef {{adaptive:boolean,rirMin:number|null,rirMax:number|null}|null} SlotFacts
  * @typedef {{strategy?:{id?:string,params?:Record<string,unknown>}}|null|undefined} Progression
- * @typedef {{sets:number,metrics:readonly {metric:import('../../training/metrics.js').MetricDefinition,target:import('../workout/metrics.js').Target}[]}} PrescriptionFacts
+ * @typedef {{sets:number,metrics:readonly {metric:import('../../training/metrics.js').MetricDefinition,target:import('../metrics.js').Target}[]}} PrescriptionFacts
  */
 /** Localized authored-prescription labels. The query owner supplies the cycle,
  * set metrics, progression and RIR envelope; no training rule lives here.
- * @param {{metrics:ReturnType<typeof import('../workout/metrics.js').createMetricDisplay>,copy:{t:(key:string,values?:Record<string,unknown>)=>string},format:{number:(value:unknown)=>string}}} options */
+ * @param {{metrics:ReturnType<typeof import('../metrics.js').createMetricDisplay>,copy:{t:(key:string,values?:Record<string,unknown>)=>string},format:{number:(value:unknown)=>string}}} options */
 export function createPrescriptionPresentation({metrics,copy:{t},format}){
   /** @param {PrescriptionFacts} facts */
   function summary({sets,metrics:targets}){

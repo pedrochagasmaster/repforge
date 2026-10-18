@@ -11,6 +11,10 @@ publish training state, write storage, allocate durable identity, or implement a
 second training rule. Do not import another feature's private files; share a
 small actual contract instead. Mount/dispose/remount must not duplicate effects.
 
+Focus composition starts at `focus/controller.js` and its `presentation.js`.
+Shared metric labels and display targets belong to `ui/metrics.js`, used by
+Focus and History forms; canonical metric parsing stays in training.
+
 Use `node tools/run-tests.mjs entry --list`, `workout --list`, or `state --list`
 to locate the real owning journey. Preserve pending input, focus/Back, durable
 acknowledgement and malformed-data negatives. Critical visual acceptance uses the

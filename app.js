@@ -2,22 +2,12 @@ import {review as ReviewRules} from './src/training/authoring.js';
 import {createProgramReview} from './src/ui/editors.js';
 import {createStorageRecoveryView} from './src/ui/storage-recovery.js';
 import {createStorageRecoveryCommands} from './src/app/storage-recovery.js';
-import {createFocusFormat} from './src/ui/focus/format.js';
-import {createFocusValues} from './src/ui/focus/values.js';
 import {createTelemetry} from './src/platform/telemetry.js';
 import {createPostHog} from './src/platform/posthog.js';
-import {createPrescriptionPresentation} from './src/ui/focus/prescription.js';
-import {createFocusInputs} from './src/ui/focus/inputs.js';
-import {createLedgerPresentation} from './src/ui/focus/ledger.js';
-import {createShelfPresentation} from './src/ui/focus/shelf.js';
-import {createEffortPresentation,EFFORT_STEPS,effortForRir} from './src/ui/focus/effort.js';
-import {createCuePresentation} from './src/ui/focus/cue.js';
-import {createRestPresentation} from './src/ui/focus/rest-view.js';
 import {createBlockTransitionCommands} from './src/app/block-transition.js';
 import {createWorkoutReadModel,movementToken,movementIdKey,loggedMovementName,liftKey,exerciseLiftKey} from './src/app/workout-model.js';
 import {createShell,NATIVE_FOCUS_SELECTOR as ROUTE_NATIVE_FOCUS} from './src/ui/shell.js';
 import {createNotifications} from './src/platform/notifications.js';
-import {createMetricDisplay} from './src/ui/workout/metrics.js';
 import {createSessionSheet} from './src/ui/workout/session-sheet.js';
 import {createEntryController} from './src/ui/entry/controller.js';
 import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,createEntryAnswerCommands,createEntryQuestionFlow,createEntryReviewSession,createEntrySetup,FREEFORM_MAX_CHARS} from './src/app/entry.js';
@@ -711,6 +701,7 @@ async function shareOrDownload(text,name,type,title="Taurifer backup"){
   try{if(navigator.canShare){const file=new File([text],name,{type});
     if(navigator.canShare({files:[file]})){await navigator.share({files:[file],title});return}}}catch{}
   download(text,name,type)}
+const {EFFORT_STEPS,effortForRir}=Focus;
 const EFFORT_RIR={easy:3,hard:1,max:0};
 const isEffortMode=()=>state?.settings?.rirMode==="effort";
 /** Bucket a logged RIR into the effort word closest to it. */
@@ -784,9 +775,9 @@ const focusUi=Focus.createFocusState();
 const pendingFields=focusUi.pending;
 function holdPendingField(key,value){return focusUi.holdPendingField(key,value)}
 function releasePendingField(key,token){focusUi.releasePendingField(key,token)}
-const FocusEffort=createEffortPresentation({window,focus:focusUi,copy:{t},motion:{playBeat}});
-const shelfValueMove=FocusEffort.valueMove,setEffortPick=FocusEffort.pick,
-  effortPopHtml=FocusEffort.html,openEffortPop=FocusEffort.open,closeEffortPop=FocusEffort.close,toggleEffortPop=FocusEffort.toggle;
+const shelfValueMove=(...args)=>FocusEffort.valueMove(...args),setEffortPick=(...args)=>FocusEffort.pick(...args),
+  effortPopHtml=(...args)=>FocusEffort.html(...args),openEffortPop=(...args)=>FocusEffort.open(...args),
+  closeEffortPop=(...args)=>FocusEffort.close(...args),toggleEffortPop=(...args)=>FocusEffort.toggle(...args);
 /* The glossary popover is a non-modal dialog opened from a term. By keyboard or screen reader it behaves as one:
    the term says it opens a dialog and whether it is open, focus moves into the popover (named and described by the
    definition it shows, so the text is read out), and Escape or the close button closes it and returns focus to the
@@ -1146,6 +1137,11 @@ function publishTrainingSnapshot(snapshot){
 }
 let activeRecoveryRecord=null,activeRecoveryRecordBlockId=null;
 const focusRest=Focus.createRestClock({window});
+const FocusPresentation=Focus.createFocusPresentation({window,focus:focusUi,clock:focusRest,
+  training:{manualLoadCarry:WorkoutDraft.manualLoadCarry},readSettings:()=>state.settings,
+  readDefaultRest:()=>normalizeRestSec(state?.settings?.restSec),copy:{t,plural:tp,language:uiLang,term},motion:{playBeat}});
+const {format:FocusFormat,metrics:workoutMetricDisplay,values:FocusValues,effort:FocusEffort,
+  rest:RestPresentation,cue:FocusCue,ledger:FocusLedger,prescription:FocusPrescription,shelf:FocusShelf}=FocusPresentation;
 // focusRest.paused holds the milliseconds left while the clock is held (null while it
 // runs); focusRest.length is the length the current or next rest is armed at.
 
@@ -3919,8 +3915,6 @@ const REST_OVERTIME_MAX=60*60;
 /** Milliseconds left on the clock: frozen while held, and negative once the
  *  rest has run past the bell. Idle, it reads as the length the next rest
  *  would run for — which is what the sheet shows before anything is armed. */
-const RestPresentation=createRestPresentation({window,clock:focusRest,
-  readDefaultSeconds:()=>normalizeRestSec(state?.settings?.restSec),copy:{t}});
 function restLeftMs(){return focusRest.left(normalizeRestSec(state?.settings?.restSec))}
 function restOvertimeSec(){return focusRest.end?Math.round(-restLeftMs()/1000):0}
 /** Whole seconds left, as the clock reads them: zero or negative once the bell has gone. */
@@ -4910,8 +4904,6 @@ function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
   $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" aria-pressed="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(dayLabel(d))}</button>`).join("");
   $$("#dayTabs button").forEach(b=>b.onclick=async()=>{if(!await requestWorkoutDay(b.dataset.day))return;renderTabs();renderWorkout();renderToday()})}
 
-const FocusFormat=createFocusFormat({readSettings:()=>state.settings,copy:{language:uiLang}});
-const FocusValues=createFocusValues({focus:focusUi,training:{manualLoadCarry:WorkoutDraft.manualLoadCarry},format:FocusFormat,copy:{t}});
 function pendingFocusLoad(exId,ordinal){return FocusValues.pendingLoad(activeWorkoutDraft,exId,ordinal)}
 function manualLoadCarry(exId,ordinal,recommendation){return FocusValues.carry(activeWorkoutDraft,exId,ordinal,recommendation)}
 function setFieldVals(ex,n,r,draft,prev){return FocusValues.fields({draft:activeWorkoutDraft,flat:draft,
@@ -4935,7 +4927,6 @@ const focusActiveSet=ex=>focusSelection(ex).active;
 /** The two lines above the ledger: what to do with this set, and why. Line one
  *  is the verb and the load, line two the reps to aim for. The load is the
  *  engine's: `setSuggestion` for this set, never a figure derived here. */
-const FocusCue=createCuePresentation({copy:{t},format:FocusFormat,rest:RestPresentation});
 function focusCue(ex,n,r,draft,prev,editing){
   const sg=editing?{}:setSuggestion(ex,n,r,draft,prev.find(x=>x.set===n));
   const move=sg.src==="session-up"?"up":sg.src==="session-down"?"down":sg.src==="session-hold"?"hold":
@@ -4989,7 +4980,6 @@ function ledgerSetIsWarmup(exId,n){return FocusValues.set(activeWorkoutDraft,exI
  *  through a correction, and closes after it and whenever the lifter moves on.
  *  A finished exercise keeps its whole ledger, as it always has. */
 
-const FocusLedger=createLedgerPresentation({copy:{t,plural:tp,term},format:FocusFormat});
 function focusLedgerModel(ex,r,draft,prev,{effortMode,peek=false}){
   const selection=focusSelection(ex,peek);
   return {exerciseId:ex.id,selection,effortMode,peek,targetEffort:focusTargetEffort(ex),facts:selection.visible.map(n=>{
@@ -5039,18 +5029,14 @@ const shelfText=raw=>FocusShelf.text(raw);
 /** The load step the pads move by, in the unit the lifter sees. */
 function shelfLoadStep(){return FocusFormat.loadStep()}
 function focusMetricDefinitions(exId,n){return FocusValues.definitions(activeWorkoutDraft,exId,n)}
-const workoutMetricDisplay=createMetricDisplay({readSettings:()=>state.settings,copy:{t,language:uiLang}});
 const metricTextValue=workoutMetricDisplay.text,canonicalMetricInput=workoutMetricDisplay.canonicalInput,
   metricKgFromDisplay=workoutMetricDisplay.kgFromDisplay,metricTargetText=workoutMetricDisplay.targetText,
   canonicalMetricTargetText=workoutMetricDisplay.canonicalTargetText;
-const FocusPrescription=createPrescriptionPresentation({metrics:workoutMetricDisplay,copy:{t},format:FocusFormat});
 function prescriptionPresentationFacts(ex,cycleNumber){return workoutQueries().prescriptionFacts(ex,cycleNumber)}
 function programPrescriptionSummary(ex,cycleNumber){return FocusPrescription.summary(prescriptionPresentationFacts(ex,cycleNumber))}
 const metricLabel=workoutMetricDisplay.label,metricDisplayUnit=workoutMetricDisplay.displayUnit,
   parseHistoryMetricInput=workoutMetricDisplay.parseHistoryInput;
 
-const FocusShelf=createShelfPresentation({focus:focusUi,metrics:workoutMetricDisplay,effort:FocusEffort,
-  rest:RestPresentation,copy:{t,plural:tp},format:FocusFormat});
 function focusPadsHtml(ex,n,ui,vals,{effortMode,peek,editing}){
   return FocusShelf.padsHtml({exerciseId:ex.id,ordinal:n,ui,values:vals,effortMode,peek,editing,
     metrics:focusMetricDefinitions(ex.id,n),loadStep:shelfLoadStep()})}
@@ -5289,7 +5275,7 @@ function applyDraftIssue(issues){
  *  live one takes a handler. */
 const $w=sel=>$$(`#workout ${sel}`).filter(el=>!el.closest(".is-peek"));
 let FocusInputs;
-function focusInputs(){return FocusInputs||(FocusInputs=createFocusInputs({window,focus:focusUi,
+function focusInputs(){return FocusInputs||(FocusInputs=Focus.createFocusInputs({window,focus:focusUi,
   read:()=>({draft:activeWorkoutDraft,unit:state.settings.unit,minJump:state.settings.minJump}),
   commands:focusWorkoutCommands,values:FocusValues,
   captureSet:()=>({draft:activeWorkoutDraft,flat:WorkoutSession.projection(),query:workoutQueries(),program:state.program,effortMode:isEffortMode()}),

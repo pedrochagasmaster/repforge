@@ -10,3 +10,7 @@ export { renderFocusPadsInner, renderFocusPads } from "./view.js";
 export { selectDraftTarget, FIELD_SEMANTICS } from "./select.js";
 
 export {createControlFocus} from "./control-focus.js";
+
+export {createFocusPresentation} from './presentation.js';
+export {createFocusInputs} from './inputs.js';
+export {EFFORT_STEPS,effortForRir} from './effort.js';
