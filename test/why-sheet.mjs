@@ -556,14 +556,14 @@ try {
       load: row.querySelector(".rxrow__load")?.textContent?.trim() || "",
     } : null;
   }, buildRow.id);
-  assert(buildToday?.target === `${buildRow.sets} × ${buildRow.min}–${buildRow.max} · Your targets` && buildToday.load === "–",
+  // The manual target is sets × range alone (owner copy, 2026-10-18).
+  assert(buildToday?.target === `${buildRow.sets} × ${buildRow.min}–${buildRow.max}` && buildToday.load === "–",
     "P069-S1-CUE: Today shows a Build slot's sets × range without a load suggestion", JSON.stringify(buildToday));
   const buildLargeText = await measureLargeTextTodayTarget(buildPage, buildRow.id);
   assert(buildLargeText?.language === "en" && buildLargeText.text === buildToday.target &&
     buildLargeText.document <= buildLargeText.viewport && buildLargeText.left >= 0 &&
-    buildLargeText.right <= buildLargeText.viewport + 1 && buildLargeText.scrollWidth <= buildLargeText.width + 1 &&
-    buildLargeText.height > buildLargeText.lineHeight * 1.5,
-  "P069-S1-CUE: the English Today target wraps at 200% text without horizontal overflow", buildLargeText);
+    buildLargeText.right <= buildLargeText.viewport + 1 && buildLargeText.scrollWidth <= buildLargeText.width + 1,
+  "P069-S1-CUE: the English manual Today target fits at 200% text without horizontal overflow", buildLargeText);
   console.log(`  EN manual 200% target geometry: ${JSON.stringify(buildLargeText)}`);
   await buildPage.evaluate((day) => window.__repforgeEnterWorkout({ day }), buildRow.day);
   await buildPage.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 10000 });
@@ -622,11 +622,11 @@ try {
       document.querySelector(`#todayDash .rxrow[data-exopen="${CSS.escape(id)}"] .rxrow__target`)
         ?.textContent?.replace(/\s+/g, " ").trim() || "", manualPtRow.id);
     const manualPtLargeText = await measureLargeTextTodayTarget(manualPtPage, manualPtRow.id);
-    assert(manualPtLargeText?.language === "pt" && manualPtToday === `${manualPtRow.sets} × ${manualPtRow.min}–${manualPtRow.max} · Suas metas` &&
+    assert(manualPtLargeText?.language === "pt" && manualPtToday === `${manualPtRow.sets} × ${manualPtRow.min}–${manualPtRow.max}` &&
       manualPtLargeText.text === manualPtToday && manualPtLargeText.document <= manualPtLargeText.viewport &&
       manualPtLargeText.left >= 0 && manualPtLargeText.right <= manualPtLargeText.viewport + 1 &&
-      manualPtLargeText.scrollWidth <= manualPtLargeText.width + 1 && manualPtLargeText.height > manualPtLargeText.lineHeight * 1.5,
-    "P069-S1-CUE: the Portuguese manual Today target wraps at 200% text without horizontal overflow", manualPtLargeText);
+      manualPtLargeText.scrollWidth <= manualPtLargeText.width + 1,
+    "P069-S1-CUE: the Portuguese manual Today target fits at 200% text without horizontal overflow", manualPtLargeText);
     console.log(`  PT manual 200% target geometry: ${JSON.stringify(manualPtLargeText)}`);
   } finally {
     await manualPtContext.close();

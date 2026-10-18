@@ -3579,10 +3579,10 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .today-rx__title{margin:0;font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
 .today-rx__meta{flex:none;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .today-rx{container-type:inline-size}
-/* The name keeps a fair share of the row (9rem, about three words) and breaks
-   only between words; the figures give way first, the target wrapping under
-   itself when it has to. */
-.today-rx__grid{display:grid;grid-template-columns:1rem minmax(min(9rem,100%),1fr) minmax(4.125rem,auto) minmax(4.875rem,auto);column-gap:var(--space-12)}
+/* The name keeps a fair share of the row (9rem, about three words, or all the
+   other columns leave on a narrow phone) and breaks only between words; the
+   figures give way first, the target wrapping under itself when it has to. */
+.today-rx__grid{display:grid;grid-template-columns:1rem minmax(min(9rem,100% - 10rem - 3 * var(--space-12)),1fr) minmax(4.125rem,auto) minmax(4.875rem,auto);column-gap:var(--space-12)}
 .today-rx__grid > .rxrow .rxrow__name{overflow-wrap:break-word}
 .today-rx__grid > .rxrow .rxrow__target{white-space:normal}
 .today-rx__cols,.today-rx__grid > .rxrow{grid-column:1 / -1;display:grid;grid-template-columns:subgrid}
