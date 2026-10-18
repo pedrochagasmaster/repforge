@@ -1,5 +1,7 @@
 # Taurifer work sequence
 
+> Updated owner direction, 18 October 2026 at 20:20 UTC: **“Test both and choose the best one.”** The assistant is authorized to compare full-background dimming with a bright but inert explained control and select using evidence. Earlier requests below for a new preference decision are superseded; the historical provenance conflict remains recorded. Follow [the comparison protocol](guide-variant-comparison.md). Execution is still blocked, neither variant has been comparatively tested, and no winner is selected. Feature-intake scope, final acceptance, merge and deployment remain separate.
+
 Snapshot: 18 October 2026 UTC. This sequences work; it does not authorize a merge, deployment, PR closure, infrastructure change or additional feature. [Migration status](migration-status.md) owns implementation acceptance and tested revisions. [Issue425](https://github.com/pedrochagasmaster/repforge/issues/425) owns phone checks and launch decisions. Refresh exact heads and CI before each intake; a green predecessor does not certify an adapted successor.
 
 ## Current pause and completed preparation
