@@ -118,7 +118,8 @@ const startOnboarding=onSetupRequested;
 const promptEndBlock=editor.endBlock;
 /** @param {number[]} values */
 const sum=values=>values.reduce((total,value)=>total+Number(value||0),0);
-const render=()=>onChanged(),toast=onNotice;
+let disposed=false;
+const render=()=>{if(!disposed)onChanged()},toast=(/** @type {string} */message,/** @type {{assertive?:boolean}} */options={})=>{if(!disposed)onNotice(message,options)};
 /** @param {boolean} hidden @param {{inert?:boolean}} [options] */
 function setProgramMetadataHidden(hidden,{inert=false}={}){
   const meta=$("#programMeta");if(!meta)return;
@@ -128,7 +129,7 @@ function setProgramMetadataHidden(hidden,{inert=false}={}){
   meta.classList.toggle("visually-hidden",hidden);
   if(trulyHidden)meta.innerHTML="";
 }
-function renderProgram(){
+function renderProgram(){if(disposed)return;
   // Nothing to show: the tab is the same invitation Today carries, not a
   // summary of a program that does not exist. A lifter who emptied their own
   // program keeps the editor and its Add day — they have not been sent back to
@@ -142,7 +143,7 @@ function renderProgram(){
     for(const sel of["#programOverview","#programMeta","#programBlockBanner","#programEditorWrap","#programEditToggle"]){
       const el=$(sel);if(el)el.classList.add("hidden")}
     const cta=$("#programSetupProgram");
-    if(cta)cta.onclick=()=>startOnboarding(null,{userInitiated:true});
+    if(cta)cta.onclick=()=>{if(disposed)return;return startOnboarding(null,{userInitiated:true})};
     return}
   for(const sel of["#programOverview","#programMeta","#programEditToggle"]){
     const el=$(sel);if(el)el.classList.remove("hidden")}
@@ -224,11 +225,11 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
     (ds.length?`<button type="button" class="listrow" id="shareProgramSetup" data-action-role="navigation"><div class="listrow__main"><div class="listrow__title">${esc(t("program.share_setup"))}</div>`+
       `<div class="listrow__sub">${esc(t("program.share_setup_sub"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`:"")+
     `<button type="button" class="listrow" id="reviewBlockLink" data-action-role="navigation" style="border-bottom:0"><div class="listrow__main"><div class="listrow__title">${esc(t("program.review_block"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
-  $$("#programOverview [data-exopen]").forEach(b=>b.onclick=()=>{if(b.dataset.exopen)openExerciseView(b.dataset.exopen,"program")});
-  const audit=$("#seeVolumeAudit");if(audit)audit.onclick=()=>{editor.editInstalled();renderProgram()};
-  const asText=$("#exportProgramText");if(asText)asText.onclick=openProgramTextSheet;
-  const shareSetup=$("#shareProgramSetup");if(shareSetup)shareSetup.onclick=openShareSetupSheet;
-  const rev=$("#reviewBlockLink");if(rev)rev.onclick=promptEndBlock}
+  $$("#programOverview [data-exopen]").forEach(b=>b.onclick=()=>{if(disposed)return;if(b.dataset.exopen)openExerciseView(b.dataset.exopen,"program")});
+  const audit=$("#seeVolumeAudit");if(audit)audit.onclick=()=>{if(disposed)return;editor.editInstalled();renderProgram()};
+  const asText=$("#exportProgramText");if(asText)asText.onclick=()=>{if(!disposed)openProgramTextSheet()};
+  const shareSetup=$("#shareProgramSetup");if(shareSetup)shareSetup.onclick=()=>{if(!disposed)openShareSetupSheet()};
+  const rev=$("#reviewBlockLink");if(rev)rev.onclick=()=>{if(!disposed)promptEndBlock()}}
 
 function renderProgramChips(){
   const top=$("#pmetaChipsTop"),bottom=$("#pmetaChipsBottom");if(!top||!bottom)return;
@@ -267,13 +268,13 @@ function renderProgramHeader(){
       `<div class="btnrow btnrow--primary-first">`+
       `<button type="button" class="btn btn--cta" id="entryEditorActivate"${issues.length||saveError?" disabled aria-describedby=\"entryEditorStatus\"":""}>${esc(activateLabel)}</button>`+
       `<button type="button" class="btn btn--steel" id="entryEditorSave">${esc(t("entry.editor.save"))}</button></div>`;
-    const name=input("#programName");if(name)name.onchange=async()=>{
-      const result=await commands.form.updateEditorName(name.value);if(result.localOk||result.idbOk)renderProgram()};
-    const save=$("#entryEditorSave");if(save)save.onclick=async()=>{
-      const result=await editor.saveDraft();
+    const name=input("#programName");if(name)name.onchange=async()=>{if(disposed)return;
+      const result=await commands.form.updateEditorName(name.value);if(disposed)return;if(result.localOk||result.idbOk)renderProgram()};
+    const save=$("#entryEditorSave");if(save)save.onclick=async()=>{if(disposed)return;
+      const result=await editor.saveDraft();if(disposed)return;
       if(result?.ok){renderProgram();toast(t("entry.editor.saved"))}
       else $("#entryEditorStatus")?.focus?.()};
-    const activate=$("#entryEditorActivate");if(activate)activate.onclick=()=>editor.activate();
+    const activate=$("#entryEditorActivate");if(activate)activate.onclick=()=>{if(disposed)return;return editor.activate()};
     return}
   const meta=queries.snapshot().programMeta||defaultProgramMeta(queries.snapshot().log);
   el.innerHTML=
@@ -287,9 +288,9 @@ function renderProgramHeader(){
     `</div>`;
   renderProgramChips();
   const nameInp=input("#programName"),startInp=input("#programStarted");if(!nameInp||!startInp)return;
-  nameInp.oninput=async()=>{const captured=nameInp.value,result=await commands.program.updateMetadata({name:captured});
+  nameInp.oninput=async()=>{if(disposed)return;const captured=nameInp.value,result=await commands.program.updateMetadata({name:captured});if(disposed)return;
     if(!(result.localOk||result.idbOk)&&nameInp.value===captured)nameInp.value=queries.snapshot().programMeta?.name||""};
-  startInp.onchange=async()=>{const captured=startInp.value,result=await commands.program.updateMetadata({started:captured||null});
+  startInp.onchange=async()=>{if(disposed)return;const captured=startInp.value,result=await commands.program.updateMetadata({started:captured||null});if(disposed)return;
     if(result.localOk||result.idbOk)renderProgramChips();
     else if(startInp.value===captured)startInp.value=queries.snapshot().programMeta?.started||""};
 }
@@ -297,7 +298,7 @@ function renderProgramHeader(){
 // Collapsed program days live in UI prefs so the state survives reloads without touching training data.
 function collapsedProgramDays(){const v=preferences.read().collapsedProgramDays;return Array.isArray(v)?v.filter(x=>typeof x==="string"):[]}
 /** @param {string} d @param {boolean} on */
-function setDayCollapsed(d,on){const cur=new Set(collapsedProgramDays());
+function setDayCollapsed(d,on){if(disposed)return;const cur=new Set(collapsedProgramDays());
   on?cur.add(d):cur.delete(d);
   preferences.set("collapsedProgramDays",[...cur].filter(x=>programEditorProgram().days().includes(x)))}
 /** @param {string} oldName @param {string} newName */
@@ -396,13 +397,13 @@ const editorFieldText=(e,field)=>String(e[field]??"");
 function bindEditor(){
   inputs("#programEditor [data-field]").forEach(inp=>{
     const field=inp.dataset.field||"",isText=EDITOR_TEXT_FIELDS.has(field);
-    inp.oninput=async()=>{const e=programEditorProgram().find((inp.dataset.id||""));if(!e)return;
+    inp.oninput=async()=>{if(disposed)return;const e=programEditorProgram().find((inp.dataset.id||""));if(!e)return;
       const captured=inp.value,priorValue=String(e[field]??"");
       // A blank name is a stage of typing, not a rename: hold the committed name
       // until something non-blank arrives, so the Exercise fallback never lands
       // in the box under the cursor. Blur puts a name back if none does.
       if(field==="name"&&!captured.trim())return;
-      const result=await commands.form.editField({id:(inp.dataset.id||""),field,value:captured});
+      const result=await commands.form.editField({id:(inp.dataset.id||""),field,value:captured});if(disposed)return;
       if(result.code==="set-count-locked"){inp.value=String(e.sets);toast(t("toast.set_count_locked_draft"));return}
       if(!(result.localOk||result.idbOk)){
         const cur=programEditorProgram().find((inp.dataset.id||""));
@@ -412,8 +413,8 @@ function bindEditor(){
         inp.value=String(programEditorProgram().find((inp.dataset.id||""))?.[field]??captured);
       onWorkoutChanged()};
     if(inp.type==="number"){
-      inp.onfocus=()=>inp.select();
-      inp.onchange=()=>{const e=programEditorProgram().find((inp.dataset.id||""));if(!e)return;const card=inp.closest(".pex");
+      inp.onfocus=()=>{if(disposed)return;return inp.select()};
+      inp.onchange=()=>{if(disposed)return;const e=programEditorProgram().find((inp.dataset.id||""));if(!e)return;const card=inp.closest(".pex");
         (card?[...card.querySelectorAll('input[type="number"][data-field]')].filter(node=>node instanceof window.HTMLInputElement):[inp]).forEach(x=>x.value=String(e[x.dataset.field||""]??""))};
     }
     else if(isText){
@@ -423,16 +424,16 @@ function bindEditor(){
       // abandoned edit, not a rename to a fragment.
       /** @type {string|null} */
       let onFocusText=null;
-      inp.onfocus=()=>{const e=programEditorProgram().find((inp.dataset.id||""));onFocusText=e?editorFieldText(e,field):null};
+      inp.onfocus=()=>{if(disposed)return;const e=programEditorProgram().find((inp.dataset.id||""));onFocusText=e?editorFieldText(e,field):null};
       // Blur is where the box catches up with the model: stray whitespace goes.
-      inp.onchange=async()=>{
+      inp.onchange=async()=>{if(disposed)return;
         if(field==="name"&&!inp.value.trim()&&onFocusText){
           // Backspacing leaves a keystroke commit per character still in flight, and
           // a proposal built on a state they have not landed in yet diffs to nothing.
           // Let the queue drain so the restore is a real change against the model.
-          await commands.form.flush();
+          await commands.form.flush();if(disposed)return;
           if(programEditorProgram().find((inp.dataset.id||""))?.name!==onFocusText)
-            await commands.form.editField({id:(inp.dataset.id||""),field,value:onFocusText});}
+            await commands.form.editField({id:(inp.dataset.id||""),field,value:onFocusText});if(disposed)return;}
         const e=programEditorProgram().find((inp.dataset.id||""));if(!e)return;
         const shown=editorFieldText(e,field);
         if(inp.value!==shown)inp.value=shown;
@@ -441,19 +442,19 @@ function bindEditor(){
     }
   });
   inputs('#programEditor [data-act="renameDay"]').forEach(inp=>{
-    inp.onchange=async()=>{const old=inp.dataset.day||"",next=inp.value.trim();
-      const result=await commands.form.renameDay({oldName:old,nextName:next});
+    inp.onchange=async()=>{if(disposed)return;const old=inp.dataset.day||"",next=inp.value.trim();
+      const result=await commands.form.renameDay({oldName:old,nextName:next});if(disposed)return;
       if(result.invalid){inp.value=dayLabel(old);toast(t(result.code==="day-exists"?"toast.day_name_exists":"toast.day_rename_failed"));return}
       if(!(result.localOk||result.idbOk)){inp.value=dayLabel(old);return}
       renameCollapsedDay(old,next);
       if(!editor.setupOpen()&&queries.day()===old)onDayChanged(next);
       render();toast(t("toast.day_renamed"))};
   });
-  $$("#programEditor button[data-act]").forEach(b=>b.onclick=()=>editorAction(b.dataset.act||"",{id:b.dataset.id||"",day:b.dataset.day||""}));
+  $$("#programEditor button[data-act]").forEach(b=>b.onclick=()=>{if(disposed)return;return editorAction(b.dataset.act||"",{id:b.dataset.id||"",day:b.dataset.day||""})});
 }
 
 /** @param {string} act @param {{id:string,day:string}} ds */
-async function editorAction(act,ds){
+async function editorAction(act,ds){if(disposed)return;
   if(act==="toggleDay"){const card=$(`#programEditor .pday[data-day="${CSS.escape(ds.day)}"]`);if(!card)return;
     const now=!card.classList.contains("is-collapsed");
     card.classList.toggle("is-collapsed",now);setDayCollapsed(ds.day,now);
@@ -466,42 +467,42 @@ async function editorAction(act,ds){
     // already on the day is excluded; the same movement twice is always a slip.
     library.openExercisePicker({quick:true,day:ds.day,title:t("picker.add_to",{day:dayLabel(ds.day)}),subtitle:"",
       exclude:programEditorProgram().forDay(ds.day).map(e=>e.libraryId).filter(Boolean),
-      onPick:async entry=>{
-        const result=await commands.form.addExercise({day:ds.day,entry});
+      onPick:async entry=>{if(disposed)return;
+        const result=await commands.form.addExercise({day:ds.day,entry});if(disposed)return;
         if(result.localOk||result.idbOk){setDayCollapsed(ds.day,false);render();toast(t("toast.exercise_added"))}}})}
   else if(act==="changeEx"){
     const ex=programEditorProgram().find(ds.id);if(!ex)return;
     library.openExercisePicker({title:t("picker.title_change"),subtitle:exerciseDisplayName(ex),
       exclude:programEditorProgram().forDay(ex.day).filter(e=>e.id!==ex.id).map(e=>e.libraryId).filter(Boolean),
-      onPick:async entry=>{
-        const result=await commands.form.replaceExercise({id:ds.id,entry});
+      onPick:async entry=>{if(disposed)return;
+        const result=await commands.form.replaceExercise({id:ds.id,entry});if(disposed)return;
         if(result.localOk||result.idbOk){render();toast(t("toast.exercise_changed"))}}})}
   else if(act==="detachEx"){
     const ex=programEditorProgram().find(ds.id);if(!ex)return;
     if(!confirm(t("confirm.detach_exercise",{name:exerciseDisplayName(ex)})))return;
-    const result=await commands.form.detachExercise({id:ds.id});
+    const result=await commands.form.detachExercise({id:ds.id});if(disposed)return;
     if(result.localOk||result.idbOk){render();toast(t("toast.exercise_detached"))}}
   else if(act==="delEx"){const {active:draftActive,raw:discardDraftRaw}=commands.form.captureRemoval();
     const key=draftActive?"confirm.remove_exercise_discard_draft":"confirm.remove_exercise";
     if(confirm(t(key))){
-    const result=await commands.form.removeExercise({id:ds.id,discardDraftRaw});
+    const result=await commands.form.removeExercise({id:ds.id,discardDraftRaw});if(disposed)return;
     if(result.localOk||result.idbOk){if(result.resetDraftPresentation)onDraftRemoved();render();toast(t("toast.exercise_removed"))}}}
   else if(act==="up"||act==="down"){
-    const result=await commands.form.moveExercise({id:ds.id,direction:act==="up"?-1:1});
+    const result=await commands.form.moveExercise({id:ds.id,direction:act==="up"?-1:1});if(disposed)return;
     if(result.localOk||result.idbOk)render()}
   else if(act==="delDay"){const {active:draftActive,raw:discardDraftRaw}=commands.form.captureRemoval();
     const key=draftActive?"confirm.delete_day_discard_draft":"confirm.delete_day";
     if(confirm(t(key,{day:dayLabel(ds.day)}))){
-    const result=await commands.form.removeDay({day:ds.day,discardDraftRaw});
+    const result=await commands.form.removeDay({day:ds.day,discardDraftRaw});if(disposed)return;
     if(result.localOk||result.idbOk){if(result.resetDraftPresentation)onDraftRemoved();setDayCollapsed(ds.day,false);render();toast(t("toast.day_deleted"))}}}
 }
 
 
-async function saveProgram(){try{const rawBox=$("#programJson");if(!(rawBox instanceof window.HTMLTextAreaElement))return;const parsed=JSON.parse(rawBox.value);
+async function saveProgram(){if(disposed)return;try{const rawBox=$("#programJson");if(!(rawBox instanceof window.HTMLTextAreaElement))return;const parsed=JSON.parse(rawBox.value);
   if(!commands.form.validDefinition(parsed)){toast(t("toast.program_invalid"),{assertive:true});return}
   const {active:draftActive,raw:discardDraftRaw}=commands.form.captureRemoval();
   if(draftActive&&!confirm(t("confirm.replace_program_discard_draft")))return;
-  const result=await commands.form.replaceDefinition({value:parsed,discardDraftRaw});
+  const result=await commands.form.replaceDefinition({value:parsed,discardDraftRaw});if(disposed)return;
   if(!(result.localOk||result.idbOk))return result;
   if(result.resetDraftPresentation)onDraftRemoved();
   // Land on an exercise-bearing day. Structure order can put a renamed first
@@ -521,19 +522,19 @@ async function saveProgram(){try{const rawBox=$("#programJson");if(!(rawBox inst
 /** @type {AbortController|null} */
 let listenerLifetime=null;
 let bound=false;
-function bind(){if(bound)return;bound=true;listenerLifetime=new window.AbortController();
+function bind(){if(bound||disposed)return;bound=true;listenerLifetime=new window.AbortController();
   const saveButton=$("#saveProgram");if(saveButton)saveButton.onclick=saveProgram;
   // Unsaved JSON now outlives a render, so collapsing Advanced is the way to
   // throw a scratch edit away — including one too broken to save.
   const advanced=document.querySelector("details.advanced");
   if(advanced instanceof window.HTMLDetailsElement)advanced.addEventListener("toggle",()=>{if(!advanced.open)syncProgramJson({force:true})},{signal:listenerLifetime.signal});
-  const addButton=$("#addDay");if(addButton)addButton.onclick=async()=>{
-    const result=await commands.form.addDay(),nextDay=result.day;
+  const addButton=$("#addDay");if(addButton)addButton.onclick=async()=>{if(disposed)return;
+    const result=await commands.form.addDay(),nextDay=result.day;if(disposed)return;
     if(result.localOk||result.idbOk){if(!editor.setupOpen())onDayChanged(nextDay);render();toast(t("toast.day_added"))}};
 
 }
-function dispose(){listenerLifetime?.abort();listenerLifetime=null;bound=false;
-  for(const root of $$('#programMeta,#programEditor'))for(const element of [root,...root.querySelectorAll('*')])if(element instanceof window.HTMLElement){element.onclick=null;element.oninput=null;element.onchange=null;element.onfocus=null;}
+function dispose(){disposed=true;listenerLifetime?.abort();listenerLifetime=null;bound=false;
+  for(const root of $$('#program'))for(const element of [root,...root.querySelectorAll('*')])if(element instanceof window.HTMLElement){element.onclick=null;element.oninput=null;element.onchange=null;element.onfocus=null;}
   const save=$('#saveProgram'),add=$('#addDay');if(save)save.onclick=null;if(add)add.onclick=null;
 }
 return Object.freeze({bind,dispose,renderProgram,setDayCollapsed});
