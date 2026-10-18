@@ -449,7 +449,7 @@ closed, so it is a maintenance script rather than a build step: run it only when
 the files change. Its output is committed and may be hand-corrected; the build
 reads the file and never re-derives it. `build-exercises.mjs` fails if any
 mapped id has no colour or an id has a colour but no artwork, and
-`test/simulation.mjs` decodes every file to confirm each recorded colour really
+The former `test/simulation.mjs` decoded every file to confirm each recorded colour really
 is that drawing's paper.
 
 ## capture-ui-screens.mjs

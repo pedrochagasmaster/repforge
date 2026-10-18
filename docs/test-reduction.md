@@ -1,12 +1,21 @@
 # Test reduction and execution measurements
 
-## Goal and present scope
+## Current redesign and historical measurements
 
-The requested goals are at least 50% fewer tests and complete-suite execution
-in at most one quarter of the baseline time. **Neither goal is claimed as met.**
-This change removes one demonstrated duplicate inventory execution and reduces
-catalog fixture/settling overhead without deleting product or fault assertions.
-Further deletions require a stronger retained proof for each plausible bug.
+The owner authorized a ground-up redesign, implemented in draft
+[#446](https://github.com/pedrochagasmaster/repforge/pull/446). The current
+canonical inventory has **97 commands in 97 distinct files**, versus the
+original 208 commands in 195 files: **53.37% fewer commands and 50.26% fewer
+files**. These counts do not claim equivalent behavioral/assertion coverage.
+The [risk contract](test-suite-redesign.md) and
+[execution ledger](test-retirement-ledger.json) state exactly which guarantees
+retire and which production-backed owners remain.
+
+The fourfold whole-suite runtime goal remains **pending a complete paired
+benchmark of the redesigned head**. The measurements below describe the earlier
+incremental experiments preserved in #444; they are historical evidence, not
+measurements of #446. Their former preserve-every-oracle constraint and the
+shared-frame proposal are superseded by the explicit new risk contract.
 
 Baseline: `147e4afa07fea3243efd42b5b7d167c196c6a7ca`, after layout D #436 and
 iPhone fixes #440. Its [successful CI run](https://github.com/pedrochagasmaster/repforge/actions/runs/39100142670)
@@ -175,7 +184,7 @@ generation browser (362.47s), Direction D (284.66s), crash replay (264.08s),
 motion integration (204.16s), and Focus geometry (174.35s). Their unique
 boundaries cannot be removed merely to satisfy the runtime number.
 
-## Remaining consolidation decision
+## Historical shared-frame proposal — not pursued
 
 The declared catalog has 1,118 pixel frames and 772 rendered-role frames.
 Their exact capture-key overlap is 579 (351 app, 228 onboarding); sharing
@@ -184,10 +193,17 @@ or 30.6%, while retaining all pixel and role checks. The 193 audit-only frames
 are dark Portuguese variants and must remain. Audit focus mutations and its
 320px remeasurement must follow catalog observations; onboarding scroll/state
 adjustments require separate observation-point equivalence proof. Reusing a
-PNG cannot replace the live DOM/CDP audit. This is an unimplemented opportunity,
-not measured savings or a 50% reduction in behavioral cases.
+PNG cannot replace the live DOM/CDP audit. This historical proposal was not pursued after the ground-up redesign was authorized. It is not measured savings or a 50% reduction in behavioral cases.
 
 Halving the published baseline requires at most 104 commands or 97 executable
 files. Repacking commands alone cannot establish that goal. A larger
 consolidation must actually share setup and preserve every unique oracle, or
 explicitly identify and obtain agreement on reduced behavioral coverage.
+
+The final redesign comparison must run both entire source inventories and each
+source's aggregate, with fixed 14-worker concurrency, identical Node/browser and
+dependencies, the same seed and no red-to-green replay. Wall means the maximum
+scope execution duration plus that source's aggregate; summed runner time is
+reported separately. Queue/setup/install/artifact time remains visible as
+workflow overhead. Final measured results will be attached to #446 so recording
+them does not alter the measured source commit.
