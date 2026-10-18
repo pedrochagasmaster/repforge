@@ -13,7 +13,7 @@ import { ROOT, loadManifest } from "../tools/ui-screens/manifest.mjs";
 import { appState } from "../tools/ui-screens/screens-app.mjs";
 import { maybeStartLocalPreview } from "../tools/local-preview.mjs";
 import { dismissChrome, setCaptureBase, launchChromium, openPage, settle } from "../tools/ui-screens/session.mjs";
-import { ORANGE_CATEGORIES, gateManifest } from "../tools/check-direction-d.mjs";
+import { ORANGE_CATEGORIES, checkOrange, checkOverflow, checkTargets, gateManifest } from "../tools/check-direction-d.mjs";
 import {
   CHECKS, NON_SHEET_DIALOGS, RULES_ONLY_EXTRA_ALLOWLIST, RULES_ONLY_ORANGE_ALLOWLIST, RULES_ONLY_STATES,
   ONBOARDING_ACCENT_SCOPE, checkSheetBand, gatherRulesOnlyEvidence, readRulesOnlyTreatment, runOnboardingOrange, runRulesOnly, validateRulesOnlyConfig, validateRulesOnlyList,
@@ -53,6 +53,8 @@ console.log("\nThe rules-only state list");
   check(validateRulesOnlyConfig({ allowlist: [{ category: "cta-arrow", selector: "body" }] }).some((item) => item.includes("too broad")),
     "an allowlist entry that names the whole page is rejected");
   check(Object.keys(CHECKS).sort().join() === "orange,overflow,sheetband,targets", "the audit runs exactly the four checks the packet names");
+  check(CHECKS.orange === checkOrange && CHECKS.targets === checkTargets && CHECKS.overflow === checkOverflow,
+    "the shared checks use the Direction D checker functions whose failure fixtures cover them");
   check(NON_SHEET_DIALOGS.every((item) => item.selector && item.reason), "every documented non-sheet dialog carries its reason");
 }
 
@@ -83,20 +85,13 @@ try {
 
     // ------------------------------------------------------------ 1. orange
     console.log("\n1. Orange budget");
+    // Direction D owns the shared checkers' small/control target, overflowing/
+    // fitting/ellipsis, and accent fill/text/border/allowlist failure fixtures.
+    // Keep this wrapper's distinct positive-colour, focus, scroll and sheet cases.
     const orangeMarkup = `
-      <div id="seedOrangeFill" style="width:20px;height:20px;background:var(--accent)"></div>
-      <span id="seedOrangeText" style="color:var(--accent-deep)">label</span>
-      <div id="seedOrangeBorder" style="width:20px;height:20px;border:2px solid var(--accent)"></div>
-      <div id="seedInkOnly" style="width:20px;height:20px;background:var(--ink);color:var(--ink-soft)">ink</div>
       <div id="seedPositive" style="width:20px;height:20px;background:var(--positive)">record</div>`;
     const orange = CHECKS.orange(await seeded(page, orangeMarkup, { allowlist: [] }));
-    for (const id of ["seedOrangeFill", "seedOrangeText", "seedOrangeBorder"]) {
-      check(has(orange, "orange", `#${id}`), `an accent-painted element off the list is rejected: #${id}`, show(orange));
-    }
-    check(!has(orange, "#seedInkOnly") && !has(orange, "#seedPositive"), "ink paint and the --positive record colour are accepted", show(orange));
-    const listed = CHECKS.orange(await seeded(page, orangeMarkup, { allowlist: [{ category: "verdict-glyph", selector: "#seedOrangeFill" }] }));
-    check(!has(listed, "#seedOrangeFill") && has(listed, "#seedOrangeText") && has(listed, "#seedOrangeBorder"),
-      "a listed element passes and the others still fail beside it", show(listed));
+    check(!has(orange, "#seedPositive"), "the --positive record colour is accepted", show(orange));
     // The focused control's focus indicator is the contract's focus role, not an accent use; the same paint unfocused is not.
     await page.evaluate(() => {
       document.querySelector("#gateSeed")?.remove();
@@ -113,34 +108,16 @@ try {
     check(real.length > 0, "the detector is not vacuous: Settings' own accent paint is found with an empty list");
     check(RULES_ONLY_ORANGE_ALLOWLIST.some((entry) => entry.category === "active-dock-icon"), "the inherited D list carries the dock's active item");
 
-    // ------------------------------------------------------------ 2. targets
-    console.log("\n2. Targets");
-    const targetsMarkup = `
-      <button id="seedSmall" style="width:30px;height:30px;min-width:0;min-height:0;padding:0">x</button>
-      <a id="seedSmallLink" href="#seed" style="display:inline-block;width:44px;height:30px;min-height:0">y</a>
-      <button id="seedBigEnough" style="width:44px;height:44px;padding:0">ok</button>
-      <button id="seedHidden" hidden style="width:10px;height:10px">hidden</button>`;
-    const targets = CHECKS.targets(await seeded(page, targetsMarkup));
-    for (const id of ["seedSmall", "seedSmallLink"]) check(has(targets, "targets", `#${id}`), `a sub-44 control is rejected: #${id}`, show(targets));
-    check(!has(targets, "#seedBigEnough") && !has(targets, "#seedHidden"), "a 44 x 44 control and a hidden control are accepted", show(targets));
-
     // ------------------------------------------------------------ 3. overflow
     console.log("\n3. Overflow");
     const overflowMarkup = `
-      <div id="seedWide" style="width:200px;overflow:hidden"><div style="width:600px;height:10px"></div></div>
-      <div id="seedFits" style="width:200px;overflow:hidden"><div style="width:100px;height:10px"></div></div>
-      <p id="seedEllipsis" style="width:100px;margin:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">A very long exercise name that cannot fit</p>
       <div class="tabrow" id="seedTabRow" style="width:200px;overflow-x:auto"><div style="width:600px;height:10px"></div></div>
       <div id="seedRail" data-allow-horizontal-scroll="x" style="width:200px;overflow-x:auto"><div style="width:600px;height:10px"></div></div>
       <div id="seedUnmarkedRail" style="width:200px;overflow-x:auto"><div style="width:600px;height:10px"></div></div>`;
     const overflow = CHECKS.overflow(await seeded(page, overflowMarkup));
-    check(has(overflow, "overflow", "#seedWide"), "an element wider than its box is rejected", show(overflow));
-    check(!has(overflow, "#seedFits"), "an element that fits its box is accepted", show(overflow));
     check(!has(overflow, "#seedTabRow"), "Progress' tab row, the one scrolling row, is excepted", show(overflow));
     check(!has(overflow, "#seedRail"), "a sideways rail registered as an intentional scroller (the plan-050 marker) is excepted", show(overflow));
     check(has(overflow, "overflow", "#seedUnmarkedRail"), "a scrolling row without the marker is still reported", show(overflow));
-    check(has(overflow, "ellipsis", "#seedEllipsis"), "text-overflow: ellipsis is rejected (section 8.13: names wrap, never ellipsized)", show(overflow));
-    check(!has(overflow, "ellipsis", "#seedFits"), "an element with no ellipsis is not reported for one", show(overflow));
 
     // ------------------------------------------------------------ 4. sheet band
     console.log("\n4. Sheet band");

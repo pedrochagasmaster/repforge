@@ -32,6 +32,9 @@ them into one invented denominator would misrepresent the reduction. New
 verification-tool and fixture protocol checks are additions, not deductions.
 Three individually duplicated static/runtime assertions are also removed;
 their retained owners are mapped below. They are not three removed commands.
+The subsequent checker consolidation removes eleven repeated named outcomes
+and adds one public-delegation check (net ten fewer outcomes in that suite).
+It does not remove an executable command or a unique failure mode.
 
 | Removed/reworked execution | Stronger retained evidence | Boundary preserved |
 | --- | --- | --- |
@@ -40,6 +43,8 @@ their retained owners are mapped below. They are not three removed commands.
 | Settling on repeated identical timer writes | The same 400ms mutation quiet window and 5s cap, ignoring only equal attribute/text writes and equal text-node replacement | Real delayed changes restart the quiet window; element replacement and real style/text changes remain observed. Fonts, visible images, animations, paint wait, and all role/pixel/geometry assertions remain. |
 | `vendor-runtimes.mjs`'s repeated `navPush === gestureExit` assertion | `motion-vocabulary.mjs`'s navPush section asserts the same equality plus spring type, damping and simulated release velocities | All distinct runtime/vendor assertions remain. |
 | Two `runtime-budget.mjs` source-shape assertions for the dnd release entry and absence of a second immutable-runtime list | `vendor-runtimes.mjs` parses the canonical release inventory and checks both runtime layers' owners/optional flags/immutability; its routing assertion also rejects a second immutable-runtime list | Gzip budgets, defer timing, MIME/cache behavior and bundle pin-size assertions remain in runtime-budget. |
+| Repeated rules-only checker fixtures for small/compliant/hidden targets, wide/fitting/ellipsis content, and accent fill/text/border/allowlisting | `direction-d-gate.mjs` exercises the exact shared checker functions and evidence collector with the same fixtures plus input/role-button, pseudo-element and allowlist-isolation cases. Rules-only verifies its exported checker delegation. | Positive-color and focus filtering, registered scrolling exceptions, sheet classification, configuration, actual rendered samples and onboarding checks remain in rules-only. |
+| Waiting for a toast after a successful simulation Finish | The existing outcome wait observes summary or refusal toast, then reads both atomically. Success and refusal callers keep all their saved-row/no-write/translated-message assertions. | Zero-load success still requires no toast, a visible summary, an increased log and persisted zero. All 706 full-simulation checks remain. `readToast` uses its intended 2,500ms options argument for callers that actually expect a toast. |
 
 Persistence/race recovery, migrations and historical-writer fixtures, offline
 and privacy gates, accessibility, visual variants, and service checks are
@@ -115,6 +120,74 @@ they are not claimed as the pinned CI screenshot certificate.
   39.381s; this is focused exploratory evidence, not a complete-suite benchmark
   or a claim about the requested 4x improvement. Background focused checks
   were running, so this sample is not the controlled paired CI measurement.
+- The absent-toast regression was reproduced through the real smoke journey:
+  all 31 checks passed, but the unchanged source exceeded a 25-second focused
+  performance budget at 42.326s; the changed helper passed all 31 in 12.279s.
+  This budget is an exploratory external harness, not a new scheduled test.
+- The helper change passed all 706 full-simulation checks in 442.629s on clean
+  source `58460a19247f7c26b8804d7f575f29d228d348d4`; source identity was unchanged
+  before/after preview cleanup. F7 load validation was 146.540s versus the
+  earlier 385.556s; initial save flow was 7.254s versus 37.769s. These local
+  observations are not a complete-suite paired CI result.
+- Its required packet selected exactly that simulation and passed all 706
+  checks again in 458.000s. The rules-only owning suite passes 41 named checks
+  versus the baseline's 51. The retained Direction D failure fixtures pass,
+  but its complete local run remains failed (89/90): Chromium 151 reports
+  Portuguese `progress/strength-comparison` text with 71px content in a 69px
+  box. A focused differential reproduces the identical finding on untouched
+  baseline and candidate. No threshold or product style was changed; pinned
+  Chromium 149 passed the complete owner in both phases of the first paired
+  benchmark. This local failure must not be relabeled green.
 
-Complete paired results and final-head CI are pending. Do not infer a whole
-suite speedup or a 50% behavioral-test reduction from these local observations.
+## First complete paired result
+
+The [paired run](https://github.com/pedrochagasmaster/repforge/actions/runs/39123296504)
+compared baseline `147e4afa07fea3243efd42b5b7d167c196c6a7ca` with
+`80c3e058e0b814c4062abd4f4947622094418230`. Every initial execution and both
+source-specific catalog-wide gates passed. Its separately required
+[ordinary CI](https://github.com/pedrochagasmaster/repforge/actions/runs/39123296502)
+also passed the complete inventory and global UI gate.
+
+| Measure | Before | After | Reduction |
+| --- | ---: | ---: | ---: |
+| Commands | 208 | 207 | 0.48% |
+| Files | 195 | 195 | 0% |
+| Execution wall at 14 browser shards, including aggregate UI gate | 1,240.235s | 1,101.933s | 11.15% |
+| Summed initial runner time | 13,895.877s | 12,411.748s | 10.68% |
+
+Neither requested target is met. The quarter-time limits on this measured
+baseline are 310.059s execution wall and 3,473.969s summed runner time. The
+later absent-toast and checker changes are not included in this result; their
+final-head CI and a new complete paired comparison remain required.
+
+The command logs locate the remaining cost (rounded to hundredths of a
+second, distinct from the millisecond aggregate above):
+
+| Complete execution group | Before | After |
+| --- | ---: | ---: |
+| Six role-audit shards | 5,018.18s | 4,380.13s |
+| Six pixel-catalog shards | 2,946.64s | 2,502.13s |
+| All other inventory commands | 5,931.04s | 5,529.59s |
+
+Even making both catalog groups free would leave more than the quarter-time
+runner budget. Other measured owners include simulation (697.75s), program
+generation browser (362.47s), Direction D (284.66s), crash replay (264.08s),
+motion integration (204.16s), and Focus geometry (174.35s). Their unique
+boundaries cannot be removed merely to satisfy the runtime number.
+
+## Remaining consolidation decision
+
+The declared catalog has 1,118 pixel frames and 772 rendered-role frames.
+Their exact capture-key overlap is 579 (351 app, 228 onboarding); sharing
+those live production setups would reduce 1,890 setup executions to 1,311,
+or 30.6%, while retaining all pixel and role checks. The 193 audit-only frames
+are dark Portuguese variants and must remain. Audit focus mutations and its
+320px remeasurement must follow catalog observations; onboarding scroll/state
+adjustments require separate observation-point equivalence proof. Reusing a
+PNG cannot replace the live DOM/CDP audit. This is an unimplemented opportunity,
+not measured savings or a 50% reduction in behavioral cases.
+
+Halving the published baseline requires at most 104 commands or 97 executable
+files. Repacking commands alone cannot establish that goal. A larger
+consolidation must actually share setup and preserve every unique oracle, or
+explicitly identify and obtain agreement on reduced behavioral coverage.
