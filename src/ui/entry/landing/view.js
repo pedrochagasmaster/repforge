@@ -1,6 +1,6 @@
 import {escapeHtml as esc,formatNumberPlain as fmtPlain} from '../../format.js';
 import {LANDING_SPOTS,LANDING_READ,LANDING_PASTE_SHOT} from './artwork.js';
-/** @typedef {ReturnType<typeof import('../../../app/entry/landing-proof.js').buildLandingProof>} Frame
+/** @typedef {import('../../../app/entry.js').LandingProof} Frame
  * @typedef {NonNullable<Frame['recommendations'][string]>} Recommendation */
 /** Landing copy/media consumes one explicit example frame; no engine, live
  * training snapshot, identity allocation or storage is reachable from paint.

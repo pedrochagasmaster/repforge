@@ -1,7 +1,7 @@
 import {createLandingContent} from './view.js';
 import {createLandingProofController} from './proof.js';
-/** @typedef {ReturnType<typeof import('../../settings/install.js').createInstallView>} Install
- * @typedef {ReturnType<typeof import('../../../app/entry/landing-proof.js').buildLandingProof>} Proof
+/** @typedef {Pick<ReturnType<typeof import('../../settings/install.js').createInstallView>,'decision'|'mode'|'isIOSSafari'|'renderLanding'|'resetPresented'|'dismissPresented'|'closeLanding'>} Install
+ * @typedef {import('../../../app/entry.js').LandingProof} Proof
  * @typedef {{ready:boolean,invalid:boolean,name:string,days:number,errorKey:string}} SharedView
  * @typedef {'generic'|'shared'|'shared-invalid'} LandingKind
  * @typedef {{shared:SharedView,proof:Proof}} Paint
