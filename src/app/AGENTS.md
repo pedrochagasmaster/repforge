@@ -32,3 +32,9 @@ Run `progress-overview-owner`, `progress-record-owner`, `session-outcome-owner`
 and the actual lifecycle/recovery/Exercise browser journeys for that boundary.
 The preserved historical-lift record-key omission is a separate policy defect,
 not permission to change scope selection during an ownership move.
+
+Installed editor private documents/intents, draft impact and Apply lifecycle are
+in `installed-editor.js`; canonical edits and rebase are native authoring rules.
+`program-sharing.js` captures one published snapshot for outbound program JSON,
+plain text and setup links. It writes no installed data. Keep shared-link
+settings allowlisted and custom references canonical; do not export tab state.

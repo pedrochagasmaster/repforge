@@ -23,3 +23,11 @@ existing explicit matrix; system Chromium behavior checks do not certify pixels.
 Only closed owners are currently in the strict gate. The migration ledger names
 remaining work; an extracted but unconsumed file does not close a slice. Temporary
 root forwarding bindings are removed at slices19–20, never a new extension API.
+
+Program outbound sheets live in `program/sharing.js`; late encoding/clipboard
+acknowledgements must not touch another sheet lifetime. Installed Apply/leave/Back
+and its history sentinel live in `program/installed-editor.js`; private document
+ownership is in the application owner. `library/controller.js.chooseForEditor`
+owns the picker handoff, including staged custom definitions. New focused proofs:
+`test/native-program-sharing-browser.mjs`, `native-program-sharing-lifetime.mjs`,
+`native-installed-editor-session.mjs`, `native-installed-editor-lifetime.mjs`.

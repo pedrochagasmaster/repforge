@@ -4897,7 +4897,7 @@ let onboardingEditorAnnounced=null;
 let mountedProgramEditorInstance=null;
 function mountedProgramEditor(){
   return mountedProgramEditorInstance||(mountedProgramEditorInstance=createProgramEditor({window,nextId:uid,
-    motion:{animateExerciseReorder:(...args)=>window.RepForgeMotion?.animateExerciseReorder(...args)},
+    motion:ensureBrowserPresentation().motion,
     sorting:{read:()=>window.DndKit||null,available:()=>window.RepForgeDndRuntime?.available()===true,
       load:()=>window.RepForgeDndRuntime?.load()||Promise.resolve(null)}}));
 }

@@ -18,6 +18,11 @@ import {draftProgramFingerprint,readRevision,snapshotBlockId} from '../persisten
 export function createInstalledEditor({read,refreshHead,commit,model,catalog,nextId,defaultMeta,now,readRecovery,drafts,readActiveDraft,onSettled}){
   const rules=createInstalledEditorRules({model,catalog,nextId,defaultProgramMeta:defaultMeta});
   /** @type {{document:Document,token:Token|undefined,edits:Intent[]}|null} */ let session=null;
+  // Rebase can compact a renamed/moved document too. Read the current recovery
+  // receipt for each operation, including lock-held rebase, instead of freezing
+  // boot-time recovery state in the stateless authoring instance.
+  function rulesForCurrentRecovery(){const recovery=readRecovery();return recovery?createInstalledEditorRules({model,catalog,nextId,defaultProgramMeta:defaultMeta,recoveryRecord:recovery}):rules}
+
   /** Durable heads are normalized by the snapshot owner before they enter this
    * application boundary. The shared durable type preserves unknown historical
    * fields; authoring consumes the narrower normalized projection only.
@@ -60,15 +65,13 @@ export function createInstalledEditor({read,refreshHead,commit,model,catalog,nex
   }
   const commands=createProgramCommands({read,refreshHead,commit,defaultMeta,now,
     authoring:{token,tokenEqual:(a,b)=>rules.editorTokenEqual(a,b),
-      rebaseDocument:(captured,head)=>{const result=rules.editorRebaseDocument({edits:/** @type {Intent[]} */(captured.edits)},authoringSnapshot(head));
+      rebaseDocument:(captured,head)=>{const result=rulesForCurrentRecovery().editorRebaseDocument({edits:/** @type {Intent[]} */(captured.edits)},authoringSnapshot(head));
         return result.conflict||!result.document?{conflict:true,code:result.code}:{conflict:false,document:result.document}},
       confirmOptIn:document=>{const result=rules.suggestion.confirm(authoringDocument(document),rules.editorSuggestLoadsPolicy);
         return result.ok&&result.document?{ok:true,document:result.document}:{ok:false,issues:result.issues||[]}},
       impact:(document,head,edits)=>impact(authoringDocument(document),authoringSnapshot(head),/** @type {Intent[]} */(edits)),
       snapshotFromDocument:(document,head)=>{
-        const recovery=readRecovery();
-        const currentRules=recovery?createInstalledEditorRules({model,catalog,nextId,defaultProgramMeta:defaultMeta,recoveryRecord:recovery}):rules;
-        return /** @type {Snapshot} */(currentRules.editorSnapshotFromDocument(authoringDocument(document),authoringSnapshot(head)));
+        return /** @type {Snapshot} */(rulesForCurrentRecovery().editorSnapshotFromDocument(authoringDocument(document),authoringSnapshot(head)));
       }},
     drafts:{readRaw:drafts.readRaw,clearEffect:drafts.clear,dayReplacementEffect:(before,after,proposal)=>drafts.rename(before,after,rules.editorDocumentFromSnapshot(authoringSnapshot(proposal)))}});
   function readDocument(){return{document:rules.editorDocumentFromSnapshot(read()),token:token(read())}}
