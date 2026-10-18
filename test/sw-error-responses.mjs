@@ -91,9 +91,10 @@ const cachedEntry = (url) => page.evaluate(async ({ url, cacheName }) => {
 
 try {
   await page.goto(base, { waitUntil: "domcontentloaded" });
-  // Activation (skipWaiting after the atomic precache, then claim) makes the
-  // page controlled without a reload.
+  // The native release protocol does not claim the initial network document.
+  // Navigate after installation so the activated worker controls a new client.
   await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => !!navigator.serviceWorker.controller, undefined, { timeout: 15000 });
   assert.equal(await page.evaluate((name) => caches.has(name), CACHE), true, `current cache ${CACHE} is installed`);
 
