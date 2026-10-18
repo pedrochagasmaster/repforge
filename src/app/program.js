@@ -1,6 +1,24 @@
 import {copySnapshot} from './session.js';
 import {canonicalize, draftProgramFingerprint, snapshotBlockId, readRevision} from '../persistence/snapshot.js';
 
+/** @typedef {import('./session.js').Snapshot} Snapshot
+ * @typedef {import('./session.js').ProgramRow} ProgramRow
+ * @typedef {import('./session.js').ProgramMeta} ProgramMeta
+ * @typedef {import('./session.js').ProgramHistory} ProgramHistory
+ * @typedef {import('./session.js').CustomExercise} CustomExercise
+ * @typedef {import('./session.js').DraftEffect} DraftEffect
+ * @typedef {import('./session.js').Commit} Commit
+ * @typedef {import('./session.js').CommitResult} CommitResult
+ * @typedef {{programId:string|null,blockId:string|null,[key:string]:unknown}} EditorToken
+ * @typedef {Pick<Snapshot,'program'|'programMeta'|'customExercises'> & Record<string,unknown>} EditorDocument
+ * @typedef {{kind:string,before?:unknown,after?:unknown,[key:string]:unknown}} EditorIntent
+ * @typedef {{active:boolean,incompatible:boolean,effect?:DraftEffect|null,[key:string]:unknown}} EditorImpact
+ * @typedef {{token:(snapshot:Snapshot)=>EditorToken,tokenEqual:(a:EditorToken|undefined,b:EditorToken)=>boolean,rebaseDocument:(session:{edits:EditorIntent[]},head:Snapshot)=>({conflict:true,code?:string}|{conflict?:false,document:EditorDocument}),confirmOptIn:(document:EditorDocument)=>({ok:true,document:EditorDocument}|{ok:false,issues:unknown[]}),impact:(document:EditorDocument,head:Snapshot,edits:EditorIntent[])=>EditorImpact,snapshotFromDocument:(document:EditorDocument,head:Snapshot)=>Snapshot}} Authoring
+ * @typedef {{readRaw:()=>string|null,clearEffect:(raw:string|null)=>DraftEffect|null,dayReplacementEffect:(before:string,after:string,proposal:Snapshot)=>DraftEffect|null}} ProgramDrafts
+ * @typedef {{oldProgramId?:string,oldBlockId?:string|null,oldProgram?:ProgramRow[],oldMeta?:ProgramMeta|null,storageRevision?:number,programFingerprint?:string,review?:unknown,transitionOut?:unknown,archiveId?:string}} ReplacementCapture
+ * @typedef {import('./session.js').CommitOptions & {capture?:ReplacementCapture|null,replace?:boolean,expectedFirstRunEmpty?:boolean,expectedSetupDraftRaw?:string|null,expectedProgramId?:string|null,expectedProgramFingerprint?:string,expectedBlockId?:string|null,expectedStorageRevision?:number,io?:unknown}} ReplacementOptions
+ */
+
 /** Installed editor Apply owns refreshing, lock-held canonical intent rebase,
  * pending Suggest loads confirmation and exact draft impact. The authoring owner
  * supplies canonical algorithms; the view supplies already-captured speculative
@@ -8,8 +26,10 @@ import {canonicalize, draftProgramFingerprint, snapshotBlockId, readRevision} fr
  *
  * read/refreshHead/commit are the root's durable owner capabilities. authoring:
  * token, tokenEqual, rebaseDocument, confirmOptIn, impact, snapshotFromDocument.
- * drafts: readRaw, clearEffect, dayReplacementEffect. */
+ * drafts: readRaw, clearEffect, dayReplacementEffect.
+ * @param {{read:()=>Snapshot,refreshHead:()=>Promise<{conflict?:boolean,head?:Snapshot}>,commit:Commit,authoring:Authoring,drafts:ProgramDrafts}} options */
 export function createProgramCommands({read, refreshHead, commit, authoring, drafts}) {
+  /** @param {{expectedToken?:EditorToken,nextDocument:EditorDocument,edits?:EditorIntent[],discardWorkout?:boolean}} request */
   async function applyEdits({expectedToken, nextDocument, edits = [], discardWorkout = false}) {
     const capturedEdits = copySnapshot(edits), capturedToken = copySnapshot(expectedToken);
     const capturedDocument = copySnapshot(nextDocument);
@@ -65,18 +85,25 @@ export function createProgramCommands({read, refreshHead, commit, authoring, dra
   return Object.freeze({applyEdits});
 }
 function staleBlock() { return {ok: false, conflict: true, editorConflict: true, staleBlock: true}; }
+/** @param {string|undefined} code */
 function editorConflict(code) { return {ok: false, conflict: true, editorConflict: true, code}; }
+/** @param {{issues?:unknown[]}} result */
 function invalidOptIn(result) { return {ok: false, invalid: true, suggestLoads: result.issues?.[0] || null}; }
+/** @param {DraftEffect|null|undefined} effect */
 function abortsSameDay(effect) { return effect?.status === 'valid' && effect.effect?.precondition === 'abort-same-day'; }
 
 /** Custom-definition CAS and archive policy. The canonical model instance owns
  * normalization/identity; this application owner owns lock-held mutation intent.
- * Policy methods also serve explicit Undo/retry commands during extraction. */
+ * Policy methods also serve explicit Undo/retry commands during extraction.
+ * @param {{read:()=>Snapshot,commit:Commit,model:{normalizeCustomExercises:(entries:unknown[])=>CustomExercise[],isCustomLibraryId:(id:unknown)=>boolean,definitionMovementIds:(definition:unknown)=>string[]},normalizeMuscleAttribution:(value:unknown)=>{ok:boolean,value?:unknown},now:()=>string,newId:()=>string,invalidMuscleCommit:()=>CommitResult}} options */
 export function createCustomExerciseCommands({read, commit, model, normalizeMuscleAttribution,
   now, newId, invalidMuscleCommit}) {
   const {normalizeCustomExercises, isCustomLibraryId, definitionMovementIds} = model;
+  /** @param {Snapshot} snapshot */
   const entries = snapshot => Array.isArray(snapshot?.customExercises) ? snapshot.customExercises : [];
+  /** @param {CustomExercise|null|undefined} a @param {CustomExercise|null|undefined} b */
   function stateEqual(a, b) {
+    /** @param {CustomExercise|null|undefined} entry */
     const comparable = entry => {
       const normalized = normalizeCustomExercises([entry])[0];
       if (!normalized) return null;
@@ -88,12 +115,14 @@ export function createCustomExerciseCommands({read, commit, model, normalizeMusc
     const left = comparable(a), right = comparable(b);
     return !!left && !!right && JSON.stringify(canonicalize(left)) === JSON.stringify(canonicalize(right));
   }
+  /** @param {Snapshot} snapshot @param {CustomExercise} entry */
   function upsert(snapshot, entry) {
     const next = copySnapshot(snapshot), list = entries(next);
     next.customExercises = normalizeCustomExercises(list.some(value => value.id === entry.id)
       ? list.map(value => value.id === entry.id ? entry : value) : list.concat(entry));
     return next;
   }
+  /** @param {Snapshot} snapshot @param {string} id @param {string} operation */
   function removeOrArchive(snapshot, id, operation) {
     const next = copySnapshot(snapshot), list = entries(next);
     next.customExercises = operation === 'archive'
@@ -101,12 +130,14 @@ export function createCustomExerciseCommands({read, commit, model, normalizeMusc
       : list.filter(value => value.id !== id);
     return next;
   }
+  /** @param {string} id @param {Snapshot} [snapshot] */
   function inUse(id, snapshot = read()) {
     if ((snapshot?.program || []).some(entry => entry.libraryId === id)) return true;
     if (definitionMovementIds(snapshot?.programMeta?.programDefinition).includes(id)) return true;
     if ((snapshot?.log || []).some(row => row.performedLibraryId === id || row.performedMovementId === `library:${id}`)) return true;
     return (snapshot?.programHistory || []).some(entry => (entry?.program || []).some(row => row.libraryId === id));
   }
+  /** @param {Record<string,unknown>} draft @param {{expectedEntry?:CustomExercise|null,io?:unknown}} [options] */
   async function save(draft, {expectedEntry = null, io} = {}) {
     const name = String(draft?.name ?? '').trim();
     if (!name) return {result: null, entry: null};
@@ -123,6 +154,7 @@ export function createCustomExerciseCommands({read, commit, model, normalizeMusc
       created: existing?.created || now()}])[0];
     if (!entry) return {result: {invalid: true, code: 'invalid-custom-exercise'}, entry: null};
     const source = existing ? copySnapshot(expectedEntry || existing) : null;
+    /** @param {{head:Snapshot}} context @returns {import('./session.js').PreflightResult} */
     const preflight = ({head}) => {
       const current = entries(head).find(value => value.id === id) || null;
       if (source && !stateEqual(current, source)) return {reject: true, result: {conflict: true, stale: true, code: 'custom-exercise-changed'}};
@@ -131,12 +163,14 @@ export function createCustomExerciseCommands({read, commit, model, normalizeMusc
     };
     return {result: await commit(upsert(snapshot, entry), {preflight}, io), entry};
   }
+  /** @param {string} id @param {{action?:string|null,expectedEntry?:CustomExercise|null,io?:unknown}} [options] */
   async function remove(id, {action = null, expectedEntry = null, io} = {}) {
     if (!isCustomLibraryId(id)) return null;
     const snapshot = read(), existing = entries(snapshot).find(entry => entry.id === id) || null;
     if (!existing) return null;
     const source = copySnapshot(expectedEntry || existing), operation = action || (inUse(id, snapshot) ? 'archive' : 'delete');
     if (operation !== 'delete' && operation !== 'archive') return null;
+    /** @param {{head:Snapshot}} context @returns {import('./session.js').PreflightResult} */
     const preflight = ({head}) => {
       const current = entries(head).find(value => value.id === id) || null;
       if (!stateEqual(current, source)) return {reject: true, result: {conflict: true, stale: true, code: 'custom-exercise-changed'}};
@@ -152,14 +186,17 @@ export function createCustomExerciseCommands({read, commit, model, normalizeMusc
 
 /** Program activation/replacement commit. The reviewed setup/transition owner
  * supplies a validated proposal and exact capture. This owner archives the
- * captured predecessor once and preserves all lock/draft/setup preconditions. */
+ * captured predecessor once and preserves all lock/draft/setup preconditions.
+ * @param {{read:()=>Snapshot,commit:Commit,capture:(snapshot:Snapshot)=>ReplacementCapture|null,allocateBlockId:()=>string,now:()=>string}} options */
 export function createProgramReplacementCommands({read, commit, capture, allocateBlockId, now}) {
+  /** @param {Snapshot} proposal @param {ReplacementCapture|null} captured */
   function archiveCapturedProgram(proposal, captured) {
     if (!captured?.oldProgramId) return proposal;
     if (!captured.oldMeta || typeof captured.oldMeta !== 'object' || Array.isArray(captured.oldMeta) || !Array.isArray(captured.oldProgram))
       throw new TypeError('program replacement capture must be materialized before archive');
     const history = Array.isArray(proposal.programHistory) ? proposal.programHistory : [];
     if (history.some(entry => entry.id === captured.oldProgramId)) { proposal.programHistory = history; return proposal; }
+    /** @type {ProgramHistory} */
     const entry = {id: captured.oldProgramId, meta: copySnapshot(captured.oldMeta), program: copySnapshot(captured.oldProgram),
       completedAt: now(), review: copySnapshot(captured.review)};
     if (captured.transitionOut) entry.transitionOut = copySnapshot(captured.transitionOut);
@@ -167,6 +204,7 @@ export function createProgramReplacementCommands({read, commit, capture, allocat
     history.push(entry); proposal.programHistory = history;
     return proposal;
   }
+  /** @param {Snapshot} proposal @param {ReplacementOptions} [options] */
   async function replace(proposal, options = {}) {
     const snapshot = read(), captured = options.capture === undefined ? capture(snapshot) : options.capture;
     const {effect = null, expectedSetupDraftRaw, replace = false, expectedFirstRunEmpty = false, preflight = null,
