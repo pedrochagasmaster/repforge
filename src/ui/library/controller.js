@@ -24,7 +24,7 @@ import {foldSearch} from "./search.js";
  * @typedef {{snapshot:()=>Snapshot,day:()=>string,libraryEntries:()=>LibraryEntry[],libraryEntry:(id:string)=>LibraryEntry|null,pickableExercises:()=>LibraryEntry[],customExercises:(snapshot?:Snapshot)=>LibraryEntry[],programEditorProgram:()=>{forDay:(day:string)=>import('../../training/model/internal/contracts.js').ExerciseRow[]}}} LibraryQueries
  * @typedef {{openModal:(sheet:HTMLElement,options:{initialFocus:HTMLElement|null,returnFocus:HTMLElement|null,onEscape:()=>unknown,scrim?:HTMLElement|null,delayHide?:number,handoff?:boolean})=>unknown,closeModal:(sheet:HTMLElement)=>Promise<boolean>,canTakeFocus:(element:Element|null)=>boolean,reducedMotion:()=>boolean,routePushBegin:(direction:string,options:{pushed:HTMLElement|null,under:HTMLElement|null})=>(()=>void)|null,routeViewEl:(view:string)=>HTMLElement|null,currentViewId:()=>string,resolveReturnFocus:(element:Element|null|undefined)=>HTMLElement|null,focusRoute:(selector:string|Element|null)=>unknown,routeHeading:(view:string)=>Element|string|null,returnToTab:(view:string)=>unknown,activeModal:()=>{el:HTMLElement}|null}} LibraryShell
  * @typedef {{setupOpen:()=>boolean,focusEntryEditorStatus:()=>unknown,showOnboardingView:()=>unknown,renderOnboarding:()=>unknown,setDayCollapsed:(day:string,on:boolean)=>unknown,synchronizeSetup:()=>unknown}} LibraryEditor
- * @typedef {{window:Window & typeof globalThis,queries:LibraryQueries,commands:{custom:ReturnType<typeof import('../../app/program.js').createCustomExerciseCommands>,program:ReturnType<typeof import('../../app/program.js').createProgramAdditionCommands>},model:ReturnType<typeof import('../../training/model.js').createProgramModel>,rules:{muscleTokens:readonly string[],equipment:readonly string[],customIdPrefix:string,normalizeMuscleAttribution:(value:unknown)=>{ok:boolean,tokens?:string[]}},copy:{t:Text,tOne:(key:string,count:number)=>string},format:{libraryName:(entry:LibraryEntry|null)=>string,muscleLabel:(name:string)=>string,dayLabel:(day:string)=>string,countText:(kind:string,count:number)=>string},shell:LibraryShell,editor:LibraryEditor,onChanged:()=>void,onNotice:(message:string)=>void,onCustomCreated:()=>void}} LibraryDependencies
+ * @typedef {{window:Window & typeof globalThis,queries:LibraryQueries,commands:{custom:ReturnType<typeof import('../../app/program.js').createCustomExerciseCommands>,program:ReturnType<typeof import('../../app/program.js').createProgramAdditionCommands>},model:ReturnType<typeof import('../../training/model.js').createProgramModel>,rules:{muscleTokens:readonly string[],equipment:readonly string[],customIdPrefix:string,normalizeMuscleAttribution:(value:unknown)=>{ok:boolean,tokens?:string[]}},copy:{t:Text,tOne:(key:string,count:number)=>string},format:{exerciseDisplayName:(row:import('../editors/contracts.js').EditorRow)=>string,libraryName:(entry:LibraryEntry|null)=>string,muscleLabel:(name:string)=>string,dayLabel:(day:string)=>string,countText:(kind:string,count:number)=>string},shell:LibraryShell,editor:LibraryEditor,onChanged:()=>void,onNotice:(message:string)=>void,onCustomCreated:()=>void}} LibraryDependencies
  */
 
 /** Picker, custom-definition form, library selection and preview own one UI
@@ -250,6 +250,21 @@ async function choosePicked(id){
 
 /* mode "single" fires onPick with one entry and closes; "multi" collects and
    fires once on Done with the entries in selection order. */
+/** Editor pick handoff keeps staged custom definitions private until Apply.
+ * @param {import('../editors/contracts.js').PickRequest} request
+ * @returns {Promise<CustomChoice|null>} */
+function chooseForEditor(request){
+  return new Promise(resolve=>{
+    const common={title:request.mode==='replace'?t('picker.title_change'):request.mode==='alternate'?t('picker.title_alternate'):t('picker.add_to',{day:format.dayLabel(request.day||'')}),
+      subtitle:request.exercise?format.exerciseDisplayName(request.exercise):'',exclude:request.exclude.filter((/** @type {string|undefined} */id)=>typeof id==='string'),
+      ...(request.mode==='add'?{quick:true,day:request.day}:{})};
+    if(request.repair)openExercisePicker({...common,stageOnly:true,repairSeed:request.exercise,onCancel:()=>resolve(null),onPick:async choice=>{
+      // Let the picker finish its modal handoff before the editor can Apply.
+      await closeExercisePicker();resolve('entry' in choice?choice:{entry:choice,stagedCustomDefinition:null});
+    }});
+    else openExercisePicker({...common,onPick:entry=>resolve(entry)});
+  });
+}
 /** @param {PickerOptions} [options] */
 function openExercisePicker(options={}){
   const {title=null,subtitle="",mode="single",selected=[],exclude=[],extras=[],onPick:providedPick=null,
@@ -1125,7 +1140,7 @@ function dispose(){
   pickerState=null;customState=null;libFlow=null;previewState=null;
 }
 return Object.freeze({bind,dispose,
-choosePicked,openExercisePicker,closeExercisePicker,editCustomExercise,openCustomExerciseSheet,openLibrary,exerciseRefEntry,SUBSTITUTION_REASONS,
+chooseForEditor,choosePicked,openExercisePicker,closeExercisePicker,editCustomExercise,openCustomExerciseSheet,openLibrary,exerciseRefEntry,SUBSTITUTION_REASONS,
   pickerReason:()=>pickerState?.reason||null,
   pickerSelection:()=>pickerState?[...pickerState.selected]:null,
   readLibrary:()=>libFlow?{day:libFlow.day,tab:libFlow.tab,step:libFlow.step,query:libFlow.query,muscle:libFlow.muscle,equipment:libFlow.equipment,selected:[...libFlow.selected.keys()],selection:[...libFlow.selected.entries()].map(cloneSnapshot)}:null,

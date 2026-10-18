@@ -10,6 +10,8 @@ import {review as ReviewRules} from './src/training/authoring.js';
 import {createProgramReview} from './src/ui/editors.js';
 import {createStorageRecoveryView} from './src/ui/storage-recovery.js';
 import {createStorageRecoveryCommands} from './src/app/storage-recovery.js';
+import {createInstalledEditorView} from './src/ui/program/installed-editor.js';
+let InstalledEditorView;
 import {createInstalledEditor} from './src/app/installed-editor.js';
 let InstalledEditor,BuildAuthoring,programCommands;
 import {createProgramSharing} from './src/app/program-sharing.js';
@@ -1911,10 +1913,10 @@ async function applyFatigueTrim(){
 const focusIsFresh=(ex,peek)=>focusUi.selectExercise(ex,committed,{peek}).fresh;
 /** The Progress chart page: scope, metric and the selected point (null = the latest session). */
 let ExerciseUi=null;
-let workoutActive=false,workoutLeft=false,programEditMode=false,setupEditorOpen=false;
+let workoutActive=false,workoutLeft=false,setupEditorOpen=false;
 /* The editor module owns the draft document. Hosts retain only its lifecycle
    and adapter session so the installed editor can stay private until Done. */
-let installedProgramEditor=null,onboardingProgramEditor=null,pendingEditorNavigation=null;
+let onboardingProgramEditor=null;
 
 // Today's session lists its first few exercises; the rest sit behind a "+N" row.
 // Two-level Progress navigation (Plan 056): Overview/Review are the primary
@@ -4910,24 +4912,6 @@ function openSettingsView(){showSettings()}
 
 function editorAdapterTranslate(key,vars,fallback){
   const value=t(key,vars);return value===key?(fallback||key):value}
-function editorChooseExercise(request){
-  return new Promise(resolve=>{
-    const options={title:request?.mode==="replace"?t("picker.title_change"):request?.mode==="alternate"?t("picker.title_alternate")
-      :t("picker.add_to",{day:dayLabel(request?.day)}),
-      subtitle:request?.exercise?exerciseDisplayName(request.exercise):"",exclude:request?.exclude||[],onPick:async entry=>{
-        // Share repair applies as soon as the picker has handed back a valid
-        // replacement. Wait for the picker's own close transition first: the
-        // modal controller still owns it while choosePicked awaits onPick, and
-        // reopening Share before that handoff completes leaves a hidden sheet
-        // with a stale active-modal record.
-        if(request?.repair)await libraryUi.closeExercisePicker();
-        if(request?.repair){
-          const handoff=entry?.entry?entry:{entry,stagedCustomDefinition:null};
-          resolve(handoff);
-        }else resolve(entry)},
-      ...(request?.repair?{onCancel:()=>resolve(null),stageOnly:true,repairSeed:request.exercise}:{}),
-      ...(request?.mode==="add"?{quick:true,day:request.day}: {})};
-    libraryUi.openExercisePicker(options)})}
 function editorMetricDefinitionList(id){
   const source=rawMetricDefinitions(id);
   if(source!==null)return source;
@@ -4955,7 +4939,7 @@ function createInstalledProgramEditorAdapter(){
   return{
     read:InstalledEditor.read,
     commit:InstalledEditor.commit,
-    chooseExercise:editorChooseExercise,
+    chooseExercise:request=>libraryUi.chooseForEditor(request),
     t:editorAdapterTranslate,
     dayLabel:(day)=>dayLabel(day),
     dayCount:(n)=>editorAdapterTranslate("program.editor.day_count",{n,word:t(n===1?"program.editor.exercise_word":"program.editor.exercises_word")}),
@@ -4994,7 +4978,7 @@ function createOnboardingProgramEditorAdapter(){
       return{...result,ok:!!(result.localOk||result.idbOk),setupDraft:true,staged:true,
         document:BuildAuthoring.editorDocumentFromSnapshot(programEditorSnapshot()),token:{draftRevision:entryState?.revision||0}};
     },
-    chooseExercise:editorChooseExercise,
+    chooseExercise:request=>libraryUi.chooseForEditor(request),
     t:editorAdapterTranslate,
     dayLabel:(day)=>dayLabel(day),
     dayCount:(n)=>editorAdapterTranslate("program.editor.day_count",{n,word:t(n===1?"program.editor.exercise_word":"program.editor.exercises_word")}),
@@ -5063,107 +5047,9 @@ function mountOnboardingProgramEditor(){
   const status=host.querySelector('[data-role="editor-status"]');if(status)status.id="entryEditorStatus";
   return onboardingProgramEditor;
 }
-function mountInstalledProgramEditor(){
-  const host=$("#programEditor");if(!host)return null;
-  installedProgramEditor?.dispose?.();
-  InstalledEditor.reset();
-  installedProgramEditor=mountedProgramEditor().mountProgramEditor(host,createInstalledProgramEditorAdapter());
-  return installedProgramEditor;
-}
 function disposeProgramEditors(){
   onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;
-  installedProgramEditor?.dispose?.();installedProgramEditor=null;InstalledEditor.reset();
-}
-let installedLeaveMode=null;
-function installedEditorHistoryState(){
-  const current=history.state&&typeof history.state==="object"?history.state:{};
-  return{...current,[INSTALLED_EDITOR_HISTORY_STATE_KEY]:{active:true}}}
-function armInstalledEditorHistory(){
-  if(installedEditorHistoryArmed)return;
-  try{
-    if(history.state?.[INSTALLED_EDITOR_HISTORY_STATE_KEY]?.active===true){installedEditorHistoryArmed=true;return}
-    history.pushState(installedEditorHistoryState(),"",location.href);
-    installedEditorHistoryArmed=true;
-  }catch{}
-}
-function disarmInstalledEditorHistory({historyAlreadyPopped=false}={}){
-  if(!installedEditorHistoryArmed)return;
-  installedEditorHistoryArmed=false;
-  if(historyAlreadyPopped)return;
-  installedEditorHistoryRelease=true;
-  try{history.back()}catch{installedEditorHistoryRelease=false}
-}
-function closeInstalledLeaveDialog(){
-  const dialog=$("#programEditorLeave");
-  installedLeaveMode=null;
-  pendingEditorNavigation=null;
-  if(dialog)closeModal(dialog);
-}
-function openInstalledLeaveDialog({workout=false}={}){
-  const dialog=$("#programEditorLeave");if(!dialog)return;
-  installedLeaveMode={workout};
-  const title=$("#programEditorLeaveTitle"),body=$("#programEditorLeaveBody"),apply=$("#programEditorApply"),discard=$("#programEditorDiscard"),keep=$("#programEditorKeep");
-  if(title)title.textContent=t(workout?"program.editor.workout_conflict.title":"program.editor.leave.title");
-  if(body)body.textContent=t(workout?"program.editor.workout_conflict.body":"program.editor.leave.body");
-  if(apply){apply.textContent=t(workout?"program.editor.apply_discard_workout":"program.editor.apply_changes");apply.disabled=false}
-  if(discard){discard.textContent=t("program.editor.discard_changes");discard.hidden=workout}
-  if(keep){keep.textContent=t("program.editor.keep_editing")}
-  openModal(dialog,{initialFocus:apply,onEscape:()=>{pendingEditorNavigation=null;closeInstalledLeaveDialog()}});
-}
-function finishInstalledEditor({discard=false,historyAlreadyPopped=false}={}){
-  const nextView=pendingEditorNavigation;
-  pendingEditorNavigation=null;
-  installedLeaveMode=null;
-  closeModal($("#programEditorLeave"));
-  if(discard)installedProgramEditor?.discard?.();
-  installedProgramEditor?.dispose?.();installedProgramEditor=null;InstalledEditor.reset();programEditMode=false;
-  disarmInstalledEditorHistory({historyAlreadyPopped});
-  render();
-  if(nextView){
-    const button=$(`nav button[data-view="${CSS.escape(nextView)}"]`);
-    if(button)button.click();
-  }
-}
-async function applyInstalledEditorAndContinue(){
-  const editor=installedProgramEditor;if(!editor)return;
-  const mode=installedLeaveMode?.workout?"apply_discard_workout":"apply";
-  const apply=$("#programEditorApply");if(apply)apply.disabled=true;
-  const result=await editor.commit({kind:mode});
-  if(apply)apply.disabled=false;
-  if(result?.workoutConflict){
-    openInstalledLeaveDialog({workout:true});
-    return result;
-  }
-  if(result?.suggestLoads){
-    // The refused opt-in's field carries the error; the lifter fixes it there.
-    // When this tab's copy has nothing to fix, another tab changed the slot.
-    if(installedLeaveMode)closeInstalledLeaveDialog();
-    pendingEditorNavigation=null;
-    if(editor.checkSuggestLoads?.()?.ok!==false){
-      const status=$("#programEditor [data-role=\"editor-status\"]");
-      if(status){status.textContent=t("program.editor.conflict");status.hidden=false;status.classList.add("is-error")}}
-    return result;
-  }
-  if(result?.conflict||result?.editorConflict||result?.staleRevision){
-    const status=$("#programEditor [data-role=\"editor-status\"]");
-    if(status){status.textContent=t("program.editor.conflict");status.hidden=false;status.classList.add("is-error");}
-    closeInstalledLeaveDialog();
-    return result;
-  }
-  if(result?.committed===true&&result?.settled===true){
-    finishInstalledEditor();
-    maybeShowInstallBanner();
-  }
-  return result;
-}
-async function requestInstalledDone(){
-  if(!programEditMode||!installedProgramEditor)return;
-  if(!installedProgramEditor.isDirty()){finishInstalledEditor();return}
-  // Done is the editor's explicit commit action. The three-way leave dialog is
-  // reserved for navigation and browser Back, so a deliberate tap never
-  // makes the user confirm the same action twice.
-  installedLeaveMode={workout:false};
-  await applyInstalledEditorAndContinue();
+  InstalledEditorView?.disposeEditor();
 }
 function programEditorSnapshot(){
   if(!setupEditorOpen)return cloneSnapshot(state);
@@ -5318,10 +5204,10 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
       code:saved?.code||null,issues:Array.isArray(saved?.issues)?saved.issues.slice(0,12):[]}}
 function openEntryDraftEditor(){
   if(!entryState?.result?.preview)return;
-  setupEditorOpen=true;programEditMode=false;
+  setupEditorOpen=true;InstalledEditorView.setEditing(false);
   showOnboardingView();armEntryHistory();renderOnboarding()}
 function closeEntryDraftEditor(){
-  setupEditorOpen=false;programEditMode=false;onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;
+  setupEditorOpen=false;InstalledEditorView.setEditing(false);onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;
   onboardingOrigin=null;document.body.classList.remove("is-entry-editor");closeOnboarding()}
 function focusEntryEditorStatus(){
   // A picker owns focus until its close transition has restored the editor.
@@ -6205,8 +6091,6 @@ let entryDialog=null,entryChange=null,entryGoalFromHub=false,entryPickerInput=nu
    change statement when the same walk comes back to a result. */
 let entryGoalOpen=false,entryEditor=null,entryLastPreview=null,entryReviewError=null;
 const ENTRY_HISTORY_STATE_KEY="tauriferProgramEntry";
-const INSTALLED_EDITOR_HISTORY_STATE_KEY="tauriferProgramEditor";
-let installedEditorHistoryArmed=false,installedEditorHistoryRelease=false;
 let EntryDraft=null;
 function entryServices(){
   if(typeof window!=="undefined"&&window.__repforgeProgramEntryServicesOverride)return window.__repforgeProgramEntryServicesOverride;
@@ -6252,7 +6136,7 @@ async function finishAlreadyCommittedSetup(handle){
   const cleanup=await removeSetupDraftIfCurrent(handle);
   if(cleanup?.ok){
     publishEntryDraft(null);EntryDraft.adopt(null,null);onboardingOrigin=null;setupEditorOpen=false;
-    programEditMode=false;document.body.classList.remove("is-entry-editor");closeOnboarding();
+    InstalledEditorView.setEditing(false);document.body.classList.remove("is-entry-editor");closeOnboarding();
   }else{
     entryUiNotice=cleanup?.conflict?"save_conflict":"save_failed";
     renderOnboarding();
@@ -8827,28 +8711,8 @@ function entryBack(){
     openFirstRun("shared");
     return}
   entrySetState(previous)}
-function onInstalledEditorPopState(){
-  // Explicit editor exits release the same sentinel with history.back(). Its
-  // popstate is expected and must not reopen the leave surface.
-  if(installedEditorHistoryRelease){installedEditorHistoryRelease=false;return true}
-  if(!programEditMode||!installedProgramEditor)return false;
-  // Back has already consumed the editor sentinel. Dirty work is restored to
-  // the top of the stack before asking the existing three-way decision, so a
-  // second Back cannot unload the document while the decision is open.
-  installedEditorHistoryArmed=false;
-  if(installedProgramEditor.isDirty()){
-    try{
-      history.pushState(installedEditorHistoryState(),"",location.href);
-      installedEditorHistoryArmed=true;
-    }catch{}
-    if(!$("#programEditorLeave")?.open)openInstalledLeaveDialog();
-    return true;
-  }
-  finishInstalledEditor({historyAlreadyPopped:true});
-  return true;
-}
 function onEntryPopState(){
-  if(onInstalledEditorPopState())return;
+  if(InstalledEditorView.onPopState())return;
   if(!$("#onboarding")?.classList.contains("active")||!entryState)return;
   try{history.pushState(entryHistoryState(true),"",location.href)}catch{}
   entryBack()}
@@ -8966,7 +8830,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   if(originEff==="block")pendingBlockTransition=null;
   onboardingOrigin=null;day=days()[0]||"Day 1";closeFirstRun();closeOnboarding();
   if(destination==="program-edit"){
-    programEditMode=true;
+    InstalledEditorView.setEditing(true);
     $$("nav button").forEach(x=>{const on=x.dataset.view==="program";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     $$(".view").forEach(v=>v.classList.toggle("active",v.id==="program"));
     document.body.classList.remove("is-settings","is-workout","is-exercise","is-onboarding","is-library","is-preview","is-import");
@@ -9976,7 +9840,7 @@ window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,currentThe
   openInstallTransferState:stateName=>openIosInstallSheet(stateName),openPrivacy:()=>openPrivacySheet()};
 function resumeProgramEditFollowUp(){
   if(state?.[STORAGE_FOLLOWUP]?.kind!=="onboarding-edit")return false;
-  programEditMode=true;
+  InstalledEditorView.setEditing(true);
   document.body.classList.remove("is-settings","is-workout","is-exercise","is-onboarding","is-library","is-preview","is-import");
   $$("nav button").forEach(x=>{const on=x.dataset.view==="program";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="program"));
@@ -10190,13 +10054,7 @@ function init(){
   const exActionsScrim=$("#exActionsScrim");
   if(exActionsScrim)exActionsScrim.onclick=closeExActionsSheet;
 
-  const progEdit=$("#programEditToggle");if(progEdit)progEdit.onclick=async()=>{
-    if(setupEditorOpen){requestEntryCancel();return}
-    if(programEditMode){requestInstalledDone();return}
-    programEditMode=true;ProgramUi.renderProgram()};
-  const leaveApply=$("#programEditorApply");if(leaveApply)leaveApply.onclick=()=>applyInstalledEditorAndContinue();
-  const leaveDiscard=$("#programEditorDiscard");if(leaveDiscard)leaveDiscard.onclick=()=>finishInstalledEditor({discard:true});
-  const leaveKeep=$("#programEditorKeep");if(leaveKeep)leaveKeep.onclick=()=>closeInstalledLeaveDialog();
+  InstalledEditorView.bind();
   const histSearchBtn=$("#historySearchBtn");if(histSearchBtn)histSearchBtn.onclick=()=>HistoryUi.setSearchOpen(!HistoryUi.isSearchOpen());
   const histSearch=$("#historySearch");if(histSearch)histSearch.oninput=()=>HistoryUi.setQuery(histSearch.value);
   const histSearchClear=$("#historySearchClear");if(histSearchClear)histSearchClear.onclick=()=>HistoryUi.clearSearch();
@@ -10270,12 +10128,7 @@ function init(){
     const discardDraftRaw=readDraftRaw();
     if(confirm(t("confirm.delete_log")))await deleteTrainingLog(storageIO,{discardDraftRaw})};
   $$("nav button").forEach(b=>b.onclick=()=>{
-    if(programEditMode&&installedProgramEditor?.isDirty()){
-      pendingEditorNavigation=b.dataset.view;
-      openInstalledLeaveDialog();
-      return;
-    }
-    if(programEditMode)finishInstalledEditor();
+    if(InstalledEditorView.requestNavigation(b.dataset.view))return;
     ExerciseUi?.reset();workoutActive=false;workoutLeft=true;
     // Progress remembers its segment, so arriving there can itself open the review.
     const opensReview=b.dataset.view==="stats"&&ProgressUi.state().segment==="review"&&!ProgressUi.state().evidence&&!$("#stats")?.classList.contains("active");
@@ -10569,6 +10422,11 @@ function initializePersistenceOwners(){
       captureEvent('active_program_edited',{outcome:discarded?'discarded_workout':'saved'});
       if(discarded)resetDraftSessionState()}});
   programCommands=InstalledEditor.commands;
+  InstalledEditorView=createInstalledEditorView({window,session:InstalledEditor,
+    mountEditor:host=>mountedProgramEditor().mountProgramEditor(host,createInstalledProgramEditorAdapter()),
+    shell:{openModal,closeModal},t,onChanged:render,onEdit:()=>ProgramUi.renderProgram(),onAccepted:maybeShowInstallBanner,
+    entry:{isOpen:()=>setupEditorOpen,cancel:requestEntryCancel}});
+
   programAdditionCommands=createProgramAdditionCommands({read:applicationSession.read,
     readEditor:programEditorSnapshot,commit:proposal=>commitProposedState(proposal),commitEditor:commitProgramEditorProposal,
     model,authoring:createInstalledEditorRules({model,catalog:rawExerciseCatalog,nextId:uid,defaultProgramMeta})});
@@ -10613,7 +10471,7 @@ function initializePersistenceOwners(){
     commands:{custom:customExerciseCommands,program:programAdditionCommands},model,
     rules:{muscleTokens:ProgramEntry.MUSCLE_TOKENS,equipment:ProgramEntry.KNOWN_EQUIPMENT,
       customIdPrefix:CUSTOM_ID_PREFIX,normalizeMuscleAttribution:ProgramEntry.normalizeMuscleAttribution},
-    copy:{t,tOne},format:{libraryName,muscleLabel,dayLabel,countText},
+    copy:{t,tOne},format:{libraryName,muscleLabel,dayLabel,countText,exerciseDisplayName},
     shell:{openModal,closeModal,canTakeFocus,reducedMotion,routePushBegin,routeViewEl,currentViewId,
       resolveReturnFocus,focusRoute,routeHeading,returnToTab,activeModal:()=>shellView().activeModal},
     editor:{setupOpen:()=>setupEditorOpen,focusEntryEditorStatus,showOnboardingView,renderOnboarding,setDayCollapsed:(day,on)=>ProgramUi.setDayCollapsed(day,on),
@@ -10623,8 +10481,8 @@ function initializePersistenceOwners(){
     queries:{snapshot:applicationSession.read,day:()=>day,program:()=>prog,hasProgramContent,hasActiveProgram,
       programEditorProgram,programEditorSnapshot,defaultProgramMeta,mesocycleWeek,programAdherence,
       programProgressionHealth,programVolumeCompliance,programStatusLabel,dayMuscles,strategyIdFor,recommendation,libraryEntry},
-    editor:{setupOpen:()=>setupEditorOpen,installedEditing:()=>programEditMode,
-      installedMounted:()=>!!installedProgramEditor,editInstalled:()=>{programEditMode=true},mountInstalled:mountInstalledProgramEditor,armInstalledHistory:armInstalledEditorHistory,
+    editor:{setupOpen:()=>setupEditorOpen,installedEditing:()=>InstalledEditorView.editing,
+      installedMounted:()=>InstalledEditorView.hasEditor,editInstalled:()=>{InstalledEditorView.setEditing(true)},mountInstalled:()=>InstalledEditorView.mount(),armInstalledHistory:()=>InstalledEditorView.arm(),
       focusEntryEditorStatus,notice:()=>entryUiNotice,entryState:()=>entryState,
       activationIssues:()=>ProgramEntry.candidateActivationIssues(entryState),saveDraft:()=>persistSetupDraft(entryState),
       activate:activateEntryPreview,endBlock:promptEndBlock},
