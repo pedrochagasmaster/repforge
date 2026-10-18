@@ -15,6 +15,6 @@ export async function installBrowserTraining(page) {
     await catalog.load();
     const rawCatalog=catalog.snapshot();
     window.__repforgeTrainingTest={...rules,catalog:rawCatalog,
-      workout:workoutModule.createWorkoutRules(rawCatalog),entry:entryModule.createEntryRules(rawCatalog)};
+      workout:workoutModule.createWorkoutRules(rawCatalog),entry:entryModule.createEntryRules(rawCatalog),entryAdapter:entryModule.createEntryAdapter({compiler:rules.compiler})};
   });
 }

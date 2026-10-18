@@ -127,6 +127,29 @@ try {
   // the oracle for whether this workout finished.
   await page.locator("#sumDone").click();
   assert.equal(await page.locator("#sessionSummary:not(.hidden)").count(),0,"Done dispatches the completion exit command");
+  const evidenceBefore=await page.evaluate(()=>({snapshot:window.__repforgeWorkoutDraft.state(),raw:localStorage.getItem("repforge_v1")}));
+  await page.locator('nav button[data-view="stats"]').click();
+  await page.locator('#statsSeg [data-seg="strength"]').click();
+  const strengthRow=page.locator(`#strengthDash [data-evkey="${liftKeys[0]}"]`);
+  await strengthRow.click();
+  assert.equal(await strengthRow.getAttribute("aria-expanded"),"true","Strength evidence opens the original per-session detail table");
+  assert.ok(await page.locator('#strengthDash .evrow__detail:not([hidden]) table').count(),"Strength detail contains session evidence");
+  await page.locator('#strengthScopeSeg [data-scope="all-history"]').click();
+  assert.equal(await page.locator('#strengthScopeSeg [data-scope="all-history"]').getAttribute("aria-pressed"),"true","Strength owns its selected scope");
+  await page.locator('#statsSeg [data-seg="volume"]').click();
+  const volumeRow=page.locator('#volumeDash [data-volume-muscle]').first();
+  await volumeRow.click();
+  assert.equal(await volumeRow.getAttribute("aria-expanded"),"true","Volume evidence opens muscle contribution details");
+  await page.locator('#statsSeg [data-seg="prs"]').click();
+  const prRow=page.locator('#prTimeline [data-prrow]').first();
+  await prRow.click();
+  assert.equal(await prRow.getAttribute("aria-expanded"),"true","PR timeline exposes the original record detail");
+  await page.locator('#prFilterSeg [data-prf="load"]').click();
+  assert.equal(await page.locator('#prFilterSeg [data-prf="load"]').getAttribute("aria-pressed"),"true","PR filter selection belongs to Progress");
+  await page.locator('#statsSeg [data-seg="strength"]').click();
+  assert.equal(await page.locator('#strengthScopeSeg [data-scope="all-history"]').getAttribute("aria-pressed"),"true","scope survives evidence tab navigation");
+  assert.deepEqual(await page.evaluate(()=>({snapshot:window.__repforgeWorkoutDraft.state(),raw:localStorage.getItem("repforge_v1")})),evidenceBefore,"evidence scopes, disclosures and filters never write training state or saved bytes");
+  await page.locator('nav button[data-view="log"]').click();
   await page.evaluate(() => window.__repforgeEnterWorkout({}));
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
   const finishResult = await page.evaluate(async () => {
@@ -159,7 +182,7 @@ try {
   await page.waitForFunction(() => {
     const toast = document.querySelector("#toast");
     return toast && !toast.classList.contains("hidden") && /saved/i.test(toast.textContent || "");
-  }, undefined, { timeout: 8000 });
+  }, undefined, { timeout: 8000 }).catch(async error=>{console.error("completion evidence",JSON.stringify({finishResult,ui:await page.evaluate(()=>({toast:document.querySelector("#toast")?.textContent,errors:document.querySelector("#workoutShell")?.textContent?.slice(-500)}))}));throw error});
   const faultEvidence = await page.evaluate(async (key) => {
     const local = JSON.parse(localStorage.getItem(key) || "{}");
     const idb = await new Promise((resolve) => {

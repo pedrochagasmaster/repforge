@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { installBrowserTraining } from "./training-browser.mjs";
 // Plan 056 P5 — unified Review lifecycle.
 // Active-block checkpoint is read-only with no structural confirms; a
 // completed block enables only evidence-valid actions; insufficient final
@@ -90,18 +91,19 @@ if (BROWSER) {
     await page.clock.setFixedTime(new Date(START));
     await page.goto(base, { waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base });
+    await installBrowserTraining(page);
     return { context, page };
   }
 
   async function seedGeneratedProgram(page, { days = 4, minutes = 90 } = {}) {
     const seeded = await page.evaluate(async ({ days, minutes }) => {
-      const catalog = window.RepForgeExerciseCatalog.snapshot();
-      const request = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+      const catalog = window.__repforgeTrainingTest.catalog;
+      const request = window.__repforgeTrainingTest.entryAdapter.programRequestFromAnswers({
         desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: days,
         sessionMinutes: minutes, environment: { kind: "commercial_gym" },
       }, catalog);
       if (!request.ok) return { ok: false, request };
-      const generated = window.RepForgeProgramCompiler.generateProgram(request.value, catalog);
+      const generated = window.__repforgeTrainingTest.compiler.generateProgram(request.value, catalog);
       if (!generated.ok) return { ok: false, generated };
       const finalized = await window.__repforgeFinalizeProgramSetup({
         programDefinition: generated.value, name: "Schedule repair oracle", answers: {}, destination: "log",
@@ -120,6 +122,7 @@ if (BROWSER) {
     await page.clock.setFixedTime(new Date(Date.parse(`${meta.started}T09:00:00.000Z`) + (meta.mesocycleLengthWeeks * 7 + 1) * DAY));
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base });
+    await installBrowserTraining(page);
   }
 
   async function openReview(page) {

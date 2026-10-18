@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { installBrowserTraining } from "./training-browser.mjs";
 /**
  * Plan 067: Progress planned volume follows the per-cycle ProgramDefinition
  * across a recovery week.
@@ -54,6 +55,7 @@ async function at(page, time) {
   await page.clock.setFixedTime(new Date(time));
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
+  await installBrowserTraining(page);
 }
 
 async function readWeek(page) {
@@ -77,8 +79,9 @@ async function main() {
     await page.clock.setFixedTime(new Date(start));
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
+    await installBrowserTraining(page);
     const seeded = await page.evaluate(async (request) => {
-      const generated = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot());
+      const generated = window.__repforgeTrainingTest.compiler.generateProgram(request, window.__repforgeTrainingTest.catalog);
       if (!generated.ok) return { ok: false, generated };
       const finalized = await window.__repforgeFinalizeProgramSetup({
         programDefinition: generated.value, name: "Recovery volume", answers: {}, destination: "log", origin: "first-run",
