@@ -1,5 +1,6 @@
 import {createTelemetry} from './src/platform/telemetry.js';
 import {createPostHog} from './src/platform/posthog.js';
+import {createPrescriptionPresentation} from './src/ui/focus/prescription.js';
 import {createFocusInputs} from './src/ui/focus/inputs.js';
 import {createLedgerPresentation} from './src/ui/focus/ledger.js';
 import {createShelfPresentation} from './src/ui/focus/shelf.js';
@@ -5050,16 +5051,9 @@ function focusRowVals(ex,n,r,draft,prev,effortMode){
 /* What a canonical slot's current cycle prescribes: whether the adaptive engine
    owns its targets, and the RIR its sets aim at. Null for a flat legacy row. */
 function canonicalSlotFacts(...args){return workoutQueries().canonicalSlotFacts(...args)}
-function focusTargetEffort(ex){
-  if(isEffortMode())return effortLabel(targetEffort());
-  const facts=canonicalSlotFacts(ex);
-  if(facts)return facts.rirMin==null?"—":facts.rirMin===facts.rirMax?fmt(facts.rirMin):`${fmt(facts.rirMin)}–${fmt(facts.rirMax)}`;
-  const p=progressionForExercise(ex)?.strategy?.params||{};
-  const lo=p.targetRirMin!=null?p.targetRirMin:p.anchorTargetRirMin!=null?p.anchorTargetRirMin:0;
-  const hi=p.targetRirMax!=null?p.targetRirMax:p.anchorTargetRirMax!=null?p.anchorTargetRirMax:state.settings.rirHigh;
-  return `${fmt(lo)}–${fmt(hi)}`}
+function focusTargetEffort(ex){return FocusPrescription.targetEffort({effortMode:isEffortMode(),rirHigh:state.settings.rirHigh,
+  facts:canonicalSlotFacts(ex),progression:progressionForExercise(ex)})}
 
-/** The previous session's matching set, as the second line of a ledger row. */
 /** What the lifter has confirmed on a set. `touched.effort` also covers RIR. */
 function shelfTouched(exId,n){
   const draft=activeWorkoutDraft?.exercises?.[exId];if(!draft)return{};
@@ -5111,29 +5105,8 @@ function toggleFocusLedger(button){
 /** The line under the exercise name: sets and reps, the effort window, and the
  *  name of the strategy that sets the target. Read off the program's own
  *  envelope; a slot with none is the range it always was. */
-function focusExMeta(ex){
-  if(ex?.hasRepTarget===false)return programPrescriptionSummary(ex);
-  // A canonical slot is adaptive or manual; its RIR comes from its own sets.
-  const facts=canonicalSlotFacts(ex);
-  if(facts){
-    const name=t(facts.adaptive?"program.progression.adaptive":"program.progression.strategy.manual");
-    const line=facts.rirMin==null?t("focus.exmeta.manual",{sets:+ex.sets||1,min:ex.min,max:ex.max})
-      :t("focus.exmeta.range",{sets:+ex.sets||1,min:ex.min,max:ex.max,rmin:fmt(facts.rirMin),rmax:fmt(facts.rirMax)});
-    return `${line} · ${name}`}
-  const env=progressionForExercise(ex),id=env?.strategy?.id||"range",p=env?.strategy?.params||{};
-  const sets=+p.workingSets||+ex.sets||1;
-  const rmin=fmt(p.targetRirMin!=null?p.targetRirMin:0),rmax=fmt(p.targetRirMax!=null?p.targetRirMax:state.settings.rirHigh);
-  const names={range:t("program.progression.strategy.range"),rep_goal:t("program.progression.strategy.rep_goal"),
-    effort_target:t("program.progression.strategy.effort_target"),anchor_backoff:t("program.progression.strategy.anchor_backoff"),
-    manual:t("program.progression.strategy.manual")};
-  const name=names[id]||t("program.progression.strategy.unsupported");
-  let line;
-  if(id==="rep_goal")line=t("focus.exmeta.goal",{sets,goal:p.repGoal,rmin,rmax});
-  else if(id==="effort_target")line=t("focus.exmeta.effort",{sets,reps:p.targetReps,rmin,rmax});
-  else if(id==="anchor_backoff")line=t("focus.exmeta.anchor",{amin:p.anchorRepMin,amax:p.anchorRepMax,n:p.backoffSets,bmin:p.backoffRepMin,bmax:p.backoffRepMax});
-  else if(id==="manual"||!names[id])line=t("focus.exmeta.manual",{sets:+ex.sets||1,min:ex.min,max:ex.max});
-  else line=t("focus.exmeta.range",{sets,min:p.repMin!=null?p.repMin:ex.min,max:p.repMax!=null?p.repMax:ex.max,rmin,rmax});
-  return `${line} · ${name}`}
+function focusExMeta(ex){return FocusPrescription.exerciseMeta({exercise:ex,facts:canonicalSlotFacts(ex),
+  progression:progressionForExercise(ex),prescription:prescriptionPresentationFacts(ex),rirHigh:state.settings.rirHigh})}
 
 /* ---- The shelf ----
    The shelf is a presentation over the DraftV2 commands. It holds nothing of its own that is saved: the three fields show
@@ -5165,13 +5138,13 @@ const workoutMetricDisplay=createMetricDisplay({readSettings:()=>state.settings,
 const metricTextValue=workoutMetricDisplay.text,canonicalMetricInput=workoutMetricDisplay.canonicalInput,
   metricKgFromDisplay=workoutMetricDisplay.kgFromDisplay,metricTargetText=workoutMetricDisplay.targetText,
   canonicalMetricTargetText=workoutMetricDisplay.canonicalTargetText;
-function programPrescriptionSummary(ex,cycleNumber=mesocycleLifecycle(state?.programMeta).current||1){
-  const match=canonicalPrescriptionSlot(ex),slot=match?.slot;
+const FocusPrescription=createPrescriptionPresentation({metrics:workoutMetricDisplay,copy:{t},format:{number:fmt}});
+function prescriptionPresentationFacts(ex,cycleNumber=mesocycleLifecycle(state?.programMeta).current||1){
+  const slot=canonicalPrescriptionSlot(ex)?.slot;
   const cycle=slot?.prescriptionsByCycle?.find(item=>item.cycleIndex===cycleNumber)||slot?.prescriptionsByCycle?.[0];
-  const set=cycle?.sets?.[0],definitions=slot?.metricDefinitions||[];
-  const targets=definitions.map(metric=>canonicalMetricTargetText(metric,set?.targets?.[metric.semantic])).filter(Boolean);
-  const setLabel=ex?.sets===1?t("history.sets.one",{n:1}):t("entry.catalogue.sets_exact",{n:+ex?.sets||0});
-  return targets.length?`${setLabel} · ${targets.join(" · ")}`:setLabel}
+  const set=cycle?.sets?.[0];
+  return {sets:ex?.sets,metrics:(slot?.metricDefinitions||[]).map(metric=>({metric,target:set?.targets?.[metric.semantic]}))}}
+function programPrescriptionSummary(ex,cycleNumber){return FocusPrescription.summary(prescriptionPresentationFacts(ex,cycleNumber))}
 const metricLabel=workoutMetricDisplay.label,metricDisplayUnit=workoutMetricDisplay.displayUnit,
   parseHistoryMetricInput=workoutMetricDisplay.parseHistoryInput;
 
