@@ -2083,7 +2083,6 @@ function volMapToObj(m){const o={};for(const[k,v]of m)o[k]={d:v.d,p:v.p};return 
 function sessionsForLog(ex,log){return scalarSessions((log||[]).filter(matchLift(ex)))}
 function previousSessionRowsLog(ex,beforeSessionId,log){return previousScalarSessionRows((log||[]).filter(matchLift(ex)),beforeSessionId,log||[])}
 function hardSetsInRange(log,program,started,ended,hardRir){return ProgressReadModels.hardSets(log||[],program||[],{start:started,end:ended,hardRir})}
-function volumeMapFromRows(rows,program){return ProgressReadModels.completedMap(rows,program||[])}
 
 function buildBlockReview(programMeta,program,log){return blockReview.build({...state,programMeta,program,log},{today:today(),now:new Date().toISOString(),hardRir:DEFAULTS.hardRir})}
 function reviewReadModel(){return ProgressReadModels.review(progressReadFacts(),strengthEvidenceRecords("current-block"))}
@@ -2525,7 +2524,6 @@ async function goToLogExercise(exId){
   hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});
   renderWorkout();
   const art=$(`#workout [data-ex="${exId}"]`);if(art){art.scrollIntoView({behavior:scrollBehavior(),block:"center"})}}
-function renderEvidenceView(){ProgressUi.renderEvidence()}
 /* ---- N1: the dock lens travels (Plan 064 rule 11) ----
    The selected tab sits in one lens: a single `aria-hidden` element that JS puts inside `nav` and places on the
    active button. While it is mounted the active button stops painting its own lens (`nav[data-lens]`); until
@@ -4754,7 +4752,7 @@ window.__repforgeValidateStateShape=isValidStateShape;
 window.__repforgeAttention=attentionGroups;
 function completedHardSets(windowDays){return ProgressReadModels.hardSets(readLogRows(),state.program,{start:daysAgo(windowDays-1),hardRir:+state.settings.hardRir})}
 function volEff(map,name){const value=map.get(name);return value?value.d+value.p:0}
-function volumeDashboard(windowDays){return ProgressReadModels.rollingVolume(progressReadFacts(),{planned:prog.volume(),cutoff7:daysAgo(6),cutoff28:daysAgo(27)})}
+function volumeDashboard(){return ProgressReadModels.rollingVolume(progressReadFacts(),{planned:prog.volume(),cutoff7:daysAgo(6),cutoff28:daysAgo(27)})}
 
 window.__repforgeVolumeDashboard=volumeDashboard;
 window.__repforgeOverviewVolume={pct:overviewBarPct,sorted:overviewVolumeSorted,label:muscleLabel};
@@ -4796,9 +4794,6 @@ function strengthProjection(scope="current-block"){
 // while the selected surface says current block.
 window.__repforgeStrengthDashboard=()=>strengthProjection(ProgressUi.state().strengthScope).dashboard;
 function volumeEvidenceReadModel(scope){return ProgressReadModels.volume(scope,progressReadFacts())}
-function prescriptionForReceipt(...args){return TrainingModel.prescriptionForReceipt(...args)}
-function recoveryReceiptForWeek(...args){return TrainingModel.recoveryReceiptForWeek(...args)}
-function progressWeekPrescriptions(){return ProgressReadModels.weekPrescriptions(progressReadFacts())}
 function progressEvidenceMeta(){return ProgressReadModels.evidenceMeta(progressReadFacts())}
 
 function redrawChart(){ExerciseUi?.redraw()}

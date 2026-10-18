@@ -130,7 +130,7 @@ function dispose(){
   row?.querySelectorAll(".is-ring-travel").forEach(tab=>tab.classList.remove("is-ring-travel"));
   evidence.dispose();review.dispose();
 }
-return Object.freeze({mount,dispose,render,presentation,renderEvidence:renderEvidenceView,renderStrength,renderVolume,renderPrs,
+return Object.freeze({mount,dispose,render,
   selectSegment:setStatsSeg,selectEvidence:setEvidenceView,
   state:()=>Object.freeze({segment:statsSeg,evidence:evidenceView,strengthScope,volumeScope,prFilter})});
 }

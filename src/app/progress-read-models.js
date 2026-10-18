@@ -184,14 +184,14 @@ export function overviewBarPct(planned, completed) {
     return planned > 0 ? Math.min(100, Math.round(completed / planned * 100)) : 0;
 }
 /** @param {number} planned @param {number} completed */
-export function volumeStatusKey(planned, completed) {
+function volumeStatusKey(planned, completed) {
     if (!planned)
         return completed > 0 ? 'high' : 'on-target';
     const ratio = completed / planned;
     return ratio < .6 ? 'below' : ratio <= 1.3 ? 'on-target' : 'high';
 }
 /** @param {import('./progress-contracts.js').Recommendation|null|undefined} recommendation */
-export function attentionVerdict(recommendation) {
+function attentionVerdict(recommendation) {
     if (!recommendation || recommendation.status === 'manual' || recommendation.status === 'new')
         return 'hold';
     if (recommendation.status === 'add' || recommendation.status === 'add2')
@@ -449,7 +449,7 @@ export function createProgressReadModels({ training, copy, format }) {
         const volume = progressEvidence.buildVolumeEvidence('block-to-date', facts.programRows, evidenceMeta(facts), facts.log, facts.today);
         return Object.freeze({ started: true, checkpoint, volume, life: training.mesocycleLifecycle({ ...meta, started: meta.started || undefined }, facts.today), periodStart: format.longDate(volume.period.start || meta.started || ''), periodEnd: format.longDate(volume.period.end || facts.today), outcomes: checkpoint.observedOutcomes.map(outcome => ({ ...outcome, name: format.exercise(facts.program.find(ex => ex.key === outcome.exerciseId)?.name || outcome.exerciseId, outcome.exerciseId) })) });
     }
-    return Object.freeze({ weekPrescriptions, evidenceMeta, week, strength, overviewStrength, overviewVolume, volume, completedMap, hardSets, attentionGroups, attention, prTimeline, prs, rollingVolume, overview, review });
+    return Object.freeze({ evidenceMeta, strength, overviewVolume, volume, hardSets, attentionGroups, prTimeline, prs, rollingVolume, overview, review });
 }
 /** Canonical read rows are grouped for the plain detail trend. This preserves
  * its released load×reps totals; physical-tonnage reports use their own facts.

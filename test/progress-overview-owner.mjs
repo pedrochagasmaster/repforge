@@ -29,6 +29,5 @@ const compacted=read.volume('block-to-date',{...facts,snapshot:{...snapshot,prog
 assert.equal(compacted.rows.find(row=>row.muscle==='Chest').planned,105,'history covers elapsed first week, then current receipt adds 5');
 const future=read.volume('block-to-date',{...facts,snapshot:{...snapshot,programMeta:{...snapshot.programMeta,plannedVolumeHistory:{...history,throughWeek:3}}}});
 assert.equal(future.rows.find(row=>row.muscle==='Chest').planned,7,'future aggregate cannot replace reached receipts');
-assert.equal(read.week(facts,[]).plannedWorkingSets,5,'week card uses same current receipt');
 assert.equal(JSON.stringify(facts),before,'read models never mutate acknowledged facts');assert.equal(ids,0,'read models allocate no durable identity');
 console.log('PASS native Progress volume/overview: literal weekly/block/recovery/history denominators and immutable attribution');

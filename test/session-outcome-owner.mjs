@@ -1,6 +1,6 @@
 /** Fixed arithmetic/status oracles for the production paired-session policy. */
 import assert from 'node:assert/strict';
-import {buildSessionDelta,compareProjectedSessionOutcome,exerciseSessionMetrics} from '../src/training/progress.js';
+import {buildSessionDelta,compareProjectedSessionOutcome} from '../src/training/progress.js';
 import {compareProgressStrengthSession} from '../src/app/progress-read-models.js';
 const row=(session,load,reps,extra={})=>({session,load,reps,rir:1,strengthComparable:true,strengthConvention:'load',...extra});
 for(const [previous,current,status] of [
@@ -10,7 +10,7 @@ for(const [previous,current,status] of [
  assert.equal(buildSessionDelta([previous],[current]).status,status);
  assert.equal(compareProjectedSessionOutcome([current],[previous],'load').status,status);
 }
-assert.equal(exerciseSessionMetrics([row('c',99,10,{warmup:true}),row('c',40,8)]).totalVolume,320);
+assert.equal(buildSessionDelta([row('p',40,8)],[row('c',99,10,{warmup:true}),row('c',40,8)]).metrics.current.totalVolume,320);
 assert.equal(compareProjectedSessionOutcome([row('c',40,8)],[],'load').status,'new');
 assert.equal(compareProjectedSessionOutcome([row('c',40,8)], [row('c',35,8)],'load').status,'not_comparable');
 assert.equal(compareProjectedSessionOutcome([row('c',40,8),row('c',40,8,{strengthConvention:'bodyweight'})],[row('p',35,8)],'load').status,'not_comparable');

@@ -12,7 +12,7 @@ export function workingRows(rows) {
     return (rows || []).filter(row => !row.warmup && Number(row.load) > 0 && Number(row.reps) > 0);
 }
 /** @param {readonly OutcomeRow[]|null|undefined} rows @returns {SessionMetrics|null} */
-export function exerciseSessionMetrics(rows) {
+function exerciseSessionMetrics(rows) {
     const work = workingRows(rows);
     if (!work.length)
         return null;
