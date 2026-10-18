@@ -63,9 +63,9 @@ function showContextualGuide(id,{focus=false,returnFocus=null,persistDeferred=fa
     `<p class="guide-cue__body">${esc(t(`guide.${id}.body`))}</p></div>`+
     `<button type="button" class="guide-cue__dismiss" data-guide-dismiss aria-label="${esc(t("guide.dismiss"))}">×</button>`;
   const dismiss=/** @type {HTMLButtonElement} */(cue.querySelector("[data-guide-dismiss]"));
-  dismiss.onclick=event=>{event.stopPropagation();dismissContextualGuide({restoreFocus:focus})};
+  dismiss.onclick=event=>{if(activeGuideCue!==cue)return;event.stopPropagation();dismissContextualGuide({restoreFocus:focus})};
   cue.addEventListener("keydown",event=>{
-    if(event.key!=="Escape")return;
+    if(activeGuideCue!==cue||event.key!=="Escape")return;
     event.preventDefault();event.stopPropagation();dismissContextualGuide({restoreFocus:true})});
   // #firstRunPrivacy lives in the narrow header utility row: inserted there,
   // the cue is a flex sibling with no room and collapses into a vertical

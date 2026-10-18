@@ -17,6 +17,10 @@ try{
   progress.mount();progress.render();progress.render();await Promise.resolve();
   const afterProgressRender={writes,state:preferences.readUi()};
   progress.selectSegment('overview');const afterSelect={writes,state:preferences.readUi()};
+  const staleDismiss=document.querySelector('[data-guide-dismiss]');
+  guide.remove();guide.show('block-transition');const beforeRetained=writes;
+  staleDismiss.click();
+  const retainedGuide={writes:writes-beforeRetained,status:preferences.readUi().guideState['block-transition'].status};
   guide.remove();preferences.replaceUi({});writes=0;
   const focus=createFocusDom({window,focus:{beginFrame:()=>0,finishFrame:()=>{}},presentation:{capture:()=>({})},controls:{},geometry:{sizeDeck:()=>{}},effects:{enabled:()=>false,settleBeats:()=>{}},rest:{arrive:()=>{}},motion:{},readFrame:()=>({active:true,context:{list:[],query:{}},cycle:{},dayLabel:'Day',hiddenCount:0}),copy:{t:key=>key},guides:guide,exercise:{},onControlsReplaced:()=>{},onRendered:()=>{}});
   focus.render();focus.render();await Promise.resolve();
@@ -24,11 +28,12 @@ try{
   guide.maybeShow(['first-set','focus-utilities']);
   const afterFocusEntry={writes,state:preferences.readUi()};
   progress.dispose();focus.dispose();guide.remove();
-  return{afterProgressRender,afterSelect,afterFocusRender,afterFocusEntry};
+  return{afterProgressRender,afterSelect,afterFocusRender,afterFocusEntry,retainedGuide};
  });
  assert.deepEqual(result.afterProgressRender,{writes:0,state:{}},'Progress repaint cannot publish guide transitions');
  assert.equal(result.afterSelect.writes,1);assert.equal(result.afterSelect.state.guideState.progress.status,'shown','explicit segment selection still publishes through actual Guide/preferences');
  assert.deepEqual(result.afterFocusRender,{writes:0,state:{}},'Focus active repaint cannot publish guide transitions');
+ assert.deepEqual(result.retainedGuide,{writes:0,status:'shown'},'retired cue controls cannot dismiss a newer guide');
  assert.equal(result.afterFocusEntry.writes,1);assert.equal(result.afterFocusEntry.state.guideState['focus-utilities'].status,'shown');
  await context.close();
  const app=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block',reducedMotion:'reduce'}),live=await app.newPage();
