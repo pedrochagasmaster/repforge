@@ -213,11 +213,11 @@ assert(!/\.view\b/.test(layer) && !/\.toast\b/.test(layer) && !/effortpop/.test(
     /fallbackFocusLater\(done,220\)/.test(gestures) &&
     /function fallbackFocusLater\(callback,delay\)\s*\{\s*const timer=window.setTimeout/.test(gestures),
   "focus snap-back retains its tracked CSS fallback");
-  assert(/function focusAnimateTo\(dir\)\{\s*const controller=window\.__repforgeGestureHandle;\s*return controller\?\.navigate\(dir\)\|\|false\}/.test(app) &&
+  assert(/function focusAnimateTo\(dir\)\{\s*return ensureBrowserPresentation\(\)\.motion\.navigate\(dir\)\}/.test(app) &&
     /function fallbackFocusAnimateTo\(dir\)\{/.test(app) &&
     /fallbackFocusLater\(\(\)=>\{\s*focusFlinging=false/.test(gestures) &&
     /FOCUS_SLIDE_MS=210/.test(gestures),
-  "deck carry remains a tracked CSS transition behind the gesture owner");
+  "deck carry uses the actual Motion owner and retains its tracked CSS fallback");
   assert(/if\s*\(motion\?\.animateExerciseReorder\(rows,\s*beforeRects\)\)\s*return;/.test(editor) && /program-editor-flip-y/.test(editor), "editor reorder retains FLIP fallback");
   assert(/settle\s*=\s*true/.test(editor) && /moveExercise\(id,\s*day,\s*index,\s*\{\s*settle:\s*false\s*\}\)/.test(editor), "library drags are not animated twice");
   assert(/if\(motion\?\.animateDisclosure\)motion\.animateDisclosure\(panel,on,show\);\s*else show\(\)/.test(shell), "disclosures toggle exactly once with or without Motion");

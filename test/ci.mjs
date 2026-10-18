@@ -475,14 +475,14 @@ test("annotated app hunks select visual domains and unknown regions widen", () =
   assert.deepEqual(selectVisuals(["app.js"], sample, { appSource: source, appDiff: "@@ -5 +5 @@\n-old\n+new\n" }).screens, ["history/edit"]);
 });
 
-test("app.js hunks after the reviewed History block widen instead of inheriting History", () => {
+test("composition-root changes widen to every visual domain", () => {
   const source = readFileSync(join(process.cwd(), "app.js"), "utf8");
-  for (const marker of ["function exerciseSessionsDetail", "async function copyToClipboard", "function renderCatalogueStep", "function init()"]){
-    const line = source.split("\n").findIndex((value) => value.startsWith(marker)) + 1;
-    assert.ok(line > 0, `production app contains ${marker}`);
-    const diff = `@@ -${line} +${line} @@\n-old\n+new\n`;
-    assert.deepEqual([...domainsForAppDiff(source, diff)], ["global"], marker);
-    assert.equal(selectVisuals(["app.js"], manifest, { appSource: source, appDiff: diff }).mode, "full", marker);
+  assert.doesNotMatch(source, /@ci-domain (?!global)/, "feature selection belongs to native module paths, never a composition-root region");
+  const lines=source.split("\n").length;
+  for (const line of [1,Math.ceil(lines/2),lines]) {
+    const diff=`@@ -${line} +${line} @@\n-old\n+new\n`;
+    assert.deepEqual([...domainsForAppDiff(source,diff)],["global"]);
+    assert.equal(selectVisuals(["app.js"],manifest,{appSource:source,appDiff:diff}).mode,"full");
   }
 });
 

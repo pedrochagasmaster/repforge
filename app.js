@@ -5704,7 +5704,6 @@ function progressEvidenceMeta(){return ProgressReadModels.evidenceMeta(progressR
 
 function redrawChart(){ExerciseUi?.redraw()}
 
-// @ci-domain history
 function adoptHistoryDurableHead(head){
   if(!head)return;
   publishTrainingSnapshot(head);
@@ -5788,7 +5787,6 @@ const HistoryUi=createHistoryController({window,
 window.__repforgeHistory=HistoryUi;
 window.__repforgeSaveSessionEdit=HistoryUi.saveSessionEdit;
 
-// @ci-domain global
 // ---- Exercise detail: one lift's stats, session history and session notes ----
 // Reached by tapping an exercise name on the Log tab; not part of the bottom nav.
 function exerciseDetailReadModel(key,capturedExercise){
