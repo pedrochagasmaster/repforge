@@ -8,7 +8,7 @@ import {createProgramModel} from '../../src/training/model.js';
 import metrics from '../../src/training/metrics.js';
 import {progression} from '../../src/training/progress.js';
 import {createSnapshotPolicy} from '../../src/persistence/snapshot.js';
-import {createEntryActivation,createEntryGeneration} from '../../src/app/entry.js';
+import {createEntryActivation,createEntryGeneration,buildLandingProof} from '../../src/app/entry.js';
 import {createCustomDefinitionImport} from '../../src/app/custom-import.js';
 const require=createRequire(import.meta.url),source=require('../../exercises.js');
 const catalog=JSON.parse(readFileSync(new URL('../../assets/exercise-catalog.json',import.meta.url),'utf8'));
@@ -103,3 +103,10 @@ const alternateCandidate=activation.candidate({draft:{...clashDraft,result:{prev
 assert.equal(alternateCandidate.ok,true);
 assert.deepEqual(alternateCandidate.value.programDefinition.days[0].slots[0].alternates,['custom:reuse']);
 console.log('Entry canonical custom collision: primary/source/alternate references agree with actual flattened rows and authored definitions; slot identity retained');
+
+const landing=buildLandingProof({model,catalog,minJump:2.5});
+assert.deepEqual(landing.recommendations,{add:{status:'recommended',load:62.5,reps:9},hold:{status:'recommended',load:100,reps:7},reduce:{status:'recommended',load:62.5,reps:10}});
+assert.deepEqual(landing.chart,{from:92.5,to:100,sessions:4});
+assert.throws(()=>{landing.cases.add.logged[0][0]=999},TypeError);
+assert.equal(buildLandingProof({model,catalog,minJump:2.5}).recommendations.add.load,62.5);
+console.log('Landing read model: literal three recommendations/four-session figures from actual production engine and protected authored examples passed');
