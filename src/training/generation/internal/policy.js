@@ -1,26 +1,37 @@
+/** @typedef {import("./policy-contracts.js").EnginePolicy} EnginePolicy */
+/** @typedef {import("./policy-contracts.js").FieldRule} FieldRule */
+/** @typedef {import("./policy-contracts.js").PolicyField} PolicyField */
+/** @typedef {import("./policy-contracts.js").PolicyIssue} PolicyIssue */
+/** @typedef {import("./policy-contracts.js").PolicyResult} PolicyResult */
 /** Shared 073.4 policy validation. Scoped metadata is immutable; construction performs no I/O. */
 export function createEnginePolicy() {
 "use strict";
 const REP_CLASSES = ["first_push_lower", "first_pull", "secondary_push_lower", "secondary_pull", "assistance"];
 const GOALS = ["hypertrophy", "strength", "hybrid"];
+/** @type {Record<string,number[]>} */
 const TABLES = {
   secondaryStrengthPush: [5, 6, 7, 7, 8, 9, 10],
   low: [3, 4, 5, 5, 6, 7, 8], mid: [6, 8, 8, 9, 10, 11, 12],
   high: [8, 10, 10, 11, 13, 13, 15], accessory: [10, 13, 13, 15, 17, 18, 20],
 };
+/** @type {Record<string,number[]>} */
 const staticCenters = {
   hypertrophy: [8, 10, 10, 12, 15], strength: [5, 8, 8, 10, 10], hybrid: [5, 8, 10, 12, 15],
 };
+/** @type {Record<string,string[]>} */
 const tableKeys = {
   hypertrophy: ["mid", "high", "high", "high", "accessory"],
   strength: ["low", "mid", "secondaryStrengthPush", "high", "high"],
   hybrid: ["low", "mid", "high", "high", "accessory"],
 };
+/** @template T @param {T} value @returns {T} */
 const freeze = (value) => {
   if (value && typeof value === "object") { Object.values(value).forEach(freeze); Object.freeze(value); }
   return value;
 };
+/** @template T @param {T} value @returns {T} */
 const clone = (value) => JSON.parse(JSON.stringify(value));
+/** @type {EnginePolicy} */
 const defaults = freeze({
   kind: "taurifer-engine-policy", schemaVersion: 1,
   volume: { setsByType: { primary: 0, secondary: 0, accessory: 0 }, beginnerSetReduction: 0 },
@@ -38,7 +49,9 @@ const defaults = freeze({
   timeModel: { perExerciseOverheadSeconds: 120, isolationFixedSeconds: 90, compoundFixedSeconds: 180,
     secondsPerSet: 30, coreRestSeconds: 60, isolationRestSeconds: 90, upperRestSeconds: 120, lowerRestSeconds: 180 },
 });
+/** @type {PolicyField[]} */
 const fields = [];
+/** @param {string} path @param {unknown} value @returns {FieldRule} */
 function rule(path, value) {
   if (path.startsWith("volume.setsByType.")) return { min: 0, max: 6, integer: true, unit: "sets", dependency: "0 preserves recovered allocation; override applies before distribution." };
   if (path === "volume.beginnerSetReduction") return { min: 0, max: 2, integer: true, unit: "sets", dependency: "Subtract after allocation/override, retaining at least one set." };
@@ -51,40 +64,48 @@ function rule(path, value) {
   if (path.startsWith("deload.")) return { min: 0.1, max: 1, integer: false, unit: "fraction", dependency: "Floor retained count, minimum one; round rep bounds after multiplying." };
   return { min: 0, max: 900, integer: true, nullable: value === null, unit: "seconds", dependency: value === null ? "Null preserves recovered rest and its regional duration fallback." : "Recovered per-template duration model; includes explicit between-set rest." };
 }
+/** @param {unknown} value @param {string} [path] */
 function describe(value, path = "") {
   if (value && typeof value === "object") {
     Object.entries(value).forEach(([key, child]) => describe(child, path ? `${path}.${key}` : key));
-  } else if (path !== "kind" && path !== "schemaVersion") fields.push({ path, label: path.split(".").at(-1).replace(/([a-z])([A-Z])/g, "$1 $2"), default: value, ...rule(path, value) });
+  } else if (path !== "kind" && path !== "schemaVersion") fields.push({ path, label: (path.split(".").at(-1)||"").replace(/([a-z])([A-Z])/g, "$1 $2"), default: value, ...rule(path, value) });
 }
 describe(defaults);
 const metadata = freeze({ kind: "taurifer-engine-policy-metadata", schemaVersion: 1, engineVersion: "073.4", repClasses: REP_CLASSES, fields });
 const fieldMap = new Map(fields.map(field => [field.path, field]));
+/** @param {unknown} value @returns {value is Record<string,unknown>} */
 const plain = value => !!value && typeof value === "object" && [Object.prototype, null].includes(Object.getPrototypeOf(value));
+/** @param {unknown} input @returns {PolicyResult} */
 function normalizeEnginePolicy(input) {
   if (input === undefined) return { ok: true, value: cloneFrozenDefault(), isDefault: true };
+  /** @type {PolicyIssue[]} */
   const issues = [];
+  /** @param {string} path @param {string} code @param {string} message */
   const issue = (path, code, message) => issues.push({ path, code, message });
+  /** @param {unknown} value @param {unknown} expected @param {string} path @returns {unknown} */
   function visit(value, expected, path) {
     if (expected && typeof expected === "object") {
       const array = Array.isArray(expected);
       if (array ? !Array.isArray(value) : !plain(value) || Array.isArray(value)) {
         issue(path, "invalid_type", array ? "Expected a dense array." : "Expected a plain data object."); return;
       }
+      const source=/** @type {object} */(value);
       const allowed = new Set(Reflect.ownKeys(expected).filter(key => key !== "length"));
-      for (const key of Reflect.ownKeys(value)) {
+      for (const key of Reflect.ownKeys(source)) {
         if (array && key === "length") continue;
-        const descriptor = Object.getOwnPropertyDescriptor(value, key);
+        const descriptor = Object.getOwnPropertyDescriptor(source, key);
         if (typeof key !== "string" || ["__proto__", "constructor", "prototype"].includes(key) || !allowed.has(key)) issue(path ? `${path}.${String(key)}` : String(key), "unknown_field", "Unsupported policy field.");
         else if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) issue(`${path}.${String(key)}`, "invalid_data", "Expected enumerable data properties, without accessors.");
       }
-      if (array && value.length !== expected.length) issue(path, "invalid_length", `Expected exactly ${expected.length} entries.`);
+      if (array && Array.isArray(value) && Array.isArray(expected) && value.length !== expected.length) issue(path, "invalid_length", `Expected exactly ${expected.length} entries.`);
       const output = array ? [] : {};
       for (const key of allowed) {
+        if(typeof key!=="string")continue;
         const next = path ? `${path}.${key}` : key;
-        const descriptor = Object.getOwnPropertyDescriptor(value, key);
+        const descriptor = Object.getOwnPropertyDescriptor(source, key);
         if (!descriptor) { issue(next, "missing_field", "A complete policy snapshot is required."); continue; }
         if (!("value" in descriptor)) continue;
-        output[key] = visit(descriptor.value, expected[key], next);
+        /** @type {Record<string,unknown>} */(output)[key] = visit(descriptor.value, /** @type {Record<string,unknown>} */(expected)[key], next);
       }
       return output;
     }
@@ -93,6 +114,7 @@ function normalizeEnginePolicy(input) {
       return value;
     }
     const field = fieldMap.get(path);
+    if(!field)throw new TypeError("Unknown engine policy field");
     if (value === null && field.nullable) return null;
     if (typeof value !== "number" || !Number.isFinite(value) || field.integer && !Number.isInteger(value)
       || value < field.min || value > field.max) issue(path, "invalid_number", `Expected ${field.integer ? "an integer" : "a number"} from ${field.min} to ${field.max}${field.nullable ? ", or null" : ""}.`);
@@ -101,20 +123,22 @@ function normalizeEnginePolicy(input) {
   let value;
   try { value = visit(input, defaults, ""); }
   catch { issue("", "invalid_data", "Expected a plain policy data snapshot."); }
+  const accepted=/** @type {EnginePolicy} */(value);
   if (!issues.length) {
     for (const repClass of REP_CLASSES) {
-      const base = value.prescription.baseRirByClass[repClass];
-      const bonus = value.prescription.beginnerRirBonus + value.deload.rirBonus;
-      if (Object.values(value.prescription.rirAdjustmentsBySetCount).some(adjustments => adjustments.some(delta => Math.max(0, base + delta) + bonus > 6))) {
+      const base = accepted.prescription.baseRirByClass[repClass];
+      const bonus = accepted.prescription.beginnerRirBonus + accepted.deload.rirBonus;
+      if (Object.values(accepted.prescription.rirAdjustmentsBySetCount).some(adjustments => adjustments.some(delta => Math.max(0, base + delta) + bonus > 6))) {
         issue(`prescription.baseRirByClass.${repClass}`, "rir_overflow", "Base RIR plus set adjustment, beginnerRirBonus and deload.rirBonus must not exceed 6; lower one of these fields.");
       }
     }
   }
-  return issues.length ? { ok: false, issues } : { ok: true, value: freeze(value), isDefault: JSON.stringify(value) === JSON.stringify(defaults) };
+  return issues.length ? { ok: false, issues } : { ok: true, value: freeze(accepted), isDefault: JSON.stringify(accepted) === JSON.stringify(defaults) };
 }
 function cloneFrozenDefault() { return freeze(clone(defaults)); }
 return Object.freeze({ normalizeEnginePolicy, getDefaultEnginePolicy: cloneFrozenDefault, getEnginePolicyMetadata: () => metadata });
 }
 export const getDefaultEnginePolicy=()=>createEnginePolicy().getDefaultEnginePolicy();
+/** @param {unknown} input */
 export const normalizeEnginePolicy=(input)=>createEnginePolicy().normalizeEnginePolicy(input);
 export const getEnginePolicyMetadata=()=>createEnginePolicy().getEnginePolicyMetadata();
