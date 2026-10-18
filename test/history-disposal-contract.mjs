@@ -18,10 +18,12 @@ try{
   const raw=localStorage.getItem('repforge_v1');owner.dispose();button.click();
   await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
   const deleted=await owner.deleteSession('must-not-delete',{originalFingerprint:'captured-original'});
+  const retained=document.createElement('article');retained.className='session--edit';retained.dataset.editing='disposed-edit';document.body.append(retained);
+  const saved=await owner.saveSessionEdit('disposed-edit');retained.remove();
   owner.setSearchOpen(true);owner.setQuery('disposed query');owner.startReading('disposed-session');
-  return{calendar:document.querySelector('#historyCalSheet').classList.contains('is-open'),expanded:button.getAttribute('aria-expanded'),query:owner.query(),deleted:deleted.code,rawPreserved:localStorage.getItem('repforge_v1')===raw};
+  return{calendar:document.querySelector('#historyCalSheet').classList.contains('is-open'),expanded:button.getAttribute('aria-expanded'),query:owner.query(),deleted:deleted.code,saved:saved.code,rawPreserved:localStorage.getItem('repforge_v1')===raw};
  });
- assert.deepEqual(afterDispose,{calendar:false,expanded:'false',query:'',deleted:'history_cancelled',rawPreserved:true});
+ assert.deepEqual(afterDispose,{calendar:false,expanded:'false',query:'',deleted:'history_cancelled',saved:'history_cancelled',rawPreserved:true});
  await page.reload();await waitForAppBoot(page,{base});
  const duringOpen=await page.evaluate(async()=>{
   const owner=window.__repforgeHistory;owner.render();document.querySelector('#historyCalBtn').click();owner.dispose();

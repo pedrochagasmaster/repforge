@@ -197,7 +197,7 @@ function historyConfirmDiscard(){
     const reduced=typeof shell.reducedMotion==="function"&&shell.reducedMotion();
     document.body.classList.add("is-sheet-open");
     const opened=shell.openModal(sheet,{onEscape:()=>finish(false),scrim,returnFocus:document.activeElement,initialFocus:keep,delayHide:reduced?0:280});
-    if(opened===false){document.body.classList.remove("is-sheet-open");settled=true;historyDiscardAsk=null;resolve(false);return}
+    if(opened===false){clearListeners(discardListeners);cancelDiscard=null;document.body.classList.remove("is-sheet-open");settled=true;historyDiscardAsk=null;resolve(false);return}
     discardFrame=requestAnimationFrame(()=>{discardFrame=0;if(disposed)return;sheet.classList.add("is-open");scrim.classList.add("is-open")})});
   return historyDiscardAsk}
 /** True when the lifter agreed to drop the unsaved changes of this session. */
@@ -780,6 +780,7 @@ function sessionEditor(record,sets){
 // can never merge over a changed or deleted session.
 /** @param {SessionId} sid */
 async function saveSessionEdit(sid){
+  if(disposed)return{ok:false,committed:false,settled:true,cancelled:true,code:"history_cancelled",localOk:false,idbOk:false};
   const card=$(".session--edit[data-editing=\""+String(sid).replaceAll("\"","\\\"")+"\"]");if(!card)return;
   const parsed=historySessionFromWorkingCopy(card);
   if(parsed.error){historyMarkValidation(card,parsed.error);historyOutcome("edit_save","failure");return}
