@@ -6,3 +6,4 @@ export * from "./progress/internal/progression.js";
 export * from "./progress/internal/evidence.js";
 export * from "./progress/internal/schedule.js";
 export { progression, evidence, schedule };
+export { liftPR, sessionPRs, sessionMuscleWork, sessionOutcomeGroups, buildSessionSummary } from './progress/internal/summary.js';

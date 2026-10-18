@@ -1,7 +1,7 @@
 /** Pure progress input/output data contracts. History values can be released
  * numeric strings; the evidence algorithms retain their explicit Number
  * coercion. Outcomes are supplied by the authoritative engine. */
-/** @typedef {{id?:string,date?:string,created?:string|null,session?:string,sessionKey?:string,set?:number|string,day?:string,exerciseId?:string,exercise?:string,name?:string,blockId?:string,work?:boolean,warmup?:boolean,load?:number|string|null,reps?:number|string|null,rir?:number|string|null,strengthComparable?:boolean,strengthConvention?:string|null}} HistoryRow */
+/** @typedef {{id?:string,date?:string,created?:string|null,session?:string|number,sessionKey?:string,set?:number|string,day?:string,exerciseId?:string,exercise?:string,name?:string,blockId?:string,work?:boolean,warmup?:boolean,load?:number|string|null,reps?:number|string|null,rir?:number|string|null,strengthComparable?:boolean,strengthConvention?:string|null}} HistoryRow */
 /** @typedef {{id?:string,name?:string,day?:string,sets?:number,plannedWorkingSetsPerWeek?:number,slot?:string,pattern?:string}} ProgramRow */
 /** @typedef {{exercises?:ProgramRow[],started?:string|null,mesocycleLengthWeeks?:number}} ProgramObject */
 /** @typedef {ProgramRow[]|ProgramObject|null|undefined} ProgramInput */
