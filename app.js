@@ -1,6 +1,5 @@
-import {createLandingProofController} from './src/ui/entry/landing/proof.js';
+import {createEntryLanding} from './src/ui/entry/landing/controller.js';
 import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,createEntryAnswerCommands,createEntryQuestionFlow,createEntryReviewSession,createEntrySetup,createEntryActivation,buildLandingProof,FREEFORM_MAX_CHARS} from './src/app/entry.js';
-import {createLandingContent} from './src/ui/entry/landing/view.js';
 import * as ExerciseSource from './exercises.js';
 import {EXERCISE_LIBRARY,LEGACY_LIBRARY_IDS,EXERCISE_CATALOG_SHA256} from './exercises.js';
 import {STRINGS} from './i18n.js';
@@ -8319,7 +8318,6 @@ function showInstallBanner(force){return installView().showBanner(force)}
 function hideInstallBanner(remember){return installView().hideBanner(remember)}
 function maybeShowInstallBanner(){return installView().maybeShowBanner()}
 function showInstallTransferDivergenceDialog(onConfirm){return installView().divergence(onConfirm)}
-function reportLandingAction(action){captureEvent("landing_action",{action})}
 // Capture Chrome's single-use offer before init, without reading training state.
 window.addEventListener("beforeinstallprompt",event=>installView().capturePrompt(event),true);
 
@@ -8329,8 +8327,15 @@ window.addEventListener("beforeinstallprompt",event=>installView().capturePrompt
    manual Home Screen flow, or nothing — so no lifter is ever asked which phone
    they are holding. */
 let sharedSetupDraft={status:"none",source:null,encoded:null,payload:null,error:null,previousLang:null};
-let firstRunActive=false;
-const firstRunOpen=()=>!!$("#firstRun")&&!$("#firstRun").classList.contains("hidden");
+let landingOwner=null;
+function landingView(){return landingOwner||(landingOwner=createEntryLanding({window,motion:ensureBrowserPresentation().motion,install:installView(),copy:{t,language:()=>uiLang()},
+  report:captureEvent,markSeen:()=>setUiPref("entryLandingSeen",true),commands:{
+    start:opts=>startOnboarding("first-run",opts||{}),hasSavedDraft:()=>readSetupDraftRecord().raw!==null,
+    selectImport:()=>{setImportSourceMode("freeform",{render:false});entrySelectRoute("import")},clearShared:discardSharedSetup,
+    acceptShared:()=>commitSharedSetup(storageIO),privacy:()=>openPrivacySheet(),install:triggerInstall}}))}
+const firstRunOpen=()=>landingView().isOpen();
+function landingSharedView(){return{ready:sharedSetupReady(),invalid:sharedSetupInvalid(),name:sharedSetupDraft.payload?.program?.name||"",days:sharedTrainingDays(sharedSetupDraft.payload?.program?.definition),errorKey:sharedSetupErrorKey(sharedSetupDraft.error,sharedSetupDraft.errorVersion)}}
+function landingPaint(){return{shared:landingSharedView(),proof:buildLandingProof({model:TrainingModel,catalog:rawExerciseCatalog,minJump:DEFAULTS.minJump,defaultWeeks:EntryActivation.defaultCycles})}}
 const sharedSetupReady=()=>sharedSetupDraft.status==="ready"&&!!sharedSetupDraft.payload;
 const sharedTrainingDays=definition=>(definition?.days||[]).filter(day=>day.kind==="training").length;
 const sharedSetupInvalid=()=>sharedSetupDraft.status==="invalid"||sharedSetupDraft.status==="unsupported";
@@ -8342,28 +8347,7 @@ function sharedSetupErrorKey(code,version=null){
     ?"setup.shared.unsupported":"setup.shared.outdated";
   if(code==="decompression-unavailable")return"setup.shared.browser_unsupported";
   return"setup.shared.invalid"}
-function renderFirstRunProgramMode(){
-  const standard=$("#firstRunStandardProgram"),shared=$("#firstRunSharedProgram"),card=$("#firstRunSharedCard"),error=$("#firstRunSharedError");
-  const ready=sharedSetupReady();
-  const invalid=sharedSetupInvalid();
-  standard?.classList.toggle("hidden",ready);
-  shared?.classList.toggle("hidden",!ready);
-  card?.classList.toggle("hidden",!ready);
-  $("#firstRun")?.classList.toggle("is-shared",ready);
-  if(ready){
-    const name=sharedSetupDraft.payload.program.name;
-    const n=sharedTrainingDays(sharedSetupDraft.payload.program.definition);
-    const title=$("#firstRunSharedTitle"),nameLine=$("#firstRunSharedName");
-    if(title)title.textContent=t("setup.shared.view");
-    if(nameLine)nameLine.textContent=t(n===1?"setup.shared.cap_one":"setup.shared.cap_many",{name,n});
-    if(error){error.textContent="";error.classList.add("hidden")}}
-  else if(invalid){
-    if(error){error.textContent=t(sharedSetupErrorKey(sharedSetupDraft.error,sharedSetupDraft.errorVersion));error.classList.remove("hidden")}}
-  else if(error){error.textContent="";error.classList.add("hidden")}}
-function setSharedSetupBusy(busy){
-  const button=$("#firstRunSharedStart"),busyEl=$("#firstRunSharedBusy");
-  if(button){button.disabled=busy;button.setAttribute("aria-busy",busy?"true":"false")}
-  busyEl?.classList.toggle("hidden",!busy)}
+function setSharedSetupBusy(busy){landingView().sharedBusy(busy)}
 async function commitSharedSetup(io=storageIO){
   if(!sharedSetupReady())return{revision:readRevision(state),localOk:false,idbOk:false};
   if(!sharedSetupEligible()){
@@ -8409,158 +8393,19 @@ async function commitSharedSetup(io=storageIO){
     return{revision:readRevision(state),localOk:false,idbOk:false,invalid:true};
   } finally { setSharedSetupBusy(false); }
 }
-/** Write the install section from the current reading, or take it away. Rule 5:
- *  a browser with no mechanism gets no section at all, never a dead button. */
-function renderFirstRunInstall(){return installView().renderLanding()}
-/** The lede and the escape hatch both speak to the install offer, so they follow
- *  it. With nothing to install — most of all inside the installed app — the
- *  screen is only the program question, and "Continue in browser" would be an
- *  answer to a question nobody asked. */
-function setFirstRunOffer(offer){
-  renderFirstRunHeroCopy();
-  $("#firstRunContinue")?.classList.toggle("hidden",!offer);
-}
-/** The hero's headline and lede follow the landing in view: a shared link, a
- *  link that cannot be used, a return to an un-onboarded device, or the first visit. */
-function renderFirstRunHeroCopy(){
-  const shared=sharedSetupReady(),invalid=sharedSetupInvalid(),back=landingReturning();
-  const headline=$("#firstRunHeadline"),lede=$("#firstRunLede");
-  if(headline)headline.textContent=t(shared?"setup.shared.title":invalid?"landing.shared.invalid_headline":back?"landing.returning.headline":"landing.headline");
-  if(lede)lede.textContent=t(shared?"landing.shared.body":invalid?"landing.shared.invalid_body":back?"landing.returning.sub":"landing.hero.sub");
-}
-/* ---- The returning landing (owner decision on #295, comment 5941692606) ----
-   The generic landing is marked data-entry-visit="returning" by openFirstRun when
-   the lifter has seen the full page before; a setup left half done also marks
-   data-entry-draft with its route. Both are read from the marks, never from
-   storage, so a re-render cannot turn a first visit into a return. */
-const LANDING_RESUME_ROUTES=["recommend","custom","browse","build","import","shared"];
-function landingReturning(){
-  const root=$("#firstRun");
-  return!!root&&root.dataset.entryVisit==="returning"&&!sharedSetupReady()&&!sharedSetupInvalid()}
-/** The saved route, when the returning landing has a setup to continue. */
-function landingResumeRoute(){
-  return landingReturning()?String($("#firstRun").dataset.entryDraft||""):""}
-function landingResumeLabel(route){
-  return LANDING_RESUME_ROUTES.includes(route)?t(`landing.returning.resume.${route}`):t("landing.returning.resume.generic")}
-/** With a saved setup, the landing's one creation action says so: the hero, the
- *  persistent control and the closing action all name the saved route instead of
- *  Build. They stay the same control and open the same chooser, whose resume card
- *  takes it from there; it does not jump to the saved step. */
-function renderLandingResume(){
-  const route=landingResumeRoute(),label=route?landingResumeLabel(route):t("landing.build");
-  for(const name of["firstRunCreate","firstRunCreateClose","firstRunCreateDock"]){
-    const button=$("#"+name),text=$(`#${name}Label`);
-    if(text)text.textContent=label;
-    if(button){if(route)button.dataset.entryResume=route;else delete button.dataset.entryResume}}}
-/** Chrome accepted the install, or the app reports itself installed. Either way
- *  there is nothing left to install: the section goes, the choices stay. */
-function closeFirstRunInstall(){return installView().closeLanding()}
-/* ---- Landing page: engine-true numbers, filled copy and the proof ----
-   Every number the page shows is produced here at render time and poured into an
-   i18n template, never typed into markup or a catalog value. The three outcome
-   cases go through the real progression engine with the app's default settings;
-   the chart's figures come from the Progress model over the same four-session
-   history the chart image is captured from (owner decision L-2). The inputs
-   below are the only authored numbers: what the example lifter logged. */
-let landingContentOwner=null;
-function landingContentView(){return landingContentOwner||(landingContentOwner=createLandingContent({document,copy:{t,language:()=>uiLang()}}))}
-const landingLang=()=>landingContentView().language();
-const landingNum=value=>landingContentView().number(value);
-function renderLandingContent(){landingContentView().render(buildLandingProof({model:TrainingModel,catalog:rawExerciseCatalog,minJump:DEFAULTS.minJump,defaultWeeks:EntryActivation.defaultCycles}))}
-
-/* The proof controller. One object per open landing: it adds the pinned stage
-   (phone, lens, rail) only when motion is welcome and the screen can hold it,
-   keeps the persistent Build control in step with the hero action, and wires the
-   two in-page controls. Everything it starts is recorded and removed by
-   dispose(), which suspendFirstRun runs, so no listener, observer, timer or frame
-   outlives the gate and the static cards remain once it is gone. */
-let landingController=null;
-function mountLandingController(){
-  disposeLandingController();
-  const root=$("#firstRun");if(!root)return;
-  // openFirstRun marks the landing first or returning after it renders, so the
-  // marks are applied to the hero here, before the controller reads it.
-  renderFirstRunHeroCopy();renderLandingResume();
-  landingController=createLandingProofController({window,root,motion:ensureBrowserPresentation().motion,copy:{t,language:landingLang,number:landingNum},state:{returning:landingReturning(),shared:sharedSetupReady()}});
-  landingController.mount()}
-function disposeLandingController(){
-  if(!landingController)return;
-  landingController.dispose();landingController=null}
-/** Test hook: what the open landing's controller is holding (nothing once closed). */
-window.__repforgeLandingProof=()=>landingController?{open:true,...landingController.live()}:{open:false,listeners:0,observers:0,timers:0,frames:0,pinned:false,step:null,ticks:0};
-/** Real-app captures that follow the chosen appearance: swap the file on
- *  <html data-theme>, never on prefers-color-scheme, so the page and the app agree. */
-function renderLandingDevice(){landingContentView().paintDevice()}
-function renderFirstRun(){
-  renderFirstRunProgramMode();
-  renderLandingDevice();
-  renderLandingContent();
-  const decision=installPolicyDecision(),mode=installMode();
-  setFirstRunOffer(decision.eligible||mode==="safari"&&decision.state==="unsupported");
-  const label=$("#firstRunContinueLabel");
-  if(label)label.textContent=isIOSSafari()?t("setup.continue_safari"):t("setup.continue_browser");
-  renderFirstRunInstall();
-}
+function setFirstRunOffer(offer){landingView().setOffer(offer)}
+function renderLandingDevice(){landingView().paintDevice()}
+window.__repforgeLandingProof=()=>landingView().proofState();
 function currentEntryLanding(){
   if(sharedSetupReady())return"shared";
   if(sharedSetupInvalid())return"shared-invalid";
   return"generic"}
 function openFirstRun(kind=currentEntryLanding()){
-  const el=$("#firstRun");if(!el)return false;
-  firstRunActive=true;
-  renderFirstRun();
-  el.dataset.entryLanding=kind;
-  // The generic landing tells a first visit from a return, and names the setup
-  // the lifter left half done, so the returning landing can lead with it.
-  const returning=kind==="generic"&&uiPrefs.entryLandingSeen===true;
-  el.dataset.entryVisit=returning?"returning":"first";
-  const draft=returning?readSetupDraftRecord():null;
+  const returning=kind==="generic"&&uiPrefs.entryLandingSeen===true,draft=returning?readSetupDraftRecord():null;
   const draftRoute=draft?.ok&&draft.envelope&&!isGuidedRepairSetupDraft(draft.envelope)?String(draft.envelope.state?.route||""):"";
-  if(draftRoute)el.dataset.entryDraft=draftRoute;else delete el.dataset.entryDraft;
-  el.classList.remove("hidden");
-  document.body.classList.add("is-firstrun");
-  captureEvent("landing_viewed",{landing:kind==="shared-invalid"?"shared_invalid":kind==="shared"?"shared":"generic",visit:returning?"returning":"first"});
-  window.scrollTo({top:0});
-  el.scrollTop=0;
-  // The screen itself takes focus, not its first choice: a ring drawn around
-  // Create before the lifter has touched anything reads as a recommendation.
-  try{el.focus({preventScroll:true})}catch{}
-  mountLandingController();
-  // No guide is presented here. This screen's whole job is the proposition,
-  // and every cue that could anchor to it explains a control the screen has
-  // already named: the two entry actions carry their own labels, the install
-  // card carries its own title and body, and Privacy is a standing link in
-  // the header. A cue above the headline pushed the product argument off the
-  // first paint to restate what was already on it. The guides themselves are
-  // untouched — "entry" shows at the chooser it explains, and "install" and
-  // "privacy" show in Settings, where they are anchored to controls whose
-  // purpose is not self-evident and where replay reaches them.
-  if(kind==="generic"&&uiPrefs.entryLandingSeen!==true)setUiPref("entryLandingSeen",true);
-  return true}
-/** The landing's tab stops: the modal set plus the questions' <summary> controls. */
-function firstRunFocusables(root){
-  const sel='a[href],button:not([disabled]),summary,input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
-  return [...root.querySelectorAll(sel)].filter(el=>{
-    if(el.hasAttribute("hidden")||el.closest("[hidden]"))return false;
-    const st=getComputedStyle(el);
-    return st.display!=="none"&&st.visibility!=="hidden"&&el.getClientRects().length>0})}
-function trapFirstRunTab(event){
-  if(event.key!=="Tab"||!firstRunOpen())return;
-  const root=$("#firstRun"),focusable=firstRunFocusables(root);
-  if(!focusable.length){event.preventDefault();root?.focus();return}
-  const current=focusable.indexOf(document.activeElement);
-  if(event.shiftKey&&(current<=0)){
-    event.preventDefault();focusable[focusable.length-1].focus()}
-  else if(!event.shiftKey&&(current===-1||current===focusable.length-1)){
-    event.preventDefault();focusable[0].focus()}}
-/** Hide the gate without giving up on it: the import review lives in the app
- *  shell underneath, so it needs the overlay out of the way while it decides. */
-function suspendFirstRun(){
-  const el=$("#firstRun");if(!el)return;
-  disposeLandingController();
-  el.classList.add("hidden");document.body.classList.remove("is-firstrun")}
-function closeFirstRun(){
-  firstRunActive=false;installView().resetPresented();suspendFirstRun()}
+  return landingView().open({...landingPaint(),kind,seen:uiPrefs.entryLandingSeen===true,draftRoute})}
+function suspendFirstRun(){landingView().suspend()}
+function closeFirstRun(){landingView().close()}
 const firstRunPending=()=>!state.programMeta?.onboarded&&!state.log.length;
 /** Resolve the landing before ordinary navigation. A valid or invalid shared
  *  handoff always gets its complete fail-closed surface. Otherwise the landing
@@ -8729,7 +8574,6 @@ function init(){
   // could not read storage.
   applyTheme();watchSystemTheme();
   window.addEventListener("hashchange",()=>{handleSharedSetupHash()});
-  $("#firstRun")?.addEventListener("keydown",trapFirstRunTab);
   document.addEventListener("click",onContextualGuideAction,true);
   let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout(redrawChart,150)});
   window.addEventListener("orientationchange",()=>setTimeout(redrawChart,200));
@@ -8745,40 +8589,7 @@ function init(){
   $("#installBtn").onclick=triggerInstall;
   $("#installBannerClose").onclick=()=>hideInstallBanner(true);
   $("#installBannerAction").onclick=triggerInstall;
-  $("#firstRunInstallLink").onclick=event=>{reportLandingAction("install");return triggerInstall(event)};
-  $("#firstRunPrivacy").onclick=()=>{reportLandingAction("privacy");openPrivacySheet()};
-  const openFirstRunCreate=()=>{reportLandingAction("create");closeFirstRun();startOnboarding("first-run")};
-  $("#firstRunCreate").onclick=openFirstRunCreate;
-  $("#firstRunCreateClose").onclick=openFirstRunCreate;
-  $("#firstRunCreateDock").onclick=openFirstRunCreate;
-  // Import runs through the same review as everywhere else; the gate stays
-  // standing behind it so backing out returns here rather than to an empty app.
-  // Copy and paste is the primary BYOP door, with the file door one tap away.
-  const openFirstRunImport=()=>{
-    reportLandingAction("import");
-    closeFirstRun();
-    // A saved setup is resumed or discarded only on the chooser's resume card
-    // (Q-A): Track must never start a fresh import over it.
-    if(readSetupDraftRecord().raw!==null){startOnboarding("first-run");return}
-    startOnboarding("first-run",{userInitiated:true,forceFresh:true});
-    setImportSourceMode("freeform",{render:false});
-    entrySelectRoute("import")};
-  $("#firstRunImport").onclick=openFirstRunImport;
-  $("#firstRunImportClose").onclick=openFirstRunImport;
-  // "Continue in browser" is an answer to the install offer, not to the program
-  // question: it takes the offer off the table for a while, then hands over to
-  // the same first run the app has always had.
-  $("#firstRunContinue").onclick=()=>{reportLandingAction("continue_browser");installView().dismissPresented();
-    if(sharedSetupReady()){closeFirstRunInstall();renderFirstRunProgramMode();return}
-    closeFirstRun();startOnboarding("first-run")};
-  const sharedCreate=$("#firstRunSharedCreate");if(sharedCreate)sharedCreate.onclick=()=>{
-    reportLandingAction("create");
-    discardSharedSetup();
-    closeFirstRun();startOnboarding("first-run")};
-  const sharedStart=$("#firstRunSharedStart");if(sharedStart)sharedStart.onclick=async()=>{
-    if(sharedStart.disabled)return;
-    reportLandingAction("shared_start");
-    await commitSharedSetup(storageIO)};
+  landingView().bind();
   $("#installTransferStart").onclick=installTransferCreateFromSafari;
   $("#installTransferPrivacy").onclick=()=>openPrivacySheet({fromTransfer:true});
   $("#privacyDetails").onclick=()=>openPrivacySheet();
@@ -9359,7 +9170,7 @@ let installUiOwner=null;
 function abandonUnsealedInstallTransfer(){return TransferCommands.abandonUnsealed()}
 function installView(){return installUiOwner||(installUiOwner=createInstallView({window,t,language:uiLang,policy:InstallPolicy,
   read:()=>{const meaningful=installTransferStateMeaningful(state);return {hasMeaningfulData:meaningful,transferMeaningful:meaningful||installTransferDeviceMeaningful(),savedWorkoutsCount:new Set((state?.log||[]).filter(isWork).map(row=>row.session)).size,
-    transferAvailable:typeof navigator.locks?.request==="function"&&!!window.crypto?.subtle,firstRunActive,
+    transferAvailable:typeof navigator.locks?.request==="function"&&!!window.crypto?.subtle,firstRunActive:landingView().isActive(),
     onboardingEdit:state?.[STORAGE_FOLLOWUP]?.kind==="onboarding-edit",onboardingOpen:$("#onboarding")?.classList.contains("active")}},
   preferences:{read:()=>uiPrefs,replace:replaceUiPrefs},
   transfer:{marker:installTransferOutboundMarker,create:installTransferCreateFromSafari,
