@@ -21,6 +21,8 @@ const s = (file, args = [], extra = {}) => {
 const shards = (count) => Array.from({ length: count }, (_, index) => `${index + 1}/${count}`);
 export const SUITES = {
   "fast": [
+    s("test/architecture/history-read-owner.mjs", [], {domains:["history","progress"],nodeArgs:["--test"]}),
+    s("test/workout-exercise-actions.mjs", [], {domains:["workout","history"],nodeArgs:["--test"]}),
     s("test/focus-restore-commands.mjs", [], {domains:["workout","persistence"],nodeArgs:["--test"]}),
     s("test/native-generated-data.mjs", [], {domains:["entry","library"]}),
     s("test/programlab-default-parity.mjs", [], {domains:["program"]}),
@@ -208,6 +210,7 @@ export const SUITES = {
 };
 
 export const SUPPORT = {
+  "test/language-browser.mjs": "Exact actual app-module language handle shared by production-backed browser owners.",
   "test/training-browser.mjs": "Public native training/catalog composition for real worker proofs; no copied policy.",
   "test/interchange-browser.mjs": "Native interchange composition helper for retained real browser protocols.",
   "test/interchange-runtime.mjs": "Separate-realm native module loader shared by retained transfer contract proofs.",

@@ -122,6 +122,7 @@ const ASSETS = [
   "./src/ui/focus/dom.js",
   "./src/ui/focus/effects.js",
   "./src/ui/focus/effort.js",
+  "./src/ui/focus/exercise-actions.js",
   "./src/ui/focus/format.js",
   "./src/ui/focus/geometry.js",
   "./src/ui/focus/gestures.js",

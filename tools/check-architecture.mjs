@@ -14,7 +14,7 @@ const publicEntries = new Set([
   ...['backup','program-file','freeform','setup-link','csv','transfer-contract','program-text'].map(name=>`interchange/${name}.js`),
   ...['catalog','program-executor','files','notifications','telemetry','install-transfer','motion','install'].map(name=>`platform/${name}.js`),
   ...['session','workout','program','history','entry','interchange','settings','read-models','history-read-models','review','block-transition','progress-read-models','workout-model','storage-recovery','custom-import','block-review','program-sharing','install-transfer','installed-editor','program-form','profile'].map(name=>`app/${name}.js`),
-  'release/gate.js', 'ui/storage-recovery.js','ui/shell.js','ui/format.js','ui/editors.js',
+  'release/gate.js', 'ui/storage-recovery.js','ui/settings/install.js','ui/shell.js','ui/format.js','ui/editors.js',
   ...['today','workout','focus','history','progress','entry','program','library','settings'].map(name=>`ui/${name}/controller.js`),
 ]);
 const compositionRoots = new Set(['app/browser.js','platform/program-worker.js','compat/bootstrap.js']);
@@ -54,7 +54,7 @@ export function inspectModules(sources) {
       if (!Object.hasOwn(sources,target)) errors.push(`${file}: missing import ${target}`);
       if (!typeOnly) deps.push(target);
       if (!((file === 'app/browser.js' || file === 'compat/bootstrap.js') || (typeOnly?typePermitted:permitted)[layer(file)]?.includes(layer(target)))) errors.push(`${file}: forbidden direction to ${target}`);
-      if (file.startsWith('ui/') && target.startsWith('ui/') && file.split('/').length > 2 && target.split('/').length > 2 && file.split('/')[1] !== target.split('/')[1]) errors.push(`${file}: cross-feature private import ${target}`);
+      if (file.startsWith('ui/') && target.startsWith('ui/') && file.split('/').length > 2 && target.split('/').length > 2 && file.split('/')[1] !== target.split('/')[1] && !publicEntries.has(target)) errors.push(`${file}: cross-feature private import ${target}`);
       if (layer(file) !== layer(target) && !publicEntries.has(target) && !(typeOnly&&publicTypeEntries.has(target)) && !compositionRoots.has(target)) errors.push(`${file}: bypasses public entry ${target}`);
     };
     const inspected=new WeakSet();

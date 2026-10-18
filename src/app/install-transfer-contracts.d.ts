@@ -10,7 +10,7 @@ export interface ImportOptions {claimId?:unknown;claimIdDigest?:unknown;transact
 export type ProgressKind='outbound-confirmed'|'outbound-expired'|'outbound-pending'|'outbound-unknown'|'outbound-create'|'outbound-ready'|'outbound-retryable'|'outbound-create-failed'|'resumed-diverged'|'receiver-claim'|'receiver-import';
 export interface Progress {kind:ProgressKind;detail?:RawRecord}
 export interface Options {
- device:ReturnType<typeof import('../platform/transfer-device.js').createTransferDevice>;
+ device:ReturnType<typeof import('../platform/install-transfer.js').createTransferDevice>;
  durable:Pick<ReturnType<typeof import('../persistence/durable.js').createDurableStore>,'readLocalStatus'|'readIdbStatus'|'chooseSnapshot'|'pendingDraftTransaction'|'readAuxiliaryIdbValue'|'writeAuxiliaryIdbValue'|'deleteAuxiliaryIdbValue'|'DraftStore'|'restoreTransferSnapshot'>;
  snapshotPolicy:Pick<ReturnType<typeof import('../persistence/snapshot.js').createSnapshotPolicy>,'isValidStateShape'|'normalizeLoaded'|'normalizeSettings'>;
  programModel:Pick<ReturnType<typeof import('../training/model.js').createProgramModel>,'structureDayLabels'>;
