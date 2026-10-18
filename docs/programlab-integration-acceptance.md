@@ -1,6 +1,6 @@
 # Program Lab integration acceptance
 
-Status: integrated independent verification in progress. The draft implementation is PR #432; exact final-head evidence and remaining CI status belong in that PR. Historical checkpoints below are not final-head acceptance.
+Status: implementation integrated in PR #432. Its description is the current record of exact-head acceptance evidence and CI status. Historical checkpoints below are not a final-head certificate.
 Governing spec: PR #426, head 5494f91ecb179a5c979d7c8baec63c099f251fbd.
 Reviewed remote main: 5a2a39284e27f7276c2b5e87bb2e11f05d67f3fa; generator 073.4.
 The owner explicitly approved adapting Program Lab to 073.4 while preserving production defaults and the experiment/comparison features.
@@ -75,3 +75,7 @@ Independent review fixes: PL-A01 validates the complete allocation diagnostic gr
 Remaining before acceptance: clean final-head focused proofs, visual comparison/independent image review, final aggregate GitHub CI, and explicit disclosure of any missing evidence. Browser/maximum-archive tests are measured on this environment, not claimed across every browser/device. No lab publishing or production deployment is authorized.
 
 Latest UI handoff `e22844ae` is included after `a9b18bfb`: immutable plan reuse, interruptible/progress-visible cohort analysis, truthful failed/unsaved/interrupted snapshots, coherent selected-cycle changes, textual semantic markers, and real checkpoint-failure/export/reload browser coverage. Integration retains its independent provenance, production-origin sentinel, active-job cancellation and complete candidate-set corpus assertions. These changes require new final-head recordings; prior `3686f161` proofs remain intermediate evidence. Reproduction instructions are in `docs/programlab/README.md`.
+
+CI on intermediate `3686f161` exposed missing UI role-inventory entries for the newly registered lab screens. The integration adds scoped control/progress roles, extends the existing shared disclosure role, gives required control edges sufficient contrast, and closes the artifact preview from role-audit teardown. This is a new-commit fix, not an Actions retry. Focused rendered-role and catalog proofs must pass before the next push. The maximum archive boundary proof exercises the native archive algorithm under Node with an 8 GiB heap allowance; it is not a 500 MiB browser responsiveness benchmark.
+
+The focused eight-state lab role audit passed 17,820 rendered checks after registration/contrast fixes, and the production UI-system contract passed independently. A local Node 24 test-harness run hit a child-protocol deserialization failure; the same harness contract passed with the repository CI runtime, Node 22.23.3. Final recordings use Node 22. This does not reclassify failed attempts as passes.

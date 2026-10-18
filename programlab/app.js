@@ -412,8 +412,8 @@
     const experimentId = $('savedExperiments').value;
     const selected = $('savedRuns').value;
     const rows = experimentId ? await services.listRuns(experimentId) : [];
-    $('savedRuns').replaceChildren(option('', _('Choose a saved run')), ...rows.map(row => option(row.runId, _('Revision {revision} · {status} · {completed}/{total} · {id}', { revision: row.revision, status: _(row.status), completed: row.completed, total: row.total, id: row.runId.slice(0, 12) }))));
     if ($('savedExperiments').value !== experimentId) return;
+    $('savedRuns').replaceChildren(option('', _('Choose a saved run')), ...rows.map(row => option(row.runId, _('Revision {revision} · {status} · {completed}/{total} · {id}', { revision: row.revision, status: _(row.status), completed: row.completed, total: row.total, id: row.runId.slice(0, 12) }))));
     if (rows.some(row => row.runId === selected)) $('savedRuns').value = selected;
     $('loadRun').disabled = active || !$('savedRuns').value;
   }

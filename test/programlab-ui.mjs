@@ -384,6 +384,7 @@ try {
   assert.deepEqual(errors, [], 'resolved preset is detached into a mutable editor draft');
   await page.locator('#run').click();
   await page.locator('#runStatus').filter({ hasText: 'completed' }).waitFor({ timeout: 120000 });
+  await page.locator('#analysisStatus').filter({ hasText: 'Cohort metrics ready.' }).waitFor();
   assert(workers.some(url => url.includes('program-engine.js')), 'real shared compiler worker was started');
   assert.match(await page.locator('#candidateProgram').textContent(), /RIR 0/);
   assert(await page.locator('#candidateProgram .changed').count() > 0, 'changed prescriptions have text markers as well as color');

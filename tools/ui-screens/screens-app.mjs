@@ -1507,7 +1507,7 @@ async function captureProgramLab(page, result = false) {
   if (result) {
     await page.locator('#run').click();
     await page.locator('#runStatus').filter({ hasText: /completed|concluído/i }).waitFor({ timeout: 120000 });
-    await page.locator('#candidateProgram').scrollIntoViewIfNeeded();
+    await page.locator('#candidateHeading').evaluate(element => element.scrollIntoView({ block: 'start' }));
   } else {
     // Frame the stable editor subject; source identity remains visible in the
     // normal header and is verified separately by the packaged journey.

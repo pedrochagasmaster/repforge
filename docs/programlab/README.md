@@ -2,7 +2,7 @@
 
 Program Lab is an isolated owner workbench, built from the reviewed source checkout. It is excluded from production Pages publishing. It does not activate candidate programs in the workout app.
 
-With Node.js and Python 3 available, run from the implementation PR checkout:
+With Node.js (CI uses version 22) and Python 3 available, run from the implementation PR checkout:
 
 ```sh
 node tools/build-programlab.mjs --out .ci-results/programlab-review
@@ -17,10 +17,11 @@ The root entry is the same standalone entry exercised by the packaged browser jo
 
 Lab experiments use IndexedDB `taurifer_programlab_v1` and the lab language preference uses `taurifer_programlab_ui_v1`. They belong to the chosen lab origin. Export run JSON to retain a portable snapshot before moving to a different origin or clearing browser data. Historical results stay read-only on runtime/catalog mismatch; “Run with this build” creates a separate current-build experiment after current validation.
 
-For repository-owned browser verification, install the pinned test dependencies and run:
+For repository-owned browser verification under Node 22, install the pinned test dependencies and run:
 
 ```sh
 npm ci --prefix test
+(cd test && npx playwright install --only-shell chromium)
 node tools/run-tests.mjs entry --suite-id test-programlab-ui-mjs
 node tools/run-tests.mjs entry --suite-id test-programlab-ui-mjs---corpus
 ```

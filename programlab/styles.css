@@ -19,3 +19,8 @@
 
 /* Long schema labels remain readable with enlarged text. */
 .policy-row label{overflow-wrap:anywhere;min-width:0}.file-button input{margin:0}.file-button{min-height:max(44px,3rem)}
+
+/* Required control edges and focus remain distinct from decorative rules. */
+:root{--boundary-decorative:var(--rule);--font-size-control:1rem}
+button,input,select,textarea,.file-button{border-color:var(--ink-soft)}
+progress{border:1px solid var(--ink-soft);border-radius:2px}
