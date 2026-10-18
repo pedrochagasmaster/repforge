@@ -70,7 +70,7 @@ test('actual JSDoc imports and declaration references obey public type boundarie
   ];
   for(const [fixture,pattern] of rejects)assert.match(inspectModules(fixture).join('\n'),pattern);
   assert.deepEqual(inspectModules({'app/a.js':"/** @import {B} from './b.js' */\nexport function a() {}",'app/b.js':"/** @import {A} from './a.js' */\nexport function b() {}"}),[],'JSDoc references do not create runtime cycles');
-  assert.deepEqual(inspectModules({'app/a.d.ts':'/// <reference path="./b.d.ts" />\nexport interface A {}','app/b.d.ts':'/// <reference path="./a.d.ts" />\nexport interface B {}'}),[],'declaration references do not create runtime cycles');
+  assert.deepEqual(inspectModules({'app/a.d.ts':'/// <reference path="b.d.ts" />\nexport interface A {}','app/b.d.ts':'/// <reference path="./a.d.ts" />\nexport interface B {}'}),[],'declaration references do not create runtime cycles');
   assert.deepEqual(inspectModules({'app/a.d.ts':"import B = require('./b.js'); export type A=B.B;",'app/b.d.ts':"import A = require('./a.js'); export type B=A.A;"}),[],'declaration import-equals resolves declarations without runtime cycles');
   assert.deepEqual(inspectModules({'app/a.js':"/** @import {Model} from '../training/model.js' */\nexport function a() {}",'training/model.js':'export const model=1;'}),[],'published JSDoc imports remain permitted');
 });

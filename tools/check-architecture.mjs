@@ -85,7 +85,14 @@ export function inspectModules(sources) {
     };
     // Triple-slash directives are SourceFile metadata, not traversed AST nodes.
     // Built-in lib directives describe the language environment, not app modules.
-    for(const reference of [...ast.referencedFiles,...ast.typeReferenceDirectives])inspectDependency({text:reference.fileName},true);
+    // A path directive is relative to this file even without a leading './'.
+    // A types directive, by contrast, may name a package and must not bypass
+    // the ban on package dependencies merely because it occurs in a comment.
+    for(const reference of ast.referencedFiles){
+      const name=reference.fileName;
+      inspectDependency({text:name.startsWith('.')||name.startsWith('/')?name:`./${name}`},true);
+    }
+    for(const reference of ast.typeReferenceDirectives)inspectDependency({text:reference.fileName},true);
     inspect(ast); edges.set(file, deps);
   }
   const active = new Set(), done = new Set();
