@@ -1,5 +1,7 @@
 # Taurifer phone acceptance checklist
 
+> Updated owner direction, 18 October 2026 at 20:20 UTC: **“Test both and choose the best one.”** The assistant is authorized to compare full-background dimming with a bright but inert explained control and select using evidence. Earlier requests below for a new preference decision are superseded; the historical provenance conflict remains recorded. Follow [the comparison protocol](guide-variant-comparison.md). Execution is still blocked, neither variant has been comparatively tested, and no winner is selected. Feature-intake scope, final acceptance, merge and deployment remain separate.
+
 Prepared from repository evidence on **18 October 2026 UTC**. Owner execution worksheet for [#425](https://github.com/pedrochagasmaster/repforge/issues/425).
 
 **No tests were executed in preparing this document. All candidate-run results start as NOT RUN. This document approves no merge, deployment, launch, infrastructure change, or start of Plan 059.**
