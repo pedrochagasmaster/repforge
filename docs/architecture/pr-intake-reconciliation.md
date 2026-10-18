@@ -1,5 +1,7 @@
 # PR intake reconciliation for the agent-first integration
 
+> Updated owner direction, 18 October 2026 at 20:20 UTC: **“Test both and choose the best one.”** The assistant is authorized to compare full-background dimming with a bright but inert explained control and select using evidence. Earlier requests below for a new preference decision are superseded; the historical provenance conflict remains recorded. Follow [the comparison protocol](guide-variant-comparison.md). Execution is still blocked, neither variant has been comparatively tested, and no winner is selected. Feature-intake scope, final acceptance, merge and deployment remain separate.
+
 Snapshot: 18 October 2026, 19:34 UTC. Repository: `pedrochagasmaster/repforge`.
 
 This is a read-only review and proposed disposition, not implementation acceptance, feature inclusion approval, or permission to merge, close, deploy or change infrastructure. Evidence gathering executed no application code and made no runtime or test changes; this document is a documentation-only integration commit. The target is a reviewable native adaptation, never a cherry-pick of an obsolete host over its new owners.
