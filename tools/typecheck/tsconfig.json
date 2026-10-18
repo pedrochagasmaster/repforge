@@ -23,6 +23,7 @@
     "../../src/persistence/preferences.js",
     "../../src/platform/files.js",
     "../../src/platform/notifications.js",
-    "../../src/platform/install.js"
+    "../../src/platform/install.js",
+    "../../src/platform/catalog.js"
   ]
 }

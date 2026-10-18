@@ -1,11 +1,23 @@
 import Identity, { sha256Text } from "../training/identity.js";
 export const CATALOG_URL = new URL("../../assets/exercise-catalog.json?v=067", import.meta.url).href;
-/** One catalog lifetime per app/worker; failed loads retry, verified snapshots freeze. */
+/** @typedef {Record<string,unknown> & {id:string,exerciseMetrics?:string[],resistanceEquipmentGroupIds?:string[],supportEquipmentGroupIds?:string[]}} CatalogExercise
+ * @typedef {Record<string,unknown> & {type:string,equipment?:string[],pluralOf?:string|null}} CatalogObject
+ * @typedef {{exercises:CatalogExercise[],uuidIndex:Record<string,CatalogObject>,generatedAt:string}} CatalogSnapshot
+ * @typedef {{id:string,name:string,namePt?:string,aliases?:string[],[key:string]:unknown}} LibraryExercise
+ * @typedef {{kind:'matched',by:'canonical'|'alias',exercise:LibraryExercise}|{kind:'ambiguous',by:'canonical'|'alias',exercises:LibraryExercise[]}|{kind:'not-found',by:null,exercises:[]}} NameResolution
+ * @typedef {{library?:LibraryExercise[],catalogSha256?:string}} LibrarySource
+ * @typedef {(url:string)=>Promise<{ok:boolean,text:()=>Promise<string>}>} CatalogFetch
+ */
+/** One catalog lifetime per app/worker; failed loads retry, verified snapshots freeze.
+ * @param {{identity?:{prepareCatalog:(catalog:CatalogSnapshot)=>unknown},librarySource?:LibrarySource,catalogSha256?:string,fetcher?:CatalogFetch|null,assetUrl?:string}} options */
 export function createCatalog({identity=Identity,librarySource={library:[]},catalogSha256=librarySource.catalogSha256,fetcher=(url)=>globalThis.fetch(url),assetUrl=CATALOG_URL}={}) {
 
 
+/** @type {Promise<CatalogSnapshot>|null} */
 let loadPromise = null;
+/** @type {CatalogSnapshot|null} */
 let rawCatalog = null;
+/** @type {Map<string,CatalogExercise>|null} */
 let exerciseById = null;
 
 function library() { return Array.isArray(librarySource.library) ? librarySource.library : []; }
@@ -15,15 +27,27 @@ function requireSnapshot() {
   return rawCatalog;
 }
 
+/** @param {unknown} value @returns {value is Record<string,unknown>} */
+function record(value){return !!value&&typeof value==='object'&&!Array.isArray(value)}
+/** @param {unknown} value @returns {value is string[]} */
+function strings(value){return Array.isArray(value)&&value.every(item=>typeof item==='string')}
+/** The release pin validates bytes; this guard establishes the fields this
+ * public reader actually consumes. Unknown catalog fields remain untouched.
+ * @param {unknown} value @returns {value is CatalogSnapshot} */
 function validCatalog(value) {
-  return value && typeof value === "object" && !Array.isArray(value) &&
-    Array.isArray(value.exercises) && value.uuidIndex && typeof value.uuidIndex === "object" && !Array.isArray(value.uuidIndex) &&
-    typeof value.generatedAt === "string";
+  if(!record(value)||!Array.isArray(value.exercises)||!record(value.uuidIndex)||typeof value.generatedAt!=='string')return false;
+  if(!value.exercises.every(exercise=>record(exercise)&&typeof exercise.id==='string'&&
+    ['exerciseMetrics','resistanceEquipmentGroupIds','supportEquipmentGroupIds'].every(key=>exercise[key]===undefined||strings(exercise[key]))))return false;
+  return Object.values(value.uuidIndex).every(object=>record(object)&&typeof object.type==='string'&&
+    (object.equipment===undefined||strings(object.equipment))&&
+    (object.pluralOf==null||typeof object.pluralOf==='string'));
 }
 
 function expectedCatalogSha256() { return catalogSha256; }
+/** @param {string} text */
 async function sha256(text) { return sha256Text(text); }
 
+/** @returns {Promise<CatalogSnapshot>} */
 function load() {
   if (!loadPromise) {
     const attempt = Promise.resolve().then(() => {
@@ -40,7 +64,7 @@ function load() {
         throw new Error("The local exercise catalog has no release integrity pin");
       if (await sha256(sourceText) !== expected)
         throw new Error("The local exercise catalog failed its release integrity check");
-      let value;
+      /** @type {unknown} */let value;
       try { value = JSON.parse(sourceText); }
       catch { throw new Error("The local exercise catalog is not valid JSON"); }
       if (!validCatalog(value)) throw new Error("The local exercise catalog has an invalid shape");
@@ -63,12 +87,14 @@ function snapshot() {
   return requireSnapshot();
 }
 
+/** @param {unknown} id */
 function getExercise(id) {
   requireSnapshot();
   if (typeof id !== "string") return null;
-  return exerciseById.get(id) || null;
+  return /** @type {Map<string,CatalogExercise>} */(exerciseById).get(id) || null;
 }
 
+/** @param {unknown} id */
 function getObject(id) {
   const data = requireSnapshot();
   if (typeof id !== "string") return null;
@@ -79,15 +105,16 @@ function listExercises() {
   return library();
 }
 
+/** @param {string|Iterable<unknown>|null|undefined} ids @returns {Set<string>} */
 function equipmentClosure(ids) {
   const data = requireSnapshot();
   const queue = typeof ids === "string" ? [ids] :
     ids && typeof ids[Symbol.iterator] === "function" ? [...ids] : [];
-  const closed = new Set();
+  /** @type {Set<string>} */const closed = new Set();
 
   for (const id of queue) {
     let current = id;
-    const chain = new Set();
+    /** @type {Set<string>} */const chain = new Set();
     while (typeof current === "string" && !chain.has(current)) {
       chain.add(current);
       const equipment = Object.hasOwn(data.uuidIndex, current) ? data.uuidIndex[current] : null;
@@ -99,6 +126,7 @@ function equipmentClosure(ids) {
   return closed;
 }
 
+/** @param {string} requirementId @param {ReadonlySet<string>} availableEquipment @param {Record<string,CatalogObject>} index */
 function requirementSatisfied(requirementId, availableEquipment, index) {
   const requirement = Object.hasOwn(index, requirementId) ? index[requirementId] : null;
   if (!requirement) return false;
@@ -110,12 +138,14 @@ function requirementSatisfied(requirementId, availableEquipment, index) {
   return false;
 }
 
+/** @param {unknown} requirements @param {ReadonlySet<string>} availableEquipment @param {Record<string,CatalogObject>} index */
 function alternativesSatisfied(requirements, availableEquipment, index) {
   if (!Array.isArray(requirements)) return false;
   if (requirements.length === 0) return true;
   return requirements.some(id => requirementSatisfied(id, availableEquipment, index));
 }
 
+/** @param {string|CatalogExercise|null|undefined} exercise @param {string|Iterable<unknown>|null|undefined} ids */
 function isAvailable(exercise, ids) {
   const data = requireSnapshot();
   const record = typeof exercise === "string" ? getExercise(exercise) : exercise;
@@ -125,6 +155,7 @@ function isAvailable(exercise, ids) {
     alternativesSatisfied(record.supportEquipmentGroupIds, availableEquipment, data.uuidIndex);
 }
 
+/** @param {unknown} id @returns {Array<CatalogObject & {type:"exerciseMetric"}>|null} */
 function metricsFor(id) {
   const exercise = getExercise(id);
   if (!exercise) return null;
@@ -133,13 +164,15 @@ function metricsFor(id) {
   const metrics = exercise.exerciseMetrics.map(metricId =>
     Object.hasOwn(data.uuidIndex, metricId) ? data.uuidIndex[metricId] : null);
   if (metrics.some(metric => !metric || metric.type !== "exerciseMetric")) return null;
-  return metrics;
+  return /** @type {Array<CatalogObject & {type:"exerciseMetric"}>} */(metrics);
 }
 
+/** @param {unknown} value */
 function normalizeName(value) {
   return typeof value === "string" ? value.normalize("NFKC").trim().toLocaleLowerCase("en") : "";
 }
 
+/** @param {unknown} name @returns {NameResolution} */
 function resolveName(name) {
   const query = normalizeName(name);
   if (!query) return { kind: "not-found", by: null, exercises: [] };
@@ -156,6 +189,7 @@ function resolveName(name) {
   return { kind: "not-found", by: null, exercises: [] };
 }
 
+/** @param {unknown} query */
 function search(query) {
   const needle = normalizeName(query);
   if (!needle) return [];
