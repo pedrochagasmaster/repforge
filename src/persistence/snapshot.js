@@ -12,6 +12,16 @@ import {cloneSnapshot,isPlainStateObject,canonicalize,isBoundedProgressionValue,
  * @typedef {Record<string,unknown>} RawRecord
  */
 
+// Native numeric predicates narrow unknown persisted fields without coercion.
+/** @param {unknown} value @returns {value is number} */
+function finiteNumber(value){return Number.isFinite(value)}
+/** @param {unknown} value @returns {value is number} */
+function integerNumber(value){return Number.isInteger(value)}
+/** @param {unknown} value @returns {value is number} */
+function safeIntegerNumber(value){return Number.isSafeInteger(value)}
+/** @template {string} T @param {readonly T[]} values @param {unknown} value @returns {value is T} */
+function containsString(values,value){return values.includes(/** @type {T} */(value))}
+
 const STORAGE_REV='_storageRevision', STORAGE_FOLLOWUP='_storageFollowUp';
 const STORAGE_DRAFT_TXN='_storageDraftTransaction', STORAGE_SETUP_TXN='_storageSetupActivation';
 const SHARED_IMPORT='_sharedSetupImport';
@@ -21,7 +31,7 @@ const DRAFT_PRECONDITION_MATCH_ONLY='match-only', DRAFT_PRECONDITION_ABORT_CHANG
 
   /** @param {RawRecord|null|undefined} snapshot @returns {number} */
 function readRevision(snapshot) {
-    return Number.isInteger(snapshot?.[STORAGE_REV]) && /** @type {number} */(snapshot?.[STORAGE_REV]) > 0
+    return integerNumber(snapshot?.[STORAGE_REV]) && /** @type {number} */(snapshot?.[STORAGE_REV]) > 0
       ? /** @type {number} */(snapshot?.[STORAGE_REV])
       : 0;
   }
@@ -208,7 +218,7 @@ function isBoundedTransitionValue(value,depth=0,state={nodes:0}){
   if(++state.nodes>TRANSITION_VALUE_LIMITS.nodes||depth>TRANSITION_VALUE_LIMITS.depth)return false;
   if(typeof value==="string")return value.length<=TRANSITION_VALUE_LIMITS.stringLength;
   if(value===null||typeof value==="boolean")return true;
-  if(typeof value==="number")return Number.isFinite(value);
+  if(typeof value==="number")return finiteNumber(value);
   if(Array.isArray(value))return value.length<=TRANSITION_VALUE_LIMITS.arrayItems&&value.every(item=>isBoundedTransitionValue(item,depth+1,state));
   if(!isPlainStateObject(value)||Object.keys(value).length>TRANSITION_VALUE_LIMITS.keys)return false;
   return Object.keys(value).every(key=>isBoundedTransitionValue(value[key],depth+1,state));
@@ -413,17 +423,36 @@ function isCoherentV1TransitionOut(tout){
 
 export { cloneSnapshot, isPlainStateObject, readRevision, unversionedSnapshot, stripStorageMeta, exportableState, canonicalize, canonicalPayload, mirrorComparisonSnapshot, snapshotsEqual, storageSnapshotsEqual, snapshotBlockId, draftProgramFingerprint, rebaseStateChange, workoutProgramFingerprint, draftContextFingerprint, isValidBlockId, isBoundedProgressionValue, isBoundedTransitionValue, isValidRecoveryTransitions, classifyRecoveryCarrier, draftEffectOutcome, normalizeDraftEffectOutcome, pendingJournalEffect, draftEffectRequiresCoordination, isCoherentV1TransitionIn, isCoherentV1TransitionOut };
 
+/** @typedef {RawRecord & {id:string,name:string,day:string,libraryId?:string}} ProgramRow
+ * @typedef {RawRecord & {id:string,name:string,metricIds?:unknown[],metricDefinitions?:unknown[]}} CustomDefinition
+ * @typedef {(id:string)=>RawRecord|null} LibraryLookup
+ * @typedef {RawRecord & {program:RawRecord[],log:RawRecord[],programMeta?:RawRecord,settings?:RawRecord,customExercises?:CustomDefinition[],programHistory?:RawRecord[],recoveryTransitions?:unknown}} RawSnapshot
+ * @typedef {RawRecord & {id:string,name:string,created:string,updated:string}} ProgramMetadata
+ * @typedef {{program:ProgramRow[],log:RawRecord[],settings:RawRecord,customExercises:CustomDefinition[],programHistory:RawRecord[]}} NormalizedFields
+ * @typedef {RawRecord & NormalizedFields & {programMeta:ProgramMetadata}} NormalizedSnapshot
+ * @typedef {{preserveInvalidProgression?:boolean,source?:string,customExercises?:CustomDefinition[]}} NormalizationOptions
+ * @typedef {{MUSCLE_TOKENS:readonly string[],ROUTES:readonly string[],MAX_DRAFT_ENVELOPE_BYTES:number,normalizeMuscleAttribution:(value:unknown)=>{ok:true,value:string}|{ok:false,code?:string},isCanonicalMuscleAttribution:(value:unknown)=>boolean,isMuscleToken:(value:unknown)=>boolean,normalizeProfile:(value:unknown)=>{ok:boolean,value:RawRecord},normalizeProgrammingContext:(value:unknown)=>{ok:boolean,value:RawRecord}}} EntryRules
+ * @typedef {{validateLoadingContext:(value:unknown)=>{ok:boolean}}} WorkoutRules
+ * @typedef {{VERSIONS?:RawRecord,validateContext?:(value:unknown)=>{ok:boolean},compile?:(context:RawRecord,catalog:unknown)=>RawRecord & {kind:string,program:unknown},migrateLegacyStructure?:(program:ProgramRow[],structure:unknown)=>{program:ProgramRow[],structure:unknown}}} CompilerRules
+ * @typedef {{validateRecoveryRecord?:(record:RecoveryRecord,context:RawRecord)=>Promise<{ok:boolean,record?:unknown}>,approvedRecoveryPolicy?:()=>unknown}} TransitionRules
+ * @typedef {{exercises?:Array<RawRecord & {id:string}>,uuidIndex?:Record<string,RawRecord>}} CatalogSnapshot
+ * @typedef {{Program:new(program:unknown,lookup:LibraryLookup,meta?:unknown,strict?:boolean,options?:{preserveLinkedSnapshot?:boolean})=>{toJSON():ProgramRow[]},normalizeCustomExercises:(value:unknown)=>CustomDefinition[],snapshotLookup:(customs:CustomDefinition[])=>LibraryLookup,canonicalProgramDefinition:(value:unknown,customs:unknown)=>RawRecord|null,compilerCustomDefinitions:(customs:unknown)=>unknown[],compactProgramPrescriptionState:(structure:unknown,program:ProgramRow[],meta:RawRecord,options:{freezeHistory:boolean})=>{structure:RawRecord|null,history?:RawRecord|null},programStructureForDefinition:(structure:unknown,definition:unknown)=>RawRecord|null,libraryMuscleAttribution:(value:unknown,kind:string)=>string,normalizeProgressionRelations:(value:unknown,program:ProgramRow[],options:RawRecord)=>unknown[],normalizeProgressionModifiers:(value:unknown,options:RawRecord)=>unknown[],canonicalizeDurableMuscleAttributions:<T>(value:T)=>T,canonicalizeProgramStructureMuscles:<T>(value:T)=>T,canonicalizeLinkedMuscleRows:<T>(value:T)=>T,compilerProgramMatchesLive:(program:unknown,compiled:unknown,customs:unknown)=>boolean}} SnapshotModel
+ */
+
 /** Bind immutable training/catalog domains once; never read app/session state.
  * Catalog is the integrity-verified raw catalog, not a browser loader.
  * model supplies the canonical training program comparison, not storage policy.
+ * @param {{entry:EntryRules,metrics:typeof import('../training/metrics.js').default,workout:WorkoutRules,compiler?:CompilerRules|null,catalog?:CatalogSnapshot|null,model:SnapshotModel,transition?:TransitionRules|null,now?:(()=>string)|null,digest?:((raw:string)=>Promise<string>)|null,nextId?:(()=>string)|null,language?:{normalizeLang:(value:unknown)=>string|null,detectLang:()=>string}|null,progression?:{strategy:(value:unknown)=>unknown}|null}} dependencies
  */
 export function createSnapshotPolicy({entry,metrics,workout,compiler,catalog,model,transition,
   now:nowInstant=null,digest=null,nextId=null,language=null,progression=null}) {
   const MuscleDomain=entry,ProgramEntry=entry,ExerciseMetrics=metrics,WorkoutDraft=workout;
   const CUSTOM_ID_PREFIX='custom:';
+  /** @param {string} id */
   const rawCatalogObject=id=>Array.isArray(catalog)?catalog.find(row=>row?.id===id):
-    (Object.hasOwn(catalog?.uuidIndex||{},id)?catalog.uuidIndex[id]:null);
+    (Object.hasOwn(catalog?.uuidIndex||{},id)?catalog?.uuidIndex?.[id]:null);
   const exercisesById=new Map((catalog?.exercises||[]).map(value=>[value.id,value]));
+  /** @param {string} id */
   const rawExercise=id=>exercisesById.get(id)||null;
   const {Program,normalizeCustomExercises,snapshotLookup,canonicalProgramDefinition,
     compilerCustomDefinitions,compactProgramPrescriptionState,programStructureForDefinition,
@@ -431,13 +460,15 @@ export function createSnapshotPolicy({entry,metrics,workout,compiler,catalog,mod
     canonicalizeDurableMuscleAttributions,canonicalizeProgramStructureMuscles,
     canonicalizeLinkedMuscleRows}=model;
   const ProgramCompiler=compiler;
-  const uid=()=>nextId();
+  const uid=()=>/** @type {()=>string} */(nextId)();
   const customExercises=()=>[];
   const I18N=language;
+/** @param {unknown} value @param {string} [field] */
 function normalizeMuscleAttribution(value,field="muscle attribution"){
   const result=MuscleDomain?.normalizeMuscleAttribution?.(value);
   if(!result?.ok)throw new TypeError(`${result?.code||"invalid-muscle-domain"}: ${field}`);
   return result.value}
+/** @param {unknown} value @param {WeakSet<object>} [seen] @returns {boolean} */
 function isValidMuscleDomainTree(value,seen=new WeakSet()){
   if(value===null||typeof value!=="object")return true;
   if(seen.has(value))return false;
@@ -452,28 +483,32 @@ function isValidMuscleDomainTree(value,seen=new WeakSet()){
     }
     if(!isValidMuscleDomainTree(child,seen))return false}
   return true}
+/** @param {unknown} value @param {boolean} [nullable] */
 function isValidStoredMuscleField(value,nullable=false){
   return nullable&&value===null||typeof value==="string"&&MuscleDomain?.isCanonicalMuscleAttribution?.(value)}
 
 const PLANNED_VOLUME_HISTORY_KEYS=["schemaVersion","throughWeek","plannedSessions","plannedWorkingSets","muscles"];
 const PLANNED_VOLUME_HISTORY_MUSCLE_KEYS=["direct","secondary"];
+/** @param {unknown} value */
 function isValidPlannedVolumeHistory(value){
   if(!isPlainStateObject(value)||!isBoundedProgressionValue(value)||
     Object.keys(value).length!==PLANNED_VOLUME_HISTORY_KEYS.length||
     !PLANNED_VOLUME_HISTORY_KEYS.every(key=>Object.prototype.hasOwnProperty.call(value,key))||
-    value.schemaVersion!==1||!Number.isInteger(value.throughWeek)||value.throughWeek<0||value.throughWeek>52||
-    !Number.isFinite(value.plannedSessions)||value.plannedSessions<0||
-    !Number.isFinite(value.plannedWorkingSets)||value.plannedWorkingSets<0||
+    value.schemaVersion!==1||!integerNumber(value.throughWeek)||value.throughWeek<0||value.throughWeek>52||
+    !finiteNumber(value.plannedSessions)||value.plannedSessions<0||
+    !finiteNumber(value.plannedWorkingSets)||value.plannedWorkingSets<0||
     !isPlainStateObject(value.muscles)||Object.keys(value.muscles).length!==PLANNED_VOLUME_HISTORY_MUSCLE_KEYS.length||
     !PLANNED_VOLUME_HISTORY_MUSCLE_KEYS.every(key=>Object.prototype.hasOwnProperty.call(value.muscles,key)))return false;
+  const muscles=value.muscles;
   return PLANNED_VOLUME_HISTORY_MUSCLE_KEYS.every(kind=>{
-    const map=value.muscles[kind];
+    const map=muscles[kind];
     if(!isPlainStateObject(map)||Object.keys(map).length>MuscleDomain.MUSCLE_TOKENS.length)return false;
     return Object.entries(map).every(([name,amount])=>name&&name.length<=PROGRESSION_VALUE_LIMITS.stringLength&&
-      MuscleDomain?.isMuscleToken?.(name)&&Number.isFinite(amount)&&amount>=0);
+      MuscleDomain?.isMuscleToken?.(name)&&finiteNumber(amount)&&amount>=0);
   });
 }
 
+/** @param {unknown} value @returns {value is RawRecord} */
 function isSafeProgressionFields(value){
   if(!isPlainStateObject(value))return false;
   if(Object.prototype.hasOwnProperty.call(value,"hasRepTarget")&&typeof value.hasRepTarget!=="boolean")return false;
@@ -485,6 +520,7 @@ function isSafeProgressionFields(value){
   for(const key of ["progression","progressionIncompatibility"])
     if(Object.prototype.hasOwnProperty.call(value,key)&&!isBoundedProgressionValue(value[key]))return false;
   return true}
+/** @param {unknown} value @param {unknown} [customDefinitions] @returns {value is RawRecord} */
 function isSafeProgressionMeta(value,customDefinitions=[]){
   if(value==null)return true;
   if(!isPlainStateObject(value))return false;
@@ -506,6 +542,7 @@ function isSafeProgressionMeta(value,customDefinitions=[]){
 /* An archived block's custom slots resolve against the install's custom
    definitions (archived, never deleted, while anything points at them) as well
    as any the archive itself carries. */
+/** @param {unknown} entry @param {unknown} [customExercises] @returns {entry is RawRecord} */
 function isSafeProgramHistoryEntry(entry,customExercises=[]){
   if(!isPlainStateObject(entry))return false;
   if(Object.prototype.hasOwnProperty.call(entry,"transitionOut")&&entry.transitionOut!=null&&
@@ -515,10 +552,11 @@ function isSafeProgramHistoryEntry(entry,customExercises=[]){
   if(Object.prototype.hasOwnProperty.call(entry,"meta")&&!isSafeProgressionMeta(entry.meta,customs))return false;
   if(!Object.prototype.hasOwnProperty.call(entry,"program"))return true;
   return Array.isArray(entry.program)&&entry.program.every(isSafeProgressionFields)}
+/** @param {unknown} entry @returns {entry is RawRecord} */
 function isSafeLogRow(entry){
   if(!isPlainStateObject(entry))return false;
   if(Object.prototype.hasOwnProperty.call(entry,"setIndex")&&
-    (!Number.isInteger(entry.setIndex)||entry.setIndex<0))return false;
+    (!integerNumber(entry.setIndex)||entry.setIndex<0))return false;
   if(!isValidMuscleDomainTree(entry))return false;
   for(const key of ["primary","secondary"])
     if(Object.prototype.hasOwnProperty.call(entry,key)&&!isValidStoredMuscleField(entry[key],true))return false;
@@ -530,23 +568,23 @@ function isSafeLogRow(entry){
     if(Object.prototype.hasOwnProperty.call(entry,key)&&entry[key]!=null&&typeof entry[key]!=="string")
       return false;
   if(Object.prototype.hasOwnProperty.call(entry,"sourceLibraryId")&&entry.sourceLibraryId!==null&&typeof entry.sourceLibraryId!=="string")return false;
-  if(Object.prototype.hasOwnProperty.call(entry,"metricOrigin")&&!["source_catalog","user_defined"].includes(entry.metricOrigin))return false;
+  if(Object.prototype.hasOwnProperty.call(entry,"metricOrigin")&&!containsString(["source_catalog","user_defined"],entry.metricOrigin))return false;
   const metricFields=["metricType","metricIds","metricDefinitions","metricValues","equipmentId","loadingConvention","loadingContext","restSeconds"];
   const hasMetricFields=metricFields.some(key=>Object.prototype.hasOwnProperty.call(entry,key));
   if(hasMetricFields){
-    if(!Number.isInteger(entry.setIndex)||entry.setIndex<0||entry.metricType!=="source_metrics@1"||!Array.isArray(entry.metricIds)||!Array.isArray(entry.metricDefinitions)||
+    if(!integerNumber(entry.setIndex)||entry.setIndex<0||entry.metricType!=="source_metrics@1"||!Array.isArray(entry.metricIds)||!Array.isArray(entry.metricDefinitions)||
       !Array.isArray(entry.metricValues)||entry.metricIds.length===0||
-      !["source_catalog","user_defined"].includes(entry.metricOrigin)||typeof entry.sourceLibraryId!=="string"||!entry.sourceLibraryId||
-      !["external","assistance","per_side","bodyweight"].includes(entry.loadingConvention)||
+      !containsString(["source_catalog","user_defined"],entry.metricOrigin)||typeof entry.sourceLibraryId!=="string"||!entry.sourceLibraryId||
+      !containsString(["external","assistance","per_side","bodyweight"],entry.loadingConvention)||
       !(entry.equipmentId===null||typeof entry.equipmentId==="string")||
-      (entry.restSeconds!==null&&(!Number.isSafeInteger(entry.restSeconds)||entry.restSeconds<0)))return false;
+      (entry.restSeconds!==null&&(!safeIntegerNumber(entry.restSeconds)||entry.restSeconds<0)))return false;
     const definitions=ExerciseMetrics?.validateDefinitions?.(entry.metricIds,entry.metricDefinitions);
     const values=ExerciseMetrics?.validateMetricValues?.(entry.metricIds,entry.metricValues);
-    if(!definitions?.ok||!values?.ok||entry.metricValues.some(value=>typeof value?.value!=="number"||!Number.isFinite(value.value)))return false;
+    if(!definitions?.ok||!values?.ok||entry.metricValues.some(value=>typeof value?.value!=="number"||!finiteNumber(value.value)))return false;
     const sourceExercise=rawExercise(entry.sourceLibraryId);
     const sourceBinding=ExerciseMetrics?.validateExerciseSourceBinding?.({metricOrigin:entry.metricOrigin,
       metricIds:entry.metricIds,metricDefinitions:entry.metricDefinitions,sourceId:entry.sourceLibraryId,
-      sourceExercise,bodyweightCoefficient:entry.loadingModel?.bodyweightCoefficient??null});
+      sourceExercise,bodyweightCoefficient:/** @type {RawRecord|null|undefined} */(entry.loadingModel)?.bodyweightCoefficient??null});
     if(!sourceBinding?.ok)return false;
     const loading=WorkoutDraft?.validateLoadingContext?.(entry.loadingContext);
     if(!loading?.ok||!Object.prototype.hasOwnProperty.call(entry.loadingContext,"bodyweightKg")||
@@ -554,23 +592,24 @@ function isSafeLogRow(entry){
       !Object.prototype.hasOwnProperty.call(entry.loadingContext,"externalLoadMultiplier"))return false;
     if(entry.loadingModel!=null&&(!isPlainStateObject(entry.loadingModel)||
       Object.keys(entry.loadingModel).some(key=>!["bodyweightCoefficient","assistanceDirection"].includes(key))||
-      (entry.loadingModel.bodyweightCoefficient!=null&&(!Number.isFinite(entry.loadingModel.bodyweightCoefficient)||entry.loadingModel.bodyweightCoefficient<0||entry.loadingModel.bodyweightCoefficient>1))||
+      (entry.loadingModel.bodyweightCoefficient!=null&&(!finiteNumber(entry.loadingModel.bodyweightCoefficient)||entry.loadingModel.bodyweightCoefficient<0||entry.loadingModel.bodyweightCoefficient>1))||
       (entry.loadingModel.assistanceDirection!=null&&entry.loadingModel.assistanceDirection!=="subtract")))return false;
-    const modelCoefficient=entry.loadingModel?.bodyweightCoefficient??null;
-    const contextCoefficient=entry.loadingContext?.bodyweightCoefficient??null;
+    const loadingContext=/** @type {{bodyweightKg?:number|null,bodyweightCoefficient?:number|null,externalLoadMultiplier?:number|null,loadingConvention?:string}} */(entry.loadingContext);
+    const modelCoefficient=/** @type {RawRecord|null|undefined} */(entry.loadingModel)?.bodyweightCoefficient??null;
+    const contextCoefficient=loadingContext?.bodyweightCoefficient??null;
     if(modelCoefficient!==contextCoefficient)return false;
     const semantics=new Set(entry.metricDefinitions.map(definition=>definition.semantic));
     const expectedConvention=semantics.has("assistanceKg")?"assistance":
       semantics.has("loadPerSideKg")||semantics.has("persistentLoadPerSideKg")?"per_side":
         entry.metricIds.length===1&&(semantics.has("reps")||semantics.has("repsPerSide"))?"bodyweight":"external";
     if(entry.loadingConvention!==expectedConvention)return false;
-    if(entry.loadingContext.loadingConvention!==entry.loadingConvention)return false;
-    if(entry.loadingConvention==="bodyweight"&&entry.loadingContext.externalLoadMultiplier!==0)return false;
-    if(entry.loadingContext.externalLoadMultiplier!=null&&entry.loadingConvention!=="per_side"&&
-      entry.loadingConvention!=="bodyweight"&&entry.loadingContext.externalLoadMultiplier!==1)return false;
-    if(entry.loadingModel?.bodyweightCoefficient!=null&&entry.loadingContext.bodyweightCoefficient!==entry.loadingModel.bodyweightCoefficient)return false;
-    if(entry.loadingContext.bodyweightKg!==(entry.bodyweight??null))return false;
-    if(entry.rir!==null&&(!Number.isFinite(entry.rir)||entry.rir<0))return false;
+    if(loadingContext.loadingConvention!==entry.loadingConvention)return false;
+    if(entry.loadingConvention==="bodyweight"&&loadingContext.externalLoadMultiplier!==0)return false;
+    if(loadingContext.externalLoadMultiplier!=null&&entry.loadingConvention!=="per_side"&&
+      entry.loadingConvention!=="bodyweight"&&loadingContext.externalLoadMultiplier!==1)return false;
+    if(/** @type {RawRecord|null|undefined} */(entry.loadingModel)?.bodyweightCoefficient!=null&&loadingContext.bodyweightCoefficient!==/** @type {RawRecord} */(entry.loadingModel).bodyweightCoefficient)return false;
+    if(loadingContext.bodyweightKg!==(entry.bodyweight??null))return false;
+    if(entry.rir!==null&&(!finiteNumber(entry.rir)||entry.rir<0))return false;
     const load=entry.metricDefinitions.find(definition=>definition.semantic==="loadKg");
     const reps=entry.metricDefinitions.find(definition=>definition.semantic==="reps");
     const loadValue=load?entry.metricValues.find(value=>value.metricId===load.id)?.value:null;
@@ -579,26 +618,31 @@ function isSafeLogRow(entry){
     if(entry.equipmentId!=null&&rawCatalogObject(entry.equipmentId)?.type!=="equipment")return false;
   }
   return true}
+/** @param {unknown} entry @returns {entry is CustomDefinition} */
 function isSafeCustomExercise(entry){
   if(!isPlainStateObject(entry))return false;
   if(!isValidMuscleDomainTree(entry))return false;
   for(const key of ["primary","secondary"])
     if(Object.prototype.hasOwnProperty.call(entry,key)&&!isValidStoredMuscleField(entry[key]))return false;
   return typeof entry.id==="string"&&entry.id.startsWith(CUSTOM_ID_PREFIX)&&typeof entry.name==="string"}
+/** @param {unknown} marker @returns {marker is {version:1,programId:string,raw:string,revision?:number}} */
 function isValidSetupActivationMarker(marker){
-  const maxRaw=Number.isSafeInteger(ProgramEntry?.MAX_DRAFT_ENVELOPE_BYTES)
+  const maxRaw=safeIntegerNumber(ProgramEntry?.MAX_DRAFT_ENVELOPE_BYTES)
     ?ProgramEntry.MAX_DRAFT_ENVELOPE_BYTES:70000;
   return isPlainStateObject(marker)&&marker.version===1&&
     typeof marker.programId==="string"&&marker.programId.length>0&&marker.programId.length<=128&&
     typeof marker.raw==="string"&&marker.raw.length>0&&marker.raw.length<=maxRaw&&
     (!Object.prototype.hasOwnProperty.call(marker,"revision")||
-      (Number.isInteger(marker.revision)&&marker.revision>=1))}
+      (integerNumber(marker.revision)&&marker.revision>=1))}
+/** @param {unknown} raw @param {unknown} programId */
 function setupActivationMarker(raw,programId){
   if(typeof raw!=="string"||!raw||typeof programId!=="string"||!programId)return null;
   const marker={version:1,programId,raw};
   return isValidSetupActivationMarker(marker)?marker:null}
+/** @param {unknown} marker @param {unknown} raw @param {unknown} programId */
 function setupActivationMatches(marker,raw,programId){
   return isValidSetupActivationMarker(marker)&&marker.programId===programId&&marker.raw===raw}
+/** @param {unknown} s @returns {s is RawSnapshot} */
 function isValidStateShape(s){
   try{
     // Pre-contract snapshots may contain arbitrary legacy attribution. Keep
@@ -618,7 +662,8 @@ function isValidStateShape(s){
     return Array.isArray(s.programHistory)&&s.programHistory.every(entry=>isSafeProgramHistoryEntry(entry,s.customExercises||[]))}
   catch{return false}}
 
-    function pendingDraftTransaction(snapshot){
+    /** @param {RawRecord|null|undefined} snapshot */
+function pendingDraftTransaction(snapshot){
     const value=snapshot?.[STORAGE_DRAFT_TXN];
     if(!isPlainStateObject(value)||value.version!==1||typeof value.id!=="string"||!value.id)return null;
     const effectOutcome=draftEffectOutcome(value.effect),previous=value.previous;
@@ -628,10 +673,12 @@ function isValidStateShape(s){
     return{id:value.id,effect:effectOutcome.effect,previous:cloneSnapshot(previous)}}
 
 
+/** @param {unknown} value */
 function isValidStateWithoutRecoveryCarrier(value){
   if(!isPlainStateObject(value)||!Object.prototype.hasOwnProperty.call(value,"recoveryTransitions"))return false;
   const copy=cloneSnapshot(value);delete copy.recoveryTransitions;
   return isValidStateShape(copy)}
+/** @param {RawRecord|null|undefined} parsed @param {unknown} raw */
 function carrierReadStatus(parsed,raw){
   const classification=classifyRecoveryCarrier(parsed?.recoveryTransitions);
   if(classification.kind==="known"&&
@@ -640,13 +687,16 @@ function carrierReadStatus(parsed,raw){
   return null;
 }
 
+/** @param {string} existing @param {string} incoming */
 function mergeRecoverySource(existing,incoming){
   if(existing===incoming)return existing;
   if(existing==="both"||incoming==="both")return"both";
   return"both";
 }
+/** @param {RecoveryQuarantine} entry */
 function quarantineEntryKey(entry){return`${entry.digest}\u0000${entry.reason}`}
 
+/** @param {RecoveryQuarantine[]} list @param {RecoveryQuarantine} entry */
 function mergeRecoveryQuarantine(list,entry){
   const key=quarantineEntryKey(entry),index=list.findIndex(candidate=>quarantineEntryKey(candidate)===key);
   if(index<0){list.push(entry);return true}
@@ -656,6 +706,7 @@ function mergeRecoveryQuarantine(list,entry){
   return true;
 }
 
+/** @param {RawSnapshot} snapshot @param {string} sourceReplica @param {{priorQuarantine?:RecoveryQuarantine[]}} [options] */
 async function normalizeRecoveryCarrierSnapshot(snapshot,sourceReplica,{priorQuarantine=[]}={}){
   let classification=classifyRecoveryCarrier(snapshot?.recoveryTransitions);
   if(classification.kind!=="known")return{kind:classification.kind,snapshot};
@@ -663,29 +714,32 @@ async function normalizeRecoveryCarrierSnapshot(snapshot,sourceReplica,{priorQua
   try{semantic=await classifyRecoveryCarrierSemantics(snapshot,classification)}
   catch{return{kind:"full-recovery",snapshot}}
   if(semantic.kind!=="known")return{kind:"full-recovery",snapshot};
-  classification=semantic;
-  const carrier=snapshot.recoveryTransitions;
-  const normalized={schemaVersion:1,records:classification.valid.map(cloneSnapshot),quarantine:[]};
+  const checked=semantic;
+  const carrier=/** @type {{quarantine:RecoveryQuarantine[]}} */(snapshot.recoveryTransitions);
+  /** @type {{schemaVersion:1,records:RecoveryRecord[],quarantine:RecoveryQuarantine[]}} */
+  const normalized={schemaVersion:1,records:checked.valid.map(cloneSnapshot),quarantine:[]};
   for(const entry of carrier.quarantine)
     mergeRecoveryQuarantine(normalized.quarantine,cloneSnapshot(entry));
   for(const entry of priorQuarantine)
     mergeRecoveryQuarantine(normalized.quarantine,cloneSnapshot(entry));
-  const detectedAt=()=>nowInstant();
+  const detectedAt=()=>/** @type {()=>string} */(nowInstant)();
+  /** @param {string} raw @param {string} reason */
   const addEvidence=async(raw,reason)=>{
     if(typeof raw!=="string"||raw.length>TRANSITION_VALUE_LIMITS.stringLength)
       return{kind:"full-recovery"};
     let evidenceDigest;
-    try{evidenceDigest=await digest(raw)}catch{return{kind:"full-recovery"}}
+    try{evidenceDigest=await /** @type {(raw:string)=>Promise<string>} */(digest)(raw)}catch{return{kind:"full-recovery"}}
+    /** @type {RecoveryQuarantine} */
     const entry={schemaVersion:1,digest:evidenceDigest,raw,sourceReplica,detectedAt:detectedAt(),reason};
     mergeRecoveryQuarantine(normalized.quarantine,entry);
     if(!isBoundedTransitionValue(normalized))return{kind:"full-recovery"};
     return{kind:"ok"};
   };
-  for(const malformed of classification.malformed){
+  for(const malformed of checked.malformed){
     const result=await addEvidence(JSON.stringify(malformed),"known-schema-malformed-recovery");
     if(result.kind!=="ok")return{kind:result.kind,snapshot};
   }
-  for(const conflict of classification.conflicts){
+  for(const conflict of checked.conflicts){
     const records=[...conflict.records].sort((left,right)=>
       recoveryCodeUnitCompare(String(left.proposalHash||""),String(right.proposalHash||""))||
       recoveryCodeUnitCompare(String(left.transitionId||""),String(right.transitionId||"")));
@@ -697,6 +751,7 @@ async function normalizeRecoveryCarrierSnapshot(snapshot,sourceReplica,{priorQua
   return{kind:"known",snapshot:next,changed:!storageSnapshotsEqual(next,snapshot)};
 }
 
+/** @param {RawSnapshot} snapshot @param {RecoveryRecord} record */
 async function validateRecoveryCarrierRecord(snapshot,record){
   const Transition=transition;
   const Compiler=compiler;
@@ -723,8 +778,10 @@ async function validateRecoveryCarrierRecord(snapshot,record){
   if(!validation||typeof validation!=="object")return{kind:"unavailable"};
   return{kind:"malformed"};
 }
+/** @param {RawSnapshot} snapshot @param {Extract<RecoveryClassification,{kind:"known"}>} classification @returns {Promise<{kind:"unavailable"}|Extract<RecoveryClassification,{kind:"known"}>>} */
 async function classifyRecoveryCarrierSemantics(snapshot,classification){
-  const valid=[],malformed=[...classification.malformed];
+  /** @type {RecoveryRecord[]} */const valid=[];
+  const malformed=[...classification.malformed];
   for(const record of classification.valid){
     const result=await validateRecoveryCarrierRecord(snapshot,record);
     if(result.kind==="unavailable")return{kind:"unavailable"};
@@ -744,8 +801,9 @@ const COMPILER_PROVENANCE_FIELDS = [
    compiler receipt; conversely, a stale context must not turn a historical
    program into a compiler-backed transition. The structure receipt is the
    independent discriminator for the two paths. */
+/** @param {RawRecord|null|undefined} meta */
 function classifyCompilerTransitionProvenance(meta) {
-  const provenance = meta?.programStructure?.provenance;
+  const provenance = /** @type {RawRecord|null|undefined} */(meta?.programStructure)?.provenance;
   if (provenance == null) return "absent";
   if (!isPlainStateObject(provenance)) return "invalid";
   if (provenance.source === "legacy_migration" || provenance.source === "manual_build") return "absent";
@@ -753,65 +811,80 @@ function classifyCompilerTransitionProvenance(meta) {
   if (!strings.every(key => typeof provenance[key] === "string" && provenance[key].trim())) return "invalid";
   if (!COMPILER_PROVENANCE_FIELDS.every(key => Object.prototype.hasOwnProperty.call(provenance, key))) return "invalid";
   if (!["blueprintVersion", "compilerVersion", "catalogueVersion", "rulesVersion", "contextVersion", "recentConsistencyVersion"]
-    .every(key => Number.isSafeInteger(provenance[key]) && provenance[key] >= 1)) return "invalid";
+    .every(key => safeIntegerNumber(provenance[key]) && /** @type {number} */(provenance[key]) >= 1)) return "invalid";
   return "present";
 }
 
+/** @param {RawSnapshot} snapshot @param {CompilerRules} Compiler @param {unknown} catalogue */
 function recoveryCompilerInstance(snapshot,Compiler,catalogue){
   const meta=snapshot?.programMeta;
   if(classifyCompilerTransitionProvenance(meta)!=="present"||!meta?.compilerContext||
     typeof Compiler?.compile!=="function")return null;
   try{
-    const instance=Compiler.compile(meta.compilerContext,catalogue);
+    const instance=Compiler.compile(/** @type {RawRecord} */(meta.compilerContext),catalogue);
     if(!instance||instance.kind!=="compiled"||!model.compilerProgramMatchesLive(snapshot.program,instance.program,snapshot.customExercises))return null;
     return instance;
   }catch{return null}}
 
 const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",lang:null,rirMode:"numeric",voiceInputEnabled:false,notify:{enabled:false,timer:true,session:true,unfinished:true,missed:true}};
-const normSetting=(v,def,min=0)=>Number.isFinite(+v)&&+v>=min?+v:def;
-const normalizeRestSec=v=>{const n=+v;if(!Number.isFinite(n)||n<0)return DEFAULTS.restSec;return Math.round(n)};
+/** @param {unknown} v @param {number} def @param {number} [min] */
+const normSetting=(v,def,min=0)=>finiteNumber(+/** @type {number} */(v))&&+/** @type {number} */(v)>=min?+/** @type {number} */(v):def;
+/** @param {unknown} v */
+const normalizeRestSec=v=>{const n=+/** @type {number} */(v);if(!finiteNumber(n)||n<0)return DEFAULTS.restSec;return Math.round(n)};
+/** @param {unknown} v @param {boolean} def */
 const normBool=(v,def)=>typeof v==="boolean"?v:def;
 /* A settings blob written by a newer build carries keys this one has no field
    for. Dropping them here does not merely hide them: boot normalization would
    leave live state without them while the mutation base still has them, so the
    next ordinary write offers them back as deletions. Unknown keys therefore ride
    along untouched, and the known fields always win. */
+/** @template {RawRecord} T @param {unknown} raw @param {T} known @returns {T & RawRecord} */
 function withUnknownKeys(raw,known){
   if(!isPlainStateObject(raw))return known;
-  const out={};
+  /** @type {RawRecord} */const out={};
   for(const key of Object.keys(raw))
     if(!Object.prototype.hasOwnProperty.call(known,key))out[key]=cloneSnapshot(raw[key]);
   return Object.assign(out,known)}
-function normalizeNotify(n){
+/** @param {unknown} value */
+function normalizeNotify(value){
+  const n=/** @type {RawRecord|null|undefined} */(value);
   return withUnknownKeys(n,{enabled:!!(n&&n.enabled),timer:n?.timer!==false,session:n?.session!==false,unfinished:n?.unfinished!==false,missed:n?.missed!==false})}
-const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";return withUnknownKeys(s,{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normalizeRestSec(s?.restSec),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="effort"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),notify:normalizeNotify(s?.notify)})};
+/** @param {unknown} value */
+const normalizeSettings=value=>{const s=/** @type {RawRecord|null|undefined} */(value);return normalizeSettingsRecord(s)};
+/** @param {RawRecord|null|undefined} s */
+const normalizeSettingsRecord=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";return withUnknownKeys(s,{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normalizeRestSec(s?.restSec),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="effort"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),notify:normalizeNotify(s?.notify)})};
 
-function earliestLogDate(log){if(!log?.length)return null;return log.reduce((min,r)=>!min||String(r.date)<min?r.date:min,null)}
-function defaultProgramMeta(log=[]){const now=nowInstant();return{id:uid(),name:"",started:earliestLogDate(log),created:now,updated:now,
+/** @param {RawRecord[]} log @returns {unknown} */
+function earliestLogDate(log){if(!log?.length)return null;return log.reduce((min,r)=>!min||String(r.date)</** @type {string} */(min)?r.date:min,/** @type {unknown} */(null))}
+/** @param {RawRecord[]} [log] @returns {ProgramMetadata} */
+function defaultProgramMeta(log=[]){const now=/** @type {()=>string} */(nowInstant)();return{id:uid(),name:"",started:earliestLogDate(log),created:now,updated:now,
   goal:null,experience:null,daysPerWeek:null,splitType:null,equipment:[],priorityMuscles:[],sessionLength:null,
   mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:false,
   progressionRelations:[],progressionModifiers:[],progressionIncompatibilities:[],programStructure:null,entrySource:null}}
-function normalizeProgramEntrySource(value){
+/** @param {unknown} candidate */
+function normalizeProgramEntrySource(candidate){
+  const value=/** @type {RawRecord|null|undefined} */(candidate);
   if(!value||typeof value!=="object"||Array.isArray(value))return null;
   const routes=entry?.ROUTES||[];
-  const route=routes.includes(value.route)?value.route:null;
+  const route=containsString(routes,value.route)?value.route:null;
   const fingerprint=typeof value.fingerprint==="string"&&value.fingerprint.length<=128&&/^[a-zA-Z0-9._:-]+$/.test(value.fingerprint)
     ?value.fingerprint:null;
   return route&&fingerprint?{route,fingerprint}:null}
 
-function normalizeProgramMeta(m,log=[],program=[],options={}){const now=nowInstant(),base=defaultProgramMeta(log);
+/** @param {unknown} candidate @param {RawRecord[]} [log] @param {ProgramRow[]} [program] @param {NormalizationOptions} [options] @returns {ProgramMetadata} */
+function normalizeProgramMeta(candidate,log=[],program=[],options={}){const m=/** @type {RawRecord|null|undefined} */(candidate);const now=/** @type {()=>string} */(nowInstant)(),base=defaultProgramMeta(log);
   if(!m||typeof m!=="object")return base;
   if(Object.prototype.hasOwnProperty.call(m,"blockId")&&!isValidBlockId(m.blockId,m.id))
     throw new TypeError("blockId: expected bounded opaque identity");
   const started=typeof m.started==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(m.started)?m.started:(m.started===null?null:base.started);
   const goal=typeof m.goal==="string"?m.goal.trim()||null:m.goal===null?null:base.goal;
   const experience=typeof m.experience==="string"?m.experience.trim()||null:m.experience===null?null:base.experience;
-  const daysPerWeek=m.daysPerWeek===null?null:Number.isFinite(+m.daysPerWeek)?+m.daysPerWeek:base.daysPerWeek;
+  const daysPerWeek=m.daysPerWeek===null?null:finiteNumber(+/** @type {number} */(m.daysPerWeek))?+/** @type {number} */(m.daysPerWeek):base.daysPerWeek;
   const splitType=typeof m.splitType==="string"?m.splitType.trim()||null:m.splitType===null?null:base.splitType;
   const equipment=Array.isArray(m.equipment)?m.equipment.map(s=>String(s).trim()).filter(Boolean):base.equipment;
   const priorityMuscles=Array.isArray(m.priorityMuscles)?m.priorityMuscles.map(s=>String(s).trim()).filter(Boolean):base.priorityMuscles;
   const sessionLength=typeof m.sessionLength==="string"?m.sessionLength.trim()||null:m.sessionLength===null?null:base.sessionLength;
-  const mesocycleLengthWeeks=Number.isFinite(+m.mesocycleLengthWeeks)&&+m.mesocycleLengthWeeks>0?Math.round(+m.mesocycleLengthWeeks):base.mesocycleLengthWeeks;
+  const mesocycleLengthWeeks=finiteNumber(+/** @type {number} */(m.mesocycleLengthWeeks))&&+/** @type {number} */(m.mesocycleLengthWeeks)>0?Math.round(+/** @type {number} */(m.mesocycleLengthWeeks)):base.mesocycleLengthWeeks;
   const mesocycleStatus=m.mesocycleStatus==="active"||m.mesocycleStatus==="completed"?m.mesocycleStatus:base.mesocycleStatus;
   const completedAt=typeof m.completedAt==="string"?m.completedAt:m.completedAt===null?null:base.completedAt;
   const onboarded=typeof m.onboarded==="boolean"?m.onboarded:base.onboarded;
@@ -839,14 +912,14 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=nowInsta
     if(typeof m.compilerContext!=="object"||Array.isArray(m.compilerContext))throw new TypeError("compilerContext: expected object");
     const check=typeof ProgramCompiler?.validateContext==="function"
       ?ProgramCompiler.validateContext(m.compilerContext)
-      :({ok:typeof m.compilerContext.schemaVersion==="number"&&m.compilerContext.schemaVersion>=1});
+      :({ok:typeof /** @type {RawRecord} */(m.compilerContext).schemaVersion==="number"&&/** @type {RawRecord} */(m.compilerContext).schemaVersion>=1});
     if(check.ok)compilerContext=cloneSnapshot(m.compilerContext);
   }
   let transitionIn=null;
   if(m.transitionIn!=null){
     if(!isBoundedTransitionValue(m.transitionIn))throw new TypeError("transitionIn: structure exceeds safety bounds");
     if(typeof m.transitionIn!=="object"||Array.isArray(m.transitionIn))throw new TypeError("transitionIn: expected object");
-    const t=m.transitionIn;
+    const t=/** @type {RawRecord} */(m.transitionIn);
     if(t.schemaVersion===1&&typeof t.transitionId==="string"&&t.transitionId.trim()&&
        typeof t.proposalHash==="string"&&t.proposalHash.trim()&&t.status==="committed"&&
        typeof t.confirmedAt==="string"&&t.confirmedAt.trim()&&typeof t.archiveId==="string"&&t.archiveId.trim()&&
@@ -855,6 +928,7 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=nowInsta
     }
   }
   const normalizedId=typeof m.id==="string"&&m.id?m.id:base.id;
+  /** @type {ProgramMetadata} */
   const metaObj={id:normalizedId,name:typeof m.name==="string"?m.name.trim():"",started,
     created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now,
     goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
@@ -868,35 +942,38 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=nowInsta
   if(loadSteps)metaObj.loadingConfiguration=loadSteps;
   return metaObj;}
 /* Per-movement smallest load change in canonical kg; anything else is dropped. */
+/** @param {unknown} value */
 function normalizeLoadingConfiguration(value){
   const source=isPlainStateObject(value)&&isPlainStateObject(value.byExerciseId)?value.byExerciseId:null;
   if(!source)return null;
-  const byExerciseId={};
+  /** @type {Record<string,{loadStepKg:number}>} */const byExerciseId={};
   for(const [exerciseId,entry] of Object.entries(source).slice(0,2048)){
-    const step=entry?.loadStepKg;
-    if(exerciseId&&exerciseId.length<=256&&Number.isFinite(step)&&step>0&&step<=100)byExerciseId[exerciseId]={loadStepKg:step}}
+    const step=/** @type {RawRecord|null|undefined} */(entry)?.loadStepKg;
+    if(exerciseId&&exerciseId.length<=256&&finiteNumber(step)&&step>0&&step<=100)byExerciseId[exerciseId]={loadStepKg:step}}
   return Object.keys(byExerciseId).length?{byExerciseId}:null}
 
+/** @template {RawRecord} T @param {ProgramRow[]} program @param {T} meta @param {{freezeHistory?:boolean}} [options] @returns {{program:ProgramRow[],meta:T}} */
 function withExplicitProgramStructure(program,meta,{freezeHistory=false}={}){
   if(!ProgramCompiler?.migrateLegacyStructure)return{program,meta};
   if(meta?.plannedVolumeHistory!=null&&!isValidPlannedVolumeHistory(meta.plannedVolumeHistory))
     throw new TypeError("plannedVolumeHistory: expected bounded aggregate");
   const migrated=ProgramCompiler.migrateLegacyStructure(program,meta?.programStructure);
   const compacted=compactProgramPrescriptionState(migrated.structure,migrated.program,meta,{freezeHistory});
-  const nextMeta={...meta,programStructure:compacted.structure};
+  /** @type {T & {programStructure:RawRecord|null,plannedVolumeHistory?:unknown}} */const nextMeta={...meta,programStructure:compacted.structure};
   if(compacted.history)nextMeta.plannedVolumeHistory=compacted.history;
   return{program:migrated.program,meta:nextMeta}
 }
 
+/** @param {unknown} history @param {LibraryLookup} lookup @returns {RawRecord[]} */
 function normalizeProgramHistory(history,lookup){
   return(Array.isArray(history)?history:[]).map(entry=>{
-    const normalized=cloneSnapshot(entry);
+    const normalized=/** @type {RawRecord} */(cloneSnapshot(entry));
     if(Object.prototype.hasOwnProperty.call(normalized,"program")){
       // An archived program is a historical snapshot. Keep its linked
       // movement identity and captured attribution; resolving it through the
       // current custom library would rewrite history after a definition edit.
       normalized.program=new Program(normalized.program,lookup,null,false,{preserveLinkedSnapshot:true}).toJSON();
-      const structured=withExplicitProgramStructure(normalized.program,normalized.meta||normalized.programMeta||{},
+      const structured=withExplicitProgramStructure(/** @type {ProgramRow[]} */(normalized.program),/** @type {RawRecord} */(normalized.meta||normalized.programMeta||{}),
         {freezeHistory:true});
       normalized.program=structured.program;
       if(normalized.meta)normalized.meta=structured.meta;
@@ -904,7 +981,7 @@ function normalizeProgramHistory(history,lookup){
     if(entry.transitionOut!=null){
       if(!isBoundedTransitionValue(entry.transitionOut))throw new TypeError("transitionOut: structure exceeds safety bounds");
       if(typeof entry.transitionOut==="object"&&!Array.isArray(entry.transitionOut)){
-        const t=entry.transitionOut;
+        const t=/** @type {RawRecord} */(entry.transitionOut);
         if(t.schemaVersion===1&&typeof t.transitionId==="string"&&t.transitionId.trim()&&
            typeof t.proposalHash==="string"&&t.proposalHash.trim()&&
            typeof t.successorProgramId==="string"&&t.successorProgramId.trim()){
@@ -916,10 +993,12 @@ function normalizeProgramHistory(history,lookup){
       normalized.archiveId=entry.archiveId.trim();
     }
     return normalized})}
+/** @param {unknown} s @param {NormalizationOptions} [options] @returns {NormalizedSnapshot} */
 function normalizeLoaded(s,options={}){
   if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program:[],log:[],programHistory:[],customExercises:[],[STORAGE_REV]:0};
   if(!isValidStateShape(s))throw new TypeError("Invalid Taurifer state");
   const customs=normalizeCustomExercises(s.customExercises),lookup=snapshotLookup(customs);
+  /** @type {RawRecord & NormalizedFields & {programMeta:ProgramMetadata|null}} */
   const out={settings:normalizeSettings(s.settings),programMeta:null,
     program:[],log:cloneSnapshot(s.log),
     programHistory:normalizeProgramHistory(Object.prototype.hasOwnProperty.call(s,"programHistory")?s.programHistory:[],lookup),
@@ -950,11 +1029,15 @@ function normalizeLoaded(s,options={}){
       const normalized=Entry.normalizeProgrammingContext(s.programmingContext);
       if(normalized.ok)out.programmingContext=normalized.value}
     else if(s.programmingContext&&typeof s.programmingContext==="object")out.programmingContext=cloneSnapshot(s.programmingContext)}
-  return out}
+  return /** @type {NormalizedSnapshot} */(out)}
 
+  /** @param {unknown} s */
   const movementToken=s=>String(s??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
-  const parseDec=v=>{if(typeof v==='number')return Number.isFinite(v)?v:NaN;if(v==null||v==='')return NaN;const n=Number(String(v).trim().replace(/(\d),(\d)/g,'$1.$2'));return Number.isFinite(n)?n:NaN};
-  const posNum=(v,f=0)=>{const n=parseDec(v);return Math.max(0,Number.isFinite(n)?n:f)};
+  /** @param {unknown} v */
+  const parseDec=v=>{if(typeof v==='number')return finiteNumber(v)?v:NaN;if(v==null||v==='')return NaN;const n=Number(String(v).trim().replace(/(\d),(\d)/g,'$1.$2'));return finiteNumber(n)?n:NaN};
+  /** @param {unknown} v @param {number} [f] */
+  const posNum=(v,f=0)=>{const n=parseDec(v);return Math.max(0,finiteNumber(n)?n:f)};
+/** @param {NormalizedSnapshot} snapshot */
 function migrateLogSnapshot(snapshot){let changed=false;const lookup=snapshotLookup(snapshot.customExercises);
   for(const row of snapshot.log){
   const named=snapshot.program.find(e=>e.name===row.name&&e.day===row.day)||snapshot.program.find(e=>e.name===row.name);
@@ -963,11 +1046,11 @@ function migrateLogSnapshot(snapshot){let changed=false;const lookup=snapshotLoo
   if(!row.exerciseId&&ex){row.exerciseId=ex.id;changed=true}
   if(row.performedName==null&&row.name){row.performedName=String(row.name);changed=true}
   if(row.performedLibraryId==null&&ex?.libraryId){
-    const entry=lookup(ex.libraryId),names=new Set([ex.name,entry?.name,entry?.namePt].map(movementToken).filter(Boolean));
+    const entry=lookup(/** @type {string} */(ex.libraryId)),names=new Set([ex.name,entry?.name,entry?.namePt].map(movementToken).filter(Boolean));
     if(names.has(movementToken(row.name))){row.performedLibraryId=ex.libraryId;changed=true}}
   if(row.performedLibraryId==null&&row.performedMovementId==null&&ex?.movementId){
     row.performedMovementId=ex.movementId;changed=true}
-  const performed=row.performedLibraryId?lookup(row.performedLibraryId):null;
+  const performed=row.performedLibraryId?lookup(/** @type {string} */(row.performedLibraryId)):null;
   if(performed){
     if(row.performedPrimary==null){row.performedPrimary=libraryMuscleAttribution(performed,"primary");changed=true}
     if(row.performedSecondary==null){row.performedSecondary=libraryMuscleAttribution(performed,"secondary");changed=true}}
@@ -977,14 +1060,14 @@ function migrateLogSnapshot(snapshot){let changed=false;const lookup=snapshotLoo
   if(Array.isArray(row.metricValues))continue;
   const ld=posNum(row.load),rp=posNum(row.reps);
   const missingRir=row.rir==null||row.rir==="",parsedRir=parseDec(row.rir);
-  const explicitStrategy=ex?.progression?.strategy?.id;
+  const explicitStrategy=/** @type {{strategy?:{id?:unknown}}|null|undefined} */(ex?.progression)?.strategy?.id;
   const preserveMissingRir=explicitStrategy&&explicitStrategy!=="range"&&missingRir;
   // Keep the released progression input exactly as it was. Progress also needs
   // to know that a legacy range row which was coerced to RIR 0 was unmeasured,
   // so retain that provenance separately instead of changing recommendation
   // arithmetic for every existing program.
   const rr=preserveMissingRir?null:posNum(row.rir);
-  if((missingRir||!Number.isFinite(parsedRir)||parsedRir<0)&&row.rirMeasured!==false){row.rirMeasured=false;changed=true}
+  if((missingRir||!finiteNumber(parsedRir)||parsedRir<0)&&row.rirMeasured!==false){row.rirMeasured=false;changed=true}
   if(ld!==row.load||rp!==row.reps||rr!==row.rir){row.load=ld;row.reps=rp;row.rir=rr;changed=true}}
   return changed}
   return Object.freeze({isValidStateShape,isValidStateWithoutRecoveryCarrier,carrierReadStatus,

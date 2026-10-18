@@ -10,7 +10,9 @@
     "lib": [
       "ES2022",
       "DOM",
-      "WebWorker"
+      "DOM.Iterable",
+      "WebWorker",
+      "WebWorker.Iterable"
     ],
     "skipLibCheck": true
   },
