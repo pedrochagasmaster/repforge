@@ -99,6 +99,7 @@ const ASSETS = [
   "./src/ui/shell.js",
   "./src/ui/today/controller.js",
   "./src/ui/today/view.js",
+  "./src/ui/workout/session-sheet.js",
   "./src/ui/workout/summary.js",
   // END GENERATED NATIVE SOURCE ASSETS
   "./", "./index.html", "./styles.css", "./motion-polish.css", "./manifest.webmanifest",
