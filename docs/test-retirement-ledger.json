@@ -259,7 +259,7 @@
       "baselineCommand": "node test/exercise-library.mjs",
       "baselineLane": "fast",
       "disposition": "retained",
-      "evidence": "Inexpensive production module/protocol/release/runner proof retained."
+      "evidence": "Retained licensed catalog/integrity/release inventory proof; removed retired classic editor from the classic query list. Native editor is required in the graph-derived release inventory checked by vendor-runtimes/source-inventory and assembled release proofs."
     },
     {
       "baselineCommand": "node test/exercise-catalog.mjs",
@@ -289,13 +289,13 @@
       "baselineCommand": "node test/vendor-runtimes.mjs",
       "baselineLane": "fast",
       "disposition": "retained",
-      "evidence": "Inexpensive production module/protocol/release/runner proof retained."
+      "evidence": "Retained native production Motion factory, pinned bundle/inventory and caller-boundary checks. Architecture cutover reads native editor/Shell rather than dead classic files. Retired the equivalent-source-formatting self-comparison (and its duplicate media query assertion); no behavior guarantee depended on reparsing one declaration with whitespace changed. Actual modal/route/remount and editor behaviors are owned by shell-lifetime and program-editor-text-fields browser proofs."
     },
     {
       "baselineCommand": "node test/motion-vocabulary.mjs",
       "baselineLane": "fast",
       "disposition": "retained",
-      "evidence": "Inexpensive production module/protocol/release/runner proof retained."
+      "evidence": "Retained native production Motion interface and independent controlled-clock interruption/reduced-motion expectations; caller guard now reads the actual native editor."
     },
     {
       "baselineCommand": "node test/telemetry-unit.mjs",

@@ -8,7 +8,7 @@ const root = resolve(import.meta.dirname, "..");
 const manifest = JSON.parse(readFileSync(resolve(root, "docs/ui-screens/manifest.json"), "utf8"));
 const cases = {
   docs: ["docs/ci.md"], directTest: ["test/history.mjs"], helper: ["test/fixtures/seed-program.mjs"],
-  history: ["progress-model.js"], program: ["program-editor.js"], progress: ["progression-engine.js"],
+  history: ["progress-model.js"], program: ["src/ui/editors/program.js"], progress: ["progression-engine.js"],
   appLocal: { files: ["app.js"], appDiff: (() => {
     const source = readFileSync(resolve(root, "app.js"), "utf8");
     const line = source.split("\n").findIndex((value) => value.trim() === "// @ci-domain history") + 2;

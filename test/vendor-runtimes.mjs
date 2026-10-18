@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
+import {createMotion} from "../src/platform/motion.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = file => readFileSync(join(ROOT, file), "utf8");
@@ -15,9 +16,10 @@ const runtime = read("vendor/motion/motion.js");
 const pin = JSON.parse(read("vendor/motion/motion.pin.json"));
 const dnd = read("vendor/dnd-kit/dnd-kit.js");
 const dndPin = JSON.parse(read("vendor/dnd-kit/dnd-kit.pin.json"));
-const layer = read("motion-layer.js");
+const layer = read("src/platform/motion.js");
+const shell = read("src/ui/shell.js");
 const app = read("app.js");
-const editor = read("program-editor.js");
+const editor = read("src/ui/editors/program.js");
 const index = read("index.html");
 const sw = read("sw.js");
 const polish = read("motion-polish.css");
@@ -30,12 +32,13 @@ function assert(condition, name, detail = "") {
 }
 
 // Evaluate the actual public layer, not a regex-extracted private declaration.
-function loadLayer(source) {
+function loadLayer() {
   const query = { matches: false };
   let mediaCalls = 0, stops = 0;
   const sandbox = {
     document: { readyState: "loading", getElementById: () => null, createElement: () => ({}), head: { append() {} }, addEventListener() {} },
-    setInterval: () => 1, clearInterval() {},
+    setInterval: () => 1, clearInterval() {},setTimeout,clearTimeout,performance,
+    getComputedStyle:()=>({transform:"none"}),requestAnimationFrame:fn=>setTimeout(fn,0),cancelAnimationFrame:clearTimeout,
     matchMedia(value) { assert(value === "(prefers-reduced-motion: reduce)", "the live preference query is reduced motion"); mediaCalls++; return query; },
     Motion: {
       animate: () => Promise.resolve(),
@@ -45,10 +48,10 @@ function loadLayer(source) {
       },
     },
   };
-  vm.runInNewContext(source, sandbox, { filename: "motion-layer.js", timeout: 1000 });
-  return { api: sandbox.RepForgeMotion, query, mediaCalls: () => mediaCalls, stops: () => stops };
+  const api=createMotion({window:sandbox,fallback:{mount:()=>({dispose(){}}),navigate(){}}});
+  return { api, query, mediaCalls: () => mediaCalls, stops: () => stops };
 }
-const motion = loadLayer(layer);
+const motion = loadLayer();
 
 console.log("vendored runtimes");
 for (const [label, bundle, meta, file] of [
@@ -72,7 +75,6 @@ assert(!/\bfetch\s*\(|\bimport\s*\(/.test(layer), "the integration layer resolve
 assert(notice.includes("Motion animation runtime") && notice.includes("Copyright (c) 2018 Framer B.V.") && notice.includes("Drag and drop") && notice.includes("@dnd-kit/dom"), "both runtimes carry MIT attribution");
 
 {
-  const layerRevision = index.match(/src="motion-layer\.js\?v=(\d+)"/)?.[1] || "";
   const rawAssets = sw.match(/\bASSETS\s*=\s*(\[[\s\S]*?\n\])/)?.[1] || "[]";
   const assets = vm.runInNewContext(rawAssets, {}, { timeout: 1000 });
   const entries = assets.map(entry => typeof entry === "string" ? { url: entry, required: true } : entry);
@@ -101,8 +103,8 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
   const dndBootstrap = asset("vendor/dnd-kit/dnd-kit.js");
   const dndRuntimeAsset = asset("vendor/dnd-kit/dnd-kit.runtime.js");
   const telemetryConfig = asset("posthog-config.js");
-  assert(sw.includes('"./motion-layer.js"') && entries.some(entry => entry.url === "./vendor/motion/motion.js"), "the runtime and layer are atomically precached");
-  assert(layerRevision && sw.includes(`"./motion-layer.js?v=${layerRevision}"`), "the layer query revision matches its precached URL", layerRevision);
+  assert(asset("src/platform/motion.js")?.required === true && asset("src/ui/editors/program.js")?.required === true,
+    "native motion and editor code belong to the required release graph");
   assert(motionAsset?.owner === "RepForgeMotion" && motionAsset.required === false && motionAsset.immutable === true,
     "Motion is optional immutable code owned by the Motion integration layer");
   assert(dndBootstrap?.owner === "RepForgeDndRuntime" && dndBootstrap.required === false &&
@@ -116,16 +118,14 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
   assert(!/const\s+SHELL\s*=|const\s+IMMUTABLE_RUNTIMES\s*=/.test(sw) && /APP_SHELL_PATHS\s*=\s*new Set\(RELEASE_ASSETS/.test(sw),
     "shell routing and immutable behavior derive from the release inventory");
   const runtimeAt = index.indexOf('src="vendor/motion/motion.js"');
-  const layerAt = index.indexOf('src="motion-layer.js?v=');
-  const editorAt = index.indexOf('src="program-editor.js?v=');
   const appAt = index.indexOf('src="app.js?v=');
-  assert(runtimeAt > 0 && runtimeAt < layerAt && layerAt < editorAt && layerAt < appAt, "runtime precedes layer, which precedes its callers");
+  assert(runtimeAt > 0 && appAt > runtimeAt, "optional runtime input precedes the awaited application entry");
 }
 {
-  const leaks = Object.entries({ "app.js": app, "program-editor.js": editor })
+  const leaks = Object.entries({ "app.js": app, "src/ui/editors/program.js": editor })
     .filter(([, source]) => /\bwindow\.Motion\b|\broot\.Motion\b|(?<![\w.])Motion\.animate\b/.test(source)).map(([file]) => file);
   assert(leaks.length === 0, "application modules do not bypass the Motion layer", leaks.join(", "));
-  assert(/RepForgeMotion/.test(app) && /RepForgeMotion/.test(editor), "callers use RepForgeMotion");
+  assert(/createMotion/.test(app) && /motion\?\.animateExerciseReorder/.test(editor), "composition supplies the native motion capability to the editor");
 }
 {
   const vocabulary = motion.api.vocabulary;
@@ -146,8 +146,7 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
   assert(!/ease\s*:\s*"?ease-?in"?\s*[,}]/i.test(layer) && !/easeIn[,"']/.test(layer), "nothing enters or exits on ease-in");
   const tinyScales = [...layer.matchAll(/scale\(\$?\{?[^)]*?([0-9]*\.[0-9]+)\)/g)].map((m) => Number(m[1])).filter((v) => v < 0.9);
   assert(tinyScales.length === 0, "no entry grows from a scale below 0.9");
-  const reformatted = loadLayer(layer.replace("const VOCABULARY =", "let VOCABULARY\n ="));
-  assert(JSON.stringify(reformatted.api.vocabulary) === JSON.stringify(vocabulary), "equivalent declaration formatting does not change the contract");
+
 }
 {
   assert(layer.includes("@media (prefers-reduced-transparency: reduce)") &&
@@ -205,7 +204,7 @@ assert(!/\.view\b/.test(layer) && !/\.toast\b/.test(layer) && !/effortpop/.test(
   assert(/\bCOLLAPSING\s*=\s*"is-collapsing"/.test(layer) && /\.settings-panel\.is-collapsing\{display:block\}/.test(styles), "closing panels have a transient display marker");
   assert(/apply\(\);\s*panel\.classList\.toggle\(COLLAPSING/.test(layer), "the disclosure class changes at the tap, allowing reversal");
   assert((layer.match(/hint\([a-zA-Z]+,\s*null\)/g) || []).length >= 5, "layer promotions are removed after animation");
-  assert(/rec\.motion/.test(app) && (app.match(/rec\.motion\.cancel\(\)/g) || []).length >= 2, "teardown and interruption cancel the active sheet animation");
+  assert(/rec\.motion/.test(app) && (`${app}\n${shell}`.match(/rec\.motion\.cancel\(\)/g) || []).length >= 2, "teardown and interruption cancel the active sheet animation");
 }
 {
   assert(/if\s*\(sheetDrag\.motion\)\s*sheetDrag\.motion\.follow/.test(app) && /else\s*\{\s*rec\.el\.style\.transform\s*=/.test(app), "sheet gestures retain a no-runtime fallback");
@@ -219,9 +218,9 @@ assert(!/\.view\b/.test(layer) && !/\.toast\b/.test(layer) && !/effortpop/.test(
     /fallbackFocusLater\(\(\)=>\{\s*focusFlinging=false/.test(gestures) &&
     /FOCUS_SLIDE_MS=210/.test(gestures),
   "deck carry remains a tracked CSS transition behind the gesture owner");
-  assert(/if\s*\(root\.RepForgeMotion\?\.animateExerciseReorder\(rows,\s*beforeRects\)\)\s*return;/.test(editor) && /program-editor-flip-y/.test(editor), "editor reorder retains FLIP fallback");
+  assert(/if\s*\(motion\?\.animateExerciseReorder\(rows,\s*beforeRects\)\)\s*return;/.test(editor) && /program-editor-flip-y/.test(editor), "editor reorder retains FLIP fallback");
   assert(/settle\s*=\s*true/.test(editor) && /moveExercise\(id,\s*day,\s*index,\s*\{\s*settle:\s*false\s*\}\)/.test(editor), "library drags are not animated twice");
-  assert(/if\(window\.RepForgeMotion\)window\.RepForgeMotion\.animateDisclosure\(panel,on,show\);\s*else show\(\)/.test(app), "disclosures toggle exactly once with or without Motion");
+  assert(/if\(motion\?\.animateDisclosure\)motion\.animateDisclosure\(panel,on,show\);\s*else show\(\)/.test(shell), "disclosures toggle exactly once with or without Motion");
 }
 {
   const en = JSON.parse(read("i18n-en.json")), pt = JSON.parse(read("i18n-pt.json"));
@@ -235,7 +234,7 @@ assert(!/\.view\b/.test(layer) && !/\.toast\b/.test(layer) && !/effortpop/.test(
   assert(!/\.setPointerCapture\(|\.elementFromPoint\?\.\(|function beginDrag/.test(editor), "the replaced hand-rolled pointer drag is absent");
   assert(["move-to-day", "move-up", "move-down", "drag-handle"].every((role) => editor.includes(`data-role="${role}"`)), "explicit Move controls remain");
   assert(/if \(destroyed\) return;/.test(editor) && /if \(!Dnd\) \{/.test(editor) && /teardownSorting\(\)/.test(editor), "editor mount and disposal work without the drag library");
-  assert(/root\.RepForgeDndRuntime/.test(editor) && /runtime\.load\(\)\.then\(\(\) => \{ if \(!destroyed && !sorting\) mountSorting\(\); \}/.test(editor), "deferred runtime arrival mounts sortables");
+  assert(/const runtime = sortingRuntime/.test(editor) && /runtime\.load\(\)\.then\(\(\) => \{ if \(!destroyed && !sorting\) mountSorting\(\); \}/.test(editor), "deferred runtime arrival mounts sortables");
   assert(/moveExercise\(id, day, index/.test(editor) && (editor.match(/moveExercise\(/g) || []).length >= 4, "all reorder paths share one transaction");
 }
 {
@@ -247,7 +246,7 @@ assert(!/\.view\b/.test(layer) && !/\.toast\b/.test(layer) && !/effortpop/.test(
   assert(/\.importchoice::backdrop\{background:var\(--scrim\)\}/.test(styles) && /\.storage-recovery::backdrop\{background:var\(--scrim\)\}/.test(styles) && /\.program-editor-leave::backdrop\{background:var\(--scrim\)\}/.test(styles), "live native dialogs share the scrim token");
   for (const id of ["whySheet", "exNoteSheet", "dayPickSheet", "programTextSheet", "shareSetupSheet", "exPickSheet", "exCustomSheet", "restSheet", "iosInstallSheet", "sessionSummary", "firstRun", "glossary"]) assert(divDialog(id), `#${id} retains its deliberately custom dialog behavior`);
   assert(divDialog("installBanner") && /banner\.setAttribute\("role", "region"\)/.test(layer), "install banner becomes a region at runtime");
-  assert(/hideModalElement[\s\S]{0,400}el\.tagName==="DIALOG"/.test(app) && /if\(el\.tagName==="DIALOG"\)\{if\(typeof el\.showModal==="function"/.test(app), "one lifecycle covers both modal types");
+  assert((shell.match(/if\(el\.tagName==="DIALOG"\)/g)||[]).length===2 && /dialog\.showModal\(\)/.test(shell) && /dialog\.close\(\)/.test(shell), "the native Shell owns both modal type lifecycles");
 }
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

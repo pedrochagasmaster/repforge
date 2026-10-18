@@ -477,7 +477,7 @@ test("annotated app hunks select visual domains and unknown regions widen", () =
 
 test("app.js hunks after the reviewed History block widen instead of inheriting History", () => {
   const source = readFileSync(join(process.cwd(), "app.js"), "utf8");
-  for (const marker of ["function exerciseSessionsDetail", "function renderProgramOverview", "function renderCatalogueStep", "function init()"]){
+  for (const marker of ["function exerciseSessionsDetail", "async function copyToClipboard", "function renderCatalogueStep", "function init()"]){
     const line = source.split("\n").findIndex((value) => value.startsWith(marker)) + 1;
     assert.ok(line > 0, `production app contains ${marker}`);
     const diff = `@@ -${line} +${line} @@\n-old\n+new\n`;
@@ -530,7 +530,7 @@ test("substantive or unprovable service-worker changes retain the full SW owner 
   const appQuery = fixture.source.match(/"\.\/app\.js\?v=(\d+)"/);
   assert.ok(appQuery, "baseline worker has a protected app.js query revision");
   const substantive = [
-    ["release asset expansion", replaceOnce(fixture.source, '"./program-editor.js"', '"./program-editor.js", "./new-shell.js"')],
+    ["release asset expansion", replaceOnce(fixture.source, '"./src/ui/editors/program.js"', '"./src/ui/editors/program.js", "./new-shell.js"')],
     ["ASSETS", replaceOnce(fixture.source, '"./styles.css"', '"./styles.css", "./new.css"')],
     ["install behavior", replaceOnce(fixture.source, "event.waitUntil(installReleaseAssets());", "event.waitUntil(Promise.resolve());")],
     ["activate behavior", replaceOnce(fixture.source, "caches.keys().then(keys => Promise.all(keys", "caches.keys().then(keys => Promise.all([].concat(keys)")],
