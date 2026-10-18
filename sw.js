@@ -11,6 +11,7 @@ const ASSETS = [
   "./src/app/profile.js",
   "./src/app/program-form.js",
   "./src/app/program.js",
+  "./src/app/progress-read-models.js",
   "./src/app/read-models.js",
   "./src/app/review.js",
   "./src/app/session.js",

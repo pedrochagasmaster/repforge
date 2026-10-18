@@ -30,6 +30,7 @@ import {createCatalog,CATALOG_URL} from './src/platform/catalog.js';
 import {create as createProgramExecutor,url as programWorkerUrl} from './src/platform/program-executor.js';
 import {createGenerationRules} from './src/training/generation.js';
 import {createEntryAdapter} from './src/training/authoring.js';
+import {buildStrengthEvidenceRecords,buildStrengthProjection,strengthSessionKey} from './src/app/progress-read-models.js';
 import {createProgressController,createExerciseController} from './src/ui/progress/controller.js';
 import {createReviewController} from './src/ui/progress/review.js';
 import {createReviewCommands} from './src/app/review.js';
@@ -6846,7 +6847,7 @@ window.__repforgeOverviewVolume={pct:overviewBarPct,sorted:overviewVolumeSorted,
 // never from presentation. flat reads as "maintained" in the evidence model.
 const EVIDENCE_OUTCOME_KEYS={improved:"stats.outcome.improved",maintained:"stats.outcome.maintained",declined:"stats.outcome.declined"};
 const EVIDENCE_OUTCOME_GLYPHS={improved:"▲",maintained:"■",declined:"▼"};
-function strengthSessionKey(row){return`${String(row?.session??row?.date)}\u0000${String(row?.blockId??"")}`}
+
 function strengthEvidenceRows(log=state.log){return readLogRows(log).filter(isWork).map(r=>({exerciseId:liftKey(r),session:r.session,
   sessionKey:strengthSessionKey(r),date:r.date,created:r.created??null,blockId:r.blockId??null,
   name:displayName(r),day:r.day,primary:r.primary,secondary:r.secondary,
@@ -6871,108 +6872,22 @@ function compareProgressStrengthSession(ex,currentRows,readerContext){
   const previousPoint=series.points[index-1],forPoint=selected=>rows.filter(row=>row.exerciseId===key&&row.sessionKey===selected.sessionKey&&
     row.strengthComparable!==false&&(row.strengthConvention||"load")===convention);
   return compareProjectedSessionOutcome(forPoint(point),forPoint(previousPoint),convention)}
+function progressProjectionInputs(scope){const rows=strengthEvidenceRows();return{scope,recordKeys:rows.map(liftKey),meta:{started:state.programMeta?.started||null,
+  mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6,blockId:snapshotBlockId(state)},
+  rows:rows.map(row=>({...row,e1rm:e1rm(row.load,row.reps)})),
+  program:prog.exercises.map(ex=>({key:exerciseLiftKey(ex)||`slot:${ex.id}`,name:ex.name,signal:"—"}))}}
 function strengthEvidenceRecords(scope="current-block"){
-  const Model=NativeProgressModel;if(!Model)return[];
-  const meta={started:state.programMeta?.started||null,
-    mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6,
-    blockId:snapshotBlockId(state)};
-  const rows=strengthEvidenceRows(),programKeys=new Set(prog.exercises.map(ex=>exerciseLiftKey(ex)||`slot:${ex.id}`));
-  const keys=new Set([...programKeys,...rows.map(liftKey)]);
-  const outcomeByStatus={improved:"improved",flat:"maintained",regressed:"declined"},records=[];
-  const hasEffort=row=>row?.rir!=null&&row.rir!==""&&Number.isFinite(Number(row.rir));
-  for(const key of keys){
-    const series=Model.buildStrengthEvidence(scope,key,rows,meta);
-    if(!programKeys.has(key)&&series.evidenceCount===0)continue;
-    // The model owns scope and chronological point selection. The producer
-    // then asks the authoritative paired-exposure comparison for the final
-    // outcome; a count alone can never produce a sufficient record.
-    const convention=series.comparisonConvention??"load";
-    const pointRows=new Map(series.points.map(point=>[point.sessionKey,
-      rows.filter(row=>row.exerciseId===key&&row.sessionKey===point.sessionKey&&row.strengthComparable!==false&&
-        (row.strengthConvention??"load")===(convention??"load"))]));
-    const latestPoint=series.points.at(-1),previousPoint=series.points.at(-2);
-    const latestRows=latestPoint?pointRows.get(latestPoint.sessionKey)||[]:[];
-    const previousRows=previousPoint?pointRows.get(previousPoint.sessionKey)||[]:[];
-    let evidenceState="insufficient",reason=series.reason||"untested",outcome;
-    if(series.evidenceCount>=2){
-      const comparableEffort=[...previousRows,...latestRows].every(hasEffort);
-      if(!comparableEffort)reason="missing-effort";
-      else{
-        const delta=compareProjectedSessionOutcome(latestRows,previousRows,convention);
-        outcome=outcomeByStatus[delta.status];
-        if(outcome){evidenceState="sufficient";reason=null}
-        else reason=delta.status==="changed_load"?"changed-load":"incompatible-exposure";
-      }
-    }else if(series.evidenceCount===1){
-      reason=latestRows.some(row=>!hasEffort(row))?"missing-effort":"single-observation";
-    }
-    const record={exerciseId:key,scope:series.scope,evidenceState,
-      evidenceCount:series.evidenceCount,reason};
-    if(outcome)record.outcome=outcome;
-    records.push(record)}
-  return Model.normalizeEvidenceRecords(records)}
+  return buildStrengthEvidenceRecords(progressProjectionInputs(scope),compareProjectedSessionOutcome)}
+
 function strengthFactsByLift(scope="current-block"){
   return Object.fromEntries(strengthEvidenceRecords(scope).filter(r=>r.outcome).map(r=>[r.exerciseId,r.outcome]))}
 function strengthProjection(scope="current-block"){
-  const Model=NativeProgressModel,meta={started:state.programMeta?.started||null,
-    mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6,
-    blockId:snapshotBlockId(state)};
-  const records=strengthEvidenceRecords(scope),rows=strengthEvidenceRows(),dashboard=[],keys=new Set();
-  for(const ex of prog.exercises)keys.add(exerciseLiftKey(ex)||`slot:${ex.id}`);
-  for(const row of rows)keys.add(row.exerciseId);
-  const series=new Map();
-  for(const key of keys){
-    const current=Model.buildStrengthEvidence(scope,key,rows,{...meta,evidenceRecords:records});
-    if(!prog.exercises.some(ex=>(exerciseLiftKey(ex)||`slot:${ex.id}`)===key)&&current.evidenceCount===0)continue;
-    const pointKeys=new Set(current.points.map(point=>point.sessionKey));
-    const convention=current.comparisonConvention??"load";
-    const liftRows=rows.filter(row=>row.exerciseId===key&&pointKeys.has(row.sessionKey)&&row.strengthComparable!==false&&
-      (row.strengthConvention??"load")===(convention??"load"));
-    current.perSideLoad=liftRows.length>0&&liftRows.every(row=>row.perSideLoad===true);
-    current.perSideReps=liftRows.length>0&&liftRows.every(row=>row.perSideReps===true);
-    const liftSessions=current.points.map(point=>{
-      const source=liftRows.filter(row=>row.sessionKey===point.sessionKey);
-      const topRow=source.slice().sort((a,b)=>b.load-a.load||b.reps-a.reps)[0]||point;
-      const top=Number(topRow.load),topReps=Number(topRow.reps),volume=source.reduce((n,row)=>n+(Number.isFinite(row.tonnage)?row.tonnage:0),0);
-      return{session:point.session,date:point.date,day:source[0]?.day||"",liftKey:key,
-        name:source[0]?.name||currentExerciseForLiftKey(key)?.name||key,top,topReps,reps:source.reduce((n,row)=>n+row.reps,0),
-        rir:avg(source.map(row=>row.rir).filter(value=>Number.isFinite(value))),sets:source.length,volume,
-        perSideReps:source.length>0&&source.every(row=>row.perSideReps===true),
-        e1rm:Math.max(...source.map(row=>e1rm(row.load,row.reps))),sessionKey:point.sessionKey};
-    });
-    const latest=liftSessions.at(-1);
-    if(latest){
-      const first=liftSessions[0],best=Math.max(...liftSessions.map(session=>session.e1rm));
-      const scopedPrs=detectPRs(state.log).filter(event=>event.liftKey===key&&
-        pointKeys.has(strengthSessionKey(event)));
-      const ex=currentExerciseForLiftKey(key),rec=ex?recommendation(ex):{label:"—"};
-      // Keep the historical read-only hook's fields stable while the primary
-      // Strength surfaces consume the numeric projection above. `latest` is
-      // the compatibility string only; renderers use latestLoad/latestReps
-      // and the model's numeric points, so no display value re-enters math.
-      dashboard.push({key,exercise:latest.name,latestLoad:latest.top,latestReps:latest.topReps,
-        latest:`${fmtLoad(latest.top)}×${latest.topReps}`,best,blockDelta:latest.e1rm-first.e1rm,
-        prs:scopedPrs.length,lastTrained:latest.date,signal:rec.label});
-    }
-    series.set(key,current)}
-  const sessions=[...series].flatMap(([key,current])=>{
-    const pointKeys=new Set(current.points.map(point=>point.sessionKey));
-    const convention=current.comparisonConvention??"load";
-    const matching=rows.filter(row=>row.exerciseId===key&&pointKeys.has(row.sessionKey)&&row.strengthComparable!==false&&
-      (row.strengthConvention??"load")===(convention??"load"));
-    return current.points.map(point=>{
-      const source=matching.filter(row=>row.sessionKey===point.sessionKey);
-      const top=source.slice().sort((a,b)=>b.load-a.load||b.reps-a.reps)[0]||point;
-      return{session:point.session,date:point.date,day:source[0]?.day||"",liftKey:key,
-        name:source[0]?.name||currentExerciseForLiftKey(key)?.name||key,top:top.load,topReps:top.reps,
-        reps:source.reduce((n,row)=>n+row.reps,0),rir:avg(source.map(row=>row.rir).filter(value=>Number.isFinite(value))),sets:source.length,
-        volume:source.reduce((n,row)=>n+(Number.isFinite(row.tonnage)?row.tonnage:0),0),
-        perSideLoad:source.length>0&&source.every(row=>row.perSideLoad===true),
-        perSideReps:source.length>0&&source.every(row=>row.perSideReps===true),
-        e1rm:Math.max(...source.map(row=>e1rm(row.load,row.reps))),sessionKey:point.sessionKey};
-    });
-  });
-  return{keys:new Set(series.keys()),dashboard,sessions,records,series}}
+  const facts=progressProjectionInputs(scope),records=buildStrengthEvidenceRecords(facts,compareProjectedSessionOutcome);
+  const projection=buildStrengthProjection({...facts,records,prEvents:detectPRs(state.log)});
+  return{...projection,dashboard:projection.dashboard.map(row=>{
+    const ex=currentExerciseForLiftKey(row.key),rec=ex?recommendation(ex):{label:"—"};
+    return{...row,latest:`${fmtLoad(row.latestLoad)}×${row.latestReps}`,signal:rec.label}})}}
+
 // The test seam and the legacy fallback both read the same scoped projection
 // as the primary Strength renderer. No caller gets an all-history latest value
 // while the selected surface says current block.

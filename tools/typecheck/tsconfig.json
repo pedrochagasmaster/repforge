@@ -46,6 +46,7 @@
     "../../src/app/history.js",
     "../../src/app/history-read-models.js",
     "../../src/ui/history/**/*.js",
-    "../../src/app/block-transition.js"
+    "../../src/app/block-transition.js",
+    "../../src/app/progress-read-models.js"
   ]
 }
