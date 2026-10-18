@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 193 screens,
-1118 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 200 screens,
+1163 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -33,6 +33,13 @@ run across every catalog screen — image comparison alone cannot tell a
 designed scroller from a failure — and contrast is audited per rendered role
 under WCAG 2.2 AA.
 
+## Contextual guides
+
+A contextual guide is a modal dialog, and the rendered-role audits skip what a modal
+makes inert. Every state is therefore drawn on a device whose guides have been read, so
+each surface is audited whole, and each of the eight guides has its own state that
+replays it over its real surface: the `*-guide` states and `settings/guides-replay`.
+
 ## Naming
 
 ```
@@ -58,6 +65,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Returning landing](screens/onboarding-start/first-run-returning__phone-390-light-en.png) | 7 | A later visit to a device with no program and no log, with nothing saved. The welcome-back headline and its line, the Build pill, the Track link and Privacy lead; the chips, the proof and the outcomes are left out, and the ways, the data promise, the questions and the closing band follow. |
 | [Returning landing — setup saved](screens/onboarding-start/first-run-returning-resume__phone-390-light-en.png) | 7 | A later visit with a half-finished Recommend setup saved. The lead action names it (Continue choosing your program) in the hero and the closing band; tapping it opens the chooser's resume card. |
 | [Entry hub](screens/onboarding-start/hub__phone-390-light-en.png) | 7 | B's hub: Recommend, Build and Import as choice cards, the setup-link note, Continue held until a choice. |
+| [Entry hub — guide](screens/onboarding-start/hub-guide__phone-390-light-en.png) | 7 | The entry guide over the hub: the guide dialog placed below the Recommend choice it explains, which the scrim leaves uncovered. |
 | [Entry hub — Recommend chosen](screens/onboarding-start/hub-chosen__phone-390-light-en.png) | 3 | The hub with Recommend chosen and Continue enabled. |
 | [Entry hub — existing program](screens/onboarding-start/hub-existing__phone-390-light-en.png) | 3 | Opened from Settings while a program is active, so replacement consequences are in view. |
 
@@ -167,6 +175,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Workout — focus mode](screens/workout/focus__phone-390-light-en.png) | 8 | One exercise at a time. |
+| [Workout — first-set guide](screens/workout/first-set-guide__phone-390-light-en.png) | 8 | The first-set guide, opened by the first tap on a shelf field: the guide dialog above the uncovered Log set action, holding the tap until Got it. |
+| [Workout — workout menu guide](screens/workout/focus-utilities-guide__phone-390-light-en.png) | 8 | The focus-utilities guide: the guide dialog below the uncovered workout menu button. |
 | [Workout — Focus, per-side target](screens/workout/focus-per-side__phone-390-light-en.png) | 8 | A generated bilateral press shows its per-side load label and adaptive target prefilled in ordinary Focus. |
 | [Workout — why this weight, per-side loading](screens/workout/why-per-side__phone-390-light-en.png) | 8 | The generated bilateral press's Why sheet explains the multiplier and enabled bodyweight contribution. |
 | [Workout — deload week](screens/workout/deload-week__phone-390-light-en.png) | 3 | Focus shows the recovery note during the program's deload cycle. |
@@ -208,6 +218,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Progress — overview](screens/progress/overview__phone-390-light-en.png) | 8 | The Progress landing tab. |
+| [Progress — overview guide](screens/progress/overview-guide__phone-390-light-en.png) | 8 | The progress guide on arrival: the guide dialog below the uncovered Overview tab. |
 | [Progress — baseline-building overview](screens/progress/overview-baseline__phone-390-light-en.png) | 8 | Sparse evidence remains neutral and contributes no Needs action items. |
 | [Progress — actionable overview](screens/progress/overview-action__phone-390-light-en.png) | 8 | Sufficient evidence produces linked program-wide action items. |
 | [Progress — exercise chart](screens/progress/exercise-chart__phone-390-light-en.png) | 8 | A per-side lift's e1RM chart and table in the logged unit. |
@@ -222,6 +233,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Progress — PRs](screens/progress/prs__phone-390-light-en.png) | 3 | The personal-record list. |
 | [Progress — PR detail](screens/progress/prs-drill-in__phone-390-light-en.png) | 3 | A personal record expands to locale-formatted evidence detail. |
 | [Progress — Review](screens/progress/review__phone-390-light-en.png) | 8 | The mesocycle review surface. |
+| [Progress — review guide](screens/progress/review-guide__phone-390-light-en.png) | 8 | The block-transition guide on the Review tab: the guide dialog below the uncovered Review tab. |
 | [Progress — active Review](screens/progress/review-active__phone-390-light-en.png) | 8 | The active-block checkpoint is read-only. |
 | [Progress — completed-block Review](screens/progress/review-complete__phone-390-light-en.png) | 8 | A completed block exposes the evidence-valid structural routes. |
 | [Progress — insufficient-evidence Review](screens/progress/review-insufficient__phone-390-light-en.png) | 8 | A completed block with sparse evidence excludes performance-derived actions. |
@@ -286,7 +298,9 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Settings](screens/settings/main__phone-390-light-en.png) | 3 | The settings list. |
 | [Settings — Appearance](screens/settings/appearance__phone-390-light-en.png) | 3 | The appearance/theme row. |
 | [Settings — contextual guides](screens/settings/guides__phone-390-light-en.png) | 3 | The per-guide replay controls; replay changes presentation state only. |
-| [Settings — replayed guide](screens/settings/guides-replay__phone-390-light-en.png) | 3 | A real contextual guide replayed from Settings and anchored to its live privacy action. |
+| [Settings — replayed guide](screens/settings/guides-replay__phone-390-light-en.png) | 3 | A real contextual guide replayed from Settings: the guide dialog beside its live Privacy action, which the scrim leaves uncovered. |
+| [Settings — backup guide](screens/settings/backup-guide__phone-390-light-en.png) | 3 | The backup guide in the open backup group: the guide dialog beside the uncovered Export backup action. |
+| [Settings — install guide](screens/settings/install-guide__phone-390-light-en.png) | 3 | The install guide where Settings offers Install (iOS Safari): the guide dialog beside the uncovered Install action. |
 | [Settings — privacy and analytics](screens/settings/privacy__phone-390-light-en.png) | 3 | The privacy and analytics section. |
 | [Privacy — temporary install transfer](screens/settings/privacy-disclosure__phone-390-light-en.png) | 8 | The cached ADR 0013 disclosure reached from Settings. |
 

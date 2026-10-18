@@ -130,7 +130,8 @@ try {
 
   console.log("\n2. Nothing is left cut under the segment bar after the card scrolls");
   {
-    const { context, page } = await openCatalogState(browser, "workout/rest-running", 390, "en", "normal");
+    // A short phone, so the third set's row is below the window: the inline first-set guide used to take that room.
+    const { context, page } = await openCatalogState(browser, "workout/rest-running", 390, "en", "normal", { height: 667 });
     try {
       const before = await page.evaluate(contextCuts);
       check(before.top >= before.barBottom - 0.5 && !before.cuts.length, "rest running: the context opens whole under the segments", before);
@@ -224,10 +225,9 @@ try {
   }
 
   console.log("\n7. Layout D: the exercise takes the header, the shelf at 56/48/52, the window the mock reached");
-  /** Close any guide on screen: the tips become modals (owner decision), so layout is measured without one. */
+  /** Layout is measured with no guide up: the tips are modals, and this device has read them (test/browser.mjs). */
   const noGuide = async (page) => {
-    await page.evaluate(() => document.querySelectorAll("[data-guide-dismiss]").forEach((button) => button.click()));
-    await page.waitForFunction(() => ![...document.querySelectorAll(".guide-cue")].some((el) => el.getClientRects().length), undefined, { timeout: 5000 });
+    await page.waitForFunction(() => !document.querySelector("dialog#guideDialog[open]"), undefined, { timeout: 5000 });
     await page.evaluate(() => { window.dispatchEvent(new Event("resize")); return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))); });
   };
   const dLayout = () => {
