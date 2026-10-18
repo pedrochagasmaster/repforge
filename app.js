@@ -1,4 +1,6 @@
-import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,createEntryAnswerCommands,createEntryQuestionFlow,createEntryReviewSession,createEntrySetup,createEntryActivation,buildLandingProof,landingExampleInputs,FREEFORM_MAX_CHARS} from './src/app/entry.js';
+import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,createEntryAnswerCommands,createEntryQuestionFlow,createEntryReviewSession,createEntrySetup,createEntryActivation,buildLandingProof,FREEFORM_MAX_CHARS} from './src/app/entry.js';
+import {LANDING_SCENES,LANDING_SPOTS,LANDING_READ} from './src/ui/entry/landing/artwork.js';
+import {createLandingContent} from './src/ui/entry/landing/view.js';
 import * as ExerciseSource from './exercises.js';
 import {EXERCISE_LIBRARY,LEGACY_LIBRARY_IDS,EXERCISE_CATALOG_SHA256} from './exercises.js';
 import {STRINGS} from './i18n.js';
@@ -8460,134 +8462,11 @@ function closeFirstRunInstall(){return installView().closeLanding()}
    the chart's figures come from the Progress model over the same four-session
    history the chart image is captured from (owner decision L-2). The inputs
    below are the only authored numbers: what the example lifter logged. */
-const {unit:LANDING_UNIT,cases:LANDING_CASES,chart:LANDING_CHART}=landingExampleInputs;
-/** The proof's screens (dark only, EN and PT) and where the lens reads on each:
- *  [centre x, centre y, width, height] as percentages of the screen. The numbers
- *  are measured from the live app by tools/capture-landing-proof.mjs. */
-const LANDING_SCENES=["focus","rest","actions","note"];
-const LANDING_SPOTS={
-  focus:{cue:[50,31.61,91.79,6.59],log:[50,90.88,91.79,6.4],last:[50,48,91.79,11.98]},
-  rest:{dial:[50,32.66,91.79,6.98]},
-  actions:{swap:[50,52.38,91.79,6.16]},
-  note:{text:[50,64.93,91.28,2.94]}};
-/** How the lens reads each element: magnification, shape, padding (px at 390 wide)
- *  and, for a button read edge to edge, the app's corner radius. */
-const LANDING_READ={
-  cue:{scene:"focus",m:1.95,shape:"pill",pad:10},
-  log:{scene:"focus",m:1.5,shape:"rect",pad:0,r:14},
-  dial:{scene:"rest",m:1.3,shape:"pill",pad:6},
-  swap:{scene:"actions",m:1.5,shape:"rect",pad:0,r:14},
-  text:{scene:"note",m:1.4,shape:"pill",pad:8},
-  last:{scene:"focus",m:1.55,shape:"rect",pad:10}};
-/** The import-review capture: its size per language, the counts its screen shows
- *  (they differ by language: the sample's names classify differently) and the
- *  library movement its first row suggests. Written by tools/capture-landing-proof.mjs
- *  into assets/brand/landing-proof-spots.json, which test/landing-variants.mjs compares. */
-const LANDING_PASTE_SHOT={dims:{en:[780,1138],pt:[780,1266]},counts:{en:{linked:2,review:2},pt:{linked:0,review:4}},exercise:"19f5c6f170d8808bb424e98de4472a7e"};
-const landingLang=()=>I18N?.getLang?.()==="pt"?"pt":"en";
-const landingNum=v=>{const s=fmtPlain(v);return landingLang()==="pt"?s.replace(".",","):s};
-const landingKg=v=>`${landingNum(v)} ${LANDING_UNIT}`;
-const landingExerciseName=id=>{const e=LIBRARY_BY_ID.get(id);return e?(landingLang()==="pt"&&e.namePt)||e.name:""};
-/** "7, 6 and 6" / "7, 6 e 6": the list pattern comes from the language, not from code. */
-function landingList(values){
-  const items=values.map(landingNum);
-  try{return new Intl.ListFormat(landingLang()==="pt"?"pt-BR":"en-GB",{style:"long",type:"conjunction"}).format(items)}
-  catch{return items.join(", ")}}
-/** A catalog template as markup: the template is escaped, then each {name} becomes
- *  escaped text or, for an app control's label, the bold interface term. */
-function landingRich(key,text,terms={}){
-  return esc(t(key)).replace(/\{(\w+)\}/g,(whole,name)=>
-    name in terms?`<b class="firstrun-ui">${esc(terms[name])}</b>`:name in text?esc(text[name]):whole)}
-function landingCue(status,c){
-  const move=status==="advance"?"up":status==="reduce"?"down":"hold";
-  return`${t(`focus.cue.${move}`,{load:landingNum(c.load),unit:LANDING_UNIT})} · ${t("focus.cue.reps",{reps:landingNum(c.reps)})}`}
-function landingSceneAlt(scene,add){
-  const c=LANDING_CASES.add,first=c.logged[0];
-  if(scene==="focus")return t("landing.demo.alt.focus",{exercise:landingExerciseName(c.ex),sets:landingNum(c.sets),
-    min:landingNum(c.repMin),max:landingNum(c.repMax),load:landingKg(first[0]),reps:landingNum(first[1]),rir:landingNum(first[2]),
-    cue:add?landingCue(add.status,add):"",action:t("today.log_set")});
-  if(scene==="actions")return t("landing.demo.alt.actions",{action:t("ex.actions.substitute")});
-  return scene==="rest"?t("landing.demo.alt.rest"):t("landing.demo.alt.note")}
-/** The read of one step as a crop: the spot grown by the lens padding (a share of
- *  a 390 by 844 screen), as the five numbers the static card's CSS needs. */
-function landingCropBox(scene,reads){
-  const name=reads[reads.length-1],spot=LANDING_SPOTS[scene]?.[name],read=LANDING_READ[name];
-  if(!spot||!read)return null;
-  const padW=2*read.pad/390*100,padH=2*read.pad/844*100;
-  return{x:spot[0],y:spot[1],w:Math.min(100,spot[2]+padW),h:Math.min(100,spot[3]+padH)}}
-function renderLandingProof(add){
-  const root=$("#firstRun");if(!root)return;
-  const lang=landingLang();
-  const fill=(key,html)=>{const node=root.querySelector(`[data-landing-fill="${key}"]`);if(node)node.innerHTML=html};
-  const text=(key,value)=>{const node=root.querySelector(`[data-landing-fill="${key}"]`);if(node)node.textContent=value};
-  const c=LANDING_CASES.add,first=c.logged[0];
-  text("s2",t("landing.demo.s2.text"));
-  text("s3",t("landing.demo.s3.title",{action:t("today.log_set")}));
-  fill("s5",landingRich("landing.demo.s5.text",{},{action:t("ex.actions.substitute")}));
-  if(add){
-    text("s7.value",t("landing.outcomes.target",{load:landingKg(add.load),reps:landingNum(add.reps)}));
-    text("s7.sets",t("landing.demo.s7.sets",{sets:landingNum(c.sets)}));
-    text("s7",t("landing.demo.s7.text",{done_reps:landingNum(first[1]),load:landingKg(first[0]),sets:landingNum(c.sets),
-      min:landingNum(c.repMin),max:landingNum(c.repMax),next_load:landingKg(add.load),next_reps:landingNum(add.reps)}))}
-  const seen=new Set();
-  root.querySelectorAll("[data-landing-step]").forEach(step=>{
-    const scene=step.dataset.scene,reads=(step.dataset.read||"").split(" ").filter(Boolean);
-    const crop=step.querySelector(".firstrun-step__crop"),img=step.querySelector("[data-landing-crop]");
-    if(img){
-      img.src=`assets/brand/wt-${scene}-${lang}-dark.webp`;
-      img.alt=seen.has(scene)?"":landingSceneAlt(scene,add)}
-    seen.add(scene);
-    const box=reads.length?landingCropBox(scene,reads):null;
-    if(crop){
-      for(const [name,value] of [["sx",box?.x],["sy",box?.y],["sw",box?.w],["sh",box?.h]]){
-        if(value==null)crop.style.removeProperty(`--firstrun-${name}`);
-        else crop.style.setProperty(`--firstrun-${name}`,String(Math.round(value*100)/100))}}});
-}
-function renderLandingOutcomes(results){
-  const root=$("#firstRun");if(!root)return;
-  for(const [id,c] of Object.entries(LANDING_CASES)){
-    const node=root.querySelector(`[data-landing-outcome="${id}"]`),got=results[id];
-    if(!node||!got)continue;
-    const reps=c.logged.map(set=>set[1]),same=reps.every(r=>r===reps[0]);
-    const did=same
-      ?t("landing.outcomes.did_same",{reps:landingNum(reps[0]),load:landingKg(c.logged[0][0]),sets:landingNum(c.sets),min:landingNum(c.repMin),max:landingNum(c.repMax)})
-      :t("landing.outcomes.did_mixed",{list:landingList(reps),load:landingKg(c.logged[0][0]),min:landingNum(c.repMin),max:landingNum(c.repMax)});
-    const rule=id==="add"?t("rec.add.text"):id==="hold"?t("rec.hold_add_reps.text"):t("rec.reduce.text",{min:landingNum(c.repMin)});
-    node.querySelector("[data-landing-next]").textContent=t("landing.outcomes.target",{load:landingKg(got.load),reps:landingNum(got.reps)});
-    node.querySelector("[data-landing-exercise]").textContent=landingExerciseName(c.ex);
-    node.querySelector("[data-landing-explain]").textContent=`${did} ${rule}`}}
-function renderLandingChart(fig){
-  const root=$("#firstRun");if(!root)return;
-  const figure=root.querySelector("[data-landing-chart]");
-  if(!figure||!fig)return;
-  const vars={exercise:landingExerciseName(LANDING_CHART.libraryId),from:landingNum(fig.from),to:landingKg(fig.to),sessions:landingNum(fig.sessions),metric:t("stats.metric.best_e1rm")};
-  const img=figure.querySelector("img");
-  if(img){
-    const dims=LANDING_CHART.dims[landingLang()];img.setAttribute("width",dims[0]);img.setAttribute("height",dims[1]);
-    img.alt=t("landing.chart.alt",vars)}
-  const caption=figure.querySelector("figcaption");if(caption)caption.textContent=t("landing.chart.caption",vars)}
-function renderLandingWays(){
-  const root=$("#firstRun");if(!root)return;
-  const fill=(key,html)=>{const node=root.querySelector(`[data-landing-fill="${key}"]`);if(node)node.innerHTML=html};
-  fill("ways.written",esc(t("landing.ways.written.body",{weeks:landingNum(defaultProgramMeta().mesocycleLengthWeeks)})));
-  fill("ways.where",landingRich("landing.ways.paste.where",{},{track:t("landing.track"),hub:t("entry.hub.title"),
-    own:t("entry.hub.b.import.title"),paste:t("entry.import_source.to_freeform")}));
-  fill("data.pointer",landingRich("landing.data.pointer",{},{settings:t("nav.settings"),privacy:t("privacy.open")}));
-  fill("faq.coach.a1",landingRich("landing.faq.coach.a1",{},{control:t("program.share_setup")}));
-  fill("faq.data.a2",landingRich("landing.faq.data.a2",{},{settings:t("nav.settings"),toggle:t("settings.analytics.title")}));
-  const lang=landingLang(),shot=LANDING_PASTE_SHOT,img=root.querySelector('[data-shot="paste-review"]');
-  if(img){
-    const dims=shot.dims[lang];img.setAttribute("width",dims[0]);img.setAttribute("height",dims[1]);
-    const typed=String(t("landing.ways.paste.message")).split("\n")[1]?.replace(/\s+\d+x[\d-]+\s*$/,"")||"";
-    img.alt=t("landing.ways.paste.alt",{screen:t("import.heading"),linked:landingNum(shot.counts[lang].linked),review:landingNum(shot.counts[lang].review),
-      typed,exercise:landingExerciseName(shot.exercise),status:t("import.status.probable")})}}
-/** Everything on the landing that is a number or is built from one. */
-function renderLandingContent(){
-  const frame=buildLandingProof({model:TrainingModel,catalog:rawExerciseCatalog,minJump:DEFAULTS.minJump});
-  renderLandingProof(frame.recommendations.add||null);
-  renderLandingOutcomes(frame.recommendations);
-  renderLandingChart(frame.chart);
-  renderLandingWays()}
+let landingContentOwner=null;
+function landingContentView(){return landingContentOwner||(landingContentOwner=createLandingContent({document,copy:{t,language:()=>uiLang()}}))}
+const landingLang=()=>landingContentView().language();
+const landingNum=value=>landingContentView().number(value);
+function renderLandingContent(){landingContentView().render(buildLandingProof({model:TrainingModel,catalog:rawExerciseCatalog,minJump:DEFAULTS.minJump,defaultWeeks:EntryActivation.defaultCycles}))}
 
 /* The proof controller. One object per open landing: it adds the pinned stage
    (phone, lens, rail) only when motion is welcome and the screen can hold it,
@@ -8799,13 +8678,7 @@ function disposeLandingController(){
 window.__repforgeLandingProof=()=>landingController?{open:true,...landingController.live()}:{open:false,listeners:0,observers:0,timers:0,frames:0,pinned:false,step:null,ticks:0};
 /** Real-app captures that follow the chosen appearance: swap the file on
  *  <html data-theme>, never on prefers-color-scheme, so the page and the app agree. */
-function renderLandingDevice(){
-  const lang=I18N?.getLang?.()==="pt"?"pt":"en";
-  const theme=document.documentElement.dataset.theme==="dark"?"dark":"light";
-  $$('#firstRun [data-shot]').forEach(image=>{
-    image.src=`assets/brand/${image.dataset.shot}-${lang}-${theme}.webp`;
-  });
-}
+function renderLandingDevice(){landingContentView().paintDevice()}
 function renderFirstRun(){
   renderFirstRunProgramMode();
   renderLandingDevice();
