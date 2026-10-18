@@ -33,6 +33,7 @@
     "../../src/app/settings.js",
     "../../src/app/profile.js",
     "../../src/app/interchange.js",
-    "../../src/ui/settings/**/*.js"
+    "../../src/ui/settings/**/*.js",
+    "../../src/ui/shell.js"
   ]
 }

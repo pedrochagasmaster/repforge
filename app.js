@@ -1,3 +1,4 @@
+import {createShell} from './src/ui/shell.js';
 import {createNotifications} from './src/platform/notifications.js';
 import {createEntryController} from './src/ui/entry/controller.js';
 import {createEntryImportSession,createEntryImportCommands,FREEFORM_MAX_CHARS} from './src/app/entry.js';
@@ -131,10 +132,10 @@ function showExerciseCatalogUnavailable(){
       window.__repforgeCatalogUnavailable=String(exerciseCatalogError?.message||"catalog-unavailable");
       status.textContent=t("catalog.unavailable.retry_failed");retry.disabled=false;exerciseCatalogRetryBusy=false;return}
     window.__repforgeCatalogUnavailable=null;
-    if(dialog.open)dialog.close();
+    await closeModal(dialog);
     try{await boot()}finally{exerciseCatalogRetryBusy=false}
   };
-  if(!dialog.open)dialog.showModal();
+  openModal(dialog,{initialFocus:retry,onEscape:null});
   retry.focus();
   return true}
 
@@ -548,315 +549,38 @@ let customCreatedToastAt=-Infinity;
 function announceEditorChange(message,opts){
   if(opts?.change&&performance.now()-customCreatedToastAt<4000)return;
   toast(message)}
-let activeModal=null,modalSettleQueue=[];
-/** Run `callback` once no modal is open: now, or as the open one finishes closing and has restored focus. */
-function afterModalSettles(callback){
-  if(!activeModal)callback();else modalSettleQueue.push(callback)}
-function modalFocusables(root){
-  if(!root)return[];
-  const sel='a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
-  return [...root.querySelectorAll(sel)].filter(el=>{
-    if(el.hasAttribute("hidden")||el.closest("[hidden]"))return false;
-    const st=getComputedStyle(el);
-    return st.display!=="none"&&st.visibility!=="hidden"&&el.getClientRects().length>0;
-  })}
-function snapshotBodyInert(){
-  return [...document.body.children].map(el=>({el,inert:!!el.inert}))}
-function applyModalInert(keep){
-  const allow=new Set(keep.filter(Boolean));
-  allow.add($("#announcementHost"));
-  for(const child of document.body.children){
-    if(allow.has(child)){child.inert=false;continue}
-    child.inert=true}}
-function restoreBodyInert(snap){
-  if(!snap)return;
-  for(const {el,inert} of snap){if(el.isConnected)el.inert=inert}}
-function detachModalListeners(rec){
-  if(!rec)return;
-  if(rec.onKey)document.removeEventListener("keydown",rec.onKey,true);
-  if(rec.onPointer)document.removeEventListener("pointerdown",rec.onPointer,true)}
-function hideModalElement(rec){
-  if(!rec?.el)return;
-  // A sheet closed out from under a live drag (Escape, a save, a tour step) still
-  // carries the thumb's inline transform — or a spring still settling it — and
-  // would reopen part-way down.
-  const wasDragged=sheetDrag?.rec===rec;
-  if(wasDragged)sheetDrag=null;
-  if(wasDragged||rec.motion)sheetDragRelease(rec);
-  const el=rec.el;
-  if(el.tagName==="DIALOG"){if(typeof el.close==="function"&&el.open)el.close()}
-  else{el.classList.add("hidden");el.hidden=true}
-  rec.scrim?.classList.add("hidden");rec.scrim?.classList.remove("is-open");
-  el.classList.remove("is-open");
-  document.body.classList.remove("is-sheet-open")}
-function canTakeFocus(el){
-  if(!(el instanceof Element)||!el.isConnected)return false;
-  if(el.hasAttribute("disabled")||el.closest("[disabled]"))return false;
-  for(let n=el;n;n=n.parentElement){
-    if(n.inert)return false;
-    if(n.hidden===true)return false;
-    const st=getComputedStyle(n);
-    if(st.display==="none"||st.visibility==="hidden")return false}
-  return true}
-function resolveReturnFocus(target){
-  // A callback lets a caller name its return target before the view that owns it
-  // has rendered, which is how boot-time dialogs reach a Today control.
-  if(typeof target==="function")target=target();
-  if(typeof target==="string")target=$(target);
-  if(!(target instanceof Element)||!target.isConnected)return null;
-  if(canTakeFocus(target))return target;
-  const lab=target.closest?.("label")||target.labels?.[0];
-  if(lab&&canTakeFocus(lab))return lab;
-  return null}
-/* ---- Route hand-off glue (Plan 064 R5) ----
-   A hand-off between surfaces ends with focus on the new surface: its heading, or
-   the control it documents as its focus target (the control that opened the
-   surface when the lifter backs out of it). A heading is not a control, so it
-   takes a programmatic tabindex of -1: never a tab stop, and styles.css draws no
-   ring on it. The route functions stay where they are; they call these. */
-const ROUTE_NATIVE_FOCUS="a[href],button,input,select,textarea,summary,[tabindex]";
-function routeHeading(view){
-  const root=typeof view==="string"?$(`#${view}`):view;
-  if(!(root instanceof Element))return null;
-  return[...root.querySelectorAll(".page-title,h1,h2")].find(canTakeFocus)||null}
-function focusRoute(target){
-  const el=resolveReturnFocus(target);
-  if(!el)return false;
-  if(!el.matches(ROUTE_NATIVE_FOCUS))el.setAttribute("tabindex","-1");
-  try{el.focus({preventScroll:true})}catch{return false}
-  return document.activeElement===el}
-/* The control the lifter last pressed. Safari does not focus a button on click, so
-   document.activeElement cannot say what opened a flow; the press itself can. */
-let routeInvoker=null;
-document.addEventListener("click",event=>{
-  const target=event.target instanceof Element?event.target.closest("button,a[href],summary,[role='button']"):null;
-  routeInvoker=target?{el:target,at:performance.now()}:null},true);
-function routeInvokerControl(){
-  const pressed=routeInvoker&&performance.now()-routeInvoker.at<600?routeInvoker.el:null;
-  const active=document.activeElement!==document.body?document.activeElement:null;
-  return resolveReturnFocus(pressed)||resolveReturnFocus(active)||null}
-/* ---- Page push (amendment N4 drill-downs, N5 Today to Focus) ----
-   A drill-down is an interruptible push on the motion layer's `navPush` spring
-   (`RepForgeMotion.animatePush`): the pushed page rides in from the right, and
-   Back is the same push run the other way. Both pages are mounted for the run,
-   the pushed one above (`is-push-over`) and the other held still beneath it
-   (`is-push-under`); focus, route state, telemetry and scroll reset are the route
-   function's own and have already happened when the run starts. Under reduced
-   motion, before boot, with no runtime, or while Focus is the page underneath
-   (its layout belongs to body classes the route has just changed), the route
-   simply changes. The top-level dock fade stays as it is. */
-let routePushState=null,routeUnderView=null,routeSwipeCommitting=false;
-function routePushOn(){
-  const motion=window.RepForgeMotion;
-  return window.__repforgeBooted===true&&!!motion?.animatePush&&motion.available?.()===true&&!motion.reducedMotion?.()}
-function routePushEnd(){
-  const state=routePushState;if(!state)return;
-  routePushState=null;
-  state.mover.classList.remove("is-push-over");
-  if(state.under?.classList.contains("is-push-under")){
-    state.under.classList.remove("is-push-under");state.under.style.removeProperty("--push-top");
-    state.under.inert=false;state.under.removeAttribute("aria-hidden")}
-  if(state.ghost)state.ghost.remove();
-  document.body.classList.remove("is-pushing")}
-/** Begin a push around a route change that happens synchronously in the caller:
- *  call this first, make the change, then call the function it returns. `pushed`
- *  is the page that moves. For a push in, `under` is the page that stays beneath
- *  it; for a push out, `under` is the page being returned to. `ghost` is a still
- *  copy of the surface as it was, for a route that swaps content inside one view
- *  (History's list and session page): the copy is the page under a push in, and
- *  the page that moves on a push out. Null when the route should simply change. */
-function routePushBegin(direction,{pushed,under=null,ghost=null,offset=-Math.round(window.scrollY)}){
-  if(direction==="in"&&under)routeUnderView=under.id;
-  if(routeSwipeCommitting||!routePushOn()||!(pushed instanceof Element)||under===pushed)return null;
-  if(direction==="in"&&!under&&!ghost)return null;
-  if(workoutActive&&under?.id==="log")return null;
-  return()=>{
-    routePushEnd();
-    const beneath=direction==="in"?(ghost||under):null;
-    const mover=direction==="out"&&ghost?ghost:pushed;
-    const state={mover,under:beneath,ghost};
-    routePushState=state;
-    if(ghost){ghost.inert=true;ghost.setAttribute("aria-hidden","true");pushed.after(ghost)}
-    if(beneath){
-      beneath.style.setProperty("--push-top",`${offset}px`);
-      beneath.classList.add("is-push-under");beneath.inert=true;beneath.setAttribute("aria-hidden","true")}
-    mover.classList.add("is-push-over");
-    document.body.classList.add("is-pushing");
-    window.RepForgeMotion.animatePush(mover,{direction}).then(arrived=>{
-      if(arrived&&routePushState===state)routePushEnd()})}}
-/* ---- Edge swipe back on pushed pages (amendment: the third gesture owner) ----
-   The pages a push can leave register with `RepForgeMotion.registerEdgeSwipeBack`
-   while they are the page on screen, and nothing else does: Focus keeps its
-   horizontal axis for the deck, and the layer itself only runs in standalone.
-   Committing runs the visible back control's own handler, so the route, focus and
-   telemetry are exactly the tap's; the page is already off screen by then, so the
-   route does not push it a second time. While a pull is live the page it returns
-   to is mounted beneath it (History has none to mount: its list is rendered
-   over the session page, so the pull shows the paper beneath). */
-const EDGE_BACK={exercise:"#exBack",library:"#libBack",exercisePreview:"#previewBack",history:"[data-history-back]"};
-let routeEdge=null,routeEdgeFrame=0;
-function edgeBackPage(){
-  if(document.body.classList.contains("is-focus-wo"))return null;
-  const view=$(".view.active");
-  if(!view||!EDGE_BACK[view.id])return null;
-  if(view.id==="history"&&!view.classList.contains("is-session-page"))return null;
-  return view}
-function syncEdgeSwipe(){
-  routeEdgeFrame=0;
-  const page=edgeBackPage();
-  if(routeEdge?.page===page)return;
-  routeEdge?.dispose();routeEdge=null;
-  const motion=window.RepForgeMotion;
-  if(!page||!motion?.registerEdgeSwipeBack)return;
-  const registration=motion.registerEdgeSwipeBack({page,onCommit:()=>{
-    routeSwipeCommitting=true;
-    // The page held beneath the pull is still inert and aria-hidden: it must be live before the Back handler hands it
-    // focus, or the swipe lands focus on <body> where the tap would not (R7 J-22).
-    unmount();
-    try{releaseSwallowedClick();$(EDGE_BACK[page.id])?.click()}finally{routeSwipeCommitting=false}}});
-  if(!registration)return;
-  let beneath=null;
-  const unmount=()=>{
-    if(!beneath)return;
-    beneath.classList.remove("is-push-under");beneath.style.removeProperty("--push-top");
-    beneath.inert=false;beneath.removeAttribute("aria-hidden");beneath=null};
-  const watch=new MutationObserver(()=>{
-    const pulling=page.classList.contains("is-edge-swiping");
-    if(pulling&&!beneath){
-      const under=page.id==="history"?null:routeViewEl(routeUnderView||"log");
-      if(under&&under!==page&&!under.classList.contains("active")){
-        beneath=under;under.style.setProperty("--push-top","0px");
-        under.classList.add("is-push-under");under.inert=true;under.setAttribute("aria-hidden","true")}}
-    else if(!pulling)unmount()});
-  watch.observe(page,{attributes:true,attributeFilter:["class"]});
-  routeEdge={page,dispose(){registration.dispose();watch.disconnect();unmount()}}}
-function scheduleEdgeSwipeSync(){
-  if(!routeEdgeFrame)routeEdgeFrame=requestAnimationFrame(syncEdgeSwipe)}
-/* History swaps its list for a session page inside one view, so there is no second
-   page to keep mounted. A still copy of the surface as it was, taken as the lifter
-   presses the control that changes it, stands in: under the session page as it
-   pushes in, and as the page that rides out on Back. */
-let historySnap=null,historySessionOpen=false;
-document.addEventListener("click",event=>{
-  const target=event.target instanceof Element?event.target:null;
-  const view=$("#history");
-  if(!target||!view?.classList.contains("active")||!target.closest("#history [data-edit],#history [data-history-back],#historyCalSheet button"))return;
-  const copy=view.cloneNode(true);
-  copy.querySelectorAll("[id]").forEach(node=>node.removeAttribute("id"));
-  copy.classList.remove("is-push-over","is-push-under");
-  historySnap={copy,at:performance.now(),scroll:window.scrollY,session:view.classList.contains("is-session-page")}},true);
-function watchRouteSurfaces(){
-  const main=$("main"),history=$("#history");
-  if(main)new MutationObserver(scheduleEdgeSwipeSync).observe(main,{attributes:true,attributeFilter:["class"],subtree:true});
-  if(history){
-    historySessionOpen=history.classList.contains("is-session-page");
-    new MutationObserver(()=>{
-      const open=history.classList.contains("is-session-page");
-      if(open===historySessionOpen)return;
-      historySessionOpen=open;
-      const snap=historySnap;historySnap=null;
-      if(!snap||snap.session===open||performance.now()-snap.at>1500)return;
-      routePushBegin(open?"in":"out",{pushed:history,ghost:snap.copy,offset:-Math.round(snap.scroll)})?.()
-    }).observe(history,{attributes:true,attributeFilter:["class"]})}
-  scheduleEdgeSwipeSync()}
-if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",watchRouteSurfaces,{once:true});
-else watchRouteSurfaces();
-/** A push around a route change given as a function. */
-function pushRoute(direction,pages,change){
-  const settle=routePushBegin(direction,pages);
-  change();
-  settle?.()}
-function routeViewEl(id){return $(`#${id}`)}
-function openModal(el,opts={}){
-  if(!el)return false;
-  const extras=opts.extras||[];
-  if(activeModal&&activeModal.el!==el){
-    if(!opts.handoff)return false;
-    const opener=opts.returnFocus||activeModal.returnFocus;
-    const prevInert=activeModal.prevInert;
-    const prev=activeModal;
-    detachModalListeners(prev);
-    hideModalElement(prev);
-    activeModal=null;
-    return openModal(el,{...opts,handoff:false,returnFocus:opener,prevInert})}
-  if(activeModal&&activeModal.el===el)return true;
-  const rec={
-    el,scrim:opts.scrim||null,returnFocus:opts.returnFocus||document.activeElement,
-    onEscape:opts.onEscape,delayHide:opts.delayHide||0,prevInert:opts.prevInert||snapshotBodyInert(),closing:false
-  };
-  if(el.tagName==="DIALOG"){if(typeof el.showModal==="function"&&!el.open)el.showModal()}
-  else{el.hidden=false;el.classList.remove("hidden")}
-  rec.scrim?.classList.remove("hidden");
-  applyModalInert([el,rec.scrim,...extras]);
-  rec.onKey=e=>{
-    if(!activeModal||activeModal.el!==el)return;
-    if(e.key==="Escape"){
-      e.preventDefault();e.stopPropagation();
-      if(typeof rec.onEscape==="function")rec.onEscape();
-      return}
-    if(e.key!=="Tab")return;
-    const stops=modalFocusables(el);
-    if(!stops.length){e.preventDefault();return}
-    const first=stops[0],last=stops[stops.length-1];
-    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}
-    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}
-    else if(!el.contains(document.activeElement)){e.preventDefault();(e.shiftKey?last:first).focus()}};
-  rec.onPointer=e=>{
-    if(!activeModal||activeModal.el!==el)return;
-    const t=e.target instanceof Element?e.target:null;
-    if(t&&(el.contains(t)||rec.scrim?.contains(t)))return;
-    e.preventDefault();e.stopPropagation()};
-  document.addEventListener("keydown",rec.onKey,true);
-  document.addEventListener("pointerdown",rec.onPointer,true);
-  activeModal=rec;
-  const focusEl=typeof opts.initialFocus==="function"?opts.initialFocus():opts.initialFocus;
-  const toFocus=focusEl||modalFocusables(el)[0];
-  // Modals are fixed overlays, so scrolling one into view only shifts the page
-  // beneath them — on iOS that drags the visual viewport and takes the sheet
-  // header with it.
-  if(toFocus){try{toFocus.focus({preventScroll:true})}catch{try{toFocus.focus()}catch{}}}
-  return true}
-function closeModal(el){
-  const rec=activeModal;
-  if(!rec||(el&&rec.el!==el)||rec.closing)return Promise.resolve(false);
-  rec.closing=true;
-  return new Promise(resolve=>{
-    let fallback=null,onEnd=null;
-    const finish=()=>{
-      if(rec.done)return;rec.done=true;
-      if(fallback)clearTimeout(fallback);
-      if(onEnd)rec.el.removeEventListener("transitionend",onEnd);
-      detachModalListeners(rec);
-      hideModalElement(rec);
-      restoreBodyInert(rec.prevInert);
-      if(activeModal===rec)activeModal=null;
-      const target=resolveReturnFocus(rec.returnFocus);
-      if(target){
-        try{target.focus({preventScroll:true})}catch{try{target.focus()}catch{}}}
-      if(!activeModal&&modalSettleQueue.length){const queued=modalSettleQueue;modalSettleQueue=[];queued.forEach(callback=>callback())}
-      resolve(true)};
-    if(rec.delayHide>0){
-      rec.el.classList.remove("is-open");
-      rec.scrim?.classList.remove("is-open");
-      fallback=setTimeout(finish,rec.delayHide);
-      onEnd=e=>{if(e.target===rec.el)finish()};
-      rec.el.addEventListener("transitionend",onEnd)}
-    else finish()})}
-/* Settings disclosures open panels whose height is content — a strategy
- * explainer here, a table there, and different again in Portuguese. The state
- * change is applied to the accessibility tree immediately; only the geometry is
- * animated, and only when Motion is there to measure it. Without the runtime,
- * or under reduced motion, the panel swaps display exactly as it always did. */
-function setDisclosure(button,panel,open){
-  if(!button||!panel)return;
-  const on=!!open;
-  button.setAttribute("aria-expanded",on?"true":"false");
-  if(panel.id)button.setAttribute("aria-controls",panel.id);
-  panel.setAttribute("aria-hidden",on?"false":"true");
-  const chev=button.querySelector(".chevron");if(chev)chev.classList.toggle("is-up",on);
-  const show=()=>panel.classList.toggle("is-open",on);
-  if(window.RepForgeMotion)window.RepForgeMotion.animateDisclosure(panel,on,show);
-  else show()}
+let browserPresentation=null;
+/** Compose presentation before catalog/storage recovery can open a modal.
+ * Construction installs no gesture listeners; init explicitly mounts Motion. */
+function ensureBrowserPresentation(){
+  if(browserPresentation)return browserPresentation;
+  const motion=createMotion({window,
+    focus:{track:focusTrack,card:focusCard,step:focusStep,canGo:focusCanGo,setTrack:focusSetTrack,
+      go:focusGo,dragStart:focusDragStart,dragMove:focusDragMove,dragEnd:focusDragEnd},
+    sheets:{dragStart:sheetDragStart,dragMove:sheetDragMove,dragEnd:sheetDragEnd},
+    selection:{isNativeTextSelectionTarget,swallowNextClick},
+    fallback:{mount:mountFallbackGestures,navigate:fallbackFocusAnimateTo}});
+  const shell=createShell({window,motion,isBooted:()=>window.__repforgeBooted===true,
+    isFocusActive:()=>document.body.classList.contains("is-focus-wo"),
+    releaseSheetDrag:rec=>{const wasDragged=sheetDrag?.rec===rec;
+      if(wasDragged)sheetDrag=null;
+      if(wasDragged||rec.motion)sheetDragRelease(rec)},releaseSwallowedClick});
+  browserPresentation={motion,shell};
+  window.RepForgeMotion=motion;
+  return browserPresentation;
+}
+function shellView(){return ensureBrowserPresentation().shell}
+function afterModalSettles(callback){return shellView().afterModalSettles(callback)}
+function canTakeFocus(element){return shellView().canTakeFocus(element)}
+function resolveReturnFocus(target){return shellView().resolveReturnFocus(target)}
+function routeHeading(view){return shellView().routeHeading(view)}
+function focusRoute(target){return shellView().focusRoute(target)}
+function routeInvokerControl(){return shellView().routeInvokerControl()}
+function routePushBegin(direction,pages){return shellView().routePushBegin(direction,pages)}
+function routeViewEl(id){return shellView().routeViewEl(id)}
+function openModal(element,options){return shellView().openModal(element,options)}
+function closeModal(element){return shellView().closeModal(element)}
+function setDisclosure(button,panel,open){return shellView().setDisclosure(button,panel,open)}
 const uid=()=>crypto?.randomUUID?.()||`id_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 /* Block identity is allocated only at a real activation/block-start boundary.
    Normalisation, boot, replay, and staged proposals must preserve absence or
@@ -2284,7 +2008,7 @@ function confirmDiscardDraft(){
   $("#draftDiscardBody").textContent=t("confirm.discard_draft");
   const keep=$("#draftDiscardKeep"),drop=$("#draftDiscardDrop");
   keep.textContent=t("dialog.cancel");drop.textContent=t("draft.recovery.discard");
-  const fromPicker=activeModal?.el?.id==="dayPickSheet";
+  const fromPicker=shellView().activeModal?.el?.id==="dayPickSheet";
   draftDiscardAsk=new Promise(resolve=>{
     let settled=false;
     const finish=async discard=>{
@@ -4761,7 +4485,7 @@ function openRestSheet(){
 function closeRestSheet(){
   const sheet=$("#restSheet");
   if(!sheet)return Promise.resolve(false);
-  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  if(sheet.hidden&&!(shellView().activeModal&&shellView().activeModal.el===sheet))return Promise.resolve(false);
   restSheetReturn=null;
   return closeModal(sheet)}
 /** Picking a length restarts the rest at it; idle, it only sets what the next
@@ -5023,7 +4747,7 @@ function openExNoteSheet(exId){
 function closeExNoteSheet(){
   const sheet=$("#exNoteSheet");
   if(!sheet)return Promise.resolve(false);
-  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  if(sheet.hidden&&!(shellView().activeModal&&shellView().activeModal.el===sheet))return Promise.resolve(false);
   exNoteFor=null;exNoteReturn=null;
   return closeModal(sheet)}
 async function saveExNoteSheet(){
@@ -5096,7 +4820,7 @@ function openDayPickSheet({resume=false}={}){
 function closeDayPickSheet(){
   const sheet=$("#dayPickSheet");
   if(!sheet)return Promise.resolve(false);
-  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  if(sheet.hidden&&!(shellView().activeModal&&shellView().activeModal.el===sheet))return Promise.resolve(false);
   return closeModal(sheet)}
 /** Confirming starts the armed day, exactly as Up next and the session banner
  *  do. The discard prompt is answered while the sheet is still up, so declining
@@ -5170,7 +4894,7 @@ function isNativeTextSelectionTarget(target){
 function sheetDragStart(e){
   if(sheetDrag)return;
   if(e.pointerType==="mouse"&&e.button!==0)return;
-  const rec=activeModal;
+  const rec=shellView().activeModal;
   if(!rec||rec.closing||typeof rec.onEscape!=="function")return;
   if(!rec.el?.classList.contains("sheet"))return;
   const target=e.target instanceof Element?e.target:null;
@@ -5184,7 +4908,7 @@ function sheetDragStart(e){
 function sheetDragMove(e){
   if(!sheetDrag||e.pointerId!==sheetDrag.id)return;
   const rec=sheetDrag.rec;
-  if(activeModal!==rec||rec.closing){sheetDragEnd();return}
+  if(shellView().activeModal!==rec||rec.closing){sheetDragEnd();return}
   const dy=e.clientY-sheetDrag.y,dx=e.clientX-sheetDrag.x;
   if(!sheetDrag.live){
     // Upwards or sideways is somebody else's gesture; only a downward push takes
@@ -5236,7 +4960,7 @@ function sheetDragEnd(e){
   // anything short of either is the lifter changing their mind.
   const flick=vy>=.5&&dy>=32;
   const dismiss=flick||dy>=Math.min(160,Math.max(64,(rec.el.offsetHeight||0)*.32));
-  const gone=activeModal!==rec||rec.closing;
+  const gone=shellView().activeModal!==rec||rec.closing;
   if(!motion){
     // No runtime: the stylesheet finishes the gesture exactly as it did before.
     sheetDragRelease(rec);
@@ -5649,7 +5373,7 @@ function openSessionSheet(){
 function closeSessionSheet(){
   const sheet = $("#sessionSheet");
   if (!sheet) return Promise.resolve(false);
-  if (sheet.hidden && !(activeModal && activeModal.el === sheet)) return Promise.resolve(false);
+  if (sheet.hidden && !(shellView().activeModal && shellView().activeModal.el === sheet)) return Promise.resolve(false);
   return closeModal(sheet);
 }
 window.__repforgeSessionSheet = { open: openSessionSheet, close: closeSessionSheet, render: renderSessionSheet };
@@ -5793,7 +5517,7 @@ function openExActionsSheet(exId) {
 function closeExActionsSheet() {
   const sheet = $("#exActionsSheet");
   if (!sheet) return Promise.resolve(false);
-  if (sheet.hidden && !(activeModal && activeModal.el === sheet)) return Promise.resolve(false);
+  if (sheet.hidden && !(shellView().activeModal && shellView().activeModal.el === sheet)) return Promise.resolve(false);
   return closeModal(sheet);
 }
 window.__repforgeExActions = { open: openExActionsSheet, close: closeExActionsSheet, render: renderExActionsSheet };
@@ -6899,7 +6623,7 @@ async function mountDashboardPresentation(){
     onCreateProgram:()=>startOnboarding(null,{userInitiated:true}),onOpenExercise:id=>openExerciseView(id,"log"),
     onStartDay:day=>enterWorkout({day}),onReviewProgram:()=>{navTo("stats");setStatsSeg("review")}});
   SummaryUi=createSessionSummary({window,copy,format,motion:window.RepForgeMotion,
-    shell:{openModal,closeModal,get activeModal(){return activeModal}},
+    shell:{openModal,closeModal,get activeModal(){return shellView().activeModal}},
     onDone:()=>closeSessionSummary(),onSeeSession:session=>{HistoryUi.startReading(session);closeSessionSummary({nav:"history"})}});
 }
 
@@ -9397,7 +9121,7 @@ function focusEntryEditorStatus(){
   // status node instead of immediately losing focus back to the picker trigger.
   if(!entryEditorStatusFocusPending)return false;
   const status=$("#onbProgramEditor [data-role=\"editor-status\"]")||$("#entryEditorStatus");
-  if(activeModal||!status||status.offsetParent===null){
+  if(shellView().activeModal||!status||status.offsetParent===null){
     if(!entryEditorStatusFocusTimer)entryEditorStatusFocusTimer=setTimeout(()=>{
       entryEditorStatusFocusTimer=null;focusEntryEditorStatus()},120);
     return false}
@@ -9977,7 +9701,7 @@ function openProgramTextSheet(){
 function closeProgramTextSheet(){
   const sheet=$("#programTextSheet");
   if(!sheet)return Promise.resolve(false);
-  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  if(sheet.hidden&&!(shellView().activeModal&&shellView().activeModal.el===sheet))return Promise.resolve(false);
   programTextReturn=null;
   return closeModal(sheet)}
 let shareSetupReturn=null,shareSetupLink="",shareSetupBlockers=[],shareRepairReturn=null,shareRepairFocusIntent=null;
@@ -10121,13 +9845,13 @@ function openShareSetupSheet({repairFocus=null}={}){
     onEscape:closeShareSetupSheet,scrim,delayHide:reducedMotion()?0:280});
   requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")});
   buildShareSetupLink().then(()=>{
-    if(repairFocus&&shareRepairFocusIntent===repairFocus&&activeModal?.el===sheet){
+    if(repairFocus&&shareRepairFocusIntent===repairFocus&&shellView().activeModal?.el===sheet){
       shareRepairFocusIntent=null;
       focusShareSetupRepair(repairFocus)}})}
 function closeShareSetupSheet(){
   const sheet=$("#shareSetupSheet");
   if(!sheet)return Promise.resolve(false);
-  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  if(sheet.hidden&&!(shellView().activeModal&&shellView().activeModal.el===sheet))return Promise.resolve(false);
   shareSetupReturn=null;
   return closeModal(sheet)}
 async function copySetupLink(){
@@ -10378,7 +10102,7 @@ function openExercisePicker({title=null,subtitle="",mode="single",selected=[],ex
 function closeExercisePicker(){
   const sheet=$("#exPickSheet");
   if(!sheet)return Promise.resolve(false);
-  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  if(sheet.hidden&&!(shellView().activeModal&&shellView().activeModal.el===sheet))return Promise.resolve(false);
   const active=pickerState,notifyCancel=!!active&&!active.choosing&&!active.completed&&typeof active.onCancel==="function";
   pickerReturn=null;
   return closeModal(sheet).then(result=>{if(notifyCancel)active.onCancel();return result})}
@@ -10508,7 +10232,7 @@ function openCustomExerciseSheet({entry=null,onSave=null,onCancel=null,handoff=f
 function closeCustomExerciseSheet(){
   const sheet=$("#exCustomSheet");
   if(!sheet)return Promise.resolve(false);
-  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  if(sheet.hidden&&!(shellView().activeModal&&shellView().activeModal.el===sheet))return Promise.resolve(false);
   customReturn=null;
   return closeModal(sheet)}
 /* Backing out of the custom form returns to the picker it came from, with the
@@ -14171,7 +13895,7 @@ function openEntryAdjustSheet({onClose}={}){
   const sheet=$("#reviewSheet"),scrim=$("#reviewSheetScrim");
   if(!sheet)return;
   entryAdjustSheetClose=onClose||null;
-  if(activeModal?.el===sheet){sheet.querySelector("#reviewRenameInput")?.focus();return}
+  if(shellView().activeModal?.el===sheet){sheet.querySelector("#reviewRenameInput")?.focus();return}
   const close=sheet.querySelector("[data-review-sheet-close]");if(close)close.onclick=()=>closeEntryAdjustSheet();
   if(scrim)scrim.onclick=()=>closeEntryAdjustSheet();
   document.body.classList.add("is-sheet-open");
@@ -14182,7 +13906,7 @@ function closeEntryAdjustSheet(){
   const sheet=$("#reviewSheet");
   const onClose=entryAdjustSheetClose;entryAdjustSheetClose=null;
   onClose?.();
-  if(!sheet||(sheet.hidden&&!(activeModal&&activeModal.el===sheet)))return Promise.resolve(false);
+  if(!sheet||(sheet.hidden&&!(shellView().activeModal&&shellView().activeModal.el===sheet)))return Promise.resolve(false);
   return closeModal(sheet)}
 function pickEntryAdjustExercise({mode,day,exercise,accept}){
   return new Promise(resolve=>{
@@ -16521,7 +16245,7 @@ function whySheetModel(ex,surface="focus"){
 
 function focusWhyView(){
   if(!focusWhyView.instance)focusWhyView.instance=Focus.createWhySheet({document,
-    shell:{openModal,closeModal,get activeModal(){return activeModal}},motion:window.RepForgeMotion||null,
+    shell:{openModal,closeModal,get activeModal(){return shellView().activeModal}},motion:window.RepForgeMotion||null,
     commands:{recommendationExplained:payload=>captureEvent("recommendation_explained",payload)}});
   return focusWhyView.instance}
 function renderWhySheet(model){return focusWhyView().render({...model,markHtml:verdictMarkHtml(model.glyph),labels:{calc:t("why.calc"),calcHide:t("why.calc_hide")}})}
@@ -16640,14 +16364,7 @@ window.__repforgeOnboarding={
   clearDraft:clearSetupDraft};
 
 function init(){
-  window.RepForgeMotion=createMotion({window,
-    focus:{track:focusTrack,card:focusCard,step:focusStep,canGo:focusCanGo,setTrack:focusSetTrack,
-      go:focusGo,dragStart:focusDragStart,dragMove:focusDragMove,dragEnd:focusDragEnd},
-    sheets:{dragStart:sheetDragStart,dragMove:sheetDragMove,dragEnd:sheetDragEnd},
-    selection:{isNativeTextSelectionTarget,swallowNextClick},
-    fallback:{mount:mountFallbackGestures,navigate:fallbackFocusAnimateTo}});
-
-  if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
+  ensureBrowserPresentation();
   ensureInstallPolicyPrefs();
   ensureGuidePrefs({persist:currentEntryLanding()==="generic"});
   // The pre-paint snippet in index.html has already done this for a dark
@@ -17363,6 +17080,7 @@ async function installTransferBootNeedsLock(){
     return transfer.contextFrom()==="standalone"&&!!transfer.readTransferCookie({document});
   }catch{return false}}
 async function boot(){
+  ensureBrowserPresentation().shell.mount();
   await mountDashboardPresentation();
   // The full source catalog is an offline shell asset. Load it before state
   // normalization or any program surface can consume metric/taxonomy details;
@@ -17503,5 +17221,5 @@ function installView(){return installUiOwner||(installUiOwner=createInstallView(
   preferences:{read:()=>uiPrefs,replace:replaceUiPrefs},
   transfer:{marker:installTransferOutboundMarker,create:installTransferCreateFromSafari,
     confirmDivergence:installTransferConfirmDivergence,abandonUnsealed:abandonUnsealedInstallTransfer},
-  shell:{openModal,closeModal,canTakeFocus,reducedMotion,get activeModal(){return activeModal}},
+  shell:{openModal,closeModal,canTakeFocus,reducedMotion,get activeModal(){return shellView().activeModal}},
   guides:{maybeShow:maybeShowContextualGuides},report:captureEvent,toast,onChanged:renderSettings,onLandingOffer:setFirstRunOffer}))}
