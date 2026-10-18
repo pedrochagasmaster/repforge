@@ -141,7 +141,7 @@ function canonicalProgramDefinition(value,customDefinitions=[]){
   // Accepts schema v1 (set-level metrics present, equal to the slot's) and v2
   // (absent); this is the one boundary every file/link/backup/transfer passes
   // through, so it always hands back the deduped v2 shape.
-  return compiler.canonicalizeProgramDefinition?compiler.canonicalizeProgramDefinition(value):cloneSnapshot(/** @type {ProgramDefinition} */(value))}
+  return compiler.canonicalizeProgramDefinition?compiler.canonicalizeProgramDefinition(/** @type {ProgramDefinition} */(value)):cloneSnapshot(/** @type {ProgramDefinition} */(value))}
 /* Every movement a canonical definition names: each slot's own and its
    alternates. A custom movement that is only an alternate is still part of the
    program, so it travels, stays in use and is never deleted out from under it. */

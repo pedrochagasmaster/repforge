@@ -24,7 +24,7 @@
 /** @typedef {{id:string,cycleIndex?:number,setIndex?:number,targets?:Record<string,number|{min:number,max:number}>,rir?:number|null,restSeconds?:number|null,status?:string,metricType?:string,provenance?:{source:string,policyVersion:string}}} DefinitionSet */
 /** @typedef {{id:string,exerciseId:string,alternates?:string[],displayName?:string,order?:number,setupNotes?:string,manualAttribution?:{primary?:string,secondary?:string},prescriptionsByCycle?:{cycleIndex:number,sets:DefinitionSet[]}[]}} DefinitionSlot */
 /** @typedef {{id:string,name:string,kind:string,order?:number,slots:DefinitionSlot[]}} DefinitionDay */
-/** @typedef {{schemaVersion:number,generatorVersion:string,days:DefinitionDay[],cycles:number,deloadCycles?:number[],request?:unknown,provenance?:unknown}} ProgramDefinition */
+/** @typedef {import("../../generation/internal/compiler-contracts.js").ProgramDefinition} ProgramDefinition */
 /** @typedef {{customExercises?:LibraryEntry[],program?:ExerciseInput[],programMeta?:ProgramMeta}} ModelSnapshot */
 /** @typedef {{preserveInvalid?:boolean,incompatibilities?:ProgressionIncompatibility[],source?:string}} CompatibilityOptions */
 /** @typedef {{pastProgram?:ExerciseInput[]|null,previousMeta?:ProgramMeta|null,force?:boolean,recoveryRecord?:RecoveryRecord|null,freezeHistory?:boolean}} CompactionOptions */
