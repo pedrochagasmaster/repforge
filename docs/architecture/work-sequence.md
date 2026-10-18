@@ -2,6 +2,18 @@
 
 Snapshot: 18 October 2026 UTC. This sequences work; it does not authorize a merge, deployment, PR closure, infrastructure change or additional feature. [Migration status](migration-status.md) owns implementation acceptance and tested revisions. [Issue425](https://github.com/pedrochagasmaster/repforge/issues/425) owns phone checks and launch decisions. Refresh exact heads and CI before each intake; a green predecessor does not certify an adapted successor.
 
+## Current pause and completed preparation
+
+Coding execution paused on 18 October after its usage allowance was exhausted. The last code checkpoint is `959c037b33d2623ff7a218f2f817bdae813112b7`; local uncommitted state after interruption is unverified. Five of twenty slices are accepted. Ordinary CI and the paired benchmark on that checkpoint failed; no completion ETA is currently active. Later documentation-only commits do not change those code results.
+
+Completed review packets, prepared without application execution:
+
+- [Exact-head CI repair plan](ci-repair-plan.md): eleven failing contracts, proven stale consumers separated from unresolved behavior, ordered repair batches and preserved independent oracles.
+- [PR intake reconciliation](pr-intake-reconciliation.md): all nineteen PRs, unique semantics, native target owners, failing evidence and explicit intake decisions. In particular, current S2 diverges from S1; do not apply its full stack blindly.
+- [Phone acceptance worksheet](phone-acceptance-checklist.md): twelve physical cases, exact-build evidence, historical results, launch gates and owner decisions. All new test results are NOT RUN.
+
+When coding capacity returns, resume the existing task and integration branch. First preserve and inspect any interrupted local edits; fetch/reconcile these documentation commits without overwriting that work. Then execute the repair plan and remaining migration gates. Do not reopen a competing architecture branch.
+
 ## 1. Finish the authorized integration
 
 Complete the approved twenty migration slices on [#448](https://github.com/pedrochagasmaster/repforge/pull/448), using [#447's specification](agent-first-spec.md). Do not create separate competing application ports. Commit and push coherent checkpoints promptly, label intermediate heads untested where appropriate, and validate completed slices and the final head.
@@ -9,7 +21,7 @@ Complete the approved twenty migration slices on [#448](https://github.com/pedro
 Dependency order within the active integration:
 
 1. Finish actual Entry activation/landing/import, installed editor/text sharing, Focus card/render/navigation, remaining Progress projections and deep transfer orchestration. These may proceed in separate owned modules; shared contracts and the composition root reconcile through the integration owner.
-2. Resolve substantive review findings, including activation custom-ID remapping, orphan transfer freezes and pending-work disposal. Integrate the independent nine-finding test audit and preserve its literal/mutation oracles while updating obsolete runtime consumers. The audit corrections are integrated as `7365489b` and `58ffa739`; affected integrated reruns remain required.
+2. Resolve substantive review findings, including activation custom-ID remapping, orphan transfer freezes and pending-work disposal. Integrate the independent nine-finding test audit and preserve its literal/mutation oracles while updating obsolete runtime consumers. The audit corrections are integrated as `7365489b` and `58ffa739`; all six affected owners passed together on clean integration revision `817b9858346c1992f209af89921a4edc746b7a34`. Preserve that narrower evidence and rerun the packet on the eventual repaired final head; later full CI at `959c037b` failed.
 3. Cut over the composition root and release graph, remove the bridge/classic owners/forwarders, finish strict and dependency enforcement, and prove representative agent change walkthroughs. Keep historical data decoders and immutable release fixtures; remove temporary execution architectures.
 4. Independent architecture and data review, redesigned risk-suite checks, assembled/offline upgrade and rollback proofs, then exact-final-head CI. Only then close the remaining migration acceptance boxes. Owner review of this concrete result precedes any merge or deployment.
 
