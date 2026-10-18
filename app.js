@@ -1,3 +1,6 @@
+import {createEntryController} from './src/ui/entry/controller.js';
+import {createEntryImportSession,FREEFORM_MAX_CHARS} from './src/app/entry.js';
+import * as FreeformGrammar from './src/interchange/freeform.js';
 import * as InstallPolicy from './src/platform/install.js';
 import {createInstallView} from './src/ui/settings/install.js';
 import {createSettingsCommands,createSettingsDraftEffects} from './src/app/settings.js';
@@ -7187,9 +7190,9 @@ window.__repforgeMatchCandidates=name=>{
     candidateIds:(result.candidates||[]).map(c=>c.entry.id)}};
 window.__repforgeFreeformClipboard=()=>importFreeformFromClipboard();
 window.__repforgeFreeform={
-  parseReply:text=>parseFreeformProgramReply(text),
-  readGapEnvelope:candidate=>readFreeformGapEnvelope(candidate),
-  assembleDocument:(gapResult,gapAnswers)=>assembleFreeformProgramDocument(gapResult,gapAnswers)};
+  parseReply:text=>FreeformGrammar.parseFreeformProgramReply(text,parseProgramSource),
+  readGapEnvelope:candidate=>FreeformGrammar.readFreeformGapEnvelope(candidate),
+  assembleDocument:(gapResult,gapAnswers)=>FreeformGrammar.assembleFreeformProgramDocument(gapResult,gapAnswers,t("entry.freeform.source_name"))};
 window.__repforgeImportDraft=()=>importDraft&&{
   fileName:importDraft.fileName,format:importDraft.format,sourceType:importDraft.sourceType||null,
   counts:importCounts(importDraft),
@@ -11901,18 +11904,14 @@ let pendingImportIo=null;
  * remembered, as a device-only UI pref. Neither is persisted, exported or
  * logged. See docs/adr/0014-free-form-program-import-handoff.md.
  */
-const FREEFORM_MAX_CHARS=12000;
-/* Past this the prefilled link stops being dependable across the two apps and
-   their mobile shells, so the prompt travels on the clipboard instead. */
-const FREEFORM_URL_MAX=6000;
-const FREEFORM_JSON_CANDIDATES=8;
-const freeformCountLabel=()=>t("entry.freeform.count",{
-  n:entryFreeformInput.length.toLocaleString(locTag()),
-  max:FREEFORM_MAX_CHARS.toLocaleString(locTag())});
-const FREEFORM_APPS={
-  chatgpt:{base:"https://chatgpt.com/",param:"q",label:"entry.freeform.open_chatgpt",copyLabel:"entry.freeform.copy_chatgpt",copiedLabel:"entry.freeform.open_chatgpt_copied"},
-  claude:{base:"https://claude.ai/new",param:"q",label:"entry.freeform.open_claude",copyLabel:"entry.freeform.copy_claude",copiedLabel:"entry.freeform.open_claude_copied"},
-};
+const EntryImport=createEntryImportSession({tabStorage:()=>sessionStorage});
+const EntryImportCommands=createEntryImportCommands({session:EntryImport,parseSource:parseProgramSource,sourceName:()=>t("entry.freeform.source_name")});
+const EntryUi=createEntryController({document,navigator,session:EntryImport,copy:{t,locale:locTag},
+  commands:{review:startFreeformReview,submitGaps:submitFreeformGaps,changeDoor:mode=>{if(mode==="freeform")captureEvent("program_import_started",{source:"freeform"});setImportSourceMode(mode)},
+    writeOwn:()=>{const current=EntryImport.read();if((current.source.trim().length>0||current.reply.trim().length>0)&&!confirm(t("entry.freeform.confirm_write_own")))return;resetFreeformImport();entrySelectRoute("build")}},
+  queries:{mode:importSourceMode,reviewOpen:()=>!!importDraft},copyText:copyToClipboard,onRender:renderOnboarding,onNotice:key=>toast(t(key)),
+  onHandoff:event=>captureEvent("program_import_handoff",event),confirm:key=>confirm(t(key)),scrollBehavior});
+EntryUi.mount();
 const FREEFORM_NOT_IMPORTED_KEYS = {
   rest_times: "entry.freeform.not_imported.rest_times",
   rir_rpe: "entry.freeform.not_imported.rir_rpe",
@@ -11924,89 +11923,14 @@ const FREEFORM_NOT_IMPORTED_KEYS = {
   deload: "entry.freeform.not_imported.deload",
   other_notes: "entry.freeform.not_imported.other_notes",
 };
-const FREEFORM_SESSION_KEY="repforge_freeform_session_v1";
-let entryImportMode=null,entryFreeformInput="",entryFreeformReply="";
-let entryFreeformStage=1,entryFreeformLastProvider=null;
-let entryFreeformGapResult=null,entryFreeformGapAnswers={},entryFreeformGapErrors=new Set(),entryFreeformStatus=null;
-let entryFreeformReplyInvalidated=false,entryFreeformFailReason=null;
-/* The clipboard read is the only asynchronous step in this flow, so its result
-   can arrive after the lifter has moved on. The epoch changes whenever the
-   free-form session stops being the one the read was started for; the sequence
-   number retires an older read when a newer one starts. */
-let entryFreeformEpoch=0,entryFreeformClipboardSeq=0;
-let entryFreeformClipboardBusy=false,entryFreeformClipboardNote=null;
-const entryFreeformCopiedApps=new Set();
-
-function loadFreeformSession(){
-  try{
-    const raw=sessionStorage.getItem(FREEFORM_SESSION_KEY);
-    if(!raw)return false;
-    const data=JSON.parse(raw);
-    if(typeof data.source==="string")entryFreeformInput=data.source;
-    if(typeof data.reply==="string")entryFreeformReply=data.reply;
-    if(Number.isInteger(data.stage)&&data.stage>=1&&data.stage<=3)entryFreeformStage=data.stage;
-    if(typeof data.lastProvider==="string")entryFreeformLastProvider=data.lastProvider;
-    entryFreeformCopiedApps.clear();
-    if(Array.isArray(data.copiedApps))
-      for(const app of data.copiedApps)if(FREEFORM_APPS[app])entryFreeformCopiedApps.add(app);
-    return true;
-  }catch{
-    return false;
-  }
-}
-
-function saveFreeformSession(){
-  try{
-    if(!entryFreeformInput&&!entryFreeformReply&&entryFreeformStage===1){
-      sessionStorage.removeItem(FREEFORM_SESSION_KEY);
-      return;
-    }
-    const data={
-      source:entryFreeformInput||"",
-      reply:entryFreeformReply||"",
-      stage:entryFreeformStage||1,
-      lastProvider:entryFreeformLastProvider||null,
-      copiedApps:[...entryFreeformCopiedApps],
-    };
-    sessionStorage.setItem(FREEFORM_SESSION_KEY,JSON.stringify(data));
-  }catch{}
-}
-
-function clearFreeformSession(){
-  try{sessionStorage.removeItem(FREEFORM_SESSION_KEY)}catch{}
-}
-/* Which door a staged import came through, kept alive from the review commit to
-   the activation that happens a screen later. It cannot ride importDraft, which
-   closeImportReview nulls during the commit, nor the entry result, whose import
-   route allows only "selected". Tab-scoped like the freeform session, carries no
-   program content, and survives a reload between review and activation. */
-const IMPORT_SOURCE_KEY="repforge_import_source_v1";
-function setStagedImportSource(sourceType){
-  try{sessionStorage.setItem(IMPORT_SOURCE_KEY,sourceType==="freeform"?"freeform":"file")}catch{}
-}
-function stagedImportSource(){
-  try{return sessionStorage.getItem(IMPORT_SOURCE_KEY)==="freeform"?"freeform":"file"}catch{return"file"}
-}
-function clearStagedImportSource(){
-  try{sessionStorage.removeItem(IMPORT_SOURCE_KEY)}catch{}
-}
-
-function resetFreeformImport(){
-  entryFreeformEpoch++;
-  entryFreeformClipboardNote=null;
-  entryFreeformInput="";
-  entryFreeformReply="";
-  entryFreeformStage=1;
-  entryFreeformLastProvider=null;
-  entryFreeformGapResult=null;
-  entryFreeformGapAnswers={};
-  entryFreeformGapErrors.clear();
-  entryFreeformStatus=null;
-  entryFreeformFailReason=null;
-  entryFreeformReplyInvalidated=false;
-  entryFreeformCopiedApps.clear();
-  clearFreeformSession();
-}
+let entryImportMode=null;
+function loadFreeformSession(){return EntryImport.load()}
+function saveFreeformSession(){EntryImport.save()}
+function clearFreeformSession(){EntryImport.clearStored()}
+function resetFreeformImport(){EntryUi.reset()}
+function setStagedImportSource(sourceType){EntryImport.stageImportSource(sourceType)}
+function stagedImportSource(){return EntryImport.importSource()}
+function clearStagedImportSource(){EntryImport.clearImportSource()}
 /** Which import door this device used last. A preference about this screen, so
  *  it lives with the other device-only UI prefs and never touches state. */
 function importSourceMode(){
@@ -12014,7 +11938,7 @@ function importSourceMode(){
   return entryImportMode}
 function setImportSourceMode(mode,{render=true}={}){
   const prev=importSourceMode();
-  if(mode==="file"&&prev==="freeform"&&(entryFreeformInput.trim().length>10||entryFreeformReply.trim().length>10)){
+  if(mode==="file"&&prev==="freeform"&&(EntryImport.read().source.trim().length>10||EntryImport.read().reply.trim().length>10)){
     if(!confirm(t("entry.freeform.confirm_discard")))return;
   }
   entryImportMode=mode==="freeform"?"freeform":"file";
@@ -12024,455 +11948,34 @@ function setImportSourceMode(mode,{render=true}={}){
   if(entryImportMode==="file")resetFreeformImport();
   else loadFreeformSession();
   if(render)renderOnboarding()}
-const freeformProgram=()=>String(entryFreeformInput||"").trim();
-/** The prompt is one localized string: the lifter reads what they are sending
- *  before they send it, and the translation is reviewed like any other copy. */
-function freeformPrompt(program=freeformProgram()){
-  return t("entry.freeform.prompt",{program})}
-/** The prefilled link, or null when the prompt is too long to travel in a URL. */
-function freeformAppUrl(app,prompt){
-  const spec=FREEFORM_APPS[app];
-  if(!spec||!prompt)return null;
-  const url=`${spec.base}?${spec.param}=${encodeURIComponent(prompt)}`;
-  return url.length<=FREEFORM_URL_MAX?url:null}
-function freeformAppHref(app,program=freeformProgram()){
-  const spec=FREEFORM_APPS[app];
-  if(!spec)return"";
-  return(program&&freeformAppUrl(app,freeformPrompt(program)))||spec.base}
-
-/* Candidate JSON values inside a chat reply, so "Here you go:" and a fenced
-   block cost nobody an import. Fenced blocks first, then every balanced
-   top-level object or array, bounded like any other import. */
-function freeformJsonCandidates(text){
-  const out=[];
-  const fence=/```(?:json)?\s*([\s\S]*?)```/gi;
-  for(let match;(match=fence.exec(text))!==null;){
-    const body=match[1].trim();
-    if(body)out.push(body)}
-  const closers={"{":"}","[":"]"};
-  for(let i=0;i<text.length&&out.length<FREEFORM_JSON_CANDIDATES;i++){
-    const open=text[i],close=closers[open];
-    if(!close)continue;
-    let depth=0,inString=false,escaped=false;
-    for(let j=i;j<text.length;j++){
-      const ch=text[j];
-      if(inString){
-        if(escaped)escaped=false;
-        else if(ch==="\\")escaped=true;
-        else if(ch==='"')inString=false;
-        continue}
-      if(ch==='"'){inString=true;continue}
-      if(ch===open)depth++;
-      else if(ch===close&&--depth===0){out.push(text.slice(i,j+1));i=j;break}}}
-  return out}
-function extractNotImported(obj){
-  if(!obj||typeof obj!=="object")return[];
-  const raw=Array.isArray(obj.notImported)?obj.notImported:[];
-  const grammar=unsupportedGrammar;
-  return grammar?.recognizedForDisplay
-    ?grammar.recognizedForDisplay(raw,Object.keys(FREEFORM_NOT_IMPORTED_KEYS))
-    :[]}
-
 function captureUnsupportedWorkoutConcepts(sidecar){
   const grammar=unsupportedGrammar;
   if(!grammar?.normalize)return;
   for(const category of grammar.normalize(sidecar))
     captureEvent("program_import_unsupported_concept",{category})}
 
-function parseRepsInput(str){
-  if(typeof str!=="string"&&typeof str!=="number")return null;
-  const s=String(str).trim();
-  const mRange=s.match(/^(\d+)\s*(?:[-–—/]|to)\s*(\d+)$/i);
-  if(mRange){
-    const min=parseInt(mRange[1],10),max=parseInt(mRange[2],10);
-    if(min>=1&&min<=1000&&max>=min&&max<=1000)return{min,max};
-    return null}
-  const mSingle=s.match(/^(\d+)$/);
-  if(mSingle){
-    const val=parseInt(mSingle[1],10);
-    if(val>=1&&val<=1000)return{min:val,max:val}}
-  return null}
-
-function parseSetsInput(str){
-  if(typeof str!=="string"&&typeof str!=="number")return null;
-  const s=String(str).trim();
-  if(!/^\d+$/.test(s))return null;
-  const n=parseInt(s,10);
-  return(n>=1&&n<=100)?n:null}
-
-/* Gaps are keyed by row position, never by (day, order): a reply that numbers
-   some rows and omits others collides on that pair, and two rows sharing a key
-   means one entered number silently lands on a second exercise. */
-function readFreeformGapEnvelope(candidate){
-  let raw=null;
-  if(typeof candidate==="string"){
-    const trimmed=candidate.trim();
-    if(!trimmed.startsWith("{")&&!trimmed.startsWith("["))return null;
-    raw=boundedImportJson(trimmed);
-  }else if(candidate&&typeof candidate==="object"){
-    raw=candidate;
-  }
-  if(!raw||typeof raw!=="object"||Array.isArray(raw))return null;
-  const exercises=Array.isArray(raw.exercises)?raw.exercises:(Array.isArray(raw.program)?raw.program:null);
-  if(!Array.isArray(exercises)||!exercises.length||exercises.length>IMPORT_MAX_NODES)return null;
-
-  const normalized=[];
-  const orders=new Map();
-  for(let i=0;i<exercises.length;i++){
-    const row=exercises[i];
-    if(!row||typeof row!=="object"||Array.isArray(row))return null;
-    const day=typeof row.day==="string"?row.day.trim():"";
-    const name=typeof row.name==="string"?row.name.trim():"";
-    if(!day||!name)return null;
-
-    let order=row.order;
-    if(order===undefined||order===null){
-      const next=(orders.get(day)||0)+1;
-      orders.set(day,next);
-      order=next;
-    }else if(!Number.isInteger(order)||order<1||order>1000){
-      return null;
-    }
-
-    let sets=row.sets;
-    let setsValid=Number.isInteger(sets)&&sets>=1&&sets<=100;
-    if(sets!==undefined&&sets!==null&&!setsValid)return null;
-
-    let min=row.min??row.repLow;
-    let max=row.max??row.repHigh;
-    let minValid=Number.isInteger(min)&&min>=1&&min<=1000;
-    let maxValid=Number.isInteger(max)&&max>=1&&max<=1000&&(!minValid||max>=min);
-    let repsValid=minValid&&maxValid;
-    if((min!==undefined&&min!==null&&!minValid)||(max!==undefined&&max!==null&&!maxValid))return null;
-
-    normalized.push({
-      day,
-      name,
-      order,
-      sets:setsValid?sets:undefined,
-      min:repsValid?min:undefined,
-      max:repsValid?max:undefined,
-      libraryId:typeof row.libraryId==="string"?row.libraryId:undefined,
-    });
-  }
-
-  const missingSidecar=Array.isArray(raw.missing)?raw.missing:[];
-  const gaps=[];
-  for(let i=0;i<normalized.length;i++){
-    const r=normalized[i];
-    const sidecarSets=missingSidecar.some(m=>m&&m.day===r.day&&m.order===r.order&&m.field==="sets");
-    const sidecarReps=missingSidecar.some(m=>m&&m.day===r.day&&m.order===r.order&&m.field==="reps");
-
-    if(r.sets===undefined||sidecarSets){
-      gaps.push({
-        key:`${i}::sets`,
-        rowIndex:i,
-        day:r.day,
-        order:r.order,
-        name:r.name,
-        field:"sets",
-      });
-    }
-    if(r.min===undefined||r.max===undefined||sidecarReps){
-      gaps.push({
-        key:`${i}::reps`,
-        rowIndex:i,
-        day:r.day,
-        order:r.order,
-        name:r.name,
-        field:"reps",
-      });
-    }
-  }
-
-  if(!gaps.length)return null;
-
-  return{
-    status:"gaps",
-    envelope:raw,
-    exercises:normalized,
-    gaps,
-    notImported:extractNotImported(raw),
-  };
-}
-
-function assembleFreeformProgramDocument(gapResult,gapAnswers){
-  if(!gapResult||!gapResult.exercises||!gapAnswers)return null;
-  const rows=[],orders=new Map();
-  for(let i=0;i<gapResult.exercises.length;i++){
-    const row=gapResult.exercises[i];
-    const copy={...row};
-    // Order is the row's position within its day. Deriving it here rather than
-    // trusting the reply keeps a partly numbered envelope from producing two
-    // rows that claim the same slot.
-    const nextOrder=(orders.get(copy.day)||0)+1;
-    orders.set(copy.day,nextOrder);
-    copy.order=nextOrder;
-    if(copy.sets===undefined){
-      const val=gapAnswers[`${i}::sets`];
-      const parsedSets=parseSetsInput(val);
-      if(parsedSets===null)return null;
-      copy.sets=parsedSets;
-    }
-    if(copy.min===undefined||copy.max===undefined){
-      const val=gapAnswers[`${i}::reps`];
-      const parsedReps=parseRepsInput(val);
-      if(parsedReps===null)return null;
-      copy.min=parsedReps.min;
-      copy.max=parsedReps.max;
-    }
-    rows.push(copy);
-  }
-  return JSON.stringify({
-    version:3,
-    meta:gapResult.envelope?.meta||{name:t("entry.freeform.source_name")},
-    exercises:rows,
-  });
-}
-
-/* A reply is read as a program the same way a file is:
-   1. Fast path: The JSON the prompt asked for, or plain-text export parser.
-   2. Gap path: Structured envelope with missing sidecars or absent numeric fields.
-   Nothing incomplete reaches parseProgramSource or the program model. */
-function parseFreeformProgramReply(text){
-  const raw=String(text||"");
-  if(!raw.trim()||importUtf8Bytes(raw)>IMPORT_MAX_BYTES)return null;
-  const candidates=freeformJsonCandidates(raw);
-
-  for(const candidate of candidates){
-    const parsed=parseProgramSource(candidate);
-    if(parsed?.exercises?.length){
-      let notImported=[];
-      try{notImported=extractNotImported(boundedImportJson(candidate.trim()))}catch{}
-      return Object.assign(parsed,{status:"complete",notImported});
-    }
-  }
-  const direct=parseProgramSource(raw);
-  if(direct?.exercises?.length){
-    let notImported=[];
-    try{notImported=extractNotImported(boundedImportJson(raw.trim()))}catch{}
-    return Object.assign(direct,{status:"complete",notImported});
-  }
-
-  for(const candidate of candidates){
-    const gapResult=readFreeformGapEnvelope(candidate);
-    if(gapResult)return gapResult;
-  }
-  const directGap=readFreeformGapEnvelope(raw);
-  if(directGap)return directGap;
-
-  // Which failure it was decides which repair prompt the lifter can send back.
-  return{status:"unreadable",reason:candidates.length?"invalid_rows":"no_json"};}
-
-/* A repair prompt that names what actually broke. Missing numbers are no longer
-   a failure — they go to the gap step — so what is left is structural, and the
-   lifter should be able to paste back something more useful than "try again". */
-const FREEFORM_REPAIR_KEYS={
-  no_json:"entry.freeform.repair_no_json",
-  invalid_rows:"entry.freeform.repair_invalid_rows",
-  assemble_failed:"entry.freeform.repair_assemble_failed",
-};
-function freeformRepairPrompt(){
-  return t(FREEFORM_REPAIR_KEYS[entryFreeformFailReason]||FREEFORM_REPAIR_KEYS.no_json)}
-/* Everything that has to still be true for a finished clipboard read to belong
-   to this interaction. Compared by value, so a reply typed while the read was in
-   flight, an edited source, a new stage, the other import door or an import
-   review opened by any other route all retire the result. */
-function freeformClipboardToken(){
-  return{seq:entryFreeformClipboardSeq,epoch:entryFreeformEpoch,mode:importSourceMode(),
-    stage:entryFreeformStage,source:entryFreeformInput,reply:entryFreeformReply}}
-function freeformClipboardCurrent(token){
-  return token.seq===entryFreeformClipboardSeq&&token.epoch===entryFreeformEpoch&&
-    token.mode===importSourceMode()&&token.stage===entryFreeformStage&&
-    token.source===entryFreeformInput&&token.reply===entryFreeformReply&&!importDraft}
-
-/* The note lives in the markup so a failed read never costs the caret: it is
-   written in place rather than through a re-render, which would drop focus off
-   the button the lifter just pressed and away from the manual field. */
-const FREEFORM_CLIPBOARD_NOTE_KEYS={
-  empty:"entry.freeform.clipboard_empty",
-  failed:"entry.freeform.clipboard_failed",
-  unavailable:"entry.freeform.clipboard_unavailable",
-};
-const freeformClipboardNoteText=kind=>
-  FREEFORM_CLIPBOARD_NOTE_KEYS[kind]?t(FREEFORM_CLIPBOARD_NOTE_KEYS[kind]):"";
-function setFreeformClipboardNote(kind){
-  entryFreeformClipboardNote=kind||null;
-  const el=$("#entryFreeformClipNote");
-  if(!el)return;
-  el.textContent=freeformClipboardNoteText(kind);
-  el.hidden=!kind;
-  el.setAttribute("role",kind==="empty"?"status":"alert")}
-function setFreeformClipboardBusy(busy){
-  const btn=$("#entryFreeformClipboard");
-  if(!btn)return;
-  btn.disabled=!!busy;
-  btn.setAttribute("aria-busy",busy?"true":"false");
-  btn.textContent=busy?t("entry.freeform.clipboard_busy"):t("entry.freeform.clipboard_import")}
-
-/* The fast way back from the assistant. Clipboard is transport and nothing
-   more: it fills the same reply the textarea fills and presses the same review
-   action, so every reply — complete, gapped, prose-wrapped or unreadable — is
-   read by exactly the code a typed reply goes through. */
-async function importFreeformFromClipboard(){
-  if(entryFreeformClipboardBusy)return false;
-  const read=navigator.clipboard?.readText;
-  if(typeof read!=="function"){setFreeformClipboardNote("unavailable");return false}
-  // Started before any bookkeeping so the user-gesture chain that iOS Safari
-  // requires for a clipboard read is not spent on our own work first.
-  let pending;
-  try{pending=navigator.clipboard.readText()}
-  catch{setFreeformClipboardNote("failed");return false}
-  entryFreeformClipboardSeq++;
-  const token=freeformClipboardToken();
-  entryFreeformClipboardBusy=true;
-  setFreeformClipboardNote(null);
-  setFreeformClipboardBusy(true);
-  let text=null,failed=false;
-  try{text=await pending}catch{failed=true}
-  entryFreeformClipboardBusy=false;
-  const current=freeformClipboardCurrent(token);
-  setFreeformClipboardBusy(false);
-  if(!current)return false;
-  if(failed){setFreeformClipboardNote("failed");return false}
-  if(!String(text||"").trim()){setFreeformClipboardNote("empty");return false}
-  // From here it is an ordinary reply. No parsing, no recovery, no telemetry.
-  entryFreeformReply=String(text);
-  entryFreeformStatus=null;
-  entryFreeformFailReason=null;
-  setFreeformClipboardNote(null);
-  saveFreeformSession();
-  startFreeformReview();
-  return true}
-
-async function copyFreeformPrompt(){
-  const program=freeformProgram();
-  if(!program){toast(t("entry.freeform.needs_input"));return false}
-  return copyToClipboard(freeformPrompt(program),
-    "toast.freeform_prompt_copied","toast.freeform_copy_failed")}
-/* The link itself does the navigating — a real anchor survives a standalone
-   install where window.open does not. Long prompts are copied in advance via
-   the two-tap flow, so navigation never races clipboard writes. */
-function openFreeformApp(app,event){
-  const program=freeformProgram();
-  if(!FREEFORM_APPS[app]||!program){
-    event?.preventDefault?.();
-    toast(t("entry.freeform.needs_input"));
-    return false}
-  const prompt=freeformPrompt(program);
-  const isLong=prompt.length>FREEFORM_URL_MAX;
-  captureEvent("program_import_handoff",{method:app,outcome:"opened",long_prompt:isLong});
-  entryFreeformStage=3;
-  entryFreeformLastProvider=app;
-  saveFreeformSession();
-  setTimeout(renderOnboarding,0);
-  return true}
-function loadFreeformProgram(source){
-  pendingImportIo=null;
-  captureUnsupportedWorkoutConcepts(source.notImported);
+function importFreeformFromClipboard(){return EntryUi.importClipboard()}
+function loadFreeformProgram(source,originalText){
+  pendingImportIo=null;captureUnsupportedWorkoutConcepts(source.notImported);
   const draft=buildImportDraft(source,t("entry.freeform.source_name"));
-  draft.sourceType="freeform";
-  draft.notImported=source.notImported||[];
-  draft.originalText=entryFreeformInput;
-  draft.fromFirstRun=firstRunOpen();
-  draft.onboarding=draft.fromFirstRun||!!$("#onboarding")?.classList.contains("active");
-  resetFreeformImport();
-  openImportReview(draft);
-  return draft}
-
-/** The reply becomes an ordinary import draft: same review, same activation. */
+  draft.sourceType="freeform";draft.notImported=source.notImported||[];draft.originalText=originalText;
+  draft.fromFirstRun=firstRunOpen();draft.onboarding=draft.fromFirstRun||!!$("#onboarding")?.classList.contains("active");
+  EntryImportCommands.reviewOpened();EntryUi.resetTransport();openImportReview(draft);return draft;
+}
 function startFreeformReview(){
-  const reply=String(entryFreeformReply||"").trim();
-  if(!reply){toast(t("toast.freeform_empty"));return null}
-  const source=parseFreeformProgramReply(reply);
-  if(!source||source.status==="unreadable"){
-    entryFreeformStatus="unreadable";
-    entryFreeformFailReason=source?.reason||"no_json";
-    captureEvent("program_import_parsed",{source:"freeform",outcome:"unreadable",gap_count:0});
-    renderOnboarding();
-    toast(t("toast.freeform_unreadable"));
-    return null;
-  }
-  if(source.status==="gaps"){
-    entryFreeformGapResult=source;
-    entryFreeformGapAnswers={};
-    entryFreeformGapErrors.clear();
-    captureEvent("program_import_parsed",{source:"freeform",outcome:"gaps",gap_count:source.gaps.length});
-    renderOnboarding();
-    return null;
-  }
-  if(!source.exercises?.length){
-    entryFreeformStatus="unreadable";
-    entryFreeformFailReason="invalid_rows";
-    captureEvent("program_import_parsed",{source:"freeform",outcome:"unreadable",gap_count:0});
-    toast(t("toast.freeform_unreadable"));
-    return null;
-  }
-  captureEvent("program_import_parsed",{source:"freeform",outcome:"complete",gap_count:0});
-  return loadFreeformProgram(source);
+  const result=EntryImportCommands.review();
+  if(result.kind==="empty"){toast(t("toast.freeform_empty"));return null}
+  captureEvent("program_import_parsed",{source:"freeform",outcome:result.kind,gap_count:result.gapCount});
+  if(result.kind==="complete")return loadFreeformProgram(result.source,result.originalText);
+  renderOnboarding();if(result.kind==="unreadable")toast(t("toast.freeform_unreadable"));return null;
 }
-
 function submitFreeformGaps(){
-  if(!entryFreeformGapResult)return;
-  entryFreeformGapErrors.clear();
-  const gaps=entryFreeformGapResult.gaps||[];
-  for(const gap of gaps){
-    const val=entryFreeformGapAnswers[gap.key];
-    if(gap.field==="sets"){
-      if(parseSetsInput(val)===null)entryFreeformGapErrors.add(gap.key);
-    }else if(gap.field==="reps"){
-      if(parseRepsInput(val)===null)entryFreeformGapErrors.add(gap.key);
-    }
-  }
-  if(entryFreeformGapErrors.size>0){
-    renderOnboarding();
-    const firstInvalid=$(".entry__field-input.is-invalid");
-    if(firstInvalid)try{firstInvalid.focus()}catch{}
-    return;
-  }
-  const assembledDoc=assembleFreeformProgramDocument(entryFreeformGapResult,entryFreeformGapAnswers);
-  const parsed=parseProgramSource(assembledDoc);
-  if(!parsed||!parsed.exercises||!parsed.exercises.length){
-    entryFreeformStatus="unreadable";
-    entryFreeformFailReason="assemble_failed";
-    entryFreeformGapResult=null;
-    renderOnboarding();
-    toast(t("toast.freeform_unreadable"));
-    return;
-  }
-  parsed.notImported=entryFreeformGapResult.notImported||[];
-  entryFreeformGapResult=null;
-  entryFreeformGapAnswers={};
-  loadFreeformProgram(parsed);
-}
-
-function renderFreeformGapsStep(){
-  const gaps=entryFreeformGapResult.gaps||[];
-  const notImported=entryFreeformGapResult.notImported||[];
-  let notImportedHtml="";
-  if(notImported.length){
-    const items=notImported.map(cat=>t(FREEFORM_NOT_IMPORTED_KEYS[cat]||"entry.freeform.not_imported.other_notes")).join(", ");
-    notImportedHtml=`<p class="entry__notice entry__notice--info" role="status">${esc(t("entry.freeform.not_imported_notice",{items}))}</p>`;
-  }
-  const gapRows=gaps.map(gap=>{
-    const isSets=gap.field==="sets";
-    const val=entryFreeformGapAnswers[gap.key]||"";
-    const hasError=entryFreeformGapErrors.has(gap.key);
-    const label=isSets
-      ?t("entry.freeform.gap_sets_label",{exercise:`${gap.day} · ${gap.name}`})
-      :t("entry.freeform.gap_reps_label",{exercise:`${gap.day} · ${gap.name}`});
-    const placeholder=isSets?t("entry.freeform.gap_sets_placeholder"):t("entry.freeform.gap_reps_placeholder");
-    return `<label class="entry__field"><span>${esc(label)}</span>`+
-      `<input type="text" class="entry__field-input${hasError?" is-invalid":""}"${hasError?' aria-invalid="true"':""} data-gap-key="${esc(gap.key)}" value="${esc(val)}" placeholder="${esc(placeholder)}"></label>`;
-  }).join("");
-
-  return entryHeading(t("entry.freeform.gaps_title"))+
-    `<p class="onb__explain">${esc(t("entry.freeform.gaps_lede"))}</p>`+
-    notImportedHtml+
-    (entryFreeformGapErrors.size?`<p class="entry__notice entry__notice--warn" role="alert">${esc(t("entry.freeform.gap_error"))}</p>`:"")+
-    `<div class="entry__gaps-list">${gapRows}</div>`+
-    `<div class="btnrow btnrow--primary-first"><button type="button" class="btn btn--cta" id="entryFreeformSubmitGaps">${esc(t("entry.freeform.gaps_submit"))}</button>`+
-    `<button type="button" class="btn btn--steel" id="entryFreeformBackToReply">${esc(t("entry.freeform.back_to_reply"))}</button></div>`;
+  const result=EntryImportCommands.submitGaps();
+  if(result.kind==="none")return;
+  if(result.kind==="complete")return loadFreeformProgram(result.source,result.originalText);
+  renderOnboarding();
+  if(result.kind==="invalid")try{$(".entry__field-input.is-invalid")?.focus()}catch{}
+  else if(result.kind==="unreadable")toast(t("toast.freeform_unreadable"));
 }
 
 /* What the restore choice needs to state the trade honestly: what this device
@@ -14972,143 +14475,7 @@ function entryWriteOwnLink(){
   return `<button type="button" class="btn btn--ghost entry__write-own" id="entryWriteOwn">${esc(t("entry.import_source.write_own"))}</button>`}
 /* The import route's own controls (Plan 064 R4c). wireEntryDom makes one call
    to this, so the shared handler list stays R4a's and R4b's. */
-function wireEntryImportControls(root){
-  const writeOwn=root?.querySelector("#entryWriteOwn");
-  if(writeOwn)writeOwn.onclick=()=>{
-    /* A sixth exit from the paste door, after the five in ADR 0014. The pasted
-       program belongs to this flow, so it is dropped before Build opens. */
-    /* Owner decision (#295, 2026-10-01): ask first when text was pasted, as
-       the switch to the file door does. */
-    /* ADR 0014: ask whenever text was pasted. There is no length exception
-       (SPEC-02): a short coach note such as "3x10 curls" is still the lifter's. */
-    if((entryFreeformInput.trim().length>0||entryFreeformReply.trim().length>0)&&!confirm(t("entry.freeform.confirm_write_own")))return;
-    resetFreeformImport();
-    entrySelectRoute("build")}}
-function freeformAppLink(app){
-  const program=freeformProgram();
-  const spec=FREEFORM_APPS[app];
-  if(!spec)return"";
-  if(!program){
-    return `<a class="btn btn--steel entry__freeform-app is-disabled" data-freeform-app="${esc(app)}"`+
-      ` href="${esc(spec.base)}" target="_blank" rel="noopener noreferrer"`+
-      ` aria-disabled="true" aria-describedby="entryFreeformNeeds"`+
-      `>${esc(t(spec.label))}</a>`}
-  const prompt=freeformPrompt(program);
-  const directUrl=freeformAppUrl(app,prompt);
-  if(directUrl){
-    return `<a class="btn btn--steel entry__freeform-app" data-freeform-app="${esc(app)}"`+
-      ` href="${esc(directUrl)}" target="_blank" rel="noopener noreferrer"`+
-      `>${esc(t(spec.label))}</a>`}
-  if(entryFreeformCopiedApps.has(app)){
-    return `<a class="btn btn--steel entry__freeform-app" data-freeform-app="${esc(app)}" data-freeform-copied="true"`+
-      ` href="${esc(spec.base)}" target="_blank" rel="noopener noreferrer"`+
-      `>${esc(t(spec.copiedLabel))}</a>`}
-  return `<button type="button" class="btn btn--steel entry__freeform-app" data-freeform-app="${esc(app)}" data-freeform-long="true"`+
-    `>${esc(t(spec.copyLabel))}</button>`}
-function wireFreeformAppControls(){
-  $$("[data-freeform-app]").forEach(el=>{
-    if(el.tagName==="BUTTON"){
-      el.onclick=async(event)=>{
-        event?.preventDefault?.();
-        const app=el.dataset.freeformApp;
-        const ok=await copyFreeformPrompt();
-        captureEvent("program_import_handoff",{method:app,outcome:ok?"copied":"copy_failed",long_prompt:true});
-        if(ok){
-          entryFreeformCopiedApps.add(app);
-          refreshFreeformControls();
-        }
-      };
-    }else{
-      el.onclick=event=>openFreeformApp(el.dataset.freeformApp,event);
-    }
-  });}
-function renderFreeformSourceStep(){
-  if(entryFreeformGapResult)return renderFreeformGapsStep();
-  const program=freeformProgram();
-  const lineCount=entryFreeformInput?entryFreeformInput.split(/\r?\n/).filter(Boolean).length:0;
-
-  const summaryHtml=entryFreeformStage>1
-    ?`<div class="entry__freeform-summary"><span>${esc(t("entry.freeform.source_summary",{lines:lineCount}))}</span><button type="button" class="btn btn--steel btn--sm" id="entryFreeformEditSource">${esc(t("entry.freeform.edit_source"))}</button></div>`
-    :"";
-
-  let bodyHtml="";
-  if(entryFreeformStage===1){
-    bodyHtml=
-      `<label class="entry__field entry__field--area"><span>${esc(t("entry.freeform.input_label"))}</span>`+
-      `<textarea id="entryFreeformIn" rows="7" maxlength="${FREEFORM_MAX_CHARS}" spellcheck="false" autocapitalize="off" placeholder="${esc(t("entry.freeform.input_placeholder"))}">${esc(entryFreeformInput)}</textarea></label>`+
-      `<p class="entry__hint" id="entryFreeformCount">${esc(freeformCountLabel())}</p>`+
-      `<p class="entry__hint" id="entryFreeformNeeds"${program?" hidden":""}>${esc(t("entry.freeform.needs_input"))}</p>`+
-      `<p class="entry__explain" role="note">${esc(t("entry.freeform.privacy"))}</p>`+
-      `<button type="button" class="btn btn--cta" id="entryFreeformContinue"${program?"":" disabled"}>${esc(t("entry.freeform.continue"))}</button>`;
-  }else if(entryFreeformStage===2){
-    bodyHtml=
-      entryGroupLab(t("entry.freeform.stage2_title"),"wand")+
-      `<p class="entry__hint">${esc(t("entry.freeform.stage2_hint"))}</p>`+
-      `<div class="entry__freeform-apps">${freeformAppLink("chatgpt")}${freeformAppLink("claude")}</div>`+
-      `<details class="entry__freeform-preview"><summary>${esc(t("entry.freeform.preview_prompt"))}</summary><pre class="entry__freeform-prompt-preview">${esc(freeformPrompt(program))}</pre></details>`+
-      `<p class="entry__switch"><button type="button" class="btn btn--ghost" id="entryFreeformCopy">${esc(t("entry.freeform.copy"))}</button></p>`;
-  }else if(entryFreeformStage===3){
-    let unreadableNotice="";
-    if(entryFreeformStatus==="unreadable"){
-      unreadableNotice=
-        `<div class="entry__notice entry__notice--warn" role="alert"><strong>${esc(t("entry.freeform.unreadable_title"))}</strong>`+
-        `<p>${esc(t("entry.freeform.unreadable_body"))}</p>`+
-        `<div class="btnrow"><button type="button" class="btn btn--steel" id="entryFreeformCopyRepair">${esc(t("entry.freeform.copy_repair_prompt"))}</button>`+
-        `<button type="button" class="btn btn--ghost" id="entryFreeformTryAnother">${esc(t("entry.freeform.try_another"))}</button></div></div>`;
-    }
-    const invalidatedNotice=entryFreeformReplyInvalidated
-      ?`<p class="entry__notice entry__notice--info" role="status">${esc(t("entry.freeform.edit_source_warning"))}</p>`
-      :"";
-    bodyHtml=
-      invalidatedNotice+
-      unreadableNotice+
-      entryGroupLab(t("entry.freeform.stage3_title"),"clipboard")+
-      `<p class="entry__hint">${esc(t("entry.freeform.stage3_hint"))}</p>`+
-      // The fastest way back from the assistant, and the first thing under the
-      // heading. Manual paste stays exactly where it was, one divider below.
-      `<button type="button" class="btn btn--cta" id="entryFreeformClipboard">${esc(t("entry.freeform.clipboard_import"))}</button>`+
-      `<p class="entry__notice entry__notice--warn" id="entryFreeformClipNote" role="alert"${entryFreeformClipboardNote?"":" hidden"}>`+
-        `${esc(freeformClipboardNoteText(entryFreeformClipboardNote))}</p>`+
-      `<p class="entry__divider">${esc(t("entry.freeform.clipboard_or"))}</p>`+
-      `<label class="entry__field entry__field--area"><span class="visually-hidden">${esc(t("entry.freeform.stage3_title"))}</span>`+
-      `<textarea id="entryFreeformOut" rows="7" spellcheck="false" autocapitalize="off" placeholder="${esc(t("entry.freeform.output_placeholder"))}">${esc(entryFreeformReply)}</textarea></label>`+
-      `<button type="button" class="btn btn--cta" id="entryFreeformReview">${esc(t("entry.freeform.review"))}</button>`+
-      `<div class="btnrow"><button type="button" class="btn btn--steel" id="entryFreeformTryAnother">${esc(t("entry.freeform.try_another"))}</button>`+
-      `<button type="button" class="btn btn--ghost btn--destructive" id="entryFreeformStartOver">${esc(t("entry.freeform.start_over"))}</button></div>`;
-  }
-
-  return entryHeading(t("entry.freeform.title"))+`<p class="onb__explain">${esc(t("entry.freeform.lede"))}</p>`+
-    (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
-    summaryHtml+
-    `<div class="entry__freeform ph-no-capture">${bodyHtml}</div>`+
-    `<div class="entry__switch entry__switch--doors"><button type="button" class="btn btn--ghost" id="entryFreeformFile">${esc(t("entry.freeform.to_file"))}</button>`+
-    entryWriteOwnLink()+`</div>`}
-/* Typing must not cost the caret or the field: the links, the counter and the
-   empty-state note are refreshed in place rather than through a re-render. */
-function refreshFreeformControls(){
-  const program=freeformProgram();
-  const count=$("#entryFreeformCount");
-  if(count)count.textContent=freeformCountLabel();
-  const needs=$("#entryFreeformNeeds");if(needs)needs.hidden=!!program;
-  const cont=$("#entryFreeformContinue");if(cont)cont.disabled=!program;
-  const appsContainer=$(".entry__freeform-apps");
-  if(appsContainer){
-    appsContainer.innerHTML=Object.keys(FREEFORM_APPS).map(freeformAppLink).join("");
-    wireFreeformAppControls();
-  }
-  const copy=$("#entryFreeformCopy");if(copy)copy.disabled=!program;
-  saveFreeformSession();}
-
-window.addEventListener("visibilitychange",()=>{
-  if(document.visibilityState==="visible"&&entryFreeformStage===3){
-    const out=$("#entryFreeformOut");
-    if(out){
-      out.scrollIntoView?.({behavior:scrollBehavior(),block:"nearest"});
-      out.classList.add("is-returned");
-      setTimeout(()=>out.classList.remove("is-returned"),2000);
-    }
-  }
-});
+function renderFreeformSourceStep(){return EntryUi.renderSource({activeProgram:hasActiveProgram()})}
 function entryPreviewHasProgressionIssue(preview=entryState?.result?.preview){
   return (Array.isArray(preview?.progressionIncompatibilities)&&preview.progressionIncompatibilities.length>0)||
     (preview?.program||[]).some(exercise=>exercise?.progressionIncompatibility)}
@@ -15747,7 +15114,7 @@ function wireEntryDom(){
      inert. The markup already carries `inert`; this keeps a synthetic click
      from reaching a handler that would overwrite the draft. */
   const doorsWait=()=>entryUiNotice==="resume";
-  wireEntryImportControls($("#onbBody"));
+  EntryUi.bind();
   $$("[data-entry-hub]").forEach(btn=>btn.onclick=()=>{
     if(doorsWait())return;
     entryHubChoice=btn.dataset.entryHub;renderOnboarding()});
@@ -15760,91 +15127,6 @@ function wireEntryDom(){
   mountEntryPickers();
   mountEntryBuilding();
   $$("[data-entry-rail]").forEach(btn=>btn.onclick=()=>entrySetState({...entryState,step:btn.dataset.entryRail}));
-  /* B's hub enters Import on the file door; the paste door is one switch
-     away, and choosing it starts a free-form import as the hub card did. */
-  const freeformSwitch=$("#entryFreeformSwitch");
-  if(freeformSwitch)freeformSwitch.onclick=()=>{
-    captureEvent("program_import_started",{source:"freeform"});
-    setImportSourceMode("freeform")};
-  const freeformFile=$("#entryFreeformFile");
-  if(freeformFile)freeformFile.onclick=()=>setImportSourceMode("file");
-  const freeformIn=$("#entryFreeformIn");
-  if(freeformIn)freeformIn.oninput=()=>{
-    entryFreeformInput=freeformIn.value.slice(0,FREEFORM_MAX_CHARS);
-    entryFreeformCopiedApps.clear();
-    refreshFreeformControls()};
-  const freeformContinue=$("#entryFreeformContinue");
-  if(freeformContinue)freeformContinue.onclick=()=>{
-    if(!freeformProgram())return;
-    entryFreeformStage=2;
-    saveFreeformSession();
-    renderOnboarding();
-  };
-  const freeformEditSource=$("#entryFreeformEditSource");
-  if(freeformEditSource)freeformEditSource.onclick=()=>{
-    if(entryFreeformReply.trim().length>0){
-      entryFreeformReply="";
-      entryFreeformReplyInvalidated=true;
-      toast(t("entry.freeform.edit_source_warning"));
-    }
-    entryFreeformStage=1;
-    saveFreeformSession();
-    renderOnboarding();
-  };
-  const freeformOut=$("#entryFreeformOut");
-  if(freeformOut)freeformOut.oninput=()=>{
-    entryFreeformReply=freeformOut.value;
-    entryFreeformStatus=null;
-    entryFreeformFailReason=null;
-    if(entryFreeformClipboardNote)setFreeformClipboardNote(null);
-    saveFreeformSession();
-  };
-  wireFreeformAppControls();
-  const freeformCopy=$("#entryFreeformCopy");
-  if(freeformCopy)freeformCopy.onclick=async()=>{
-    const ok=await copyFreeformPrompt();
-    const prompt=freeformPrompt();
-    const isLong=prompt.length>FREEFORM_URL_MAX;
-    captureEvent("program_import_handoff",{method:"copy",outcome:ok?"copied":"copy_failed",long_prompt:isLong});
-    if(ok){
-      for(const app of Object.keys(FREEFORM_APPS)){
-        entryFreeformCopiedApps.add(app);
-      }
-      entryFreeformStage=3;
-      entryFreeformLastProvider="copy";
-      saveFreeformSession();
-      renderOnboarding();
-    }
-  };
-  const freeformTryAnother=$("#entryFreeformTryAnother");
-  if(freeformTryAnother)freeformTryAnother.onclick=()=>{
-    entryFreeformStage=2;
-    entryFreeformStatus=null;
-    saveFreeformSession();
-    renderOnboarding();
-  };
-  const freeformStartOver=$("#entryFreeformStartOver");
-  if(freeformStartOver)freeformStartOver.onclick=()=>{
-    if((entryFreeformInput.trim().length>10||entryFreeformReply.trim().length>10)&&!confirm(t("entry.freeform.confirm_start_over")))return;
-    resetFreeformImport();
-    renderOnboarding();
-  };
-  const freeformCopyRepair=$("#entryFreeformCopyRepair");
-  if(freeformCopyRepair)freeformCopyRepair.onclick=async()=>{
-    await copyToClipboard(freeformRepairPrompt(),
-      "entry.freeform.toast_repair_copied","toast.freeform_copy_failed");
-  };
-  const freeformClipboard=$("#entryFreeformClipboard");
-  if(freeformClipboard)freeformClipboard.onclick=()=>importFreeformFromClipboard();
-  const freeformReview=$("#entryFreeformReview");if(freeformReview)freeformReview.onclick=()=>startFreeformReview();
-  const submitGaps=$("#entryFreeformSubmitGaps");if(submitGaps)submitGaps.onclick=()=>submitFreeformGaps();
-  const backToReply=$("#entryFreeformBackToReply");if(backToReply)backToReply.onclick=()=>{entryFreeformGapResult=null;entryFreeformGapErrors.clear();renderOnboarding();};
-  $$("[data-gap-key]").forEach(input=>{
-    input.oninput=()=>{
-      entryFreeformGapAnswers[input.dataset.gapKey]=input.value;
-      entryFreeformGapErrors.delete(input.dataset.gapKey);
-    };
-  });
   $$("[data-entry-pick]").forEach(btn=>btn.onclick=()=>{
     const key=btn.dataset.entryPick,raw=btn.dataset.entryVal,multi=btn.dataset.entryMulti==="1";
     if(key==="environment"){

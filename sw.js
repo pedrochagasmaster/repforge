@@ -2,6 +2,7 @@ const CACHE = "repforge-v480";
 const SOURCE_RELEASE = "source-480";
 const ASSETS = [
   // BEGIN GENERATED NATIVE SOURCE ASSETS
+  "./src/app/entry.js",
   "./src/app/history-read-models.js",
   "./src/app/history.js",
   "./src/app/interchange.js",
@@ -16,6 +17,7 @@ const ASSETS = [
   "./src/compat/legacy-host.js",
   "./src/interchange/backup.js",
   "./src/interchange/csv.js",
+  "./src/interchange/freeform.js",
   "./src/interchange/json.js",
   "./src/interchange/program-file.js",
   "./src/interchange/setup-link.js",
@@ -36,6 +38,7 @@ const ASSETS = [
   "./src/release/gate.js",
   "./src/training/authoring.js",
   "./src/training/authoring/internal/adapter.js",
+  "./src/training/authoring/internal/editor-contracts.js",
   "./src/training/authoring/internal/entry-contracts.js",
   "./src/training/authoring/internal/entry.js",
   "./src/training/authoring/internal/installed.js",
@@ -65,7 +68,9 @@ const ASSETS = [
   "./src/training/progress/internal/progression.js",
   "./src/training/progress/internal/schedule.js",
   "./src/training/workout.js",
+  "./src/ui/entry/controller.js",
   "./src/ui/entry/pickers.js",
+  "./src/ui/entry/view.js",
   "./src/ui/focus/controller.js",
   "./src/ui/focus/geometry.js",
   "./src/ui/focus/gestures.js",
