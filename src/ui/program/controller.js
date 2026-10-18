@@ -534,7 +534,9 @@ function bind(){if(bound||disposed)return;bound=true;listenerLifetime=new window
 
 }
 function dispose(){disposed=true;listenerLifetime?.abort();listenerLifetime=null;bound=false;
-  for(const root of $$('#program'))for(const element of [root,...root.querySelectorAll('*')])if(element instanceof window.HTMLElement){element.onclick=null;element.oninput=null;element.onchange=null;element.onfocus=null;}
+  const roots=$$('#programMeta,#programOverview,#programNoProgram');
+  if(!editor.installedMounted?.())roots.push(...$$('#programEditor'));
+  for(const root of roots)for(const element of [root,...root.querySelectorAll('*')])if(element instanceof window.HTMLElement){element.onclick=null;element.oninput=null;element.onchange=null;element.onfocus=null;}
   const save=$('#saveProgram'),add=$('#addDay');if(save)save.onclick=null;if(add)add.onclick=null;
 }
 return Object.freeze({bind,dispose,renderProgram,setDayCollapsed});
