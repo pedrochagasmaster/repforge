@@ -9,7 +9,7 @@ export {createEntrySetup} from './entry/setup.js';
 export {createEntryReviewSession} from './entry/review-session.js';
 export {createEntryQuestionFlow} from './entry/questions.js';
 export {createEntryAnswerCommands} from './entry/answers.js';
-export {createEntryGeneration} from './entry/generation.js';
+export {createEntryGeneration,createEntryAnswerRebuild} from './entry/generation.js';
 import {parseFreeformProgramReply,assembleFreeformProgramDocument,parseSetsInput,parseRepsInput} from '../interchange/freeform.js';
 /** Entry's private tab session. Pasted source/replies never enter a training
  * proposal, telemetry or backup. Read models are snapshots; named commands

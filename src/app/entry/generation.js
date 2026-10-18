@@ -40,7 +40,7 @@ export function createEntryGeneration({compiler,adapter,catalog,model,execute,ca
   const answers=from.answers||{},projected=preview(definition,from.route),days=projected.days;
   return{fingerprint:compiler.generationIdentity(request,catalog),name:candidateName(days.length),
    selected:{id:'generated',source:'generator',daysPerWeek:days.length},candidates:[],alternative:null,preview:projected,
-   telemetry:{goal:answers.desiredResult,frequency:String(days.length),family:'generated'},
+   telemetry:/** @type {{goal?:string,frequency:string,family:string,completed?:boolean}} */({goal:answers.desiredResult,frequency:String(days.length),family:'generated'}),
    explanation:Object.fromEntries(Object.entries({desiredResult:answers.desiredResult,structuredExperience:answers.structuredExperience,
     daysPerWeek:days.length,sessionMinutes:answers.sessionMinutes,mainConstraint:answers.environment?.kind}).filter(([,value])=>value!==undefined))};
  }
@@ -69,4 +69,57 @@ export function createEntryGeneration({compiler,adapter,catalog,model,execute,ca
   return{result,confirmationOffers:cloneSnapshot(generated.confirmationOffers||[]),request:mapped.request,definition:result.preview.programDefinition};
  }
  return Object.freeze({preview,request,generate,peek});
+}
+
+/** Answer edits are speculative until the exact captured draft receives its
+ * complete generated candidate. Persistence remains Setup.save's staged queue;
+ * `committed` describes the logical publication, not a durable acknowledgement.
+ * @param {{setup:ReturnType<typeof import('./setup.js').createEntrySetup>,rules:ReturnType<typeof import('../../training/authoring.js').createEntryRules>,
+ * generation:ReturnType<typeof createEntryGeneration>,compiler:Pick<Compiler,'availableSplits'>,
+ * review:ReturnType<typeof import('./review-session.js').createEntryReviewSession>,
+ * reviewContext:()=>Parameters<ReturnType<typeof import('./review-session.js').createEntryReviewSession>['adopt']>[2],onBusy:()=>void,onGeneration?:(route:EntryDraft['route'])=>((outcome:string)=>void)}} options */
+export function createEntryAnswerRebuild({setup,rules,generation,compiler,review,reviewContext,onBusy,onGeneration=()=>()=>{}}){
+ /** @type {{committed:Readonly<EntryDraft>,next:EntryDraft,controller:AbortController}|null} */let pending=null;
+ /** @type {Readonly<EntryDraft>|null} */let publication=null;
+ /** A committed command can lose its UI lease before an awaiting consumer
+  * resumes. This check never cancels or rolls back the already-staged save.
+  * @param {Readonly<EntryDraft>|null} after */
+ function isCurrent(after){return after!==null&&publication===after&&setup.read()===after}
+ function busy(){return pending!==null}
+ function rebuilding(){return pending!==null&&pending.committed===setup.read()}
+ function cancel(){const previous=pending;pending=null;publication=null;previous?.controller.abort();onBusy()}
+ /** @param {Parameters<typeof rules.setAnswers>[1]} patch */
+ async function apply(patch){
+  const committed=setup.read(),before=committed?.result;
+  if(!committed||!before?.preview||(committed.route!=='recommend'&&committed.route!=='custom'))
+   return{ok:false,status:'failure',failure:{code:'invalid_entry_result'}};
+  const next=rules.setAnswers(pending?.committed===committed?pending.next:committed,patch);
+  if(before.preview.programDefinition?.provenance?.source==='recovered_generation_rules'){
+   const mapped=generation.request(next);
+   if(!mapped.ok)return{ok:false,status:'failure',failure:{code:'generation_conflict',conflicts:mapped.failure.conflicts||[]}};
+   if(!compiler.availableSplits(mapped.request).includes(mapped.request.split))
+    return{ok:false,status:'failure',failure:{code:'generation_conflict',conflicts:[{code:'unsupported_generation_domain'}]}};
+  }
+  publication=null;pending?.controller.abort();
+  const job={committed,next,controller:new AbortController()};pending=job;onBusy();
+  const settle=onGeneration(next.route);
+  let outcome;
+  try{outcome=await generation.generate(next,{signal:job.controller.signal});settle(outcome.ok?'success':outcome.failure.code)}
+  catch{
+   if(pending===job){pending=null;onBusy()}
+   return{ok:false,status:'superseded',superseded:true};
+  }
+  if(pending!==job)return{ok:false,status:'superseded',superseded:true};
+  pending=null;onBusy();
+  if(setup.read()!==committed)return{ok:false,status:'superseded',superseded:true};
+  if(!outcome.ok)return{ok:false,status:'failure',failure:outcome.failure};
+  const compiled=outcome.result;
+  if(before.telemetry&&typeof before.telemetry==='object'&&'completed' in before.telemetry&&before.telemetry.completed===true)compiled.telemetry={...compiled.telemetry,completed:true};
+  const final=rules.setResult(next,compiled);
+  setup.publish(final);
+  const adopted=review.adopt(final,cloneSnapshot(compiled),reviewContext());
+  const persistence=setup.save(final),after=setup.read();publication=after;
+  return{ok:true,status:'committed',before:committed,after,outcome,reviewAdopted:!!adopted,persistence};
+ }
+ return Object.freeze({apply,cancel,busy,rebuilding,isCurrent});
 }

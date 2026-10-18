@@ -6,7 +6,7 @@ import {createWorkoutReminder} from './src/app/workout-reminder.js';
 import {createWorkoutReminderView} from './src/ui/workout/reminder.js';
 import {createWorkoutDraftPolicy,createWorkoutCommands,createFocusWorkoutCommands,createWorkoutExerciseCommands,createWorkoutSuggestionCommands} from './src/app/workout.js';
 import {createWorkoutContext} from './src/app/workout-context.js';
-import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,createEntryAnswerCommands,createEntryQuestionFlow,createEntryReviewSession,createEntrySetup,createEntryActivation,createProgramImport,createReceivedSetup,buildLandingProof,FREEFORM_MAX_CHARS} from './src/app/entry.js';
+import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,createEntryAnswerRebuild,createEntryAnswerCommands,createEntryQuestionFlow,createEntryReviewSession,createEntrySetup,createEntryActivation,createProgramImport,createReceivedSetup,buildLandingProof,FREEFORM_MAX_CHARS} from './src/app/entry.js';
 import {createProgramSource,definitionMovementIds,unsupportedGrammar} from './src/interchange/program-file.js';
 import {createHistoryReadModels} from './src/app/history-read-models.js';
 
@@ -5097,15 +5097,19 @@ let entryBuildArmed=null;
    resumed draft). Until it lands the lifter stays where they were, so the
    committed state never holds a result step without its program; anything
    that moves the flow on meanwhile supersedes it. */
-let entryResultJob=null,entryAnswerJob=null;
+let entryResultJob=null,EntryAnswerRebuild=null;
+function entryAnswerRebuild(){
+  return EntryAnswerRebuild||(EntryAnswerRebuild=createEntryAnswerRebuild({setup:EntrySetup,rules:ProgramEntry,
+    generation:entryGeneration(),compiler:ProgramCompiler,review:EntryReview,reviewContext:entryAdjustCtx,onBusy:syncEntryBusy,
+    onGeneration:route=>{const token=beginGeneration(route);return outcome=>settleGeneration(token,outcome)}}))}
 function cancelEntryGeneration(){
-  entryResultJob?.controller.abort();entryAnswerJob?.controller.abort();
-  entryResultJob=null;entryAnswerJob=null;syncEntryBusy()}
+  entryResultJob?.controller.abort();EntryAnswerRebuild?.cancel();
+  entryResultJob=null;syncEntryBusy()}
 function syncEntryBusy(){
   const next=$("#onbNext");
   if(next){if(entryResultJob)next.setAttribute("aria-busy","true");else next.removeAttribute("aria-busy")}
   const review=$("#entryCandidateReview");
-  if(review){if(entryAnswerJob)review.setAttribute("aria-busy","true");else review.removeAttribute("aria-busy")}}
+  if(review){if(EntryAnswerRebuild?.busy())review.setAttribute("aria-busy","true");else review.removeAttribute("aria-busy")}}
 /* B's building moment (Plan 072): a four-line checklist and a thin bar while
    the program generates. The step moves to the result when the checklist has
    finished, or the lifter skipped it, and the program has landed; if the
@@ -5665,37 +5669,21 @@ function entryCanon(value){
    that change and supersedes it: the last answer wins and none is lost. */
 async function applyEntryAnswerEdit(patch,{lead,beforeLabel,afterLabel}={}){
   if(!ProgramEntry||!entryState?.result?.preview)return{ok:false};
-  const route=entryState.route;
-  if(route!=="recommend"&&route!=="custom")return{ok:false};
-  const committed=entryState,before=committed.result;
-  const next=ProgramEntry.setAnswers(entryAnswerJob?.committed===committed?entryAnswerJob.next:committed,patch);
-  if(before.preview.programDefinition?.provenance?.source==="recovered_generation_rules"){
-    const mapped=entryGeneratorRequest(next);
-    if(!mapped.ok)return{ok:false,failure:{code:"generation_conflict",conflicts:mapped.failure?.conflicts||[]}};
-    if(!ProgramCompiler.availableSplits(mapped.request).includes(mapped.request.split))return{ok:false,failure:{code:"generation_conflict",
-      conflicts:[{code:"unsupported_generation_domain"}]}}}
-  entryAnswerJob?.controller.abort();
-  const job={committed,next,controller:new AbortController()};
-  entryAnswerJob=job;syncEntryBusy();
-  let outcome;
-  try{outcome=await generateEntryCandidate(next,{signal:job.controller.signal,timed:true})}
-  catch{return{ok:false,superseded:true}}
-  if(entryAnswerJob!==job)return{ok:false,superseded:true};
-  entryAnswerJob=null;syncEntryBusy();
-  if(entryState!==committed)return{ok:false,superseded:true};
-  if(!outcome.ok)return{ok:false,failure:outcome.failure};
-  const compiled=outcome.result;
-  // The completion event belongs to the walk, not to each rebuild.
-  if(before.telemetry?.completed===true&&compiled.telemetry)compiled.telemetry={...compiled.telemetry,completed:true};
-  const final=ProgramEntry.setResult(next,compiled);
+  const command=entryAnswerRebuild(),editor=entryEditor;
+  const transaction=await command.apply(patch);
+  if(!transaction.ok)return transaction;
+  // Publication precedes this continuation. A new flow or editor owns its UI;
+  // the completed transaction retains its already-staged persistence outcome.
+  if(!command.isCurrent(transaction.after)||entryEditor!==editor)
+    return{ok:false,superseded:true,committed:true,persistence:transaction.persistence};
+  const {before:previous,after:final,outcome}=transaction,before=previous.result,compiled=final.result;
   entryChange=entryBuildChange(before.preview,compiled.preview,final,{lead,beforeLabel,afterLabel});
   if(Object.prototype.hasOwnProperty.call(patch,"movementConfirmations"))
     entryChange.changedNames=entryChangedExerciseNames(before.preview,compiled.preview);
   entryEditor=null;entryResetEditorFields();entryReviewError=null;
   entryPinnedVersionsExecutable=false;
-  publishEntryDraft(final);
-  if(entryAdjustRoute())adoptEntryAdjust(cloneSnapshot(compiled));
-  entrySetState(entryState);
+  if(transaction.reviewAdopted)entryAdjustView={tab:null,reorder:null};
+  entrySetState(entryState,{persist:false});
   startEntryOfferVerification(entryState,outcome);
   entryShowChange();
   return{ok:true}}
@@ -5845,7 +5833,7 @@ function renderResultStep(){
   /* Plan 070: the program is onboarding B's review editor, mounted into
      #entryReview after this render (mountEntryAdjust). What the program was
      built from stays below it until B's question screens replace these. */
-  return `<section id="entryCandidateReview" class="entry__review" aria-labelledby="entryHeading"${entryAnswerJob?` aria-busy="true"`:""}>`+
+  return `<section id="entryCandidateReview" class="entry__review" aria-labelledby="entryHeading"${EntryAnswerRebuild?.busy()?` aria-busy="true"`:""}>`+
     `<div id="entryReview" class="entry__adjust ph-no-capture"></div>`+
     renderEntryChangeStatement(entryChange)+
     (hasActiveProgram()&&!entryUiNotice?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
@@ -6015,7 +6003,7 @@ function resolveEntryAdjustDialog(confirmed){
 async function guardEntryRebuild(rebuild){
   // A rebuild of this same result is already generating: its guard has dealt
   // with the adjustments, and the next answer builds on that rebuild.
-  const rebuilding=entryAnswerJob&&entryAnswerJob.committed===entryState;
+  const rebuilding=EntryAnswerRebuild?.rebuilding();
   if(!rebuilding&&await entryAdjusted()){
     const count=ReviewRules.changes(EntryReview.current(entryState).baseline.preview.programDefinition,
       entryState.result.preview.programDefinition).count||1;
