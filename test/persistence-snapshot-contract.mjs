@@ -57,10 +57,26 @@ const require=createRequire(import.meta.url);
 const catalog=JSON.parse(readFileSync(new URL('../assets/exercise-catalog.json',import.meta.url),'utf8'));
 const {seedProgram,seedProgramMeta}=await import('./fixtures/seed-program.mjs');
 const instant='2026-10-18T12:00:00.000Z';let sequence=0;
-const model=createProgramModel({catalog,librarySource:require('../exercises.js'),now:instant,nextId:()=>`new-${++sequence}`});
+const {EXERCISE_LIBRARY,LEGACY_LIBRARY_IDS}=require('../exercises.js');
+const librarySource={library:EXERCISE_LIBRARY,legacyIds:LEGACY_LIBRARY_IDS};
+const model=createProgramModel({catalog,librarySource,now:instant,nextId:()=>`new-${++sequence}`});
 const actual=policy.createSnapshotPolicy({catalog,model,entry:createEntryRules(catalog),metrics,
   workout:createWorkoutRules(catalog),compiler,transition:createTransitionRules(),progression,now:()=>instant,nextId:()=>`new-${++sequence}`,
   language:{normalizeLang:value=>['en','pt'].includes(value)?value:null,detectLang:()=> 'en'}});
+// Literal static-library facts make a missing/miswired index observable. These
+// are authored source labels, not values produced by the normalizer under test.
+const staticId='2a15c6f170d88066b38fd65f8757716f';
+const lookup=model.snapshotLookup([]);
+assert.equal(lookup(staticId)?.name,'45° cable rear delt fly');
+assert.equal(lookup(staticId)?.namePt,'Crucifixo inverso 45° na polia');
+const linkedRow={id:'static-linked',day:'Static day',order:1,libraryId:staticId,name:'Stale copied name',sets:2,min:6,max:10,primary:'Chest',secondary:''};
+const linked=new model.Program([linkedRow],lookup).toJSON()[0];
+assert.equal(linked.name,'45° cable rear delt fly','a current linked row resolves the actual static library');
+assert.equal(linked.libraryId,staticId);
+const aliased=new model.Program([{...linkedRow,displayName:'My rear-delt exercise'}],lookup).toJSON()[0];
+assert.equal(aliased.name,'My rear-delt exercise','an authored alias remains distinct from the source name');
+assert.equal(aliased.displayName,'My rear-delt exercise');
+assert.equal(aliased.libraryId,staticId);
 const saved={program:seedProgram(),programMeta:seedProgramMeta(),log:[],_storageRevision:11,
   settings:{unit:'kg',futureSetting:{retained:true},notify:{futureNotification:true}},
   profile:{futureProfileSchema:99,rawValue:'keep'},customExercises:[],programHistory:[]};
@@ -80,6 +96,10 @@ const historySource={...saved,customExercises:[{id:'custom:one',name:'Current na
 const history=actual.normalizeLoaded(historySource).programHistory[0];
 assert.equal(history.program[0].name,'Archived name');assert.equal(history.program[0].primary,'Chest');
 assert.equal(history.id,'history-a');
+const staticArchive=actual.normalizeLoaded({...saved,programHistory:[{id:'static-history',program:[linkedRow],meta:{id:'static-history'}}]}).programHistory[0];
+assert.equal(staticArchive.program[0].name,'Stale copied name','historical copied labels do not resolve to the live static library');
+assert.equal(staticArchive.program[0].primary,'Chest');
+assert.equal(staticArchive.program[0].libraryId,staticId);
 console.log('source-produced state normalization, fixed-point and historical identity contract passed');
 const {metricLogRow}=await import('./fixtures/history-metric-rows.mjs');
 const row=metricLogRow(saved.programMeta,saved.program[0],{session:'saved-session',date:'2026-10-17',set:1,load:50,reps:8});
