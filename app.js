@@ -49,7 +49,7 @@ import {createDurableStore} from './src/persistence/durable.js';
 import {createPreferences} from './src/persistence/preferences.js';
 import {createProgramModel,PROGRESSION_VALUE_LIMITS} from './src/training/model.js';
 import {createEntryRules,createInstalledEditorRules,suggestion} from './src/training/authoring.js';
-import {createProgramEditor} from './src/ui/editors/program.js';
+import {createProgramEditor} from './src/ui/editors.js';
 import {createWorkoutRules} from './src/training/workout.js';
 import PersistenceMetrics from './src/training/metrics.js';
 import {progression as PersistenceProgression,schedule} from './src/training/progress.js';
