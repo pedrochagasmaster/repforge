@@ -1,3 +1,2 @@
-/** Accent- and case-insensitive authored-name search; never a storage trust check.
- * @param {unknown} value */
-export const foldSearch=value=>String(value??"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+/** Search shares authored-name collation with custom definition reuse. */
+export {foldExerciseName as foldSearch} from '../../training/model.js';
