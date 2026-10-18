@@ -16,7 +16,7 @@
  *
  * Run: node test/focus-pending-field.mjs   (REPFORGE_URL points at a static server)
  */
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { finishEarly, openLoggedSets } from "./fixtures/focus-workout.mjs";
 
@@ -64,7 +64,7 @@ async function persist(page, src) {
 }
 
 async function settle(page) {
-  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
+  await waitForAppBoot(page, {base: BASE});
   await page.evaluate(() => {
     const el = document.querySelector("#onboarding");
     window.closeFirstRun?.();
@@ -89,7 +89,7 @@ async function boot(page, { rirMode = "numeric", restSec = 90, fontScale = 1 } =
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await settle(page);
   await page.evaluate((d) => {
-    if (window.stopRest) window.stopRest();
+    window.__repforgeRest.stop();
     for (const key of Object.keys(localStorage)) if (key === d || key.startsWith(`${d}:`)) localStorage.removeItem(key);
   }, DRAFT);
   await persist(page, `
@@ -189,7 +189,7 @@ async function main() {
   await page.locator(".focus-shelf .saveset").first().click();
   await page.waitForFunction(() => window.__repforgeWorkoutDraft.current().exercises["seed-ex-1"] && true);
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
-  await page.evaluate(() => window.stopRest?.());
+  await page.evaluate(() => window.__repforgeRest.stop());
   // Save the session through the real Finish action.
   const finished = await finishEarly(page);
   assert(finished && finished.status !== "error", "RT-03: the session saves through the real Finish action", finished);
@@ -408,7 +408,7 @@ async function main() {
   await page.locator("#restStop").click();
   await page.waitForFunction(() => !document.querySelector("#woRest.is-running"), undefined, { timeout: 5000 });
   await boot(page, { restSec: 90 });
-  await page.evaluate(() => window.openRestSheet());
+  await page.evaluate(() => window.__repforgeRest.openSheet());
   await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
   assert(await page.locator("#restHold").isDisabled(), "RT-04: with no rest running the control waits, like Reset and Stop");
   await page.locator("#restSheetClose").click();
