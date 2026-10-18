@@ -1,5 +1,6 @@
 /** Node test composition of production public interchange/training modules.
  * No schema, normalizer or protocol is implemented in this helper. */
+import {readFileSync} from 'node:fs';
 import {webcrypto} from 'node:crypto';
 import {createSetupLinkCodec} from '../src/interchange/setup-link.js';
 import {createTransferContract} from '../src/interchange/transfer-contract.js';
