@@ -1,3 +1,11 @@
+import * as InstallPolicy from './src/platform/install.js';
+import {createInstallView} from './src/ui/settings/install.js';
+import {createSettingsCommands,createSettingsDraftEffects} from './src/app/settings.js';
+import {interpretProfile} from './src/app/profile.js';
+import {createSettingsView} from './src/ui/settings/view.js';
+import {createAppearance} from './src/ui/settings/appearance.js';
+import {createGuidesView} from './src/ui/settings/guides.js';
+import {createNotificationControls} from './src/ui/settings/notifications.js';
 import {createEntryPickers,ENTRY_WHEEL_ROW} from './src/ui/entry/pickers.js';
 import {createCatalog,CATALOG_URL} from './src/platform/catalog.js';
 import {create as createProgramExecutor,url as programWorkerUrl} from './src/platform/program-executor.js';
@@ -125,7 +133,7 @@ function showExerciseCatalogUnavailable(){
   if(!dialog.open)dialog.showModal();
   retry.focus();
   return true}
-const InstallPolicy=window.RepForgeInstallPolicy;
+
 const GuideRegistry=window.RepForgeGuideRegistry;
 const DRAFT_PENDING_PREFIX=`${DRAFT}:pending:`,DRAFT_CLOSE_PREFIX=`${DRAFT}:closing:`;
 const DRAFT_V2_CHECKPOINT=`${DRAFT}:v2-checkpoint`;
@@ -1195,40 +1203,6 @@ async function clearDraft(){
   resetDraftSessionState();return true}
 const loadDraft=()=>{if(activeWorkoutDraft)return WorkoutSession.projection();
   try{return JSON.parse(DraftStore.readRaw()||"{}")}catch{return{}}};
-function convertDraftUnitsRaw(raw,oldUnit,newUnit){
-  if(raw==null||oldUnit===newUnit)return raw;
-  let d;
-  try{d=JSON.parse(raw)}
-  catch{return raw}
-  if(!d||typeof d!=="object")return raw;
-  let changed=false;
-  const conv=v=>canonicalNumberText(toDisplayUnit(fromDisplayUnit(v,oldUnit),newUnit));
-  for(const k of Object.keys(d)){
-    if(k.startsWith("__")||!k.endsWith("_load"))continue;
-    const v=d[k];if(v===""||v==null)continue;
-    const n=parseDec(v);if(!Number.isFinite(n))continue;
-    d[k]=conv(n);changed=true}
-  if(Object.prototype.hasOwnProperty.call(d,"__bodyweight")){
-    const bw=d.__bodyweight;
-    if(bw!==""&&bw!=null){
-      const n=parseDec(bw);
-      if(Number.isFinite(n)){d.__bodyweight=conv(n);changed=true}}}
-  return changed?JSON.stringify(d):raw}
-function draftUnitConversionEffect(expectedRaw,oldUnit,newUnit){
-  if(oldUnit===newUnit)return null;
-  if(expectedRaw==null)return destructiveDraftClearEffect(null);
-  const parsed=WorkoutDraft?.parse(expectedRaw);
-  if(parsed?.kind==="valid"){
-    const draft=JSON.parse(expectedRaw),operationId=`unit-${uid()}`;
-    draft.program.unit=newUnit;draft.revision+=1;draft.session.updatedAt=new Date().toISOString();draft.writer=draftWriter(operationId);
-    const checked=WorkoutDraft.parse(draft);
-    if(checked.kind!=="valid")return{status:DRAFT_EFFECT_INVALID,effect:null,reason:"v2-unit-replacement"};
-    return draftEffectOutcome({required:true,kind:"replace-draft",expectedRaw,
-      replacementRaw:JSON.stringify(WorkoutDraft.serialize(checked.draft)),
-      precondition:DRAFT_PRECONDITION_ABORT_CHANGED})}
-  return draftEffectOutcome({required:true,kind:"replace-draft",expectedRaw,
-    replacementRaw:convertDraftUnitsRaw(expectedRaw,oldUnit,newUnit),
-    precondition:DRAFT_PRECONDITION_ABORT_CHANGED})}
 const posNum=(v,f=0)=>{const n=parseDec(v);return Math.max(0,Number.isFinite(n)?n:f)};
 const isWork=r=>!r.warmup;
 /* Calendar days from the lifter's previous session to this one, from the
@@ -1547,7 +1521,7 @@ function muscleHit(ex,muscle){const m=muscle.toLowerCase();
   return muscles(ex.primary).concat(muscles(ex.secondary)).some(x=>x.toLowerCase()===m||x.toLowerCase().includes(m))}
 // `state` is a read-only alias to the exact owner-published snapshot. All
 // candidates are local values until the durable owner accepts or boot reads them.
-let state,prog,day,installPrompt=null,saving=false;
+let state,prog,day,saving=false;
 const applicationSession=createSession({
   initialSnapshot:/** @type {import('./src/app/session.js').Snapshot|null} */(null),
   onUpdate:snapshot=>{state=snapshot}});
@@ -2342,15 +2316,7 @@ async function requestWorkoutDay(nextDay){
     return false;
   }
   return true}
-function changeRirMode(newMode){
-  const old=state.settings.rirMode==="effort"?"effort":"numeric";
-  const next=newMode==="effort"?"effort":"numeric";
-  if(old===next) return true;
-  if(draftHasProgress()){
-    $$('input[name="rirMode"]').forEach(r=>{r.checked=old==="effort"?r.value==="effort":r.value!=="effort"});
-    toast(t("toast.rir_locked_draft"));
-    return false}
-  return true}
+
 async function applyShowAll(){
   if(!activeWorkoutDraft)return false;
   for(const id of [...skipped]){const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return false}
@@ -2433,7 +2399,7 @@ let workoutActive=false,workoutLeft=false,programEditMode=false,setupEditorOpen=
 /* The editor module owns the draft document. Hosts retain only its lifecycle
    and adapter session so the installed editor can stay private until Done. */
 let installedProgramEditor=null,onboardingProgramEditor=null,installedEditorSession=null,pendingEditorNavigation=null;
-let settingsEditRevision=0;
+
 // Today's session lists its first few exercises; the rest sit behind a "+N" row.
 // Two-level Progress navigation (Plan 056): Overview/Review are the primary
 // tasks; Strength/Volume/PRs are a labelled Evidence group. Old one-level seg
@@ -6347,8 +6313,7 @@ function refreshShelf({focus=null}={}){
     travelOutline(nowSel,fromRect,"shelf");
   syncFocusFloor();
   // The first-set cue points at the shelf's action; the rebuilt action is the same control.
-  if(activeGuideId&&activeGuideAnchor&&!activeGuideAnchor.isConnected){
-    const anchor=guideAnchor(guideDefinition(activeGuideId));if(anchor)activeGuideAnchor=anchor}
+  guidesView().refreshAnchor();
   if(focus){
     const shelf=card.querySelector(".focus-shelf");
     const el=focus.startsWith("pad:")?shelf?.querySelector(`.shelf__pad[data-dir="${focus.slice(4)}"]`)
@@ -9959,107 +9924,10 @@ async function saveProgram(){try{const parsed=JSON.parse($("#programJson").value
   return result}
   catch{toast(t("toast.program_json_invalid"))}}
 
-let notifyIntentGen=0,notifyWanted=false,notifyPending=false,notifyRequestInFlight=null;
-function notifyPermission(){return window.RepForgeNotify?RepForgeNotify.permission():"unsupported"}
-function notifyEffective(){return!!state.settings.notify?.enabled&&notifyPermission()==="granted"}
-function persistNotifyEnabled(enabled){
-  const proposal=cloneSnapshot(state);
-  if(!proposal.settings.notify)proposal.settings.notify=normalizeNotify();
-  proposal.settings.notify=normalizeNotify({...proposal.settings.notify,enabled:!!enabled});
-  return commitProposedState(proposal)}
-function notifyStatusText(){
-  const perm=notifyPermission();
-  if(notifyPending)return t("settings.notifications.status.pending");
-  if(perm==="unsupported")return t("settings.notifications.next.unsupported");
-  if(perm==="denied")return t("settings.notifications.next.denied");
-  if(perm==="default")return t("settings.notifications.next.prompt");
-  if(perm==="granted")return t("settings.notifications.permission",{status:t("settings.notifications.status.granted")});
-  return t("settings.notifications.permission",{status:perm})}
-function paintNotifyControls(){
-  const n=state.settings.notify||normalizeNotify();
-  const effective=notifyEffective();
-  const ne=$("#notifyEnabled");if(ne)ne.checked=effective||notifyPending;
-  const ntog=$("#notifyToggle");
-  if(ntog){
-    ntog.classList.toggle("is-on",effective||notifyPending);
-    ntog.setAttribute("aria-pressed",effective?"true":"false");
-    ntog.setAttribute("aria-busy",notifyPending?"true":"false");
-    const name=t("settings.notifications.toggle_aria");
-    if(name)ntog.setAttribute("aria-label",name)}
-  const nt=$("#notifyTimer");if(nt)nt.checked=n.timer!==false;
-  const ns=$("#notifySession");if(ns)ns.checked=n.session!==false;
-  const nu=$("#notifyUnfinished");if(nu)nu.checked=n.unfinished!==false;
-  const nm=$("#notifyMissed");if(nm)nm.checked=n.missed!==false;
-  $$("#notifyTypes input").forEach(i=>{i.disabled=!effective});
-  const ps=$("#notifyPermStatus");if(ps)ps.textContent=notifyStatusText()}
-function reconcileNotifyPermission(){
-  const perm=notifyPermission();
-  if(perm==="granted"){
-    if(state.settings.notify?.enabled)notifyWanted=true;
-    return}
-  const wasEnabled=!!state.settings.notify?.enabled;
-  if(wasEnabled){
-    notifyIntentGen++;
-    notifyWanted=false;
-    notifyPending=false;
-    void persistNotifyEnabled(false);
-    return}
-  if(notifyPending&&(perm==="denied"||perm==="unsupported")){
-    notifyIntentGen++;
-    notifyWanted=false;
-    notifyPending=false}}
-async function setNotificationsEnabled(wanted){
-  wanted=!!wanted;
-  notifyWanted=wanted;
-  if(!wanted){
-    notifyIntentGen++;
-    notifyPending=false;
-    await persistNotifyEnabled(false);
-    paintNotifyControls();
-    return}
-  if(notifyPending&&notifyRequestInFlight)return notifyRequestInFlight;
-  const gen=notifyIntentGen;
-  notifyPending=true;
-  paintNotifyControls();
-  const request=notifyRequestInFlight||(async()=>{
-    let result="unsupported";
-    try{result=window.RepForgeNotify?await RepForgeNotify.request():"unsupported"}
-    catch{result=notifyPermission()}
-    return result})();
-  notifyRequestInFlight=request;
-  try{
-    const result=await request;
-    if(gen!==notifyIntentGen||!notifyWanted)return;
-    const perm=notifyPermission();
-    const granted=result==="granted"&&perm==="granted";
-    notifyPending=false;
-    await persistNotifyEnabled(granted);
-    if(!granted)notifyWanted=false;
-    paintNotifyControls()}
-  finally{if(notifyRequestInFlight===request)notifyRequestInFlight=null}}
-
-function renderGuideReplayList(){
-  const list=$("#guideReplayList");
-  if(!list||!GuideRegistry?.GUIDE_DEFINITIONS)return;
-  list.innerHTML=GuideRegistry.GUIDE_DEFINITIONS.map(guide=>
-    `<button type="button" class="btn btn--steel guide-replay__item" data-guide-replay="${esc(guide.id)}">`+
-      `<span class="guide-replay__title">${esc(t(`guide.${guide.id}.title`))}</span>`+
-      `<span class="guide-replay__body">${esc(t(`guide.${guide.id}.body`))}</span>`+
-    `</button>`).join("");
-  $$("#guideReplayList [data-guide-replay]").forEach(button=>{
-    button.onclick=()=>replayContextualGuide(button.dataset.guideReplay)
-  })}
-// The browser's own answer, appended to the backup line. A stale answer from an
-// earlier render must not overwrite a newer one, and a browser without the API
-// reads the same as one that will not promise.
-let storageNoteGen=0;
-function paintStorageNote(backupLine){
-  const sn=$("#storageNote");if(!sn)return;
-  sn.textContent=backupLine;
-  const gen=++storageNoteGen;
-  (async()=>{let kept=false;try{kept=(await navigator.storage?.persisted?.())===true}catch{}
-    if(gen!==storageNoteGen)return;
-    sn.textContent=`${backupLine} ${t(kept?"settings.storage.persisted":"settings.storage.not_persisted")}`})()}
+function notifyEffective(){return notificationControls().effective()}
+function reconcileNotifyPermission(){return notificationControls().reconcile()}
+function paintNotifyControls(){return notificationControls().paint()}
+function setNotificationsEnabled(wanted){return notificationControls().setEnabled(wanted)}
 
 /* Activation keeps the Basics on this device as the lifter's profile
    (OD-4): answered fields replace their old values, skipped ones leave them.
@@ -10073,106 +9941,12 @@ function applyBasicsToProposal(proposal,basics){
     if(merged.ok)proposal.profile=merged.value}
   if((weightUnit==="kg"||weightUnit==="lb")&&weightUnit!==proposal.settings?.unit&&!readDraftRaw())
     proposal.settings={...normalizeSettings(proposal.settings),unit:weightUnit}}
-const PROFILE_VALUE_KEYS=["sex","birthDate","heightCm","heightUnit","weightKg","cardioExperience"];
-function interpretedProfile(profile){
-  if(!profile||typeof profile!=="object"||Array.isArray(profile))return{};
-  const interpreted={};
-  for(const key of PROFILE_VALUE_KEYS){
-    if(!Object.prototype.hasOwnProperty.call(profile,key))continue;
-    const result=ProgramEntry?.normalizeProfile?.({[key]:profile[key]});
-    if(result?.ok&&Object.prototype.hasOwnProperty.call(result.value,key))interpreted[key]=result.value[key]}
-  return interpreted}
-function profileRows(profile){
-  const rows=[];
-  profile=interpretedProfile(profile);
-  if(profile.sex)rows.push([t("entry.section_profile.sex"),t(`entry.sex.${profile.sex}`)]);
-  if(profile.birthDate){
-    const [y,m,d]=profile.birthDate.split("-").map(Number);
-    rows.push([t("entry.section_profile.birth_date"),new Date(Date.UTC(y,m-1,d)).toLocaleDateString(isPt()?"pt-BR":"en",{timeZone:"UTC",day:"numeric",month:"long",year:"numeric"})])}
-  if(profile.heightCm){
-    const total=Math.round(profile.heightCm/2.54);
-    rows.push([t("entry.section_profile.height"),profile.heightUnit==="ftin"?`${Math.floor(total/12)}′ ${total%12}″`:`${Math.round(profile.heightCm)} cm`])}
-  if(profile.weightKg)rows.push([t("entry.section_profile.weight"),`${fmt(toDisplay(profile.weightKg))} ${unitLabel()}`]);
-  if(profile.cardioExperience)rows.push([t("entry.section_profile.cardio"),[t(`entry.cardio.${profile.cardioExperience}`),entryCardioSub(profile.cardioExperience)].filter(Boolean).join(" · ")]);
-  return rows}
-function renderProfileSettings(){
-  const row=$("#profileRow"),panel=$("#profilePanel"),list=$("#profileList");
-  if(!row||!panel||!list)return;
-  const profile=state.profile||{};
-  const rows=profileRows(profile);
-  const hasProfileRecord=Object.prototype.hasOwnProperty.call(state,"profile");
-  row.hidden=!rows.length&&!hasProfileRecord;
-  if(!rows.length)setDisclosure(row,panel,false);
-  list.innerHTML=rows.map(([label,value])=>`<div class="settings-profile__row"><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`).join("")}
-async function clearProfile(){
-  if(!Object.prototype.hasOwnProperty.call(state,"profile")||!confirm(t("settings.profile.clear_confirm")))return;
-  const proposal=cloneSnapshot(state);delete proposal.profile;
-  const result=await commitProposedState(proposal);
-  if(result.localOk||result.idbOk){renderProfileSettings();toast(t("settings.profile.cleared"))}}
-function renderSettings(){
-  renderProfileSettings();
-  renderGuideReplayList();
-  const jp=$("#jumpPct"),mj=$("#minJump"),rh=$("#rirHigh"),hr=$("#hardRir"),rs=$("#restSec"),un=$("#unit");
-  if(jp)jp.value=state.settings.jumpPct;if(mj)mj.value=state.settings.minJump;if(rh)rh.value=state.settings.rirHigh;if(hr)hr.value=state.settings.hardRir;
-  if(rs)rs.value=state.settings.restSec;if(un)un.value=state.settings.unit;
-  const langSel=$("#lang");if(langSel){langSel.value=state.settings.lang;[...langSel.options].forEach(o=>{o.textContent=t("settings.lang."+o.value)})}
-  const themeSel=$("#theme");if(themeSel){themeSel.value=currentTheme();[...themeSel.options].forEach(o=>{o.textContent=t("settings.appearance."+o.value)})}
-  $$('input[name="rirMode"]').forEach(r=>{r.checked=r.value===state.settings.rirMode});
-  const vi=$("#voiceInputEnabled");if(vi)vi.checked=!!state.settings.voiceInputEnabled;
-  const vt=$("#voiceToggle");if(vt){vt.classList.toggle("is-on",!!state.settings.voiceInputEnabled);vt.setAttribute("aria-pressed",state.settings.voiceInputEnabled?"true":"false")}
-  const telemetryEnabled=window.RepForgeTelemetry?.isEnabled?.()!==false;
-  const tt=$("#telemetryToggle");if(tt){tt.classList.toggle("is-on",telemetryEnabled);tt.setAttribute("aria-pressed",telemetryEnabled?"true":"false")}
-  reconcileNotifyPermission();
-  paintNotifyControls();
-  updateVoiceBtn();
-  // Rule 5: the row is there only when tapping it leads somewhere — Chrome's
-  // prompt, the Safari sheet, or the explanation another iOS browser needs.
-  const manualInstall=installPolicyDecision("manual-settings");
-  const ia=$("#installApp");if(ia)ia.classList.toggle("hidden",!manualInstall.eligible&&installMode()!=="safari");
-  const sec=normalizeRestSec(state.settings.restSec),disp=$("#restSecDisplay");
-  if(disp)disp.textContent=sec?fmtClock(sec):t("settings.rest_off");
-  const rirDisp=$("#rirModeDisplay");if(rirDisp)rirDisp.textContent=state.settings.rirMode==="effort"?t("settings.rir_effort"):t("settings.rir_numbers");
-  const le=state.settings.lastExport,ago=le?t("settings.storage.last_backup",{lastBackup:le.slice(0,10)}):t("settings.storage.last_backup_never");
-  paintStorageNote(ago);
-  const deg=$("#storageDegraded");
-  if(deg){const on=!!DurableState.getStorageHealth().degraded;deg.textContent=on?t("settings.storage.degraded"):"";deg.classList.toggle("hidden",!on);deg.hidden=!on}
-  const sz=$("#storageSize");if(sz){try{const bytes=new Blob([localStorage.getItem(KEY)||""]).size;sz.textContent=bytes>1048576?`${fmt(+(bytes/1048576).toFixed(1))} MB`:`${Math.max(1,Math.round(bytes/1024))} KB`}catch{sz.textContent="—"}}
-}
+function interpretedProfile(profile){return interpretProfile(profile,ProgramEntry)}
+function renderProfileSettings(){return settingsView().renderProfile()}
+function clearProfile(){return settingsView().clearProfile()}
+function renderSettings(){settingsView().render();updateVoiceBtn()}
+function commitSettings(silent){return settingsView().save(silent)}
 
-/* Which settings a save changed (Plan 071 §5.5): names only, never values. */
-const SETTINGS_TELEMETRY=Object.freeze([["lang","language"],["unit","unit"],["rirMode","rir_mode"],["restSec","rest_timer"],
-  ["voiceInputEnabled","voice"],["notify","notifications"],["jumpPct","progression"],["minJump","progression"],["rirHigh","progression"],["hardRir","progression"]]);
-function reportSettingsChanged(before,after){
-  const changed=new Set(SETTINGS_TELEMETRY.filter(([key])=>JSON.stringify(before?.[key])!==JSON.stringify(after?.[key])).map(([,name])=>name));
-  for(const setting of changed)captureEvent("settings_changed",{setting})}
-async function commitSettings(silent){const editRevision=settingsEditRevision;const settingsBefore=cloneSnapshot(state.settings);
-  const num=(sel,def,min)=>{const n=parseDec($(sel).value);return Number.isFinite(n)&&n>=min?n:def};
-  const oldUnit=state.settings.unit,newUnit=$("#unit").value==="lb"?"lb":"kg",oldLang=state.settings.lang,newLang=I18N?.normalizeLang($("#lang")?.value)||oldLang;
-  const newRirMode=$('input[name="rirMode"]:checked')?.value==="effort"?"effort":"numeric";
-  if(!changeRirMode(newRirMode))return{revision:readRevision(state),localOk:false,idbOk:false,cancelled:true};
-  const rsEl=$("#restSec");let restSec;
-  const restN=parseDec(rsEl?.value);
-  if(Number.isFinite(restN)&&restN>=0&&!Number.isInteger(restN)){
-    if(rsEl){rsEl.value=String(state.settings.restSec);rsEl.setAttribute("aria-invalid","true");try{rsEl.focus()}catch{}}
-    toast(t("validation.rest_frac"));restSec=state.settings.restSec}
-  else{rsEl?.removeAttribute("aria-invalid");restSec=rsEl?num("#restSec",120,0):state.settings.restSec}
-  const oldRestSec=state.settings.restSec;
-  const originalDraftRaw=oldUnit===newUnit?null:readDraftRaw();
-  const unitEffect=draftUnitConversionEffect(originalDraftRaw,oldUnit,newUnit);
-  const proposal=cloneSnapshot(state);
-  proposal.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec,lastExport:state.settings.lastExport,unit:newUnit,lang:newLang,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,notify:normalizeNotify({enabled:!!state.settings.notify?.enabled,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
-  const result=await commitProposedState(proposal,storageIO,{effect:unitEffect});
-  if(!(result.localOk||result.idbOk)){if(editRevision===settingsEditRevision)renderSettings();return result}
-  reportSettingsChanged(settingsBefore,state.settings);
-  // A length picked in the timer sheet holds for the session, but a new default
-  // in Settings is the lifter saying it plainly — it wins.
-  if(oldRestSec!==state.settings.restSec)focusRest.length=0;
-  if(oldUnit!==newUnit){
-    const bw=$("#sessionBodyweight");if(bw&&bw.value!==""){const n=parseDec(bw.value);if(Number.isFinite(n))bw.value=fmtPlain(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit))}}
-  if(oldLang!==state.settings.lang&&I18N)I18N.setLang(state.settings.lang);
-  if(editRevision===settingsEditRevision)render();
-  if(!silent)toast(t("toast.settings_saved"));
-  return result}
 
 function table(rows){return formatTable(rows,t("stats.table.no_data"))}
 
@@ -16722,244 +16496,36 @@ function ensureGuidePrefs({persist=true}={}){
    is light rather than a read of the device. Everything else below resolves
    the pick to the concrete value <html data-theme> carries, which is the
    only thing styles.css ever looks at. */
-const THEMES=["system","light","dark"];
-/* Browser chrome cannot read a CSS variable, so --bg is spelled out again here
-   and in the pre-paint snippet in index.html. Three copies of two hexes; move
-   all three together. */
-const THEME_COLOR={light:"#F4F2EF",dark:"#141310"};
-const darkQuery=()=>window.matchMedia?.("(prefers-color-scheme: dark)")||null;
-const normalizeTheme=v=>THEMES.includes(v)?v:"light";
-const currentTheme=()=>normalizeTheme(uiPrefs.theme);
-const resolvedTheme=()=>{const pick=currentTheme();return pick==="system"?(darkQuery()?.matches?"dark":"light"):pick};
-function applyTheme(){
-  const resolved=resolvedTheme();
-  document.documentElement.dataset.theme=resolved;
-  renderLandingDevice();
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content",THEME_COLOR[resolved]);
-  return resolved}
-/* The chart is painted into a canvas, so it is the one surface a token swap
-   cannot reach on its own — it has already sampled the old palette. */
-function repaintForTheme(){applyTheme();redrawChart()}
-function setTheme(v){const next=normalizeTheme(v),changed=next!==currentTheme();setUiPref("theme",next);repaintForTheme();
-  if(changed)captureEvent("settings_changed",{setting:"theme"})}
-function watchSystemTheme(){
-  const q=darkQuery();
-  if(!q?.addEventListener)return;
-  q.addEventListener("change",()=>{if(currentTheme()==="system")repaintForTheme()})}
+let appearanceController=null;
+function appearanceView(){return appearanceController||(appearanceController=createAppearance({window,
+  preferences:{read:()=>uiPrefs,set:setUiPref},onPaint:renderLandingDevice,onChanged:redrawChart,report:captureEvent}))}
+function currentTheme(){return appearanceView().current()}
+function resolvedTheme(){return appearanceView().resolved()}
+function applyTheme(){return appearanceView().apply()}
+function setTheme(value){return appearanceView().set(value)}
+function watchSystemTheme(){return appearanceView().watch()}
 
 // ---- Install / PWA helpers ----
-const isStandalone=()=>window.matchMedia?.("(display-mode: standalone)")?.matches===true||window.navigator.standalone===true;
-const isIOS=()=>{const ua=navigator.userAgent||"";return /iphone|ipad|ipod/i.test(ua)||(navigator.platform==="MacIntel"&&(navigator.maxTouchPoints||0)>1)};
-/* iOS ships one installer — Safari's Share sheet — and every other iOS browser
-   is that same engine without it. Those browsers name themselves in the UA, and
-   so do the in-app webviews; nothing else on iOS can be told apart. */
-const IOS_NON_SAFARI=/CriOS|FxiOS|EdgiOS|OPiOS|OPT\/|OPR\/|YaBrowser|DuckDuckGo|Brave|FBAN|FBAV|FBIOS|Instagram|Line\/|Twitter|MicroMessenger|GSA\//i;
-const isIOSSafari=()=>isIOS()&&!IOS_NON_SAFARI.test(navigator.userAgent||"");
-const isChromium=()=>!/iphone|ipad|ipod/i.test(navigator.userAgent||"")&&
-  /Chrome|Chromium|CriOS|EdgA|EdgiOS|OPR\//i.test(navigator.userAgent||"");
-/** The single decision about which install interface a browser gets. It reads
- *  capabilities and display mode — never screen size — in this order:
- *    "none"   already installed, or nothing worth offering
- *    "native" a deferred beforeinstallprompt is in hand (Chromium anywhere)
- *    "ios"    iOS/iPadOS Safari, which installs by hand from the Share sheet
- *    "safari" another browser on iOS/iPadOS, which cannot install at all
- *  Chrome's own install prompt is never drawn by Taurifer: "native" only means
- *  we hold the event that asks Chrome to show it. */
-function installMode(){
-  if(isStandalone())return "none";
-  if(installPrompt)return "native";
-  if(isIOS())return isIOSSafari()?"ios":"safari";
-  return "none";
-}
-/* Chrome can fire this before init() binds its own listener, and an event nobody
-   caught is an install offer the lifter never gets. Capturing it here, at parse
-   time, means boot always reads the true answer; the listener in init() is the
-   one that redraws once there is something to redraw. */
-window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e},true);
-const IOS_SHARE_SVG='<svg class="ios-share" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v13"/><path d="M8 7l4-4 4 4"/><path d="M6 12H4v8h16v-8h-2"/></svg>';
-function installPolicySavedWorkouts(){
-  return new Set((state?.log||[]).filter(isWork).map(row=>row.session)).size}
-function installPolicyTransferAvailable(){
-  return typeof navigator.locks?.request==="function"&&!!window.crypto?.subtle}
-function installPolicyDecision(source="automatic"){
-  if(!InstallPolicy?.evaluateInstallPolicy)return{state:"unsupported",eligible:false,milestone:null,reason:"policy-unavailable"};
-  return InstallPolicy.evaluateInstallPolicy({
-    platform:isIOS()?"ios":isChromium()?"chromium":"other",
-    isIOSSafari:isIOSSafari(),hasInstallCapability:!!installPrompt,standalone:isStandalone(),
-    hasMeaningfulData:installTransferStateMeaningful(state),savedWorkoutsCount:installPolicySavedWorkouts(),
-    uiPrefs,nowMs:Date.now(),source,transferAvailable:installPolicyTransferAvailable()})}
-function recordInstallPolicyOffer(decision){
-  if(!Number.isInteger(decision?.milestone))return;
-  replaceUiPrefs({...InstallPolicy.recordInstallOffer(uiPrefs,{milestone:decision.milestone,nowMs:Date.now()})})}
-function recordInstallPolicyDismissal(decision){
-  if(!Number.isInteger(decision?.milestone))return;
-  replaceUiPrefs({...InstallPolicy.recordInstallDismissal(uiPrefs,{milestone:decision.milestone,nowMs:Date.now()})})}
-let installPresentedDecision=null;
-function installInstructions(){
-  if(isIOS())return t("install.ios_instructions",{icon:IOS_SHARE_SVG});
-  if(installPrompt)return t("install.prompt_instructions");
-  return t("install.browser_instructions");
-}
-/** Every surface that offers an install, refreshed from one reading of what the
- *  browser can do. Called whenever that reading can have changed. */
-function renderInstallSurfaces(){
-  const mode=installMode(),automatic=installPolicyDecision(),manual=installPolicyDecision("manual-settings");
-  $("#installBtn")?.classList.toggle("hidden",mode!=="native"||!automatic.eligible);
-  $("#installApp")?.classList.toggle("hidden",!manual.eligible&&mode!=="safari");
-  renderFirstRunInstall();
-}
-/* Which install offer was acted on (Plan 071 §5.1). Buttons bind
-   triggerInstall directly, so the click names the surface. */
-function installSurface(source){
-  if(source==="manual-settings")return"settings";
-  const id=source?.currentTarget?.id||source?.target?.closest?.("button")?.id||"";
-  if(id==="installBtn")return"header";
-  if(id==="installBannerAction")return"banner";
-  if(id.startsWith("firstRunInstall"))return"landing";
-  return firstRunActive?"landing":"banner"}
-function reportInstall(surface,mode,outcome){captureEvent("install_prompt_outcome",{surface,mode,outcome})}
+const isStandalone=()=>installView().isStandalone();
+const isIOS=()=>installView().isIOS();
+const isIOSSafari=()=>installView().isIOSSafari();
+function installMode(){return installView().mode()}
+function installPolicyDecision(source){return installView().decision(source)}
+function renderInstallSurfaces(){return installView().render()}
+function triggerInstall(source){return installView().trigger(source)}
+function showInstallBanner(force){return installView().showBanner(force)}
+function hideInstallBanner(remember){return installView().hideBanner(remember)}
+function maybeShowInstallBanner(){return installView().maybeShowBanner()}
+function showInstallTransferDivergenceDialog(onConfirm){return installView().divergence(onConfirm)}
 function reportLandingAction(action){captureEvent("landing_action",{action})}
-async function triggerInstall(source="automatic"){
-  const surface=installSurface(source);
-  const requestSource=source==="manual-settings"?"manual-settings":"automatic";
-  const decision=requestSource==="manual-settings"
-    ?installPolicyDecision("manual-settings")
-    :installPresentedDecision||installPolicyDecision();
-  const mode=installMode();
-  if(mode==="native"){
-    // The event is single-use. Clearing it before the await is what makes a
-    // second tap a no-op rather than a second prompt() on a spent event, and it
-    // is also step 3 of the flow: consume it whatever the lifter chooses.
-    const evt=installPrompt;installPrompt=null;
-    let outcome="";
-    try{evt.prompt();reportInstall(surface,"native","prompted");const choice=await evt.userChoice;outcome=choice?.outcome||""}catch{}
-    if(outcome==="accepted"||outcome==="dismissed")reportInstall(surface,"native",outcome);
-    // Nothing is claimed that Chrome has not confirmed: only "accepted" reports
-    // an install, and a dismissal simply leaves the section gone until Chrome
-    // offers the event again.
-    if(outcome==="accepted"){hideInstallBanner(false);closeFirstRunInstall();toast(t("toast.installing"))}
-    else{
-      if(outcome==="dismissed"&&requestSource==="automatic")recordInstallPolicyDismissal(decision);
-      hideInstallBanner(false);closeFirstRunInstall()}
-    renderSettings();renderInstallSurfaces();return}
-  if(mode==="ios"){
-    const marker=installTransferOutboundMarker();
-    const recoveryState=marker?.phase==="awaiting-claim"?"ready"
-      :marker?.phase==="creating"?"creating"
-      :marker?.phase==="confirmed"?"success"
-      :marker?.phase==="unknown-outcome"?(marker.outcomeCode==="claimed-expired"?"claimed-expired":"unknown")
-      :null;
-    if(!recoveryState&&!decision.eligible)return;
-    const transfer=decision.reason==="ios-transfer";
-    openIosInstallSheet(recoveryState||(transfer?"eligible":"manual"));
-    reportInstall(surface,"ios","instructions_shown");return}
-  if(mode==="safari"){showInstallBanner(true);reportInstall(surface,"manual","instructions_shown");return}
-}
-function installBannerEligible(){
-  const decision=installPolicyDecision();
-  if(!decision.eligible||!["eligible-milestone","ios-transfer"].includes(decision.state))return false;
-  if(state?.[STORAGE_FOLLOWUP]?.kind==="onboarding-edit")return false;
-  if(firstRunActive||$("#onboarding")?.classList.contains("active"))return false;
-  return true;
-}
-function showInstallBanner(force){
-  const b=$("#installBanner");if(!b)return;
-  const outboundMarker=installTransferOutboundMarker();
-  if(outboundMarker&&outboundMarker.phase!=="resumedDiverged"){
-    const title=$(".installbanner__title");
-    const body=$("#installBannerBody");
-    const act=$("#installBannerAction");
-    if(outboundMarker.phase==="confirmed"){
-      if(title)title.textContent=t("install.transfer.confirmed_title")||"Workout Data Transferred";
-      const isStale=outboundMarker.recoverySnapshot?.mutatedAfterCreation===true;
-      if(body)body.textContent=isStale
-        ?(t("install.transfer.stale_body")||"Your workout data was transferred to the installed app, but was modified here afterward. The installed app may not have recent changes.")
-        :(t("install.transfer.confirmed_body")||"Your workout data was transferred to the installed app.");
-    }else if(outboundMarker.phase==="awaiting-claim"||outboundMarker.phase==="creating"){
-      if(title)title.textContent=t("install.transfer.pending_title")||"Transfer in Progress";
-      if(body)body.textContent=t("install.transfer.pending_body")||"Open Taurifer from your Home Screen to complete the transfer.";
-    }else{
-      const claimedExpired=outboundMarker.outcomeCode==="claimed-expired";
-      if(title)title.textContent=t(claimedExpired?"install.transfer.claimed_expired_title":"install.transfer.unknown_title");
-      if(body)body.textContent=t(claimedExpired?"install.transfer.claimed_expired_body":"install.transfer.unknown_body");
-    }
-    if(act){
-      act.classList.remove("hidden");
-      const pending=["awaiting-claim","creating"].includes(outboundMarker.phase);
-      act.textContent=t(pending?"install.card.ios_action":"install.transfer.resume_action")||"Resume in browser";
-      act.onclick=installMode()==="ios"?triggerInstall:()=>showInstallTransferDivergenceDialog(installTransferConfirmDivergence);
-    }
-    b.classList.remove("hidden");
-    return;
-  }
-  const mode=installMode();
-  if(mode==="none")return;
-  if(!force&&!installBannerEligible())return;
-  const decision=force?installPolicyDecision("manual-settings"):installPolicyDecision();
-  $("#installBannerBody").innerHTML=mode==="safari"?esc(t("install.card.safari_only_body")):installInstructions();
-  const act=$("#installBannerAction");
-  if(mode==="native"){act.classList.remove("hidden");act.textContent=t("install.action");act.onclick=triggerInstall;}
-  else if(mode==="ios"){act.classList.remove("hidden");act.textContent=t("install.card.ios_action");act.onclick=triggerInstall;}
-  else act.classList.add("hidden");
-  installPresentedDecision=decision;
-  if(!force)recordInstallPolicyOffer(decision);
-  b.classList.remove("hidden");
-  queueMicrotask(()=>maybeShowContextualGuides(["install"]));
-}
-function showInstallTransferDivergenceDialog(onConfirm){
-  let dialog=$("#installTransferDivergenceModal");
-  if(!dialog){
-    dialog=document.createElement("div");
-    dialog.id="installTransferDivergenceModal";
-    dialog.className="sheet sheet--divergence";
-    dialog.setAttribute("role","dialog");
-    dialog.setAttribute("aria-modal","true");
-    dialog.setAttribute("aria-labelledby","divergenceTitle");
-    dialog.innerHTML=`
-      <div class="sheetband">
-        <span class="sheetband__handle" aria-hidden="true"></span>
-        <h2 class="sheetband__title" id="divergenceTitle">${esc(t("install.transfer.divergence_title")||"Permanent Divergence Warning")}</h2>
-      </div>
-      <div style="padding:16px;">
-        <p id="divergenceBody">${esc(t("install.transfer.divergence_body")||"If you resume in browser, future changes here and in the installed app will not merge and will develop separate workout histories.")}</p>
-        <div style="display:flex;gap:12px;margin-top:16px;">
-          <button type="button" class="btn btn--secondary" id="divergenceDismiss">${esc(t("dialog.cancel")||"Dismiss")}</button>
-          <button type="button" class="btn btn--cta" id="divergenceConfirm">${esc(t("install.transfer.confirm_resume")||"Confirm and Resume")}</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(dialog);
-  }
-  const scrim=$("#iosInstallScrim");
-  openModal(dialog,{
-    scrim,
-    initialFocus:$("#divergenceDismiss"),
-    onEscape:()=>closeModal(dialog)
-  });
-  requestAnimationFrame(()=>{dialog.classList.add("is-open");scrim?.classList.add("is-open")});
-  $("#divergenceDismiss").onclick=()=>{
-    closeModal(dialog);
-  };
-  $("#divergenceConfirm").onclick=async()=>{
-    closeModal(dialog);
-    if(typeof onConfirm==="function")await onConfirm();
-  };
-}
-function hideInstallBanner(remember){
-  $("#installBanner")?.classList.add("hidden");
-  if(remember)recordInstallPolicyDismissal(installPresentedDecision);
-  installPresentedDecision=null}
-function maybeShowInstallBanner(){if(installBannerEligible())showInstallBanner(false)}
+// Capture Chrome's single-use offer before init, without reading training state.
+window.addEventListener("beforeinstallprompt",event=>installView().capturePrompt(event),true);
 
 /* ---- First-run setup: install, then choose a program ----
    One screen, one layout. Only its install section changes, and it changes with
    what the browser can actually do — a captured beforeinstallprompt, Safari's
    manual Home Screen flow, or nothing — so no lifter is ever asked which phone
    they are holding. */
-const INSTALL_TRAY_SVG='<svg class="installcard__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+
-  '<path d="M12 3v11"/><path d="M7.5 9.5 12 14l4.5-4.5"/><path d="M4 14v5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5"/></svg>';
-const INSTALL_SHARE_SVG='<svg class="installcard__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+
-  '<path d="M12 3v12"/><path d="M7.5 7.5 12 3l4.5 4.5"/><path d="M6 11H4v9h16v-9h-2"/></svg>';
 let sharedSetupDraft={status:"none",source:null,encoded:null,payload:null,error:null,previousLang:null};
 let firstRunActive=false;
 const firstRunOpen=()=>!!$("#firstRun")&&!$("#firstRun").classList.contains("hidden");
@@ -17044,25 +16610,7 @@ async function commitSharedSetup(io=storageIO){
 }
 /** Write the install section from the current reading, or take it away. Rule 5:
  *  a browser with no mechanism gets no section at all, never a dead button. */
-function renderFirstRunInstall(){
-  const sec=$("#firstRunInstall"),card=$("#firstRunInstallCard"),link=$("#firstRunInstallLink");
-  if(!sec||!card)return;
-  const mode=installMode(),decision=installPolicyDecision();
-  const explanatory=mode==="safari"&&decision.state==="unsupported";
-  const shown=decision.eligible||explanatory;
-  link?.classList.toggle("hidden",!shown);
-  if(!shown){sec.classList.add("hidden");card.innerHTML="";return}
-  const body=mode==="native"?t("install.card.browser_body")
-    :mode==="ios"?t("install.card.ios_body"):t("install.card.safari_only_body");
-  const action=mode==="native"?t("install.card.browser_action"):mode==="ios"?t("install.card.ios_action"):"";
-  card.innerHTML=(mode==="native"?INSTALL_TRAY_SVG:INSTALL_SHARE_SVG)+
-    `<div class="installcard__text"><p class="installcard__title">${esc(t("install.card.title"))}</p>`+
-    `<p class="installcard__body">${esc(body)}</p></div>`+
-    (action?`<button type="button" class="btn btn--cta installcard__action" id="firstRunInstallAction">${esc(action)}</button>`:"");
-  const act=$("#firstRunInstallAction");if(act)act.onclick=event=>{reportLandingAction("install");return triggerInstall(event)};
-  installPresentedDecision=decision;
-  sec.classList.remove("hidden");
-}
+function renderFirstRunInstall(){return installView().renderLanding()}
 /** The lede and the escape hatch both speak to the install offer, so they follow
  *  it. With nothing to install — most of all inside the installed app — the
  *  screen is only the program question, and "Continue in browser" would be an
@@ -17105,12 +16653,7 @@ function renderLandingResume(){
     if(button){if(route)button.dataset.entryResume=route;else delete button.dataset.entryResume}}}
 /** Chrome accepted the install, or the app reports itself installed. Either way
  *  there is nothing left to install: the section goes, the choices stay. */
-function closeFirstRunInstall(){
-  const sec=$("#firstRunInstall");if(sec)sec.classList.add("hidden");
-  const card=$("#firstRunInstallCard");if(card)card.innerHTML="";
-  installPresentedDecision=null;
-  setFirstRunOffer(false);
-}
+function closeFirstRunInstall(){return installView().closeLanding()}
 /* ---- Landing page: engine-true numbers, filled copy and the proof ----
    Every number the page shows is produced here at render time and poured into an
    i18n template, never typed into markup or a catalog value. The three outcome
@@ -17584,7 +17127,7 @@ function suspendFirstRun(){
   disposeLandingController();
   el.classList.add("hidden");document.body.classList.remove("is-firstrun")}
 function closeFirstRun(){
-  firstRunActive=false;installPresentedDecision=null;suspendFirstRun()}
+  firstRunActive=false;installView().resetPresented();suspendFirstRun()}
 const firstRunPending=()=>!state.programMeta?.onboarded&&!state.log.length;
 /** Resolve the landing before ordinary navigation. A valid or invalid shared
  *  handoff always gets its complete fail-closed surface. Otherwise the landing
@@ -17829,217 +17372,26 @@ function openWhySheetFor(ex,opener){
   const surface=opener?.closest?.("#exDetail")?"exercise":"focus",model=whySheetModel(ex,surface);
   return focusWhyView().open({model:{...model,markHtml:verdictMarkHtml(model.glyph),labels:{calc:t("why.calc"),calcHide:t("why.calc_hide")}},opener,surface})}
 function closeWhySheet(){return focusWhyView().close()}
-let installTransferVisibleState="manual",privacyReturnsToTransfer=false,privacyTransferOpener=null;
-/** Where focus starts in each install-sheet state: the Done button of the
- *  instructions, the explanation's primary action, or the heading of every state
- *  that has nothing to choose yet. */
-function installSheetInitialControl(stateName){
-  return stateName==="eligible"?$("#installTransferStart"):stateName==="manual"?$("#iosInstallDone"):$("#iosInstallTitle")}
-/** A state change hides the control that held focus (Start becomes a transfer in
- *  progress, "Install without transferring" becomes the instructions). Focus does
- *  not follow a hidden control, it drops to the page behind the dialog, so the
- *  sheet hands it to the new state's own starting point. */
-function installSheetKeepFocus(sheet,stateName){
-  if(activeModal?.el!==sheet)return;
-  const held=document.activeElement;
-  if(held&&sheet.contains(held)&&canTakeFocus(held))return;
-  const target=installSheetInitialControl(stateName);
-  try{target?.focus({preventScroll:true})}catch{}}
-function installTransferTime(expiresAt){
-  const date=new Date(expiresAt);
-  if(Number.isNaN(date.valueOf()))return"";
-  try{return new Intl.DateTimeFormat(I18N?.getLang?.()==="pt"?"pt-BR":"en",{
-    dateStyle:"medium",timeStyle:"short"}).format(date)}catch{return date.toLocaleString()}}
-function installTransferContinueWithoutTransfer(){
-  const marker=installTransferOutboundMarker();
-  if(marker?.phase==="creating"&&!marker.sealedCredentials){
-    try{localStorage.removeItem(INSTALL_OUTBOUND_KEY)}catch{}
-  }
-  installTransferRenderState("manual")}
-function installTransferRenderState(stateName,detail={}){
-  const sheet=$("#iosInstallSheet");if(!sheet)return false;
-  const definitions={
-    manual:["install.ios.title","install.ios.sub",""],
-    eligible:["install.transfer.eligible_title","install.transfer.eligible_sub","install.transfer.eligible_body"],
-    creating:["install.transfer.creating_title","install.transfer.creating_sub","install.transfer.creating_status"],
-    ready:["install.transfer.ready_title","install.transfer.ready_sub","install.transfer.ready_status"],
-    retryable:["install.transfer.retryable_title","install.transfer.retryable_sub","install.transfer.retryable_status"],
-    claiming:["install.transfer.claiming_title","install.transfer.claiming_sub","install.transfer.claiming_status"],
-    importing:["install.transfer.importing_title","install.transfer.importing_sub","install.transfer.importing_status"],
-    success:["install.transfer.success_title","install.transfer.success_sub","install.transfer.success_status"],
-    cleanup:["install.transfer.cleanup_title","install.transfer.cleanup_sub","install.transfer.cleanup_status"],
-    terminal:["install.transfer.terminal_title","install.transfer.terminal_sub","install.transfer.terminal_status"],
-    destination:["install.transfer.destination_title","install.transfer.terminal_sub","install.transfer.destination_status"],
-    interrupted:["install.transfer.interrupted_title","install.transfer.terminal_sub","install.transfer.interrupted_status"],
-    unknown:["install.transfer.unknown_title","install.transfer.terminal_sub","install.transfer.unknown_body"],
-    "claimed-expired":["install.transfer.claimed_expired_title","install.transfer.terminal_sub","install.transfer.claimed_expired_body"],
-  };
-  const def=definitions[stateName]||definitions.interrupted;
-  installTransferVisibleState=stateName;
-  sheet.dataset.transferState=stateName;
-  const title=$("#iosInstallTitle"),sub=sheet.querySelector(".sheetband__sub"),body=$("#installTransferBody"),status=$("#installTransferStatus");
-  if(title){title.textContent=t(def[0]);title.tabIndex=-1}
-  if(sub)sub.textContent=t(def[1]);
-  if(body)body.textContent=stateName==="eligible"&&def[2]?t(def[2]):"";
-  if(status)status.textContent=!['manual','eligible'].includes(stateName)&&def[2]?t(def[2]):"";
-  $("#installTransferIntro")?.classList.toggle("hidden",!["eligible","retryable"].includes(stateName));
-  $("#iosInstallInstructions")?.classList.toggle("hidden",!["manual","ready"].includes(stateName));
-  const expiry=$("#installTransferExpiry"),formatted=installTransferTime(detail.expiresAt);
-  if(expiry){expiry.textContent=formatted?t("install.transfer.expires",{time:formatted}):"";expiry.classList.toggle("hidden",!formatted)}
-  const actions=$("#installTransferActions"),start=$("#installTransferStart"),retry=$("#installTransferRetry"),cont=$("#installTransferContinue"),done=$("#iosInstallDone"),close=$("#iosInstallClose");
-  actions?.classList.toggle("hidden",!["eligible","retryable","success","cleanup","terminal","destination","interrupted","unknown","claimed-expired"].includes(stateName));
-  start?.classList.toggle("hidden",stateName!=="eligible");
-  retry?.classList.toggle("hidden",!["retryable","cleanup","interrupted"].includes(stateName));
-  const canContinue=["eligible","retryable","success","cleanup","terminal","destination","unknown","claimed-expired"].includes(stateName);
-  cont?.classList.toggle("hidden",!canContinue);
-  if(cont)cont.textContent=t(["eligible","retryable"].includes(stateName)?"install.transfer.without"
-    :["unknown","claimed-expired"].includes(stateName)?"install.transfer.resume_action":"install.transfer.continue");
-  done?.classList.toggle("hidden",!["manual","ready"].includes(stateName));
-  const busy=["creating","claiming","importing"].includes(stateName);
-  sheet.setAttribute("aria-busy",busy?"true":"false");
-  close?.classList.toggle("hidden",busy||["interrupted","unknown","claimed-expired"].includes(stateName));
-  if(activeModal?.el===sheet)
-    activeModal.onEscape=busy||["interrupted","unknown","claimed-expired"].includes(stateName)?undefined:closeIosInstallSheet;
-  if(retry)retry.onclick=()=>isStandalone()?location.reload():installTransferCreateFromSafari();
-  if(cont)cont.onclick=()=>["eligible","retryable"].includes(stateName)?installTransferContinueWithoutTransfer()
-    :["unknown","claimed-expired"].includes(stateName)?installTransferRequestDivergence()
-    :closeIosInstallSheet();
-  installSheetKeepFocus(sheet,stateName);
-  if(["ready","retryable","success","cleanup","terminal","destination","interrupted","unknown","claimed-expired"].includes(stateName))
-    queueMicrotask(()=>{try{title?.focus({preventScroll:true})}catch{}});
-  return true}
-function openIosInstallSheet(stateName,{returnFocus}={}){
-  const sheet=$("#iosInstallSheet"),scrim=$("#iosInstallScrim");
-  if(!sheet)return;
-  const selected=stateName||((!isStandalone()&&installTransferMeaningful(state))?"eligible":"manual");
-  installTransferRenderState(selected);
-  const host=$("#iosInstallHost");
-  if(host)host.textContent=location.hostname||"";
-  document.body.classList.add("is-sheet-open");
-  const initial=installSheetInitialControl(selected);
-  const dismissable=!["creating","claiming","importing","interrupted","unknown","claimed-expired"].includes(selected);
-  openModal(sheet,{initialFocus:initial,onEscape:dismissable?closeIosInstallSheet:undefined,scrim,returnFocus,
-    delayHide:reducedMotion()?0:280});
-  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
-function closeIosInstallSheet(){
-  const sheet=$("#iosInstallSheet");
-  if(!sheet)return Promise.resolve(false);
-  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
-  return closeModal(sheet)}
-function openPrivacySheet({fromTransfer=false}={}){
-  const sheet=$("#privacySheet"),scrim=$("#privacyScrim");if(!sheet)return;
-  privacyReturnsToTransfer=fromTransfer;
-  // The transfer sheet is hidden while Privacy is up; whoever opened it is still
-  // owed focus when it closes, and Privacy's own opener is only a hop in between.
-  privacyTransferOpener=fromTransfer&&activeModal?.el===$("#iosInstallSheet")?activeModal.returnFocus:null;
-  openModal(sheet,{scrim,handoff:fromTransfer,initialFocus:$("#privacyClose"),onEscape:closePrivacySheet,
-    returnFocus:fromTransfer?$("#installTransferPrivacy"):document.activeElement,delayHide:reducedMotion()?0:280});
-  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
-async function closePrivacySheet(){
-  const returns=privacyReturnsToTransfer,opener=privacyTransferOpener;
-  privacyReturnsToTransfer=false;privacyTransferOpener=null;
-  await closeModal($("#privacySheet"));
-  if(returns){
-    openIosInstallSheet(installTransferVisibleState,{returnFocus:opener});
-    queueMicrotask(()=>$("#installTransferPrivacy")?.focus({preventScroll:true}));
-  }}
-async function installTransferRequestDivergence(){
-  await closeIosInstallSheet();
-  showInstallBanner(true);
-  showInstallTransferDivergenceDialog(installTransferConfirmDivergence)}
+function installTransferRenderState(stateName,detail){return installView().renderTransfer(stateName,detail)}
+function openIosInstallSheet(stateName,options){return installView().openSheet(stateName,options)}
+function closeIosInstallSheet(){return installView().closeSheet()}
+function openPrivacySheet(options){return installView().openPrivacy(options)}
+function closePrivacySheet(){return installView().closePrivacy()}
 
 // ---- Contextual guides ----
-let activeGuideId=null,activeGuideAnchor=null,activeGuideCue=null,activeGuideReturnFocus=null;
-function guideDefinition(id){return GuideRegistry?.GUIDE_DEFINITIONS?.find(guide=>guide.id===id)||null}
-function guideAnchor(guide){
-  if(!guide?.anchorSelector)return null;
-  return [...document.querySelectorAll(guide.anchorSelector)].find(el=>{
-    if(!(el instanceof HTMLElement)||el.hidden||el.classList.contains("hidden"))return false;
-    const style=getComputedStyle(el),rect=el.getBoundingClientRect();
-    return style.display!=="none"&&style.visibility!=="hidden"&&rect.width>0&&rect.height>0})||null}
-function guideStored(id){return uiPrefs.guideState?.[id]||null}
-function saveGuideTransition(id,status){
-  const guide=guideDefinition(id);if(!guide||!GuideRegistry?.recordGuideTransition)return false;
-  const live=GuideRegistry.migrateLegacyTourDone(loadUiPrefs());
-  const next=GuideRegistry.recordGuideTransition(live,id,status,{version:guide.version,nowMs:Date.now()});
-  return replaceUiPrefs({...next})}
-function removeContextualGuide(){
-  const hadCue=!!activeGuideCue;
-  activeGuideCue?.remove();activeGuideId=null;activeGuideAnchor=null;activeGuideCue=null;activeGuideReturnFocus=null;
-  if(hadCue)syncFocusFloor()}
-function dismissContextualGuide({restoreFocus=false}={}){
-  if(!activeGuideId)return false;
-  const target=activeGuideReturnFocus||activeGuideAnchor;
-  saveGuideTransition(activeGuideId,"dismissed");removeContextualGuide();
-  if(restoreFocus&&target instanceof HTMLElement&&target.isConnected)target.focus({preventScroll:true});
-  return true}
-function showContextualGuide(id,{focus=false,returnFocus=null,persistDeferred=false}={}){
-  const guide=guideDefinition(id);if(!guide?.wired)return false;
-  const anchor=guideAnchor(guide);
-  const decision=GuideRegistry.evaluateGuide(guide,{
-    anchorPresent:!!anchor,anchorVisible:!!anchor,uiPrefs});
-  if(!decision.eligible){
-    if(persistDeferred&&decision.decision==="deferred"&&guideStored(id)?.status!=="deferred")saveGuideTransition(id,"deferred");
-    return false}
-  removeContextualGuide();
-  const cue=document.createElement("aside"),titleId=`guideCueTitle-${id}`;
-  cue.className="guide-cue";cue.dataset.guideCue=id;cue.dataset.anchorTarget=guide.anchorSelector;
-  cue.setAttribute("role","status");cue.setAttribute("aria-labelledby",titleId);
-  cue.innerHTML=`<div class="guide-cue__copy"><p class="guide-cue__title" id="${titleId}">${esc(t(`guide.${id}.title`))}</p>`+
-    `<p class="guide-cue__body">${esc(t(`guide.${id}.body`))}</p></div>`+
-    `<button type="button" class="guide-cue__dismiss" data-guide-dismiss aria-label="${esc(t("guide.dismiss"))}">×</button>`;
-  const dismiss=cue.querySelector("[data-guide-dismiss]");
-  dismiss.onclick=event=>{event.stopPropagation();dismissContextualGuide({restoreFocus:focus})};
-  cue.addEventListener("keydown",event=>{
-    if(event.key!=="Escape")return;
-    event.preventDefault();event.stopPropagation();dismissContextualGuide({restoreFocus:true})});
-  // #firstRunPrivacy lives in the narrow header utility row: inserted there,
-  // the cue is a flex sibling with no room and collapses into a vertical
-  // sliver of one word per line. Focus's own controls likewise need the whole
-  // owning surface as their insertion point so a cue never joins a fixed row.
-  const shelf=anchor.closest(".focus-shelf");
-  const placement=shelf||anchor.closest(".wo-head")||
-    anchor.closest(".firstrun__actions")||anchor.closest(".firstrun__header")||anchor.closest(".entry__hub")||anchor.closest(".entry-feature")||
-    anchor.closest("#statsSeg")||anchor;
-  placement.insertAdjacentElement(shelf?"beforebegin":"afterend",cue);
-  syncFocusFloor();
-  activeGuideId=id;activeGuideAnchor=anchor;activeGuideCue=cue;
-  activeGuideReturnFocus=returnFocus instanceof HTMLElement?returnFocus:null;
-  const stored=guideStored(id);
-  if(stored?.version!==guide.version||stored?.status!=="shown")saveGuideTransition(id,"shown");
-  if(focus)queueMicrotask(()=>dismiss?.focus({preventScroll:true}));
-  return true}
-function maybeShowContextualGuides(ids=GuideRegistry?.PLAN_054_GUIDE_IDS||[]){
-  // Never while the entry landing is up. It is a full-screen threshold whose
-  // one job is the proposition, and every cue that can anchor to it explains
-  // a control it has already named — the entry actions carry their labels,
-  // the install card carries its title and body, Privacy is a standing link.
-  // The app's ordinary render loop runs behind this gate, so the rule belongs
-  // here rather than at a call site: otherwise any future render path
-  // re-opens the same hole. The guides keep their state and their real
-  // moments — "entry" at the chooser, "install" and "privacy" in Settings.
-  if(firstRunOpen())return false;
-  if(activeGuideCue?.isConnected&&activeGuideAnchor&&guideAnchor(guideDefinition(activeGuideId))===activeGuideAnchor)return true;
-  removeContextualGuide();
-  for(const id of ids){
-    if(showContextualGuide(id))return true}
-  return false}
-function completeContextualGuide(){
-  if(!activeGuideId)return false;
-  saveGuideTransition(activeGuideId,"completed");removeContextualGuide();return true}
-function replayContextualGuide(id){
-  const guide=guideDefinition(id);if(!guide||!GuideRegistry?.replayGuideState)return false;
-  uiPrefs=loadUiPrefs();
-  if(activeGuideId===id)removeContextualGuide();
-  const next=GuideRegistry.replayGuideState(uiPrefs,id,{version:guide.version,nowMs:Date.now()});
-  if(!replaceUiPrefs({...next}))return false;
-  captureEvent("guide_replay",{guideId:id});
-  const returnFocus=document.activeElement;
-  queueMicrotask(()=>showContextualGuide(id,{focus:true,returnFocus,persistDeferred:true}));return true}
-function contextualGuideState(){return cloneSnapshot(uiPrefs.guideState||{})}
-function onContextualGuideAction(event){
-  const target=event.target instanceof Element?event.target:null;
-  if(activeGuideAnchor&&target&&activeGuideAnchor.contains(target))completeContextualGuide()}
+let contextualGuides=null;
+function guidesView(){return contextualGuides||(contextualGuides=createGuidesView({window,registry:GuideRegistry,
+  preferences:{read:()=>uiPrefs,reload:loadUiPrefs,replace:replaceUiPrefs},t,landingOpen:firstRunOpen,
+  onGeometryChanged:syncFocusFloor,report:captureEvent}))}
+function removeContextualGuide(){return guidesView().remove()}
+function dismissContextualGuide(options){return guidesView().dismiss(options)}
+function showContextualGuide(id,options){return guidesView().show(id,options)}
+function maybeShowContextualGuides(ids){return guidesView().maybeShow(ids)}
+function completeContextualGuide(){return guidesView().complete()}
+function replayContextualGuide(id){return guidesView().replay(id)}
+function contextualGuideState(){return guidesView().state()}
+function onContextualGuideAction(event){return guidesView().onAction(event)}
+
 
 function showSettings(){
   $$("nav button").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-current","false")});
@@ -18155,10 +17507,9 @@ function init(){
   // lets the install section appear on a first-run screen the lifter is already
   // reading. One that has been left for the wizard is not pulled back: the
   // banner carries the offer from there.
-  window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;
+  window.addEventListener("beforeinstallprompt",e=>{installView().capturePrompt(e);
     renderSettings();renderInstallSurfaces();maybeShowInstallBanner()});
-  window.addEventListener("appinstalled",()=>{installPrompt=null;hideInstallBanner(false);captureEvent("app_installed",{});
-    closeFirstRunInstall();renderSettings();renderInstallSurfaces()});
+  window.addEventListener("appinstalled",()=>installView().installed());
   $("#installBtn").onclick=triggerInstall;
   $("#installBannerClose").onclick=()=>hideInstallBanner(true);
   $("#installBannerAction").onclick=triggerInstall;
@@ -18185,7 +17536,7 @@ function init(){
   // "Continue in browser" is an answer to the install offer, not to the program
   // question: it takes the offer off the table for a while, then hands over to
   // the same first run the app has always had.
-  $("#firstRunContinue").onclick=()=>{reportLandingAction("continue_browser");recordInstallPolicyDismissal(installPresentedDecision);
+  $("#firstRunContinue").onclick=()=>{reportLandingAction("continue_browser");installView().dismissPresented();
     if(sharedSetupReady()){closeFirstRunInstall();renderFirstRunProgramMode();return}
     closeFirstRun();startOnboarding("first-run")};
   const sharedCreate=$("#firstRunSharedCreate");if(sharedCreate)sharedCreate.onclick=()=>{
@@ -18503,14 +17854,14 @@ function init(){
   const dataImport=$("#dataImportRow");if(dataImport)dataImport.onclick=()=>setDisclosure(dataImport,$("#dataImportPanel"),!$("#dataImportPanel")?.classList.contains("is-open"));
   [["#restSecRow","#restSecPanel"],["#rirModeRow","#rirModePanel"],["#progressionRow","#progressionDetails"],["#notifyConfigRow","#notifyTypes"],["#dataBackupRow","#dataBackupPanel"],["#profileRow","#profilePanel"],["#dataImportRow","#dataImportPanel"]].forEach(([b,p])=>setDisclosure($(b),$(p),false));
   setDisclosure($("#guideReplayToggle"),$("#guideReplayPanel"),false);
-  const commitChangedSettings=()=>{settingsEditRevision++;return commitSettings(true)};
-  $("#settings").addEventListener("input",()=>{settingsEditRevision++});
+  const commitChangedSettings=()=>{settingsView().touch();return commitSettings(true)};
+  $("#settings").addEventListener("input",()=>settingsView().touch());
   const voiceTog=$("#voiceToggle");if(voiceTog)voiceTog.onclick=()=>{const c=$("#voiceInputEnabled");if(c){c.checked=!c.checked;commitChangedSettings()}};
   const telemetryTog=$("#telemetryToggle");if(telemetryTog)telemetryTog.onclick=()=>{
     try{window.RepForgeTelemetry?.setEnabled(!(window.RepForgeTelemetry?.isEnabled?.()!==false))}catch{}
     renderSettings()};
   const notifyTog=$("#notifyToggle");if(notifyTog)notifyTog.onclick=()=>{
-    const on=notifyPending||notifyEffective();
+    const on=notificationControls().pending()||notifyEffective();
     setNotificationsEnabled(!on)};
   const onbCancel=$("#onbCancel");if(onbCancel)onbCancel.onclick=()=>requestEntryCancel();
   window.addEventListener("popstate",onEntryPopState);
@@ -18962,3 +18313,37 @@ function initializePersistenceOwners(){
   DurableState.addStorageHealthListener(noteWriteHealth);
   window.__repforgeStorage.durable=DurableState;
 }
+
+let settingsCommandsOwner=null,settingsUiOwner=null,notificationUiOwner=null,settingsDraftEffectsOwner=null;
+function settingsDraftEffects(){return settingsDraftEffectsOwner||(settingsDraftEffectsOwner=createSettingsDraftEffects({workout:WorkoutDraft,
+  outcome:draftEffectOutcome,writer:draftWriter,operationId:uid,now:()=>new Date().toISOString()}))}
+function settingsCommands(){return settingsCommandsOwner||(settingsCommandsOwner=createSettingsCommands({
+  read:applicationSession.read,commit:(proposal,options)=>commitProposedState(proposal,storageIO,options),
+  policy:{normalizeSettings,normalizeProfile:value=>ProgramEntry.normalizeProfile(value)},draft:{readRaw:readDraftRaw,hasProgress:draftHasProgress,unitEffect:(raw,oldUnit,newUnit)=>settingsDraftEffects().unitEffect(raw,oldUnit,newUnit)},report:captureEvent,revision:readRevision}))}
+function notificationControls(){return notificationUiOwner||(notificationUiOwner=createNotificationControls({window,
+  settings:settingsCommands(),capability:{permission:()=>window.RepForgeNotify?window.RepForgeNotify.permission():"unsupported",
+    request:()=>window.RepForgeNotify?window.RepForgeNotify.request():Promise.resolve("unsupported")},t}))}
+function settingsView(){return settingsUiOwner||(settingsUiOwner=createSettingsView({window,settings:settingsCommands(),
+  i18n:{t,getLang:uiLang,normalizeLang:value=>I18N?.normalizeLang(value)},appearance:appearanceView(),notifications:notificationControls(),
+  install:{decision:installPolicyDecision,mode:installMode},guides:guidesView(),telemetry:window.RepForgeTelemetry||{},
+  storage:{health:()=>DurableState.getStorageHealth(),raw:()=>localStorage.getItem(KEY)},shell:{setDisclosure},toast,
+  onSaved:({before,after,current})=>{
+    if(before.restSec!==after.restSec)focusRest.length=0;
+    if(before.unit!==after.unit){const bw=$("#sessionBodyweight");if(bw&&bw.value!==""){const n=parseDec(bw.value);
+      if(Number.isFinite(n))bw.value=fmtPlain(toDisplayUnit(fromDisplayUnit(n,before.unit),after.unit))}}
+    if(before.lang!==after.lang&&I18N)I18N.setLang(after.lang);
+    if(current)render();
+  }}))}
+
+let installUiOwner=null;
+function abandonUnsealedInstallTransfer(){const marker=installTransferOutboundMarker();
+  if(marker?.phase==="creating"&&!marker.sealedCredentials){try{localStorage.removeItem(INSTALL_OUTBOUND_KEY)}catch{}}}
+function installView(){return installUiOwner||(installUiOwner=createInstallView({window,t,language:uiLang,policy:InstallPolicy,
+  read:()=>{const meaningful=installTransferStateMeaningful(state);return {hasMeaningfulData:meaningful,transferMeaningful:meaningful||installTransferDeviceMeaningful(),savedWorkoutsCount:new Set((state?.log||[]).filter(isWork).map(row=>row.session)).size,
+    transferAvailable:typeof navigator.locks?.request==="function"&&!!window.crypto?.subtle,firstRunActive,
+    onboardingEdit:state?.[STORAGE_FOLLOWUP]?.kind==="onboarding-edit",onboardingOpen:$("#onboarding")?.classList.contains("active")}},
+  preferences:{read:()=>uiPrefs,replace:replaceUiPrefs},
+  transfer:{marker:installTransferOutboundMarker,create:installTransferCreateFromSafari,
+    confirmDivergence:installTransferConfirmDivergence,abandonUnsealed:abandonUnsealedInstallTransfer},
+  shell:{openModal,closeModal,canTakeFocus,reducedMotion,get activeModal(){return activeModal}},
+  guides:{maybeShow:maybeShowContextualGuides},report:captureEvent,toast,onChanged:renderSettings,onLandingOffer:setFirstRunOffer}))}

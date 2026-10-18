@@ -105,6 +105,7 @@ export const SUITES = {
     s("test/install-transfer-recovery.mjs", [], {"domains": ["install"], "cost": "normal", "tier": "feedback", "nodeArgs": ["--test"]}),
   ],
   "state": [
+    s("test/settings-owner.mjs", [], {domains:["settings","privacy","persistence"],seconds:10}),
     s("test/architecture-release-browser.mjs", [], {domains:["offline","privacy"], seconds:30}),
     s("test/shell-lifetime.mjs", [], {domains:["shell"], seconds:10}),
     s("test/privacy-offline.mjs", [], {"domains": ["privacy", "offline"], "cost": "normal", "tier": "packet", "seconds": 2.51}),
