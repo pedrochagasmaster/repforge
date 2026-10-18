@@ -1,4 +1,4 @@
-import {createFreeformViews,FREEFORM_APPS,FREEFORM_URL_MAX} from './view.js';
+import {createEntryViews,FREEFORM_APPS,FREEFORM_URL_MAX} from './view.js';
 /** @typedef {ReturnType<typeof import('../../app/entry.js').createEntryImportSession>} ImportSession
  * @typedef {{review:()=>unknown,submitGaps:()=>unknown,changeDoor:(mode:string)=>unknown,writeOwn:()=>unknown}} ImportCommands
  * @typedef {{mode:()=>string,reviewOpen:()=>boolean}} ImportQueries
@@ -10,9 +10,10 @@ import {createFreeformViews,FREEFORM_APPS,FREEFORM_URL_MAX} from './view.js';
  * copyText:(text:string,successKey:string,errorKey:string)=>Promise<boolean>,onRender:()=>void,onNotice:(key:string)=>void,
  * onHandoff:(event:{method:string,outcome:string,long_prompt:boolean})=>void,confirm:(key:string)=>boolean,scrollBehavior:()=>ScrollBehavior}} options */
 export function createEntryController({document,navigator,session,copy,commands,queries,copyText,onRender,onNotice,onHandoff,confirm,scrollBehavior}){
- const view=createFreeformViews(copy),{t}=copy,win=document.defaultView;
+ const view=createEntryViews(copy),{t}=copy,win=document.defaultView;
  let busy=false,sequence=0,mounted=false,disposed=false;
  /** @type {string|null} */ let note=null;
+ /** @type {string|null} */ let hubChoice=null;
  /** @type {ReturnType<typeof setTimeout>|null} */ let returnTimer=null;
  /** @template {Element} T @param {string} selector @returns {T|null} */
  const q=selector=>document.querySelector(selector);
@@ -69,9 +70,16 @@ export function createEntryController({document,navigator,session,copy,commands,
   paintBusy();
  }
  function onVisible(){if(document.visibilityState==='visible'&&session.read().stage===3){const out=/** @type {HTMLElement|null} */(q('#entryFreeformOut'));if(out){out.scrollIntoView?.({behavior:scrollBehavior(),block:'nearest'});out.classList.add('is-returned');if(returnTimer!==null)clearTimeout(returnTimer);returnTimer=setTimeout(()=>{out.classList.remove('is-returned');returnTimer=null},2000)}}}
+ /** @param {boolean} blocked */
+ function bindHub(blocked){document.querySelectorAll('[data-entry-hub]').forEach(node=>{
+  const button=/** @type {HTMLButtonElement} */(node);button.onclick=()=>{
+   const choice=button.dataset.entryHub;if(blocked||!choice||!['recommend','build','import'].includes(choice))return;
+   hubChoice=choice;onRender();
+  };
+ })}
  function mount(){if(mounted||disposed)return;mounted=true;win?.addEventListener('visibilitychange',onVisible)}
  function resetTransport(){note=null;sequence++}
  function reset(){session.reset();resetTransport()}
  function dispose(){disposed=true;sequence++;win?.removeEventListener('visibilitychange',onVisible);if(returnTimer!==null)clearTimeout(returnTimer);returnTimer=null}
- return Object.freeze({mount,bind,dispose,reset,resetTransport,importClipboard,renderSource:({activeProgram}=/** @type {{activeProgram:boolean}} */({activeProgram:false}))=>view.renderSource({...model(),activeProgram})});
+ return Object.freeze({mount,bind,bindHub,dispose,reset,resetTransport,importClipboard,hubChoice:()=>hubChoice,clearHubChoice:()=>{hubChoice=null},renderHub:view.renderHub,renderSource:({activeProgram}=/** @type {{activeProgram:boolean}} */({activeProgram:false}))=>view.renderSource({...model(),activeProgram})});
 }

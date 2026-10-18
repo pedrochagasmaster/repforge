@@ -2,6 +2,7 @@ import {escapeHtml as esc} from '../format.js';
 import {FREEFORM_MAX_CHARS} from '../../app/entry.js';
 /** @typedef {ReturnType<ReturnType<typeof import('../../app/entry.js').createEntryImportSession>['read']> & {activeProgram:boolean,clipboardNote:string|null}} FreeformModel */
 /** @typedef {{t:(key:string,vars?:Record<string,unknown>)=>string,locale:()=>string}} Copy */
+/** @typedef {{activeProgram:boolean,resuming:boolean,choice:string|null,hasLegacyHints:boolean,resume:{updatedAt:string|null,routeLabel:string,stepLabel:string}}} HubModel */
 export const FREEFORM_URL_MAX=6000;
 /** @type {Record<string,{base:string,param:string,label:string,copyLabel:string,copiedLabel:string}>} */
 export const FREEFORM_APPS={
@@ -28,7 +29,7 @@ export function freeformAppUrl(app,prompt){
 }
 /** The view consumes facts only; transport and mutations belong to controller/commands. */
 /** @param {Copy} copy */
-export function createFreeformViews({t,locale}){
+export function createEntryViews({t,locale}){
 /** @param {string} title */
 const entryHeading=title=>`<h2 class="onb__q" id="entryHeading" tabindex="-1">${esc(title)}</h2>`;
 /** @param {string} text @param {string} _icon */
@@ -152,5 +153,39 @@ function renderFreeformSourceStep(model){
     `<div class="entry__freeform ph-no-capture">${bodyHtml}</div>`+
     `<div class="entry__switch entry__switch--doors"><button type="button" class="btn btn--ghost" id="entryFreeformFile">${esc(t("entry.freeform.to_file"))}</button>`+
     entryWriteOwnLink()+`</div>`}
-return Object.freeze({renderSource:renderFreeformSourceStep,renderApps:(/** @type {FreeformModel} */ model)=>Object.keys(FREEFORM_APPS).map(app=>freeformAppLink(app,model)).join(""),countLabel,noteText});
+/** @param {{updatedAt:string|null,routeLabel:string,stepLabel:string}} model */
+function renderEntryResumeCard(model){
+  const updated=model.updatedAt?new Date(model.updatedAt):null;
+  const when=updated&&!Number.isNaN(updated.valueOf())?updated.toLocaleDateString(locale(),{month:"short",day:"numeric"}):"";
+  const where=[model.routeLabel,model.stepLabel].filter(Boolean).join(" · ");
+  const detail=where?t("entry.resume.detail",{where,when:when||"—"}):"";
+  return `<section class="entry__resume" aria-labelledby="entryResumeTitle">`+
+    `<div class="entry__resume-head"><span class="entry__resume-ico icon-mask icon-mask--clipboard" aria-hidden="true"></span>`+
+    `<div class="entry__resume-copy"><h3 id="entryResumeTitle" tabindex="-1">${esc(t("entry.resume.title"))}</h3><p>${esc(t("entry.resume.body"))}</p></div></div>`+
+    (detail?`<div class="entry__resume-loc"><span class="entry__resume-ico icon-mask icon-mask--pin" aria-hidden="true"></span><p>${esc(detail)}</p></div>`:"")+
+    `<p class="entry__resume-note">${esc(t("entry.resume.doors_note"))}</p>`+
+    `<div class="btnrow btnrow--primary-first"><button type="button" class="btn btn--cta" id="entryResumeContinue">${esc(t("entry.resume.continue"))}</button>`+
+    `<button type="button" class="btn btn--steel btn--destructive" id="entryResumeRestart" aria-haspopup="dialog">${esc(t("entry.resume.restart"))}</button></div></section>`}
+const ENTRY_HUB_CHOICES=Object.freeze([["recommend","wand"],["build","pencil"],["import","download"]]);
+/** @param {HubModel} model */
+function renderEntryHub(model){
+  // Keep the semantic body heading for focus and assistive technology. The
+  // shell title is visually suppressed on this hub so it is not repeated.
+  const resuming=model.resuming;
+  const active=model.activeProgram;
+  const cards=ENTRY_HUB_CHOICES.map(([route,icon])=>{
+    const selected=model.choice===route;
+    return `<button type="button" class="radio-card entry-hub__choice${selected?" is-selected":""}" role="radio" aria-checked="${selected?"true":"false"}" data-entry-hub="${route}">`+
+      `<span class="radio-card__icon icon-mask icon-mask--${icon}" aria-hidden="true"></span>`+
+      `<span class="radio-card__body"><span class="radio-card__title">${esc(t(`entry.hub.b.${route}.title`))}</span>`+
+      `<span class="radio-card__cap">${esc(t(`entry.hub.b.${route}.cap`))}</span></span>`+
+      `<span class="radio-card__mark" aria-hidden="true"></span></button>`}).join("");
+  return entryHeading(t("entry.hub.title"))+
+    `<p class="onb__explain entry-hub__lede">${esc(t(active?"entry.hub.lede_existing":"entry.hub.lede"))}</p>`+
+    (active?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
+    (model.hasLegacyHints?`<p class="entry__legacy" role="note">${esc(t("entry.legacy.hint"))}</p>`:"")+
+    (resuming?renderEntryResumeCard(model.resume):"")+
+    `<div class="onb__opts entry__hub entry__hub--routes" role="radiogroup" aria-labelledby="entryHeading"${resuming?" inert":""}>${cards}</div>`+
+    `<p class="entry-hub__link"><span class="icon-mask icon-mask--clipboard icon-mask--sm" aria-hidden="true"></span><span>${esc(t("entry.hub.b.link_note"))}</span></p>`}
+return Object.freeze({renderHub:renderEntryHub,renderSource:renderFreeformSourceStep,renderApps:(/** @type {FreeformModel} */ model)=>Object.keys(FREEFORM_APPS).map(app=>freeformAppLink(app,model)).join(""),countLabel,noteText});
 }
