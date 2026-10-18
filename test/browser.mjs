@@ -1,15 +1,12 @@
 /** Shared Chromium launcher. Normal runs do not record traces. */
 import { chromium } from "playwright";
 import { existsSync } from "fs";
-import { createRequire } from "module";
 import { instrumentBrowser } from "./browser-artifacts.mjs";
-
-const { GUIDE_DEFINITIONS } = createRequire(import.meta.url)("../guide-registry.js");
 
 /**
  * A contextual guide is a modal dialog that holds the page inert until "Got it". Most suites are not about guides,
- * so by default every context starts as a device whose lifter has already read them: on each document load, a guide
- * the app has never shown (no record, or a pristine `unseen` one) is recorded `dismissed`. A guide a suite has moved
+ * so by default every context starts as a device whose lifter has already read them: when the app brings its guide
+ * records up to date, a guide it has never shown (a pristine `unseen` record) becomes `dismissed`. A guide a suite has moved
  * on purpose (shown, deferred, replayed, completed) is left alone, and Settings → Replay still shows any guide.
  *
  * Suites that prove guide behaviour, and the screen catalog, keep the guides live: `launchChromium({ guides: "live" })`
@@ -20,21 +17,31 @@ function readGuidesByDefault(browser, liveByDefault) {
   browser.newContext = async ({ guides, ...options } = {}) => {
     const context = await newContext(options);
     if ((guides ?? (liveByDefault ? "live" : "read")) !== "live") {
-      await context.addInitScript(({ key, guides: definitions }) => {
-        try {
-          const prefs = JSON.parse(localStorage.getItem(key) || "{}") || {};
-          const state = prefs.guideState && typeof prefs.guideState === "object" ? { ...prefs.guideState } : {};
-          let changed = false;
-          for (const { id, version } of definitions) {
-            const record = state[id];
-            const pristine = !record || (record.version === version && record.status === "unseen" && record.lastTransitionAt == null && record.replayedAt == null);
-            if (!pristine) continue;
-            state[id] = { version, status: "dismissed", lastTransitionAt: null };
-            changed = true;
-          }
-          if (changed) localStorage.setItem(key, JSON.stringify({ ...prefs, guideState: state }));
-        } catch {}
-      }, { key: "repforge_ui_v1", guides: GUIDE_DEFINITIONS.map(({ id, version }) => ({ id, version })) });
+      // Applied where the app brings its guide records up to date (at boot and on every transition), so the device's
+      // storage is untouched until the app writes it, and a suite that writes its own preferences still meets read guides.
+      await context.addInitScript(() => {
+        let registry;
+        Object.defineProperty(globalThis, "RepForgeGuideRegistry", {
+          configurable: true,
+          get: () => registry,
+          set(value) {
+            if (typeof value?.migrateLegacyTourDone !== "function") { registry = value; return; }
+            const migrate = value.migrateLegacyTourDone;
+            registry = Object.freeze({ ...value, migrateLegacyTourDone(prefs, options) {
+              const next = migrate(prefs, options);
+              const state = { ...next.guideState };
+              let changed = false;
+              for (const { id, version } of value.GUIDE_DEFINITIONS) {
+                const record = state[id];
+                if (record?.version !== version || record.status !== "unseen" || record.lastTransitionAt != null || record.replayedAt != null) continue;
+                state[id] = { version, status: "dismissed", lastTransitionAt: null };
+                changed = true;
+              }
+              return changed ? Object.freeze({ ...next, guideState: state }) : next;
+            } });
+          },
+        });
+      });
     }
     return context;
   };

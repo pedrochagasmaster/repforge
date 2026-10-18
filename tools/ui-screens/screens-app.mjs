@@ -958,6 +958,13 @@ async function confirmRecovery(page) {
   await sleep(page, 400);
 }
 
+/** A Settings disclosure animates its height; the frame is placed once it has its final size. */
+async function disclosureSettled(page) {
+  await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => {}))));
+  // The height runs 200 ms through Motion, which may not surface as a document animation.
+  await sleep(page, 400);
+}
+
 async function openSettings(page, anchor) {
   await page.evaluate(() => window.__repforgeShowSettings());
   await sleep(page, 500);
@@ -2373,6 +2380,7 @@ export const APP_SCENARIOS = {
     await openSettings(page);
     await page.click("#guideReplayToggle");
     await page.waitForSelector("#guideReplayPanel.is-open", { timeout: 20000 });
+    await disclosureSettled(page);
     // The click that opened the panel may auto-scroll. Put the replayed guide's Privacy action at the centre of the
     // frame, so the dialog is placed on it the same way every run.
     await page.locator("#privacyDetails").evaluate((element) => {
@@ -2386,6 +2394,7 @@ export const APP_SCENARIOS = {
     await openSettings(page, "#dataBackupRow");
     await page.click("#dataBackupRow");
     await page.waitForSelector("#dataBackupPanel.is-open", { timeout: 20000 });
+    await disclosureSettled(page);
     await page.locator("#exportJson").evaluate((element) => {
       element.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
     });
