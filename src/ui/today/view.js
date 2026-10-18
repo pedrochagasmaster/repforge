@@ -1,5 +1,5 @@
 import { escapeHtml as esc, verdictMarkHtml } from "../format.js";
-import { createSummaryMarkup } from "../workout/summary.js";
+import { createSummaryMarkup } from "../session-summary.js";
 
 /** Paints a readonly Today model. All training derivation happens before render;
  * this view has no storage or command access and binds no application actions.
