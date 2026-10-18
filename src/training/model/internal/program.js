@@ -1,3 +1,6 @@
+/** A canonical scheduled row is complete except for rep bounds, which are
+ * intentionally absent for a non-repetition metric composition.
+ * @typedef {{id:string,slotId:string,day:string,dayId:string,order:number,name:string,libraryId:string,sets:number,hasRepTarget:boolean,displayName:string|null,primary:string,secondary:string,notes:string,min?:number,max?:number}} DefinitionExerciseRow */
 /** @typedef {import("./contracts.js").ModelSnapshot} ModelSnapshot */
 /** @typedef {import("./contracts.js").StructureDay} StructureDay */
 /** @typedef {import("./contracts.js").Catalog} Catalog */
@@ -225,14 +228,14 @@ function manualProgramDefinitionFromRows(rows,dayNames=[],customDefinitions=[]){
 function durableProgramRows(definition,customDefinitions,meta){
   return makeProgram(flatProgramFromDefinition(definition,customDefinitions,1),null,meta).toJSON()}
 
-/** @param {ProgramDefinition|null} definition @param {LibraryEntry[]} [customDefinitions] @param {number} [cycleNumber] @returns {ExerciseInput[]} */
+/** @param {ProgramDefinition|null} definition @param {LibraryEntry[]} [customDefinitions] @param {number} [cycleNumber] @returns {DefinitionExerciseRow[]} */
 function flatProgramFromDefinition(definition,customDefinitions=[],cycleNumber=1){
   if(!definition||!Array.isArray(definition.days))return[];
   const compiler=Compiler;
   const sourceSets=new Map((/** @type {(import("./contracts.js").DefinitionSet & {slotId:string})[]} */(compiler?.prescriptionsForCycle?.(definition,cycleNumber)||[]))
     .reduce((all,set)=>{if(!all.has(set.slotId))all.set(set.slotId,[]);all.get(set.slotId)?.push(set);return all},new Map(/** @type {[string,import("./contracts.js").DefinitionSet[]][]} */([]))));
   const customById=new Map(customDefinitions.map(entry=>[entry.id,entry]));
-  /** @type {ExerciseInput[]} */
+  /** @type {DefinitionExerciseRow[]} */
   const rows=[];
   for(const day of definition.days){
     if(day.kind!=="training")continue;
@@ -244,7 +247,7 @@ function flatProgramFromDefinition(definition,customDefinitions=[],cycleNumber=1
       const reps=sets.map(set=>set.targets?.reps??set.targets?.repsPerSide).find(value=>value!=null);
       const minimum=typeof reps==="number"?reps:reps&&Number.isFinite(reps.min)?reps.min:1;
       const maximum=typeof reps==="number"?reps:reps&&Number.isFinite(reps.max)?reps.max:minimum;
-      /** @type {ExerciseInput} */
+      /** @type {DefinitionExerciseRow} */
       const row={id:slot.id,slotId:slot.id,day:day.name,dayId:day.id,order:slot.order||rows.length+1,
         // The lifter's alias is the slot's name, as it is for a stored row.
         name:slot.displayName||index?.name||custom?.name||raw?.name||slot.exerciseId,libraryId:slot.exerciseId,

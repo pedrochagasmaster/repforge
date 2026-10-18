@@ -22,7 +22,7 @@ export function createPrescriptionPresentation({metrics,copy:{t},format}){
     const high=p.targetRirMax!=null?p.targetRirMax:p.anchorTargetRirMax!=null?p.anchorTargetRirMax:rirHigh;
     return `${format.number(low)}–${format.number(high)}`;
   }
-  /** @param {{exercise:{sets:number,min:number,max:number,hasRepTarget?:boolean},facts:SlotFacts,progression:Progression,prescription:PrescriptionFacts,rirHigh:unknown}} input */
+  /** @param {{exercise:{sets:number,min?:number,max?:number,hasRepTarget?:boolean},facts:SlotFacts,progression:Progression,prescription:PrescriptionFacts,rirHigh:unknown}} input */
   function exerciseMeta({exercise:ex,facts,progression,prescription,rirHigh}){
     if(ex.hasRepTarget===false)return summary(prescription);
     if(facts){

@@ -2,7 +2,7 @@ import {escapeHtml as esc,verdictMarkHtml} from '../format.js';
 /** @typedef {ReturnType<import('../../app/workout-model.js').WorkoutCapture['setSuggestion']>} Suggestion
  * @typedef {{kind:string,move:string,headHtml:string,sub:string,loadText?:string,reps?:Suggestion['reps'],parity?:string}} Cue
  * @typedef {{exerciseId:string,status:string,peek:boolean,name:string,hasNote:boolean}} CueContext
- * @typedef {{exerciseId:string,ordinal:number,total:number,min:number,max:number,status:string,editing:boolean,suggestion:Pick<Suggestion,'load'|'reps'|'src'>,move:string}} CueFacts
+ * @typedef {{exerciseId:string,ordinal:number,total:number,min?:number,max?:number,status:string,editing:boolean,suggestion:Pick<Suggestion,'load'|'reps'|'src'>,move:string}} CueFacts
  */
 /** Presentation receives the engine's suggestion and already-selected movement.
  * It never queries a draft/history, calculates a training target or writes state.

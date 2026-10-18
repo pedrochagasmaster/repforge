@@ -48,7 +48,7 @@ export function createFocusPresentation({window,focus,clock,training,readSetting
         if(suggestion.src==='session-up')return copy.t('log.insession.up',common);
         if(suggestion.src==='session-down')return copy.t('log.insession.down',common);
         if(suggestion.src==='session-hold')return copy.t('log.insession.hold',common);
-        if(recommendation.status==='add'&&suggestion.load!=null&&Number(suggestion.reps)>ex.min)
+        if(recommendation.status==='add'&&suggestion.load!=null&&Number(suggestion.reps)>Number(ex.min))
           return copy.t('log.insession.reentry',common);
       }
       return '';

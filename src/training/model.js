@@ -12,3 +12,5 @@ export { cloneSnapshot,isPlainStateObject,isBoundedProgressionValue,canonicalize
  * @typedef {import('./model/internal/contracts.js').RecoveryRecord} RecoveryRecord
  * @typedef {import('./model/internal/contracts.js').StructureDay} StructureDay
  */
+
+/** @typedef {import('./model/internal/program.js').DefinitionExerciseRow} DefinitionExerciseRow */
