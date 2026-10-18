@@ -88,7 +88,7 @@ test("dist/ excludes repository research, sources and documentation", () => {
 
 test("the Pages build command publishes the generated posthog-config.js", () => {
   // Run the exact Pages command in a copy, because the generator rewrites index.html.
-  const runtimeDirs = new Set(["assets", "icons", "fonts", "vendor", "scripts"]);
+  const runtimeDirs = new Set(["assets", "icons", "fonts", "vendor", "scripts", "src"]);
   const tracked = execFileSync("git", ["ls-files"], { cwd: ROOT, encoding: "utf8" }).split("\n")
     .filter((file) => file && (!file.includes("/") || runtimeDirs.has(file.split("/")[0])) && existsSync(join(ROOT, file)));
   const work = mkdtempSync(join(tmpdir(), "taurifer-pages-"));
@@ -99,7 +99,7 @@ test("the Pages build command publishes the generated posthog-config.js", () => 
     assert.equal(result.status, 0, result.stderr);
     const out = join(work, "dist");
     assert.match(readFileSync(join(out, "index.html"), "utf8"),
-      /<script src="posthog-config\.js\?v=local" data-optional-runtime="RepForgeTelemetry"><\/script>/);
+      /<script src="releases\/[a-f0-9]{24}\/posthog-config\.js\?v=local" data-optional-runtime="RepForgeTelemetry"><\/script>/);
     assert.equal(readFileSync(join(out, "posthog-config.js"), "utf8"), readFileSync(join(work, "posthog-config.js"), "utf8"));
     assert.ok(!existsSync(join(out, "plans")), "plans/ stays private");
   } finally {

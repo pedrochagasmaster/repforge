@@ -16,6 +16,7 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import vm from "node:vm";
+import { assembleRelease } from "./release-assembly.mjs";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const OUT = join(ROOT, "dist");
@@ -57,6 +58,17 @@ required.delete(null);
 // posthog-config.js is precached as optional but must ship whenever index.html loads it.
 if (/<script src="posthog-config\.js\?/.test(html)) { optional.delete("posthog-config.js"); required.add("posthog-config.js"); }
 
+// All migrated native modules ship at native paths, including Worker entrypoints.
+function collectSource(directory) {
+  if (!existsSync(join(ROOT, directory))) return;
+  for (const entry of readdirSync(join(ROOT, directory), { withFileTypes: true })) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) collectSource(path);
+    else if (/\.(?:js|json|css)$/.test(entry.name)) required.add(path);
+  }
+}
+collectSource("src");
+
 const present = (relative) => existsSync(join(ROOT, relative)) && statSync(join(ROOT, relative)).isFile();
 function copyFile(relative) {
   if (!allowedExtension.test(relative)) throw new Error("Unexpected public asset: " + relative);
@@ -78,6 +90,11 @@ for (const file of optional) {
 for (const sensitive of ["plans", "docs", "test", "tools", "services", ".github", "scripts", "AGENTS.md", "README.md"]) {
   if (existsSync(join(OUT, sensitive))) throw new Error("Sensitive repository path in public output: " + sensitive);
 }
+const releaseOptional = releaseAssets().filter(asset => asset.required === false).map(asset => localPath(asset.url));
+// A generated analytics config explicitly loaded by HTML is required.
+if (/<script src="posthog-config\.js\?/.test(html)) releaseOptional.splice(releaseOptional.indexOf("posthog-config.js"), 1);
+const release = assembleRelease(OUT, { optional: releaseOptional });
+console.log(`Assembled immutable native release ${release.id}`);
 const count = (dir) => readdirSync(dir, { withFileTypes: true })
   .reduce((n, entry) => n + (entry.isDirectory() ? count(join(dir, entry.name)) : 1), 0);
 console.log(`Prepared Cloudflare Pages dist/ with ${count(OUT)} runtime files`);
