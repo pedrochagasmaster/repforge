@@ -153,6 +153,7 @@ export const SUITES = {
 };
 
 export const SUPPORT = {
+  "test/training-browser.mjs": "Public native training/catalog composition for real worker proofs; no copied policy.",
   "test/interchange-browser.mjs": "Native interchange composition helper for retained real browser protocols.",
   "test/interchange-runtime.mjs": "Separate-realm native module loader shared by retained transfer contract proofs.",
   "test/persistence-artifacts.mjs": "Imported persistence race evidence collector; standalone self-test retired in the risk ledger.",

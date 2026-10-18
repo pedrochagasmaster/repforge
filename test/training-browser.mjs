@@ -1,0 +1,17 @@
+/** Test-owned composition of the real public training/catalog interfaces. */
+export async function installBrowserTraining(page) {
+  await page.evaluate(async()=>{
+    const entry=[...document.querySelectorAll('script[src]')].map(script=>script.src)
+      .find(src=>new URL(src).pathname.includes('/src/'));
+    const marker=entry?.lastIndexOf('/src/');
+    const graphBase=entry&&marker!==undefined&&marker>=0?entry.slice(0,marker+1):document.baseURI;
+    const url=path=>new URL(path,graphBase).href;
+    const [generation,catalogModule]=await Promise.all([
+      import(url('src/training/generation.js')),import(url('src/platform/catalog.js'))]);
+    const rules=generation.createGenerationRules();
+    const catalog=catalogModule.createCatalog({identity:rules.identity,
+      librarySource:window.RepForgeExercises,fetcher:window.fetch.bind(window)});
+    await catalog.load();
+    window.__repforgeTrainingTest={...rules,catalog:catalog.snapshot()};
+  });
+}
