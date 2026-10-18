@@ -55,6 +55,7 @@ const ASSETS = [
   "./src/ui/focus/geometry.js",
   "./src/ui/focus/gestures.js",
   "./src/ui/focus/rest.js",
+  "./src/ui/focus/select.js",
   "./src/ui/focus/state.js",
   "./src/ui/focus/view.js",
   "./src/ui/focus/why.js",

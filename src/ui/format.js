@@ -15,13 +15,16 @@ export function formatClock(seconds) {
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }
 
-/** Shared recommendation mark used by Today, Focus, Why and completion. */
+/** Shared recommendation mark used by Today, Focus, Why and completion. @param {string} glyph */
 export function verdictMarkHtml(glyph) {
   if (!["up", "down", "hold", "recover"].includes(glyph)) return "";
   return `<span class="verdictmark verdictmark--${glyph}"><span class="verdictmark__glyph" aria-hidden="true"></span></span>`;
 }
 
-/** Display grouping only; this does not round or rewrite stored loads. */
+/** Display grouping only; this does not round or rewrite stored loads.
+ * @param {ReadonlyArray<{load:number,reps:number}>} sets
+ * @param {{load:(value:number)=>string,unit:()=>string}} format
+ */
 export function formatSetsLine(sets, { load, unit }, withUnit = false) {
   const rows = sets.filter(row => +row.reps > 0);
   if (!rows.length) return "";

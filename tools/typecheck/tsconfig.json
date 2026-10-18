@@ -25,6 +25,7 @@
     "../../src/platform/notifications.js",
     "../../src/platform/install.js",
     "../../src/platform/catalog.js",
-    "../../src/platform/program-executor.js"
+    "../../src/platform/program-executor.js",
+    "../../src/ui/focus/**/*.js"
   ]
 }
