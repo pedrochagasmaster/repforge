@@ -1,0 +1,353 @@
+/* ---- Workout sheets (Plan 064 R3d) ----
+   One band (.sheetband) heads each sheet; the body scrolls under a pinned foot; groups are hairline
+   bands, never cards; fields are the shared field control with the quiet selected (ink) ring. */
+.sheet--session,.sheet--exactions{height:auto;max-height:min(85dvh,var(--sheet-max-height));display:flex;flex-direction:column}
+.sheet--note,.sheet--discard{height:auto;display:flex;flex-direction:column}
+.session-sheet__body,.exactions-sheet__body,.sheetbody{
+  flex:1 8 auto;min-height:0;display:flex;flex-direction:column;
+  overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:0 16px var(--space-16);
+}
+.sheetgroup__head{
+  margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);
+  line-height:var(--line-standard);color:var(--color-ink-secondary);
+}
+.sheetbody__hint{
+  margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);
+  line-height:var(--line-standard);color:var(--color-ink-secondary);
+}
+/* The foot keeps its actions reachable: when enlarged text outgrows the sheet it is the body that gives way first,
+   and only then does the foot scroll inside its own box. */
+.sheetfoot{
+  flex:0 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:var(--space-8);
+  padding:var(--space-12) 16px var(--space-16);border-top:1px solid var(--rule-on-surface);background:var(--color-surface);
+}
+.sheetfoot--pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,8rem),1fr))}
+.sheetfoot > button,.session-early-actions > button{width:100%;min-height:54px;padding:0 var(--space-16);text-align:center}
+/* A field: the caption sits inside the box above the value, so the input itself carries the
+   required boundary (the field control) and the label stays one tap target. */
+.sheetfield{position:relative;display:block}
+.sheetfield__cap{
+  position:absolute;top:var(--space-8);left:var(--space-12);right:var(--space-12);z-index:1;pointer-events:none;
+  font-family:var(--font-language);font-size:var(--font-size-caption);font-weight:var(--weight-regular);line-height:var(--line-standard);
+  color:var(--color-ink-secondary);overflow-wrap:anywhere;
+}
+.sheetfield__input{
+  display:block;width:100%;min-width:0;min-height:calc(var(--control-target) + var(--space-12));margin:0;
+  padding:calc(var(--space-8) + var(--font-size-caption) * var(--line-standard) + var(--space-4)) var(--space-12) var(--space-8);
+  border:1px solid var(--control-field-boundary);border-radius:var(--radius-control);
+  background:var(--control-field-bg);color:var(--control-field-ink);
+  font-family:var(--font-training-data);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);
+  letter-spacing:normal;text-transform:none;
+}
+.sheetfield__input::placeholder{color:var(--color-ink-secondary);opacity:1}
+textarea.sheetfield__input{
+  min-height:88px;resize:none;font-family:var(--font-language);font-weight:var(--weight-regular);line-height:var(--line-reading);
+}
+@media (hover: hover) and (pointer: fine){
+.sheetfield__input:hover{background:var(--control-field-bg);border-color:var(--control-field-boundary)}
+}
+.sheetfield__input:active{background:var(--control-field-bg);border-color:var(--control-field-boundary)}
+/* The selected field wears the 2px quiet (ink) ring, not the accent outline: orange is not a field state. */
+.sheetfield__input:focus{border-color:var(--boundary-selected-quiet);box-shadow:none}
+.sheetfield__input:focus-visible{outline:2px solid var(--boundary-selected-quiet);outline-offset:-1px}
+.sheetfield__input:disabled{background:var(--control-field-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed}
+.sheetfield__input[aria-invalid="true"]{border-color:var(--control-error-boundary)}
+.sheetfield__input[aria-invalid="true"]:focus-visible,.sheetbody--note .sheetfield__input[aria-invalid="true"]{outline-color:var(--control-error-boundary)}
+/* The note sheet: the field is the sheet's one job, so it sits selected from the start. */
+.sheetbody--note{padding-top:var(--space-4)}
+.sheetbody--note .sheetfield__input{
+  min-height:168px;padding-top:var(--space-12);outline:2px solid var(--boundary-selected-quiet);outline-offset:-1px;
+}
+
+/* ---- Session sheet ---- */
+.session-sheet__overview{display:grid;gap:var(--space-4)}
+.session-map{display:flex;flex-direction:column;border-top:1px solid var(--rule-on-surface)}
+.session-map__row{
+  position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:var(--space-8);
+  min-height:56px;padding:var(--space-4) 0;border-bottom:1px solid var(--rule-on-surface);
+}
+.session-map__row.is-current{padding-left:var(--space-8)}
+.session-map__row.is-current::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--color-ink)}
+.session-map__jump{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);min-width:0;min-height:48px;margin:0;padding:var(--space-4) 0;
+  background:var(--control-quiet-bg);color:var(--control-quiet-ink);border:0;border-radius:var(--radius-none);cursor:pointer;text-align:left;
+}
+@media (hover: hover) and (pointer: fine){
+.session-map__jump:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
+}
+.session-map__jump:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+.session-map__jump:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.session-map__jump:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+.session-map__name{
+  flex:1;min-width:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-regular);
+  line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:anywhere;
+}
+.session-map__status{
+  flex:none;display:inline-flex;align-items:center;gap:var(--space-4);
+  font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-standard);
+  color:var(--color-ink-secondary);
+}
+.session-map__status.is-complete{color:var(--color-ink)}
+.session-map__status.is-complete::before{
+  content:"";width:16px;height:16px;background:currentColor;
+  -webkit-mask:var(--check) no-repeat center/contain;mask:var(--check) no-repeat center/contain;
+}
+.session-map__status.is-skipped{font-family:var(--font-language)}
+.session-map__reorder{display:flex;align-items:center;gap:var(--space-8);flex:none}
+.session-map__reorder-btn{width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;display:inline-flex;align-items:center;justify-content:center;background:var(--control-secondary-bg);border:1px solid var(--control-secondary-boundary);color:var(--control-secondary-ink);border-radius:var(--radius-control);cursor:pointer}
+@media (hover: hover) and (pointer: fine){
+.session-map__reorder-btn:hover:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)}
+}
+.session-map__reorder-btn:active:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary);transform:var(--control-pressed-transform)}
+.session-map__reorder-btn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.session-map__reorder-btn:disabled{background:var(--control-secondary-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
+.session-sheet__meta{display:grid;gap:var(--space-12);margin-top:var(--space-18)}
+/* Early finish lives in the foot, in thumb reach. Choosing it opens the confirmation there, and the
+   omitted-sets list stays whole (it scrolls inside its own box when a long day outgrows the sheet). */
+.session-early-prompt{display:flex;flex-direction:column;gap:var(--space-8)}
+.session-early-msg{margin:0;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink)}
+.session-early-msg.is-error{color:var(--color-destructive);font-weight:var(--weight-semibold)}
+#sessionEarlyOmissions{
+  list-style:none;margin:0;padding:0;max-height:min(12rem,28dvh);overflow-y:auto;overscroll-behavior:contain;
+  font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);
+}
+#sessionEarlyOmissions li{padding:var(--space-4) 0;overflow-wrap:anywhere}
+.session-early-sets{font-family:var(--font-training-data);color:var(--color-ink)}
+.session-early-actions{display:flex;flex-direction:column;gap:var(--space-8)}
+/* Ending without saving sits under early finish and asks once, in the same foot. Its reason chips are
+   optional: none is selected until the lifter taps one, and the confirmation never waits for them. */
+.session-abandon__label{margin:var(--space-4) 0 0;font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.session-abandon__reasons{display:flex;flex-wrap:wrap;gap:var(--space-8)}
+/* When the screen cannot hold the whole sheet beside the confirmation (a short phone, or text enlarged until the screen
+   is narrow in rem) the confirmation is the sheet's one job while it is open: the session map and fields give their
+   room to it, the band keeps its title and close, and the sheet may use the screen under the safe area. The sentence
+   and the omitted sets scroll in the prompt while Confirm and Cancel stay pinned to its foot, so enlarged text can
+   never push them below the screen or leave the text a sliver. A roomy screen keeps the sheet as it was. */
+@media (max-height:600px){
+  #sessionSheet:has(:is(#sessionEarlyPrompt,#sessionAbandonPrompt):not(.hidden)){max-height:calc(var(--vvh,100dvh) - env(safe-area-inset-top,0px) - var(--space-8))}
+  #sessionSheet:has(:is(#sessionEarlyPrompt,#sessionAbandonPrompt):not(.hidden)) :is(.session-sheet__body,.sheetband__sub){display:none}
+  #sessionSheet:has(:is(#sessionEarlyPrompt,#sessionAbandonPrompt):not(.hidden)) .sheetband{padding-bottom:var(--space-8)}
+  #sessionSheet:has(:is(#sessionEarlyPrompt,#sessionAbandonPrompt):not(.hidden)) .session-sheet__early-section{flex:1 1 auto;overflow:hidden}
+  :is(#sessionEarlyPrompt,#sessionAbandonPrompt){flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+  .session-early-actions{position:sticky;bottom:0;padding-top:var(--space-8);background:var(--color-surface)}
+}
+@container (max-width:19rem){
+  #sessionSheet:has(:is(#sessionEarlyPrompt,#sessionAbandonPrompt):not(.hidden)){max-height:calc(var(--vvh,100dvh) - env(safe-area-inset-top,0px) - var(--space-8))}
+  #sessionSheet:has(:is(#sessionEarlyPrompt,#sessionAbandonPrompt):not(.hidden)) :is(.session-sheet__body,.sheetband__sub){display:none}
+  #sessionSheet:has(:is(#sessionEarlyPrompt,#sessionAbandonPrompt):not(.hidden)) .sheetband{padding-bottom:var(--space-8)}
+  #sessionSheet:has(:is(#sessionEarlyPrompt,#sessionAbandonPrompt):not(.hidden)) .session-sheet__early-section{flex:1 1 auto;overflow:hidden}
+  :is(#sessionEarlyPrompt,#sessionAbandonPrompt){flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+  .session-early-actions{position:sticky;bottom:0;padding-top:var(--space-8);background:var(--color-surface)}
+}
+
+/* Workout sheet controls keep their current routes and state owners. */
+:is(#sessionEarlyFinish,#draftRecoveryCopy,#draftRecoveryReload,#draftRecoveryRetry){
+  min-height:var(--control-target);border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);
+  background:var(--control-secondary-bg);color:var(--control-secondary-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
+}
+@media (hover: hover) and (pointer: fine){
+:is(#sessionEarlyFinish,#draftRecoveryCopy,#draftRecoveryReload,#draftRecoveryRetry):hover:not(:disabled){background:var(--well);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink)}
+}
+:is(#sessionEarlyFinish,#draftRecoveryCopy,#draftRecoveryReload,#draftRecoveryRetry):active:not(:disabled){background:var(--well);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink);transform:var(--control-pressed-transform)}
+:is(#sessionEarlyFinish,#draftRecoveryCopy,#draftRecoveryReload,#draftRecoveryRetry):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+:is(#sessionEarlyFinish,#draftRecoveryCopy,#draftRecoveryReload,#draftRecoveryRetry):disabled{background:var(--control-secondary-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+:is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep){
+  min-height:var(--control-target);border:1px solid var(--control-primary-boundary);border-radius:var(--radius-control);
+  background:var(--control-primary-bg);color:var(--control-primary-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
+}
+@media (hover: hover) and (pointer: fine){
+:is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep):hover:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink)}
+}
+:is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep):active:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink);transform:var(--control-pressed-transform)}
+:is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+:is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep):disabled{background:var(--control-primary-disabled-bg);border-color:var(--boundary-decorative);color:var(--control-primary-disabled-ink);opacity:1;cursor:not-allowed;transform:none}
+:is(#sessionEarlyCancel,#sessionAbandonCancel,#exNoteCancel){
+  min-height:var(--control-target);border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);
+  background:var(--control-secondary-bg);color:var(--control-secondary-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
+}
+@media (hover: hover) and (pointer: fine){
+:is(#sessionEarlyCancel,#sessionAbandonCancel,#exNoteCancel):hover:not(:disabled){background:var(--well);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink)}
+}
+:is(#sessionEarlyCancel,#sessionAbandonCancel,#exNoteCancel):active:not(:disabled){background:var(--well);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink);transform:var(--control-pressed-transform)}
+:is(#sessionEarlyCancel,#sessionAbandonCancel,#exNoteCancel):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+:is(#sessionEarlyCancel,#sessionAbandonCancel,#exNoteCancel):disabled{background:var(--control-secondary-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+/* The History discard question (Plan 064 R3j2): Keep editing is the primary choice above, Discard
+   changes the destructive one below it. The day-change question (OG-6 `today/draft-resume`) wears the same recipe:
+   Cancel keeps the unfinished session, Discard unfinished session is the destructive choice, and its sentence is the body. */
+.draftdiscard__body{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink)}
+:is(#historyDiscardDrop,#draftDiscardDrop,#sessionAbandon,#sessionAbandonConfirm){
+  min-height:var(--control-target);border:1px solid var(--control-destructive-boundary);border-radius:var(--radius-control);
+  background:var(--control-destructive-bg);color:var(--control-destructive-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
+}
+@media (hover: hover) and (pointer: fine){
+:is(#historyDiscardDrop,#draftDiscardDrop,#sessionAbandon,#sessionAbandonConfirm):hover:not(:disabled){background:var(--well);border-color:var(--control-destructive-boundary);color:var(--control-destructive-ink)}
+}
+:is(#historyDiscardDrop,#draftDiscardDrop,#sessionAbandon,#sessionAbandonConfirm):active:not(:disabled){background:var(--well);border-color:var(--control-destructive-boundary);color:var(--control-destructive-ink);transform:var(--control-pressed-transform)}
+:is(#historyDiscardDrop,#draftDiscardDrop,#sessionAbandon,#sessionAbandonConfirm):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+:is(#historyDiscardDrop,#draftDiscardDrop,#sessionAbandon,#sessionAbandonConfirm):disabled{background:var(--control-destructive-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+#restSheetClose,#whyClose{
+  width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;
+  border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-round);background:var(--control-quiet-bg);color:var(--control-quiet-ink);
+}
+@media (hover: hover) and (pointer: fine){
+#restSheetClose:hover:not(:disabled),#whyClose:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
+}
+#restSheetClose:active:not(:disabled),#whyClose:active:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+#restSheetClose:focus-visible,#whyClose:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+#restSheetClose:disabled,#whyClose:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+
+/* ---- Exercise actions sheet ---- */
+/* The eyebrow and the name are one title: the close button sits on the eyebrow's line. */
+.exactions__eyebrow{
+  display:block;font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);
+  line-height:var(--line-standard);color:var(--color-ink-secondary);
+}
+.exactions__name{display:block;overflow-wrap:anywhere}
+.exactions__sub-line{display:block}
+.exactions__section{display:flex;flex-direction:column;gap:var(--space-4);margin-top:var(--space-14)}
+.exactions__section:first-child{margin-top:0}
+.exactions__setup-text{margin:0;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:anywhere}
+.exactions__status{margin:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
+.exactions__rows,.exactions__warmup-list{border-top:1px solid var(--rule-on-surface)}
+.exactions__act{
+  display:flex;align-items:center;gap:var(--space-12);width:100%;min-height:52px;margin:0;padding:var(--space-4) 0;
+  background:var(--control-quiet-bg);color:var(--control-quiet-ink);border:0;border-bottom:1px solid var(--rule-on-surface);border-radius:var(--radius-none);
+  font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);text-align:left;cursor:pointer;
+}
+.exactions__act .icon-mask{flex:none;width:20px;height:20px;color:var(--color-ink-secondary)}
+.exactions__act-text{display:grid;min-width:0;overflow-wrap:anywhere}
+.exactions__act-text small{font-size:var(--font-size-body-small);color:var(--color-ink-secondary)}
+.exactions__act-text small:empty{display:none}
+@media (hover: hover) and (pointer: fine){
+.exactions__act:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
+}
+.exactions__act:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+.exactions__act:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
+.exactions__act:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+.exactions__act:disabled .icon-mask,.exactions__act:disabled .exactions__act-text small{color:var(--color-disabled-reason)}
+.exactions__warmup-row{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-8) var(--space-12);
+  min-height:56px;padding:var(--space-4) 0;border-bottom:1px solid var(--rule-on-surface);
+}
+.exactions__warmup-info{display:flex;flex-direction:column;flex:1 1 7rem;min-width:0;line-height:var(--line-standard)}
+.exactions__warmup-num{font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink)}
+.exactions__warmup-role{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.exactions__warmup-role.is-warmup{color:var(--color-ink);font-weight:var(--weight-medium)}
+.exactions__warmup-btn.btn{
+  flex:1 1 11rem;width:auto;min-width:0;min-height:var(--control-target);margin:0;padding:var(--space-4) var(--space-12);
+  border:1px solid var(--control-adjustment-boundary);border-radius:var(--radius-control);background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);
+  font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-standard);text-align:center;
+}
+
+/* Recovery owns workout-draft actions; the state and its repair path stay in app.js. */
+.draft-recovery{border-left-color:var(--color-destructive);background:var(--well);color:var(--color-ink)}
+.draft-recovery__title{font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
+.draft-recovery__body,.draft-recovery__pending{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.draft-recovery__pending{border-color:var(--boundary-decorative);border-radius:var(--radius-control);color:var(--color-ink);overflow-wrap:anywhere}
+/* The retry's in-flight state as words: the hairline sweep (motion-polish.css) is gone under reduced motion, and this label, hidden otherwise, takes its place. */
+.draft-recovery__saving{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+
+/* ---- Rest presets sheet ---- */
+/* The running clock is inline in the Focus cue slot. The header timer and the
+   Today bar open this instead: pick a length, nudge the clock, restart it, or
+   end it deliberately. Pause and resume are here as well as on the inline
+   Pausar/Retomar pad, which gives way to the field pads. */
+.sheet--rest{height:auto}
+.restsheet{flex-direction:column;align-items:center;gap:20px;padding:20px 16px calc(20px + env(safe-area-inset-bottom));container:restsheet/inline-size}
+.restsheet__presets{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+.restpreset{
+  min-width:0;min-height:var(--control-target);padding:0 12px;border-radius:var(--radius-pill);cursor:pointer;
+  border:1px solid var(--control-selection-boundary);background:var(--control-selection-bg);color:var(--control-selection-ink);
+  font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-standard);
+}
+@media (hover: hover) and (pointer: fine){
+.restpreset:hover:not(:disabled){border-color:var(--control-selection-boundary);color:var(--control-selection-ink);background:var(--well)}
+}
+.restpreset:active:not(:disabled){border-color:var(--control-selection-boundary);color:var(--control-selection-ink);background:var(--well);transform:var(--control-pressed-transform)}
+.restpreset:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.restpreset.is-active{border-color:var(--control-selected-boundary);color:var(--control-selection-ink);background:var(--control-selection-active-bg);box-shadow:var(--elevation-selected-shadow)}
+@media (hover: hover) and (pointer: fine){
+.restpreset.is-active:hover:not(:disabled){border-color:var(--control-selected-boundary);color:var(--control-selection-ink);background:var(--control-selection-active-bg)}
+}
+.restpreset.is-active:active:not(:disabled){border-color:var(--control-selected-boundary);color:var(--control-selection-ink);background:var(--control-selection-active-bg)}
+.restpreset:disabled{border-color:var(--boundary-decorative);color:var(--color-disabled-reason);background:var(--control-selection-bg);opacity:1;cursor:not-allowed;transform:none;box-shadow:none}
+.restsheet__controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch;gap:4px;width:100%}
+.restctl{
+  display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  flex:1 1 0;min-width:0;min-height:var(--control-target);padding:6px 2px;border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);
+  background:var(--control-secondary-bg);color:var(--control-secondary-ink);cursor:pointer;
+  font-family:var(--font-language);font-size:var(--font-size-caption);font-weight:var(--weight-medium);line-height:var(--line-standard);
+}
+@media (hover: hover) and (pointer: fine){
+.restctl:hover:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)}
+}
+.restctl:active:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary);transform:var(--control-pressed-transform)}
+.restctl:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.restctl:disabled{background:var(--control-secondary-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
+#restMinus,#restPlus{background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
+@media (hover: hover) and (pointer: fine){
+#restMinus:hover:not(:disabled),
+#restPlus:hover:not(:disabled){background:var(--well);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
+}
+#restMinus:active:not(:disabled),
+#restPlus:active:not(:disabled){background:var(--well);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
+#restMinus:active:not(:disabled),#restPlus:active:not(:disabled){transform:var(--control-pressed-transform)}
+#restMinus:disabled,#restPlus:disabled{background:var(--control-adjustment-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
+/* Pause or Resume: a text-only control on a row of its own above the four icon controls. */
+#restHold{grid-column:1 / -1;flex-direction:row}
+.restctl .icon-mask{width:var(--control-icon-size);height:var(--control-icon-size)}
+.restctl__label{max-width:100%;white-space:normal;overflow-wrap:anywhere;line-height:var(--line-tight)}
+@media (max-width:430px){
+  #restSheet .sheet__head{grid-template-columns:minmax(0,1fr) var(--control-target)}
+  #restSheet .sheet__spacer{display:none}
+  #restSheet .sheet__titles{grid-column:1;grid-row:1}
+  #restSheet #restSheetClose{grid-column:2;grid-row:1}
+  .restsheet{gap:14px;padding-top:14px}
+  .restctl__label{white-space:nowrap;overflow-wrap:normal;word-break:normal}
+}
+/* Enlarged text: four icon-over-label controls no longer share a row (a long word such as Reiniciar clipped in its box),
+   so each control becomes a row of its own with the icon beside the label, and the label may wrap. The measure is the
+   sheet's width in rem, which grows with the text size, so the usual size keeps its four columns at every width. */
+@container restsheet (max-width:17rem){
+  .restsheet__controls{grid-template-columns:repeat(auto-fit,minmax(min(100%,6rem),1fr))}
+  .restctl{flex-direction:row;justify-content:flex-start;gap:var(--space-8);padding:6px var(--space-12)}
+  .restctl__label{white-space:normal;overflow-wrap:break-word;text-align:left}
+}
+
+/* Short screens trade padding, never a control: the ledger scrolls above the
+   shelf, and the shelf keeps its three fields, its pads and its action. */
+@media (max-height:740px){
+  .fx-head{margin-bottom:var(--space-12)}
+  .focus-shelf{padding-top:var(--space-8);padding-bottom:calc(var(--space-12) + env(safe-area-inset-bottom,0px))}
+}
+@media (max-height:600px){
+  .shelf__fieldbtn,.shelf__input{min-height:56px}
+  .shelf__pads .shelf__pad,.shelf__pads .restpad{height:48px;min-height:48px}
+  .focus-shelf .btn--cta.saveset{min-height:48px}
+}
+/* On the narrowest phones a three-digit load needs the room its padding took, or it wraps onto a second line. */
+@media (max-width:340px){
+  .focus-shelf{--shelf-field-inset:calc(2 * var(--space-8) + 2px)}
+  .shelf__fieldbtn{padding-left:var(--space-8);padding-right:var(--space-8)}
+  .shelf__input{padding-left:var(--space-8);padding-right:var(--space-8)}
+  .shelf__lab--edit{left:var(--space-8);right:var(--space-8)}
+}
+
+.pr-kind{display:inline-block;font-weight:600;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px}
+.pr-kind--load{color:var(--accent-deep);background:rgba(var(--accent-rgb),.06)}
+.pr-kind--reps{color:var(--ink);background:rgba(var(--ink-rgb),.05)}
+.pr-kind--e1rm{color:var(--accent-deep);background:rgba(var(--accent-rgb),.06)}
+.prtimeline{display:flex;flex-direction:column;gap:0;margin-top:4px}
+.prtl__row{display:grid;grid-template-columns:auto 1fr auto auto auto;gap:6px 10px;align-items:center;
+  width:100%;padding:14px 0;border-radius:0;background:transparent;border:0;border-bottom:1px solid var(--rule);font-size:var(--font-size-body-small);line-height:1.35;text-align:left;cursor:pointer}
+.prtl__date{font-size:var(--font-size-caption);color:var(--ink-soft);white-space:nowrap}
+.prtl__ex{font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prtl__set{font-size:var(--font-size-body-small);color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
+.prtl__delta{font-size:var(--font-size-body-small);font-weight:600;color:var(--accent-deep);white-space:nowrap}
+@media(max-width:520px){
+  .prtl__row{grid-template-columns:1fr 1fr;gap:4px 8px}
+  .prtl__date{grid-column:1}.prtl__ex{grid-column:2;text-align:right}
+  .pr-kind{grid-column:1}.prtl__set{grid-column:2;text-align:right}
+  .prtl__delta{grid-column:1/-1;text-align:right}}
+canvas{width:100%;display:block;margin-top:6px}
+

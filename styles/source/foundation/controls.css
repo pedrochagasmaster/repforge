@@ -1,0 +1,461 @@
+/* Controls skip double-tap delay while ordinary content keeps browser zoom.
+   Root containment belongs to this app; inner scrollers retain native physics. */
+/* The root is a size container, and containment stops the body's background from
+   reaching the canvas, so the root carries the paper itself: past a short page the
+   viewport is paper, not the canvas's default white. */
+html{
+  -webkit-text-size-adjust:100%;text-size-adjust:100%;touch-action:auto;
+  -webkit-tap-highlight-color:transparent;
+  background:var(--bg);
+  --sheet-max-height:calc(var(--vvh,100dvh) - max(56px,calc(env(safe-area-inset-top,0px) + var(--space-8))));
+  --dialog-max-height:calc(var(--vvh,100dvh) - 2 * max(var(--space-16),env(safe-area-inset-top,0px),env(safe-area-inset-bottom,0px)));
+}
+html,body{overscroll-behavior:none}
+button,input,select,textarea,label,summary,a,[role=button]{touch-action:manipulation}
+/* Only controls suppress long-press selection/callouts; links in prose remain copyable. */
+button,[role=button],summary,label.file,label[for],label:has(input[type=checkbox]),label:has(input[type=radio]),
+a.btn,a.text-link,.entry__freeform-app,.sheet__grab,.sheet__head,.sheetband,.program-editor__drag-handle{
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+}
+.focus-ex__meta,.fx-cue__l1,.fx-cue__l2,.fx-note,.sheet__pre,.share-setup__link,.privacy-sheet__body,.entry-dialog__body,.storage-recovery__copy{
+  -webkit-user-select:text;user-select:text;
+}
+input:not([type=checkbox]):not([type=radio]),textarea{
+  -webkit-user-select:text;user-select:text;-webkit-touch-callout:default;
+}
+body{
+  margin:0;
+  font-family:var(--font-language);
+  color:var(--ink);
+  background:var(--bg);
+  padding-bottom:calc(var(--nav) + env(safe-area-inset-bottom) + var(--restbar-reserve,0px));
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  font-variant-numeric:tabular-nums;
+}
+/* Installed, the page runs under the iOS status bar (viewport-fit=cover), which
+   draws no ground of its own: scrolled content would show through the clock.
+   The top inset is painted with the page's own paper, above everything that
+   scrolls and below the dock, the sheets and the full-screen layers, which
+   handle the inset themselves. Zero tall in a browser tab. */
+body::before{
+  content:"";position:fixed;top:0;left:0;right:0;z-index:24;
+  height:env(safe-area-inset-top,0px);background:var(--bg);pointer-events:none;
+}
+h1,h2,h3,p{margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
+button,a[href],summary,input:not([type=hidden]),select,textarea,
+[role=button],[role=tab],[role=switch],[role=checkbox],
+[tabindex]:not([tabindex="-1"]),.term[data-term]{
+  min-width:var(--control-target);min-height:var(--control-target);
+}
+main{
+  width:min(100%,var(--maxw));margin:0 auto;
+  padding:calc(12px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 36px max(16px,env(safe-area-inset-left));
+}
+.view{display:none;animation:rise .35s cubic-bezier(.2,.7,.2,1) both}
+.view.active{display:block}
+.hidden{display:none!important}
+.visually-hidden{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* ---- Typography ---- */
+.page-title{
+  font-size:var(--font-size-title);font-weight:var(--weight-semibold);letter-spacing:-0.02em;line-height:1.05;color:var(--ink);
+}
+.page-date{margin-top:4px;font-size:var(--font-size-body-small);color:var(--ink-soft);font-weight:400}
+.section-label{
+  font-size:var(--font-size-label);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;
+  color:var(--ink-faint);margin:32px 0 12px;
+}
+.eyebrow{font-size:var(--font-size-label);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:4px}
+.eyebrow--link{background:none;border:0;padding:0;cursor:pointer;text-align:left;color:var(--accent-deep)}
+.eyebrow--link::after{content:" ›"}
+h2{font-size:var(--font-size-title);font-weight:var(--weight-semibold);letter-spacing:-0.02em;line-height:1.05}
+.subhead{
+  font-size:var(--font-size-label);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;
+  color:var(--ink-faint);margin:26px 0 12px;display:flex;align-items:center;gap:12px;
+}
+.subhead::after{content:"";flex:1;height:1px;background:var(--rule)}
+.lede{color:var(--ink-soft);font-size:var(--font-size-body-small);line-height:1.5;margin-top:4px}
+
+/* ---- Page headers ---- */
+.pagehead{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin:4px 0 18px}
+.pagehead__actions{display:flex;align-items:center;gap:4px;flex:none;margin-top:4px}
+.back-link{
+  background:none;border:0;padding:8px 4px;cursor:pointer;color:var(--accent-deep);
+  font-size:var(--font-size-control);font-weight:500;min-height:44px;display:inline-flex;align-items:center;gap:2px;
+}
+.back-link:focus-visible{border-radius:var(--radius-control)}
+.icon-btn{
+  width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;
+  border:0;background:transparent;color:var(--ink-soft);cursor:pointer;border-radius:50%;
+}
+@media (hover: hover) and (pointer: fine){
+.icon-btn:hover{color:var(--ink)}
+}
+.icon-btn svg,.nav__icon{display:block}
+/* ---- Segmented progress ---- */
+.segbar{display:flex;gap:6px;margin:8px 0}
+
+/* ---- Primary CTA ---- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border:1px solid var(--rule);border-radius:var(--radius-control);background:var(--surface);color:var(--ink);
+  padding:13px 16px;font-weight:600;cursor:pointer;font-size:var(--font-size-control);
+  transition:transform .12s ease,filter .2s ease,border-color .2s ease,background .2s ease;
+}
+.btn:active{transform:var(--control-pressed-transform)}
+.btn:disabled{opacity:var(--control-disabled-opacity);cursor:default}
+/* A blanket 40% on the near-black CTA produced a mid-grey fill with washed
+   white text (~2.5:1) that read as an enabled secondary button rather than a
+   blocked one. Give it a flat, legible "not yet" treatment instead. */
+.btn--cta:disabled{opacity:1;background:var(--rule);color:var(--ink-soft)}
+.btn--cta:disabled::after{color:var(--ink-faint)}
+.btn--ghost{background:transparent;padding:8px 13px;font-size:var(--font-size-body-small);border-radius:var(--radius-pill)}
+.btn--steel{background:var(--surface);border-color:var(--rule-strong)}
+.btn--cta{
+  position:relative;width:100%;height:auto;min-height:54px;border:0;border-radius:var(--radius-control);
+  background:var(--cta);color:var(--cta-ink);font-size:var(--font-size-control);font-weight:600;
+  justify-content:center;padding:13px 48px;
+}
+.btn--cta::after{
+  content:"";position:absolute;right:18px;top:50%;transform:translateY(-50%);
+  width:22px;height:22px;
+  /* The arrow is drawn in the CTA's own ink, as the landing draws it. The accent held it on the near-black light CTA
+   * (~4.6:1) but measured 2.05:1 on the parchment dark CTA, under the 3:1 mark floor (R7 V-01). */
+  color:var(--cta-ink);background:currentColor;
+  -webkit-mask:var(--arrow) no-repeat center/contain;mask:var(--arrow) no-repeat center/contain;
+}
+.btn--noarrow{padding:0 20px}
+.btn--noarrow::after{content:none;display:none}
+/* A compact secondary action inside a dense row (the review sheet's swap list). */
+.review-sheet__swap-btn{min-height:var(--control-target);padding:var(--space-8) var(--space-14);font-size:var(--font-size-body-small)}
+.btn--danger{background:transparent;color:var(--danger);border-color:transparent}
+.btn--save{margin-top:6px;flex-direction:column;gap:2px;height:auto;min-height:54px;padding:12px 48px}
+.btn--save.is-stamped{animation:stamp .5s ease}
+.btn__meta{font-size:var(--font-size-label);font-weight:500;letter-spacing:.04em;opacity:.75}
+.btnrow{display:flex;gap:10px;flex-wrap:wrap}
+.btnrow .btn{flex:1 1 160px}
+/* ---- Fields ---- */
+.field{display:block;margin:14px 0 0;color:var(--ink-soft);font-size:var(--font-size-caption);font-weight:600;
+  text-transform:uppercase;letter-spacing:.08em}
+input:not(:where([type=checkbox],[type=radio])),select,textarea{
+  width:100%;margin-top:7px;background:var(--surface);border:1px solid var(--control-field-boundary);
+  color:var(--ink);border-radius:var(--radius-control);padding:13px 12px;font-family:var(--font-language);
+  font-size:var(--font-size-control);letter-spacing:normal;text-transform:none;transition:border-color .15s ease,box-shadow .15s ease;
+}
+/* Boxes and radios keep a full 44px hit area but paint a 22px control inside it:
+   the native rendering blown up to 44px is a slab, and shrinking the element to
+   the size of the artwork would put the tap target below the thumb-sized floor
+   every other control here holds. `.visually-hidden` proxies (the inputs behind
+   the switches) are left on the native rendering — they are clipped anyway, and
+   the positioning this needs would knock them out of their clip. */
+input[type=checkbox],input[type=radio]{
+  width:44px;height:44px;min-width:44px;min-height:44px;margin:0;padding:0;accent-color:var(--accent);
+  background:none;border:0;border-radius:0;box-shadow:none;
+}
+input[type=checkbox]:not(.visually-hidden),input[type=radio]:not(.visually-hidden){
+  appearance:none;-webkit-appearance:none;position:relative;flex:none;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+input[type=checkbox]:not(.visually-hidden)::before,input[type=radio]:not(.visually-hidden)::before{
+  content:"";position:absolute;top:50%;left:50%;width:22px;height:22px;
+  transform:translate(-50%,-50%);border-radius:var(--radius-control);
+  border:1.5px solid var(--rule-strong);background:var(--surface);
+  transition:background-color .18s ease,border-color .18s ease,transform .12s ease;
+}
+input[type=radio]:not(.visually-hidden)::before{border-radius:50%}
+input[type=checkbox]:not(.visually-hidden)::after{
+  content:"";position:absolute;top:50%;left:50%;width:14px;height:14px;
+  transform:translate(-50%,-50%) scale(.2);background:var(--cta-ink);
+  -webkit-mask:var(--check) no-repeat center/contain;mask:var(--check) no-repeat center/contain;
+  opacity:0;transition:opacity .12s ease,transform .2s cubic-bezier(.2,1.3,.4,1);
+}
+input[type=radio]:not(.visually-hidden)::after{
+  content:"";position:absolute;top:50%;left:50%;width:10px;height:10px;border-radius:50%;
+  transform:translate(-50%,-50%) scale(.2);background:var(--cta-ink);
+  opacity:0;transition:opacity .12s ease,transform .2s cubic-bezier(.2,1.3,.4,1);
+}
+input[type=checkbox]:not(.visually-hidden):checked::before,
+input[type=radio]:not(.visually-hidden):checked::before{
+  background:var(--accent-deep);border-color:var(--accent-deep);
+}
+input[type=checkbox]:not(.visually-hidden):checked::after,
+input[type=radio]:not(.visually-hidden):checked::after{
+  opacity:1;transform:translate(-50%,-50%) scale(1);
+}
+input[type=checkbox]:not(.visually-hidden):active::before,
+input[type=radio]:not(.visually-hidden):active::before{transform:translate(-50%,-50%) scale(.9)}
+/* The reminder types are disabled until notifications are actually granted, so
+   the boxes have to look locked rather than simply on. */
+input[type=checkbox]:not(.visually-hidden):disabled,
+input[type=radio]:not(.visually-hidden):disabled{cursor:default}
+input[type=checkbox]:not(.visually-hidden):disabled::before,
+input[type=radio]:not(.visually-hidden):disabled::before,
+input[type=checkbox]:not(.visually-hidden):disabled:checked::after,
+input[type=radio]:not(.visually-hidden):disabled:checked::after{opacity:.32}
+input[type=checkbox]:not(.visually-hidden):disabled:active::before,
+input[type=radio]:not(.visually-hidden):disabled:active::before{transform:translate(-50%,-50%)}
+input[type=checkbox]:not(.visually-hidden):focus-visible,
+input[type=radio]:not(.visually-hidden):focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
+@media (prefers-reduced-motion:reduce){
+  input[type=checkbox]:not(.visually-hidden)::before,input[type=radio]:not(.visually-hidden)::before,
+  input[type=checkbox]:not(.visually-hidden)::after,input[type=radio]:not(.visually-hidden)::after{transition:none}
+}
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+input[type=number]{-moz-appearance:textfield;appearance:textfield}
+textarea{resize:vertical;min-height:80px}
+select{appearance:none;-webkit-appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,var(--ink-soft) 50%),linear-gradient(135deg,var(--ink-soft) 50%,transparent 50%);
+  background-position:calc(100% - 18px) 19px,calc(100% - 13px) 19px;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:34px}
+input:not(:where([type=checkbox],[type=radio])):focus,select:focus,textarea:focus{
+  outline:none;border-color:var(--accent);box-shadow:var(--control-focus-halo-shadow)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input:not(:where([type=checkbox],[type=radio])):focus-visible,select:focus-visible,textarea:focus-visible{
+  outline:var(--control-focus-outline);outline-offset:2px
+}
+/* `tabindex=-1` lets scripts or pointer actions move focus without adding a Tab
+   stop. Keep those focus changes visual-free; regular keyboard stops retain rings. */
+[tabindex="-1"]:focus,[tabindex="-1"]:focus-visible{outline:none}
+[data-quiet-focus][data-quiet-focus]:focus-visible{outline:none}
+
+/* ---- Toggle (iOS-style) ----
+   The switch is a 51x31 track with a 27px knob, but the button that carries it
+   stays 44px tall so the tap target matches every other control. Track and knob
+   are painted as centred pseudo-elements: styling the button box itself is what
+   turned the switch into a 51x44 slab with the knob stranded at its top edge.
+   `is-on` is the visual truth (the notifications switch shows it optimistically
+   while the permission prompt is up, before `aria-pressed` commits). */
+.toggle{
+  position:relative;width:51px;height:44px;min-width:51px;flex:none;
+  background:none;border:0;border-radius:var(--radius-pill);padding:0;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.toggle::before{
+  content:"";position:absolute;top:50%;left:0;width:51px;height:31px;margin-top:-15.5px;
+  border-radius:var(--radius-pill);background:var(--boundary-required);
+  box-shadow:var(--control-toggle-track-shadow);
+  transition:background-color .28s cubic-bezier(.32,.72,0,1);
+}
+.toggle::after{
+  content:"";position:absolute;top:50%;left:2px;width:27px;height:27px;margin-top:-13.5px;
+  border-radius:var(--radius-pill);background:var(--knob);
+  box-shadow:var(--control-toggle-thumb-shadow);
+  transition:transform .28s cubic-bezier(.32,.72,0,1),width .28s cubic-bezier(.32,.72,0,1);
+}
+.toggle[aria-checked="true"]::before,.toggle[aria-pressed="true"]::before,.toggle.is-on::before{
+  background:var(--accent-deep);box-shadow:none;
+}
+.toggle[aria-checked="true"]::after,.toggle[aria-pressed="true"]::after,.toggle.is-on::after{transform:translateX(20px)}
+/* Held down, the knob stretches towards the side it is about to travel to. */
+.toggle:active::after{width:31px}
+.toggle[aria-checked="true"]:active::after,.toggle[aria-pressed="true"]:active::after,.toggle.is-on:active::after{
+  transform:translateX(16px);
+}
+.toggle[aria-busy="true"]{cursor:progress}
+.toggle[aria-busy="true"]::before,.toggle[aria-busy="true"]::after{opacity:.55}
+.toggle:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){
+  .toggle::before,.toggle::after{transition:none}
+  .toggle:active::after{width:27px}
+  .toggle[aria-checked="true"]:active::after,.toggle[aria-pressed="true"]:active::after,.toggle.is-on:active::after{
+    transform:translateX(20px);
+  }
+}
+
+/* ---- In-page tabs ---- */
+.tabs{
+  display:flex;gap:0;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  border-bottom:1px solid var(--rule);margin:0 0 18px;scrollbar-width:none;overscroll-behavior:contain;}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button,.seg.seg--window button,#prFilterSeg button{
+  flex:none;border:0;background:transparent;color:var(--ink-soft);cursor:pointer;
+  padding:12px 14px;font-size:var(--font-size-body-small);font-weight:500;letter-spacing:0;text-transform:none;
+  font-family:var(--font-language);border-bottom:2px solid transparent;margin-bottom:-1px;border-radius:0;
+  white-space:nowrap;
+}
+.tabs button.active,.seg.seg--window button.active,#prFilterSeg button.active{
+  color:var(--ink);border-bottom-color:var(--accent);background:transparent;box-shadow:none;
+}
+
+/* Day tabs / legacy seg */
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.seg:not(.seg--window) button{
+  flex:1;min-width:0;border:1px solid var(--rule);background:var(--surface);color:var(--ink-soft);
+  cursor:pointer;border-radius:var(--radius-control);padding:11px 8px;font-weight:600;font-size:var(--font-size-body-small);
+}
+.seg:not(.seg--window) button.active{
+  color:var(--ink);border-color:var(--accent);background:var(--surface);
+}
+
+/* ---- Stat band (unified: value above caption, partial hairlines) ---- */
+.statrow,.metrics{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);margin:12px 0 0;
+  background:transparent;
+}
+.statrow--4,.metrics{grid-template-columns:repeat(4,minmax(0,1fr))}
+.statrow__cell,.metric{
+  position:relative;padding:14px 8px;text-align:center;min-width:0;
+  border:0;border-radius:0;background:transparent;overflow:visible;
+}
+.statrow__cell:not(:last-child)::after,
+.metric:not(:last-child)::after{
+  content:"";position:absolute;right:0;top:20%;bottom:20%;width:1px;background:var(--rule);
+}
+.statrow__val{
+  font-size:var(--font-size-metric);font-weight:var(--weight-semibold);line-height:1.1;color:var(--ink);
+  font-variant-numeric:tabular-nums;letter-spacing:-0.01em;
+}
+.statrow--4 .statrow__val{font-size:var(--font-size-subtitle)}
+.statrow__cap{
+  display:block;margin-top:4px;font-size:var(--font-size-caption);color:var(--ink-soft);font-weight:400;
+  text-transform:none;letter-spacing:0;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.statrow--4 .statrow__cap{font-size:var(--font-size-label)}
+
+/* ---- Recommendation block ---- */
+.recblock{
+  border-left:3px solid var(--accent);padding:10px 12px 10px 14px;margin:14px 0;
+  background:transparent;
+}
+.recblock__lab{
+  display:block;font-size:var(--font-size-label);font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--accent-deep);margin-bottom:4px;background:none;border:0;padding:0;
+}
+.recblock__lab::before,.chip::before{display:none!important;content:none!important}
+.recblock__head{font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);color:var(--ink);margin:0 0 2px}
+.recblock__body,.rec{font-size:var(--font-size-body-small);line-height:1.45;color:var(--ink-soft);margin:0}
+
+/* ---- Radio cards (onboarding, block review) ---- */
+.radio-card{
+  display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+  background:var(--surface);border:1px solid var(--control-selection-boundary);border-radius:var(--radius-surface);
+  padding:14px 16px;cursor:pointer;color:var(--ink);font:inherit;
+  transition:border-color .15s ease;
+}
+.radio-card.is-selected{border-color:var(--control-selected-boundary);border-width:1.5px;padding:13.5px 15.5px}
+.radio-card__body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.radio-card__title{font-size:var(--font-size-control);font-weight:600;line-height:1.25;color:var(--ink)}
+.radio-card__cap{font-size:var(--font-size-body-small);line-height:1.35;color:var(--ink-soft)}
+.radio-card__mark{
+  flex:none;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--control-selection-boundary);
+  background:transparent;
+}
+.review-block__patterns .radio-card:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+/* Nothing told you whether picking a second option replaced the first. A
+   checkbox is a square; a radio is a circle. */
+.radio-card[role="checkbox"] .radio-card__mark{border-radius:var(--radius-compact)}
+.radio-card.is-selected .radio-card__mark{
+  border-color:var(--control-selected-boundary);background:var(--control-selected-boundary);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M4.5 8.5L2 6l.7-.7 1.8 1.8 4-4 .7.7z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:center;background-size:12px;
+}
+
+/* ---- Cards (rare — settings groups) ---- */
+.card{
+  background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius-surface);
+  padding:0;margin-bottom:18px;overflow:hidden;box-shadow:none;
+}
+.card > .field,.card > .lede,.card > .btn,.card > .btnrow,.card > details,.card > fieldset,
+.card > .notifytypes,.card > label.btn{margin-left:14px;margin-right:14px}
+.card > .lede:first-child{margin-top:14px}
+.card > .btn,.card > .btnrow,.card > details,.card > label.btn{margin-bottom:14px}
+/* Settings is a list of rows, not a stack of cards. A box drawn around every
+   group spends a border, a radius and a fill to say what the caption above it
+   and the space below it already say — and it said it in one theme only, since
+   dark dropped the boxes years ago and read the better for it. Unboxed, the
+   space before a caption *is* the boundary, so it has to be wide enough to be
+   read as one: 34px above a caption against 8px below it. */
+.settings-group{margin-bottom:34px}
+.settings-group__summary{
+  margin:0 var(--settings-inset) 8px;color:var(--color-ink-secondary);font-family:var(--font-language);
+  font-size:var(--font-size-body-small);line-height:var(--line-reading)
+}
+.settings-group > .lede{
+  font-family:var(--font-language);font-size:var(--font-size-caption);font-weight:var(--weight-regular);
+  line-height:var(--line-reading);text-transform:none;letter-spacing:0;padding:0 0 12px;margin:0;color:var(--color-ink-secondary)
+}
+.settings-group__label{
+  font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);
+  letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary);
+  display:block;line-height:var(--line-standard);margin:0 0 8px var(--settings-inset)
+}
+.settings-row{
+  position:relative;
+  display:flex;align-items:center;gap:12px;min-height:56px;padding:12px var(--settings-inset);
+  border:0;background:transparent;color:var(--color-ink);font-family:var(--font-language);
+  font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);
+  width:100%;text-align:left;appearance:none;cursor:pointer;
+}
+/* The rule goes above each row rather than below it, and starts where the row's
+   label does. A line run edge to edge reads as a page separator; one held to
+   the text column reads as the rows belonging to each other. Drawing it above
+   also keeps a row joined to whatever it opens or explains: the caption under a
+   toggle, and the panel under a disclosure, are the tail of that row, so the
+   next rule falls after them where the next row begins. */
+.settings-row::before{
+  content:"";position:absolute;left:var(--settings-inset);right:0;top:0;height:1px;background:var(--boundary-decorative)
+}
+div.settings-row{cursor:default}
+.settings-row:first-child::before{display:none}
+.settings-row__label{flex:1;min-width:0;font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink)}
+.settings-row__cap{display:block;font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);font-weight:var(--weight-regular);margin-top:2px}
+.settings-row__value{flex:none;margin-left:auto;display:inline-flex;align-items:center;gap:8px;color:var(--color-ink-secondary);font-size:var(--font-size-body-small);line-height:var(--line-standard)}
+.settings-row .chevron{color:var(--color-ink-secondary);flex:none}
+.settings-row.is-danger .settings-row__label{color:var(--control-destructive-ink)}
+/* The one row that is still a box: a destructive action is not part of the
+   list above it, and the outline is what says so. */
+.settings-row.is-danger,#reset.settings-row{
+  margin-top:24px;border:1px solid var(--control-destructive-boundary);border-radius:var(--radius-control);
+  background:var(--control-destructive-bg);color:var(--control-destructive-ink);
+  min-height:56px;
+}
+.settings-row.is-danger::before,#reset.settings-row::before{display:none}
+#settings :is(#rirModeRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle){
+  background:var(--control-disclosure-bg);color:var(--control-disclosure-ink)
+}
+#settings :is(#createProgram,#privacyDetails){
+  background:var(--control-quiet-bg);color:var(--control-quiet-ink)
+}
+@media (hover: hover) and (pointer: fine){
+#settings :is(#rirModeRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle):hover:not(:disabled){
+  background:var(--well);color:var(--control-disclosure-ink)
+}
+}
+@media (hover: hover) and (pointer: fine){
+#settings :is(#createProgram,#privacyDetails):hover:not(:disabled){
+  background:var(--well);color:var(--control-quiet-ink)
+}
+}
+#settings :is(#rirModeRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle,#createProgram,#privacyDetails,#reset):active:not(:disabled){
+  transform:var(--control-pressed-transform)
+}
+#settings :is(#rirModeRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle,#createProgram,#privacyDetails,#reset):focus-visible{
+  outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-none)
+}
+@media (hover: hover) and (pointer: fine){
+#settings #reset:hover:not(:disabled){background:var(--well);color:var(--control-destructive-ink)}
+}
+#settings #reset:active:not(:disabled){background:var(--well);color:var(--control-destructive-ink)}
+#settings :is(#rirModeRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle,#createProgram,#privacyDetails,#reset):disabled{
+  background:transparent;color:var(--color-disabled-reason);border-color:var(--boundary-decorative);
+  opacity:1;cursor:not-allowed;transform:none
+}
+#settings :is(#rirModeRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle,#createProgram,#privacyDetails,#reset):disabled :is(.settings-row__label,.settings-row__value,.chevron){
+  color:var(--color-disabled-reason)
+}
+#settings .settings-row.is-danger:disabled .settings-row__label{color:var(--color-disabled-reason)}
+#settings :is(.settings-row select,.select-flat){
+  appearance:none;-webkit-appearance:none;border:0;background-color:transparent;
+  margin:0;padding:0 18px 0 0;width:auto;min-width:0;text-align:right;color:var(--control-selection-ink);
+  font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);
+  line-height:var(--line-standard);border-radius:var(--radius-none);box-shadow:none;
+  background-image:var(--select-caret);
+  background-position:right center;background-size:14px 14px;background-repeat:no-repeat;
+}
+#settings :is(.settings-row select,.select-flat):focus{box-shadow:none;border:0}
+#settings :is(.settings-row select,.select-flat):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+#settings :is(.settings-row select,.select-flat):disabled{color:var(--color-disabled-reason);opacity:1;cursor:not-allowed}

@@ -1,0 +1,56 @@
+/* ---- Program overview as a ledger (Plan 064 R3k) ----
+   The program on one page: the name, one line that says what it is, the week
+   rule, the status, then every training day open as a hairline band. Each
+   exercise is a prescription row (.rxrow): name with its strategy underneath,
+   sets x range, and the load `recommendation()` says comes next with its verdict
+   mark. Flat reading content on hairlines, ink only: orange stays off this page
+   (the dock's active item is the one use). Below the days, the volume audit,
+   export, share and review rows are the shipped rows, wrapped instead of cut. */
+#program.program-ledger>.pagehead{margin-bottom:var(--space-4)}
+#program.program-ledger>.pagehead .page-title{
+  margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);
+  letter-spacing:0;line-height:var(--line-standard);color:var(--color-ink-secondary)
+}
+#program.program-ledger #programEditToggle{
+  color:var(--control-quiet-ink);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);
+  text-decoration:underline;text-underline-offset:.2em
+}
+#programOverview{container-type:inline-size;--prog-cols:minmax(0,1fr) 4.875rem 5.5rem}
+.prog-overview__name{
+  margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-title);font-weight:var(--weight-semibold);
+  letter-spacing:-0.02em;line-height:var(--line-tight);color:var(--color-ink);overflow-wrap:anywhere;text-wrap:balance
+}
+.prog-overview__meta{margin:var(--space-8) 0 0;font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink-secondary);text-wrap:pretty}
+.prog-overview__week{margin:var(--space-4) 0 0;font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+#programOverview .segbar{gap:var(--space-4);margin:var(--space-12) 0 0}
+#programOverview .segbar__seg{height:3px;border-radius:var(--radius-compact);background:var(--boundary-required)}
+#programOverview .segbar__seg.is-done{background:var(--color-ink)}
+#programOverview .segbar__seg.is-current{background:var(--color-ink-secondary)}
+.prog-overview__status{margin:var(--space-12) 0 0;font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink)}
+.prog-day{margin-top:var(--space-26)}
+.prog-day__head{display:grid;gap:var(--space-4);padding-bottom:var(--space-8);border-bottom:1px solid var(--boundary-decorative)}
+.prog-day__title{margin:0;font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink);overflow-wrap:anywhere}
+.prog-day__meta{margin:0;font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere}
+.prog-cols{
+  display:grid;grid-template-columns:var(--prog-cols);column-gap:var(--space-8);align-items:end;padding:var(--space-12) 0 var(--space-8);
+  border-bottom:1px solid var(--boundary-decorative);font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);
+  line-height:var(--line-standard);letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary)
+}
+.prog-cols>:nth-child(n+2){text-align:right}
+.prog-legend{margin:0;padding:var(--space-8) 0;border-bottom:1px solid var(--boundary-decorative);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+#programOverview .rxrow{grid-template-columns:var(--prog-cols);column-gap:var(--space-8)}
+#programOverview .rxrow__target{align-self:baseline}
+#programOverview .rxrow__load{
+  display:inline-flex;align-items:baseline;justify-content:flex-end;gap:var(--space-4);
+  font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink-secondary)
+}
+#programOverview .rxrow__mark{top:0;align-self:center}
+#programOverview .listrow__sub{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+#programOverview .listrow__meta{white-space:normal;text-align:right}
+@container (max-width:17em){
+  .prog-cols{display:none}
+  #programOverview .rxrow{grid-template-columns:minmax(0,1fr) auto}
+  #programOverview .rxrow__name{grid-column:1 / -1}
+  #programOverview .rxrow__target{text-align:left}
+}
+

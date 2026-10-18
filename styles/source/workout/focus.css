@@ -1,0 +1,748 @@
+/* ---- Today dashboard ---- */
+.today-session{padding:4px 0 8px}
+.today-session__name{font-family:var(--font-language);font-size:var(--font-size-feature-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);letter-spacing:-0.02em;margin:4px 0 6px;color:var(--color-ink)}
+.today-session + .btn--cta,#startWorkout{margin-top:32px}
+/* Start / Continue stays in reach while the lifter reads the prescription (#303). It is sticky, not fixed: it keeps its
+   place in the flow, so it rides a deliberate gap above the dock (positioned from --nav, the Dock Reservation Rule,
+   plus the safe area) only while its own place is still below the fold, and settles back above Choose another day
+   once the lifter scrolls there. Nothing under it is ever covered for good, and hidden it leaves no surface behind.
+   It floats on the existing floating elevation, a primary pill over the page, never a fifth dock item. */
+#startWorkout{
+  position:sticky;bottom:calc(var(--nav) + env(safe-area-inset-bottom) + var(--restbar-reserve,0px) + var(--space-12));z-index:5;
+  box-shadow:var(--elevation-floating-shadow);
+}
+/* The alternative to the day Today leads with, so it sits under the CTA and
+   reads as the quieter of the two. */
+.today-otherday{width:100%;min-height:48px;margin-top:10px}
+
+/* ---- Active workout ---- */
+.wo-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-8);margin-bottom:0;min-height:var(--control-target)}
+/* The title wraps rather than truncates, so it hangs from the top of the bar: when the timer chip widens and
+   takes room from it, the controls and the first line of the title stay where they were. */
+.wo-head__center{text-align:center;min-width:0;flex:1;padding-top:var(--space-12)}
+.wo-head__title{font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere}
+/* In a workout the title is the exercise's name, and the name opens its stats and history. A long name beside a
+   running or overrun rest pill takes two lines at most (owner, 2026-10-17); the heading's name keeps all of it. */
+.wo-head__title:has(.wo-head__name){font-weight:var(--weight-semibold);color:var(--color-ink)}
+.wo-head__name{
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;width:100%;min-height:var(--control-target);margin:calc(-1 * var(--space-12)) 0 0;padding:var(--space-12) 0 0;border:0;
+  background:none;color:inherit;font:inherit;text-align:center;overflow-wrap:anywhere;cursor:pointer;
+}
+@media (hover: hover) and (pointer: fine){
+.wo-head__name:hover{background:var(--well)}
+}
+.wo-head__name:active{background:var(--well);transform:var(--control-pressed-transform)}
+.wo-head__name:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
+/* The title is a heading and is never cut short: it wraps. Where the controls leave it a column too narrow to read
+   (the narrowest phones, and any phone at large text) it takes the row under the controls, so a running timer's
+   wider pill neither squeezes it nor moves it. */
+@media (max-width:340px){
+  .wo-head{flex-wrap:wrap;row-gap:0}
+  .wo-head__center{order:3;flex:1 0 100%;padding-top:0}
+}
+body:has(.exercise--focus.is-text-scaled){--focus-context-floor:0px}
+body:has(.exercise--focus.is-text-scaled) .wo-head{flex-wrap:wrap;row-gap:0}
+body:has(.exercise--focus.is-text-scaled) .fcard__context{padding-block:0}
+body:has(.exercise--focus.is-text-scaled) .exercise--focus .guide-cue{margin-block:0}
+body:has(.exercise--focus.is-text-scaled) #log > :not(#workoutShell){margin-bottom:0}
+/* A guide is a hint, and on a short screen it can only be shown cut off. Where the shelf and the controls already take
+   the height it stands down rather than take the shelf's room; it keeps its state and returns on a taller screen. */
+@media (max-height:600px){
+  body.is-focus-wo :is(#workoutShell,.exercise--focus) .guide-cue{display:none}
+}
+/* At large text a recovery banner is the one thing to act on; a first-use hint does not sit beside it. */
+body.is-focus-wo:has(#draftRecovery:not(.hidden)):has(.exercise--focus.is-text-scaled) :is(#workoutShell,.exercise--focus) .guide-cue{display:none}
+/* The shelf's labels are one or two short words that wrap in a third of the screen; tight leading keeps their two lines
+   from costing the shelf the room its action needs. The running timer's pill drops its dot and takes the label size so
+   the controls and the timer share one row with the title under them. */
+body:has(.exercise--focus.is-text-scaled) .shelf__lab{line-height:var(--line-tight)}
+body:has(.exercise--focus.is-text-scaled) .wo-rest.is-running{padding:0 var(--space-8);font-size:var(--font-size-body-small)}
+body:has(.exercise--focus.is-text-scaled) .wo-rest.is-running .wo-rest__dot{display:none}
+body:has(.exercise--focus.is-text-scaled) .wo-head__center{order:3;flex:1 0 100%;padding-top:0}
+.wo-head__sub{display:none}
+.wo-head__sub.is-deload{display:block;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.wo-head__end{display:flex;align-items:center;gap:6px;flex:none;position:relative;justify-self:end}
+/* Rest lives in the workout chrome, never over the card's controls: a square
+   with the stopwatch while idle, a counting pill once it is running. */
+.wo-rest{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;flex:none;cursor:pointer;
+  border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);
+  background:var(--control-secondary-bg);color:var(--control-secondary-ink);
+  font-family:var(--font-training-data);font-size:var(--font-size-control);line-height:var(--line-standard);
+  transition:border-radius .2s ease,width .2s ease,color .2s ease,border-color .2s ease;
+}
+@media (hover: hover) and (pointer: fine){
+.wo-rest:hover:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)}
+}
+.wo-rest:active:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary);transform:var(--control-pressed-transform)}
+.wo-rest:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.wo-rest:disabled{background:var(--control-secondary-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
+.wo-rest__dot{display:none;width:8px;height:8px;border-radius:50%;background:var(--color-ink-secondary);flex:none}
+.wo-rest__time{display:none;font-variant-numeric:tabular-nums}
+.wo-rest.is-running{width:auto;min-width:88px;padding:0 14px;border-radius:var(--radius-pill)}
+.wo-rest.is-running .wo-rest__dot,.wo-rest.is-running .wo-rest__time{display:block}
+.wo-rest.is-running .wo-rest__icon{display:none}
+.wo-rest.is-done{color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)}
+@media (prefers-reduced-motion:reduce){.wo-rest{transition:none}}
+/* The active workout reads the timer from its header. */
+body.is-focus-wo .restbar{display:none!important}
+
+#leaveWorkout,#sessionSheetBtn{
+  width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;
+  background:var(--control-quiet-bg);border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-round);color:var(--control-quiet-ink);
+}
+@media (hover: hover) and (pointer: fine){
+#leaveWorkout:hover:not(:disabled),#sessionSheetBtn:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
+}
+#leaveWorkout:active:not(:disabled),#sessionSheetBtn:active:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+#leaveWorkout:focus-visible,#sessionSheetBtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+#leaveWorkout:disabled,#sessionSheetBtn:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+#woOverflowBtn{
+  width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;
+  background:var(--control-quiet-bg);border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-round);color:var(--control-quiet-ink);
+}
+@media (hover: hover) and (pointer: fine){
+#woOverflowBtn:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
+}
+#woOverflowBtn:active:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+#woOverflowBtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+#woOverflowBtn:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+#leaveWorkout .icon-mask{transform:rotate(90deg)}
+/* Exercise progress: one segment per exercise, each a button into that exercise.
+   The bar is drawn inside a 44px target. */
+#woProgress{margin:0}
+/* Targets touch; the gap between segments is drawn by insetting each bar, so a
+   six-exercise day still gives every segment a full 44px target at 320px. A
+   longer day scrolls rather than shrinking its targets. */
+.segbar--ex{gap:0;margin:0;overflow-x:auto;scrollbar-width:none}
+.segbar--ex::-webkit-scrollbar{display:none}
+#woProgress .segbar__seg{
+  position:relative;flex:1 0 var(--control-target);min-width:var(--control-target);height:var(--control-target);margin:0;padding:0;border:0;border-radius:var(--radius-none);
+  background:var(--control-quiet-bg);cursor:pointer;
+}
+#woProgress .segbar__bar{
+  position:absolute;left:var(--space-4);right:var(--space-4);top:50%;height:5px;margin-top:-2px;border-radius:var(--radius-compact);background:var(--boundary-required);
+}
+#woProgress .segbar__seg.is-done .segbar__bar{background:var(--color-ink)}
+#woProgress .segbar__seg.is-current .segbar__bar{background:var(--color-action)}
+#woProgress span.segbar__seg{cursor:default}
+@media (hover: hover) and (pointer: fine){
+#woProgress button.segbar__seg:hover:not(:disabled){background:var(--well)}
+}
+#woProgress button.segbar__seg:active:not(:disabled){transform:var(--control-pressed-transform)}
+#woProgress .segbar__seg:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+body.is-workout.is-focus-wo #logWorkspace,
+body.is-workout.is-focus-wo #logForm{padding-bottom:0}
+/* Focus fills the screen by layout, not by arithmetic: every box between the
+   viewport and the deck hands its height down, so the card cannot be left short
+   by a measurement taken while the viewport was something else. */
+/* The card is the session: Focus gives it the whole screen and puts the way
+   back in the header, where the mockups put it. */
+body.is-focus-wo nav{display:none}
+body.is-focus-wo{padding-bottom:0}
+/* The screen runs to the bottom edge: the shelf's surface goes under the home indicator and pays that inset
+   from its own padding, so no strip of page shows under it. */
+body.is-workout.is-focus-wo main{
+  display:flex;flex-direction:column;
+  height:100dvh;
+  padding-bottom:0;
+  /* The deck reaches both edges so the shelf can; the rest of the screen keeps the gutter. */
+  padding-left:0;padding-right:0;
+}
+body.is-workout.is-focus-wo #log > :not(#workoutShell),
+body.is-workout.is-focus-wo #workoutShell > :not(#logForm),
+body.is-workout.is-focus-wo #logForm > :not(#workout),
+body.is-workout.is-focus-wo #workout > :not(.deck){
+  margin-left:max(var(--gut),env(safe-area-inset-left));margin-right:max(var(--gut),env(safe-area-inset-right));
+}
+body.is-workout.is-focus-wo #log.view.active,
+body.is-workout.is-focus-wo #workoutShell,
+body.is-workout.is-focus-wo #logForm,
+body.is-workout.is-focus-wo #workout{display:flex;flex-direction:column;flex:1;min-height:0}
+body.is-workout.is-focus-wo .deck{flex:1;min-height:0}
+/* The shelf is not paid for by what sits above it. Everything above the deck that can vary (a banner, a guide, the
+   header's second line) is measured by the screen, never by the shelf: the shell keeps the height of the rigid
+   chrome plus the shelf (`syncFocusFloor` in app.js publishes it), and the banners and guides above give way and
+   scroll inside themselves. The context region is the one that gives up height inside the card. */
+body.is-workout.is-focus-wo .wo-head{flex:none}
+body.is-workout.is-focus-wo #workoutShell{min-height:var(--focus-floor,0px)}
+body.is-workout.is-focus-wo #logForm{min-height:var(--focus-form-floor,0px)}
+body.is-workout.is-focus-wo #log > :not(#workoutShell),
+body.is-workout.is-focus-wo #workoutShell > :not(.wo-head):not(#logForm){
+  flex:0 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+}
+/* With the software keyboard up (`data-keyboard`, set by trackSheetViewport while a field is edited) the screen is the
+   band the keyboard leaves visible, not 100dvh, so the shelf and the field being edited sit just above the keyboard
+   (#300). The floors that keep the shelf from being squeezed by the chrome above it stand down: in that band the shelf
+   is what matters, and the context region gives up its height instead. */
+:root[data-keyboard="up"] body.is-workout.is-focus-wo main{height:var(--vvh,100dvh)}
+:root[data-keyboard="up"] body.is-workout.is-focus-wo #workoutShell,
+:root[data-keyboard="up"] body.is-workout.is-focus-wo #logForm{min-height:0}
+:root[data-keyboard="up"] body.is-workout.is-focus-wo article.exercise--focus .fcard__context{min-height:0}
+/* The keyboard covers the home indicator, so the shelf does not pay its inset again above the keyboard. */
+:root[data-keyboard="up"] body.is-workout.is-focus-wo .focus-shelf{padding-bottom:var(--space-16)}
+/* A guide above the deck never takes more than a quarter of the screen, so the card under it keeps its context. */
+body.is-workout.is-focus-wo #workoutShell > .guide-cue{max-height:25dvh}
+body.is-workout.is-focus-wo #dayTabs,
+body.is-workout.is-focus-wo #logForm > .field,
+body.is-workout.is-focus-wo #logForm > .btn--save{display:none!important}
+
+/* ---- Focus deck ----
+   A paged track: the live card at rest position, an inert copy of each
+   neighbour parked just off either side. Dragging moves all three as one. */
+body.is-focus-wo{overflow-x:hidden}
+.deck{position:relative;margin:0;overflow-x:clip;overflow-clip-margin:24px}
+/* Each card sits in its own slot; the track carries all three as one. */
+.deck__track{position:absolute;inset:0;will-change:transform}
+.deck__track.is-settling{transition:transform .21s cubic-bezier(.2,.7,.2,1)}
+.deck__slot{position:absolute;top:0;bottom:0;width:100%}
+/* The neighbours are parked off screen and take no part in layout until a swipe or a slide shows them. */
+.deck__slot--prev,.deck__slot--next{display:none;visibility:hidden;pointer-events:none}
+.deck__slot--prev{right:calc(100% + 14px)}
+.deck__slot--next{left:calc(100% + 14px)}
+.deck.is-swiping .deck__slot,
+.deck__track.is-settling .deck__slot{display:block;visibility:visible}
+@media (prefers-reduced-motion:reduce){
+  .deck__track.is-settling{transition:none}
+}
+
+/* ---- Focus card (Direction D) ----
+   Flat paper: no card, no border, no depth. The exercise and its cue sit on
+   top, the ledger of every set under them, and the shelf is the only floating
+   layer. The card is as wide as the screen so the shelf can reach both edges;
+   the context region carries the page gutter. */
+article.exercise--focus{
+  position:absolute;inset:0;margin:0;
+  display:flex;flex-direction:column;overflow:hidden;
+  background:var(--bg);border:0;border-radius:var(--radius-none);
+  padding:0;box-shadow:none;
+  touch-action:pan-y pinch-zoom;
+}
+article.exercise--focus input,article.exercise--focus textarea{-webkit-user-select:text;user-select:text}
+
+.fcard__context{
+  flex:1;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y pinch-zoom;
+  padding:var(--space-8) var(--gut) var(--space-16);
+}
+/* The context region is focusable so a keyboard can scroll it, which hands it the shared 44px target floor; here the
+   floor is the one the screen's budget allows (--focus-context-floor), and the selector outranks the shared rule. */
+article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
+.fcard__context:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
+.fx-head{margin:0 0 var(--space-16)}
+.focus-ex__meta{
+  margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);
+  color:var(--color-ink-secondary);overflow-wrap:anywhere;
+}
+
+/* The cue: the verb and the load on the first line, the reps on the second. The
+   mark column is kept when there is no mark, so the lines never shift. */
+.fx-cue{
+  display:grid;grid-template-columns:var(--space-18) minmax(0,1fr);column-gap:var(--space-8);align-items:start;
+  margin:0 0 var(--space-12);
+}
+.fx-cue__mark{
+  display:flex;grid-column:1;grid-row:1;justify-self:start;
+  padding-top:calc((var(--font-size-section-title) * var(--line-tight) - 16px) / 2);
+}
+.fx-cue__l1{
+  grid-column:2;grid-row:1;margin:0;overflow-wrap:anywhere;font-family:var(--font-language);font-size:var(--font-size-section-title);
+  font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink);
+}
+.fx-cue__load{font-family:var(--font-training-data);font-weight:var(--weight-medium)}
+.fx-cue__l2{
+  grid-column:2;margin:var(--space-4) 0 0;font-family:var(--font-language);font-size:var(--font-size-subtitle);
+  line-height:var(--line-standard);color:var(--color-ink-secondary);
+}
+.exercise--focus .text-link.focus-ex__why,.exercise--focus .fx-cue__cancel{
+  grid-column:2;justify-self:start;display:inline-flex;align-items:center;min-height:var(--control-target);margin:var(--space-4) 0 0;padding:0;
+  border:0;border-radius:var(--radius-control);background:var(--control-quiet-bg);color:var(--control-quiet-ink);cursor:pointer;
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);text-align:left;
+  text-decoration:underline;text-underline-offset:.2em;
+}
+@media (hover: hover) and (pointer: fine){
+.exercise--focus .text-link.focus-ex__why:hover:not(:disabled),.exercise--focus .fx-cue__cancel:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
+}
+.exercise--focus .text-link.focus-ex__why:active:not(:disabled),.exercise--focus .fx-cue__cancel:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+.exercise--focus .text-link.focus-ex__why:focus-visible,.exercise--focus .fx-cue__cancel:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.exercise--focus .text-link.focus-ex__why:disabled,.exercise--focus .fx-cue__cancel:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+.fx-note{
+  display:flex;align-items:flex-start;gap:var(--space-8);margin:0 0 var(--space-12);padding:var(--space-12) 0 0;
+  border-top:1px solid var(--boundary-decorative);font-family:var(--font-language);font-size:var(--font-size-body-small);
+  line-height:var(--line-reading);color:var(--color-ink-secondary);overflow-wrap:anywhere;
+}
+.fx-note .icon-mask{flex:none;margin-top:2px}
+
+.exercise--focus .term{background:var(--control-quiet-bg);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary);font-family:var(--font-language)}
+@media (hover: hover) and (pointer: fine){
+.exercise--focus .term:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink);text-decoration-color:var(--control-quiet-ink)}
+}
+.exercise--focus .term:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+.exercise--focus .term:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.exercise--focus .term:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+
+/* The ledger is the record, one row per set. Values sit in right-aligned Mono
+   columns that the head's labels share; the set being worked on wears the open
+   ring, and sets still to do read in soft ink until the lifter confirms them. */
+.fcard__ledger{margin:var(--space-8) 0 0}
+.fcard__ledger .ledgerline__head{align-items:center;min-height:calc(var(--control-target) + 1px);padding-block:0}
+.fcard__ledger .ledgerline__head .ledgerline__vals{
+  align-items:center;font-family:inherit;font-size:inherit;font-weight:inherit;line-height:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;
+}
+.fcard__ledger .ledgerline__head .term{margin:0;padding-block:0}
+.ledgerline__vals > .fx-col{flex:0 0 auto;min-width:0;text-align:right}
+.ledgerline__vals > .fx-col:nth-child(1){min-width:4.5rem}
+.ledgerline__vals > .fx-col:nth-child(2){min-width:2.5rem}
+.ledgerline__vals > .fx-col:nth-child(3){min-width:4.5rem}
+.ledgerline__vals > .fx-col.is-soft{color:var(--color-ink-secondary)}
+button.ledgerline{cursor:pointer;text-align:left;border-top:0;border-inline:0}
+@media (hover: hover) and (pointer: fine){
+button.ledgerline:hover:not(:disabled){background:var(--well)}
+}
+button.ledgerline:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
+.ledgerline .fx-check{
+  display:block;width:20px;height:20px;background:var(--color-ink);
+  -webkit-mask:var(--check) no-repeat center/contain;mask:var(--check) no-repeat center/contain;
+}
+/* The open row's ring is a real 2px edge, so the rendered-role audit can measure it; the
+   padding gives the 2px back, which leaves the row the size of its neighbours. */
+.fcard__ledger .ledgerline--open{
+  align-content:center;padding-block:4px;padding-inline:10px;border:2px solid var(--boundary-selected-quiet);box-shadow:none;
+}
+.fx-next{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);width:100%;min-height:48px;margin:var(--space-8) 0 0;
+  padding:0 var(--space-12);border:0;border-radius:var(--radius-control);background:var(--control-quiet-bg);color:var(--control-quiet-ink);cursor:pointer;
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-regular);line-height:var(--line-standard);text-align:left;
+}
+.fx-next b{font-weight:var(--weight-semibold)}
+@media (hover: hover) and (pointer: fine){
+.fx-next:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
+}
+.fx-next:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+.fx-next:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.fx-next:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);cursor:not-allowed;transform:none}
+.fx-next__chev{flex:none;transform:rotate(-90deg)}
+/* Layout D: the logged sets' disclosure, a quiet row above the open set. */
+.ledger__more{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);width:100%;min-height:var(--control-target);margin:0;
+  padding:0 var(--space-12);border:0;border-radius:var(--radius-control);background:var(--control-quiet-bg);color:var(--color-ink-secondary);cursor:pointer;
+  font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);line-height:var(--line-standard);text-align:left;
+}
+@media (hover: hover) and (pointer: fine){
+.ledger__more:hover{background:var(--well)}
+}
+.ledger__more:active{background:var(--well);transform:var(--control-pressed-transform)}
+.ledger__more:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.ledger__chev{flex:none}
+.ledger__more[aria-expanded="true"] .ledger__chev{transform:rotate(180deg)}
+
+/* A first-set cue rides above the shelf, in the flow, and keeps the shelf on the edge. */
+.exercise--focus .guide-cue{flex:0 1 auto;min-height:0;max-height:25%;overflow-y:auto;overscroll-behavior:contain;margin:var(--space-8) var(--gut)}
+#workoutShell .guide-cue{background:var(--well)}
+
+/* ---- The shelf ----
+   Three fields, the pads for the selected one, and the one action. The shell is
+   `.workshelf`; the field, pad and action recipes below sit on their own control
+   roles. A field is a button until a second tap turns it into the real input. */
+.focus-shelf{flex:none;position:relative}
+/* Layout D (owner decision of 2026-10-17, from the approved mock): the shelf at 56 px fields, 48 px pads and a 52 px
+   action, under the 56/56/54 of Direction D §4, on an 8 px top padding. Every target stays at least 48 px. */
+.workshelf.focus-shelf{padding-top:var(--space-8)}
+.focus-shelf{--control-selection-bg:var(--shelf-field-bg)}
+/* A third of the shelf has to hold a load such as 102,5 on one line at any text size. The numeral is as large as the
+   token allows and no larger than five Mono digits take in the room a field has left after its gutters, gaps and
+   padding (a Mono digit is 0.6em, so 9.6 is three fields at 3.2em each); at the usual size the token is the smaller
+   of the two and nothing changes, at double size the step-down replaces the wrap. */
+.focus-shelf{
+  --shelf-field-inset:calc(2 * var(--space-12) + 2px);
+  --shelf-numeral-fit:calc((100vw - 2 * var(--gut) - 2 * var(--space-8) - 3 * var(--shelf-field-inset)) / 9.6);
+}
+.shelf__fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-8)}
+/* The three fields share a row's height whichever label wrapped (a flex field stretches its button). */
+.shelf__field{position:relative;display:flex;min-width:0}
+.shelf__fieldbtn{
+  display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;width:100%;min-height:56px;margin:0;
+  padding:var(--space-4) var(--space-12);border:1px solid var(--control-selection-boundary);border-radius:var(--radius-control);
+  background:var(--control-selection-bg);color:var(--control-selection-ink);text-align:left;cursor:pointer;
+}
+@media (hover: hover) and (pointer: fine){
+.shelf__fieldbtn:hover:not(:disabled){background:var(--well)}
+}
+.shelf__fieldbtn:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+.shelf__fieldbtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.shelf__fieldbtn[aria-pressed="true"]{box-shadow:var(--elevation-selected-quiet-shadow)}
+.shelf__lab{
+  font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);line-height:var(--line-standard);
+  color:var(--color-ink-secondary);overflow-wrap:anywhere;
+}
+.shelf__val{
+  font-family:var(--font-training-data);font-size:min(var(--font-size-metric),var(--shelf-numeral-fit));font-weight:var(--weight-medium);line-height:var(--line-tight);
+  color:var(--control-selection-ink);font-variant-numeric:tabular-nums;overflow-wrap:anywhere;
+}
+.shelf__field.is-untouched .shelf__val{color:var(--color-ink-secondary)}
+/* The input is always present so the draft handlers have one element to read and
+   flag. Until the second tap it is invisible and inert; then it takes the field's place. */
+.shelf__input{
+  position:absolute;inset:0;width:100%;height:100%;min-height:56px;margin:0;padding:var(--space-4) var(--space-12) 0;
+  opacity:0;pointer-events:none;border:1px solid var(--control-field-boundary);border-radius:var(--radius-control);
+  background:var(--control-field-bg);color:var(--control-field-ink);box-shadow:var(--elevation-selected-quiet-shadow);
+  font-family:var(--font-training-data);font-size:min(var(--font-size-metric),var(--shelf-numeral-fit));font-weight:var(--weight-medium);line-height:var(--line-tight);
+  font-variant-numeric:tabular-nums;text-align:left;
+}
+.shelf__field.is-editing .shelf__input{opacity:1;pointer-events:auto;padding-top:calc(var(--space-4) + var(--font-size-body-small) * var(--line-standard) + 2px);padding-bottom:0}
+.shelf__lab--edit{position:absolute;top:var(--space-4);left:var(--space-12);right:var(--space-12);pointer-events:none}
+.shelf__field.is-editing .shelf__fieldbtn{visibility:hidden}
+.shelf__input:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.shelf__input[aria-invalid="true"]{border-color:var(--control-error-boundary);box-shadow:none}
+.shelf__input[aria-invalid="true"]:focus-visible{outline-color:var(--control-error-boundary)}
+.shelf__fieldbtn[aria-invalid="true"]{border-color:var(--control-error-boundary)}
+.shelf__pads{display:flex;gap:var(--space-8)}
+.shelf__pads .shelf__pad{
+  flex:1 1 0;width:auto;min-width:0;height:48px;min-height:48px;padding:0 var(--space-12);border-radius:var(--radius-control);
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);white-space:nowrap;
+}
+/* ---- Inline rest ----
+   The cue slot trades the cue for the running clock, and the shelf's pad row
+   trades the field pads for the rest controls (L3). The clock is the protected
+   rest clock; the drain bar is a transform on a 4px track, the one orange mark
+   a running timer is allowed. */
+/* The slot is plain flow while it holds the cue, so the cue lays out exactly as it did before the slot existed. A rest
+   makes it a block formatting context with the cue's 12px gap on the slot itself, so the height the swap measures is
+   the content's and the gap under it does not change when the content does. */
+.fx-slot{position:relative}
+.fx-slot:not([data-rest="none"]){display:flow-root;margin-bottom:var(--space-12)}
+.fx-slot:not([data-rest="none"]) > :last-child{margin-bottom:0}
+/* While the clock is up the slot keeps the height of the cue it replaced, so the ledger under it settles once when the
+   rest arrives and once when the cue returns. The floor stands down while `animateSlot` holds an inline height on the
+   slot: a floor above the height the run starts from would make the push a jump. */
+.fx-slot[data-rest="running"]:not([style*="height"]){min-height:calc(var(--font-size-section-title) * var(--line-tight) + var(--font-size-subtitle) * var(--line-standard) + var(--control-target) + var(--space-4) * 2)}
+.restinline{margin:0 0 var(--space-12)}
+.restinline__row{display:flex;align-items:baseline;gap:var(--space-12)}
+.restinline__label{font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.restinline__clock{
+  font-family:var(--font-training-data);font-weight:var(--weight-medium);font-size:var(--font-size-rest-clock);line-height:var(--line-tight);
+  letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--color-ink);
+}
+.restinline__of{font-family:var(--font-training-data);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.restinline__bar{height:4px;margin-top:var(--space-12);border-radius:var(--radius-compact);background:var(--rule);overflow:hidden}
+.restinline__fill{display:block;width:100%;height:100%;background:var(--accent);transform-origin:left center;transition:transform .25s linear}
+/* Past the bell: one quiet line that counts up. It is not a warning. */
+.restinline--done{margin:0 0 var(--space-8)}
+.restinline__done{
+  display:flex;align-items:center;gap:var(--space-8);margin:0;font-family:var(--font-language);font-size:var(--font-size-subtitle);
+  line-height:var(--line-standard);color:var(--color-ink-secondary);font-variant-numeric:tabular-nums;
+}
+.restinline__mk{
+  flex:none;width:var(--space-18);height:var(--space-18);background:var(--color-ink-secondary);
+  -webkit-mask:var(--check) no-repeat center/contain;mask:var(--check) no-repeat center/contain;
+}
+.restinline__nextrow{display:flex;flex-wrap:wrap;align-items:center;gap:0 var(--space-8);margin-top:var(--space-12)}
+.restinline__next{margin:0;min-width:0;font-family:var(--font-language);font-size:var(--font-size-subtitle);line-height:var(--line-standard);color:var(--color-ink)}
+.restinline__val{font-family:var(--font-training-data);font-weight:var(--weight-medium)}
+.exercise--focus .restinline__nextrow .text-link.restinline__why{margin:0}
+/* The rest controls: -30s and +30s step the clock, Pausar holds it, Pular ends it. */
+.shelf__pads{position:relative}
+.restpad{
+  flex:1 1 0;min-width:0;height:48px;min-height:48px;margin:0;padding:0 var(--space-4);border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);
+  background:var(--control-secondary-bg);color:var(--control-secondary-ink);cursor:pointer;text-align:center;white-space:nowrap;
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+}
+.restpad--toggle{flex-grow:1.4}
+@media (hover: hover) and (pointer: fine){
+.restpad:hover:not(:disabled){background:var(--well)}
+}
+.restpad:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+.restpad:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.restpad:disabled{color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
+.restpad--adjust{background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
+@media (hover: hover) and (pointer: fine){
+.restpad--adjust:hover:not(:disabled){background:var(--well);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
+}
+.restpad--adjust:active:not(:disabled){background:var(--well);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
+.restpad--adjust:disabled{background:var(--control-adjustment-bg)}
+.restpad--toggle{background:var(--control-selection-bg);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)}
+@media (hover: hover) and (pointer: fine){
+.restpad--toggle:hover:not(:disabled){background:var(--well);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)}
+}
+.restpad--toggle:active:not(:disabled){background:var(--well);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)}
+.restpad--toggle:disabled{background:var(--control-selection-bg)}
+@media (prefers-reduced-motion:reduce){
+  .restinline__fill{transition:none}
+}
+.focus-shelf .btn--cta{margin:0}
+.focus-shelf .btn--cta.saveset{
+  border:1px solid var(--control-primary-boundary);background:var(--control-primary-bg);color:var(--control-primary-ink);
+  font-family:var(--font-language);text-transform:none;letter-spacing:normal;font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
+  min-height:52px;min-width:0;padding:0 var(--space-18);border-radius:var(--radius-control);
+}
+@media (hover: hover) and (pointer: fine){
+.focus-shelf .btn--cta.saveset:hover:not(:disabled){background:var(--control-primary-bg);color:var(--control-primary-ink);border-color:var(--control-primary-boundary)}
+}
+.focus-shelf .btn--cta.saveset:active:not(:disabled){background:var(--control-primary-bg);color:var(--control-primary-ink);border-color:var(--control-primary-boundary);transform:var(--control-pressed-transform)}
+.focus-shelf .btn--cta.saveset:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.focus-shelf .btn--cta.saveset:disabled{background:var(--control-primary-disabled-bg);color:var(--control-primary-disabled-ink);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
+/* Exercise and workout completion are the same shape, one step apart. */
+.focus-shelf.is-done .focus-done{padding-bottom:var(--space-4)}
+.focus-done__title{font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink);margin:0}
+.focus-done__sub{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin:var(--space-4) 0 0}
+/* The effort word's explainer opens over its field, as it did over the old cell. */
+.shelf__field .effortpop{bottom:calc(100% + 4px)}
+
+/* ---- The travelling outline ----
+   Drawn by app.js only while an outline is in flight: T1 between the shelf's
+   fields, L2 between the ledger's rows. It is a separate element that tolerates
+   the scaling `animateIndicator` applies, a 2px inset ring and nothing else, so
+   no field's own 2px border is ever animated. The destination keeps its own
+   outline for the rest state and sets it aside while the ring is in the air. */
+.shelf__ring,.ledgerline__ring{
+  position:absolute;z-index:1;pointer-events:none;box-sizing:border-box;box-shadow:var(--elevation-selected-quiet-shadow);
+}
+.shelf__ring{inset:0;border-radius:var(--radius-control)}
+.ledgerline__ring{inset:-2px;border-radius:var(--radius-surface)}
+.shelf__field.is-ring-travel .shelf__fieldbtn[aria-pressed="true"],.shelf__field.is-ring-travel .shelf__input{box-shadow:none}
+.fcard__ledger .ledgerline{position:relative}
+.fcard__ledger .ledgerline--open.is-ring-travel{border-color:transparent}
+
+/* ---- A set lands ----
+   Logging a set re-renders the whole card, so the motion is written into the
+   markup of that one render (`is-fresh`) rather than driven from a handler:
+   the card the lifter sees next is the card that plays it, once. It moves
+   transform and opacity only, finishes inside 160ms, and nothing about it
+   celebrates. */
+.ledgerline.is-fresh{animation:setland-row .16s cubic-bezier(.2,.8,.2,1) both}
+@keyframes setland-row{from{opacity:.68;transform:translateY(4px)}to{opacity:1;transform:none}}
+.ledger__more.is-fresh{animation:setland-row .16s cubic-bezier(.2,.8,.2,1) both}
+@media (prefers-reduced-motion:reduce){.ledgerline.is-fresh,.ledger__more.is-fresh{animation:none}}
+
+/* Rest bar — one floating clock, parked just above the tab bar in every mode */
+.restbar{
+  position:fixed;right:max(14px,env(safe-area-inset-right));
+  bottom:calc(var(--nav) + 16px + env(safe-area-inset-bottom));z-index:28;
+  display:inline-flex;align-items:center;gap:6px;
+  border:1px solid var(--boundary-persistent);background:var(--color-surface);color:var(--color-ink);
+  border-radius:var(--radius-surface);padding:8px 12px;cursor:pointer;
+  font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-standard);min-height:44px;
+  box-shadow:var(--elevation-persistent-shadow);
+}
+.restbar.hidden{display:none!important}
+/* The pill floats over the page the way the dock does, so while it shows the
+   page reserves its band as well: the end of every tab scrolls clear of it, and
+   Today's floating Start/Continue rides above it instead of under it. The band
+   is the pill's gap above the dock plus its height, which grows with the text. */
+body:not(.is-focus-wo):has(#restBar:not(.hidden)){
+  --restbar-reserve:calc(16px + max(44px, calc(var(--font-size-body-small) * var(--line-standard) + 18px)));
+}
+.restbar__dot{width:7px;height:7px;border-radius:50%;background:var(--color-ink-secondary)}
+.restbar.is-done{border-color:var(--boundary-persistent);color:var(--color-ink)}
+.restbar__time{min-width:2.5em;text-align:center}
+
+/* Overrun — the clock has passed zero and counts up as +m:ss. It reads as the
+   inline "Rest done" line does: soft ink, no warning colour, no pulse. The
+   wider minimum keeps the sign from moving the chip. */
+.wo-rest.is-over,.restbar.is-over{color:var(--color-ink-secondary)}
+.restbar.is-over .restbar__time{min-width:3.4em}
+/* Held in the timer sheet: the clock is frozen, so the live dot goes quiet. */
+.wo-rest.is-paused .wo-rest__dot,.restbar.is-paused .restbar__dot{background:var(--ink-faint)}
+
+/* Hidden legacy gauge (tests may still poke it; UI uses Today readiness) */
+.gauge{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* ---- Exercise cards (log) ---- */
+.exercise{
+  position:relative;background:transparent;border:0;border-bottom:1px solid var(--rule);
+  border-radius:0;padding:18px 0;margin-bottom:0;overflow:visible;box-shadow:none;
+  --heat:var(--ink-faint);
+}
+.exercise::before{display:none}
+.exercise.is-add,.exercise.is-add2{--heat:var(--accent)}
+.exercise.is-hold{--heat:var(--accent)}
+.exercise.is-reduce{--heat:var(--ink-soft)}
+.exercise.is-new{--heat:var(--ink-faint)}
+/* Which slot a swap stands in gets the whole line rather than trailing the
+   picker, so a long seed name wraps as a sentence instead of a column. */
+
+/* Effort picker — the Easy / Hard / Max face of RIR. One control in two shapes:
+   a compact line under a set row, a stacked band under the current set. Three
+   words never fit a column beside the numbers, so it is never asked to. */
+/* Until the lifter picks, the highlighted word is Taurifer's guess from the
+   last session: it reads as a tint, so a confirmed set never looks the same. */
+.rirmode{border:0;padding:0;margin:0 0 14px}
+.rirmode legend{font-size:var(--font-size-label);color:var(--ink-soft);margin-bottom:6px;text-transform:uppercase;letter-spacing:.07em;font-weight:600}
+.rirmode__opts{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
+.rirmode__opt{display:inline-flex;align-items:center;gap:12px;margin:0;font-size:var(--font-size-control);font-weight:500;letter-spacing:normal;text-transform:none;color:var(--ink);cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}
+.rirmode__opt input{width:auto;flex:none;margin:0 -11px}
+
+.heat{display:none} /* heat strip removed; recommendation block carries the signal */
+.chip{
+  display:inline-flex;align-items:center;gap:6px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.08em;font-size:var(--font-size-label);color:var(--accent-deep);white-space:nowrap;
+}
+.rec{font-size:var(--font-size-body-small);line-height:1.45;color:var(--ink-soft);margin:0 0 12px}
+.rec b{color:var(--ink);font-weight:600}
+
+
+
+
+
+/* Effort mode drops the RIR column; the picker spans a second line, and the
+   header's caption for it spans the same one so the two stay in step. */
+/* One exercise, one worded action. Three stacked SAVEs shouted the same verb
+   down the column and made a log read like a form, so only the set actually
+   being worked keeps the word: the sets waiting behind it hold the same button
+   at the same size, drawn as the check they are about to become. */
+/* The save column is content-sized, so the committed ✓ overlays the label
+   rather than replacing it — a narrower button would drag the row's inputs
+   out of line with the rows above it and with the header. */
+.saveset{border:1px solid transparent;
+  text-transform:uppercase;letter-spacing:.05em;font-size:var(--font-size-label);font-weight:var(--weight-semibold);
+  padding:0 8px;min-width:46px}
+.saveset{position:relative;flex:none;border-color:var(--rule);background:var(--surface);color:var(--ink-soft);
+  border-radius:var(--radius-control);cursor:pointer;min-height:46px;line-height:1}
+@media (hover: hover) and (pointer: fine){
+.saveset:hover{color:var(--ink);border-color:var(--ink-soft)}
+}
+/* Drawn, not typed, for the same reason as --arrow: U+2713 is outside the
+ * Plex Sans subset, so a "✓" here fell back to a platform symbol font and
+ * came out at a different weight on Android than on iOS. */
+/* Header mirror of the save button: hidden, but it holds the column open so
+   the KG / REPS / RIR labels stay centred over their inputs. */
+
+.kg{display:flex;align-items:stretch;min-width:0;background:var(--surface);border:1px solid var(--rule);
+  border-radius:var(--radius-control);overflow:hidden}
+.kg:focus-within{border-color:var(--accent);box-shadow:var(--control-focus-halo-shadow)}
+.kg input{width:auto;flex:1;min-width:0;margin-top:0;padding-left:0;padding-right:0;
+  border:0;background:transparent;border-radius:0;min-height:44px}
+.kg input:focus{box-shadow:none;border-color:transparent}
+/* The −/+ glyph is not text to be selected: the second tap of a burst would
+   otherwise raise a selection and iOS's magnifier over the control. */
+.stepbtn{flex:none;width:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);border:1px solid var(--control-adjustment-boundary);border-radius:var(--radius-control);
+  background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);cursor:pointer;font-family:var(--font-language);font-size:var(--control-icon-size);line-height:1;padding:0;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+@media (hover: hover) and (pointer: fine){
+.stepbtn:hover:not(:disabled){background:var(--well);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
+}
+.stepbtn:active:not(:disabled){background:var(--well);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary);transform:var(--control-pressed-transform)}
+.stepbtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.stepbtn:disabled{background:var(--control-adjustment-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
+
+
+/* ---- Effort explainer ----
+   The reps-left shorthand is an answer to a question, not a permanent caption,
+   so it floats: the anchor is a zero-height strip the width of the effort
+   column, parked over it — clear of the column label, which the lifter still
+   needs to read. The pill and its arrow are centred on the word and scale out
+   of it, so it grows from the value it explains rather than fading in over it.
+   Dark, like the toast: the pill crosses the well's edge onto the ledger. */
+.effortpop{
+  position:absolute;left:0;right:0;bottom:calc(100% + 4px);height:0;z-index:9;
+  opacity:0;pointer-events:none;
+  transform:translateY(10px) scale(.7);transform-origin:50% 100%;
+}
+.effortpop__hint{
+  position:absolute;bottom:8px;left:50%;z-index:2;transform:translateX(-50%);
+  width:max-content;max-width:min(190px,54vw);box-sizing:border-box;
+  padding:7px 12px;border-radius:var(--radius-surface);
+  background:var(--cta);color:var(--cta-ink);
+  font-size:var(--font-size-body-small);font-weight:600;line-height:1.15;text-align:center;
+  box-shadow:var(--elevation-tooltip-shadow);
+}
+/* A rotated square: the half above the pill's edge hides behind it. */
+.effortpop__arrow{
+  position:absolute;bottom:3px;left:50%;z-index:1;width:10px;height:10px;margin-left:-5px;
+  background:var(--cta);border-bottom-right-radius:var(--radius-compact);transform:rotate(45deg);
+}
+.effortpop.is-open{opacity:1;pointer-events:auto;transform:none;
+  animation:effortpop-in .3s cubic-bezier(.2,1.3,.34,1) both}
+.effortpop.is-closing{opacity:0;pointer-events:none;
+  animation:effortpop-out .17s cubic-bezier(.45,0,.75,.35) both}
+@keyframes effortpop-in{
+  0%{opacity:0;transform:translateY(12px) scale(.62);filter:blur(3px)}
+  45%{opacity:1;filter:blur(0)}
+  68%{transform:translateY(-3px) scale(1.035)}
+  100%{opacity:1;transform:translateY(0) scale(1);filter:blur(0)}
+}
+@keyframes effortpop-out{
+  0%{opacity:1;transform:translateY(0) scale(1)}
+  100%{opacity:0;transform:translateY(7px) scale(.88)}
+}
+/* The arrow lands a beat behind the pill, out of a dot. */
+.effortpop.is-open .effortpop__arrow{animation:effortpop-arrow .3s .05s cubic-bezier(.2,1.4,.4,1) both}
+@keyframes effortpop-arrow{
+  from{opacity:0;transform:rotate(45deg) scale(.2)}
+  to{opacity:1;transform:rotate(45deg) scale(1)}
+}
+/* Stepping the effort under an open pill swaps its reading in place. */
+.effortpop.is-bump .effortpop__hint{animation:effortpop-swap .38s cubic-bezier(.2,1.3,.4,1) both}
+@keyframes effortpop-swap{
+  0%{opacity:0;transform:translateX(-50%) translateY(-6px) scale(.94)}
+  55%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.06)}
+  100%{opacity:1;transform:translateX(-50%) scale(1)}
+}
+@media (prefers-reduced-motion:reduce){
+  .effortpop.is-open,.effortpop.is-closing,
+  .effortpop.is-open .effortpop__arrow,.effortpop.is-bump .effortpop__hint{animation:none}
+}
+
+/* ---- Exercise note sheet ---- */
+body.is-sheet-open{overflow:hidden}
+.sheet-scrim{
+  position:fixed;inset:0;z-index:40;background:var(--scrim);
+  opacity:0;transition:opacity .22s ease;
+}
+.sheet-scrim.is-open{opacity:1}
+.sheet{
+  position:fixed;left:0;right:0;bottom:var(--kb,0px);z-index:41;
+  display:flex;flex-direction:column;
+  /* The shared cap tracks the keyboard's band, normalized for browser zoom. */
+  height:min(74dvh,660px);max-height:var(--sheet-max-height);
+  background:var(--surface);border-radius:var(--radius-prominent) var(--radius-prominent) 0 0;
+  box-shadow:var(--elevation-sheet-shadow);
+  padding-bottom:env(safe-area-inset-bottom);
+  transform:translateY(101%);transition:transform .26s cubic-bezier(.2,.7,.2,1);
+}
+.sheet.is-open{transform:none}
+/* Under the thumb the sheet is placed frame by frame, so it cannot also be
+   easing towards a target; the transition comes back on release and carries the
+   sheet the rest of the way, down or back to rest. */
+.sheet.is-dragging{transition:none;will-change:transform}
+.sheet-scrim.is-dragging{transition:none}
+@media (prefers-reduced-motion:reduce){
+  .sheet,.sheet-scrim{transition:none}
+}
+.sheet__grab{display:block;flex:none;width:38px;height:5px;border-radius:var(--radius-compact);background:var(--rule-strong);margin:8px auto 0}
+/* The handle and the head are the drag rail: the browser must not read a push
+   there as a scroll, or it takes the gesture and the sheet never moves. Below
+   them the sheet's own scrollers keep their native panning. */
+.sheet__grab,.sheet__head,.sheetband{touch-action:none}
+.sheet__head{
+  flex:none;display:grid;grid-template-columns:minmax(44px,1fr) minmax(0,2fr) minmax(44px,1fr);align-items:center;gap:8px;
+  padding:4px 10px 12px;border-bottom:1px solid var(--rule);
+}
+.sheet__act{
+  justify-self:start;min-width:0;width:100%;min-height:44px;padding:10px 8px;border:0;background:none;cursor:pointer;
+  color:var(--ink-soft);font-size:var(--font-size-control);white-space:normal;overflow-wrap:anywhere;word-break:break-word;
+}
+.sheet__titles{text-align:center;min-width:0}
+.sheet__title{font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);overflow-wrap:anywhere;word-break:break-word}
+.sheet__body{flex:1;min-height:0;display:flex;padding:16px 16px 0}
+/* The plain-text program preview: the export exactly as it will be copied, so
+   line breaks are preserved and long exercise names wrap instead of clipping. */
+.sheet__pre{
+  flex:1;min-width:0;margin:0;padding-bottom:8px;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  white-space:pre-wrap;overflow-wrap:anywhere;font-family:inherit;
+  font-size:var(--font-size-control);line-height:1.55;letter-spacing:normal;text-transform:none;color:var(--ink);
+  -webkit-user-select:text;user-select:text;
+}
+.sheet__foot{flex:none;padding:12px 16px 16px;font-size:var(--font-size-body-small);color:var(--ink-faint)}
+.sheet__foot--actions{display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--rule)}
+/* A head with nothing on the left still needs its first grid cell, or the title
+   slides out of the middle. */
+.sheet__spacer{display:block;min-width:44px}
+.sheet__act--icon{justify-self:end;display:inline-flex;align-items:center;justify-content:center;color:var(--ink-soft)}
+
+/* The in-workout swap control. It was a <select> of the template's alternates;
+   it is a button onto the full library now, and it reads back what is actually
+   being performed. */
+

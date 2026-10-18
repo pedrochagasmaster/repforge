@@ -18,9 +18,12 @@ import { dirname, join, resolve } from "node:path";
 import vm from "node:vm";
 import { assembleRelease } from "./release-assembly.mjs";
 import { nativeSourceAssets } from "./native-source-assets.mjs";
+import { buildStyles } from "../tools/build-styles.mjs";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const OUT = join(ROOT, "dist");
+// Fail before changing the output tree when a source edit was not regenerated.
+buildStyles(ROOT,{check:true});
 const allowedExtension = /\.(?:js|json|css|html|webmanifest|svg|png|webp|woff2)$/i;
 const read = (file) => readFileSync(join(ROOT, file), "utf8");
 

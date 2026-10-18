@@ -1,0 +1,57 @@
+/* The iOS instruction sheet. Safari exposes no install event, so the only thing
+   Taurifer can do is point at Safari's own control: the bar below is a drawing
+   of it, never a live control. */
+.sheet--install{height:auto;background:var(--bg)}
+.sheet--setup{height:auto;max-height:min(74dvh,660px)}
+.sheet--setup .sheet__title{overflow-wrap:anywhere}
+.sheet--setup .sheet__foot--actions{flex-wrap:wrap}
+/* The side-by-side actions grow into separate rows with the user's text scale. */
+.sheet--setup .sheet__foot--actions .btn{flex:1 1 8.75em}
+.share-setup{
+  flex-direction:column;gap:14px;overflow:auto;overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;padding-bottom:8px;
+}
+.share-setup__link{
+  margin:0;min-width:0;padding:12px;background:var(--control-field-bg);border:1px solid var(--control-field-boundary);border-radius:var(--radius-control);
+  overflow:auto;overflow-wrap:anywhere;word-break:break-all;max-height:12em;
+  font-family:var(--font-training-data);font-size:var(--font-size-caption);line-height:var(--line-reading);color:var(--control-field-ink);
+  -webkit-user-select:text;user-select:text;overscroll-behavior:contain;}
+.share-setup__link:empty{display:none}
+.share-setup__blocker-summary{margin:0;font-size:var(--font-size-body-small);line-height:var(--line-reading);font-weight:var(--weight-semibold);color:var(--color-warning);overflow-wrap:anywhere}
+.share-setup__blockers{display:flex;flex-direction:column;gap:0;border-block:1px solid var(--boundary-decorative)}
+.share-setup__blocker{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0}
+.share-setup__blocker+.share-setup__blocker{border-top:1px solid var(--boundary-decorative)}
+.share-setup__blocker-copy{display:flex;min-width:0;flex:1;flex-direction:column;gap:3px;line-height:var(--line-reading)}
+.share-setup__blocker-copy strong{font-size:var(--font-size-body);line-height:var(--line-standard);font-weight:var(--weight-semibold);color:var(--color-ink);overflow-wrap:anywhere}
+.share-setup__blocker-copy span{font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);overflow-wrap:anywhere}
+.share-setup__repair{flex:none;min-height:var(--control-target);padding-inline:14px}
+.share-setup__status{margin:0;font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);overflow-wrap:anywhere}
+.share-setup__status:empty{display:none}
+.installsheet{
+  display:flex;flex-direction:column;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;padding:0 22px 20px;
+}
+.installsheet__done{margin-top:22px}
+.installsheet__foot{margin:14px 0 0;text-align:center;font-family:var(--font-language);
+  font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.install-transfer__intro{margin-top:20px}
+.install-transfer__body,.install-transfer__status,.install-transfer__expiry{
+  margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);
+  line-height:var(--line-reading);color:var(--color-ink-secondary);overflow-wrap:anywhere;
+}
+.install-transfer__status:not(:empty){margin-top:16px;padding-left:14px;border-left:3px solid var(--color-action);color:var(--color-ink)}
+.install-transfer__expiry{margin-top:8px;font-size:var(--font-size-caption);color:var(--color-ink-secondary)}
+.install-transfer__disclosure{margin-top:16px;padding:14px;background:var(--well);
+  border:1px solid var(--boundary-decorative);border-radius:var(--radius-surface)}
+.install-transfer__disclosure p{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);
+  line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.install-transfer__disclosure .textlink{margin-top:10px}
+.install-transfer__actions{display:grid;gap:10px;margin-top:18px}
+.install-transfer__actions .btn{width:100%;justify-content:center}
+.sheet--privacy{height:min(88dvh,760px);background:var(--bg)}
+/* The band's subtitle carries the transfer exception to local-first, so it wraps instead of eliding (ADR 0013). */
+.privacy-sheet{display:flex;flex:1 1 auto;flex-direction:column;min-height:0;padding:0 22px 20px}
+.privacy-sheet__body{min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:8px 2px 24px}
+.privacy-sheet__body h3{margin:14px 0 8px;font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
+.privacy-sheet__body p{margin:0 0 14px;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+

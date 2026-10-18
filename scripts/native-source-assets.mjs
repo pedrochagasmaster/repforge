@@ -5,7 +5,8 @@ import {pathToFileURL} from 'node:url';
 export function nativeSourceAssets(root) {
   const files=[];
   const collect=directory=> {
-    if(!existsSync(join(root,directory)))return;
+    // CSS authoring sources produce the one root runtime asset, not precache duplicates.
+    if(directory==='styles/source'||!existsSync(join(root,directory)))return;
     for(const entry of readdirSync(join(root,directory),{withFileTypes:true})) {
       const file=join(directory,entry.name).split('\\').join('/');
       if(entry.isDirectory())collect(file);

@@ -1,0 +1,93 @@
+/* Resume is a standalone recovery notice, not a rendered entry step. Keep its
+   existing surface and hierarchy while mapping its content and actions to the
+   frozen entry surface, type, and control roles. */
+#onboarding:has(.entry__resume) #onbCancel{
+  min-height:var(--control-target);border-color:var(--control-quiet-boundary);
+  border-radius:var(--radius-control);background:var(--control-quiet-bg);
+  color:var(--control-quiet-ink);font-family:var(--font-language);
+  font-size:var(--font-size-control);font-weight:var(--weight-medium);
+  line-height:var(--line-standard)
+}
+@media (hover: hover) and (pointer: fine){
+#onboarding:has(.entry__resume) #onbCancel:hover:not(:disabled){
+  background:var(--well);color:var(--control-quiet-ink);
+  border-color:var(--control-quiet-boundary)
+}
+}
+#onboarding:has(.entry__resume) #onbCancel:active:not(:disabled){
+  background:var(--well);color:var(--control-quiet-ink);
+  border-color:var(--control-quiet-boundary)
+}
+#onboarding:has(.entry__resume) #onbCancel:active:not(:disabled){transform:var(--control-pressed-transform)}
+#onboarding:has(.entry__resume) #onbCancel:focus-visible{
+  outline:var(--control-focus-outline);outline-offset:2px
+}
+#onboarding:has(.entry__resume) #onbCancel:disabled{
+  background:var(--control-quiet-bg);color:var(--color-disabled-reason);
+  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
+}
+#onbBody:has(.entry__resume) #entryResumeContinue{
+  background:var(--control-primary-bg);color:var(--control-primary-ink);
+  border-color:var(--control-primary-boundary)
+}
+@media (hover: hover) and (pointer: fine){
+#onbBody:has(.entry__resume) #entryResumeContinue:hover:not(:disabled){
+  background:var(--control-primary-bg);color:var(--control-primary-ink);
+  border-color:var(--control-primary-boundary)
+}
+}
+#onbBody:has(.entry__resume) #entryResumeContinue:active:not(:disabled){
+  background:var(--control-primary-bg);color:var(--control-primary-ink);
+  border-color:var(--control-primary-boundary)
+}
+#onbBody:has(.entry__resume) #entryResumeContinue:active:not(:disabled){transform:var(--control-pressed-transform)}
+#onbBody:has(.entry__resume) #entryResumeContinue:focus-visible,
+#onbBody:has(.entry__resume) #entryResumeRestart:focus-visible{
+  outline:var(--control-focus-outline);outline-offset:2px
+}
+#onbBody:has(.entry__resume) #entryResumeContinue:disabled{
+  background:var(--control-primary-disabled-bg);color:var(--control-primary-disabled-ink);
+  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
+}
+#onbBody:has(.entry__resume) #entryResumeRestart{
+  background:var(--control-destructive-bg);color:var(--control-destructive-ink);
+  border-color:var(--control-destructive-boundary)
+}
+@media (hover: hover) and (pointer: fine){
+#onbBody:has(.entry__resume) #entryResumeRestart:hover:not(:disabled){
+  background:var(--well);color:var(--control-destructive-ink);
+  border-color:var(--control-destructive-boundary)
+}
+}
+#onbBody:has(.entry__resume) #entryResumeRestart:active:not(:disabled){
+  background:var(--well);color:var(--control-destructive-ink);
+  border-color:var(--control-destructive-boundary)
+}
+#onbBody:has(.entry__resume) #entryResumeRestart:active:not(:disabled){transform:var(--control-pressed-transform)}
+#onbBody:has(.entry__resume) #entryResumeRestart:disabled{
+  background:var(--control-destructive-bg);color:var(--color-disabled-reason);
+  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
+}
+#onbBody #entryRebuildRules{
+  background:var(--control-primary-bg);color:var(--control-primary-ink);
+  border-color:var(--control-primary-boundary)
+}
+@media (hover: hover) and (pointer: fine){
+#onbBody #entryRebuildRules:hover:not(:disabled){
+  background:var(--control-primary-bg);color:var(--control-primary-ink);
+  border-color:var(--control-primary-boundary)
+}
+}
+#onbBody #entryRebuildRules:active:not(:disabled){
+  background:var(--control-primary-bg);color:var(--control-primary-ink);
+  border-color:var(--control-primary-boundary)
+}
+#onbBody #entryRebuildRules:active:not(:disabled){transform:var(--control-pressed-transform)}
+#onbBody #entryRebuildRules:focus-visible{
+  outline:var(--control-focus-outline);outline-offset:2px
+}
+#onbBody #entryRebuildRules:disabled{
+  background:var(--control-primary-disabled-bg);color:var(--control-primary-disabled-ink);
+  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
+}
+
