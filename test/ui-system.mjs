@@ -309,7 +309,7 @@ assert.ok(!inventory.components.some((item) => item.selector === "#restPlayPause
   }
   const bar = inventory.exceptions.find((item) => item.selector === ".restinline__fill");
   assert.ok(bar && bar.boundary === "required" && /falsify its denominator/.test(bar.rationale) &&
-    JSON.stringify(bar.catalogStates) === JSON.stringify(["workout/rest-running"]),
+    JSON.stringify(bar.catalogStates) === JSON.stringify(["workout/rest-running", "workout/logged-sets"]),
   "the drain bar's fill is a selector-exact countdown exception with the arc's rationale");
   assert.ok(!inventory.progressCandidateSelectors.some((selector) => /restinline/.test(selector)),
     "the drain bar is not a progress candidate selector");

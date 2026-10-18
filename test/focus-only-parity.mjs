@@ -266,29 +266,29 @@ async function main() {
       current: document.querySelector("#woProgress .segbar__seg.is-current")?.dataset.focusgo,
       count: window.__repforgeFocus.list().length,
     }));
-    assert(nav.label?.endsWith("1 of 6") && /1 of 6$/.test(nav.announced || "") && nav.current === "0" && nav.segments === 6 && nav.count === 6,
+    assert(nav.label?.includes(first.name) && /1 of 6$/.test(nav.announced || "") && nav.current === "0" && nav.segments === 6 && nav.count === 6,
       "first exercise is reachable with its segment current and the position announced", JSON.stringify(nav));
     const walkTo = async (target) => {
       while (await page.evaluate(() => window.__repforgeFocus.at()) < target) {
         const next = await page.evaluate(() => window.__repforgeFocus.at() + 1);
         await page.locator("#workout .exercise.is-current [data-fnextrow]").click();
         await page.waitForFunction(
-          (n) => document.querySelector("#woDayTitle")?.textContent?.trim().endsWith(`${n} of 6`),
+          (n) => document.querySelector("#woProgress .visually-hidden")?.textContent?.trim().endsWith(`${n} of 6`),
           next + 1, { timeout: 5000 });
       }
     };
     await walkTo(1);
     const middle = await page.evaluate(() => ({
-      label: document.querySelector("#woDayTitle")?.textContent?.trim(),
-      name: document.querySelector("#workout .exercise.is-current .focus-ex__name")?.textContent?.trim(),
+      label: document.querySelector("#woProgress .visually-hidden")?.textContent?.trim(),
+      name: document.querySelector("#woDayTitle")?.textContent?.trim(),
     }));
     assert(middle.label?.endsWith("2 of 6") && middle.name?.includes(second.name),
       "the middle exercise is reachable through the Next row", JSON.stringify(middle));
     await walkTo(5);
     const lastCard = await page.evaluate(() => ({
-      label: document.querySelector("#woDayTitle")?.textContent?.trim(),
+      label: document.querySelector("#woProgress .visually-hidden")?.textContent?.trim(),
       noNextRow: !document.querySelector("#workout .exercise.is-current .fx-next"),
-      name: document.querySelector("#workout .exercise.is-current .focus-ex__name")?.textContent?.trim(),
+      name: document.querySelector("#woDayTitle")?.textContent?.trim(),
     }));
     const dayExercises = program.filter((e) => e.day === first.day);
     const lastOfDay = dayExercises.at(-1);
@@ -340,11 +340,12 @@ async function main() {
       "committing the active set completes exactly that ordinal", JSON.stringify(committed));
     const setOf = await page.evaluate(() => ({
       setof: document.querySelector("#workout .exercise.is-current .focus-shelf .saveset")?.textContent?.replace(/\s+/g, " ").trim(),
-      rows: document.querySelectorAll("#workout .exercise.is-current .ledgerline[data-editn]").length,
+      more: document.querySelector("#workout .exercise.is-current [data-ledgermore]")?.textContent?.trim(),
     }));
-    assert(setOf.rows === 1 && /\b2$/.test(setOf.setof),
-      "the ledger carries the committed row and the shelf moves to set 2", JSON.stringify(setOf));
-    // Correction: reopen the committed row through the ledger.
+    assert(setOf.more === "1 set logged" && /\b2$/.test(setOf.setof),
+      "the table's disclosure carries the committed set and the shelf moves to set 2", JSON.stringify(setOf));
+    // Correction: open the logged sets and reopen the committed row through the ledger.
+    await page.locator("#workout .exercise.is-current [data-ledgermore]").click();
     await page.locator("#workout .exercise.is-current .ledgerline[data-editn]").click();
     await page.waitForFunction(() => window.__repforgeFocus.editing() !== null, undefined, { timeout: 5000 });
     const snap = await page.evaluate(() => window.__repforgeFocus.editing());
@@ -355,7 +356,8 @@ async function main() {
     assert(corrected.sets[0].completion === "done" && corrected.sets[0].load === "65" &&
       corrected.sets[0].ordinal === 1 && corrected.sets[1].completion === "pending",
       "correction updates the committed set in place and the next ordinal stays untouched", JSON.stringify({ snap, corrected }));
-    // Uncommit: values retained, status back to pending.
+    // Uncommit: values retained, status back to pending. The saved correction closed the disclosure again.
+    await page.locator("#workout .exercise.is-current [data-ledgermore]").click();
     await page.locator("#workout .exercise.is-current .ledgerline[data-editn]").click();
     await page.waitForFunction((id) => {
       const ex = window.__repforgeWorkoutDraft.current()?.exercises?.[id];

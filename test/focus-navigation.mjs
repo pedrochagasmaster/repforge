@@ -71,7 +71,7 @@ async function main() {
     await nextRow.click();
     await page.waitForTimeout(350);
 
-    const posText = await page.locator("#woDayTitle").first().textContent();
+    const posText = await page.locator("#woProgress .visually-hidden").first().textContent();
     assert(posText.includes("2 of") || posText.includes("2 /") || posText.includes("2 de"), "position indicator reflects exercise 2", posText);
     assert(await currentSegment() === "1", "the second segment is current on exercise 2");
     await segments.nth(0).click();
@@ -228,7 +228,7 @@ async function main() {
     await page.evaluate(() => window.__repforgeFocus.to(0));
     await page.waitForTimeout(250);
 
-    const focusCardName = await page.locator("#workout.is-focus .exercise.is-current .ex__namebtn").textContent();
+    const focusCardName = await page.locator("#woDayTitle").textContent();
     const expectedName = await page.evaluate(() => {
       const draft = window.__repforgeWorkoutDraft.current();
       return draft.exercises[draft.exerciseOrder[0]].displayName;
@@ -265,7 +265,7 @@ async function main() {
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
 
     // Verify we resumed at the exact same exercise and set with the value intact
-    const resumedCardName = await page.locator("#workout.is-focus .exercise.is-current .ex__namebtn").textContent();
+    const resumedCardName = await page.locator("#woDayTitle").textContent();
     assert(resumedCardName.trim() === expectedName.trim(), "resumed at the exact same exercise", resumedCardName);
 
     const resumedLoadVal = await page.locator(`#workout.is-focus .exercise.is-current input[data-metric-id="${WEIGHT}"]`).first().inputValue();

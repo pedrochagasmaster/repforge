@@ -3,7 +3,7 @@
  * Focused regression for reducing planned sets while a workout draft is active.
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
-import { finishEarly } from "./fixtures/focus-workout.mjs";
+import { finishEarly, openLoggedSets } from "./fixtures/focus-workout.mjs";
 import { launchChromium } from "./browser.mjs";
 import {
   clearPersistenceArtifacts,
@@ -232,6 +232,7 @@ async function reduceSets(page) {
 
 async function fillSet(page, set, load, reps, rir) {
   if(!await page.locator(`[data-k="${EXERCISE_ID}_${set}_load"]`).count()) {
+    await openLoggedSets(page);
     const correction=page.locator(`[data-editex="${EXERCISE_ID}"][data-editn="${set}"]`);
     if(await correction.count())await correction.click();
     else {

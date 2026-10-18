@@ -119,7 +119,7 @@ async function main() {
     await settle(page, 150);
     const beforeSwap = await page.evaluate((id) => ({
       prev: [...document.querySelectorAll(`.exercise[data-ex="${id}"] .ledgerline__prev`)].map((line) => line.textContent).join(" "),
-      name: document.querySelector(`.exercise[data-ex="${id}"] .focus-ex__name`)?.textContent || "",
+      name: document.querySelector(`.exercise[data-ex="${id}"] .fcard__context`)?.getAttribute("aria-label") || "",
     }), slot.id);
     assert(beforeSwap.prev.includes("200"), "the slot initially reads the quad movement's own history", JSON.stringify(beforeSwap));
 
@@ -132,7 +132,7 @@ async function main() {
     assert(swapped, "swapped the quad slot to a lat pulldown");
     const swappedUi = await page.evaluate((id) => ({
       prev: [...document.querySelectorAll(`.exercise[data-ex="${id}"] .ledgerline__prev`)].map((line) => line.textContent).join(" "),
-      name: document.querySelector(`.exercise[data-ex="${id}"] .focus-ex__name`)?.textContent || "",
+      name: document.querySelector(`.exercise[data-ex="${id}"] .fcard__context`)?.getAttribute("aria-label") || "",
       rec: document.querySelector(`.exercise[data-ex="${id}"] .fx-cue`)?.textContent || "",
     }), slot.id);
     // The D card header names the movement and its programme line; the muscle is recorded on the row (checked below).

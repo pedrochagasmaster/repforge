@@ -15,7 +15,7 @@
  */
 import { launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
-import { exerciseAction, finishEarly } from "./fixtures/focus-workout.mjs";
+import { exerciseAction, finishEarly, openLoggedSets } from "./fixtures/focus-workout.mjs";
 import { loadRoleInventory, requiredBoundaryExceptionRequests } from "../tools/ui-system-core.mjs";
 import { measureRenderedRoles } from "../tools/ui-system-rendered.mjs";
 
@@ -214,6 +214,7 @@ const focusAt = (page) => page.evaluate(() => {
     field: el?.dataset?.shelfField || null, cta: !!el?.matches?.(".focus-shelf .saveset"),
     next: el?.matches?.("[data-fnext]") || false,
     row: el?.matches?.(".ledgerline[data-editn]") ? +el.dataset.editn : null,
+    disclosure: !!el?.matches?.("[data-ledgermore]"),
   };
 });
 
@@ -268,6 +269,8 @@ const cardState = (page) =>
       open: card.querySelectorAll(".ledgerline--open").length,
       editing: card.querySelectorAll(".ledgerline--open[aria-current]").length,
       prevLines: card.querySelectorAll(".ledgerline__prev").length,
+      more: text(card.querySelector("[data-ledgermore]")),
+      moreExpanded: card.querySelector("[data-ledgermore]")?.getAttribute("aria-expanded") ?? null,
       cancel: !!card.querySelector("[data-fcancel]"),
       ctaText: text(cta),
       ctaArrow: cta ? !cta.classList.contains("btn--noarrow") : null,
@@ -282,6 +285,7 @@ const cardState = (page) =>
       contextScrolls: context ? context.scrollHeight > context.clientHeight + 1 : false,
       contextBottom: context ? Math.round(context.getBoundingClientRect().bottom) : 0,
       lastLoggedBottom: lastLogged ? Math.round(lastLogged.getBoundingClientRect().bottom) : 0,
+      openBottom: (() => { const open = card.querySelector(".ledgerline--open"); return open ? Math.round(open.getBoundingClientRect().bottom) : 0; })(),
       cardBottom: Math.round(cardBox.bottom),
       pageScrollsX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
     };
@@ -317,8 +321,9 @@ async function main() {
   await setSetCount(page, 0, 5);
   await enterFocus(page, 0);
   let st = await cardState(page);
-  assert(st.rows === 5 && st.logged === 0 && st.open === 1 && st.queued === 4 && st.prevLines === 0,
-    "an exercise with no history lists every set, the first one open, with no previous-session line", JSON.stringify(st));
+  // Layout D: the table draws the open set and the next one; with nothing logged there is no disclosure.
+  assert(st.rows === 2 && st.logged === 0 && st.open === 1 && st.queued === 1 && st.prevLines === 0 && !st.more,
+    "an exercise with no history shows the first set open and the next one, with no previous-session line", JSON.stringify(st));
   // This seed has a manual range: Taurifer does not suggest a load, and Focus labels the stored
   // range as the lifter's targets. The adaptive cue is proved below on a generated program.
   assert(st.cueKind === "is-manual" && st.cueL1 === "Your targets" && st.cueL2 === "4–8 reps" && st.cueMark === null,
@@ -341,8 +346,8 @@ async function main() {
   ]);
   await enterFocus(page, 1);
   st = await cardState(page);
-  assert(st.prevLines === 4 && st.logged === 0 && st.open === 1,
-    "each of last session's four sets rides under its own row", JSON.stringify(st));
+  assert(st.rows === 2 && st.prevLines === 2 && st.logged === 0 && st.open === 1,
+    "each drawn set carries last session's matching set under its own row", JSON.stringify(st));
   assert(st.cueKind === "is-manual" && !/\d/.test(st.cueL1) && st.cueMark === null,
     "history does not make a manual program's cue invent a load", JSON.stringify(st));
   const pastLayout = await page.evaluate(() => {
@@ -392,7 +397,24 @@ async function main() {
     "after Log set, focus is on a field of the next set's shelf", JSON.stringify(afterLog));
   await endRest(page);
   st = await cardState(page);
-  assert(st.logged === 2 && st.rows === 5, "two logged sets read back in the ledger and every set keeps its row", JSON.stringify(st));
+  assert(st.logged === 0 && st.rows === 2 && st.more === "2 sets logged" && st.moreExpanded === "false",
+    "two logged sets leave the table for its disclosure, which counts them", JSON.stringify(st));
+  // The landing beat of the render that logged the set, read before the disclosure redraws the rows.
+  const setLanded = await page.evaluate(() => {
+    const card = document.querySelector("#workout .exercise.is-current");
+    const anim = (el) => (el ? getComputedStyle(el).animationName : "");
+    return {
+      freshRows: card.querySelectorAll(".ledgerline.is-fresh").length,
+      freshMore: !!card.querySelector("[data-ledgermore].is-fresh"),
+      moreAnim: anim(card.querySelector("[data-ledgermore].is-fresh")),
+      // A peek is inert scenery: it must never replay the live card's beat.
+      peekFresh: document.querySelectorAll("#focusDeck .is-peek .is-fresh").length,
+    };
+  });
+  await page.locator("#workout .exercise.is-current [data-ledgermore]").click();
+  await page.waitForFunction(() => document.querySelectorAll("#workout .exercise.is-current .ledgerline[data-editn]").length === 2, undefined, { timeout: 5000 }).catch(() => {});
+  st = await cardState(page);
+  assert(st.logged === 2 && st.rows === 5 && st.moreExpanded === "true", "opened, the two logged sets read back in the ledger and every set keeps its row", JSON.stringify(st));
   // The "Change since last session" line is retired (OG-6 round 2): no element, no text, however many sets are logged.
   const retiredDelta = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
@@ -427,23 +449,10 @@ async function main() {
 
   // ---- 03b — a logged set lands -----------------------------------------------
   phase("State 03b: a logged set lands with one pass of motion");
-  const setLanded = await page.evaluate(() => {
-    const card = document.querySelector("#workout .exercise.is-current");
-    const rows = [...card.querySelectorAll(".ledgerline[data-editn]")];
-    const fresh = card.querySelector(".ledgerline.is-fresh");
-    const anim = (el) => (el ? getComputedStyle(el).animationName : "");
-    return {
-      freshRows: card.querySelectorAll(".ledgerline.is-fresh").length,
-      newest: !!fresh && fresh === rows[rows.length - 1],
-      rowAnim: anim(fresh),
-      // A peek is inert scenery: it must never replay the live card's beat.
-      peekFresh: document.querySelectorAll("#focusDeck .is-peek .is-fresh").length,
-    };
-  });
-  assert(setLanded.freshRows === 1 && setLanded.newest,
-    "only the set that just landed is marked fresh", JSON.stringify(setLanded));
-  assert(/setland-row/.test(setLanded.rowAnim),
-    "the new ledger row arrives with one pass of motion", JSON.stringify(setLanded));
+  assert(setLanded.freshRows === 0 && setLanded.freshMore,
+    "the set that just landed is acknowledged on the disclosure it went into, and nowhere else", JSON.stringify(setLanded));
+  assert(/setland-row/.test(setLanded.moreAnim),
+    "the disclosure takes the new set with one pass of the landing motion", JSON.stringify(setLanded));
   assert(setLanded.peekFresh === 0, "the neighbouring peek cards stay still", JSON.stringify(setLanded));
   // The card is redrawn on every navigation and every draft change, so the beat
   // has to belong to the render that logged the set and to no other.
@@ -452,8 +461,8 @@ async function main() {
   const replayed = await page.evaluate(() => document.querySelectorAll("#workout .is-fresh").length);
   assert(replayed === 0, "a later render draws the same card at rest", String(replayed));
   st = await cardState(page);
-  assert(st.logged === 2 && st.lastLoggedBottom <= st.contextBottom + 1,
-    "the landing animation leaves the ledger where the layout puts it", JSON.stringify(st));
+  assert(st.more === "2 sets logged" && st.moreExpanded === "false" && st.rows === 2 && st.openBottom <= st.contextBottom + 1,
+    "the landing animation leaves the table where the layout puts it, collapsed again on return, the open set in view", JSON.stringify(st));
 
   // ---- 03c — the shelf --------------------------------------------------------
   phase("State 03c: the shelf's fields, pads and typed values");
@@ -977,6 +986,7 @@ async function main() {
     return draft.exerciseOrder.reduce((count, exerciseId) => count + draft.exercises[exerciseId].setOrder
       .filter((setId) => draft.exercises[exerciseId].sets[setId].completion !== "pending").length, 0);
   });
+  await openLoggedSets(page);
   await page.locator(".ledgerline[data-editn]").nth(1).click();
   // editing() flips on the tap itself; wait for the reopened set to render and
   // take focus, which is what the assertions below read.
@@ -1004,6 +1014,11 @@ async function main() {
   await page.waitForFunction(() => window.__repforgeFocus.editing() === null, undefined, { timeout: 5000 });
   assert(JSON.stringify(await editedReps()) === JSON.stringify({ reps: "9", completion: "done" }),
     "saving an edit stores the corrected reps on the set it came from", JSON.stringify(await editedReps()));
+  // Layout D: the saved correction closes the table again, so focus returns to the disclosure that holds the row.
+  const afterSave = await focusAt(page);
+  assert(afterSave.inCard && afterSave.live && afterSave.disclosure,
+    "Save on an edited set returns focus to the disclosure holding its row (R7 J-03)", JSON.stringify(afterSave));
+  await openLoggedSets(page);
   const afterEdit = await page.evaluate(() => {
     const draft = window.__repforgeWorkoutDraft.current();
     const rows = [...document.querySelectorAll(".ledgerline[data-editn]")].map((r) =>
@@ -1018,9 +1033,6 @@ async function main() {
     `${beforeEdit} -> ${afterEdit.done}`);
   assert(afterEdit.rows[1] && afterEdit.rows[1][1] === "9",
     "the edited value lands on the row it came from", JSON.stringify(afterEdit.rows));
-  const afterSave = await focusAt(page);
-  assert(afterSave.inCard && afterSave.live && afterSave.row === 2,
-    "Save on an edited set returns focus to its ledger row (R7 J-03)", JSON.stringify(afterSave));
   // …and cancelling puts the set back exactly as it was.
   await page.locator(".ledgerline[data-editn]").nth(1).click();
   // editing() flips on the tap itself; wait for the reopened set to render and
@@ -1033,6 +1045,10 @@ async function main() {
   await page.waitForFunction(() => window.__repforgeFocus.editing() === null, undefined, { timeout: 5000 });
   assert(JSON.stringify(await editedReps()) === JSON.stringify({ reps: "9", completion: "done" }),
     "cancelling an edit puts the set's logged reps back in the draft, not the abandoned value", JSON.stringify(await editedReps()));
+  const afterCancelFocus = await focusAt(page);
+  assert(afterCancelFocus.inCard && afterCancelFocus.live && afterCancelFocus.disclosure,
+    "Cancel on an edited set returns focus to the disclosure holding its row (R7 J-03)", JSON.stringify(afterCancelFocus));
+  await openLoggedSets(page);
   const afterCancel = await page.evaluate(() =>
     [...document.querySelectorAll(".ledgerline[data-editn]")].map((r) =>
       [...r.querySelectorAll(".ledgerline__vals > .fx-col")].map((s) => s.textContent.trim())
@@ -1040,9 +1056,6 @@ async function main() {
   );
   assert(afterCancel[1] && afterCancel[1][1] === "9",
     "cancelling an edit restores the set it opened with", JSON.stringify(afterCancel));
-  const afterCancelFocus = await focusAt(page);
-  assert(afterCancelFocus.inCard && afterCancelFocus.live && afterCancelFocus.row === 2,
-    "Cancel on an edited set returns focus to its ledger row (R7 J-03)", JSON.stringify(afterCancelFocus));
 
   // ---- 08 — the note sheet ---------------------------------------------------
   phase("State 08: exercise-note editor");
@@ -1147,6 +1160,7 @@ async function main() {
   await enterFocus(page, 0);
   await logSets(page, 4, { load: 7.5, reps: 4 });
   st = await cardState(page);
+  await openLoggedSets(page);
   const effort = await page.evaluate(() => {
     const spin = document.querySelector("#workout .exercise.is-current .focus-shelf [data-effspin]");
     const head = [...document.querySelectorAll("#workout .exercise.is-current .ledgerline__head .fx-col")].map((s) => s.textContent.trim());
@@ -1213,7 +1227,7 @@ async function main() {
   });
   assert(shelfAlign.n === 3 && shelfAlign.labs <= 1 && shelfAlign.vals <= 1 && shelfAlign.tops <= 1,
     "effort, load and reps share one baseline in the shelf", JSON.stringify(shelfAlign));
-  assert(st.logged === 4 && st.rows === 6, "four logged sets still show in full", JSON.stringify(st));
+  assert(st.logged === 0 && st.rows === 2 && st.more === "4 sets logged", "four logged sets wait behind the table's disclosure, which counts them", JSON.stringify(st));
   // The reps-left shorthand is a pill off the word, not a caption among the pads.
   const popClosed = await page.evaluate(() => {
     const pop = document.querySelector(".focus-shelf .effortpop");
@@ -1297,6 +1311,7 @@ async function main() {
   const effAfter = await page.evaluate(() => document.querySelector("#workout .exercise.is-current .focus-shelf [data-effspin]").dataset.e);
   assert(effBefore !== effAfter, "arrow keys move the effort word", `${effBefore} -> ${effAfter}`);
   // Correcting a logged set in effort mode reopens the word it was logged with.
+  await openLoggedSets(page);
   await page.locator(".ledgerline[data-editn]").first().click();
   await page.waitForTimeout(200);
   const editEffort = await page.evaluate(() => ({
@@ -1312,6 +1327,7 @@ async function main() {
   await page.click("#workout .exercise.is-current .focus-shelf [data-effstep][data-dir='-1']");
   await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
   await page.waitForTimeout(250);
+  await openLoggedSets(page);
   const savedEffort = await page.evaluate(() => {
     const draft = window.__repforgeWorkoutDraft.current();
     const exercise = draft.exercises[draft.session.selectedExerciseId];
@@ -1329,8 +1345,8 @@ async function main() {
   const longBefore = await cardState(page);
   await logSets(page, 8, { load: 70, reps: 8 });
   st = await cardState(page);
-  assert(st.logged === 8 && st.rows === 10 && st.open === 1,
-    "every set keeps its row: eight logged, one open, one queued", JSON.stringify(st));
+  assert(st.logged === 0 && st.rows === 2 && st.open === 1 && st.more === "8 sets logged",
+    "a long ledger draws the open set and the queued one, with eight logged behind the disclosure", JSON.stringify(st));
   assert(st.shelfHeight === longBefore.shelfHeight && st.shelfHeight >= 150 && st.spill <= 1,
     "a long session never shrinks the shelf or spills the card", JSON.stringify({ longBefore, st }));
   const openInView = await page.evaluate(() => {
@@ -1340,8 +1356,11 @@ async function main() {
     return { row: Math.round(row.bottom), ctx: Math.round(ctx.bottom), scrolls: context.scrollHeight > context.clientHeight + 1 };
   });
   assert(openInView.row <= openInView.ctx + 1, "the context scrolls so the open row stays in view", JSON.stringify(openInView));
-  assert(!(await page.evaluate(() => document.querySelector("#workout .exercise.is-current [data-fold], #workout .exercise.is-current .ledger__more"))),
-    "there is no fold: the ledger is one row per set");
+  // Layout D (owner decision Q4(a)): the disclosure is the one fold, and opened it gives every set its row back.
+  await openLoggedSets(page);
+  st = await cardState(page);
+  assert(st.logged === 8 && st.rows === 10 && st.open === 1 && !(await page.evaluate(() => document.querySelector("#workout .exercise.is-current [data-fold]"))),
+    "opened, every set keeps its row: eight logged, one open, one queued", JSON.stringify(st));
 
   // ---- 09 — exercise complete --------------------------------------------------
   phase("State 09: exercise complete with another exercise remaining");
@@ -1441,7 +1460,7 @@ async function main() {
       return el ? Number(el.getBoundingClientRect().height.toFixed(3)) : 0;
     };
     return {
-      name: card.querySelector(".focus-ex__name")?.textContent?.trim() || "",
+      name: card.querySelector(".fcard__context")?.getAttribute("aria-label")?.trim() || "",
       fields: card.querySelectorAll(".shelf__field").length,
       pads: card.querySelectorAll(".shelf__pads > button").length,
       restBlock: card.querySelectorAll(".fx-slot .restinline").length,
@@ -1510,7 +1529,9 @@ async function main() {
   for (const [where, frac] of [["header", 0.08], ["ledger", 0.45], ["shelf", 0.9]]) {
     const at = await page.evaluate(() => window.__repforgeFocus.at());
     const b = await page.locator("#workout .exercise.is-current").boundingBox();
-    const header = where === "header" ? await page.locator("#workout .exercise.is-current .ex__namebtn").boundingBox() : null;
+    // The top of the card is its prose (layout D moved the name to the header), so the top drag starts on Why, the
+    // first control there.
+    const header = where === "header" ? await page.locator("#workout .exercise.is-current [data-why]").first().boundingBox() : null;
     const gy = Math.round(header ? header.y + header.height / 2 : b.y + b.height * frac);
     const gx = Math.round(header ? header.x + header.width / 2 : b.x + b.width - 24);
     await page.mouse.move(gx, gy);
@@ -1583,10 +1604,11 @@ async function main() {
   assert(a11y.deckNamed && a11y.inputsLabelled && a11y.carriersAbsent && a11y.segmentsNamed && a11y.pressed,
     "the deck is named, the fields are labelled and pressed-state, the segments are named and hidden carriers are absent",
     JSON.stringify(a11y));
-  // R7 J-23: the exercise-name heading is named by the exercise, not by the "Open … stats and history" button inside it.
-  const focusName = (await page.locator("#workout .exercise.is-current .focus-ex__name").textContent()).trim();
-  const namedHeading = await page.locator("#workout .exercise.is-current").getByRole("heading", { name: focusName, exact: true }).count();
-  const openAction = await page.locator("#workout .exercise.is-current").getByRole("button", { name: /^Open .* stats and history$/ }).count();
+  // R7 J-23: the exercise-name heading (the header's, layout D) is named by the exercise, not by the
+  // "Open … stats and history" button inside it.
+  const focusName = (await page.locator("#woDayTitle").textContent()).trim();
+  const namedHeading = await page.locator("#workoutShell .wo-head").getByRole("heading", { name: focusName, exact: true }).count();
+  const openAction = await page.locator("#workoutShell .wo-head").getByRole("button", { name: /^Open .* stats and history$/ }).count();
   assert(focusName.length > 0 && namedHeading === 1 && openAction === 1,
     "the Focus exercise-name heading is named by the exercise, and its button keeps the open-stats action",
     JSON.stringify({ focusName, namedHeading, openAction }));
@@ -1616,7 +1638,8 @@ async function main() {
   await logSets(rmPage, 1);
   const rmLanded = await rmPage.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
-    const fresh = card.querySelector(".ledgerline.is-fresh");
+    // Collapsed (layout D), the landing beat is the disclosure's.
+    const fresh = card.querySelector(".ledgerline.is-fresh, [data-ledgermore].is-fresh");
     const anim = (el) => (el ? getComputedStyle(el).animationName : "");
     return { marked: !!fresh, row: anim(fresh) };
   });
@@ -1758,7 +1781,7 @@ async function main() {
   await enterFocus(draftPage, 0);
   const deck = await draftPage.evaluate(() => {
     const list = window.__repforgeFocus.list();
-    const name = document.querySelector("#workout .exercise.is-current .focus-ex__name")?.textContent?.trim();
+    const name = document.querySelector("#woDayTitle")?.textContent?.trim();
     return { count: list.length, name, ids: list.map((e) => e.id) };
   });
   assert(

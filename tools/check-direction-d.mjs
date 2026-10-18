@@ -141,6 +141,9 @@ export const ORANGE_ALLOWLIST = [
 export const OVERFLOW_EXCEPTIONS = [
   // R3i: Direction D's single Progress tab row scrolls sideways when five tabs do not fit (spec section 4.6).
   { id: "progress-tab-row", selector: ".tabrow" },
+  // Layout D (owner, 2026-10-17/18): the Focus header's exercise name clamps to two lines beside the rest pill; the
+  // clamp's ellipsis can sit a pixel or two past the box. The heading's accessible name keeps the whole name.
+  { id: "focus-header-name-clamp", selector: ".wo-head__name" },
 ];
 /** Where "Hold" as a label is banned: the rest surfaces. R3f: the inline block, its pad row and the presets sheet. */
 export const TIMER_SCOPES = ["#restSheet", ".restinline", ".shelf__pads--rest"];

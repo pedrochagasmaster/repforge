@@ -871,6 +871,18 @@ div.settings-row{cursor:default}
    takes room from it, the controls and the first line of the title stay where they were. */
 .wo-head__center{text-align:center;min-width:0;flex:1;padding-top:var(--space-12)}
 .wo-head__title{font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere}
+/* In a workout the title is the exercise's name, and the name opens its stats and history. A long name beside a
+   running or overrun rest pill takes two lines at most (owner, 2026-10-17); the heading's name keeps all of it. */
+.wo-head__title:has(.wo-head__name){font-weight:var(--weight-semibold);color:var(--color-ink)}
+.wo-head__name{
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;width:100%;min-height:var(--control-target);margin:calc(-1 * var(--space-12)) 0 0;padding:var(--space-12) 0 0;border:0;
+  background:none;color:inherit;font:inherit;text-align:center;overflow-wrap:anywhere;cursor:pointer;
+}
+@media (hover: hover) and (pointer: fine){
+.wo-head__name:hover{background:var(--well)}
+}
+.wo-head__name:active{background:var(--well);transform:var(--control-pressed-transform)}
+.wo-head__name:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
 /* The title is a heading and is never cut short: it wraps. Where the controls leave it a column too narrow to read
    (the narrowest phones, and any phone at large text) it takes the row under the controls, so a running timer's
    wider pill neither squeezes it nor moves it. */
@@ -1067,25 +1079,9 @@ article.exercise--focus input,article.exercise--focus textarea{-webkit-user-sele
    floor is the one the screen's budget allows (--focus-context-floor), and the selector outranks the shared rule. */
 article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
 .fcard__context:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
-.fx-head{display:flex;align-items:center;gap:var(--space-12);margin:0 0 var(--space-16)}
-.fx-head .exthumb{flex:none;width:56px;height:56px;border-radius:var(--radius-surface)}
-.fx-head__text{min-width:0;flex:1}
-.focus-ex__name{
-  margin:0;overflow-wrap:anywhere;font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);
-  line-height:var(--line-tight);color:var(--color-ink);
-}
-.exercise--focus .focus-ex__name .ex__namebtn{
-  display:block;padding:0;text-align:left;background:var(--control-quiet-bg);color:var(--control-quiet-ink);
-  font-family:var(--font-language);font-size:inherit;font-weight:inherit;line-height:inherit;
-}
-@media (hover: hover) and (pointer: fine){
-.exercise--focus .focus-ex__name .ex__namebtn:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
-}
-.exercise--focus .focus-ex__name .ex__namebtn:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
-.exercise--focus .focus-ex__name .ex__namebtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
-.exercise--focus .focus-ex__name .ex__namebtn:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+.fx-head{margin:0 0 var(--space-16)}
 .focus-ex__meta{
-  margin:var(--space-4) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);
+  margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);
   color:var(--color-ink-secondary);overflow-wrap:anywhere;
 }
 
@@ -1177,6 +1173,19 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .fx-next:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .fx-next:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);cursor:not-allowed;transform:none}
 .fx-next__chev{flex:none;transform:rotate(-90deg)}
+/* Layout D: the logged sets' disclosure, a quiet row above the open set. */
+.ledger__more{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);width:100%;min-height:var(--control-target);margin:0;
+  padding:0 var(--space-12);border:0;border-radius:var(--radius-control);background:var(--control-quiet-bg);color:var(--color-ink-secondary);cursor:pointer;
+  font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);line-height:var(--line-standard);text-align:left;
+}
+@media (hover: hover) and (pointer: fine){
+.ledger__more:hover{background:var(--well)}
+}
+.ledger__more:active{background:var(--well);transform:var(--control-pressed-transform)}
+.ledger__more:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.ledger__chev{flex:none}
+.ledger__more[aria-expanded="true"] .ledger__chev{transform:rotate(180deg)}
 
 /* A first-set cue rides above the shelf, in the flow, and keeps the shelf on the edge. */
 .exercise--focus .guide-cue{flex:0 1 auto;min-height:0;max-height:25%;overflow-y:auto;overscroll-behavior:contain;margin:var(--space-8) var(--gut)}
@@ -1187,6 +1196,9 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
    `.workshelf`; the field, pad and action recipes below sit on their own control
    roles. A field is a button until a second tap turns it into the real input. */
 .focus-shelf{flex:none;position:relative}
+/* Layout D (owner decision of 2026-10-17, from the approved mock): the shelf at 56 px fields, 48 px pads and a 52 px
+   action, under the 56/56/54 of Direction D §4, on an 8 px top padding. Every target stays at least 48 px. */
+.workshelf.focus-shelf{padding-top:var(--space-8)}
 .focus-shelf{--control-selection-bg:var(--shelf-field-bg)}
 /* A third of the shelf has to hold a load such as 102,5 on one line at any text size. The numeral is as large as the
    token allows and no larger than five Mono digits take in the room a field has left after its gutters, gaps and
@@ -1200,8 +1212,8 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 /* The three fields share a row's height whichever label wrapped (a flex field stretches its button). */
 .shelf__field{position:relative;display:flex;min-width:0}
 .shelf__fieldbtn{
-  display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;width:100%;min-height:64px;margin:0;
-  padding:var(--space-8) var(--space-12);border:1px solid var(--control-selection-boundary);border-radius:var(--radius-control);
+  display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;width:100%;min-height:56px;margin:0;
+  padding:var(--space-4) var(--space-12);border:1px solid var(--control-selection-boundary);border-radius:var(--radius-control);
   background:var(--control-selection-bg);color:var(--control-selection-ink);text-align:left;cursor:pointer;
 }
 @media (hover: hover) and (pointer: fine){
@@ -1222,14 +1234,14 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 /* The input is always present so the draft handlers have one element to read and
    flag. Until the second tap it is invisible and inert; then it takes the field's place. */
 .shelf__input{
-  position:absolute;inset:0;width:100%;height:100%;min-height:64px;margin:0;padding:var(--space-8) var(--space-12) 0;
+  position:absolute;inset:0;width:100%;height:100%;min-height:56px;margin:0;padding:var(--space-4) var(--space-12) 0;
   opacity:0;pointer-events:none;border:1px solid var(--control-field-boundary);border-radius:var(--radius-control);
   background:var(--control-field-bg);color:var(--control-field-ink);box-shadow:var(--elevation-selected-quiet-shadow);
   font-family:var(--font-training-data);font-size:min(var(--font-size-metric),var(--shelf-numeral-fit));font-weight:var(--weight-medium);line-height:var(--line-tight);
   font-variant-numeric:tabular-nums;text-align:left;
 }
-.shelf__field.is-editing .shelf__input{opacity:1;pointer-events:auto;padding-top:calc(var(--space-8) + var(--font-size-body-small) * var(--line-standard) + 2px);padding-bottom:0}
-.shelf__lab--edit{position:absolute;top:var(--space-8);left:var(--space-12);right:var(--space-12);pointer-events:none}
+.shelf__field.is-editing .shelf__input{opacity:1;pointer-events:auto;padding-top:calc(var(--space-4) + var(--font-size-body-small) * var(--line-standard) + 2px);padding-bottom:0}
+.shelf__lab--edit{position:absolute;top:var(--space-4);left:var(--space-12);right:var(--space-12);pointer-events:none}
 .shelf__field.is-editing .shelf__fieldbtn{visibility:hidden}
 .shelf__input:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .shelf__input[aria-invalid="true"]{border-color:var(--control-error-boundary);box-shadow:none}
@@ -1237,7 +1249,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .shelf__fieldbtn[aria-invalid="true"]{border-color:var(--control-error-boundary)}
 .shelf__pads{display:flex;gap:var(--space-8)}
 .shelf__pads .shelf__pad{
-  flex:1 1 0;width:auto;min-width:0;height:56px;min-height:56px;padding:0 var(--space-12);border-radius:var(--radius-control);
+  flex:1 1 0;width:auto;min-width:0;height:48px;min-height:48px;padding:0 var(--space-12);border-radius:var(--radius-control);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);white-space:nowrap;
 }
 /* ---- Inline rest ----
@@ -1282,7 +1294,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 /* The rest controls: -30s and +30s step the clock, Pausar holds it, Pular ends it. */
 .shelf__pads{position:relative}
 .restpad{
-  flex:1 1 0;min-width:0;height:56px;min-height:56px;margin:0;padding:0 var(--space-4);border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);
+  flex:1 1 0;min-width:0;height:48px;min-height:48px;margin:0;padding:0 var(--space-4);border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);
   background:var(--control-secondary-bg);color:var(--control-secondary-ink);cursor:pointer;text-align:center;white-space:nowrap;
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
@@ -1313,7 +1325,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .focus-shelf .btn--cta.saveset{
   border:1px solid var(--control-primary-boundary);background:var(--control-primary-bg);color:var(--control-primary-ink);
   font-family:var(--font-language);text-transform:none;letter-spacing:normal;font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
-  min-height:54px;min-width:0;padding:0 var(--space-18);border-radius:var(--radius-control);
+  min-height:52px;min-width:0;padding:0 var(--space-18);border-radius:var(--radius-control);
 }
 @media (hover: hover) and (pointer: fine){
 .focus-shelf .btn--cta.saveset:hover:not(:disabled){background:var(--control-primary-bg);color:var(--control-primary-ink);border-color:var(--control-primary-boundary)}
@@ -1351,7 +1363,8 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
    celebrates. */
 .ledgerline.is-fresh{animation:setland-row .16s cubic-bezier(.2,.8,.2,1) both}
 @keyframes setland-row{from{opacity:.68;transform:translateY(4px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.ledgerline.is-fresh{animation:none}}
+.ledger__more.is-fresh{animation:setland-row .16s cubic-bezier(.2,.8,.2,1) both}
+@media (prefers-reduced-motion:reduce){.ledgerline.is-fresh,.ledger__more.is-fresh{animation:none}}
 
 /* Rest bar — one floating clock, parked just above the tab bar in every mode */
 .restbar{
@@ -1390,7 +1403,6 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .exercise.is-hold{--heat:var(--accent)}
 .exercise.is-reduce{--heat:var(--ink-soft)}
 .exercise.is-new{--heat:var(--ink-faint)}
-.ex__name{font-size:var(--font-size-section-title);font-weight:var(--weight-semibold);line-height:1.15;letter-spacing:-0.01em}
 /* Which slot a swap stands in gets the whole line rather than trailing the
    picker, so a long seed name wraps as a sentence instead of a column. */
 
@@ -3381,16 +3393,6 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .pday.is-collapsed .pday__caret{transform:rotate(-90deg)}
 .pday.is-collapsed .pexlist,.pday.is-collapsed .pday__add{display:none}
 .pday.is-collapsed .pday__head{margin-bottom:0}
-
-.ex__namebtn{display:flex;align-items:baseline;gap:6px;width:100%;margin:0;padding:0;border:0;background:none;color:var(--ink);text-align:left;cursor:pointer}
-.ex__namebtn::after{content:"›";flex:none;color:var(--ink-faint);font-size:var(--control-icon-size)}
-.focus-ex__name .ex__namebtn::after{content:none;display:none}
-/* The name opens the exercise page: give it a tap target without
-   moving the baseline the title sits on. */
-.focus-ex__name .ex__namebtn{font:inherit;color:inherit;display:block;padding:7px 0;margin:-7px 0;min-height:44px}
-@media (hover: hover) and (pointer: fine){
-.ex__namebtn:hover{color:var(--accent-deep)}
-}
 
 #exercise .exview-head__title{font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
 .exdet__muscle{font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary)}

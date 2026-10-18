@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { selectExercise, openActions, exerciseAction, sessionField, finishEarly } from "./fixtures/focus-workout.mjs";
+import { selectExercise, openActions, exerciseAction, sessionField, finishEarly, openLoggedSets } from "./fixtures/focus-workout.mjs";
 /**
  * Production-backed characterization for Plan 051's workout-draft boundary.
  *
@@ -285,7 +285,7 @@ async function main() {
     await chooseSubstitute(page, third.id, SUBSTITUTE);
     await selectExercise(page, third.id);
     const substituted = await page.evaluate(() =>
-      document.querySelector("#workout .exercise.is-current .focus-ex__name")?.textContent?.trim());
+      document.querySelector("#woDayTitle")?.textContent?.trim());
     assert(substituted?.includes(SUBSTITUTE), "Focus projects the substitution on its card", substituted);
     await fillShelf(page, "load", 40);
     await fillShelf(page, "reps", 9);
@@ -303,6 +303,7 @@ async function main() {
       const exercise = draft?.exercises?.[id];
       return exercise && exercise.sets[exercise.setOrder[0]].completion !== "pending";
     }, { id: first.id });
+    await openLoggedSets(page);
     assert(
       await page.locator(`#workout .exercise.is-current [data-editn="1"]`).count() === 1,
       "Focus completion commits the programmed set",
@@ -314,7 +315,7 @@ async function main() {
     const focusFirst = await page.evaluate(() => {
       const card = document.querySelector("#workout .exercise.is-current");
       return {
-        name: card?.querySelector(".focus-ex__name")?.textContent?.trim(),
+        name: card?.querySelector(".fcard__context")?.getAttribute("aria-label")?.trim(),
         completed: card?.querySelectorAll(".ledgerline[data-editn]").length,
       };
     });
@@ -329,6 +330,7 @@ async function main() {
     assert(committedRow.replace(/\s+/g, " ").trim() === "50 10 2",
       "the committed ledger row reads back the set's logged weight, reps and RIR", committedRow);
 
+    await openLoggedSets(page);
     await page.locator("#workout .exercise.is-current .ledgerline[data-editn]").click();
     await page.waitForFunction(({ id }) => {
       const draft = window.__repforgeWorkoutDraft.current();
@@ -349,6 +351,7 @@ async function main() {
       return window.__repforgeFocus.editing() === null &&
         exercise?.sets?.[exercise.setOrder[0]]?.completion !== "pending";
     }, { id: first.id });
+    await openLoggedSets(page);
     const corrected = await page.locator("#workout .exercise.is-current .ledgerline[data-editn] .ledgerline__vals > .fx-col:first-child").textContent();
     assert(corrected?.trim() === "55", "Focus correction updates the committed set in place", corrected || "missing row");
 
@@ -384,8 +387,9 @@ async function main() {
     const cardState = async (id) => {
       await page.evaluate((id) => window.__repforgeFocus.to(window.__repforgeFocus.list().findIndex((exercise) => exercise.id === id)), id);
       await page.waitForSelector(`#workout .exercise.is-current[data-ex="${id}"]`, { timeout: 5000 });
+      await openLoggedSets(page);
       return {
-        name: await page.locator("#workout .exercise.is-current .focus-ex__name").textContent(),
+        name: await page.locator("#woDayTitle").textContent(),
         completed: await page.locator("#workout .exercise.is-current .ledgerline[data-editn]").count(),
         active: await shelfValues(page),
       };

@@ -135,8 +135,10 @@ async function view(page) {
         aria: b.getAttribute("aria-label") || "",
       })),
       confirmText: document.querySelector("#dayPickConfirm")?.textContent?.trim() || "",
-      // The header reads "Day 3 · exercise 1 of 6" once a workout is open; the day is the first part.
-      day: (document.querySelector("#woDayTitle")?.textContent || "").split(" \u00b7 ")[0].trim(),
+      // Before a workout the header names the day; once one is open it names the exercise, and the day is the draft's.
+      day: document.querySelector("#workoutShell")?.classList.contains("hidden")
+        ? (document.querySelector("#woDayTitle")?.textContent || "").trim()
+        : (window.__repforgeWorkoutDraft?.current?.()?.program?.dayLabel || ""),
       todayName: document.querySelector("#todaySession .today-session__name")?.textContent?.trim() || "",
       workoutOpen: !document.querySelector("#workoutShell")?.classList.contains("hidden"),
       activeTab: document.querySelector("#dayTabs button.active")?.dataset.day || "",

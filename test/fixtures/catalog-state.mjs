@@ -19,17 +19,18 @@ export async function inPool(items, size, work) {
 
 /**
  * Open `key` ("workout/focus") at `width` in `lang` ("en" | "pt") and `text` ("normal" | "text200") and run its
- * catalog scenario. The caller closes `opened.context`.
+ * catalog scenario. `height` and `safe` place it on a phone outside `CATALOG_PHONES` (an SE-class 375×667 has a 20 px
+ * status bar and no home indicator). The caller closes `opened.context`.
  */
-export async function openCatalogState(browser, key, width, lang, text, { theme = "light" } = {}) {
+export async function openCatalogState(browser, key, width, lang, text, { theme = "light", height = CATALOG_PHONES[width], safe = SAFE_AREA } = {}) {
   const manifest = loadManifest();
-  manifest.viewports[`phone-${width}`] = { width, height: CATALOG_PHONES[width], label: "geometry" };
+  manifest.viewports[`phone-${width}`] = { width, height, label: "geometry" };
   manifest.deviceScaleFactor = 1;
   const [flow, screen] = key.split("/");
   const job = { flow, screen, viewport: `phone-${width}`, theme, locale: lang, text, motion: "normal" };
   const opened = await openPage(browser, manifest, job, appState(key, manifest.locales[lang].lang), { userAgent: APP_USER_AGENT[key], now: APP_CLOCK[key] });
   const cdp = await opened.context.newCDPSession(opened.page);
-  await cdp.send("Emulation.setSafeAreaInsetsOverride", { insets: { ...SAFE_AREA, left: 0, right: 0 } });
+  await cdp.send("Emulation.setSafeAreaInsetsOverride", { insets: { ...safe, left: 0, right: 0 } });
   await dismissChrome(opened.page);
   await APP_SCENARIOS[key](opened.page);
   await settle(opened.page);

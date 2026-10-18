@@ -46,3 +46,16 @@ export async function finishEarly(page) {
   await page.waitForFunction(() => window.__repforgeWorkoutDraft.current() === null, undefined, { timeout: 15000 });
   return result;
 }
+
+/** Layout D keeps the current exercise's logged sets behind its table's disclosure: open it, when it is closed, to
+ *  read or correct them. It closes again after a correction and on another exercise. */
+export async function openLoggedSets(page) {
+  const more = page.locator("#workout .exercise.is-current [data-ledgermore][aria-expanded='false']");
+  if (!(await more.count())) return;
+  await more.click();
+  await page.waitForFunction(() => {
+    const card = document.querySelector("#workout .exercise.is-current");
+    const rows = card?.querySelector(".ledger__rows");
+    return card?.querySelector("[data-ledgermore]")?.getAttribute("aria-expanded") === "true" && rows && !rows.style.height;
+  }, undefined, { timeout: 5000 });
+}

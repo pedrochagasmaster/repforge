@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 192 screens,
-1110 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 193 screens,
+1118 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -188,6 +188,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Warm-up role](screens/workout/warmup-actions__phone-390-light-en.png) | 8 | Warm-up role through production controls. |
 | [Session reorder](screens/workout/reorder__phone-390-light-en.png) | 8 | Session reorder through production controls. |
 | [Set correction](screens/workout/correction__phone-390-light-en.png) | 8 | Set correction through production controls. |
+| [Logged sets](screens/workout/logged-sets__phone-390-light-en.png) | 8 | Layout D: a set is logged and the rest runs; the table's disclosure is open, the logged row back in place above the open set and the next one. |
 | [Skipped exercise actions](screens/workout/skipped-actions__phone-390-light-en.png) | 8 | workout/skipped-actions |
 | [Substituted exercise actions](screens/workout/substituted-actions__phone-390-light-en.png) | 8 | workout/substituted-actions |
 | [Swap picker with alternates](screens/workout/swap-alternates__phone-390-light-en.png) | 3 | workout/swap-alternates |

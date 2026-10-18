@@ -7312,7 +7312,7 @@ function todayRxHtml(exs){
     model.map((row,index)=>todayRxRowHtml(row,index)).join("")+`</div></div>`}
 /* The unfinished-session band (OG-6 `today/draft-resume`, Direction D 4.1): a status line above the prescription that
    says a session is open and where the lifter left it. It reads the draft and never writes it. The position uses the
-   Focus header's own format (`focus.head.day_ex`) over the draft's exercise order, skipped lifts left out the way
+   Focus position format (`focus.head.day_ex`) over the draft's exercise order, skipped lifts left out the way
    `focusList` leaves them out. */
 function draftResumeWhere(){
   let d=activeWorkoutDraft;
@@ -7437,7 +7437,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
   const progClick=$("#todayProgram");if(progClick&&!progClick.classList.contains("hidden")){
     progClick.style.cursor="pointer";progClick.onclick=()=>{navTo("stats");setStatsSeg("review")}}
   // The workout header names the day until a workout is open; then updateWorkoutHeader owns the title.
-  if(!workoutActive){const woTitle=$("#woDayTitle");if(woTitle)woTitle.textContent=dayLabel(day)}
+  if(!workoutActive){const woTitle=$("#woDayTitle");if(woTitle){woTitle.removeAttribute("aria-label");woTitle.textContent=dayLabel(day)}}
   renderFocusDeloadLine();
 }
 /* ---- Session sheet (Focus workout) ---- */
@@ -8049,19 +8049,51 @@ function ledgerSetIsWarmup(exId,n){
   const setId=draft.setOrder.find(id=>draft.sets[id].ordinal===n);
   return draft.sets[setId]?.role==="warmup"}
 
+/** Layout D's table (owner decision of 2026-10-17): the set being worked on and
+ *  the one after it, with the logged sets behind a disclosure above them. The
+ *  disclosure is transient: it is open for one exercise at a time, stays open
+ *  through a correction, and closes after it and whenever the lifter moves on.
+ *  A finished exercise keeps its whole ledger, as it always has. */
+let focusLedgerOpen=null;
+function focusLedgerExpanded(ex,peek){
+  if(focusActiveSet(ex)===0)return true;
+  return !peek&&(focusLedgerOpen===ex.id||!!(focusEdit&&focusEdit.exId===ex.id))}
+/** The sets the lifter has logged on this exercise, the one being corrected included. */
+function focusLoggedCount(ex){
+  const editN=focusEdit&&focusEdit.exId===ex.id?focusEdit.n:0;
+  let count=0;for(let n=1;n<=ex.sets;n++)if(committed.has(`${ex.id}_${n}`)||n===editN)count++;
+  return count}
+function focusLedgerToggleHtml(ex,{peek=false}={}){
+  const count=focusLoggedCount(ex);
+  if(!count||focusActiveSet(ex)===0)return"";
+  const open=focusLedgerExpanded(ex,peek);
+  // Collapsed, the set just logged leaves the table on the render that logs it; its landing beat plays here instead.
+  const fresh=!open&&focusIsFresh(ex,peek);
+  return `<button type="button" class="ledger__more${fresh?" is-fresh":""}"${peek?dead():` data-ledgermore`} aria-expanded="${open?"true":"false"}" aria-controls="ledger_${esc(ex.id)}">`+
+    // The count and the word sit in their own spans, so each reads as the figure and the catalog plural it is.
+    `<span>${esc(t("focus.ex_done_sets",{n:"\u0000",sets:"\u0001"})).replace("\u0000",`<span>${count}</span>`).replace("\u0001",`<span>${esc(tp(count,"logged set"))}</span>`)}</span>`+
+    `<span class="icon-mask icon-mask--sm icon-mask--chev-down ledger__chev" aria-hidden="true"></span></button>`}
 /** The ledger: one row per set. Logged sets read back and reopen on a tap, the
  *  set being worked on (or corrected) wears the open ring, and the sets still
  *  to do show their targets in soft ink. The second line of every row is the
- *  previous session's matching set. */
+ *  previous session's matching set. Collapsed (layout D), only the open set and
+ *  the next one to do are drawn. */
 function focusLedgerHtml(ex,r,draft,prev,{effortMode,peek=false}){
-  const active=focusActiveSet(ex);
-  const editN=focusEdit&&focusEdit.exId===ex.id?focusEdit.n:0;
-  const freshN=focusIsFresh(ex,peek)?focusLogged.n:0;
   const head=`<div class="ledgerline__head"><span>${esc(t("log.set"))}</span><span class="ledgerline__vals">`+
     `<span class="fx-col">${esc(unitLabel())}</span><span class="fx-col">${esc(t("log.reps"))}</span>`+
     `<span class="fx-col">${effortMode?(peek?esc(t("log.effort")):term("Effort")):(peek?"RIR":term("RIR"))}</span></span></div>`;
+  return head+focusLedgerToggleHtml(ex,{peek})+
+    `<div class="ledger__rows" id="ledger_${esc(ex.id)}">${focusLedgerRowsHtml(ex,r,draft,prev,{effortMode,peek})}</div>`}
+function focusLedgerRowsHtml(ex,r,draft,prev,{effortMode,peek=false}){
+  const active=focusActiveSet(ex);
+  const editN=focusEdit&&focusEdit.exId===ex.id?focusEdit.n:0;
+  const freshN=focusIsFresh(ex,peek)?focusLogged.n:0;
+  const expanded=focusLedgerExpanded(ex,peek);
+  let after=0;
+  for(let n=active+1;n<=ex.sets&&!after;n++)if(!committed.has(`${ex.id}_${n}`))after=n;
   const rows=[];
   for(let n=1;n<=ex.sets;n++){
+    if(!expanded&&n!==active&&n!==after)continue;
     const key=`${ex.id}_${n}`;
     const done=committed.has(key)&&n!==editN;
     const open=n===active;
@@ -8081,7 +8113,22 @@ function focusLedgerHtml(ex,r,draft,prev,{effortMode,peek=false}){
     if(done)rows.push(`<button type="button" class="${cls}"${peek?dead()
       :` data-editex="${esc(ex.id)}" data-editn="${n}" aria-label="${esc(t("focus.edit_set_aria",{n}))}"`}>${cells}</button>`);
     else rows.push(`<div class="${cls}"${n===editN?' aria-current="true"':""} data-lrow="${n}">${cells}</div>`)}
-  return head+`<div id="ledger_${esc(ex.id)}">${rows.join("")}</div>`}
+  return rows.join("")}
+/** The disclosure trades the table's rows in place, in the measured height run the cue slot uses (`animateSlot`):
+ *  drawn at once under reduced motion or without the runtime. The disclosure itself is not rebuilt, so it keeps focus. */
+function toggleFocusLedger(button){
+  const card=button.closest(".exercise--focus"),base=card&&prog.find(card.dataset.ex);if(!base)return;
+  const ex=sessionExercise(base),rows=card.querySelector(`#ledger_${CSS.escape(ex.id)}`);if(!rows)return;
+  const open=button.getAttribute("aria-expanded")!=="true";
+  const draft=hydrateWorkoutDraft(),r=recommendation(ex),prev=last(ex);
+  const apply=()=>{
+    focusLedgerOpen=open?ex.id:null;
+    rows.innerHTML=focusLedgerRowsHtml(ex,r,draft,prev,{effortMode:isEffortMode(),peek:false});
+    button.setAttribute("aria-expanded",open?"true":"false");button.classList.remove("is-fresh");
+    bindWorkout()};
+  const moved=window.RepForgeMotion?.animateSlot?window.RepForgeMotion.animateSlot(rows,apply):(apply(),null);
+  // Opening reveals the logged rows under the disclosure where the lifter is looking; closing brings the open set back.
+  if(!open)settleFocusContext(moved)}
 
 /** The line under the exercise name: sets and reps, the effort window, and the
  *  name of the strategy that sets the target. Read off the program's own
@@ -8372,8 +8419,7 @@ function workoutFocusKey(el){
   if(d.restAct)return{sel:`.focus-shelf [data-rest-act="${q(d.restAct)}"]`};
   if(el.matches(".saveset"))return{sel:".focus-shelf .saveset"};
   if(d.editex&&d.editn)return{sel:`.ledgerline[data-editex="${q(d.editex)}"][data-editn="${q(d.editn)}"]`};
-  for(const name of["fcancel","fnext","ffinish","fnextrow"])if(name in d||el.hasAttribute(`data-${name}`))return{sel:`[data-${name}]`};
-  if(d.exopen)return{sel:`.ex__namebtn[data-exopen="${q(d.exopen)}"]`};
+  for(const name of["fcancel","fnext","ffinish","fnextrow","ledgermore"])if(name in d||el.hasAttribute(`data-${name}`))return{sel:`[data-${name}]`};
   return null}
 /* A hand-off moves focus without the lifter having moved it: after a tap, the control it lands on must not light a
    focus ring the tap never asked for (and the orange budget has no place for one). Whoever last used a key still
@@ -8402,7 +8448,8 @@ function focusWorkoutHandoff(kind,{exId=null,n=0}={}){
   const shelf=card.querySelector(".focus-shelf");
   const cta=shelf?.querySelector(".btn--cta")||null;
   let target=null;
-  if(kind==="row")target=card.querySelector(`.ledgerline[data-editex="${CSS.escape(String(exId))}"][data-editn="${n}"]`);
+  // A collapsed table no longer draws the corrected row; its disclosure stands for it.
+  if(kind==="row")target=card.querySelector(`.ledgerline[data-editex="${CSS.escape(String(exId))}"][data-editn="${n}"]`)||card.querySelector("[data-ledgermore]");
   else if(kind==="next")target=shelf?.querySelector(".shelf__field.is-sel [data-shelf-field]")||shelf?.querySelector("[data-shelf-field]")||null;
   const next=resolveReturnFocus(target)||cta;
   if(!next)return false;
@@ -8450,10 +8497,6 @@ function focusCardHtml(ex,r,draft,prev,opts){
   const effortMode=isEffortMode();
   const n=focusActiveSet(ex);
   const name=exerciseDisplayName(ex);
-  /* The heading is named by the exercise; the button inside it keeps its own
-     "Open … stats and history" name, which would otherwise become the heading's (R7 J-23). */
-  const nameHtml=`<h3 class="focus-ex__name"${peek?"":` aria-label="${esc(name)}"`}><button type="button" class="ex__name ex__namebtn"`+
-    `${peek?dead():` data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name}))}"`}>${esc(name)}</button></h3>`;
   const noteVal=draft.__exnotes?.[ex.id]??lastExerciseNote(ex);
   const note=noteVal?`<p class="fx-note"><span class="icon-mask icon-mask--sm icon-mask--note" aria-hidden="true"></span><span>${esc(noteVal)}</span></p>`:"";
   const editing=!!(focusEdit&&focusEdit.exId===ex.id&&n);
@@ -8466,8 +8509,8 @@ function focusCardHtml(ex,r,draft,prev,opts){
   return `<article class="exercise exercise--focus is-${r.status}${peek?" is-peek":" is-current"}"`+
     (peek?` aria-hidden="true" inert data-peek="${esc(ex.id)}"`:` data-ex="${esc(ex.id)}"`)+`>`+
     `<div class="fcard__context" role="region" aria-label="${esc(name)}" tabindex="${peek?-1:0}">`+
-    `<div class="fx-head">${exerciseThumb(exerciseRefEntry(ex),{size:"sm"})}<div class="fx-head__text">${nameHtml}`+
-    `<p class="focus-ex__meta">${esc(focusExMeta(ex))}</p></div></div>`+
+    // The header names the exercise (layout D), so its row here is the prescription line alone.
+    `<div class="fx-head"><p class="focus-ex__meta">${esc(focusExMeta(ex))}</p></div>`+
     slotHtml+note+
     `<div class="fcard__ledger">`+
     `${focusLedgerHtml(ex,r,draft,prev,{effortMode,peek})}</div>`+nextRow+`</div>`+
@@ -8510,6 +8553,8 @@ function renderWorkout(){
   const at=fl.length?Math.min(focusIndex,fl.length-1):0;
   const wk=$("#workout");if(!wk){focusLogged=null;return}wk.classList.add("is-focus");
   const current=fl[at] ? sessionExercise(fl[at]) : null;
+  // The logged sets' disclosure belongs to the exercise it was opened on.
+  if(focusLedgerOpen&&focusLedgerOpen!==current?.id)focusLedgerOpen=null;
   // L2: where the ledger's open-row outline is drawn before this render moves it.
   const openRow=focusMotion()?focusOpenRow():null;
   // L3: the cue slot and pad row as they stand, so a change of job arrives from them.
@@ -8540,11 +8585,19 @@ function renderWorkout(){
   queueMicrotask(()=>maybeShowContextualGuides(["first-set"]));
   queueMicrotask(()=>maybeShowContextualGuides(["focus-utilities"]));
 }
-/** The header's centre: which day, and where in it. The week the day belongs to
- *  is Today's to say, so the line carries no second clause. */
+/** The header's centre names the exercise the lifter is on (layout D, owner
+ *  decision of 2026-10-17); the segment bar under it carries the position, and
+ *  its live region says it. The name is the route to the exercise's stats and
+ *  history, as it was in the card; the heading is named by the exercise alone. */
 function updateWorkoutHeader(fl,at){
   const title=$("#woDayTitle");
-  if(title)title.textContent=fl.length?t("focus.head.day_ex",{day:dayLabel(day),n:at+1,m:fl.length}):dayLabel(day);
+  const ex=fl.length?sessionExercise(fl[at]):null;
+  if(title&&ex){
+    const name=exerciseDisplayName(ex);
+    title.setAttribute("aria-label",name);
+    title.innerHTML=`<button type="button" class="wo-head__name" data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name}))}">${esc(name)}</button>`;
+    title.firstChild.onclick=()=>openExerciseView(ex.id,"log")}
+  else if(title){title.removeAttribute("aria-label");title.textContent=dayLabel(day)}
   renderFocusDeloadLine();
   syncWorkoutMore()}
 /** ⋯ is the current exercise's actions. Where the device offers voice input and
@@ -8612,16 +8665,17 @@ function sizeFocusCard(card){
   const rootFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
   card.classList.toggle("is-text-scaled",Number.isFinite(rootFontSize)&&rootFontSize>16.1);
   // The context region scrolls as one: keep the row being worked on in view. At the first set nothing has been
-  // logged and the shelf already shows the set, so the card opens at its top with the exercise's name; later the row
-  // scrolls into view, but when the window cannot hold both it never scrolls past a rest that is running or has just
-  // ended, which sits under the name.
+  // logged and the shelf already shows the set, so the card opens at its top with the exercise's prescription; later
+  // the row scrolls into view, but never past a rest that is running or has just ended, which sits above it.
   const context=card.querySelector(".fcard__context");
   const open=context?.querySelector(".ledgerline--open");if(!open)return;
   if(+open.dataset.lrow<=1&&context.scrollTop===0)return;
   const box=context.getBoundingClientRect(),row=open.getBoundingClientRect();
   if(row.bottom>box.bottom){
+    // A rest that is running or has just ended is never scrolled out: whatever else the window holds above the row
+    // (a skip bar taking its height, the table's head and disclosure), the row comes no further than the rest's top.
     const slot=context.querySelector(".fx-slot"),
-      resting=!!slot&&slot.dataset.rest&&slot.dataset.rest!=="none"&&context.clientHeight<slot.offsetHeight+row.height+24;
+      resting=!!slot&&!!slot.dataset.rest&&slot.dataset.rest!=="none";
     const keep=resting?slot.getBoundingClientRect().top:NaN;
     const room=Number.isFinite(keep)?Math.max(0,keep-box.top):Infinity;
     const need=row.bottom-box.bottom+8;
@@ -8748,7 +8802,7 @@ function bindWorkout(){
       if(result.status==="domain-error"){applyDraftIssue(result.error?.issues);return}
       if(result.status!=="applied")return;
       const nowDone=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].completion!=="pending";
-      if(editing&&nowDone){focusEdit=null;toast(t("toast.set_updated"))}
+      if(editing&&nowDone){focusEdit=null;focusLedgerOpen=null;toast(t("toast.set_updated"))}
       if(nowDone&&!editing){lastCommitAt=Date.now();if(!sessionStartedAt)sessionStartedAt=lastCommitAt;restRenderPending=true;startRest();armUnfinishedWatch()}
       if(nowDone&&!editing)focusLogged={exId:target.exerciseInstanceId,n:target.ordinal};
       if(nowDone&&refreshReservation){refreshStarted=true;const refreshed=await refreshReservation.start(()=>runRefreshSuggestions(target.exerciseInstanceId));
@@ -8816,7 +8870,6 @@ function bindWorkout(){
     if(ui.field===id&&effortField){toggleEffortPop(key);if(fromRest)restInlineSync();return}
     if(ui.field===id&&!ui.editing){shelfSelect(key,id,true);refreshShelf({focus:id});return}
     closeEffortPop();shelfSelect(key,id,false);refreshShelf({focus:id})});
-  $w(".ex__namebtn").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.exopen,"log"));
   const sb=$("#workout .skipbar__show");if(sb)sb.onclick=()=>applyShowAll();
   {const fl=focusList();const at=fl.length?Math.min(focusIndex,fl.length-1):0;
     const progEl=$("#woProgress");
@@ -8833,6 +8886,7 @@ function bindWorkout(){
       progEl.querySelectorAll("button[data-focusgo]").forEach(b=>b.onclick=()=>focusJump(+b.dataset.focusgo))}
     const f=$w("[data-ffinish]")[0];if(f)f.onclick=()=>$("#logForm").requestSubmit();
     $w("[data-fnext],[data-fnextrow]").forEach(b=>b.onclick=()=>focusAnimateTo(1));
+    $w("[data-ledgermore]").forEach(b=>b.onclick=()=>toggleFocusLedger(b));
     // Tap a logged row to reopen that set in the shelf, with a way back out.
     $w("[data-editn]").forEach(b=>b.onclick=async()=>{
       const exId=b.dataset.editex,n=+b.dataset.editn,key=`${exId}_${n}`,d=loadDraft(),target=draftTargetFromKey(key);
@@ -8862,7 +8916,7 @@ function bindWorkout(){
         if(snap[field]==null)continue;const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:exId,
           setId:target.setId,field,value:snap[field]});if(result.status!=="applied")return}
       const restored=await WorkoutSession.dispatch("completeSet",{exerciseInstanceId:exId,setId:target.setId,completedAt:snap.completedAt||new Date().toISOString()});
-      if(restored.status!=="applied")return;focusEdit=null;renderWorkout();focusWorkoutHandoff("row",{exId,n})});
+      if(restored.status!=="applied")return;focusEdit=null;focusLedgerOpen=null;renderWorkout();focusWorkoutHandoff("row",{exId,n})});
     }
   updateFocusChrome();
 }

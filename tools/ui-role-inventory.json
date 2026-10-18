@@ -798,6 +798,11 @@
       "content": "flat",
       "scenario": "Set correction through production controls."
     },
+    "workout/logged-sets": {
+      "owner": "focus-layout-d",
+      "content": "flat",
+      "scenario": "Layout D: the logged sets' disclosure open over the Focus table while the rest runs; the logged row reads back and corrects from its place."
+    },
     "today/draft-resume": {
       "owner": "plan-057",
       "content": "flat",
@@ -3527,6 +3532,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "workout/correction",
+        "workout/logged-sets",
         "workout/focus",
         "workout/focus-per-side",
         "workout/focus-glossary",
@@ -5082,6 +5088,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "workout/correction",
+        "workout/logged-sets",
         "workout/focus",
         "workout/focus-per-side",
         "workout/focus-glossary",
@@ -5903,6 +5910,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "workout/correction",
+        "workout/logged-sets",
         "workout/focus",
         "workout/focus-per-side",
         "workout/focus-glossary",
@@ -5933,6 +5941,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "workout/correction",
+        "workout/logged-sets",
         "workout/early-finish",
         "workout/exercise-actions",
         "workout/exercise-note",
@@ -5984,6 +5993,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "workout/correction",
+        "workout/logged-sets",
         "workout/focus",
         "workout/focus-per-side",
         "workout/focus-glossary",
@@ -6104,6 +6114,7 @@
         "progress/sibling-shorter-session",
         "progress/volume-reduction-preview",
         "workout/correction",
+        "workout/logged-sets",
         "workout/focus",
         "workout/focus-per-side",
         "workout/focus-glossary",
@@ -6328,8 +6339,8 @@
       ]
     },
     {
-      "id": "ex-name-ex-namebtn-not-id",
-      "selector": ".ex__name.ex__namebtn:not([id])",
+      "id": "wo-head-name",
+      "selector": ".wo-head__name",
       "roles": {
         "control": "quiet-navigation"
       },
@@ -6339,13 +6350,13 @@
         "default",
         "hover",
         "pressed",
-        "focus-visible",
-        "disabled"
+        "focus-visible"
       ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "rationale": "Layout D: the Focus header's exercise name opens that exercise's stats and history; it moves to another view without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
         "workout/correction",
+        "workout/logged-sets",
         "workout/focus",
         "workout/focus-per-side",
         "workout/focus-glossary",
@@ -6356,6 +6367,32 @@
         "workout/swap-alternates",
         "workout/swap-reason",
         "workout/deload-week"
+      ],
+      "neverDisabledReason": "The header draws the name only while the workout has an exercise to open, and opening it is always available."
+    },
+    {
+      "id": "ledger-more",
+      "selector": ".ledger__more",
+      "roles": {
+        "control": "disclosure"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "expanded"
+      ],
+      "neverDisabledReason": "The disclosure is drawn only while the exercise has logged sets to show, and opening or closing it is always available.",
+      "rationale": "Layout D (owner decision 2026-10-17): expands or collapses the current exercise's logged sets above the open set; expanded state is separate from navigation.",
+      "owner": "focus-layout-d",
+      "catalogStates": [
+        "workout/correction",
+        "workout/logged-sets",
+        "workout/rest-running",
+        "workout/rest-done"
       ]
     },
     {
@@ -6373,6 +6410,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "workout/correction",
+        "workout/logged-sets",
         "workout/focus",
         "workout/focus-per-side",
         "workout/focus-glossary",
@@ -6444,6 +6482,7 @@
         "settings/guides-replay",
         "settings/privacy",
         "workout/correction",
+        "workout/logged-sets",
         "workout/rest-running",
         "workout/rest-done",
         "workout/swap-alternates",
@@ -7134,6 +7173,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "workout/correction",
+        "workout/logged-sets",
         "workout/focus",
         "workout/focus-per-side",
         "workout/focus-glossary",
@@ -7184,6 +7224,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "workout/correction",
+        "workout/logged-sets",
         "workout/focus",
         "workout/focus-per-side",
         "workout/focus-glossary",
@@ -7215,6 +7256,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "workout/correction",
+        "workout/logged-sets",
         "workout/focus",
         "workout/focus-per-side",
         "workout/focus-glossary",
@@ -7245,7 +7287,8 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-064/r3c",
       "catalogStates": [
-        "workout/correction"
+        "workout/correction",
+        "workout/logged-sets"
       ]
     },
     {
@@ -7809,6 +7852,7 @@
       "owner": "plan-064/r1a",
       "catalogStates": [
         "workout/correction",
+        "workout/logged-sets",
         "workout/focus",
         "workout/focus-per-side",
         "workout/focus-glossary",
@@ -7868,6 +7912,7 @@
       "owner": "plan-064/r1b",
       "catalogStates": [
         "workout/correction",
+        "workout/logged-sets",
         "workout/focus",
         "workout/focus-per-side",
         "workout/focus-glossary",
@@ -8013,6 +8058,7 @@
       "owner": "plan-064/r1b",
       "catalogStates": [
         "workout/correction",
+        "workout/logged-sets",
         "workout/focus",
         "workout/focus-per-side",
         "workout/focus-glossary",
@@ -8051,6 +8097,7 @@
       "owner": "plan-064/r3c",
       "catalogStates": [
         "workout/correction",
+        "workout/logged-sets",
         "workout/focus",
         "workout/focus-per-side",
         "workout/focus-glossary",
@@ -8085,6 +8132,7 @@
       "sourceOnlyReason": "pending interaction: the input is invisible and inert until the second tap on a selected field, and no catalog state taps twice. test/focus-mode.mjs opens it and checks it.",
       "catalogStates": [
         "workout/correction",
+        "workout/logged-sets",
         "workout/focus",
         "workout/focus-per-side",
         "workout/focus-glossary",
@@ -8112,6 +8160,7 @@
       "owner": "plan-064/r3c",
       "catalogStates": [
         "workout/correction",
+        "workout/logged-sets",
         "workout/focus",
         "workout/focus-per-side",
         "workout/focus-glossary",
@@ -8143,6 +8192,7 @@
       "owner": "plan-064/r3c",
       "catalogStates": [
         "workout/correction",
+        "workout/logged-sets",
         "workout/focus",
         "workout/focus-per-side",
         "workout/focus-glossary",
@@ -8176,6 +8226,7 @@
       "sourceOnlyReason": "pending interaction: a logged row is visible only after a set is logged with no sheet open, and every catalog state that logs a set either opens a sheet over the card or reopens that set for correction.",
       "catalogStates": [
         "workout/correction",
+        "workout/logged-sets",
         "workout/focus",
         "workout/focus-per-side",
         "workout/focus-glossary",
@@ -8800,7 +8851,8 @@
       "rationale": "Changes the running rest clock by 30 seconds through a repeatable step; it does not choose an option. The text pad of the shelf's rest row, as #restMinus and #restPlus are in the presets sheet.",
       "owner": "plan-064/r3f",
       "catalogStates": [
-        "workout/rest-running"
+        "workout/rest-running",
+        "workout/logged-sets"
       ]
     },
     {
@@ -8821,7 +8873,8 @@
       "rationale": "Switches the ephemeral countdown between running and held, with a text label (Pausar, Retomar) in place of the presets sheet's icon.",
       "owner": "plan-064/r3f",
       "catalogStates": [
-        "workout/rest-running"
+        "workout/rest-running",
+        "workout/logged-sets"
       ]
     },
     {
@@ -8843,7 +8896,8 @@
       "rationale": "Ends the rest and counts its overrun up, a reversible supporting action that is not the screen commitment (Pular).",
       "owner": "plan-064/r3f",
       "catalogStates": [
-        "workout/rest-running"
+        "workout/rest-running",
+        "workout/logged-sets"
       ]
     },
     {
@@ -10255,7 +10309,8 @@
       "rationale": "The drain bar is the running rest clock drawn as a transform on a 4px track: it measures time left in this rest, so assigning block, week, exercise-set or task would falsify its denominator. Orange on --rule measures 3.05:1 light and 4.80:1 dark, and against --bg 3.57:1 and 6.33:1 (3:1 required). The bar is not a progress candidate selector.",
       "owner": "plan-064/r3f",
       "catalogStates": [
-        "workout/rest-running"
+        "workout/rest-running",
+        "workout/logged-sets"
       ],
       "boundary": "required"
     },
