@@ -768,6 +768,18 @@ try {
   assert.equal(floating.find((item) => item.selector === "#uiFloatPaper")?.status, "pass",
     `a paper outline over an ink band beneath a bare fixed layer reads against that band: ${JSON.stringify(floating)}`);
   await opened.page.evaluate(() => { document.querySelector("#uiFloatBand")?.remove(); document.querySelector("#uiFloatLayer")?.remove(); });
+  // A ground the page walk cannot resolve (a glass layer, like the dock) is read from the screenshot, which is in device
+  // pixels: the catalog captures at 2x. Light text on a glass layer over a dark band low on the page reads against that
+  // band, not against the light page at half its height.
+  await opened.page.evaluate(() => document.body.insertAdjacentHTML("beforeend", `
+    <div id="uiGlassBand" style="position:fixed;top:560px;left:0;width:360px;height:160px;background:#141310;z-index:1000"></div>
+    <div id="uiGlassLayer" style="position:fixed;top:580px;left:20px;width:320px;height:120px;backdrop-filter:blur(1px);z-index:1001">
+      <span id="uiGlassText" style="display:block;padding:40px 20px;font-size:16px;color:#F2EFE9">Glass text</span>
+    </div>`));
+  const glassPixels = (await opened.page.screenshot({ animations: "disabled" })).toString("base64");
+  const glass = await opened.page.evaluate(measureRenderedRoles, { pixels: glassPixels, requests: [{ selector: "#uiGlassText", kind: "text" }] });
+  assert.equal(glass[0]?.status, "pass", `a sampled ground is read at the element's device-pixel position: ${JSON.stringify(glass)}`);
+  await opened.page.evaluate(() => { document.querySelector("#uiGlassBand")?.remove(); document.querySelector("#uiGlassLayer")?.remove(); });
   const auditProblems = renderedRoleProblems("onboarding-start/first-run [en/light]", [
     ...measured,
     { selector: "#uiMissing", kind: "boundary", status: "missing" },
