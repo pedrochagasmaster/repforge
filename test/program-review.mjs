@@ -19,10 +19,10 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const Adapter = require("../program-entry-adapter.js");
-const Compiler = require("../program-compiler.js");
-const Metrics = require("../exercise-metrics.js");
+const Compiler = require("../src/training/generation.js");
+const Metrics = require("../src/training/metrics.js");
 const Catalog = require("../assets/exercise-catalog.json");
-const Review = require("../program-review.js");
+const Review = require("../src/training/authoring.js").review;
 
 const failures = [];
 let passed = 0;

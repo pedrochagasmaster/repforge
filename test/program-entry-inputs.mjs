@@ -17,11 +17,11 @@ import test from "node:test";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
-const Entry = require(path.join(root, "program-entry.js"));
+const Entry = require(path.join(root, "src/training/authoring.js")).createEntryRules(require(path.join(root,"assets/exercise-catalog.json")));
 const Adapter = require(path.join(root, "program-entry-adapter.js"));
-const Compiler = require(path.join(root, "program-compiler.js"));
+const Compiler = require(path.join(root, "src/training/generation.js"));
 const Catalog = require(path.join(root, "assets/exercise-catalog.json"));
-require(path.join(root, "generation-identity.js")).prepareCatalog(Catalog);
+require(path.join(root, "src/training/identity.js")).prepareCatalog(Catalog);
 const fixturePath = path.join(root, "test/fixtures/program-entry-request-baseline.json");
 const index = Catalog.uuidIndex;
 
