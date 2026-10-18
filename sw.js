@@ -87,6 +87,8 @@ const ASSETS = [
   "./src/ui/editors.js",
   "./src/ui/editors/contracts.js",
   "./src/ui/editors/program.js",
+  "./src/ui/editors/review-contracts.js",
+  "./src/ui/editors/review.js",
   "./src/ui/entry/answer-controls.js",
   "./src/ui/entry/answer-fields.js",
   "./src/ui/entry/controller.js",
