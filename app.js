@@ -1,3 +1,4 @@
+import {createHistoryReadModels} from './src/app/history-read-models.js';
 import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,createEntryAnswerCommands,createEntryQuestionFlow,createEntryReviewSession,createEntrySetup,createEntryActivation,createReceivedSetup,buildLandingProof,FREEFORM_MAX_CHARS} from './src/app/entry.js';
 import {createEntryLanding} from './src/ui/entry/landing/controller.js';
 import * as ExerciseSource from './exercises.js';
@@ -64,7 +65,6 @@ import {createReviewController} from './src/ui/progress/review.js';
 import {createReviewCommands} from './src/app/review.js';
 import {evidence as NativeProgressModel,buildSessionSummary as deriveSessionSummary,sessionOutcomeGroups as deriveSessionOutcomeGroups} from './src/training/progress.js';
 import {createHistoryController} from './src/ui/history/controller.js';
-import {groupHistoryRows,completeHistoryIndex,searchHistoryIndex} from './src/app/history-read-models.js';
 import {createTodayController} from './src/ui/today/controller.js';
 import {createSessionSummary} from './src/ui/workout/summary.js';
 import * as ReadModels from './src/app/read-models.js';
@@ -896,23 +896,6 @@ const PER_SIDE_LOAD_SEMANTICS=new Set(["loadPerSideKg","persistentLoadPerSideKg"
  *  of becoming an assumed multiplier. */
 function readLogRow(...args){return workoutQueries().readLogRow(...args)}
 function readLogRows(log=state.log){return workoutQueries().readLogRows(log)}
-/* Search-only bridge from a logged row back to what the program calls that
-   movement today. History itself never renames what was performed — the row
-   keeps its immutable label — but a lifter who renamed a movement still looks
-   for old sessions under the new name. Only movement identity crosses:
-   `library:<id>`, or the `movement:` id a slot mints and gives up the moment
-   the slot is repointed at something else. The structural slot id never does,
-   so a replaced slot cannot pull the previous movement's history along. */
-function currentMovementNames(){
-  const byKey=new Map();
-  for(const ex of state.program||[]){
-    const key=exerciseLiftKey(ex);
-    if(!key||key.startsWith("name:"))continue;
-    const name=String(ex?.name||"").trim();
-    if(name&&!byKey.has(key))byKey.set(key,name)}
-  return byKey}
-const currentNameForRow=(row,byKey)=>
-  row?.performedLibraryId||row?.performedMovementId?byKey.get(liftKey(row))||"":"";
 function exerciseIdentityFromRow(row){
   return{libraryId:row?.performedLibraryId||undefined,movementId:row?.performedMovementId||undefined,
     name:loggedMovementName(row),id:row?.exerciseId,day:row?.day}}
@@ -4295,76 +4278,18 @@ function adoptHistoryDurableHead(head){
   if(!head)return;
   publishTrainingSnapshot(head);
   resetPersistenceBase(state);}
-/** The block bounds History groups and counts by: where the running block started,
- *  how long it is, how many training days a week it plans, and the archived
- *  blocks before it. Read from the program, never stored for History. */
-function historyBlockContext(){
-  const meta=state.programMeta||{};
-  return{started:meta.started||null,weeks:+meta.mesocycleLengthWeeks||6,planned:prog.days().length,
-    today:today(),name:meta.name||"",
-    archived:(state.programHistory||[]).map(entry=>({
-      name:entry?.meta?.name||"",start:entry?.meta?.started||null,
-      end:entry?.completedAt?String(entry.completedAt).slice(0,10):null,
-      planned:new Set((entry?.program||[]).map(ex=>ex?.day).filter(Boolean)).size}))}}
-/** History's per-session outcome uses the shared row projection and only compares
- *  strength evidence with the same logged convention (CONTEXT.md, Session outcome). */
-function historySessionOutcome(rows){
-  const source=Array.isArray(rows)?rows:[],first=source[0];
-  const ex=currentExerciseForLiftKey(liftKey(first))||exerciseIdentityFromRow(first);
-  const current=source.map(readLogRow).filter(row=>isWork(row)&&+row.load>0&&+row.reps>0);
-  if(!current.length||current.some(row=>row.strengthComparable===false))return noComparableSessionOutcome();
-  const conventions=new Set(current.map(row=>row.strengthConvention||"load"));
-  if(conventions.size!==1)return noComparableSessionOutcome();
-  const convention=conventions.values().next().value,session=String(current[0].session??"");
-  if(current.some(row=>String(row.session??"")!==session))return noComparableSessionOutcome();
-  const comparableLog=readLogRows(state.log).filter(row=>row.strengthComparable!==false&&
-    (row.strengthConvention||"load")===convention);
-  const previous=previousSessionRowsLog(ex,session,comparableLog);
-  return compareProjectedSessionOutcome(current,previous,convention)}
 const historyCommands=createHistoryCommands({read:applicationSession.read,
   commit:(proposal,opts)=>commitProposedState(proposal,storageIO,opts),readRevision,
   settleAlreadyCommitted:opts=>DurableState.settleHistoryAlreadyCommitted(opts),
   readDurable:()=>DurableState.readDurableState(),settlePending:()=>settlePendingJournal(),publish:adoptHistoryDurableHead});
-const historyDiagnostics={enabled:false,builds:0,sourceRowVisits:0,last:null,onBuilt:null,
-  reset(){this.enabled=true;this.builds=0;this.sourceRowVisits=0;this.last=null;this.onBuilt=null},
-  disable(){this.enabled=false;this.last=null;this.onBuilt=null}};
-const historyIndexCache=new WeakMap(),historyRowFactsCache=new WeakMap();
-let historyContextCache=null;
-function historyReadContext(){
-  const language=locTag(),date=today();
-  if(historyContextCache?.snapshot===state&&historyContextCache.language===language&&historyContextCache.date===date)return historyContextCache.value;
-  const dayLabels=Object.fromEntries([...new Set([...(state.program||[]).map(ex=>ex.day),...(state.log||[]).map(row=>row.day)])].map(day=>[day,dayLabel(day)]));
-  const value={block:historyBlockContext(),locale:language,today:date,weekdayLetters:weekdayLetters(),dayLabels,revision:readRevision(state)};
-  historyContextCache={snapshot:state,language,date,value};return value;
-}
-function historyReadRow(row){
-  const context=historyReadContext(),cached=historyRowFactsCache.get(row);
-  if(cached?.context===context)return cached.value;
-  const value={reading:readLogRow(row),name:exerciseDisplayName(row),storedName:displayName(row),liftKey:liftKey(row)};
-  historyRowFactsCache.set(row,{context,value});return value;
-}
-function buildHistoryReadIndex(log){
-  const source=(log||[]).map(raw=>raw&&typeof raw==="object"?raw:{}),currentNames=currentMovementNames();
-  const rowFacts=new Map(source.map(row=>[row,{...historyReadRow(row),currentName:currentNameForRow(row,currentNames)}]));
-  const grouped=groupHistoryRows({rows:source,rowFacts});
-  const comparisons=new Map(grouped.pairs.filter(pair=>!pair.first).map(pair=>[`${pair.session}|${pair.liftKey}`,buildSessionDelta(pair.previous,pair.current)]));
-  const dayLabels=Object.fromEntries([...new Set(source.map(row=>row.day))].map(day=>[day,dayLabel(day)]));
-  const index=completeHistoryIndex(grouped,{rowFacts,comparisons,prEvents:detectPRs(source),dayLabels});
-  if(historyDiagnostics.enabled){
-    historyDiagnostics.builds++;historyDiagnostics.sourceRowVisits+=source.length;historyDiagnostics.last=index;
-    if(typeof historyDiagnostics.onBuilt==="function")historyDiagnostics.onBuilt(index);
-  }
-  return index;
-}
-function historyReadIndex(source=state.log){
-  const cached=historyIndexCache.get(source),context=historyReadContext();
-  if(cached?.program===state.program&&cached.language===context.locale)return cached.index;
-  const index=buildHistoryReadIndex(source);
-  historyIndexCache.set(source,{program:state.program,language:context.locale,index});return index;
-}
-const HistoryUi=createHistoryController({window,
-  queries:{rows:()=>state.log,index:historyReadIndex,buildIndex:buildHistoryReadIndex,search:searchHistoryIndex,
-    row:historyReadRow,context:historyReadContext,outcome:historySessionOutcome,diagnostics:historyDiagnostics},
+let HistoryUi;
+function initializeHistoryReadOwner(model,workout){
+  const queries=createHistoryReadModels({model,workout,labels:MovementLabels,
+    read:()=>({snapshot:state,locale:locTag(),language:uiLang(),today:today(),weekdayLetters:weekdayLetters(),
+      dayMeta:setupEditorOpen?entryState?.result?.preview:state.programMeta}),
+    copy:{t,dayLabel:(day,meta)=>localizedDayName(dayStructureFor(day,meta),day,meta?.programDefinition)}});
+HistoryUi=createHistoryController({window,
+  queries,
   commands:historyCommands,copy:{t},
   format:{date:formatLongDate,load:fmtLoad,loadPlain:fmtLoadPlain,compact:kfmt,number:fmt,displayLoad:toDisplay,unit:unitLabel,muscle:muscleLabel,
     metricLabel,metricText:metricTextValue,metricUnit:metricDisplayUnit},
@@ -4373,6 +4298,7 @@ const HistoryUi=createHistoryController({window,
   onChanged:()=>render(),onNotice:toast,onOutcome:payload=>captureEvent("history_session_outcome",payload)});
 window.__repforgeHistory=HistoryUi;
 window.__repforgeSaveSessionEdit=HistoryUi.saveSessionEdit;
+}
 
 // ---- Exercise detail: one lift's stats, session history and session notes ----
 // Reached by tapping an exercise name on the Log tab; not part of the bottom nav.
@@ -8958,6 +8884,7 @@ function initializePersistenceOwners(){
     programName:()=>applicationSession.read().programMeta?.name||t('untitled_program'),toast,report:captureEvent});
   initializeBlockTransitionCommands(model);
   workoutReadModel=createWorkoutReadModel({catalog:rawExerciseCatalog,librarySource:{library:EXERCISE_LIBRARY},model});
+  initializeHistoryReadOwner(model,workoutReadModel);
   ProgressReadModels=createProgressReadModels({training:model,copy:{t},format:{locale:locTag,exercise:liftDisplayName,muscle:muscleLabel,shortDate,longDate,displayLoad:toDisplay,number:fmt}});
   blockReview=createBlockReview({model,queries:workoutReadModel});
   const entry=createEntryRules(rawExerciseCatalog),workout=createWorkoutRules(rawExerciseCatalog);
