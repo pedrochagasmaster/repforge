@@ -18,12 +18,13 @@
  */
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import DurableState from "../durable-state.js";
+import {createDurableStore} from "../src/persistence/durable.js";
+import * as Snapshot from "../src/persistence/snapshot.js";
 
 const require = createRequire(import.meta.url);
 const WorkoutDraft = require("../workout-draft.js");
 
-DurableState.configureHost({
+const DurableState=createDurableStore({workout:WorkoutDraft,snapshotPolicy:{...Snapshot,
   isValidStateShape(snapshot) {
     return !!snapshot && typeof snapshot === "object" && !Array.isArray(snapshot) &&
       Array.isArray(snapshot.program) && Array.isArray(snapshot.log) &&
@@ -34,14 +35,14 @@ DurableState.configureHost({
         typeof snapshot.programMeta === "object" && !Array.isArray(snapshot.programMeta));
   },
   normalizeRecoveryCarrierSnapshot(snapshot) { return { kind: "known", snapshot }; },
-  workoutDraft: WorkoutDraft,
+
   rebaseStateChange(_base, proposal) { return structuredClone(proposal); },
   rebaseSharedSetupSnapshot() {},
   applyAcceptedSnapshot() {},
   isValidBlockId() { return false; },
   isValidRecoveryTransitions() { return false; },
   isBoundedTransitionValue() { return true; },
-});
+}});
 
 const failures = [];
 
