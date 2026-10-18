@@ -406,20 +406,25 @@ export function appState(key, lang) {
   // richer fixture so their progress and volume evidence remains meaningful.
   // The editor reads the canonical ProgramDefinition, not the flat `program`
   // projection, so both have to be narrowed together to the same two slots.
-  if (key === "program/progression-editor" || key === "program/editor-alternates" || key === "program/editor-suggest-loads") {
+  if (key === "program/progression-editor" || key === "program/editor-alternates" || key === "program/editor-suggest-loads" ||
+      EDITOR_A_STATES.has(key)) {
     const kept = new Set(["seed-ex-1", "seed-ex-2"]);
     state.program = state.program.filter((exercise) => exercise.day !== "Day 1" || kept.has(exercise.id));
     for (const day of state.programMeta.programDefinition.days) {
       if (day.name === "Day 1") day.slots = day.slots.filter((slot) => kept.has(slot.id));
     }
   }
-  if (key === "program/editor-alternates") {
+  if (key === "program/editor-alternates" || key === "program/editor-swap") {
     const slot = state.programMeta.programDefinition.days.flatMap((day) => day.slots).find((entry) => entry.id === "seed-ex-1");
     // The seed slot is itself a hack squat, so its list is leg press then a split squat.
     slot.alternates = [SQUAT_ALTERNATES[0], "1a25c6f170d8809eb8a5e76ff245649d"];
   }
   return localeState(state, lang);
 }
+
+/* Plan 074 S3: the installed editor's other visible states share the compact two-exercise day. */
+const EDITOR_A_STATES = new Set(["program/editor-exercise-sheet", "program/editor-weeks", "program/editor-week-open",
+  "program/editor-swap", "program/editor-days", "program/editor-empty-day", "program/editor-leave"]);
 
 /* Plan 074: the installed editor (candidate A) and its exercise sheet. */
 async function editorIdleA(page) {
@@ -428,6 +433,21 @@ async function editorIdleA(page) {
 async function openEditorA(page) {
   await page.click("#programEditToggle");
   await editorIdleA(page);
+}
+/** The first exercise's week 7 given its own RIR on set 1, left open in the Weeks sheet. */
+async function editorWeekException(page) {
+  await openEditorSheetA(page, "seed-ex-1");
+  await page.locator('#reviewSheet [data-role="weeks-open"]').click();
+  await page.waitForSelector('#reviewSheet.is-open [data-pe-sheet="weeks"]', { timeout: 20000 });
+  await page.locator('#reviewSheet [data-role="week-row"][data-cycle-index="7"]').click();
+  const rir = page.locator('#reviewSheet [data-role="prescription-field"][data-cycle-index="7"][data-set-index="1"][data-field="rir"]');
+  await rir.waitFor({ timeout: 20000 });
+  await rir.fill("4");
+  await rir.press("Enter");
+  await editorIdleA(page);
+  await page.waitForSelector('#reviewSheet [data-role="week-row"][data-cycle-index="7"] [data-role="week-differs"]', { timeout: 20000 });
+  // The edited cell keeps focus; the frame shows the outline a differing cell wears, not the focus ring.
+  await page.evaluate(() => document.activeElement?.blur());
 }
 async function openEditorSheetA(page, id) {
   await page.locator(`#programEditor [data-role="exercise-row"][data-id="${id}"]`).click();
@@ -2201,6 +2221,71 @@ export const APP_SCENARIOS = {
     await input.fill(firstName.trim());
     await input.press("Enter");
     await page.waitForSelector('#reviewSheet [data-role="rename-input"][aria-invalid="true"]', { timeout: 20000 });
+    await sleep(page, 400);
+  },
+  "program/editor-exercise-sheet": async (page) => {
+    await openProgram(page);
+    await openEditorA(page);
+    await openEditorSheetA(page, "seed-ex-1");
+  },
+  "program/editor-weeks": async (page) => {
+    await openProgram(page);
+    await openEditorA(page);
+    await editorWeekException(page);
+    // Closed again: the list reads which week differs.
+    await page.locator('#reviewSheet [data-role="week-row"][data-cycle-index="7"]').click();
+    await page.waitForSelector('#reviewSheet [data-role="week-row"][data-cycle-index="7"][aria-expanded="false"]', { timeout: 20000 });
+    await sleep(page, 350);
+  },
+  "program/editor-week-open": async (page) => {
+    await openProgram(page);
+    await openEditorA(page);
+    await editorWeekException(page);
+    await page.locator('#reviewSheet [data-role="week-body"]').evaluate((node) => node.scrollIntoView({ block: "center" }));
+    await sleep(page, 350);
+  },
+  "program/editor-swap": async (page) => {
+    await openProgram(page);
+    await openEditorA(page);
+    await openEditorSheetA(page, "seed-ex-1");
+    await page.locator('#reviewSheet [data-role="swap-open"]').click();
+    await page.waitForSelector('#reviewSheet.is-open [data-pe-sheet="swap"]', { timeout: 20000 });
+    await sleep(page, 350);
+  },
+  "program/editor-days": async (page) => {
+    await openProgram(page);
+    await openEditorA(page);
+    await page.locator('#programEditor [data-role="day-menu"]').click();
+    await page.locator('#reviewSheet [data-role="day-action"][data-action="days"]').click();
+    await page.waitForSelector('#reviewSheet.is-open [data-pe-sheet="days"]', { timeout: 20000 });
+    await sleep(page, 350);
+  },
+  "program/editor-empty-day": async (page) => {
+    await openProgram(page);
+    await openEditorA(page);
+    // Every exercise of the first day removed: its tab is marked and Apply waits with the reason.
+    for (let guard = 0; guard < 12; guard++) {
+      const row = page.locator('#programEditor [data-role="exercise-row"]').first();
+      if (!await row.count()) break;
+      await openEditorSheetA(page, await row.getAttribute("data-id"));
+      await page.locator('#reviewSheet [data-role="remove-exercise"]').click();
+      await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 20000 });
+      await editorIdleA(page);
+    }
+    await page.waitForSelector('#programEditor [data-role="day-empty"]', { timeout: 20000 });
+    await page.evaluate(() => document.querySelectorAll('[data-role="editor-toast"]').forEach((node) => node.remove()));
+    await sleep(page, 350);
+  },
+  "program/editor-leave": async (page) => {
+    await openProgram(page);
+    await openEditorA(page);
+    await openEditorSheetA(page, "seed-ex-1");
+    await page.locator('#reviewSheet [data-role="sets-step"][data-delta="1"]').click();
+    await editorIdleA(page);
+    await page.locator('#reviewSheet [data-role="sheet-done"]').click();
+    await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 20000 });
+    await page.click("#programEditCancel");
+    await page.waitForSelector("#programEditorLeave[open]", { timeout: 20000 });
     await sleep(page, 400);
   },
   "program/exercise-picker": async (page) => {

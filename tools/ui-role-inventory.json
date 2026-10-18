@@ -967,6 +967,41 @@
       "owner": "plan-072",
       "content": "flat",
       "scenario": "The result block sheet with 10 weeks, undulating selected, and deload on."
+    },
+    "program/editor-exercise-sheet": {
+      "owner": "plan-074",
+      "content": "flat",
+      "scenario": "The installed Program editor with an exercise's sheet open at the top: its sets with one RIR stepper each, the set count, the rep range, the rest presets and the day's estimated time."
+    },
+    "program/editor-weeks": {
+      "owner": "plan-074",
+      "content": "flat",
+      "scenario": "The installed Program editor's Weeks sheet for an exercise whose week 7 has its own RIR: each week with its sets, reps and RIR, week 7 marked as different."
+    },
+    "program/editor-week-open": {
+      "owner": "plan-074",
+      "content": "flat",
+      "scenario": "The installed Program editor's Weeks sheet with week 7 open as a per-set table of load, reps, RIR and rest; the differing cells are outlined, an empty load reads auto, and Match the other weeks is offered."
+    },
+    "program/editor-swap": {
+      "owner": "plan-074",
+      "content": "flat",
+      "scenario": "The installed Program editor's Swap sheet: the lifter's alternates first, then movements for the same job, then Search the catalog."
+    },
+    "program/editor-days": {
+      "owner": "plan-074",
+      "content": "flat",
+      "scenario": "The installed Program editor's Training days sheet: each day with a drag handle, its name and exercise count, and Move up / Move down, with Add day at the foot."
+    },
+    "program/editor-empty-day": {
+      "owner": "plan-074",
+      "content": "flat",
+      "scenario": "The installed Program editor after every exercise of a day was removed: the day's tab carries a mark, the day says it has no exercises, and Apply is disabled with the reason above it."
+    },
+    "program/editor-leave": {
+      "owner": "plan-074",
+      "content": "flat",
+      "scenario": "The installed Program editor after Cancel with an unapplied change: the dialog offers Apply changes, Discard changes and Keep editing."
     }
   },
   "components": [

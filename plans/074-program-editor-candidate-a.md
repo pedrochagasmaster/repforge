@@ -128,7 +128,7 @@ keeps the deload offset.
 
 - Intent: `{ kind: "day_move", targetDay, fromIndex, toIndex, before: [labels], after: [labels] }`
   over the training days.
-- Editor: the day's ··· menu → Treinos/Training days sheet. Each day has a handle
+- Editor: the day's ··· menu → Dias de treino / Training days sheet. Each day has a handle
   (pointer drag; the press stops at the sheet, so the sheet's drag-to-dismiss never
   starts), its name (opens the rename sheet and returns), its exercise count, and
   Move up / Move down as the accessible path. + Add day sits at the foot. A move

@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 192 screens,
-1110 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 199 screens,
+1131 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -267,6 +267,13 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Program — editor alternates](screens/program/editor-alternates__phone-390-light-en.png) | 3 | The installed Program editor with an exercise's sheet scrolled to its in-session alternates: two chosen movements in order, each with reorder and remove controls, and Add alternate. |
 | [Program — Suggest loads](screens/program/editor-suggest-loads__phone-390-light-en.png) | 3 | The installed Program editor's sheet for a dumbbell renegade row with Suggest loads switched on (an ink switch): the current rep target, the RIR on every set, the smallest load change, and the question of how the lifter does the exercise. |
 | [Program — refused day rename](screens/program/editor-day-name-refused__phone-390-light-en.png) | 3 | The installed Program editor's rename sheet after a day was given a name another day already uses: the field keeps the typed name, is marked invalid, and the reason sits under it; the day keeps its own name. |
+| [Program — editor exercise sheet](screens/program/editor-exercise-sheet__phone-390-light-en.png) | 3 | The installed Program editor with an exercise's sheet open at the top: its sets with one RIR stepper each, the set count, the rep range, the rest presets and the day's estimated time. |
+| [Program — editor weeks](screens/program/editor-weeks__phone-390-light-en.png) | 3 | The installed Program editor's Weeks sheet for an exercise whose week 7 has its own RIR: each week with its sets, reps and RIR, week 7 marked as different. |
+| [Program — editor week open](screens/program/editor-week-open__phone-390-light-en.png) | 3 | The installed Program editor's Weeks sheet with week 7 open as a per-set table of load, reps, RIR and rest; the differing cells are outlined, an empty load reads auto, and Match the other weeks is offered. |
+| [Program — editor swap](screens/program/editor-swap__phone-390-light-en.png) | 3 | The installed Program editor's Swap sheet: the lifter's alternates first, then movements for the same job, then Search the catalog. |
+| [Program — editor training days](screens/program/editor-days__phone-390-light-en.png) | 3 | The installed Program editor's Training days sheet: each day with a drag handle, its name and exercise count, and Move up / Move down, with Add day at the foot. |
+| [Program — editor empty day](screens/program/editor-empty-day__phone-390-light-en.png) | 3 | The installed Program editor after every exercise of a day was removed: the day's tab carries a mark, the day says it has no exercises, and Apply is disabled with the reason above it. |
+| [Program — editor leave with changes](screens/program/editor-leave__phone-390-light-en.png) | 3 | The installed Program editor after Cancel with an unapplied change: the dialog offers Apply changes, Discard changes and Keep editing. |
 | [Program — exercise picker](screens/program/exercise-picker__phone-390-light-en.png) | 3 | The picker sheet. |
 | [Program — custom exercise](screens/program/custom-exercise__phone-390-light-en.png) | 3 | The custom movement sheet. |
 | [Program — saving a custom exercise](screens/program/custom-exercise-saving__phone-390-light-en.png) | 3 | A new custom movement is saving; its actions stay unavailable until the durable write settles. |
