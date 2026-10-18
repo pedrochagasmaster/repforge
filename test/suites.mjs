@@ -31,6 +31,7 @@ export const SUITES = {
     s("test/custom-command-recovery.mjs", [], {domains:["library","persistence"],nodeArgs:["--test"]}),
     s("test/app-block-transition.mjs", [], {domains:["program","transition","progress"]}),
     s("test/editor-document-rules.mjs", [], {domains:["program","entry"],nodeArgs:["--test"]}),
+    s("test/progress-read-model-owner.mjs", [], {domains:["progress","history"],nodeArgs:["--test"]}),
     s("test/focus-workout-commands.mjs", [], {domains:["workout","persistence"]}),
     s("test/platform-catalog-contract.mjs", [], {domains:["library","offline"],nodeArgs:["--test"]}),
     s("test/platform-executor-contract.mjs", [], {domains:["program","offline"],nodeArgs:["--test"]}),
@@ -110,6 +111,7 @@ export const SUITES = {
     s("test/install-transfer-recovery.mjs", [], {"domains": ["install"], "cost": "normal", "tier": "feedback", "nodeArgs": ["--test"]}),
   ],
   "state": [
+    s("test/exercise-chart-owner.mjs", [], {domains:["progress","history"],seconds:15}),
     s("test/settings-owner.mjs", [], {domains:["settings","privacy","persistence"],seconds:10}),
     s("test/architecture-release-browser.mjs", [], {domains:["offline","privacy"], seconds:30}),
     s("test/shell-lifetime.mjs", [], {domains:["shell"], seconds:10}),
