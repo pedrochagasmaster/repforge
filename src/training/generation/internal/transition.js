@@ -1,6 +1,7 @@
 import Compiler from "./compiler.js";
 import Metrics from "../../metrics.js";
 import { sha256Text } from "../../identity.js";
+export function createTransitionRules() {
 "use strict";
 
 const SCHEMA_VERSION = 1;
@@ -644,7 +645,5 @@ const api = Object.freeze({
 });
 
 
-const canonicalProposalJson = api.canonicalProposalJson;
-
-export { SCHEMA_VERSION, KIND, canonicalProposalJson, hashProposal, fingerprintProgramDefinition, CHANGE_KINDS, deriveSuccessor, createReplacementProposal, validateProposal, commitRecord, createTransitionOut };
-export default api;
+return api;
+}

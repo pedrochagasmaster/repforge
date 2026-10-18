@@ -94,7 +94,7 @@ test('entry mapping and setup recipe carry option20, canonical request and exact
 });
 
 test('shorter-session transition preserves recovered option20 and its predecessor',()=>{
- const Transition=require('../src/training/generation.js').transition;
+ const Transition=require('../src/training/generation.js').createTransitionRules();
  const previous=Compiler.generateProgram({...request,timeCeilingMinutes:60},catalog);
  assert.equal(previous.ok,true);const saved=JSON.stringify(previous.value);
  for(const [minutes,budget] of [[20,18],[40,30]]){

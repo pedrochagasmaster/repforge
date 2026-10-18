@@ -1,0 +1,47 @@
+import assert from "node:assert/strict";
+import { createRequire } from "node:module";
+import { readFile } from "node:fs/promises";
+import { createCatalog } from "../src/platform/catalog.js";
+import { launchChromium } from "./browser.mjs";
+const require=createRequire(import.meta.url);
+const source=require("../exercises.js");
+const rawText=await readFile(new URL("../assets/exercise-catalog.json",import.meta.url),"utf8");
+const pin=source.EXERCISE_CATALOG_SHA256||source.catalogSha256;
+const librarySource={library:source.EXERCISE_LIBRARY||source.library||[],catalogSha256:pin};
+let attempts=0;
+const catalog=createCatalog({librarySource,fetcher:async()=>({ok:++attempts>1,text:async()=>rawText})});
+const first=catalog.load();assert.equal(first,catalog.load());
+await assert.rejects(first,/could not be loaded/);
+assert.throws(()=>catalog.snapshot(),/Await/);
+const value=await catalog.load();
+assert.equal(attempts,2);assert(Object.isFrozen(value));assert(Object.isFrozen(value.exercises));
+assert.equal(catalog.getExercise(value.exercises[0].id),value.exercises[0]);
+assert.equal(await catalog.load(),value);
+await assert.rejects(createCatalog({librarySource,fetcher:async()=>({ok:true,text:async()=>rawText+" "})}).load(),/integrity check/);
+const raw=JSON.parse(rawText);
+const mapped=require("../program-entry-adapter.js").programRequestFromAnswers({desiredResult:"balanced",structuredExperience:"over_24m",daysPerWeek:3,sessionMinutes:60,environment:{kind:"everything"},splitPreference:"upper_lower_full",block:{cycles:7,periodization:"static"},deload:true},raw);
+assert(mapped.ok);
+const browser=await launchChromium();
+try {
+  const page=await browser.newPage();
+  const base=process.env.REPFORGE_URL||"http://localhost:8000/";
+  await page.goto(new URL("manifest.webmanifest",base).href);
+  const result=await page.evaluate(async({base,pin,request})=>{
+    const Executor=await import(new URL("src/platform/program-executor.js",base));
+    const Generation=await import(new URL("src/training/generation.js",base));
+    const {createCatalog}=await import(new URL("src/platform/catalog.js",base));
+    const catalog=createCatalog({catalogSha256:pin});await catalog.load();
+    const opts={compiler:Generation.compiler,transition:Generation.createTransitionRules(),catalog:()=>catalog.snapshot()};
+    const engine=Executor.create({...opts,worker:{url:Executor.url,catalogSha256:pin}});
+    const mode=await engine.ready();
+    const actual=await engine.generate(request);
+    const reference=Generation.compiler.generateProgram(request,catalog.snapshot());
+    const fallback=Executor.create({...opts,worker:{url:new URL("missing-worker.js",base).href,catalogSha256:pin}});
+    const fallbackMode=await fallback.ready();
+    const fallbackResult=await fallback.generate(request);
+    engine.dispose();fallback.dispose();
+    return{mode,fallbackMode,same:JSON.stringify(actual)===JSON.stringify(reference),fallbackSame:JSON.stringify(fallbackResult)===JSON.stringify(reference),ok:actual.ok};
+  },{base,pin,request:mapped.value});
+  assert.deepEqual(result,{mode:"worker",fallbackMode:"main",same:true,fallbackSame:true,ok:true});
+} finally {await browser.close();}
+console.log("PASS native catalog retry/integrity/freeze and module worker/main failure byte parity");

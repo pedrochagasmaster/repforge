@@ -7,7 +7,7 @@ import { calendarDayDistance } from "../../progress.js";
 /**
  * A command's explicit catalog, identity, clock and display inputs. State/custom
  * lists are operation arguments; no function consults the live app snapshot.
- * `now` is an ISO instant captured by the caller, never a domain-owned clock.
+ * `now` is an ISO instant or explicit clock supplied by the caller.
  */
 export function createProgramModel({catalog,librarySource={library:[],legacyIds:{}},nextId,now,language="en",defaultExerciseName="Exercise"}) {
 const rawExerciseCatalog=catalog;
@@ -25,10 +25,10 @@ const isCustomLibraryId=id=>String(id||"").startsWith(CUSTOM_ID_PREFIX);
 const libraryEntry=id=>LIBRARY_BY_ID.get(String(id??""))||null;
 const muscles=value=>MuscleDomain.normalizeMuscleAttribution(value).tokens;
 const volMapToObj=map=>Object.fromEntries([...map].map(([key,value])=>[key,{d:value.d,p:value.p}]));
-const today=()=>{if(typeof now!=="string")throw new TypeError("now required for calendar policy");return now.slice(0,10);};
+const today=()=>requiredNow().slice(0,10);
 const PLANNED_VOLUME_HISTORY_KEYS=["schemaVersion","throughWeek","plannedSessions","plannedWorkingSets","muscles"];
 const PLANNED_VOLUME_HISTORY_MUSCLE_KEYS=["direct","secondary"];
-const requiredNow=()=>{if(typeof now!=="string")throw new TypeError("now required to create custom exercise timestamp");return now;};
+const requiredNow=()=>{const instant=typeof now==="function"?now():now;if(typeof instant!=="string")throw new TypeError("now required to create custom exercise timestamp");return instant;};
 const SOURCE_FEATURE_TO_LEGACY_MUSCLE=Object.freeze({
   "chest":"Chest","lats":"Lats","upper back":"Mid/upper back","upper traps":"Traps",
   "front delts":"Front delts","side delts":"Side delts","rear delts":"Rear delts",

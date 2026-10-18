@@ -8,7 +8,7 @@ import { webcrypto } from "node:crypto";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
-const Transition = require(path.join(root, "src/training/generation.js")).transition;
+const Transition = require(path.join(root, "src/training/generation.js")).createTransitionRules();
 const Compiler = require(path.join(root, "src/training/generation.js"));
 globalThis.crypto ||= webcrypto;
 

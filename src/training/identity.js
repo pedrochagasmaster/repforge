@@ -1,7 +1,9 @@
 "use strict";
 
+/** @param {unknown} value @returns {string} */
 function canonicalJSON(value) {
   const active = new Set();
+  /** @param {unknown} item @returns {string} */
   function encode(item) {
     if (item === null || typeof item === "string" || typeof item === "boolean") return JSON.stringify(item);
     if (typeof item === "number") {
@@ -30,7 +32,7 @@ function canonicalJSON(value) {
       }
       result = `[${item.map(encode).join(",")}]`;
     } else {
-      result = `{${Object.keys(item).sort().map((key) => `${JSON.stringify(key)}:${encode(item[key])}`).join(",")}}`;
+      result = `{${Object.keys(item).sort().map((key) => `${JSON.stringify(key)}:${encode(/** @type {Record<string,unknown>} */ (item)[key])}`).join(",")}}`;
     }
     active.delete(item);
     return result;
@@ -48,18 +50,20 @@ const ROUND_CONSTANTS = Object.freeze([
   0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
   0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 ]);
+/** @param {number} word @param {number} bits */
 const rotate = (word, bits) => (word >>> bits) | (word << (32 - bits));
 
+/** @param {string} text @returns {string} */
 function sha256(text) {
   let length = 0;
   for (const character of text) {
-    const point = character.codePointAt(0);
+    const point = /** @type {number} */ (character.codePointAt(0));
     length += point < 0x80 ? 1 : point < 0x800 ? 2 : point < 0x10000 ? 3 : 4;
   }
   const bytes = new Uint8Array(Math.ceil((length + 9) / 64) * 64);
   let cursor = 0;
   for (const character of text) {
-    const point = character.codePointAt(0);
+    const point = /** @type {number} */ (character.codePointAt(0));
     if (point < 0x80) bytes[cursor++] = point;
     else if (point < 0x800) {
       bytes[cursor++] = 0xc0 | (point >>> 6);
@@ -118,6 +122,7 @@ function sha256(text) {
 
 const preparedCatalogs = new WeakMap();
 
+/** @param {unknown} value @returns {PropertyDescriptorMap} */
 function dataRecord(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)
     || (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null)
@@ -129,6 +134,7 @@ function dataRecord(value) {
   return descriptors;
 }
 
+/** @param {object} catalog @returns {string} */
 function catalogIdentity(catalog) {
   const prepared = preparedCatalogs.get(catalog);
   if (prepared) return prepared;
@@ -157,10 +163,12 @@ function catalogIdentity(catalog) {
   return sha256(canonicalJSON(normalized));
 }
 
+/** @template {object} T @param {T} catalog @returns {T} */
 function prepareCatalog(catalog) {
   if (preparedCatalogs.has(catalog)) return catalog;
   const identity = catalogIdentity(catalog);
   const seen = new Set();
+  /** @param {unknown} value @returns {void} */
   function freeze(value) {
     if (!value || typeof value !== "object" || seen.has(value)) return;
     seen.add(value);
@@ -172,6 +180,7 @@ function prepareCatalog(catalog) {
   return catalog;
 }
 
+/** @param {object} request @param {object} catalog @param {string} generatorVersion @returns {string} */
 function generationIdentity(request, catalog, generatorVersion) {
   if (!request || Array.isArray(request) || typeof request !== "object" || typeof generatorVersion !== "string" || !generatorVersion) {
     throw new TypeError("Generation identity requires a canonical request and generator version");
@@ -179,10 +188,12 @@ function generationIdentity(request, catalog, generatorVersion) {
   return sha256(canonicalJSON({ requestVersion: 1, generatorVersion, catalogIdentity: catalogIdentity(catalog), request }));
 }
 
+/** @param {unknown} value @returns {string} */
 function digestCanonical(value) {
   return sha256(canonicalJSON(value));
 }
 
+/** @param {string} namespace @param {{digest?:(text:string)=>string}} [options] @returns {(path:string)=>string} */
 function createIdAllocator(namespace, { digest = sha256 } = {}) {
   if (typeof namespace !== "string" || !namespace || typeof digest !== "function") {
     throw new TypeError("ID allocation requires a namespace and digest function");
