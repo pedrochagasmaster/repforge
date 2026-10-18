@@ -10712,7 +10712,7 @@ function exportCsv(){
   const file=csvFile({state,readLogRow,exerciseLabel,rowMuscles,e1rm,date:today()});
   download(file.text,file.name,"text/csv")}
 async function exportJson(){
-  return exportBackup({read:()=>state,commit:commitProposedState,now:()=>new Date().toISOString(),date:today,
+  return exportBackup({read:()=>state,commit:proposal=>commitProposedState(proposal,storageIO),now:()=>new Date().toISOString(),date:today,
     shareOrDownload,onExported:renderSettings})}
 /* A program-only export carries its own custom definitions. Without them a
    template arriving on another device points at a "custom:…" id that device has

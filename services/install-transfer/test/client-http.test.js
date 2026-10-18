@@ -4,13 +4,13 @@ import { env } from "cloudflare:workers";
 import { reset } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import contract from "../src/contract.js";
+import {createInstallTransfer} from "../../../src/platform/install-transfer.js";
 import canonicalFixture from "../../../test/fixtures/install-transfer-clone-v1.json" with { type: "json" };
 import catalogSnapshot from "../../../assets/exercise-catalog.json" with { type: "json" };
 import worker from "../src/index.js";
 import { euStub } from "../src/namespaces.js";
 
 const require = createRequire(import.meta.url);
-const Transfer = require("../../../install-transfer.js");
 const WorkoutDraft = require("../../../workout-draft.js");
 const ProgramEntry = require("../../../program-entry.js");
 const ProgramEntryAdapter = require("../../../program-entry-adapter.js");
@@ -18,6 +18,7 @@ const ProgramCompiler = require("../../../program-compiler.js");
 const origin = "https://taurifer.example";
 const location = { href: "https://pedrochagasmaster.github.io/repforge/index.html" };
 const now = "2026-09-08T19:00:00.000Z";
+const Transfer=createInstallTransfer({crypto:webcrypto,TextEncoder,TextDecoder,atob,btoa,now:()=>now});
 
 const HASH_PROBE = Object.freeze({
   "10": "ten",
