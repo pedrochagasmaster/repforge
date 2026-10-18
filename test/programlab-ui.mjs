@@ -35,6 +35,19 @@ async function selectedComparison(page, previousId = null) {
   }, previousId);
   return JSON.parse(await page.locator('#rawResult').textContent());
 }
+async function durableLabState(page) {
+  return page.evaluate(async () => {
+    const services = window.RepForgeProgramLabServices;
+    const experiments = (await services.list()).sort((a, b) => a.id.localeCompare(b.id));
+    const snapshots = [];
+    for (const experiment of experiments) {
+      const runs = await services.listRuns(experiment.id);
+      snapshots.push({ experiment: await services.load(experiment.id),
+        runs: await Promise.all(runs.map(run => services.loadRun(run.runId))) });
+    }
+    return { ids: experiments.map(item => item.id), digest: window.ProgramLabDomain.digest(snapshots) };
+  });
+}
 async function executeAndInspect(page, previousId = null) {
   await page.locator('#run').click();
   await page.locator('#runStatus').filter({ hasText: 'completed' }).waitFor({ timeout: 120000 });
@@ -279,6 +292,26 @@ try {
   const errors = [];
   const workers = [];
   await page.addInitScript(() => {
+    // Pause only delivery of an actual completed storage read. The compiler,
+    // archive validator, IndexedDB transaction and returned records stay real.
+    const gate = window.__programlabSavedListGate = { holdNext: false, waiting: false };
+    let services;
+    Object.defineProperty(window, 'RepForgeProgramLabServices', {
+      configurable: true, get: () => services,
+      set(value) {
+        services = Object.freeze({ ...value, list: async (...args) => {
+          const result = await value.list(...args);
+          if (gate.holdNext) {
+            gate.holdNext = false; gate.waiting = true;
+            gate.durableIds = result.map(item => item.id).sort();
+            await new Promise(resolve => { gate.release = resolve; });
+          }
+          return result;
+        } });
+      },
+    });
+  });
+  await page.addInitScript(() => {
     const audit = { clickAt: null, handledAt: null, terminatedAt: null, acknowledgedAt: null, pendingAtTermination: 0, cancelNextGenerate: false, generateMessages: 0, generateReplies: 0 };
     window.__programlabCancellationProof = audit;
     const terminate = Worker.prototype.terminate, post = Worker.prototype.postMessage;
@@ -413,10 +446,19 @@ try {
   const download = page.waitForEvent('download');
   await page.locator('#export').click();
   await (await download).saveAs(path.join(artifacts, 'experiment.json'));
+  await page.evaluate(() => { window.__programlabSavedListGate.holdNext = true; });
   await page.locator('#importFiles').setInputFiles(path.join(artifacts, 'experiment.json'));
   await page.locator('#persistenceStatus').filter({ hasText: 'Imported' }).waitFor();
+  await page.waitForFunction(() => window.__programlabSavedListGate.waiting);
   assert.equal(await page.locator('#candidateProgram').textContent(), actual, 'real worker archive round-trip preserves inspected prescriptions');
+  const pendingSavedCount = await page.locator('#savedExperiments option').count();
+  assert((await page.evaluate(() => window.__programlabSavedListGate.durableIds.length)) + 1 > pendingSavedCount,
+    'completed valid import can precede its saved-list presentation');
+  await page.evaluate(() => window.__programlabSavedListGate.release());
+  await page.locator('#runStatus').filter({ hasText: 'Imported archive validated and committed.' }).waitFor();
   const savedCount = await page.locator('#savedExperiments option').count();
+  const beforeInvalidImport = await durableLabState(page);
+  assert.equal(savedCount, beforeInvalidImport.ids.length + 1, 'atomicity baseline waits for the completed valid import list');
   const corrupted = JSON.parse(await readFile(path.join(artifacts, 'experiment.json'), 'utf8'));
   corrupted.transfer.manifest.records[0].hash = '0'.repeat(64);
   await page.locator('#importFiles').setInputFiles({ name: 'corrupt.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(corrupted)) });
@@ -425,6 +467,9 @@ try {
   await page.reload();
   await page.locator('html[data-lab-ready="true"]').waitFor();
   assert.equal(await page.locator('#savedExperiments option').count(), savedCount, 'corrupt archive committed no experiment');
+  const afterInvalidImport = await durableLabState(page);
+  assert.deepEqual(afterInvalidImport, beforeInvalidImport, 'corrupt import preserves all durable experiment/run snapshots');
+  await writeFile(path.join(artifacts, 'import-atomicity.json'), JSON.stringify({ pendingSavedCount, savedCount, beforeInvalidImport, afterInvalidImport }, null, 2));
   await page.locator('#savedExperiments').selectOption(savedId);
   await page.locator('#load').click();
   await page.locator('#candidateProgram').filter({ hasText: 'RIR 0' }).waitFor();
