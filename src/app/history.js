@@ -27,7 +27,7 @@ function replaceRows(head, sessionId, rows) {
  * @param {{read:()=>Snapshot,commit:Commit,readRevision:(snapshot:Snapshot)=>number,readDurable:()=>Promise<{ok:boolean,pendingJournal?:boolean,head:Snapshot}>,settlePending:()=>Promise<CommitResult>,publish?:(head:Snapshot)=>void,settleAlreadyCommitted:(options:{pendingJournalId?:string,verify:(head:Snapshot)=>{ok:boolean,code:string}})=>Promise<CommitResult>}} options */
 export function createHistoryCommands({read, commit, readRevision, settleAlreadyCommitted, readDurable, settlePending, publish = () => {}}) {
   /** @param {HistoryChange} request @param {boolean} deleting */
-  async function change({sessionId, rows, originalFingerprint}, deleting) {
+  async function change({sessionId, rows, originalFingerprint, signal}, deleting) {
     if (!originalFingerprint || typeof originalFingerprint !== 'string')
       return {ok: false, committed: false, settled: true, failed: true, code: 'history_missing_fingerprint',
         revision: readRevision(read()), localOk: false, idbOk: false};
@@ -36,6 +36,8 @@ export function createHistoryCommands({read, commit, readRevision, settleAlready
     const capturedRows = deleting ? [] : copySnapshot(rows || []), desired = sessionFingerprint(capturedRows);
     /** @param {{head:Snapshot}} context @returns {import('./session.js').PreflightResult} */
     const preflight = ({head}) => {
+      if(signal?.aborted===true)return {reject:true,result:{ok:false,committed:false,settled:true,
+        cancelled:true,code:'history_cancelled',localOk:false,idbOk:false}};
       const current = rowsFor(head, sessionId), fingerprint = sessionFingerprint(current);
       if (deleting ? !current.length : fingerprint === desired)
         return {reject: true, result: {ok: true, committed: true, alreadyCommitted: true,

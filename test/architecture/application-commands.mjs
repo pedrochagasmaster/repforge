@@ -115,4 +115,26 @@ const fallbackWorkout=createWorkoutCommands({session:createSession({initialSnaps
   commit:async(proposal,options,io)=>{forwardedIo=io;return{committed:true,settled:true}},
   now:()=> '2026-10-18T11:00:00Z',operationId:()=> 'finish-default-io',writer:id=>({id})});
 await fallbackWorkout.finish({io:null});assert.equal(forwardedIo,undefined,'null adapter uses the root default like the original Finish');
+// A retry can queue behind another tab's lock. Cancelling the editor during
+// that wait must still be checked by the real lock-held command preflight.
+let releaseHistoryLock,historyLockReached,historyReplicaWrites=0;
+const historyLock=new Promise(resolve=>{releaseHistoryLock=resolve});
+const reachedHistoryLock=new Promise(resolve=>{historyLockReached=resolve});
+const cancellationHead={log:[{session:'cancel-queued',set:1,load:20}]};
+const cancelledHistory=createHistoryCommands({read:()=>cancellationHead,readRevision:()=>0,
+  readDurable:async()=>({ok:true,head:cancellationHead,pendingJournal:false}),settlePending:async()=>({committed:true,settled:true}),
+  settleAlreadyCommitted:async()=>({committed:true,settled:true}),
+  commit:async(_proposal,options)=>{
+    historyLockReached();await historyLock;
+    const checked=await options.preflight({head:cancellationHead});
+    if(checked?.reject)return checked.result;
+    historyReplicaWrites++;return{committed:true,settled:true};
+  }});
+const cancelQueuedRetry=new AbortController();
+const queuedRetry=cancelledHistory.retryCorrection({sessionId:'cancel-queued',rows:[{session:'cancel-queued',set:1,load:22}],
+  originalFingerprint:sessionFingerprint(cancellationHead.log),signal:cancelQueuedRetry.signal});
+await reachedHistoryLock;cancelQueuedRetry.abort();releaseHistoryLock();
+const cancelledRetryResult=await queuedRetry;
+assert.equal(cancelledRetryResult.code,'history_cancelled','cancellation is rechecked after waiting for the durable lock');
+assert.equal(historyReplicaWrites,0,'cancelled lock-queued retry produces no proposal or replica writes');
 console.log('Application command contracts passed');
