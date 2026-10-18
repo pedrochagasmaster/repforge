@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {installBrowserTraining} from './training-browser.mjs';
 /**
  * Plan 064 audit RT-03 and RT-04, proved at the production boundary.
  *
@@ -336,15 +337,16 @@ async function main() {
   await boot(page);
   await page.locator(field("load")).click();
   await holdLock(page);
+  await installBrowserTraining(page);
   // The other tab's write queues on the lock first, then this tab's edit.
   await page.evaluate(() => {
     const api = window.__repforgeWorkoutDraft, draft = api.current();
-    const next = window.RepForgeWorkoutDraft.reduce(draft, {
+    const next = window.__repforgeTrainingTest.workout.reduce(draft, {
       type: "setSessionNotes", value: "other tab", operationId: "other-tab-op", expectedRevision: draft.revision,
       updatedAt: new Date().toISOString(), writer: { installationId: "other", tabId: "other-tab", operationId: "other-tab-op" },
     });
     window.__otherTabWrite = api.cas({ expectedDraftId: draft.draftId, expectedRevision: draft.revision,
-      nextRaw: JSON.stringify(window.RepForgeWorkoutDraft.serialize(next)), operationId: "other-tab-op" });
+      nextRaw: JSON.stringify(window.__repforgeTrainingTest.workout.serialize(next)), operationId: "other-tab-op" });
   });
   await page.locator(pad(1)).click();
   await page.locator(field("rir")).click();

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {installBrowserTraining} from './training-browser.mjs';
 import { exerciseAction, finishEarly, openLoggedSets, sessionField } from "./fixtures/focus-workout.mjs";
 /**
  * Production storage/DOM gate for Plan 051's first DraftV2 vertical slice.
@@ -166,8 +167,9 @@ async function failureState(page) {
   return state;
 }
 
-async function waitForBoot(page) {
+async function waitForBoot(page, {legacy=false}={}) {
   await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
+  if(!legacy)await installBrowserTraining(page);
   await page.evaluate(() => {
     window.closeFirstRun?.();
     if (document.querySelector("#onboarding")?.classList.contains("active")) window.closeOnboarding?.();
@@ -195,7 +197,7 @@ async function openOldApp(context) {
     return route.fulfill({ status: 200, contentType: OLD_TYPES[extension] || "application/octet-stream", body: bytes });
   });
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
-  await waitForBoot(page);
+  await waitForBoot(page,{legacy:true});
   return page;
 }
 
@@ -312,7 +314,7 @@ async function fillCurrent(page, field, value) {
 
 async function commandFixture(page, field, value, operationId) {
   return page.evaluate(({ field, metricId, value, operationId }) => {
-    const draft = window.RepForgeWorkoutDraft.parse(window.__repforgeWorkoutDraft.read().raw).draft;
+    const draft = window.__repforgeTrainingTest.workout.parse(window.__repforgeWorkoutDraft.read().raw).draft;
     const exerciseInstanceId = draft.session.selectedExerciseId;
     const setId = draft.exercises[exerciseInstanceId].setOrder[0];
     const updatedAt = new Date(Date.parse(draft.session.updatedAt) + 1000).toISOString();
@@ -326,11 +328,11 @@ async function commandFixture(page, field, value, operationId) {
       updatedAt,
       writer: { installationId: draft.writer.installationId, tabId: "storage-proof", operationId },
     };
-    const next = window.RepForgeWorkoutDraft.reduce(draft, command);
+    const next = window.__repforgeTrainingTest.workout.reduce(draft, command);
     return {
       expectedDraftId: draft.draftId,
       expectedRevision: draft.revision,
-      nextRaw: JSON.stringify(window.RepForgeWorkoutDraft.serialize(next)),
+      nextRaw: JSON.stringify(window.__repforgeTrainingTest.workout.serialize(next)),
       operationId,
     };
   }, { field, metricId: METRIC_OF[field] || null, value: String(value), operationId });
@@ -638,8 +640,8 @@ async function main() {
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
     await waitForBoot(page);
     const adaptive = await page.evaluate(async ({ request, weight, reps }) => {
-      const generated = window.RepForgeProgramCompiler.generateProgram(request,
-        window.RepForgeExerciseCatalog.snapshot());
+      const generated = window.__repforgeTrainingTest.compiler.generateProgram(request,
+        window.__repforgeTrainingTest.catalog);
       if (!generated.ok) return { ok: false, code: "generation-failed" };
       const definition = generated.value;
       const target = definition.days.filter((day) => day.kind === "training").map((day) => ({ day, slot: day.slots[0] }))
