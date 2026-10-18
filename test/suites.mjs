@@ -133,6 +133,7 @@ export const SUITES = {
     s("test/install-transfer-recovery.mjs", [], {"domains": ["install"], "cost": "normal", "tier": "feedback", "nodeArgs": ["--test"]}),
   ],
   "state": [
+    s("test/architecture/guide-effect-boundaries.mjs", [], {domains:["entry","progress","workout","settings"],seconds:20}),
     s("test/native-generated-data-browser.mjs", [], {domains:["entry","library"],seconds:10}),
     s("test/architecture/entry-landing-browser.mjs", [], {domains:["entry","shell"],seconds:20}),
     s("test/architecture/entry-shared-browser.mjs", [], {domains:["entry","persistence"],seconds:20}),
