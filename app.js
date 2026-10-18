@@ -1,3 +1,5 @@
+import {review as ReviewRules} from './src/training/authoring.js';
+import {createProgramReview} from './src/ui/editors.js';
 import {createStorageRecoveryView} from './src/ui/storage-recovery.js';
 import {createStorageRecoveryCommands} from './src/app/storage-recovery.js';
 import {createFocusFormat} from './src/ui/focus/format.js';
@@ -9844,7 +9846,7 @@ function renderEntryAdjusted(preview){
    the jobs and returns to the equipment, with the adjustment kept; any other
    conflict says so plainly and returns to the screen that set it. */
 function entryJobName(purposeId){
-  const key=(window.RepForgeProgramReview?.JOB_KEYS||[]).find(item=>String(purposeId||"").endsWith(item));
+  const key=ReviewRules.JOB_KEYS.find(item=>String(purposeId||"").endsWith(item));
   return key?t(`entry.review.job.${key}`):""}
 function renderBConflict(failure){
   const conflicts=Array.isArray(failure?.conflicts)?failure.conflicts:[];
@@ -9939,7 +9941,7 @@ function clearEntryAdjust(){
   entryAdjustMount?.dispose();entryAdjustMount=null;EntryReview.clear();entryAdjustView={tab:null,reorder:null}}
 const sameDefinition=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 function prepareEntryAdjust(){
-  const Review=window.RepForgeProgramReview,result=entryState?.result;
+  const Review=ReviewRules,result=entryState?.result;
   if(!Review||!entryAdjustRoute()||!result?.preview?.programDefinition||!rawExerciseCatalog)return null;
   if(entryGeneratorReviewRoute()&&result.preview.programDefinition.generatorVersion!==ProgramCompiler.GENERATOR_VERSION)return null;
   const current=EntryReview.current(entryState);if(current)return current;
@@ -9974,12 +9976,12 @@ async function entryAdjustReady(){return prepareEntryAdjust()||(entryAdjustRoute
 /* What still keeps Activate disabled on the review: an emptied training day. */
 function entryAdjustIssue(){
   if(!entryAdjustRoute())return null;
-  const blockers=window.RepForgeProgramReview?.blockers(entryState?.result?.preview?.programDefinition)||[];
+  const blockers=ReviewRules?.blockers(entryState?.result?.preview?.programDefinition)||[];
   return blockers.length?"entry.review.blocked_empty":null}
 /* How far the activated program sits from the recommendation, in the review's
    own change count (Plan 071 §5.3). Only the generated routes have one. */
 function entryReviewChanges(){
-  const Review=window.RepForgeProgramReview;
+  const Review=ReviewRules;
   if(!Review?.changes||!entryGeneratorReviewRoute())return null;
   const review=EntryReview.current(entryState);
   if(!review)return null;
@@ -10077,7 +10079,7 @@ async function guardEntryRebuild(rebuild){
   // with the adjustments, and the next answer builds on that rebuild.
   const rebuilding=entryAnswerJob&&entryAnswerJob.committed===entryState;
   if(!rebuilding&&await entryAdjusted()){
-    const count=window.RepForgeProgramReview.changes(EntryReview.current(entryState).baseline.preview.programDefinition,
+    const count=ReviewRules.changes(EntryReview.current(entryState).baseline.preview.programDefinition,
       entryState.result.preview.programDefinition).count||1;
     const confirmed=await confirmEntryAdjust({title:t("entry.review.rebuild_title"),
       body:t(count===1?"entry.review.rebuild_body_one":"entry.review.rebuild_body",{n:count}),
@@ -10087,12 +10089,14 @@ async function guardEntryRebuild(rebuild){
   // The successful rebuild replaces the reviewed candidate atomically. A
   // rejected configuration keeps the lifter's adjustments and saved draft.
   return rebuild()}
+let programReviewUi=null;
+function mountedProgramReview(){return programReviewUi||(programReviewUi=createProgramReview({window,motion:ensureBrowserPresentation().motion}))}
 function mountEntryAdjust(){
   entryAdjustMount?.dispose();entryAdjustMount=null;
-  const host=$("#entryReview"),Review=window.RepForgeProgramReview;
+  const host=$("#entryReview"),Review=ReviewRules;
   const review=prepareEntryAdjust();
   if(!host||!Review||!review)return;
-  entryAdjustMount=Review.mountProgramReview(host,{
+  entryAdjustMount=mountedProgramReview().mountProgramReview(host,{
     view:entryAdjustView,
     read:()=>({baseline:EntryReview.current(entryState).baseline.preview.programDefinition,definition:entryState.result.preview.programDefinition,
       edits:EntryReview.current(entryState).edits,name:entryResultName()||t("untitled_program"),
@@ -10121,7 +10125,6 @@ function mountEntryAdjust(){
     announce:message=>toast(message),
     swallowClick:()=>swallowNextClick(),
     reducedMotion:()=>reducedMotion(),
-    motion:window.RepForgeMotion||null,
     changed:()=>syncEntryAdjustFooter(),
   })}
 function renderCatalogueStep(){

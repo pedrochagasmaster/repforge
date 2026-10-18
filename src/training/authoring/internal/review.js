@@ -24,6 +24,13 @@
  * That is what lets undo survive a reload.
  */
 
+const JOB_KEYS = Object.freeze([
+    "additional_horizontal_pull", "additional_horizontal_push", "incline_or_overhead_push", "secondary_hip_extension",
+    "quadriceps_isolation", "secondary_squat", "horizontal_pull", "horizontal_push", "chest_isolation", "hip_abduction",
+    "lat_isolation", "lateral_delts", "knee_flexion", "vertical_pull", "rear_delts", "hip_hinge", "obliques", "biceps",
+    "triceps", "calves", "squat", "abs",
+  ]);
+
 const MIN_SETS = 1;
 const MAX_SETS = 8;
 const MAX_REPS = 30;
@@ -547,6 +554,6 @@ function blockers(definition) {
 
 /** @param {unknown} kind */
 const isEditKind=kind=>typeof kind==="string"&&EDIT_KIND_SET.has(kind);
-const api = Object.freeze({ isEditKind,slotsOf,repKey,recoveredBlock,catalogMetrics,needsExecutionMode,duplicateDayName, EDIT_KINDS, REST_PRESETS, MIN_SETS, MAX_SETS, MAX_REPS, MAX_RIR, MAX_DAY_NAME, applyEdit, replay, changes, blockers });
-export { isEditKind,slotsOf,repKey,recoveredBlock,catalogMetrics,needsExecutionMode,duplicateDayName, EDIT_KINDS, REST_PRESETS, MIN_SETS, MAX_SETS, MAX_REPS, MAX_RIR, MAX_DAY_NAME, applyEdit, replay, changes, blockers };
+const api = Object.freeze({ isEditKind,locateSlot:locate,slotsOf,repKey,recoveredBlock,catalogMetrics,needsExecutionMode,duplicateDayName, JOB_KEYS, EDIT_KINDS, REST_PRESETS, MIN_SETS, MAX_SETS, MAX_REPS, MAX_RIR, MAX_DAY_NAME, applyEdit, replay, changes, blockers });
+export { isEditKind,locate as locateSlot,slotsOf,repKey,recoveredBlock,catalogMetrics,needsExecutionMode,duplicateDayName, JOB_KEYS, EDIT_KINDS, REST_PRESETS, MIN_SETS, MAX_SETS, MAX_REPS, MAX_RIR, MAX_DAY_NAME, applyEdit, replay, changes, blockers };
 export default api;
