@@ -6,13 +6,16 @@ import { cpus, platform, release, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { performance } from "node:perf_hooks";
+import { createRequire } from "node:module";
 import { CI_SHARDS } from "../test/suites.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SEED = "147443";
-const git = args => execFileSync("git", args, { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+const git = (args, cwd = ROOT) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+const sourceAt = cwd => ({ head: git(["rev-parse", "HEAD"], cwd), tree: git(["rev-parse", "HEAD^{tree}"], cwd),
+  status: git(["status", "--porcelain=v1", "--untracked-files=all"], cwd) });
 
-export function summarizeBenchmark(records, shards = CI_SHARDS) {
+export function summarizeBenchmark(records, shards = CI_SHARDS, gates) {
   const scopes = ["fast", "service", ...Array.from({ length: shards }, (_, i) => `${i + 1}/${shards}`)];
   if (records.length !== scopes.length || new Set(records.map(r => r.scope)).size !== scopes.length
       || scopes.some(scope => !records.some(r => r.scope === scope))) throw new Error("Incomplete or duplicate benchmark scope");
@@ -43,11 +46,19 @@ export function summarizeBenchmark(records, shards = CI_SHARDS) {
     if (JSON.stringify([...ids].sort()) !== JSON.stringify(inventory.map(e => e.id).sort())) throw new Error(`${phase}: missing complete inventory evidence`);
     totals[phase] = { commands: ids.size, files: new Set(inventory.map(e => e.file)).size, runnerMs, executionWallMs };
   }
+  for (const [phase, source] of [["before", records[0].base], ["after", records[0].head]]) {
+    const gate = gates?.[phase];
+    if (!gate?.passed || gate.source !== source || !Number.isFinite(gate.durationMs) || gate.durationMs < 0) {
+      throw new Error(`${phase}: successful source-specific catalog-wide UI gate is required`);
+    }
+    totals[phase].aggregateUiSystemMs = gate.durationMs;
+    totals[phase].executionWallMs += gate.durationMs;
+  }
   return { base: records[0].base, head: records[0].head, seed: records[0].seed, browserShards: shards, ...totals,
     countRatio: totals.after.commands / totals.before.commands,
     runtimeRatio: totals.after.executionWallMs / totals.before.executionWallMs,
     runnerRatio: totals.after.runnerMs / totals.before.runnerMs,
-    meaning: "Same-worker paired execution. Wall is the maximum scope execution duration at the fixed shard count; checkout, installs, artifact transfer, and queue time are reported separately by Actions. Commands are not behavioral cases or assertions." };
+    meaning: "Same-worker paired execution. Wall is the maximum scope execution duration plus the source-specific catalog-wide UI gate at the fixed shard count; runner time sums initial inventory executions. Checkout, installs, artifact transfer, and queue time are separately visible in Actions. Commands are not behavioral cases or assertions." };
 }
 
 function run(command, cwd, env) {
@@ -84,15 +95,26 @@ async function benchmark(base, head, scope) {
         const lock = `${dependency}/package-lock.json`;
         if (!readFileSync(join(worktree, lock)).equals(readFileSync(join(ROOT, lock)))) throw new Error(`Dependency lock changed: ${lock}`);
         symlinkSync(join(ROOT, dependency, "node_modules"), join(worktree, dependency, "node_modules"), "dir");
+        let browserVersion = null;
+        if (browser) {
+          const require = createRequire(join(worktree, "test/package.json"));
+          const probe = await require("playwright").chromium.launch({ headless: true,
+            ...(process.env.REPFORGE_CHROME ? { executablePath: process.env.REPFORGE_CHROME } : {}) });
+          try { browserVersion = probe.version(); } finally { await probe.close(); }
+        }
         const commands = scope === "fast"
           ? [[process.execPath, "tools/run-tests.mjs", "--check"], ["python3", "-B", "plans/073/test_verify.py"], [process.execPath, "tools/run-tests.mjs", "fast", "--keep-going"]]
           : [[process.execPath, "tools/run-tests.mjs", ...(browser ? ["shard", scope] : [scope]), "--keep-going"]];
         const env = { ...process.env, CI_SOURCE_SHA: sha, REPFORGE_GENERATIVE_SEED: SEED, REPFORGE_DIAGNOSTIC_REPLAY: "0" };
         console.log(`Paired benchmark ${phase}: ${sha}, scope ${scope}, seed ${SEED}`);
+        const sourceBefore = sourceAt(worktree);
         const started = performance.now();
         let commandsPassed = true;
         for (const command of commands) commandsPassed = await run(command, worktree, env) && commandsPassed;
         const durationMs = performance.now() - started;
+        const sourceAfter = sourceAt(worktree);
+        if (sourceBefore.head !== sha || sourceBefore.status || sourceAfter.status
+            || JSON.stringify(sourceBefore) !== JSON.stringify(sourceAfter)) commandsPassed = false;
         const rows = [];
         for (const lane of new Set(entries.map(e => e.lane))) {
           const resultPath = join(worktree, ".ci-results", lane, "results.json");
@@ -100,7 +122,7 @@ async function benchmark(base, head, scope) {
           const result = JSON.parse(readFileSync(resultPath));
           rows.push(...result.results.map(r => ({ id: `${lane}:${r.id}`, status: r.status, durationMs: r.initial?.durationMs ?? null })));
         }
-        report.phases.push({ phase, durationMs, commandsPassed,
+        report.phases.push({ phase, durationMs, commandsPassed, sourceBefore, sourceAfter, browserVersion,
           inventory: Object.entries(inventory.SUITES).flatMap(([lane, suites]) => suites.map(s => ({ id: `${lane}:${inventory.suiteId(s)}`, file: s.file }))),
           expected: entries.map(e => `${e.lane}:${inventory.suiteId(e.suite)}`), rows });
         cpSync(join(worktree, ".ci-results"), join(destination, phase), { recursive: true });
@@ -114,8 +136,35 @@ async function benchmark(base, head, scope) {
 function recordsUnder(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
     const path = join(directory, entry.name);
-    return entry.isDirectory() ? recordsUnder(path) : entry.name === "comparison.json" ? [JSON.parse(readFileSync(path))] : [];
+    return entry.isDirectory() ? recordsUnder(path) : entry.name === "comparison.json"
+      ? [{ ...JSON.parse(readFileSync(path)), artifactDir: directory }] : [];
   });
+}
+
+async function mergeCatalogPhases(records) {
+  if (!records.length) throw new Error("No paired records to validate");
+  const parent = mkdtempSync(join(tmpdir(), "repforge-benchmark-gates-"));
+  const gates = {};
+  try {
+    for (const [phase, source] of [["before", records[0].base], ["after", records[0].head]]) {
+      if (!/^[0-9a-f]{40}$/.test(source || "")) throw new Error("Invalid source for catalog-wide gate");
+      const worktree = join(parent, `${phase}-source`), reports = join(parent, `${phase}-reports`);
+      mkdirSync(reports);
+      records.forEach((record, index) => {
+        // findShardReports uses stat, so these links retain every report while
+        // keeping before and after unions strictly separate.
+        symlinkSync(join(record.artifactDir, phase), join(reports, String(index)), "dir");
+      });
+      git(["worktree", "add", "--detach", worktree, source]);
+      try {
+        const started = performance.now();
+        const passed = await run([process.execPath, "tools/ci-plan.mjs", "merge-ui-system", reports], worktree,
+          { ...process.env, CI_SOURCE_SHA: source });
+        gates[phase] = { source, passed, durationMs: performance.now() - started };
+      } finally { git(["worktree", "remove", "--force", worktree]); }
+    }
+  } finally { rmSync(parent, { recursive: true, force: true }); }
+  return gates;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
@@ -123,7 +172,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     const [mode, ...args] = process.argv.slice(2);
     if (mode === "run" && args.length === 3) await benchmark(...args);
     else if (mode === "summarize" && args.length === 1) {
-      const summary = summarizeBenchmark(recordsUnder(resolve(args[0])));
+      const records = recordsUnder(resolve(args[0]));
+      const gates = await mergeCatalogPhases(records);
+      const summary = summarizeBenchmark(records, CI_SHARDS, gates);
       writeFileSync(join(resolve(args[0]), "summary.json"), JSON.stringify(summary, null, 2) + "\n");
       console.log(JSON.stringify(summary, null, 2));
       if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY,

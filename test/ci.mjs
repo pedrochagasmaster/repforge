@@ -25,7 +25,10 @@ test("paired benchmark reports complete scope and refuses missing, duplicate, or
       inventory, expected: ids, rows: ids.map(id => ({ id, status: "passed", durationMs: phase === "before" ? 90 : 70 })),
       commandsPassed: true })) });
   const records = [worker("fast", ["fast:a"]), worker("service", ["service:b"]), worker("1/2", ["entry:c"]), worker("2/2", ["visual:d"])];
-  const summary = summarizeBenchmark(records, 2);
+  const gates = { before: { passed: true, durationMs: 0, source: "a".repeat(40) }, after: { passed: true, durationMs: 0, source: "b".repeat(40) } };
+  assert.throws(() => summarizeBenchmark(records, 2), /catalog-wide/);
+  assert.throws(() => summarizeBenchmark(records, 2, { ...gates, before: { ...gates.before, passed: false } }), /catalog-wide/);
+  const summary = summarizeBenchmark(records, 2, gates);
   assert.equal(summary.before.commands, 4);
   assert.equal(summary.after.commands, 4);
   assert.equal(summary.after.files, 4);
@@ -34,6 +37,7 @@ test("paired benchmark reports complete scope and refuses missing, duplicate, or
   assert.equal(summary.before.executionWallMs, 100);
   assert.equal(summary.after.executionWallMs, 80);
   assert.equal(summary.runtimeRatio, 0.8);
+  assert.equal(summarizeBenchmark(records, 2, { ...gates, before: { ...gates.before, durationMs: 3 } }).before.executionWallMs, 103);
   assert.throws(() => summarizeBenchmark(records.slice(1), 2), /scope/);
   const duplicate = structuredClone(records);
   duplicate[3].phases[0].rows[0].id = "entry:c";

@@ -61,10 +61,18 @@ and the Plan 073 Python verifier; the service scope retains its complete gate.
 Initial failures remain failures; benchmark execution never retries to green.
 The ordinary final-head `ci` certificate remains separately required.
 
+Before publishing timings, the report runs each source's actual catalog-wide
+`merge-ui-system` gate against only that phase's collected shard artifacts.
+This preserves the required-selector/exception union check that no individual
+shard can decide. Its separately recorded runtime is included after the maximum
+parallel-scope execution time.
+
 The report refuses incomplete scopes, missing/duplicate commands, inconsistent
 source/seed identities, and unsuccessful initial executions. It reconciles
 the union against each source's **complete** executable inventory. Artifacts
 retain both runs' logs, evidence, timings and hardware identity for seven days.
+Each scope also records unchanged clean source identities before/after each
+phase, and browser scopes record the actual launched browser version.
 The summary reports commands/files, summed initial runner time, and the maximum
 scope execution time at the fixed concurrency. Checkout, installation,
 artifact transfer and queue time remain separately visible in Actions; that
