@@ -140,3 +140,143 @@ export function createEntryActivation({model,entry,imports,build,policy,identity
  }
  return Object.freeze({metadata,candidate,successor,defaultCycles});
 }
+
+/** @typedef {import('../session.js').Snapshot & Snapshot} PublishedSnapshot
+ * @typedef {import('../session.js').CommitResult} CommitResult
+ * @typedef {import('../program.js').ReplacementCapture} ReplacementCapture
+ * @typedef {import('../../persistence/setup-draft.js').Handle} SetupHandle
+ * @typedef {ReturnType<typeof import('../../persistence/setup-draft.js').createSetupDraftStore>} SetupStore
+ * @typedef {ReturnType<typeof createEntryActivation>} Activation
+ * @typedef {ReturnType<typeof import('../program.js').createProgramReplacementPolicy>} ReplacementPolicy
+ * @typedef {ReturnType<typeof import('../program.js').createProgramReplacementCommands>} Replacement
+ * @typedef {{origin:string,destination:string,telemetryRoute:string,entryTelemetry?:unknown,reviewChanges?:unknown}} Presentation
+ * @typedef {{name?:string,origin?:string,destination?:string,versions:Record<string,unknown>,pinnedVersionsExecutable?:boolean,blockIntent?:ReplacementCapture|null,reviewChanges?:unknown}} PreviewRequest
+ * @typedef {{name?:unknown,answers?:Record<string,unknown>,destination?:string,origin?:string,baseProposal?:Snapshot|null,telemetryRoute?:string,entryTelemetry?:unknown,entrySource?:{route?:string}|null,programStructure?:unknown,programDefinition?:unknown,expectedSetupDraftRaw?:string|null,replace?:boolean,expectedFirstRunEmpty?:boolean,compilerContext?:unknown,reviewChanges?:unknown,blockIntent?:ReplacementCapture|null,discardDraftRaw?:string|null}} ProgramRequest
+ * @typedef {{kind:'prepared'|'receipt',needsReplacementConfirmation:boolean,needsDraftConfirmation:boolean,presentation:Presentation}} Ticket
+ * @typedef {{publishedHead:PublishedSnapshot,head:PublishedSnapshot,draft:Draft|null,handle:SetupHandle|null,proposal:PublishedSnapshot|null,capture:ReplacementCapture|null,raw:string|null,expectedSetupDraftRaw?:string|null,replace:boolean,expectedFirstRunEmpty:boolean,preview:boolean,result?:CommitResult,pending?:Promise<CommitResult>}} Transaction
+ */
+import {draftProgramFingerprint,readRevision,snapshotBlockId} from '../../persistence/snapshot.js';
+
+/** Entry activation owns the captured candidate, consent pins, qualified commit
+ * and exact setup receipt cleanup. The durable and setup stores retain locks,
+ * CAS and journals; presentation receives facts and explicit outcomes only.
+ * @param {{activation:Activation,entry:EntryRules,read:()=>PublishedSnapshot,readDraft:()=>Draft|null,store:SetupStore,
+ * replacement:Replacement,replacementPolicy:ReplacementPolicy,policy:Pick<Policy,'isValidSetupActivationMarker'|'setupActivationMatches'>,
+ * workout:{readRaw:()=>string|null,hasProgress:()=>boolean,clearEffect:(raw:string|null)=>import('../session.js').DraftEffect|null,blockStartGuard:(head:PublishedSnapshot)=>CommitResult|null},
+ * settleReceipt:(raw:string)=>Promise<CommitResult>}} options */
+export function createEntryActivationCommands({activation,entry,read,readDraft,store,replacement,replacementPolicy,policy,workout,settleReceipt}){
+ /** @type {WeakMap<Ticket,Transaction>} */const transactions=new WeakMap();
+ /** @param {Snapshot} head @param {string|null|undefined} raw */
+ function receiptMatches(head,raw){
+  const marker=head._storageSetupActivation;
+  return typeof raw==='string'&&policy.isValidSetupActivationMarker(marker)&&
+   marker.revision===readRevision(head)&&policy.setupActivationMatches(marker,raw,head.programMeta?.id);
+ }
+ /** @param {Transaction} transaction */
+ function current(transaction){
+  const head=read(),captured=transaction.head;
+  return head===transaction.publishedHead&&(!transaction.preview||readDraft()===transaction.draft)&&
+   readRevision(head)===readRevision(captured)&&head.programMeta?.id===captured.programMeta?.id&&
+   snapshotBlockId(head)===snapshotBlockId(captured)&&draftProgramFingerprint(head)===draftProgramFingerprint(captured);
+ }
+ /** @param {Presentation} presentation @param {Transaction} transaction @param {'prepared'|'receipt'} [kind] */
+ function ticket(presentation,transaction,kind='prepared'){
+  /** @type {Ticket} */const value=Object.freeze({kind,presentation:Object.freeze(presentation),
+   needsReplacementConfirmation:!!(transaction.head.programMeta?.onboarded&&replacementPolicy.hasContent(transaction.head)),
+   needsDraftConfirmation:workout.hasProgress()});
+  transactions.set(value,transaction);return value;
+ }
+ /** Capture before any dialog. No later live read can select the successor.
+  * @param {ProgramRequest} input @param {{head?:PublishedSnapshot,draft?:Draft|null,handle?:SetupHandle|null,preview?:boolean}} [captured] */
+ function prepareProgram(input,{head=read(),draft=null,handle=null,preview=false}={}){
+  const {origin='first-run',destination='log',telemetryRoute='custom',blockIntent=null}=input;
+  let capture;
+  if(origin==='block'){
+   const guard=workout.blockStartGuard(head);
+   if(guard)return{...guard,kind:'failed',committed:false,settled:false};
+   if(!blockIntent)return{kind:'failed',committed:false,settled:false};
+   capture=replacementPolicy.materialize(blockIntent,head);
+   if(!capture)return{kind:'stale',duplicate:true};
+  }else capture=replacementPolicy.capture(head);
+  const prepared=activation.successor({base:input.baseProposal||head,metadataSource:input.baseProposal,
+   name:input.name,answers:input.answers||{},entrySource:input.entrySource,programDefinition:input.programDefinition,
+   route:input.entrySource?.route||telemetryRoute,origin,destination,programStructure:input.programStructure,
+   compilerContext:input.compilerContext,expectedSetupDraftRaw:input.expectedSetupDraftRaw,expectedProgramId:blockIntent?.oldProgramId});
+  if(!prepared.ok)return{kind:'invalid',invalid:true,code:prepared.code,duplicate:prepared.code==='duplicate'};
+  return ticket({origin,destination,telemetryRoute,entryTelemetry:input.entryTelemetry,reviewChanges:cloneSnapshot(input.reviewChanges)},
+   {publishedHead:head,head:cloneSnapshot(head),draft,handle:cloneSnapshot(handle),proposal:/** @type {PublishedSnapshot} */(prepared.proposal),capture,
+    raw:input.discardDraftRaw===undefined?workout.readRaw():input.discardDraftRaw,
+    expectedSetupDraftRaw:input.expectedSetupDraftRaw,replace:input.replace===true,expectedFirstRunEmpty:input.expectedFirstRunEmpty===true,preview});
+ }
+ /** @param {PreviewRequest} request */
+ async function prepare(request){
+  const draft=readDraft(),head=read();
+  if(!draft)return{kind:'not-ready',code:'preview_not_ready'};
+  await store.flush();
+  if(readDraft()!==draft||read()!==head)return{kind:'stale',conflict:true};
+  const handle=store.handle(),raw=handle?.raw??null;
+  if(handle&&handle.envelope?.draftId!==draft.draftId)return{kind:'stale',setupDraftConflict:true};
+  const presentation={origin:request.origin||'first-run',destination:request.destination||'log',telemetryRoute:draft.route||'custom',reviewChanges:cloneSnapshot(request.reviewChanges)};
+  if(receiptMatches(head,raw))return ticket(presentation,{publishedHead:head,head:cloneSnapshot(head),draft,handle,proposal:null,capture:null,raw:workout.readRaw(),expectedSetupDraftRaw:raw,replace:false,expectedFirstRunEmpty:false,preview:true},'receipt');
+  if(store.readRaw()!==raw||store.failure()==='save_conflict')return{kind:'failed',setupDraftConflict:true};
+  if(store.failure()==='save_failed')return{kind:'failed',writeFailed:true};
+  const readiness=entry.activationReadiness(draft,{liveActiveProgramRevision:readRevision(head),currentVersions:request.versions,pinnedVersionsExecutable:request.pinnedVersionsExecutable});
+  if(!readiness.ok)return{...readiness,kind:'not-ready'};
+  const candidate=activation.candidate({draft,head,name:request.name||'',hasWorkoutDraft:!!workout.readRaw()});
+  if(!candidate.ok)return{...candidate,kind:'invalid',invalid:true};
+  return prepareProgram({...candidate.value,...request,expectedSetupDraftRaw:raw},{head,draft,handle,preview:true});
+ }
+ /** Exact cleanup is independently retryable. A newer draft remains owned by
+  * its writer even if this activation has already been acknowledged.
+  * @param {Ticket} prepared @param {Transaction} transaction @param {CommitResult} result */
+ async function cleanup(prepared,transaction,result){
+  const setupDraftCleanup=await store.transaction(()=>store.readRaw()===null
+   ?{ok:true,absent:true}:store.removeObserved(transaction.handle));
+  return {...result,kind:setupDraftCleanup.ok?'committed':'cleanup-pending',setupDraftCleanup,
+   presentation:prepared.presentation,entryDraftChanged:transaction.preview&&readDraft()!==transaction.draft,clearEntryDraft:setupDraftCleanup.ok&&readDraft()===transaction.draft};
+ }
+ /** @param {Ticket} prepared */
+ async function resume(prepared){
+  const transaction=transactions.get(prepared);
+  if(!transaction||!receiptMatches(read(),transaction.expectedSetupDraftRaw))return{kind:'stale',conflict:true};
+  const settled=await settleReceipt(/** @type {string} */(transaction.expectedSetupDraftRaw));
+  if(settled.committed!==true||settled.settled!==true)return{...settled,kind:'failed'};
+  transaction.result={...settled,alreadyCommitted:true};
+  return cleanup(prepared,transaction,transaction.result);
+ }
+ /** @param {Ticket} prepared @param {{confirmed?:boolean,draftConfirmed?:boolean,io?:unknown}} [consent] */
+ async function commit(prepared,{confirmed=false,draftConfirmed=false,io}={}){
+  const transaction=transactions.get(prepared);
+  if(!transaction)return{kind:'stale',conflict:true};
+  if(transaction.pending)return transaction.pending;
+  if(prepared.kind==='receipt'||receiptMatches(read(),transaction.expectedSetupDraftRaw))return resume(prepared);
+  if(transaction.result)return cleanup(prepared,transaction,transaction.result);
+  if((prepared.needsReplacementConfirmation&&!confirmed)||(prepared.needsDraftConfirmation&&!draftConfirmed))return{kind:'cancelled',cancelled:true};
+  if(!current(transaction))return{kind:'stale',conflict:true};
+  if(transaction.expectedSetupDraftRaw!==undefined&&store.readRaw()!==transaction.expectedSetupDraftRaw)return{kind:'stale',setupDraftConflict:true};
+  if(!transaction.proposal)return{kind:'failed'};
+  const head=transaction.head;
+  const operation=async()=>{
+   const persisted=await replacement.commit(/** @type {PublishedSnapshot} */(transaction.proposal),{capture:transaction.capture,
+    effect:workout.clearEffect(transaction.raw),expectedSetupDraftRaw:transaction.expectedSetupDraftRaw,
+    replace:transaction.replace,expectedFirstRunEmpty:transaction.expectedFirstRunEmpty,
+    expectedProgramId:head.programMeta?.id||null,expectedBlockId:/** @type {string|null} */(snapshotBlockId(head)),
+    expectedProgramFingerprint:draftProgramFingerprint(head),expectedStorageRevision:readRevision(head),io});
+   if(persisted.committed!==true||persisted.settled!==true)return{...persisted,kind:'failed'};
+   transaction.result=persisted;
+   return cleanup(prepared,transaction,persisted);
+  };
+  transaction.pending=operation();
+  try{return await transaction.pending}finally{delete transaction.pending}
+ }
+ /** Boot recovery uses the exact acknowledged receipt and the setup store's
+  * own lock. It never adopts or removes an unrelated record. */
+ async function recover(){
+  const head=read(),marker=head._storageSetupActivation;
+  if(!policy.isValidSetupActivationMarker(marker)||!receiptMatches(head,marker.raw))return{ok:true,absent:true};
+  const raw=store.readRaw();
+  if(raw===null||raw!==marker.raw)return{ok:true,absent:raw===null,conflict:raw!==null};
+  return store.remove({raw,envelope:null});
+ }
+ return Object.freeze({prepare,prepareProgram,commit,resume,recover});
+}

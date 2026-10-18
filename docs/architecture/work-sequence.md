@@ -1,12 +1,12 @@
 # Taurifer work sequence
 
-> Updated owner direction, 18 October 2026 at 20:20 UTC: **“Test both and choose the best one.”** The assistant is authorized to compare full-background dimming with a bright but inert explained control and select using evidence. Earlier requests below for a new preference decision are superseded; the historical provenance conflict remains recorded. Follow [the comparison protocol](guide-variant-comparison.md). Execution is still blocked, neither variant has been comparatively tested, and no winner is selected. Feature-intake scope, final acceptance, merge and deployment remain separate.
+> Updated owner direction, 18 October 2026 at 20:20 UTC: **“Test both and choose the best one.”** The assistant is authorized to compare full-background dimming with a bright but inert explained control and select using evidence. Earlier requests below for a new preference decision are superseded; the historical provenance conflict remains recorded. Follow [the comparison protocol](guide-variant-comparison.md). Neither guide variant has been comparatively tested, and no winner is selected. Implementation browser validation now runs through GitHub CI; the guide comparison remains pending. Feature-intake scope, final acceptance, merge and deployment remain separate.
 
 Snapshot: 18 October 2026 UTC. This sequences work; it does not authorize a merge, deployment, PR closure, infrastructure change or additional feature. [Migration status](migration-status.md) owns implementation acceptance and tested revisions. [Issue425](https://github.com/pedrochagasmaster/repforge/issues/425) owns phone checks and launch decisions. Refresh exact heads and CI before each intake; a green predecessor does not certify an adapted successor.
 
 ## Current pause and completed preparation
 
-Coding execution paused on 18 October after its usage allowance was exhausted. The last code checkpoint is `959c037b33d2623ff7a218f2f817bdae813112b7`; local uncommitted state after interruption is unverified. Five of twenty slices are accepted. Ordinary CI and the paired benchmark on that checkpoint failed; no completion ETA is currently active. Later documentation-only commits do not change those code results.
+The original cloud coding task paused after usage exhaustion. Implementation resumed in the assistant workspace at 20:56 UTC on this same branch. The stopped task's interrupted local state remains unverified. Five of twenty slices are formally accepted; no completion ETA is currently active. See the [migration ledger](migration-status.md) for actual takeover fixes, the native Entry activation cutover and exact-head CI results. Documentation preparation below is historical input, not the current implementation status.
 
 Completed review packets, prepared without application execution:
 
@@ -21,7 +21,7 @@ Sequential preparation completed after the initial packets:
 3. Editor S1 → S2 and guides retain the concrete intake packets in [PR reconciliation](pr-intake-reconciliation.md). S2 must be rebased semantically on the completed native S1; guide highlight authorization remains unresolved until original evidence or a new owner decision is recorded.
 4. Integrated execution/acceptance, PR disposition, phone results and launch evidence remain blocked or pending as described below. Documentation progress must never be counted as migration acceptance.
 
-When coding capacity returns, resume the existing task and integration branch. First preserve and inspect any interrupted local edits; fetch/reconcile these documentation commits without overwriting that work. Then execute the repair plan and remaining migration gates. Do not reopen a competing architecture branch.
+If the original cloud coding task resumes, reconcile it with the active integration branch. First preserve and inspect any interrupted local edits; fetch/reconcile these documentation commits without overwriting that work. Then execute the repair plan and remaining migration gates. Do not reopen a competing architecture branch.
 
 ## 1. Finish the authorized integration
 

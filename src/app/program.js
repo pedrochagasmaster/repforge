@@ -285,6 +285,30 @@ export function createCustomExerciseCommands({read, commit, model, normalizeMusc
   return Object.freeze({save, remove, recover, resolveIntent, inUse, stateEqual, upsert, removeOrArchive});
 }
 
+/** Shared deferred replacement intent and archive-time materialization. The
+ * original pins survive materialization; unrelated published heads never turn
+ * an old confirmation into permission to replace a different program.
+ * @param {{model:Pick<ReturnType<typeof import('../training/model.js').createProgramModel>,'structureDayLabels'>,policy:Pick<ReturnType<typeof import('../persistence/snapshot.js').createSnapshotPolicy>,'withExplicitProgramStructure'>}} options */
+export function createProgramReplacementPolicy({model,policy}) {
+  /** @param {Snapshot} snapshot */
+  function hasContent(snapshot){return !!snapshot.programMeta&&!!(snapshot.program?.length||model.structureDayLabels(/** @type {Parameters<typeof model.structureDayLabels>[0]} */(snapshot.programMeta)))}
+  /** @param {Snapshot} snapshot @param {unknown} [review] @returns {ReplacementCapture|null} */
+  function intent(snapshot,review=null){
+    if(!hasContent(snapshot))return null;
+    return {oldProgramId:snapshot.programMeta?.id,oldBlockId:/** @type {string|null} */(snapshotBlockId(snapshot)),
+      programFingerprint:draftProgramFingerprint(snapshot),storageRevision:readRevision(snapshot),review:copySnapshot(review)};
+  }
+  /** @param {ReplacementCapture|null} captured @param {Snapshot} snapshot @returns {ReplacementCapture|null} */
+  function materialize(captured,snapshot){
+    if(!captured?.oldProgramId||!hasContent(snapshot)||snapshot.programMeta?.id!==captured.oldProgramId)return null;
+    const finalized=policy.withExplicitProgramStructure(/** @type {Parameters<typeof policy.withExplicitProgramStructure>[0]} */(snapshot.program||[]),snapshot.programMeta||{});
+    return {...copySnapshot(captured),oldMeta:copySnapshot(finalized.meta),oldProgram:copySnapshot(finalized.program)};
+  }
+  /** @param {Snapshot} snapshot @param {unknown} [review] */
+  function capture(snapshot,review=null){return materialize(intent(snapshot,review),snapshot)}
+  return Object.freeze({hasContent,intent,materialize,capture});
+}
+
 /** Program activation/replacement commit. The reviewed setup/transition owner
  * supplies a validated proposal and exact capture. This owner archives the
  * captured predecessor once and preserves all lock/draft/setup preconditions.

@@ -1,3 +1,4 @@
+import {createEntryActivationCommands} from './src/app/entry/activation.js';
 import {draftRecoveryMessageKind,initializationRecoveryKind} from './src/ui/workout/recovery.js';
 import {entryResumeCopy} from './src/ui/entry/view.js';
 import {createImportReview} from './src/ui/entry/import/review.js';
@@ -79,7 +80,7 @@ import * as ReadModels from './src/app/read-models.js';
 import {verdictMarkHtml as sharedVerdictMarkHtml,formatSetsLine,formatTable,formatProgramContext,formatCycleLabel,formatShortDate,sameLoad,recommendationVerdict,formatList} from './src/ui/format.js';
 let TodayUi,SummaryUi,ProgressUi,ReviewUi,TrainingModel,ProgressReadModels;
 import {createSession} from './src/app/session.js';
-import {createCustomExerciseCommands,createProgramReplacementCommands,createProgramAdditionCommands} from './src/app/program.js';
+import {createProgramReplacementPolicy,createCustomExerciseCommands,createProgramReplacementCommands,createProgramAdditionCommands} from './src/app/program.js';
 import {createHistoryCommands} from './src/app/history.js';
 import {createMotion} from './src/platform/motion.js';
 import * as SnapshotPolicy from './src/persistence/snapshot.js';
@@ -1645,7 +1646,7 @@ let onboardingProgramEditor=null;
 
 
 
-let EntryActivation=null;
+let EntryActivation=null,EntryActivationCommands=null,programReplacementPolicy=null;
 function buildProgramMeta(input={}){return EntryActivation.metadata(input)}
 
 /* Per-movement smallest load change in canonical kg; anything else is dropped. */
@@ -1798,29 +1799,9 @@ function capturePendingBlock(strategy,review){
   const snapshot=review||buildBlockReview(state.programMeta,state.program,state.log);
   const intent=captureProgramReplacementIntent(state,snapshot);
   return intent?{...intent,strategy}:null}
-function hasArchivableProgram(snapshot){
-  const meta=snapshot?.programMeta;
-  const hasDefinition=(Array.isArray(snapshot?.program)&&snapshot.program.length>0)||structureDayLabels(meta);
-  return !!meta&&!!hasDefinition}
-function captureProgramReplacementIntent(snapshot=state,review=null){
-  const meta=snapshot?.programMeta;
-  if(!hasArchivableProgram(snapshot))return null;
-  return{oldProgramId:meta.id,oldBlockId:snapshotBlockId(snapshot),
-    programFingerprint:draftProgramFingerprint(snapshot),storageRevision:readRevision(snapshot),
-    review:review?cloneSnapshot(review):null}}
-function materializeProgramReplacementCapture(intent,snapshot=state){
-  if(!intent?.oldProgramId||!hasArchivableProgram(snapshot))return null;
-  const meta=snapshot?.programMeta;
-  const program=Array.isArray(snapshot?.program)?snapshot.program:[];
-  if(meta?.id!==intent.oldProgramId)return null;
-  // This is the archive-time boundary. Finalize the still-live predecessor
-  // using the current clock/state, while preserving the deferred intent's
-  // original identity/revision/fingerprint pins for the lock-held CAS.
-  const finalized=withExplicitProgramStructure(program,meta);
-  return{...cloneSnapshot(intent),oldMeta:cloneSnapshot(finalized.meta),oldProgram:cloneSnapshot(finalized.program)}}
-function captureProgramReplacement(snapshot=state,review=null){
-  const intent=captureProgramReplacementIntent(snapshot,review);
-  return intent?materializeProgramReplacementCapture(intent,snapshot):null}
+function captureProgramReplacementIntent(snapshot=state,review=null){return programReplacementPolicy.intent(snapshot,review)}
+function materializeProgramReplacementCapture(intent,snapshot=state){return programReplacementPolicy.materialize(intent,snapshot)}
+function captureProgramReplacement(snapshot=state,review=null){return programReplacementPolicy.capture(snapshot,review)}
 const programReplacementCommands=createProgramReplacementCommands({
   read:applicationSession.read,commit:(proposal,opts,io=storageIO)=>commitProposedState(proposal,io,opts),
   capture:captureProgramReplacement,allocateBlockId,now:()=>new Date().toISOString()});
@@ -4483,33 +4464,7 @@ function reportSetupDraftWriteFailure(kind,error){
 function removeObservedSetupDraft(handle){return EntryDraft.removeObserved(handle)}
 function removeSetupDraftIfCurrent(handle=EntryDraft.handle()){return EntryDraft.remove(handle)}
 function clearSetupDraft(){clearEntryAdjust();return EntryDraft.clear()}
-function setupActivationAlreadyCommittedToLive(raw){
-  const marker=state?.[STORAGE_SETUP_TXN];
-  return typeof raw==="string"&&isValidSetupActivationMarker(marker)&&
-    marker.revision===readRevision(state)&&setupActivationMatches(marker,raw,state?.programMeta?.id);
-}
-async function finishAlreadyCommittedSetup(handle){
-  const cleanup=await removeSetupDraftIfCurrent(handle);
-  if(cleanup?.ok){
-    publishEntryDraft(null);EntryDraft.adopt(null,null);onboardingOrigin=null;setupEditorOpen=false;
-    InstalledEditorView.setEditing(false);document.body.classList.remove("is-entry-editor");closeOnboarding();
-  }else{
-    entryUiNotice=cleanup?.conflict?"save_conflict":"save_failed";
-    renderOnboarding();
-  }
-  return{revision:readRevision(state),localOk:true,idbOk:true,alreadyCommitted:true,
-    setupDraftCleanup:cleanup};
-}
-async function recoverCommittedSetupDraft(){
-  const marker=state?.[STORAGE_SETUP_TXN];
-  if(!isValidSetupActivationMarker(marker)||marker.revision!==readRevision(state)||
-    marker.programId!==state?.programMeta?.id)return{ok:true,absent:true};
-  const raw=readSetupDraftRaw();
-  // A missing draft means the post-commit cleanup already won. A different
-  // raw value belongs to a later owner/revision and must remain untouched.
-  if(raw===null||raw!==marker.raw)return{ok:true,absent:raw===null,conflict:raw!==null};
-  return withStorageLock(storageIO,()=>removeObservedSetupDraft({raw,envelope:null}));
-}
+function recoverCommittedSetupDraft(){return EntryActivationCommands.recover()}
 function persistSetupDraft(next,io=storageIO){return EntrySetup.save(next,{io,production:io===storageIO})}
 
 function applyLegacyHints(stateIn){
@@ -7068,90 +7023,64 @@ function onEntryPopState(){
   entryBack()}
 async function activateEntryPreview({destination="log",manualBuild=false,skipReplaceConfirm=false,io=storageIO}={}){
   if(!ProgramEntry||!entryState)return;
-  await EntryDraft.flush();
-  const activationDraftHandle=EntryDraft.handle();
-  // A previous attempt may already have committed the exact draft and then
-  // failed only while consuming this separate setup record. Treat that receipt
-  // as success and retry only the CAS cleanup; never mint a second program.
-  if(setupActivationAlreadyCommittedToLive(activationDraftHandle?.raw)){
-    const settled=await DurableState.settleCommittedSetupActivation(activationDraftHandle.raw);
-    if(settled?.committed===true&&settled?.settled===true)
-      return finishAlreadyCommittedSetup(activationDraftHandle);
-    return settled}
-  const readiness=ProgramEntry.activationReadiness(entryState,{
-    liveActiveProgramRevision:liveProgramRevision(),
-    currentVersions:entryVersions(),
-    pinnedVersionsExecutable:entryPinnedVersionsExecutable});
-  if(!readiness.ok){
-    if(readiness.code==="active_program_changed"){
-      reportActivationFailed("durable_conflict");
-      entryUiNotice="conflict";
-      entrySetState(readiness.state||{...entryState,step:"activation_conflict"});
-      return}
-    if(readiness.code==="rules_changed_rebuild_required"){entryUiNotice="rules_changed";renderOnboarding();return}
-    if(readiness.code==="candidate_incomplete"){
-      if(setupEditorOpen){renderOnboarding();$("#onbProgramEditor [data-role=\"editor-status\"]")?.focus?.()}
-      else {renderOnboarding();$("#entryActivationStatus")?.focus?.()}
-      return readiness}
-    renderOnboarding();return}
-  // Plan 069 S4: "Use this program" is a commit point for Suggest loads. An
-  // incomplete opt-in is refused at its own field before anything else asks.
+  // Validate the mounted Build document synchronously, before preparation can
+  // reject its incomplete opt-in or an awaited operation changes the flow.
   if(entryState.route==="build"){
-    const optIn=onboardingProgramEditor?.checkSuggestLoads?.();
-    if(optIn&&!optIn.ok)return optIn}
-  if(!skipReplaceConfirm&&!(await entryConfirmReplaceIfNeeded()))return{cancelled:true};
-  const prepared=EntryActivation.candidate({draft:entryState,head:state,name:entryResultName()||entryState.answers.programName||"",hasWorkoutDraft:!!readDraftRaw()});
-  if(!prepared.ok){
+    const optIn=onboardingProgramEditor?.checkSuggestLoads?.();if(optIn&&!optIn.ok)return optIn}
+  const prepared=await EntryActivationCommands.prepare({destination,origin:onboardingOrigin||"first-run",
+    name:entryResultName()||entryState.answers.programName||"",versions:entryVersions(),
+    pinnedVersionsExecutable:entryPinnedVersionsExecutable,blockIntent:pendingBlockTransition,reviewChanges:entryReviewChanges()});
+  if(prepared.kind==="not-ready"){
+    if(prepared.code==="active_program_changed"){
+      reportActivationFailed("durable_conflict");entryUiNotice="conflict";
+      entrySetState(prepared.state||{...entryState,step:"activation_conflict"});return prepared}
+    if(prepared.code==="rules_changed_rebuild_required"){entryUiNotice="rules_changed";renderOnboarding();return prepared}
+    renderOnboarding();
+    if(prepared.code==="candidate_incomplete"){
+      if(setupEditorOpen)$('#onbProgramEditor [data-role="editor-status"]')?.focus?.();
+      else $("#entryActivationStatus")?.focus?.()}
+    return prepared}
+  if(prepared.kind==="invalid"){
     reportActivationFailed("definition_invalid");
     if(prepared.code==="program-definition-required")toast(t("entry.issue.compile"),{assertive:true});
-    renderOnboarding();return{invalid:true,code:prepared.code}}
-  const result=await finalizeProgramSetup({...prepared.value,destination,origin:onboardingOrigin||"first-run",io,
-    expectedSetupDraftRaw:activationDraftHandle?.raw??null,reviewChanges:entryReviewChanges()});
-  if(result?.setupDraftConflict){
-    reportActivationFailed("setup_conflict");
-    entryUiNotice="save_conflict";
-    renderOnboarding();
-    return result}
-  if(result?.staleRevision||result?.conflict||result?.duplicate||result?.ineligible){
-    reportActivationFailed("durable_conflict");
-    await surfaceEntryDurableConflict();
-    return result}
-  if(result?.committed===true&&result?.settled===true){
-    const cleanup=await removeSetupDraftIfCurrent(activationDraftHandle);
-    if(cleanup?.writeFailed)toast(t("entry.save_failed.body"));
-    entryDurableConflictNeedsReload=false;
-    publishEntryDraft(null);
-    return result}
+    renderOnboarding();return prepared}
+  if(prepared.kind!=="prepared"&&prepared.kind!=="receipt")return presentEntryActivationFailure(prepared);
+  if(prepared.kind==="receipt"){
+    const result=await EntryActivationCommands.resume(prepared);
+    if(result.entryDraftChanged)return result;
+    if(result.kind!=="committed")return presentEntryActivationFailure(result);
+    if(result.clearEntryDraft)publishEntryDraft(null);
+    onboardingOrigin=null;setupEditorOpen=false;InstalledEditorView.setEditing(false);
+    document.body.classList.remove("is-entry-editor");closeOnboarding();return result}
+  const confirmed=skipReplaceConfirm||!prepared.needsReplacementConfirmation||await entryConfirmReplaceIfNeeded();
+  if(!confirmed)return EntryActivationCommands.commit(prepared,{confirmed:false,io});
+  const draftConfirmed=!prepared.needsDraftConfirmation||confirm(t("confirm.replace_program_discard_draft"));
+  const result=await EntryActivationCommands.commit(prepared,{confirmed,draftConfirmed,io:requireAdapter(io,"activateEntryPreview")});
+  if(result.committed!==true||result.settled!==true)return presentEntryActivationFailure(result);
+  if(result.setupDraftCleanup?.writeFailed)toast(t("entry.save_failed.body"));
+  entryDurableConflictNeedsReload=false;
+  if(result.clearEntryDraft)publishEntryDraft(null);
+  return presentProgramActivation(result,prepared.presentation)}
+
+async function presentEntryActivationFailure(result){
+  if(result?.setupDraftConflict||result?.setupDraftCleanup?.conflict){
+    reportActivationFailed("setup_conflict");entryUiNotice="save_conflict";renderOnboarding();return result}
+  if(result?.staleRevision||result?.conflict||result?.duplicate||result?.ineligible||result?.kind==="stale"){
+    reportActivationFailed("durable_conflict");await surfaceEntryDurableConflict();return result}
+  if(result?.kind==="cleanup-pending"||result?.writeFailed){entryUiNotice="save_failed";renderOnboarding()}
   return result}
 
-async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null,telemetryRoute="custom",entryTelemetry=null,entrySource=null,programStructure=null,programDefinition=null,expectedSetupDraftRaw=undefined,replace=false,expectedFirstRunEmpty=false,compilerContext=null,reviewChanges=null}={}){
-  const adapter=requireAdapter(io||storageIO,"finalizeProgramSetup");
-  const originEff=origin||onboardingOrigin||"first-run";
-  const blockCap=originEff==="block"?pendingBlockTransition:null;
-  let replacementCapture=null;
-  if(originEff==="block"){
-    const draftGuard=blockStartDraftGuard();
-    if(draftGuard)return blockTransitionResult("failed",draftGuard);
-    if(!blockCap)return blockTransitionResult("failed");
-    if(state.programMeta?.id!==blockCap.oldProgramId)return blockTransitionResult("duplicate");
-    replacementCapture=materializeProgramReplacementCapture(blockCap,state);
-    if(!replacementCapture)return blockTransitionResult("duplicate");
-  }else replacementCapture=captureProgramReplacement(state);
-  const draftActive=draftHasProgress();
-  const confirmedDraftRaw=discardDraftRaw===undefined?readDraftRaw():discardDraftRaw;
-  if(draftActive&&!draftConfirmed&&!confirm(t("confirm.replace_program_discard_draft")))
-    return{revision:readRevision(state),localOk:false,idbOk:false,cancelled:true};
-  const prepared=EntryActivation.successor({base:baseProposal||state,metadataSource:baseProposal,
-    name,answers:answers||{},entrySource,programDefinition,route:entrySource?.route||telemetryRoute,origin:originEff,destination,
-    programStructure,compilerContext,expectedSetupDraftRaw,expectedProgramId:blockCap?.oldProgramId});
-  if(!prepared.ok)return prepared.code==="duplicate"?blockTransitionResult("duplicate"):
-    {revision:readRevision(state),localOk:false,idbOk:false,invalid:true,code:prepared.code};
-  const proposal=prepared.proposal;
-  const effect=destructiveDraftClearEffect(confirmedDraftRaw);
-  const persisted=await commitProgramReplacement(proposal,adapter,
-    {capture:replacementCapture,effect,expectedSetupDraftRaw,replace,expectedFirstRunEmpty});
-  const result=originEff==="block"?blockTransitionDurableResult(persisted):persisted;
+async function finalizeProgramSetup(options={}){
+  const {io,draftConfirmed=false}=options;
+  const prepared=EntryActivationCommands.prepareProgram({...options,origin:options.origin||onboardingOrigin||"first-run",blockIntent:pendingBlockTransition});
+  if(prepared.kind!=="prepared")return (options.origin||onboardingOrigin)==="block"?blockTransitionResult(prepared.duplicate?"duplicate":"failed",prepared):prepared;
+  const consent=draftConfirmed||!prepared.needsDraftConfirmation||confirm(t("confirm.replace_program_discard_draft"));
+  const persisted=await EntryActivationCommands.commit(prepared,{confirmed:true,draftConfirmed:consent,io:requireAdapter(io||storageIO,"finalizeProgramSetup")});
+  const result=prepared.presentation.origin==="block"?blockTransitionDurableResult(persisted):persisted;
   if(result.committed!==true||result.settled!==true)return result;
+  return presentProgramActivation(result,prepared.presentation)}
+
+function presentProgramActivation(result,{origin:originEff,destination,telemetryRoute,reviewChanges}){
   const versionCategory=telemetryRoute==="import"?"import_v1":
     telemetryRoute==="shared"?"shared_v1":
     telemetryRoute==="build"?"manual_v1":
@@ -7165,6 +7094,9 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     // A block that ends in a new program is committed here, at its successor's activation.
     if(originEff==="block")captureEvent("block_transition_chosen",{action:"new_program"});
   }
+  // The durable result belongs to the captured flow. A newer Entry flow owns
+  // its own text, review history, editor and route even when this commit won.
+  if(result.entryDraftChanged)return result;
   clearFreeformSession();
   clearStagedImportSource();
   clearEntryAdjust();
@@ -7841,6 +7773,11 @@ function initializePersistenceOwners(){
   customDefinitionImport=createCustomDefinitionImport({model,nextId:uid});
   ProgramImport=createProgramImport({model,imports:customDefinitionImport,library:EXERCISE_LIBRARY});
   EntryActivation=createEntryActivation({model,entry,imports:customDefinitionImport,build:createInstalledEditorRules({model,catalog:rawExerciseCatalog,nextId:uid,defaultProgramMeta:policy.defaultProgramMeta,allowCreateDefinition:true}),policy,identity:{programId:uid,blockId:allocateBlockId,now:entryNow,date:today},defaultName:()=>t("untitled_program")});
+  programReplacementPolicy=createProgramReplacementPolicy({model,policy});
+  EntryActivationCommands=createEntryActivationCommands({activation:EntryActivation,entry,read:applicationSession.read,
+    readDraft:()=>entryState,store:EntryDraft,replacement:programReplacementCommands,replacementPolicy:programReplacementPolicy,policy,
+    workout:{readRaw:readDraftRaw,hasProgress:draftHasProgress,clearEffect:destructiveDraftClearEffect,blockStartGuard:blockStartDraftGuard},
+    settleReceipt:raw=>DurableState.settleCommittedSetupActivation(raw)});
   ({normalizeMuscleAttribution,isValidMuscleDomainTree,isValidStoredMuscleField,isValidPlannedVolumeHistory,normalizeRecoveryCarrierSnapshot,isSafeProgressionFields,isSafeProgressionMeta,isSafeProgramHistoryEntry,isSafeLogRow,isSafeCustomExercise,isValidSetupActivationMarker,setupActivationMarker,setupActivationMatches,isValidStateShape,migrateLogSnapshot,defaultProgramMeta,normalizeProgramEntrySource,normalizeProgramMeta,normalizeLoadingConfiguration,withExplicitProgramStructure,normalizeProgramHistory,normalizeLoaded,normalizeNotify,normalizeSettings}=policy);
   validateRecoveryProjectionRecord=policy.validateRecoveryProjectionRecord;
   BuildAuthoring=createInstalledEditorRules({model,catalog:rawExerciseCatalog,nextId:uid,defaultProgramMeta,allowCreateDefinition:true});

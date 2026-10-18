@@ -7,7 +7,7 @@ import {createWorkoutRules} from '../../src/training/workout.js';
 import {createProgramModel} from '../../src/training/model.js';
 import metrics from '../../src/training/metrics.js';
 import {progression} from '../../src/training/progress.js';
-import {createSnapshotPolicy} from '../../src/persistence/snapshot.js';
+import {createSnapshotPolicy,draftEffectOutcome} from '../../src/persistence/snapshot.js';
 import {createEntryActivation,createEntryGeneration,buildLandingProof} from '../../src/app/entry.js';
 import {createCustomDefinitionImport} from '../../src/app/custom-import.js';
 const require=createRequire(import.meta.url),source=require('../../exercises.js');
@@ -110,3 +110,102 @@ assert.deepEqual(landing.chart,{from:92.5,to:100,sessions:4});
 assert.throws(()=>{landing.cases.add.logged[0][0]=999},TypeError);
 assert.equal(buildLandingProof({model,catalog,minJump:2.5}).recommendations.add.load,62.5);
 console.log('Landing read model: literal three recommendations/four-session figures from actual production engine and protected authored examples passed');
+
+// Pending confirmation is a transaction over one reviewed draft and published
+// head. Use shipped Entry, setup CAS and Program replacement owners; the only
+// substitute is the durable commit boundary (browser lock/replicas have their
+// existing integration owners).
+const {createEntryActivationCommands}=await import('../../src/app/entry/activation.js');
+const {createProgramReplacementPolicy,createProgramReplacementCommands}=await import('../../src/app/program.js');
+const {createSetupDraftStore,SETUP_DRAFT_KEY}=await import('../../src/persistence/setup-draft.js');
+async function transactionFixture({installed=false,workoutRaw=null}={}){
+ let head=structuredClone(installed?{...result.proposal,programMeta:{...result.proposal.programMeta,id:'old-program',blockId:'old-block'}}:profileHead),live=structuredClone(draft),raw=null,removeFails=false,commits=0,commitOutcome=null,beforeCommit=null;
+ delete head._storageSetupActivation;
+ const effects=[];
+ const store=createSetupDraftStore({rules:entry,storage:{getItem:()=>raw,setItem:(_,value)=>{raw=value},removeItem:()=>{if(removeFails)throw Error('cleanup unavailable');raw=null}},lock:async operation=>operation(),ownerId:'activation-owner',onFailure:()=>{},onSaved:()=>{}});
+ const saved=await store.write(live,live);assert.equal(saved.ok,true);
+ const replacementPolicy=createProgramReplacementPolicy({model,policy});
+ const replacement=createProgramReplacementCommands({read:()=>head,capture:replacementPolicy.capture,allocateBlockId:()=> 'unused-block',now:()=> '2026-10-18T12:00:00.000Z',commit:async(proposal,options)=>{
+   if(beforeCommit)await beforeCommit();
+   if(options.expectedSetupDraftRaw!==undefined&&options.expectedSetupDraftRaw!==raw)return{setupDraftConflict:true};
+   effects.push(options.effect);
+   if(commitOutcome&&!commitOutcome.committed)return commitOutcome;
+   if(options.effect?.effect?.expectedRaw!==workoutRaw)return{draftConflict:true};
+   commits++;head=structuredClone(proposal);head._storageRevision=1;
+   if(head._storageSetupActivation)head._storageSetupActivation.revision=1;
+   return commitOutcome||{committed:true,settled:true,localOk:true,idbOk:true,revision:1};
+ }});
+ const commands=createEntryActivationCommands({activation,entry,read:()=>head,readDraft:()=>live,store,replacement,replacementPolicy,policy,
+   workout:{readRaw:()=>workoutRaw,hasProgress:()=>workoutRaw!==null,clearEffect:raw=>draftEffectOutcome({required:true,kind:'clear-draft',expectedRaw:raw,precondition:'abort-changed'}),blockStartGuard:()=>null},
+   settleReceipt:async()=>({committed:true,settled:true,localOk:true,idbOk:true})});
+ return{commands,store,effects,setCommitOutcome:value=>{commitOutcome=value},beforeCommit:callback=>{beforeCommit=callback},setWorkout:value=>{workoutRaw=value},get head(){return head},get raw(){return raw},get commits(){return commits},
+   setDraft:value=>{live=value},setHead:value=>{head=value},setRaw:value=>{raw=value},failCleanup:value=>{removeFails=value},
+   prepare:()=>commands.prepare({name:'Reviewed transaction',origin:'first-run',destination:'log',versions:services.currentVersions(),pinnedVersionsExecutable:false})};
+}
+const changedDraft=await transactionFixture(),pending=await changedDraft.prepare();
+assert.equal(pending.kind,'prepared');
+changedDraft.setDraft({...draft,draftId:'unrelated-candidate'});
+const rejected=await changedDraft.commands.commit(pending,{confirmed:true,draftConfirmed:true});
+assert.equal(rejected.kind,'stale');assert.equal(changedDraft.commits,0);
+assert.notEqual(changedDraft.raw,null,'an unrelated setup record is never consumed');
+const changedHead=await transactionFixture(),pendingHead=await changedHead.prepare();
+changedHead.setHead({...changedHead.head,_storageRevision:1});
+assert.equal((await changedHead.commands.commit(pendingHead,{confirmed:true,draftConfirmed:true})).kind,'stale');
+assert.equal(changedHead.commits,0);
+console.log('Entry activation transaction refuses draft/head changes while confirmation is pending');
+
+const cancelled=await transactionFixture({installed:true}),cancelTicket=await cancelled.prepare();
+assert.equal(cancelTicket.needsReplacementConfirmation,true);
+assert.equal((await cancelled.commands.commit(cancelTicket,{confirmed:false})).kind,'cancelled');
+assert.equal(cancelled.commits,0);assert.notEqual(cancelled.raw,null);
+const newerSetup=await transactionFixture(),setupTicket=await newerSetup.prepare();
+newerSetup.beforeCommit(()=>newerSetup.setRaw('newer owner bytes'));
+assert.equal((await newerSetup.commands.commit(setupTicket,{confirmed:true})).setupDraftConflict,true);
+assert.equal(newerSetup.raw,'newer owner bytes');assert.equal(newerSetup.commits,0);
+const failed=await transactionFixture(),failedTicket=await failed.prepare(),failedRaw=failed.raw;
+failed.setCommitOutcome({committed:false,settled:false,localOk:false,idbOk:false});
+assert.equal((await failed.commands.commit(failedTicket,{confirmed:true})).kind,'failed');
+assert.equal(failed.raw,failedRaw);assert.equal(failed.head.programMeta.id,'predecessor');
+const unsettled=await transactionFixture(),unsettledTicket=await unsettled.prepare(),unsettledRaw=unsettled.raw;
+unsettled.setCommitOutcome({committed:true,settled:false,localOk:true,idbOk:true});
+assert.equal((await unsettled.commands.commit(unsettledTicket,{confirmed:true})).kind,'failed');
+assert.equal(unsettled.raw,unsettledRaw,'an unsettled commit cannot consume setup');
+assert.equal((await unsettled.commands.resume(unsettledTicket)).kind,'committed');
+assert.equal(unsettled.commits,1,'receipt settlement does not create another successor');
+const retry=await transactionFixture({installed:true}),retryTicket=await retry.prepare();
+retry.failCleanup(true);
+assert.equal((await retry.commands.commit(retryTicket,{confirmed:true})).kind,'cleanup-pending');
+assert.equal(retry.commits,1);assert.equal(retry.head.programMeta.id,'installed-program');
+assert.equal(retry.head.programHistory.length,1);assert.equal(retry.head.programHistory[0].id,'old-program');
+const receipt=await retry.prepare();assert.equal(receipt.kind,'receipt');
+retry.failCleanup(false);
+const resumed=await retry.commands.resume(receipt);
+assert.equal(resumed.kind,'committed');assert.equal(resumed.alreadyCommitted,true);
+assert.equal(retry.raw,null);assert.equal(retry.commits,1);assert.equal(retry.head.programHistory.length,1);
+const newer=await transactionFixture(),oldTicket=await newer.prepare();
+newer.failCleanup(true);await newer.commands.commit(oldTicket,{confirmed:true});newer.failCleanup(false);
+newer.setRaw('newer setup');newer.setDraft({...draft,draftId:'newer draft'});
+const preserve=await newer.commands.resume(oldTicket);
+assert.equal(preserve.kind,'cleanup-pending');assert.equal(preserve.clearEntryDraft,false);
+assert.equal(newer.raw,'newer setup');assert.equal(newer.commits,1);
+const workoutChanged=await transactionFixture({workoutRaw:'captured workout'}),workoutTicket=await workoutChanged.prepare();
+assert.equal(workoutTicket.needsDraftConfirmation,true);
+workoutChanged.setWorkout('newer workout');
+const workoutConflict=await workoutChanged.commands.commit(workoutTicket,{confirmed:true,draftConfirmed:true});
+assert.equal(workoutConflict.draftConflict,true);assert.equal(workoutChanged.commits,0);
+assert.equal(workoutChanged.effects[0].effect.expectedRaw,'captured workout');
+assert.equal(workoutChanged.effects[0].effect.precondition,'abort-changed');
+console.log('Entry transaction: cancellation, lock-held setup CAS, failed/unsettled commits, receipt retry/archive-once, newer setup and exact workout capture passed');
+const mismatched=await transactionFixture(),unrelatedSetup=mismatched.raw;
+mismatched.setDraft({...draft,draftId:'different-before-prepare'});
+const mismatchedPreparation=await mismatched.prepare();
+assert.equal(mismatchedPreparation.setupDraftConflict,true,'an adopted setup handle must belong to the reviewed Entry draft');
+assert.equal(mismatched.commits,0);assert.equal(mismatched.raw,unrelatedSetup);
+const republished=await transactionFixture(),republishedTicket=await republished.prepare();
+republished.setHead({...republished.head,profile:{heightCm:190}});
+assert.equal((await republished.commands.commit(republishedTicket,{confirmed:true})).kind,'stale','even same-revision publication is a different acknowledged head');
+assert.equal(republished.commits,0);
+const repeated=await retry.commands.commit(receipt,{confirmed:true});
+assert.equal(repeated.kind,'committed','retry after exact cleanup is already complete remains successful');
+assert.equal(retry.commits,1);assert.equal(retry.raw,null);assert.equal(retry.head.programHistory.length,1);
+assert.equal(preserve.entryDraftChanged,true,'presentation must not reset a newer Entry flow after old receipt cleanup');

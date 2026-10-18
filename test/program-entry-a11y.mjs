@@ -3,6 +3,7 @@
 import { pathToFileURL } from "url";
 import { launchChromium, waitForAppBoot, answerRecommend } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
+import { BENCH_ID, BENCH_NAME, LEG_PRESS_ID, LEG_PRESS_NAME } from "./adaptive-build-fixture.mjs";
 import { metricLogRow } from "./fixtures/history-metric-rows.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -239,11 +240,48 @@ export async function runProgramEntryA11y(browser, check = assert) {
   check(await page.locator("html").getAttribute("data-theme") === "dark", "dark theme remains tokenized in entry flow");
   check(await page.locator(".radio-card").first().evaluate((el) => getComputedStyle(el).transitionDuration === "0s"), "reduced motion removes entry transitions");
 
+  await runBuildActivationFieldFocus(page, check);
   await runEntryDialogFocus(page, check);
   await runBControlsA11y(browser, check);
   } finally {
     await page.close();
   }
+}
+
+/** Activation must expose an incomplete Suggest loads opt-in at its field,
+ * before preparing a candidate or opening replacement confirmation. */
+async function runBuildActivationFieldFocus(page, check) {
+  await clean(page);
+  await page.click('[data-entry-hub="build"]');
+  await page.click("#onbNext");
+  await page.fill("#entryProgramName", "Incomplete opt-in");
+  await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="2"]');
+  await page.click("#onbNext");
+  await page.waitForSelector('#onbProgramEditor [data-role="add-exercise"]');
+  for (const [day, id, name] of [["Day 1", BENCH_ID, BENCH_NAME], ["Day 2", LEG_PRESS_ID, LEG_PRESS_NAME]]) {
+    const toggle = page.locator(`#onbProgramEditor [data-role="toggle-day"][data-day="${day}"]`);
+    if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
+    await page.click(`#onbProgramEditor [data-role="add-exercise"][data-day="${day}"]`);
+    await page.waitForSelector("#exPickSheet.is-open");
+    await page.fill("#exPickSearch", name);
+    await page.click(`#exPickList [data-pick="${id}"]`);
+    await page.waitForFunction(exerciseId => window.__repforgeEntryState()?.result?.preview?.programDefinition?.days
+      ?.some(day => day.slots.some(slot => slot.exerciseId === exerciseId)), id);
+  }
+  const bench = page.locator('#onbProgramEditor [data-role="exercise"]').filter({ hasText: BENCH_NAME }).first();
+  if (!await bench.locator('[data-role="sets-control"]').count()) await bench.locator('[data-role="toggle-exercise"]').click();
+  await bench.locator('[data-role="suggest-loads"]').click();
+  await bench.locator('[data-role="suggest-loads-rir"]').waitFor();
+  await bench.locator('[data-role="toggle-exercise"]').click();
+  await page.click("#entryEditorActivate");
+  const field = page.locator('#onbProgramEditor [data-role="suggest-loads-rir"]').first();
+  await field.waitFor({ state: "visible" });
+  const focus = await field.evaluate(input => ({ focused: input === document.activeElement,
+    invalid: input.getAttribute("aria-invalid"), alert: document.getElementById(input.getAttribute("aria-describedby"))?.getAttribute("role") }));
+  check(focus.focused && focus.invalid === "true" && focus.alert === "alert",
+    "Build activation opens and focuses the incomplete Suggest loads field with its linked error", JSON.stringify(focus));
+  check(await page.evaluate(() => !JSON.parse(localStorage.getItem("repforge_v1"))?.programMeta?.onboarded),
+    "incomplete Build opt-in cannot install a program");
 }
 
 /** An active program (the 18-slot seed definition) with one logged set. */
@@ -428,6 +466,32 @@ async function runEntryDialogFocus(page, assert) {
   assert(await focusedId(page) === "entryActivate", "Escape closes the replace dialog and returns focus to the activation", await focusedId(page));
   const untouched = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1")).programMeta.name);
   assert(untouched === "Current block", "dismissing the replace dialog leaves the active program as it was", untouched);
+
+  // Consent belongs to the published head shown when this dialog opened.
+  // A real durable publication while it is pending must not silently become
+  // the replacement's new predecessor. Keep the original setup bytes intact.
+  await page.evaluate(() => { window.__entryPendingActivation = window.__repforgeActivateEntryPreview(); });
+  await page.waitForSelector("#entryReplaceConfirm");
+  const pendingHead = await page.evaluate(async () => {
+    const proposal = JSON.parse(localStorage.getItem("repforge_v1"));
+    const setup = localStorage.getItem("repforge_program_setup_draft_v1");
+    proposal.settings.restSec = proposal.settings.restSec === 90 ? 120 : 90;
+    const committed = await window.__repforgeCommitProposedState(proposal);
+    return { committed: committed.committed, setup, programId: proposal.programMeta.id };
+  });
+  assert(pendingHead.committed === true, "the competing published head is acknowledged before consent");
+  await page.click("#entryReplaceConfirm");
+  const staleConsent = await page.evaluate(async () => {
+    const outcome = await window.__entryPendingActivation;
+    const head = JSON.parse(localStorage.getItem("repforge_v1"));
+    return { kind: outcome?.kind, conflict: outcome?.conflict, programId: head.programMeta.id,
+      setup: localStorage.getItem("repforge_program_setup_draft_v1"), history: head.programHistory || [] };
+  });
+  assert(staleConsent.kind === "stale" && staleConsent.conflict === true &&
+    staleConsent.programId === pendingHead.programId && staleConsent.setup === pendingHead.setup &&
+    staleConsent.history.length === 0,
+  "pending replacement consent cannot activate against a newer head, archive it, or consume setup", JSON.stringify({kind:staleConsent.kind,conflict:staleConsent.conflict,programId:staleConsent.programId,setupPreserved:staleConsent.setup===pendingHead.setup}));
+
 }
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
