@@ -71,7 +71,7 @@ function containsCall(node) {
     if (ts.isPropertyAccessExpression(callee) && ts.isIdentifier(callee.expression) && callee.expression.text==='JSON' && callee.name.text==='stringify') return node.arguments.some(containsCall);
     if (ts.isIdentifier(callee) && callee.text === 'Symbol') return node.arguments.some(containsCall);
     if (ts.isPropertyAccessExpression(callee) && ['map','flatMap','flat','filter'].includes(callee.name.text)) {
-      return containsCall(callee.expression) || node.arguments.some(argument => ts.isArrowFunction(argument) || ts.isFunctionExpression(argument) ? containsCall(argument.body) : containsCall(argument));
+      return containsCall(callee.expression) || node.arguments.some((argument,index) => ts.isArrowFunction(argument) || ts.isFunctionExpression(argument) ? containsCall(argument.body) : (index===0 && callee.name.text!=='flat' ? true : containsCall(argument)));
     }
     if (ts.isPropertyAccessExpression(callee) && ts.isIdentifier(callee.expression) && callee.expression.text === 'Object' && ['freeze','fromEntries','keys','values','entries'].includes(callee.name.text)) return node.arguments.some(containsCall);
     return true;
