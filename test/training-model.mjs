@@ -37,3 +37,9 @@ assert.equal(compacted.history.throughWeek,1);
 assert.equal(compacted.history.plannedWorkingSets,6);
 assert.deepEqual(original,saved);
 console.log("PASS pure program identity, editor renumbering, archive attribution and calendar compaction");
+
+let clock="2026-10-05T12:00:00.000Z";
+const liveModel=createProgramModel({catalog,now:()=>clock,nextId:()=>"id"});
+assert.equal(liveModel.mesocycleLifecycle(meta).elapsedWeek,1);
+clock="2026-10-19T12:00:00.000Z";
+assert.equal(liveModel.mesocycleLifecycle(meta).elapsedWeek,3,"explicit caller clock is read per operation, never frozen at boot");

@@ -1,5 +1,9 @@
+/** @typedef {{id:string,sourceName:string,semantic:string,unit:string}} MetricDefinition */
+/** @typedef {{ok:true,value:MetricDefinition,issues:string[]}|{ok:false,value:null,issues:string[]}} DefinitionResult */
+/** @typedef {{ok:true,value:number|null}|{ok:false,value:null,issues:string[]}} MetricValueResult */
 "use strict";
 
+/** @type {readonly Readonly<MetricDefinition>[]} */
 const DEFINITIONS = Object.freeze([
   Object.freeze({ id: "2555c6f170d8805cafa6d16d3fdddbaa", sourceName: "Weight", semantic: "loadKg", unit: "kg" }),
   Object.freeze({ id: "2555c6f170d880e6b760f2286b2b2d76", sourceName: "Assistance weight", semantic: "assistanceKg", unit: "kg" }),
@@ -13,7 +17,9 @@ const DEFINITIONS = Object.freeze([
   Object.freeze({ id: "25a5c6f170d8803aa6fdc6f2535f9c5c", sourceName: "Weight per side persistent", semantic: "persistentLoadPerSideKg", unit: "kg" }),
   Object.freeze({ id: "25a5c6f170d88092bcead56f9fe8247e", sourceName: "Distance short per side", semantic: "distanceShortPerSideMeters", unit: "metres" }),
 ]);
+/** @type {Map<string,Readonly<MetricDefinition>>} */
 const BY_ID = new Map(DEFINITIONS.map((entry) => [entry.id, entry]));
+/** @type {Map<string,Readonly<MetricDefinition>>} */
 const BY_NAME = new Map(DEFINITIONS.map((entry) => [entry.sourceName, entry]));
 const SOURCE_COMPOSITIONS = Object.freeze([
   ["25a5c6f170d880baaa2dc8c7b67d4b65", "25a5c6f170d880e2990fc88146f7de56"],
@@ -37,14 +43,18 @@ const SOURCE_COMPOSITIONS = Object.freeze([
 ].map((ids) => Object.freeze(ids)));
 const COMPOSITION_KEYS = new Set(SOURCE_COMPOSITIONS.map((ids) => JSON.stringify(ids)));
 const TARGET_KEYS = Object.freeze(DEFINITIONS.map((entry) => entry.semantic));
+/** @param {unknown} value @returns {value is Record<string,unknown>} */
 const isPlainObject = (value) => !!value && typeof value === "object" && !Array.isArray(value)
   && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
+/** @param {unknown} value @returns {value is number} */
 const finite = (value) => typeof value === "number" && Number.isFinite(value);
 
+/** @param {unknown} metricIds @returns {{ok:boolean,value:MetricDefinition[],issues:string[]}} */
 function definitionsForIds(metricIds) {
   if (!Array.isArray(metricIds)) return { ok: false, value: [], issues: ["metricIds: expected an array"] };
   const issues = [];
   const seen = new Set();
+  /** @type {MetricDefinition[]} */
   const value = [];
   metricIds.forEach((id, index) => {
     const definition = BY_ID.get(id);
@@ -62,20 +72,22 @@ function definitionsForIds(metricIds) {
   return { ok: issues.length === 0, value, issues };
 }
 
+/** @param {unknown} definition @returns {DefinitionResult} */
 function validateMetricDefinition(definition) {
   if (!isPlainObject(definition)) return { ok: false, value: null, issues: ["metricDefinition: expected an object"] };
-  const canonical = BY_ID.get(definition.id);
+  const canonical = typeof definition.id === "string" ? BY_ID.get(definition.id) : undefined;
   const issues = [];
   if (!canonical) issues.push("metricDefinition.id: unknown source metric ID");
-  else for (const key of ["sourceName", "semantic", "unit"]) {
+  else for (const key of /** @type {(keyof MetricDefinition)[]} */ (["sourceName", "semantic", "unit"])) {
     if (definition[key] !== canonical[key]) issues.push(`metricDefinition.${key}: does not match the canonical source metric`);
   }
   if (Object.keys(definition).some((key) => !["id", "sourceName", "semantic", "unit"].includes(key))) {
     issues.push("metricDefinition: unsupported field");
   }
-  return issues.length ? { ok: false, value: null, issues } : { ok: true, value: { ...canonical }, issues: [] };
+  return issues.length ? { ok: false, value: null, issues } : { ok: true, value: { .../** @type {MetricDefinition} */ (canonical) }, issues: [] };
 }
 
+/** @param {unknown} definition @param {unknown} value @returns {MetricValueResult} */
 function parseMetricValue(definition, value) {
   const checked = validateMetricDefinition(definition);
   if (!checked.ok) return { ok: false, value: null, issues: checked.issues };
@@ -92,6 +104,7 @@ function parseMetricValue(definition, value) {
   return { ok: true, value: numeric };
 }
 
+/** @param {unknown} metricIds @param {unknown} definitions @param {{allowEmpty?:boolean}} [options] */
 function validateDefinitions(metricIds, definitions, options = {}) {
   const allowEmpty = options.allowEmpty === true;
   const expected = definitionsForIds(metricIds);
@@ -106,7 +119,7 @@ function validateDefinitions(metricIds, definitions, options = {}) {
       issues.push(`metricDefinitions[${index}]: expected a definition object`);
       continue;
     }
-    for (const key of ["id", "sourceName", "semantic", "unit"]) {
+    for (const key of /** @type {(keyof MetricDefinition)[]} */ (["id", "sourceName", "semantic", "unit"])) {
       if (actual[key] !== canonical[key]) issues.push(`metricDefinitions[${index}].${key}: does not match the canonical source metric`);
     }
     if (Object.keys(actual).some((key) => !["id", "sourceName", "semantic", "unit"].includes(key))) {
@@ -116,13 +129,14 @@ function validateDefinitions(metricIds, definitions, options = {}) {
   return { ok: issues.length === 0, issues };
 }
 
+/** @param {unknown} metricIds @param {unknown} uuidIndex @param {{allowEmpty?:boolean}} [options] */
 function validateRawIds(metricIds, uuidIndex, options = {}) {
   const base = definitionsForIds(metricIds);
   const issues = [...base.issues];
   if (!isPlainObject(uuidIndex)) return { ok: false, issues: [...issues, "uuidIndex: expected an object"] };
   for (const definition of base.value) {
     const raw = uuidIndex[definition.id];
-    if (!raw || raw.type !== "exerciseMetric" || raw.name !== definition.sourceName) {
+    if (!isPlainObject(raw) || raw.type !== "exerciseMetric" || raw.name !== definition.sourceName) {
       issues.push(`metricIds.${definition.id}: source UUID does not match the canonical exerciseMetric`);
     }
   }
@@ -130,6 +144,7 @@ function validateRawIds(metricIds, uuidIndex, options = {}) {
   return { ok: issues.length === 0, issues };
 }
 
+/** @param {unknown} metricIds @param {unknown} targets @param {{requireTargets?:boolean}} [options] */
 function validateTargets(metricIds, targets, options = {}) {
   const expected = definitionsForIds(metricIds);
   const issues = [...expected.issues];
@@ -145,6 +160,7 @@ function validateTargets(metricIds, targets, options = {}) {
   return { ok: issues.length === 0, issues };
 }
 
+/** @param {unknown} metricIds @param {unknown} metricValues @param {{allowEmpty?:boolean}} [options] */
 function validateMetricValues(metricIds, metricValues, options = {}) {
   const expected = definitionsForIds(metricIds);
   const issues = [...expected.issues];
@@ -168,6 +184,7 @@ function validateMetricValues(metricIds, metricValues, options = {}) {
   return { ok: issues.length === 0, issues };
 }
 
+/** @param {{metricOrigin?:unknown,metricIds?:unknown,metricDefinitions?:unknown,sourceId?:unknown,sourceExercise?:Record<string,unknown>|null,bodyweightCoefficient?:unknown}} [input] */
 function validateExerciseSourceBinding({
   metricOrigin,
   metricIds,
@@ -227,6 +244,7 @@ function validateExerciseSourceBinding({
 
 const LB=2.2046226218;
 const LOAD_RAW=/^\d+(?:[.,]\d+)?$/,MAX_LOAD_KG=1000,MAX_LOAD_LB=MAX_LOAD_KG*LB;
+/** @param {unknown} raw @param {string} [unit] */
 function parseLoadInput(raw,unit="kg"){
 const s=String(raw??"").trim();
 if(!s)return{kind:"empty"};
@@ -242,9 +260,11 @@ if(unit==="lb"){
 if(display>MAX_LOAD_KG)return{kind:"invalid"};
 return{kind:"valid",kg:display}}
 
+/** @param {string} semantic @param {unknown} value */
 function validTargetForSemantic(semantic, value) {
   const positiveInteger = semantic === "reps" || semantic === "repsPerSide";
   const positive = semantic.startsWith("duration") || semantic.startsWith("distance");
+  /** @param {unknown} candidate @returns {candidate is number} */
   const validNumber = (candidate) => finite(candidate)
     && (positiveInteger ? Number.isSafeInteger(candidate) && candidate > 0 : positive ? candidate > 0 : candidate >= 0)
     && (!(["loadKg", "loadPerSideKg", "persistentLoadPerSideKg", "assistanceKg"].includes(semantic)) || candidate <= 1000)
@@ -255,6 +275,7 @@ function validTargetForSemantic(semantic, value) {
     && validNumber(value.min) && validNumber(value.max) && value.max >= value.min;
 }
 
+/** @param {string} sourceName */
 function byName(sourceName) {
   const value = BY_NAME.get(sourceName);
   return value ? { ...value } : null;
