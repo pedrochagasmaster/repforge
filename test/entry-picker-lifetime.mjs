@@ -1,0 +1,42 @@
+import assert from 'node:assert/strict';
+import {launchChromium,waitForAppBoot} from './browser.mjs';
+const base=process.env.REPFORGE_URL||'http://localhost:8000/';
+const browser=await launchChromium();
+try {
+  const page=await browser.newPage();
+  await page.goto(base);
+  await waitForAppBoot(page,{base});
+  const facts=await page.evaluate(async()=>{
+    const {createEntryPickers}=await import(new URL('src/ui/entry/pickers.js',document.baseURI));
+    const events=[];
+    const owner=createEntryPickers({window,format:{decimal:(n,d)=>n.toFixed(d),weight:(n,u)=>`${n} ${u}`}});
+    const wheel=document.createElement('div');wheel.dataset.index='0';
+    wheel.innerHTML='<button class="entry-wheel__item">First</button><button class="entry-wheel__item">Second</button><button class="entry-wheel__item">Third</button>';
+    document.body.append(wheel);
+    const key=(el,value)=>el.dispatchEvent(new KeyboardEvent('keydown',{key:value,bubbles:true,cancelable:true}));
+    owner.wheel(wheel,n=>events.push(`first:${n}`));
+    key(wheel,'ArrowDown');
+    const initial=[wheel.getAttribute('aria-valuenow'),wheel.getAttribute('aria-valuetext')];
+    owner.wheel(wheel,n=>events.push(`second:${n}`));
+    key(wheel,'ArrowDown');
+    wheel.scrollTop=0;wheel.dispatchEvent(new Event('scroll'));
+    owner.dispose();
+    await new Promise(resolve=>setTimeout(resolve,140));
+    key(wheel,'Home');
+    const afterDispose=[...events];
+    const parent=document.createElement('div');
+    parent.innerHTML='<p class="entry-ruler__value"><b>30.0</b><button id="entryWeightType">Type</button></p><div data-min="30" data-step="0.1" data-steps="1700" data-unit="kg" aria-valuenow="30"><div class="entry-ruler__track"></div></div>';
+    document.body.append(parent);
+    const ruler=parent.querySelector('[data-min]');
+    owner.ruler(ruler,n=>events.push(n),edit=>{events.push(`typed:${edit.value}`);edit.set(2);});
+    key(ruler,'ArrowRight');parent.querySelector('button').click();
+    const rulerFacts=[ruler.getAttribute('aria-valuenow'),ruler.getAttribute('aria-valuetext'),parent.querySelector('b').textContent];
+    owner.dispose();wheel.remove();parent.remove();
+    return {initial,afterDispose,events,rulerFacts};
+  });
+  assert.deepEqual(facts.initial,['1','Second']);
+  assert.deepEqual(facts.afterDispose,['first:1','second:2'],'remount/dispose cannot duplicate callbacks or settle a retired scroll');
+  assert.deepEqual(facts.events,['first:1','second:2',30.1,'typed:30.1',30.2]);
+  assert.deepEqual(facts.rulerFacts,['30.2','30.2 kg','30.2']);
+  console.log('PASS native entry picker keyboard, typed fallback, remount and delayed-disposal contracts');
+} finally {await browser.close();}

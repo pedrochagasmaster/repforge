@@ -1,3 +1,4 @@
+import {createEntryPickers,ENTRY_WHEEL_ROW} from './src/ui/entry/pickers.js';
 import {createCatalog,CATALOG_URL} from './src/platform/catalog.js';
 import {create as createProgramExecutor,url as programWorkerUrl} from './src/platform/program-executor.js';
 import {createGenerationRules} from './src/training/generation.js';
@@ -13475,6 +13476,7 @@ function disarmEntryHistory(){
     if(history.state?.[ENTRY_HISTORY_STATE_KEY])
       history.replaceState(entryHistoryState(false),"",location.href)}catch{}}
 function closeOnboarding(){
+  entryPickers.dispose();
   // The pasted program and the reply belong to the flow that asked for them.
   resetFreeformImport();
   cancelEntryGeneration();
@@ -13868,7 +13870,7 @@ function renderEquipmentStep(){
     `<button type="button" class="btn btn--ghost entry-b__reset" id="entryEquipmentReset"${changed?"":" disabled"}>${esc(t("entry.equipment.reset"))}</button>`}
 /* Which groups start ticked: any member in the preset (Plan 068 slice A). */
 function entryPresetGroups(kind){
-  try{return ProgramEntryAdapter?.presetEquipmentGroups?.(kind,window.RepForgeExerciseCatalog?.snapshot?.())||[]}catch{return[]}}
+  try{return ProgramEntryAdapter?.presetEquipmentGroups?.(kind,rawExerciseCatalog)||[]}catch{return[]}}
 function entryToggleEquipmentGroup(group){
   const env=entryState.answers.environment;
   if(!env?.kind||!(ProgramEntry.EQUIPMENT_GROUPS||[]).includes(group))return;
@@ -13913,7 +13915,7 @@ function renderDeloadStep(){
 /* Basics pickers. Continue accepts the value currently shown, including the
    neutral starting value. Skip is the separate path that leaves it unset. */
 let entryPickerDraft={};
-const ENTRY_WHEEL_ROW=44;
+const entryPickers=createEntryPickers({window,format:{decimal:entryDecimal,weight:entryWeightText}});
 const ENTRY_BIRTH_DEFAULT=Object.freeze({y:1993,m:5,d:14});
 const ENTRY_HEIGHT_DEFAULT=174,ENTRY_WEIGHT_DEFAULT=80.5;
 const KG_PER_LB=0.45359237;
@@ -14010,64 +14012,8 @@ function entryCommitPickerInput(){
   entryPickerInput=null;entryDialog=null;closeEntryDialog();renderOnboarding()}
 /* A wheel is a spinbutton: arrows, Page keys, Home and End set it, a flick
    snaps it, and tapping its selected value opens the typed-value fallback. */
-function mountEntryWheel(el,onChange,onType){
-  if(!el)return;
-  const items=[...el.querySelectorAll(".entry-wheel__item")];
-  const count=items.length;
-  const set=(index,{scroll=true}={})=>{
-    const next=Math.max(0,Math.min(count-1,index));
-    if(scroll)el.scrollTop=next*ENTRY_WHEEL_ROW;
-    items.forEach((item,i)=>item.classList.toggle("is-current",i===next));
-    if(Number(el.dataset.index)===next)return;
-    el.dataset.index=String(next);
-    el.setAttribute("aria-valuenow",String(next));
-    el.setAttribute("aria-valuetext",items[next].textContent);
-    onChange(next)};
-  el.scrollTop=Number(el.dataset.index)*ENTRY_WHEEL_ROW;
-  items.forEach((item,i)=>item.classList.toggle("is-current",i===Number(el.dataset.index)));
-  let settle=0;
-  // A wheel replaced while its scroll was settling (the day wheel when the
-  // month changes its length) must not report its detached position.
-  el.addEventListener("scroll",()=>{clearTimeout(settle);settle=setTimeout(()=>{if(el.isConnected)set(Math.round(el.scrollTop/ENTRY_WHEEL_ROW),{scroll:false})},90)},{passive:true});
-  el.addEventListener("keydown",event=>{
-    const current=Number(el.dataset.index);
-    const target={ArrowUp:current-1,ArrowDown:current+1,PageUp:current-5,PageDown:current+5,Home:0,End:count-1}[event.key];
-    if(target===undefined)return;
-    event.preventDefault();set(target)});
-  el.addEventListener("click",event=>{
-    if(!event.target.closest?.(".entry-wheel__item")&&typeof onType==="function")onType({index:Number(el.dataset.index),set})});
-  items.forEach((item,i)=>item.addEventListener("click",()=>{
-    if(i===Number(el.dataset.index)&&typeof onType==="function")onType({index:i,set});
-    else set(i)}))}
-function mountEntryRuler(el,onChange,onType){
-  if(!el)return;
-  const min=Number(el.dataset.min),step=Number(el.dataset.step),steps=Number(el.dataset.steps),unit=el.dataset.unit;
-  const track=el.querySelector(".entry-ruler__track"),readout=el.parentElement.querySelector(".entry-ruler__value b");
-  const pad=el.clientWidth/2;
-  if(track)track.style.margin=`0 ${pad}px`;
-  const valueAt=index=>Math.round((min+index*step)*10)/10;
-  let index=Math.round((Number(el.getAttribute("aria-valuenow"))-min)/step);
-  el.scrollLeft=index*8;
-  const show=next=>{
-    const value=valueAt(next);
-    if(readout)readout.textContent=entryDecimal(value,1);
-    el.setAttribute("aria-valuenow",value.toFixed(1));
-    el.setAttribute("aria-valuetext",entryWeightText(value,unit))};
-  const set=(next,{scroll=true}={})=>{
-    next=Math.max(0,Math.min(steps,next));
-    if(scroll)el.scrollLeft=next*8;
-    show(next);
-    if(next===index)return;
-    index=next;onChange(valueAt(next))};
-  let settle=0;
-  el.addEventListener("scroll",()=>{show(Math.max(0,Math.min(steps,Math.round(el.scrollLeft/8))));
-    clearTimeout(settle);settle=setTimeout(()=>{if(el.isConnected)set(Math.round(el.scrollLeft/8),{scroll:false})},110)},{passive:true});
-  el.addEventListener("keydown",event=>{
-    const target={ArrowLeft:index-1,ArrowDown:index-1,ArrowRight:index+1,ArrowUp:index+1,PageDown:index-10,PageUp:index+10,Home:0,End:steps}[event.key];
-    if(target===undefined)return;
-    event.preventDefault();set(target)});
-  const typeButton=el.parentElement.querySelector("#entryWeightType");
-  typeButton?.addEventListener("click",()=>onType?.({index,value:valueAt(index),set}))}
+function mountEntryWheel(el,onChange,onType){return entryPickers.wheel(el,onChange,onType)}
+function mountEntryRuler(el,onChange,onType){return entryPickers.ruler(el,onChange,onType)}
 function mountEntryPickers(){
   const stepId=entryState?.step;
   if(stepId==="birth_date"){
@@ -16296,6 +16242,7 @@ function renderOnboarding({pageTransition=null}={}){
   if(!pageTransition)clearEntryMotion();
   const body=$("#onbBody"),title=$("#onbTitle"),step=$("#onbStepLabel"),back=$("#onbBack"),next=$("#onbNext");
   if(!body||!ProgramEntry||!entryState)return;
+  entryPickers.dispose();
   collapseSingleCustomShape();
   const focusToken=entryFocusToken();
   const headerFocus=document.activeElement?.closest?.(".onb__bar")?document.activeElement.id:"";
@@ -19215,7 +19162,7 @@ async function settlePendingJournal(){return DurableState.settlePendingJournal()
 async function applyBootDecision(decision){
   const bootSnapshot=normalizeLoaded(decision.kind==="first-run"?null:decision.snapshot);
   bootSnapshot.program=makeProgram(bootSnapshot.program,snapshotLookup(bootSnapshot.customExercises),bootSnapshot.programMeta).toJSON();
-  bootSnapshot.programMeta=normalizeProgramMeta(bootSnapshot.programMeta,bootSnapshot.log,bootSnapshot.program);
+  bootSnapshot.programMeta=normalizeProgramMeta(bootSnapshot.programMeta,bootSnapshot.log,bootSnapshot.program,{customExercises:bootSnapshot.customExercises});
   publishTrainingSnapshot(bootSnapshot);
   resetPersistenceBase(decision.kind==="first-run"?state:decision.snapshot);
   await refreshRecoveryProjectionCache(state);
@@ -19393,7 +19340,7 @@ async function boot(){
     if(!state){
       const recoveredSnapshot=normalizeLoaded(null);
       recoveredSnapshot.program=makeProgram(recoveredSnapshot.program,snapshotLookup(recoveredSnapshot.customExercises),recoveredSnapshot.programMeta).toJSON();
-      recoveredSnapshot.programMeta=normalizeProgramMeta(recoveredSnapshot.programMeta,recoveredSnapshot.log,recoveredSnapshot.program);
+      recoveredSnapshot.programMeta=normalizeProgramMeta(recoveredSnapshot.programMeta,recoveredSnapshot.log,recoveredSnapshot.program,{customExercises:recoveredSnapshot.customExercises});
       publishTrainingSnapshot(recoveredSnapshot);
       resetPersistenceBase(state);day=days()[0]||"Day 1";
       if(I18N)I18N.setLang(resolveLang())}

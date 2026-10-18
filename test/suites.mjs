@@ -122,6 +122,7 @@ export const SUITES = {
     s("test/adversarial-draft-transactions.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "seconds": 40.41}),
   ],
   "entry": [
+    s("test/entry-picker-lifetime.mjs", [], {domains:["entry"],seconds:3}),
     s("test/training-worker-modules.mjs", [], {domains:["program","offline"], seconds:20}),
     s("test/program-entry-s4.mjs", [], {"domains": ["entry", "program", "today", "workout", "persistence"], "cost": "normal", "tier": "feedback", "seconds": 39.14}),
     s("test/program-engine-worker.mjs", [], {"domains": ["entry", "program", "offline"], "cost": "normal", "tier": "feedback", "seconds": 28.09}),

@@ -54,6 +54,7 @@ const ASSETS = [
   "./src/training/progress/internal/progression.js",
   "./src/training/progress/internal/schedule.js",
   "./src/training/workout.js",
+  "./src/ui/entry/pickers.js",
   "./src/ui/focus/controller.js",
   "./src/ui/focus/geometry.js",
   "./src/ui/focus/gestures.js",
