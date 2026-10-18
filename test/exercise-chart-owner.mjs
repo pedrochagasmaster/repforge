@@ -45,6 +45,8 @@ try{
  assert.match(await page.locator('.exdet__stats .statrow__val').nth(1).innerText(),/45/,'detail top load is the fixed 45kg');
  assert.equal(await page.locator('.exsess').count(),3,'detail has all fixed sessions');
  assert.equal(await page.evaluate(()=>window.__repforgeChartLastPresentation),'trend','canvas owns honest three-point trend');
+ await page.evaluate(()=>{Object.defineProperty(window,'devicePixelRatio',{configurable:true,value:2});window.dispatchEvent(new Event('resize'))});
+ await page.waitForFunction(()=>{const canvas=document.querySelector('#exChart');return canvas.width===canvas.clientWidth*2},undefined,{timeout:2000});
  await page.locator('#exBack').click();await page.waitForSelector('#log.active');
  assert.equal(await page.evaluate(()=>localStorage.getItem('repforge_v1')),savedBefore,'chart/detail navigation and selection preserve acknowledged bytes');
  assert.deepEqual(errors,[],'actual app has no module-scope leaks');

@@ -1,7 +1,7 @@
 /** The canvas trend is presentation over already-derived session facts. */
 /** @param {Pick<import("./exercise-contracts.js").ChartOptions,"window"|"copy"|"format"> & {onPresentation?:(kind:string)=>void}} options */
 export function createExerciseTrend({window,copy,format,onPresentation}){
-const {document,devicePixelRatio}=window,{t}=copy;
+const {document}=window,{t}=copy;
 const getComputedStyle=window.getComputedStyle.bind(window);
 const {number:fmt,displayLoad:toDisplay,unit:unitLabel,date:shortDate}=format;
 /** @param {string} selector */
@@ -28,7 +28,7 @@ function chartPalette(){
 /** @param {readonly import("../../app/exercise-contracts.js").TrendRow[]} rows @param {string} sel */
 function draw(rows,sel="#chart"){
   const c=$(sel);if(!c)return;
-  const ctx=/** @type {CanvasRenderingContext2D} */(c.getContext("2d")),w=c.clientWidth||320,h=240,ratio=devicePixelRatio||1;
+  const ctx=/** @type {CanvasRenderingContext2D} */(c.getContext("2d")),w=c.clientWidth||320,h=240,ratio=window.devicePixelRatio||1;
   c.width=w*ratio;c.height=h*ratio;ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,w,h);
   const pal=chartPalette(),C={accent:pal.accent,steel:pal.text,dim:pal.text,rule:pal.rule,mist:pal.ink};
   const fontSize=`${pal.captionSize}px`,fontFamily=pal.fontFamily;
