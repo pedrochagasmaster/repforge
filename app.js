@@ -10597,72 +10597,27 @@ function entryBSection(stepId){
   const index=ENTRY_B_SECTIONS.findIndex(([,steps])=>steps.includes(stepId));
   return index<0?null:{n:index+1,total:ENTRY_B_SECTIONS.length,name:ENTRY_B_SECTIONS[index][0]}}
 const entryIsB=()=>entryState?.route==="recommend";
-function entryBasics(){return entryState?.answers?.basics||{}}
+function entryBasics(source=entryState){return source?.answers?.basics||{}}
 function entryPatchBasics(patch){
   const next={...entryBasics(),...patch};
   for(const key of Object.keys(next))if(next[key]==null)delete next[key];
   entryPatchAnswers({basics:next})}
-function entryBNote(weight=false){
-  return `<p class="entry-b__note"><span class="icon-mask icon-mask--shield icon-mask--sm" aria-hidden="true"></span><span>${esc(t(weight?"entry.basics.weight_note":"entry.basics.note"))}</span></p>`}
-function entryBChoice(key,value,label,sub,selected,{icon=""}={}){
-  return `<button type="button" class="radio-card${selected?" is-selected":""}" role="radio" aria-checked="${selected?"true":"false"}" data-entry-pick="${esc(key)}" data-entry-val="${esc(String(value))}">`+
-    (icon?`<span class="radio-card__icon icon-mask icon-mask--${esc(icon)}" aria-hidden="true"></span>`:"")+
-    `<span class="radio-card__body"><span class="radio-card__title">${esc(label)}</span>${sub?`<span class="radio-card__cap">${esc(sub)}</span>`:""}</span>`+
-    `<span class="radio-card__mark" aria-hidden="true"></span></button>`}
-function entryBGroup(inner,{compact=false}={}){
-  return `<div class="onb__opts${compact?" onb__num entry-b__compact":""}" role="radiogroup" aria-labelledby="entryHeading">${inner}</div>`}
-function renderIntroStep(){
-  const steps=ENTRY_B_SECTIONS.map(([name],index)=>
-    `<li class="entry-b__section${index===0?" is-current":""}"><span class="entry-b__section-n" aria-hidden="true">${index+1}</span>`+
-    `<span><strong>${esc(t(`entry.section.${name}`))}</strong><span>${esc(t(`entry.intro.${name}`))}</span></span></li>`).join("");
-  return entryHeading(t("entry.intro.title"))+`<p class="onb__explain">${esc(t("entry.intro.lede"))}</p><ol class="entry-b__sections">${steps}</ol>`}
-function renderSexStep(){
-  const current=entryBasics().sex;
-  return entryHeading(t("entry.sex.title"))+entryBGroup(["female","male","undisclosed"].map(value=>
-    entryBChoice("basicsSex",value,t(`entry.sex.${value}`),"",current===value)).join(""))+entryBNote()}
-function renderLiftingStep(){
-  const current=entryState.answers.structuredExperience;
-  return entryHeading(t("entry.lifting.title"))+entryBGroup(["first","under_6m","6_to_24m","over_24m"].map(value=>
-    entryBChoice("structuredExperience",value,t(`entry.lifting.${value}`),t(`entry.lifting.${value}.sub`),current===value)).join(""))}
-function renderCardioStep(){
-  const current=entryBasics().cardioExperience;
-  return entryHeading(t("entry.cardio_experience.title"))+entryBGroup(["none","under_1y","1_to_4y","over_4y"].map(value=>
-    entryBChoice("basicsCardio",value,t(`entry.cardio.${value}`),entryCardioSub(value),current===value)).join(""))+entryBNote()}
+
+
+
+
+
+
+
 /* "None" answers what the lifter does now, so it has no level. */
-function entryCardioSub(value){return value==="none"?"":t(`entry.cardio.${value}.sub`)}
-function renderGymStep(){
-  const current=entryState.answers.environment?.kind;
-  return entryHeading(t("entry.gym.title"))+`<p class="onb__explain">${esc(t("entry.gym.lede"))}</p>`+
-    entryBGroup(ENTRY_ENVIRONMENTS.map(value=>entryBChoice("environment",value,t(`entry.gym.${value}`),t(`entry.gym.${value}.sub`),
-      current===value,{icon:ENTRY_ENV_ICONS[value]||"dumbbell"})).join(""))}
-function renderGoalStep(){
-  const current=entryState.answers.desiredResult;
-  return entryHeading(t("entry.goal.title"))+entryBGroup(["muscle_growth","strength","balanced"].map(value=>
-    entryBChoice("desiredResult",value,t(`entry.goal.${value}`),t(`entry.goal.${value}.sub`),current===value,{icon:ENTRY_DESIRED_ICONS[value]})).join(""))}
-function renderDaysStep(){
-  const current=entryState.answers.daysPerWeek;
-  return entryHeading(t("entry.days_per_week.title"))+entryBGroup([2,3,4,5,6].map(n=>
-    entryBChoice("daysPerWeek",n,t("entry.days_per_week.value",{n}),"",current===n)).join(""),{compact:true})+
-    `<p class="entry-b__fact" aria-live="polite">${current?esc(t(`entry.days_per_week.split.${current}`)):""}</p>`}
-function renderSessionLengthStep(){
-  const current=entryState.answers.sessionMinutes??60;
-  return entryHeading(t("entry.session_length.title"))+`<p class="onb__explain">${esc(t("entry.session_length.lede"))}</p>`+
-    entryBGroup([20,40,60,90,120,150].map(n=>entryBChoice("sessionMinutes",n,t("entry.session_length.value",{n}),"",current===n)).join(""),{compact:true})}
+
+
+
+
+
 const ENTRY_DESIRED_ICONS={muscle_growth:"flex",balanced:"scale",strength:"dumbbell"};
 const ENTRY_ENV_ICONS={everything:"building",commercial_gym:"building",warehouse_gym:"rack",basic_gym:"house",limited_home:"kettlebell",full_home:"rack",other:"dumbbell"};
-function renderEquipmentStep(){
-  const kind=entryState.answers.environment?.kind;
-  const adjust=entryState.answers.environment?.adjust||{add:[],remove:[]};
-  const preset=new Set(entryPresetGroups(kind));
-  const rows=(ProgramEntry.EQUIPMENT_GROUPS||[]).map(group=>{
-    const on=adjust.add?.includes(group)||(preset.has(group)&&!adjust.remove?.includes(group));
-    return `<button type="button" class="radio-card entry-b__equip${on?" is-selected":""}" role="checkbox" aria-checked="${on?"true":"false"}" data-entry-pick="equipmentGroup" data-entry-val="${esc(group)}">`+
-      `<span class="radio-card__body"><span class="radio-card__title">${esc(t(`entry.equipment.group.${group}`))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button>`}).join("");
-  const changed=(adjust.add?.length||0)+(adjust.remove?.length||0)>0;
-  return entryHeading(t("entry.equipment.title"))+
-    `<p class="onb__explain">${esc(t("entry.equipment.lede",{place:kind?t(`entry.gym.${kind}`):""}))}</p>`+
-    `<div class="onb__opts entry-b__equipment" role="group" aria-labelledby="entryHeading">${rows}</div>`+
-    `<button type="button" class="btn btn--ghost entry-b__reset" id="entryEquipmentReset"${changed?"":" disabled"}>${esc(t("entry.equipment.reset"))}</button>`}
+
 /* Which groups start ticked: any member in the preset (Plan 068 slice A). */
 function entryPresetGroups(kind){
   try{return ProgramEntryAdapter?.presetEquipmentGroups?.(kind,rawExerciseCatalog)||[]}catch{return[]}}
@@ -10677,18 +10632,7 @@ function entryToggleEquipmentGroup(group){
   if(on&&preset)remove.add(group);
   entryPatchAnswers({environment:{kind:env.kind,adjust:{add:[...add],remove:[...remove]}}})}
 let entryPriorityLimitShown=false;
-function renderMusclePrioritiesStep(){
-  const a=entryState.answers;
-  const primary=new Set(a.primaryMuscles||[]),reduced=new Set(a.deEmphasizedMuscles||[]);
-  const rows=ENTRY_B_MUSCLES.map(muscle=>{
-    const state=primary.has(muscle)?"prioritize":reduced.has(muscle)?"reduce":"normal";
-    const labelId=`entryPriority-${muscle}`;
-    const options=["reduce","normal","prioritize"].map(value=>
-      `<button type="button" class="entry-seg__option${state===value?" is-selected":""}" role="radio" aria-checked="${state===value?"true":"false"}" data-entry-pick="musclePriorityB" data-entry-val="${muscle}|${value}">${esc(t(`entry.muscle_priorities.${value}`))}</button>`).join("");
-    return `<div class="entry-b__priority"><span id="${labelId}">${esc(t(`entry.muscle.${muscle}`))}</span><div class="entry-seg entry-seg--mini" role="radiogroup" aria-labelledby="${labelId}">${options}</div></div>`}).join("");
-  return entryHeading(t("entry.muscle_priorities.title"))+`<p class="onb__explain">${esc(t("entry.muscle_priorities.lede"))}</p>`+
-    `<div class="entry-b__priorities">${rows}</div>`+
-    `<p class="entry__hint entry__limit" id="entryPriorityLimit" role="status"${entryPriorityLimitShown?"":" hidden"}>${esc(t("entry.muscle_priorities.limit"))}</p>`}
+
 const ENTRY_B_MUSCLES=ProgramEntry.ENTRY_MUSCLES;
 function entrySetMusclePriority(muscle,status){
   if(!ENTRY_B_MUSCLES.includes(muscle)||!["reduce","normal","prioritize"].includes(status))return;
@@ -10701,12 +10645,7 @@ function entrySetMusclePriority(muscle,status){
   entryPriorityLimitShown=primary.length>limit||reduced.length>limit;
   if(entryPriorityLimitShown){renderOnboarding();return}
   entryPatchAnswers({primaryMuscles:primary,deEmphasizedMuscles:reduced})}
-function renderDeloadStep(){
-  const on=entryState.answers.deload!==false;
-  return entryHeading(t("entry.deload.title"))+
-    `<div class="entry-b__deload"><div class="entry-b__deload-head"><strong id="entryDeloadLabel">${esc(t("entry.deload.card"))}</strong>`+
-    `<button type="button" class="toggle" id="entryDeloadSwitch" role="switch" aria-checked="${on?"true":"false"}" aria-labelledby="entryDeloadLabel" aria-describedby="entryDeloadBody"></button></div>`+
-    `<p id="entryDeloadBody">${esc(t("entry.deload.body"))}</p><span class="entry-b__tag">${esc(t("entry.deload.recommended"))}</span></div>`}
+
 /* Basics pickers. Continue accepts the value currently shown, including the
    neutral starting value. Skip is the separate path that leaves it unset. */
 let entryPickerDraft={};
@@ -10718,44 +10657,21 @@ function entryDaysIn(month,year){return new Date(Date.UTC(year,month,0)).getUTCD
 function entryMonthNames(){
   const locale=isPt()?"pt-BR":"en";
   return Array.from({length:12},(_,index)=>new Date(Date.UTC(2000,index,15)).toLocaleString(locale,{month:"long",timeZone:"UTC"}))}
-function entryWheel(id,label,items,index){
-  const safe=Math.max(0,Math.min(items.length-1,index));
-  return `<div class="entry-wheel" id="${id}" role="spinbutton" tabindex="0" aria-label="${esc(label)}" aria-haspopup="dialog" aria-valuemin="0" aria-valuemax="${items.length-1}" aria-valuenow="${safe}" aria-valuetext="${esc(items[safe])}" data-index="${safe}">`+
-    `<div class="entry-wheel__pad" aria-hidden="true"></div>${items.map((text,i)=>`<div class="entry-wheel__item" data-i="${i}" aria-hidden="true">${esc(text)}</div>`).join("")}<div class="entry-wheel__pad" aria-hidden="true"></div></div>`}
-function entryBirthValue(){
+
+function entryBirthValue(source=entryState){
   if(entryPickerDraft.birth)return entryPickerDraft.birth;
-  const saved=entryBasics().birthDate;
+  const saved=entryBasics(source).birthDate;
   if(saved){const [y,m,d]=saved.split("-").map(Number);return{y,m,d}}
   return{...ENTRY_BIRTH_DEFAULT}}
 const ENTRY_BIRTH_YEARS=(()=>{const last=new Date().getFullYear()-10;return Array.from({length:last-1920+1},(_,i)=>1920+i)})();
-function renderBirthDateStep(){
-  const b=entryBirthValue();
-  const days=Array.from({length:entryDaysIn(b.m,b.y)},(_,i)=>String(i+1));
-  return entryHeading(t("entry.birth_date.title"))+
-    `<div class="entry-wheels" data-picker="birth">${entryWheel("entryWheelDay",t("entry.birth_date.day"),days,b.d-1)}`+
-    `${entryWheel("entryWheelMonth",t("entry.birth_date.month"),entryMonthNames(),b.m-1)}`+
-    `${entryWheel("entryWheelYear",t("entry.birth_date.year"),ENTRY_BIRTH_YEARS.map(String),ENTRY_BIRTH_YEARS.indexOf(b.y))}<div class="entry-wheels__band" aria-hidden="true"></div></div>`+entryBNote()}
-function entryUnitSeg(key,options,current,label){
-  return `<div class="entry-seg entry-seg--unit" role="radiogroup" aria-label="${esc(label)}">`+options.map(([value,text])=>
-    `<button type="button" class="entry-seg__option${current===value?" is-selected":""}" role="radio" aria-checked="${current===value?"true":"false"}" data-entry-pick="${key}" data-entry-val="${value}">${esc(text)}</button>`).join("")+`</div>`}
-function entryHeightUnit(){return entryBasics().heightUnit||(state?.settings?.unit==="lb"?"ftin":"cm")}
-function entryWeightUnit(){return entryBasics().weightUnit||(state?.settings?.unit==="lb"?"lb":"kg")}
-function entryHeightValue(){return entryPickerDraft.heightCm??entryBasics().heightCm??ENTRY_HEIGHT_DEFAULT}
-function renderHeightStep(){
-  const unit=entryHeightUnit(),cm=Math.round(entryHeightValue());
-  let wheels;
-  if(unit==="cm"){
-    const values=Array.from({length:101},(_,i)=>120+i);
-    wheels=entryWheel("entryWheelCm",t("entry.height.title"),values.map(n=>t("entry.height.value_cm",{n})),cm-120)}
-  else{
-    const total=Math.round(cm/2.54),ft=Math.floor(total/12),inch=total%12;
-    wheels=entryWheel("entryWheelFt",t("entry.height.feet"),[3,4,5,6,7].map(n=>t("entry.height.value_ft",{n})),ft-3)+
-      entryWheel("entryWheelIn",t("entry.height.inches"),Array.from({length:12},(_,i)=>t("entry.height.value_in",{n:i})),inch)}
-  return entryHeading(t("entry.height.title"))+
-    entryUnitSeg("basicsHeightUnit",[["cm",t("entry.height.cm")],["ftin",t("entry.height.ftin")]],unit,t("entry.height.unit_label"))+
-    `<div class="entry-wheels" data-picker="height">${wheels}<div class="entry-wheels__band" aria-hidden="true"></div></div>`+entryBNote()}
+
+
+function entryHeightUnit(source=entryState){return entryBasics(source).heightUnit||(state?.settings?.unit==="lb"?"ftin":"cm")}
+function entryWeightUnit(source=entryState){return entryBasics(source).weightUnit||(state?.settings?.unit==="lb"?"lb":"kg")}
+function entryHeightValue(source=entryState){return entryPickerDraft.heightCm??entryBasics(source).heightCm??ENTRY_HEIGHT_DEFAULT}
+
 function entryWeightRange(unit){return unit==="lb"?{min:66,max:440,step:0.2}:{min:30,max:200,step:0.1}}
-function entryWeightValue(){return entryPickerDraft.weightKg??entryBasics().weightKg??ENTRY_WEIGHT_DEFAULT}
+function entryWeightValue(source=entryState){return entryPickerDraft.weightKg??entryBasics(source).weightKg??ENTRY_WEIGHT_DEFAULT}
 function entryWeightDisplayedValue(unit=entryWeightUnit()){
   const range=entryWeightRange(unit);
   const raw=unit==="lb"?Math.round(entryWeightValue()/KG_PER_LB/range.step)*range.step:Math.round(entryWeightValue()*10)/10;
@@ -10768,20 +10684,7 @@ function entryHeightDisplayedCm(unit=entryHeightUnit()){
   const ft=Math.max(3,Math.min(7,Math.floor(total/12)));
   const inch=Math.max(0,Math.min(11,total%12));
   return Math.round((ft*12+inch)*2.54)}
-function renderWeightStep(){
-  const unit=entryWeightUnit(),range=entryWeightRange(unit);
-  const shown=unit==="lb"?Math.round(entryWeightValue()/KG_PER_LB/range.step)*range.step:Math.round(entryWeightValue()*10)/10;
-  const value=Math.max(range.min,Math.min(range.max,shown));
-  const steps=Math.round((range.max-range.min)/range.step);
-  const labels=[];
-  for(let i=0;i<=steps;i+=10)labels.push(`<em style="left:${i*8}px">${Math.round(range.min+i*range.step)}</em>`);
-  const text=entryWeightText(value,unit);
-  return entryHeading(t("entry.weight.title"))+
-    entryUnitSeg("basicsWeightUnit",[["kg",t("entry.weight.kg")],["lb",t("entry.weight.lb")]],unit,t("entry.weight.unit_label"))+
-    `<div class="entry-ruler" data-picker="weight"><p class="entry-ruler__value"><button type="button" class="entry-ruler__type" id="entryWeightType" aria-label="${esc(t("entry.weight.ruler",{unit}))}" aria-haspopup="dialog"><b>${esc(entryDecimal(value,1))}</b> ${unit}</button></p>`+
-    `<div class="entry-ruler__scroll" id="entryWeightRuler" role="slider" tabindex="0" aria-orientation="horizontal" aria-label="${esc(t("entry.weight.ruler",{unit}))}" `+
-    `aria-valuemin="${range.min}" aria-valuemax="${range.max}" aria-valuenow="${Number(value).toFixed(1)}" aria-valuetext="${esc(text)}" data-min="${range.min}" data-step="${range.step}" data-steps="${steps}" data-unit="${unit}">`+
-    `<div class="entry-ruler__track" style="width:${steps*8}px">${labels.join("")}</div></div><span class="entry-ruler__needle" aria-hidden="true"></span></div>`+entryBNote(true)}
+
 function entryWeightText(value,unit){return `${entryDecimal(value,1)} ${unit}`}
 function entryDecimal(value,digits){
   const text=Number(value).toFixed(digits);
@@ -10941,31 +10844,11 @@ function renderEnvironmentStep(){
    the default (null), so skipping the whole step changes nothing (#323). */
 const ENTRY_ABILITY_CHOICES=["yes","no","unsure"];
 function entryAbilityKeys(){return ProgramEntry?.COMPETENCY_ANSWERS||[]}
-function entryAbilityAnswer(key){
-  const value=entryState?.answers?.competencyAnswers?.[key];
-  if(value===true)return"yes";
-  if(value===false)return"no";
-  return"unsure"}
-function entryAbilityOption(key,choice){
-  const current=entryAbilityAnswer(key);
-  const selected=current===choice;
-  const label=t(`entry.abilities.choice.${choice}`);
-  return `<button type="button" class="radio-card${selected?" is-selected":""}" data-entry-pick="competencyAnswer" data-entry-val="${esc(`${key}|${choice}`)}" role="radio" aria-checked="${selected?"true":"false"}">`+
-    `<span class="radio-card__body"><span class="radio-card__title">${esc(label)}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button>`}
-function entryAbilityRow(key){
-  const labelId=`entryAbility-${esc(key)}`;
-  return `<div class="entry__ability-row">`+
-    `<p class="entry__group-lab" id="${labelId}">${esc(t(`entry.abilities.question.${key}`))}</p>`+
-    `<div class="onb__opts onb__opts--reasons" role="radiogroup" aria-labelledby="${labelId}">`+
-    ENTRY_ABILITY_CHOICES.map(choice=>entryAbilityOption(key,choice)).join("")+`</div></div>`}
-function entryAbilitiesBody(){
-  return `<div class="entry__ability-list">`+entryAbilityKeys().map(entryAbilityRow).join("")+`</div>`}
-function renderAbilitiesStep({b=false}={}){
-  // B's skip is the pinned Skip under Continue; Custom keeps its inline one.
-  if(b)return entryHeading(t("entry.abilities.title"))+`<p class="onb__explain">${esc(t("entry.abilities.lede"))}</p>`+entryAbilitiesBody();
-  const skip=`<button type="button" class="btn btn--steel entry__skip" id="entryAbilitiesSkip">${esc(t("entry.skip_optional"))}</button>`;
-  return entryHeading(t("entry.abilities.title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
-    `<p class="onb__explain">${esc(t("entry.abilities.lede"))}</p>`+skip+entryAbilitiesBody()}
+
+
+
+
+function renderAbilitiesStep(){return EntryUi.renderQuestion("abilities",entryQuestionModel())}
 function entryMuscleBlocked(key,muscle){
   const a=entryState?.answers||{};
   const primary=new Set(a.primaryMuscles||[]);
@@ -11294,19 +11177,7 @@ function syncEntryBusy(){
    it again, and Back returns to the abilities with the job aborted. */
 const ENTRY_BUILDING_LINE_MS=260;
 let entryBuilding=null;
-function renderBuildingStep(){
-  const minutes=entryState.answers.sessionMinutes||60;
-  const deload=entryState.answers.deload!==false;
-  const lines=[t("entry.building.equipment"),t("entry.building.minutes",{m:minutes}),t("entry.building.reps"),
-    t(deload?"entry.building.deload":"entry.building.block")];
-  return `<div class="entry-building" id="entryBuilding">`+
-    `<img class="entry-building__mark" src="assets/brand/mark.png" alt="" width="56" height="56">`+
-    entryHeading(t("entry.building.title"))+
-    `<ul class="entry-building__steps" aria-hidden="true">${lines.map(text=>`<li><span class="entry-building__tick icon-mask icon-mask--check icon-mask--sm" aria-hidden="true"></span><span>${esc(text)}</span></li>`).join("")}</ul>`+
-    `<div class="entry-building__bar" aria-hidden="true"><i></i></div>`+
-    `<p class="entry-building__wait motion-hairline" id="entryBuildingWait" role="status" hidden><span class="motion-hairline__label">${esc(t("entry.building.pending"))}</span></p>`+
-    `<button type="button" class="btn btn--ghost entry-building__skip" id="entryBuildingSkip">${esc(t("entry.building.skip"))}</button>`+
-  `</div>`}
+
 function mountEntryBuilding(){
   if(entryState?.step!=="building"||entryUiNotice)return;
   const root=$("#entryBuilding");if(!root)return;
@@ -12696,11 +12567,15 @@ function entryHubMode(){
    screens only: on a review a changed answer must recompile, which is not a
    jump, so the review has no rail. Browse's two questions need none. */
 /* The about screen carries its goal as a band with Change, so it has no rail of its own. */
-const ENTRY_B_RENDERERS=Object.freeze({intro:()=>renderIntroStep(),sex:()=>renderSexStep(),birth_date:()=>renderBirthDateStep(),
-  height:()=>renderHeightStep(),weight:()=>renderWeightStep(),background:()=>renderLiftingStep(),cardio_experience:()=>renderCardioStep(),
-  environment:()=>renderGymStep(),equipment:()=>renderEquipmentStep(),desired_result:()=>renderGoalStep(),days_per_week:()=>renderDaysStep(),
-  session_length:()=>renderSessionLengthStep(),muscle_priorities:()=>renderMusclePrioritiesStep(),deload:()=>renderDeloadStep(),
-  abilities:()=>renderAbilitiesStep({b:true}),building:()=>renderBuildingStep()});
+function entryWheel(...args){return EntryUi.renderWheel(...args)}
+function entryQuestionModel(source=entryState){
+  return{answers:source?.answers||{},basics:entryBasics(source),birth:entryBirthValue(source),birthYears:ENTRY_BIRTH_YEARS,
+    monthNames:entryMonthNames(),heightUnit:entryHeightUnit(source),heightCm:entryHeightValue(source),weightUnit:entryWeightUnit(source),weightKg:entryWeightValue(source),
+    environments:ENTRY_ENVIRONMENTS,muscles:ENTRY_B_MUSCLES,equipmentGroups:ProgramEntry.EQUIPMENT_GROUPS||[],presetEquipmentGroups:entryPresetGroups(source?.answers.environment?.kind),
+    competencies:entryAbilityKeys(),sectionNames:ENTRY_B_SECTIONS.map(([name])=>name),priorityLimitShown:entryPriorityLimitShown,recommend:source?.route==="recommend"};
+}
+const ENTRY_B_RENDERERS=Object.freeze(Object.fromEntries(["intro","sex","birth_date","height","weight","background","cardio_experience","environment","equipment","desired_result","days_per_week","session_length","muscle_priorities","deload","abilities","building"]
+  .map(step=>[step,(source=entryState)=>EntryUi.renderQuestion(step,entryQuestionModel(source))])));
 function entryMotionRank(state){
   if(!state)return null;
   if(state.route==="recommend"){
@@ -12761,18 +12636,14 @@ function entryMotionPage(state,html,options){
   page.innerHTML=html;
   page.inert=true;page.setAttribute("aria-hidden","true");page.dataset.entryMotionCopy="true";
   return page}
-function renderEntryMotionPage(state){
-  if(!state?.route||state.step==="entry")return entryMotionPage(state,
-    renderEntryHub({candidate:state,notice:null,choice:state?.route==="recommend"?"recommend":null}));
-  const previousState=entryState,previousNotice=entryUiNotice;
-  try{
-    entryState=state;entryUiNotice=null;
-    if(state.route==="recommend"&&ENTRY_B_RENDERERS[state.step])
-      return entryMotionPage(state,ENTRY_B_RENDERERS[state.step]());
-    if(state.route==="recommend"&&state.step==="result")
-      return entryMotionPage(state,renderResultStep());
-    return null
-  }finally{entryState=previousState;entryUiNotice=previousNotice}}
+function renderEntryMotionPage(source){
+  if(!source?.route||source.step==="entry")return entryMotionPage(source,
+    renderEntryHub({candidate:source,notice:null,choice:source?.route==="recommend"?"recommend":null}));
+  if(source.route==="recommend"&&ENTRY_B_RENDERERS[source.step])return entryMotionPage(source,ENTRY_B_RENDERERS[source.step](source));
+  // The previous page of Recommend's final result is a question. A result has
+  // mounted review lifetimes, so it is never manufactured as an inert back page.
+  return null;
+}
 function entryMotionPreviousState(){
   if(!entryState||entryHubMode()||!entryIsB())return null;
   const previous=ProgramEntry.back(entryState);
