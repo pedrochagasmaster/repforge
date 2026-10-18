@@ -11,6 +11,15 @@
 
 Read alongside the pinned [migration ledger](https://github.com/pedrochagasmaster/repforge/blob/959c037b33d2623ff7a218f2f817bdae813112b7/docs/architecture/migration-status.md) and [work sequence](https://github.com/pedrochagasmaster/repforge/blob/959c037b33d2623ff7a218f2f817bdae813112b7/docs/architecture/work-sequence.md). The ledger's current acceptance is **5/20**, with slices 1, 3, 4, 6 and 7 accepted. Older 1/20 paragraphs are historical checkpoints. CI cleanup must not silently close the remaining fifteen slices.
 
+## Source diagnosis follow-up (18 October, 19:47 UTC)
+
+Read the subsequent [offline upgrade diagnosis](offline-upgrade-diagnosis.md) and [DraftV2 recovery diagnosis](draft-recovery-diagnosis.md) before implementing Batches 3–4. The failure ledger below preserves the initial triage; these follow-ups narrow its previously unresolved causes.
+
+- Both SW early timeouts are explained by test/protocol mismatches: the new workers deliberately neither skip waiting nor claim existing pages. The draft fixture must release its old controlled client before natural activation; the redirect fixture needs a navigation after readiness. Downstream assertions remain unexecuted, so this is not proof of repaired offline behavior.
+- The draft-recovery trace preserves raw bytes and the newer-winner CAS. Its production banner drops the nested stale-program classification carried by `stale-recovery`, causing generic text and a hidden discard button. Repair the narrow presentation adapter; never enable discard for every recovery status.
+- Correct artifact mapping: draft SW upgrade is `shard-10-1`, artifact `12145508417`; `shard-6-1` / `12145704699` contains redirect and draft-storage evidence.
+- No runtime or test correction has been applied or executed by these documentation commits. Acceptance gates below remain open.
+
 ## Verified status
 
 Architecture checking, configured TypeScript checking, native-source asset checking, test inventory checking and Plan073 verification passed before the fast tests. Fast contracts finished **111/113**. Service passed. Browser shards **1, 4, 6, 7, 11, 12 and 13 of 14** failed; the other seven passed. The aggregate `ci` job failed because selected jobs failed; its complete critical-UI validation step was skipped. This is not a green final-head risk suite.
