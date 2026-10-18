@@ -123,14 +123,26 @@ export function create(options) {
       if (disposed) { reject(abortError()); return; }
       if (signal?.aborted) { reject(abortError()); return; }
       if (mode==="failed") { reject(workerUnavailable()); return; }
-      const entry = { ...job, id: ++nextId, signal, resolve, reject };
-      // An abort answers at once; a job already in the worker finishes there
-      // and its result is dropped.
-      signal?.addEventListener?.("abort", () => {
+      /** @type {(()=>void)|null} */
+      let abortListener = null;
+      const removeAbortListener = () => {
+        if (!abortListener) return;
+        signal?.removeEventListener?.("abort", abortListener);
+        abortListener = null;
+      };
+      const entry = { ...job, id: ++nextId, signal,
+        /** @param {unknown} value */
+        resolve(value) { removeAbortListener(); resolve(value); },
+        /** @param {unknown} error */
+        reject(error) { removeAbortListener(); reject(error); } };
+      // All terminal paths (reply, fallback, abort and dispose) use these
+      // resolvers, so a completed job cannot remain captured by its signal.
+      abortListener = () => {
         const at = queue.indexOf(entry);
         if (at >= 0) queue.splice(at, 1);
-        reject(abortError());
-      }, { once: true });
+        entry.reject(abortError());
+      };
+      signal?.addEventListener?.("abort", abortListener, { once: true });
       queue.push(entry);
       if (mode === "pending") start();
       // A main-thread job runs after the caller's current task, like a worker reply.
