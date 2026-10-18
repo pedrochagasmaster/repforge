@@ -34,6 +34,12 @@ export function createSession({initialSnapshot, onUpdate = () => {}}) {
       tail = operation.then(() => undefined, () => undefined);
       return operation;
     },
-    idle: () => tail,
+    async idle() {
+      for (;;) {
+        const pending = tail;
+        await pending;
+        if (pending === tail) return;
+      }
+    },
   });
 }
