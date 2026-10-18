@@ -5880,57 +5880,11 @@ function refreshShelf({focus=null}={}){
    asks the new markup for the equivalent control. Where the control is gone (Log set
    moves the shelf to the next set, Edit turns a row into the open one) the handler names
    the next control with `focusWorkoutHandoff`. */
-function workoutFocusKey(el){
-  if(!(el instanceof HTMLElement)||el.closest(".is-peek")||!el.closest("#workout"))return null;
-  const q=value=>CSS.escape(value);
-  const d=el.dataset;
-  if(el.matches(".shelf__input")&&d.k)return{sel:`.focus-shelf .shelf__input[data-k="${q(d.k)}"]`,start:el.selectionStart,end:el.selectionEnd};
-  if(d.shelfField&&d.set)return{sel:`.focus-shelf [data-shelf-field="${q(d.shelfField)}"][data-set="${q(d.set)}"]`};
-  if(el.matches(".shelf__pad")&&d.dir)return{sel:`.focus-shelf .shelf__pad[data-dir="${q(d.dir)}"]`};
-  if(d.restAct)return{sel:`.focus-shelf [data-rest-act="${q(d.restAct)}"]`};
-  if(el.matches(".saveset"))return{sel:".focus-shelf .saveset"};
-  if(d.editex&&d.editn)return{sel:`.ledgerline[data-editex="${q(d.editex)}"][data-editn="${q(d.editn)}"]`};
-  for(const name of["fcancel","fnext","ffinish","fnextrow","ledgermore"])if(name in d||el.hasAttribute(`data-${name}`))return{sel:`[data-${name}]`};
-  return null}
-/* A hand-off moves focus without the lifter having moved it: after a tap, the control it lands on must not light a
-   focus ring the tap never asked for (and the orange budget has no place for one). Whoever last used a key still
-   gets the ring. */
-let workoutInputModality="pointer";
-document.addEventListener("pointerdown",()=>{workoutInputModality="pointer"},true);
-document.addEventListener("keydown",()=>{workoutInputModality="keyboard";document.activeElement?.removeAttribute?.("data-quiet-focus")},true);
-function focusWorkoutControl(el){
-  try{el.focus({preventScroll:true})}catch{return false}
-  if(workoutInputModality==="pointer"){
-    el.setAttribute("data-quiet-focus","");
-    el.addEventListener("blur",()=>el.removeAttribute("data-quiet-focus"),{once:true})}
-  return document.activeElement===el}
-function restoreWorkoutFocus(key){
-  const card=focusCard();if(!key||!card)return false;
-  const el=card.querySelector(key.sel);
-  if(!(el instanceof HTMLElement)||!canTakeFocus(el))return false;
-  if(!focusWorkoutControl(el))return false;
-  if(key.start!=null&&typeof el.setSelectionRange==="function"){try{el.setSelectionRange(key.start,key.end??key.start)}catch{}}
-  return document.activeElement===el}
-/** Name the control that follows an action whose own control is gone after the rebuild. `next`: the field the new
- *  active set opens on, or the shelf's action once the exercise is done; `cta`: the shelf's action; `row`: a logged
- *  row, falling back to the action. */
-function focusWorkoutHandoff(kind,{exId=null,n=0}={}){
-  const card=focusCard();if(!card)return false;
-  const shelf=card.querySelector(".focus-shelf");
-  const cta=shelf?.querySelector(".btn--cta")||null;
-  let target=null;
-  // A collapsed table no longer draws the corrected row; its disclosure stands for it.
-  if(kind==="row")target=card.querySelector(`.ledgerline[data-editex="${CSS.escape(String(exId))}"][data-editn="${n}"]`)||card.querySelector("[data-ledgermore]");
-  else if(kind==="next")target=shelf?.querySelector(".shelf__field.is-sel [data-shelf-field]")||shelf?.querySelector("[data-shelf-field]")||null;
-  const next=resolveReturnFocus(target)||cta;
-  if(!next)return false;
-  if(!next.matches(ROUTE_NATIVE_FOCUS))next.setAttribute("tabindex","-1");
-  return focusWorkoutControl(next)}
-
-/** The control standing for a draft field in the live card now. A rebuild replaces the node an edit began on, so
- *  anything that outlives an await asks for the control again by its stable key instead of keeping the old node. */
-function liveShelfInput(key){return $w(".shelf__input").find(el=>el.dataset.k===key)||null}
-function liveEffortField(setKey){return $w("[data-effspin]").find(el=>el.dataset.effspin===setKey)?.closest(".shelf__field")||null}
+const workoutControlFocus=Focus.createControlFocus({window,shell:{canTakeFocus,resolveReturnFocus,nativeFocusSelector:ROUTE_NATIVE_FOCUS}});
+workoutControlFocus.mount();
+const workoutFocusKey=workoutControlFocus.key,focusWorkoutControl=workoutControlFocus.control,
+  restoreWorkoutFocus=workoutControlFocus.restore,focusWorkoutHandoff=workoutControlFocus.handoff,
+  liveShelfInput=workoutControlFocus.input,liveEffortField=workoutControlFocus.effortField;
 
 /** Keep the shelf and the open ledger row reading what a field now holds. */
 function syncShelfField(input,padDir=0){

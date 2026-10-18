@@ -8,3 +8,5 @@ export { createFocusGeometry } from "./geometry.js";
 export { renderFocusLedgerToggle, renderFocusLedgerRows, renderFocusLedger, renderFocusCard, renderFocusDeck } from "./view.js";
 export { renderFocusPadsInner, renderFocusPads } from "./view.js";
 export { selectDraftTarget, FIELD_SEMANTICS } from "./select.js";
+
+export {createControlFocus} from "./control-focus.js";
