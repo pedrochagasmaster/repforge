@@ -1,5 +1,6 @@
 import {createShell} from './src/ui/shell.js';
 import {createNotifications} from './src/platform/notifications.js';
+import {createSessionSheet} from './src/ui/workout/session-sheet.js';
 import {createEntryController} from './src/ui/entry/controller.js';
 import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,FREEFORM_MAX_CHARS} from './src/app/entry.js';
 import * as FreeformGrammar from './src/interchange/freeform.js';
@@ -4987,7 +4988,7 @@ function focusJump(to){
   const fl=focusList(),at=fl.length?Math.min(focusUi.index,fl.length-1):0,d=to-at;
   if(!d||to<0||to>=fl.length)return false;
   if(Math.abs(d)===1)return focusAnimateTo(d);
-  window.__repforgeFocus.to(to);return true}
+  focusDirectTo(to);return true}
 function focusCanGo(dir){const fl=focusList(),at=fl.length?Math.min(focusUi.index,fl.length-1):0;
   return at+dir>=0&&at+dir<fl.length}
 function focusCard(){return focusGestureView().card()}
@@ -5164,171 +5165,9 @@ function todayDashboardModel(){
 }
 function renderToday(){const model=todayDashboardModel();TodayUi.render(model);if(model.hasProgram)renderFocusDeloadLine()}
 /* ---- Session sheet (Focus workout) ---- */
-let sessionEarlyRevision = null;
-let sessionEarlyDraftId = null;
-
-function renderSessionSheet(){
-  const sheet = $("#sessionSheet");
-  if (!sheet) return;
-  const draft = activeWorkoutDraft;
-  const dateInput = $("#sessionDate");
-  if (dateInput) dateInput.value = draft?.program?.scheduleDate ?? today();
-  const bwInput = $("#sessionBodyweight");
-  if (bwInput) {
-    bwInput.value = displayDraftText("bodyweight", draft?.session?.bodyweight) || "";
-    bwInput.placeholder = unitLabel();
-  }
-  const notesInput = $("#sessionNotes");
-  if (notesInput) notesInput.value = draft?.session?.notes || "";
-
-  // Render Session map
-  const mapEl = $("#sessionMap");
-  if (mapEl && draft) {
-    const order = draft.exerciseOrder || [];
-    // The lift Focus is on wears the ink rule, so the map reads against the page behind the sheet.
-    const currentId = draft.session?.selectedExerciseId || "";
-    const rows = order.map((exId, idx) => {
-      const ex = draft.exercises[exId];
-      if (!ex) return "";
-      const doneCount = ex.setOrder.filter(sid => ex.sets[sid]?.completion !== "pending").length;
-      const totalCount = ex.setOrder.length;
-      const isSkipped = ex.status === "skipped";
-      const isComplete = doneCount === totalCount && totalCount > 0 && !isSkipped;
-      const isCurrent = exId === currentId;
-      const statusText = isSkipped ? t("log.skipped") : `${doneCount}/${totalCount}`;
-      return `<div class="session-map__row${isCurrent ? " is-current" : ""}" data-session-map-ex="${esc(exId)}"${isCurrent ? ' aria-current="true"' : ""}>` +
-        `<button type="button" class="session-map__jump" data-session-map-jump="${esc(exId)}">` +
-        `<span class="session-map__name">${esc(exerciseDisplayName(ex))}</span>` +
-        `<span class="session-map__status ${isComplete ? "is-complete" : isSkipped ? "is-skipped" : ""}">${esc(statusText)}</span>` +
-        `</button>` +
-        `<div class="session-map__reorder">` +
-        `<button type="button" class="session-map__reorder-btn" data-session-reorder-up="${esc(exId)}" aria-label="${esc(t("session.sheet.reorder_up_aria", { name: exerciseDisplayName(ex) }))}"${idx === 0 ? " disabled" : ""}>` +
-        `<span class="icon-mask icon-mask--chev-up" aria-hidden="true"></span></button>` +
-        `<button type="button" class="session-map__reorder-btn" data-session-reorder-down="${esc(exId)}" aria-label="${esc(t("session.sheet.reorder_down_aria", { name: exerciseDisplayName(ex) }))}"${idx === order.length - 1 ? " disabled" : ""}>` +
-        `<span class="icon-mask icon-mask--chev-down" aria-hidden="true"></span></button>` +
-        `</div></div>`;
-    }).filter(Boolean);
-    mapEl.innerHTML = rows.join("");
-    $$("#sessionMap [data-session-map-ex]").forEach(b => b.onclick = (e) => {
-      if (e.target.closest("[data-session-reorder-up], [data-session-reorder-down]")) return;
-      const exId = b.dataset.sessionMapEx;
-      closeSessionSheet().then(() => {
-        if (activeWorkoutDraft?.exercises[exId]?.status === "skipped") { openExActionsSheet(exId); return; }
-        if (window.__repforgeFocus) {
-          const list = window.__repforgeFocus.list() || [];
-          const idx = list.findIndex(item => item.id === exId);
-          if (idx >= 0) window.__repforgeFocus.to(idx);
-        }
-      });
-    });
-    const restoreReorderFocus = (exerciseId, direction) => {
-      const key = direction === "up" ? "sessionReorderUp" : "sessionReorderDown";
-      const control = [...mapEl.querySelectorAll("[data-session-reorder-up], [data-session-reorder-down]")]
-        .find(button => button.dataset[key] === exerciseId && !button.disabled) ||
-        [...mapEl.querySelectorAll("[data-session-reorder-up], [data-session-reorder-down]")]
-          .find(button => button.dataset[direction === "up" ? "sessionReorderDown" : "sessionReorderUp"] === exerciseId && !button.disabled) ||
-        mapEl.querySelector(`[data-session-map-ex="${CSS.escape(exerciseId)}"]`);
-      if (control) control.focus({ preventScroll: true });
-    };
-    const announceReorder = (exerciseId, direction) => {
-      const order = activeWorkoutDraft?.exerciseOrder || [];
-      const index = order.indexOf(exerciseId);
-      const exercise = activeWorkoutDraft?.exercises?.[exerciseId];
-      restoreReorderFocus(exerciseId, direction);
-      if (index >= 0 && exercise) announce(t("session.sheet.reorder_announcement", {
-        name: exerciseDisplayName(exercise),
-        index: index + 1,
-        count: order.length,
-      }), { placement: "top" });
-    };
-    $$("#sessionMap [data-session-reorder-up]").forEach(b => b.onclick = async (e) => {
-      e.stopPropagation();
-      const exId = b.dataset.sessionReorderUp;
-      const currentOrder = (activeWorkoutDraft?.exerciseOrder || []).slice();
-      const idx = currentOrder.indexOf(exId);
-      if (idx > 0) {
-        [currentOrder[idx - 1], currentOrder[idx]] = [currentOrder[idx], currentOrder[idx - 1]];
-        const res = await WorkoutSession.dispatch("reorderExercises", { exerciseOrder: currentOrder });
-        if (res.status === "applied") {
-          hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});
-          renderWorkout();
-          renderSessionSheet();
-          announceReorder(exId, "up");
-        }
-      }
-    });
-    $$("#sessionMap [data-session-reorder-down]").forEach(b => b.onclick = async (e) => {
-      e.stopPropagation();
-      const exId = b.dataset.sessionReorderDown;
-      const currentOrder = (activeWorkoutDraft?.exerciseOrder || []).slice();
-      const idx = currentOrder.indexOf(exId);
-      if (idx >= 0 && idx < currentOrder.length - 1) {
-        [currentOrder[idx], currentOrder[idx + 1]] = [currentOrder[idx + 1], currentOrder[idx]];
-        const res = await WorkoutSession.dispatch("reorderExercises", { exerciseOrder: currentOrder });
-        if (res.status === "applied") {
-          hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});
-          renderWorkout();
-          renderSessionSheet();
-          announceReorder(exId, "down");
-        }
-      }
-    });
-  }
-
-  // Reset early finish prompt
-  sessionEarlyRevision = null;
-  sessionEarlyDraftId = null;
-  const earlyPrompt = $("#sessionEarlyPrompt");
-  if (earlyPrompt) earlyPrompt.classList.add("hidden");
-  const earlyBtn = $("#sessionEarlyFinish");
-  if (earlyBtn) earlyBtn.classList.remove("hidden");
-  const earlyMsg = $("#sessionEarlyMsg");
-  if (earlyMsg) {
-    earlyMsg.classList.remove("is-error");
-    earlyMsg.textContent = t("session.sheet.early_prompt");
-  }
-  closeAbandonPrompt();
-}
-
-/* ---- End without saving (Plan 071 §10) ----
-   The explicit abandon: the same removal the unfinished-session discard uses
-   (clearDraft). The draft and every set logged in it are removed and never reach
-   History; the program, the block and earlier sessions are untouched. The
-   reason is optional and never delays the action. */
-const ABANDON_REASONS=Object.freeze(["time","recovery","pain","equipment","schedule","other"]);
-const ABANDON_REASON_LABELS=Object.freeze({time:"session.abandon.reason.time",recovery:"session.abandon.reason.recovery",
-  pain:"session.abandon.reason.pain",equipment:"session.abandon.reason.equipment",schedule:"session.abandon.reason.schedule",
-  other:"session.abandon.reason.other"});
-let sessionAbandonReason=null;
-function renderAbandonReasons(){
-  const host=$("#sessionAbandonReasons");if(!host)return;
-  host.innerHTML=ABANDON_REASONS.map(reason=>{const on=sessionAbandonReason===reason;
-    return `<button type="button" class="pchip${on?" is-active":""}" data-abandon-reason="${reason}" aria-pressed="${on}">${esc(t(ABANDON_REASON_LABELS[reason]))}</button>`}).join("");
-  host.querySelectorAll("[data-abandon-reason]").forEach(button=>button.onclick=()=>{
-    const reason=button.dataset.abandonReason;
-    sessionAbandonReason=sessionAbandonReason===reason?null:reason;
-    renderAbandonReasons();
-    host.querySelector(`[data-abandon-reason="${reason}"]`)?.focus()})}
-function closeAbandonPrompt(){
-  sessionAbandonReason=null;
-  $("#sessionAbandonPrompt")?.classList.add("hidden");
-  $("#sessionAbandon")?.classList.remove("hidden")}
-function openAbandonPrompt(){
-  if(!activeWorkoutDraft)return;
-  sessionAbandonReason=null;renderAbandonReasons();
-  $("#sessionEarlyFinish")?.classList.add("hidden");
-  $("#sessionEarlyPrompt")?.classList.add("hidden");
-  $("#sessionAbandon")?.classList.add("hidden");
-  $("#sessionAbandonPrompt")?.classList.remove("hidden");
-  focusRoute("#sessionAbandonConfirm")}
-function cancelAbandonPrompt(){
-  closeAbandonPrompt();
-  $("#sessionEarlyFinish")?.classList.remove("hidden");
-  focusRoute("#sessionAbandon")}
-async function abandonWorkout(){
+async function abandonWorkout(reason=null){
   await WorkoutSession.flush();
   const draft=activeWorkoutDraft;if(!draft)return false;
-  const reason=sessionAbandonReason;
   const working=Object.values(draft.exercises||{}).some(exercise=>Object.values(exercise?.sets||{})
     .some(set=>set.role!=="warmup"&&set.completion!=="pending"));
   const closing=closeSessionSheet();if(closing&&typeof closing.then==="function")await closing;
@@ -5339,44 +5178,32 @@ async function abandonWorkout(){
   toast(t("toast.session_abandoned"));
   return true}
 
-function renderEarlyFinishPreview(){
-  const draft=activeWorkoutDraft;
-  const rows=draft?WorkoutDraft.toHistoryRows({...draft,session:{...draft.session,status:"finishing"}},new Date().toISOString()):null;
-  const host=$("#sessionEarlyOmissions");
-  if(!host)return;
-  if(!Array.isArray(rows)){host.textContent=t("session.sheet.early_invalid");return}
-  const included=new Set(rows.map(row=>`${row.exerciseId}_${row.set}`));
-  // The set numbers ride in the sentence as a token so they can be set in Mono.
-  host.innerHTML=draft.exerciseOrder.map(id=>{
-    const exercise=draft.exercises[id];
-    const omitted=exercise.setOrder.filter(setId=>!included.has(`${id}_${exercise.sets[setId].ordinal}`));
-    if(!omitted.length)return"";
-    const sets=omitted.map(setId=>exercise.sets[setId].ordinal).join(", ");
-    return `<li>${esc(t("session.sheet.omitted",{name:exerciseDisplayName(exercise),sets:"\u0000"})).replace("\u0000",`<span class="session-early-sets">${esc(sets)}</span>`)}</li>`;
-  }).join("");
+let SessionSheetUi;
+function renderSessionSheet(){return SessionSheetUi.render()}
+function openSessionSheet(){return SessionSheetUi.open()}
+function closeSessionSheet(){return SessionSheetUi.close()}
+function initializeSessionSheet(){
+  SessionSheetUi=createSessionSheet({window,shell:{openModal,closeModal,get activeModal(){return shellView().activeModal}},
+    read:()=>({draft:activeWorkoutDraft,today:today(),bodyweight:displayDraftText("bodyweight",activeWorkoutDraft?.session?.bodyweight)||"",
+      unit:unitLabel(),exerciseNames:Object.fromEntries((activeWorkoutDraft?.exerciseOrder||[]).map(id=>[id,exerciseDisplayName(activeWorkoutDraft.exercises[id])])),
+      earlyRows:sessionSheetEarlyRows()}),copy:{t},motion:{reducedMotion},announce,toast,
+    commands:{flush:()=>WorkoutSession.flush(),
+      date:async value=>{contextTouched.date=true;if(activeWorkoutDraft)await WorkoutSession.dispatch("setSessionDate",{value},{pendingValue:value})},
+      bodyweight:async value=>{contextTouched.bodyweight=true;if(activeWorkoutDraft)await WorkoutSession.dispatch("setBodyweight",{value:canonicalDraftBodyweight(value)},{pendingValue:value})},
+      notes:async value=>{contextTouched.sessionNotes=true;if(activeWorkoutDraft)await WorkoutSession.dispatch("setSessionNotes",{value},{pendingValue:value})},
+      reorder:async order=>{const result=await WorkoutSession.dispatch("reorderExercises",{exerciseOrder:order});
+        if(result.status==="applied"){hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});renderWorkout()}return result},
+      jump:id=>{if(activeWorkoutDraft?.exercises[id]?.status==="skipped"){openExActionsSheet(id);return}
+        const index=focusList().findIndex(item=>item.id===id);if(index>=0)focusDirectTo(index)},
+      finishEarly:async expectedDraft=>{const operation=saveWorkout(null,null,{expectedDraft,completion:EARLY_FINISH_CONFIRMATION});
+        window.__repforgeLastWorkoutFinish=operation;await operation},
+      abandon:async reason=>{const operation=abandonWorkout(reason);window.__repforgeLastAbandon=operation;await operation}}});
+  SessionSheetUi.mount();
 }
-function openSessionSheet(){
-  if (!activeWorkoutDraft) return;
-  renderSessionSheet();
-  const sheet = $("#sessionSheet"), scrim = $("#sessionSheetScrim");
-  if (!sheet) return;
-  document.body.classList.add("is-sheet-open");
-  openModal(sheet, {
-    initialFocus: $("#sessionSheetClose") || $("#sessionDate"),
-    onEscape: closeSessionSheet,
-    scrim,
-    delayHide: reducedMotion() ? 0 : 280
-  });
-  requestAnimationFrame(() => { sheet.classList.add("is-open"); scrim?.classList.add("is-open"); });
-}
-
-function closeSessionSheet(){
-  const sheet = $("#sessionSheet");
-  if (!sheet) return Promise.resolve(false);
-  if (sheet.hidden && !(shellView().activeModal && shellView().activeModal.el === sheet)) return Promise.resolve(false);
-  return closeModal(sheet);
-}
-window.__repforgeSessionSheet = { open: openSessionSheet, close: closeSessionSheet, render: renderSessionSheet };
+function sessionSheetEarlyRows(){const draft=activeWorkoutDraft;if(!draft)return null;
+  const rows=WorkoutDraft.toHistoryRows({...draft,session:{...draft.session,status:"finishing"}},new Date().toISOString());
+  return Array.isArray(rows)?rows:null}
+window.__repforgeSessionSheet={open:openSessionSheet,close:closeSessionSheet,render:renderSessionSheet};
 
 /* ---- Exercise actions sheet (Focus workout) ---- */
 let activeExActionsId = null;
@@ -16290,14 +16117,15 @@ window.__repforgeWorkoutDraft={
   state:()=>cloneSnapshot(state),
 };
 // Test seam for the Focus deck, alongside the other __repforge* harness hooks.
+function focusDirectTo(i){
+  focusUi.index=Math.max(0,i);focusUi.edit=null;
+  const list=focusList();
+  if(activeWorkoutDraft&&list[focusUi.index])void WorkoutSession.dispatch("selectExercise",{exerciseInstanceId:list[focusUi.index].id});
+  renderWorkout();
+}
 window.__repforgeFocus={
   go:focusAnimateTo,list:focusList,at:()=>focusUi.index,editing:()=>focusUi.edit,
-  to(i){
-    focusUi.index=Math.max(0,i);focusUi.edit=null;
-    const fl=focusList();
-    if(activeWorkoutDraft&&fl[focusUi.index])void WorkoutSession.dispatch("selectExercise",{exerciseInstanceId:fl[focusUi.index].id});
-    renderWorkout();
-  },
+  to:focusDirectTo,
 };
 window.__repforgeLeaveWorkout=leaveWorkout;
 window.__repforgeShowSettings=showSettings;
@@ -16529,53 +16357,7 @@ function init(){
     if(el&&el.closest("button,a,input,select,textarea,[contenteditable],[role=spinbutton]"))return;
     if(e.key==="ArrowRight")focusAnimateTo(1);
     else if(e.key==="ArrowLeft")focusAnimateTo(-1)});
-  const sessionSheetBtn=$("#sessionSheetBtn");if(sessionSheetBtn)sessionSheetBtn.onclick=()=>openSessionSheet();
-  const sessionSheetClose=$("#sessionSheetClose");if(sessionSheetClose)sessionSheetClose.onclick=()=>closeSessionSheet();
-  const sessionSheetScrim=$("#sessionSheetScrim");if(sessionSheetScrim)sessionSheetScrim.onclick=()=>closeSessionSheet();
-
-  const sessDate=$("#sessionDate");if(sessDate)sessDate.addEventListener("change",async()=>{
-    contextTouched.date=true;
-    if(activeWorkoutDraft)await WorkoutSession.dispatch("setSessionDate",{value:sessDate.value},{pendingValue:sessDate.value});
-  });
-
-  const sessBw=$("#sessionBodyweight");if(sessBw)sessBw.addEventListener("input",async()=>{
-    contextTouched.bodyweight=true;
-    if(activeWorkoutDraft)await WorkoutSession.dispatch("setBodyweight",{value:canonicalDraftBodyweight(sessBw.value)},{pendingValue:sessBw.value});
-  });
-
-  const sessNotes=$("#sessionNotes");if(sessNotes)sessNotes.addEventListener("input",async()=>{
-    contextTouched.sessionNotes=true;
-    if(activeWorkoutDraft)await WorkoutSession.dispatch("setSessionNotes",{value:sessNotes.value},{pendingValue:sessNotes.value});
-  });
-
-  const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.onclick=async()=>{
-    await WorkoutSession.flush();
-    if(!activeWorkoutDraft)return;
-    renderEarlyFinishPreview();
-    sessionEarlyRevision=activeWorkoutDraft.revision;
-    sessionEarlyDraftId=activeWorkoutDraft.draftId;
-    const earlyMsg=$("#sessionEarlyMsg");
-    if(earlyMsg){earlyMsg.classList.remove("is-error");earlyMsg.textContent=t("session.sheet.early_prompt")}
-    const earlyPrompt=$("#sessionEarlyPrompt");if(earlyPrompt)earlyPrompt.classList.remove("hidden");
-    earlyBtn.classList.add("hidden");
-    $("#sessionAbandon")?.classList.add("hidden");
-    // The pressed control is now hidden: the lifter lands on the choice it asks for.
-    focusRoute("#sessionEarlyConfirm");
-  };
-
-  const earlyCancel=$("#sessionEarlyCancel");if(earlyCancel)earlyCancel.onclick=()=>{
-    sessionEarlyRevision=null;
-    const earlyPrompt=$("#sessionEarlyPrompt");if(earlyPrompt)earlyPrompt.classList.add("hidden");
-    const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.classList.remove("hidden");
-    $("#sessionAbandon")?.classList.remove("hidden");
-    focusRoute("#sessionEarlyFinish");
-  };
-  const abandonBtn=$("#sessionAbandon");if(abandonBtn)abandonBtn.onclick=async()=>{await WorkoutSession.flush();openAbandonPrompt()};
-  const abandonCancel=$("#sessionAbandonCancel");if(abandonCancel)abandonCancel.onclick=cancelAbandonPrompt;
-  const abandonConfirm=$("#sessionAbandonConfirm");if(abandonConfirm)abandonConfirm.onclick=async()=>{
-    abandonConfirm.disabled=true;
-    try{window.__repforgeLastAbandon=abandonWorkout();await window.__repforgeLastAbandon}
-    finally{abandonConfirm.disabled=false}};
+  initializeSessionSheet();
 
   const exActionRepeat=$("#exActionRepeatBtn");
   if(exActionRepeat)exActionRepeat.onclick=async()=>{
@@ -16644,23 +16426,6 @@ function init(){
   const exActionsScrim=$("#exActionsScrim");
   if(exActionsScrim)exActionsScrim.onclick=closeExActionsSheet;
 
-  const earlyConfirm=$("#sessionEarlyConfirm");if(earlyConfirm)earlyConfirm.onclick=async()=>{
-    if(!activeWorkoutDraft)return;
-    if(sessionEarlyRevision==null||activeWorkoutDraft.revision!==sessionEarlyRevision||activeWorkoutDraft.draftId!==sessionEarlyDraftId){
-      const earlyMsg=$("#sessionEarlyMsg");
-      if(earlyMsg){earlyMsg.classList.add("is-error");earlyMsg.textContent=t("session.sheet.stale_error")}
-      toast(t("session.sheet.stale_error"));
-      sessionEarlyRevision=activeWorkoutDraft.revision;
-      sessionEarlyDraftId=activeWorkoutDraft.draftId;
-      renderEarlyFinishPreview();
-      return;
-    }
-    const expectedDraft={draftId:activeWorkoutDraft.draftId,revision:sessionEarlyRevision};
-    const p=closeSessionSheet();if(p&&typeof p.then==="function")await p;
-    const finishPromise=saveWorkout(null,null,{expectedDraft,completion:EARLY_FINISH_CONFIRMATION});
-    window.__repforgeLastWorkoutFinish=finishPromise;
-    await finishPromise;
-  };
   const progEdit=$("#programEditToggle");if(progEdit)progEdit.onclick=async()=>{
     if(setupEditorOpen){requestEntryCancel();return}
     if(programEditMode){requestInstalledDone();return}
