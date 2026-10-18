@@ -4,13 +4,14 @@
 (function (global) {
   "use strict";
   let pending = null;
+  const runtimeUrl = new URL("dnd-kit.runtime.js", document.currentScript.src).href;
   const ready = () => !!global.DndKit?.DragDropManager;
   function load() {
     if (ready()) return Promise.resolve(global.DndKit);
     if (pending) return pending;
     pending = new Promise((resolve, reject) => {
       const script = document.createElement("script");
-      script.src = "vendor/dnd-kit/dnd-kit.runtime.js";
+      script.src = runtimeUrl;
       script.async = true;
       script.dataset.tauriferRuntime = "dnd-kit";
       script.onload = () => ready()
