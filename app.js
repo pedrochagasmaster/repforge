@@ -7533,7 +7533,7 @@ const EntryImportCommands=createEntryImportCommands({session:EntryImport,parseSo
 const EntryUi=createEntryController({document,navigator,session:EntryImport,copy:{t,locale:locTag},
   commands:{review:startFreeformReview,submitGaps:submitFreeformGaps,changeDoor:mode=>{if(mode==="freeform")captureEvent("program_import_started",{source:"freeform"});setImportSourceMode(mode)},
     writeOwn:()=>{const current=EntryImport.read();if((current.source.trim().length>0||current.reply.trim().length>0)&&!confirm(t("entry.freeform.confirm_write_own")))return;resetFreeformImport();entrySelectRoute("build")}},
-  queries:{mode:importSourceMode,reviewOpen:()=>!!importDraft},copyText:copyToClipboard,onRender:renderOnboarding,onNotice:key=>toast(t(key)),
+  queries:{mode:importSourceMode,reviewOpen:()=>!!importDraft},copyText:async(text,okKey,failKey)=>{const ok=await Files.copyText(text);toast(t(ok?okKey:failKey));return ok},onRender:renderOnboarding,onNotice:key=>toast(t(key)),
   onHandoff:event=>captureEvent("program_import_handoff",event),confirm:key=>confirm(t(key)),scrollBehavior});
 EntryUi.mount();
 const FREEFORM_NOT_IMPORTED_KEYS = {
