@@ -17,7 +17,7 @@ import {createEntryAdapter} from './src/training/authoring.js';
 import {createProgressController} from './src/ui/progress/controller.js';
 import {createReviewController} from './src/ui/progress/review.js';
 import {createReviewCommands} from './src/app/review.js';
-import {evidence as NativeProgressModel} from './src/training/progress.js';
+import {evidence as NativeProgressModel,buildSessionSummary as deriveSessionSummary,sessionOutcomeGroups as deriveSessionOutcomeGroups} from './src/training/progress.js';
 import {createHistoryController} from './src/ui/history/controller.js';
 import {groupHistoryRows,completeHistoryIndex,searchHistoryIndex} from './src/app/history-read-models.js';
 import {createTodayController} from './src/ui/today/controller.js';
@@ -6726,132 +6726,38 @@ function renderFatigue(){const el=$("#fatigue");if(!el)return;const exs=exercise
    Today — so the summary can never disagree with the screen it sends you to.
    ============================================================ */
 
-/** The strongest record one lift set, judged only against the log as it stood
- *  before this session. A lift with no history sets none: the first session is
- *  the baseline every later one is measured against, not a record over nothing.
- *  Load beats reps beats e1RM, so a lift reports its best claim once. */
-function liftPR(mine,past){
-  if(!mine.length||!past.length)return null;
-  const bestLoad=Math.max(...past.map(x=>+x.load));
-  const bestReps=Math.max(0,...past.filter(x=>sameLoad(+x.load,bestLoad)).map(x=>+x.reps));
-  const bestE=Math.max(...past.map(x=>e1rm(+x.load,+x.reps)));
-  const top=Math.max(...mine.map(x=>+x.load));
-  if(top>bestLoad&&!sameLoad(top,bestLoad)){
-    const row=mine.filter(x=>sameLoad(+x.load,top)).sort((a,b)=>+b.reps-+a.reps)[0];
-    return{kind:"load",load:top,reps:+row.reps,delta:top-bestLoad}}
-  if(sameLoad(top,bestLoad)){
-    const reps=Math.max(...mine.filter(x=>sameLoad(+x.load,top)).map(x=>+x.reps));
-    if(reps>bestReps)return{kind:"reps",load:top,reps,delta:reps-bestReps}}
-  const best=mine.reduce((a,b)=>e1rm(+b.load,+b.reps)>e1rm(+a.load,+a.reps)?b:a);
-  const e=e1rm(+best.load,+best.reps);
-  if(e>bestE)return{kind:"e1rm",load:+best.load,reps:+best.reps,delta:e-bestE};
-  return null}
-
-/** One record line per lift that set one, strongest claim first. */
-function sessionPRs(rows,prevLog){
-  // A record compares a lift's sets only with past sets logged in the same
-  // convention; a row whose per-side mode is unknown sets no record.
-  const comparable=log=>performedWorkingRows(log).filter(row=>row.strengthComparable);
-  const key=row=>`${liftKey(row)}\u0000${row.strengthConvention||"load"}`;
-  const past=new Map();
-  for(const x of comparable(prevLog)){const k=key(x);if(!past.has(k))past.set(k,[]);past.get(k).push(x)}
-  const mineBy=new Map();
-  for(const r of comparable(rows)){const k=key(r);if(!mineBy.has(k))mineBy.set(k,[]);mineBy.get(k).push(r)}
-  const out=[];
-  for(const[k,mine]of mineBy){
-    const pr=liftPR(mine,past.get(k)||[]);
-    if(pr)out.push({...pr,name:displayName(mine[0]),liftKey:liftKey(mine[0])})}
-  // Heaviest claim first: a load record outranks reps at the old load, which
-  // outranks an e1RM that no single set actually lifted.
-  const rank={load:0,reps:1,e1rm:2};
-  return out.sort((a,b)=>rank[a.kind]-rank[b.kind]||b.delta-a.delta||a.name.localeCompare(b.name))}
-
-/** Hard sets this session put into each muscle — the volume audit's counting
- *  rule (direct 1, partial ½, RIR within the ceiling), scoped to one session. */
-function sessionMuscleWork(rows){
-  const hr=+state.settings.hardRir,m=new Map();
-  for(const x of rows){
-    if(!isWork(x)||!(+x.load>0&&+x.reps>0&&+x.rir<=hr))continue;
-    const mus=rowMuscles(x);
-    for(const p of muscles(mus.primary))addVol(m,p,1,0);
-    for(const s of muscles(mus.secondary))addVol(m,s,0,.5)}
-  // Equal shares break toward the muscle that took the direct work: two sets
-  // trained head-on outrank two halves picked up as an assister.
-  return[...m].map(([name,v])=>({name,sets:v.d+v.p,direct:v.d})).filter(x=>x.sets>0)
-    .sort((a,b)=>b.sets-a.sets||b.direct-a.direct||a.name.localeCompare(b.name))}
-
-/** What a set of saved rows says about each lift it touched: the canonical outcome state (read from the evidence
- *  projection, never derived here), the sets performed, the record it set when `prs` carries one, and the engine's
- *  next target. The session summary and Today's finished day both read their lift groups from here. */
+/** Capture History projection and immutable row attribution without changing
+ * the scalar muscle-credit convention retained by released summaries. */
+function summaryRowFacts(rows,includeMuscles=false){return rows.map(row=>{
+  const projected=readLogRow(row),mus=includeMuscles?rowMuscles(row):null;
+  return{liftKey:liftKey(projected),name:displayName(projected),
+    load:+projected.load,reps:+projected.reps,e1rm:+projected.e1rm,tonnage:projected.tonnage,
+    warmup:!!projected.warmup,strengthComparable:projected.strengthComparable,
+    strengthConvention:projected.strengthConvention,set:+projected.set||0,
+    date:projected.date,created:projected.created,session:projected.session,sessionKey:projected.sessionKey,id:projected.id,
+    muscle:{load:+row.load,reps:+row.reps,rir:+row.rir,primary:mus?muscles(mus.primary):[],secondary:mus?muscles(mus.secondary):[]}}})}
+/** Localized next-target presentation and live slot lookup are captured here;
+ * the pure summary joins these facts to the canonical evidence records. */
+function summaryOutcomeContext(rows){
+  const lifts={};
+  for(const key of new Set(performedWorkingRows(rows).map(liftKey))){
+    const slot=currentExerciseForLiftKey(key);if(!slot)continue;
+    const rec=recommendation(slot),line=rec&&rec.status!=="manual"?setsTargetLine(slot,rec):"";
+    lifts[key]={exerciseId:slot.id,name:slot.name,next:line?{glyph:rxVerdict(rec),line}:null}}
+  return{evidence:strengthEvidenceRecords("current-block"),lifts}}
 function sessionOutcomeGroups(rows,prs=[]){
-  const work=performedWorkingRows(rows);
-  // The session is already durable when this runs. Read the single canonical
-  // evidence projection and keep only the lifts this completion actually
-  // touched; summary presentation never derives a second outcome heuristic.
-  const completedLiftIds=new Set(work.map(liftKey));
-  const namesByLift=new Map(work.map(row=>[liftKey(row),displayName(row)]));
-  const evidence=strengthEvidenceRecords("current-block")
-    .filter(record=>completedLiftIds.has(record.exerciseId))
-    .map(record=>{
-      const sufficient=record.evidenceState==="sufficient"&&EVIDENCE_OUTCOME_KEYS[record.outcome];
-      const baseline=!sufficient&&record.evidenceState==="insufficient"&&
-        record.evidenceCount===1&&record.reason==="single-observation";
-      return{exerciseId:record.exerciseId,
-        name:namesByLift.get(record.exerciseId)||currentExerciseForLiftKey(record.exerciseId)?.name||record.exerciseId,
-        kind:sufficient?"outcome":baseline?"baseline":"insufficient",
-        evidenceState:record.evidenceState,evidenceCount:record.evidenceCount,
-        reason:record.reason??null,...(sufficient?{outcome:record.outcome}:{})}});
-  // The first-session sentence is valid only when every lift in this completion
-  // is genuinely a first observation. A prior-but-insufficient record must not
-  // disappear into the old \"no outcome\" fallback.
-  const showBaseline=evidence.length>0&&evidence.every(item=>item.kind==="baseline");
-  // One group per lift: its outcome state, the sets it performed, the record it set and the engine's
-  // next target. The state reads the canonical evidence above; the target is recommendation() on the log
-  // that now holds this session. Nothing is derived here.
-  const byLift=new Map();
-  for(const row of work){const key=liftKey(row);if(!byLift.has(key))byLift.set(key,{liftKey:key,name:displayName(row),rows:[]});byLift.get(key).rows.push(row)}
-  const liftGroups=[...byLift.values()].map(group=>{
-    const item=evidence.find(entry=>entry.exerciseId===group.liftKey),slot=currentExerciseForLiftKey(group.liftKey);
-    const rec=slot?recommendation(slot):null,line=slot&&rec&&rec.status!=="manual"?setsTargetLine(slot,rec):"";
-    // The session the lift was last logged in: the one its outcome word describes when a day holds two.
-    const latest=group.rows.reduce((a,b)=>compareLogChronology(a,b)<=0?b:a);
-    return{liftKey:group.liftKey,exerciseId:slot?.id??null,name:group.name,session:latest.session??null,
-      sets:[...group.rows].sort((a,b)=>(+a.set||0)-(+b.set||0)).map(row=>({load:+row.load,reps:+row.reps})),
-      state:item?.kind==="outcome"?{kind:"outcome",outcome:item.outcome}:item?.kind==="baseline"?{kind:"baseline"}:{kind:"insufficient",reason:item?.reason??null},
-      pr:prs.find(entry=>entry.liftKey===group.liftKey)||null,
-      next:line?{glyph:rxVerdict(rec),line}:null}});
-  return{evidence,showBaseline,liftGroups}}
-
-/** Everything the finished session earns the right to say about itself. */
+  return deriveSessionOutcomeGroups(summaryRowFacts(rows),summaryOutcomeContext(rows),prs)}
 function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
-  // Test-only fault seam for the post-commit boundary. The completion owner
-  // has already returned a settled durable result before this derivation runs.
+  // Post-commit fault injection belongs to application composition only.
   if(window.__repforgeSummaryFault==="canonical"){
-    delete window.__repforgeSummaryFault;
-    throw new Error("summary canonical derivation fault")}
-  const meso=mesocycleWeek(),week=weeklySnapshot(date);
-  const ds=days(),idx=Math.max(0,ds.indexOf(sessDay)),next=ds.length>1?ds[(idx+1)%ds.length]:null;
-  const prs=sessionPRs(rows,prevLog);
-  const{evidence,showBaseline,liftGroups}=sessionOutcomeGroups(rows,prs);
-  const outcomes=evidence.filter(item=>item.kind==="outcome")
-    .map(({exerciseId,outcome,name})=>({exerciseId,outcome,name}));
-  // A clock only earns a slot when it plausibly measured this session: a draft
-  // resumed the next morning would otherwise report a nine-hour workout.
-  const mins=startedAt?Math.round((Date.now()-startedAt)/60000):0;
-  return{session,date,day:sessDay,
-    sets:rows.length,
-    volume:movedTonnage(rows),
-    lifts:new Set(performedWorkingRows(rows).map(liftKey)).size,
-    minutes:mins>=1&&mins<=480?mins:null,
-    prs,
-    liftGroups,
-    outcomes,
-    evidence,
-    showBaseline,
-    muscles:sessionMuscleWork(rows),
-    week:{done:week.completedDays,planned:week.plannedDays},
-    meso:{current:meso.current,total:meso.total,isComplete:meso.isComplete},
-    next:next?{day:next,exercises:exercises(next).length}:null}}
+    delete window.__repforgeSummaryFault;throw new Error("summary canonical derivation fault")}
+  const meso=mesocycleWeek(),week=weeklySnapshot(date),ds=days();
+  const idx=Math.max(0,ds.indexOf(sessDay)),next=ds.length>1?ds[(idx+1)%ds.length]:null;
+  return deriveSessionSummary({rows:summaryRowFacts(rows,true),previousRows:summaryRowFacts(prevLog),session,date,day:sessDay,startedAt},
+    {...summaryOutcomeContext(rows),now:Date.now(),hardRir:+state.settings.hardRir,
+      week:{completedDays:week.completedDays,plannedDays:week.plannedDays},
+      meso:{current:meso.current,total:meso.total,isComplete:meso.isComplete},
+      next:next?{day:next,exercises:exercises(next).length}:null})}
 
 function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
   const done=[...committed].length;
@@ -12375,7 +12281,7 @@ function startOnboarding(origin,opts={}){
   cancelEntryGeneration();
   entryPickerInput=null;
   onboardingOrigin=origin||(!state.programMeta?.onboarded&&!state.log.length?"first-run":"settings");
-  entryEngaged=false;entryHubChoice=null;entryDialog=null;entryChange=null;entryGoalFromHub=false;entryReplaceResolve=null;entryCompileError=null;entryUiNotice=null;entryValidationNotice=false;entryAvoidQuery="";entryMustQuery="";entryExerciseQuery="";entryPendingAvoid=null;entryPinnedVersionsExecutable=false;entryDurableConflictNeedsReload=false;
+  entryEngaged=false;EntryUi.clearHubChoice();entryDialog=null;entryChange=null;entryGoalFromHub=false;entryReplaceResolve=null;entryCompileError=null;entryUiNotice=null;entryValidationNotice=false;entryAvoidQuery="";entryMustQuery="";entryExerciseQuery="";entryPendingAvoid=null;entryPinnedVersionsExecutable=false;entryDurableConflictNeedsReload=false;
   const record=readSetupDraftRecord();
   entryDraftHandle=record.raw!==null?{raw:record.raw,envelope:record.envelope}:null;
   // A fresh session re-syncs with whatever is durably on disk right now, so
@@ -12585,45 +12491,16 @@ function entryLegacyBanner(){
 /* The resume card sits on the hub (Q633), above doors that stay inert until the
    lifter chooses Resume or Start over: any door tap would otherwise overwrite
    the saved draft on its next persist. */
-function renderEntryResumeCard(){
-  const updated=entryState?.updatedAt?new Date(entryState.updatedAt):null;
-  const when=updated&&!Number.isNaN(updated.valueOf())?updated.toLocaleDateString(locTag(),{month:"short",day:"numeric"}):"";
-  const where=[entryState?.route?entryRouteLabel(entryState.route):"",
-    entryState?.step?t(`entry.${entryState.step}.title`):""].filter(Boolean).join(" · ");
-  const detail=where?t("entry.resume.detail",{where,when:when||"—"}):"";
-  return `<section class="entry__resume" aria-labelledby="entryResumeTitle">`+
-    `<div class="entry__resume-head"><span class="entry__resume-ico icon-mask icon-mask--clipboard" aria-hidden="true"></span>`+
-    `<div class="entry__resume-copy"><h3 id="entryResumeTitle" tabindex="-1">${esc(t("entry.resume.title"))}</h3><p>${esc(t("entry.resume.body"))}</p></div></div>`+
-    (detail?`<div class="entry__resume-loc"><span class="entry__resume-ico icon-mask icon-mask--pin" aria-hidden="true"></span><p>${esc(detail)}</p></div>`:"")+
-    `<p class="entry__resume-note">${esc(t("entry.resume.doors_note"))}</p>`+
-    `<div class="btnrow btnrow--primary-first"><button type="button" class="btn btn--cta" id="entryResumeContinue">${esc(t("entry.resume.continue"))}</button>`+
-    `<button type="button" class="btn btn--steel btn--destructive" id="entryResumeRestart" aria-haspopup="dialog">${esc(t("entry.resume.restart"))}</button></div></section>`}
-/* Onboarding B (ADR 0020, Plan 072): the hub chooses a way in, then Continue. */
-let entryHubChoice=null;
-const ENTRY_HUB_CHOICES=Object.freeze([["recommend","wand"],["build","pencil"],["import","download"]]);
-function renderEntryHub(){
-  // Keep the semantic body heading for focus and assistive technology. The
-  // shell title is visually suppressed on this hub so it is not repeated.
-  const resuming=entryUiNotice==="resume";
-  const active=hasActiveProgram();
-  const cards=ENTRY_HUB_CHOICES.map(([route,icon])=>{
-    const selected=entryHubChoice===route;
-    return `<button type="button" class="radio-card entry-hub__choice${selected?" is-selected":""}" role="radio" aria-checked="${selected?"true":"false"}" data-entry-hub="${route}">`+
-      `<span class="radio-card__icon icon-mask icon-mask--${icon}" aria-hidden="true"></span>`+
-      `<span class="radio-card__body"><span class="radio-card__title">${esc(t(`entry.hub.b.${route}.title`))}</span>`+
-      `<span class="radio-card__cap">${esc(t(`entry.hub.b.${route}.cap`))}</span></span>`+
-      `<span class="radio-card__mark" aria-hidden="true"></span></button>`}).join("");
-  return entryHeading(t("entry.hub.title"))+
-    `<p class="onb__explain entry-hub__lede">${esc(t(active?"entry.hub.lede_existing":"entry.hub.lede"))}</p>`+
-    (active?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
-    entryLegacyBanner()+
-    (resuming?renderEntryResumeCard():"")+
-    `<div class="onb__opts entry__hub entry__hub--routes" role="radiogroup" aria-labelledby="entryHeading"${resuming?" inert":""}>${cards}</div>`+
-    `<p class="entry-hub__link"><span class="icon-mask icon-mask--clipboard icon-mask--sm" aria-hidden="true"></span><span>${esc(t("entry.hub.b.link_note"))}</span></p>`}
+function renderEntryHub({candidate=entryState,notice=entryUiNotice,choice=EntryUi.hubChoice()}={}){
+  return EntryUi.renderHub({activeProgram:hasActiveProgram(),resuming:notice==="resume",choice,
+    hasLegacyHints:!!candidate?.legacyHints&&Object.keys(candidate.legacyHints).length>0,
+    resume:{updatedAt:candidate?.updatedAt||null,routeLabel:candidate?.route?entryRouteLabel(candidate.route):"",
+      stepLabel:candidate?.step?t(`entry.${candidate.step}.title`):""}});
+}
 function entryChooseHubRoute(){
-  const route=entryHubChoice;
+  const route=EntryUi.hubChoice();
   if(!route||entryUiNotice==="resume")return;
-  entryHubChoice=null;
+  EntryUi.clearHubChoice();
   if(route==="import"){
     setImportSourceMode("file",{render:false});
     captureEvent("program_import_started",{source:"file"})}
@@ -12930,7 +12807,7 @@ function entrySkip(){
 /* Continue is held until a choice exists on the Basics choice screens; Skip is
    the way past them without an answer. */
 function entryNeedsChoice(stepId){
-  if(entryHubMode())return !entryHubChoice;
+  if(entryHubMode())return !EntryUi.hubChoice();
   if(!entryIsB())return false;
   if(stepId==="sex")return !entryBasics().sex;
   if(stepId==="cardio_experience")return !entryBasics().cardioExperience;
@@ -14846,18 +14723,17 @@ function entryMotionPage(state,html,options){
   page.inert=true;page.setAttribute("aria-hidden","true");page.dataset.entryMotionCopy="true";
   return page}
 function renderEntryMotionPage(state){
-  const previousState=entryState,previousNotice=entryUiNotice,previousChoice=entryHubChoice;
+  if(!state?.route||state.step==="entry")return entryMotionPage(state,
+    renderEntryHub({candidate:state,notice:null,choice:state?.route==="recommend"?"recommend":null}));
+  const previousState=entryState,previousNotice=entryUiNotice;
   try{
     entryState=state;entryUiNotice=null;
-    if(!state?.route||state.step==="entry"){
-      entryHubChoice=state?.route==="recommend"?"recommend":null;
-      return entryMotionPage(state,renderEntryHub())}
     if(state.route==="recommend"&&ENTRY_B_RENDERERS[state.step])
       return entryMotionPage(state,ENTRY_B_RENDERERS[state.step]());
     if(state.route==="recommend"&&state.step==="result")
       return entryMotionPage(state,renderResultStep());
     return null
-  }finally{entryState=previousState;entryUiNotice=previousNotice;entryHubChoice=previousChoice}}
+  }finally{entryState=previousState;entryUiNotice=previousNotice}}
 function entryMotionPreviousState(){
   if(!entryState||entryHubMode()||!entryIsB())return null;
   const previous=ProgramEntry.back(entryState);
@@ -15115,9 +14991,7 @@ function wireEntryDom(){
      from reaching a handler that would overwrite the draft. */
   const doorsWait=()=>entryUiNotice==="resume";
   EntryUi.bind();
-  $$("[data-entry-hub]").forEach(btn=>btn.onclick=()=>{
-    if(doorsWait())return;
-    entryHubChoice=btn.dataset.entryHub;renderOnboarding()});
+  EntryUi.bindHub(doorsWait());
   const equipmentReset=$("#entryEquipmentReset");
   if(equipmentReset)equipmentReset.onclick=()=>{const env=entryState.answers.environment;if(env?.kind)entryPatchAnswers({environment:{kind:env.kind}})};
   const deloadSwitch=$("#entryDeloadSwitch");

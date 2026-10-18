@@ -38,6 +38,7 @@ export const SUITES = {
     s("test/fixture-runtime-contracts.mjs", [], {domains:["program", "persistence"]}),
     s("test/training-installed-editor.mjs", [], {domains:["program","workout"], nodeArgs:["--test"]}),
     s("test/architecture-release.mjs", [], {domains:["shell", "offline"], nodeArgs:["--test"]}),
+    s("test/training-session-summary.mjs", [], {domains:["today","workout","progress"],nodeArgs:["--test"]}),
     s("test/training-module-contracts.mjs", [], {domains:["program", "progress"], nodeArgs:["--test"]}),
     s("test/training-model.mjs", [], {domains:["program", "persistence"], nodeArgs:["--test"]}),
     s("test/persistence-snapshot-contract.mjs", [], {domains:["persistence"], nodeArgs:["--test"]}),

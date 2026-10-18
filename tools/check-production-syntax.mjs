@@ -10,6 +10,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
+import { nativeSourceAssets } from "../scripts/native-source-assets.mjs";
 
 const files = execFileSync("git", ["ls-files", "-z", "--", "*.js"], { encoding: "utf8" })
   .split("\0")
@@ -60,8 +61,8 @@ console.log(`production syntax: ${files.length} modules pass`);
 const require = createRequire(import.meta.url);
 const Telemetry = require("../telemetry.js");
 const allowedEvents = new Set(Telemetry.getEventNames("all"));
-const producers = ["app.js", "src/ui/history/controller.js"].map((file) => readFileSync(file, "utf8")).join("\n");
-const captured = [...producers.matchAll(/(?:captureEvent|onOutcome)\("([^"]+)"/g)].map((match) => match[1]);
+const producers = ["app.js", ...nativeSourceAssets(process.cwd()).filter(file=>/src\/(?:app|ui)\/.*\.js$/.test(file))].map((file) => readFileSync(file, "utf8")).join("\n");
+const captured = [...producers.matchAll(/(?:captureEvent|onOutcome|report)\(["']([^"']+)["']/g)].map((match) => match[1]);
 const unknownEvents = [...new Set(captured)].filter((name) => !allowedEvents.has(name));
 if (unknownEvents.length) {
   console.error(`Unknown telemetry event producer(s): ${unknownEvents.join(", ")}`);
