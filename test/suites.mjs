@@ -112,6 +112,7 @@ export const SUITES = {
     s("test/install-transfer-recovery.mjs", [], {"domains": ["install"], "cost": "normal", "tier": "feedback", "nodeArgs": ["--test"]}),
   ],
   "state": [
+    s("test/native-editor-lifetime.mjs", [], {domains:["program","entry"],seconds:10}),
     s("test/exercise-chart-owner.mjs", [], {domains:["progress","history"],seconds:15}),
     s("test/settings-owner.mjs", [], {domains:["settings","privacy","persistence"],seconds:10}),
     s("test/architecture-release-browser.mjs", [], {domains:["offline","privacy"], seconds:30}),
