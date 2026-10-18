@@ -1,3 +1,4 @@
+import {createRestPresentation} from './src/ui/focus/rest-view.js';
 import {createBlockTransitionCommands} from './src/app/block-transition.js';
 import {createShell,NATIVE_FOCUS_SELECTOR as ROUTE_NATIVE_FOCUS} from './src/ui/shell.js';
 import {createNotifications} from './src/platform/notifications.js';
@@ -4373,6 +4374,8 @@ const REST_OVERTIME_MAX=60*60;
 /** Milliseconds left on the clock: frozen while held, and negative once the
  *  rest has run past the bell. Idle, it reads as the length the next rest
  *  would run for — which is what the sheet shows before anything is armed. */
+const RestPresentation=createRestPresentation({window,clock:focusRest,
+  readDefaultSeconds:()=>normalizeRestSec(state?.settings?.restSec),copy:{t}});
 function restLeftMs(){return focusRest.left(normalizeRestSec(state?.settings?.restSec))}
 function restOvertimeSec(){return focusRest.end?Math.round(-restLeftMs()/1000):0}
 /** Whole seconds left, as the clock reads them: zero or negative once the bell has gone. */
@@ -5465,21 +5468,12 @@ function focusCue(ex,n,r,draft,prev,editing){
    shelf's pad row. At zero, or after Pular, it collapses to one line that counts
    the overrun up in soft ink and the cue returns. Logging never waits on it. */
 /** What the timer is doing, said once for every consumer: no rest, time left, or past the bell. */
-function restInlineMode(){
-  if(!focusRest.end)return"none";
-  return restTimeLeftSec()>0?"running":"done"}
-/** Time left on the drain bar, as the share of the length this rest is armed at. */
-function restFraction(){return Math.max(0,Math.min(1,restLeftMs()/1000/Math.max(1,restPlanSec())))}
-/** The clock's seconds past the bell, capped where the count stops meaning anything. */
-const restOverSec=()=>Math.min(REST_OVERTIME_MAX,Math.max(0,-restTimeLeftSec()));
-/** The slot shows the rest unless the lifter is correcting a set: the correction's cue owns it then. */
-const restSlotMode=editing=>editing?"none":restInlineMode();
-/** Four text pads need a row of their own: at large text (the root above 16px, the same test that sizes the card)
- *  they no longer fit one row, and a second row would push the shelf's action off the shortest screens. The field
- *  pads stay then, and the rest controls are the header timer's presets sheet. */
-const restPadsFit=()=>!(Number.parseFloat(getComputedStyle(document.documentElement).fontSize)>16.1);
-/** The rest controls take the pad row while time remains, until a tap on a field brings the field pads back. */
-const restPadsOn=editing=>!editing&&!focusRest.padsBack&&restPadsFit()&&restInlineMode()==="running";
+const restInlineMode=()=>RestPresentation.mode();
+const restFraction=()=>RestPresentation.fraction();
+const restOverSec=()=>RestPresentation.overSeconds();
+const restSlotMode=editing=>RestPresentation.slotMode(editing);
+const restPadsFit=()=>RestPresentation.padsFit();
+const restPadsOn=editing=>RestPresentation.padsOn(editing);
 
 /** The Por quê? link of a cue: the same control in the cue and in the rest line. */
 function focusWhyHtml(ex,r,{peek,name,draft,label,cls}){
@@ -5497,18 +5491,9 @@ function focusCueBlockHtml(ex,r,cue,{peek,name,draft}){
   return `<div class="fx-cue is-${cue.kind}">${mark}<p class="fx-cue__l1">${cue.headHtml}</p>`+
     (cue.sub?`<p class="fx-cue__l2">${esc(cue.sub)}</p>`:"")+why+cancel+`</div>`}
 /** The running clock: "Descanso 1:30 de 2:00" over the drain bar. */
-function restClockHtml(){
-  return `<div class="restinline" role="timer"><div class="restinline__row">`+
-    `<span class="restinline__label">${esc(t("rest.inline.label"))}</span>`+
-    `<b class="restinline__clock" data-rest-clock>${esc(fmtClock(Math.max(0,restTimeLeftSec())))}</b>`+
-    `<span class="restinline__of" data-rest-of>${esc(t("rest.inline.of",{t:fmtClock(restPlanSec())}))}</span></div>`+
-    `<div class="restinline__bar" aria-hidden="true"><i class="restinline__fill" data-rest-fill style="transform:scaleX(${restFraction().toFixed(4)})"></i></div></div>`}
-const restDoneText=over=>over>0?t("rest.inline.done_over",{time:fmtClock(over)}):t("rest.inline.done");
-/** The collapsed clock: "Descanso concluído · +0:15", counting up. */
-function restDoneHtml(){
-  const over=restOverSec();
-  return `<div class="restinline restinline--done" role="timer"><p class="restinline__done"><span class="restinline__mk" aria-hidden="true"></span>`+
-    `<span data-rest-done>${esc(restDoneText(over))}</span></p></div>`}
+const restClockHtml=()=>RestPresentation.clockHtml();
+const restDoneText=over=>RestPresentation.doneText(over);
+const restDoneHtml=()=>RestPresentation.doneHtml();
 /** The next set's cue on one 18px line, its figures in Mono: the engine's own load and reps for that set. */
 function restNextHtml(ex,n,r,cue,{peek,name,draft}){
   let line;
@@ -5532,14 +5517,8 @@ function focusSlotHtml(ex,n,r,cue,opts){
   return `<div class="fx-slot" data-rest="${mode}">${focusSlotInner(ex,n,r,cue,mode,opts)}</div>`}
 /** The rest controls in the shelf's pad row: -30s, Pausar or Retomar, +30s, Pular. They act on the timer
  *  the header chip and the presets sheet act on. */
-function selectRestPads(peek){
-  const held=focusRest.paused!=null;
-  return {peek,rest:true,restLabel:t("rest.inline.label"),pads:[
-    {action:"minus",className:"restpad--adjust",text:t("rest.sheet.minus"),ariaLabel:t("rest.sheet.minus_aria")},
-    {action:"pause",className:"restpad--toggle",text:t(held?"rest.inline.resume":"rest.inline.pause")},
-    {action:"plus",className:"restpad--adjust",text:t("rest.sheet.plus"),ariaLabel:t("rest.sheet.plus_aria")},
-    {action:"skip",className:"restpad--skip",text:t("log.skip")}]}}
-function restPadsHtml(peek){return Focus.renderFocusPadsInner(selectRestPads(peek))}
+const selectRestPads=peek=>RestPresentation.selectPads(peek);
+const restPadsHtml=peek=>RestPresentation.padsHtml(peek);
 function focusRowVals(ex,n,r,draft,prev,effortMode){
   const{kgVal,repsVal,rirVal,effortVal}=setFieldVals(ex,n,r,draft,prev);
   const load=(()=>{const v=parseDec(kgVal);return Number.isFinite(v)?fmt(v):kgVal})();
