@@ -6,7 +6,11 @@
  * @typedef {import('./history-contracts.js').HistoryIndex} HistoryIndex
  * @typedef {import('./history-contracts.js').HistoryBlock} HistoryBlock
  */
-import {compareChronology as compareLogChronology} from "../training/progress.js";
+import {compareChronology as compareLogChronology,derivePersonalRecords,buildSessionDelta,previousScalarSessionRows,
+  compareProjectedSessionOutcome,noComparableSessionOutcome} from "../training/progress.js";
+import {exerciseLiftKey,liftKey,loggedMovementName} from './workout-model.js';
+import {readRevision} from '../persistence/snapshot.js';
+import {presentSessionOutcome} from './progress-read-models.js';
 
   const DAY_MS=86400000;
   // Whole days since 1970-01-01 for an ISO date, or null. UTC arithmetic keeps
@@ -186,4 +190,97 @@ export function searchHistoryIndex(index,query){
   if(!q)return sessions.slice();
   return sessions.filter(session=>String(session.searchText||"").includes(q)||
     (session.rows||[]).some(row=>String(/** @type {HistoryRowFacts} */(index.rowFacts.get(row)).name||"").toLowerCase().includes(q)));
+}
+
+/** Owns History's immutable capture, canonical workout readings and derived
+ * indices. Only the single published snapshot can invalidate these caches;
+ * rendering never reads a draft, store or mutable screen context.
+ * @param {import('./history-contracts.js').HistoryReadOptions} options
+ * @returns {import('./history-contracts.js').HistoryQueries & {diagnostics:import('./history-contracts.js').HistoryReadDiagnostics}} */
+export function createHistoryReadModels({read,model,workout,labels,copy}){
+  /** @typedef {import('./history-contracts.js').HistoryReadFacts} Facts */
+  /** @typedef {ReturnType<ReturnType<typeof import('./workout-model.js').createWorkoutReadModel>['capture']>} WorkoutQueries */
+  /** @type {WeakMap<readonly HistoryRow[],{context:Readonly<import('./history-contracts.js').HistoryContext>,index:HistoryIndex}>} */
+  const indices=new WeakMap();
+  /** @type {WeakMap<HistoryRow,{context:Readonly<import('./history-contracts.js').HistoryContext>,value:HistoryRowFacts}>} */
+  const rowFacts=new WeakMap();
+  /** @type {{facts:Facts,context:Readonly<import('./history-contracts.js').HistoryContext>,workout:WorkoutQueries,names:ReturnType<import('./history-contracts.js').HistoryReadOptions['labels']['capture']>}|null} */
+  let captured=null;
+  const diagnostics={enabled:false,builds:0,sourceRowVisits:0,
+    /** @type {import('./history-contracts.js').HistoryIndexView|null} */last:null,
+    /** @type {((index:import('./history-contracts.js').HistoryIndexView)=>void)|null} */onBuilt:null,
+    reset(){this.enabled=true;this.builds=0;this.sourceRowVisits=0;this.last=null;this.onBuilt=null},
+    disable(){this.enabled=false;this.last=null;this.onBuilt=null}};
+  function capture(){
+    const facts=read();
+    if(captured&&captured.facts.snapshot===facts.snapshot&&captured.facts.locale===facts.locale&&
+      captured.facts.today===facts.today&&captured.facts.language===facts.language&&captured.facts.dayMeta===facts.dayMeta)return captured;
+    const snapshot=facts.snapshot,meta=snapshot.programMeta||{};
+    const current=model.makeProgram(snapshot.program,model.snapshotLookup(snapshot.customExercises||[]),meta);
+    const block=Object.freeze({started:meta.started||null,weeks:Number(meta.mesocycleLengthWeeks)||6,planned:current.days().length,
+      today:facts.today,name:meta.name||'',archived:Object.freeze((snapshot.programHistory||[]).map(entry=>Object.freeze({
+        name:entry.meta?.name||'',start:entry.meta?.started||null,end:entry.completedAt?String(entry.completedAt).slice(0,10):null,
+        planned:new Set((entry.program||[]).map(row=>row.day).filter(Boolean)).size}))) });
+    const days=new Set([...snapshot.program.map(row=>row.day),...snapshot.log.map(row=>row.day)]);
+    const context=Object.freeze({block,locale:facts.locale,today:facts.today,
+      weekdayLetters:Object.freeze([...facts.weekdayLetters]),
+      dayLabels:Object.freeze(Object.fromEntries([...days].map(day=>[String(day),copy.dayLabel(day,facts.dayMeta)]))),
+      revision:readRevision(snapshot)});
+    captured={facts,context,workout:workout.capture({snapshot,draft:null,currentCycle:1,profileWeightKg:null}),
+      names:labels.capture({customExercises:snapshot.customExercises||[],language:facts.language})};
+    return captured;
+  }
+  /** @param {HistoryRow} record @param {NonNullable<typeof captured>} frame */
+  function rowInFrame(record,frame){
+    const cached=rowFacts.get(record);if(cached?.context===frame.context)return cached.value;
+    const value=Object.freeze({reading:Object.freeze(frame.workout.readLogRow(record)),name:frame.names.exercise(record),
+      storedName:loggedMovementName(record),liftKey:liftKey(record)});
+    rowFacts.set(record,{context:frame.context,value});return value;
+  }
+  /** @param {HistoryRow} record */
+  const row=record=>rowInFrame(record,capture());
+  /** @param {readonly HistoryRow[]} log @param {NonNullable<typeof captured>} frame */
+  function buildCapturedIndex(log,frame){
+    const source=(log||[]).map(raw=>raw&&typeof raw==='object'?raw:{});
+    const currentNames=new Map();
+    for(const exercise of frame.facts.snapshot.program){const key=exerciseLiftKey(exercise),name=String(exercise.name||'').trim();
+      if(key&&!key.startsWith('name:')&&name&&!currentNames.has(key))currentNames.set(key,name)}
+    const facts=new Map(source.map(record=>[record,{...rowInFrame(record,frame),currentName:record.performedLibraryId||record.performedMovementId?currentNames.get(liftKey(record))||'':''}]));
+    const grouped=groupHistoryRows({rows:source,rowFacts:facts});
+    const comparisons=new Map(grouped.pairs.filter(pair=>!pair.first).map(pair=>[`${pair.session}|${pair.liftKey}`,buildSessionDelta(pair.previous,pair.current)]));
+    const dayLabels=Object.fromEntries([...new Set(source.map(record=>record.day))].map(day=>[String(day),copy.dayLabel(day,frame.facts.dayMeta)]));
+    const records=derivePersonalRecords(source.map(record=>{const reading=rowInFrame(record,frame).reading;return{
+      liftKey:liftKey(record),date:record.date,created:record.created,session:record.session,blockId:record.blockId??null,
+      load:reading.load,reps:reading.reps,rir:record.rir,warmup:record.warmup,strengthComparable:reading.strengthComparable,
+      strengthConvention:reading.strengthConvention,exerciseName:loggedMovementName(record),exerciseId:record.exerciseId,
+      loadMultiplier:reading.loadMultiplier,perSideLoad:reading.perSideLoad};}));
+    const index=completeHistoryIndex(grouped,{rowFacts:facts,comparisons,prEvents:records,dayLabels});
+    if(diagnostics.enabled){diagnostics.builds++;diagnostics.sourceRowVisits+=source.length;diagnostics.last=index;diagnostics.onBuilt?.(index)}
+    return index;
+  }
+  /** @param {readonly HistoryRow[]} log */
+  const buildIndex=log=>buildCapturedIndex(log,capture());
+  /** @param {readonly HistoryRow[]} [source] */
+  function index(source){
+    const frame=capture(),rows=source||frame.facts.snapshot.log,cached=indices.get(rows);
+    if(cached?.context===frame.context)return cached.index;
+    const value=buildCapturedIndex(rows,frame);indices.set(rows,{context:frame.context,index:value});return value;
+  }
+  /** @param {readonly HistoryRow[]} rows */
+  function outcome(rows){
+    const frame=capture(),source=Array.isArray(rows)?rows:[],first=source[0],key=liftKey(first);
+    const exercise=frame.facts.snapshot.program.find(exercise=>exerciseLiftKey(exercise)===key)||{
+      libraryId:first?.performedLibraryId,movementId:first?.performedMovementId,name:loggedMovementName(first),id:first?.exerciseId,day:first?.day};
+    const current=source.map(record=>rowInFrame(record,frame).reading).filter(record=>!record.warmup&&Number(record.load)>0&&Number(record.reps)>0);
+    const absent=()=>presentSessionOutcome(noComparableSessionOutcome(),copy);
+    if(!current.length||current.some(record=>record.strengthComparable===false))return absent();
+    const conventions=new Set(current.map(record=>record.strengthConvention||'load'));if(conventions.size!==1)return absent();
+    const convention=conventions.values().next().value,session=String(current[0].session??'');
+    if(current.some(record=>String(record.session??'')!==session))return absent();
+    const log=frame.facts.snapshot.log.map(record=>rowInFrame(record,frame).reading).filter(record=>record.strengthComparable!==false&&(record.strengthConvention||'load')===convention);
+    const previous=previousScalarSessionRows(log.filter(frame.workout.matchLift(exercise)),session,log);
+    return presentSessionOutcome(compareProjectedSessionOutcome(current,previous,convention),copy);
+  }
+  return Object.freeze({rows:()=>capture().facts.snapshot.log,row,index,buildIndex,search:searchHistoryIndex,
+    context:()=>capture().context,outcome,diagnostics});
 }

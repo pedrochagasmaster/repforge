@@ -133,7 +133,7 @@ function isFiniteNumber(value) {
     return typeof value === "number" && Number.isFinite(value);
 }
 /** Copy is applied after the single pure outcome policy has finished.
- * @param {import('../training/progress/internal/session-outcome.js').SessionOutcome} outcome
+ * @param {import('../training/progress.js').SessionOutcome} outcome
  * @param {{t:(key:string)=>string}} copy
  */
 export function presentSessionOutcome(outcome, copy) {
@@ -453,7 +453,7 @@ export function createProgressReadModels({ training, copy, format }) {
 }
 /** Canonical read rows are grouped for the plain detail trend. This preserves
  * its released load×reps totals; physical-tonnage reports use their own facts.
- * @param {readonly (import('../training/progress/internal/personal-records.js').RecordRow & {day?:string})[]} rows
+ * @param {readonly (import('../training/progress.js').RecordRow & {day?:string})[]} rows
  */
 export function buildLiftSessionSummaries(rows) {
     /** @type {Map<string,{session?:string|number,date?:string,created?:string|null,day?:string,liftKey:string,name:string,loads:number[],reps:number[],rirs:number[],sets:number,perSideLoad?:boolean,convention:string}>} */

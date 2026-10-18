@@ -43,6 +43,7 @@
     "../../src/ui/program/**/*.js",
     "../../src/ui/library/**/*.js",
     "../../src/ui/exercise-media.js",
+    "../../src/ui/exercise-labels.js",
     "../../src/app/history.js",
     "../../src/app/history-read-models.js",
     "../../src/ui/history/**/*.js",

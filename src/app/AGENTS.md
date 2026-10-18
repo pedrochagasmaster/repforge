@@ -38,3 +38,10 @@ in `installed-editor.js`; canonical edits and rebase are native authoring rules.
 `program-sharing.js` captures one published snapshot for outbound program JSON,
 plain text and setup links. It writes no installed data. Keep shared-link
 settings allowlisted and custom references canonical; do not export tab state.
+
+History's `createHistoryReadModels` owns the published snapshot/locale capture,
+row facts and index caches, current-name search aliases and session outcome joins.
+It consumes the actual Workout read model and public Progress policies; the UI
+receives that concrete query owner. Locale/custom labels are captured for the
+operation; no row loop reads a live screen or storage. Run the literal
+`history-read-owner` proof and the real History edit/delete/replay journeys.
