@@ -52,7 +52,7 @@ export * as unsupportedGrammar from './unsupported-grammar.js';
 
 /** @typedef {ReturnType<typeof import('../training/model.js').createProgramModel>} ProgramModel
  * @typedef {import('../training/model.js').ExerciseInput} ImportedRow
- * @typedef {{exercises:ImportedRow[],customExercises:unknown[],meta:unknown,format:'json'|'text',legacy?:boolean,definition?:import('../training/generation.js').ProgramDefinition}} ProgramSource
+ * @typedef {{exercises:ImportedRow[],customExercises:unknown[],meta:unknown,format:'json'|'text',legacy?:boolean,definition?:import('../training/model.js').ProgramDefinition}} ProgramSource
  * @typedef {Record<string,unknown>&{day:string,name:string,sets:number,order?:number,min?:number,max?:number,repLow?:number,repHigh?:number}} LegacyRow
  */
 export const PROGRAM_TEXT_DATA_MARKER='TAURIFER-DATA';

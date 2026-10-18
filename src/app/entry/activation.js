@@ -67,13 +67,10 @@ export function createEntryActivation({model,entry,imports,build,policy,identity
    }
    if(preview.sharedImport)baseProposal._sharedSetupImport=cloneSnapshot(preview.sharedImport);
   }
-  let sourceCustoms=baseProposal.customExercises||[];
+  const existingCustoms=baseProposal.customExercises||[];
   /** @type {Map<string,string>} */let remap=new Map();
   if(preview.customExercises?.length){
-   const authored=model.normalizeCustomExercises(preview.customExercises),byId=new Map(sourceCustoms.map(custom=>[custom.id,custom]));
-   for(const custom of authored)byId.set(custom.id,custom);
-   sourceCustoms=[...byId.values()];
-   const merged=imports.merge({incoming:authored,exercises,existing:baseProposal.customExercises||[]});
+   const merged=imports.merge({incoming:preview.customExercises,exercises,existing:existingCustoms});
    baseProposal.customExercises=merged.customExercises;remap=merged.remap;
   }
   let definition=preview.programDefinition||preview.definition||(route==='shared'?baseProposal.programMeta?.programDefinition:null);
@@ -83,19 +80,9 @@ export function createEntryActivation({model,entry,imports,build,policy,identity
    const names=dayFacts.map(day=>{const value=record(day);return value.label||value.name}).filter((value)=>typeof value==='string');
    definition=model.manualProgramDefinitionFromRows(exercises,names,baseProposal.customExercises||[]);
   }
-  if(providedDefinition&&remap.size){
-   // Validate the incoming meaning before resolving collisions with this
-   // device. Only declared movement references change; slot/set identity stays.
-   const authored=model.canonicalProgramDefinition(definition,sourceCustoms);
-   if(!authored)return{ok:/** @type {false} */(false),code:'program-definition-required'};
-   for(const day of authored.days)for(const slot of day.slots){
-    slot.exerciseId=remap.get(slot.exerciseId)||slot.exerciseId;
-    slot.sourceExerciseIds=[...new Set(slot.sourceExerciseIds.map(id=>remap.get(id)||id))];
-    if(slot.alternates)slot.alternates=[...new Set(slot.alternates.map(id=>remap.get(id)||id))].filter(id=>id!==slot.exerciseId);
-   }
-   definition=authored;
-  }
-  let canonical=model.canonicalProgramDefinition(definition,baseProposal.customExercises||[]);
+  let canonical=providedDefinition&&remap.size
+   ?imports.definition({definition,authored:preview.customExercises,existing:existingCustoms,merged:baseProposal.customExercises||[],remap})
+   :model.canonicalProgramDefinition(definition,baseProposal.customExercises||[]);
   if(!canonical)return{ok:/** @type {false} */(false),code:'program-definition-required'};
   if(route==='build'){
    const pending=Array.isArray(preview.suggestLoadsPending)?preview.suggestLoadsPending.filter((id)=>typeof id==='string'):[];

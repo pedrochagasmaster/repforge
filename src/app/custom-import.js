@@ -7,7 +7,7 @@ import {cloneSnapshot,foldExerciseName} from '../training/model.js';
 /** Imported definitions reuse equivalent authored movements and remap actual
  * collisions. Existing records retain their extension fields. The caller owns
  * the proposed exercise rows and explicitly grants mutation of libraryId.
- * @param {{model:Pick<Model,'normalizeCustomExercises'>,nextId:()=>string}} options */
+ * @param {{model:Pick<Model,'normalizeCustomExercises'|'canonicalProgramDefinition'>,nextId:()=>string}} options */
 export function createCustomDefinitionImport({model,nextId}){
  /** @param {unknown} value */
  const equipment=value=>Array.isArray(value)?value.join(','):'';
@@ -33,5 +33,19 @@ export function createCustomDefinitionImport({model,nextId}){
   if(remap.size)for(const row of exercises)if(row?.libraryId&&remap.has(row.libraryId))row.libraryId=remap.get(row.libraryId);
   return{customExercises:mine,added,remapped,remap};
  }
- return Object.freeze({merge});
+ /** Preserve incoming meaning before resolving a recipient id collision. Only
+  * declared movement references change; slot and prescription identity stays.
+  * @param {{definition:unknown,authored:unknown,existing:CustomExercise[],merged:CustomExercise[],remap:ReadonlyMap<string,string>}} input */
+ function definition({definition,authored,existing,merged,remap}){
+  const sources=new Map(existing.map(custom=>[custom.id,custom]));
+  for(const custom of model.normalizeCustomExercises(authored))sources.set(custom.id,custom);
+  const source=model.canonicalProgramDefinition(definition,[...sources.values()]);if(!source)return null;
+  if(remap.size)for(const day of source.days)for(const slot of day.slots){
+   slot.exerciseId=remap.get(slot.exerciseId)||slot.exerciseId;
+   slot.sourceExerciseIds=[...new Set(slot.sourceExerciseIds.map(id=>remap.get(id)||id))];
+   if(slot.alternates)slot.alternates=[...new Set(slot.alternates.map(id=>remap.get(id)||id))].filter(id=>id!==slot.exerciseId);
+  }
+  return model.canonicalProgramDefinition(source,merged);
+ }
+ return Object.freeze({merge,definition});
 }
