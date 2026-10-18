@@ -31,6 +31,7 @@ export const SUITES = {
     s("test/custom-command-recovery.mjs", [], {domains:["library","persistence"],nodeArgs:["--test"]}),
     s("test/app-block-transition.mjs", [], {domains:["program","transition","progress"]}),
     s("test/editor-document-rules.mjs", [], {domains:["program","entry"],nodeArgs:["--test"]}),
+    s("test/architecture/entry-draft-store.mjs", [], {domains:["entry","persistence"],nodeArgs:["--test"]}),
     s("test/app-workout-model.mjs", [], {domains:["workout","history"],nodeArgs:["--test"]}),
     s("test/progress-read-model-owner.mjs", [], {domains:["progress","history"],nodeArgs:["--test"]}),
     s("test/focus-workout-commands.mjs", [], {domains:["workout","persistence"]}),

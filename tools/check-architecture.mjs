@@ -10,7 +10,7 @@ const permitted = {training:['training'], persistence:['persistence','training']
 // Purpose-specific public entries, not generic pass-through barrels.
 const publicEntries = new Set([
   ...['metrics','identity','model','generation','authoring','workout','progress'].map(name=>`training/${name}.js`),
-  ...['durable','snapshot','preferences'].map(name=>`persistence/${name}.js`),
+  ...['durable','snapshot','preferences','setup-draft'].map(name=>`persistence/${name}.js`),
   ...['backup','program-file','freeform','setup-link','csv','transfer-contract'].map(name=>`interchange/${name}.js`),
   ...['catalog','program-executor','files','notifications','telemetry','install-transfer','motion','install'].map(name=>`platform/${name}.js`),
   ...['session','workout','program','history','entry','interchange','settings','read-models','history-read-models','review','block-transition','progress-read-models','workout-model'].map(name=>`app/${name}.js`),
