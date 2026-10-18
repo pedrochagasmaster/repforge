@@ -26,6 +26,7 @@
     "../../src/platform/install.js",
     "../../src/platform/catalog.js",
     "../../src/platform/program-executor.js",
-    "../../src/ui/focus/**/*.js"
+    "../../src/ui/focus/**/*.js",
+    "../../src/platform/telemetry.js"
   ]
 }

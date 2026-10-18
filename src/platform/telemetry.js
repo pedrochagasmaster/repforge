@@ -1,6 +1,26 @@
+/** @typedef {Record<string,unknown>} TelemetryRecord
+ * @typedef {{kind:'enum',allowed:readonly string[],optional?:true}|{kind:'boolean',optional?:true}|{kind:'integer',optional?:true}} PropertyRule
+ * @typedef {{phase:'alpha'|'install_transfer',properties:Readonly<Record<string,PropertyRule>>,metric:string,duplicates:string}} EventRule
+ * @typedef {{installationId:string,schemaVersion:1,createdAt:string}} InstallationIdentity
+ * @typedef {Pick<Storage,'getItem'|'setItem'>} TelemetryStorage
+ * @typedef {{capture:(name:string,properties:Readonly<TelemetryRecord>)=>unknown,setEnabled?:(enabled:boolean)=>unknown}} TelemetryAdapter
+ * @typedef {{adapter?:TelemetryAdapter|null,storage?:TelemetryStorage|null,crypto?:Partial<Pick<Crypto,'randomUUID'|'getRandomValues'>>|null,location?:{origin?:unknown,pathname?:unknown}|null,navigator?:unknown,now?:()=>Date,onReject?:(failure:Readonly<{reason:string,detail:unknown}>)=>void,projectToken?:string,appVersion?:string,releaseChannel?:string}} BootOptions
+ * @typedef {{adapter:TelemetryAdapter|null,storage:TelemetryStorage|null,crypto:Partial<Pick<Crypto,'randomUUID'|'getRandomValues'>>|null,identity:InstallationIdentity|null,location:{origin?:unknown,pathname?:unknown}|null,navigator:unknown,now:()=>Date,onReject:((failure:Readonly<{reason:string,detail:unknown}>)=>void)|null,projectToken:string|null,appVersion:string,releaseChannel:string,enabled:boolean}} TelemetryRuntime
+ * @typedef {TelemetryRecord & {environment?:{kind?:unknown,adjust?:{add?:unknown,remove?:unknown}}}} EntryAnswers
+ * @typedef {TelemetryRecord & {storage?:TelemetryStorage|null}} LateTransferFacts
+ */
 /** One consent and transport lifetime. Call boot explicitly after construction. */
 export function createTelemetry() {
   "use strict";
+
+  /** @param {unknown} value @returns {value is number} */
+  const finiteNumber=value=>Number.isFinite(value);
+  /** @param {unknown} value @returns {value is number} */
+  const integerNumber=value=>Number.isInteger(value);
+  /** @param {unknown} value @returns {value is number} */
+  const safeIntegerNumber=value=>Number.isSafeInteger(value);
+  /** @param {readonly string[]} allowed @param {unknown} value @returns {value is string} */
+  const hasString=(allowed,value)=>allowed.includes(/** @type {string} */(value));
 
   const SCHEMA_VERSION = 1;
   const IDENTITY_KEY = "repforge_telemetry_identity_v1";
@@ -17,9 +37,11 @@ export function createTelemetry() {
     "settings_open",
   ]);
 
+  /** @param {...string} allowed @returns {PropertyRule} */
   const values = (...allowed) => Object.freeze({ kind: "enum", allowed: Object.freeze(allowed) });
   const boolean = Object.freeze({ kind: "boolean" });
   const integer = Object.freeze({ kind: "integer" });
+  /** @param {PropertyRule} validator @returns {PropertyRule} */
   const optional = validator => Object.freeze({ ...validator, optional: true });
 
   /* How often analysis may legitimately see one event for one subject.
@@ -69,6 +91,7 @@ export function createTelemetry() {
      decision 2026-10-11). Each step owns the answers it asks; a value outside
      these lists is dropped, never sent. B's Basics are not here and never
      will be: no property may name one (test/telemetry-unit.mjs). */
+  /** @type {Readonly<Record<string,readonly string[]>>} */
   const STEP_ANSWER_VALUES = Object.freeze({
     goal: Object.freeze(["muscle_growth", "balanced", "strength"]),
     experience: Object.freeze(["first", "under_6m", "6_to_24m", "over_24m"]),
@@ -80,38 +103,42 @@ export function createTelemetry() {
     split: Object.freeze(["full_body", "upper_lower", "push_pull", "upper_lower_full", "push_pull_legs", "upper_lower_upper_lower", "push_pull_hinge_squat", "push_pull_legs_accessories", "upper_lower_upper_lower_upper", "push_pull_hinge_squat_accessories", "push_pull_legs_upper_lower", "push_pull_hinge_squat_upper_lower", "push_pull_legs_push_pull_legs"]),
     deload: Object.freeze(["on", "off"]),
   });
+  /** @param {{add?:unknown,remove?:unknown}|null|undefined} adjust */
   const equipmentChanges = (adjust) => {
     const count = (adjust && Array.isArray(adjust.add) ? adjust.add.length : 0) + (adjust && Array.isArray(adjust.remove) ? adjust.remove.length : 0);
     return count === 0 ? "0" : count === 1 ? "1" : count <= 3 ? "2_3" : "4_plus";
   };
-  const sessionLength = (minutes) => !Number.isFinite(minutes) ? undefined :
+  /** @param {unknown} minutes */
+  const sessionLength = (minutes) => !finiteNumber(minutes) ? undefined :
     minutes <= 40 ? "up_to_40" : minutes <= 60 ? "60" : minutes <= 90 ? "90" : "120_plus";
   // The answers each step asks, by step id. A step Plan 072 adds that asks an
   // engine answer joins this table; a Basics step never does.
+  /** @type {Readonly<Record<string,(answers:EntryAnswers)=>TelemetryRecord>>} */
   const STEP_ANSWERS = Object.freeze({
     entry: (answers) => ({ goal: answers.desiredResult }),
     desired_result: (answers) => ({ goal: answers.desiredResult }),
     background: (answers) => ({ experience: answers.structuredExperience }),
     schedule: (answers) => ({
-      days_per_week: Number.isInteger(answers.daysPerWeek) ? String(answers.daysPerWeek) : undefined,
+      days_per_week: integerNumber(answers.daysPerWeek) ? String(answers.daysPerWeek) : undefined,
       session_length: sessionLength(answers.sessionMinutes),
     }),
     environment: (answers) => ({ gym_preset: answers.environment && answers.environment.kind }),
     equipment: (answers) => ({ equipment_changes: equipmentChanges(answers.environment && answers.environment.adjust) }),
-    days_per_week: (answers) => ({ days_per_week: Number.isInteger(answers.daysPerWeek) ? String(answers.daysPerWeek) : undefined }),
+    days_per_week: (answers) => ({ days_per_week: integerNumber(answers.daysPerWeek) ? String(answers.daysPerWeek) : undefined }),
     session_length: (answers) => ({ session_length: sessionLength(answers.sessionMinutes) }),
     deload: (answers) => ({ deload: answers.deload === true ? "on" : answers.deload === false ? "off" : undefined }),
     custom_shape: (answers) => ({ split: answers.splitPreference }),
   });
 
+  /** @param {string} step @param {unknown} answers @returns {Record<string,string>} */
   function stepAnswers(step, answers) {
     const project = STEP_ANSWERS[step];
     if (!project || !answers || typeof answers !== "object") return {};
-    let projected = {};
-    try { projected = project(answers) || {}; } catch { return {}; }
-    const clean = {};
+    /** @type {TelemetryRecord} */let projected = {};
+    try { projected = project(/** @type {EntryAnswers} */(answers)) || {}; } catch { return {}; }
+    /** @type {Record<string,string>} */const clean = {};
     for (const [key, value] of Object.entries(projected)) {
-      if (STEP_ANSWER_VALUES[key] && STEP_ANSWER_VALUES[key].includes(value)) clean[key] = value;
+      if (STEP_ANSWER_VALUES[key] && hasString(STEP_ANSWER_VALUES[key],value)) clean[key] = value;
     }
     return clean;
   }
@@ -120,6 +147,7 @@ export function createTelemetry() {
   const entryRouteOrHub = values("none", ...ENTRY_ROUTES);
   const entryStep = values(...ENTRY_STEPS);
 
+  /** @param {Record<string,PropertyRule>} properties @param {string} metric @param {string} duplicates @returns {EventRule} */
   const event = (properties, metric, duplicates) => {
     if (!DUPLICATE_POLICIES.includes(duplicates)) {
       throw new TypeError(`Telemetry event needs a duplicate-expectation policy, received ${String(duplicates)}`);
@@ -132,6 +160,7 @@ export function createTelemetry() {
     });
   };
 
+  /** @type {Readonly<Record<string,EventRule>>} */
   const EVENTS = Object.freeze({
     app_boot: event({ first_run: boolean, language: values("en", "pt"), platform_class: values("ios", "android", "desktop", "other"), display_mode: optional(values("standalone", "browser")) }, "Successful app boot", "once_per_boot"),
     landing_viewed: event({ landing: values("generic", "shared", "shared_invalid"), visit: values("first", "returning") }, "First-run landing shown", "repeatable"),
@@ -205,6 +234,7 @@ export function createTelemetry() {
 
   let runtime = emptyRuntime();
 
+  /** @returns {TelemetryRuntime} */
   function emptyRuntime() {
     return {
       adapter: null,
@@ -222,6 +252,7 @@ export function createTelemetry() {
     };
   }
 
+  /** @param {string} reason @param {unknown} detail */
   function reject(reason, detail) {
     try {
       if (typeof runtime.onReject === "function") runtime.onReject(Object.freeze({ reason, detail }));
@@ -229,10 +260,12 @@ export function createTelemetry() {
     return false;
   }
 
+  /** @param {string} key */
   function storageGet(key) {
     try { return runtime.storage && runtime.storage.getItem(key); } catch { return null; }
   }
 
+  /** @param {string} key @param {string} value */
   function storageSet(key, value) {
     try {
       if (runtime.storage) runtime.storage.setItem(key, value);
@@ -259,17 +292,19 @@ export function createTelemetry() {
     return null;
   }
 
-  function validIdentity(value) {
+  /** @param {unknown} candidate @returns {candidate is InstallationIdentity} */
+  function validIdentity(candidate) {
+    const value=/** @type {TelemetryRecord|null|undefined} */(candidate);
     if (!value || typeof value !== "object" || Array.isArray(value)) return false;
     if (Object.keys(value).sort().join(",") !== "createdAt,installationId,schemaVersion") return false;
-    return value.schemaVersion === 1 && UUID_PATTERN.test(value.installationId) &&
-      typeof value.createdAt === "string" && Number.isFinite(Date.parse(value.createdAt));
+    return value.schemaVersion === 1 && UUID_PATTERN.test(/** @type {string} */(value.installationId)) &&
+      typeof value.createdAt === "string" && finiteNumber(Date.parse(value.createdAt));
   }
 
   function installationIdentity() {
     if (runtime.identity) return runtime.identity;
-    let stored = null;
-    try { stored = JSON.parse(storageGet(IDENTITY_KEY)); } catch {}
+    /** @type {unknown} */let stored = null;
+    try { stored = JSON.parse(String(storageGet(IDENTITY_KEY))); } catch {}
     if (validIdentity(stored)) {
       runtime.identity = Object.freeze({ ...stored });
       return runtime.identity;
@@ -283,6 +318,7 @@ export function createTelemetry() {
     return runtime.identity;
   }
 
+  /** @param {{origin?:unknown,pathname?:unknown}|null|undefined} locationValue */
   function safeLocation(locationValue) {
     const origin = typeof locationValue?.origin === "string" ? locationValue.origin : "";
     const pathname = typeof locationValue?.pathname === "string" ? locationValue.pathname : "/";
@@ -295,6 +331,7 @@ export function createTelemetry() {
     return stored !== "false";
   }
 
+  /** @param {BootOptions} [options] */
   function boot(options = {}) {
     if (!options || typeof options !== "object" || Array.isArray(options)) options = {};
     if (Object.prototype.hasOwnProperty.call(options, "adapter")) runtime.adapter = options.adapter || null;
@@ -308,8 +345,8 @@ export function createTelemetry() {
     if (typeof options.now === "function") runtime.now = options.now;
     if (typeof options.onReject === "function") runtime.onReject = options.onReject;
     if (typeof options.projectToken === "string") runtime.projectToken = options.projectToken;
-    if (VERSION_PATTERN.test(options.appVersion || "")) runtime.appVersion = options.appVersion;
-    if (CHANNELS.includes(options.releaseChannel)) runtime.releaseChannel = options.releaseChannel;
+    if (VERSION_PATTERN.test(options.appVersion || "")) runtime.appVersion = /** @type {string} */(options.appVersion);
+    if (hasString(CHANNELS,options.releaseChannel)) runtime.releaseChannel = options.releaseChannel;
     runtime.enabled = readEnabled();
     const identity = installationIdentity();
     try {
@@ -323,14 +360,17 @@ export function createTelemetry() {
     });
   }
 
+  /** @param {unknown} value @param {PropertyRule} validator */
   function validProperty(value, validator) {
     if (value === undefined) return !!validator.optional;
     if (validator.kind === "boolean") return typeof value === "boolean";
-    if (validator.kind === "integer") return Number.isInteger(value) && value >= 0;
+    if (validator.kind === "integer") return integerNumber(value) && value >= 0;
     return validator.kind === "enum" && typeof value === "string" && validator.allowed.includes(value);
   }
 
-  function capture(eventName, properties = {}) {
+  /** @param {string} eventName @param {unknown} candidate */
+  function capture(eventName, candidate = {}) {
+    const properties=/** @type {TelemetryRecord|null|undefined} */(candidate);
     if (!runtime.enabled) return false;
     const definition = EVENTS[eventName];
     if (!definition || (definition.phase !== "alpha" && definition.phase !== "install_transfer")) return reject("unknown_event", eventName);
@@ -358,14 +398,16 @@ export function createTelemetry() {
     } catch { return false; }
   }
 
-  function filterOutbound(envelope) {
+  /** @param {unknown} candidate */
+  function filterOutbound(candidate) {
+    const envelope=/** @type {TelemetryRecord|null|undefined} */(candidate);
     if (!runtime.enabled || !envelope || typeof envelope !== "object" || Array.isArray(envelope)) return null;
     if (envelope.event === "$autocapture") return filterAutocapture(envelope);
     if (envelope.event === "$snapshot") return filterReplay(envelope);
-    const definition = EVENTS[envelope.event];
-    const properties = envelope.properties;
+    const definition = EVENTS[/** @type {string} */(envelope.event)];
+    const properties = /** @type {TelemetryRecord|null|undefined} */(envelope.properties);
     if (!definition || (definition.phase !== "alpha" && definition.phase !== "install_transfer") || !properties || typeof properties !== "object" || Array.isArray(properties)) return null;
-    const clean = {};
+    /** @type {TelemetryRecord} */const clean = {};
     for (const [key, validator] of Object.entries(definition.properties)) {
       if (!validProperty(properties[key], validator)) return null;
       if (properties[key] !== undefined) clean[key] = properties[key];
@@ -392,10 +434,11 @@ export function createTelemetry() {
     return Object.freeze({ event: envelope.event, properties: Object.freeze(clean) });
   }
 
+  /** @param {TelemetryRecord} properties */
   function transportIdentity(properties) {
     const identity = installationIdentity();
     if (!identity || properties?.distinct_id !== identity.installationId) return null;
-    const clean = { distinct_id: identity.installationId };
+    /** @type {Record<string,string>} */const clean = { distinct_id: identity.installationId };
     for (const key of ["$session_id", "$window_id"]) {
       if (properties[key] === undefined) continue;
       if (typeof properties[key] !== "string" || properties[key].length < 8 || properties[key].length > 64 || !/^[a-zA-Z0-9_-]+$/.test(properties[key])) return null;
@@ -404,18 +447,20 @@ export function createTelemetry() {
     return clean;
   }
 
+  /** @param {TelemetryRecord} properties */
   function autocaptureAction(properties) {
-    if (AUTOCAPTURE_ACTIONS.includes(properties?.telemetry_action)) return properties.telemetry_action;
+    if (hasString(AUTOCAPTURE_ACTIONS,properties?.telemetry_action)) return properties.telemetry_action;
     if (!Array.isArray(properties?.$elements)) return null;
     for (const element of properties.$elements) {
       const action = element?.attributes?.["data-telemetry-action"] || element?.["attr__data-telemetry-action"];
-      if (AUTOCAPTURE_ACTIONS.includes(action)) return action;
+      if (hasString(AUTOCAPTURE_ACTIONS,action)) return action;
     }
     return null;
   }
 
+  /** @param {TelemetryRecord} envelope */
   function filterAutocapture(envelope) {
-    const properties = envelope.properties;
+    const properties = /** @type {TelemetryRecord|null|undefined} */(envelope.properties);
     if (!properties || typeof properties !== "object" || Array.isArray(properties)) return null;
     if (properties.$event_type !== undefined && properties.$event_type !== "click") return null;
     const telemetry_action = autocaptureAction(properties);
@@ -434,6 +479,7 @@ export function createTelemetry() {
     });
   }
 
+  /** @param {unknown} value @param {string} [key] @param {number} [depth] @param {Set<object>} [seen] @returns {boolean} */
   function replayValueIsMasked(value, key = "", depth = 0, seen = new Set()) {
     if (depth > 32) return false;
     if (value == null || typeof value === "boolean" || typeof value === "number") return true;
@@ -453,8 +499,9 @@ export function createTelemetry() {
     return true;
   }
 
+  /** @param {TelemetryRecord} envelope */
   function filterReplay(envelope) {
-    const properties = envelope.properties;
+    const properties = /** @type {TelemetryRecord|null|undefined} */(envelope.properties);
     if (!properties || typeof properties !== "object" || Array.isArray(properties)) return null;
     const transport = transportIdentity(properties);
     if (!transport || !properties.$snapshot_data || !replayValueIsMasked(properties.$snapshot_data)) return null;
@@ -468,6 +515,7 @@ export function createTelemetry() {
     });
   }
 
+  /** @param {unknown} enabled */
   function setEnabled(enabled) {
     runtime.enabled = enabled === true;
     storageSet(PREFERENCE_KEY, String(runtime.enabled));
@@ -477,40 +525,46 @@ export function createTelemetry() {
     return runtime.enabled;
   }
 
+  /** @param {unknown} value @param {string} kind */
   function bucketCount(value, kind) {
-    if (!Number.isSafeInteger(value) || value < 0) return null;
+    if (!safeIntegerNumber(value) || value < 0) return null;
     if (kind === "sets") return value === 0 ? "0" : value <= 5 ? "1_5" : value <= 10 ? "6_10" : value <= 20 ? "11_20" : "21_plus";
     if (kind === "exercises") return value === 0 ? "0" : value <= 3 ? "1_3" : value <= 6 ? "4_6" : "7_plus";
     return null;
   }
 
+  /** @param {unknown} minutes */
   function bucketDuration(minutes) {
-    if (!Number.isFinite(minutes) || minutes < 0) return null;
+    if (!finiteNumber(minutes) || minutes < 0) return null;
     return minutes <= 15 ? "0_15" : minutes <= 30 ? "16_30" : minutes <= 60 ? "31_60" : minutes <= 90 ? "61_90" : "90_plus";
   }
 
+  /** @param {unknown} milliseconds */
   function bucketStepTime(milliseconds) {
-    if (!Number.isFinite(milliseconds) || milliseconds < 0) return null;
+    if (!finiteNumber(milliseconds) || milliseconds < 0) return null;
     const seconds = milliseconds / 1000;
     return seconds < 10 ? "under_10s" : seconds < 30 ? "10_30s" : seconds < 60 ? "30_60s" :
       seconds < 180 ? "1_3m" : seconds < 600 ? "3_10m" : "over_10m";
   }
 
+  /** @param {unknown} milliseconds */
   function bucketGeneration(milliseconds) {
-    if (!Number.isFinite(milliseconds) || milliseconds < 0) return null;
+    if (!finiteNumber(milliseconds) || milliseconds < 0) return null;
     return milliseconds < 1000 ? "under_1s" : milliseconds < 3000 ? "1_3s" : milliseconds < 10000 ? "3_10s" : "over_10s";
   }
 
   // Calendar days since the lifter's previous session; null when unknown.
+  /** @param {unknown} days */
   function bucketDaysSince(days) {
     if (days === null) return "first";
-    if (!Number.isSafeInteger(days) || days < 0) return null;
+    if (!safeIntegerNumber(days) || days < 0) return null;
     return days === 0 ? "same_day" : days === 1 ? "1" : days <= 3 ? "2_3" : days <= 7 ? "4_7" :
       days <= 14 ? "8_14" : days <= 30 ? "15_30" : "31_plus";
   }
 
+  /** @param {unknown} count */
   function bucketChanges(count) {
-    if (!Number.isSafeInteger(count) || count < 0) return null;
+    if (!safeIntegerNumber(count) || count < 0) return null;
     return count === 0 ? "0" : count <= 2 ? "1_2" : count <= 5 ? "3_5" : count <= 10 ? "6_10" : "11_plus";
   }
 
@@ -521,20 +575,23 @@ export function createTelemetry() {
      ProgramEntry.ROUTE_STEPS: direction comes from the route's own order,
      never from a screen index. Moving onto or off the conflict screen is the
      app's doing, not the lifter's, so it reports only the view. */
-  function entryView(view) {
+  /** @param {unknown} candidate */
+  function entryView(candidate) {
+    const view=/** @type {TelemetryRecord|null|undefined} */(candidate);
     if (!view || typeof view !== "object") return null;
-    const step = ENTRY_STEPS.includes(view.step) ? view.step : null;
+    const step = hasString(ENTRY_STEPS,view.step) ? view.step : null;
     if (!step) return null;
-    const route = step === "entry" ? "none" : ENTRY_ROUTES.includes(view.route) ? view.route : null;
+    const route = step === "entry" ? "none" : hasString(ENTRY_ROUTES,view.route) ? view.route : null;
     return route ? { route, step, at: Number(view.at) } : null;
   }
 
+  /** @param {unknown} previousView @param {unknown} nextView @param {Record<string,string[]>|null|undefined} routeSteps @returns {Array<[string,TelemetryRecord]>} */
   function entryFunnelEvents(previousView, nextView, routeSteps) {
     const next = entryView(nextView);
     if (!next) return [];
     const previous = entryView(previousView);
     if (previous && previous.route === next.route && previous.step === next.step) return [];
-    const events = [];
+    /** @type {Array<[string,TelemetryRecord]>} */const events = [];
     if (previous && previous.step !== "activation_conflict" && next.step !== "activation_conflict") {
       const from = { route: previous.route, step: previous.step };
       const order = routeSteps && Array.isArray(routeSteps[next.route]) ? routeSteps[next.route] : [];
@@ -547,7 +604,7 @@ export function createTelemetry() {
       if (direction === "forward") {
         const time = bucketStepTime(next.at - previous.at);
         // The hub asks the goal only on its Generate shortcut.
-        const answered = previous.step === "entry" && next.route !== "recommend" ? {} : stepAnswers(previous.step, nextView.answers);
+        const answered = previous.step === "entry" && next.route !== "recommend" ? {} : stepAnswers(previous.step, /** @type {TelemetryRecord} */(nextView).answers);
         if (time) events.push(["onboarding_step_completed", { ...from, time_on_step: time, ...answered }]);
       } else if (direction === "back") events.push(["onboarding_step_back", from]);
     }
@@ -555,7 +612,9 @@ export function createTelemetry() {
     return events;
   }
 
-  function canEmitLateInstallTransfer(params = {}) {
+  /** @param {unknown} candidate */
+  function canEmitLateInstallTransfer(candidate = {}) {
+    const params=/** @type {TelemetryRecord|null|undefined} */(candidate);
     if (!params || typeof params !== "object") return false;
     const consent = params.enabled !== undefined ? params.enabled === true : runtime.enabled;
     if (!consent) return false;
@@ -570,21 +629,23 @@ export function createTelemetry() {
     return true;
   }
 
+  /** @param {LateTransferFacts} [options] */
   function buildLateInstallTransferPayload(options = {}) {
-    const payload = {
+    /** @type {Record<string,string>} */const payload = {
       outcome: "success",
       source_context: "browser",
       destination_context: "standalone",
     };
-    if (options.platform_class && ["ios", "android", "desktop", "other"].includes(options.platform_class)) {
+    if (options.platform_class && hasString(["ios", "android", "desktop", "other"],options.platform_class)) {
       payload.platform_class = options.platform_class;
     }
-    if (options.platform_family && ["ios", "android", "desktop", "other"].includes(options.platform_family)) {
+    if (options.platform_family && hasString(["ios", "android", "desktop", "other"],options.platform_family)) {
       payload.platform_family = options.platform_family;
     }
     return Object.freeze(payload);
   }
 
+  /** @param {TelemetryStorage|null} [storage] */
   function hasEmittedLateInstallTransfer(storage) {
     const s = storage || runtime.storage;
     try {
@@ -594,6 +655,7 @@ export function createTelemetry() {
     }
   }
 
+  /** @param {TelemetryStorage|null} [storage] */
   function markLateInstallTransferEmitted(storage) {
     const s = storage || runtime.storage;
     try {
@@ -604,6 +666,7 @@ export function createTelemetry() {
     }
   }
 
+  /** @param {LateTransferFacts} [options] */
   function recordLateInstallTransfer(options = {}) {
     const storage = options.storage || runtime.storage;
     const already = options.alreadyEmitted !== undefined ? options.alreadyEmitted : hasEmittedLateInstallTransfer(storage);
@@ -632,13 +695,13 @@ export function createTelemetry() {
     canEmitLateInstallTransfer,
     capture,
     entryFunnelEvents,
-    getEventNames: (filter) => {
+    getEventNames: /** @param {string} [filter] */ (filter) => {
       const names = Object.keys(EVENTS);
       if (filter === "all") return Object.freeze(names);
       return Object.freeze(names.filter(name => EVENTS[name]?.phase === "alpha"));
     },
-    getEventPolicy: name => EVENTS[name]?.duplicates || null,
-    getEventProperties: name => (EVENTS[name] ? Object.freeze(Object.keys(EVENTS[name].properties)) : null),
+    getEventPolicy: /** @param {string} name */ name => EVENTS[name]?.duplicates || null,
+    getEventProperties: /** @param {string} name */ name => (EVENTS[name] ? Object.freeze(Object.keys(EVENTS[name].properties)) : null),
     getEntryVocabulary: () => Object.freeze({ routes: ENTRY_ROUTES, steps: ENTRY_STEPS, reviewEditKinds: REVIEW_EDIT_KINDS, stepAnswers: STEP_ANSWER_VALUES }),
     getAutocaptureActions: () => AUTOCAPTURE_ACTIONS,
     getSchemaVersion: () => SCHEMA_VERSION,

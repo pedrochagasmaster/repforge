@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import {createTelemetry} from "../src/platform/telemetry.js";
 import { createRequire } from "node:module";
 import {
   BASICS_PROPERTY_PATTERN,
@@ -10,7 +11,7 @@ import {
 } from "./fixtures/telemetry.mjs";
 
 const require = createRequire(import.meta.url);
-const Telemetry = require("../telemetry.js");
+const Telemetry = createTelemetry();
 const ProgramEntry = require("../program-entry.js");
 const ProgramReview = require("../program-review.js");
 const FIXED_UUID = "123e4567-e89b-42d3-a456-426614174000";
