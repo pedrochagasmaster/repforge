@@ -103,3 +103,23 @@ const metricSource={program:saved.program,customExercises:[],log:[structuredClon
 actual.migrateLogSnapshot(metricSource);
 assert.equal(metricSource.log[0].session,row.session);
 assert.deepEqual(metricSource.log[0].metricValues,row.metricValues,'metric logs never enter legacy numeric repair');
+
+// A supported but malformed semantic record must retain bounded evidence, not
+// accidentally invoke a local variable shadowing the injected digest function.
+const {createHash}=await import('node:crypto');
+const overlayKeys=['schemaVersion','policyVersion','transitionId','blockId','activePeriod','eligibilityEvidence','baseProgramFingerprint','entries','createdAt','confirmedAt','reassessmentDueAt','reassessmentOutcome'];
+const recordKeys=['schemaVersion','transitionId','kind','createdAt','status','predecessor','diagnosis','derivation','diff','progressionContract','archiveId','confirmedAt','proposalHash'];
+const overlay={...Object.fromEntries(overlayKeys.map(key=>[key,null])),schemaVersion:1,policyVersion:2};
+const malformedRecord={...Object.fromEntries(recordKeys.map(key=>[key,null])),schemaVersion:1,
+  diff:{days:null,exercises:null,prescriptions:null,recoveryWeek:overlay}};
+assert.equal(policy.classifyRecoveryCarrier({schemaVersion:1,records:[malformedRecord],quarantine:[]}).kind,'known');
+const recoveryPolicy=policy.createSnapshotPolicy({entry,metrics,workout,model:{},now:()=>instant,
+  digest:async raw=>createHash('sha256').update(raw).digest('hex')});
+const rawMalformed=JSON.stringify(malformedRecord);
+const recoveryInput={program:[],log:[],recoveryTransitions:{schemaVersion:1,records:[malformedRecord],quarantine:[]}};
+const recovered=await recoveryPolicy.normalizeRecoveryCarrierSnapshot(recoveryInput,'localStorage');
+assert.equal(recovered.kind,'known');
+assert.deepEqual(recovered.snapshot.recoveryTransitions.records,[]);
+assert.equal(recovered.snapshot.recoveryTransitions.quarantine[0].digest,createHash('sha256').update(rawMalformed).digest('hex'));
+assert.equal(recovered.snapshot.recoveryTransitions.quarantine[0].raw,rawMalformed,'exact malformed bytes remain recoverable');
+assert.equal(recoveryInput.recoveryTransitions.records.length,1,'quarantine cannot mutate the original replica');

@@ -613,9 +613,9 @@ async function normalizeRecoveryCarrierSnapshot(snapshot,sourceReplica,{priorQua
   const addEvidence=async(raw,reason)=>{
     if(typeof raw!=="string"||raw.length>TRANSITION_VALUE_LIMITS.stringLength)
       return{kind:"full-recovery"};
-    let digest;
-    try{digest=await digest(raw)}catch{return{kind:"full-recovery"}}
-    const entry={schemaVersion:1,digest,raw,sourceReplica,detectedAt:detectedAt(),reason};
+    let evidenceDigest;
+    try{evidenceDigest=await digest(raw)}catch{return{kind:"full-recovery"}}
+    const entry={schemaVersion:1,digest:evidenceDigest,raw,sourceReplica,detectedAt:detectedAt(),reason};
     mergeRecoveryQuarantine(normalized.quarantine,entry);
     if(!isBoundedTransitionValue(normalized))return{kind:"full-recovery"};
     return{kind:"ok"};
