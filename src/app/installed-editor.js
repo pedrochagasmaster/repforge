@@ -99,7 +99,7 @@ export function createInstalledEditor({read,refreshHead,commit,model,catalog,nex
     if(!muscles.validate(proposal))return Promise.resolve(muscles.invalid());
     const previous=read();
     if(proposal.programMeta)model.syncProgramStructureFromProgram(/** @type {Snapshot & {programMeta:NonNullable<Snapshot['programMeta']>}} */(proposal),
-      model.makeProgram(proposal.program,model.snapshotLookup(proposal.customExercises),proposal.programMeta),
+      model.makeProgram(proposal.program||[],model.snapshotLookup(proposal.customExercises),proposal.programMeta),
       previous.program||null,previous.programMeta||null,{recoveryRecord:readRecovery()});
     return commit(proposal,options,io);
   }
