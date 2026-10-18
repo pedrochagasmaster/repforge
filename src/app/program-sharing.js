@@ -6,7 +6,7 @@ import {programDayMuscles} from './read-models.js';
  * @typedef {ReturnType<typeof import('../interchange/setup-link.js').createSetupLinkCodec>} Codec
  * @typedef {NonNullable<ReturnType<Model['canonicalProgramDefinition']>>} Definition
  * @typedef {import('../interchange/program-text.js').Meta & {id?:string,blockId?:string,programDefinition?:Definition}} Meta
- * @typedef {{program:import('../training/model/internal/contracts.js').ExerciseInput[],programMeta?:Meta,customExercises:import('../training/model/internal/contracts.js').LibraryEntry[],settings:{jumpPct:number,minJump:number,rirHigh:number,hardRir:number,restSec:number,unit:string,lang?:string,rirMode:string}}} SharingSnapshot
+ * @typedef {{program:import('../training/model.js').ExerciseInput[],programMeta?:Meta,customExercises:import('../training/model.js').LibraryEntry[],settings:{jumpPct:number,minJump:number,rirHigh:number,hardRir:number,restSec:number,unit:string,lang?:string,rirMode:string}}} SharingSnapshot
  * @typedef {{program_kind:string,form:string,size_vs_limit:string}} ShareOutcome
  * @typedef {{status:"ready",url:string,outcome:ShareOutcome}|{status:"error",code:string,fileFallback?:boolean,outcome?:ShareOutcome}} LinkResult
  */

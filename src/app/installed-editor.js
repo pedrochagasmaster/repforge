@@ -2,10 +2,10 @@ import {copySnapshot} from './session.js';
 import {createProgramCommands} from './program.js';
 import {createInstalledEditorRules} from '../training/authoring.js';
 import {draftProgramFingerprint,readRevision,snapshotBlockId} from '../persistence/snapshot.js';
-/** @typedef {import('../training/authoring/internal/editor-contracts.js').EditorDocument} Document
- * @typedef {import('../training/authoring/internal/editor-contracts.js').InstalledIntent} Intent
- * @typedef {import('../training/authoring/internal/editor-contracts.js').EditorDraft} RawDraft
- * @typedef {import('./session.js').Snapshot & import('../training/authoring/internal/editor-contracts.js').EditorSnapshot} Snapshot
+/** @typedef {import('../training/authoring.js').EditorDocument} Document
+ * @typedef {import('../training/authoring.js').InstalledIntent} Intent
+ * @typedef {import('../training/authoring.js').EditorDraft} RawDraft
+ * @typedef {import('./session.js').Snapshot & import('../training/authoring.js').EditorSnapshot} Snapshot
  * @typedef {import('./program.js').EditorToken} Token
  * @typedef {import('./session.js').DraftEffect} Effect
  * @typedef {ReturnType<typeof createInstalledEditorRules>} Rules
@@ -14,14 +14,14 @@ import {draftProgramFingerprint,readRevision,snapshotBlockId} from '../persisten
 /** The installed editor owns a speculative document/intents until qualified
  * Apply. Canonical edits/rebase belong to training; this owner captures draft
  * effects and coordinates the real existing lock-held durable command.
- * @param {{read:()=>Snapshot,refreshHead:()=>Promise<{conflict?:boolean,head?:Snapshot}>,commit:import('./session.js').Commit,model:ReturnType<typeof import('../training/model.js').createProgramModel>,catalog:import('../training/generation/internal/compiler-contracts.js').SourceCatalog,nextId:()=>string,defaultMeta:(log:unknown[])=>import('../training/authoring/internal/editor-contracts.js').EditorMeta,now:()=>string,readRecovery:(snapshot:import('../training/authoring/internal/editor-contracts.js').EditorSnapshot)=>import('../training/model/internal/contracts.js').RecoveryRecord|null,drafts:Drafts,muscles:{validate:(value:unknown)=>boolean,invalid:()=>import('./session.js').CommitResult},readActiveDraft:()=>import('../training/workout-contracts.js').Draft|null,onSettled:(result:import('./session.js').CommitResult,context:{draftBefore:import('../training/workout-contracts.js').Draft|null})=>void}} options */
+ * @param {{read:()=>Snapshot,refreshHead:()=>Promise<{conflict?:boolean,head?:Snapshot}>,commit:import('./session.js').Commit,model:ReturnType<typeof import('../training/model.js').createProgramModel>,catalog:import('../training/generation.js').SourceCatalog,nextId:()=>string,defaultMeta:(log:unknown[])=>import('../training/authoring.js').EditorMeta,now:()=>string,readRecovery:(snapshot:import('../training/authoring.js').EditorSnapshot)=>import('../training/model.js').RecoveryRecord|null,drafts:Drafts,muscles:{validate:(value:unknown)=>boolean,invalid:()=>import('./session.js').CommitResult},readActiveDraft:()=>import('../training/workout-contracts.js').Draft|null,onSettled:(result:import('./session.js').CommitResult,context:{draftBefore:import('../training/workout-contracts.js').Draft|null})=>void}} options */
 export function createInstalledEditor({read,refreshHead,commit,model,catalog,nextId,defaultMeta,now,readRecovery,drafts,muscles,readActiveDraft,onSettled}){
   const rules=createInstalledEditorRules({model,catalog,nextId,defaultProgramMeta:defaultMeta});
   /** @type {{document:Document,token:Token|undefined,edits:Intent[]}|null} */ let session=null;
   // Rebase can compact a renamed/moved document too. Read the current recovery
   // receipt for each operation, including lock-held rebase, instead of freezing
   // boot-time recovery state in the stateless authoring instance.
-  /** @param {import('../training/authoring/internal/editor-contracts.js').EditorSnapshot} snapshot */
+  /** @param {import('../training/authoring.js').EditorSnapshot} snapshot */
   function rulesForCurrentRecovery(snapshot){const recovery=readRecovery(snapshot);return recovery?createInstalledEditorRules({model,catalog,nextId,defaultProgramMeta:defaultMeta,recoveryRecord:recovery}):rules}
 
   /** Durable heads are normalized by the snapshot owner before they enter this

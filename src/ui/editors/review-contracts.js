@@ -1,9 +1,9 @@
 /** Concrete private-session Review host, DOM and transient presentation contracts. */
-/** @typedef {import('../../training/authoring/internal/review-contracts.js').ProgramDefinition} ProgramDefinition */
-/** @typedef {import('../../training/authoring/internal/review-contracts.js').ProgramDay} ProgramDay */
-/** @typedef {import('../../training/authoring/internal/review-contracts.js').ProgramSlot} ProgramSlot */
-/** @typedef {import('../../training/authoring/internal/review-contracts.js').ProgramSet} ProgramSet */
-/** @typedef {import('../../training/authoring/internal/review-contracts.js').ReviewContext} ReviewContext */
+/** @typedef {import('../../training/authoring.js').ProgramDefinition} ProgramDefinition */
+/** @typedef {import('../../training/authoring.js').ProgramDay} ProgramDay */
+/** @typedef {import('../../training/authoring.js').ProgramSlot} ProgramSlot */
+/** @typedef {import('../../training/authoring.js').ProgramSet} ProgramSet */
+/** @typedef {import('../../training/authoring.js').ReviewContext} ReviewContext */
 /** @typedef {{kind:string,[key:string]:unknown}} ReviewEdit */
 /** @typedef {{tab?:number|null,reorder?:number|null}} ReviewView */
 /** @typedef {{slotId:string,offeredExerciseId:string,[key:string]:unknown}} VerifiedOffer */

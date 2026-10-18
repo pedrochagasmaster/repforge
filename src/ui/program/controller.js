@@ -1,7 +1,7 @@
 import {escapeHtml as esc} from "../format.js";
 
-/** @typedef {Readonly<import('../../training/model/internal/contracts.js').ExerciseRow> & {readonly [key:string]:unknown}} ExerciseView
- * @typedef {import('../../training/model/internal/contracts.js').LibraryEntry} LibraryEntry
+/** @typedef {Readonly<import('../../training/model.js').ExerciseRow> & {readonly [key:string]:unknown}} ExerciseView
+ * @typedef {import('../../training/model.js').LibraryEntry} LibraryEntry
  * @typedef {{exercises:readonly ExerciseView[],days:()=>string[],forDay:(day:string)=>readonly ExerciseView[],find:(id:string)=>ExerciseView|undefined,volume:()=>ReadonlyMap<string,{d:number,p:number}>,toJSON:()=>ExerciseView[]}} ProgramView
  * @typedef {{name:string,started?:string|null,goal?:string,onboarded?:boolean,programDefinition?:unknown}} MetaView
  * @typedef {{programMeta:MetaView,log:import('../../app/session.js').HistoryRow[]}} SnapshotView

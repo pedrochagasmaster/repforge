@@ -1,5 +1,5 @@
-import type {Proposal,CarryReport,Change} from '../training/generation/internal/transition-contracts.js';
-import type {ProgramDefinition,ProgramSlot} from '../training/generation/internal/compiler-contracts.js';
+import type {Proposal,CarryReport,Change} from '../training/generation.js';
+import type {ProgramDefinition,ProgramSlot} from '../training/generation.js';
 import type {CommitResult} from './session.js';
 export type {Proposal,CarryReport,Change,ProgramDefinition,ProgramSlot};
 export type ReviewAction='repeat'|'schedule-repair'|'reduce-volume'|'recovery-week'|'guided-edit';

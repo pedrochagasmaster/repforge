@@ -1,11 +1,11 @@
 /** Concrete editor host and optional drag runtime contracts. Storage/route state
  * stays behind the application's named host commands; these are view DTOs. */
-/** @typedef {import('../../training/authoring/internal/editor-contracts.js').EditorRow & {id:string,day:string,name:string,sets:number,order:number,notes:string,alternates:string[]}} EditorRow */
-/** @typedef {Omit<import('../../training/authoring/internal/editor-contracts.js').EditorDocument,'program'> & {program:EditorRow[]}} EditorDocument */
-/** @typedef {import('../../training/authoring/internal/editor-contracts.js').ProgramSlot} ProgramSlot */
-/** @typedef {import('../../training/authoring/internal/editor-contracts.js').ProgramSet} ProgramSet */
-/** @typedef {import('../../training/authoring/internal/editor-contracts.js').MetricDefinition} MetricDefinition */
-/** @typedef {import('../../training/authoring/internal/editor-contracts.js').TargetEdit} TargetEdit */
+/** @typedef {import('../../training/authoring.js').EditorRow & {id:string,day:string,name:string,sets:number,order:number,notes:string,alternates:string[]}} EditorRow */
+/** @typedef {Omit<import('../../training/authoring.js').EditorDocument,'program'> & {program:EditorRow[]}} EditorDocument */
+/** @typedef {import('../../training/authoring.js').ProgramSlot} ProgramSlot */
+/** @typedef {import('../../training/authoring.js').ProgramSet} ProgramSet */
+/** @typedef {import('../../training/authoring.js').MetricDefinition} MetricDefinition */
+/** @typedef {import('../../training/authoring.js').TargetEdit} TargetEdit */
 /** @typedef {{revision?:number,programId?:string|null,blockId?:string|null,fingerprint?:string,draftRevision?:number}} EditorToken */
 /** @typedef {{kind:string,[key:string]:unknown}} EditorIntent */
 /** @typedef {{ok?:boolean,staged?:boolean,setupDraft?:boolean,localOk?:boolean,conflict?:boolean,staleRevision?:boolean,document?:EditorDocument,token?:EditorToken,message?:string,[key:string]:unknown}} EditorReceipt */
@@ -19,7 +19,7 @@
  * t?:(key:string,vars?:Record<string,string|number>)=>string,
  * formatNumber?:(value:unknown)=>string,
  * reducedMotion?:()=>boolean,
- * dayLabel?:(day:string,index:number,stored:import('../../training/model/internal/contracts.js').StructureDay|null)=>string,
+ * dayLabel?:(day:string,index:number,stored:import('../../training/model.js').StructureDay|null)=>string,
  * exerciseLabel?:(exercise:EditorRow)=>string,
  * exerciseDisplayLabel?:(exercise:EditorRow)=>string,
  * exerciseEntry?:(id:string)=>LibraryEntry|null,
@@ -29,7 +29,7 @@
  * metricCompositions?:()=>readonly (readonly string[])[],
  * metricLabel?:(definition:MetricDefinition)=>string,
  * metricDisplayUnit?:(definition:MetricDefinition)=>string,
- * formatMetricValue?:(definition:MetricDefinition,value:import("../../training/authoring/internal/editor-contracts.js").Target|undefined|null)=>string,
+ * formatMetricValue?:(definition:MetricDefinition,value:import("../../training/authoring.js").Target|undefined|null)=>string,
  * parseMetricInput?:(definition:MetricDefinition,raw:string)=>{value?:number|null,field?:string,key?:string},
  * cycleIndex?:(document:EditorDocument)=>number,
  * context?:(document:EditorDocument)=>string,
@@ -38,7 +38,7 @@
  * afterModal?:(callback:()=>void)=>unknown,
  * dayCount?:(count:number)=>string,
  * defaultLoadStepKg?:()=>number,
- * suggestLoads?:import('../../training/authoring/internal/editor-contracts.js').SuggestionPolicy,
+ * suggestLoads?:import('../../training/authoring.js').SuggestionPolicy,
  * dayAddPlacement?:(document:EditorDocument,day:string)=>string,
  * status?:(document:EditorDocument)=>string,
  * afterRender?:(host:HTMLElement,document?:EditorDocument)=>unknown,

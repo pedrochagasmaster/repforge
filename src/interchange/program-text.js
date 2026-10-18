@@ -2,8 +2,8 @@ import {cloneSnapshot} from './json.js';
 import {fileSlug} from './program-file.js';
 export const PROGRAM_TEXT_DATA_MARKER='TAURIFER-DATA';
 /** @typedef {ReturnType<typeof import('../training/model.js').createProgramModel>} Model
- * @typedef {import('../training/model/internal/contracts.js').ProgramMeta & {name?:string,progressionRelations?:unknown,progressionModifiers?:unknown,progressionIncompatibilities?:unknown[]}} Meta
- * @typedef {import('../training/model/internal/contracts.js').ExerciseRow & {progression?:unknown,progressionIncompatibility?:unknown}} Row
+ * @typedef {import('../training/model.js').ProgramMeta & {name?:string,progressionRelations?:unknown,progressionModifiers?:unknown,progressionIncompatibilities?:unknown[]}} Meta
+ * @typedef {import('../training/model.js').ExerciseRow & {progression?:unknown,progressionIncompatibility?:unknown}} Row
  */
 /** The structured appendix retains authored progression envelopes; the readable
  * body keeps the released localized grammar consumed by program import.

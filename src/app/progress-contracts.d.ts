@@ -1,4 +1,4 @@
-import type { EvidenceMeta, EvidenceRecord } from '../training/progress/internal/contracts.js';
+import type { EvidenceMeta, EvidenceRecord } from '../training/progress.js';
 export type { EvidenceMeta, EvidenceRecord };
 export interface StrengthRow {
     exerciseId: string;
@@ -61,9 +61,9 @@ export interface ProgressComparisonFacts {
     meta: EvidenceMeta;
 }
 export type TrainingModel = ReturnType<typeof import('../training/model.js').createProgramModel>;
-export type ProgramRow = import('../training/model/internal/contracts.js').ExerciseInput;
-export type ProgramMeta = import('../training/model/internal/contracts.js').ProgramMeta;
-export type RecoveryRecord = import('../training/model/internal/contracts.js').RecoveryRecord;
+export type ProgramRow = import('../training/model.js').ExerciseInput;
+export type ProgramMeta = import('../training/model.js').ProgramMeta;
+export type RecoveryRecord = import('../training/model.js').RecoveryRecord;
 export interface VolumeRow {
     session?: string | number;
     date?: string;
@@ -90,7 +90,7 @@ export interface ProgressSnapshot {
     programMeta: Omit<ProgramMeta, 'started'> & {
         started?: string | null;
     };
-    customExercises: import('../training/model/internal/contracts.js').LibraryEntry[];
+    customExercises: import('../training/model.js').LibraryEntry[];
     settings: {
         hardRir: number | string;
     };

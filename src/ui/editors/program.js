@@ -259,7 +259,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     try { return String(adapter?.metricDisplayUnit?.(definition) || ""); }
     catch { return ""; }
   }
-  /** @param {EditorAdapter} adapter @param {MetricDefinition} definition @param {import("../../training/authoring/internal/editor-contracts.js").Target|null|undefined} value */
+  /** @param {EditorAdapter} adapter @param {MetricDefinition} definition @param {import("../../training/authoring.js").Target|null|undefined} value */
   function formatMetricValue(adapter, definition, value) {
     try {
       const supplied = adapter?.formatMetricValue?.(definition, value);
@@ -679,7 +679,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       const value = adapter?.dayCount ? adapter.dayCount(count) : label("dayCount", { n: count, word: count === 1 ? "exercise" : "exercises" });
       return value;
     }
-    /** @param {EditorRow} exercise @param {ProgramSlot} slot @param {{cycleIndex:number}} cycle @param {ProgramSet} set @param {MetricDefinition} definition @param {import("../../training/authoring/internal/editor-contracts.js").Target|null|undefined} target */
+    /** @param {EditorRow} exercise @param {ProgramSlot} slot @param {{cycleIndex:number}} cycle @param {ProgramSet} set @param {MetricDefinition} definition @param {import("../../training/authoring.js").Target|null|undefined} target */
     function metricInputMarkup(exercise, slot, cycle, set, definition, target) {
       const slotId = slot.id, cycleIndex = cycle.cycleIndex, setIndex = set.setIndex;
       const labelValue = metricLabel(adapter, definition), unit = metricDisplayUnit(adapter, definition);

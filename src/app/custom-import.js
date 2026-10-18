@@ -1,7 +1,7 @@
 import {cloneSnapshot,foldExerciseName} from '../training/model.js';
 /** @typedef {ReturnType<typeof import('../training/model.js').createProgramModel>} Model
  * @typedef {import('../persistence/contracts.js').CustomExercise} CustomExercise
- * @typedef {import('../training/model/internal/contracts.js').ExerciseInput} Exercise
+ * @typedef {import('../training/model.js').ExerciseInput} Exercise
  * @typedef {(byId:ReadonlyMap<string,CustomExercise>)=>string} Allocator
  */
 /** Imported definitions reuse equivalent authored movements and remap actual

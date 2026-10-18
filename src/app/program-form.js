@@ -1,7 +1,7 @@
 import {copySnapshot} from './session.js';
 import {draftProgramFingerprint,readRevision,snapshotBlockId} from '../persistence/snapshot.js';
 
-/** @typedef {import('../training/model/internal/contracts.js').ModelSnapshot & {log:import('./session.js').HistoryRow[],program:import('../training/model/internal/contracts.js').ExerciseInput[],programMeta:import('../training/model/internal/contracts.js').ProgramMeta & {id?:string,name?:string,daysPerWeek?:number},customExercises:import('../training/model/internal/contracts.js').LibraryEntry[],[key:string]:unknown}} Snapshot
+/** @typedef {import('../training/model.js').ModelSnapshot & {log:import('./session.js').HistoryRow[],program:import('../training/model.js').ExerciseInput[],programMeta:import('../training/model.js').ProgramMeta & {id?:string,name?:string,daysPerWeek?:number},customExercises:import('../training/model.js').LibraryEntry[],[key:string]:unknown}} Snapshot
  * @typedef {import('./session.js').CommitResult} CommitResult
  * @typedef {import('./session.js').CommitOptions} CommitOptions
  * @typedef {import('./session.js').DraftEffect} DraftEffect

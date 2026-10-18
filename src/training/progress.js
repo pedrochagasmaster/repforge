@@ -10,3 +10,10 @@ export { liftPR, sessionPRs, sessionMuscleWork, sessionOutcomeGroups, buildSessi
 export {workingRows,buildSessionDelta,compareProjectedSessionOutcome,noComparableSessionOutcome} from './progress/internal/session-outcome.js';
 export {derivePersonalRecords} from './progress/internal/personal-records.js';
 export {scalarSessions,previousScalarSessionRows,mergeLogChronology,isStalled,blockCompletionBucket,programProgressionHealth,programVolumeCompliance,programStatusKey,blockReviewRecommendation} from './progress/internal/health.js';
+
+/** Public values consumed across owner boundaries; runtime validators remain authoritative.
+ * @typedef {import('./progress/internal/contracts.js').EvidenceMeta} EvidenceMeta
+ * @typedef {import('./progress/internal/contracts.js').EvidenceRecord} EvidenceRecord
+ * @typedef {import('./progress/internal/personal-records.js').RecordRow} RecordRow
+ * @typedef {import('./progress/internal/session-outcome.js').SessionOutcome} SessionOutcome
+ */

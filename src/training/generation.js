@@ -38,3 +38,12 @@ export const estimateDaySeconds=(...args)=>createCompiler().estimateDaySeconds(.
 /** @type {ReturnType<typeof createCompiler>["metricDefinitionForName"]} */
 export const metricDefinitionForName=(...args)=>createCompiler().metricDefinitionForName(...args);
 export const compiler=Object.freeze({GENERATOR_VERSION,PROGRAM_SCHEMA_VERSION,MAX_SLOT_ALTERNATES,ROLES,SPLITS,GOALS,EXPERIENCES,TIME_CEILINGS,PERIODIZATIONS,PRECONDITION_COMPETENCIES,METRIC_SEMANTICS,METRIC_SOURCE_IDS,generateProgram,canonicalizeRequest,generationIdentity,availableSplits,generatedDayNameKey,findSubstitutions,validateProgramDefinition,canonicalizeProgramDefinition,validateCustomExerciseDefinitions,prescriptionsForCycle,estimateDaySeconds,metricDefinitionForName,validateProgramDefinitionStructure,getDefaultEnginePolicy,normalizeEnginePolicy,getEnginePolicyMetadata});
+
+/** Public values consumed across owner boundaries; runtime validators remain authoritative.
+ * @typedef {import('./generation/internal/transition-contracts.js').CarryReport} CarryReport
+ * @typedef {import('./generation/internal/transition-contracts.js').Change} Change
+ * @typedef {import('./generation/internal/compiler-contracts.js').ProgramDefinition} ProgramDefinition
+ * @typedef {import('./generation/internal/compiler-contracts.js').ProgramSlot} ProgramSlot
+ * @typedef {import('./generation/internal/transition-contracts.js').Proposal} Proposal
+ * @typedef {import('./generation/internal/compiler-contracts.js').SourceCatalog} SourceCatalog
+ */
