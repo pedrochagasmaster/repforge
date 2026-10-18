@@ -9,3 +9,4 @@ export { progression, evidence, schedule };
 export { liftPR, sessionPRs, sessionMuscleWork, sessionOutcomeGroups, buildSessionSummary } from './progress/internal/summary.js';
 export {workingRows,exerciseSessionMetrics,buildSessionDelta,compareProjectedSessionOutcome,noComparableSessionOutcome} from './progress/internal/session-outcome.js';
 export {derivePersonalRecords} from './progress/internal/personal-records.js';
+export {scalarSessions,previousScalarSessionRows,mergeLogChronology,isStalled,blockCompletionBucket,programProgressionHealth,programVolumeCompliance,programStatusKey,blockReviewRecommendation} from './progress/internal/health.js';
