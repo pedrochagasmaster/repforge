@@ -255,6 +255,12 @@ export function createHistoryReadModels({read,model,workout,labels,copy}){
       strengthConvention:reading.strengthConvention,exerciseName:loggedMovementName(record),exerciseId:record.exerciseId,
       loadMultiplier:reading.loadMultiplier,perSideLoad:reading.perSideLoad};}));
     const index=completeHistoryIndex(grouped,{rowFacts:facts,comparisons,prEvents:records,dayLabels});
+    // The builders retain mutable local arrays. The consumed query surface
+    // cannot let a view rewrite cached grouping/count facts for its next render.
+    for(const session of index.sessions){if(session.delta)Object.freeze(session.delta);Object.freeze(session.rows);Object.freeze(session)}
+    for(const fact of facts.values())Object.freeze(fact);
+    index.prEvents.forEach(Object.freeze);
+    Object.freeze(index.rows);Object.freeze(index.tableRows);Object.freeze(index.prEvents);Object.freeze(index.sessions);Object.freeze(index);
     if(diagnostics.enabled){diagnostics.builds++;diagnostics.sourceRowVisits+=source.length;diagnostics.last=index;diagnostics.onBuilt?.(index)}
     return index;
   }

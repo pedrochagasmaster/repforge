@@ -11,24 +11,28 @@ const workout=createWorkoutReadModel({catalog,librarySource:{library:[]},model})
 const labels=createExerciseLabels({builtIns:new Map(),readCustom:()=>{throw Error('live custom lookup')},language:()=>{throw Error('live locale lookup')}});
 const base={exerciseId:'reused-slot',performedLibraryId:'custom:press',performedName:'Source press',name:'Source press',day:'Day 1',set:1,reps:8,rir:2,primary:'Chest',secondary:'',warmup:false};
 const log=[{...base,session:'older',date:'2026-10-01',load:40},{...base,session:'current',date:'2026-10-03',load:45},
- {...base,session:17,date:'2026-09-30',load:200,performedLibraryId:'custom:other',performedName:'Different movement'}];
+ {...base,session:17,date:'2026-10-02',load:200,performedLibraryId:'custom:other',performedName:'Different movement'}];
 const initial={program:[{id:'reused-slot',day:'Day 1',name:'Coach renamed press',libraryId:'custom:press',sets:2,min:6,max:10,primary:'Chest',secondary:''}],
  programMeta:{id:'current-program',name:'Current block',started:'2026-10-01',mesocycleLengthWeeks:6},settings:{unit:'kg'},log,
  customExercises:[{id:'custom:press',name:'Source press',namePt:'Pressão',primary:'Chest',secondary:''}],
  programHistory:[{meta:{name:'Archived block',started:'2026-08-01'},completedAt:'2026-09-01T12:00:00.000Z',program:[{day:'Prior A'},{day:'Prior B'}]}],_storageRevision:11};
 function freeze(value){if(value&&typeof value==='object'){Object.values(value).forEach(freeze);Object.freeze(value)}return value}
 freeze(initial);let facts={snapshot:initial,locale:'en-US',language:'en',today:'2026-10-04',weekdayLetters:['M','T','W','T','F','S','S'],dayMeta:initial.programMeta};
-const owner=createHistoryReadModels({model,workout,labels,read:()=>facts,copy:{t:key=>key,dayLabel:(day,meta)=>`${meta?.name}:${day}`}});
+let reads=0;
+const owner=createHistoryReadModels({model,workout,labels,read:()=>{reads++;return facts},copy:{t:key=>key,dayLabel:(day,meta)=>`${meta?.name}:${day}`}});
 owner.diagnostics.reset();const before=JSON.stringify(initial),index=owner.index(log);
+assert.equal(reads,1,'index owns one immutable capture, not a live read per row');
 assert.throws(()=>{owner.row(log[0]).reading.load=999},TypeError,'cached readings cannot be mutated by a query consumer');
 assert.strictEqual(owner.index(log),index,'unchanged published capture reuses index');
 assert.strictEqual(owner.row(log[0]),owner.row(log[0]),'row facts belong to this immutable capture');
+assert.throws(()=>{index.sessions[0].delta.improved=999},TypeError,'a consumer cannot rewrite cached session counts');
 assert.equal(owner.diagnostics.builds,1);assert.equal(owner.diagnostics.sourceRowVisits,3);
-assert.deepEqual(index.sessions.map(session=>session.session),['current','older',17],'numeric saved identities remain numeric');
+assert.deepEqual(index.sessions.map(session=>session.session),['current',17,'older'],'numeric saved identities remain numeric');
 assert.equal(owner.search(index,'coach renamed').length,2,'search aliases follow movement identity');
 assert.equal(owner.search(index,'different movement').length,1);
 assert.equal(index.rowFacts.get(log[0]).storedName,'Source press','performed name is never replaced by current slot alias');
-assert.equal(owner.outcome([log[1]]).status,'improved','45×8 improves over same-movement40×8, not reused-slot200×8');
+const beforeOutcome=reads;assert.equal(owner.outcome([log[1]]).status,'improved','45×8 improves over same-movement40×8, not reused-slot200×8');
+assert.equal(reads,beforeOutcome+1,'outcome uses one captured head and convention across both sessions');
 assert.equal(owner.context().block.planned,1);assert.equal(owner.context().block.archived[0].planned,2);
 assert.equal(owner.context().revision,11);assert.equal(owner.context().dayLabels['Day 1'],'Current block:Day 1');
 facts={...facts,language:'pt',locale:'pt-BR'};
