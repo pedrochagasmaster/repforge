@@ -16,13 +16,14 @@ import {cloneSnapshot} from '../../training/model.js';
  * @param {{model:Model,entry:EntryRules,imports:CustomImport,build:BuildRules,policy:Pick<Policy,'normalizeSettings'|'normalizeLoadingConfiguration'|'normalizeProgramEntrySource'|'setupActivationMarker'|'defaultProgramMeta'>,
  * identity:{programId:()=>string,blockId:()=>string,now:()=>string,date:()=>string},defaultName:()=>string}} options */
 export function createEntryActivation({model,entry,imports,build,policy,identity,defaultName}){
+ const defaultCycles=6;
  /** @param {MetadataInput} input */
  function metadata({name,answers={},entrySource}={}){
   const at=identity.now(),programName=String(name??'').trim()||defaultName()||'Untitled program';
   return{id:identity.programId(),name:programName,started:identity.date(),created:at,updated:at,
    goal:answers.goal??null,experience:answers.experience??null,daysPerWeek:answers.daysPerWeek??null,splitType:answers.splitType??null,
    equipment:Array.isArray(answers.equipment)?cloneSnapshot(answers.equipment):[],priorityMuscles:Array.isArray(answers.priorityMuscles)?cloneSnapshot(answers.priorityMuscles):[],
-   sessionLength:answers.sessionLength??null,mesocycleLengthWeeks:Number.isFinite(Number(answers.mesocycleLengthWeeks))&&Number(answers.mesocycleLengthWeeks)>0?Math.round(Number(answers.mesocycleLengthWeeks)):6,
+   sessionLength:answers.sessionLength??null,mesocycleLengthWeeks:Number.isFinite(Number(answers.mesocycleLengthWeeks))&&Number(answers.mesocycleLengthWeeks)>0?Math.round(Number(answers.mesocycleLengthWeeks)):defaultCycles,
    mesocycleStatus:'active',completedAt:null,onboarded:true,progressionRelations:[],progressionModifiers:[],progressionIncompatibilities:[],
    blockPromptDismissedId:null,entrySource:policy.normalizeProgramEntrySource(entrySource)};
  }
@@ -150,5 +151,5 @@ export function createEntryActivation({model,entry,imports,build,policy,identity
   else delete proposal._storageFollowUp;
   return{ok:/** @type {true} */(true),proposal};
  }
- return Object.freeze({metadata,candidate,successor});
+ return Object.freeze({metadata,candidate,successor,defaultCycles});
 }

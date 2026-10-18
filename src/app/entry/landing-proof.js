@@ -15,13 +15,12 @@ const LANDING_CHART=/** @type {const} */({exerciseId:"ex-squat",libraryId:"1a25c
   /* the capture size per language (the Portuguese figure captions wrap, so it is taller), from tools/capture-landing-proof.mjs */
   dims:{en:[584,728],pt:[584,766]}});
 /** @param {unknown} value */
-function freezeInput(value){if(value&&typeof value==='object'){Object.values(value).forEach(freezeInput);Object.freeze(value)}}
-freezeInput(LANDING_CASES);freezeInput(LANDING_CHART);
-export const landingExampleInputs=Object.freeze({unit:LANDING_UNIT,cases:LANDING_CASES,chart:LANDING_CHART});
+function freezeInput(value){if(value&&typeof value==='object'&&!Object.isFrozen(value)){Object.values(value).forEach(freezeInput);Object.freeze(value)}}
 /** Live landing figures use the same production progression/evidence as a
  * workout. Authored examples are isolated from the lifter's saved training.
- * @param {{model:Model,catalog:Catalog,minJump:number}} options */
-export function buildLandingProof({model,catalog,minJump}){
+ * @param {{model:Model,catalog:Catalog,minJump:number,defaultWeeks?:number}} options */
+export function buildLandingProof({model,catalog,minJump,defaultWeeks=6}){
+freezeInput(LANDING_CASES);freezeInput(LANDING_CHART);
 function landingChartRows(){
   const c=LANDING_CHART;
   /** @type {NonNullable<Parameters<typeof evidence.buildStrengthEvidence>[2]>} */const rows=[];
@@ -68,5 +67,5 @@ function landingChartFigures(){
  const recommendations=Object.fromEntries(Object.entries(LANDING_CASES).map(([id,input])=>[id,landingEvaluate(input)]));
  const lookup=model.snapshotLookup([]),ids=new Set([...Object.values(LANDING_CASES).map(input=>input.ex),LANDING_CHART.libraryId]);
  const names=Object.fromEntries([...ids].map(id=>{const value=lookup(id);return[id,{en:value?.name||'',pt:value?.namePt||value?.name||''}]}));
- return{unit:LANDING_UNIT,cases:LANDING_CASES,chartInput:LANDING_CHART,recommendations,chart:landingChartFigures(),names};
+ return{defaultWeeks,unit:LANDING_UNIT,cases:LANDING_CASES,chartInput:LANDING_CHART,recommendations,chart:landingChartFigures(),names};
 }

@@ -1,4 +1,4 @@
-export {buildLandingProof,landingExampleInputs} from './entry/landing-proof.js';
+export {buildLandingProof} from './entry/landing-proof.js';
 export {createEntryActivation} from './entry/activation.js';
 export {createEntrySetup} from './entry/setup.js';
 export {createEntryReviewSession} from './entry/review-session.js';
