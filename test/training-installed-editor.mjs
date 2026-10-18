@@ -40,3 +40,28 @@ assert(candidate.programMeta.programDefinition.days.flatMap(day=>day.slots).find
 assert.equal(suggestion.setRir(candidate,moving.id,2),true);
 assert.deepEqual(head,before);
 console.log("PASS canonical editor rebase/remove/move, conflict refusal and opt-in document ownership");
+
+// A custom slot with no metric composition is a real supported Build state.
+// Configuring it exercises the same native metric validator as canonical import.
+const metrics=(await import('../src/training/metrics.js')).default;
+const custom=model.normalizeCustomExercises([{id:'custom:timer',name:'My movement',primary:'Lats',metricIds:[],metricDefinitions:[]}]);
+const manual=model.manualProgramDefinitionFromRows([{id:'manual-row',slotId:'manual-row',libraryId:custom[0].id,day:'A',sets:2,hasRepTarget:false}],['A'],custom);
+assert.ok(manual);
+const manualHead={program:model.flatProgramFromDefinition(manual,custom),customExercises:custom,programMeta:{programDefinition:manual}};
+const metricIds=['2555c6f170d8805cafa6d16d3fdddbaa','2555c6f170d88072bbf6d9ad3f16ea86'];
+const metricDefinitions=metrics.definitionsForIds(metricIds).value;
+const configured=rules.editorRebaseDocument({edits:[{kind:'metric_composition',slotId:'manual-row',beforeMetricIds:[],beforeMetricDefinitions:[],metricIds,metricDefinitions}]},manualHead);
+assert.equal(configured.conflict,false,'metric configuration uses its native imported metric owner');
+const configuredSlot=configured.document.programMeta.programDefinition.days.flatMap(day=>day.slots)[0];
+assert.deepEqual(configuredSlot.metricIds,metricIds);
+assert.equal(configuredSlot.prescriptionsByCycle[0].sets[0].status,'manual');
+assert.deepEqual(manualHead.customExercises[0].metricIds,[],'configuration never mutates the input custom definition');
+const firstCycle=configuredSlot.prescriptionsByCycle[0];
+const added=rules.editorNewPrescription(configuredSlot.id,1,3,metricIds,metricDefinitions,firstCycle.sets[0].targets,'manual');
+const resized=rules.editorRebaseDocument({edits:[{kind:'prescription',field:'sets',targetId:'manual-row',before:2,after:3,beforeSetIds:firstCycle.sets.map(set=>set.id),addedSets:[added],removedSetIds:[]}]},configured.document);
+assert.equal(resized.conflict,false,'set-count intent uses the explicit operation default cycle when omitted');
+const resizedSlot=resized.document.programMeta.programDefinition.days.flatMap(day=>day.slots)[0];
+assert.equal(resizedSlot.prescriptionsByCycle[0].sets.length,3);
+assert.equal(resizedSlot.prescriptionsByCycle[0].sets[2].id,added.id);
+assert.equal(resizedSlot.prescriptionsByCycle[1].sets.length,2,'other cycles retain their original identities/counts');
+console.log('PASS native custom composition and default-cycle set-count replay');

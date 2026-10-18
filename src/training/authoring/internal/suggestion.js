@@ -1,11 +1,17 @@
+/** @typedef {import("./editor-contracts.js").ProgramDefinition} ProgramDefinition */
+/** @typedef {import("./editor-contracts.js").ProgramSlot} ProgramSlot */
+/** @typedef {import("./editor-contracts.js").EditorDocument} EditorDocument */
+/** @typedef {import("./editor-contracts.js").SuggestionPolicy} SuggestionPolicy */
 import { cloneSnapshot as clone } from "../../model/internal/values.js";
 const REP_TARGET_SEMANTICS = new Set(["reps", "repsPerSide"]);
 const ADAPTIVE_POLICY_VERSION = "manual-adaptive@1";
 const EXECUTION_MODES = new Set(["bilateral", "unilateral"]);
+/** @param {Partial<EditorDocument>|null|undefined} document */
 function definitionFor(document) {
   const value = document?.programMeta?.programDefinition;
   return value && Array.isArray(value.days) ? value : null;
 }
+/** @param {Partial<EditorDocument>|null|undefined} document @param {string} slotId */
 function definitionSlot(document, slotId) {
   const definition = definitionFor(document);
   for (const day of definition?.days || []) {
@@ -14,47 +20,57 @@ function definitionSlot(document, slotId) {
   }
   return null;
 }
+/** @param {ProgramSlot|null|undefined} slot */
 function slotSets(slot) {
   return (slot?.prescriptionsByCycle || []).flatMap(cycle => cycle?.sets || []);
 }
+/** @param {ProgramSlot|null|undefined} slot */
 function slotAdaptive(slot) {
   const sets = slotSets(slot);
   return sets.length > 0 && sets.every(set => set.status === "ready");
 }
+/** @param {Partial<EditorDocument>|null|undefined} document */
 function pendingSuggestLoads(document) {
   const list = document?.programMeta?.suggestLoadsPending;
   return Array.isArray(list) ? list.filter(id => typeof id === "string" && id) : [];
 }
+/** @param {Partial<EditorDocument>} document @param {string[]} list */
 function setPendingSuggestLoads(document, list) {
   document.programMeta = document.programMeta || {};
   const unique = [...new Set(list)];
   if (unique.length) document.programMeta.suggestLoadsPending = unique;
   else delete document.programMeta.suggestLoadsPending;
 }
+/** @param {ProgramSlot|null|undefined} slot */
 function slotRepSemantic(slot) {
   return (slot?.metricDefinitions || []).find(definition => REP_TARGET_SEMANTICS.has(definition.semantic))?.semantic || null;
 }
+/** @param {unknown} target @returns {{min:number,max:number}|null} */
 function repRange(target) {
-  const range = Number.isSafeInteger(target) ? { min: target, max: target }
-    : target && typeof target === "object" ? { min: target.min, max: target.max } : null;
-  return range && Number.isSafeInteger(range.min) && Number.isSafeInteger(range.max) &&
-    range.min >= 1 && range.max >= range.min && range.max <= 30 ? range : null;
+  const range = typeof target==="number"&&Number.isSafeInteger(target) ? { min: target, max: target }
+    : target && typeof target === "object" && "min" in target&&"max" in target ? { min: target.min, max: target.max } : null;
+  return range && typeof range.min==="number"&&typeof range.max==="number"&&Number.isSafeInteger(range.min) && Number.isSafeInteger(range.max) &&
+    range.min >= 1 && range.max >= range.min && range.max <= 30 ? {min:range.min,max:range.max} : null;
 }
+/** @param {unknown} value @returns {value is number} */
 function validRir(value) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 6;
 }
+/** @param {ProgramSlot|null|undefined} slot */
 function uniformRir(slot) {
   const values = slotSets(slot).map(set => set.rir);
   return values.length && values.every(value => validRir(value) && value === values[0]) ? values[0] : null;
 }
+/** @param {ProgramSlot|null|undefined} slot @param {SuggestionPolicy|null|undefined} policy */
 function executionModeRequired(slot, policy) {
-  return !!policy?.executionModeQuestion?.(slot) && !EXECUTION_MODES.has(slot?.executionMode);
+  return !!policy?.executionModeQuestion?.(slot) && !EXECUTION_MODES.has(slot?.executionMode||"");
 }
 /**
  * The first input a pending slot still needs, or null when it can be
  * confirmed. The opt-in asks for one RIR for the slot: sets that disagree
  * leave its field empty, so they need the lifter's answer too.
  */
+/** @param {ProgramSlot|null|undefined} slot @param {SuggestionPolicy|null|undefined} policy */
 function suggestLoadsIssue(slot, policy) {
   if (!slot || policy?.eligibility?.(slot) !== "eligible") return "eligibility";
   const semantic = slotRepSemantic(slot), sets = slotSets(slot);
@@ -63,6 +79,7 @@ function suggestLoadsIssue(slot, policy) {
   if (executionModeRequired(slot, policy)) return "execution_mode";
   return null;
 }
+/** @param {Partial<EditorDocument>} document @param {SuggestionPolicy|null|undefined} policy */
 function suggestLoadsIssues(document, policy) {
   return pendingSuggestLoads(document).flatMap(slotId => {
     const slot = definitionSlot(document, slotId);
@@ -71,6 +88,7 @@ function suggestLoadsIssues(document, policy) {
   });
 }
 /** Confirms every pending opt-in, or refuses the whole document. */
+/** @template {Partial<EditorDocument>} T @param {T} input @param {SuggestionPolicy|null|undefined} policy */
 function confirmSuggestLoads(input, policy) {
   const document = clone(input);
   const issues = suggestLoadsIssues(document, policy);
@@ -90,6 +108,7 @@ function confirmSuggestLoads(input, policy) {
   if (document.programMeta) setPendingSuggestLoads(document, []);
   return { ok: true, document, confirmed };
 }
+/** @param {Partial<EditorDocument>} document @param {string} slotId @param {boolean} on */
 function setSuggestLoads(document, slotId, on) {
   const slot = definitionSlot(document, slotId);
   if (!slot) return false;
@@ -108,6 +127,7 @@ function setSuggestLoads(document, slotId, on) {
   setPendingSuggestLoads(document, pending);
   return true;
 }
+/** @param {Partial<EditorDocument>} document @param {string} slotId @param {number|null} rir */
 function setSlotRir(document, slotId, rir) {
   const slot = definitionSlot(document, slotId);
   if (!slot) return false;

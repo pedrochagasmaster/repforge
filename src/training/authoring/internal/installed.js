@@ -1,32 +1,53 @@
+import ExerciseMetrics from "../../metrics.js";
+/** @typedef {import("./editor-contracts.js").ProgramDefinition} ProgramDefinition */
+/** @typedef {import("./editor-contracts.js").ProgramSlot} ProgramSlot */
+/** @typedef {import("./editor-contracts.js").ProgramSet} ProgramSet */
+/** @typedef {import("./editor-contracts.js").EditorRow} EditorRow */
+/** @typedef {import("./editor-contracts.js").EditorMeta} EditorMeta */
+/** @typedef {import("./editor-contracts.js").EditorDocument} EditorDocument */
+/** @typedef {import("./editor-contracts.js").EditorSnapshot} EditorSnapshot */
+/** @typedef {import("./editor-contracts.js").InstalledIntent} InstalledIntent */
+/** @typedef {import("./editor-contracts.js").EditorToken} EditorToken */
+/** @typedef {import("./editor-contracts.js").EditorDraft} EditorDraft */
+/** @typedef {import("./editor-contracts.js").EditorDraftSet} EditorDraftSet */
+/** @typedef {import("./editor-contracts.js").MetricDefinition} MetricDefinition */
 import { cloneSnapshot,canonicalize,isPlainStateObject } from "../../model/internal/values.js";
 import { progression } from "../../progress.js";
 import suggestion from "./suggestion.js";
-/** Pure document edits/rebase; host captures the identity and metadata policy. */
+/** Pure document edits/rebase; host captures the identity and metadata policy.
+ * @param {{model:ReturnType<typeof import('../../model.js').createProgramModel>,catalog:import('../../generation/internal/compiler-contracts.js').SourceCatalog,nextId:()=>string,defaultProgramMeta:(log:unknown[])=>EditorMeta,allowCreateDefinition?:boolean,recoveryRecord?:import('../../model/internal/contracts.js').RecoveryRecord|null}} options */
 export function createInstalledEditorRules({model,catalog,nextId,defaultProgramMeta,allowCreateDefinition=false,recoveryRecord=null}) {
 const {makeProgram,snapshotLookup,rawMetricDefinitions,manualAttributionFor,manualProgramDefinitionFromRows,canonicalProgramDefinition,isCustomLibraryId}=model;
+/** @param {EditorDocument} proposal @param {InstanceType<ReturnType<typeof import("../../model.js").createProgramModel>["Program"]>} program @param {EditorRow[]|null} [previousProgram] @param {EditorMeta|null} [previousMeta] */
 const syncProgramStructureFromProgram=(proposal,program,previousProgram=null,previousMeta=null)=>model.syncProgramStructureFromProgram(proposal,program,previousProgram,previousMeta,{recoveryRecord});
+/** @param {unknown} id */
 const rawExercise=id=>catalog?.exercises?.find(item=>item.id===String(id??""))||null;
+/** @param {unknown} id */
 const rawCatalogObject=id=>catalog?.uuidIndex?.[String(id??"")]||null;
 const uid=()=>{if(typeof nextId!=="function")throw new TypeError("nextId required to author prescription identity");return nextId();};
 const editorSuggestLoadsPolicy=Object.freeze({
+  /** @param {ProgramSlot|null|undefined} slot */
   eligibility(slot){
     if(!slot||slot.metricOrigin!=="source_catalog"||isCustomLibraryId(slot.exerciseId)||!rawExercise(slot.exerciseId))return"custom";
     const semantics=JSON.stringify((slot.metricDefinitions||[]).map(metric=>metric.semantic));
     const supported=Object.values(progression.SUPPORTED_SEMANTICS||{})
       .some(candidate=>JSON.stringify(candidate)===semantics);
     return supported?"eligible":"unsupported"},
+  /** @param {ProgramSlot|null|undefined} slot */
   executionModeQuestion(slot){
     return(slot?.metricDefinitions||[]).some(metric=>["repsPerSide","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic))&&
       !catalogExecutionMode(slot?.exerciseId)}});
+/** @param {EditorSnapshot|null|undefined} snapshot @returns {EditorDocument} */
 function editorDocumentFromSnapshot(snapshot){
   return{program:cloneSnapshot(snapshot?.program||[]),programMeta:cloneSnapshot(snapshot?.programMeta||{}),
     customExercises:cloneSnapshot(snapshot?.customExercises||[])}
 }
+/** @param {EditorDocument} document @param {EditorSnapshot} base */
 function editorSnapshotFromDocument(document,base){
-  const proposal=cloneSnapshot(base);
-  proposal.program=cloneSnapshot(document?.program||[]);
-  proposal.programMeta={...(cloneSnapshot(base?.programMeta||defaultProgramMeta(base?.log||[]))),...(cloneSnapshot(document?.programMeta||{}))};
-  proposal.customExercises=cloneSnapshot(document?.customExercises||base?.customExercises||[]);
+  const proposal={...cloneSnapshot(base),
+    program:cloneSnapshot(document?.program||[]),
+    programMeta:{...(cloneSnapshot(base?.programMeta||defaultProgramMeta(base?.log||[]))),...(cloneSnapshot(document?.programMeta||{}))},
+    customExercises:cloneSnapshot(document?.customExercises||base?.customExercises||[])};
   const model=makeProgram(proposal.program,snapshotLookup(proposal.customExercises),proposal.programMeta);
   // The ProgramDefinition owns prescriptions; the editor's per-row copy is
   // working state. Persist the row shape boot reads back, or the durable
@@ -34,31 +55,38 @@ function editorSnapshotFromDocument(document,base){
   proposal.program=model.toJSON();
   syncProgramStructureFromProgram(proposal,model,base?.program,base?.programMeta);
   return proposal}
+/** @param {EditorToken|null|undefined} a @param {EditorToken|null|undefined} b */
 function editorTokenEqual(a,b){return Number(a?.revision)===Number(b?.revision)&&a?.programId===b?.programId&&
   a?.blockId===b?.blockId&&a?.fingerprint===b?.fingerprint}
+/** @param {Partial<EditorDocument>|null|undefined} document */
 function editorDocumentDays(document){
+  /** @type {string[]} */
   const labels=[];
   for(const entry of document?.programMeta?.programStructure?.days||[]){
     const label=String(entry?.label||entry?.dayId||"");if(label&&!labels.includes(label))labels.push(label)}
   for(const exercise of document?.program||[]){const label=String(exercise?.day||"");if(label&&!labels.includes(label))labels.push(label)}
   return labels}
+/** @param {Partial<EditorDocument>|null|undefined} document @param {string} day */
 function editorDocumentExercises(document,day){
   return(document?.program||[]).filter(exercise=>exercise?.day===day)
     .sort((a,b)=>(Number(a?.order)||0)-(Number(b?.order)||0)||String(a?.id||"").localeCompare(String(b?.id||"")))}
+/** @param {EditorDraft|null|undefined} draft */
 function editorDraftExerciseIds(draft){
   if(draft?.schemaVersion===2)return new Set((draft.exerciseOrder||[]).filter(id=>{
     const exercise=draft.exercises?.[id];
     return exercise&&(exercise.status==="skipped"||exercise.substitution||exercise.setOrder.some(setId=>{
       const set=exercise.sets[setId];
       return set&&(set.completion!=="pending"||set.role==="warmup"||draftSetTouched(set))}) )}));
-  const ids=new Set(),addKey=key=>{
+  const ids=new Set(/** @type {string[]} */([])),addKey=(/** @type {unknown} */ key)=>{
     const id=setKeyExerciseId(key);if(id&&id!==String(key))ids.add(id)};
   for(const key of ["__done","__touched","__warm"]){if(Array.isArray(draft?.[key]))draft[key].forEach(addKey)}
   for(const key of Object.keys(draft||{}))if(/_load$/.test(key))addKey(key.slice(0,-5));
   for(const id of [...(draft?.__skipped||[]),...Object.keys(draft?.__substituted||{})])if(id)ids.add(String(id));
   return ids}
+/** @param {EditorRow|undefined} exercise @param {keyof import("../../model/internal/contracts.js").ExerciseInput} field */
 function editorIntentValue(exercise,field){
   return exercise?.[field]}
+/** @param {EditorDocument} document @param {InstalledIntent} edit @param {{check?:boolean}} [options] */
 function applyInstalledEditorIntent(document,edit,{check=true}={}){
   const kind=edit?.kind;
   if(kind==="program_name"){
@@ -93,7 +121,7 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
     if(!exercise)return{conflict:true};
     const current=editorIntentValue(exercise,edit.field);
     if(check&&edit.before!==undefined&&!changeValueEqualForEditor(current,edit.before)&&!changeValueEqualForEditor(current,edit.after))return{conflict:true};
-    exercise[edit.field]=cloneSnapshot(edit.after);
+    /** @type {Record<string,unknown>} */(exercise)[edit.field]=cloneSnapshot(edit.after);
     if(edit.field==="name"&&exercise.libraryId){
       if(String(edit.after||"").trim())exercise.displayName=String(edit.after).trim();
       else delete exercise.displayName;
@@ -148,7 +176,7 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
       if(!isCustomLibraryId(edit.customExercise.id)||edit.exercise?.libraryId!==edit.customExercise.id)
         return{conflict:true,code:"invalid_staged_custom_definition"};
       const customExercises=Array.isArray(document.customExercises)?document.customExercises:[];
-      const current=customExercises.find(item=>item?.id===edit.customExercise.id);
+      const current=customExercises.find(item=>item?.id===edit.customExercise?.id);
       if(current&&!changeValueEqualForEditor(current,edit.customExercise))return{conflict:true};
       if(!current)document.customExercises=customExercises.concat(cloneSnapshot(edit.customExercise));
     }
@@ -186,22 +214,27 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
   }
   return{ok:true};
 }
+/** @param {unknown} a @param {unknown} b */
 function changeValueEqualForEditor(a,b){return JSON.stringify(canonicalize(a))===JSON.stringify(canonicalize(b))}
 // Legacy snapshots remain readable, so custom-link integrity is enforced at
 // the editor mutation boundary that creates or changes a program reference.
+/** @param {Partial<EditorDocument>|null|undefined} document @param {unknown} id */
 function editorHasCustomDefinition(document,id){
   return !isCustomLibraryId(id)||(document?.customExercises||[]).some(entry=>entry?.id===id)}
+/** @param {{edits?:InstalledIntent[]}|null|undefined} session @param {EditorSnapshot} head */
 function editorRebaseDocument(session,head){
   const rebased=editorDocumentFromSnapshot(head),edits=session?.edits||[];
   for(const edit of edits){const result=applyInstalledEditorIntent(rebased,edit);
     if(result?.conflict)return{conflict:true,code:result.code||"editor_intent_conflict"};}
   return{document:rebased,conflict:false}}
+/** @param {Partial<EditorDocument>|null|undefined} document @param {string} slotId */
 function editorDefinitionAndSlot(document,slotId){
   const definition=document?.programMeta?.programDefinition;
   for(const day of definition?.days||[]){
     const slot=(day.slots||[]).find(candidate=>candidate?.id===slotId);
     if(slot)return{definition,day,slot}}
   return{definition,day:null,slot:null}}
+/** @param {ProgramDefinition|null|undefined} definition @param {string} slotId @param {number} cycleIndex @param {number} setIndex */
 function editorSetByCoordinates(definition,slotId,cycleIndex,setIndex){
   for(const day of definition?.days||[]){
     const slot=(day.slots||[]).find(candidate=>candidate?.id===slotId);
@@ -209,15 +242,18 @@ function editorSetByCoordinates(definition,slotId,cycleIndex,setIndex){
     const set=cycle?.sets?.find(candidate=>candidate?.setIndex===setIndex);
     if(set)return{slot,cycle,set}}
   return{slot:null,cycle:null,set:null}}
+/** @param {ProgramSlot|null|undefined} slot @param {number} cycleIndex */
 function editorCycleSetCount(slot,cycleIndex){
   return slot?.prescriptionsByCycle?.find(cycle=>cycle.cycleIndex===cycleIndex)?.sets?.length||0}
 // Schema v2: a set derives its metric composition from its slot rather than
 // storing it again, so this builds no metricIds/metricDefinitions of its own.
+/** @param {string} slotId @param {number} cycleIndex @param {number} setIndex @param {string[]} metricIds @param {MetricDefinition[]} metricDefinitions @param {ProgramSet["targets"]} [targets] @param {string} [status] @returns {ProgramSet} */
 function editorNewPrescription(slotId,cycleIndex,setIndex,metricIds,metricDefinitions,targets={},status){
   return{id:`manual-${uid()}`,cycleIndex,setIndex,metricType:"source_metrics@1",
     targets:cloneSnapshot(targets),rir:null,restSeconds:null,
     status:status||(metricIds.length?"manual":"configuration_required"),
     provenance:{source:"manual",policyVersion:"manual@1"}}}
+/** @param {EditorRow} row @param {EditorDocument} document @param {string} slotId @param {number} order @param {ProgramSlot|null} [existing] @returns {ProgramSlot|null} */
 function editorSlotForRow(row,document,slotId,order,existing=null){
   const exerciseId=String(row?.libraryId||row?.exerciseId||"");
   if(!exerciseId)return null;
@@ -227,15 +263,16 @@ function editorSlotForRow(row,document,slotId,order,existing=null){
   const metricIds=definitions.map(definition=>definition.id);
   const origin=raw?"source_catalog":"user_defined";
   const sourceSetsByCycle=new Map((existing?.prescriptionsByCycle||[]).map(cycle=>[cycle.cycleIndex,cycle]));
-  const cycles=Number.isInteger(document?.programMeta?.programDefinition?.cycles)
-    ?document.programMeta.programDefinition.cycles:1;
+  const definitionCycles=document?.programMeta?.programDefinition?.cycles;
+  const cycles=typeof definitionCycles==="number"&&Number.isInteger(definitionCycles)?definitionCycles:1;
   const reps=definitions.find(definition=>definition.semantic==="reps"||definition.semantic==="repsPerSide");
+  /** @type {ProgramSet["targets"]} */
   const targets={};
   // A movement that counts repetitions always gets a range: the row's, or
   // Build's default when the slot it replaces had none (a rep-less movement).
-  if(reps)targets[reps.semantic]=Number.isSafeInteger(row.min)&&row.min>=1&&Number.isSafeInteger(row.max)&&row.max>=row.min
+  if(reps)targets[reps.semantic]=typeof row.min==="number"&&typeof row.max==="number"&&Number.isSafeInteger(row.min)&&row.min>=1&&Number.isSafeInteger(row.max)&&row.max>=row.min
     ?{min:row.min,max:row.max}:{min:6,max:10};
-  const setCount=Math.max(1,Math.min(100,Number.isInteger(row.sets)?row.sets:3));
+  const setCount=Math.max(1,Math.min(100,typeof row.sets==="number"&&Number.isInteger(row.sets)?row.sets:3));
   const prescriptionsByCycle=[];
   for(let cycleIndex=1;cycleIndex<=cycles;cycleIndex++){
     const previous=sourceSetsByCycle.get(cycleIndex)?.sets||[];
@@ -265,32 +302,36 @@ function editorSlotForRow(row,document,slotId,order,existing=null){
     ...(sourceType?{exerciseTypeId:sourceType}:{}),order,metricOrigin:origin,metricIds,metricDefinitions:definitions,
     ...(row.displayName?{displayName:String(row.displayName)}:{}),setupNotes:String(row.notes||""),
     ...(!raw?manualAttributionFor(row):{}),
-    loadingModel:{bodyweightCoefficient:Number.isFinite(raw?.bodyweight)?raw.bodyweight:null,assistanceDirection:"subtract"},
+    loadingModel:{bodyweightCoefficient:typeof raw?.bodyweight==="number"&&Number.isFinite(raw.bodyweight)?raw.bodyweight:null,assistanceDirection:"subtract"},
     prescriptionsByCycle}}
+/** @param {EditorDocument} document @param {ProgramSlot|null|undefined} slot @param {number} [cycleIndex] */
 function syncEditorRowFromCanonical(document,slot,cycleIndex=1){
   const row=(document?.program||[]).find(candidate=>(candidate.slotId||candidate.id)===slot?.id);
   if(!row||!slot)return;
   const cycle=slot.prescriptionsByCycle?.find(candidate=>candidate.cycleIndex===cycleIndex)||slot.prescriptionsByCycle?.[0];
   const rep=slot.metricDefinitions?.find(definition=>definition.semantic==="reps"||definition.semantic==="repsPerSide");
-  const repTarget=cycle?.sets?.map(set=>set.targets?.[rep?.semantic]).find(value=>value!=null);
+  const repTarget=cycle?.sets?.map(set=>set.targets?.[rep?.semantic||""]).find(value=>value!=null);
   row.sets=cycle?.sets?.length||row.sets;
   row.hasRepTarget=!!rep;
   if(rep){
-    row.min=typeof repTarget==="number"?repTarget:Number.isFinite(repTarget?.min)?repTarget.min:row.min;
-    row.max=typeof repTarget==="number"?repTarget:Number.isFinite(repTarget?.max)?repTarget.max:row.max;
+    row.min=typeof repTarget==="number"?repTarget:repTarget&&typeof repTarget==="object"&&Number.isFinite(repTarget.min)?repTarget.min:row.min;
+    row.max=typeof repTarget==="number"?repTarget:repTarget&&typeof repTarget==="object"&&Number.isFinite(repTarget.max)?repTarget.max:row.max;
   }else{delete row.min;delete row.max}}
+/** @param {unknown} target */
 function editorRepRangeValid(target){
-  const range=Number.isSafeInteger(target)?{min:target,max:target}:target&&typeof target==="object"?target:null;
-  return!!range&&Number.isSafeInteger(range.min)&&Number.isSafeInteger(range.max)&&range.min>=1&&range.max>=range.min&&range.max<=30}
+  const range=typeof target==="number"&&Number.isSafeInteger(target)?{min:target,max:target}:isPlainStateObject(target)?target:null;
+  return!!range&&typeof range.min==="number"&&typeof range.max==="number"&&Number.isSafeInteger(range.min)&&Number.isSafeInteger(range.max)&&range.min>=1&&range.max>=range.min&&range.max<=30}
 /* A pending "Suggest loads" opt-in belongs to the movement it was turned on for. */
+/** @param {EditorDocument} document @param {string} slotId */
 function dropPendingSuggestLoads(document,slotId){
   const meta=document?.programMeta,list=Array.isArray(meta?.suggestLoadsPending)?meta.suggestLoadsPending:null;
   if(!list)return;
   const next=list.filter(id=>id!==slotId);
   if(next.length)meta.suggestLoadsPending=next;else delete meta.suggestLoadsPending}
+/** @param {EditorDocument} document @param {Partial<EditorDocument>} baseDocument @param {InstalledIntent} edit @param {{cycleIndex?:number}} [options] */
 function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={}){
   const meta=document.programMeta||(document.programMeta={});
-  let definition=meta.programDefinition;
+  let definition=meta.programDefinition||null;
   const baseDefinition=baseDocument?.programMeta?.programDefinition;
   if(!definition){
     if(!allowCreateDefinition||edit?.kind!=="exercise_add")return false;
@@ -299,6 +340,7 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
       baseDocument?.program||[],dayNames,document.customExercises||[]));
     if(!definition)return false;
     meta.programDefinition=definition}
+  /** @param {string} slotId */
   const find=slotId=>editorDefinitionAndSlot(document,slotId);
   const slotId=String(edit?.slotId||edit?.targetId||"");
   const beforeRef=editorDefinitionAndSlot({programMeta:{programDefinition:baseDefinition}},slotId);
@@ -413,7 +455,7 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     slot.executionMode=edit.after;
   }else if(edit?.kind==="prescription"&&edit.field==="sets"){
     const {slot}=find(slotId);
-    const cycleIndex=Number(edit.cycleIndex||cycleIndex),cycle=slot?.prescriptionsByCycle?.find(item=>item.cycleIndex===cycleIndex);
+    const effectiveCycleIndex=Number(edit.cycleIndex||cycleIndex),cycle=slot?.prescriptionsByCycle?.find(item=>item.cycleIndex===effectiveCycleIndex);
     if(!slot||!cycle)return false;
     const desired=Number(edit.after),before=Number(edit.before);
     if(!Number.isInteger(desired)||desired<1||desired>100)return false;
@@ -431,7 +473,7 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
         const added=edit.addedSets?.find(item=>item.setIndex===cycle.sets.length+1);
         // Schema v2: an added set carries no metric composition of its own
         // (the slot above owns it), so there is nothing per-set left to verify here.
-        if(!added||added.cycleIndex!==cycleIndex)return false;
+        if(!added||added.cycleIndex!==effectiveCycleIndex)return false;
         cycle.sets.push(cloneSnapshot(added))}
       if(cycle.sets.length>desired){
         const removed=cycle.sets.slice(desired).map(item=>item.id);
@@ -442,7 +484,7 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     if(!changeValueEqualForEditor(cycle.sets.map(item=>item.id),expectedIds))return false;
     const row=(document.program||[]).find(item=>(item.slotId||item.id)===slotId);
     if(row)row.sets=desired;
-    syncEditorRowFromCanonical(document,slot,cycleIndex);
+    syncEditorRowFromCanonical(document,slot,effectiveCycleIndex);
   }else if(edit?.kind==="exercise_add"||edit?.kind==="exercise_replace"){
     const row=(document.program||[]).find(item=>item.id===edit.targetId);
     if(!row)return false;
@@ -512,14 +554,17 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
   if(!checked)return false;
   meta.programDefinition=checked;
   return true}
+/** @param {unknown} exerciseId */
 function catalogExecutionMode(exerciseId){
   const source=rawExercise(exerciseId),laterality=(source?.laterality||[])
     .map(id=>rawCatalogObject(id)?.name).filter(name=>typeof name==="string");
   const unilateral=laterality.includes("Unilateral"),bilateral=laterality.includes("Bilateral");
   return unilateral!==bilateral?(unilateral?"unilateral":"bilateral"):null}
+/** @param {EditorDraftSet|null|undefined} set */
 function draftSetTouched(set){
   return !!(set?.touched?.load||set?.touched?.reps||set?.touched?.effort||
     Object.values(set?.touched?.metrics||{}).some(Boolean))}
+/** @param {unknown} k */
 function setKeyExerciseId(k){return String(k).replace(/_\d+$/,"")}
 
 return Object.freeze({editorDocumentFromSnapshot,editorSnapshotFromDocument,editorTokenEqual,editorDocumentDays,editorDocumentExercises,editorDraftExerciseIds,editorIntentValue,applyInstalledEditorIntent,changeValueEqualForEditor,editorHasCustomDefinition,editorRebaseDocument,editorDefinitionAndSlot,editorSetByCoordinates,editorCycleSetCount,editorNewPrescription,editorSlotForRow,syncEditorRowFromCanonical,editorRepRangeValid,dropPendingSuggestLoads,syncEditorCanonicalIntent,catalogExecutionMode,editorSuggestLoadsPolicy,suggestion});
