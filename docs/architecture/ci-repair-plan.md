@@ -20,6 +20,10 @@ Read the subsequent [offline upgrade diagnosis](offline-upgrade-diagnosis.md) an
 - Correct artifact mapping: draft SW upgrade is `shard-10-1`, artifact `12145508417`; `shard-6-1` / `12145704699` contains redirect and draft-storage evidence.
 - No runtime or test correction has been applied or executed by these documentation commits. Acceptance gates below remain open.
 
+## Critical UI follow-up (18 October, 19:53 UTC)
+
+The [six-cell diagnosis](critical-ui-diagnosis.md) traces five early failures to obsolete test setup/observation seams, including a recommendation observer that misses real native workers. The remaining failure is a production hub projection eagerly requesting nonexistent `entry.entry.title`; the inspected import frame does not visibly render that key. Minimal proposals preserve the full matrix and independent fixture outcomes. None has been applied or executed; all six cells remain open pending validation.
+
 ## Verified status
 
 Architecture checking, configured TypeScript checking, native-source asset checking, test inventory checking and Plan073 verification passed before the fast tests. Fast contracts finished **111/113**. Service passed. Browser shards **1, 4, 6, 7, 11, 12 and 13 of 14** failed; the other seven passed. The aggregate `ci` job failed because selected jobs failed; its complete critical-UI validation step was skipped. This is not a green final-head risk suite.
