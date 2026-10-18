@@ -10,3 +10,19 @@ export function formatClock(seconds) {
   const total = Math.max(0, Math.round(Number(seconds) || 0));
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }
+
+/** Shared recommendation mark used by Today, Focus, Why and completion. */
+export function verdictMarkHtml(glyph) {
+  if (!["up", "down", "hold", "recover"].includes(glyph)) return "";
+  return `<span class="verdictmark verdictmark--${glyph}"><span class="verdictmark__glyph" aria-hidden="true"></span></span>`;
+}
+
+/** Display grouping only; this does not round or rewrite stored loads. */
+export function formatSetsLine(sets, { load, unit }, withUnit = false) {
+  const rows = sets.filter(row => +row.reps > 0);
+  if (!rows.length) return "";
+  const same = rows.every(row => Math.abs(+row.load - +rows[0].load) <= 1e-6);
+  return same
+    ? `${load(rows[0].load)}${withUnit ? ` ${unit()}` : ""} × ${rows.map(row => row.reps).join(", ")}`
+    : rows.map(row => `${load(row.load)} × ${row.reps}`).join(", ");
+}
