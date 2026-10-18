@@ -1,3 +1,5 @@
+/** @typedef {import('./entry/import-review.js').Review} ProgramImportReview
+ * @typedef {import('./entry/import-review.js').Row} ProgramImportRow */
 export {createProgramImport} from './entry/import-review.js';
 /** @typedef {ReturnType<typeof import('./entry/landing-proof.js').buildLandingProof>} LandingProof */
 export {createReceivedSetup} from './entry/received-setup.js';

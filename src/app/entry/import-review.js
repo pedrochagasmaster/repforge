@@ -1,3 +1,4 @@
+import {createSession} from '../session.js';
 import {cloneSnapshot,foldExerciseName} from '../../training/model.js';
 /** @typedef {ReturnType<typeof import('../../training/model.js').createProgramModel>} Model
  * @typedef {ReturnType<typeof import('../custom-import.js').createCustomDefinitionImport>} CustomImport
@@ -5,7 +6,7 @@ import {cloneSnapshot,foldExerciseName} from '../../training/model.js';
  * @typedef {import('../../training/model.js').ExerciseInput} Exercise
  * @typedef {import('../../persistence/contracts.js').CustomExercise} Custom
  * @typedef {import('../../persistence/contracts.js').StoredSnapshot} Snapshot
- * @typedef {import('../../training/model.js').LibraryEntry & {aliases?:string[],rank?:number,archived?:boolean}} Candidate
+ * @typedef {import('../../training/model.js').LibraryEntry & {aliases?:string[],rank?:number,archived?:boolean,media?:string,mediaBg?:string}} Candidate
  * @typedef {{key:string,raw:Exercise,status:string,match:Candidate|null,shortlist:Candidate[],decision:string,reviewed:boolean,expanded?:boolean,createdCustom?:Candidate,createdCustomId?:string}} Row
  * @typedef {{fileName:string,format:string,legacy:boolean,meta:unknown,customExercises:unknown[],rows:Row[],definition?:import('../../training/model.js').ProgramDefinition,sourceType?:string,notImported?:string[],originalText?:string,fromFirstRun?:boolean,onboarding?:boolean}} Review
  */
@@ -232,5 +233,29 @@ function importCandidate(draft,head){
     format:draft.format,
   }}
 
- return Object.freeze({classify:classifyImportRow,rank:rankImportCandidates,create:buildImportDraft,counts:importCounts,candidate:importCandidate});
+ /** @type {{initialSnapshot:Review|null}} */const sessionOptions={initialSnapshot:null};
+ const session=createSession(sessionOptions);
+ /** @param {Review} draft */function open(draft){return session.publish(draft)}
+ function close(){session.publish(null)}
+ /** Every user command is bound to the exact rendered/picker lifetime. A late
+  * response cannot modify a replacement review or resurrect a closed one.
+  * @param {Readonly<Review>|null} expected @param {string} key @param {(row:Row)=>boolean} change @param {boolean} [settle] */
+ function update(expected,key,change,settle=true){
+  if(!expected||session.read()!==expected)return null;
+  const next=cloneSnapshot(expected),row=next.rows.find(item=>item.key===key);if(!row)return null;
+  const firstResolution=!row.reviewed;if(!change(row))return null;
+  if(settle){row.reviewed=true;row.expanded=false}
+  session.publish(next);return{firstResolution:settle&&firstResolution,source:next.sourceType==='freeform'?'freeform':'file'};
+ }
+ /** @param {Readonly<Review>|null} expected @param {string} key */
+ function expand(expected,key){return update(expected,key,row=>{row.expanded=true;return true},false)}
+ /** @param {Readonly<Review>|null} expected @param {string} key @param {number} index */
+ function pick(expected,key,index){return update(expected,key,row=>{const selected=row.shortlist[index];if(!selected)return false;row.match=selected;row.decision='link';return true})}
+ /** @param {Readonly<Review>|null} expected @param {string} key */
+ function link(expected,key){return update(expected,key,row=>{if(!row.match)return false;row.decision='link';return true})}
+ /** @param {Readonly<Review>|null} expected @param {string} key @param {Candidate} selected */
+ function select(expected,key,selected){return update(expected,key,row=>{row.match=cloneSnapshot(selected);row.decision='link';return true})}
+ /** @param {Readonly<Review>|null} expected @param {string} key @param {Candidate} created */
+ function custom(expected,key,created){return update(expected,key,row=>{row.createdCustom=cloneSnapshot(created);row.createdCustomId=created.id;row.decision='custom';return true})}
+ return Object.freeze({classify:classifyImportRow,rank:rankImportCandidates,create:buildImportDraft,counts:importCounts,candidate:importCandidate,read:session.read,open,close,expand,pick,link,select,custom});
 }
