@@ -13,7 +13,7 @@ const model=createProgramModel({catalog,librarySource:{library:source.EXERCISE_L
 const authoring=createInstalledEditorRules({model,catalog,nextId,defaultProgramMeta:()=>seedProgramMeta()});
 let head={log:[{session:'historical',load:42.5}],program:seedProgram(),programMeta:seedProgramMeta(),customExercises:[]},editor=structuredClone(head);
 const commands=createProgramAdditionCommands({read:()=>head,readEditor:()=>editor,model,authoring,commit:async proposal=>{commits++;head=proposal;return{committed:true,settled:true}},commitEditor:async proposal=>{editorCommits++;editor=proposal;return{localOk:true,idbOk:true,setupDraft:true}}});
-const before=JSON.stringify(head),day=head.program[0].day,entry=source.EXERCISE_LIBRARY.find(item=>!head.program.some(row=>row.libraryId===item.id));
+const before=JSON.stringify(head),day=head.program[0].day,entry=source.EXERCISE_LIBRARY.find(item=>item.id==='2a15c6f170d88066b38fd65f8757716f');
 const oldSlots=head.programMeta.programDefinition.days.flatMap(day=>day.slots||[]).map(slot=>slot.id);
 assert.equal((await commands.addExercises({day,rows:[{entry,cfg:{sets:3,min:8,max:6}}]})).settled,true);
 assert.equal(commits,1);assert.equal(editorCommits,0);
@@ -21,7 +21,14 @@ assert.equal(head.program.at(-1).sets,3);assert.equal(head.program.at(-1).min,8)
 assert.deepEqual(head.log,[{session:'historical',load:42.5}]);
 const slots=head.programMeta.programDefinition.days.flatMap(day=>day.slots||[]);
 assert.equal(slots.length,oldSlots.length+1);assert.deepEqual(slots.filter(slot=>oldSlots.includes(slot.id)).map(slot=>slot.id),oldSlots,'existing canonical identities stay unchanged');
-assert.equal(model.canonicalProgramDefinition(head.programMeta.programDefinition,[]).days.flatMap(day=>day.slots||[]).length,slots.length);
+const addedSlot=slots.find(slot=>!oldSlots.includes(slot.id));
+assert.equal(addedSlot.exerciseId,entry.id,'consumer receives the exact selected catalog movement');
+assert.equal(addedSlot.prescriptionsByCycle[0].sets.length,3);
+assert.deepEqual(addedSlot.prescriptionsByCycle[0].sets[0].targets.repsPerSide,{min:8,max:8},'literal unilateral target survives the canonical addition');
+const canonical=model.canonicalProgramDefinition(head.programMeta.programDefinition,[]);
+assert(canonical,'the real canonical validator accepts the addition producer output');
+const corrupt=structuredClone(head.programMeta.programDefinition);corrupt.days[0].slots[0].exerciseId='missing-movement';
+assert.equal(model.canonicalProgramDefinition(corrupt,[]),null,'negative control: unknown movement identity is rejected by the consumer');
 assert.equal(JSON.stringify(editor),before,'installed additions never mutate the private editor');
 await commands.addExercises({day,editorScope:true,rows:[{entry,cfg:{sets:2,min:6,max:8}}]});
 assert.equal(commits,1);assert.equal(editorCommits,1,'private setup additions use the editor transaction owner');
