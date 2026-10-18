@@ -1,4 +1,5 @@
 diff --git a/programlab/archive-entry.js b/programlab/archive-entry.js
+index bc1aa22..8d0e684 100644
 --- a/programlab/archive-entry.js
 +++ b/programlab/archive-entry.js
 @@ -1,27 +1,30 @@
@@ -43,6 +44,7 @@ diff --git a/programlab/archive-entry.js b/programlab/archive-entry.js
          // boundary; their eligibility is never checked against today's catalog.
          validateProgram: (value, { archived }) => archived ? Compiler.validateProgramDefinitionStructure(value) : Compiler.validateProgramDefinition(value, catalog),
 diff --git a/programlab/archive-worker.js b/programlab/archive-worker.js
+index 80f791f..93a4cb5 100644
 --- a/programlab/archive-worker.js
 +++ b/programlab/archive-worker.js
 @@ -3,7 +3,7 @@
@@ -55,6 +57,7 @@ diff --git a/programlab/archive-worker.js b/programlab/archive-worker.js
      function terminate(error) {
        if (disposed) return;
 diff --git a/programlab/archive.js b/programlab/archive.js
+index e10cf4b..5a25c7b 100644
 --- a/programlab/archive.js
 +++ b/programlab/archive.js
 @@ -1,6 +1,6 @@
@@ -72,6 +75,7 @@ diff --git a/programlab/archive.js b/programlab/archive.js
 +
 +export default globalThis.ProgramLabArchive;
 diff --git a/programlab/domain.js b/programlab/domain.js
+index bf72ecd..41b6275 100644
 --- a/programlab/domain.js
 +++ b/programlab/domain.js
 @@ -1,7 +1,6 @@
@@ -99,6 +103,7 @@ diff --git a/programlab/domain.js b/programlab/domain.js
 +
 +export default globalThis.ProgramLabDomain;
 diff --git a/programlab/index.html b/programlab/index.html
+index 6b7f2f5..c6ce281 100644
 --- a/programlab/index.html
 +++ b/programlab/index.html
 @@ -68,9 +68,7 @@
@@ -109,14 +114,28 @@ diff --git a/programlab/index.html b/programlab/index.html
 -  <script src="generation-identity.js"></script><script src="engine-policy.js"></script><script src="generation-candidates.js"></script><script src="generation-layout.js"></script>
 -  <script src="program-compiler.js"></script><script src="exercise-catalog.js"></script><script src="program-entry-adapter.js"></script><script src="program-engine.js"></script>
 -  <script src="programlab/i18n.js"></script><script src="programlab/domain.js"></script><script src="programlab/store.js"></script><script src="programlab/archive-worker.js"></script><script src="programlab/services.js"></script><script src="programlab/app.js"></script>
-+  <script src="exercises.js"></script><script src="programlab/i18n.js"></script>
++  <script src="programlab/i18n.js"></script>
 +  <script type="module" src="programlab/native-entry.js"></script>
  </body>
  </html>
+diff --git a/programlab/native-entry.js b/programlab/native-entry.js
+new file mode 100644
+index 0000000..57306a4
+--- /dev/null
++++ b/programlab/native-entry.js
+@@ -0,0 +1,6 @@
++// One Lab-owned composition root. Keep owned host initialization ordered.
++await import('./domain.js');
++await import('./store.js');
++await import('./archive-worker.js');
++await import('./services.js');
++await import('./app.js');
 diff --git a/programlab/services.js b/programlab/services.js
+index 15042ed..d35f7b5 100644
 --- a/programlab/services.js
 +++ b/programlab/services.js
-@@ -1,3 +1,7 @@
+@@ -1,3 +1,8 @@
++import {catalogSha256} from '../exercises.js';
 +import {createGenerationRules} from "../src/training/generation.js";
 +import {createEntryAdapter} from "../src/training/authoring.js";
 +import {createCatalog} from "../src/platform/catalog.js";
@@ -124,7 +143,7 @@ diff --git a/programlab/services.js b/programlab/services.js
  /* UI adapter for the real shared engine, lab domain and lab-only store.
     No generation, identity, metric, archive or database implementation lives here. */
  (function attachProgramLabServices(root) {
-@@ -7,7 +11,7 @@
+@@ -7,7 +12,7 @@
    const L = () => root.RepForgeProgramLabI18n;
    const t = (key, values) => L().t(key, values);
    const issue = (code, message) => Object.assign(new Error(message), { code });
@@ -133,7 +152,16 @@ diff --git a/programlab/services.js b/programlab/services.js
    let storageError = null, activeArchive = null, archivedMetricsDomain, planCache = null;
    const metricsCache = new WeakMap();
    const build = () => ({ runtimeFingerprint: manifest.runtimeFingerprint, catalogSha256: manifest.catalogSha256, diagnostics: manifest.diagnosticsVersion });
-@@ -49,7 +53,7 @@
+@@ -27,7 +32,7 @@
+   }
+   async function verifyManifest(value) {
+     if (value.kind !== 'taurifer-programlab-build' || value.schemaVersion !== 1
+-      || value.generatorVersion !== Compiler.GENERATOR_VERSION || value.catalogSha256 !== root.RepForgeExercises.catalogSha256
++      || value.generatorVersion !== Compiler.GENERATOR_VERSION || value.catalogSha256 !== catalogSha256
+       || value.diagnosticsVersion !== 'allocation-lineage@1') throw issue('build_mismatch', t('The source manifest does not match the loaded engine. Rebuild the standalone artifact.'));
+     for (const name of Object.keys(value.files)) {
+       if (/^(?:[a-z]+:|\/)|(?:^|\/)\.\.(?:\/|$)/i.test(name)) throw issue('build_mismatch', 'Unsafe manifest source path');
+@@ -49,7 +54,7 @@
        if (!checked.ok) throw Object.assign(issue('invalid_scenario', t('Review the scenario answers.')), { issues: checked.issues || checked.conflicts });
        scenario.request = checked.value;
      }
@@ -142,7 +170,7 @@ diff --git a/programlab/services.js b/programlab/services.js
      if (!checked.ok) throw Object.assign(issue('invalid_scenario', t('Review the canonical request.')), { issues: checked.issues });
      scenario.request = checked.value;
      return D.snapshot(scenario);
-@@ -240,22 +244,23 @@
+@@ -240,22 +245,23 @@
      };
    }
    async function initialize() {
@@ -172,7 +200,7 @@ diff --git a/programlab/services.js b/programlab/services.js
      return {
        manifest, defaultPolicy: Policy.getDefaultEnginePolicy(), configuration: configuration(), seedMode: 'canonical',
        exerciseLabels: Object.fromEntries(catalog.exercises.map(item => [item.id, item.name])),
-@@ -320,7 +325,7 @@
+@@ -320,7 +326,7 @@
    }
    async function archiveOperation(action) {
      if (activeArchive) throw issue('archive_active', t('An archive operation is already active.'));
@@ -182,9 +210,10 @@ diff --git a/programlab/services.js b/programlab/services.js
      try { return await action(client); }
      finally { client.dispose(); if (activeArchive === client) activeArchive = null; }
 diff --git a/tools/build-programlab.mjs b/tools/build-programlab.mjs
+index 9667baa..00023db 100644
 --- a/tools/build-programlab.mjs
 +++ b/tools/build-programlab.mjs
-@@ -6,11 +6,41 @@
+@@ -6,11 +6,41 @@ import path from 'node:path';
  import { fileURLToPath, pathToFileURL } from 'node:url';
  import { createHash } from 'node:crypto';
  import { execFileSync } from 'node:child_process';
@@ -228,7 +257,7 @@ diff --git a/tools/build-programlab.mjs b/tools/build-programlab.mjs
  function git(sourceDir, args) {
    try { return execFileSync('git', ['-C', sourceDir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); }
    catch { return null; }
-@@ -44,33 +74,33 @@
+@@ -44,33 +74,33 @@ export async function buildProgramLab({ sourceDir = repository, outDir } = {}) {
    const html = await readFile(path.join(source, 'programlab/index.html'), 'utf8');
    const references = [...html.matchAll(/(?:src|href)="([^"#]+)"/g)].map(match => match[1]).filter(name => !['../', './'].includes(name));
    references.forEach(localPath);
@@ -267,14 +296,3 @@ diff --git a/tools/build-programlab.mjs b/tools/build-programlab.mjs
    };
    await mkdir(path.dirname(output), { recursive: true });
    const staging = await mkdtemp(path.join(path.dirname(output), '.programlab-build-'));
-diff --git a/programlab/native-entry.js b/programlab/native-entry.js
-new file mode 100644
---- /dev/null
-+++ b/programlab/native-entry.js
-@@ -0,0 +1,6 @@
-+// One Lab-owned composition root. Keep owned host initialization ordered.
-+await import('./domain.js');
-+await import('./store.js');
-+await import('./archive-worker.js');
-+await import('./services.js');
-+await import('./app.js');

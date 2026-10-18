@@ -53,15 +53,17 @@ imports or replace that final gate.
 | `programlab/store.js` | Retain unchanged, including `taurifer_programlab_v1`/schema 1, revisions, transaction/recovery and fresh imported IDs. No production persistence import or automatic program activation. |
 | `programlab/archive.js` | Retain bounds, validation, historical records and multipart algorithms; replace domain discovery with its explicit Lab module import. Historical supported records are structurally readable, never automatically current-eligible. |
 | `programlab/archive-entry.js`, `archive-worker.js` | Trusted literal native imports and fixed catalog pin; module worker constructor. Remove `importScripts` and the root relocation alias. A record/archive never chooses executable modules. |
-| `programlab/index.html`, new `native-entry.js` | Keep Lab markup/UI unchanged. Retain generated exercise index and Lab i18n; one ordered Lab composition root mounts its existing domain/store/services/app. No production boot, SW, telemetry or migration globals. The existing Lab-owned host globals remain local to its artifact; this patch creates no production compatibility bridge. |
+| `programlab/index.html`, new `native-entry.js` | Keep Lab markup/UI unchanged. Import the generated exercise catalog pin as native ESM and retain Lab i18n; one ordered Lab composition root mounts its existing domain/store/services/app. No production boot, SW, telemetry or migration globals. The existing Lab-owned host globals remain local to its artifact; this patch creates no production compatibility bridge. |
 | `tools/build-programlab.mjs` | Saved patch derives the transitive static graph from native public entries plus the real worker root, preserving source paths. AST parsing uses the already-pinned verification TypeScript tool (not shipped). Reject graph backedges outside training/platform. Manifest hashes every shipped byte; fingerprints include policy, compiler/layout, catalog, executor/worker and adapters. Refuse existing output and production `dist/`. |
 | `programlab/app.js`, i18n, styles | Retain unchanged; no UI implementation is duplicated in this branch. |
 
-The patched standalone artifact contains 39 files on the recorded intake. That
+The patched standalone artifact contains 47 files after native generated-data reconciliation. That
 count is an observation, not a permanent limit: closure and hashes govern.
 Classic shared scripts are absent. Type-only contracts stay out of the runtime
 artifact. Normal production release assembly continues to exclude `programlab/`
 and the owner-only Lab assembler.
+
+The generated exercise data cutover removes its classic HTML tag and changes the Lab manifest check to import the actual native catalog pin. It does not recreate `RepForgeExercises`. The artifact proof caught both the classic `export` parse error and the missing former global before correction; pinned Lab UI/store/archive sources and their input hashes remain unchanged.
 
 ## Apply and independently reproduce
 

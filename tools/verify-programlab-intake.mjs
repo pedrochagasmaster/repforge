@@ -75,7 +75,9 @@ const D=(await import(${moduleURL('programlab/domain.js')})).default;
   const base=`http://127.0.0.1:${server.address().port}/`;
   const {launchChromium}=await import('../test/browser.mjs');browser=await launchChromium();
   const page=await browser.newPage();const errors=[];page.on('pageerror',error=>errors.push(error.message));
-  await page.goto(base);await page.waitForFunction(()=>!document.querySelector('#run')?.disabled,{timeout:60000});
+  await page.goto(base);
+  try{await page.waitForFunction(()=>!document.querySelector('#run')?.disabled,null,{timeout:15000})}
+  catch(error){throw new Error(`Patched Lab did not become ready; browser errors: ${JSON.stringify(errors)}; UI: ${await page.locator('body').innerText()}`,{cause:error})}
   const result=await page.evaluate(async()=>{
    localStorage.setItem('repforge_v1','production-sentinel');localStorage.setItem('repforge_draft_v1','draft-sentinel');
    const S=globalThis.RepForgeProgramLabServices;
