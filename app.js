@@ -1,3 +1,5 @@
+import {createFocusFormat} from './src/ui/focus/format.js';
+import {createFocusValues} from './src/ui/focus/values.js';
 import {createTelemetry} from './src/platform/telemetry.js';
 import {createPostHog} from './src/platform/posthog.js';
 import {createPrescriptionPresentation} from './src/ui/focus/prescription.js';
@@ -4910,37 +4912,12 @@ function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
   $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" aria-pressed="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(dayLabel(d))}</button>`).join("");
   $$("#dayTabs button").forEach(b=>b.onclick=async()=>{if(!await requestWorkoutDay(b.dataset.day))return;renderTabs();renderWorkout();renderToday()})}
 
-function metricPendingValue(exId,n,field){
-  const target=draftTargetFromKey(`${exId}_${n}`);
-  const set=target?activeWorkoutDraft?.exercises?.[target.exerciseInstanceId]?.sets?.[target.setId]:null;
-  const metric=draftSetMetrics(set).find(item=>METRIC_FIELD_SEMANTICS[field]?.includes(item.semantic));
-  return metric?pendingFields.get(`${exId}_${n}_metric_${metric.id}`)?.value:undefined}
-/** The load a manual set shows before the lifter gives it one (owner, 2026-10-18). A set the engine does not load
- *  (manual, or still waiting on its setup) that has no programmed load target, no load of its own and no edit of the
- *  lifter's takes the load of the nearest set logged above it on the same exercise this session. It is a prefill only:
- *  nothing is stored until the set is logged, and logging it logs the load it shows. Warm-ups neither give nor take
- *  it, and nothing carries across sessions; that is Suggest loads' job. */
-function pendingFocusLoad(exId,ordinal){
-  const target=draftTargetFromKey(`${exId}_${ordinal}`);
-  const set=target?activeWorkoutDraft?.exercises?.[exId]?.sets?.[target.setId]:null;
-  const metric=draftSetMetrics(set).find(item=>METRIC_FIELD_SEMANTICS.load.includes(item.semantic));
-  return pendingFields.has(metric?`${exId}_${ordinal}_metric_${metric.id}`:`${exId}_${ordinal}_load`)}
-function manualLoadCarry(exId,ordinal,recommendation){
-  return WorkoutDraft.manualLoadCarry(activeWorkoutDraft,exId,ordinal,
-    {status:recommendation?.status,pendingLoad:pendingFocusLoad(exId,ordinal)})}
-function setFieldVals(ex,n,r,draft,prev){
-  // A field the lifter has just set and the draft has not yet acknowledged shows what they set.
-  // A metric-backed set's pending value sits under its metric input's key.
-  const pending=field=>pendingFields.get(`${ex.id}_${n}_${field}`)?.value??metricPendingValue(ex.id,n,field);
-  const old=prev.find(x=>x.set===n),draftKg=pending("load")??draft[`${ex.id}_${n}_load`],sg=setSuggestion(ex,n,r,draft,old);
-  // The carried load reads as the set it came from reads in the ledger.
-  const carry=manualLoadCarry(ex.id,n,r),carried=carry?String(draft[`${ex.id}_${carry.ordinal}_load`]??carry.value):null;
-  const kgVal=carried!=null?carried:draftKg!=null?draftKg:(sg.load!=null?fmtLoadPlain(sg.load):((r.status==="manual"||r.status==="configuration_required")?"":(old&&old.load!=null?fmtLoadPlain(old.load):"")));
-  const repsVal=pending("reps")??draft[`${ex.id}_${n}_reps`]??(sg.reps!=null?sg.reps:(r.status==="manual"?"":(old&&old.reps!=null?old.reps:ex.min)));
-  const key=`${ex.id}_${n}`,isW=warmups.has(key);
-  const effortVal=pending("effort")||draft[`${key}_effort`]||(old&&old.rir!=null?effortForRir(old.rir):"hard");
-  const rirVal=pending("rir")??draft[`${key}_rir`]??(old&&old.rir!=null?fmtPlain(old.rir):1);
-  return{key,isW,kgVal,repsVal,rirVal,effortVal}}
+const FocusFormat=createFocusFormat({readSettings:()=>state.settings,copy:{language:uiLang}});
+const FocusValues=createFocusValues({focus:focusUi,training:{manualLoadCarry:WorkoutDraft.manualLoadCarry},format:FocusFormat,copy:{t}});
+function pendingFocusLoad(exId,ordinal){return FocusValues.pendingLoad(activeWorkoutDraft,exId,ordinal)}
+function manualLoadCarry(exId,ordinal,recommendation){return FocusValues.carry(activeWorkoutDraft,exId,ordinal,recommendation)}
+function setFieldVals(ex,n,r,draft,prev){return FocusValues.fields({draft:activeWorkoutDraft,flat:draft,
+  query:workoutQueries(),exercise:ex,ordinal:n,recommendation:r,previous:prev})}
 /* =====================================================   Focus mode
    One full-height card per exercise: a scrolling ledger of what has been
    logged on top, and the shelf underneath that never moves — the set being
@@ -4957,27 +4934,14 @@ const dead=()=>` tabindex="-1"`;
 const focusSelection=(ex,peek=false)=>focusUi.selectExercise(ex,committed,{peek});
 const focusDoneSets=ex=>focusSelection(ex).done;
 const focusActiveSet=ex=>focusSelection(ex).active;
-/** The load the next set is judged against: this session's last logged set,
- *  falling back to the matching set of the previous session. */
-function focusRefLoad(ex,n,draft,prev){
-  for(let m=n-1;m>=1;m--){
-    if(!committed.has(`${ex.id}_${m}`))continue;
-    const v=fromDisplay(draft[`${ex.id}_${m}_load`]);
-    if(Number.isFinite(v)&&v>0)return v}
-  const old=prev.find(x=>x.set===n)||prev.at(-1);
-  return old&&old.load!=null?+old.load:null}
 /** The two lines above the ledger: what to do with this set, and why. Line one
  *  is the verb and the load, line two the reps to aim for. The load is the
  *  engine's: `setSuggestion` for this set, never a figure derived here. */
-const FocusCue=createCuePresentation({copy:{t},format:{load:fmtLoad,unit:unitLabel},rest:RestPresentation});
+const FocusCue=createCuePresentation({copy:{t},format:FocusFormat,rest:RestPresentation});
 function focusCue(ex,n,r,draft,prev,editing){
   const sg=editing?{}:setSuggestion(ex,n,r,draft,prev.find(x=>x.set===n));
-  const ref=editing||r.status==="manual"||r.status==="configuration_required"||sg.load==null||Array.isArray(r.targetSets)
-    ?null:focusRefLoad(ex,n,draft,prev);
-  const move=Array.isArray(r.targetSets)
-    ?(sg.src==="session-up"?"up":sg.src==="session-down"?"down":sg.src==="session-hold"?"hold":
-      r.status==="add"?"up":r.status==="reduce"?"down":"hold")
-    :ref==null||sameLoad(sg.load,ref)?"hold":sg.load>ref?"up":"down";
+  const move=sg.src==="session-up"?"up":sg.src==="session-down"?"down":sg.src==="session-hold"?"hold":
+    r.status==="add"?"up":r.status==="reduce"?"down":"hold";
   return FocusCue.cue({exerciseId:ex.id,ordinal:n,total:ex.sets,min:ex.min,max:ex.max,status:r.status,editing,suggestion:sg,move})}
 
 /* ---- Inline rest (Direction D 4.2, owner gate OG-4 job 3) ----
@@ -5005,13 +4969,8 @@ function focusSlotHtml(ex,n,r,cue,opts){
  *  the header chip and the presets sheet act on. */
 const selectRestPads=peek=>RestPresentation.selectPads(peek);
 const restPadsHtml=peek=>RestPresentation.padsHtml(peek);
-function focusRowVals(ex,n,r,draft,prev,effortMode){
-  const{kgVal,repsVal,rirVal,effortVal}=setFieldVals(ex,n,r,draft,prev);
-  const load=(()=>{const v=parseDec(kgVal);return Number.isFinite(v)?fmt(v):kgVal})();
-  // A set logged as a word reads back as that word — never as the RIR it maps to.
-  const eff=effortMode?effortLabel(effortVal)
-    :(()=>{const v=parseDec(rirVal);return Number.isFinite(v)?fmt(v):rirVal})();
-  return{load,reps:String(repsVal),eff}}
+function focusRowVals(ex,n,r,draft,prev,effortMode){return FocusValues.row({draft:activeWorkoutDraft,flat:draft,
+  query:workoutQueries(),exercise:ex,ordinal:n,recommendation:r,previous:prev},effortMode)}
 
 /** The effort window a set that has not been logged is aimed at. These are the
  *  program's own parameters and the lifter's RIR ceiling, formatted — the same
@@ -5023,21 +4982,8 @@ function focusTargetEffort(ex){return FocusPrescription.targetEffort({effortMode
   facts:canonicalSlotFacts(ex),progression:progressionForExercise(ex)})}
 
 /** What the lifter has confirmed on a set. `touched.effort` also covers RIR. */
-function shelfTouched(exId,n){
-  const draft=activeWorkoutDraft?.exercises?.[exId];if(!draft)return{};
-  const setId=draft.setOrder.find(id=>draft.sets[id].ordinal===n);
-  // An edit the draft has not yet acknowledged is already the lifter's own value.
-  const held=field=>pendingFields.has(`${exId}_${n}_${field}`);
-  const touched={...(draft.sets[setId]?.touched||{})};
-  if(held("load"))touched.load=true;
-  if(held("reps"))touched.reps=true;
-  if(held("rir")||held("effort"))touched.effort=true;
-  return touched}
-/** A warm-up set keeps its place in the ledger under a short label instead of its number. */
-function ledgerSetIsWarmup(exId,n){
-  const draft=activeWorkoutDraft?.exercises?.[exId];if(!draft)return false;
-  const setId=draft.setOrder.find(id=>draft.sets[id].ordinal===n);
-  return draft.sets[setId]?.role==="warmup"}
+function shelfTouched(exId,n){return FocusValues.touched(activeWorkoutDraft,exId,n)}
+function ledgerSetIsWarmup(exId,n){return FocusValues.set(activeWorkoutDraft,exId,n)?.role==="warmup"}
 
 /** Layout D's table (owner decision of 2026-10-17): the set being worked on and
  *  the one after it, with the logged sets behind a disclosure above them. The
@@ -5045,7 +4991,7 @@ function ledgerSetIsWarmup(exId,n){
  *  through a correction, and closes after it and whenever the lifter moves on.
  *  A finished exercise keeps its whole ledger, as it always has. */
 
-const FocusLedger=createLedgerPresentation({copy:{t,plural:tp,term},format:{number:fmt,load:fmtLoad,unit:unitLabel}});
+const FocusLedger=createLedgerPresentation({copy:{t,plural:tp,term},format:FocusFormat});
 function focusLedgerModel(ex,r,draft,prev,{effortMode,peek=false}){
   const selection=focusSelection(ex,peek);
   return {exerciseId:ex.id,selection,effortMode,peek,targetEffort:focusTargetEffort(ex),facts:selection.visible.map(n=>{
@@ -5093,27 +5039,20 @@ const shelfSelect=(key,field,editing=false)=>focusUi.shelfSelect(key,field,editi
 /** A field's text as the lifter reads it: a number in their locale, anything else as typed. */
 const shelfText=raw=>FocusShelf.text(raw);
 /** The load step the pads move by, in the unit the lifter sees. */
-function shelfLoadStep(){
-  const kg=parseDec(state.settings.minJump)||2.5;
-  return fmt(Math.round(toDisplay(kg)*10)/10)}
-
-function focusMetricDefinitions(exId,n){
-  const exercise=activeWorkoutDraft?.exercises?.[exId];if(!exercise)return[];
-  const setId=exercise.setOrder.find(id=>exercise.sets[id].ordinal===n);
-  const metrics=setId?exercise.sets[setId].programmed.metrics:null;
-  return Array.isArray(metrics)?metrics:[]}
+function shelfLoadStep(){return FocusFormat.loadStep()}
+function focusMetricDefinitions(exId,n){return FocusValues.definitions(activeWorkoutDraft,exId,n)}
 const workoutMetricDisplay=createMetricDisplay({readSettings:()=>state.settings,copy:{t,language:uiLang}});
 const metricTextValue=workoutMetricDisplay.text,canonicalMetricInput=workoutMetricDisplay.canonicalInput,
   metricKgFromDisplay=workoutMetricDisplay.kgFromDisplay,metricTargetText=workoutMetricDisplay.targetText,
   canonicalMetricTargetText=workoutMetricDisplay.canonicalTargetText;
-const FocusPrescription=createPrescriptionPresentation({metrics:workoutMetricDisplay,copy:{t},format:{number:fmt}});
+const FocusPrescription=createPrescriptionPresentation({metrics:workoutMetricDisplay,copy:{t},format:FocusFormat});
 function prescriptionPresentationFacts(ex,cycleNumber){return workoutQueries().prescriptionFacts(ex,cycleNumber)}
 function programPrescriptionSummary(ex,cycleNumber){return FocusPrescription.summary(prescriptionPresentationFacts(ex,cycleNumber))}
 const metricLabel=workoutMetricDisplay.label,metricDisplayUnit=workoutMetricDisplay.displayUnit,
   parseHistoryMetricInput=workoutMetricDisplay.parseHistoryInput;
 
 const FocusShelf=createShelfPresentation({focus:focusUi,metrics:workoutMetricDisplay,effort:FocusEffort,
-  rest:RestPresentation,copy:{t,plural:tp},format:{number:fmt,unit:unitLabel}});
+  rest:RestPresentation,copy:{t,plural:tp},format:FocusFormat});
 function focusPadsHtml(ex,n,ui,vals,{effortMode,peek,editing}){
   return FocusShelf.padsHtml({exerciseId:ex.id,ordinal:n,ui,values:vals,effortMode,peek,editing,
     metrics:focusMetricDefinitions(ex.id,n),loadStep:shelfLoadStep()})}
