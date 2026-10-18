@@ -20,3 +20,5 @@ export {createFocusNavigation} from './navigation.js';
 export {createFocusEffects} from './effects.js';
 
 export {createRestSlot} from './rest-slot.js';
+
+export {createFocusDom,syncWorkoutMore} from './dom.js';

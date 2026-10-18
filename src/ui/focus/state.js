@@ -62,6 +62,17 @@ export function createFocusState() {
     /** @param {string} exId @param {number} n @param {import('../../app/workout.js').EditSnapshot} snap */
     beginEdit(exId,n,snap){edit={exId,n,snap};},
     finishEdit(){edit=null;ledgerOpen=null;},
+    /** Select a frame without allowing disclosure state to bleed across exercises.
+     * @param {readonly {id:string}[]} exercises */
+    beginFrame(exercises){
+      if(exercises.length)index=Math.min(index,exercises.length-1);
+      const at=exercises.length?Math.min(index,exercises.length-1):0;
+      if(ledgerOpen&&ledgerOpen!==exercises[at]?.id)ledgerOpen=null;
+      restRenderPending=false;return at;
+    },
+    finishFrame(){logged=null;},
+    /** @param {string} exerciseId @param {boolean} open */
+    discloseLedger(exerciseId,open){ledgerOpen=open?exerciseId:null;},
     /** @param {number} next */
     navigateTo(next){index=next;edit=null;},
     get index(){return index;},set index(value){index=value;},

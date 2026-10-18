@@ -41,3 +41,18 @@ export function formatTable(rows, emptyLabel) {
   return `<table><thead><tr>${headings.map(key=>`<th>${escapeHtml(key)}</th>`).join("")}</tr></thead><tbody>`+
     rows.map(row=>`<tr>${headings.map(key=>`<td>${escapeHtml(row[key])}</td>`).join("")}</tr>`).join("")+`</tbody></table>`;
 }
+
+/** @typedef {{current:number|null,total:number,isFinalWeek:boolean,isComplete:boolean}} ProgramCycle
+ * @typedef {(key:string,values?:Record<string,unknown>)=>string} Copy */
+/** Shared program-context copy used by Today and Focus. @param {unknown} name @param {ProgramCycle} cycle @param {Copy} t */
+export function formatProgramContext(name,cycle,t){
+  const label=name||t('untitled_program');
+  if(cycle.isComplete)return t('log.context.program_complete',{name:label});
+  if(cycle.isFinalWeek)return t('log.context.program_week_ready',{name:label,n:cycle.current,total:cycle.total});
+  if(cycle.current!=null)return t('log.context.program_week',{name:label,n:cycle.current,total:cycle.total});
+  return String(label);
+}
+/** @param {ProgramCycle} cycle @param {boolean} deload @param {Copy} t */
+export function formatCycleLabel(cycle,deload,t){
+  return deload?t('today.deload_week'):cycle.isComplete?t('meso.complete'):cycle.current!=null?t('today.week_short',{n:cycle.current}):'';
+}
