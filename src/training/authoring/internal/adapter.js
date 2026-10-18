@@ -1,12 +1,29 @@
 /** Bind setup answer mapping to one explicit compiler; each operation supplies its checked catalog. */
+/** @typedef {Record<string,unknown>} JsonRecord
+ * @typedef {typeof import('../../generation.js').compiler} CompilerApi
+ * @typedef {import('../../model/internal/contracts.js').CatalogExercise & {preconditions?:string[]}} AdapterExercise
+ * @typedef {{generatedAt:string,exercises:AdapterExercise[],uuidIndex:Record<string,JsonRecord & {type?:string}>}} AdapterCatalog
+ * @typedef {import('../../model/internal/contracts.js').ProgramDefinition} ProgramDefinition
+ * @typedef {{slotId:string,offeredExerciseId:string,prerequisiteIds:string[],[key:string]:unknown}} ConfirmationOffer
+ * @typedef {{ok:false}|{ok:true,value:ProgramDefinition,confirmationOffers?:ConfirmationOffer[]}} GeneratedResult
+ * @typedef {{Compiler?:CompilerApi,catalog?:AdapterCatalog}} ServicesOptions
+ */
+/** @param {{compiler:CompilerApi}} bindings */
 export function createEntryAdapter({compiler: boundCompiler}) {
 
+  /** @param {unknown} value @returns {value is JsonRecord} */
   function isPlainObject(value) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return false;
     const prototype = Object.getPrototypeOf(value);
     return prototype === Object.prototype || prototype === null;
   }
 
+  /** @param {unknown} value @returns {value is number} */
+  function integer(value) { return typeof value === "number" && Number.isInteger(value); }
+  /** @param {unknown} value @returns {value is number} */
+  function finite(value) { return typeof value === "number" && Number.isFinite(value); }
+
+  /** @param {CompilerApi} [injected] */
   function compilerApi(injected) {
     const compiler = injected || boundCompiler;
     if (!compiler || typeof compiler.generateProgram !== "function" ||
@@ -16,6 +33,7 @@ export function createEntryAdapter({compiler: boundCompiler}) {
     return compiler;
   }
 
+  /** @param {unknown} injected @returns {AdapterCatalog} */
   function rawCatalogSnapshot(injected) {
     const catalog = injected || null;
     if (!isPlainObject(catalog) || !Array.isArray(catalog.exercises) || !catalog.exercises.length ||
@@ -23,19 +41,21 @@ export function createEntryAdapter({compiler: boundCompiler}) {
       typeof catalog.generatedAt !== "string" || !catalog.generatedAt) {
       throw new TypeError("A checked raw catalog snapshot is required");
     }
-    return catalog;
+    return /** @type {AdapterCatalog} */(catalog);
   }
 
+  /** @param {unknown} value @returns {string|undefined} */
   function stableStringify(value) {
     if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
     if (value && typeof value === "object") {
-      return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
+      return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify((/** @type {JsonRecord} */(value))[key])}`).join(",")}}`;
     }
     return JSON.stringify(value);
   }
 
+  /** @param {unknown} value */
   function fingerprint(value) {
-    const text = stableStringify(value);
+    const text = /** @type {string} */(stableStringify(value));
     let hash = 0x811c9dc5;
     for (let index = 0; index < text.length; index++) {
       hash ^= text.charCodeAt(index);
@@ -44,6 +64,7 @@ export function createEntryAdapter({compiler: boundCompiler}) {
     return `pe-${(hash >>> 0).toString(16).padStart(8, "0")}`;
   }
 
+  /** @param {CompilerApi} Compiler */
   function currentVersions(Compiler) {
     return {
       compiler: String(Compiler.GENERATOR_VERSION ?? "manual@1"),
@@ -58,13 +79,15 @@ export function createEntryAdapter({compiler: boundCompiler}) {
     };
   }
 
-  function buildEmptyProgram(answers, Compiler, catalog) {
+  /** @param {unknown} rawAnswers @param {CompilerApi} Compiler @param {AdapterCatalog} catalog */
+  function buildEmptyProgram(rawAnswers, Compiler, catalog) {
+    const answers = /** @type {JsonRecord|null|undefined} */(rawAnswers);
     const name = typeof answers?.programName === "string" ? answers.programName.trim() : "";
     const daysPerWeek = answers?.daysPerWeek;
-    if (!name || name.length > 80 || !Number.isInteger(daysPerWeek) || daysPerWeek < 2 || daysPerWeek > 6) {
+    if (!name || name.length > 80 || !integer(daysPerWeek) || daysPerWeek < 2 || daysPerWeek > 6) {
       return { ok: false, code: "build_setup_incomplete", conflicts: [] };
     }
-    const cycles = Number.isInteger(answers.cycles) ? answers.cycles : 7;
+    const cycles = integer(answers?.cycles) ? answers.cycles : 7;
     if (cycles < 1 || cycles > 12) return { ok: false, code: "build_setup_incomplete", conflicts: [] };
     const days = Array.from({ length: 7 }, (_, index) => ({
       id: `manual-day-${index + 1}`,
@@ -116,18 +139,22 @@ export function createEntryAdapter({compiler: boundCompiler}) {
     };
   }
 
+  /** @param {unknown} value */
   function foldName(value) {
     return String(value == null ? "" : value).normalize("NFD").replace(/[\u0300-\u036f]/g, "")
       .toLowerCase().trim().replace(/\s+/g, " ");
   }
 
+  /** @param {unknown} row */
   function exerciseIdentity(row) {
-    return row && row.libraryId ? `lib:${row.libraryId}` : `name:${foldName(row && row.name)}`;
+    const fields = /** @type {JsonRecord|null|undefined} */(row);
+    return fields && fields.libraryId ? `lib:${fields.libraryId}` : `name:${foldName(fields && fields.name)}`;
   }
 
+  /** @param {unknown} before @param {unknown} after */
   function identityDiff(before, after) {
-    const rows = (value) => (Array.isArray(value && value.program) ? value.program : Array.isArray(value) ? value : []);
-    const tally = (list) => {
+    const rows = (/** @type {unknown} */ value) => (Array.isArray((/** @type {JsonRecord|null|undefined} */(value))?.program) ? /** @type {unknown[]} */((/** @type {JsonRecord} */(value)).program) : Array.isArray(value) ? /** @type {unknown[]} */(value) : []);
+    const tally = (/** @type {unknown[]} */ list) => {
       const counts = new Map();
       for (const row of list) {
         const key = exerciseIdentity(row);
@@ -144,10 +171,13 @@ export function createEntryAdapter({compiler: boundCompiler}) {
   }
 
   // ---- Generate answers -> canonical generator request ---------------------
+  /** @type {Readonly<Record<string,string|undefined>>} */
   const GOALS = Object.freeze({ muscle_growth: "hypertrophy", balanced: "hybrid", strength: "strength" });
+  /** @type {Readonly<Record<string,string|undefined>>} */
   const EXPERIENCE = Object.freeze({ first: "beginner", under_6m: "beginner", "6_to_24m": "intermediate", over_24m: "advanced" });
   // The source catalog flags each equipment item for its gym templates.
   // Everything takes every equipment object; a stored Other keeps Local's flag.
+  /** @type {Readonly<Record<string,string|undefined>>} */
   const GYM_FLAGS = Object.freeze({
     everything: "*", commercial_gym: "commercialGym", warehouse_gym: "warehouseGym", basic_gym: "localGym",
     full_home: "garageGym", limited_home: "homeGym", other: "localGym",
@@ -155,6 +185,7 @@ export function createEntryAdapter({compiler: boundCompiler}) {
   // Onboarding B's equipment groups (Plan 072, Plan 068 slice A). Members are
   // catalog identity, never names, and both halves of a plural/singular pair
   // are listed because the compiler closes only from plural to singular.
+  /** @type {Readonly<Record<string,readonly string[]>>} */
   const EQUIPMENT_GROUPS = Object.freeze({
     // Barbell, Weight plate, Weight plates, Bumper plate, Bumper plates
     barbell: Object.freeze([
@@ -231,6 +262,7 @@ export function createEntryAdapter({compiler: boundCompiler}) {
     ]),
   });
   const PERIODIZATIONS = Object.freeze(["static", "linear", "reverse_linear", "undulating"]);
+  /** @type {Readonly<Record<string,string|undefined>>} */
   const MUSCLE_IDS = Object.freeze({
     chest: "2545c6f170d8805f823bcfb076a74397",
     back: "2545c6f170d880da9b28f1e024be796b",
@@ -261,10 +293,11 @@ export function createEntryAdapter({compiler: boundCompiler}) {
   const TIME_CEILINGS = Object.freeze([20, 40, 60, 90, 120, 150]);
 
   // Explicit split choices are the generator's authored splits for this day count.
+  /** @param {unknown} answers @param {CompilerApi} Compiler @param {AdapterCatalog} catalog */
   function splitChoices(answers, Compiler, catalog) {
-    const days = answers?.daysPerWeek;
-    if (!Number.isInteger(days)) return { choices: [] };
-    const mapped = programRequestFromAnswers({ ...answers, splitPreference: "auto" }, catalog);
+    const days = (/** @type {JsonRecord|null|undefined} */(answers))?.daysPerWeek;
+    if (!integer(days)) return { choices: [] };
+    const mapped = programRequestFromAnswers({ .../** @type {JsonRecord} */(answers), splitPreference: "auto" }, catalog);
     if (!mapped.ok) return { choices: [] };
     const canonical = Compiler.canonicalizeRequest(mapped.value, catalog);
     if (!canonical.ok) return { choices: [] };
@@ -274,58 +307,61 @@ export function createEntryAdapter({compiler: boundCompiler}) {
       .map(([id]) => ({ id, default: id === canonical.value.split, frequency: days })) };
   }
 
+  /** @param {unknown} preference @param {JsonRecord} request */
   function compatibleSplit(preference, request) {
     const Compiler = compilerApi();
     if (preference === undefined || preference === "auto") return "auto";
-    const split = Compiler.SPLITS[preference];
+    const split = Compiler.SPLITS[/** @type {string} */(preference)];
     const available = Compiler.availableSplits({ ...request, split: preference });
-    return split && split.compatibleDays.includes(request.daysPerWeek) && available.includes(preference) ? preference : null;
+    return split && split.compatibleDays.some((/** @type {unknown} */ value)=>value===request.daysPerWeek) && available.some((/** @type {unknown} */ value)=>value===preference) ? preference : null;
   }
 
+  /** @param {unknown} answers @param {AdapterCatalog|null|undefined} catalog */
   function programRequestFromAnswers(answers, catalog) {
+    /** @type {{field:string,code:string}[]} */
     const conflicts = [];
-    const conflict = (code) => conflicts.push({ field: code.replace(/_(required|unsupported)$/, ""), code });
+    const conflict = (/** @type {string} */ code) => conflicts.push({ field: code.replace(/_(required|unsupported)$/, ""), code });
     const source = isPlainObject(answers) ? answers : {};
     if (!catalog || !isPlainObject(catalog.uuidIndex)) return { ok: false, conflicts: [{ field: "catalog", code: "catalog_unavailable" }] };
     const index = catalog.uuidIndex;
-    const goal = GOALS[source.desiredResult];
+    const goal = GOALS[/** @type {string} */(source.desiredResult)];
     if (!goal) conflict("goal_required");
-    const experience = EXPERIENCE[source.structuredExperience];
+    const experience = EXPERIENCE[/** @type {string} */(source.structuredExperience)];
     if (!experience) conflict("experience_required");
     const days = source.daysPerWeek;
-    if (!Number.isInteger(days) || days < 2 || days > 6) conflict("days_unsupported");
-    const flag = GYM_FLAGS[source.environment?.kind];
+    if (!integer(days) || days < 2 || days > 6) conflict("days_unsupported");
+    const flag = GYM_FLAGS[/** @type {string} */((/** @type {JsonRecord|null|undefined} */(source.environment))?.kind)];
     if (!flag) conflict("environment_required");
     if (conflicts.length) return { ok: false, conflicts };
-    const minutes = Number.isFinite(source.sessionMinutes) ? source.sessionMinutes : 60;
+    const minutes = finite(source.sessionMinutes) ? source.sessionMinutes : 60;
     const ceiling = [...TIME_CEILINGS].reverse().find((value) => value <= minutes) ?? TIME_CEILINGS[0];
-    const ids = (type, predicate) => Object.keys(index).filter((id) => index[id]?.type === type && predicate(index[id])).sort();
-    const muscleIds = (tokens) => (Array.isArray(tokens) ? tokens : []).map((token) =>
-      MUSCLE_IDS[token]).filter((id) => index[id]?.type === "featureMuscleGroup");
-    const exerciseIds = (values) => (Array.isArray(values) ? values : [])
+    const ids = (/** @type {string} */ type, /** @type {(entry:JsonRecord)=>boolean} */ predicate) => Object.keys(index).filter((id) => index[id]?.type === type && predicate(index[id])).sort();
+    const muscleIds = (/** @type {unknown} */ tokens) => (Array.isArray(tokens) ? tokens : []).map((token) =>
+      MUSCLE_IDS[/** @type {string} */(token)]).filter((id) => index[/** @type {string} */(id)]?.type === "featureMuscleGroup");
+    const exerciseIds = (/** @type {unknown} */ values) => (Array.isArray(values) ? values : [])
       .filter((id) => typeof id === "string" && index[id]?.type === "exercise");
     const answersIn = isPlainObject(source.competencyAnswers) ? source.competencyAnswers : {};
-    if (source.block?.cycles !== undefined && source.block.cycles !== 7) {
+    if ((/** @type {JsonRecord|null|undefined} */(source.block))?.cycles !== undefined && (/** @type {JsonRecord} */(source.block)).cycles !== 7) {
       return { ok: false, conflicts: [{ field: "block", code: "block_cycles_unsupported" }] };
     }
     const block = {
       cycles: 7,
-      periodization: PERIODIZATIONS.includes(source.block?.periodization) ? source.block.periodization : "static",
+      periodization: PERIODIZATIONS.some(value=>value===(/** @type {JsonRecord|null|undefined} */(source.block))?.periodization) ? (/** @type {JsonRecord} */(source.block)).periodization : "static",
     };
     const request = {
       goal,
       experience,
       daysPerWeek: days,
       timeCeilingMinutes: ceiling,
-      gymProfile: { equipmentIds: gymEquipment(ids("equipment", (entry) => flag === "*" || entry[flag] === 1), source.environment.adjust) },
+      gymProfile: { equipmentIds: gymEquipment(ids("equipment", (entry) => flag === "*" || entry[/** @type {string} */(flag)] === 1), (/** @type {JsonRecord} */(source.environment)).adjust) },
       competencyAnswers: competencies(answersIn),
       movementConfirmations: confirmations(source.movementConfirmations, catalog),
       emphasisMuscleIds: muscleIds(source.primaryMuscles),
       deprioritizedMuscleIds: muscleIds(source.deEmphasizedMuscles),
-      excludedExerciseIds: exerciseIds((source.exerciseConstraints || []).map((item) => item?.exerciseId)),
+      excludedExerciseIds: exerciseIds((/** @type {unknown[]} */(source.exerciseConstraints || [])).map((item) => (/** @type {JsonRecord|null|undefined} */(item))?.exerciseId)),
       excludedMuscleIds: muscleIds(source.ignoredMuscles),
       preferredExerciseIds: exerciseIds(source.mustHaveExercises),
-      split: "auto",
+      split: /** @type {unknown} */("auto"),
       periodization: block.periodization,
       cycles: block.cycles + (source.deload === true ? 1 : 0),
       deloadCycles: source.deload === true ? [block.cycles + 1] : [],
@@ -340,6 +376,7 @@ export function createEntryAdapter({compiler: boundCompiler}) {
   // Ten strict pull-ups is also five (owner decision on #340). Resolved here,
   // in the answers, so a recipe link carries both explicitly and the
   // generator's own rules do not change.
+  /** @param {JsonRecord} answersIn */
   function competencies(answersIn) {
     const out = Object.fromEntries(COMPETENCY_KEYS.map((key) =>
       [key, typeof answersIn[key] === "boolean" ? answersIn[key] : null]));
@@ -348,27 +385,31 @@ export function createEntryAdapter({compiler: boundCompiler}) {
   }
 
   // The groups B's equipment step starts ticked: any member in the preset.
+  /** @param {string} kind @param {AdapterCatalog} catalog */
   function presetEquipmentGroups(kind, catalog) {
     const flag = GYM_FLAGS[kind];
     const index = catalog && isPlainObject(catalog.uuidIndex) ? catalog.uuidIndex : null;
     if (!flag || !index) return [];
-    const inPreset = (id) => index[id]?.type === "equipment" && (flag === "*" || index[id][flag] === 1);
+    const inPreset = (/** @type {string} */ id) => index[id]?.type === "equipment" && (flag === "*" || index[id][flag] === 1);
     return Object.keys(EQUIPMENT_GROUPS).filter((token) => EQUIPMENT_GROUPS[token].some(inPreset));
   }
 
   // (preset ∪ added groups) − removed groups. No adjustment is the preset.
+  /** @param {string[]} preset @param {unknown} adjust */
   function gymEquipment(preset, adjust) {
-    const members = (tokens) => (Array.isArray(tokens) ? tokens : [])
+    const members = (/** @type {unknown} */ tokens) => (Array.isArray(tokens) ? tokens : [])
       .flatMap((token) => (Object.prototype.hasOwnProperty.call(EQUIPMENT_GROUPS, token) ? EQUIPMENT_GROUPS[token] : []));
-    const removed = new Set(members(adjust?.remove));
-    return [...new Set([...preset, ...members(adjust?.add)])].filter((id) => !removed.has(id)).sort();
+    const removed = new Set(members((/** @type {JsonRecord|null|undefined} */(adjust))?.remove));
+    return [...new Set([...preset, ...members((/** @type {JsonRecord|null|undefined} */(adjust))?.add)])].filter((id) => !removed.has(id)).sort();
   }
 
   // A confirmation names a current catalog exercise and only prerequisites it
   // actually has; anything else is dropped rather than sent to the compiler.
+  /** @param {unknown} value @param {AdapterCatalog} catalog */
   function confirmations(value, catalog) {
     if (!isPlainObject(value) || !Object.keys(value).length) return {};
     const exercises = new Map((Array.isArray(catalog.exercises) ? catalog.exercises : []).map((exercise) => [exercise.id, exercise]));
+    /** @type {Record<string,string[]>} */
     const output = {};
     for (const exerciseId of Object.keys(value).sort()) {
       const exercise = exercises.get(exerciseId);
@@ -383,18 +424,19 @@ export function createEntryAdapter({compiler: boundCompiler}) {
   // avoidance and time fit can still stop it landing. An offer is kept only
   // when confirming it alone puts that movement in that
   // slot, and it names the other slots that confirmation also moves.
+  /** @param {{generate?:(request:JsonRecord,options:{signal?:AbortSignal})=>Promise<GeneratedResult>,request?:JsonRecord,result?:GeneratedResult,signal?:AbortSignal}} [options] */
   async function verifyConfirmationOffers({ generate, request, result, signal } = {}) {
     if (!result?.ok || !Array.isArray(result.confirmationOffers)) return [];
     const before = result.value.days.flatMap((day, dayIndex) => day.slots.map((slot, slotIndex) =>
       ({ id: slot.id, exerciseId: slot.exerciseId, dayIndex, slotIndex })));
     const verified = await Promise.all(result.confirmationOffers.map(async (offer) => {
-      const confirmed = await generate({
+      const confirmed = await (/** @type {NonNullable<NonNullable<Parameters<typeof verifyConfirmationOffers>[0]>["generate"]>} */(generate))({
         ...request,
-        movementConfirmations: { ...(request.movementConfirmations || {}), [offer.offeredExerciseId]: [...offer.prerequisiteIds] },
+        movementConfirmations: { ...(request?.movementConfirmations || {}), [offer.offeredExerciseId]: [...offer.prerequisiteIds] },
       }, { signal });
       if (!confirmed?.ok) return null;
       const target = before.find((slot) => slot.id === offer.slotId);
-      const after = (slot) => confirmed.value.days[slot.dayIndex]?.slots[slot.slotIndex]?.exerciseId;
+      const after = (/** @type {{dayIndex:number,slotIndex:number}} */ slot) => confirmed.value.days[slot.dayIndex]?.slots[slot.slotIndex]?.exerciseId;
       if (!target || after(target) !== offer.offeredExerciseId) return null;
       const alsoChangedSlotIds = before.filter((slot) => slot.id !== offer.slotId && after(slot) !== slot.exerciseId)
         .map((slot) => slot.id);
@@ -403,17 +445,18 @@ export function createEntryAdapter({compiler: boundCompiler}) {
     return verified.filter(Boolean);
   }
 
+  /** @param {ServicesOptions} [options] */
   function createProductionServices(options) {
-    const opts = isPlainObject(options) ? options : {};
+    const opts = /** @type {ServicesOptions} */(isPlainObject(options) ? options : {});
     const Compiler = compilerApi(opts.Compiler);
     const catalog = rawCatalogSnapshot(opts.catalog);
     const versions = currentVersions(Compiler);
     return Object.freeze({
       version: versions.compiler,
       currentVersions: () => ({ ...versions }),
-      generateProgram: ({ request } = {}) => Compiler.generateProgram(request, catalog),
-      buildEmptyProgram: (answers) => buildEmptyProgram(answers, Compiler, catalog),
-      splitChoices: (answers) => splitChoices(answers, Compiler, catalog),
+      generateProgram: (/** @type {{request?:unknown}} */ { request } = {}) => Compiler.generateProgram(request, catalog),
+      buildEmptyProgram: (/** @type {unknown} */ answers) => buildEmptyProgram(answers, Compiler, catalog),
+      splitChoices: (/** @type {unknown} */ answers) => splitChoices(answers, Compiler, catalog),
       fingerprint,
       identityDiff,
     });
@@ -425,11 +468,11 @@ export function createEntryAdapter({compiler: boundCompiler}) {
     EQUIPMENT_GROUPS,
     presetEquipmentGroups,
     verifyConfirmationOffers,
-    currentVersions: (Compiler) => currentVersions(compilerApi(Compiler)),
+    currentVersions: (/** @type {CompilerApi|undefined} */ Compiler) => currentVersions(compilerApi(Compiler)),
     fingerprint,
     identityDiff,
-    buildEmptyProgram: (answers, options) => {
-      const opts = isPlainObject(options) ? options : {};
+    buildEmptyProgram: (/** @type {unknown} */ answers, /** @type {ServicesOptions} */ options) => {
+      const opts = /** @type {ServicesOptions} */(isPlainObject(options) ? options : {});
       return buildEmptyProgram(answers, compilerApi(opts.Compiler), rawCatalogSnapshot(opts.catalog));
     },
   });

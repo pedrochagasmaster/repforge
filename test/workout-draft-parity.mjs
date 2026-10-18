@@ -12,6 +12,7 @@ import { selectExercise, openActions, exerciseAction, sessionField, finishEarly,
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium } from "./browser.mjs";
+import { readFileSync } from "node:fs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -430,10 +431,8 @@ async function main() {
     const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STATE_KEY);
     const sessionId = [...new Set(saved.log.map((row) => row.session))].find((id) => !sessionsBefore.has(id));
     const actualRows = rowMeaning(saved.log.filter((row) => row.session === sessionId));
-    const substitute = await page.evaluate((name) => {
-      const entry = window.RepForgeExerciseCatalog.snapshot().exercises.find((exercise) => exercise.name === name);
-      return entry ? { id: entry.id } : null;
-    }, SUBSTITUTE);
+    const sourceCatalog = JSON.parse(readFileSync(new URL("../assets/exercise-catalog.json", import.meta.url), "utf8"));
+    const substitute = sourceCatalog.exercises.find((exercise) => exercise.name === SUBSTITUTE) || null;
     const slot = (exercise) => ({ date: SESSION_DATE, day: exercise.day, name: exercise.name, exerciseId: exercise.id });
     const performedAsProgrammed = (exercise) => ({
       performedName: exercise.name, performedPrimary: exercise.primary, performedSecondary: exercise.secondary,
