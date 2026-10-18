@@ -1,3 +1,4 @@
+import {createImportReview} from './src/ui/entry/import/review.js';
 import {createWorkoutDraftPolicy,createWorkoutCommands,createFocusWorkoutCommands,createWorkoutExerciseCommands,createWorkoutSuggestionCommands} from './src/app/workout.js';
 import {createWorkoutContext} from './src/app/workout-context.js';
 import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,createEntryAnswerCommands,createEntryQuestionFlow,createEntryReviewSession,createEntrySetup,createEntryActivation,createProgramImport,createReceivedSetup,buildLandingProof,FREEFORM_MAX_CHARS} from './src/app/entry.js';
@@ -3717,10 +3718,10 @@ window.__repforgeFreeform={
   parseReply:text=>FreeformGrammar.parseFreeformProgramReply(text,parseProgramSource),
   readGapEnvelope:candidate=>FreeformGrammar.readFreeformGapEnvelope(candidate),
   assembleDocument:(gapResult,gapAnswers)=>FreeformGrammar.assembleFreeformProgramDocument(gapResult,gapAnswers,t("entry.freeform.source_name"))};
-window.__repforgeImportDraft=()=>importDraft&&{
-  fileName:importDraft.fileName,format:importDraft.format,sourceType:importDraft.sourceType||null,
-  counts:importCounts(importDraft),
-  rows:importDraft.rows.map(r=>({name:r.raw.name,status:r.status,decision:r.decision,
+window.__repforgeImportDraft=()=>ProgramImport.read()&&{
+  fileName:ProgramImport.read().fileName,format:ProgramImport.read().format,sourceType:ProgramImport.read().sourceType||null,
+  counts:importCounts(ProgramImport.read()),
+  rows:ProgramImport.read().rows.map(r=>({name:r.raw.name,status:r.status,decision:r.decision,
     reviewed:r.reviewed,match:r.match?r.match.id:null}))};
 window.__repforgeCommitImport=io=>commitImportReview(io||storageIO);
 window.__repforgeReferencedCustom=list=>referencedCustomExercises(list);
@@ -4412,8 +4413,7 @@ function linkImportedExercises(list){
    looked at, and anything else keeps exactly what was imported.
    ============================================================ */
 
-const IMPORT_EXACT="exact",IMPORT_ALIAS="alias",IMPORT_PROBABLE="probable",IMPORT_UNMATCHED="unmatched";
-let importDraft=null,importReturn=null;
+
 
 let ProgramSource=null;
 function parseProgramSource(text,fileName=""){return ProgramSource.parse(text,fileName)}
@@ -4435,148 +4435,12 @@ const importCounts=draft=>ProgramImport.counts(draft);
 
 /* ---- Import review screen ---- */
 
-const importStatusKey={[IMPORT_EXACT]:"import.status.exact",[IMPORT_ALIAS]:"import.status.alias",
-  [IMPORT_PROBABLE]:"import.status.probable",[IMPORT_UNMATCHED]:"import.status.unmatched"};
-
-function renderImportReview(){
-  if(!importDraft)return;
-  const counts=importCounts(importDraft);
-  const file=$("#importFile");
-  if(file)file.textContent=t("import.file",{name:importDraft.fileName||t("import.file_fallback"),n:counts.total,exercise:tp(counts.total,"lift")});
-  const notImportedEl=$("#importNotImported");
-  if(notImportedEl){
-    if(importDraft?.notImported?.length){
-      const items=importDraft.notImported.map(cat=>t(FREEFORM_NOT_IMPORTED_KEYS[cat]||"entry.freeform.not_imported.other_notes")).join(", ");
-      notImportedEl.innerHTML=`<p class="entry__notice entry__notice--info" role="status">${esc(t("entry.freeform.not_imported_notice",{items}))}</p>`;
-      notImportedEl.hidden=false;
-    }else{
-      notImportedEl.innerHTML="";
-      notImportedEl.hidden=true;
-    }
-  }
-  const originalEl=$("#importOriginalText");
-  if(originalEl){
-    if(importDraft?.originalText){
-      originalEl.innerHTML=`<details class="entry__original-text"><summary>${esc(t("entry.freeform.view_original"))}</summary><pre class="entry__pre">${esc(importDraft.originalText)}</pre></details>`;
-      originalEl.hidden=false;
-    }else{
-      originalEl.innerHTML="";
-      originalEl.hidden=true;
-    }
-  }
-  const countsEl=$("#importCounts");
-  if(countsEl)countsEl.innerHTML=
-    `<span class="impcount"><b>${counts.linked}</b>${esc(t("import.count_linked"))}</span>`+
-    `<span class="impcount"><b>${counts.review}</b>${esc(t("import.count_review"))}</span>`+
-    `<span class="impcount"><b>${counts.custom}</b>${esc(t("import.count_custom"))}</span>`;
-  const rows=$("#importRows");
-  if(rows){
-    // Rows still needing a decision come first: they are the only reason this
-    // screen exists, and a twelve-exercise split should not hide them.
-    const ordered=[...importDraft.rows].sort((a,b)=>(a.reviewed?1:0)-(b.reviewed?1:0));
-    rows.innerHTML=ordered.map(importRowHtml).join("");
-    $$("#importRows [data-imp-act]").forEach(b=>
-      b.onclick=()=>importRowAction(b.dataset.impAct,b.dataset.impKey,b.dataset.impIdx));
-  }
-  /* The one primary lives in the pinned region. While rows still need a
-     decision it is disabled, drops its arrow, and the count says why directly
-     above it, the same way every route's pinned action does. */
-  const commit=$("#importCommit"),reason=$("#importCommitReason");
-  if(commit){
-    const blocked=counts.review>0;
-    commit.disabled=blocked;
-    commit.textContent=t("entry.preview.review");
-    commit.classList.toggle("btn--noarrow",blocked);
-    if(blocked)commit.setAttribute("aria-describedby","importCommitReason");
-    else commit.removeAttribute("aria-describedby");
-    if(reason){
-      reason.hidden=!blocked;
-      reason.textContent=blocked?t("import.commit_blocked",{n:counts.review}):""}}
-}
-
-function importRowHtml(row){
-  // An unreviewed row shows what is being proposed, not the standing default:
-  // "keep as imported" beside a Likely badge hides the very thing being asked
-  // about. Once decided, the target is the decision.
-  const proposed=!row.reviewed&&row.match?row.match:null;
-  const shown=row.decision==="link"&&row.match?row.match:proposed;
-  const target=shown?libraryName(shown)
-    :row.decision==="custom"?t("import.target_custom")
-    :t("import.target_raw");
-  const badge=row.reviewed
-    ?`<span class="impbadge is-done">${esc(t("import.status.confirmed"))}</span>`
-    :`<span class="impbadge is-open">${esc(t(importStatusKey[row.status]||"import.status.unmatched"))}</span>`;
-  const art=shown?exerciseThumb(shown,{size:"sm"}):emptyThumb({size:"sm"});
-  // A settled row keeps its name, its target, its art and its badge, and trades
-  // its three remaining alternatives for one quiet way back in. Most settled
-  // rows were matched by the importer rather than chosen by the lifter, so the
-  // alternatives are noise on the screen you read before replacing a program.
-  const folded=row.reviewed&&!row.expanded;
-  // Scoring puts the right movement in the shortlist far more reliably than it
-  // puts it first, and a line like "Hack squat" never says whether the barbell
-  // or the machine is meant. So an undecided row offers its candidates instead
-  // of a verdict, and the escape hatches move behind a disclosure rather than
-  // wrapping four buttons onto three lines of a phone.
-  const shortlist=(row.shortlist||[]).filter(Boolean);
-  const chips=!folded&&shortlist.length
-    ?shortlist.map((entry,i)=>
-      `<button type="button" class="improw__btn improw__btn--pick" data-imp-act="pick" data-imp-idx="${i}" data-imp-key="${esc(row.key)}">${esc(t("import.action_link",{name:libraryName(entry)}))}</button>`).join("")
-    :(!folded&&row.match&&row.decision!=="link"
-      ?`<button type="button" class="improw__btn" data-imp-act="link" data-imp-key="${esc(row.key)}">${esc(t("import.action_link",{name:libraryName(row.match)}))}</button>`:"");
-  const escapes=
-    // Every slot of a program names a movement, so an unmatched row is settled
-    // by choosing one or creating it; there is no unlinked "keep as typed".
-    `<button type="button" class="improw__btn" data-imp-act="choose" data-imp-key="${esc(row.key)}">${esc(t("import.action_choose"))}</button>`+
-    (row.decision!=="custom"
-      ?`<button type="button" class="improw__btn" data-imp-act="custom" data-imp-key="${esc(row.key)}">${esc(t("import.action_custom"))}</button>`:"");
-  const acts=folded
-    ?`<button type="button" class="improw__btn improw__btn--change" data-imp-act="expand" data-imp-key="${esc(row.key)}">${esc(t("import.action_change"))}</button>`
-    :chips+(chips
-      ?`<details class="improw__more"><summary>${esc(t("import.more_options"))}</summary><div class="improw__acts">${escapes}</div></details>`
-      :escapes);
-  return `<div class="improw${row.reviewed?"":" is-open"}${folded?" is-folded":""}" data-imp-row="${esc(row.key)}">`+
-    `<p class="improw__from">${esc(row.raw.name||"")}</p>`+
-    `<span class="improw__arrow" aria-hidden="true">→</span>`+
-    art+
-    `<div class="improw__to"><p class="improw__name">${esc(target)}</p>${badge}</div>`+
-    `<div class="improw__acts">${acts}</div>`+
-  `</div>`}
-
-function importRowAction(act,key,idx){
-  const row=importDraft?.rows.find(r=>r.key===key);
-  if(!row)return;
-  // Change only reopens the row: the decision it already carries is untouched,
-  // so a lifter who taps it and changes their mind still imports what they saw.
-  // The render replaces the row's markup, so the caret is put back on the
-  // controls the tap was asking for rather than dropped to the document.
-  if(act==="expand"){row.expanded=true;renderImportReview();
-    $(`#importRows [data-imp-row="${esc(row.key)}"] [data-imp-act]`)?.focus({preventScroll:true});return}
-  if(act==="pick"){
-    const entry=(row.shortlist||[])[Number(idx)];
-    if(!entry)return;
-    row.match=entry;row.decision="link";
-    settleImportRow(row,Number(idx)===0?"top_candidate":"alternate");
-    return}
-  if(act==="link"&&row.match){row.decision="link";settleImportRow(row,"top_candidate");return}
-  if(act==="choose"){
-    libraryUi.openExercisePicker({title:t("import.pick_title"),subtitle:row.raw.name||"",
-      onPick:entry=>{row.match=entry;row.decision="link";settleImportRow(row,"picker")}});
-    return}
-  if(act==="custom"){
-    // Creating the definition here rather than at commit time means the lifter
-    // sees exactly what will exist before anything is written.
-    libraryUi.openCustomExerciseSheet({entry:{name:row.raw.name||"",primary:row.raw.primary||"",secondary:row.raw.secondary||""},
-      stageOnly:true,
-      onSave:entry=>{row.createdCustom=entry;row.createdCustomId=entry.id;
-        row.decision="custom";settleImportRow(row,"custom")}})}}
-/** A decided row folds back down: the alternatives have done their job.
- *  How it was decided is the only measure of whether matching improved for
- *  programs we have never seen. Categorical, and never the exercise name. */
-function settleImportRow(row,method){
-  if(method&&!row.reviewed)
-    captureEvent("program_import_row_resolved",
-      {method,source:importDraft?.sourceType==="freeform"?"freeform":"file"});
-  row.reviewed=true;row.expanded=false;renderImportReview()}
+let ImportReviewPresentation=null;
+function importReviewView(){return ImportReviewPresentation||(ImportReviewPresentation=createImportReview({window,review:ProgramImport,library:libraryUi,
+  copy:{t,tp,language:()=>uiLang()},shell:ensureBrowserPresentation().shell,report:captureEvent,
+  commands:{commit:()=>commitImportReview(),back:()=>closeImportReview(),cancel:()=>{closeImportReview();toast(t("toast.program_import_cancelled"))},
+    landing:()=>openFirstRun(),entry:()=>{showOnboardingView();renderOnboarding()},program:()=>returnToTab("program")}}))}
+function renderImportReview(){importReviewView().render()}
 
 function ensureImportEntryFlow(draft){
   if(entryState?.route==="import"&&entryState.step==="import_source")return;
@@ -4586,47 +4450,23 @@ function ensureImportEntryFlow(draft){
 
 function openImportReview(draft){
   ensureImportEntryFlow(draft);
-  draft.onboarding=true;
-  importDraft=draft;
+  ProgramImport.open({...draft,onboarding:true});
   captureEvent("program_import_review_reached",{source:draft?.sourceType==="freeform"?"freeform":"file"});
-  importReturn=document.activeElement;
-  // The review renders inside the app shell, so the first-run gate steps aside
-  // for it rather than covering it.
   if(draft?.fromFirstRun)suspendFirstRun();
-  document.body.classList.add("is-import");
-  $$(".view").forEach(v=>v.classList.toggle("active",v.id==="importReview"));
-  window.scrollTo({top:0});
-  // The review is its own scroll container, like the route it belongs to.
-  const reviewView=$("#importReview");if(reviewView)reviewView.scrollTop=0;
-  renderImportReview();
-  const counts=importCounts(draft),target=counts.review
-    ?$("#importRows .improw.is-open [data-imp-act]")
-    :$("#importCommit");
-  (target||$("#importBack"))?.focus({preventScroll:true})}
-
+  importReviewView().open()}
 function closeImportReview({toProgram=true}={}){
-  const wasOnboarding=importDraft?.onboarding,wasFirstRun=importDraft?.fromFirstRun;
-  importDraft=null;
-  document.body.classList.remove("is-import");
-  const back=resolveReturnFocus(importReturn);
-  importReturn=null;
-  // Backing out of an import started during onboarding returns to onboarding —
-  // or to the setup gate it came from. Either way the lifter has no program yet,
-  // so they cannot be dropped into the app.
-  if(wasFirstRun&&toProgram){openFirstRun();return}
-  if(wasOnboarding&&toProgram){showOnboardingView();renderOnboarding();return}
-  if(toProgram)returnToTab("program");
-  if(back)try{back.focus({preventScroll:true})}catch{}}
+  const previous=ProgramImport.read();ProgramImport.close();
+  importReviewView().close({toProgram,firstRun:previous?.fromFirstRun,onboarding:previous?.onboarding})}
 
 function importCandidate(draft){return ProgramImport.candidate(draft,applicationSession.read())}
 
 /* Review decisions become an owned setup candidate. Durable active state moves
    only through the common explicit activation transaction on the next screen. */
 async function commitImportReview(){
-  if(!importDraft)return null;
-  const counts=importCounts(importDraft);
+  if(!ProgramImport.read())return null;
+  const counts=importCounts(ProgramImport.read());
   if(counts.review>0){toast(t("toast.import_needs_review",{n:counts.review,exercise:tp(counts.review,"lift")}));return null}
-  const draft=importDraft;
+  const draft=ProgramImport.read();
   setStagedImportSource(draft.sourceType);
   ensureImportEntryFlow(draft);
   const preview=importCandidate(draft);
@@ -4646,6 +4486,7 @@ async function commitImportReview(){
   publishEntryDraft(next);
   const saved=await persistSetupDraft(next);
   if(!saved?.ok){toast(t("toast.program_import_failed"));return saved}
+  if(ProgramImport.read()!==draft)return saved;
   closeImportReview({toProgram:false});
   entryUiNotice=null;
   showOnboardingView();renderOnboarding();
@@ -4719,20 +4560,9 @@ const EntryImportCommands=createEntryImportCommands({session:EntryImport,parseSo
 const EntryUi=createEntryController({document,navigator,session:EntryImport,copy:{t,locale:locTag},
   commands:{review:startFreeformReview,submitGaps:submitFreeformGaps,changeDoor:mode=>{if(mode==="freeform")captureEvent("program_import_started",{source:"freeform"});setImportSourceMode(mode)},
     writeOwn:()=>{const current=EntryImport.read();if((current.source.trim().length>0||current.reply.trim().length>0)&&!confirm(t("entry.freeform.confirm_write_own")))return;resetFreeformImport();entrySelectRoute("build")}},
-  queries:{mode:importSourceMode,reviewOpen:()=>!!importDraft},copyText:async(text,okKey,failKey)=>{const ok=await Files.copyText(text);toast(t(ok?okKey:failKey));return ok},onRender:renderOnboarding,onNotice:key=>toast(t(key)),
+  queries:{mode:importSourceMode,reviewOpen:()=>!!ProgramImport.read()},copyText:async(text,okKey,failKey)=>{const ok=await Files.copyText(text);toast(t(ok?okKey:failKey));return ok},onRender:renderOnboarding,onNotice:key=>toast(t(key)),
   onHandoff:event=>captureEvent("program_import_handoff",event),confirm:key=>confirm(t(key)),scrollBehavior});
 EntryUi.mount();
-const FREEFORM_NOT_IMPORTED_KEYS = {
-  rest_times: "entry.freeform.not_imported.rest_times",
-  rir_rpe: "entry.freeform.not_imported.rir_rpe",
-  tempo: "entry.freeform.not_imported.tempo",
-  supersets: "entry.freeform.not_imported.supersets",
-  warmups: "entry.freeform.not_imported.warmups",
-  cardio: "entry.freeform.not_imported.cardio",
-  progression_rules: "entry.freeform.not_imported.progression_rules",
-  deload: "entry.freeform.not_imported.deload",
-  other_notes: "entry.freeform.not_imported.other_notes",
-};
 let entryImportMode=null;
 function loadFreeformSession(){return EntryImport.load()}
 
@@ -7916,11 +7746,6 @@ function init(){
   const dayPickScrim=$("#dayPickScrim");if(dayPickScrim)dayPickScrim.onclick=closeDayPickSheet;
   const dayPickOk=$("#dayPickConfirm");if(dayPickOk)dayPickOk.onclick=()=>confirmPickerDay();
   libraryUi.bind();
-  const impBack=$("#importBack");if(impBack)impBack.onclick=()=>closeImportReview();
-  const impCancel=$("#importReviewCancel");
-  if(impCancel)impCancel.onclick=()=>{closeImportReview();toast(t("toast.program_import_cancelled"))};
-  const impCommit=$("#importCommit");
-  if(impCommit)impCommit.onclick=()=>commitImportReview(pendingImportIo||storageIO);
   trackSheetViewport();
   // Sheet and card deck gestures are mounted via explicit gesture controller lifetime.
   const openSettingsBtn=$("#openSettings");if(openSettingsBtn)openSettingsBtn.onclick=()=>openSettingsView();
