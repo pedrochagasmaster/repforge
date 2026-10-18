@@ -8,8 +8,8 @@ import { webcrypto } from "node:crypto";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
-const Transition = require(path.join(root, "program-transition.js"));
-const Compiler = require(path.join(root, "program-compiler.js"));
+const Transition = require(path.join(root, "src/training/generation.js")).transition;
+const Compiler = require(path.join(root, "src/training/generation.js"));
 globalThis.crypto ||= webcrypto;
 
 const catalogSnapshot = JSON.parse(fs.readFileSync(path.join(root, "plans/067/data/app_file.json"), "utf8"));

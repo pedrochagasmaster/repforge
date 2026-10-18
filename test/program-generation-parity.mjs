@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
-const Compiler = require("../program-compiler.js");
+const Compiler = require("../src/training/generation.js");
 const catalog = JSON.parse(fs.readFileSync(new URL("../assets/exercise-catalog.json", import.meta.url)));
 
 // The oracle reads raw metric UUIDs, never target presence from generated output.
@@ -243,7 +243,7 @@ assert.equal(exhausted40.ok,false);assert.equal(exhausted40.value,null,'catalogu
 assert(exhausted40.conflicts.length>0);
 // Transition protocol proofs exercise current recovered-domain changes
 // without needing to complete a block in the browser for every configuration.
-const Transition = require("../program-transition.js");
+const Transition = require("../src/training/generation.js").transition;
 const reviewed = structuredClone(first.value);
 reviewed.days.find(day => day.kind === "training").slots[0].prescriptionsByCycle[0].sets[0].rir = 3;
 const savedReviewed = JSON.stringify(reviewed);

@@ -207,5 +207,7 @@ function createIdAllocator(namespace, { digest = sha256 } = {}) {
 
 const api = Object.freeze({ canonicalJSON, catalogIdentity, generationIdentity, prepareCatalog, digestCanonical, createIdAllocator });
 
+
 export { canonicalJSON, catalogIdentity, generationIdentity, prepareCatalog, digestCanonical, createIdAllocator };
 export default api;
+export { sha256 as sha256Text };

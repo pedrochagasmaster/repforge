@@ -6,13 +6,13 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
-const Compiler = require(path.join(root, "program-compiler.js"));
+const Compiler = require(path.join(root, "src/training/generation.js"));
 const Adapter = require(path.join(root, "program-entry-adapter.js"));
 const Catalog = require(path.join(root, "assets/exercise-catalog.json"));
 // Pure search proofs cover impossible-slot latency, canonical replay and catalog
 // order independence across the retained product request families. Historical
 // Plan 067 digests remain evidence for that retired generator, not this version.
-require(path.join(root, "generation-identity.js")).prepareCatalog(Catalog);
+require(path.join(root, "src/training/identity.js")).prepareCatalog(Catalog);
 
 function requestFor(answers) {
   const mapped = Adapter.programRequestFromAnswers({
@@ -24,7 +24,7 @@ function requestFor(answers) {
 }
 
 const reversedCatalog = { ...Catalog, exercises: [...Catalog.exercises].reverse() };
-require(path.join(root, "generation-identity.js")).prepareCatalog(reversedCatalog);
+require(path.join(root, "src/training/identity.js")).prepareCatalog(reversedCatalog);
 // The same replay/order boundary is retained as a bounded current-domain sample.
 // Historical corpus cardinality and old search-job counts are not contracts.
 for (const answers of [

@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
-const Compiler=require('../program-compiler.js'),Layout=require('../generation-layout.js');
+const Compiler=require('../src/training/generation.js'),Layout=require('../generation-layout.js');
 const Adapter=require('../program-entry-adapter.js'),Setup=require('../shared-setup.js');
-const catalog=require('../generation-identity.js').prepareCatalog(require('../assets/exercise-catalog.json'));
+const catalog=require('../src/training/identity.js').prepareCatalog(require('../assets/exercise-catalog.json'));
 const competencies=Object.fromEntries(['pullups10','pullups5','pushups15','inclineBarbell10','overheadPress10','bodyweightDips10','benchPress10'].map(k=>[k,true]));
 const reductions=['Chest','Lats','Upper Back','Side Delts','Front Delts','Rear Delts','Biceps','Triceps'];
 const muscle=name=>Object.entries(catalog.uuidIndex).find(([,r])=>r.type==='featureMuscleGroup'&&r.name===name)[0];
@@ -94,7 +94,7 @@ test('entry mapping and setup recipe carry option20, canonical request and exact
 });
 
 test('shorter-session transition preserves recovered option20 and its predecessor',()=>{
- const Transition=require('../program-transition.js');
+ const Transition=require('../src/training/generation.js').transition;
  const previous=Compiler.generateProgram({...request,timeCeilingMinutes:60},catalog);
  assert.equal(previous.ok,true);const saved=JSON.stringify(previous.value);
  for(const [minutes,budget] of [[20,18],[40,30]]){
