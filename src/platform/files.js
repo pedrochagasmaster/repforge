@@ -1,5 +1,7 @@
 /** User-initiated browser file IO. The caller owns content validation and UI feedback. */
+/** @param {{document:Document,navigator:Pick<Navigator,'canShare'|'share'>,URL:typeof URL,Blob:typeof Blob,File:typeof File}} capabilities */
 export function createFiles({ document, navigator, URL, Blob, File }) {
+  /** @param {string} text @param {string} name @param {string} type */
   function download(text, name, type = "text/plain") {
     const url = URL.createObjectURL(new Blob([text], { type }));
     const anchor = document.createElement("a");
@@ -15,6 +17,7 @@ export function createFiles({ document, navigator, URL, Blob, File }) {
   }
 
   // Preserve the existing native-share fallback, including cancelled shares.
+  /** @param {string} text @param {string} name @param {string} type @param {string} title */
   async function shareOrDownload(text, name, type, title = "Taurifer backup") {
     try {
       if (navigator.canShare) {
@@ -28,6 +31,7 @@ export function createFiles({ document, navigator, URL, Blob, File }) {
     download(text, name, type);
   }
 
+  /** @param {Pick<File,'text'>} file */
   async function readText(file) {
     return file.text();
   }
