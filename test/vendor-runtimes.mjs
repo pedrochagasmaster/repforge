@@ -123,9 +123,8 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
   assert(runtimeAt > 0 && appAt > runtimeAt && index.includes('rel="taurifer-entry" href="app.js?v='), "optional runtime input precedes the awaited native application entry");
 }
 {
-  const leaks = Object.entries({ "app.js": app.replace("runtime:window.Motion||null,", ""), "src/ui/editors/program.js": editor })
+  const leaks = Object.entries({ "app.js": app, "src/ui/editors/program.js": editor })
     .filter(([, source]) => /\bwindow\.Motion\b|\broot\.Motion\b|(?<![\w.])Motion\.animate\b/.test(source)).map(([file]) => file);
-  assert(app.includes("const nativeMotion=createMotion({window,runtime:window.Motion||null,"), "only composition acquires the optional vendor runtime");
   assert(leaks.length === 0, "application modules do not bypass the Motion layer", leaks.join(", "));
   assert(/createMotion/.test(app) && /motion\?\.animateExerciseReorder/.test(editor), "composition supplies the native motion capability to the editor");
 }

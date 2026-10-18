@@ -578,7 +578,7 @@ export let motion=null;
  * Construction installs no gesture listeners; init explicitly mounts Motion. */
 function ensureBrowserPresentation(){
   if(browserPresentation)return browserPresentation;
-  const nativeMotion=createMotion({window,runtime:window.Motion||null,
+  const nativeMotion=createMotion({window,
     focus:{track:focusTrack,card:focusCard,step:focusStep,canGo:focusCanGo,setTrack:focusSetTrack,
       go:focusGo,dragStart:focusDragStart,dragMove:focusDragMove,dragEnd:focusDragEnd},
     sheets:{dragStart:sheetDragStart,dragMove:sheetDragMove,dragEnd:sheetDragEnd},
