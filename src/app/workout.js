@@ -1,5 +1,5 @@
 import {copySnapshot} from './session.js';
-import {canonicalDraftField,canonicalMetricInput} from '../training/metrics.js';
+import {canonicalDraftField,canonicalMetricInput,canonicalNumberText,effortForRir} from '../training/metrics.js';
 
 /** @typedef {import('./session.js').Snapshot} Snapshot
  * @typedef {import('./session.js').HistoryRow} HistoryRow
@@ -262,4 +262,35 @@ export function createFocusWorkoutCommands({workout,training,readDraft,readUnit,
     return true;
   }
   return Object.freeze({editField,toggleSet,reopenSet,cancelEdit,toggleWarmup,restoreExercises});
+}
+
+/** Exercise actions capture acknowledged draft/query facts and issue named
+ * commands. History is copied as canonical metric values, never display units.
+ * @param {{workout:WorkoutPort,read:()=>{draft:WorkoutDraft|null,query:import('./workout-model.js').WorkoutCapture,program:readonly import('./workout-model.js').Exercise[],effortMode:boolean}}} options */
+export function createWorkoutExerciseCommands({workout,read}){
+  /** @param {string} exerciseInstanceId */
+  async function repeatPrevious(exerciseInstanceId){
+    const {draft,query,program,effortMode}=read(),base=program.find(ex=>ex.id===exerciseInstanceId);
+    const previous=base?query.last(query.sessionExercise(base)):[];
+    if(!draft||!previous.length)return{status:'missing'};
+    const values=previous.map(row=>Array.isArray(row.metricValues)?{
+      ordinal:row.set,metrics:Object.fromEntries(row.metricValues.map(value=>[value.metricId,canonicalNumberText(value.value)])),
+      ...(row.rir==null?{}:effortMode?{effort:effortForRir(row.rir)}:{rir:canonicalNumberText(row.rir)})
+    }:{ordinal:row.set,load:canonicalNumberText(row.load),reps:canonicalNumberText(row.reps),
+      ...(effortMode?{effort:effortForRir(row.rir)}:{rir:canonicalNumberText(row.rir)})});
+    return workout.dispatch('repeatPreviousSetValues',{exerciseInstanceId,values});
+  }
+  /** @param {string} exerciseInstanceId @param {string} setId */
+  async function toggleWarmup(exerciseInstanceId,setId){
+    const set=read().draft?.exercises[exerciseInstanceId]?.sets[setId];if(!set)return{status:'missing'};
+    return workout.dispatch(set.role==='warmup'?'markWorking':'markWarmup',{exerciseInstanceId,setId});
+  }
+  /** @param {string} exerciseInstanceId */
+  async function restoreOriginal(exerciseInstanceId){if(!read().draft)return{status:'missing'};return workout.dispatch('restoreOriginalExercise',{exerciseInstanceId});}
+  /** @param {string} exerciseInstanceId */
+  async function toggleSkipped(exerciseInstanceId){
+    const draft=read().draft;if(!draft)return{status:'missing'};
+    return workout.dispatch(draft.exercises[exerciseInstanceId]?.status==='skipped'?'restoreExercise':'skipExercise',{exerciseInstanceId});
+  }
+  return Object.freeze({repeatPrevious,toggleWarmup,restoreOriginal,toggleSkipped});
 }

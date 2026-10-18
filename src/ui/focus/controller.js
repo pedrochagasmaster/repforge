@@ -30,3 +30,5 @@ export {createFocusView} from './workout.js';
 export {createRestSheet} from './rest-sheet.js';
 
 export {createWhyPresentation} from './why-model.js';
+
+export {createExerciseActions} from './exercise-actions.js';

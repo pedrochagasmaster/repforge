@@ -71,7 +71,7 @@ import * as ReadModels from './src/app/read-models.js';
 import {verdictMarkHtml as sharedVerdictMarkHtml,formatSetsLine,formatTable,formatProgramContext,formatCycleLabel,formatShortDate,sameLoad,recommendationVerdict,formatList} from './src/ui/format.js';
 let TodayUi,SummaryUi,ProgressUi,ReviewUi,TrainingModel,ProgressReadModels;
 import {createSession} from './src/app/session.js';
-import {createWorkoutCommands,createFocusWorkoutCommands,createWorkoutSuggestionCommands} from './src/app/workout.js';
+import {createWorkoutCommands,createFocusWorkoutCommands,createWorkoutExerciseCommands,createWorkoutSuggestionCommands} from './src/app/workout.js';
 import {createCustomExerciseCommands,createProgramReplacementCommands,createProgramAdditionCommands} from './src/app/program.js';
 import {createHistoryCommands} from './src/app/history.js';
 import {createMotion} from './src/platform/motion.js';
@@ -3361,148 +3361,19 @@ function sessionSheetEarlyRows(){const draft=activeWorkoutDraft;if(!draft)return
 window.__repforgeSessionSheet={open:openSessionSheet,close:closeSessionSheet,render:renderSessionSheet};
 
 /* ---- Exercise actions sheet (Focus workout) ---- */
-let activeExActionsId = null;
+let ExerciseActions;
+function exerciseActions(){return ExerciseActions||(ExerciseActions=Focus.createExerciseActions({window,shell:shellView(),
+  motion:ensureBrowserPresentation().motion,
+  read:()=>({draft:activeWorkoutDraft,query:workoutQueries(),program:state.program}),
+  commands:createWorkoutExerciseCommands({workout:WorkoutSession,
+    read:()=>({draft:activeWorkoutDraft,query:workoutQueries(),program:state.program,effortMode:isEffortMode()})}),
+  labels:{exercise:MovementLabels.exercise,muscles:muscleListLabel},format:{load:fmtLoad},copy:{t,plural:tp},
+  navigate:{substitute:openSubstitutePicker,notes:openExNoteSheet},onChanged:renderWorkout,toast}))}
+function renderExActionsSheet(id){return exerciseActions().render(id)}
+function openExActionsSheet(id){return exerciseActions().open(id)}
+function closeExActionsSheet(){return exerciseActions().close()}
+window.__repforgeExActions={open:openExActionsSheet,close:closeExActionsSheet,render:renderExActionsSheet};
 
-function renderExActionsSheet(exId) {
-  const sheet = $("#exActionsSheet");
-  if (!sheet || !activeWorkoutDraft) return;
-  activeExActionsId = exId;
-  const draftEx = activeWorkoutDraft.exercises[exId];
-  const progEx = prog.find(exId);
-  if (!draftEx) return;
-
-  // A substituted exercise is named for what is being performed; the original rides in the line under it.
-  const shownName = draftEx.substitution?.replacement
-    ? exerciseDisplayName(draftEx.substitution.replacement)
-    : draftEx.displayName ? exerciseDisplayName(draftEx)
-      : progEx ? exerciseDisplayName(sessionExercise(progEx)) : exId;
-  const nameEl = $("#exActionsName");
-  if (nameEl) nameEl.textContent = shownName;
-
-  // Under the name: what it stands in for when substituted, then the muscles and the set count.
-  const subEl = $("#exActionsSub");
-  if (subEl) {
-    const primary = draftEx.programmed?.primary || progEx?.primary || "";
-    const setsTotal = draftEx.setOrder.length;
-    const lines = [];
-    const original = draftEx.substitution?.original ? exerciseDisplayName(draftEx.substitution.original) : "";
-    if (original) lines.push(t("log.substitute_for", { name: original }));
-    lines.push((primary ? muscleListLabel(primary) + " · " : "") + `${setsTotal} ${tp(setsTotal, "set")}`);
-    subEl.replaceChildren(...lines.map(line => {
-      const row = document.createElement("span");
-      row.className = "exactions__sub-line";
-      row.textContent = line;
-      return row;
-    }));
-  }
-
-  // Setup notes
-  const setupTextEl = $("#exActionsSetupText");
-  const setupText = draftEx.programmed?.notes || progEx?.notes || "";
-  if (setupTextEl) {
-    setupTextEl.textContent = setupText || t("ex.actions.no_setup_notes");
-  }
-
-  // Repeat last session
-  const repeatBtn = $("#exActionRepeatBtn");
-  const repeatHint = $("#exActionRepeatHint");
-  const prevSets = progEx ? last(sessionExercise(progEx)) : [];
-  if (repeatBtn) {
-    if (prevSets.length > 0) {
-      repeatBtn.disabled = false;
-      if (repeatHint) repeatHint.textContent = t("today.sub.before", { sets: previousSetsLine(prevSets) });
-    } else {
-      repeatBtn.disabled = true;
-      if (repeatHint) repeatHint.textContent = t("ex.actions.no_history");
-    }
-  }
-
-  // Substitution
-  const substBtn = $("#exActionSubstBtn");
-  const restoreOrigBtn = $("#exActionRestoreOrigBtn");
-  const isSubstituted = !!draftEx.substitution;
-  const substLabel = substBtn?.querySelector(".exactions__act-text > span");
-  if (substLabel) substLabel.textContent = t(isSubstituted ? "ex.actions.change_substitution" : "ex.actions.substitute");
-  if (restoreOrigBtn) restoreOrigBtn.classList.toggle("hidden", !isSubstituted);
-
-  // Warmup sets list
-  const warmupList = $("#exActionsWarmupList");
-  if (warmupList) {
-    const rows = draftEx.setOrder.map((sid, idx) => {
-      const set = draftEx.sets[sid];
-      if (!set) return "";
-      const isWarmup = set.role === "warmup";
-      const roleLabel = t(isWarmup ? "ex.actions.role_warmup" : "ex.actions.role_working");
-      const btnLabel = t(isWarmup ? "ex.actions.mark_working" : "ex.actions.mark_warmup");
-      return `<div class="exactions__warmup-row">` +
-        `<div class="exactions__warmup-info">` +
-        `<span class="exactions__warmup-num">${esc(t("log.set"))} ${idx + 1}</span>` +
-        `<span class="exactions__warmup-role ${isWarmup ? "is-warmup" : ""}">${esc(roleLabel)}</span>` +
-        `</div>` +
-        `<button type="button" class="btn btn--steel exactions__warmup-btn" data-warm-toggle-set="${esc(sid)}">${esc(btnLabel)}</button>` +
-        `</div>`;
-    }).filter(Boolean);
-    warmupList.innerHTML = rows.join("");
-    $$("#exActionsWarmupList [data-warm-toggle-set]").forEach(btn => {
-      btn.onclick = async () => {
-        const sid = btn.dataset.warmToggleSet;
-        const set = draftEx.sets[sid];
-        if (!set) return;
-        const type = set.role === "warmup" ? "markWorking" : "markWarmup";
-        const res = await WorkoutSession.dispatch(type, { exerciseInstanceId: exId, setId: sid });
-        if (res.status === "applied") {
-          // The rerender replaces this button; carry keyboard focus to the same set's new control.
-          const hadFocus = document.activeElement === btn && sheet.classList.contains("is-open");
-          renderWorkout();
-          renderExActionsSheet(exId);
-          if (hadFocus && sheet.classList.contains("is-open")) {
-            warmupList.querySelector(`[data-warm-toggle-set="${CSS.escape(sid)}"]`)?.focus({ preventScroll: true });
-          }
-        }
-      };
-    });
-  }
-
-  // Skip / restore exercise
-  const skipLabel = $("#exActionSkipLabel");
-  const isSkipped = draftEx.status === "skipped";
-  if (skipLabel) skipLabel.textContent = t(isSkipped ? "ex.actions.restore" : "ex.actions.skip");
-  // A skipped exercise says so in its status group, not only in the changed button label.
-  $("#exActionsStatus")?.classList.toggle("hidden", !isSkipped);
-}
-
-/** "100 × 8, 8, 8" for one load across the sets, "100 × 8, 90 × 10" when the load moved. */
-function previousSetsLine(sets) {
-  const rows = sets.filter(x => +x.reps > 0);
-  if (!rows.length) return "";
-  if (rows.every(x => x.load == null)) return rows.map(x => x.reps).join(", ");
-  const same = rows.every(x => sameLoad(+x.load, +rows[0].load));
-  return same ? `${fmtLoad(rows[0].load)} × ${rows.map(x => x.reps).join(", ")}`
-    : rows.map(x => `${fmtLoad(x.load)} × ${x.reps}`).join(", ");
-}
-
-function openExActionsSheet(exId) {
-  if (!activeWorkoutDraft) return;
-  renderExActionsSheet(exId);
-  const sheet = $("#exActionsSheet"), scrim = $("#exActionsScrim");
-  if (!sheet) return;
-  document.body.classList.add("is-sheet-open");
-  openModal(sheet, {
-    initialFocus: $("#exActionsClose"),
-    onEscape: closeExActionsSheet,
-    scrim,
-    delayHide: reducedMotion() ? 0 : 280
-  });
-  requestAnimationFrame(() => { sheet.classList.add("is-open"); scrim?.classList.add("is-open"); });
-}
-
-function closeExActionsSheet() {
-  const sheet = $("#exActionsSheet");
-  if (!sheet) return Promise.resolve(false);
-  if (sheet.hidden && !(shellView().activeModal && shellView().activeModal.el === sheet)) return Promise.resolve(false);
-  return closeModal(sheet);
-}
-window.__repforgeExActions = { open: openExActionsSheet, close: closeExActionsSheet, render: renderExActionsSheet };
 
 
 
@@ -8544,73 +8415,7 @@ function init(){
   focusView().mount();
   initializeSessionSheet();
 
-  const exActionRepeat=$("#exActionRepeatBtn");
-  if(exActionRepeat)exActionRepeat.onclick=async()=>{
-    const id=activeExActionsId;
-    const progEx=id?prog.find(id):null;
-    const prevSets=progEx?last(sessionExercise(progEx)):[];
-    if(!prevSets.length||!activeWorkoutDraft)return;
-    const values=prevSets.map(s=>Array.isArray(s.metricValues)?({
-      ordinal:s.set,
-      metrics:Object.fromEntries(s.metricValues.map(value=>[value.metricId,canonicalNumberText(value.value)])),
-      ...(s.rir==null?{}:isEffortMode()?{effort:effortForRir(s.rir)}:{rir:canonicalNumberText(s.rir)})
-    }):({ordinal:s.set,load:canonicalNumberText(s.load),reps:canonicalNumberText(s.reps),
-      ...(isEffortMode()?{effort:effortForRir(s.rir)}:{rir:canonicalNumberText(s.rir)})}));
-    const res=await WorkoutSession.dispatch("repeatPreviousSetValues",{exerciseInstanceId:id,values});
-    if(res.status==="applied"){
-      renderWorkout();
-      toast(t("toast.filled_from_last"));
-      closeExActionsSheet();
-    }
-  };
-
-  const exActionSubst=$("#exActionSubstBtn");
-  if(exActionSubst)exActionSubst.onclick=()=>{
-    const id=activeExActionsId;
-    closeExActionsSheet().then(()=>{
-      if(id)openSubstitutePicker(id);
-    });
-  };
-
-  const exActionRestoreOrig=$("#exActionRestoreOrigBtn");
-  if(exActionRestoreOrig)exActionRestoreOrig.onclick=async()=>{
-    const id=activeExActionsId;
-    if(id&&activeWorkoutDraft){
-      const res=await WorkoutSession.dispatch("restoreOriginalExercise",{exerciseInstanceId:id});
-      if(res.status==="applied"){
-        renderWorkout();
-        closeExActionsSheet();
-      }
-    }
-  };
-
-  const exActionSkip=$("#exActionSkipBtn");
-  if(exActionSkip)exActionSkip.onclick=async()=>{
-    const id=activeExActionsId;
-    if(id&&activeWorkoutDraft){
-      const isSkipped=activeWorkoutDraft.exercises[id]?.status==="skipped";
-      const type=isSkipped?"restoreExercise":"skipExercise";
-      const res=await WorkoutSession.dispatch(type,{exerciseInstanceId:id});
-      if(res.status==="applied"){
-        renderWorkout();
-        closeExActionsSheet();
-      }
-    }
-  };
-
-  const exActionNotes=$("#exActionNotesBtn");
-  if(exActionNotes)exActionNotes.onclick=()=>{
-    const id=activeExActionsId;
-    closeExActionsSheet().then(()=>{
-      if(id)openExNoteSheet(id);
-    });
-  };
-
-  const exActionsClose=$("#exActionsClose");
-  if(exActionsClose)exActionsClose.onclick=closeExActionsSheet;
-  const exActionsScrim=$("#exActionsScrim");
-  if(exActionsScrim)exActionsScrim.onclick=closeExActionsSheet;
-
+  exerciseActions().mount();
   InstalledEditorView.bind();
   const histExport=$("#historyExportBtn");if(histExport)histExport.onclick=exportCsv;
   const restRow=$("#restSecRow");if(restRow)restRow.onclick=()=>setDisclosure(restRow,$("#restSecPanel"),!$("#restSecPanel")?.classList.contains("is-open"));

@@ -351,3 +351,7 @@ export default api;
  * @param {number} load @param {number} reps
  */
 export function estimateOneRepMax(load,reps){return load>0&&reps>0?load*(1+reps/30):0}
+
+/** Historical RIR bucket shared by persisted repeat commands and presentation.
+ * @param {number|string|null|undefined} rir */
+export const effortForRir=rir=>Number(rir)>=2.5?'easy':Number(rir)<=0.5?'max':'hard';

@@ -1,7 +1,5 @@
 import {escapeHtml as esc} from '../format.js';
-/** Bucket a historical RIR for presentation; never rewrites its stored value.
- * @param {number|string|null|undefined} rir */
-export const effortForRir=rir=>Number(rir)>=2.5?'easy':Number(rir)<=0.5?'max':'hard';
+export {effortForRir} from '../../training/metrics.js';
 export const EFFORT_STEPS=Object.freeze(['easy','hard','max']);
 /** The effort word, its accessible stepped value, and the short-lived explainer.
  * Owns animation timers, never a draft value; the caller acknowledges edits via
