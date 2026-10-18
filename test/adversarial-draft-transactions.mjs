@@ -1622,7 +1622,7 @@ async function runStoredCloseMarkerFailure(browser) {
         };
 
         try {
-          const decision = await window.resolveBootReplicas();
+          const decision = await window.__repforgeStorage.durable.resolveBootReplicas();
           if (!concurrentWriteInjected) {
             originalSetItem.call(localStorage, draftKey, concurrentRaw);
             concurrentWriteInjected = true;
