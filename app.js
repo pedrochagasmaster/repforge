@@ -36,8 +36,8 @@ import {create as createProgramExecutor,url as programWorkerUrl} from './src/pla
 import {createGenerationRules} from './src/training/generation.js';
 import {createEntryAdapter} from './src/training/authoring.js';
 import {estimateOneRepMax as e1rm} from './src/training/metrics.js';
-import {workingRows,buildSessionDelta as deriveSessionDelta,compareProjectedSessionOutcome as deriveProjectedOutcome,noComparableSessionOutcome as deriveNoComparable} from './src/training/progress.js';
-import {buildStrengthEvidenceRecords,buildStrengthProjection,strengthSessionKey,presentSessionOutcome,compareProgressStrengthSession as deriveProgressSessionOutcome} from './src/app/progress-read-models.js';
+import {derivePersonalRecords,workingRows,buildSessionDelta as deriveSessionDelta,compareProjectedSessionOutcome as deriveProjectedOutcome,noComparableSessionOutcome as deriveNoComparable} from './src/training/progress.js';
+import {buildStrengthEvidenceRecords,buildStrengthProjection,strengthSessionKey,buildLiftSessionSummaries,createProgressReadModels,loggedMuscleAttribution,overviewBarPct,presentSessionOutcome,compareProgressStrengthSession as deriveProgressSessionOutcome} from './src/app/progress-read-models.js';
 import {createProgressController,createExerciseController} from './src/ui/progress/controller.js';
 import {createReviewController} from './src/ui/progress/review.js';
 import {createReviewCommands} from './src/app/review.js';
@@ -48,7 +48,7 @@ import {createTodayController} from './src/ui/today/controller.js';
 import {createSessionSummary} from './src/ui/workout/summary.js';
 import * as ReadModels from './src/app/read-models.js';
 import {verdictMarkHtml as sharedVerdictMarkHtml,formatSetsLine,formatTable} from './src/ui/format.js';
-let TodayUi,SummaryUi,ProgressUi,ReviewUi,TrainingModel;
+let TodayUi,SummaryUi,ProgressUi,ReviewUi,TrainingModel,ProgressReadModels;
 import {createSession} from './src/app/session.js';
 import {createWorkoutCommands,createFocusWorkoutCommands,createWorkoutSuggestionCommands} from './src/app/workout.js';
 import {createProgramCommands,createCustomExerciseCommands,createProgramReplacementCommands,createProgramAdditionCommands} from './src/app/program.js';
@@ -942,14 +942,7 @@ function exerciseIdentityFromRow(row){
     name:loggedMovementName(row),id:row?.exerciseId,day:row?.day}}
 // Muscles for a log row: prefer the immutable performed snapshot. Old rows may
 // fall back to their own template snapshot/name, never a reused live slot id.
-const rowMuscles=row=>{
-  // A swapped set is credited to what was performed. Rows saved before the
-  // snapshot existed carry no performedPrimary and keep their template values.
-  if(row.performedPrimary!=null||row.performedSecondary!=null)
-    return{primary:row.performedPrimary||"",secondary:row.performedSecondary||""};
-  if(row.primary!=null||row.secondary!=null)return{primary:row.primary||"",secondary:row.secondary||""};
-  const ex=state.program.find(e=>e.name===row.name);
-  return ex?{primary:ex.primary,secondary:ex.secondary}:{primary:"",secondary:""}};
+const rowMuscles=row=>loggedMuscleAttribution(row,state.program);
 
 /* There is no bundled starter program. A device that has never been through
    onboarding holds no program at all: the entry hub is the only thing that
@@ -2144,20 +2137,8 @@ async function refreshRecoveryProjectionCache(snapshot=state){
   activeRecoveryRecord=validated;activeRecoveryRecordBlockId=blockId;
   return validated;
 }
-function rowMusclesPure(row,program){
-  if(row.performedPrimary!=null||row.performedSecondary!=null)
-    return{primary:row.performedPrimary||"",secondary:row.performedSecondary||""};
-  if(row.primary!=null||row.secondary!=null)return{primary:row.primary||"",secondary:row.secondary||""};
-  const ex=(program||[]).find(e=>e.name===row.name);
-  return ex?{primary:ex.primary,secondary:ex.secondary}:{primary:"",secondary:""}}
-function compareLogChronology(a,b){
-  const model=NativeProgressModel;
-  if(typeof model?.compareChronology==="function")return model.compareChronology(a,b);
-  const dateOrder=String(a?.date??"").slice(0,10).localeCompare(String(b?.date??"").slice(0,10));
-  if(dateOrder)return dateOrder;
-  const aCreated=a?.created==null?"":String(a.created).trim(),bCreated=b?.created==null?"":String(b.created).trim();
-  if(aCreated&&bCreated){const createdOrder=aCreated.localeCompare(bCreated);if(createdOrder)return createdOrder}
-  return String(a?.sessionKey??a?.session??a?.id??"").localeCompare(String(b?.sessionKey??b?.session??b?.id??""))}
+const rowMusclesPure=loggedMuscleAttribution;
+const compareLogChronology=NativeProgressModel.compareChronology;
 function mergeLogChronology(target,row){
   if(!target.date&&row?.date)target.date=row.date;
   if(!target.created&&row?.created)target.created=row.created;
@@ -2179,18 +2160,9 @@ function previousSessionRowsLog(ex,beforeSessionId,log){const match=matchLift(ex
   if(curIdx<0){const current=(log||[]).find(r=>r.session===beforeSessionId);if(!current)return ordered.length?ordered.at(-1).rows:[];
     const older=ordered.filter(s=>compareLogChronology(s,current)<0);return older.length?older.at(-1).rows:[]}
   return curIdx>0?ordered[curIdx-1].rows:[]}
-function hardSetsInRange(log,program,started,ended,hardRir){const m=new Map();
-  for(const x of log||[]){if(started&&String(x.date)<started)continue;if(ended&&String(x.date)>ended)continue;
-    if(!(+x.load>0&&+x.reps>0&&+x.rir<=hardRir)||!isWork(x))continue;
-    const mus=rowMusclesPure(x,program);
-    for(const p of muscles(mus.primary))addVol(m,p,1,0);
-    for(const s of muscles(mus.secondary))addVol(m,s,0,.5)}
-  return m}
-function volumeMapFromRows(rows,program){const m=new Map();
-  for(const x of rows||[]){const mus=rowMusclesPure(x,program);
-    for(const p of muscles(mus.primary))addVol(m,p,1,0);
-    for(const s of muscles(mus.secondary))addVol(m,s,0,.5)}
-  return m}
+function hardSetsInRange(log,program,started,ended,hardRir){return ProgressReadModels.hardSets(log||[],program||[],{start:started,end:ended,hardRir})}
+function volumeMapFromRows(rows,program){return ProgressReadModels.completedMap(rows,program||[])}
+
 function buildBlockReview(programMeta,program,log){const p=new TrainingModel.Program(program||[]),days=p.days(),total=programMeta?.mesocycleLengthWeeks||6;
   const started=programMeta?.started||null,ended=today(),hardRir=DEFAULTS.hardRir;
   const plannedSessions=total&&days.length?total*days.length:0;
@@ -2223,16 +2195,8 @@ function buildBlockReview(programMeta,program,log){const p=new TrainingModel.Pro
   return{programId:programMeta?.id||null,started,ended,plannedSessions,completedSessions,adherenceRatio,
     improvedLifts,flatLifts,regressedLifts,stalledLifts,prs,completedHardSetsByMuscle,plannedHardSetsByMuscle,
     volumeCompliance,recommendation,created:new Date().toISOString()}}
-function reviewReadModel(){
-  const meta=state.programMeta||{};if(!meta.started)return{started:false};
-  const checkpoint=NativeProgressModel.buildReviewCheckpoint(prog.toJSON(),
-    {started:meta.started,mesocycleLengthWeeks:meta.mesocycleLengthWeeks||6,mesocycleStatus:meta.mesocycleStatus,
-      evidenceRecords:strengthEvidenceRecords("current-block"),recoveryEligible:true},readLogRows(),today());
-  const volume=NativeProgressModel.buildVolumeEvidence("block-to-date",prog.toJSON(),progressEvidenceMeta(),readLogRows(),today());
-  return{started:true,checkpoint,volume,life:mesocycleLifecycle(meta),
-    periodStart:longDate(volume.period.start||meta.started||""),periodEnd:longDate(volume.period.end||today()),
-    outcomes:checkpoint.observedOutcomes.map(outcome=>({...outcome,name:liftDisplayName(currentExerciseForLiftKey(outcome.exerciseId)?.name||outcome.exerciseId,outcome.exerciseId)}))};
-}
+function reviewReadModel(){return ProgressReadModels.review(progressReadFacts(),strengthEvidenceRecords("current-block"))}
+
 function reviewPreviewModel(flow){
   const before=state.programMeta?.programDefinition,after=flow.proposal?.successor?.programDefinition;
   const labels=definition=>Object.fromEntries((definition?.days||[]).map(day=>[day.name,localizedDayName({label:day.name},day.name,definition)]));
@@ -5520,7 +5484,7 @@ async function mountDashboardPresentation(){
     onCommitted:()=>{day=days()[0]||"Day 1"},onChoice:action=>captureEvent("block_transition_chosen",{action})});
   ReviewUi=createReviewController({document,copy,queries:{preview:reviewPreviewModel},commands:reviewCommands,onChange:()=>render(),onNotice:toast});
   ProgressUi=createProgressController({document,copy,format:{...format,displayLoad:toDisplay},motion:window.RepForgeMotion,
-    review:ReviewUi,queries:{review:reviewReadModel,strength:strengthEvidenceReadModel,volume:volumeEvidenceReadModel,prs:prEvidenceReadModel},
+    review:ReviewUi,queries:{overview:progressOverviewReadModel,review:reviewReadModel,strength:strengthEvidenceReadModel,volume:volumeEvidenceReadModel,prs:prEvidenceReadModel},
     onOpenExercise:key=>openExerciseView(key,"stats"),onGoToday:()=>navTo("log"),onReviewViewed:captureBlockReviewViewed,
     onSelected:segment=>queueMicrotask(()=>maybeShowContextualGuides([segment==="review"?"block-transition":"progress"]))});
   ExerciseUi=createExerciseController({window,copy,format:{number:fmt,load:fmtLoad,displayLoad:toDisplay,unit:unitLabel,date:shortDate},
@@ -5540,28 +5504,8 @@ async function mountDashboardPresentation(){
     onDone:()=>closeSessionSummary(),onSeeSession:session=>{HistoryUi.startReading(session);closeSessionSummary({nav:"history"})}});
 }
 
-function summaries(){const m=new Map();
-  for(const raw of state.log){if(!isWork(raw))continue;const x=readLogRow(raw);
-    if(!x.strengthComparable||!(+x.load>0&&+x.reps>0))continue;
-    const convention=x.strengthConvention||"load",k=`${x.session}|${liftKey(x)}|${convention}`;
-    if(!m.has(k))m.set(k,{session:x.session,date:x.date,created:x.created,day:x.day,liftKey:liftKey(x),name:displayName(x),loads:[],reps:[],rirs:[],sets:0,perSideLoad:x.perSideLoad,convention});
-    const o=mergeLogChronology(m.get(k),x);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir);o.sets++}
-  return [...m.values()].map(o=>{let top=0,topReps=0,vol=0,best=0;
-    o.loads.forEach((ld,i)=>{const rp=o.reps[i];vol+=ld*rp;const e=e1rm(ld,rp);if(e>best)best=e;if(ld>top){top=ld;topReps=rp}});
-    return{session:o.session,date:o.date,created:o.created,day:o.day,liftKey:o.liftKey,name:o.name,top,topReps,reps:sum(o.reps),rir:avg(o.rirs),sets:o.sets,volume:vol,e1rm:best,perSideLoad:o.perSideLoad,convention:o.convention};})
-    .sort(compareLogChronology)}
+function summaries(){return buildLiftSessionSummaries(readLogRows().map(row=>({...row,liftKey:liftKey(row),exerciseName:displayName(row)})))}
 
-function strengthDashboard(){
-  const byLift=new Map();for(const s of summaries()){(byLift.get(s.liftKey)||byLift.set(s.liftKey,[]).get(s.liftKey)).push(s)}
-  const prN=new Map();for(const ev of detectPRs(state.log)){const k=ev.liftKey;prN.set(k,(prN.get(k)||0)+1)}
-  const rows=[];
-  for(const [k,sess] of byLift){const latest=sess.at(-1),first=sess[0],best=Math.max(...sess.map(s=>s.e1rm));
-    const ex=currentExerciseForLiftKey(k);
-    const rec=ex?recommendation(ex):{label:"—"};
-    rows.push({key:k,exercise:latest.name,latestLoad:latest.top,latestReps:latest.topReps,best,blockDelta:latest.e1rm-first.e1rm,
-      prs:prN.get(k)||0,lastTrained:latest.date,signal:rec.label})}
-  return rows.sort((a,b)=>a.exercise.localeCompare(b.exercise))}
-window.__repforgeStrengthDashboard=strengthDashboard;
 /* Test-only view of the recommendation surface. The parity gate calls exactly
    what the Log tab and the "why this weight" sheet call, so it can prove that
    routing the arithmetic through progression-engine.js leaves every displayed
@@ -5576,114 +5520,27 @@ window.__repforgeProgression={
    points come from progress-model.js through strengthProjection(); an outcome
    word is the compareExerciseSession label the summary and History read; an
    attention target is recommendation(). Nothing is derived in this layer. */
-function strengthSessionRows(key,sessionId,comparisonConvention="load"){
-  return strengthEvidenceRows().filter(row=>row.exerciseId===key&&String(row.session??row.date)===String(sessionId)&&
-    row.strengthComparable!==false&&(row.strengthConvention||"load")===comparisonConvention)}
-function strengthSessionDelta(key,series){
-  const points=series?.points||[];if(points.length<2)return null;
-  const convention=series.comparisonConvention||"load",rows=strengthEvidenceRows().filter(row=>row.exerciseId===key&&
-    row.strengthComparable!==false&&(row.strengthConvention||"load")===convention);
-  const previous=rows.filter(row=>row.sessionKey===points.at(-2).sessionKey),current=rows.filter(row=>row.sessionKey===points.at(-1).sessionKey);
-  return compareProjectedSessionOutcome(current,previous,convention)}
-/** The word under a lift's name. With a sufficient outcome it is the label of
- *  compareExerciseSession for the latest session, marked for the parity check;
- *  otherwise it is the short reason the model gave (no outcome is invented). */
-/** The two-point change, `+2,5 kg (+2,63%)`. A rep-only improvement moved no
- *  load, so its zero change is not printed and the row reads the word alone. */
-function strengthEvidenceReadModel(scope){
-  const projection=strengthProjection(scope),keys=new Set(projection.keys);
-  for(const ex of prog.exercises){const key=exerciseLiftKey(ex)||`slot:${ex.id}`;if(!keys.has(key))keys.add(key)}
-  const nameOf=key=>projection.dashboard.find(row=>row.key===key)?.exercise||prog.exercises.find(ex=>(exerciseLiftKey(ex)||`slot:${ex.id}`)===key)?.name||key;
-  const shownName=key=>liftDisplayName(nameOf(key),key);
-  return{scope,rows:[...keys].sort((a,b)=>shownName(a).localeCompare(shownName(b),locTag())).map(key=>{
-    const series=projection.series.get(key),sessions=projection.sessions.filter(session=>session.liftKey===key),latest=sessions.at(-1);
-    return{key,name:shownName(key),series,latest,comparison:latest?strengthSessionDelta(key,series):null,slotId:currentExerciseForLiftKey(key)?.id,
-      sessions:sessions.map(session=>({...session,shortDate:shortDate(session.date),longDate:longDate(session.date),e1rmDisplay:toDisplay(session.e1rm)}))};
-  })};
-}
-function renderThisWeek(){
-  const Model=NativeProgressModel;if(!Model)return;
-  const meta=progressEvidenceMeta(),week=Model.buildWeekStatus(prog.toJSON(),meta,readLogRows(),today());
-  const records=strengthEvidenceRecords("current-block");
-  ProgressUi.presentation.renderWeek({...week,totalWeeks:meta.mesocycleLengthWeeks,baselineCount:records.filter(record=>record.evidenceState==="insufficient").length});
-}
-/** Strength this block: a row per lift that has a session, in program order. A
- *  row with two or more sessions opens that lift's chart; one session is a dot
- *  with no chart behind it. */
-function renderOverviewStrength(){
-  const Model=NativeProgressModel;
-  if(!Model){ProgressUi.presentation.renderStrength([]);return}
-  const projection=strengthProjection("current-block"),order=prog.exercises.map(ex=>exerciseLiftKey(ex)||`slot:${ex.id}`);
-  const keys=[...projection.series.keys()].filter(key=>projection.series.get(key).evidenceCount>0)
-    .sort((a,b)=>{const ia=order.indexOf(a),ib=order.indexOf(b);return(ia<0?1e6:ia)-(ib<0?1e6:ib)});
-  const nameOf=key=>projection.dashboard.find(row=>row.key===key)?.exercise||prog.exercises.find(ex=>(exerciseLiftKey(ex)||`slot:${ex.id}`)===key)?.name||key;
-  ProgressUi.presentation.renderStrength(keys.map(key=>{
-    const series=projection.series.get(key),latest=projection.sessions.filter(session=>session.liftKey===key).at(-1);
-    return{key,name:liftDisplayName(nameOf(key),key),series,latest,comparison:latest?strengthSessionDelta(key,series):null,
-      slotId:currentExerciseForLiftKey(key)?.id,dateLabel:latest?shortDate(latest.date):null};
-  }));
-}
-function overviewBarPct(planned,completed7){return planned>0?Math.min(100,Math.round(completed7/planned*100)):0}
-function volumeStatusKey(planned,completed){
-  if(!planned)return completed>0?"high":"on-target";
-  const ratio=completed/planned;
-  return ratio<0.6?"below":ratio<=1.3?"on-target":"high"}
-function overviewVolumeProjection(){
-  const Model=NativeProgressModel;
-  if(!Model)return volumeDashboard(7).map(row=>({...row,statusKey:volumeStatusKey(row.planned,row.completed7)}));
-  const meta=progressEvidenceMeta(),evidence=Model.buildVolumeEvidence("this-week",prog.toJSON(),meta,readLogRows(),today());
-  const planned=volumePlannedMuscleMap(evidence,meta.weekPrescriptions),completed=volumeMapFromRows(evidence.completedRows,state.program);
-  const names=new Set([...planned.keys(),...completed.keys()]);
-  return[...names].map(muscle=>{
-    const plannedValue=volEff(planned,muscle),completedValue=volEff(completed,muscle);
-    // A muscle with no compatible hard-set observation is baseline-building;
-    // the Overview must not turn that absence into a negative status.
-    const evidenceState=completedValue>0?"sufficient":"insufficient";
-    const periodInProgress=evidence.periodStatus!=="complete";
-    const statusKey=evidenceState==="insufficient"?"baseline":
-      periodInProgress&&plannedValue>0?"in-progress":volumeStatusKey(plannedValue,completedValue);
-    const status=statusKey==="baseline"?t("stats.evidence.baseline"):
-      statusKey==="in-progress"?t("stats.volume.in_progress",{done:fmt(completedValue),planned:fmt(plannedValue)}):
-      statusKey==="high"?t("status.high"):statusKey==="below"?t("stats.volume_below"):t("stats.volume_on_target");
-    return{muscle,planned:plannedValue,completed7:completedValue,status,statusKey,evidenceState,
-      pct:overviewBarPct(plannedValue,completedValue)}
-  }).sort((a,b)=>{
-    const da=Math.max(a.planned-a.completed7,0),db=Math.max(b.planned-b.completed7,0);
-    if(db!==da)return db-da;
-    const ra=a.planned>0?a.completed7/a.planned:Infinity,rb=b.planned>0?b.completed7/b.planned:Infinity;
-    if(ra!==rb)return ra-rb;
-    return muscleLabel(a.muscle).localeCompare(muscleLabel(b.muscle),locTag())})}
+function progressProgramFacts(){return prog.exercises.map(ex=>Object.freeze({id:ex.id,name:ex.name,key:exerciseLiftKey(ex)||`slot:${ex.id}`,displayName:exerciseDisplayName(ex)}))}
+function progressReadFacts(){return Object.freeze({snapshot:state,programRows:prog.toJSON(),program:progressProgramFacts(),
+  log:readLogRows().map(row=>Object.freeze({...row,liftKey:liftKey(row),displayName:exerciseDisplayName(row)})),today:today(),blockId:snapshotBlockId(state),
+  recoveryRecord:activeRecoveryRecord&&activeRecoveryRecordBlockId===snapshotBlockId(state)?activeRecoveryRecord:null})}
+function progressStrengthReadFacts(scope){return Object.freeze({scope,projection:strengthProjection(scope),program:progressProgramFacts(),rows:strengthEvidenceRows()})}
+function strengthEvidenceReadModel(scope){return ProgressReadModels.strength(progressStrengthReadFacts(scope))}
+function overviewVolumeProjection(){return ProgressReadModels.overviewVolume(progressReadFacts())}
 function overviewVolumeSorted(){return overviewVolumeProjection()}
+function progressOverviewReadModel(){
+  const facts=progressReadFacts(),strengthFacts=progressStrengthReadFacts("current-block"),records=strengthEvidenceRecords("current-block"),groups=ProgressReadModels.attentionGroups(facts,records);
+  const recommendations=new Map(groups.flatMap(group=>group.items).map(({item})=>{const slot=currentExerciseForLiftKey(item.destinationId);return[item.destinationId,slot?recommendation(slot):null]}).filter(([,rec])=>rec));
+  return ProgressReadModels.overview({facts,strengthFacts,records,groups,recommendations})}
+function renderStats(){ProgressUi.render()}
 
-function renderStats(){
-  // First run: point at the Log tab instead of an all-zero dashboard.
-  const hasLog=state.log.some(isWork);
-  ProgressUi.presentation.renderIntro(hasLog);
-  renderThisWeek();
-  renderAttention();renderOverviewStrength();renderReview();
-  renderEvidenceView();
-  if($("#stats")?.classList.contains("active")&&!ProgressUi.state().evidence)
-    queueMicrotask(()=>maybeShowContextualGuides([ProgressUi.state().segment==="review"?"block-transition":"progress"]));
-}
+function detectPRs(log){return derivePersonalRecords((Array.isArray(log)?log:[]).map(row=>{
+  const reading=readLogRow(row);
+  return{liftKey:liftKey(row),date:row.date,created:row.created,session:row.session,blockId:row.blockId??null,
+    load:reading.load,reps:reading.reps,rir:row.rir,warmup:row.warmup,strengthComparable:reading.strengthComparable,
+    strengthConvention:reading.strengthConvention,exerciseName:displayName(row),exerciseId:row.exerciseId,
+    loadMultiplier:reading.loadMultiplier,perSideLoad:reading.perSideLoad}}))}
 
-function detectPRs(log,opts={}){
-  const rows=(Array.isArray(log)?log:[]).map(row=>({row,reading:readLogRow(row)}))
-    .filter(({row,reading})=>isWork(row)&&reading.strengthComparable&&+reading.load>0&&+reading.reps>0)
-    .sort((a,b)=>compareLogChronology(a.row,b.row));
-  const best=new Map(),events=[];
-  for(const{row,reading}of rows){const k=liftKey(row),comparisonKey=`${k}\u0000${reading.strengthConvention||"load"}`;
-    const ld=+reading.load,rp=+reading.reps,em=e1rm(ld,rp),cur=best.get(comparisonKey)||{load:0,repsAtMax:0,e1rm:0};
-    const event={liftKey:k,date:row.date,session:row.session,blockId:row.blockId??null,load:ld,reps:rp,rir:row.rir,
-      exerciseName:displayName(row),exerciseId:row.exerciseId,strengthConvention:reading.strengthConvention,
-      loadMultiplier:reading.loadMultiplier,perSideLoad:reading.perSideLoad};
-    if(ld>cur.load){events.push({kind:"load",...event,deltaLoad:cur.load>0?ld-cur.load:undefined});
-      cur.load=ld;cur.repsAtMax=rp}
-    else if(ld===cur.load&&rp>cur.repsAtMax){events.push({kind:"reps",...event,deltaReps:rp-cur.repsAtMax});
-      cur.repsAtMax=rp}
-    if(em>cur.e1rm){events.push({kind:"e1rm",...event,deltaE1rm:cur.e1rm>0?em-cur.e1rm:undefined});
-      cur.e1rm=em}
-    best.set(comparisonKey,cur)}
-  return events}
 function normalizeCommandText(text){return String(text??"").toLowerCase().replaceAll("×","x").replace(/@/g," rir ")
   .replace(/(\d),(\d)/g,"$1.$2").replace(/\breps\b/g,"").replace(/\s+/g," ").trim()}
 const deaccent=s=>String(s??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"");
@@ -5955,81 +5812,25 @@ function startVoiceInput(){
   rec.onerror=()=>toast(t("toast.voice_failed"));
   try{rec.start()}catch{toast(t("toast.voice_failed"))}}
 
-function prTimeline(filter){
-  const all=detectPRs(state.log);let events=all;
-  if(filter==="load"||filter==="reps"||filter==="e1rm")events=all.filter(e=>e.kind===filter);
-  else if(filter==="program"){const ids=new Set(prog.exercises.map(exerciseLiftKey));
-    events=all.filter(e=>ids.has(e.liftKey))}
-  return events.sort((a,b)=>compareLogChronology(b,a))}
+function prTimeline(filter){return ProgressReadModels.prTimeline(detectPRs(state.log),progressProgramFacts(),filter)}
 window.__repforgePrTimeline=prTimeline;
+function prEvidenceReadModel(filter){return ProgressReadModels.prs(detectPRs(state.log),progressProgramFacts(),filter)}
+function attentionGroups(){return ProgressReadModels.attentionGroups(progressReadFacts(),strengthEvidenceRecords("current-block"))}
 
-function prEvidenceReadModel(filter){return{filter,events:prTimeline(filter).map(event=>({...event,name:liftDisplayName(event.exerciseName,event.liftKey),dateLabel:longDate(event.date)}))}}
-
-// Needs action is derived only from canonical sufficient evidence records.
-function attentionGroups(){
-  const items=NativeProgressModel.buildProgramActionQueue(prog.toJSON(),progressEvidenceMeta(),state.log,
-    strengthEvidenceRecords("current-block"));
-  const groups=new Map();
-  for(const item of items){const key=item.recommendation,ex=currentExerciseForLiftKey(item.destinationId);
-    if(!groups.has(key))groups.set(key,[]);
-    groups.get(key).push({ex:ex||{id:item.destinationId,name:item.destinationId},why:t(`stats.recommendation.${key}`),item})}
-  return[...groups].map(([key,entries])=>({key,cls:key,lead:t(`stats.recommendation.${key}`),items:entries}))}
 window.__repforgeRecoverSignal=recoverSignal;
 window.__repforgeRecommendation=recommendation;
 window.__repforgeProgressionForExercise=progressionForExercise;
 window.__repforgeValidateStateShape=isValidStateShape;
 
 window.__repforgeAttention=attentionGroups;
-// Lifts on the Attention board — everything the board lists, so the "attention" cell in
-// the weekly stat row and the "ATTENTION · n" heading always report the same lifts.
-/** The glyph column of an attention row, from the engine's recommendation for the
- *  lift. Only up and down draw a glyph; hold and recover keep the column and carry
- *  their variant class, which the shared mark gives a glyph. */
-function attentionVerdict(rec){
-  if(!rec||rec.status==="manual"||rec.status==="new")return"hold";
-  if(rec.status==="add"||rec.status==="add2")return"up";
-  if(rec.status==="reduce")return rec.stalled?"recover":"down";
-  return rec.reason==="recover"?"recover":"hold"}
-/** Needs attention: the action-queue lifts whose recommendation changes the load
- *  (add, add2, reduce). A hold, a recover and a stalled lift stay out of this
- *  section only; the queue and every model output are unchanged. The mark, label and
- *  reason are the engine's recommendation for the lift, the evidence line is the
- *  model's, and the whole row opens that lift's chart. */
-function renderAttention(){
-  const groups=attentionGroups(),projection=strengthProjection("current-block");
-  const rows=groups.flatMap(group=>group.items.map(entry=>{
-    const slot=currentExerciseForLiftKey(entry.item.destinationId);
-    return{...entry,group,slot,rec:slot?recommendation(slot):null};
-  })).filter(row=>{const move=attentionVerdict(row.rec);return move==="up"||move==="down"});
-  ProgressUi.presentation.renderAttention(rows.map(({ex,item,group,slot,rec})=>{
-    const series=projection.series.get(item.destinationId);
-    return{destinationId:item.destinationId,id:ex.id,group:group.key,name:exerciseDisplayName(ex),move:attentionVerdict(rec),
-      last:series?.latest?.value,target:rec&&rec.load!=null?rec.load:null,exerciseId:slot?.id,
-      label:rec?.label,reason:rec?.text,lead:group.lead,series};
-  }));
-}
+function completedHardSets(windowDays){return ProgressReadModels.hardSets(readLogRows(),state.program,{start:daysAgo(windowDays-1),hardRir:+state.settings.hardRir})}
+function volEff(map,name){const value=map.get(name);return value?value.d+value.p:0}
+function volumeDashboard(windowDays){return ProgressReadModels.rollingVolume(progressReadFacts(),{planned:prog.volume(),cutoff7:daysAgo(6),cutoff28:daysAgo(27)})}
 
-// Completed hard sets per muscle over a rolling window (load>0, reps>0, RIR within hardRir).
-function completedHardSets(windowDays){const cutoff=daysAgo(windowDays-1),hr=+state.settings.hardRir,m=new Map();
-  for(const x of readLogRows()){if(String(x.date)<cutoff)continue;if(!(+x.load>0&&+x.reps>0&&+x.rir<=hr)||!isWork(x))continue;
-    const mus=rowMuscles(x);
-    for(const p of muscles(mus.primary))addVol(m,p,1,0);
-    for(const s of muscles(mus.secondary))addVol(m,s,0,.5)}
-  return m}
-function volEff(m,name){const v=m.get(name);return v?v.d+v.p:0}
-function volumeStatus(planned,completed7){if(!planned)return completed7>0?t("status.high"):t("status.on_target");
-  const ratio=completed7/planned;return ratio<0.6?t("status.low"):ratio<=1.3?t("status.on_target"):t("status.high")}
-function volumeDashboard(windowDays){const planned=prog.volume(),c7=completedHardSets(7),c28=completedHardSets(28);
-  const names=new Set([...planned.keys(),...c7.keys(),...c28.keys()]);
-  return[...names].sort((a,b)=>muscleLabel(a).localeCompare(muscleLabel(b),locTag())).map(muscle=>{
-    const p=volEff(planned,muscle),c7v=volEff(c7,muscle),c28v=volEff(c28,muscle);
-    return{muscle,planned:p,completed7:c7v,completed28:c28v,status:volumeStatus(p,c7v)}})}
 window.__repforgeVolumeDashboard=volumeDashboard;
 window.__repforgeOverviewVolume={pct:overviewBarPct,sorted:overviewVolumeSorted,label:muscleLabel};
 // Observed outcomes come from the authoritative paired-exposure comparison,
 // never from presentation. flat reads as "maintained" in the evidence model.
-const EVIDENCE_OUTCOME_KEYS={improved:"stats.outcome.improved",maintained:"stats.outcome.maintained",declined:"stats.outcome.declined"};
-const EVIDENCE_OUTCOME_GLYPHS={improved:"▲",maintained:"■",declined:"▼"};
 
 function strengthEvidenceRows(log=state.log){return readLogRows(log).filter(isWork).map(r=>({exerciseId:liftKey(r),session:r.session,
   sessionKey:strengthSessionKey(r),date:r.date,created:r.created??null,blockId:r.blockId??null,
@@ -6065,72 +5866,11 @@ function strengthProjection(scope="current-block"){
 // as the primary Strength renderer. No caller gets an all-history latest value
 // while the selected surface says current block.
 window.__repforgeStrengthDashboard=()=>strengthProjection(ProgressUi.state().strengthScope).dashboard;
-function volumeEvidenceReadModel(scope){
-  const meta=progressEvidenceMeta(),evidence=NativeProgressModel.buildVolumeEvidence(scope==="this-week"?"this-week":"block-to-date",prog.toJSON(),meta,readLogRows(),today());
-  const planned=volumePlannedMuscleMap(evidence,meta.weekPrescriptions),completed=volumeMapFromRows(evidence.completedRows,state.program);
-  const names=new Set([...planned.keys(),...completed.keys()]);
-  const inProgress=evidence.periodStatus!=="complete"&&evidence.period.end&&String(evidence.period.end)>=today();
-  return{scope,periodLabel:evidence.period.start?t("stats.volume.period_text",{start:longDate(evidence.period.start),end:longDate(evidence.period.end||today())}):t("stats.volume.no_period"),
-    rows:[...names].sort((a,b)=>muscleLabel(a).localeCompare(muscleLabel(b),locTag())).map(muscle=>({
-      muscle,label:muscleLabel(muscle),planned:volEff(planned,muscle),done:volEff(completed,muscle),inProgress,details:volumeDetailRows(muscle,evidence)}))};
-}
-function volumeDetailRows(muscle,evidence){
-  const groups=new Map();
-  for(const row of evidence.completedRows||[]){
-    const attribution=rowMuscles(row);let weight=0;
-    if(muscles(attribution.primary).includes(muscle))weight=1;else if(muscles(attribution.secondary).includes(muscle))weight=.5;
-    if(!weight)continue;
-    const key=`${row.session}|${liftKey(row)}`,current=groups.get(key)||{session:row.session,date:row.date,created:row.created,name:exerciseDisplayName(row)};
-    mergeLogChronology(current,row);current.sets=(current.sets||0)+weight;groups.set(key,current);
-  }
-  return[...groups.values()].sort((a,b)=>compareLogChronology(b,a)).map(row=>({...row,dateLabel:shortDate(row.date)}));
-}
-// Planned per-muscle denominators for the rendered scope. Elapsed weeks come
-// from the compact durable aggregate; only uncovered current/future schedule
-// projections are read from the authored program or sparse receipts.
+function volumeEvidenceReadModel(scope){return ProgressReadModels.volume(scope,progressReadFacts())}
 function prescriptionForReceipt(...args){return TrainingModel.prescriptionForReceipt(...args)}
 function recoveryReceiptForWeek(...args){return TrainingModel.recoveryReceiptForWeek(...args)}
-function progressWeekPrescriptions(){
-  const weeks=Math.max(1,Number(state.programMeta?.mesocycleLengthWeeks)||6);
-  // A canonical program plans each week from that cycle's own prescription (a
-  // recovery week is cycle 1's deload, not the whole block's shape).
-  const definition=state.programMeta?.programDefinition;
-  if(definition&&Array.isArray(definition.days)){
-    const cycles=Number.isInteger(definition.cycles)&&definition.cycles>0?definition.cycles:1;
-    const customs=Array.isArray(state.customExercises)?state.customExercises:[];
-    return Array.from({length:weeks},(_,index)=>{
-      const rows=flatProgramFromDefinition(definition,customs,Math.min(cycles,index+1));
-      return prescriptionForReceipt(plannedPrescriptionForProgram(rows,index+1,null),rows)})}
-  const record=activeRecoveryRecord&&activeRecoveryRecordBlockId===snapshotBlockId(state)?activeRecoveryRecord:null;
-  const structure=state.programMeta?.programStructure;
-  const receipts=Array.isArray(structure?.weekPrescriptions)?structure.weekPrescriptions:[];
-  const numbered=receipts.some(entry=>Number.isInteger(entry?.week));
-  return Array.from({length:weeks},(_,index)=>{
-    const receipt=(numbered?receipts.find(entry=>entry?.week===index+1):receipts[index])||
-      plannedPrescriptionForProgram(state.program,index+1,null);
-    return prescriptionForReceipt(index===0?recoveryReceiptForWeek(receipt,record):receipt,state.program);
-  })}
-function progressEvidenceMeta(){return{started:state.programMeta?.started||null,
-  mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6,hardRir:+state.settings.hardRir,
-  blockId:snapshotBlockId(state),
-  weekPrescriptions:progressWeekPrescriptions(),
-  plannedVolumeHistory:isValidPlannedVolumeHistory(state.programMeta?.plannedVolumeHistory)
-    ?cloneSnapshot(state.programMeta.plannedVolumeHistory):null}}
-function volumePlannedMuscleMap(ev,prescriptions=progressWeekPrescriptions()){
-  const m=new Map(),week=ev.period?.weekNumber||mesocycleLifecycle(state.programMeta).elapsedWeek||1;
-  const elapsed=ev.period?.elapsedNumberedWeeks||0;
-  const history=isValidPlannedVolumeHistory(state.programMeta?.plannedVolumeHistory)&&
-    state.programMeta.plannedVolumeHistory.throughWeek<=elapsed?state.programMeta.plannedVolumeHistory:null;
-  const add=(name,d,p)=>{const cur=m.get(name)||{d:0,p:0};cur.d+=d;cur.p+=p;m.set(name,cur)};
-  if(ev.scope==="block-to-date"&&history){
-    for(const[name,value]of Object.entries(history.muscles.direct||{}))add(name,value,0);
-    for(const[name,value]of Object.entries(history.muscles.secondary||{}))add(name,0,value);
-  }
-  const start=ev.scope==="block-to-date"&&history?history.throughWeek:0;
-  const selected=ev.scope==="block-to-date"?prescriptions.slice(start,elapsed):[prescriptions[Math.min(Math.max(week-1,0),prescriptions.length-1)]];
-  for(const rx of selected)for(const[name,v]of Object.entries(rx?.musclesByName||{})){
-    add(name,v.d,v.p)}
-  return m}
+function progressWeekPrescriptions(){return ProgressReadModels.weekPrescriptions(progressReadFacts())}
+function progressEvidenceMeta(){return ProgressReadModels.evidenceMeta(progressReadFacts())}
 
 function redrawChart(){ExerciseUi?.redraw()}
 
@@ -12916,6 +12656,7 @@ function initializePersistenceOwners(){
     calendarDate:today,language:()=>uiLang(),defaultExerciseName:()=>t('program.default.exercise')});
   initializeBlockTransitionCommands(model);
   workoutReadModel=createWorkoutReadModel({catalog:rawExerciseCatalog,librarySource:{library:EXERCISE_LIBRARY},model});
+  ProgressReadModels=createProgressReadModels({training:model,copy:{t},format:{locale:locTag,exercise:liftDisplayName,muscle:muscleLabel,shortDate,longDate,displayLoad:toDisplay,number:fmt}});
   const entry=createEntryRules(rawExerciseCatalog),workout=createWorkoutRules(rawExerciseCatalog);
   EntryDraft=createSetupDraftStore({rules:ProgramEntry,storage:localStorage,
   lock:operation=>withStorageLock(storageIO,operation),ownerId:uid(),onFailure:reportSetupDraftWriteFailure,

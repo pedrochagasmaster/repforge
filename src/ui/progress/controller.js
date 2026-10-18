@@ -115,6 +115,13 @@ function setStatsSeg(seg){
   if(opensReview)onReviewViewed();
   onSelected(/** @type {string} */(seg))}
 
+function render(){
+  if(disposed)return;
+  const model=queries.overview();
+  presentation.renderIntro(model.hasLog);presentation.renderWeek(model.week);presentation.renderAttention(model.attention);presentation.renderStrength(model.strength);
+  review.render(queries.review());renderEvidenceView();
+  if($("#stats")?.classList.contains("active")&&!evidenceView)onSelected(statsSeg);
+}
 function mount(){if(mounted||disposed)return;mounted=true;wireStatsTabs()}
 function dispose(){
   disposed=true;mounted=false;
@@ -123,7 +130,7 @@ function dispose(){
   row?.querySelectorAll(".is-ring-travel").forEach(tab=>tab.classList.remove("is-ring-travel"));
   evidence.dispose();review.dispose();
 }
-return Object.freeze({mount,dispose,presentation,renderEvidence:renderEvidenceView,renderStrength,renderVolume,renderPrs,
+return Object.freeze({mount,dispose,render,presentation,renderEvidence:renderEvidenceView,renderStrength,renderVolume,renderPrs,
   selectSegment:setStatsSeg,selectEvidence:setEvidenceView,
   state:()=>Object.freeze({segment:statsSeg,evidence:evidenceView,strengthScope,volumeScope,prFilter})});
 }

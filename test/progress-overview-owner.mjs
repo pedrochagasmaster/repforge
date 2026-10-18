@@ -1,0 +1,34 @@
+/** The actual program/evidence/readmodel producers meet fixed muscle/scope
+ * oracles. No generated fixture is used to manufacture expected denominators. */
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {createProgramModel} from '../src/training/model.js';
+import {createProgressReadModels} from '../src/app/progress-read-models.js';
+const require=createRequire(import.meta.url),catalog=require('../assets/exercise-catalog.json');
+let ids=0;
+const training=createProgramModel({catalog,nextId:()=>{ids++;return'forbidden-new-id'},now:'2026-10-10T12:00:00.000Z',calendarDate:()=>{throw new Error('readmodel must use captured date')}});
+const read=createProgressReadModels({training,copy:{t:key=>key},format:{locale:()=> 'en',exercise:name=>name,muscle:name=>name,shortDate:date=>date,longDate:date=>date,displayLoad:value=>value,number:String}});
+const program=[{id:'slot',slotId:'slot',day:'Day 1',order:1,name:'Press',sets:5,primary:'Chest',secondary:'Triceps'}];
+const receipt=(week,sets)=>({week,days:[{dayId:'day',slots:[{slotId:'slot',sets,primary:'Chest',secondary:'Triceps'}]}]});
+const snapshot={program,programMeta:{started:'2026-10-01',mesocycleLengthWeeks:2,programStructure:{days:[{dayId:'day',label:'Day 1'}],weekPrescriptions:[receipt(1,2),receipt(2,5)]}},customExercises:[],settings:{hardRir:4}};
+const row=(session,date,set,extra={})=>({session,date,set,blockId:'current',name:'Press',liftKey:'library:fixed',displayName:'Saved press',load:40,reps:8,rir:1,primary:'Back',performedPrimary:'Chest',performedSecondary:'Triceps',...extra});
+const log=[row('one','2026-10-02',1),row('one','2026-10-02',2),row('two','2026-10-09',1),row('wrong-block','2026-10-09',1,{blockId:'old',load:999}),row('warmup','2026-10-09',1,{warmup:true}),row('easy','2026-10-09',1,{rir:5})];
+const facts={snapshot,programRows:program,program:[{id:'slot',key:'library:fixed',name:'Press',displayName:'Press'}],log,today:'2026-10-10',blockId:'current',recoveryRecord:null};
+const before=JSON.stringify(facts);
+const week=read.volume('this-week',facts),block=read.volume('block-to-date',facts);
+assert.deepEqual(week.rows.map(({muscle,planned,done})=>({muscle,planned,done})),[{muscle:'Chest',planned:5,done:1},{muscle:'Triceps',planned:2.5,done:.5}]);
+assert.deepEqual(block.rows.map(({muscle,planned,done})=>({muscle,planned,done})),[{muscle:'Chest',planned:7,done:3},{muscle:'Triceps',planned:3.5,done:1.5}]);
+assert.equal(block.rows[0].details.length,2,'selected sessions only; other block/warmup/easy row absent');
+assert.deepEqual(block.rows[0].details.map(row=>[row.dateLabel,row.sets]),[['2026-10-09',1],['2026-10-02',2]]);
+assert.equal(block.rows.some(row=>row.muscle==='Back'),false,'performed muscle wins over stored template');
+assert.deepEqual(read.overviewVolume(facts).map(({muscle,statusKey,pct})=>({muscle,statusKey,pct})),[{muscle:'Chest',statusKey:'in-progress',pct:20},{muscle:'Triceps',statusKey:'in-progress',pct:20}]);
+const recovered=read.volume('block-to-date',{...facts,recoveryRecord:{diff:{recoveryWeek:{entries:[{slot:'slot',effectiveWorkingSets:1}]}}}});
+assert.equal(recovered.rows.find(row=>row.muscle==='Chest').planned,6,'recovery changes first week only: 1 + 5');
+const history={schemaVersion:1,throughWeek:1,plannedSessions:1,plannedWorkingSets:100,muscles:{direct:{Chest:100},secondary:{Triceps:50}}};
+const compacted=read.volume('block-to-date',{...facts,snapshot:{...snapshot,programMeta:{...snapshot.programMeta,plannedVolumeHistory:history}}});
+assert.equal(compacted.rows.find(row=>row.muscle==='Chest').planned,105,'history covers elapsed first week, then current receipt adds 5');
+const future=read.volume('block-to-date',{...facts,snapshot:{...snapshot,programMeta:{...snapshot.programMeta,plannedVolumeHistory:{...history,throughWeek:3}}}});
+assert.equal(future.rows.find(row=>row.muscle==='Chest').planned,7,'future aggregate cannot replace reached receipts');
+assert.equal(read.week(facts,[]).plannedWorkingSets,5,'week card uses same current receipt');
+assert.equal(JSON.stringify(facts),before,'read models never mutate acknowledged facts');assert.equal(ids,0,'read models allocate no durable identity');
+console.log('PASS native Progress volume/overview: literal weekly/block/recovery/history denominators and immutable attribution');

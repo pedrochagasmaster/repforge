@@ -640,11 +640,11 @@ function isValidPlannedVolumeHistory(value){
   });
 }
 
-/** @param {ProgramMeta|null|undefined} programMeta */
-function mesocycleLifecycle(programMeta){
+/** @param {ProgramMeta|null|undefined} programMeta @param {string} [calendarDate] */
+function mesocycleLifecycle(programMeta,calendarDate){
   const meta=programMeta||{},total=+(/** @type {number} */(meta.mesocycleLengthWeeks))||6,s=meta.started;
   let elapsedWeek=null;
-  if(s){const days=calendarDayDistance(s,today());
+  if(s){const days=calendarDayDistance(s,calendarDate===undefined?today():calendarDate);
     elapsedWeek=days<0?1:Math.floor(days/7)+1}
   const current=elapsedWeek==null?null:Math.min(elapsedWeek,total);
   const overrunWeeks=elapsedWeek==null?0:Math.max(0,elapsedWeek-total);

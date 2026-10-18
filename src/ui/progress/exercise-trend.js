@@ -75,9 +75,9 @@ function draw(rows,sel="#chart"){
   const alignRight=lx+ctx.measureText(valueLabel).width+10>w-padR;ctx.textAlign=alignRight?"right":"left";
   ctx.fillText(valueLabel,lx+(alignRight?-10:9),ly-pal.captionSize*.75);
   ctx.fillStyle=C.dim;ctx.font=`${fontSize} ${fontFamily}`;ctx.textBaseline="alphabetic";
-  ctx.textAlign="left";ctx.fillText(shortDate(rows[0].date),padL,h-8);
-  if(rows.length>2){ctx.textAlign="center";ctx.fillText(shortDate(rows[Math.floor(rows.length/2)].date),padL+iw/2,h-8)}
-  ctx.textAlign="right";ctx.fillText(shortDate(rows[rows.length-1].date),w-padR,h-8);
+  ctx.textAlign="left";ctx.fillText(shortDate(rows[0].date||''),padL,h-8);
+  if(rows.length>2){ctx.textAlign="center";ctx.fillText(shortDate(rows[Math.floor(rows.length/2)].date||''),padL+iw/2,h-8)}
+  ctx.textAlign="right";ctx.fillText(shortDate(rows[rows.length-1].date||''),w-padR,h-8);
 }
 
 return Object.freeze({draw,palette:chartPalette,labelDecimals:chartLabelDecimals});

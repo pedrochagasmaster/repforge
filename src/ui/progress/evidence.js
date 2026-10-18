@@ -18,7 +18,7 @@ export function createEvidenceViews({document,copy,format,presentation,onStrengt
     if(!row.sessions.length)return `<p class="lede">${esc(t("stats.evidence.reason.untested"))}</p>`;
     const series=row.series,unit=format.unit();
     const reason=series&&!series.outcome&&series.reason?`<p class="lede">${esc(t(`stats.evidence.reason.${series.reason}`))}</p>`:"";
-    const range=row.sessions.length>1?`<p class="lede">${esc(t("stats.evidence.range",{start:row.sessions[0].longDate,end:/** @type {import("./contracts.js").StrengthSession} */(row.sessions.at(-1)).longDate}))}</p>`:"";
+    const range=row.sessions.length>1?`<p class="lede">${esc(t("stats.evidence.range",{start:row.sessions[0].longDate,end:/** @type {import("./contracts.js").StrengthHistorySession} */(row.sessions.at(-1)).longDate}))}</p>`:"";
     const top=series?.perSideLoad?t("focus.metric.load_per_side_kg"):t("stats.table.top"),
       reps=series?.perSideReps?t("focus.metric.reps_per_side"):t("stats.table.reps"),
       e1rm=series?.perSideLoad?`${t("stats.table.e1rm_unit",{unit})} · ${t("focus.metric.load_per_side_kg")}`:t("stats.table.e1rm_unit",{unit});
@@ -41,7 +41,7 @@ export function createEvidenceViews({document,copy,format,presentation,onStrengt
         `<span class="evrow__val" aria-hidden="true"></span><span class="chevron" aria-hidden="true"></span></button>${panel}`;
       const word=presentation.outcomeWord(row),comparison=row.series.comparison;
       const change=comparison?.absolute?t("stats.evidence.change",{absolute:`${comparison.absolute>0?"+":""}${format.number(format.displayLoad(comparison.absolute))} ${format.unit()}`,
-        percentage:`${comparison.percentage>0?"+":""}${format.number(comparison.percentage)}`}):"";
+        percentage:`${(comparison.percentage||0)>0?"+":""}${format.number(comparison.percentage)}`}):"";
       return `<button type="button" class="evrow evrow--d" data-evkey="${esc(row.key)}" aria-expanded="false"><b class="evrow__name">${esc(row.name)}</b>`+
         `<span class="evrow__fig"><span class="evrow__val">${esc(presentation.figure(row.series))}</span><span class="chevron is-down" aria-hidden="true"></span></span>`+
         `<span class="evrow__out${word.soft?" is-soft":""}">${word.html}${change?esc(` · ${change}`):""}</span>`+
@@ -83,7 +83,7 @@ export function createEvidenceViews({document,copy,format,presentation,onStrengt
       const selected=/** @type {string} */(button.dataset.prf)===model.filter;button.classList.toggle("active",selected);button.setAttribute("aria-pressed",selected?"true":"false");button.onclick=()=>onPrFilter(/** @type {string} */(button.dataset.prf));
     });
     if(!model.events.length){host.innerHTML=`<div class="empty">${esc(t("stats.empty.no_pr_filter"))}</div>`;return}
-    /** @param {string} iso */
+    /** @param {string|undefined} iso */
     const date=iso=>{const parts=String(iso||"").split("-");return parts.length===3?`${t("month."+(+parts[1]-1))} ${+parts[2]}`:String(iso||"")};
     /** @param {string} kind */
     const kindLabel=kind=>kind==="load"?t("stats.pr.load"):kind==="reps"?t("stats.pr.reps"):t("stats.pr.e1rm");

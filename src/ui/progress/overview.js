@@ -69,7 +69,7 @@ function renderWeek(model){
     (model.baselineCount>0?cell("baseline",model.baselineCount,0,t("stats.this_week.baseline")):"")+`</div>`+
     `<p class="ovweekline">${esc(weekLine)}</p>`;
 }
-/** @param {readonly import("./contracts.js").StrengthRow[]} rows */
+/** @param {readonly Omit<import("./contracts.js").StrengthRow,"sessions">[]} rows */
 function renderStrength(rows){
   const element=$("#overviewStrength");if(!element)return;
   if(!rows.length){element.innerHTML="";return}

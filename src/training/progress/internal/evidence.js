@@ -218,7 +218,7 @@ function isHardWorkingRow(row, hardRir = 4) {
   return isWorkingRow(row) && Number.isFinite(rir) && rir <= Number(hardRir);
 }
 
-/** @param {HistoryRow[]|null|undefined} log @param {string|null} start @param {string|null} end */
+/** @template {HistoryRow} R @param {R[]|null|undefined} log @param {string|null} start @param {string|null} end */
 function rowsInRange(log, start, end) {
   const out = [];
   for (const row of log || []) {
@@ -241,7 +241,7 @@ function belongsToBlock(row, meta) {
   return String(row?.blockId ?? "").trim() === blockId;
 }
 
-/** @param {HistoryRow[]|null|undefined} log @param {string|null} start @param {string|null} end @param {EvidenceMeta|null|undefined} meta */
+/** @template {HistoryRow} R @param {R[]|null|undefined} log @param {string|null} start @param {string|null} end @param {EvidenceMeta|null|undefined} meta */
 function scopedRows(log, start, end, meta) {
   return rowsInRange(log, start, end).filter((row) => belongsToBlock(row, meta));
 }
@@ -256,7 +256,7 @@ function countWorkingSets(rows) {
   return rows.filter(isWorkingRow).length;
 }
 
-/** @param {HistoryRow[]|null|undefined} log @param {string|null} start @param {string|null} end @param {number|undefined} hardRir @param {EvidenceMeta|null|undefined} meta */
+/** @template {HistoryRow} R @param {R[]|null|undefined} log @param {string|null} start @param {string|null} end @param {number|undefined} hardRir @param {EvidenceMeta|null|undefined} meta */
 function completedHardRows(log, start, end, hardRir, meta) {
   return scopedRows(log, start, end, meta).filter((row) => isHardWorkingRow(row, hardRir));
 }
@@ -487,7 +487,7 @@ function buildStrengthEvidence(scope, exerciseId, log, meta) {
 // canonical weekly prescriptions for the elapsed numbered block weeks,
 // capped at the block length, honoring applied weekPrescription overrides.
 // A fixed 28-day window is never a substitute.
-/** @param {string} scope @param {ProgramInput} program @param {EvidenceMeta|null|undefined} meta @param {HistoryRow[]|null|undefined} log @param {unknown} now */
+/** @template {HistoryRow} R @param {string} scope @param {ProgramInput} program @param {EvidenceMeta|null|undefined} meta @param {R[]|null|undefined} log @param {unknown} now */
 function buildVolumeEvidence(scope, program, meta, log, now) {
   const norm = normalizeProgram(program, meta);
   const today = isoDate(now);
