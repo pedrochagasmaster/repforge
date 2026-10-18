@@ -47,7 +47,7 @@ export function createInstalledEditorView({window,session,mountEditor,shell,t,on
  async function apply(){
    const editor=mounted;if(!editor)return;
    const token=generation,button=$('#programEditorApply');button?.setAttribute('disabled','');
-   /** @type {import('../editors/contracts.js').EditorReceipt|undefined} */
+   /** @type {import('../editors.js').EditorReceipt|undefined} */
    const result=await editor.commit({kind:leave?.workout?'apply_discard_workout':'apply'});
    if(token!==generation||editor!==mounted)return result;
    button?.removeAttribute('disabled');
