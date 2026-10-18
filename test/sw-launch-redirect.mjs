@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {browserLanguage} from './language-browser.mjs';
 import {ensureBrowserInterchange} from './interchange-browser.mjs';
 /**
  * The installed launch URL on a host that redirects `/index.html` (#304).
@@ -170,7 +171,7 @@ try {
 
     const installed = await launchInstalled(cookies);
     await waitForFirstRun(installed.page).catch(() => {});
-    const gate = await installed.page.evaluate(sharedGateSnapshot);
+    const gate = await installed.page.evaluate(sharedGateSnapshot,await browserLanguage(installed.page));
     const hook = await installed.page.evaluate(readSharedHook);
     check(gate.gate && gate.startVisible && hook.source === "cookie" && hook.status === "ready",
       "the installed app shows the shared program from the setup cookie", JSON.stringify({ gate, hook }));
