@@ -47,6 +47,7 @@
     "../../src/app/history-read-models.js",
     "../../src/ui/history/**/*.js",
     "../../src/app/block-transition.js",
+    "../../src/app/block-review.js",
     "../../src/app/progress-read-models.js",
     "../../src/app/workout-model.js",
     "../../src/ui/editors.js",
