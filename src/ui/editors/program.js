@@ -7,6 +7,7 @@ import {createEditorDocumentRules,PROGRAM_EDITOR_INTENTS} from '../../training/a
 import {suggestion} from '../../training/authoring.js';
 const {definitionFor,definitionSlot,slotSets,slotAdaptive,pendingSuggestLoads,slotRepSemantic,repRange,validRir,uniformRir,suggestLoadsIssues,setSuggestLoads,setSlotRir}=suggestion;
 const REP_TARGET_SEMANTICS=new Set(['reps','repsPerSide']);
+const EXECUTION_MODES=new Set(['bilateral','unilateral']);
 const INTENT_SET=new Set(PROGRAM_EDITOR_INTENTS);
 const maxAlternates=()=>MAX_SLOT_ALTERNATES;
 const METRIC_DOMAIN=MetricDomain;
