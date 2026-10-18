@@ -24,6 +24,7 @@
     "../../src/platform/files.js",
     "../../src/platform/notifications.js",
     "../../src/platform/install.js",
-    "../../src/platform/catalog.js"
+    "../../src/platform/catalog.js",
+    "../../src/platform/program-executor.js"
   ]
 }
