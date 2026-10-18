@@ -182,11 +182,11 @@ async function activatePredecessor(page) {
   await installBrowserTraining(page);
   return page.evaluate(async (request) => {
     const compiler = window.__repforgeTrainingTest.compiler;
-    const catalog = ({snapshot:()=>window.__repforgeTrainingTest.catalog});
+    const catalog = window.__repforgeTrainingTest.catalog;
     if (!compiler || !catalog || typeof window.__repforgeFinalizeProgramSetup !== "function") {
       return { ok: false, error: "production program entry services unavailable" };
     }
-    const generated = compiler.generateProgram(request, catalog.snapshot());
+    const generated = compiler.generateProgram(request, catalog);
     if (!generated.ok) return { ok: false, error: "production generation failed", generated };
     const definition = generated.value;
     // The production entry flow derives the program answers from the
