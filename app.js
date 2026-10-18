@@ -278,8 +278,7 @@ function withStorageLock(io,op){return DurableState.withStorageLock(io,op)}
 function applyAcceptedSnapshot(base,snapshot){
   const live=rebaseStateChange(base,snapshot,state,{preferProposal:false});
   live[STORAGE_REV]=readRevision(snapshot);
-  state=live;
-  prog=makeProgram(state.program,null,state.programMeta);state.program=prog.toJSON();
+  publishTrainingSnapshot(live);
   const liveBlock=snapshotBlockId(state),sameCarrierRecord=activeRecoveryRecord&&
     recoveryCarrierRecords(state).some(record=>record.transitionId===activeRecoveryRecord.transitionId&&
       record.proposalHash===activeRecoveryRecord.proposalHash&&record.diff?.recoveryWeek?.blockId===liveBlock);
@@ -1878,7 +1877,19 @@ function equipmentSupportsSplit(daysPerWeek,splitType,equipment,experience){
   return resolveSplit(daysPerWeek,splitType).every(dt=>dayTypeHasPrimary(dt,equipment,experience))}
 function muscleHit(ex,muscle){const m=muscle.toLowerCase();
   return muscles(ex.primary).concat(muscles(ex.secondary)).some(x=>x.toLowerCase()===m||x.toLowerCase().includes(m))}
+// `state` is a read-only alias to the exact owner-published snapshot. All
+// candidates are local values until the durable owner accepts or boot reads them.
 let state,prog,day,installPrompt=null,saving=false;
+const applicationSession=createSession({
+  initialSnapshot:/** @type {import('./src/app/session.js').Snapshot|null} */(null),
+  onUpdate:snapshot=>{state=snapshot}});
+function publishTrainingSnapshot(snapshot){
+  const next=cloneSnapshot(snapshot);
+  const projected=makeProgram(next.program,snapshotLookup(next.customExercises),next.programMeta);
+  next.program=projected.toJSON();
+  applicationSession.publish(next);
+  prog=projected;
+}
 let activeRecoveryRecord=null,activeRecoveryRecordBlockId=null;
 let restEnd=0,restTick=null,restNotified=false,restAnnounced=false;
 // restPaused holds the milliseconds left while the clock is held (null while it
@@ -2793,7 +2804,6 @@ const STATS_SEG={overview:"segOverview",review:"segReview"};
 const EVIDENCE_SEG={strength:"segStrength",volume:"segVolume",prs:"segPRs"};
 
 
-function migrateLog(){return migrateLogSnapshot(state)}
 function earliestLogDate(log){if(!log?.length)return null;return log.reduce((min,r)=>!min||String(r.date)<min?r.date:min,null)}
 
 
@@ -2941,7 +2951,7 @@ async function persistProgramMeta(partial={}){
    so a caller can drop it straight into a program slot — creating a custom
    exercise is almost always the first half of "put this in my program". */
 const customExerciseCommands=createCustomExerciseCommands({
-  read:()=>state,commit:(proposal,opts,io=storageIO)=>commitProposedState(proposal,io,opts),
+  read:applicationSession.read,commit:(proposal,opts,io=storageIO)=>commitProposedState(proposal,io,opts),
   model:{normalizeCustomExercises,isCustomLibraryId,definitionMovementIds},
   normalizeMuscleAttribution:value=>MuscleDomain.normalizeMuscleAttribution(value),
   now:()=>new Date().toISOString(),newId:()=>`${CUSTOM_ID_PREFIX}${uid()}`,
@@ -3462,7 +3472,7 @@ function captureProgramReplacement(snapshot=state,review=null){
   const intent=captureProgramReplacementIntent(snapshot,review);
   return intent?materializeProgramReplacementCapture(intent,snapshot):null}
 const programReplacementCommands=createProgramReplacementCommands({
-  read:()=>state,commit:(proposal,opts,io=storageIO)=>commitProposedState(proposal,io,opts),
+  read:applicationSession.read,commit:(proposal,opts,io=storageIO)=>commitProposedState(proposal,io,opts),
   capture:captureProgramReplacement,allocateBlockId,now:()=>new Date().toISOString()});
 function commitProgramReplacement(proposal,io=storageIO,opts={}){
   requireAdapter(io,"commitProgramReplacement");
@@ -3681,13 +3691,12 @@ function rebaseSharedSetupSnapshot(snapshot,head,seed){
   snapshot.customExercises=mergeImportedCustomExercises(
     incoming,exercises,head,deterministicCustomIdAllocator(seed)).customExercises;
   return snapshot}
-function save(){return persist()}
-function persist(opts={}){
+function persistBootNormalization(opts={}){
   dropMemo.clear();baselineMemo.clear();
   const base=cloneSnapshot(mutationBase||state);
-  const structured=withExplicitProgramStructure(state.program,state.programMeta||defaultProgramMeta(state.log));
-  state.program=structured.program;state.programMeta=structured.meta;
   const snapshot=cloneSnapshot(state);
+  const structured=withExplicitProgramStructure(snapshot.program,snapshot.programMeta||defaultProgramMeta(snapshot.log));
+  snapshot.program=structured.program;snapshot.programMeta=structured.meta;
   return enqueueStateChange(base,snapshot,storageIO,opts)}
 // State-shape validation still reads legacy dangling references losslessly.
 // At the lock-held write boundary, however, every newly introduced custom
@@ -4825,7 +4834,7 @@ function typicalRir(ex,sess){sess=sess||sessionsFor(ex);
   const recent=sess.slice(-CAPACITY.baselineSessions);
   return recent.length?median(recent.map(s=>s.medCappedRir)):1}
 // Memo key for the capacity helpers that walk the whole log: identity plus a cheap
-// stamp of the log's shape. persist() clears both memos whenever the log can change.
+// stamp of the log's shape. Accepted publication clears both memos when the log changes.
 const capMemoKey=ex=>`${exerciseLiftKey(ex)}|${state.log.length}|${state.log.at(-1)?.created||""}`;
 // Recent typical capacity for off-day detection. null until 2 sessions exist.
 // Memoized: session freshness asks for every other lift on the day, on every
@@ -8232,11 +8241,8 @@ function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
   $("#saveMeta").textContent=done?t("log.save_meta.done",{day:dayLabel(day),done,planned}):(entered?t("log.save_meta.entered",{day:dayLabel(day),entered,planned}):t("log.save_meta.planned",{day:dayLabel(day),planned}));}
 
 const EARLY_FINISH_CONFIRMATION=Symbol("confirmed early finish");
-// Slice 8 compatibility binding: remaining legacy writers still use state.
-// The integration owner replaces read with applicationSession.read as writers move.
-const applicationSession=createSession({initialSnapshot:null});
 const WorkoutSession=createWorkoutCommands({
-  session:{...applicationSession,read:()=>state},training:WorkoutDraft,
+  session:applicationSession,training:WorkoutDraft,
   drafts:{flush:drainDraftWork,read:()=>({draft:activeWorkoutDraft,raw:activeWorkoutDraftRaw,recovery:draftUiRecovery}),
     start:createWorkoutDraft,dispatch:enqueueDraftCommand,projection:workoutDraftProjection,
     clearIdentity:resetWorkoutSessionIdentity,clearEffect:destructiveDraftClearEffect,
@@ -9522,7 +9528,7 @@ function redrawChart(){
 // @ci-domain history
 function adoptHistoryDurableHead(head){
   if(!head)return;
-  state=cloneSnapshot(head);prog=makeProgram(state.program,null,state.programMeta);state.program=prog.toJSON();
+  publishTrainingSnapshot(head);
   resetPersistenceBase(state);dropMemo.clear();baselineMemo.clear()}
 /** The block bounds History groups and counts by: where the running block started,
  *  how long it is, how many training days a week it plans, and the archived
@@ -9550,7 +9556,7 @@ function historySessionOutcome(rows){
     (row.strengthConvention||"load")===convention);
   const previous=previousSessionRowsLog(ex,session,comparableLog);
   return compareProjectedSessionOutcome(current,previous,convention)}
-const historyCommands=createHistoryCommands({read:()=>state,
+const historyCommands=createHistoryCommands({read:applicationSession.read,
   commit:(proposal,opts)=>commitProposedState(proposal,storageIO,opts),readRevision,
   settleAlreadyCommitted:opts=>DurableState.settleHistoryAlreadyCommitted(opts)});
 const HistoryUi=window.RepForgeHistoryUi.create({
@@ -9567,7 +9573,7 @@ const HistoryUi=window.RepForgeHistoryUi.create({
   readDurableState:()=>DurableState.readDurableState(),
   settleHistoryAlreadyCommitted:opts=>DurableState.settleHistoryAlreadyCommitted(opts),
   settlePendingJournal,
-  getState:()=>state, renderApp:()=>render(),
+  getState:applicationSession.read, renderApp:()=>render(),
   adoptHistoryDurableHead, captureEvent,
 });
 window.__repforgeHistory=HistoryUi;
@@ -10540,7 +10546,7 @@ function installedEditorImpact(document,base=state,edits=[]){
   }
   return{active:true,incompatible,harmless:!incompatible,effect:incompatible?null:effect}
 }
-const programCommands=createProgramCommands({read:()=>state,refreshHead:refreshPersistenceHead,
+const programCommands=createProgramCommands({read:applicationSession.read,refreshHead:refreshPersistenceHead,
   commit:(proposal,opts)=>commitProposedState(proposal,storageIO,opts),
   authoring:{token:installedEditorToken,tokenEqual:editorTokenEqual,rebaseDocument:editorRebaseDocument,
     confirmOptIn:candidate=>window.ProgramEditorSuggestLoads?.confirm(candidate,editorSuggestLoadsPolicy)||{ok:false,issues:[]},
@@ -20282,19 +20288,23 @@ function recoveryChoiceMatches(candidate,current){
 async function resolveBootReplicas(candidate=null){return DurableState.resolveBootReplicas(candidate)}
 async function settlePendingJournal(){return DurableState.settlePendingJournal()}
 async function applyBootDecision(decision){
-  if(decision.kind==="first-run")state=normalizeLoaded(null);
-  else state=normalizeLoaded(decision.snapshot);
-  prog=makeProgram(state.program,null,state.programMeta);state.program=prog.toJSON();
-  state.programMeta=normalizeProgramMeta(state.programMeta,state.log,state.program);
+  const bootSnapshot=normalizeLoaded(decision.kind==="first-run"?null:decision.snapshot);
+  bootSnapshot.program=makeProgram(bootSnapshot.program,snapshotLookup(bootSnapshot.customExercises),bootSnapshot.programMeta).toJSON();
+  bootSnapshot.programMeta=normalizeProgramMeta(bootSnapshot.programMeta,bootSnapshot.log,bootSnapshot.program);
+  publishTrainingSnapshot(bootSnapshot);
   resetPersistenceBase(decision.kind==="first-run"?state:decision.snapshot);
   await refreshRecoveryProjectionCache(state);
   await DraftStore.promote(null,draftContextFingerprint(state));
   day=days()[0]||"Day 1";
   applyGotoParam();
-  const migrated=migrateLog();
+  // An accepted cross-tab update may have arrived during the awaits above.
+  // Migrate a copy of the current published head, never the stale boot candidate.
+  const migratedSnapshot=cloneSnapshot(applicationSession.read());
+  const migrated=migrateLogSnapshot(migratedSnapshot);
+  if(migrated)publishTrainingSnapshot(migratedSnapshot);
   const metaDrift=decision.snapshot&&canonicalPayload({programMeta:decision.snapshot.programMeta})!==canonicalPayload({programMeta:state.programMeta});
   const revisionless=decision.snapshot&&!Object.prototype.hasOwnProperty.call(decision.snapshot,STORAGE_REV);
-  if(decision.kind==="first-run"||decision.migrate||revisionless||migrated||metaDrift||decision.recoveryChanged)await persist();
+  if(decision.kind==="first-run"||decision.migrate||revisionless||migrated||metaDrift||decision.recoveryChanged)await persistBootNormalization();
   if(I18N)I18N.setLang(resolveLang())}
 window.__repforgeSharedSetup={
   get status(){return sharedSetupDraft.status},
@@ -20456,9 +20466,10 @@ async function boot(){
       return;
     }
     if(!state){
-      state=normalizeLoaded(null);
-      prog=makeProgram(state.program,null,state.programMeta);state.program=prog.toJSON();
-      state.programMeta=normalizeProgramMeta(state.programMeta,state.log,state.program);
+      const recoveredSnapshot=normalizeLoaded(null);
+      recoveredSnapshot.program=makeProgram(recoveredSnapshot.program,snapshotLookup(recoveredSnapshot.customExercises),recoveredSnapshot.programMeta).toJSON();
+      recoveredSnapshot.programMeta=normalizeProgramMeta(recoveredSnapshot.programMeta,recoveredSnapshot.log,recoveredSnapshot.program);
+      publishTrainingSnapshot(recoveredSnapshot);
       resetPersistenceBase(state);day=days()[0]||"Day 1";
       if(I18N)I18N.setLang(resolveLang())}
     init();
@@ -20510,7 +20521,7 @@ function initializePersistenceOwners(){
     progression:PersistenceProgression,now,nextId:uid,language:I18N,digest:recoverySha256});
   ({normalizeMuscleAttribution,isValidMuscleDomainTree,isValidStoredMuscleField,isValidPlannedVolumeHistory,normalizeRecoveryCarrierSnapshot,isSafeProgressionFields,isSafeProgressionMeta,isSafeProgramHistoryEntry,isSafeLogRow,isSafeCustomExercise,isValidSetupActivationMarker,setupActivationMarker,setupActivationMatches,isValidStateShape,migrateLogSnapshot,defaultProgramMeta,normalizeProgramEntrySource,normalizeProgramMeta,normalizeLoadingConfiguration,withExplicitProgramStructure,normalizeProgramHistory,normalizeLoaded,normalizeNotify,normalizeSettings}=policy);
   DurableState=createDurableStore({snapshotPolicy:policy,workout,
-    session:{getState:()=>state,parseContext:workoutParseContext,blockStartGuard:blockStartDraftGuard,
+    session:{getState:applicationSession.read,parseContext:workoutParseContext,blockStartGuard:blockStartDraftGuard,
       onDraftRecovery:value=>{workoutDraftRecovery=value}},
     setup:{readRaw:readSetupDraftRaw,rebase:rebaseSharedSetupSnapshot},
     resolveCustomMutationIntent,onAccepted:applyAcceptedSnapshot,
