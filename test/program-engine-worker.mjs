@@ -405,7 +405,7 @@ async function main() {
     // The worker script does not load ------------------------------------
     {
       const { context, page, errors } = await open(browser, { contextOptions: { serviceWorkers: "block" } });
-      await page.route("**/program-engine.js*", (route) => route.fulfill({ status: 404, body: "gone" }));
+      await page.route("**/platform/program-worker.js*", (route) => route.fulfill({ status: 404, body: "gone" }));
       const before = await engineMode(page);
       check(before.mode === "main", "a worker script that fails to load falls back to the main thread", before);
       if (before.mode === "main") checkResults(await runCases(page, sample), "worker load failure");

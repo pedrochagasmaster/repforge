@@ -1,3 +1,7 @@
+import {createCatalog,CATALOG_URL} from './src/platform/catalog.js';
+import {create as createProgramExecutor,url as programWorkerUrl} from './src/platform/program-executor.js';
+import {createGenerationRules} from './src/training/generation.js';
+import {createEntryAdapter} from './src/training/authoring.js';
 import {createProgressOverview} from './src/ui/progress/overview.js';
 import {createHistoryController} from './src/ui/history/controller.js';
 import {groupHistoryRows,completeHistoryIndex,searchHistoryIndex} from './src/app/history-read-models.js';
@@ -79,16 +83,19 @@ function mountFallbackGestures() {
   return fallbackGestureController;
 }
 const KEY="repforge_v1",DRAFT="repforge_draft_v1",NOTIFY_META="repforge_notify_v1";
-const WorkoutDraft=window.RepForgeWorkoutDraft;
-const ExerciseCatalog=window.RepForgeExerciseCatalog;
-const ExerciseMetrics=window.RepForgeExerciseMetrics;
+const generationRules=createGenerationRules();
+const ProgramCompiler=generationRules.compiler;
+let WorkoutDraft=createWorkoutRules(null),ProgramEntry=createEntryRules(null);
+const ExerciseCatalog=createCatalog({identity:generationRules.identity,librarySource:window.RepForgeExercises,
+  fetcher:url=>window.fetch(url)});
+const ExerciseMetrics=PersistenceMetrics;
 let rawExerciseCatalog=null,exerciseCatalogError=null;
 function rawCatalogObject(id){return ExerciseCatalog?.getObject?.(String(id??""))||null}
 function rawExercise(id){return ExerciseCatalog?.getExercise?.(String(id??""))||null}
 function rawMetricDefinitions(...args){return TrainingModel.rawMetricDefinitions(...args)}
 async function loadExerciseCatalog(){
   if(!ExerciseCatalog?.load)return false;
-  try{rawExerciseCatalog=await ExerciseCatalog.load();exerciseCatalogError=null;return true}
+  try{rawExerciseCatalog=await ExerciseCatalog.load();WorkoutDraft=createWorkoutRules(rawExerciseCatalog);ProgramEntry=createEntryRules(rawExerciseCatalog);exerciseCatalogError=null;return true}
   catch(error){exerciseCatalogError=error;return false}}
 let exerciseCatalogRetryBusy=false;
 function showExerciseCatalogUnavailable(){
@@ -152,7 +159,7 @@ const SHARED_IMPORT="_sharedSetupImport";
 
 
 
-const MuscleDomain=window.RepForgeProgramEntry;
+const MuscleDomain=ProgramEntry;
 
 
 
@@ -1434,22 +1441,16 @@ const SHARED_BUILT_IN_IDS=new Set(EXERCISE_LIBRARY.map(e=>e.id));
 const SharedSetup=createSetupLinkCodec({metrics:ExerciseMetrics,identity:NativeGenerationIdentity,
   capabilities:{TextEncoder,TextDecoder,CompressionStream:window.CompressionStream,DecompressionStream:window.DecompressionStream,
     Blob,atob,btoa,document,location:window.location}});
-const ProgramCompiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
 /* #353: generation and Review regeneration run in the program engine's worker,
    which loads exactly the compiler, transition and catalog scripts this page
    did; without a worker the engine runs the same code on this thread. Created
    on first use, so a lifter who never generates never starts a worker. */
 let programEngineInstance=null;
 function createProgramEngineInstance(){
-  const Engine=typeof window!=="undefined"?window.RepForgeProgramEngine:null;
-  if(!Engine||!ProgramCompiler)return null;
-  const scripts=["exercise-metrics.js","generation-identity.js","generation-candidates.js","generation-layout.js","program-compiler.js","exercise-catalog.js","program-transition.js"].map(Engine.pageScript);
   const pin=window.RepForgeExercises?.catalogSha256;
-  return Engine.create({compiler:ProgramCompiler,transition:transitionDomain(),catalog:()=>rawExerciseCatalog,
-    worker:Engine.url&&scripts.every(Boolean)&&typeof pin==="string"?{url:Engine.url,scripts,catalogSha256:pin}:null})}
-function programEngine(){
-  if(programEngineInstance||!window.RepForgeProgramEngine||!ProgramCompiler)return programEngineInstance;
-  programEngineInstance=createProgramEngineInstance();return programEngineInstance}
+  return createProgramExecutor({compiler:ProgramCompiler,transition:generationRules.transition,catalog:()=>rawExerciseCatalog,
+    WorkerConstructor:window.Worker,worker:typeof pin==="string"?{url:programWorkerUrl,catalogUrl:CATALOG_URL,catalogSha256:pin}:null})}
+function programEngine(){return programEngineInstance||(programEngineInstance=createProgramEngineInstance())}
 if(typeof window!=="undefined")Object.defineProperty(window,"__repforgeProgramEngine",{configurable:true,get:programEngine});
 
 /* Custom exercises a lifter created. They live in state so they survive across
@@ -1704,7 +1705,7 @@ const editorSuggestLoadsPolicy=Object.freeze({
   eligibility(slot){
     if(!slot||slot.metricOrigin!=="source_catalog"||isCustomLibraryId(slot.exerciseId)||!rawExercise(slot.exerciseId))return"custom";
     const semantics=JSON.stringify((slot.metricDefinitions||[]).map(metric=>metric.semantic));
-    const supported=Object.values(window.RepForgeProgression?.SUPPORTED_SEMANTICS||{})
+    const supported=Object.values(PersistenceProgression?.SUPPORTED_SEMANTICS||{})
       .some(candidate=>JSON.stringify(candidate)===semantics);
     return supported?"eligible":"unsupported"},
   executionModeQuestion(slot){
@@ -4660,8 +4661,8 @@ function slotLoadingContext(slot){
     bodyweightContributionEnabled:coefficient>0&&bodyweight>0,bodyweightKg:bodyweight||null,
     executionMode,externalLoadMultiplier}}
 function recommendation(ex){
-  const compiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
-  const engine=typeof window!=="undefined"?window.RepForgeProgression:null;
+  const compiler=ProgramCompiler;
+  const engine=PersistenceProgression;
   const definition=state.programMeta?.programDefinition,matched=canonicalPrescriptionSlot(ex,definition);
   if(!compiler?.prescriptionsForCycle||!engine?.recommendSets||!matched)
     return{status:"manual",engineStatus:"manual",reason:"canonical_program_definition_required",load:null,targetSets:[]};
@@ -7814,8 +7815,7 @@ function classifyCommittedTransition(snapshot, proposal, archiveId) {
   return "conflict";
 }
 function transitionDomain(){
-  return typeof RepForgeProgramTransition!=="undefined"?RepForgeProgramTransition
-    :(typeof window!=="undefined"?window.RepForgeProgramTransition:null)}
+  return generationRules.transition}
 /* A Review change regenerates the program up to four times (the successor,
    its edit baseline, and both again when the proposal is checked); the engine
    runs each derivation in its worker. */
@@ -10263,7 +10263,7 @@ function progressionPairCompatible(id,prescription,program){
   for(const member of relation.members||[]){const slot=program.find(member.exerciseId);if(!slot)return false;
     const selected=member.exerciseId===id?prescription:progressionForExercise(slot);
     byRole[member.role]=`${selected?.strategy?.id}@${selected?.strategy?.version}`}
-  return RepForgeProgression.pairedExposureCompatibility({heavy:byRole.heavy,volume:byRole.volume}).compatible}
+  return PersistenceProgression.pairedExposureCompatibility({heavy:byRole.heavy,volume:byRole.volume}).compatible}
 
 function bindEditor(){
   $$("#programEditor [data-field]").forEach(inp=>{
@@ -10978,8 +10978,8 @@ async function shareSetupLinkNow(){
    Portuguese lifter still types "bench press" for a machine whose plate says
    so, and an English one still finds "supino". */
 const foldSearch=s=>String(s??"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
-const MUSCLE_TOKENS=window.RepForgeProgramEntry.MUSCLE_TOKENS;
-const PICKER_EQUIPMENT=window.RepForgeProgramEntry.KNOWN_EQUIPMENT;
+const MUSCLE_TOKENS=ProgramEntry.MUSCLE_TOKENS;
+const PICKER_EQUIPMENT=ProgramEntry.KNOWN_EQUIPMENT;
 /* Muscle filters lifters actually think in, each covering the tokens under it. */
 const PICKER_MUSCLE_GROUPS=Object.freeze([
   ["chest",["Chest"]],
@@ -13273,8 +13273,7 @@ function openImportChoice(ctx){const d=$("#importChoice");
 function mergeLog(s){return mergeImportedLog(s)}
 
 const SETUP_DRAFT_KEY="repforge_program_setup_draft_v1";
-const ProgramEntry=typeof window!=="undefined"?window.RepForgeProgramEntry:null;
-const ProgramEntryAdapter=typeof window!=="undefined"?window.RepForgeProgramEntryAdapter:null;
+const ProgramEntryAdapter=createEntryAdapter({compiler:ProgramCompiler});
 const ENTRY_MUSCLES=ProgramEntry.ENTRY_MUSCLES;
 const ENTRY_MOVEMENTS=ProgramEntry.ENTRY_MOVEMENTS;
 const ENTRY_ENVIRONMENTS=ProgramEntry.ENTRY_ENVIRONMENTS;
@@ -17732,7 +17731,7 @@ function landingList(values){
   try{return new Intl.ListFormat(landingLang()==="pt"?"pt-BR":"en-GB",{style:"long",type:"conjunction"}).format(items)}
   catch{return items.join(", ")}}
 function landingEvaluate(c){
-  const engine=typeof RepForgeProgression!=="undefined"?RepForgeProgression:null;
+  const engine=PersistenceProgression;
   const exercise=rawExercise(c.ex),definitions=rawMetricDefinitions(c.ex);
   if(!engine?.recommendSets||!exercise||!definitions?.length)return null;
   const loadMetric=definitions.find(definition=>definition.semantic==="loadKg");
