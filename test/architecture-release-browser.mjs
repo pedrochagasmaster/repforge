@@ -27,10 +27,13 @@ const release=assembleRelease(dir);
 let historical=false, blockAsset=false, blockedRequests=0;
 const oldWorker=`self.addEventListener('install',e=>e.waitUntil(self.skipWaiting()));self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;e.respondWith((async()=>{const c=await caches.open('repforge-v999');try{const r=await fetch(e.request);if(r.ok)await c.put(e.request,r.clone());return r;}catch{return await c.match(e.request)||new Response('offline',{status:503});}})());});`;
 const server=createServer((req,res)=>{
-  const path=new URL(req.url,'http://fixture').pathname.replace(/^\/scoped\//,'/');
+  const rawPath=new URL(req.url,'http://fixture').pathname;
+  // Match the production host's canonical index.html-to-directory redirect.
+  if(rawPath.endsWith('/index.html')){res.writeHead(302,{location:rawPath.slice(0,-10)});res.end();return;}
+  const path=rawPath.replace(/^\/scoped\//,'/');
   if(path==='/probe'){res.setHeader('content-type','text/html');res.end('<title>probe</title>');return;}
   if(path==='/sw.js'&&historical){res.setHeader('content-type','text/javascript');res.setHeader('cache-control','no-store');res.end(oldWorker);return;}
-  const file=join(dir,path==='/'?'index.html':path);
+  const file=join(dir,path.endsWith('/')?path+'index.html':path);
   if(blockAsset&&path.endsWith('/src/leaf.js')) blockedRequests++;
   if(!existsSync(file)||blockAsset&&path.endsWith('/src/leaf.js')){res.writeHead(503);res.end('unavailable');return;}
   res.setHeader('content-type',({'.js':'text/javascript','.html':'text/html','.css':'text/css','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'})[extname(file)]||'application/json');

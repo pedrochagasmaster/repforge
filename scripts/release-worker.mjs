@@ -15,13 +15,15 @@ self.addEventListener('install', event => event.waitUntil((async () => {
     // Sequential fetch keeps peak memory bounded on low-memory mobile devices.
     for (const [url,asset] of own) {
       try {
-        const response = await fetch(url,{cache:'no-store',redirect:'error'});
+        const html = new URL(url).pathname.endsWith('/index.html');
+        const response = await fetch(url,{cache:'no-store',redirect:html?'follow':'error'});
+        if (response.redirected && (!html || response.url !== url.slice(0,-10))) throw new Error('Unexpected release redirect');
         const type = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
         const path = new URL(url).pathname;
         const codeType = /\\.js$/.test(path) ? ['text/javascript','application/javascript','application/ecmascript','text/ecmascript','application/x-javascript'] : /\\.css$/.test(path) ? ['text/css'] : null;
         if (codeType && !codeType.includes(type)) throw new Error('Required release code has invalid MIME');
         if (!response.ok || await digest(await response.clone().arrayBuffer()) !== asset.sha256) throw new Error('Required release asset failed integrity');
-        await cache.put(url,response);
+        await cache.put(url,response.redirected ? new Response(response.body,{status:response.status,statusText:response.statusText,headers:response.headers}) : response);
       } catch(error) { if (!optional.has(url)) throw error; }
     }
   } catch(error) { await caches.delete(CACHE); throw error; }
