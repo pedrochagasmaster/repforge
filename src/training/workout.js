@@ -1,6 +1,8 @@
 import MetricDomain from "./metrics.js";
 import { createEntryRules } from "./authoring/internal/entry.js";
 /** Bind raw source validation to the verified immutable catalog; no storage or live state. */
+/** @import {JsonRecord,MetricDefinition,DomainError,MigrationError,Validation,Writer,Movement,LoadingModel,LoadingContext,ProgrammedSet,Edited,Touched,DraftSet,ProgrammedExercise,Substitution,DraftExercise,DraftProgram,ContextTouched,DraftSession,Draft,SaveIssue,CommandBase,ReplacementSpec,ReplacementProgram,ParsedDraft} from './workout-contracts.js' */
+/** @param {Parameters<typeof createEntryRules>[0]} catalog */
 export function createWorkoutRules(catalog) {
 "use strict";
 
@@ -13,7 +15,9 @@ const EDIT_FIELDS = new Set(["load", "reps", "rir", "effort"]);
 // migrateLegacy's only unambiguous flat-field -> metric-map mapping: see the
 // allowedFields loop below (issue #332). rir/effort are intentionally
 // absent; those stay on the flat edited fields for every slot.
+/** @type {Readonly<Record<string,string|undefined>>} */
 const LEGACY_METRIC_SEMANTIC = Object.freeze({ load: "loadKg", reps: "reps" });
+/** @type {Readonly<Record<string,number>>} */
 const EFFORT_RIR = Object.freeze({ easy: 3, hard: 1, max: 0 });
 const DECIMAL = /^\d+(?:\.\d+)?$/;
 const INTEGER = /^\d+$/;
@@ -39,46 +43,61 @@ const LOADING_CONVENTIONS = new Set(["external", "assistance", "per_side", "body
 
 if (!MetricDomain) throw new Error("RepForgeExerciseMetrics unavailable");
 
+/** @param {unknown} value */
 function isCanonicalMuscleAttribution(value) {
   return MuscleDomain?.isCanonicalMuscleAttribution?.(value) === true;
 }
 
+/** @param {unknown} value @param {unknown} key */
 function hasOwn(value, key) {
-  return Object.prototype.hasOwnProperty.call(value, key);
+  return Object.prototype.hasOwnProperty.call(value, /** @type {PropertyKey} */(key));
 }
 
+/** @template T @param {ReadonlySet<T>} allowed @param {unknown} value @returns {value is T} */
+function contains(allowed,value) { return allowed.has(/** @type {T} */(value)); }
+/** @template T @param {readonly T[]} allowed @param {unknown} value @returns {value is T} */
+function oneOf(allowed,value) { return allowed.some(item=>item===value); }
+
+/** @param {unknown} value @returns {value is JsonRecord} */
 function isPlainObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const prototype = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
 }
 
+/** @param {unknown} value @param {number} [min] @returns {value is number} */
 function isSafeInteger(value, min = 0) {
-  return Number.isSafeInteger(value) && value >= min;
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= min;
 }
 
+/** @param {unknown} value @param {{empty?:boolean,max?:number}} [options] @returns {value is string} */
 function isText(value, { empty = false, max = MAX_TEXT } = {}) {
   return typeof value === "string" && value.length <= max && (empty || value.length > 0);
 }
 
+/** @param {unknown} value @param {{empty?:boolean}} [options] @returns {value is string} */
 function isMuscleText(value, { empty = false } = {}) {
   return typeof value === "string" && [...value].length <= MAX_MUSCLE_ATTRIBUTION &&
     (empty || value.length > 0);
 }
 
+/** @param {unknown} value @param {number} [max] */
 function isOptionalText(value, max = MAX_TEXT) {
   return value == null || isText(value, { empty: true, max });
 }
 
+/** @param {unknown} value @param {unknown} programId */
 function isBlockId(value, programId) {
   return isText(value, { max: MAX_ID }) && value.trim().length > 0 &&
     (programId == null || value !== programId);
 }
 
+/** @template T @param {T} value @returns {T} */
 function jsonClone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+/** @template T @param {T} value @returns {T} */
 function deepFreeze(value) {
   if (!value || typeof value !== "object" || Object.isFrozen(value)) return value;
   Object.freeze(value);
@@ -86,18 +105,22 @@ function deepFreeze(value) {
   return value;
 }
 
+/** @param {string} code @param {JsonRecord} [details] @returns {DomainError} */
 function error(code, details) {
   return deepFreeze({ kind: "domain-error", code, ...(details || {}) });
 }
 
+/** @param {string} code @param {JsonRecord} [details] @returns {MigrationError} */
 function migrationError(code, details) {
   return deepFreeze({ kind: "migration-error", code, ...(details || {}) });
 }
 
+/** @param {unknown} value @returns {value is DomainError} */
 function isDomainError(value) {
-  return value?.kind === "domain-error";
+  return (/** @type {JsonRecord|null|undefined} */(value))?.kind === "domain-error";
 }
 
+/** @param {unknown} value */
 function editableText(value) {
   if (value == null) return null;
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
@@ -105,8 +128,12 @@ function editableText(value) {
   return undefined;
 }
 
+/** @overload @param {DraftExercise} exercise @returns {Movement} */
+/** @overload @param {JsonRecord} exercise @returns {JsonRecord} */
+/** @param {JsonRecord} exercise @returns {JsonRecord} */
 function snapshotFromExercise(exercise) {
-  const programmed = exercise.programmed;
+  const programmed = /** @type {JsonRecord} */(exercise.programmed);
+  /** @type {JsonRecord} */
   const snapshot = {
     exerciseInstanceId: exercise.exerciseInstanceId,
     sourceExerciseId: exercise.sourceExerciseId,
@@ -119,6 +146,7 @@ function snapshotFromExercise(exercise) {
   return snapshot;
 }
 
+/** @param {JsonRecord} left @param {JsonRecord} right */
 function movementSnapshotMatches(left, right) {
   const fields = [
     "exerciseInstanceId",
@@ -132,6 +160,7 @@ function movementSnapshotMatches(left, right) {
   return fields.every((field) => (left[field] ?? null) === (right[field] ?? null));
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues */
 function validateMovementSnapshot(value, path, issues) {
   if (!isPlainObject(value)) {
     issues.push(`${path}:object`);
@@ -154,6 +183,7 @@ function validateMovementSnapshot(value, path, issues) {
   }
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues */
 function validateWriter(value, path, issues) {
   if (!isPlainObject(value)) {
     issues.push(`${path}:object`);
@@ -164,10 +194,12 @@ function validateWriter(value, path, issues) {
   }
 }
 
+/** @returns {ContextTouched} */
 function emptyContextTouched() {
   return { day: false, date: false, sessionNotes: false, bodyweight: false };
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues */
 function validateContextTouched(value, path, issues) {
   if (!isPlainObject(value)) {
     issues.push(`${path}:object`);
@@ -181,6 +213,7 @@ function validateContextTouched(value, path, issues) {
   }
 }
 
+/** @param {unknown} value */
 function contextTouchedForCreate(value) {
   if (value == null) return emptyContextTouched();
   if (!isPlainObject(value) || Object.keys(value).some((field) => !CONTEXT_TOUCHED_FIELDS.includes(field)) ||
@@ -188,6 +221,7 @@ function contextTouchedForCreate(value) {
   return Object.fromEntries(CONTEXT_TOUCHED_FIELDS.map((field) => [field, value[field]]));
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues */
 function validateTouched(value, path, issues) {
   if (!isPlainObject(value)) {
     issues.push(`${path}:object`);
@@ -198,6 +232,7 @@ function validateTouched(value, path, issues) {
   }
 }
 
+/** @param {unknown} metrics @param {string} path @param {string[]} issues @param {{allowEmpty?:boolean}} [options] */
 function validateMetricRecords(metrics, path, issues, { allowEmpty = true } = {}) {
   if (!Array.isArray(metrics) || metrics.length > 16) {
     issues.push(`${path}:array`);
@@ -209,6 +244,7 @@ function validateMetricRecords(metrics, path, issues, { allowEmpty = true } = {}
   return ids;
 }
 
+/** @param {unknown} value @param {unknown[]} ids @param {string} path @param {string[]} issues @param {{booleanValues?:boolean}} [options] */
 function validateMetricMap(value, ids, path, issues, { booleanValues = false } = {}) {
   if (!isPlainObject(value)) {
     issues.push(`${path}:object`);
@@ -226,6 +262,7 @@ function validateMetricMap(value, ids, path, issues, { booleanValues = false } =
   }
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues @param {unknown} [fallbackConvention] */
 function validateLoadingContext(value, path, issues, fallbackConvention = null) {
   if (!isPlainObject(value)) {
     issues.push(`${path}:object`);
@@ -237,7 +274,7 @@ function validateLoadingContext(value, path, issues, fallbackConvention = null) 
   if (hasOwn(value, "executionMode") && value.executionMode !== "bilateral" && value.executionMode !== "unilateral") {
     issues.push(`${path}.executionMode`);
   }
-  if (hasOwn(value, "loadingConvention") && !LOADING_CONVENTIONS.has(value.loadingConvention)) {
+  if (hasOwn(value, "loadingConvention") && !contains(LOADING_CONVENTIONS,value.loadingConvention)) {
     issues.push(`${path}.loadingConvention`);
   }
   const convention = value.loadingConvention ?? fallbackConvention;
@@ -273,6 +310,7 @@ function validateLoadingContext(value, path, issues, fallbackConvention = null) 
   }
 }
 
+/** @param {unknown} libraryId */
 function rawCatalogExercise(libraryId) {
   if (!isText(libraryId, { max: MAX_ID })) return null;
   try {
@@ -287,13 +325,15 @@ function rawCatalogExercise(libraryId) {
 // its contract) validate against the same raw catalog the page loads.
 
 
+/** @param {unknown[]} metricDefinitions */
 function expectedLoadingConvention(metricDefinitions) {
-  const semantics = new Set((metricDefinitions || []).map(metric => metric?.semantic));
+  const semantics = new Set((metricDefinitions || []).map(metric => (/** @type {JsonRecord|null|undefined} */(metric))?.semantic));
   return semantics.has("assistanceKg") ? "assistance"
     : semantics.has("loadPerSideKg") || semantics.has("persistentLoadPerSideKg") ? "per_side"
       : metricDefinitions?.length === 1 && (semantics.has("reps") || semantics.has("repsPerSide")) ? "bodyweight" : "external";
 }
 
+/** @param {JsonRecord} source @param {JsonRecord} spec @param {unknown} convention @param {unknown} loadingModel */
 function loadingContextForProgram(source, spec, convention, loadingModel) {
   const input = isPlainObject(spec?.loadingContext) ? spec.loadingContext
     : isPlainObject(source?.loadingContext) ? source.loadingContext : null;
@@ -305,11 +345,12 @@ function loadingContextForProgram(source, spec, convention, loadingModel) {
     context.externalLoadMultiplier = convention === "per_side" ? null : convention === "bodyweight" ? 0 : 1;
   }
   if (!hasOwn(context, "bodyweightCoefficient") && hasOwn(loadingModel || {}, "bodyweightCoefficient")) {
-    context.bodyweightCoefficient = loadingModel.bodyweightCoefficient;
+    context.bodyweightCoefficient = (/** @type {JsonRecord} */(loadingModel)).bodyweightCoefficient;
   }
   return context;
 }
 
+/** @param {{metricOrigin?:unknown,metricIds?:unknown,metricDefinitions?:unknown,sourceLibraryId?:unknown,loadingModel?:unknown,loadingConvention?:unknown,loadingContext?:unknown}} binding @param {string} path @param {string[]} issues */
 function metricProgramBinding({
   metricOrigin,
   metricIds,
@@ -321,17 +362,17 @@ function metricProgramBinding({
 }, path, issues) {
   if (!Array.isArray(metricIds) || !Array.isArray(metricDefinitions)) return;
   if (!isText(sourceLibraryId, { max: MAX_ID })) issues.push(`${path}.sourceLibraryId`);
-  if (! ["source_catalog", "user_defined"].includes(metricOrigin)) issues.push(`${path}.metricOrigin`);
+  if (! oneOf(["source_catalog", "user_defined"],metricOrigin)) issues.push(`${path}.metricOrigin`);
   if (!isPlainObject(loadingModel)) issues.push(`${path}.loadingModel`);
-  if (!LOADING_CONVENTIONS.has(loadingConvention)) issues.push(`${path}.loadingConvention`);
+  if (!contains(LOADING_CONVENTIONS,loadingConvention)) issues.push(`${path}.loadingConvention`);
   if (!isPlainObject(loadingContext)) issues.push(`${path}.loadingContext`);
   else {
     validateLoadingContext(loadingContext, `${path}.loadingContext`, issues, loadingConvention);
     if (loadingContext.loadingConvention !== loadingConvention) issues.push(`${path}.loadingContext.loadingConvention`);
     if (!hasOwn(loadingContext, "bodyweightCoefficient")) issues.push(`${path}.loadingContext.bodyweightCoefficient`);
   }
-  const coefficient = loadingModel?.bodyweightCoefficient ?? null;
-  if ((loadingContext?.bodyweightCoefficient ?? null) !== coefficient) issues.push(`${path}.loadingCoefficientMismatch`);
+  const coefficient = (/** @type {JsonRecord|null|undefined} */(loadingModel))?.bodyweightCoefficient ?? null;
+  if (((/** @type {JsonRecord|null|undefined} */(loadingContext))?.bodyweightCoefficient ?? null) !== coefficient) issues.push(`${path}.loadingCoefficientMismatch`);
   const definitions = MetricDomain.validateDefinitions(metricIds, metricDefinitions, { allowEmpty: true });
   issues.push(...definitions.issues.map(issue => `${path}.${issue}`));
   const expectedConvention = expectedLoadingConvention(metricDefinitions);
@@ -347,6 +388,7 @@ function metricProgramBinding({
   issues.push(...binding.issues.map(issue => `${path}.${issue}`));
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues */
 function validateProgrammedSet(value, path, issues) {
   if (!isPlainObject(value)) {
     issues.push(`${path}:object`);
@@ -377,23 +419,23 @@ function validateProgrammedSet(value, path, issues) {
   if (hasOwn(value, "sourceLibraryId") && !isText(value.sourceLibraryId, { max: MAX_ID })) {
     issues.push(`${path}.sourceLibraryId`);
   }
-  if (hasOwn(value, "metricOrigin") && !["source_catalog", "user_defined"].includes(value.metricOrigin)) {
+  if (hasOwn(value, "metricOrigin") && !oneOf(["source_catalog", "user_defined"],value.metricOrigin)) {
     issues.push(`${path}.metricOrigin`);
   }
   if (hasOwn(value, "loadingModel") && (!isPlainObject(value.loadingModel) ||
-    Object.keys(value.loadingModel).some(key => !["bodyweightCoefficient", "assistanceDirection"].includes(key)) ||
+    Object.keys(value.loadingModel).some(key => !oneOf(["bodyweightCoefficient", "assistanceDirection"],key)) ||
     (hasOwn(value.loadingModel, "bodyweightCoefficient") && value.loadingModel.bodyweightCoefficient !== null &&
       (typeof value.loadingModel.bodyweightCoefficient !== "number" || !Number.isFinite(value.loadingModel.bodyweightCoefficient) ||
         value.loadingModel.bodyweightCoefficient < 0 || value.loadingModel.bodyweightCoefficient > 1)) ||
-    (hasOwn(value.loadingModel, "assistanceDirection") && !["subtract", null].includes(value.loadingModel.assistanceDirection)))) {
+    (hasOwn(value.loadingModel, "assistanceDirection") && !oneOf(["subtract", null],value.loadingModel.assistanceDirection)))) {
     issues.push(`${path}.loadingModel`);
   }
-  if (hasOwn(value, "loadingConvention") && !LOADING_CONVENTIONS.has(value.loadingConvention)) {
+  if (hasOwn(value, "loadingConvention") && !contains(LOADING_CONVENTIONS,value.loadingConvention)) {
     issues.push(`${path}.loadingConvention`);
   }
   if (hasOwn(value, "loadingContext")) {
     validateLoadingContext(value.loadingContext, `${path}.loadingContext`, issues, value.loadingConvention ?? null);
-    if (value.loadingContext?.loadingConvention !== value.loadingConvention) {
+    if ((/** @type {JsonRecord|null|undefined} */(value.loadingContext))?.loadingConvention !== value.loadingConvention) {
       issues.push(`${path}.loadingContext.loadingConvention`);
     }
   }
@@ -402,6 +444,7 @@ function validateProgrammedSet(value, path, issues) {
   }
 }
 
+/** @param {unknown} value @param {unknown} setId @param {string} path @param {string[]} issues */
 function validateSet(value, setId, path, issues) {
   if (!isPlainObject(value)) {
     issues.push(`${path}:object`);
@@ -409,7 +452,7 @@ function validateSet(value, setId, path, issues) {
   }
   if (value.setId !== setId || !isText(value.setId, { max: MAX_ID })) issues.push(`${path}.setId`);
   if (!isSafeInteger(value.ordinal, 1)) issues.push(`${path}.ordinal`);
-  if (!SET_ROLES.has(value.role)) issues.push(`${path}.role`);
+  if (!contains(SET_ROLES,value.role)) issues.push(`${path}.role`);
   validateProgrammedSet(value.programmed, `${path}.programmed`, issues);
   if (!isPlainObject(value.edited)) issues.push(`${path}.edited:object`);
   else {
@@ -418,10 +461,10 @@ function validateSet(value, setId, path, issues) {
     }
   }
   validateTouched(value.touched, `${path}.touched`, issues);
-  if (Array.isArray(value.programmed?.metrics)) {
-    const ids = value.programmed.metrics.map(metric => metric?.id);
-    validateMetricMap(value.edited?.metrics, ids, `${path}.edited.metrics`, issues);
-    validateMetricMap(value.touched?.metrics, ids, `${path}.touched.metrics`, issues, { booleanValues: true });
+  if (Array.isArray((/** @type {JsonRecord|null|undefined} */(value.programmed))?.metrics)) {
+    const ids = (/** @type {JsonRecord} */(value.programmed)).metrics.map((/** @type {JsonRecord|null|undefined} */ metric) => metric?.id);
+    validateMetricMap((/** @type {JsonRecord|null|undefined} */(value.edited))?.metrics, ids, `${path}.edited.metrics`, issues);
+    validateMetricMap((/** @type {JsonRecord|null|undefined} */(value.touched))?.metrics, ids, `${path}.touched.metrics`, issues, { booleanValues: true });
   } else if (hasOwn(value.edited || {}, "metrics") || hasOwn(value.touched || {}, "metrics")) {
     issues.push(`${path}.metrics:without-definitions`);
   }
@@ -433,6 +476,7 @@ function validateSet(value, setId, path, issues) {
   if (hasOwn(value, "performed")) validateMovementSnapshot(value.performed, `${path}.performed`, issues);
 }
 
+/** @param {unknown} value @param {string} path @param {string[]} issues */
 function validateProgrammedExercise(value, path, issues) {
   if (!isPlainObject(value)) {
     issues.push(`${path}:object`);
@@ -463,26 +507,26 @@ function validateProgrammedExercise(value, path, issues) {
   if (!isOptionalText(value.progressionStrategy, 240)) issues.push(`${path}.progressionStrategy`);
   if (!isOptionalText(value.movementPattern, 240)) issues.push(`${path}.movementPattern`);
   if (hasOwn(value, "loadingModel") && (!isPlainObject(value.loadingModel) ||
-    Object.keys(value.loadingModel).some(key => !["bodyweightCoefficient", "assistanceDirection"].includes(key)) ||
+    Object.keys(value.loadingModel).some(key => !oneOf(["bodyweightCoefficient", "assistanceDirection"],key)) ||
     (hasOwn(value.loadingModel, "bodyweightCoefficient") &&
       value.loadingModel.bodyweightCoefficient !== null &&
       (typeof value.loadingModel.bodyweightCoefficient !== "number" || !Number.isFinite(value.loadingModel.bodyweightCoefficient) || value.loadingModel.bodyweightCoefficient < 0 || value.loadingModel.bodyweightCoefficient > 1)) ||
-    (hasOwn(value.loadingModel, "assistanceDirection") && !["subtract", null].includes(value.loadingModel.assistanceDirection)))) {
+    (hasOwn(value.loadingModel, "assistanceDirection") && !oneOf(["subtract", null],value.loadingModel.assistanceDirection)))) {
     issues.push(`${path}.loadingModel`);
   }
-  if (hasOwn(value, "metricOrigin") && !["source_catalog", "user_defined"].includes(value.metricOrigin)) {
+  if (hasOwn(value, "metricOrigin") && !oneOf(["source_catalog", "user_defined"],value.metricOrigin)) {
     issues.push(`${path}.metricOrigin`);
   }
   if (hasOwn(value, "equipmentId") && value.equipmentId != null && !isText(value.equipmentId, { max: MAX_ID })) issues.push(`${path}.equipmentId`);
-  if (hasOwn(value, "loadingConvention") && !LOADING_CONVENTIONS.has(value.loadingConvention)) issues.push(`${path}.loadingConvention`);
+  if (hasOwn(value, "loadingConvention") && !contains(LOADING_CONVENTIONS,value.loadingConvention)) issues.push(`${path}.loadingConvention`);
   if (hasOwn(value, "loadingContext")) {
     validateLoadingContext(value.loadingContext, `${path}.loadingContext`, issues, value.loadingConvention ?? null);
-    if (value.loadingContext?.loadingConvention != null && value.loadingContext.loadingConvention !== value.loadingConvention) {
+    if ((/** @type {JsonRecord|null|undefined} */(value.loadingContext))?.loadingConvention != null && (/** @type {JsonRecord} */(value.loadingContext)).loadingConvention !== value.loadingConvention) {
       issues.push(`${path}.loadingContext.loadingConvention`);
     }
   }
-  const modelCoefficient = value.loadingModel?.bodyweightCoefficient ?? null;
-  const contextCoefficient = value.loadingContext?.bodyweightCoefficient ?? null;
+  const modelCoefficient = (/** @type {JsonRecord|null|undefined} */(value.loadingModel))?.bodyweightCoefficient ?? null;
+  const contextCoefficient = (/** @type {JsonRecord|null|undefined} */(value.loadingContext))?.bodyweightCoefficient ?? null;
   if (modelCoefficient !== contextCoefficient) issues.push(`${path}.loadingCoefficientMismatch`);
   if (hasOwn(value, "restSeconds") && value.restSeconds != null &&
     (!isSafeInteger(value.restSeconds) || value.restSeconds > 86400)) issues.push(`${path}.restSeconds`);
@@ -492,6 +536,7 @@ function validateProgrammedExercise(value, path, issues) {
   }
 }
 
+/** @param {unknown} value @param {unknown} exerciseId @param {string} path @param {string[]} issues */
 function validateExercise(value, exerciseId, path, issues) {
   if (!isPlainObject(value)) {
     issues.push(`${path}:object`);
@@ -507,7 +552,7 @@ function validateExercise(value, exerciseId, path, issues) {
     else {
       validateMovementSnapshot(value.substitution.original, `${path}.substitution.original`, issues);
       validateMovementSnapshot(value.substitution.replacement, `${path}.substitution.replacement`, issues);
-      if (Object.keys(value.substitution).some(key => !["original", "replacement", "selectedAt", "originalPendingSets"].includes(key))) {
+      if (Object.keys(value.substitution).some(key => !oneOf(["original", "replacement", "selectedAt", "originalPendingSets"],key))) {
         issues.push(`${path}.substitution:unknown-field`);
       }
       if (isPlainObject(value.substitution.original) && isPlainObject(value.programmed) &&
@@ -530,20 +575,20 @@ function validateExercise(value, exerciseId, path, issues) {
   const keys = Object.keys(value.sets);
   if (keys.length !== value.setOrder.length || keys.some((id) => !unique.has(id))) issues.push(`${path}.sets:coverage`);
   value.setOrder.forEach((setId, index) => {
-    const set = value.sets[setId];
+    const set = /** @type {JsonRecord|null|undefined} */((/** @type {JsonRecord} */(value.sets))[setId]);
     validateSet(set, setId, `${path}.sets.${setId}`, issues);
     if (set?.ordinal !== index + 1) issues.push(`${path}.sets.${setId}.ordinalOrder`);
-    if (Array.isArray(set?.programmed?.metrics)) {
-      const source = value.programmed || {};
-      const sourceLibraryId = set.programmed.sourceLibraryId ?? source.sourceLibraryId ?? value.libraryId;
-      const metricOrigin = set.programmed.metricOrigin ?? source.metricOrigin;
-      const loadingModel = set.programmed.loadingModel ?? source.loadingModel;
-      const loadingConvention = set.programmed.loadingConvention ?? source.loadingConvention;
-      const loadingContext = set.programmed.loadingContext ?? source.loadingContext;
+    if (Array.isArray((/** @type {JsonRecord|null|undefined} */(set?.programmed))?.metrics)) {
+      const source = /** @type {JsonRecord} */(value.programmed || {});
+      const sourceLibraryId = (/** @type {JsonRecord} */(set?.programmed)).sourceLibraryId ?? source.sourceLibraryId ?? value.libraryId;
+      const metricOrigin = (/** @type {JsonRecord} */(set?.programmed)).metricOrigin ?? source.metricOrigin;
+      const loadingModel = (/** @type {JsonRecord} */(set?.programmed)).loadingModel ?? source.loadingModel;
+      const loadingConvention = (/** @type {JsonRecord} */(set?.programmed)).loadingConvention ?? source.loadingConvention;
+      const loadingContext = (/** @type {JsonRecord} */(set?.programmed)).loadingContext ?? source.loadingContext;
       metricProgramBinding({
         metricOrigin,
-        metricIds: set.programmed.metricIds,
-        metricDefinitions: set.programmed.metrics,
+        metricIds: (/** @type {JsonRecord} */(set?.programmed)).metricIds,
+        metricDefinitions: (/** @type {JsonRecord} */(set?.programmed)).metrics,
         sourceLibraryId,
         loadingModel,
         loadingConvention,
@@ -551,7 +596,7 @@ function validateExercise(value, exerciseId, path, issues) {
       }, `${path}.sets.${setId}.programmed`, issues);
     }
   });
-  const originalPendingSets = value.substitution?.originalPendingSets;
+  const originalPendingSets = (/** @type {JsonRecord|null|undefined} */(value.substitution))?.originalPendingSets;
   if (isPlainObject(originalPendingSets)) {
     if (Object.keys(originalPendingSets).some(setId => !unique.has(setId)) ||
       Object.values(originalPendingSets).some(set => !isPlainObject(set))) {
@@ -561,15 +606,16 @@ function validateExercise(value, exerciseId, path, issues) {
       validateSet(set, setId, `${path}.substitution.originalPendingSets.${setId}`, issues);
     }
   }
-  if (value.setOrder.some(setId => Array.isArray(value.sets[setId]?.programmed?.metrics)) &&
-    !["source_catalog", "user_defined"].includes(value.programmed?.metricOrigin)) {
+  if (value.setOrder.some(setId => Array.isArray((/** @type {{programmed?:JsonRecord}|null|undefined} */((/** @type {JsonRecord} */(value.sets))[setId]))?.programmed?.metrics)) &&
+    !oneOf(["source_catalog", "user_defined"],(/** @type {JsonRecord|null|undefined} */(value.programmed))?.metricOrigin)) {
     issues.push(`${path}.programmed.metricOrigin:required-for-metric-composition`);
   }
-  if (value.programmed?.sets !== value.setOrder.length) issues.push(`${path}.programmed.sets:coverage`);
+  if ((/** @type {JsonRecord|null|undefined} */(value.programmed))?.sets !== value.setOrder.length) issues.push(`${path}.programmed.sets:coverage`);
 }
 
+/** @param {unknown} value */
 function structuralIssues(value) {
-  const issues = [];
+  /** @type {string[]} */ const issues = [];
   if (!isPlainObject(value)) return ["draft:object"];
   if (value.schemaVersion !== SCHEMA_VERSION) issues.push("schemaVersion");
   if (!isText(value.draftId, { max: MAX_ID })) issues.push("draftId");
@@ -587,8 +633,8 @@ function structuralIssues(value) {
       issues.push("program.blockId");
     }
     if (!isSafeInteger(value.program.durableRevision)) issues.push("program.durableRevision");
-    if (!UNITS.has(value.program.unit)) issues.push("program.unit");
-    if (!RIR_MODES.has(value.program.rirMode)) issues.push("program.rirMode");
+    if (!contains(UNITS,value.program.unit)) issues.push("program.unit");
+    if (!contains(RIR_MODES,value.program.rirMode)) issues.push("program.rirMode");
   }
   if (!isPlainObject(value.session)) issues.push("session:object");
   else {
@@ -598,7 +644,7 @@ function structuralIssues(value) {
     if (!isOptionalText(value.session.bodyweight, 64)) issues.push("session.bodyweight");
     if (!isText(value.session.notes, { empty: true })) issues.push("session.notes");
     if (!isOptionalText(value.session.selectedExerciseId, MAX_ID)) issues.push("session.selectedExerciseId");
-    if (!STATUS.has(value.session.status)) issues.push("session.status");
+    if (!contains(STATUS,value.session.status)) issues.push("session.status");
     validateContextTouched(value.session.contextTouched, "session.contextTouched", issues);
   }
   if (!Array.isArray(value.exerciseOrder)) issues.push("exerciseOrder");
@@ -609,17 +655,19 @@ function structuralIssues(value) {
   const keys = Object.keys(value.exercises);
   if (keys.length !== value.exerciseOrder.length || keys.some((id) => !unique.has(id))) issues.push("exercises:coverage");
   value.exerciseOrder.forEach((exerciseId) => {
-    validateExercise(value.exercises[exerciseId], exerciseId, `exercises.${exerciseId}`, issues);
+    validateExercise((/** @type {JsonRecord} */(value.exercises))[exerciseId], exerciseId, `exercises.${exerciseId}`, issues);
   });
-  if (value.session?.selectedExerciseId != null && !unique.has(value.session.selectedExerciseId)) issues.push("session.selectedExerciseId:unknown");
+  if ((/** @type {JsonRecord|null|undefined} */(value.session))?.selectedExerciseId != null && !unique.has((/** @type {JsonRecord} */(value.session)).selectedExerciseId)) issues.push("session.selectedExerciseId:unknown");
   return issues;
 }
 
+/** @param {unknown} value @returns {Validation} */
 function validate(value) {
   const issues = structuralIssues(value);
   return issues.length ? { ok: false, issues } : { ok: true };
 }
 
+/** @param {unknown} previousSessionFacts @returns {Map<unknown,unknown>} */
 function previousByExercise(previousSessionFacts) {
   if (Array.isArray(previousSessionFacts)) {
     return new Map(previousSessionFacts.map((item) => [item?.exerciseInstanceId, item]));
@@ -628,6 +676,7 @@ function previousByExercise(previousSessionFacts) {
   return new Map();
 }
 
+/** @template T @param {T} value @returns {{value:T|number,clamped:boolean}} */
 function clampLegacyTargetRir(value) {
   if (typeof value !== "number" || !Number.isFinite(value) ||
     value <= MAX_TARGET_RIR || value > LEGACY_TARGET_RIR_CLAMP_CEILING) {
@@ -636,6 +685,7 @@ function clampLegacyTargetRir(value) {
   return { value: MAX_TARGET_RIR, clamped: true };
 }
 
+/** @param {unknown} programContext @param {unknown} sessionSelection @param {unknown} [previousSessionFacts] @returns {Draft|DomainError} */
 function create(programContext, sessionSelection, previousSessionFacts) {
   if (!isPlainObject(programContext) || !isPlainObject(sessionSelection) || !Array.isArray(programContext.exercises)) {
     return error("invalid-create-input");
@@ -644,9 +694,10 @@ function create(programContext, sessionSelection, previousSessionFacts) {
   if (!contextTouched) return error("invalid-create-context-touched");
   const prior = previousByExercise(previousSessionFacts);
   const exerciseOrder = [];
+  /** @type {Record<string,JsonRecord>} */
   const exercises = Object.create(null);
   for (let index = 0; index < programContext.exercises.length; index++) {
-    const source = programContext.exercises[index];
+    const source = /** @type {unknown} */(programContext.exercises[index]);
     if (!isPlainObject(source)) return error("invalid-create-exercise", { index });
     const exerciseInstanceId = source.exerciseInstanceId;
     const sourceExerciseId = source.sourceExerciseId;
@@ -656,24 +707,25 @@ function create(programContext, sessionSelection, previousSessionFacts) {
       return error("invalid-create-exercise", { index });
     }
     if (hasOwn(exercises, exerciseInstanceId)) return error("duplicate-exercise-id", { exerciseInstanceId });
-    const previous = prior.get(exerciseInstanceId);
+    const previous = /** @type {JsonRecord|null|undefined} */(prior.get(exerciseInstanceId));
     const previousSets = Array.isArray(previous?.sets) ? previous.sets : [];
-    const specifications = Array.isArray(source.programmedSets) ? source.programmedSets : [];
+    const specifications = /** @type {JsonRecord[]} */(Array.isArray(source.programmedSets) ? source.programmedSets : []);
     const hasMetricDefinitions = Array.isArray(source.metricDefinitions) ||
       specifications.some(spec => Array.isArray(spec?.metricDefinitions));
-    if (source.metricOrigin != null && !["source_catalog", "user_defined"].includes(source.metricOrigin)) {
+    if (source.metricOrigin != null && !oneOf(["source_catalog", "user_defined"],source.metricOrigin)) {
       return error("invalid-create-metric-origin", { exerciseInstanceId });
     }
-    if (hasMetricDefinitions && !["source_catalog", "user_defined"].includes(source.metricOrigin)) {
+    if (hasMetricDefinitions && !oneOf(["source_catalog", "user_defined"],source.metricOrigin)) {
       return error("missing-create-metric-origin", { exerciseInstanceId });
     }
     const setOrder = [];
+    /** @type {Record<string,JsonRecord>} */
     const sets = Object.create(null);
     for (let ordinal = 1; ordinal <= setCount; ordinal++) {
       const setId = source.setIds[ordinal - 1];
       if (!isText(setId, { max: MAX_ID }) || hasOwn(sets, setId)) return error("invalid-create-set-id", { exerciseInstanceId, ordinal });
       const spec = specifications[ordinal - 1] || {};
-      const old = previousSets.find((item) => item?.ordinal === ordinal || item?.set === ordinal) || previousSets[ordinal - 1] || {};
+      const old = /** @type {JsonRecord} */(previousSets.find((/** @type {JsonRecord|null|undefined} */ item) => item?.ordinal === ordinal || item?.set === ordinal) || previousSets[ordinal - 1] || {});
       const suggestedLoad = spec.suggestedLoad ?? source.suggestedLoad ?? old.load ?? null;
       const suggestedReps = spec.suggestedReps ?? source.suggestedReps ?? old.reps ?? source.minReps;
       // `old.rir` is the lifter's own previously logged RIR for this set,
@@ -689,30 +741,32 @@ function create(programContext, sessionSelection, previousSessionFacts) {
         ? spec.metricDefinitions
         : Array.isArray(source.metricDefinitions) ? source.metricDefinitions : null;
       const targets = isPlainObject(spec.targets) ? spec.targets : isPlainObject(source.targets) ? source.targets : {};
-      const metricIds = metricDefinitions ? metricDefinitions.map(metric => metric?.id) : null;
+      const metricIds = metricDefinitions ? metricDefinitions.map((/** @type {JsonRecord|null|undefined} */ metric) => metric?.id) : null;
       if (metricDefinitions) {
         const checkedDefinitions = MetricDomain.validateDefinitions(metricIds, metricDefinitions, { allowEmpty: true });
         if (!checkedDefinitions.ok) return error("invalid-create-metric", { exerciseInstanceId, ordinal, issues: checkedDefinitions.issues });
         const checkedTargets = MetricDomain.validateTargets(metricIds, targets);
         if (!checkedTargets.ok) return error("invalid-create-metric-targets", { exerciseInstanceId, ordinal, issues: checkedTargets.issues });
       }
+      /** @type {Record<string,string|null>} */
       const editedMetrics = Object.create(null);
       const programmedMetrics = [];
       for (const metric of metricDefinitions || []) {
         const checkedMetric = MetricDomain.validateMetricDefinition(metric);
         if (!checkedMetric.ok) return error("invalid-create-metric", { exerciseInstanceId, ordinal, issues: checkedMetric.issues });
         programmedMetrics.push(checkedMetric.value);
-        const oldMetric = (old.metricValues || []).find(item => item?.metricId === metric.id) ||
-          (old.metrics || []).find(item => item?.id === metric.id);
+        const oldMetric = (/** @type {JsonRecord[]} */(old.metricValues || [])).find((/** @type {JsonRecord|null|undefined} */ item) => item?.metricId === metric.id) ||
+          (/** @type {JsonRecord[]} */(old.metrics || [])).find((/** @type {JsonRecord|null|undefined} */ item) => item?.id === metric.id);
         editedMetrics[metric.id] = editableText(oldMetric?.value) ?? null;
       }
+      /** @type {JsonRecord} */
       const programmedSet = {
         suggestedLoad: suggestedLoad == null ? null : Number(suggestedLoad),
         minReps: spec.minReps ?? source.minReps,
         maxReps: spec.maxReps ?? source.maxReps,
         targetRir: targetRirClamp.value,
         ...(targetRirClamp.clamped ? { targetRirClamped: true } : {}),
-        ...(metricDefinitions ? { metricType: "source_metrics@1", metricIds: [...metricIds], metrics: programmedMetrics,
+        ...(metricDefinitions ? { metricType: "source_metrics@1", metricIds: [.../** @type {unknown[]} */(metricIds)], metrics: programmedMetrics,
           targets: jsonClone(targets) } : {}),
         restSeconds: spec.restSeconds ?? source.restSeconds ?? null,
       };
@@ -749,6 +803,7 @@ function create(programContext, sessionSelection, previousSessionFacts) {
       setOrder.push(setId);
     }
     const exerciseTargetRirClamp = clampLegacyTargetRir(source.targetRir ?? null);
+    /** @type {JsonRecord} */
     const programmed = {
       order: index,
       sets: setCount,
@@ -785,7 +840,7 @@ function create(programContext, sessionSelection, previousSessionFacts) {
     exerciseOrder.push(exerciseInstanceId);
     exercises[exerciseInstanceId] = exercise;
   }
-  const writer = sessionSelection.writer;
+  const writer = /** @type {JsonRecord|null|undefined} */(sessionSelection.writer);
   const draft = {
     schemaVersion: SCHEMA_VERSION,
     draftId: sessionSelection.draftId,
@@ -817,17 +872,19 @@ function create(programContext, sessionSelection, previousSessionFacts) {
     exerciseOrder,
     exercises,
   };
-  if (hasOwn(programContext, "blockId")) draft.program.blockId = programContext.blockId;
+  if (hasOwn(programContext, "blockId")) (/** @type {JsonRecord} */(draft.program)).blockId = programContext.blockId;
   const checked = validate(draft);
-  return checked.ok ? deepFreeze(draft) : error("invalid-created-draft", { issues: checked.issues });
+  return checked.ok ? deepFreeze(/** @type {Draft} */(draft)) : error("invalid-created-draft", { issues: checked.issues });
 }
 
+/** @param {unknown} value */
 function looksLegacy(value) {
   if (!isPlainObject(value) || hasOwn(value, "schemaVersion")) return false;
   const keys = Object.keys(value);
   return keys.some((key) => key.startsWith("__") || /_(?:load|reps|rir|effort)$/.test(key));
 }
 
+/** @param {Draft} draft @param {unknown} context */
 function contextMismatch(draft, context) {
   if (!isPlainObject(context)) return null;
   const fields = ["programId", "programFingerprint", "durableRevision", "dayId", "blockId"];
@@ -844,10 +901,12 @@ function contextMismatch(draft, context) {
 // recovery; this only ever touches `programmed.targetRir`, never the
 // lifter's own edited/logged value for the set, which has no upper bound
 // today and had none before Plan 067 either.
-function normalizeLegacyTargetRir(value) {
+/** @param {unknown} rawValue @returns {unknown} */
+function normalizeLegacyTargetRir(rawValue) {
+  const value = /** @type {JsonRecord|null|undefined} */(rawValue);
   if (!isPlainObject(value?.exercises)) return value;
   let changed = false;
-  const exercises = {};
+  /** @type {JsonRecord} */ const exercises = {};
   for (const [exerciseInstanceId, exercise] of Object.entries(value.exercises)) {
     let nextExercise = exercise;
     if (isPlainObject(exercise) && isPlainObject(exercise.programmed)) {
@@ -857,12 +916,12 @@ function normalizeLegacyTargetRir(value) {
         changed = true;
       }
     }
-    if (isPlainObject(nextExercise?.sets)) {
+    if (isPlainObject((/** @type {JsonRecord|null|undefined} */(nextExercise))?.sets)) {
       let setsChanged = false;
-      const sets = {};
-      for (const [setId, set] of Object.entries(nextExercise.sets)) {
+      /** @type {JsonRecord} */ const sets = {};
+      for (const [setId, set] of Object.entries((/** @type {{sets:JsonRecord}} */(nextExercise)).sets)) {
         let nextSet = set;
-        if (isPlainObject(set) && isPlainObject(set.programmed)) {
+        if (isPlainObject(set) && isPlainObject(set?.programmed)) {
           const clamp = clampLegacyTargetRir(set.programmed.targetRir);
           if (clamp.clamped) {
             nextSet = { ...set, programmed: { ...set.programmed, targetRir: clamp.value, targetRirClamped: true } };
@@ -881,9 +940,10 @@ function normalizeLegacyTargetRir(value) {
   return changed ? { ...value, exercises } : value;
 }
 
+/** @param {unknown} raw @param {unknown} [currentProgramContext] @returns {ParsedDraft} */
 function parse(raw, currentProgramContext) {
   if (raw == null || raw === "") return deepFreeze({ kind: "absent" });
-  let value = raw;
+  /** @type {unknown} */ let value = raw;
   if (typeof raw === "string") {
     try {
       value = JSON.parse(raw);
@@ -896,58 +956,64 @@ function parse(raw, currentProgramContext) {
   // session.contextTouched. They remain readable with an explicit all-false
   // compatibility default; newly created and reduced documents always carry
   // the complete validated shape.
-  if (value?.schemaVersion === SCHEMA_VERSION && isPlainObject(value.session) &&
-    !hasOwn(value.session, "contextTouched")) {
+  if ((/** @type {JsonRecord|null|undefined} */(value))?.schemaVersion === SCHEMA_VERSION && isPlainObject((/** @type {JsonRecord} */(value)).session) &&
+    !hasOwn((/** @type {JsonRecord} */(value)).session, "contextTouched")) {
     value = jsonClone(value);
-    value.session.contextTouched = emptyContextTouched();
+    (/** @type {JsonRecord} */((/** @type {JsonRecord} */(value)).session)).contextTouched = emptyContextTouched();
   }
   value = normalizeLegacyTargetRir(value);
   const checked = validate(value);
   if (!checked.ok) return deepFreeze({ kind: "invalid", code: "invalid-schema", issues: checked.issues });
-  const draft = deepFreeze(jsonClone(value));
+  const draft = deepFreeze(/** @type {Draft} */(jsonClone(value)));
   const mismatch = contextMismatch(draft, currentProgramContext);
   return mismatch
     ? deepFreeze({ kind: "stale", reason: mismatch, draft })
     : deepFreeze({ kind: "valid", draft });
 }
 
+/** @param {unknown} draft @returns {Draft|DomainError} */
 function serialize(draft) {
   const checked = validate(draft);
-  return checked.ok ? jsonClone(draft) : error("invalid-draft", { issues: checked.issues });
+  return checked.ok ? jsonClone(/** @type {Draft} */(draft)) : error("invalid-draft", { issues: checked.issues });
 }
 
+/** @param {unknown} draft */
 function logicalCloneSection(draft) {
   const section = serialize(draft);
   if (isDomainError(section)) return section;
-  delete section.writer;
-  delete section.revision;
-  delete section.program.durableRevision;
+  delete (/** @type {Partial<Draft>} */(section)).writer;
+  delete (/** @type {Partial<Draft>} */(section)).revision;
+  delete (/** @type {Partial<DraftProgram>} */(section.program)).durableRevision;
   return section;
 }
 
+/** @param {Draft} draft @param {JsonRecord} command @returns {{exercise:DraftExercise}|DomainError} */
 function targetExercise(draft, command) {
   const exercise = hasOwn(draft.exercises, command.exerciseInstanceId)
-    ? draft.exercises[command.exerciseInstanceId]
+    ? draft.exercises[/** @type {string} */(command.exerciseInstanceId)]
     : null;
   if (!exercise) return error("unknown-exercise", { exerciseInstanceId: command.exerciseInstanceId });
   return { exercise };
 }
 
+/** @param {Draft} draft @param {JsonRecord} command @returns {{exercise:DraftExercise,set:DraftSet}|DomainError} */
 function targetSet(draft, command) {
   const found = targetExercise(draft, command);
   if (isDomainError(found)) return found;
   const exercise = found.exercise;
-  const set = hasOwn(exercise.sets, command.setId) ? exercise.sets[command.setId] : null;
+  const set = hasOwn(exercise.sets, command.setId) ? exercise.sets[/** @type {string} */(command.setId)] : null;
   if (!set) return error("unknown-set", { exerciseInstanceId: command.exerciseInstanceId, setId: command.setId });
   return { exercise, set };
 }
 
+/** @param {CommandBase} command */
 function writerFromCommand(command) {
   const writer = command.writer;
   if (!isPlainObject(writer) || !isText(writer.installationId, { max: MAX_ID }) || !isText(writer.tabId, { max: MAX_ID })) return null;
   return { installationId: writer.installationId, tabId: writer.tabId, operationId: command.operationId };
 }
 
+/** @param {DraftSet} set @param {string} field */
 function effectiveText(set, field) {
   const edited = set.edited[field];
   if (edited != null) return edited;
@@ -957,6 +1023,7 @@ function effectiveText(set, field) {
   return null;
 }
 
+/** @param {unknown} raw @param {{positive?:boolean,max?:number}} [options] */
 function validDecimal(raw, { positive = false, max = Infinity } = {}) {
   if (typeof raw !== "string" || !DECIMAL.test(raw)) return null;
   const value = Number(raw);
@@ -964,6 +1031,7 @@ function validDecimal(raw, { positive = false, max = Infinity } = {}) {
   return value;
 }
 
+/** @param {unknown} raw @param {{positive?:boolean}} [options] */
 function validInteger(raw, { positive = false } = {}) {
   if (typeof raw !== "string" || !INTEGER.test(raw)) return null;
   const value = Number(raw);
@@ -971,11 +1039,13 @@ function validInteger(raw, { positive = false } = {}) {
   return value;
 }
 
+/** @param {unknown} raw @param {MetricDefinition} definition */
 function metricValue(raw, definition) {
   const parsed = MetricDomain.parseMetricValue(definition, raw);
   return parsed.ok ? parsed.value : null;
 }
 
+/** @param {unknown} raw */
 function validDate(raw) {
   if (typeof raw !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return false;
   const year = Number(raw.slice(0, 4));
@@ -985,6 +1055,7 @@ function validDate(raw) {
   return value.getUTCFullYear() === year && value.getUTCMonth() === month - 1 && value.getUTCDate() === day;
 }
 
+/** @param {Draft} draft @param {DraftExercise} exercise @param {DraftSet} set @returns {SaveIssue[]} */
 function setSaveIssues(draft, exercise, set) {
   const issues = [];
   if (Array.isArray(set.programmed.metrics)) {
@@ -1020,6 +1091,7 @@ function setSaveIssues(draft, exercise, set) {
   return issues;
 }
 
+/** @param {Draft} draft @returns {SaveIssue[]} */
 function sessionSaveIssues(draft) {
   const issues = [];
   if (!validDate(draft.program.scheduleDate)) issues.push({ code: "invalid-date", field: "scheduleDate" });
@@ -1030,11 +1102,13 @@ function sessionSaveIssues(draft) {
   return issues;
 }
 
+/** @param {DraftSet} set */
 function isCandidate(set) {
   const touched = Object.values(set.touched || {}).some(value =>
     isPlainObject(value) ? Object.values(value).some(Boolean) : value === true);
   return set.completion !== "pending" || set.role === "warmup" || touched;
 }
+/** @param {unknown} touched */
 function hasTouchedValue(touched) {
   return Object.values(touched || {}).some(value =>
     isPlainObject(value) ? Object.values(value).some(Boolean) : value === true);
@@ -1046,6 +1120,7 @@ function hasTouchedValue(touched) {
 // set, skipping, substituting, annotating, or starting the finish flow is.
 // History-derived exercise notes and the schedule date need caller seeds to
 // judge, so the adapter refines this predicate before disposing a draft.
+/** @param {unknown} draft */
 function isPristine(draft) {
   if (!isPlainObject(draft) || !isPlainObject(draft.session)) return false;
   if (draft.session.status !== "active") return false;
@@ -1067,9 +1142,11 @@ function isPristine(draft) {
   return true;
 }
 
-function validateForSave(draft) {
-  const checked = validate(draft);
+/** @param {unknown} rawDraft @returns {SaveIssue[]} */
+function validateForSave(rawDraft) {
+  const checked = validate(rawDraft);
   if (!checked.ok) return [{ code: "invalid-draft", issues: checked.issues }];
+  const draft = /** @type {Draft} */(rawDraft);
   const issues = sessionSaveIssues(draft);
   if (draft.session.status !== "finishing") issues.push({ code: "finish-required" });
   let candidates = 0;
@@ -1087,6 +1164,7 @@ function validateForSave(draft) {
   return issues;
 }
 
+/** @param {unknown} value @param {JsonRecord} replacement @param {number} setCount @returns {{ok:false,issues:string[]}|{ok:true,value:ReplacementProgram}} */
 function validateReplacementProgram(value, replacement, setCount) {
   const issues = [];
   if (!isPlainObject(value)) return { ok: false, issues: ["replacementProgram:object"] };
@@ -1106,17 +1184,17 @@ function validateReplacementProgram(value, replacement, setCount) {
     issues.push(...definitions.issues.map(issue => `replacementProgram.${issue}`));
   }
   if (!isPlainObject(value.loadingModel) || Object.keys(value.loadingModel).some(key =>
-    !["bodyweightCoefficient", "assistanceDirection"].includes(key)) ||
+    !oneOf(["bodyweightCoefficient", "assistanceDirection"],key)) ||
     (hasOwn(value.loadingModel || {}, "bodyweightCoefficient") && value.loadingModel.bodyweightCoefficient !== null &&
       (typeof value.loadingModel.bodyweightCoefficient !== "number" || !Number.isFinite(value.loadingModel.bodyweightCoefficient) ||
         value.loadingModel.bodyweightCoefficient < 0 || value.loadingModel.bodyweightCoefficient > 1)) ||
-    (hasOwn(value.loadingModel || {}, "assistanceDirection") && !["subtract", null].includes(value.loadingModel.assistanceDirection))) {
+    (hasOwn(value.loadingModel || {}, "assistanceDirection") && !oneOf(["subtract", null],value.loadingModel.assistanceDirection))) {
     issues.push("replacementProgram.loadingModel");
   }
   if (value.equipmentId !== null && !isText(value.equipmentId, { max: MAX_ID })) {
     issues.push("replacementProgram.equipmentId");
   }
-  const bindingIssues = [];
+  /** @type {string[]} */ const bindingIssues = [];
   metricProgramBinding({
     metricOrigin: value.metricOrigin,
     metricIds: value.metricIds,
@@ -1188,20 +1266,21 @@ function validateReplacementProgram(value, replacement, setCount) {
   }
   return issues.length ? { ok: false, issues } : {
     ok: true,
-    value: {
+    value: /** @type {ReplacementProgram} */({
       sourceLibraryId: value.sourceLibraryId,
       metricOrigin: value.metricOrigin,
-      metricIds: [...value.metricIds],
+      metricIds: [.../** @type {unknown[]} */(value.metricIds)],
       metricDefinitions: jsonClone(value.metricDefinitions),
       loadingModel: jsonClone(value.loadingModel),
       loadingConvention: value.loadingConvention,
       loadingContext: jsonClone(value.loadingContext),
       equipmentId: value.equipmentId,
       programmedSets,
-    },
+    }),
   };
 }
 
+/** @param {ReplacementProgram} program @param {ReplacementSpec} spec @returns {ProgrammedSet} */
 function programmedSetFromReplacement(program, spec) {
   return {
     suggestedLoad: spec.suggestedLoad,
@@ -1222,6 +1301,7 @@ function programmedSetFromReplacement(program, spec) {
   };
 }
 
+/** @param {ReplacementProgram} program @param {ReplacementSpec} spec */
 function editedMetricsFromPrevious(program, spec) {
   const previous = new Map(spec.previousMetrics.map(item => [item.metricId, item.value]));
   return Object.fromEntries(spec.metricDefinitions.map(metric => {
@@ -1230,24 +1310,26 @@ function editedMetricsFromPrevious(program, spec) {
   }));
 }
 
-function reduce(draft, command) {
-  const checked = validate(draft);
+/** @param {unknown} rawDraft @param {unknown} rawCommand @returns {Draft|DomainError} */
+function reduce(rawDraft, rawCommand) {
+  const checked = validate(rawDraft);
   if (!checked.ok) return error("invalid-draft", { issues: checked.issues });
+  const draft = /** @type {Draft} */(rawDraft);
+  const command = /** @type {JsonRecord} */(rawCommand);
   if (!isPlainObject(command) || !isText(command.type, { max: 80 }) ||
     !isText(command.operationId, { max: MAX_ID }) || !isSafeInteger(command.expectedRevision) ||
     !isText(command.updatedAt, { max: 100 })) return error("invalid-command");
   if (draft.writer.operationId === command.operationId) return draft;
   if (command.expectedRevision !== draft.revision) return error("stale-revision", { expected: command.expectedRevision, actual: draft.revision });
-  const nextWriter = writerFromCommand(command);
+  const nextWriter = writerFromCommand(/** @type {CommandBase} */(command));
   if (!nextWriter) return error("invalid-command-writer");
   if (draft.session.status === "finishing" && command.type !== "cancelFinish") return error("finish-in-progress");
   const next = jsonClone(draft);
-  let item;
   switch (command.type) {
     case "editSetField": {
-      item = targetSet(next, command);
+      const item = targetSet(next, command);
       if (isDomainError(item)) return item;
-      if (!EDIT_FIELDS.has(command.field)) return error("unknown-set-field", { field: command.field });
+      if (!contains(EDIT_FIELDS,command.field)) return error("unknown-set-field", { field: command.field });
       const value = editableText(command.value);
       if (value === undefined) return error("invalid-set-field-value", { field: command.field });
       item.set.edited[command.field] = value;
@@ -1255,14 +1337,14 @@ function reduce(draft, command) {
       break;
     }
     case "editMetricValue": {
-      item = targetSet(next, command);
+      const item = targetSet(next, command);
       if (isDomainError(item)) return item;
       const definition = item.set.programmed.metrics?.find(metric => metric.id === command.metricId);
       if (!definition) return error("unknown-set-metric", { metricId: command.metricId });
       const value = editableText(command.value);
       if (value === undefined) return error("invalid-metric-value", { metricId: command.metricId });
-      item.set.edited.metrics[definition.id] = value;
-      item.set.touched.metrics[definition.id] = true;
+      (/** @type {Record<string,string|null>} */(item.set.edited.metrics))[definition.id] = value;
+      (/** @type {Record<string,boolean>} */(item.set.touched.metrics))[definition.id] = true;
       break;
     }
     case "refreshUntouchedSuggestions": {
@@ -1285,7 +1367,7 @@ function reduce(draft, command) {
           setId: update.setId,
         });
         seen.add(identity);
-        if (!Object.keys(update.fields).some((field) => EDIT_FIELDS.has(field) || field === "metrics")) {
+        if (!Object.keys(update.fields).some((field) => contains(EDIT_FIELDS,field) || field === "metrics")) {
           return error("empty-suggestion-update", {
             exerciseInstanceId: update.exerciseInstanceId,
             setId: update.setId,
@@ -1310,7 +1392,7 @@ function reduce(draft, command) {
               : field === "rir"
                 ? validDecimal(text, { max: 4 }) != null
                 : field === "effort" && hasOwn(EFFORT_RIR, text);
-          if (!EDIT_FIELDS.has(field) || !valid) {
+          if (!contains(EDIT_FIELDS,field) || !valid) {
             return error("invalid-suggestion-value", { field });
           }
         }
@@ -1328,8 +1410,8 @@ function reduce(draft, command) {
             for (const [metricId, rawMetricValue] of Object.entries(rawValue)) {
               if (set.touched.metrics?.[metricId]) continue;
               const value = editableText(rawMetricValue);
-              if (set.edited.metrics[metricId] === value) continue;
-              set.edited.metrics[metricId] = value;
+              if ((/** @type {Record<string,string|null>} */(set.edited.metrics))[metricId] === value) continue;
+              (/** @type {Record<string,string|null>} */(set.edited.metrics))[metricId] = /** @type {string|null} */(value);
               changed = true;
             }
             continue;
@@ -1346,32 +1428,32 @@ function reduce(draft, command) {
       break;
     }
     case "completeSet": {
-      item = targetSet(next, command);
+      const item = targetSet(next, command);
       if (isDomainError(item)) return item;
       const issues = [...sessionSaveIssues(next), ...setSaveIssues(next, item.exercise, item.set)];
       if (issues.length) return error("set-not-saveable", { issues });
-      item.set.completion = { completedAt: command.completedAt };
+      item.set.completion = { completedAt: /** @type {string} */(command.completedAt) };
       item.set.performed = jsonClone(item.exercise.substitution?.replacement || snapshotFromExercise(item.exercise));
       item.set.touched = { ...item.set.touched, load: true, reps: true, effort: true,
         ...(item.set.touched.metrics ? { metrics: Object.fromEntries(Object.keys(item.set.touched.metrics).map(id => [id, true])) } : {}) };
       break;
     }
     case "uncommitSet": {
-      item = targetSet(next, command);
+      const item = targetSet(next, command);
       if (isDomainError(item)) return item;
       item.set.completion = "pending";
       break;
     }
     case "markWarmup":
     case "markWorking": {
-      item = targetSet(next, command);
+      const item = targetSet(next, command);
       if (isDomainError(item)) return item;
       item.set.role = command.type === "markWarmup" ? "warmup" : "working";
       break;
     }
     case "skipExercise":
     case "restoreExercise": {
-      item = targetExercise(next, command);
+      const item = targetExercise(next, command);
       if (isDomainError(item)) return item;
       item.exercise.status = command.type === "skipExercise" ? "skipped" : "active";
       if (command.type === "skipExercise" && next.session.selectedExerciseId === item.exercise.exerciseInstanceId) {
@@ -1380,25 +1462,27 @@ function reduce(draft, command) {
       break;
     }
     case "substituteExercise": {
-      item = targetExercise(next, command);
+      const item = targetExercise(next, command);
       if (isDomainError(item)) return item;
-      const issues = [];
+      /** @type {string[]} */ const issues = [];
       validateMovementSnapshot(command.replacement, "replacement", issues);
       if (issues.length) return error("invalid-substitution", { issues });
-      if (command.replacement.exerciseInstanceId !== item.exercise.exerciseInstanceId &&
-        hasOwn(next.exercises, command.replacement.exerciseInstanceId)) {
+      const replacement = /** @type {Movement} */(command.replacement);
+      if (replacement.exerciseInstanceId !== item.exercise.exerciseInstanceId &&
+        hasOwn(next.exercises, replacement.exerciseInstanceId)) {
         return error("substitution-identity-in-use", {
-          exerciseInstanceId: command.replacement.exerciseInstanceId,
+          exerciseInstanceId: replacement.exerciseInstanceId,
         });
       }
       const exercise = item.exercise;
+      /** @type {Substitution} */
       const substitution = {
-        original: exercise.substitution?.original || snapshotFromExercise(exercise),
-        replacement: jsonClone(command.replacement),
-        selectedAt: command.selectedAt,
+        original: exercise.substitution?.original || /** @type {Movement} */(snapshotFromExercise(exercise)),
+        replacement: jsonClone(replacement),
+        selectedAt: /** @type {string} */(command.selectedAt),
       };
       if (command.replacementProgram != null) {
-        const program = validateReplacementProgram(command.replacementProgram, command.replacement, exercise.setOrder.length);
+        const program = validateReplacementProgram(command.replacementProgram, replacement, exercise.setOrder.length);
         if (!program.ok) return error("invalid-substitution-program", { issues: program.issues });
         // Completed sets keep the composition they were performed under; only
         // untouched pending sets take the replacement's prescriptions.
@@ -1428,7 +1512,7 @@ function reduce(draft, command) {
       break;
     }
     case "restoreOriginalExercise": {
-      item = targetExercise(next, command);
+      const item = targetExercise(next, command);
       if (isDomainError(item)) return item;
       const originals = item.exercise.substitution?.originalPendingSets;
       for (const [setId, original] of Object.entries(originals || {})) {
@@ -1438,7 +1522,7 @@ function reduce(draft, command) {
       break;
     }
     case "repeatPreviousSetValues": {
-      item = targetExercise(next, command);
+      const item = targetExercise(next, command);
       if (isDomainError(item)) return item;
       if (!Array.isArray(command.values)) return error("invalid-repeat-values");
       for (const previous of command.values) {
@@ -1450,11 +1534,11 @@ function reduce(draft, command) {
           });
         }
         const set = previous.setId
-          ? item.exercise.sets[previous.setId]
+          ? item.exercise.sets[/** @type {string} */(previous.setId)]
           : item.exercise.setOrder.find((setId) => item.exercise.sets[setId].ordinal === previous.ordinal);
         const targetSet = typeof set === "string" && hasOwn(item.exercise.sets, set)
           ? item.exercise.sets[set]
-          : isPlainObject(set) ? set : null;
+          : isPlainObject(set) ? /** @type {DraftSet} */(set) : null;
         if (!targetSet) continue;
         for (const field of EDIT_FIELDS) {
           if (!hasOwn(previous, field)) continue;
@@ -1471,15 +1555,15 @@ function reduce(draft, command) {
             if (!definition || value === undefined || metricValue(value, definition) == null) {
               return error("invalid-repeat-values", { field: metricId });
             }
-            targetSet.edited.metrics[metricId] = value;
-            targetSet.touched.metrics[metricId] = true;
+            (/** @type {Record<string,string|null>} */(targetSet.edited.metrics))[metricId] = value;
+            (/** @type {Record<string,boolean>} */(targetSet.touched.metrics))[metricId] = true;
           }
         }
       }
       break;
     }
     case "setExerciseNotes": {
-      item = targetExercise(next, command);
+      const item = targetExercise(next, command);
       if (isDomainError(item)) return item;
       if (!isText(command.value, { empty: true })) return error("invalid-exercise-notes");
       item.exercise.setupNotes = command.value;
@@ -1504,8 +1588,8 @@ function reduce(draft, command) {
       break;
     case "selectExercise":
       if (!hasOwn(next.exercises, command.exerciseInstanceId)) return error("unknown-exercise", { exerciseInstanceId: command.exerciseInstanceId });
-      if (next.exercises[command.exerciseInstanceId].status !== "active") return error("exercise-skipped", { exerciseInstanceId: command.exerciseInstanceId });
-      next.session.selectedExerciseId = command.exerciseInstanceId;
+      if (next.exercises[/** @type {string} */(command.exerciseInstanceId)].status !== "active") return error("exercise-skipped", { exerciseInstanceId: command.exerciseInstanceId });
+      next.session.selectedExerciseId = /** @type {string} */(command.exerciseInstanceId);
       break;
     case "reorderExercises": {
       if (!Array.isArray(command.exerciseOrder) || command.exerciseOrder.length !== next.exerciseOrder.length ||
@@ -1530,18 +1614,21 @@ function reduce(draft, command) {
   return result.ok ? deepFreeze(next) : error("command-produced-invalid-draft", { issues: result.issues });
 }
 
+/** @param {Draft} draft @param {DraftSet} set */
 function numericSetValues(draft, set) {
   const load = validDecimal(effectiveText(set, "load"), { positive: true, max: 1000 });
   const reps = validInteger(effectiveText(set, "reps"), { positive: true });
   const rir = draft.program.rirMode === "effort"
-    ? EFFORT_RIR[effectiveText(set, "effort")]
+    ? EFFORT_RIR[/** @type {string} */(effectiveText(set, "effort"))]
     : validDecimal(effectiveText(set, "rir"));
   return { load, reps, rir };
 }
 
-function toHistoryRows(draft, completedAt) {
-  const issues = validateForSave(draft);
+/** @param {unknown} rawDraft @param {unknown} completedAt */
+function toHistoryRows(rawDraft, completedAt) {
+  const issues = validateForSave(rawDraft);
   if (issues.length) return error("draft-not-saveable", { issues });
+  const draft = /** @type {Draft} */(rawDraft);
   if (!isText(completedAt, { max: 100 })) return error("invalid-completed-at");
   const rows = [];
   for (const exerciseId of draft.exerciseOrder) {
@@ -1563,9 +1650,10 @@ function toHistoryRows(draft, completedAt) {
         unit: metric.unit,
       })) : null;
       const metricBySemantic = new Map((metricValues || []).map(metric => [
-        metricDefinitions.find(definition => definition.id === metric.metricId)?.semantic,
+        (/** @type {MetricDefinition[]} */(metricDefinitions)).find(definition => definition.id === metric.metricId)?.semantic,
         metric.value,
       ]));
+      /** @type {JsonRecord} */
       const row = {
         session: draft.draftId,
         date: draft.program.scheduleDate,
@@ -1578,7 +1666,7 @@ function toHistoryRows(draft, completedAt) {
         reps: metricBySemantic.has("reps") ? metricBySemantic.get("reps") : metricDefinitions ? null : values.reps,
         rir: metricDefinitions
           ? draft.program.rirMode === "effort"
-            ? hasOwn(EFFORT_RIR, set.edited.effort) ? EFFORT_RIR[set.edited.effort] : null
+            ? hasOwn(EFFORT_RIR, set.edited.effort) ? EFFORT_RIR[/** @type {string} */(set.edited.effort)] : null
             : set.edited.rir == null ? null : validDecimal(set.edited.rir)
           : values.rir,
         notes: draft.session.notes.trim(),
@@ -1616,13 +1704,13 @@ function toHistoryRows(draft, completedAt) {
         }
         if (!hasOwn(capturedLoadingContext, "bodyweightCoefficient") &&
           hasOwn(programmed.loadingModel || {}, "bodyweightCoefficient")) {
-          capturedLoadingContext.bodyweightCoefficient = programmed.loadingModel.bodyweightCoefficient;
+          capturedLoadingContext.bodyweightCoefficient = (/** @type {LoadingModel} */(programmed.loadingModel)).bodyweightCoefficient;
         }
         // Whether bodyweight counted toward this set's load is a fact of the set,
         // so progression can compare it; it needs a coefficient and a bodyweight.
         if (typeof capturedLoadingContext.bodyweightContributionEnabled !== "boolean") {
           capturedLoadingContext.bodyweightContributionEnabled = (capturedLoadingContext.bodyweightCoefficient ?? 0) > 0 &&
-            capturedLoadingContext.bodyweightKg > 0;
+            /** @type {number} */(capturedLoadingContext.bodyweightKg) > 0;
         }
         row.loadingContext = capturedLoadingContext;
         row.metricType = set.programmed.metricType;
@@ -1659,6 +1747,7 @@ const LEGACY_META_FIELDS = new Set([
   "__selectedExerciseId",
 ]);
 
+/** @param {unknown} raw @returns {JsonRecord|MigrationError} */
 function legacyObject(raw) {
   if (typeof raw !== "string") return isPlainObject(raw) ? raw : migrationError("invalid-legacy-object");
   try {
@@ -1669,8 +1758,9 @@ function legacyObject(raw) {
   }
 }
 
+/** @param {JsonRecord} legacy @param {string} field @param {string} kind @returns {JsonRecord|string[]} */
 function legacyCollection(legacy, field, kind) {
-  if (!hasOwn(legacy, field)) return kind === "array" ? [] : Object.create(null);
+  if (!hasOwn(legacy, field)) return kind === "array" ? [] : /** @type {JsonRecord} */(Object.create(null));
   const value = legacy[field];
   if (kind === "array") {
     if (!Array.isArray(value) || value.some((item) => !isText(item, { max: MAX_ID }))) {
@@ -1682,6 +1772,7 @@ function legacyCollection(legacy, field, kind) {
   return value;
 }
 
+/** @param {unknown} value @param {string} field */
 function legacyTimestamp(value, field) {
   const number = typeof value === "number" ? value : /^\d+$/.test(String(value ?? "")) ? Number(value) : NaN;
   if (!Number.isFinite(number) || number <= 0) return migrationError("invalid-legacy-timestamp", { field });
@@ -1689,9 +1780,10 @@ function legacyTimestamp(value, field) {
   return Number.isNaN(date.getTime()) ? migrationError("invalid-legacy-timestamp", { field }) : date.toISOString();
 }
 
+/** @param {unknown} raw @param {unknown} renderedProgramSnapshot @returns {Draft|MigrationError} */
 function migrateLegacy(raw, renderedProgramSnapshot) {
   const legacy = legacyObject(raw);
-  if (legacy?.kind === "migration-error") return legacy;
+  if (legacy?.kind === "migration-error") return /** @type {MigrationError} */(legacy);
   if (!looksLegacy(legacy)) return migrationError("not-legacy-draft");
   if (!isPlainObject(renderedProgramSnapshot) ||
     !isPlainObject(renderedProgramSnapshot.programContext) ||
@@ -1703,11 +1795,13 @@ function migrateLegacy(raw, renderedProgramSnapshot) {
   const programContext = renderedProgramSnapshot.programContext;
   const sessionSelection = renderedProgramSnapshot.sessionSelection;
   const valueResolutions = renderedProgramSnapshot.valueResolutions;
-  const substitutionResolutions = renderedProgramSnapshot.substitutionResolutions ?? Object.create(null);
+  const substitutionResolutions = /** @type {unknown} */(renderedProgramSnapshot.substitutionResolutions ?? Object.create(null));
   if (!isPlainObject(substitutionResolutions)) return migrationError("invalid-substitution-resolutions");
   if (!Array.isArray(programContext.exercises)) return migrationError("invalid-migration-snapshot");
 
+  /** @type {Record<string,JsonRecord & {setIds:string[],exerciseInstanceId:string}>} */
   const legacyExercises = Object.create(null);
+  /** @type {Record<string,{exerciseInstanceId:string,setId:string,field:string}>} */
   const allowedFields = Object.create(null);
   for (const source of programContext.exercises) {
     if (!isPlainObject(source) || !isText(source.legacyExerciseId, { max: MAX_ID }) ||
@@ -1719,12 +1813,12 @@ function migrateLegacy(raw, renderedProgramSnapshot) {
     if (source.legacyExerciseId !== source.exerciseInstanceId) {
       return migrationError("legacy-exercise-identity-mismatch", { exerciseId: source.legacyExerciseId });
     }
-    legacyExercises[source.legacyExerciseId] = source;
+    legacyExercises[source.legacyExerciseId] = /** @type {JsonRecord & {setIds:string[],exerciseInstanceId:string}} */(source);
     for (let ordinal = 1; ordinal <= source.setIds?.length; ordinal++) {
       const setId = source.setIds[ordinal - 1];
       for (const field of EDIT_FIELDS) {
         const key = `${source.legacyExerciseId}_${ordinal}_${field}`;
-        allowedFields[key] = { exerciseInstanceId: source.exerciseInstanceId, setId, field };
+        allowedFields[key] = { exerciseInstanceId: /** @type {string} */(source.exerciseInstanceId), setId, field };
       }
     }
   }
@@ -1744,21 +1838,25 @@ function migrateLegacy(raw, renderedProgramSnapshot) {
   }
   if (resolvedKeys.size) return migrationError("unused-value-resolution", { field: [...resolvedKeys][0] });
 
-  const done = legacyCollection(legacy, "__done", "array");
-  const touched = legacyCollection(legacy, "__touched", "array");
-  const warm = legacyCollection(legacy, "__warm", "array");
-  const skipped = legacyCollection(legacy, "__skipped", "array");
-  const substituted = legacyCollection(legacy, "__substituted", "object");
-  const substitutedRefs = legacyCollection(legacy, "__substitutedRef", "object");
-  const exerciseNotes = legacyCollection(legacy, "__exnotes", "object");
-  const collections = [done, touched, warm, skipped, substituted, substitutedRefs, exerciseNotes];
-  const invalidCollection = collections.find((value) => value?.kind === "migration-error");
-  if (invalidCollection) return invalidCollection;
+  const rawDone = legacyCollection(legacy, "__done", "array");
+  const rawTouched = legacyCollection(legacy, "__touched", "array");
+  const rawWarm = legacyCollection(legacy, "__warm", "array");
+  const rawSkipped = legacyCollection(legacy, "__skipped", "array");
+  const rawSubstituted = legacyCollection(legacy, "__substituted", "object");
+  const rawSubstitutedRefs = legacyCollection(legacy, "__substitutedRef", "object");
+  const rawExerciseNotes = legacyCollection(legacy, "__exnotes", "object");
+  const collections = [rawDone, rawTouched, rawWarm, rawSkipped, rawSubstituted, rawSubstitutedRefs, rawExerciseNotes];
+  const invalidCollection = collections.find((value) => (/** @type {JsonRecord} */(value))?.kind === "migration-error");
+  if (invalidCollection) return /** @type {MigrationError} */(invalidCollection);
+  const done = /** @type {string[]} */(rawDone), touched = /** @type {string[]} */(rawTouched),
+    warm = /** @type {string[]} */(rawWarm), skipped = /** @type {string[]} */(rawSkipped);
+  const substituted = /** @type {JsonRecord} */(rawSubstituted), substitutedRefs = /** @type {JsonRecord} */(rawSubstitutedRefs),
+    exerciseNotes = /** @type {JsonRecord} */(rawExerciseNotes);
 
-  const contextTouched = legacyCollection(legacy, "__contextTouched", "object");
-  if (contextTouched?.kind === "migration-error") return contextTouched;
+  const contextTouched = /** @type {JsonRecord} */(legacyCollection(legacy, "__contextTouched", "object"));
+  if (contextTouched?.kind === "migration-error") return /** @type {MigrationError} */(contextTouched);
   for (const key of Object.keys(contextTouched)) {
-    if (!["day", "date", "sessionNotes", "bodyweight"].includes(key) || typeof contextTouched[key] !== "boolean") {
+    if (!oneOf(["day", "date", "sessionNotes", "bodyweight"],key) || typeof contextTouched[key] !== "boolean") {
       return migrationError("invalid-legacy-context-marker", { field: key });
     }
   }
@@ -1774,6 +1872,7 @@ function migrateLegacy(raw, renderedProgramSnapshot) {
     }
   }
 
+  /** @type {Record<string,{exerciseInstanceId:string,setId:string}>} */
   const legacySetKeys = Object.create(null);
   for (const [legacyExerciseId, source] of Object.entries(legacyExercises)) {
     for (let ordinal = 1; ordinal <= source.setIds.length; ordinal++) {
@@ -1783,10 +1882,11 @@ function migrateLegacy(raw, renderedProgramSnapshot) {
       };
     }
   }
-  for (const [field, values] of [["__done", done], ["__touched", touched], ["__warm", warm]]) {
-    const unknown = values.find((key) => !hasOwn(legacySetKeys, key));
+  for (const [field, values] of /** @type {[string,string[]][]} */([["__done", done], ["__touched", touched], ["__warm", warm]])) {
+    const unknown = values.find((/** @type {string} */ key) => !hasOwn(legacySetKeys, key));
     if (unknown) return migrationError("unmapped-legacy-set", { field, setKey: unknown });
   }
+  /** @type {[string,string[]][]} */
   const exerciseMarkerMaps = [
     ["__skipped", skipped],
     ["__substituted", Object.keys(substituted)],
@@ -1794,7 +1894,7 @@ function migrateLegacy(raw, renderedProgramSnapshot) {
     ["__exnotes", Object.keys(exerciseNotes)],
   ];
   for (const [field, ids] of exerciseMarkerMaps) {
-    const unknown = ids.find((id) => !hasOwn(legacyExercises, id));
+    const unknown = ids.find((/** @type {string} */ id) => !hasOwn(legacyExercises, id));
     if (unknown) return migrationError("unmapped-legacy-exercise", { field, exerciseId: unknown });
   }
 
@@ -1812,13 +1912,13 @@ function migrateLegacy(raw, renderedProgramSnapshot) {
   let startedAt = sessionSelection.startedAt;
   if (hasOwn(legacy, "__startedAt")) {
     startedAt = legacyTimestamp(legacy.__startedAt, "__startedAt");
-    if (startedAt?.kind === "migration-error") return startedAt;
+    if ((/** @type {JsonRecord|null|undefined} */(startedAt))?.kind === "migration-error") return /** @type {MigrationError} */(startedAt);
   }
   let completedAt = renderedProgramSnapshot.completedAt ?? sessionSelection.updatedAt ?? sessionSelection.startedAt;
   if (hasOwn(legacy, "__lastCommitAt")) {
     if (!done.length) return migrationError("orphan-legacy-last-commit");
     completedAt = legacyTimestamp(legacy.__lastCommitAt, "__lastCommitAt");
-    if (completedAt?.kind === "migration-error") return completedAt;
+    if ((/** @type {JsonRecord|null|undefined} */(completedAt))?.kind === "migration-error") return /** @type {MigrationError} */(completedAt);
   }
   if (done.length && !isText(completedAt, { max: 100 })) return migrationError("missing-completion-timestamp");
 
@@ -1871,7 +1971,7 @@ function migrateLegacy(raw, renderedProgramSnapshot) {
     if (metrics && legacySemantic) {
       const matches = metrics.filter((metric) => metric?.semantic === legacySemantic);
       if (matches.length !== 1) return migrationError("unmapped-legacy-metric", { field: legacyKey });
-      set.edited.metrics[matches[0].id] = value;
+      (/** @type {Record<string,string|null>} */(set.edited.metrics))[matches[0].id] = value;
       continue;
     }
     set.edited[target.field] = value;
@@ -1879,7 +1979,7 @@ function migrateLegacy(raw, renderedProgramSnapshot) {
   for (const [legacySetKey, target] of Object.entries(legacySetKeys)) {
     const set = next.exercises[target.exerciseInstanceId].sets[target.setId];
     if (touchedSet.has(legacySetKey)) set.touched = { load: true, reps: true, effort: true };
-    if (doneSet.has(legacySetKey)) set.completion = { completedAt };
+    if (doneSet.has(legacySetKey)) set.completion = { completedAt: /** @type {string} */(completedAt) };
     if (warmSet.has(legacySetKey)) set.role = "warmup";
   }
   for (const [legacyExerciseId, source] of Object.entries(legacyExercises)) {
@@ -1902,15 +2002,15 @@ function migrateLegacy(raw, renderedProgramSnapshot) {
       (resolution.legacyRef ?? null) !== legacyRef) {
       return migrationError("unresolved-legacy-substitution", { exerciseId: legacyExerciseId });
     }
-    const issues = [];
+    /** @type {string[]} */ const issues = [];
     validateMovementSnapshot(resolution.replacement, "replacement", issues);
     if (issues.length) return migrationError("invalid-substitution-resolution", { exerciseId: legacyExerciseId, issues });
     exercise.substitution = {
-      original: snapshotFromExercise(exercise),
-      replacement: jsonClone(resolution.replacement),
-      selectedAt: resolution.selectedAt ?? renderedProgramSnapshot.migratedAt,
+      original: /** @type {Movement} */(snapshotFromExercise(exercise)),
+      replacement: /** @type {Movement} */(jsonClone(resolution.replacement)),
+      selectedAt: /** @type {string} */(resolution.selectedAt ?? renderedProgramSnapshot.migratedAt),
     };
-    if (!isText(exercise.substitution.selectedAt, { max: 100 })) {
+    if (!isText(exercise.substitution?.selectedAt, { max: 100 })) {
       return migrationError("missing-substitution-timestamp", { exerciseId: legacyExerciseId });
     }
   }
@@ -1936,16 +2036,17 @@ function migrateLegacy(raw, renderedProgramSnapshot) {
 /** Shared prefill/commit policy. Status and pending input are captured facts;
  * this pure function reads only the supplied acknowledged aggregate. Warmups
  * neither donate nor receive carry, and nothing crosses workout identity. */
+/** @param {Draft|null|undefined} draft @param {string} exerciseId @param {number} ordinal @param {{status?:string,pendingLoad?:boolean}} [options] */
 function manualLoadCarry(draft,exerciseId,ordinal,{status,pendingLoad=false}={}) {
   if(status!=="manual"&&status!=="configuration_required")return null;
   const exercise=draft?.exercises?.[exerciseId];if(!exercise)return null;
-  const at=number=>{const id=exercise.setOrder.find(id=>exercise.sets[id]?.ordinal===number);return id?exercise.sets[id]:null};
+  const at=(/** @type {number} */ number)=>{const id=exercise.setOrder.find(id=>exercise.sets[id]?.ordinal===number);return id?exercise.sets[id]:null};
   const set=at(ordinal);
   if(!set||set.completion!=="pending"||set.role==="warmup")return null;
   const metrics=Array.isArray(set.programmed?.metrics)?set.programmed.metrics:[];
   const metric=metrics.find(item=>LOAD_SEMANTICS.has(item.semantic))||null;
   if(Array.isArray(set.programmed?.metrics)&&!metric)return null;
-  const loadOf=item=>metric?item.edited?.metrics?.[metric.id]:item.edited?.load;
+  const loadOf=(/** @type {DraftSet} */ item)=>metric?item.edited?.metrics?.[metric.id]:item.edited?.load;
   const own=loadOf(set);
   if(own!=null&&own!=="")return null;
   if(metric?set.touched?.metrics?.[metric.id]||set.programmed.targets?.[metric.semantic]!=null:set.touched?.load)return null;
@@ -1967,8 +2068,8 @@ const api = Object.freeze({
   migrateLegacy,
   reduce,
   toHistoryRows,
-  validateLoadingContext(value) {
-    const issues = [];
+  validateLoadingContext(/** @type {unknown} */ value) {
+    /** @type {string[]} */ const issues = [];
     validateLoadingContext(value, "loadingContext", issues);
     return issues.length ? { ok: false, issues } : { ok: true, value: jsonClone(value), issues: [] };
   },
