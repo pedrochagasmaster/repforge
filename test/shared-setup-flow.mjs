@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {installBrowserTraining,installBrowserTrainingBeforeNavigation} from './training-browser.mjs';
 import {ensureBrowserInterchange} from './interchange-browser.mjs';
 /**
  * Browser behaviour for shared setup links (ADR 0007, Plan 067 format).
@@ -285,6 +286,7 @@ export async function openAppPage(browser, {
   });
   const page = await context.newPage();
   const errors = [];
+  await installBrowserTrainingBeforeNavigation(page);
   page.on("pageerror", (e) => errors.push(String(e.message)));
   if (recipeWorkerProbe) await page.addInitScript(installRecipeWorkerProbe, { holdReplies: true });
   if (disableWorker) await page.addInitScript(() => { delete window.Worker; });
@@ -362,8 +364,8 @@ function installRecipeWorkerProbe({ holdReplies = true } = {}) {
     postMessage(message, ...rest) {
       if (message?.type === "generate") {
         const item = { id: message.id, identity: null };
-        item.identityReady = Promise.resolve(window.RepForgeProgramCompiler.generationIdentity(
-          message.request, window.RepForgeExerciseCatalog.snapshot()))
+        item.identityReady = window.__repforgeTrainingTestReady.then(()=>window.__repforgeTrainingTest.compiler.generationIdentity(
+          message.request, window.__repforgeTrainingTest.catalog))
           .then((value) => { item.identity = value; });
         probe.requests.push(item);
       }
@@ -389,6 +391,7 @@ export async function buildSetupDocument(page, {
 } = {}) {
   const shared = Object.fromEntries(SETTING_KEYS.map((key) => [key, settings[key] ?? DEFAULT_SHARED_SETTINGS[key]]));
   const seedDefinition = trainingDays === 1 ? seedProgramMeta().programDefinition : null;
+  await installBrowserTraining(page);
   await ensureBrowserInterchange(page);
   return page.evaluate(({ name, settings, trainingDays, seedDefinition }) => {
     const api = window.__repforgeInterchangeTest.setup;
@@ -403,13 +406,13 @@ export async function buildSetupDocument(page, {
         }),
       };
     } else {
-      const catalog = window.RepForgeExerciseCatalog.snapshot();
-      const request = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+      const catalog = window.__repforgeTrainingTest.catalog;
+      const request = window.__repforgeTrainingTest.entryAdapter.programRequestFromAnswers({
         desiredResult: "muscle_growth", structuredExperience: "6_to_24m",
         daysPerWeek: Math.min(6, Math.max(2, trainingDays)), sessionMinutes: 60,
         environment: { kind: "commercial_gym" },
       }, catalog).value;
-      definition = window.RepForgeProgramCompiler.generateProgram(request, catalog).value;
+      definition = window.__repforgeTrainingTest.compiler.generateProgram(request, catalog).value;
     }
     return { kind: api.KIND, version: api.VERSION, program: { name, definition }, settings, language: settings.lang };
   }, { name, settings: shared, trainingDays, seedDefinition });
@@ -417,13 +420,14 @@ export async function buildSetupDocument(page, {
 
 /** Encode a current setup document with the app's codec and its production options. */
 export async function encodeSetupDocument(page, document) {
+  await installBrowserTraining(page);
   await ensureBrowserInterchange(page);
   return page.evaluate(async (document) => {
     const api = window.__repforgeInterchangeTest.setup;
-    const compiler = window.RepForgeProgramCompiler;
+    const compiler = window.__repforgeTrainingTest.compiler;
     if (!api || typeof api.encode !== "function") return { ok: false, code: "missing-module", missing: true };
     const result = await api.encode(document, {
-      catalogSnapshot: window.RepForgeExerciseCatalog.snapshot(),
+      catalogSnapshot: window.__repforgeTrainingTest.catalog,
       validateProgramDefinition: compiler.validateProgramDefinition,
       generateProgram: compiler.generateProgram,
       generatorVersion: compiler.GENERATOR_VERSION,
@@ -434,12 +438,13 @@ export async function encodeSetupDocument(page, document) {
 
 /** Decode a link fragment with the app's codec and its production options. */
 async function decodeSetup(page, encoded) {
+  await installBrowserTraining(page);
   await ensureBrowserInterchange(page);
   return page.evaluate(async (encoded) => {
     const api = window.__repforgeInterchangeTest.setup;
-    const compiler = window.RepForgeProgramCompiler;
+    const compiler = window.__repforgeTrainingTest.compiler;
     return api.decode(encoded, {
-      catalogSnapshot: window.RepForgeExerciseCatalog.snapshot(),
+      catalogSnapshot: window.__repforgeTrainingTest.catalog,
       validateProgramDefinition: compiler.validateProgramDefinition,
       generateProgram: compiler.generateProgram,
       generatorVersion: compiler.GENERATOR_VERSION,
@@ -554,16 +559,17 @@ async function freshDevice(page) {
 
 /** Activate a real generated program through the production finalize path. */
 async function activateGeneratedProgram(page, { name = "Coach program", daysPerWeek = 3 } = {}) {
+  await installBrowserTraining(page);
   const ok = await page.evaluate(async ({ name, daysPerWeek }) => {
-    const catalog = window.RepForgeExerciseCatalog.snapshot();
-    const request = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+    const catalog = window.__repforgeTrainingTest.catalog;
+    const request = window.__repforgeTrainingTest.entryAdapter.programRequestFromAnswers({
       desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek, sessionMinutes: 60,
       environment: { kind: "commercial_gym" },
     }, catalog).value;
-    const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog).value;
+    const definition = window.__repforgeTrainingTest.compiler.generateProgram(request, catalog).value;
     const result = await window.__repforgeFinalizeProgramSetup({
       programDefinition: definition, name, answers: {}, destination: "log", origin: "first-run",
-      draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: window.RepForgeProgramCompiler.generationIdentity(request, catalog) },
+      draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: window.__repforgeTrainingTest.compiler.generationIdentity(request, catalog) },
     });
     await window.__repforgeStorage.flush();
     return !!(result?.localOk || result?.idbOk);
@@ -702,7 +708,8 @@ export async function runSharedSetupFlow(browser) {
 
   await runCase("Module API is present", async () => {
     const { context, page } = await openAppPage(browser);
-    await ensureBrowserInterchange(page);
+    await installBrowserTraining(page);
+  await ensureBrowserInterchange(page);
     const api = await page.evaluate((required) => {
       const mod = window.__repforgeInterchangeTest.setup;
       if (!mod) return { present: false, keys: [] };
@@ -1120,7 +1127,8 @@ export async function runSharedSetupFlow(browser) {
     const { context, page } = await openAppPage(browser, { ua: ANDROID_UA, standalone: true });
     await freshDevice(page);
     const encoded = await encodeSetupDocument(page, await buildSetupDocument(page, { name: "Cookie program" }));
-    await ensureBrowserInterchange(page);
+    await installBrowserTraining(page);
+  await ensureBrowserInterchange(page);
     const wrote = await page.evaluate((value) => window.__repforgeInterchangeTest.setup.writeHandoffCookie(value), encoded.value);
     assert(wrote === true, "the codec writes a current envelope to the handoff cookie");
     await page.goto(APP_INDEX, { waitUntil: "domcontentloaded" });
@@ -1180,7 +1188,8 @@ export async function runSharedSetupFlow(browser) {
     await page.evaluate(() => window.__repforgeRecipeWorkerProbe.release(0));
     await page.waitForFunction(() => window.__repforgeRecipeWorkerProbe?.requests.length === 2, null, { timeout: 10000 });
     await page.waitForFunction(() => window.__repforgeRecipeWorkerProbe?.held.length === 1, null, { timeout: 10000 });
-    await ensureBrowserInterchange(page);
+    await installBrowserTraining(page);
+  await ensureBrowserInterchange(page);
     const secondPending = await page.evaluate(async () => {
       const probe = window.__repforgeRecipeWorkerProbe;
       await Promise.all(probe.requests.map((request) => request.identityReady));
@@ -1326,7 +1335,8 @@ export async function runSharedSetupFlow(browser) {
     const gate = await page.evaluate(sharedGateSnapshot);
     const hook = await page.evaluate(readSharedHook);
     const after = await page.evaluate(readDurableState);
-    const version = await page.evaluate(() => window.RepForgeProgramCompiler.GENERATOR_VERSION);
+    await installBrowserTraining(page);
+    const version = await page.evaluate(() => window.__repforgeTrainingTest.compiler.GENERATOR_VERSION);
     assert(version !== legacy.generatorVersion, "the app runs a later generator than the link's", version);
     assert(hook.status === "unsupported" && hook.error === "unsupported-version", "the recipe link is unsupported", hook);
     assert(!gate.startVisible && gate.createVisible && gate.importVisible, "no shared action; standard choices are restored", gate);
@@ -1346,7 +1356,8 @@ export async function runSharedSetupFlow(browser) {
       await freshDevice(page);
       await waitForFirstRun(page);
       const fragment = wireFragment({ ...LEGACY_PAYLOAD, version }, version);
-      await ensureBrowserInterchange(page);
+      await installBrowserTraining(page);
+  await ensureBrowserInterchange(page);
       const legacyCookieWritten = await page.evaluate((value) => window.__repforgeInterchangeTest.setup.writeHandoffCookie(value), fragment);
       assert(legacyCookieWritten === false, `${label}: the codec refuses to stage a legacy envelope in the cookie`);
       const before = await page.evaluate(readDurableState);

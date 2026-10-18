@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {installBrowserSnapshotPolicy} from './training-browser.mjs';
 /**
  * Importing a program is a review, not a write.
  *
@@ -553,7 +554,8 @@ async function main() {
     "a retired progression envelope is not carried into the canonical candidate",
     JSON.stringify(legacyCandidate));
 
-    const oversizedMeta = await page.evaluate(() => window.__repforgeValidateStateShape({
+    await installBrowserSnapshotPolicy(page);
+    const oversizedMeta = await page.evaluate(() => window.__repforgeTrainingTest.snapshotPolicy.isValidStateShape({
       program: [{ id: "ex1", name: "Press", day: "Day 1", order: 1, sets: 3, min: 6, max: 10 }], log: [],
       programMeta: { progressionIncompatibilities: [{ value: { text: "x".repeat(4001) } }] },
     }));
