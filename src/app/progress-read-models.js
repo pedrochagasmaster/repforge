@@ -1,3 +1,7 @@
+import {snapshotBlockId} from '../persistence/snapshot.js';
+import {liftKey,exerciseLiftKey,loggedMovementName} from './workout-model.js';
+import {derivePersonalRecords,workingRows,previousScalarSessionRows,buildSessionDelta,noComparableSessionOutcome} from '../training/progress.js';
+import {groupExerciseSessions,buildExerciseReadModel} from './read-models.js';
 import { estimateOneRepMax } from "../training/metrics.js";
 import { cloneSnapshot as structuredCloneFacts } from "../training/model.js";
 import { compareProjectedSessionOutcome as compareSessions, evidence as progressEvidence } from "../training/progress.js";
@@ -491,4 +495,75 @@ export function buildLiftSessionSummaries(rows) {
         });
         return { session: group.session, date: group.date, created: group.created, day: group.day, liftKey: group.liftKey, name: group.name, top, topReps, reps: group.reps.reduce((sum, value) => sum + Number(value || 0), 0), rir: average(group.rirs), sets: group.sets, volume, e1rm: best, perSideLoad: group.perSideLoad, convention: group.convention };
     }).sort(progressEvidence.compareChronology);
+}
+
+/** Captured application queries for Progress and the exercise drill-down. The
+ * Workout reader owns metric interpretation/recommendations; training owns
+ * comparison, record and scope policy. There is no History index/cache here.
+ * @param {import('./progress-contracts.js').ProgressQueryOptions} options */
+export function createProgressQueries({read,model,workout,labels,library}) {
+    const builtIns = new Map(library.map(entry => [entry.id, entry]));
+    function capture() {
+        const facts = read(), {snapshot} = facts;
+        const program = model.makeProgram(snapshot.program, model.snapshotLookup(snapshot.customExercises || []), snapshot.programMeta);
+        const query = workout.capture(facts), names = labels.capture({customExercises:snapshot.customExercises || [],language:facts.language});
+        const blockId = /** @type {string|null} */ (snapshotBlockId(snapshot)), meta = {started:snapshot.programMeta?.started || null,mesocycleLengthWeeks:snapshot.programMeta?.mesocycleLengthWeeks || 6,blockId};
+        const readings = query.readLogRows(snapshot.log).map(row => /** @type {typeof row & import('./workout-model.js').LogRow} */ (row));
+        const programFacts = program.exercises.map(ex => Object.freeze({id:ex.id,name:ex.name,key:exerciseLiftKey(ex)||`slot:${ex.id}`,displayName:names.exercise(ex)}));
+        const strengthRows = readings.filter(row => !row.warmup).map(row => ({exerciseId:liftKey(row),session:row.session,
+            sessionKey:strengthSessionKey(row),date:/** @type {string} */ (row.date),created:row.created??null,blockId:row.blockId??null,
+            name:loggedMovementName(row),day:row.day,primary:row.primary,secondary:row.secondary,
+            load:Number(row.load),reps:Number(row.reps),rir:row.rirMeasured===false||row.rir==null||row.rir===''?null:Number(row.rir),work:/** @type {const} */(true),
+            strengthComparable:row.strengthComparable,strengthConvention:row.strengthConvention,perSideLoad:row.perSideLoad,perSideReps:row.perSideReps,
+            loadPerSide:row.loadPerSide,repsPerSide:row.repsPerSide,tonnage:row.tonnage,repetitionsPerformed:row.repetitionsPerformed}));
+        function personalRecords() { return derivePersonalRecords(snapshot.log.map((row,index) => {
+            const reading = readings[index];
+            return {liftKey:liftKey(row),date:row.date,created:row.created,session:row.session,blockId:row.blockId??null,
+                load:reading.load,reps:reading.reps,rir:row.rir,warmup:row.warmup,strengthComparable:reading.strengthComparable,
+                strengthConvention:reading.strengthConvention,exerciseName:loggedMovementName(row),exerciseId:row.exerciseId,
+                loadMultiplier:reading.loadMultiplier,perSideLoad:reading.perSideLoad};
+        })); }
+        /** @param {string} key */
+        const installed = key => snapshot.program.find(ex => exerciseLiftKey(ex)===key) || null;
+        /** @param {string} key */
+        const recommendation = key => { const ex=installed(key); return ex?query.recommendation(ex):null; };
+        function readFacts() {
+            return Object.freeze({snapshot,programRows:program.toJSON(),program:programFacts,
+                log:readings.map(row => Object.freeze({...row,liftKey:liftKey(row),displayName:names.exercise(row)})),
+                today:facts.today,blockId,recoveryRecord:facts.recoveryBlockId===blockId?facts.recoveryRecord:null});
+        }
+        /** @param {string} scope */
+        function projectionInputs(scope) {
+            return {scope,meta,recordKeys:strengthRows.map(liftKey),rows:strengthRows.map(row => ({...row,e1rm:estimateOneRepMax(row.load,row.reps)})),
+                program:program.exercises.map(ex => ({key:exerciseLiftKey(ex)||`slot:${ex.id}`,name:ex.name,signal:'—'}))};
+        }
+        /** @param {string} scope */
+        function projection(scope) {
+            const input=projectionInputs(scope);
+            return buildStrengthProjection({...input,records:buildStrengthEvidenceRecords(input),prEvents:personalRecords()});
+        }
+        /** @param {string} key @param {import('./workout-model.js').Exercise|null} [capturedExercise] */
+        function detail(key,capturedExercise=null) {
+            const template=installed(key)||capturedExercise;
+            const rows=snapshot.log.filter(row=>liftKey(row)===key).map(row=>({...row,e1rm:estimateOneRepMax(Number(row.load),Number(row.reps))}));
+            const sessions=groupExerciseSessions(rows),latest=/** @type {(typeof rows)[number]|undefined} */ (sessions.at(-1)?.rows.at(-1));
+            const name=latest?names.exercise(latest):template?names.exercise(template):key;
+            const reference=template||(latest?{libraryId:latest.performedLibraryId,movementId:latest.performedMovementId,name:loggedMovementName(latest),id:latest.exerciseId||'',day:latest.day}:null);
+            const artEntry=reference?.libraryId!=null?(String(reference.libraryId).startsWith('custom:')?snapshot.customExercises.find(entry=>entry.id===reference.libraryId):builtIns.get(String(reference.libraryId)))||null:reference;
+            const comparisons=new Map(sessions.map(session=>{
+                const current=workingRows(session.rows);
+                const previous=reference&&current.length?previousScalarSessionRows(snapshot.log.filter(query.matchLift(reference)),current[0].session,snapshot.log):[];
+                const outcome=!current.length?noComparableSessionOutcome():!previous.length?{status:/** @type {const} */('new'),metrics:null}:buildSessionDelta(previous,current);
+                // Labels are presentation's responsibility; preserve the policy result.
+                return [session.session,{...outcome,label:''}];
+            }));
+            const summaries=buildLiftSessionSummaries(readings.map(row=>({...row,liftKey:liftKey(row),exerciseName:loggedMovementName(row)}))).filter(row=>row.liftKey===key);
+            const events=personalRecords().filter(event=>event.liftKey===key).map(event=>({...event,date:/** @type {string} */ (event.date),e1rm:estimateOneRepMax(event.load,event.reps)}));
+            return Object.freeze({key,name,template,artEntry,recommendation:template?query.recommendation(template):null,
+                prescription:template?query.prescriptionFacts(template):null,rirHigh:snapshot.settings.rirHigh,
+                stats:buildExerciseReadModel({rows,prs:events,summaries,comparisons})});
+        }
+        return Object.freeze({readFacts,projectionInputs,projection,detail,recommendation});
+    }
+    return Object.freeze({capture});
 }

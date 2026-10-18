@@ -68,7 +68,7 @@ import {createGenerationRules} from './src/training/generation.js';
 import {createEntryAdapter} from './src/training/authoring.js';
 import {estimateOneRepMax as e1rm} from './src/training/metrics.js';
 import {derivePersonalRecords,workingRows,buildSessionDelta as deriveSessionDelta,compareProjectedSessionOutcome as deriveProjectedOutcome,noComparableSessionOutcome as deriveNoComparable} from './src/training/progress.js';
-import {buildStrengthEvidenceRecords,buildStrengthProjection,strengthSessionKey,buildLiftSessionSummaries,createProgressReadModels,loggedMuscleAttribution,overviewBarPct,presentSessionOutcome,compareProgressStrengthSession as deriveProgressSessionOutcome} from './src/app/progress-read-models.js';
+import {buildStrengthEvidenceRecords,strengthSessionKey,buildLiftSessionSummaries,createProgressReadModels,createProgressQueries,loggedMuscleAttribution,overviewBarPct,presentSessionOutcome,compareProgressStrengthSession as deriveProgressSessionOutcome} from './src/app/progress-read-models.js';
 import {createProgressController,createExerciseController} from './src/ui/progress/controller.js';
 import {createReviewController} from './src/ui/progress/review.js';
 import {createReviewCommands} from './src/app/review.js';
@@ -78,7 +78,7 @@ import {createTodayController} from './src/ui/today/controller.js';
 import {createSessionSummary} from './src/ui/workout/summary.js';
 import * as ReadModels from './src/app/read-models.js';
 import {verdictMarkHtml as sharedVerdictMarkHtml,formatSetsLine,formatTable,formatProgramContext,formatCycleLabel,formatShortDate,sameLoad,recommendationVerdict,formatList} from './src/ui/format.js';
-let TodayUi,SummaryUi,ProgressUi,ReviewUi,TrainingModel,ProgressReadModels;
+let TodayUi,SummaryUi,ProgressUi,ReviewUi,TrainingModel,ProgressReadModels,ProgressQueries;
 import {createSession} from './src/app/session.js';
 import {createProgramReplacementPolicy,createCustomExerciseCommands,createProgramReplacementCommands,createProgramAdditionCommands} from './src/app/program.js';
 import {createHistoryCommands} from './src/app/history.js';
@@ -3414,9 +3414,7 @@ window.__repforgeProgression={
    word is the compareExerciseSession label the summary and History read; an
    attention target is recommendation(). Nothing is derived in this layer. */
 function progressProgramFacts(){return prog.exercises.map(ex=>Object.freeze({id:ex.id,name:ex.name,key:exerciseLiftKey(ex)||`slot:${ex.id}`,displayName:exerciseDisplayName(ex)}))}
-function progressReadFacts(){return Object.freeze({snapshot:state,programRows:prog.toJSON(),program:progressProgramFacts(),
-  log:readLogRows().map(row=>Object.freeze({...row,liftKey:liftKey(row),displayName:exerciseDisplayName(row)})),today:today(),blockId:snapshotBlockId(state),
-  recoveryRecord:activeRecoveryRecord&&activeRecoveryRecordBlockId===snapshotBlockId(state)?activeRecoveryRecord:null})}
+function progressReadFacts(){return ProgressQueries.capture().readFacts()}
 function progressStrengthReadFacts(scope){return Object.freeze({scope,projection:strengthProjection(scope),program:progressProgramFacts(),rows:strengthEvidenceRows()})}
 function strengthEvidenceReadModel(scope){return ProgressReadModels.strength(progressStrengthReadFacts(scope))}
 function overviewVolumeProjection(){return ProgressReadModels.overviewVolume(progressReadFacts())}
@@ -3726,20 +3724,16 @@ function compareProgressStrengthSession(ex,currentRows,readerContext){
       rows:Array.isArray(context.log)?strengthEvidenceRows(context.log):null},
     meta:{started:state.programMeta?.started||null,mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6,blockId:snapshotBlockId(state)}},{t})}
 
-function progressProjectionInputs(scope){const rows=strengthEvidenceRows();return{scope,recordKeys:rows.map(liftKey),meta:{started:state.programMeta?.started||null,
-  mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6,blockId:snapshotBlockId(state)},
-  rows:rows.map(row=>({...row,e1rm:e1rm(row.load,row.reps)})),
-  program:prog.exercises.map(ex=>({key:exerciseLiftKey(ex)||`slot:${ex.id}`,name:ex.name,signal:"—"}))}}
+function progressProjectionInputs(scope){return ProgressQueries.capture().projectionInputs(scope)}
 function strengthEvidenceRecords(scope="current-block"){
   return buildStrengthEvidenceRecords(progressProjectionInputs(scope))}
 
 
 function strengthProjection(scope="current-block"){
-  const facts=progressProjectionInputs(scope),records=buildStrengthEvidenceRecords(facts);
-  const projection=buildStrengthProjection({...facts,records,prEvents:detectPRs(state.log)});
+  const query=ProgressQueries.capture(),projection=query.projection(scope);
   return{...projection,dashboard:projection.dashboard.map(row=>{
-    const ex=currentExerciseForLiftKey(row.key),rec=ex?recommendation(ex):{label:"—"};
-    return{...row,latest:`${fmtLoad(row.latestLoad)}×${row.latestReps}`,signal:rec.label}})}}
+    const rec=query.recommendation(row.key);
+    return{...row,latest:`${fmtLoad(row.latestLoad)}×${row.latestReps}`,signal:rec?('labelKey' in rec?(rec.labelKey?t(rec.labelKey):''):rec.label):"—"}})}}
 
 // The test seam and the legacy fallback both read the same scoped projection
 // as the primary Strength renderer. No caller gets an all-history latest value
@@ -3779,19 +3773,14 @@ window.__repforgeSaveSessionEdit=HistoryUi.saveSessionEdit;
 // ---- Exercise detail: one lift's stats, session history and session notes ----
 // Reached by tapping an exercise name on the Log tab; not part of the bottom nav.
 function exerciseDetailReadModel(key,capturedExercise){
-  const tmpl=currentExerciseForLiftKey(key)||capturedExercise||null,rows=state.log.filter(row=>liftKey(row)===key).map(row=>({...row,e1rm:e1rm(+row.load,+row.reps)}));
-  const sessions=ReadModels.groupExerciseSessions(rows),latest=sessions.at(-1)?.rows.at(-1),name=latest?exerciseDisplayName(latest):((tmpl&&exerciseDisplayName(tmpl))||key);
-  const exRef=tmpl||(latest?exerciseIdentityFromRow(latest):null),artEntry=libraryUi.exerciseRefEntry(exRef),artSrc=exerciseMedia(artEntry);
-  const comparisons=new Map(exRef?sessions.map(session=>[session.session,compareExerciseSession(exRef,session.rows)]):[]);
-  const stats=ReadModels.buildExerciseReadModel({rows,
-    prs:detectPRs(state.log).filter(event=>event.liftKey===key).map(event=>({...event,e1rm:e1rm(event.load,event.reps)})),
-    summaries:summaries().filter(row=>row.liftKey===key),comparisons});
-  const rec=tmpl?recommendation(tmpl):null;
-  return{key,name,slotId:tmpl?.id||null,muscle:muscleListLabel(tmpl?.primary||""),
-    prescription:tmpl?{day:dayLabel(tmpl.day),text:tmpl.hasRepTarget===false?programPrescriptionSummary(tmpl):`${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${t("log.reps")}`,
-      hasRepTarget:tmpl.hasRepTarget!==false,rirHigh:state.settings.rirHigh}:null,
-    art:artSrc?{src:artSrc,bg:exerciseMediaBg(artEntry)}:null,
-    recommendation:rec?{status:rec.status,cue:rec.load!=null?recCueLoad(rec):rec.label,text:rec.text}:null,...stats};
+  const facts=ProgressQueries.capture().detail(key,capturedExercise),tmpl=facts.template,artSrc=exerciseMedia(facts.artEntry);
+  const value=facts.recommendation,rec=value&&'labelKey' in value?{...value,label:value.labelKey?t(value.labelKey):''}:value;
+  return{key,name:facts.name,slotId:tmpl?.id||null,muscle:muscleListLabel(tmpl?.primary||""),
+    prescription:tmpl?{day:dayLabel(tmpl.day),text:tmpl.hasRepTarget===false?FocusPrescription.summary(facts.prescription):`${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${t("log.reps")}`,
+      hasRepTarget:tmpl.hasRepTarget!==false,rirHigh:facts.rirHigh}:null,
+    art:artSrc?{src:artSrc,bg:exerciseMediaBg(facts.artEntry)}:null,
+    recommendation:rec?{status:rec.status,cue:rec.load!=null?recCueLoad(rec):rec.label,text:rec.text}:null,...facts.stats,
+    recent:facts.stats.recent.map(session=>({...session,comparison:session.comparison?presentSessionOutcome(session.comparison,{t}):null}))};
 }
 
 function currentViewId(){return $$(".view").find(v=>v.classList.contains("active"))?.id||"log"}
@@ -7740,6 +7729,10 @@ function initializePersistenceOwners(){
   initializeBlockTransitionCommands(model);
   workoutReadModel=createWorkoutReadModel({catalog:rawExerciseCatalog,librarySource:{library:EXERCISE_LIBRARY},model});
   initializeHistoryReadOwner(model,workoutReadModel);
+  ProgressQueries=createProgressQueries({model,workout:workoutReadModel,labels:MovementLabels,library:EXERCISE_LIBRARY,
+    read:()=>({snapshot:state,language:uiLang(),today:today(),draft:activeWorkoutDraft,
+      currentCycle:mesocycleLifecycle(state.programMeta).current||1,profileWeightKg:interpretedProfile(state.profile).weightKg,
+      recoveryRecord:activeRecoveryRecord,recoveryBlockId:activeRecoveryRecordBlockId})});
   ProgressReadModels=createProgressReadModels({training:model,copy:{t},format:{locale:locTag,exercise:liftDisplayName,muscle:muscleLabel,shortDate,longDate,displayLoad:toDisplay,number:fmt}});
   blockReview=createBlockReview({model,queries:workoutReadModel});
   const entry=createEntryRules(rawExerciseCatalog),workout=createWorkoutRules(rawExerciseCatalog);

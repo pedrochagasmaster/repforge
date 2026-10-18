@@ -173,3 +173,22 @@ export interface AttentionGroup {
 }
 
 export interface MuscleWorkRow extends MuscleRow {date?:string;load?:number|string|null;reps?:number|string|null;rir?:number|string|null;warmup?:boolean}
+
+/** One acknowledged operation, supplied by composition. No view-owned snapshot. */
+export interface ProgressQueryCapture {
+    snapshot: import('./workout-model.js').WorkoutSnapshot & ProgressSnapshot & {programMeta: ProgramMeta & {blockId?:string|null},settings:{rirHigh?:number|string}};
+    language: string;
+    today: string;
+    currentCycle: number;
+    profileWeightKg: number|null;
+    draft: Parameters<ReturnType<typeof import('./workout-model.js').createWorkoutReadModel>['capture']>[0]['draft'];
+    recoveryRecord: RecoveryRecord|null;
+    recoveryBlockId: string|null;
+}
+export interface ProgressQueryOptions {
+    read: () => ProgressQueryCapture;
+    model: TrainingModel;
+    workout: ReturnType<typeof import('./workout-model.js').createWorkoutReadModel>;
+    labels: {capture: (facts:{customExercises:readonly {id:string,name:string,namePt?:string}[],language:string}) => {exercise:(item:{name?:unknown,displayName?:unknown,libraryId?:unknown,performedName?:unknown,performedLibraryId?:unknown,session?:unknown}|null|undefined)=>string}};
+    library: readonly (import('./workout-model.js').LibraryEntry & {media?:string,mediaBg?:string})[];
+}
