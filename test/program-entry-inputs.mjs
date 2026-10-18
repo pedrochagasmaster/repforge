@@ -226,20 +226,19 @@ test("the answer schema takes B's Basics, presets, adjustment, block, deload and
 });
 
 test("a draft an earlier release stored normalizes to itself and maps to the same request", () => {
-  // The install transfer refuses a draft that differs from its own
-  // normalization, so a newer service must take an older client's draft as is.
-  const state = Entry.setAnswers(answersState(), { ...BASE, environment: { kind: "commercial_gym" } });
-  for (const environment of [
-    { kind: "commercial_gym", equipment: [], capabilities: [] },
-    { kind: "commercial_gym", equipment: ["barbell", "cable"], capabilities: ["safe_pull"] },
-    { kind: "other", equipment: [], capabilities: [] },
-  ]) {
-    const stored = structuredClone(state);
-    stored.answers.environment = environment;
+  // Both consumers use frozen outputs of the pre-Plan-072 public producer and
+  // adapter, never a draft enriched by today's constructors or normalizer.
+  const fixture = JSON.parse(fs.readFileSync(path.join(root, "test/fixtures/program-entry-draft-plan070.json"), "utf8"));
+  assert.deepEqual(fixture.cases.map(c => c.id), ["commercial-empty", "commercial-authored", "other-empty"]);
+  for (const sample of fixture.cases) {
+    const stored = structuredClone(sample.draft);
     const resumed = Entry.normalizeSetupDraft(stored);
     assert.equal(resumed.ok, true, JSON.stringify(resumed.issues));
-    assert.equal(stable(resumed.value), stable(stored), JSON.stringify(environment));
-    assert.deepEqual(requestFor({ environment }), requestFor({ environment: { kind: environment.kind === "other" ? "basic_gym" : environment.kind } }));
+    assert.deepEqual(resumed.value, sample.draft, `${sample.id}: every historical field survives`);
+    assert.deepEqual(stored, sample.draft, `${sample.id}: input remains untouched`);
+    const request = Adapter.programRequestFromAnswers(resumed.value.answers, Catalog);
+    assert.equal(request.ok, true, JSON.stringify(request.conflicts));
+    assert.deepEqual(request.value, sample.expectedRequest, `${sample.id}: prior-release request meaning survives`);
   }
 });
 

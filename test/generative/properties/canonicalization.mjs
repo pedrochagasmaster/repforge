@@ -74,10 +74,17 @@ export function buildSuites() {
         const twin = reverseKeyOrder(value);
         const direct = Setup.canonicalize(value);
         const shuffled = Setup.canonicalize(twin);
-        if (!deepEqual(direct, shuffled)) {
+        // Do not sort again in the oracle: that would conceal a canonicalizer
+        // which preserves its input's insertion order. Integer keys still use
+        // JavaScript's numeric enumeration in both serialized outputs.
+        if (JSON.stringify(direct) !== JSON.stringify(shuffled)) {
           throw new Error(
-            `key order changed the canonical form\noriginal: ${stableStringify(direct).slice(0, 400)}\nreordered: ${stableStringify(shuffled).slice(0, 400)}`,
+            `key order changed the canonical form\noriginal: ${JSON.stringify(direct).slice(0, 400)}\nreordered: ${JSON.stringify(shuffled).slice(0, 400)}`,
           );
+        }
+        const nested = { z: [{ y: 2, a: 1 }], a: { z: 4, b: 3 } };
+        if (JSON.stringify(Setup.canonicalize(nested)) !== '{"a":{"b":3,"z":4},"z":[{"a":1,"y":2}]}') {
+          throw new Error("canonical serialization differs from the literal nested-key contract");
         }
         const violation = keySetsPreserved(value, direct);
         if (violation) throw new Error(violation);
@@ -94,9 +101,9 @@ export function buildSuites() {
     {
       name: "canonicalize: does not mutate its input",
       property: fc.property(jsonJunkArbitrary(), (value) => {
-        const before = stableStringify(value);
+        const before = JSON.stringify(value);
         Setup.canonicalize(value);
-        const after = stableStringify(value);
+        const after = JSON.stringify(value);
         if (before !== after) throw new Error("input object was mutated");
       }),
     },

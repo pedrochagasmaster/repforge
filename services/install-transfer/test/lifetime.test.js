@@ -15,9 +15,14 @@ const now = 1_800_000_000_000;
 
 describe("transfer lifetime boundaries", () => {
   it("caps live records at one hour and leaves a fifteen-minute tombstone margin", () => {
-    const expiresAt = expiryForCreate(now, now + 99 * LIVE_WINDOW_MS);
-    expect(expiresAt).toBe(now + LIVE_WINDOW_MS);
-    expect(tombstoneUntil(expiresAt)).toBe(now + LIVE_WINDOW_MS + TOMBSTONE_MARGIN_MS);
+    // ADR 0013's public limits must not move with the implementation constants.
+    expect(LIVE_WINDOW_MS).toBe(3_600_000);
+    expect(TOMBSTONE_MARGIN_MS).toBe(900_000);
+    const expiresAt = expiryForCreate(now, now + 86_400_000);
+    expect(expiresAt).toBe(now + 3_600_000);
+    expect(expiryForCreate(now)).toBe(now + 3_600_000);
+    expect(expiryForCreate(now, now + 12_345)).toBe(now + 12_345);
+    expect(tombstoneUntil(expiresAt)).toBe(now + 4_500_000);
   });
 
   it("separates unclaimed expiry from an uncommitted claim", () => {

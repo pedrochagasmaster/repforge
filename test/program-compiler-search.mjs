@@ -34,17 +34,13 @@ for (const answers of [
 ]) {
   const request = requestFor(answers);
   const generated = Compiler.generateProgram(request, Catalog);
+  assert.equal(generated.ok, true, `known-feasible request was refused: ${JSON.stringify(answers)}`);
   assert.deepEqual(Compiler.generateProgram(request, Catalog), generated, "same current request replays identically");
   assert.deepEqual(Compiler.generateProgram(request, reversedCatalog), generated,
     "current generation is independent of catalog array order");
-  if (generated.ok) {
-    assert.deepEqual(Compiler.validateProgramDefinition(generated.value, Catalog), { ok: true, issues: [] });
-    assert.equal(generated.value.seed, undefined);
-    assert.equal(generated.value.provenance.source, "recovered_generation_rules");
-  } else {
-    assert.equal(generated.value, null, "refusal never returns a partial program");
-    assert.ok(generated.conflicts.length > 0, "refusal is explained");
-  }
+  assert.deepEqual(Compiler.validateProgramDefinition(generated.value, Catalog), { ok: true, issues: [] });
+  assert.equal(generated.value.seed, undefined);
+  assert.equal(generated.value.provenance.source, "recovered_generation_rules");
 }
 
 // #349: without a pull-up bar or bands the Home fixture cannot fill its
