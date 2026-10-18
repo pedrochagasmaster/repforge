@@ -10,6 +10,8 @@ import {review as ReviewRules} from './src/training/authoring.js';
 import {createProgramReview} from './src/ui/editors.js';
 import {createStorageRecoveryView} from './src/ui/storage-recovery.js';
 import {createStorageRecoveryCommands} from './src/app/storage-recovery.js';
+import {createInstalledEditor} from './src/app/installed-editor.js';
+let InstalledEditor,BuildAuthoring,programCommands;
 import {createProgramSharing} from './src/app/program-sharing.js';
 import {createProgramSharingView} from './src/ui/program/sharing.js';
 import {createFiles} from './src/platform/files.js';
@@ -63,7 +65,7 @@ import {verdictMarkHtml as sharedVerdictMarkHtml,formatSetsLine,formatTable} fro
 let TodayUi,SummaryUi,ProgressUi,ReviewUi,TrainingModel,ProgressReadModels;
 import {createSession} from './src/app/session.js';
 import {createWorkoutCommands,createFocusWorkoutCommands,createWorkoutSuggestionCommands} from './src/app/workout.js';
-import {createProgramCommands,createCustomExerciseCommands,createProgramReplacementCommands,createProgramAdditionCommands} from './src/app/program.js';
+import {createCustomExerciseCommands,createProgramReplacementCommands,createProgramAdditionCommands} from './src/app/program.js';
 import {createHistoryCommands} from './src/app/history.js';
 import {createMotion} from './src/platform/motion.js';
 import * as SnapshotPolicy from './src/persistence/snapshot.js';
@@ -1220,16 +1222,6 @@ function executionModeForSlot(...args){return workoutQueries().executionModeForS
 /* Plan 069 S4: which editor slots may offer "Suggest loads", and which need
    the lifter's execution mode first. The engine's compositions decide support;
    custom movements stay manual (R1), unsupported compositions too (R2). */
-const editorSuggestLoadsPolicy=Object.freeze({
-  eligibility(slot){
-    if(!slot||slot.metricOrigin!=="source_catalog"||isCustomLibraryId(slot.exerciseId)||!rawExercise(slot.exerciseId))return"custom";
-    const semantics=JSON.stringify((slot.metricDefinitions||[]).map(metric=>metric.semantic));
-    const supported=Object.values(PersistenceProgression?.SUPPORTED_SEMANTICS||{})
-      .some(candidate=>JSON.stringify(candidate)===semantics);
-    return supported?"eligible":"unsupported"},
-  executionModeQuestion(slot){
-    return(slot?.metricDefinitions||[]).some(metric=>["repsPerSide","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic))&&
-      !catalogExecutionMode(slot?.exerciseId)}});
 function slotLoadingProjection(...args){return workoutQueries().slotLoadingProjection(...args)}
 /* A mid-session swap reprograms the slot's pending sets with the
    replacement's own metric composition. Targets carry over only for metrics
@@ -1284,7 +1276,7 @@ function workoutProgramContext(label=day){
       const slotProjection=canonicalSlot?slotLoadingProjection(canonicalSlot):null;
       if(slotProjection)loadingContext.externalLoadMultiplier=slotProjection.externalLoadMultiplier;
       // Each new row of an ambiguous per-side movement keeps the lifter's explicit mode (#382).
-      if(slotProjection?.executionMode&&editorSuggestLoadsPolicy.executionModeQuestion(canonicalSlot))
+      if(slotProjection?.executionMode&&InstalledEditor.rules.editorSuggestLoadsPolicy.executionModeQuestion(canonicalSlot))
         loadingContext.executionMode=slotProjection.executionMode;
       const programmedSets=cycle?cycle.sets.map((prescription,i)=>{
         const old=prev.find(row=>row.set===i+1),repTarget=prescription.targets?.reps??prescription.targets?.repsPerSide;
@@ -1922,7 +1914,7 @@ let ExerciseUi=null;
 let workoutActive=false,workoutLeft=false,programEditMode=false,setupEditorOpen=false;
 /* The editor module owns the draft document. Hosts retain only its lifecycle
    and adapter session so the installed editor can stay private until Done. */
-let installedProgramEditor=null,onboardingProgramEditor=null,installedEditorSession=null,pendingEditorNavigation=null;
+let installedProgramEditor=null,onboardingProgramEditor=null,pendingEditorNavigation=null;
 
 // Today's session lists its first few exercises; the rest sit behind a "+N" row.
 // Two-level Progress navigation (Plan 056): Overview/Review are the primary
@@ -4916,22 +4908,6 @@ function closeExerciseView(){return ExerciseUi.close()}
 function renderExerciseView(){return ExerciseUi.render()}
 function openSettingsView(){showSettings()}
 
-function editorDocumentFromSnapshot(snapshot){
-  return{program:cloneSnapshot(snapshot?.program||[]),programMeta:cloneSnapshot(snapshot?.programMeta||{}),
-    customExercises:cloneSnapshot(snapshot?.customExercises||[])}
-}
-function editorSnapshotFromDocument(document,base=state){
-  const proposal=cloneSnapshot(base);
-  proposal.program=cloneSnapshot(document?.program||[]);
-  proposal.programMeta={...(cloneSnapshot(base?.programMeta||defaultProgramMeta(base?.log||[]))),...(cloneSnapshot(document?.programMeta||{}))};
-  proposal.customExercises=cloneSnapshot(document?.customExercises||base?.customExercises||[]);
-  const model=makeProgram(proposal.program,snapshotLookup(proposal.customExercises),proposal.programMeta);
-  // The ProgramDefinition owns prescriptions; the editor's per-row copy is
-  // working state. Persist the row shape boot reads back, or the durable
-  // program fingerprint never matches the live one again (#344).
-  proposal.program=model.toJSON();
-  syncProgramStructureFromProgram(proposal,model,base?.program,base?.programMeta);
-  return proposal}
 function editorAdapterTranslate(key,vars,fallback){
   const value=t(key,vars);return value===key?(fallback||key):value}
 function editorChooseExercise(request){
@@ -4952,171 +4928,6 @@ function editorChooseExercise(request){
       ...(request?.repair?{onCancel:()=>resolve(null),stageOnly:true,repairSeed:request.exercise}:{}),
       ...(request?.mode==="add"?{quick:true,day:request.day}: {})};
     libraryUi.openExercisePicker(options)})}
-function installedEditorDocument(){return editorDocumentFromSnapshot(state)}
-function installedEditorToken(snapshot=state){return{revision:readRevision(snapshot),programId:snapshot?.programMeta?.id||null,
-  blockId:snapshotBlockId(snapshot),fingerprint:draftProgramFingerprint(snapshot)}}
-function editorTokenEqual(a,b){return Number(a?.revision)===Number(b?.revision)&&a?.programId===b?.programId&&
-  a?.blockId===b?.blockId&&a?.fingerprint===b?.fingerprint}
-function editorDocumentDays(document){
-  const labels=[];
-  for(const entry of document?.programMeta?.programStructure?.days||[]){
-    const label=String(entry?.label||entry?.dayId||"");if(label&&!labels.includes(label))labels.push(label)}
-  for(const exercise of document?.program||[]){const label=String(exercise?.day||"");if(label&&!labels.includes(label))labels.push(label)}
-  return labels}
-function editorDocumentExercises(document,day){
-  return(document?.program||[]).filter(exercise=>exercise?.day===day)
-    .sort((a,b)=>(Number(a?.order)||0)-(Number(b?.order)||0)||String(a?.id||"").localeCompare(String(b?.id||"")))}
-function editorDraftExerciseIds(draft){
-  if(draft?.schemaVersion===2)return new Set((draft.exerciseOrder||[]).filter(id=>{
-    const exercise=draft.exercises?.[id];
-    return exercise&&(exercise.status==="skipped"||exercise.substitution||exercise.setOrder.some(setId=>{
-      const set=exercise.sets[setId];
-      return set&&(set.completion!=="pending"||set.role==="warmup"||draftSetTouched(set))}) )}));
-  const ids=new Set(),addKey=key=>{
-    const id=setKeyExerciseId(key);if(id&&id!==String(key))ids.add(id)};
-  for(const key of ["__done","__touched","__warm"]){if(Array.isArray(draft?.[key]))draft[key].forEach(addKey)}
-  for(const key of Object.keys(draft||{}))if(/_load$/.test(key))addKey(key.slice(0,-5));
-  for(const id of [...(draft?.__skipped||[]),...Object.keys(draft?.__substituted||{})])if(id)ids.add(String(id));
-  return ids}
-function editorIntentValue(exercise,field){
-  return exercise?.[field]}
-function applyInstalledEditorIntent(document,edit,{check=true}={}){
-  const kind=edit?.kind;
-  if(kind==="program_name"){
-    const current=document.programMeta?.name||"";
-    if(check&&edit.before!==undefined&&current!==edit.before&&current!==edit.after)return{conflict:true};
-    document.programMeta={...(document.programMeta||{}),name:String(edit.after??"")};return{ok:true}}
-  if(kind==="day_name"){
-    const old=String(edit.before||edit.targetDay||""),next=String(edit.after||"");
-    const model=makeProgram(document.program,snapshotLookup(document.customExercises),document.programMeta);
-    const current=!!model.days().includes(old);
-    if(check&&!current)return{conflict:true};
-    if(!model.renameDay(old,next))return{conflict:true};
-    document.program=model.toJSON();syncProgramStructureFromProgram(document,model);
-    return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true}}
-  if(kind==="day_add"){
-    const day=String(edit.after||edit.targetDay||"").trim();
-    if(!day)return{conflict:true};
-    if(check&&editorDocumentDays(document).includes(day))return{conflict:true};
-    const structure=(document.programMeta?.programStructure?.days||[]).slice();
-    structure.push({dayId:`manual_d${structure.length+1}`,label:day,order:structure.length+1});
-    document.programMeta={...(document.programMeta||{}),programStructure:{...(document.programMeta?.programStructure||{}),days:structure}};
-    return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true};
-  }
-  if(kind==="slot_alternates")
-    return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true,code:"invalid_canonical_alternates"};
-  if(kind==="metric_target"||kind==="metric_composition"||kind==="prescription_field"||
-    kind==="prescription"&&edit.field==="sets"){
-    return syncEditorCanonicalIntent(document,document,edit,{cycleIndex:Number(edit.cycleIndex)||1})
-      ?{ok:true}:{conflict:true,code:"invalid_canonical_prescription"}}
-  if(kind==="exercise_field"||kind==="prescription"){
-    const exercise=document.program?.find(item=>item.id===edit.targetId);
-    if(!exercise)return{conflict:true};
-    const current=editorIntentValue(exercise,edit.field);
-    if(check&&edit.before!==undefined&&!changeValueEqualForEditor(current,edit.before)&&!changeValueEqualForEditor(current,edit.after))return{conflict:true};
-    exercise[edit.field]=cloneSnapshot(edit.after);
-    if(edit.field==="name"&&exercise.libraryId){
-      if(String(edit.after||"").trim())exercise.displayName=String(edit.after).trim();
-      else delete exercise.displayName;
-    }
-    if(edit.field==="min"&&Number(exercise.max)<Number(exercise.min))exercise.max=exercise.min;
-    if(edit.field==="max"&&Number(exercise.min)>Number(exercise.max))exercise.min=exercise.max;
-    if(document.programMeta?.programDefinition&&!syncEditorCanonicalIntent(document,document,edit))
-      return{conflict:true,code:"invalid_canonical_exercise_field"};
-    return{ok:true}}
-  if(kind==="exercise_move"){
-    const exercise=document.program?.find(item=>item.id===edit.targetId);if(!exercise)return{conflict:true};
-    if(check&&exercise.day!==edit.sourceDay)return{conflict:true};
-    if(edit.targetDay&&!editorDocumentDays(document).includes(edit.targetDay))return{conflict:true};
-    const source=editorDocumentExercises(document,edit.sourceDay),sourceIndex=source.findIndex(item=>item.id===edit.targetId);
-    if(sourceIndex<0)return{conflict:true};
-    // The intent carries the source position as a precondition. Checking it
-    // catches a second tab moving the same exercise within the same day; a day
-    // check alone would silently reorder over that concurrent edit.
-    if(check&&edit.sourceIndex!==undefined&&sourceIndex!==Number(edit.sourceIndex))return{conflict:true};
-    const targetDay=String(edit.targetDay||edit.sourceDay),target=editorDocumentExercises(document,targetDay)
-      .filter(item=>item.id!==edit.targetId);
-    const requested=Number.isFinite(Number(edit.targetIndex))?Number(edit.targetIndex):target.length;
-    const at=Math.max(0,Math.min(requested,target.length));
-    const moved=document.program.find(item=>item.id===edit.targetId);
-    if(!moved)return{conflict:true};
-    if(targetDay===edit.sourceDay){
-      source.splice(sourceIndex,1);source.splice(at,0,moved);
-      source.forEach((item,index)=>{item.day=targetDay;item.order=index+1});
-    }else{
-      source.splice(sourceIndex,1);target.splice(at,0,moved);
-      source.forEach((item,index)=>{item.order=index+1});
-      target.forEach((item,index)=>{item.day=targetDay;item.order=index+1});
-    }
-    return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true,code:"invalid_canonical_move"}}
-  if(kind==="exercise_add"){
-    if(check&&document.program?.some(item=>item.id===edit.targetId))return{conflict:true};
-    if(edit.targetDay&&!editorDocumentDays(document).includes(edit.targetDay))return{conflict:true};
-    if(edit.exercise){
-      if(!editorHasCustomDefinition(document,edit.exercise.libraryId))
-        return{conflict:true,code:"missing_custom_definition"};
-      document.program=(document.program||[]).concat(cloneSnapshot(edit.exercise));
-      syncProgramStructureFromProgram(document,makeProgram(document.program,snapshotLookup(document.customExercises),document.programMeta));
-      if(!syncEditorCanonicalIntent(document,document,edit))return{conflict:true,code:"invalid_canonical_exercise"};
-    }
-    return{ok:true};
-  }
-  if(kind==="exercise_replace"){
-    const existing=document.program?.find(item=>item.id===edit.targetId);
-    if(!existing)return{conflict:true};
-    if(check&&edit.beforeLibraryId!==undefined&&existing.libraryId!==edit.beforeLibraryId)return{conflict:true};
-    if(edit.customExercise){
-      if(!isCustomLibraryId(edit.customExercise.id)||edit.exercise?.libraryId!==edit.customExercise.id)
-        return{conflict:true,code:"invalid_staged_custom_definition"};
-      const customExercises=Array.isArray(document.customExercises)?document.customExercises:[];
-      const current=customExercises.find(item=>item?.id===edit.customExercise.id);
-      if(current&&!changeValueEqualForEditor(current,edit.customExercise))return{conflict:true};
-      if(!current)document.customExercises=customExercises.concat(cloneSnapshot(edit.customExercise));
-    }
-    if(edit.exercise){
-      if(!editorHasCustomDefinition(document,edit.exercise.libraryId))
-        return{conflict:true,code:"missing_custom_definition"};
-      Object.assign(existing,cloneSnapshot(edit.exercise));
-      if(!syncEditorCanonicalIntent(document,document,edit))return{conflict:true,code:"invalid_canonical_exercise"}}
-    return{ok:true};
-  }
-  if(kind==="exercise_remove"){
-    const existing=document.program?.find(item=>item.id===edit.targetId);
-    if(check&&!existing)return{conflict:true};
-    document.program=(document.program||[]).filter(item=>item.id!==edit.targetId);
-    return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true,code:"invalid_canonical_exercise"};
-  }
-  if(kind==="suggest_loads"||kind==="suggest_loads_rir"||kind==="execution_mode")
-    return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true,code:"invalid_canonical_prescription"};
-  if(kind==="load_step"){
-    const exerciseId=String(edit.exerciseId||""),after=edit.after;
-    if(!exerciseId||(after!==null&&!(Number.isFinite(after)&&after>0&&after<=100)))return{conflict:true};
-    document.programMeta=document.programMeta||{};
-    const byExerciseId={...(document.programMeta.loadingConfiguration?.byExerciseId||{})};
-    if(after===null)delete byExerciseId[exerciseId];else byExerciseId[exerciseId]={loadStepKg:after};
-    document.programMeta.loadingConfiguration={...(document.programMeta.loadingConfiguration||{}),byExerciseId};
-    return{ok:true};
-  }
-  if(kind==="day_remove"){
-    const day=String(edit.targetDay||"");
-    if(check&&!editorDocumentDays(document).includes(day))return{conflict:true};
-    document.program=(document.program||[]).filter(item=>item.day!==day);
-    const structure=document.programMeta?.programStructure;
-    if(structure?.days)document.programMeta.programStructure={...structure,days:structure.days.filter(item=>String(item?.label||item?.dayId||"")!==day)};
-    return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true,code:"invalid_canonical_exercise"};
-  }
-  return{ok:true};
-}
-function changeValueEqualForEditor(a,b){return JSON.stringify(canonicalize(a))===JSON.stringify(canonicalize(b))}
-// Legacy snapshots remain readable, so custom-link integrity is enforced at
-// the editor mutation boundary that creates or changes a program reference.
-function editorHasCustomDefinition(document,id){
-  return !isCustomLibraryId(id)||(document?.customExercises||[]).some(entry=>entry?.id===id)}
-function editorRebaseDocument(session,head){
-  const rebased=editorDocumentFromSnapshot(head),edits=session?.edits||[];
-  for(const edit of edits){const result=applyInstalledEditorIntent(rebased,edit);
-    if(result?.conflict)return{conflict:true,code:result.code||"editor_intent_conflict"};}
-  return{document:rebased,conflict:false}}
 function editorMetricDefinitionList(id){
   const source=rawMetricDefinitions(id);
   if(source!==null)return source;
@@ -5140,399 +4951,10 @@ function editorMetricAdapter({cycleIndex}={}){
     metricCompositions:()=>cloneSnapshot(ExerciseMetrics?.SOURCE_COMPOSITIONS||[]),
     cycleIndex:typeof cycleIndex==="function"?cycleIndex:()=>1,
   }}
-function editorDefinitionAndSlot(document,slotId){
-  const definition=document?.programMeta?.programDefinition;
-  for(const day of definition?.days||[]){
-    const slot=(day.slots||[]).find(candidate=>candidate?.id===slotId);
-    if(slot)return{definition,day,slot}}
-  return{definition,day:null,slot:null}}
-function editorSetByCoordinates(definition,slotId,cycleIndex,setIndex){
-  for(const day of definition?.days||[]){
-    const slot=(day.slots||[]).find(candidate=>candidate?.id===slotId);
-    const cycle=slot?.prescriptionsByCycle?.find(candidate=>candidate?.cycleIndex===cycleIndex);
-    const set=cycle?.sets?.find(candidate=>candidate?.setIndex===setIndex);
-    if(set)return{slot,cycle,set}}
-  return{slot:null,cycle:null,set:null}}
-function editorCycleSetCount(slot,cycleIndex){
-  return slot?.prescriptionsByCycle?.find(cycle=>cycle.cycleIndex===cycleIndex)?.sets?.length||0}
-// Schema v2: a set derives its metric composition from its slot rather than
-// storing it again, so this builds no metricIds/metricDefinitions of its own.
-function editorNewPrescription(slotId,cycleIndex,setIndex,metricIds,metricDefinitions,targets={},status){
-  return{id:`manual-${uid()}`,cycleIndex,setIndex,metricType:"source_metrics@1",
-    targets:cloneSnapshot(targets),rir:null,restSeconds:null,
-    status:status||(metricIds.length?"manual":"configuration_required"),
-    provenance:{source:"manual",policyVersion:"manual@1"}}}
-function editorSlotForRow(row,document,slotId,order,existing=null){
-  const exerciseId=String(row?.libraryId||row?.exerciseId||"");
-  if(!exerciseId)return null;
-  const raw=rawExercise(exerciseId),custom=(document?.customExercises||[]).find(entry=>entry.id===exerciseId)||null;
-  const definitions=raw?rawMetricDefinitions(exerciseId)||[]:
-    Array.isArray(custom?.metricDefinitions)?custom.metricDefinitions.map(cloneSnapshot):[];
-  const metricIds=definitions.map(definition=>definition.id);
-  const origin=raw?"source_catalog":"user_defined";
-  const sourceSetsByCycle=new Map((existing?.prescriptionsByCycle||[]).map(cycle=>[cycle.cycleIndex,cycle]));
-  const cycles=Number.isInteger(document?.programMeta?.programDefinition?.cycles)
-    ?document.programMeta.programDefinition.cycles:1;
-  const reps=definitions.find(definition=>definition.semantic==="reps"||definition.semantic==="repsPerSide");
-  const targets={};
-  // A movement that counts repetitions always gets a range: the row's, or
-  // Build's default when the slot it replaces had none (a rep-less movement).
-  if(reps)targets[reps.semantic]=Number.isSafeInteger(row.min)&&row.min>=1&&Number.isSafeInteger(row.max)&&row.max>=row.min
-    ?{min:row.min,max:row.max}:{min:6,max:10};
-  const setCount=Math.max(1,Math.min(100,Number.isInteger(row.sets)?row.sets:3));
-  const prescriptionsByCycle=[];
-  for(let cycleIndex=1;cycleIndex<=cycles;cycleIndex++){
-    const previous=sourceSetsByCycle.get(cycleIndex)?.sets||[];
-    const sets=[];
-    for(let setIndex=1;setIndex<=setCount;setIndex++){
-      const old=previous[setIndex-1];
-      const retainedTargets=existing&&old?cloneSnapshot(old.targets||{}):cloneSnapshot(targets);
-      const filteredTargets=Object.fromEntries(Object.entries(retainedTargets).filter(([semantic])=>
-        definitions.some(definition=>definition.semantic===semantic)));
-      if(reps&&filteredTargets[reps.semantic]==null&&targets[reps.semantic])
-        filteredTargets[reps.semantic]=cloneSnapshot(targets[reps.semantic]);
-      const built=editorNewPrescription(slotId,cycleIndex,setIndex,metricIds,definitions,filteredTargets,
-        definitions.length?"manual":"configuration_required");
-      // Plan 069 D3: a new movement is not what the lifter opted in for, so
-      // a replaced slot keeps its values but returns to manual.
-      if(existing&&old){built.id=old.id;built.rir=old.rir??null;built.restSeconds=old.restSeconds??null;
-        built.provenance={...cloneSnapshot(old.provenance||{}),source:"manual",policyVersion:"manual@1"}}
-      sets.push(built)}
-    prescriptionsByCycle.push({cycleIndex,sets})}
-  const primaryIds=Array.isArray(raw?.primaryFeatureMuscle)?raw.primaryFeatureMuscle:[];
-  const secondaryIds=Array.isArray(raw?.secondaryFeatureMuscle)?raw.secondaryFeatureMuscle:[];
-  const patternIds=Array.isArray(raw?.movementPattern)?raw.movementPattern:[];
-  const sourceType=raw?.exerciseType||null;
-  const prior=existing||{};
-  return{...prior,id:slotId,purposeId:"manual",exerciseId,sourceExerciseIds:[exerciseId],role:"manual",
-    musclePurposeIds:[...new Set([...primaryIds,...secondaryIds])],movementPatternIds:[...new Set(patternIds)],
-    ...(sourceType?{exerciseTypeId:sourceType}:{}),order,metricOrigin:origin,metricIds,metricDefinitions:definitions,
-    ...(row.displayName?{displayName:String(row.displayName)}:{}),setupNotes:String(row.notes||""),
-    ...(!raw?manualAttributionFor(row):{}),
-    loadingModel:{bodyweightCoefficient:Number.isFinite(raw?.bodyweight)?raw.bodyweight:null,assistanceDirection:"subtract"},
-    prescriptionsByCycle}}
-function syncEditorRowFromCanonical(document,slot,cycleIndex=1){
-  const row=(document?.program||[]).find(candidate=>(candidate.slotId||candidate.id)===slot?.id);
-  if(!row||!slot)return;
-  const cycle=slot.prescriptionsByCycle?.find(candidate=>candidate.cycleIndex===cycleIndex)||slot.prescriptionsByCycle?.[0];
-  const rep=slot.metricDefinitions?.find(definition=>definition.semantic==="reps"||definition.semantic==="repsPerSide");
-  const repTarget=cycle?.sets?.map(set=>set.targets?.[rep?.semantic]).find(value=>value!=null);
-  row.sets=cycle?.sets?.length||row.sets;
-  row.hasRepTarget=!!rep;
-  if(rep){
-    row.min=typeof repTarget==="number"?repTarget:Number.isFinite(repTarget?.min)?repTarget.min:row.min;
-    row.max=typeof repTarget==="number"?repTarget:Number.isFinite(repTarget?.max)?repTarget.max:row.max;
-  }else{delete row.min;delete row.max}}
-function editorRepRangeValid(target){
-  const range=Number.isSafeInteger(target)?{min:target,max:target}:target&&typeof target==="object"?target:null;
-  return!!range&&Number.isSafeInteger(range.min)&&Number.isSafeInteger(range.max)&&range.min>=1&&range.max>=range.min&&range.max<=30}
-/* A pending "Suggest loads" opt-in belongs to the movement it was turned on for. */
-function dropPendingSuggestLoads(document,slotId){
-  const meta=document?.programMeta,list=Array.isArray(meta?.suggestLoadsPending)?meta.suggestLoadsPending:null;
-  if(!list)return;
-  const next=list.filter(id=>id!==slotId);
-  if(next.length)meta.suggestLoadsPending=next;else delete meta.suggestLoadsPending}
-function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={}){
-  const meta=document.programMeta||(document.programMeta={});
-  let definition=meta.programDefinition;
-  const baseDefinition=baseDocument?.programMeta?.programDefinition;
-  if(!definition){
-    if(!setupEditorOpen||entryState?.route!=="build"||edit?.kind!=="exercise_add")return false;
-    const dayNames=(meta.programStructure?.days||[]).map(item=>item?.label||item?.dayId).filter(Boolean);
-    definition=cloneSnapshot(baseDefinition||manualProgramDefinitionFromRows(
-      baseDocument?.program||[],dayNames,document.customExercises||[]));
-    if(!definition)return false;
-    meta.programDefinition=definition}
-  const find=slotId=>editorDefinitionAndSlot(document,slotId);
-  const slotId=String(edit?.slotId||edit?.targetId||"");
-  const beforeRef=editorDefinitionAndSlot({programMeta:{programDefinition:baseDefinition}},slotId);
-  if(edit?.kind==="metric_target"){
-    const {slot}=find(slotId),{set}=editorSetByCoordinates(definition,slotId,Number(edit.cycleIndex),Number(edit.setIndex));
-    const metric=slot?.metricDefinitions?.find(item=>item.id===edit.metricId);
-    if(!slot||!set||!metric||metric.semantic!==edit.semantic||
-      !changeValueEqualForEditor(slot.metricIds,edit.metricIds)||!changeValueEqualForEditor(slot.metricDefinitions,edit.metricDefinitions))return false;
-    const current=Object.prototype.hasOwnProperty.call(set.targets||{},edit.semantic)
-      ?{present:true,value:set.targets[edit.semantic]}:{present:false,value:null};
-    if(!changeValueEqualForEditor(current,edit.after)&&!changeValueEqualForEditor(current,edit.before))return false;
-    // Plan 069 D3: the rep range feeds the suggestion, so an adaptive set
-    // keeps adapting through a range edit and cannot lose its range.
-    const keepsAdaptive=set.status==="ready"&&(metric.semantic==="reps"||metric.semantic==="repsPerSide");
-    if(keepsAdaptive&&!(edit.after?.present&&editorRepRangeValid(edit.after.value)))return false;
-    if(edit.after?.present)set.targets[edit.semantic]=cloneSnapshot(edit.after.value);
-    else delete set.targets[edit.semantic];
-    if(!keepsAdaptive){set.status="manual";set.provenance={source:"manual",policyVersion:"manual@1"}}
-    syncEditorRowFromCanonical(document,slot,Number(edit.cycleIndex));
-  }else if(edit?.kind==="metric_composition"){
-    const {slot}=find(slotId);
-    if(!slot||(slot.metricOrigin!=="user_defined"&&slot.metricIds?.length))return false;
-    const alreadyApplied=changeValueEqualForEditor(slot.metricIds,edit.metricIds)&&
-      changeValueEqualForEditor(slot.metricDefinitions,edit.metricDefinitions);
-    const matchesBefore=changeValueEqualForEditor(slot.metricIds,edit.beforeMetricIds)&&
-      changeValueEqualForEditor(slot.metricDefinitions,edit.beforeMetricDefinitions);
-    if(!alreadyApplied&&!matchesBefore)return false;
-    const checkedMetrics=ExerciseMetrics?.validateDefinitions?.(edit.metricIds,edit.metricDefinitions,{allowEmpty:true});
-    const supported=ExerciseMetrics?.SOURCE_COMPOSITIONS?.some(composition=>
-      changeValueEqualForEditor(composition,edit.metricIds));
-    if(!checkedMetrics?.ok||!supported)return false;
-    // Schema v2: a set derives its metric composition from its slot rather
-    // than storing it again, so only the slot above carries the new
-    // composition; there is no per-set copy left to reconcile or verify.
-    if(!alreadyApplied){
-      slot.metricIds=cloneSnapshot(edit.metricIds);slot.metricDefinitions=cloneSnapshot(edit.metricDefinitions);
-      for(const cycle of slot.prescriptionsByCycle||[])for(const set of cycle.sets||[]){
-        set.targets=Object.fromEntries(Object.entries(set.targets||{}).filter(([semantic])=>
-          edit.metricDefinitions.some(metric=>metric.semantic===semantic)));
-        set.status=edit.metricIds.length?"manual":"configuration_required";
-        set.provenance={source:"manual",policyVersion:"manual@1"}}
-    }
-    // A composition that counts repetitions needs a rep range to log against;
-    // a newly configured one starts from the row's range or Build's default.
-    const repSemantic=edit.metricDefinitions.find(metric=>metric.semantic==="reps"||metric.semantic==="repsPerSide")?.semantic;
-    const row=(document.program||[]).find(item=>String(item.slotId||item.id)===String(slotId));
-    const rowMin=Number(row?.min),rowMax=Number(row?.max);
-    const defaultRange=Number.isSafeInteger(rowMin)&&rowMin>0&&Number.isSafeInteger(rowMax)&&rowMax>=rowMin
-      ?{min:rowMin,max:rowMax}:{min:6,max:10};
-    for(const cycle of slot.prescriptionsByCycle||[])for(const set of cycle.sets||[]){
-      set.status=edit.metricIds.length?"manual":"configuration_required";
-      set.provenance={source:"manual",policyVersion:"manual@1"};
-      if(repSemantic&&set.targets?.[repSemantic]==null)set.targets={...(set.targets||{}),[repSemantic]:cloneSnapshot(defaultRange)}}
-    slot.metricOrigin=String(slot.exerciseId||"").startsWith("custom:")||edit.metricIds.length?"user_defined":"source_catalog";
-    dropPendingSuggestLoads(document,slotId);
-    const custom=(document.customExercises||[]).find(item=>item.id===slot.exerciseId);
-    if(custom){custom.metricIds=cloneSnapshot(edit.metricIds);custom.metricDefinitions=cloneSnapshot(edit.metricDefinitions)}
-    syncEditorRowFromCanonical(document,slot,cycleIndex);
-  }else if(edit?.kind==="exercise_field"){
-    const row=(document.program||[]).find(item=>item.id===edit.targetId);
-    if(!row)return false;
-    const {slot}=find(String(row.slotId||row.id));
-    if(!slot)return !definition;
-    if(edit.field==="notes")slot.setupNotes=String(row.notes||"");
-    else if(edit.field==="name"){
-      const alias=String(row.displayName||"").trim();
-      if(alias)slot.displayName=alias;else delete slot.displayName;
-    }else if((edit.field==="primary"||edit.field==="secondary")&&slot.metricOrigin==="user_defined"){
-      const attribution=manualAttributionFor({...(slot.manualAttribution||{}),[edit.field]:row[edit.field]}).manualAttribution;
-      if(attribution)slot.manualAttribution=attribution;else delete slot.manualAttribution;
-    }
-  }else if(edit?.kind==="prescription_field"){
-    const {slot,cycle,set}=editorSetByCoordinates(definition,slotId,Number(edit.cycleIndex),Number(edit.setIndex));
-    if(!slot||!cycle||!set||!["rir","restSeconds"].includes(edit.field))return false;
-    const current=set[edit.field]??null;
-    if(current!==edit.before&&current!==edit.after)return false;
-    if(edit.field==="rir"&&edit.after!==null&&(!Number.isFinite(edit.after)||edit.after<0||edit.after>6))return false;
-    if(edit.field==="restSeconds"&&edit.after!==null&&(!Number.isSafeInteger(edit.after)||edit.after<0||edit.after>86400))return false;
-    const keepsAdaptive=edit.field==="rir"&&set.status==="ready";
-    if(keepsAdaptive&&edit.after===null)return false;
-    set[edit.field]=edit.after;
-    if(!keepsAdaptive){set.status="manual";set.provenance={source:"manual",policyVersion:"manual@1"}}
-    const {slot:rowSlot}=find(slotId);syncEditorRowFromCanonical(document,rowSlot,Number(edit.cycleIndex));
-  }else if(edit?.kind==="suggest_loads"){
-    const {slot}=find(slotId);
-    if(!slot||typeof edit.on!=="boolean")return false;
-    // A replay applies only to the movement and opt-in state it was made on.
-    const sets=(slot.prescriptionsByCycle||[]).flatMap(cycle=>cycle.sets||[]);
-    const adaptive=sets.length>0&&sets.every(set=>set.status==="ready");
-    const current=adaptive?"ready":(document.programMeta?.suggestLoadsPending||[]).includes(slotId)?"pending":"off";
-    const after=edit.on?(adaptive?"ready":"pending"):"off";
-    if(slot.exerciseId!==edit.before?.exerciseId||(current!==edit.before?.state&&current!==after))return false;
-    if(edit.on&&editorSuggestLoadsPolicy.eligibility(slot)!=="eligible")return false;
-    if(!suggestion?.set(document,slotId,edit.on))return false;
-  }else if(edit?.kind==="suggest_loads_rir"){
-    const {slot}=find(slotId);
-    if(!slot||!Array.isArray(edit.before))return false;
-    const after=edit.after;
-    if(after!==null&&!(typeof after==="number"&&Number.isFinite(after)&&after>=0&&after<=4))return false;
-    const sets=(slot.prescriptionsByCycle||[]).flatMap(cycle=>cycle.sets||[]);
-    if(after===null&&sets.some(set=>set.status==="ready"))return false;
-    const current=sets.map(set=>set.rir??null);
-    if(!changeValueEqualForEditor(current,edit.before)&&!current.every(value=>value===after))return false;
-    suggestion?.setRir(document,slotId,after);
-    syncEditorRowFromCanonical(document,slot,cycleIndex);
-  }else if(edit?.kind==="execution_mode"){
-    const {slot}=find(slotId);
-    if(!slot||!editorSuggestLoadsPolicy.executionModeQuestion(slot))return false;
-    if(edit.after!=="bilateral"&&edit.after!=="unilateral")return false;
-    const current=slot.executionMode==="bilateral"||slot.executionMode==="unilateral"?slot.executionMode:null;
-    if(current!==(edit.before??null)&&current!==edit.after)return false;
-    slot.executionMode=edit.after;
-  }else if(edit?.kind==="prescription"&&edit.field==="sets"){
-    const {slot}=find(slotId);
-    const cycleIndex=Number(edit.cycleIndex||cycleIndex),cycle=slot?.prescriptionsByCycle?.find(item=>item.cycleIndex===cycleIndex);
-    if(!slot||!cycle)return false;
-    const desired=Number(edit.after),before=Number(edit.before);
-    if(!Number.isInteger(desired)||desired<1||desired>100)return false;
-    const beforeIds=edit.beforeSetIds,currentIds=cycle.sets.map(item=>item.id);
-    if(!Array.isArray(beforeIds)||beforeIds.length!==before||beforeIds.some(id=>typeof id!=="string")||
-      new Set(beforeIds).size!==before)return false;
-    const added=edit.addedSets||[],addedIds=added.map(item=>item?.id);
-    if(desired>before&&(added.length!==desired-before||addedIds.some(id=>typeof id!=="string")||new Set(addedIds).size!==addedIds.length))return false;
-    if(desired<=before&&added.length)return false;
-    const expectedRemoved=beforeIds.slice(desired);
-    if(!changeValueEqualForEditor(expectedRemoved,edit.removedSetIds||[]))return false;
-    const expectedIds=desired>before?[...beforeIds,...addedIds]:beforeIds.slice(0,desired);
-    if(cycle.sets.length===before&&changeValueEqualForEditor(currentIds,beforeIds)){
-      while(cycle.sets.length<desired){
-        const added=edit.addedSets?.find(item=>item.setIndex===cycle.sets.length+1);
-        // Schema v2: an added set carries no metric composition of its own
-        // (the slot above owns it), so there is nothing per-set left to verify here.
-        if(!added||added.cycleIndex!==cycleIndex)return false;
-        cycle.sets.push(cloneSnapshot(added))}
-      if(cycle.sets.length>desired){
-        const removed=cycle.sets.slice(desired).map(item=>item.id);
-        if(!changeValueEqualForEditor(removed,expectedRemoved))return false;
-        cycle.sets=cycle.sets.slice(0,desired)}
-      cycle.sets.forEach((item,index)=>{item.setIndex=index+1})
-    }else if(!changeValueEqualForEditor(currentIds,expectedIds))return false;
-    if(!changeValueEqualForEditor(cycle.sets.map(item=>item.id),expectedIds))return false;
-    const row=(document.program||[]).find(item=>(item.slotId||item.id)===slotId);
-    if(row)row.sets=desired;
-    syncEditorRowFromCanonical(document,slot,cycleIndex);
-  }else if(edit?.kind==="exercise_add"||edit?.kind==="exercise_replace"){
-    const row=(document.program||[]).find(item=>item.id===edit.targetId);
-    if(!row)return false;
-    if(edit.kind==="exercise_add"&&find(slotId).slot)return false;
-    const targetDay=String(row.day||edit.targetDay||"");
-    let day=(definition.days||[]).find(item=>item.name===targetDay&&item.kind==="training");
-    if(!day){
-      day=(definition.days||[]).find(item=>item.name===targetDay&&item.kind==="rest"&&!item.slots?.length)||
-        (definition.days||[]).find(item=>item.kind==="rest"&&!item.slots?.length);
-      if(!day)return false;
-      day.name=targetDay;day.kind="training"}
-    const oldSlot=edit.kind==="exercise_replace"?beforeRef.slot:null;
-    const newSlot=editorSlotForRow(row,document,slotId,Number(row.order)||day.slots.length+1,oldSlot);
-    if(!newSlot)return false;
-    // The slot keeps its alternates through a replacement, less the movement it now is.
-    if(Array.isArray(newSlot.alternates)){
-      newSlot.alternates=newSlot.alternates.filter(id=>id!==newSlot.exerciseId);
-      if(!newSlot.alternates.length)delete newSlot.alternates}
-    if(edit.kind==="exercise_replace"){
-      for(const container of definition.days||[])container.slots=container.slots.filter(slot=>slot.id!==slotId)}
-    if(edit.kind==="exercise_replace")dropPendingSuggestLoads(document,slotId);
-    const current=day.slots.findIndex(item=>item.id===slotId);
-    if(current>=0)day.slots[current]=newSlot;else day.slots.push(newSlot);
-    day.slots.sort((a,b)=>a.order-b.order);
-    day.slots.forEach((item,index)=>{item.order=index+1});
-    syncEditorRowFromCanonical(document,newSlot,cycleIndex);
-  }else if(edit?.kind==="slot_alternates"){
-    const {slot}=find(slotId);
-    if(!slot||!Array.isArray(edit.after)||!Array.isArray(edit.before))return false;
-    const current=Array.isArray(slot.alternates)?slot.alternates:[];
-    if(!changeValueEqualForEditor(current,edit.before)&&!changeValueEqualForEditor(current,edit.after))return false;
-    if(edit.after.length)slot.alternates=edit.after.map(String);else delete slot.alternates;
-  }else if(edit?.kind==="exercise_remove"){
-    if(!beforeRef.slot)return false;
-    // The slots after it close the gap: validateProgramDefinition wants a day's orders contiguous.
-    for(const day of definition.days||[]){
-      day.slots=day.slots.filter(slot=>slot.id!==slotId);
-      day.slots.forEach((item,index)=>{item.order=index+1})}
-    dropPendingSuggestLoads(document,slotId);
-  }else if(edit?.kind==="exercise_move"){
-    const {slot}=find(slotId);if(!slot)return false;
-    const row=(document.program||[]).find(item=>item.id===edit.targetId);
-    if(!row)return false;
-    for(const day of definition.days||[])day.slots=day.slots.filter(item=>item.id!==slotId);
-    const day=(definition.days||[]).find(item=>item.name===row.day);if(!day)return false;
-    day.slots.splice(Math.max(0,Math.min(day.slots.length,Number(row.order)-1)),0,slot);
-    // The day it left closes its gap too (#434): validateProgramDefinition wants every day's orders contiguous.
-    for(const container of definition.days||[])container.slots.forEach((item,index)=>{item.order=index+1});
-  }else if(edit?.kind==="day_name"){
-    const target=(definition.days||[]).find(item=>item.name===edit.before);
-    if(!target)return false;
-    target.name=String(edit.after||"");
-  }else if(edit?.kind==="day_add"){
-    const nextName=String(edit.after||edit.targetDay||"").trim();
-    if(!nextName)return false;
-    if((definition.days||[]).some(day=>day.name===nextName&&day.kind==="training"))return false;
-    const target=(definition.days||[]).find(day=>day.kind==="rest"&&!day.slots?.length);
-    if(!target)return false;
-    target.name=nextName;target.kind="training";
-  }else if(edit?.kind==="day_remove"){
-    const target=(definition.days||[]).find(item=>item.name===edit.targetDay);
-    if(!target)return false;
-    for(const slot of target.slots||[])dropPendingSuggestLoads(document,slot.id);
-    target.kind="rest";target.slots=[];
-  }
-  const checked=canonicalProgramDefinition(definition,document.customExercises||[]);
-  if(!checked)return false;
-  meta.programDefinition=checked;
-  return true}
-function installedEditorImpact(document,base=state,edits=[]){
-  const current=editorDocumentFromSnapshot(base),next=editorDocumentFromSnapshot(document);
-  const active=draftHasProgress(),draftRaw=readDraftRaw();
-  if(!active){
-    const parsed=WorkoutDraft?.parse(draftRaw);
-    // An untouched DraftV2 still carries the old program fingerprint. Clear
-    // that disposable context with the program transaction so the next Log
-    // entry creates a draft for the updated program instead of surfacing a
-    // stale recovery state.
-    const effect=parsed?.kind==="valid"?destructiveDraftClearEffect(draftRaw):null;
-    return{active:false,incompatible:false,harmless:true,effect}}
-  let draft={};try{const parsed=JSON.parse(readDraftRaw()||"{}");if(isPlainStateObject(parsed))draft=parsed}catch{}
-  const referenced=editorDraftExerciseIds(draft),draftDayLabel=draft?.schemaVersion===2?draft.program?.dayLabel:draft.__day;
-  const currentById=new Map((current.program||[]).map(item=>[item.id,item]));
-  let incompatible=false,effect=null;
-  for(const edit of edits||[]){
-    if(edit?.kind==="exercise_remove"||edit?.kind==="exercise_replace"||edit?.kind==="exercise_move"){
-      if(referenced.has(String(edit.targetId)))incompatible=true;
-    }else if(edit?.kind==="day_remove"){
-      if(draftDayLabel===edit.targetDay)incompatible=true;
-    }else if(edit?.kind==="prescription"&&edit.field==="sets"&&Number(edit.after)<Number(edit.before)&&referenced.has(String(edit.targetId))){
-      const before=currentById.get(edit.targetId);
-      if(before&&draftHasProgressInRemovedSets(edit.targetId,Number(edit.after),Number(before.sets),draft))incompatible=true;
-    }else if(edit?.kind==="day_name"&&draftDayLabel===edit.before&&editorDocumentDays(next).includes(String(edit.after))){
-      // Preserve a workout's selected day when a user simply renames that day.
-      effect=draftDayReplacementEffect(edit.before,edit.after,next);
-      if(effect.status!==DRAFT_EFFECT_VALID)incompatible=true;
-    }
-  }
-  // A legacy caller may provide a complete changed document without intents.
-  // Keep the same conservative rules for that path as a safety net.
-  if(!edits.length){
-    for(const id of referenced){
-      const before=currentById.get(id),after=(next.program||[]).find(item=>item.id===id);
-      if(!after||before?.day!==after.day||before?.libraryId!==after.libraryId||before?.movementId!==after.movementId){incompatible=true;break}
-      if(before&&Number(after.sets)<Number(before.sets)&&draftHasProgressInRemovedSets(id,Number(after.sets),Number(before.sets),draft)){incompatible=true;break}
-    }
-    if(draftDayLabel&&!editorDocumentDays(next).includes(draftDayLabel))incompatible=true;
-  }
-  return{active:true,incompatible,harmless:!incompatible,effect:incompatible?null:effect}
-}
-const programCommands=createProgramCommands({read:applicationSession.read,refreshHead:refreshPersistenceHead,
-  defaultMeta:log=>defaultProgramMeta(log),now:()=>new Date().toISOString(),
-  commit:(proposal,opts)=>commitProposedState(proposal,storageIO,opts),
-  authoring:{token:installedEditorToken,tokenEqual:editorTokenEqual,rebaseDocument:editorRebaseDocument,
-    confirmOptIn:candidate=>suggestion?.confirm(candidate,editorSuggestLoadsPolicy)||{ok:false,issues:[]},
-    impact:installedEditorImpact,snapshotFromDocument:editorSnapshotFromDocument},
-  drafts:{readRaw:readDraftRaw,clearEffect:destructiveDraftClearEffect,dayReplacementEffect:draftDayReplacementEffect}});
 function createInstalledProgramEditorAdapter(){
   return{
-    read(){
-      return{document:installedEditorDocument(),token:installedEditorToken()};
-    },
-    async commit({expectedToken,nextDocument,intent}){
-      if(intent?.kind!=="apply"&&intent?.kind!=="apply_discard_workout"){
-        const baseline=installedEditorSession?.document||installedEditorDocument();
-        const staged=cloneSnapshot(nextDocument);
-        if(!syncEditorCanonicalIntent(staged,baseline,intent,{cycleIndex:Number(intent?.cycleIndex)||mesocycleLifecycle(state.programMeta).current||1}))
-          return{ok:false,invalid:true,code:"invalid_canonical_editor_intent"};
-        if(!installedEditorSession)installedEditorSession={document:cloneSnapshot(baseline),token:cloneSnapshot(expectedToken),edits:[]};
-        installedEditorSession.document=staged;
-        installedEditorSession.edits.push(cloneSnapshot(intent));
-        return{ok:true,staged:true,document:cloneSnapshot(staged),token:cloneSnapshot(expectedToken)}
-      }
-      const session=installedEditorSession||{document:cloneSnapshot(nextDocument),token:cloneSnapshot(expectedToken),edits:intent?.edits||[]};
-      const draftBefore=activeWorkoutDraft;
-      const result=await programCommands.applyEdits({expectedToken,nextDocument,
-        edits:session.edits||intent?.edits||[],discardWorkout:intent.kind==="apply_discard_workout"});
-      const document=result.document;
-      if(result.committed===true&&result.settled===true){
-        const discarded=result.discardedWorkout===true;
-        if(discarded)reportWorkoutDiscarded(activeWorkoutDraft||draftBefore,"program_edit");
-        captureEvent("active_program_edited",{outcome:discarded?"discarded_workout":"saved"});
-        if(discarded)resetDraftSessionState();
-        installedEditorSession=null;return{...result,ok:true,document,token:installedEditorToken(state)}}
-      return{...result,ok:false,conflict:!!(result.conflict||result.staleRevision)};
-    },
+    read:InstalledEditor.read,
+    commit:InstalledEditor.commit,
     chooseExercise:editorChooseExercise,
     t:editorAdapterTranslate,
     dayLabel:(day)=>dayLabel(day),
@@ -5545,7 +4967,7 @@ function createInstalledProgramEditorAdapter(){
     formatNumber:(value)=>fmt(value),
     ...editorMetricAdapter({cycleIndex:()=>mesocycleLifecycle(state.programMeta).current||1}),
     defaultLoadStepKg:()=>{const global=+state.settings.minJump;return Number.isFinite(global)&&global>0?global:2.5},
-    suggestLoads:editorSuggestLoadsPolicy,
+    suggestLoads:InstalledEditor.rules.editorSuggestLoadsPolicy,
     context:()=>{const mc=mesocycleWeek();return mc.current!=null?mesocycleWeekCopy(mc):""},
     status:()=>"",
     confirm:({kind,day})=>kind==="day_remove"?confirm(t("confirm.delete_day",{day:dayLabel(day)})):true,
@@ -5554,13 +4976,13 @@ function createInstalledProgramEditorAdapter(){
     afterModal:afterModalSettles,
   }
 }
-window.__debugProgramEditor=async()=>{const local=readLocalStatus(),idb=await readIdbStatus();return{session:cloneSnapshot(installedEditorSession),state:cloneSnapshot(state),local,idb,decision:chooseSnapshot(local,idb),head:await refreshPersistenceHead()}};
+window.__debugProgramEditor=async()=>{const local=readLocalStatus(),idb=await readIdbStatus();return{session:InstalledEditor.readSession(),state:cloneSnapshot(state),local,idb,decision:chooseSnapshot(local,idb),head:await refreshPersistenceHead()}};
 function createOnboardingProgramEditorAdapter(){
   return{
-    read(){return{document:editorDocumentFromSnapshot(programEditorSnapshot()),token:{draftRevision:entryState?.revision||0}}},
+    read(){return{document:BuildAuthoring.editorDocumentFromSnapshot(programEditorSnapshot()),token:{draftRevision:entryState?.revision||0}}},
     async commit({nextDocument,intent}){
-      const baseline=editorDocumentFromSnapshot(programEditorSnapshot()),document=cloneSnapshot(nextDocument);
-      if(!syncEditorCanonicalIntent(document,baseline,intent,{cycleIndex:Number(intent?.cycleIndex)||1}))
+      const baseline=BuildAuthoring.editorDocumentFromSnapshot(programEditorSnapshot()),document=cloneSnapshot(nextDocument);
+      if(!(entryState?.route==="build"?BuildAuthoring:InstalledEditor.rules).syncEditorCanonicalIntent(document,baseline,intent,{cycleIndex:Number(intent?.cycleIndex)||1}))
         return{ok:false,invalid:true,code:"invalid_canonical_editor_intent"};
       const proposal=programEditorSnapshot();proposal.program=cloneSnapshot(nextDocument.program||[]);
       proposal.program=cloneSnapshot(document.program||[]);
@@ -5570,7 +4992,7 @@ function createOnboardingProgramEditorAdapter(){
       const result=await commitProgramEditorProposal(proposal);
       updateOnboardingEditorActions();
       return{...result,ok:!!(result.localOk||result.idbOk),setupDraft:true,staged:true,
-        document:editorDocumentFromSnapshot(programEditorSnapshot()),token:{draftRevision:entryState?.revision||0}};
+        document:BuildAuthoring.editorDocumentFromSnapshot(programEditorSnapshot()),token:{draftRevision:entryState?.revision||0}};
     },
     chooseExercise:editorChooseExercise,
     t:editorAdapterTranslate,
@@ -5583,7 +5005,7 @@ function createOnboardingProgramEditorAdapter(){
     formatNumber:(value)=>fmt(value),
     ...editorMetricAdapter({cycleIndex:()=>1}),
     ...(entryState?.route==="build"?{defaultLoadStepKg:()=>{const global=+state.settings.minJump;return Number.isFinite(global)&&global>0?global:2.5},
-      suggestLoads:editorSuggestLoadsPolicy}:{}),
+      suggestLoads:InstalledEditor.rules.editorSuggestLoadsPolicy}:{}),
     context:()=>"",
     // A message already announced is rendered in place; a new one is left for
     // updateOnboardingEditorActions to write, which is what announces it.
@@ -5644,13 +5066,13 @@ function mountOnboardingProgramEditor(){
 function mountInstalledProgramEditor(){
   const host=$("#programEditor");if(!host)return null;
   installedProgramEditor?.dispose?.();
-  installedEditorSession=null;
+  InstalledEditor.reset();
   installedProgramEditor=mountedProgramEditor().mountProgramEditor(host,createInstalledProgramEditorAdapter());
   return installedProgramEditor;
 }
 function disposeProgramEditors(){
   onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;
-  installedProgramEditor?.dispose?.();installedProgramEditor=null;installedEditorSession=null;
+  installedProgramEditor?.dispose?.();installedProgramEditor=null;InstalledEditor.reset();
 }
 let installedLeaveMode=null;
 function installedEditorHistoryState(){
@@ -5694,7 +5116,7 @@ function finishInstalledEditor({discard=false,historyAlreadyPopped=false}={}){
   installedLeaveMode=null;
   closeModal($("#programEditorLeave"));
   if(discard)installedProgramEditor?.discard?.();
-  installedProgramEditor?.dispose?.();installedProgramEditor=null;installedEditorSession=null;programEditMode=false;
+  installedProgramEditor?.dispose?.();installedProgramEditor=null;InstalledEditor.reset();programEditMode=false;
   disarmInstalledEditorHistory({historyAlreadyPopped});
   render();
   if(nextView){
@@ -11134,6 +10556,19 @@ function initializePersistenceOwners(){
   EntryActivation=createEntryActivation({model,entry,imports:customDefinitionImport,build:createInstalledEditorRules({model,catalog:rawExerciseCatalog,nextId:uid,defaultProgramMeta:policy.defaultProgramMeta,allowCreateDefinition:true}),policy,identity:{programId:uid,blockId:allocateBlockId,now:entryNow,date:today},defaultName:()=>t("untitled_program")});
   ({normalizeMuscleAttribution,isValidMuscleDomainTree,isValidStoredMuscleField,isValidPlannedVolumeHistory,normalizeRecoveryCarrierSnapshot,isSafeProgressionFields,isSafeProgressionMeta,isSafeProgramHistoryEntry,isSafeLogRow,isSafeCustomExercise,isValidSetupActivationMarker,setupActivationMarker,setupActivationMatches,isValidStateShape,migrateLogSnapshot,defaultProgramMeta,normalizeProgramEntrySource,normalizeProgramMeta,normalizeLoadingConfiguration,withExplicitProgramStructure,normalizeProgramHistory,normalizeLoaded,normalizeNotify,normalizeSettings}=policy);
   validateRecoveryProjectionRecord=policy.validateRecoveryProjectionRecord;
+  BuildAuthoring=createInstalledEditorRules({model,catalog:rawExerciseCatalog,nextId:uid,defaultProgramMeta,allowCreateDefinition:true});
+  InstalledEditor=createInstalledEditor({read:applicationSession.read,model,catalog:rawExerciseCatalog,nextId:uid,
+    defaultMeta:defaultProgramMeta,now,refreshHead:refreshPersistenceHead,
+    commit:(proposal,options)=>commitProposedState(proposal,storageIO,options),
+    readRecovery:()=>activeRecoveryRecord?.diff?.recoveryWeek?.blockId===applicationSession.read().programMeta?.blockId?activeRecoveryRecord:null,
+    drafts:{readRaw:readDraftRaw,hasProgress:draftHasProgress,parse:raw=>WorkoutDraft.parse(raw),clear:destructiveDraftClearEffect,
+      rename:draftDayReplacementEffect,removedSetsHaveProgress:draftHasProgressInRemovedSets},
+    readActiveDraft:()=>activeWorkoutDraft,
+    onSettled:(result,{draftBefore})=>{const discarded=result.discardedWorkout===true;
+      if(discarded)reportWorkoutDiscarded(activeWorkoutDraft||draftBefore,'program_edit');
+      captureEvent('active_program_edited',{outcome:discarded?'discarded_workout':'saved'});
+      if(discarded)resetDraftSessionState()}});
+  programCommands=InstalledEditor.commands;
   programAdditionCommands=createProgramAdditionCommands({read:applicationSession.read,
     readEditor:programEditorSnapshot,commit:proposal=>commitProposedState(proposal),commitEditor:commitProgramEditorProposal,
     model,authoring:createInstalledEditorRules({model,catalog:rawExerciseCatalog,nextId:uid,defaultProgramMeta})});
