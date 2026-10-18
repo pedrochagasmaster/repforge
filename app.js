@@ -852,15 +852,7 @@ const fmtPlain=v=>Number.isFinite(Number(v))?(Number.isInteger(Number(v))?String
 // number that was actually entered: 12.5 lb is 5.669904625125443 kg, not 5.67.
 // Number#toString occasionally chooses exponent notation, which DraftV2's
 // decimal grammar rejects, so expand only that representation at the boundary.
-const canonicalNumberText=value=>{
-  const n=Number(value);if(!Number.isFinite(n))return"";
-  const raw=String(n);if(!/[eE]/.test(raw))return raw;
-  const sign=raw.startsWith("-")?"-":"",unsigned=raw.replace(/^[+-]/,"");
-  const [coefficient,exponentText]=unsigned.toLowerCase().split("e"),exponent=Number(exponentText);
-  const [whole,fraction=""]=coefficient.split("."),digits=whole+fraction,point=whole.length+exponent;
-  if(point<=0)return`${sign}0.${"0".repeat(-point)}${digits}`;
-  if(point>=digits.length)return`${sign}${digits}${"0".repeat(point-digits.length)}`;
-  return`${sign}${digits.slice(0,point)}.${digits.slice(point)}`};
+const canonicalNumberText=PersistenceMetrics.canonicalNumberText;
 const uiLang=()=>state?.settings?.lang||(typeof I18N!=="undefined"&&I18N?.getLang?.())||"en";
 const isPt=()=>uiLang()==="pt";
 const locTag=()=>isPt()?"pt-BR":"en-US";
@@ -1139,11 +1131,7 @@ const LB=2.2046226218;
 /* Locale keyboards (pt-BR, de, fr, …) put a comma on the decimal pad. HTML
    type=number rejects it on iOS, and unary + / Number() treat "90,5" as NaN.
    parseDec mirrors normalizeCommandText: digit-comma-digit → period. */
-const parseDec=v=>{
-  if(typeof v==="number")return Number.isFinite(v)?v:NaN;
-  if(v==null||v==="")return NaN;
-  const n=Number(String(v).trim().replace(/(\d),(\d)/g,"$1.$2"));
-  return Number.isFinite(n)?n:NaN};
+const parseDec=PersistenceMetrics.parseDecimalInput;
 // Strict F7 parsing (grammar + 1000 kg ceiling) wearing the field-error shape:
 // value is canonical kg so the exact lb bound snaps instead of drifting 1 ulp over.
 const parseLoadDisplay=raw=>{const p=parseLoadInput(raw);
@@ -2184,12 +2172,7 @@ function draftTargetFromKey(key){
     const ex=activeWorkoutDraft.exercises[exId],ordinal=+match[1],setId=ex.setOrder.find(id=>ex.sets[id].ordinal===ordinal);
     if(setId)return{exerciseInstanceId:exId,setId,field:match[3]?"metric":match[2],metricId:match[3]||null,ordinal}}
   return null}
-function canonicalDraftField(field,value){
-  const raw=String(value??"");
-  if(field==="load"){const parsed=parseLoadInput(raw);return parsed.kind==="valid"?canonicalNumberText(parsed.kg):raw}
-  if(field==="reps"){const parsed=parseRepsValue(raw);return parsed.field?raw:String(parsed.value)}
-  if(field==="rir"){const parsed=parseRirValue(raw);return parsed.field?raw:canonicalNumberText(parsed.value)}
-  return raw}
+function canonicalDraftField(field,value){return PersistenceMetrics.canonicalDraftField(field,value,state.settings.unit)}
 function canonicalDraftBodyweight(value){const raw=String(value??"");
   if(!raw.trim())return"";const parsed=parseOptionalBodyweightDisplay(raw);
   return parsed.field?raw:canonicalNumberText(fromDisplay(raw))}
@@ -7180,16 +7163,8 @@ function metricTextValue(raw,metric){
   if(!Number.isFinite(number))return String(raw);
   return ["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic)
     ?fmtPlain(toDisplay(number)):fmtPlain(number)}
-function canonicalMetricInput(metric,raw){
-  const text=String(raw??"");if(text.trim()==="")return"";
-  const parsed=parseDec(text);if(!Number.isFinite(parsed))return text;
-  const value=["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic)
-    ?metricKgFromDisplay(parsed):parsed;
-  return canonicalNumberText(value)}
-/* A pound value converts to kilograms at full precision; only the float
-   overshoot of the exact pound equivalent of the 1000 kg limit is snapped back
-   onto the limit, so that entry is not refused for a rounding hair. */
-const metricKgFromDisplay=value=>{const kg=fromDisplay(value);return kg>1000&&kg-1000<1e-9?1000:kg};
+function canonicalMetricInput(metric,raw){return PersistenceMetrics.canonicalMetricInput(metric,raw,state.settings.unit)}
+const metricKgFromDisplay=value=>PersistenceMetrics.metricKgFromDisplay(value,state.settings.unit);
 function metricTargetText(target){
   if(target==null)return"";
   const show=value=>fmt(value);

@@ -281,8 +281,52 @@ function byName(sourceName) {
   return value ? { ...value } : null;
 }
 
+/** Decimal keyboard parsing shared by input canonicalizers. @param {unknown} value */
+export function parseDecimalInput(value) {
+  if(typeof value==="number")return Number.isFinite(value)?value:NaN;
+  if(value==null||value==="")return NaN;
+  const n=Number(String(value).trim().replace(/(\d),(\d)/g,"$1.$2"));
+  return Number.isFinite(n)?n:NaN;
+}
+/** Preserve full precision while expanding the exponent notation DraftV2 rejects.
+ * @param {unknown} value */
+export function canonicalNumberText(value) {
+  const n=Number(value);if(!Number.isFinite(n))return "";
+  const raw=String(n);if(!/[eE]/.test(raw))return raw;
+  const sign=raw.startsWith("-")?"-":"",unsigned=raw.replace(/^[+-]/,"");
+  const [coefficient,exponentText]=unsigned.toLowerCase().split("e"),exponent=Number(exponentText);
+  const [whole,fraction=""]=coefficient.split("."),digits=whole+fraction,point=whole.length+exponent;
+  if(point<=0)return `${sign}0.${"0".repeat(-point)}${digits}`;
+  if(point>=digits.length)return `${sign}${digits}${"0".repeat(point-digits.length)}`;
+  return `${sign}${digits.slice(0,point)}.${digits.slice(point)}`;
+}
+/** @param {number} value @param {string} [unit] */
+export function metricKgFromDisplay(value,unit="kg") {
+  const kg=unit==="lb"?value/LB:value;
+  return kg>1000&&kg-1000<1e-9?1000:kg;
+}
+/** Invalid input stays text for field feedback; only valid values become storage text.
+ * @param {string} field @param {unknown} value @param {string} [unit] */
+export function canonicalDraftField(field,value,unit="kg") {
+  const raw=String(value??"");
+  if(field==="load"){const parsed=parseLoadInput(raw,unit);return parsed.kind==="valid"?canonicalNumberText(parsed.kg):raw;}
+  const n=parseDecimalInput(raw);
+  if(field==="reps")return Number.isFinite(n)&&n>0&&Number.isInteger(n)?String(n):raw;
+  if(field==="rir")return Number.isFinite(n)&&n>=0?canonicalNumberText(n):raw;
+  return raw;
+}
+/** @param {{semantic:string}} metric @param {unknown} raw @param {string} [unit] */
+export function canonicalMetricInput(metric,raw,unit="kg") {
+  const text=String(raw??"");if(text.trim()==="")return "";
+  const parsed=parseDecimalInput(text);if(!Number.isFinite(parsed))return text;
+  const value=["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic)
+    ?metricKgFromDisplay(parsed,unit):parsed;
+  return canonicalNumberText(value);
+}
+
 const api = Object.freeze({
   VERSION: 1,
+  parseDecimalInput,canonicalNumberText,metricKgFromDisplay,canonicalDraftField,canonicalMetricInput,
   DEFINITIONS,
   SOURCE_COMPOSITIONS,
   TARGET_KEYS,
