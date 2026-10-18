@@ -1,11 +1,12 @@
+import {Adapter} from './fixtures/training-runtime.mjs';
 import {Setup} from './interchange-runtime.mjs';
 // Allocation ties and source-metric target rules require deterministic pure proofs.
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
-const Compiler=require('../src/training/generation.js'),Layout=require('../generation-layout.js');
-const Adapter=require('../program-entry-adapter.js');
+const Compiler=require('../src/training/generation.js');
+const Layout=require('../src/training/generation.js').layout;
 const catalog=require('../src/training/identity.js').prepareCatalog(require('../assets/exercise-catalog.json'));
 const competencies=Object.fromEntries(['pullups10','pullups5','pushups15','inclineBarbell10','overheadPress10','bodyweightDips10','benchPress10'].map(k=>[k,true]));
 const reductions=['Chest','Lats','Upper Back','Side Delts','Front Delts','Rear Delts','Biceps','Triceps'];

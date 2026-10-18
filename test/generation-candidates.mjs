@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
-import { createRequire } from 'node:module';
+import {createCandidateSelector as create} from '../src/training/generation.js';
+import {Compiler} from './fixtures/training-runtime.mjs';
 import { readFileSync } from 'node:fs';
-const require = createRequire(import.meta.url);
-const { create } = require('../generation-candidates.js');
 const source = JSON.parse(readFileSync(new URL('../assets/exercise-catalog.json', import.meta.url)));
 const HP = '19e5c6f170d880d69589ce8bd1fde648';
 const LAT = '2945c6f170d880eb931efa3238d46d68';
@@ -213,33 +212,23 @@ for(const experience of ['beginner','intermediate']){
   assert.equal(selector([row('a')],{...xpRequest,...patch}).choose(spec,[]).id,'a','layout duration and period choices do not gate candidate eligibility');
 }
 
-// The source capability pool and the product's explicit-no boundary compose at
-// the real compiler entry point. Capturing the layout seam avoids constructing
-// an unrelated complete program for four eligibility cases.
+// Verify capability composition through actual emitted programs, with the same
+// bench fixture as an affirmative control. No compiler/layout injection is used.
 {
- const Compiler=require('../program-compiler.js');
- const actualLayout=require('../generation-layout.js');
- const compilerText=readFileSync(new URL('../program-compiler.js',import.meta.url),'utf8');
  const bench=source.exercises.find(exercise=>exercise.id==='19f5c6f170d8808bb424e98de4472a7e');
  const unknownHandler=source.exercises.find(exercise=>exercise.id==='24b5c6f170d88089aa60dc0fdfa4478a');
  const base={goal:'hybrid',experience:'advanced',daysPerWeek:4,split:'auto',timeCeilingMinutes:60,periodization:'static',cycles:7,deloadCycles:[],gymProfile:{equipmentIds:allEquipment},competencyAnswers:{},emphasisMuscleIds:[],deprioritizedMuscleIds:[],movementConfirmations:{}};
- let captured;
- const previousLayout=globalThis.RepForgeGenerationLayout,previousCompiler=globalThis.RepForgeProgramCompiler;
- let capturingCompiler;
- try{
-  globalThis.RepForgeGenerationLayout={...actualLayout,generate:(_request,candidates)=>{
-   captured=candidates.eligibleExerciseIds;return {status:'insufficient',issues:[{code:'controlled_layout_stop'}]};
-  }};
-  const module={exports:{}};new Function('module','exports','require',compilerText)(module,module.exports,createRequire(new URL('../program-compiler.js',import.meta.url)));capturingCompiler=module.exports;
- }finally{globalThis.RepForgeGenerationLayout=previousLayout;globalThis.RepForgeProgramCompiler=previousCompiler;}
- function eligible(change){
-  captured=null;capturingCompiler.generateProgram({...base,...change},source);
-  assert(Array.isArray(captured),'valid request reaches the actual source candidate pool');return captured;
+ function emitted(change){
+  const result=Compiler.generateProgram({...base,...change},source);
+  assert.equal(result.ok,true,JSON.stringify(result.conflicts));
+  return result.value.days.flatMap(day=>day.slots).map(slot=>slot.exerciseId);
  }
- assert(!eligible({}).includes(bench.id),'missing capability is not affirmative');
- assert(eligible({movementConfirmations:{[bench.id]:bench.preconditions}}).includes(bench.id),'individual confirmation unlocks only its known source assessment');
- assert(!eligible({competencyAnswers:{benchPress10:false},movementConfirmations:{[bench.id]:bench.preconditions}}).includes(bench.id),'explicit no remains a product veto after individual confirmation');
- assert(!eligible({competencyAnswers:{benchPress10:true},movementConfirmations:{[unknownHandler.id]:unknownHandler.preconditions}}).includes(unknownHandler.id),'confirmation cannot invent a missing source handler');
+ assert(!emitted({}).includes(bench.id),'missing capability cannot emit the bench');
+ assert(emitted({movementConfirmations:{[bench.id]:bench.preconditions}}).includes(bench.id),'individual confirmation affirmatively emits the bench');
+ assert(!emitted({competencyAnswers:{benchPress10:false},movementConfirmations:{[bench.id]:bench.preconditions}}).includes(bench.id),'explicit no vetoes the same otherwise emitted bench');
+ const unknownRequest={...base,competencyAnswers:{benchPress10:true},movementConfirmations:{[unknownHandler.id]:unknownHandler.preconditions}};
+ assert(!create(source,unknownRequest,()=>true).eligibleExerciseIds.includes(unknownHandler.id),'confirmation cannot invent a missing source handler');
+ assert(!emitted(unknownRequest).includes(unknownHandler.id),'the compiler also never emits an unsupported source handler');
  const confirmedAnswers=Object.fromEntries(['pullups10','pullups5','pushups15','inclineBarbell10','overheadPress10','bodyweightDips10','benchPress10'].map(key=>[key,true]));
  const result=Compiler.generateProgram({...base,goal:'strength',competencyAnswers:confirmedAnswers},source);
  assert.equal(result.ok,true,JSON.stringify(result.conflicts));

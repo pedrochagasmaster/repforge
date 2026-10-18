@@ -47,3 +47,7 @@ export const compiler=Object.freeze({GENERATOR_VERSION,PROGRAM_SCHEMA_VERSION,MA
  * @typedef {import('./generation/internal/transition-contracts.js').Proposal} Proposal
  * @typedef {import('./generation/internal/compiler-contracts.js').SourceCatalog} SourceCatalog
  */
+
+// Candidate diagnostics and allocation are discrete policies shared by compilation and Program Lab.
+export {create as createCandidateSelector} from "./generation/internal/candidates.js";
+export {default as layout} from "./generation/internal/layout.js";
