@@ -16,7 +16,9 @@ export function assembleRelease(out, {optional = []} = {}) {
   walk(''); files.sort();
   const hash = bytes => createHash('sha256').update(bytes).digest('hex');
   const hashes = files.map(path => [path, hash(readFileSync(join(out,path)))]);
-  const id = hash(JSON.stringify(hashes)).slice(0,24);
+  // Protocol/assembly changes need a distinct cache namespace even when app
+  // source bytes are unchanged; failed installs cannot delete an active cache.
+  const id = hash(JSON.stringify({files:hashes,optional:[...optional].sort(),worker:hash(releaseWorker.toString()),assembly:hash(assembleRelease.toString())})).slice(0,24);
   const base = `releases/${id}/`;
   const rootHtml = readFileSync(join(out,'index.html'),'utf8').replace(/\s*<meta\s+name="taurifer-release"\s+content="[^"]*"\s*\/?\s*>/g, '');
   // Prefix only local resource attributes. Links to app navigation and fragment
