@@ -32,6 +32,8 @@ export const SUITES = {
     s("test/app-block-transition.mjs", [], {domains:["program","transition","progress"]}),
     s("test/editor-document-rules.mjs", [], {domains:["program","entry"],nodeArgs:["--test"]}),
     s("test/architecture/entry-activation.mjs", [], {domains:["entry","library","persistence"],nodeArgs:["--test"]}),
+    s("test/progress-health-contract.mjs", [], {domains:["progress","program"],nodeArgs:["--test"]}),
+    s("test/app-block-review.mjs", [], {domains:["progress","program"],nodeArgs:["--test"]}),
     s("test/progress-overview-owner.mjs", [], {domains:["progress","history"],nodeArgs:["--test"]}),
     s("test/progress-record-owner.mjs", [], {domains:["progress","history"],nodeArgs:["--test"]}),
     s("test/architecture/entry-draft-store.mjs", [], {domains:["entry","persistence"],nodeArgs:["--test"]}),

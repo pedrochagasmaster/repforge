@@ -2,6 +2,7 @@ const CACHE = "repforge-v480";
 const SOURCE_RELEASE = "source-480";
 const ASSETS = [
   // BEGIN GENERATED NATIVE SOURCE ASSETS
+  "./src/app/block-review.js",
   "./src/app/block-transition.js",
   "./src/app/custom-import.js",
   "./src/app/entry.js",
@@ -82,6 +83,7 @@ const ASSETS = [
   "./src/training/progress/internal/contracts.js",
   "./src/training/progress/internal/engine-contracts.js",
   "./src/training/progress/internal/evidence.js",
+  "./src/training/progress/internal/health.js",
   "./src/training/progress/internal/personal-records.js",
   "./src/training/progress/internal/progression.js",
   "./src/training/progress/internal/schedule.js",
