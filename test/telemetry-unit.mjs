@@ -408,8 +408,8 @@ assert.equal(Telemetry.bucketDaysSince(undefined), null);
 
   assert.equal(Telemetry.getEventPolicy("late_install_transfer"), "milestone");
   for (const unqualified of [{ claimOnly: true }, { validationOnly: true }, { partialImport: true },
-    { rollback: true, state: "rolledBack" }, { remoteDeleteAmbiguous: true }, { cleanupRetry: true }])
-    assert.equal(Telemetry.recordLateInstallTransfer({ storage, ...unqualified }), false);
+    { rollback: true, state: "rolledBack" }, { remoteDeleteAmbiguous: true }, { cleanupRetry: true, state: "localCommitted" }])
+    assert.equal(Telemetry.recordLateInstallTransfer({ storage, localImportVerified: true, ...unqualified }), false);
   assert.equal(Telemetry.recordLateInstallTransfer({ storage, localImportVerified: true }), true);
   assert.equal(Telemetry.recordLateInstallTransfer({ storage, localImportVerified: true }), false);
   assert.equal(sent.length, 1, "verified settlement emits once");
