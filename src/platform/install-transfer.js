@@ -1146,3 +1146,5 @@ export function createInstallTransfer(capabilities) {
     createClient,
   });
 }
+
+export {createTransferDevice,TRANSFER_KEYS} from './transfer-device.js';

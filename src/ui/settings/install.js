@@ -378,7 +378,24 @@ async function installTransferRequestDivergence(){
 /** @param {import('./contracts.js').PromptEvent} event */
 function capturePrompt(event){event.preventDefault();installPrompt=event}
 function installed(){installPrompt=null;hideInstallBanner(false);report("app_installed",{});closeFirstRunInstall();onChanged();renderInstallSurfaces()}
-return Object.freeze({mode:installMode,isStandalone,isIOS,isIOSSafari,isChromium,
+/** @param {{kind:string,detail?:{code?:unknown,expiresAt?:unknown}}} change */
+function transferProgress({kind,detail}){
+  const open=()=>$("#iosInstallSheet")?.classList.contains("is-open");
+  switch(kind){
+    case "outbound-confirmed":if(open())installTransferRenderState("success",detail);showInstallBanner(true);break;
+    case "outbound-expired":hideInstallBanner(true);if(open())closeIosInstallSheet();toast(t("toast.transfer_expired")||"Transfer expired");break;
+    case "outbound-pending":showInstallBanner(true);break;
+    case "outbound-unknown":if(open())installTransferRenderState(detail?.code==="claimed-expired"?"claimed-expired":"unknown",detail);showInstallBanner(true);break;
+    case "outbound-create":installTransferRenderState("creating");break;
+    case "outbound-ready":installTransferRenderState("ready",detail);break;
+    case "outbound-retryable":installTransferRenderState("retryable",detail);break;
+    case "outbound-create-failed":installTransferRenderState(detail?.code==="claimed-expired"?"claimed-expired":"unknown",detail);break;
+    case "resumed-diverged":hideInstallBanner(true);toast(t("toast.resumed_in_browser")||"Resumed in browser");break;
+    case "receiver-claim":openIosInstallSheet("claiming");break;
+    case "receiver-import":installTransferRenderState("importing",detail);break;
+  }
+}
+return Object.freeze({transferProgress,mode:installMode,isStandalone,isIOS,isIOSSafari,isChromium,
   decision:installPolicyDecision,capturePrompt,installed,trigger:triggerInstall,
   render:renderInstallSurfaces,renderLanding:renderFirstRunInstall,closeLanding:closeFirstRunInstall,
   showBanner:showInstallBanner,hideBanner:hideInstallBanner,maybeShowBanner:maybeShowInstallBanner,

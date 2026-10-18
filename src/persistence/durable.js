@@ -808,6 +808,29 @@ export function createDurableStore({snapshotPolicy, workout, session,
     }
   }
 
+  /** Restore one interrupted transfer's acknowledged predecessor without
+   * publishing an application read model. Only this owner allocates revisions.
+   * @param {{durableState:StoredSnapshot}} previous
+   * @param {{snapshot:StoredSnapshot,local:import('./contracts.js').ReplicaRead,idb:import('./contracts.js').ReplicaRead}} current */
+  async function restoreTransferSnapshot(previous,current){
+    const currentRevision=readRevision(current?.snapshot);
+    const target=cloneSnapshot(previous.durableState);
+    const logicalEqual=JSON.stringify(canonicalize(exportableState(current?.snapshot)))===JSON.stringify(canonicalize(target));
+    if(logicalEqual&&current?.local?.status==="valid"&&current?.idb?.status==="valid"&&
+      readRevision(current.local.parsed)===currentRevision&&readRevision(current.idb.parsed)===currentRevision&&
+      storageSnapshotsEqual(current.local.parsed,current.idb.parsed))return{ok:true,unchanged:true};
+    target[STORAGE_REV]=currentRevision+1;
+    const result=await withStorageLock(storageIO,async()=>{
+      const local=readLocalStatus(),idb=await readIdbStatus(),latest=chooseSnapshot(local,idb);
+      if((latest.kind!=="chosen"&&latest.kind!=="first-run")||
+        latest.kind==="chosen"&&(readRevision(latest.snapshot)!==currentRevision||
+          !storageSnapshotsEqual(latest.snapshot,current.snapshot)))
+        return{revision:currentRevision,localOk:false,idbOk:false,conflict:true,staleRevision:true,code:"rollback-stale-revision"};
+      return writeSnapshot(target,storageIO);
+    });
+    return{ok:!!(result?.localOk&&result?.idbOk),result,code:result?.code||"durable-rollback-failed"};
+  }
+
   /** @param {import('./contracts.js').ReplicaRead} localRead @param {import('./contracts.js').ReplicaRead} idbRead @returns {import('./contracts.js').SnapshotChoice} */
   function chooseSnapshot(localRead, idbRead) {
     const l = localRead?.status, i = idbRead?.status, lv = l === "valid", iv = i === "valid";
@@ -2938,6 +2961,7 @@ export function createDurableStore({snapshotPolicy, workout, session,
     readLocalStatus,
     readIdbStatus,
     clearPrimaryReplicas,
+    restoreTransferSnapshot,
     readAuxiliaryIdbValue,
     writeAuxiliaryIdbValue,
     deleteAuxiliaryIdbValue,

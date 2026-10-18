@@ -123,6 +123,9 @@ export const SUITES = {
     s("test/install-transfer-recovery.mjs", [], {"domains": ["install"], "cost": "normal", "tier": "feedback", "nodeArgs": ["--test"]}),
   ],
   "state": [
+    s("test/architecture/transfer-device.mjs", [], {domains:["install","persistence"],seconds:10}),
+    s("test/architecture/transfer-consumption.mjs", [], {domains:["install","persistence"],seconds:10}),
+    s("test/architecture/transfer-orphan.mjs", [], {domains:["install","persistence"],seconds:15}),
     s("test/native-program-sharing-lifetime.mjs", [], {domains:["program","entry"],seconds:10}),
     s("test/native-review-lifetime.mjs", [], {domains:["program","entry"],seconds:10}),
     s("test/native-editor-lifetime.mjs", [], {domains:["program","entry"],seconds:10}),
