@@ -3498,6 +3498,7 @@ function focusView(){return FocusView||(FocusView=Focus.createFocusView({window,
     onAcknowledged:async field=>{updateSaveMeta();if(field)await refreshAfterCommittedEdit(field)}},
   readFrame:focusViewFrame,copy:{t},help:{term:glossaryPopover},restActions:{rest:restAct,why:openWhySheet},
   feedback:{suggestionFailure:showSuggestionFailure,draftIssues:applyDraftIssue},exerciseActions:{open:openExActionsSheet},
+  onSetApplied:scheduleCurrentSurfaceGuides,
   onRendered:({active})=>{updateGauge();if(active){updateSaveMeta();renderFatigue();updateBodyweightField();}updateSessionBanner();}}))}
 function renderWorkout(){return focusView().render()}
 /** ⋯ is the current exercise's actions. Where the device offers voice input and

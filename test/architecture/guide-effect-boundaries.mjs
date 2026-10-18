@@ -41,5 +41,15 @@ try{
  await live.locator('[data-guide-dismiss]').click();await live.locator('nav button[data-view="log"]').click();
  assert.equal(await live.evaluate(()=>window.__repforgeEnterWorkout()),true);await live.waitForSelector('[data-guide-cue="first-set"]');
  assert.equal(await live.evaluate(()=>window.__repforgeUi.guideState()['first-set'].status),'shown','acknowledged actual Focus entry still offers first set guide');
- await app.close();console.log('PASS native render purity and actual route/selection/Focus-entry guide preference effects');
+ await live.evaluate(async()=>{
+  for(const input of document.querySelectorAll('#workout .exercise.is-current .focus-shelf .shelf__input')){
+    input.value=input.dataset.k.endsWith('_rir')?'2':input.dataset.k.includes('load')?'40':'6';
+    input.dispatchEvent(new Event('input',{bubbles:true}));
+    await window.__repforgeWorkoutDraft.flush();
+  }
+ });
+ await live.locator('#workout .exercise.is-current .focus-shelf .saveset').click();
+ await live.waitForSelector('[data-guide-cue="focus-utilities"]',{timeout:5000});
+ assert.equal(await live.evaluate(()=>{const draft=window.__repforgeWorkoutDraft.current();return Object.values(draft.exercises).some(ex=>Object.values(ex.sets).some(set=>typeof set.completion==='object'&&typeof set.completion.completedAt==='string'))}),true,'utilities guide follows a real acknowledged set, not a repaint');
+ await app.close();console.log('PASS native render purity and actual route/selection/Focus-entry/acknowledged-set guide preference effects');
 }finally{await browser.close()}
