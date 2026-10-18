@@ -1,4 +1,6 @@
 import {createImportReview} from './src/ui/entry/import/review.js';
+import {createWorkoutReminder} from './src/app/workout-reminder.js';
+import {createWorkoutReminderView} from './src/ui/workout/reminder.js';
 import {createWorkoutDraftPolicy,createWorkoutCommands,createFocusWorkoutCommands,createWorkoutExerciseCommands,createWorkoutSuggestionCommands} from './src/app/workout.js';
 import {createWorkoutContext} from './src/app/workout-context.js';
 import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,createEntryAnswerCommands,createEntryQuestionFlow,createEntryReviewSession,createEntrySetup,createEntryActivation,createProgramImport,createReceivedSetup,buildLandingProof,FREEFORM_MAX_CHARS} from './src/app/entry.js';
@@ -708,16 +710,14 @@ const fmtLoad=kg=>fmt(toDisplay(kg));
 const fmtLoadPlain=kg=>fmtPlain(toDisplay(kg));
 const term=key=>`<button type="button" class="term" data-term="${esc(key)}">${esc(t(`glossary.term.${key}`)||key)}</button>`;
 function resetWorkoutSessionIdentity(){
-  clearUnfinishedWatch();
-  lastCommitAt=0;sessionStartedAt=0;
+  workoutReminder.reset();
+  sessionStartedAt=0;
   committed.clear();touched.clear();warmups.clear();skipped.clear();
   contextTouched={day:false,date:false,sessionNotes:false,bodyweight:false};
   activeWorkoutDraft=null;activeWorkoutDraftRaw=null;draftUiRecovery=null;
 }
 function resetDraftSessionPresentation(){
-  const el=$("#unfinishedBanner");
-  if(el){el.classList.add("hidden");el.hidden=true}
-  delete document.body.dataset.unfinishedPrompt;
+  unfinishedView.clear();
   renderDraftRecovery();
 }
 /* Ending a session by any route (discard, replace, clear) ends its rest clock with it: a
@@ -964,67 +964,15 @@ function announceRestDone(){
   const el=$("#restAnnounce");if(!el)return;
   el.textContent="";
   requestAnimationFrame(()=>requestAnimationFrame(()=>{el.textContent=t("rest.complete")}))}
-let unfinishedTimer=null;
-let lastCommitAt=0;             // module-level; hydrated from draft at boot
-// When the first set of the open session landed. Only ever used to tell the
-// lifter how long the session ran, so a resumed draft keeps the original stamp
-// and a session that spans a reload still reads as one stretch of work.
-let sessionStartedAt=0;         // module-level; hydrated from draft at boot
-const UNFINISHED_MS=15*60*1000;
-
-function clearUnfinishedWatch(){
-  if(unfinishedTimer){clearTimeout(unfinishedTimer); unfinishedTimer=null}
-  if(Notifications) Notifications.closeTag("repforge-unfinished");
-}
-
-function armUnfinishedWatch(delayMs=UNFINISHED_MS){
-  clearUnfinishedWatch();
-  if(!Notifications.enabledFor(state.settings,"unfinished")) return;
-  unfinishedTimer=setTimeout(onUnfinishedIdle, Math.max(0,delayMs));
-}
-
-// Single-reminder guarantee: remember which commit timestamp we already
-// prompted for (in repforge_notify_v1), so reopening the app or receiving
-// the OS notification does not produce repeat prompts for the same session.
-function unfinishedAlreadyPrompted(){
-  return loadNotifyMeta().unfinishedPromptedFor===lastCommitAt;
-}
-function markUnfinishedPrompted(){
-  const m=loadNotifyMeta(); m.unfinishedPromptedFor=lastCommitAt; saveNotifyMeta(m);
-}
-
-function showUnfinishedPrompt(){
-  markUnfinishedPrompted();
-  document.body.dataset.unfinishedPrompt="1";
-  const el=$("#unfinishedBanner");
-  if(!el) return;
-  el.classList.remove("hidden");
-  el.hidden=false;
-  const d=$("#unfinishedDismiss");
-  if(d) d.onclick=()=>{ el.classList.add("hidden"); el.hidden=true; };
-}
-
-function onUnfinishedIdle(){
-  unfinishedTimer=null;
-  const draft=loadDraft();
-  if(!(draft.__done||[]).length) return;
-  if(!Notifications.enabledFor(state.settings,"unfinished")) return;
-  if(unfinishedAlreadyPrompted()) return;
-  if(document.visibilityState==="visible") showUnfinishedPrompt();
-  else Notifications.fireOS({title:t("notify.title"),body:t("notify.unfinished.body"),tag:"repforge-unfinished",url:"./"}).then(ok=>{if(ok)markUnfinishedPrompted()});
-}
-
-function maybeUnfinishedOnOpen(){
-  const draft=loadDraft();
-  lastCommitAt=+draft.__lastCommitAt||0;   // hydrate module state from draft
-  if(!Notifications.enabledFor(state.settings,"unfinished")) return;
-  const done=(draft.__done||[]).length;
-  if(!done||!lastCommitAt) return;
-  if(unfinishedAlreadyPrompted()) return;  // single reminder per session
-  const elapsed=Date.now()-lastCommitAt;
-  if(elapsed>=UNFINISHED_MS) showUnfinishedPrompt();
-  else armUnfinishedWatch(UNFINISHED_MS-elapsed);
-}
+// Session elapsed time is distinct from the reminder's private commit cursor.
+let sessionStartedAt=0;
+const unfinishedView=createWorkoutReminderView({document});
+const workoutReminder=createWorkoutReminder({
+  clock:{now:()=>Date.now(),setTimeout:(callback,delay)=>window.setTimeout(callback,delay),clearTimeout:id=>window.clearTimeout(id)},
+  read:()=>{const draft=loadDraft();return {done:(draft.__done||[]).length,lastCommitAt:+draft.__lastCommitAt||0,
+    enabled:Notifications.enabledFor(state.settings,"unfinished"),visible:document.visibilityState==="visible"}},
+  metadata:{read:loadNotifyMeta,write:saveNotifyMeta},notifications:Notifications,
+  copy:()=>({title:t("notify.title"),body:t("notify.unfinished.body")}),showPrompt:unfinishedView.show});
 const skipped=new Set();
 
 /* Which library definition a swap pointed at, when it came from the picker.
@@ -3374,8 +3322,8 @@ focusWorkoutCommands=createFocusWorkoutCommands({workout:WorkoutSession,training
   now:()=>new Date().toISOString(),
   onSetAcknowledged:({nowDone,exerciseInstanceId,ordinal,editing})=>{
     if(editing&&nowDone){focusUi.edit=null;focusUi.ledgerOpen=null;toast(t("toast.set_updated"))}
-    if(nowDone&&!editing){lastCommitAt=Date.now();if(!sessionStartedAt)sessionStartedAt=lastCommitAt;
-      focusUi.restRenderPending=true;startRest();armUnfinishedWatch();focusUi.logged={exId:exerciseInstanceId,n:ordinal}}}});
+    if(nowDone&&!editing){const committedAt=Date.now();if(!sessionStartedAt)sessionStartedAt=committedAt;
+      focusUi.restRenderPending=true;startRest();workoutReminder.committed(committedAt);focusUi.logged={exId:exerciseInstanceId,n:ordinal}}}});
 
 }
 
@@ -7701,7 +7649,7 @@ function init(){
   $("#exBack").onclick=closeExerciseView;
   $("nav button.active")?.setAttribute("aria-current","page");
   render();
-  maybeUnfinishedOnOpen();
+  workoutReminder.hydrate();
   // First run puts the install first and the program choice second. Where there
   // is no install to offer, the gate would add a step and nothing else, so
   // onboarding opens exactly as it always has.
