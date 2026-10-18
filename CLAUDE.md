@@ -38,7 +38,7 @@ Use the module that owns the behavior. These are the principal production owners
 | `install-transfer.js`, `install-transfer-contract.js` | Browser transfer client and its shared request/envelope contract. `services/install-transfer/` owns the service. |
 | `install-policy.js`, `guide-registry.js` | Install-prompt eligibility and versioned contextual-guide definitions/state. |
 | `motion-layer.js` | Motion vocabulary, reduced-motion decision, gesture controller, and fallback. `app.js` mounts and disposes the controller through this layer. |
-| `telemetry.js`, `posthog-init.js` | Closed event/privacy boundary, consent and identity; `posthog-init.js` adapts the optional SDK using generated deployment configuration. |
+| `src/platform/telemetry.js`, `src/platform/posthog.js` | Closed event/privacy boundary, consent and identity; the passive PostHog adapter receives the native owner and generated deployment data explicitly. |
 | `src/training/progress.js`, `notify.js` | Native training schedule rules; transitional notification adapter. |
 | `sw.js` | Release asset inventory, cache lifecycle, offline shell, and code-response policy. |
 | `styles.css`, `motion-polish.css` | Presentation tokens and component styles; appearance rules and exceptions are governed by `AGENTS.md` and the design audit. |
@@ -56,7 +56,7 @@ For query-versioned runtime scripts, use `transitionAssets` in `test/exercise-li
 
 Setup-link encoding, validation, and compatibility are owned by `shared-setup.js`. Consult `AGENTS.md` and ADR 0007 before changing cookies, import eligibility, or sharing. The install-transfer cookie and setup-proposal handoff are separate mechanisms.
 
-Telemetry event names and allowed properties live in `telemetry.js`; `AGENTS.md` and relevant ADRs define the data boundary.
+Telemetry event names and allowed properties live in `src/platform/telemetry.js`; `AGENTS.md` and relevant ADRs define the data boundary.
 
 ## Working and verification
 

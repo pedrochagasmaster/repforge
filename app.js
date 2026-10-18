@@ -1,3 +1,5 @@
+import {createTelemetry} from './src/platform/telemetry.js';
+import {createPostHog} from './src/platform/posthog.js';
 import {createRestPresentation} from './src/ui/focus/rest-view.js';
 import {createBlockTransitionCommands} from './src/app/block-transition.js';
 import {createShell,NATIVE_FOCUS_SELECTOR as ROUTE_NATIVE_FOCUS} from './src/ui/shell.js';
@@ -158,6 +160,7 @@ const DRAFT_PENDING_PREFIX=`${DRAFT}:pending:`,DRAFT_CLOSE_PREFIX=`${DRAFT}:clos
 const DRAFT_V2_CHECKPOINT=`${DRAFT}:v2-checkpoint`;
 const DRAFT_WRITE_TRANSACTION="draft-write";
 const INSTALL_IMPORT_KEY="repforge_install_import_v1";
+const INSTALL_TRANSFER_INSTANT_RE=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const INSTALL_INBOUND_KEY="repforge_transfer_inbound_v1";
 const INSTALL_OUTBOUND_KEY="repforge_transfer_outbound_v1";
 const INSTALL_FREEZE_KEY="repforge_install_transfer_freeze_v1";
@@ -510,18 +513,19 @@ const monoNums=text=>String(text).split(/(\d+(?:[.,]\d+)?(?:[–-]\d+(?:[.,]\d+)
 /** A catalog key with a `_one` sibling: the sibling for exactly 1, the key otherwise. */
 const tOne=(key,n,vars)=>t(n===1?`${key}_one`:key,{n,...vars});
 const tp=(n,w)=>I18N?I18N.tp(n,w):(+n===1?w:w+"s");
-const captureEvent=(event,properties)=>{try{return window.RepForgeTelemetry?.capture(event,properties)===true}catch{return false}};
+// One native consent/identity owner. The per-instance facade is also the explicit
+// test fault seam; application consumers keep this lexical instance.
+const telemetryCore=createTelemetry();
+const Telemetry={...telemetryCore,setEnabled(enabled){
+  if(installTransferMutationFrozen())return telemetryCore.isEnabled();
+  return telemetryCore.setEnabled(enabled)}};
+window.__repforgeTelemetry=Telemetry;
+let postHogTransport=null;
+const captureEvent=(event,properties)=>{try{return Telemetry.capture(event,properties)===true}catch{return false}};
 const coarseCountBucket=value=>{const n=Number(value);return!Number.isSafeInteger(n)||n<0?"0":n===0?"0":n===1?"1":n<=5?"2-5":"6+"};
-function installTransferGuardTelemetry(){
-  const telemetry=window.RepForgeTelemetry;
-  if(!telemetry?.setEnabled||telemetry.__repforgeInstallTransferGuarded)return;
-  const guarded={...telemetry,setEnabled(enabled){
-    if(installTransferMutationFrozen())return telemetry.isEnabled?.()!==false;
-    return telemetry.setEnabled(enabled)}};
-  try{Object.defineProperty(guarded,"__repforgeInstallTransferGuarded",{value:true});window.RepForgeTelemetry=guarded}catch{}
-}
 const bootTelemetry=()=>{if(installTransferMutationFrozen())return null;try{
-  const result=window.RepForgePostHog?.start(window)||null;
+  postHogTransport??=createPostHog({browser:window,telemetry:Telemetry,config:window.__POSTHOG_CONFIG__||{}});
+  const result=postHogTransport.start();
   if(result)installTransferTelemetryBooted=true;
   return result}catch{return null}};
 const telemetryPlatformClass=()=>{if(isIOS())return"ios";const ua=navigator.userAgent||"";if(/android/i.test(ua))return"android";if(/windows|macintosh|linux|cros/i.test(ua))return"desktop";return"other"};
@@ -2838,7 +2842,7 @@ function installTransferSections(durableSnapshot=state,{storedDraft=false}={}){
       if(!record.ok)throw new Error("program-entry-draft-unavailable");
       return record.envelope?.state||null},
     uiPreferences:()=>installTransferReadJson(UIKEY)||{},
-    analytics:()=>({enabled:window.RepForgeTelemetry?.isEnabled?.()!==false&&
+    analytics:()=>({enabled:Telemetry?.isEnabled?.()!==false&&
       localStorage.getItem(TELEMETRY_ENABLED_KEY)!=="false"}),
     telemetryIdentity:()=>installTransferReadJson(TELEMETRY_IDENTITY_KEY),
   }}
@@ -2868,7 +2872,7 @@ function installTransferMarkerShape(marker){
   const keys=["version","transactionId","claimIdDigest","phase","previous","incoming","createdAt","expectedLocalRevision"];
   if(!isPlainStateObject(marker)||Object.keys(marker).length!==keys.length||!keys.every(key=>Object.hasOwn(marker,key)))return false;
   if(marker.version!==1||typeof marker.transactionId!=="string"||marker.transactionId.length===0||marker.transactionId.length>256||
-    !/^[0-9a-f]{64}$/.test(marker.claimIdDigest)||!RECOVERY_CARRIER_INSTANT_RE.test(marker.createdAt)||
+    !/^[0-9a-f]{64}$/.test(marker.claimIdDigest)||!INSTALL_TRANSFER_INSTANT_RE.test(marker.createdAt)||
     !Number.isSafeInteger(marker.expectedLocalRevision)||marker.expectedLocalRevision<0||
     !["importing","rolling-back","local-committed"].includes(marker.phase))return false;
   const previous=marker.previous;
@@ -3360,7 +3364,7 @@ function installTransferWriteDeviceSections(envelope){
     delete prefs.repforge_freeform_session_v1;delete prefs.repforge_import_source_v1;
     localStorage.setItem(UIKEY,JSON.stringify(prefs));uiPrefs=loadUiPrefs();
     const consentRaw=String(envelope.analytics.enabled===true);
-    if(window.RepForgeTelemetry?.setEnabled)window.RepForgeTelemetry.setEnabled(envelope.analytics.enabled===true);
+    if(Telemetry?.setEnabled)Telemetry.setEnabled(envelope.analytics.enabled===true);
     if(!installTransferWriteRaw(TELEMETRY_ENABLED_KEY,consentRaw))return{ok:false,code:"device-consent-write-failed"};
     if(!installTransferWriteRaw(TELEMETRY_IDENTITY_KEY,JSON.stringify(envelope.telemetryIdentity)))
       return{ok:false,code:"device-identity-write-failed"};
@@ -3374,8 +3378,8 @@ function installTransferRestoreDeviceSections(previous,presence={}){
       if(!installTransferWriteRaw(UIKEY,null))return{ok:false,code:"device-prefs-rollback-failed"};
     }else if(!installTransferWriteRaw(UIKEY,JSON.stringify(prefs)))
       return{ok:false,code:"device-prefs-rollback-failed"};
-    if(window.RepForgeTelemetry?.setEnabled)
-      window.RepForgeTelemetry.setEnabled(previous.analytics?.enabled===true);
+    if(Telemetry?.setEnabled)
+      Telemetry.setEnabled(previous.analytics?.enabled===true);
     if(presence.consent===false){
       if(!installTransferWriteRaw(TELEMETRY_ENABLED_KEY,null))return{ok:false,code:"device-consent-rollback-failed"};
     }else if(!installTransferWriteRaw(TELEMETRY_ENABLED_KEY,String(previous.analytics?.enabled===true)))
@@ -6273,10 +6277,10 @@ async function saveWorkoutV2(io,{expectedDraft=null,completion="normal"}={}){
     await window.__repforgeDraftAfterSaveCommit({session,draftId});
   if(!prevLog.some(isWork)&&rows.some(isWork)){captureEvent("first_set_logged",{});requestPersistentStorage()}
   captureEvent("session_completed",{
-    set_count:window.RepForgeTelemetry?.bucketCount(rows.filter(isWork).length,"sets"),
-    exercise_count:window.RepForgeTelemetry?.bucketCount(new Set(rows.filter(isWork).map(row=>row.exerciseId)).size,"exercises"),
-    duration:window.RepForgeTelemetry?.bucketDuration(startedAt?Math.max(0,(Date.now()-startedAt)/60000):0),
-    days_since_last:window.RepForgeTelemetry?.bucketDaysSince?.(daysSinceLastSession(prevLog,date))||undefined});
+    set_count:Telemetry?.bucketCount(rows.filter(isWork).length,"sets"),
+    exercise_count:Telemetry?.bucketCount(new Set(rows.filter(isWork).map(row=>row.exerciseId)).size,"exercises"),
+    duration:Telemetry?.bucketDuration(startedAt?Math.max(0,(Date.now()-startedAt)/60000):0),
+    days_since_last:Telemetry?.bucketDaysSince?.(daysSinceLastSession(prevLog,date))||undefined});
   const btn=$(".btn--save");if(btn){btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped")}
   const savedFallback=()=>{
     render();
@@ -9999,7 +10003,7 @@ let entryFunnelView=null,entryFunnelArmed=false;
 function observeEntryStep(route,step){
   const view={route,step,at:Date.now(),answers:entryState?.answers||{}};
   let events=[];
-  try{events=window.RepForgeTelemetry?.entryFunnelEvents?.(entryFunnelView,view,ProgramEntry?.ROUTE_STEPS)||[]}catch{}
+  try{events=Telemetry?.entryFunnelEvents?.(entryFunnelView,view,ProgramEntry?.ROUTE_STEPS)||[]}catch{}
   if(!events.length)return;
   entryFunnelView=view;
   if(entryFunnelArmed)for(const [name,properties] of events)captureEvent(name,properties)}
@@ -10752,7 +10756,7 @@ function beginGeneration(route){return{id:++generationRequest,route,at:generatio
 function settleGeneration(token,outcome){
   if(!token||token.id!==generationRequest||(token.route!=="recommend"&&token.route!=="custom"))return;
   let duration=null;
-  try{duration=window.RepForgeTelemetry?.bucketGeneration?.(generationClock()-token.at)}catch{}
+  try{duration=Telemetry?.bucketGeneration?.(generationClock()-token.at)}catch{}
   if(duration)captureEvent("generation_settled",{route:token.route,outcome,duration})}
 /* Generation is deterministic in its canonical request, so the last few
    outputs are kept: the review's recommendation is then at hand on the render
@@ -13180,7 +13184,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   if(!result.alreadyCommitted){
     const payload={route:telemetryRoute,version_category:versionCategory};
     if(telemetryRoute==="import")payload.source=stagedImportSource();
-    const changes=window.RepForgeTelemetry?.bucketChanges?.(reviewChanges);
+    const changes=Telemetry?.bucketChanges?.(reviewChanges);
     if(changes)payload.review_changes=changes;
     captureEvent("program_activated",payload);
     // A block that ends in a new program is committed here, at its successor's activation.
@@ -14464,7 +14468,7 @@ function init(){
   $("#settings").addEventListener("input",()=>settingsView().touch());
   const voiceTog=$("#voiceToggle");if(voiceTog)voiceTog.onclick=()=>{const c=$("#voiceInputEnabled");if(c){c.checked=!c.checked;commitChangedSettings()}};
   const telemetryTog=$("#telemetryToggle");if(telemetryTog)telemetryTog.onclick=()=>{
-    try{window.RepForgeTelemetry?.setEnabled(!(window.RepForgeTelemetry?.isEnabled?.()!==false))}catch{}
+    try{Telemetry?.setEnabled(!(Telemetry?.isEnabled?.()!==false))}catch{}
     renderSettings()};
   const notifyTog=$("#notifyToggle");if(notifyTog)notifyTog.onclick=()=>{
     const on=notificationControls().pending()||notifyEffective();
@@ -14814,7 +14818,6 @@ async function boot(){
   // Program metadata and the first render are built from the loaded state, so
   // the language has to be settled before that — not after the state exists.
   const sharedCandidate=captureSharedSetupSource();
-  installTransferGuardTelemetry();
   const transferWork=async()=>{
     const importMarker=await installTransferReadMarker();
     if(importMarker?.invalid)return{ok:false,code:importMarker.code||"install-import-marker-invalid"};
@@ -14861,7 +14864,7 @@ async function boot(){
   bootTelemetry();
   if(transferResult.transferResult?.localOk===true){
     try{
-      window.RepForgeTelemetry?.recordLateInstallTransfer?.({
+      Telemetry?.recordLateInstallTransfer?.({
         state: transferResult.transferResult.state||"localCommitted",
         localImportVerified: true,
         cleanupRetry: transferResult.transferResult.cleanupRetry===true,
@@ -14962,7 +14965,7 @@ function notificationControls(){return notificationUiOwner||(notificationUiOwner
     request:()=>Notifications?Notifications.request():Promise.resolve("unsupported")},t}))}
 function settingsView(){return settingsUiOwner||(settingsUiOwner=createSettingsView({window,settings:settingsCommands(),
   i18n:{t,getLang:uiLang,normalizeLang:value=>I18N?.normalizeLang(value)},appearance:appearanceView(),notifications:notificationControls(),
-  install:{decision:installPolicyDecision,mode:installMode},guides:guidesView(),telemetry:window.RepForgeTelemetry||{},
+  install:{decision:installPolicyDecision,mode:installMode},guides:guidesView(),telemetry:Telemetry||{},
   storage:{health:()=>DurableState.getStorageHealth(),raw:()=>localStorage.getItem(KEY)},shell:{setDisclosure},toast,
   onSaved:({before,after,current})=>{
     if(before.restSec!==after.restSec)focusRest.length=0;
