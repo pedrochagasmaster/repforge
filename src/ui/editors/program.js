@@ -362,6 +362,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     };
     /** @param {EditorDocument} next @param {EditorIntent} edit @param {{redraw?:boolean}} [options] @returns {Promise<EditorReceipt>} */
     const stage = (next, edit, { redraw = true } = {}) => {
+      if(destroyed)return Promise.resolve({ok:false,disposed:true});
       // The host's returned document redraws the list a second time; the focus
       // the caller asked for has to land on that final DOM, not the first one.
       const focusRequest = pendingFocus;
@@ -404,13 +405,14 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     const toggleDay = day => { collapsedDays.has(day) ? collapsedDays.delete(day) : collapsedDays.add(day); scheduleRender(); };
     /** @param {import("./contracts.js").PickRequest} request */
     const chooseExercise = request => {
-      try { return Promise.resolve(adapter.chooseExercise?.(request)); }
+      if(destroyed)return Promise.resolve(null);
+      try { return Promise.resolve(adapter.chooseExercise?.(request)).then(choice=>destroyed?null:choice); }
       catch (error) { setStatus(error instanceof Error ? error.message : label("invalid"), { error: true }); return Promise.resolve(null); }
     };
     /* A commit that rebuilds the list leaves nothing focused: the row that changed (or, after a remove, the day's
        Add control) takes focus once the rebuild has drawn, and the change is announced once through the host. */
     /** @param {string} key */
-    const announceChange = key => { try { adapter.announce?.(label(key), { change: true }); } catch { /* the focus move still says it */ } };
+    const announceChange = key => { if(destroyed)return;try { adapter.announce?.(label(key), { change: true }); } catch { /* the focus move still says it */ } };
     const applyPendingFocus = () => {
       const want = pendingFocus; pendingFocus = null;
       if (!want) return;
@@ -550,6 +552,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       settleMoveId = id;
       const result = stage(next, { kind: "exercise_move", targetId: id, sourceDay, sourceIndex, targetDay: toDay, targetIndex: toIndex });
       Promise.resolve(result).then(value => {
+        if(destroyed)return;
         if (value?.ok === false && value?.staged !== true && value?.setupDraft !== true) {
           settleMoveId = null;
           return;
@@ -586,6 +589,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
         });
       });
       if (announce) result.then(value => {
+        if(destroyed)return;
         if (value?.ok !== false && (value?.localOk !== false || value?.staged === true || value?.setupDraft === true)) {
           setStatus(label("moved"), { undo: true });
           try { adapter.announce?.(`${label("moved")} · ${label("undo")}`, { undo: () => undoLastMove() }); } catch { /* inline undo remains */ }
@@ -603,6 +607,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       });
     };
     const apply = ({ kind = "apply" } = {}) => {
+      if(destroyed)return Promise.resolve({ok:false,disposed:true});
       if (!INTENT_SET.has(kind) || (kind !== "apply" && kind !== "apply_discard_workout"))
         return Promise.resolve({ ok: false, invalidIntent: true });
       if (!edits.length && !changed()) return Promise.resolve({ ok: true, unchanged: true, document: clone(document), token: clone(token) });
@@ -615,6 +620,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       if (!optIn.ok) return Promise.resolve(optIn);
       const result = adapter.commit({ expectedToken: clone(token), nextDocument: clone(document), intent: intent(kind, { edits: clone(edits) }) });
       return Promise.resolve(result).then(value => {
+        if(destroyed)return;
         if (value?.ok === false || value?.conflict || value?.staleRevision) return value;
         baseDocument = clone(document); edits = []; undoMove = null;
         if (value?.token !== undefined) token = clone(value.token);
