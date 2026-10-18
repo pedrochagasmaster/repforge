@@ -421,6 +421,20 @@ export function appState(key, lang) {
   return localeState(state, lang);
 }
 
+/* Plan 074: the installed editor (candidate A) and its exercise sheet. */
+async function editorIdleA(page) {
+  await page.waitForSelector('#programEditor [data-role="editor"][data-layout="review"]:not([aria-busy="true"])', { timeout: 20000 });
+}
+async function openEditorA(page) {
+  await page.click("#programEditToggle");
+  await editorIdleA(page);
+}
+async function openEditorSheetA(page, id) {
+  await page.locator(`#programEditor [data-role="exercise-row"][data-id="${id}"]`).click();
+  await page.waitForSelector(`#reviewSheet.is-open [data-pe-sheet="exercise"][data-id="${id}"]`, { timeout: 20000 });
+  await sleep(page, 350);
+}
+
 const view = async (page, name) => {
   await page.click(`nav [data-view="${name}"]`);
   await sleep(page, 500);
@@ -2135,60 +2149,58 @@ export const APP_SCENARIOS = {
   "program/overview": openProgram,
   "program/progression-editor": async (page) => {
     await openProgram(page);
-    await page.click("#programEditToggle");
-    await page.waitForSelector('#programEditor [data-role="editor"]', { timeout: 20000 });
-    // The installed editor is the canonical program-editing surface. Keep the
-    // historical catalog key so existing links and committed frame paths stay
-    // stable while the scenario follows the shared editor.
-    const editor = page.locator('#programEditor [data-role="exercise"]').first();
-    await editor.scrollIntoViewIfNeeded();
+    await openEditorA(page);
+    // The installed editor is the canonical program-editing surface (Plan 074,
+    // candidate A). Keep the historical catalog key so existing links and
+    // committed frame paths stay stable while the scenario follows the editor.
     await sleep(page, 400);
   },
   "program/editor-alternates": async (page) => {
     await openProgram(page);
-    await page.click("#programEditToggle");
-    await page.waitForSelector('#programEditor [data-role="editor"]', { timeout: 20000 });
-    const toggle = page.locator('#programEditor [data-role="toggle-exercise"][data-id="seed-ex-1"]');
-    if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
-    const alternates = page.locator('#programEditor [data-role="alternates"][data-id="seed-ex-1"]');
+    await openEditorA(page);
+    await openEditorSheetA(page, "seed-ex-1");
+    const alternates = page.locator('#reviewSheet [data-role="alternates"][data-id="seed-ex-1"]');
     await alternates.waitFor({ timeout: 20000 });
     await alternates.evaluate((node) => node.scrollIntoView({ block: "center" }));
     await sleep(page, 400);
   },
   "program/editor-suggest-loads": async (page) => {
     await openProgram(page);
-    await page.click("#programEditToggle");
-    await page.waitForSelector('#programEditor [data-role="editor"]', { timeout: 20000 });
-    const toggle = page.locator('#programEditor [data-role="toggle-exercise"][data-id="seed-ex-1"]');
-    if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
-    // The slot becomes a movement that asks how it is done, through Replace.
-    await page.locator('#programEditor [data-role="replace"][data-id="seed-ex-1"]').click();
+    await openEditorA(page);
+    // The slot becomes a movement that asks how it is done, through Swap → Search.
+    await openEditorSheetA(page, "seed-ex-1");
+    await page.locator('#reviewSheet [data-role="swap-open"]').click();
+    await page.locator('#reviewSheet [data-role="swap-search"]').click();
     await page.waitForSelector("#exPickSheet.is-open", { timeout: 20000 });
     await page.fill("#exPickSearch", "Dumbbell renegade row");
     await page.locator('#exPickList [data-pick="3065c6f170d880d2bc77cba9edbf8ce9"]').click({ timeout: 20000 });
     await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 20000 });
-    const row = page.locator('#programEditor [data-role="exercise"][data-id="seed-ex-1"]');
-    if (!await row.locator('[data-role="sets-control"]').count()) await row.locator('[data-role="toggle-exercise"]').click();
-    await row.locator('[data-role="suggest-loads"]').click();
-    const rir = row.locator('[data-role="suggest-loads-rir"]');
-    await rir.waitFor({ timeout: 20000 });
-    await rir.fill("2");
-    await rir.blur();
+    await editorIdleA(page);
+    await openEditorSheetA(page, "seed-ex-1");
+    await page.locator('#reviewSheet [data-role="suggest-loads"]').click();
+    await editorIdleA(page);
+    // From an empty RIR the stepper starts at 2: up then down lands on 2.
+    await page.locator('#reviewSheet [data-role="suggest-loads-rir-step"][data-delta="1"]').click();
+    await editorIdleA(page);
+    await page.locator('#reviewSheet [data-role="suggest-loads-rir-step"][data-delta="-1"]').click();
+    await editorIdleA(page);
     await page.waitForFunction(() => document.querySelector("#toast")?.classList.contains("hidden") !== false, undefined, { timeout: 20000 });
-    const section = row.locator('[data-role="suggest-loads-section"]');
+    const section = page.locator('#reviewSheet [data-role="loads"]');
     await section.locator('[data-role="execution-mode"]').first().waitFor({ timeout: 20000 });
     await section.evaluate((node) => node.scrollIntoView({ block: "center" }));
     await sleep(page, 400);
   },
   "program/editor-day-name-refused": async (page) => {
     await openProgram(page);
-    await page.click("#programEditToggle");
-    await page.waitForSelector('#programEditor [data-role="editor"]', { timeout: 20000 });
-    const names = page.locator('#programEditor [data-role="day-name"]');
-    await names.nth(1).fill(await names.first().inputValue());
-    await names.nth(1).press("Enter");
-    await page.waitForSelector('#programEditor [data-role="day-name"][aria-invalid="true"]', { timeout: 20000 });
-    await names.nth(1).evaluate((node) => node.closest('[data-role="day"]').scrollIntoView({ block: "center" }));
+    await openEditorA(page);
+    const days = await page.locator('#programEditor [data-role="day-tab"]').evaluateAll((tabs) => tabs.map((tab) => tab.dataset.day));
+    const firstName = await page.locator('#programEditor [data-role="day-tab"]').first().textContent();
+    await page.locator(`#programEditor [data-role="day-tab"][data-day="${days[1]}"]`).click();
+    await page.locator(`#programEditor [data-role="day-name-edit"][data-day="${days[1]}"]`).click();
+    const input = page.locator('#reviewSheet.is-open [data-role="rename-input"]');
+    await input.fill(firstName.trim());
+    await input.press("Enter");
+    await page.waitForSelector('#reviewSheet [data-role="rename-input"][aria-invalid="true"]', { timeout: 20000 });
     await sleep(page, 400);
   },
   "program/exercise-picker": async (page) => {

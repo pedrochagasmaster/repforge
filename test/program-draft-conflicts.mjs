@@ -4,6 +4,7 @@
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium, waitForAsyncCondition } from "./browser.mjs";
+import { SHEET, closeEditorSheet, editorSettled, openExerciseSheet, openInstalledEditor, showEditorDay } from "./fixtures/installed-editor.mjs";
 import {
   clearPersistenceArtifacts,
   inventoryPersistenceArtifacts,
@@ -476,8 +477,14 @@ async function openProgramEditor(page) {
   const hidden = await page.locator("#programEditorWrap").evaluate((element) =>
     element.classList.contains("is-hidden")
   );
-  if (hidden) await page.click("#programEditToggle");
+  if (hidden) await openInstalledEditor(page);
   await page.waitForSelector("#programEditorWrap:not(.is-hidden)", { timeout: 5000 });
+}
+
+/** Apply from the pinned bar; a workout conflict keeps the editor open behind the leave dialog. */
+async function pressApply(page) {
+  await closeEditorSheet(page);
+  await page.locator('#programEditor [data-role="apply"]').click();
 }
 
 async function runTemplateConflict(browser) {
@@ -630,15 +637,18 @@ async function runSaveProgramConflict(browser) {
     // the installed program while a workout draft exists. Done first presents
     // the workout-safe Apply changes action before the destructive transaction
     // begins.
-    await writer.locator('#programEditor [data-role="replace"][data-id="draft-conflict-press"]').click();
+    await openExerciseSheet(writer, "draft-conflict-press");
+    await writer.locator(`${SHEET} [data-role="swap-open"]`).click();
+    await writer.locator(`${SHEET} [data-role="swap-search"]`).click();
     await writer.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
     await writer.locator("#exPickList .pickrow").first().click();
     await writer.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+    await editorSettled(writer);
     const before = await readRuntime(writer);
     await holdStorageLock(locker);
     await queueNewerDraftLoad(writer, "102.5");
     await waitForPendingStorageLocks(locker, 1);
-    await writer.click("#programEditToggle");
+    await pressApply(writer);
     await writer.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
     await writer.click("#programEditorApply");
     await waitForPendingStorageLocks(locker, 2);
@@ -829,8 +839,11 @@ async function runDeleteExerciseConflict(browser) {
     await holdStorageLock(locker);
     await queueNewerDraftLoad(writer, "107.5");
     await waitForPendingStorageLocks(locker, 1);
-    await writer.click('#programEditor [data-role="remove-exercise"][data-id="draft-conflict-press"]');
-    await writer.click("#programEditToggle");
+    await openExerciseSheet(writer, "draft-conflict-press");
+    await writer.locator(`${SHEET} [data-role="remove-exercise"]`).click();
+    await writer.waitForSelector(SHEET, { state: "hidden", timeout: 5000 });
+    await editorSettled(writer);
+    await pressApply(writer);
     await writer.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
     await writer.click("#programEditorApply");
     await waitForPendingStorageLocks(locker, 2);
@@ -885,9 +898,12 @@ async function runDeleteDayConflict(browser) {
     await holdStorageLock(locker);
     await queueNewerDraftLoad(writer, "110");
     await waitForPendingStorageLocks(locker, 1);
+    await showEditorDay(writer, "Day 1");
     await writer.click('#programEditor [data-role="day-menu"][data-day="Day 1"]');
-    await writer.click('#programEditor [data-role="remove-day"][data-day="Day 1"]');
-    await writer.click("#programEditToggle");
+    await writer.click(`${SHEET} [data-role="day-action"][data-action="remove-day"][data-day="Day 1"]`);
+    await writer.waitForSelector(SHEET, { state: "hidden", timeout: 5000 });
+    await editorSettled(writer);
+    await pressApply(writer);
     await writer.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
     await writer.click("#programEditorApply");
     await waitForPendingStorageLocks(locker, 2);

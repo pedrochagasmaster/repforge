@@ -18,6 +18,7 @@
  */
 
 import { launchChromium, waitForAsyncCondition, answerRecommend } from "./browser.mjs";
+import { SHEET, applyInstalledEditor, cancelInstalledEditor, editorSettled, openExerciseSheet, openInstalledEditor, sheetTap, showEditorDay } from "./fixtures/installed-editor.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 import { writeFileSync, readFileSync, mkdtempSync, rmSync } from "fs";
 import { dirname, join } from "path";
@@ -453,10 +454,7 @@ async function nav(page, view) {
   if (view === "program") {
     // Editor is behind the Edit toggle (overview is the default read view).
     const hidden = await page.locator("#programEditorWrap.is-hidden").count();
-    if (hidden) {
-      await page.click("#programEditToggle");
-      await page.waitForSelector("#programEditorWrap:not(.is-hidden)", { timeout: 5000 });
-    }
+    if (hidden) await openInstalledEditor(page);
   }
   if (view === "log") {
     // Enter the sole workout route for the simulation.
@@ -476,10 +474,24 @@ async function nav(page, view) {
   }
 }
 
+/** Rename a day from its head; a refused name leaves the sheet open with its reason, and the sheet is closed. */
+async function renameEditorDay(page, day, name) {
+  await showEditorDay(page, day);
+  await page.locator(`#programEditor [data-role="day-name-edit"][data-day="${day}"]`).click();
+  await page.locator(`${SHEET}.is-open [data-role="rename-input"]`).fill(name);
+  await page.locator(`${SHEET} [data-role="rename-save"]`).click();
+  await page.waitForFunction((sheet) => document.querySelector(sheet)?.hidden ||
+    !!document.querySelector(`${sheet} #programEditorRenameError`), SHEET, { timeout: 5000 });
+  await editorSettled(page);
+  if (await page.locator(`${SHEET} #programEditorRenameError`).count()) {
+    await page.locator(`${SHEET} [data-review-sheet-close]`).click();
+    await page.waitForSelector(SHEET, { state: "hidden", timeout: 5000 });
+  }
+}
+
 async function applyProgramEditor(page) {
   if (!(await page.locator("#programEditorWrap:not(.is-hidden)").count())) return;
-  await page.click("#programEditToggle");
-  await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), null, { timeout: 10000 });
+  await applyInstalledEditor(page);
   await page.evaluate(() => {
     const tour = document.querySelector("#tour");
     if (tour && !tour.classList.contains("hidden")) window.closeTour?.();
@@ -1746,9 +1758,7 @@ async function main() {
   await nav(page, "program");
 
   // Rename Day 1
-  const renameInput = page.locator('#programEditor [data-role="day-name"][data-day="Day 1"]');
-  await renameInput.fill("Push Day");
-  await renameInput.blur();
+  await renameEditorDay(page, "Day 1", "Push Day");
   await applyProgramEditor(page);
 
   state = await getState(page);
@@ -1758,7 +1768,7 @@ async function main() {
     hasPushDay && noDay1,
     "Rename day (Day 1 → Push Day)",
     `program days: ${[...new Set(state.program.map((e) => e.day))].join(", ")}`,
-    "Program tab → rename Day 1 input → blur"
+    "Program tab → Edit → Day 1's pencil → Push Day → Save → Apply"
   );
 
   // Log tab should reflect renamed day
@@ -1771,39 +1781,20 @@ async function main() {
     "Program tab → rename day → Log tab → check day tabs"
   );
 
-  // Rename exercise (pick one that already has log history)
+  // A catalog movement keeps its catalog name (ADR 0021 decision 5): its sheet offers no name box.
   await nav(page, "program");
   state = await getState(page);
   const loggedOnDay2 = state.log.find((x) => x.day === "Day 2");
-  assert(loggedOnDay2, "Day 2 has log history before rename test", "No Day 2 log rows", "Phase 1 should log Day 2 sessions");
-  const day2 = page.locator('#programEditor [data-role="day"][data-day="Day 2"]');
-  if (!(await day2.locator('[data-role="day-body"]').isVisible())) await day2.locator('[data-role="toggle-day"]').click();
-  // The name field is a wrapping textarea, so match it by its current value.
-  const nameFields = page.locator('#programEditor [data-role="exercise-field"][data-field="name"]');
-  const targetIndex = await nameFields.evaluateAll((fields, name) => fields.findIndex((field) => field.value === name), loggedOnDay2.name);
-  const targetInput = nameFields.nth(Math.max(0, targetIndex));
-  const oldName = await targetInput.inputValue();
-  const newName = "Custom Leg Press";
-  await targetInput.fill(newName);
-  await targetInput.blur();
+  assert(loggedOnDay2, "Day 2 has log history", "No Day 2 log rows", "Phase 1 should log Day 2 sessions");
+  const renamedEx = state.program.find((e) => e.id === loggedOnDay2.exerciseId) || state.program.find((e) => e.day === "Day 2");
+  await openExerciseSheet(page, renamedEx.id);
+  assert(
+    await page.locator(`${SHEET} [data-role="exercise-field"][data-field="name"]`).count() === 0,
+    "A catalog movement offers no name box",
+    "the sheet holds a name field",
+    "Program tab → Edit → a Day 2 exercise's sheet"
+  );
   await applyProgramEditor(page);
-
-  state = await getState(page);
-  assert(
-    state.program.some((e) => e.name === newName),
-    "Rename exercise persists",
-    `Could not find "${newName}" in program`,
-    "Program tab → edit exercise name field"
-  );
-  const renamedEx = state.program.find((e) => e.name === newName);
-  const historyLinked =
-    renamedEx && state.log.some((x) => x.exerciseId === renamedEx.id || x.name === oldName);
-  assert(
-    historyLinked,
-    "Historical logs stay linked after exercise rename",
-    `No log rows matched exerciseId or prior name "${oldName}"`,
-    "Rename exercise → log entries should keep exerciseId or original name snapshot"
-  );
 
   await nav(page, "log");
   await selectDay(page, "Day 2");
@@ -1812,11 +1803,12 @@ async function main() {
   const past=(await page.locator("#workout .exercise.is-current .ledgerline__prev").allTextContents())
     .map(text=>(text.match(/(\d+(?:[.,]\d+)?) \u00d7/)||[])[1]).filter(Boolean).map(v=>v.replace(",","."));
   assert(past.length>0 && past.includes(String(latestRenameRow.load)),
-    "Renamed exercise still shows previous-session values via exerciseId", JSON.stringify(past));
+    "The exercise still shows previous-session values via exerciseId", JSON.stringify(past));
 
   // Add exercise — now via the library picker rather than a blank row
   await nav(page, "program");
   const exCountBefore = state.program.filter((e) => e.day === "Push Day").length;
+  await showEditorDay(page, "Push Day");
   await page.click('#programEditor [data-role="add-exercise"][data-day="Push Day"]');
   await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
   await page.fill("#exPickSearch", "pec deck");
@@ -1824,6 +1816,7 @@ async function main() {
   const pickedName = ((await page.locator("#exPickList .pickrow__name").first().textContent()) || "").trim();
   await page.click("#exPickList .pickrow");
   await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+  await editorSettled(page);
   await applyProgramEditor(page);
   state = await getState(page);
   const pushRows = state.program.filter((e) => e.day === "Push Day");
@@ -1850,12 +1843,12 @@ async function main() {
     const secondId = pushExs[1].id;
     const thirdId = pushExs[2].id;
     await nav(page, "program");
-    const pushDay = page.locator('#programEditor [data-role="day"][data-day="Push Day"]');
-    await pushDay.locator('[data-role="day-menu"]').click();
-    await pushDay.locator('[data-role="toggle-reorder"]').click();
-    const second = page.locator(`#programEditor [data-role="exercise"][data-id="${secondId}"]`);
-    await second.locator('[data-role="exercise-menu"]').click();
-    await second.locator('[data-role="move-down"]').click();
+    await showEditorDay(page, "Push Day");
+    await page.locator('#programEditor [data-role="day-menu"][data-day="Push Day"]').click();
+    await page.locator(`${SHEET} [data-role="day-action"][data-action="reorder"]`).click();
+    await page.locator(`#programEditor [data-role="reorder-move"][data-id="${secondId}"][data-delta="1"]`).click();
+    await editorSettled(page);
+    await page.locator('#programEditor [data-role="reorder-done"]').click();
     await applyProgramEditor(page);
     state = await getState(page);
     const reordered = state.program
@@ -1865,7 +1858,7 @@ async function main() {
       reordered[1].id === thirdId && reordered[2].id === secondId,
       "Reorder exercise (move down swaps with below)",
       `Order: ${reordered.map((e) => e.name).join(", ")}`,
-      "Program tab → ▼ on second exercise (should swap with third)"
+      "Program tab → day ··· → Reorder exercises → ▼ on second exercise (should swap with third)"
     );
   }
 
@@ -1873,28 +1866,33 @@ async function main() {
   const newEx = state.program.find((e) => e.name === pickedName && e.day === "Push Day");
   if (newEx) {
     await nav(page, "program");
-    const row = page.locator(`#programEditor [data-role="exercise"][data-id="${newEx.id}"]`);
-    if (!(await row.evaluate((element) => element.classList.contains("is-expanded"))))
-      await row.locator('[data-role="toggle-exercise"]').click();
-    await row.locator('[data-role="remove-exercise"]').click();
+    await openExerciseSheet(page, newEx.id);
+    await page.locator(`${SHEET} [data-role="remove-exercise"]`).click();
+    await page.waitForSelector(SHEET, { state: "hidden", timeout: 5000 });
+    await editorSettled(page);
     await applyProgramEditor(page);
     state = await getState(page);
     assert(
       !state.program.find((e) => e.id === newEx.id),
       "Remove exercise",
       "Exercise still in program after delete",
-      "Program tab → ✕ on exercise"
+      "Program tab → the exercise's sheet → Remove exercise"
     );
   }
 
   // Add new day
   await nav(page, "program");
-  await page.click('#programEditor [data-role="add-day"]');
-  const addedDayName = await page.locator('#programEditor [data-role="day-name"]').last().inputValue();
+  await page.locator('#programEditor [data-role="day-menu"]').click();
+  await page.locator(`${SHEET} [data-role="day-action"][data-action="add-day"]`).click();
+  await page.waitForSelector(SHEET, { state: "hidden", timeout: 5000 });
+  await editorSettled(page);
+  const addedDayName = await page.locator('#programEditor [data-role="day-tab"]').last().getAttribute("data-day");
+  await showEditorDay(page, addedDayName);
   await page.click(`#programEditor [data-role="add-exercise"][data-day="${addedDayName}"]`);
   await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
   await page.click("#exPickList .pickrow");
   await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+  await editorSettled(page);
   await applyProgramEditor(page);
   state = await getState(page);
   const dayNames = (state.programMeta?.programStructure?.days || []).map((entry) => entry.label || entry.dayId);
@@ -1902,14 +1900,12 @@ async function main() {
     dayNames.includes(addedDayName) && /^Day \d+$/.test(addedDayName) && state.program.some((exercise) => exercise.day === addedDayName),
     "Add new training day",
     `Days: ${dayNames.join(", ")}`,
-    "Program tab → + Add day"
+    "Program tab → day ··· → Add day"
   );
 
   // Duplicate day rename rejected
   await nav(page, "program");
-  const dupInput = page.locator('#programEditor [data-role="day-name"][data-day="Day 2"]');
-  await dupInput.fill("Push Day");
-  await dupInput.blur();
+  await renameEditorDay(page, "Day 2", "Push Day");
   await applyProgramEditor(page);
   state = await getState(page);
   assert(
@@ -1943,8 +1939,11 @@ async function main() {
     "Program tab → check overview stats"
   );
   await nav(page, "program");
-  await page.fill('#programEditor [data-role="program-name"]', "Simulation Split");
-  await page.locator('#programEditor [data-role="program-name"]').blur();
+  await page.locator('#programEditor [data-role="program-name-edit"]').click();
+  await page.locator(`${SHEET}.is-open [data-role="rename-input"]`).fill("Simulation Split");
+  await page.locator(`${SHEET} [data-role="rename-save"]`).click();
+  await page.waitForSelector(SHEET, { state: "hidden", timeout: 5000 });
+  await editorSettled(page);
   await applyProgramEditor(page);
   state = await getState(page);
   assert(
@@ -2007,7 +2006,7 @@ async function main() {
   await reloadApp(page);
   await nav(page, "program");
   // nav() forces the editor open; the ledger lives on the read-only overview.
-  await page.click("#programEditToggle");
+  await cancelInstalledEditor(page);
   await page.waitForSelector("#programOverview:not(.is-hidden)", { timeout: 5000 });
 
   const ovDays = await page.evaluate(() =>
@@ -2032,7 +2031,7 @@ async function main() {
 
   await reloadApp(page);
   await nav(page, "program");
-  await page.click("#programEditToggle");
+  await cancelInstalledEditor(page);
   await page.waitForSelector("#programOverview:not(.is-hidden)", { timeout: 5000 });
   const ovAfterReload = await page.evaluate(() => document.querySelectorAll("#programOverview .prog-day .rxrow").length);
   assert(
@@ -2735,10 +2734,7 @@ async function main() {
   const waitStored = (predicate, arg) => page.waitForFunction(predicate, arg, { timeout: 5000 });
   await nav(page, "program");
   const openAdvanced = async () => {
-    if (await page.locator("#programEditorWrap.is-hidden").count()) {
-      await page.click("#programEditToggle");
-      await page.waitForSelector("#programEditorWrap:not(.is-hidden)", { timeout: 5000 });
-    }
+    if (await page.locator("#programEditorWrap.is-hidden").count()) await openInstalledEditor(page);
     await page.evaluate(() => document.querySelector("#programEditorWrap details.advanced")?.setAttribute("open", ""));
   };
   await openAdvanced();
@@ -2839,10 +2835,8 @@ async function main() {
     "Program → Advanced → edit JSON → blur → render() → text still there"
   );
   await openAdvanced();
-  const firstRow = page.locator(`#programEditor [data-role="exercise"][data-id="${editedSlot.id}"]`);
-  if (await firstRow.locator('[data-role="sets-control"]').count() === 0)
-    await firstRow.locator('[data-role="toggle-exercise"]').click();
-  await firstRow.locator('[data-role="adjust"][data-field="sets"][data-delta="1"]').click();
+  await openExerciseSheet(page, editedSlot.id);
+  await sheetTap(page, '[data-role="sets-step"][data-delta="1"]');
   await applyProgramEditor(page);
   await nav(page, "program");
   await openAdvanced();
@@ -4864,7 +4858,7 @@ async function main() {
     );
     const editHidden = await page.locator("#programEditorWrap.is-hidden").count();
     if (editHidden) {
-      await page.click("#programEditToggle");
+      await openInstalledEditor(page);
       await page.waitForSelector('#programEditor [data-role="context"]', { timeout: 5000 });
     }
     const chipW8 = await page.locator('#programEditor [data-role="context"]').textContent();
@@ -5742,75 +5736,37 @@ async function main() {
     "The Focus card shows the cue and the ledger only; the comparison lives in the session summary"
   );
 
-  beginPhase("\nPhase: program day collapse");
+  beginPhase("\nPhase: program day tabs");
   await page.evaluate(() => window.__repforgeLeaveWorkout?.());
   await nav(page, "program");
-  const editorDays = await page.locator('#programEditor [data-role="day"]').evaluateAll((days) =>
-    days.map((day) => day.getAttribute("data-day")).filter(Boolean)
-  );
-  const expandedDay = editorDays[0];
-  const collapsedDay = editorDays[1];
-  const expandedVisible = await page
-    .locator(`#programEditor [data-role="day"][data-day="${expandedDay}"] [data-role="day-body"]`)
-    .isVisible();
+  const editorDays = await page.locator('#programEditor [data-role="day-tab"]').evaluateAll((tabs) =>
+    tabs.map((tab) => tab.getAttribute("data-day")).filter(Boolean));
+  const firstDay = editorDays[0], secondDay = editorDays[1];
+  const tabState = () => page.locator('#programEditor [data-role="day-tab"]').evaluateAll((tabs) =>
+    tabs.map((tab) => ({ day: tab.dataset.day, selected: tab.getAttribute("aria-selected") })));
+  const firstState = await tabState();
   assert(
-    expandedVisible,
-    "The first Program day starts expanded",
-    `Exercise list not visible for ${expandedDay}`,
-    "Program tab → first day card"
+    firstState[0]?.selected === "true" && firstState.slice(1).every((tab) => tab.selected === "false"),
+    "The editor opens on the first day's tab",
+    JSON.stringify(firstState),
+    "Program tab → Edit → day tabs"
   );
-  const expandedCaretHidden = await page
-    .locator(`#programEditor [data-role="day"][data-day="${expandedDay}"] [data-role="toggle-day"]`)
-    .isHidden();
+  await page.locator(`#programEditor [data-role="day-tab"][data-day="${secondDay}"]`).click();
+  const shownDay = await page.locator('#programEditor [data-role="day-name-edit"]').getAttribute("data-day");
   assert(
-    expandedCaretHidden,
-    "An expanded day hides its disclosure caret",
-    `Disclosure caret remained visible for ${expandedDay}`,
-    "Program tab → expanded day header"
-  );
-  const collapsedHidden = await page
-    .locator(`#programEditor [data-role="day"][data-day="${collapsedDay}"] [data-role="day-body"]`)
-    .isHidden();
-  assert(
-    collapsedHidden,
-    "Later Program days start collapsed",
-    `Exercise list remained visible for ${collapsedDay}`,
-    "Program tab → second day card"
-  );
-  const collapsedCaret = page.locator(
-    `#programEditor [data-role="day"][data-day="${collapsedDay}"] [data-role="toggle-day"]`
-  );
-  assert(
-    (await collapsedCaret.isVisible()) && (await collapsedCaret.getAttribute("aria-expanded")) === "false",
-    "A collapsed day exposes an aria-expanded=false caret",
-    `Caret state was not collapsed for ${collapsedDay}`,
-    "Program tab → second day header"
-  );
-  await collapsedCaret.click();
-  await page.waitForTimeout(120);
-  const revealed = await page
-    .locator(`#programEditor [data-role="day"][data-day="${collapsedDay}"] [data-role="day-body"]`)
-    .isVisible();
-  assert(
-    revealed,
-    "The collapsed-day caret reveals its exercises",
-    `Exercise list stayed hidden for ${collapsedDay}`,
-    "Program tab → collapsed day → disclosure caret"
+    shownDay === secondDay && await page.locator('#programEditor [data-role="exercise-row"]').count() > 0,
+    "A day tab shows that day and its exercises",
+    `shown=${shownDay}`,
+    "Program tab → Edit → second day's tab"
   );
   await page.reload({ waitUntil: "networkidle" });
   await page.waitForSelector("#log.view.active", { timeout: 8000 });
   await nav(page, "program");
-  const resetExpanded = await page
-    .locator(`#programEditor [data-role="day"][data-day="${expandedDay}"]`)
-    .evaluate((el) => el.classList.contains("is-expanded"));
-  const resetCollapsed = await page
-    .locator(`#programEditor [data-role="day"][data-day="${collapsedDay}"]`)
-    .evaluate((el) => el.classList.contains("is-collapsed"));
   assert(
-    resetExpanded && resetCollapsed,
-    "A reload restores one expanded day as the editor's scannable default",
-    `expanded=${resetExpanded}, collapsed=${resetCollapsed}`,
-    "Expand the second day → reload → Program tab"
+    (await page.locator('#programEditor [data-role="day-tab"][aria-selected="true"]').getAttribute("data-day")) === firstDay,
+    "A reload opens the editor on the first day again",
+    JSON.stringify(await tabState()),
+    "Pick the second day → reload → Program tab"
   );
 
   beginPhase("\nPhase: exercise session notes + exercise page");

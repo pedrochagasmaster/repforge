@@ -78,19 +78,33 @@ export function durableSlot(page, exerciseId = BENCH_ID) {
   }, exerciseId);
 }
 
+/**
+ * Program → Edit, then the named exercise's sheet (Plan 074). Returns the sheet,
+ * which holds every control the exercise has.
+ */
 export async function openInstalledEditor(page, exerciseName = BENCH_NAME) {
-  await page.click('nav button[data-view="program"]');
-  await page.waitForSelector("#program.view.active", { timeout: 5000 });
-  if (await page.locator("#programEditorWrap").evaluate((element) => element.classList.contains("is-hidden")))
+  if (await page.locator("#programEditorWrap").evaluate((element) => element.classList.contains("is-hidden"))) {
+    await page.click('nav button[data-view="program"]');
+    await page.waitForSelector("#program.view.active", { timeout: 5000 });
     await page.click("#programEditToggle");
-  await page.waitForSelector("#programEditorWrap:not(.is-hidden)", { timeout: 5000 });
-  const row = page.locator('#programEditor [data-role="exercise"]').filter({ hasText: exerciseName }).first();
-  const day = row.locator("xpath=ancestor::*[@data-role='day']");
-  const toggleDay = day.locator('[data-role="toggle-day"]');
-  if (await toggleDay.count() && await toggleDay.getAttribute("aria-expanded") === "false") await toggleDay.click();
-  if (!await row.locator('[data-role="sets-control"]').count()) await row.locator('[data-role="toggle-exercise"]').click();
-  await row.locator('[data-role="sets-control"]').waitFor({ timeout: 5000 });
-  return row;
+  }
+  await page.waitForSelector('#programEditor [data-role="editor"][data-layout="review"]:not([aria-busy="true"])', { timeout: 10000 });
+  if (await page.locator("#reviewSheet.is-open").count()) {
+    await page.locator('#reviewSheet [data-role="sheet-done"]').click();
+    await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 5000 });
+  }
+  const findRow = () => page.locator('#programEditor [data-role="exercise-row"]').filter({ hasText: exerciseName }).first();
+  if (!await findRow().count()) {
+    for (const tab of await page.locator('#programEditor [data-role="day-tab"]').all()) {
+      await tab.click();
+      if (await findRow().count()) break;
+    }
+  }
+  const id = await findRow().getAttribute("data-id");
+  await findRow().click();
+  const sheet = page.locator(`#reviewSheet.is-open [data-pe-sheet="exercise"][data-id="${id}"]`);
+  await sheet.waitFor({ timeout: 5000 });
+  return sheet;
 }
 
 /**

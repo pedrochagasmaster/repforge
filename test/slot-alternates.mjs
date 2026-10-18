@@ -15,6 +15,7 @@
 import { launchChromium } from "./browser.mjs";
 import { exerciseAction, finishEarly } from "./fixtures/focus-workout.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
+import { SHEET, applyInstalledEditor, editorSettled, openExerciseSheet, openInstalledEditor } from "./fixtures/installed-editor.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -53,7 +54,7 @@ const durable = async (page) => {
 const storedAlternates = async (page) => (await durable(page)).programMeta?.programDefinition?.days
   ?.flatMap((day) => day.slots).find((slot) => slot.id === SLOT)?.alternates;
 const editorAlternates = (page) => page.$$eval(
-  `#programEditor [data-role="alternates"][data-id="${SLOT}"] [data-role="alternate"]`,
+  `${SHEET} [data-role="alternates"][data-id="${SLOT}"] [data-role="alternate"]`,
   (items) => items.map((item) => item.dataset.exerciseId));
 
 async function pickExact(page, name) {
@@ -67,19 +68,22 @@ async function pickExact(page, name) {
 
 async function addAlternate(page, entry) {
   const before = (await editorAlternates(page)).length;
-  await page.locator(`#programEditor [data-role="add-alternate"][data-id="${SLOT}"]`).click();
+  // The picker opens over the editor; the exercise's sheet comes back with the choice.
+  await page.locator(`${SHEET} [data-role="add-alternate"][data-id="${SLOT}"]`).click();
   await pickExact(page, entry.name);
-  await page.waitForFunction(({ slot, count }) => document.querySelectorAll(
-    `#programEditor [data-role="alternates"][data-id="${slot}"] [data-role="alternate"]`).length === count,
-  { slot: SLOT, count: before + 1 }, { timeout: 5000 });
+  await page.waitForFunction(({ sheet, slot, count }) => document.querySelectorAll(
+    `${sheet}.is-open [data-role="alternates"][data-id="${slot}"] [data-role="alternate"]`).length === count,
+  { sheet: SHEET, slot: SLOT, count: before + 1 }, { timeout: 5000 });
+  await editorSettled(page);
 }
 
 async function alternateControl(page, role, id) {
   const before = await editorAlternates(page);
-  await page.locator(`#programEditor [data-role="alternates"][data-id="${SLOT}"] [data-role="${role}"][data-exercise-id="${id}"]`).click();
-  await page.waitForFunction(({ slot, before }) => JSON.stringify([...document.querySelectorAll(
-    `#programEditor [data-role="alternates"][data-id="${slot}"] [data-role="alternate"]`)].map((item) => item.dataset.exerciseId)) !== before,
-  { slot: SLOT, before: JSON.stringify(before) }, { timeout: 5000 });
+  await page.locator(`${SHEET} [data-role="alternates"][data-id="${SLOT}"] [data-role="${role}"][data-exercise-id="${id}"]`).click();
+  await page.waitForFunction(({ sheet, slot, before }) => JSON.stringify([...document.querySelectorAll(
+    `${sheet} [data-role="alternates"][data-id="${slot}"] [data-role="alternate"]`)].map((item) => item.dataset.exerciseId)) !== before,
+  { sheet: SHEET, slot: SLOT, before: JSON.stringify(before) }, { timeout: 5000 });
+  await editorSettled(page);
 }
 
 async function shelfFill(page, metricId, field, value) {
@@ -113,21 +117,17 @@ async function main() {
     await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
 
     // 1. Author alternates in the installed editor ----------------------------
-    await page.click('nav button[data-view="program"]');
-    await page.waitForSelector("#program.view.active");
-    await page.click("#programEditToggle");
-    await page.waitForSelector("#programEditorWrap:not(.is-hidden)");
-    const toggle = page.locator(`#programEditor [data-role="toggle-exercise"][data-id="${SLOT}"]`);
-    if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
-    await page.waitForSelector(`#programEditor [data-role="alternates"][data-id="${SLOT}"]`, { timeout: 5000 });
-    check(await page.locator(`#programEditor [data-role="add-alternate"][data-id="${SLOT}"]`).isVisible(),
-      "an expanded exercise offers Add alternate");
+    await openInstalledEditor(page);
+    await openExerciseSheet(page, SLOT);
+    await page.waitForSelector(`${SHEET} [data-role="alternates"][data-id="${SLOT}"]`, { timeout: 5000 });
+    check(await page.locator(`${SHEET} [data-role="add-alternate"][data-id="${SLOT}"]`).isVisible(),
+      "an exercise's sheet offers Add alternate");
     await addAlternate(page, LAT);
     await addAlternate(page, LEG_PRESS);
     await addAlternate(page, FLY);
     check(JSON.stringify(await editorAlternates(page)) === JSON.stringify([LAT.id, LEG_PRESS.id, FLY.id]),
       "added alternates list in the order they were chosen", await editorAlternates(page));
-    const names = await page.$$eval(`#programEditor [data-role="alternates"][data-id="${SLOT}"] [data-role="alternate"]`,
+    const names = await page.$$eval(`${SHEET} [data-role="alternates"][data-id="${SLOT}"] [data-role="alternate"]`,
       (items) => items.map((item) => item.querySelector("[data-role=alternate-name]")?.textContent?.trim()));
     check(names[0] === LAT.name && names[1] === LEG_PRESS.name, "each alternate is named by its movement", names);
     await alternateControl(page, "alternate-up", LEG_PRESS.id);
@@ -137,10 +137,9 @@ async function main() {
     check(JSON.stringify(await editorAlternates(page)) === JSON.stringify([LEG_PRESS.id, LAT.id]),
       "Remove drops an alternate", await editorAlternates(page));
     check(await storedAlternates(page) === undefined, "alternates stay staged until the editor is applied");
-    await page.click("#programEditToggle");
-    await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 10000 });
+    await applyInstalledEditor(page);
     check(JSON.stringify(await storedAlternates(page)) === JSON.stringify([LEG_PRESS.id, LAT.id]),
-      "Done stores the alternates on the canonical slot", await storedAlternates(page));
+      "Apply stores the alternates on the canonical slot", await storedAlternates(page));
 
     // 2. They survive a reload ------------------------------------------------
     await page.reload({ waitUntil: "domcontentloaded" });
@@ -230,14 +229,10 @@ async function main() {
     const custom = await page.evaluate(async () => (await window.__repforgeSaveCustomExercise({
       name: "Coach landmine press", equipment: [], primary: "", secondary: "", notes: "" })).entry);
     check(custom?.id?.startsWith("custom:"), "a custom movement is saved", custom);
-    await page.click('nav button[data-view="program"]');
-    await page.waitForSelector("#program.view.active");
-    await page.click("#programEditToggle");
-    await page.waitForSelector("#programEditorWrap:not(.is-hidden)");
-    if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
+    await openInstalledEditor(page);
+    await openExerciseSheet(page, SLOT);
     await addAlternate(page, { name: custom.name });
-    await page.click("#programEditToggle");
-    await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 10000 });
+    await applyInstalledEditor(page);
     check(JSON.stringify(await storedAlternates(page)) === JSON.stringify([LEG_PRESS.id, LAT.id, custom.id]),
       "a custom movement can be an alternate", await storedAlternates(page));
     await page.evaluate((id) => window.__repforgeEditCustom(id), custom.id);

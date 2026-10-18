@@ -174,7 +174,10 @@ try {
   // The slot's mode changes later; the old row keeps its own captured mode.
   const editorRow = await openInstalledEditor(page, TARGET_NAME);
   await editorRow.locator('[data-role="execution-mode"][data-mode="bilateral"]').click();
-  await page.click("#programEditToggle");
+  await page.waitForSelector('#programEditor [data-role="editor"]:not([aria-busy="true"])', { timeout: 10000 });
+  await page.locator('#reviewSheet [data-role="sheet-done"]').click();
+  await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 5000 });
+  await page.locator('#programEditor [data-role="apply"]').click();
   await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),
     undefined, { timeout: 10000 });
   await page.evaluate(() => window.__repforgeStorage.flush());
