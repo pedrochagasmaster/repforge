@@ -680,9 +680,9 @@ function isValidStateWithoutRecoveryCarrier(value){
   if(!isPlainStateObject(value)||!Object.prototype.hasOwnProperty.call(value,"recoveryTransitions"))return false;
   const copy=cloneSnapshot(value);delete copy.recoveryTransitions;
   return isValidStateShape(copy)}
-/** @param {RawRecord|null|undefined} parsed @param {unknown} raw @returns {{status:"valid",raw:unknown,parsed:RawSnapshot,recoveryCarrierClassification:Extract<RecoveryClassification,{kind:"known"}>}|null} */
+/** @param {unknown} parsed @param {unknown} raw @returns {{status:"valid",raw:unknown,parsed:RawSnapshot,recoveryCarrierClassification:Extract<RecoveryClassification,{kind:"known"}>}|null} */
 function carrierReadStatus(parsed,raw){
-  const classification=classifyRecoveryCarrier(parsed?.recoveryTransitions);
+  const classification=classifyRecoveryCarrier(/** @type {{recoveryTransitions?:unknown}|null|undefined} */(parsed)?.recoveryTransitions);
   if(classification.kind==="known"&&
     (isValidStateShape(parsed)||isValidStateWithoutRecoveryCarrier(parsed)))
     return{status:"valid",raw,parsed,recoveryCarrierClassification:classification};

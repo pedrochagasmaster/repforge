@@ -1,4 +1,9 @@
 import * as Snapshot from './snapshot.js';
+/** @typedef {import('./contracts.js').StoredSnapshot} StoredSnapshot
+ * @typedef {import('./contracts.js').StorageIO} StorageIO
+ * @typedef {import('./contracts.js').OutcomeInput} OutcomeInput
+ * @typedef {import('./contracts.js').ReplicaWriteResult} ReplicaWriteResult
+ */
 
 /** Owns one application's durable queue, replica head, WAL and draft checkpoints.
  * Creating an instance never reads browser storage. The composition root passes
@@ -6,9 +11,10 @@ import * as Snapshot from './snapshot.js';
  * snapshotPolicy is immutable validation/normalization, never a live UI host.
  * onAccepted publishes accepted data back to the application state owner.
  */
-export function createDurableStore({snapshotPolicy, workout=null, session=null,
-  setup=null, resolveCustomMutationIntent=null, onAccepted=null,
-  mutationGate=null, platform=globalThis}={}) {
+/** @param {import('./contracts.js').DurableOptions} options */
+export function createDurableStore({snapshotPolicy, workout, session,
+  setup, resolveCustomMutationIntent=null, onAccepted=null,
+  mutationGate=null, platform=globalThis}) {
   if (!snapshotPolicy) throw new TypeError('snapshot policy required');
   const KEY = "repforge_v1";
   const DB = "repforge";
@@ -39,23 +45,28 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
   const DRAFT_PRECONDITION_ABORT_SAME_DAY = "abort-same-day";
 
   // In-memory state tracking for durable engine
+  /** @type {StoredSnapshot|null} */
   let persistHead = null;
   let writeTail = Promise.resolve();
   let mutationFreezeCheck = mutationGate;
   let pendingJournalSeq = 0, pendingJournalClock = 0;
   const pendingJournalWriterId = pendingJournalUuid();
+  /** @type {import('./contracts.js').StorageHealth} */
   const storageHealth = { localOk: true, idbOk: true, degraded: false, revision: 0, lastResult: null, localFailed: false, idbFailed: false, quotaFailed: false, lastError: null };
+  /** @type {Set<(result:OutcomeInput)=>void>} */
   const healthListeners = new Set();
 
   function getStorageHealth() {
     return Object.assign({}, storageHealth);
   }
 
+  /** @param {(result:OutcomeInput)=>void} fn */
   function addStorageHealthListener(fn) {
     if (typeof fn === "function") healthListeners.add(fn);
     return () => healthListeners.delete(fn);
   }
 
+  /** @param {OutcomeInput|null} [result] */
   function notifyHealthListeners(result = null) {
     const copy = getStorageHealth();
     for (const listener of healthListeners) {
@@ -63,6 +74,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     }
   }
 
+  /** @param {(()=>boolean)|null} fn */
   function setMutationFreezeCheck(fn) {
     mutationFreezeCheck = typeof fn === "function" ? fn : null;
   }
@@ -77,35 +89,48 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     snapshotBlockId,draftProgramFingerprint,rebaseStateChange,
     isValidBlockId,isValidRecoveryTransitions,isBoundedTransitionValue,
     draftEffectOutcome,normalizeDraftEffectOutcome,pendingJournalEffect,
-    draftEffectRequiresCoordination,isCoherentV1TransitionIn,isCoherentV1TransitionOut,
+    draftEffectRequiresCoordination,
     draftContextFingerprint}=Snapshot;
+  /** Runtime validators establish these exact released transition fields. */
+  const isCoherentV1TransitionIn=/** @type {(value:unknown)=>value is import('./contracts.js').TransitionIn} */(Snapshot.isCoherentV1TransitionIn);
+  const isCoherentV1TransitionOut=/** @type {(value:unknown)=>value is import('./contracts.js').TransitionOut} */(Snapshot.isCoherentV1TransitionOut);
+  /** @param {unknown} snapshot @returns {snapshot is StoredSnapshot} */
   function isValidStateShape(snapshot) { return snapshotPolicy.isValidStateShape(snapshot); }
+  /** @returns {StoredSnapshot|null} */
   function currentStateSnapshot(){return session?.getState?.() ?? persistHead}
   function workoutDraft(){return workout}
+  /** @param {string|null} raw @param {string} reason */
   function retainDraftRecovery(raw,reason){
     try { platform.localStorage.setItem('repforge_draft_v1:recovery',JSON.stringify({version:1,reason,raw})); } catch {}
     session?.onDraftRecovery?.({raw,reason});
   }
+  /** @param {string} label */
   function workoutParseContext(label){return session.parseContext(label)}
+  /** @param {string} point */
   function workoutDraftFault(point){
     if(platform.__repforgeDraftFault!==point)return false;
     platform.__repforgeDraftFault=null;return true;
   }
+  /** @param {import('./contracts.js').DraftIdentity & {writer:{operationId:string}}} draft @param {string} raw @param {string} [operationId] @returns {import('./contracts.js').V2Committed} */
   function v2CheckpointRecord(draft,raw,operationId=draft.writer.operationId){
     return{version:1,kind:"committed",draftId:draft.draftId,revision:draft.revision,operationId,
       programFingerprint:draft.program.programFingerprint,raw}}
+  /** @param {string|null} currentRaw @param {string|null} nextRaw @param {string} operationId @param {{previous?:import('./contracts.js').V2Record|null}} [options] @returns {import('./contracts.js').CheckpointPreparation} */
   function prepareV2CheckpointEffect(currentRaw,nextRaw,operationId,{previous:previousOverride}={}){
     const current=workoutDraft()?.parse(currentRaw),next=workoutDraft()?.parse(nextRaw),checkpoint=DraftStore.readV2Checkpoint();
     if(checkpoint.status==="invalid"||checkpoint.status==="read-failed")return{ok:false,reason:"checkpoint-unreadable"};
     if(nextRaw===currentRaw)return{ok:true,kind:"none"};
     if(current?.kind==="valid"&&nextRaw===null){
-      const pending={...v2CheckpointRecord(current.draft,currentRaw,operationId),kind:"pending-removal",baseRaw:currentRaw};
+      /** @type {Extract<import('./contracts.js').V2Checkpoint,{kind:'pending-removal'}>} */
+      const pending={...v2CheckpointRecord(current.draft,/** @type {string} */(currentRaw),operationId),kind:"pending-removal",baseRaw:/** @type {string} */(currentRaw)};
       return DraftStore.writeV2Checkpoint(pending)?{ok:true,kind:"pending-removal",value:pending}:{ok:false,reason:"checkpoint-write"}}
     if(next?.kind!=="valid")return current?.kind==="valid"?{ok:false,reason:"v2-replacement-invalid"}:{ok:true,kind:"none"};
     const previous=previousOverride!==undefined?previousOverride:
-      current?.kind==="valid"?v2CheckpointRecord(current.draft,currentRaw):null;
-    const pending={...v2CheckpointRecord(next.draft,nextRaw,operationId),kind:"pending",baseRaw:currentRaw,previous};
+      current?.kind==="valid"?v2CheckpointRecord(current.draft,/** @type {string} */(currentRaw)):null;
+    /** @type {Extract<import('./contracts.js').V2Checkpoint,{kind:'pending'}>} */
+    const pending={...v2CheckpointRecord(next.draft,/** @type {string} */(nextRaw),operationId),kind:"pending",baseRaw:currentRaw,previous};
     return DraftStore.writeV2Checkpoint(pending)?{ok:true,kind:"pending",value:pending}:{ok:false,reason:"checkpoint-write"}}
+  /** @param {Exclude<import('./contracts.js').CheckpointPreparation,{ok:false}>} prepared @param {string|null} nextRaw */
   function commitV2CheckpointEffect(prepared,nextRaw){
     if(prepared.kind==="none")return true;
     if(prepared.kind==="pending-removal"){
@@ -114,8 +139,9 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       return removed?.kind==="valid"&&DraftStore.writeV2Checkpoint(
         DraftStore.v2Tombstone(removed.draft,prepared.value.operationId))}
     const next=workoutDraft()?.parse(nextRaw);
-    return next?.kind==="valid"&&DraftStore.writeV2Checkpoint(v2CheckpointRecord(next.draft,nextRaw,prepared.value.operationId))}
+    return next?.kind==="valid"&&DraftStore.writeV2Checkpoint(v2CheckpointRecord(next.draft,/** @type {string} */(nextRaw),prepared.value.operationId))}
 
+  /** @param {Extract<import('./contracts.js').CanonicalRead,{status:'ok'}>} read @param {string} label */
   async function reconcileV2Checkpoint(read,label){
     const checkpoint=DraftStore.readV2Checkpoint();
     if(checkpoint.status==="invalid"||checkpoint.status==="read-failed"){
@@ -128,6 +154,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
         return{status:"checkpoint-missing",raw:read.raw}}
       return read}
     const value=checkpoint.value;
+    /** @template T @param {(current:Extract<import('./contracts.js').CanonicalRead,{status:'ok'}>)=>T|Promise<T>} operation */
     const underCheckpointLock=async operation=>{
       if(!platform.navigator?.locks?.request)return{status:"lock-unavailable",raw:read.raw};
       return platform.navigator?.locks.request(STORAGE_LOCK,()=>withDraftWriteLock(async()=>{
@@ -136,6 +163,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
         if(current.raw!==read.raw||currentCheckpoint.raw!==checkpoint.raw)
           return{status:"stale-recovery",raw:current.raw};
         return operation(current)}))};
+    /** @param {string} reason @param {import('./contracts.js').DraftIdentity} draft */
     const clearProtected=async(reason,draft)=>{
       if(read.raw!=null)retainDraftRecovery(read.raw,reason);
       return underCheckpointLock(current=>{
@@ -169,7 +197,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
         {status:"checkpoint-commit-failed",raw:read.raw})}
     if(value.kind==="pending"&&read.raw===value.baseRaw){
       if(value.previous&&read.raw===value.previous.raw){
-        return underCheckpointLock(()=>DraftStore.writeV2Checkpoint({...value.previous,kind:"committed"})
+        return underCheckpointLock(()=>DraftStore.writeV2Checkpoint({.../** @type {import('./contracts.js').V2Record} */(value.previous),kind:"committed"})
           ?read:{status:"checkpoint-rollback-failed",raw:read.raw})}
       if(!value.previous)return underCheckpointLock(current=>{
         const prepared=prepareV2CheckpointEffect(current.raw,value.raw,value.operationId,{previous:null});
@@ -196,20 +224,24 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     readCanonicalRaw(){
       try{return platform.localStorage.getItem(DRAFT)}
       catch{return null}},
+    /** @returns {import('./contracts.js').CanonicalRead} */
     readCanonicalStatus(){
       try{return{status:"ok",raw:platform.localStorage.getItem(DRAFT)}}
       catch(error){return{status:"read-failed",error}}},
+    /** @returns {import('./contracts.js').CheckpointRead} */
     readV2Checkpoint(){
       try{const raw=platform.localStorage.getItem(DRAFT_V2_CHECKPOINT);if(raw==null)return{status:"absent",raw:null};
+        /** @type {unknown} */
         const value=JSON.parse(raw);
-        if(!isPlainStateObject(value)||value.version!==1||!["pending","pending-removal","committed","tombstone"].includes(value.kind)||
+        if(!isPlainStateObject(value)||value.version!==1||!["pending","pending-removal","committed","tombstone"].includes(/** @type {string} */(value.kind))||
           typeof value.draftId!=="string"||!value.draftId||value.draftId.length>240||
-          !Number.isSafeInteger(value.revision)||value.revision<0||
+          !Number.isSafeInteger(value.revision)||/** @type {number} */(value.revision)<0||
           typeof value.operationId!=="string"||!value.operationId||value.operationId.length>240||
           typeof value.programFingerprint!=="string"||!value.programFingerprint||value.programFingerprint.length>2000||
           (value.kind!=="tombstone"&&(typeof value.raw!=="string"||value.raw.length>PENDING_EFFECT_MAX_RAW)))
           return{status:"invalid",raw};
-        const validRecord=record=>{const parsed=workoutDraft()?.parse(record?.raw);
+        /** @param {unknown} record @returns {record is import('./contracts.js').V2Record} */
+        const validRecord=record=>{const parsed=workoutDraft()?.parse(isPlainStateObject(record)?record.raw:null);
           return isPlainStateObject(record)&&typeof record.draftId==="string"&&Number.isSafeInteger(record.revision)&&
             typeof record.operationId==="string"&&typeof record.programFingerprint==="string"&&parsed?.kind==="valid"&&
             parsed.draft.draftId===record.draftId&&parsed.draft.revision===record.revision};
@@ -219,14 +251,17 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
             value.previous!=null&&!validRecord(value.previous)))
           return{status:"invalid",raw};
         if(value.kind==="pending-removal"&&value.baseRaw!==value.raw)return{status:"invalid",raw};
-        return{status:"valid",raw,value}}
+        return{status:"valid",raw,value:/** @type {import('./contracts.js').V2Checkpoint} */(value)}}
       catch(error){return{status:"read-failed",raw:null,error}}},
+    /** @param {import('./contracts.js').V2Checkpoint} value */
     writeV2Checkpoint(value){
       if(installTransferMutationFrozen())return false;
       try{platform.localStorage.setItem(DRAFT_V2_CHECKPOINT,JSON.stringify(value));return true}
       catch{return false}},
+    /** @param {import('./contracts.js').DraftIdentity} draft @param {string} operationId @returns {Extract<import('./contracts.js').V2Checkpoint,{kind:'tombstone'}>} */
     v2Tombstone(draft,operationId){return{version:1,kind:"tombstone",draftId:draft.draftId,
       revision:draft.revision,operationId,programFingerprint:draft.program.programFingerprint}},
+    /** @param {{expectedRaw?:string|null;expectedDraftId?:string;expectedRevision?:number;nextRaw:string;operationId:string}} options */
     async compareAndSwapV2({expectedRaw,expectedDraftId,expectedRevision,nextRaw,operationId}){
       if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
       if(!platform.navigator?.locks?.request)return{status:"lock-unavailable"};
@@ -235,6 +270,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       const candidate=workoutDraft()?.parse(nextRaw);if(candidate?.kind!=="valid")return{status:"invalid-next"};
       // Staged writers take only the draft lock. Canonical writers and state
       // transaction settlement take the state lock before the draft lock.
+      /** @param {{id:string}} target */
       const stageFor=target=>{if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
         const currentRaw=this.readRaw(),current=workoutDraft()?.parse(currentRaw);
         if(expectedRaw!==undefined?currentRaw!==expectedRaw:
@@ -297,7 +333,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
         if(priorCheckpoint.value?.kind==="pending"&&priorCheckpoint.value.operationId===operationId){
           if(priorCheckpoint.value.raw!==nextRaw)return{status:"operation-conflict",raw:read.raw};
           if(read.raw===priorCheckpoint.value.raw){
-            if(!this.writeV2Checkpoint(v2CheckpointRecord(next.draft,nextRaw,operationId)))
+            if(!this.writeV2Checkpoint(v2CheckpointRecord(next.draft,/** @type {string} */(nextRaw),operationId)))
               return{status:"checkpoint-commit-failed",raw:read.raw,draft:next.draft};
             return{status:"applied",raw:read.raw,draft:next.draft,idempotent:true}}
           if(read.raw===priorCheckpoint.value.baseRaw){
@@ -305,7 +341,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
             const verify=this.readCanonicalStatus();
             if(verify.status!=="ok")return verify;
             if(verify.raw!==nextRaw)return{status:"readback-mismatch",raw:verify.raw};
-            if(!this.writeV2Checkpoint(v2CheckpointRecord(next.draft,nextRaw,operationId)))
+            if(!this.writeV2Checkpoint(v2CheckpointRecord(next.draft,/** @type {string} */(nextRaw),operationId)))
               return{status:"checkpoint-commit-failed",raw:verify.raw,draft:next.draft};
             return{status:"applied",raw:verify.raw,draft:next.draft,idempotent:true}}
           return{status:"checkpoint-conflict",raw:read.raw}}
@@ -319,7 +355,8 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
           return{status:"checkpoint-conflict",raw:read.raw};
         else if(liveParsed?.kind==="absent"&&priorCheckpoint.status==="valid"&&priorCheckpoint.value.kind!=="tombstone")
           return{status:"checkpoint-conflict",raw:read.raw};
-        const previous=liveParsed?.kind==="valid"?v2CheckpointRecord(liveParsed.draft,read.raw):null;
+        const previous=liveParsed?.kind==="valid"?v2CheckpointRecord(liveParsed.draft,/** @type {string} */(read.raw)):null;
+        /** @type {Extract<import('./contracts.js').V2Checkpoint,{kind:'pending'}>} */
         const checkpoint={version:1,kind:"pending",draftId:next.draft.draftId,revision:next.draft.revision,
           operationId,programFingerprint:next.draft.program.programFingerprint,raw:nextRaw,baseRaw:read.raw,previous};
         if(!this.writeV2Checkpoint(checkpoint))return{status:"checkpoint-failed"};
@@ -335,6 +372,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
           return{status:"checkpoint-commit-failed",raw:verify.raw,draft:parsed.draft};
         return{status:"applied",raw:verify.raw,draft:parsed.draft}
       }))},
+    /** @param {{expectedDraftId:string;expectedRevision:number;operationId:string}} options */
     async removeV2({expectedDraftId,expectedRevision,operationId}){
       if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
       if(!platform.navigator?.locks?.request)return{status:"lock-unavailable"};
@@ -365,6 +403,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
        A live V2-valid raw, or any checkpoint beyond "absent", is refused: those
        belong to removeV2 and reconcileV2Checkpoint respectively, and this path
        must never clobber state it does not own. */
+    /** @param {{expectedRaw:string;operationId:string}} options */
     async removeLegacy({expectedRaw,operationId}){
       if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
       if(!platform.navigator?.locks?.request)return{status:"lock-unavailable"};
@@ -383,6 +422,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
         if(verify.raw!==null)return{status:"readback-mismatch",raw:verify.raw};
         return{status:"applied",raw:null}
       })},
+    /** @param {string|null} raw */
     publishCanonical(raw){
       if(installTransferMutationFrozen())return false;
       if(raw!==null&&typeof raw!=="string")return false;
@@ -391,6 +431,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
         else platform.localStorage.setItem(DRAFT,raw);
         return true}
       catch{return false}},
+    /** @param {string|null} [transactionId] @returns {string[]} */
     sidecarKeys(transactionId=null){
       const keys=[],prefix=transactionId==null?DRAFT_PENDING_PREFIX:`${DRAFT_PENDING_PREFIX}${transactionId}:`;
       try{for(let i=0;i<platform.localStorage.length;i++){
@@ -398,9 +439,11 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
         if(key?.startsWith(prefix))keys.push(key)}}
       catch{}
       return[...new Set(keys)].sort()},
+    /** @param {string} key @param {string} raw @returns {import('./contracts.js').PendingDraftSidecar|null} */
     decodeSidecar(key,raw){
       try{
-        const value=JSON.parse(raw),order=value?.order;
+        /** @type {unknown} */
+        const value=JSON.parse(raw),order=/** @type {{order?:{at?:unknown,writer?:unknown,seq?:unknown}}|null|undefined} */(value)?.order;
         if(!isPlainStateObject(value)||value.version!==1||typeof value.transactionId!=="string"||
           !value.transactionId||typeof value.writer!=="string"||!value.writer||
           key!==`${DRAFT_PENDING_PREFIX}${value.transactionId}:${value.writer}`||
@@ -408,8 +451,9 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
           typeof value.programFingerprint!=="string"||
           !Number.isSafeInteger(order?.at)||typeof order?.writer!=="string"||
           !Number.isSafeInteger(order?.seq))return null;
-        return{key,raw,value}}
+        return{key,raw,value:/** @type {import('./contracts.js').DraftSidecar} */(value)}}
       catch{return null}},
+    /** @param {string|null} [transactionId] @returns {{entries:import('./contracts.js').PendingDraftSidecar[],invalid:import('./contracts.js').InvalidJournal[]}} */
     pending(transactionId=null){
       const entries=[],invalid=[];
       for(const key of this.sidecarKeys(transactionId)){
@@ -423,6 +467,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
         a.value.order.writer.localeCompare(b.value.order.writer)||
         a.value.order.seq-b.value.order.seq||a.key.localeCompare(b.key));
       return{entries,invalid}},
+    /** @param {string|null} [transactionId] @param {string|null} [contextFingerprint] */
     related(transactionId=null,contextFingerprint=null){
       const pending=this.pending();
       const entries=pending.entries.filter(entry=>
@@ -431,6 +476,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       const invalid=transactionId==null?[]:pending.invalid.filter(entry=>
         entry.key.startsWith(`${DRAFT_PENDING_PREFIX}${transactionId}:`));
       return{entries,invalid}},
+    /** @returns {string[]} */
     closingIds(){
       const ids=[];
       try{for(let i=0;i<platform.localStorage.length;i++){
@@ -439,9 +485,11 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
           ids.push(key.slice(DRAFT_CLOSE_PREFIX.length))}}
       catch{}
       return[...new Set(ids)].sort()},
+    /** @param {string} transactionId */
     isClosing(transactionId){
       try{return platform.localStorage.getItem(DRAFT_CLOSE_PREFIX+transactionId)!=null}
       catch{return false}},
+    /** @param {string} transactionId */
     beginClose(transactionId){
       if(installTransferMutationFrozen())return false;
       if(typeof transactionId!=="string"||!transactionId)return false;
@@ -450,6 +498,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
           JSON.stringify({version:1,transactionId,writer:getJournalWriterId()}));
         return true}
       catch{return false}},
+    /** @param {string} transactionId */
     transactionOwned(transactionId){
       if(this.isClosing(transactionId))return true;
       const local=readLocalStatus();
@@ -469,6 +518,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       // preflight sees and either rejects or reconciles them before state lands.
       const next=readPendingJournal().entries[0];
       return next?{id:next.journal.id}:null},
+    /** @param {string} transactionId @param {string|null} raw */
     writeSidecar(transactionId,raw){
       if(installTransferMutationFrozen())return false;
       if(typeof transactionId!=="string"||!transactionId||
@@ -488,6 +538,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
         platform.localStorage.setItem(key,encoded);
         return this.decodeSidecar(key,encoded)}
       catch{return false}},
+    /** @param {{id:string}} target @param {string|null} raw */
     stage(target,raw){
       if(installTransferMutationFrozen())return false;
       if(!target||typeof target.id!=="string")return false;
@@ -499,6 +550,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       const queued=this.pending().entries.filter(entry=>
         entry.value.programFingerprint===contextFingerprint).at(-1);
       return queued?queued.value.raw:this.readCanonicalRaw()},
+    /** @param {string|null} raw */
     publish(raw){
       if(installTransferMutationFrozen())return false;
       if(!(raw===null||typeof raw==="string"&&raw.length<=PENDING_EFFECT_MAX_RAW))return false;
@@ -514,16 +566,20 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       if(!stable())return true;
       this.clearSidecar(staged);
       return true},
+    /** @param {string} raw */
     write(raw){return typeof raw==="string"&&this.publish(raw)},
     remove(){return this.publish(null)},
+    /** @param {import('./contracts.js').PendingDraftSidecar|import('./contracts.js').InvalidJournal} entry */
     clearSidecar(entry){
       if(installTransferMutationFrozen())return false;
       try{
         if(platform.localStorage.getItem(entry.key)===entry.raw)platform.localStorage.removeItem(entry.key);
         return true}
       catch{return false}},
+    /** @param {string} transactionId @param {string|null} [contextFingerprint] */
     async promote(transactionId,contextFingerprint=null){
       return withDraftWriteLock(()=>this.promoteUnlocked(transactionId,contextFingerprint))},
+    /** @param {string|null} transactionId @param {string|null} [contextFingerprint] */
     promoteUnlocked(transactionId,contextFingerprint=null){
       if(installTransferMutationFrozen())return{settled:false,hadWrites:false,transferFrozen:true,code:"install-transfer-frozen"};
       const pending=this.related(transactionId,contextFingerprint);
@@ -545,7 +601,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
           promotedRaw=canonical.raw;
         }else{
           if(!this.publishCanonical(latest.value.raw))return{settled:false,hadWrites:true,raw:latest.value.raw};
-          if(incoming?.kind==="valid"&&!this.writeV2Checkpoint(v2CheckpointRecord(incoming.draft,latest.value.raw)))
+          if(incoming?.kind==="valid"&&!this.writeV2Checkpoint(v2CheckpointRecord(incoming.draft,/** @type {string} */(latest.value.raw))))
             return{settled:false,hadWrites:true,raw:latest.value.raw}}}
       for(const entry of pending.entries){if(!this.clearSidecar(entry))return{settled:false,hadWrites:true,transferFrozen:true,code:"install-transfer-frozen"}}
       for(const invalid of pending.invalid){
@@ -555,6 +611,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       const remaining=this.related(transactionId,contextFingerprint);
       return{settled:remaining.entries.length===0&&remaining.invalid.length===0,
         hadWrites:true,raw:promotedRaw}},
+    /** @param {string|null} transactionId @param {import('./contracts.js').EffectInput} effect @param {string|null} [contextFingerprint] */
     restoreEffect(transactionId,effect,contextFingerprint=null){
       if(installTransferMutationFrozen())return{settled:false,hadWrites:false,transferFrozen:true,code:"install-transfer-frozen"};
       const promoted=this.promoteUnlocked(transactionId,contextFingerprint);
@@ -588,13 +645,14 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
         if(current.raw===receipt.expectedRaw){
           const expected=workoutDraft()?.parse(receipt.expectedRaw);
           if(expected?.kind==="valid"&&!this.writeV2Checkpoint(v2CheckpointRecord(
-            expected.draft,receipt.expectedRaw,`rollback-${transactionId}`)))
+            expected.draft,/** @type {string} */(receipt.expectedRaw),`rollback-${transactionId}`)))
             return{settled:false,hadWrites:false,raw:receipt.expectedRaw}}
         return promoted}
       const prepared=prepareV2CheckpointEffect(appliedRaw,receipt.expectedRaw,`rollback-${transactionId}`);
       if(!prepared.ok)return{settled:false,hadWrites:false,raw:receipt.expectedRaw};
       const published=this.publishCanonical(receipt.expectedRaw);
       return{settled:published&&commitV2CheckpointEffect(prepared,receipt.expectedRaw),hadWrites:false,raw:receipt.expectedRaw}},
+    /** @param {string} transactionId */
     endClose(transactionId,contextFingerprint=null){
       if(installTransferMutationFrozen())return{settled:false,hadWrites:false,transferFrozen:true,code:"install-transfer-frozen"};
       try{platform.localStorage.removeItem(DRAFT_CLOSE_PREFIX+transactionId)}
@@ -606,6 +664,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     return isMutationFrozen();
   }
 
+  /** @param {StoredSnapshot|null} snapshot */
   async function settleOrphanDraftArtifacts(snapshot){
     return withDraftWriteLock(async()=>{
     const activeTransaction=pendingDraftTransaction(snapshot);
@@ -622,13 +681,18 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     return{settled}})}
 
   function readSetupDraftRaw(){return setup.readRaw()}
+  /** @param {StoredSnapshot} snapshot @param {StoredSnapshot} head @param {string|null} seed */
   function rebaseSharedSetupSnapshot(snapshot,head,seed){return setup.rebase(snapshot,head,seed)}
+  /** @param {StoredSnapshot} base @param {StoredSnapshot} snapshot */
   function applyAcceptedSnapshot(base,snapshot){onAccepted?.(base,snapshot)}
+  /** @param {StoredSnapshot} snapshot @param {string} source @param {{priorQuarantine?:import('./snapshot.js').RecoveryQuarantine[]}} [options] */
   function normalizeRecoveryCarrierSnapshot(snapshot,source,options){
     return snapshotPolicy.normalizeRecoveryCarrierSnapshot(snapshot,source,options)}
+  /** @param {StoredSnapshot|null} snapshot */
   function blockStartDraftGuard(snapshot){return session.blockStartGuard(snapshot)}
 
   // --- IndexedDB Primitives ---
+  /** @returns {Promise<IDBDatabase>} */
   function openIdb() {
     return new Promise((resolve, reject) => {
       if (typeof platform.indexedDB === "undefined") {
@@ -648,24 +712,28 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
   }
   const idbOpen = openIdb;
 
+    /** @param {string} key @returns {Promise<unknown>} */
     async function idbGet(key){const db=await idbOpen();
     try{return await new Promise((res,rej)=>{
       const tx=db.transaction(STORE,"readonly").objectStore(STORE).get(key);
       tx.onsuccess=()=>res(tx.result);tx.onerror=()=>rej(tx.error)})}
     finally{db.close()}}
 
+    /** @param {string} key @param {unknown} val @returns {Promise<void>} */
     async function idbSet(key,val){const db=await idbOpen();
     try{return await new Promise((res,rej)=>{
       const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).put(val,key);
       tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
     finally{db.close()}}
 
+    /** @param {string} key @returns {Promise<void>} */
     async function idbDel(key){const db=await idbOpen();
     try{return await new Promise((res,rej)=>{
       const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).delete(key);
       tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
     finally{db.close()}}
 
+  /** @param {string} key */
   function requireAuxiliaryIdbKey(key) {
     if (typeof key !== "string" || !key || key === KEY) {
       throw new TypeError("auxiliary IndexedDB key required");
@@ -673,24 +741,29 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     return key;
   }
 
+  /** @param {string} key */
   function readAuxiliaryIdbValue(key) {
     return idbGet(requireAuxiliaryIdbKey(key));
   }
 
+  /** @param {string} key @param {unknown} value */
   function writeAuxiliaryIdbValue(key, value) {
     return idbSet(requireAuxiliaryIdbKey(key), value);
   }
 
+  /** @param {string} key */
   function deleteAuxiliaryIdbValue(key) {
     return idbDel(requireAuxiliaryIdbKey(key));
   }
 
   // --- Replicas Status & Arbitration ---
+  /** @param {string} [key] @returns {import('./contracts.js').ReplicaRead} */
   function readLocalStatus(key = KEY) {
     try {
       const raw = platform.localStorage.getItem(key);
       if (raw === null) return { status: "absent", raw: null, parsed: null };
       try {
+        /** @type {unknown} */
         const parsed = JSON.parse(raw);
         if (isValidStateShape(parsed)) return {
           status: "valid", raw, parsed,
@@ -708,6 +781,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     }
   }
 
+  /** @param {string} [key] @returns {Promise<import('./contracts.js').ReplicaRead>} */
   async function readIdbStatus(key = KEY) {
     try {
       const parsed = await idbGet(key);
@@ -725,6 +799,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     }
   }
 
+  /** @param {import('./contracts.js').ReplicaRead} localRead @param {import('./contracts.js').ReplicaRead} idbRead @returns {import('./contracts.js').SnapshotChoice} */
   function chooseSnapshot(localRead, idbRead) {
     const l = localRead?.status, i = idbRead?.status, lv = l === "valid", iv = i === "valid";
     if (l === "absent" && i === "absent") return { kind: "first-run" };
@@ -733,34 +808,36 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     if (iv && l === "absent") return { kind: "chosen", snapshot: idbRead.parsed, source: "idb", heal: "local" };
     if (lv && (i === "invalid" || i === "failed")) return { kind: "unresolved", reason: i === "failed" ? "valid-plus-failed" : "valid-plus-invalid", local: localRead, idb: idbRead };
     if (iv && (l === "invalid" || l === "failed")) return { kind: "unresolved", reason: l === "failed" ? "valid-plus-failed" : "valid-plus-invalid", local: localRead, idb: idbRead };
-    const localHas = Object.prototype.hasOwnProperty.call(localRead.parsed || {}, STORAGE_REV);
-    const idbHas = Object.prototype.hasOwnProperty.call(idbRead.parsed || {}, STORAGE_REV);
-    const equal = snapshotsEqual(localRead.parsed, idbRead.parsed);
-    const lr = readRevision(localRead.parsed), ir = readRevision(idbRead.parsed);
+    const localSnapshot=/** @type {StoredSnapshot} */(localRead.parsed),idbSnapshot=/** @type {StoredSnapshot} */(idbRead.parsed);
+    const localHas = Object.prototype.hasOwnProperty.call(localSnapshot || {}, STORAGE_REV);
+    const idbHas = Object.prototype.hasOwnProperty.call(idbSnapshot || {}, STORAGE_REV);
+    const equal = snapshotsEqual(localSnapshot, idbSnapshot);
+    const lr = readRevision(localSnapshot), ir = readRevision(idbSnapshot);
     if (equal) {
-      const localTxn = pendingDraftTransaction(localRead.parsed), idbTxn = pendingDraftTransaction(idbRead.parsed);
+      const localTxn = pendingDraftTransaction(localSnapshot), idbTxn = pendingDraftTransaction(idbSnapshot);
       if (lr === ir && !!localTxn !== !!idbTxn) {
-        if (localTxn) return { kind: "chosen", snapshot: idbRead.parsed, source: "idb", heal: "local" };
-        return { kind: "chosen", snapshot: localRead.parsed, source: "local", heal: "idb" };
+        if (localTxn) return { kind: "chosen", snapshot: idbSnapshot, source: "idb", heal: "local" };
+        return { kind: "chosen", snapshot: localSnapshot, source: "local", heal: "idb" };
       }
       if (lr !== ir) {
-        if (lr > ir) return { kind: "chosen", snapshot: localRead.parsed, source: "local", heal: "idb" };
-        return { kind: "chosen", snapshot: idbRead.parsed, source: "idb", heal: "local" };
+        if (lr > ir) return { kind: "chosen", snapshot: localSnapshot, source: "local", heal: "idb" };
+        return { kind: "chosen", snapshot: idbSnapshot, source: "idb", heal: "local" };
       }
       if (!localHas || !idbHas) {
         const chosen = localHas ? localRead : idbRead;
-        return { kind: "chosen", snapshot: chosen.parsed, source: chosen === localRead ? "local" : "idb", migrate: true };
+        return { kind: "chosen", snapshot: /** @type {StoredSnapshot} */(chosen.parsed), source: chosen === localRead ? "local" : "idb", migrate: true };
       }
-      return { kind: "chosen", snapshot: idbRead.parsed, source: "idb" };
+      return { kind: "chosen", snapshot: idbSnapshot, source: "idb" };
     }
     if (lr !== ir) {
-      if (lr > ir) return { kind: "chosen", snapshot: localRead.parsed, source: "local", heal: "idb" };
-      return { kind: "chosen", snapshot: idbRead.parsed, source: "idb", heal: "local" };
+      if (lr > ir) return { kind: "chosen", snapshot: localSnapshot, source: "local", heal: "idb" };
+      return { kind: "chosen", snapshot: idbSnapshot, source: "idb", heal: "local" };
     }
     return { kind: "unresolved", reason: "divergent", local: localRead, idb: idbRead };
   }
 
   // --- Normalized Durable Outcome Contract ---
+  /** @param {OutcomeInput|null|undefined} result @param {{revision?:number;allowDegradedAcceptance?:boolean;allowDegradedCommit?:boolean}} [options] */
   function normalizeDurableOutcome(result, options = {}) {
     const localOk = !!result?.localOk;
     const idbOk = !!result?.idbOk;
@@ -908,17 +985,20 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
 
   // --- Storage IO & Write Coordination ---
   const storageIO = {
+    /** @param {StoredSnapshot} snapshot */
     async writeLocal(snapshot) {
       try {
         platform.localStorage.setItem(KEY, JSON.stringify(snapshot));
         return true;
       } catch (err) {
-        if (err && (err.name === "QuotaExceededError" || err.code === 22)) {
+        const failure=/** @type {{name?:unknown;code?:unknown}|null|undefined} */(err);
+        if (failure && (failure.name === "QuotaExceededError" || failure.code === 22)) {
           storageHealth.quotaFailed = true;
         }
         return false;
       }
     },
+    /** @param {StoredSnapshot} snapshot */
     async writeIdb(snapshot) {
       try {
         return await idbSet(KEY, snapshot);
@@ -928,6 +1008,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     },
   };
 
+  /** @param {StorageIO|null|undefined} io @param {string} [label] @returns {StorageIO} */
   function requireAdapter(io, label = "storage operation") {
     if (!io || typeof io.writeLocal !== "function" || typeof io.writeIdb !== "function") {
       throw new Error(`${label} requires an explicit adapter`);
@@ -935,6 +1016,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     return io;
   }
 
+  /** @param {OutcomeInput|null} result */
   function noteWriteHealth(result) {
     if (!result) return;
     const both = !!(result.localOk && result.idbOk);
@@ -954,6 +1036,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     notifyHealthListeners(result);
   }
 
+  /** @param {StoredSnapshot} snapshot @param {StorageIO} [io] @returns {Promise<ReplicaWriteResult>} */
   async function writeSnapshot(snapshot, io = storageIO) {
     requireAdapter(io, "writeSnapshot");
     const target = cloneSnapshot(snapshot);
@@ -989,7 +1072,9 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     return result;
   }
 
+    /** @template T @template [F=never] @param {StorageIO} io @param {(...args:unknown[])=>T} op @param {{onFrozen?:null|((...args:unknown[])=>F)}} [options] */
     function withStorageLock(io,op,{onFrozen=null}={}){
+    /** @param {unknown[]} args */
     const guarded=async(...args)=>{
       if(io===storageIO&&installTransferMutationFrozen())
         return typeof onFrozen==="function"?onFrozen(...args):
@@ -999,29 +1084,34 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     if(io===storageIO&&platform.navigator?.locks?.request)return platform.navigator?.locks.request(STORAGE_LOCK,guarded);
     return guarded()}
 
+  /** @template T @param {()=>T|Promise<T>} op */
   function withDraftWriteLock(op){
     if(platform.navigator?.locks?.request)return platform.navigator?.locks.request(DRAFT_WRITE_LOCK,op);
     return Promise.resolve().then(op)}
 
+  /** @template T @param {()=>T} op @returns {Promise<Awaited<T>>} */
   function enqueueWrite(op) {
     const run = () => op();
     const next = writeTail.then(run, run);
     writeTail = next.then(() => {}, () => {});
-    return next;
+    return /** @type {Promise<Awaited<T>>} */(next);
   }
 
   function flushStorage() {
     return writeTail;
   }
 
+  /** @param {StoredSnapshot|null} snapshot */
   function setPersistHead(snapshot) {
     persistHead = cloneSnapshot(snapshot);
   }
 
+  /** @returns {StoredSnapshot|null} */
   function getPersistHead() {
     return cloneSnapshot(persistHead);
   }
 
+  /** @returns {string} */
   function getJournalWriterId() {
     return pendingJournalWriterId;
   }
@@ -1030,6 +1120,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     return pendingJournalKeys().length > 0;
   }
 
+  /** @param {StoredSnapshot|null} snapshot */
   function resetPersistenceBase(snapshot) {
     persistHead = cloneSnapshot(snapshot);
   }
@@ -1046,7 +1137,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     let normalized;
     try{normalized=await normalizeRecoveryCarrierSnapshot(
       disk,sourceReplicaForCarrierDecision(decision,local,idb),{
-        priorQuarantine:current?.recoveryTransitions?.quarantine||[]})}
+        priorQuarantine:/** @type {{quarantine?:import('./snapshot.js').RecoveryQuarantine[]}|null|undefined} */(current?.recoveryTransitions)?.quarantine||[]})}
     catch{return{head:current,conflict:true,recovery:true}}
     if(normalized.kind==="full-recovery")return{head:current,conflict:true,recovery:true};
     if(normalized.kind==="known")disk=normalized.snapshot;
@@ -1055,6 +1146,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     if(diskRev<currentRev||storageSnapshotsEqual(disk,current))return{head:current};
     return{head:current,conflict:true}}
 
+    /** @param {{source?:string}} decision @param {import('./contracts.js').ReplicaRead} localRead @param {import('./contracts.js').ReplicaRead} idbRead */
     function sourceReplicaForCarrierDecision(decision,localRead,idbRead){
     const localClass=localRead?.recoveryCarrierClassification;
     const idbClass=idbRead?.recoveryCarrierClassification;
@@ -1062,10 +1154,11 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       snapshotsEqual(localRead.parsed,idbRead.parsed);
     if(equal&&localClass?.kind==="known"&&idbClass?.kind==="known"&&
       (localClass.valid.length+localClass.malformed.length)>0)return"both";
-    return recoverySourceReplica(decision?.source);
+    return recoverySourceReplica(decision?.source||"");
   }
 
   // --- Draft Effects & Coordination ---
+    /** @param {StoredSnapshot|null|undefined} snapshot @returns {{id:string;effect:import('./snapshot.js').DraftEffect;previous:StoredSnapshot}|null} */
     function pendingDraftTransaction(snapshot){
     const value=snapshot?.[STORAGE_DRAFT_TXN];
     if(!isPlainStateObject(value)||value.version!==1||typeof value.id!=="string"||!value.id)return null;
@@ -1075,9 +1168,11 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       readRevision(snapshot)<=readRevision(previous))return null;
     return{id:value.id,effect:effectOutcome.effect,previous:cloneSnapshot(previous)}}
 
+    /** @param {import('./contracts.js').EffectInput} effect */
     function pendingJournalEffectState(effect){
-    const outcome=normalizeDraftEffectOutcome(effect),receipt=outcome.effect;
+    const outcome=normalizeDraftEffectOutcome(effect);
     if(outcome.status!==DRAFT_EFFECT_VALID)return{receipt:null,status:outcome.status};
+    const receipt=outcome.effect;
     try{
       const read=DraftStore.readCanonicalStatus();
       if(read.status!=="ok")return{receipt,currentRaw:null,status:"read-failed"};
@@ -1103,15 +1198,17 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
         return{receipt,currentRaw:authoritativeRaw,status:"conflict"};
       if(receipt.precondition===DRAFT_PRECONDITION_ABORT_SAME_DAY){
         try{
+          /** @type {unknown} */
           const authoritative=JSON.parse(authoritativeRaw);
-          if(authoritative&&typeof authoritative==="object"&&!Array.isArray(authoritative)&&
-            (authoritative.__day===receipt.conflictDay||authoritative.schemaVersion===2&&authoritative.program?.dayLabel===receipt.conflictDay))
+          if(isPlainStateObject(authoritative)&&
+            (authoritative.__day===receipt.conflictDay||authoritative.schemaVersion===2&&/** @type {{dayLabel?:unknown}|null|undefined} */(authoritative.program)?.dayLabel===receipt.conflictDay))
             return{receipt,currentRaw:authoritativeRaw,status:"conflict"}}
         catch{}}
       return{receipt,currentRaw:authoritativeRaw,status:"mismatch"}}
     catch{
       return{receipt,currentRaw:null,status:receipt.precondition===DRAFT_PRECONDITION_MATCH_ONLY?"mismatch":"conflict"}}}
 
+    /** @param {import('./contracts.js').EffectInput} effect */
     function applyPendingJournalEffect(effect){
     const checked=pendingJournalEffectState(effect),receipt=checked.receipt;
     if(checked.status===DRAFT_EFFECT_NONE)return{status:DRAFT_EFFECT_NONE,receipt:null};
@@ -1124,6 +1221,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     if(!commitV2CheckpointEffect(prepared,nextRaw))return{status:"failed",receipt,reason:"checkpoint-commit"};
     return{status:"applied",receipt}}
 
+    /** @param {string} transactionId @param {import('./contracts.js').EffectInput} effect @param {boolean} restoreEffect @param {string|null} contextFingerprint @returns {import('./contracts.js').SidecarSettlement} */
     function settlePendingDraftSidecars(transactionId,effect,restoreEffect,contextFingerprint){
     if(restoreEffect)return DraftStore.restoreEffect(transactionId,effect,contextFingerprint);
     let pending=pendingDraftRelatedState(effect,transactionId,contextFingerprint);
@@ -1134,12 +1232,14 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     const promoted=DraftStore.promoteUnlocked(transactionId,contextFingerprint);
     return Object.assign({},promoted,{conflict:promoted.hadWrites})}
 
+    /** @param {import('./contracts.js').PendingJournal|null} record @param {{transactionId?:string|null;effect?:import('./contracts.js').EffectInput;restoreEffect?:boolean;allowWrites?:boolean;contextFingerprint?:string|null}} [options] @returns {import('./contracts.js').SidecarSettlement} */
     function settlePendingDraftRecord(record,{transactionId=record?.journal?.id||null,effect=null,
     restoreEffect=false,allowWrites=false,contextFingerprint=null}={}){
     if(!transactionId){
       return{settled:clearPendingJournal(record),hadWrites:false}}
     const settle=()=>settlePendingDraftSidecars(
       transactionId,effect,restoreEffect,contextFingerprint);
+    /** @param {import('./contracts.js').SidecarSettlement} result */
     const blocked=result=>{
       const conflict=!restoreEffect&&!allowWrites&&!!result.conflict;
       return Object.assign({},result,{settled:false,conflict,
@@ -1172,6 +1272,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       return [...words].map(n=>n.toString(36)).join("-")}
     return`${Date.now().toString(36)}-${(++pendingJournalSeq).toString(36)}-${Math.random().toString(36).slice(2)}`}
 
+    /** @returns {import('./contracts.js').JournalOrder} */
     function pendingJournalOrder(){
     const clock=Number.isFinite(globalThis.performance?.timeOrigin)&&Number.isFinite(globalThis.performance?.now?.())
       ?Math.floor((globalThis.performance.timeOrigin+globalThis.performance.now())*1000):Date.now()*1000;
@@ -1179,6 +1280,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     pendingJournalClock=at;
     return{at,writer:pendingJournalWriterId,seq:++pendingJournalSeq}}
 
+    /** @returns {string[]} */
     function pendingJournalKeys(){
     const keys=[];
     try{for(let i=0;i<platform.localStorage.length;i++){
@@ -1187,27 +1289,32 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     catch{}
     return[...new Set(keys)]}
 
+    /** @param {unknown} value @returns {import('./contracts.js').CustomMutationRecovery|null} */
     function normalizeCustomMutationRecovery(value){
-    if(!value||value.version!==1||value.operation!=="delete"||
+    if(!isPlainStateObject(value)||value.version!==1||value.operation!=="delete"||
       typeof value.id!=="string"||!value.id.startsWith("custom:"))return null;
     return{version:1,operation:"delete",id:value.id}}
 
+    /** @param {unknown} value @returns {import('./contracts.js').CustomMutationIntent|null} */
     function normalizeCustomMutationIntent(value){
-    if(!value||value.version!==1||value.operation!=="delete"||
+    if(!isPlainStateObject(value)||value.version!==1||value.operation!=="delete"||
       typeof value.id!=="string"||!value.id.startsWith("custom:")||
       !isValidStateShape({program:[],log:[],customExercises:[value.entry]})||
-      value.entry.id!==value.id)return null;
-    return{version:1,operation:"delete",id:value.id,entry:cloneSnapshot(value.entry)}}
+      /** @type {import('./contracts.js').CustomExercise} */(value.entry).id!==value.id)return null;
+    return{version:1,operation:"delete",id:value.id,entry:cloneSnapshot(/** @type {import('./contracts.js').CustomExercise} */(value.entry))}}
 
+    /** @param {string} key @param {string} raw @returns {import('./contracts.js').PendingJournal|null} */
     function decodePendingJournal(key,raw){
     try{
+      /** @type {unknown} */
       const journal=JSON.parse(raw);
-      if(!journal||typeof journal.id!=="string"||
+      if(!isPlainStateObject(journal)||typeof journal.id!=="string"||
         !isValidStateShape(journal.base)||!isValidStateShape(journal.liveBase)||!isValidStateShape(journal.proposal))return null;
-      const legacy=key===PENDING,order=journal.order;
+      const legacy=key===PENDING,order=/** @type {{at?:unknown,writer?:unknown,seq?:unknown}|null|undefined} */(journal.order);
       if(!legacy&&(key!==PENDING_PREFIX+journal.id||journal.version!==2||
         !Number.isSafeInteger(order?.at)||typeof order?.writer!=="string"||
         !Number.isSafeInteger(order?.seq)))return null;
+      /** @type {import('./snapshot.js').DraftEffectOutcome} */
       const effectOutcome=legacy?{status:DRAFT_EFFECT_NONE,effect:null}:
         draftEffectOutcome(Object.prototype.hasOwnProperty.call(journal,"effect")?journal.effect:null);
       const recoveryTransactionPresent=Object.prototype.hasOwnProperty.call(journal,"recoveryTransaction");
@@ -1234,7 +1341,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       if(Object.prototype.hasOwnProperty.call(journal,"expectedBlockId")&&expectedBlockId===null&&journal.expectedBlockId!==null)return null;
       const expectedStorageRevision=Object.prototype.hasOwnProperty.call(journal,"expectedStorageRevision")
         ?journal.expectedStorageRevision:null;
-      if(expectedStorageRevision!==null&&(!Number.isInteger(expectedStorageRevision)||expectedStorageRevision<0))return null;
+      if(expectedStorageRevision!==null&&(!Number.isInteger(expectedStorageRevision)||/** @type {number} */(expectedStorageRevision)<0))return null;
       const reconcileSessionIds=normalizeJournalSessionIds(journal.reconcileSessionIds);
       const dayRenames=normalizeJournalDayRenames(journal.dayRenames);
       if(reconcileSessionIds==null||dayRenames==null)return null;
@@ -1244,20 +1351,21 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
           Object.prototype.hasOwnProperty.call(journal.rollback,STORAGE_DRAFT_TXN))return null;
         rollback=cloneSnapshot(journal.rollback)}
       else if(Object.prototype.hasOwnProperty.call(journal,"rollbackRevision")){
-        if(!Number.isInteger(journal.rollbackRevision)||journal.rollbackRevision<0)return null;
+        if(!Number.isInteger(journal.rollbackRevision)||/** @type {number} */(journal.rollbackRevision)<0)return null;
         rollback=cloneSnapshot(journal.base);
         rollback[STORAGE_REV]=journal.rollbackRevision}
-      return{key,raw,legacy,order:legacy?null:order,journal:{
+      return{key,raw,legacy,order:legacy?null:/** @type {import('./contracts.js').JournalOrder} */(order),journal:{
         id:journal.id,base:unversionedSnapshot(journal.base),liveBase:unversionedSnapshot(journal.liveBase),
         proposal:unversionedSnapshot(journal.proposal),replace:!!journal.replace,
         expectedProgramId:typeof journal.expectedProgramId==="string"&&journal.expectedProgramId?journal.expectedProgramId:null,
-        expectedProgramFingerprint,expectedBlockId,expectedStorageRevision,
+        expectedProgramFingerprint,expectedBlockId,expectedStorageRevision:/** @type {number|null} */(expectedStorageRevision),
         expectedFirstRunEmpty:journal.expectedFirstRunEmpty===true,reconcileSessionIds,dayRenames,
         effectOutcome,effect:effectOutcome.effect,recoveryTransaction,recoveryTransactionPresent,
         customMutationRecovery,customMutationIntent,preflightPending,
         transitionPayloadMalformed,rollback}}}
     catch{return null}}
 
+    /** @returns {{entries:import('./contracts.js').PendingJournal[],invalid:import('./contracts.js').InvalidJournal[]}} */
     function readPendingJournal(){
     const entries=[],invalid=[];
     for(const key of pendingJournalKeys()){
@@ -1269,10 +1377,12 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     entries.sort((a,b)=>{
       if(a.legacy!==b.legacy)return a.legacy?-1:1;
       if(a.legacy)return a.journal.id.localeCompare(b.journal.id);
-      return a.order.at-b.order.at||a.order.writer.localeCompare(b.order.writer)||
-        a.order.seq-b.order.seq||a.journal.id.localeCompare(b.journal.id)});
+      const ao=/** @type {import('./contracts.js').JournalOrder} */(a.order),bo=/** @type {import('./contracts.js').JournalOrder} */(b.order);
+      return ao.at-bo.at||ao.writer.localeCompare(bo.writer)||
+        ao.seq-bo.seq||a.journal.id.localeCompare(b.journal.id)});
     return{entries,invalid}}
 
+    /** @param {import('./contracts.js').PendingJournal|import('./contracts.js').InvalidJournal|null} record @returns {boolean} */
     function clearPendingJournal(record){
     if(!record)return true;
     try{
@@ -1281,13 +1391,14 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       return platform.localStorage.getItem(record.key)!==record.raw}
     catch{return false}}
 
+    /** @param {import('./contracts.js').PendingJournal|null} record @param {StoredSnapshot} snapshot @param {import('./contracts.js').CustomMutationRecovery} recovery */
     function rewritePendingJournalProposal(record,snapshot,recovery){
     if(!record||!isValidStateShape(snapshot)||!recovery||
       recovery.version!==1||recovery.operation!=="delete"||
       typeof recovery.id!=="string"||!recovery.id.startsWith("custom:"))return null;
     try{
       if(platform.localStorage.getItem(record.key)!==record.raw)return null;
-      const journal=JSON.parse(record.raw);
+      const journal=/** @type {Record<string,unknown>} */(JSON.parse(record.raw));
       journal.proposal=unversionedSnapshot(snapshot);
       journal.customMutationRecovery={version:1,operation:"delete",id:recovery.id};
       const raw=JSON.stringify(journal);
@@ -1295,6 +1406,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       return decodePendingJournal(record.key,raw)}
     catch{return null}}
 
+    /** @param {string} id @returns {void} */
     function clearPendingJournalById(id){
     if(typeof id!=="string"||!id)return;
     const key=PENDING_PREFIX+id;
@@ -1309,6 +1421,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     const records=readPendingJournal();
     for(const record of [...records.entries,...records.invalid])clearPendingJournal(record)}
 
+    /** @param {StoredSnapshot} base @param {StoredSnapshot} liveBase @param {StoredSnapshot} proposal @param {import('./contracts.js').JournalOptions} [options] @returns {import('./contracts.js').PendingJournal|null} */
     function writePendingJournal(base,liveBase,proposal,{replace=false,expectedProgramId=null,
     expectedProgramFingerprint=null,expectedBlockId=undefined,expectedStorageRevision=undefined,expectedFirstRunEmpty=false,
     reconcileSessionIds=[],dayRenames=[],effectOutcome=null,recoveryTransaction=false,preflightPending=false,
@@ -1318,12 +1431,13 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     const mutationIntent=customMutationIntent==null?null:normalizeCustomMutationIntent(customMutationIntent);
     if(customMutationIntent!=null&&!mutationIntent)return null;
     const id=pendingJournalUuid(),key=PENDING_PREFIX+id;
+    /** @type {import('./contracts.js').RawJournal} */
     const journal={version:2,id,order:pendingJournalOrder(),base:unversionedSnapshot(base),liveBase:unversionedSnapshot(liveBase),
       proposal:unversionedSnapshot(proposal),replace:!!replace,expectedProgramId:expectedProgramId||null};
     if(expectedProgramFingerprint)journal.expectedProgramFingerprint=expectedProgramFingerprint;
     if(expectedBlockId!==undefined)journal.expectedBlockId=expectedBlockId;
-    if(Number.isInteger(expectedStorageRevision)&&expectedStorageRevision>=0)
-      journal.expectedStorageRevision=expectedStorageRevision;
+    if(Number.isInteger(expectedStorageRevision)&&/** @type {number} */(expectedStorageRevision)>=0)
+      journal.expectedStorageRevision=/** @type {number} */(expectedStorageRevision);
     if(expectedFirstRunEmpty)journal.expectedFirstRunEmpty=true;
     if(reconcileSessionIds.length)journal.reconcileSessionIds=reconcileSessionIds;
     if(dayRenames.length)journal.dayRenames=dayRenames;
@@ -1340,12 +1454,13 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     try{platform.localStorage.setItem(key,raw);return decodePendingJournal(key,raw)}
     catch(e){console.warn("pending state journal failed",e);return null}}
 
+    /** @param {import('./contracts.js').PendingJournal|null} record @param {StoredSnapshot} snapshot @param {{forceRollback?:boolean}} [options] */
     function armPendingJournalRollback(record,snapshot,{forceRollback=false}={}){
     if(!record||record.legacy||!isValidStateShape(snapshot)||
       Object.prototype.hasOwnProperty.call(snapshot,STORAGE_DRAFT_TXN))return null;
     try{
       if(platform.localStorage.getItem(record.key)!==record.raw)return null;
-      const journal=JSON.parse(record.raw),rollback=cloneSnapshot(snapshot);
+      const journal=/** @type {Record<string,unknown>} */(JSON.parse(record.raw)),rollback=cloneSnapshot(snapshot);
       journal.rollbackRevision=readRevision(rollback);
       delete journal.rollback;
       if(forceRollback||!storageSnapshotsEqual(unversionedSnapshot(rollback),record.journal.base))
@@ -1355,6 +1470,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       return decodePendingJournal(record.key,raw)}
     catch(e){console.warn("pending rollback journal failed",e);return null}}
 
+    /** @param {import('./contracts.js').PendingJournal|null} record @param {StoredSnapshot|null} head @returns {boolean} */
     function pendingJournalSuccessorMatches(record,head){
     const journal=record?.journal,rollback=journal?.rollback;
     if(!journal||!rollback||!head)return false;
@@ -1365,9 +1481,11 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     if(missingCustomProgramReference(journal.base,candidate,{replace:journal.replace}))return false;
     return readRevision(candidate)===readRevision(head)&&storageSnapshotsEqual(candidate,head)}
 
+    /** @param {unknown} marker @param {unknown} raw @param {unknown} programId */
     function setupActivationMatches(marker,raw,programId){
     return isValidSetupActivationMarker(marker)&&marker.programId===programId&&marker.raw===raw}
 
+    /** @param {StoredSnapshot|null} head @param {StoredSnapshot} proposal @param {unknown} expectedSetupDraftRaw */
     function setupActivationAlreadyCommitted(head,proposal,expectedSetupDraftRaw){
     if(typeof expectedSetupDraftRaw!=="string"||!expectedSetupDraftRaw)return false;
     const proposed=proposal?.[STORAGE_SETUP_TXN],current=head?.[STORAGE_SETUP_TXN];
@@ -1382,20 +1500,24 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       current.programId===proposed.programId;
   }
 
+    /** @param {StoredSnapshot} snapshot @param {StoredSnapshot} previous @param {import('./contracts.js').EffectInput} effect @param {string|null|undefined} id */
     function preparePendingDraftTransaction(snapshot,previous,effect,id){
-    const prepared=cloneSnapshot(snapshot),outcome=normalizeDraftEffectOutcome(effect),receipt=outcome.effect;
+    const prepared=cloneSnapshot(snapshot),outcome=normalizeDraftEffectOutcome(effect);
     if(outcome.status!==DRAFT_EFFECT_VALID||!draftEffectRequiresCoordination(outcome))return prepared;
+    const receipt=outcome.effect;
     const prior=cloneSnapshot(previous);
     delete prior[STORAGE_DRAFT_TXN];
     if(!isValidStateShape(prior))throw new TypeError("draft transaction requires a valid prior state");
     prepared[STORAGE_DRAFT_TXN]={version:1,id:id||pendingJournalUuid(),previous:prior,effect:receipt};
     return prepared}
 
+    /** @param {StoredSnapshot} snapshot @returns {StoredSnapshot} */
     function finalizedDraftTransactionSnapshot(snapshot){
     const finalized=cloneSnapshot(snapshot);
     delete finalized[STORAGE_DRAFT_TXN];
     return finalized}
 
+    /** @param {StoredSnapshot} snapshot @returns {StoredSnapshot|null} */
     function rejectedDraftTransactionSnapshot(snapshot){
     const transaction=pendingDraftTransaction(snapshot);
     if(!transaction)return null;
@@ -1410,8 +1532,10 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     // row forward, but it may not create one or remove the definition from a
     // previously valid reference. This guard belongs beside snapshot
     // derivation so ordinary commits and boot replay enforce the same rule.
+    /** @param {StoredSnapshot|null} head @param {StoredSnapshot} candidate @param {{replace?:boolean}} [options] */
     function missingCustomProgramReference(head,candidate,{replace=false}={}){
     const definitions=new Set((candidate?.customExercises||[]).map(entry=>entry?.id));
+    /** @type {Set<string>} */
     const legacyDangling=new Set();
     if(!replace){
       const headDefinitions=new Set((head?.customExercises||[]).map(entry=>entry?.id));
@@ -1427,10 +1551,11 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       return id}
     return null}
 
+    /** @param {StoredSnapshot} base @param {StoredSnapshot} liveBase @param {StoredSnapshot} proposal @param {StoredSnapshot|null} head @param {{replace?:boolean;reconcileSessionIds?:string[];dayRenames?:import('./contracts.js').DayRename[];expectedFirstRunEmpty?:boolean;sharedRebaseSeed?:string|null}} [options] @returns {StoredSnapshot} */
     function stateSnapshotForHead(base,liveBase,proposal,head,{replace=false,reconcileSessionIds=[],dayRenames=[],expectedFirstRunEmpty=false,sharedRebaseSeed=null}={}){
     const durableHead=cloneSnapshot(head||base);
-    const liveHead=replace?durableHead:rebaseStateChange(base,liveBase,durableHead);
-    const snapshot=replace?cloneSnapshot(proposal):rebaseStateChange(liveBase,proposal,liveHead);
+    const liveHead=replace?durableHead:/** @type {StoredSnapshot} */(rebaseStateChange(base,liveBase,durableHead));
+    const snapshot=replace?cloneSnapshot(proposal):/** @type {StoredSnapshot} */(rebaseStateChange(liveBase,proposal,liveHead));
     if(replace&&expectedFirstRunEmpty)rebaseSharedSetupSnapshot(snapshot,durableHead,sharedRebaseSeed);
     reconcileExplicitLogDayRenames(snapshot,dayRenames);
     reconcileCandidateLogDays(snapshot,reconcileSessionIds);
@@ -1443,6 +1568,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     return snapshot}
 
   // --- Transaction Execution Engine ---
+    /** @param {StoredSnapshot} snapshot @param {StorageIO} io @param {string|null} transactionId @param {import('./contracts.js').EffectInput} effect */
     async function compensatePendingDraftTransaction(snapshot,io,transactionId,effect){
     const transaction=pendingDraftTransaction(snapshot);
     const contextFingerprint=transaction?draftContextFingerprint(transaction.previous):null;
@@ -1453,6 +1579,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       DraftStore.restoreEffect(transactionId,effect,contextFingerprint)):{settled:false};
     return{settled:durable&&restored.settled,snapshot:rollback,result}}
 
+    /** @param {import('./contracts.js').ExecuteOptions} [options] @returns {Promise<import('./contracts.js').TransactionExecution>} */
     async function executeDraftTransaction({record=null,transactionId=record?.journal?.id||null,effect=null,
     prepared=null,snapshot=null,io=null,writePrepared=true,preparedResult=null,
     retainRecordOnWriteFailure=false,retainRecordOnReplicaPartial=false,
@@ -1464,6 +1591,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       record?.journal?draftContextFingerprint(record.journal.liveBase):null;
     const coordinated=draftEffectRequiresCoordination(effectOutcome);
     const beginClose=()=>!id||DraftStore.beginClose(id);
+    /** @param {boolean} restoreEffect @param {boolean} [allowWrites] */
     const close=async(restoreEffect,allowWrites=false)=>{
       if(!id)return{settled:clearPendingJournal(record),hadWrites:false};
       if(!beginClose())return{settled:false,hadWrites:false,closeFailed:true};
@@ -1474,7 +1602,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       const closed=await close(false,true);
       return{kind:closed.settled?"discarded":"close-failed",accepted:false,rejected:false,
         settled:closed.settled,closed,snapshot:null,result:null}}
-    requireAdapter(io,"executeDraftTransaction");
+    io=requireAdapter(io,"executeDraftTransaction");
     if(!prepared||!snapshot)throw new TypeError("executeDraftTransaction requires prepared and final snapshots");
     if(coordinated&&(!id||!beginClose()))
       return{kind:"close-failed",accepted:false,rejected:false,settled:false,
@@ -1536,6 +1664,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       snapshot,result:settlement.result||result,closed}}
 
   // --- Enqueue State Change ---
+    /** @param {StoredSnapshot} base @param {StoredSnapshot} proposal @param {StorageIO} io @param {import('./contracts.js').CommitOptions} [options] */
     function enqueueStateChangeRaw(base,proposal,io,{replace=false,liveBase=base,expectedProgramId=null,
     expectedProgramFingerprint=null,expectedBlockId=undefined,expectedStorageRevision=undefined,expectedFirstRunEmpty=false,
     expectedSetupDraftRaw=undefined,
@@ -1572,10 +1701,12 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
           customMutationIntent})
       :null;
     if(io===storageIO&&!pendingRecord){
+      /** @type {OutcomeInput} */
       const failed={revision:readRevision(frozenBase),localOk:false,idbOk:false,journalFailed:true};
       if(frozenEffect?.required===true)failed.draftConflict=true;
       noteWriteHealth(failed);
       return Promise.resolve(failed)}
+    /** @param {OutcomeInput} result @param {{pendingJournalCleanup?:boolean}} [options] */
     const discardPending=async(result,{pendingJournalCleanup=false}={})=>{
       const pendingJournalId=pendingRecord?.journal.id||null;
       const discarded=await executeDraftTransaction({record:pendingRecord,
@@ -1631,7 +1762,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
           try{
             const currentRaw=platform.localStorage.getItem(pendingRecord.key);
             if(currentRaw===pendingRecord.raw){
-              const journal=JSON.parse(pendingRecord.raw);
+              const journal=/** @type {Record<string,unknown>} */(JSON.parse(pendingRecord.raw));
               journal.proposal=unversionedSnapshot(workingProposal);
               delete journal.preflightPending;
               rebasedRaw=JSON.stringify(journal);
@@ -1733,11 +1864,13 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       {onFrozen:cancelUnstarted}));
     return operation}
 
+  /** @param {StoredSnapshot} base @param {StoredSnapshot} proposal @param {StorageIO} [io] @param {import('./contracts.js').CommitOptions} [options] */
   function enqueueStateChange(base, proposal, io = storageIO, options = {}) {
     return Promise.resolve(enqueueStateChangeRaw(base, proposal, io, options))
       .then(result => normalizeDurableOutcome(result));
   }
 
+  /** @param {string} raw */
   async function settleCommittedSetupActivation(raw){
     return withStorageLock(storageIO,async()=>{
       const refreshed=await refreshPersistenceHead();
@@ -1758,15 +1891,17 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
   }
 
   // --- Boot Replay & Resolution ---
+  /** @param {import('./contracts.js').RecoveryChoice|null} [candidate] */
   async function resolveBootReplicasLocked(candidate=null){
       const local=readLocalStatus(),idb=await readIdbStatus();
       let decision=chooseSnapshot(local,idb);
       if(decision.kind==="unresolved"){
-        if(!recoveryChoiceMatches(candidate,decision))return decision;
+        if(!candidate||!recoveryChoiceMatches(candidate,decision))return decision;
         decision={kind:"chosen",snapshot:cloneSnapshot(candidate.snapshot),source:candidate.source,
           heal:candidate.source==="local"?"idb":"local"}}
       if(decision.kind==="chosen"){
         const sourceReplica=sourceReplicaForCarrierDecision(decision,local,idb);
+        /** @type {import('./contracts.js').NormalizedRecovery|{kind:'full-recovery'}} */
         let normalized;
         try{normalized=await normalizeRecoveryCarrierSnapshot(decision.snapshot,sourceReplica)}
         catch{normalized={kind:"full-recovery"}};
@@ -1780,7 +1915,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       const storedTransaction=head&&pendingDraftTransaction(head);
       if(storedTransaction){
         const storedRecord=readPendingJournal().entries.find(record=>record.journal.id===storedTransaction.id)||null;
-        const finalized=finalizedDraftTransactionSnapshot(head);
+        const finalized=finalizedDraftTransactionSnapshot(/** @type {StoredSnapshot} */(head));
         const execution=await executeDraftTransaction({record:storedRecord,
           transactionId:storedTransaction.id,effect:storedTransaction.effect,prepared:head,
           snapshot:finalized,io:storageIO,writePrepared:false,
@@ -1788,7 +1923,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
         if(!execution.settled||
           (execution.kind!=="committed"&&execution.kind!=="rejected"&&execution.kind!=="compensated"))
           return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
-        head=execution.snapshot;
+        head=/** @type {StoredSnapshot} */(execution.snapshot);
         draftConflict=execution.kind!=="committed";
         replayed=true;
         decision={kind:"chosen",snapshot:head,source:"pending"}}
@@ -1832,7 +1967,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
             const replicasMatch=localNow.status==="valid"&&idbNow.status==="valid"&&
               storageSnapshotsEqual(localNow.parsed,candidate)&&storageSnapshotsEqual(idbNow.parsed,candidate);
             let postWriteSafe=null;
-            if(replicasMatch){try{postWriteSafe=await resolution.verify(cloneSnapshot(localNow.parsed))}catch{}}
+            if(replicasMatch){try{postWriteSafe=await resolution.verify(cloneSnapshot(/** @type {StoredSnapshot} */(localNow.parsed)))}catch{}}
             if(!written.localOk||!written.idbOk||!replicasMatch||!postWriteSafe?.ok)
               return{kind:"unresolved",reason:"custom-mutation-recovery-write-failed",
                 local:localNow,idb:idbNow};
@@ -1870,7 +2005,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
         // consumed. Treat that journal as settled; replaying it would archive
         // the successor a second time after a crash.
         const setupMarker=journal.proposal?.[STORAGE_SETUP_TXN];
-        if(setupActivationAlreadyCommitted(head,journal.proposal,setupMarker?.raw)){
+        if(setupActivationAlreadyCommitted(head,journal.proposal,/** @type {{raw?:unknown}|null|undefined} */(setupMarker)?.raw)){
           const discarded=await executeDraftTransaction({record,transactionId:journal.id,
             effect:journal.effectOutcome,discard:true});
           if(!discarded.settled)
@@ -1902,15 +2037,15 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
           continue}
         if(pendingJournalSuccessorMatches(record,head)){
           const prepared=preparePendingDraftTransaction(
-            head,journal.rollback,journal.effectOutcome,journal.id);
+            /** @type {StoredSnapshot} */(head),/** @type {StoredSnapshot} */(journal.rollback),journal.effectOutcome,journal.id);
           const execution=await executeDraftTransaction({record,transactionId:journal.id,
-            effect:journal.effectOutcome,prepared,snapshot:head,io:storageIO,writePrepared:false,
+            effect:journal.effectOutcome,prepared,snapshot:/** @type {StoredSnapshot} */(head),io:storageIO,writePrepared:false,
             preparedResult:{revision:readRevision(head),localOk:true,idbOk:true}});
           if(!execution.settled||
             (execution.kind!=="committed"&&execution.kind!=="rejected"&&execution.kind!=="compensated"))
             return{kind:"unresolved",reason:"pending-transaction",
               local:readLocalStatus(),idb:await readIdbStatus()};
-          head=execution.snapshot;
+          head=/** @type {StoredSnapshot} */(execution.snapshot);
           if(execution.kind!=="committed")draftConflict=true;
           replayed=true;
           continue}
@@ -1981,7 +2116,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
         if(!execution.settled||
           (execution.kind!=="committed"&&execution.kind!=="rejected"&&execution.kind!=="compensated"))
           return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
-        head=execution.snapshot;
+        head=/** @type {StoredSnapshot} */(execution.snapshot);
         if(execution.kind!=="committed")draftConflict=true;
         replayed=true}
       if(!(await settleOrphanDraftArtifacts(head)).settled)
@@ -1992,6 +2127,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
         await writeSnapshot(cloneSnapshot(decision.snapshot),storageIO);
       return Object.assign({},decision,{draftConflict})}
 
+  /** @param {import('./contracts.js').RecoveryChoice|null} [candidate] */
   async function resolveBootReplicas(candidate=null){
     return withStorageLock(storageIO,()=>resolveBootReplicasLocked(candidate));
   }
@@ -2006,11 +2142,13 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     }));
   }
 
+  /** @param {string} name @param {unknown} [payload] */
   async function runDurableStateTestHook(name,payload){
     const hook=platform.__repforgeDurableStateTestHooks?.[name];
     if(typeof hook==="function")await hook(payload);
   }
 
+  /** @param {{verify?:(snapshot:StoredSnapshot)=>import('./contracts.js').SemanticCheck|Promise<import('./contracts.js').SemanticCheck>;pendingJournalId?:string|null}} [options] */
   async function settleHistoryAlreadyCommitted({verify,pendingJournalId=null}={}){
     return enqueueWrite(()=>withStorageLock(storageIO,async()=>{
       await runDurableStateTestHook("durableSettlementLockHeld");
@@ -2075,6 +2213,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     }));
   }
 
+  /** @param {import('./contracts.js').CustomSettlementOptions} [options] */
   async function settleCustomExerciseMutation({verify,recover=null,pendingJournalId=null}={}){
     if(typeof verify!=="function")
       return normalizeDurableOutcome({localOk:false,idbOk:false,conflict:true,
@@ -2083,6 +2222,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       await runDurableStateTestHook("durableSettlementLockHeld",{pendingJournalId});
       const ownPending=()=>typeof pendingJournalId==="string"&&pendingJournalId
         ?readPendingJournal().entries.find(item=>item.journal.id===pendingJournalId)||null:null;
+      /** @param {string} code @param {StoredSnapshot|null} [head] */
       const unresolved=async(code,head=null)=>{
         const local=readLocalStatus(),idb=await readIdbStatus();
         const record=ownPending();
@@ -2091,13 +2231,16 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
           pendingJournalCleanup:!!record,pendingJournalId:record?.journal.id||undefined,
           code,head:head&&cloneSnapshot(head)});
       };
+      /** @param {StoredSnapshot} snapshot @param {import('./contracts.js').Journal|null} [journal] */
       const verifySnapshot=async(snapshot,journal=null)=>{
         try{return await verify({snapshot:cloneSnapshot(snapshot),journal:journal&&cloneSnapshot(journal)})}
         catch{return null}};
+      /** @param {StoredSnapshot} snapshot @param {import('./contracts.js').Journal|null} journal @param {string} code @param {string} stage */
       const recoverSnapshot=async(snapshot,journal,code,stage)=>{
         if(typeof recover!=="function")return null;
         try{return await recover({snapshot:cloneSnapshot(snapshot),journal:journal&&cloneSnapshot(journal),code,stage})}
         catch{return null}};
+      /** @param {StoredSnapshot} snapshot @param {import('./contracts.js').SemanticRecovery} recovery @param {import('./contracts.js').PendingJournal|null} record */
       const finishSemanticRecovery=async(snapshot,recovery,record)=>{
         if(!recovery?.snapshot||!isValidStateShape(recovery.snapshot)||
           pendingDraftTransaction(recovery.snapshot))return unresolved("custom_recovery_candidate_invalid",snapshot);
@@ -2137,6 +2280,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
           if(!written.localOk||!written.idbOk||!same)
             return unresolved("custom_recovery_replica_write_failed",candidate);
         }
+        /** @param {StoredSnapshot} value */
         const validate=async value=>{
           try{return typeof recovery.verify==="function"?await recovery.verify(cloneSnapshot(value)):{ok:true}}
           catch{return null}};
@@ -2185,7 +2329,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
         return unresolved("custom_settlement_unresolved",refreshedHead);
       const refreshedCheck=await verifySnapshot(refreshedHead);
       if(owner?.journal.customMutationRecovery||!refreshedCheck?.ok){
-        const recovery=await recoverSnapshot(refreshedHead,owner?.journal,
+        const recovery=await recoverSnapshot(refreshedHead,owner?.journal||null,
           refreshedCheck?.code||"custom_settlement_mismatch","head");
         if(recovery?.snapshot)
           return finishSemanticRecovery(refreshedHead,recovery,owner);
@@ -2243,7 +2387,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
         pendingJournalCleanup:true,code:"journal_cleanup_pending"});
     const decision=await resolveBootReplicas();
     const remaining=readPendingJournal();
-    const snapshot=decision?.snapshot||persistHead;
+    const snapshot=/** @type {StoredSnapshot|null|undefined} */('snapshot' in decision?decision.snapshot:null)||persistHead;
     if(decision?.kind==="unresolved"||remaining.entries.length||remaining.invalid.length)
       return normalizeDurableOutcome({revision:readRevision(snapshot),localOk:false,idbOk:false,
         pendingJournalCleanup:true,code:"journal_cleanup_pending"});
@@ -2251,15 +2395,18 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       alreadyCommitted:true});
   }
 
+  /** @param {import('./contracts.js').RecoveryChoice|null} candidate @param {{local:import('./contracts.js').ReplicaRead,idb:import('./contracts.js').ReplicaRead}} current @returns {boolean} */
   function recoveryChoiceMatches(candidate,current){
     if(candidate?.kind!=="chosen"||(candidate.source!=="local"&&candidate.source!=="idb"))return false;
     const selected=candidate.source==="local"?current.local:current.idb;
     return selected?.status==="valid"&&storageSnapshotsEqual(selected.parsed,candidate.snapshot)}
 
+  /** @param {import('./contracts.js').EffectInput} effect */
   function pendingDraftPostEffectAccepted(effect){
-    const outcome=normalizeDraftEffectOutcome(effect),receipt=outcome.effect;
+    const outcome=normalizeDraftEffectOutcome(effect);
     if(outcome.status===DRAFT_EFFECT_NONE)return true;
     if(outcome.status!==DRAFT_EFFECT_VALID)return false;
+    const receipt=outcome.effect;
     if(!draftEffectRequiresCoordination(outcome))return true;
     try{
       const read=DraftStore.readCanonicalStatus();if(read.status!=="ok")return false;
@@ -2273,6 +2420,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       return after.status==="missing"||after.status==="mismatch"}
     catch{return false}}
 
+  /** @param {import('./contracts.js').EffectInput} effect @param {string|null} transactionId @param {string|null} [contextFingerprint] */
   function pendingDraftRelatedState(effect,transactionId,contextFingerprint=null){
     const pending=DraftStore.related(transactionId,contextFingerprint);
     const outcome=normalizeDraftEffectOutcome(effect),expectedRaw=outcome.effect?.expectedRaw;
@@ -2284,6 +2432,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       else entries.push(entry)}
     return{entries,invalid:pending.invalid,expectedWrites}}
 
+  /** @param {import('./contracts.js').EffectInput} effect @param {string|null} transactionId @param {string|null} [contextFingerprint] */
   function pendingDraftSettlementAccepted(effect,transactionId,contextFingerprint=null){
     const related=()=>pendingDraftRelatedState(effect,transactionId,contextFingerprint);
     let pending=related();
@@ -2292,6 +2441,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     pending=related();
     return accepted&&!pending.entries.length&&!pending.invalid.length}
 
+  /** @param {import('./contracts.js').EffectInput} effect @param {ReturnType<typeof pendingJournalEffectState>} checked @param {string|null} transactionId @param {string|null} [contextFingerprint] */
   function pendingDraftEffectAccepted(effect,checked,transactionId,contextFingerprint=null){
     const outcome=normalizeDraftEffectOutcome(effect);
     if(outcome.status===DRAFT_EFFECT_INVALID)return false;
@@ -2299,15 +2449,17 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     if(checked.status==="conflict")return false;
     return pendingDraftSettlementAccepted(effect,transactionId,contextFingerprint)}
 
+  /** @param {unknown} value @returns {string[]|null} */
   function normalizeJournalSessionIds(value){
     if(value==null)return[];
     if(!Array.isArray(value)||value.length>1000)return null;
-    const ids=[];
+    /** @type {string[]} */const ids=[];
     for(const id of value){
       if(typeof id!=="string"||!id||id.length>300)return null;
       if(!ids.includes(id))ids.push(id)}
     return ids}
 
+  /** @param {unknown} value @returns {import('./contracts.js').DayRename[]|null} */
   function normalizeJournalDayRenames(value){
     if(value==null)return[];
     if(!Array.isArray(value)||value.length>100)return null;
@@ -2318,13 +2470,15 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       renames.push({from:entry.from,to:entry.to})}
     return renames}
 
+  /** @param {unknown} marker @returns {marker is import('./contracts.js').SetupActivation} */
   function isValidSetupActivationMarker(marker){
     return isPlainStateObject(marker)&&marker.version===1&&
       typeof marker.programId==="string"&&marker.programId.length>0&&marker.programId.length<=128&&
       typeof marker.raw==="string"&&marker.raw.length>0&&marker.raw.length<=70000&&
       (!Object.prototype.hasOwnProperty.call(marker,"revision")||
-        (Number.isInteger(marker.revision)&&marker.revision>=1))}
+        (Number.isInteger(marker.revision)&&/** @type {number} */(marker.revision)>=1))}
 
+  /** @param {import('./contracts.js').PendingJournal|null} record */
   function retainPendingJournal(record){
     if(!record)return false;
     try{
@@ -2335,6 +2489,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       return platform.localStorage.getItem(record.key)===record.raw}
     catch{return false}}
 
+  /** @param {StoredSnapshot} snapshot @param {import('./contracts.js').DayRename[]} dayRenames */
   function reconcileExplicitLogDayRenames(snapshot,dayRenames){
     if(!Array.isArray(snapshot?.log)||!dayRenames.length)return snapshot;
     for(const {from,to} of dayRenames){
@@ -2343,8 +2498,10 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
         if(row?.day===from||row?.session&&sessions.has(row.session))row.day=to}}
     return snapshot}
 
+  /** @param {StoredSnapshot} snapshot @param {string[]} sessionIds */
   function reconcileCandidateLogDays(snapshot,sessionIds){
     if(!Array.isArray(snapshot?.program)||!Array.isArray(snapshot?.log)||!sessionIds.length)return snapshot;
+    /** @type {Map<unknown,unknown>} */
     const currentDays=new Map();
     for(const exercise of snapshot.program){
       if(exercise&&typeof exercise.id==="string"&&exercise.id)currentDays.set(exercise.id,exercise.day)}
@@ -2360,6 +2517,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       if(targetDay!=null)for(const row of rows)row.day=targetDay}
     return snapshot}
 
+  /** @param {StoredSnapshot|null} snapshot */
   function recoveryJournalCarrier(snapshot){
     const carrier=snapshot?.recoveryTransitions;
     if(carrier===undefined)return{records:[],quarantine:[]};
@@ -2367,6 +2525,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       ?{records:carrier.records,quarantine:carrier.quarantine}:null;
   }
 
+  /** @param {StoredSnapshot} base @param {StoredSnapshot} proposal @param {{ignoreBlockId?:boolean;ignoreRecoveryLifecycle?:boolean;recoveryStartRecord?:import('./snapshot.js').RecoveryRecord|null}} [options] */
   function recoveryJournalNonCarrierEqual(base,proposal,{
     ignoreBlockId=false,
     ignoreRecoveryLifecycle=false,
@@ -2393,6 +2552,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     return storageSnapshotsEqual(left,right);
   }
 
+  /** @param {import('./contracts.js').Journal|null} journal */
   function classifyLegacyRecoveryJournal(journal){
     if(!journal||journal.recoveryTransactionPresent===true)return null;
     const base=journal.base,proposal=journal.proposal;
@@ -2405,7 +2565,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     const baseCarrier=recoveryJournalCarrier(base),proposalCarrier=recoveryJournalCarrier(proposal);
     if(!baseCarrier||!proposalCarrier)return null;
     if(journal.expectedProgramId!==base.programMeta.id||journal.expectedBlockId!==sourceBlock||
-      !Number.isInteger(journal.expectedStorageRevision)||journal.expectedStorageRevision<0)return null;
+      !Number.isInteger(journal.expectedStorageRevision)||/** @type {number} */(journal.expectedStorageRevision)<0)return null;
 
     const before=baseCarrier.records,after=proposalCarrier.records;
     const sameQuarantine=storageSnapshotsEqual(baseCarrier.quarantine,proposalCarrier.quarantine);
@@ -2414,7 +2574,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       before.every((record,index)=>transitionRecordEqual(record,after[index]))){
       const appended=after.at(-1),overlay=appended?.diff?.recoveryWeek;
       const targetWasAbsent=!before.some(record=>record?.diff?.recoveryWeek?.blockId===targetBlock);
-      if(targetWasAbsent&&appended?.predecessor?.programId===base.programMeta.id&&
+      if(targetWasAbsent&&appended&&appended?.predecessor?.programId===base.programMeta.id&&
         appended.predecessor.blockId===sourceBlock&&
         appended.predecessor.durableRevision===journal.expectedStorageRevision&&
         overlay?.blockId===targetBlock&&overlay?.reassessmentOutcome===null&&
@@ -2439,7 +2599,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
         const beforeOverlay=before[index]?.diff?.recoveryWeek;
         const afterOverlay=after[index]?.diff?.recoveryWeek;
         if(beforeOverlay?.reassessmentOutcome!==null||
-          !["Better","About the same","Worse"].includes(afterOverlay?.reassessmentOutcome)||
+          !["Better","About the same","Worse"].includes(/** @type {string} */(afterOverlay?.reassessmentOutcome))||
           !isPlainStateObject(beforeOverlay)||!isPlainStateObject(afterOverlay))return"other";
         const beforeCopy=cloneSnapshot(before[index]),afterCopy=cloneSnapshot(after[index]);
         beforeCopy.diff.recoveryWeek.reassessmentOutcome=null;
@@ -2452,6 +2612,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     return null;
   }
 
+  /** @param {import('./contracts.js').Journal|null} journal */
   function isAmbiguousLegacyRecoveryJournalMutation(journal){
     if(!journal||journal.recoveryTransactionPresent===true)return false;
     const classified=classifyLegacyRecoveryJournal(journal);
@@ -2474,6 +2635,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     return true;
   }
 
+  /** @param {import('./contracts.js').Journal|null} journal */
   function isRecoveryJournalAttempt(journal){
     if(journal?.recoveryTransaction===true){
       const proposalCarrier=journal?.proposal?.recoveryTransitions;
@@ -2484,10 +2646,12 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     return classifyLegacyRecoveryJournal(journal)==="start";
   }
 
+  /** @param {unknown} a @param {unknown} b */
   function transitionRecordEqual(a,b){
     if(a==null||b==null)return a==b;
     return storageSnapshotsEqual(a,b)}
 
+  /** @param {StoredSnapshot} snapshot */
   function rawTransitionMetadataMalformed(snapshot){
     if(!isPlainStateObject(snapshot))return false;
     const meta=isPlainStateObject(snapshot.programMeta)?snapshot.programMeta:null;
@@ -2496,17 +2660,20 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     for(const row of history){
       if(!isPlainStateObject(row))continue;
       if(row.transitionOut!=null&&!isCoherentV1TransitionOut(row.transitionOut))return true;
-      if(row.meta?.transitionIn!=null&&!isCoherentV1TransitionIn(row.meta.transitionIn))return true;
+      if(/** @type {{transitionIn?:unknown}|null|undefined} */(row.meta)?.transitionIn!=null&&!isCoherentV1TransitionIn(/** @type {{transitionIn?:unknown}} */(row.meta).transitionIn))return true;
     }
     return false;
   }
 
+  /** @param {unknown} value @param {(value:unknown)=>boolean} validator */
   function classifyInheritedTransitionValue(value,validator){
     if(value==null)return "absent";
     return validator(value)?"supported-v1":"unknown-or-malformed"}
 
+  /** @param {StoredSnapshot} snapshot */
   function extractTransitionOutMap(snapshot){
     const history=Array.isArray(snapshot?.programHistory)?snapshot.programHistory:[];
+    /** @type {Map<string,import('./contracts.js').TransitionOut>} */
     const map=new Map();
     let invalid=false;
     for(const h of history){
@@ -2517,9 +2684,10 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       const hid=typeof h.id==="string"&&h.id.trim()?h.id.trim():null;
       if(toutStatus!=="supported-v1"||!aid||!hid||aid!==hid||map.has(aid)){
         invalid=true;break}
-      map.set(aid,h.transitionOut)}
+      map.set(aid,/** @type {import('./contracts.js').TransitionOut} */(h.transitionOut))}
     return{map,invalid}}
 
+  /** @param {StoredSnapshot} snapshot */
   function classifyInheritedProvenance(snapshot){
     const meta=isPlainStateObject(snapshot?.programMeta)?snapshot.programMeta:null;
     const history=Array.isArray(snapshot?.programHistory)?snapshot.programHistory:[];
@@ -2527,16 +2695,18 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     const transitionOut=extractTransitionOutMap(snapshot);
     if(transitionIn==="unknown-or-malformed"||transitionOut.invalid)
       return{ok:false,transitionIn,transitionOut:transitionOut.map};
+    /** @type {{holderId:unknown,value:import('./contracts.js').TransitionIn}[]} */
     const records=[];
-    if(meta?.transitionIn!=null)records.push({holderId:meta.id,value:meta.transitionIn});
+    if(meta?.transitionIn!=null)records.push({holderId:meta.id,value:/** @type {import('./contracts.js').TransitionIn} */(meta.transitionIn)});
     for(const row of history){
       if(!isPlainStateObject(row))return{ok:false,transitionIn,transitionOut:transitionOut.map};
       if(row.meta==null)continue;
       if(!isPlainStateObject(row.meta))return{ok:false,transitionIn,transitionOut:transitionOut.map};
       const status=classifyInheritedTransitionValue(row.meta.transitionIn,isCoherentV1TransitionIn);
       if(status==="unknown-or-malformed")return{ok:false,transitionIn,transitionOut:transitionOut.map};
-      if(status==="supported-v1")records.push({holderId:row.id,value:row.meta.transitionIn});
+      if(status==="supported-v1")records.push({holderId:row.id,value:/** @type {import('./contracts.js').TransitionIn} */(row.meta.transitionIn)});
     }
+    /** @type {Map<string,import('./contracts.js').ProgramArchive & {transitionOut:import('./contracts.js').TransitionOut}>} */
     const archivesById=new Map();
     for(const row of history){
       if(row.transitionOut==null)continue;
@@ -2544,7 +2714,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       const archiveId=typeof row.archiveId==="string"&&row.archiveId.trim()?row.archiveId.trim():null;
       if(!id||!archiveId||id!==archiveId||archivesById.has(id))
         return{ok:false,transitionIn,transitionOut:transitionOut.map};
-      archivesById.set(id,row);
+      archivesById.set(id,/** @type {import('./contracts.js').ProgramArchive & {transitionOut:import('./contracts.js').TransitionOut}} */(row));
     }
     for(const record of records){
       const tin=record.value;
@@ -2567,6 +2737,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     }
     return{ok:true,transitionIn,transitionOut:transitionOut.map}}
 
+  /** @param {StoredSnapshot} proposal @param {StoredSnapshot} base */
   function transitionJournalAttempt(proposal,base){
     if(!proposal||!isPlainStateObject(proposal))return false;
     const propProvenance=classifyInheritedProvenance(proposal);
@@ -2582,7 +2753,9 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       if(!transitionRecordEqual(propTout,baseTout))return true}
     return false}
 
+  /** @param {import('./contracts.js').ProgramArchive[]} history */
   function programHistoryUniqueIds(history){
+    /** @type {Set<unknown>} */
     const ids=new Set();
     for(const row of history){
       if(!isPlainStateObject(row))return null;
@@ -2592,6 +2765,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       ids.add(id)}
     return ids}
 
+  /** @param {StoredSnapshot} proposal @param {StoredSnapshot} base */
   function isCoherentLegacyReplacement(proposal,base){
     if(!proposal||!isPlainStateObject(proposal)||!base||!isPlainStateObject(base))return false;
     const propMeta=proposal.programMeta,baseMeta=base.programMeta;
@@ -2629,12 +2803,13 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     if(!transitionRecordEqual(newRow.program,Array.isArray(base.program)?base.program:[]))return false;
     return true}
 
+  /** @param {StoredSnapshot} proposal @param {StoredSnapshot} base */
   function isCoherentTransitionProposal(proposal,base){
     if(!proposal||!isPlainStateObject(proposal))return false;
     const propProvenance=classifyInheritedProvenance(proposal);
     if(!propProvenance.ok)return false;
     const tin=proposal.programMeta?.transitionIn;
-    if(!isCoherentV1TransitionIn(tin))return false;
+    if(!isCoherentV1TransitionIn(tin)||!proposal.programMeta)return false;
     const succId=tin.successor.programId,predId=tin.predecessor.programId;
     if(proposal.programMeta.id!==succId)return false;
     if(tin.archiveId!==predId)return false;
@@ -2647,7 +2822,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     const tout=newArc.transitionOut;
     if(tout.transitionId!==tin.transitionId||tout.proposalHash!==tin.proposalHash||
       tout.successorProgramId!==succId)return false;
-    const allWithTransId=propHist.filter(h=>h?.transitionOut?.transitionId===tin.transitionId);
+    const allWithTransId=propHist.filter(h=>/** @type {{transitionId?:unknown}|null|undefined} */(h?.transitionOut)?.transitionId===tin.transitionId);
     if(allWithTransId.length!==1)return false;
 
     if(base!=null){
@@ -2662,9 +2837,9 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
       // Inherited transitionIn provenance captured in new archive
       const baseTin=base.programMeta?.transitionIn;
       if(baseTin!=null){
-        if(!transitionRecordEqual(newArc.meta?.transitionIn,baseTin))return false;
+        if(!transitionRecordEqual(/** @type {{transitionIn?:unknown}|null|undefined} */(newArc.meta)?.transitionIn,baseTin))return false;
       }else{
-        if(newArc.meta?.transitionIn!=null)return false;
+        if(/** @type {{transitionIn?:unknown}|null|undefined} */(newArc.meta)?.transitionIn!=null)return false;
       }
 
       // Every inherited base history row must be retained value-identically,
@@ -2679,6 +2854,7 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     }
     return true}
 
+  /** @param {StoredSnapshot} prepared @param {StoredSnapshot} finalized @param {import('./contracts.js').EffectInput} effect @param {ReturnType<typeof pendingJournalEffectState>} checked @param {StorageIO} io @param {ReplicaWriteResult} provisionalResult @param {boolean} [forceFinalization] @returns {Promise<import('./contracts.js').DraftSettlement>} */
   async function settleAppliedDraftTransaction(prepared,finalized,effect,checked,io,provisionalResult,
     forceFinalization=false){
     const transaction=pendingDraftTransaction(prepared),transactionId=transaction?.id||null;
@@ -2686,22 +2862,23 @@ export function createDurableStore({snapshotPolicy, workout=null, session=null,
     const applied=await withDraftWriteLock(()=>applyPendingJournalEffect(effect));
     if(applied.status==="failed"){
       const compensation=await compensatePendingDraftTransaction(prepared,io,transactionId,effect);
-      return Object.assign({accepted:false,rejected:true},compensation)}
+      return Object.assign(/** @type {const} */({accepted:false,rejected:true}),compensation)}
     if(!pendingDraftEffectAccepted(effect,checked,transactionId,contextFingerprint)){
       const compensation=await compensatePendingDraftTransaction(prepared,io,transactionId,effect);
-      return Object.assign({accepted:false,rejected:true},compensation)}
+      return Object.assign(/** @type {const} */({accepted:false,rejected:true}),compensation)}
     if(!transaction&&!forceFinalization)return{accepted:true,rejected:false,snapshot:finalized,result:null};
     const result=await writeSnapshot(finalized,io);
     if(!(result.localOk||result.idbOk)){
       const compensation=await compensatePendingDraftTransaction(prepared,io,transactionId,effect);
-      if(compensation.settled)return Object.assign({accepted:false,rejected:true},compensation);
+      if(compensation.settled)return Object.assign(/** @type {const} */({accepted:false,rejected:true}),compensation);
       return{accepted:true,rejected:false,deferred:true,settled:false,snapshot:prepared,
         result:provisionalResult,finalizationResult:result,applied}}
     if(!pendingDraftSettlementAccepted(effect,transactionId,contextFingerprint)){
       const compensation=await compensatePendingDraftTransaction(prepared,io,transactionId,effect);
-      return Object.assign({accepted:false,rejected:true},compensation)}
+      return Object.assign(/** @type {const} */({accepted:false,rejected:true}),compensation)}
     return{accepted:true,rejected:false,settled:true,snapshot:finalized,result}}
 
+  /** @param {string} source @returns {'localStorage'|'indexedDB'|'both'} */
   function recoverySourceReplica(source){
     return source==="local"?"localStorage":source==="idb"?"indexedDB":"both";
   }
