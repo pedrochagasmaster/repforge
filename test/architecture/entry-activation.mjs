@@ -2,13 +2,13 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {createGenerationRules} from '../../src/training/generation.js';
-import {createEntryRules,createEntryAdapter} from '../../src/training/authoring.js';
+import {createEntryRules,createEntryAdapter,createInstalledEditorRules} from '../../src/training/authoring.js';
 import {createWorkoutRules} from '../../src/training/workout.js';
 import {createProgramModel} from '../../src/training/model.js';
 import metrics from '../../src/training/metrics.js';
 import {progression} from '../../src/training/progress.js';
 import {createSnapshotPolicy} from '../../src/persistence/snapshot.js';
-import {createEntryActivation} from '../../src/app/entry.js';
+import {createEntryActivation,createEntryGeneration} from '../../src/app/entry.js';
 import {createCustomDefinitionImport} from '../../src/app/custom-import.js';
 const require=createRequire(import.meta.url),source=require('../../exercises.js');
 const catalog=JSON.parse(readFileSync(new URL('../../assets/exercise-catalog.json',import.meta.url),'utf8'));
@@ -19,10 +19,10 @@ const entry=createEntryRules(catalog),workout=createWorkoutRules(catalog);
 const policy=createSnapshotPolicy({entry,workout,model,catalog,metrics,compiler:generation.compiler,transition:generation.transition,progression,
  nextId:()=>`policy-${++ids}`,now:()=> '2026-10-18T12:00:00.000Z',language:{normalizeLang:value=>value==='pt'?'pt':'en',detectLang:()=> 'en'}});
 const adapter=createEntryAdapter({compiler:generation.compiler});
-const mapped=adapter.programRequestFromAnswers({desiredResult:'muscle_growth',structuredExperience:'6_to_24m',recentConsistency:'consistent',daysPerWeek:3,sessionMinutes:60,environment:{kind:'commercial_gym'}},catalog);
+const mapped=adapter.programRequestFromAnswers({desiredResult:'muscle_growth',structuredExperience:'6_to_24m',recentConsistency:'most',daysPerWeek:3,sessionMinutes:60,environment:{kind:'commercial_gym'}},catalog);
 assert.equal(mapped.ok,true);
 const generated=generation.compiler.generateProgram(mapped.value,catalog);assert.equal(generated.ok,true);
-const activation=createEntryActivation({model,policy,identity:{programId:()=> 'installed-program',blockId:()=> 'installed-block',now:()=> '2026-10-18T12:00:00.000Z',date:()=> '2026-10-18'},defaultName:()=> 'Untitled program'});
+const activation=createEntryActivation({model,entry,imports:createCustomDefinitionImport({model,nextId:()=> 'unused-custom-id'}),build:createInstalledEditorRules({model,catalog,nextId:()=> 'unused-editor-id',defaultProgramMeta:policy.defaultProgramMeta,allowCreateDefinition:true}),policy,identity:{programId:()=> 'installed-program',blockId:()=> 'installed-block',now:()=> '2026-10-18T12:00:00.000Z',date:()=> '2026-10-18'},defaultName:()=> 'Untitled program'});
 const base={log:[],program:[],settings:{unit:'lb',futureSetting:'preserve'},programMeta:{id:'predecessor',compilerContext:{predecessor:true},progressionIncompatibilities:[{reason:'predecessor-only'}]},customExercises:[],futureSnapshot:{keep:7}};
 const result=activation.successor({base,name:'New program',programDefinition:generated.value,route:'recommend',origin:'first-run',destination:'program-edit',expectedSetupDraftRaw:'exact setup bytes'});
 assert.equal(result.ok,true);
@@ -52,3 +52,27 @@ assert.deepEqual(rows.map(row=>row.libraryId),['custom:collision-id','custom:reu
 assert.equal(imported.customExercises.length,3);assert.deepEqual(imported.customExercises[0].futureField,{keep:1});
 assert.equal(existing.length,2);assert.equal(existing[0].name,'Old movement');
 console.log('Entry activation: actual generated slot identity, literal successor/receipt/follow-up, predecessor refusal, extension preservation and custom collision/reuse passed');
+
+// Actual Entry generation -> reviewed-candidate assembly keeps Basics only in
+// the local profile, preserves skipped answers, and guards the live unit when
+// a workout draft exists.
+const services=adapter.createProductionServices({Compiler:generation.compiler,catalog});
+let draft=entry.selectRoute(entry.createState({draftId:'profile-activation',activeProgramRevisionAtStart:0,now:'2026-10-18T12:00:00.000Z',versions:services.currentVersions()}),'recommend');
+draft=entry.setAnswers(draft,{desiredResult:'muscle_growth',structuredExperience:'6_to_24m',recentConsistency:'most',daysPerWeek:3,sessionMinutes:60,preferredRestSeconds:null,environment:{kind:'commercial_gym'},basics:{sex:'male',heightCm:180,weightUnit:'lb'}});
+const producer=createEntryGeneration({compiler:generation.compiler,adapter,catalog,model,execute:async(request)=>({generated:generation.compiler.generateProgram(request,catalog),cache:true}),candidateName:()=> 'Generated program',onFailure:error=>{throw error}});
+const generatedCandidate=await producer.generate(draft);assert.equal(generatedCandidate.ok,true);
+draft={...entry.setResult(draft,generatedCandidate.result),step:'result'};
+const profileHead={...base,settings:{unit:'kg',futureSetting:'preserve'},profile:{birthDate:'1990-04-12',heightCm:165}};
+const candidate=activation.candidate({draft,head:profileHead,name:'Reviewed program',hasWorkoutDraft:false});
+assert.equal(candidate.ok,true);
+assert.deepEqual(candidate.value.baseProposal.profile,{birthDate:'1990-04-12',heightCm:180,sex:'male'});
+assert.equal(candidate.value.baseProposal.settings.unit,'lb');
+assert.equal(profileHead.profile.heightCm,165);assert.equal(profileHead.settings.unit,'kg');
+assert.equal(candidate.value.baseProposal.programmingContext.recentConsistency,'most');
+assert.equal('basics' in candidate.value.baseProposal.programmingContext,false);
+assert.equal('profile' in candidate.value.baseProposal.programmingContext,false);
+assert.equal('weightUnit' in candidate.value.baseProposal.profile,false);
+const protectedUnit=activation.candidate({draft,head:profileHead,name:'Reviewed program',hasWorkoutDraft:true});
+assert.equal(protectedUnit.value.baseProposal.settings.unit,'kg');
+assert.equal(candidate.value.programDefinition.days.filter(day=>day.kind==='training').length,3);
+console.log('Entry reviewed candidate: real generation, local profile replacement/skips, context exclusion and workout unit guard passed');
