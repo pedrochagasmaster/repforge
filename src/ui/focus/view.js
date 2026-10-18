@@ -30,13 +30,13 @@ function fieldHtml(field,peek) {
   return `<div class="${cls}" data-field="${id}" data-set="${esc(key)}">${button}${input}${caption}${effort?effortPopupHtml:""}</div>`;
 }
 /** @param {ShelfModel} model */
-function padsHtml(model) {
+export function renderFocusPadsInner(model) {
   const {peek,rest,pads,restLabel}=model;
   const html=(pads||[]).map(pad=>{
     if(rest)return `<button type="button" class="restpad ${pad.className}"${peek?dead():` data-rest-act="${pad.action}"`}${pad.ariaLabel?` aria-label="${esc(pad.ariaLabel)}"`:""}>${esc(pad.text)}</button>`;
     return `<button type="button" class="stepbtn shelf__pad"${peek?dead():`${pad.attributes} data-dir="${pad.direction}"${pad.disabled?" disabled":""}`}>${esc(pad.text)}</button>`;
   }).join("");
-  return `<div class="shelf__pads${rest?" shelf__pads--rest":""}" data-pads="${rest?"rest":"field"}"${rest?` role="group" aria-label="${esc(restLabel)}"`:""}>${html}</div>`;
+  return html;
 }
 /** Complete shelf markup from readonly presentation facts; no state/commands/IO. */
 /** @param {ShelfModel} model */
@@ -53,6 +53,54 @@ export function renderFocusShelf(model) {
   }
   return `<div class="focus-shelf workshelf${editing?" is-editing":""}" role="region" aria-label="${esc(label)}">`+
     `<div class="shelf__fields">${(fields||[]).map(field=>fieldHtml(field,peek)).join("")}</div>`+
-    padsHtml(model)+
+    renderFocusPads(model)+
     `<button type="button" class="btn btn--cta btn--noarrow saveset"${peek?dead():` data-save="${esc(key)}"`}>${esc(label)}</button></div>`;
+}
+
+export function renderFocusLedgerToggle(model) {
+  if(!model)return "";
+  const {count,open,fresh,peek,exerciseId,labelTemplate,setsWord}=model;
+  return `<button type="button" class="ledger__more${fresh?" is-fresh":""}"${peek?dead():` data-ledgermore`} aria-expanded="${open?"true":"false"}" aria-controls="ledger_${esc(exerciseId)}">`+
+    `<span>${esc(labelTemplate).replace("\u0000",`<span>${count}</span>`).replace("\u0001",`<span>${esc(setsWord)}</span>`)}</span>`+
+    `<span class="icon-mask icon-mask--sm icon-mask--chev-down ledger__chev" aria-hidden="true"></span></button>`;
+}
+export function renderFocusLedgerRows({rows,peek,exerciseId}) {
+  return rows.map(row=>{
+    const soft=field=>row[field]?" is-soft":"";
+    const cells=`<span class="ledgerline__idx">${row.indexHtml}</span>`+
+      `<span class="ledgerline__vals"><span class="fx-col${soft("softLoad")}" data-lv="load">${esc(row.load||"—")}</span>`+
+      `<span class="fx-col${soft("softReps")}" data-lv="reps">${esc(row.reps)}</span>`+
+      `<span class="fx-col${soft("softRir")}" data-lv="rir">${esc(row.rir)}</span></span>`+
+      (row.previousLine?`<small class="ledgerline__prev">${esc(row.previousLine)}</small>`:"");
+    const cls=`ledgerline${row.previousLine?" ledgerline--two":""}${row.open?" ledgerline--open":""}${row.fresh?" is-fresh":""}`;
+    if(row.done)return `<button type="button" class="${cls}"${peek?dead():` data-editex="${esc(exerciseId)}" data-editn="${row.ordinal}" aria-label="${esc(row.editLabel)}"`}>${cells}</button>`;
+    return `<div class="${cls}"${row.editing?' aria-current="true"':""} data-lrow="${row.ordinal}">${cells}</div>`;
+  }).join("");
+}
+export function renderFocusLedger({exerciseId,headers,toggleHtml,rowsHtml}) {
+  return `<div class="ledgerline__head"><span>${esc(headers.set)}</span><span class="ledgerline__vals">`+
+    `<span class="fx-col">${esc(headers.load)}</span><span class="fx-col">${esc(headers.reps)}</span>`+
+    `<span class="fx-col">${headers.effortHtml}</span></span></div>`+toggleHtml+
+    `<div class="ledger__rows" id="ledger_${esc(exerciseId)}">${rowsHtml}</div>`;
+}
+export function renderFocusCard(model) {
+  const {exerciseId,status,peek,name,meta,note,slotHtml,ledgerHtml,shelfHtml,nextName,nextTemplate}=model;
+  const noteHtml=note?`<p class="fx-note"><span class="icon-mask icon-mask--sm icon-mask--note" aria-hidden="true"></span><span>${esc(note)}</span></p>`:"";
+  const nextRow=nextName?`<button type="button" class="fx-next"${peek?dead():" data-fnextrow"}><span>${esc(nextTemplate).replace("\u0000",`<b>${esc(nextName)}</b>`)}</span>`+
+    `<span class="icon-mask icon-mask--sm icon-mask--chev-down fx-next__chev" aria-hidden="true"></span></button>`:"";
+  return `<article class="exercise exercise--focus is-${status}${peek?" is-peek":" is-current"}"`+
+    (peek?` aria-hidden="true" inert data-peek="${esc(exerciseId)}"`:` data-ex="${esc(exerciseId)}"`)+`>`+
+    `<div class="fcard__context" role="region" aria-label="${esc(name)}" tabindex="${peek?-1:0}">`+
+    `<div class="fx-head"><p class="focus-ex__meta">${esc(meta)}</p></div>`+slotHtml+noteHtml+
+    `<div class="fcard__ledger">${ledgerHtml}</div>`+nextRow+`</div>`+shelfHtml+`</article>`;
+}
+export function renderFocusDeck({label,previousHtml,currentHtml,nextHtml}) {
+  const slot=(inner,side)=>`<div class="deck__slot${side?` deck__slot--${side}`:""}"${side?' aria-hidden="true"':""}>${inner}</div>`;
+  return `<div class="deck" id="focusDeck" role="group" aria-roledescription="carousel" aria-label="${esc(label)}"><div class="deck__track" id="focusTrack">`+
+    (previousHtml?slot(previousHtml,"prev"):"")+slot(currentHtml)+(nextHtml?slot(nextHtml,"next"):"")+`</div></div>`;
+}
+
+export function renderFocusPads(model) {
+  const {rest,restLabel}=model;
+  return `<div class="shelf__pads${rest?" shelf__pads--rest":""}" data-pads="${rest?"rest":"field"}"${rest?` role="group" aria-label="${esc(restLabel)}"`:""}>${renderFocusPadsInner(model)}</div>`;
 }

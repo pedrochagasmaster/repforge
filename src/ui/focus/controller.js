@@ -5,3 +5,5 @@ export { createWhySheet } from "./why.js";
 export { createFocusGestures } from "./gestures.js";
 export { createRestClock } from "./rest.js";
 export { createFocusGeometry } from "./geometry.js";
+export { renderFocusLedgerToggle, renderFocusLedgerRows, renderFocusLedger, renderFocusCard, renderFocusDeck } from "./view.js";
+export { renderFocusPadsInner, renderFocusPads } from "./view.js";
