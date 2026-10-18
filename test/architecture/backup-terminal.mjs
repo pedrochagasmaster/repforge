@@ -11,10 +11,11 @@ try{
   input.onchange=function(event){return window.__backupRead=handler.call(this,event)};
  });
  const select=async name=>{
-  await page.locator('#importJson').setInputFiles({name:`${name}.json`,mimeType:'application/json',buffer:Buffer.from(JSON.stringify({...original,profile:{name}}))});
+  await page.locator('#importJson').setInputFiles({name:`${name}.json`,mimeType:'application/json',buffer:Buffer.from(JSON.stringify({...original,profile:{name},log:name==='Cancelled'?[{session:'cancelled-session',date:'2026-10-18'}]:original.log}))});
   await page.evaluate(()=>window.__backupRead);
  };
  await select('Cancelled');
+ assert.equal(await page.locator('#importMerge').isVisible(),true,'cancelled file carries a genuinely mergeable unseen session');
  const before=await page.evaluate(()=>{window.__cancelledReplace=document.querySelector('#importReplace').onclick;window.__cancelledMerge=document.querySelector('#importMerge').onclick;return localStorage.getItem('repforge_v1')});
  await page.locator('#importCancel').click();await page.waitForFunction(()=>!document.querySelector('#importChoice').open);
  await page.evaluate(async()=>{await window.__cancelledReplace();await window.__cancelledMerge()});
