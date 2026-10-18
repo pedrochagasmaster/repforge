@@ -53,7 +53,7 @@ const booted = () => page.waitForFunction(() => window.__repforgeBooted === true
 async function open(url) {
   try {
     const response = await page.goto(url, { waitUntil: "domcontentloaded" });
-    return { status: response?.status() ?? 0, url: page.url(), booted: await booted(), controlled: await page.evaluate(() => !!navigator.serviceWorker.controller) };
+    return { status: response?.status() ?? 0, fromServiceWorker: response?.fromServiceWorker() === true, url: page.url(), booted: await booted(), controlled: await page.evaluate(() => !!navigator.serviceWorker.controller) };
   } catch (error) {
     return { error: String(error.message || error).split("\n", 1)[0] };
   }
@@ -96,9 +96,35 @@ async function launchInstalled(cookies) {
 
 try {
   console.log("\nLaunch URL on a host that redirects /index.html");
-  await page.goto(base, { waitUntil: "domcontentloaded" });
+  const firstResponse = await page.goto(base, { waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base });
   await page.evaluate(() => navigator.serviceWorker.ready);
+  check(firstResponse?.fromServiceWorker() === false, "the fresh first visit is served by the network");
+  check(await page.evaluate(() => navigator.serviceWorker.controller === null),
+    "installation leaves the already-open first document uncontrolled");
+  // Activation and control are separate: without claim(), only a subsequent
+  // in-scope navigation gets the newly installed worker as its controller.
+  const controlledResponse = await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => !!navigator.serviceWorker.controller, undefined, { timeout: 15000 });
+  await waitForAppBoot(page, { base });
+  check(controlledResponse?.fromServiceWorker() === true, "post-install navigation is served by the worker");
+  const registration = await page.evaluate(async () => {
+    const registration = await navigator.serviceWorker.getRegistration();
+    const controller = navigator.serviceWorker.controller;
+    const releaseId = document.querySelector('meta[name="taurifer-release"]').content;
+    const { controllerMatches } = await import("./src/release/gate.js");
+    return {
+      scope: registration.scope, script: controller.scriptURL, state: registration.active.state,
+      activeControls: controller === registration.active,
+      matchingRelease: await controllerMatches(controller, releaseId),
+      acceptsWrongRelease: await controllerMatches(controller, `${releaseId}-not-this-release`),
+    };
+  });
+  check(registration.scope === base && registration.script === new URL("sw.js", base).href &&
+    registration.state === "activated" && registration.activeControls,
+    "the scope-root worker controls the post-install document", JSON.stringify(registration));
+  check(registration.matchingRelease && !registration.acceptsWrongRelease,
+    "the controller handshake accepts this shell's release and rejects a different release", JSON.stringify(registration));
   check(await page.evaluate((name) => caches.has(name), CACHE), `the release cache ${CACHE} installs against the redirecting host`);
 
   const redirected = await page.evaluate(async (name) => {
@@ -115,13 +141,13 @@ try {
   for (const [label, url] of [["the manifest launch URL", launch], ["the legacy ./index.html launch URL", new URL("index.html", base).href],
     ["a legacy notification link with a goto", new URL("index.html?goto=log", base).href], ["the scope root", base]]) {
     const online = await open(url);
-    check(!online.error && online.booted && online.controlled, `online, ${label} boots the app through the worker`, JSON.stringify({ url, ...online }));
+    check(!online.error && online.booted && online.controlled && online.fromServiceWorker, `online, ${label} boots the app through the worker`, JSON.stringify({ url, ...online }));
   }
 
   await context.setOffline(true);
   for (const [label, url] of [["the manifest launch URL", launch], ["the legacy ./index.html launch URL", new URL("index.html", base).href], ["the scope root", base]]) {
     const offline = await open(url);
-    check(!offline.error && offline.booted, `offline, ${label} boots the cached shell`, JSON.stringify({ url, ...offline }));
+    check(!offline.error && offline.booted && offline.controlled && offline.fromServiceWorker, `offline, ${label} boots the cached shell`, JSON.stringify({ url, ...offline }));
   }
   await context.setOffline(false);
 

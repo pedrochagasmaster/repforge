@@ -17,7 +17,7 @@ import { createServer } from "node:http";
 import { createReadStream, readFileSync, statSync } from "node:fs";
 import { dirname, extname, join, normalize, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchChromium, waitForAppBoot, waitForWorkerTakeover } from "./browser.mjs";
+import { launchChromium, waitForAppBoot, waitForAsyncCondition, waitForWorkerTakeover } from "./browser.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OLD_SHA = "3fbae92fcee58c0d72539b9f4e2c270a9d60dbd4";
@@ -208,10 +208,69 @@ try {
   assert.equal(JSON.parse(legacyState).programMeta.programDefinition, undefined,
     "the released app owns a legacy flat program without a canonical definition");
 
+  // Hold the actual controller object: both generations use the same sw.js URL.
+  const oldController = await stage("capture the historical controller", () =>
+    page.evaluateHandle(() => navigator.serviceWorker.controller));
+  const existingWorkers = new Set(context.serviceWorkers());
+  const successors = [];
+  const observeWorker = (worker) => {
+    if (!existingWorkers.has(worker)) successors.push(worker);
+  };
+  context.on("serviceworker", observeWorker);
   mode = "current";
-  await updateWorker("update to the current worker");
+  let replacement;
+  try {
+    await updateWorker("update to the current worker");
+    await stage("current worker waits while the historical workout stays open", () =>
+      waitForAsyncCondition(page, async () => {
+        const registration = await navigator.serviceWorker.getRegistration();
+        return registration?.waiting?.state === "installed";
+      }, undefined, { timeout: 20000 }));
+    const waiting = await stage("prove waiting preserves old control and exact stored bytes", () =>
+      page.evaluate(async ({ controller, draft, state, checkpoint }) => {
+        const registration = await navigator.serviceWorker.getRegistration();
+        return {
+          sameController: navigator.serviceWorker.controller === controller && registration.active === controller,
+          distinctSuccessor: registration.waiting !== controller,
+          scope: registration.scope, script: registration.waiting.scriptURL,
+          waitingState: registration.waiting.state, activeState: registration.active.state,
+          caches: await caches.keys(), draft: localStorage.getItem(draft),
+          state: localStorage.getItem(state), checkpoint: localStorage.getItem(checkpoint),
+        };
+      }, { controller: oldController, draft: DRAFT, state: STATE, checkpoint: CHECKPOINT }));
+    assert.equal(waiting.sameController, true, "installation must not replace the open workout's historical controller");
+    assert.equal(waiting.distinctSuccessor, true, "the installed successor is a different worker generation");
+    assert.equal(waiting.waitingState, "installed");
+    assert.equal(waiting.activeState, "activated");
+    assert.equal(waiting.scope, base);
+    assert.equal(waiting.script, new URL("sw.js", base).href);
+    assert(waiting.caches.includes(oldCache) && waiting.caches.includes(currentCache),
+      "both release caches survive while the old client is alive");
+    assert.equal(waiting.draft, legacyRaw, "waiting must not migrate or overwrite the flat draft");
+    assert.equal(waiting.state, legacyState, "waiting must not rewrite durable program bytes");
+    assert.equal(waiting.checkpoint, null, "waiting must not publish a DraftV2 checkpoint");
+    assert.equal(successors.length, 1, "exactly one newly observed worker belongs to this update");
+    replacement = successors[0];
+    assert.equal(replacement.url(), waiting.script);
+    console.log(`[sw-upgrade] waiting: ${JSON.stringify({ scope: waiting.scope, script: waiting.script,
+      waiting: waiting.waitingState, active: waiting.activeState, caches: waiting.caches })}`);
+  } finally {
+    context.off("serviceworker", observeWorker);
+    await oldController.dispose();
+  }
+  await stage("release the last historical app client", () => page.goto("about:blank"));
+  await stage("the observed successor activates naturally and retires the old cache", () =>
+    waitForAsyncCondition(replacement, async ({ cache, replaced }) => {
+      const registration = self.registration, names = await caches.keys();
+      return registration.active?.state === "activated" && !registration.waiting && !registration.installing &&
+        names.includes(cache) && !names.includes(replaced);
+    }, { cache: currentCache, replaced: oldCache }, { timeout: 20000 }));
+  await stage("reopen under the current worker", async () => {
+    const response = await page.goto(base, { waitUntil: "domcontentloaded" });
+    assert.equal(response?.fromServiceWorker(), true, "reopening uses the activated successor's shell");
+    await boot(page, base);
+  }, 45000);
   await workerSettled("current worker controls the page and removed the released cache", { cache: currentCache, replaced: oldCache });
-  await reload("reload under the current worker");
   const migrated = await stage("read the migrated draft", () => page.evaluate(({ draft, checkpoint, secondId }) => {
     const raw = localStorage.getItem(draft), value = JSON.parse(raw);
     const committed = JSON.parse(localStorage.getItem(checkpoint) || "null");
