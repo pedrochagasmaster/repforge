@@ -1,7 +1,7 @@
 /**
  * @typedef {{get:()=>number,set:(value:number)=>void,stop:()=>void,on:(event:'change',paint:(value:number)=>void)=>()=>void}} MotionValue
  * @typedef {{type?:string,stiffness?:number,damping?:number,mass?:number,restDelta?:number,restSpeed?:number,duration?:number,ease?:number[],velocity?:number}} AnimationOptions
- * @typedef {{stop?:()=>void,then:(arrived:()=>unknown,failed:()=>unknown)=>Promise<unknown>}} Playback
+ * @typedef {{stop?:()=>void,cancel?:()=>void,then:(arrived:()=>unknown,failed:()=>unknown)=>Promise<unknown>}} Playback
  * @typedef {{animate:(target:MotionValue|HTMLElement,to:number|{height:string[]},options:AnimationOptions)=>Playback,motionValue:(initial:number)=>MotionValue}} MotionRuntime
  * @typedef {Promise<boolean> & {abandon:()=>void}} Arrival
  * @typedef {{left:number,top:number,width:number,height:number}} Rect
@@ -540,20 +540,33 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     panel.style.height = `${from}px`;
     hint(panel, "height");
     const playback=animate(panel,{height:[`${from}px`,`${to}px`]},tween);
+    // Native stop commits the intermediate height. Releasing this owner must
+    // cancel its effect before clearing styles; otherwise Motion can repaint
+    // a stale fixed height on its next render frame. Older optional runtimes
+    // without cancel retain their existing stop fallback.
+    const cancelPlayback=()=>{if(playback.cancel)playback.cancel();else playback.stop?.()};
     const arrived = arrival(
       playback,
       () => disclosureRuns.get(panel) === token
     );
+    let cancelled=false;
+    const clearStyles=()=>{panel.classList.remove(COLLAPSING);panel.style.height='';panel.style.overflow='';hint(panel,null)};
     const cancel=()=>{
       liveCancellations.delete(cancel);
-      if(disclosureRuns.get(panel)!==token)return;
-      disclosureRuns.delete(panel);playback.stop?.();arrived.abandon();
-      panel.classList.remove(COLLAPSING);panel.style.height='';panel.style.overflow='';hint(panel,null)};
-    token.abandon=()=>{playback.stop?.();arrived.abandon();liveCancellations.delete(cancel)};
+      if(cancelled||disclosureRuns.get(panel)!==token)return;
+      cancelled=true;cancelPlayback();arrived.abandon();clearStyles();
+      if(playback.cancel){
+        // Motion's DOM renderer can have the cancelled value queued for the
+        // next frame. Clear it after that flush, only while this exact token
+        // still owns the panel. A replacement animation invalidates this work.
+        requestAnimationFrame(()=>{if(disclosureRuns.get(panel)!==token)return;disclosureRuns.delete(panel);clearStyles()});
+      }else disclosureRuns.delete(panel);
+    };
+    token.abandon=()=>{if(cancelled)return;cancelled=true;cancelPlayback();arrived.abandon();liveCancellations.delete(cancel)};
     liveCancellations.add(cancel);
     return arrived.finally(() => {
       liveCancellations.delete(cancel);
-      if (disclosureRuns.get(panel) !== token) return;
+      if (cancelled||disclosureRuns.get(panel) !== token) return;
       disclosureRuns.delete(panel);
       panel.classList.remove(COLLAPSING);
       panel.style.height = "";
