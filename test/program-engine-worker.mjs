@@ -29,10 +29,11 @@ import { corpusCases } from "./fixtures/program-compiler-corpus-cases.mjs";
 
 const require = createRequire(import.meta.url);
 const {default:ProgramEngine} = await import(process.env.REPFORGE_PROGRAM_ENGINE_SOURCE || "../src/platform/program-executor.js");
-const Adapter = require("../program-entry-adapter.js");
-const Compiler = require("../program-compiler.js");
+const generation = require("../src/training/generation.js").createGenerationRules();
+const Compiler = generation.compiler;
+const Adapter = require("../src/training/authoring.js").createEntryAdapter({compiler:Compiler});
 const Catalog = require("../assets/exercise-catalog.json");
-require("../generation-identity.js").prepareCatalog(Catalog);
+generation.identity.prepareCatalog(Catalog);
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const failures = [];
