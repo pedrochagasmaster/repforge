@@ -192,7 +192,7 @@ assert(!/is-played|style\.setProperty\("--i"/.test(app), "the summary sets no st
     "the count ramp eases out to exactly 1 and is clamped, so it neither overshoots nor dips below zero");
   assert(/setTimeout\(finish/.test(ramp), "a backgrounded tab still lands on the final figures");
   assert(!/odometer|translateY|transform|toLocaleString|\.animate\(/.test(ramp), "the count ramp rewrites the figure's text only: no odometer digits or transforms");
-  assert(/data-ramp="\$\{esc\(n\)\}"/.test(markup) && /rampStats\(el.querySelector\("\.sum-stats"\)\)/.test(summary),
+  assert(/data-ramp="\$\{esc\(n\)\}"/.test(markup) && /rampStats\(\w+.querySelector\("\.sum-stats"\)\)/.test(summary),
     "only the stat row's totals ramp, and only when the summary opens");
 }
 assert(!/\.view\b/.test(layer) && !/\.toast\b/.test(layer) && !/effortpop/.test(layer), "navigation, toasts and effort explanations remain CSS-owned");
