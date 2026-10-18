@@ -7,6 +7,7 @@ import {canonicalize, draftProgramFingerprint, snapshotBlockId, readRevision} fr
 
 /** @typedef {import('./session.js').Snapshot} Snapshot
  * @typedef {import('./session.js').ProgramRow} ProgramRow
+ * @typedef {import('./session.js').HistoryRow} HistoryRow
  * @typedef {import('./session.js').ProgramMeta} ProgramMeta
  * @typedef {import('./session.js').ProgramHistory} ProgramHistory
  * @typedef {import('./session.js').CustomExercise} CustomExercise
@@ -31,8 +32,8 @@ import {canonicalize, draftProgramFingerprint, snapshotBlockId, readRevision} fr
  * read/refreshHead/commit are the root's durable owner capabilities. authoring:
  * token, tokenEqual, rebaseDocument, confirmOptIn, impact, snapshotFromDocument.
  * drafts: readRaw, clearEffect, dayReplacementEffect.
- * @param {{read:()=>Snapshot,refreshHead:()=>Promise<{conflict?:boolean,head?:Snapshot}>,commit:Commit,authoring:Authoring,drafts:ProgramDrafts}} options */
-export function createProgramCommands({read, refreshHead, commit, authoring, drafts}) {
+ * @param {{read:()=>Snapshot,refreshHead:()=>Promise<{conflict?:boolean,head?:Snapshot}>,commit:Commit,authoring:Authoring,drafts:ProgramDrafts,defaultMeta?:(log:HistoryRow[])=>ProgramMeta,now?:()=>string}} options */
+export function createProgramCommands({read, refreshHead, commit, authoring, drafts,defaultMeta,now}) {
   /** @param {{expectedToken?:EditorToken,nextDocument:EditorDocument,edits?:EditorIntent[],discardWorkout?:boolean}} request */
   async function applyEdits({expectedToken, nextDocument, edits = [], discardWorkout = false}) {
     const capturedEdits = copySnapshot(edits), capturedToken = copySnapshot(expectedToken);
@@ -83,10 +84,29 @@ export function createProgramCommands({read, refreshHead, commit, authoring, dra
       }});
     if (result.committed === true && result.settled === true)
       return {...result, ok: true, document, token: authoring.token(read()),
-        discardedWorkout: effect?.status === 'valid' && effect.effect?.kind === 'clear-draft'};
+        discardedWorkout: effect != null && 'status' in effect && effect.status === 'valid' && effect.effect?.kind === 'clear-draft'};
     return {...result, ok: false, conflict: !!(result.conflict || result.staleRevision)};
   }
-  return Object.freeze({applyEdits});
+  /** @param {Record<string,unknown>} [partial] */
+  async function updateMetadata(partial={}){
+  if(!defaultMeta||!now)throw new Error('program metadata composition is unavailable');
+  const proposal=copySnapshot(read());
+  if(!proposal.programMeta)proposal.programMeta=defaultMeta(proposal.log);
+  if(partial.name!==undefined)proposal.programMeta.name=String(partial.name??"").trim();
+  if(partial.started!==undefined){const v=partial.started;proposal.programMeta.started=typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)?v:null}
+  if(partial.goal!==undefined)proposal.programMeta.goal=partial.goal;
+  if(partial.experience!==undefined)proposal.programMeta.experience=partial.experience;
+  if(partial.daysPerWeek!==undefined)proposal.programMeta.daysPerWeek=partial.daysPerWeek;
+  if(partial.splitType!==undefined)proposal.programMeta.splitType=partial.splitType;
+  if(partial.equipment!==undefined)proposal.programMeta.equipment=partial.equipment;
+  if(partial.priorityMuscles!==undefined)proposal.programMeta.priorityMuscles=partial.priorityMuscles;
+  if(partial.sessionLength!==undefined)proposal.programMeta.sessionLength=partial.sessionLength;
+  if(partial.mesocycleStatus!==undefined)proposal.programMeta.mesocycleStatus=partial.mesocycleStatus;
+  if(partial.onboarded!==undefined)proposal.programMeta.onboarded=partial.onboarded;
+  proposal.programMeta.updated=now();
+  return commit(proposal,{})}
+
+  return Object.freeze({applyEdits,updateMetadata});
 }
 function staleBlock() { return {ok: false, conflict: true, editorConflict: true, staleBlock: true}; }
 /** @param {string|undefined} code */
@@ -94,7 +114,7 @@ function editorConflict(code) { return {ok: false, conflict: true, editorConflic
 /** @param {{issues?:unknown[]}} result */
 function invalidOptIn(result) { return {ok: false, invalid: true, suggestLoads: result.issues?.[0] || null}; }
 /** @param {DraftEffect|null|undefined} effect */
-function abortsSameDay(effect) { return effect?.status === 'valid' && effect.effect?.precondition === 'abort-same-day'; }
+function abortsSameDay(effect) { return effect != null && 'status' in effect && effect.status === 'valid' && effect.effect?.precondition === 'abort-same-day'; }
 
 /** Custom-definition CAS and archive policy. The canonical model instance owns
  * normalization/identity; this application owner owns lock-held mutation intent.
@@ -167,7 +187,7 @@ export function createCustomExerciseCommands({read, commit, model, normalizeMusc
     };
     return {result: await commit(upsert(snapshot, entry), {preflight}, io), entry};
   }
-  /** @param {string} id @param {{action?:string|null,expectedEntry?:CustomExercise|null,io?:unknown}} [options] */
+  /** @param {string} id @param {{action?:string|null,expectedEntry?:CustomExercise|null,io?:unknown}} [options] @returns {Promise<(CommitResult & {archived:boolean,operation:string})|null>} */
   async function remove(id, {action = null, expectedEntry = null, io} = {}) {
     if (!isCustomLibraryId(id)) return null;
     const snapshot = read(), existing = entries(snapshot).find(entry => entry.id === id) || null;
@@ -287,7 +307,10 @@ export function createProgramReplacementCommands({read, commit, capture, allocat
   }
   /** @param {Snapshot} proposal @param {ReplacementOptions} [options] */
   async function replace(proposal, options = {}) {
-    const snapshot = read(), captured = options.capture === undefined ? capture(snapshot) : options.capture;
+    const snapshot = read(), currentBlockId = snapshotBlockId(snapshot);
+    if (currentBlockId !== null && typeof currentBlockId !== 'string')
+      return {localOk:false,idbOk:false,invalid:true,code:'invalid-program-block-identity'};
+    const captured = options.capture === undefined ? capture(snapshot) : options.capture;
     const {effect = null, expectedSetupDraftRaw, replace = false, expectedFirstRunEmpty = false, preflight = null,
       expectedProgramId, expectedProgramFingerprint, expectedBlockId, expectedStorageRevision, io} = options;
     const next = copySnapshot(proposal), predecessorId = captured?.oldProgramId ?? snapshot?.programMeta?.id;
@@ -295,13 +318,13 @@ export function createProgramReplacementCommands({read, commit, capture, allocat
       next.programMeta.blockId = allocateBlockId();
     if (captured) archiveCapturedProgram(next, captured);
     const transition = replace && expectedFirstRunEmpty
-      ? {expectedProgramId: snapshot?.programMeta?.id || null, expectedProgramFingerprint: draftProgramFingerprint(snapshot), expectedBlockId: snapshotBlockId(snapshot)}
+      ? {expectedProgramId: snapshot?.programMeta?.id || null, expectedProgramFingerprint: draftProgramFingerprint(snapshot), expectedBlockId: currentBlockId}
       : captured
         ? {expectedProgramId: captured.oldProgramId, expectedProgramFingerprint: captured.programFingerprint,
           expectedBlockId: captured.oldBlockId, expectedStorageRevision: captured.storageRevision}
         : {expectedProgramId: expectedProgramId !== undefined ? expectedProgramId : snapshot?.programMeta?.id || null,
           expectedProgramFingerprint: expectedProgramFingerprint !== undefined ? expectedProgramFingerprint : draftProgramFingerprint(snapshot),
-          expectedBlockId: expectedBlockId !== undefined ? expectedBlockId : snapshotBlockId(snapshot),
+          expectedBlockId: expectedBlockId !== undefined ? expectedBlockId : currentBlockId,
           expectedStorageRevision: expectedStorageRevision !== undefined ? expectedStorageRevision : readRevision(snapshot)};
     return commit(next, {...transition, effect, expectedSetupDraftRaw, replace, expectedFirstRunEmpty, preflight}, io);
   }

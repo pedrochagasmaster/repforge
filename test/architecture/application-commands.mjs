@@ -149,3 +149,5 @@ assert.equal(entrySession.read().gapResult.gaps.length,1,'Entry owns an ingress 
 assert.equal(entrySession.read().gapResult.envelope.meta.name,'private draft');
 assert.throws(()=>{entrySession.read().gapResult.gaps.length=0},TypeError,'readonly gap facts cannot bypass validation');
 assert.throws(()=>{entrySession.read().gapResult.envelope.meta.name='escape'},TypeError,'nested source facts are readonly too');
+const malformedReplacement=createProgramReplacementCommands({read:()=>({programMeta:{id:'old',blockId:17}}),commit:async()=>{throw new Error('invalid identity must not commit')},capture:()=>null,allocateBlockId:()=> 'new',now:()=> 'now'});
+assert.equal((await malformedReplacement.commit({program:[],programMeta:{id:'new'}})).code,'invalid-program-block-identity');

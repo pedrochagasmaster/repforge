@@ -13,6 +13,14 @@ import {createAppearance} from './src/ui/settings/appearance.js';
 import {createGuidesView} from './src/ui/settings/guides.js';
 import {createNotificationControls} from './src/ui/settings/notifications.js';
 import {createEntryPickers,ENTRY_WHEEL_ROW} from './src/ui/entry/pickers.js';
+import {createProgramController} from "./src/ui/program/controller.js";
+let ProgramUi;
+import {createProgramFormCommands} from "./src/app/program-form.js";
+let programFormCommands;
+import {createLibraryController} from "./src/ui/library/controller.js";
+import {exerciseMedia,exerciseMediaBg,exerciseThumb,emptyThumb} from "./src/ui/exercise-media.js";
+import {foldSearch} from "./src/ui/library/search.js";
+let libraryUi;
 import {createCatalog,CATALOG_URL} from './src/platform/catalog.js';
 import {create as createProgramExecutor,url as programWorkerUrl} from './src/platform/program-executor.js';
 import {createGenerationRules} from './src/training/generation.js';
@@ -1832,7 +1840,7 @@ function captureDraftCommandTelemetry(command,before,after,ui){
     if(command.type==="skipExercise"&&ui?.bulk!==true&&before?.exercises?.[command.exerciseInstanceId]?.status!=="skipped")captureEvent("exercise_skipped",{context:"planned_session"});
     // Plan 071 §5.5: where the replacement came from; no reason is asked, so none is sent.
     if(command.type==="substituteExercise"&&(ui?.substitutionSource==="alternate"||ui?.substitutionSource==="library"))
-      captureEvent("substitution_used",SUBSTITUTION_REASONS.includes(ui.substitutionReason)
+      captureEvent("substitution_used",libraryUi.SUBSTITUTION_REASONS.includes(ui.substitutionReason)
         ?{source:ui.substitutionSource,reason:ui.substitutionReason}:{source:ui.substitutionSource})}
   catch{}}
 function enqueueDraftCommand(type,payload={},ui={}){
@@ -2096,11 +2104,11 @@ function openSubstitutePicker(id){
   // substitution rules (shared metrics, typed sets protected) apply unchanged.
   const slotId=String(ex.slotId||ex.id);
   const slot=(state.programMeta?.programDefinition?.days||[]).flatMap(day=>day.slots||[]).find(item=>item?.id===slotId);
-  openExercisePicker({title:t("picker.title_substitute"),subtitle:exerciseDisplayName(ex),
+  libraryUi.openExercisePicker({title:t("picker.title_substitute"),subtitle:exerciseDisplayName(ex),
     leading:{title:"picker.section_alternates",ids:Array.isArray(slot?.alternates)?slot.alternates:[]},
-    reasons:SUBSTITUTION_REASONS,
+    reasons:libraryUi.SUBSTITUTION_REASONS,
     onPick:entry=>{
-      const reason=pickerState?.reason||null;
+      const reason=libraryUi.pickerReason();
       if(self&&entry.id===self.id)applyPredefinedSub(id,"");
       else applyCustomSub(id,libraryName(entry),entry.id,
         {substitutionSource:(slot?.alternates||[]).includes(entry.id)?"alternate":"library",substitutionReason:reason})}})}
@@ -2200,22 +2208,6 @@ async function mergeImportedLog(incoming,io=storageIO){
   result.added=added;
   return result}
 function applyState(s){return replaceImportedState(s)}
-async function persistProgramMeta(partial={}){
-  const proposal=cloneSnapshot(state);
-  if(!proposal.programMeta)proposal.programMeta=defaultProgramMeta(proposal.log);
-  if(partial.name!==undefined)proposal.programMeta.name=String(partial.name??"").trim();
-  if(partial.started!==undefined){const v=partial.started;proposal.programMeta.started=v&&/^\d{4}-\d{2}-\d{2}$/.test(v)?v:null}
-  if(partial.goal!==undefined)proposal.programMeta.goal=partial.goal;
-  if(partial.experience!==undefined)proposal.programMeta.experience=partial.experience;
-  if(partial.daysPerWeek!==undefined)proposal.programMeta.daysPerWeek=partial.daysPerWeek;
-  if(partial.splitType!==undefined)proposal.programMeta.splitType=partial.splitType;
-  if(partial.equipment!==undefined)proposal.programMeta.equipment=partial.equipment;
-  if(partial.priorityMuscles!==undefined)proposal.programMeta.priorityMuscles=partial.priorityMuscles;
-  if(partial.sessionLength!==undefined)proposal.programMeta.sessionLength=partial.sessionLength;
-  if(partial.mesocycleStatus!==undefined)proposal.programMeta.mesocycleStatus=partial.mesocycleStatus;
-  if(partial.onboarded!==undefined)proposal.programMeta.onboarded=partial.onboarded;
-  proposal.programMeta.updated=new Date().toISOString();
-  return commitProposedState(proposal)}
 /* Creates or edits one of the lifter's own movements. Returns the stored entry
    so a caller can drop it straight into a program slot — creating a custom
    exercise is almost always the first half of "put this in my program". */
@@ -2226,6 +2218,7 @@ const customExerciseCommands=createCustomExerciseCommands({
   now:()=>new Date().toISOString(),newId:()=>`${CUSTOM_ID_PREFIX}${uid()}`,
   invalidMuscleCommit:()=>invalidMuscleDomainCommit(),
   settleMutation:options=>DurableState.settleCustomExerciseMutation(options)});
+const resolveCustomMutationIntent=customExerciseCommands.resolveIntent;
 const customExerciseStateEqual=customExerciseCommands.stateEqual;
 const customExerciseUpsert=customExerciseCommands.upsert;
 const customExerciseRemoveOrArchive=customExerciseCommands.removeOrArchive;
@@ -5358,7 +5351,7 @@ function render(){applyI18n();
   // override an explicit leave — otherwise every tab switch re-hides the nav.
   if(!workoutActive&&!workoutLeft&&draftHasProgress())workoutActive=true;
   setWorkoutActive(workoutActive);
-  renderToday();renderTabs();renderWorkout();renderStats();HistoryUi.render();renderProgram();renderSettings();renderBlockPrompt();
+  renderToday();renderTabs();renderWorkout();renderStats();HistoryUi.render();ProgramUi.renderProgram();renderSettings();renderBlockPrompt();
   updateSessionBanner();
   if(exView&&$("#exercise")?.classList.contains("active"))renderExerciseView();
   queueMicrotask(()=>maybeShowContextualGuides())}
@@ -6637,10 +6630,10 @@ window.__repforgeExerciseLibrary=EXERCISE_LIBRARY;
 window.__repforgeLibraryEntry=libraryEntry;
 window.__repforgePickableExercises=()=>pickableExercises();
 window.__repforgeLinkImported=linkImportedExercises;
-window.__repforgeOpenPicker=opts=>openExercisePicker(opts);
+window.__repforgeOpenPicker=opts=>libraryUi.openExercisePicker(opts);
 window.__repforgeSaveCustomExercise=draft=>saveCustomExercise(draft);
 window.__repforgeCustomExercises=()=>customExercises();
-window.__repforgePickerSelection=()=>pickerState?[...pickerState.selected]:null;
+window.__repforgePickerSelection=()=>libraryUi.pickerSelection();
 window.__repforgeDeleteCustomExercise=id=>deleteCustomExercise(id);
 window.__repforgeRowMuscles=row=>rowMuscles(row);
 window.__repforgeParseProgramSource=(text,name)=>parseProgramSource(text,name);
@@ -6660,11 +6653,9 @@ window.__repforgeImportDraft=()=>importDraft&&{
     reviewed:r.reviewed,match:r.match?r.match.id:null}))};
 window.__repforgeCommitImport=io=>commitImportReview(io||storageIO);
 window.__repforgeReferencedCustom=list=>referencedCustomExercises(list);
-window.__repforgeOpenLibrary=opts=>openLibrary(opts||{});
-window.__repforgeLibraryFlow=()=>libFlow&&{day:libFlow.day,tab:libFlow.tab,step:libFlow.step,
-  query:libFlow.query,muscle:libFlow.muscle,equipment:libFlow.equipment,
-  selected:[...libFlow.selected.keys()],selection:[...libFlow.selected.entries()].map(cloneSnapshot)};
-window.__repforgeEditCustom=id=>editCustomExercise(id);
+window.__repforgeOpenLibrary=opts=>libraryUi.openLibrary(opts||{});
+window.__repforgeLibraryFlow=()=>libraryUi.readLibrary();
+window.__repforgeEditCustom=id=>libraryUi.editCustomExercise(id);
 window.__repforgeCompletedVolume=(windowDays=7)=>volMapToObj(completedHardSets(windowDays));
 window.__repforgeEquipmentSupportsSplit=equipmentSupportsSplit;
 window.__repforgeTestDeltas=(prevRows,currentRows)=>buildSessionDelta(prevRows,currentRows);
@@ -7583,7 +7574,7 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
      how the movement is set up, so it gets a describing alt and no lazy hint —
      it is above the fold. Movements without licensed artwork render nothing at
      all; a placeholder tile would only promise something that never arrives. */
-  const artEntry=exerciseRefEntry(exRef),artSrc=exerciseMedia(artEntry);
+  const artEntry=libraryUi.exerciseRefEntry(exRef),artSrc=exerciseMedia(artEntry);
   const artBg=artSrc?exerciseMediaBg(artEntry):null;
   const artHtml=artSrc?`<div class="exdet-art"`+
     (artBg?` style="--exercise-art-bg:${esc(artBg)}"`:"")+`><div class="exdet-art__figure">`+
@@ -7943,14 +7934,14 @@ function editorChooseExercise(request){
         // modal controller still owns it while choosePicked awaits onPick, and
         // reopening Share before that handoff completes leaves a hidden sheet
         // with a stale active-modal record.
-        if(request?.repair)await closeExercisePicker();
+        if(request?.repair)await libraryUi.closeExercisePicker();
         if(request?.repair){
           const handoff=entry?.entry?entry:{entry,stagedCustomDefinition:null};
           resolve(handoff);
         }else resolve(entry)},
       ...(request?.repair?{onCancel:()=>resolve(null),stageOnly:true,repairSeed:request.exercise}:{}),
       ...(request?.mode==="add"?{quick:true,day:request.day}: {})};
-    openExercisePicker(options)})}
+    libraryUi.openExercisePicker(options)})}
 function installedEditorDocument(){return editorDocumentFromSnapshot(state)}
 function installedEditorToken(snapshot=state){return{revision:readRevision(snapshot),programId:snapshot?.programMeta?.id||null,
   blockId:snapshotBlockId(snapshot),fingerprint:draftProgramFingerprint(snapshot)}}
@@ -8497,6 +8488,7 @@ function installedEditorImpact(document,base=state,edits=[]){
   return{active:true,incompatible,harmless:!incompatible,effect:incompatible?null:effect}
 }
 const programCommands=createProgramCommands({read:applicationSession.read,refreshHead:refreshPersistenceHead,
+  defaultMeta:log=>defaultProgramMeta(log),now:()=>new Date().toISOString(),
   commit:(proposal,opts)=>commitProposedState(proposal,storageIO,opts),
   authoring:{token:installedEditorToken,tokenEqual:editorTokenEqual,rebaseDocument:editorRebaseDocument,
     confirmOptIn:candidate=>window.ProgramEditorSuggestLoads?.confirm(candidate,editorSuggestLoadsPolicy)||{ok:false,issues:[]},
@@ -8895,54 +8887,6 @@ function openEntryDraftEditor(){
 function closeEntryDraftEditor(){
   setupEditorOpen=false;programEditMode=false;onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;
   onboardingOrigin=null;document.body.classList.remove("is-entry-editor");closeOnboarding()}
-function setProgramMetadataHidden(hidden,{inert=false}={}){
-  const meta=$("#programMeta");if(!meta)return;
-  const trulyHidden=hidden&&inert;
-  meta.hidden=trulyHidden;
-  meta.setAttribute("aria-hidden",trulyHidden?"true":"false");
-  meta.classList.toggle("visually-hidden",hidden);
-  if(trulyHidden)meta.innerHTML="";
-}
-function renderProgram(){
-  // Nothing to show: the tab is the same invitation Today carries, not a
-  // summary of a program that does not exist. A lifter who emptied their own
-  // program keeps the editor and its Add day — they have not been sent back to
-  // the start — so onboarding is asked about too, not just content.
-  const noProgram=!hasProgramContent()&&state?.programMeta?.onboarded!==true,blank=$("#programNoProgram"),nav=document.querySelector("nav");
-  if(nav)nav.dataset.elevation="floating";
-  if(blank)blank.classList.toggle("hidden",!noProgram);
-  if(noProgram){
-    $("#program")?.classList.remove("program-ledger");
-    setProgramMetadataHidden(true,{inert:true});
-    for(const sel of["#programOverview","#programMeta","#programBlockBanner","#programEditorWrap","#programEditToggle"]){
-      const el=$(sel);if(el)el.classList.add("hidden")}
-    const cta=$("#programSetupProgram");
-    if(cta)cta.onclick=()=>startOnboarding(null,{userInitiated:true});
-    return}
-  for(const sel of["#programOverview","#programMeta","#programEditToggle"]){
-    const el=$(sel);if(el)el.classList.remove("hidden")}
-  $("#programEditorWrap")?.classList.remove("hidden");
-  renderProgramOverview();
-  const view=$("#program"),ov=$("#programOverview"),ed=$("#programEditorWrap"),tog=$("#programEditToggle");
-  view?.classList.toggle("program-editor-installed",programEditMode);
-  view?.classList.toggle("program-ledger",!programEditMode);
-  if(ov)ov.classList.toggle("is-hidden",programEditMode);
-  if(ed)ed.classList.toggle("is-hidden",!programEditMode);
-  // The installed editor keeps the existing metadata DOM for its production edit
-  // seam, but leaves it out of the visual layout like the prior editor did.
-  setProgramMetadataHidden(programEditMode);
-  if(tog){tog.textContent=programEditMode?t("program.done_editing"):t("program.edit");tog.dataset.actionRole="expansion";tog.setAttribute("aria-expanded",programEditMode?"true":"false")}
-  const end=$("#endBlock"),lede=ed?.querySelector(":scope > .program-editor-lede"),addDay=$("#addDay");
-  // Advanced remains part of the installed editor. It is inside the editor
-  // host, so hiding the disclosure here would strand the raw import/export
-  // controls whenever the visual editor is open.
-  [end,lede,addDay].forEach(el=>el?.classList.toggle("hidden",programEditMode));
-  if(programEditMode){if(nav)nav.dataset.elevation="persistent-action";armInstalledEditorHistory();if(!installedProgramEditor)mountInstalledProgramEditor();return}
-  renderProgramHeader();renderProgramEditor();
-  // Candidate edits can invalidate a paired relation while the exercise picker
-  // is closing. Focus after the editor DOM has been rebuilt, rather than racing
-  // the picker animation's one-shot focus attempt.
-  if(setupEditorOpen)focusEntryEditorStatus()}
 function focusEntryEditorStatus(){
   // A picker owns focus until its close transition has restored the editor.
   // Leave the pending request intact so the post-close call can focus the new
@@ -8956,436 +8900,8 @@ function focusEntryEditorStatus(){
   entryEditorStatusFocusPending=false;
   try{status.focus({preventScroll:true})}catch{try{status.focus()}catch{return false}}
   return true}
-/** The strategy that sets an exercise's next load, as the lifter names it. */
-function programStrategyName(ex){
-  const id=strategyIdFor(ex);
-  const names={range:t("program.progression.strategy.range"),rep_goal:t("program.progression.strategy.rep_goal"),
-    effort_target:t("program.progression.strategy.effort_target"),anchor_backoff:t("program.progression.strategy.anchor_backoff"),
-    manual:t("program.progression.strategy.manual")};
-  return names[id]||t("program.progression.strategy.unsupported")}
-/** Names as a spoken list: each name keeps its own element and the separators are decoration. */
-function programNameList(items){
-  return items.map((value,i)=>(i?`<span aria-hidden="true"> · </span>`:"")+`<span>${esc(value)}</span>`).join("")}
-/** One ledger row of the Program overview: the exercise and its strategy, sets x range, and the load
- *  `recommendation()` says comes next with the verdict mark. A manual row, or one with no history, has no
- *  load to show: the program carries no authored load yet. */
-function programRowHtml(e){
-  const rec=recommendation(e),move=rec.status==="add"||rec.status==="add2"?"up":rec.status==="reduce"?"down":"",
-    showLoad=rec.status!=="manual"&&rec.load!=null&&Number.isFinite(+rec.load);
-  const mark=move?`<span class="rxrow__mark" aria-hidden="true"><span class="verdictmark verdictmark--${move}"><span class="verdictmark__glyph"></span></span></span>`:"";
-  const word=move==="up"?t("rec.add.label"):move==="down"?t("rec.reduce.label"):"";
-  return `<button type="button" class="rxrow" data-exopen="${esc(e.id)}" data-action-role="navigation">`+
-    `<span class="rxrow__name">${esc(exerciseDisplayName(e))}<span class="rxrow__sub">${esc(programStrategyName(e))}</span></span>`+
-    `<span class="rxrow__target">${esc(e.hasRepTarget===false?programPrescriptionSummary(e):`${e.sets} × ${e.min}–${e.max}`)}</span>`+
-    `<span class="rxrow__load"${showLoad?` data-parity-target="${esc(e.id)}"`:""}>${showLoad?mark+(word?`<span class="visually-hidden">${esc(word)} </span>`:"")+esc(fmtLoad(rec.load)):""}</span></button>`}
-function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
-  const meta=state.programMeta||defaultProgramMeta(state.log),mc=mesocycleWeek(),ad=programAdherence(),health=programProgressionHealth();
-  const ds=prog.days(),goal=meta.goal?t("onb.goal."+meta.goal+".label")||meta.goal:"";
-  const segs=mc.total||6,cur=mc.current||0;
-  const plainWeek=!mc.isComplete&&!mc.isFinalWeek&&mc.current!=null;
-  const lede=goal&&plainWeek?t("program.overview.lede",{goal,days:ds.length,n:mc.current,total:mc.total})
-    :[goal,tOne("program.days_per_week",ds.length)].filter(Boolean).join(" · ");
-  let daysHtml="";
-  ds.forEach((d,i)=>{const exs=prog.forDay(d),sets=sum(exs.map(e=>e.sets)),mus=dayMuscles(d).map(muscleLabel);
-    daysHtml+=`<section class="prog-day" aria-labelledby="progDay${i}"><div class="prog-day__head"><h4 class="prog-day__title" id="progDay${i}">${esc(dayLabel(d))}</h4>`+
-      `<p class="prog-day__meta">${mus.length?programNameList(mus)+`<span aria-hidden="true"> · </span>`:""}<span>${esc(sets===1?t("history.sets.one",{n:sets}):t("entry.catalogue.sets_exact",{n:sets}))}</span></p></div>`+
-      `<div class="prog-cols" aria-hidden="true"><span>${esc(t("stats.exercise"))}</span><span>${esc(t("ledger.col.sets_range"))}</span><span>${esc(t("ledger.col.next",{unit:unitLabel()}))}</span></div>`+
-      (i===0?`<p class="prog-legend">${esc(t("program.overview.legend"))}</p>`:"")+
-      exs.map(programRowHtml).join("")+`</section>`});
-  const planned=prog.volume();let plannedTotal=0;for(const[,v] of planned)plannedTotal+=v.d+v.p;
-  el.innerHTML=`<h3 class="prog-overview__name">${esc(meta.name||t("untitled_program"))}</h3>`+
-    `<p class="prog-overview__meta">${esc(lede)}</p>`+
-    (!(goal&&plainWeek)&&(mc.current!=null||mc.isComplete)?`<p class="prog-overview__week">${esc(mesocycleWeekCopy(mc))}</p>`:"")+
-    (mc.current!=null||mc.isComplete?`<div class="segbar" aria-hidden="true" data-progress-dimension="block" data-progress-scope="active-program-week">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i+1<Math.min(cur,segs)||mc.isComplete?" is-done":i+1===cur?" is-current":""}"></span>`).join("")}</div>`:"")+
-    `<p class="prog-overview__status">${esc(t("program.overview.status",{status:programStatusLabel(ad,health),n:ad.logged,m:ad.total}))}</p>`+
-    daysHtml+
-    `<p class="section-label">${esc(t("program.planned_volume_label"))}</p>`+
-    `<button type="button" class="listrow" id="seeVolumeAudit" data-action-role="navigation"><div class="listrow__main"><div class="listrow__title">${esc(t("program.effective_sets",{n:fmt(plannedTotal)}))}</div></div>`+
-    `<span class="listrow__meta">${esc(t("program.see_audit"))}<span class="chevron" aria-hidden="true"></span></span></button>`+
-    // Nothing to read out when the program has no days left, so the row waits for one.
-    (ds.length?`<button type="button" class="listrow" id="exportProgramText" data-action-role="navigation"><div class="listrow__main"><div class="listrow__title">${esc(t("program.export_text"))}</div>`+
-      `<div class="listrow__sub">${esc(t("program.export_text.sub"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`:"")+
-    (ds.length?`<button type="button" class="listrow" id="shareProgramSetup" data-action-role="navigation"><div class="listrow__main"><div class="listrow__title">${esc(t("program.share_setup"))}</div>`+
-      `<div class="listrow__sub">${esc(t("program.share_setup_sub"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`:"")+
-    `<button type="button" class="listrow" id="reviewBlockLink" data-action-role="navigation" style="border-bottom:0"><div class="listrow__main"><div class="listrow__title">${esc(t("program.review_block"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
-  $$("#programOverview [data-exopen]").forEach(b=>b.onclick=()=>{if(b.dataset.exopen)openExerciseView(b.dataset.exopen,"program")});
-  const audit=$("#seeVolumeAudit");if(audit)audit.onclick=()=>{programEditMode=true;renderProgram()};
-  const asText=$("#exportProgramText");if(asText)asText.onclick=openProgramTextSheet;
-  const shareSetup=$("#shareProgramSetup");if(shareSetup)shareSetup.onclick=openShareSetupSheet;
-  const rev=$("#reviewBlockLink");if(rev)rev.onclick=promptEndBlock}
-
-function renderProgramChips(){
-  const top=$("#pmetaChipsTop"),bottom=$("#pmetaChipsBottom");if(!top||!bottom)return;
-  const ad=programAdherence(),mc=mesocycleWeek(),health=programProgressionHealth(),vol=programVolumeCompliance();
-  const status=programStatusLabel(ad,health);
-  const weekChip=(mc.current!=null||mc.isComplete)?`<span class="pmeta__chip">${esc(mesocycleWeekCopy(mc,"program.week_chip"))}</span>`:"";
-  const volChip=vol?`<span class="pmeta__chip">${esc(t("program.volume_chip",{pct:Math.round(vol.ratio*100)}))}</span>`:"";
-  top.innerHTML=`${weekChip}<span class="pmeta__chip pmeta__chip--status">${esc(status)}</span>`;
-  bottom.innerHTML=`<span class="pmeta__chip">${esc(t("program.days_last_7",{done:ad.logged,planned:ad.total}))}</span>${volChip}`;
-}
-
-function renderProgramHeader(){
-  const el=$("#programMeta");if(!el)return;
-  setProgramMetadataHidden(false);
-  if(!setupEditorOpen&&document.activeElement?.closest("#programMeta"))return;
-  if(setupEditorOpen){
-    const snapshot=programEditorSnapshot(),meta=snapshot.programMeta;
-    const issues=ProgramEntry.candidateActivationIssues(entryState);
-    const saveError=entryUiNotice==="save_conflict"?t("entry.save_conflict.body"):
-      entryUiNotice==="save_failed"?t("entry.save_failed.body"):null;
-    const progressionError=issues.some(issue=>issue.startsWith("progression_incompatible:"));
-    const emptyDays=issues.filter(issue=>issue.startsWith("day_empty:"))
-      .map(issue=>dayLabel(entryState.result?.preview?.programStructure?.days
-        ?.find(item=>item.dayId===issue.slice("day_empty:".length))?.label||issue.slice("day_empty:".length)));
-    const issueStatus=issues.some(issue=>issue.startsWith("progression_incompatible:"))
-      ?t("entry.editor.progression_invalid")
-      :issues.some(issue=>issue.startsWith("exercise_invalid:"))
-        ?t("entry.editor.exercise_invalid")
-        :emptyDays.length?t("entry.editor.empty_days",{days:emptyDays.join(", ")})
-          :issues.length?t("entry.editor.incomplete",{n:issues.length}):t("entry.editor.ready");
-    const status=saveError||issueStatus;
-    const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
-    el.innerHTML=`<p class="pmeta__draft"><span class="pmeta__draft-mark" aria-hidden="true"></span>${esc(t("entry.preview.lede"))}</p>`+
-      `<label class="pmeta__name">${esc(t("program.name"))}<input id="programName" type="text" value="${esc(meta.name)}" maxlength="80"></label>`+
-      `<p class="entry__active" id="entryEditorStatus" role="${saveError||progressionError?"alert":"status"}" aria-live="${saveError||progressionError?"assertive":"polite"}" tabindex="-1">${esc(status)}</p>`+
-      `<div class="btnrow btnrow--primary-first">`+
-      `<button type="button" class="btn btn--cta" id="entryEditorActivate"${issues.length||saveError?" disabled aria-describedby=\"entryEditorStatus\"":""}>${esc(activateLabel)}</button>`+
-      `<button type="button" class="btn btn--steel" id="entryEditorSave">${esc(t("entry.editor.save"))}</button></div>`;
-    const name=$("#programName");if(name)name.onchange=async()=>{
-      const proposal=programEditorSnapshot();proposal.programMeta.name=name.value.trim()||meta.name;
-      const result=await commitProgramEditorProposal(proposal);if(result.localOk||result.idbOk)renderProgram()};
-    const save=$("#entryEditorSave");if(save)save.onclick=async()=>{
-      const result=await persistSetupDraft(entryState);
-      if(result?.ok){renderProgram();toast(t("entry.editor.saved"))}
-      else $("#entryEditorStatus")?.focus?.()};
-    const activate=$("#entryEditorActivate");if(activate)activate.onclick=()=>activateEntryPreview();
-    return}
-  const meta=state.programMeta||defaultProgramMeta(state.log);
-  el.innerHTML=
-    `<div class="pmeta__row">`+
-      `<label class="pmeta__name">${esc(t("program.name"))}<input id="programName" type="text" value="${esc(meta.name)}" placeholder="${esc(t("program.name.placeholder"))}" aria-label="${esc(t("program.name_aria"))}"></label>`+
-      `<div id="pmetaChipsTop" class="pmeta__chips"></div>`+
-    `</div>`+
-    `<div class="pmeta__row">`+
-      `<label class="pmeta__started">${esc(t("program.started"))}<input id="programStarted" type="date" value="${esc(meta.started||"")}" aria-label="${esc(t("program.started_aria"))}"></label>`+
-      `<div id="pmetaChipsBottom" class="pmeta__chips"></div>`+
-    `</div>`;
-  renderProgramChips();
-  const nameInp=$("#programName"),startInp=$("#programStarted");
-  nameInp.oninput=async()=>{const captured=nameInp.value,result=await persistProgramMeta({name:captured});
-    if(!(result.localOk||result.idbOk)&&nameInp.value===captured)nameInp.value=state.programMeta?.name||""};
-  startInp.onchange=async()=>{const captured=startInp.value,result=await persistProgramMeta({started:captured||null});
-    if(result.localOk||result.idbOk)renderProgramChips();
-    else if(startInp.value===captured)startInp.value=state.programMeta?.started||""};
-}
-
-// Collapsed program days live in UI prefs so the state survives reloads without touching training data.
-function collapsedProgramDays(){const v=uiPrefs.collapsedProgramDays;return Array.isArray(v)?v.filter(x=>typeof x==="string"):[]}
-function setDayCollapsed(d,on){const cur=new Set(collapsedProgramDays());
-  on?cur.add(d):cur.delete(d);
-  setUiPref("collapsedProgramDays",[...cur].filter(x=>programEditorProgram().days().includes(x)))}
-function renameCollapsedDay(oldName,newName){const cur=collapsedProgramDays();
-  if(!cur.includes(oldName))return;
-  setUiPref("collapsedProgramDays",cur.map(x=>x===oldName?newName:x))}
-
-/* The raw JSON box is the one field a lifter types a whole document into, so a
-   render() firing mid-edit used to throw the draft away — every route into
-   render() (collapsing a day, a rest tick, a cross-tab write) reset the
-   textarea. Hold unsaved text while the program itself is unchanged; a real
-   program change is the newer edit and wins. force is for the two flows that
-   just consumed the box (Save JSON, import) and want the normalised result. */
-let programJsonSynced=null;
-function syncProgramJson({force=false}={}){
-  const box=$("#programJson");if(!box)return;
-  // The raw editor edits the canonical definition, the program's one authority.
-  const definition=programEditorSnapshot().programMeta?.programDefinition;
-  const next=JSON.stringify(definition||programEditorProgram().toJSON(),null,2);
-  if(!force){
-    if(document.activeElement===box)return;
-    if(next===programJsonSynced&&box.value!==programJsonSynced)return}
-  programJsonSynced=next;box.value=next}
-
-function renderProgramEditor(){
-  const ds=programEditorProgram().days();
-  $("#programEditor").innerHTML=ds.length
-    ?ds.map(dayCard).join("")
-    :`<div class="table"><div class="empty">${esc(t("program.empty.days"))}</div></div>`;
-  syncProgramJson();
-  bindEditor();
-}
-
-function dayCard(d){
-  const exs=programEditorProgram().forDay(d),sets=sum(exs.map(e=>e.sets));
-  const isCollapsed=collapsedProgramDays().includes(d);
-  const body=exs.length
-    ?exs.map((e,i)=>exCard(e,i,exs.length)).join("")
-    :`<p class="pday__empty">${esc(t("program.empty.exercises"))}</p>`;
-  return `<div class="pday${isCollapsed?" is-collapsed":""}" data-day="${esc(d)}">`+
-    `<div class="pday__head">`+
-      `<input class="pday__name" data-act="renameDay" data-day="${esc(d)}" value="${esc(dayLabel(d))}" aria-label="${esc(t("program.day.name_aria"))}">`+
-      `<span class="pday__count">${esc(t("program.day.count",{n:exs.length,sets:countText("sets",sets)}))}</span>`+
-      `<button class="iconbtn iconbtn--del" type="button" data-act="delDay" data-day="${esc(d)}" title="${esc(t("program.day.delete_title"))}" aria-label="${esc(t("program.day.delete_aria",{day:dayLabel(d)}))}"><span class="icon-mask icon-mask--sm icon-mask--close" aria-hidden="true"></span></button>`+
-      `<button class="iconbtn pday__caret" type="button" data-act="toggleDay" data-day="${esc(d)}" aria-expanded="${isCollapsed?"false":"true"}" title="${esc(t(isCollapsed?"program.day.expand":"program.day.collapse",{day:dayLabel(d)}))}" aria-label="${esc(t(isCollapsed?"program.day.expand":"program.day.collapse",{day:dayLabel(d)}))}"><span class="icon-mask icon-mask--sm icon-mask--chev-down" aria-hidden="true"></span></button>`+
-    `</div>`+
-    `<div class="pexlist">${body}</div>`+
-    `<button class="btn btn--steel pday__add" type="button" data-act="addEx" data-day="${esc(d)}">${esc(t("program.day.add_exercise"))}</button>`+
-  `</div>`;
-}
-
-const progressionNumber=(name,label,value,{min=0,max=100,step="1"}={})=>
-  `<label class="pstrategy__field"><span>${esc(label)}</span><input type="number" inputmode="decimal" name="${name}" value="${esc(value)}" min="${min}" max="${max}" step="${step}" required></label>`;
-
-function exCard(e,i,n){
-  const progressionOwnsShape=!!e.progression&&["range","rep_goal","effort_target","anchor_backoff"].includes(e.progression.strategy?.id);
-  const num=(f,label)=>`<label class="pex__num">${label}<input type="number" inputmode="numeric" min="1" step="1" data-id="${e.id}" data-field="${f}" value="${esc(e[f])}"${progressionOwnsShape?" disabled":""}></label>`;
-  // The name stays an editable field — a slot can be renamed to what the plate
-  // on the machine says — with the library one tap away beside it.
-  const linked=e.libraryId?libraryEntry(e.libraryId):null;
-  return `<div class="pex" data-id="${esc(e.id)}">`+
-    `<div class="pex__head">`+
-      `<input class="pex__name" data-id="${esc(e.id)}" data-field="name" value="${esc(e.name)}" placeholder="${esc(t("program.exercise.name_placeholder"))}" aria-label="${esc(t(linked?"program.exercise.alias_aria":"program.exercise.name_aria"))}">`+
-      `<button class="iconbtn pex__swap${linked?"":" is-unlinked"}" type="button" data-act="changeEx" data-id="${esc(e.id)}" title="${esc(t("program.exercise.change_title"))}" aria-label="${esc(t("program.exercise.change_aria",{name:exerciseDisplayName(e)}))}"><span class="icon-mask icon-mask--sm icon-mask--search" aria-hidden="true"></span></button>`+
-      `<div class="pex__move">`+
-        `<button class="iconbtn" type="button" data-act="up" data-id="${esc(e.id)}"${i===0?" disabled":""} aria-label="${esc(t("program.exercise.move_up"))}">▲</button>`+
-        `<button class="iconbtn" type="button" data-act="down" data-id="${esc(e.id)}"${i===n-1?" disabled":""} aria-label="${esc(t("program.exercise.move_down"))}">▼</button>`+
-        `<button class="iconbtn iconbtn--del" type="button" data-act="delEx" data-id="${esc(e.id)}" aria-label="${esc(t("program.exercise.delete_aria"))}"><span class="icon-mask icon-mask--sm icon-mask--close" aria-hidden="true"></span></button>`+
-      `</div>`+
-    `</div>`+
-    `<div class="pex__nums">${num("sets",esc(t("program.exercise.sets")))}${num("min",esc(t("program.exercise.min_reps")))}${num("max",esc(t("program.exercise.max_reps")))}</div>`+
-    // Muscles belong to the definition while a slot is linked. Showing them
-    // read-only with a way out beats letting an edit silently contradict the id.
-    `<label class="pex__mus">${esc(t("program.exercise.primary"))}<input data-id="${esc(e.id)}" data-field="primary" value="${esc(e.primary)}" placeholder="${esc(t("program.exercise.primary_placeholder"))}"${linked?" readonly":""}></label>`+
-    `<label class="pex__mus">${esc(t("program.exercise.secondary"))}<input data-id="${esc(e.id)}" data-field="secondary" value="${esc(e.secondary)}" placeholder="${esc(t("program.exercise.secondary_placeholder"))}"${linked?" readonly":""}></label>`+
-    (linked?`<p class="pex__linked">${esc(t("program.exercise.linked",{name:libraryName(linked)}))} `+
-      `<button type="button" class="pex__detach" data-act="detachEx" data-id="${esc(e.id)}">${esc(t("program.exercise.detach"))}</button></p>`:"")+
-    `<label class="pex__mus">${esc(t("program.exercise.setup_notes"))}<input data-id="${esc(e.id)}" data-field="notes" value="${esc(e.notes)}" placeholder="${esc(t("program.exercise.setup_notes_placeholder"))}"></label>`+
-  `</div>`;
-}
-
-/* Free-text editor fields. Their model values are normalised on the way in
-   (trimmed, split on commas), so the stored string routinely differs from what
-   is legitimately half-typed in the box — mirroring the model back mid-edit
-   would eat trailing spaces and re-fill a field the lifter is still clearing.
-   These echo on blur instead; see bindEditor. */
-const EDITOR_TEXT_FIELDS=new Set(["name","primary","secondary","notes"]);
-const editorFieldText=(e,field)=>String(e[field]??"");
-function commitEditorField(id,field,value,effect){
-  const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
-  nextProgram.update(id,field,value);proposal.program=nextProgram.toJSON();
-  return commitProgramEditorProposal(proposal,storageIO,{effect})}
-
-const progressionFormNumber=(data,name)=>Number(data.get(name));
-function progressionPairCompatible(id,prescription,program){
-  const relations=programEditorSnapshot().programMeta?.progressionRelations;
-  if(!Array.isArray(relations))return true;
-  const relation=relations.find(item=>Array.isArray(item?.members)&&item.members.some(member=>member.exerciseId===id));
-  if(!relation)return true;
-  const byRole={};
-  for(const member of relation.members||[]){const slot=program.find(member.exerciseId);if(!slot)return false;
-    const selected=member.exerciseId===id?prescription:progressionForExercise(slot);
-    byRole[member.role]=`${selected?.strategy?.id}@${selected?.strategy?.version}`}
-  return PersistenceProgression.pairedExposureCompatibility({heavy:byRole.heavy,volume:byRole.volume}).compatible}
-
-function bindEditor(){
-  $$("#programEditor [data-field]").forEach(inp=>{
-    const field=inp.dataset.field,isText=EDITOR_TEXT_FIELDS.has(field);
-    inp.oninput=async()=>{const e=programEditorProgram().find(inp.dataset.id);if(!e)return;
-      const captured=inp.value,priorValue=String(e[field]??"");
-      // A blank name is a stage of typing, not a rename: hold the committed name
-      // until something non-blank arrives, so the Exercise fallback never lands
-      // in the box under the cursor. Blur puts a name back if none does.
-      if(field==="name"&&!captured.trim())return;
-      let effect=null;
-      if(!setupEditorOpen&&field==="sets"){
-        const next=TrainingModel.Exercise.posInt(captured,e.sets);
-        if(next<e.sets){
-          const draftRaw=readDraftRaw();
-          let draft={};
-          try{const parsed=JSON.parse(draftRaw||"{}");if(isPlainStateObject(parsed))draft=parsed}
-          catch{}
-          if(draftHasProgressInRemovedSets(e.id,next,e.sets,draft)){
-            inp.value=e.sets;toast(t("toast.set_count_locked_draft"));return}
-          effect=draftPreservationEffect(draftRaw);
-          if(effect.status!==DRAFT_EFFECT_VALID){
-            inp.value=e.sets;toast(t("toast.set_count_locked_draft"));return}}}
-      const result=await commitEditorField(inp.dataset.id,field,captured,effect);
-      if(!(result.localOk||result.idbOk)){
-        const cur=programEditorProgram().find(inp.dataset.id);
-        if(inp.value===captured)inp.value=cur?(isText?editorFieldText(cur,field):cur[field]):captured;
-        if(effect)toast(t("toast.set_count_locked_draft"));
-        return}
-      if(!isText&&(inp.value===captured||inp.value===priorValue))
-        inp.value=String(programEditorProgram().find(inp.dataset.id)?.[field]??captured);
-      updateGauge();updateSaveMeta()};
-    if(inp.type==="number"){
-      inp.onfocus=()=>inp.select();
-      inp.onchange=()=>{const e=programEditorProgram().find(inp.dataset.id);if(!e)return;const card=inp.closest(".pex");
-        (card?card.querySelectorAll('input[type="number"][data-field]'):[inp]).forEach(x=>x.value=e[x.dataset.field])};
-    }
-    else if(isText){
-      // Every keystroke commits, so by the time a name box is empty the model holds
-      // whatever single letter survived the backspacing. Remember what was in the
-      // box on focus and put that back — clearing a name and walking away is an
-      // abandoned edit, not a rename to a fragment.
-      let onFocusText=null;
-      inp.onfocus=()=>{const e=programEditorProgram().find(inp.dataset.id);onFocusText=e?editorFieldText(e,field):null};
-      // Blur is where the box catches up with the model: stray whitespace goes.
-      inp.onchange=async()=>{
-        if(field==="name"&&!inp.value.trim()&&onFocusText){
-          // Backspacing leaves a keystroke commit per character still in flight, and
-          // a proposal built on a state they have not landed in yet diffs to nothing.
-          // Let the queue drain so the restore is a real change against the model.
-          await flushStorage();
-          if(programEditorProgram().find(inp.dataset.id)?.name!==onFocusText)
-            await commitEditorField(inp.dataset.id,field,onFocusText);}
-        const e=programEditorProgram().find(inp.dataset.id);if(!e)return;
-        const shown=editorFieldText(e,field);
-        if(inp.value!==shown)inp.value=shown;
-        onFocusText=null;
-        updateGauge();updateSaveMeta()};
-    }
-  });
-  $$('#programEditor [data-act="renameDay"]').forEach(inp=>{
-    inp.onchange=async()=>{const old=inp.dataset.day,next=inp.value.trim();
-      const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
-      if(!nextProgram.renameDay(old,next)){
-        inp.value=dayLabel(old);toast(programEditorProgram().days().includes(next)?t("toast.day_name_exists"):t("toast.day_rename_failed"));return}
-      proposal.program=nextProgram.toJSON();
-      syncProgramStructureFromProgram(proposal,nextProgram);
-      const effect=draftDayReplacementEffect(old,next,proposal);
-      const result=await commitProgramEditorProposal(proposal,storageIO,{effect,dayRenames:[{from:old,to:next}]});
-      if(!(result.localOk||result.idbOk)){inp.value=dayLabel(old);return}
-      renameCollapsedDay(old,next);
-      if(!setupEditorOpen&&day===old)day=next;
-      render();toast(t("toast.day_renamed"))};
-  });
-  $$("#programEditor button[data-act]").forEach(b=>b.onclick=()=>editorAction(b.dataset.act,b.dataset));
-}
-
-async function editorAction(act,ds){
-  if(act==="toggleDay"){const card=$(`#programEditor .pday[data-day="${CSS.escape(ds.day)}"]`);if(!card)return;
-    const now=!card.classList.contains("is-collapsed");
-    card.classList.toggle("is-collapsed",now);setDayCollapsed(ds.day,now);
-    const btn=card.querySelector(".pday__caret");
-    if(btn){btn.setAttribute("aria-expanded",now?"false":"true");
-      const label=t(now?"program.day.expand":"program.day.collapse",{day:dayLabel(ds.day)});btn.setAttribute("aria-label",label);btn.title=label}}
-  else if(act==="addEx"){
-    // The fast path: what this day is short of, what you train often, and your
-    // own movements — with the whole library one tap further on. Everything
-    // already on the day is excluded; the same movement twice is always a slip.
-    openExercisePicker({quick:true,day:ds.day,title:t("picker.add_to",{day:dayLabel(ds.day)}),subtitle:"",
-      exclude:programEditorProgram().forDay(ds.day).map(e=>e.libraryId).filter(Boolean),
-      onPick:async entry=>{
-        const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
-        nextProgram.addExercise(ds.day,entry);proposal.program=nextProgram.toJSON();
-        const result=await commitProgramEditorProposal(proposal);
-        if(result.localOk||result.idbOk){setDayCollapsed(ds.day,false);render();toast(t("toast.exercise_added"))}}})}
-  else if(act==="changeEx"){
-    const ex=programEditorProgram().find(ds.id);if(!ex)return;
-    openExercisePicker({title:t("picker.title_change"),subtitle:exerciseDisplayName(ex),
-      exclude:programEditorProgram().forDay(ex.day).filter(e=>e.id!==ex.id).map(e=>e.libraryId).filter(Boolean),
-      onPick:async entry=>{
-        const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
-        if(!nextProgram.replaceExercise(ds.id,entry))return;
-        proposal.program=nextProgram.toJSON();
-        const result=await commitProgramEditorProposal(proposal);
-        if(result.localOk||result.idbOk){render();toast(t("toast.exercise_changed"))}}})}
-  else if(act==="detachEx"){
-    const ex=programEditorProgram().find(ds.id);if(!ex)return;
-    if(!confirm(t("confirm.detach_exercise",{name:exerciseDisplayName(ex)})))return;
-    const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
-    if(!nextProgram.detachExercise(ds.id))return;
-    proposal.program=nextProgram.toJSON();
-    const result=await commitProgramEditorProposal(proposal);
-    if(result.localOk||result.idbOk){render();toast(t("toast.exercise_detached"))}}
-  else if(act==="delEx"){const draftActive=!setupEditorOpen&&draftHasProgress(),discardDraftRaw=setupEditorOpen?null:readDraftRaw();
-    const key=draftActive?"confirm.remove_exercise_discard_draft":"confirm.remove_exercise";
-    if(confirm(t(key))){
-    const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
-    nextProgram.removeExercise(ds.id);proposal.program=nextProgram.toJSON();
-    const effect=destructiveDraftClearEffect(discardDraftRaw);
-    const result=await commitProgramEditorProposal(proposal,storageIO,{effect});
-    if(result.localOk||result.idbOk){if(!setupEditorOpen)resetDraftSessionState();render();toast(t("toast.exercise_removed"))}}}
-  else if(act==="up"||act==="down"){
-    const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
-    nextProgram.move(ds.id,act==="up"?-1:1);proposal.program=nextProgram.toJSON();
-    const result=await commitProgramEditorProposal(proposal);
-    if(result.localOk||result.idbOk)render()}
-  else if(act==="delDay"){const draftActive=!setupEditorOpen&&draftHasProgress(),discardDraftRaw=setupEditorOpen?null:readDraftRaw();
-    const key=draftActive?"confirm.delete_day_discard_draft":"confirm.delete_day";
-    if(confirm(t(key,{day:dayLabel(ds.day)}))){
-    const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
-    nextProgram.removeDay(ds.day);proposal.program=nextProgram.toJSON();
-    syncProgramStructureFromProgram(proposal,nextProgram);
-    const effect=destructiveDraftClearEffect(discardDraftRaw);
-    const result=await commitProgramEditorProposal(proposal,storageIO,{effect});
-    if(result.localOk||result.idbOk){if(!setupEditorOpen)resetDraftSessionState();setDayCollapsed(ds.day,false);render();toast(t("toast.day_deleted"))}}}
-}
 
 function addVol(...args){return TrainingModel.addVol(...args)}
-
-function persistProgram(nextProgram=programEditorProgram()){
-  const proposal=programEditorSnapshot();proposal.program=new TrainingModel.Program(nextProgram.toJSON()).toJSON();
-  return commitProgramEditorProposal(proposal)}
-
-/* Hand-edited rows skip Program.update, so they also skip its rule that a
-   linked slot's label is an alias (displayName) while its muscles belong to the
-   definition. Left alone, resolveIdentity overwrites both on save and the edit
-   vanishes with a "Program saved." toast. Renames are translated into an alias
-   here, exactly as the visual editor does; muscle edits cannot be honoured
-   while the link stands, so they come back as names for the toast to report. */
-function reconcileLinkedProgramRows(rows,byId){
-  const text=v=>v==null?"":String(v).trim(),ignoredMuscles=new Set();
-  for(const row of rows){
-    if(!row||typeof row!=="object"||row.libraryId==null)continue;
-    const entry=libraryEntry(row.libraryId);
-    // An unknown id is not a link: resolveIdentity drops it and keeps the text.
-    if(!entry)continue;
-    const canonical=libraryName(entry),prev=row.id?byId.get(row.id):null;
-    const nextAlias=text(row.displayName),prevAlias=text(prev?.displayName);
-    const nextName=text(row.name),prevName=text(prev?.name);
-    // Whichever label the lifter actually touched wins; an untouched row keeps
-    // the alias it already carries.
-    const alias=nextAlias!==prevAlias?nextAlias
-      :prev?(nextName!==prevName?nextName:prevAlias)
-      :(nextAlias||nextName);
-    // Either language's catalog name is the movement itself, not an alias.
-    const isAlias=alias&&alias!==canonical&&alias!==entry.name;
-    if(isAlias)row.displayName=alias;else delete row.displayName;
-    if(text(row.primary)!==text(libraryMuscleAttribution(entry,"primary"))||text(row.secondary)!==text(libraryMuscleAttribution(entry,"secondary")))
-      ignoredMuscles.add(isAlias?alias:canonical)}
-  return{ignoredMuscles:[...ignoredMuscles]}}
-
-async function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);
-  const currentSnapshot=programEditorSnapshot();
-  const transition=setupEditorOpen?{}:programTransitionPrecondition(state);
-  // Raw JSON is a ProgramDefinition. The compiler validates it whole; rows are
-  // re-projected from it so they can never diverge from the definition.
-  const definition=canonicalProgramDefinition(parsed,currentSnapshot.customExercises||[]);
-  if(!definition){toast(t("toast.program_invalid"),{assertive:true});return}
-  const draftActive=!setupEditorOpen&&draftHasProgress(),discardDraftRaw=setupEditorOpen?null:readDraftRaw();
-  if(draftActive&&!confirm(t("confirm.replace_program_discard_draft")))return;
-  const proposal=currentSnapshot;
-  proposal.programMeta={...(proposal.programMeta||{}),programDefinition:definition,
-    daysPerWeek:definition.days.filter(day=>day.kind==="training").length,mesocycleLengthWeeks:definition.cycles};
-  proposal.program=durableProgramRows(definition,proposal.customExercises||[],proposal.programMeta);
-  migrateLogSnapshot(proposal);
-  const effect=destructiveDraftClearEffect(discardDraftRaw);
-  const result=await commitProgramEditorProposal(proposal,storageIO,{effect,...transition});
-  if(!(result.localOk||result.idbOk))return result;
-  if(!setupEditorOpen)resetDraftSessionState();
-  // Land on an exercise-bearing day. Structure order can put a renamed first
-  // slot (e.g. Push Day) ahead of Day 2; sorted exercise days match the pre-
-  // structure default and avoid a day-switch discard wiping a just-set date.
-  const exerciseDays=[...new Set((programEditorProgram().exercises||[]).map(x=>x.day))]
-    .sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
-  if(!setupEditorOpen)day=exerciseDays.includes(day)?day:(exerciseDays[0]||days()[0]||"Day 1");
-  render();
-  // The save consumed the box, so show the normalised result over the draft.
-  syncProgramJson({force:true});
-  toast(t("toast.program_saved"));
-  return result}
-  catch{toast(t("toast.program_json_invalid"))}}
 
 function notifyEffective(){return notificationControls().effective()}
 function reconcileNotifyPermission(){return notificationControls().reconcile()}
@@ -9655,7 +9171,7 @@ async function beginShareRepair(exerciseInstanceId){
   if(!shareRepairReturn)return;
   if(!shareRepairTargetMatches(shareRepairReturn,state)){finishInstalledEditor({discard:true});return}
   programEditMode=true;
-  renderProgram();
+  ProgramUi.renderProgram();
   const editor=installedProgramEditor;
   if(!editor){finishInstalledEditor({discard:true});return}
   const result=await editor.replaceExercise(id);
@@ -9706,562 +9222,6 @@ async function shareSetupLinkNow(){
 /* Search is accent- and case-blind, and reads both languages at once: a
    Portuguese lifter still types "bench press" for a machine whose plate says
    so, and an English one still finds "supino". */
-const foldSearch=s=>String(s??"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
-const MUSCLE_TOKENS=ProgramEntry.MUSCLE_TOKENS;
-const PICKER_EQUIPMENT=ProgramEntry.KNOWN_EQUIPMENT;
-/* Muscle filters lifters actually think in, each covering the tokens under it. */
-const PICKER_MUSCLE_GROUPS=Object.freeze([
-  ["chest",["Chest"]],
-  ["back",["Lats","Mid/upper back","Traps"]],
-  ["shoulders",["Front delts","Side delts","Rear delts"]],
-  ["arms",["Biceps","Triceps","Forearms"]],
-  ["legs",["Quads","Hamstrings","Glutes","Adductors","Abductors","Calves"]],
-  ["core",["Abs","Obliques","Spinal erectors"]],
-]);
-
-let pickerState=null,pickerReturn=null,customState=null,customReturn=null;
-
-const exerciseSearchText=e=>foldSearch(`${e.name} ${e.namePt||""} ${e.primary||""} ${e.secondary||""}`);
-function exerciseMatches(e,query,muscleGroup,equipment){
-  if(equipment&&!(e.equipment||[]).includes(equipment))return false;
-  if(muscleGroup){
-    const group=PICKER_MUSCLE_GROUPS.find(g=>g[0]===muscleGroup);
-    const tokens=`${e.primary||""},${e.secondary||""}`.split(",");
-    if(group&&!tokens.some(x=>group[1].includes(x)))return false}
-  if(!query)return true;
-  const hay=exerciseSearchText(e);
-  return foldSearch(query).split(/\s+/).filter(Boolean).every(w=>hay.includes(w))}
-
-/* Library ids already in the program, and names already logged. Both float to
-   the top of the list: the movement somebody wants next is usually one they
-   have met before. */
-function programLibraryIds(){
-  const ids=new Set();
-  for(const e of state.program||[])if(e.libraryId)ids.add(String(e.libraryId));
-  return ids}
-/* What the lifter has actually trained, for promoting familiar movements in the
-   picker. Library ids are the reliable half — names only match when the log was
-   written in the language the picker is being read in. */
-function loggedExerciseRefs(){
-  const ids=new Set(),names=new Set();
-  for(const r of state.log||[]){
-    if(r?.performedLibraryId)ids.add(String(r.performedLibraryId));
-    if(r?.performedName)names.add(foldSearch(r.performedName));
-    if(r?.name)names.add(foldSearch(r.name))}
-  for(const e of state.program||[])if(e.libraryId)ids.add(String(e.libraryId));
-  return{ids,names}}
-
-/* ---- Exercise artwork ----
-   Twenty-four movements have licensed illustrations; every other built-in and
-   every custom exercise renders a deliberately empty tile. The empty state is
-   an element with no src, not an <img> pointing at a file that is not there:
-   a broken-image request is both a wasted fetch and a visible glyph. Both
-   shapes are the same size so a mixed list stays aligned. */
-const exerciseMedia=e=>(e&&typeof e.media==="string"&&e.media)||null;
-/* The paper colour the illustration is drawn on, sampled per file at build time
-   (tools/sample-media-bg.mjs). The detail page lays the artwork on a field of
-   this colour so the opaque square dissolves rather than reading as a pasted
-   tile. Re-checked here because the value reaches a style attribute, and a
-   generated file is still a file somebody can edit. */
-const HEX_COLOR=/^#[0-9a-f]{6}$/i;
-const exerciseMediaBg=e=>(e&&typeof e.mediaBg==="string"&&HEX_COLOR.test(e.mediaBg)&&e.mediaBg)||null;
-/* A program slot and an identity recovered from a log row both carry a library
-   id rather than the artwork itself, so the illustration has to come from the
-   definition they point at. A custom entry resolves too and simply has none. */
-const exerciseRefEntry=ref=>ref?.libraryId!=null?libraryEntry(ref.libraryId):ref;
-const emptyThumb=({size="md"}={})=>
-  `<span class="exthumb exthumb--${esc(size)} exthumb--empty" aria-hidden="true"></span>`;
-function exerciseThumb(e,{size="md"}={}){
-  const src=exerciseMedia(e);
-  if(!src)return emptyThumb({size});
-  // alt is empty on purpose: the exercise name sits next to it in every list,
-  // so describing the drawing again would only repeat the row to a screen reader.
-  return `<img class="exthumb exthumb--${esc(size)}" src="${esc(src)}" alt="" `+
-    `loading="lazy" decoding="async" width="768" height="768">`}
-
-function pickerRow(e,{selected=false,checkbox=false}={}){
-  const muscles=[e.primary,e.secondary].filter(Boolean).join(",").split(",").filter(Boolean);
-  const shown=muscles.slice(0,3).map(muscleLabel);
-  const eq=(e.equipment||[])[0]||null;
-  return `<button type="button" class="pickrow${selected?" is-selected":""}" data-pick="${esc(e.id)}"`+
-    (checkbox?` role="checkbox" aria-checked="${selected?"true":"false"}"`:"")+`>`+
-    exerciseThumb(e,{size:"sm"})+
-    `<span class="pickrow__main">`+
-      `<span class="pickrow__name">${esc(libraryName(e))}</span>`+
-      `<span class="pickrow__meta">${esc(shown.join(" · "))}</span>`+
-    `</span>`+
-    (eq?`<span class="pickrow__eq">${esc(t("picker.equipment."+eq))}</span>`:"")+
-    `<span class="pickrow__tick" aria-hidden="true"></span>`+
-  `</button>`}
-
-/* The swap sheet's optional reason (Plan 071 §10): one tap, none by default,
-   and picking an exercise never waits on it. The chips lead the scrolling list
-   rather than the fixed tools, so enlarged text can never crowd the list out. */
-const SUBSTITUTION_REASONS=Object.freeze(["equipment","preference","pain","crowded","other"]);
-const SUBSTITUTION_REASON_LABELS=Object.freeze({equipment:"picker.reason.equipment",preference:"picker.reason.preference",
-  pain:"picker.reason.pain",crowded:"picker.reason.crowded",other:"picker.reason.other"});
-function renderPickerReasons(){
-  const el=$("#exPickReasons");if(!el)return;
-  const reasons=pickerState?.reasons;
-  if(!reasons){el.innerHTML="";return}
-  el.innerHTML=`<p class="pick__reasons-label" id="exPickReasonsLabel">${esc(t("picker.reason_label"))}</p><div class="pick__reasons-chips">`+
-    reasons.map(reason=>{const on=pickerState.reason===reason;
-      return `<button type="button" class="pchip${on?" is-active":""}" data-pick-reason="${reason}" aria-pressed="${on}">${esc(t(SUBSTITUTION_REASON_LABELS[reason]))}</button>`}).join("")+`</div>`;
-  el.querySelectorAll("[data-pick-reason]").forEach(button=>button.onclick=()=>{
-    const reason=button.dataset.pickReason;
-    pickerState.reason=pickerState.reason===reason?null:reason;
-    renderPickerReasons();
-    el.querySelector(`[data-pick-reason="${reason}"]`)?.focus()})}
-function renderPickerFilters(){
-  const el=$("#exPickFilters");if(!el||!pickerState)return;
-  const chip=(kind,val,label,active)=>
-    `<button type="button" class="pchip${active?" is-active":""}" data-filter="${kind}" data-val="${esc(val)}" aria-pressed="${active?"true":"false"}">${esc(label)}</button>`;
-  const parts=[chip("clear","",t("picker.filter_all"),!pickerState.muscle&&!pickerState.equipment)];
-  for(const [key] of PICKER_MUSCLE_GROUPS)
-    parts.push(chip("muscle",key,t("picker.group."+key),pickerState.muscle===key));
-  for(const eq of PICKER_EQUIPMENT)
-    parts.push(chip("equipment",eq,t("picker.equipment."+eq),pickerState.equipment===eq));
-  el.innerHTML=parts.join("");
-  $$("#exPickFilters .pchip").forEach(b=>b.onclick=()=>{
-    const kind=b.dataset.filter;
-    if(kind==="clear"){pickerState.muscle=null;pickerState.equipment=null}
-    else if(kind==="muscle")pickerState.muscle=pickerState.muscle===b.dataset.val?null:b.dataset.val;
-    else pickerState.equipment=pickerState.equipment===b.dataset.val?null:b.dataset.val;
-    renderPickerFilters();renderPickerList()})}
-
-const pickerCandidates=()=>(pickerState?.extras||[]).concat(pickableExercises());
-const pickerEntry=id=>pickerCandidates().find(e=>e.id===id)||libraryEntry(id);
-
-function renderPickerList(){
-  const el=$("#exPickList");if(!el||!pickerState)return;
-  const {query,muscle,equipment,mode,selected,exclude}=pickerState;
-  const multi=mode==="multi";
-  // A quick-add tab narrows the source; typing in it searches everything,
-  // because a lifter who types a name wants that name, not the tab.
-  const source=pickerState.quick&&!query?libTabList(pickerState.tab):pickerCandidates();
-  const matches=e=>!!e&&!exclude.has(e.id)&&exerciseMatches(e,query,muscle,equipment);
-  // A caller's leading group (the swapped slot's alternates) keeps its own
-  // order and is not repeated in the groups below it.
-  const leading=pickerState.quick?[]:pickerState.leading.ids.map(pickerEntry).filter(matches);
-  const leadingIds=new Set(leading.map(e=>e.id));
-  const all=source.filter(e=>!leadingIds.has(e.id)&&matches(e));
-  const inProgram=programLibraryIds(),logged=loggedExerciseRefs();
-  const custom=[],known=[],rest=[];
-  const familiar=e=>inProgram.has(e.id)||logged.ids.has(e.id)||
-    logged.names.has(foldSearch(e.name))||logged.names.has(foldSearch(e.namePt||""));
-  for(const e of all){
-    if(isCustomLibraryId(e.id)||e.nameOnly)custom.push(e);
-    else if(familiar(e))known.push(e);
-    else rest.push(e)}
-  // Rank before name. Alphabetical alone answers "row" with four barbell
-  // variants before plain Barbell row, and opens the library on an assisted
-  // kneeling dip — the staple for a movement should lead its own results.
-  rest.sort((a,b)=>(a.rank??50)-(b.rank??50)||libraryName(a).localeCompare(libraryName(b)));
-  const section=(key,list)=>list.length
-    ?`<p class="pick__section">${esc(t(key))}</p>`+list.map(e=>pickerRow(e,{selected:selected.has(e.id),checkbox:multi})).join("")
-    :"";
-  const html=pickerState.quick&&!query
-    ?(all.length?`<p class="pick__section">${esc(t("picker.tab_head."+pickerState.tab))}</p>`+
-      all.map(e=>pickerRow(e,{selected:selected.has(e.id),checkbox:multi})).join(""):"")
-    :section(pickerState.leading.title,leading)+
-      section("picker.section_custom",custom)+
-      section("picker.section_known",known)+
-      section("picker.section_all",rest);
-  el.innerHTML=(pickerState?.reasons?`<div id="exPickReasons" class="pick__reasons" role="group" aria-labelledby="exPickReasonsLabel"></div>`:"")+
-    (html||`<p class="pick__empty">${esc(t("picker.empty",{q:query}))}</p>`);
-  renderPickerReasons();
-  $$("#exPickList .pickrow").forEach(b=>b.onclick=()=>choosePicked(b.dataset.pick));
-  const done=$("#exPickDone");
-  if(done)done.textContent=multi&&selected.size?t("picker.done_count",{n:selected.size}):t("dialog.done")}
-
-async function choosePicked(id){
-  if(!pickerState||pickerState.choosing)return;
-  const entry=pickerEntry(id);
-  if(!entry)return;
-  if(pickerState.mode==="multi"){
-    if(pickerState.selected.has(id))pickerState.selected.delete(id);
-    else pickerState.selected.add(id);
-    renderPickerList();return}
-  const active=pickerState,handler=active.onPick;
-  active.choosing=true;
-  active.completed=true;
-  const sheet=$("#exPickSheet");if(sheet)sheet.setAttribute("aria-busy","true");
-  try{if(handler)await handler(entry);await closeExercisePicker();focusEntryEditorStatus()}
-  finally{if(pickerState===active)active.choosing=false;if(sheet)sheet.removeAttribute("aria-busy")}}
-
-/* mode "single" fires onPick with one entry and closes; "multi" collects and
-   fires once on Done with the entries in selection order. */
-function openExercisePicker({title=null,subtitle="",mode="single",selected=[],exclude=[],extras=[],onPick=null,
-  onCancel=null,stageOnly=false,repairSeed=null,quick=false,day:dayName=null,query="",muscle=null,equipment=null,tab=null,
-  leading=null,catalogOnly=false,reasons=null}={}){
-  const sheet=$("#exPickSheet"),scrim=$("#exPickScrim"),search=$("#exPickSearch");
-  if(!sheet)return;
-  pickerState={query:String(query||""),muscle,equipment,mode,onPick,onCancel,stageOnly,repairSeed,completed:false,
-    selected:new Set(selected.filter(Boolean).map(String)),
-    exclude:new Set(exclude.filter(Boolean).map(String)),
-    extras:extras.filter(Boolean),
-    leading:{title:leading?.title||"",ids:(leading?.ids||[]).filter(Boolean).map(String)},
-    quick,day:dayName,tab:quick&&(LIB_TABS.includes(tab)?tab:"suggested"),
-    reasons:Array.isArray(reasons)?reasons:null,reason:null,
-    // Kept so the custom-exercise detour can put this exact picker back, with
-    // whatever was typed and filtered still in place.
-    reopen:{title,subtitle,mode,exclude:[...exclude],extras:[...extras],onPick,onCancel,stageOnly,repairSeed,quick,day:dayName,leading,catalogOnly,reasons}};
-  pickerReturn=document.activeElement;
-  $("#exPickTitle").textContent=title||t("picker.title");
-  const sub=$("#exPickFor");if(sub)sub.textContent=subtitle||"";
-  if(search)search.value=pickerState.query;
-  const done=$("#exPickDone");
-  if(done)done.classList.toggle("hidden",mode!=="multi");
-  const tabs=$("#exPickTabs");if(tabs)tabs.classList.toggle("hidden",!quick);
-  const full=$("#exPickFull");if(full)full.classList.toggle("hidden",!quick);
-  const custom=$("#exPickCustom");if(custom)custom.classList.toggle("hidden",setupEditorOpen||catalogOnly);
-  if(quick)renderQuickTabs();
-  renderPickerFilters();renderPickerList();
-  document.body.classList.add("is-sheet-open");
-  // The sheet takes focus, not the search box: focusing an input raises the
-  // software keyboard, which covers half the phone before the lifter has asked
-  // to type — and browsing the list is the common move, typing the rarer one.
-  // The dialog element carries tabindex="-1" so it can hold focus without
-  // joining the tab order, and Tab from it lands on the sheet's first control.
-  openModal(sheet,{initialFocus:sheet,returnFocus:pickerReturn,onEscape:closeExercisePicker,scrim,
-    delayHide:reducedMotion()?0:280});
-  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
-
-function closeExercisePicker(){
-  const sheet=$("#exPickSheet");
-  if(!sheet)return Promise.resolve(false);
-  if(sheet.hidden&&!(shellView().activeModal&&shellView().activeModal.el===sheet))return Promise.resolve(false);
-  const active=pickerState,notifyCancel=!!active&&!active.choosing&&!active.completed&&typeof active.onCancel==="function";
-  pickerReturn=null;
-  return closeModal(sheet).then(result=>{if(notifyCancel)active.onCancel();return result})}
-
-async function confirmPickerSelection(){
-  if(!pickerState||pickerState.mode!=="multi"||pickerState.choosing)return;
-  const active=pickerState,handler=active.onPick;
-  const picked=[...active.selected].map(pickerEntry).filter(Boolean);
-  active.choosing=true;
-  active.completed=true;
-  try{if(handler)await handler(picked);await closeExercisePicker()}
-  finally{if(pickerState===active)active.choosing=false}}
-
-function pickerResumeOptions(){
-  if(!pickerState)return null;
-  return Object.assign({},pickerState.reopen,{query:pickerState.query,muscle:pickerState.muscle,
-    equipment:pickerState.equipment,tab:pickerState.tab,selected:[...pickerState.selected]})}
-
-/* ---- custom exercise editor ---- */
-
-/* Reachable editing, which the definition needs to be manageable at all: the
-   sheet always supported an existing entry, but nothing ever passed one. */
-function editCustomExercise(id){
-  const entry=customExercises().find(e=>e.id===id);
-  if(!entry)return;
-  const reopen=libraryResumeOptions();
-  openCustomExerciseSheet({entry,handoff:!!libFlow,
-    onCancel:()=>{if(reopen)openLibrary(reopen)},
-    onSave:()=>{if(reopen)openLibrary(reopen);else if(pickerState)renderPickerList()}})}
-
-function renderCustomChips(){
-  if(!customState)return;
-  const chip=(val,label,active)=>
-    `<button type="button" class="pchip${active?" is-active":""}" data-val="${esc(val)}" aria-pressed="${active?"true":"false"}">${esc(label)}</button>`;
-  const eq=$("#exCustomEquip");
-  if(eq){
-    eq.innerHTML=PICKER_EQUIPMENT.map(x=>chip(x,t("picker.equipment."+x),customState.equipment.has(x))).join("");
-    $$("#exCustomEquip .pchip").forEach(b=>b.onclick=()=>{
-      const v=b.dataset.val;
-      customState.equipment.has(v)?customState.equipment.delete(v):customState.equipment.add(v);
-      renderCustomChips()})}
-  for(const [sel,key] of [["#exCustomPrimary","primary"],["#exCustomSecondary","secondary"]]){
-    const box=$(sel);if(!box)continue;
-    box.innerHTML=MUSCLE_TOKENS.map(m=>chip(m,muscleLabel(m),customState[key].has(m))).join("");
-    $$(`${sel} .pchip`).forEach(b=>b.onclick=()=>{
-      const v=b.dataset.val;
-      if(customState[key].has(v))customState[key].delete(v);
-      else{customState[key].add(v);
-        // A muscle cannot be both; picking a side moves it.
-        customState[key==="primary"?"secondary":"primary"].delete(v)}
-      renderCustomChips()})}}
-
-function setCustomExercisePhase(active,phase){
-  if(customState!==active)return false;
-  const wasBusy=["saving","deleting","archiving","recovering","canceling"].includes(active.phase);
-  const busy=["saving","deleting","archiving","recovering","canceling"].includes(phase);
-  const sheet=$("#exCustomSheet");
-  if(!wasBusy&&busy&&sheet?.contains(document.activeElement))active.busyFocus=document.activeElement;
-  active.phase=phase;
-  if(sheet)sheet.dataset.phase=phase;
-  if(busy)sheet?.setAttribute("aria-busy","true");
-  else sheet?.removeAttribute("aria-busy");
-  const form=$("#exCustomSheet .custom__form");if(form)form.inert=busy;
-  const save=$("#exCustomSave");
-  if(save){const key=phase==="saving"?"custom.saving":phase==="canceling"?"custom.closing":
-    phase==="recovering"?active.mutationOperation==="archive"?"custom.finishing_archive":
-      active.mutationOperation==="delete"?"custom.finishing_delete":"custom.finishing_save":"dialog.save";
-    save.dataset.i18n=key;save.textContent=t(key)}
-  for(const selector of ["#exCustomSave","#exCustomCancel","#exCustomDelete"]){
-    const button=$(selector);if(button)button.disabled=busy}
-  const del=$("#exCustomDelete");
-  if(del&&active.deleteAction){
-    const pending=phase==="deleting"||phase==="archiving"||phase==="recovering";
-    const key=pending&&active.mutationOperation==="archive"?"custom.archiving":
-      pending&&active.mutationOperation==="delete"?"custom.deleting":active.deleteAction;
-    del.dataset.i18n=key;del.textContent=t(key)}
-  const recovery=$("#exCustomRecovery"),status=$("#exCustomRecoveryStatus");
-  const recovering=phase==="recovering";
-  if(recovery)recovery.hidden=!recovering;
-  if(status){status.textContent=recovering?t(active.recoveryStatusKey||"custom.finishing_save"):"";
-    status.setAttribute("aria-live","polite")}
-  const retry=$("#exCustomRecoveryRetry");
-  if(retry){retry.hidden=!recovering||!active.recoveryNeedsAction;
-    retry.disabled=!active.recoveryNeedsAction||active.recoveryAttempt}
-  const reload=$("#exCustomRecoveryReload");if(reload)reload.hidden=!recovering||!active.recoveryNeedsAction;
-  if(!busy&&phase==="editing"&&wasBusy&&active.busyFocus?.isConnected){
-    try{active.busyFocus.focus({preventScroll:true})}catch{try{active.busyFocus.focus()}catch{}}
-    active.busyFocus=null}
-  return true}
-
-/* stageOnly builds a definition without writing it. Import review consumes the
-   raw entry; Share repair consumes the explicit provenance handoff below, but
-   neither flow writes durable state before its final commit. */
-function openCustomExerciseSheet({entry=null,onSave=null,onCancel=null,handoff=false,stageOnly=false,repairHandoff=false}={}){
-  const sheet=$("#exCustomSheet"),scrim=$("#exCustomScrim"),name=$("#exCustomName");
-  if(!sheet)return;
-  const inUse=entry?customExerciseInUse(entry.id):false;
-  customState={id:entry?.id||null,sourceEntry:entry?cloneSnapshot(entry):null,onSave,stageOnly,repairHandoff,
-    phase:"editing",duplicateAcknowledgedId:null,mutationId:null,mutationOperation:null,
-    pendingMutation:null,recoveryAttempt:false,recoveryNeedsAction:false,recoveryStatusKey:null,busyFocus:null,
-    deleteAction:entry?(inUse?"custom.archive":"custom.delete"):null,
-    deleteOperation:entry?(inUse?"archive":"delete"):null,
-    // Empty for a new definition: defaulting every custom exercise to Machine
-    // quietly mislabels dumbbell and cable work the wizard then filters on.
-    equipment:new Set(entry?.equipment||[]),
-    primary:new Set(String(entry?.primary||"").split(",").filter(Boolean)),
-    secondary:new Set(String(entry?.secondary||"").split(",").filter(Boolean))};
-  setCustomExercisePhase(customState,"editing");
-  customReturn=document.activeElement;
-  if(name)name.value=entry?.name||"";
-  setCustomNameError(null);
-  const notes=$("#exCustomNotes");if(notes)notes.value=entry?.notes||"";
-  const del=$("#exCustomDelete");
-  if(del){const action=inUse?"custom.archive":"custom.delete";
-    del.classList.toggle("hidden",!entry);del.dataset.i18n=action;del.textContent=t(action)}
-  const used=$("#exCustomInUse");
-  if(used)used.classList.toggle("hidden",!(entry&&inUse));
-  customState.onCancel=onCancel;
-  renderCustomChips();
-  document.body.classList.add("is-sheet-open");
-  // handoff lets this open over the picker: openModal stands the picker down
-  // rather than refusing a second modal.
-  openModal(sheet,{initialFocus:name,returnFocus:customReturn,onEscape:cancelCustomExerciseSheet,scrim,
-    handoff,delayHide:reducedMotion()?0:280});
-  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
-
-function closeCustomExerciseSheet(){
-  const sheet=$("#exCustomSheet");
-  if(!sheet)return Promise.resolve(false);
-  if(sheet.hidden&&!(shellView().activeModal&&shellView().activeModal.el===sheet))return Promise.resolve(false);
-  customReturn=null;
-  return closeModal(sheet)}
-/* Backing out of the custom form returns to the picker it came from, with the
-   search and any multi-selection intact. Dropping the lifter back to the
-   program instead would throw away a browse they never finished. */
-async function cancelCustomExerciseSheet(){
-  const active=customState;
-  if(!active||active.phase!=="editing")return;
-  const back=active.onCancel;
-  setCustomExercisePhase(active,"canceling");
-  await closeCustomExerciseSheet();
-  if(customState!==active)return;
-  setCustomExercisePhase(active,"finished");
-  if(back)await back()}
-
-function customExerciseMutationSucceeded(result){
-  return result?.committed===true&&result?.settled===true}
-function customExerciseMutationNeedsRecovery(result){
-  return result?.status==="partial"||result?.status==="deferred"||
-    result?.recoveryPending===true||result?.finalizationPending===true||
-    result?.pendingJournalCleanup===true}
-const resolveCustomMutationIntent=customExerciseCommands.resolveIntent;
-function returnCustomDeleteToEditing(active,mutation,snapshot,code){
-  const entry=customExercises(snapshot).find(value=>value.id===mutation.id);
-  if(!entry)return false;
-  const inUse=customExerciseInUse(mutation.id,snapshot);
-  active.sourceEntry=cloneSnapshot(entry);
-  active.equipment=new Set(entry.equipment||[]);
-  active.primary=new Set(String(entry.primary||"").split(",").filter(Boolean));
-  active.secondary=new Set(String(entry.secondary||"").split(",").filter(Boolean));
-  active.deleteAction=inUse?"custom.archive":"custom.delete";
-  active.deleteOperation=inUse?"archive":"delete";
-  active.mutationOperation=null;
-  active.mutationId=null;
-  active.pendingMutation=null;
-  active.recoveryAttempt=false;
-  active.recoveryNeedsAction=false;
-  active.recoveryStatusKey=null;
-  const name=$("#exCustomName");if(name)name.value=entry.name||"";
-  const notes=$("#exCustomNotes");if(notes)notes.value=entry.notes||"";
-  renderCustomChips();
-  $("#exCustomInUse")?.classList.toggle("hidden",!inUse);
-  setCustomExercisePhase(active,"editing");
-  if(inUse)toast(t("toast.custom_became_used"));
-  else if(code==="custom_delete_changed_elsewhere")toast(t("toast.custom_changed"));
-  return true}
-async function recoverCustomExerciseMutation(active,mutation){
-  if(customState!==active)return false;
-  active.pendingMutation=mutation;
-  active.recoveryAttempt=true;active.recoveryNeedsAction=false;
-  active.recoveryStatusKey=mutation.operation==="archive"?"custom.finishing_archive":
-    mutation.operation==="delete"?"custom.finishing_delete":"custom.finishing_save";
-  setCustomExercisePhase(active,"recovering");
-  let receipt=null;
-  try{receipt=await customExerciseCommands.recover(mutation)}catch{}
-  if(customState!==active)return false;
-  if(typeof receipt?.pendingJournalId==="string")mutation.pendingJournalId=receipt.pendingJournalId;
-  if(customExerciseMutationSucceeded(receipt))return true;
-  if(receipt?.semanticRecovery===true&&
-    (receipt.code==="custom_delete_became_used"||receipt.code==="custom_delete_changed_elsewhere")&&
-    returnCustomDeleteToEditing(active,mutation,receipt.head,receipt.code))return false;
-  active.recoveryAttempt=false;active.recoveryNeedsAction=true;
-  active.recoveryStatusKey="custom.recovery.unresolved";
-  setCustomExercisePhase(active,"recovering");
-  $("#exCustomRecoveryRetry")?.focus();
-  return false}
-async function retryCustomExerciseRecovery(){
-  const active=customState;
-  if(!active||active.phase!=="recovering"||active.recoveryAttempt||!active.pendingMutation)return;
-  const mutation=active.pendingMutation;
-  const settled=await recoverCustomExerciseMutation(active,mutation);
-  if(settled)await finishCustomExerciseMutation(active,{operation:mutation.operation,entry:mutation.entry})}
-async function finishCustomExerciseMutation(active,{operation,entry}){
-  await closeCustomExerciseSheet();
-  if(customState!==active)return;
-  setCustomExercisePhase(active,"finished");
-  const message=operation==="create"?"toast.custom_created":
-    operation==="edit"?"toast.custom_saved":
-    operation==="archive"?"toast.custom_archived":"toast.custom_deleted";
-  toast(t(message));
-  if(operation==="create")customCreatedToastAt=performance.now();
-  if(operation==="delete"||operation==="archive"){
-    if(libFlow)renderLibrary();else if(pickerState)renderPickerList();
-    return}
-  if(active.onSave&&entry)await active.onSave(entry);
-  else if(pickerState)renderPickerList()}
-
-/** The name field carries its own error (R7 J-21): focus, aria-invalid and a note linked by aria-describedby, not a toast alone. */
-const CUSTOM_NAME_ERROR_ID="exCustomNameError";
-function setCustomNameError(message){
-  const input=$("#exCustomName");if(!input)return;
-  let note=document.getElementById(CUSTOM_NAME_ERROR_ID);
-  if(!message){
-    input.removeAttribute("aria-invalid");
-    if(input.getAttribute("aria-describedby")===CUSTOM_NAME_ERROR_ID)input.removeAttribute("aria-describedby");
-    note?.remove();return}
-  if(!note){
-    note=document.createElement("p");note.id=CUSTOM_NAME_ERROR_ID;note.className="custom__error";note.setAttribute("role","alert");
-    (input.closest("label")||input).after(note)}
-  note.textContent=message;
-  input.setAttribute("aria-invalid","true");input.setAttribute("aria-describedby",CUSTOM_NAME_ERROR_ID);
-  try{input.focus()}catch{}}
-async function saveCustomExerciseSheet(){
-  const active=customState;
-  if(!active||active.phase!=="editing")return;
-  const name=String($("#exCustomName")?.value||"").trim();
-  if(!name){setCustomNameError(t("toast.custom_needs_name"));return}
-  if(!active.id){
-    const twin=pickableExercises().find(e=>foldSearch(libraryName(e))===foldSearch(name)||foldSearch(e.name)===foldSearch(name));
-    if(twin&&twin.id!==active.duplicateAcknowledgedId){
-      // Offer what already exists before minting a near-identical second copy.
-  if(confirm(t("confirm.custom_duplicate",{name:libraryName(twin)}))){
-        const handler=active.onSave;
-        setCustomExercisePhase(active,"saving");
-        await closeCustomExerciseSheet();
-        if(customState!==active)return;
-        if(handler)await handler(active.repairHandoff
-          ? {entry:twin,stagedCustomDefinition:null}
-          : twin);
-        setCustomExercisePhase(active,"finished");
-        return}
-      active.duplicateAcknowledgedId=twin.id}}
-  // Equipment and a primary muscle are what make the definition usable: the
-  // wizard filters on one and the volume audit groups by the other. Exact
-  // duplicates above reuse their trusted definition instead of requiring the
-  // custom form to restate those facts.
-  if(!active.equipment.size){toast(t("toast.custom_needs_equipment"));return}
-  if(!active.primary.size){toast(t("toast.custom_needs_primary"));return}
-  const editing=!!active.id;
-  const operation=editing?"edit":"create";
-  const handler=active.onSave;
-  if(!active.mutationId)active.mutationId=active.id||`${CUSTOM_ID_PREFIX}${uid()}`;
-  active.mutationOperation=operation;
-  setCustomExercisePhase(active,"saving");
-  if(active.stageOnly){
-    const staged=normalizeCustomExercises([{id:active.id||`${CUSTOM_ID_PREFIX}${uid()}`,name,
-      equipment:[...active.equipment],
-      primary:[...active.primary].join(","),
-      secondary:[...active.secondary].join(","),
-      notes:String($("#exCustomNotes")?.value||"").trim()}])[0];
-    await closeCustomExerciseSheet();
-    if(customState!==active)return;
-    if(handler&&staged){
-      const choice=active.repairHandoff
-        ? {entry:active.id?active.sourceEntry||staged:staged,
-          stagedCustomDefinition:active.id?null:staged}
-        : staged;
-      await handler(choice);
-    }
-    setCustomExercisePhase(active,"finished");
-    return}
-  let saved;
-  try{saved=await saveCustomExercise({id:active.mutationId,name,
-    equipment:[...active.equipment],
-    primary:[...active.primary].join(","),
-    secondary:[...active.secondary].join(","),
-    notes:String($("#exCustomNotes")?.value||"").trim()},storageIO,
-    {expectedEntry:editing?active.sourceEntry:null})}
-  catch{setCustomExercisePhase(active,"editing");toast(t("toast.custom_save_failed"));return}
-  if(customState!==active)return;
-  const {result,entry}=saved;
-  if(customExerciseMutationSucceeded(result)){
-    await finishCustomExerciseMutation(active,{operation,entry});return}
-  if(customExerciseMutationNeedsRecovery(result)){
-    const settled=await recoverCustomExerciseMutation(active,{operation,id:active.mutationId,entry,
-      pendingJournalId:result.pendingJournalId||null});
-    if(settled)await finishCustomExerciseMutation(active,{operation,entry});
-    return}
-  setCustomExercisePhase(active,"editing");
-  toast(t(result?.code==="custom-exercise-changed"?"toast.custom_changed":"toast.custom_save_failed"))}
-
-async function deleteCustomExerciseSheet(){
-  const active=customState;
-  if(!active?.id||active.phase!=="editing")return;
-  const operation=active.deleteOperation||"delete";
-  active.mutationOperation=operation;
-  setCustomExercisePhase(active,operation==="archive"?"archiving":"deleting");
-  let result;
-  try{result=await deleteCustomExercise(active.id,storageIO,
-    {action:operation,expectedEntry:active.sourceEntry})}
-  catch{setCustomExercisePhase(active,"editing");toast(t("toast.custom_save_failed"));return}
-  if(customState!==active)return;
-  if(!result){setCustomExercisePhase(active,"editing");toast(t("toast.custom_in_use"));return}
-  if(customExerciseMutationSucceeded(result)){
-    await finishCustomExerciseMutation(active,{operation,entry:active.sourceEntry});
-    return}
-  if(customExerciseMutationNeedsRecovery(result)){
-    const settled=await recoverCustomExerciseMutation(active,{operation,id:active.id,
-      entry:active.sourceEntry,pendingJournalId:result.pendingJournalId||null});
-    if(settled)await finishCustomExerciseMutation(active,{operation,entry:active.sourceEntry});
-    return}
-  setCustomExercisePhase(active,"editing");
-  if(result.code==="custom-exercise-became-used"){
-    active.deleteOperation="archive";active.deleteAction="custom.archive";
-    active.mutationOperation=null;
-    const deleteButton=$("#exCustomDelete");
-    if(deleteButton){deleteButton.dataset.i18n=active.deleteAction;deleteButton.textContent=t(active.deleteAction)}
-    $("#exCustomInUse")?.classList.remove("hidden");
-    toast(t("toast.custom_became_used"));return}
-  toast(t(result?.code==="custom-exercise-changed"?"toast.custom_changed":"toast.custom_save_failed"))}
-
 /** Clipboard first; the hidden-textarea path covers browsers that refuse the
  *  async clipboard, and only a genuine failure of both surfaces a toast. */
 async function copyToClipboard(text,okKey,failKey){
@@ -10608,356 +9568,6 @@ function importDraftCustomDefinitions(draft){
    what a lifter actually does.
    ============================================================ */
 
-const LIB_TABS=["suggested","recent","yours"];
-const LIB_PAGE_TABS=["search","browse","yours"];
-let libFlow=null,libReturn=null,previewState=null;
-
-/* What this day is short of. A day that already has two chest presses does not
-   need a third suggested; one with no back work does. Ranked so the staple for
-   an uncovered pattern leads. */
-function suggestedForDay(dayName,limit=6){
-  const onDay=programEditorProgram().forDay(dayName);
-  const have=new Set(onDay.map(e=>e.libraryId).filter(Boolean));
-  const covered=new Set();
-  for(const e of onDay)for(const m of muscles(e.primary))covered.add(m);
-  const scored=[];
-  for(const e of EXERCISE_LIBRARY){
-    if(have.has(e.id))continue;
-    const prim=muscles(e.primary);
-    const fresh=prim.some(m=>!covered.has(m));
-    scored.push({e,score:(fresh?0:1)*100+(e.rank??50)})}
-  scored.sort((a,b)=>a.score-b.score||libraryName(a.e).localeCompare(libraryName(b.e)));
-  return scored.slice(0,limit).map(x=>x.e)}
-
-/* Most recently trained first, so the movements a lifter keeps coming back to
-   are the ones they see. Reads library ids, which survive a language change. */
-function recentExercises(limit=8){
-  const seen=[],ids=new Set();
-  const log=[...(state.log||[])].sort((a,b)=>compareLogChronology(b,a));
-  const add=id=>{if(!id||ids.has(id))return;const entry=libraryEntry(id);if(!entry)return;ids.add(id);seen.push(entry)};
-  for(const r of log){
-    if(seen.length>=limit)break;
-    if(r.performedLibraryId)add(r.performedLibraryId)}
-  for(const e of state.program||[]){if(seen.length>=limit)break;add(e.libraryId)}
-  return seen.slice(0,limit)}
-
-const yourExercises=()=>customExercises().filter(e=>!e.archived);
-
-function libTabList(tab,{page=false}={}){
-  if(tab==="yours")return yourExercises();
-  if(tab==="recent")return recentExercises();
-  if(tab==="suggested")return suggestedForDay(libFlow?.day||day);
-  return pickableExercises()}
-
-/* ---- quick add ---- */
-
-function renderQuickTabs(){
-  const el=$("#exPickTabs");if(!el||!pickerState?.quick)return;
-  el.classList.remove("hidden");
-  el.innerHTML=LIB_TABS.map(tab=>
-    `<button type="button" role="tab" class="picktab${pickerState.tab===tab?" is-active":""}" `+
-    `aria-selected="${pickerState.tab===tab?"true":"false"}" data-tab="${tab}">${esc(t("picker.tab."+tab))}</button>`).join("");
-  $$("#exPickTabs .picktab").forEach(b=>b.onclick=()=>{pickerState.tab=b.dataset.tab;renderQuickTabs();renderPickerList()})}
-
-/* ---- full library page ---- */
-
-function librarySelectionMap(selected){const out=new Map();
-  for(const item of Array.isArray(selected)?selected:[]){
-    const pair=Array.isArray(item)?item:[item,null],id=String(pair[0]||"");if(!id)continue;
-    out.set(id,pair[1]?cloneSnapshot(pair[1]):null)}
-  return out}
-function libraryResumeOptions(){
-  if(!libFlow)return null;
-  return{day:libFlow.day,tab:libFlow.tab,query:libFlow.query,muscle:libFlow.muscle,
-    equipment:libFlow.equipment,step:libFlow.step,editorScope:libFlow.editorScope,
-    selected:[...libFlow.selected.entries()].map(cloneSnapshot)}}
-function openLibrary({day:dayName=day,selected=[],step="browse",tab="browse",query="",muscle=null,equipment=null,editorScope=false,returnTo=null}={}){
-  libFlow={day:dayName,tab:LIB_PAGE_TABS.includes(tab)?tab:"browse",query:String(query||""),muscle,equipment,step,
-    editorScope:!!editorScope,selected:librarySelectionMap(selected)};
-  // Reached through the picker, the control that was pressed is the picker's own and it is gone by now: the caller
-  // names the control that opened the picker instead (R7 J-19).
-  libReturn=returnTo||document.activeElement;
-  const settle=routePushBegin("in",{pushed:$("#library"),under:routeViewEl(currentViewId())});
-  document.body.classList.add("is-library");
-  document.body.classList.remove("is-preview");
-  $$(".view").forEach(v=>v.classList.toggle("active",v.id==="library"));
-  window.scrollTo({top:0});
-  const search=$("#libSearch");if(search)search.value=libFlow.query;
-  renderLibrary();
-  search?.focus({preventScroll:true});
-  settle?.()}
-
-function closeLibrary({toProgram=true}={}){
-  const returnToOnboarding=!!libFlow?.editorScope&&setupEditorOpen;
-  libFlow=null;
-  const settle=toProgram?routePushBegin("out",{pushed:$("#library"),under:routeViewEl(returnToOnboarding?"onboarding":"program")}):null;
-  document.body.classList.remove("is-library","is-preview");
-  let back=resolveReturnFocus(libReturn);
-  // The editor may have redrawn its Add control since: ask for its equivalent by day.
-  if(!back&&libReturn instanceof Element&&libReturn.dataset?.role==="add-exercise")
-    back=resolveReturnFocus($$(`[data-role="add-exercise"][data-day="${CSS.escape(libReturn.dataset.day||"")}"]`).find(canTakeFocus));
-  if(back===document.body||back===document.documentElement)back=null;
-  libReturn=null;
-  if(toProgram){
-    if(returnToOnboarding){showOnboardingView();renderOnboarding()}
-    else returnToTab("program")}
-  // Starting the push out first ends any push in still running, which keeps
-  // the page beneath inert; a Back pressed mid-arrival would otherwise find
-  // nothing it could focus and leave focus on the hidden library.
-  settle?.();
-  // Back lands on the control that opened the library, or else on the heading of the page it returns to.
-  if(!(back&&focusRoute(back)))focusRoute(routeHeading(returnToOnboarding?"onboarding":"program"))}
-
-function renderLibrary({through=null}={}){
-  if(!libFlow)return;
-  const configuring=libFlow.step==="configure";
-  $("#libBrowse")?.classList.toggle("hidden",configuring);
-  $("#libConfigure")?.classList.toggle("hidden",!configuring);
-  const title=$("#libTitle");
-  if(title)title.textContent=configuring?t("library.configure_title",{day:dayLabel(libFlow.day)}):t("library.title");
-  const step=$("#libStep");
-  if(step){step.classList.remove("hidden");
-    step.innerHTML=`<p class="libstep__lab">${esc(t("library.step",{n:configuring?2:1,total:2}))}</p>`+
-      `<span class="libstep__bar${configuring?" is-done":""}" aria-hidden="true"></span>`+
-      `<span class="libstep__bar${configuring?" is-done":""}" aria-hidden="true"></span>`}
-  if(configuring)renderLibraryConfigure();else renderLibraryBrowse({through});
-  $("#libCustom")?.classList.toggle("hidden",!!libFlow.editorScope);
-  renderLibraryBar()}
-
-function renderLibraryTabs(){
-  const el=$("#libTabs");if(!el)return;
-  el.innerHTML=LIB_PAGE_TABS.map(tab=>
-    `<button type="button" role="tab" class="picktab${libFlow.tab===tab?" is-active":""}" `+
-    `aria-selected="${libFlow.tab===tab?"true":"false"}" data-tab="${tab}">${esc(t("picker.tab."+tab))}</button>`).join("");
-  $$("#libTabs .picktab").forEach(b=>b.onclick=()=>{libFlow.tab=b.dataset.tab;renderLibrary()})}
-
-function renderLibraryFilters(){
-  const el=$("#libFilters");if(!el)return;
-  // Muscle and equipment are separate ideas, so they get separate rails here
-  // rather than one undifferentiated row of chips.
-  const chip=(kind,val,label,active)=>
-    `<button type="button" class="pchip${active?" is-active":""}" data-lf="${kind}" data-val="${esc(val)}" aria-pressed="${active?"true":"false"}">${esc(label)}</button>`;
-  const muscleRow=[chip("clear","",t("picker.filter_all"),!libFlow.muscle&&!libFlow.equipment)]
-    .concat(PICKER_MUSCLE_GROUPS.map(([key])=>chip("muscle",key,t("picker.group."+key),libFlow.muscle===key)));
-  const equipRow=PICKER_EQUIPMENT.map(eq=>chip("equipment",eq,t("picker.equipment."+eq),libFlow.equipment===eq));
-  const scroller=(id,items)=>`<div id="${id}" class="pick__filters pick__filters--row" `+
-    `data-allow-horizontal-scroll="x" data-horizontal-scroll-cue="partial-last-chip" tabindex="0">${items.join("")}</div>`;
-  el.innerHTML=scroller("libMuscleFilters",muscleRow)+scroller("libEquipmentFilters",equipRow);
-  $$("#libFilters [data-allow-horizontal-scroll]").forEach(row=>row.onkeydown=(event)=>{
-    if(!["ArrowLeft","ArrowRight","Home","End"].includes(event.key))return;
-    const left=event.key==="Home"?-row.scrollWidth:event.key==="End"?row.scrollWidth:event.key==="ArrowLeft"?-80:80;
-    row.scrollBy({left,behavior:"auto"});event.preventDefault();
-  });
-  $$("#libFilters .pchip").forEach(b=>b.onclick=()=>{
-    const kind=b.dataset.lf;
-    if(kind==="clear"){libFlow.muscle=null;libFlow.equipment=null}
-    else if(kind==="muscle")libFlow.muscle=libFlow.muscle===b.dataset.val?null:b.dataset.val;
-    else libFlow.equipment=libFlow.equipment===b.dataset.val?null:b.dataset.val;
-    renderLibrary()})}
-
-function renderLibraryBrowse({through=null}={}){
-  renderLibraryTabs();renderLibraryFilters();
-  const list=$("#libList");if(!list)return;
-  const source=libFlow.tab==="yours"?yourExercises():pickableExercises();
-  const rows=source.filter(e=>exerciseMatches(e,libFlow.query,libFlow.muscle,libFlow.equipment))
-    .sort((a,b)=>(a.rank??50)-(b.rank??50)||libraryName(a).localeCompare(libraryName(b)));
-  // The full catalog is over a thousand rows. The first screenfuls render now
-  // and the rest follow a chunk per frame; a newer render abandons the old one.
-  const render=++libraryRenderToken;
-  // A row that focus must return to renders in the first pass.
-  const needed=through?rows.findIndex(e=>e.id===through)+1:0;
-  const first=Math.max(LIBRARY_FIRST_ROWS,needed);
-  list.innerHTML=rows.length
-    ?rows.slice(0,first).map(e=>libraryRowHtml(e)).join("")
-    :`<p class="pick__empty">${esc(t("picker.empty",{q:libFlow.query}))}</p>`;
-  let next=first;
-  const appendChunk=()=>{
-    if(!libFlow||render!==libraryRenderToken||!list.isConnected||next>=rows.length)return;
-    list.insertAdjacentHTML("beforeend",rows.slice(next,next+LIBRARY_CHUNK_ROWS).map(e=>libraryRowHtml(e)).join(""));
-    next+=LIBRARY_CHUNK_ROWS;requestAnimationFrame(appendChunk)};
-  // The rest waits until the view's push has settled, so it never competes
-  // with the transition for frames.
-  if(next<rows.length)setTimeout(()=>requestAnimationFrame(appendChunk),LIBRARY_DEFER_MS);
-  // One delegated handler serves every row, however many chunks arrive.
-  list.onclick=event=>{
-    const toggle=event.target.closest?.("[data-lib-toggle]");if(toggle)return toggleLibrarySelection(toggle.dataset.libToggle);
-    const preview=event.target.closest?.("[data-lib-preview]");if(preview)return openExercisePreview(preview.dataset.libPreview);
-    const edit=event.target.closest?.("[data-lib-edit]");if(edit)return editCustomExercise(edit.dataset.libEdit)}}
-const LIBRARY_FIRST_ROWS=40,LIBRARY_CHUNK_ROWS=80,LIBRARY_DEFER_MS=450;
-let libraryRenderToken=0;
-
-function libraryRowHtml(e){
-  const on=libFlow.selected.has(e.id);
-  const mus=[libraryMuscleAttribution(e,"primary"),libraryMuscleAttribution(e,"secondary")].filter(Boolean).join(",").split(",").filter(Boolean).slice(0,2).map(muscleLabel);
-  const eq=(e.equipment||[])[0];
-  const meta=[mus.join(" · "),eq?t("picker.equipment."+eq):""].filter(Boolean).join(" · ");
-  return `<div class="librow${on?" is-selected":""}" data-lib-row="${esc(e.id)}">`+
-    `<button type="button" class="librow__preview" data-lib-preview="${esc(e.id)}" aria-label="${esc(t("library.preview_aria",{name:libraryName(e)}))}">`+
-      exerciseThumb(e,{size:"md"})+
-    `</button>`+
-    `<div class="librow__text">`+
-      `<p class="librow__name">${esc(libraryName(e))}</p>`+
-      `<p class="librow__meta">${esc(meta)}</p>`+
-      (isCustomLibraryId(e.id)&&!libFlow?.editorScope
-        ?`<button type="button" class="librow__edit" data-lib-edit="${esc(e.id)}">${esc(t("library.edit"))}</button>`:"")+
-    `</div>`+
-    `<button type="button" class="librow__check${on?" is-on":""}" role="checkbox" aria-checked="${on?"true":"false"}" `+
-      `data-lib-toggle="${esc(e.id)}" aria-label="${esc(t(on?"library.remove_aria":"library.add_aria",{name:libraryName(e)}))}"></button>`+
-  `</div>`}
-
-function toggleLibrarySelection(id){
-  if(!libFlow)return;
-  if(libFlow.selected.has(id))libFlow.selected.delete(id);
-  else libFlow.selected.set(id,null);
-  // A toggle changes one row and the bar; rebuilding the whole catalog would
-  // also drop the focus the lifter's tap just put on the checkbox.
-  const row=$(`#libList [data-lib-row="${CSS.escape(id)}"]`);
-  if(!row||libFlow.step==="configure")return renderLibrary();
-  const entry=libraryEntry(id),on=libFlow.selected.has(id),check=row.querySelector("[data-lib-toggle]");
-  row.classList.toggle("is-selected",on);
-  if(check){check.classList.toggle("is-on",on);check.setAttribute("aria-checked",on?"true":"false");
-    check.setAttribute("aria-label",t(on?"library.remove_aria":"library.add_aria",{name:libraryName(entry)}))}
-  renderLibraryBar()}
-
-function renderLibraryBar(){
-  const bar=$("#libBar"),count=$("#libBarCount"),primary=$("#libPrimary");
-  if(!bar||!primary)return;
-  const n=libFlow.selected.size;
-  bar.classList.toggle("is-hidden",n===0);
-  if(count)count.textContent=n?t("library.selected",{n}):"";
-  primary.textContent=libFlow.step==="configure"
-    ?t("library.save_day",{day:dayLabel(libFlow.day)})
-    :t("library.add_n",{n,day:dayLabel(libFlow.day)});
-  primary.disabled=n===0;
-  syncLibraryBarClearance()}
-function syncLibraryBarClearance(){
-  const bar=$("#libBar"),wrap=$("#library .libwrap");if(!bar||!wrap)return;
-  if(bar.classList.contains("is-hidden")){wrap.style.removeProperty("--libbar-clearance");return}
-  wrap.style.setProperty("--libbar-clearance",`${Math.ceil(bar.getBoundingClientRect().height+16)}px`)}
-window.addEventListener("resize",syncLibraryBarClearance,{passive:true});
-
-/* ---- configure step ---- */
-
-function libraryConfigureRows(){
-  return [...libFlow.selected.entries()].map(([id,cfg])=>{
-    const entry=libraryEntry(id);
-    return{id,entry,cfg:cfg||{sets:3,min:6,max:10}}}).filter(r=>r.entry)}
-
-function renderLibraryConfigure(){
-  const el=$("#libConfigureRows");if(!el)return;
-  const rows=libraryConfigureRows();
-  const count=$("#libConfigureCount");
-  if(count)count.textContent=t("library.configure_count",
-    {exercises:countText("exercises",rows.length),sets:countText("sets",rows.reduce((a,r)=>a+r.cfg.sets,0))});
-  el.innerHTML=rows.map(r=>
-    `<div class="libcfg" data-cfg="${esc(r.id)}">`+
-      exerciseThumb(r.entry,{size:"md"})+
-      `<div class="libcfg__body">`+
-        `<p class="libcfg__name">${esc(libraryName(r.entry))}</p>`+
-        `<div class="libcfg__fields">`+
-          `<label class="libcfg__field"><span>${esc(t("program.exercise.sets"))}</span>`+
-            `<input type="number" inputmode="numeric" min="1" step="1" data-cfg-id="${esc(r.id)}" data-cfg-field="sets" value="${r.cfg.sets}"></label>`+
-          `<label class="libcfg__field"><span>${esc(t("program.exercise.min_reps"))}</span>`+
-            `<input type="number" inputmode="numeric" min="1" step="1" data-cfg-id="${esc(r.id)}" data-cfg-field="min" value="${r.cfg.min}"></label>`+
-          `<label class="libcfg__field"><span>${esc(t("program.exercise.max_reps"))}</span>`+
-            `<input type="number" inputmode="numeric" min="1" step="1" data-cfg-id="${esc(r.id)}" data-cfg-field="max" value="${r.cfg.max}"></label>`+
-        `</div>`+
-      `</div>`+
-      `<button type="button" class="libcfg__drop" data-cfg-drop="${esc(r.id)}" aria-label="${esc(t("library.remove_aria",{name:libraryName(r.entry)}))}">`+
-        `<span class="icon-mask icon-mask--sm icon-mask--close" aria-hidden="true"></span></button>`+
-    `</div>`).join("");
-  $$("#libConfigureRows [data-cfg-field]").forEach(inp=>{
-    inp.onfocus=()=>inp.select();
-    inp.oninput=()=>{
-      const id=inp.dataset.cfgId,field=inp.dataset.cfgField;
-      const cur=libFlow.selected.get(id)||{sets:3,min:6,max:10};
-      const next=Object.assign({},cur,{[field]:TrainingModel.Exercise.posInt(inp.value,cur[field])});
-      if(next.max<next.min)next.max=next.min;
-      libFlow.selected.set(id,next)}});
-  $$("#libConfigureRows [data-cfg-drop]").forEach(b=>b.onclick=()=>{
-    libFlow.selected.delete(b.dataset.cfgDrop);
-    if(!libFlow.selected.size){libFlow.step="browse"}
-    renderLibrary()})}
-
-async function commitLibrarySelection(){
-  if(!libFlow||!libFlow.selected.size)return null;
-  if(libFlow.step!=="configure"){libFlow.step="configure";renderLibrary();window.scrollTo({top:0});return null}
-  const rows=libraryConfigureRows();
-  const editorScope=!!libFlow.editorScope;
-  const result=await programAdditionCommands.addExercises({day:libFlow.day,rows,editorScope});
-  const setupDraftAccepted=editorScope&&setupEditorOpen&&result?.setupDraft===true&&
-    result?.localOk===true&&result?.idbOk===true;
-  if(!(result?.committed===true&&result?.settled===true)&&!setupDraftAccepted){
-    toast(t("toast.program_save_failed"));return result}
-  const n=rows.length,target=libFlow.day;
-  setDayCollapsed(target,false);
-  closeLibrary({toProgram:true});
-  if(editorScope&&setupEditorOpen){
-    // The full-library detour commits through the shared program-editor
-    // transaction, while the setup editor still owns its private document. Pull
-    // the committed candidate back into that editor before the next action.
-    // Every edit made before the detour was already staged in this same setup
-    // draft, so discard here is a synchronization operation, not user-facing
-    // data loss. A normal refresh would correctly report an external change as
-    // a conflict because the editor's baseline is still the pre-detour copy.
-    onboardingProgramEditor?.discard?.();
-    updateOnboardingEditorActions();
-  }else render();
-  toast(tOne("toast.exercises_added",n));
-  return result}
-
-/* ---- exercise preview ---- */
-
-function openExercisePreview(id){
-  const entry=libraryEntry(id);if(!entry)return;
-  previewState={id,from:libFlow?"library":"picker",returnId:id};
-  const settle=routePushBegin("in",{pushed:$("#exercisePreview"),under:routeViewEl(currentViewId())});
-  document.body.classList.add("is-preview");
-  $$(".view").forEach(v=>v.classList.toggle("active",v.id==="exercisePreview"));
-  window.scrollTo({top:0});
-  renderExercisePreview();
-  $("#previewBack")?.focus({preventScroll:true});
-  settle?.()}
-
-function closeExercisePreview(){
-  const back=previewState?.from,returnId=previewState?.returnId;
-  previewState=null;
-  const settle=routePushBegin("out",{pushed:$("#exercisePreview"),under:routeViewEl(back==="library"&&libFlow?"library":"program")});
-  document.body.classList.remove("is-preview");
-  if(back==="library"&&libFlow){$$(".view").forEach(v=>v.classList.toggle("active",v.id==="library"));renderLibrary({through:returnId});
-    requestAnimationFrame(()=>{const target=$(`[data-lib-preview="${CSS.escape(returnId||"")}"]`);if(target)target.focus({preventScroll:true})})}
-  else{document.body.classList.remove("is-library");returnToTab("program")}
-  settle?.()}
-
-function renderExercisePreview(){
-  const el=$("#previewBody");if(!el||!previewState)return;
-  const e=libraryEntry(previewState.id);if(!e)return;
-  const prim=muscles(libraryMuscleAttribution(e,"primary")).map(muscleLabel).join(" · ");
-  const sec=muscles(libraryMuscleAttribution(e,"secondary")).map(muscleLabel).join(" · ");
-  const eq=(e.equipment||[]).map(x=>t("picker.equipment."+x)).join(" · ");
-  const inLibrary=!!libFlow;
-  const selected=inLibrary&&libFlow.selected.has(e.id);
-  el.innerHTML=
-    `<p class="preview__eyebrow">${esc(prim)}</p>`+
-    `<h2 class="preview__title">${esc(libraryName(e))}</h2>`+
-    `<p class="preview__sub">${esc(eq)}</p>`+
-    // A large illustration carries instructional content, so it is described
-    // rather than hidden; the empty tile has nothing to describe.
-    (exerciseMedia(e)
-      ?`<img class="exthumb exthumb--lg" src="${esc(exerciseMedia(e))}" alt="${esc(t("preview.art_alt",{name:libraryName(e)}))}" decoding="async" width="768" height="768">`
-      :`<span class="exthumb exthumb--lg exthumb--empty" aria-hidden="true"></span>`)+
-    `<h3 class="preview__head">${esc(t("preview.muscles"))}</h3>`+
-    `<dl class="preview__rows">`+
-      `<div class="preview__row"><dt>${esc(t("program.exercise.primary"))}</dt><dd>${esc(prim||"—")}</dd></div>`+
-      `<div class="preview__row"><dt>${esc(t("program.exercise.secondary"))}</dt><dd>${esc(sec||"—")}</dd></div>`+
-    `</dl>`+
-    (e.notes?`<h3 class="preview__head">${esc(t("program.exercise.setup_notes"))}</h3><p class="preview__notes">${esc(e.notes)}</p>`:"")+
-    (inLibrary
-      ?`<button type="button" class="btn btn--cta" id="previewAdd">${esc(t(selected?"preview.remove":"preview.add",{day:dayLabel(libFlow.day)}))}</button>`
-      :"");
-  const add=$("#previewAdd");
-  if(add)add.onclick=()=>{toggleLibrarySelection(e.id);closeExercisePreview()}}
-
 /* ---- Import review screen ---- */
 
 const importStatusKey={[IMPORT_EXACT]:"import.status.exact",[IMPORT_ALIAS]:"import.status.alias",
@@ -11084,13 +9694,13 @@ function importRowAction(act,key,idx){
     return}
   if(act==="link"&&row.match){row.decision="link";settleImportRow(row,"top_candidate");return}
   if(act==="choose"){
-    openExercisePicker({title:t("import.pick_title"),subtitle:row.raw.name||"",
+    libraryUi.openExercisePicker({title:t("import.pick_title"),subtitle:row.raw.name||"",
       onPick:entry=>{row.match=entry;row.decision="link";settleImportRow(row,"picker")}});
     return}
   if(act==="custom"){
     // Creating the definition here rather than at commit time means the lifter
     // sees exactly what will exist before anything is written.
-    openCustomExerciseSheet({entry:{name:row.raw.name||"",primary:row.raw.primary||"",secondary:row.raw.secondary||""},
+    libraryUi.openCustomExerciseSheet({entry:{name:row.raw.name||"",primary:row.raw.primary||"",secondary:row.raw.secondary||""},
       stageOnly:true,
       onSave:entry=>{row.createdCustom=entry;row.createdCustomId=entry.id;
         row.decision="custom";settleImportRow(row,"custom")}})}}
@@ -13615,7 +12225,7 @@ function pickEntryAdjustExercise({mode,day,exercise,accept}){
   return new Promise(resolve=>{
     let settled=false;const finish=id=>{if(settled)return;settled=true;resolve(id)};
     const exclude=pickableExercises().filter(entry=>!accept(entry.id)).map(entry=>entry.id);
-    openExercisePicker({
+    libraryUi.openExercisePicker({
       title:mode==="replace"?t("picker.title_change"):t("picker.add_to",{day:entryAdjustDayName(day,entryState.result.preview.programDefinition)}),
       subtitle:exercise?libraryName(libraryEntry(exercise.exerciseId)):"",exclude,catalogOnly:true,
       onPick:entry=>finish(entry?.id||null),onCancel:()=>finish(null)})})}
@@ -16154,50 +14764,7 @@ function init(){
   const dayPickCancel=$("#dayPickCancel");if(dayPickCancel)dayPickCancel.onclick=closeDayPickSheet;
   const dayPickScrim=$("#dayPickScrim");if(dayPickScrim)dayPickScrim.onclick=closeDayPickSheet;
   const dayPickOk=$("#dayPickConfirm");if(dayPickOk)dayPickOk.onclick=()=>confirmPickerDay();
-  const pkCancel=$("#exPickCancel");if(pkCancel)pkCancel.onclick=closeExercisePicker;
-  const pkScrim=$("#exPickScrim");if(pkScrim)pkScrim.onclick=closeExercisePicker;
-  const pkDone=$("#exPickDone");if(pkDone)pkDone.onclick=confirmPickerSelection;
-  const pkSearch=$("#exPickSearch");
-  if(pkSearch)pkSearch.oninput=()=>{if(pickerState){pickerState.query=pkSearch.value;renderPickerList()}};
-  // Creating a custom exercise is the tail of a search that found nothing, so
-  // the typed text becomes the new movement's name and the picker is handed
-  // over rather than stacked under a second sheet.
-  const pkCustom=$("#exPickCustom");
-  if(pkCustom)pkCustom.onclick=()=>{
-    const reopen=pickerResumeOptions();
-    const selectedNow=reopen?.selected||[];
-    const multi=pickerState?.mode==="multi";
-    const stageOnly=pickerState?.stageOnly===true;
-    const repairSeed=stageOnly&&pickerState?.repairSeed?pickerState.repairSeed:null;
-    const onPick=pickerState?.onPick;
-    const typed=String($("#exPickSearch")?.value||"").trim();
-    const backToPicker=extraId=>{
-      if(!reopen)return;
-      openExercisePicker(Object.assign({},reopen,
-        {selected:extraId?selectedNow.concat(extraId):selectedNow}))};
-    const cancelRepair=stageOnly&&repairSeed?async()=>{
-      const activePicker=pickerState;
-      await closeCustomExerciseSheet();
-      if(pickerState!==activePicker)return;
-      activePicker.completed=true;
-      if(typeof activePicker.onCancel==="function")activePicker.onCancel();
-    }:null;
-    const seed=repairSeed?{name:repairSeed.name||typed,equipment:repairSeed.equipment||[],primary:repairSeed.primary||"",secondary:repairSeed.secondary||""}:typed?{name:typed}:null;
-    openCustomExerciseSheet({entry:seed,handoff:true,stageOnly,repairHandoff:stageOnly,
-      onCancel:cancelRepair||(()=>backToPicker(null)),
-      onSave:choice=>{
-        // A multi-pick is still being assembled, so the picker comes back with
-        // the new movement already ticked; a single pick is finished by it.
-        const entry=choice?.entry||choice;
-        if(multi){backToPicker(entry.id);return}
-        if(onPick)return onPick(stageOnly?choice:entry)}})};
-  const cuCancel=$("#exCustomCancel");if(cuCancel)cuCancel.onclick=cancelCustomExerciseSheet;
-  const cuScrim=$("#exCustomScrim");if(cuScrim)cuScrim.onclick=cancelCustomExerciseSheet;
-  const cuSave=$("#exCustomSave");if(cuSave)cuSave.onclick=saveCustomExerciseSheet;
-  const cuName=$("#exCustomName");if(cuName)cuName.addEventListener("input",()=>{if(cuName.getAttribute("aria-invalid")==="true")setCustomNameError(null)});
-  const cuDelete=$("#exCustomDelete");if(cuDelete)cuDelete.onclick=deleteCustomExerciseSheet;
-  const cuRecoveryRetry=$("#exCustomRecoveryRetry");if(cuRecoveryRetry)cuRecoveryRetry.onclick=retryCustomExerciseRecovery;
-  const cuRecoveryReload=$("#exCustomRecoveryReload");if(cuRecoveryReload)cuRecoveryReload.onclick=()=>location.reload();
+  libraryUi.bind();
   const ptClose=$("#programTextClose");if(ptClose)ptClose.onclick=closeProgramTextSheet;
   const ptScrim=$("#programTextScrim");if(ptScrim)ptScrim.onclick=closeProgramTextSheet;
   const ptCopy=$("#programTextCopy");if(ptCopy)ptCopy.onclick=copyProgramText;
@@ -16206,32 +14773,6 @@ function init(){
   const ssCopy=$("#shareSetupCopy");if(ssCopy)ssCopy.onclick=copySetupLink;
   const ssShare=$("#shareSetupShare");if(ssShare)ssShare.onclick=shareSetupLinkNow;
   const ssFile=$("#shareSetupFile");if(ssFile)ssFile.onclick=shareProgramFile;
-  const libBack=$("#libBack");
-  if(libBack)libBack.onclick=()=>{
-    if(libFlow?.step==="configure"){libFlow.step="browse";renderLibrary();return}
-    closeLibrary()};
-  const libClose=$("#libClose");if(libClose)libClose.onclick=()=>closeLibrary();
-  const libPrimary=$("#libPrimary");if(libPrimary)libPrimary.onclick=()=>commitLibrarySelection();
-  const libSearch=$("#libSearch");
-  if(libSearch)libSearch.oninput=()=>{if(libFlow){libFlow.query=libSearch.value;renderLibrary()}};
-  const libCustom=$("#libCustom");
-  if(libCustom)libCustom.onclick=()=>{
-    const reopen=libraryResumeOptions();
-    const typed=String($("#libSearch")?.value||"").trim();
-    openCustomExerciseSheet({entry:typed?{name:typed}:null,
-      onCancel:()=>{if(reopen)openLibrary(reopen)},
-      onSave:entry=>{
-        if(!reopen)return;
-        // The definition the lifter just described is the one they were looking
-        // for, so it comes back selected.
-        const selected=librarySelectionMap(reopen.selected);selected.set(entry.id,null);
-        openLibrary(Object.assign({},reopen,{selected:[...selected.entries()]}))}})};
-  const previewBack=$("#previewBack");if(previewBack)previewBack.onclick=closeExercisePreview;
-  const pkFull=$("#exPickFull");
-  if(pkFull)pkFull.onclick=()=>{
-    const resume=pickerResumeOptions(),target=pickerState?.day||day,opener=pickerReturn;
-    closeExercisePicker().then(()=>openLibrary({day:target,query:resume?.query||"",muscle:resume?.muscle||null,
-      equipment:resume?.equipment||null,editorScope:setupEditorOpen,returnTo:opener}))};
   const impBack=$("#importBack");if(impBack)impBack.onclick=()=>closeImportReview();
   const impCancel=$("#importReviewCancel");
   if(impCancel)impCancel.onclick=()=>{closeImportReview();toast(t("toast.program_import_cancelled"))};
@@ -16348,7 +14889,7 @@ function init(){
   const progEdit=$("#programEditToggle");if(progEdit)progEdit.onclick=async()=>{
     if(setupEditorOpen){requestEntryCancel();return}
     if(programEditMode){requestInstalledDone();return}
-    programEditMode=true;renderProgram()};
+    programEditMode=true;ProgramUi.renderProgram()};
   const leaveApply=$("#programEditorApply");if(leaveApply)leaveApply.onclick=()=>applyInstalledEditorAndContinue();
   const leaveDiscard=$("#programEditorDiscard");if(leaveDiscard)leaveDiscard.onclick=()=>finishInstalledEditor({discard:true});
   const leaveKeep=$("#programEditorKeep");if(leaveKeep)leaveKeep.onclick=()=>closeInstalledLeaveDialog();
@@ -16403,19 +14944,9 @@ function init(){
   const vBtn=$("#voiceBtn");if(vBtn)vBtn.onclick=()=>{closeWorkoutOverflow();startVoiceInput()};
   updateVoiceBtn();
   $("#logForm").addEventListener("submit",(e)=>{e.preventDefault();saveWorkout(e)});
-  $("#saveProgram").onclick=saveProgram;
-  // Unsaved JSON now outlives a render, so collapsing Advanced is the way to
-  // throw a scratch edit away — including one too broken to save.
-  const advanced=$("#program details.advanced");
-  if(advanced)advanced.addEventListener("toggle",()=>{if(!advanced.open)syncProgramJson({force:true})});
+  ProgramUi.bind();
   $("#exportProgram").onclick=exportProgram;
   $("#importProgram").onchange=importProgramFile;
-  $("#addDay").onclick=async()=>{
-    const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
-    const nextDay=nextProgram.addDay();proposal.program=nextProgram.toJSON();
-    syncProgramStructureFromProgram(proposal,nextProgram);
-    const result=await commitProgramEditorProposal(proposal);
-    if(result.localOk||result.idbOk){if(!setupEditorOpen)day=nextDay;render();toast(t("toast.day_added"))}};
   $("#endBlock").onclick=promptEndBlock;
   $("#saveSettings").onclick=()=>commitSettings(false);
   $("#createProgram").onclick=()=>startOnboarding("settings");
@@ -16833,6 +15364,41 @@ function initializePersistenceOwners(){
   storageIO=DurableState.storageIO;DraftStore=DurableState.DraftStore;
   DurableState.addStorageHealthListener(noteWriteHealth);
   window.__repforgeStorage.durable=DurableState;
+  programFormCommands=createProgramFormCommands({read:applicationSession.read,model,
+    editor:{read:programEditorSnapshot,isSetup:()=>setupEditorOpen,
+      commit:(proposal,opts={})=>commitProgramEditorProposal(proposal,storageIO,opts)},
+    drafts:{readRaw:readDraftRaw,hasProgress:draftHasProgress,resetIdentity:resetWorkoutSessionIdentity,removedSetsHaveProgress:draftHasProgressInRemovedSets,
+      preserve:draftPreservationEffect,clear:destructiveDraftClearEffect,rename:draftDayReplacementEffect},
+    policy,flush:flushStorage});
+  libraryUi=createLibraryController({window,
+    queries:{snapshot:applicationSession.read,day:()=>day,libraryEntries:()=>EXERCISE_LIBRARY,
+      libraryEntry,pickableExercises,customExercises,programEditorProgram},
+    commands:{custom:customExerciseCommands,program:programAdditionCommands},model,
+    rules:{muscleTokens:ProgramEntry.MUSCLE_TOKENS,equipment:ProgramEntry.KNOWN_EQUIPMENT,
+      customIdPrefix:CUSTOM_ID_PREFIX,normalizeMuscleAttribution:ProgramEntry.normalizeMuscleAttribution},
+    copy:{t,tOne},format:{libraryName,muscleLabel,dayLabel,countText},
+    shell:{openModal,closeModal,canTakeFocus,reducedMotion,routePushBegin,routeViewEl,currentViewId,
+      resolveReturnFocus,focusRoute,routeHeading,returnToTab,activeModal:()=>activeModal},
+    editor:{setupOpen:()=>setupEditorOpen,focusEntryEditorStatus,showOnboardingView,renderOnboarding,setDayCollapsed:(day,on)=>ProgramUi.setDayCollapsed(day,on),
+      synchronizeSetup:()=>{onboardingProgramEditor?.discard?.();updateOnboardingEditorActions()}},
+    onChanged:render,onNotice:toast,onCustomCreated:()=>{customCreatedToastAt=performance.now()}});
+  ProgramUi=createProgramController({window,library:libraryUi,commands:{form:programFormCommands,program:programCommands},
+    queries:{snapshot:applicationSession.read,day:()=>day,program:()=>prog,hasProgramContent,hasActiveProgram,
+      programEditorProgram,programEditorSnapshot,defaultProgramMeta,mesocycleWeek,programAdherence,
+      programProgressionHealth,programVolumeCompliance,programStatusLabel,dayMuscles,strategyIdFor,recommendation,libraryEntry},
+    editor:{setupOpen:()=>setupEditorOpen,installedEditing:()=>programEditMode,
+      installedMounted:()=>!!installedProgramEditor,editInstalled:()=>{programEditMode=true},mountInstalled:mountInstalledProgramEditor,armInstalledHistory:armInstalledEditorHistory,
+      focusEntryEditorStatus,notice:()=>entryUiNotice,entryState:()=>entryState,
+      activationIssues:()=>ProgramEntry.candidateActivationIssues(entryState),saveDraft:()=>persistSetupDraft(entryState),
+      activate:activateEntryPreview,endBlock:promptEndBlock},
+    preferences:{read:()=>uiPrefs,set:setUiPref},copy:{t,tOne},
+    format:{exerciseDisplayName,libraryName,dayLabel,muscleLabel,countText,fmtLoad,unitLabel,mesocycleWeekCopy,programPrescriptionSummary,fmt},
+    actions:{openExerciseView,openProgramTextSheet,openShareSetupSheet},
+    onChanged:render,onNotice:toast,onDayChanged:value=>{day=value},onSetupRequested:startOnboarding,
+    onWorkoutChanged:()=>{updateGauge();updateSaveMeta()},
+    onDraftRemoved:()=>{resetDraftSessionPresentation();stopRest()}});
+
+
 }
 
 let settingsCommandsOwner=null,settingsUiOwner=null,notificationUiOwner=null,settingsDraftEffectsOwner=null;
