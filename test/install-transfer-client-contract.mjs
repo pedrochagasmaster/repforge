@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {Adapter as NativeAdapter,Compiler as NativeCompiler,Draft as NativeDraft,Entry as NativeEntry} from './fixtures/training-runtime.mjs';
 import {Transfer,Contract,nativeContractRealm} from './interchange-runtime.mjs';
 /**
  * Plan 053 P3 client/contract parity proof.
@@ -21,10 +22,10 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
 
 
-const WorkoutDraft = require(join(ROOT, "workout-draft.js"));
-const ProgramEntry = require(join(ROOT, "program-entry.js"));
-const ProgramEntryAdapter = require(join(ROOT, "program-entry-adapter.js"));
-const ProgramCompiler = require(join(ROOT, "program-compiler.js"));
+const WorkoutDraft = NativeDraft;
+const ProgramEntry = NativeEntry;
+const ProgramEntryAdapter = NativeAdapter;
+const ProgramCompiler = NativeCompiler;
 const CatalogSnapshot = JSON.parse(readFileSync(join(ROOT, "assets/exercise-catalog.json"), "utf8"));
 const canonicalFixture = JSON.parse(readFileSync(join(ROOT, "test/fixtures/install-transfer-clone-v1.json"), "utf8"));
 const textEncoder = new TextEncoder();

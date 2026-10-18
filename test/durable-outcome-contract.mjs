@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {Draft as NativeDraft} from './fixtures/training-runtime.mjs';
 /**
  * Negative fault-injection and contract test suite for the normalized durable outcome contract.
  *
@@ -22,7 +23,7 @@ import {createDurableStore} from "../src/persistence/durable.js";
 import * as Snapshot from "../src/persistence/snapshot.js";
 
 const require = createRequire(import.meta.url);
-const WorkoutDraft = require("../workout-draft.js");
+const WorkoutDraft = NativeDraft;
 
 const DurableState=createDurableStore({workout:WorkoutDraft,snapshotPolicy:{...Snapshot,
   isValidStateShape(snapshot) {

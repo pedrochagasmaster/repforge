@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {Adapter as NativeAdapter} from './fixtures/training-runtime.mjs';
 import assert from "node:assert/strict";
 import path from "node:path";
 import { createRequire } from "node:module";
@@ -7,7 +8,7 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
 const Compiler = require(path.join(root, "src/training/generation.js"));
-const Adapter = require(path.join(root, "program-entry-adapter.js"));
+const Adapter = NativeAdapter;
 const Catalog = require(path.join(root, "assets/exercise-catalog.json"));
 // Pure search proofs cover impossible-slot latency, canonical replay and catalog
 // order independence across the retained product request families. Historical

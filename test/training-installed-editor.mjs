@@ -1,3 +1,4 @@
+import {Adapter as NativeAdapter} from './fixtures/training-runtime.mjs';
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { createGenerationRules } from "../src/training/generation.js";
@@ -6,7 +7,7 @@ import { createInstalledEditorRules, suggestion } from "../src/training/authorin
 const require=createRequire(import.meta.url),source=require("../exercises.js");
 const generation=createGenerationRules();
 const catalog=generation.identity.prepareCatalog(require("../assets/exercise-catalog.json"));
-const mapped=require("../program-entry-adapter.js").programRequestFromAnswers({desiredResult:"balanced",structuredExperience:"over_24m",daysPerWeek:3,sessionMinutes:60,environment:{kind:"everything"},splitPreference:"upper_lower_full",block:{cycles:7,periodization:"static"},deload:true},catalog);
+const mapped=NativeAdapter.programRequestFromAnswers({desiredResult:"balanced",structuredExperience:"over_24m",daysPerWeek:3,sessionMinutes:60,environment:{kind:"everything"},splitPreference:"upper_lower_full",block:{cycles:7,periodization:"static"},deload:true},catalog);
 assert(mapped.ok);
 const generated=generation.compiler.generateProgram(mapped.value,catalog);assert(generated.ok);
 let id=0;

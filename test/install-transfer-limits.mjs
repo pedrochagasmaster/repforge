@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {Adapter as NativeAdapter,Compiler as NativeCompiler,Draft as NativeDraft,Entry as NativeEntry} from './fixtures/training-runtime.mjs';
 import {Contract as contract,nativeContractRealm} from './interchange-runtime.mjs';
 /**
  * Plan 053 Wave A / P1b independent install-transfer boundary oracle.
@@ -20,10 +21,10 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const textEncoder = new TextEncoder();
 const require = createRequire(import.meta.url);
 
-const WorkoutDraft = require(join(ROOT, "workout-draft.js"));
-const ProgramEntry = require(join(ROOT, "program-entry.js"));
-const ProgramEntryAdapter = require(join(ROOT, "program-entry-adapter.js"));
-const ProgramCompiler = require(join(ROOT, "program-compiler.js"));
+const WorkoutDraft = NativeDraft;
+const ProgramEntry = NativeEntry;
+const ProgramEntryAdapter = NativeAdapter;
+const ProgramCompiler = NativeCompiler;
 const CatalogSnapshot = JSON.parse(readFileSync(join(ROOT, "assets/exercise-catalog.json"), "utf8"));
 
 // The actual native public module graph executes separately, just as it does

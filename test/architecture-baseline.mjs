@@ -1,17 +1,17 @@
+import {Adapter as NativeAdapter,Compiler as NativeCompiler,Draft as NativeDraft,Entry as NativeEntry,Identity as NativeIdentity,Metrics as NativeMetrics} from './fixtures/training-runtime.mjs';
 /** Immutable migration oracle; never regenerate expectations from migrated code. */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const fixture = JSON.parse(fs.readFileSync(new URL('./fixtures/architecture-baseline-v1.json', import.meta.url)));
-const Compiler = require('../program-compiler.js');
-const Entry = require('../program-entry.js');
-const Adapter = require('../program-entry-adapter.js');
-const Metrics = require('../exercise-metrics.js');
+const Compiler = NativeCompiler;
+const Entry = NativeEntry;
+const Adapter = NativeAdapter;
+const Metrics = NativeMetrics;
 const Catalog = require('../assets/exercise-catalog.json');
-require('../generation-identity.js').prepareCatalog(Catalog);
-globalThis.RepForgeExerciseCatalog = { snapshot: () => Catalog };
-const Draft = require('../workout-draft.js');
+NativeIdentity.prepareCatalog(Catalog);
+const Draft = NativeDraft;
 const { inputs, expected } = fixture;
 const before = JSON.stringify(inputs);
 assert.deepEqual(Adapter.programRequestFromAnswers(inputs.answers, Catalog).value, inputs.request);

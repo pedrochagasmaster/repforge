@@ -1,3 +1,4 @@
+import {Draft as NativeDraft,Entry as NativeEntry,Metrics as NativeMetrics} from './fixtures/training-runtime.mjs';
 import assert from 'node:assert/strict';
 import * as policy from '../src/persistence/snapshot.js';
 
@@ -31,9 +32,9 @@ console.log('persistence snapshot identity, receipts, rebase and refusal contrac
 
 // Production validators share the actual muscle/metric/draft domains. An absent
 // catalog is explicit and cannot turn a source-metric row into a valid record.
-const {default:entry}=await import('../program-entry.js');
-const {default:metrics}=await import('../exercise-metrics.js');
-const {default:workout}=await import('../workout-draft.js');
+const entry=NativeEntry;
+const metrics=NativeMetrics;
+const workout=NativeDraft;
 const bound=policy.createSnapshotPolicy({entry,metrics,workout,model:{}});
 assert.equal(bound.isValidStateShape({program:[],log:[]}),true);
 assert.equal(bound.isValidStateShape({program:[{primary:'invented muscle'}],log:[]}),false);

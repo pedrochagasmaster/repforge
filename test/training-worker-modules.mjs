@@ -1,3 +1,4 @@
+import {Adapter as NativeAdapter} from './fixtures/training-runtime.mjs';
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { readFile } from "node:fs/promises";
@@ -19,7 +20,7 @@ assert.equal(catalog.getExercise(value.exercises[0].id),value.exercises[0]);
 assert.equal(await catalog.load(),value);
 await assert.rejects(createCatalog({librarySource,fetcher:async()=>({ok:true,text:async()=>rawText+" "})}).load(),/integrity check/);
 const raw=JSON.parse(rawText);
-const mapped=require("../program-entry-adapter.js").programRequestFromAnswers({desiredResult:"balanced",structuredExperience:"over_24m",daysPerWeek:3,sessionMinutes:60,environment:{kind:"everything"},splitPreference:"upper_lower_full",block:{cycles:7,periodization:"static"},deload:true},raw);
+const mapped=NativeAdapter.programRequestFromAnswers({desiredResult:"balanced",structuredExperience:"over_24m",daysPerWeek:3,sessionMinutes:60,environment:{kind:"everything"},splitPreference:"upper_lower_full",block:{cycles:7,periodization:"static"},deload:true},raw);
 assert(mapped.ok);
 const browser=await launchChromium();
 try {

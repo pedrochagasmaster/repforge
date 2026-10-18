@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {Adapter as NativeAdapter} from './fixtures/training-runtime.mjs';
 /**
  * Plan 070 slice 2: the review editor's edit rules on a canonical
  * ProgramDefinition (ADR 0020, consequences).
@@ -18,7 +19,7 @@
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-const Adapter = require("../program-entry-adapter.js");
+const Adapter = NativeAdapter;
 const Compiler = require("../src/training/generation.js");
 const Metrics = require("../src/training/metrics.js");
 const Catalog = require("../assets/exercise-catalog.json");

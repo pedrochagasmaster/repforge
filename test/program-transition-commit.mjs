@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {Transition as NativeTransition} from './fixtures/training-runtime.mjs';
 /**
  * Focused vertical slice test for Plan 052-P6a:
  * Commit transitions with atomic provenance and draft preservation.
@@ -30,7 +31,7 @@ import { readFileSync } from "node:fs";
 import { isDeepStrictEqual } from "node:util";
 
 const require = createRequire(import.meta.url);
-const Transition = require("../program-transition.js");
+const Transition = NativeTransition;
 
 const PLAN_DATA = new URL("../plans/067/data/", import.meta.url);
 const gym = JSON.parse(readFileSync(new URL("gym.json", PLAN_DATA), "utf8"));
