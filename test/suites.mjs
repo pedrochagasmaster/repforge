@@ -21,6 +21,12 @@ const s = (file, args = [], extra = {}) => {
 const shards = (count) => Array.from({ length: count }, (_, index) => `${index + 1}/${count}`);
 export const SUITES = {
   "fast": [
+    s("test/programlab-default-parity.mjs", [], {domains:["program"]}),
+    s("test/programlab-executor-contract.mjs", [], {domains:["program"]}),
+    s("test/programlab-native-policy.mjs", [], {domains:["program"]}),
+    s("test/programlab-policy-contract.mjs", [], {domains:["program"]}),
+    s("test/programlab-structure-contract.mjs", [], {domains:["program"]}),
+
     s("test/focus-workout-commands.mjs", [], {domains:["workout","persistence"]}),
     s("test/platform-catalog-contract.mjs", [], {domains:["library","offline"],nodeArgs:["--test"]}),
     s("test/platform-executor-contract.mjs", [], {domains:["program","offline"],nodeArgs:["--test"]}),
@@ -122,6 +128,7 @@ export const SUITES = {
     s("test/adversarial-draft-transactions.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "seconds": 40.41}),
   ],
   "entry": [
+    s("test/programlab-worker-policy.mjs", [], {domains:["program","offline"],seconds:5}),
     s("test/entry-picker-lifetime.mjs", [], {domains:["entry"],seconds:3}),
     s("test/training-worker-modules.mjs", [], {domains:["program","offline"], seconds:20}),
     s("test/program-entry-s4.mjs", [], {"domains": ["entry", "program", "today", "workout", "persistence"], "cost": "normal", "tier": "feedback", "seconds": 39.14}),
