@@ -80,7 +80,7 @@ possible".
 Two catalog sweeps used to be single commands of 29 and 26 minutes. They are
 now inventory commands with a `--shard k/n` argument:
 
-- `tools/check-ui-system.mjs --shard k/6` renders one stripe of the
+- `tools/check-ui-system.mjs --shard k/7` renders one stripe of the
   screen × theme × locale matrix and writes `ui-system-shard.json` beside its
   evidence. The rule "every inventory selector rendered somewhere" needs the
   union of all stripes, so the `ci` job downloads the shard artifacts and runs
