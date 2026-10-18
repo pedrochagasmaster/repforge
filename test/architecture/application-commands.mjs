@@ -1,0 +1,52 @@
+// Fault seams justify isolation: queued failures, lock refresh, exact-draft finish
+// and a visible-but-unsettled replica cannot be reliably induced by pure engine tests.
+import assert from 'node:assert/strict';
+import {createSession} from '../../src/app/session.js';
+import {createWorkoutCommands} from '../../src/app/workout.js';
+import {createHistoryCommands, sessionFingerprint} from '../../src/app/history.js';
+import {createProgramCommands} from '../../src/app/program.js';
+
+const owner=createSession({initialSnapshot:{log:[],program:[]}});
+assert.throws(()=>owner.read().log.push({}), TypeError);
+const input={log:[{session:'a'}]};owner.publish(input);input.log.length=0;
+assert.equal(owner.read().log.length,1);
+const order=[];
+await Promise.all([owner.run(async()=>{order.push(1);throw Error('expected')}).catch(()=>{}),owner.run(()=>order.push(2))]);
+assert.deepEqual(order,[1,2]);
+
+const draft={draftId:'d1',revision:7,program:{programId:'p',blockId:'b',scheduleDate:'2026-10-18',dayLabel:'A'},session:{startedAt:'2026-10-18T10:00:00Z'},exerciseOrder:['e'],exercises:{e:{status:'active',setOrder:['s'],sets:{s:{completion:'complete'}}}}};
+let active=draft,raw='exact raw',cleared=0,receipt={committed:true,settled:false};
+let captured;
+const rules={validateForSave:()=>[],reduce:(value,command)=>({...value,status:'finishing',revision:value.revision+1}),isDomainError:value=>!!value.error,toHistoryRows:()=>[{session:'d1',set:1}]};
+const workout=createWorkoutCommands({session:owner,training:rules,drafts:{flush:async()=>{},read:()=>({draft:active,raw,recovery:null}),start:async()=>({status:'ready'}),dispatch:async()=>({status:'applied'}),projection:()=>active,clearIdentity:()=>{cleared++},clearEffect:value=>({raw:value}),canLeave:()=>true},commit:async(proposal,opts)=>{captured={proposal,opts};return receipt},operationId:()=> 'op',now:()=> '2026-10-18T11:00:00Z',writer:id=>({id})});
+assert.equal((await workout.finish({expectedDraft:{draftId:'d1',revision:6}})).result.reason,'stale-confirmation');
+assert.equal((await workout.finish()).completed,undefined);assert.equal(cleared,0);
+assert.equal(captured.opts.effect.raw,'exact raw');assert.deepEqual(captured.opts.reconcileSessionIds,['d1']);
+receipt={committed:true,settled:true};assert.equal((await workout.finish()).completed.session,'d1');assert.equal(cleared,1);
+active={...draft,exercises:{e:{...draft.exercises.e,sets:{s:{completion:'pending'}}}}};
+assert.equal((await workout.finish()).result.issues[0].code,'incomplete-workout');
+assert.equal((await workout.finish({completion:'early'})).result.reason,'invalid-finish-kind');
+
+let head={log:[{session:'a',set:1,load:20},{session:'other',set:1,load:30}],program:[]};
+const read=()=>head;
+let settlementCount=0;
+const commit=async(proposal,opts)=>{const checked=await opts.preflight({head});if(checked?.reject)return checked.result;head=checked.proposal;return{committed:true,settled:true}};
+const history=createHistoryCommands({read,commit,readRevision:()=>0,settleAlreadyCommitted:async({verify})=>{settlementCount++;return{committed:true,settled:verify(head).ok,head}}});
+const original=sessionFingerprint([head.log[0]]);
+head.log[0].load=21;
+assert.equal((await history.correct({sessionId:'a',rows:[{session:'a',set:1,load:22}],originalFingerprint:original})).code,'history_stale');
+const current=sessionFingerprint([head.log[0]]);
+assert.equal((await history.correct({sessionId:'a',rows:[{session:'wrong',set:1}],originalFingerprint:current})).code,'history_session_identity');
+assert.equal((await history.correct({sessionId:'a',rows:[{session:'a',set:1,load:22}],originalFingerprint:current})).settled,true);
+assert.equal(head.log.find(row=>row.session==='other').load,30);
+assert.equal((await history.correct({sessionId:'a',rows:[{session:'a',set:1,load:22}],originalFingerprint:current})).settled,true);assert.equal(settlementCount,1);
+assert.equal((await history.remove({sessionId:'a',originalFingerprint:current})).code,'history_stale');
+
+let locked={id:'p',block:'b',version:2,log:[{session:'concurrent'}]};
+let rebaseCount=0;
+const program=createProgramCommands({read:()=>locked,refreshHead:async()=>({head:{...locked,version:1}}),commit:async(proposal,opts)=>{const checked=await opts.preflight({head:locked});return checked?.reject?checked.result:{committed:true,settled:true,proposal:checked.proposal}},authoring:{token:s=>({programId:s.id,blockId:s.block,version:s.version}),tokenEqual:(a,b)=>a.version===b.version,rebaseDocument:({edits},head)=>{rebaseCount++;return{document:{...head,edits}}},confirmOptIn:document=>({ok:true,document}),impact:()=>({active:false,incompatible:false}),snapshotFromDocument:(document,head)=>({...head,document})},drafts:{readRaw:()=>null,clearEffect:()=>null,dayReplacementEffect:()=>null}});
+const applied=await program.applyEdits({expectedToken:{programId:'p',blockId:'b',version:1},nextDocument:{title:'edited'},edits:[{kind:'program_name'}]});
+assert.equal(applied.ok,true);assert.equal(rebaseCount,1);assert.equal(applied.proposal.log[0].session,'concurrent');
+locked.block='new';
+assert.equal((await program.applyEdits({expectedToken:{programId:'p',blockId:'b',version:1},nextDocument:{},edits:[]})).staleBlock,true);
+console.log('Application command contracts passed');
