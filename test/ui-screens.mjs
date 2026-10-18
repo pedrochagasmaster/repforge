@@ -9,6 +9,7 @@
  * copy changes.
  */
 import assert from "node:assert/strict";
+import {Entry} from "./fixtures/training-runtime.mjs";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -51,10 +52,7 @@ for (const key of Object.keys(scenarios)) {
 
 // Every onboarding route in ROUTE_STEPS must be represented by more than its
 // entrance. A route covered only by its first step is how the catalog drifted.
-const entrySource = readFileSync(resolve(root, "program-entry.js"), "utf8");
-const routes = JSON.parse(
-  entrySource.match(/const ROUTES = Object\.freeze\((\[[^\]]*\])\)/)[1].replace(/'/g, '"')
-);
+const routes = Entry.ROUTES;
 for (const route of routes) {
   if (route === "shared") continue; // shared enters straight at preview; both surfaces are covered below
   if (route === "custom") continue; // no door since Plan 072; only a saved Custom draft resumes it, for one release
