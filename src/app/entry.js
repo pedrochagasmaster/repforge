@@ -1,3 +1,4 @@
+export {createEntryQuestionFlow} from './entry/questions.js';
 export {createEntryAnswerCommands} from './entry/answers.js';
 export {createEntryGeneration} from './entry/generation.js';
 import {parseFreeformProgramReply,assembleFreeformProgramDocument,parseSetsInput,parseRepsInput} from '../interchange/freeform.js';
