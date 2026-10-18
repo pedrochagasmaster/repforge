@@ -712,7 +712,6 @@ const effortForRir=rir=>+rir>=2.5?"easy":+rir<=0.5?"max":"hard";
 const effortLabel=e=>t("effort."+e);
 /** The same word inside a sentence ("… at hard effort", "… esforço difícil"). */
 const effortWord=e=>effortLabel(e).toLocaleLowerCase(locTag());
-const effortHint=e=>t("effort.hint."+e);
 const EFFORT_TERM={easy:"Easy effort",hard:"Hard effort",max:"Max effort"};
 /** The effort a working set is aimed at, read off the program's RIR ceiling. */
 const targetEffort=()=>effortForRir(state?.settings?.rirHigh);
@@ -1951,7 +1950,7 @@ async function applyFatigueTrim(){
  *  still, so a re-render for an unrelated reason never replays it. */
 
 /** True while the card being written is the one that just gained a set. */
-const focusIsFresh=(ex,peek)=>!peek&&!!focusUi.logged&&focusUi.logged.exId===ex.id;
+const focusIsFresh=(ex,peek)=>focusUi.selectExercise(ex,committed,{peek}).fresh;
 /** The Progress chart page: scope, metric and the selected point (null = the latest session). */
 let ExerciseUi=null;
 let workoutActive=false,workoutLeft=false,programEditMode=false,setupEditorOpen=false;
@@ -4984,17 +4983,9 @@ function setFieldVals(ex,n,r,draft,prev){
  *  handlers in bindWorkout from ever seeing a neighbour's id. */
 const dead=()=>` tabindex="-1"`;
 /** Set numbers already committed on this exercise, in order. */
-function focusDoneSets(ex){const out=[];
-  for(let n=1;n<=ex.sets;n++)if(committed.has(`${ex.id}_${n}`))out.push(n);
-  if(focusUi.edit?.exId===ex.id&&!out.includes(focusUi.edit.n))out.push(focusUi.edit.n);
-  out.sort((a,b)=>a-b);
-  return out}
-/** The set the shelf is working on: the one being edited, else the first unlogged. */
-function focusActiveSet(ex){
-  if(focusUi.edit&&focusUi.edit.exId===ex.id&&focusUi.edit.n>=1&&focusUi.edit.n<=ex.sets)return focusUi.edit.n;
-  for(let n=1;n<=ex.sets;n++)if(!committed.has(`${ex.id}_${n}`))return n;
-  return 0}
-const focusExDone=ex=>focusActiveSet(ex)===0;
+const focusSelection=(ex,peek=false)=>focusUi.selectExercise(ex,committed,{peek});
+const focusDoneSets=ex=>focusSelection(ex).done;
+const focusActiveSet=ex=>focusSelection(ex).active;
 /** The load the next set is judged against: this session's last logged set,
  *  falling back to the matching set of the previous session. */
 function focusRefLoad(ex,n,draft,prev){
@@ -5109,14 +5100,8 @@ function ledgerSetIsWarmup(exId,n){
  *  through a correction, and closes after it and whenever the lifter moves on.
  *  A finished exercise keeps its whole ledger, as it always has. */
 
-function focusLedgerExpanded(ex,peek){
-  if(focusActiveSet(ex)===0)return true;
-  return !peek&&(focusUi.ledgerOpen===ex.id||!!(focusUi.edit&&focusUi.edit.exId===ex.id))}
-/** The sets the lifter has logged on this exercise, the one being corrected included. */
-function focusLoggedCount(ex){
-  const editN=focusUi.edit&&focusUi.edit.exId===ex.id?focusUi.edit.n:0;
-  let count=0;for(let n=1;n<=ex.sets;n++)if(committed.has(`${ex.id}_${n}`)||n===editN)count++;
-  return count}
+const focusLedgerExpanded=(ex,peek)=>focusSelection(ex,peek).expanded;
+const focusLoggedCount=ex=>focusSelection(ex).loggedCount;
 function focusLedgerToggleHtml(ex,{peek=false}={}){
   const count=focusLoggedCount(ex);if(!count||focusActiveSet(ex)===0)return "";
   const open=focusLedgerExpanded(ex,peek);
@@ -5127,9 +5112,7 @@ function focusLedgerHtml(ex,r,draft,prev,{effortMode,peek=false}){
     effortHtml:effortMode?(peek?esc(t("log.effort")):term("Effort")):(peek?"RIR":term("RIR"))},
     toggleHtml:focusLedgerToggleHtml(ex,{peek}),rowsHtml:focusLedgerRowsHtml(ex,r,draft,prev,{effortMode,peek})})}
 function focusLedgerRowsHtml(ex,r,draft,prev,{effortMode,peek=false}){
-  const active=focusActiveSet(ex),editN=focusUi.edit&&focusUi.edit.exId===ex.id?focusUi.edit.n:0;
-  const freshN=focusIsFresh(ex,peek)?focusUi.logged.n:0,expanded=focusLedgerExpanded(ex,peek);
-  let after=0;for(let n=active+1;n<=ex.sets&&!after;n++)if(!committed.has(`${ex.id}_${n}`))after=n;
+  const {active,after,editing:editN,freshOrdinal:freshN,expanded}=focusSelection(ex,peek);
   const rows=[];
   for(let n=1;n<=ex.sets;n++){
     if(!expanded&&n!==active&&n!==after)continue;

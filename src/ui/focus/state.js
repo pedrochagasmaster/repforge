@@ -31,6 +31,31 @@ export function createFocusState() {
     shelfFor(key,firstField="reps") {return shelf.key===key?shelf:{key,field:firstField,editing:false};},
     /** @param {string} key @param {string} field @param {boolean} [editing] */
     shelfSelect(key,field,editing=false) {shelf=Object.freeze({key,field,editing});},
+    /** The ledger and shelf select the same set from acknowledged membership
+     * plus transient correction/disclosure state. Never changes a draft.
+     * @param {{id:string,sets:number}} exercise
+     * @param {ReadonlySet<string>} committed
+     * @param {{peek?:boolean}} [options]
+     */
+    selectExercise(exercise,committed,{peek=false}={}) {
+      const editing=edit?.exId===exercise.id?edit.n:0;
+      let active=0,loggedCount=0;
+      const done=[];
+      for(let n=1;n<=exercise.sets;n++){
+        const loggedSet=committed.has(`${exercise.id}_${n}`);
+        if(loggedSet)done.push(n);
+        if(loggedSet||n===editing)loggedCount++;
+        if(!loggedSet&&!active)active=n;
+      }
+      if(editing>=1&&editing<=exercise.sets)active=editing;
+      if(edit?.exId===exercise.id&&!done.includes(edit.n)){done.push(edit.n);done.sort((a,b)=>a-b)}
+      let after=0;
+      for(let n=active+1;n<=exercise.sets&&!after;n++)if(!committed.has(`${exercise.id}_${n}`))after=n;
+      const fresh=!peek&&!!logged&&logged.exId===exercise.id;
+      return Object.freeze({active,after,editing,done:Object.freeze(done),loggedCount,
+        expanded:active===0||!peek&&(ledgerOpen===exercise.id||edit?.exId===exercise.id),
+        fresh,freshOrdinal:fresh?(logged?.n??0):0});
+    },
     get index(){return index;},set index(value){index=value;},
     get edit(){return edit;},set edit(value){edit=value;},
     get logged(){return logged;},set logged(value){logged=value;},
