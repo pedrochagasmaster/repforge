@@ -11,11 +11,17 @@ import {startRelease,controllerMatches} from '../src/release/gate.js';
 test('AST boundary checker accepts pure public contracts and rejects seeded violations',()=> {
   const good={'training/metrics.js':'export const add = (a,b) => a+b;', 'app/index.js':"import {add} from '../training/metrics.js'; export const command = () => add(1,2);"};
   assert.deepEqual(inspectModules(good),[]);
+  assert.deepEqual(inspectModules({'training/metrics.js':"const flag = Symbol('flag'); const api = Object.freeze({flag}); Object.freeze(api); export {api};"}),[]);
   const rejects = [
     [{'training/index.js':"import '../ui/index.js';",'ui/index.js':'export const ui = 1;'}, /forbidden direction/],
     [{'app/index.js':"import '../training/private.js';",'training/private.js':'export const value = 1;'}, /public entry/],
     [{'training/index.js':"export const a=()=>localStorage.getItem('x');"}, /domain IO/],
     [{'training/index.js':"fetch('/exfiltrate');"}, /import-time effect/],
+    [{'app/workout.js':"const x=(globalThis.hidden=1);"}, /initializer call/],
+    [{'training/metrics.js':"export const x=()=>globalThis['localStorage'];"}, /domain IO/],
+    [{'app/workout.js':"export const get=()=>window.RepForgeMetrics;"}, /global module lookup/],
+    [{'app/workout.js':"export const get=()=>require('./private.js');"}, /dynamic require/],
+    [{'ui/focus/controller.js':"import '../workout/private.js';",'ui/workout/private.js':'export const n=1;'}, /cross-feature/],
     [{'training/index.js':'const n = Date.now();'}, /initializer call/],
     [{'training/index.js':"import './b.js';",'training/b.js':"import './index.js';"}, /cycle/],
     [{'app/index.js':"export const get=()=>import('../training/private.js');",'training/private.js':'export const n=1;'}, /public entry/],
