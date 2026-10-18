@@ -1,9 +1,9 @@
-import {evidence as progressEvidence} from "../training/progress.js";
+import {compareProjectedSessionOutcome as compareSessions,evidence as progressEvidence} from "../training/progress.js";
 /** Scope/point selection belongs to training. This application projection joins
  * those points with logged conventions and the authoritative session outcome.
  * No storage, browser, clock or presentation formatting is reachable here. */
-/** @param {import("./progress-contracts.js").ProgressFacts} facts @param {import("./progress-contracts.js").CompareSessions} compareSessions */
-export function buildStrengthEvidenceRecords({scope,meta,rows,program,recordKeys},compareSessions){
+/** @param {import("./progress-contracts.js").ProgressFacts} facts */
+export function buildStrengthEvidenceRecords({scope,meta,rows,program,recordKeys}){
   const Model=progressEvidence;
   const programKeys=new Set(program.map(ex=>ex.key));
   // Preserve the source producer's key selection until a deliberate evidence-policy correction.
@@ -108,3 +108,32 @@ function average(values){return values.length?values.reduce((sum,value)=>sum+Num
 
 /** @param {number|null} value @returns {value is number} */
 function isFiniteNumber(value){return typeof value==="number"&&Number.isFinite(value)}
+
+/** Copy is applied after the single pure outcome policy has finished.
+ * @param {import('../training/progress/internal/session-outcome.js').SessionOutcome} outcome
+ * @param {{t:(key:string)=>string}} copy
+ */
+export function presentSessionOutcome(outcome,copy){return{status:outcome.status,label:copy.t(`delta.${outcome.status}.label`),text:copy.t(`delta.${outcome.status}.text`),metrics:outcome.metrics}}
+
+/** A Progress reader must identify exactly one point inside the requested
+ * scope and logged convention. The previous point comes from the same native
+ * evidence series; a supplied current session cannot choose its own baseline.
+ * @param {import('./progress-contracts.js').ProgressComparisonFacts} facts
+ * @param {{t:(key:string)=>string}} copy
+ */
+export function compareProgressStrengthSession({key,currentRows,reader,meta},copy){
+ const absent=()=>presentSessionOutcome({status:'not_comparable',metrics:null},copy);
+ const {scope,convention,session,rows}=reader||{};
+ if(typeof scope!=='string'||!progressEvidence.EVIDENCE_SCOPES.includes(scope)||typeof convention!=='string'||!convention||!session||!Array.isArray(rows)||!Array.isArray(currentRows)||!currentRows.length)return absent();
+ if(!currentRows.some(row=>row.key===key&&String(row.session??'')===String(session)))return absent();
+ const series=progressEvidence.buildStrengthEvidence(scope,key,rows,meta);
+ if(series.comparisonConvention!==convention)return absent();
+ const matches=series.points.map((point,index)=>({point,index})).filter(({point})=>String(point.session)===String(session));
+ if(matches.length!==1)return absent();
+ const {point,index}=matches[0];
+ if(index===0)return presentSessionOutcome({status:'new',metrics:null},copy);
+ const previousPoint=series.points[index-1];
+ /** @param {{sessionKey:string}} selected */
+ const forPoint=selected=>rows.filter(row=>row.exerciseId===key&&row.sessionKey===selected.sessionKey&&row.strengthComparable!==false&&(row.strengthConvention||'load')===convention);
+ return presentSessionOutcome(compareSessions(forPoint(point),forPoint(previousPoint),convention),copy);
+}

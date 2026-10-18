@@ -38,7 +38,9 @@ import {createCatalog,CATALOG_URL} from './src/platform/catalog.js';
 import {create as createProgramExecutor,url as programWorkerUrl} from './src/platform/program-executor.js';
 import {createGenerationRules} from './src/training/generation.js';
 import {createEntryAdapter} from './src/training/authoring.js';
-import {buildStrengthEvidenceRecords,buildStrengthProjection,strengthSessionKey} from './src/app/progress-read-models.js';
+import {estimateOneRepMax as e1rm} from './src/training/metrics.js';
+import {workingRows,buildSessionDelta as deriveSessionDelta,compareProjectedSessionOutcome as deriveProjectedOutcome,noComparableSessionOutcome as deriveNoComparable} from './src/training/progress.js';
+import {buildStrengthEvidenceRecords,buildStrengthProjection,strengthSessionKey,presentSessionOutcome,compareProgressStrengthSession as deriveProgressSessionOutcome} from './src/app/progress-read-models.js';
 import {createProgressController,createExerciseController} from './src/ui/progress/controller.js';
 import {createReviewController} from './src/ui/progress/review.js';
 import {createReviewCommands} from './src/app/review.js';
@@ -641,7 +643,6 @@ function weekStart(date){const d=new Date(`${String(date).slice(0,10)}T12:00:00`
 function weekRange(date){const start=weekStart(date);return{start,end:shiftDate(start,6)}}
 function sessionsInRange(start,end){const ids=new Set();for(const x of state.log){if(String(x.date)>=start&&String(x.date)<=end)ids.add(x.session)}return[...ids]}
 window.__repforgeWeek={weekStart,weekRange,sessionsInRange};
-const e1rm=(load,reps)=>load>0&&reps>0?load*(1+reps/30):0;
 const muscles=s=>MuscleDomain.normalizeMuscleAttribution(s).tokens;
 const muscleLabel=name=>{const k="muscle."+name,s=t(k);return s===k?name:s};
 /* Stored muscle tags are comma-joined English tokens ("Hamstrings,Glutes"); every
@@ -3473,8 +3474,6 @@ function capacityBaseline(ex,sess){
   const rows=sessionsFor(ex);
   const value=rows.length<2?null:median(rows.slice(-CAPACITY.baselineSessions).map(s=>s.bestCap));
   baselineMemo.set(memoKey,value);return value}
-const DELTA_THRESHOLDS={e1rmPct:.01,volumePct:.025,rir:.75};
-function workingRows(rows){return(rows||[]).filter(r=>isWork(r)&&+r.load>0&&+r.reps>0)}
 /** The working sets a saved session performed, read through the History and
  *  Progress projection: a per-side row's load and reps live in its metric
  *  values, not in the scalar fields a plain Weight × Reps row fills. */
@@ -3483,9 +3482,7 @@ function performedWorkingRows(rows){return workingRows(readLogRows(rows||[]))}
  *  row's projected tonnage, so a per-side row counts its physical load and a
  *  row whose multiplier is unknown adds nothing. */
 function movedTonnage(rows){return sum(readLogRows(rows||[]).filter(row=>isWork(row)&&Number.isFinite(row.tonnage)).map(row=>row.tonnage))}
-function exerciseSessionMetrics(rows){const w=workingRows(rows);if(!w.length)return null;let topLoad=0,topLoadReps=0,totalReps=0,totalVolume=0,bestE1rm=0;const rirs=[];
-  for(const r of w){const ld=+r.load,rp=+r.reps;totalReps+=rp;totalVolume+=ld*rp;rirs.push(+r.rir);const em=e1rm(ld,rp);if(em>bestE1rm)bestE1rm=em;if(ld>topLoad||(ld===topLoad&&rp>topLoadReps)){topLoad=ld;topLoadReps=rp}}
-  return{topLoad,topLoadReps,totalReps,totalVolume,bestE1rm,avgRir:avg(rirs),workingSets:w.length}}
+
 function previousSessionForExercise(ex,beforeSessionId){const match=matchLift(ex),m=new Map();
   for(const x of state.log){if(!match(x)||!(+x.load>0)||!isWork(x)||!(+x.reps>0))continue;
     if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,rows:[]});mergeLogChronology(m.get(x.session),x).rows.push(x)}
@@ -3494,40 +3491,11 @@ function previousSessionForExercise(ex,beforeSessionId){const match=matchLift(ex
   if(curIdx<0){const current=state.log.find(r=>r.session===beforeSessionId);if(!current)return ordered.length?ordered.at(-1).rows:[];
     const older=ordered.filter(s=>compareLogChronology(s,current)<0);return older.length?older.at(-1).rows:[]}
   return curIdx>0?ordered[curIdx-1].rows:[]}
-// Session outcome, as defined in CONTEXT.md. At the same load total reps decide;
-// when the load went up, best-set e1RM decides within DELTA_THRESHOLDS.e1rmPct, so a
-// prescribed increase with the expected rep drop reads flat, not regressed; when the
-// load went down it improves only on more strength or more volume at similar effort,
-// otherwise the sessions are not comparable (a deload never reads regressed).
-function buildSessionDelta(prevRows,currentRows){const previous=exerciseSessionMetrics(prevRows),current=exerciseSessionMetrics(currentRows),T=DELTA_THRESHOLDS;
-  if(!previous||!current)return{status:"not_comparable",label:t("delta.not_comparable.label"),text:t("delta.not_comparable.text"),metrics:null};
-  const loadDelta=current.topLoad-previous.topLoad,repsDelta=current.totalReps-previous.totalReps,volumeDelta=current.totalVolume-previous.totalVolume,
-    e1rmDelta=current.bestE1rm-previous.bestE1rm,avgRirDelta=current.avgRir-previous.avgRir,deltas={loadDelta,repsDelta,volumeDelta,e1rmDelta,avgRirDelta};
-  const band=previous.bestE1rm*T.e1rmPct;
-  let status;
-  if(Math.abs(loadDelta)<.01)status=repsDelta>0?"improved":repsDelta<0?"regressed":"flat";
-  else if(loadDelta>0)status=e1rmDelta>band?"improved":e1rmDelta<-band?"regressed":"flat";
-  else status=e1rmDelta>band||(volumeDelta>previous.totalVolume*T.volumePct&&avgRirDelta<=T.rir)?"improved":"changed_load";
-  const copy={improved:["delta.improved.label","delta.improved.text"],flat:["delta.flat.label","delta.flat.text"],
-    regressed:["delta.regressed.label","delta.regressed.text"],changed_load:["delta.changed_load.label","delta.changed_load.text"]}[status];
-  return{status,label:t(copy[0]),text:t(copy[1]),metrics:{current,previous,deltas}}}
-function noComparableSessionOutcome(){return{status:"not_comparable",label:t("delta.not_comparable.label"),text:t("delta.not_comparable.text"),metrics:null}}
-/** Shared read-time seam for History and Progress: callers select the saved
- *  sessions and convention, then this function validates projected rows and
- *  delegates the unchanged Session-outcome policy above. */
-function compareProjectedSessionOutcome(currentRows,previousRows,expectedConvention=null){
-  const current=(Array.isArray(currentRows)?currentRows:[]).filter(row=>isWork(row)&&+row.load>0&&+row.reps>0);
-  if(!current.length||current.some(row=>row.strengthComparable===false))return noComparableSessionOutcome();
-  const currentSessions=new Set(current.map(row=>String(row.session??row.date??""))),conventions=new Set(current.map(row=>row.strengthConvention||"load"));
-  if(currentSessions.size!==1||currentSessions.has("")||conventions.size!==1)return noComparableSessionOutcome();
-  const convention=conventions.values().next().value;
-  if(expectedConvention!=null&&convention!==expectedConvention)return noComparableSessionOutcome();
-  const previous=(Array.isArray(previousRows)?previousRows:[]).filter(row=>isWork(row)&&+row.load>0&&+row.reps>0&&
-    row.strengthComparable!==false&&(row.strengthConvention||"load")===convention);
-  if(!previous.length)return{status:"new",label:t("delta.new.label"),text:t("delta.new.text"),metrics:null};
-  const previousSessions=new Set(previous.map(row=>String(row.session??row.date??"")));
-  if(previousSessions.size!==1||previousSessions.has("")||previousSessions.has(currentSessions.values().next().value))return noComparableSessionOutcome();
-  return buildSessionDelta(previous,current)}
+// All readers use the one pure training policy; composition applies current copy.
+function buildSessionDelta(previous,current){return presentSessionOutcome(deriveSessionDelta(previous,current),{t})}
+function noComparableSessionOutcome(){return presentSessionOutcome(deriveNoComparable(),{t})}
+function compareProjectedSessionOutcome(current,previous,convention=null){return presentSessionOutcome(deriveProjectedOutcome(current,previous,convention),{t})}
+
 function compareExerciseSession(ex,currentRows,readerContext=null){
   if(readerContext?.reader==="progress-strength")return compareProgressStrengthSession(ex,currentRows,readerContext);
   const cur=workingRows(currentRows);
@@ -6172,34 +6140,24 @@ function strengthEvidenceRows(log=state.log){return readLogRows(log).filter(isWo
   strengthComparable:r.strengthComparable,strengthConvention:r.strengthConvention,perSideLoad:r.perSideLoad,perSideReps:r.perSideReps,
   loadPerSide:r.loadPerSide,repsPerSide:r.repsPerSide,tonnage:r.tonnage,repetitionsPerformed:r.repetitionsPerformed}))}
 function compareProgressStrengthSession(ex,currentRows,readerContext){
-  const Model=NativeProgressModel;
-  const notComparable=noComparableSessionOutcome(),key=exerciseLiftKey(ex)||`slot:${ex?.id||""}`;
-  const{scope,convention,session,log}=readerContext||{};
-  if(!Model||!Model.EVIDENCE_SCOPES?.includes(scope)||!convention||!session||!Array.isArray(log)||!Array.isArray(currentRows)||!currentRows.length)
-    return notComparable;
-  if(!currentRows.some(row=>liftKey(row)===key&&String(row.session??"")===String(session)))return notComparable;
-  const rows=strengthEvidenceRows(log),meta={started:state.programMeta?.started||null,
-    mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6,blockId:snapshotBlockId(state)};
-  const series=Model.buildStrengthEvidence(scope,key,rows,meta);
-  if(series.comparisonConvention!==convention)return notComparable;
-  const matches=series.points.map((point,index)=>({point,index})).filter(({point})=>String(point.session)===String(session));
-  if(matches.length!==1)return notComparable;
-  const{point,index}=matches[0];
-  if(index===0)return{status:"new",label:t("delta.new.label"),text:t("delta.new.text"),metrics:null};
-  const previousPoint=series.points[index-1],forPoint=selected=>rows.filter(row=>row.exerciseId===key&&row.sessionKey===selected.sessionKey&&
-    row.strengthComparable!==false&&(row.strengthConvention||"load")===convention);
-  return compareProjectedSessionOutcome(forPoint(point),forPoint(previousPoint),convention)}
+  const context=readerContext||{};
+  return deriveProgressSessionOutcome({key:exerciseLiftKey(ex)||`slot:${ex?.id||""}`,
+    currentRows:Array.isArray(currentRows)?currentRows.map(row=>({key:liftKey(row),session:row.session})):null,
+    reader:{scope:context.scope,convention:context.convention,session:context.session,
+      rows:Array.isArray(context.log)?strengthEvidenceRows(context.log):null},
+    meta:{started:state.programMeta?.started||null,mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6,blockId:snapshotBlockId(state)}},{t})}
+
 function progressProjectionInputs(scope){const rows=strengthEvidenceRows();return{scope,recordKeys:rows.map(liftKey),meta:{started:state.programMeta?.started||null,
   mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6,blockId:snapshotBlockId(state)},
   rows:rows.map(row=>({...row,e1rm:e1rm(row.load,row.reps)})),
   program:prog.exercises.map(ex=>({key:exerciseLiftKey(ex)||`slot:${ex.id}`,name:ex.name,signal:"—"}))}}
 function strengthEvidenceRecords(scope="current-block"){
-  return buildStrengthEvidenceRecords(progressProjectionInputs(scope),compareProjectedSessionOutcome)}
+  return buildStrengthEvidenceRecords(progressProjectionInputs(scope))}
 
 function strengthFactsByLift(scope="current-block"){
   return Object.fromEntries(strengthEvidenceRecords(scope).filter(r=>r.outcome).map(r=>[r.exerciseId,r.outcome]))}
 function strengthProjection(scope="current-block"){
-  const facts=progressProjectionInputs(scope),records=buildStrengthEvidenceRecords(facts,compareProjectedSessionOutcome);
+  const facts=progressProjectionInputs(scope),records=buildStrengthEvidenceRecords(facts);
   const projection=buildStrengthProjection({...facts,records,prEvents:detectPRs(state.log)});
   return{...projection,dashboard:projection.dashboard.map(row=>{
     const ex=currentExerciseForLiftKey(row.key),rec=ex?recommendation(ex):{label:"—"};
