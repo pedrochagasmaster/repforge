@@ -1,3 +1,21 @@
+/** @typedef {import("./contracts.js").EditorRow} EditorRow */
+/** @typedef {import("./contracts.js").EditorDocument} EditorDocument */
+/** @typedef {import("./contracts.js").ProgramSlot} ProgramSlot */
+/** @typedef {import("./contracts.js").ProgramSet} ProgramSet */
+/** @typedef {import("./contracts.js").MetricDefinition} MetricDefinition */
+/** @typedef {import("./contracts.js").TargetEdit} TargetEdit */
+/** @typedef {import("./contracts.js").EditorToken} EditorToken */
+/** @typedef {import("./contracts.js").EditorIntent} EditorIntent */
+/** @typedef {import("./contracts.js").EditorReceipt} EditorReceipt */
+/** @typedef {import("./contracts.js").EditorAdapter} EditorAdapter */
+/** @typedef {import("./contracts.js").LibraryEntry} LibraryEntry */
+/** @typedef {import("./contracts.js").PendingFocus} PendingFocus */
+/** @typedef {import("./contracts.js").LiveEdit} LiveEdit */
+/** @typedef {import("./contracts.js").DragRuntime} DragRuntime */
+/** @typedef {import("./contracts.js").DragItem} DragItem */
+/** @typedef {import("./contracts.js").DragOperation} DragOperation */
+/** @typedef {import("./contracts.js").EditorDragEvent} EditorDragEvent */
+/** @typedef {import("./contracts.js").Sorting} Sorting */
 /** Shared mounted editor for private setup documents and installed programs.
  * The host owns commit semantics. This controller owns DOM/focus/reorder lifetime. */
 import MetricDomain from '../../training/metrics.js';
@@ -11,9 +29,11 @@ const EXECUTION_MODES=new Set(['bilateral','unilateral']);
 const INTENT_SET=new Set(PROGRAM_EDITOR_INTENTS);
 const maxAlternates=()=>MAX_SLOT_ALTERNATES;
 const METRIC_DOMAIN=MetricDomain;
-/** All optional platform services are supplied by composition; importing mounts nothing. */
+/** All optional platform services are supplied by composition; importing mounts nothing.
+ * @param {{window:Window & typeof globalThis,nextId:()=>string,motion?:{animateExerciseReorder:(rows:HTMLElement[],before:Map<string,DOMRect>)=>unknown}|null,sorting:{read:()=>DragRuntime|null,available:()=>boolean,load:()=>Promise<unknown>}}} options */
 export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:sortingRuntime}) {
-  const {metaDays,labels,exercisesFor,normalizeOrders,structureFor,definitionCycle,definitionSet,setCountFor,editableMetricComposition,replaceMetricComposition,replaceMetricTarget,ensureStructure,setDayLabel,appendDay,removeDayFromDocument,fieldValue,entryFields,addExercise,replaceExercise,reorder,validation}=createEditorDocumentRules({nextId:uid});
+  const {editExerciseField,metaDays,labels,exercisesFor,normalizeOrders,structureFor,definitionCycle,definitionSet,setCountFor,editableMetricComposition,replaceMetricComposition,replaceMetricTarget,ensureStructure,setDayLabel,appendDay,removeDayFromDocument,fieldValue,entryFields,addExercise,replaceExercise,reorder,validation}=createEditorDocumentRules({nextId:uid});
+  /** @type {Record<string,string|((vars:Record<string,string|number>)=>string)>} */
   const FALLBACK = Object.freeze({
     programName: "Program name",
     namePlaceholder: "Untitled program",
@@ -85,6 +105,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     metricRestSeconds: "Rest between sets (seconds)",
     prescriptionFieldAria: ({ cycle, set, field }) => `${cycle}, ${set}, ${field}`,
   });
+  /** @type {Readonly<Record<string,string>>} */
   const I18N_KEYS = Object.freeze({
     programName: "program.editor.program_name", namePlaceholder: "program.editor.name_placeholder",
     dayName: "program.editor.day_name", dayCount: "program.editor.day_count", exercises: "program.editor.day_count",
@@ -118,18 +139,25 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     prescriptionFieldAria: "program.editor.prescription_field_aria",
   });
 
+  /** @param {unknown} value @param {PropertyKey} key */
   const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value || {}, key);
+  /** @param {unknown} value */
   const esc = value => String(value ?? "")
     .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+  /** @param {unknown} value */
   const number = value => {const n=Number(value);return Number.isFinite(n)?n:0};
+  /** @param {unknown} value @param {number} fallback */
   const positiveInt = (value,fallback) => {const n=Math.round(number(value));return n>0?n:fallback};
+  /** @param {unknown} a @param {unknown} b */
   const equal=(a,b)=>JSON.stringify(canonicalize(a))===JSON.stringify(canonicalize(b));
+  /** @param {unknown} value */
   const cssEscape = value => {
     try { return root.CSS?.escape ? root.CSS.escape(String(value)) : String(value).replace(/[^a-zA-Z0-9_-]/g, "\\$&"); }
     catch { return String(value).replace(/[^a-zA-Z0-9_-]/g, "\\$&"); }
   };
 
+  /** @param {EditorAdapter} adapter @param {string} key @param {Record<string,string|number>} [vars] @param {string|((vars:Record<string,string|number>)=>string)} [fallback] */
   function t(adapter, key, vars, fallback) {
     try {
       const translated = adapter?.t?.(key, vars);
@@ -138,15 +166,18 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     const value = fallback ?? FALLBACK[key];
     return typeof value === "function" ? value(vars || {}) : value ?? key;
   }
+  /** @param {EditorAdapter} adapter @param {unknown} value */
   function format(adapter, value) {
     try { return adapter?.formatNumber ? adapter.formatNumber(value) : String(value); }
     catch { return String(value); }
   }
+  /** @param {EditorAdapter} adapter */
   function reducedMotion(adapter) {
     try { return !!adapter?.reducedMotion?.() || !!root?.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches; }
     catch { return false; }
   }
 
+  /** @param {EditorAdapter} adapter @param {EditorDocument} document @param {string} day @param {number} index */
   function dayDisplay(adapter, document, day, index) {
     // Staged renames live in the editor document until the host applies them.
     // Prefer that value over the host's live resolver so a redraw cannot make
@@ -160,6 +191,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     } catch { /* fall through to the stored label */ }
     return String(day || `Day ${index + 1}`);
   }
+  /** @param {EditorAdapter} adapter @param {EditorRow} exercise */
   function exerciseName(adapter, exercise) {
     try {
       const value = adapter?.exerciseLabel?.(exercise);
@@ -169,6 +201,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
   }
   /* The read-only label for an exercise (aria-labels, drag announcements): the host may
      localise a stored library name for display. The editable name field keeps the stored text. */
+  /** @param {EditorAdapter} adapter @param {EditorRow} exercise */
   function exerciseDisplayLabel(adapter, exercise) {
     try {
       const value = adapter?.exerciseDisplayLabel?.(exercise);
@@ -176,9 +209,11 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     } catch { /* fall back to the stored name */ }
     return exerciseName(adapter, exercise);
   }
+  /** @param {EditorAdapter} adapter @param {string} id */
   function exerciseEntry(adapter, id) {
     try { return adapter?.exerciseEntry?.(id) || null; } catch { return null; }
   }
+  /** @param {EditorAdapter} adapter @param {string} id */
   function movementLabel(adapter, id) {
     try {
       const value = adapter?.movementLabel?.(id);
@@ -186,6 +221,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     } catch { /* fall back to the library entry's own name */ }
     return String(exerciseEntry(adapter, id)?.name || id);
   }
+  /** @param {EditorAdapter} adapter @param {Pick<EditorRow,"metricDefinitions"|"libraryId"|"exerciseId">} exercise */
   function exerciseMetricDefinitions(adapter, exercise) {
     if (Array.isArray(exercise?.metricDefinitions)) return clone(exercise.metricDefinitions);
     try {
@@ -194,6 +230,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     } catch { /* the stored canonical definitions remain available */ }
     return [];
   }
+  /** @param {EditorAdapter} adapter */
   function metricOptions(adapter) {
     try {
       const supplied = adapter?.metricOptions?.();
@@ -201,6 +238,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     } catch { /* use the shared metric domain */ }
     return METRIC_DOMAIN?.DEFINITIONS || [];
   }
+  /** @param {EditorAdapter} adapter */
   function metricCompositions(adapter) {
     try {
       const supplied = adapter?.metricCompositions?.();
@@ -208,6 +246,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     } catch { /* use the shared metric domain */ }
     return METRIC_DOMAIN?.SOURCE_COMPOSITIONS || [];
   }
+  /** @param {EditorAdapter} adapter @param {MetricDefinition} definition */
   function metricLabel(adapter, definition) {
     try {
       const supplied = adapter?.metricLabel?.(definition);
@@ -215,10 +254,12 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     } catch { /* canonical source name is still useful */ }
     return String(definition?.sourceName || definition?.semantic || "Metric");
   }
+  /** @param {EditorAdapter} adapter @param {MetricDefinition} definition */
   function metricDisplayUnit(adapter, definition) {
     try { return String(adapter?.metricDisplayUnit?.(definition) || ""); }
     catch { return ""; }
   }
+  /** @param {EditorAdapter} adapter @param {MetricDefinition} definition @param {import("../../training/authoring/internal/editor-contracts.js").Target|null|undefined} value */
   function formatMetricValue(adapter, definition, value) {
     try {
       const supplied = adapter?.formatMetricValue?.(definition, value);
@@ -226,6 +267,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     } catch { /* canonical value remains editable */ }
     return format(adapter, value);
   }
+  /** @param {EditorAdapter} adapter @param {MetricDefinition} definition @param {string} raw */
   function parseMetricInput(adapter, definition, raw) {
     try {
       const supplied = adapter?.parseMetricInput?.(definition, raw);
@@ -234,6 +276,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     const parsed = METRIC_DOMAIN?.parseMetricValue?.(definition, raw);
     return parsed?.ok ? { value: parsed.value } : { field: "metric" };
   }
+  /** @param {EditorAdapter} adapter @param {EditorDocument} document */
   function metricCycleIndex(adapter, document) {
     try {
       const value = Number(adapter?.cycleIndex?.(document));
@@ -241,17 +284,19 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     } catch { /* cycle one is the safe editing default */ }
     return 1;
   }
+  /** @param {HTMLElement} host @param {EditorAdapter} adapter */
   function mountProgramEditor(host, adapter) {
     if (!host || !adapter || typeof adapter.read !== "function" || typeof adapter.commit !== "function")
       throw new TypeError("mountProgramEditor(host, adapter) requires read and commit");
-    const initial = adapter.read() || {};
-    let document = clone(initial.document || initial.nextDocument || initial);
+    const initial = adapter.read();
+    let document = clone(initial.document);
     let token = clone(initial.token);
     // Older snapshots may not have a structure section yet. Materialize it
     // before taking the baseline; otherwise mounting an untouched editor would
     // incorrectly make the document dirty.
     ensureStructure(document);
     let baseDocument = clone(document);
+    /** @type {EditorIntent[]} */
     let edits = [];
     let expandedExercises = new Set();
     let expandedMetricCycles = new Set();
@@ -259,12 +304,17 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     let collapsedDays = new Set();
     let collapsedDaysInitialized = false;
     let destroyed = false;
+    /** @type {{before:EditorDocument,id:string,sourceDay:string,sourceIndex:number,targetDay:string,targetIndex:number}|null} */
     let undoMove = null;
     let reorderMode = false;
+    /** @type {string|null} */
     let settleMoveId = null;
+    /** @type {ReturnType<typeof setTimeout>|null} */
     let settleTimer = null;
+    /** @type {PendingFocus|null} */
     let pendingFocus = null;
     let renderQueued = false;
+    /** @type {ReturnType<typeof setTimeout>|null} */
     let statusTimer = null;
 
     host.classList.add("program-editor-host");
@@ -272,10 +322,12 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     host.dataset.editorRole = "program-editor";
 
     const rootElement = () => host;
+    /** @param {string} key @param {Record<string,string|number>} [vars] @param {string} [fallback] */
     const label = (key, vars, fallback) => t(adapter, I18N_KEYS[key] || key, vars, fallback ?? FALLBACK[key]);
+    /** @param {string} message @param {{error?:boolean,undo?:boolean}} [options] */
     const setStatus = (message, { error = false, undo = false } = {}) => {
       if(destroyed)return;
-      const status = host.querySelector('[data-role="editor-status"]');
+      const status = /** @type {HTMLElement|null} */ (host.querySelector('[data-role="editor-status"]'));
       if (!status) return;
       status.classList.toggle("is-error", error);
       status.innerHTML = message
@@ -284,7 +336,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       // The status line is written outside the render, so the undo it offers has
       // to be wired here. Waiting for the next render to bind it left the
       // control live only if something else happened to redraw the editor.
-      status.querySelector('[data-role="undo-move"]')?.addEventListener("click", undoLastMove);
+      /** @type {HTMLElement|null} */ (status.querySelector('[data-role="undo-move"]'))?.addEventListener("click", undoLastMove);
       status.hidden = !message;
       if (statusTimer) clearTimeout(statusTimer);
       if (message && !undo) statusTimer = setTimeout(() => { if (status.isConnected) status.hidden = true; }, 2600);
@@ -292,11 +344,13 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     const context = () => {
       try { return adapter.context?.(document) || ""; } catch { return ""; }
     };
+    /** @param {string} day @param {number} index */
     const titleFor = (day, index) => dayDisplay(adapter, document, day, index);
     const changed = () => !equal(document, baseDocument);
     // Browser Back need not blur a name field before the host asks to leave.
-    const pendingNameEdit = () => [...host.querySelectorAll('[data-role="program-name"], [data-role="day-name"]')]
+    const pendingNameEdit = () => [.../** @type {NodeListOf<HTMLInputElement>} */ (host.querySelectorAll('[data-role="program-name"], [data-role="day-name"]'))]
       .some(input => input.value.trim() !== input.defaultValue.trim());
+    /** @param {string} kind @param {Record<string,unknown>} [detail] */
     const intent = (kind, detail = {}) => {
       if (!INTENT_SET.has(kind)) throw new TypeError(`Unknown program editor intent: ${kind}`);
       return Object.freeze({ kind, ...clone(detail) });
@@ -306,23 +360,24 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       renderQueued = true;
       Promise.resolve().then(() => { renderQueued = false; if (!destroyed) render(); });
     };
+    /** @param {EditorDocument} next @param {EditorIntent} edit @param {{redraw?:boolean}} [options] @returns {Promise<EditorReceipt>} */
     const stage = (next, edit, { redraw = true } = {}) => {
       // The host's returned document redraws the list a second time; the focus
       // the caller asked for has to land on that final DOM, not the first one.
       const focusRequest = pendingFocus;
-      document = normalizeOrders(clone(next));
+      document = clone(next); normalizeOrders(document);
       edits.push(intent(edit.kind, edit));
       if (redraw) scheduleRender();
       let result;
       try {
         result = adapter.commit({ expectedToken: clone(token), nextDocument: clone(document), intent: intent(edit.kind, edit) });
       } catch (error) {
-        setStatus(error?.message || label("invalid"), { error: true });
+        setStatus(error instanceof Error ? error.message : label("invalid"), { error: true });
         return Promise.resolve({ ok: false, error });
       }
       return Promise.resolve(result).then(value => {
         if(destroyed)return value;
-        const returnedDocument = value?.document?.document || value?.document?.nextDocument || value?.document;
+        const returnedDocument = value?.document;
         if (value?.ok !== false && returnedDocument?.program && returnedDocument?.programMeta) {
           document = clone(returnedDocument);
           ensureStructure(document);
@@ -336,68 +391,31 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
           setStatus(value?.message || label("invalid"), { error: true });
         }
         return value;
-      }, error => { setStatus(error?.message || label("invalid"), { error: true }); return { ok: false, error }; });
+      }, error => { setStatus(error instanceof Error ? error.message : label("invalid"), { error: true }); return { ok: false, error }; });
     };
-    const setExerciseField = (id, field, value, { redraw = true, cycleIndex: requestedCycle } = {}) => {
-      const next = clone(document), exercise = next.program?.find(item => item.id === id);
-      if (!exercise) return Promise.resolve({ ok: false });
-      const requestedIndex = Number(requestedCycle);
-      const cycleIndex = Number.isInteger(requestedIndex) && requestedIndex > 0
-        ? requestedIndex : metricCycleIndex(adapter, document);
-      const slot = field === "sets" ? definitionSlot(next, exercise.slotId || exercise.id) : null;
-      const cycle = slot ? definitionCycle(slot, cycleIndex) : null;
-      const previous = field === "sets" && cycle ? cycle.sets.length : exercise[field];
-      const normalized = fieldValue(exercise, field, value);
-      if (equal(previous, normalized)) return Promise.resolve({ ok: true, unchanged: true });
-      if (field === "sets" && cycle) {
-        const beforeSetIds = cycle.sets.map(set => set.id), addedSets = [], removedSetIds = [];
-        // A set added to an adaptive slot joins it (Plan 069 D3): the opt-in
-        // covers every set, so the new one takes the slot's RIR and status.
-        const adaptive = slotAdaptive(slot);
-        while (cycle.sets.length < normalized) {
-          const source = cycle.sets.at(-1);
-          if (!source) return Promise.resolve({ ok: false });
-          const added = adaptive
-            ? { ...clone(source), id: uid(), cycleIndex, setIndex: cycle.sets.length + 1 }
-            : { ...clone(source), id: uid(), cycleIndex, setIndex: cycle.sets.length + 1,
-              rir: null, status: slot.metricIds?.length ? "manual" : "configuration_required",
-              provenance: { source: "manual", policyVersion: "manual@1" } };
-          cycle.sets.push(added);
-          addedSets.push(clone(added));
-        }
-        while (cycle.sets.length > normalized) removedSetIds.push(cycle.sets.pop().id);
-        cycle.sets.forEach((set, index) => { set.setIndex = index + 1; });
-        exercise.sets = normalized;
-        exercise.prescriptionsByCycle = clone(slot.prescriptionsByCycle || []);
-        return stage(next, { kind: "prescription", targetId: id, field: "sets", before: previous, after: normalized,
-          cycleIndex, beforeSetIds, addedSets, removedSetIds }, { redraw });
-      }
-      if (field === "min" && normalized > number(exercise.max)) exercise.max = normalized;
-      if (field === "max" && normalized < number(exercise.min)) exercise.min = normalized;
-      exercise[field] = normalized;
-      // Linked movements keep their stable library identity while allowing a
-      // program-specific display alias. The persisted model resolves `name`
-      // from `displayName`, so carry the alias explicitly in the complete
-      // document sent to the host.
-      if (field === "name" && exercise.libraryId) {
-        if (normalized) exercise.displayName = normalized;
-        else delete exercise.displayName;
-      }
-      return stage(next, { kind: field === "sets" || field === "min" || field === "max" ? "prescription" : "exercise_field", targetId: id, field, before: previous, after: normalized }, { redraw });
+    /** @param {string} id @param {string} field @param {unknown} value @param {{redraw?:boolean,cycleIndex?:number}} [options] */
+    const setExerciseField = (id, field, value, {redraw=true,cycleIndex}={})=>{
+      const result=editExerciseField(document,{id,field,value,cycleIndex:cycleIndex||metricCycleIndex(adapter,document)});
+      return result.document&&result.edit?stage(result.document,result.edit,{redraw}):Promise.resolve(result);
     };
+    /** @param {string} id */
     const toggleExercise = id => { expandedExercises.has(id) ? expandedExercises.delete(id) : expandedExercises.add(id); scheduleRender(); };
+    /** @param {string} day */
     const toggleDay = day => { collapsedDays.has(day) ? collapsedDays.delete(day) : collapsedDays.add(day); scheduleRender(); };
+    /** @param {import("./contracts.js").PickRequest} request */
     const chooseExercise = request => {
       try { return Promise.resolve(adapter.chooseExercise?.(request)); }
-      catch (error) { setStatus(error?.message || label("invalid"), { error: true }); return Promise.resolve(null); }
+      catch (error) { setStatus(error instanceof Error ? error.message : label("invalid"), { error: true }); return Promise.resolve(null); }
     };
     /* A commit that rebuilds the list leaves nothing focused: the row that changed (or, after a remove, the day's
        Add control) takes focus once the rebuild has drawn, and the change is announced once through the host. */
+    /** @param {string} key */
     const announceChange = key => { try { adapter.announce?.(label(key), { change: true }); } catch { /* the focus move still says it */ } };
     const applyPendingFocus = () => {
       const want = pendingFocus; pendingFocus = null;
       if (!want) return;
-      const find = selector => host.querySelector(selector);
+      /** @param {string} selector */
+    const find = selector => {const element=host.querySelector(selector);return element instanceof root.HTMLElement?element:null};
       const target = want.selector ? find(want.selector) : want.id
         ? (want.roles || ["toggle-exercise"]).map(role => find(`[data-role="${role}"][data-id="${cssEscape(want.id)}"]`)).find(Boolean)
         : find(`[data-role="add-exercise"][data-day="${cssEscape(want.day)}"]`);
@@ -410,8 +428,9 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       const run = () => { if (!destroyed) applyPendingFocus(); };
       if (typeof adapter.afterModal === "function") adapter.afterModal(run); else run();
     };
+    /** @param {string} day */
     const addForDay = day => chooseExercise({ mode: "add", day, exclude: exercisesFor(document, day).map(item => item.libraryId).filter(Boolean) }).then(entry => {
-      if (!entry) return null;
+      if (!entry||'entry' in entry) return null;
       const next = clone(document), exercise = addExercise(next, day, entry);
       collapsedDays.delete(day); expandedExercises.add(exercise.id);
       pendingFocus = { id: exercise.id };
@@ -420,12 +439,13 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
         return value;
       });
     });
+    /** @param {string} id @param {{repair?:boolean}} [options] */
     const replaceForExercise = (id, { repair = false } = {}) => {
       const current = document.program?.find(item => item.id === id);
       if (!current) return Promise.resolve(null);
       return chooseExercise({ mode: "replace", day: current.day, exercise: clone(current), repair, exclude: exercisesFor(document, current.day).filter(item => item.id !== id).map(item => item.libraryId).filter(Boolean) }).then(choice => {
         if (!choice) return null;
-        const handoff = choice?.entry ? choice : { entry: choice, stagedCustomDefinition: null };
+        const handoff = 'entry' in choice ? choice : { entry: choice, stagedCustomDefinition: null };
         const entry = handoff.entry;
         if (!entry) return null;
         const next = clone(document), customExercise = handoff.stagedCustomDefinition ? clone(handoff.stagedCustomDefinition) : null;
@@ -444,6 +464,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
         });
       });
     };
+    /** @param {string} id */
     const removeExercise = id => {
       const exercise = document.program?.find(item => item.id === id);
       if (!exercise) return Promise.resolve(null);
@@ -457,9 +478,10 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     /* A slot's alternates live on its canonical slot, so only a definition-backed
        exercise offers them. The list is replaced whole: before/after let the host
        rebase it onto a head another tab has moved on. */
+    /** @param {string} id @param {string[]} alternates @param {PendingFocus} focus */
     const setAlternates = (id, alternates, focus) => {
       const exercise = document.program?.find(item => item.id === id);
-      const slotId = exercise?.slotId || exercise?.id, next = clone(document), slot = definitionSlot(next, slotId);
+      const slotId = exercise?.slotId || exercise?.id || '', next = clone(document), slot = definitionSlot(next, slotId);
       if (!slot) return Promise.resolve({ ok: false });
       const before = clone(slot.alternates || []), after = alternates.map(String);
       if (equal(before, after)) return Promise.resolve({ ok: true, unchanged: true });
@@ -467,20 +489,22 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       pendingFocus = focus;
       return stage(next, { kind: "slot_alternates", targetId: id, slotId, before, after });
     };
+    /** @param {string} id */
     const addAlternate = id => {
-      const exercise = document.program?.find(item => item.id === id), slot = definitionSlot(document, exercise?.slotId || exercise?.id);
-      if (!slot || (slot.alternates || []).length >= maxAlternates()) return Promise.resolve(null);
+      const exercise = document.program?.find(item => item.id === id), slot = definitionSlot(document, exercise?.slotId || exercise?.id || '');
+      if (!exercise || !slot || (slot.alternates || []).length >= maxAlternates()) return Promise.resolve(null);
       return chooseExercise({ mode: "alternate", day: exercise.day, exercise: clone(exercise),
         exclude: [slot.exerciseId, ...(slot.alternates || [])] }).then(choice => {
-        const entry = choice?.entry || choice;
+        const entry = choice && 'entry' in choice ? choice.entry : choice;
         if (!entry?.id) return null;
         const current = definitionSlot(document, slot.id)?.alternates || [];
         if (entry.id === slot.exerciseId || current.includes(entry.id) || current.length >= maxAlternates()) return null;
         return setAlternates(id, [...current, entry.id], { selector: `[data-role="alternate-remove"][data-id="${cssEscape(id)}"][data-exercise-id="${cssEscape(entry.id)}"]` });
       });
     };
+    /** @param {string} id @param {string} exerciseId @param {string} role */
     const editAlternate = (id, exerciseId, role) => {
-      const exercise = document.program?.find(item => item.id === id), slot = definitionSlot(document, exercise?.slotId || exercise?.id);
+      const exercise = document.program?.find(item => item.id === id), slot = definitionSlot(document, exercise?.slotId || exercise?.id || '');
       const list = clone(slot?.alternates || []), index = list.indexOf(exerciseId);
       if (index < 0) return Promise.resolve(null);
       if (role === "alternate-remove") {
@@ -498,6 +522,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       const keep = edge ? (role === "alternate-up" ? "alternate-down" : "alternate-up") : role;
       return setAlternates(id, list, { selector: `[data-role="${keep}"][data-id="${cssEscape(id)}"][data-exercise-id="${cssEscape(exerciseId)}"]` });
     };
+    /** @param {string} oldDay @param {string} value */
     const renameDay = (oldDay, value) => {
       const next = clone(document), wanted = String(value || "").trim();
       // Another day can store a different name yet show this one (a translated generated name).
@@ -507,10 +532,12 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       if (collapsedDays.delete(oldDay)) collapsedDays.add(String(value).trim());
       return stage(next, { kind: "day_name", targetDay: oldDay, before: oldDay, after: String(value).trim() });
     };
+    /** @param {string} day */
     const removeDay = day => {
       const next = clone(document); removeDayFromDocument(next, day);
       return stage(next, { kind: "day_remove", targetDay: day });
     };
+    /** @param {string} id @param {string} toDay @param {number} toIndex @param {{announce?:boolean,settle?:boolean}} [options] */
     const moveExercise = (id, toDay, toIndex, { announce = true, settle = true } = {}) => {
       const before = clone(document), exercise = before.program?.find(item => item.id === id);
       if (!exercise) return Promise.resolve({ ok: false });
@@ -518,8 +545,8 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       const next = clone(before);
       if (!reorder(next, id, toDay, toIndex)) return Promise.resolve({ ok: false, cancelled: true });
       undoMove = { before, id, sourceDay, sourceIndex, targetDay: toDay, targetIndex: toIndex };
-      const beforeRects = new Map([...host.querySelectorAll('[data-role="exercise"][data-id]')]
-        .map(row => [row.dataset.id, row.getBoundingClientRect()]));
+      const beforeRects = new Map([.../** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="exercise"][data-id]'))]
+        .map(row => [(row.dataset.id||''), row.getBoundingClientRect()]));
       settleMoveId = id;
       const result = stage(next, { kind: "exercise_move", targetId: id, sourceDay, sourceIndex, targetDay: toDay, targetIndex: toIndex });
       Promise.resolve(result).then(value => {
@@ -536,14 +563,14 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
         const frame = root.requestAnimationFrame || (callback => setTimeout(callback, 0));
         frame(() => {
           if(destroyed)return;
-          const rows = [...host.querySelectorAll('[data-role="exercise"][data-id]')];
+          const rows = [.../** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="exercise"][data-id]'))];
           // A spring per row, retargeted rather than restarted. Nudging a row up
           // three times used to replay one keyframe from zero on each tap, so the
           // second and third moves flickered; a spring picks each row up from
           // wherever it currently is, at whatever speed it is already moving.
           if (motion?.animateExerciseReorder(rows, beforeRects)) return;
           for (const row of rows) {
-            const beforeRect = beforeRects.get(row.dataset.id);
+            const beforeRect = beforeRects.get((row.dataset.id||''));
             if (!beforeRect) continue;
             const delta = beforeRect.top - row.getBoundingClientRect().top;
             if (Math.abs(delta) < 1) continue;
@@ -595,15 +622,15 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       });
     };
     const discard = () => {
-      const latest = adapter.read() || {};
-      document = clone(latest.document || latest.nextDocument || latest); token = clone(latest.token);
+      const latest = adapter.read();
+      document = clone(latest.document); token = clone(latest.token);
       baseDocument = clone(document); edits = []; undoMove = null; expandedExercises.clear(); expandedMetricCycles.clear(); initializedMetricCycleSlots.clear(); collapsedDays.clear(); collapsedDaysInitialized = false;
       scheduleRender();
       return document;
     };
     const refresh = () => {
-      const latest = adapter.read() || {};
-      const latestDocument = clone(latest.document || latest.nextDocument || latest);
+      const latest = adapter.read();
+      const latestDocument = clone(latest.document);
       if (!edits.length && !changed()) {
         document = latestDocument; token = clone(latest.token); baseDocument = clone(document); scheduleRender();
         return { refreshed: true, dirty: false };
@@ -616,6 +643,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       return { refreshed: false, dirty: true };
     };
 
+    /** @param {EditorRow} exercise */
     function summary(exercise) {
       const cycleIndex = metricCycleIndex(adapter, document);
       const sets = format(adapter, setCountFor(document, exercise, cycleIndex));
@@ -634,15 +662,18 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       const target = formatMetricValue(adapter, repetition, targets[0]);
       return `${sets} × ${target} ${metricLabel(adapter, repetition).toLocaleLowerCase()}`;
     }
+    /** @param {string} id */
     function updateExerciseSummary(id) {
       const exercise = document.program?.find(item => item.id === id);
-      const node = host.querySelector(`[data-role="exercise"][data-id="${cssEscape(id)}"] [data-role="exercise-summary"]`);
+      const node = /** @type {HTMLElement|null} */ (host.querySelector(`[data-role="exercise"][data-id="${cssEscape(id)}"] [data-role="exercise-summary"]`));
       if (exercise && node) node.textContent = summary(exercise);
     }
+    /** @param {number} count */
     function dayCount(count) {
       const value = adapter?.dayCount ? adapter.dayCount(count) : label("dayCount", { n: count, word: count === 1 ? "exercise" : "exercises" });
       return value;
     }
+    /** @param {EditorRow} exercise @param {ProgramSlot} slot @param {{cycleIndex:number}} cycle @param {ProgramSet} set @param {MetricDefinition} definition @param {import("../../training/authoring/internal/editor-contracts.js").Target|null|undefined} target */
     function metricInputMarkup(exercise, slot, cycle, set, definition, target) {
       const slotId = slot.id, cycleIndex = cycle.cycleIndex, setIndex = set.setIndex;
       const labelValue = metricLabel(adapter, definition), unit = metricDisplayUnit(adapter, definition);
@@ -650,20 +681,24 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       const range = reps || !!target && typeof target === "object" && Number.isFinite(target.min) && Number.isFinite(target.max);
       const rangeMin = target && typeof target === "object" ? target.min : target;
       const rangeMax = target && typeof target === "object" ? target.max : target;
-      const input = (bound, value, labelKey) => `<label class="program-editor__metric-field"><span>${esc(labelValue)}${unit ? ` <small>${esc(unit)}</small>` : ""}</span><input type="text" inputmode="${reps ? "numeric" : "decimal"}" autocomplete="off" data-role="metric-target" data-id="${esc(exercise.id)}" data-slot-id="${esc(slotId)}" data-cycle-index="${cycleIndex}" data-set-index="${setIndex}" data-metric-id="${esc(definition.id)}" data-semantic="${esc(definition.semantic)}" data-bound="${bound}" value="${value == null ? "" : esc(formatMetricValue(adapter, definition, value))}" aria-label="${esc(label(labelKey, { cycle: label("metricCycle", { n: cycleIndex }), set: label("metricSet", { n: setIndex }), metric: labelValue }))}"></label>`;
+      /** @param {string} bound @param {number|null|undefined} value @param {string} labelKey */
+    const input = (bound, value, labelKey) => `<label class="program-editor__metric-field"><span>${esc(labelValue)}${unit ? ` <small>${esc(unit)}</small>` : ""}</span><input type="text" inputmode="${reps ? "numeric" : "decimal"}" autocomplete="off" data-role="metric-target" data-id="${esc(exercise.id)}" data-slot-id="${esc(slotId)}" data-cycle-index="${cycleIndex}" data-set-index="${setIndex}" data-metric-id="${esc(definition.id)}" data-semantic="${esc(definition.semantic)}" data-bound="${bound}" value="${value == null ? "" : esc(formatMetricValue(adapter, definition, value))}" aria-label="${esc(label(labelKey, { cycle: label("metricCycle", { n: cycleIndex }), set: label("metricSet", { n: setIndex }), metric: labelValue }))}"></label>`;
       if (range) return `<fieldset class="program-editor__metric-range"><legend>${esc(labelValue)}${unit ? ` (${esc(unit)})` : ""}</legend>${input("min", rangeMin, "metricTargetMinAria")}${input("max", rangeMax, "metricTargetMaxAria")}</fieldset>`;
-      return input("value", target, "metricTargetAria");
+      return input("value", typeof target==='number'?target:null, "metricTargetAria");
     }
+    /** @param {readonly string[]} metricIds @param {readonly MetricDefinition[]} options */
     function compositionText(metricIds, options) {
       const byId = new Map(options.map(definition => [definition.id, definition]));
-      return metricIds.map(id => byId.get(id)).filter(Boolean).map(definition => metricLabel(adapter, definition)).join(" + ");
+      return metricIds.map(id => byId.get(id)).filter(definition=>definition!==undefined).map(definition => metricLabel(adapter, definition)).join(" + ");
     }
+    /** @param {EditorRow} exercise @param {ProgramSlot} slot @param {{cycleIndex:number}} cycle @param {ProgramSet} set @param {"rir"|"restSeconds"} field */
     function prescriptionFieldMarkup(exercise, slot, cycle, set, field) {
       const rir = field === "rir", fieldLabel = label(rir ? "metricRir" : "metricRestSeconds");
       const unit = rir ? "" : "s", value = set[field];
       const cycleTitle = label("metricCycle", { n: cycle.cycleIndex }), setTitle = label("metricSet", { n: set.setIndex });
       return `<label class="program-editor__metric-field program-editor__prescription-field"><span>${esc(fieldLabel)}${unit ? ` <small>${esc(unit)}</small>` : ""}</span><input type="number" inputmode="decimal" min="0" max="${rir ? "6" : "86400"}" step="${rir ? "any" : "1"}" data-role="prescription-field" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" data-cycle-index="${cycle.cycleIndex}" data-set-index="${set.setIndex}" data-field="${field}" value="${value == null ? "" : esc(String(value))}" aria-label="${esc(label("prescriptionFieldAria", { cycle: cycleTitle, set: setTitle, field: fieldLabel }))}"></label>`;
     }
+    /** @param {EditorRow} exercise @param {ProgramSlot} slot */
     function renderMetricComposition(exercise, slot) {
       const currentIds = Array.isArray(slot.metricIds) ? slot.metricIds : [];
       const options = metricOptions(adapter);
@@ -685,6 +720,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
         return `<option value="${esc(key)}"${equal(ids, currentIds) ? " selected" : ""}>${esc(name || label("metricUnconfigured"))}</option>`;
       }).join("")}</select></label>`;
     }
+    /** @param {EditorRow} exercise */
     function renderMetricTargets(exercise) {
       const slot = definitionSlot(document, exercise.slotId || exercise.id);
       if (!slot) return "";
@@ -712,24 +748,27 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
         ${contents}
       </section>`;
     }
+    /** @param {string} slotId @param {number} cycleIndex @param {number} setIndex @param {string} semantic @returns {TargetEdit} */
     function targetState(slotId, cycleIndex, setIndex, semantic) {
       const set = definitionSet(document, slotId, cycleIndex, setIndex);
       return set && hasOwn(set.targets, semantic)
         ? { present: true, value: clone(set.targets[semantic]) }
         : { present: false, value: null };
     }
+    /** @param {HTMLInputElement} input */
     function editMetricTarget(input) {
-      const slotId = input.dataset.slotId, cycleIndex = Number(input.dataset.cycleIndex);
-      const setIndex = Number(input.dataset.setIndex), metricId = input.dataset.metricId;
-      const semantic = input.dataset.semantic, slot = definitionSlot(document, slotId);
+      const slotId = (input.dataset.slotId||''), cycleIndex = Number(input.dataset.cycleIndex);
+      const setIndex = Number(input.dataset.setIndex), metricId = input.dataset.metricId||'';
+      const semantic = input.dataset.semantic||'', slot = definitionSlot(document, slotId);
       const definition = slot?.metricDefinitions?.find(item => item.id === metricId);
       const set = definitionSet(document, slotId, cycleIndex, setIndex);
       if (!slot || !definition || !set || !(slot.metricIds || []).includes(metricId)) return;
-      const peers = [...host.querySelectorAll('[data-role="metric-target"]')].filter(candidate =>
-        candidate.dataset.slotId === slotId && candidate.dataset.cycleIndex === String(cycleIndex) &&
+      const peers = [.../** @type {NodeListOf<HTMLInputElement>} */ (host.querySelectorAll('[data-role="metric-target"]'))].filter(candidate =>
+        (candidate.dataset.slotId||'') === slotId && candidate.dataset.cycleIndex === String(cycleIndex) &&
         candidate.dataset.setIndex === String(setIndex) && candidate.dataset.metricId === metricId);
       const ranged = peers.some(candidate => candidate.dataset.bound === "min" || candidate.dataset.bound === "max");
       const raw = Object.fromEntries(peers.map(candidate => [candidate.dataset.bound, candidate.value.trim()]));
+      /** @type {TargetEdit} */
       let after;
       if (ranged) {
         const minRaw = raw.min || "", maxRaw = raw.max || "";
@@ -768,18 +807,20 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
         metricIds: clone(slot.metricIds || []), metricDefinitions: clone(slot.metricDefinitions || []),
         before, after,
       }, { redraw: false });
-      updateExerciseSummary(input.dataset.id);
-      return Promise.resolve(result).then(value => { updateExerciseSummary(input.dataset.id); return value; });
+      updateExerciseSummary((input.dataset.id||''));
+      return Promise.resolve(result).then(value => { updateExerciseSummary((input.dataset.id||'')); return value; });
     }
     // The lifter's smallest load change per movement owns the adaptive engine's
     // candidate loads. Only hosts that persist it offer the field.
     const LOAD_SEMANTICS = new Set(["loadKg", "assistanceKg", "loadPerSideKg", "persistentLoadPerSideKg"]);
+    /** @param {ProgramSlot|null|undefined} slot */
     function slotLoadMetric(slot) {
       return (slot?.metricDefinitions || []).find(definition => LOAD_SEMANTICS.has(definition.semantic)) || null;
     }
+    /** @param {EditorRow} exercise @param {ProgramSlot|null} slot */
     function renderLoadStep(exercise, slot) {
       const loadMetric = slotLoadMetric(slot);
-      if (!loadMetric || typeof adapter.defaultLoadStepKg !== "function") return "";
+      if (!slot||!loadMetric || typeof adapter.defaultLoadStepKg !== "function") return "";
       const own = document.programMeta?.loadingConfiguration?.byExerciseId?.[slot.exerciseId]?.loadStepKg;
       const value = Number.isFinite(own) ? own : adapter.defaultLoadStepKg();
       const unit = metricDisplayUnit(adapter, loadMetric);
@@ -787,15 +828,16 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
         `<input type="text" inputmode="decimal" autocomplete="off" data-role="load-step" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" value="${esc(formatMetricValue(adapter, loadMetric, value))}"></label>` +
         `<p class="program-editor__hint">${esc(label("loadStepHint"))}</p>`;
     }
+    /** @param {HTMLInputElement} input */
     function editLoadStep(input) {
-      const slot = definitionSlot(document, input.dataset.slotId), loadMetric = slotLoadMetric(slot);
+      const slot = definitionSlot(document, (input.dataset.slotId||'')), loadMetric = slotLoadMetric(slot);
       if (!slot || !loadMetric) return;
       const raw = input.value.trim();
       let after = null;
       if (raw) {
         const parsed = parseMetricInput(adapter, loadMetric, raw);
         after = hasOwn(parsed || {}, "value") ? parsed.value : NaN;
-        if (!Number.isFinite(after) || after <= 0 || after > 100) {
+        if (typeof after!=='number'||!Number.isFinite(after) || after <= 0 || after > 100) {
           setStatus(label("invalid"), { error: true });
           return;
         }
@@ -812,6 +854,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     }
     // Plan 069 S4. Only a host that supplies the eligibility policy offers the
     // switch; the others keep the load step where it always was.
+    /** @param {EditorRow} exercise @param {ProgramSlot|null} slot */
     function renderSuggestLoads(exercise, slot) {
       const policy = adapter.suggestLoads;
       if (!policy || !slot) return renderLoadStep(exercise, slot);
@@ -824,8 +867,8 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       const on = slotAdaptive(slot) || pendingSuggestLoads(document).includes(slot.id);
       const semantic = slotRepSemantic(slot);
       const activeCycle = definitionCycle(slot, metricCycleIndex(adapter, document)) || slot.prescriptionsByCycle?.[0];
-      const range = repRange(activeCycle?.sets?.[0]?.targets?.[semantic]);
-      const rangeMissing = slotSets(slot).some(set => !repRange(set.targets?.[semantic]));
+      const range = repRange(semantic?activeCycle?.sets?.[0]?.targets?.[semantic]:null);
+      const rangeMissing = slotSets(slot).some(set => !repRange(semantic?set.targets?.[semantic]:null));
       const labelId = `program-editor-suggest-${esc(slot.id)}`;
       const toggle = `<div class="program-editor__suggest-loads-row"><span class="program-editor__field-label" id="${labelId}">${esc(label("suggestLoads"))}</span>` +
         `<button type="button" class="toggle" role="switch" aria-checked="${on ? "true" : "false"}" aria-labelledby="${labelId}" data-role="suggest-loads" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}"${!on && rangeMissing ? " disabled" : ""}></button></div>`;
@@ -844,8 +887,9 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
         `<label class="program-editor__metric-field"><span>${esc(label("metricRir"))}</span><input type="number" inputmode="decimal" min="0" max="6" step="any" required data-role="suggest-loads-rir" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" value="${rir == null ? "" : esc(String(rir))}"></label>` +
         renderLoadStep(exercise, slot) + mode + `</section>`;
     }
+    /** @param {HTMLButtonElement} button */
     function toggleSuggestLoads(button) {
-      const slotId = button.dataset.slotId, slot = definitionSlot(document, slotId);
+      const slotId = (button.dataset.slotId||''), slot = definitionSlot(document, slotId);
       if (!slot) return;
       const on = button.getAttribute("aria-checked") !== "true";
       const before = { exerciseId: slot.exerciseId,
@@ -855,8 +899,9 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       pendingFocus = { selector: `[data-role="suggest-loads"][data-slot-id="${cssEscape(slotId)}"]` };
       return stage(next, { kind: "suggest_loads", slotId, on, before });
     }
+    /** @param {HTMLInputElement} input */
     function editSuggestLoadsRir(input) {
-      const slotId = input.dataset.slotId, slot = definitionSlot(document, slotId);
+      const slotId = (input.dataset.slotId||''), slot = definitionSlot(document, slotId);
       if (!slot) return;
       setFieldError(input, null);
       const raw = input.value.trim(), after = raw ? Number(raw) : null;
@@ -876,16 +921,19 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       if (!setSlotRir(next, slotId, after)) return;
       return stage(next, { kind: "suggest_loads_rir", slotId, before, after }, { redraw: false });
     }
+    /** @param {HTMLButtonElement} button */
     function editExecutionMode(button) {
-      const slotId = button.dataset.slotId, slot = definitionSlot(document, slotId), after = button.dataset.mode;
+      const slotId = (button.dataset.slotId||''), slot = definitionSlot(document, slotId), after = (button.dataset.mode||'');
       if (!slot || !EXECUTION_MODES.has(after) || slot.executionMode === after) return;
-      const before = EXECUTION_MODES.has(slot.executionMode) ? slot.executionMode : null;
+      const before = EXECUTION_MODES.has(slot.executionMode||'') ? slot.executionMode : null;
       const next = clone(document);
-      definitionSlot(next, slotId).executionMode = after;
+      const nextSlot=definitionSlot(next,slotId);if(!nextSlot)return;
+      nextSlot.executionMode = after;
       pendingFocus = { selector: `[data-role="execution-mode"][data-slot-id="${cssEscape(slotId)}"][data-mode="${after}"]` };
       return stage(next, { kind: "execution_mode", slotId, before, after });
     }
     /** The field carries its own error: aria-invalid and an alert linked by aria-describedby. */
+    /** @param {HTMLElement} input @param {string|null} message */
     function setFieldError(input, message) {
       const current = input.getAttribute("aria-describedby");
       if (current) input.ownerDocument.getElementById(current)?.remove();
@@ -920,15 +968,16 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
         : issue.field === "rir" ? `[data-role="suggest-loads-rir"][data-slot-id="${cssEscape(issue.slotId)}"]`
           : `[data-role="suggest-loads"][data-slot-id="${cssEscape(issue.slotId)}"]`;
       const field = host.querySelector(selector);
-      if (field) {
+      if (field instanceof root.HTMLElement) {
         setFieldError(field, label("invalid"));
         try { field.focus(); } catch { /* detached */ }
       }
       return { ok: false, invalid: true, suggestLoads: issue };
     }
+    /** @param {HTMLInputElement} input */
     function editPrescriptionField(input) {
-      const slotId = input.dataset.slotId, cycleIndex = Number(input.dataset.cycleIndex);
-      const setIndex = Number(input.dataset.setIndex), field = input.dataset.field;
+      const slotId = (input.dataset.slotId||''), cycleIndex = Number(input.dataset.cycleIndex);
+      const setIndex = Number(input.dataset.setIndex), field = (input.dataset.field||'');
       if (field !== "rir" && field !== "restSeconds") return;
       const currentSet = definitionSet(document, slotId, cycleIndex, setIndex);
       const slot = definitionSlot(document, slotId);
@@ -963,16 +1012,17 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
         set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: "manual@1" };
       }
       const row = (next.program || []).find(candidate => (candidate.slotId || candidate.id) === slotId);
-      if (row) row.prescriptionsByCycle = clone(definitionSlot(next, slotId).prescriptionsByCycle || []);
+      if (row) row.prescriptionsByCycle = clone(definitionSlot(next, slotId)?.prescriptionsByCycle || []);
       const result = stage(next, { kind: "prescription_field", slotId, cycleIndex, setIndex, field, before, after }, { redraw: false });
-      updateExerciseSummary(input.dataset.id);
-      return Promise.resolve(result).then(value => { updateExerciseSummary(input.dataset.id); return value; });
+      updateExerciseSummary((input.dataset.id||''));
+      return Promise.resolve(result).then(value => { updateExerciseSummary((input.dataset.id||'')); return value; });
     }
+    /** @param {HTMLSelectElement} select */
     function editMetricComposition(select) {
-      const slotId = select.dataset.slotId, exerciseId = select.dataset.id;
+      const slotId = (select.dataset.slotId||''), exerciseId = (select.dataset.id||'');
       const exercise = document.program?.find(item => item.id === exerciseId);
       const slot = definitionSlot(document, slotId);
-      if (!exercise || !editableMetricComposition(slot)) return;
+      if (!exercise || !slot || !editableMetricComposition(slot)) return;
       let metricIds;
       try { metricIds = JSON.parse(select.value); } catch { return; }
       if (!Array.isArray(metricIds) || !metricCompositions(adapter).some(candidate => equal(candidate, metricIds))) {
@@ -980,14 +1030,14 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
         return;
       }
       const byId = new Map(metricOptions(adapter).map(definition => [definition.id, definition]));
-      const definitions = metricIds.map(id => byId.get(id)).filter(Boolean).map(clone);
+      const definitions = metricIds.map(id => byId.get(id)).filter(definition=>definition!==undefined).map(clone);
       if (definitions.length !== metricIds.length) {
         setStatus(label("invalid"), { error: true });
         return;
       }
       const beforeMetricIds = clone(slot.metricIds || []), beforeMetricDefinitions = clone(slot.metricDefinitions || []);
       if (equal(beforeMetricIds, metricIds) && equal(beforeMetricDefinitions, definitions)) return;
-      const next = clone(document), nextExercise = next.program?.find(item => item.id === exerciseId);
+      const next = clone(document), nextExercise = next.program?.find(item => item.id === exerciseId);if(!nextExercise)return;
       if (!replaceMetricComposition(next, nextExercise, metricIds, definitions)) return;
       pendingFocus = { selector: `[data-role="metric-composition"][data-id="${cssEscape(exerciseId)}"][data-slot-id="${cssEscape(slotId)}"]` };
       return stage(next, {
@@ -996,6 +1046,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
         metricIds: clone(metricIds), metricDefinitions: clone(definitions),
       });
     }
+    /** @param {EditorRow} exercise @param {ProgramSlot|null} slot */
     function renderAlternates(exercise, slot) {
       if (!slot) return "";
       const list = Array.isArray(slot.alternates) ? slot.alternates : [];
@@ -1016,9 +1067,10 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
           <p class="program-editor__hint">${esc(label("alternatesHint"))}</p>
         </section>`;
     }
+    /** @param {EditorRow} exercise @param {number} index @param {number} count @param {string} day */
     function renderExercise(exercise, index, count, day) {
       const open = expandedExercises.has(exercise.id);
-      const linked = exerciseEntry(adapter, exercise.libraryId);
+      const linked = exerciseEntry(adapter, exercise.libraryId||'');
       const name = exerciseName(adapter, exercise);
       const shownName = exerciseDisplayLabel(adapter, exercise);
       const slot = definitionSlot(document, exercise.slotId || exercise.id);
@@ -1052,7 +1104,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
           <details class="program-editor__more" data-role="more-details" data-id="${esc(exercise.id)}">
             <summary>${esc(label("details"))}</summary>
             <label><span>${esc(label("notes"))}</span><input data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="notes" value="${esc(exercise.notes || "")}"></label>
-            ${["primary", "secondary"].map(field => linked
+            ${/** @type {("primary"|"secondary")[]} */ (["primary", "secondary"]).map(field => linked
               // A linked movement's muscles come from the catalog: shown read-only, and
               // allowed to wrap, since a full attribution can outrun one input line.
               ? `<label><span>${esc(label(field))}</span><textarea class="program-editor__muscles" rows="${Math.min(4, Math.max(1, Math.ceil(String(exercise[field] || "").length / 24)))}" readonly data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="${field}">${esc(exercise[field] || "")}</textarea></label>`
@@ -1076,6 +1128,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
         </div>
       </article>`;
     }
+    /** @param {string} day @param {number} index */
     function renderDay(day, index) {
       const list = exercisesFor(document, day), open = !collapsedDays.has(day);
       // Hosts choose the grouping that fits their surrounding chrome. The
@@ -1113,8 +1166,8 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     function liveEditSnapshot() {
       const active = host.ownerDocument?.activeElement;
       if (!active || !host.contains(active)) return null;
-      if (active.tagName !== "INPUT" && active.tagName !== "TEXTAREA") return null;
-      if (!active.dataset.role) return null;
+      if (!(active instanceof root.HTMLInputElement) && !(active instanceof root.HTMLTextAreaElement)) return null;
+      if (!(active.dataset.role||'')) return null;
       const parts = [];
       for (const attribute of active.attributes) {
         if (attribute.name.startsWith("data-")) parts.push(`[${attribute.name}="${cssEscape(attribute.value)}"]`);
@@ -1135,10 +1188,11 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       active.addEventListener("change", () => { snapshot.committedDuringTeardown = true; }, { once: true });
       return snapshot;
     }
+    /** @param {LiveEdit|null} snapshot */
     function restoreLiveEdit(snapshot) {
       if (!snapshot) return false;
       const next = host.querySelector(snapshot.selector);
-      if (!next || (next.tagName !== "INPUT" && next.tagName !== "TEXTAREA")) return false;
+      if (!(next instanceof root.HTMLInputElement) && !(next instanceof root.HTMLTextAreaElement)) return false;
       const renderedValue = next.value;
       next.value = snapshot.value;
       try { if (snapshot.selectionStart != null) next.setSelectionRange(snapshot.selectionStart, snapshot.selectionEnd); }
@@ -1205,6 +1259,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       schedulePendingFocus();
     }
     /** The field carries its own error: aria-invalid and an alert linked by aria-describedby, not a toast alone. */
+    /** @param {HTMLInputElement} input @param {string|null} message */
     function setDayNameError(input, message) {
       const id = `program-editor-day-error-${uid()}`;
       const current = input.getAttribute("aria-describedby");
@@ -1223,7 +1278,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     }
     function bind() {
       if (destroyed) return;
-      host.querySelectorAll('[data-role="program-name"]').forEach(input => {
+      /** @type {NodeListOf<HTMLInputElement>} */ (host.querySelectorAll('[data-role="program-name"]')).forEach(input => {
         input.addEventListener("change", () => {
           const before = document.programMeta?.name || "", value = String(input.value || "").trim();
           if (value === before) return;
@@ -1231,15 +1286,15 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
           stage(next, { kind: "program_name", before, after: value });
         });
       });
-      host.querySelectorAll('[data-role="day-name"]').forEach(input => {
+      /** @type {NodeListOf<HTMLInputElement>} */ (host.querySelectorAll('[data-role="day-name"]')).forEach(input => {
         input.addEventListener("change", () => {
-          const day = input.dataset.day;
+          const day = (input.dataset.day||'');
           setDayNameError(input, null);
           renameDay(day, input.value).then(result => {
             // A refused rename leaves the day as it was, so the field says so (#343).
             if (!result?.refused || !input.isConnected) return;
             input.value = titleFor(day, labels(document).indexOf(day));
-            if (result.duplicate) setDayNameError(input, label("dayNameExists"));
+            if ('duplicate' in result && result.duplicate) setDayNameError(input, label("dayNameExists"));
           });
         });
         input.addEventListener("input", () => setDayNameError(input, null));
@@ -1249,104 +1304,104 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
           input.blur();
         });
       });
-      host.querySelectorAll('[data-role="exercise-field"]').forEach(input => {
+      /** @type {NodeListOf<HTMLInputElement|HTMLTextAreaElement>} */ (host.querySelectorAll('[data-role="exercise-field"]')).forEach(input => {
         input.addEventListener("focus", () => { input.dataset.editorFocusValue = input.value; });
         const handler = () => {
           // The name wraps in a one-row textarea; it is still one line of text.
-          const field = input.dataset.field, text = String(input.value || "");
+          const field = (input.dataset.field||''), text = String(input.value || "");
           const raw = field === "name" ? text.replace(/\s*\n\s*/g, " ") : text;
           // A blank exercise name is useful while the lifter is editing, but
           // leaving the field blank is an abandoned rename. Restore the value
           // captured on focus instead of manufacturing the model's fallback.
           if (field === "name" && !raw.trim() && String(input.dataset.editorFocusValue || "").trim())
-            input.value = input.dataset.editorFocusValue;
+            input.value = input.dataset.editorFocusValue||'';
           else if (["name", "notes", "primary", "secondary"].includes(field)) input.value = raw.trim();
-          return setExerciseField(input.dataset.id, field, input.value);
+          return setExerciseField((input.dataset.id||''), field, input.value);
         };
         input.addEventListener("change", handler);
         // Enter commits a name the way it did when the name was a text input.
-        if (input.dataset.field === "name") input.addEventListener("keydown", event => {
-          if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); input.blur(); }
+        if ((input.dataset.field||'') === "name") input.addEventListener("keydown", event => {
+          if (event instanceof root.KeyboardEvent && event.key === "Enter" && !event.isComposing) { event.preventDefault(); input.blur(); }
         });
-        if (input.dataset.field === "name" || input.dataset.field === "notes") {
-          input.addEventListener("input", () => setExerciseField(input.dataset.id, input.dataset.field, input.value, { redraw: false }));
+        if ((input.dataset.field||'') === "name" || (input.dataset.field||'') === "notes") {
+          input.addEventListener("input", () => setExerciseField((input.dataset.id||''), (input.dataset.field||''), input.value, { redraw: false }));
           input.addEventListener("blur", handler);
         }
       });
-      host.querySelectorAll('[data-role="metric-target"]').forEach(input => input.addEventListener("change", () => editMetricTarget(input)));
-      host.querySelectorAll('[data-role="prescription-field"]').forEach(input => input.addEventListener("change", () => editPrescriptionField(input)));
-      host.querySelectorAll('[data-role="load-step"]').forEach(input => input.addEventListener("change", () => editLoadStep(input)));
-      host.querySelectorAll('[data-role="suggest-loads"]').forEach(button => button.addEventListener("click", () => toggleSuggestLoads(button)));
-      host.querySelectorAll('[data-role="suggest-loads-rir"]').forEach(input => input.addEventListener("change", () => editSuggestLoadsRir(input)));
-      host.querySelectorAll('[data-role="execution-mode"]').forEach(button => button.addEventListener("click", () => editExecutionMode(button)));
-      host.querySelectorAll('[data-role="metric-composition"]').forEach(select => select.addEventListener("change", () => editMetricComposition(select)));
-      host.querySelectorAll('[data-role="metric-cycle"]').forEach(details => details.addEventListener("toggle", () => {
-        const slotId = details.closest('[data-role="metric-targets"]')?.dataset.slotId;
+      /** @type {NodeListOf<HTMLInputElement>} */ (host.querySelectorAll('[data-role="metric-target"]')).forEach(input => input.addEventListener("change", () => editMetricTarget(input)));
+      /** @type {NodeListOf<HTMLInputElement>} */ (host.querySelectorAll('[data-role="prescription-field"]')).forEach(input => input.addEventListener("change", () => editPrescriptionField(input)));
+      /** @type {NodeListOf<HTMLInputElement>} */ (host.querySelectorAll('[data-role="load-step"]')).forEach(input => input.addEventListener("change", () => editLoadStep(input)));
+      /** @type {NodeListOf<HTMLButtonElement>} */ (host.querySelectorAll('[data-role="suggest-loads"]')).forEach(button => button.addEventListener("click", () => toggleSuggestLoads(button)));
+      /** @type {NodeListOf<HTMLInputElement>} */ (host.querySelectorAll('[data-role="suggest-loads-rir"]')).forEach(input => input.addEventListener("change", () => editSuggestLoadsRir(input)));
+      /** @type {NodeListOf<HTMLButtonElement>} */ (host.querySelectorAll('[data-role="execution-mode"]')).forEach(button => button.addEventListener("click", () => editExecutionMode(button)));
+      /** @type {NodeListOf<HTMLSelectElement>} */ (host.querySelectorAll('[data-role="metric-composition"]')).forEach(select => select.addEventListener("change", () => editMetricComposition(select)));
+      /** @type {NodeListOf<HTMLDetailsElement>} */ (host.querySelectorAll('[data-role="metric-cycle"]')).forEach(details => details.addEventListener("toggle", () => {
+        const slotId = details.closest('[data-role="metric-targets"]')?.getAttribute('data-slot-id');
         const cycleIndex = Number(details.dataset.cycleIndex);
         if (!slotId || !Number.isInteger(cycleIndex)) return;
         initializedMetricCycleSlots.add(slotId);
         const key = `${slotId}:${cycleIndex}`;
         if (details.open) expandedMetricCycles.add(key); else expandedMetricCycles.delete(key);
       }));
-      host.querySelectorAll('[data-role="toggle-day"]').forEach(button => button.addEventListener("click", () => toggleDay(button.dataset.day)));
-      host.querySelectorAll('[data-role="day-menu"]').forEach(button => button.addEventListener("click", () => {
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="toggle-day"]')).forEach(button => button.addEventListener("click", () => toggleDay((button.dataset.day||''))));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="day-menu"]')).forEach(button => button.addEventListener("click", () => {
         const card = button.closest('[data-role="day"]'), menu = card?.querySelector('[data-role="day-menu-panel"]');
-        if (!menu) return;
+        if (!(menu instanceof root.HTMLElement)) return;
         const open = menu.hidden;
-        host.querySelectorAll('[data-role="day-menu-panel"]').forEach(item => { item.hidden = true; });
+        /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="day-menu-panel"]')).forEach(item => { item.hidden = true; });
         menu.hidden = !open;
         button.setAttribute("aria-expanded", open ? "true" : "false");
       }));
-      host.querySelectorAll('[data-role="remove-day"]').forEach(button => button.addEventListener("click", () => {
-        const day = button.dataset.day;
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="remove-day"]')).forEach(button => button.addEventListener("click", () => {
+        const day = (button.dataset.day||'');
         const confirm = adapter.confirm;
         if (typeof confirm === "function" && !confirm({ kind: "day_remove", day })) return;
         removeDay(day);
       }));
-      host.querySelectorAll('[data-role="toggle-reorder"]').forEach(button => button.addEventListener("click", () => {
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="toggle-reorder"]')).forEach(button => button.addEventListener("click", () => {
         reorderMode = !reorderMode;
-        host.querySelectorAll('[data-role="day-menu-panel"]').forEach(item => { item.hidden = true; });
+        /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="day-menu-panel"]')).forEach(item => { item.hidden = true; });
         scheduleRender();
       }));
-      host.querySelectorAll('[data-role="toggle-exercise"]').forEach(button => button.addEventListener("click", () => toggleExercise(button.dataset.id)));
-      host.querySelectorAll('[data-role="add-exercise"]').forEach(button => button.addEventListener("click", () => addForDay(button.dataset.day)));
-      host.querySelectorAll('[data-role="add-day"]').forEach(button => button.addEventListener("click", () => { const next = clone(document); const day = appendDay(next); collapsedDays.delete(day); stage(next, { kind: "day_add", targetDay: day, after: day }); }));
-      host.querySelectorAll('[data-role="adjust"]').forEach(button => button.addEventListener("click", () => {
-        const exercise = document.program?.find(item => item.id === button.dataset.id); if (!exercise) return;
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="toggle-exercise"]')).forEach(button => button.addEventListener("click", () => toggleExercise((button.dataset.id||''))));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="add-exercise"]')).forEach(button => button.addEventListener("click", () => addForDay((button.dataset.day||''))));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="add-day"]')).forEach(button => button.addEventListener("click", () => { const next = clone(document); const day = appendDay(next); collapsedDays.delete(day); stage(next, { kind: "day_add", targetDay: day, after: day }); }));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="adjust"]')).forEach(button => button.addEventListener("click", () => {
+        const exercise = document.program?.find(item => item.id === (button.dataset.id||'')); if (!exercise) return;
         const cycleIndex = Number(button.dataset.cycleIndex) || metricCycleIndex(adapter, document);
-        const current = button.dataset.field === "sets" ? setCountFor(document, exercise, cycleIndex) : number(exercise[button.dataset.field]);
+        const current = (button.dataset.field||'') === "sets" ? setCountFor(document, exercise, cycleIndex) : number((button.dataset.field==='min'||button.dataset.field==='max')?exercise[button.dataset.field]:undefined);
         const delta = number(button.dataset.delta);
-        if (button.dataset.field === "sets") pendingFocus = { selector: `[data-role="adjust"][data-id="${cssEscape(exercise.id)}"][data-cycle-index="${cycleIndex}"][data-delta="${delta}"]` };
-        setExerciseField(exercise.id, button.dataset.field, current + delta, { cycleIndex });
+        if ((button.dataset.field||'') === "sets") pendingFocus = { selector: `[data-role="adjust"][data-id="${cssEscape(exercise.id)}"][data-cycle-index="${cycleIndex}"][data-delta="${delta}"]` };
+        setExerciseField(exercise.id, (button.dataset.field||''), current + delta, { cycleIndex });
       }));
-      host.querySelectorAll('[data-role="replace"]').forEach(button => button.addEventListener("click", () => replaceForExercise(button.dataset.id)));
-      host.querySelectorAll('[data-role="remove-exercise"]').forEach(button => button.addEventListener("click", () => removeExercise(button.dataset.id)));
-      host.querySelectorAll('[data-role="add-alternate"]').forEach(button => button.addEventListener("click", () => addAlternate(button.dataset.id)));
-      host.querySelectorAll('[data-role="alternate-up"],[data-role="alternate-down"],[data-role="alternate-remove"]').forEach(button =>
-        button.addEventListener("click", () => editAlternate(button.dataset.id, button.dataset.exerciseId, button.dataset.role)));
-      host.querySelectorAll('[data-role="exercise-menu"]').forEach(button => button.addEventListener("click", () => {
-        const menu = host.querySelector(`[data-role="move-menu"][data-id="${cssEscape(button.dataset.id)}"]`); if (!menu) return;
-        const open = menu.hidden; host.querySelectorAll('[data-role="move-menu"]').forEach(item => { item.hidden = true; });
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="replace"]')).forEach(button => button.addEventListener("click", () => replaceForExercise((button.dataset.id||''))));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="remove-exercise"]')).forEach(button => button.addEventListener("click", () => removeExercise((button.dataset.id||''))));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="add-alternate"]')).forEach(button => button.addEventListener("click", () => addAlternate((button.dataset.id||''))));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="alternate-up"],[data-role="alternate-down"],[data-role="alternate-remove"]')).forEach(button =>
+        button.addEventListener("click", () => editAlternate((button.dataset.id||''), (button.dataset.exerciseId||''), (button.dataset.role||''))));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="exercise-menu"]')).forEach(button => button.addEventListener("click", () => {
+        const menu = /** @type {HTMLElement|null} */ (host.querySelector(`[data-role="move-menu"][data-id="${cssEscape((button.dataset.id||''))}"]`)); if (!(menu instanceof root.HTMLElement)) return;
+        const open = menu.hidden; /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="move-menu"]')).forEach(item => { item.hidden = true; });
         menu.hidden = !open; button.setAttribute("aria-expanded", open ? "true" : "false");
       }));
-      host.querySelectorAll('[data-role="more-details"][role="menuitem"]').forEach(button => button.addEventListener("click", () => {
-        const details = host.querySelector(`[data-role="more-details"][data-id="${cssEscape(button.dataset.id)}"]`);
-        if (details?.tagName === "DETAILS") details.open = true;
-        host.querySelectorAll('[data-role="move-menu"]').forEach(item => { item.hidden = true; });
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="more-details"][role="menuitem"]')).forEach(button => button.addEventListener("click", () => {
+        const details = /** @type {HTMLElement|null} */ (host.querySelector(`[data-role="more-details"][data-id="${cssEscape((button.dataset.id||''))}"]`));
+        if (details instanceof root.HTMLDetailsElement) details.open = true;
+        /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="move-menu"]')).forEach(item => { item.hidden = true; });
       }));
-      host.querySelectorAll('[data-role="move-up"],[data-role="move-down"]').forEach(button => button.addEventListener("click", () => {
-        const ex = document.program?.find(item => item.id === button.dataset.id); if (!ex) return;
-        const list = exercisesFor(document, ex.day), index = list.findIndex(item => item.id === ex.id), to = index + (button.dataset.role === "move-up" ? -1 : 1);
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="move-up"],[data-role="move-down"]')).forEach(button => button.addEventListener("click", () => {
+        const ex = document.program?.find(item => item.id === (button.dataset.id||'')); if (!ex) return;
+        const list = exercisesFor(document, ex.day), index = list.findIndex(item => item.id === ex.id), to = index + ((button.dataset.role||'') === "move-up" ? -1 : 1);
         if (to >= 0 && to < list.length) moveExercise(ex.id, ex.day, to);
       }));
-      host.querySelectorAll('[data-role="move-other"]').forEach(button => button.addEventListener("click", () => {
-        const menu = button.closest('[data-role="move-menu"]'), days = menu?.querySelector('[data-role="move-days"]'); if (days) days.hidden = !days.hidden;
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="move-other"]')).forEach(button => button.addEventListener("click", () => {
+        const menu = button.closest('[data-role="move-menu"]'), days = menu?.querySelector('[data-role="move-days"]'); if (days instanceof root.HTMLElement) days.hidden = !days.hidden;
       }));
-      host.querySelectorAll('[data-role="move-to-day"]').forEach(button => button.addEventListener("click", () => {
-        const target = exercisesFor(document, button.dataset.day).length;
-        moveExercise(button.dataset.id, button.dataset.day, target);
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="move-to-day"]')).forEach(button => button.addEventListener("click", () => {
+        const target = exercisesFor(document, (button.dataset.day||'')).length;
+        moveExercise((button.dataset.id||''), (button.dataset.day||''), target);
       }));
-      host.querySelectorAll('[data-role="undo-move"]').forEach(button => button.addEventListener("click", undoLastMove));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="undo-move"]')).forEach(button => button.addEventListener("click", undoLastMove));
       // Every render replaces the rows, so the sortables are rebuilt against
       // the DOM that now exists rather than patched.
       mountSorting();
@@ -1373,12 +1428,14 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
        remains reachable through the explicit Move controls in each row's menu,
        which are also the keyboard path this editor shipped with.
        ============================================================ */
+    /** @type {Sorting|null} */
     let sorting = null;
 
     /** Screen-reader copy for the drag, in the lifter's language.
      *  dnd-kit ships English defaults; a Portuguese install must not hear them. */
     function dragAnnouncements() {
-      const place = operation => {
+      /** @param {DragOperation|undefined} operation */
+    const place = operation => {
         const source = operation?.source;
         const sortable = source?.sortable || source;
         const day = String(sortable?.group ?? "");
@@ -1386,15 +1443,17 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
         const name = item ? exerciseDisplayLabel(adapter, item) : "";
         return { name, day: titleForDay(day), index: (sortable?.index ?? 0) + 1, count: exercisesFor(document, day).length };
       };
-      const say = (key, operation) => label(key, place(operation));
+      /** @param {string} key @param {DragOperation|undefined} operation */
+    const say = (key, operation) => label(key, place(operation));
       return {
-        dragstart: ({ operation }) => say("dragPickedUp", operation),
-        dragover: ({ operation }) => say("dragOver", operation),
-        dragend: ({ operation, canceled }) =>
+        dragstart: /** @param {EditorDragEvent} event */ ({ operation }) => say("dragPickedUp", operation),
+        dragover: /** @param {EditorDragEvent} event */ ({ operation }) => say("dragOver", operation),
+        dragend: /** @param {EditorDragEvent} event */ ({ operation, canceled }) =>
           canceled ? label("dragCancelled", { name: place(operation).name }) : say("dragDropped", operation),
       };
     }
     /** The day's display title, so an announcement names what the lifter sees. */
+    /** @param {string} day */
     function titleForDay(day) {
       const index = labels(document).indexOf(day);
       return index >= 0 ? titleFor(day, index) : day;
@@ -1404,7 +1463,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       const current = sorting;
       sorting = null;
       if (!current) return;
-      clearTimeout(current.expandTimer);
+      if(current.expandTimer!==null)clearTimeout(current.expandTimer);
       for (const sortable of current.sortables) { try { sortable.destroy(); } catch { /* already gone */ } }
       try { current.manager.destroy(); } catch { /* already gone */ }
     }
@@ -1463,7 +1522,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
                 // exactly the fast, deliberate drags a mouse is good at.
                 activationConstraints: (event, source) =>
                   event.pointerType === "mouse" &&
-                  (source.handle === event.target || source.handle?.contains(event.target))
+                  (source.handle === event.target || event.target instanceof root.Node && source.handle?.contains(event.target))
                     ? undefined
                     : [new Dnd.PointerActivationConstraints.Delay({ value: 90, tolerance: 10 })],
               })
@@ -1471,8 +1530,8 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       });
 
       const sortables = [];
-      for (const section of host.querySelectorAll('[data-role="day"]')) {
-        const day = section.dataset.day;
+      for (const section of /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="day"]'))) {
+        const day = (section.dataset.day||'');
         // The day itself accepts a drop, at lower priority than the rows inside
         // it, so an empty day and a collapsed one are both reachable.
         sortables.push(new Dnd.Droppable({
@@ -1480,11 +1539,11 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
           element: section, data: { day },
           collisionPriority: Dnd.CollisionPriority.Low,
         }, manager));
-        [...section.querySelectorAll('[data-role="exercise"][data-id]')].forEach((row, index) => {
-          const handle = row.querySelector('[data-role="drag-handle"]');
+        [.../** @type {NodeListOf<HTMLElement>} */ (section.querySelectorAll('[data-role="exercise"][data-id]'))].forEach((row, index) => {
+          const handle = /** @type {HTMLElement|null} */ (row.querySelector('[data-role="drag-handle"]'));
           if (!handle) return;
           sortables.push(new Dnd.Sortable({
-            id: row.dataset.id, index, group: day,
+            id: (row.dataset.id||''), index, group: day,
             type: "exercise", accept: ["exercise"],
             element: row, handle, data: { day },
             transition: glide,
@@ -1500,18 +1559,18 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
         if (!sorting) return;
         const over = dayOf(event.operation?.target);
         if (over === sorting.overDay) return;
-        clearTimeout(sorting.expandTimer);
+        if(sorting.expandTimer!==null)clearTimeout(sorting.expandTimer);
         sorting.overDay = over;
         if (!over) return;
         sorting.expandTimer = setTimeout(() => {
-          host.querySelector(`[data-role="day"][data-day="${cssEscape(over)}"]`)
+          /** @type {HTMLElement|null} */ (host.querySelector(`[data-role="day"][data-day="${cssEscape(over)}"]`))
             ?.classList.add("is-drag-target-expanded");
         }, 450);
       });
 
       manager.monitor.addEventListener("dragend", event => {
-        if (sorting) { clearTimeout(sorting.expandTimer); sorting.overDay = null; }
-        host.querySelectorAll(".is-drag-target-expanded").forEach(section => section.classList.remove("is-drag-target-expanded"));
+        if (sorting) { if(sorting.expandTimer!==null)clearTimeout(sorting.expandTimer); sorting.overDay = null; }
+        /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll(".is-drag-target-expanded")).forEach(section => section.classList.remove("is-drag-target-expanded"));
         if (event.canceled || destroyed) return;
         const source = event.operation?.source;
         const sortable = source?.sortable || source;
@@ -1543,12 +1602,13 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       });
     }
     /** The day a drop target belongs to, whether it is a row or the day itself. */
+    /** @param {DragItem|null|undefined} target */
     function dayOf(target) {
       if (!target) return null;
       const data = target.data;
       if (data && typeof data.day === "string") return data.day;
       const element = target.element;
-      return element?.closest?.('[data-role="day"]')?.dataset.day || null;
+      return element?.closest?.('[data-role="day"]')?.getAttribute('data-day') || null;
     }
 
     render();
@@ -1562,7 +1622,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       checkSuggestLoads,
       commit: apply,
       discard,
-      replaceExercise: exerciseInstanceId => replaceForExercise(exerciseInstanceId, { repair: true }),
+      replaceExercise: /** @param {string} exerciseInstanceId */ exerciseInstanceId => replaceForExercise(exerciseInstanceId, { repair: true }),
     };
   }
 

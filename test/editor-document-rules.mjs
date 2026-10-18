@@ -21,3 +21,20 @@ assert.equal(document.program[0].sets,3);assert.equal(document.program[0].min,6)
 rules.removeDayFromDocument(document,'Day 2');rules.removeDayFromDocument(document,'Upper');
 assert.deepEqual(document.program,[]);assert.equal(document.programMeta.programStructure,null,'released last-day removal retains its null structure representation');
 console.log('PASS native speculative editor identity, day moves, replacement and rejecting negative controls');
+
+const {seedProgram,seedProgramMeta}=await import('./fixtures/seed-program.mjs');
+const installed={program:seedProgram(),programMeta:seedProgramMeta(),customExercises:[]};
+const rawBefore=JSON.stringify(installed);
+const renamed=rules.editExerciseField(installed,{id:'seed-ex-1',field:'name',value:'  Front squat  ',cycleIndex:1});
+assert.equal(renamed.document.program[0].id,'seed-ex-1');assert.equal(renamed.document.program[0].name,'Front squat');
+assert.equal(renamed.document.program[0].displayName,'Front squat');
+assert.equal(JSON.stringify(installed),rawBefore,'field preparation leaves the acknowledged input unchanged');
+const enlarged=rules.editExerciseField(installed,{id:'seed-ex-1',field:'sets',value:3,cycleIndex:1});
+assert.equal(enlarged.edit.after,3);assert.equal(enlarged.edit.addedSets.length,1);
+assert.equal(enlarged.edit.addedSets[0].id,'new-authored-slot');assert.equal(enlarged.edit.addedSets[0].setIndex,3);
+assert.equal(enlarged.edit.addedSets[0].status,'manual');assert.equal(enlarged.edit.addedSets[0].rir,null);
+assert.deepEqual(enlarged.edit.addedSets[0].targets,{reps:{min:4,max:8}});
+assert.equal(enlarged.document.programMeta.programDefinition.days[0].slots[0].prescriptionsByCycle[0].sets.length,3);
+assert.deepEqual(rules.editExerciseField(installed,{id:'seed-ex-1',field:'unrecognized-field',value:'corrupt',cycleIndex:1}),{ok:false});
+assert.equal(JSON.stringify(installed),rawBefore,'negative control: unknown fields cannot mutate the caller document');
+console.log('PASS authored field alias and canonical set growth have literal expected receipts without mutating the input');

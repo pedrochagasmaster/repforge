@@ -8,7 +8,7 @@
 /** Speculative program editor documents. Mutations touch only the caller's cloned
  * document; installed/setup application commands own validation and publication. */
 import {cloneSnapshot as clone} from '../../model.js';
-import {definitionFor,definitionSlot} from './suggestion.js';
+import {definitionFor,definitionSlot,slotAdaptive} from './suggestion.js';
 const REP_TARGET_SEMANTICS = new Set(['reps','repsPerSide']);
 /** @param {unknown} value */
 const number=value=>{const n=Number(value);return Number.isFinite(n)?n:0};
@@ -42,11 +42,11 @@ export function createEditorDocumentRules({nextId:uid}) {
     }
     return out;
   }
-  /** @param {Partial<EditorDocument>} document @param {string} day */
+  /** @template {Partial<EditorDocument>} T @param {T} document @param {string} day @returns {NonNullable<T['program']>} */
   function exercisesFor(document, day) {
-    return (Array.isArray(document?.program) ? document.program : [])
+    return /** @type {NonNullable<T['program']>} */ ((Array.isArray(document?.program) ? document.program : [])
       .filter(exercise => exercise?.day === day)
-      .sort((a, b) => number(a.order) - number(b.order) || String(a.name || "").localeCompare(String(b.name || "")));
+      .sort((a, b) => number(a.order) - number(b.order) || String(a.name || "").localeCompare(String(b.name || ""))));
   }
   /** @param {EditorDocument} document */
   function normalizeOrders(document) {
@@ -253,5 +253,64 @@ export function createEditorDocumentRules({nextId:uid}) {
   }
 
 
-return Object.freeze({metaDays,labels,exercisesFor,normalizeOrders,structureFor,definitionCycle,definitionSet,setCountFor,editableMetricComposition,replaceMetricComposition,replaceMetricTarget,ensureStructure,setDayLabel,appendDay,removeDayFromDocument,fieldValue,entryFields,addExercise,replaceExercise,reorder,validation});
+  /** @template {EditorDocument} T
+   * @param {T} input @param {{id:string,field:string,value:unknown,cycleIndex:number}} request */
+  function editExerciseField(input,{id,field,value,cycleIndex}){
+      const next = clone(input), exercise = next.program?.find(item => item.id === id);
+      if (!exercise) return {ok:false};
+      if(field!=='sets'&&field!=='min'&&field!=='max'&&field!=='name'&&field!=='primary'&&field!=='secondary'&&field!=='notes')return{ok:false};
+      const requestedIndex = Number(cycleIndex);
+      const activeCycle = Number.isInteger(requestedIndex) && requestedIndex > 0 ? requestedIndex : 1;
+      const slot = field === "sets" ? definitionSlot(next, exercise.slotId || exercise.id || '') : null;
+      const cycle = slot ? definitionCycle(slot, activeCycle) : null;
+      const previous = field === "sets" && cycle ? cycle.sets.length : exercise[field];
+      const normalized = fieldValue(exercise, field, value);
+      if (Object.is(previous, normalized)) return {ok:true,unchanged:true};
+      if (field === "sets" && cycle && slot && typeof normalized==='number') {
+        const beforeSetIds = cycle.sets.map(set => set.id);
+        /** @type {import('./editor-contracts.js').ProgramSet[]} */
+        const addedSets=[];
+        /** @type {string[]} */
+        const removedSetIds=[];
+        // A set added to an adaptive slot joins it (Plan 069 D3): the opt-in
+        // covers every set, so the new one takes the slot's RIR and status.
+        const adaptive = slotAdaptive(slot);
+        while (cycle.sets.length < normalized) {
+          const source = cycle.sets.at(-1);
+          if (!source) return {ok:false};
+          /** @type {import('./editor-contracts.js').ProgramSet} */
+          const added = adaptive
+            ? { ...clone(source), id: uid(), cycleIndex:activeCycle, setIndex: cycle.sets.length + 1 }
+            : { ...clone(source), id: uid(), cycleIndex:activeCycle, setIndex: cycle.sets.length + 1,
+              rir: null, status: slot.metricIds?.length ? "manual" : "configuration_required",
+              provenance: { source: "manual", policyVersion: "manual@1" } };
+          cycle.sets.push(added);
+          addedSets.push(clone(added));
+        }
+        while (cycle.sets.length > normalized) removedSetIds.push(cycle.sets.pop()?.id||'');
+        cycle.sets.forEach((set, index) => { set.setIndex = index + 1; });
+        exercise.sets = normalized;
+        exercise.prescriptionsByCycle = clone(slot.prescriptionsByCycle || []);
+        return {ok:true,document:next,edit:{ kind: "prescription", targetId: id, field: "sets", before: previous, after: normalized,
+          cycleIndex:activeCycle, beforeSetIds, addedSets, removedSetIds }};
+      }
+      if(field==='sets'||field==='min'||field==='max'){
+        const n=number(normalized);
+        if(field==='min'&&n>number(exercise.max))exercise.max=n;
+        if(field==='max'&&n<number(exercise.min))exercise.min=n;
+        exercise[field]=n;
+      }else exercise[field]=String(normalized);
+      // Linked movements keep their stable library identity while allowing a
+      // program-specific display alias. The persisted model resolves `name`
+      // from `displayName`, so carry the alias explicitly in the complete
+      // document sent to the host.
+      if (field === "name" && exercise.libraryId) {
+        if (normalized) exercise.displayName = String(normalized);
+        else delete exercise.displayName;
+      }
+      return {ok:true,document:next,edit:{ kind: field === "sets" || field === "min" || field === "max" ? "prescription" : "exercise_field", targetId: id, field, before: previous, after: normalized }};
+
+  }
+
+return Object.freeze({editExerciseField,metaDays,labels,exercisesFor,normalizeOrders,structureFor,definitionCycle,definitionSet,setCountFor,editableMetricComposition,replaceMetricComposition,replaceMetricTarget,ensureStructure,setDayLabel,appendDay,removeDayFromDocument,fieldValue,entryFields,addExercise,replaceExercise,reorder,validation});
 }
