@@ -1,3 +1,4 @@
+import {createCustomDefinitionImport} from './src/app/custom-import.js';
 import {workoutDayIdForSnapshot,workoutParseContextForSnapshot} from './src/persistence/snapshot.js';
 import {review as ReviewRules} from './src/training/authoring.js';
 import {createProgramReview} from './src/ui/editors.js';
@@ -11,7 +12,7 @@ import {createShell,NATIVE_FOCUS_SELECTOR as ROUTE_NATIVE_FOCUS} from './src/ui/
 import {createNotifications} from './src/platform/notifications.js';
 import {createSessionSheet} from './src/ui/workout/session-sheet.js';
 import {createEntryController} from './src/ui/entry/controller.js';
-import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,createEntryAnswerCommands,createEntryQuestionFlow,createEntryReviewSession,createEntrySetup,FREEFORM_MAX_CHARS} from './src/app/entry.js';
+import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,createEntryAnswerCommands,createEntryQuestionFlow,createEntryReviewSession,createEntrySetup,createEntryActivation,FREEFORM_MAX_CHARS} from './src/app/entry.js';
 import * as FreeformGrammar from './src/interchange/freeform.js';
 import * as InstallPolicy from './src/platform/install.js';
 import {createInstallView} from './src/ui/settings/install.js';
@@ -1953,17 +1954,8 @@ let installedProgramEditor=null,onboardingProgramEditor=null,installedEditorSess
 function earliestLogDate(log){if(!log?.length)return null;return log.reduce((min,r)=>!min||String(r.date)<min?r.date:min,null)}
 
 
-function buildProgramMeta({name, answers, entrySource}={}){
-  const a=answers||{},now=new Date().toISOString();
-  const programName=String(name??"").trim()||t("untitled_program")||"Untitled program";
-  return{id:uid(),name:programName,started:today(),created:now,updated:now,
-    goal:a.goal??null,experience:a.experience??null,daysPerWeek:a.daysPerWeek??null,splitType:a.splitType??null,
-    equipment:Array.isArray(a.equipment)?a.equipment:[],priorityMuscles:Array.isArray(a.priorityMuscles)?a.priorityMuscles:[],
-    sessionLength:a.sessionLength??null,
-    mesocycleLengthWeeks:Number.isFinite(+a.mesocycleLengthWeeks)&&+a.mesocycleLengthWeeks>0?Math.round(+a.mesocycleLengthWeeks):6,
-    mesocycleStatus:"active",completedAt:null,onboarded:true,
-    progressionRelations:[],progressionModifiers:[],progressionIncompatibilities:[],
-    blockPromptDismissedId:null,entrySource:normalizeProgramEntrySource(entrySource)}}
+let EntryActivation=null;
+function buildProgramMeta(input={}){return EntryActivation.metadata(input)}
 
 /* Per-movement smallest load change in canonical kg; anything else is dropped. */
 
@@ -2384,38 +2376,12 @@ function validImportedCustomExercise(entry){
 // replayable reconstruction (a journal successor rebuilt from the same inputs
 // has to be byte-identical). Callers on the shared-setup rebase path pass a
 // deterministic allocator seeded from the persisted transaction id instead.
-const randomCustomIdAllocator=()=>byId=>{
-  let id;do{id=`${CUSTOM_ID_PREFIX}${uid()}`}while(byId.has(id));return id};
 const deterministicCustomIdAllocator=seed=>{
   const base=String(seed||"shared");let n=0;
   return byId=>{let id;do{n++;id=`${CUSTOM_ID_PREFIX}${base}#${n}`}while(byId.has(id));return id}};
-function mergeImportedCustomExercises(incoming,exercises,snapshot,allocate=randomCustomIdAllocator()){
-  const normalized=normalizeCustomExercises(incoming);
-  if(!normalized.length)return{customExercises:customExercises(snapshot).map(cloneSnapshot),added:0,remapped:0,remap:new Map()};
-  const mine=customExercises(snapshot).map(cloneSnapshot);
-  const byId=new Map(mine.map(e=>[e.id,e]));
-  const sameDefinition=(a,b)=>foldSearch(a.name)===foldSearch(b.name)&&
-    a.primary===b.primary&&a.secondary===b.secondary&&
-    a.equipment.join(",")===b.equipment.join(",");
-  const remap=new Map();
-  let added=0,remapped=0;
-  for(const entry of normalized){
-    const existing=byId.get(entry.id);
-    if(existing){
-      if(sameDefinition(existing,entry))continue;
-      // Same id, different movement: keep theirs, give this one a new identity.
-      const minted=Object.assign(cloneSnapshot(entry),{id:allocate(byId)});
-      mine.push(minted);byId.set(minted.id,minted);
-      remap.set(entry.id,minted.id);added++;remapped++;
-      continue}
-    // A definition we already hold under another id is reused rather than doubled.
-    const twin=mine.find(e=>sameDefinition(e,entry));
-    if(twin){if(twin.id!==entry.id)remap.set(entry.id,twin.id);continue}
-    mine.push(entry);byId.set(entry.id,entry);added++}
-  if(remap.size)
-    for(const ex of exercises||[])
-      if(ex&&remap.has(ex.libraryId))ex.libraryId=remap.get(ex.libraryId);
-  return{customExercises:mine,added,remapped,remap}}
+let customDefinitionImport=null;
+function mergeImportedCustomExercises(incoming,exercises,snapshot,allocate){
+  return customDefinitionImport.merge({incoming,exercises:exercises||[],existing:customExercises(snapshot),allocate})}
 function sharedSettingsPatch(raw){
   return{jumpPct:normSetting(raw?.jumpPct,DEFAULTS.jumpPct,0),
     minJump:normSetting(raw?.minJump,DEFAULTS.minJump,0.01),
@@ -10973,55 +10939,12 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   const confirmedDraftRaw=discardDraftRaw===undefined?readDraftRaw():discardDraftRaw;
   if(draftActive&&!draftConfirmed&&!confirm(t("confirm.replace_program_discard_draft")))
     return{revision:readRevision(state),localOk:false,idbOk:false,cancelled:true};
-  const proposal=cloneSnapshot(baseProposal||state);
-  const routeEff=entrySource?.route||telemetryRoute;
-  const checkedDefinition=canonicalProgramDefinition(programDefinition,proposal.customExercises||[]);
-  if(!checkedDefinition)return{revision:readRevision(state),localOk:false,idbOk:false,invalid:true,code:"program-definition-required"};
-  if(originEff==="block"){
-    if(!blockCap)return blockTransitionResult("failed");
-    if(proposal.programMeta?.id!==blockCap.oldProgramId)return blockTransitionResult("duplicate")}
-  const meta=buildProgramMeta({name,answers:answers||{},entrySource});
-  // This is the durable activation boundary. Staged program/import/shared
-  // values remain blockless; the candidate is captured once in this proposal
-  // and replay thereafter reads the journaled value.
-  meta.blockId=allocateBlockId();
-  meta.programDefinition=checkedDefinition;
-  meta.mesocycleLengthWeeks=checkedDefinition.cycles;
-  meta.daysPerWeek=checkedDefinition.days.filter(day=>day.kind==="training").length;
-  // Write settings in the shape boot reads them, so the first reload after
-  // activation has nothing left to normalize and rewrite.
-  proposal.settings=normalizeSettings(proposal.settings);
-  proposal.program=durableProgramRows(checkedDefinition,proposal.customExercises||[],meta);
-  meta.progressionRelations=normalizeProgressionRelations(baseProposal?.programMeta?.progressionRelations,proposal.program);
-  meta.progressionModifiers=normalizeProgressionModifiers(baseProposal?.programMeta?.progressionModifiers);
-  meta.progressionIncompatibilities=Array.isArray(baseProposal?.programMeta?.progressionIncompatibilities)
-    ?cloneSnapshot(baseProposal.programMeta.progressionIncompatibilities):[];
-  meta.programStructure=programStructure?cloneSnapshot(programStructure):
-    (baseProposal?.programMeta?.programStructure?cloneSnapshot(baseProposal.programMeta.programStructure):null);
-  if(routeEff==="build"){
-    const loadingConfiguration=normalizeLoadingConfiguration(baseProposal?.programMeta?.loadingConfiguration);
-    if(loadingConfiguration)meta.loadingConfiguration=loadingConfiguration;
-  }
-  if(routeEff==="recommend"||routeEff==="custom"||routeEff==="browse"){
-    const rawContext=compilerContext||baseProposal?.programMeta?.compilerContext;
-    if(rawContext){
-      if(typeof ProgramCompiler?.validateContext==="function"){
-        const checked=ProgramCompiler.validateContext(rawContext);
-        if(checked.ok)meta.compilerContext=cloneSnapshot(rawContext);
-      }else if(rawContext&&typeof rawContext==="object"){
-        meta.compilerContext=cloneSnapshot(rawContext);
-      }
-    }
-  }
-  proposal.programMeta=meta;
-  // The setup draft lives outside the mirrored state stores. Keep an exact,
-  // storage-only receipt in the successor so a crash after the program commit
-  // but before setup-draft cleanup can be recognized and safely finalized.
-  delete proposal[STORAGE_SETUP_TXN];
-  const setupActivation=setupActivationMarker(expectedSetupDraftRaw,meta.id);
-  if(setupActivation)proposal[STORAGE_SETUP_TXN]=setupActivation;
-  if(destination==="program-edit")proposal[STORAGE_FOLLOWUP]={kind:"onboarding-edit",origin:originEff};
-  else delete proposal[STORAGE_FOLLOWUP];
+  const prepared=EntryActivation.successor({base:baseProposal||state,metadataSource:baseProposal,
+    name,answers:answers||{},entrySource,programDefinition,route:entrySource?.route||telemetryRoute,origin:originEff,destination,
+    programStructure,compilerContext,expectedSetupDraftRaw,expectedProgramId:blockCap?.oldProgramId});
+  if(!prepared.ok)return prepared.code==="duplicate"?blockTransitionResult("duplicate"):
+    {revision:readRevision(state),localOk:false,idbOk:false,invalid:true,code:prepared.code};
+  const proposal=prepared.proposal;
   const effect=destructiveDraftClearEffect(confirmedDraftRaw);
   const persisted=await commitProgramReplacement(proposal,adapter,
     {capture:replacementCapture,effect,expectedSetupDraftRaw,replace,expectedFirstRunEmpty});
@@ -12667,6 +12590,8 @@ function initializePersistenceOwners(){
   const policy=SnapshotPolicy.createSnapshotPolicy({entry,workout,compiler:ProgramCompiler,
     catalog:rawExerciseCatalog,model,transition:generationRules.transition,metrics:PersistenceMetrics,
     progression:PersistenceProgression,now,nextId:uid,language:I18N,digest:recoverySha256});
+  customDefinitionImport=createCustomDefinitionImport({model,nextId:uid});
+  EntryActivation=createEntryActivation({model,policy,identity:{programId:uid,blockId:allocateBlockId,now:entryNow,date:today},defaultName:()=>t("untitled_program")});
   ({normalizeMuscleAttribution,isValidMuscleDomainTree,isValidStoredMuscleField,isValidPlannedVolumeHistory,normalizeRecoveryCarrierSnapshot,isSafeProgressionFields,isSafeProgressionMeta,isSafeProgramHistoryEntry,isSafeLogRow,isSafeCustomExercise,isValidSetupActivationMarker,setupActivationMarker,setupActivationMatches,isValidStateShape,migrateLogSnapshot,defaultProgramMeta,normalizeProgramEntrySource,normalizeProgramMeta,normalizeLoadingConfiguration,withExplicitProgramStructure,normalizeProgramHistory,normalizeLoaded,normalizeNotify,normalizeSettings}=policy);
   programAdditionCommands=createProgramAdditionCommands({read:applicationSession.read,
     readEditor:programEditorSnapshot,commit:proposal=>commitProposedState(proposal),commitEditor:commitProgramEditorProposal,

@@ -3,7 +3,9 @@ const SOURCE_RELEASE = "source-480";
 const ASSETS = [
   // BEGIN GENERATED NATIVE SOURCE ASSETS
   "./src/app/block-transition.js",
+  "./src/app/custom-import.js",
   "./src/app/entry.js",
+  "./src/app/entry/activation.js",
   "./src/app/entry/answers.js",
   "./src/app/entry/generation.js",
   "./src/app/entry/questions.js",
@@ -73,6 +75,7 @@ const ASSETS = [
   "./src/training/metrics.js",
   "./src/training/model.js",
   "./src/training/model/internal/contracts.js",
+  "./src/training/model/internal/names.js",
   "./src/training/model/internal/program.js",
   "./src/training/model/internal/values.js",
   "./src/training/progress.js",

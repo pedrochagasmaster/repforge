@@ -51,6 +51,7 @@
     "../../src/app/workout-model.js",
     "../../src/ui/editors.js",
     "../../src/app/storage-recovery.js",
-    "../../src/ui/storage-recovery.js"
+    "../../src/ui/storage-recovery.js",
+    "../../src/app/custom-import.js"
   ]
 }
