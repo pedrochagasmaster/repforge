@@ -1,4 +1,4 @@
-import {installBrowserTraining} from "../../test/training-browser.mjs";
+import {installBrowserTraining, installBrowserSnapshotPolicy} from "../../test/training-browser.mjs";
 import {browserLanguage} from "../../test/language-browser.mjs";
 /**
  * Drive the non-onboarding surfaces.
@@ -834,7 +834,8 @@ async function installPerSideHistory(page, { bodyweightAssumption = false } = {}
     rowFor(unilateral, "per-side-history-latest", latestDate, { loadKg: 20, repsPerSide: 8 }),
     rowFor(bilateral, "per-side-history-latest", latestDate, { loadPerSideKg: 27.5, repsPerSide: 8 }),
   ];
-  const valid = await page.evaluate(snapshot => window.__repforgeValidateStateShape(snapshot), state);
+  await installBrowserSnapshotPolicy(page);
+  const valid = await page.evaluate(snapshot => window.__repforgeTrainingTest.snapshotPolicy.isValidStateShape(snapshot), state);
   if (!valid) {
     const diagnostics = await page.evaluate(snapshot => snapshot.log.map(row => {
       const definitions = window.__repforgeTrainingTest.metrics.validateDefinitions(row.metricIds, row.metricDefinitions);
@@ -2356,14 +2357,27 @@ export const APP_SCENARIOS = {
       assert.equal(partial.local.customExercises.find(entry => entry.id === customId)?.archived, true,
         "archive reaches the local replica before recovery");
       assert.notDeepEqual(partial.local, partial.idb, "faults preserve a real partial-write recovery state");
-      assert.ok(partial.journals.length > 0, "partial custom mutation retains a retryable journal");
+      // Custom settlement closes an applied no-draft-effect journal before
+      // healing replicas (durable.settleCustomExerciseMutation). The current
+      // local R+1 is the recovery authority even when its second IDB write
+      // fails; requiring a surviving journal would describe another protocol.
+      assert.deepEqual(partial.journals, [], "applied archive journal is already closed before replica healing");
+      assert.deepEqual(partial.idb, before, "failed IDB writes preserve the exact predecessor replica");
+      assert.equal(partial.local._storageRevision, before._storageRevision + 1,
+        "local authoritative archive advances exactly one revision");
+      assert.deepEqual(partial.local.customExercises,
+        before.customExercises.map(entry => entry.id === customId ? {...entry, archived: true} : entry),
+        "authoritative replica contains exactly the requested archive");
+      assert.deepEqual(partial.local.program, before.program, "partial archive preserves program references");
+      assert.deepEqual(partial.local.log, before.log, "partial archive preserves history");
+      assert.deepEqual(partial.local.programHistory, before.programHistory, "partial archive preserves previous programs");
       afterCapture.set(page, async () => {
         await page.locator("#exCustomRecoveryRetry").click();
         await page.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 20000 });
         await page.evaluate(() => window.__repforgeStorage.flush());
         const proof = await readCustomReplicas(page);
         assert.deepEqual(proof.local, proof.idb, "custom recovery settles both replicas");
-        assert.deepEqual(proof.journals, [], "custom recovery clears its pending journal");
+        assert.deepEqual(proof.journals, [], "custom recovery leaves no pending journal");
         assert.equal(proof.local.customExercises.filter(entry => entry.id === customId && entry.archived === true).length, 1,
           "retry archives exactly one custom definition");
         assert.deepEqual(proof.local.program, before.program, "archive preserves program references");
