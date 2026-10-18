@@ -269,6 +269,10 @@ test("the entire declared critical matrix is required, with source and failure p
   const execution = { kind: "browser-contract-execution", result: "passed", source: { head: source, dirty: false }, command: ["node", "test/ui-system.mjs"] };
   writeFileSync(evidencePath, JSON.stringify(execution));
   assert.deepEqual(mergeUiSystemReports(root, { source, keys }).problems, []);
+  const pairedReports = scratch(t);
+  symlinkSync(root, join(pairedReports, "0"), "dir");
+  assert.deepEqual(mergeUiSystemReports(pairedReports, { source, keys }).problems, [],
+    "paired benchmark phase directories retain frame and execution evidence through artifact links");
   const firstFrame = capturePath(manifest, criticalCaptures(manifest)[0], join(dir, "frames"));
   const originalBytes = readFileSync(firstFrame);
   writeFileSync(firstFrame, "tampered frame");
