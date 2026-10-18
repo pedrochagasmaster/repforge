@@ -141,6 +141,7 @@ function routePushOn(){
 function routePushEnd(){
   const state=routePushState;if(!state)return;
   routePushState=null;
+  state.animation?.cancel?.();
   state.mover.classList.remove("is-push-over");
   if(state.under?.classList.contains("is-push-under")){
     state.under.classList.remove("is-push-under");state.under.style.removeProperty("--push-top");
@@ -164,6 +165,7 @@ function routePushBegin(direction,{pushed,under=null,ghost=null,offset=-Math.rou
     routePushEnd();
     const beneath=direction==="in"?(ghost||under):null;
     const mover=direction==="out"&&ghost?ghost:pushed;
+    /** @type {import('./shell-contracts.js').PushState} */
     const state={mover,under:beneath,ghost};
     routePushState=state;
     if(ghost){ghost.inert=true;ghost.setAttribute("aria-hidden","true");pushed.after(ghost)}
@@ -173,7 +175,8 @@ function routePushBegin(direction,{pushed,under=null,ghost=null,offset=-Math.rou
     mover.classList.add("is-push-over");
     document.body.classList.add("is-pushing");
     /** routePushOn established the concrete immutable Motion capability. */
-    /** @type {Required<Pick<import('./shell-contracts.js').ShellMotion,'animatePush'>>} */(motion).animatePush(mover,{direction}).then(arrived=>{
+    state.animation=/** @type {Required<Pick<import('./shell-contracts.js').ShellMotion,'animatePush'>>} */(motion).animatePush(mover,{direction});
+    state.animation.then(arrived=>{
       if(arrived&&routePushState===state)routePushEnd()})}}
 /* ---- Edge swipe back on pushed pages (amendment: the third gesture owner) ----
    The pages a push can leave register with `RepForgeMotion.registerEdgeSwipeBack`

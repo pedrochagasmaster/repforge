@@ -15,10 +15,11 @@ export interface ModalRecord {
   motion?:unknown;
 }
 export interface PushPages {pushed:HTMLElement|null;under?:HTMLElement|null;ghost?:HTMLElement|null;offset?:number}
-export interface PushState {mover:HTMLElement;under:HTMLElement|null;ghost:HTMLElement|null}
+export type PushAnimation=Promise<boolean> & {cancel?:()=>void};
+export interface PushState {mover:HTMLElement;under:HTMLElement|null;ghost:HTMLElement|null;animation?:PushAnimation}
 export interface ShellMotion {
   available?:()=>boolean;reducedMotion?:()=>boolean;
-  animatePush?:(element:HTMLElement,options:{direction:Direction})=>Promise<boolean>;
+  animatePush?:(element:HTMLElement,options:{direction:Direction})=>PushAnimation;
   animateDisclosure?:(panel:HTMLElement,on:boolean,show:()=>void)=>unknown;
   registerEdgeSwipeBack?:(target:{page:HTMLElement,onCommit:()=>void})=>{dispose:()=>void}|null;
 }
