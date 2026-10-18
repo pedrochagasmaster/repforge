@@ -21,7 +21,6 @@ import {createPreferences} from './src/persistence/preferences.js';
 import {createProgramModel,PROGRESSION_VALUE_LIMITS} from './src/training/model.js';
 import {createEntryRules} from './src/training/authoring.js';
 import {createWorkoutRules} from './src/training/workout.js';
-import {compiler as PersistenceCompiler,createTransitionRules} from './src/training/generation.js';
 import PersistenceMetrics from './src/training/metrics.js';
 import {progression as PersistenceProgression,schedule} from './src/training/progress.js';
 const {cloneSnapshot,isPlainStateObject,isValidBlockId,isBoundedProgressionValue,isBoundedTransitionValue,classifyRecoveryCarrier,isValidRecoveryTransitions,readRevision,stripStorageMeta,exportableState,mirrorComparisonSnapshot,canonicalize,canonicalPayload,snapshotsEqual,storageSnapshotsEqual,rebaseStateChange,unversionedSnapshot,draftProgramFingerprint,workoutProgramFingerprint,draftContextFingerprint,snapshotBlockId}=SnapshotPolicy;
@@ -19509,8 +19508,8 @@ function initializePersistenceOwners(){
     librarySource:{library:EXERCISE_LIBRARY,legacyIds:LEGACY_LIBRARY_IDS},nextId:uid,now,
     calendarDate:today,language:()=>uiLang(),defaultExerciseName:()=>t('program.default.exercise')});
   const entry=createEntryRules(rawExerciseCatalog),workout=createWorkoutRules(rawExerciseCatalog);
-  const policy=SnapshotPolicy.createSnapshotPolicy({entry,workout,compiler:PersistenceCompiler,
-    catalog:rawExerciseCatalog,model,transition:createTransitionRules(),metrics:PersistenceMetrics,
+  const policy=SnapshotPolicy.createSnapshotPolicy({entry,workout,compiler:ProgramCompiler,
+    catalog:rawExerciseCatalog,model,transition:generationRules.transition,metrics:PersistenceMetrics,
     progression:PersistenceProgression,now,nextId:uid,language:I18N,digest:recoverySha256});
   ({normalizeMuscleAttribution,isValidMuscleDomainTree,isValidStoredMuscleField,isValidPlannedVolumeHistory,normalizeRecoveryCarrierSnapshot,isSafeProgressionFields,isSafeProgressionMeta,isSafeProgramHistoryEntry,isSafeLogRow,isSafeCustomExercise,isValidSetupActivationMarker,setupActivationMarker,setupActivationMatches,isValidStateShape,migrateLogSnapshot,defaultProgramMeta,normalizeProgramEntrySource,normalizeProgramMeta,normalizeLoadingConfiguration,withExplicitProgramStructure,normalizeProgramHistory,normalizeLoaded,normalizeNotify,normalizeSettings}=policy);
   DurableState=createDurableStore({snapshotPolicy:policy,workout,
