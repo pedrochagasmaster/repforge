@@ -18,6 +18,10 @@ must be validated/committed by that same instance. Never serialize capabilities.
 
 `createEntryRules(catalog)` and `createWorkoutRules(catalog)` bind only verified
 immutable catalog input. They return immutable operation interfaces, not stores.
+`createInstalledEditorRules({model,catalog,nextId,defaultProgramMeta})` owns installed
+document replay, canonical sync and conflict refusal. Build explicitly opts into
+`allowCreateDefinition`; installed documents never create a missing definition.
+`authoring.suggestion` owns the shared Suggest loads opt-in and confirmation.
 `authoring.review` edits recommendations; mounting, localization and DOM events
 belong to UI. Pure edits return data/refusals; storage commands publish results.
 
@@ -27,7 +31,7 @@ Algorithm owners include `test/progression-engine-plan067.mjs`,
 `test/program-transition-plan067.mjs`, `test/program-review.mjs`,
 `test/program-entry.mjs`, `test/workout-draft.mjs`, and migration fixtures in
 `test/workout-draft-migration.mjs`. Migration-specific interfaces are proved by
-`test/training-module-contracts.mjs`, `test/training-model.mjs`, and the real
+`test/training-module-contracts.mjs`, `test/training-model.mjs`, `test/training-installed-editor.mjs`, and the real
 worker/catalog protocol in `test/training-worker-modules.mjs`. Preserve semantic
 assertions and fixture ownership when changing their import path.
 

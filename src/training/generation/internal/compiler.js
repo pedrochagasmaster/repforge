@@ -2,7 +2,6 @@ import PureIdentity from "../../identity.js";
 import CANDIDATES from "./candidates.js";
 import LAYOUT from "./layout.js";
 import METRIC_DOMAIN from "../../metrics.js";
-export function createCompiler(IDENTITY=PureIdentity) {
 
 const GENERATOR_VERSION = "073.4";
 const PROGRAM_SCHEMA_VERSION = 2;
@@ -46,6 +45,9 @@ const PRECONDITION_COMPETENCIES = Object.freeze({
   "Weighted vertical pulls preconditions": "pullups10",
   "Intermediate push-up preconditions": "pushups15",
 });
+const MAX_SLOT_ALTERNATES = 5;
+
+export function createCompiler(IDENTITY=PureIdentity) {
 const isPlainObject = (value) => !!value && typeof value === "object" && !Array.isArray(value)
   && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
 const finite = (value) => typeof value === "number" && Number.isFinite(value);
@@ -725,7 +727,6 @@ const SLOT_KEYS = new Set(["id", "purposeId", "exerciseId", "sourceExerciseIds",
 // offered first by the mid-workout swap picker, in their authored order.
 // The field is additive: a definition without it is unchanged, so it does
 // not bump PROGRAM_SCHEMA_VERSION (see docs/adr/0019-slot-alternates.md).
-const MAX_SLOT_ALTERNATES = 5;
 const CYCLE_KEYS = new Set(["cycleIndex", "sets"]);
 const SET_KEYS = new Set(["id", "cycleIndex", "setIndex", "metricType", "metricIds", "metricDefinitions", "targets", "rir", "restSeconds", "status", "provenance"]);
 const REQUEST_KEYS = new Set(["goal", "experience", "daysPerWeek", "timeCeilingMinutes", "gymProfile", "competencyAnswers",
@@ -1087,3 +1088,5 @@ const api = Object.freeze({
 
 return api;
 }
+
+export {GENERATOR_VERSION,PROGRAM_SCHEMA_VERSION,MAX_SLOT_ALTERNATES,ROLES,SPLITS,GOALS,EXPERIENCES,TIME_CEILINGS,PERIODIZATIONS,PRECONDITION_COMPETENCIES,METRIC_SEMANTICS,METRIC_SOURCE_IDS};

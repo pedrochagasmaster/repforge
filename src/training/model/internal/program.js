@@ -769,5 +769,37 @@ class Program{
 }
 
 
-return Object.freeze({rawMetricDefinitions,normalizeMuscleAttribution,sourceFeatureAttribution,libraryMuscleAttribution,exerciseFieldsFromLibrary,compilerCustomDefinitions,canonicalProgramDefinition,definitionMovementIds,manualAttributionFor,manualProgramDefinitionFromRows,durableProgramRows,flatProgramFromDefinition,normalizeProgressionEnvelope,progressionIncompatibility,normalizeProgressionRelations,candidateProgressionData,normalizeProgressionModifiers,snapshotLookup,canonicalizeLinkedMuscleRows,canonicalizeProgramStructureMuscles,canonicalizeDurableMuscleAttributions,normalizeCustomExercises,compilerProgramMatchesLive,structureDayLabels,makeProgram,prescriptionProgramRows,existingPrescriptionSlots,plannedPrescriptionForProgram,preservePrescriptionReceipt,emptyPlannedVolumeHistory,addPlannedVolumeHistory,plannedVolumeHistoryTarget,prescriptionWeekNumber,receiptHasMuscleAttribution,isSparsePrescriptionOverride,historicalPrescriptionForWeek,compactProgramPrescriptionState,programStructureForDefinition,successorProgramStructure,isValidPlannedVolumeHistory,mesocycleLifecycle,prescriptionForReceipt,recoveryReceiptForWeek,addVol,Program,Exercise,isCustomLibraryId});
+function syncProgramStructureFromProgram(proposal,program,previousProgram=null,previousMeta=null,{recoveryRecord=null}={}){
+  const struct=proposal.programMeta?.programStructure;
+  if(!struct||!Array.isArray(struct.days))return;
+  const labels=program._structureDays&&program._structureDays.length
+    ?program._structureDays.slice():program.days();
+  const byLabel=new Map(struct.days.map(d=>[d.label,d]));
+  const byIndex=struct.days.slice();
+  const synced={
+    ...cloneSnapshot(struct),
+    days:labels.map((label,i)=>{
+      const prev=byLabel.get(label)||byIndex[i];
+      const dayId=prev?.dayId||`manual_d${i+1}`;
+      const displayNameKey=prev?.displayNameKey||Compiler?.dayDisplayNameKey?.(dayId);
+      const previousLabel=String(prev?.label||"");
+      const override=typeof prev?.nameOverride==="string"&&prev.nameOverride.trim()
+        ?prev.nameOverride:"";
+      // A rename changes the row grouping label, but not the generated day's
+      // identity. Once a generated label diverges, remember the exact text so
+      // a later language switch cannot replace it with the default translation.
+      const nameOverride=displayNameKey&&previousLabel&&label!==previousLabel
+        ?label:override;
+      return{dayId,label,order:i+1,
+        ...(displayNameKey?{displayNameKey}:{}),
+        ...(nameOverride?{nameOverride}:{})}})};
+  const sourceMeta=previousMeta||proposal.programMeta;
+  const compacted=compactProgramPrescriptionState(synced,program.toJSON(),proposal.programMeta||sourceMeta,
+    previousProgram?{pastProgram:previousProgram,previousMeta:sourceMeta,force:true,recoveryRecord}:{recoveryRecord});
+  proposal.programMeta.programStructure=compacted.structure;
+  if(compacted.history)proposal.programMeta.plannedVolumeHistory=compacted.history;
+  else delete proposal.programMeta.plannedVolumeHistory;
+}
+
+return Object.freeze({syncProgramStructureFromProgram,rawMetricDefinitions,normalizeMuscleAttribution,sourceFeatureAttribution,libraryMuscleAttribution,exerciseFieldsFromLibrary,compilerCustomDefinitions,canonicalProgramDefinition,definitionMovementIds,manualAttributionFor,manualProgramDefinitionFromRows,durableProgramRows,flatProgramFromDefinition,normalizeProgressionEnvelope,progressionIncompatibility,normalizeProgressionRelations,candidateProgressionData,normalizeProgressionModifiers,snapshotLookup,canonicalizeLinkedMuscleRows,canonicalizeProgramStructureMuscles,canonicalizeDurableMuscleAttributions,normalizeCustomExercises,compilerProgramMatchesLive,structureDayLabels,makeProgram,prescriptionProgramRows,existingPrescriptionSlots,plannedPrescriptionForProgram,preservePrescriptionReceipt,emptyPlannedVolumeHistory,addPlannedVolumeHistory,plannedVolumeHistoryTarget,prescriptionWeekNumber,receiptHasMuscleAttribution,isSparsePrescriptionOverride,historicalPrescriptionForWeek,compactProgramPrescriptionState,programStructureForDefinition,successorProgramStructure,isValidPlannedVolumeHistory,mesocycleLifecycle,prescriptionForReceipt,recoveryReceiptForWeek,addVol,Program,Exercise,isCustomLibraryId});
 }
