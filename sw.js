@@ -106,6 +106,7 @@ const ASSETS = [
   "./src/ui/focus/inputs.js",
   "./src/ui/focus/ledger.js",
   "./src/ui/focus/prescription.js",
+  "./src/ui/focus/presentation.js",
   "./src/ui/focus/rest-view.js",
   "./src/ui/focus/rest.js",
   "./src/ui/focus/select.js",
@@ -120,6 +121,7 @@ const ASSETS = [
   "./src/ui/history/view.js",
   "./src/ui/library/controller.js",
   "./src/ui/library/search.js",
+  "./src/ui/metrics.js",
   "./src/ui/program/controller.js",
   "./src/ui/progress/controller.js",
   "./src/ui/progress/evidence.js",
@@ -139,7 +141,6 @@ const ASSETS = [
   "./src/ui/storage-recovery.js",
   "./src/ui/today/controller.js",
   "./src/ui/today/view.js",
-  "./src/ui/workout/metrics.js",
   "./src/ui/workout/session-sheet.js",
   "./src/ui/workout/summary.js",
   // END GENERATED NATIVE SOURCE ASSETS
