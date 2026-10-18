@@ -63,6 +63,9 @@ jobs:
           cache-dependency-path: test/package-lock.json
       - run: npm ci --prefix test
       - run: npm ci --prefix tools/typecheck
+      - run: node tools/check-architecture.mjs
+      - run: node tools/typecheck/node_modules/typescript/bin/tsc -p tools/typecheck/tsconfig.json
+      - run: node scripts/native-source-assets.mjs --check
       - run: node tools/run-tests.mjs --check
       - run: python3 -B plans/073/test_verify.py
       - run: node tools/run-tests.mjs fast --keep-going
