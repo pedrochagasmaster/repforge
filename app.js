@@ -2,6 +2,7 @@ import {createTelemetry} from './src/platform/telemetry.js';
 import {createPostHog} from './src/platform/posthog.js';
 import {createRestPresentation} from './src/ui/focus/rest-view.js';
 import {createBlockTransitionCommands} from './src/app/block-transition.js';
+import {createWorkoutReadModel,movementToken,movementIdKey,loggedMovementName,liftKey,exerciseLiftKey} from './src/app/workout-model.js';
 import {createShell,NATIVE_FOCUS_SELECTOR as ROUTE_NATIVE_FOCUS} from './src/ui/shell.js';
 import {createNotifications} from './src/platform/notifications.js';
 import {createMetricDisplay} from './src/ui/workout/metrics.js';
@@ -319,7 +320,7 @@ function applyAcceptedSnapshot(base,snapshot){
   if(sameCarrierRecord){activeRecoveryRecordBlockId=liveBlock}
   else{activeRecoveryRecord=null;activeRecoveryRecordBlockId=null}
   mutationBase=cloneSnapshot(snapshot);
-  dropMemo.clear();baselineMemo.clear()}
+  baselineMemo.clear()}
 
 function draftEffectOutcome(effect){return DurableState.draftEffectOutcome(effect)}
 function normalizeDraftEffectOutcome(value){return DurableState.normalizeDraftEffectOutcome(value)}
@@ -920,7 +921,7 @@ const term=key=>`<button type="button" class="term" data-term="${esc(key)}">${es
 function resetWorkoutSessionIdentity(){
   clearUnfinishedWatch();
   lastCommitAt=0;sessionStartedAt=0;
-  committed.clear();touched.clear();warmups.clear();skipped.clear();substituted.clear();substitutedRef.clear();
+  committed.clear();touched.clear();warmups.clear();skipped.clear();
   contextTouched={day:false,date:false,sessionNotes:false,bodyweight:false};
   activeWorkoutDraft=null;activeWorkoutDraftRaw=null;draftUiRecovery=null;
 }
@@ -965,104 +966,23 @@ function daysSinceLastSession(prevLog,date){
   if(previous===null)return null;
   const days=Math.round((at-Date.parse(`${previous}T00:00:00Z`))/86400000);
   return Number.isSafeInteger(days)&&days>=0?days:undefined}
-const movementToken=s=>String(s??"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();
-const loggedMovementName=row=>String(row?.performedName||row?.name||"");
-const movementIdKey=id=>String(id||"").startsWith("library:")?String(id):`movement:${id}`;
-const liftKey=row=>row?.performedLibraryId?`library:${row.performedLibraryId}`:
-  row?.performedMovementId?movementIdKey(row.performedMovementId):`name:${movementToken(loggedMovementName(row))}`;
-const exerciseLiftKey=ex=>ex?.libraryId?`library:${ex.libraryId}`:
-  ex?.movementId?movementIdKey(ex.movementId):`name:${movementToken(ex?.name)}`;
+
+
+
+
+
 const exerciseLabel=row=>String(row?.name||row?.performedName||"");
 const displayName=row=>loggedMovementName(row);
 const currentExerciseForLiftKey=key=>(state.program||[]).find(ex=>exerciseLiftKey(ex)===key)||null;
 const PER_SIDE_LOAD_SEMANTICS=new Set(["loadPerSideKg","persistentLoadPerSideKg"]);
-function metricValue(row,semantic){
-  if(!Array.isArray(row?.metricDefinitions)||!Array.isArray(row?.metricIds)||!Array.isArray(row?.metricValues))return null;
-  const index=row.metricDefinitions.findIndex((metric,i)=>metric?.semantic===semantic&&metric.id===row.metricIds[i]&&
-    row.metricValues[i]?.metricId===metric.id&&typeof row.metricValues[i]?.value==="number"&&Number.isFinite(row.metricValues[i].value));
-  return index<0?null:row.metricValues[index].value}
-function executionModeForLogRow(row,sideLoadSemantic=null,explicitMultiplier=null,totalLoadWithSideReps=false){
-  // A non-persistent per-side load's captured multiplier is its execution
-  // convention: one means one side at a time; two means both sides together.
-  // Persistent loads still use m=2 in either mode, so their reps need the
-  // catalog/slot mode below. Total Weight is already total, so m=1 does not
-  // identify the execution mode for per-side reps.
-  if(sideLoadSemantic==="loadPerSideKg"&&(explicitMultiplier===1||explicitMultiplier===2))
-    return explicitMultiplier===1?"unilateral":"bilateral";
-  const sourceId=String(row?.performedLibraryId||row?.sourceLibraryId||"");
-  const laterality=(rawExercise(sourceId)?.laterality||[]).map(id=>rawCatalogObject(id)?.name).filter(Boolean);
-  if(laterality.length===1&&laterality[0]==="Unilateral")return"unilateral";
-  if(laterality.length===1&&laterality[0]==="Bilateral")return"bilateral";
-  // An ambiguous movement's row may carry the mode the lifter chose when it
-  // was logged (#382). Rows without it stay as they were saved.
-  const captured=row?.loadingContext?.executionMode;
-  if(captured==="bilateral"||captured==="unilateral")return captured;
-  // Total-load m=1 is its load-composition multiplier, not a captured
-  // execution convention. With ambiguous catalog laterality, don't substitute
-  // the current slot's mode for the historical movement.
-  if(totalLoadWithSideReps&&explicitMultiplier===1)return null;
-  // For a persistent per-side load, m=2 records how much weight is held per
-  // side, not whether both sides moved together. An ambiguous historical row
-  // with that explicit value cannot borrow the current slot's execution mode.
-  if(sideLoadSemantic==="persistentLoadPerSideKg"&&explicitMultiplier===2)return null;
-  // Bodyweight-only side reps record m=0 because there is no external load.
-  // That value likewise says nothing about whether the movement was performed
-  // one side at a time; an ambiguous historical row cannot borrow today's mode.
-  if(row?.loadingConvention==="bodyweight"&&explicitMultiplier===0&&
-    row?.metricIds?.length===1&&row?.metricDefinitions?.some(metric=>metric?.semantic==="repsPerSide"))return null;
-  // A movement swapped in mid-session (#410) is not the one the slot's mode
-  // describes. The row records both names, so it never borrows that mode.
-  if(row?.performedName!=null&&movementToken(row.performedName)!==movementToken(row.name))return null;
-  const slotId=String(row?.slotId||row?.exerciseId||"");
-  const slot=(state.programMeta?.programDefinition?.days||[]).flatMap(day=>day?.slots||[]).find(item=>item?.id===slotId);
-  // Nor does a movement the editor has since replaced in the slot (#413,
-  // owner narrowing of D7): the slot's mode describes what it holds now.
-  if(!slot||!rowPerformedSlotMovement(row,slot))return null;
-  return slot.executionMode==="bilateral"||slot.executionMode==="unilateral"?slot.executionMode:null}
-function rowPerformedSlotMovement(row,slot){
-  if(row?.performedLibraryId)return String(row.performedLibraryId)===String(slot.exerciseId||"");
-  const current=(state.program||[]).find(ex=>(ex?.slotId||ex?.id)===slot.id);
-  if(row?.performedMovementId)return!!current?.movementId&&movementIdKey(row.performedMovementId)===movementIdKey(current.movementId);
-  return movementToken(loggedMovementName(row))===movementToken(current?.name)}
+
+
+
 /** Read-time workout projection shared by History, Progress, exercise charts and CSV.
  *  It never mutates the saved row; null per-side context stays unknown instead
  *  of becoming an assumed multiplier. */
-function readLogRow(row){
-  const source=row&&typeof row==="object"?row:{};
-  const sideLoadMetric=source.metricDefinitions?.find(metric=>PER_SIDE_LOAD_SEMANTICS.has(metric?.semantic));
-  const totalLoadMetric=source.metricDefinitions?.find(metric=>metric?.semantic==="loadKg");
-  const repsSideMetric=source.metricDefinitions?.find(metric=>metric?.semantic==="repsPerSide");
-  const repsMetric=source.metricDefinitions?.find(metric=>metric?.semantic==="reps");
-  const metricLoad=sideLoadMetric?metricValue(source,sideLoadMetric.semantic):totalLoadMetric?metricValue(source,"loadKg"):null;
-  const metricReps=repsSideMetric?metricValue(source,"repsPerSide"):repsMetric?metricValue(source,"reps"):null;
-  const numeric=value=>value!=null&&value!==""&&Number.isFinite(Number(value))?Number(value):null;
-  const totalLoad=totalLoadMetric?metricLoad:sideLoadMetric?null:numeric(source.load);
-  const totalReps=repsSideMetric?null:repsMetric?metricReps:numeric(source.reps);
-  const sideLoad=sideLoadMetric?metricLoad:null,sideReps=repsSideMetric?metricReps:null;
-  const load=sideLoadMetric?sideLoad:totalLoad,reps=repsSideMetric?sideReps:totalReps;
-  const perSideLoad=!!sideLoadMetric&&sideLoad!=null,perSideReps=!!repsSideMetric&&sideReps!=null;
-  const explicitMultiplier=source.loadingContext?.externalLoadMultiplier;
-  const mode=perSideReps||sideLoadMetric
-    ?executionModeForLogRow(source,sideLoadMetric?.semantic,explicitMultiplier,!!(totalLoadMetric&&perSideReps)):null;
-  let multiplier=null;
-  if(sideLoadMetric){
-    if(explicitMultiplier===1||explicitMultiplier===2)multiplier=explicitMultiplier;
-    else if(explicitMultiplier==null&&sideLoadMetric.semantic==="persistentLoadPerSideKg")multiplier=2;
-    else if(explicitMultiplier==null&&mode==="bilateral")multiplier=2;
-    else if(explicitMultiplier==null&&mode==="unilateral")multiplier=1;
-  }else if(totalLoadMetric&&perSideReps)multiplier=1;
-  else if(load!=null)multiplier=1;
-  const repetitionsPerformed=perSideReps
-    ?mode?reps*(mode==="unilateral"?2:1):null:reps;
-  const convention=sideLoadMetric?multiplier==null?"per-side:unknown":`per-side:m${multiplier}`
-    :perSideReps?`total-load:${mode||"unknown"}`:"load";
-  const strengthComparable=load>0&&reps>0&&(!sideLoadMetric||multiplier!=null)&&(!perSideReps||mode!=null);
-  const tonnage=load>0&&repetitionsPerformed>0&&(!sideLoadMetric||multiplier!=null)
-    ?load*(sideLoadMetric?multiplier:1)*repetitionsPerformed:null;
-  return{...source,load,reps,totalLoad,totalReps,loadPerSide:sideLoad, repsPerSide:sideReps,
-    perSideLoad,perSideReps,executionMode:mode,loadMultiplier:multiplier,repetitionsPerformed,tonnage,
-    strengthComparable,strengthConvention:convention,e1rm:strengthComparable?e1rm(load,reps):null}}
-function readLogRows(log=state.log){return(Array.isArray(log)?log:[]).map(readLogRow)}
+function readLogRow(...args){return workoutQueries().readLogRow(...args)}
+function readLogRows(log=state.log){return workoutQueries().readLogRows(log)}
 /* Search-only bridge from a logged row back to what the program calls that
    movement today. History itself never renames what was performed — the row
    keeps its immutable label — but a lifter who renamed a movement still looks
@@ -1358,12 +1278,12 @@ function maybeUnfinishedOnOpen(){
   else armUnfinishedWatch(UNFINISHED_MS-elapsed);
 }
 const skipped=new Set();
-const substituted=new Map();
+
 /* Which library definition a swap pointed at, when it came from the picker.
    The name alone cannot say what was trained: swapping a hack squat slot to a
    lat pulldown has to move the volume too. Kept beside `substituted` rather
    than folded into it so old drafts (name-only) still hydrate. */
-const substitutedRef=new Map();
+
 const committed=new Set();
 const touched=new Set();
 const warmups=new Set();
@@ -1385,28 +1305,9 @@ function workoutDayId(label){
   const structured=state.programMeta?.programStructure?.days;
   const matched=Array.isArray(structured)?structured.find(item=>String(item?.label||item?.dayId||"")===label):null;
   return String(matched?.dayId||exercises(label)[0]?.dayId||label)}
-function metricLoading(metricDefinitions,sourceExercise,loadingModel=null){
-  loadingModel=loadingModel||{
-    bodyweightCoefficient:Number.isFinite(sourceExercise?.bodyweight)?sourceExercise.bodyweight:null,
-    assistanceDirection:"subtract"};
-  const semantics=new Set((metricDefinitions||[]).map(metric=>metric.semantic));
-  const loadingConvention=semantics.has("assistanceKg")?"assistance":
-    semantics.has("loadPerSideKg")||semantics.has("persistentLoadPerSideKg")?"per_side":
-      metricDefinitions?.length===1&&(semantics.has("reps")||semantics.has("repsPerSide"))?"bodyweight":"external";
-  const loadingContext={bodyweightContributionEnabled:null,
-    externalLoadMultiplier:loadingConvention==="per_side"?null:loadingConvention==="bodyweight"?0:1,
-    ...(Object.prototype.hasOwnProperty.call(loadingModel,"bodyweightCoefficient")
-      ?{bodyweightCoefficient:loadingModel.bodyweightCoefficient}:{})};
-  return{loadingModel,loadingConvention,loadingContext}}
-function catalogExecutionMode(exerciseId){
-  const source=rawExercise(exerciseId),laterality=(source?.laterality||[])
-    .map(id=>rawCatalogObject(id)?.name).filter(name=>typeof name==="string");
-  const unilateral=laterality.includes("Unilateral"),bilateral=laterality.includes("Bilateral");
-  return unilateral!==bilateral?(unilateral?"unilateral":"bilateral"):null}
-function executionModeForSlot(slot){
-  const catalogMode=catalogExecutionMode(slot?.exerciseId);
-  if(catalogMode)return catalogMode;
-  return slot?.executionMode==="bilateral"||slot?.executionMode==="unilateral"?slot.executionMode:null}
+function metricLoading(...args){return workoutQueries().metricLoading(...args)}
+function catalogExecutionMode(...args){return workoutQueries().catalogExecutionMode(...args)}
+function executionModeForSlot(...args){return workoutQueries().executionModeForSlot(...args)}
 /* Plan 069 S4: which editor slots may offer "Suggest loads", and which need
    the lifter's execution mode first. The engine's compositions decide support;
    custom movements stay manual (R1), unsupported compositions too (R2). */
@@ -1420,16 +1321,7 @@ const editorSuggestLoadsPolicy=Object.freeze({
   executionModeQuestion(slot){
     return(slot?.metricDefinitions||[]).some(metric=>["repsPerSide","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic))&&
       !catalogExecutionMode(slot?.exerciseId)}});
-function slotLoadingProjection(slot){
-  const{loadingConvention}=metricLoading(slot?.metricDefinitions||[],rawExercise(slot?.exerciseId),slot?.loadingModel);
-  const semantics=new Set((slot?.metricDefinitions||[]).map(metric=>metric.semantic));
-  const executionMode=executionModeForSlot(slot);
-  let externalLoadMultiplier=1;
-  if(semantics.has("persistentLoadPerSideKg"))externalLoadMultiplier=2;
-  else if(semantics.has("loadPerSideKg"))
-    externalLoadMultiplier=executionMode==="bilateral"?2:executionMode==="unilateral"?1:null;
-  else if(loadingConvention==="bodyweight")externalLoadMultiplier=0;
-  return{loadingConvention,executionMode,externalLoadMultiplier}}
+function slotLoadingProjection(...args){return workoutQueries().slotLoadingProjection(...args)}
 /* A mid-session swap reprograms the slot's pending sets with the
    replacement's own metric composition. Targets carry over only for metrics
    both movements share; the rest stay for the lifter to enter. A custom
@@ -1904,27 +1796,8 @@ function hydrateDraftCollections(d,{restoreSelection=false}={}){
   skipped.clear();(d.__skipped||[]).forEach(id=>{if(known.has(id))skipped.add(id)});
   if(restoreSelection){const selectedIndex=focusList().findIndex(ex=>ex.id===d.__selectedExerciseId);
     focusUi.index=selectedIndex>=0?selectedIndex:0}
-  substituted.clear();substitutedRef.clear();
-  const subs=d.__substituted&&typeof d.__substituted==="object"?d.__substituted:{};
-  const refs=d.__substitutedRef&&typeof d.__substitutedRef==="object"?d.__substitutedRef:{};
-  for(const [id,name] of Object.entries(subs)){
-    if(!known.has(id))continue;
-    const n=String(name||"").trim().slice(0,80);
-    if(n)substituted.set(id,n)}
-  for(const [id,libId] of Object.entries(refs)){
-    if(!substituted.has(id))continue;
-    const ref=String(libId||"").trim();
-    if(ref&&libraryEntry(ref))substitutedRef.set(id,ref)}
-  // Drafts written before substitution references existed saved only a label.
-  // Recover an unambiguous library identity so resuming cannot credit the slot.
-  const byName=new Map();
-  for(const entry of pickableExercises()){
-    for(const label of [entry.name,entry.namePt,libraryName(entry)]){
-      const key=movementToken(label);if(!key)continue;
-      if(!byName.has(key))byName.set(key,entry.id);else if(byName.get(key)!==entry.id)byName.set(key,null)}}
-  for(const [id,name] of substituted){
-    if(substitutedRef.has(id))continue;
-    const ref=byName.get(movementToken(name));if(ref)substitutedRef.set(id,ref)}}
+}
+
 function hydrateWorkoutDraft({restoreDay=false,restoreSelection=restoreDay}={}){
   const d=loadDraft();
   hydrateDraftCollections(d,{restoreSelection});
@@ -2097,11 +1970,10 @@ async function applyCustomSub(id,raw,libraryRef=null,ui={}){
   if(result.status==="domain-error"&&result.error?.code==="substitution-touched-pending-set")toast(t("toast.substitute_started_sets"));
   if(result.status!=="applied")return false;
   renderWorkout();return true}
-function sessionExercise(ex){
-  if(!ex||!substituted.has(ex.id))return ex;
-  const name=substituted.get(ex.id),ref=substitutedRef.get(ex.id),entry=ref?libraryEntry(ref):null;
-  if(!entry)return Object.assign({},ex,{name,libraryId:undefined,movementId:`adhoc:${movementToken(name)}`});
-  return Object.assign({},ex,exerciseFieldsFromLibrary(entry),{name,libraryId:entry.id})}
+let workoutReadModel;
+function workoutQueries(){return workoutReadModel.capture({snapshot:state,draft:activeWorkoutDraft,
+  currentCycle:mesocycleLifecycle(state.programMeta).current||1,profileWeightKg:interpretedProfile(state.profile).weightKg})}
+function sessionExercise(...args){return workoutQueries().sessionExercise(...args)}
 /* Mid-session swap. The slot's own movement stays in the list, and picking it
    is how a lifter undoes a swap — the alternative was a "back to X" row that
    means nothing until you already know what X was. */
@@ -2695,7 +2567,7 @@ function rebaseSharedSetupSnapshot(snapshot,head,seed){
     incoming,exercises,head,deterministicCustomIdAllocator(seed)).customExercises;
   return snapshot}
 function persistBootNormalization(opts={}){
-  dropMemo.clear();baselineMemo.clear();
+  baselineMemo.clear();
   const base=cloneSnapshot(mutationBase||state);
   const snapshot=cloneSnapshot(state);
   const structured=withExplicitProgramStructure(snapshot.program,snapshot.programMeta||defaultProgramMeta(snapshot.log));
@@ -3625,23 +3497,9 @@ function scheduledProgramRows(){
     if(projected)return projected}
   return state.program}
 function exercises(d=day){return scheduledProgramRows().filter(x=>x.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
-function exerciseNameTokens(ex){
-  const names=new Set([ex?.name,ex?.displayName].map(movementToken).filter(Boolean));
-  const entry=ex?.libraryId?libraryEntry(ex.libraryId):null;
-  for(const label of [entry?.name,entry?.namePt]){const key=movementToken(label);if(key)names.add(key)}
-  return names}
-function matchLift(ex){const movementId=ex?.movementId?String(ex.movementId):"",
-  key=exerciseLiftKey(ex),names=exerciseNameTokens(ex);
-  return row=>{
-    const rowLibraryId=row?.performedLibraryId?String(row.performedLibraryId):"";
-    const rowMovementId=row?.performedMovementId?String(row.performedMovementId):"";
-    if(rowLibraryId||rowMovementId)return liftKey(row)===key;
-    if(movementId&&ex?.id&&row?.exerciseId===ex.id)return true;
-    return names.has(movementToken(loggedMovementName(row)))}}
-function last(ex){const match=matchLift(ex);
-  const hits=state.log.filter(x=>match(x)&&isWork(x));if(!hits.length)return[];
-  const sid=[...hits].sort((a,b)=>compareLogChronology(b,a))[0].session;
-  return hits.filter(x=>x.session===sid).sort((a,b)=>a.set-b.set)}
+
+function matchLift(...args){return workoutQueries().matchLift(...args)}
+function last(...args){return workoutQueries().last(...args)}
 // One entry per past session for this lift, oldest→newest, working sets only (load>0).
 function sessionsFor(ex){const match=matchLift(ex),m=new Map();
   for(const x of state.log){if(!match(x)||!(+x.load>0)||!isWork(x))continue;
@@ -3909,153 +3767,23 @@ function progressionHistory(ex){
  * This is the complete alias table: the old double-progression marker is the
  * released range contract. Everything else remains recoverable but executes
  * as a manual envelope until an owner-approved rule exists. */
-const LEGACY_PROGRESSION_ALIASES=Object.freeze({double_progression:"range"});
-function rangeProgressionProjection(ex){return{schemaVersion:1,modifiers:[],strategy:{id:"range",version:1,params:{workingSets:+ex.sets||1,repMin:+ex.min,repMax:+ex.max}}}}
-function progressionForExercise(ex){
-  if(ex?.progressionIncompatibility)return{schemaVersion:1,modifiers:[],strategy:{id:"manual",version:1,params:{unsupportedImport:"incompatible_prescription"}}};
-  if(ex?.progression)return cloneSnapshot(ex.progression);
-  const legacy=typeof ex?.progressionType==="string"?ex.progressionType.trim():"";
-  if(legacy&&!Object.prototype.hasOwnProperty.call(LEGACY_PROGRESSION_ALIASES,legacy))
-    return{schemaVersion:1,modifiers:[],strategy:{id:"manual",version:1,params:{unsupportedImport:legacy}}};
-  return rangeProgressionProjection(ex||{});
-}
+
+
+function progressionForExercise(...args){return workoutQueries().progressionForExercise(...args)}
 const strategyIdFor=ex=>progressionForExercise(ex)?.strategy?.id||"range";
-function canonicalPrescriptionSlot(ex,definition=state.programMeta?.programDefinition){
-  if(!definition||!Array.isArray(definition.days))return null;
-  const id=String(ex?.slotId||ex?.id||"");
-  for(const day of definition.days)for(const slot of day.slots||[])if(slot.id===id)return{day,slot};
-  return null}
-function enginePerformedRow(row,exerciseId,metricIds){
-  const performedId=String(row?.performedLibraryId||row?.performedMovementId||"");
-  if(performedId!==exerciseId||row?.metricType!=="source_metrics@1"||
-    !Array.isArray(row.metricIds)||JSON.stringify(row.metricIds)!==JSON.stringify(metricIds)||
-    !Array.isArray(row.metricValues)||!Number.isInteger(row.setIndex)||row.setIndex<0)return null;
-  const values=ExerciseMetrics?.validateMetricValues?.(metricIds,row.metricValues);
-  if(!values?.ok)return null;
-  const rir=typeof row.rir==="number"&&Number.isFinite(row.rir)&&row.rir>=0?row.rir:null;
-  return{exerciseId,completed:true,setIndex:row.setIndex,rir,equipmentId:row.equipmentId??null,
-    loadingConvention:row.loadingConvention,metricIds:[...row.metricIds],metricValues:cloneSnapshot(row.metricValues),
-    loadingContext:isPlainStateObject(row.loadingContext)?cloneSnapshot(row.loadingContext):null}}
-function progressionHistoryFor(exerciseId,metricIds,slotProjection,metricDefinitions){
-  const grouped=new Map();
-  const requiresExecutionMode=(metricDefinitions||[]).some(metric=>
-    ["repsPerSide","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic));
-  for(const row of state.log||[]){
-    const performed=enginePerformedRow(row,exerciseId,metricIds);if(!performed)continue;
-    if(requiresExecutionMode){
-      const projection=readLogRow(row),mode=slotProjection?.executionMode;
-      if(!mode||!projection.executionMode||projection.executionMode!==mode)continue}
-    const sessionId=String(row.session||"");if(!sessionId)continue;
-    if(!grouped.has(sessionId))grouped.set(sessionId,{sessionId,date:row.date,created:row.created,completed:true,sets:[]});
-    grouped.get(sessionId).sets.push(performed)}
-  return[...grouped.values()].sort(compareLogChronology).map(session=>({
-    sessionId:session.sessionId,completed:true,sets:session.sets.sort((a,b)=>a.setIndex-b.setIndex)}))}
-function progressionCurrentSession(prescription){
-  if(!activeWorkoutDraft?.exercises)return[];
-  const exercise=activeWorkoutDraft.exercises[prescription.slotId]||
-    Object.values(activeWorkoutDraft.exercises).find(item=>item.libraryId===prescription.exerciseId||item.sourceExerciseId===prescription.exerciseId);
-  if(!exercise||exercise.status==="skipped")return[];
-  const sets=[];
-  for(const setId of exercise.setOrder||[]){
-    const set=exercise.sets?.[setId];if(!set||set.completion==="pending"||set.role==="warmup")continue;
-    const values=[];let valid=true;
-    for(const metric of set.programmed?.metrics||[]){
-      const parsed=ExerciseMetrics?.parseMetricValue?.(metric,set.edited?.metrics?.[metric.id]);
-      if(!parsed?.ok){valid=false;break}
-      values.push({metricId:metric.id,value:parsed.value,unit:metric.unit})}
-    if(!valid||JSON.stringify(values.map(value=>value.metricId))!==JSON.stringify(prescription.metricIds))continue;
-    const rawRir=set.edited?.rir??set.programmed?.targetRir;
-    const rir=activeWorkoutDraft.program?.rirMode==="effort"?EFFORT_RIR[set.edited?.effort]
-      :rawRir==null?null:Number(rawRir);
-    const loadingContext=cloneSnapshot(exercise.programmed?.loadingContext||{});
-    loadingContext.loadingConvention=exercise.programmed?.loadingConvention||loadingContext.loadingConvention;
-    loadingContext.bodyweightKg=activeWorkoutDraft.session?.bodyweight==null||activeWorkoutDraft.session.bodyweight===""?null:Number(activeWorkoutDraft.session.bodyweight);
-    if(typeof loadingContext.bodyweightContributionEnabled!=="boolean")
-      loadingContext.bodyweightContributionEnabled=(loadingContext.bodyweightCoefficient??0)>0&&loadingContext.bodyweightKg>0;
-    sets.push({exerciseId:prescription.exerciseId,completed:true,setIndex:set.ordinal-1,
-      rir:Number.isFinite(rir)&&rir>=0?rir:null,equipmentId:exercise.programmed?.equipmentId??null,
-      loadingConvention:exercise.programmed?.loadingConvention,metricIds:[...prescription.metricIds],metricValues:values,
-      loadingContext})}
-  return sets}
+function canonicalPrescriptionSlot(...args){return workoutQueries().canonicalPrescriptionSlot(...args)}
+
+
+
 /* The lifter's smallest load change for a movement owns its candidate loads:
    set per exercise in the program editor, else the global minimum jump. */
-function loadStepKg(exerciseId){
-  const own=+state.programMeta?.loadingConfiguration?.byExerciseId?.[exerciseId]?.loadStepKg;
-  if(Number.isFinite(own)&&own>0)return own;
-  const global=+state.settings.minJump;return Number.isFinite(global)&&global>0?global:2.5}
-function loadGridKg(step){
-  const loads=[];
-  for(let k=1;k<=2000&&k*step<=1000+1e-9;k++)loads.push(Math.round(k*step*1000)/1000);
-  return loads}
-function sessionBodyweightKg(){
-  const live=activeWorkoutDraft?.session?.bodyweight;
-  if(live!=null&&live!==""&&+live>0)return+live;
-  const rows=(state.log||[]).filter(row=>+row.bodyweight>0);
-  // Until a session logs one, the weight given in setup counts (Plan 072).
-  const profileWeight=interpretedProfile(state.profile).weightKg;
-  if(!rows.length)return profileWeight>0?profileWeight:null;
-  return+rows.reduce((latest,row)=>compareLogChronology(latest,row)<0?row:latest).bodyweight}
+
+
+
 /* Keep the engine's current loading context on the program slot boundary.
    The numeric multiplier is also copied into each new log row by workoutProgramContext. */
-function slotLoadingContext(slot){
-  const projection=slotLoadingProjection(slot),{loadingConvention,executionMode,externalLoadMultiplier}=projection;
-  const coefficient=+slot.loadingModel?.bodyweightCoefficient||0,bodyweight=sessionBodyweightKg();
-  return{equipmentId:null,availableLoadsKg:loadGridKg(loadStepKg(slot.exerciseId)),loadingConvention,
-    bodyweightContributionEnabled:coefficient>0&&bodyweight>0,bodyweightKg:bodyweight||null,
-    executionMode,externalLoadMultiplier}}
-function recommendation(ex){
-  const compiler=ProgramCompiler;
-  const engine=PersistenceProgression;
-  const definition=state.programMeta?.programDefinition,matched=canonicalPrescriptionSlot(ex,definition);
-  if(!compiler?.prescriptionsForCycle||!engine?.recommendSets||!matched)
-    return{status:"manual",engineStatus:"manual",reason:"canonical_program_definition_required",load:null,targetSets:[]};
-  const cycleCount=Number.isInteger(definition.cycles)&&definition.cycles>0?definition.cycles:1;
-  const elapsed=mesocycleLifecycle(state.programMeta).current||1,cycleNumber=Math.min(cycleCount,Math.max(1,elapsed));
-  const prescriptions=compiler.prescriptionsForCycle(definition,cycleNumber).filter(item=>item.slotId===matched.slot.id);
-  if(!prescriptions.length)return{status:"manual",engineStatus:"manual",reason:"cycle_prescription_unavailable",load:null,targetSets:[]};
-  const first=prescriptions[0],slotProjection=slotLoadingProjection(matched.slot);
-  const history=progressionHistoryFor(first.exerciseId,first.metricIds,slotProjection,matched.slot.metricDefinitions);
-  const currentSession=progressionCurrentSession(first);
-  const loadingContext={bySlotId:{[matched.slot.id]:slotLoadingContext(matched.slot)}};
-  const results=engine.recommendSets(prescriptions,history,currentSession,loadingContext,{
-    weightMatch:state.settings.weightMatch===true,expandRepRange:state.settings.expandRepRange!==false});
-  const targetSets=prescriptions.map((prescription,index)=>{
-    const result=results[index]||null;
-    return{prescription,result,targets:result?.status==="recommended"?result.targets:prescription.targets,
-      rir:prescription.rir,status:result?.status||"manual"}});
-  const firstActual=targetSets.find(item=>item.prescription.setIndex===1)||targetSets[0];
-  const result=firstActual?.result,definitions=matched.slot.metricDefinitions||[];
-  const requiresExecutionMode=definitions.some(metric=>
-    ["repsPerSide","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic));
-  const missingExecutionMode=matched.slot.metricOrigin==="source_catalog"&&requiresExecutionMode&&
-    !slotProjection.executionMode;
-  const reasonCodes=result?.status==="configuration_required"&&missingExecutionMode&&
-    result.reasonCodes?.includes("configuration_required")
-    ?["execution_context_required",...(result.reasonCodes||[])]:result?.reasonCodes||[];
-  const repMetric=definitions.find(metric=>metric.semantic==="reps"||metric.semantic==="repsPerSide");
-  const loadMetric=definitions.find(metric=>["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic));
-  const authored=firstActual?.prescription.targets||{};
-  const repTarget=repMetric?authored[repMetric.semantic]:null,repValue=firstActual?.targets?.[repMetric?.semantic];
-  const manual=result?.status!=="recommended";
-  const newLift=reasonCodes.includes("no_comparable_history")&&!reasonCodes.includes("configuration_required");
-  const load=!manual&&loadMetric?firstActual.targets?.[loadMetric.semantic]??null:null;
-  // The verdict is the engine's own move: the first set's load against the load
-  // of the set it is anchored on. Every surface (cue, Why, Today, attention)
-  // reads this one direction.
-  const anchorLoad=result?.historyAnchor?.displayLoadKg;
-  const direction=manual||load==null||!Number.isFinite(anchorLoad)?"hold"
-    :load>anchorLoad+1e-9?"add":load<anchorLoad-1e-9?"reduce":"hold";
-  const status=manual?(result?.status==="configuration_required"?"configuration_required":newLift?"new":"manual"):direction;
-  return{status,engineStatus:result?.status||"manual",
-    reason:reasonCodes[0]||"manual_prescription",reasonCodes,
-    label:manual?"":t(status==="add"?"rec.add.label":status==="reduce"?"rec.reduce.label":"rec.hold.label"),text:"",load,
-    lastLoad:Number.isFinite(anchorLoad)?anchorLoad:null,
-    reps:typeof repValue==="number"?repValue:repValue?.min??(typeof repTarget==="number"?repTarget:repTarget?.min??null),
-    targetSets,engineResults:results,metricDefinitions:definitions,slotId:matched.slot.id,
-    stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:false,
-    prescription:cloneSnapshot(first),historyAnchor:result?.historyAnchor||null,fatigue:result?.fatigue||null,
-    loadingAssumptions:result?.loadingAssumptions||null};
-}
+
+function recommendation(ex){const value=workoutQueries().recommendation(ex);if(!('labelKey' in value))return value;const {labelKey,...rec}=value;return {...rec,label:labelKey?t(labelKey):''}}
 // Re-entry after a load change: the reps this capacity predicts at the NEW load,
 // minus the lifter's own habitual RIR, clamped into the range. Replaces the blind
 // reset to ex.min — which survives only as the clamp on big percentage jumps.
@@ -4072,83 +3800,23 @@ function baseSetReps(ex,rec,old){
   return clamp(prev+1,ex.min,ex.max)}
 // Historical median consecutive-set capacity drop for this lift. Memoized: it walks
 // the whole log and setSuggestion runs per set per render — Log-tab speed comes first.
-const dropMemo=new Map();
-function historicalSetDrop(ex){
-  const memoKey=capMemoKey(ex);
-  if(dropMemo.has(memoKey))return dropMemo.get(memoKey);
-  const match=matchLift(ex),m=new Map();
-  for(const x of state.log){if(!match(x)||!(+x.load>0)||!(+x.reps>0)||!isWork(x))continue;
-    if(!m.has(x.session))m.set(x.session,{created:x.created,date:x.date,rows:[]});
-    mergeLogChronology(m.get(x.session),x).rows.push(x)}
-  const recent=[...m.values()]
-    .sort(compareLogChronology)
-    .slice(-CAPACITY.baselineSessions);
-  const drops=[];
-  for(const s of recent){const rows=[...s.rows].sort((a,b)=>(+a.set||0)-(+b.set||0));
-    for(let i=0;i+1<rows.length;i++){
-      const a=capE1rm(+rows[i].load,+rows[i].reps,rows[i].rir),b=capE1rm(+rows[i+1].load,+rows[i+1].reps,rows[i+1].rir);
-      if(a>0)drops.push(Math.max(0,(a-b)/a))}}
-  const value=drops.length?median(drops):0;
-  dropMemo.set(memoKey,value);return value}
+
+
 // Expected capacity lost per set: observed today first (needs 2+ sets), else this
 // lift's recent history, else zero. Clamped so one blow-up set can't run away with it.
-function expectedSetDrop(ex,caps){
-  const drops=[];
-  for(let i=0;i+1<(caps||[]).length;i++)if(caps[i]>0)drops.push(Math.max(0,(caps[i]-caps[i+1])/caps[i]));
-  return clamp(drops.length?avg(drops):historicalSetDrop(ex),0,CAPACITY.dropClamp)}
+
 /** Exact-token muscle overlap between two exercise templates — deliberately NOT the
  *  fuzzy includes() the muscle filter uses, so "arms" never matches "forearms".
  *  Primary↔primary full, primary↔secondary half, secondary↔secondary quarter. */
-function muscleOverlap(a,b){
-  const norm=s=>muscles(s).map(x=>x.toLowerCase());
-  const ap=norm(a?.primary),as=norm(a?.secondary),bp=norm(b?.primary),bs=norm(b?.secondary);
-  const hits=(x,y)=>x.some(m=>y.includes(m));
-  if(hits(ap,bp))return 1;
-  if(hits(ap,bs)||hits(as,bp))return .5;
-  if(hits(as,bs))return .25;
-  return 0}
+
 /** Session freshness: how the lifts already finished today are running against their own
  *  capacity baselines, weighted by muscle overlap over a systemic floor. Temper-only —
  *  it can ease a not-yet-started lift's first set, never boost it (decision 7). */
-function sessionFreshness(ex,draft){
-  const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]);
-  let wSum=0,wDev=0,setCount=0,contributors=0;
-  for(const o of state.program){
-    if(!o||o.id===ex.id||o.day!==ex.day)continue;
-    const caps=[];
-    for(let k=1;k<=(+o.sets||0);k++){const key=`${o.id}_${k}`;
-      if(!done.has(key)||warm.has(key))continue;
-      const ld=fromDisplay(parseDec(draft[`${key}_load`])||0),rp=parseDec(draft[`${key}_reps`])||0;
-      if(!(ld>0&&rp>0))continue;
-      let rir;if(isEffortMode())rir=EFFORT_RIR[draft[`${key}_effort`]]??1;
-      else{rir=parseDec(draft[`${key}_rir`]);if(!Number.isFinite(rir))rir=1}
-      caps.push(capE1rm(ld,rp,rir))}
-    if(!caps.length)continue;
-    setCount+=caps.length;
-    // No baseline (fewer than 2 sessions) means no way to read today as high or low.
-    const base=capacityBaseline(o);
-    if(!(base>0))continue;
-    const dev=clamp((Math.max(...caps)-base)/base,-.5,.5);
-    const w=CAPACITY.temperFloor+(1-CAPACITY.temperFloor)*muscleOverlap(ex,o);
-    wSum+=w;wDev+=w*dev;contributors++}
-  // Evidence gate: too little logged today, or nothing with a baseline, stays silent.
-  if(setCount<CAPACITY.temperMinSets||!contributors||!(wSum>0))return 1;
-  return clamp(1+CAPACITY.temperDamp*Math.min(wDev/wSum,0),1-CAPACITY.temperClamp,1)}
+
 /** No sets of this lift logged yet today: previous-session recommendation, eased by
  *  session freshness. Freshness moves reps; it only touches load when the tempered
  *  target would otherwise fall out of the bottom of the range. */
-function baseSuggestion(ex,rec,draft,old){
-  if(rec.status==="manual")return{load:null,reps:null,src:"manual"};
-  if(Array.isArray(rec.targetSets))return engineSetSuggestion(ex,1,rec,draft);
-  const reps=rec.load!=null?baseSetReps(ex,rec,old):(old&&+old.reps>0?+old.reps:ex.min);
-  if(rec.load==null||!(rec.cap>0))return{load:rec.load,reps,src:"base"};
-  const factor=sessionFreshness(ex,draft);
-  if(!(factor<1))return{load:rec.load,reps,src:"base"};
-  const minJ=+state.settings.minJump||2.5,cap=rec.cap*factor;
-  let load=rec.load,raw=Math.round(repsAtLoad(cap,load)-(+rec.typRir||0));
-  // A deficit deep enough to push the target under the range comes out of the load instead.
-  if(raw<ex.min){load=Math.max(round(load-jump(load,1)),minJ);raw=Math.round(repsAtLoad(cap,load)-(+rec.typRir||0))}
-  return{load,reps:Math.min(reps,clamp(raw,ex.min,ex.max)),src:"base",tempered:true}}
+function baseSuggestion(ex,rec,draft,old){return workoutQueries().setSuggestion(ex,1,rec,draft,old)}
 // Per-set load + reps suggestion, layering three signals:
 //  1. previous session (rec.load / baseSetReps) — primary
 //  2. current-session performance (completed sets this workout) — strong autoregulation
@@ -4172,46 +3840,8 @@ function completedCurrentSets(ex,n,draft){
    that set: recommendation() already folds this session's completed sets in as
    live anchors, so nothing is re-derived here. The source names how the target
    moved from the last completed set this session. */
-function engineSetSuggestion(ex,n,rec,draft){
-  const item=rec.targetSets.find(entry=>entry.prescription?.setIndex===n)||rec.targetSets[n-1];
-  if(!item||item.status!=="recommended")return{load:null,reps:null,src:"manual"};
-  const definitions=rec.metricDefinitions||[];
-  const loadMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.load.includes(metric.semantic));
-  const repsMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.reps.includes(metric.semantic));
-  const load=loadMetric?item.targets?.[loadMetric.semantic]??null:null;
-  const rawReps=repsMetric?item.targets?.[repsMetric.semantic]:null;
-  const reps=typeof rawReps==="number"?rawReps:rawReps?.min??null;
-  const done=new Set(draft?.__done||[]);
-  let previous=null;
-  for(let k=n-1;k>=1;k--)if(done.has(`${ex.id}_${k}`)){previous=+draft[`${ex.id}_${k}_load`];break}
-  if(!(previous>0)||load==null)return{load,reps,src:"base"};
-  // The projected draft field is display text; the engine's load is canonical kg.
-  const shown=Math.round(toDisplay(load)*100)/100,before=Math.round(previous*100)/100;
-  const src=shown>before?"session-up":shown<before?"session-down":"session-hold";
-  return{load,reps,src,drop:false}}
-function setSuggestion(ex,n,rec,draft,old){
-  if(rec.status==="manual")return{load:null,reps:null,src:"manual"};
-  if(Array.isArray(rec.targetSets))return engineSetSuggestion(ex,n,rec,draft);
-  const minJ=+state.settings.minJump||2.5;
-  const sets=completedCurrentSets(ex,n,draft);
-  if(!sets.length)return baseSuggestion(ex,rec,draft,old);
-  const typRir=rec.typRir!=null?rec.typRir:typicalRir(ex);
-  const lastSet=sets.at(-1),L=lastSet.load;
-  const setDrop=expectedSetDrop(ex,sets.map(s=>s.cap));
-  const predCap=lastSet.cap*(1-setDrop);
-  const predPerf=repsAtLoad(predCap,L)-typRir;
-  if(predPerf>=ex.max+CAPACITY.jumpMargin){const L2=round(L+jump(L,1));
-    return{load:L2,reps:reentryReps(ex,predCap,L2,typRir),src:"session-up"}}
-  if(predPerf<ex.min){const L2=Math.max(round(L-jump(L,1)),minJ);
-    return{load:L2,reps:reentryReps(ex,predCap,L2,typRir),src:"session-down"}}
-  const reps=clamp(Math.round(predPerf),ex.min,ex.max);
-  // Only call it a downward trend when an anticipated drop actually caused it —
-  // a target lowered purely by the typical-RIR subtraction is not a fade.
-  // `pred` and `typ` are the capacity this predicted for the next set and the RIR taken off it,
-  // reported so the Why sheet can say them without recomputing. They are not enumerable, so the
-  // suggestion that serialises (and that the parity proofs compare) is exactly what it was.
-  return Object.defineProperties({load:L,reps,src:"session-hold",drop:setDrop>0&&reps<lastSet.reps},
-    {pred:{value:Math.round(repsAtLoad(predCap,L)*2)/2},typ:{value:typRir},capacity:{value:repsAtLoad(predCap,L)}})}
+
+function setSuggestion(ex,n,rec,draft,old){return workoutQueries().setSuggestion(ex,n,rec,draft,old)}
 // One-line summary of how the current session is steering the next unlogged set.
 /** A row of the explanation carries its kind (and the facts it printed) without changing what serialises:
  *  the rows stay {label?,text}, so the parity proofs that compare them see the same list. */
@@ -5537,15 +5167,7 @@ function focusRowVals(ex,n,r,draft,prev,effortMode){
  *  figures the exercise line above shows. */
 /* What a canonical slot's current cycle prescribes: whether the adaptive engine
    owns its targets, and the RIR its sets aim at. Null for a flat legacy row. */
-function canonicalSlotFacts(ex){
-  const definition=state.programMeta?.programDefinition,matched=canonicalPrescriptionSlot(ex,definition);
-  if(!matched)return null;
-  const cycles=Number.isInteger(definition.cycles)&&definition.cycles>0?definition.cycles:1;
-  const index=Math.min(cycles,Math.max(1,mesocycleLifecycle(state.programMeta).current||1));
-  const cycle=matched.slot.prescriptionsByCycle?.find(item=>item.cycleIndex===index)||matched.slot.prescriptionsByCycle?.[0];
-  const sets=cycle?.sets||[],rirs=sets.map(set=>set.rir).filter(value=>Number.isFinite(value));
-  return{adaptive:sets.some(set=>set.status==="ready"),
-    rirMin:rirs.length?Math.min(...rirs):null,rirMax:rirs.length?Math.max(...rirs):null}}
+function canonicalSlotFacts(...args){return workoutQueries().canonicalSlotFacts(...args)}
 function focusTargetEffort(ex){
   if(isEffortMode())return effortLabel(targetEffort());
   const facts=canonicalSlotFacts(ex);
@@ -6794,8 +6416,7 @@ window.__repforgeRecoverSignal=recoverSignal;
 window.__repforgeRecommendation=recommendation;
 window.__repforgeProgressionForExercise=progressionForExercise;
 window.__repforgeValidateStateShape=isValidStateShape;
-window.__repforgeCapacity={CAPACITY,capRir,capReps,capE1rm,repsAtLoad,typicalRir,capacityBaseline,
-  sessionsFor,expectedSetDrop,sessionFreshness,baseSetReps,setSuggestion};
+
 window.__repforgeAttention=attentionGroups;
 // Lifts on the Attention board — everything the board lists, so the "attention" cell in
 // the weekly stat row and the "ATTENTION · n" heading always report the same lifts.
@@ -6965,7 +6586,7 @@ function redrawChart(){ExerciseUi?.redraw()}
 function adoptHistoryDurableHead(head){
   if(!head)return;
   publishTrainingSnapshot(head);
-  resetPersistenceBase(state);dropMemo.clear();baselineMemo.clear()}
+  resetPersistenceBase(state);baselineMemo.clear()}
 /** The block bounds History groups and counts by: where the running block started,
  *  how long it is, how many training days a week it plans, and the archived
  *  blocks before it. Read from the program, never stored for History. */
@@ -14389,6 +14010,7 @@ function initializePersistenceOwners(){
     librarySource:{library:EXERCISE_LIBRARY,legacyIds:LEGACY_LIBRARY_IDS},nextId:uid,now,
     calendarDate:today,language:()=>uiLang(),defaultExerciseName:()=>t('program.default.exercise')});
   initializeBlockTransitionCommands(model);
+  workoutReadModel=createWorkoutReadModel({catalog:rawExerciseCatalog,librarySource:{library:EXERCISE_LIBRARY},model});
   const entry=createEntryRules(rawExerciseCatalog),workout=createWorkoutRules(rawExerciseCatalog);
   const policy=SnapshotPolicy.createSnapshotPolicy({entry,workout,compiler:ProgramCompiler,
     catalog:rawExerciseCatalog,model,transition:generationRules.transition,metrics:PersistenceMetrics,

@@ -16,6 +16,7 @@ const ASSETS = [
   "./src/app/review.js",
   "./src/app/session.js",
   "./src/app/settings.js",
+  "./src/app/workout-model.js",
   "./src/app/workout.js",
   "./src/compat/bootstrap.js",
   "./src/compat/legacy-host.js",
