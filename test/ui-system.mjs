@@ -13,7 +13,7 @@ import { measureClampedHeadings, measureRenderedRoles, renderedRoleProblems } fr
 import { auditFocusRoles, inspectRoleCoverage } from "../tools/check-ui-system.mjs";
 import { maybeStartLocalPreview } from "../tools/local-preview.mjs";
 import { setCaptureBase, launchChromium, openPage, dismissChrome, settle } from "../tools/ui-screens/session.mjs";
-import { APP_SCENARIOS, APP_CLOCK, APP_USER_AGENT, appState } from "../tools/ui-screens/screens-app.mjs";
+import { APP_SCENARIOS, APP_CLOCK, APP_USER_AGENT, appState, finishAppCapture } from "../tools/ui-screens/screens-app.mjs";
 import { ONBOARDING_SCENARIOS, onboardingState } from "../tools/ui-screens/screens-onboarding.mjs";
 
 const manifest = loadManifest(), inventory = loadRoleInventory();
@@ -51,13 +51,13 @@ try {
     for (const capture of captures) {
       const key = screenKey(capture), id = captureKey(capture), onboarding = capture.flow.startsWith("onboarding");
       const cell = { key: id, status: "failed", problems: [] };
-      let context;
+      let context, page;
       try {
         const opened = await openPage(browser, manifest, capture,
           onboarding ? onboardingState(key, capture.locale) : appState(key, capture.locale),
           { userAgent: APP_USER_AGENT[key], now: APP_CLOCK[key] });
         context = opened.context;
-        const page = opened.page;
+        page = opened.page;
         if (!onboarding) await dismissChrome(page);
         await scenarios[key](page);
         await settle(page);
@@ -118,7 +118,13 @@ try {
         if (overflow) cell.problems.push("document overflows at 320px");
         cell.status = cell.problems.length ? "failed" : "passed";
       } catch (error) { cell.problems.push(error.stack || error.message); }
-      finally { await context?.close(); }
+      finally {
+        try { await finishAppCapture(page); }
+        catch (error) { cell.problems.push(`After capture: ${error.stack || error.message}`); }
+        try { await context?.close(); }
+        catch (error) { cell.problems.push(`Context cleanup: ${error.stack || error.message}`); }
+        if (cell.problems.length) cell.status = "failed";
+      }
       report.cells.push(cell);
       console.log(`${cell.status}: ${id}${cell.problems.length ? `: ${cell.problems.join(" | ")}` : ""}`);
     }

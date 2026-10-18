@@ -31,7 +31,7 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { ROOT, capturePath, captureKey, expandCaptures, loadManifest, screenKey, variantSlug } from "./ui-screens/manifest.mjs";
 import { dismissChrome, launchChromium, openPage, settle, setCaptureBase } from "./ui-screens/session.mjs";
-import { APP_CLOCK, APP_SCENARIOS, APP_USER_AGENT, appState } from "./ui-screens/screens-app.mjs";
+import { APP_CLOCK, APP_SCENARIOS, APP_USER_AGENT, appState, finishAppCapture } from "./ui-screens/screens-app.mjs";
 import { ONBOARDING_SCENARIOS, focusOnboardingSubject, onboardingState } from "./ui-screens/screens-onboarding.mjs";
 import { buildSemanticArtifact, collectProgramEntrySemantics, normalizeSemanticRecords, validateSemanticArtifact } from "./ui-screens/semantics.mjs";
 import { collectCatalogEvidence, configForCapture, validateCatalogEvidence, validateCatalogMetadata } from "./ui-screens/catalog-contract.mjs";
@@ -411,7 +411,7 @@ async function main(options = parseArgs(process.argv.slice(2))) {
      * on contention. A scenario that is genuinely broken fails both attempts.
      */
     async function capture1(browser, capture, key, out) {
-      let context;
+      let context, page, failure = null;
       let whyGeometry = null;
       let chartGeometry = null;
       const sameWhyViewport = (first, second) => JSON.stringify([
@@ -432,18 +432,22 @@ async function main(options = parseArgs(process.argv.slice(2))) {
           now: APP_CLOCK[key],
         });
         context = opened.context;
+        page = opened.page;
         // The tour and the install banner are drawn over the app and swallow
         // clicks. Onboarding scenarios open their own gate and must keep it.
         if (!isOnboarding(capture)) await dismissChrome(opened.page);
         await SCENARIOS[key](opened.page);
         await settle(opened.page);
         await observeCatalogFrame(opened.page, capture, { out, semanticByKey });
-        return null;
       } catch (error) {
-        return error.message.split("\n")[0];
+        failure = error.message.split("\n")[0];
       } finally {
-        await context?.close();
+        try { await finishAppCapture(page); }
+        catch (error) { failure = [failure, `After capture: ${error.message}`].filter(Boolean).join("; "); }
+        try { await context?.close(); }
+        catch (error) { failure = [failure, `Context cleanup: ${error.message}`].filter(Boolean).join("; "); }
       }
+      return failure;
     }
 
     const work = [];
