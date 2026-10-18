@@ -135,18 +135,11 @@ assert.doesNotMatch(capture, /CATALOG_CONTRACT/, "capture runs the catalog contr
 
 // --------------------------------------------------------------------- CI
 
-// The recapture gate is an inventory command (tools/capture-ui-screens.mjs
-// --verify --shard k/n) that CI runs inside its browser shards. Verify mode
-// captures into a staging tree and compares it with the committed catalog, so
-// the committed frames are the immutable baseline and nothing is rewritten.
-const visualGate = SUITES.visual.map((suite) => suite.args);
-assert.ok(visualGate.length >= 1, "the inventory schedules the recapture gate");
-assert.ok(visualGate.every((args) => args[0] === "--verify" && args[1] === "--shard"), "every visual command verifies a shard");
-const union = SUITES.visual.flatMap((suite) => selectCaptures({ shard: parseShard(suite.args[2]) }).map((capture) => JSON.stringify(capture)));
-assert.equal(new Set(union).size, captures.length, "the visual shards partition every registered frame exactly once");
-assert.equal(union.length, captures.length, "no frame is captured by two shards");
-assert.match(workflow, /node tools\/run-tests\.mjs shard/, "CI runs the inventory shards, which include the recapture gate");
-assert.doesNotMatch(workflow, /git diff --exit-code -- docs\/ui-screens/, "CI does not byte-compare rasterised evidence");
+// Representative CI verification is one production-backed owner. The catalog
+// remains an authoring artifact with its transactional updater self-tested here.
+assert.equal(Object.values(SUITES).flat().filter(s => s.file === "test/ui-system.mjs").length, 1);
+assert.match(workflow, /node tools\/run-tests\.mjs shard/, "CI runs the entire declared inventory");
+assert.doesNotMatch(workflow, /git diff --exit-code -- docs\/ui-screens/);
 assert.match(toolsReadme, /node tools\/capture-ui-screens\.mjs/, "the tools README documents the capture command");
 
 // ------------------------------------------------------------ determinism

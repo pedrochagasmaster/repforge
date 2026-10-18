@@ -16,9 +16,9 @@ install UI), regenerate before merging:
 node tools/capture-ui-screens.mjs --affected --accept-visual-change
 ```
 
-CI runs `tools/check-ui-screens.mjs` (every registered frame exists, no strays) and
-`tools/compare-ui-screens.mjs` (committed frames still match a fresh capture). A stale
-catalog fails the build — it does not pass quietly.
+CI checks catalog registration and the representative matrix in `tools/critical-ui.mjs`.
+Only those selected frames are compared with fresh production captures. Exhaustive
+parity is retired; omitted frames may become stale until reviewed/regenerated.
 
 Never hand-edit a PNG.
 

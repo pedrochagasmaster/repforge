@@ -6,7 +6,7 @@
  *                                 matrix and publish the shard list
  *   node tools/ci-plan.mjs gate   fail unless every job the plan selected passed
  *   node tools/ci-plan.mjs merge-ui-system <dir>
- *                                 union the ui-system-shard.json reports under
+ *                                 union the ui-critical-report.json reports under
  *                                 <dir> and apply the catalog-wide rules
  *
  * The only narrowing CI does is "prose-only changes skip the tests". Anything
@@ -17,7 +17,7 @@
 import { appendFileSync, existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { CI_SHARDS, UI_SYSTEM_SHARDS } from "../test/suites.mjs";
+import { CI_SHARDS } from "../test/suites.mjs";
 import { captureKey, loadManifest } from "./ui-screens/manifest.mjs";
 import { findShardReports, loadRoleInventory, mergeShardReports, shardCaptures, validateRoleInventory } from "./ui-system-core.mjs";
 
@@ -131,22 +131,9 @@ function latestShardReports(root) {
   return [...latest.values()].flatMap(({ dir }) => findShardReports(dir));
 }
 
-/** The catalog-wide UI-system rule over every shard's report; browser-free so the gate job needs no test dependencies. */
-export function mergeUiSystemReports(root, { inventory = loadRoleInventory(), manifest = loadManifest() } = {}) {
-  const problems = validateRoleInventory(inventory, manifest);
-  const captureKeys = manifest.screens.flatMap((screen) => manifest.themes.flatMap((theme) =>
-    Object.keys(manifest.locales).map((locale) => captureKey({
-      flow: screen.flow, screen: screen.id, viewport: "phone-390", theme, locale, text: "normal", motion: "normal",
-    }))));
-  const expectedCaptureKeysByShard = Array.from({ length: UI_SYSTEM_SHARDS }, (_, index) =>
-    shardCaptures(captureKeys, { index: index + 1, count: UI_SYSTEM_SHARDS }));
-  const merged = mergeShardReports(latestShardReports(root), inventory, {
-    expectedShardCount: UI_SYSTEM_SHARDS,
-    expectedScreenCount: captureKeys.length,
-    expectedCaptureKeysByShard,
-  });
-  return { ...merged, problems: [...problems, ...merged.problems] };
-}
+/** Complete representative UI proof from this source, including fresh pixels. */
+export { mergeCriticalReports as mergeUiSystemReports } from "./critical-ui.mjs";
+import { mergeCriticalReports as mergeUiSystemReports } from "./critical-ui.mjs";
 
 async function main(argv) {
   if (argv[0] === "gate") {
@@ -154,7 +141,7 @@ async function main(argv) {
     return;
   }
   if (argv[0] === "merge-ui-system") {
-    if (!argv[1]) throw new Error("merge-ui-system needs a directory holding ui-system-shard.json reports");
+    if (!argv[1]) throw new Error("merge-ui-system needs a directory holding ui-critical-report.json reports");
     const merged = mergeUiSystemReports(resolve(argv[1]));
     console.log(`UI system merge: ${merged.shards} shard report(s), ${merged.screens} rendered states, ${merged.problems.length} problem(s).`);
     for (const problem of merged.problems) console.error(`FAIL: ${problem}`);

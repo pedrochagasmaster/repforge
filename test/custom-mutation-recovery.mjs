@@ -1406,6 +1406,50 @@ async function testCrossTabStaleEditAndDeleteBecomesArchive(page, otherPage) {
     });
 }
 
+// The broad drag/keyboard/language matrix retires. Preserve one actual editor
+// transaction with canonical identity, replica persistence and reload.
+async function testEditorReorderAndRemoval(page) {
+  const before = await readReplicas(page);
+  const day = before.local.program[0].day;
+  const original = before.local.program.filter(row => row.day === day).sort((a,b) => a.order - b.order);
+  if (original.length < 2) throw new Error("editor proof needs two slots on the seeded day");
+  const id = original[1].id, slotId = original[1].slotId || id;
+  await page.click('nav button[data-view="program"]');
+  await page.click("#programEditToggle");
+  await page.waitForSelector('#programEditor [data-role="exercise"]');
+  const firstDay = page.locator('#programEditor [data-role="day"]').first();
+  await firstDay.locator('[data-role="day-menu"]').click();
+  await firstDay.locator('[data-role="toggle-reorder"]').click();
+  const row = () => page.locator(`#programEditor [data-role="exercise"][data-id="${id}"]`).first();
+  await row().locator('[data-role="exercise-menu"]').click();
+  await row().locator('[data-role="move-up"]').click();
+  await page.evaluate(() => window.__repforgeStorage.flush());
+  await page.click("#programEditToggle");
+  await page.waitForSelector("#programEditorWrap.is-hidden", { state: "attached", timeout: 5000 });
+  await page.evaluate(() => window.__repforgeStorage.flush());
+  const reordered = await readReplicas(page);
+  const order = state => state.program.filter(row => row.day === day).sort((a,b) => a.order-b.order).map(row => row.id);
+  const expected = [id, original[0].id, ...original.slice(2).map(row => row.id)];
+  check(JSON.stringify(order(reordered.local)) === JSON.stringify(expected) && JSON.stringify(order(reordered.idb)) === JSON.stringify(expected),
+    "editor reorder commits exact slot identities to both replicas");
+  // A new edit starts from the committed reorder and uses normal removal.
+  await page.click("#programEditToggle");
+  if (await row().locator('[data-role="toggle-exercise"]').getAttribute("aria-expanded") !== "true")
+    await row().locator('[data-role="toggle-exercise"]').click();
+  await row().locator('[data-role="remove-exercise"]').click();
+  await row().waitFor({ state: "detached", timeout: 5000 });
+  await page.click("#programEditToggle");
+  await page.waitForSelector("#programEditorWrap.is-hidden", { state: "attached", timeout: 5000 });
+  await page.evaluate(() => window.__repforgeStorage.flush());
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  const removed = await readReplicas(page);
+  const canonicalIds = state => state.programMeta.programDefinition.days.flatMap(day => day.slots || []).map(slot => slot.id);
+  check(!order(removed.local).includes(id) && !order(removed.idb).includes(id)
+    && !canonicalIds(removed.local).includes(slotId) && !canonicalIds(removed.idb).includes(slotId),
+    "editor removal survives reload in canonical definition and both projections", { id, slotId, local: order(removed.local), idb: order(removed.idb), canonicalLocal: canonicalIds(removed.local), canonicalIdb: canonicalIds(removed.idb) });
+}
+
 async function main() {
   const browser = await launchChromium();
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -1413,6 +1457,11 @@ async function main() {
   const otherPage = await context.newPage();
   try {
     await testCreateNormalCommitAndReload(page);
+    await testEditorReorderAndRemoval(page);
+    if (process.argv.includes("--editor-contract")) {
+      if (results.failed) throw new Error(`${results.failed} editor contract checks failed`);
+      return;
+    }
     await testCreateWaitsForReplicaRecovery(page);
     await testCreateWaitsForIdbRecovery(page);
     await testCreateBothReplicasFail(page);

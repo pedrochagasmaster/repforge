@@ -12,7 +12,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium } from "playwright";
+import { launchChromium } from "./browser.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -62,7 +62,7 @@ async function openBrowserClient(page) {
 
 async function main() {
   await assertOrigin();
-  const browser = await chromium.launch({ headless: true });
+  const browser = await launchChromium();
   const context = await browser.newContext();
   const page = await context.newPage();
   const token = "browser-vault-token-" + "x".repeat(32);

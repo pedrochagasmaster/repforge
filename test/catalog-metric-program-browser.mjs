@@ -730,6 +730,12 @@ async function main() {
       `.session--edit input[data-ek$="|${metricId}"][aria-label^="${movement.name} "]`;
     const firstEk = await source.locator(rowMetric(PICKED[0], firstMetricId)).getAttribute("data-ek");
     const metricSelector = `.session--edit input[data-ek="${firstEk}"]`;
+    await source.locator(metricSelector).fill("1001");
+    await source.locator(`.session--edit [data-edsave="${sessionId}"]`).click();
+    await source.waitForSelector(`${metricSelector}[aria-invalid="true"]`);
+    const refusedEdit = await replicas(source);
+    check(same(refusedEdit.local, historyBeforeEdit.local) && same(refusedEdit.idb, historyBeforeEdit.idb),
+      "invalid History correction changes neither durable replica");
     await source.locator(metricSelector).fill("65");
     const removedIndex = await source.locator(rowMetric(PICKED[2], removedMetricId))
       .getAttribute("data-ek").then((value) => Number(String(value).split("|")[1]));

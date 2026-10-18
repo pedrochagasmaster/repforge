@@ -568,3 +568,12 @@ same pinned Chromium as `sample-media-bg.mjs`. It refuses to run if the source
 no longer paints exactly one ground of that colour, because that means the mark
 itself changed. Re-run it when a new mark lands; the output is generated art,
 replaced wholesale and never hand-edited (`docs/brand-guide.md`, "The mark").
+
+## Critical verification
+
+The current automatic rendering contract is the 21-cell matrix in
+`critical-ui.mjs`, executed by `test/ui-system.mjs`. It shares one production
+frame between pixel/semantic comparison and live role checks. Exhaustive
+`capture-ui-screens --verify` and the full role sweep are retired. The catalog
+capture command remains an authoring utility; omitted frames have no automatic
+parity guarantee. See `docs/test-suite-redesign.md` and its retirement ledger.
