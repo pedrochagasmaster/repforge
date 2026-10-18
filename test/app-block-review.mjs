@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {createProgramModel} from '../src/training/model.js';
+import {createWorkoutReadModel} from '../src/app/workout-model.js';
+import {createBlockReview} from '../src/app/block-review.js';
+const require=createRequire(import.meta.url),catalog=require('../assets/exercise-catalog.json'),{EXERCISE_LIBRARY,LEGACY_LIBRARY_IDS}=require('../exercises.js');
+const librarySource={library:EXERCISE_LIBRARY,legacyIds:LEGACY_LIBRARY_IDS},instant='2026-10-18T12:00:00.000Z';
+const model=createProgramModel({catalog,librarySource,now:instant,nextId:()=>{throw Error('review allocated identity')}}),queries=createWorkoutReadModel({catalog,librarySource,model}),owner=createBlockReview({model,queries});
+const program=[{id:'lift',name:'Independent review lift',day:'A',order:1,sets:3,min:6,max:10,primary:'Chest',secondary:'Triceps',notes:''}];
+const log=[1,2,3].flatMap(session=>[1,2].map(set=>({session,date:`2026-10-${15+session}`,set,name:'Independent review lift',load:10,reps:10,rir:2})));
+const snapshot={program,log,programMeta:{id:'block',started:'2026-10-16',mesocycleLengthWeeks:6},settings:{unit:'kg'}};
+const before=JSON.stringify(snapshot),review=owner.build(snapshot,{today:'2026-10-18',now:instant,hardRir:2});
+assert.deepEqual(review,{programId:'block',started:'2026-10-16',ended:'2026-10-18',plannedSessions:6,completedSessions:3,adherenceRatio:.5,improvedLifts:0,flatLifts:1,regressedLifts:0,stalledLifts:1,prs:2,completedHardSetsByMuscle:{Chest:{d:6,p:0},Triceps:{d:0,p:3}},plannedHardSetsByMuscle:{Chest:{d:3,p:0},Triceps:{d:0,p:1.5}},volumeCompliance:1/3,recommendation:'keep_program_improve_completion',created:instant});
+assert.equal(JSON.stringify(snapshot),before);
+const early=owner.build({...snapshot,log:log.slice(0,2)},{today:'2026-10-18',now:instant,hardRir:2});assert.equal(early.recommendation,'repeat_with_simpler_schedule');assert.equal(early.stalledLifts,0);
+const easy=owner.build({...snapshot,log:log.map(row=>({...row,rir:3}))},{today:'2026-10-18',now:instant,hardRir:2});assert.equal(easy.volumeCompliance,0);assert.deepEqual(easy.completedHardSetsByMuscle,{});
+console.log('PASS literal full block review, prior chronology/PR/stall facts, adherence priority and hard-RIR refusal');

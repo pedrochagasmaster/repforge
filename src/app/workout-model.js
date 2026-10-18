@@ -12,9 +12,10 @@ import {copySnapshot} from './session.js';
  * @typedef {{executionMode?:string,externalLoadMultiplier?:number|null,bodyweightCoefficient?:number|null,bodyweightContributionEnabled?:boolean|null,loadingConvention?:string,bodyweightKg?:number|null}} LoadingContext
  * @typedef {Record<string,unknown> & {id?:string,name?:string,performedName?:string,performedLibraryId?:string,performedMovementId?:string,sourceLibraryId?:string,exerciseId?:string,slotId?:string,load?:number|string|null,reps?:number|string|null,rir?:number|string|null,warmup?:boolean,metricDefinitions?:MetricDefinition[],metricIds?:string[],metricValues?:MetricValue[],metricType?:string,setIndex?:number,set?:number,loadingContext?:LoadingContext,loadingConvention?:string,equipmentId?:string|null,date?:string,created?:string|null,session?:string|number,sessionKey?:string,bodyweight?:number|string|null}} LogRow
  * @typedef {{id:string,name:string,namePt?:string,archived?:boolean,primary?:string,secondary?:string,notes?:string,equipment?:string[],metricIds?:string[],metricDefinitions?:MetricDefinition[]}} LibraryEntry
+ * @typedef {Pick<Exercise,"id"|"name"|"libraryId"|"movementId"|"displayName">} ExerciseIdentity
  * @typedef {{id:string,name:string,sets:number,min:number,max:number,day:string,libraryId?:string,movementId?:string,slotId?:string,displayName?:string|null,progression?:Record<string,unknown> & {strategy?:{id?:string}},progressionType?:string,progressionIncompatibility?:unknown}} Exercise
  * @typedef {{exercises:{id:string,name:string,bodyweight?:number,laterality?:string[]}[],uuidIndex:Record<string,{id:string,name:string,type:string}>}} Catalog
- * @typedef {{log:LogRow[],program:Exercise[],customExercises?:LibraryEntry[],programMeta?:{programDefinition?:ProgramDefinition,loadingConfiguration?:{byExerciseId?:Record<string,{loadStepKg?:number}>}},settings:{unit?:string,minJump?:number,weightMatch?:boolean,expandRepRange?:boolean}}} WorkoutSnapshot
+ * @typedef {{log:LogRow[],program:Exercise[],customExercises?:LibraryEntry[],programMeta?:{id?:string,started?:string,mesocycleLengthWeeks?:number,programDefinition?:ProgramDefinition,loadingConfiguration?:{byExerciseId?:Record<string,{loadStepKg?:number}>}},settings:{unit?:string,minJump?:number,weightMatch?:boolean,expandRepRange?:boolean}}} WorkoutSnapshot
  */
   /** @param {unknown} value */
 export const movementToken=value=>String(value??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
@@ -24,7 +25,7 @@ export const movementIdKey=id=>String(id||'').startsWith('library:')?String(id):
 export const loggedMovementName=row=>String(row?.performedName||row?.name||'');
   /** @param {LogRow} row */
 export const liftKey=row=>row?.performedLibraryId?`library:${row.performedLibraryId}`:row?.performedMovementId?movementIdKey(row.performedMovementId):`name:${movementToken(loggedMovementName(row))}`;
-  /** @param {Exercise} ex */
+  /** @param {ExerciseIdentity} ex */
 export const exerciseLiftKey=ex=>ex?.libraryId?`library:${ex.libraryId}`:ex?.movementId?movementIdKey(ex.movementId):`name:${movementToken(ex?.name)}`;
 
 
@@ -207,13 +208,13 @@ function slotLoadingProjection(slot){
   else if(loadingConvention==="bodyweight")externalLoadMultiplier=0;
   return{loadingConvention,executionMode,externalLoadMultiplier}}
 
-/** @param {Exercise} ex */
+/** @param {ExerciseIdentity} ex */
 function exerciseNameTokens(ex){
   const names=new Set([ex?.name,ex?.displayName].map(movementToken).filter(Boolean));
   const entry=ex?.libraryId?libraryEntry(ex.libraryId):null;
   for(const label of [entry?.name,entry?.namePt]){const key=movementToken(label);if(key)names.add(key)}
   return names}
-/** @param {Exercise} ex */
+/** @param {ExerciseIdentity} ex */
 function matchLift(ex){const movementId=ex?.movementId?String(ex.movementId):"",
   key=exerciseLiftKey(ex),names=exerciseNameTokens(ex);
   /** @param {LogRow} row */
