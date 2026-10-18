@@ -1,4 +1,14 @@
 /** Install-transfer wire validation; independent of transport, browser storage and live globals. */
+/** @typedef {Record<string,unknown>} JsonRecord
+ * @typedef {{exercises:JsonRecord[],uuidIndex:Record<string,JsonRecord>}} CatalogData
+ * @typedef {{metricOrigin?:unknown,libraryId?:unknown,metricType?:unknown,metricIds?:unknown[],metrics?:unknown[],loadingModel?:{bodyweightCoefficient?:unknown},loadingContext?:{bodyweightCoefficient?:unknown}}} DraftProgramProjection
+ * @typedef {{program:JsonRecord,exerciseOrder:string[],exercises:Record<string,{programmed:DraftProgramProjection,libraryId?:unknown,setOrder:string[],sets:Record<string,{programmed:DraftProgramProjection}>}>}} DraftProjection
+ * @typedef {{program:JsonRecord[],customExercises:JsonRecord[],log:JsonRecord[],programHistory:JsonRecord[],programMeta:JsonRecord,settings:JsonRecord}} DurableProjection
+ * @typedef {{kind:string,schemaVersion:number,createdAt:string,source:{context:string,logicalInstallationId:string},sourceRevision:number,durableState:JsonRecord,workoutDraft:JsonRecord|null,programEntryDraft:JsonRecord|null,uiPreferences:JsonRecord,analytics:JsonRecord,telemetryIdentity:JsonRecord,integrity:{canonicalPayloadHash:string}}} Envelope
+ */
+/** @template T
+ * @typedef {{ok:true,value:T}|{ok:false,code:string}} Checked */
+/** @param {{compiler?:typeof import('../training/generation.js').compiler,entry?:ReturnType<typeof import('../training/authoring.js').createEntryRules>,metrics?:typeof import('../training/metrics.js').default,workout?:ReturnType<typeof import('../training/workout.js').createWorkoutRules>,catalog?:CatalogData,crypto?:Crypto,TextEncoder?:typeof globalThis.TextEncoder,TextDecoder?:typeof globalThis.TextDecoder}} bindings */
 export function createTransferContract({compiler, entry, metrics, workout, catalog, crypto, TextEncoder, TextDecoder}) {
 
   const ENDPOINTS = Object.freeze({
@@ -128,6 +138,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
   const STATUS_STATES = new Set(["available", "claiming", "deleted", "expired", "claimed-expired", "unavailable"]);
   const CLAIM_ID_RE = /^[A-Za-z0-9_-]+$/;
 
+  /** @template T @param {T} value @returns {Readonly<T>} */
   function deepFreeze(value) {
     if (value && typeof value === "object" && !Object.isFrozen(value)) {
       Object.freeze(value);
@@ -136,18 +147,29 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     return value;
   }
 
+  /** @template T @param {T} value @returns {{ok:true,value:T}} */
   function ok(value) {
     return { ok: true, value };
   }
 
+  /** @param {string} code @returns {{ok:false,code:string}} */
   function fail(code) {
     return { ok: false, code };
   }
 
+  /** @param {unknown} value @param {PropertyKey} key */
   function hasOwn(value, key) {
     return value !== null && typeof value === "object" && Object.prototype.hasOwnProperty.call(value, key);
   }
 
+  /** @template {string|number|null|undefined} T @param {readonly T[]} allowed @param {unknown} value @returns {value is T} */
+  function oneOf(allowed,value){return allowed.some(item=>item===value);}
+  /** @param {unknown} value @returns {value is number} */
+  function safeInteger(value){return typeof value==='number'&&Number.isSafeInteger(value);}
+  /** @param {unknown} value @returns {value is number} */
+  function integer(value){return typeof value==='number'&&Number.isInteger(value);}
+
+  /** @param {unknown} value @returns {value is JsonRecord} */
   function isPlainObject(value) {
     if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
     const tag = Object.prototype.toString.call(value);
@@ -157,10 +179,12 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     return Object.getPrototypeOf(prototype) === null;
   }
 
+  /** @param {string} key */
   function isDangerousKey(key) {
     return DANGEROUS_KEYS.has(key);
   }
 
+  /** @param {string} key @param {Array<string|number>} path */
   function isVolatileKey(key, path) {
     if (VOLATILE_KEYS.has(key)) return true;
     if (key === "logicalStateDigest") return path.length === 1 ||
@@ -175,6 +199,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     return false;
   }
 
+  /** @param {Array<string|number>} path */
   function isIdentifierPath(path) {
     const key = path[path.length - 1];
     if (typeof key === "number") {
@@ -192,18 +217,21 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
 
   const UTC_ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
+  /** @param {unknown} value @returns {value is string} */
   function isUtcIsoTimestamp(value) {
     if (typeof value !== "string" || !UTC_ISO_RE.test(value)) return false;
     const parsed = new Date(value);
     return !Number.isNaN(parsed.valueOf()) && parsed.toISOString() === value;
   }
 
+  /** @param {string} key @param {number} length */
   function isArrayIndexKey(key, length) {
     if (key === "") return false;
     const index = Number(key);
-    return Number.isInteger(index) && index >= 0 && index < length && String(index) === key;
+    return integer(index) && index >= 0 && index < length && String(index) === key;
   }
 
+  /** @param {object} value */
   function hasOnlyJsonOwnProperties(value) {
     if (Object.getOwnPropertySymbols(value).length > 0) return false;
     const names = Object.getOwnPropertyNames(value);
@@ -213,18 +241,20 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     return names.length === Object.keys(value).length;
   }
 
+  /** @param {unknown[]} value */
   function hasDenseArrayIndices(value) {
     const keys = Object.keys(value);
     return keys.length === value.length && keys.every(key => isArrayIndexKey(key, value.length));
   }
 
+  /** @param {string} value */
   function scalarCount(value) {
     let count = 0;
     for (let index = 0; index < value.length; index += 1) {
       const codeUnit = value.charCodeAt(index);
       if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
         const next = value.charCodeAt(index + 1);
-        if (!Number.isInteger(next) || next < 0xdc00 || next > 0xdfff) throw new TypeError("invalid string");
+        if (!integer(next) || next < 0xdc00 || next > 0xdfff) throw new TypeError("invalid string");
         index += 1;
       } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
         throw new TypeError("invalid string");
@@ -234,6 +264,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     return count;
   }
 
+  /** @param {number[]} units */
   function fromCodeUnits(units) {
     let output = "";
     const chunkSize = 8_192;
@@ -243,6 +274,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     return output;
   }
 
+  /** @param {unknown} value */
   function measureChars(value) {
     if (typeof value !== "string") throw new TypeError("character measurement accepts only strings");
     return scalarCount(value);
@@ -254,10 +286,12 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     return new Constructor();
   }
 
+  /** @param {unknown} value */
   function byteTag(value) {
     return Object.prototype.toString.call(value);
   }
 
+  /** @param {unknown} value @returns {Uint8Array|ArrayBuffer|null} */
   function asBytes(value) {
     const tag = byteTag(value);
     if (tag === "[object Uint8Array]") {
@@ -266,7 +300,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
         const getter = Constructor && Object.getOwnPropertyDescriptor(Constructor.prototype, "byteLength")?.get;
         if (typeof getter === "function") getter.call(value);
         else if (typeof ArrayBuffer === "function" && !ArrayBuffer.isView(value)) return null;
-        return value;
+        return /** @type {Uint8Array} */(value);
       } catch {
         return null;
       }
@@ -277,7 +311,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
         const getter = Constructor && Object.getOwnPropertyDescriptor(Constructor.prototype, "byteLength")?.get;
         if (typeof getter !== "function") return null;
         getter.call(value);
-        return new Uint8Array(value);
+        return new Uint8Array(/** @type {ArrayBuffer} */(value));
       } catch {
         return null;
       }
@@ -285,6 +319,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     return null;
   }
 
+  /** @param {unknown} value */
   function measureUtf8Bytes(value) {
     if (typeof value === "string") return textEncoder().encode(value).byteLength;
     const bytes = asBytes(value);
@@ -293,12 +328,14 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
   }
 
   class ContractFailure extends Error {
+    /** @param {string} code */
     constructor(code) {
       super();
       this.code = code;
     }
   }
 
+  /** @param {string} code @returns {never} */
   function throwFailure(code) {
     throw new ContractFailure(code);
   }
@@ -310,11 +347,13 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
   }
 
   class BoundedJsonParser {
+    /** @param {string} source */
     constructor(source) {
       this.source = source;
       this.index = 0;
     }
 
+    /** @returns {unknown} */
     parse() {
       this.skipWhitespace();
       const value = this.parseValue(0);
@@ -335,6 +374,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
       }
     }
 
+    /** @param {number} depth @returns {unknown} */
     parseValue(depth) {
       this.skipWhitespace();
       if (this.index >= this.source.length) throwFailure(ERROR_CODES.INVALID_JSON);
@@ -349,14 +389,16 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
       throwFailure(ERROR_CODES.INVALID_JSON);
     }
 
+    /** @param {number} depth */
     checkDepth(depth) {
       if (depth > LIMITS.depth) throwFailure(ERROR_CODES.DEPTH_TOO_LARGE);
     }
 
+    /** @param {number} depth @returns {JsonRecord} */
     parseObject(depth) {
       this.checkDepth(depth);
       this.index += 1;
-      const output = {};
+      /** @type {JsonRecord} */ const output = {};
       const keys = new Set();
       this.skipWhitespace();
       if (this.current() === "}") {
@@ -388,10 +430,11 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
       throwFailure(ERROR_CODES.INVALID_JSON);
     }
 
+    /** @param {number} depth @returns {unknown[]} */
     parseArray(depth) {
       this.checkDepth(depth);
       this.index += 1;
-      const output = [];
+      /** @type {unknown[]} */ const output = [];
       this.skipWhitespace();
       if (this.current() === "]") {
         this.index += 1;
@@ -412,12 +455,14 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
       throwFailure(ERROR_CODES.INVALID_JSON);
     }
 
+    /** @returns {string} */
     parseString() {
       if (this.current() !== '"') throwFailure(ERROR_CODES.INVALID_JSON);
       this.index += 1;
-      const units = [];
-      let pendingHigh = null;
+      /** @type {number[]} */ const units = [];
+      /** @type {number|null} */ let pendingHigh = null;
       let scalarValues = 0;
+      /** @param {number} unit */
       const pushUnit = (unit) => {
         if (pendingHigh !== null) {
           if (unit < 0xdc00 || unit > 0xdfff) throwFailure(ERROR_CODES.INVALID_STRING);
@@ -445,6 +490,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
           if (this.index >= this.source.length) throwFailure(ERROR_CODES.INVALID_JSON);
           const escape = this.source[this.index];
           this.index += 1;
+          /** @type {Record<string,number>} */
           const escapes = { '"': 0x22, "\\": 0x5c, "/": 0x2f, b: 0x08, f: 0x0c, n: 0x0a, r: 0x0d, t: 0x09 };
           if (Object.prototype.hasOwnProperty.call(escapes, escape)) {
             pushUnit(escapes[escape]);
@@ -473,6 +519,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
       throwFailure(ERROR_CODES.INVALID_JSON);
     }
 
+    /** @param {string} literal @param {unknown} value @returns {unknown} */
     parseLiteral(literal, value) {
       if (this.source.slice(this.index, this.index + literal.length) !== literal) {
         throwFailure(ERROR_CODES.INVALID_JSON);
@@ -481,6 +528,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
       return value;
     }
 
+    /** @returns {number} */
     parseNumber() {
       const start = this.index;
       if (this.current() === "-") this.index += 1;
@@ -508,8 +556,9 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     }
   }
 
+  /** @param {unknown} rawBytes @param {string} [endpoint] @param {string} [mode] */
   function parseBoundedJson(rawBytes, endpoint, mode = "request") {
-    if (!Object.values(ENDPOINTS).includes(endpoint)) return fail(ERROR_CODES.INVALID_ENDPOINT);
+    if (!Object.values(ENDPOINTS).some(value=>value===endpoint)) return fail(ERROR_CODES.INVALID_ENDPOINT);
     const bytes = asBytes(rawBytes);
     if (!bytes) return fail(ERROR_CODES.INVALID_INPUT);
     const claimResponse = endpoint === ENDPOINTS.envelope && mode === "claim-response";
@@ -534,9 +583,11 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     }
   }
 
+  /** @param {unknown} value @param {{bounded?:boolean}} [options] @returns {string|null} */
   function inspectJson(value, options = {}) {
     const bounded = options.bounded !== false;
     const active = new Set();
+    /** @param {unknown} node @param {number} depth @param {Array<string|number>} path @returns {string|null} */
     function visit(node, depth, path) {
       if (node === null) return null;
       if (typeof node === "string") {
@@ -557,7 +608,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
       if (active.has(node)) return ERROR_CODES.INVALID_INPUT;
       if (bounded && depth > LIMITS.depth) return ERROR_CODES.DEPTH_TOO_LARGE;
       active.add(node);
-      let result = null;
+      /** @type {string|null} */ let result = null;
       if (Array.isArray(node)) {
         if (bounded && node.length > LIMITS.arrayItems) result = ERROR_CODES.ARRAY_TOO_LARGE;
         if (!result && (!hasOnlyJsonOwnProperties(node) || !hasDenseArrayIndices(node))) result = ERROR_CODES.INVALID_INPUT;
@@ -612,23 +663,27 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     return visit(value, 0, []);
   }
 
+  /** @template T @param {T} value @returns {T} */
   function cloneJson(value) {
     if (value === null || typeof value !== "object") return value;
-    if (Array.isArray(value)) return value.map(cloneJson);
-    const output = {};
+    if (Array.isArray(value)) return /** @type {T} */(value.map(cloneJson));
+    /** @type {JsonRecord} */ const output = {};
+    const record=/** @type {JsonRecord} */(value);
     for (const key of Object.keys(value)) {
       Object.defineProperty(output, key, {
-        value: cloneJson(value[key]),
+        value: cloneJson(record[key]),
         enumerable: true,
         writable: true,
         configurable: true,
       });
     }
-    return output;
+    return /** @type {T} */(output);
   }
 
+  /** @param {unknown} value @returns {string} */
   function canonicalJson(value) {
     const active = new Set();
+    /** @param {unknown} node @returns {string} */
     function serialize(node) {
       if (node === null) return "null";
       if (typeof node === "string") {
@@ -685,6 +740,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     return serialize(value);
   }
 
+  /** @param {object} value @param {readonly string[]} expected */
   function exactKeys(value, expected) {
     const expectedSet = new Set(expected);
     const keys = Object.keys(value);
@@ -693,6 +749,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     return null;
   }
 
+  /** @param {unknown} value @param {boolean} [nonEmpty] @returns {value is string} */
   function validString(value, nonEmpty = false) {
     if (typeof value !== "string" || (nonEmpty && value.length === 0)) return false;
     try {
@@ -702,6 +759,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     }
   }
 
+  /** @param {unknown} value @param {boolean} [nonEmpty] @returns {value is string} */
   function validIdentifier(value, nonEmpty = false) {
     if (!validString(value, nonEmpty)) return false;
     try {
@@ -711,10 +769,12 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     }
   }
 
+  /** @param {unknown} value @param {readonly string[]} fields @returns {value is JsonRecord} */
   function requiredObject(value, fields) {
     return isPlainObject(value) && fields.every(field => hasOwn(value, field));
   }
 
+  /** @param {unknown} value @param {readonly string[]} path */
   function schemaVersionErrorAt(value, path) {
     let node = value;
     for (const key of path) {
@@ -724,9 +784,10 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     return node === 1 ? null : ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION;
   }
 
+  /** @param {unknown} value @param {unknown} setId */
   function validateDraftSet(value, setId) {
     if (!isPlainObject(value) || value.setId !== setId || !validIdentifier(setId, true) ||
-      !Number.isSafeInteger(value.ordinal) || value.ordinal < 1 || !["working", "warmup"].includes(value.role) ||
+      !safeInteger(value.ordinal) || value.ordinal < 1 || !oneOf(["working", "warmup"],value.role) ||
       !isPlainObject(value.programmed) || !isPlainObject(value.edited) || !isPlainObject(value.touched)) return false;
     for (const field of ["load", "reps", "rir", "effort"]) {
       if (hasOwn(value.edited, field) && value.edited[field] !== null && !validString(value.edited[field])) return false;
@@ -738,21 +799,22 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     return true;
   }
 
+  /** @param {unknown} value @param {unknown} exerciseId */
   function validateDraftExercise(value, exerciseId) {
     if (!isPlainObject(value) || value.exerciseInstanceId !== exerciseId || !validIdentifier(value.exerciseInstanceId, true) ||
-      !validIdentifier(value.sourceExerciseId, true) || ![null, undefined].includes(value.libraryId) && !validIdentifier(value.libraryId, true) ||
+      !validIdentifier(value.sourceExerciseId, true) || !oneOf([null, undefined],value.libraryId) && !validIdentifier(value.libraryId, true) ||
       !validString(value.displayName, true) || !isPlainObject(value.programmed) ||
-      ![null, undefined].includes(value.substitution) && !isPlainObject(value.substitution) ||
-      !["active", "skipped"].includes(value.status) || !validString(value.setupNotes) ||
+      !oneOf([null, undefined],value.substitution) && !isPlainObject(value.substitution) ||
+      !oneOf(["active", "skipped"],value.status) || !validString(value.setupNotes) ||
       !Array.isArray(value.setOrder) || !isPlainObject(value.sets)) return false;
     const programmed = value.programmed;
     // A metric composition without repetitions carries no flat rep range, as
     // the draft module allows; every other exercise needs a complete one.
     const repless = programmed.metricOrigin != null && programmed.minReps == null && programmed.maxReps == null;
     for (const field of repless ? ["order", "sets"] : ["order", "sets", "minReps", "maxReps"]) {
-      if (!Number.isSafeInteger(programmed[field]) || programmed[field] < (field === "order" ? 0 : 1)) return false;
+      if (!safeInteger(programmed[field]) || /** @type {number} */(programmed[field]) < (field === "order" ? 0 : 1)) return false;
     }
-    if (!repless && programmed.minReps > programmed.maxReps || !validString(programmed.notes) ||
+    if (!repless && /** @type {number} */(programmed.minReps) > /** @type {number} */(programmed.maxReps) || !validString(programmed.notes) ||
       !validString(programmed.primary) || !validString(programmed.secondary) ||
       !validIdentifier(programmed.sourceFingerprint, true) || programmed.sets !== value.setOrder.length) return false;
     const ids = value.setOrder;
@@ -760,9 +822,11 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     if (unique.size !== ids.length || ids.some(id => !validIdentifier(id, true))) return false;
     const setKeys = Object.keys(value.sets);
     if (setKeys.length !== ids.length || setKeys.some(id => !unique.has(id))) return false;
-    return ids.every(id => validateDraftSet(value.sets[id], id));
+    const sets=value.sets;
+    return ids.every(id => validateDraftSet(sets[id], id));
   }
 
+  /** @param {JsonRecord & {program:JsonRecord}} value */
   function validateCanonicalWorkoutDraft(value) {
     const workoutDraft = runtimeWorkoutDraft();
     const metrics = runtimeExerciseMetrics();
@@ -785,15 +849,18 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     const checked = workoutDraft.validate(candidate);
     if (!checked.ok) return ERROR_CODES.INVALID_ENVELOPE;
 
-    for (const exerciseId of candidate.exerciseOrder) {
-      const exercise = candidate.exercises[exerciseId];
+    // The real DraftV2 producer validated the full aggregate above. This local
+    // projection names only fields this wire consumer reads; it is no schema.
+    const validated=/** @type {DraftProjection} */(candidate);
+    for (const exerciseId of validated.exerciseOrder) {
+      const exercise = validated.exercises[exerciseId];
       const origin = exercise.programmed.metricOrigin;
       const libraryId = exercise.libraryId ?? exercise.programmed.libraryId ?? null;
       const sourceExercise = catalog.exercises.find((entry) => entry.id === libraryId) || null;
       const modelCoefficient = exercise.programmed.loadingModel?.bodyweightCoefficient ?? null;
       const contextCoefficient = exercise.programmed.loadingContext?.bodyweightCoefficient ?? null;
       if (modelCoefficient !== contextCoefficient) return ERROR_CODES.INVALID_ENVELOPE;
-      const setCompositions = [];
+      /** @type {string[]} */ const setCompositions = [];
       for (const setId of exercise.setOrder) {
         const programmed = exercise.sets[setId].programmed;
         const metricIds = programmed.metricType === "source_metrics@1" ? programmed.metricIds : [];
@@ -816,6 +883,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     return null;
   }
 
+  /** @param {unknown} value */
   function validateWorkoutDraft(value) {
     if (value === null) return null;
     if (!isPlainObject(value)) return ERROR_CODES.INVALID_ENVELOPE;
@@ -836,16 +904,16 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
       if (!validIdentifier(value.program[field], true)) return ERROR_CODES.INVALID_ENVELOPE;
     }
     if (!validString(value.program.dayLabel, true) || !validString(value.program.scheduleDate) ||
-      !["kg", "lb"].includes(value.program.unit) || !["numeric", "effort"].includes(value.program.rirMode)) {
+      !oneOf(["kg", "lb"],value.program.unit) || !oneOf(["numeric", "effort"],value.program.rirMode)) {
       return ERROR_CODES.INVALID_ENVELOPE;
     }
     if (!validString(value.session.startedAt, true) || !validString(value.session.updatedAt, true) ||
       (value.session.bodyweight !== null && !validString(value.session.bodyweight)) || !validString(value.session.notes) ||
       (value.session.selectedExerciseId !== null && !validIdentifier(value.session.selectedExerciseId, true)) ||
-      !["active", "finishing"].includes(value.session.status) || !requiredObject(value.session.contextTouched, ["day", "date", "sessionNotes", "bodyweight"])) {
+      !oneOf(["active", "finishing"],value.session.status) || !requiredObject(value.session.contextTouched, ["day", "date", "sessionNotes", "bodyweight"])) {
       return ERROR_CODES.INVALID_ENVELOPE;
     }
-    if (Object.keys(value.session.contextTouched).some(key => !["day", "date", "sessionNotes", "bodyweight"].includes(key)) ||
+    if (Object.keys(value.session.contextTouched).some(key => !oneOf(["day", "date", "sessionNotes", "bodyweight"],key)) ||
       Object.values(value.session.contextTouched).some(item => typeof item !== "boolean")) return ERROR_CODES.INVALID_ENVELOPE;
     const ids = value.exerciseOrder;
     const unique = new Set(ids);
@@ -853,10 +921,12 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     const exerciseKeys = Object.keys(value.exercises);
     if (exerciseKeys.length !== ids.length || exerciseKeys.some(id => !unique.has(id))) return ERROR_CODES.INVALID_ENVELOPE;
     if (value.session.selectedExerciseId !== null && !unique.has(value.session.selectedExerciseId)) return ERROR_CODES.INVALID_ENVELOPE;
-    if (!ids.every(id => validateDraftExercise(value.exercises[id], id))) return ERROR_CODES.INVALID_ENVELOPE;
-    return validateCanonicalWorkoutDraft(value);
+    const exercises = value.exercises;
+    if (!ids.every(id => validateDraftExercise(exercises[id], id))) return ERROR_CODES.INVALID_ENVELOPE;
+    return validateCanonicalWorkoutDraft(/** @type {JsonRecord & {program:JsonRecord}} */(value));
   }
 
+  /** @param {unknown} value */
   function validateProgramEntryDraft(value) {
     if (value === null) return null;
     if (!isPlainObject(value)) return ERROR_CODES.INVALID_ENVELOPE;
@@ -870,7 +940,8 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     // A staged candidate from a later program schema is unsupported, not malformed.
     // Schema v1 (set-level metrics present, equal to the slot's) and v2
     // (absent, derived from the slot) both clone through a real transfer.
-    for (const preview of [value.result?.preview, value.result?.alternative?.preview]) {
+    const candidateResult = /** @type {{preview?:{programDefinition?:unknown},alternative?:{preview?:{programDefinition?:unknown}}}|undefined} */(value.result);
+    for (const preview of [candidateResult?.preview, candidateResult?.alternative?.preview]) {
       const version = isPlainObject(preview?.programDefinition) ? preview.programDefinition.schemaVersion : 1;
       if (version !== 1 && version !== 2) return ERROR_CODES.UNSUPPORTED_PROGRAM_DEFINITION_VERSION;
     }
@@ -892,7 +963,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
       return ERROR_CODES.INVALID_ENVELOPE;
     }
 
-    const result = logicalState.result;
+    const result = /** @type {{preview?:unknown,alternative?:{preview?:unknown}}|undefined} */(logicalState.result);
     const previews = [];
     if (isPlainObject(result?.preview)) previews.push(result.preview);
     if (isPlainObject(result?.alternative?.preview)) previews.push(result.alternative.preview);
@@ -925,6 +996,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
   function runtimeWorkoutDraft() { return workout; }
   function runtimeCatalog() { return catalog; }
 
+  /** @param {unknown} customExercises @returns {{ok:false}|{ok:true,value:JsonRecord[]}} */
   function canonicalCustomExerciseDefinitions(customExercises) {
     if (!Array.isArray(customExercises)) return { ok: false };
     const definitions = [];
@@ -955,12 +1027,13 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     return { ok: true, value: definitions };
   }
 
+  /** @param {unknown} definition @param {unknown[]} customDefinitions @param {CatalogData|undefined} catalog */
   function validateCanonicalProgramDefinition(definition, customDefinitions, catalog) {
     const compiler = runtimeProgramCompiler();
     if (!compiler || typeof compiler.validateProgramDefinition !== "function" || !catalog) {
       return ERROR_CODES.CATALOG_UNAVAILABLE;
     }
-    if (!isPlainObject(definition) || !Number.isInteger(definition.schemaVersion)) {
+    if (!isPlainObject(definition) || !integer(definition.schemaVersion)) {
       return ERROR_CODES.UNSUPPORTED_PROGRAM_DEFINITION_VERSION;
     }
     // Schema v1 (set-level metrics present, equal to the slot's) and v2
@@ -975,6 +1048,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     }
   }
 
+  /** @param {JsonRecord} row @param {CatalogData|undefined} catalog */
   function validateCanonicalLogRow(row, catalog) {
     const metricFields = ["metricType", "metricIds", "metricDefinitions", "metricValues", "equipmentId", "loadingConvention", "loadingContext", "restSeconds"];
     const hasMetricFields = metricFields.some((field) => hasOwn(row, field));
@@ -989,10 +1063,10 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     }
     if (row.metricType !== "source_metrics@1" || !Array.isArray(row.metricIds) || row.metricIds.length === 0 ||
         !Array.isArray(row.metricDefinitions) || !Array.isArray(row.metricValues) ||
-        !Number.isSafeInteger(row.setIndex) || row.setIndex < 0 ||
-        !["external", "assistance", "per_side", "bodyweight"].includes(row.loadingConvention) ||
+        !safeInteger(row.setIndex) || row.setIndex < 0 ||
+        !oneOf(["external", "assistance", "per_side", "bodyweight"],row.loadingConvention) ||
         !(row.equipmentId === null || typeof row.equipmentId === "string") ||
-        (row.restSeconds !== null && row.restSeconds !== undefined && (!Number.isSafeInteger(row.restSeconds) || row.restSeconds < 0))) {
+        (row.restSeconds !== null && row.restSeconds !== undefined && (!safeInteger(row.restSeconds) || row.restSeconds < 0))) {
       return ERROR_CODES.INVALID_ENVELOPE;
     }
     if (!metrics.validateDefinitions(row.metricIds, row.metricDefinitions).ok ||
@@ -1009,7 +1083,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
       metricDefinitions: row.metricDefinitions,
       sourceId,
       sourceExercise,
-      bodyweightCoefficient: row.loadingModel?.bodyweightCoefficient,
+      bodyweightCoefficient: /** @type {{bodyweightCoefficient?:unknown}|null|undefined} */(row.loadingModel)?.bodyweightCoefficient,
     });
     if (!sourceBinding.ok) {
       return ERROR_CODES.INVALID_ENVELOPE;
@@ -1019,7 +1093,8 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
         !hasOwn(row.loadingContext, "bodyweightContributionEnabled") ||
         !hasOwn(row.loadingContext, "externalLoadMultiplier") ||
         !hasOwn(row.loadingContext, "bodyweightCoefficient")) return ERROR_CODES.INVALID_ENVELOPE;
-    if (row.loadingContext.loadingConvention !== row.loadingConvention) {
+    const loadingContext = /** @type {JsonRecord} */(row.loadingContext);
+    if (loadingContext.loadingConvention !== row.loadingConvention) {
       return ERROR_CODES.INVALID_ENVELOPE;
     }
     const definitions = row.metricDefinitions;
@@ -1028,19 +1103,19 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
       : semantics.has("loadPerSideKg") || semantics.has("persistentLoadPerSideKg") ? "per_side"
         : row.metricIds.length === 1 && (semantics.has("reps") || semantics.has("repsPerSide")) ? "bodyweight" : "external";
     if (row.loadingConvention !== expectedConvention ||
-        (row.loadingConvention === "bodyweight" && row.loadingContext.externalLoadMultiplier !== 0) ||
+        (row.loadingConvention === "bodyweight" && loadingContext.externalLoadMultiplier !== 0) ||
         (row.loadingConvention !== "bodyweight" && row.loadingConvention !== "per_side" &&
-          row.loadingContext.externalLoadMultiplier !== 1) ||
-        row.loadingContext.bodyweightKg !== (row.bodyweight ?? null)) return ERROR_CODES.INVALID_ENVELOPE;
+          loadingContext.externalLoadMultiplier !== 1) ||
+        loadingContext.bodyweightKg !== (row.bodyweight ?? null)) return ERROR_CODES.INVALID_ENVELOPE;
     if (row.loadingModel != null && (!isPlainObject(row.loadingModel) ||
-        Object.keys(row.loadingModel).some((key) => !["bodyweightCoefficient", "assistanceDirection"].includes(key)) ||
+        Object.keys(row.loadingModel).some((key) => !oneOf(["bodyweightCoefficient", "assistanceDirection"],key)) ||
         (row.loadingModel.bodyweightCoefficient !== null &&
           (typeof row.loadingModel.bodyweightCoefficient !== "number" || !Number.isFinite(row.loadingModel.bodyweightCoefficient) ||
             row.loadingModel.bodyweightCoefficient < 0 || row.loadingModel.bodyweightCoefficient > 1)) ||
         (row.loadingModel.assistanceDirection != null && row.loadingModel.assistanceDirection !== "subtract"))) {
       return ERROR_CODES.INVALID_ENVELOPE;
     }
-    if (row.loadingContext.bodyweightCoefficient !== (row.loadingModel?.bodyweightCoefficient ?? null)) return ERROR_CODES.INVALID_ENVELOPE;
+    if (loadingContext.bodyweightCoefficient !== (row.loadingModel?.bodyweightCoefficient ?? null)) return ERROR_CODES.INVALID_ENVELOPE;
     if (row.rir !== null && row.rir !== undefined && (typeof row.rir !== "number" || !Number.isFinite(row.rir) || row.rir < 0)) {
       return ERROR_CODES.INVALID_ENVELOPE;
     }
@@ -1053,6 +1128,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     return null;
   }
 
+  /** @param {unknown} value */
   function validateProgrammingContext(value) {
     if (!isPlainObject(value)) return ERROR_CODES.INVALID_ENVELOPE;
     const keys = exactKeys(value, [
@@ -1067,13 +1143,13 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
       return ERROR_CODES.INVALID_ENVELOPE;
     }
     if (!isPlainObject(value.availability) || exactKeys(value.availability, ["daysPerWeek", "sessionMinutes", "preferredRestSeconds"]) ||
-      !Number.isInteger(value.availability.daysPerWeek) || value.availability.daysPerWeek < 2 ||
-      !Number.isInteger(value.availability.sessionMinutes) || value.availability.sessionMinutes < 1 ||
+      !integer(value.availability.daysPerWeek) || value.availability.daysPerWeek < 2 ||
+      !integer(value.availability.sessionMinutes) || value.availability.sessionMinutes < 1 ||
       (value.availability.preferredRestSeconds !== null &&
-        (!Number.isInteger(value.availability.preferredRestSeconds) || value.availability.preferredRestSeconds < 0))) {
+        (!integer(value.availability.preferredRestSeconds) || value.availability.preferredRestSeconds < 0))) {
       return ERROR_CODES.INVALID_ENVELOPE;
     }
-    if (!isPlainObject(value.environment) || Object.keys(value.environment).some(key => !["kind", "capabilities", "equipment"].includes(key)) ||
+    if (!isPlainObject(value.environment) || Object.keys(value.environment).some(key => !oneOf(["kind", "capabilities", "equipment"],key)) ||
       !validString(value.environment.kind, true)) return ERROR_CODES.INVALID_ENVELOPE;
     for (const field of ["capabilities", "equipment"]) {
       if (hasOwn(value.environment, field) && (!Array.isArray(value.environment[field]) ||
@@ -1090,6 +1166,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     return null;
   }
 
+  /** @param {unknown} value */
   function validateDurableState(value) {
     if (!isPlainObject(value) || !requiredObject(value, ["settings", "programMeta", "program", "log", "programHistory", "customExercises"])) {
       return ERROR_CODES.INVALID_ENVELOPE;
@@ -1099,6 +1176,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
       const contextError = validateProgrammingContext(value.programmingContext);
       if (contextError) return contextError;
     }
+    /** @type {Array<[string,number,string]>} */
     const collectionChecks = [
       ["log", LIMITS.logRows, ERROR_CODES.LOG_ROW_TOO_LARGE],
       ["program", LIMITS.programRows, ERROR_CODES.PROGRAM_TOO_LARGE],
@@ -1111,13 +1189,14 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
       if (collection.length > limit) return code;
       if (collection.some(row => !isPlainObject(row))) return ERROR_CODES.INVALID_ENVELOPE;
     }
-    const definition = value.programMeta.programDefinition;
-    if (value.program.length > 0 && definition == null) return ERROR_CODES.UNSUPPORTED_PROGRAM_DEFINITION_VERSION;
-    const customDefinitions = canonicalCustomExerciseDefinitions(value.customExercises);
+    const durable=/** @type {DurableProjection} */(value);
+    const definition = durable.programMeta.programDefinition;
+    if (durable.program.length > 0 && definition == null) return ERROR_CODES.UNSUPPORTED_PROGRAM_DEFINITION_VERSION;
+    const customDefinitions = canonicalCustomExerciseDefinitions(durable.customExercises);
     if (!customDefinitions.ok) return ERROR_CODES.INVALID_ENVELOPE;
     const catalog = runtimeCatalog();
     const compiler = runtimeProgramCompiler();
-    if ((value.customExercises.length > 0 || definition != null) && (!catalog || !compiler)) {
+    if ((durable.customExercises.length > 0 || definition != null) && (!catalog || !compiler)) {
       return ERROR_CODES.CATALOG_UNAVAILABLE;
     }
     if (compiler && catalog && typeof compiler.validateCustomExerciseDefinitions === "function" &&
@@ -1128,7 +1207,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
       const definitionError = validateCanonicalProgramDefinition(definition, customDefinitions.value, catalog);
       if (definitionError) return definitionError;
     }
-    for (const row of value.log) {
+    for (const row of durable.log) {
       let rowJson;
       try {
         rowJson = canonicalJson(row);
@@ -1146,6 +1225,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     return null;
   }
 
+  /** @param {unknown} value @returns {Checked<Envelope>} */
   function validateEnvelope(value) {
     const inspected = inspectJson(value);
     if (inspected) return fail(inspected);
@@ -1160,22 +1240,23 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     const topKeys = exactKeys(value, TOP_LEVEL_KEYS);
     if (topKeys) return fail(topKeys);
     if (value.kind !== "taurifer-install-transfer") return fail(ERROR_CODES.INVALID_ENVELOPE);
-    if (typeof value.schemaVersion !== "number" || !Number.isInteger(value.schemaVersion)) {
+    if (typeof value.schemaVersion !== "number" || !integer(value.schemaVersion)) {
       return fail(ERROR_CODES.INVALID_SCHEMA_VERSION);
     }
     if (value.schemaVersion !== 1) return fail(ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION);
     if (!isUtcIsoTimestamp(value.createdAt)) return fail(ERROR_CODES.INVALID_ENVELOPE);
     if (!isPlainObject(value.source) || exactKeys(value.source, SOURCE_KEYS) || value.source.context !== "browser" ||
       !validIdentifier(value.source.logicalInstallationId, true)) return fail(ERROR_CODES.INVALID_ENVELOPE);
-    if (!Number.isSafeInteger(value.sourceRevision) || value.sourceRevision < 0) return fail(ERROR_CODES.INVALID_ENVELOPE);
+    if (!safeInteger(value.sourceRevision) || value.sourceRevision < 0) return fail(ERROR_CODES.INVALID_ENVELOPE);
     const durableError = validateDurableState(value.durableState);
     if (durableError) return fail(durableError);
+    /** @type {string|null} */
     let sectionError = validateWorkoutDraft(value.workoutDraft);
     if (sectionError) return fail(sectionError);
     sectionError = validateProgramEntryDraft(value.programEntryDraft);
     if (sectionError) return fail(sectionError);
     if (!isPlainObject(value.uiPreferences) ||
-      (hasOwn(value.uiPreferences, "theme") && !["system", "light", "dark"].includes(value.uiPreferences.theme))) {
+      (hasOwn(value.uiPreferences, "theme") && !oneOf(["system", "light", "dark"],value.uiPreferences.theme))) {
       return fail(ERROR_CODES.INVALID_ENVELOPE);
     }
     if (!isPlainObject(value.analytics) || exactKeys(value.analytics, ANALYTICS_KEYS) ||
@@ -1189,9 +1270,10 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
       !validString(value.integrity.canonicalPayloadHash, true) ||
       !/^[0-9a-f]{64}$/.test(value.integrity.canonicalPayloadHash)) return fail(ERROR_CODES.INVALID_ENVELOPE);
 
-    return ok(cloneJson(value));
+    return ok(/** @type {Envelope} */(cloneJson(value)));
   }
 
+  /** @param {unknown} value */
   function validateClaimId(value) {
     if (typeof value !== "string") return fail(ERROR_CODES.CLAIM_ID_INVALID);
     let length;
@@ -1206,8 +1288,9 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     return ok(value);
   }
 
+  /** @param {unknown} value @param {string} endpoint */
   function validateRequest(value, endpoint) {
-    if (!Object.values(ENDPOINTS).includes(endpoint) || endpoint === ENDPOINTS.envelope) return fail(ERROR_CODES.INVALID_ENDPOINT);
+    if (!Object.values(ENDPOINTS).some(value=>value===endpoint) || endpoint === ENDPOINTS.envelope) return fail(ERROR_CODES.INVALID_ENDPOINT);
     const inspected = inspectJson(value);
     if (inspected) return fail(inspected);
     if (!isPlainObject(value)) return fail(ERROR_CODES.INVALID_REQUEST);
@@ -1238,10 +1321,11 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     return ok({ token: value.token });
   }
 
+  /** @param {unknown} value @returns {JsonRecord|null} */
   function readDiagnosticData(value) {
     try {
       if (!isPlainObject(value)) return null;
-      const output = {};
+      /** @type {JsonRecord} */ const output = {};
       for (const key of Object.getOwnPropertyNames(value)) {
         const descriptor = Object.getOwnPropertyDescriptor(value, key);
         if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, "value")) return null;
@@ -1258,9 +1342,10 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     }
   }
 
+  /** @param {unknown} value @param {string} channel */
   function redactDiagnostic(value, channel) {
     const input = readDiagnosticData(value);
-    if (!input || !Object.values(DIAGNOSTIC_CHANNELS).includes(channel)) return fail(ERROR_CODES.INVALID_DIAGNOSTIC);
+    if (!input || !oneOf(Object.values(DIAGNOSTIC_CHANNELS),channel)) return fail(ERROR_CODES.INVALID_DIAGNOSTIC);
     if (channel === DIAGNOSTIC_CHANNELS.SERVICE) {
       if (input.operation === "create" && input.method === "POST" && input.path === ENDPOINTS.create) {
         return ok({ operation: "create", method: "POST", path: ENDPOINTS.create });
@@ -1276,7 +1361,7 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
         : fail(ERROR_CODES.INVALID_DIAGNOSTIC);
     }
     if (channel === DIAGNOSTIC_CHANNELS.RESPONSE) {
-      if (!STATUS_STATES.has(input.state)) return fail(ERROR_CODES.INVALID_DIAGNOSTIC);
+      if (typeof input.state !== "string" || !STATUS_STATES.has(input.state)) return fail(ERROR_CODES.INVALID_DIAGNOSTIC);
       if (input.state === "unavailable") {
         if (hasOwn(input, "expiresAt") && !isUtcIsoTimestamp(input.expiresAt)) return fail(ERROR_CODES.INVALID_DIAGNOSTIC);
         return ok({ state: "unavailable" });
@@ -1292,19 +1377,21 @@ export function createTransferContract({compiler, entry, metrics, workout, catal
     return ok({ message: "transfer failed" });
   }
 
+  /** @param {ArrayBuffer} bytes */
   function bytesToHex(bytes) {
     let output = "";
     for (const byte of new Uint8Array(bytes)) output += byte.toString(16).padStart(2, "0");
     return output;
   }
 
+  /** @param {unknown} value @param {Crypto} [cryptoImplementation] */
   async function validateEnvelopeIntegrity(value, cryptoImplementation) {
     const structural = validateEnvelope(value);
     if (!structural.ok) return structural;
     const cryptoApi = cryptoImplementation === undefined ? crypto : cryptoImplementation;
     if (!cryptoApi || !cryptoApi.subtle || typeof cryptoApi.subtle.digest !== "function") return fail(ERROR_CODES.CRYPTO_UNAVAILABLE);
     const preimage = cloneJson(structural.value);
-    delete preimage.integrity.canonicalPayloadHash;
+    delete (/** @type {{canonicalPayloadHash?:string}} */(preimage.integrity)).canonicalPayloadHash;
     let encoded;
     try {
       encoded = textEncoder().encode(canonicalJson(preimage));
