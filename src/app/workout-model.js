@@ -169,7 +169,7 @@ function readLogRow(row){
     perSideLoad,perSideReps,executionMode:mode,loadMultiplier:multiplier,repetitionsPerformed,tonnage,
     strengthComparable,strengthConvention:convention,e1rm:strengthComparable?e1rm(Number(load),Number(reps)):null}}
 
-/** @param {MetricDefinition[]} metricDefinitions @param {{bodyweight?:number}|null|undefined} sourceExercise @param {{bodyweightCoefficient?:number|null,assistanceDirection?:string|null}|null} [loadingModel] */
+/** @param {MetricDefinition[]|null} metricDefinitions @param {{bodyweight?:number}|null|undefined} sourceExercise @param {{bodyweightCoefficient?:number|null,assistanceDirection?:string|null}|null} [loadingModel] */
 function metricLoading(metricDefinitions,sourceExercise,loadingModel=null){
   loadingModel=loadingModel||{
     bodyweightCoefficient:typeof sourceExercise?.bodyweight==='number'&&Number.isFinite(sourceExercise.bodyweight)?sourceExercise.bodyweight:null,
@@ -178,6 +178,7 @@ function metricLoading(metricDefinitions,sourceExercise,loadingModel=null){
   const loadingConvention=semantics.has("assistanceKg")?"assistance":
     semantics.has("loadPerSideKg")||semantics.has("persistentLoadPerSideKg")?"per_side":
       metricDefinitions?.length===1&&(semantics.has("reps")||semantics.has("repsPerSide"))?"bodyweight":"external";
+  /** @type {LoadingContext} */
   const loadingContext={bodyweightContributionEnabled:null,
     externalLoadMultiplier:loadingConvention==="per_side"?null:loadingConvention==="bodyweight"?0:1,
     ...(Object.prototype.hasOwnProperty.call(loadingModel,"bodyweightCoefficient")

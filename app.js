@@ -1,6 +1,8 @@
+import {createWorkoutContext} from './src/app/workout-context.js';
 import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,createEntryAnswerCommands,createEntryQuestionFlow,createEntryReviewSession,createEntrySetup,createEntryActivation,createProgramImport,createReceivedSetup,buildLandingProof,FREEFORM_MAX_CHARS} from './src/app/entry.js';
 import {createProgramSource,definitionMovementIds,unsupportedGrammar} from './src/interchange/program-file.js';
 import {createHistoryReadModels} from './src/app/history-read-models.js';
+
 import {createEntryLanding} from './src/ui/entry/landing/controller.js';
 import * as ExerciseSource from './exercises.js';
 import {EXERCISE_LIBRARY,LEGACY_LIBRARY_IDS,EXERCISE_CATALOG_SHA256} from './exercises.js';
@@ -1196,51 +1198,11 @@ function substitutionProgram(id,libraryRef){
     metricIds:metricDefinitions.map(metric=>metric.id),
     metricDefinitions,loadingModel,loadingConvention,loadingContext:{loadingConvention,bodyweightKg:null,...loadingContext},
     equipmentId:null,programmedSets}}
+let workoutContext;
 function workoutProgramContext(label=day){
-  const slots=exercises(label),empty={};
-  const definition=state.programMeta?.programDefinition,cycleNumber=mesocycleLifecycle(state.programMeta).current||1;
-  const canonicalDays=new Map((definition?.days||[]).map(item=>[item.name,item]));
-  const context={
-    programId:String(state.programMeta?.id||"local-program"),
-    programFingerprint:workoutProgramFingerprint(state),
-    durableRevision:readRevision(state),
-    dayId:workoutDayId(label),dayLabel:label,scheduleDate:today(),
-    unit:state.settings.unit==="lb"?"lb":"kg",rirMode:isEffortMode()?"effort":"numeric",
-    exercises:slots.map((ex,index)=>{const rec=recommendation(ex),prev=last(ex);
-      const canonicalDay=canonicalDays.get(ex.day),canonicalSlot=canonicalDay?.slots?.find(slot=>slot.id===(ex.slotId||ex.id));
-      const cycle=canonicalSlot?.prescriptionsByCycle?.find(item=>item.cycleIndex===cycleNumber);
-      const metricDefinitions=canonicalSlot?.metricDefinitions||rawMetricDefinitions(ex.libraryId)||null;
-      const metricOrigin=canonicalSlot?.metricOrigin||(rawExercise(ex.libraryId)?"source_catalog":"user_defined");
-      const{loadingModel,loadingConvention,loadingContext}=metricLoading(metricDefinitions,rawExercise(ex.libraryId),canonicalSlot?.loadingModel);
-      const slotProjection=canonicalSlot?slotLoadingProjection(canonicalSlot):null;
-      if(slotProjection)loadingContext.externalLoadMultiplier=slotProjection.externalLoadMultiplier;
-      // Each new row of an ambiguous per-side movement keeps the lifter's explicit mode (#382).
-      if(slotProjection?.executionMode&&InstalledEditor.rules.editorSuggestLoadsPolicy.executionModeQuestion(canonicalSlot))
-        loadingContext.executionMode=slotProjection.executionMode;
-      const programmedSets=cycle?cycle.sets.map((prescription,i)=>{
-        const old=prev.find(row=>row.set===i+1),repTarget=prescription.targets?.reps??prescription.targets?.repsPerSide;
-        return{suggestedLoad:null,suggestedReps:repTarget?.min??repTarget??null,targetRir:prescription.rir,
-          suggestedEffort:prescription.rir==null?null:effortForRir(prescription.rir),
-          minReps:repTarget?.min??repTarget??ex.min,maxReps:repTarget?.max??repTarget??ex.max,
-          metricDefinitions,targets:cloneSnapshot(prescription.targets||{}),restSeconds:prescription.restSeconds,
-          role:prescription.status==="configuration_required"?"configuration_required":"working",
-          previousMetrics:old?.metricValues||old?.metrics||[]}}):
-        Array.from({length:ex.sets},(_,i)=>{const n=i+1,old=prev.find(row=>row.set===n),sg=setSuggestion(ex,n,rec,empty,old);
-          return{suggestedLoad:sg.load??null,suggestedReps:sg.reps??ex.min,targetRir:old?.rir??1,
-            suggestedEffort:effortForRir(old?.rir??1),minReps:ex.min,maxReps:ex.max,
-            metricDefinitions,targets:{}}});
-      return{legacyExerciseId:ex.id,exerciseInstanceId:ex.id,
-        sourceExerciseId:String(ex.slotId||ex.libraryId||ex.movementId||ex.id),
-        libraryId:ex.libraryId, movementId:ex.movementId,displayName:ex.name,sets:ex.sets,
-        setIds:Array.from({length:ex.sets},(_,i)=>`set-${i+1}`),minReps:ex.min,maxReps:ex.max,
-        targetRir:1,notes:ex.notes||"",primary:ex.primary||"",secondary:ex.secondary||"",
-        progressionStrategy:strategyIdFor(ex),movementPattern:ex.loadingMode||null,
-        metricDefinitions,metricOrigin,loadingModel,loadingConvention,loadingContext,
-        sourceFingerprint:workoutProgramFingerprint({programMeta:{id:ex.id},program:[ex]}),programmedSets,index}})
-  };
-  if(Object.prototype.hasOwnProperty.call(state.programMeta||{},"blockId"))context.blockId=state.programMeta.blockId;
-  return context
-}
+  if(!workoutContext)workoutContext=createWorkoutContext({model:TrainingModel,catalog:rawExerciseCatalog,editorRules:InstalledEditor.rules});
+  return workoutContext.program({snapshot:state,query:workoutQueries(),label,currentCycle:mesocycleWeek().current,calendarDate:today()})}
+
 function workoutParseContext(label=day){return workoutParseContextForSnapshot(state,label)}
 function displayDraftText(field,value){
   if(value==null)return value;
