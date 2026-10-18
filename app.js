@@ -1,3 +1,4 @@
+import {createProgramSource,definitionMovementIds,unsupportedGrammar} from './src/interchange/program-file.js';
 import {createHistoryReadModels} from './src/app/history-read-models.js';
 import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,createEntryAnswerCommands,createEntryQuestionFlow,createEntryReviewSession,createEntrySetup,createEntryActivation,createReceivedSetup,buildLandingProof,FREEFORM_MAX_CHARS} from './src/app/entry.js';
 import {createEntryLanding} from './src/ui/entry/landing/controller.js';
@@ -24,7 +25,6 @@ let InstalledEditor,BuildAuthoring,programCommands;
 import {createProgramSharing} from './src/app/program-sharing.js';
 import {createProgramSharingView} from './src/ui/program/sharing.js';
 import {createFiles} from './src/platform/files.js';
-import {PROGRAM_TEXT_DATA_MARKER} from './src/interchange/program-text.js';
 let programSharing,programSharingView;
 import {createTelemetry} from './src/platform/telemetry.js';
 import {createPostHog} from './src/platform/posthog.js';
@@ -94,7 +94,6 @@ import {createInstallTransfer,createTransferDevice} from './src/platform/install
 import {createBackupCommands} from './src/app/interchange.js';
 import {createBackupView} from './src/ui/settings/backup.js';
 import {BACKUP_MAX_BYTES} from './src/interchange/backup.js';
-import {parseCanonicalProgramFile as parseCanonicalFile,parseProgramImport,definitionMovementIds,boundedImportJson,importUtf8Bytes,PROGRAM_MAX_BYTES as IMPORT_MAX_BYTES,PROGRAM_FILE_KIND,PROGRAM_FILE_VERSION,unsupportedGrammar} from './src/interchange/program-file.js';
 import * as Focus from "./src/ui/focus/controller.js";
 let fallbackGestureController=null;
 
@@ -2170,14 +2169,6 @@ function programVolumeCompliance(){return deriveVolumeCompliance(prog.volume().v
 function programStatusLabel(adherence,health){return t(programStatusKey(state.log.some(isWork),adherence.ratio,health?.ratio))}
 /* Accepts v3, v2, a bare exercise array, and {program:[…]} — every shape
    Taurifer has ever written. customExercises only exists in v3. */
-function validImportedCustomExercise(entry){
-  if(!entry||typeof entry!=="object"||Array.isArray(entry))return false;
-  for(const key of ["primary","secondary"]){
-    if(!Object.prototype.hasOwnProperty.call(entry,key))continue;
-    if(!MuscleDomain.normalizeMuscleAttribution(entry[key]).ok)return false;
-  }
-  return true}
-
 /* Merges an import's custom definitions into the lifter's own library.
 
    An id can already be taken by a different definition — two devices both mint
@@ -4586,130 +4577,8 @@ function linkImportedExercises(list){
 const IMPORT_EXACT="exact",IMPORT_ALIAS="alias",IMPORT_PROBABLE="probable",IMPORT_UNMATCHED="unmatched";
 let importDraft=null,importReturn=null;
 
-/* Taurifer's own text export, read back. The grammar is the one programText()
-   writes: a title line, then "DAY NAME: muscles", then "1. Exercise: 3× 6 to 10".
-   Anything that does not look like that is rejected rather than guessed at —
-   this parses one known format, it does not read prose. */
-/* The text export shouts day names ("DAY 1", "TREINO A") for legibility, so a
-   round-trip would otherwise bring the shouting back into the program. A label
-   with no lowercase at all was uppercased on the way out; anything else is left
-   exactly as written. */
-function restoreExportCase(label){
-  if(label!==label.toLocaleUpperCase(locTag())||!/[a-z]/i.test(label))return label;
-  return label.toLocaleLowerCase(locTag()).replace(/(^|\s)(\p{L})/gu,(m,sp,ch)=>sp+ch.toLocaleUpperCase(locTag()))}
-function stripProgramTextTitleMeta(label){
-  return String(label||"").replace(/\s*(?:\(\s*|,\s*)\d+\s*(?:days?\s*\/\s*week|days?\s+per\s+week|dias?\s*\/\s*semana|dias?\s+por\s+semana)\s*\)?\s*$/iu,"").trim()}
-function parseProgramTextExport(text){
-  const lines=String(text||"").split(/\r?\n/);
-  const dataIndex=lines.findIndex(line=>line.trim()===PROGRAM_TEXT_DATA_MARKER);
-  let data=null;
-  if(dataIndex>=0){try{const parsed=JSON.parse(lines[dataIndex+1]||"");if(parsed&&parsed.version===1)data=parsed}catch{}}
-  const content=dataIndex<0?lines:lines.filter((_,index)=>index!==dataIndex&&index!==dataIndex+1);
-  const days=[];let current=null,title="";
-  const exRe=/^\s*(\d+)\.\s*(.+?)(?:\s*[—-]\s*|\s*:\s*)(\d+)\s*[×x]\s*(\d+)(?:\s*(?:[–-]|to|a)\s*(\d+))?\s*$/iu;
-  for(const raw of content){
-    const line=raw.trim();
-    if(!line)continue;
-    const ex=line.match(exRe);
-    if(ex){
-      if(!current){current={day:`Day ${days.length+1}`,rows:[]};days.push(current)}
-      const min=+ex[4],max=ex[5]?+ex[5]:min;
-      const legacy=ex[2].trim().match(/^(.*)\s+\[(range|manual|rep_goal|anchor_backoff)@(\d+)\]$/iu);
-      const row={name:(legacy?.[1]||ex[2]).trim(),sets:+ex[3],min,max};
-      // Read the pre-appendix range marker without exposing it in the new
-      // export. Its parameters are the already-authored text targets; other
-      // strategy markers remain structural and cannot invent executable data.
-      if(legacy?.[2].toLowerCase()==="range"&&legacy[3]==="1")row.progression={
-        schemaVersion:1,strategy:{id:"range",version:1,params:{workingSets:row.sets,repMin:row.min,repMax:row.max}},modifiers:[]};
-      current.rows.push(row);
-      continue}
-    // A non-exercise line starts a day, except the first which is the title.
-    if(!title&&!days.length){title=restoreExportCase(stripProgramTextTitleMeta(line));continue}
-    const label=line.split(/\s*[—-]\s+|\s*:\s+/)[0].trim();
-    if(!label)continue;
-    current={day:restoreExportCase(label),rows:[]};days.push(current)}
-  const exercises=[];
-  for(const d of days)
-    d.rows.forEach((r,i)=>{
-      const carried=data?.exercises?.find(ex=>ex?.day===d.day&&ex?.order===i+1);
-      exercises.push({day:d.day,order:i+1,name:r.name,sets:r.sets,min:r.min,max:r.max,
-        ...(carried?.id?{id:carried.id}:{ }),...(carried?.movementId?{movementId:carried.movementId}:{ }),
-        ...(carried?.progression?{progression:carried.progression}:r.progression?{progression:r.progression}:{}),
-        ...(carried?.progressionIncompatibility?{progressionIncompatibility:carried.progressionIncompatibility}:{} )});
-    });
-  if(!exercises.length)return null;
-  const metaOut=title?{name:title}:null;
-  if(metaOut&&data){if(Array.isArray(data.relations))metaOut.progressionRelations=data.relations;if(Array.isArray(data.modifiers))metaOut.progressionModifiers=data.modifiers;if(Array.isArray(data.incompatibilities))metaOut.progressionIncompatibilities=data.incompatibilities}
-  return{exercises,meta:metaOut,customExercises:[]}}
-
-function importedMuscleValues(row,{canonical=false}={}){
-  for(const key of ["primary","secondary"]){
-    if(!Object.prototype.hasOwnProperty.call(row,key))continue;
-    const result=MuscleDomain.normalizeMuscleAttribution(row[key]);
-    if(!result.ok||canonical&&result.value!==row[key])return false;
-  }
-  return true}
-function validImportedExerciseRow(row){
-  if(!row||typeof row!=="object"||Array.isArray(row))return false;
-  const text=v=>typeof v==="string"&&v.trim().length>0;
-  return text(row.day)&&Number.isInteger(row.order)&&row.order>=1&&row.order<=1000&&
-    text(row.name)&&Number.isInteger(row.sets)&&row.sets>=1&&row.sets<=100&&
-    Number.isInteger(row.min)&&row.min>=1&&row.min<=1000&&
-    Number.isInteger(row.max)&&row.max>=row.min&&row.max<=1000&&
-    (row.libraryId===undefined||text(row.libraryId))&&importedMuscleValues(row,{canonical:true});}
-function validRawImportedExerciseRow(row){
-  if(!row||typeof row!=="object"||Array.isArray(row))return false;
-  const text=v=>typeof v==="string"&&v.trim().length>0;
-  // A legacy alias is accepted only when it is itself well-formed. Do not let
-  // a valid repLow/repHigh silently mask a malformed canonical min/max field.
-  if(Object.prototype.hasOwnProperty.call(row,"min")&&
-    (!Number.isInteger(row.min)||row.min<1||row.min>1000))return false;
-  if(Object.prototype.hasOwnProperty.call(row,"max")&&
-    (!Number.isInteger(row.max)||row.max<1||row.max>1000))return false;
-  if(Object.prototype.hasOwnProperty.call(row,"repLow")&&
-    (!Number.isInteger(row.repLow)||row.repLow<1||row.repLow>1000))return false;
-  if(Object.prototype.hasOwnProperty.call(row,"repHigh")&&
-    (!Number.isInteger(row.repHigh)||row.repHigh<1||row.repHigh>1000))return false;
-  const min=Number.isInteger(row.min)?row.min:row.repLow;
-  const max=Number.isInteger(row.max)?row.max:row.repHigh;
-  return text(row.day)&&text(row.name)&&Number.isInteger(row.sets)&&row.sets>=1&&row.sets<=100&&
-    Number.isInteger(min)&&min>=1&&min<=1000&&Number.isInteger(max)&&max>=min&&max<=1000&&
-    (row.order===undefined||(Number.isInteger(row.order)&&row.order>=1&&row.order<=1000))&&
-    (row.libraryId===undefined||text(row.libraryId))&&importedMuscleValues(row);}
-function normalizeImportedRows(rows){
-  const orders=new Map();
-  return rows.map(row=>{
-    const out={...row};
-    // Older program-only exports carried repLow/repHigh and omitted order.
-    // These are lossless aliases: order is the row's position within its day,
-    // and bounds are copied only when the source supplied valid integers.
-    if(out.order===undefined&&typeof out.day==="string"){
-      const next=(orders.get(out.day)||0)+1;orders.set(out.day,next);out.order=next}
-    if(out.min===undefined&&Number.isInteger(out.repLow))out.min=out.repLow;
-    if(out.max===undefined&&Number.isInteger(out.repHigh))out.max=out.repHigh;
-    for(const key of ["primary","secondary"]){
-      if(!Object.prototype.hasOwnProperty.call(out,key))continue;
-      out[key]=MuscleDomain.normalizeMuscleAttribution(out[key]).value}
-    return out})}
-/* A Taurifer program file is imported as its exact definition: every row is
-   already a catalog or carried custom identity, so nothing is matched by name. */
-function parseCanonicalProgramFile(parsed){
-  return parseCanonicalFile(parsed,{validImportedCustomExercise,normalizeCustomExercises,
-    canonicalProgramDefinition,flatProgramFromDefinition})}
-function parseProgramSource(text,fileName=""){
-  const trimmed=String(text||"").trim();
-  if(trimmed.startsWith("{")||trimmed.startsWith("[")){
-    const parsed=boundedImportJson(trimmed);if(parsed===null)return null;
-    if(parsed?.kind===PROGRAM_FILE_KIND)return parseCanonicalProgramFile(parsed);
-    const imp=parseProgramImport(parsed);
-    if(!imp?.exercises?.length||!imp.exercises.every(validRawImportedExerciseRow)||
-      !imp.customExercises.every(validImportedCustomExercise))return null;
-    imp.exercises=normalizeImportedRows(imp.exercises);
-    if(!imp.exercises.every(validImportedExerciseRow))return null;
-    return Object.assign({format:"json",legacy:parsed?.version===undefined},imp)}
-  if(importUtf8Bytes(trimmed)>IMPORT_MAX_BYTES)return null;
-  const text2=parseProgramTextExport(trimmed);
-  return text2?Object.assign({format:"text"},text2):null}
+let ProgramSource=null;
+function parseProgramSource(text,fileName=""){return ProgramSource.parse(text,fileName)}
 
 /* Words that survive the length filter but carry no movement signal. The
    Portuguese "com" is the expensive one: it made every barbell movement share a
@@ -8693,6 +8562,7 @@ function initializePersistenceOwners(){
   ProgressReadModels=createProgressReadModels({training:model,copy:{t},format:{locale:locTag,exercise:liftDisplayName,muscle:muscleLabel,shortDate,longDate,displayLoad:toDisplay,number:fmt}});
   blockReview=createBlockReview({model,queries:workoutReadModel});
   const entry=createEntryRules(rawExerciseCatalog),workout=createWorkoutRules(rawExerciseCatalog);
+  ProgramSource=createProgramSource({model,rules:ProgramEntry,locale:locTag});
   EntryDraft=createSetupDraftStore({rules:ProgramEntry,storage:localStorage,
   lock:operation=>withStorageLock(storageIO,operation),ownerId:uid(),onFailure:reportSetupDraftWriteFailure,
   onSaved:()=>{if(entryUiNotice==="save_failed"||entryUiNotice==="save_conflict")entryUiNotice=null}});
