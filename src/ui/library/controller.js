@@ -262,7 +262,7 @@ function chooseForEditor(request){
       // Let the picker finish its modal handoff before the editor can Apply.
       await closeExercisePicker();resolve('entry' in choice?choice:{entry:choice,stagedCustomDefinition:null});
     }});
-    else openExercisePicker({...common,onPick:entry=>resolve(entry)});
+    else openExercisePicker({...common,onPick:(/** @type {LibraryEntry} */entry)=>resolve(entry)});
   });
 }
 /** @param {PickerOptions} [options] */
