@@ -1,20 +1,24 @@
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
+import { createHash } from "node:crypto";
 import { createNotifications } from "../src/platform/notifications.js";
 import { createFiles } from "../src/platform/files.js";
 import { createTelemetry } from "../src/platform/telemetry.js";
 import * as install from "../src/platform/install.js";
 import { escapeHtml, formatNumber, formatClock } from "../src/ui/format.js";
-const require = createRequire(import.meta.url);
-const oldInstall = require("../install-policy.js");
+// Characterized from install-policy.js at integration base 8cc88b73.
+// Frozen oracle remains available after the legacy global module is deleted.
+const outcomes=[];
 for (const platform of ["ios", "chromium", "other"])
 for (const count of [0, 1, 2, 3, 10])
 for (const source of [undefined, "manual-settings"])
 for (const standalone of [false, true])
 for (const prefs of [{}, {installLastOfferedAt: 123, installLastOfferedMilestone: 1}, {installDismissedAt: 999999999, installDismissedMilestone: 3}]) {
   const input={platform,savedWorkoutsCount:count,source,standalone,uiPrefs:prefs,nowMs:10000000,hasInstallCapability:true,transferAvailable:true,hasMeaningfulData:count>0};
-  assert.deepEqual(install.evaluateInstallPolicy(input),oldInstall.evaluateInstallPolicy(input));
+  outcomes.push(install.evaluateInstallPolicy(input));
 }
+assert.equal(createHash("sha256").update(JSON.stringify(outcomes)).digest("hex"), "b41927143030056680ccb3d70fd1c38bb3c8496623ae9e0ad51c6a48d12a5285");
+assert.equal(install.evaluateInstallPolicy({platform:"chromium",hasInstallCapability:true,savedWorkoutsCount:0,nowMs:1}).state,"chromium-awaiting-value");
+assert.equal(install.evaluateInstallPolicy({platform:"ios",standalone:true,nowMs:1}).state,"already-installed");
 let readyRead=false;
 let shown=0;
 const navigator={serviceWorker:{get ready(){readyRead=true;throw Error("must not wait")},async getRegistration(){return {showNotification:async()=>shown++}}}};

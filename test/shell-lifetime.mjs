@@ -4,7 +4,8 @@ const base=process.env.REPFORGE_URL || "http://localhost:8000/";
 const browser=await launchChromium();
 try {
   const page=await browser.newPage();
-  await page.goto(base);
+  // A source document establishes the origin without mounting the application.
+  await page.goto(new URL("src/ui/shell.js",base).href);
   await page.setContent('<!doctype html><html><head></head><body><main><section class="view active" id="log"><h1>Today</h1><button id="opener">Open</button></section></main><div id="announcementHost"></div><div id="sheet" hidden class="hidden"><button id="first">First</button><button id="last">Last</button></div><div id="second" hidden class="hidden"><button id="next">Next</button></div><pre id="result">PENDING</pre>\n');
   const outcome=await page.evaluate(async base=>{
 
